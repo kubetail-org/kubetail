@@ -34,16 +34,16 @@ Our goal is to build a powerful cloud-native logging platform designed from the 
 
 ### Option 1: Manifest file
 
-To allow kubetail to use an internal cluster service account to query your Kubernetes API, use the `-clusterauth` manifest file ([kubetail-clusterauth.yaml](charts/kubetail-clusterauth.yaml)): 
+To allow kubetail to use an internal cluster service account to query your Kubernetes API, use the `-clusterauth` manifest file: 
 
 ```sh
-kubectl apply -f https://raw.githubusercontent.com/kubetail-org/kubetail/v0.1.0/charts/kubetail-clusterauth.yaml
+kubectl apply -f https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-clusterauth.yaml
 ```
 
-To require kubetail users to utilize their own Kubernetes authentication token, use the `-tokenauth` manifest file ([kubetail-tokenauth.yaml](charts/kubetail-tokenauth.yaml)):
+To require kubetail users to utilize their own Kubernetes authentication token, use the `-tokenauth` manifest file: 
 
 ```sh
-kubectl apply -f https://raw.githubusercontent.com/kubetail-org/kubetail/v0.1.0/charts/kubetail-tokenauth.yaml
+kubectl apply -f https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-tokenauth.yaml
 ```
 
 ### Option 2: Helm chart
