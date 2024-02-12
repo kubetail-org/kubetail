@@ -1,0 +1,226 @@
+## Kubetail Configuration
+#
+
+## addr ##
+#
+# Sets the target ip and port to bind the server to
+#
+# Default value: ":4000"
+#
+addr: :4000
+
+## auth-mode ##
+#
+# Sets the authentication method for the app
+#
+# Default value: token
+# 
+# One of:
+# - token
+# - cluster
+# - local
+#
+auth-mode: token
+
+## gin-mode ##
+#
+# Sets the mode for the Gin framework
+#
+# Default value: release
+#
+# One of:
+# - release
+# - debug
+#
+gin-mode: release
+
+## kube-config ##
+#
+# Sets the location of the kubectl config file (for use with `auth-mode: local`)
+#
+# Default value: ${HOME}/.kube/config
+#
+kube-config: ${HOME}/.kube/config
+
+## csrf ##
+#
+csrf:
+
+  ## enabled ##
+  #
+  # Default value: true
+  #
+  enabled: true
+
+  ## field-name ##
+  #
+  # Name to use for token in forms
+  #
+  # Default value: csrf_token
+  #
+  field-name: csrf_token
+
+  ## secret ##
+  #
+  # 32-byte long hash key
+  #
+  # Default value: __empty__
+  #
+  secret:
+
+  ## cookie ##
+  #
+  # Set csrf cookie options
+  #
+  cookie:
+
+    ## name ##
+    #
+    # Default value: csrf
+    #
+    name: csrf
+
+    ## path ##
+    #
+    # Default value: /
+    #
+    path: /
+
+    ## domain ##
+    #
+    # Default value: __empty__
+    #
+    domain: 
+
+    ## max-age ##
+    #
+    # Cookie max age (in seconds)
+    # 
+    # Default value: 43200
+    #
+    max-age: 43200
+
+    ## secure ##
+    #
+    # Default value: false
+    #
+    secure: false
+
+    ## http-only ##
+    #
+    # Default value: true
+    #
+    http-only: true
+
+    ## same-site ##
+    #
+    # Default value: strict
+    #
+    # One of:
+    # - strict
+    # - lax
+    # - none
+    #
+    same-site: strict
+
+## logging ##
+#
+logging:
+
+  ## enabled ##
+  #
+  # Default value: true
+  #
+  enabled: true
+
+  ## level ##
+  #
+  # Default value: info
+  #
+  # One of:
+  # - debug
+  # - info
+  # - warn
+  # - error
+  # - disabled
+  #
+  level: info
+
+  ## format ##
+  #
+  # Default value: json
+  #
+  # One of:
+  # - json
+  # - pretty
+  #
+  format: json
+
+  ## access-log-enabled ##
+  #
+  # Enables web access logs for app
+  #
+  # Default value: true
+  #
+  access-log-enabled: true
+
+## session ##
+#
+session:
+
+  ## secret ##
+  #
+  # 32-byte long hash key
+  #
+  # Default value: __empty__
+  #
+  secret:
+
+  ## cookie ##
+  #
+  # Set session cookie options
+  #
+  cookie:
+
+    ## path ##
+    #
+    # Default value: /
+    #
+    path: /
+
+    ## domain ##
+    #
+    # Default value: __empty__
+    #
+    domain: 
+
+    ## max-age ##
+    #
+    # Cookie max age (in seconds)
+    # 
+    # Default value: 1092000
+    #
+    max-age: 1092000
+
+    ## secure ##
+    #
+    # Default value: false
+    #
+    secure: false
+
+    ## http-only ##
+    #
+    # Default value: true
+    #
+    http-only: true
+
+    ## same-site ##
+    #
+    # Default value: lax
+    #
+    # One of:
+    # - strict
+    # - lax
+    # - none
+    #
+    same-site: lax

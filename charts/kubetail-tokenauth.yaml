@@ -1,0 +1,78 @@
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: kubetail
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: kubetail
+  name: kubetail
+  namespace: kubetail
+data:
+  config.yaml: |
+    auth-mode: token
+    csrf:
+      secret: REPLACEME
+    session:
+      secret: REPLACEME
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  labels:
+    k8s-app: kubetail
+  name: kubetail
+  namespace: kubetail
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      k8s-app: kubetail
+  template:
+    metadata:
+      labels:
+        k8s-app: kubetail
+    spec:
+      containers:
+        - name: kubetail
+          image: kubetail/kubetail:0.1.0
+          ports:
+            - containerPort: 4000
+              protocol: TCP
+          args:
+            - "-c"
+            - "/etc/kubetail/config.yaml"
+          livenessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /healthz
+              port: 4000
+            initialDelaySeconds: 30
+            timeoutSeconds: 30
+          volumeMounts:
+            - name: config
+              mountPath: /etc/kubetail
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: kubetail
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: kubetail
+  name: kubetail
+  namespace: kubetail
+spec:
+  ports:
+    - port: 4000
+      targetPort: 4000
+  selector:
+    k8s-app: kubetail
+---

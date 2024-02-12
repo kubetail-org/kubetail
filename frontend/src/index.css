@@ -1,0 +1,70 @@
+@import url("https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,600;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: Roboto, Arial, Helvetica, sans-serif;
+    @apply h-full;
+  }
+
+  body {
+    @apply h-full;
+  }
+
+  #root {
+    @apply h-full;
+  }
+}
+
+@layer components {
+  .rounded-tbody {
+    @apply relative;
+  }
+
+  .rounded-table-wrapper {
+    @apply ring-0 !important;
+    @apply shadow-none !important;
+    @apply inline-block;
+  }
+
+  .rounded-table-wrapper table {
+    @apply border-separate border-spacing-0;
+  }
+
+  .rounded-thead tr:first-child th {
+    @apply border-t;
+  }
+
+  .rounded-tbody tr:last-child td {
+    @apply border-b;
+  }
+
+  .rounded-thead th:first-child,
+  .rounded-tbody td:first-child {
+    @apply border-l;
+  }
+
+  .rounded-thead th:last-child,
+  .rounded-tbody td:last-child {
+    @apply border-r;
+  }
+
+  .rounded-thead tr:first-child th:first-child {
+    @apply rounded-tl;
+  }
+
+  .rounded-thead tr:first-child th:last-child {
+    @apply rounded-tr;
+  }
+
+  .rounded-tbody tr:last-child td:first-child {
+    @apply rounded-bl;
+  }
+
+  .rounded-tbody tr:last-child td:last-child {
+    @apply rounded-br;
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "possibleTypes": {
+    "List": [
+      "AppsV1DaemonSetList",
+      "AppsV1DeploymentList",
+      "AppsV1ReplicaSetList",
+      "AppsV1StatefulSetList",
+      "AppsV1beta1DeploymentList",
+      "BatchV1CronJobList",
+      "BatchV1JobList",
+      "CoreV1NamespaceList",
+      "CoreV1NodeList",
+      "CoreV1PodList"
+    ],
+    "Object": [
+      "AppsV1DaemonSet",
+      "AppsV1Deployment",
+      "AppsV1ReplicaSet",
+      "AppsV1StatefulSet",
+      "AppsV1beta1Deployment",
+      "BatchV1CronJob",
+      "BatchV1Job",
+      "CoreV1Namespace",
+      "CoreV1Node",
+      "CoreV1Pod"
+    ]
+  }
+}
