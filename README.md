@@ -6,13 +6,13 @@ Kubetail is a private, real-time log viewer for Kubernetes clusters
 
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kubetail)](https://artifacthub.io/packages/search?repo=kubetail)
 
-Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo) (live)
+Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 
 ## Introduction
 
-Viewing application logs in a containerized environment can be challenging. Typically, an application consists of several services, each deployed across multiple replicated containers which are load balanced to ensure an even consumption of resources. Although viewing individual container logs is easy using tools such as `kubectl` or the Kubernetes Dashboard, simultaneously monitoring logs from all the containers that constitute an application is more difficult. This difficulty is further compounded by the ephemeral nature of containers, which constantly cycle in and out of existence.
+Viewing application logs in a containerized environment can be challenging. Typically, an application consists of several services, each deployed across multiple containers which are load balanced to ensure an even consumption of resources. Although viewing individual container logs is easy using tools such as `kubectl` or the Kubernetes Dashboard, simultaneously monitoring logs from all the containers that constitute an application is more difficult. This difficulty is further compounded by the ephemeral nature of containers, which constantly cycle in and out of existence.
 
-Kubetail solves this problem by providing an easy-to-use, web-based interface that allows you to view all the logs for a set of Kubernetes workloads (e.g. Deployment, CronJob, StatefulSet) simultaneously, in real-time. Under the hood, it uses your cluster's Kubernetes API to monitor your workloads and detect when a new workload container gets created or an old one deleted. Kubetail will then add messages from the new container to your viewing stream or update its UI to reflect that an old container will no longer produce messages. This allows you to follow your application logs easily as user requests move from one ephemeral container to another across services. Kubetail can also help you to debug application issues by allowing you to filter your logs by useful node properties such as availability zone, CPU architecture or node ID. This can be useful to find problems that are specific to a given environment that an application instance is running in.
+Kubetail solves this problem by providing an easy-to-use, web-based interface that allows you to view all the logs for a set of Kubernetes workloads (e.g. Deployment, CronJob, StatefulSet) simultaneously, in real-time. Under the hood, it uses your cluster's Kubernetes API to monitor your workloads and detect when a new workload container gets created or an old one deleted. Kubetail will then add messages from the new container to your viewing stream or update its UI to reflect that an old container will no longer produce messages. This allows you to follow your application logs easily as user requests move from one ephemeral container to another across services. Kubetail can also help you to debug application issues by allowing you to filter your logs by node properties such as availability zone, CPU architecture or node ID. This can be useful to find problems that are specific to a given environment that an application instance is running in.
 
 The kubetail application consists of a Go-based backend server that connects to your Kubernetes API and a React-based static website that queries the backend server and displays results in the browser. Kubtail is typically deployed as a docker container inside your cluster using a manifest file or a helm chart and can be accessed via a web browser using the same methods you use to connect to your Kubernetes Dashboard (e.g. `kubectl proxy`). Since, internally, kubetail uses your Kubernetes API to request logs, your log messages always stay in your possession and kubetail is private by default.
 
@@ -91,7 +91,7 @@ Now you can access the dashboard at: [http://localhost:4000](http://localhost:40
 
 ### Option 3: kubectl auth-proxy
 
-If you've enabled `auth-mode: token`, then we recommend accessing the dashboard with the kubectl [auth-proxy plugin](https://github.com/int128/kauthproxy) which will automatically obtain an access token and add it to the HTTP headers when you access the service:
+If you've enabled `auth-mode: token`, then we recommend accessing the dashboard with the kubectl [auth-proxy plugin](https://github.com/int128/kauthproxy) which will automatically obtain an access token locally and add it to the HTTP headers when you make requests to the kubetail service:
 
 ```sh
 kubectl auth-proxy -n kubetail http://kubetail.svc
