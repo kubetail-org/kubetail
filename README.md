@@ -52,7 +52,7 @@ kubectl apply -f https://github.com/kubetail-org/kubetail/releases/latest/downlo
 
 ```sh
 # Add the kubetail repository
-helm repo add kubetail https://kubetail-org.github.com/helm/
+helm repo add kubetail https://kubetail-org.github.io/helm/
 
 # Deploy a Helm release named "kubetail" using the kubetail chart
 helm install kubetail kubetail/kubetail --namespace kubetail --create-namespace
