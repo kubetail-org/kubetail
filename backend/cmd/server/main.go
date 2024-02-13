@@ -17,6 +17,8 @@ package main
 import (
 	"bytes"
 	"errors"
+	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -27,7 +29,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/csrf"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -42,7 +44,8 @@ type CLI struct {
 
 func configureLogger(config Config) {
 	if !config.Logging.Enabled {
-		log.Logger = zerolog.Nop()
+		zlog.Logger = zerolog.Nop()
+		log.SetOutput(io.Discard)
 		return
 	}
 
@@ -62,7 +65,7 @@ func configureLogger(config Config) {
 
 	// configure output format
 	if config.Logging.Format == "pretty" {
-		log.Logger = log.Logger.Output(zerolog.ConsoleWriter{
+		zlog.Logger = zlog.Logger.Output(zerolog.ConsoleWriter{
 			Out:        os.Stdout,
 			TimeFormat: time.RFC3339Nano,
 		})
@@ -121,7 +124,7 @@ func main() {
 				// read contents
 				configBytes, err := os.ReadFile(cli.Config)
 				if err != nil {
-					log.Fatal().Caller().Err(err).Send()
+					zlog.Fatal().Caller().Err(err).Send()
 				}
 
 				// expand env vars
@@ -130,7 +133,7 @@ func main() {
 				// load into viper
 				v.SetConfigType(filepath.Ext(cli.Config)[1:])
 				if err := v.ReadConfig(bytes.NewBuffer(configBytes)); err != nil {
-					log.Fatal().Caller().Err(err).Send()
+					zlog.Fatal().Caller().Err(err).Send()
 				}
 			}
 
@@ -144,12 +147,12 @@ func main() {
 
 			// unmarshal
 			if err := v.Unmarshal(&cfg); err != nil {
-				log.Fatal().Caller().Err(err).Send()
+				zlog.Fatal().Caller().Err(err).Send()
 			}
 
 			// validate config
 			if err := cfg.Validate(); err != nil {
-				log.Fatal().Caller().Err(err).Send()
+				zlog.Fatal().Caller().Err(err).Send()
 			}
 
 			// set gin mode
@@ -184,7 +187,7 @@ func main() {
 
 			app, err := ginapp.NewGinApp(appCfg)
 			if err != nil {
-				log.Fatal().Caller().Err(err).Send()
+				zlog.Fatal().Caller().Err(err).Send()
 			}
 
 			// create server
@@ -197,9 +200,9 @@ func main() {
 			}
 
 			// run server
-			log.Info().Msg("Starting server on " + v.GetString("addr"))
+			zlog.Info().Msg("Starting server on " + v.GetString("addr"))
 			if err := server.ListenAndServe(); err != nil {
-				log.Fatal().Caller().Err(err).Send()
+				zlog.Fatal().Caller().Err(err).Send()
 			}
 		},
 	}
@@ -213,6 +216,6 @@ func main() {
 
 	// execute command
 	if err := cmd.Execute(); err != nil {
-		log.Fatal().Caller().Err(err).Send()
+		zlog.Fatal().Caller().Err(err).Send()
 	}
 }
