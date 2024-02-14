@@ -98,15 +98,52 @@ func (suite *GraphQLTestSuite) TestAccess() {
 			suite.Equal(http.StatusNotFound, resp.StatusCode)
 		})
 
-		suite.Run("cross-origin subscriptions aren't allowed", func() {
+		suite.Run("cross-origin websocket requests are allowed when csrf protection is disabled", func() {
 			// init websocket connection
 			u := "ws" + strings.TrimPrefix(suite.defaultclient.testserver.URL, "http") + "/graphql"
 			h := http.Header{}
-			h.Add("Origin", "not-the-host.com")
-			_, _, err := websocket.DefaultDialer.Dial(u, h)
+			conn, resp, err := websocket.DefaultDialer.Dial(u, h)
 
-			// check response
-			suite.NotNil(err)
+			// check that response was ok
+			suite.Nil(err)
+			suite.NotNil(conn)
+			suite.Equal(101, resp.StatusCode)
+			defer conn.Close()
+
+			// write
+			conn.WriteJSON(map[string]string{"type": "connection_init"})
+
+			// read
+			_, msg, err := conn.ReadMessage()
+			suite.Nil(err)
+			suite.Contains(string(msg), "connection_ack")
+		})
+
+		suite.Run("websocket requests require csrf validation when csrf protection is enabled", func() {
+			// init client
+			cfg := NewTestConfig()
+			cfg.CSRF.Enabled = true
+			client := NewWebTestClient(suite.T(), NewTestApp(cfg))
+			defer client.Teardown()
+
+			// init websocket connection
+			u := "ws" + strings.TrimPrefix(client.testserver.URL, "http") + "/graphql"
+			h := http.Header{}
+			conn, resp, err := websocket.DefaultDialer.Dial(u, h)
+
+			// check that response was ok
+			suite.Nil(err)
+			suite.NotNil(conn)
+			suite.Equal(101, resp.StatusCode)
+			defer conn.Close()
+
+			// write
+			conn.WriteJSON(map[string]string{"type": "connection_init"})
+
+			// read
+			_, msg, err := conn.ReadMessage()
+			suite.Nil(err)
+			suite.Contains(string(msg), "connection_error")
 		})
 	})
 }

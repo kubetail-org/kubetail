@@ -27,7 +27,7 @@ import { getMainDefinition } from '@apollo/client/utilities';
 import { ClientOptions, createClient } from 'graphql-ws';
 
 import generatedIntrospection from '@/lib/graphql/__generated__/introspection-result.json';
-import { getBasename, joinPaths } from './lib/helpers';
+import { getBasename, getCSRFToken, joinPaths } from './lib/helpers';
 
 const graphqlEndpoint = (new URL(joinPaths(getBasename(), '/graphql'), window.location.origin)).toString();
 
@@ -40,6 +40,9 @@ const httpClientOptions: HttpOptions = {
 const wsClientOptions: ClientOptions = {
   url: graphqlEndpoint.replace(/^(http)/, 'ws'),
   connectionAckWaitTimeout: 3000,
+  connectionParams: async () => ({
+    authorization: `${await getCSRFToken()}`,
+  }),
   keepAlive: 3000,
   retryAttempts: Infinity,
   shouldRetry: () => {

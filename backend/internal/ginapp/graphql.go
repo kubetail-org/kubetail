@@ -16,6 +16,9 @@ package ginapp
 
 import (
 	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/gin-gonic/gin"
@@ -24,30 +27,58 @@ import (
 	"github.com/kubetail-org/kubetail/graph"
 )
 
+type key int
+
+const graphQLCookiesCtxKey key = iota
+
 type GraphQLHandlers struct {
 	*GinApp
 }
 
 // GET|POST "/graphql": GraphQL query endpoint
-func (app *GraphQLHandlers) EndpointHandler(cfg *rest.Config, namespace string) gin.HandlerFunc {
+func (app *GraphQLHandlers) EndpointHandler(cfg *rest.Config, namespace string, csrfProtect func(http.Handler) http.Handler) gin.HandlerFunc {
 	// init resolver
 	r, err := graph.NewResolver(cfg, namespace)
 	if err != nil {
 		panic(err)
 	}
 
+	csrfTestServer := http.NewServeMux()
+	csrfTestServer.HandleFunc("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+
 	// init handler options
 	opts := graph.NewDefaultHandlerOptions()
 
+	// use CSRF token validation to ensure that connection requests come from same site
 	opts.WSInitFunc = func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
-		token := initPayload.Authorization()
-
-		// add token to context
-		if token != "" {
-			ctx = context.WithValue(ctx, graph.K8STokenCtxKey, token)
+		// check if csrf protection is disabled
+		if csrfProtect == nil {
+			return ctx, &initPayload, nil
 		}
 
-		// return
+		csrfToken := initPayload.Authorization()
+
+		cookies, ok := ctx.Value(graphQLCookiesCtxKey).([]*http.Cookie)
+		if !ok {
+			return ctx, nil, errors.New("AUTHORIZATION_REQUIRED")
+		}
+
+		// make mock request
+		r, _ := http.NewRequest("POST", "/", nil)
+		for _, cookie := range cookies {
+			r.AddCookie(cookie)
+		}
+		r.Header.Set("X-CSRF-Token", csrfToken)
+
+		// run request through csrf protect function
+		rr := httptest.NewRecorder()
+		p := csrfProtect(csrfTestServer)
+		p.ServeHTTP(rr, r)
+
+		if rr.Code != 200 {
+			return ctx, nil, errors.New("AUTHORIZATION_REQUIRED")
+		}
+
 		return ctx, &initPayload, nil
 	}
 
@@ -56,6 +87,11 @@ func (app *GraphQLHandlers) EndpointHandler(cfg *rest.Config, namespace string) 
 
 	// return gin handler func
 	return func(c *gin.Context) {
+		// save cookies for use in WSInitFunc
+		ctx := context.WithValue(c.Request.Context(), graphQLCookiesCtxKey, c.Request.Cookies())
+		c.Request = c.Request.WithContext(ctx)
+
+		// execute
 		h.ServeHTTP(c.Writer, c.Request)
 	}
 }
