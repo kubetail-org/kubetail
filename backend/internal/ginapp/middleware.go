@@ -100,7 +100,8 @@ func wsXSProtectCookieMiddleware(c *gin.Context) {
 		cookie := &http.Cookie{
 			Name:     cookieName,
 			Value:    "",
-			MaxAge:   43200,
+			Path:     "/",
+			MaxAge:   2592000, // 30 days
 			Secure:   false,
 			HttpOnly: false,
 			SameSite: http.SameSiteStrictMode,
