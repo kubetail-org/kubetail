@@ -11,7 +11,7 @@ Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 
 ## Introduction
 
-<img src="assets/github-logo.svg" height="100px" title="KubeTail">
+<img src="assets/github-logo.svg" width="300px" title="KubeTail">
 
 Viewing application logs in a containerized environment can be challenging. Typically, an application consists of several services, each deployed across multiple containers which are load balanced to ensure an even consumption of resources. Although viewing individual container logs is easy using tools such as `kubectl` or the Kubernetes Dashboard, simultaneously monitoring logs from all the containers that constitute an application is more difficult. This is made even more difficulty by the ephemeral nature of containers, which constantly cycle in and out of existence.
 
