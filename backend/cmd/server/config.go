@@ -23,9 +23,10 @@ import (
 )
 
 type Config struct {
-	AuthMode   ginapp.AuthMode `mapstructure:"auth-mode" validate:"oneof=cluster token local"`
-	KubeConfig string          `mapstructure:"kube-config"`
-	Namespace  string
+	AuthMode            ginapp.AuthMode `mapstructure:"auth-mode" validate:"oneof=cluster token local"`
+	KubeConfig          string          `mapstructure:"kube-config"`
+	WSXSProtectStrategy string          `mapstructure:"ws-xs-protect-strategy" validate:"oneof=cookie none"`
+	Namespace           string
 
 	// session options
 	Session struct {
@@ -88,6 +89,7 @@ func DefaultConfig() Config {
 
 	cfg.AuthMode = "token"
 	cfg.KubeConfig = filepath.Join(home, ".kube", "config")
+	cfg.WSXSProtectStrategy = "cookie"
 	cfg.Namespace = ""
 
 	cfg.Session.Secret = ""

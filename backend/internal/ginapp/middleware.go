@@ -81,6 +81,36 @@ func k8sTokenRequiredMiddleware(c *gin.Context) {
 	c.Next()
 }
 
+// Implement SameSite cookie strategy to protect against cross-site WebSocket requests
+func wsXSProtectCookieMiddleware(c *gin.Context) {
+	cookieName := "ws_xs_protect"
+
+	if c.GetHeader("Upgrade") == "websocket" {
+		// check cookie
+		_, err := c.Cookie(cookieName)
+		if err != nil {
+			c.AbortWithStatusJSON(
+				http.StatusForbidden,
+				gin.H{"error": "only accepts same-site websocket connections"},
+			)
+			return
+		}
+	} else {
+		// set cookie
+		cookie := &http.Cookie{
+			Name:     cookieName,
+			Value:    "",
+			MaxAge:   43200,
+			Secure:   false,
+			HttpOnly: false,
+			SameSite: http.SameSiteStrictMode,
+		}
+		http.SetCookie(c.Writer, cookie)
+	}
+
+	c.Next()
+}
+
 // Log HTTP requests
 func loggingMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {

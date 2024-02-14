@@ -27,6 +27,9 @@ type Config struct {
 	// Kube config
 	KubeConfig string
 
+	// WebSocket cross-site protection strategy
+	WSXSProtectStrategy string
+
 	// namespace filter
 	Namespace string
 

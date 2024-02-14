@@ -21,6 +21,7 @@ gin-mode: debug
 # App options
 auth-mode: local
 kube-config: ${HOME}/.kube/config
+ws-xs-protect-strategy: none
 
 session:
   secret: REPLACEME

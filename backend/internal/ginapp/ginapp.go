@@ -137,6 +137,11 @@ func NewGinApp(config Config) (*GinApp, error) {
 		// authentication middleware
 		dynamicRoutes.Use(authenticationMiddleware(config.AuthMode))
 
+		// protect websocket connection requests against cross-site attacks
+		if config.WSXSProtectStrategy == "cookie" {
+			dynamicRoutes.Use(wsXSProtectCookieMiddleware)
+		}
+
 		// auth routes
 		auth := dynamicRoutes.Group("/api/auth")
 		{

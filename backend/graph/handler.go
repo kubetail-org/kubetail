@@ -55,7 +55,10 @@ func NewHandler(r *Resolver, options *HandlerOptions) *handler.Server {
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
-				return (r.Header.Get("Sec-Fetch-Site") == "same-origin" || r.Header.Get("Origin") == "")
+				// checking origin doesn't work because `kubectl proxy` modifies the host header
+				// also we can't use the `sec-fetch-site` header (https://github.com/kubetail-org/kubetail/issues/3)
+				// instead we rely on requireSameSiteWebSocketConnectionsMiddleware
+				return true
 			},
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,

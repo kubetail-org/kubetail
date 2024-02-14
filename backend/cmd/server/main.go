@@ -165,6 +165,7 @@ func main() {
 			appCfg := ginapp.DefaultConfig()
 			appCfg.AuthMode = ginapp.AuthMode(cfg.AuthMode)
 			appCfg.KubeConfig = cfg.KubeConfig
+			appCfg.WSXSProtectStrategy = cfg.WSXSProtectStrategy
 			appCfg.Namespace = cfg.Namespace
 			appCfg.AccessLogEnabled = cfg.Logging.AccessLogEnabled
 			appCfg.Session.Secret = cfg.Session.Secret
