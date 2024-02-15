@@ -184,6 +184,7 @@ func NewGinApp(config Config) (*GinApp, error) {
 
 	app.StaticFile("/", path.Join(websiteDir, "/index.html"))
 	app.StaticFile("/favicon.ico", path.Join(websiteDir, "/favicon.ico"))
+	app.StaticFile("/graphiql", path.Join(websiteDir, "/graphiql.html"))
 	app.Static("/assets", path.Join(websiteDir, "/assets"))
 
 	// use react app for unknown routes
