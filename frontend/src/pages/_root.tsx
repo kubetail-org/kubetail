@@ -13,8 +13,11 @@
 // limitations under the License.
 
 import { XCircleIcon } from '@heroicons/react/24/outline';
+import { useEffect } from 'react';
 import { Toaster, resolveValue } from 'react-hot-toast';
 import { Outlet } from 'react-router-dom';
+
+import { joinPaths, getBasename } from '@/lib/helpers';
 
 const CustomToaster = () => (
   <Toaster position="bottom-center">
@@ -39,6 +42,13 @@ const CustomToaster = () => (
 );
 
 export default function Root() {
+  // update favicon location
+  useEffect(() => {
+    const el = document.querySelector('link[rel="icon"]');
+    if (!el) return;
+    el.setAttribute('href', joinPaths(getBasename(), '/favicon.ico'));
+  }, []);
+
   return (
     <>
       <CustomToaster />

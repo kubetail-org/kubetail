@@ -49,7 +49,9 @@ func (app *GraphQLHandlers) EndpointHandler(cfg *rest.Config, namespace string, 
 	// init handler options
 	opts := graph.NewDefaultHandlerOptions()
 
-	// use CSRF token validation to ensure that connection requests come from same site
+	// Because we had to disable same-origin checks in the CheckOrigin() handler
+	// we will use use CSRF token validation to ensure requests are coming from
+	// the same site. (See https://dev.to/pssingh21/websockets-bypassing-sop-cors-5ajm)
 	opts.WSInitFunc = func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
 		// check if csrf protection is disabled
 		if csrfProtect == nil {

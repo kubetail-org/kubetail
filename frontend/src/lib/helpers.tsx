@@ -124,10 +124,10 @@ export class MapSet<K = string, T = string> extends Map<K, Set<T>> {
  * Get CSRF token from server
  */
 
-let csrfToken: string | null = null;
+let csrfToken: string;
 
 export async function getCSRFToken() {
-  if (csrfToken === null) {
+  if (csrfToken === undefined) {
     const url = new URL(joinPaths(getBasename(), '/csrf-token'), window.location.origin);
     const resp = await fetch(url);
     csrfToken = (await resp.json()).value;
