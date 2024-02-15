@@ -19,7 +19,6 @@ import (
 	"os"
 	"path"
 
-	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-contrib/secure"
@@ -115,9 +114,11 @@ func NewGinApp(config Config) (*GinApp, error) {
 			c.Next()
 		})
 
+		var csrfProtect func(http.Handler) http.Handler
+
 		// csrf middleware
 		if config.CSRF.Enabled {
-			dynamicRoutes.Use(adapter.Wrap(csrf.Protect(
+			csrfProtect = csrf.Protect(
 				[]byte(config.CSRF.Secret),
 				csrf.FieldName(config.CSRF.FieldName),
 				csrf.CookieName(config.CSRF.Cookie.Name),
@@ -127,8 +128,12 @@ func NewGinApp(config Config) (*GinApp, error) {
 				csrf.Secure(config.CSRF.Cookie.Secure),
 				csrf.HttpOnly(config.CSRF.Cookie.HttpOnly),
 				csrf.SameSite(config.CSRF.Cookie.SameSite),
-			)))
+			)
 
+			// add to gin middleware
+			dynamicRoutes.Use(adapter.Wrap(csrfProtect))
+
+			// token fetcher helper
 			dynamicRoutes.GET("/csrf-token", func(c *gin.Context) {
 				c.JSON(http.StatusOK, gin.H{"value": csrf.Token(c.Request)})
 			})
@@ -156,16 +161,12 @@ func NewGinApp(config Config) (*GinApp, error) {
 
 			// graphql handler
 			h := &GraphQLHandlers{app}
-			endpointHandler := h.EndpointHandler(k8sCfg, config.Namespace)
+			endpointHandler := h.EndpointHandler(k8sCfg, config.Namespace, csrfProtect)
 			graphql.GET("", endpointHandler)
 			graphql.POST("", endpointHandler)
 		}
 	}
 	app.dynamicroutes = dynamicRoutes // for unit tests
-
-	// graphiql
-	h := playground.Handler("GraphQL Playground", "/graphql")
-	app.GET("/graphiql", gin.WrapH(h))
 
 	// healthz
 	app.GET("/healthz", func(c *gin.Context) {
@@ -183,6 +184,7 @@ func NewGinApp(config Config) (*GinApp, error) {
 
 	app.StaticFile("/", path.Join(websiteDir, "/index.html"))
 	app.StaticFile("/favicon.ico", path.Join(websiteDir, "/favicon.ico"))
+	app.StaticFile("/graphiql", path.Join(websiteDir, "/graphiql.html"))
 	app.Static("/assets", path.Join(websiteDir, "/assets"))
 
 	// use react app for unknown routes

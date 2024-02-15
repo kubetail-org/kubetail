@@ -55,7 +55,11 @@ func NewHandler(r *Resolver, options *HandlerOptions) *handler.Server {
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
-				return (r.Header.Get("Sec-Fetch-Site") == "same-origin" || r.Header.Get("Origin") == "")
+				// We have to return true here because `kubectl proxy` modifies the Host header
+				// so requests will fail same-origin tests and unfortunately not all browsers
+				// have implemented `sec-fetch-site` header. Instead, we will use CSRF token
+				// validation to ensure requests are coming from the same site.
+				return true
 			},
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
