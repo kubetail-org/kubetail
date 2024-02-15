@@ -19,7 +19,6 @@ import (
 	"os"
 	"path"
 
-	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-contrib/secure"
@@ -168,10 +167,6 @@ func NewGinApp(config Config) (*GinApp, error) {
 		}
 	}
 	app.dynamicroutes = dynamicRoutes // for unit tests
-
-	// graphiql
-	h := playground.Handler("GraphQL Playground", "/graphql")
-	app.GET("/graphiql", gin.WrapH(h))
 
 	// healthz
 	app.GET("/healthz", func(c *gin.Context) {
