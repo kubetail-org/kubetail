@@ -16,6 +16,7 @@ import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
 import { format } from 'date-fns';
 import distinctColors from 'distinct-colors';
 import {
+  History as HistoryIcon,
   Pause as PauseIcon,
   Play as PlayIcon,
   Settings as SettingsIcon,
@@ -524,6 +525,13 @@ const Header = () => {
     <div className="flex justify-between items-end">
       <div className="flex p-2 justify-start space-x-1">
         <div className="flex">
+          <button
+            className={buttonCN}
+            title="History"
+            onClick={() => console.log('history')}
+          >
+            <HistoryIcon size={24} strokeWidth={1.5} />
+          </button>
           {feed.state === LogFeedState.Playing ? (
             <button
               className={buttonCN}
@@ -562,7 +570,8 @@ const Header = () => {
 
 export default function Console() {
   const [searchParams] = useSearchParams();
-  const [isLoading, setIsLoading] = useState(Boolean(searchParams.getAll('source').length));
+  //const [isLoading, setIsLoading] = useState(Boolean(searchParams.getAll('source').length));
+  const [isLoading, setIsLoading] = useState(false);
   const contentWrapperElRef = useRef<HTMLDivElement | null>(null);
   const contentElRef = useRef<HTMLTableSectionElement | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(300);

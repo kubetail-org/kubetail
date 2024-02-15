@@ -445,6 +445,7 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
   const { loading, data, subscribeToMore, refetch } = useQuery(ops.QUERY_CONTAINER_LOG, {
     variables: { namespace, name, container },
     fetchPolicy: 'no-cache',
+    skip: true,
     onCompleted: (data) => {
       if (!data?.podLogQuery) return;
       // execute callback
