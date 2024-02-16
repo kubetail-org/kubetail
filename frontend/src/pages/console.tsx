@@ -160,26 +160,6 @@ function useAllowedContainers(): Set<string> | undefined {
 }
 
 /**
- * Loading modal component
- */
-
-const LoadingModal = () => (
-  <div className="relative z-10" role="dialog">
-    <div className="fixed inset-0 bg-gray-500 bg-opacity-75"></div>
-    <div className="fixed inset-0 z-10 w-screen">
-      <div className="flex min-h-full items-center justify-center p-0 text-center">
-        <div className="relative transform overflow-hidden rounded-lg bg-white my-8 p-6 text-left shadow-xl">
-          <div className="flex items-center space-x-2">
-            <div>Loading Logs</div>
-            <Spinner size="sm" />
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-/**
  * Sidebar stylesheet
  */
 
@@ -565,13 +545,40 @@ const Header = () => {
 };
 
 /**
+ * Loading message component
+ */
+
+const LoadingMessage = () => {
+  const nodes = useNodes();
+  const workloads = useWorkloads();
+  const pods = usePods();
+
+  if (nodes.fetching || workloads.loading || pods.loading) {
+    return (
+      <div className="relative z-10" role="dialog">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75"></div>
+        <div className="fixed inset-0 z-10 w-screen">
+          <div className="flex min-h-full items-center justify-center p-0 text-center">
+            <div className="relative transform overflow-hidden rounded-lg bg-white my-8 p-6 text-left shadow-xl">
+              <div className="flex items-center space-x-2">
+                <div>Loading Resources</div>
+                <Spinner size="sm" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return <></>;
+};
+
+/**
  * Default component
  */
 
 export default function Console() {
   const [searchParams] = useSearchParams();
-  //const [isLoading, setIsLoading] = useState(Boolean(searchParams.getAll('source').length));
-  const [isLoading, setIsLoading] = useState(false);
   const contentWrapperElRef = useRef<HTMLDivElement | null>(null);
   const contentElRef = useRef<HTMLTableSectionElement | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(300);
@@ -668,12 +675,11 @@ export default function Console() {
 
   return (
     <AuthRequired>
-      {isLoading && <LoadingModal />}
       <LoggingResourcesProvider
         sourcePaths={searchParams.getAll('source')}
         onRecord={handleOnRecord}
-        onReady={() => setIsLoading(false)}
       >
+        <LoadingMessage />
         <div
           className="fixed bg-gray-100 h-screen overflow-x-hidden"
           style={{ width: `${sidebarWidth}px` }}
