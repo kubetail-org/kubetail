@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
-import { format } from 'date-fns';
+import { addMonths, format } from 'date-fns';
 import distinctColors from 'distinct-colors';
 import {
   History as HistoryIcon,
@@ -23,11 +23,15 @@ import {
   SkipForward as SkipForwardIcon,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { useRef, useState, Fragment } from 'react';
+import { forwardRef, useImperativeHandle, useRef, useState, Fragment } from 'react';
+import { DateRange } from 'react-day-picker';
 
+import Button from 'kubetail-ui/elements/Button';
+import { Calendar } from 'kubetail-ui/elements/Calendar';
 import Form from 'kubetail-ui/elements/Form';
-import { Popover, PopoverTrigger, PopoverContent } from 'kubetail-ui/elements/Popover';
+import { Popover, PopoverClose, PopoverTrigger, PopoverContent } from 'kubetail-ui/elements/Popover';
 import Spinner from 'kubetail-ui/elements/Spinner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from 'kubetail-ui/elements/Tabs';
 
 import logo from '@/assets/logo.svg';
 import AuthRequired from '@/components/utils/AuthRequired';
@@ -45,6 +49,18 @@ import type { LogRecord, LRPod } from '@/lib/console/logging-resources';
 import { Counter, MapSet, cssEncode, intersectSets, getBasename, joinPaths } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
 import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
+
+type DurationUnit = 'minutes' | 'hours' | 'days' | 'weeks' | 'months';
+
+class Duration {
+  value: number;
+  unit: DurationUnit;
+
+  constructor(value: number, unit: DurationUnit) {
+    this.value = value;
+    this.unit = unit;
+  }
+}
 
 /**
  * Color helpers
@@ -436,6 +452,7 @@ const SettingsButton = () => {
   };
 
   const checkboxEls: JSX.Element[] = [];
+
   [
     'Timestamp',
     'Pod/Container',
@@ -493,6 +510,239 @@ const SettingsButton = () => {
 }
 
 /**
+ * Relative time picker component
+ */
+
+type RelativeTimePickerProps = {
+  value: string;
+  unit: DurationUnit;
+  error?: string;
+  onValueChange: (value: string) => void;
+  onUnitChange: (unit: DurationUnit) => void;
+}
+
+const RelativeTimePicker = (props: RelativeTimePickerProps) => {
+  const { value, unit, error, onValueChange, onUnitChange } = props;
+
+  const DurationButton = ({ value, unit }: { value: number; unit: DurationUnit }) => (
+    <Button
+      intent="outline"
+      size="xs"
+      onClick={() => {
+        onValueChange(value.toString());
+        onUnitChange(unit);
+      }}
+    >
+      {value}
+    </Button>
+  );
+
+  return (
+    <>
+      <div className="grid grid-cols-6 gap-2 text-sm pt-3 pl-3 pr-3">
+        <div className="flex items-center">Minutes</div>
+        {[5, 10, 15, 30, 45].map(val => (<DurationButton key={val} value={val} unit="minutes" />))}
+        <div className="flex items-center">Hours</div>
+        {[1, 2, 3, 6, 12].map(val => (<DurationButton key={val} value={val} unit="hours" />))}
+        <div className="flex items-center">Days</div>
+        {[1, 2, 3, 4, 5].map(val => (<DurationButton key={val} value={val} unit="days" />))}
+        <div className="flex items-center">Weeks</div>
+        {[1, 2, 3, 4, 5].map(val => (<DurationButton key={val} value={val} unit="weeks" />))}
+      </div>
+      <div className="grid grid-cols-2 w-full gap-5 mt-5">
+        <div>
+          <Form.Label>Duration</Form.Label>
+          <Form.Control type="number" min="1" value={value} onChange={(ev) => onValueChange(ev.target.value)}></Form.Control>
+          {error && <Form.Control.Feedback>{error}</Form.Control.Feedback>}
+        </div>
+        <div>
+          <Form.Label>Unit of time</Form.Label>
+          <Form.Select className="mt-0" value={unit} onChange={(ev) => onUnitChange(ev.target.value as DurationUnit)}>
+            <Form.Option value="minutes">Minutes</Form.Option>
+            <Form.Option value="hours">Hours</Form.Option>
+            <Form.Option value="days">Days</Form.Option>
+            <Form.Option value="weeks">Weeks</Form.Option>
+            <Form.Option value="months">Months</Form.Option>
+          </Form.Select>
+        </div>
+      </div>
+    </>
+  );
+};
+
+/**
+ * Absolute time picker component
+ */
+
+type AbsoluteTimePickerHandle = {
+  reset: () => void;
+};
+
+type AbsoluteTimePickerProps = {
+  date?: DateRange;
+  setDate: React.Dispatch<DateRange | undefined>;
+};
+
+const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, AbsoluteTimePickerProps>((props, ref) => {
+  const today = new Date;
+  const { date, setDate } = props;
+
+  // define handler api
+  useImperativeHandle(ref, () => ({
+    reset: () => {
+      console.log('reset');
+    },
+  }));
+
+  const dateFmt = Intl.DateTimeFormat().resolvedOptions().locale === 'en-US' ? 'MM/dd/yyyy' : 'dd/MM/yyyy';
+
+  return (
+    <>
+      <Calendar
+        initialFocus
+        mode="range"
+        disabled={{ after: today }}
+        defaultMonth={date?.from && addMonths(date?.from, -1)}
+        selected={date}
+        onSelect={setDate}
+        numberOfMonths={2}
+      />
+      <div className="mt-1 flex px-3 justify-between">
+        <div className="flex space-x-4">
+          <div>
+            <Form.Label>Start date</Form.Label>
+            <Form.Control
+              className="w-[100px]"
+              value={date?.from && format(date.from, dateFmt)}
+            />
+          </div>
+          <div>
+            <Form.Label>Start time</Form.Label>
+            <Form.Control
+              className="w-[100px]"
+              defaultValue="00:00:00"
+            />
+          </div>
+        </div>
+        <div className="flex space-x-4">
+          <div>
+            <Form.Label>End date</Form.Label>
+            <Form.Control
+              className="w-[100px]"
+              value={date?.to && format(date.to, dateFmt)}
+            />
+          </div>
+          <div>
+            <Form.Label>End time</Form.Label>
+            <Form.Control
+              className="w-[100px]"
+              defaultValue="23:59:59"
+            />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+});
+
+/**
+ * Date range dropdown component
+ */
+
+type DateRangeDropdownProps = {
+  buttonClassName: string;
+}
+
+const DateRangeDropdown = ({ buttonClassName }: DateRangeDropdownProps ) => {
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [tabValue, setTabValue] = useState('relative');
+
+  const cancelButtonRef = useRef<HTMLButtonElement>();
+  const absolutePickerRef = useRef<AbsoluteTimePickerHandle>(null);
+
+  const [relativePickerValue, setRelativePickerValue] = useState('5');
+  const [relativePickerUnit, setRelativePickerUnit] = useState<DurationUnit>('minutes');
+  const [relativePickerError, setRelativePickerError] = useState<string>();
+
+  const today = new Date;
+  const [date, setDate] = useState<DateRange | undefined>({ from: today, to: today });
+
+  const handleRelativePickerValueChange = (value: string) => {
+    const num = Number(value);
+    if (value === '' || Number.isNaN(num)) setRelativePickerError('Please enter a number');
+    else if (num <= 0) setRelativePickerError('Please enter a number > 0')
+    else setRelativePickerError('');
+    setRelativePickerValue(value);
+  }
+
+  const handleClear = () => {
+    if (tabValue === 'relative') {
+      setRelativePickerValue('5');
+      setRelativePickerUnit('minutes');
+      setRelativePickerError('');
+    }
+  };
+
+  const handleApply = () => {
+    if (tabValue === 'relative') {
+      if (relativePickerError) console.log('error');
+      else cancelButtonRef.current?.click();
+    } else {
+
+    }
+  }
+
+  return (
+    <Popover onOpenChange={(open) => setIsPopoverOpen(open)}>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(buttonClassName, isPopoverOpen && 'bg-gray-200')}
+          title="History"
+        >
+          <HistoryIcon size={24} strokeWidth={1.5} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-auto p-0 bg-white" align="start"
+        alignOffset={0}
+      >
+        <Tabs
+          className="w-[565px] p-3"
+          defaultValue={tabValue}
+          onValueChange={(value) => setTabValue(value)}
+        >
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="relative">Relative</TabsTrigger>
+            <TabsTrigger value="absolute">Absolute</TabsTrigger>
+          </TabsList>
+          <TabsContent value="relative">
+            <RelativeTimePicker
+              value={relativePickerValue}
+              unit={relativePickerUnit}
+              onValueChange={handleRelativePickerValueChange}
+              onUnitChange={unit => setRelativePickerUnit(unit)}
+              error={relativePickerError}
+            />
+          </TabsContent>
+          <TabsContent value="absolute">
+            <AbsoluteTimePicker ref={absolutePickerRef} date={date} setDate={setDate} />
+          </TabsContent>
+        </Tabs>
+        <div className="flex justify-between mt-4 p-3 border-t">
+          <Button intent="outline" size="sm" onClick={handleClear}>Clear</Button>
+          <div className="flex space-x-2">
+            <PopoverClose asChild>
+              <Button ref={cancelButtonRef} intent="ghost" size="sm">Cancel</Button>
+            </PopoverClose>
+            <Button intent="primary" size="sm" onClick={handleApply}>Apply</Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+/**
  * Header component
  */
 
@@ -505,13 +755,7 @@ const Header = () => {
     <div className="flex justify-between items-end">
       <div className="flex p-2 justify-start space-x-1">
         <div className="flex">
-          <button
-            className={buttonCN}
-            title="History"
-            onClick={() => console.log('history')}
-          >
-            <HistoryIcon size={24} strokeWidth={1.5} />
-          </button>
+          <DateRangeDropdown buttonClassName={buttonCN} />
           {feed.state === LogFeedState.Playing ? (
             <button
               className={buttonCN}
