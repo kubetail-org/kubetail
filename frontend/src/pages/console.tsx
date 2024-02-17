@@ -793,6 +793,7 @@ const Header = () => {
  */
 
 const LoadingMessage = () => {
+  /*
   const nodes = useNodes();
   const workloads = useWorkloads();
   const pods = usePods();
@@ -813,7 +814,7 @@ const LoadingMessage = () => {
         </div>
       </div>
     );
-  }
+  }*/
   return <></>;
 };
 
