@@ -23,7 +23,7 @@ const documents = {
     "\n  fragment HomePodsListItemFragment on CoreV1Pod {\n    ...HomeGenericListItemFragment\n  }\n": types.HomePodsListItemFragmentFragmentDoc,
     "\n  fragment HomeReplicaSetsListItemFragment on AppsV1ReplicaSet {\n    ...HomeGenericListItemFragment\n  }\n": types.HomeReplicaSetsListItemFragmentFragmentDoc,
     "\n  fragment HomeStatefulSetsListItemFragment on AppsV1StatefulSet {\n    ...HomeGenericListItemFragment\n  }\n": types.HomeStatefulSetsListItemFragmentFragmentDoc,
-    "\n  fragment ConsoleLoggingResourcesGenericObjectFragment on Object {\n    id\n    metadata {\n      namespace\n      name\n      uid\n      creationTimestamp\n      deletionTimestamp\n      resourceVersion\n    }\n  }\n": types.ConsoleLoggingResourcesGenericObjectFragmentFragmentDoc,
+    "\n  fragment ConsoleLoggingResourcesGenericObjectFragment on Object {\n    id\n    metadata {\n      namespace\n      name\n      uid\n      creationTimestamp\n      deletionTimestamp\n      resourceVersion\n      ownerReferences {\n        name\n        uid\n        controller\n      }\n    }\n  }\n": types.ConsoleLoggingResourcesGenericObjectFragmentFragmentDoc,
     "\n  fragment ConsoleLoggingResourcesCronJobFragment on BatchV1CronJob {\n    ...ConsoleLoggingResourcesGenericObjectFragment\n    spec {\n      jobTemplate {\n        spec {\n          selector {\n            matchLabels\n          }\n        }\n      }\n    }\n  }\n": types.ConsoleLoggingResourcesCronJobFragmentFragmentDoc,
     "\n  fragment ConsoleLoggingResourcesDaemonSetFragment on AppsV1DaemonSet {\n    ...ConsoleLoggingResourcesGenericObjectFragment\n    spec {\n      selector {\n        matchLabels\n      }\n    }\n  }\n": types.ConsoleLoggingResourcesDaemonSetFragmentFragmentDoc,
     "\n  fragment ConsoleLoggingResourcesDeploymentFragment on AppsV1Deployment {\n    ...ConsoleLoggingResourcesGenericObjectFragment\n    spec {\n      selector {\n        matchLabels\n      }\n    }\n  }\n": types.ConsoleLoggingResourcesDeploymentFragmentFragmentDoc,
@@ -211,7 +211,7 @@ export function gql(source: "\n  fragment HomeStatefulSetsListItemFragment on Ap
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function gql(source: "\n  fragment ConsoleLoggingResourcesGenericObjectFragment on Object {\n    id\n    metadata {\n      namespace\n      name\n      uid\n      creationTimestamp\n      deletionTimestamp\n      resourceVersion\n    }\n  }\n"): (typeof documents)["\n  fragment ConsoleLoggingResourcesGenericObjectFragment on Object {\n    id\n    metadata {\n      namespace\n      name\n      uid\n      creationTimestamp\n      deletionTimestamp\n      resourceVersion\n    }\n  }\n"];
+export function gql(source: "\n  fragment ConsoleLoggingResourcesGenericObjectFragment on Object {\n    id\n    metadata {\n      namespace\n      name\n      uid\n      creationTimestamp\n      deletionTimestamp\n      resourceVersion\n      ownerReferences {\n        name\n        uid\n        controller\n      }\n    }\n  }\n"): (typeof documents)["\n  fragment ConsoleLoggingResourcesGenericObjectFragment on Object {\n    id\n    metadata {\n      namespace\n      name\n      uid\n      creationTimestamp\n      deletionTimestamp\n      resourceVersion\n      ownerReferences {\n        name\n        uid\n        controller\n      }\n    }\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

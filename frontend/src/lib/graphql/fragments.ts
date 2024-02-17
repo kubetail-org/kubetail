@@ -108,6 +108,11 @@ export const CONSOLE_LOGGING_RESOURCES_GENERIC_OBJECT_FRAGMENT = gql(`
       creationTimestamp
       deletionTimestamp
       resourceVersion
+      ownerReferences {
+        name
+        uid
+        controller
+      }
     }
   }
 `);

@@ -174,6 +174,13 @@ export class CustomCache extends InMemoryCache {
             coreV1PodsList: k8sPagination(),
           },
         },
+        Object: {
+          fields: {
+            metadata: {
+              merge: true,
+            },
+          },
+        }
       },
     });
   }

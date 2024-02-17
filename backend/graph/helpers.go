@@ -246,7 +246,8 @@ func tailPodLog(ctx context.Context, clientset kubernetes.Interface, namespace s
 	)
 
 	// handle `since`
-	if since := strings.TrimSpace(args.Since); since == "beginning" {
+	since := strings.TrimSpace(args.Since)
+	if strings.ToLower(since) == "beginning" {
 		tailSince = TailSinceBeginning
 	} else if strings.ToLower(since) == "now" {
 		tailSince = TailSinceNow
@@ -270,7 +271,8 @@ func tailPodLog(ctx context.Context, clientset kubernetes.Interface, namespace s
 	}
 
 	// handle `until`
-	if until := strings.TrimSpace(args.Until); until == "forever" {
+	until := strings.TrimSpace(args.Until)
+	if strings.ToLower(until) == "forever" {
 		tailUntil = TailUntilForever
 	} else if strings.ToLower(until) == "now" {
 		tailUntil = TailUntilTime
