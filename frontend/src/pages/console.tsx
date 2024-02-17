@@ -739,19 +739,16 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, {}>((_, ref) => 
 
 type DateRangeDropdownProps = {
   buttonClassName: string;
+  onChange: () => void;
 }
 
-const DateRangeDropdown = ({ buttonClassName }: DateRangeDropdownProps) => {
+const DateRangeDropdown = ({ buttonClassName, onChange }: DateRangeDropdownProps) => {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [tabValue, setTabValue] = useState('relative');
 
   const cancelButtonRef = useRef<HTMLButtonElement>();
-
   const relativePickerRef = useRef<RelativeTimePickerHandle>(null);
   const absolutePickerRef = useRef<AbsoluteTimePickerHandle>(null);
-
-  const today = new Date;
-  const [date, setDate] = useState<DateRange | undefined>({ from: today, to: today });
 
   const closePopover = () => {
     cancelButtonRef.current?.click();
@@ -763,13 +760,15 @@ const DateRangeDropdown = ({ buttonClassName }: DateRangeDropdownProps) => {
   };
 
   const handleApply = () => {
-    if (tabValue === 'relative') {
-      const val = relativePickerRef.current?.getValue();
-      if (val) closePopover();
-    } else if (tabValue === 'absolute') {
-      const val = absolutePickerRef.current?.getValue();
-      if (val) closePopover();
-    }
+    const ref = (tabValue === 'relative') ? relativePickerRef : absolutePickerRef;
+    const val = ref.current?.getValue()
+
+    // do nothing if invalid
+    if (!val) return;
+
+    // close popover and call onChange handler
+    closePopover();
+    onChange();
   }
 
   return (
@@ -796,10 +795,10 @@ const DateRangeDropdown = ({ buttonClassName }: DateRangeDropdownProps) => {
             <TabsTrigger value="absolute">Absolute</TabsTrigger>
           </TabsList>
           <TabsContent value="relative">
-            <RelativeTimePicker ref={relativePickerRef}></RelativeTimePicker>
+            <RelativeTimePicker ref={relativePickerRef} />
           </TabsContent>
           <TabsContent value="absolute">
-            <AbsoluteTimePicker ref={absolutePickerRef} date={date} setDate={setDate} />
+            <AbsoluteTimePicker ref={absolutePickerRef} />
           </TabsContent>
         </Tabs>
         <div className="flex justify-between mt-4 p-3 border-t">
@@ -820,16 +819,33 @@ const DateRangeDropdown = ({ buttonClassName }: DateRangeDropdownProps) => {
  * Header component
  */
 
-const Header = () => {
+type HeaderProps = {
+  onClear: () => void;
+}
+
+const Header = ({ onClear }: HeaderProps) => {
   const feed = useLogFeed();
 
   const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-gray-200 disabled:opacity-30';
+
+  const handleDateRangeDropdownChange = () => {
+    onClear();
+    feed.query();
+  };
+
+  const handlePlayPress = () => {
+    if (feed.state === LogFeedState.InQuery) onClear();
+    feed.play();
+  };
 
   return (
     <div className="flex justify-between items-end">
       <div className="flex p-2 justify-start space-x-1">
         <div className="flex">
-          <DateRangeDropdown buttonClassName={buttonCN} />
+          <DateRangeDropdown
+            buttonClassName={buttonCN}
+            onChange={handleDateRangeDropdownChange}
+          />
           {feed.state === LogFeedState.Playing ? (
             <button
               className={buttonCN}
@@ -842,7 +858,7 @@ const Header = () => {
             <button
               className={buttonCN}
               title="Play"
-              onClick={feed.play}
+              onClick={handlePlayPress}
             >
               <PlayIcon size={24} strokeWidth={1.5} />
             </button>
@@ -990,6 +1006,12 @@ export default function Console() {
     }
   };
 
+  // handle console clear
+  const handleClear = () => {
+    //const el = contentWrapperElRef.current;
+    //while (el?.firstChild) el.removeChild(el.firstChild);
+  };
+
   const tdCN = 'sticky top-0 bg-gray-200 pl-2 outline outline-[1px] outline-offset-0 outline-gray-300';
 
   return (
@@ -1013,7 +1035,7 @@ export default function Console() {
         <main className="h-screen overflow-hidden" style={{ marginLeft: `${sidebarWidth + 4}px` }}>
           <div className="flex flex-col h-full">
             <div className="bg-gray-100 border-b border-gray-300">
-              <Header />
+              <Header onClear={handleClear} />
             </div>
             <div
               ref={contentWrapperElRef}

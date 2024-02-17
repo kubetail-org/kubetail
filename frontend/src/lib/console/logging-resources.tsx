@@ -38,6 +38,7 @@ type OnRecordCallbackFunction = (record: LogRecord) => void;
 export enum LogFeedState {
   Playing = 'PLAYING',
   Paused = 'PAUSED',
+  InQuery = 'IN_QUERY',
 }
 
 /**
@@ -399,7 +400,12 @@ export function useLogFeed() {
     logFeedLoaderRef.current?.dispatchEvent(ev);
   }
 
-  return { state: logFeedState, play, pause, skipForward };
+  const query = () => {
+    const ev = new CustomEvent('query');
+    logFeedLoaderRef.current?.dispatchEvent(ev);
+  }
+
+  return { state: logFeedState, play, pause, skipForward, query };
 }
 
 /**
@@ -416,6 +422,7 @@ type LogFeedRecordFetcherProps = {
 
 type LogFeedRecordFetcherHandle = {
   skipForward: () => Promise<LogRecord[]>;
+  query: () => Promise<LogRecord[]>;
 };
 
 const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetcherHandle, LogFeedRecordFetcherProps> = (props, ref) => {
@@ -497,6 +504,20 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
 
       // return records
       return records;
+    },
+    query: async () => {
+      const variables = {} as any;
+      variables.since = 'BEGINNING'
+      variables.until = 'NOW'
+
+      const result = await refetch(variables);
+      if (!result.data.podLogQuery) return [];
+
+      // upgrade records
+      const records = result.data.podLogQuery.map(record => upgradeRecord(record));
+
+      // return records
+      return records;
     }
   }));
 
@@ -532,12 +553,15 @@ const LogFeedLoader = forwardRef((
     const wrapperEl = wrapperElRef.current;
     if (!wrapperEl) return;
 
+    // play
     const playFn = () => setLogFeedState(LogFeedState.Playing);
     wrapperEl.addEventListener('play', playFn);
 
+    // pause
     const pauseFn = () => setLogFeedState(LogFeedState.Paused);
     wrapperEl.addEventListener('pause', pauseFn);
 
+    // skip-forward
     const skipForwardFn = async () => {
       const promises = Array<Promise<LogRecord[]>>();
       const records = Array<LogRecord>();
@@ -556,11 +580,33 @@ const LogFeedLoader = forwardRef((
     };
     wrapperEl.addEventListener('skipForward', skipForwardFn);
 
+    // query
+    const queryFn = async () => {
+      setLogFeedState(LogFeedState.InQuery);
+
+      const promises = Array<Promise<LogRecord[]>>();
+      const records = Array<LogRecord>();
+
+      // trigger query in children
+      childRefs.current.forEach(childRef => {
+        childRef.current && promises.push(childRef.current.query());
+      });
+
+      // gather and sort results
+      (await Promise.all(promises)).forEach(result => records.push(...result));
+      records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+      // execute callback
+      onRecord && records.forEach(record => onRecord(record));
+    };
+    wrapperEl.addEventListener('query', queryFn);
+
     // cleanup
     return () => {
       wrapperEl.removeEventListener('play', playFn);
       wrapperEl.removeEventListener('pause', pauseFn);
       wrapperEl.removeEventListener('skipForward', skipForwardFn);
+      wrapperEl.removeEventListener('query', queryFn);
     };
   }, []);
 
