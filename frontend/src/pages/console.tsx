@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
-import { addMonths, format } from 'date-fns';
+import { addMonths, format, parse, isValid } from 'date-fns';
 import distinctColors from 'distinct-colors';
 import {
   History as HistoryIcon,
@@ -50,7 +50,13 @@ import { Counter, MapSet, cssEncode, intersectSets, getBasename, joinPaths } fro
 import { cn } from '@/lib/utils';
 import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
 
-type DurationUnit = 'minutes' | 'hours' | 'days' | 'weeks' | 'months';
+enum DurationUnit {
+  Minutes = 'minutes',
+  Hours = 'hours',
+  Days = 'days',
+  Weeks = 'weeks',
+  Months = 'moths',
+}
 
 class Duration {
   value: number;
@@ -513,24 +519,40 @@ const SettingsButton = () => {
  * Relative time picker component
  */
 
-type RelativeTimePickerProps = {
-  value: string;
-  unit: DurationUnit;
-  error?: string;
-  onValueChange: (value: string) => void;
-  onUnitChange: (unit: DurationUnit) => void;
-}
+type RelativeTimePickerHandle = {
+  reset: () => void;
+  getValue: () => Duration | undefined;
+};
 
-const RelativeTimePicker = (props: RelativeTimePickerProps) => {
-  const { value, unit, error, onValueChange, onUnitChange } = props;
+const RelativeTimePicker = forwardRef<RelativeTimePickerHandle, {}>((_, ref) => {
+  const [durationValue, setDurationValue] = useState('5');
+  const [durationUnit, setDurationUnit] = useState(DurationUnit.Minutes);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const validate = () => {
+    if (durationValue.trim() === '') {
+      setErrorMsg('Please choose a number');
+      return undefined;
+    }
+    return new Duration(Number(durationValue), durationUnit);
+  }
+
+  // define handler api
+  useImperativeHandle(ref, () => ({
+    reset: () => {
+      setDurationValue('5');
+      setDurationUnit(DurationUnit.Minutes);
+    },
+    getValue: validate,
+  }));
 
   const DurationButton = ({ value, unit }: { value: number; unit: DurationUnit }) => (
     <Button
       intent="outline"
       size="xs"
       onClick={() => {
-        onValueChange(value.toString());
-        onUnitChange(unit);
+        setDurationValue(value.toString());
+        setDurationUnit(unit);
       }}
     >
       {value}
@@ -541,34 +563,43 @@ const RelativeTimePicker = (props: RelativeTimePickerProps) => {
     <>
       <div className="grid grid-cols-6 gap-2 text-sm pt-3 pl-3 pr-3">
         <div className="flex items-center">Minutes</div>
-        {[5, 10, 15, 30, 45].map(val => (<DurationButton key={val} value={val} unit="minutes" />))}
+        {[5, 10, 15, 30, 45].map(val => (<DurationButton key={val} value={val} unit={DurationUnit.Minutes} />))}
         <div className="flex items-center">Hours</div>
-        {[1, 2, 3, 6, 12].map(val => (<DurationButton key={val} value={val} unit="hours" />))}
+        {[1, 2, 3, 6, 12].map(val => (<DurationButton key={val} value={val} unit={DurationUnit.Hours} />))}
         <div className="flex items-center">Days</div>
-        {[1, 2, 3, 4, 5].map(val => (<DurationButton key={val} value={val} unit="days" />))}
+        {[1, 2, 3, 4, 5].map(val => (<DurationButton key={val} value={val} unit={DurationUnit.Days} />))}
         <div className="flex items-center">Weeks</div>
-        {[1, 2, 3, 4, 5].map(val => (<DurationButton key={val} value={val} unit="weeks" />))}
+        {[1, 2, 3, 4, 5].map(val => (<DurationButton key={val} value={val} unit={DurationUnit.Weeks} />))}
       </div>
       <div className="grid grid-cols-2 w-full gap-5 mt-5">
         <div>
           <Form.Label>Duration</Form.Label>
-          <Form.Control type="number" min="1" value={value} onChange={(ev) => onValueChange(ev.target.value)}></Form.Control>
-          {error && <Form.Control.Feedback>{error}</Form.Control.Feedback>}
+          <Form.Control
+            type="number"
+            min="1"
+            value={durationValue}
+            onChange={ev => setDurationValue(ev.target.value)}
+          />
+          {errorMsg && <Form.Control.Feedback>{errorMsg}</Form.Control.Feedback>}
         </div>
         <div>
           <Form.Label>Unit of time</Form.Label>
-          <Form.Select className="mt-0" value={unit} onChange={(ev) => onUnitChange(ev.target.value as DurationUnit)}>
-            <Form.Option value="minutes">Minutes</Form.Option>
-            <Form.Option value="hours">Hours</Form.Option>
-            <Form.Option value="days">Days</Form.Option>
-            <Form.Option value="weeks">Weeks</Form.Option>
-            <Form.Option value="months">Months</Form.Option>
+          <Form.Select
+            className="mt-0"
+            value={durationUnit}
+            onChange={ev => setDurationUnit(ev.target.value as DurationUnit)}
+          >
+            <Form.Option value={DurationUnit.Minutes}>Minutes</Form.Option>
+            <Form.Option value={DurationUnit.Hours}>Hours</Form.Option>
+            <Form.Option value={DurationUnit.Days}>Days</Form.Option>
+            <Form.Option value={DurationUnit.Weeks}>Weeks</Form.Option>
+            <Form.Option value={DurationUnit.Months}>Months</Form.Option>
           </Form.Select>
         </div>
       </div>
     </>
   );
-};
+});
 
 /**
  * Absolute time picker component
@@ -576,25 +607,74 @@ const RelativeTimePicker = (props: RelativeTimePickerProps) => {
 
 type AbsoluteTimePickerHandle = {
   reset: () => void;
+  getValue: () => DateRange | undefined;
 };
 
-type AbsoluteTimePickerProps = {
-  date?: DateRange;
-  setDate: React.Dispatch<DateRange | undefined>;
-};
-
-const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, AbsoluteTimePickerProps>((props, ref) => {
+const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, {}>((_, ref) => {
   const today = new Date;
-  const { date, setDate } = props;
+  const dateFmt = Intl.DateTimeFormat().resolvedOptions().locale === 'en-US' ? 'MM/dd/yyyy' : 'dd/MM/yyyy';
+
+  const [calendarDateRange, setCalendarDateRange] = useState<DateRange | undefined>({ from: today, to: today });
+
+  const [manualStartDate, setManualStartDate] = useState(format(today, dateFmt));
+  const [manualStartTime, setManualStartTime] = useState('00:00:00');
+
+  const [manualEndDate, setManualEndDate] = useState(format(today, dateFmt));
+  const [manualEndTime, setManualEndTime] = useState('23:59:59');
+
+  const [errorMsgs, setErrorMsgs] = useState(new Map<string, string>());
+
+  const validate = () => {
+    if (!isValid(parse(manualStartDate, dateFmt, new Date()))) errorMsgs.set('startDate', dateFmt)
+    else errorMsgs.delete('startDate');
+
+    if (!isValid(parse(manualStartTime, 'HH:mm:ss', new Date()))) errorMsgs.set('startTime', 'HH:mm:ss')
+    else errorMsgs.delete('startTime');
+
+    if (!isValid(parse(manualEndDate, dateFmt, new Date()))) errorMsgs.set('endDate', dateFmt)
+    else errorMsgs.delete('endDate');
+
+    if (!isValid(parse(manualEndTime, 'HH:mm:ss', new Date()))) errorMsgs.set('endTime', 'HH:mm:ss')
+    else errorMsgs.delete('endTime');
+
+    setErrorMsgs(new Map(errorMsgs));
+
+    // return undefined if validation failed
+    if (errorMsgs.size) return undefined;
+
+    // return parsed DateRange
+    return {
+      from: parse(`${manualStartDate} ${manualStartTime}`, `${dateFmt} HH:mm:ss`, new Date()),
+      to: parse(`${manualEndDate} ${manualEndTime}`, `${dateFmt} HH:mm:ss`, new Date()),
+    };
+  }
 
   // define handler api
   useImperativeHandle(ref, () => ({
     reset: () => {
-      console.log('reset');
+      setCalendarDateRange({ from: today, to: today });
+      setManualStartDate(format(today, dateFmt));
+      setManualStartTime('00:00:00');
+      setManualEndDate(format(today, dateFmt));
+      setManualEndTime('23:59:59');
+      setErrorMsgs(new Map<string, string>());
     },
+    getValue: validate
   }));
 
-  const dateFmt = Intl.DateTimeFormat().resolvedOptions().locale === 'en-US' ? 'MM/dd/yyyy' : 'dd/MM/yyyy';
+  const handleCalendarSelect = (value: DateRange | undefined) => {
+    if (!value) return;
+    setCalendarDateRange(value);
+    if (value.from) {
+      setManualStartDate(format(value.from, dateFmt))
+      setManualStartTime('00:00:00');
+    }
+    if (value.to) {
+      setManualEndDate(format(value.to, dateFmt))
+      setManualEndTime('23:59:59');
+    }
+    setErrorMsgs(new Map<string, string>());
+  }
 
   return (
     <>
@@ -602,9 +682,9 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, AbsoluteTimePick
         initialFocus
         mode="range"
         disabled={{ after: today }}
-        defaultMonth={date?.from && addMonths(date?.from, -1)}
-        selected={date}
-        onSelect={setDate}
+        defaultMonth={today && addMonths(today, -1)}
+        selected={calendarDateRange}
+        onSelect={handleCalendarSelect}
         numberOfMonths={2}
       />
       <div className="mt-1 flex px-3 justify-between">
@@ -613,15 +693,19 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, AbsoluteTimePick
             <Form.Label>Start date</Form.Label>
             <Form.Control
               className="w-[100px]"
-              value={date?.from && format(date.from, dateFmt)}
+              value={manualStartDate}
+              onChange={ev => setManualStartDate(ev.target.value)}
             />
+            {errorMsgs.has('startDate') && <Form.Control.Feedback>{errorMsgs.get('startDate')}</Form.Control.Feedback>}
           </div>
           <div>
             <Form.Label>Start time</Form.Label>
             <Form.Control
               className="w-[100px]"
-              defaultValue="00:00:00"
+              value={manualStartTime}
+              onChange={ev => setManualStartTime(ev.target.value)}
             />
+            {errorMsgs.has('startTime') && <Form.Control.Feedback>{errorMsgs.get('startTime')}</Form.Control.Feedback>}
           </div>
         </div>
         <div className="flex space-x-4">
@@ -629,15 +713,19 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, AbsoluteTimePick
             <Form.Label>End date</Form.Label>
             <Form.Control
               className="w-[100px]"
-              value={date?.to && format(date.to, dateFmt)}
+              value={manualEndDate}
+              onChange={ev => setManualEndDate(ev.target.value)}
             />
+            {errorMsgs.has('endDate') && <Form.Control.Feedback>{errorMsgs.get('endDate')}</Form.Control.Feedback>}
           </div>
           <div>
             <Form.Label>End time</Form.Label>
             <Form.Control
               className="w-[100px]"
-              defaultValue="23:59:59"
+              value={manualEndTime}
+              onChange={ev => setManualEndTime(ev.target.value)}
             />
+            {errorMsgs.has('endTime') && <Form.Control.Feedback>{errorMsgs.get('endTime')}</Form.Control.Feedback>}
           </div>
         </div>
       </div>
@@ -653,42 +741,34 @@ type DateRangeDropdownProps = {
   buttonClassName: string;
 }
 
-const DateRangeDropdown = ({ buttonClassName }: DateRangeDropdownProps ) => {
+const DateRangeDropdown = ({ buttonClassName }: DateRangeDropdownProps) => {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [tabValue, setTabValue] = useState('relative');
 
   const cancelButtonRef = useRef<HTMLButtonElement>();
-  const absolutePickerRef = useRef<AbsoluteTimePickerHandle>(null);
 
-  const [relativePickerValue, setRelativePickerValue] = useState('5');
-  const [relativePickerUnit, setRelativePickerUnit] = useState<DurationUnit>('minutes');
-  const [relativePickerError, setRelativePickerError] = useState<string>();
+  const relativePickerRef = useRef<RelativeTimePickerHandle>(null);
+  const absolutePickerRef = useRef<AbsoluteTimePickerHandle>(null);
 
   const today = new Date;
   const [date, setDate] = useState<DateRange | undefined>({ from: today, to: today });
 
-  const handleRelativePickerValueChange = (value: string) => {
-    const num = Number(value);
-    if (value === '' || Number.isNaN(num)) setRelativePickerError('Please enter a number');
-    else if (num <= 0) setRelativePickerError('Please enter a number > 0')
-    else setRelativePickerError('');
-    setRelativePickerValue(value);
-  }
+  const closePopover = () => {
+    cancelButtonRef.current?.click();
+  };
 
   const handleClear = () => {
-    if (tabValue === 'relative') {
-      setRelativePickerValue('5');
-      setRelativePickerUnit('minutes');
-      setRelativePickerError('');
-    }
+    if (tabValue === 'relative') relativePickerRef.current?.reset();
+    else if (tabValue === 'absolute') absolutePickerRef.current?.reset();
   };
 
   const handleApply = () => {
     if (tabValue === 'relative') {
-      if (relativePickerError) console.log('error');
-      else cancelButtonRef.current?.click();
-    } else {
-
+      const val = relativePickerRef.current?.getValue();
+      if (val) closePopover();
+    } else if (tabValue === 'absolute') {
+      const val = absolutePickerRef.current?.getValue();
+      if (val) closePopover();
     }
   }
 
@@ -716,13 +796,7 @@ const DateRangeDropdown = ({ buttonClassName }: DateRangeDropdownProps ) => {
             <TabsTrigger value="absolute">Absolute</TabsTrigger>
           </TabsList>
           <TabsContent value="relative">
-            <RelativeTimePicker
-              value={relativePickerValue}
-              unit={relativePickerUnit}
-              onValueChange={handleRelativePickerValueChange}
-              onUnitChange={unit => setRelativePickerUnit(unit)}
-              error={relativePickerError}
-            />
+            <RelativeTimePicker ref={relativePickerRef}></RelativeTimePicker>
           </TabsContent>
           <TabsContent value="absolute">
             <AbsoluteTimePicker ref={absolutePickerRef} date={date} setDate={setDate} />
