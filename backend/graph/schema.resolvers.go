@@ -201,20 +201,30 @@ func (r *queryResolver) PodLogQuery(ctx context.Context, namespace *string, name
 
 	if since != nil {
 		args.Since = *since
+
+		// handle until arguments in future
+		if ts, err := time.Parse(time.RFC3339Nano, args.Since); err == nil {
+			now := time.Now()
+			if ts.After(now) {
+				args.Since = "NOW"
+			}
+		}
 	}
 
 	if until != nil {
 		args.Until = *until
+
+		// handle until arguments in future
+		if ts, err := time.Parse(time.RFC3339Nano, args.Until); err == nil {
+			now := time.Now()
+			if ts.After(now) {
+				args.Until = "NOW"
+			}
+		}
 	}
 
 	if limit != nil {
 		args.Limit = uint(*limit)
-	}
-
-	// validate `since` and `until`
-	err := validatePodLogQueryTimeArgs(time.Now(), args.Since, args.Until)
-	if err != nil {
-		return nil, err
 	}
 
 	// init tail

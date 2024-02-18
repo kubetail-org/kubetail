@@ -41,6 +41,11 @@ export enum LogFeedState {
   InQuery = 'IN_QUERY',
 }
 
+export type LogFeedQueryOptions = {
+  since?: string;
+  until?: string;
+};
+
 /**
  * Context object
  */
@@ -400,8 +405,8 @@ export function useLogFeed() {
     logFeedLoaderRef.current?.dispatchEvent(ev);
   }
 
-  const query = () => {
-    const ev = new CustomEvent('query');
+  const query = (args: LogFeedQueryOptions) => {
+    const ev = new CustomEvent<LogFeedQueryOptions>('query', { detail: args });
     logFeedLoaderRef.current?.dispatchEvent(ev);
   }
 
@@ -422,7 +427,7 @@ type LogFeedRecordFetcherProps = {
 
 type LogFeedRecordFetcherHandle = {
   skipForward: () => Promise<LogRecord[]>;
-  query: () => Promise<LogRecord[]>;
+  query: (opts: LogFeedQueryOptions) => Promise<LogRecord[]>;
 };
 
 const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetcherHandle, LogFeedRecordFetcherProps> = (props, ref) => {
@@ -505,16 +510,18 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
       // return records
       return records;
     },
-    query: async () => {
-      const variables = {} as any;
-      variables.since = 'BEGINNING'
-      variables.until = 'NOW'
-
-      const result = await refetch(variables);
+    query: async (opts: LogFeedQueryOptions) => {
+      const result = await refetch(opts);
       if (!result.data.podLogQuery) return [];
 
       // upgrade records
       const records = result.data.podLogQuery.map(record => upgradeRecord(record));
+
+      // update lastTS
+      if (!opts.until) {
+        if (records.length) lastTSRef.current = records[records.length - 1].timestamp;
+        else lastTSRef.current = undefined;
+      }
 
       // return records
       return records;
@@ -581,15 +588,21 @@ const LogFeedLoader = forwardRef((
     wrapperEl.addEventListener('skipForward', skipForwardFn);
 
     // query
-    const queryFn = async () => {
-      setLogFeedState(LogFeedState.InQuery);
+    const queryFn = async (ev: Event) => {
+      const opts = (ev as CustomEvent<LogFeedQueryOptions>).detail;
+
+      if (opts.until) {
+        setLogFeedState(LogFeedState.InQuery);
+      } else {
+        setLogFeedState(LogFeedState.Paused);
+      }
 
       const promises = Array<Promise<LogRecord[]>>();
       const records = Array<LogRecord>();
 
       // trigger query in children
       childRefs.current.forEach(childRef => {
-        childRef.current && promises.push(childRef.current.query());
+        childRef.current && promises.push(childRef.current.query(opts));
       });
 
       // gather and sort results

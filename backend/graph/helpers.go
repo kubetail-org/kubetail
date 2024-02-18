@@ -32,7 +32,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 
-	"github.com/kubetail-org/kubetail/graph/lib"
 	"github.com/kubetail-org/kubetail/graph/model"
 )
 
@@ -217,17 +216,6 @@ func newLogRecordFromLogLine(logLine string) model.LogRecord {
 		Timestamp: ts,
 		Message:   parts[1],
 	}
-}
-
-func validatePodLogQueryTimeArgs(now time.Time, args ...string) error {
-	for _, arg := range args {
-		if ts, err := time.Parse(time.RFC3339Nano, arg); err == nil {
-			if ts.After(now) {
-				return lib.NewValidationError("custom", "`since` and `until` timestamp values must be in the past")
-			}
-		}
-	}
-	return nil
 }
 
 func tailPodLog(ctx context.Context, clientset kubernetes.Interface, namespace string, name string, container *string, args TailArgs) (<-chan model.LogRecord, error) {

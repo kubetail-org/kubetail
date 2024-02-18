@@ -167,6 +167,9 @@ export class CustomCache extends InMemoryCache {
             batchV1CronJobsList: k8sPagination(),
             batchV1JobsList: k8sPagination(),
             coreV1PodsList: k8sPagination(),
+            podLogQuery: {
+              merge: false,
+            },
           },
         },
         Object: {

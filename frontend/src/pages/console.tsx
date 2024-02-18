@@ -45,7 +45,7 @@ import {
   usePods,
   useWorkloads,
 } from '@/lib/console/logging-resources';
-import type { LogRecord, LRPod } from '@/lib/console/logging-resources';
+import type { LogFeedQueryOptions, LogRecord, LRPod } from '@/lib/console/logging-resources';
 import { Counter, MapSet, cssEncode, intersectSets, getBasename, joinPaths } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
 import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
@@ -65,6 +65,21 @@ class Duration {
   constructor(value: number, unit: DurationUnit) {
     this.value = value;
     this.unit = unit;
+  }
+
+  toISOString() {
+    switch (this.unit) {
+    case DurationUnit.Minutes:
+      return `PT${this.value}M`;
+    case DurationUnit.Hours:
+      return `PT${this.value}H`;
+    case DurationUnit.Days:
+      return `P${this.value}D`;
+    case DurationUnit.Weeks:
+      return `P${this.value}W`;
+    case DurationUnit.Months:
+      return `P${this.value}M`;
+    }
   }
 }
 
@@ -443,7 +458,11 @@ const Sidebar = () => {
  * Settings button
  */
 
-const SettingsButton = () => {
+type SettingsButtonProps = {
+  className?: string;
+};
+
+const SettingsButton = (props: SettingsButtonProps) => {
   const [checkedCols, setCheckedCols] = useState(new Map<string, boolean>([
     ['region', false],
     ['zone', false],
@@ -501,7 +520,7 @@ const SettingsButton = () => {
       <StyleEl />
       <Popover>
         <PopoverTrigger className="p-1">
-          <SettingsIcon size={18} strokeWidth={1.5} />
+          <SettingsIcon className={cn(props.className)} size={18} strokeWidth={1.5} />
         </PopoverTrigger>
         <PopoverContent
           className="bg-white w-auto mr-1"
@@ -739,7 +758,7 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, {}>((_, ref) => 
 
 type DateRangeDropdownProps = {
   buttonClassName: string;
-  onChange: () => void;
+  onChange: (args: LogFeedQueryOptions) => void;
 }
 
 const DateRangeDropdown = ({ buttonClassName, onChange }: DateRangeDropdownProps) => {
@@ -760,15 +779,22 @@ const DateRangeDropdown = ({ buttonClassName, onChange }: DateRangeDropdownProps
   };
 
   const handleApply = () => {
-    const ref = (tabValue === 'relative') ? relativePickerRef : absolutePickerRef;
-    const val = ref.current?.getValue()
+    const args: LogFeedQueryOptions = {};
 
-    // do nothing if invalid
-    if (!val) return;
+    if (tabValue === 'relative') {
+      const val = relativePickerRef.current?.getValue();
+      if (!val) return;
+      args.since = val.toISOString();
+    } else {
+      const val = absolutePickerRef.current?.getValue();
+      if (!val) return;
+      if (val.from) args.since = val.from.toISOString();
+      if (val.to) args.until = val.to.toISOString();
+    }
 
     // close popover and call onChange handler
     closePopover();
-    onChange();
+    onChange(args);
   }
 
   return (
@@ -824,6 +850,8 @@ type HeaderProps = {
 }
 
 const Header = (props: HeaderProps) => {
+  const [title, setTitle] = useState('');
+
   const feed = useLogFeed();
 
   const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-gray-200 disabled:opacity-30';
@@ -833,19 +861,21 @@ const Header = (props: HeaderProps) => {
     while (el?.firstChild) el.removeChild(el.firstChild);
   };
 
-  const handleDateRangeDropdownChange = () => {
+  const handleDateRangeDropdownChange = (args: LogFeedQueryOptions) => {
     clearConsole();
-    feed.query();
+    feed.query(args);
+    setTitle(`${args.since} - ${args.until}`);
   };
 
   const handlePlayPress = () => {
     if (feed.state === LogFeedState.InQuery) clearConsole();
     feed.play();
+    setTitle('');
   };
 
   return (
-    <div className="flex justify-between items-end">
-      <div className="flex p-2 justify-start space-x-1">
+    <div className="flex justify-between items-center h-[55px]">
+      <div className="flex px-2 justify-start space-x-1">
         <div className="flex">
           <DateRangeDropdown
             buttonClassName={buttonCN}
@@ -878,7 +908,10 @@ const Header = (props: HeaderProps) => {
           </button>
         </div>
       </div>
-      <SettingsButton />
+      <div>{title}</div>
+      <div className="h-full flex flex-col justify-end">
+        <SettingsButton />
+      </div>
     </div>
   );
 };
