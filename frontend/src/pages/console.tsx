@@ -820,21 +820,26 @@ const DateRangeDropdown = ({ buttonClassName, onChange }: DateRangeDropdownProps
  */
 
 type HeaderProps = {
-  onClear: () => void;
+  contentElRef: React.RefObject<HTMLTableSectionElement>;
 }
 
-const Header = ({ onClear }: HeaderProps) => {
+const Header = (props: HeaderProps) => {
   const feed = useLogFeed();
 
   const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-gray-200 disabled:opacity-30';
 
+  const clearConsole = () => {
+    const el = props.contentElRef.current;
+    while (el?.firstChild) el.removeChild(el.firstChild);
+  };
+
   const handleDateRangeDropdownChange = () => {
-    onClear();
+    clearConsole();
     feed.query();
   };
 
   const handlePlayPress = () => {
-    if (feed.state === LogFeedState.InQuery) onClear();
+    if (feed.state === LogFeedState.InQuery) clearConsole();
     feed.play();
   };
 
@@ -1006,12 +1011,6 @@ export default function Console() {
     }
   };
 
-  // handle console clear
-  const handleClear = () => {
-    //const el = contentWrapperElRef.current;
-    //while (el?.firstChild) el.removeChild(el.firstChild);
-  };
-
   const tdCN = 'sticky top-0 bg-gray-200 pl-2 outline outline-[1px] outline-offset-0 outline-gray-300';
 
   return (
@@ -1035,7 +1034,7 @@ export default function Console() {
         <main className="h-screen overflow-hidden" style={{ marginLeft: `${sidebarWidth + 4}px` }}>
           <div className="flex flex-col h-full">
             <div className="bg-gray-100 border-b border-gray-300">
-              <Header onClear={handleClear} />
+              <Header contentElRef={contentElRef} />
             </div>
             <div
               ref={contentWrapperElRef}
@@ -1055,7 +1054,11 @@ export default function Console() {
                     <td className={cn(tdCN, 'col_message')}>Message</td>
                   </tr>
                 </thead>
-                <tbody ref={contentElRef} className="text-xs font-mono [&>tr:nth-child(even)]:bg-gray-100 [&_td]:px-2 [&_td]:py-1 text-gray-600" />
+                <tbody
+                  ref={contentElRef}
+                  id="log-records"
+                  className="text-xs font-mono [&>tr:nth-child(even)]:bg-gray-100 [&_td]:px-2 [&_td]:py-1 text-gray-600"
+                />
               </table>
             </div>
           </div>
