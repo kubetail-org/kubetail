@@ -410,7 +410,13 @@ export function useLogFeed() {
     logFeedLoaderRef.current?.dispatchEvent(ev);
   }
 
-  return { state: logFeedState, play, pause, skipForward, query };
+  return {
+    state: logFeedState,
+    play,
+    pause,
+    skipForward,
+    query,
+  };
 }
 
 /**
@@ -435,6 +441,7 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
   const { namespace, name } = pod.metadata;
   const { logFeedState } = useContext(Context);
   const lastTSRef = useRef<string>();
+  const startTSRef = useRef<string>();
 
   const upgradeRecord = (record: GraphQLLogRecord) => {
     return { ...record, node, pod, container };
@@ -465,6 +472,9 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
 
     // only execute when playing
     if (!(logFeedState === LogFeedState.Playing)) return;
+
+    // update startTS
+    startTSRef.current = (new Date()).toISOString();
 
     const variables = { namespace, name, container } as any;
 
@@ -497,7 +507,8 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
     skipForward: async () => {
       const variables = {} as any;
       if (lastTSRef.current) variables.after = lastTSRef.current;
-
+      else variables.after = startTSRef.current;
+      
       const result = await refetch(variables);
       if (!result.data.podLogQuery) return [];
 

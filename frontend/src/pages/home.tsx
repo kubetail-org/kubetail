@@ -385,7 +385,7 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
   );
 };
 
-export default function Home() {
+const Home = () => {
   const [namespace, setNamespace] = useState('');
 
   return (
@@ -414,7 +414,21 @@ export default function Home() {
           <DisplayWorkloads namespace={namespace} />
         </form>
       </main>
-      <ServerStatus />
     </AuthRequired>
+  );
+};
+
+/**
+ * Default component
+ */
+
+export default function Page() {
+  return (
+    <>
+      <Home />
+      <div className="fixed bottom-0 right-0 bg-gray-200 rounded-tl">
+        <ServerStatus />
+      </div>
+    </>
   );
 }

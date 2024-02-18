@@ -35,7 +35,7 @@ const AuthRequired = ({ children = null }: React.PropsWithChildren) => {
 
   // render contents
   if (isValidElement(children)) return children;
-  return <div>{children}</div>;
+  return children;
 };
 
 export default AuthRequired;

@@ -69,16 +69,16 @@ class Duration {
 
   toISOString() {
     switch (this.unit) {
-    case DurationUnit.Minutes:
-      return `PT${this.value}M`;
-    case DurationUnit.Hours:
-      return `PT${this.value}H`;
-    case DurationUnit.Days:
-      return `P${this.value}D`;
-    case DurationUnit.Weeks:
-      return `P${this.value}W`;
-    case DurationUnit.Months:
-      return `P${this.value}M`;
+      case DurationUnit.Minutes:
+        return `PT${this.value}M`;
+      case DurationUnit.Hours:
+        return `PT${this.value}H`;
+      case DurationUnit.Days:
+        return `P${this.value}D`;
+      case DurationUnit.Weeks:
+        return `P${this.value}W`;
+      case DurationUnit.Months:
+        return `P${this.value}M`;
     }
   }
 }
@@ -842,6 +842,39 @@ const DateRangeDropdown = ({ buttonClassName, onChange }: DateRangeDropdownProps
 };
 
 /**
+ * Feed title
+ */
+
+type FeedTitleProps = {
+  since: string;
+  until: string;
+}
+
+const FeedTitle = ({ since, until }: FeedTitleProps) => {
+  const feed = useLogFeed();
+
+  //let sinceMsg = '';
+  let untilMsg = '';
+
+  if (feed.state === LogFeedState.Playing) untilMsg = 'STREAMING'
+  else if (feed.state === LogFeedState.Paused) untilMsg = until;
+
+  return (
+    <div className="flex text-xs items-center">
+      <div className="w-[110px] overflow-hidden border border-gray-200 rounded-sm">
+        <div className="bg-blue-100 text-center cursor-default">since</div>
+        <div>{since}</div>
+      </div>
+      <div className="mx-2">-</div>
+      <div className="w-[110px] overflow-hidden border border-gray-200 rounded-sm">
+        <div className=" bg-blue-100 text-center cursor-default">until</div>
+        <div className="pl-1">{untilMsg}</div>
+      </div>
+    </div>
+  );
+};
+
+/**
  * Header component
  */
 
@@ -850,11 +883,10 @@ type HeaderProps = {
 }
 
 const Header = (props: HeaderProps) => {
-  const [title, setTitle] = useState('');
+  const [since, setSince] = useState((new Date()).toISOString());
+  const [until, setUntil] = useState('');
 
   const feed = useLogFeed();
-
-  const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-gray-200 disabled:opacity-30';
 
   const clearConsole = () => {
     const el = props.contentElRef.current;
@@ -864,14 +896,31 @@ const Header = (props: HeaderProps) => {
   const handleDateRangeDropdownChange = (args: LogFeedQueryOptions) => {
     clearConsole();
     feed.query(args);
-    setTitle(`${args.since} - ${args.until}`);
+    const now = (new Date()).toISOString();
+    setSince(args.since || now);
+    setUntil(args.until || now);
   };
 
   const handlePlayPress = () => {
-    if (feed.state === LogFeedState.InQuery) clearConsole();
+    if (feed.state === LogFeedState.InQuery) {
+      clearConsole();
+      setSince((new Date()).toISOString());
+    }
     feed.play();
-    setTitle('');
+    setUntil('');
   };
+
+  const handlePausePress = () => {
+    feed.pause();
+    setUntil((new Date()).toISOString());
+  }
+
+  const handleSkipForwardPress = () => {
+    feed.skipForward();
+    setUntil((new Date()).toISOString());
+  }
+
+  const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-gray-200 disabled:opacity-30';
 
   return (
     <div className="flex justify-between items-center h-[55px]">
@@ -885,7 +934,7 @@ const Header = (props: HeaderProps) => {
             <button
               className={buttonCN}
               title="Pause"
-              onClick={feed.pause}
+              onClick={handlePausePress}
             >
               <PauseIcon size={24} strokeWidth={1.5} />
             </button>
@@ -901,15 +950,21 @@ const Header = (props: HeaderProps) => {
           <button
             className={cn(buttonCN)}
             title="Update feed"
-            onClick={feed.skipForward}
+            onClick={handleSkipForwardPress}
             disabled={feed.state !== LogFeedState.Paused}
           >
             <SkipForwardIcon size={26} strokeWidth={1.5} />
           </button>
         </div>
       </div>
-      <div>{title}</div>
-      <div className="h-full flex flex-col justify-end">
+      <div>
+        <FeedTitle since={since} until={until} />
+      </div>
+      <div className="h-full flex flex-col justify-between items-end">
+        <Form.Select className="text-xs h-[20px] py-0 mr-1" defaultValue="UTC">
+          <Form.Option value="UTC">UTC</Form.Option>
+          <Form.Option value="local">Local</Form.Option>
+        </Form.Select>
         <SettingsButton />
       </div>
     </div>
@@ -950,7 +1005,7 @@ const LoadingMessage = () => {
  * Default component
  */
 
-export default function Console() {
+const Console = () => {
   const [searchParams] = useSearchParams();
   const contentWrapperElRef = useRef<HTMLDivElement | null>(null);
   const contentElRef = useRef<HTMLTableSectionElement | null>(null);
@@ -1052,52 +1107,70 @@ export default function Console() {
         sourcePaths={searchParams.getAll('source')}
         onRecord={handleOnRecord}
       >
-        <LoadingMessage />
-        <div
-          className="fixed bg-gray-100 h-screen overflow-x-hidden"
-          style={{ width: `${sidebarWidth}px` }}
-        >
-          <Sidebar />
-        </div>
-        <div
-          className="fixed bg-gray-300 w-[4px] h-screen border-l-2 border-gray-100 cursor-ew-resize"
-          style={{ left: `${sidebarWidth}px` }}
-          onMouseDown={handleDrag}
-        />
-        <main className="h-screen overflow-hidden" style={{ marginLeft: `${sidebarWidth + 4}px` }}>
-          <div className="flex flex-col h-full">
-            <div className="bg-gray-100 border-b border-gray-300">
-              <Header contentElRef={contentElRef} />
-            </div>
-            <div
-              ref={contentWrapperElRef}
-              className="flex-grow overflow-auto"
-              onScroll={handleContentScroll}
-            >
-              <table className="w-full">
-                <thead className="text-xs uppercase">
-                  <tr>
-                    <td className={cn(tdCN, 'col_timestamp')}>Timestamp</td>
-                    <td className={cn(tdCN, 'col_podcontainer')}>Pod/Container</td>
-                    <td className={cn(tdCN, 'col_region')}>Region</td>
-                    <td className={cn(tdCN, 'col_zone')}>Zone</td>
-                    <td className={cn(tdCN, 'col_os')}>OS</td>
-                    <td className={cn(tdCN, 'col_arch')}>Arch</td>
-                    <td className={cn(tdCN, 'col_node')}>Node</td>
-                    <td className={cn(tdCN, 'col_message')}>Message</td>
-                  </tr>
-                </thead>
-                <tbody
-                  ref={contentElRef}
-                  id="log-records"
-                  className="text-xs font-mono [&>tr:nth-child(even)]:bg-gray-100 [&_td]:px-2 [&_td]:py-1 text-gray-600"
-                />
-              </table>
-            </div>
+        <div className="relative h-full border">
+          <LoadingMessage />
+          <div
+            className="absolute bg-gray-100 h-full overflow-x-hidden"
+            style={{ width: `${sidebarWidth}px` }}
+          >
+            <Sidebar />
           </div>
-        </main>
+          <div
+            className="absolute bg-gray-300 w-[4px] h-full border-l-2 border-gray-100 cursor-ew-resize"
+            style={{ left: `${sidebarWidth}px` }}
+            onMouseDown={handleDrag}
+          />
+          <main className="h-full overflow-auto" style={{ marginLeft: `${sidebarWidth + 4}px` }}>
+            <div className="flex flex-col h-full">
+              <div className="bg-gray-100 border-b border-gray-300">
+                <Header contentElRef={contentElRef} />
+              </div>
+              <div
+                ref={contentWrapperElRef}
+                className="flex-grow overflow-auto"
+                onScroll={handleContentScroll}
+              >
+                <table className="w-full">
+                  <thead className="text-xs uppercase">
+                    <tr>
+                      <td className={cn(tdCN, 'col_timestamp')}>Timestamp</td>
+                      <td className={cn(tdCN, 'col_podcontainer')}>Pod/Container</td>
+                      <td className={cn(tdCN, 'col_region')}>Region</td>
+                      <td className={cn(tdCN, 'col_zone')}>Zone</td>
+                      <td className={cn(tdCN, 'col_os')}>OS</td>
+                      <td className={cn(tdCN, 'col_arch')}>Arch</td>
+                      <td className={cn(tdCN, 'col_node')}>Node</td>
+                      <td className={cn(tdCN, 'col_message')}>Message</td>
+                    </tr>
+                  </thead>
+                  <tbody
+                    ref={contentElRef}
+                    id="log-records"
+                    className="text-xs font-mono [&>tr:nth-child(even)]:bg-gray-100 [&_td]:px-2 [&_td]:py-1 text-gray-600"
+                  />
+                </table>
+              </div>
+            </div>
+          </main>
+        </div>
       </LoggingResourcesProvider>
-      <ServerStatus position="upper-right" />
     </AuthRequired>
+  );
+};
+
+/**
+ * Default component
+ */
+
+export default function Page() {
+  return (
+    <>
+      <div className="h-[calc(100vh-23px)] overflow-auto">
+        <Console />
+      </div>
+      <div className="h-[22px] bg-gray-100 border-t border-gray-300 text-sm text-right">
+        <ServerStatus />
+      </div>
+    </>
   );
 }
