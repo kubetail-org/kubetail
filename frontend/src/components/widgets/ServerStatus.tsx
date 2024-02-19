@@ -64,19 +64,17 @@ const statusMessage = (s: ServerStatus, unknownDefault: string): string => {
 }
 
 type ServerStatusProps = {
-  position?: 'lower-right' | 'upper-right';
+  className?: string;
 };
 
-export default ({ position }: ServerStatusProps) => {
+export default ({ className }: ServerStatusProps) => {
   const { status, details } = useServerStatus();
   const [modalIsOpen, setModalIsOpen] = useState(false);
 
-  const positionCN = (position === 'upper-right') ? 'top-0' : 'bottom-0';
-
   return (
-    <>
+    <div className="inline-block">
       <div
-        className={cn(positionCN, 'fixed right-0 px-2 bg-gray-200 rounded-tl flex items-center space-x-1 cursor-pointer')}
+        className={cn('px-2 rounded-tl flex items-center space-x-1 cursor-pointer', className)}
         onClick={() => setModalIsOpen(true)}
       >
         <div className="text-sm">status:</div>
@@ -108,6 +106,6 @@ export default ({ position }: ServerStatusProps) => {
           </DataTable.Body>
         </DataTable>
       </Modal>
-    </>
+    </div>
   );
 };

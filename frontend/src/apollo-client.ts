@@ -148,11 +148,6 @@ export class CustomCache extends InMemoryCache {
             lastSuccessfulTime: dateField,
           },
         },
-        LogRecord: {
-          fields: {
-            timestamp: dateField,
-          },
-        },
         MetaV1ListMeta: {
           fields: {
             remainingItemCount: bigIntField,
@@ -172,8 +167,18 @@ export class CustomCache extends InMemoryCache {
             batchV1CronJobsList: k8sPagination(),
             batchV1JobsList: k8sPagination(),
             coreV1PodsList: k8sPagination(),
+            podLogQuery: {
+              merge: false,
+            },
           },
         },
+        Object: {
+          fields: {
+            metadata: {
+              merge: true,
+            },
+          },
+        }
       },
     });
   }

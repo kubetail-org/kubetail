@@ -13,7 +13,9 @@
 // limitations under the License.
 
 import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
-import { format } from 'date-fns';
+import { addMinutes, addHours, addDays, addWeeks, addMonths, parse, isValid } from 'date-fns';
+import { format, utcToZonedTime } from 'date-fns-tz';
+import type { OptionsWithTZ } from 'date-fns-tz';
 import distinctColors from 'distinct-colors';
 import {
   Pause as PauseIcon,
@@ -22,11 +24,15 @@ import {
   SkipForward as SkipForwardIcon,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { useRef, useState, Fragment } from 'react';
+import { createContext, forwardRef, useImperativeHandle, useRef, useState, Fragment } from 'react';
+import { DateRange } from 'react-day-picker';
 
+import Button from 'kubetail-ui/elements/Button';
+import { Calendar } from 'kubetail-ui/elements/Calendar';
 import Form from 'kubetail-ui/elements/Form';
-import { Popover, PopoverTrigger, PopoverContent } from 'kubetail-ui/elements/Popover';
+import { Popover, PopoverClose, PopoverTrigger, PopoverContent } from 'kubetail-ui/elements/Popover';
 import Spinner from 'kubetail-ui/elements/Spinner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from 'kubetail-ui/elements/Tabs';
 
 import logo from '@/assets/logo.svg';
 import AuthRequired from '@/components/utils/AuthRequired';
@@ -40,10 +46,54 @@ import {
   usePods,
   useWorkloads,
 } from '@/lib/console/logging-resources';
-import type { LogRecord, LRPod } from '@/lib/console/logging-resources';
+import type { LogFeedQueryOptions, LogRecord, LRPod } from '@/lib/console/logging-resources';
 import { Counter, MapSet, cssEncode, intersectSets, getBasename, joinPaths } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
 import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
+
+enum DurationUnit {
+  Minutes = 'minutes',
+  Hours = 'hours',
+  Days = 'days',
+  Weeks = 'weeks',
+  Months = 'moths',
+}
+
+class Duration {
+  value: number;
+  unit: DurationUnit;
+
+  constructor(value: number, unit: DurationUnit) {
+    this.value = value;
+    this.unit = unit;
+  }
+
+  toISOString() {
+    switch (this.unit) {
+      case DurationUnit.Minutes:
+        return `PT${this.value}M`;
+      case DurationUnit.Hours:
+        return `PT${this.value}H`;
+      case DurationUnit.Days:
+        return `P${this.value}D`;
+      case DurationUnit.Weeks:
+        return `P${this.value}W`;
+      case DurationUnit.Months:
+        return `P${this.value}M`;
+    }
+  }
+}
+
+/**
+ * Context object
+ */
+
+type Context = {
+  timezone: string;
+  setTimezone: React.Dispatch<string>;
+};
+
+const Context = createContext<Context>({} as Context);
 
 /**
  * Color helpers
@@ -157,26 +207,6 @@ function useAllowedContainers(): Set<string> | undefined {
 
   return intersectSets(allowedContainerSets);
 }
-
-/**
- * Loading modal component
- */
-
-const LoadingModal = () => (
-  <div className="relative z-10" role="dialog">
-    <div className="fixed inset-0 bg-gray-500 bg-opacity-75"></div>
-    <div className="fixed inset-0 z-10 w-screen">
-      <div className="flex min-h-full items-center justify-center p-0 text-center">
-        <div className="relative transform overflow-hidden rounded-lg bg-white my-8 p-6 text-left shadow-xl">
-          <div className="flex items-center space-x-2">
-            <div>Loading Logs</div>
-            <Spinner size="sm" />
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
 
 /**
  * Sidebar stylesheet
@@ -440,7 +470,11 @@ const Sidebar = () => {
  * Settings button
  */
 
-const SettingsButton = () => {
+type SettingsButtonProps = {
+  className?: string;
+};
+
+const SettingsButton = (props: SettingsButtonProps) => {
   const [checkedCols, setCheckedCols] = useState(new Map<string, boolean>([
     ['region', false],
     ['zone', false],
@@ -455,6 +489,7 @@ const SettingsButton = () => {
   };
 
   const checkboxEls: JSX.Element[] = [];
+
   [
     'Timestamp',
     'Pod/Container',
@@ -496,8 +531,8 @@ const SettingsButton = () => {
     <>
       <StyleEl />
       <Popover>
-        <PopoverTrigger className="p-1">
-          <SettingsIcon size={18} strokeWidth={1.5} />
+        <PopoverTrigger>
+          <SettingsIcon className={cn(props.className)} size={18} strokeWidth={1.5} />
         </PopoverTrigger>
         <PopoverContent
           className="bg-white w-auto mr-1"
@@ -512,57 +547,505 @@ const SettingsButton = () => {
 }
 
 /**
+ * Relative time picker component
+ */
+
+type RelativeTimePickerHandle = {
+  reset: () => void;
+  getValue: () => Duration | undefined;
+};
+
+const RelativeTimePicker = forwardRef<RelativeTimePickerHandle, {}>((_, ref) => {
+  const [durationValue, setDurationValue] = useState('5');
+  const [durationUnit, setDurationUnit] = useState(DurationUnit.Minutes);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const validate = () => {
+    if (durationValue.trim() === '') {
+      setErrorMsg('Please choose a number');
+      return undefined;
+    }
+    return new Duration(Number(durationValue), durationUnit);
+  }
+
+  // define handler api
+  useImperativeHandle(ref, () => ({
+    reset: () => {
+      setDurationValue('5');
+      setDurationUnit(DurationUnit.Minutes);
+    },
+    getValue: validate,
+  }));
+
+  const DurationButton = ({ value, unit }: { value: number; unit: DurationUnit }) => (
+    <Button
+      intent="outline"
+      size="xs"
+      onClick={() => {
+        setDurationValue(value.toString());
+        setDurationUnit(unit);
+      }}
+    >
+      {value}
+    </Button>
+  );
+
+  return (
+    <>
+      <div className="grid grid-cols-6 gap-2 text-sm pt-3 pl-3 pr-3">
+        <div className="flex items-center">Minutes</div>
+        {[5, 10, 15, 30, 45].map(val => (<DurationButton key={val} value={val} unit={DurationUnit.Minutes} />))}
+        <div className="flex items-center">Hours</div>
+        {[1, 2, 3, 6, 12].map(val => (<DurationButton key={val} value={val} unit={DurationUnit.Hours} />))}
+        <div className="flex items-center">Days</div>
+        {[1, 2, 3, 4, 5].map(val => (<DurationButton key={val} value={val} unit={DurationUnit.Days} />))}
+        <div className="flex items-center">Weeks</div>
+        {[1, 2, 3, 4, 5].map(val => (<DurationButton key={val} value={val} unit={DurationUnit.Weeks} />))}
+      </div>
+      <div className="grid grid-cols-2 w-full gap-5 mt-5">
+        <div>
+          <Form.Label>Duration</Form.Label>
+          <Form.Control
+            type="number"
+            min="1"
+            value={durationValue}
+            onChange={ev => setDurationValue(ev.target.value)}
+          />
+          {errorMsg && <Form.Control.Feedback>{errorMsg}</Form.Control.Feedback>}
+        </div>
+        <div>
+          <Form.Label>Unit of time</Form.Label>
+          <Form.Select
+            className="mt-0"
+            value={durationUnit}
+            onChange={ev => setDurationUnit(ev.target.value as DurationUnit)}
+          >
+            <Form.Option value={DurationUnit.Minutes}>Minutes</Form.Option>
+            <Form.Option value={DurationUnit.Hours}>Hours</Form.Option>
+            <Form.Option value={DurationUnit.Days}>Days</Form.Option>
+            <Form.Option value={DurationUnit.Weeks}>Weeks</Form.Option>
+            <Form.Option value={DurationUnit.Months}>Months</Form.Option>
+          </Form.Select>
+        </div>
+      </div>
+    </>
+  );
+});
+
+/**
+ * Absolute time picker component
+ */
+
+type AbsoluteTimePickerHandle = {
+  reset: () => void;
+  getValue: () => DateRange | undefined;
+};
+
+const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, {}>((_, ref) => {
+  const today = new Date;
+  const dateFmt = Intl.DateTimeFormat().resolvedOptions().locale === 'en-US' ? 'MM/dd/yyyy' : 'dd/MM/yyyy';
+
+  const [calendarDateRange, setCalendarDateRange] = useState<DateRange | undefined>({ from: today, to: today });
+
+  const [manualStartDate, setManualStartDate] = useState(format(today, dateFmt));
+  const [manualStartTime, setManualStartTime] = useState('00:00:00');
+
+  const [manualEndDate, setManualEndDate] = useState(format(today, dateFmt));
+  const [manualEndTime, setManualEndTime] = useState('23:59:59');
+
+  const [errorMsgs, setErrorMsgs] = useState(new Map<string, string>());
+
+  const validate = () => {
+    if (!isValid(parse(manualStartDate, dateFmt, new Date()))) errorMsgs.set('startDate', dateFmt)
+    else errorMsgs.delete('startDate');
+
+    if (!isValid(parse(manualStartTime, 'HH:mm:ss', new Date()))) errorMsgs.set('startTime', 'HH:mm:ss')
+    else errorMsgs.delete('startTime');
+
+    if (!isValid(parse(manualEndDate, dateFmt, new Date()))) errorMsgs.set('endDate', dateFmt)
+    else errorMsgs.delete('endDate');
+
+    if (!isValid(parse(manualEndTime, 'HH:mm:ss', new Date()))) errorMsgs.set('endTime', 'HH:mm:ss')
+    else errorMsgs.delete('endTime');
+
+    setErrorMsgs(new Map(errorMsgs));
+
+    // return undefined if validation failed
+    if (errorMsgs.size) return undefined;
+
+    // return parsed DateRange
+    return {
+      from: parse(`${manualStartDate} ${manualStartTime}`, `${dateFmt} HH:mm:ss`, new Date()),
+      to: parse(`${manualEndDate} ${manualEndTime}`, `${dateFmt} HH:mm:ss`, new Date()),
+    };
+  }
+
+  // define handler api
+  useImperativeHandle(ref, () => ({
+    reset: () => {
+      setCalendarDateRange({ from: today, to: today });
+      setManualStartDate(format(today, dateFmt));
+      setManualStartTime('00:00:00');
+      setManualEndDate(format(today, dateFmt));
+      setManualEndTime('23:59:59');
+      setErrorMsgs(new Map<string, string>());
+    },
+    getValue: validate
+  }));
+
+  const handleCalendarSelect = (value: DateRange | undefined) => {
+    if (!value) return;
+    setCalendarDateRange(value);
+    if (value.from) {
+      setManualStartDate(format(value.from, dateFmt))
+      setManualStartTime('00:00:00');
+    }
+    if (value.to) {
+      setManualEndDate(format(value.to, dateFmt))
+      setManualEndTime('23:59:59');
+    }
+    setErrorMsgs(new Map<string, string>());
+  }
+
+  return (
+    <>
+      <Calendar
+        initialFocus
+        mode="range"
+        disabled={{ after: today }}
+        defaultMonth={today && addMonths(today, -1)}
+        selected={calendarDateRange}
+        onSelect={handleCalendarSelect}
+        numberOfMonths={2}
+      />
+      <div className="mt-1 flex px-3 justify-between">
+        <div className="flex space-x-4">
+          <div>
+            <Form.Label>Start date</Form.Label>
+            <Form.Control
+              className="w-[100px]"
+              value={manualStartDate}
+              onChange={ev => setManualStartDate(ev.target.value)}
+            />
+            {errorMsgs.has('startDate') && <Form.Control.Feedback>{errorMsgs.get('startDate')}</Form.Control.Feedback>}
+          </div>
+          <div>
+            <Form.Label>Start time</Form.Label>
+            <Form.Control
+              className="w-[100px]"
+              value={manualStartTime}
+              onChange={ev => setManualStartTime(ev.target.value)}
+            />
+            {errorMsgs.has('startTime') && <Form.Control.Feedback>{errorMsgs.get('startTime')}</Form.Control.Feedback>}
+          </div>
+        </div>
+        <div className="flex space-x-4">
+          <div>
+            <Form.Label>End date</Form.Label>
+            <Form.Control
+              className="w-[100px]"
+              value={manualEndDate}
+              onChange={ev => setManualEndDate(ev.target.value)}
+            />
+            {errorMsgs.has('endDate') && <Form.Control.Feedback>{errorMsgs.get('endDate')}</Form.Control.Feedback>}
+          </div>
+          <div>
+            <Form.Label>End time</Form.Label>
+            <Form.Control
+              className="w-[100px]"
+              value={manualEndTime}
+              onChange={ev => setManualEndTime(ev.target.value)}
+            />
+            {errorMsgs.has('endTime') && <Form.Control.Feedback>{errorMsgs.get('endTime')}</Form.Control.Feedback>}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+});
+
+/**
+ * Date range dropdown component
+ */
+
+type DateRangeDropdownOnChangeArgs = {
+  since?: Date | Duration;
+  until?: Date;
+}
+
+interface DateRangeDropdownProps extends React.PropsWithChildren {
+  onChange: (args: DateRangeDropdownOnChangeArgs) => void;
+}
+
+const DateRangeDropdown = ({ children, onChange }: DateRangeDropdownProps) => {
+  const [tabValue, setTabValue] = useState('relative');
+
+  const cancelButtonRef = useRef<HTMLButtonElement>();
+  const relativePickerRef = useRef<RelativeTimePickerHandle>(null);
+  const absolutePickerRef = useRef<AbsoluteTimePickerHandle>(null);
+
+  const closePopover = () => {
+    cancelButtonRef.current?.click();
+  };
+
+  const handleClear = () => {
+    if (tabValue === 'relative') relativePickerRef.current?.reset();
+    else if (tabValue === 'absolute') absolutePickerRef.current?.reset();
+  };
+
+  const handleApply = () => {
+    const args: DateRangeDropdownOnChangeArgs = {};
+
+    if (tabValue === 'relative') {
+      const val = relativePickerRef.current?.getValue();
+      if (!val) return;
+      args.since = val;
+    } else {
+      const val = absolutePickerRef.current?.getValue();
+      if (!val) return;
+      if (val.from) args.since = val.from;
+      if (val.to) args.until = val.to;
+    }
+
+    // close popover and call onChange handler
+    closePopover();
+    onChange(args);
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        {children}
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-auto p-0 bg-white"
+        align="center"
+      >
+        <Tabs
+          className="w-[565px] p-3"
+          defaultValue={tabValue}
+          onValueChange={(value) => setTabValue(value)}
+        >
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="relative">Relative</TabsTrigger>
+            <TabsTrigger value="absolute">Absolute</TabsTrigger>
+          </TabsList>
+          <TabsContent value="relative">
+            <RelativeTimePicker ref={relativePickerRef} />
+          </TabsContent>
+          <TabsContent value="absolute">
+            <AbsoluteTimePicker ref={absolutePickerRef} />
+          </TabsContent>
+        </Tabs>
+        <div className="flex justify-between mt-4 p-3 border-t">
+          <Button intent="outline" size="sm" onClick={handleClear}>Clear</Button>
+          <div className="flex space-x-2">
+            <PopoverClose asChild>
+              <Button ref={cancelButtonRef} intent="ghost" size="sm">Cancel</Button>
+            </PopoverClose>
+            <Button intent="primary" size="sm" onClick={handleApply}>Apply</Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+/**
+ * Feed title
+ */
+
+type FeedTitleProps = {
+  since: Date | Duration;
+  until: Date | null;
+}
+
+const FeedTitle = ({ since, until }: FeedTitleProps) => {
+  const feed = useLogFeed();
+  const dateFmt = 'LLL dd, y HH:mm:ss';
+  const dateOpts: OptionsWithTZ = { timeZone: 'UTC' };
+
+  const now = utcToZonedTime(new Date(), 'UTC');
+
+  let sinceMsg = '';
+  let untilMsg = '';
+
+  if (since instanceof Date) {
+    since = utcToZonedTime(since, 'UTC');
+    sinceMsg = format(since, dateFmt, dateOpts) + ' UTC';
+  } else if (since instanceof Duration) {
+    let ts = utcToZonedTime(new Date(now), 'UTC');
+    if (since.unit === DurationUnit.Minutes) ts = addMinutes(now, -1 * since.value);
+    else if (since.unit === DurationUnit.Hours) ts = addHours(now, -1 * since.value);
+    else if (since.unit === DurationUnit.Days) ts = addDays(now, -1 * since.value);
+    else if (since.unit === DurationUnit.Weeks) ts = addWeeks(now, -1 * since.value);
+    else if (since.unit === DurationUnit.Months) ts = addMonths(now, -1 * since.value);
+    sinceMsg = format(ts, dateFmt) + ' UTC';
+  }
+
+  if (feed.state === LogFeedState.Playing) {
+    untilMsg = 'Streaming'
+  } else if (feed.state === LogFeedState.Paused) {
+    untilMsg = `${format(now, dateFmt)} UTC`;
+  } else if (until) {
+    until = utcToZonedTime(until, 'UTC');
+    untilMsg = format(until, dateFmt) + ' UTC';
+  }
+
+  return (
+    <div className="flex text-xs text-primary font-medium">
+      <div className="w-[150px] text-right">{sinceMsg}</div>
+      <div className="px-2">-</div>
+      <div className="w-[150px] text-left">{untilMsg}</div>
+    </div>
+  );
+};
+
+/**
  * Header component
  */
 
-const Header = () => {
+type HeaderProps = {
+  contentElRef: React.RefObject<HTMLTableSectionElement>;
+}
+
+const Header = (props: HeaderProps) => {
+  const [since, setSince] = useState<Date | Duration>(new Date());
+  const [until, setUntil] = useState<Date | null>(null);
+
   const feed = useLogFeed();
+
+  const clearConsole = () => {
+    const el = props.contentElRef.current;
+    while (el?.firstChild) el.removeChild(el.firstChild);
+  };
+
+  const handleDateRangeDropdownChange = (args: DateRangeDropdownOnChangeArgs) => {
+    clearConsole();
+
+    const opts: LogFeedQueryOptions = {};
+    opts.since = (args.since) ? args.since.toISOString() : undefined;
+    opts.until = (args.until) ? args.until.toISOString() : undefined;
+    feed.query(opts);
+
+    const now = new Date();
+    setSince(args.since || now);
+    setUntil(args.until || now);
+  };
+
+  const handlePlayPress = () => {
+    if (feed.state === LogFeedState.InQuery) {
+      clearConsole();
+      setSince(new Date());
+    }
+    feed.play();
+    setUntil(null);
+  };
+
+  const handlePausePress = () => {
+    feed.pause();
+    setUntil(new Date());
+  }
+
+  const handleSkipForwardPress = () => {
+    feed.skipForward();
+    setUntil(new Date());
+  }
 
   const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-gray-200 disabled:opacity-30';
 
   return (
-    <div className="flex justify-between items-end">
-      <div className="flex p-2 justify-start space-x-1">
-        <div className="flex">
-          {feed.state === LogFeedState.Playing ? (
-            <button
-              className={buttonCN}
-              title="Pause"
-              onClick={feed.pause}
-            >
-              <PauseIcon size={24} strokeWidth={1.5} />
-            </button>
-          ) : (
-            <button
-              className={buttonCN}
-              title="Play"
-              onClick={feed.play}
-            >
-              <PlayIcon size={24} strokeWidth={1.5} />
-            </button>
-          )}
+    <div className="grid grid-cols-3 p-1">
+      <div className="flex px-2 justify-left">
+        {/**/}
+        {feed.state === LogFeedState.Playing ? (
           <button
-            className={cn(buttonCN)}
-            title="Update feed"
-            onClick={feed.skipForward}
-            disabled={feed.state !== LogFeedState.Paused}
+            className={buttonCN}
+            title="Pause"
+            onClick={handlePausePress}
           >
-            <SkipForwardIcon size={26} strokeWidth={1.5} />
+            <PauseIcon size={24} strokeWidth={1.5} />
           </button>
-        </div>
+        ) : (
+          <button
+            className={buttonCN}
+            title="Play"
+            onClick={handlePlayPress}
+          >
+            <PlayIcon size={24} strokeWidth={1.5} />
+          </button>
+        )}
+        <button
+          className={cn(buttonCN)}
+          title="Update feed"
+          onClick={handleSkipForwardPress}
+          disabled={feed.state !== LogFeedState.Paused}
+        >
+          <SkipForwardIcon size={26} strokeWidth={1.5} />
+        </button>
       </div>
-      <SettingsButton />
+      <div className="flex justify-center items-center">
+        <DateRangeDropdown
+          onChange={handleDateRangeDropdownChange}
+        >
+          <button className="cursor-pointer bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded">
+            <FeedTitle since={since} until={until} />
+          </button>
+        </DateRangeDropdown>
+      </div>
+      <div className="h-full flex flex-col justify-end items-end">
+        {/*
+        <Form.Select
+          className="text-xs h-[20px] py-0 mt-0 w-auto"
+          value={timezone}
+          onChange={(ev) => setTimezone(ev.target.value)}
+        >
+          <Form.Option value="utc">UTC</Form.Option>
+          <Form.Option value="local">Local</Form.Option>
+        </Form.Select>
+        */}
+        <SettingsButton />
+      </div>
     </div>
   );
+};
+
+/**
+ * Loading message component
+ */
+
+const LoadingMessage = () => {
+  /*
+  const nodes = useNodes();
+  const workloads = useWorkloads();
+  const pods = usePods();
+
+  if (nodes.fetching || workloads.loading || pods.loading) {
+    return (
+      <div className="relative z-10" role="dialog">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75"></div>
+        <div className="fixed inset-0 z-10 w-screen">
+          <div className="flex min-h-full items-center justify-center p-0 text-center">
+            <div className="relative transform overflow-hidden rounded-lg bg-white my-8 p-6 text-left shadow-xl">
+              <div className="flex items-center space-x-2">
+                <div>Loading Resources</div>
+                <Spinner size="sm" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }*/
+  return <></>;
 };
 
 /**
  * Default component
  */
 
-export default function Console() {
+const Console = () => {
   const [searchParams] = useSearchParams();
-  const [isLoading, setIsLoading] = useState(Boolean(searchParams.getAll('source').length));
   const contentWrapperElRef = useRef<HTMLDivElement | null>(null);
   const contentElRef = useRef<HTMLTableSectionElement | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(300);
@@ -604,7 +1087,9 @@ export default function Console() {
 
     const tsEl = document.createElement('td');
     tsEl.className = cn(tdCN, 'bg-gray-200 col_timestamp');
-    tsEl.innerHTML = format(record.timestamp, 'LLL dd, y HH:mm:ss.SSS');
+
+    const tsWithTZ = utcToZonedTime(record.timestamp, 'UTC');
+    tsEl.innerHTML = format(tsWithTZ, 'LLL dd, y HH:mm:ss.SSS', { timeZone: 'UTC' });
     rowEl.appendChild(tsEl);
 
     [
@@ -658,28 +1143,27 @@ export default function Console() {
   const tdCN = 'sticky top-0 bg-gray-200 pl-2 outline outline-[1px] outline-offset-0 outline-gray-300';
 
   return (
-    <AuthRequired>
-      {isLoading && <LoadingModal />}
-      <LoggingResourcesProvider
-        sourcePaths={searchParams.getAll('source')}
-        onRecord={handleOnRecord}
-        onReady={() => setIsLoading(false)}
-      >
+    <LoggingResourcesProvider
+      sourcePaths={searchParams.getAll('source')}
+      onRecord={handleOnRecord}
+    >
+      <div className="relative h-full border">
+        <LoadingMessage />
         <div
-          className="fixed bg-gray-100 h-screen overflow-x-hidden"
+          className="absolute bg-gray-100 h-full overflow-x-hidden"
           style={{ width: `${sidebarWidth}px` }}
         >
           <Sidebar />
         </div>
         <div
-          className="fixed bg-gray-300 w-[4px] h-screen border-l-2 border-gray-100 cursor-ew-resize"
+          className="absolute bg-gray-300 w-[4px] h-full border-l-2 border-gray-100 cursor-ew-resize"
           style={{ left: `${sidebarWidth}px` }}
           onMouseDown={handleDrag}
         />
-        <main className="h-screen overflow-hidden" style={{ marginLeft: `${sidebarWidth + 4}px` }}>
+        <main className="h-full overflow-auto" style={{ marginLeft: `${sidebarWidth + 4}px` }}>
           <div className="flex flex-col h-full">
             <div className="bg-gray-100 border-b border-gray-300">
-              <Header />
+              <Header contentElRef={contentElRef} />
             </div>
             <div
               ref={contentWrapperElRef}
@@ -699,13 +1183,37 @@ export default function Console() {
                     <td className={cn(tdCN, 'col_message')}>Message</td>
                   </tr>
                 </thead>
-                <tbody ref={contentElRef} className="text-xs font-mono [&>tr:nth-child(even)]:bg-gray-100 [&_td]:px-2 [&_td]:py-1 text-gray-600" />
+                <tbody
+                  ref={contentElRef}
+                  id="log-records"
+                  className="text-xs font-mono [&>tr:nth-child(even)]:bg-gray-100 [&_td]:px-2 [&_td]:py-1 text-gray-600"
+                />
               </table>
             </div>
           </div>
         </main>
-      </LoggingResourcesProvider>
-      <ServerStatus position="upper-right" />
+      </div>
+    </LoggingResourcesProvider>
+  );
+};
+
+/**
+ * Default component
+ */
+
+export default function Page() {
+  const [timezone, setTimezone] = useState('utc');
+
+  return (
+    <AuthRequired>
+      <Context.Provider value={{ timezone, setTimezone }}>
+        <div className="h-[calc(100vh-23px)] overflow-auto">
+          <Console />
+        </div>
+        <div className="h-[22px] bg-gray-100 border-t border-gray-300 text-sm text-right">
+          <ServerStatus />
+        </div>
+      </Context.Provider>
     </AuthRequired>
   );
 }

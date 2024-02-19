@@ -385,11 +385,11 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
   );
 };
 
-export default function Home() {
+const Home = () => {
   const [namespace, setNamespace] = useState('');
 
   return (
-    <AuthRequired>
+    <>
       <div className="px-[10px] py-[5px] flex items-center justify-between border-b-[1px] border-gray-300 bg-gray-100">
         <a href="/">
           <img src={joinPaths(getBasename(), logo)} alt="logo" className="display-block h-[31.4167px]" />
@@ -414,7 +414,21 @@ export default function Home() {
           <DisplayWorkloads namespace={namespace} />
         </form>
       </main>
-      <ServerStatus />
+    </>
+  );
+};
+
+/**
+ * Default component
+ */
+
+export default function Page() {
+  return (
+    <AuthRequired>
+      <Home />
+      <div className="fixed bottom-0 right-0 bg-gray-200 rounded-tl">
+        <ServerStatus />
+      </div>
     </AuthRequired>
   );
 }

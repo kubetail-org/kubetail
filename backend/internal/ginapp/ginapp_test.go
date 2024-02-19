@@ -280,19 +280,6 @@ func TestHealthz(t *testing.T) {
 	assert.Equal(t, "{\"status\":\"ok\"}", w.Body.String())
 }
 
-func TestGraphQLPlayground(t *testing.T) {
-	app := NewTestApp(nil)
-
-	// check url
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/graphiql", nil)
-	app.ServeHTTP(w, r)
-
-	// check result
-	res := w.Result()
-	assert.Equal(t, http.StatusOK, res.StatusCode)
-}
-
 func TestWraponce(t *testing.T) {
 	app := NewTestApp(nil)
 

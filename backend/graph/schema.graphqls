@@ -618,7 +618,7 @@ type Query {
     name: String!,
     container: String,
     after: String,
-    since: String,
+    since: String = "BEGINNING",
     until: String = "NOW",
     limit: Int @validate(rule: "gt=0", message: "Value must be greater than 0")
   ): [LogRecord!] @nullIfValidationFailed
@@ -678,7 +678,7 @@ type Subscription {
     """
     Returns log records that came until the specified option (e.g. "NOW", "PT1M", "2006-01-03T15:04:05Z07:00")
     """
-    until: String
+    until: String = "FOREVER"
 
     """
     Close the subscription after _n_ records are returned.

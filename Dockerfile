@@ -40,7 +40,7 @@ WORKDIR /frontend
 
 # enable pnpm
 RUN corepack enable
-RUN corepack prepare pnpm@8.15.1 --activate
+RUN corepack prepare pnpm@8.15.3 --activate
 
 # set up git+ssh for private package download from github
 RUN apk add git openssh-client

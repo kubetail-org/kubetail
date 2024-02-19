@@ -33,21 +33,18 @@ export interface LogRecord extends GraphQLLogRecord {
   container: string;
 };
 
-type LogRecordsClientQueryOptions = {
-  since?: string;
-  until?: string;
-};
-
-interface LogRecordsClientSubscriptionOptions extends LogRecordsClientQueryOptions {
-  onRecord?: (record: LogRecord) => void;
-};
-
 type OnRecordCallbackFunction = (record: LogRecord) => void;
 
 export enum LogFeedState {
   Playing = 'PLAYING',
   Paused = 'PAUSED',
+  InQuery = 'IN_QUERY',
 }
+
+export type LogFeedQueryOptions = {
+  since?: string;
+  until?: string;
+};
 
 /**
  * Context object
@@ -69,15 +66,11 @@ type PodMapValue = {
 
 type PodMap = Map<string, PodMapValue>;
 
-type JobMap = Map<number, LogRecordsClientSubscriptionOptions>;
-
 type Context = {
   workloadMap: WorkloadMap;
   setWorkloadMap: React.Dispatch<WorkloadMap>;
   podMap: PodMap;
   setPodMap: React.Dispatch<PodMap>;
-  jobMap: JobMap;
-  setJobMap: React.Dispatch<JobMap>;
   logFeedState: LogFeedState;
   setLogFeedState: React.Dispatch<LogFeedState>;
   logFeedLoaderRef: React.RefObject<HTMLDivElement>;
@@ -412,7 +405,18 @@ export function useLogFeed() {
     logFeedLoaderRef.current?.dispatchEvent(ev);
   }
 
-  return { state: logFeedState, play, pause, skipForward };
+  const query = (args: LogFeedQueryOptions) => {
+    const ev = new CustomEvent<LogFeedQueryOptions>('query', { detail: args });
+    logFeedLoaderRef.current?.dispatchEvent(ev);
+  }
+
+  return {
+    state: logFeedState,
+    play,
+    pause,
+    skipForward,
+    query,
+  };
 }
 
 /**
@@ -429,6 +433,7 @@ type LogFeedRecordFetcherProps = {
 
 type LogFeedRecordFetcherHandle = {
   skipForward: () => Promise<LogRecord[]>;
+  query: (opts: LogFeedQueryOptions) => Promise<LogRecord[]>;
 };
 
 const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetcherHandle, LogFeedRecordFetcherProps> = (props, ref) => {
@@ -436,6 +441,7 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
   const { namespace, name } = pod.metadata;
   const { logFeedState } = useContext(Context);
   const lastTSRef = useRef<string>();
+  const startTSRef = useRef<string>();
 
   const upgradeRecord = (record: GraphQLLogRecord) => {
     return { ...record, node, pod, container };
@@ -445,6 +451,7 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
   const { loading, data, subscribeToMore, refetch } = useQuery(ops.QUERY_CONTAINER_LOG, {
     variables: { namespace, name, container },
     fetchPolicy: 'no-cache',
+    skip: true,  // we'll use refetch() and subscribeToMmore() instead
     onCompleted: (data) => {
       if (!data?.podLogQuery) return;
       // execute callback
@@ -466,11 +473,14 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
     // only execute when playing
     if (!(logFeedState === LogFeedState.Playing)) return;
 
+    // update startTS
+    startTSRef.current = (new Date()).toISOString();
+
     const variables = { namespace, name, container } as any;
 
     // implement `after`
     if (lastTSRef.current) variables.after = lastTSRef.current;
-    else variables.since = '';
+    else variables.since = 'NOW';
 
     return subscribeToMore({
       document: ops.TAIL_CONTAINER_LOG,
@@ -497,7 +507,8 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
     skipForward: async () => {
       const variables = {} as any;
       if (lastTSRef.current) variables.after = lastTSRef.current;
-
+      else variables.after = startTSRef.current;
+      
       const result = await refetch(variables);
       if (!result.data.podLogQuery) return [];
 
@@ -506,6 +517,22 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
 
       // update lastTS
       if (records.length) lastTSRef.current = records[records.length - 1].timestamp;
+
+      // return records
+      return records;
+    },
+    query: async (opts: LogFeedQueryOptions) => {
+      const result = await refetch(opts);
+      if (!result.data.podLogQuery) return [];
+
+      // upgrade records
+      const records = result.data.podLogQuery.map(record => upgradeRecord(record));
+
+      // update lastTS
+      if (!opts.until) {
+        if (records.length) lastTSRef.current = records[records.length - 1].timestamp;
+        else lastTSRef.current = undefined;
+      }
 
       // return records
       return records;
@@ -523,21 +550,17 @@ const LogFeedDataFetcher = forwardRef(LogFeedDataFetcherImpl);
 
 type LogFeedLoaderProps = {
   onRecord?: OnRecordCallbackFunction;
-  onReady?: () => void;
 };
 
 const LogFeedLoader = forwardRef((
   {
     onRecord,
-    onReady,
   }: LogFeedLoaderProps,
   ref: React.Ref<HTMLDivElement | null>,
 ) => {
   const nodes = useNodes();
-  const { loading, pods } = usePods();
+  const pods = usePods();
   const { setLogFeedState } = useContext(Context);
-  const trackerRef = useRef(new Map<string, boolean>());
-  const bufferRef = useRef(new Array<LogRecord>());
   const childRefs = useRef(new Array<React.RefObject<LogFeedRecordFetcherHandle>>());
 
   const wrapperElRef = useRef<HTMLDivElement>(null);
@@ -548,12 +571,15 @@ const LogFeedLoader = forwardRef((
     const wrapperEl = wrapperElRef.current;
     if (!wrapperEl) return;
 
+    // play
     const playFn = () => setLogFeedState(LogFeedState.Playing);
     wrapperEl.addEventListener('play', playFn);
 
+    // pause
     const pauseFn = () => setLogFeedState(LogFeedState.Paused);
     wrapperEl.addEventListener('pause', pauseFn);
 
+    // skip-forward
     const skipForwardFn = async () => {
       const promises = Array<Promise<LogRecord[]>>();
       const records = Array<LogRecord>();
@@ -572,38 +598,47 @@ const LogFeedLoader = forwardRef((
     };
     wrapperEl.addEventListener('skipForward', skipForwardFn);
 
+    // query
+    const queryFn = async (ev: Event) => {
+      const opts = (ev as CustomEvent<LogFeedQueryOptions>).detail;
+
+      if (opts.until) {
+        setLogFeedState(LogFeedState.InQuery);
+      } else {
+        setLogFeedState(LogFeedState.Paused);
+      }
+
+      const promises = Array<Promise<LogRecord[]>>();
+      const records = Array<LogRecord>();
+
+      // trigger query in children
+      childRefs.current.forEach(childRef => {
+        childRef.current && promises.push(childRef.current.query(opts));
+      });
+
+      // gather and sort results
+      (await Promise.all(promises)).forEach(result => records.push(...result));
+      records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+      // execute callback
+      onRecord && records.forEach(record => onRecord(record));
+    };
+    wrapperEl.addEventListener('query', queryFn);
+
     // cleanup
     return () => {
       wrapperEl.removeEventListener('play', playFn);
       wrapperEl.removeEventListener('pause', pauseFn);
       wrapperEl.removeEventListener('skipForward', skipForwardFn);
+      wrapperEl.removeEventListener('query', queryFn);
     };
   }, []);
 
   // wait until resources are loaded
-  if (nodes.fetching || loading) return <div ref={wrapperElRef} />;
-
-  const isOnLoadPending = (tracker: Map<string, boolean>) => {
-    return Array.from(tracker.values()).some(val => val === false);
-  }
-
-  // handlers
-  const handleOnLoad = (key: string, records: LogRecord[]) => {
-    if (!trackerRef.current.get(key)) bufferRef.current.push(...records);
-    trackerRef.current.set(key, true);
-    if (!isOnLoadPending(trackerRef.current)) {
-      bufferRef.current.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-      onRecord && bufferRef.current.forEach(record => onRecord(record));
-      bufferRef.current = [];
-      
-      // execute callback
-      onReady && onReady();
-    }
-  };
+  if (nodes.fetching || pods.loading) return <div ref={wrapperElRef} />;
 
   const handleOnUpdate = (record: LogRecord) => {
-    if (isOnLoadPending(trackerRef.current)) bufferRef.current.push(record);
-    else onRecord && onRecord(record);
+    onRecord && onRecord(record);
   };
 
   // only load containers from nodes that we have a record of
@@ -612,14 +647,11 @@ const LogFeedLoader = forwardRef((
   const els: JSX.Element[] = [];
   const refs: React.RefObject<LogFeedRecordFetcherHandle>[] = [];
 
-  pods.forEach(pod => {
+  pods.pods.forEach(pod => {
     pod.status.containerStatuses.forEach(status => {
       const node = nodeMap.get(pod.spec.nodeName);
       if (status.started && node) {
         const k = `${pod.metadata.namespace}/${pod.metadata.name}/${status.name}`;
-
-        // set tracker default
-        if (!trackerRef.current.has(k)) trackerRef.current.set(k, false);
 
         const ref = createRef<LogFeedRecordFetcherHandle>();
         refs.push(ref);
@@ -631,7 +663,7 @@ const LogFeedLoader = forwardRef((
             node={node}
             pod={pod}
             container={status.name}
-            onLoad={(records) => handleOnLoad(k, records)}
+            onLoad={(records) => console.log(records)}
             onUpdate={handleOnUpdate}
           />
         );
@@ -723,18 +755,15 @@ export function usePods() {
 interface LoggingResourcesProviderProps extends React.PropsWithChildren {
   sourcePaths: string[];
   onRecord?: OnRecordCallbackFunction;
-  onReady?: () => void;
 };
 
 export const LoggingResourcesProvider = ({
   sourcePaths,
   onRecord,
-  onReady,
   children,
 }: LoggingResourcesProviderProps) => {
   const [workloadMap, setWorkloadMap] = useState<WorkloadMap>(new Map());
   const [podMap, setPodMap] = useState<PodMap>(new Map());
-  const [jobMap, setJobMap] = useState<JobMap>(new Map());
   const [logFeedState, setLogFeedState] = useState<LogFeedState>(LogFeedState.Playing);
   const logFeedLoaderRef = useRef<HTMLDivElement>(null);
 
@@ -771,8 +800,6 @@ export const LoggingResourcesProvider = ({
     setWorkloadMap,
     podMap,
     setPodMap,
-    jobMap,
-    setJobMap,
     logFeedState,
     setLogFeedState,
     logFeedLoaderRef,
@@ -789,7 +816,6 @@ export const LoggingResourcesProvider = ({
       <LogFeedLoader
         ref={logFeedLoaderRef}
         onRecord={onRecord}
-        onReady={onReady}
       />
       {children}
     </Context.Provider>

@@ -32,7 +32,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 
-	"github.com/kubetail-org/kubetail/graph/lib"
 	"github.com/kubetail-org/kubetail/graph/model"
 )
 
@@ -219,17 +218,6 @@ func newLogRecordFromLogLine(logLine string) model.LogRecord {
 	}
 }
 
-func validatePodLogQueryTimeArgs(now time.Time, args ...string) error {
-	for _, arg := range args {
-		if ts, err := time.Parse(time.RFC3339Nano, arg); err == nil {
-			if ts.After(now) {
-				return lib.NewValidationError("custom", "`since` and `until` timestamp values must be in the past")
-			}
-		}
-	}
-	return nil
-}
-
 func tailPodLog(ctx context.Context, clientset kubernetes.Interface, namespace string, name string, container *string, args TailArgs) (<-chan model.LogRecord, error) {
 	// init output channel
 	ch := make(chan model.LogRecord)
@@ -246,7 +234,8 @@ func tailPodLog(ctx context.Context, clientset kubernetes.Interface, namespace s
 	)
 
 	// handle `since`
-	if since := strings.TrimSpace(args.Since); since == "" {
+	since := strings.TrimSpace(args.Since)
+	if strings.ToLower(since) == "beginning" {
 		tailSince = TailSinceBeginning
 	} else if strings.ToLower(since) == "now" {
 		tailSince = TailSinceNow
@@ -270,7 +259,8 @@ func tailPodLog(ctx context.Context, clientset kubernetes.Interface, namespace s
 	}
 
 	// handle `until`
-	if until := strings.TrimSpace(args.Until); until == "" {
+	until := strings.TrimSpace(args.Until)
+	if strings.ToLower(until) == "forever" {
 		tailUntil = TailUntilForever
 	} else if strings.ToLower(until) == "now" {
 		tailUntil = TailUntilTime
