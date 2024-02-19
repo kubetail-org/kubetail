@@ -13,7 +13,9 @@
 // limitations under the License.
 
 import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
-import { addMinutes, addHours, addDays, addWeeks, addMonths, format, parse, isValid } from 'date-fns';
+import { addMinutes, addHours, addDays, addWeeks, addMonths, parse, isValid } from 'date-fns';
+import { format, utcToZonedTime } from 'date-fns-tz';
+import type { OptionsWithTZ } from 'date-fns-tz';
 import distinctColors from 'distinct-colors';
 import {
   Pause as PauseIcon,
@@ -861,29 +863,33 @@ type FeedTitleProps = {
 const FeedTitle = ({ since, until }: FeedTitleProps) => {
   const feed = useLogFeed();
   const dateFmt = 'LLL dd, y HH:mm:ss';
-  const now = new Date();
+  const dateOpts: OptionsWithTZ = { timeZone: 'UTC' };
+
+  const now = utcToZonedTime(new Date(), 'UTC');
 
   let sinceMsg = '';
   let untilMsg = '';
 
   if (since instanceof Date) {
-    sinceMsg = format(since, dateFmt);
+    since = utcToZonedTime(since, 'UTC');
+    sinceMsg = format(since, dateFmt, dateOpts) + ' UTC';
   } else if (since instanceof Duration) {
-    let ts = new Date(now);
+    let ts = utcToZonedTime(new Date(now), 'UTC');
     if (since.unit === DurationUnit.Minutes) ts = addMinutes(now, -1 * since.value);
     else if (since.unit === DurationUnit.Hours) ts = addHours(now, -1 * since.value);
     else if (since.unit === DurationUnit.Days) ts = addDays(now, -1 * since.value);
     else if (since.unit === DurationUnit.Weeks) ts = addWeeks(now, -1 * since.value);
     else if (since.unit === DurationUnit.Months) ts = addMonths(now, -1 * since.value);
-    sinceMsg = format(ts, dateFmt);
+    sinceMsg = format(ts, dateFmt) + ' UTC';
   }
   
   if (feed.state === LogFeedState.Playing) {
     untilMsg = 'Streaming'
   } else if (feed.state === LogFeedState.Paused) {
-    untilMsg = `${format(now, dateFmt)} (Paused)`;
+    untilMsg = `${format(now, dateFmt)} UTC (Paused)`;
   } else if (until) {
-    untilMsg = format(until, dateFmt);
+    until = utcToZonedTime(until, 'UTC');
+    untilMsg = format(until, dateFmt) + ' UTC';
   }
 
   return (
@@ -1089,7 +1095,9 @@ const Console = () => {
 
     const tsEl = document.createElement('td');
     tsEl.className = cn(tdCN, 'bg-gray-200 col_timestamp');
-    tsEl.innerHTML = format(record.timestamp, 'LLL dd, y HH:mm:ss.SSS');
+
+    const tsWithTZ = utcToZonedTime(record.timestamp, 'UTC');
+    tsEl.innerHTML = format(tsWithTZ, 'LLL dd, y HH:mm:ss.SSS', { timeZone: 'UTC' });
     rowEl.appendChild(tsEl);
 
     [
