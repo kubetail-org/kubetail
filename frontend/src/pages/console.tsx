@@ -13,17 +13,16 @@
 // limitations under the License.
 
 import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
-import { addMonths, format, parse, isValid } from 'date-fns';
+import { addMinutes, addHours, addDays, addWeeks, addMonths, format, parse, isValid } from 'date-fns';
 import distinctColors from 'distinct-colors';
 import {
-  History as HistoryIcon,
   Pause as PauseIcon,
   Play as PlayIcon,
   Settings as SettingsIcon,
   SkipForward as SkipForwardIcon,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { forwardRef, useImperativeHandle, useRef, useState, Fragment } from 'react';
+import { createContext, forwardRef, useContext, useImperativeHandle, useRef, useState, Fragment } from 'react';
 import { DateRange } from 'react-day-picker';
 
 import Button from 'kubetail-ui/elements/Button';
@@ -82,6 +81,17 @@ class Duration {
     }
   }
 }
+
+/**
+ * Context object
+ */
+
+type Context = {
+  timezone: string;
+  setTimezone: React.Dispatch<string>;
+};
+
+const Context = createContext<Context>({} as Context);
 
 /**
  * Color helpers
@@ -756,13 +766,16 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, {}>((_, ref) => 
  * Date range dropdown component
  */
 
-type DateRangeDropdownProps = {
-  buttonClassName: string;
-  onChange: (args: LogFeedQueryOptions) => void;
+type DateRangeDropdownOnChangeArgs = {
+  since?: Date | Duration;
+  until?: Date;
 }
 
-const DateRangeDropdown = ({ buttonClassName, onChange }: DateRangeDropdownProps) => {
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+interface DateRangeDropdownProps extends React.PropsWithChildren {
+  onChange: (args: DateRangeDropdownOnChangeArgs) => void;
+}
+
+const DateRangeDropdown = ({ children, onChange }: DateRangeDropdownProps) => {
   const [tabValue, setTabValue] = useState('relative');
 
   const cancelButtonRef = useRef<HTMLButtonElement>();
@@ -779,17 +792,17 @@ const DateRangeDropdown = ({ buttonClassName, onChange }: DateRangeDropdownProps
   };
 
   const handleApply = () => {
-    const args: LogFeedQueryOptions = {};
+    const args: DateRangeDropdownOnChangeArgs = {};
 
     if (tabValue === 'relative') {
       const val = relativePickerRef.current?.getValue();
       if (!val) return;
-      args.since = val.toISOString();
+      args.since = val;
     } else {
       const val = absolutePickerRef.current?.getValue();
       if (!val) return;
-      if (val.from) args.since = val.from.toISOString();
-      if (val.to) args.until = val.to.toISOString();
+      if (val.from) args.since = val.from;
+      if (val.to) args.until = val.to;
     }
 
     // close popover and call onChange handler
@@ -798,14 +811,9 @@ const DateRangeDropdown = ({ buttonClassName, onChange }: DateRangeDropdownProps
   }
 
   return (
-    <Popover onOpenChange={(open) => setIsPopoverOpen(open)}>
+    <Popover>
       <PopoverTrigger asChild>
-        <button
-          className={cn(buttonClassName, isPopoverOpen && 'bg-gray-200')}
-          title="History"
-        >
-          <HistoryIcon size={24} strokeWidth={1.5} />
-        </button>
+        {children}
       </PopoverTrigger>
       <PopoverContent
         className="w-auto p-0 bg-white" align="start"
@@ -846,31 +854,51 @@ const DateRangeDropdown = ({ buttonClassName, onChange }: DateRangeDropdownProps
  */
 
 type FeedTitleProps = {
-  since: string;
-  until: string;
+  since: Date | Duration;
+  until: Date | null;
 }
 
 const FeedTitle = ({ since, until }: FeedTitleProps) => {
   const feed = useLogFeed();
+  const dateFmt = 'LLL dd, y HH:mm:ss';
+  const now = new Date();
 
-  //let sinceMsg = '';
+  let sinceMsg = '';
   let untilMsg = '';
 
-  if (feed.state === LogFeedState.Playing) untilMsg = 'STREAMING'
-  else if (feed.state === LogFeedState.Paused) untilMsg = until;
+  if (since instanceof Date) {
+    sinceMsg = format(since, dateFmt);
+  } else if (since instanceof Duration) {
+    let ts = new Date(now);
+    if (since.unit === DurationUnit.Minutes) ts = addMinutes(now, -1 * since.value);
+    else if (since.unit === DurationUnit.Hours) ts = addHours(now, -1 * since.value);
+    else if (since.unit === DurationUnit.Days) ts = addDays(now, -1 * since.value);
+    else if (since.unit === DurationUnit.Weeks) ts = addWeeks(now, -1 * since.value);
+    else if (since.unit === DurationUnit.Months) ts = addMonths(now, -1 * since.value);
+    sinceMsg = format(ts, dateFmt);
+  }
+  
+  if (feed.state === LogFeedState.Playing) {
+    untilMsg = 'Streaming'
+  } else if (feed.state === LogFeedState.Paused) {
+    untilMsg = `${format(now, dateFmt)} (Paused)`;
+  } else if (until) {
+    untilMsg = format(until, dateFmt);
+  }
 
   return (
-    <div className="flex text-xs items-center">
-      <div className="w-[110px] overflow-hidden border border-gray-200 rounded-sm">
-        <div className="bg-blue-100 text-center cursor-default">since</div>
-        <div>{since}</div>
-      </div>
-      <div className="mx-2">-</div>
-      <div className="w-[110px] overflow-hidden border border-gray-200 rounded-sm">
-        <div className=" bg-blue-100 text-center cursor-default">until</div>
-        <div className="pl-1">{untilMsg}</div>
-      </div>
-    </div>
+    <table className="text-xs text-left">
+      <tbody>
+        <tr>
+          <td>Since:</td>
+          <td className="pl-1">{sinceMsg}</td>
+        </tr>
+        <tr>
+          <td>Until:</td>
+          <td className="pl-1">{untilMsg}</td>
+        </tr>
+      </tbody>
+    </table>
   );
 };
 
@@ -883,8 +911,8 @@ type HeaderProps = {
 }
 
 const Header = (props: HeaderProps) => {
-  const [since, setSince] = useState((new Date()).toISOString());
-  const [until, setUntil] = useState('');
+  const [since, setSince] = useState<Date | Duration>(new Date());
+  const [until, setUntil] = useState<Date | null>(null);
 
   const feed = useLogFeed();
 
@@ -893,10 +921,15 @@ const Header = (props: HeaderProps) => {
     while (el?.firstChild) el.removeChild(el.firstChild);
   };
 
-  const handleDateRangeDropdownChange = (args: LogFeedQueryOptions) => {
+  const handleDateRangeDropdownChange = (args: DateRangeDropdownOnChangeArgs) => {
     clearConsole();
-    feed.query(args);
-    const now = (new Date()).toISOString();
+
+    const opts: LogFeedQueryOptions = {};
+    opts.since = (args.since) ? args.since.toISOString() : undefined;
+    opts.until = (args.until) ? args.until.toISOString() : undefined;
+    feed.query(opts);
+
+    const now = new Date();
     setSince(args.since || now);
     setUntil(args.until || now);
   };
@@ -904,35 +937,38 @@ const Header = (props: HeaderProps) => {
   const handlePlayPress = () => {
     if (feed.state === LogFeedState.InQuery) {
       clearConsole();
-      setSince((new Date()).toISOString());
+      setSince(new Date());
     }
     feed.play();
-    setUntil('');
+    setUntil(null);
   };
 
   const handlePausePress = () => {
     feed.pause();
-    setUntil((new Date()).toISOString());
+    setUntil(new Date());
   }
 
   const handleSkipForwardPress = () => {
     feed.skipForward();
-    setUntil((new Date()).toISOString());
+    setUntil(new Date());
   }
 
   const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-gray-200 disabled:opacity-30';
   /*<div className="flex justify-between items-center h-[55px] p-1">*/
 
   return (
-    <div className="grid grid-cols-3">
-      <div className="flex items-center border border-red-500">
-        <FeedTitle since={since} until={until} />
+    <div className="grid grid-cols-3 p-1">
+      <div className="flex items-center">
+        <DateRangeDropdown
+          onChange={handleDateRangeDropdownChange}
+        >
+          <button className="cursor-pointer bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-sm">
+            <FeedTitle since={since} until={until} />
+          </button>
+        </DateRangeDropdown>
       </div>
-      <div className="flex px-2 justify-center border border-red-500">
-        {/*<DateRangeDropdown
-            buttonClassName={buttonCN}
-            onChange={handleDateRangeDropdownChange}
-          />*/}
+      <div className="flex px-2 justify-center">
+        {/**/}
         {feed.state === LogFeedState.Playing ? (
           <button
             className={buttonCN}
@@ -959,11 +995,17 @@ const Header = (props: HeaderProps) => {
           <SkipForwardIcon size={26} strokeWidth={1.5} />
         </button>
       </div>
-      <div className="h-full flex flex-col justify-between items-end border border-red-500">
-        <Form.Select className="text-xs h-[20px] py-0 mt-0 w-auto" defaultValue="UTC">
-          <Form.Option value="UTC">UTC</Form.Option>
+      <div className="h-full flex flex-col justify-end items-end">
+        {/*
+        <Form.Select
+          className="text-xs h-[20px] py-0 mt-0 w-auto"
+          value={timezone}
+          onChange={(ev) => setTimezone(ev.target.value)}
+        >
+          <Form.Option value="utc">UTC</Form.Option>
           <Form.Option value="local">Local</Form.Option>
         </Form.Select>
+        */}
         <SettingsButton />
       </div>
     </div>
@@ -1162,14 +1204,16 @@ const Console = () => {
  */
 
 export default function Page() {
+  const [timezone, setTimezone] = useState('utc');
+
   return (
-    <>
+    <Context.Provider value={{ timezone, setTimezone }}>
       <div className="h-[calc(100vh-23px)] overflow-auto">
         <Console />
       </div>
       <div className="h-[22px] bg-gray-100 border-t border-gray-300 text-sm text-right">
         <ServerStatus />
       </div>
-    </>
+    </Context.Provider>
   );
 }
