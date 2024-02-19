@@ -24,7 +24,7 @@ import {
   SkipForward as SkipForwardIcon,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { createContext, forwardRef, useContext, useImperativeHandle, useRef, useState, Fragment } from 'react';
+import { createContext, forwardRef, useImperativeHandle, useRef, useState, Fragment } from 'react';
 import { DateRange } from 'react-day-picker';
 
 import Button from 'kubetail-ui/elements/Button';
@@ -818,8 +818,8 @@ const DateRangeDropdown = ({ children, onChange }: DateRangeDropdownProps) => {
         {children}
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto p-0 bg-white" align="start"
-        alignOffset={0}
+        className="w-auto p-0 bg-white"
+        align="center"
       >
         <Tabs
           className="w-[565px] p-3"
@@ -886,25 +886,18 @@ const FeedTitle = ({ since, until }: FeedTitleProps) => {
   if (feed.state === LogFeedState.Playing) {
     untilMsg = 'Streaming'
   } else if (feed.state === LogFeedState.Paused) {
-    untilMsg = `${format(now, dateFmt)} UTC (Paused)`;
+    untilMsg = `${format(now, dateFmt)} UTC`;
   } else if (until) {
     until = utcToZonedTime(until, 'UTC');
     untilMsg = format(until, dateFmt) + ' UTC';
   }
 
   return (
-    <table className="text-xs text-left">
-      <tbody>
-        <tr>
-          <td>Since:</td>
-          <td className="pl-1">{sinceMsg}</td>
-        </tr>
-        <tr>
-          <td>Until:</td>
-          <td className="pl-1">{untilMsg}</td>
-        </tr>
-      </tbody>
-    </table>
+    <div className="flex text-xs text-primary font-medium">
+      <div className="w-[150px] text-right">{sinceMsg}</div>
+      <div className="px-2">-</div>
+      <div className="w-[150px] text-left">{untilMsg}</div>
+    </div>
   );
 };
 
@@ -960,20 +953,10 @@ const Header = (props: HeaderProps) => {
   }
 
   const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-gray-200 disabled:opacity-30';
-  /*<div className="flex justify-between items-center h-[55px] p-1">*/
 
   return (
     <div className="grid grid-cols-3 p-1">
-      <div className="flex items-center">
-        <DateRangeDropdown
-          onChange={handleDateRangeDropdownChange}
-        >
-          <button className="cursor-pointer bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-sm">
-            <FeedTitle since={since} until={until} />
-          </button>
-        </DateRangeDropdown>
-      </div>
-      <div className="flex px-2 justify-center">
+      <div className="flex px-2 justify-left">
         {/**/}
         {feed.state === LogFeedState.Playing ? (
           <button
@@ -1000,6 +983,15 @@ const Header = (props: HeaderProps) => {
         >
           <SkipForwardIcon size={26} strokeWidth={1.5} />
         </button>
+      </div>
+      <div className="flex justify-center items-center">
+        <DateRangeDropdown
+          onChange={handleDateRangeDropdownChange}
+        >
+          <button className="cursor-pointer bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded">
+            <FeedTitle since={since} until={until} />
+          </button>
+        </DateRangeDropdown>
       </div>
       <div className="h-full flex flex-col justify-end items-end">
         {/*
