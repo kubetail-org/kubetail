@@ -519,7 +519,7 @@ const SettingsButton = (props: SettingsButtonProps) => {
     <>
       <StyleEl />
       <Popover>
-        <PopoverTrigger className="p-1">
+        <PopoverTrigger>
           <SettingsIcon className={cn(props.className)} size={18} strokeWidth={1.5} />
         </PopoverTrigger>
         <PopoverContent
@@ -921,47 +921,46 @@ const Header = (props: HeaderProps) => {
   }
 
   const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-gray-200 disabled:opacity-30';
+  /*<div className="flex justify-between items-center h-[55px] p-1">*/
 
   return (
-    <div className="flex justify-between items-center h-[55px]">
-      <div className="flex px-2 justify-start space-x-1">
-        <div className="flex">
-          <DateRangeDropdown
-            buttonClassName={buttonCN}
-            onChange={handleDateRangeDropdownChange}
-          />
-          {feed.state === LogFeedState.Playing ? (
-            <button
-              className={buttonCN}
-              title="Pause"
-              onClick={handlePausePress}
-            >
-              <PauseIcon size={24} strokeWidth={1.5} />
-            </button>
-          ) : (
-            <button
-              className={buttonCN}
-              title="Play"
-              onClick={handlePlayPress}
-            >
-              <PlayIcon size={24} strokeWidth={1.5} />
-            </button>
-          )}
-          <button
-            className={cn(buttonCN)}
-            title="Update feed"
-            onClick={handleSkipForwardPress}
-            disabled={feed.state !== LogFeedState.Paused}
-          >
-            <SkipForwardIcon size={26} strokeWidth={1.5} />
-          </button>
-        </div>
-      </div>
-      <div>
+    <div className="grid grid-cols-3">
+      <div className="flex items-center border border-red-500">
         <FeedTitle since={since} until={until} />
       </div>
-      <div className="h-full flex flex-col justify-between items-end">
-        <Form.Select className="text-xs h-[20px] py-0 mr-1" defaultValue="UTC">
+      <div className="flex px-2 justify-center border border-red-500">
+        {/*<DateRangeDropdown
+            buttonClassName={buttonCN}
+            onChange={handleDateRangeDropdownChange}
+          />*/}
+        {feed.state === LogFeedState.Playing ? (
+          <button
+            className={buttonCN}
+            title="Pause"
+            onClick={handlePausePress}
+          >
+            <PauseIcon size={24} strokeWidth={1.5} />
+          </button>
+        ) : (
+          <button
+            className={buttonCN}
+            title="Play"
+            onClick={handlePlayPress}
+          >
+            <PlayIcon size={24} strokeWidth={1.5} />
+          </button>
+        )}
+        <button
+          className={cn(buttonCN)}
+          title="Update feed"
+          onClick={handleSkipForwardPress}
+          disabled={feed.state !== LogFeedState.Paused}
+        >
+          <SkipForwardIcon size={26} strokeWidth={1.5} />
+        </button>
+      </div>
+      <div className="h-full flex flex-col justify-between items-end border border-red-500">
+        <Form.Select className="text-xs h-[20px] py-0 mt-0 w-auto" defaultValue="UTC">
           <Form.Option value="UTC">UTC</Form.Option>
           <Form.Option value="local">Local</Form.Option>
         </Form.Select>
