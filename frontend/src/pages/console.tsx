@@ -882,7 +882,7 @@ const FeedTitle = ({ since, until }: FeedTitleProps) => {
     else if (since.unit === DurationUnit.Months) ts = addMonths(now, -1 * since.value);
     sinceMsg = format(ts, dateFmt) + ' UTC';
   }
-  
+
   if (feed.state === LogFeedState.Playing) {
     untilMsg = 'Streaming'
   } else if (feed.state === LogFeedState.Paused) {
@@ -1143,59 +1143,57 @@ const Console = () => {
   const tdCN = 'sticky top-0 bg-gray-200 pl-2 outline outline-[1px] outline-offset-0 outline-gray-300';
 
   return (
-    <AuthRequired>
-      <LoggingResourcesProvider
-        sourcePaths={searchParams.getAll('source')}
-        onRecord={handleOnRecord}
-      >
-        <div className="relative h-full border">
-          <LoadingMessage />
-          <div
-            className="absolute bg-gray-100 h-full overflow-x-hidden"
-            style={{ width: `${sidebarWidth}px` }}
-          >
-            <Sidebar />
-          </div>
-          <div
-            className="absolute bg-gray-300 w-[4px] h-full border-l-2 border-gray-100 cursor-ew-resize"
-            style={{ left: `${sidebarWidth}px` }}
-            onMouseDown={handleDrag}
-          />
-          <main className="h-full overflow-auto" style={{ marginLeft: `${sidebarWidth + 4}px` }}>
-            <div className="flex flex-col h-full">
-              <div className="bg-gray-100 border-b border-gray-300">
-                <Header contentElRef={contentElRef} />
-              </div>
-              <div
-                ref={contentWrapperElRef}
-                className="flex-grow overflow-auto"
-                onScroll={handleContentScroll}
-              >
-                <table className="w-full">
-                  <thead className="text-xs uppercase">
-                    <tr>
-                      <td className={cn(tdCN, 'col_timestamp')}>Timestamp</td>
-                      <td className={cn(tdCN, 'col_podcontainer')}>Pod/Container</td>
-                      <td className={cn(tdCN, 'col_region')}>Region</td>
-                      <td className={cn(tdCN, 'col_zone')}>Zone</td>
-                      <td className={cn(tdCN, 'col_os')}>OS</td>
-                      <td className={cn(tdCN, 'col_arch')}>Arch</td>
-                      <td className={cn(tdCN, 'col_node')}>Node</td>
-                      <td className={cn(tdCN, 'col_message')}>Message</td>
-                    </tr>
-                  </thead>
-                  <tbody
-                    ref={contentElRef}
-                    id="log-records"
-                    className="text-xs font-mono [&>tr:nth-child(even)]:bg-gray-100 [&_td]:px-2 [&_td]:py-1 text-gray-600"
-                  />
-                </table>
-              </div>
-            </div>
-          </main>
+    <LoggingResourcesProvider
+      sourcePaths={searchParams.getAll('source')}
+      onRecord={handleOnRecord}
+    >
+      <div className="relative h-full border">
+        <LoadingMessage />
+        <div
+          className="absolute bg-gray-100 h-full overflow-x-hidden"
+          style={{ width: `${sidebarWidth}px` }}
+        >
+          <Sidebar />
         </div>
-      </LoggingResourcesProvider>
-    </AuthRequired>
+        <div
+          className="absolute bg-gray-300 w-[4px] h-full border-l-2 border-gray-100 cursor-ew-resize"
+          style={{ left: `${sidebarWidth}px` }}
+          onMouseDown={handleDrag}
+        />
+        <main className="h-full overflow-auto" style={{ marginLeft: `${sidebarWidth + 4}px` }}>
+          <div className="flex flex-col h-full">
+            <div className="bg-gray-100 border-b border-gray-300">
+              <Header contentElRef={contentElRef} />
+            </div>
+            <div
+              ref={contentWrapperElRef}
+              className="flex-grow overflow-auto"
+              onScroll={handleContentScroll}
+            >
+              <table className="w-full">
+                <thead className="text-xs uppercase">
+                  <tr>
+                    <td className={cn(tdCN, 'col_timestamp')}>Timestamp</td>
+                    <td className={cn(tdCN, 'col_podcontainer')}>Pod/Container</td>
+                    <td className={cn(tdCN, 'col_region')}>Region</td>
+                    <td className={cn(tdCN, 'col_zone')}>Zone</td>
+                    <td className={cn(tdCN, 'col_os')}>OS</td>
+                    <td className={cn(tdCN, 'col_arch')}>Arch</td>
+                    <td className={cn(tdCN, 'col_node')}>Node</td>
+                    <td className={cn(tdCN, 'col_message')}>Message</td>
+                  </tr>
+                </thead>
+                <tbody
+                  ref={contentElRef}
+                  id="log-records"
+                  className="text-xs font-mono [&>tr:nth-child(even)]:bg-gray-100 [&_td]:px-2 [&_td]:py-1 text-gray-600"
+                />
+              </table>
+            </div>
+          </div>
+        </main>
+      </div>
+    </LoggingResourcesProvider>
   );
 };
 
@@ -1207,13 +1205,15 @@ export default function Page() {
   const [timezone, setTimezone] = useState('utc');
 
   return (
-    <Context.Provider value={{ timezone, setTimezone }}>
-      <div className="h-[calc(100vh-23px)] overflow-auto">
-        <Console />
-      </div>
-      <div className="h-[22px] bg-gray-100 border-t border-gray-300 text-sm text-right">
-        <ServerStatus />
-      </div>
-    </Context.Provider>
+    <AuthRequired>
+      <Context.Provider value={{ timezone, setTimezone }}>
+        <div className="h-[calc(100vh-23px)] overflow-auto">
+          <Console />
+        </div>
+        <div className="h-[22px] bg-gray-100 border-t border-gray-300 text-sm text-right">
+          <ServerStatus />
+        </div>
+      </Context.Provider>
+    </AuthRequired>
   );
 }

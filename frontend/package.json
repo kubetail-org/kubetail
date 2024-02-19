@@ -23,7 +23,7 @@
     "distinct-colors": "^3.0.0",
     "graphql": "^16.8.1",
     "graphql-ws": "^5.15.0",
-    "kubetail-ui": "github:kubetail-org/kubetail-ui#v0.1.0",
+    "kubetail-ui": "github:kubetail-org/kubetail-ui#v0.1.1",
     "lucide-react": "^0.303.0",
     "react": "^18.2.0",
     "react-day-picker": "^8.10.0",
