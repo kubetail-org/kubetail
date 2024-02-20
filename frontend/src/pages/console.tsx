@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// @ts-ignore
+import ansiHtml from 'ansi-html-community';
+
 import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
 import { addMinutes, addHours, addDays, addWeeks, addMonths, parse, isValid } from 'date-fns';
 import { format, utcToZonedTime } from 'date-fns-tz';
@@ -1108,8 +1111,15 @@ const Console = () => {
 
     const msgEl = document.createElement('td');
     msgEl.className = 'w-auto font-medium whitespace-nowrap col_message';
-    msgEl.style['color'] = `var(--${k}-color)`;
-    msgEl.innerHTML = record.message;
+
+    // apply ansi color coding
+    let msgHtml = ansiHtml(record.message) as string;
+    if (msgHtml === record.message) {
+      msgEl.style['color'] = `var(--${k}-color)`;
+    } else {
+      msgHtml = `<div class="inline-block w-[8px] h-[8px] rounded-full mr-[5px]" style="background-color:var(--${k}-color);"></div>` + msgHtml;
+    }
+    msgEl.innerHTML = msgHtml;
     rowEl.appendChild(msgEl);
 
     contentElRef.current?.appendChild(rowEl);

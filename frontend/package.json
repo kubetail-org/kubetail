@@ -16,6 +16,7 @@
     "@apollo/client": "^3.9.4",
     "@headlessui/react": "^1.7.18",
     "@heroicons/react": "^2.1.1",
+    "ansi-html-community": "^0.0.8",
     "async-mutex": "^0.4.1",
     "clsx": "^2.1.0",
     "date-fns": "^2.30.0",
