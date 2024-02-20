@@ -59,7 +59,7 @@ helm repo add kubetail https://kubetail-org.github.io/helm/
 helm install kubetail kubetail/kubetail --namespace kubetail --create-namespace
 ```
 
-To configure the helm chart, please refer to [values.yaml](https://github.com/kubetail-org/helm/kubetail/values.yaml) for valid values and their defaults. You can use a YAML file or specify each parameter using the `--set key=value[,key=value]` argument:
+To configure the helm chart, please refer to [values.yaml](https://github.com/kubetail-org/helm/blob/main/charts/kubetail/values.yaml) for valid values and their defaults. You can use a YAML file or specify each parameter using the `--set key=value[,key=value]` argument:
 ```sh
 helm install kubetail kubetail/kubetail \
   --namespace kubetail \
