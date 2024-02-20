@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// @ts-ignore
-import ansiHtml from 'ansi-html-community';
-
 import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
+import ConvertAnsi from 'ansi-to-html';
+import makeAnsiRegex from 'ansi-regex';
 import { addMinutes, addHours, addDays, addWeeks, addMonths, parse, isValid } from 'date-fns';
 import { format, utcToZonedTime } from 'date-fns-tz';
 import type { OptionsWithTZ } from 'date-fns-tz';
@@ -53,6 +52,9 @@ import type { LogFeedQueryOptions, LogRecord, LRPod } from '@/lib/console/loggin
 import { Counter, MapSet, cssEncode, intersectSets, getBasename, joinPaths } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
 import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
+
+const convertAnsi = new ConvertAnsi({ escapeXML: true });
+const ansiRegex = makeAnsiRegex({onlyFirst: true});
 
 enum DurationUnit {
   Minutes = 'minutes',
@@ -1126,13 +1128,13 @@ const Console = () => {
     msgEl.className = 'w-auto font-medium whitespace-nowrap col_message';
 
     // apply ansi color coding
-    let msgHtml = ansiHtml(record.message) as string;
-    if (msgHtml === record.message) {
-      msgEl.style['color'] = `var(--${k}-color)`;
+    if (ansiRegex.test(record.message)) {
+      const prefixHtml = `<div class="inline-block w-[8px] h-[8px] rounded-full mr-[5px]" style="background-color:var(--${k}-color);"></div>`;
+      msgEl.innerHTML = prefixHtml + convertAnsi.toHtml(record.message);
     } else {
-      msgHtml = `<div class="inline-block w-[8px] h-[8px] rounded-full mr-[5px]" style="background-color:var(--${k}-color);"></div>` + msgHtml;
+      msgEl.style['color'] = `var(--${k}-color)`;
+      msgEl.textContent = record.message;
     }
-    msgEl.innerHTML = msgHtml;
     rowEl.appendChild(msgEl);
 
     contentElRef.current?.appendChild(rowEl);
