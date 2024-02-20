@@ -485,6 +485,7 @@ const SettingsButton = (props: SettingsButtonProps) => {
     ['arch', false],
     ['node', false],
   ]));
+  const [wrap, setWrap] = useState(false);
 
   const handleOnChange = (key: string, ev: React.ChangeEvent<HTMLInputElement>) => {
     checkedCols.set(key, ev.target.checked);
@@ -527,6 +528,11 @@ const SettingsButton = (props: SettingsButtonProps) => {
           );
         }
       })}
+      {wrap && (
+        <Fragment>
+          {`.col_message { white-space: normal !important; }`}
+        </Fragment>
+      )}
     </style>
   );
 
@@ -538,11 +544,18 @@ const SettingsButton = (props: SettingsButtonProps) => {
           <SettingsIcon className={cn(props.className)} size={18} strokeWidth={1.5} />
         </PopoverTrigger>
         <PopoverContent
-          className="bg-white w-auto mr-1"
+          className="bg-white w-auto mr-1 text-sm"
           onOpenAutoFocus={(ev) => ev.preventDefault()}
           sideOffset={-1}
         >
+          <div className="border-b mb-1">Columns:</div>
           {checkboxEls}
+          <div className="border-b mt-2 mb-1">Options:</div>
+          <Form.Check
+            label="Wrap"
+            checked={wrap}
+            onChange={() => setWrap(!wrap)}
+          />
         </PopoverContent>
       </Popover>
     </>
