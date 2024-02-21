@@ -20,6 +20,9 @@ dependencies:
   ansi-to-html:
     specifier: ^0.7.2
     version: 0.7.2
+  ansi_up:
+    specifier: ^6.0.2
+    version: 6.0.2
   async-mutex:
     specifier: ^0.4.1
     version: 0.4.1
@@ -3292,6 +3295,10 @@ packages:
     hasBin: true
     dependencies:
       entities: 2.2.0
+    dev: false
+
+  /ansi_up@6.0.2:
+    resolution: {integrity: sha512-3G3vKvl1ilEp7J1u6BmULpMA0xVoW/f4Ekqhl8RTrJrhEBkonKn5k3bUc5Xt+qDayA6iDX0jyUh3AbZjB/l0tw==}
     dev: false
 
   /any-promise@1.3.0:
