@@ -1130,7 +1130,7 @@ const Console = () => {
     // apply ansi color coding
     if (ansiRegex.test(record.message)) {
       const prefixHtml = `<div class="inline-block w-[8px] h-[8px] rounded-full mr-[5px]" style="background-color:var(--${k}-color);"></div>`;
-      msgEl.classList.add('bg-black', 'text-white');
+      msgEl.classList.add('bg-gray-800', 'text-white');
       msgEl.innerHTML = prefixHtml + ansiUp.ansi_to_html(record.message);
     } else {
       msgEl.style['color'] = `var(--${k}-color)`;
