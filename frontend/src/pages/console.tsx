@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
-import ConvertAnsi from 'ansi-to-html';
+import { AnsiUp } from 'ansi_up';
 import makeAnsiRegex from 'ansi-regex';
 import { addMinutes, addHours, addDays, addWeeks, addMonths, parse, isValid } from 'date-fns';
 import { format, utcToZonedTime } from 'date-fns-tz';
@@ -53,7 +53,7 @@ import { Counter, MapSet, cssEncode, intersectSets, getBasename, joinPaths } fro
 import { cn } from '@/lib/utils';
 import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
 
-const convertAnsi = new ConvertAnsi({ escapeXML: true });
+const ansiUp = new AnsiUp();
 const ansiRegex = makeAnsiRegex({onlyFirst: true});
 
 enum DurationUnit {
@@ -1130,7 +1130,8 @@ const Console = () => {
     // apply ansi color coding
     if (ansiRegex.test(record.message)) {
       const prefixHtml = `<div class="inline-block w-[8px] h-[8px] rounded-full mr-[5px]" style="background-color:var(--${k}-color);"></div>`;
-      msgEl.innerHTML = prefixHtml + convertAnsi.toHtml(record.message);
+      msgEl.classList.add('bg-black', 'text-white');
+      msgEl.innerHTML = prefixHtml + ansiUp.ansi_to_html(record.message);
     } else {
       msgEl.style['color'] = `var(--${k}-color)`;
       msgEl.textContent = record.message;
