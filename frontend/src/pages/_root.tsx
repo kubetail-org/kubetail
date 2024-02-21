@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { XCircleIcon } from '@heroicons/react/24/outline';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Toaster, resolveValue } from 'react-hot-toast';
 import { Outlet } from 'react-router-dom';
 
@@ -42,11 +42,31 @@ const CustomToaster = () => (
 );
 
 export default function Root() {
+  const [theme, setTheme] = useState('light');
+
   // update favicon location
   useEffect(() => {
     const el = document.querySelector('link[rel="icon"]');
     if (!el) return;
     el.setAttribute('href', joinPaths(getBasename(), '/favicon.ico'));
+  }, []);
+
+  // handle theming
+  useEffect(() => {
+    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }    
+
+    /*
+    const fn = (ev: MediaQueryListEvent) => {
+      setTheme(ev.matches ? 'dark' : 'light');
+    };
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', fn);
+
+    // cleanup
+    return () => window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', fn);*/
   }, []);
 
   return (
