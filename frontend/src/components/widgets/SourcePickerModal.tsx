@@ -138,7 +138,7 @@ const Namespaces = () => {
 
   return (
     <Form.Select
-      className="h-[35px] bg-gray-50 border border-gray-30 text-sm rounded-lg !mt-0"
+      className="h-[35px] bg-chrome-50 border border-chrome-30 text-sm rounded-lg !mt-0"
       onChange={(ev) => setNamespace(ev.target.value)}
       value={namespace}
     >
@@ -167,7 +167,7 @@ const Sidebar = ({
     <>
       <ul className="text-[.85rem]">
         <li>
-          <div className="font-bold text-gray-600 mt-[5px] mb-[12px]">Workloads</div>
+          <div className="font-bold text-chrome-600 mt-[5px] mb-[12px]">Workloads</div>
           <div>
             <ul className="inline-grid space-y-0">
               {allWorkloads.map((workload) => {
@@ -177,12 +177,12 @@ const Sidebar = ({
                     key={workload}
                     className={cn(
                       "ml-[-8px] px-[8px] py-[5px] cursor-pointer rounded-sm flex items-center",
-                      currWorkload === workload ? 'bg-gray-300' : 'hover:bg-gray-200',
+                      currWorkload === workload ? 'bg-chrome-300' : 'hover:bg-chrome-200',
                     )}
                     onClick={() => setCurrWorkload(workload)}
                   >
                     <Icon className="h-[18px] w-[18px]" />
-                    <div className="ml-1 text-gray-700">
+                    <div className="ml-1 text-chrome-700">
                       {labelsPMap[workload]}
                       {' '}
                       {counter.has(workload) && <>({counter.get(workload)})</>}

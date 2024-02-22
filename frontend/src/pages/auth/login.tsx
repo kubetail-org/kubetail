@@ -76,7 +76,7 @@ export default function LoginPage() {
 
   return (
     <ModalLayout>
-      <h2 className="block mt-6 text-center text-3xl font-extrabold text-gray-900">
+      <h2 className="block mt-6 text-center text-3xl font-extrabold text-chrome-900">
         Sign into Kubernetes
       </h2>
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
@@ -93,7 +93,7 @@ export default function LoginPage() {
           </Form>
           {serverLoading && (
             <div className="absolute top-0 left-0 w-full h-full bg-white bg-opacity-80 flex justify-center items-center">
-              <div className="bg-white py-4 px-6 border border-gray-200 flex">
+              <div className="bg-white py-4 px-6 border border-chrome-200 flex">
                 <Spinner size="sm" /><span>Loading...</span>
               </div>
             </div>

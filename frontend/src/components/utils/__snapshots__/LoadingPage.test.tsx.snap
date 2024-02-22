@@ -10,7 +10,7 @@ exports[`should render expected page 1`] = `
     >
       <svg
         aria-hidden="true"
-        class="animate-spin mr-2 text-gray-200 fill-gray-500 w-8 h-8"
+        class="animate-spin mr-2 text-chrome-200 fill-chrome-500 w-8 h-8"
         fill="none"
         viewBox="0 0 100 101"
         xmlns="http://www.w3.org/2000/svg"
