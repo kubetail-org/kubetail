@@ -37,8 +37,8 @@ import Spinner from 'kubetail-ui/elements/Spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from 'kubetail-ui/elements/Tabs';
 
 import logo from '@/assets/logo.svg';
+import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
-import ServerStatus from '@/components/widgets/ServerStatus';
 import SourcePickerModal from '@/components/widgets/SourcePickerModal.tsx';
 import {
   LoggingResourcesProvider,
@@ -481,6 +481,7 @@ type SettingsButtonProps = {
 
 const SettingsButton = (props: SettingsButtonProps) => {
   const [checkedCols, setCheckedCols] = useState(new Map<string, boolean>([
+    ['podcontainer', false],
     ['region', false],
     ['zone', false],
     ['os', false],
@@ -498,6 +499,7 @@ const SettingsButton = (props: SettingsButtonProps) => {
 
   [
     'Timestamp',
+    'Color Dot',
     'Pod/Container',
     'Region',
     'Zone',
@@ -1107,8 +1109,13 @@ const Console = () => {
     tsEl.className = cn(tdCN, 'bg-chrome-200 col_timestamp');
 
     const tsWithTZ = utcToZonedTime(record.timestamp, 'UTC');
-    tsEl.innerHTML = format(tsWithTZ, 'LLL dd, y HH:mm:ss.SSS', { timeZone: 'UTC' });
+    tsEl.textContent = format(tsWithTZ, 'LLL dd, y HH:mm:ss.SSS', { timeZone: 'UTC' });
     rowEl.appendChild(tsEl);
+
+    const dotEl = document.createElement('td');
+    dotEl.className = cn(tdCN, 'col_colordot');
+    dotEl.innerHTML = `<div class="inline-block w-[8px] h-[8px] rounded-full" style="background-color:var(--${k}-color);"></div>`;
+    rowEl.appendChild(dotEl);
 
     [
       ['col_podcontainer', `${record.pod.metadata.name}/${record.container}`],
@@ -1120,7 +1127,7 @@ const Console = () => {
     ].forEach(([colname, val]) => {
       const tdEl = document.createElement('td');
       tdEl.className = cn(tdCN, colname);
-      tdEl.innerHTML = val || '-';
+      tdEl.textContent = val || '-';
       rowEl.appendChild(tdEl);
     });
 
@@ -1128,13 +1135,8 @@ const Console = () => {
     msgEl.className = 'w-auto font-medium whitespace-nowrap col_message';
 
     // apply ansi color coding
-    if (ansiRegex.test(record.message)) {
-      const prefixHtml = `<div class="inline-block w-[8px] h-[8px] rounded-full mr-[5px]" style="background-color:var(--${k}-color);"></div>`;
-      msgEl.innerHTML = prefixHtml + ansiUp.ansi_to_html(record.message);
-    } else {
-      msgEl.style['color'] = `var(--${k}-color)`;
-      msgEl.textContent = record.message;
-    }
+    if (ansiRegex.test(record.message)) msgEl.innerHTML = ansiUp.ansi_to_html(record.message);
+    else msgEl.textContent = record.message;
     rowEl.appendChild(msgEl);
 
     contentElRef.current?.appendChild(rowEl);
@@ -1199,6 +1201,7 @@ const Console = () => {
                 <thead className="text-xs uppercase">
                   <tr>
                     <td className={cn(tdCN, 'col_timestamp')}>Timestamp</td>
+                    <td className={cn(tdCN, 'col_colordot')}>&nbsp;</td>
                     <td className={cn(tdCN, 'col_podcontainer')}>Pod/Container</td>
                     <td className={cn(tdCN, 'col_region')}>Region</td>
                     <td className={cn(tdCN, 'col_zone')}>Zone</td>
@@ -1232,12 +1235,9 @@ export default function Page() {
   return (
     <AuthRequired>
       <Context.Provider value={{ timezone, setTimezone }}>
-        <div className="h-[calc(100vh-23px)] overflow-auto">
+        <AppLayout>
           <Console />
-        </div>
-        <div className="h-[22px] bg-chrome-100 border-t border-chrome-divider text-sm text-right">
-          <ServerStatus />
-        </div>
+        </AppLayout>
       </Context.Provider>
     </AuthRequired>
   );

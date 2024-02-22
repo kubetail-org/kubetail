@@ -24,9 +24,9 @@ import Form from 'kubetail-ui/elements/Form';
 import Spinner from 'kubetail-ui/elements/Spinner';
 
 import logo from '@/assets/logo.svg';
+import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
 import ProfilePicDropdown from '@/components/widgets/ProfilePicDropdown';
-import ServerStatus from '@/components/widgets/ServerStatus';
 import * as ops from '@/lib/graphql/ops';
 import { getBasename, joinPaths } from '@/lib/helpers';
 import { useListQueryWithSubscription } from '@/lib/hooks';
@@ -425,10 +425,9 @@ const Home = () => {
 export default function Page() {
   return (
     <AuthRequired>
-      <Home />
-      <div className="fixed bottom-0 right-0 bg-chrome-200 rounded-tl">
-        <ServerStatus />
-      </div>
+      <AppLayout>
+        <Home />
+      </AppLayout>
     </AuthRequired>
   );
 }
