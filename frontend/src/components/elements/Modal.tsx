@@ -26,7 +26,7 @@ type ModalTitleProps<T extends React.ElementType> = DialogTitleProps<T> & {
 };
 
 const modalTitleBaseCls = 'text-xl mb-6';
-const modalPanelBaseCls = 'relative bg-white rounded-lg overflow-hidden shadow-xl my-8 max-w-sm w-full p-6';
+const modalPanelBaseCls = 'relative bg-background rounded-lg overflow-hidden shadow-xl my-8 max-w-sm w-full p-6';
 
 const Modal = React.forwardRef((
   {

@@ -321,7 +321,7 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
       <div className="fixed inset-0 bg-chrome-500 bg-opacity-75"></div>
       <div className="fixed inset-0 z-10 w-screen">
         <div className="flex min-h-full items-center justify-center p-0 text-center">
-          <div className="relative transform overflow-hidden rounded-lg bg-white my-8 p-6 text-left shadow-xl">
+          <div className="relative transform overflow-hidden rounded-lg bg-background my-8 p-6 text-left shadow-xl">
             <div className="flex items-center space-x-2">
               <div>Loading Workloads</div>
               <Spinner size="sm" />

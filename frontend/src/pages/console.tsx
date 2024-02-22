@@ -546,7 +546,7 @@ const SettingsButton = (props: SettingsButtonProps) => {
           <SettingsIcon className={cn(props.className)} size={18} strokeWidth={1.5} />
         </PopoverTrigger>
         <PopoverContent
-          className="bg-white w-auto mr-1 text-sm"
+          className="bg-background w-auto mr-1 text-sm"
           onOpenAutoFocus={(ev) => ev.preventDefault()}
           sideOffset={-1}
         >
@@ -836,7 +836,7 @@ const DateRangeDropdown = ({ children, onChange }: DateRangeDropdownProps) => {
         {children}
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto p-0 bg-white"
+        className="w-auto p-0 bg-background"
         align="center"
       >
         <Tabs
@@ -1044,7 +1044,7 @@ const LoadingMessage = () => {
         <div className="fixed inset-0 bg-chrome-500 bg-opacity-75"></div>
         <div className="fixed inset-0 z-10 w-screen">
           <div className="flex min-h-full items-center justify-center p-0 text-center">
-            <div className="relative transform overflow-hidden rounded-lg bg-white my-8 p-6 text-left shadow-xl">
+            <div className="relative transform overflow-hidden rounded-lg bg-background my-8 p-6 text-left shadow-xl">
               <div className="flex items-center space-x-2">
                 <div>Loading Resources</div>
                 <Spinner size="sm" />
