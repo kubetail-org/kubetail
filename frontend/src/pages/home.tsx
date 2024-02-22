@@ -24,9 +24,9 @@ import Form from 'kubetail-ui/elements/Form';
 import Spinner from 'kubetail-ui/elements/Spinner';
 
 import logo from '@/assets/logo.svg';
+import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
 import ProfilePicDropdown from '@/components/widgets/ProfilePicDropdown';
-import ServerStatus from '@/components/widgets/ServerStatus';
 import * as ops from '@/lib/graphql/ops';
 import { getBasename, joinPaths } from '@/lib/helpers';
 import { useListQueryWithSubscription } from '@/lib/hooks';
@@ -172,7 +172,7 @@ const DisplayItems = ({ workload, namespace, fetching, items }: DisplayItemsProp
       {!filteredItems?.length && (
         <tbody>
           <tr>
-            <td colSpan={5} className="pb-[30px] italic text-gray-400">
+            <td colSpan={5} className="pb-[30px] italic text-chrome-400">
               No results
             </td>
           </tr>
@@ -181,7 +181,7 @@ const DisplayItems = ({ workload, namespace, fetching, items }: DisplayItemsProp
       {filteredItems && filteredItems.length > 0 && (
         <>
           <DataTable.Header
-            className="rounded-thead"
+            className="rounded-thead bg-transparent"
             sortBy={sortBy}
             onSortByChange={handleSortByChange}
           >
@@ -219,7 +219,7 @@ const DisplayItems = ({ workload, namespace, fetching, items }: DisplayItemsProp
             {visibleItems?.map(item => {
               const sourceString = `${workload}/${item.metadata.namespace}/${item.metadata.name}`;
               return (
-                <DataTable.Row key={item.metadata.uid} className="text-gray-700">
+                <DataTable.Row key={item.metadata.uid} className="text-chrome-700">
                   <DataTable.DataCell>
                     <Form.Check
                       name="source"
@@ -253,7 +253,7 @@ const DisplayItems = ({ workload, namespace, fetching, items }: DisplayItemsProp
             <tr>
               <td colSpan={5} className="pb-[30px]">
                 {hasMore && (
-                  <a className="block underline cursor-pointer text-gray-500" onClick={() => setShowAll(!showAll)}>
+                  <a className="block underline cursor-pointer text-chrome-500" onClick={() => setShowAll(!showAll)}>
                     {showAll && 'Show less...' || 'Show more...'}
                   </a>
                 )}
@@ -318,10 +318,10 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
 
   const LoadingModal = () => (
     <div className="relative z-10" role="dialog">
-      <div className="fixed inset-0 bg-gray-500 bg-opacity-75"></div>
+      <div className="fixed inset-0 bg-chrome-500 bg-opacity-75"></div>
       <div className="fixed inset-0 z-10 w-screen">
         <div className="flex min-h-full items-center justify-center p-0 text-center">
-          <div className="relative transform overflow-hidden rounded-lg bg-white my-8 p-6 text-left shadow-xl">
+          <div className="relative transform overflow-hidden rounded-lg bg-background my-8 p-6 text-left shadow-xl">
             <div className="flex items-center space-x-2">
               <div>Loading Workloads</div>
               <Spinner size="sm" />
@@ -390,7 +390,7 @@ const Home = () => {
 
   return (
     <>
-      <div className="px-[10px] py-[5px] flex items-center justify-between border-b-[1px] border-gray-300 bg-gray-100">
+      <div className="px-[10px] py-[5px] flex items-center justify-between border-b-[1px] border-chrome-300 bg-chrome-100">
         <a href="/">
           <img src={joinPaths(getBasename(), logo)} alt="logo" className="display-block h-[31.4167px]" />
         </a>
@@ -425,10 +425,9 @@ const Home = () => {
 export default function Page() {
   return (
     <AuthRequired>
-      <Home />
-      <div className="fixed bottom-0 right-0 bg-gray-200 rounded-tl">
-        <ServerStatus />
-      </div>
+      <AppLayout>
+        <Home />
+      </AppLayout>
     </AuthRequired>
   );
 }

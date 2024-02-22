@@ -28,11 +28,11 @@ export default function ModalLayout({ children, innerClassName }: ModalLayoutPro
     const bodyEl = document.body;
 
     htmlEl.classList.add('h-full');
-    bodyEl.classList.add('h-full', 'bg-gray-50');
+    bodyEl.classList.add('h-full', 'bg-chrome-50');
 
     return function cleanup() {
       htmlEl.classList.remove('h-full');
-      bodyEl.classList.remove('h-full', 'bg-gray-50');
+      bodyEl.classList.remove('h-full', 'bg-chrome-50');
     };
   });
 

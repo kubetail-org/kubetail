@@ -37,8 +37,8 @@ import Spinner from 'kubetail-ui/elements/Spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from 'kubetail-ui/elements/Tabs';
 
 import logo from '@/assets/logo.svg';
+import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
-import ServerStatus from '@/components/widgets/ServerStatus';
 import SourcePickerModal from '@/components/widgets/SourcePickerModal.tsx';
 import {
   LoggingResourcesProvider,
@@ -252,7 +252,7 @@ const SidebarWorkloads = () => {
       {isPickerOpen && <SourcePickerModal onClose={() => setIsPickerOpen(false)} />}
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center space-x-1">
-          <span className="font-bold text-gray-500">Sources</span>
+          <span className="font-bold text-chrome-500">Sources</span>
           {loading && <Spinner className="h-[15px] w-[15px]" />}
         </div>
         <a onClick={() => setIsPickerOpen(true)} className="cursor-pointer">
@@ -268,14 +268,14 @@ const SidebarWorkloads = () => {
             <div key={workload}>
               <div className="flex items-center space-x-1">
                 <div><Icon className="h-[18px] w-[18px]" /></div>
-                <div className="font-semibold text-gray-500">{labelsPMap[workload]}</div>
+                <div className="font-semibold text-chrome-500">{labelsPMap[workload]}</div>
               </div>
               <ul className="pl-[23px]">
                 {objs.map(obj => (
                   <li key={obj.id} className="flex items-center justify-between">
                     <span className="whitespace-nowrap overflow-hidden text-ellipsis">{obj.metadata.name}</span>
                     <a onClick={() => deleteSource(`${workload}/${obj.metadata.namespace}/${obj.metadata.name}`)}>
-                      <TrashIcon className="h-[18px] w-[18px] text-gray-300 hover:text-gray-400 cursor-pointer" />
+                      <TrashIcon className="h-[18px] w-[18px] text-chrome-300 hover:text-chrome-500 cursor-pointer" />
                     </a>
                   </li>
                 ))}
@@ -334,8 +334,8 @@ const SidebarPodsAndContainers = () => {
 
   return (
     <>
-      <div className="border-t border-gray-300 mt-[10px]"></div>
-      <div className="py-[10px] font-bold text-gray-500">Pods/Containers</div>
+      <div className="border-t border-chrome-divider mt-[10px]"></div>
+      <div className="py-[10px] font-bold text-chrome-500">Pods/Containers</div>
       <div className="space-y-3">
         {pods.map(pod => (
           <div key={pod.metadata.uid}>
@@ -417,7 +417,7 @@ const SidebarFacets = () => {
 
     return (
       <>
-        <div className="border-t border-gray-300 mt-[10px] py-[10px] font-bold text-gray-500">
+        <div className="border-t border-chrome-300 mt-[10px] py-[10px] font-bold text-chrome-500">
           {label}
         </div>
         {counter.orderedEntries().map(([facet, count]) => (
@@ -481,6 +481,7 @@ type SettingsButtonProps = {
 
 const SettingsButton = (props: SettingsButtonProps) => {
   const [checkedCols, setCheckedCols] = useState(new Map<string, boolean>([
+    ['podcontainer', false],
     ['region', false],
     ['zone', false],
     ['os', false],
@@ -498,6 +499,7 @@ const SettingsButton = (props: SettingsButtonProps) => {
 
   [
     'Timestamp',
+    'Color Dot',
     'Pod/Container',
     'Region',
     'Zone',
@@ -546,7 +548,7 @@ const SettingsButton = (props: SettingsButtonProps) => {
           <SettingsIcon className={cn(props.className)} size={18} strokeWidth={1.5} />
         </PopoverTrigger>
         <PopoverContent
-          className="bg-white w-auto mr-1 text-sm"
+          className="bg-background w-auto mr-1 text-sm"
           onOpenAutoFocus={(ev) => ev.preventDefault()}
           sideOffset={-1}
         >
@@ -836,7 +838,7 @@ const DateRangeDropdown = ({ children, onChange }: DateRangeDropdownProps) => {
         {children}
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto p-0 bg-white"
+        className="w-auto p-0 bg-background"
         align="center"
       >
         <Tabs
@@ -970,7 +972,7 @@ const Header = (props: HeaderProps) => {
     setUntil(new Date());
   }
 
-  const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-gray-200 disabled:opacity-30';
+  const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30';
 
   return (
     <div className="grid grid-cols-3 p-1">
@@ -982,7 +984,7 @@ const Header = (props: HeaderProps) => {
             title="Pause"
             onClick={handlePausePress}
           >
-            <PauseIcon size={24} strokeWidth={1.5} />
+            <PauseIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
         ) : (
           <button
@@ -990,7 +992,7 @@ const Header = (props: HeaderProps) => {
             title="Play"
             onClick={handlePlayPress}
           >
-            <PlayIcon size={24} strokeWidth={1.5} />
+            <PlayIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
         )}
         <button
@@ -999,14 +1001,14 @@ const Header = (props: HeaderProps) => {
           onClick={handleSkipForwardPress}
           disabled={feed.state !== LogFeedState.Paused}
         >
-          <SkipForwardIcon size={26} strokeWidth={1.5} />
+          <SkipForwardIcon size={26} strokeWidth={1.5} className="text-chrome-foreground" />
         </button>
       </div>
       <div className="flex justify-center items-center">
         <DateRangeDropdown
           onChange={handleDateRangeDropdownChange}
         >
-          <button className="cursor-pointer bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded">
+          <button className="cursor-pointer bg-chrome-200 hover:bg-chrome-300 py-1 px-2 rounded">
             <FeedTitle since={since} until={until} />
           </button>
         </DateRangeDropdown>
@@ -1041,10 +1043,10 @@ const LoadingMessage = () => {
   if (nodes.fetching || workloads.loading || pods.loading) {
     return (
       <div className="relative z-10" role="dialog">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75"></div>
+        <div className="fixed inset-0 bg-chrome-500 bg-opacity-75"></div>
         <div className="fixed inset-0 z-10 w-screen">
           <div className="flex min-h-full items-center justify-center p-0 text-center">
-            <div className="relative transform overflow-hidden rounded-lg bg-white my-8 p-6 text-left shadow-xl">
+            <div className="relative transform overflow-hidden rounded-lg bg-background my-8 p-6 text-left shadow-xl">
               <div className="flex items-center space-x-2">
                 <div>Loading Resources</div>
                 <Spinner size="sm" />
@@ -1104,11 +1106,16 @@ const Console = () => {
     rowEl.className = `logline container_${k}`;
 
     const tsEl = document.createElement('td');
-    tsEl.className = cn(tdCN, 'bg-gray-200 col_timestamp');
+    tsEl.className = cn(tdCN, 'bg-chrome-200 col_timestamp');
 
     const tsWithTZ = utcToZonedTime(record.timestamp, 'UTC');
-    tsEl.innerHTML = format(tsWithTZ, 'LLL dd, y HH:mm:ss.SSS', { timeZone: 'UTC' });
+    tsEl.textContent = format(tsWithTZ, 'LLL dd, y HH:mm:ss.SSS', { timeZone: 'UTC' });
     rowEl.appendChild(tsEl);
+
+    const dotEl = document.createElement('td');
+    dotEl.className = cn(tdCN, 'col_colordot');
+    dotEl.innerHTML = `<div class="inline-block w-[8px] h-[8px] rounded-full" style="background-color:var(--${k}-color);"></div>`;
+    rowEl.appendChild(dotEl);
 
     [
       ['col_podcontainer', `${record.pod.metadata.name}/${record.container}`],
@@ -1120,7 +1127,7 @@ const Console = () => {
     ].forEach(([colname, val]) => {
       const tdEl = document.createElement('td');
       tdEl.className = cn(tdCN, colname);
-      tdEl.innerHTML = val || '-';
+      tdEl.textContent = val || '-';
       rowEl.appendChild(tdEl);
     });
 
@@ -1128,14 +1135,8 @@ const Console = () => {
     msgEl.className = 'w-auto font-medium whitespace-nowrap col_message';
 
     // apply ansi color coding
-    if (ansiRegex.test(record.message)) {
-      const prefixHtml = `<div class="inline-block w-[8px] h-[8px] rounded-full mr-[5px]" style="background-color:var(--${k}-color);"></div>`;
-      msgEl.classList.add('bg-gray-800', 'text-white');
-      msgEl.innerHTML = prefixHtml + ansiUp.ansi_to_html(record.message);
-    } else {
-      msgEl.style['color'] = `var(--${k}-color)`;
-      msgEl.textContent = record.message;
-    }
+    if (ansiRegex.test(record.message)) msgEl.innerHTML = ansiUp.ansi_to_html(record.message);
+    else msgEl.textContent = record.message;
     rowEl.appendChild(msgEl);
 
     contentElRef.current?.appendChild(rowEl);
@@ -1166,29 +1167,29 @@ const Console = () => {
     }
   };
 
-  const tdCN = 'sticky top-0 bg-gray-200 pl-2 outline outline-[1px] outline-offset-0 outline-gray-300';
+  const tdCN = 'sticky top-0 bg-chrome-200 pl-2 outline outline-[1px] outline-offset-0 outline-chrome-divider';
 
   return (
     <LoggingResourcesProvider
       sourcePaths={searchParams.getAll('source')}
       onRecord={handleOnRecord}
     >
-      <div className="relative h-full border">
+      <div className="relative h-full">
         <LoadingMessage />
         <div
-          className="absolute bg-gray-100 h-full overflow-x-hidden"
+          className="absolute bg-chrome-100 h-full overflow-x-hidden"
           style={{ width: `${sidebarWidth}px` }}
         >
           <Sidebar />
         </div>
         <div
-          className="absolute bg-gray-300 w-[4px] h-full border-l-2 border-gray-100 cursor-ew-resize"
+          className="absolute bg-chrome-divider w-[4px] h-full border-l-2 border-chrome-100 cursor-ew-resize"
           style={{ left: `${sidebarWidth}px` }}
           onMouseDown={handleDrag}
         />
         <main className="h-full overflow-auto" style={{ marginLeft: `${sidebarWidth + 4}px` }}>
           <div className="flex flex-col h-full">
-            <div className="bg-gray-100 border-b border-gray-300">
+            <div className="bg-chrome-100 border-b border-chrome-divider">
               <Header contentElRef={contentElRef} />
             </div>
             <div
@@ -1200,6 +1201,7 @@ const Console = () => {
                 <thead className="text-xs uppercase">
                   <tr>
                     <td className={cn(tdCN, 'col_timestamp')}>Timestamp</td>
+                    <td className={cn(tdCN, 'col_colordot')}>&nbsp;</td>
                     <td className={cn(tdCN, 'col_podcontainer')}>Pod/Container</td>
                     <td className={cn(tdCN, 'col_region')}>Region</td>
                     <td className={cn(tdCN, 'col_zone')}>Zone</td>
@@ -1212,7 +1214,7 @@ const Console = () => {
                 <tbody
                   ref={contentElRef}
                   id="log-records"
-                  className="text-xs font-mono [&>tr:nth-child(even)]:bg-gray-100 [&_td]:px-2 [&_td]:py-1 text-gray-600"
+                  className="text-xs font-mono [&>tr:nth-child(even)]:bg-chrome-100 [&_td]:px-2 [&_td]:py-1 text-chrome-foreground"
                 />
               </table>
             </div>
@@ -1233,12 +1235,9 @@ export default function Page() {
   return (
     <AuthRequired>
       <Context.Provider value={{ timezone, setTimezone }}>
-        <div className="h-[calc(100vh-23px)] overflow-auto">
+        <AppLayout>
           <Console />
-        </div>
-        <div className="h-[22px] bg-gray-100 border-t border-gray-300 text-sm text-right">
-          <ServerStatus />
-        </div>
+        </AppLayout>
       </Context.Provider>
     </AuthRequired>
   );

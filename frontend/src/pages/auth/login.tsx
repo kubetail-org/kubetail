@@ -76,11 +76,11 @@ export default function LoginPage() {
 
   return (
     <ModalLayout>
-      <h2 className="block mt-6 text-center text-3xl font-extrabold text-gray-900">
+      <h2 className="block mt-6 text-center text-3xl font-extrabold text-chrome-900">
         Sign into Kubernetes
       </h2>
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 relative">
+        <div className="bg-background py-8 px-4 shadow sm:rounded-lg sm:px-10 relative">
           <Form onSubmit={handleSubmit}>
             <Form.Group>
               <Form.Label>Token</Form.Label>
@@ -92,8 +92,8 @@ export default function LoginPage() {
             </Form.Group>
           </Form>
           {serverLoading && (
-            <div className="absolute top-0 left-0 w-full h-full bg-white bg-opacity-80 flex justify-center items-center">
-              <div className="bg-white py-4 px-6 border border-gray-200 flex">
+            <div className="absolute top-0 left-0 w-full h-full bg-background bg-opacity-80 flex justify-center items-center">
+              <div className="bg-background py-4 px-6 border border-chrome-200 flex">
                 <Spinner size="sm" /><span>Loading...</span>
               </div>
             </div>

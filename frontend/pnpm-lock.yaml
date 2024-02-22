@@ -45,8 +45,8 @@ dependencies:
     specifier: ^5.15.0
     version: 5.15.0(graphql@16.8.1)
   kubetail-ui:
-    specifier: github:kubetail-org/kubetail-ui#v0.1.1
-    version: github.com/kubetail-org/kubetail-ui/2465729ce5f1da3391af7a729e78b01e137560ba(@heroicons/react@2.1.1)(@tailwindcss/forms@0.5.7)(@types/react-dom@18.2.19)(@types/react@18.2.55)(react-dom@18.2.0)(react@18.2.0)
+    specifier: github:kubetail-org/kubetail-ui#v0.1.2
+    version: github.com/kubetail-org/kubetail-ui/b8f2f8a40eab69361ff61d2054559f0af28efd90(@heroicons/react@2.1.1)(@tailwindcss/forms@0.5.7)(@types/react-dom@18.2.19)(@types/react@18.2.55)(react-dom@18.2.0)(react@18.2.0)
   lucide-react:
     specifier: ^0.303.0
     version: 0.303.0(react@18.2.0)
@@ -8076,11 +8076,11 @@ packages:
   /zen-observable@0.8.15:
     resolution: {integrity: sha512-PQ2PC7R9rslx84ndNBZB/Dkv8V8fZEpk83RLgXtYd0fwUgEjseMn1Dgajh2x6S8QbZAFa9p2qVCEuYZNgve0dQ==}
 
-  github.com/kubetail-org/kubetail-ui/2465729ce5f1da3391af7a729e78b01e137560ba(@heroicons/react@2.1.1)(@tailwindcss/forms@0.5.7)(@types/react-dom@18.2.19)(@types/react@18.2.55)(react-dom@18.2.0)(react@18.2.0):
-    resolution: {tarball: https://codeload.github.com/kubetail-org/kubetail-ui/tar.gz/2465729ce5f1da3391af7a729e78b01e137560ba}
-    id: github.com/kubetail-org/kubetail-ui/2465729ce5f1da3391af7a729e78b01e137560ba
+  github.com/kubetail-org/kubetail-ui/b8f2f8a40eab69361ff61d2054559f0af28efd90(@heroicons/react@2.1.1)(@tailwindcss/forms@0.5.7)(@types/react-dom@18.2.19)(@types/react@18.2.55)(react-dom@18.2.0)(react@18.2.0):
+    resolution: {tarball: https://codeload.github.com/kubetail-org/kubetail-ui/tar.gz/b8f2f8a40eab69361ff61d2054559f0af28efd90}
+    id: github.com/kubetail-org/kubetail-ui/b8f2f8a40eab69361ff61d2054559f0af28efd90
     name: kubetail-ui
-    version: 0.1.1
+    version: 0.1.2
     peerDependencies:
       '@heroicons/react': ^2.0.15
       '@tailwindcss/forms': ^0.5.7
