@@ -51,20 +51,16 @@ export default function ({ children }: React.PropsWithChildren) {
       <div className="h-[calc(100vh-23px)] overflow-auto">
         {children}
       </div>
-      <div className="h-[22px] bg-chrome-100 border-t border-chrome-divider text-sm flex justify-between items-center pl-[2px]">
-        <div className="flex space-x-1 text-xs">
-          <div>theme: </div>
-          <Form.Select
-            className="w-[70px] mt-0 py-0 pl-1 pr-0 h-auto border-0 focus:ring-offset-0 focus:ring-0 focus:border-transparent focus:ring-transparent text-xs"
-            value={themeDropdownValue}
-            onChange={handleThemeDropdownChange}
-          >
-            <Form.Option value="system">system</Form.Option>
-            <Form.Option value="user-dark">dark</Form.Option>
-            <Form.Option value="user-light">light</Form.Option>
-          </Form.Select>
-
-        </div>
+      <div className="h-[22px] bg-chrome-100 border-t border-chrome-divider text-sm flex justify-between items-center pl-[10px]">
+        <Form.Select
+          className="w-[65px] mt-0 py-0 pl-0 pr-0 h-auto border-0 focus:ring-offset-0 focus:ring-0 focus:border-transparent focus:ring-transparent text-xs bg-transparent"
+          value={themeDropdownValue}
+          onChange={handleThemeDropdownChange}
+        >
+          <Form.Option value="system">system</Form.Option>
+          <Form.Option value="user-dark">dark</Form.Option>
+          <Form.Option value="user-light">light</Form.Option>
+        </Form.Select>
         <ServerStatus />
       </div>
     </>
