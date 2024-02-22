@@ -181,7 +181,7 @@ const DisplayItems = ({ workload, namespace, fetching, items }: DisplayItemsProp
       {filteredItems && filteredItems.length > 0 && (
         <>
           <DataTable.Header
-            className="rounded-thead"
+            className="rounded-thead bg-transparent"
             sortBy={sortBy}
             onSortByChange={handleSortByChange}
           >

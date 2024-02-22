@@ -35,6 +35,17 @@
   }
 
   .rounded-thead tr:first-child th {
+    @apply bg-chrome-50;
+  }
+
+  .rounded-thead tr:first-child th,
+  .rounded-tbody tr:last-child td,
+  .rounded-tbody td:first-child,
+  .rounded-tbody td:last-child {
+    @apply border-chrome-300;
+  }
+
+  .rounded-thead tr:first-child th {
     @apply border-t;
   }
 
