@@ -50,7 +50,6 @@ import {
 } from '@/lib/console/logging-resources';
 import type { LogFeedQueryOptions, LogRecord, LRPod } from '@/lib/console/logging-resources';
 import { Counter, MapSet, cssEncode, intersectSets, getBasename, joinPaths } from '@/lib/helpers';
-import { Theme, UserPreference, useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
 
