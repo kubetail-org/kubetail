@@ -34,16 +34,7 @@ type Context = {
 const Context = createContext<Context>({} as Context);
 
 /**
- * Get user preference
- */
-
-function getUserPreference() {
-  if (!('theme' in localStorage)) return UserPreference.System;
-  return (localStorage.theme === 'dark') ? UserPreference.Dark : UserPreference.Light;
-}
-
-/**
- * Get media Query helper
+ * Media query helper
  */
 
 function getMediaQuery() {
@@ -51,16 +42,17 @@ function getMediaQuery() {
 }
 
 /**
- * Get system theme
+ * Non-reactive helper methods
  */
+
+function getUserPreference() {
+  if (!('theme' in localStorage)) return UserPreference.System;
+  return (localStorage.theme === 'dark') ? UserPreference.Dark : UserPreference.Light;
+}
 
 function getSystemTheme(ev?: MediaQueryListEvent) {
   return (ev || getMediaQuery()).matches ? Theme.Dark : Theme.Light;
 }
-
-/**
- * Get current theme
- */
 
 function getTheme() {
   switch (getUserPreference()) {
@@ -119,27 +111,24 @@ export function ThemeProvider({ children }: React.PropsWithChildren) {
     theme,
     userPreference,
     setUserPreference: (value: UserPreference) => {
-      // update `userPreference`
-      setUserPreference(value);
-      
-      // update localStorage and `theme`
+      // upate localStorage
       switch (value) {
         case UserPreference.System:
-          //localStorage.removeItem('theme');
-          setTheme(getSystemTheme());
+          localStorage.removeItem('theme');
           break;
         case UserPreference.Dark:
-          //localStorage.setItem('theme', 'dark');
-          console.log('setting to dark');
-          setTheme(Theme.Dark);
+          localStorage.setItem('theme', 'dark');
           break;
         case UserPreference.Light:
-          //localStorage.setItem('theme', 'light');
-          setTheme(Theme.Light);
+          localStorage.setItem('theme', 'light');
           break;
         default:
           throw new Error('not implemented');
       }
+
+      // update react states
+      setUserPreference(getUserPreference());
+      setTheme(getTheme());      
     },
   }
 
@@ -147,5 +136,5 @@ export function ThemeProvider({ children }: React.PropsWithChildren) {
     <Context.Provider value={context}>
       {children}
     </Context.Provider>
-  )
+  );
 }
