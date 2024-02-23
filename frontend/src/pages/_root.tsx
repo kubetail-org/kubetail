@@ -49,31 +49,6 @@ export default function Root() {
     el.setAttribute('href', joinPaths(getBasename(), '/favicon.ico'));
   }, []);
 
-  const updateTheme = (theme: string) => {
-    if (theme === 'dark') document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-  };
-
-  // set theme onload
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && mediaQuery.matches)) updateTheme('dark');
-    else updateTheme('light');
-  }, []);
-
-  // listen for os/browser preference changes
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const fn = (ev: MediaQueryListEvent) => {
-      if ('theme' in localStorage) return;
-      updateTheme(ev.matches ? 'dark' : 'light');
-    };
-    mediaQuery.addEventListener('change', fn);
-
-    // cleanup
-    return () => mediaQuery.removeEventListener('change', fn);
-  }, []);
-
   return (
     <>
       <CustomToaster />
