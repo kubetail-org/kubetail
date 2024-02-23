@@ -50,6 +50,7 @@ import {
 } from '@/lib/console/logging-resources';
 import type { LogFeedQueryOptions, LogRecord, LRPod } from '@/lib/console/logging-resources';
 import { Counter, MapSet, cssEncode, intersectSets, getBasename, joinPaths } from '@/lib/helpers';
+import { Theme, UserPreference, useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
 
@@ -1228,7 +1229,7 @@ const Console = () => {
 /**
  * Default component
  */
-
+/*
 export default function Page() {
   const [timezone, setTimezone] = useState('utc');
 
@@ -1239,6 +1240,26 @@ export default function Page() {
           <Console />
         </AppLayout>
       </Context.Provider>
+    </AuthRequired>
+  );
+}
+*/
+
+export default function Page() {
+  const { theme, userPreference, setUserPreference } = useTheme();
+
+  const handleChange = (ev: React.ChangeEvent<HTMLSelectElement>) => {
+    setUserPreference(ev.target.value as UserPreference);
+  };
+
+  return (
+    <AuthRequired>
+      <div>current theme: {theme}</div>
+      <select value={userPreference} onChange={handleChange}>
+        <option value={UserPreference.System}>system</option>
+        <option value={UserPreference.Dark}>dark</option>
+        <option value={UserPreference.Light}>light</option>
+      </select>
     </AuthRequired>
   );
 }

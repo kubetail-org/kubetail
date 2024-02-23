@@ -21,6 +21,7 @@ import { routes } from './routes';
 import client from '@/apollo-client';
 import { SessionProvider } from '@/lib/auth';
 import { getBasename } from '@/lib/helpers';
+import { ThemeProvider } from '@/lib/theme';
 
 import './index.css';
 
@@ -30,7 +31,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ApolloProvider client={client}>
       <SessionProvider>
-        <RouterProvider router={router} />
+        <ThemeProvider>
+          <RouterProvider router={router} />
+        </ThemeProvider>
       </SessionProvider>
     </ApolloProvider>
   </React.StrictMode>
