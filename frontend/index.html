@@ -11,18 +11,10 @@
 <body>
   <div id="root"></div>
   <script>
-    (() => {
-      // set theme as early as possible
-      if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        // set background default to black
-        const el = document.createElement('style');
-        el.innerHTML = 'html,body{background-color:black;}';
-        document.head.prepend(el);
-
-        // add dark class to document
-        document.documentElement.classList.add('dark');
-      }
-    })();
+    // set theme as early as possible
+    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
   </script>
   <script type="module" src="/src/main.tsx"></script>
 </body>
