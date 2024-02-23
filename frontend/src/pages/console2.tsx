@@ -83,7 +83,7 @@ const Header = () => {
 
 const Content = () => {
   return (
-    <div>
+    <div className="h-full">
       <LogFeedContent />
     </div>
   );
