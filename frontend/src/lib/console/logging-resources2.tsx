@@ -39,76 +39,76 @@ export function useLogFeed() {
  */
 
 export const LogFeedContent = () => {
+  const [initialStartDate] = useState(new Date());
+
+  const [isLoading, setIsLoading] = useState(false);
+
   const [items, setItems] = useState(() => {
-    const items: string[] = [];
-    for (let i=0; i < 10; i++) items.push(`row ${i}`);
-    return items;
+    // init list
+    let timestamps: string[] = [];
+    for (let i = 0; i < 100; i++) {
+      const newDate = new Date(initialStartDate.getTime() + i * 1000);
+      timestamps.push(newDate.toISOString());
+    }
+    return timestamps;
   });
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      items.push(`row ${items.length + 1}`);
-      setItems(Array.from(items));
-    }, 1000);
-
-    return () => clearInterval(id);
-  }, []);
-
-  const [isNextPageLoading, setIsNextPageLoading] = useState(false);
-
-  const hasNextPage = true;
-  const loadNextPage = () => {
-    setIsNextPageLoading(true);
-    for (let i=items.length; i<(items.length + 50); i++) items.push(`row ${i}`);
-    setItems(Array.from(items));
-    setTimeout(() => setIsNextPageLoading(false), 1000);
+  const isItemLoaded = (index: number) => {
+    if (index <= 0) return false;
+    return true;
   };
 
-  const itemCount = hasNextPage ? items.length + 1 : items.length;
-  //const loadMoreItems = isNextPageLoading ? () => { } : loadNextPage;
-  //const isItemLoaded = index => !hasNextPage || index < items.length;
+  const loadMoreItems = async (startIndex: number, stopIndex: number) => {
+    if (isLoading) return;
+    console.log(startIndex);
+    console.log(stopIndex);
+    setIsLoading(true);
 
-  const isItemLoaded = (index: number) => {
-    if (index > items.length) return false;
-    return true;
+    setTimeout(() => {
+      const startDate = new Date(items[0]);
+      for (let i = 0; i < 100; i++) {
+        const newDate = new Date(startDate.getTime() - i * 1000);
+        items.unshift(newDate.toISOString());
+      }
+      setItems(Array.from(items));
+      setIsLoading(false);
+    }, 1000);
   }
 
-  const loadMoreItems = (startIndex: number, stopIndex: number) => {
-    /*for (let i=items.length; i<(items.length + 20); i++) items.unshift(`row ${i}`);*/
-    console.log(args);
-  };
-
   const Row = ({ index, style }: { index: any; style: any; }) => {
-    //let content;
-    //if (!isItemLoaded(index)) content = "Loading...";
-    //else content = items[index];
+    if (index === 0) return <div>Loading...</div>;
     const content = items[index];
     return <div style={style}>{content}</div>;
   };
 
   return (
-    <AutoSizer>
-      {({ height, width }) => (
-        <InfiniteLoader
-          isItemLoaded={isItemLoaded}
-          itemCount={items.length}
-          loadMoreItems={loadMoreItems}
-        >
-          {({ onItemsRendered, ref }: { onItemsRendered: any; ref: any; }) => (
-            <FixedSizeList
-              height={height}
-              width={width}
+    <div className="h-full">
+      Loading state: {isLoading.toString()}
+      <div className="h-full">
+        <AutoSizer>
+          {({ height, width }) => (
+            <InfiniteLoader
+              isItemLoaded={isItemLoaded}
               itemCount={items.length}
-              onItemsRendered={onItemsRendered}
-              ref={ref}
-              itemSize={18}
+              loadMoreItems={loadMoreItems}
             >
-              {Row}
-            </FixedSizeList>
+              {({ onItemsRendered, ref }: { onItemsRendered: any; ref: any; }) => (
+                <FixedSizeList
+                  height={height}
+                  width={width}
+                  itemCount={items.length}
+                  onItemsRendered={onItemsRendered}
+                  ref={ref}
+                  itemSize={18}
+                >
+                  {Row}
+                </FixedSizeList>
+              )}
+            </InfiniteLoader>
           )}
-        </InfiniteLoader>
-      )}
-    </AutoSizer>
+        </AutoSizer>
+      </div>
+    </div>
   );
 };
 

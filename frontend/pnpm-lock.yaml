@@ -74,6 +74,9 @@ dependencies:
   react-window:
     specifier: ^1.8.10
     version: 1.8.10(react-dom@18.2.0)(react@18.2.0)
+  react-window-infinite-loader:
+    specifier: ^1.0.9
+    version: 1.0.9(react-dom@18.2.0)(react@18.2.0)
   tailwind-merge:
     specifier: ^2.2.1
     version: 2.2.1
@@ -166,9 +169,6 @@ devDependencies:
   postcss:
     specifier: ^8.4.35
     version: 8.4.35
-  react-window-infinite-loader:
-    specifier: link:@types/@types/react-window-infinite-loader
-    version: link:@types/@types/react-window-infinite-loader
   rollup-plugin-visualizer:
     specifier: ^5.12.0
     version: 5.12.0
@@ -6720,6 +6720,17 @@ packages:
 
   /react-virtualized-auto-sizer@1.0.23(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-5id3UTx+fG7b7SIOKL9/7aR1vP8+MtIT84cJCf09F6pYalB/nvHlx5EQvsSk27SwHUKjgPamG/nS8ynI0uSfKA==}
+    peerDependencies:
+      react: ^15.3.0 || ^16.0.0-alpha || ^17.0.0 || ^18.0.0
+      react-dom: ^15.3.0 || ^16.0.0-alpha || ^17.0.0 || ^18.0.0
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+    dev: false
+
+  /react-window-infinite-loader@1.0.9(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-5Hg89IdU4Vrp0RT8kZYKeTIxWZYhNkVXeI1HbKo01Vm/Z7qztDvXljwx16sMzsa9yapRJQW3ODZfMUw38SOWHw==}
+    engines: {node: '>8.0.0'}
     peerDependencies:
       react: ^15.3.0 || ^16.0.0-alpha || ^17.0.0 || ^18.0.0
       react-dom: ^15.3.0 || ^16.0.0-alpha || ^17.0.0 || ^18.0.0

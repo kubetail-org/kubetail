@@ -36,6 +36,7 @@
     "react-timeago": "^7.2.0",
     "react-virtualized-auto-sizer": "^1.0.23",
     "react-window": "^1.8.10",
+    "react-window-infinite-loader": "^1.0.9",
     "tailwind-merge": "^2.2.1"
   },
   "devDependencies": {
@@ -68,7 +69,6 @@
     "history": "^5.3.0",
     "jsdom": "^22.1.0",
     "postcss": "^8.4.35",
-    "react-window-infinite-loader": "link:@types/@types/react-window-infinite-loader",
     "rollup-plugin-visualizer": "^5.12.0",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3",
