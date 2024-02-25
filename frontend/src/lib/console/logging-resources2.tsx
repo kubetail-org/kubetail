@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, forwardRef, useContext, useEffect, useRef, useState } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import InfiniteLoader from 'react-window-infinite-loader';
-import { FixedSizeList, type ListOnItemsRenderedProps} from 'react-window';
+import { FixedSizeList, FixedSizeGrid, type ListOnItemsRenderedProps, type FixedSizeGridProps } from 'react-window';
+
+import { cn } from '@/lib/utils';
 
 type Context = {};
 
@@ -38,26 +40,27 @@ export function useLogFeed() {
  * Log feed content component
  */
 
-export const LogFeedContent = () => {
-  const [initTS] = useState(new Date());
+type OnItemsRenderedCallbackFunction = (args: ListOnItemsRenderedProps) => void;
 
+export const LogFeedContent = () => {
   const listRef = useRef<FixedSizeList<string> | null>(null);
+  const listOuterRef = useRef<HTMLDivElement | null>(null);
+  const listInnerRef = useRef<HTMLDivElement | null>(null);
   const infiniteLoaderRef = useRef<InfiniteLoader | null>(null);
 
   const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isListReady, setIsListReady] = useState(false);
-  const [onItemsRenderedCallback, setOnItemsRenderedCallback] = useState<() => void>();
-  const [scrollTo, setScrollTo] = useState<number>();
+
+  const [onItemsRenderedCallback, setOnItemsRenderedCallback] = useState<OnItemsRenderedCallbackFunction | undefined>(() => {
+    return () => setIsListReady(true);
+  });
 
   const [items, setItems] = useState(() => {
     // init list
-    let timestamps: string[] = [];
-    for (let i = 0; i < 50; i++) {
-      const newDate = new Date(initTS.getTime() - i * 1000);
-      timestamps.unshift(newDate.toISOString());
-    }
-    return timestamps;
+    let items: number[] = [];
+    for (let i = 0; i < 50; i++) items.push(i);
+    return items;
   });
 
   // leave extra space if there are more results
@@ -69,107 +72,251 @@ export const LogFeedContent = () => {
     return true;
   };
 
-  /*
-  useEffect(() => {
-    setTimeout(() => {
-      listRef.current?.scrollToItem(items.length);
-      infiniteLoaderRef.current?.resetloadMoreItemsCache();
-    }, 1000);
-  }, []);*/
-
-  /*
-  useEffect(() => {
-    const id = setInterval(() => {
-      items.push((new Date()).toISOString())
-      setItems(Array.from(items));
-      listRef.current?.scrollToItem(items.length);
-    }, 3000);
-    return () => clearInterval(id);
-  }, []);*/
-
-  const loadMoreItems = async (startIndex: number, stopIndex: number) => {
+  const loadMoreItems = async () => {
     if (isLoading) return;
-    console.log(startIndex);
-    console.log(stopIndex);
     setIsLoading(true);
 
     setTimeout(() => {
-      const startDate = new Date(items[0]);
-      for (let i = 0; i < 30; i++) {
-        const newDate = new Date(startDate.getTime() - i * 1000);
-        items.unshift(newDate.toISOString());
-      }
+      const startNum = items[0];
+      for (let i = 1; i <= 30; i++) items.unshift(startNum - i);
+
+      // current scrollPos
+      const scrollPos = listOuterRef.current?.scrollTop || 0;
 
       // update state
       setItems(Array.from(items));
       setIsLoading(false);
-      infiniteLoaderRef.current?.resetloadMoreItemsCache();
-      setOnItemsRenderedCallback(() => {
-        listRef.current?.scrollToItem(31);
-      });
 
-      // scroll to bottom
-      //listRef.current?.scrollToItem(itemCount);
+      if (items[1] < -100) setHasMore(false);
+
+      // go back to scrollPos
+      setOnItemsRenderedCallback(() => {
+        setTimeout(() => {
+          listRef.current?.scrollTo(scrollPos + (30 * 18));
+          infiniteLoaderRef.current?.resetloadMoreItemsCache();
+        }, 0);
+      });
     }, 1000);
   }
 
   const handleItemsRendered = (args: ListOnItemsRenderedProps) => {
-    if (onItemsRenderedCallback) {
-      onItemsRenderedCallback();
-      setOnItemsRenderedCallback(undefined);
+    onItemsRenderedCallback && onItemsRenderedCallback(args);
+    setOnItemsRenderedCallback(undefined);
+  };
+
+  const OuterElementType = forwardRef((props, ref) => {
+    const { children, ...otherProps } = props;
+    console.log(otherProps);
+    return (
+      <div
+        ref={ref}
+        className="relative"
+        {...otherProps}
+      >
+        <div className="absolute top-0 z-10 w-auto">
+          <div className="flex">
+            <div className="w-[100px] bg-chrome-100">index</div>
+            <div className="w-[300px] bg-chrome-100">col-1</div>
+            <div className="w-[300px] bg-chrome-100">col-2</div>
+            <div className="w-[300px] bg-chrome-100">col-3</div>
+            <div className="w-[300px] bg-chrome-100">col-4</div>
+            <div className="w-[300px] bg-chrome-100">col-5</div>
+            <div className="w-[300px] bg-chrome-100">col-6</div>
+            <div className="w-[300px] bg-chrome-100">col-7</div>
+          </div>
+        </div>
+
+        {children}
+      </div>
+    );
+  });
+
+  const InnerElementType = forwardRef((props, ref) => {
+    const { children, ...otherProps } = props;
+    console.log(otherProps);
+    return (
+      <div
+        ref={ref}
+        {...otherProps}
+      >
+        {children}
+      </div>
+    );
+  });
+
+  const Row = ({ index, style }: { index: any; style: any; }) => {
+    if (index === 0) {
+      if (hasMore) return <div>Loading...</div>;
+      else return <div>no more data</div>;
     }
+    const content = items[hasMore ? index - 1 : index];
+
+    // remove `width` from styles
+    const { width, ...customStyle } = style;
+
+    return <div className="flex" style={customStyle}>
+      <div className="w-[100px]">{content}</div>
+      <div className="w-[300px]">col-1</div>
+      <div className="w-[300px]">col-2</div>
+      <div className="w-[300px]">col-3</div>
+      <div className="w-[300px]">col-4</div>
+      <div className="w-[300px]">col-5</div>
+      <div className="w-[300px]">col-6</div>
+      <div className="w-[300px]">col-7</div>
+    </div>;
+  };
+
+  return (
+    <AutoSizer>
+      {({ height, width }) => (
+        <InfiniteLoader
+          ref={infiniteLoaderRef}
+          isItemLoaded={isItemLoaded}
+          itemCount={itemCount}
+          loadMoreItems={loadMoreItems}
+          threshold={0}
+        >
+          {({ onItemsRendered, ref }) => (
+            <FixedSizeList
+              ref={list => {
+                ref(list);
+                listRef.current = list;
+              }}
+              onItemsRendered={(args) => {
+                onItemsRendered(args);
+                handleItemsRendered(args);
+              }}
+              height={height}
+              width={width}
+              itemCount={itemCount}
+              itemSize={18}
+              outerRef={listOuterRef}
+              innerRef={listInnerRef}
+              outerElementType={OuterElementType}
+              innerElementType={InnerElementType}
+              initialScrollOffset={itemCount * 18}
+            >
+              {Row}
+            </FixedSizeList>
+          )}
+        </InfiniteLoader>
+      )}
+    </AutoSizer>
+  );
+};
+
+/*
+
+type OnItemsRenderedCallbackFunction = (args: ListOnItemsRenderedProps) => void;
+
+export const LogFeedContent = () => {
+  const listRef = useRef<FixedSizeList<string> | null>(null);
+  const listOuterRef = useRef<HTMLDivElement | null>(null);
+  const listInnerRef = useRef<HTMLDivElement | null>(null);
+  const infiniteLoaderRef = useRef<InfiniteLoader | null>(null);
+
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isListReady, setIsListReady] = useState(false);
+
+  const [onItemsRenderedCallback, setOnItemsRenderedCallback] = useState<OnItemsRenderedCallbackFunction | undefined>(() => {
+    return () => setIsListReady(true);
+  });
+
+  const [items, setItems] = useState(() => {
+    // init list
+    let items: number[] = [];
+    for (let i = 0; i < 50; i++) items.push(i);
+    return items;
+  });
+
+  // leave extra space if there are more results
+  const itemCount = (hasMore) ? items.length + 1 : items.length;
+
+  // use first item as loading placeholder
+  const isItemLoaded = (index: number) => {
+    if (index === 0 && isListReady && hasMore) return false;
+    return true;
+  };
+
+  const loadMoreItems = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+
+    setTimeout(() => {
+      const startNum = items[0];
+      for (let i = 1; i <= 30; i++) items.unshift(startNum - i);
+
+      // current scrollPos
+      const scrollPos = listOuterRef.current?.scrollTop || 0;
+
+      // update state
+      setItems(Array.from(items));
+      setIsLoading(false);
+
+      if (items[1] < -100) setHasMore(false);
+
+      // go back to scrollPos
+      setOnItemsRenderedCallback(() => {
+        setTimeout(() => {
+          listRef.current?.scrollTo(scrollPos + (30 * 18));
+          infiniteLoaderRef.current?.resetloadMoreItemsCache();
+        }, 0);
+      });
+    }, 1000);
+  }
+
+  const handleItemsRendered = (args: ListOnItemsRenderedProps) => {
+    onItemsRenderedCallback && onItemsRenderedCallback(args);
+    setOnItemsRenderedCallback(undefined);
   };
 
   const Row = ({ index, style }: { index: any; style: any; }) => {
-    if (index === 0 && hasMore) return <div>Loading...</div>;
+    if (index === 0) {
+      if (hasMore) return <div>Loading...</div>;
+      else return <div>no more data</div>;
+    }
     const content = items[hasMore ? index - 1 : index];
     return <div style={style}>{content}</div>;
   };
 
   return (
-    <div className="h-full">
-      Loading state: {isLoading.toString()}
-      <div className="h-full">
-        <AutoSizer>
-          {({ height, width }) => (
-            <InfiniteLoader
-              ref={infiniteLoaderRef}
-              isItemLoaded={isItemLoaded}
+    <AutoSizer>
+      {({ height, width }) => (
+        <InfiniteLoader
+          ref={infiniteLoaderRef}
+          isItemLoaded={isItemLoaded}
+          itemCount={itemCount}
+          loadMoreItems={loadMoreItems}
+          threshold={0}
+        >
+          {({ onItemsRendered, ref }) => (
+            <FixedSizeList
+              ref={list => {
+                ref(list);
+                listRef.current = list;
+              }}
+              onItemsRendered={(args) => {
+                onItemsRendered(args);
+                handleItemsRendered(args);
+              }}
+              height={height}
+              width={width}
               itemCount={itemCount}
-              loadMoreItems={loadMoreItems}
+              itemSize={18}
+              outerRef={listOuterRef}
+              innerRef={listInnerRef}
+              initialScrollOffset={itemCount * 18}
             >
-              {({ onItemsRendered, ref }) => (
-                <FixedSizeList
-                  ref={list => {
-                    ref(list);
-                    listRef.current = list;
-
-                    // scroll to bottom and change ready state
-                    if (!isListReady) {
-                      list?.scrollToItem(items.length);
-                      setIsListReady(true);
-                    }
-                    console.log('xxx');
-                  }}
-                  onItemsRendered={(args) => {
-                    onItemsRendered(args);
-                    handleItemsRendered(args);
-                  }}
-                  height={height}
-                  width={width}
-                  itemCount={itemCount}
-                  itemSize={18}
-                >
-                  {Row}
-                </FixedSizeList>
-              )}
-            </InfiniteLoader>
+              {Row}
+            </FixedSizeList>
           )}
-        </AutoSizer>
-      </div>
-    </div>
+        </InfiniteLoader>
+      )}
+    </AutoSizer>
   );
 };
+*/
 
 /**
  * Provider component
