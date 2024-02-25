@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import InfiniteLoader from 'react-window-infinite-loader';
-import { FixedSizeList } from 'react-window';
+import { FixedSizeList, type ListOnItemsRenderedProps} from 'react-window';
 
 type Context = {};
 
@@ -39,24 +39,52 @@ export function useLogFeed() {
  */
 
 export const LogFeedContent = () => {
-  const [initialStartDate] = useState(new Date());
+  const [initTS] = useState(new Date());
 
+  const listRef = useRef<FixedSizeList<string> | null>(null);
+  const infiniteLoaderRef = useRef<InfiniteLoader | null>(null);
+
+  const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isListReady, setIsListReady] = useState(false);
+  const [scrollTo, setScrollTo] = useState<number>();
 
   const [items, setItems] = useState(() => {
     // init list
     let timestamps: string[] = [];
-    for (let i = 0; i < 100; i++) {
-      const newDate = new Date(initialStartDate.getTime() + i * 1000);
-      timestamps.push(newDate.toISOString());
+    for (let i = 0; i < 50; i++) {
+      const newDate = new Date(initTS.getTime() - i * 1000);
+      timestamps.unshift(newDate.toISOString());
     }
     return timestamps;
   });
 
+  // leave extra space if there are more results
+  const itemCount = (hasMore) ? items.length + 1 : items.length;
+
+  // use first item as loading placeholder
   const isItemLoaded = (index: number) => {
-    if (index <= 0) return false;
+    if (index === 0 && isListReady && hasMore) return false;
     return true;
   };
+
+  /*
+  useEffect(() => {
+    setTimeout(() => {
+      listRef.current?.scrollToItem(items.length);
+      infiniteLoaderRef.current?.resetloadMoreItemsCache();
+    }, 1000);
+  }, []);*/
+
+  /*
+  useEffect(() => {
+    const id = setInterval(() => {
+      items.push((new Date()).toISOString())
+      setItems(Array.from(items));
+      listRef.current?.scrollToItem(items.length);
+    }, 3000);
+    return () => clearInterval(id);
+  }, []);*/
 
   const loadMoreItems = async (startIndex: number, stopIndex: number) => {
     if (isLoading) return;
@@ -66,18 +94,29 @@ export const LogFeedContent = () => {
 
     setTimeout(() => {
       const startDate = new Date(items[0]);
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 30; i++) {
         const newDate = new Date(startDate.getTime() - i * 1000);
         items.unshift(newDate.toISOString());
       }
+
+      // update state
       setItems(Array.from(items));
       setIsLoading(false);
+      infiniteLoaderRef.current?.resetloadMoreItemsCache()
+      setTimeout(() => listRef.current?.scrollTo(30), 0);
+
+      // scroll to bottom
+      //listRef.current?.scrollToItem(itemCount);
     }, 1000);
   }
 
+  const handleItemsRendered = (args: ListOnItemsRenderedProps) => {
+    console.log(args);
+  };
+
   const Row = ({ index, style }: { index: any; style: any; }) => {
-    if (index === 0) return <div>Loading...</div>;
-    const content = items[index];
+    if (index === 0 && hasMore) return <div>Loading...</div>;
+    const content = items[hasMore ? index - 1 : index];
     return <div style={style}>{content}</div>;
   };
 
@@ -88,17 +127,31 @@ export const LogFeedContent = () => {
         <AutoSizer>
           {({ height, width }) => (
             <InfiniteLoader
+              ref={infiniteLoaderRef}
               isItemLoaded={isItemLoaded}
-              itemCount={items.length}
+              itemCount={itemCount}
               loadMoreItems={loadMoreItems}
             >
-              {({ onItemsRendered, ref }: { onItemsRendered: any; ref: any; }) => (
+              {({ onItemsRendered, ref }) => (
                 <FixedSizeList
+                  ref={list => {
+                    ref(list);
+                    listRef.current = list;
+
+                    // scroll to bottom and change ready state
+                    if (!isListReady) {
+                      list?.scrollToItem(items.length);
+                      setIsListReady(true);
+                    }
+                    console.log('xxx');
+                  }}
+                  onItemsRendered={(args) => {
+                    onItemsRendered(args);
+                    handleItemsRendered(args);
+                  }}
                   height={height}
                   width={width}
-                  itemCount={items.length}
-                  onItemsRendered={onItemsRendered}
-                  ref={ref}
+                  itemCount={itemCount}
                   itemSize={18}
                 >
                   {Row}
