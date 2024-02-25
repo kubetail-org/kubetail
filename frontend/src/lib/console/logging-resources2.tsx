@@ -47,6 +47,7 @@ export const LogFeedContent = () => {
   const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isListReady, setIsListReady] = useState(false);
+  const [onItemsRenderedCallback, setOnItemsRenderedCallback] = useState<() => void>();
   const [scrollTo, setScrollTo] = useState<number>();
 
   const [items, setItems] = useState(() => {
@@ -102,8 +103,10 @@ export const LogFeedContent = () => {
       // update state
       setItems(Array.from(items));
       setIsLoading(false);
-      infiniteLoaderRef.current?.resetloadMoreItemsCache()
-      setTimeout(() => listRef.current?.scrollTo(30), 0);
+      infiniteLoaderRef.current?.resetloadMoreItemsCache();
+      setOnItemsRenderedCallback(() => {
+        listRef.current?.scrollToItem(31);
+      });
 
       // scroll to bottom
       //listRef.current?.scrollToItem(itemCount);
@@ -111,7 +114,10 @@ export const LogFeedContent = () => {
   }
 
   const handleItemsRendered = (args: ListOnItemsRenderedProps) => {
-    console.log(args);
+    if (onItemsRenderedCallback) {
+      onItemsRenderedCallback();
+      setOnItemsRenderedCallback(undefined);
+    }
   };
 
   const Row = ({ index, style }: { index: any; style: any; }) => {
