@@ -24,19 +24,6 @@ type Context = {};
 const Context = createContext<Context>({} as Context);
 
 /**
- * Log feed hook
- */
-
-export function useLogFeed() {
-  return {
-    play: () => console.log('play'),
-    pause: () => console.log('pause'),
-    skipForward: () => console.log('skipForward'),
-    query: () => console.log('query'),
-  };
-}
-
-/**
  * Log feed component
  */
 

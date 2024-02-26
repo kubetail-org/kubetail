@@ -24,8 +24,13 @@ import { useSearchParams } from 'react-router-dom';
 
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
-import { useLogFeed, LogFeedContent, LoggingResourcesProvider } from '@/lib/console/logging-resources2';
-import { Duration, StreamingState } from '@/lib/console/types';
+import { 
+  LoggingResourcesProvider,
+  LogFeedContent,
+  useLogFeed,
+  Duration,
+  StreamingState,
+} from '@/lib/console';
 
 type State = {
   since: Date | Duration | string;
@@ -113,6 +118,7 @@ const Header = () => {
 
 const Content = () => {
   const { state } = useContext(Context);
+  //const { state, records, controls } = useLogFeed();
 
   return (
     <LogFeedContent 
