@@ -170,11 +170,20 @@ const Content = () => {
     });
   };
 
+  /*
   return (
     <LogFeedContent
       items={items}
       fetchMore={fetchMore}
       hasMore={hasMore}
+    />
+  );*/
+  return (
+    <LogFeedViewer
+      ref={logFeedViewerRef}
+      since={}
+      until={}
+      follow={true}
     />
   );
 };
