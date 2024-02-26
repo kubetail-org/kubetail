@@ -26,11 +26,14 @@ export function useLogFeed() {
   return {
     loading: false,
     state: LogFeedState.Streaming,
-    records: [],
+    records: [
 
-    startStreaming: () => console.log('start-streaming'),
-    stopStreaming: () => console.log('stop-streaming'),
-    skipForward: () => console.log('skipForward'),
-    query: () => console.log('query'),
+    ],
+    controls: {
+      startStreaming: () => console.log('start-streaming'),
+      stopStreaming: () => console.log('stop-streaming'),
+      skipForward: () => console.log('skipForward'),
+      query: () => console.log('query'),
+    },
   };
 }
