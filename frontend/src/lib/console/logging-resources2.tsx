@@ -43,6 +43,10 @@ export function useLogFeed() {
 type OnItemsRenderedCallbackFunction = (args: ListOnItemsRenderedProps) => void;
 
 export const LogFeedContent = () => {
+  const [colWidths, setColWidths] = useState([100, 300, 300, 300, 300, 300, 300]);
+
+  const headerElRef = useRef<HTMLDivElement>(null);
+
   const listRef = useRef<FixedSizeList<string> | null>(null);
   const listOuterRef = useRef<HTMLDivElement | null>(null);
   const listInnerRef = useRef<HTMLDivElement | null>(null);
@@ -52,14 +56,22 @@ export const LogFeedContent = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isListReady, setIsListReady] = useState(false);
 
-  const [onItemsRenderedCallback, setOnItemsRenderedCallback] = useState<OnItemsRenderedCallbackFunction | undefined>(() => {
-    return () => setIsListReady(true);
-  });
+  const [onNextRenderCallback, setOnNextRenderCallback] = useState<OnItemsRenderedCallbackFunction | undefined>();
 
   const [items, setItems] = useState(() => {
     // init list
-    let items: number[] = [];
-    for (let i = 0; i < 50; i++) items.push(i);
+    let items: [number, number, number, number, number, number, number][] = [];
+    for (let i = 0; i < 50; i++) {
+      items.push([
+        i,
+        Math.random(),
+        Math.random(),
+        Math.random(),
+        Math.random(),
+        Math.random(),
+        Math.random(),
+      ]);
+    }
     return items;
   });
 
@@ -77,8 +89,18 @@ export const LogFeedContent = () => {
     setIsLoading(true);
 
     setTimeout(() => {
-      const startNum = items[0];
-      for (let i = 1; i <= 30; i++) items.unshift(startNum - i);
+      const startNum = items[0][0];
+      for (let i = 1; i <= 30; i++) {
+        items.unshift([
+          startNum - i,
+          Math.random(),
+          Math.random(),
+          Math.random(),
+          Math.random(),
+          Math.random(),
+          Math.random(),
+        ]);
+      }
 
       // current scrollPos
       const scrollPos = listOuterRef.current?.scrollTop || 0;
@@ -87,62 +109,47 @@ export const LogFeedContent = () => {
       setItems(Array.from(items));
       setIsLoading(false);
 
-      if (items[1] < -100) setHasMore(false);
+      if (items[1][0] < -100) setHasMore(false);
 
-      // go back to scrollPos
-      setOnItemsRenderedCallback(() => {
-        setTimeout(() => {
-          listRef.current?.scrollTo(scrollPos + (30 * 18));
-          infiniteLoaderRef.current?.resetloadMoreItemsCache();
-        }, 0);
+      // reset cache and keep scrollPos in place
+      setOnNextRenderCallback(() => {
+        infiniteLoaderRef.current?.resetloadMoreItemsCache();
+        setTimeout(() => listRef.current?.scrollTo(scrollPos + (30 * 18)), 0);
       });
     }, 1000);
   }
 
   const handleItemsRendered = (args: ListOnItemsRenderedProps) => {
-    onItemsRenderedCallback && onItemsRenderedCallback(args);
-    setOnItemsRenderedCallback(undefined);
+    // set isListReady
+    if (!isListReady) setIsListReady(true);
+
+    // execute callback if available
+    if (onNextRenderCallback) {
+      onNextRenderCallback(args);
+      setOnNextRenderCallback(undefined);
+    }
   };
 
-  const OuterElementType = forwardRef((props, ref) => {
-    const { children, ...otherProps } = props;
-    console.log(otherProps);
-    return (
-      <div
-        ref={ref}
-        className="relative"
-        {...otherProps}
-      >
-        <div className="absolute top-0 z-10 w-auto">
-          <div className="flex">
-            <div className="w-[100px] bg-chrome-100">index</div>
-            <div className="w-[300px] bg-chrome-100">col-1</div>
-            <div className="w-[300px] bg-chrome-100">col-2</div>
-            <div className="w-[300px] bg-chrome-100">col-3</div>
-            <div className="w-[300px] bg-chrome-100">col-4</div>
-            <div className="w-[300px] bg-chrome-100">col-5</div>
-            <div className="w-[300px] bg-chrome-100">col-6</div>
-            <div className="w-[300px] bg-chrome-100">col-7</div>
-          </div>
-        </div>
+  const handleHeaderScrollX = (ev: React.UIEvent<HTMLDivElement>) => {
+    const headerEl = ev.target as HTMLDivElement;
+    const contentEl = listOuterRef.current;
+    if (!contentEl) return;
+    contentEl.scrollTo({ left: headerEl.scrollLeft, behavior: 'instant' });
+  };
 
-        {children}
-      </div>
-    );
-  });
+  const handleContentScrollX = (ev: React.UIEvent<HTMLDivElement>) => {
+    const contentEl = ev.target as HTMLDivElement;
+    const headerEl = headerElRef.current;
+    if (!headerEl) return;
+    headerEl.scrollTo({ left: contentEl.scrollLeft, behavior: 'instant' });
+  };
 
-  const InnerElementType = forwardRef((props, ref) => {
-    const { children, ...otherProps } = props;
-    console.log(otherProps);
-    return (
-      <div
-        ref={ref}
-        {...otherProps}
-      >
-        {children}
-      </div>
-    );
-  });
+  useEffect(() => {
+    const listOuterEl = listOuterRef.current;
+    if (!listOuterEl) return;
+    listOuterEl.addEventListener('scroll', handleContentScrollX as any);
+    return () => listOuterEl.removeEventListener('scroll', handleContentScrollX as any);
+  }, [isListReady, handleContentScrollX]);
 
   const Row = ({ index, style }: { index: any; style: any; }) => {
     if (index === 0) {
@@ -154,54 +161,70 @@ export const LogFeedContent = () => {
     // remove `width` from styles
     const { width, ...customStyle } = style;
 
-    return <div className="flex" style={customStyle}>
-      <div className="w-[100px]">{content}</div>
-      <div className="w-[300px]">col-1</div>
-      <div className="w-[300px]">col-2</div>
-      <div className="w-[300px]">col-3</div>
-      <div className="w-[300px]">col-4</div>
-      <div className="w-[300px]">col-5</div>
-      <div className="w-[300px]">col-6</div>
-      <div className="w-[300px]">col-7</div>
-    </div>;
+    return (
+      <div className="flex" style={customStyle}>
+        <div className="shrink-0" style={{ width: `${colWidths[0]}px` }}>{content[0]}</div>
+        <div className="shrink-0" style={{ width: `${colWidths[1]}px` }}>{content[1]}</div>
+        <div className="shrink-0" style={{ width: `${colWidths[2]}px` }}>{content[2]}</div>
+        <div className="shrink-0" style={{ width: `${colWidths[3]}px` }}>{content[3]}</div>
+        <div className="shrink-0" style={{ width: `${colWidths[4]}px` }}>{content[4]}</div>
+        <div className="shrink-0" style={{ width: `${colWidths[5]}px` }}>{content[5]}</div>
+        <div className="shrink-0" style={{ width: `${colWidths[6]}px` }}>{content[6]}</div>
+      </div>
+    );
   };
 
   return (
-    <AutoSizer>
-      {({ height, width }) => (
-        <InfiniteLoader
-          ref={infiniteLoaderRef}
-          isItemLoaded={isItemLoaded}
-          itemCount={itemCount}
-          loadMoreItems={loadMoreItems}
-          threshold={0}
-        >
-          {({ onItemsRendered, ref }) => (
-            <FixedSizeList
-              ref={list => {
-                ref(list);
-                listRef.current = list;
-              }}
-              onItemsRendered={(args) => {
-                onItemsRendered(args);
-                handleItemsRendered(args);
-              }}
-              height={height}
-              width={width}
+    <div className="h-full flex flex-col">
+      <div
+        ref={headerElRef}
+        className="w-full overflow-auto no-scrollbar cursor-default flex"
+        onScroll={handleHeaderScrollX}
+      >
+        <div className="bg-chrome-100 shrink-0" style={{ width: `${colWidths[0]}px` }}>index</div>
+        <div className="bg-chrome-100 shrink-0" style={{ width: `${colWidths[1]}px` }}>col-1</div>
+        <div className="bg-chrome-100 shrink-0" style={{ width: `${colWidths[2]}px` }}>col-2</div>
+        <div className="bg-chrome-100 shrink-0" style={{ width: `${colWidths[3]}px` }}>col-3</div>
+        <div className="bg-chrome-100 shrink-0" style={{ width: `${colWidths[4]}px` }}>col-4</div>
+        <div className="bg-chrome-100 shrink-0" style={{ width: `${colWidths[5]}px` }}>col-5</div>
+        <div className="bg-chrome-100 shrink-0" style={{ width: `${colWidths[6]}px` }}>col-6</div>
+      </div>
+      <div className="flex-grow">
+        <AutoSizer>
+          {({ height, width }) => (
+            <InfiniteLoader
+              ref={infiniteLoaderRef}
+              isItemLoaded={isItemLoaded}
               itemCount={itemCount}
-              itemSize={18}
-              outerRef={listOuterRef}
-              innerRef={listInnerRef}
-              outerElementType={OuterElementType}
-              innerElementType={InnerElementType}
-              initialScrollOffset={itemCount * 18}
+              loadMoreItems={loadMoreItems}
+              threshold={0}
             >
-              {Row}
-            </FixedSizeList>
+              {({ onItemsRendered, ref }) => (
+                <FixedSizeList
+                  ref={list => {
+                    ref(list);
+                    listRef.current = list;
+                  }}
+                  onItemsRendered={(args) => {
+                    onItemsRendered(args);
+                    handleItemsRendered(args);
+                  }}
+                  height={height}
+                  width={width}
+                  itemCount={itemCount}
+                  itemSize={18}
+                  outerRef={listOuterRef}
+                  innerRef={listInnerRef}
+                  initialScrollOffset={itemCount * 18}
+                >
+                  {Row}
+                </FixedSizeList>
+              )}
+            </InfiniteLoader>
           )}
-        </InfiniteLoader>
-      )}
-    </AutoSizer>
+        </AutoSizer>
+      </div>
+    </div>
   );
 };
 

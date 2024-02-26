@@ -145,7 +145,7 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
         <div className="bg-chrome-100 border-b border-chrome-divider">
           {header}
         </div>
-        <div className="flex-grow overflow-auto">
+        <div className="flex-grow">
           {content}
         </div>
       </main>
