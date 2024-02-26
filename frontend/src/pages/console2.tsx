@@ -19,14 +19,24 @@ import {
   Settings as SettingsIcon,
   SkipForward as SkipForwardIcon,
 } from 'lucide-react';
-import { createContext, useContext, useReducer, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import { useSearchParams } from 'react-router-dom';
+import AutoSizer from 'react-virtualized-auto-sizer';
+import InfiniteLoader from 'react-window-infinite-loader';
+import { FixedSizeList } from 'react-window';
 
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
-import { 
-  LoggingResourcesProvider,
+import {
   LogFeedContent,
+  LoggingResourcesProvider,
   useLogFeed,
   Duration,
   StreamingState,
@@ -117,14 +127,54 @@ const Header = () => {
  */
 
 const Content = () => {
-  const { state } = useContext(Context);
-  //const { state, records, controls } = useLogFeed();
+  const [hasMore, setHasMore] = useState(true);
+
+  const [items, setItems] = useState(() => {
+    // init list
+    let items: [number, number, number, number, number, number, number][] = [];
+    for (let i = 0; i < 50; i++) {
+      items.push([
+        i,
+        Math.random(),
+        Math.random(),
+        Math.random(),
+        Math.random(),
+        Math.random(),
+        Math.random(),
+      ]);
+    }
+    return items;
+  });
+
+  const fetchMore = async () => {
+    return new Promise<void>(resolve => {
+      setTimeout(() => {
+        const startNum = items[0][0];
+        for (let i = 1; i <= 30; i++) {
+          items.unshift([
+            startNum - i,
+            Math.random(),
+            Math.random(),
+            Math.random(),
+            Math.random(),
+            Math.random(),
+            Math.random(),
+          ]);
+        }
+        setItems(Array.from(items));
+
+        if (items[1][0] < -100) setHasMore(false);
+
+        resolve();
+      }, 1000);
+    });
+  };
 
   return (
-    <LogFeedContent 
-      since={state.since}
-      until={state.until}
-      follow={state.streamingState === StreamingState.Streaming}
+    <LogFeedContent
+      items={items}
+      fetchMore={fetchMore}
+      hasMore={hasMore}
     />
   );
 };

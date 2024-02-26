@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+export * from './LogFeedContent';
 export * from './hooks';
 export * from './logging-resources2';
 export * from './types';
