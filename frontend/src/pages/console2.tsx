@@ -13,18 +13,36 @@
 // limitations under the License.
 
 import {
+  Clock as ClockIcon,
   Pause as PauseIcon,
   Play as PlayIcon,
   Settings as SettingsIcon,
   SkipForward as SkipForwardIcon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { createContext, useContext, useReducer, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
-
 import { useLogFeed, LogFeedContent, LoggingResourcesProvider } from '@/lib/console/logging-resources2';
+import { Duration, StreamingState } from '@/lib/console/types';
+
+type State = {
+  since: Date | Duration | string;
+  until: Date | string;
+  streamingState: StreamingState;
+};
+
+type Context = {
+  state: State;
+  dispatch: React.Dispatch<Partial<State>>;
+};
+
+const Context = createContext<Context>({} as Context);
+
+function reducer(prevState: State, newState: Partial<State>): State {
+  return Object.assign({}, { ...prevState }, { ...newState });
+}
 
 /**
  * Sidebar component
@@ -41,34 +59,46 @@ const Sidebar = () => {
  */
 
 const Header = () => {
+  const { state, dispatch } = useContext(Context);
   const feed = useLogFeed();
 
   const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30';
 
   return (
-    <div className="grid grid-cols-3 p-1">
+    <div className="grid grid-cols-2 p-1">
       <div className="flex px-2 justify-left">
-        <button
-          className={buttonCN}
-          title="Pause"
-        >
-          <PauseIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
-        </button>
-        <button
-          className={buttonCN}
-          title="Play"
-        >
-          <PlayIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
-        </button>
+        {state.streamingState === StreamingState.Streaming ? (
+          <button
+            className={buttonCN}
+            title="Pause"
+            onClick={() => dispatch({ streamingState: StreamingState.Paused })}
+          >
+            <PauseIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+          </button>
+        ) : (
+          <button
+            className={buttonCN}
+            title="Play"
+            onClick={() => dispatch({ streamingState: StreamingState.Streaming })}
+          >
+            <PlayIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+          </button>
+        )}
         <button
           className={buttonCN}
           title="Skip Forward"
         >
           <SkipForwardIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
         </button>
-      </div>
-      <div className="flex justify-center items-center">
-        dropdwon
+        <button className="cursor-pointer bg-chrome-200 hover:bg-chrome-300 py-1 px-2 rounded ml-1">
+          <div className="w-[390px] flex text-primary font-medium text-sm items-center space-x-1">
+            <ClockIcon size={15} strokeWidth={2} />
+            <div>Feb 26, 2024 07:13:39 UTC</div>
+            <div className="px-1">-</div>
+            <div>Streaming</div>
+            <div>{state.streamingState}</div>
+          </div>
+        </button>
       </div>
       <div className="h-full flex flex-col justify-end items-end">
         settings
@@ -82,8 +112,14 @@ const Header = () => {
  */
 
 const Content = () => {
+  const { state } = useContext(Context);
+
   return (
-    <LogFeedContent />
+    <LogFeedContent 
+      since={state.since}
+      until={state.until}
+      follow={state.streamingState === StreamingState.Streaming}
+    />
   );
 };
 
@@ -160,17 +196,25 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
 export default function Page() {
   const [searchParams] = useSearchParams();
 
+  const [state, dispatch] = useReducer(reducer, {
+    since: '-100',
+    until: 'FOREVER',
+    streamingState: StreamingState.Streaming,
+  });
+
   return (
     <AuthRequired>
-      <LoggingResourcesProvider sourcePaths={searchParams.getAll('source')}>
-        <AppLayout>
-          <InnerLayout
-            sidebar={<Sidebar />}
-            header={<Header />}
-            content={<Content />}
-          />
-        </AppLayout>
-      </LoggingResourcesProvider>
+      <Context.Provider value={{ state, dispatch }}>
+        <LoggingResourcesProvider sourcePaths={searchParams.getAll('source')}>
+          <AppLayout>
+            <InnerLayout
+              sidebar={<Sidebar />}
+              header={<Header />}
+              content={<Content />}
+            />
+          </AppLayout>
+        </LoggingResourcesProvider>
+      </Context.Provider>
     </AuthRequired>
   );
 }

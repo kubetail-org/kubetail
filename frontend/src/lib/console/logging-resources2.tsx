@@ -37,12 +37,26 @@ export function useLogFeed() {
 }
 
 /**
- * Log feed content component
+ * Log feed component
+ */
+
+type LogFeedComponentProps = {
+  since: Date | Duration | string;
+  until: Date | string;
+  follow: boolean;
+}
+
+export const LogFeedContent = (props: LogFeedComponentProps) => {
+  return <div>data</div>;
+};
+
+/**
+ * Log feed content display component
  */
 
 type OnItemsRenderedCallbackFunction = (args: ListOnItemsRenderedProps) => void;
 
-export const LogFeedContent = () => {
+const LogFeedContentDisplay = () => {
   const [colWidths, setColWidths] = useState([100, 300, 300, 300, 300, 300, 300]);
 
   const headerElRef = useRef<HTMLDivElement>(null);
@@ -181,13 +195,13 @@ export const LogFeedContent = () => {
         className="w-full overflow-auto no-scrollbar cursor-default flex"
         onScroll={handleHeaderScrollX}
       >
-        <div className="bg-chrome-100 shrink-0" style={{ width: `${colWidths[0]}px` }}>index</div>
-        <div className="bg-chrome-100 shrink-0" style={{ width: `${colWidths[1]}px` }}>col-1</div>
-        <div className="bg-chrome-100 shrink-0" style={{ width: `${colWidths[2]}px` }}>col-2</div>
-        <div className="bg-chrome-100 shrink-0" style={{ width: `${colWidths[3]}px` }}>col-3</div>
-        <div className="bg-chrome-100 shrink-0" style={{ width: `${colWidths[4]}px` }}>col-4</div>
-        <div className="bg-chrome-100 shrink-0" style={{ width: `${colWidths[5]}px` }}>col-5</div>
-        <div className="bg-chrome-100 shrink-0" style={{ width: `${colWidths[6]}px` }}>col-6</div>
+        <div className="shrink-0 bg-chrome-100" style={{ width: `${colWidths[0]}px` }}>index</div>
+        <div className="shrink-0 bg-chrome-100" style={{ width: `${colWidths[1]}px` }}>col-1</div>
+        <div className="shrink-0 bg-chrome-100" style={{ width: `${colWidths[2]}px` }}>col-2</div>
+        <div className="shrink-0 bg-chrome-100" style={{ width: `${colWidths[3]}px` }}>col-3</div>
+        <div className="shrink-0 bg-chrome-100" style={{ width: `${colWidths[4]}px` }}>col-4</div>
+        <div className="shrink-0 bg-chrome-100" style={{ width: `${colWidths[5]}px` }}>col-5</div>
+        <div className="shrink-0 bg-chrome-100" style={{ width: `${colWidths[6]}px` }}>col-6</div>
       </div>
       <div className="flex-grow">
         <AutoSizer>
