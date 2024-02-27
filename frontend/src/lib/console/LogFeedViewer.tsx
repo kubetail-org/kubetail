@@ -133,16 +133,17 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
     }
     const content = items[hasMore ? index - 1 : index];
 
-    // remove `width` from styles
-    const { width, ...customStyle } = style;
-
     const els: JSX.Element[] = [];
     allLogFeedColumns.forEach(col => {
       if (visibleCols.has(col)) {
         els.push((
           <div
             key={col}
-            className={cn('shrink-0', col === LogFeedColumn.Message && 'flex-grow')}
+            className={cn(
+              'shrink-0',
+              col === LogFeedColumn.Message && 'flex-grow',
+              index % 2 !== 0 && 'bg-chrome-50',
+            )}
             style={{ width: `300px` }}
           >
             {content[0]}
@@ -152,7 +153,7 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
     })
 
     return (
-      <div className="flex" style={customStyle}>
+      <div className="flex" style={style}>
         {els}
       </div>
     );
