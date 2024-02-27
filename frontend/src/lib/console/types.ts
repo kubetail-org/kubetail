@@ -12,6 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import type { ApolloError } from '@apollo/client';
+
+import type { ExtractQueryType } from '@/app-env';
+import * as fragments from '@/lib/graphql/fragments';
+
+/*
 export enum DurationUnit {
   Minutes = 'minutes',
   Hours = 'hours',
@@ -43,9 +49,25 @@ export class Duration {
         return `P${this.value}M`;
     }
   }
+}*/
+
+export type Node = ExtractQueryType<typeof fragments.CONSOLE_NODES_LIST_ITEM_FRAGMENT>;
+export type Workload = ExtractQueryType<typeof fragments.CONSOLE_LOGGING_RESOURCES_GENERIC_OBJECT_FRAGMENT>;
+export type Pod = ExtractQueryType<typeof fragments.CONSOLE_LOGGING_RESOURCES_POD_FRAGMENT>;
+
+export class WorkloadResponse {
+  loading: boolean = false;
+  error?: ApolloError = undefined;
+  item?: Workload | null = undefined;
 }
 
-export enum StreamingState {
+export class PodListResponse {
+  loading: boolean = false;
+  error?: ApolloError = undefined;
+  items?: Pod[] | null = undefined;
+};
+
+export enum LogFeedState {
   Streaming = 'STREAMING',
   Paused = 'PAUSED',
   InQuery = 'IN_QUERY',

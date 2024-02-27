@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
 import {
   Clock as ClockIcon,
   Pause as PauseIcon,
@@ -31,9 +32,12 @@ import { useSearchParams } from 'react-router-dom';
 
 import Form from 'kubetail-ui/elements/Form';
 import { Popover, PopoverClose, PopoverTrigger, PopoverContent } from 'kubetail-ui/elements/Popover';
+import Spinner from 'kubetail-ui/elements/Spinner';
 
+import logo from '@/assets/logo.svg';
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
+import SourcePickerModal from '@/components/widgets/SourcePickerModal';
 import {
   LogFeedColumn,
   LogFeedState,
@@ -41,7 +45,12 @@ import {
   LoggingResourcesProvider,
   allLogFeedColumns,
   useLogFeed,
+  usePods,
+  useWorkloads,
 } from '@/lib/console';
+import type { Pod } from '@/lib/console';
+import { cssEncode, getBasename, joinPaths } from '@/lib/helpers';
+import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
 
 type State = {
   since: string;
@@ -59,6 +68,14 @@ const Context = createContext<Context>({} as Context);
 
 function reducer(prevState: State, newState: Partial<State>): State {
   return Object.assign({}, { ...prevState }, { ...newState });
+}
+
+/**
+ * Helpers
+ */
+
+function cssID(pod: LRPod, container: string) {
+  return cssEncode(`${pod.metadata.namespace}/${pod.metadata.name}/${container}`);
 }
 
 /**
@@ -112,12 +129,237 @@ const SettingsButton = () => {
 };
 
 /**
+ * Sidebar workloads component
+ */
+
+const SidebarWorkloads = () => {
+  const { loading, workloads } = useWorkloads();
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const deleteSource = (sourcePath: string) => {
+    searchParams.delete('source', sourcePath);
+    setSearchParams(new URLSearchParams(searchParams), { replace: true });
+  };
+
+  return (
+    <>
+      {isPickerOpen && <SourcePickerModal onClose={() => setIsPickerOpen(false)} />}
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center space-x-1">
+          <span className="font-bold text-chrome-500">Sources</span>
+          {loading && <Spinner className="h-[15px] w-[15px]" />}
+        </div>
+        <a onClick={() => setIsPickerOpen(true)} className="cursor-pointer">
+          <PlusCircleIcon className="h-[24px] w-[24px] text-primary" />
+        </a>
+      </div>
+      <div className="space-y-2">
+        {allWorkloads.map(workload => {
+          const objs = workloads.get(workload);
+          if (!objs) return;
+          const Icon = iconMap[workload];
+          return (
+            <div key={workload}>
+              <div className="flex items-center space-x-1">
+                <div><Icon className="h-[18px] w-[18px]" /></div>
+                <div className="font-semibold text-chrome-500">{labelsPMap[workload]}</div>
+              </div>
+              <ul className="pl-[23px]">
+                {objs.map(obj => (
+                  <li key={obj.id} className="flex items-center justify-between">
+                    <span className="whitespace-nowrap overflow-hidden text-ellipsis">{obj.metadata.name}</span>
+                    <a onClick={() => deleteSource(`${workload}/${obj.metadata.namespace}/${obj.metadata.name}`)}>
+                      <TrashIcon className="h-[18px] w-[18px] text-chrome-300 hover:text-chrome-500 cursor-pointer" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+};
+
+/**
+ * Sidebar pods and containers component
+ */
+
+const SidebarPodsAndContainers = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { pods } = usePods();
+
+  const Containers = ({ pod }: { pod: Pod }) => {
+    const containers = Array.from(pod.spec.containers);
+    containers.sort((a, b) => a.name.localeCompare(b.name));
+
+    const handleToggle = (ev: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value, checked } = ev.currentTarget;
+      if (checked) searchParams.append(name, value);
+      else searchParams.delete(name, value);
+      setSearchParams(new URLSearchParams(searchParams));
+    }
+
+    return (
+      <>
+        {containers.map(container => {
+          const k = cssID(pod, container.name);
+          const urlKey = "container";
+          const urlVal = `${pod.metadata.namespace}/${pod.metadata.name}/${container.name}`;
+          return (
+            <div key={container.name} className="flex item-center justify-between">
+              <div className="flex items-center space-x-1">
+                <div className="w-[13px] h-[13px]" style={{ backgroundColor: `var(--${k}-color)` }}></div>
+                <div>{container.name}</div>
+              </div>
+              <Form.Check
+                checked={searchParams.has(urlKey, urlVal)}
+                name={urlKey}
+                value={urlVal}
+                onChange={handleToggle}
+              />
+            </div>
+          );
+        })}
+      </>
+    );
+  };
+
+  return (
+    <>
+      <div className="border-t border-chrome-divider mt-[10px]"></div>
+      <div className="py-[10px] font-bold text-chrome-500">Pods/Containers</div>
+      <div className="space-y-3">
+        {pods.map(pod => (
+          <div key={pod.metadata.uid}>
+            <div className="flex items-center justify-between">
+              <div className="whitespace-nowrap overflow-hidden text-ellipsis">{pod.metadata.name}</div>
+            </div>
+            <Containers pod={pod} />
+          </div>
+        ))}
+      </div>
+    </>
+  );
+};
+
+/**
+ * Sidebar facets component
+ */
+
+const SidebarFacets = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { pods } = usePods();
+  const nodes = useNodes();
+
+  // count pods per node
+  const nodeVals: string[] = [];
+  pods?.forEach(pod => nodeVals.push(pod.spec.nodeName));
+  const nodeCounts = new Counter(nodeVals);
+
+  // count pods per node facets
+  const regionCounts = new Counter();
+  const zoneCounts = new Counter();
+  const archCounts = new Counter();
+  const osCounts = new Counter();
+
+  // track nodes per facet
+  const nodeMapSet = new MapSet();
+
+  nodes.items?.forEach(node => {
+    const count = nodeCounts.get(node.metadata.name) || 0;
+    if (!count) return;
+
+    const labels = node.metadata.labels;
+    const nodeName = node.metadata.name;
+
+    const region = labels['topology.kubernetes.io/region'];
+    if (region) {
+      regionCounts.update(region, count);
+      nodeMapSet.add(`region:${region}`, nodeName);
+    }
+
+    const zone = labels['topology.kubernetes.io/zone'];
+    if (zone) {
+      zoneCounts.update(zone, count);
+      nodeMapSet.add(`zone:${zone}`, nodeName);
+    }
+
+    const os = labels['kubernetes.io/os'];
+    if (os) {
+      osCounts.update(os, count);
+      nodeMapSet.add(`os:${os}`, nodeName)
+    }
+
+    const arch = labels['kubernetes.io/arch'];
+    if (arch) {
+      archCounts.update(arch, count)
+      nodeMapSet.add(`arch:${arch}`, nodeName)
+    }
+  });
+
+  const handleToggle = (ev: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, checked } = ev.currentTarget;
+    if (checked) searchParams.append(name, value);
+    else searchParams.delete(name, value);
+    setSearchParams(new URLSearchParams(searchParams));
+  };
+
+  const Facets = ({ label, counter }: { label: string, counter: Counter }) => {
+    const urlKey = label.toLocaleLowerCase();
+
+    return (
+      <>
+        <div className="border-t border-chrome-300 mt-[10px] py-[10px] font-bold text-chrome-500">
+          {label}
+        </div>
+        {counter.orderedEntries().map(([facet, count]) => (
+          <div key={facet} className="flex items-center space-x-2">
+            <div>
+              <Form.Check
+                checked={searchParams.has(urlKey, facet)}
+                name={urlKey}
+                value={facet}
+                onChange={handleToggle}
+              />
+            </div>
+            <div className="flex-grow flex justify-between">
+              <div>{facet}</div>
+              <div>({count})</div>
+            </div>
+          </div>
+        ))}
+      </>
+    );
+  };
+
+  return (
+    <div>
+      <Facets label="Region" counter={regionCounts} />
+      <Facets label="Zone" counter={zoneCounts} />
+      <Facets label="OS" counter={osCounts} />
+      <Facets label="Arch" counter={archCounts} />
+      <Facets label="Node" counter={nodeCounts} />
+    </div>
+  );
+};
+
+/**
  * Sidebar component
  */
 
 const Sidebar = () => {
   return (
-    <div>sidebar</div>
+    <div className="text-sm px-[7px] pt-[10px]">
+      <a href={joinPaths(getBasename(), '/')}>
+        <img src={joinPaths(getBasename(), logo)} alt="logo" className="display-block h-[31.4167px] mb-[10px]" />
+      </a>
+      <SidebarWorkloads />
+      <SidebarPodsAndContainers />
+      <SidebarFacets />
+    </div>
   );
 };
 

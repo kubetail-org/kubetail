@@ -14,17 +14,67 @@
 
 import { useContext } from 'react';
 
+import { Workload as WorkloadType, typenameMap } from '@/lib/workload';
+
 import { Context } from './logging-resources2';
+import { LogFeedState, Pod, Workload } from './types';
+
+/**
+ * Workloads hook
+ */
+
+export function useWorkloads() {
+  const { state } = useContext(Context);
+  const { sourceToWorkloadResponseMap } = state;
+
+  let loading = false;
+  const workloads = new Map<WorkloadType, Workload[]>();
+
+  // group sources by workload type
+  sourceToWorkloadResponseMap.forEach((val) => {
+    loading = loading || val.loading;
+    const item = val.item;
+    if (!item?.__typename) return;
+    const workload = typenameMap[item.__typename];
+    const items = workloads.get(workload) || [];
+    items.push(item);
+    workloads.set(workload, items);
+  });
+
+  return { loading, workloads };
+}
+
+/**
+ * Pods hoook
+ */
+
+export function usePods() {
+  const { state } = useContext(Context);
+  const { sourceToPodListResponseMap } = state;
+
+  let loading = false;
+  const pods: Pod[] = [];
+
+  // uniquify
+  const usedIDs = new Set<string>();
+  sourceToPodListResponseMap.forEach((val) => {
+    loading = loading || val.loading;
+    val.items?.forEach(item => {
+      if (usedIDs.has(item.metadata.uid)) return;
+      pods.push(item);
+      usedIDs.add(item.metadata.uid);
+    });
+  });
+
+  // sort
+  pods.sort((a, b) => a.metadata.name.localeCompare(b.metadata.name));
+
+  return { loading, pods };
+}
 
 /**
  * Log feed hook
  */
-
-export enum LogFeedState {
-  Streaming = 'STREAMING',
-  Paused = 'PAUSED',
-  InQuery = 'IN_QUERY',
-}
 
 export function useLogFeed() {
   const { state, dispatch } = useContext(Context);

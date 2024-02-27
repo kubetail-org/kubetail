@@ -13,8 +13,10 @@
 // limitations under the License.
 
 import { LogFeedColumn, LogFeedViewer, allLogFeedColumns } from './LogFeedViewer';
-import { LogFeedState, useLogFeed } from './hooks';
+import { useLogFeed, usePods, useWorkloads } from './hooks';
 import { LoggingResourcesProvider } from './logging-resources2';
+import { LogFeedState } from './types';
+import type { Pod } from './types';
 
 export {
   LogFeedColumn,
@@ -23,4 +25,8 @@ export {
   LoggingResourcesProvider,
   allLogFeedColumns,
   useLogFeed,
+  usePods,
+  useWorkloads,
 };
+
+export type { Pod };
