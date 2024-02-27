@@ -12,11 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React, { createContext } from 'react';
+import React, { createContext, useEffect, useReducer } from 'react';
 
-type Context = {};
+import { LogFeedState } from './hooks';
 
-const Context = createContext<Context>({} as Context);
+type State = {
+  logFeedState: LogFeedState;
+  records: [number, number, number, number, number, number, number][];
+};
+
+type Context = {
+  state: State;
+  dispatch: React.Dispatch<Partial<State>>;
+};
+
+export const Context = createContext<Context>({} as Context);
+
+function reducer(prevState: State, newState: Partial<State>): State {
+  return Object.assign({}, { ...prevState }, { ...newState });
+}
 
 /**
  * Provider component
@@ -27,8 +41,32 @@ interface LoggingResourcesProviderProps extends React.PropsWithChildren {
 };
 
 export const LoggingResourcesProvider = ({ sourcePaths, children }: LoggingResourcesProviderProps) => {
+  const [state, dispatch] = useReducer(reducer, {
+    logFeedState: LogFeedState.Streaming,
+    records: [],
+  });
+
+  useEffect(() => {
+    if (state.logFeedState === LogFeedState.Streaming) {
+      const id = setInterval(() => {
+        const records = state.records;
+        records.push([
+          Math.random(),
+          Math.random(),
+          Math.random(),
+          Math.random(),
+          Math.random(),
+          Math.random(),
+          Math.random(),
+        ]);
+        dispatch({ records });
+      }, 1000);
+      return () => clearInterval(id);
+    }
+  }, [state.logFeedState]);
+
   return (
-    <Context.Provider value={{}}>
+    <Context.Provider value={{ state, dispatch }}>
       {children}
     </Context.Provider>
   );

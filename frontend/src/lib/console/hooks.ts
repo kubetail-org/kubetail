@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { useContext } from 'react';
+
+import { Context } from './logging-resources2';
+
 /**
  * Log feed hook
  */
@@ -23,16 +27,22 @@ export enum LogFeedState {
 }
 
 export function useLogFeed() {
+  const { state, dispatch } = useContext(Context);
+
   return {
     loading: false,
-    state: LogFeedState.Streaming,
-    records: [
-
-    ],
+    state: state.logFeedState,
+    records: state.records,
     controls: {
-      startStreaming: () => console.log('start-streaming'),
-      stopStreaming: () => console.log('stop-streaming'),
-      skipForward: () => console.log('skipForward'),
+      startStreaming: () => {
+        console.log('start-streaming');
+        dispatch({ logFeedState: LogFeedState.Streaming });
+      },
+      stopStreaming: () => {
+        console.log('stop-streaming');
+        dispatch({ logFeedState: LogFeedState.Paused });
+      },
+      skipForward: () => console.log('skip-forward'),
       query: () => console.log('query'),
     },
   };

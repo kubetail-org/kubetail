@@ -12,7 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './LogFeedContent';
-export * from './hooks';
-export * from './logging-resources2';
-export * from './types';
+import { LogFeedColumn, LogFeedViewer, allLogFeedColumns } from './LogFeedViewer';
+import { LogFeedState, useLogFeed } from './hooks';
+import { LoggingResourcesProvider } from './logging-resources2';
+
+export {
+  LogFeedColumn,
+  LogFeedState,
+  LogFeedViewer,
+  LoggingResourcesProvider,
+  allLogFeedColumns,
+  useLogFeed,
+};

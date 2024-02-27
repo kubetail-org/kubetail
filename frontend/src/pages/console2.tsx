@@ -28,24 +28,26 @@ import {
   useState,
 } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import AutoSizer from 'react-virtualized-auto-sizer';
-import InfiniteLoader from 'react-window-infinite-loader';
-import { FixedSizeList } from 'react-window';
+
+import Form from 'kubetail-ui/elements/Form';
+import { Popover, PopoverClose, PopoverTrigger, PopoverContent } from 'kubetail-ui/elements/Popover';
 
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
 import {
-  LogFeedContent,
+  LogFeedColumn,
+  LogFeedState,
+  LogFeedViewer,
   LoggingResourcesProvider,
+  allLogFeedColumns,
   useLogFeed,
-  Duration,
-  StreamingState,
 } from '@/lib/console';
 
 type State = {
-  since: Date | Duration | string;
-  until: Date | string;
-  streamingState: StreamingState;
+  since: string;
+  until: string;
+  visibleCols: Set<LogFeedColumn>;
+  isMsgWrap: boolean;
 };
 
 type Context = {
@@ -58,6 +60,56 @@ const Context = createContext<Context>({} as Context);
 function reducer(prevState: State, newState: Partial<State>): State {
   return Object.assign({}, { ...prevState }, { ...newState });
 }
+
+/**
+ * Settings button
+ */
+
+const SettingsButton = () => {
+  const { state, dispatch } = useContext(Context);
+  const { visibleCols, isMsgWrap } = state;
+
+  const handleOnChange = (col: LogFeedColumn, ev: React.ChangeEvent<HTMLInputElement>) => {
+    if (ev.target.checked) visibleCols.add(col);
+    else visibleCols.delete(col);
+    dispatch({ visibleCols });
+  };
+
+  const checkboxEls: JSX.Element[] = [];
+
+  allLogFeedColumns.forEach(col => {
+    checkboxEls.push(
+      <Form.Check
+        key={col}
+        label={col}
+        checked={visibleCols.has(col) ? true : false}
+        onChange={(ev) => handleOnChange(col, ev)}
+      />
+    );
+  });
+
+  return (
+    <Popover>
+      <PopoverTrigger>
+        <SettingsIcon size={18} strokeWidth={1.5} />
+      </PopoverTrigger>
+      <PopoverContent
+        className="bg-background w-auto mr-1 text-sm"
+        onOpenAutoFocus={(ev) => ev.preventDefault()}
+        sideOffset={-1}
+      >
+        <div className="border-b mb-1">Columns:</div>
+        {checkboxEls}
+        <div className="border-b mt-2 mb-1">Options:</div>
+        <Form.Check
+          label="Wrap"
+          checked={isMsgWrap}
+          onChange={() => dispatch({ isMsgWrap: !isMsgWrap })}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 /**
  * Sidebar component
@@ -74,7 +126,6 @@ const Sidebar = () => {
  */
 
 const Header = () => {
-  const { state, dispatch } = useContext(Context);
   const feed = useLogFeed();
 
   const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30';
@@ -82,11 +133,11 @@ const Header = () => {
   return (
     <div className="grid grid-cols-2 p-1">
       <div className="flex px-2 justify-left">
-        {state.streamingState === StreamingState.Streaming ? (
+        {feed.state === LogFeedState.Streaming ? (
           <button
             className={buttonCN}
             title="Pause"
-            onClick={() => dispatch({ streamingState: StreamingState.Paused })}
+            onClick={() => feed.controls.stopStreaming()}
           >
             <PauseIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
@@ -94,7 +145,7 @@ const Header = () => {
           <button
             className={buttonCN}
             title="Play"
-            onClick={() => dispatch({ streamingState: StreamingState.Streaming })}
+            onClick={() => feed.controls.startStreaming()}
           >
             <PlayIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
@@ -111,80 +162,13 @@ const Header = () => {
             <div>Feb 26, 2024 07:13:39 UTC</div>
             <div className="px-1">-</div>
             <div>Streaming</div>
-            <div>{state.streamingState}</div>
           </div>
         </button>
       </div>
       <div className="h-full flex flex-col justify-end items-end">
-        settings
+        <SettingsButton />
       </div>
     </div>
-  );
-};
-
-/**
- * Content component
- */
-
-const Content = () => {
-  const [hasMore, setHasMore] = useState(true);
-
-  const [items, setItems] = useState(() => {
-    // init list
-    let items: [number, number, number, number, number, number, number][] = [];
-    for (let i = 0; i < 50; i++) {
-      items.push([
-        i,
-        Math.random(),
-        Math.random(),
-        Math.random(),
-        Math.random(),
-        Math.random(),
-        Math.random(),
-      ]);
-    }
-    return items;
-  });
-
-  const fetchMore = async () => {
-    return new Promise<void>(resolve => {
-      setTimeout(() => {
-        const startNum = items[0][0];
-        for (let i = 1; i <= 30; i++) {
-          items.unshift([
-            startNum - i,
-            Math.random(),
-            Math.random(),
-            Math.random(),
-            Math.random(),
-            Math.random(),
-            Math.random(),
-          ]);
-        }
-        setItems(Array.from(items));
-
-        if (items[1][0] < -100) setHasMore(false);
-
-        resolve();
-      }, 1000);
-    });
-  };
-
-  /*
-  return (
-    <LogFeedContent
-      items={items}
-      fetchMore={fetchMore}
-      hasMore={hasMore}
-    />
-  );*/
-  return (
-    <LogFeedViewer
-      ref={logFeedViewerRef}
-      since={}
-      until={}
-      follow={true}
-    />
   );
 };
 
@@ -264,8 +248,19 @@ export default function Page() {
   const [state, dispatch] = useReducer(reducer, {
     since: '-100',
     until: 'FOREVER',
-    streamingState: StreamingState.Streaming,
+    visibleCols: new Set([
+      LogFeedColumn.Timestamp,
+      LogFeedColumn.ColorDot,
+      LogFeedColumn.Message,
+    ]),
+    isMsgWrap: false,
   });
+
+  const Content = () => (
+    <LogFeedViewer 
+      visibleCols={state.visibleCols}
+    />
+  );
 
   return (
     <AuthRequired>
