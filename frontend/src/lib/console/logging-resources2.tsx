@@ -18,11 +18,13 @@ import * as ops from '@/lib/graphql/ops';
 import { useGetQueryWithSubscription, useListQueryWithSubscription } from '@/lib/hooks';
 import { Workload as WorkloadType } from '@/lib/workload';
 
-import { LogFeedState, PodListResponse, WorkloadResponse } from './types';
+import { useNodes, usePods } from './hooks';
+import { LogFeedState, Node, Pod, PodListResponse, WorkloadResponse } from './types';
 
 type State = {
   sourceToWorkloadResponseMap: Map<string, WorkloadResponse>;
   sourceToPodListResponseMap: Map<string, PodListResponse>;
+  isLogFeedReady: boolean;
   logFeedState: LogFeedState;
   records: [number, number, number, number, number, number, number][];
 };
@@ -50,6 +52,7 @@ function initState(sourcePaths: string[]): State {
   return {
     sourceToWorkloadResponseMap,
     sourceToPodListResponseMap,
+    isLogFeedReady: false,
     logFeedState: LogFeedState.Streaming,
     records: [],
   };
@@ -362,6 +365,168 @@ const LoadStatefulSetWorkload = ({ sourcePath }: { sourcePath: string }) => {
 };
 
 /**
+ * Log feed data fetcher component
+ */
+
+type LogFeedRecordFetcherProps = {
+  node: Node;
+  pod: Pod;
+  container: string;
+};
+
+type LogFeedRecordFetcherHandle = {
+  skipForward: () => Promise<LogRecord[]>;
+  query: (opts: LogFeedQueryOptions) => Promise<LogRecord[]>;
+};
+
+const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetcherHandle, LogFeedRecordFetcherProps> = (props, ref) => {
+  const { node, pod, container, onLoad, onUpdate } = props;
+  const { namespace, name } = pod.metadata;
+  const { logFeedState } = useContext(Context);
+  const lastTSRef = useRef<string>();
+  const startTSRef = useRef<string>();
+
+  const upgradeRecord = (record: GraphQLLogRecord) => {
+    return { ...record, node, pod, container };
+  };
+
+  // get logs
+  const { loading, data, subscribeToMore, refetch } = useQuery(ops.QUERY_CONTAINER_LOG, {
+    variables: { namespace, name, container },
+    fetchPolicy: 'no-cache',
+    skip: true,  // we'll use refetch() and subscribeToMmore() instead
+    onCompleted: (data) => {
+      if (!data?.podLogQuery) return;
+      // execute callback
+      onLoad(data.podLogQuery.map(record => upgradeRecord(record)));
+    },
+    onError: (err) => {
+      console.log(err);
+    },
+  });
+
+  // update lastTS
+  if (!lastTSRef.current) lastTSRef.current = data?.podLogQuery?.length ? data.podLogQuery[data.podLogQuery.length - 1].timestamp : undefined;
+
+  // tail
+  useEffect(() => {
+    // wait for initial query to complete
+    if (!(loading === false)) return;
+
+    // only execute when playing
+    if (!(logFeedState === LogFeedState.Playing)) return;
+
+    // update startTS
+    startTSRef.current = (new Date()).toISOString();
+
+    const variables = { namespace, name, container } as any;
+
+    // implement `after`
+    if (lastTSRef.current) variables.after = lastTSRef.current;
+    else variables.since = 'NOW';
+
+    return subscribeToMore({
+      document: ops.TAIL_CONTAINER_LOG,
+      variables: variables,
+      updateQuery: (_, { subscriptionData }) => {
+        const record = subscriptionData.data.podLogTail;
+        if (record) {
+          // update lastTS
+          lastTSRef.current = record.timestamp;
+
+          // execute callback
+          onUpdate(upgradeRecord(record));
+        }
+        return { podLogQuery: [] };
+      },
+      onError: (err) => {
+        console.log(err)
+      },
+    });
+  }, [subscribeToMore, loading, logFeedState]);
+
+  // define handler api
+  useImperativeHandle(ref, () => ({
+    skipForward: async () => {
+      const variables = {} as any;
+      if (lastTSRef.current) variables.after = lastTSRef.current;
+      else variables.after = startTSRef.current;
+      
+      const result = await refetch(variables);
+      if (!result.data.podLogQuery) return [];
+
+      // upgrade records
+      const records = result.data.podLogQuery.map(record => upgradeRecord(record));
+
+      // update lastTS
+      if (records.length) lastTSRef.current = records[records.length - 1].timestamp;
+
+      // return records
+      return records;
+    },
+    query: async (opts: LogFeedQueryOptions) => {
+      const result = await refetch(opts);
+      if (!result.data.podLogQuery) return [];
+
+      // upgrade records
+      const records = result.data.podLogQuery.map(record => upgradeRecord(record));
+
+      // update lastTS
+      if (!opts.until) {
+        if (records.length) lastTSRef.current = records[records.length - 1].timestamp;
+        else lastTSRef.current = undefined;
+      }
+
+      // return records
+      return records;
+    }
+  }));
+
+  return <></>;
+};
+
+/**
+ * Log feed loader component
+ */
+
+const LogFeedLoader = () => {
+  const nodes = useNodes();
+  const pods = usePods();
+  const { dispatch } = useContext(Context);
+
+  // set isReady after component and children are mounted
+  useEffect(() => {
+    if (nodes.loading || pods.loading) return;
+    dispatch({ isLogFeedReady: true });
+  }, [nodes.loading, pods.loading]);
+
+  // wait until resources are loaded
+  if (nodes.loading || pods.loading) return <></>;
+
+  // only load containers from nodes that we have a record of
+  const nodeMap = new Map(nodes.nodes?.map(node => [node.metadata.name, node]));
+
+  const els: JSX.Element[] = [];
+  pods.pods.forEach(pod => {
+    pod.status.containerStatuses.forEach(status => {
+      const node = nodeMap.get(pod.spec.nodeName);
+      if (status.started && node) {
+        els.push(
+          <LogFeedDataFetcher
+            key={`${pod.metadata.namespace}/${pod.metadata.name}/${status.name}`}
+            node={node}
+            pod={pod}
+            container={status.name}
+          />
+        );
+      }
+    });
+  });
+
+  return {els};
+};
+
+/**
  * Provider component
  */
 
@@ -425,6 +590,7 @@ export const LoggingResourcesProvider = ({ sourcePaths, children }: LoggingResou
         const Component = resourceLoaders[parts[0] as WorkloadType];
         return <Component key={path} sourcePath={path} />
       })}
+      <LogFeedLoader />
       {children}
     </Context.Provider>
   );
