@@ -14,10 +14,30 @@
 
 import { useContext } from 'react';
 
+import { useListQueryWithSubscription } from '@/lib/hooks';
+import * as ops from '@/lib/graphql/ops';
 import { Workload as WorkloadType, typenameMap } from '@/lib/workload';
 
 import { Context } from './logging-resources2';
 import { LogFeedState, Pod, Workload } from './types';
+
+/**
+ * Nodes hook
+ */
+
+export function useNodes() {
+  const { fetching, data } = useListQueryWithSubscription({
+    query: ops.CONSOLE_NODES_LIST_FETCH,
+    subscription: ops.CONSOLE_NODES_LIST_WATCH,
+    queryDataKey: 'coreV1NodesList',
+    subscriptionDataKey: 'coreV1NodesWatch',
+  });
+
+  const loading = fetching; // treat still-fetching as still-loading
+  const nodes = (data?.coreV1NodesList?.items) ? data.coreV1NodesList.items : undefined;
+
+  return { loading, nodes };
+}
 
 /**
  * Workloads hook

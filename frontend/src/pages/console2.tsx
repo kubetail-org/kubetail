@@ -45,11 +45,12 @@ import {
   LoggingResourcesProvider,
   allLogFeedColumns,
   useLogFeed,
+  useNodes,
   usePods,
   useWorkloads,
 } from '@/lib/console';
 import type { Pod } from '@/lib/console';
-import { cssEncode, getBasename, joinPaths } from '@/lib/helpers';
+import { Counter, MapSet, cssEncode, getBasename, joinPaths } from '@/lib/helpers';
 import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
 
 type State = {
@@ -74,7 +75,7 @@ function reducer(prevState: State, newState: Partial<State>): State {
  * Helpers
  */
 
-function cssID(pod: LRPod, container: string) {
+function cssID(pod: Pod, container: string) {
   return cssEncode(`${pod.metadata.namespace}/${pod.metadata.name}/${container}`);
 }
 
@@ -252,7 +253,7 @@ const SidebarPodsAndContainers = () => {
 const SidebarFacets = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { pods } = usePods();
-  const nodes = useNodes();
+  const { nodes } = useNodes();
 
   // count pods per node
   const nodeVals: string[] = [];
@@ -268,7 +269,7 @@ const SidebarFacets = () => {
   // track nodes per facet
   const nodeMapSet = new MapSet();
 
-  nodes.items?.forEach(node => {
+  nodes?.forEach(node => {
     const count = nodeCounts.get(node.metadata.name) || 0;
     if (!count) return;
 
