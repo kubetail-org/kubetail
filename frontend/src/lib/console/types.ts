@@ -15,6 +15,7 @@
 import type { ApolloError } from '@apollo/client';
 
 import type { ExtractQueryType } from '@/app-env';
+import type { LogRecord as GraphQLLogRecord } from '@/lib/graphql/__generated__/graphql';
 import * as fragments from '@/lib/graphql/fragments';
 
 /*
@@ -72,3 +73,14 @@ export enum LogFeedState {
   Paused = 'PAUSED',
   InQuery = 'IN_QUERY',
 }
+
+export type LogFeedQueryOptions = {
+  since?: string;
+  until?: string;
+};
+
+export interface LogRecord extends GraphQLLogRecord {
+  node: Node;
+  pod: Pod;
+  container: string;
+};

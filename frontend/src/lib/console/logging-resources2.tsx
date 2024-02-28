@@ -12,21 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React, { createContext, useContext, useEffect, useReducer } from 'react';
+import { useQuery } from '@apollo/client';
+import {
+  createContext,
+  forwardRef,
+  useContext, useEffect, useImperativeHandle, useReducer, useRef } from 'react';
 
+import type { LogRecord as GraphQLLogRecord } from '@/lib/graphql/__generated__/graphql';
 import * as ops from '@/lib/graphql/ops';
 import { useGetQueryWithSubscription, useListQueryWithSubscription } from '@/lib/hooks';
 import { Workload as WorkloadType } from '@/lib/workload';
 
 import { useNodes, usePods } from './hooks';
-import { LogFeedState, Node, Pod, PodListResponse, WorkloadResponse } from './types';
+import {
+  LogFeedQueryOptions,
+  LogFeedState,
+  LogRecord,
+  Node,
+  Pod,
+  PodListResponse,
+  WorkloadResponse,
+} from './types';
 
 type State = {
   sourceToWorkloadResponseMap: Map<string, WorkloadResponse>;
   sourceToPodListResponseMap: Map<string, PodListResponse>;
   isLogFeedReady: boolean;
   logFeedState: LogFeedState;
-  records: [number, number, number, number, number, number, number][];
+  records: LogRecord[];
 };
 
 type Context = {
@@ -372,6 +385,8 @@ type LogFeedRecordFetcherProps = {
   node: Node;
   pod: Pod;
   container: string;
+  onLoad?: (records: LogRecord[]) => void;
+  onUpdate?: (record: LogRecord) => void;
 };
 
 type LogFeedRecordFetcherHandle = {
@@ -382,7 +397,9 @@ type LogFeedRecordFetcherHandle = {
 const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetcherHandle, LogFeedRecordFetcherProps> = (props, ref) => {
   const { node, pod, container, onLoad, onUpdate } = props;
   const { namespace, name } = pod.metadata;
-  const { logFeedState } = useContext(Context);
+  const { state, dispatch } = useContext(Context);
+  const { logFeedState, records } = state;
+
   const lastTSRef = useRef<string>();
   const startTSRef = useRef<string>();
 
@@ -398,7 +415,7 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
     onCompleted: (data) => {
       if (!data?.podLogQuery) return;
       // execute callback
-      onLoad(data.podLogQuery.map(record => upgradeRecord(record)));
+      onLoad && onLoad(data.podLogQuery.map(record => upgradeRecord(record)));
     },
     onError: (err) => {
       console.log(err);
@@ -414,7 +431,7 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
     if (!(loading === false)) return;
 
     // only execute when playing
-    if (!(logFeedState === LogFeedState.Playing)) return;
+    if (!(logFeedState === LogFeedState.Streaming)) return;
 
     // update startTS
     startTSRef.current = (new Date()).toISOString();
@@ -434,8 +451,9 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
           // update lastTS
           lastTSRef.current = record.timestamp;
 
-          // execute callback
-          onUpdate(upgradeRecord(record));
+          // update records
+          records.push(upgradeRecord(record));
+          dispatch({ records });
         }
         return { podLogQuery: [] };
       },
@@ -485,6 +503,8 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
   return <></>;
 };
 
+const LogFeedDataFetcher = forwardRef(LogFeedDataFetcherImpl);
+
 /**
  * Log feed loader component
  */
@@ -500,11 +520,8 @@ const LogFeedLoader = () => {
     dispatch({ isLogFeedReady: true });
   }, [nodes.loading, pods.loading]);
 
-  // wait until resources are loaded
-  if (nodes.loading || pods.loading) return <></>;
-
   // only load containers from nodes that we have a record of
-  const nodeMap = new Map(nodes.nodes?.map(node => [node.metadata.name, node]));
+  const nodeMap = new Map(nodes.nodes.map(node => [node.metadata.name, node]));
 
   const els: JSX.Element[] = [];
   pods.pods.forEach(pod => {
@@ -523,7 +540,7 @@ const LogFeedLoader = () => {
     });
   });
 
-  return {els};
+  return <>{els}</>;
 };
 
 /**
@@ -552,25 +569,6 @@ export const LoggingResourcesProvider = ({ sourcePaths, children }: LoggingResou
       dispatch({ sourceToWorkloadResponseMap, sourceToPodListResponseMap });
     }
   }, [JSON.stringify(sourcePaths)]);
-
-  useEffect(() => {
-    if (state.logFeedState === LogFeedState.Streaming) {
-      const id = setInterval(() => {
-        const records = state.records;
-        records.push([
-          Math.random(),
-          Math.random(),
-          Math.random(),
-          Math.random(),
-          Math.random(),
-          Math.random(),
-          Math.random(),
-        ]);
-        dispatch({ records });
-      }, 1000);
-      return () => clearInterval(id);
-    }
-  }, [state.logFeedState]);
 
   const resourceLoaders = {
     [WorkloadType.CRONJOBS]: LoadCronJobWorkload,

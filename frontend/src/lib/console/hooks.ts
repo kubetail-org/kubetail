@@ -19,7 +19,7 @@ import * as ops from '@/lib/graphql/ops';
 import { Workload as WorkloadType, typenameMap } from '@/lib/workload';
 
 import { Context } from './logging-resources2';
-import { LogFeedState, Pod, Workload } from './types';
+import { LogFeedState, Node, Pod, Workload } from './types';
 
 /**
  * Nodes hook
@@ -34,7 +34,7 @@ export function useNodes() {
   });
 
   const loading = fetching; // treat still-fetching as still-loading
-  const nodes = (data?.coreV1NodesList?.items) ? data.coreV1NodesList.items : undefined;
+  const nodes = (data?.coreV1NodesList?.items) ? data.coreV1NodesList.items : [] as Node[];
 
   return { loading, nodes };
 }
@@ -100,6 +100,7 @@ export function useLogFeed() {
   const { state, dispatch } = useContext(Context);
 
   return {
+    isReady: state.isLogFeedReady,
     loading: false,
     state: state.logFeedState,
     records: state.records,

@@ -16,7 +16,7 @@ import { LogFeedColumn, LogFeedViewer, allLogFeedColumns } from './LogFeedViewer
 import { useLogFeed, useNodes, usePods, useWorkloads } from './hooks';
 import { LoggingResourcesProvider } from './logging-resources2';
 import { LogFeedState } from './types';
-import type { Pod } from './types';
+import type { LogFeedQueryOptions, LogRecord, Pod } from './types';
 
 export {
   LogFeedColumn,
@@ -30,4 +30,8 @@ export {
   useWorkloads,
 };
 
-export type { Pod };
+export type {
+  LogFeedQueryOptions,
+  LogRecord,
+  Pod,
+};

@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useEffect, useRef, useState } from 'react';
+import { format, utcToZonedTime } from 'date-fns-tz';
+import { forwardRef, useEffect, useRef, useState } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import InfiniteLoader from 'react-window-infinite-loader';
 import { FixedSizeList } from 'react-window';
@@ -20,6 +21,7 @@ import { FixedSizeList } from 'react-window';
 import { cn } from '@/lib/utils';
 
 import { useLogFeed } from './hooks';
+import type { LogRecord } from './types';
 
 export enum LogFeedColumn {
   Timestamp = 'Timestamp',
@@ -46,23 +48,55 @@ export const allLogFeedColumns = [
 ];
 
 type LogFeedContentProps = {
-  items: [number, number, number, number, number, number, number][];
+  items: LogRecord[];
   hasMore: boolean;
   fetchMore: () => Promise<void>;
   visibleCols: Set<LogFeedColumn>;
 }
 
-const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedContentProps) => {
-  const [colWidths ] = useState([300, 300, 300, 300, 300, 300, 300]);
+const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
+  switch (col) {
+    case LogFeedColumn.Timestamp:
+      const tsWithTZ = utcToZonedTime(record.timestamp, 'UTC');
+      return format(tsWithTZ, 'LLL dd, y HH:mm:ss.SSS', { timeZone: 'UTC' });
+    case LogFeedColumn.ColorDot:
+      return '.';
+    case LogFeedColumn.Message:
+      return record.message;
+    default:
+      throw new Error('not implemented');
+  }
+};
 
-  const headerElRef = useRef<HTMLDivElement>(null);
+/*
+const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedContentProps) => {
+  return (
+    <div className="w-full overflow-x-scroll no-scrollbar cursor-default">
+      <div className="w-[3600px] flex">
+        <div className="bg-chrome-100 shrink-0 w-[300px]">col 1</div>
+        <div className="bg-chrome-100 shrink-0 w-[300px]">col 2</div>
+        <div className="bg-chrome-100 w-[3000px]">col 3</div>
+      </div>
+    </div>
+  )
+};
+*/
+
+const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedContentProps) => {
+  const [colWidths] = useState([300, 300, 300, 300, 300, 300, 300]);
+
+  const headerOuterElRef = useRef<HTMLDivElement>(null);
+  const headerInnerElRef = useRef<HTMLDivElement>(null);
 
   const listRef = useRef<FixedSizeList<string> | null>(null);
   const listOuterRef = useRef<HTMLDivElement | null>(null);
+  const listInnerRef = useRef<HTMLDivElement | null>(null);
   const infiniteLoaderRef = useRef<InfiniteLoader | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isListReady, setIsListReady] = useState(false);
+
+  const [maxWidth, setMaxWidth] = useState<number | string>('100%');
 
   const [onNextRenderCallback, setOnNextRenderCallback] = useState<() => void>();
 
@@ -103,6 +137,15 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
       onNextRenderCallback();
       setOnNextRenderCallback(undefined);
     }
+
+    // get max row width
+    let maxWidth = 0;
+    Array.from(listInnerRef.current?.children || []).forEach(rowEl => {
+      maxWidth = Math.max(maxWidth, rowEl.scrollWidth);
+    });
+    setMaxWidth(maxWidth);
+
+    listInnerRef.current && (listInnerRef.current.style.width = `${maxWidth}px`);
   };
 
   const handleHeaderScrollX = (ev: React.UIEvent<HTMLDivElement>) => {
@@ -114,9 +157,9 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
 
   const handleContentScrollX = (ev: React.UIEvent<HTMLDivElement>) => {
     const contentEl = ev.target as HTMLDivElement;
-    const headerEl = headerElRef.current;
-    if (!headerEl) return;
-    headerEl.scrollTo({ left: contentEl.scrollLeft, behavior: 'instant' });
+    const headerOuterEl = headerOuterElRef.current;
+    if (!headerOuterEl) return;
+    headerOuterEl.scrollTo({ left: contentEl.scrollLeft, behavior: 'instant' });
   };
 
   useEffect(() => {
@@ -131,7 +174,7 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
       if (hasMore) return <div>Loading...</div>;
       else return <div>no more data</div>;
     }
-    const content = items[hasMore ? index - 1 : index];
+    const record = items[hasMore ? index - 1 : index];
 
     const els: JSX.Element[] = [];
     allLogFeedColumns.forEach(col => {
@@ -140,39 +183,47 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
           <div
             key={col}
             className={cn(
-              'shrink-0',
-              col === LogFeedColumn.Message && 'flex-grow',
               index % 2 !== 0 && 'bg-chrome-50',
+              'whitespace-nowrap',
+              (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
             )}
-            style={{ width: `300px` }}
+            style={(col === LogFeedColumn.Message) ? {} : { width: `300px` }}
           >
-            {content[0]}
+            {getAttribute(record, col)}
           </div>
         ));
       }
     })
 
+    const { width, ...otherStyles } = style;
     return (
-      <div className="flex" style={style}>
+      <div className="flex" style={{ width: 'inherit', ...otherStyles }}>
         {els}
       </div>
     );
   };
 
-  return (
-    <div className="h-full flex flex-col">
+  const Header = () => (
+    <div
+      ref={headerOuterElRef}
+      className="w-full overflow-x-scroll no-scrollbar cursor-default"
+      onScroll={handleHeaderScrollX}
+    >
       <div
-        ref={headerElRef}
-        className="w-full overflow-auto no-scrollbar cursor-default flex"
-        onScroll={handleHeaderScrollX}
+        ref={headerInnerElRef}
+        className="flex"
+        style={{ width: `${maxWidth}px` }}
       >
         {allLogFeedColumns.map(col => {
           if (visibleCols.has(col)) {
             return (
               <div
                 key={col}
-                className={cn('shrink-0 bg-chrome-100 uppercase', col === LogFeedColumn.Message && 'flex-grow')}
-                style={{ width: `300px` }}
+                className={cn(
+                  'bg-chrome-100 uppercase',
+                  (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
+                )}
+                style={(col === LogFeedColumn.Message) ? {} : { width: `300px` }}
               >
                 {col}
               </div>
@@ -180,6 +231,12 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
           }
         })}
       </div>
+    </div>
+  );
+
+  return (
+    <div className="h-full flex flex-col">
+      <Header />
       <div className="flex-grow">
         <AutoSizer>
           {({ height, width }) => (
@@ -205,6 +262,7 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
                   itemCount={itemCount}
                   itemSize={18}
                   outerRef={listOuterRef}
+                  innerRef={listInnerRef}
                   initialScrollOffset={itemCount * 18}
                 >
                   {Row}
@@ -224,12 +282,12 @@ export type LogFeedViewerProps = {
 
 export const LogFeedViewer = ({ visibleCols }: LogFeedViewerProps) => {
   const { records } = useLogFeed();
-  
+
   return (
     <LogFeedContent
       items={records}
       hasMore={false}
-      fetchMore={async () => {}}
+      fetchMore={async () => { }}
       visibleCols={visibleCols}
     />
   );
