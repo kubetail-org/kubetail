@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 
 import { useLogFeed } from './hooks';
 import type { LogRecord } from './types';
+import { ConsoleNodesListFetchDocument } from '../graphql/__generated__/graphql';
 
 export enum LogFeedColumn {
   Timestamp = 'Timestamp',
@@ -143,23 +144,25 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
     Array.from(listInnerRef.current?.children || []).forEach(rowEl => {
       maxWidth = Math.max(maxWidth, rowEl.scrollWidth);
     });
-    setMaxWidth(maxWidth);
 
-    listInnerRef.current && (listInnerRef.current.style.width = `${maxWidth}px`);
+    // adjust list inner
+    if (listInnerRef.current) listInnerRef.current.style.width = `${maxWidth}px`;
+
+    setMaxWidth(maxWidth);
   };
 
   const handleHeaderScrollX = (ev: React.UIEvent<HTMLDivElement>) => {
-    const headerEl = ev.target as HTMLDivElement;
-    const contentEl = listOuterRef.current;
-    if (!contentEl) return;
-    contentEl.scrollTo({ left: headerEl.scrollLeft, behavior: 'instant' });
+    const headerOuterEl = ev.target as HTMLDivElement;
+    const listOuterEl = listOuterRef.current;
+    if (!listOuterEl) return;
+    listOuterEl.scrollTo({ left: headerOuterEl.scrollLeft, behavior: 'instant' });
   };
 
   const handleContentScrollX = (ev: React.UIEvent<HTMLDivElement>) => {
-    const contentEl = ev.target as HTMLDivElement;
+    const listOuterEl = ev.target as HTMLDivElement;
     const headerOuterEl = headerOuterElRef.current;
     if (!headerOuterEl) return;
-    headerOuterEl.scrollTo({ left: contentEl.scrollLeft, behavior: 'instant' });
+    headerOuterEl.scrollTo({ left: listOuterEl.scrollLeft, behavior: 'instant' });
   };
 
   useEffect(() => {
@@ -203,40 +206,36 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
     );
   };
 
-  const Header = () => (
-    <div
-      ref={headerOuterElRef}
-      className="w-full overflow-x-scroll no-scrollbar cursor-default"
-      onScroll={handleHeaderScrollX}
-    >
-      <div
-        ref={headerInnerElRef}
-        className="flex"
-        style={{ width: `${maxWidth}px` }}
-      >
-        {allLogFeedColumns.map(col => {
-          if (visibleCols.has(col)) {
-            return (
-              <div
-                key={col}
-                className={cn(
-                  'bg-chrome-100 uppercase',
-                  (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
-                )}
-                style={(col === LogFeedColumn.Message) ? {} : { width: `300px` }}
-              >
-                {col}
-              </div>
-            );
-          }
-        })}
-      </div>
-    </div>
-  );
-
   return (
     <div className="h-full flex flex-col">
-      <Header />
+      <div
+        ref={headerOuterElRef}
+        className="overflow-x-scroll no-scrollbar cursor-default"
+        onScroll={handleHeaderScrollX}
+      >
+        <div
+          ref={headerInnerElRef}
+          className="flex"
+          style={{ width: `${maxWidth}px` }}
+        >
+          {allLogFeedColumns.map(col => {
+            if (visibleCols.has(col)) {
+              return (
+                <div
+                  key={col}
+                  className={cn(
+                    'bg-chrome-100 uppercase',
+                    (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
+                  )}
+                  style={(col === LogFeedColumn.Message) ? {} : { width: `300px` }}
+                >
+                  {col}
+                </div>
+              );
+            }
+          })}
+        </div>
+      </div>
       <div className="flex-grow">
         <AutoSizer>
           {({ height, width }) => (
