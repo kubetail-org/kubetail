@@ -168,6 +168,7 @@ func main() {
 			appCfg.Namespace = cfg.Namespace
 			appCfg.AccessLogEnabled = cfg.Logging.AccessLogEnabled
 			appCfg.Session.Secret = cfg.Session.Secret
+			appCfg.Session.Cookie.Name = cfg.Session.Cookie.Name
 			appCfg.Session.Cookie.Path = cfg.Session.Cookie.Path
 			appCfg.Session.Cookie.Domain = cfg.Session.Cookie.Domain
 			appCfg.Session.Cookie.MaxAge = cfg.Session.Cookie.MaxAge

@@ -39,6 +39,7 @@ type Config struct {
 
 		// cookie options
 		Cookie struct {
+			Name     string
 			Path     string
 			Domain   string
 			MaxAge   int
@@ -74,6 +75,7 @@ func DefaultConfig() Config {
 	cfg.AccessLogEnabled = true
 
 	cfg.Session.Secret = ""
+	cfg.Session.Cookie.Name = "session"
 	cfg.Session.Cookie.Path = "/"
 	cfg.Session.Cookie.Domain = ""
 	cfg.Session.Cookie.MaxAge = 36400 * 30

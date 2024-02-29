@@ -25,6 +25,7 @@ kube-config: ${HOME}/.kube/config
 session:
   secret: REPLACEME
   cookie:
+    name: mysession
     path: /
     max-age: 2592000
     secure: false
