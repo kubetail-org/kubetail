@@ -62,26 +62,24 @@ const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
       return format(tsWithTZ, 'LLL dd, y HH:mm:ss.SSS', { timeZone: 'UTC' });
     case LogFeedColumn.ColorDot:
       return '.';
+    case LogFeedColumn.PodContainer:
+      return `${record.pod.metadata.name}/${record.container}`;
+    case LogFeedColumn.Region:
+      return record.node.metadata.labels['topology.kubernetes.io/region'];
+    case LogFeedColumn.Zone:
+      return record.node.metadata.labels['topology.kubernetes.io/zone'];
+    case LogFeedColumn.OS:
+      return record.node.metadata.labels['kubernetes.io/os'];
+    case LogFeedColumn.Arch:
+      return record.node.metadata.labels['kubernetes.io/arch'];
+    case LogFeedColumn.Node:
+      return record.pod.spec.nodeName;
     case LogFeedColumn.Message:
       return record.message;
     default:
       throw new Error('not implemented');
   }
 };
-
-/*
-const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedContentProps) => {
-  return (
-    <div className="w-full overflow-x-scroll no-scrollbar cursor-default">
-      <div className="w-[3600px] flex">
-        <div className="bg-chrome-100 shrink-0 w-[300px]">col 1</div>
-        <div className="bg-chrome-100 shrink-0 w-[300px]">col 2</div>
-        <div className="bg-chrome-100 w-[3000px]">col 3</div>
-      </div>
-    </div>
-  )
-};
-*/
 
 const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedContentProps) => {
   const [colWidths] = useState([300, 300, 300, 300, 300, 300, 300]);
@@ -172,12 +170,14 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
     return () => listOuterEl.removeEventListener('scroll', handleContentScrollX as any);
   }, [isListReady, handleContentScrollX]);
 
-  const Row = ({ index, style }: { index: any; style: any; }) => {
+  const Row = ({ index, style, data }: { index: any; style: any; data: any }) => {
     if (index === 0) {
       if (hasMore) return <div>Loading...</div>;
       else return <div>no more data</div>;
     }
+    console.log(data);
     const record = items[hasMore ? index - 1 : index];
+    const { visibleCols } = data;
 
     const els: JSX.Element[] = [];
     allLogFeedColumns.forEach(col => {
@@ -263,6 +263,8 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
                   outerRef={listOuterRef}
                   innerRef={listInnerRef}
                   initialScrollOffset={itemCount * 18}
+                  itemData={{ visibleCols }}
+                  overscanCount={5}
                 >
                   {Row}
                 </FixedSizeList>
