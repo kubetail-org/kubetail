@@ -82,8 +82,6 @@ const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
 };
 
 const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedContentProps) => {
-  const [colWidths] = useState([300, 300, 300, 300, 300, 300, 300]);
-
   const headerOuterElRef = useRef<HTMLDivElement>(null);
   const headerInnerElRef = useRef<HTMLDivElement>(null);
 
@@ -170,12 +168,16 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
     return () => listOuterEl.removeEventListener('scroll', handleContentScrollX as any);
   }, [isListReady, handleContentScrollX]);
 
+  // force re-render when columns change
+  useEffect(() => {
+    if (isListReady) infiniteLoaderRef.current?.forceUpdate();
+  }, [isListReady, JSON.stringify(visibleCols)]);
+
   const Row = ({ index, style, data }: { index: any; style: any; data: any }) => {
     if (index === 0) {
       if (hasMore) return <div>Loading...</div>;
       else return <div>no more data</div>;
     }
-    console.log(data);
     const record = items[hasMore ? index - 1 : index];
     const { visibleCols } = data;
 
@@ -250,6 +252,7 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
                 <FixedSizeList
                   ref={list => {
                     ref(list);
+                    // @ts-ignore
                     listRef.current = list;
                   }}
                   onItemsRendered={(args) => {
