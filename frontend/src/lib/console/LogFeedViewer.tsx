@@ -56,36 +56,13 @@ const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
   }
 };
 
-const getDefaultWidth = (col: LogFeedColumn) => {
-  switch (col) {
-    case LogFeedColumn.Timestamp:
-      return 200;
-    case LogFeedColumn.ColorDot:
-      return 20;
-    case LogFeedColumn.PodContainer:
-      return 240;
-    case LogFeedColumn.Region:
-      return 90;
-    case LogFeedColumn.Zone:
-      return 90;
-    case LogFeedColumn.OS:
-      return 70;
-    case LogFeedColumn.Arch:
-      return 70;
-    case LogFeedColumn.Node:
-      return 170;
-    default:
-      throw new Error('not implemented');
-  }
-};
-
 const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
   const [visibleCols] = useVisibleCols();
 
   const headerOuterElRef = useRef<HTMLDivElement>(null);
   const headerInnerElRef = useRef<HTMLDivElement>(null);
 
-  const listRef = useRef<FixedSizeList<string> | null>(null);
+  const listRef = useRef<FixedSizeList<LogRecord> | null>(null);
   const listOuterRef = useRef<HTMLDivElement | null>(null);
   const listInnerRef = useRef<HTMLDivElement | null>(null);
   const infiniteLoaderRef = useRef<InfiniteLoader | null>(null);
@@ -94,8 +71,62 @@ const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
   const [isListReady, setIsListReady] = useState(false);
 
   const [maxWidth, setMaxWidth] = useState<number | string>('100%');
+  const [minColWidths, setMinColWidths] = useState<Map<LogFeedColumn, number>>(new Map());
 
   const [onNextRenderCallback, setOnNextRenderCallback] = useState<() => void>();
+
+  const isAutoScrollRef = useRef(true);
+  const isProgrammaticScrollRef = useRef(false);
+
+  // initialize minimum column widths
+  useEffect(() => {
+    // iterate through header columns
+    Array.from(headerInnerElRef.current?.children || []).forEach(colEl => {
+      const colId = (colEl as HTMLElement).dataset.colId as LogFeedColumn;
+      if (!colId) return;
+      const currVal = minColWidths.get(colId) || 0;
+      minColWidths.set(colId, Math.max(currVal, colEl.scrollWidth));
+    });
+
+    // iterate through data columns
+    Array.from(listInnerRef.current?.children || []).forEach(rowEl => {
+      Array.from(rowEl.children || []).forEach(colEl => {
+        const colId = (colEl as HTMLElement).dataset.colId as LogFeedColumn;
+        if (!colId) return;
+        const currVal = minColWidths.get(colId) || 0;
+        minColWidths.set(colId, Math.max(currVal, colEl.scrollWidth));
+      });
+    });
+
+    setMinColWidths(new Map(minColWidths));
+  }, [JSON.stringify(Array.from(visibleCols))]);
+
+  // scroll to bottom on new data
+  useEffect(() => {
+    const listOuterEl = listOuterRef.current;
+    if (isAutoScrollRef.current && listOuterEl) {
+      isProgrammaticScrollRef.current = true;
+      listOuterEl.scrollTo({ top: listOuterEl.scrollHeight, behavior: 'instant' });
+      const timeout = setTimeout(() => {
+        isProgrammaticScrollRef.current = false;
+        clearTimeout(timeout);
+      }, 0);
+    }
+  }, [isListReady, items.length]);
+
+  // handle auto-scroll
+  const handleContentScroll = () => {
+    const el = listOuterRef.current;
+    if (el && !isProgrammaticScrollRef.current) {
+      const tolerance = 10;
+      const { scrollTop, clientHeight, scrollHeight } = el;
+      if (Math.abs((scrollTop + clientHeight) - scrollHeight) <= tolerance) {
+        isAutoScrollRef.current = true;
+      } else {
+        isAutoScrollRef.current = false;
+      }
+    }
+  };
 
   // leave extra space if there are more results
   const itemCount = (hasMore) ? items.length + 1 : items.length;
@@ -135,16 +166,24 @@ const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
       setOnNextRenderCallback(undefined);
     }
 
-    // get max row width
-    let maxWidth = 0;
+    // get max row and col widths
+    let maxRowWidth = 0;
     Array.from(listInnerRef.current?.children || []).forEach(rowEl => {
-      maxWidth = Math.max(maxWidth, rowEl.scrollWidth);
+      maxRowWidth = Math.max(maxRowWidth, rowEl.scrollWidth);
+
+      Array.from(rowEl.children || []).forEach(colEl => {
+        const colId = (colEl as HTMLElement).dataset.colId as LogFeedColumn;
+        if (!colId) return;
+        const currVal = minColWidths.get(colId) || 0;
+        minColWidths.set(colId, Math.max(currVal, colEl.scrollWidth));
+      });
     });
 
     // adjust list inner
-    if (listInnerRef.current) listInnerRef.current.style.width = `${maxWidth}px`;
+    if (listInnerRef.current) listInnerRef.current.style.width = `${maxRowWidth}px`;
 
-    setMaxWidth(maxWidth);
+    setMinColWidths(new Map(minColWidths));
+    setMaxWidth(maxRowWidth);
   };
 
   const handleHeaderScrollX = (ev: React.UIEvent<HTMLDivElement>) => {
@@ -174,7 +213,7 @@ const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
       else return <div>no more data</div>;
     }
     const record = items[hasMore ? index - 1 : index];
-  
+
     const els: JSX.Element[] = [];
     allLogFeedColumns.forEach(col => {
       if (visibleCols.has(col)) {
@@ -183,11 +222,12 @@ const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
             key={col}
             className={cn(
               index % 2 !== 0 && 'bg-chrome-100',
-              'whitespace-nowrap px-2',
+              'whitespace-nowrap px-[8px]',
               (col === LogFeedColumn.Timestamp) ? 'bg-chrome-200' : '',
-              (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0 overflow-hidden',
+              (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
             )}
-            style={(col !== LogFeedColumn.Message) ? { width: `${getDefaultWidth(col)}px`} : { }}
+            style={(col !== LogFeedColumn.Message) ? { minWidth: `${(minColWidths.get(col) || 0)}px` } : {}}
+            data-col-id={col}
           >
             {getAttribute(record, col)}
           </div>
@@ -221,10 +261,11 @@ const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
                 <div
                   key={col}
                   className={cn(
-                    'uppercase px-2',
+                    'whitespace-nowrap uppercase px-[8px]',
                     (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
                   )}
-                  style={(col !== LogFeedColumn.Message) ? { width: `${getDefaultWidth(col)}px`} : { }}
+                  style={(col !== LogFeedColumn.Message) ? { minWidth: `${minColWidths.get(col) || 0}px` } : {}}
+                  data-col-id={col}
                 >
                   {(col !== LogFeedColumn.ColorDot) && col}
                 </div>
@@ -247,7 +288,6 @@ const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
                 <FixedSizeList
                   ref={list => {
                     ref(list);
-                    // @ts-ignore
                     listRef.current = list;
                   }}
                   className="font-mono"
@@ -255,6 +295,7 @@ const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
                     onItemsRendered(args);
                     handleItemsRendered();
                   }}
+                  onScroll={handleContentScroll}
                   height={height}
                   width={width}
                   itemCount={itemCount}
