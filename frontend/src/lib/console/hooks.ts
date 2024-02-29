@@ -19,7 +19,7 @@ import * as ops from '@/lib/graphql/ops';
 import { Workload as WorkloadType, typenameMap } from '@/lib/workload';
 
 import { Context } from './logging-resources2';
-import { LogFeedState, Node, Pod, Workload } from './types';
+import { LogFeedColumn, LogFeedState, Node, Pod, Workload } from './types';
 
 /**
  * Nodes hook
@@ -117,4 +117,14 @@ export function useLogFeed() {
       query: () => console.log('query'),
     },
   };
+}
+
+/**
+ * Visible columns hook
+ */
+
+export function useVisibleCols(): [Set<LogFeedColumn>, (arg: Set<LogFeedColumn>) => void] {
+  const { state, dispatch } = useContext(Context);
+  const setVisibleCols = (newVal: Set<LogFeedColumn>) => dispatch({ visibleCols: newVal });
+  return [state.visibleCols, setVisibleCols];
 }

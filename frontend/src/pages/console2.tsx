@@ -47,6 +47,7 @@ import {
   useLogFeed,
   useNodes,
   usePods,
+  useVisibleCols,
   useWorkloads,
 } from '@/lib/console';
 import type { Pod } from '@/lib/console';
@@ -56,7 +57,6 @@ import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
 type State = {
   since: string;
   until: string;
-  visibleCols: Set<LogFeedColumn>;
   isMsgWrap: boolean;
 };
 
@@ -85,12 +85,13 @@ function cssID(pod: Pod, container: string) {
 
 const SettingsButton = () => {
   const { state, dispatch } = useContext(Context);
-  const { visibleCols, isMsgWrap } = state;
+  const { isMsgWrap } = state;
+  const [visibleCols, setVisibleCols] = useVisibleCols();
 
   const handleOnChange = (col: LogFeedColumn, ev: React.ChangeEvent<HTMLInputElement>) => {
     if (ev.target.checked) visibleCols.add(col);
     else visibleCols.delete(col);
-    dispatch({ visibleCols });
+    setVisibleCols(visibleCols);
   };
 
   const checkboxEls: JSX.Element[] = [];
@@ -491,18 +492,11 @@ export default function Page() {
   const [state, dispatch] = useReducer(reducer, {
     since: '-100',
     until: 'FOREVER',
-    visibleCols: new Set([
-      LogFeedColumn.Timestamp,
-      LogFeedColumn.ColorDot,
-      LogFeedColumn.Message,
-    ]),
     isMsgWrap: false,
   });
 
   const Content = () => (
-    <LogFeedViewer 
-      visibleCols={state.visibleCols}
-    />
+    <LogFeedViewer />
   );
 
   return (

@@ -20,39 +20,14 @@ import { FixedSizeList } from 'react-window';
 
 import { cn } from '@/lib/utils';
 
-import { useLogFeed } from './hooks';
+import { useLogFeed, useVisibleCols } from './hooks';
+import { LogFeedColumn, allLogFeedColumns } from './types';
 import type { LogRecord } from './types';
-import { ConsoleNodesListFetchDocument } from '../graphql/__generated__/graphql';
-
-export enum LogFeedColumn {
-  Timestamp = 'Timestamp',
-  ColorDot = 'Color Dot',
-  PodContainer = 'Pod/Container',
-  Region = 'Region',
-  Zone = 'Zone',
-  OS = 'OS',
-  Arch = 'Arch',
-  Node = 'Node',
-  Message = 'Message',
-}
-
-export const allLogFeedColumns = [
-  LogFeedColumn.Timestamp,
-  LogFeedColumn.ColorDot,
-  LogFeedColumn.PodContainer,
-  LogFeedColumn.Region,
-  LogFeedColumn.Zone,
-  LogFeedColumn.OS,
-  LogFeedColumn.Arch,
-  LogFeedColumn.Node,
-  LogFeedColumn.Message,
-];
 
 type LogFeedContentProps = {
   items: LogRecord[];
   hasMore: boolean;
   fetchMore: () => Promise<void>;
-  visibleCols: Set<LogFeedColumn>;
 }
 
 const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
@@ -81,7 +56,32 @@ const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
   }
 };
 
-const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedContentProps) => {
+const getDefaultWidth = (col: LogFeedColumn) => {
+  switch (col) {
+    case LogFeedColumn.Timestamp:
+      return 200;
+    case LogFeedColumn.ColorDot:
+      return 20;
+    case LogFeedColumn.PodContainer:
+      return 240;
+    case LogFeedColumn.Region:
+      return 90;
+    case LogFeedColumn.Zone:
+      return 90;
+    case LogFeedColumn.OS:
+      return 70;
+    case LogFeedColumn.Arch:
+      return 70;
+    case LogFeedColumn.Node:
+      return 170;
+    default:
+      throw new Error('not implemented');
+  }
+};
+
+const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
+  const [visibleCols] = useVisibleCols();
+
   const headerOuterElRef = useRef<HTMLDivElement>(null);
   const headerInnerElRef = useRef<HTMLDivElement>(null);
 
@@ -168,19 +168,13 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
     return () => listOuterEl.removeEventListener('scroll', handleContentScrollX as any);
   }, [isListReady, handleContentScrollX]);
 
-  // force re-render when columns change
-  useEffect(() => {
-    if (isListReady) infiniteLoaderRef.current?.forceUpdate();
-  }, [isListReady, JSON.stringify(visibleCols)]);
-
-  const Row = ({ index, style, data }: { index: any; style: any; data: any }) => {
+  const Row = ({ index, style }: { index: any; style: any; }) => {
     if (index === 0) {
       if (hasMore) return <div>Loading...</div>;
       else return <div>no more data</div>;
     }
     const record = items[hasMore ? index - 1 : index];
-    const { visibleCols } = data;
-
+  
     const els: JSX.Element[] = [];
     allLogFeedColumns.forEach(col => {
       if (visibleCols.has(col)) {
@@ -188,11 +182,12 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
           <div
             key={col}
             className={cn(
-              index % 2 !== 0 && 'bg-chrome-50',
-              'whitespace-nowrap',
-              (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
+              index % 2 !== 0 && 'bg-chrome-100',
+              'whitespace-nowrap px-2',
+              (col === LogFeedColumn.Timestamp) ? 'bg-chrome-200' : '',
+              (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0 overflow-hidden',
             )}
-            style={(col === LogFeedColumn.Message) ? {} : { width: `300px` }}
+            style={(col !== LogFeedColumn.Message) ? { width: `${getDefaultWidth(col)}px`} : { }}
           >
             {getAttribute(record, col)}
           </div>
@@ -202,14 +197,14 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
 
     const { width, ...otherStyles } = style;
     return (
-      <div className="flex" style={{ width: 'inherit', ...otherStyles }}>
+      <div className="flex leading-[24px]" style={{ width: 'inherit', ...otherStyles }}>
         {els}
       </div>
     );
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col text-xs">
       <div
         ref={headerOuterElRef}
         className="overflow-x-scroll no-scrollbar cursor-default"
@@ -217,7 +212,7 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
       >
         <div
           ref={headerInnerElRef}
-          className="flex"
+          className="flex h-[18px] leading-[18px] border-b border-chrome-divider bg-chrome-200 [&>*]:border-r [&>*:not(:last-child)]:border-chrome-divider"
           style={{ width: `${maxWidth}px` }}
         >
           {allLogFeedColumns.map(col => {
@@ -226,12 +221,12 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
                 <div
                   key={col}
                   className={cn(
-                    'bg-chrome-100 uppercase',
+                    'uppercase px-2',
                     (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
                   )}
-                  style={(col === LogFeedColumn.Message) ? {} : { width: `300px` }}
+                  style={(col !== LogFeedColumn.Message) ? { width: `${getDefaultWidth(col)}px`} : { }}
                 >
-                  {col}
+                  {(col !== LogFeedColumn.ColorDot) && col}
                 </div>
               );
             }
@@ -255,6 +250,7 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
                     // @ts-ignore
                     listRef.current = list;
                   }}
+                  className="font-mono"
                   onItemsRendered={(args) => {
                     onItemsRendered(args);
                     handleItemsRendered();
@@ -262,12 +258,11 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
                   height={height}
                   width={width}
                   itemCount={itemCount}
-                  itemSize={18}
+                  itemSize={24}
                   outerRef={listOuterRef}
                   innerRef={listInnerRef}
-                  initialScrollOffset={itemCount * 18}
-                  itemData={{ visibleCols }}
-                  overscanCount={5}
+                  initialScrollOffset={itemCount * 24}
+                  overscanCount={10}
                 >
                   {Row}
                 </FixedSizeList>
@@ -280,11 +275,8 @@ const LogFeedContent = ({ items, fetchMore, hasMore, visibleCols }: LogFeedConte
   );
 };
 
-export type LogFeedViewerProps = {
-  visibleCols: Set<LogFeedColumn>;
-};
 
-export const LogFeedViewer = ({ visibleCols }: LogFeedViewerProps) => {
+export const LogFeedViewer = () => {
   const { records } = useLogFeed();
 
   return (
@@ -292,7 +284,6 @@ export const LogFeedViewer = ({ visibleCols }: LogFeedViewerProps) => {
       items={records}
       hasMore={false}
       fetchMore={async () => { }}
-      visibleCols={visibleCols}
     />
   );
 };

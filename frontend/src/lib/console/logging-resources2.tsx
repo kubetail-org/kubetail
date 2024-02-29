@@ -26,6 +26,7 @@ import { Workload as WorkloadType } from '@/lib/workload';
 import { useNodes, usePods } from './hooks';
 import {
   LogFeedQueryOptions,
+  LogFeedColumn,
   LogFeedState,
   LogRecord,
   Node,
@@ -40,6 +41,7 @@ type State = {
   isLogFeedReady: boolean;
   logFeedState: LogFeedState;
   records: LogRecord[];
+  visibleCols: Set<LogFeedColumn>;
 };
 
 type Context = {
@@ -68,6 +70,11 @@ function initState(sourcePaths: string[]): State {
     isLogFeedReady: false,
     logFeedState: LogFeedState.Streaming,
     records: [],
+    visibleCols: new Set([
+      LogFeedColumn.Timestamp,
+      LogFeedColumn.ColorDot,
+      LogFeedColumn.Message,
+    ]),
   };
 }
 

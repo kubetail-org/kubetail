@@ -79,6 +79,30 @@ export type LogFeedQueryOptions = {
   until?: string;
 };
 
+export enum LogFeedColumn {
+  Timestamp = 'Timestamp',
+  ColorDot = 'Color Dot',
+  PodContainer = 'Pod/Container',
+  Region = 'Region',
+  Zone = 'Zone',
+  OS = 'OS',
+  Arch = 'Arch',
+  Node = 'Node',
+  Message = 'Message',
+}
+
+export const allLogFeedColumns = [
+  LogFeedColumn.Timestamp,
+  LogFeedColumn.ColorDot,
+  LogFeedColumn.PodContainer,
+  LogFeedColumn.Region,
+  LogFeedColumn.Zone,
+  LogFeedColumn.OS,
+  LogFeedColumn.Arch,
+  LogFeedColumn.Node,
+  LogFeedColumn.Message,
+];
+
 export interface LogRecord extends GraphQLLogRecord {
   node: Node;
   pod: Pod;
