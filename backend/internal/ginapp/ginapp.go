@@ -95,7 +95,7 @@ func NewGinApp(config Config) (*GinApp, error) {
 			HttpOnly: config.Session.Cookie.HttpOnly,
 			SameSite: config.Session.Cookie.SameSite,
 		})
-		dynamicRoutes.Use(sessions.Sessions("session", sessionStore))
+		dynamicRoutes.Use(sessions.Sessions(config.Session.Cookie.Name, sessionStore))
 
 		// https://security.stackexchange.com/questions/147554/security-headers-for-a-web-api
 		// https://observatory.mozilla.org/faq/

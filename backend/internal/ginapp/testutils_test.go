@@ -206,6 +206,7 @@ func NewTestConfig() *Config {
 	cfg := Config{}
 	cfg.AccessLogEnabled = false
 	cfg.Session.Secret = "TESTSESSIONSECRET"
+	cfg.Session.Cookie.Name = "session"
 	cfg.CSRF.Enabled = false
 	cfg.CSRF.Secret = "TESTCSRFSECRET"
 	return &cfg
