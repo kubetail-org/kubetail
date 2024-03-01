@@ -166,7 +166,8 @@ func main() {
 			appCfg.AuthMode = ginapp.AuthMode(cfg.AuthMode)
 			appCfg.KubeConfig = cfg.KubeConfig
 			appCfg.Namespace = cfg.Namespace
-			appCfg.AccessLogEnabled = cfg.Logging.AccessLogEnabled
+			appCfg.AccessLog.Enabled = cfg.Logging.AccessLog.Enabled
+			appCfg.AccessLog.HideHealthChecks = cfg.Logging.AccessLog.HideHealthChecks
 			appCfg.Session.Secret = cfg.Session.Secret
 			appCfg.Session.Cookie.Name = cfg.Session.Cookie.Name
 			appCfg.Session.Cookie.Path = cfg.Session.Cookie.Path

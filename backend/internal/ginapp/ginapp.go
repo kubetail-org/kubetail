@@ -75,8 +75,8 @@ func NewGinApp(config Config) (*GinApp, error) {
 	app.Use(requestid.New())
 
 	// add logging middleware
-	if config.AccessLogEnabled {
-		app.Use(loggingMiddleware())
+	if config.AccessLog.Enabled {
+		app.Use(loggingMiddleware(config.AccessLog.HideHealthChecks))
 	}
 
 	// gzip middleware

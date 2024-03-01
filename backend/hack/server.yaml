@@ -48,4 +48,6 @@ logging:
   enabled: true
   level: info
   format: pretty
-  access-log-enabled: true
+  access-log:
+    enabled: true
+    hide-health-checks: false

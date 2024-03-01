@@ -30,8 +30,11 @@ type Config struct {
 	// namespace filter
 	Namespace string
 
-	// enable http access request logging
-	AccessLogEnabled bool
+	// access log options
+	AccessLog struct {
+		Enabled          bool
+		HideHealthChecks bool
+	}
 
 	// session options
 	Session struct {
@@ -72,7 +75,8 @@ func DefaultConfig() Config {
 	cfg := Config{}
 
 	cfg.AuthMode = AuthModeToken
-	cfg.AccessLogEnabled = true
+	cfg.AccessLog.Enabled = true
+	cfg.AccessLog.HideHealthChecks = false
 
 	cfg.Session.Secret = ""
 	cfg.Session.Cookie.Name = "session"

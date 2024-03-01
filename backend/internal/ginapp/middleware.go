@@ -82,8 +82,13 @@ func k8sTokenRequiredMiddleware(c *gin.Context) {
 }
 
 // Log HTTP requests
-func loggingMiddleware() gin.HandlerFunc {
+func loggingMiddleware(hideHealthChecks bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if hideHealthChecks && strings.HasSuffix(c.Request.URL.Path, "/healthz") {
+			c.Next()
+			return
+		}
+
 		t0 := time.Now().UTC() // for access log request time
 
 		// create contextual sub-logger
