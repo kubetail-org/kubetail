@@ -86,7 +86,6 @@ const palette = distinctColors({
 });
 
 const ConfigureContainerColors = () => {
-  console.log('xxx');
   const { pods } = usePods();
   const containerKeysRef = useRef(new Set<string>());
 

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { AnsiUp } from 'ansi_up';
+import makeAnsiRegex from 'ansi-regex';
 import { format, utcToZonedTime } from 'date-fns-tz';
 import { forwardRef, useEffect, useRef, useState } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
@@ -24,6 +26,9 @@ import { cssID } from './helpers';
 import { useLogFeed, useVisibleCols } from './hooks';
 import { LogFeedColumn, allLogFeedColumns } from './types';
 import type { LogRecord } from './types';
+
+const ansiUp = new AnsiUp();
+const ansiRegex = makeAnsiRegex({onlyFirst: true});
 
 type LogFeedContentProps = {
   items: LogRecord[];
@@ -58,7 +63,14 @@ const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
     case LogFeedColumn.Node:
       return record.pod.spec.nodeName;
     case LogFeedColumn.Message:
-      return record.message;
+      // apply ansi color coding
+      if (ansiRegex.test(record.message)) {
+        return (
+          <span dangerouslySetInnerHTML={{ __html: ansiUp.ansi_to_html(record.message) }} />
+        );
+      } else {
+        return record.message;
+      }
     default:
       throw new Error('not implemented');
   }
