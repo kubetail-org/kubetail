@@ -123,9 +123,10 @@ const SettingsButton = () => {
   const [visibleCols, setVisibleCols] = useVisibleCols();
 
   const handleOnChange = (col: LogFeedColumn, ev: React.ChangeEvent<HTMLInputElement>) => {
-    if (ev.target.checked) visibleCols.add(col);
-    else visibleCols.delete(col);
-    setVisibleCols(visibleCols);
+    const newSet = new Set(visibleCols);
+    if (ev.target.checked) newSet.add(col);
+    else newSet.delete(col);
+    setVisibleCols(newSet);
   };
 
   const checkboxEls: JSX.Element[] = [];

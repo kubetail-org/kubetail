@@ -37,6 +37,7 @@
     "react-virtualized-auto-sizer": "^1.0.23",
     "react-window": "^1.8.10",
     "react-window-infinite-loader": "^1.0.9",
+    "recoil": "^0.7.7",
     "tailwind-merge": "^2.2.1"
   },
   "devDependencies": {

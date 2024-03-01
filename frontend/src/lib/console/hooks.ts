@@ -12,13 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useContext } from 'react';
+import { useRecoilState, useRecoilValue } from 'recoil';
 
 import { useListQueryWithSubscription } from '@/lib/hooks';
 import * as ops from '@/lib/graphql/ops';
 import { Workload as WorkloadType, typenameMap } from '@/lib/workload';
 
-import { Context } from './logging-resources2';
+import {
+  isLogFeedReadyState,
+  logFeedStateState,
+  logFeedRecordsState,
+  sourceToWorkloadResponseMapState,
+  sourceToPodListResponseMapState,
+  visibleColsState,
+} from './state';
 import { LogFeedColumn, LogFeedState, Node, Pod, Workload } from './types';
 
 /**
@@ -44,8 +51,7 @@ export function useNodes() {
  */
 
 export function useWorkloads() {
-  const { state } = useContext(Context);
-  const { sourceToWorkloadResponseMap } = state;
+  const sourceToWorkloadResponseMap = useRecoilValue(sourceToWorkloadResponseMapState);
 
   let loading = false;
   const workloads = new Map<WorkloadType, Workload[]>();
@@ -69,8 +75,7 @@ export function useWorkloads() {
  */
 
 export function usePods() {
-  const { state } = useContext(Context);
-  const { sourceToPodListResponseMap } = state;
+  const sourceToPodListResponseMap = useRecoilValue(sourceToPodListResponseMapState);
 
   let loading = false;
   const pods: Pod[] = [];
@@ -97,21 +102,23 @@ export function usePods() {
  */
 
 export function useLogFeed() {
-  const { state, dispatch } = useContext(Context);
+  const [logFeedState, setLogFeedState] = useRecoilState(logFeedStateState);
+  const logFeedRecords = useRecoilValue(logFeedRecordsState);
+  const isLogFeedReady = useRecoilValue(isLogFeedReadyState);
 
   return {
-    isReady: state.isLogFeedReady,
+    isReady: isLogFeedReady,
     loading: false,
-    state: state.logFeedState,
-    records: state.records,
+    state: logFeedState,
+    records: logFeedRecords,
     controls: {
       startStreaming: () => {
         console.log('start-streaming');
-        dispatch({ logFeedState: LogFeedState.Streaming });
+        setLogFeedState(LogFeedState.Streaming);
       },
       stopStreaming: () => {
         console.log('stop-streaming');
-        dispatch({ logFeedState: LogFeedState.Paused });
+        setLogFeedState(LogFeedState.Paused);
       },
       skipForward: () => console.log('skip-forward'),
       query: () => console.log('query'),
@@ -124,7 +131,5 @@ export function useLogFeed() {
  */
 
 export function useVisibleCols(): [Set<LogFeedColumn>, (arg: Set<LogFeedColumn>) => void] {
-  const { state, dispatch } = useContext(Context);
-  const setVisibleCols = (newVal: Set<LogFeedColumn>) => dispatch({ visibleCols: newVal });
-  return [state.visibleCols, setVisibleCols];
+  return useRecoilState(visibleColsState);
 }

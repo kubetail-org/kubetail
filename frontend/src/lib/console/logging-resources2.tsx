@@ -14,9 +14,12 @@
 
 import { useQuery } from '@apollo/client';
 import {
-  createContext,
   forwardRef,
-  useContext, useEffect, useImperativeHandle, useReducer, useRef } from 'react';
+  useEffect,
+  useImperativeHandle,
+  useRef,
+} from 'react';
+import { RecoilRoot, useRecoilState, useRecoilValue } from 'recoil';
 
 import type { LogRecord as GraphQLLogRecord } from '@/lib/graphql/__generated__/graphql';
 import * as ops from '@/lib/graphql/ops';
@@ -25,70 +28,32 @@ import { Workload as WorkloadType } from '@/lib/workload';
 
 import { useNodes, usePods } from './hooks';
 import {
+  isLogFeedReadyState,
+  logFeedStateState,
+  logFeedRecordsState,
+  sourceToWorkloadResponseMapState,
+  sourceToPodListResponseMapState,
+} from './state';
+import {
   LogFeedQueryOptions,
-  LogFeedColumn,
   LogFeedState,
   LogRecord,
   Node,
   Pod,
-  PodListResponse,
   WorkloadResponse,
 } from './types';
-
-type State = {
-  sourceToWorkloadResponseMap: Map<string, WorkloadResponse>;
-  sourceToPodListResponseMap: Map<string, PodListResponse>;
-  isLogFeedReady: boolean;
-  logFeedState: LogFeedState;
-  records: LogRecord[];
-  visibleCols: Set<LogFeedColumn>;
-};
-
-type Context = {
-  state: State;
-  dispatch: React.Dispatch<Partial<State>>;
-};
-
-export const Context = createContext<Context>({} as Context);
-
-function reducer(prevState: State, newState: Partial<State>): State {
-  return Object.assign({}, { ...prevState }, { ...newState });
-}
-
-function initState(sourcePaths: string[]): State {
-  const sourceToWorkloadResponseMap = new Map<string, WorkloadResponse>();
-  const sourceToPodListResponseMap = new Map<string, PodListResponse>();
-
-  sourcePaths.forEach(sourcePath => {
-    sourceToWorkloadResponseMap.set(sourcePath, new WorkloadResponse());
-    sourceToPodListResponseMap.set(sourcePath, new PodListResponse());
-  });
-
-  return {
-    sourceToWorkloadResponseMap,
-    sourceToPodListResponseMap,
-    isLogFeedReady: false,
-    logFeedState: LogFeedState.Streaming,
-    records: [],
-    visibleCols: new Set([
-      LogFeedColumn.Timestamp,
-      LogFeedColumn.ColorDot,
-      LogFeedColumn.Message,
-    ]),
-  };
-}
 
 /**
  * Source map updater hook (for internal use)
  */
 
 function useWorkloadMapUpdater(sourcePath: string, value: WorkloadResponse) {
-  const { state, dispatch } = useContext(Context);
-  const { sourceToWorkloadResponseMap } = state;
+  const [sourceToWorkloadResponseMap, setSourceToWorkloadResponseMap] = useRecoilState(sourceToWorkloadResponseMapState);
 
   useEffect(() => {
-    sourceToWorkloadResponseMap.set(sourcePath, value);
-    dispatch({ sourceToWorkloadResponseMap });
+    const newMap = new Map(sourceToWorkloadResponseMap);
+    newMap.set(sourcePath, value);
+    setSourceToWorkloadResponseMap(newMap);
   }, [JSON.stringify(value)]);
 }
 
@@ -117,13 +82,13 @@ const LoadPodsForLabels = ({
     variables: { namespace, labelSelector },
   });
 
-  const { state, dispatch } = useContext(Context);
-  const { sourceToPodListResponseMap } = state;
+  const [sourceToPodListResponseMap, setSourceToPodListResponseMap] = useRecoilState(sourceToPodListResponseMapState);
 
   useEffect(() => {
     const items = data?.coreV1PodsList?.items;
-    sourceToPodListResponseMap.set(sourcePath, { loading, error, items });
-    dispatch({ sourceToPodListResponseMap });
+    const newMap = new Map(sourceToPodListResponseMap);
+    newMap.set(sourcePath, { loading, error, items });
+    setSourceToPodListResponseMap(newMap);
   }, [loading, error, data]);
 
   return <></>;
@@ -304,13 +269,13 @@ const LoadPodWorkload = ({ sourcePath }: { sourcePath: string }) => {
   // update workload map
   useWorkloadMapUpdater(sourcePath, { loading, error, item });
 
-  const { state, dispatch } = useContext(Context);
-  const { sourceToPodListResponseMap } = state;
+  const [sourceToPodListResponseMap, setSourceToPodListResponseMap] = useRecoilState(sourceToPodListResponseMapState);
 
   useEffect(() => {
     const items = (item) ? [item] : undefined;
-    sourceToPodListResponseMap.set(sourcePath, { loading, error, items });
-    dispatch({ sourceToPodListResponseMap });
+    const newMap = new Map(sourceToPodListResponseMap);
+    newMap.set(sourcePath, { loading, error, items });
+    setSourceToPodListResponseMap(newMap);
   }, [loading, error, data]);
 
   return <></>;
@@ -404,8 +369,8 @@ type LogFeedRecordFetcherHandle = {
 const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetcherHandle, LogFeedRecordFetcherProps> = (props, ref) => {
   const { node, pod, container, onLoad, onUpdate } = props;
   const { namespace, name } = pod.metadata;
-  const { state, dispatch } = useContext(Context);
-  const { logFeedState, records } = state;
+  const logFeedState = useRecoilValue(logFeedStateState);
+  const [, setLogFeedRecords] = useRecoilState(logFeedRecordsState);
 
   const lastTSRef = useRef<string>();
   const startTSRef = useRef<string>();
@@ -459,8 +424,7 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
           lastTSRef.current = record.timestamp;
 
           // update records
-          records.push(upgradeRecord(record));
-          dispatch({ records });
+          setLogFeedRecords(oldRecords => [...oldRecords, upgradeRecord(record)]);
         }
         return { podLogQuery: [] };
       },
@@ -519,12 +483,12 @@ const LogFeedDataFetcher = forwardRef(LogFeedDataFetcherImpl);
 const LogFeedLoader = () => {
   const nodes = useNodes();
   const pods = usePods();
-  const { dispatch } = useContext(Context);
+  const [, setIsLogFeedReadyState] = useRecoilState(isLogFeedReadyState);
 
   // set isReady after component and children are mounted
   useEffect(() => {
     if (nodes.loading || pods.loading) return;
-    dispatch({ isLogFeedReady: true });
+    setIsLogFeedReadyState(true);
   }, [nodes.loading, pods.loading]);
 
   // only load containers from nodes that we have a record of
@@ -551,6 +515,36 @@ const LogFeedLoader = () => {
 };
 
 /**
+ * Source deletion handler component
+ */
+
+type SourceDeletionHandlerProps = {
+  sourcePaths: string[];
+};
+
+const SourceDeletionHandler = ({ sourcePaths }: SourceDeletionHandlerProps) => {
+  const [sourceToWorkloadResponseMap, setSourceToWorkloadResponseMap] = useRecoilState(sourceToWorkloadResponseMapState);
+  const [sourceToPodListResponseMap, setSourceToPodListResponseMap] = useRecoilState(sourceToPodListResponseMapState);
+
+  // handle sourcePath deletions
+  useEffect(() => {
+    const difference = Array.from(sourceToWorkloadResponseMap.keys()).filter(x => !sourcePaths.includes(x));
+    if (difference.length) {
+      const newMap1 = new Map(sourceToWorkloadResponseMap);
+      const newMap2 = new Map(sourceToPodListResponseMap);
+      difference.forEach(key => {
+        newMap1.delete(key);
+        newMap2.delete(key);
+      });
+      setSourceToWorkloadResponseMap(newMap1);
+      setSourceToPodListResponseMap(newMap2);
+    }
+  }, [JSON.stringify(sourcePaths)]);
+
+  return <></>;
+};
+
+/**
  * Provider component
  */
 
@@ -563,20 +557,6 @@ export const LoggingResourcesProvider = ({ sourcePaths, children }: LoggingResou
   sourcePaths = Array.from(new Set(sourcePaths || []));
   sourcePaths.sort();
 
-  // use state
-  const [state, dispatch] = useReducer(reducer, sourcePaths, initState);
-
-  // handle sourcePath deletions
-  useEffect(() => {
-    const { sourceToWorkloadResponseMap, sourceToPodListResponseMap } = state;
-    const difference = Array.from(sourceToWorkloadResponseMap.keys()).filter(x => !sourcePaths.includes(x));
-    if (difference.length) {
-      difference.forEach(key => sourceToWorkloadResponseMap.delete(key));
-      difference.forEach(key => sourceToPodListResponseMap.delete(key));
-      dispatch({ sourceToWorkloadResponseMap, sourceToPodListResponseMap });
-    }
-  }, [JSON.stringify(sourcePaths)]);
-
   const resourceLoaders = {
     [WorkloadType.CRONJOBS]: LoadCronJobWorkload,
     [WorkloadType.DAEMONSETS]: LoadDaemonSetWorkload,
@@ -588,7 +568,8 @@ export const LoggingResourcesProvider = ({ sourcePaths, children }: LoggingResou
   };
 
   return (
-    <Context.Provider value={{ state, dispatch }}>
+    <RecoilRoot>
+      <SourceDeletionHandler sourcePaths={sourcePaths} />
       {sourcePaths.map(path => {
         const parts = path.split('/');
         if (!(parts[0] in resourceLoaders)) throw new Error(`not implemented: ${parts[0]}`);
@@ -597,6 +578,6 @@ export const LoggingResourcesProvider = ({ sourcePaths, children }: LoggingResou
       })}
       <LogFeedLoader />
       {children}
-    </Context.Provider>
+    </RecoilRoot>
   );
 };
