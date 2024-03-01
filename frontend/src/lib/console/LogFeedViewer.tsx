@@ -20,6 +20,7 @@ import { FixedSizeList } from 'react-window';
 
 import { cn } from '@/lib/utils';
 
+import { cssID } from './helpers';
 import { useLogFeed, useVisibleCols } from './hooks';
 import { LogFeedColumn, allLogFeedColumns } from './types';
 import type { LogRecord } from './types';
@@ -36,7 +37,14 @@ const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
       const tsWithTZ = utcToZonedTime(record.timestamp, 'UTC');
       return format(tsWithTZ, 'LLL dd, y HH:mm:ss.SSS', { timeZone: 'UTC' });
     case LogFeedColumn.ColorDot:
-      return '.';
+      const k = cssID(record.pod, record.container);
+      const el = (
+        <div
+          className="inline-block w-[8px] h-[8px] rounded-full"
+          style={{ backgroundColor: `var(--${k}-color)` }}
+        />
+      );
+      return el;
     case LogFeedColumn.PodContainer:
       return `${record.pod.metadata.name}/${record.container}`;
     case LogFeedColumn.Region:

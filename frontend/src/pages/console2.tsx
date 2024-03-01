@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
+import distinctColors from 'distinct-colors';
 import {
   Clock as ClockIcon,
   Pause as PauseIcon,
@@ -44,6 +45,7 @@ import {
   LogFeedViewer,
   LoggingResourcesProvider,
   allLogFeedColumns,
+  cssID,
   useLogFeed,
   useNodes,
   usePods,
@@ -51,7 +53,7 @@ import {
   useWorkloads,
 } from '@/lib/console';
 import type { Pod } from '@/lib/console';
-import { Counter, MapSet, cssEncode, getBasename, joinPaths } from '@/lib/helpers';
+import { Counter, MapSet, getBasename, joinPaths } from '@/lib/helpers';
 import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
 
 type State = {
@@ -72,12 +74,45 @@ function reducer(prevState: State, newState: Partial<State>): State {
 }
 
 /**
- * Helpers
+ * Configure container colors component
  */
 
-function cssID(pod: Pod, container: string) {
-  return cssEncode(`${pod.metadata.namespace}/${pod.metadata.name}/${container}`);
-}
+const palette = distinctColors({
+  count: 20,
+  chromaMin: 40,
+  chromaMax: 100,
+  lightMin: 20,
+  lightMax: 80,
+});
+
+const ConfigureContainerColors = () => {
+  console.log('xxx');
+  const { pods } = usePods();
+  const containerKeysRef = useRef(new Set<string>());
+
+  pods.forEach(pod => {
+    pod.spec.containers.forEach(container => {
+      const k = cssID(pod, container.name);
+
+      // skip if previously defined
+      if (containerKeysRef.current.has(k)) return;
+      containerKeysRef.current.add(k);
+
+      (async () => {
+        // get color
+        const streamUTF8 = new TextEncoder().encode(k);
+        const buffer = await crypto.subtle.digest('SHA-256', streamUTF8);
+        const view = new DataView(buffer);
+        const colorIDX = view.getUint32(0) % 20;
+
+        // set css var
+        document.documentElement.style.setProperty(`--${k}-color`, palette[colorIDX].hex());
+      })();
+    });
+  });
+
+  return <></>;
+};
 
 /**
  * Settings button
@@ -504,6 +539,7 @@ export default function Page() {
       <Context.Provider value={{ state, dispatch }}>
         <LoggingResourcesProvider sourcePaths={searchParams.getAll('source')}>
           <AppLayout>
+            <ConfigureContainerColors />
             <InnerLayout
               sidebar={<Sidebar />}
               header={<Header />}
