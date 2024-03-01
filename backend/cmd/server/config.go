@@ -72,8 +72,14 @@ type Config struct {
 		// log format
 		Format string `validate:"oneof=json pretty"`
 
-		// enable http access request logging
-		AccessLogEnabled bool `mapstructure:"access-log-enabled"`
+		// access-log options
+		AccessLog struct {
+			// enable access-log
+			Enabled bool
+
+			// hide health checks
+			HideHealthChecks bool `mapstructure:"hide-health-checks"`
+		} `mapstructure:"access-log"`
 	}
 }
 
@@ -114,6 +120,7 @@ func DefaultConfig() Config {
 	cfg.Logging.Enabled = true
 	cfg.Logging.Level = "info"
 	cfg.Logging.Format = "json"
-	cfg.Logging.AccessLogEnabled = true
+	cfg.Logging.AccessLog.Enabled = true
+	cfg.Logging.AccessLog.HideHealthChecks = false
 	return cfg
 }
