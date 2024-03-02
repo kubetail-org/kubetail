@@ -175,22 +175,23 @@ func NewGinApp(config Config) (*GinApp, error) {
 		})
 	})
 
-	// static files (react app)
 	cwd, err := os.Getwd()
 	if err != nil {
 		panic(err)
 	}
-	websiteDir := path.Join(cwd, "/website")
 
-	app.StaticFile("/", path.Join(websiteDir, "/index.html"))
-	app.StaticFile("/favicon.ico", path.Join(websiteDir, "/favicon.ico"))
-	app.StaticFile("/graphiql", path.Join(websiteDir, "/graphiql.html"))
-	app.Static("/assets", path.Join(websiteDir, "/assets"))
+	// templates (for customizing react app)
+	app.LoadHTMLGlob(path.Join(cwd, "templates/*"))
 
-	// use react app for unknown routes
-	app.NoRoute(func(c *gin.Context) {
-		c.File(path.Join(websiteDir, "/index.html"))
-	})
+	// serve website from "/" and also unknown routes
+	{
+		h := &WebsiteHandlers{app, path.Join(cwd, "/website")}
+		h.InitStaticHandlers()
+
+		endpointHandler := h.EndpointHandler()
+		app.GET("/", endpointHandler)
+		app.NoRoute(endpointHandler)
+	}
 
 	return app, nil
 }

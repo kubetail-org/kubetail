@@ -422,7 +422,13 @@ const Home = () => {
  * Default component
  */
 
+import { useEffect } from 'react';
+
 export default function Page() {
+  useEffect(() => {
+    console.log(import.meta.env.VITE_HELLO);
+  }, []);
+
   return (
     <AuthRequired>
       <AppLayout>
