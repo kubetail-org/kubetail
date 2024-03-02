@@ -25,6 +25,7 @@ import (
 type Config struct {
 	AuthMode   ginapp.AuthMode `mapstructure:"auth-mode" validate:"oneof=cluster token local"`
 	KubeConfig string          `mapstructure:"kube-config"`
+	BasePath   string          `mapstructure:"base-path"`
 	Namespace  string
 
 	// session options
@@ -90,37 +91,40 @@ func (cfg *Config) Validate() error {
 
 func DefaultConfig() Config {
 	home, _ := os.UserHomeDir()
+	appCfg := ginapp.DefaultConfig()
 
 	cfg := Config{}
 
-	cfg.AuthMode = "token"
+	cfg.AuthMode = appCfg.AuthMode
 	cfg.KubeConfig = filepath.Join(home, ".kube", "config")
-	cfg.Namespace = ""
+	cfg.BasePath = appCfg.BasePath
+	cfg.Namespace = appCfg.Namespace
 
-	cfg.Session.Secret = ""
-	cfg.Session.Cookie.Name = "session"
-	cfg.Session.Cookie.Path = "/"
-	cfg.Session.Cookie.Domain = ""
-	cfg.Session.Cookie.MaxAge = 36400 * 30
-	cfg.Session.Cookie.Secure = false
-	cfg.Session.Cookie.HttpOnly = true
+	cfg.Session.Secret = appCfg.Session.Secret
+	cfg.Session.Cookie.Name = appCfg.Session.Cookie.Name
+	cfg.Session.Cookie.Path = appCfg.Session.Cookie.Path
+	cfg.Session.Cookie.Domain = appCfg.Session.Cookie.Domain
+	cfg.Session.Cookie.MaxAge = appCfg.Session.Cookie.MaxAge
+	cfg.Session.Cookie.Secure = appCfg.Session.Cookie.Secure
+	cfg.Session.Cookie.HttpOnly = appCfg.Session.Cookie.HttpOnly
 	cfg.Session.Cookie.SameSite = "lax"
 
-	cfg.CSRF.Enabled = true
-	cfg.CSRF.Secret = ""
-	cfg.CSRF.FieldName = "csrf_token"
-	cfg.CSRF.Cookie.Name = "csrf"
-	cfg.CSRF.Cookie.Path = "/"
-	cfg.CSRF.Cookie.Domain = ""
-	cfg.CSRF.Cookie.MaxAge = 43200
-	cfg.CSRF.Cookie.Secure = false
-	cfg.CSRF.Cookie.HttpOnly = true
+	cfg.CSRF.Enabled = appCfg.CSRF.Enabled
+	cfg.CSRF.Secret = appCfg.CSRF.Secret
+	cfg.CSRF.FieldName = appCfg.CSRF.FieldName
+	cfg.CSRF.Cookie.Name = appCfg.CSRF.Cookie.Name
+	cfg.CSRF.Cookie.Path = appCfg.CSRF.Cookie.Path
+	cfg.CSRF.Cookie.Domain = appCfg.CSRF.Cookie.Domain
+	cfg.CSRF.Cookie.MaxAge = appCfg.CSRF.Cookie.MaxAge
+	cfg.CSRF.Cookie.Secure = appCfg.CSRF.Cookie.Secure
+	cfg.CSRF.Cookie.HttpOnly = appCfg.CSRF.Cookie.HttpOnly
 	cfg.CSRF.Cookie.SameSite = "strict"
 
 	cfg.Logging.Enabled = true
 	cfg.Logging.Level = "info"
 	cfg.Logging.Format = "json"
-	cfg.Logging.AccessLog.Enabled = true
-	cfg.Logging.AccessLog.HideHealthChecks = false
+	cfg.Logging.AccessLog.Enabled = appCfg.AccessLog.Enabled
+	cfg.Logging.AccessLog.HideHealthChecks = appCfg.AccessLog.HideHealthChecks
+
 	return cfg
 }

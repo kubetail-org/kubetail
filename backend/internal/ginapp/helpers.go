@@ -15,6 +15,9 @@
 package ginapp
 
 import (
+	"html/template"
+	"path"
+
 	"k8s.io/client-go/rest"
 
 	"github.com/kubetail-org/kubetail/internal/k8shelpers"
@@ -34,4 +37,20 @@ func mustConfigureK8S(config Config) *rest.Config {
 		opts.Mode = k8shelpers.ModeToken
 	}
 	return k8shelpers.MustConfigure(opts)
+}
+
+func mustLoadTemplatesWithFuncs(glob string) *template.Template {
+	funcMap := template.FuncMap{
+		"pathJoin": path.Join,
+	}
+
+	tmpl := template.New("").Funcs(funcMap)
+
+	// parse templates from a specified directory or pattern
+	parsedTemplates, err := tmpl.ParseGlob(glob)
+	if err != nil {
+		panic(err)
+	}
+
+	return parsedTemplates
 }

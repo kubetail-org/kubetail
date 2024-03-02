@@ -27,6 +27,9 @@ type Config struct {
 	// Kube config
 	KubeConfig string
 
+	// Base path
+	BasePath string
+
 	// namespace filter
 	Namespace string
 
@@ -75,6 +78,9 @@ func DefaultConfig() Config {
 	cfg := Config{}
 
 	cfg.AuthMode = AuthModeToken
+	cfg.BasePath = "/"
+	cfg.Namespace = ""
+
 	cfg.AccessLog.Enabled = true
 	cfg.AccessLog.HideHealthChecks = false
 

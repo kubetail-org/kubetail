@@ -72,6 +72,13 @@ func NewGinApp(config Config) (*GinApp, error) {
 		})
 	}
 
+	// get project basepath
+	_, b, _, _ := runtime.Caller(0)
+	basepath := path.Join(filepath.Dir(b), "../../")
+
+	// register templates
+	app.SetHTMLTemplate(mustLoadTemplatesWithFuncs(path.Join(basepath, "templates/*")))
+
 	// add request-id middleware
 	app.Use(requestid.New())
 
@@ -83,8 +90,11 @@ func NewGinApp(config Config) (*GinApp, error) {
 	// gzip middleware
 	app.Use(gzip.Gzip(gzip.DefaultCompression))
 
+	// root route
+	root := app.Group(config.BasePath)
+
 	// dynamic routes
-	dynamicRoutes := app.Group("/")
+	dynamicRoutes := root.Group("/")
 	{
 		// session middleware
 		sessionStore := cookie.NewStore([]byte(config.Session.Secret))
@@ -169,29 +179,20 @@ func NewGinApp(config Config) (*GinApp, error) {
 	}
 	app.dynamicroutes = dynamicRoutes // for unit tests
 
-	// healthz
-	app.GET("/healthz", func(c *gin.Context) {
+	// health routes
+	root.GET("/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "ok",
 		})
 	})
 
-	// get project basepath
-	_, b, _, _ := runtime.Caller(0)
-	basepath := path.Join(filepath.Dir(b), "../../")
-
-	// register templates (for website)
-	app.LoadHTMLGlob(path.Join(basepath, "templates/*"))
-
 	// serve website from "/" and also unknown routes
-	{
-		h := &WebsiteHandlers{app, path.Join(basepath, "/website")}
-		h.InitStaticHandlers()
+	h := &WebsiteHandlers{app, path.Join(basepath, "/website")}
+	h.InitStaticHandlers(root)
 
-		endpointHandler := h.EndpointHandler()
-		app.GET("/", endpointHandler)
-		app.NoRoute(endpointHandler)
-	}
+	endpointHandler := h.EndpointHandler(config)
+	root.GET("/", endpointHandler)
+	app.NoRoute(endpointHandler)
 
 	return app, nil
 }

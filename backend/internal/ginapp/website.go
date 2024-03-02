@@ -28,13 +28,13 @@ type WebsiteHandlers struct {
 	websiteDir string
 }
 
-func (app *WebsiteHandlers) InitStaticHandlers() {
-	app.StaticFile("/favicon.ico", path.Join(app.websiteDir, "/favicon.ico"))
-	app.StaticFile("/graphiql", path.Join(app.websiteDir, "/graphiql.html"))
-	app.Static("/assets", path.Join(app.websiteDir, "/assets"))
+func (app *WebsiteHandlers) InitStaticHandlers(root *gin.RouterGroup) {
+	root.StaticFile("/favicon.ico", path.Join(app.websiteDir, "/favicon.ico"))
+	root.StaticFile("/graphiql", path.Join(app.websiteDir, "/graphiql.html"))
+	root.Static("/assets", path.Join(app.websiteDir, "/assets"))
 }
 
-func (app *WebsiteHandlers) EndpointHandler() gin.HandlerFunc {
+func (app *WebsiteHandlers) EndpointHandler(config Config) gin.HandlerFunc {
 	// read manifest file
 	manifestFile, err := os.Open(path.Join(app.websiteDir, ".vite/manifest.json"))
 	if err != nil {
@@ -56,6 +56,7 @@ func (app *WebsiteHandlers) EndpointHandler() gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{
+			"config":   config,
 			"manifest": manifest,
 		})
 	}
