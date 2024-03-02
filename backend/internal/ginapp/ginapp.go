@@ -16,8 +16,9 @@ package ginapp
 
 import (
 	"net/http"
-	"os"
 	"path"
+	"path/filepath"
+	"runtime"
 
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/requestid"
@@ -175,17 +176,16 @@ func NewGinApp(config Config) (*GinApp, error) {
 		})
 	})
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
+	// get project basepath
+	_, b, _, _ := runtime.Caller(0)
+	basepath := path.Join(filepath.Dir(b), "../../")
 
-	// templates (for customizing react app)
-	app.LoadHTMLGlob(path.Join(cwd, "templates/*"))
+	// register templates (for website)
+	app.LoadHTMLGlob(path.Join(basepath, "templates/*"))
 
 	// serve website from "/" and also unknown routes
 	{
-		h := &WebsiteHandlers{app, path.Join(cwd, "/website")}
+		h := &WebsiteHandlers{app, path.Join(basepath, "/website")}
 		h.InitStaticHandlers()
 
 		endpointHandler := h.EndpointHandler()
