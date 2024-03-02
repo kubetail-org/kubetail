@@ -9,8 +9,7 @@
       if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
       }
-
-      window.runtimeConfig = { basePath: "{{ .config.BasePath }}" };
+      window.runtimeConfig = {{ .runtimeConfig }};
     </script>
     {{- $index := (index .manifest "index.html") }}    
     <script type="module" crossorigin src="{{ pathJoin $.config.BasePath $index.file }}"></script>

@@ -16,6 +16,7 @@ package ginapp
 
 import (
 	"encoding/json"
+	"html/template"
 	"net/http"
 	"os"
 	"path"
@@ -54,10 +55,22 @@ func (app *WebsiteHandlers) EndpointHandler(config Config) gin.HandlerFunc {
 		panic(err)
 	}
 
+	// define runtime config for react app
+	runtimeConfig := map[string]string{
+		"basePath": config.BasePath,
+	}
+
+	runtimeConfigBytes, err := json.Marshal(runtimeConfig)
+	if err != nil {
+		panic(err)
+	}
+	runtimeConfigJS := template.JS(string(runtimeConfigBytes))
+
 	return func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{
-			"config":   config,
-			"manifest": manifest,
+			"config":        config,
+			"manifest":      manifest,
+			"runtimeConfig": template.JS(runtimeConfigJS),
 		})
 	}
 }
