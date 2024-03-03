@@ -33,6 +33,9 @@ export default defineConfig({
       },
     }
   },
+  build: {
+    manifest: true,
+  },
   test: {
     environment: 'jsdom',
     globals: true,

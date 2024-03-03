@@ -16,8 +16,9 @@ package ginapp
 
 import (
 	"net/http"
-	"os"
 	"path"
+	"path/filepath"
+	"runtime"
 
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/requestid"
@@ -71,6 +72,13 @@ func NewGinApp(config Config) (*GinApp, error) {
 		})
 	}
 
+	// get project basepath
+	_, b, _, _ := runtime.Caller(0)
+	basepath := path.Join(filepath.Dir(b), "../../")
+
+	// register templates
+	app.SetHTMLTemplate(mustLoadTemplatesWithFuncs(path.Join(basepath, "templates/*")))
+
 	// add request-id middleware
 	app.Use(requestid.New())
 
@@ -82,8 +90,11 @@ func NewGinApp(config Config) (*GinApp, error) {
 	// gzip middleware
 	app.Use(gzip.Gzip(gzip.DefaultCompression))
 
+	// root route
+	root := app.Group(config.BasePath)
+
 	// dynamic routes
-	dynamicRoutes := app.Group("/")
+	dynamicRoutes := root.Group("/")
 	{
 		// session middleware
 		sessionStore := cookie.NewStore([]byte(config.Session.Secret))
@@ -108,7 +119,7 @@ func NewGinApp(config Config) (*GinApp, error) {
 
 		// disable csrf protection for graphql endpoint (already rejects simple requests)
 		dynamicRoutes.Use(func(c *gin.Context) {
-			if c.Request.URL.Path == "/graphql" {
+			if c.Request.URL.Path == path.Join(config.BasePath, "/graphql") {
 				c.Request = csrf.UnsafeSkipCheck(c.Request)
 			}
 			c.Next()
@@ -168,29 +179,20 @@ func NewGinApp(config Config) (*GinApp, error) {
 	}
 	app.dynamicroutes = dynamicRoutes // for unit tests
 
-	// healthz
-	app.GET("/healthz", func(c *gin.Context) {
+	// health routes
+	root.GET("/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "ok",
 		})
 	})
 
-	// static files (react app)
-	cwd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	websiteDir := path.Join(cwd, "/website")
+	// serve website from "/" and also unknown routes
+	h := &WebsiteHandlers{app, path.Join(basepath, "/website")}
+	h.InitStaticHandlers(root)
 
-	app.StaticFile("/", path.Join(websiteDir, "/index.html"))
-	app.StaticFile("/favicon.ico", path.Join(websiteDir, "/favicon.ico"))
-	app.StaticFile("/graphiql", path.Join(websiteDir, "/graphiql.html"))
-	app.Static("/assets", path.Join(websiteDir, "/assets"))
-
-	// use react app for unknown routes
-	app.NoRoute(func(c *gin.Context) {
-		c.File(path.Join(websiteDir, "/index.html"))
-	})
+	endpointHandler := h.EndpointHandler(config)
+	root.GET("/", endpointHandler)
+	app.NoRoute(endpointHandler)
 
 	return app, nil
 }
