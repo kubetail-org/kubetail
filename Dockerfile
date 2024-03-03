@@ -69,6 +69,8 @@ COPY --from=backend-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # copy backend
 COPY --from=backend-builder /backend/server /app/server
+COPY --from=backend-builder /backend/templates /app/templates
+
 
 # copy frontend
 COPY --from=frontend-builder /frontend/dist /app/website
@@ -87,6 +89,7 @@ COPY --from=backend-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # copy backend
 COPY --from=backend-builder /backend/server /app/server
+COPY --from=backend-builder /backend/templates /app/templates
 
 # copy frontend
 COPY --from=frontend-builder /frontend/dist /app/website

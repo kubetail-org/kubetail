@@ -42,6 +42,14 @@ gin-mode: release
 #
 kube-config: ${HOME}/.kube/config
 
+## base-path ##
+#
+# Sets the url path prefix (useful for deploying on a sub-path behind a reverse proxy)
+# 
+# Default value: /
+#
+base-path: /
+
 ## csrf ##
 #
 csrf:
@@ -156,13 +164,25 @@ logging:
   #
   format: json
 
-  ## access-log-enabled ##
+  ## access-log ##
   #
-  # Enables web access logs for app
-  #
-  # Default value: true
-  #
-  access-log-enabled: true
+  access-log:  
+
+    ## enabled ##
+    #
+    # Enables web access logs for app
+    #
+    # Default value: true
+    #
+    enabled: true
+
+    ## hide-health-checks ##
+    #
+    # Hides health checks from access log
+    #
+    # Default: false
+    #
+    hide-health-checks: false
 
 ## session ##
 #
