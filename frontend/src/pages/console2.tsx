@@ -52,6 +52,7 @@ import {
   useVisibleCols,
   useWorkloads,
 } from '@/lib/console';
+import { LogFeedProvider } from '@/lib/console/log-feed';
 import type { Pod } from '@/lib/console';
 import { Counter, MapSet, getBasename, joinPaths } from '@/lib/helpers';
 import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
@@ -531,7 +532,14 @@ export default function Page() {
   });
 
   const Content = () => (
-    <LogFeedViewer />
+    <>
+      <LogFeedViewer />
+      <LogFeedProvider
+        defaultSince="-100"
+        defaultUntil="forever"
+      >
+      </LogFeedProvider>
+    </>
   );
 
   return (
