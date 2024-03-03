@@ -14,6 +14,7 @@
 
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 
+import { config } from '@/app-config';
 import { typenameMap } from '@/lib/workload';
 
 type ConsoleLinkSourceFragment = {
@@ -169,7 +170,7 @@ export function getBasename() {
     const m = pathname.match(/^(.*?)\/proxy\//);
     if (m) basename = m[0];
   } else {
-    basename = '/';
+    basename = config.basePath;
   }
 
   return basename as string;

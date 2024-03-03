@@ -21,7 +21,7 @@ gin-mode: debug
 # App options
 auth-mode: local
 kube-config: ${HOME}/.kube/config
-base-path: /kubetail
+base-path: /
 
 session:
   secret: REPLACEME
