@@ -41,18 +41,23 @@ import AuthRequired from '@/components/utils/AuthRequired';
 import SourcePickerModal from '@/components/widgets/SourcePickerModal';
 import {
   LogFeedColumn,
-  LogFeedState,
-  LogFeedViewer,
+  //LogFeedState,
   LoggingResourcesProvider,
   allLogFeedColumns,
   cssID,
-  useLogFeed,
+  //useLogFeed,
   useNodes,
   usePods,
   useVisibleCols,
   useWorkloads,
 } from '@/lib/console';
-import { LogFeedProvider } from '@/lib/console/log-feed';
+import {
+  LogFeedProvider,
+  LogFeedState,
+  LogFeedViewer,
+  useLogFeedControls,
+  useLogFeedMetadata,
+} from '@/lib/console/logfeed';
 import type { Pod } from '@/lib/console';
 import { Counter, MapSet, getBasename, joinPaths } from '@/lib/helpers';
 import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
@@ -406,18 +411,19 @@ const Sidebar = () => {
  */
 
 const Header = () => {
-  const feed = useLogFeed();
+  const controls = useLogFeedControls();
+  const { state } = useLogFeedMetadata();
 
   const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30';
 
   return (
     <div className="grid grid-cols-2 p-1">
       <div className="flex px-2 justify-left">
-        {feed.state === LogFeedState.Streaming ? (
+        {state === LogFeedState.Streaming ? (
           <button
             className={buttonCN}
             title="Pause"
-            onClick={() => feed.controls.stopStreaming()}
+            onClick={() => controls.stopStreaming()}
           >
             <PauseIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
@@ -425,7 +431,7 @@ const Header = () => {
           <button
             className={buttonCN}
             title="Play"
-            onClick={() => feed.controls.startStreaming()}
+            onClick={() => controls.startStreaming()}
           >
             <PlayIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
@@ -534,11 +540,6 @@ export default function Page() {
   const Content = () => (
     <>
       <LogFeedViewer />
-      <LogFeedProvider
-        defaultSince="-100"
-        defaultUntil="forever"
-      >
-      </LogFeedProvider>
     </>
   );
 
@@ -546,14 +547,19 @@ export default function Page() {
     <AuthRequired>
       <Context.Provider value={{ state, dispatch }}>
         <LoggingResourcesProvider sourcePaths={searchParams.getAll('source')}>
-          <AppLayout>
-            <ConfigureContainerColors />
-            <InnerLayout
-              sidebar={<Sidebar />}
-              header={<Header />}
-              content={<Content />}
-            />
-          </AppLayout>
+          <LogFeedProvider
+            defaultSince="-100"
+            defaultUntil="forever"
+          >
+            <AppLayout>
+              <ConfigureContainerColors />
+              <InnerLayout
+                sidebar={<Sidebar />}
+                header={<Header />}
+                content={<Content />}
+              />
+            </AppLayout>
+          </LogFeedProvider>
         </LoggingResourcesProvider>
       </Context.Provider>
     </AuthRequired>
