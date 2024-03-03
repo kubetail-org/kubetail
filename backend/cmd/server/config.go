@@ -91,40 +91,40 @@ func (cfg *Config) Validate() error {
 
 func DefaultConfig() Config {
 	home, _ := os.UserHomeDir()
-	appCfg := ginapp.DefaultConfig()
+	appDefault := ginapp.DefaultConfig()
 
 	cfg := Config{}
 
-	cfg.AuthMode = appCfg.AuthMode
+	cfg.AuthMode = appDefault.AuthMode
 	cfg.KubeConfig = filepath.Join(home, ".kube", "config")
-	cfg.BasePath = appCfg.BasePath
-	cfg.Namespace = appCfg.Namespace
+	cfg.BasePath = appDefault.BasePath
+	cfg.Namespace = appDefault.Namespace
 
-	cfg.Session.Secret = appCfg.Session.Secret
-	cfg.Session.Cookie.Name = appCfg.Session.Cookie.Name
-	cfg.Session.Cookie.Path = appCfg.Session.Cookie.Path
-	cfg.Session.Cookie.Domain = appCfg.Session.Cookie.Domain
-	cfg.Session.Cookie.MaxAge = appCfg.Session.Cookie.MaxAge
-	cfg.Session.Cookie.Secure = appCfg.Session.Cookie.Secure
-	cfg.Session.Cookie.HttpOnly = appCfg.Session.Cookie.HttpOnly
-	cfg.Session.Cookie.SameSite = "lax"
+	cfg.Session.Secret = appDefault.Session.Secret
+	cfg.Session.Cookie.Name = appDefault.Session.Cookie.Name
+	cfg.Session.Cookie.Path = appDefault.Session.Cookie.Path
+	cfg.Session.Cookie.Domain = appDefault.Session.Cookie.Domain
+	cfg.Session.Cookie.MaxAge = appDefault.Session.Cookie.MaxAge
+	cfg.Session.Cookie.Secure = appDefault.Session.Cookie.Secure
+	cfg.Session.Cookie.HttpOnly = appDefault.Session.Cookie.HttpOnly
+	cfg.Session.Cookie.SameSite = fromSameSite(appDefault.Session.Cookie.SameSite)
 
-	cfg.CSRF.Enabled = appCfg.CSRF.Enabled
-	cfg.CSRF.Secret = appCfg.CSRF.Secret
-	cfg.CSRF.FieldName = appCfg.CSRF.FieldName
-	cfg.CSRF.Cookie.Name = appCfg.CSRF.Cookie.Name
-	cfg.CSRF.Cookie.Path = appCfg.CSRF.Cookie.Path
-	cfg.CSRF.Cookie.Domain = appCfg.CSRF.Cookie.Domain
-	cfg.CSRF.Cookie.MaxAge = appCfg.CSRF.Cookie.MaxAge
-	cfg.CSRF.Cookie.Secure = appCfg.CSRF.Cookie.Secure
-	cfg.CSRF.Cookie.HttpOnly = appCfg.CSRF.Cookie.HttpOnly
-	cfg.CSRF.Cookie.SameSite = "strict"
+	cfg.CSRF.Enabled = appDefault.CSRF.Enabled
+	cfg.CSRF.Secret = appDefault.CSRF.Secret
+	cfg.CSRF.FieldName = appDefault.CSRF.FieldName
+	cfg.CSRF.Cookie.Name = appDefault.CSRF.Cookie.Name
+	cfg.CSRF.Cookie.Path = appDefault.CSRF.Cookie.Path
+	cfg.CSRF.Cookie.Domain = appDefault.CSRF.Cookie.Domain
+	cfg.CSRF.Cookie.MaxAge = appDefault.CSRF.Cookie.MaxAge
+	cfg.CSRF.Cookie.Secure = appDefault.CSRF.Cookie.Secure
+	cfg.CSRF.Cookie.HttpOnly = appDefault.CSRF.Cookie.HttpOnly
+	cfg.CSRF.Cookie.SameSite = fromCsrfSameSite(appDefault.CSRF.Cookie.SameSite)
 
 	cfg.Logging.Enabled = true
 	cfg.Logging.Level = "info"
 	cfg.Logging.Format = "json"
-	cfg.Logging.AccessLog.Enabled = appCfg.AccessLog.Enabled
-	cfg.Logging.AccessLog.HideHealthChecks = appCfg.AccessLog.HideHealthChecks
+	cfg.Logging.AccessLog.Enabled = appDefault.AccessLog.Enabled
+	cfg.Logging.AccessLog.HideHealthChecks = appDefault.AccessLog.HideHealthChecks
 
 	return cfg
 }

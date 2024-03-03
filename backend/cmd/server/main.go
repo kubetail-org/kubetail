@@ -85,6 +85,19 @@ func toSameSite(input string) http.SameSite {
 	}
 }
 
+func fromSameSite(mode http.SameSite) string {
+	switch mode {
+	case http.SameSiteLaxMode:
+		return "lax"
+	case http.SameSiteStrictMode:
+		return "strict"
+	case http.SameSiteNoneMode:
+		return "none"
+	default:
+		panic(errors.New("not implemented"))
+	}
+}
+
 func toCsrfSameSite(input string) csrf.SameSiteMode {
 	switch input {
 	case "lax":
@@ -93,6 +106,19 @@ func toCsrfSameSite(input string) csrf.SameSiteMode {
 		return csrf.SameSiteStrictMode
 	case "none":
 		return csrf.SameSiteNoneMode
+	default:
+		panic(errors.New("not implemented"))
+	}
+}
+
+func fromCsrfSameSite(mode csrf.SameSiteMode) string {
+	switch mode {
+	case csrf.SameSiteLaxMode:
+		return "lax"
+	case csrf.SameSiteStrictMode:
+		return "strict"
+	case csrf.SameSiteNoneMode:
+		return "none"
 	default:
 		panic(errors.New("not implemented"))
 	}
