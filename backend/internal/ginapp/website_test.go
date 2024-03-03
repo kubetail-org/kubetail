@@ -59,7 +59,7 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 		app := NewTestApp(cfg)
 
 		h := &WebsiteHandlers{app, websiteDir}
-		app.GET("/website-test", h.EndpointHandler())
+		app.GET("/website-test", h.EndpointHandler(*cfg))
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/website-test", nil)
@@ -84,7 +84,7 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 		app := NewTestApp(cfg)
 
 		h := &WebsiteHandlers{app, websiteDir}
-		app.GET("/website-test", h.EndpointHandler())
+		app.GET("/website-test", h.EndpointHandler(*cfg))
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/website-test", nil)
@@ -106,13 +106,59 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 		app := NewTestApp(cfg)
 
 		h := &WebsiteHandlers{app, websiteDir}
-		app.GET("/website-test", h.EndpointHandler())
+		app.GET("/website-test", h.EndpointHandler(*cfg))
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/website-test", nil)
 		app.ServeHTTP(w, r)
 		suite.Equal(http.StatusOK, w.Code)
 		suite.Contains(w.Body.String(), "<link rel=\"stylesheet\" crossorigin href=\"/assets/index-xxx.css\">")
+	})
+
+	suite.Run("prepends asset urls with config.BasePath", func() {
+		websiteDir := suite.createManifest(gin.H{
+			"index.html": gin.H{
+				"file":    "assets/index-xxx.js",
+				"imports": []string{},
+				"css":     []string{},
+			},
+		})
+
+		cfg := NewTestConfig()
+		cfg.BasePath = "/my-base-path"
+		app := NewTestApp(cfg)
+
+		h := &WebsiteHandlers{app, websiteDir}
+		app.GET("/website-test", h.EndpointHandler(*cfg))
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest("GET", "/website-test", nil)
+		app.ServeHTTP(w, r)
+		suite.Equal(http.StatusOK, w.Code)
+		suite.Contains(w.Body.String(), "<script type=\"module\" crossorigin src=\"/my-base-path/assets/index-xxx.js\"></script>")
+	})
+
+	suite.Run("adds runtimeConfig to html", func() {
+		websiteDir := suite.createManifest(gin.H{
+			"index.html": gin.H{
+				"file":    "",
+				"imports": []string{},
+				"css":     []string{},
+			},
+		})
+
+		cfg := NewTestConfig()
+		cfg.BasePath = "/my-base-path"
+		app := NewTestApp(cfg)
+
+		h := &WebsiteHandlers{app, websiteDir}
+		app.GET("/website-test", h.EndpointHandler(*cfg))
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest("GET", "/website-test", nil)
+		app.ServeHTTP(w, r)
+		suite.Equal(http.StatusOK, w.Code)
+		suite.Contains(w.Body.String(), "\"basePath\":\"/my-base-path\"")
 	})
 }
 

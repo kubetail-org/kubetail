@@ -204,6 +204,7 @@ func (c *WebTestClient) NewRequest(method, target string, body io.Reader) *http.
 // Create new base config for testing
 func NewTestConfig() *Config {
 	cfg := Config{}
+	cfg.BasePath = "/"
 	cfg.AccessLog.Enabled = false
 	cfg.Session.Secret = "TESTSESSIONSECRET"
 	cfg.Session.Cookie.Name = "session"
