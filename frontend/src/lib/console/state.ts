@@ -15,9 +15,6 @@
 import { atom } from 'recoil';
 
 import {
-  LogFeedColumn,
-  LogFeedState,
-  LogRecord,
   WorkloadResponse,
   PodListResponse,
 } from './types';
@@ -30,24 +27,4 @@ export const sourceToWorkloadResponseMapState = atom({
 export const sourceToPodListResponseMapState = atom({
   key: 'sourceToPodListResponseMap',
   default: new Map<string, PodListResponse>(),
-});
-
-export const isLogFeedReadyState = atom({
-  key: 'isLogFeedReady',
-  default: false,
-});
-
-export const logFeedStateState = atom({
-  key: 'logFeedState',
-  default: LogFeedState.Streaming,
-});
-
-export const logFeedRecordsState = atom({
-  key: 'logFeedRecords',
-  default: new Array<LogRecord>(),
-});
-
-export const visibleColsState = atom({
-  key: 'visibleCols',
-  default: new Set([LogFeedColumn.Timestamp, LogFeedColumn.ColorDot, LogFeedColumn.Message]),
 });

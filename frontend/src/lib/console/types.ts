@@ -15,7 +15,6 @@
 import type { ApolloError } from '@apollo/client';
 
 import type { ExtractQueryType } from '@/app-env';
-import type { LogRecord as GraphQLLogRecord } from '@/lib/graphql/__generated__/graphql';
 import * as fragments from '@/lib/graphql/fragments';
 
 /*
@@ -66,45 +65,4 @@ export class PodListResponse {
   loading: boolean = false;
   error?: ApolloError = undefined;
   items?: Pod[] | null = undefined;
-};
-
-export enum LogFeedState {
-  Streaming = 'STREAMING',
-  Paused = 'PAUSED',
-  InQuery = 'IN_QUERY',
-}
-
-export type LogFeedQueryOptions = {
-  since?: string;
-  until?: string;
-};
-
-export enum LogFeedColumn {
-  Timestamp = 'Timestamp',
-  ColorDot = 'Color Dot',
-  PodContainer = 'Pod/Container',
-  Region = 'Region',
-  Zone = 'Zone',
-  OS = 'OS',
-  Arch = 'Arch',
-  Node = 'Node',
-  Message = 'Message',
-}
-
-export const allLogFeedColumns = [
-  LogFeedColumn.Timestamp,
-  LogFeedColumn.ColorDot,
-  LogFeedColumn.PodContainer,
-  LogFeedColumn.Region,
-  LogFeedColumn.Zone,
-  LogFeedColumn.OS,
-  LogFeedColumn.Arch,
-  LogFeedColumn.Node,
-  LogFeedColumn.Message,
-];
-
-export interface LogRecord extends GraphQLLogRecord {
-  node: Node;
-  pod: Pod;
-  container: string;
 };

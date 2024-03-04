@@ -12,29 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { LogFeedViewer } from './LogFeedViewer';
 import { cssID } from './helpers';
-import { useLogFeed, useNodes, usePods, useVisibleCols, useWorkloads } from './hooks';
+import { useNodes, usePods, useWorkloads } from './hooks';
 import { LoggingResourcesProvider } from './logging-resources2';
-import { LogFeedColumn, LogFeedState, allLogFeedColumns } from './types';
-import type { LogFeedQueryOptions, LogRecord, Pod } from './types';
+import type { Pod } from './types';
 
 export {
-  LogFeedColumn,
-  LogFeedState,
-  LogFeedViewer,
   LoggingResourcesProvider,
-  allLogFeedColumns,
   cssID,
-  useLogFeed,
   useNodes,
   usePods,
-  useVisibleCols,
   useWorkloads,
 };
 
 export type {
-  LogFeedQueryOptions,
-  LogRecord,
   Pod,
 };

@@ -12,21 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useRecoilState, useRecoilValue } from 'recoil';
+import { useRecoilValue } from 'recoil';
 
 import { useListQueryWithSubscription } from '@/lib/hooks';
 import * as ops from '@/lib/graphql/ops';
 import { Workload as WorkloadType, typenameMap } from '@/lib/workload';
 
 import {
-  isLogFeedReadyState,
-  logFeedStateState,
-  logFeedRecordsState,
   sourceToWorkloadResponseMapState,
   sourceToPodListResponseMapState,
-  visibleColsState,
 } from './state';
-import { LogFeedColumn, LogFeedState, Node, Pod, Workload } from './types';
+import { Node, Pod, Workload } from './types';
 
 /**
  * Nodes hook
@@ -95,41 +91,4 @@ export function usePods() {
   pods.sort((a, b) => a.metadata.name.localeCompare(b.metadata.name));
 
   return { loading, pods };
-}
-
-/**
- * Log feed hook
- */
-
-export function useLogFeed() {
-  const [logFeedState, setLogFeedState] = useRecoilState(logFeedStateState);
-  const logFeedRecords = useRecoilValue(logFeedRecordsState);
-  const isLogFeedReady = useRecoilValue(isLogFeedReadyState);
-
-  return {
-    isReady: isLogFeedReady,
-    loading: false,
-    state: logFeedState,
-    records: logFeedRecords,
-    controls: {
-      startStreaming: () => {
-        console.log('start-streaming');
-        setLogFeedState(LogFeedState.Streaming);
-      },
-      stopStreaming: () => {
-        console.log('stop-streaming');
-        setLogFeedState(LogFeedState.Paused);
-      },
-      skipForward: () => console.log('skip-forward'),
-      query: () => console.log('query'),
-    },
-  };
-}
-
-/**
- * Visible columns hook
- */
-
-export function useVisibleCols(): [Set<LogFeedColumn>, (arg: Set<LogFeedColumn>) => void] {
-  return useRecoilState(visibleColsState);
 }
