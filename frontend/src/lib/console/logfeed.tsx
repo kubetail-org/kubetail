@@ -467,12 +467,12 @@ export const LogFeedViewer = () => {
  */
 
 type LogFeedRecordFetcherProps = {
-  defaultSince: string;
-  defaultUntil: string;
+  //defaultSince: string;
+  //defaultUntil: string;
   node: Node;
   pod: Pod;
   container: string;
-  onLoad?: (records: LogRecord[]) => void;
+  //onLoad?: (records: LogRecord[]) => void;
   onUpdate?: (record: LogRecord) => void;
 };
 
@@ -482,10 +482,9 @@ type LogFeedRecordFetcherHandle = {
 };
 
 const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetcherHandle, LogFeedRecordFetcherProps> = (props, ref) => {
-  const { defaultSince, node, pod, container, onLoad, onUpdate } = props;
+  const { node, pod, container, onUpdate } = props;
   const { namespace, name } = pod.metadata;
   const feedState = useRecoilValue(feedStateState);
-  const [, setRecords] = useRecoilState(logRecordsState);
 
   const lastTSRef = useRef<string>();
   const startTSRef = useRef<string>();
@@ -496,15 +495,9 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
 
   // get logs
   const { loading, data, subscribeToMore, refetch } = useQuery(ops.QUERY_CONTAINER_LOG, {
-    variables: { namespace, name, container, since: defaultSince },
+    variables: { namespace, name, container },
     fetchPolicy: 'no-cache',
     skip: true,  // we'll use refetch() and subscribeToMmore() instead
-    onCompleted: (data) => {
-      if (!data?.podLogQuery) return;
-
-      // execute callback
-      onLoad && onLoad(data.podLogQuery.map(record => upgradeRecord(record)));
-    },
     onError: (err) => {
       console.log(err);
     },
@@ -539,8 +532,8 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
           // update lastTS
           lastTSRef.current = record.timestamp;
 
-          // update records
-          setRecords(oldRecords => [...oldRecords, upgradeRecord(record)]);
+          // execute callback
+          onUpdate && onUpdate(upgradeRecord(record));
         }
         return { podLogQuery: [] };
       },
@@ -607,6 +600,8 @@ const LogFeedLoader = ({ defaultSince, defaultUntil }: LogFeedLoaderProps) => {
   const setIsReady = useSetRecoilState(isReadyState);
   const setLogRecords = useSetRecoilState(logRecordsState);
   const childRefs = useRef(new Array<React.RefObject<LogFeedRecordFetcherHandle>>());
+  const bufferRef = useRef(new Array<LogRecord>());
+  const isSendToBuffer = useRef(true);
 
   // set isReady after component and children are mounted
   useEffect(() => {
@@ -627,10 +622,26 @@ const LogFeedLoader = ({ defaultSince, defaultUntil }: LogFeedLoaderProps) => {
       (await Promise.all(promises)).forEach(result => records.push(...result));
       records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
-      // prepend records
-      setLogRecords((currRecords) => [...records, ...currRecords]);
+      // handle tailLines
+      const tailLines = parseInt(defaultSince);
+      if (!Number.isNaN(tailLines) && tailLines < 0) {
+        const numToRemove = records.length + tailLines;
+        if (numToRemove > 0) records.splice(0, numToRemove);
+      }
+
+      // update state
+      setLogRecords([...records, ...bufferRef.current]);
+
+      // update buffer and flag
+      bufferRef.current = [];
+      isSendToBuffer.current = false;
     })();
   }, [nodes.loading, pods.loading]);
+
+  const handleOnUpdate = (record: LogRecord) => {
+    if (isSendToBuffer.current) bufferRef.current.push(record);
+    else setLogRecords((currRecords) => [...currRecords, record]);
+  };
 
   // only load containers from nodes that we have a record of
   const nodeMap = new Map(nodes.nodes.map(node => [node.metadata.name, node]));
@@ -649,11 +660,10 @@ const LogFeedLoader = ({ defaultSince, defaultUntil }: LogFeedLoaderProps) => {
           <LogFeedRecordFetcher
             key={`${pod.metadata.namespace}/${pod.metadata.name}/${status.name}`}
             ref={ref}
-            defaultSince={defaultSince}
-            defaultUntil={defaultUntil}
             node={node}
             pod={pod}
             container={status.name}
+            onUpdate={handleOnUpdate}
           />
         );
       }
