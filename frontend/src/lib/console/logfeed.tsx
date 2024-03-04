@@ -19,8 +19,9 @@ import makeAnsiRegex from 'ansi-regex';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import InfiniteLoader from 'react-window-infinite-loader';
+import { createRef } from 'react';
 import { FixedSizeList } from 'react-window';
-import { RecoilRoot, atom, useRecoilState, useRecoilValue, useResetRecoilState } from 'recoil';
+import { RecoilRoot, atom, useRecoilState, useRecoilValue, useResetRecoilState, useSetRecoilState } from 'recoil';
 
 import { cn } from '@/lib/utils';
 
@@ -32,7 +33,7 @@ import { useNodes, usePods } from './hooks';
 import { Node, Pod } from './types';
 
 const ansiUp = new AnsiUp();
-const ansiRegex = makeAnsiRegex({onlyFirst: true});
+const ansiRegex = makeAnsiRegex({ onlyFirst: true });
 
 /**
  * Shared types
@@ -480,7 +481,7 @@ type LogFeedRecordFetcherHandle = {
   query: (opts: LogFeedQueryOptions) => Promise<LogRecord[]>;
 };
 
-const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetcherHandle, LogFeedRecordFetcherProps> = (props, ref) => {
+const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetcherHandle, LogFeedRecordFetcherProps> = (props, ref) => {
   const { defaultSince, node, pod, container, onLoad, onUpdate } = props;
   const { namespace, name } = pod.metadata;
   const feedState = useRecoilValue(feedStateState);
@@ -497,10 +498,10 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
   const { loading, data, subscribeToMore, refetch } = useQuery(ops.QUERY_CONTAINER_LOG, {
     variables: { namespace, name, container, since: defaultSince },
     fetchPolicy: 'no-cache',
-    //skip: true,  // we'll use refetch() and subscribeToMmore() instead
+    skip: true,  // we'll use refetch() and subscribeToMmore() instead
     onCompleted: (data) => {
       if (!data?.podLogQuery) return;
-      console.log(data.podLogQuery);
+
       // execute callback
       onLoad && onLoad(data.podLogQuery.map(record => upgradeRecord(record)));
     },
@@ -555,7 +556,7 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
       const variables = {} as any;
       if (lastTSRef.current) variables.after = lastTSRef.current;
       else variables.after = startTSRef.current;
-      
+
       const result = await refetch(variables);
       if (!result.data.podLogQuery) return [];
 
@@ -589,7 +590,7 @@ const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetche
   return <></>;
 };
 
-const LogFeedDataFetcher = forwardRef(LogFeedDataFetcherImpl);
+const LogFeedRecordFetcher = forwardRef(LogFeedRecordFetcherImpl);
 
 /**
  * LogFeedLoader component
@@ -603,25 +604,51 @@ type LogFeedLoaderProps = {
 const LogFeedLoader = ({ defaultSince, defaultUntil }: LogFeedLoaderProps) => {
   const nodes = useNodes();
   const pods = usePods();
-  const [, setIsReadyState] = useRecoilState(isReadyState);
+  const setIsReady = useSetRecoilState(isReadyState);
+  const setLogRecords = useSetRecoilState(logRecordsState);
+  const childRefs = useRef(new Array<React.RefObject<LogFeedRecordFetcherHandle>>());
 
   // set isReady after component and children are mounted
   useEffect(() => {
     if (nodes.loading || pods.loading) return;
-    setIsReadyState(true);
+    setIsReady(true);
+
+    // onload query
+    (async () => {
+      const promises = Array<Promise<LogRecord[]>>();
+      const records = Array<LogRecord>();
+
+      // trigger query in children
+      childRefs.current.forEach(childRef => {
+        childRef.current && promises.push(childRef.current.query({ since: defaultSince }));
+      });
+
+      // gather and sort results
+      (await Promise.all(promises)).forEach(result => records.push(...result));
+      records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+      // prepend records
+      setLogRecords((currRecords) => [...records, ...currRecords]);
+    })();
   }, [nodes.loading, pods.loading]);
 
   // only load containers from nodes that we have a record of
   const nodeMap = new Map(nodes.nodes.map(node => [node.metadata.name, node]));
 
   const els: JSX.Element[] = [];
+  const refs: React.RefObject<LogFeedRecordFetcherHandle>[] = [];
+
   pods.pods.forEach(pod => {
     pod.status.containerStatuses.forEach(status => {
       const node = nodeMap.get(pod.spec.nodeName);
       if (status.started && node) {
+        const ref = createRef<LogFeedRecordFetcherHandle>();
+        refs.push(ref);
+
         els.push(
-          <LogFeedDataFetcher
+          <LogFeedRecordFetcher
             key={`${pod.metadata.namespace}/${pod.metadata.name}/${status.name}`}
+            ref={ref}
             defaultSince={defaultSince}
             defaultUntil={defaultUntil}
             node={node}
@@ -632,6 +659,8 @@ const LogFeedLoader = ({ defaultSince, defaultUntil }: LogFeedLoaderProps) => {
       }
     });
   });
+
+  childRefs.current = refs;
 
   return <>{els}</>;
 };
@@ -645,7 +674,7 @@ interface LogFeedProvider extends React.PropsWithChildren {
   defaultUntil: string;
 }
 
-export const LogFeedProvider = ({ defaultSince, defaultUntil, children}: LogFeedProvider) => {
+export const LogFeedProvider = ({ defaultSince, defaultUntil, children }: LogFeedProvider) => {
   const resetIsReady = useResetRecoilState(isReadyState);
   const resetIsLoading = useResetRecoilState(isLoadingState);
   const resetRecords = useResetRecoilState(logRecordsState);
