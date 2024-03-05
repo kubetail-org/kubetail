@@ -17,7 +17,7 @@ import { AnsiUp } from 'ansi_up';
 import { format, utcToZonedTime } from 'date-fns-tz';
 import makeAnsiRegex from 'ansi-regex';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { createRef } from 'react';
+import { createRef, memo } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { FixedSizeList } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
@@ -190,10 +190,9 @@ const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
   }
 };
 
-const Row = ({ index, style, data }: { index: any; style: any; data: any; }) => {
+const Row = memo(({ index, style, data }: { index: any; style: any; data: any; }) => {
   const { hasMore, visibleCols, items, minColWidths } = data;
-  console.log(data);
-  
+
   if (index === 0) {
     if (hasMore) return <div>Loading...</div>;
     else return <div>no more data</div>;
@@ -227,7 +226,7 @@ const Row = ({ index, style, data }: { index: any; style: any; data: any; }) => 
       {els}
     </div>
   );
-};
+});
 
 const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
   const visibleCols = useRecoilValue(visibleColsState);
@@ -341,6 +340,7 @@ const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
 
     // get max row and col widths
     let maxRowWidth = 0;
+    let minColWidthsChanged = false;
     Array.from(listInnerRef.current?.children || []).forEach(rowEl => {
       maxRowWidth = Math.max(maxRowWidth, rowEl.scrollWidth);
 
@@ -348,14 +348,15 @@ const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
         const colId = (colEl as HTMLElement).dataset.colId as LogFeedColumn;
         if (!colId) return;
         const currVal = minColWidths.get(colId) || 0;
-        minColWidths.set(colId, Math.max(currVal, colEl.scrollWidth));
+        const newVal = Math.max(currVal, colEl.scrollWidth);
+        if (newVal !== currVal) minColWidths.set(colId, newVal);
       });
     });
 
     // adjust list inner
     if (listInnerRef.current) listInnerRef.current.style.width = `${maxRowWidth}px`;
 
-    setMinColWidths(new Map(minColWidths));
+    if (minColWidthsChanged) setMinColWidths(new Map(minColWidths));
     setMaxWidth(maxRowWidth);
   };
 
@@ -379,44 +380,6 @@ const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
     listOuterEl.addEventListener('scroll', handleContentScrollX as any);
     return () => listOuterEl.removeEventListener('scroll', handleContentScrollX as any);
   }, [isListReady, handleContentScrollX]);
-
-  /*
-  const Row = ({ index, style }: { index: any; style: any; }) => {
-    if (index === 0) {
-      if (hasMore) return <div>Loading...</div>;
-      else return <div>no more data</div>;
-    }
-    const record = items[hasMore ? index - 1 : index];
-
-    const els: JSX.Element[] = [];
-    allLogFeedColumns.forEach(col => {
-      if (visibleCols.has(col)) {
-        els.push((
-          <div
-            key={col}
-            className={cn(
-              index % 2 !== 0 && 'bg-chrome-100',
-              'whitespace-nowrap px-[8px]',
-              (col === LogFeedColumn.Timestamp) ? 'bg-chrome-200' : '',
-              (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
-            )}
-            style={(col !== LogFeedColumn.Message) ? { minWidth: `${(minColWidths.get(col) || 0)}px` } : {}}
-            data-col-id={col}
-          >
-            {getAttribute(record, col)}
-          </div>
-        ));
-      }
-    })
-
-    const { width, ...otherStyles } = style;
-    return (
-      <div className="flex leading-[24px]" style={{ width: 'inherit', ...otherStyles }}>
-        {els}
-      </div>
-    );
-  };
-  */
 
   return (
     <div className="h-full flex flex-col text-xs">
