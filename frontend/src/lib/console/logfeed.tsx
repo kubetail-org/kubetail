@@ -17,10 +17,10 @@ import { AnsiUp } from 'ansi_up';
 import { format, utcToZonedTime } from 'date-fns-tz';
 import makeAnsiRegex from 'ansi-regex';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import AutoSizer from 'react-virtualized-auto-sizer';
-import InfiniteLoader from 'react-window-infinite-loader';
 import { createRef } from 'react';
+import AutoSizer from 'react-virtualized-auto-sizer';
 import { FixedSizeList } from 'react-window';
+import InfiniteLoader from 'react-window-infinite-loader';
 import { RecoilRoot, atom, useRecoilState, useRecoilValue, useResetRecoilState, useSetRecoilState } from 'recoil';
 
 import { cn } from '@/lib/utils';
@@ -190,6 +190,45 @@ const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
   }
 };
 
+const Row = ({ index, style, data }: { index: any; style: any; data: any; }) => {
+  const { hasMore, visibleCols, items, minColWidths } = data;
+  console.log(data);
+  
+  if (index === 0) {
+    if (hasMore) return <div>Loading...</div>;
+    else return <div>no more data</div>;
+  }
+  const record = items[hasMore ? index - 1 : index];
+
+  const els: JSX.Element[] = [];
+  allLogFeedColumns.forEach(col => {
+    if (visibleCols.has(col)) {
+      els.push((
+        <div
+          key={col}
+          className={cn(
+            index % 2 !== 0 && 'bg-chrome-100',
+            'whitespace-nowrap px-[8px]',
+            (col === LogFeedColumn.Timestamp) ? 'bg-chrome-200' : '',
+            (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
+          )}
+          style={(col !== LogFeedColumn.Message) ? { minWidth: `${(minColWidths.get(col) || 0)}px` } : {}}
+          data-col-id={col}
+        >
+          {getAttribute(record, col)}
+        </div>
+      ));
+    }
+  })
+
+  const { width, ...otherStyles } = style;
+  return (
+    <div className="flex leading-[24px]" style={{ width: 'inherit', ...otherStyles }}>
+      {els}
+    </div>
+  );
+};
+
 const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
   const visibleCols = useRecoilValue(visibleColsState);
 
@@ -341,6 +380,7 @@ const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
     return () => listOuterEl.removeEventListener('scroll', handleContentScrollX as any);
   }, [isListReady, handleContentScrollX]);
 
+  /*
   const Row = ({ index, style }: { index: any; style: any; }) => {
     if (index === 0) {
       if (hasMore) return <div>Loading...</div>;
@@ -376,6 +416,7 @@ const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
       </div>
     );
   };
+  */
 
   return (
     <div className="h-full flex flex-col text-xs">
@@ -422,6 +463,7 @@ const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
                 <FixedSizeList
                   ref={list => {
                     ref(list);
+                    // @ts-ignore
                     listRef.current = list;
                   }}
                   className="font-mono"
@@ -438,6 +480,7 @@ const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
                   innerRef={listInnerRef}
                   initialScrollOffset={itemCount * 24}
                   overscanCount={10}
+                  itemData={{ hasMore, minColWidths, items, visibleCols }}
                 >
                   {Row}
                 </FixedSizeList>
