@@ -114,7 +114,7 @@ const visibleColsState = atom({
  */
 
 export const useLogFeedControls = () => {
-  const [, setFeedState] = useRecoilState(feedStateState);
+  const setFeedState = useSetRecoilState(feedStateState);
 
   return {
     startStreaming: () => {

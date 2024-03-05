@@ -13,10 +13,8 @@
 // limitations under the License.
 
 import { ApolloError } from '@apollo/client';
-import {
-  useEffect,
-} from 'react';
-import { RecoilRoot, atom, useRecoilState, useRecoilValue } from 'recoil';
+import { useEffect } from 'react';
+import { RecoilRoot, atom, useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
 
 import type { ExtractQueryType } from '@/app-env';
 import * as fragments from '@/lib/graphql/fragments';
@@ -124,12 +122,14 @@ export function usePods() {
  */
 
 function useWorkloadMapUpdater(sourcePath: string, value: WorkloadResponse) {
-  const [sourceToWorkloadResponseMap, setSourceToWorkloadResponseMap] = useRecoilState(sourceToWorkloadResponseMapState);
+  const setSourceToWorkloadResponseMap = useSetRecoilState(sourceToWorkloadResponseMapState);
 
   useEffect(() => {
-    const newMap = new Map(sourceToWorkloadResponseMap);
-    newMap.set(sourcePath, value);
-    setSourceToWorkloadResponseMap(newMap);
+    setSourceToWorkloadResponseMap(oldVal => {
+      const newVal = new Map(oldVal);
+      newVal.set(sourcePath, value);
+      return newVal;
+    });
   }, [JSON.stringify(value)]);
 }
 
@@ -158,13 +158,15 @@ const LoadPodsForLabels = ({
     variables: { namespace, labelSelector },
   });
 
-  const [sourceToPodListResponseMap, setSourceToPodListResponseMap] = useRecoilState(sourceToPodListResponseMapState);
+  const setSourceToPodListResponseMap = useSetRecoilState(sourceToPodListResponseMapState);
 
   useEffect(() => {
-    const items = data?.coreV1PodsList?.items;
-    const newMap = new Map(sourceToPodListResponseMap);
-    newMap.set(sourcePath, { loading, error, items });
-    setSourceToPodListResponseMap(newMap);
+    setSourceToPodListResponseMap((oldVal) => {
+      const items = data?.coreV1PodsList?.items;
+      const newVal = new Map(oldVal);
+      newVal.set(sourcePath, { loading, error, items });
+      return newVal;
+    });
   }, [loading, error, data]);
 
   return <></>;
@@ -433,23 +435,22 @@ type SourceDeletionHandlerProps = {
   sourcePaths: string[];
 };
 
+const removeUnusedKeys = <K, V>(origMap: Map<K, V>, usedKeys: K[]): Map<K, V> => {
+  const newMap = new Map(origMap);
+  Array.from(newMap.keys()).forEach(key => {
+    if (!usedKeys.includes(key)) newMap.delete(key);
+  })
+  return newMap;
+}
+
 const SourceDeletionHandler = ({ sourcePaths }: SourceDeletionHandlerProps) => {
-  const [sourceToWorkloadResponseMap, setSourceToWorkloadResponseMap] = useRecoilState(sourceToWorkloadResponseMapState);
-  const [sourceToPodListResponseMap, setSourceToPodListResponseMap] = useRecoilState(sourceToPodListResponseMapState);
+  const setSourceToWorkloadResponseMap = useSetRecoilState(sourceToWorkloadResponseMapState);
+  const setSourceToPodListResponseMap = useSetRecoilState(sourceToPodListResponseMapState);
 
   // handle sourcePath deletions
   useEffect(() => {
-    const difference = Array.from(sourceToWorkloadResponseMap.keys()).filter(x => !sourcePaths.includes(x));
-    if (difference.length) {
-      const newMap1 = new Map(sourceToWorkloadResponseMap);
-      const newMap2 = new Map(sourceToPodListResponseMap);
-      difference.forEach(key => {
-        newMap1.delete(key);
-        newMap2.delete(key);
-      });
-      setSourceToWorkloadResponseMap(newMap1);
-      setSourceToPodListResponseMap(newMap2);
-    }
+    setSourceToWorkloadResponseMap(oldVal => removeUnusedKeys(oldVal, sourcePaths));
+    setSourceToPodListResponseMap(oldVal => removeUnusedKeys(oldVal, sourcePaths));
   }, [JSON.stringify(sourcePaths)]);
 
   return <></>;

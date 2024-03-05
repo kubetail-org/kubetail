@@ -42,12 +42,7 @@ import AuthRequired from '@/components/utils/AuthRequired';
 import { DateRangeDropdown, DateRangeDropdownOnChangeArgs, Duration, DurationUnit } from '@/components/widgets/DateRangeDropdown';
 import SourcePickerModal from '@/components/widgets/SourcePickerModal';
 import { cssID } from '@/lib/console/helpers';
-import {
-  LoggingResourcesProvider,
-  useNodes,
-  usePods,
-  useWorkloads,
-} from '@/lib/console/logging-resources2';
+import { LoggingResourcesProvider, useNodes, usePods, useWorkloads } from '@/lib/console/logging-resources2';
 import type { Pod } from '@/lib/console/logging-resources2';
 import {
   LogFeedColumn,
