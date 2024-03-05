@@ -134,11 +134,11 @@ const RelativeTimePicker = forwardRef<RelativeTimePickerHandle, {}>((_, ref) => 
             value={durationUnit}
             onChange={ev => setDurationUnit(ev.target.value as DurationUnit)}
           >
-            <Form.Option value={DurationUnit.Minutes}>Minutes</Form.Option>
-            <Form.Option value={DurationUnit.Hours}>Hours</Form.Option>
-            <Form.Option value={DurationUnit.Days}>Days</Form.Option>
-            <Form.Option value={DurationUnit.Weeks}>Weeks</Form.Option>
-            <Form.Option value={DurationUnit.Months}>Months</Form.Option>
+            <Form.Option value={DurationUnit.Minutes}>Minutes ago</Form.Option>
+            <Form.Option value={DurationUnit.Hours}>Hours ago</Form.Option>
+            <Form.Option value={DurationUnit.Days}>Days ago</Form.Option>
+            <Form.Option value={DurationUnit.Weeks}>Weeks ago</Form.Option>
+            <Form.Option value={DurationUnit.Months}>Months ago</Form.Option>
           </Form.Select>
         </div>
       </div>

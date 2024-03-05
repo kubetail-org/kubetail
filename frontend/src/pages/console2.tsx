@@ -18,9 +18,11 @@ import { format, utcToZonedTime } from 'date-fns-tz';
 import type { OptionsWithTZ } from 'date-fns-tz';
 import distinctColors from 'distinct-colors';
 import {
+  History as HistoryIcon,
   Pause as PauseIcon,
   Play as PlayIcon,
   Settings as SettingsIcon,
+  SkipBack as SkipBackIcon,
   SkipForward as SkipForwardIcon,
 } from 'lucide-react';
 import {
@@ -473,6 +475,18 @@ const Header = () => {
   return (
     <div className="flex justify-between items-end p-1">
       <div className="flex px-2">
+        <button
+          className={buttonCN}
+          title="Jump to time"
+        >
+          <HistoryIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+        </button>
+        <button
+          className={buttonCN}
+          title="Jump to beginning"
+        >
+          <SkipBackIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+        </button>
         {feed.state === LogFeedState.Streaming ? (
           <button
             className={buttonCN}
@@ -492,7 +506,7 @@ const Header = () => {
         )}
         <button
           className={buttonCN}
-          title="Skip Forward"
+          title="Jump to end"
         >
           <SkipForwardIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
         </button>
