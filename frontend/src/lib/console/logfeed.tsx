@@ -80,6 +80,25 @@ interface LogRecord extends GraphQLLogRecord {
   container: string;
 };
 
+interface BaseCommand {
+  type: string;
+}
+
+interface HeadCommand extends BaseCommand {
+  type: 'head';
+}
+
+interface TailCommand extends BaseCommand {
+  type: 'tail';
+}
+
+interface SeekCommand extends BaseCommand {
+  type: 'seek';
+  time: Date;
+}
+
+type Command = HeadCommand | TailCommand | SeekCommand;
+
 /**
  * State
  */
@@ -96,7 +115,7 @@ const isLoadingState = atom({
 
 const feedStateState = atom({
   key: 'feedState',
-  default: LogFeedState.Streaming,
+  default: LogFeedState.Paused,
 });
 
 const logRecordsState = atom({
@@ -109,22 +128,38 @@ const visibleColsState = atom({
   default: new Set([LogFeedColumn.Timestamp, LogFeedColumn.ColorDot, LogFeedColumn.Message]),
 });
 
+const channelIDState = atom<string | undefined>({
+  key: 'channelID',
+  default: undefined,
+});
+
 /**
  * Hooks
  */
 
 export const useLogFeedControls = () => {
   const setFeedState = useSetRecoilState(feedStateState);
+  const channelID = useRecoilValue(channelIDState);
+
+  const postMessage = (command: Command) => {
+    if (!channelID) return;
+    const bc = new BroadcastChannel(channelID);
+    bc.postMessage(command);
+    bc.close();
+  }
 
   return {
-    startStreaming: () => {
-      setFeedState(LogFeedState.Streaming);
+    tail: () => {
+      postMessage({ type: 'tail' });
     },
-    stopStreaming: () => {
-      setFeedState(LogFeedState.Paused);
+    head: () => {
+      postMessage({ type: 'head' });
     },
-    skipForward: () => {
-      console.log('skip-forward');
+    seek: (time: Date) => {
+      postMessage({ type: 'seek', time });
+    },
+    setFollow: (follow: boolean) => {
+
     },
   };
 };
@@ -605,6 +640,7 @@ const LogFeedLoader = ({ defaultSince, defaultUntil }: LogFeedLoaderProps) => {
   const pods = usePods();
   const setIsReady = useSetRecoilState(isReadyState);
   const setLogRecords = useSetRecoilState(logRecordsState);
+  const setChannelID = useSetRecoilState(channelIDState);
   const childRefs = useRef(new Array<React.RefObject<LogFeedRecordFetcherHandle>>());
   const bufferRef = useRef(new Array<LogRecord>());
   const isSendToBuffer = useRef(true);
@@ -701,6 +737,38 @@ export const LogFeedProvider = ({ defaultSince, defaultUntil, children }: LogFee
     resetIsLoading();
     resetRecords();
   }, [defaultSince, defaultUntil]);
+
+  useEffect(() => {
+    // initalize broadcast channel
+    const channelID = Math.random().toString();
+    const channel = new BroadcastChannel(channelID);
+
+    const fn = async (ev: MessageEvent<Command>) => {
+      switch (ev.data.type) {
+        case 'head':
+          break;
+        case 'tail':
+          console.log('tail');
+          break;
+        case 'seek':
+          console.log('seek');
+          break;
+        default:
+          throw new Error('not implemented');
+      }
+      console.log(ev.data);
+    };
+    channel.addEventListener('message', fn);
+
+    // update state
+    setChannelID(channelID);
+
+    return () => {
+      setChannelID(undefined);
+      channel.removeEventListener('message', fn);
+      channel.close();
+    };
+  }, []);
 
   return (
     <RecoilRoot override={false}>

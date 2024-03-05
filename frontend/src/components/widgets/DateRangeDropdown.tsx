@@ -128,7 +128,7 @@ const RelativeTimePicker = forwardRef<RelativeTimePickerHandle, {}>((_, ref) => 
           {errorMsg && <Form.Control.Feedback>{errorMsg}</Form.Control.Feedback>}
         </div>
         <div>
-          <Form.Label>Unit of time</Form.Label>
+          <Form.Label>Unit</Form.Label>
           <Form.Select
             className="mt-0"
             value={durationUnit}

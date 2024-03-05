@@ -478,12 +478,14 @@ const Header = () => {
         <button
           className={buttonCN}
           title="Jump to time"
+          onClick={() => controls.seek(new Date())}
         >
           <HistoryIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
         </button>
         <button
           className={buttonCN}
           title="Jump to beginning"
+          onClick={() => controls.head()}
         >
           <SkipBackIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
         </button>
@@ -491,7 +493,7 @@ const Header = () => {
           <button
             className={buttonCN}
             title="Pause"
-            onClick={() => controls.stopStreaming()}
+            onClick={() => controls.setFollow(true)}
           >
             <PauseIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
@@ -499,7 +501,7 @@ const Header = () => {
           <button
             className={buttonCN}
             title="Play"
-            onClick={() => controls.startStreaming()}
+            onClick={() => controls.setFollow(false)}
           >
             <PlayIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
@@ -507,6 +509,7 @@ const Header = () => {
         <button
           className={buttonCN}
           title="Jump to end"
+          onClick={() => controls.tail()}
         >
           <SkipForwardIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
         </button>
