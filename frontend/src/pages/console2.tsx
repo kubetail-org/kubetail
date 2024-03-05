@@ -41,13 +41,14 @@ import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
 import { DateRangeDropdown, DateRangeDropdownOnChangeArgs, Duration, DurationUnit } from '@/components/widgets/DateRangeDropdown';
 import SourcePickerModal from '@/components/widgets/SourcePickerModal';
+import { cssID } from '@/lib/console/helpers';
 import {
   LoggingResourcesProvider,
-  cssID,
   useNodes,
   usePods,
   useWorkloads,
-} from '@/lib/console';
+} from '@/lib/console/logging-resources2';
+import type { Pod } from '@/lib/console/logging-resources2';
 import {
   LogFeedColumn,
   LogFeedProvider,
@@ -58,7 +59,6 @@ import {
   useLogFeedMetadata,
   useLogFeedVisibleCols,
 } from '@/lib/console/logfeed';
-import type { Pod } from '@/lib/console';
 import { Counter, MapSet, getBasename, joinPaths } from '@/lib/helpers';
 import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
 

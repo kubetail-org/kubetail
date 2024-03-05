@@ -29,8 +29,8 @@ import type { LogRecord as GraphQLLogRecord } from '@/lib/graphql/__generated__/
 import * as ops from '@/lib/graphql/ops';
 
 import { cssID } from './helpers';
-import { useNodes, usePods } from './hooks';
-import { Node, Pod } from './types';
+import { useNodes, usePods } from './logging-resources2';
+import type { Node, Pod } from './logging-resources2';
 
 const ansiUp = new AnsiUp();
 const ansiRegex = makeAnsiRegex({ onlyFirst: true });

@@ -14,7 +14,7 @@
 
 import { cssEncode } from '@/lib/helpers';
 
-import type { Pod } from './types';
+import type { Pod } from './logging-resources2';
 
 export function cssID(pod: Pod, container: string) {
   return cssEncode(`${pod.metadata.namespace}/${pod.metadata.name}/${container}`);

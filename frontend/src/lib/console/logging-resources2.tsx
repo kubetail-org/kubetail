@@ -12,22 +12,112 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { ApolloError } from '@apollo/client';
 import {
   useEffect,
 } from 'react';
-import { RecoilRoot, useRecoilState } from 'recoil';
+import { RecoilRoot, atom, useRecoilState, useRecoilValue } from 'recoil';
 
+import type { ExtractQueryType } from '@/app-env';
+import * as fragments from '@/lib/graphql/fragments';
 import * as ops from '@/lib/graphql/ops';
 import { useGetQueryWithSubscription, useListQueryWithSubscription } from '@/lib/hooks';
-import { Workload as WorkloadType } from '@/lib/workload';
+import { Workload as WorkloadType, typenameMap } from '@/lib/workload';
 
-import {
-  sourceToWorkloadResponseMapState,
-  sourceToPodListResponseMapState,
-} from './state';
-import {
-  WorkloadResponse,
-} from './types';
+/**
+ * Shared types
+ */
+
+export type Node = ExtractQueryType<typeof fragments.CONSOLE_NODES_LIST_ITEM_FRAGMENT>;
+export type Workload = ExtractQueryType<typeof fragments.CONSOLE_LOGGING_RESOURCES_GENERIC_OBJECT_FRAGMENT>;
+export type Pod = ExtractQueryType<typeof fragments.CONSOLE_LOGGING_RESOURCES_POD_FRAGMENT>;
+
+class WorkloadResponse {
+  loading: boolean = false;
+  error?: ApolloError = undefined;
+  item?: Workload | null = undefined;
+}
+
+class PodListResponse {
+  loading: boolean = false;
+  error?: ApolloError = undefined;
+  items?: Pod[] | null = undefined;
+};
+
+/**
+ * State
+ */
+
+const sourceToWorkloadResponseMapState = atom({
+  key: 'sourceToWorkloadResponseMap',
+  default: new Map<string, WorkloadResponse>(),
+});
+
+const sourceToPodListResponseMapState = atom({
+  key: 'sourceToPodListResponseMap',
+  default: new Map<string, PodListResponse>(),
+});
+
+/**
+ * Hooks
+ */
+
+export function useNodes() {
+  const { fetching, data } = useListQueryWithSubscription({
+    query: ops.CONSOLE_NODES_LIST_FETCH,
+    subscription: ops.CONSOLE_NODES_LIST_WATCH,
+    queryDataKey: 'coreV1NodesList',
+    subscriptionDataKey: 'coreV1NodesWatch',
+  });
+
+  const loading = fetching; // treat still-fetching as still-loading
+  const nodes = (data?.coreV1NodesList?.items) ? data.coreV1NodesList.items : [] as Node[];
+
+  return { loading, nodes };
+}
+
+export function useWorkloads() {
+  const sourceToWorkloadResponseMap = useRecoilValue(sourceToWorkloadResponseMapState);
+
+  let loading = false;
+  const workloads = new Map<WorkloadType, Workload[]>();
+
+  // group sources by workload type
+  sourceToWorkloadResponseMap.forEach((val) => {
+    loading = loading || val.loading;
+    const item = val.item;
+    if (!item?.__typename) return;
+    const workload = typenameMap[item.__typename];
+    const items = workloads.get(workload) || [];
+    items.push(item);
+    workloads.set(workload, items);
+  });
+
+  return { loading, workloads };
+}
+
+export function usePods() {
+  const sourceToPodListResponseMap = useRecoilValue(sourceToPodListResponseMapState);
+
+  let loading = false;
+  const pods: Pod[] = [];
+
+  // uniquify
+  const usedIDs = new Set<string>();
+  sourceToPodListResponseMap.forEach((val) => {
+    loading = loading || val.loading;
+    val.items?.forEach(item => {
+      if (usedIDs.has(item.metadata.uid)) return;
+      pods.push(item);
+      usedIDs.add(item.metadata.uid);
+    });
+  });
+
+  // sort
+  pods.sort((a, b) => a.metadata.name.localeCompare(b.metadata.name));
+
+  return { loading, pods };
+}
 
 /**
  * Source map updater hook (for internal use)
