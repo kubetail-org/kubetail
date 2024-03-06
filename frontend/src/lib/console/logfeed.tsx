@@ -14,6 +14,7 @@
 
 import { useQuery } from '@apollo/client';
 import { AnsiUp } from 'ansi_up';
+import { addMinutes } from 'date-fns';
 import { format, utcToZonedTime } from 'date-fns-tz';
 import makeAnsiRegex from 'ansi-regex';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
@@ -66,6 +67,7 @@ export const allLogFeedColumns = [
 type LogFeedQueryOptions = {
   since?: string;
   until?: string;
+  limit?: number;
 };
 
 export enum LogFeedState {
@@ -104,32 +106,37 @@ type Command = HeadCommand | TailCommand | SeekCommand;
  */
 
 const isReadyState = atom({
-  key: 'isReady',
+  key: 'logFeedIsReady',
   default: false,
 });
 
 const isLoadingState = atom({
-  key: 'isLoading',
+  key: 'logFeedIsLoading',
   default: true,
 });
 
 const feedStateState = atom({
-  key: 'feedState',
+  key: 'logFeedFeedState',
   default: LogFeedState.Paused,
 });
 
+const isFollowState = atom({
+  key: 'logFeedIsFollow',
+  default: true,
+});
+
 const logRecordsState = atom({
-  key: 'logRecords',
+  key: 'logFeedLogRecords',
   default: new Array<LogRecord>(),
 });
 
 const visibleColsState = atom({
-  key: 'visibleCols',
+  key: 'logFeedVisibleCols',
   default: new Set([LogFeedColumn.Timestamp, LogFeedColumn.ColorDot, LogFeedColumn.Message]),
 });
 
-const channelIDState = atom<string | undefined>({
-  key: 'channelID',
+const controlChannelIDState = atom<string | undefined>({
+  key: 'logFeedControlChannelID',
   default: undefined,
 });
 
@@ -138,8 +145,8 @@ const channelIDState = atom<string | undefined>({
  */
 
 export const useLogFeedControls = () => {
-  const setFeedState = useSetRecoilState(feedStateState);
-  const channelID = useRecoilValue(channelIDState);
+  const setIsFollow = useSetRecoilState(isFollowState);
+  const channelID = useRecoilValue(controlChannelIDState);
 
   const postMessage = (command: Command) => {
     if (!channelID) return;
@@ -159,7 +166,7 @@ export const useLogFeedControls = () => {
       postMessage({ type: 'seek', time });
     },
     setFollow: (follow: boolean) => {
-
+      setIsFollow(follow);
     },
   };
 };
@@ -167,8 +174,8 @@ export const useLogFeedControls = () => {
 export const useLogFeedMetadata = () => {
   const isReady = useRecoilValue(isReadyState);
   const isLoading = useRecoilValue(isLoadingState);
-  const state = useRecoilValue(feedStateState);
-  return { isReady, isLoading, state };
+  const isFollow = useRecoilValue(isFollowState);
+  return { isReady, isLoading, isFollow };
 };
 
 export function useLogFeedVisibleCols(): [Set<LogFeedColumn>, (arg: Set<LogFeedColumn>) => void] {
@@ -179,10 +186,17 @@ export function useLogFeedVisibleCols(): [Set<LogFeedColumn>, (arg: Set<LogFeedC
  * LogFeedViewer component
  */
 
+type LogFeedContentHandle = {
+  resetloadMoreItemsCache: () => void;
+};
+
 type LogFeedContentProps = {
   items: LogRecord[];
-  hasMore: boolean;
-  fetchMore: () => Promise<void>;
+  hasMoreBefore: boolean;
+  hasMoreAfter: boolean;
+  loadMoreBefore: () => Promise<void>;
+  loadMoreAfter: () => Promise<void>;
+  initialPos: string;
 }
 
 const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
@@ -225,6 +239,151 @@ const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
   }
 };
 
+type RowData = {
+  items: LogRecord[];
+  hasMoreBefore: boolean;
+  hasMoreAfter: boolean;
+  minColWidths: Map<LogFeedColumn, number>;
+  visibleCols: Set<string>;
+}
+
+type RowProps = {
+  index: any;
+  style: any;
+  data: RowData;
+};
+
+const Row = memo(
+  ({ index, style, data }: RowProps) => {
+    const { items, hasMoreBefore, hasMoreAfter, visibleCols, minColWidths } = data;
+
+    // first row
+    if (index === 0) {
+      const msg = (hasMoreBefore) ? 'Loading...' : 'Beginning of feed';
+      return <div className="px-[8px] leading-[24px]" style={style}>{msg}</div>
+    }
+
+    // last row
+    if (index === (items.length + 1)) {
+      const msg = (hasMoreAfter) ? 'Loading...' : 'Last record received';
+      return <div className="px-[8px] leading-[24px]" style={style}>{msg}</div>
+    } 
+
+    const record = items[index - 1];
+
+    const els: JSX.Element[] = [];
+    allLogFeedColumns.forEach(col => {
+      if (visibleCols.has(col)) {
+        els.push((
+          <div
+            key={col}
+            className={cn(
+              index % 2 !== 0 && 'bg-chrome-100',
+              'whitespace-nowrap px-[8px]',
+              (col === LogFeedColumn.Timestamp) ? 'bg-chrome-200' : '',
+              (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
+            )}
+            style={(col !== LogFeedColumn.Message) ? { minWidth: `${(minColWidths.get(col) || 0)}px` } : {}}
+            data-col-id={col}
+          >
+            {getAttribute(record, col)}
+          </div>
+        ));
+      }
+    })
+
+    const { width, ...otherStyles } = style;
+    return (
+      <div className="flex leading-[24px]" style={{ width: 'inherit', ...otherStyles }}>
+        {els}
+      </div>
+    );
+  }
+);
+
+const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, LogFeedContentProps> = (props, ref) => {
+  const minColWidths = new Map<LogFeedColumn, number>();
+  const visibleCols = useRecoilValue(visibleColsState);
+
+  const { items, hasMoreBefore, hasMoreAfter, loadMoreBefore, loadMoreAfter, initialPos } = props;
+  const [isLoading, setIsLoading] = useState(false);
+  const infiniteLoaderRef = useRef<InfiniteLoader | null>(null);
+
+  const itemCount = items.length + 2;
+
+  const isItemLoaded = (index: number) => {
+    if (index === 0 && hasMoreBefore) return false;
+    if (index === (itemCount - 1) && hasMoreAfter) return false;
+    return true;
+  };
+
+  const loadMoreItems = async (startIndex: number) => {
+    if (isLoading) return;
+    setIsLoading(true);
+
+    if (startIndex === 0) await loadMoreBefore();
+    else await loadMoreAfter();
+
+    setIsLoading(false);
+    infiniteLoaderRef.current?.resetloadMoreItemsCache();
+  };
+
+  // define handler api
+  useImperativeHandle(ref, () => ({
+    resetloadMoreItemsCache: () => {
+      infiniteLoaderRef.current?.resetloadMoreItemsCache();
+    },
+  }));
+
+  return (
+    <div className="h-full flex flex-col text-xs">
+      <div className="flex-grow">
+        <AutoSizer>
+          {({ height, width }) => (
+            <InfiniteLoader
+              ref={infiniteLoaderRef}
+              isItemLoaded={isItemLoaded}
+              itemCount={itemCount}
+              loadMoreItems={loadMoreItems}
+              threshold={0}
+            >
+              {({ onItemsRendered, ref }) => (
+                <FixedSizeList
+                  ref={list => {
+                    ref(list);
+                    // @ts-ignore
+                    //listRef.current = list;
+                  }}
+                  className="font-mono"
+                  onItemsRendered={(args) => {
+                    onItemsRendered(args);
+                    //handleItemsRendered();
+                  }}
+                  //onScroll={handleContentScroll}
+                  height={height}
+                  width={width}
+                  itemCount={itemCount}
+                  itemSize={24}
+                  //outerRef={listOuterRef}
+                  //innerRef={listInnerRef}
+                  initialScrollOffset={itemCount * 24}
+                  overscanCount={10}
+                  itemData={{ items, hasMoreBefore, hasMoreAfter, minColWidths, visibleCols }}
+                >
+                  {Row}
+                </FixedSizeList>
+              )}
+            </InfiniteLoader>
+          )}
+        </AutoSizer>
+      </div>
+    </div>
+  );
+};
+
+const LogFeedContent = forwardRef(LogFeedContentImpl);
+
+/*
 const Row = memo(({ index, style, data }: { index: any; style: any; data: any; }) => {
   const { hasMore, visibleCols, items, minColWidths } = data;
 
@@ -490,18 +649,7 @@ const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
     </div>
   );
 };
-
-export const LogFeedViewer = () => {
-  const logRecords = useRecoilValue(logRecordsState);
-
-  return (
-    <LogFeedContent
-      items={logRecords}
-      hasMore={false}
-      fetchMore={async () => { }}
-    />
-  );
-};
+*/
 
 /**
  * LogFeedRecordFetcher component
@@ -630,17 +778,18 @@ const LogFeedRecordFetcher = forwardRef(LogFeedRecordFetcherImpl);
  * LogFeedLoader component
  */
 
-type LogFeedLoaderProps = {
-  defaultSince: string;
-  defaultUntil: string;
-}
+type LogFeedLoaderHandle = {
+  head: () => Promise<LogRecord[]>;
+  tail: () => Promise<LogRecord[]>;
+  seek: (time: Date) => Promise<LogRecord[]>;
+  query: (opts: LogFeedQueryOptions) => Promise<LogRecord[]>;
+};
 
-const LogFeedLoader = ({ defaultSince, defaultUntil }: LogFeedLoaderProps) => {
+const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, {}> = (_, ref) => {
   const nodes = useNodes();
   const pods = usePods();
   const setIsReady = useSetRecoilState(isReadyState);
   const setLogRecords = useSetRecoilState(logRecordsState);
-  const setChannelID = useSetRecoilState(channelIDState);
   const childRefs = useRef(new Array<React.RefObject<LogFeedRecordFetcherHandle>>());
   const bufferRef = useRef(new Array<LogRecord>());
   const isSendToBuffer = useRef(true);
@@ -649,35 +798,6 @@ const LogFeedLoader = ({ defaultSince, defaultUntil }: LogFeedLoaderProps) => {
   useEffect(() => {
     if (nodes.loading || pods.loading) return;
     setIsReady(true);
-
-    // onload query
-    (async () => {
-      const promises = Array<Promise<LogRecord[]>>();
-      const records = Array<LogRecord>();
-
-      // trigger query in children
-      childRefs.current.forEach(childRef => {
-        childRef.current && promises.push(childRef.current.query({ since: defaultSince }));
-      });
-
-      // gather and sort results
-      (await Promise.all(promises)).forEach(result => records.push(...result));
-      records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-
-      // handle tailLines
-      const tailLines = parseInt(defaultSince);
-      if (!Number.isNaN(tailLines) && tailLines < 0) {
-        const numToRemove = records.length + tailLines;
-        if (numToRemove > 0) records.splice(0, numToRemove);
-      }
-
-      // update state
-      setLogRecords([...records, ...bufferRef.current]);
-
-      // update buffer and flag
-      bufferRef.current = [];
-      isSendToBuffer.current = false;
-    })();
   }, [nodes.loading, pods.loading]);
 
   const handleOnUpdate = (record: LogRecord) => {
@@ -690,6 +810,7 @@ const LogFeedLoader = ({ defaultSince, defaultUntil }: LogFeedLoaderProps) => {
 
   const els: JSX.Element[] = [];
   const refs: React.RefObject<LogFeedRecordFetcherHandle>[] = [];
+  const elKeys: string[] = [];
 
   pods.pods.forEach(pod => {
     pod.status.containerStatuses.forEach(status => {
@@ -698,9 +819,12 @@ const LogFeedLoader = ({ defaultSince, defaultUntil }: LogFeedLoaderProps) => {
         const ref = createRef<LogFeedRecordFetcherHandle>();
         refs.push(ref);
 
+        const k = `${pod.metadata.namespace}/${pod.metadata.name}/${status.name}`;
+        elKeys.push(k);
+
         els.push(
           <LogFeedRecordFetcher
-            key={`${pod.metadata.namespace}/${pod.metadata.name}/${status.name}`}
+            key={k}
             ref={ref}
             node={node}
             pod={pod}
@@ -713,50 +837,152 @@ const LogFeedLoader = ({ defaultSince, defaultUntil }: LogFeedLoaderProps) => {
   });
 
   childRefs.current = refs;
+  elKeys.sort();
+
+  // define api
+  useImperativeHandle(ref, () => ({
+    head: async () => {
+      const promises = Array<Promise<LogRecord[]>>();
+      const records = Array<LogRecord>();
+      const headLines = 100;
+
+      // trigger query in children
+      childRefs.current.forEach(childRef => {
+        childRef.current && promises.push(childRef.current.query({ since: 'beginning', limit: headLines }));
+      });
+
+      // gather and sort results
+      (await Promise.all(promises)).forEach(result => records.push(...result));
+      records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+      // handle tailLines
+      const numToRemove = records.length - headLines;
+      if (numToRemove > 0) records.splice(0, numToRemove);
+
+      return records;
+    },
+    tail: async () => {
+      const promises = Array<Promise<LogRecord[]>>();
+      const records = Array<LogRecord>();
+      const tailLines = 100;
+
+      // trigger query in children
+      childRefs.current.forEach(childRef => {
+        childRef.current && promises.push(childRef.current.query({ since: `-${tailLines}` }));
+      });
+
+      // gather and sort results
+      (await Promise.all(promises)).forEach(result => records.push(...result));
+      records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+      // handle tailLines
+      const numToRemove = records.length - tailLines;
+      if (numToRemove > 0) records.splice(0, numToRemove);
+
+      return records;
+    },
+    seek: async (seekTS: Date) => {
+      const promises = Array<Promise<LogRecord[]>>();
+      const records = Array<LogRecord>();
+      const seekLines = 100;
+
+      // trigger query in children
+      childRefs.current.forEach(childRef => {
+        childRef.current && promises.push(childRef.current.query({ since: seekTS.toISOString(), limit: seekLines }));
+      });
+
+      // gather and sort results
+      (await Promise.all(promises)).forEach(result => records.push(...result));
+      records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+      // handle tailLines
+      const numToRemove = records.length - seekLines;
+      if (numToRemove > 0) records.splice(0, numToRemove);
+
+      return records;
+    },
+    query: async (args: LogFeedQueryOptions) => {
+      const promises = Array<Promise<LogRecord[]>>();
+      const records = Array<LogRecord>();
+
+      // trigger query in children
+      childRefs.current.forEach(childRef => {
+        childRef.current && promises.push(childRef.current.query(args));
+      });
+
+      // gather and sort results
+      (await Promise.all(promises)).forEach(result => records.push(...result));
+      records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+      return records;
+    },
+  }), [JSON.stringify(elKeys)]);
 
   return <>{els}</>;
 };
 
+const LogFeedLoader = forwardRef(LogFeedLoaderImpl);
+
 /**
- * LogFeedProvider component
+ * LogFeedViewer component
  */
 
-interface LogFeedProvider extends React.PropsWithChildren {
-  defaultSince: string;
-  defaultUntil: string;
-}
-
-export const LogFeedProvider = ({ defaultSince, defaultUntil, children }: LogFeedProvider) => {
-  const resetIsReady = useResetRecoilState(isReadyState);
+export const LogFeedViewer = () => {
+  const [channelID, setChannelID] = useRecoilState(controlChannelIDState);
+  const isReady = useRecoilValue(isReadyState);
   const resetIsLoading = useResetRecoilState(isLoadingState);
   const resetRecords = useResetRecoilState(logRecordsState);
+  const [records, setRecords] = useRecoilState(logRecordsState);
 
-  // reset on change in arguments
-  useEffect(() => {
-    resetIsReady();
-    resetIsLoading();
-    resetRecords();
-  }, [defaultSince, defaultUntil]);
+  const loaderRef = useRef<LogFeedLoaderHandle>(null);
+  const contentRef = useRef<LogFeedContentHandle>(null);
 
+  const [hasMoreBefore, setHasMoreBefore] = useState(false);
+  const [hasMoreAfter, setHasMoreAfter] = useState(false);
+  const [initialPos, setInitialPos] = useState('first');
+
+  // listen to control channel
   useEffect(() => {
     // initalize broadcast channel
     const channelID = Math.random().toString();
     const channel = new BroadcastChannel(channelID);
 
     const fn = async (ev: MessageEvent<Command>) => {
+      const client = loaderRef.current;
+      if (!client) return;
+
+      // reset feed
+      resetIsLoading();
+      resetRecords();
+
+      // handle commands
       switch (ev.data.type) {
         case 'head':
+          setRecords(await client.head());
+          setHasMoreBefore(false);
+          setHasMoreAfter(true);
+          setInitialPos('first');
           break;
         case 'tail':
-          console.log('tail');
+          const records = await client.tail();
+          console.log(records);
+          setRecords(records);
+          setHasMoreBefore(true);
+          setHasMoreAfter(false);
+          setInitialPos('last');
           break;
         case 'seek':
-          console.log('seek');
+          setRecords(await client.seek(ev.data.time));
+          setHasMoreBefore(true);
+          setHasMoreAfter(true);
+          setInitialPos('first');
           break;
         default:
           throw new Error('not implemented');
       }
-      console.log(ev.data);
+
+      // reset content cache
+      contentRef.current?.resetloadMoreItemsCache();
     };
     channel.addEventListener('message', fn);
 
@@ -770,14 +996,44 @@ export const LogFeedProvider = ({ defaultSince, defaultUntil, children }: LogFee
     };
   }, []);
 
+  // tail by default
+  useEffect(() => {
+    if (!isReady || !channelID) return;
+    const bc = new BroadcastChannel(channelID);
+    bc.postMessage({ type: 'head' });
+    bc.close();
+  }, [isReady, channelID]);
+
+  const loadMoreBefore = async () => {
+    const client = loaderRef.current;
+    if (!client) return;
+    const until = (records.length) ? records[0].timestamp : new Date().toISOString();
+    const since = addMinutes(until, -10).toISOString();
+
+    console.log(since);
+    console.log(until);
+
+    const newRecords = await client.query({ since, until });
+    if (records.length) setRecords(oldVal => [...newRecords, ...oldVal]);
+    else setHasMoreBefore(false);
+  };
+
+  const loadMoreAfter = async () => {
+
+  };
+
   return (
-    <RecoilRoot override={false}>
-      <LogFeedLoader
-        key={`${defaultSince}_${defaultUntil}`}
-        defaultSince={defaultSince}
-        defaultUntil={defaultUntil}
+    <>
+      <LogFeedLoader ref={loaderRef} />
+      <LogFeedContent
+        ref={contentRef}
+        items={records}
+        hasMoreBefore={hasMoreBefore}
+        hasMoreAfter={hasMoreAfter}
+        loadMoreBefore={async () => { }}
+        loadMoreAfter={async () => { }}
+        initialPos={initialPos}
       />
-      {children}
-    </RecoilRoot>
+    </>
   );
 };

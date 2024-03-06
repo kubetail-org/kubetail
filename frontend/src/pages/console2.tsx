@@ -28,6 +28,7 @@ import {
 import {
   createContext,
   useContext,
+  useEffect,
   useReducer,
   useRef,
   useState,
@@ -48,7 +49,6 @@ import { LoggingResourcesProvider, useNodes, usePods, useWorkloads } from '@/lib
 import type { Pod } from '@/lib/console/logging-resources2';
 import {
   LogFeedColumn,
-  LogFeedProvider,
   LogFeedState,
   LogFeedViewer,
   allLogFeedColumns,
@@ -438,6 +438,7 @@ const FeedTitle = ({ since, until }: FeedTitleProps) => {
     sinceMsg = format(initTime, dateFmt) + ' UTC';
   }
 
+  /*
   if (feed.state === LogFeedState.Streaming) {
     untilMsg = 'Streaming'
   } else if (feed.state === LogFeedState.Paused) {
@@ -445,7 +446,7 @@ const FeedTitle = ({ since, until }: FeedTitleProps) => {
   } else if (until) {
     until = utcToZonedTime(until, 'UTC');
     untilMsg = format(until, dateFmt) + ' UTC';
-  }
+  }*/
 
   return (
     <div className="flex text-xs text-primary font-medium">
@@ -489,11 +490,11 @@ const Header = () => {
         >
           <SkipBackIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
         </button>
-        {feed.state === LogFeedState.Streaming ? (
+        {feed.isFollow ? (
           <button
             className={buttonCN}
             title="Pause"
-            onClick={() => controls.setFollow(true)}
+            onClick={() => controls.setFollow(false)}
           >
             <PauseIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
@@ -501,7 +502,7 @@ const Header = () => {
           <button
             className={buttonCN}
             title="Play"
-            onClick={() => controls.setFollow(false)}
+            onClick={() => controls.setFollow(true)}
           >
             <PlayIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
@@ -611,19 +612,14 @@ export default function Page() {
     <AuthRequired>
       <Context.Provider value={{ state, dispatch }}>
         <LoggingResourcesProvider sourcePaths={searchParams.getAll('source')}>
-          <LogFeedProvider
-            defaultSince={state.since === null ? '-100' : state.since.toISOString()}
-            defaultUntil={state.until === null ? 'forever' : state.until.toISOString()}
-          >
-            <AppLayout>
-              <ConfigureContainerColors />
-              <InnerLayout
-                sidebar={<Sidebar />}
-                header={<Header />}
-                content={<LogFeedViewer />}
-              />
-            </AppLayout>
-          </LogFeedProvider>
+          <AppLayout>
+            <ConfigureContainerColors />
+            <InnerLayout
+              sidebar={<Sidebar />}
+              header={<Header />}
+              content={<LogFeedViewer />}
+            />
+          </AppLayout>
         </LoggingResourcesProvider>
       </Context.Provider>
     </AuthRequired>
