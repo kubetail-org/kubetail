@@ -705,6 +705,7 @@ type LogFeedRecordFetcherProps = {
 };
 
 type LogFeedRecordFetcherHandle = {
+  key: string;
   skipForward: () => Promise<LogRecord[]>;
   query: (opts: LogFeedQueryOptions) => Promise<LogRecord[]>;
 };
@@ -773,6 +774,7 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
 
   // define handler api
   useImperativeHandle(ref, () => ({
+    key: `${namespace}/${name}/${container}`,
     skipForward: async () => {
       const variables = {} as any;
       if (lastTSRef.current) variables.after = lastTSRef.current;
@@ -819,7 +821,7 @@ const LogFeedRecordFetcher = forwardRef(LogFeedRecordFetcherImpl);
 
 type LogFeedLoaderHandle = {
   query: (opts: LogFeedQueryOptions) => Promise<LogRecord[]>;
-  tail: (startLine: number, limit: number) => Promise<LogRecord[]>;
+  tail: (startLine: number, lastMetadata?: Map<string, string>) => Promise<[LogRecord[], Map<string, string>]>;
 };
 
 const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, {}> = (_, ref) => {
@@ -896,21 +898,35 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, {}>
 
       return records;
     },
-    tail: async (startLine: number, limit: number) => {
-      const promises = Array<Promise<LogRecord[]>>();
-      const records = Array<LogRecord>();
+    tail: async (startLine: number, lastMetadata = new Map<string, string>()) => {
+      const promises = new Array<Promise<LogRecord[]>>();
+      const records = new Array<LogRecord>();
+      const metadata = new Array<[string, string]>();
 
       // trigger query in children
       childRefs.current.forEach(childRef => {
-        childRef.current && promises.push(childRef.current.query({ since: `${startLine}`, limit }));
+        if (!childRef.current) return;
+        const k = childRef.current.key;
+        const lastTS = lastMetadata.get(k);
+
+        const opts = { since: `-${startLine}` } as LogFeedQueryOptions;
+        if (lastTS) opts.before = lastTS;
+        console.log(opts);
+        metadata.push([childRef.current.key, '']);
+        promises.push(childRef.current.query(opts));
       });
 
       // gather and sort results
-      (await Promise.all(promises)).forEach(result => records.push(...result));
+      (await Promise.all(promises)).forEach((result, i) => {
+        if (result.length) {
+          metadata[i][1] = result[0].timestamp;
+          records.push(...result);
+        }
+      });
       records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
       // return all
-      return records;
+      return [records, new Map(metadata)];
     },
   }), [JSON.stringify(elKeys)]);
 
@@ -935,6 +951,7 @@ export const LogFeedViewer = () => {
 
   const tailTrackerRef = useRef(0);
   const tailBufferRef = useRef(new Array<LogRecord>());
+  const tailMetadataRef = useRef(new Map<string, string>());
 
   const [hasMoreBefore, setHasMoreBefore] = useState(false);
   const [hasMoreAfter, setHasMoreAfter] = useState(false);
@@ -947,8 +964,11 @@ export const LogFeedViewer = () => {
     // for now only handle tail
     if (tailTrackerRef.current === 0) return;
 
-    tailTrackerRef.current -= 100;
-    const newTailRecords = await client.tail(tailTrackerRef.current, 100);
+    tailTrackerRef.current += 100;
+    const [newTailRecords, metadata] = await client.tail(tailTrackerRef.current, tailMetadataRef.current);
+
+    // update tracker
+    tailMetadataRef.current = metadata;
 
     // add to buffer and re-sort
     tailBufferRef.current.push(...newTailRecords);
@@ -1012,13 +1032,17 @@ export const LogFeedViewer = () => {
           resetAll();
 
           // fetch records and store in buffer
-          tailBufferRef.current = await client.tail(-100, 100);
+          const [newTailRecords, metadata] = await client.tail(100);
+
+          // update trackers
+          tailBufferRef.current = newTailRecords;
+          tailMetadataRef.current = metadata;
 
           // send last 100 in buffer to content window
           setRecords(tailBufferRef.current.splice(-100));
 
           // update tail tracker
-          tailTrackerRef.current = -100;
+          tailTrackerRef.current = 100;
 
           // update props
           setHasMoreBefore(true);

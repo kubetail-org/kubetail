@@ -1040,8 +1040,8 @@ export const EXPLORER_STATEFULSETS_OBJECT_WATCH = gql(`
  */
 
 export const QUERY_CONTAINER_LOG = gql(`
-  query QueryContainerLog($namespace: String!, $name: String!, $container: String, $after: String, $since: String, $until: String, $limit: Int) {
-    podLogQuery(namespace: $namespace, name: $name, container: $container, after: $after, since: $since, until: $until, limit: $limit) {
+  query QueryContainerLog($namespace: String!, $name: String!, $container: String, $after: String, $before: String, $since: String, $until: String, $limit: Int) {
+    podLogQuery(namespace: $namespace, name: $name, container: $container, after: $after, before: $before, since: $since, until: $until, limit: $limit) {
       timestamp
       message
     }
@@ -1049,8 +1049,8 @@ export const QUERY_CONTAINER_LOG = gql(`
 `);
 
 export const TAIL_CONTAINER_LOG = gql(`
-  subscription TailContainerLog($namespace: String!, $name: String!, $container: String, $after: String, $since: String, $until: String, $limit: Int) {
-    podLogTail(namespace: $namespace, name: $name, container: $container, after: $after, since: $since, until: $until, limit: $limit) {
+  subscription TailContainerLog($namespace: String!, $name: String!, $container: String, $after: String, $before: String, $since: String, $until: String, $limit: Int) {
+    podLogTail(namespace: $namespace, name: $name, container: $container, after: $after, before: $before, since: $since, until: $until, limit: $limit) {
       timestamp
       message
     }
