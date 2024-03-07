@@ -14,7 +14,7 @@
 
 import { useQuery } from '@apollo/client';
 import { AnsiUp } from 'ansi_up';
-import { addMinutes } from 'date-fns';
+import { addMinutes, parseISO } from 'date-fns';
 import { format, utcToZonedTime } from 'date-fns-tz';
 import makeAnsiRegex from 'ansi-regex';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
@@ -22,7 +22,7 @@ import { createRef, memo } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { FixedSizeList } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
-import { RecoilRoot, atom, useRecoilState, useRecoilValue, useResetRecoilState, useSetRecoilState } from 'recoil';
+import { atom, useRecoilState, useRecoilValue, useResetRecoilState, useSetRecoilState } from 'recoil';
 
 import { cn } from '@/lib/utils';
 
@@ -65,6 +65,8 @@ export const allLogFeedColumns = [
 ];
 
 type LogFeedQueryOptions = {
+  after?: string;
+  before?: string;
   since?: string;
   until?: string;
   limit?: number;
@@ -99,7 +101,11 @@ interface SeekCommand extends BaseCommand {
   time: Date;
 }
 
-type Command = HeadCommand | TailCommand | SeekCommand;
+interface LoadMoreAfterCommand extends BaseCommand {
+  type: 'loadMoreAfter';
+}
+
+type Command = HeadCommand | TailCommand | SeekCommand | LoadMoreAfterCommand;
 
 /**
  * State
@@ -167,6 +173,9 @@ export const useLogFeedControls = () => {
     },
     setFollow: (follow: boolean) => {
       setIsFollow(follow);
+    },
+    loadMoreAfter: () => {
+      postMessage({ type: 'loadMoreAfter' });
     },
   };
 };
@@ -239,6 +248,23 @@ const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
   }
 };
 
+const CheckForMoreLink = () => {
+  const controls = useLogFeedControls();
+
+  const handleClick = () => {
+    controls.loadMoreAfter();
+  };
+
+  return (
+    <a
+      className="text-primary underline font-normal cursor-pointer"
+      onClick={handleClick}
+    >
+      Check for new records
+    </a>
+  );
+}
+
 type RowData = {
   items: LogRecord[];
   hasMoreBefore: boolean;
@@ -260,14 +286,20 @@ const Row = memo(
     // first row
     if (index === 0) {
       const msg = (hasMoreBefore) ? 'Loading...' : 'Beginning of feed';
-      return <div className="px-[8px] leading-[24px]" style={style}>{msg}</div>
+      return <div className="px-[8px] leading-[24px]" style={style}>{msg}</div>;
     }
 
     // last row
     if (index === (items.length + 1)) {
-      const msg = (hasMoreAfter) ? 'Loading...' : 'Last record received';
-      return <div className="px-[8px] leading-[24px]" style={style}>{msg}</div>
-    } 
+      if (hasMoreAfter) {
+        return <div className="px-[8px] leading-[24px]" style={style}>Loading...</div>;
+      }
+      return (
+        <div className="px-[8px] leading-[24px]" style={style}>
+          <CheckForMoreLink />
+        </div>
+      );
+    }
 
     const record = items[index - 1];
 
@@ -345,7 +377,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
               isItemLoaded={isItemLoaded}
               itemCount={itemCount}
               loadMoreItems={loadMoreItems}
-              threshold={0}
+              threshold={20}
             >
               {({ onItemsRendered, ref }) => (
                 <FixedSizeList
@@ -367,8 +399,15 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
                   //outerRef={listOuterRef}
                   //innerRef={listInnerRef}
                   initialScrollOffset={itemCount * 24}
-                  overscanCount={10}
-                  itemData={{ items, hasMoreBefore, hasMoreAfter, minColWidths, visibleCols }}
+                  overscanCount={20}
+                  itemData={{
+                    items,
+                    hasMoreBefore,
+                    hasMoreAfter,
+                    minColWidths,
+                    visibleCols,
+                    resetloadMoreItemsCache: infiniteLoaderRef.current?.resetloadMoreItemsCache,
+                  }}
                 >
                   {Row}
                 </FixedSizeList>
@@ -779,10 +818,8 @@ const LogFeedRecordFetcher = forwardRef(LogFeedRecordFetcherImpl);
  */
 
 type LogFeedLoaderHandle = {
-  head: () => Promise<LogRecord[]>;
-  tail: () => Promise<LogRecord[]>;
-  seek: (time: Date) => Promise<LogRecord[]>;
   query: (opts: LogFeedQueryOptions) => Promise<LogRecord[]>;
+  tail: (startLine: number, limit: number) => Promise<LogRecord[]>;
 };
 
 const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, {}> = (_, ref) => {
@@ -801,8 +838,8 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, {}>
   }, [nodes.loading, pods.loading]);
 
   const handleOnUpdate = (record: LogRecord) => {
-    if (isSendToBuffer.current) bufferRef.current.push(record);
-    else setLogRecords((currRecords) => [...currRecords, record]);
+    //if (isSendToBuffer.current) bufferRef.current.push(record);
+    //else setLogRecords((currRecords) => [...currRecords, record]);
   };
 
   // only load containers from nodes that we have a record of
@@ -841,79 +878,38 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, {}>
 
   // define api
   useImperativeHandle(ref, () => ({
-    head: async () => {
+    query: async (opts: LogFeedQueryOptions = {}) => {
       const promises = Array<Promise<LogRecord[]>>();
       const records = Array<LogRecord>();
-      const headLines = 100;
 
       // trigger query in children
       childRefs.current.forEach(childRef => {
-        childRef.current && promises.push(childRef.current.query({ since: 'beginning', limit: headLines }));
+        childRef.current && promises.push(childRef.current.query(opts));
       });
 
       // gather and sort results
       (await Promise.all(promises)).forEach(result => records.push(...result));
       records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
-      // handle tailLines
-      const numToRemove = records.length - headLines;
-      if (numToRemove > 0) records.splice(0, numToRemove);
+      // handle limit
+      if (opts.limit) return records.slice(0, opts.limit);
 
       return records;
     },
-    tail: async () => {
+    tail: async (startLine: number, limit: number) => {
       const promises = Array<Promise<LogRecord[]>>();
       const records = Array<LogRecord>();
-      const tailLines = 100;
 
       // trigger query in children
       childRefs.current.forEach(childRef => {
-        childRef.current && promises.push(childRef.current.query({ since: `-${tailLines}` }));
+        childRef.current && promises.push(childRef.current.query({ since: `${startLine}`, limit }));
       });
 
       // gather and sort results
       (await Promise.all(promises)).forEach(result => records.push(...result));
       records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
-      // handle tailLines
-      const numToRemove = records.length - tailLines;
-      if (numToRemove > 0) records.splice(0, numToRemove);
-
-      return records;
-    },
-    seek: async (seekTS: Date) => {
-      const promises = Array<Promise<LogRecord[]>>();
-      const records = Array<LogRecord>();
-      const seekLines = 100;
-
-      // trigger query in children
-      childRefs.current.forEach(childRef => {
-        childRef.current && promises.push(childRef.current.query({ since: seekTS.toISOString(), limit: seekLines }));
-      });
-
-      // gather and sort results
-      (await Promise.all(promises)).forEach(result => records.push(...result));
-      records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-
-      // handle tailLines
-      const numToRemove = records.length - seekLines;
-      if (numToRemove > 0) records.splice(0, numToRemove);
-
-      return records;
-    },
-    query: async (args: LogFeedQueryOptions) => {
-      const promises = Array<Promise<LogRecord[]>>();
-      const records = Array<LogRecord>();
-
-      // trigger query in children
-      childRefs.current.forEach(childRef => {
-        childRef.current && promises.push(childRef.current.query(args));
-      });
-
-      // gather and sort results
-      (await Promise.all(promises)).forEach(result => records.push(...result));
-      records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-
+      // return all
       return records;
     },
   }), [JSON.stringify(elKeys)]);
@@ -937,9 +933,45 @@ export const LogFeedViewer = () => {
   const loaderRef = useRef<LogFeedLoaderHandle>(null);
   const contentRef = useRef<LogFeedContentHandle>(null);
 
+  const tailTrackerRef = useRef(0);
+  const tailBufferRef = useRef(new Array<LogRecord>());
+
   const [hasMoreBefore, setHasMoreBefore] = useState(false);
   const [hasMoreAfter, setHasMoreAfter] = useState(false);
   const [initialPos, setInitialPos] = useState('first');
+
+  const handleLoadMoreBefore = async () => {
+    const client = loaderRef.current;
+    if (!client) return;
+
+    // for now only handle tail
+    if (tailTrackerRef.current === 0) return;
+
+    tailTrackerRef.current -= 100;
+    const newTailRecords = await client.tail(tailTrackerRef.current, 100);
+
+    // add to buffer and re-sort
+    tailBufferRef.current.push(...newTailRecords);
+    tailBufferRef.current.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+    // send last 100 in buffer to content window
+    if (tailBufferRef.current.length) setRecords(oldVal => [...tailBufferRef.current.splice(-100), ...oldVal]);
+
+    if (!newTailRecords.length && !tailBufferRef.current.length) setHasMoreBefore(false);
+  };
+
+  const handleLoadMoreAfter = async () => {
+    const client = loaderRef.current;
+    if (!client) return;
+
+    const opts = { limit: 100 } as LogFeedQueryOptions;
+    if (records.length) opts.after = records[records.length - 1].timestamp;
+    else opts.since = 'beginning';
+
+    const newRecords = await client.query(opts);
+    if (newRecords.length) setRecords(oldVal => [...oldVal, ...newRecords]);
+    else setHasMoreAfter(false);
+  };
 
   // listen to control channel
   useEffect(() => {
@@ -947,35 +979,67 @@ export const LogFeedViewer = () => {
     const channelID = Math.random().toString();
     const channel = new BroadcastChannel(channelID);
 
-    const fn = async (ev: MessageEvent<Command>) => {
-      const client = loaderRef.current;
-      if (!client) return;
-
+    const resetAll = () => {
       // reset feed
       resetIsLoading();
       resetRecords();
 
+      // reset tail tracker
+      tailTrackerRef.current = 0;
+      tailBufferRef.current = [];
+    };
+
+    const fn = async (ev: MessageEvent<Command>) => {
+      const client = loaderRef.current;
+      if (!client) return;
+
       // handle commands
       switch (ev.data.type) {
         case 'head':
-          setRecords(await client.head());
+          // reset
+          resetAll();
+
+          // fetch records
+          setRecords(await client.query({ since: 'beginning', limit: 100 }));
+
+          // update props
           setHasMoreBefore(false);
           setHasMoreAfter(true);
           setInitialPos('first');
           break;
         case 'tail':
-          const records = await client.tail();
-          console.log(records);
-          setRecords(records);
+          // reset
+          resetAll();
+
+          // fetch records and store in buffer
+          tailBufferRef.current = await client.tail(-100, 100);
+
+          // send last 100 in buffer to content window
+          setRecords(tailBufferRef.current.splice(-100));
+
+          // update tail tracker
+          tailTrackerRef.current = -100;
+
+          // update props
           setHasMoreBefore(true);
           setHasMoreAfter(false);
           setInitialPos('last');
           break;
         case 'seek':
-          setRecords(await client.seek(ev.data.time));
-          setHasMoreBefore(true);
+          // reset
+          resetAll();
+
+          // fetch records
+          setRecords(await client.query({ since: ev.data.time.toISOString(), limit: 100 }));
+
+          // update props
+          setHasMoreBefore(false);
           setHasMoreAfter(true);
           setInitialPos('first');
+          break;
+        case 'loadMoreAfter':
+          setHasMoreAfter(true);
+          handleLoadMoreAfter();
           break;
         default:
           throw new Error('not implemented');
@@ -1000,27 +1064,9 @@ export const LogFeedViewer = () => {
   useEffect(() => {
     if (!isReady || !channelID) return;
     const bc = new BroadcastChannel(channelID);
-    bc.postMessage({ type: 'head' });
+    bc.postMessage({ type: 'tail' });
     bc.close();
   }, [isReady, channelID]);
-
-  const loadMoreBefore = async () => {
-    const client = loaderRef.current;
-    if (!client) return;
-    const until = (records.length) ? records[0].timestamp : new Date().toISOString();
-    const since = addMinutes(until, -10).toISOString();
-
-    console.log(since);
-    console.log(until);
-
-    const newRecords = await client.query({ since, until });
-    if (records.length) setRecords(oldVal => [...newRecords, ...oldVal]);
-    else setHasMoreBefore(false);
-  };
-
-  const loadMoreAfter = async () => {
-
-  };
 
   return (
     <>
@@ -1030,8 +1076,8 @@ export const LogFeedViewer = () => {
         items={records}
         hasMoreBefore={hasMoreBefore}
         hasMoreAfter={hasMoreAfter}
-        loadMoreBefore={async () => { }}
-        loadMoreAfter={async () => { }}
+        loadMoreBefore={handleLoadMoreBefore}
+        loadMoreAfter={handleLoadMoreAfter}
         initialPos={initialPos}
       />
     </>
