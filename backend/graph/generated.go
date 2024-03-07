@@ -479,7 +479,7 @@ type ComplexityRoot struct {
 		CoreV1PodsGetLogs      func(childComplexity int, namespace *string, name string, options *v11.PodLogOptions) int
 		CoreV1PodsList         func(childComplexity int, namespace *string, options *v1.ListOptions) int
 		LivezGet               func(childComplexity int) int
-		PodLogQuery            func(childComplexity int, namespace *string, name string, container *string, after *string, since *string, until *string, limit *int) int
+		PodLogQuery            func(childComplexity int, namespace *string, name string, container *string, after *string, before *string, since *string, until *string, limit *int) int
 		ReadyzGet              func(childComplexity int) int
 	}
 
@@ -495,7 +495,7 @@ type ComplexityRoot struct {
 		CoreV1PodLogTail        func(childComplexity int, namespace *string, name string, options *v11.PodLogOptions) int
 		CoreV1PodsWatch         func(childComplexity int, namespace *string, options *v1.ListOptions) int
 		LivezWatch              func(childComplexity int) int
-		PodLogTail              func(childComplexity int, namespace *string, name string, container *string, after *string, since *string, until *string, limit *int) int
+		PodLogTail              func(childComplexity int, namespace *string, name string, container *string, after *string, before *string, since *string, until *string, limit *int) int
 		ReadyzWatch             func(childComplexity int) int
 	}
 }
@@ -545,7 +545,7 @@ type QueryResolver interface {
 	CoreV1PodsGet(ctx context.Context, namespace *string, name string, options *v1.GetOptions) (*v11.Pod, error)
 	CoreV1PodsList(ctx context.Context, namespace *string, options *v1.ListOptions) (*v11.PodList, error)
 	CoreV1PodsGetLogs(ctx context.Context, namespace *string, name string, options *v11.PodLogOptions) ([]model.LogRecord, error)
-	PodLogQuery(ctx context.Context, namespace *string, name string, container *string, after *string, since *string, until *string, limit *int) ([]model.LogRecord, error)
+	PodLogQuery(ctx context.Context, namespace *string, name string, container *string, after *string, before *string, since *string, until *string, limit *int) ([]model.LogRecord, error)
 	LivezGet(ctx context.Context) (model.HealthCheckResponse, error)
 	ReadyzGet(ctx context.Context) (model.HealthCheckResponse, error)
 }
@@ -560,7 +560,7 @@ type SubscriptionResolver interface {
 	CoreV1NodesWatch(ctx context.Context, options *v1.ListOptions) (<-chan *watch.Event, error)
 	CoreV1PodsWatch(ctx context.Context, namespace *string, options *v1.ListOptions) (<-chan *watch.Event, error)
 	CoreV1PodLogTail(ctx context.Context, namespace *string, name string, options *v11.PodLogOptions) (<-chan *model.LogRecord, error)
-	PodLogTail(ctx context.Context, namespace *string, name string, container *string, after *string, since *string, until *string, limit *int) (<-chan *model.LogRecord, error)
+	PodLogTail(ctx context.Context, namespace *string, name string, container *string, after *string, before *string, since *string, until *string, limit *int) (<-chan *model.LogRecord, error)
 	LivezWatch(ctx context.Context) (<-chan model.HealthCheckResponse, error)
 	ReadyzWatch(ctx context.Context) (<-chan model.HealthCheckResponse, error)
 }
@@ -2366,7 +2366,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.PodLogQuery(childComplexity, args["namespace"].(*string), args["name"].(string), args["container"].(*string), args["after"].(*string), args["since"].(*string), args["until"].(*string), args["limit"].(*int)), true
+		return e.complexity.Query.PodLogQuery(childComplexity, args["namespace"].(*string), args["name"].(string), args["container"].(*string), args["after"].(*string), args["before"].(*string), args["since"].(*string), args["until"].(*string), args["limit"].(*int)), true
 
 	case "Query.readyzGet":
 		if e.complexity.Query.ReadyzGet == nil {
@@ -2512,7 +2512,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Subscription.PodLogTail(childComplexity, args["namespace"].(*string), args["name"].(string), args["container"].(*string), args["after"].(*string), args["since"].(*string), args["until"].(*string), args["limit"].(*int)), true
+		return e.complexity.Subscription.PodLogTail(childComplexity, args["namespace"].(*string), args["name"].(string), args["container"].(*string), args["after"].(*string), args["before"].(*string), args["since"].(*string), args["until"].(*string), args["limit"].(*int)), true
 
 	case "Subscription.readyzWatch":
 		if e.complexity.Subscription.ReadyzWatch == nil {
@@ -3191,24 +3191,33 @@ func (ec *executionContext) field_Query_podLogQuery_args(ctx context.Context, ra
 	}
 	args["after"] = arg3
 	var arg4 *string
-	if tmp, ok := rawArgs["since"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("since"))
+	if tmp, ok := rawArgs["before"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("before"))
 		arg4, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["since"] = arg4
+	args["before"] = arg4
 	var arg5 *string
-	if tmp, ok := rawArgs["until"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("until"))
+	if tmp, ok := rawArgs["since"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("since"))
 		arg5, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["until"] = arg5
-	var arg6 *int
+	args["since"] = arg5
+	var arg6 *string
+	if tmp, ok := rawArgs["until"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("until"))
+		arg6, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["until"] = arg6
+	var arg7 *int
 	if tmp, ok := rawArgs["limit"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("limit"))
 		directive0 := func(ctx context.Context) (interface{}, error) { return ec.unmarshalOInt2ᚖint(ctx, tmp) }
@@ -3232,14 +3241,14 @@ func (ec *executionContext) field_Query_podLogQuery_args(ctx context.Context, ra
 			return nil, graphql.ErrorOnPath(ctx, err)
 		}
 		if data, ok := tmp.(*int); ok {
-			arg6 = data
+			arg7 = data
 		} else if tmp == nil {
-			arg6 = nil
+			arg7 = nil
 		} else {
 			return nil, graphql.ErrorOnPath(ctx, fmt.Errorf(`unexpected type %T from directive, should be *int`, tmp))
 		}
 	}
-	args["limit"] = arg6
+	args["limit"] = arg7
 	return args, nil
 }
 
@@ -3514,24 +3523,33 @@ func (ec *executionContext) field_Subscription_podLogTail_args(ctx context.Conte
 	}
 	args["after"] = arg3
 	var arg4 *string
-	if tmp, ok := rawArgs["since"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("since"))
+	if tmp, ok := rawArgs["before"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("before"))
 		arg4, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["since"] = arg4
+	args["before"] = arg4
 	var arg5 *string
-	if tmp, ok := rawArgs["until"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("until"))
+	if tmp, ok := rawArgs["since"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("since"))
 		arg5, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["until"] = arg5
-	var arg6 *int
+	args["since"] = arg5
+	var arg6 *string
+	if tmp, ok := rawArgs["until"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("until"))
+		arg6, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["until"] = arg6
+	var arg7 *int
 	if tmp, ok := rawArgs["limit"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("limit"))
 		directive0 := func(ctx context.Context) (interface{}, error) { return ec.unmarshalOInt2ᚖint(ctx, tmp) }
@@ -3555,14 +3573,14 @@ func (ec *executionContext) field_Subscription_podLogTail_args(ctx context.Conte
 			return nil, graphql.ErrorOnPath(ctx, err)
 		}
 		if data, ok := tmp.(*int); ok {
-			arg6 = data
+			arg7 = data
 		} else if tmp == nil {
-			arg6 = nil
+			arg7 = nil
 		} else {
 			return nil, graphql.ErrorOnPath(ctx, fmt.Errorf(`unexpected type %T from directive, should be *int`, tmp))
 		}
 	}
-	args["limit"] = arg6
+	args["limit"] = arg7
 	return args, nil
 }
 
@@ -15188,7 +15206,7 @@ func (ec *executionContext) _Query_podLogQuery(ctx context.Context, field graphq
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		directive0 := func(rctx context.Context) (interface{}, error) {
 			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Query().PodLogQuery(rctx, fc.Args["namespace"].(*string), fc.Args["name"].(string), fc.Args["container"].(*string), fc.Args["after"].(*string), fc.Args["since"].(*string), fc.Args["until"].(*string), fc.Args["limit"].(*int))
+			return ec.resolvers.Query().PodLogQuery(rctx, fc.Args["namespace"].(*string), fc.Args["name"].(string), fc.Args["container"].(*string), fc.Args["after"].(*string), fc.Args["before"].(*string), fc.Args["since"].(*string), fc.Args["until"].(*string), fc.Args["limit"].(*int))
 		}
 		directive1 := func(ctx context.Context) (interface{}, error) {
 			if ec.directives.NullIfValidationFailed == nil {
@@ -16219,7 +16237,7 @@ func (ec *executionContext) _Subscription_podLogTail(ctx context.Context, field 
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		directive0 := func(rctx context.Context) (interface{}, error) {
 			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Subscription().PodLogTail(rctx, fc.Args["namespace"].(*string), fc.Args["name"].(string), fc.Args["container"].(*string), fc.Args["after"].(*string), fc.Args["since"].(*string), fc.Args["until"].(*string), fc.Args["limit"].(*int))
+			return ec.resolvers.Subscription().PodLogTail(rctx, fc.Args["namespace"].(*string), fc.Args["name"].(string), fc.Args["container"].(*string), fc.Args["after"].(*string), fc.Args["before"].(*string), fc.Args["since"].(*string), fc.Args["until"].(*string), fc.Args["limit"].(*int))
 		}
 		directive1 := func(ctx context.Context) (interface{}, error) {
 			if ec.directives.NullIfValidationFailed == nil {

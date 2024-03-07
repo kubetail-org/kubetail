@@ -618,6 +618,7 @@ type Query {
     name: String!,
     container: String,
     after: String,
+    before: String,
     since: String = "BEGINNING",
     until: String = "NOW",
     limit: Int @validate(rule: "gt=0", message: "Value must be greater than 0")
@@ -666,9 +667,14 @@ type Subscription {
     container: String
 
     """
-    Returns events that came after the specified cursor.
+    Returns log records that came after the specified cursor.
     """
     after: String
+
+    """
+    Returns log records that came before the specified cursor.
+    """
+    before: String
 
     """
     Returns log records that came since the specified option (e.g. "100", "-100", "NOW", "PT5M", "2006-01-02T15:04:05Z07:00")

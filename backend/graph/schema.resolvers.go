@@ -191,12 +191,16 @@ func (r *queryResolver) CoreV1PodsGetLogs(ctx context.Context, namespace *string
 }
 
 // PodLogQuery is the resolver for the podLogQuery field.
-func (r *queryResolver) PodLogQuery(ctx context.Context, namespace *string, name string, container *string, after *string, since *string, until *string, limit *int) ([]model.LogRecord, error) {
+func (r *queryResolver) PodLogQuery(ctx context.Context, namespace *string, name string, container *string, after *string, before *string, since *string, until *string, limit *int) ([]model.LogRecord, error) {
 	// build tail args
 	args := TailArgs{}
 
 	if after != nil {
 		args.After = *after
+	}
+
+	if before != nil {
+		args.Before = *before
 	}
 
 	if since != nil {
@@ -364,12 +368,16 @@ func (r *subscriptionResolver) CoreV1PodLogTail(ctx context.Context, namespace *
 }
 
 // PodLogTail is the resolver for the podLogTail field.
-func (r *subscriptionResolver) PodLogTail(ctx context.Context, namespace *string, name string, container *string, after *string, since *string, until *string, limit *int) (<-chan *model.LogRecord, error) {
+func (r *subscriptionResolver) PodLogTail(ctx context.Context, namespace *string, name string, container *string, after *string, before *string, since *string, until *string, limit *int) (<-chan *model.LogRecord, error) {
 	// build tail args
 	args := TailArgs{}
 
 	if after != nil {
 		args.After = *after
+	}
+
+	if before != nil {
+		args.Before = *before
 	}
 
 	if since != nil {

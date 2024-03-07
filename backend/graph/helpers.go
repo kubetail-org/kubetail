@@ -57,10 +57,11 @@ const (
 )
 
 type TailArgs struct {
-	After string
-	Since string
-	Until string
-	Limit uint
+	After  string
+	Before string
+	Since  string
+	Until  string
+	Limit  uint
 }
 
 func watchEventProxyChannel(ctx context.Context, watchAPI watch.Interface) <-chan *watch.Event {
@@ -284,6 +285,12 @@ func tailPodLog(ctx context.Context, clientset kubernetes.Interface, namespace s
 	if ts, err := time.Parse(time.RFC3339Nano, args.After); err == nil {
 		tailSince = TailSinceTime
 		sinceTime = ts.Add(1 * time.Nanosecond)
+	}
+
+	// handle `before`
+	if ts, err := time.Parse(time.RFC3339Nano, args.Before); err == nil {
+		tailUntil = TailUntilTime
+		untilTime = ts.Add(-1 * time.Nanosecond)
 	}
 
 	exitEarly := func() (<-chan model.LogRecord, error) {
