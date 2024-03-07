@@ -178,6 +178,11 @@ export const CONSOLE_LOGGING_RESOURCES_POD_FRAGMENT = gql(`
       containerStatuses {
         name
         started
+        state {
+          running {
+            startedAt
+          }
+        }
       }
     }
   }

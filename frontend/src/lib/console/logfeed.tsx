@@ -14,7 +14,7 @@
 
 import { useQuery } from '@apollo/client';
 import { AnsiUp } from 'ansi_up';
-import { addMinutes, parseISO } from 'date-fns';
+import { addHours, parseISO } from 'date-fns';
 import { format, utcToZonedTime } from 'date-fns-tz';
 import makeAnsiRegex from 'ansi-regex';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
@@ -695,11 +695,10 @@ const LogFeedContent = ({ items, fetchMore, hasMore }: LogFeedContentProps) => {
  */
 
 type LogFeedRecordFetcherProps = {
-  //defaultSince: string;
-  //defaultUntil: string;
   node: Node;
   pod: Pod;
   container: string;
+  startedAt: string;
   //onLoad?: (records: LogRecord[]) => void;
   onUpdate?: (record: LogRecord) => void;
 };
@@ -707,11 +706,11 @@ type LogFeedRecordFetcherProps = {
 type LogFeedRecordFetcherHandle = {
   key: string;
   skipForward: () => Promise<LogRecord[]>;
-  query: (opts: LogFeedQueryOptions) => Promise<LogRecord[]>;
+  query: (opts: LogFeedQueryOptions) => Promise<LogRecord[] | null>;
 };
 
 const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetcherHandle, LogFeedRecordFetcherProps> = (props, ref) => {
-  const { node, pod, container, onUpdate } = props;
+  const { node, pod, container, startedAt, onUpdate } = props;
   const { namespace, name } = pod.metadata;
   const feedState = useRecoilValue(feedStateState);
 
@@ -793,6 +792,10 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
       return records;
     },
     query: async (opts: LogFeedQueryOptions) => {
+      // return null if query is for data before container started
+      if (opts.until && opts.until.localeCompare(startedAt) <= 0) return null;
+      else if (opts.before && opts.before.localeCompare(startedAt) <= 0) return null;
+
       const result = await refetch(opts);
       if (!result.data.podLogQuery) return [];
 
@@ -820,8 +823,7 @@ const LogFeedRecordFetcher = forwardRef(LogFeedRecordFetcherImpl);
  */
 
 type LogFeedLoaderHandle = {
-  query: (opts: LogFeedQueryOptions) => Promise<LogRecord[]>;
-  tail: (startLine: number, lastMetadata?: Map<string, string>) => Promise<[LogRecord[], Map<string, string>]>;
+  query: (opts: LogFeedQueryOptions) => Promise<LogRecord[] | null>;
 };
 
 const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, {}> = (_, ref) => {
@@ -854,7 +856,7 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, {}>
   pods.pods.forEach(pod => {
     pod.status.containerStatuses.forEach(status => {
       const node = nodeMap.get(pod.spec.nodeName);
-      if (status.started && node) {
+      if (status.state.running?.startedAt && node) {
         const ref = createRef<LogFeedRecordFetcherHandle>();
         refs.push(ref);
 
@@ -868,6 +870,7 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, {}>
             node={node}
             pod={pod}
             container={status.name}
+            startedAt={status.state.running.startedAt}
             onUpdate={handleOnUpdate}
           />
         );
@@ -881,7 +884,7 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, {}>
   // define api
   useImperativeHandle(ref, () => ({
     query: async (opts: LogFeedQueryOptions = {}) => {
-      const promises = Array<Promise<LogRecord[]>>();
+      const promises = Array<Promise<LogRecord[] | null>>();
       const records = Array<LogRecord>();
 
       // trigger query in children
@@ -890,43 +893,19 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, {}>
       });
 
       // gather and sort results
-      (await Promise.all(promises)).forEach(result => records.push(...result));
+      const results = await Promise.all(promises);
+
+      // check if all results are null
+      if (results.every(result => result === null)) return null;
+
+      // concat and sort results
+      results.forEach(result => result && records.push(...result));
       records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
       // handle limit
       if (opts.limit) return records.slice(0, opts.limit);
 
       return records;
-    },
-    tail: async (startLine: number, lastMetadata = new Map<string, string>()) => {
-      const promises = new Array<Promise<LogRecord[]>>();
-      const records = new Array<LogRecord>();
-      const metadata = new Array<[string, string]>();
-
-      // trigger query in children
-      childRefs.current.forEach(childRef => {
-        if (!childRef.current) return;
-        const k = childRef.current.key;
-        const lastTS = lastMetadata.get(k);
-
-        const opts = { since: `-${startLine}` } as LogFeedQueryOptions;
-        if (lastTS) opts.before = lastTS;
-        console.log(opts);
-        metadata.push([childRef.current.key, '']);
-        promises.push(childRef.current.query(opts));
-      });
-
-      // gather and sort results
-      (await Promise.all(promises)).forEach((result, i) => {
-        if (result.length) {
-          metadata[i][1] = result[0].timestamp;
-          records.push(...result);
-        }
-      });
-      records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-
-      // return all
-      return [records, new Map(metadata)];
     },
   }), [JSON.stringify(elKeys)]);
 
@@ -949,9 +928,8 @@ export const LogFeedViewer = () => {
   const loaderRef = useRef<LogFeedLoaderHandle>(null);
   const contentRef = useRef<LogFeedContentHandle>(null);
 
-  const tailTrackerRef = useRef(0);
-  const tailBufferRef = useRef(new Array<LogRecord>());
-  const tailMetadataRef = useRef(new Map<string, string>());
+  const startTSRef = useRef<string | null>(null);
+  const startTSMissesRef = useRef<number>(1);
 
   const [hasMoreBefore, setHasMoreBefore] = useState(false);
   const [hasMoreAfter, setHasMoreAfter] = useState(false);
@@ -961,23 +939,38 @@ export const LogFeedViewer = () => {
     const client = loaderRef.current;
     if (!client) return;
 
-    // for now only handle tail
-    if (tailTrackerRef.current === 0) return;
+    // startTS should always be defined
+    if (!startTSRef.current) return;
 
-    tailTrackerRef.current += 100;
-    const [newTailRecords, metadata] = await client.tail(tailTrackerRef.current, tailMetadataRef.current);
+    // build args
+    const opts = {} as LogFeedQueryOptions;
+    opts.before = startTSRef.current;
+    opts.since = addHours(parseISO(startTSRef.current), -1 * startTSMissesRef.current).toISOString();
 
-    // update tracker
-    tailMetadataRef.current = metadata;
+    // execute query
+    const records = await client.query(opts);
 
-    // add to buffer and re-sort
-    tailBufferRef.current.push(...newTailRecords);
-    tailBufferRef.current.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    // check results
+    if (records === null) {
+      setHasMoreBefore(false);
+      return;
+    }
 
-    // send last 100 in buffer to content window
-    if (tailBufferRef.current.length) setRecords(oldVal => [...tailBufferRef.current.splice(-100), ...oldVal]);
+    // update startTS
+    if (records.length) {
+      startTSRef.current = records[0].timestamp;
+      startTSMissesRef.current = 1;
+    } else {
+      startTSMissesRef.current = startTSMissesRef.current * 2;
 
-    if (!newTailRecords.length && !tailBufferRef.current.length) setHasMoreBefore(false);
+      // check again
+      await handleLoadMoreBefore();
+      return;
+    }
+
+    // sort and add to content window
+    records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    setRecords(oldVal => [...records, ...oldVal]);
   };
 
   const handleLoadMoreAfter = async () => {
@@ -989,7 +982,7 @@ export const LogFeedViewer = () => {
     else opts.since = 'beginning';
 
     const newRecords = await client.query(opts);
-    if (newRecords.length) setRecords(oldVal => [...oldVal, ...newRecords]);
+    if (newRecords && newRecords.length) setRecords(oldVal => [...oldVal, ...newRecords]);
     else setHasMoreAfter(false);
   };
 
@@ -1004,14 +997,15 @@ export const LogFeedViewer = () => {
       resetIsLoading();
       resetRecords();
 
-      // reset tail tracker
-      tailTrackerRef.current = 0;
-      tailBufferRef.current = [];
+      startTSRef.current = null;
+      startTSMissesRef.current = 1;
     };
 
     const fn = async (ev: MessageEvent<Command>) => {
       const client = loaderRef.current;
       if (!client) return;
+
+      let result: LogRecord[] | null = null;
 
       // handle commands
       switch (ev.data.type) {
@@ -1020,7 +1014,8 @@ export const LogFeedViewer = () => {
           resetAll();
 
           // fetch records
-          setRecords(await client.query({ since: 'beginning', limit: 100 }));
+          result = await client.query({ since: 'beginning', limit: 100 });
+          result && setRecords(result);
 
           // update props
           setHasMoreBefore(false);
@@ -1031,18 +1026,17 @@ export const LogFeedViewer = () => {
           // reset
           resetAll();
 
-          // fetch records and store in buffer
-          const [newTailRecords, metadata] = await client.tail(100);
+          // execute query
+          result = await client.query({ since: '-100' });
 
-          // update trackers
-          tailBufferRef.current = newTailRecords;
-          tailMetadataRef.current = metadata;
-
-          // send last 100 in buffer to content window
-          setRecords(tailBufferRef.current.splice(-100));
-
-          // update tail tracker
-          tailTrackerRef.current = 100;
+          // send last 100 to content window and update startTS
+          if (result && result.length) {
+            const newRecords = result.slice(-100);
+            setRecords(newRecords);
+            startTSRef.current = newRecords[0].timestamp;
+          } else {
+            startTSRef.current = (new Date()).toISOString();
+          }
 
           // update props
           setHasMoreBefore(true);
@@ -1054,10 +1048,18 @@ export const LogFeedViewer = () => {
           resetAll();
 
           // fetch records
-          setRecords(await client.query({ since: ev.data.time.toISOString(), limit: 100 }));
+          result = await client.query({ since: ev.data.time.toISOString(), limit: 100 });
+
+          // send to content window and update startTS
+          if (result && result.length) {
+            setRecords(result);
+            startTSRef.current = result[0].timestamp;
+          } else {
+            throw new Error('not implemented');
+          }
 
           // update props
-          setHasMoreBefore(false);
+          setHasMoreBefore(true);
           setHasMoreAfter(true);
           setInitialPos('first');
           break;
