@@ -21,6 +21,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { createRef, memo } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { FixedSizeList } from 'react-window';
+import type { FixedSizeListProps } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
 import { atom, useRecoilState, useRecoilValue, useResetRecoilState, useSetRecoilState } from 'recoil';
 
@@ -293,12 +294,9 @@ const Row = memo(
     if (index === (items.length + 1)) {
       if (hasMoreAfter) {
         return <div className="px-[8px] leading-[24px]" style={style}>Loading...</div>;
+      } else {
+        return <div className="px-[8px] leading-[24px]" style={style}><CheckForMoreLink /></div>;
       }
-      return (
-        <div className="px-[8px] leading-[24px]" style={style}>
-          <CheckForMoreLink />
-        </div>
-      );
     }
 
     const record = items[index - 1];
@@ -334,31 +332,29 @@ const Row = memo(
 );
 
 const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, LogFeedContentProps> = (props, ref) => {
-  const minColWidths = new Map<LogFeedColumn, number>();
+  const { items, hasMoreBefore, hasMoreAfter, loadMoreBefore, loadMoreAfter, initialPos } = props;
+
   const visibleCols = useRecoilValue(visibleColsState);
 
-  const { items, hasMoreBefore, hasMoreAfter, loadMoreBefore, loadMoreAfter, initialPos } = props;
-  const [isLoading, setIsLoading] = useState(false);
+  const headerOuterElRef = useRef<HTMLDivElement>(null);
+  const headerInnerElRef = useRef<HTMLDivElement>(null);
+
+  const listRef = useRef<FixedSizeList<LogRecord> | null>(null);
+  const listOuterRef = useRef<HTMLDivElement | null>(null);
+  const listInnerRef = useRef<HTMLDivElement | null>(null);
   const infiniteLoaderRef = useRef<InfiniteLoader | null>(null);
 
+  const [isListReady, setIsListReady] = useState(false);
+
+  const [maxWidth, setMaxWidth] = useState<number | string>('100%');
+  const [minColWidths, setMinColWidths] = useState<Map<LogFeedColumn, number>>(new Map());
+
+  const [onNextRenderCallback, setOnNextRenderCallback] = useState<() => void>();
+
+  const isAutoScrollRef = useRef(true);
+  const isProgrammaticScrollRef = useRef(false);
+
   const itemCount = items.length + 2;
-
-  const isItemLoaded = (index: number) => {
-    if (index === 0 && hasMoreBefore) return false;
-    if (index === (itemCount - 1) && hasMoreAfter) return false;
-    return true;
-  };
-
-  const loadMoreItems = async (startIndex: number) => {
-    if (isLoading) return;
-    setIsLoading(true);
-
-    if (startIndex === 0) await loadMoreBefore();
-    else await loadMoreAfter();
-
-    setIsLoading(false);
-    infiniteLoaderRef.current?.resetloadMoreItemsCache();
-  };
 
   // define handler api
   useImperativeHandle(ref, () => ({
@@ -367,8 +363,148 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
     },
   }));
 
+  // -------------------------------------------------------------------------------------
+  // Loading logic
+  // -------------------------------------------------------------------------------------
+
+  // loaded-item cache logic
+  const isItemLoaded = (index: number) => {
+    if (index === 0 && hasMoreBefore) return false;
+    if (index === (itemCount - 1) && hasMoreAfter) return false;
+    return true;
+  };
+
+  // load more logic
+  const loadMoreItems = async (startIndex: number) => {
+    if (startIndex === 0) await loadMoreBefore();
+    else await loadMoreAfter();
+
+    setTimeout(() => {
+      infiniteLoaderRef.current?.resetloadMoreItemsCache(true);
+    }, 0);
+  };
+
+  // -------------------------------------------------------------------------------------
+  // Scrolling logic
+  // -------------------------------------------------------------------------------------
+
+  // handle horizontal scroll on header
+  const handleHeaderScrollX = (ev: React.UIEvent<HTMLDivElement>) => {
+    const headerOuterEl = ev.target as HTMLDivElement;
+    const listOuterEl = listOuterRef.current;
+    if (!listOuterEl) return;
+    listOuterEl.scrollTo({ left: headerOuterEl.scrollLeft, behavior: 'instant' });
+  };
+
+  // handle horizontal scroll on content
+  const handleContentScrollX = (ev: React.UIEvent<HTMLDivElement>) => {
+    const listOuterEl = ev.target as HTMLDivElement;
+    const headerOuterEl = headerOuterElRef.current;
+    if (!headerOuterEl) return;
+    headerOuterEl.scrollTo({ left: listOuterEl.scrollLeft, behavior: 'instant' });
+  };
+
+  // handle vertical scroll on content
+  const handleContentScrollY = () => {
+    const el = listOuterRef.current;
+    if (el && !isProgrammaticScrollRef.current) {
+      const tolerance = 10;
+      const { scrollTop, clientHeight, scrollHeight } = el;
+      if (Math.abs((scrollTop + clientHeight) - scrollHeight) <= tolerance) {
+        isAutoScrollRef.current = true;
+      } else {
+        isAutoScrollRef.current = false;
+      }
+    }
+  };
+
+  // attach scroll event listeners
+  useEffect(() => {
+    const listOuterEl = listOuterRef.current;
+    if (!listOuterEl) return;
+    listOuterEl.addEventListener('scroll', handleContentScrollX as any);
+    return () => listOuterEl.removeEventListener('scroll', handleContentScrollX as any);
+  }, [isListReady]);
+
+  // -------------------------------------------------------------------------------------
+  // Miscellaneous
+  // -------------------------------------------------------------------------------------
+
+  // handle items rendered
+  const handleItemsRendered = () => {
+    console.log('handleItemsRendered');
+
+    // set isListReady
+    if (!isListReady) setIsListReady(true);
+
+    /*
+    // execute callback if available
+    if (onNextRenderCallback) {
+      onNextRenderCallback();
+      setOnNextRenderCallback(undefined);
+    }
+
+    // get max row and col widths
+    let maxRowWidth = 0;
+    let minColWidthsChanged = false;
+    Array.from(listInnerRef.current?.children || []).forEach(rowEl => {
+      maxRowWidth = Math.max(maxRowWidth, rowEl.scrollWidth);
+
+      Array.from(rowEl.children || []).forEach(colEl => {
+        const colId = (colEl as HTMLElement).dataset.colId as LogFeedColumn;
+        if (!colId) return;
+        const currVal = minColWidths.get(colId) || 0;
+        const newVal = Math.max(currVal, colEl.scrollWidth);
+        if (newVal !== currVal) minColWidths.set(colId, newVal);
+      });
+    });
+
+    // adjust list inner
+    if (listInnerRef.current) listInnerRef.current.style.width = `${maxRowWidth}px`;
+
+    if (minColWidthsChanged) setMinColWidths(new Map(minColWidths));
+    setMaxWidth(maxRowWidth);
+
+    // reset cache (with autoReload: true)
+    infiniteLoaderRef.current?.resetloadMoreItemsCache(true);
+    */
+  };
+
+  // ------------------------------------------------------------------------------------
+  // Renderer
+  // ------------------------------------------------------------------------------------
+
   return (
     <div className="h-full flex flex-col text-xs">
+      <div
+        ref={headerOuterElRef}
+        className="overflow-x-scroll no-scrollbar cursor-default"
+        onScroll={handleHeaderScrollX}
+      >
+        <div
+          ref={headerInnerElRef}
+          className="flex h-[18px] leading-[18px] border-b border-chrome-divider bg-chrome-200 [&>*]:border-r [&>*:not(:last-child)]:border-chrome-divider"
+          style={{ width: `${maxWidth}px` }}
+        >
+          {allLogFeedColumns.map(col => {
+            if (visibleCols.has(col)) {
+              return (
+                <div
+                  key={col}
+                  className={cn(
+                    'whitespace-nowrap uppercase px-[8px]',
+                    (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
+                  )}
+                  style={(col !== LogFeedColumn.Message) ? { minWidth: `${minColWidths.get(col) || 0}px` } : {}}
+                  data-col-id={col}
+                >
+                  {(col !== LogFeedColumn.ColorDot) && col}
+                </div>
+              );
+            }
+          })}
+        </div>
+      </div>
       <div className="flex-grow">
         <AutoSizer>
           {({ height, width }) => (
@@ -389,25 +525,18 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
                   className="font-mono"
                   onItemsRendered={(args) => {
                     onItemsRendered(args);
-                    //handleItemsRendered();
+                    handleItemsRendered();
                   }}
                   //onScroll={handleContentScroll}
                   height={height}
                   width={width}
                   itemCount={itemCount}
                   itemSize={24}
-                  //outerRef={listOuterRef}
-                  //innerRef={listInnerRef}
+                  outerRef={listOuterRef}
+                  innerRef={listInnerRef}
                   initialScrollOffset={itemCount * 24}
                   overscanCount={20}
-                  itemData={{
-                    items,
-                    hasMoreBefore,
-                    hasMoreAfter,
-                    minColWidths,
-                    visibleCols,
-                    resetloadMoreItemsCache: infiniteLoaderRef.current?.resetloadMoreItemsCache,
-                  }}
+                  itemData={{ items, hasMoreBefore, hasMoreAfter, minColWidths, visibleCols }}
                 >
                   {Row}
                 </FixedSizeList>
@@ -921,15 +1050,12 @@ const LogFeedLoader = forwardRef(LogFeedLoaderImpl);
 export const LogFeedViewer = () => {
   const [channelID, setChannelID] = useRecoilState(controlChannelIDState);
   const isReady = useRecoilValue(isReadyState);
-  const resetIsLoading = useResetRecoilState(isLoadingState);
-  const resetRecords = useResetRecoilState(logRecordsState);
-  const [records, setRecords] = useRecoilState(logRecordsState);
+  const [isLoading, setIsLoading] = useRecoilState(isLoadingState);
+  const [logRecords, setLogRecords] = useRecoilState(logRecordsState);
+  const resetLogRecords = useResetRecoilState(logRecordsState);
 
   const loaderRef = useRef<LogFeedLoaderHandle>(null);
   const contentRef = useRef<LogFeedContentHandle>(null);
-
-  const startTSRef = useRef<string | null>(null);
-  const startTSMissesRef = useRef<number>(1);
 
   const [hasMoreBefore, setHasMoreBefore] = useState(false);
   const [hasMoreAfter, setHasMoreAfter] = useState(false);
@@ -937,53 +1063,60 @@ export const LogFeedViewer = () => {
 
   const handleLoadMoreBefore = async () => {
     const client = loaderRef.current;
-    if (!client) return;
+    if (isLoading || !client) return;
+    setIsLoading(true);
 
-    // startTS should always be defined
-    if (!startTSRef.current) return;
+    // look back until we find something or reach beginning
+    let result: LogRecord[] | null;
 
-    // build args
-    const opts = {} as LogFeedQueryOptions;
-    opts.before = startTSRef.current;
-    opts.since = addHours(parseISO(startTSRef.current), -1 * startTSMissesRef.current).toISOString();
+    let startTS = (logRecords.length) ? logRecords[0].timestamp : new Date().toISOString();
+    let startTSMisses = 1;
+    while (true) {
+      // build args
+      const opts = {} as LogFeedQueryOptions;
+      opts.before = startTS;
+      opts.since = addHours(parseISO(startTS), -1 * Math.min(startTSMisses, 12)).toISOString();
 
-    // execute query
-    const records = await client.query(opts);
+      // execute query
+      console.log(opts);
+      result = await client.query(opts);
+
+      if (result === null || result.length) break;
+
+      // update startTS
+      startTS = opts.since;
+      startTSMisses += 1;
+    }
 
     // check results
-    if (records === null) {
+    if (result === null) {
       setHasMoreBefore(false);
-      return;
-    }
-
-    // update startTS
-    if (records.length) {
-      startTSRef.current = records[0].timestamp;
-      startTSMissesRef.current = 1;
     } else {
-      startTSMissesRef.current = startTSMissesRef.current * 2;
-
-      // check again
-      await handleLoadMoreBefore();
-      return;
+      result.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+      setLogRecords(oldVal => [...result as LogRecord[], ...oldVal]);
     }
 
-    // sort and add to content window
-    records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-    setRecords(oldVal => [...records, ...oldVal]);
+    setIsLoading(false);
   };
 
-  const handleLoadMoreAfter = async () => {
+  const handleLoadMoreAfter = async (force = false) => {
     const client = loaderRef.current;
+    console.log(isLoading);
+    if (force == false && (isLoading || !client)) return;
+    setIsLoading(true);
     if (!client) return;
 
     const opts = { limit: 100 } as LogFeedQueryOptions;
-    if (records.length) opts.after = records[records.length - 1].timestamp;
+    console.log(logRecords.length);
+    if (logRecords.length) opts.after = logRecords[logRecords.length - 1].timestamp;
     else opts.since = 'beginning';
-
+    console.log(opts);
     const newRecords = await client.query(opts);
-    if (newRecords && newRecords.length) setRecords(oldVal => [...oldVal, ...newRecords]);
+    console.log(newRecords);
+    if (newRecords && newRecords.length) setLogRecords(oldVal => [...oldVal, ...newRecords]);
     else setHasMoreAfter(false);
+
+    setIsLoading(false);
   };
 
   // listen to control channel
@@ -992,87 +1125,87 @@ export const LogFeedViewer = () => {
     const channelID = Math.random().toString();
     const channel = new BroadcastChannel(channelID);
 
-    const resetAll = () => {
-      // reset feed
-      resetIsLoading();
-      resetRecords();
-
-      startTSRef.current = null;
-      startTSMissesRef.current = 1;
-    };
-
     const fn = async (ev: MessageEvent<Command>) => {
       const client = loaderRef.current;
       if (!client) return;
 
       let result: LogRecord[] | null = null;
 
+      setIsLoading(true);
+
       // handle commands
       switch (ev.data.type) {
         case 'head':
           // reset
-          resetAll();
+          resetLogRecords();
 
-          // fetch records
-          result = await client.query({ since: 'beginning', limit: 100 });
-          result && setRecords(result);
-
-          // update props
+          // preset props
           setHasMoreBefore(false);
           setHasMoreAfter(true);
+
+          // execute query
+          result = await client.query({ since: 'beginning', limit: 100 });
+
+          // update content window
+          if (result && result.length) setLogRecords(result);
+
+          // update hasMoreAfter
+          if (!result || result.length < 100) setHasMoreAfter(false);
+
           setInitialPos('first');
           break;
         case 'tail':
           // reset
-          resetAll();
+          resetLogRecords();
+
+          // preset props
+          setHasMoreBefore(true);
+          setHasMoreAfter(false);
 
           // execute query
           result = await client.query({ since: '-100' });
 
-          // send last 100 to content window and update startTS
-          if (result && result.length) {
-            const newRecords = result.slice(-100);
-            setRecords(newRecords);
-            startTSRef.current = newRecords[0].timestamp;
-          } else {
-            startTSRef.current = (new Date()).toISOString();
-          }
+          // send last 100 to content window
+          if (result && result.length) setLogRecords(result?.slice(-100));
 
-          // update props
-          setHasMoreBefore(true);
-          setHasMoreAfter(false);
+          // update hasMoreBefore
+          if (!result || result.length < 100) setHasMoreBefore(false);
+
           setInitialPos('last');
           break;
         case 'seek':
           // reset
-          resetAll();
+          resetLogRecords();
+
+          // preset props
+          setHasMoreBefore(true);
+          setHasMoreAfter(true);
 
           // fetch records
           result = await client.query({ since: ev.data.time.toISOString(), limit: 100 });
 
-          // send to content window and update startTS
+          // send to content window
           if (result && result.length) {
-            setRecords(result);
-            startTSRef.current = result[0].timestamp;
+            setLogRecords(result);
           } else {
             throw new Error('not implemented');
           }
 
-          // update props
-          setHasMoreBefore(true);
-          setHasMoreAfter(true);
           setInitialPos('first');
           break;
         case 'loadMoreAfter':
+          console.log('loadMoreAfter');
           setHasMoreAfter(true);
-          handleLoadMoreAfter();
+          handleLoadMoreAfter(true);
           break;
         default:
           throw new Error('not implemented');
       }
 
+      setIsLoading(false);
+
       // reset content cache
-      contentRef.current?.resetloadMoreItemsCache();
+      //contentRef.current?.resetloadMoreItemsCache();
     };
     channel.addEventListener('message', fn);
 
@@ -1099,7 +1232,7 @@ export const LogFeedViewer = () => {
       <LogFeedLoader ref={loaderRef} />
       <LogFeedContent
         ref={contentRef}
-        items={records}
+        items={logRecords}
         hasMoreBefore={hasMoreBefore}
         hasMoreAfter={hasMoreAfter}
         loadMoreBefore={handleLoadMoreBefore}
