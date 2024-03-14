@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { addMonths, parse, isValid } from 'date-fns';
+import { parse, isValid } from 'date-fns';
 import { format } from 'date-fns-tz';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
-import { DateRange } from 'react-day-picker';
 
 import Button from 'kubetail-ui/elements/Button';
 import { Calendar } from 'kubetail-ui/elements/Calendar';
@@ -233,138 +232,6 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, {}>((_, ref) => 
         </div>
       </div>
     </div>
-  );
-});
-
-/**
- * Absolute range picker component
- */
-
-type AbsoluteRangePickerHandle = {
-  reset: () => void;
-  getValue: () => DateRange | undefined;
-};
-
-const AbsoluteRangePicker = forwardRef<AbsoluteRangePickerHandle, {}>((_, ref) => {
-  const today = new Date;
-  const dateFmt = Intl.DateTimeFormat().resolvedOptions().locale === 'en-US' ? 'MM/dd/yyyy' : 'dd/MM/yyyy';
-
-  const [calendarDateRange, setCalendarDateRange] = useState<DateRange | undefined>({ from: today, to: today });
-
-  const [manualStartDate, setManualStartDate] = useState(format(today, dateFmt));
-  const [manualStartTime, setManualStartTime] = useState('00:00:00');
-
-  const [manualEndDate, setManualEndDate] = useState(format(today, dateFmt));
-  const [manualEndTime, setManualEndTime] = useState('23:59:59');
-
-  const [errorMsgs, setErrorMsgs] = useState(new Map<string, string>());
-
-  const validate = () => {
-    if (!isValid(parse(manualStartDate, dateFmt, new Date()))) errorMsgs.set('startDate', dateFmt)
-    else errorMsgs.delete('startDate');
-
-    if (!isValid(parse(manualStartTime, 'HH:mm:ss', new Date()))) errorMsgs.set('startTime', 'HH:mm:ss')
-    else errorMsgs.delete('startTime');
-
-    if (!isValid(parse(manualEndDate, dateFmt, new Date()))) errorMsgs.set('endDate', dateFmt)
-    else errorMsgs.delete('endDate');
-
-    if (!isValid(parse(manualEndTime, 'HH:mm:ss', new Date()))) errorMsgs.set('endTime', 'HH:mm:ss')
-    else errorMsgs.delete('endTime');
-
-    setErrorMsgs(new Map(errorMsgs));
-
-    // return undefined if validation failed
-    if (errorMsgs.size) return undefined;
-
-    // return parsed DateRange
-    return {
-      from: parse(`${manualStartDate} ${manualStartTime}`, `${dateFmt} HH:mm:ss`, new Date()),
-      to: parse(`${manualEndDate} ${manualEndTime}`, `${dateFmt} HH:mm:ss`, new Date()),
-    };
-  }
-
-  // define handler api
-  useImperativeHandle(ref, () => ({
-    reset: () => {
-      setCalendarDateRange({ from: today, to: today });
-      setManualStartDate(format(today, dateFmt));
-      setManualStartTime('00:00:00');
-      setManualEndDate(format(today, dateFmt));
-      setManualEndTime('23:59:59');
-      setErrorMsgs(new Map<string, string>());
-    },
-    getValue: validate
-  }));
-
-  const handleCalendarSelect = (value: DateRange | undefined) => {
-    if (!value) return;
-    setCalendarDateRange(value);
-    if (value.from) {
-      setManualStartDate(format(value.from, dateFmt))
-      setManualStartTime('00:00:00');
-    }
-    if (value.to) {
-      setManualEndDate(format(value.to, dateFmt))
-      setManualEndTime('23:59:59');
-    }
-    setErrorMsgs(new Map<string, string>());
-  }
-
-  return (
-    <>
-      <Calendar
-        initialFocus
-        mode="range"
-        disabled={{ after: today }}
-        defaultMonth={today && addMonths(today, -1)}
-        selected={calendarDateRange}
-        onSelect={handleCalendarSelect}
-        numberOfMonths={2}
-      />
-      <div className="mt-1 flex px-3 justify-between">
-        <div className="flex space-x-4">
-          <div>
-            <Form.Label>Start date</Form.Label>
-            <Form.Control
-              className="w-[100px]"
-              value={manualStartDate}
-              onChange={ev => setManualStartDate(ev.target.value)}
-            />
-            {errorMsgs.has('startDate') && <Form.Control.Feedback>{errorMsgs.get('startDate')}</Form.Control.Feedback>}
-          </div>
-          <div>
-            <Form.Label>Start time</Form.Label>
-            <Form.Control
-              className="w-[100px]"
-              value={manualStartTime}
-              onChange={ev => setManualStartTime(ev.target.value)}
-            />
-            {errorMsgs.has('startTime') && <Form.Control.Feedback>{errorMsgs.get('startTime')}</Form.Control.Feedback>}
-          </div>
-        </div>
-        <div className="flex space-x-4">
-          <div>
-            <Form.Label>End date</Form.Label>
-            <Form.Control
-              className="w-[100px]"
-              value={manualEndDate}
-              onChange={ev => setManualEndDate(ev.target.value)}
-            />
-            {errorMsgs.has('endDate') && <Form.Control.Feedback>{errorMsgs.get('endDate')}</Form.Control.Feedback>}
-          </div>
-          <div>
-            <Form.Label>End time</Form.Label>
-            <Form.Control
-              className="w-[100px]"
-              value={manualEndTime}
-              onChange={ev => setManualEndTime(ev.target.value)}
-            />
-            {errorMsgs.has('endTime') && <Form.Control.Feedback>{errorMsgs.get('endTime')}</Form.Control.Feedback>}
-          </div>
-        </div>
-      </div>
-    </>
   );
 });
 
