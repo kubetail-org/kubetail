@@ -567,6 +567,37 @@ enum MetaV1ResourceVersionMatch {
   Exact
 }
 
+# --- PageInfo ---
+
+type PageInfo {
+  """
+  When paginating forwards, the cursor to continue.
+  """
+  endCursor: ID
+
+  """
+  When paginating forwards, are there more items?
+  """
+  hasNextPage: Boolean!
+
+  """
+  When paginating backwards, are there more items?
+  """
+  hasPreviousPage: Boolean!
+
+  """
+  When paginating backwards, the cursor to continue.
+  """
+  startCursor: ID
+}
+
+# --- PodLogQueryResponse ---
+
+type PodLogQueryResponse {
+  results: [LogRecord!]!
+  pageInfo: PageInfo!
+}
+
 # --- Watch ---
 
 # https://pkg.go.dev/k8s.io/apimachinery/pkg/watch#EventType
@@ -613,15 +644,42 @@ type Query {
   """
   Logs API
   """
-  podLogQuery(
+  podLogHead(
     namespace: String,
     name: String!,
     container: String,
-    after: String,
+
+    """
+    Returns log records that came after the specified cursor.
+    """
+    after: ID,
+
+    """
+    Returns log records that came since the specified option (e.g. "BEGINNING", "PT5M", "2006-01-02T15:04:05Z07:00")
+    """
     since: String = "BEGINNING",
-    until: String = "NOW",
-    limit: Int @validate(rule: "gt=0", message: "Value must be greater than 0")
-  ): [LogRecord!] @nullIfValidationFailed
+
+    """
+    Return the first _n_ results
+    """
+    first: Int = 100 @validate(rule: "gte=0", message: "Value must be >= 0"),
+  ): PodLogQueryResponse @nullIfValidationFailed
+
+  podLogTail(
+    namespace: String,
+    name: String!,
+    container: String,
+
+    """
+    Returns log records that came before the specified cursor.
+    """
+    before: ID,
+
+    """
+    Return the last _n_ results
+    """
+    last: Int = 100 @validate(rule: "gt=0", message: "Value must be > 0")
+  ): PodLogQueryResponse @nullIfValidationFailed
 
   """
   Health endpoints
@@ -660,30 +718,20 @@ type Subscription {
   """
   Logs API
   """
-  podLogTail(
+  podLogFollow(
     namespace: String
     name: String!
     container: String
 
     """
-    Returns events that came after the specified cursor.
+    Returns log records that came after the specified cursor
     """
-    after: String
+    after: ID
 
     """
-    Returns log records that came since the specified option (e.g. "100", "-100", "NOW", "PT5M", "2006-01-02T15:04:05Z07:00")
+    Returns log records that came since the specified option (e.g. "NOW", "2006-01-02T15:04:05Z07:00")
     """
     since: String = "NOW"
-
-    """
-    Returns log records that came until the specified option (e.g. "NOW", "PT1M", "2006-01-03T15:04:05Z07:00")
-    """
-    until: String = "FOREVER"
-
-    """
-    Close the subscription after _n_ records are returned.
-    """
-    limit: Int @validate(rule: "gt=0", message: "Value must be greater than 0")
   ): LogRecord @nullIfValidationFailed
 
   """

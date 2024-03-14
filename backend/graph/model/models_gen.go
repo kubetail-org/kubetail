@@ -20,6 +20,22 @@ type LogRecord struct {
 	Message   string    `json:"message"`
 }
 
+type PageInfo struct {
+	// When paginating forwards, the cursor to continue.
+	EndCursor *string `json:"endCursor,omitempty"`
+	// When paginating forwards, are there more items?
+	HasNextPage bool `json:"hasNextPage"`
+	// When paginating backwards, are there more items?
+	HasPreviousPage bool `json:"hasPreviousPage"`
+	// When paginating backwards, the cursor to continue.
+	StartCursor *string `json:"startCursor,omitempty"`
+}
+
+type PodLogQueryResponse struct {
+	Results  []LogRecord `json:"results"`
+	PageInfo PageInfo    `json:"pageInfo"`
+}
+
 type Query struct {
 }
 
