@@ -17,9 +17,11 @@ package graph
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
+	"io"
 	"strings"
 	"time"
 
@@ -39,31 +41,49 @@ type Key int
 
 const K8STokenCtxKey Key = iota
 
+// Head enums
+type HeadSince int8
+
+const (
+	HeadSinceUnset HeadSince = iota
+	HeadSinceBeginning
+	HeadSinceTime
+)
+
 // Tail enums
-type TailSince int8
 type TailUntil int8
 
 const (
-	TailSinceUnset TailSince = iota
-	TailSinceBeginning
-	TailSinceNow
-	TailSinceLine
-	TailSinceTime
-
 	TailUntilUnset TailUntil = iota
-	TailUntilForever
-	TailUntilLine
+	TailUntilNow
 	TailUntilTime
 )
 
-type TailArgs struct {
-	After  string
-	Before string
-	Since  string
-	Until  string
-	Limit  uint
+// Tail cursor
+type TailCursor struct {
+	TailLines int64     `json:"tail_lines"`
+	Time      time.Time `json:"time"`
+	FirstTS   time.Time `json:"first_ts"`
 }
 
+// Log API args
+type HeadArgs struct {
+	After string
+	Since string
+	First uint
+}
+
+type TailArgs struct {
+	Before string
+	Last   uint
+}
+
+type FollowArgs struct {
+	After string
+	Since string
+}
+
+// watchEventProxyChannel
 func watchEventProxyChannel(ctx context.Context, watchAPI watch.Interface) <-chan *watch.Event {
 	evCh := watchAPI.ResultChan()
 	outCh := make(chan *watch.Event)
@@ -105,6 +125,7 @@ func watchEventProxyChannel(ctx context.Context, watchAPI watch.Interface) <-cha
 	return outCh
 }
 
+// getHealth
 func getHealth(ctx context.Context, clientset kubernetes.Interface, endpoint string) model.HealthCheckResponse {
 	resp := model.HealthCheckResponse{
 		Status:    model.HealthCheckStatusSuccess,
@@ -121,6 +142,7 @@ func getHealth(ctx context.Context, clientset kubernetes.Interface, endpoint str
 	return resp
 }
 
+// watchHealthChannel
 func watchHealthChannel(ctx context.Context, clientset kubernetes.Interface, endpoint string) <-chan model.HealthCheckResponse {
 	outCh := make(chan model.HealthCheckResponse)
 
@@ -155,6 +177,7 @@ func watchHealthChannel(ctx context.Context, clientset kubernetes.Interface, end
 	return outCh
 }
 
+// conversion helpers
 func toListOptions(options *metav1.ListOptions) metav1.ListOptions {
 	opts := metav1.ListOptions{}
 	if options != nil {
@@ -219,116 +242,336 @@ func newLogRecordFromLogLine(logLine string) model.LogRecord {
 	}
 }
 
-func tailPodLog(ctx context.Context, clientset kubernetes.Interface, namespace string, name string, container *string, args TailArgs) (<-chan model.LogRecord, error) {
-	// init output channel
-	ch := make(chan model.LogRecord)
-
-	now := time.Now()
-
-	var (
-		tailSince TailSince
-		tailUntil TailUntil
-		sinceLine int64
-		sinceTime time.Time
-		//untilLine int64
-		untilTime time.Time
-	)
-
-	// handle `since`
-	since := strings.TrimSpace(args.Since)
-	if strings.ToLower(since) == "beginning" {
-		tailSince = TailSinceBeginning
-	} else if strings.ToLower(since) == "now" {
-		tailSince = TailSinceNow
-	} else if line, err := strconv.ParseInt(since, 10, 64); err == nil {
-		tailSince = TailSinceLine
-		sinceLine = line
-		if sinceLine >= 0 {
-			return nil, fmt.Errorf("`since` line argument must be less than 0 (`%s`)", args.Since)
-		}
-	} else if timeAgo, err := duration.Parse(since); err == nil {
-		tailSince = TailSinceTime
-		sinceTime = now.Add(-1 * timeAgo.ToTimeDuration())
-	} else if ts, err := time.Parse(time.RFC3339Nano, since); err == nil {
-		tailSince = TailSinceTime
-		sinceTime = ts
-		if sinceTime.After(now) {
-			return nil, fmt.Errorf("`since` time argument (%s) must be in past (current time: %s)", args.Since, now.UTC().Format(time.RFC3339Nano))
-		}
-	} else {
-		return nil, fmt.Errorf("did not understand `since` (`%s`)", since)
+// encode cursor to base64-encoded json
+func encodeTailCursor(cursor TailCursor) (string, error) {
+	jsonData, err := json.Marshal(cursor)
+	if err != nil {
+		return "", err
 	}
+	output := base64.StdEncoding.EncodeToString(jsonData)
+	return output, nil
+}
 
-	// handle `until`
-	until := strings.TrimSpace(args.Until)
-	if strings.ToLower(until) == "forever" {
-		tailUntil = TailUntilForever
-	} else if strings.ToLower(until) == "now" {
-		tailUntil = TailUntilTime
-		untilTime = now
-	} else if _, err := strconv.ParseInt(until, 10, 64); err == nil {
-		return nil, fmt.Errorf("`until` line argument not currently supported")
-	} else if timeAgo, err := duration.Parse(until); err == nil {
-		tailUntil = TailUntilTime
-		untilTime = now.Add(-1 * timeAgo.ToTimeDuration())
-	} else if ts, err := time.Parse(time.RFC3339Nano, until); err == nil {
-		tailUntil = TailUntilTime
-		untilTime = ts
-		if untilTime.After(now) {
-			return nil, fmt.Errorf("`until` time argument (%s) must be in past (current time: %s)", args.Until, now.UTC().Format(time.RFC3339Nano))
-		}
-	} else {
-		return nil, fmt.Errorf("did not understand `until` (`%s`)", until)
+// decode cursor from base64-encoded json
+func decodeTailCursor(input string) (*TailCursor, error) {
+	decodedData, err := base64.StdEncoding.DecodeString(input)
+	if err != nil {
+		return nil, err
 	}
-
-	// handle `after`
-	if ts, err := time.Parse(time.RFC3339Nano, args.After); err == nil {
-		tailSince = TailSinceTime
-		sinceTime = ts.Add(1 * time.Nanosecond)
+	cursor := &TailCursor{}
+	if err = json.Unmarshal(decodedData, cursor); err != nil {
+		panic(err)
 	}
+	return cursor, nil
+}
 
-	// handle `before`
-	if ts, err := time.Parse(time.RFC3339Nano, args.Before); err == nil {
-		tailUntil = TailUntilTime
-		untilTime = ts.Add(-1 * time.Nanosecond)
-	}
+// get first timestamp in log
+func getFirstTimestamp(ctx context.Context, clientset kubernetes.Interface, namespace string, name string, container *string) (time.Time, error) {
+	var ts time.Time
 
-	exitEarly := func() (<-chan model.LogRecord, error) {
-		close(ch)
-		return ch, nil
-	}
-
-	// exit early if untilTime < startTime
-	if tailSince == TailSinceTime && tailUntil == TailUntilTime && untilTime.Before(sinceTime) {
-		return exitEarly()
-	}
-
-	// exit early if tail since "now" and untilTime < "now"
-	if tailSince == TailSinceNow && tailUntil == TailUntilTime && untilTime.Before(now) {
-		return exitEarly()
-	}
-
-	// init kubernetes logging options
+	// build args
 	opts := &corev1.PodLogOptions{
 		Timestamps: true,
+		LimitBytes: ptr.To[int64](100), // get more bytes than necessary
 	}
 
 	if container != nil {
 		opts.Container = *container
 	}
 
-	switch tailSince {
-	case TailSinceNow:
-		opts.TailLines = ptr.To[int64](0)
-	case TailSinceTime:
-		t := metav1.NewTime(sinceTime)
-		opts.SinceTime = &t
-	case TailSinceLine:
-		opts.TailLines = ptr.To[int64](-1 * sinceLine)
+	// execute query
+	req := clientset.CoreV1().Pods(namespace).GetLogs(name, opts)
+	podLogs, err := req.Stream(ctx)
+	if err != nil {
+		return ts, err
+	}
+	defer podLogs.Close()
+
+	buf := make([]byte, 30) // timestamp is 30-bytes long
+	if _, err := podLogs.Read(buf); err != nil {
+		return ts, err
 	}
 
-	if tailUntil == TailUntilForever {
-		opts.Follow = true
+	return time.Parse(time.RFC3339Nano, string(buf))
+}
+
+// log methods
+func headPodLog(ctx context.Context, clientset kubernetes.Interface, namespace string, name string, container *string, args HeadArgs) (*model.PodLogQueryResponse, error) {
+	var (
+		headSince HeadSince
+		sinceTime time.Time
+	)
+
+	// handle `since`
+	since := strings.TrimSpace(args.Since)
+	if strings.ToLower(since) == "beginning" {
+		headSince = HeadSinceBeginning
+	} else if timeAgo, err := duration.Parse(since); err == nil {
+		headSince = HeadSinceTime
+		sinceTime = time.Now().Add(-1 * timeAgo.ToTimeDuration())
+	} else if ts, err := time.Parse(time.RFC3339Nano, since); err == nil {
+		headSince = HeadSinceTime
+		sinceTime = ts
+	} else {
+		return nil, fmt.Errorf("did not understand `since` (`%s`)", since)
+	}
+
+	// handle `after`
+	if ts, err := time.Parse(time.RFC3339Nano, args.After); err == nil {
+		headSince = HeadSinceTime
+		sinceTime = ts.Add(1 * time.Nanosecond)
+	}
+
+	// init kubernetes logging options
+	opts := &corev1.PodLogOptions{
+		Timestamps: true,
+		Follow:     false,
+	}
+
+	if container != nil {
+		opts.Container = *container
+	}
+
+	if headSince == HeadSinceTime {
+		t := metav1.NewTime(sinceTime)
+		opts.SinceTime = &t
+	}
+
+	// execute query
+	req := clientset.CoreV1().Pods(namespace).GetLogs(name, opts)
+	podLogs, err := req.Stream(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer podLogs.Close()
+
+	// iterate through results
+	records := []model.LogRecord{}
+	n := uint(0)
+
+	scanner := bufio.NewScanner(podLogs)
+	for scanner.Scan() {
+		logRecord := newLogRecordFromLogLine(scanner.Text())
+
+		// ignore if log record comes before time window
+		if headSince == HeadSinceTime && logRecord.Timestamp.Before(sinceTime) {
+			continue
+		}
+
+		n += 1
+
+		// exit if we've reached `First`
+		if args.First != 0 && n >= args.First+1 {
+			break
+		}
+
+		records = append(records, logRecord)
+	}
+
+	// stop streaming asap
+	podLogs.Close()
+
+	// build response
+	response := &model.PodLogQueryResponse{}
+
+	// page info
+	response.PageInfo = model.PageInfo{}
+
+	if args.First != 0 && n > args.First {
+		response.PageInfo.HasNextPage = true
+	}
+
+	if len(records) > 0 {
+		response.PageInfo.EndCursor = ptr.To[string](records[len(records)-1].Timestamp.Format(time.RFC3339Nano))
+	} else if headSince == HeadSinceTime {
+		response.PageInfo.EndCursor = ptr.To[string](sinceTime.Format(time.RFC3339Nano))
+	} else if headSince == HeadSinceBeginning {
+		response.PageInfo.EndCursor = ptr.To[string]("BEGINNING")
+	}
+
+	response.Results = records
+
+	return response, nil
+}
+
+func tailPodLog(ctx context.Context, clientset kubernetes.Interface, namespace string, name string, container *string, args TailArgs) (*model.PodLogQueryResponse, error) {
+	var (
+		firstTS   time.Time
+		tailLines int64
+		tailUntil TailUntil
+		untilTime time.Time
+	)
+
+	// handle `before`
+	if args.Before != "" {
+		cursor, err := decodeTailCursor(args.Before)
+		if err != nil {
+			return nil, err
+		}
+		firstTS = cursor.FirstTS
+		tailLines = cursor.TailLines
+		tailUntil = TailUntilTime
+		untilTime = cursor.Time.Add(-1 * time.Nanosecond)
+	}
+
+	// first timestamp
+	if firstTS.IsZero() {
+		ts, err := getFirstTimestamp(ctx, clientset, namespace, name, container)
+		switch {
+		case err == io.EOF:
+			// empty log
+			return &model.PodLogQueryResponse{PageInfo: model.PageInfo{EndCursor: ptr.To[string]("BEGINNING")}}, nil
+		case err != nil:
+			// other error
+			return nil, err
+		default:
+			firstTS = ts
+		}
+	}
+
+	// look back with increasing batch size until we have enough records or reach beginning
+	records := []model.LogRecord{}
+	batchSize := int64(args.Last)
+
+Loop:
+	for {
+		// look back farther with each iteration
+		tailLines += batchSize
+
+		// init kubernetes logging options
+		opts := &corev1.PodLogOptions{
+			Timestamps: true,
+			Follow:     false,
+			TailLines:  ptr.To[int64](tailLines),
+		}
+
+		if container != nil {
+			opts.Container = *container
+		}
+
+		// execute query
+		req := clientset.CoreV1().Pods(namespace).GetLogs(name, opts)
+		podLogs, err := req.Stream(ctx)
+		if err != nil {
+			return nil, err
+		}
+		defer podLogs.Close()
+
+		loopRecords := []model.LogRecord{}
+
+		scanner := bufio.NewScanner(podLogs)
+		for scanner.Scan() {
+			logRecord := newLogRecordFromLogLine(scanner.Text())
+
+			// exit if log record comes after time window
+			if tailUntil == TailUntilTime && logRecord.Timestamp.After(untilTime) {
+				break
+			}
+
+			loopRecords = append(loopRecords, logRecord)
+		}
+
+		// prepend loop records to outer records
+		records = append(loopRecords, records...)
+
+		// stop streaming asap
+		podLogs.Close()
+
+		// exit if we have enough records
+		if len(records) >= int(args.Last) {
+			break Loop
+		}
+
+		// exit if we've reached beginning
+		if len(records) > 0 && records[0].Timestamp == firstTS {
+			break Loop
+		}
+
+		// update loop time window
+		if len(records) > 0 {
+			untilTime = records[0].Timestamp.Add(-1 * time.Nanosecond)
+		}
+
+		// increase batch size with each iteration
+		batchSize += batchSize / 2
+	}
+
+	// build response
+	response := &model.PodLogQueryResponse{}
+
+	// page info
+	response.PageInfo = model.PageInfo{}
+
+	if len(records) == 0 {
+		response.PageInfo.EndCursor = ptr.To[string]("BEGINNING")
+	} else {
+		// get last N items
+		startIndex := len(records) - int(args.Last)
+		if startIndex < 0 {
+			startIndex = 0
+		}
+		response.Results = records[startIndex:]
+
+		// start cursor
+		if records[0].Timestamp != firstTS {
+			cursorStr, _ := encodeTailCursor(TailCursor{
+				TailLines: tailLines,
+				Time:      records[0].Timestamp,
+				FirstTS:   firstTS,
+			})
+			response.PageInfo.StartCursor = &cursorStr
+			response.PageInfo.HasPreviousPage = true
+		}
+
+		// end cursor
+		response.PageInfo.EndCursor = ptr.To[string](records[len(records)-1].Timestamp.Format(time.RFC3339Nano))
+		if args.Before != "" {
+			response.PageInfo.HasNextPage = true
+		}
+	}
+
+	return response, nil
+}
+
+func followPodLog(ctx context.Context, clientset kubernetes.Interface, namespace string, name string, container *string, args FollowArgs) (<-chan model.LogRecord, error) {
+	// init output channel
+	ch := make(chan model.LogRecord)
+
+	var sinceTime time.Time
+
+	// handle `since`
+	since := strings.TrimSpace(args.Since)
+	if strings.ToLower(since) == "beginning" {
+		// do nothing
+	} else if strings.ToLower(since) == "now" {
+		sinceTime = time.Now()
+	} else if ts, err := time.Parse(time.RFC3339Nano, since); err == nil {
+		sinceTime = ts
+	} else {
+		return nil, fmt.Errorf("did not understand `since` (`%s`)", since)
+	}
+
+	// handle `after`
+	after := strings.TrimSpace(args.After)
+	if strings.ToLower(after) == "beginning" {
+		sinceTime = time.Time{}
+	} else if ts, err := time.Parse(time.RFC3339Nano, args.After); err == nil {
+		sinceTime = ts.Add(1 * time.Nanosecond)
+	}
+
+	// init kubernetes logging options
+	opts := &corev1.PodLogOptions{
+		Timestamps: true,
+		Follow:     true,
+	}
+
+	if container != nil {
+		opts.Container = *container
+	}
+
+	if !sinceTime.IsZero() {
+		t := metav1.NewTime(sinceTime)
+		opts.SinceTime = &t
 	}
 
 	// execute query
@@ -341,30 +584,16 @@ func tailPodLog(ctx context.Context, clientset kubernetes.Interface, namespace s
 	go func() {
 		defer podLogs.Close()
 
-		n := uint(0)
-
 		scanner := bufio.NewScanner(podLogs)
 		for scanner.Scan() {
 			logRecord := newLogRecordFromLogLine(scanner.Text())
 
 			// ignore if log record comes before time window
-			if tailSince == TailSinceTime && logRecord.Timestamp.Before(sinceTime) {
+			if logRecord.Timestamp.Before(sinceTime) {
 				continue
 			}
 
-			// exit if log record comes after time window
-			if tailUntil == TailUntilTime && logRecord.Timestamp.After(untilTime) {
-				break
-			}
-
 			ch <- logRecord
-
-			n += 1
-
-			// exit if we've reached `Limit`
-			if args.Limit != 0 && n >= args.Limit {
-				break
-			}
 		}
 		close(ch)
 	}()

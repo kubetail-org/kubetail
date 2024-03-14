@@ -18,7 +18,6 @@ import Root from '@/pages/_root';
 import Login from '@/pages/auth/login';
 import Logout from '@/pages/auth/logout';
 import Console from '@/pages/console';
-import Console2 from '@/pages/console2';
 import Home from '@/pages/home';
 import ErrorPage from '@/error-page';
 
@@ -28,7 +27,6 @@ export const routes = (
   <Route path="/" element={<Root />} errorElement={<ErrorPage />}>
     <Route index element={<Home />} />
     <Route path="console" element={<Console />} />
-    <Route path="console2" element={<Console2 />} />
     <Route path="scratch" element={<ScratchPage />} />
     <Route path="auth">
       <Route path="login" element={<Login />} />

@@ -152,10 +152,100 @@ const RelativeTimePicker = forwardRef<RelativeTimePickerHandle, {}>((_, ref) => 
 
 type AbsoluteTimePickerHandle = {
   reset: () => void;
-  getValue: () => DateRange | undefined;
+  getValue: () => Date | undefined;
 };
 
 const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, {}>((_, ref) => {
+  const today = new Date;
+  const dateFmt = Intl.DateTimeFormat().resolvedOptions().locale === 'en-US' ? 'MM/dd/yyyy' : 'dd/MM/yyyy';
+
+  const [calendarDate, setCalendarDate] = useState<Date | undefined>();
+
+  const [manualStartDate, setManualStartDate] = useState(format(today, dateFmt));
+  const [manualStartTime, setManualStartTime] = useState('00:00:00');
+
+  const [errorMsgs, setErrorMsgs] = useState(new Map<string, string>());
+
+  const validate = () => {
+    if (!isValid(parse(manualStartDate, dateFmt, new Date()))) errorMsgs.set('startDate', dateFmt)
+    else errorMsgs.delete('startDate');
+
+    if (!isValid(parse(manualStartTime, 'HH:mm:ss', new Date()))) errorMsgs.set('startTime', 'HH:mm:ss')
+    else errorMsgs.delete('startTime');
+
+    setErrorMsgs(new Map(errorMsgs));
+
+    // return undefined if validation failed
+    if (errorMsgs.size) return undefined;
+
+    // return parsed Date
+    return parse(`${manualStartDate} ${manualStartTime}`, `${dateFmt} HH:mm:ss`, new Date());
+  }
+
+  // define handler api
+  useImperativeHandle(ref, () => ({
+    reset: () => {
+      setCalendarDate(today);
+      setManualStartDate(format(today, dateFmt));
+      setManualStartTime('00:00:00');
+      setErrorMsgs(new Map<string, string>());
+    },
+    getValue: validate
+  }));
+
+  const handleCalendarSelect = (value: Date | undefined) => {
+    if (!value) return;
+    setCalendarDate(value);
+    setManualStartDate(format(value, dateFmt))
+    setManualStartTime('00:00:00');
+    setErrorMsgs(new Map<string, string>());
+  }
+
+  return (
+    <div className="flex flex-col items-center">
+      <Calendar
+        initialFocus
+        mode="single"
+        disabled={{ after: today }}
+        defaultMonth={today}
+        selected={calendarDate}
+        onSelect={handleCalendarSelect}
+        numberOfMonths={1}
+      />
+      <div className="flex space-x-4 mt-1">
+        <div>
+          <Form.Label>Start date</Form.Label>
+          <Form.Control
+            className="w-[110px]"
+            value={manualStartDate}
+            onChange={ev => setManualStartDate(ev.target.value)}
+          />
+          {errorMsgs.has('startDate') && <Form.Control.Feedback>{errorMsgs.get('startDate')}</Form.Control.Feedback>}
+        </div>
+        <div>
+          <Form.Label>Start time</Form.Label>
+          <Form.Control
+            className="w-[110px]"
+            value={manualStartTime}
+            onChange={ev => setManualStartTime(ev.target.value)}
+          />
+          {errorMsgs.has('startTime') && <Form.Control.Feedback>{errorMsgs.get('startTime')}</Form.Control.Feedback>}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+/**
+ * Absolute range picker component
+ */
+
+type AbsoluteRangePickerHandle = {
+  reset: () => void;
+  getValue: () => DateRange | undefined;
+};
+
+const AbsoluteRangePicker = forwardRef<AbsoluteRangePickerHandle, {}>((_, ref) => {
   const today = new Date;
   const dateFmt = Intl.DateTimeFormat().resolvedOptions().locale === 'en-US' ? 'MM/dd/yyyy' : 'dd/MM/yyyy';
 
@@ -317,8 +407,7 @@ export const DateRangeDropdown = ({ children, onChange }: DateRangeDropdownProps
     } else {
       const val = absolutePickerRef.current?.getValue();
       if (!val) return;
-      if (val.from) args.since = val.from;
-      if (val.to) args.until = val.to;
+      args.since = val;
     }
 
     // close popover and call onChange handler
@@ -333,10 +422,10 @@ export const DateRangeDropdown = ({ children, onChange }: DateRangeDropdownProps
       </PopoverTrigger>
       <PopoverContent
         className="w-auto p-0 bg-background"
-        align="center"
+        align="start"
       >
         <Tabs
-          className="w-[565px] p-3"
+          className="w-[400px] p-3"
           defaultValue={tabValue}
           onValueChange={(value) => setTabValue(value)}
         >

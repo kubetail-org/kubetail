@@ -559,3 +559,21 @@ export const EXPLORER_STATEFULSETS_OBJECT_FRAGMENT = gql(`
   }
 `);
 
+/**
+ * Logging fragments
+ */
+
+export const POD_LOG_QUERY_RESPONSE_FRAGMENT = gql(`
+  fragment PodLogQueryResponseFragment on PodLogQueryResponse {
+    results {
+      timestamp
+      message
+    }
+    pageInfo {
+      hasPreviousPage
+      hasNextPage
+      startCursor
+      endCursor
+    }
+  }
+`);

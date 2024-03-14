@@ -12,83 +12,125 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useQuery } from '@apollo/client';
-import type { ApolloError } from '@apollo/client';
-import { createContext, createRef, forwardRef, useContext, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { ApolloError } from '@apollo/client';
+import { useEffect } from 'react';
+import { RecoilRoot, atom, useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
 
 import type { ExtractQueryType } from '@/app-env';
 import * as fragments from '@/lib/graphql/fragments';
 import * as ops from '@/lib/graphql/ops';
-import type { LogRecord as GraphQLLogRecord } from '@/lib/graphql/__generated__/graphql';
 import { useGetQueryWithSubscription, useListQueryWithSubscription } from '@/lib/hooks';
-import { Workload, typenameMap } from '@/lib/workload';
+import { Workload as WorkloadType, typenameMap } from '@/lib/workload';
 
-export type LRNode = ExtractQueryType<typeof fragments.CONSOLE_NODES_LIST_ITEM_FRAGMENT>;
-export type LRWorkload = ExtractQueryType<typeof fragments.CONSOLE_LOGGING_RESOURCES_GENERIC_OBJECT_FRAGMENT>;
-export type LRPod = ExtractQueryType<typeof fragments.CONSOLE_LOGGING_RESOURCES_POD_FRAGMENT>;
+/**
+ * Shared types
+ */
 
-export interface LogRecord extends GraphQLLogRecord {
-  node: LRNode;
-  pod: LRPod;
-  container: string;
-};
+export type Node = ExtractQueryType<typeof fragments.CONSOLE_NODES_LIST_ITEM_FRAGMENT>;
+export type Workload = ExtractQueryType<typeof fragments.CONSOLE_LOGGING_RESOURCES_GENERIC_OBJECT_FRAGMENT>;
+export type Pod = ExtractQueryType<typeof fragments.CONSOLE_LOGGING_RESOURCES_POD_FRAGMENT>;
 
-type OnRecordCallbackFunction = (record: LogRecord) => void;
-
-export enum LogFeedState {
-  Playing = 'PLAYING',
-  Paused = 'PAUSED',
-  InQuery = 'IN_QUERY',
+class WorkloadResponse {
+  loading: boolean = false;
+  error?: ApolloError = undefined;
+  item?: Workload | null = undefined;
 }
 
-export type LogFeedQueryOptions = {
-  since?: string;
-  until?: string;
+class PodListResponse {
+  loading: boolean = false;
+  error?: ApolloError = undefined;
+  items?: Pod[] | null = undefined;
 };
 
 /**
- * Context object
+ * State
  */
 
-type WorkloadMapValue = {
-  loading: boolean;
-  error: ApolloError | undefined;
-  item: LRWorkload | null | undefined;
-};
+const sourceToWorkloadResponseMapState = atom({
+  key: 'sourceToWorkloadResponseMap',
+  default: new Map<string, WorkloadResponse>(),
+});
 
-type WorkloadMap = Map<string, WorkloadMapValue>;
+const sourceToPodListResponseMapState = atom({
+  key: 'sourceToPodListResponseMap',
+  default: new Map<string, PodListResponse>(),
+});
 
-type PodMapValue = {
-  loading: boolean;
-  error: ApolloError | undefined;
-  items: LRPod[] | null | undefined;
-};
+/**
+ * Hooks
+ */
 
-type PodMap = Map<string, PodMapValue>;
+export function useNodes() {
+  const { fetching, data } = useListQueryWithSubscription({
+    query: ops.CONSOLE_NODES_LIST_FETCH,
+    subscription: ops.CONSOLE_NODES_LIST_WATCH,
+    queryDataKey: 'coreV1NodesList',
+    subscriptionDataKey: 'coreV1NodesWatch',
+  });
 
-type Context = {
-  workloadMap: WorkloadMap;
-  setWorkloadMap: React.Dispatch<WorkloadMap>;
-  podMap: PodMap;
-  setPodMap: React.Dispatch<PodMap>;
-  logFeedState: LogFeedState;
-  setLogFeedState: React.Dispatch<LogFeedState>;
-  logFeedLoaderRef: React.RefObject<HTMLDivElement>;
-};
+  const loading = fetching; // treat still-fetching as still-loading
+  const nodes = (data?.coreV1NodesList?.items) ? data.coreV1NodesList.items : [] as Node[];
 
-const Context = createContext<Context>({} as Context);
+  return { loading, nodes };
+}
+
+export function useWorkloads() {
+  const sourceToWorkloadResponseMap = useRecoilValue(sourceToWorkloadResponseMapState);
+
+  let loading = false;
+  const workloads = new Map<WorkloadType, Workload[]>();
+
+  // group sources by workload type
+  sourceToWorkloadResponseMap.forEach((val) => {
+    loading = loading || val.loading;
+    const item = val.item;
+    if (!item?.__typename) return;
+    const workload = typenameMap[item.__typename];
+    const items = workloads.get(workload) || [];
+    items.push(item);
+    workloads.set(workload, items);
+  });
+
+  return { loading, workloads };
+}
+
+export function usePods() {
+  const sourceToPodListResponseMap = useRecoilValue(sourceToPodListResponseMapState);
+
+  let loading = false;
+  const pods: Pod[] = [];
+
+  // uniquify
+  const usedIDs = new Set<string>();
+  sourceToPodListResponseMap.forEach((val) => {
+    loading = loading || val.loading;
+    val.items?.forEach(item => {
+      if (usedIDs.has(item.metadata.uid)) return;
+      pods.push(item);
+      usedIDs.add(item.metadata.uid);
+    });
+  });
+
+  // sort
+  pods.sort((a, b) => a.metadata.name.localeCompare(b.metadata.name));
+
+  return { loading, pods };
+}
 
 /**
  * Source map updater hook (for internal use)
  */
 
-function useWorkloadMapUpdater(sourcePath: string, value: WorkloadMapValue) {
-  const { workloadMap, setWorkloadMap } = useContext(Context);
+function useWorkloadMapUpdater(sourcePath: string, value: WorkloadResponse) {
+  const setSourceToWorkloadResponseMap = useSetRecoilState(sourceToWorkloadResponseMapState);
 
   useEffect(() => {
-    workloadMap.set(sourcePath, value);
-    setWorkloadMap(new Map(workloadMap));
-  }, [value.loading, value.error, value.item]);
+    setSourceToWorkloadResponseMap(oldVal => {
+      const newVal = new Map(oldVal);
+      newVal.set(sourcePath, value);
+      return newVal;
+    });
+  }, [JSON.stringify(value)]);
 }
 
 /**
@@ -116,12 +158,15 @@ const LoadPodsForLabels = ({
     variables: { namespace, labelSelector },
   });
 
-  const { podMap, setPodMap } = useContext(Context);
+  const setSourceToPodListResponseMap = useSetRecoilState(sourceToPodListResponseMapState);
 
   useEffect(() => {
-    const items = data?.coreV1PodsList?.items;
-    podMap.set(sourcePath, { loading, error, items });
-    setPodMap(new Map(podMap));
+    setSourceToPodListResponseMap((oldVal) => {
+      const items = data?.coreV1PodsList?.items;
+      const newVal = new Map(oldVal);
+      newVal.set(sourcePath, { loading, error, items });
+      return newVal;
+    });
   }, [loading, error, data]);
 
   return <></>;
@@ -302,13 +347,13 @@ const LoadPodWorkload = ({ sourcePath }: { sourcePath: string }) => {
   // update workload map
   useWorkloadMapUpdater(sourcePath, { loading, error, item });
 
-  // update pod map
-  const { podMap, setPodMap } = useContext(Context);
+  const [sourceToPodListResponseMap, setSourceToPodListResponseMap] = useRecoilState(sourceToPodListResponseMapState);
 
   useEffect(() => {
     const items = (item) ? [item] : undefined;
-    podMap.set(sourcePath, { loading, error, items });
-    setPodMap(new Map(podMap));
+    const newMap = new Map(sourceToPodListResponseMap);
+    newMap.set(sourcePath, { loading, error, items });
+    setSourceToPodListResponseMap(newMap);
   }, [loading, error, data]);
 
   return <></>;
@@ -383,370 +428,33 @@ const LoadStatefulSetWorkload = ({ sourcePath }: { sourcePath: string }) => {
 };
 
 /**
- * Log feed hook
+ * Source deletion handler component
  */
 
+type SourceDeletionHandlerProps = {
+  sourcePaths: string[];
+};
 
-export function useLogFeed() {
-  const { logFeedState, logFeedLoaderRef } = useContext(Context);
-
-  const play = () => {
-    const ev = new CustomEvent('play');
-    logFeedLoaderRef.current?.dispatchEvent(ev);
-  };
-
-  const pause = () => {
-    const ev = new CustomEvent('pause');
-    logFeedLoaderRef.current?.dispatchEvent(ev);
-  };
-
-  const skipForward = () => {
-    const ev = new CustomEvent('skipForward');
-    logFeedLoaderRef.current?.dispatchEvent(ev);
-  }
-
-  const query = (args: LogFeedQueryOptions) => {
-    const ev = new CustomEvent<LogFeedQueryOptions>('query', { detail: args });
-    logFeedLoaderRef.current?.dispatchEvent(ev);
-  }
-
-  return {
-    state: logFeedState,
-    play,
-    pause,
-    skipForward,
-    query,
-  };
+const removeUnusedKeys = <K, V>(origMap: Map<K, V>, usedKeys: K[]): Map<K, V> => {
+  const newMap = new Map(origMap);
+  Array.from(newMap.keys()).forEach(key => {
+    if (!usedKeys.includes(key)) newMap.delete(key);
+  })
+  return newMap;
 }
 
-/**
- * Log feed data fetcher component
- */
+const SourceDeletionHandler = ({ sourcePaths }: SourceDeletionHandlerProps) => {
+  const setSourceToWorkloadResponseMap = useSetRecoilState(sourceToWorkloadResponseMapState);
+  const setSourceToPodListResponseMap = useSetRecoilState(sourceToPodListResponseMapState);
 
-type LogFeedRecordFetcherProps = {
-  node: LRNode;
-  pod: LRPod;
-  container: string;
-  onLoad: (records: LogRecord[]) => void;
-  onUpdate: (record: LogRecord) => void;
-};
-
-type LogFeedRecordFetcherHandle = {
-  skipForward: () => Promise<LogRecord[]>;
-  query: (opts: LogFeedQueryOptions) => Promise<LogRecord[]>;
-};
-
-const LogFeedDataFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetcherHandle, LogFeedRecordFetcherProps> = (props, ref) => {
-  const { node, pod, container, onLoad, onUpdate } = props;
-  const { namespace, name } = pod.metadata;
-  const { logFeedState } = useContext(Context);
-  const lastTSRef = useRef<string>();
-  const startTSRef = useRef<string>();
-
-  const upgradeRecord = (record: GraphQLLogRecord) => {
-    return { ...record, node, pod, container };
-  };
-
-  // get logs
-  const { loading, data, subscribeToMore, refetch } = useQuery(ops.QUERY_CONTAINER_LOG, {
-    variables: { namespace, name, container },
-    fetchPolicy: 'no-cache',
-    skip: true,  // we'll use refetch() and subscribeToMmore() instead
-    onCompleted: (data) => {
-      if (!data?.podLogQuery) return;
-      // execute callback
-      onLoad(data.podLogQuery.map(record => upgradeRecord(record)));
-    },
-    onError: (err) => {
-      console.log(err);
-    },
-  });
-
-  // update lastTS
-  if (!lastTSRef.current) lastTSRef.current = data?.podLogQuery?.length ? data.podLogQuery[data.podLogQuery.length - 1].timestamp : undefined;
-
-  // tail
+  // handle sourcePath deletions
   useEffect(() => {
-    // wait for initial query to complete
-    if (!(loading === false)) return;
-
-    // only execute when playing
-    if (!(logFeedState === LogFeedState.Playing)) return;
-
-    // update startTS
-    startTSRef.current = (new Date()).toISOString();
-
-    const variables = { namespace, name, container } as any;
-
-    // implement `after`
-    if (lastTSRef.current) variables.after = lastTSRef.current;
-    else variables.since = 'NOW';
-
-    return subscribeToMore({
-      document: ops.TAIL_CONTAINER_LOG,
-      variables: variables,
-      updateQuery: (_, { subscriptionData }) => {
-        const record = subscriptionData.data.podLogTail;
-        if (record) {
-          // update lastTS
-          lastTSRef.current = record.timestamp;
-
-          // execute callback
-          onUpdate(upgradeRecord(record));
-        }
-        return { podLogQuery: [] };
-      },
-      onError: (err) => {
-        console.log(err)
-      },
-    });
-  }, [subscribeToMore, loading, logFeedState]);
-
-  // define handler api
-  useImperativeHandle(ref, () => ({
-    skipForward: async () => {
-      const variables = {} as any;
-      if (lastTSRef.current) variables.after = lastTSRef.current;
-      else variables.after = startTSRef.current;
-      
-      const result = await refetch(variables);
-      if (!result.data.podLogQuery) return [];
-
-      // upgrade records
-      const records = result.data.podLogQuery.map(record => upgradeRecord(record));
-
-      // update lastTS
-      if (records.length) lastTSRef.current = records[records.length - 1].timestamp;
-
-      // return records
-      return records;
-    },
-    query: async (opts: LogFeedQueryOptions) => {
-      const result = await refetch(opts);
-      if (!result.data.podLogQuery) return [];
-
-      // upgrade records
-      const records = result.data.podLogQuery.map(record => upgradeRecord(record));
-
-      // update lastTS
-      if (!opts.until) {
-        if (records.length) lastTSRef.current = records[records.length - 1].timestamp;
-        else lastTSRef.current = undefined;
-      }
-
-      // return records
-      return records;
-    }
-  }));
+    setSourceToWorkloadResponseMap(oldVal => removeUnusedKeys(oldVal, sourcePaths));
+    setSourceToPodListResponseMap(oldVal => removeUnusedKeys(oldVal, sourcePaths));
+  }, [JSON.stringify(sourcePaths)]);
 
   return <></>;
 };
-
-const LogFeedDataFetcher = forwardRef(LogFeedDataFetcherImpl);
-
-/**
- * Log feed loader component
- */
-
-type LogFeedLoaderProps = {
-  onRecord?: OnRecordCallbackFunction;
-};
-
-const LogFeedLoader = forwardRef((
-  {
-    onRecord,
-  }: LogFeedLoaderProps,
-  ref: React.Ref<HTMLDivElement | null>,
-) => {
-  const nodes = useNodes();
-  const pods = usePods();
-  const { setLogFeedState } = useContext(Context);
-  const childRefs = useRef(new Array<React.RefObject<LogFeedRecordFetcherHandle>>());
-
-  const wrapperElRef = useRef<HTMLDivElement>(null);
-  useImperativeHandle(ref, () => wrapperElRef.current);
-
-  // attach event listeners
-  useEffect(() => {
-    const wrapperEl = wrapperElRef.current;
-    if (!wrapperEl) return;
-
-    // play
-    const playFn = () => setLogFeedState(LogFeedState.Playing);
-    wrapperEl.addEventListener('play', playFn);
-
-    // pause
-    const pauseFn = () => setLogFeedState(LogFeedState.Paused);
-    wrapperEl.addEventListener('pause', pauseFn);
-
-    // skip-forward
-    const skipForwardFn = async () => {
-      const promises = Array<Promise<LogRecord[]>>();
-      const records = Array<LogRecord>();
-
-      // trigger skipForward in children
-      childRefs.current.forEach(childRef => {
-        childRef.current && promises.push(childRef.current.skipForward());
-      });
-
-      // gather and sort results
-      (await Promise.all(promises)).forEach(result => records.push(...result));
-      records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-
-      // execute callback
-      onRecord && records.forEach(record => onRecord(record));
-    };
-    wrapperEl.addEventListener('skipForward', skipForwardFn);
-
-    // query
-    const queryFn = async (ev: Event) => {
-      const opts = (ev as CustomEvent<LogFeedQueryOptions>).detail;
-
-      if (opts.until) {
-        setLogFeedState(LogFeedState.InQuery);
-      } else {
-        setLogFeedState(LogFeedState.Paused);
-      }
-
-      const promises = Array<Promise<LogRecord[]>>();
-      const records = Array<LogRecord>();
-
-      // trigger query in children
-      childRefs.current.forEach(childRef => {
-        childRef.current && promises.push(childRef.current.query(opts));
-      });
-
-      // gather and sort results
-      (await Promise.all(promises)).forEach(result => records.push(...result));
-      records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-
-      // execute callback
-      onRecord && records.forEach(record => onRecord(record));
-    };
-    wrapperEl.addEventListener('query', queryFn);
-
-    // cleanup
-    return () => {
-      wrapperEl.removeEventListener('play', playFn);
-      wrapperEl.removeEventListener('pause', pauseFn);
-      wrapperEl.removeEventListener('skipForward', skipForwardFn);
-      wrapperEl.removeEventListener('query', queryFn);
-    };
-  }, []);
-
-  // wait until resources are loaded
-  if (nodes.fetching || pods.loading) return <div ref={wrapperElRef} />;
-
-  const handleOnUpdate = (record: LogRecord) => {
-    onRecord && onRecord(record);
-  };
-
-  // only load containers from nodes that we have a record of
-  const nodeMap = new Map(nodes.items?.map(node => [node.metadata.name, node]));
-
-  const els: JSX.Element[] = [];
-  const refs: React.RefObject<LogFeedRecordFetcherHandle>[] = [];
-
-  pods.pods.forEach(pod => {
-    pod.status.containerStatuses.forEach(status => {
-      const node = nodeMap.get(pod.spec.nodeName);
-      if (status.started && node) {
-        const k = `${pod.metadata.namespace}/${pod.metadata.name}/${status.name}`;
-
-        const ref = createRef<LogFeedRecordFetcherHandle>();
-        refs.push(ref);
-
-        els.push(
-          <LogFeedDataFetcher
-            key={k}
-            ref={ref}
-            node={node}
-            pod={pod}
-            container={status.name}
-            onLoad={(records) => console.log(records)}
-            onUpdate={handleOnUpdate}
-          />
-        );
-      }
-    });
-  });
-
-  childRefs.current = refs;
-
-  return (
-    <div ref={wrapperElRef}>
-      {els}
-    </div>
-  );
-});
-
-/**
- * Nodes hook
- */
-
-export function useNodes() {
-  const { loading, fetching, error, data } = useListQueryWithSubscription({
-    query: ops.CONSOLE_NODES_LIST_FETCH,
-    subscription: ops.CONSOLE_NODES_LIST_WATCH,
-    queryDataKey: 'coreV1NodesList',
-    subscriptionDataKey: 'coreV1NodesWatch',
-  });
-
-  const items = (data?.coreV1NodesList?.items) ? data.coreV1NodesList.items : undefined;
-
-  return { loading, fetching, error, items };
-}
-
-/**
- * Workloads hook
- */
-
-export function useWorkloads() {
-  const { workloadMap } = useContext(Context);
-
-  let loading = false;
-  const workloads = new Map<Workload, LRWorkload[]>();
-
-  // group sources by workload type
-  workloadMap.forEach((val) => {
-    loading = loading || val.loading;
-    const item = val.item;
-    if (!item?.__typename) return;
-    const workload = typenameMap[item.__typename];
-    const items = workloads.get(workload) || [];
-    items.push(item);
-    workloads.set(workload, items);
-  });
-
-  return { loading, workloads };
-}
-
-/**
- * Pods hook
- */
-
-export function usePods() {
-  const { podMap } = useContext(Context);
-
-  let loading = false;
-  const pods: LRPod[] = [];
-
-  // uniquify
-  const usedIDs = new Set<string>();
-  podMap?.forEach((val) => {
-    loading = loading || val.loading;
-    val.items?.forEach(item => {
-      if (usedIDs.has(item.metadata.uid)) return;
-      pods.push(item);
-      usedIDs.add(item.metadata.uid);
-    });
-  });
-
-  // sort
-  pods.sort((a, b) => a.metadata.name.localeCompare(b.metadata.name));
-
-  return { loading, pods };
-}
 
 /**
  * Provider component
@@ -754,70 +462,33 @@ export function usePods() {
 
 interface LoggingResourcesProviderProps extends React.PropsWithChildren {
   sourcePaths: string[];
-  onRecord?: OnRecordCallbackFunction;
 };
 
-export const LoggingResourcesProvider = ({
-  sourcePaths,
-  onRecord,
-  children,
-}: LoggingResourcesProviderProps) => {
-  const [workloadMap, setWorkloadMap] = useState<WorkloadMap>(new Map());
-  const [podMap, setPodMap] = useState<PodMap>(new Map());
-  const [logFeedState, setLogFeedState] = useState<LogFeedState>(LogFeedState.Playing);
-  const logFeedLoaderRef = useRef<HTMLDivElement>(null);
-
+export const LoggingResourcesProvider = ({ sourcePaths, children }: LoggingResourcesProviderProps) => {
   // uniquify sourcePaths
   sourcePaths = Array.from(new Set(sourcePaths || []));
   sourcePaths.sort();
 
-  // handle sourcePath deletions
-  useEffect(() => {
-    const difference = Array.from(workloadMap.keys()).filter(x => !sourcePaths.includes(x));
-    if (difference.length) {
-      // update workload map
-      difference.forEach(key => workloadMap.delete(key));
-      setWorkloadMap(new Map(workloadMap));
-
-      // update pod map
-      difference.forEach(key => podMap.delete(key));
-      setPodMap(new Map(podMap));
-    }
-  }, [JSON.stringify(sourcePaths)]);
-
   const resourceLoaders = {
-    [Workload.CRONJOBS]: LoadCronJobWorkload,
-    [Workload.DAEMONSETS]: LoadDaemonSetWorkload,
-    [Workload.DEPLOYMENTS]: LoadDeploymentWorkload,
-    [Workload.JOBS]: LoadJobWorkload,
-    [Workload.PODS]: LoadPodWorkload,
-    [Workload.REPLICASETS]: LoadReplicaSetWorkload,
-    [Workload.STATEFULSETS]: LoadStatefulSetWorkload,
-  };
-
-  const contextValue = {
-    workloadMap,
-    setWorkloadMap,
-    podMap,
-    setPodMap,
-    logFeedState,
-    setLogFeedState,
-    logFeedLoaderRef,
+    [WorkloadType.CRONJOBS]: LoadCronJobWorkload,
+    [WorkloadType.DAEMONSETS]: LoadDaemonSetWorkload,
+    [WorkloadType.DEPLOYMENTS]: LoadDeploymentWorkload,
+    [WorkloadType.JOBS]: LoadJobWorkload,
+    [WorkloadType.PODS]: LoadPodWorkload,
+    [WorkloadType.REPLICASETS]: LoadReplicaSetWorkload,
+    [WorkloadType.STATEFULSETS]: LoadStatefulSetWorkload,
   };
 
   return (
-    <Context.Provider value={contextValue}>
+    <RecoilRoot>
+      <SourceDeletionHandler sourcePaths={sourcePaths} />
       {sourcePaths.map(path => {
         const parts = path.split('/');
         if (!(parts[0] in resourceLoaders)) throw new Error(`not implemented: ${parts[0]}`);
-        const Component = resourceLoaders[parts[0] as Workload];
+        const Component = resourceLoaders[parts[0] as WorkloadType];
         return <Component key={path} sourcePath={path} />
       })}
-      <LogFeedLoader
-        ref={logFeedLoaderRef}
-        onRecord={onRecord}
-      />
       {children}
-    </Context.Provider>
+    </RecoilRoot>
   );
 };
