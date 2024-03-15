@@ -836,12 +836,8 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
       // build args (including resetting `since`)
       const opts = { first: batchSize, since: undefined } as LogFeedHeadOptions;
 
-      if (followAfter && followAfter.localeCompare(after || '')) {
-        opts.after = followAfter;
-      } else {
-        opts.after = after;
-      }
-      console.log(opts);
+      if (followAfter && followAfter.localeCompare(after || '')) opts.after = followAfter;
+      else opts.after = after;
 
       // execute query
       const response = (await head.refetch(opts)).data.podLogHead;
