@@ -396,13 +396,9 @@ const Row = memo(
       return <div className="px-[8px] leading-[24px]" style={style}>{msg}</div>;
     }
 
-    // last row
+    // last row (only present when hasMoreAter === true)
     if (index === (items.length + 1)) {
-      if (hasMoreAfter) {
-        return <div className="px-[8px] leading-[24px]" style={style}>Loading...</div>;
-      } else {
-        return <div className="px-[8px] leading-[24px]" style={style}></div>;
-      }
+      return <div className="px-[8px] leading-[24px]" style={style}>Loading...</div>;
     }
 
     const record = items[index - 1];
@@ -486,7 +482,8 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
     return true;
   });
 
-  const itemCount = items.length + 2;
+  let itemCount = items.length + 1; // always add extra row before
+  if (hasMoreAfter) itemCount += 1; // only add extra row if more are hidden
 
   // define handler api
   useImperativeHandle(ref, () => {
