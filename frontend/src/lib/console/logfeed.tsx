@@ -112,11 +112,15 @@ interface SeekCommand extends BaseCommand {
   sinceTS: string;
 }
 
-interface LoadMoreAfterCommand extends BaseCommand {
-  type: 'loadMoreAfter';
+interface PlayCommand extends BaseCommand {
+  type: 'play';
 }
 
-type Command = HeadCommand | TailCommand | SeekCommand | LoadMoreAfterCommand;
+interface PauseCommand extends BaseCommand {
+  type: 'pause';
+}
+
+type Command = HeadCommand | TailCommand | SeekCommand | PlayCommand | PauseCommand;
 
 /**
  * State
@@ -162,7 +166,6 @@ const controlChannelIDState = atom<string | undefined>({
  */
 
 export const useLogFeedControls = () => {
-  const setIsFollow = useSetRecoilState(isFollowState);
   const channelID = useRecoilValue(controlChannelIDState);
 
   const postMessage = (command: Command) => {
@@ -182,11 +185,11 @@ export const useLogFeedControls = () => {
     seek: (sinceTS: string) => {
       postMessage({ type: 'seek', sinceTS });
     },
-    setFollow: (follow: boolean) => {
-      setIsFollow(follow);
+    play: () => {
+      postMessage({ type: 'play' });
     },
-    loadMoreAfter: () => {
-      postMessage({ type: 'loadMoreAfter' });
+    pause: () => {
+      postMessage({ type: 'pause' });
     },
   };
 };
@@ -436,6 +439,7 @@ const Row = memo(
 type LogFeedContentHandle = {
   scrollTo: (pos: 'first' | 'last') => void;
   autoScroll: () => void;
+  resetloadMoreItemsCache: (autoReload: boolean) => void;
 };
 
 type LogFeedContentProps = {
@@ -501,6 +505,9 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
       autoScroll: () => {
         if (isAutoScrollRef.current) scrollTo('last');
       },
+      resetloadMoreItemsCache: (autoReload: boolean) => {
+        infiniteLoaderRef.current?.resetloadMoreItemsCache(autoReload);
+      }
     };
   }, [isListReady]);
 
@@ -731,6 +738,7 @@ type LogFeedRecordFetcherHandle = {
   key: string,
   head: (opts: LogFeedHeadOptions) => Promise<[string, PodLogQueryResponse]>;
   tail: (opts: LogFeedTailOptions) => Promise<[string, PodLogQueryResponse]>;
+  skipForward: (batchSize: number, after: string | null | undefined) => Promise<[string, PodLogQueryResponse]>;
   reset: () => void;
 };
 
@@ -824,6 +832,34 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
         },
       ];
     },
+    skipForward: async (batchSize: number, after: string | null | undefined) => {
+      // build args (including resetting `since`)
+      const opts = { first: batchSize, since: undefined } as LogFeedHeadOptions;
+
+      if (followAfter && followAfter.localeCompare(after || '')) {
+        opts.after = followAfter;
+      } else {
+        opts.after = after;
+      }
+      console.log(opts);
+
+      // execute query
+      const response = (await head.refetch(opts)).data.podLogHead;
+      if (!response) throw new Error('query response is null');
+
+      // update followAfter
+      if (!response.pageInfo.hasNextPage) setFollowAfter(response.pageInfo.endCursor);
+      else setFollowAfter(undefined);
+
+      // return with upgraded results
+      return [
+        key,
+        {
+          ...response,
+          results: response.results.map(record => upgradeRecord(record))
+        },
+      ];
+    },
     reset: () => {
       setFollowAfter(undefined);
     },
@@ -845,6 +881,7 @@ type LogFeedLoaderProps = {
 type LogFeedLoaderHandle = {
   head: (opts: LogFeedHeadOptions, cursorMap?: Map<string, PageInfo>) => Promise<[LogRecord[], Map<string, PageInfo>]>;
   tail: (opts: LogFeedTailOptions, cursorMap?: Map<string, PageInfo>) => Promise<[LogRecord[], Map<string, PageInfo>]>;
+  skipForward: (batchSize: number, cursorMap: Map<string, PageInfo>) => Promise<[LogRecord[], Map<string, PageInfo>]>;
   reset: () => void;
 };
 
@@ -987,6 +1024,44 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
 
       return [records, newCursorMap];
     },
+    skipForward: async(batchSize: number, oldCursorMap = new Map<string, PageInfo>()) => {
+      const promises = Array<Promise<[string, PodLogQueryResponse]>>();
+      const newCursorMap = new Map<string, PageInfo>();
+
+      // build queries
+      childRefs.current.forEach(childRef => {
+        const fetcher = childRef.current;
+        if (!fetcher) return;
+
+        const pageInfo = oldCursorMap.get(fetcher.key)
+
+        if (pageInfo === undefined) {
+          // pass through query
+          promises.push(fetcher.head({ first: batchSize }));
+        } else {
+          // use end cursor from last time
+          promises.push(fetcher.skipForward(batchSize, pageInfo.endCursor));
+        }
+      });
+
+      // execute quries
+      const responses = await Promise.all(promises);
+
+      // gather results and update cursor map
+      const records = new Array<LogRecord>();
+      responses.forEach(([key, response]) => {
+        records.push(...response.results);
+        newCursorMap.set(key, response.pageInfo);
+      })
+
+      // update defaultFollowAfter
+      if (!hasNextPageSome(newCursorMap)) setDefaultFollowAfter('BEGINNING');
+
+      // sort records
+      records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+      return [records, newCursorMap];
+    },
     reset: () => {
       childRefs.current.forEach(childRef => childRef.current?.reset());
     },
@@ -1020,6 +1095,7 @@ export const LogFeedViewer = () => {
   const [channelID, setChannelID] = useRecoilState(controlChannelIDState);
   const isReady = useRecoilValue(isReadyState);
   const setIsLoading = useSetRecoilState(isLoadingState);
+  const setIsFollow = useSetRecoilState(isFollowState);
   const [logRecords, setLogRecords] = useRecoilState(logRecordsState);
 
   const loaderRef = useRef<LogFeedLoaderHandle>(null);
@@ -1032,7 +1108,7 @@ export const LogFeedViewer = () => {
   const cursorMapRef = useRef(new Map<string, PageInfo>);
   const isSendFollowToBufferRef = useRef(true);
 
-  const batchSize = 300;
+  const batchSize = 50;
 
   const handleOnFollowData = (record: LogRecord) => {
     if (isSendFollowToBufferRef.current) {
@@ -1103,11 +1179,12 @@ export const LogFeedViewer = () => {
       const client = loaderRef.current;
       if (!client) return;
 
-      setIsLoading(true);
 
       // handle commands
       switch (ev.data.type) {
         case 'head':
+          setIsLoading(true);
+
           // reset
           client.reset();
           setHasMoreBefore(false);
@@ -1121,8 +1198,12 @@ export const LogFeedViewer = () => {
           setHasMoreAfter(recordBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current));
 
           contentRef.current?.scrollTo('first');
+
+          setIsLoading(false);
           break;
         case 'tail':
+          setIsLoading(true);
+
           // reset
           client.reset();
           setHasMoreAfter(false);
@@ -1136,8 +1217,12 @@ export const LogFeedViewer = () => {
           setHasMoreBefore(recordBufferRef.current.length > 0 || hasPreviousPageSome(cursorMapRef.current));
 
           contentRef.current?.scrollTo('last');
+
+          setIsLoading(false);
           break;
         case 'seek':
+          setIsLoading(true);
+
           // reset
           client.reset();
           setHasMoreBefore(false);
@@ -1151,12 +1236,39 @@ export const LogFeedViewer = () => {
           setHasMoreAfter(recordBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current));
 
           contentRef.current?.scrollTo('first');
+
+          setIsLoading(false);
+          break;
+        case 'play':
+          console.log(cursorMapRef.current);
+          // execute query
+          const response = await client.skipForward(batchSize, cursorMapRef.current);
+
+          // add to buffer and resort
+          recordBufferRef.current.push(...response[0]);
+          recordBufferRef.current.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+          // update state
+          cursorMapRef.current = response[1];
+
+          const hasMoreAfter = recordBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current);
+          if (!hasMoreAfter) isSendFollowToBufferRef.current = false;
+          else isSendFollowToBufferRef.current = true;
+          setHasMoreAfter(hasMoreAfter);
+          setIsFollow(true);
+
+          // allow content to self-update
+          contentRef.current?.resetloadMoreItemsCache(true);
+
+          break;
+        case 'pause':
+          console.log('pause');
+          setIsFollow(false);
           break;
         default:
           throw new Error('not implemented');
       }
 
-      setIsLoading(false);
     };
     channel.addEventListener('message', fn);
 
