@@ -388,7 +388,7 @@ type RowProps = {
 
 const Row = memo(
   ({ index, style, data }: RowProps) => {
-    const { items, hasMoreBefore, hasMoreAfter, visibleCols, minColWidths } = data;
+    const { items, hasMoreBefore, visibleCols, minColWidths } = data;
 
     // first row
     if (index === 0) {
@@ -502,7 +502,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
         if (isAutoScrollRef.current) scrollTo('last');
       },
     };
-}, [isListReady]);
+  }, [isListReady]);
 
   // -------------------------------------------------------------------------------------
   // Loading logic
@@ -723,6 +723,7 @@ type LogFeedRecordFetcherProps = {
   node: Node;
   pod: Pod;
   container: string;
+  defaultFollowAfter?: string;
   onFollowData: (record: LogRecord) => void;
 };
 
@@ -734,11 +735,11 @@ type LogFeedRecordFetcherHandle = {
 };
 
 const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetcherHandle, LogFeedRecordFetcherProps> = (props, ref) => {
-  const { node, pod, container, onFollowData } = props;
+  const { node, pod, container, defaultFollowAfter, onFollowData } = props;
   const { namespace, name } = pod.metadata;
 
   const isFollow = useRecoilValue(isFollowState);
-  const [followAfter, setFollowAfter] = useState<string | null>();
+  const [followAfter, setFollowAfter] = useState<string | null | undefined>(defaultFollowAfter);
 
   const upgradeRecord = (record: GraphQLLogRecord) => {
     return { ...record, node, pod, container };
@@ -766,7 +767,7 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
     skip: !(isFollow && followAfter),
     fetchPolicy: 'no-cache',
     onError: console.log,
-    onData: ({ data: { data }}) => {
+    onData: ({ data: { data } }) => {
       if (!data?.podLogFollow) return;
       const record = upgradeRecord(data.podLogFollow);
 
@@ -857,6 +858,7 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
   const pods = usePods();
   const setIsReady = useSetRecoilState(isReadyState);
   const childRefs = useRef(new Array<React.RefObject<LogFeedRecordFetcherHandle>>());
+  const [defaultFollowAfter, setDefaultFollowAfter] = useState<string | undefined>();
 
   // set isReady after component and children are mounted
   useEffect(() => {
@@ -888,6 +890,7 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
             node={node}
             pod={pod}
             container={status.name}
+            defaultFollowAfter={defaultFollowAfter}
             onFollowData={onFollowData}
           />
         );
@@ -934,6 +937,9 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
         newCursorMap.set(key, response.pageInfo);
       })
 
+      // update defaultFollowAfter
+      if (!hasNextPageSome(newCursorMap)) setDefaultFollowAfter('BEGINNING');
+
       // sort records
       records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
@@ -962,6 +968,9 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
           newCursorMap.set(fetcher.key, pageInfo);
         }
       });
+
+      // update defaultFollowAfter
+      setDefaultFollowAfter('BEGINNING');
 
       // execute quries
       const responses = await Promise.all(promises);
