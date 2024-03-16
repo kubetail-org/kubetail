@@ -439,7 +439,6 @@ const Row = memo(
 type LogFeedContentHandle = {
   scrollTo: (pos: 'first' | 'last') => void;
   autoScroll: () => void;
-  resetloadMoreItemsCache: (autoReload: boolean) => void;
 };
 
 type LogFeedContentProps = {
@@ -505,9 +504,6 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
       autoScroll: () => {
         if (isAutoScrollRef.current) scrollTo('last');
       },
-      resetloadMoreItemsCache: (autoReload: boolean) => {
-        infiniteLoaderRef.current?.resetloadMoreItemsCache(autoReload);
-      }
     };
   }, [isListReady]);
 
@@ -541,8 +537,8 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
         listOuterRef.current.scrollTo({ top: scrollTop + (scrollHeight - origScrollHeight), behavior: 'instant' });
       }
 
-      // reset load cache
-      infiniteLoaderRef.current?.resetloadMoreItemsCache(true);
+      // reset load cache for loadMoreBefore()
+      if (startIndex === 0) infiniteLoaderRef.current?.resetloadMoreItemsCache(true);
 
       // stop loading
       setIsLoading(false);
@@ -938,14 +934,14 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
   useImperativeHandle(ref, () => ({
     head: async (opts: LogFeedHeadOptions = {}, oldCursorMap = new Map<string, PageInfo>()) => {
       const promises = Array<Promise<[string, PodLogQueryResponse]>>();
-      const newCursorMap = new Map<string, PageInfo>();
+      const cursorMap = new Map(oldCursorMap);
 
       // build queries
       childRefs.current.forEach(childRef => {
         const fetcher = childRef.current;
         if (!fetcher) return;
 
-        const pageInfo = oldCursorMap.get(fetcher.key)
+        const pageInfo = cursorMap.get(fetcher.key)
 
         if (pageInfo === undefined) {
           // pass through query
@@ -954,9 +950,6 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
           // use end cursor from last time
           const newOpts = Object.assign({}, opts, { after: pageInfo.endCursor });
           promises.push(fetcher.head(newOpts));
-        } else {
-          // keep current pageInfo for next cursor
-          newCursorMap.set(fetcher.key, pageInfo);
         }
       });
 
@@ -969,30 +962,30 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
         records.push(...response.results);
 
         // update cursor
-        const cursor = Object.assign({}, newCursorMap.get(key) || response.pageInfo);
+        const cursor = Object.assign({}, cursorMap.get(key) || response.pageInfo);
         cursor.endCursor = response.pageInfo.endCursor;
         cursor.hasNextPage = response.pageInfo.hasNextPage;
-        newCursorMap.set(key, cursor);
+        cursorMap.set(key, cursor);
       });
 
       // update defaultFollowAfter
-      if (!hasNextPageSome(newCursorMap)) setDefaultFollowAfter('BEGINNING');
+      if (!hasNextPageSome(cursorMap)) setDefaultFollowAfter('BEGINNING');
 
       // sort records
       records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
-      return [records, newCursorMap];
+      return [records, cursorMap];
     },
     tail: async (opts: LogFeedTailOptions = {}, oldCursorMap = new Map<string, PageInfo>()) => {
       const promises = Array<Promise<[string, PodLogQueryResponse]>>();
-      const newCursorMap = new Map<string, PageInfo>();
+      const cursorMap = new Map(oldCursorMap);
 
       // build queries
       childRefs.current.forEach(childRef => {
         const fetcher = childRef.current;
         if (!fetcher) return;
 
-        const pageInfo = oldCursorMap.get(fetcher.key)
+        const pageInfo = cursorMap.get(fetcher.key)
 
         if (pageInfo === undefined) {
           // pass through query
@@ -1001,9 +994,6 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
           // use start cursor from last time
           const newOpts = Object.assign({}, opts, { before: pageInfo.startCursor });
           promises.push(fetcher.tail(newOpts));
-        } else {
-          // keep current pageInfo for next cursor
-          newCursorMap.set(fetcher.key, pageInfo);
         }
       });
 
@@ -1019,20 +1009,20 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
         records.push(...response.results);
 
         // update cursor
-        const cursor = Object.assign({}, newCursorMap.get(key) || response.pageInfo);
+        const cursor = Object.assign({}, cursorMap.get(key) || response.pageInfo);
         cursor.startCursor = response.pageInfo.startCursor;
         cursor.hasPreviousPage = response.pageInfo.hasPreviousPage;
-        newCursorMap.set(key, cursor);
+        cursorMap.set(key, cursor);
       });
 
       // sort records
       records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
-      return [records, newCursorMap];
+      return [records, cursorMap];
     },
     skipForward: async (batchSize: number, oldCursorMap = new Map<string, PageInfo>()) => {
       const promises = Array<Promise<[string, PodLogQueryResponse]>>();
-      const newCursorMap = new Map<string, PageInfo>();
+      const cursorMap = new Map(oldCursorMap);
 
       // build queries
       childRefs.current.forEach(childRef => {
@@ -1059,19 +1049,19 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
         records.push(...response.results);
 
         // update cursor
-        const cursor = Object.assign({}, newCursorMap.get(key) || response.pageInfo);
+        const cursor = Object.assign({}, cursorMap.get(key) || response.pageInfo);
         cursor.endCursor = response.pageInfo.endCursor;
         cursor.hasNextPage = response.pageInfo.hasNextPage;
-        newCursorMap.set(key, cursor);
+        cursorMap.set(key, cursor);
       });
 
       // update defaultFollowAfter
-      if (!hasNextPageSome(newCursorMap)) setDefaultFollowAfter('BEGINNING');
+      if (!hasNextPageSome(cursorMap)) setDefaultFollowAfter('BEGINNING');
 
       // sort records
       records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
-      return [records, newCursorMap];
+      return [records, cursorMap];
     },
     reset: () => {
       childRefs.current.forEach(childRef => childRef.current?.reset());
@@ -1115,15 +1105,16 @@ export const LogFeedViewer = () => {
   const [hasMoreBefore, setHasMoreBefore] = useState(false);
   const [hasMoreAfter, setHasMoreAfter] = useState(false);
 
-  const recordBufferRef = useRef(new Array<LogRecord>());
+  const beforeBufferRef = useRef(new Array<LogRecord>());
+  const afterBufferRef = useRef(new Array<LogRecord>());
   const cursorMapRef = useRef(new Map<string, PageInfo>);
   const isSendFollowToBufferRef = useRef(true);
 
-  const batchSize = 50;
+  const batchSize = 300;
 
   const handleOnFollowData = (record: LogRecord) => {
     if (isSendFollowToBufferRef.current) {
-      recordBufferRef.current.push(record);
+      afterBufferRef.current.push(record);
     } else {
       setLogRecords(currRecords => [...currRecords, record]);
       contentRef.current?.autoScroll();
@@ -1141,17 +1132,17 @@ export const LogFeedViewer = () => {
     const [records, cursorMap] = await client.tail(opts, cursorMapRef.current);
 
     // add to buffer and resort
-    recordBufferRef.current.push(...records);
-    recordBufferRef.current.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    beforeBufferRef.current.push(...records);
+    beforeBufferRef.current.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
     // update state
     cursorMapRef.current = cursorMap;
 
     // update content
-    const newRecords = recordBufferRef.current.splice(-1 * batchSize);
+    const newRecords = beforeBufferRef.current.splice(-1 * batchSize);
 
     setLogRecords(oldRecords => [...newRecords, ...oldRecords]);
-    setHasMoreBefore(recordBufferRef.current.length > 0 || hasPreviousPageSome(cursorMap));
+    setHasMoreBefore(beforeBufferRef.current.length > 0 || hasPreviousPageSome(cursorMap));
   };
 
   const handleLoadMoreAfter = async () => {
@@ -1165,17 +1156,17 @@ export const LogFeedViewer = () => {
     const [records, cursorMap] = await client.head(opts, cursorMapRef.current);
 
     // add to buffer and resort
-    recordBufferRef.current.push(...records);
-    recordBufferRef.current.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    afterBufferRef.current.push(...records);
+    afterBufferRef.current.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
     // update state
     cursorMapRef.current = cursorMap;
 
     // update content
-    const newRecords = recordBufferRef.current.splice(0, batchSize);
+    const newRecords = afterBufferRef.current.splice(0, batchSize);
     setLogRecords(oldRecords => [...oldRecords, ...newRecords]);
 
-    const hasMoreAfter = recordBufferRef.current.length > 0 || hasNextPageSome(cursorMap);
+    const hasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMap);
     if (!hasMoreAfter) isSendFollowToBufferRef.current = false;
     setHasMoreAfter(hasMoreAfter);
   };
@@ -1190,6 +1181,10 @@ export const LogFeedViewer = () => {
       const client = loaderRef.current;
       if (!client) return;
 
+      const reset = () => {
+        beforeBufferRef.current = [];
+        afterBufferRef.current = [];
+      }
 
       // handle commands
       switch (ev.data.type) {
@@ -1197,16 +1192,17 @@ export const LogFeedViewer = () => {
           setIsLoading(true);
 
           // reset
+          reset();
           client.reset();
           setHasMoreBefore(false);
           isSendFollowToBufferRef.current = true;
 
           // execute query and reset state
-          [recordBufferRef.current, cursorMapRef.current] = await client.head({ since: 'beginning', first: batchSize });
+          [afterBufferRef.current, cursorMapRef.current] = await client.head({ since: 'beginning', first: batchSize });
 
           // update content
-          setLogRecords(recordBufferRef.current.splice(0, batchSize));
-          setHasMoreAfter(recordBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current));
+          setLogRecords(afterBufferRef.current.splice(0, batchSize));
+          setHasMoreAfter(afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current));
 
           contentRef.current?.scrollTo('first');
 
@@ -1216,16 +1212,17 @@ export const LogFeedViewer = () => {
           setIsLoading(true);
 
           // reset
+          reset();
           client.reset();
           setHasMoreAfter(false);
           isSendFollowToBufferRef.current = false;
 
           // execute query and reset state
-          [recordBufferRef.current, cursorMapRef.current] = await client.tail({ last: batchSize });
+          [beforeBufferRef.current, cursorMapRef.current] = await client.tail({ last: batchSize });
 
           // update content
-          setLogRecords(recordBufferRef.current.splice(-1 * batchSize));
-          setHasMoreBefore(recordBufferRef.current.length > 0 || hasPreviousPageSome(cursorMapRef.current));
+          setLogRecords(beforeBufferRef.current.splice(-1 * batchSize));
+          setHasMoreBefore(beforeBufferRef.current.length > 0 || hasPreviousPageSome(cursorMapRef.current));
 
           contentRef.current?.scrollTo('last');
 
@@ -1235,16 +1232,17 @@ export const LogFeedViewer = () => {
           setIsLoading(true);
 
           // reset
+          reset();
           client.reset();
           setHasMoreBefore(false);
           isSendFollowToBufferRef.current = true;
 
           // execute query and reset state
-          [recordBufferRef.current, cursorMapRef.current] = await client.head({ since: ev.data.sinceTS, first: batchSize });
+          [afterBufferRef.current, cursorMapRef.current] = await client.head({ since: ev.data.sinceTS, first: batchSize });
 
           // update content
-          setLogRecords(recordBufferRef.current.splice(0, batchSize));
-          setHasMoreAfter(recordBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current));
+          setLogRecords(afterBufferRef.current.splice(0, batchSize));
+          setHasMoreAfter(afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current));
 
           contentRef.current?.scrollTo('first');
 
@@ -1253,15 +1251,15 @@ export const LogFeedViewer = () => {
         case 'play':
           // execute query
           const response = await client.skipForward(batchSize, cursorMapRef.current);
-          console.log(response);
+
           // add to buffer and resort
-          recordBufferRef.current.push(...response[0]);
-          recordBufferRef.current.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+          afterBufferRef.current.push(...response[0]);
+          afterBufferRef.current.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
           // update state
           cursorMapRef.current = response[1];
 
-          const hasMoreAfter = recordBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current);
+          const hasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current);
 
           if (!hasMoreAfter) isSendFollowToBufferRef.current = false;
           else isSendFollowToBufferRef.current = true;
@@ -1269,12 +1267,8 @@ export const LogFeedViewer = () => {
           setHasMoreAfter(hasMoreAfter);
           setIsFollow(true);
 
-          // allow content to self-update
-          contentRef.current?.resetloadMoreItemsCache(true);
-
           break;
         case 'pause':
-          console.log('pause');
           setIsFollow(false);
           break;
         default:
