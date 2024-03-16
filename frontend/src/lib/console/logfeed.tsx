@@ -1298,10 +1298,15 @@ export const LogFeedViewer = () => {
 
   // tail by default
   useEffect(() => {
+    setIsLoading(true);
+
     if (!isReady || !channelID) return;
-    const bc = new BroadcastChannel(channelID);
-    bc.postMessage({ type: 'tail' });
-    bc.close();
+
+    setTimeout(() => {
+      const bc = new BroadcastChannel(channelID);
+      bc.postMessage({ type: 'tail' });
+      bc.close();
+    }, 0);
   }, [isReady, channelID]);
 
   return (
