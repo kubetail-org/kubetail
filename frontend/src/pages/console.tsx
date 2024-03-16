@@ -385,7 +385,7 @@ const Header = () => {
           <button
             className={buttonCN}
             title="Pause"
-            onClick={() => controls.setFollow(false)}
+            onClick={() => controls.pause()}
           >
             <PauseIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
@@ -393,7 +393,7 @@ const Header = () => {
           <button
             className={buttonCN}
             title="Play"
-            onClick={() => controls.setFollow(true)}
+            onClick={() => controls.play()}
           >
             <PlayIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
