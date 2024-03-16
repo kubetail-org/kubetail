@@ -18,7 +18,7 @@ import { format, utcToZonedTime } from 'date-fns-tz';
 import makeAnsiRegex from 'ansi-regex';
 import { createRef, forwardRef, memo, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
-import { FixedSizeList } from 'react-window';
+import { FixedSizeList, areEqual } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
 import { atom, useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
 
@@ -387,6 +387,7 @@ type RowProps = {
   index: any;
   style: any;
   data: RowData;
+  isScrolling: boolean;
 };
 
 const Row = memo(
@@ -433,7 +434,8 @@ const Row = memo(
         {els}
       </div>
     );
-  }
+  },
+  areEqual,
 );
 
 type LogFeedContentHandle = {
