@@ -1253,7 +1253,7 @@ export const LogFeedViewer = () => {
         case 'play':
           // execute query
           const response = await client.skipForward(batchSize, cursorMapRef.current);
-
+          console.log(response);
           // add to buffer and resort
           recordBufferRef.current.push(...response[0]);
           recordBufferRef.current.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
