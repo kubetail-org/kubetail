@@ -1181,6 +1181,8 @@ export const LogFeedViewer = () => {
       const client = loaderRef.current;
       if (!client) return;
 
+      let hasMoreAfter: boolean;
+
       const reset = () => {
         beforeBufferRef.current = [];
         afterBufferRef.current = [];
@@ -1202,7 +1204,10 @@ export const LogFeedViewer = () => {
 
           // update content
           setLogRecords(afterBufferRef.current.splice(0, batchSize));
-          setHasMoreAfter(afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current));
+
+          hasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current);
+          if (!hasMoreAfter) isSendFollowToBufferRef.current = false;
+          setHasMoreAfter(hasMoreAfter);
 
           contentRef.current?.scrollTo('first');
 
@@ -1242,7 +1247,10 @@ export const LogFeedViewer = () => {
 
           // update content
           setLogRecords(afterBufferRef.current.splice(0, batchSize));
-          setHasMoreAfter(afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current));
+
+          hasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current);
+          if (!hasMoreAfter) isSendFollowToBufferRef.current = false;
+          setHasMoreAfter(hasMoreAfter);
 
           contentRef.current?.scrollTo('first');
 
@@ -1259,7 +1267,7 @@ export const LogFeedViewer = () => {
           // update state
           cursorMapRef.current = response[1];
 
-          const hasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current);
+          hasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current);
 
           if (!hasMoreAfter) isSendFollowToBufferRef.current = false;
           else isSendFollowToBufferRef.current = true;
