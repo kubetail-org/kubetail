@@ -18,7 +18,7 @@ import { format, utcToZonedTime } from 'date-fns-tz';
 import makeAnsiRegex from 'ansi-regex';
 import { createRef, forwardRef, memo, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
-import { FixedSizeList, areEqual } from 'react-window';
+import { VariableSizeList, areEqual } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
 import { atom, useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
 
@@ -151,6 +151,11 @@ const visibleColsState = atom({
   default: new Set([LogFeedColumn.Timestamp, LogFeedColumn.ColorDot, LogFeedColumn.Message]),
 });
 
+const isWrapState = atom({
+  key: 'logFeedIsWrap',
+  default: false,
+});
+
 const filtersState = atom({
   key: 'logFeedFilters',
   default: new MapSet<string, string>(),
@@ -203,6 +208,10 @@ export const useLogFeedMetadata = () => {
 
 export function useLogFeedVisibleCols() {
   return useRecoilState(visibleColsState);
+}
+
+export function useLogFeedIsWrap() {
+  return useRecoilState(isWrapState);
 }
 
 export function useLogFeedFacets() {
@@ -381,6 +390,7 @@ type RowData = {
   hasMoreAfter: boolean;
   minColWidths: Map<LogFeedColumn, number>;
   visibleCols: Set<string>;
+  isWrap: boolean;
 }
 
 type RowProps = {
@@ -392,7 +402,7 @@ type RowProps = {
 
 const Row = memo(
   ({ index, style, data }: RowProps) => {
-    const { items, hasMoreBefore, visibleCols, minColWidths } = data;
+    const { items, hasMoreBefore, visibleCols, isWrap, minColWidths } = data;
 
     // first row
     if (index === 0) {
@@ -415,7 +425,8 @@ const Row = memo(
             key={col}
             className={cn(
               index % 2 !== 0 && 'bg-chrome-100',
-              'whitespace-nowrap px-[8px]',
+              'px-[8px]',
+              (isWrap) ? '': 'whitespace-nowrap',
               (col === LogFeedColumn.Timestamp) ? 'bg-chrome-200' : '',
               (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
             )}
@@ -457,12 +468,13 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
 
   const [isLoading, setIsLoading] = useRecoilState(isLoadingState);
   const visibleCols = useRecoilValue(visibleColsState);
+  const isWrap = useRecoilValue(isWrapState);
   const allowedContainers = useAllowedContainers();
 
   const headerOuterElRef = useRef<HTMLDivElement>(null);
   const headerInnerElRef = useRef<HTMLDivElement>(null);
 
-  const listRef = useRef<FixedSizeList<LogRecord> | null>(null);
+  const listRef = useRef<VariableSizeList<LogRecord> | null>(null);
   const listOuterRef = useRef<HTMLDivElement | null>(null);
   const listInnerRef = useRef<HTMLDivElement | null>(null);
   const infiniteLoaderRef = useRef<InfiniteLoader | null>(null);
@@ -546,6 +558,27 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
       setIsLoading(false);
     }, 0);
   };
+
+  // -------------------------------------------------------------------------------------
+  // Sizing logic
+  // -------------------------------------------------------------------------------------
+
+  const handleItemSize = (index: number) => {
+    if (!isWrap) return 24;
+    if (index === 0 || index === (items.length + 1)) return 24;
+
+    console.log(index);
+    console.log(items.length);
+    const record = items[index - 1];
+    console.log(record);
+    return 24 * (1 + Math.floor(record.message.length / 100));
+  };
+
+  useEffect(() => {
+    minColWidths.delete(LogFeedColumn.Message);
+    setMinColWidths(new Map(minColWidths));
+    listRef.current?.resetAfterIndex(0);
+  }, [isWrap]);
 
   // -------------------------------------------------------------------------------------
   // Scrolling logic
@@ -684,7 +717,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
                 threshold={20}
               >
                 {({ onItemsRendered, ref }) => (
-                  <FixedSizeList
+                  <VariableSizeList
                     ref={list => {
                       ref(list);
                       // @ts-ignore
@@ -699,14 +732,15 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
                     height={height}
                     width={width}
                     itemCount={itemCount}
-                    itemSize={24}
+                    estimatedItemSize={24}
+                    itemSize={handleItemSize}
                     outerRef={listOuterRef}
                     innerRef={listInnerRef}
                     overscanCount={20}
-                    itemData={{ items, hasMoreBefore, hasMoreAfter, minColWidths, visibleCols }}
+                    itemData={{ items, hasMoreBefore, hasMoreAfter, minColWidths, visibleCols, isWrap }}
                   >
                     {Row}
-                  </FixedSizeList>
+                  </VariableSizeList>
                 )}
               </InfiniteLoader>
               {isLoading && <LoadingOverlay height={height} width={width} />}
