@@ -202,6 +202,12 @@ session:
   #
   cookie:
 
+    ## name ##
+    #
+    # Default value: csrf
+    #
+    name: session
+
     ## path ##
     #
     # Default value: /
