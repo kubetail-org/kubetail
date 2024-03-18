@@ -39,6 +39,7 @@ import type { Node, Pod } from './logging-resources';
 
 const ansiUp = new AnsiUp();
 const ansiRegex = makeAnsiRegex({ onlyFirst: true });
+const ansiRegexGlobal = makeAnsiRegex();
 
 /**
  * Shared types
@@ -477,6 +478,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
   const listOuterRef = useRef<HTMLDivElement | null>(null);
   const listInnerRef = useRef<HTMLDivElement | null>(null);
   const infiniteLoaderRef = useRef<InfiniteLoader | null>(null);
+  const sizerElRef = useRef<HTMLDivElement | null>(null);
 
   const [isListReady, setIsListReady] = useState(false);
 
@@ -592,10 +594,15 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
     if (!isWrap) return 24;
     if (index === 0 || index === (items.length + 1)) return 24;
 
+    const sizerEl = sizerElRef.current;
+    if (!sizerEl) return 24;
+
     const record = items[index - 1];
-    return 24 * (1 + Math.floor(record.message.length / 160));
+    sizerEl.textContent = record.message.replace(ansiRegexGlobal, ''); // strip out ansi
+    return sizerEl.clientHeight;
   };
 
+  // resize colums on isWrap change
   useEffect(() => {
     minColWidths.delete(LogFeedColumn.Message);
     setMinColWidths(new Map(minColWidths));
@@ -603,6 +610,8 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
     listRef.current?.resetAfterIndex(0);
   }, [isWrap]);
 
+  // resize columns on dimensions change
+  // TODO: debounce and only trigger on width change
   useEffect(() => {
     const listOuterEl = listOuterRef.current;
     if (!listOuterEl) return;
@@ -687,6 +696,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
 
   return (
     <div className="h-full flex flex-col text-xs">
+      <div ref={sizerElRef} className="fixed top-0 left-0 border border-red-500 invisible font-mono leading-[24px]" style={{ width: `${minColWidths.get(LogFeedColumn.Message) || 0}px` }} />
       <div
         ref={headerOuterElRef}
         className="overflow-x-scroll no-scrollbar cursor-default"
