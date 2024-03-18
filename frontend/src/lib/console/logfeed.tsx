@@ -603,6 +603,15 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
     listRef.current?.resetAfterIndex(0);
   }, [isWrap]);
 
+  useEffect(() => {
+    const listOuterEl = listOuterRef.current;
+    if (!listOuterEl) return;
+
+    const resizeObserver = new ResizeObserver(resizeColumns);
+    resizeObserver.observe(listOuterEl);
+    return () => resizeObserver.unobserve(listOuterEl);
+  }, [isListReady]);
+
   // -------------------------------------------------------------------------------------
   // Scrolling logic
   // -------------------------------------------------------------------------------------
@@ -651,7 +660,6 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
 
   // handle items rendered
   const handleItemsRendered = () => {
-    // set isListReady
     if (!isListReady) setIsListReady(true);
     resizeColumns();
   };
