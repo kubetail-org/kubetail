@@ -526,6 +526,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
   const listOuterRef = useRef<HTMLDivElement>(null);
   const listInnerRef = useRef<HTMLDivElement>(null);
   const infiniteLoaderRef = useRef<InfiniteLoader>(null);
+  const msgColElRef = useRef<HTMLDivElement>(null);
   const sizerElRef = useRef<HTMLDivElement>(null);
 
   const [isListReady, setIsListReady] = useState(false);
@@ -610,9 +611,10 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
   // -------------------------------------------------------------------------------------
 
   const handleItemSize = (index: number) => {
+    const msgColEl = msgColElRef.current;
     const sizerEl = sizerElRef.current;
-    if (!isWrap || !sizerEl) return 24;
- 
+    if (!isWrap || !msgColEl || !sizerEl) return 24;
+
     // placeholder rows
     if (index === 0 || index === (items.length + 1)) return 24;
 
@@ -621,19 +623,17 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
     return sizerEl.clientHeight;
   };
 
-  const msgColWidth = useMemo(() => {
-    let w = maxRowWidth;
-    visibleCols.forEach(col => {w -= colWidths.get(col) || 0;});
-    console.log(w);
-    return w;
-  }, [maxRowWidth, visibleCols.size]);
-  
   // trigger resize on isWrap change
   useEffect(() => {
     const listOuterEl = listOuterRef.current;
     listOuterEl && setMaxRowWidth(listOuterEl.clientWidth);
     listRef.current?.resetAfterIndex(0);
   }, [isWrap]);
+
+  // trigger resize on visibleCols change
+  useEffect(() => {
+    if (isWrap) listRef.current?.resetAfterIndex(0);
+  }, [isWrap, visibleCols.size]);
 
   // trigger resize on dimensions change
   // TODO: debounce and only trigger on width change
@@ -711,6 +711,12 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
     }
   }, [scrollToTrigger]);
 
+  const msgColWidth = useMemo(() => {
+    let w = maxRowWidth;
+    visibleCols.forEach(col => {w -= colWidths.get(col) || 0;});
+    return w;
+  }, [maxRowWidth, visibleCols.size]);
+
   // ------------------------------------------------------------------------------------
   // Renderer
   // ------------------------------------------------------------------------------------
@@ -719,7 +725,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
     <div className="h-full flex flex-col text-xs">
       <div
         ref={sizerElRef}
-        className="absolute visible border border-red-500 font-mono leading-[24px] px-[8px]"
+        className="absolute border border-red-500 font-mono leading-[24px] px-[8px]"
         style={{ width: msgColWidth }}
       />
       <div
@@ -737,6 +743,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
               return (
                 <div
                   key={col}
+                  ref={col === LogFeedColumn.Message ? msgColElRef : null}
                   className={cn(
                     'whitespace-nowrap uppercase px-[8px]',
                     (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
