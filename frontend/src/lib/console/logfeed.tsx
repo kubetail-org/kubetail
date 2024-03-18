@@ -478,6 +478,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
   const listOuterRef = useRef<HTMLDivElement | null>(null);
   const listInnerRef = useRef<HTMLDivElement | null>(null);
   const infiniteLoaderRef = useRef<InfiniteLoader | null>(null);
+  const msgColElRef = useRef<HTMLDivElement | null>(null);
   const sizerElRef = useRef<HTMLDivElement | null>(null);
 
   const [isListReady, setIsListReady] = useState(false);
@@ -592,16 +593,20 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
 
     if (minColWidthsChanged) setMinColWidths(new Map(minColWidths));
     setMaxWidth(maxRowWidth);
+
+    if (isWrap) listRef.current?.resetAfterIndex(0);
   };
 
   const handleItemSize = (index: number) => {
     if (!isWrap) return 24;
     if (index === 0 || index === (items.length + 1)) return 24;
 
+    const msgColEl = msgColElRef.current;
     const sizerEl = sizerElRef.current;
-    if (!sizerEl) return 24;
+    if (!msgColEl || !sizerEl) return 24;
 
     const record = items[index - 1];
+    sizerEl.style.width = `${msgColEl.clientWidth - 16}px`;
     sizerEl.textContent = record.message.replace(ansiRegexGlobal, ''); // strip out ansi
     return sizerEl.clientHeight;
   };
@@ -701,13 +706,17 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
   return (
     <div className="h-full flex flex-col text-xs">
       <div
+        ref={sizerElRef}
+        className="absolute invisible font-mono leading-[24px]"
+      />
+      <div
         ref={headerOuterElRef}
         className="overflow-x-scroll no-scrollbar cursor-default"
         onScroll={handleHeaderScrollX}
       >
         <div
           ref={headerInnerElRef}
-          className="flex h-[18px] leading-[18px] border-b border-chrome-divider bg-chrome-200 [&>*]:border-r [&>*:not(:last-child)]:border-chrome-divider"
+          className="flex leading-[18px] border-b border-chrome-divider bg-chrome-200 [&>*]:border-r [&>*:not(:last-child)]:border-chrome-divider"
           style={{ width: `${maxWidth}px` }}
         >
           {allLogFeedColumns.map(col => {
@@ -715,6 +724,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
               return (
                 <div
                   key={col}
+                  ref={col === LogFeedColumn.Message ? msgColElRef : null}
                   className={cn(
                     'whitespace-nowrap uppercase px-[8px]',
                     (col === LogFeedColumn.Message) ? 'flex-grow relative' : 'shrink-0',
@@ -723,12 +733,6 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
                   data-col-id={col}
                 >
                   {(col !== LogFeedColumn.ColorDot) && col}
-                  {col === LogFeedColumn.Message && (
-                    <div
-                      ref={sizerElRef}
-                      className="absolute w-full font-mono leading-[24px]"
-                    />
-                  )}
                 </div>
               );
             }
