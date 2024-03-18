@@ -426,7 +426,7 @@ const Row = memo(
             className={cn(
               index % 2 !== 0 && 'bg-chrome-100',
               'px-[8px]',
-              (isWrap) ? '': 'whitespace-nowrap',
+              (isWrap) ? '' : 'whitespace-nowrap',
               (col === LogFeedColumn.Timestamp) ? 'bg-chrome-200' : '',
               (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
             )}
@@ -561,7 +561,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
   };
 
   // -------------------------------------------------------------------------------------
-  // Sizing logic
+  // Column sizing logic
   // -------------------------------------------------------------------------------------
 
   const resizeColumns = () => {
@@ -577,6 +577,10 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
       Array.from(rowEl.children || []).forEach(colEl => {
         const colId = (colEl as HTMLElement).dataset.colId as LogFeedColumn;
         if (!colId) return;
+
+        // message column takes remaining space
+        if (colId === LogFeedColumn.Message) return;
+
         const currVal = minColWidths.get(colId) || 0;
         const newVal = Math.max(currVal, colEl.scrollWidth);
         if (newVal !== currVal) minColWidths.set(colId, newVal);
@@ -696,7 +700,6 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
 
   return (
     <div className="h-full flex flex-col text-xs">
-      <div ref={sizerElRef} className="fixed top-0 left-0 border border-red-500 invisible font-mono leading-[24px]" style={{ width: `${minColWidths.get(LogFeedColumn.Message) || 0}px` }} />
       <div
         ref={headerOuterElRef}
         className="overflow-x-scroll no-scrollbar cursor-default"
@@ -714,12 +717,18 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
                   key={col}
                   className={cn(
                     'whitespace-nowrap uppercase px-[8px]',
-                    (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
+                    (col === LogFeedColumn.Message) ? 'flex-grow relative' : 'shrink-0',
                   )}
                   style={(col !== LogFeedColumn.Message) ? { minWidth: `${minColWidths.get(col) || 0}px` } : {}}
                   data-col-id={col}
                 >
                   {(col !== LogFeedColumn.ColorDot) && col}
+                  {col === LogFeedColumn.Message && (
+                    <div
+                      ref={sizerElRef}
+                      className="absolute w-full font-mono leading-[24px]"
+                    />
+                  )}
                 </div>
               );
             }
