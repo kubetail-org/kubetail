@@ -474,12 +474,11 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
   const headerOuterElRef = useRef<HTMLDivElement>(null);
   const headerInnerElRef = useRef<HTMLDivElement>(null);
 
-  const listRef = useRef<VariableSizeList<LogRecord> | null>(null);
-  const listOuterRef = useRef<HTMLDivElement | null>(null);
-  const listInnerRef = useRef<HTMLDivElement | null>(null);
-  const infiniteLoaderRef = useRef<InfiniteLoader | null>(null);
-  const msgColElRef = useRef<HTMLDivElement | null>(null);
-  const sizerElRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<VariableSizeList<LogRecord>>(null);
+  const listOuterRef = useRef<HTMLDivElement>(null);
+  const listInnerRef = useRef<HTMLDivElement>(null);
+  const infiniteLoaderRef = useRef<InfiniteLoader>(null);
+  const sizerElRef = useRef<HTMLDivElement>(null);
 
   const [isListReady, setIsListReady] = useState(false);
 
@@ -488,6 +487,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
 
   const [maxWidth, setMaxWidth] = useState<number | string>('100%');
   const [minColWidths, setMinColWidths] = useState<Map<LogFeedColumn, number>>(new Map());
+  const [msgColWidth, setMsgColWidth] = useState<number>(0);
 
   const isAutoScrollRef = useRef(true);
   const isProgrammaticScrollRef = useRef(false);
@@ -591,22 +591,25 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
     // adjust list inner
     if (listInnerRef.current) listInnerRef.current.style.width = `${maxRowWidth}px`;
 
-    if (minColWidthsChanged) setMinColWidths(new Map(minColWidths));
     setMaxWidth(maxRowWidth);
+    setMsgColWidth(maxRowWidth - Array.from(minColWidths.values()).reduce((a, c) => a + c, 0));
 
-    if (isWrap) listRef.current?.resetAfterIndex(0);
+    if (minColWidthsChanged) {
+      setMinColWidths(new Map(minColWidths));
+
+      // force list to recalculate heights
+      if (isWrap) listRef.current?.resetAfterIndex(0);
+    }
   };
 
   const handleItemSize = (index: number) => {
-    if (!isWrap) return 24;
+    const sizerEl = sizerElRef.current;
+    if (!isWrap || !sizerEl) return 24;
+ 
+    // placeholder rows
     if (index === 0 || index === (items.length + 1)) return 24;
 
-    const msgColEl = msgColElRef.current;
-    const sizerEl = sizerElRef.current;
-    if (!msgColEl || !sizerEl) return 24;
-
     const record = items[index - 1];
-    sizerEl.style.width = `${msgColEl.clientWidth - 16}px`;
     sizerEl.textContent = record.message.replace(ansiRegexGlobal, ''); // strip out ansi
     return sizerEl.clientHeight;
   };
@@ -677,8 +680,9 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
   // -------------------------------------------------------------------------------------
 
   // handle items rendered
-  const handleItemsRendered = () => {
+  const handleItemsRendered = (args) => {
     if (!isListReady) setIsListReady(true);
+    console.log(args);
     resizeColumns();
   };
 
@@ -707,7 +711,8 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
     <div className="h-full flex flex-col text-xs">
       <div
         ref={sizerElRef}
-        className="absolute invisible font-mono leading-[24px]"
+        className="absolute invisible font-mono leading-[24px] px-[8px]"
+        style={{ width: msgColWidth }}
       />
       <div
         ref={headerOuterElRef}
@@ -724,10 +729,9 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
               return (
                 <div
                   key={col}
-                  ref={col === LogFeedColumn.Message ? msgColElRef : null}
                   className={cn(
                     'whitespace-nowrap uppercase px-[8px]',
-                    (col === LogFeedColumn.Message) ? 'flex-grow relative' : 'shrink-0',
+                    (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
                   )}
                   style={(col !== LogFeedColumn.Message) ? { minWidth: `${minColWidths.get(col) || 0}px` } : {}}
                   data-col-id={col}
@@ -760,7 +764,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
                     className="font-mono"
                     onItemsRendered={(args) => {
                       onItemsRendered(args);
-                      handleItemsRendered();
+                      handleItemsRendered(args);
                     }}
                     onScroll={handleContentScrollY}
                     height={height}
