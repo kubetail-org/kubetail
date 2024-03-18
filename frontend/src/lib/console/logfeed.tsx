@@ -397,7 +397,6 @@ type RowProps = {
   index: any;
   style: any;
   data: RowData;
-  isScrolling: boolean;
 };
 
 const Row = memo(
@@ -563,20 +562,44 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
   // Sizing logic
   // -------------------------------------------------------------------------------------
 
+  const resizeColumns = () => {
+    const listOuterEl = listOuterRef.current;
+    if (!listOuterEl) return;
+
+    // get max row and col widths
+    let maxRowWidth = listOuterEl.clientWidth;
+    let minColWidthsChanged = false;
+    Array.from(listInnerRef.current?.children || []).forEach(rowEl => {
+      if (!isWrap) maxRowWidth = Math.max(maxRowWidth, rowEl.scrollWidth);
+
+      Array.from(rowEl.children || []).forEach(colEl => {
+        const colId = (colEl as HTMLElement).dataset.colId as LogFeedColumn;
+        if (!colId) return;
+        const currVal = minColWidths.get(colId) || 0;
+        const newVal = Math.max(currVal, colEl.scrollWidth);
+        if (newVal !== currVal) minColWidths.set(colId, newVal);
+      });
+    });
+
+    // adjust list inner
+    if (listInnerRef.current) listInnerRef.current.style.width = `${maxRowWidth}px`;
+
+    if (minColWidthsChanged) setMinColWidths(new Map(minColWidths));
+    setMaxWidth(maxRowWidth);
+  };
+
   const handleItemSize = (index: number) => {
     if (!isWrap) return 24;
     if (index === 0 || index === (items.length + 1)) return 24;
 
-    console.log(index);
-    console.log(items.length);
     const record = items[index - 1];
-    console.log(record);
-    return 24 * (1 + Math.floor(record.message.length / 100));
+    return 24 * (1 + Math.floor(record.message.length / 160));
   };
 
   useEffect(() => {
     minColWidths.delete(LogFeedColumn.Message);
     setMinColWidths(new Map(minColWidths));
+    resizeColumns();
     listRef.current?.resetAfterIndex(0);
   }, [isWrap]);
 
@@ -630,27 +653,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
   const handleItemsRendered = () => {
     // set isListReady
     if (!isListReady) setIsListReady(true);
-
-    // get max row and col widths
-    let maxRowWidth = 0;
-    let minColWidthsChanged = false;
-    Array.from(listInnerRef.current?.children || []).forEach(rowEl => {
-      maxRowWidth = Math.max(maxRowWidth, rowEl.scrollWidth);
-
-      Array.from(rowEl.children || []).forEach(colEl => {
-        const colId = (colEl as HTMLElement).dataset.colId as LogFeedColumn;
-        if (!colId) return;
-        const currVal = minColWidths.get(colId) || 0;
-        const newVal = Math.max(currVal, colEl.scrollWidth);
-        if (newVal !== currVal) minColWidths.set(colId, newVal);
-      });
-    });
-
-    // adjust list inner
-    if (listInnerRef.current) listInnerRef.current.style.width = `${maxRowWidth}px`;
-
-    if (minColWidthsChanged) setMinColWidths(new Map(minColWidths));
-    setMaxWidth(maxRowWidth);
+    resizeColumns();
   };
 
   useEffect(() => {
