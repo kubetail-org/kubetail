@@ -16,11 +16,12 @@ import { useQuery, useSubscription } from '@apollo/client';
 import { AnsiUp } from 'ansi_up';
 import { format, utcToZonedTime } from 'date-fns-tz';
 import makeAnsiRegex from 'ansi-regex';
-import { createRef, forwardRef, memo, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { createRef, forwardRef, memo, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { VariableSizeList, areEqual } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
 import { atom, useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
+import { useDebounceCallback } from 'usehooks-ts';
 
 import Spinner from 'kubetail-ui/elements/Spinner';
 
@@ -618,7 +619,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
 
     // placeholder rows
     if (index === 0 || index === (items.length + 1)) return 24;
-    console.log('x');
+
     const record = items[index - 1];
     sizerEl.textContent = record.message.replace(ansiRegexGlobal, ''); // strip out ansi
     return sizerEl.clientHeight;
@@ -633,22 +634,27 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
   useEffect(() => {
     const msgHeaderColEl = msgHeaderColElRef.current;
     if (!msgHeaderColEl) return;
+
     setMsgColWidth(isWrap ? msgHeaderColEl.clientWidth : 0);
   }, [isWrap, visibleCols]);
 
   // handle content window dimension changes
-  // TODO: debounce and only trigger on width change
-  useEffect(() => {
+  const debouncedHandleResize = useDebounceCallback(() => {
     const listOuterEl = listOuterRef.current;
     const listInnerEl = listInnerRef.current;
     const msgHeaderColEl = msgHeaderColElRef.current;
     if (!listOuterEl || !listInnerEl || !msgHeaderColEl) return;
 
-    const resizeObserver = new ResizeObserver(() => {
-      if (isWrap) setMsgColWidth(msgHeaderColEl.clientWidth);
-      else listInnerEl.style.width = `${Math.max(listOuterEl.clientWidth, maxRowWidth)}px`;
-    });
+    if (isWrap) setMsgColWidth(msgHeaderColEl.clientWidth);
+    else listInnerEl.style.width = `${Math.max(listOuterEl.clientWidth, maxRowWidth)}px`;
+  }, 20);
 
+  // listen to content window dimension changes
+  useEffect(() => {
+    const listOuterEl = listOuterRef.current;
+    if (!listOuterEl) return;
+
+    const resizeObserver = new ResizeObserver(debouncedHandleResize);
     resizeObserver.observe(listOuterEl);
     return () => resizeObserver.unobserve(listOuterEl);
   }, [isWrap, maxRowWidth]);
