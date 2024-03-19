@@ -18,9 +18,10 @@ import { format, utcToZonedTime } from 'date-fns-tz';
 import makeAnsiRegex from 'ansi-regex';
 import { createRef, forwardRef, memo, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
-import { FixedSizeList } from 'react-window';
+import { VariableSizeList, areEqual } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
 import { atom, useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
+import { useDebounceCallback } from 'usehooks-ts';
 
 import Spinner from 'kubetail-ui/elements/Spinner';
 
@@ -39,6 +40,7 @@ import type { Node, Pod } from './logging-resources';
 
 const ansiUp = new AnsiUp();
 const ansiRegex = makeAnsiRegex({ onlyFirst: true });
+const ansiRegexGlobal = makeAnsiRegex();
 
 /**
  * Shared types
@@ -151,6 +153,21 @@ const visibleColsState = atom({
   default: new Set([LogFeedColumn.Timestamp, LogFeedColumn.ColorDot, LogFeedColumn.Message]),
 });
 
+const colWidthsState = atom({
+  key: 'logFeedColWidths',
+  default: new Map<LogFeedColumn, number>(),
+});
+
+const maxRowWidthState = atom({
+  key: 'logFeedMaxRowWidth',
+  default: 0,
+});
+
+const isWrapState = atom({
+  key: 'logFeedIsWrap',
+  default: false,
+});
+
 const filtersState = atom({
   key: 'logFeedFilters',
   default: new MapSet<string, string>(),
@@ -203,6 +220,10 @@ export const useLogFeedMetadata = () => {
 
 export function useLogFeedVisibleCols() {
   return useRecoilState(visibleColsState);
+}
+
+export function useLogFeedIsWrap() {
+  return useRecoilState(isWrapState);
 }
 
 export function useLogFeedFacets() {
@@ -379,8 +400,8 @@ type RowData = {
   items: LogRecord[];
   hasMoreBefore: boolean;
   hasMoreAfter: boolean;
-  minColWidths: Map<LogFeedColumn, number>;
   visibleCols: Set<string>;
+  isWrap: boolean;
 }
 
 type RowProps = {
@@ -391,7 +412,40 @@ type RowProps = {
 
 const Row = memo(
   ({ index, style, data }: RowProps) => {
-    const { items, hasMoreBefore, visibleCols, minColWidths } = data;
+    const { items, hasMoreBefore, visibleCols, isWrap } = data;
+
+    const rowElRef = useRef<HTMLDivElement>(null);
+    const [colWidths, setColWidths] = useRecoilState(colWidthsState);
+    const setMaxRowWidth = useSetRecoilState(maxRowWidthState);
+
+    // update global colWidths
+    useEffect(() => {
+      const rowEl = rowElRef.current;
+      if (!rowEl) return;
+
+      // get current column widths
+      const currColWidths = new Map<LogFeedColumn, number>();
+      Array.from(rowEl.children || []).forEach(colEl => {
+        const colId = (colEl as HTMLElement).dataset.colId as LogFeedColumn;
+        if (!colId || colId === LogFeedColumn.Message) return;
+        currColWidths.set(colId, colEl.scrollWidth);
+      });
+
+      // update colWidths state (if necessary)
+      setColWidths(oldVals => {
+        const changedVals = new Map<LogFeedColumn, number>();
+        currColWidths.forEach((currWidth, colId) => {
+          const oldWidth = oldVals.get(colId);
+          const newWidth = Math.max(currWidth, oldWidth || 0);
+          if (newWidth !== oldWidth) changedVals.set(colId, newWidth);
+        });
+        if (changedVals.size) return new Map([...oldVals, ...changedVals]);
+        return oldVals;
+      });
+
+      // update maxRowWidth state
+      setMaxRowWidth(currVal => Math.max(currVal, rowEl.scrollWidth));
+    }, [visibleCols]);
 
     // first row
     if (index === 0) {
@@ -414,11 +468,12 @@ const Row = memo(
             key={col}
             className={cn(
               index % 2 !== 0 && 'bg-chrome-100',
-              'whitespace-nowrap px-[8px]',
+              'px-[8px]',
+              (isWrap) ? '' : 'whitespace-nowrap',
               (col === LogFeedColumn.Timestamp) ? 'bg-chrome-200' : '',
               (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
             )}
-            style={(col !== LogFeedColumn.Message) ? { minWidth: `${(minColWidths.get(col) || 0)}px` } : {}}
+            style={(col !== LogFeedColumn.Message) ? { minWidth: `${(colWidths.get(col) || 0)}px` } : {}}
             data-col-id={col}
           >
             {getAttribute(record, col)}
@@ -429,11 +484,16 @@ const Row = memo(
 
     const { width, ...otherStyles } = style;
     return (
-      <div className="flex leading-[24px]" style={{ width: 'inherit', ...otherStyles }}>
+      <div
+        ref={rowElRef}
+        className="flex leading-[24px]"
+        style={{ width: 'inherit', ...otherStyles }}
+      >
         {els}
       </div>
     );
-  }
+  },
+  areEqual,
 );
 
 type LogFeedContentHandle = {
@@ -455,26 +515,30 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
 
   const [isLoading, setIsLoading] = useRecoilState(isLoadingState);
   const visibleCols = useRecoilValue(visibleColsState);
+  const colWidths = useRecoilValue(colWidthsState);
+  const maxRowWidth = useRecoilValue(maxRowWidthState);
+  const isWrap = useRecoilValue(isWrapState);
   const allowedContainers = useAllowedContainers();
 
   const headerOuterElRef = useRef<HTMLDivElement>(null);
   const headerInnerElRef = useRef<HTMLDivElement>(null);
 
-  const listRef = useRef<FixedSizeList<LogRecord> | null>(null);
-  const listOuterRef = useRef<HTMLDivElement | null>(null);
-  const listInnerRef = useRef<HTMLDivElement | null>(null);
-  const infiniteLoaderRef = useRef<InfiniteLoader | null>(null);
+  const listRef = useRef<VariableSizeList<LogRecord>>(null);
+  const listOuterRef = useRef<HTMLDivElement>(null);
+  const listInnerRef = useRef<HTMLDivElement>(null);
+  const infiniteLoaderRef = useRef<InfiniteLoader>(null);
+  const msgHeaderColElRef = useRef<HTMLDivElement>(null);
+  const sizerElRef = useRef<HTMLDivElement>(null);
 
   const [isListReady, setIsListReady] = useState(false);
 
   const scrollToRef = useRef<'first' | 'last' | null>(null);
   const [scrollToTrigger, setScrollToTrigger] = useState(0);
 
-  const [maxWidth, setMaxWidth] = useState<number | string>('100%');
-  const [minColWidths, setMinColWidths] = useState<Map<LogFeedColumn, number>>(new Map());
-
   const isAutoScrollRef = useRef(true);
   const isProgrammaticScrollRef = useRef(false);
+
+  const [msgColWidth, setMsgColWidth] = useState(0);
 
   // apply filter
   items = items.filter(item => {
@@ -546,6 +610,63 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
   };
 
   // -------------------------------------------------------------------------------------
+  // Sizing logic
+  // -------------------------------------------------------------------------------------
+
+  const handleItemSize = (index: number) => {
+    const sizerEl = sizerElRef.current;
+    if (!isWrap || !sizerEl) return 24;
+
+    // placeholder rows
+    if (index === 0 || index === (items.length + 1)) return 24;
+
+    const record = items[index - 1];
+    sizerEl.textContent = record.message.replace(ansiRegexGlobal, ''); // strip out ansi
+    return sizerEl.clientHeight;
+  };
+
+  // trigger resize on `msgColWidth` changes
+  useEffect(() => {
+    listRef.current?.resetAfterIndex(0);
+  }, [msgColWidth]);
+
+  // recalculate `msgColWidth` on `isWrap` and `visibleCols` changes
+  useEffect(() => {
+    const msgHeaderColEl = msgHeaderColElRef.current;
+    if (!msgHeaderColEl) return;
+
+    setMsgColWidth(isWrap ? msgHeaderColEl.clientWidth : 0);
+  }, [isWrap, visibleCols]);
+
+  // handle content window dimension changes
+  const debouncedHandleResize = useDebounceCallback(() => {
+    const listOuterEl = listOuterRef.current;
+    const listInnerEl = listInnerRef.current;
+    const msgHeaderColEl = msgHeaderColElRef.current;
+    if (!listOuterEl || !listInnerEl || !msgHeaderColEl) return;
+
+    if (isWrap) setMsgColWidth(msgHeaderColEl.clientWidth);
+    else listInnerEl.style.width = `${Math.max(listOuterEl.clientWidth, maxRowWidth)}px`;
+  }, 20);
+
+  // listen to content window dimension changes
+  useEffect(() => {
+    const listOuterEl = listOuterRef.current;
+    if (!listOuterEl) return;
+
+    const resizeObserver = new ResizeObserver(debouncedHandleResize);
+    resizeObserver.observe(listOuterEl);
+    return () => resizeObserver.unobserve(listOuterEl);
+  }, [isWrap, maxRowWidth]);
+
+  // update width of inner wrapper element when `maxRowWidth` changes
+  useEffect(() => {
+    const listInnerEl = listInnerRef.current;
+    if (!listInnerEl) return;
+    listInnerEl.style.width = (isWrap || !maxRowWidth) ? '100%' : `${maxRowWidth}px`;
+  }, [isWrap, maxRowWidth]);
+
+  // -------------------------------------------------------------------------------------
   // Scrolling logic
   // -------------------------------------------------------------------------------------
 
@@ -591,33 +712,6 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
   // Miscellaneous
   // -------------------------------------------------------------------------------------
 
-  // handle items rendered
-  const handleItemsRendered = () => {
-    // set isListReady
-    if (!isListReady) setIsListReady(true);
-
-    // get max row and col widths
-    let maxRowWidth = 0;
-    let minColWidthsChanged = false;
-    Array.from(listInnerRef.current?.children || []).forEach(rowEl => {
-      maxRowWidth = Math.max(maxRowWidth, rowEl.scrollWidth);
-
-      Array.from(rowEl.children || []).forEach(colEl => {
-        const colId = (colEl as HTMLElement).dataset.colId as LogFeedColumn;
-        if (!colId) return;
-        const currVal = minColWidths.get(colId) || 0;
-        const newVal = Math.max(currVal, colEl.scrollWidth);
-        if (newVal !== currVal) minColWidths.set(colId, newVal);
-      });
-    });
-
-    // adjust list inner
-    if (listInnerRef.current) listInnerRef.current.style.width = `${maxRowWidth}px`;
-
-    if (minColWidthsChanged) setMinColWidths(new Map(minColWidths));
-    setMaxWidth(maxRowWidth);
-  };
-
   useEffect(() => {
     if (scrollToRef.current) {
       isProgrammaticScrollRef.current = true;
@@ -642,25 +736,31 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
   return (
     <div className="h-full flex flex-col text-xs">
       <div
+        ref={sizerElRef}
+        className="absolute invisible font-mono leading-[24px] px-[8px]"
+        style={{ width: msgColWidth }}
+      />
+      <div
         ref={headerOuterElRef}
         className="overflow-x-scroll no-scrollbar cursor-default"
         onScroll={handleHeaderScrollX}
       >
         <div
           ref={headerInnerElRef}
-          className="flex h-[18px] leading-[18px] border-b border-chrome-divider bg-chrome-200 [&>*]:border-r [&>*:not(:last-child)]:border-chrome-divider"
-          style={{ width: `${maxWidth}px` }}
+          className="flex leading-[18px] border-b border-chrome-divider bg-chrome-200 [&>*]:border-r [&>*:not(:last-child)]:border-chrome-divider"
+          style={{ minWidth: (isWrap) ? '100%' : `${maxRowWidth}px` }}
         >
           {allLogFeedColumns.map(col => {
             if (visibleCols.has(col)) {
               return (
                 <div
                   key={col}
+                  ref={(col === LogFeedColumn.Message) ? msgHeaderColElRef : null}
                   className={cn(
                     'whitespace-nowrap uppercase px-[8px]',
                     (col === LogFeedColumn.Message) ? 'flex-grow' : 'shrink-0',
                   )}
-                  style={(col !== LogFeedColumn.Message) ? { minWidth: `${minColWidths.get(col) || 0}px` } : {}}
+                  style={(col !== LogFeedColumn.Message) ? { minWidth: `${colWidths.get(col) || 0}px` } : {}}
                   data-col-id={col}
                 >
                   {(col !== LogFeedColumn.ColorDot) && col}
@@ -682,7 +782,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
                 threshold={20}
               >
                 {({ onItemsRendered, ref }) => (
-                  <FixedSizeList
+                  <VariableSizeList
                     ref={list => {
                       ref(list);
                       // @ts-ignore
@@ -691,20 +791,21 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
                     className="font-mono"
                     onItemsRendered={(args) => {
                       onItemsRendered(args);
-                      handleItemsRendered();
+                      if (!isListReady) setIsListReady(true);
                     }}
                     onScroll={handleContentScrollY}
                     height={height}
                     width={width}
                     itemCount={itemCount}
-                    itemSize={24}
+                    estimatedItemSize={24}
+                    itemSize={handleItemSize}
                     outerRef={listOuterRef}
                     innerRef={listInnerRef}
                     overscanCount={20}
-                    itemData={{ items, hasMoreBefore, hasMoreAfter, minColWidths, visibleCols }}
+                    itemData={{ items, hasMoreBefore, hasMoreAfter, visibleCols, isWrap }}
                   >
                     {Row}
-                  </FixedSizeList>
+                  </VariableSizeList>
                 )}
               </InfiniteLoader>
               {isLoading && <LoadingOverlay height={height} width={width} />}
@@ -892,7 +993,10 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
   // set isReady after component and children are mounted
   useEffect(() => {
     if (nodes.loading || pods.loading) return;
-    setIsReady(true);
+
+    // TODO: remove this delay by looking at child refs
+    const id = setTimeout(() => { setIsReady(true); }, 100);
+    return () => { clearTimeout(id); };
   }, [nodes.loading, pods.loading]);
 
   // only load containers from nodes that we have a record of

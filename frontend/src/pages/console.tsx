@@ -44,6 +44,7 @@ import {
   useLogFeedControls,
   useLogFeedFacets,
   useLogFeedFilters,
+  useLogFeedIsWrap,
   useLogFeedMetadata,
   useLogFeedVisibleCols,
 } from '@/lib/console/logfeed';
@@ -96,6 +97,7 @@ const ConfigureContainerColors = () => {
 
 const SettingsButton = () => {
   const [visibleCols, setVisibleCols] = useLogFeedVisibleCols();
+  const [isWrap, setIsWrap] = useLogFeedIsWrap();
 
   const handleOnChange = (col: LogFeedColumn, ev: React.ChangeEvent<HTMLInputElement>) => {
     const newSet = new Set(visibleCols);
@@ -130,13 +132,11 @@ const SettingsButton = () => {
         <div className="border-b mb-1">Columns:</div>
         {checkboxEls}
         <div className="border-b mt-2 mb-1">Options:</div>
-        {/*
         <Form.Check
           label="Wrap"
-          checked={isMsgWrap}
-          onChange={() => dispatch({ isMsgWrap: !isMsgWrap })}
+          checked={isWrap}
+          onChange={() => setIsWrap(!isWrap)}
         />
-        */}
       </PopoverContent>
     </Popover>
   );
@@ -406,15 +406,6 @@ const Header = () => {
           <SkipForwardIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
         </button>
       </div>
-      {/*
-      <div className="flex justify-center">
-        <DateRangeDropdown onChange={handleDateRangeDropdownChange}>
-          <button className="h-[40px] cursor-pointer bg-chrome-200 hover:bg-chrome-300 py-1 px-2 rounded">
-            <FeedTitle since={state.since} until={state.until} />
-          </button>
-        </DateRangeDropdown>
-      </div>
-      */}
       <div className="h-full flex flex-col justify-end items-end">
         <SettingsButton />
       </div>
