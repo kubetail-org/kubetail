@@ -12,7 +12,7 @@ export default function ({ children }: React.PropsWithChildren) {
 
   return (
     <>
-      <div className="h-[calc(100vh-23px)] overflow-auto">
+      <div className="h-[calc(100vh-23px)] overflow-hidden">
         {children}
       </div>
       <div className="h-[22px] bg-chrome-100 border-t border-chrome-divider text-sm flex justify-between items-center pl-[10px]">
