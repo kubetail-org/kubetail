@@ -2,7 +2,7 @@
 
 Kubetail is a web-based, real-time log viewer for Kubernetes clusters
 
-<img src="https://github.com/kubetail-org/kubetail/assets/75881/38d2b2d1-e6e7-4f2c-9829-78ac51dd3e05" width="300px" title="screenshot">
+<img src="https://github.com/kubetail-org/kubetail/assets/75881/7647bd90-0859-4b0b-9400-c7cdeb6a93e6" width="300px" title="screenshot">
 
 Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 
@@ -118,33 +118,36 @@ The kubetail server executable (`server`) supports the following command line co
 
 Kubetail can be configured using a configuration file written in YAML, JSON, TOML, HCL or envfile format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [hack/config.yaml](hack/config.yaml)):
 
-| Name                       | Datatype | Description                                          | Default                |
-| -------------------------- | -------- | ---------------------------------------------------- | ---------------------- |
-| addr                       | string   | Host address to bind to                              | ":4000"                |
-| auth-mode                  | string   | Auth mode (token, cluster, local)                    | "token"                |
-| gin-mode                   | string   | Gin mode (release, debug)                            | "release"              |
-| kube-config                | string   | Kubectl config file path                             | "${HOME}/.kube/config" |
-| csrf.enabled               | bool     | Enable CSRF protection                               | true                   |
-| csrf.field-name            | string   | CSRF token name in forms                             | "csrf_token"           |
-| csrf.secret                | string   | CSRF hash key                                        | ""                     |
-| csrf.cookie.name           | string   | CSRF cookie name                                     | "csrf"                 |
-| csrf.cookie.path           | string   | CSRF cookie path                                     | "/"                    |
-| csrf.cookie.domain         | string   | CSRF cookie domain                                   | ""                     |
-| csrf.cookie.max-age        | int      | CSRF cookie max age (in seconds)                     | 43200                  |
-| csrf.cookie.secure         | bool     | CSRF cookie secure property                          | false                  |
-| csrf.cookie.http-only      | bool     | CSRF cookie HttpOnly property                        | true                   |
-| csrf.cookie.same-site      | string   | CSRF cookie SameSite property (strict, lax, none)    | "strict"               |
-| logging.enabled            | bool     | Enable logging                                       | true                   |
-| logging.level              | string   | Log level                                            | "info"                 |
-| logging.format             | string   | Log format (json, pretty)                            | "json"                 |
-| logging.access-log-enabled | bool     | Enable access log                                    | true                   |
-| session.secret             | string   | Session hash key                                     | ""                     |
-| session.cookie.path        | string   | Session cookie path                                  | "/"                    |
-| session.cookie.domain      | string   | Session cookie domain                                | ""                     |
-| session.cookie.max-age     | int      | Session cookie max age (in seconds)                  | 43200                  |
-| session.cookie.secure      | bool     | Session cookie secure property                       | false                  |
-| session.cookie.http-only   | bool     | Session cookie HttpOnly property                     | true                   |
-| session.cookie.same-site   | string   | Session cookie SameSite property (strict, lax, none) | "strict"               |
+| Name                                  | Datatype | Description                                          | Default                |
+| ------------------------------------- | -------- | ---------------------------------------------------- | ---------------------- |
+| addr                                  | string   | Host address to bind to                              | ":4000"                |
+| auth-mode                             | string   | Auth mode (token, cluster, local)                    | "token"                |
+| gin-mode                              | string   | Gin mode (release, debug)                            | "release"              |
+| kube-config                           | string   | Kubectl config file path                             | "${HOME}/.kube/config" |
+| base-path                             | string   | URL path prefix                                      | "/"                    |
+| csrf.enabled                          | bool     | Enable CSRF protection                               | true                   |
+| csrf.field-name                       | string   | CSRF token name in forms                             | "csrf_token"           |
+| csrf.secret                           | string   | CSRF hash key                                        | ""                     |
+| csrf.cookie.name                      | string   | CSRF cookie name                                     | "csrf"                 |
+| csrf.cookie.path                      | string   | CSRF cookie path                                     | "/"                    |
+| csrf.cookie.domain                    | string   | CSRF cookie domain                                   | ""                     |
+| csrf.cookie.max-age                   | int      | CSRF cookie max age (in seconds)                     | 43200                  |
+| csrf.cookie.secure                    | bool     | CSRF cookie secure property                          | false                  |
+| csrf.cookie.http-only                 | bool     | CSRF cookie HttpOnly property                        | true                   |
+| csrf.cookie.same-site                 | string   | CSRF cookie SameSite property (strict, lax, none)    | "strict"               |
+| logging.enabled                       | bool     | Enable logging                                       | true                   |
+| logging.level                         | string   | Log level                                            | "info"                 |
+| logging.format                        | string   | Log format (json, pretty)                            | "json"                 |
+| logging.access-log.enabled            | bool     | Enable access log                                    | true                   |
+| logging.access-log.hide-health-checks | bool     | Hide requests to /healthz from access log            | false                  |
+| session.secret                        | string   | Session hash key                                     | ""                     |
+| session.cookie.name                   | string   | Session cookie name                                  | "session"              |
+| session.cookie.path                   | string   | Session cookie path                                  | "/"                    |
+| session.cookie.domain                 | string   | Session cookie domain                                | ""                     |
+| session.cookie.max-age                | int      | Session cookie max age (in seconds)                  | 43200                  |
+| session.cookie.secure                 | bool     | Session cookie secure property                       | false                  |
+| session.cookie.http-only              | bool     | Session cookie HttpOnly property                     | true                   |
+| session.cookie.same-site              | string   | Session cookie SameSite property (strict, lax, none) | "strict"               |
 
 ## Develop
 

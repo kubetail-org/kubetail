@@ -178,6 +178,11 @@ export const CONSOLE_LOGGING_RESOURCES_POD_FRAGMENT = gql(`
       containerStatuses {
         name
         started
+        state {
+          running {
+            startedAt
+          }
+        }
       }
     }
   }
@@ -554,3 +559,21 @@ export const EXPLORER_STATEFULSETS_OBJECT_FRAGMENT = gql(`
   }
 `);
 
+/**
+ * Logging fragments
+ */
+
+export const POD_LOG_QUERY_RESPONSE_FRAGMENT = gql(`
+  fragment PodLogQueryResponseFragment on PodLogQueryResponse {
+    results {
+      timestamp
+      message
+    }
+    pageInfo {
+      hasPreviousPage
+      hasNextPage
+      startCursor
+      endCursor
+    }
+  }
+`);

@@ -34,7 +34,12 @@
     "react-hot-toast": "^2.4.1",
     "react-router-dom": "^6.22.0",
     "react-timeago": "^7.2.0",
-    "tailwind-merge": "^2.2.1"
+    "react-virtualized-auto-sizer": "^1.0.23",
+    "react-window": "^1.8.10",
+    "react-window-infinite-loader": "^1.0.9",
+    "recoil": "^0.7.7",
+    "tailwind-merge": "^2.2.1",
+    "usehooks-ts": "^3.0.1"
   },
   "devDependencies": {
     "@apollo/react-testing": "^4.0.0",
@@ -48,6 +53,8 @@
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
     "@types/react-timeago": "^4.1.7",
+    "@types/react-window": "^1.8.8",
+    "@types/react-window-infinite-loader": "^1.0.9",
     "@types/zen-observable": "^0.8.7",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",

@@ -21,10 +21,13 @@ import Console from '@/pages/console';
 import Home from '@/pages/home';
 import ErrorPage from '@/error-page';
 
+import ScratchPage from '@/pages/scratch';
+
 export const routes = (
   <Route path="/" element={<Root />} errorElement={<ErrorPage />}>
     <Route index element={<Home />} />
     <Route path="console" element={<Console />} />
+    <Route path="scratch" element={<ScratchPage />} />
     <Route path="auth">
       <Route path="login" element={<Login />} />
       <Route path="logout" element={<Logout />} />

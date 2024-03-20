@@ -460,6 +460,18 @@ type ComplexityRoot struct {
 		UID        func(childComplexity int) int
 	}
 
+	PageInfo struct {
+		EndCursor       func(childComplexity int) int
+		HasNextPage     func(childComplexity int) int
+		HasPreviousPage func(childComplexity int) int
+		StartCursor     func(childComplexity int) int
+	}
+
+	PodLogQueryResponse struct {
+		PageInfo func(childComplexity int) int
+		Results  func(childComplexity int) int
+	}
+
 	Query struct {
 		AppsV1DaemonSetsGet    func(childComplexity int, name string, namespace *string, options *v1.GetOptions) int
 		AppsV1DaemonSetsList   func(childComplexity int, namespace *string, options *v1.ListOptions) int
@@ -479,7 +491,8 @@ type ComplexityRoot struct {
 		CoreV1PodsGetLogs      func(childComplexity int, namespace *string, name string, options *v11.PodLogOptions) int
 		CoreV1PodsList         func(childComplexity int, namespace *string, options *v1.ListOptions) int
 		LivezGet               func(childComplexity int) int
-		PodLogQuery            func(childComplexity int, namespace *string, name string, container *string, after *string, since *string, until *string, limit *int) int
+		PodLogHead             func(childComplexity int, namespace *string, name string, container *string, after *string, since *string, first *int) int
+		PodLogTail             func(childComplexity int, namespace *string, name string, container *string, before *string, last *int) int
 		ReadyzGet              func(childComplexity int) int
 	}
 
@@ -495,7 +508,7 @@ type ComplexityRoot struct {
 		CoreV1PodLogTail        func(childComplexity int, namespace *string, name string, options *v11.PodLogOptions) int
 		CoreV1PodsWatch         func(childComplexity int, namespace *string, options *v1.ListOptions) int
 		LivezWatch              func(childComplexity int) int
-		PodLogTail              func(childComplexity int, namespace *string, name string, container *string, after *string, since *string, until *string, limit *int) int
+		PodLogFollow            func(childComplexity int, namespace *string, name string, container *string, after *string, since *string) int
 		ReadyzWatch             func(childComplexity int) int
 	}
 }
@@ -545,7 +558,8 @@ type QueryResolver interface {
 	CoreV1PodsGet(ctx context.Context, namespace *string, name string, options *v1.GetOptions) (*v11.Pod, error)
 	CoreV1PodsList(ctx context.Context, namespace *string, options *v1.ListOptions) (*v11.PodList, error)
 	CoreV1PodsGetLogs(ctx context.Context, namespace *string, name string, options *v11.PodLogOptions) ([]model.LogRecord, error)
-	PodLogQuery(ctx context.Context, namespace *string, name string, container *string, after *string, since *string, until *string, limit *int) ([]model.LogRecord, error)
+	PodLogHead(ctx context.Context, namespace *string, name string, container *string, after *string, since *string, first *int) (*model.PodLogQueryResponse, error)
+	PodLogTail(ctx context.Context, namespace *string, name string, container *string, before *string, last *int) (*model.PodLogQueryResponse, error)
 	LivezGet(ctx context.Context) (model.HealthCheckResponse, error)
 	ReadyzGet(ctx context.Context) (model.HealthCheckResponse, error)
 }
@@ -560,7 +574,7 @@ type SubscriptionResolver interface {
 	CoreV1NodesWatch(ctx context.Context, options *v1.ListOptions) (<-chan *watch.Event, error)
 	CoreV1PodsWatch(ctx context.Context, namespace *string, options *v1.ListOptions) (<-chan *watch.Event, error)
 	CoreV1PodLogTail(ctx context.Context, namespace *string, name string, options *v11.PodLogOptions) (<-chan *model.LogRecord, error)
-	PodLogTail(ctx context.Context, namespace *string, name string, container *string, after *string, since *string, until *string, limit *int) (<-chan *model.LogRecord, error)
+	PodLogFollow(ctx context.Context, namespace *string, name string, container *string, after *string, since *string) (<-chan *model.LogRecord, error)
 	LivezWatch(ctx context.Context) (<-chan model.HealthCheckResponse, error)
 	ReadyzWatch(ctx context.Context) (<-chan model.HealthCheckResponse, error)
 }
@@ -2145,6 +2159,48 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.MetaV1OwnerReference.UID(childComplexity), true
 
+	case "PageInfo.endCursor":
+		if e.complexity.PageInfo.EndCursor == nil {
+			break
+		}
+
+		return e.complexity.PageInfo.EndCursor(childComplexity), true
+
+	case "PageInfo.hasNextPage":
+		if e.complexity.PageInfo.HasNextPage == nil {
+			break
+		}
+
+		return e.complexity.PageInfo.HasNextPage(childComplexity), true
+
+	case "PageInfo.hasPreviousPage":
+		if e.complexity.PageInfo.HasPreviousPage == nil {
+			break
+		}
+
+		return e.complexity.PageInfo.HasPreviousPage(childComplexity), true
+
+	case "PageInfo.startCursor":
+		if e.complexity.PageInfo.StartCursor == nil {
+			break
+		}
+
+		return e.complexity.PageInfo.StartCursor(childComplexity), true
+
+	case "PodLogQueryResponse.pageInfo":
+		if e.complexity.PodLogQueryResponse.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.PodLogQueryResponse.PageInfo(childComplexity), true
+
+	case "PodLogQueryResponse.results":
+		if e.complexity.PodLogQueryResponse.Results == nil {
+			break
+		}
+
+		return e.complexity.PodLogQueryResponse.Results(childComplexity), true
+
 	case "Query.appsV1DaemonSetsGet":
 		if e.complexity.Query.AppsV1DaemonSetsGet == nil {
 			break
@@ -2356,17 +2412,29 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.LivezGet(childComplexity), true
 
-	case "Query.podLogQuery":
-		if e.complexity.Query.PodLogQuery == nil {
+	case "Query.podLogHead":
+		if e.complexity.Query.PodLogHead == nil {
 			break
 		}
 
-		args, err := ec.field_Query_podLogQuery_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_podLogHead_args(context.TODO(), rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Query.PodLogQuery(childComplexity, args["namespace"].(*string), args["name"].(string), args["container"].(*string), args["after"].(*string), args["since"].(*string), args["until"].(*string), args["limit"].(*int)), true
+		return e.complexity.Query.PodLogHead(childComplexity, args["namespace"].(*string), args["name"].(string), args["container"].(*string), args["after"].(*string), args["since"].(*string), args["first"].(*int)), true
+
+	case "Query.podLogTail":
+		if e.complexity.Query.PodLogTail == nil {
+			break
+		}
+
+		args, err := ec.field_Query_podLogTail_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.PodLogTail(childComplexity, args["namespace"].(*string), args["name"].(string), args["container"].(*string), args["before"].(*string), args["last"].(*int)), true
 
 	case "Query.readyzGet":
 		if e.complexity.Query.ReadyzGet == nil {
@@ -2502,17 +2570,17 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Subscription.LivezWatch(childComplexity), true
 
-	case "Subscription.podLogTail":
-		if e.complexity.Subscription.PodLogTail == nil {
+	case "Subscription.podLogFollow":
+		if e.complexity.Subscription.PodLogFollow == nil {
 			break
 		}
 
-		args, err := ec.field_Subscription_podLogTail_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_podLogFollow_args(context.TODO(), rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Subscription.PodLogTail(childComplexity, args["namespace"].(*string), args["name"].(string), args["container"].(*string), args["after"].(*string), args["since"].(*string), args["until"].(*string), args["limit"].(*int)), true
+		return e.complexity.Subscription.PodLogFollow(childComplexity, args["namespace"].(*string), args["name"].(string), args["container"].(*string), args["after"].(*string), args["since"].(*string)), true
 
 	case "Subscription.readyzWatch":
 		if e.complexity.Subscription.ReadyzWatch == nil {
@@ -3151,7 +3219,7 @@ func (ec *executionContext) field_Query_coreV1PodsList_args(ctx context.Context,
 	return args, nil
 }
 
-func (ec *executionContext) field_Query_podLogQuery_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+func (ec *executionContext) field_Query_podLogHead_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
 	var arg0 *string
@@ -3184,7 +3252,7 @@ func (ec *executionContext) field_Query_podLogQuery_args(ctx context.Context, ra
 	var arg3 *string
 	if tmp, ok := rawArgs["after"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("after"))
-		arg3, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		arg3, err = ec.unmarshalOID2ᚖstring(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3199,25 +3267,16 @@ func (ec *executionContext) field_Query_podLogQuery_args(ctx context.Context, ra
 		}
 	}
 	args["since"] = arg4
-	var arg5 *string
-	if tmp, ok := rawArgs["until"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("until"))
-		arg5, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["until"] = arg5
-	var arg6 *int
-	if tmp, ok := rawArgs["limit"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("limit"))
+	var arg5 *int
+	if tmp, ok := rawArgs["first"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("first"))
 		directive0 := func(ctx context.Context) (interface{}, error) { return ec.unmarshalOInt2ᚖint(ctx, tmp) }
 		directive1 := func(ctx context.Context) (interface{}, error) {
 			rule, err := ec.unmarshalNString2string(ctx, "gt=0")
 			if err != nil {
 				return nil, err
 			}
-			message, err := ec.unmarshalOString2ᚖstring(ctx, "Value must be greater than 0")
+			message, err := ec.unmarshalOString2ᚖstring(ctx, "Value must be >= 0")
 			if err != nil {
 				return nil, err
 			}
@@ -3232,14 +3291,88 @@ func (ec *executionContext) field_Query_podLogQuery_args(ctx context.Context, ra
 			return nil, graphql.ErrorOnPath(ctx, err)
 		}
 		if data, ok := tmp.(*int); ok {
-			arg6 = data
+			arg5 = data
 		} else if tmp == nil {
-			arg6 = nil
+			arg5 = nil
 		} else {
 			return nil, graphql.ErrorOnPath(ctx, fmt.Errorf(`unexpected type %T from directive, should be *int`, tmp))
 		}
 	}
-	args["limit"] = arg6
+	args["first"] = arg5
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_podLogTail_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 *string
+	if tmp, ok := rawArgs["namespace"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("namespace"))
+		arg0, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["namespace"] = arg0
+	var arg1 string
+	if tmp, ok := rawArgs["name"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+		arg1, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["name"] = arg1
+	var arg2 *string
+	if tmp, ok := rawArgs["container"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("container"))
+		arg2, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["container"] = arg2
+	var arg3 *string
+	if tmp, ok := rawArgs["before"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("before"))
+		arg3, err = ec.unmarshalOID2ᚖstring(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["before"] = arg3
+	var arg4 *int
+	if tmp, ok := rawArgs["last"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("last"))
+		directive0 := func(ctx context.Context) (interface{}, error) { return ec.unmarshalOInt2ᚖint(ctx, tmp) }
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			rule, err := ec.unmarshalNString2string(ctx, "gte=0")
+			if err != nil {
+				return nil, err
+			}
+			message, err := ec.unmarshalOString2ᚖstring(ctx, "Value must be >= 0")
+			if err != nil {
+				return nil, err
+			}
+			if ec.directives.Validate == nil {
+				return nil, errors.New("directive validate is not implemented")
+			}
+			return ec.directives.Validate(ctx, rawArgs, directive0, rule, message)
+		}
+
+		tmp, err = directive1(ctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if data, ok := tmp.(*int); ok {
+			arg4 = data
+		} else if tmp == nil {
+			arg4 = nil
+		} else {
+			return nil, graphql.ErrorOnPath(ctx, fmt.Errorf(`unexpected type %T from directive, should be *int`, tmp))
+		}
+	}
+	args["last"] = arg4
 	return args, nil
 }
 
@@ -3474,7 +3607,7 @@ func (ec *executionContext) field_Subscription_coreV1PodsWatch_args(ctx context.
 	return args, nil
 }
 
-func (ec *executionContext) field_Subscription_podLogTail_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+func (ec *executionContext) field_Subscription_podLogFollow_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
 	var arg0 *string
@@ -3507,7 +3640,7 @@ func (ec *executionContext) field_Subscription_podLogTail_args(ctx context.Conte
 	var arg3 *string
 	if tmp, ok := rawArgs["after"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("after"))
-		arg3, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		arg3, err = ec.unmarshalOID2ᚖstring(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3522,47 +3655,6 @@ func (ec *executionContext) field_Subscription_podLogTail_args(ctx context.Conte
 		}
 	}
 	args["since"] = arg4
-	var arg5 *string
-	if tmp, ok := rawArgs["until"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("until"))
-		arg5, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["until"] = arg5
-	var arg6 *int
-	if tmp, ok := rawArgs["limit"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("limit"))
-		directive0 := func(ctx context.Context) (interface{}, error) { return ec.unmarshalOInt2ᚖint(ctx, tmp) }
-		directive1 := func(ctx context.Context) (interface{}, error) {
-			rule, err := ec.unmarshalNString2string(ctx, "gt=0")
-			if err != nil {
-				return nil, err
-			}
-			message, err := ec.unmarshalOString2ᚖstring(ctx, "Value must be greater than 0")
-			if err != nil {
-				return nil, err
-			}
-			if ec.directives.Validate == nil {
-				return nil, errors.New("directive validate is not implemented")
-			}
-			return ec.directives.Validate(ctx, rawArgs, directive0, rule, message)
-		}
-
-		tmp, err = directive1(ctx)
-		if err != nil {
-			return nil, graphql.ErrorOnPath(ctx, err)
-		}
-		if data, ok := tmp.(*int); ok {
-			arg6 = data
-		} else if tmp == nil {
-			arg6 = nil
-		} else {
-			return nil, graphql.ErrorOnPath(ctx, fmt.Errorf(`unexpected type %T from directive, should be *int`, tmp))
-		}
-	}
-	args["limit"] = arg6
 	return args, nil
 }
 
@@ -14097,6 +14189,280 @@ func (ec *executionContext) fieldContext_MetaV1OwnerReference_controller(ctx con
 	return fc, nil
 }
 
+func (ec *executionContext) _PageInfo_endCursor(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_PageInfo_endCursor(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.EndCursor, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOID2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_PageInfo_endCursor(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PageInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PageInfo_hasNextPage(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_PageInfo_hasNextPage(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.HasNextPage, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_PageInfo_hasNextPage(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PageInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PageInfo_hasPreviousPage(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_PageInfo_hasPreviousPage(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.HasPreviousPage, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_PageInfo_hasPreviousPage(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PageInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PageInfo_startCursor(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_PageInfo_startCursor(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.StartCursor, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOID2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_PageInfo_startCursor(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PageInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PodLogQueryResponse_results(ctx context.Context, field graphql.CollectedField, obj *model.PodLogQueryResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_PodLogQueryResponse_results(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Results, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]model.LogRecord)
+	fc.Result = res
+	return ec.marshalNLogRecord2ᚕgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋgraphᚋmodelᚐLogRecordᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_PodLogQueryResponse_results(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PodLogQueryResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "timestamp":
+				return ec.fieldContext_LogRecord_timestamp(ctx, field)
+			case "message":
+				return ec.fieldContext_LogRecord_message(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type LogRecord", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PodLogQueryResponse_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.PodLogQueryResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_PodLogQueryResponse_pageInfo(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.PageInfo, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(model.PageInfo)
+	fc.Result = res
+	return ec.marshalNPageInfo2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋgraphᚋmodelᚐPageInfo(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_PodLogQueryResponse_pageInfo(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PodLogQueryResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "endCursor":
+				return ec.fieldContext_PageInfo_endCursor(ctx, field)
+			case "hasNextPage":
+				return ec.fieldContext_PageInfo_hasNextPage(ctx, field)
+			case "hasPreviousPage":
+				return ec.fieldContext_PageInfo_hasPreviousPage(ctx, field)
+			case "startCursor":
+				return ec.fieldContext_PageInfo_startCursor(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_appsV1DaemonSetsGet(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Query_appsV1DaemonSetsGet(ctx, field)
 	if err != nil {
@@ -15173,8 +15539,8 @@ func (ec *executionContext) fieldContext_Query_coreV1PodsGetLogs(ctx context.Con
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_podLogQuery(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_podLogQuery(ctx, field)
+func (ec *executionContext) _Query_podLogHead(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_podLogHead(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -15188,7 +15554,7 @@ func (ec *executionContext) _Query_podLogQuery(ctx context.Context, field graphq
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		directive0 := func(rctx context.Context) (interface{}, error) {
 			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Query().PodLogQuery(rctx, fc.Args["namespace"].(*string), fc.Args["name"].(string), fc.Args["container"].(*string), fc.Args["after"].(*string), fc.Args["since"].(*string), fc.Args["until"].(*string), fc.Args["limit"].(*int))
+			return ec.resolvers.Query().PodLogHead(rctx, fc.Args["namespace"].(*string), fc.Args["name"].(string), fc.Args["container"].(*string), fc.Args["after"].(*string), fc.Args["since"].(*string), fc.Args["first"].(*int))
 		}
 		directive1 := func(ctx context.Context) (interface{}, error) {
 			if ec.directives.NullIfValidationFailed == nil {
@@ -15204,10 +15570,10 @@ func (ec *executionContext) _Query_podLogQuery(ctx context.Context, field graphq
 		if tmp == nil {
 			return nil, nil
 		}
-		if data, ok := tmp.([]model.LogRecord); ok {
+		if data, ok := tmp.(*model.PodLogQueryResponse); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be []github.com/kubetail-org/kubetail/graph/model.LogRecord`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/kubetail-org/kubetail/graph/model.PodLogQueryResponse`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -15216,12 +15582,12 @@ func (ec *executionContext) _Query_podLogQuery(ctx context.Context, field graphq
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.([]model.LogRecord)
+	res := resTmp.(*model.PodLogQueryResponse)
 	fc.Result = res
-	return ec.marshalOLogRecord2ᚕgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋgraphᚋmodelᚐLogRecordᚄ(ctx, field.Selections, res)
+	return ec.marshalOPodLogQueryResponse2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋgraphᚋmodelᚐPodLogQueryResponse(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Query_podLogQuery(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_podLogHead(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
@@ -15229,12 +15595,12 @@ func (ec *executionContext) fieldContext_Query_podLogQuery(ctx context.Context, 
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "timestamp":
-				return ec.fieldContext_LogRecord_timestamp(ctx, field)
-			case "message":
-				return ec.fieldContext_LogRecord_message(ctx, field)
+			case "results":
+				return ec.fieldContext_PodLogQueryResponse_results(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_PodLogQueryResponse_pageInfo(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type LogRecord", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type PodLogQueryResponse", field.Name)
 		},
 	}
 	defer func() {
@@ -15244,7 +15610,85 @@ func (ec *executionContext) fieldContext_Query_podLogQuery(ctx context.Context, 
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_podLogQuery_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Query_podLogHead_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_podLogTail(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_podLogTail(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return ec.resolvers.Query().PodLogTail(rctx, fc.Args["namespace"].(*string), fc.Args["name"].(string), fc.Args["container"].(*string), fc.Args["before"].(*string), fc.Args["last"].(*int))
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.NullIfValidationFailed == nil {
+				return nil, errors.New("directive nullIfValidationFailed is not implemented")
+			}
+			return ec.directives.NullIfValidationFailed(ctx, nil, directive0)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(*model.PodLogQueryResponse); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/kubetail-org/kubetail/graph/model.PodLogQueryResponse`, tmp)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.PodLogQueryResponse)
+	fc.Result = res
+	return ec.marshalOPodLogQueryResponse2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋgraphᚋmodelᚐPodLogQueryResponse(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_podLogTail(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "results":
+				return ec.fieldContext_PodLogQueryResponse_results(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_PodLogQueryResponse_pageInfo(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PodLogQueryResponse", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_podLogTail_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -16204,8 +16648,8 @@ func (ec *executionContext) fieldContext_Subscription_coreV1PodLogTail(ctx conte
 	return fc, nil
 }
 
-func (ec *executionContext) _Subscription_podLogTail(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
-	fc, err := ec.fieldContext_Subscription_podLogTail(ctx, field)
+func (ec *executionContext) _Subscription_podLogFollow(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	fc, err := ec.fieldContext_Subscription_podLogFollow(ctx, field)
 	if err != nil {
 		return nil
 	}
@@ -16219,7 +16663,7 @@ func (ec *executionContext) _Subscription_podLogTail(ctx context.Context, field 
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		directive0 := func(rctx context.Context) (interface{}, error) {
 			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Subscription().PodLogTail(rctx, fc.Args["namespace"].(*string), fc.Args["name"].(string), fc.Args["container"].(*string), fc.Args["after"].(*string), fc.Args["since"].(*string), fc.Args["until"].(*string), fc.Args["limit"].(*int))
+			return ec.resolvers.Subscription().PodLogFollow(rctx, fc.Args["namespace"].(*string), fc.Args["name"].(string), fc.Args["container"].(*string), fc.Args["after"].(*string), fc.Args["since"].(*string))
 		}
 		directive1 := func(ctx context.Context) (interface{}, error) {
 			if ec.directives.NullIfValidationFailed == nil {
@@ -16266,7 +16710,7 @@ func (ec *executionContext) _Subscription_podLogTail(ctx context.Context, field 
 	}
 }
 
-func (ec *executionContext) fieldContext_Subscription_podLogTail(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Subscription_podLogFollow(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Subscription",
 		Field:      field,
@@ -16289,7 +16733,7 @@ func (ec *executionContext) fieldContext_Subscription_podLogTail(ctx context.Con
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Subscription_podLogTail_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Subscription_podLogFollow_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -21721,6 +22165,98 @@ func (ec *executionContext) _MetaV1OwnerReference(ctx context.Context, sel ast.S
 	return out
 }
 
+var pageInfoImplementors = []string{"PageInfo"}
+
+func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet, obj *model.PageInfo) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, pageInfoImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PageInfo")
+		case "endCursor":
+			out.Values[i] = ec._PageInfo_endCursor(ctx, field, obj)
+		case "hasNextPage":
+			out.Values[i] = ec._PageInfo_hasNextPage(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "hasPreviousPage":
+			out.Values[i] = ec._PageInfo_hasPreviousPage(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "startCursor":
+			out.Values[i] = ec._PageInfo_startCursor(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var podLogQueryResponseImplementors = []string{"PodLogQueryResponse"}
+
+func (ec *executionContext) _PodLogQueryResponse(ctx context.Context, sel ast.SelectionSet, obj *model.PodLogQueryResponse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, podLogQueryResponseImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PodLogQueryResponse")
+		case "results":
+			out.Values[i] = ec._PodLogQueryResponse_results(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._PodLogQueryResponse_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var queryImplementors = []string{"Query"}
 
 func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
@@ -22063,7 +22599,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "podLogQuery":
+		case "podLogHead":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -22072,7 +22608,26 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_podLogQuery(ctx, field)
+				res = ec._Query_podLogHead(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "podLogTail":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_podLogTail(ctx, field)
 				return res
 			}
 
@@ -22190,8 +22745,8 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 		return ec._Subscription_coreV1PodsWatch(ctx, fields[0])
 	case "coreV1PodLogTail":
 		return ec._Subscription_coreV1PodLogTail(ctx, fields[0])
-	case "podLogTail":
-		return ec._Subscription_podLogTail(ctx, fields[0])
+	case "podLogFollow":
+		return ec._Subscription_podLogFollow(ctx, fields[0])
 	case "livezWatch":
 		return ec._Subscription_livezWatch(ctx, fields[0])
 	case "readyzWatch":
@@ -23402,6 +23957,50 @@ func (ec *executionContext) marshalNLogRecord2githubᚗcomᚋkubetailᚑorgᚋku
 	return ec._LogRecord(ctx, sel, &v)
 }
 
+func (ec *executionContext) marshalNLogRecord2ᚕgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋgraphᚋmodelᚐLogRecordᚄ(ctx context.Context, sel ast.SelectionSet, v []model.LogRecord) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNLogRecord2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋgraphᚋmodelᚐLogRecord(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) unmarshalNMetaV1LabelSelectorOperator2k8sᚗioᚋapimachineryᚋpkgᚋapisᚋmetaᚋv1ᚐLabelSelectorOperator(ctx context.Context, v interface{}) (v1.LabelSelectorOperator, error) {
 	tmp, err := graphql.UnmarshalString(v)
 	res := v1.LabelSelectorOperator(tmp)
@@ -23535,6 +24134,10 @@ func (ec *executionContext) marshalNMetaV1Time2k8sᚗioᚋapimachineryᚋpkgᚋa
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNPageInfo2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋgraphᚋmodelᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v model.PageInfo) graphql.Marshaler {
+	return ec._PageInfo(ctx, sel, &v)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v interface{}) (string, error) {
@@ -24112,6 +24715,22 @@ func (ec *executionContext) marshalOCoreV1PodsWatchEvent2ᚖk8sᚗioᚋapimachin
 	return ec._CoreV1PodsWatchEvent(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalOID2ᚖstring(ctx context.Context, v interface{}) (*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalID(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOID2ᚖstring(ctx context.Context, sel ast.SelectionSet, v *string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	res := graphql.MarshalID(*v)
+	return res
+}
+
 func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v interface{}) (*int, error) {
 	if v == nil {
 		return nil, nil
@@ -24272,6 +24891,13 @@ func (ec *executionContext) marshalOMetaV1Time2ᚖk8sᚗioᚋapimachineryᚋpkg�
 	}
 	res := model.MarshalMetaV1Time(*v)
 	return res
+}
+
+func (ec *executionContext) marshalOPodLogQueryResponse2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋgraphᚋmodelᚐPodLogQueryResponse(ctx context.Context, sel ast.SelectionSet, v *model.PodLogQueryResponse) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._PodLogQueryResponse(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOString2string(ctx context.Context, v interface{}) (string, error) {
