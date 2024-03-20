@@ -287,12 +287,12 @@ func getFirstTimestamp(ctx context.Context, clientset kubernetes.Interface, name
 	}
 	defer podLogs.Close()
 
-	buf := make([]byte, 30) // timestamp is 30-bytes long
+	buf := make([]byte, 40) // timestamp is 30-35 bytes long
 	if _, err := podLogs.Read(buf); err != nil {
 		return ts, err
 	}
 
-	return time.Parse(time.RFC3339Nano, string(buf))
+	return time.Parse(time.RFC3339Nano, strings.Fields(string(buf))[0])
 }
 
 // log methods
