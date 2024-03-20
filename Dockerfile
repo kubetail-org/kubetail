@@ -14,7 +14,6 @@
 
 FROM golang:1.21.6 AS backend-builder
 
-RUN mkdir backend
 WORKDIR /backend
 
 # install dependencies (for cache)
@@ -35,7 +34,6 @@ CMD []
 
 FROM node:20.11.0-alpine3.18 AS frontend-builder
 
-RUN mkdir frontend
 WORKDIR /frontend
 
 # enable pnpm
