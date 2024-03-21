@@ -70,7 +70,7 @@ helm install kubetail kubetail/kubetail \
 
 ## Access
 
-There are several ways to access the kubetail dashboard once the kubetail application is running in your cluster. For simplicity, we recommend using `kubectl proxy` if your kubetail deployment is using `auth-mode: cluster` and the `kubectl auth-proxy` plugin if it's using `auth-mode: token`. If using the [Helm chart](https://github.com/kubetail-org/helm/tree/main) it has support for ingress and that is the preferred method of access.
+There are several ways to access the kubetail dashboard once the kubetail application is running in your cluster. For simplicity, we recommend using `kubectl proxy` if your kubetail deployment is using `auth-mode: cluster` and the `kubectl auth-proxy` plugin if it's using `auth-mode: token`. If using the [Helm chart](https://github.com/kubetail-org/helm/) it has support for ingress and that is the preferred method of access.
 
 ### Option 1: kubectl proxy
 
