@@ -17,6 +17,44 @@
   #root {
     @apply h-full;
   }
+
+  :root {
+    --ansi-black: theme(ansi.colors.vscode.black);
+    --ansi-red: theme(ansi.colors.vscode.red);
+    --ansi-green: theme(ansi.colors.vscode.green);
+    --ansi-yellow: theme(ansi.colors.vscode.yellow);
+    --ansi-blue: theme(ansi.colors.vscode.blue);
+    --ansi-magenta: theme(ansi.colors.vscode.magenta);
+    --ansi-cyan: theme(ansi.colors.vscode.cyan);
+    --ansi-white: theme(ansi.colors.vscode.white);
+    --ansi-bright-black: theme(ansi.colors.vscode.bright-black);
+    --ansi-bright-red: theme(ansi.colors.vscode.bright-red);
+    --ansi-bright-green: theme(ansi.colors.vscode.bright-green);
+    --ansi-bright-yellow: theme(ansi.colors.vscode.bright-yellow);
+    --ansi-bright-blue: theme(ansi.colors.vscode.bright-blue);
+    --ansi-bright-magenta: theme(ansi.colors.vscode.magenta);
+    --ansi-bright-cyan: theme(ansi.colors.vscode.cyan);
+    --ansi-bright-white: theme(ansi.colors.vscode.white);
+  }
+
+  .dark {
+    --ansi-black: theme(ansi.colors.xtermjs.black);
+    --ansi-red: theme(ansi.colors.xtermjs.red);
+    --ansi-green: theme(ansi.colors.xtermjs.green);
+    --ansi-yellow: theme(ansi.colors.xtermjs.yellow);
+    --ansi-blue: theme(ansi.colors.xtermjs.blue);
+    --ansi-magenta: theme(ansi.colors.xtermjs.magenta);
+    --ansi-cyan: theme(ansi.colors.xtermjs.cyan);
+    --ansi-white: theme(ansi.colors.xtermjs.white);
+    --ansi-bright-black: theme(ansi.colors.xtermjs.bright-black);
+    --ansi-bright-red: theme(ansi.colors.xtermjs.bright-red);
+    --ansi-bright-green: theme(ansi.colors.xtermjs.bright-green);
+    --ansi-bright-yellow: theme(ansi.colors.xtermjs.bright-yellow);
+    --ansi-bright-blue: theme(ansi.colors.xtermjs.bright-blue);
+    --ansi-bright-magenta: theme(ansi.colors.xtermjs.magenta);
+    --ansi-bright-cyan: theme(ansi.colors.xtermjs.cyan);
+    --ansi-bright-white: theme(ansi.colors.xtermjs.white);
+  }
 }
 
 @layer components {

@@ -6,5 +6,6 @@ module.exports = {
 	],
   plugins: [
     require('kubetail-ui/plugin'),
+    require('fancy-ansi/plugin')
   ],
 }
