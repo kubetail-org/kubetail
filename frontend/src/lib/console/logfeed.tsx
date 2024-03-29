@@ -13,9 +13,9 @@
 // limitations under the License.
 
 import { useQuery, useSubscription } from '@apollo/client';
-import { AnsiUp } from 'ansi_up';
 import { format, utcToZonedTime } from 'date-fns-tz';
-import makeAnsiRegex from 'ansi-regex';
+import { stripAnsi } from 'fancy-ansi';
+import { AnsiHtml } from 'fancy-ansi/react';
 import { createRef, forwardRef, memo, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { VariableSizeList, areEqual } from 'react-window';
@@ -37,10 +37,6 @@ import { cn } from '@/lib/utils';
 import { cssID } from './helpers';
 import { useNodes, usePods } from './logging-resources';
 import type { Node, Pod } from './logging-resources';
-
-const ansiUp = new AnsiUp();
-const ansiRegex = makeAnsiRegex({ onlyFirst: true });
-const ansiRegexGlobal = makeAnsiRegex();
 
 /**
  * Shared types
@@ -383,14 +379,7 @@ const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
     case LogFeedColumn.Node:
       return record.pod.spec.nodeName;
     case LogFeedColumn.Message:
-      // apply ansi color coding
-      if (ansiRegex.test(record.message)) {
-        return (
-          <span dangerouslySetInnerHTML={{ __html: ansiUp.ansi_to_html(record.message) }} />
-        );
-      } else {
-        return record.message;
-      }
+      return <AnsiHtml text={record.message} />
     default:
       throw new Error('not implemented');
   }
@@ -621,7 +610,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
     if (index === 0 || index === (items.length + 1)) return 24;
 
     const record = items[index - 1];
-    sizerEl.textContent = record.message.replace(ansiRegexGlobal, ''); // strip out ansi
+    sizerEl.textContent = stripAnsi(record.message); // strip out ansi
     return sizerEl.clientHeight;
   };
 
