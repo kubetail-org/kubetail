@@ -17,7 +17,7 @@ import Form from '@kubetail/ui/elements/Form';
 import ServerStatus from '@/components/widgets/ServerStatus';
 import { useTheme, UserPreference } from '@/lib/theme';
 
-export default function ({ children }: React.PropsWithChildren) {
+export default function () {
   const { userPreference, setUserPreference } = useTheme();
 
   const handleChange = (ev: React.ChangeEvent<HTMLSelectElement>) => {
