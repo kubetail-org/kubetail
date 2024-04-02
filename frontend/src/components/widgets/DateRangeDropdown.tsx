@@ -16,11 +16,11 @@ import { parse, isValid } from 'date-fns';
 import { format } from 'date-fns-tz';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 
-import Button from 'kubetail-ui/elements/Button';
-import { Calendar } from 'kubetail-ui/elements/Calendar';
-import Form from 'kubetail-ui/elements/Form';
-import { Popover, PopoverClose, PopoverTrigger, PopoverContent } from 'kubetail-ui/elements/Popover';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from 'kubetail-ui/elements/Tabs';
+import Button from '@kubetail/ui/elements/Button';
+import { Calendar } from '@kubetail/ui/elements/Calendar';
+import Form from '@kubetail/ui/elements/Form';
+import { Popover, PopoverClose, PopoverTrigger, PopoverContent } from '@kubetail/ui/elements/Popover';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@kubetail/ui/elements/Tabs';
 
 /**
  * Shared types
