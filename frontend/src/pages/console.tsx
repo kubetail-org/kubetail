@@ -25,9 +25,9 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import Form from 'kubetail-ui/elements/Form';
-import { Popover, PopoverTrigger, PopoverContent } from 'kubetail-ui/elements/Popover';
-import Spinner from 'kubetail-ui/elements/Spinner';
+import Form from '@kubetail/ui/elements/Form';
+import { Popover, PopoverTrigger, PopoverContent } from '@kubetail/ui/elements/Popover';
+import Spinner from '@kubetail/ui/elements/Spinner';
 
 import logo from '@/assets/logo.svg';
 import AppLayout from '@/components/layouts/AppLayout';

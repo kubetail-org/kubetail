@@ -16,11 +16,11 @@ import { createContext, useContext, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import TimeAgo from 'react-timeago';
 
-import Button from 'kubetail-ui/elements/Button';
-import DataTable from 'kubetail-ui/elements/DataTable';
-import type { SortBy } from 'kubetail-ui/elements/DataTable/Header';
-import Form from 'kubetail-ui/elements/Form';
-import Spinner from 'kubetail-ui/elements/Spinner';
+import Button from '@kubetail/ui/elements/Button';
+import DataTable from '@kubetail/ui/elements/DataTable';
+import type { SortBy } from '@kubetail/ui/elements/DataTable/Header';
+import Form from '@kubetail/ui/elements/Form';
+import Spinner from '@kubetail/ui/elements/Spinner';
 
 import Modal from '@/components/elements/Modal';
 import * as ops from '@/lib/graphql/ops';
@@ -510,8 +510,8 @@ const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void; })
         </div>
         <Explorer />
         <div className="flex justify-end space-x-2 mt-[15px]">
-          <Button variant="secondary" onClick={() => onClose()}>Cancel</Button>
-          <Button variant="primary" onClick={() => handleUpdate()}>Update</Button>
+          <Button intent="secondary" onClick={() => onClose()}>Cancel</Button>
+          <Button intent="primary" onClick={() => handleUpdate()}>Update</Button>
         </div>
       </Modal>
     </Context.Provider>

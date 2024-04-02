@@ -23,7 +23,7 @@ import InfiniteLoader from 'react-window-infinite-loader';
 import { atom, useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
 import { useDebounceCallback } from 'usehooks-ts';
 
-import Spinner from 'kubetail-ui/elements/Spinner';
+import Spinner from '@kubetail/ui/elements/Spinner';
 
 import { Counter, MapSet, intersectSets } from '@/lib/helpers';
 import type {

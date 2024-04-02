@@ -17,11 +17,11 @@ import { useState } from 'react';
 
 import TimeAgo from 'react-timeago';
 
-import Button from 'kubetail-ui/elements/Button';
-import DataTable from 'kubetail-ui/elements/DataTable';
-import type { SortBy } from 'kubetail-ui/elements/DataTable/Header';
-import Form from 'kubetail-ui/elements/Form';
-import Spinner from 'kubetail-ui/elements/Spinner';
+import Button from '@kubetail/ui/elements/Button';
+import DataTable from '@kubetail/ui/elements/DataTable';
+import type { SortBy } from '@kubetail/ui/elements/DataTable/Header';
+import Form from '@kubetail/ui/elements/Form';
+import Spinner from '@kubetail/ui/elements/Spinner';
 
 import logo from '@/assets/logo.svg';
 import AppLayout from '@/components/layouts/AppLayout';

@@ -14,7 +14,7 @@
 
 import { useState } from 'react';
 
-import DataTable from 'kubetail-ui/elements/DataTable';
+import DataTable from '@kubetail/ui/elements/DataTable';
 
 import Modal from '@/components/elements/Modal';
 import { Status, useServerStatus, type ServerStatus } from '@/lib/server-status';
