@@ -1,4 +1,4 @@
-import Form from 'kubetail-ui/elements/Form';
+import Form from '@kubetail/ui/elements/Form';
 
 import ServerStatus from '@/components/widgets/ServerStatus';
 import { useTheme, UserPreference } from '@/lib/theme';

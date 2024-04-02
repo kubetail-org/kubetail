@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Spinner from 'kubetail-ui/elements/Spinner';
+import Spinner from '@kubetail/ui/elements/Spinner';
 
 const LoadingPage = () => (
   <div className="grid h-screen place-items-center">

@@ -15,9 +15,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-import Button from 'kubetail-ui/elements/Button';
-import Form from 'kubetail-ui/elements/Form';
-import Spinner from 'kubetail-ui/elements/Spinner';
+import Button from '@kubetail/ui/elements/Button';
+import Form from '@kubetail/ui/elements/Form';
+import Spinner from '@kubetail/ui/elements/Spinner';
 
 import ModalLayout from '@/components/layouts/ModalLayout';
 import LoadingPage from '@/components/utils/LoadingPage';
