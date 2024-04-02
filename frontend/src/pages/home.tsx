@@ -24,8 +24,8 @@ import Form from '@kubetail/ui/elements/Form';
 import Spinner from '@kubetail/ui/elements/Spinner';
 
 import logo from '@/assets/logo.svg';
-import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
+import Footer from '@/components/widgets/Footer';
 import ProfilePicDropdown from '@/components/widgets/ProfilePicDropdown';
 import * as ops from '@/lib/graphql/ops';
 import { getBasename, joinPaths } from '@/lib/helpers';
@@ -425,9 +425,10 @@ const Home = () => {
 export default function Page() {
   return (
     <AuthRequired>
-      <AppLayout>
-        <Home />
-      </AppLayout>
+      <Home />
+      <div className="sticky bottom-0">
+        <Footer />
+      </div>
     </AuthRequired>
   );
 }
