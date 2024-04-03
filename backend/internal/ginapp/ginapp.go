@@ -18,6 +18,8 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
+	"runtime"
 
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/requestid"
@@ -59,6 +61,8 @@ func NewGinApp(config Config) (*GinApp, error) {
 		app.Use(gin.Recovery())
 	}
 
+	var basepath string
+
 	// for tests
 	if gin.Mode() == gin.TestMode {
 		app.Use(func(c *gin.Context) {
@@ -69,12 +73,17 @@ func NewGinApp(config Config) (*GinApp, error) {
 				c.Next()
 			}
 		})
-	}
 
-	// get project basepath (use working directory for now)
-	basepath, err := os.Getwd()
-	if err != nil {
-		panic(err)
+		// set basepath relative to this file
+		_, b, _, _ := runtime.Caller(0)
+		basepath = path.Join(filepath.Dir(b), "../../")
+	} else {
+		// set basepath to cwd
+		basepathTmp, err := os.Getwd()
+		if err != nil {
+			panic(err)
+		}
+		basepath = basepathTmp
 	}
 
 	// register templates
