@@ -679,7 +679,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
   const handleContentScrollY = () => {
     const el = listOuterRef.current;
     if (el && !isProgrammaticScrollRef.current) {
-      const tolerance = 10;
+      const tolerance = 20;
       const { scrollTop, clientHeight, scrollHeight } = el;
       if (Math.abs((scrollTop + clientHeight) - scrollHeight) <= tolerance) {
         isAutoScrollRef.current = true;
