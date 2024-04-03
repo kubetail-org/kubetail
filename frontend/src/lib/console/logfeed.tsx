@@ -16,7 +16,7 @@ import { useQuery, useSubscription } from '@apollo/client';
 import { format, utcToZonedTime } from 'date-fns-tz';
 import { stripAnsi } from 'fancy-ansi';
 import { AnsiHtml } from 'fancy-ansi/react';
-import { createRef, forwardRef, memo, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, memo, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { VariableSizeList, areEqual } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
@@ -976,7 +976,7 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
   const nodes = useNodes();
   const pods = usePods();
   const setIsReady = useSetRecoilState(isReadyState);
-  const childRefs = useRef(new Array<React.RefObject<LogFeedRecordFetcherHandle>>());
+  const fetchersRef = useRef(new Array<LogFeedRecordFetcherHandle | null>());
   const [defaultFollowAfter, setDefaultFollowAfter] = useState<string | undefined>();
 
   // set isReady after component and children are mounted
@@ -988,19 +988,19 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
     return () => { clearTimeout(id); };
   }, [nodes.loading, pods.loading]);
 
+
   // only load containers from nodes that we have a record of
   const nodeMap = new Map(nodes.nodes.map(node => [node.metadata.name, node]));
 
   const els: JSX.Element[] = [];
-  const refs: React.RefObject<LogFeedRecordFetcherHandle>[] = [];
   const elKeys: string[] = [];
 
-  pods.pods.forEach(pod => {
-    pod.status.containerStatuses.forEach(status => {
+  pods.pods.forEach((pod, i) => {
+    pod.status.containerStatuses.forEach((status, j) => {
       const node = nodeMap.get(pod.spec.nodeName);
       if (status.state.running?.startedAt && node) {
-        const ref = createRef<LogFeedRecordFetcherHandle>();
-        refs.push(ref);
+        //const ref = createRef<LogFeedRecordFetcherHandle>();
+        //refs.push(ref);
 
         const k = `${pod.metadata.namespace}/${pod.metadata.name}/${status.name}`;
         elKeys.push(k);
@@ -1008,7 +1008,7 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
         els.push(
           <LogFeedRecordFetcher
             key={k}
-            ref={ref}
+            ref={fetcher => fetchersRef.current[i + j] = fetcher}
             node={node}
             pod={pod}
             container={status.name}
@@ -1020,8 +1020,12 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
     });
   });
 
-  childRefs.current = refs;
   elKeys.sort();
+
+  // remove deleted child refs
+  useEffect(() => {
+    fetchersRef.current = fetchersRef.current.slice(0, elKeys.length);
+  }, [elKeys]);
 
   // define api
   useImperativeHandle(ref, () => ({
@@ -1030,8 +1034,7 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
       const cursorMap = new Map(oldCursorMap);
 
       // build queries
-      childRefs.current.forEach(childRef => {
-        const fetcher = childRef.current;
+      fetchersRef.current.forEach(fetcher => {
         if (!fetcher) return;
 
         const pageInfo = cursorMap.get(fetcher.key)
@@ -1074,8 +1077,7 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
       const cursorMap = new Map(oldCursorMap);
 
       // build queries
-      childRefs.current.forEach(childRef => {
-        const fetcher = childRef.current;
+      fetchersRef.current.forEach(fetcher => {
         if (!fetcher) return;
 
         const pageInfo = cursorMap.get(fetcher.key)
@@ -1118,8 +1120,7 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
       const cursorMap = new Map(oldCursorMap);
 
       // build queries
-      childRefs.current.forEach(childRef => {
-        const fetcher = childRef.current;
+      fetchersRef.current.forEach(fetcher => {
         if (!fetcher) return;
 
         const pageInfo = oldCursorMap.get(fetcher.key)
@@ -1157,9 +1158,9 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
       return [records, cursorMap];
     },
     reset: () => {
-      childRefs.current.forEach(childRef => childRef.current?.reset());
+      fetchersRef.current.forEach(fetcher => fetcher?.reset());
     },
-  }), [JSON.stringify(elKeys)]);
+  }), [elKeys]);
 
   return <>{els}</>;
 };
