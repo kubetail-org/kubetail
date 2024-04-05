@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import {
+  createContext, useContext, useEffect, useState,
+} from 'react';
 
 import { getBasename, joinPaths } from '@/lib/helpers';
 
@@ -26,11 +28,11 @@ export type Session = {
   timestamp: Date;
 };
 
-type Context = {
+type ContextType = {
   session: Session | undefined;
 };
 
-const Context = createContext<Context>({} as Context);
+const Context = createContext({} as ContextType);
 
 /**
  * Get session
@@ -45,9 +47,9 @@ export async function getSession(): Promise<Session> {
   sess.timestamp = new Date(sess.timestamp);
 
   // publish
-  const bc = new BroadcastChannel(bcName);
-  bc.postMessage(sess);
-  bc.close()
+  const bcTmp = new BroadcastChannel(bcName);
+  bcTmp.postMessage(sess);
+  bcTmp.close();
 
   return sess;
 }
@@ -59,7 +61,7 @@ export async function getSession(): Promise<Session> {
 export function useSession() {
   const { session } = useContext(Context);
 
-  return { 
+  return {
     loading: session === undefined,
     session,
   };
@@ -69,7 +71,7 @@ export function useSession() {
  * Session provider
  */
 
-interface SessionProviderProps extends React.PropsWithChildren {};
+interface SessionProviderProps extends React.PropsWithChildren {}
 
 export const SessionProvider = ({ children }: SessionProviderProps) => {
   const [session, setSession] = useState<Session | undefined>(undefined);
@@ -83,7 +85,7 @@ export const SessionProvider = ({ children }: SessionProviderProps) => {
         lastTS = newSession.timestamp;
         setSession(newSession);
       }
-    }
+    };
     bc.addEventListener('message', fn);
     return () => bc.removeEventListener('message', fn);
   }, []);

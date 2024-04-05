@@ -27,16 +27,18 @@ import * as ops from '@/lib/graphql/ops';
 import { Counter } from '@/lib/helpers';
 import { useCounterQueryWithSubscription, useListQueryWithSubscription } from '@/lib/hooks';
 import { cn } from '@/lib/utils';
-import { Workload, allWorkloads, iconMap, labelsPMap, typenameMap } from '@/lib/workload';
+import {
+  Workload, allWorkloads, iconMap, labelsPMap, typenameMap,
+} from '@/lib/workload';
 
-type Context = {
+type ContextType = {
   namespace: string;
   setNamespace: React.Dispatch<string>;
   selectedSources: Set<string>;
   setSelectedSources: React.Dispatch<Set<string>>;
-}
+};
 
-const Context = createContext({} as Context);
+const Context = createContext({} as ContextType);
 
 /**
  * Workload counter hook
@@ -100,8 +102,8 @@ function useWorkloadCounter(namespace: string = '') {
   });
 
   const reqs = [cronjobs, daemonsets, deployments, jobs, pods, replicasets, statefulsets];
-  const loading = reqs.some(req => req.loading);
-  const error = reqs.find(req => Boolean(req.error));
+  const loading = reqs.some((req) => req.loading);
+  const error = reqs.find((req) => Boolean(req.error));
 
   const counter = new Counter<Workload>();
 
@@ -143,7 +145,7 @@ const Namespaces = () => {
       value={namespace}
     >
       <Form.Option value="">All namespaces</Form.Option>
-      {data?.coreV1NamespacesList?.items.map(item => (
+      {data?.coreV1NamespacesList?.items.map((item) => (
         <Form.Option key={item.id} value={item.metadata.name}>{item.metadata.name}</Form.Option>
       ))}
     </Form.Select>

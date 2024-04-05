@@ -32,7 +32,6 @@ import { getBasename, joinPaths } from '@/lib/helpers';
 import { useListQueryWithSubscription } from '@/lib/hooks';
 import { Workload, iconMap, labelsPMap } from '@/lib/workload';
 
-
 const Namespaces = ({
   value,
   setValue,
@@ -53,7 +52,7 @@ const Namespaces = ({
       value={value}
     >
       <Form.Option value="">All namespaces</Form.Option>
-      {data?.coreV1NamespacesList?.items.map(item => (
+      {data?.coreV1NamespacesList?.items.map((item) => (
         <Form.Option key={item.id} value={item.metadata.name}>{item.metadata.name}</Form.Option>
       ))}
     </Form.Select>
@@ -76,7 +75,9 @@ type DisplayItemsProps = {
   }[] | undefined | null;
 };
 
-const DisplayItems = ({ workload, namespace, fetching, items }: DisplayItemsProps) => {
+const DisplayItems = ({
+  workload, namespace, fetching, items,
+}: DisplayItemsProps) => {
   // filter items
   const filteredItems = items?.filter((item) => {
     // remove deleted items
@@ -96,7 +97,7 @@ const DisplayItems = ({ workload, namespace, fetching, items }: DisplayItemsProp
       switch (sortBy.field) {
         case 'name':
           cmp = a.metadata.name.localeCompare(b.metadata.name);
-          break
+          break;
         case 'namespace':
           cmp = a.metadata.namespace.localeCompare(b.metadata.namespace);
           if (cmp === 0) cmp = a.metadata.name.localeCompare(b.metadata.name);
@@ -113,11 +114,11 @@ const DisplayItems = ({ workload, namespace, fetching, items }: DisplayItemsProp
 
       // otherwise use original cmp
       return sortBy.direction === 'ASC' ? cmp : cmp * -1;
-    })
+    });
   }
 
   // handle show some-or-all
-  const [showAll, setShowAll] = useState<Boolean>(false);
+  const [showAll, setShowAll] = useState(false);
   const visibleItems = (filteredItems && showAll) ? filteredItems : filteredItems?.slice(0, 5);
   const hasMore = filteredItems && filteredItems.length > 5;
 
@@ -130,7 +131,7 @@ const DisplayItems = ({ workload, namespace, fetching, items }: DisplayItemsProp
     setSelectAll(newValue);
 
     // update individual checkboxes
-    filteredItems?.forEach(item => isChecked.set(item.id, newValue));
+    filteredItems?.forEach((item) => isChecked.set(item.id, newValue));
     setIsChecked(new Map(isChecked));
   };
 
@@ -141,19 +142,19 @@ const DisplayItems = ({ workload, namespace, fetching, items }: DisplayItemsProp
     setIsChecked(new Map(isChecked));
 
     // update selectAll
-    const values: Boolean[] = [];
-    filteredItems?.forEach(item => values.push(isChecked.get(item.id) || false));
+    const values: boolean[] = [];
+    filteredItems?.forEach((item) => values.push(isChecked.get(item.id) || false));
 
     // all-checked
-    if (values.every(val => val)) setSelectAll(true);
+    if (values.every((val) => val)) setSelectAll(true);
 
     // some-unchecked
-    if (values.some(val => !val)) setSelectAll(false);
+    if (values.some((val) => !val)) setSelectAll(false);
   };
 
   // for label
   const Icon = iconMap[workload];
-  const label = labelsPMap[workload]
+  const label = labelsPMap[workload];
 
   return (
     <>
@@ -163,7 +164,7 @@ const DisplayItems = ({ workload, namespace, fetching, items }: DisplayItemsProp
             <div className="flex items-center space-x-1">
               <Icon className="w-[22px] h-[22px]" />
               <div>{label}</div>
-              <div>({filteredItems?.length})</div>
+              <div>{`(${filteredItems?.length})`}</div>
               {fetching && <div><Spinner size="xs" /></div>}
             </div>
           </td>
@@ -216,7 +217,7 @@ const DisplayItems = ({ workload, namespace, fetching, items }: DisplayItemsProp
             </DataTable.Row>
           </DataTable.Header>
           <DataTable.Body className="rounded-tbody">
-            {visibleItems?.map(item => {
+            {visibleItems?.map((item) => {
               const sourceString = `${workload}/${item.metadata.namespace}/${item.metadata.name}`;
               return (
                 <DataTable.Row key={item.metadata.uid} className="text-chrome-700">
@@ -263,8 +264,24 @@ const DisplayItems = ({ workload, namespace, fetching, items }: DisplayItemsProp
         </>
       )}
     </>
-  )
+  );
 };
+
+const LoadingModal = () => (
+  <div className="relative z-10" role="dialog">
+    <div className="fixed inset-0 bg-chrome-500 bg-opacity-75" />
+    <div className="fixed inset-0 z-10 w-screen">
+      <div className="flex min-h-full items-center justify-center p-0 text-center">
+        <div className="relative transform overflow-hidden rounded-lg bg-background my-8 p-6 text-left shadow-xl">
+          <div className="flex items-center space-x-2">
+            <div>Loading Workloads</div>
+            <Spinner size="sm" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
   const cronjobs = useListQueryWithSubscription({
@@ -315,22 +332,6 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
     queryDataKey: 'appsV1StatefulSetsList',
     subscriptionDataKey: 'appsV1StatefulSetsWatch',
   });
-
-  const LoadingModal = () => (
-    <div className="relative z-10" role="dialog">
-      <div className="fixed inset-0 bg-chrome-500 bg-opacity-75"></div>
-      <div className="fixed inset-0 z-10 w-screen">
-        <div className="flex min-h-full items-center justify-center p-0 text-center">
-          <div className="relative transform overflow-hidden rounded-lg bg-background my-8 p-6 text-left shadow-xl">
-            <div className="flex items-center space-x-2">
-              <div>Loading Workloads</div>
-              <Spinner size="sm" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   const loading = cronjobs.loading || daemonsets.loading || deployments.loading || jobs.loading || pods.loading || replicasets.loading || statefulsets.loading;
 
