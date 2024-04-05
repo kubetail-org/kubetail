@@ -29,6 +29,7 @@ module.exports = {
     'import/prefer-default-export': 'off',
     'jsx-a11y/anchor-is-valid': 'off',
     'max-classes-per-file': 'off',
+    'max-len': 'off',
     'no-console': 'off',
     'no-underscore-dangle': 'off',
     'prefer-destructuring': ['error', { array: false, object: true }],

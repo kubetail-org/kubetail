@@ -34,7 +34,7 @@ export default function Logout() {
       const url = new URL('/api/auth/logout', window.location.origin);
       const resp = await fetch(url, {
         method: 'post',
-        headers: {'X-CSRF-Token': await getCSRFToken()},
+        headers: { 'X-CSRF-Token': await getCSRFToken() },
       });
 
       // update session and exit

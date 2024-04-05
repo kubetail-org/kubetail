@@ -70,7 +70,7 @@ export default function LoginPage() {
       console.log(err);
       setFormErrors({});
     }
-  }
+  };
 
   if (!session) return <LoadingPage />;
 
@@ -84,8 +84,10 @@ export default function LoginPage() {
           <Form onSubmit={handleSubmit}>
             <Form.Group>
               <Form.Label>Token</Form.Label>
-              <Form.Control name="token" placeholder="Enter your kubernetes token..."></Form.Control>
-              {formErrors.token && <Form.Control.Feedback>{formErrors.token}</Form.Control.Feedback>}
+              <Form.Control name="token" placeholder="Enter your kubernetes token..." />
+              {formErrors.token && (
+                <Form.Control.Feedback>{formErrors.token}</Form.Control.Feedback>
+              )}
             </Form.Group>
             <Form.Group>
               <Button type="submit">Sign in</Button>
@@ -94,7 +96,8 @@ export default function LoginPage() {
           {serverLoading && (
             <div className="absolute top-0 left-0 w-full h-full bg-background bg-opacity-80 flex justify-center items-center">
               <div className="bg-background py-4 px-6 border border-chrome-200 flex">
-                <Spinner size="sm" /><span>Loading...</span>
+                <Spinner size="sm" />
+                <span>Loading...</span>
               </div>
             </div>
           )}

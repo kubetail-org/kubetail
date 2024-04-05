@@ -22,7 +22,7 @@ import LogoutPage from '@/pages/auth/logout';
 import { renderElement } from '@/test-utils';
 
 const fetchMock = vi.fn();
-vi.stubGlobal('fetch', fetchMock); //vi.fn().mockResolvedValue({ ok: true }));
+vi.stubGlobal('fetch', fetchMock);
 
 describe('Logout Page', () => {
   it('renders loading page while waiting for session', () => {
@@ -38,7 +38,7 @@ describe('Logout Page', () => {
 
     // assertions
     expect(getByText('Loading...')).toBeInTheDocument();
-  })
+  });
 
   it('navigates to callbackUrl when user is logged out', () => {
     // mock fetch
@@ -49,7 +49,7 @@ describe('Logout Page', () => {
     render(
       <Router location="?callbackUrl=%2Ftest-url" navigator={history}>
         <LogoutPage />
-      </Router>
+      </Router>,
     );
 
     // assertions

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { MockedResponse } from "@apollo/client/testing";
+import type { MockedResponse } from '@apollo/client/testing';
 
 import * as ops from '@/lib/graphql/ops';
 

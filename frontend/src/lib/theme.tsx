@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import {
+  createContext, useContext, useEffect, useState,
+} from 'react';
 
 export enum Theme {
   Light = 'light',
@@ -25,13 +27,13 @@ export enum UserPreference {
   Dark = 'dark',
 }
 
-type Context = {
+type ContextType = {
   theme: Theme;
   userPreference: UserPreference;
   setUserPreference: React.Dispatch<UserPreference>;
 };
 
-const Context = createContext<Context>({} as Context);
+const Context = createContext({} as ContextType);
 
 /**
  * Media query helper
@@ -77,7 +79,7 @@ export function useTheme() {
   return {
     theme,
     userPreference,
-    setUserPreference
+    setUserPreference,
   };
 }
 
@@ -100,7 +102,7 @@ export function ThemeProvider({ children }: React.PropsWithChildren) {
     const mediaQuery = getMediaQuery();
     const fn = (ev: MediaQueryListEvent) => {
       if (getUserPreference() === UserPreference.System) setTheme(getSystemTheme(ev));
-    }
+    };
     mediaQuery.addEventListener('change', fn);
 
     // cleanup
@@ -128,9 +130,9 @@ export function ThemeProvider({ children }: React.PropsWithChildren) {
 
       // update react states
       setUserPreference(getUserPreference());
-      setTheme(getTheme());      
+      setTheme(getTheme());
     },
-  }
+  };
 
   return (
     <Context.Provider value={context}>

@@ -51,11 +51,12 @@ export function ConsoleLink({ source }: { source: ConsoleLinkSourceFragment }) {
  */
 
 export function cssEncode(name: string) {
-  return name.replace(/[^a-z0-9]/g, function (s) {
-    var c = s.charCodeAt(0);
-    if (c == 32) return '-';
-    if (c >= 65 && c <= 90) return '_' + s.toLowerCase();
-    return '__' + ('000' + c.toString(16)).slice(-4);
+  return name.replace(/[^a-z0-9]/g, (s) => {
+    const c = s.charCodeAt(0);
+    if (c === 32) return '-';
+    if (c >= 65 && c <= 90) return `_${s.toLowerCase()}`;
+    const x = `000${c.toString(16)}`;
+    return `__${x.slice(-4)}`;
   });
 }
 
@@ -72,7 +73,7 @@ export class Counter<K = string> extends Map<K, number> {
         this.set(key, value);
       }
     } else {
-      values?.forEach(val => this.update(val));
+      values?.forEach((val) => this.update(val));
     }
   }
 
@@ -93,7 +94,7 @@ export class Counter<K = string> extends Map<K, number> {
         return aKey.localeCompare(bKey);
       }
       return bVal - aVal;
-    })
+    });
 
     return entries;
   }
@@ -122,6 +123,40 @@ export class MapSet<K = string, T = string> extends Map<K, Set<T>> {
 }
 
 /**
+ * Url path helper
+ */
+
+export function joinPaths(...paths: string[]) {
+  return paths.map((part, index) => {
+      if (index === 0) {
+        return part.replace(/\/+$/, '');
+      }
+      return part.replace(/^\/+|\/+$/g, '');
+  }).join('/');
+}
+
+/**
+ * Get path basename
+ */
+
+let basename: string | undefined;
+
+export function getBasename() {
+  // check cache
+  if (basename) return basename;
+
+  const { pathname } = window.location;
+  if (pathname.includes('/proxy/')) {
+    const m = pathname.match(/^(.*?)\/proxy\//);
+    if (m) basename = m[0];
+  } else {
+    basename = config.basePath;
+  }
+
+  return basename as string;
+}
+
+/**
  * Get CSRF token from server
  */
 
@@ -147,45 +182,10 @@ export function intersectSets<T = string>(sets: Set<T>[]): Set<T> {
   let intersection = new Set(sets[0]);
 
   // Iterate over the rest of the sets
-  for (let set of sets.slice(1)) {
+  for (const set of sets.slice(1)) {
     // Retain only elements that are present in both sets
-    intersection = new Set([...intersection].filter(x => set.has(x)));
+    intersection = new Set([...intersection].filter((x) => set.has(x)));
   }
 
   return intersection;
-}
-
-/**
- * Get path basename
- */
-
-let basename: string | undefined;
-
-export function getBasename() {
-  // check cache
-  if (basename) return basename;
-
-  const pathname = window.location.pathname;
-  if (pathname.includes('/proxy/')) {
-    const m = pathname.match(/^(.*?)\/proxy\//);
-    if (m) basename = m[0];
-  } else {
-    basename = config.basePath;
-  }
-
-  return basename as string;
-}
-
-/**
- * Url path helper
- */
-
-export function joinPaths(...paths: string[]) {
-  return paths.map((part, index) => {
-      if (index === 0) {
-          return part.replace(/\/+$/, '');
-      } else {
-          return part.replace(/^\/+|\/+$/g, '');
-      }
-  }).join('/');
 }

@@ -29,7 +29,7 @@ describe('home page', () => {
     render(
       <Router location={history.location} navigator={history}>
         <Home />
-      </Router>
+      </Router>,
     );
 
     // assertions
@@ -50,6 +50,6 @@ describe('home page', () => {
     // after
     await waitFor(() => {
       expect(queryByText('Loading Workloads')).not.toBeInTheDocument();
-    })
+    });
   });
 });

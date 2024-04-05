@@ -14,7 +14,9 @@
 
 import { ApolloError } from '@apollo/client';
 import { useEffect } from 'react';
-import { RecoilRoot, atom, useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
+import {
+  RecoilRoot, atom, useRecoilState, useRecoilValue, useSetRecoilState,
+} from 'recoil';
 
 import type { ExtractQueryType } from '@/app-env';
 import * as fragments from '@/lib/graphql/fragments';
@@ -32,15 +34,19 @@ export type Pod = ExtractQueryType<typeof fragments.CONSOLE_LOGGING_RESOURCES_PO
 
 class WorkloadResponse {
   loading: boolean = false;
+
   error?: ApolloError = undefined;
+
   item?: Workload | null = undefined;
 }
 
 class PodListResponse {
   loading: boolean = false;
+
   error?: ApolloError = undefined;
+
   items?: Pod[] | null = undefined;
-};
+}
 
 /**
  * State
@@ -83,7 +89,7 @@ export function useWorkloads() {
   // group sources by workload type
   sourceToWorkloadResponseMap.forEach((val) => {
     loading = loading || val.loading;
-    const item = val.item;
+    const { item } = val;
     if (!item?.__typename) return;
     const workload = typenameMap[item.__typename];
     const items = workloads.get(workload) || [];
@@ -104,7 +110,7 @@ export function usePods() {
   const usedIDs = new Set<string>();
   sourceToPodListResponseMap.forEach((val) => {
     loading = loading || val.loading;
-    val.items?.forEach(item => {
+    val.items?.forEach((item) => {
       if (usedIDs.has(item.metadata.uid)) return;
       pods.push(item);
       usedIDs.add(item.metadata.uid);
@@ -125,7 +131,7 @@ function useWorkloadMapUpdater(sourcePath: string, value: WorkloadResponse) {
   const setSourceToWorkloadResponseMap = useSetRecoilState(sourceToWorkloadResponseMapState);
 
   useEffect(() => {
-    setSourceToWorkloadResponseMap(oldVal => {
+    setSourceToWorkloadResponseMap((oldVal) => {
       const newVal = new Map(oldVal);
       newVal.set(sourcePath, value);
       return newVal;
@@ -147,7 +153,7 @@ const LoadPodsForLabels = ({
   matchLabels: Record<string, string> | null | undefined;
 }) => {
   let labelSelector = '';
-  if (matchLabels) labelSelector = Object.keys(matchLabels).map(k => `${k}=${matchLabels[k]}`).join(',');
+  if (matchLabels) labelSelector = Object.keys(matchLabels).map((k) => `${k}=${matchLabels[k]}`).join(',');
 
   const { loading, error, data } = useListQueryWithSubscription({
     query: ops.CONSOLE_LOGGING_RESOURCES_PODS_FIND,
@@ -169,7 +175,7 @@ const LoadPodsForLabels = ({
     });
   }, [loading, error, data]);
 
-  return <></>;
+  return null;
 };
 
 /**
@@ -207,8 +213,8 @@ const LoadCronJobWorkload = ({ sourcePath }: { sourcePath: string }) => {
   // load streams
   return (
     <>
-      {jobsReq.data?.batchV1JobsList?.items.map(job => {
-        if (job.metadata.ownerReferences.some(ownerRef => ownerRef.uid === item?.metadata.uid)) {
+      {jobsReq.data?.batchV1JobsList?.items.map((job) => {
+        if (job.metadata.ownerReferences.some((ownerRef) => ownerRef.uid === item?.metadata.uid)) {
           return (
             <LoadPodsForLabels
               key={job.metadata.uid}
@@ -218,6 +224,7 @@ const LoadCronJobWorkload = ({ sourcePath }: { sourcePath: string }) => {
             />
           );
         }
+        return null;
       })}
     </>
   );
@@ -246,7 +253,7 @@ const LoadDaemonSetWorkload = ({ sourcePath }: { sourcePath: string }) => {
   useWorkloadMapUpdater(sourcePath, { loading, error, item });
 
   // load streams
-  if (!item) return <></>;
+  if (!item) return null;
 
   return (
     <LoadPodsForLabels
@@ -280,7 +287,7 @@ const LoadDeploymentWorkload = ({ sourcePath }: { sourcePath: string }) => {
   useWorkloadMapUpdater(sourcePath, { loading, error, item });
 
   // load streams
-  if (!item) return <></>;
+  if (!item) return null;
 
   return (
     <LoadPodsForLabels
@@ -314,7 +321,7 @@ const LoadJobWorkload = ({ sourcePath }: { sourcePath: string }) => {
   useWorkloadMapUpdater(sourcePath, { loading, error, item });
 
   // load streams
-  if (!item) return <></>;
+  if (!item) return null;
 
   return (
     <LoadPodsForLabels
@@ -356,7 +363,7 @@ const LoadPodWorkload = ({ sourcePath }: { sourcePath: string }) => {
     setSourceToPodListResponseMap(newMap);
   }, [loading, error, data]);
 
-  return <></>;
+  return null;
 };
 
 /**
@@ -382,7 +389,7 @@ const LoadReplicaSetWorkload = ({ sourcePath }: { sourcePath: string }) => {
   useWorkloadMapUpdater(sourcePath, { loading, error, item });
 
   // load streams
-  if (!item) return <></>;
+  if (!item) return null;
 
   return (
     <LoadPodsForLabels
@@ -416,7 +423,7 @@ const LoadStatefulSetWorkload = ({ sourcePath }: { sourcePath: string }) => {
   useWorkloadMapUpdater(sourcePath, { loading, error, item });
 
   // load streams
-  if (!item) return <></>;
+  if (!item) return null;
 
   return (
     <LoadPodsForLabels
@@ -437,11 +444,11 @@ type SourceDeletionHandlerProps = {
 
 const removeUnusedKeys = <K, V>(origMap: Map<K, V>, usedKeys: K[]): Map<K, V> => {
   const newMap = new Map(origMap);
-  Array.from(newMap.keys()).forEach(key => {
+  Array.from(newMap.keys()).forEach((key) => {
     if (!usedKeys.includes(key)) newMap.delete(key);
-  })
+  });
   return newMap;
-}
+};
 
 const SourceDeletionHandler = ({ sourcePaths }: SourceDeletionHandlerProps) => {
   const setSourceToWorkloadResponseMap = useSetRecoilState(sourceToWorkloadResponseMapState);
@@ -449,11 +456,11 @@ const SourceDeletionHandler = ({ sourcePaths }: SourceDeletionHandlerProps) => {
 
   // handle sourcePath deletions
   useEffect(() => {
-    setSourceToWorkloadResponseMap(oldVal => removeUnusedKeys(oldVal, sourcePaths));
-    setSourceToPodListResponseMap(oldVal => removeUnusedKeys(oldVal, sourcePaths));
+    setSourceToWorkloadResponseMap((oldVal) => removeUnusedKeys(oldVal, sourcePaths));
+    setSourceToPodListResponseMap((oldVal) => removeUnusedKeys(oldVal, sourcePaths));
   }, [JSON.stringify(sourcePaths)]);
 
-  return <></>;
+  return null;
 };
 
 /**
@@ -462,12 +469,12 @@ const SourceDeletionHandler = ({ sourcePaths }: SourceDeletionHandlerProps) => {
 
 interface LoggingResourcesProviderProps extends React.PropsWithChildren {
   sourcePaths: string[];
-};
+}
 
 export const LoggingResourcesProvider = ({ sourcePaths, children }: LoggingResourcesProviderProps) => {
   // uniquify sourcePaths
-  sourcePaths = Array.from(new Set(sourcePaths || []));
-  sourcePaths.sort();
+  const sourcePathsSorted = Array.from(new Set(sourcePaths || []));
+  sourcePathsSorted.sort();
 
   const resourceLoaders = {
     [WorkloadType.CRONJOBS]: LoadCronJobWorkload,
@@ -481,12 +488,12 @@ export const LoggingResourcesProvider = ({ sourcePaths, children }: LoggingResou
 
   return (
     <RecoilRoot>
-      <SourceDeletionHandler sourcePaths={sourcePaths} />
-      {sourcePaths.map(path => {
+      <SourceDeletionHandler sourcePaths={sourcePathsSorted} />
+      {sourcePathsSorted.map((path) => {
         const parts = path.split('/');
         if (!(parts[0] in resourceLoaders)) throw new Error(`not implemented: ${parts[0]}`);
         const Component = resourceLoaders[parts[0] as WorkloadType];
-        return <Component key={path} sourcePath={path} />
+        return <Component key={path} sourcePath={path} />;
       })}
       {children}
     </RecoilRoot>

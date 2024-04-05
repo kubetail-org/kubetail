@@ -20,14 +20,16 @@ import * as ops from '@/lib/graphql/ops';
 import { HealthCheckStatus, type HealthCheckResponse } from '@/lib/graphql/__generated__/graphql';
 
 export const enum Status {
-  Healthy = "HEALTHY",
-  Unhealthy = "UNHEALTHY",
-  Unknown = "UNKNOWN",
+  Healthy = 'HEALTHY',
+  Unhealthy = 'UNHEALTHY',
+  Unknown = 'UNKNOWN',
 }
 
 export class ServerStatus {
   public status: Status = Status.Unknown;
+
   public message: string | null = null;
+
   public lastUpdatedAt: Date | null = null;
 
   public constructor(init?: Partial<ServerStatus>) {
@@ -59,20 +61,20 @@ export function useServerStatus() {
   useEffect(() => {
     const fns = [
       wsClient.on('connected', () => {
-        setBackendStatus(new ServerStatus({ status: Status.Healthy, lastUpdatedAt: new Date }));
+        setBackendStatus(new ServerStatus({ status: Status.Healthy, lastUpdatedAt: new Date() }));
       }),
       wsClient.on('pong', () => {
-        setBackendStatus(new ServerStatus({ status: Status.Healthy, lastUpdatedAt: new Date }));
+        setBackendStatus(new ServerStatus({ status: Status.Healthy, lastUpdatedAt: new Date() }));
       }),
       wsClient.on('closed', () => {
-        const status = new ServerStatus({ status: Status.Unhealthy, lastUpdatedAt: new Date });
+        const status = new ServerStatus({ status: Status.Unhealthy, lastUpdatedAt: new Date() });
         status.message = 'Unable to connect';
         setBackendStatus(status);
         setK8sLivezStatus(new ServerStatus());
         setK8sReadyzStatus(new ServerStatus());
       }),
       wsClient.on('error', () => {
-        const status = new ServerStatus({ status: Status.Unhealthy, lastUpdatedAt: new Date });
+        const status = new ServerStatus({ status: Status.Unhealthy, lastUpdatedAt: new Date() });
         status.message = 'Error while establishing connection';
         setBackendStatus(status);
         setK8sLivezStatus(new ServerStatus());
@@ -81,14 +83,14 @@ export function useServerStatus() {
     ];
 
     // cleanup
-    return () => fns.forEach(fn => fn());
+    return () => fns.forEach((fn) => fn());
   }, []);
 
   const all = [backendStatus, k8sLivezStatus, k8sReadyzStatus];
 
   let status = Status.Unknown;
-  if (all.every(item => item.status === Status.Healthy)) status = Status.Healthy;
-  else if (all.some(item => item.status === Status.Unhealthy)) status = Status.Unhealthy
+  if (all.every((item) => item.status === Status.Healthy)) status = Status.Healthy;
+  else if (all.some((item) => item.status === Status.Unhealthy)) status = Status.Unhealthy;
 
   return {
     status,
