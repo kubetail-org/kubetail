@@ -49,7 +49,7 @@ const ProfilePicDropdown = () => {
             <Menu.Item>
               <Link
                 className="block px-4 py-2 text-sm text-chrome-700 cursor-pointer"
-                to={`/auth/logout?${new URLSearchParams({ callbackUrl: location.pathname + location.search })}`}
+                to={`/auth/logout?${new URLSearchParams({ callbackUrl: window.location.pathname + window.location.search })}`}
               >
                 Sign out
               </Link>

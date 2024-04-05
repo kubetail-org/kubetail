@@ -371,39 +371,49 @@ const Header = () => {
       <div className="flex px-2">
         <DateRangeDropdown onChange={handleDateRangeDropdownChange}>
           <button
+            type="button"
             className={buttonCN}
             title="Jump to time"
+            aria-label="Jump to time"
           >
             <HistoryIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
         </DateRangeDropdown>
         <button
+          type="button"
           className={buttonCN}
           title="Jump to beginning"
+          aria-label="Jump to beginning"
           onClick={() => controls.head()}
         >
           <SkipBackIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
         </button>
         {feed.isFollow ? (
           <button
+            type="button"
             className={buttonCN}
             title="Pause"
+            aria-label="Pause"
             onClick={() => controls.pause()}
           >
             <PauseIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
         ) : (
           <button
+            type="button"
             className={buttonCN}
             title="Play"
+            aria-label="Play"
             onClick={() => controls.play()}
           >
             <PlayIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
         )}
         <button
+          type="button"
           className={buttonCN}
           title="Jump to end"
+          aria-label="Jump to end"
           onClick={() => controls.tail()}
         >
           <SkipForwardIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />

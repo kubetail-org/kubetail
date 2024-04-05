@@ -381,7 +381,7 @@ export function useColors(streams: string[]) {
       values.forEach((value, i) => {
         const view = new DataView(value);
         const n = view.getUint8(0);
-        const idx = (2 * n % 400) % 20;
+        const idx = ((2 * n) % 400) % 20;
         colorMap.set(streams[i], palette[idx].hex());
       });
       setColorMap(new Map(colorMap));
