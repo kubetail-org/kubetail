@@ -48,7 +48,9 @@ import {
   useLogFeedMetadata,
   useLogFeedVisibleCols,
 } from '@/lib/console/logfeed';
-import { Counter, MapSet, getBasename, joinPaths } from '@/lib/helpers';
+import {
+  Counter, MapSet, getBasename, joinPaths,
+} from '@/lib/helpers';
 import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
 
 /**
@@ -67,8 +69,8 @@ const ConfigureContainerColors = () => {
   const { pods } = usePods();
   const containerKeysRef = useRef(new Set<string>());
 
-  pods.forEach(pod => {
-    pod.spec.containers.forEach(container => {
+  pods.forEach((pod) => {
+    pod.spec.containers.forEach((container) => {
       const k = cssID(pod, container.name);
 
       // skip if previously defined
@@ -88,7 +90,7 @@ const ConfigureContainerColors = () => {
     });
   });
 
-  return <></>;
+  return null;
 };
 
 /**
@@ -108,14 +110,14 @@ const SettingsButton = () => {
 
   const checkboxEls: JSX.Element[] = [];
 
-  allLogFeedColumns.forEach(col => {
+  allLogFeedColumns.forEach((col) => {
     checkboxEls.push(
       <Form.Check
         key={col}
         label={col}
-        checked={visibleCols.has(col) ? true : false}
+        checked={visibleCols.has(col)}
         onChange={(ev) => handleOnChange(col, ev)}
-      />
+      />,
     );
   });
 
@@ -169,7 +171,7 @@ const SidebarWorkloads = () => {
         </a>
       </div>
       <div className="space-y-2">
-        {allWorkloads.map(workload => {
+        {allWorkloads.map((workload) => {
           const objs = workloads.get(workload);
           if (!objs) return;
           const Icon = iconMap[workload];
@@ -180,7 +182,7 @@ const SidebarWorkloads = () => {
                 <div className="font-semibold text-chrome-500">{labelsPMap[workload]}</div>
               </div>
               <ul className="pl-[23px]">
-                {objs.map(obj => (
+                {objs.map((obj) => (
                   <li key={obj.id} className="flex items-center justify-between">
                     <span className="whitespace-nowrap overflow-hidden text-ellipsis">{obj.metadata.name}</span>
                     <a onClick={() => deleteSource(`${workload}/${obj.metadata.namespace}/${obj.metadata.name}`)}>
@@ -201,52 +203,53 @@ const SidebarWorkloads = () => {
  * Sidebar pods and containers component
  */
 
-const SidebarPodsAndContainers = () => {
+const Containers = ({ pod }: { pod: Pod }) => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { pods } = usePods();
 
-  const Containers = ({ pod }: { pod: Pod }) => {
-    const containers = Array.from(pod.spec.containers);
-    containers.sort((a, b) => a.name.localeCompare(b.name));
+  const containers = Array.from(pod.spec.containers);
+  containers.sort((a, b) => a.name.localeCompare(b.name));
 
-    const handleToggle = (ev: React.ChangeEvent<HTMLInputElement>) => {
-      const { name, value, checked } = ev.currentTarget;
-      if (checked) searchParams.append(name, value);
-      else searchParams.delete(name, value);
-      setSearchParams(new URLSearchParams(searchParams));
-    }
-
-    return (
-      <>
-        {containers.map(container => {
-          const k = cssID(pod, container.name);
-          const urlKey = "container";
-          const urlVal = `${pod.metadata.namespace}/${pod.metadata.name}/${container.name}`;
-          return (
-            <div key={container.name} className="flex item-center justify-between">
-              <div className="flex items-center space-x-1">
-                <div className="w-[13px] h-[13px]" style={{ backgroundColor: `var(--${k}-color)` }}></div>
-                <div>{container.name}</div>
-              </div>
-              <Form.Check
-                checked={searchParams.has(urlKey, urlVal)}
-                name={urlKey}
-                value={urlVal}
-                onChange={handleToggle}
-              />
-            </div>
-          );
-        })}
-      </>
-    );
+  const handleToggle = (ev: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, checked } = ev.currentTarget;
+    if (checked) searchParams.append(name, value);
+    else searchParams.delete(name, value);
+    setSearchParams(new URLSearchParams(searchParams));
   };
 
   return (
     <>
-      <div className="border-t border-chrome-divider mt-[10px]"></div>
+      {containers.map((container) => {
+        const k = cssID(pod, container.name);
+        const urlKey = 'container';
+        const urlVal = `${pod.metadata.namespace}/${pod.metadata.name}/${container.name}`;
+        return (
+          <div key={container.name} className="flex item-center justify-between">
+            <div className="flex items-center space-x-1">
+              <div className="w-[13px] h-[13px]" style={{ backgroundColor: `var(--${k}-color)` }} />
+              <div>{container.name}</div>
+            </div>
+            <Form.Check
+              checked={searchParams.has(urlKey, urlVal)}
+              name={urlKey}
+              value={urlVal}
+              onChange={handleToggle}
+            />
+          </div>
+        );
+      })}
+    </>
+  );
+};
+
+const SidebarPodsAndContainers = () => {
+  const { pods } = usePods();
+
+  return (
+    <>
+      <div className="border-t border-chrome-divider mt-[10px]" />
       <div className="py-[10px] font-bold text-chrome-500">Pods/Containers</div>
       <div className="space-y-3">
-        {pods.map(pod => (
+        {pods.map((pod) => (
           <div key={pod.metadata.uid}>
             <div className="flex items-center justify-between">
               <div className="whitespace-nowrap overflow-hidden text-ellipsis">{pod.metadata.name}</div>
@@ -263,9 +266,9 @@ const SidebarPodsAndContainers = () => {
  * Sidebar facets component
  */
 
-const SidebarFacets = () => {
+const Facets = ({ label, counter }: { label: string, counter: Counter }) => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const facets = useLogFeedFacets();
+  const urlKey = label.toLocaleLowerCase();
 
   const handleToggle = (ev: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, checked } = ev.currentTarget;
@@ -274,33 +277,33 @@ const SidebarFacets = () => {
     setSearchParams(new URLSearchParams(searchParams));
   };
 
-  const Facets = ({ label, counter }: { label: string, counter: Counter }) => {
-    const urlKey = label.toLocaleLowerCase();
-
-    return (
-      <>
-        <div className="border-t border-chrome-300 mt-[10px] py-[10px] font-bold text-chrome-500">
-          {label}
-        </div>
-        {counter.orderedEntries().map(([facet, count]) => (
-          <div key={facet} className="flex items-center space-x-2">
-            <div>
-              <Form.Check
-                checked={searchParams.has(urlKey, facet)}
-                name={urlKey}
-                value={facet}
-                onChange={handleToggle}
-              />
-            </div>
-            <div className="flex-grow flex justify-between">
-              <div>{facet}</div>
-              <div>({count})</div>
-            </div>
+  return (
+    <>
+      <div className="border-t border-chrome-300 mt-[10px] py-[10px] font-bold text-chrome-500">
+        {label}
+      </div>
+      {counter.orderedEntries().map(([facet, count]) => (
+        <div key={facet} className="flex items-center space-x-2">
+          <div>
+            <Form.Check
+              checked={searchParams.has(urlKey, facet)}
+              name={urlKey}
+              value={facet}
+              onChange={handleToggle}
+            />
           </div>
-        ))}
-      </>
-    );
-  };
+          <div className="flex-grow flex justify-between">
+            <div>{facet}</div>
+            <div>{`(${count})`}</div>
+          </div>
+        </div>
+      ))}
+    </>
+  );
+};
+
+const SidebarFacets = () => {
+  const facets = useLogFeedFacets();
 
   return (
     <div>
@@ -331,7 +334,7 @@ const Sidebar = () => {
       'os',
       'arch',
       'node',
-    ].forEach(key => {
+    ].forEach((key) => {
       if (searchParams.has(key)) filters.set(key, new Set(searchParams.getAll(key)));
     });
     setFilters(filters);
@@ -421,7 +424,7 @@ type InnerLayoutProps = {
   sidebar: JSX.Element;
   header: JSX.Element;
   content: JSX.Element;
-}
+};
 
 const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
   const [sidebarWidth, setSidebarWidth] = useState(300);
@@ -440,7 +443,7 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
 
     // disable text select
     const onSelectStart = document.body.onselectstart;
-    document.body.onselectstart = () => { return false; };
+    document.body.onselectstart = () => false;
 
     // cleanup
     document.addEventListener('mouseup', function cleanup() {
@@ -449,7 +452,7 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
       document.body.onselectstart = onSelectStart;
       document.removeEventListener('mouseup', cleanup);
     });
-  }
+  };
 
   return (
     <div className="relative h-full">
