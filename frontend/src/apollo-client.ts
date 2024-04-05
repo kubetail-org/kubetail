@@ -45,12 +45,8 @@ const wsClientOptions: ClientOptions = {
   }),
   keepAlive: 3000,
   retryAttempts: Infinity,
-  shouldRetry: () => {
-    return true;
-  },
-  retryWait: () => {
-    return new Promise(resolve => setTimeout(resolve, 3000));
-  },
+  shouldRetry: () => true,
+  retryWait: () => new Promise((resolve) => setTimeout(resolve, 3000)),
 };
 
 export const wsClient = createClient(wsClientOptions);
@@ -83,7 +79,7 @@ const retryLink = new RetryLink({
   },
   attempts: {
     max: Infinity,
-    retryIf: (error, _operation) => {
+    retryIf: (error) => {
       console.log('retryIf');
       console.log(error);
       return true;
@@ -178,7 +174,7 @@ export class CustomCache extends InMemoryCache {
               merge: true,
             },
           },
-        }
+        },
       },
     });
   }
