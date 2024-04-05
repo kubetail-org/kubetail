@@ -41,7 +41,9 @@ const ProfilePicDropdown = () => {
       >
         <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-background ring-1 ring-black ring-opacity-5 focus:outline-none">
           <Menu.Item>
-            <div className="px-4 py-2 text-sm font-semibold text-chrome-700 border-b">User: {session?.user}</div>
+            <div className="px-4 py-2 text-sm font-semibold text-chrome-700 border-b">
+              {`User: ${session?.user}`}
+            </div>
           </Menu.Item>
           {['cluster', 'local'].includes(session?.user || '') === false && (
             <Menu.Item>
@@ -49,9 +51,9 @@ const ProfilePicDropdown = () => {
                 className="block px-4 py-2 text-sm text-chrome-700 cursor-pointer"
                 to={`/auth/logout?${new URLSearchParams({ callbackUrl: location.pathname + location.search })}`}
               >
-              Sign out
-            </Link>
-          </Menu.Item>
+                Sign out
+              </Link>
+            </Menu.Item>
           )}
         </Menu.Items>
       </Transition>

@@ -14,7 +14,7 @@
 
 import Footer from '@/components/widgets/Footer';
 
-export default function ({ children }: React.PropsWithChildren) {
+export default function AppLayout({ children }: React.PropsWithChildren) {
   return (
     <>
       <div className="h-[calc(100vh-23px)] overflow-hidden">

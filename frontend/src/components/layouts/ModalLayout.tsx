@@ -40,8 +40,8 @@ export default function ModalLayout({ children, innerClassName }: ModalLayoutPro
     <div className="min-h-full pt-10 sm:px-6 lg:px-8">
       <div
         className={cn(
-            "sm:mx-auto",
-            innerClassName ? innerClassName: "sm:w-full sm:max-w-md",
+            'sm:mx-auto',
+            (innerClassName !== undefined) ? innerClassName : 'sm:w-full sm:max-w-md',
           )}
       >
         <div className="flex justify-center">
