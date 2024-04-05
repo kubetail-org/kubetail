@@ -35,6 +35,7 @@ module.exports = {
     'no-prototype-builtins': 'off',
     'no-restricted-syntax': 'off',
     'no-underscore-dangle': 'off',
+    'object-curly-newline': 'off',
     'prefer-destructuring': ['error', { array: false, object: true }],
     'react/function-component-definition': 'off',
     'react/jsx-no-target-blank': 'off',
