@@ -19,11 +19,11 @@ import { MemoryRouter } from 'react-router-dom';
 
 import { CustomCache } from '@/apollo-client';
 
-export const renderElement = (component: React.ReactElement, mocks?: MockedResponse[]) => {
-  return render(
+export const renderElement = (component: React.ReactElement, mocks?: MockedResponse[]) => (
+  render(
     <MockedProvider
       mocks={mocks}
-      addTypename={true}
+      addTypename
       cache={new CustomCache()}
       defaultOptions={{
         watchQuery: { fetchPolicy: 'cache-first' },
@@ -32,6 +32,6 @@ export const renderElement = (component: React.ReactElement, mocks?: MockedRespo
       <MemoryRouter>
         {component}
       </MemoryRouter>
-    </MockedProvider>
-  );
-};
+    </MockedProvider>,
+  )
+);
