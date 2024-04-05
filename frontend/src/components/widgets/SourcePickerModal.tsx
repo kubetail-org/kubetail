@@ -166,37 +166,35 @@ const Sidebar = ({
   const [currWorkload, setCurrWorkload] = workloadState;
 
   return (
-    <>
-      <ul className="text-[.85rem]">
-        <li>
-          <div className="font-bold text-chrome-600 mt-[5px] mb-[12px]">Workloads</div>
-          <div>
-            <ul className="inline-grid space-y-0">
-              {allWorkloads.map((workload) => {
-                const Icon = iconMap[workload];
-                return (
-                  <li
-                    key={workload}
-                    className={cn(
-                      "ml-[-8px] px-[8px] py-[5px] cursor-pointer rounded-sm flex items-center",
-                      currWorkload === workload ? 'bg-chrome-300' : 'hover:bg-chrome-200',
-                    )}
-                    onClick={() => setCurrWorkload(workload)}
-                  >
-                    <Icon className="h-[18px] w-[18px]" />
-                    <div className="ml-1 text-chrome-700">
-                      {labelsPMap[workload]}
-                      {' '}
-                      {counter.has(workload) && <>({counter.get(workload)})</>}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </li>
-      </ul>
-    </>
+    <ul className="text-[.85rem]">
+      <li>
+        <div className="font-bold text-chrome-600 mt-[5px] mb-[12px]">Workloads</div>
+        <div>
+          <ul className="inline-grid space-y-0">
+            {allWorkloads.map((workload) => {
+              const Icon = iconMap[workload];
+              return (
+                <li
+                  key={workload}
+                  className={cn(
+                    'ml-[-8px] px-[8px] py-[5px] cursor-pointer rounded-sm flex items-center',
+                    currWorkload === workload ? 'bg-chrome-300' : 'hover:bg-chrome-200',
+                  )}
+                  onClick={() => setCurrWorkload(workload)}
+                >
+                  <Icon className="h-[18px] w-[18px]" />
+                  <div className="ml-1 text-chrome-700">
+                    {labelsPMap[workload]}
+                    {' '}
+                    {counter.has(workload) && `(${counter.get(workload)})`}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </li>
+    </ul>
   );
 };
 
@@ -214,13 +212,13 @@ type DisplayItemsProps = {
       creationTimestamp: any;
     }
   }[];
-}
+};
 
 function isSuperset<T>(set: Set<T>, subset: Set<T>) {
-  for (let elem of subset) {
-      if (!set.has(elem)) {
-          return false;
-      }
+  for (const elem of subset) {
+    if (!set.has(elem)) {
+      return false;
+    }
   }
   return true;
 }
@@ -229,9 +227,7 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
   const { namespace, selectedSources, setSelectedSources } = useContext(Context);
 
   // filter items
-  const filteredItems = items?.filter((item) => {
-    return (namespace === '' || item.metadata.namespace === namespace);
-  });
+  const filteredItems = items?.filter((item) => namespace === '' || item.metadata.namespace === namespace);
 
   // handle sorting
   const [sortBy, setSortBy] = useState<SortBy>({ field: 'name', direction: 'ASC' });
@@ -243,7 +239,7 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
       switch (sortBy.field) {
         case 'name':
           cmp = a.metadata.name.localeCompare(b.metadata.name);
-          break
+          break;
         case 'namespace':
           cmp = a.metadata.namespace.localeCompare(b.metadata.namespace);
           if (cmp === 0) cmp = a.metadata.name.localeCompare(b.metadata.name);
@@ -260,15 +256,13 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
 
       // otherwise use original cmp
       return sortBy.direction === 'ASC' ? cmp : cmp * -1;
-    })
+    });
   }
 
-  const genSourcePath = (item: any) => {
-    return `${typenameMap[item.__typename || '']}/${item.metadata.namespace}/${item.metadata.name}`;
-  };
+  const genSourcePath = (item: any) => `${typenameMap[item.__typename || '']}/${item.metadata.namespace}/${item.metadata.name}`;
 
   // source toggler
-  const filteredSourcePaths = new Set(filteredItems.map(item => genSourcePath(item)));
+  const filteredSourcePaths = new Set(filteredItems.map((item) => genSourcePath(item)));
 
   const [allSourcesChecked, setAllSourcesChecked] = useState(isSuperset(selectedSources, filteredSourcePaths));
 
@@ -285,8 +279,8 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
 
   const handleAllSourcesToggle = () => {
     const isChecked = !allSourcesChecked;
-    if (isChecked) filteredSourcePaths.forEach(path => selectedSources.add(path));
-    else filteredSourcePaths.forEach(path => selectedSources.delete(path));
+    if (isChecked) filteredSourcePaths.forEach((path) => selectedSources.add(path));
+    else filteredSourcePaths.forEach((path) => selectedSources.delete(path));
     setSelectedSources(new Set(selectedSources));
     setAllSourcesChecked(isChecked);
   };
@@ -310,7 +304,7 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
         </DataTable.Row>
       </DataTable.Header>
       <DataTable.Body>
-        {filteredItems.map(item => {
+        {filteredItems.map((item) => {
           const sourcePath = genSourcePath(item);
           return (
             <DataTable.Row key={item.metadata.uid}>
@@ -457,7 +451,7 @@ const Main = ({
   workloadState: [Workload | null, React.Dispatch<React.SetStateAction<Workload | null>>];
 }) => {
   const [currWorkload] = workloadState;
-  if (!currWorkload) return <div></div>;
+  if (!currWorkload) return <div />;
   const DisplayWorkloadComponent = displayWorkloadComponents[currWorkload];
 
   return (
@@ -480,7 +474,7 @@ const Explorer = () => {
       </div>
     </div>
   );
-}
+};
 
 /**
  * Default component
@@ -495,14 +489,18 @@ const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void; })
     sourcePaths.sort();
 
     searchParams.delete('source');
-    sourcePaths.forEach(sourcePath => searchParams.append('source', sourcePath));
+    sourcePaths.forEach((sourcePath) => searchParams.append('source', sourcePath));
     setSearchParams(new URLSearchParams(searchParams), { replace: true });
 
     onClose();
   };
 
+  const context = {
+    namespace, setNamespace, selectedSources, setSelectedSources,
+  };
+
   return (
-    <Context.Provider value={{ namespace, setNamespace, selectedSources, setSelectedSources }}>
+    <Context.Provider value={context}>
       <Modal open onClose={() => onClose()} className="!max-w-[1000px]">
         <div className="flex items-center justify-between mb-[15px]">
           <div className="font-semibold">Choose logging sources</div>

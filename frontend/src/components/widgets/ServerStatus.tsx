@@ -39,12 +39,12 @@ const HealthDot = ({ status }: { status: Status }) => {
   return (
     <div
       className={cn(
-        "inline-block w-[8px] h-[8px] rounded-full",
+        'inline-block w-[8px] h-[8px] rounded-full',
         {
           'bg-chrome-300': color === 'chrome',
           'bg-red-500': color === 'red',
-          'bg-green-500': color === 'green'
-        }
+          'bg-green-500': color === 'green',
+        },
       )}
     />
   );
@@ -61,7 +61,7 @@ const statusMessage = (s: ServerStatus, unknownDefault: string): string => {
     default:
       throw new Error('not implemented');
   }
-}
+};
 
 type ServerStatusProps = {
   className?: string;
