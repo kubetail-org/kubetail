@@ -254,9 +254,13 @@ const DisplayItems = ({
             <tr>
               <td colSpan={5} className="pb-[30px]">
                 {hasMore && (
-                  <a className="block underline cursor-pointer text-chrome-500" onClick={() => setShowAll(!showAll)}>
+                  <button
+                    type="button"
+                    className="block underline cursor-pointer text-chrome-500"
+                    onClick={() => setShowAll(!showAll)}
+                  >
                     {showAll ? 'Show less...' : 'Show more...'}
-                  </a>
+                  </button>
                 )}
               </td>
             </tr>

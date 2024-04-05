@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import TimeAgo from 'react-timeago';
 
@@ -27,9 +27,7 @@ import * as ops from '@/lib/graphql/ops';
 import { Counter } from '@/lib/helpers';
 import { useCounterQueryWithSubscription, useListQueryWithSubscription } from '@/lib/hooks';
 import { cn } from '@/lib/utils';
-import {
-  Workload, allWorkloads, iconMap, labelsPMap, typenameMap,
-} from '@/lib/workload';
+import { Workload, allWorkloads, iconMap, labelsPMap, typenameMap } from '@/lib/workload';
 
 type ContextType = {
   namespace: string;
@@ -176,18 +174,23 @@ const Sidebar = ({
               return (
                 <li
                   key={workload}
-                  className={cn(
-                    'ml-[-8px] px-[8px] py-[5px] cursor-pointer rounded-sm flex items-center',
-                    currWorkload === workload ? 'bg-chrome-300' : 'hover:bg-chrome-200',
-                  )}
-                  onClick={() => setCurrWorkload(workload)}
+                  className="ml-[-8px]"
                 >
-                  <Icon className="h-[18px] w-[18px]" />
-                  <div className="ml-1 text-chrome-700">
-                    {labelsPMap[workload]}
-                    {' '}
-                    {counter.has(workload) && `(${counter.get(workload)})`}
-                  </div>
+                  <button
+                    type="button"
+                    className={cn(
+                      'w-full px-[8px] py-[5px] cursor-pointer rounded-sm flex items-center',
+                      currWorkload === workload ? 'bg-chrome-300' : 'hover:bg-chrome-200',
+                    )}
+                    onClick={() => setCurrWorkload(workload)}
+                  >
+                    <Icon className="h-[18px] w-[18px]" />
+                    <div className="ml-1 text-chrome-700">
+                      {labelsPMap[workload]}
+                      {' '}
+                      {counter.has(workload) && `(${counter.get(workload)})`}
+                    </div>
+                  </button>
                 </li>
               );
             })}
@@ -495,9 +498,12 @@ const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void; })
     onClose();
   };
 
-  const context = {
-    namespace, setNamespace, selectedSources, setSelectedSources,
-  };
+  const context = useMemo(() => ({
+    namespace,
+    setNamespace,
+    selectedSources,
+    setSelectedSources,
+  }), [namespace, setNamespace, selectedSources, setSelectedSources]);
 
   return (
     <Context.Provider value={context}>

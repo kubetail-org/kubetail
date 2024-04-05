@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-  createContext, useContext, useEffect, useState,
-} from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import { getBasename, joinPaths } from '@/lib/helpers';
 
@@ -102,8 +100,10 @@ export const SessionProvider = ({ children }: SessionProviderProps) => {
     return () => document.removeEventListener('visibilitychange', fn);
   }, []);
 
+  const context = useMemo(() => ({ session }), [session]);
+
   return (
-    <Context.Provider value={{ session }}>
+    <Context.Provider value={context}>
       {children}
     </Context.Provider>
   );

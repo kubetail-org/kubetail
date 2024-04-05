@@ -166,9 +166,14 @@ const SidebarWorkloads = () => {
           <span className="font-bold text-chrome-500">Sources</span>
           {loading && <Spinner className="h-[15px] w-[15px]" />}
         </div>
-        <a onClick={() => setIsPickerOpen(true)} className="cursor-pointer">
+        <button
+          type="button"
+          onClick={() => setIsPickerOpen(true)}
+          className="cursor-pointer"
+          aria-label="Open source picker"
+        >
           <PlusCircleIcon className="h-[24px] w-[24px] text-primary" />
-        </a>
+        </button>
       </div>
       <div className="space-y-2">
         {allWorkloads.map((workload) => {
@@ -185,9 +190,13 @@ const SidebarWorkloads = () => {
                 {objs.map((obj) => (
                   <li key={obj.id} className="flex items-center justify-between">
                     <span className="whitespace-nowrap overflow-hidden text-ellipsis">{obj.metadata.name}</span>
-                    <a onClick={() => deleteSource(`${workload}/${obj.metadata.namespace}/${obj.metadata.name}`)}>
+                    <button
+                      type="button"
+                      onClick={() => deleteSource(`${workload}/${obj.metadata.namespace}/${obj.metadata.name}`)}
+                      aria-label="Delete source"
+                    >
                       <TrashIcon className="h-[18px] w-[18px] text-chrome-300 hover:text-chrome-500 cursor-pointer" />
-                    </a>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -472,6 +481,7 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
       >
         {sidebar}
       </div>
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
       <div
         className="absolute bg-chrome-divider w-[4px] h-full border-l-2 border-chrome-100 cursor-ew-resize"
         style={{ left: `${sidebarWidth}px` }}

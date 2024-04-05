@@ -73,13 +73,14 @@ export default ({ className }: ServerStatusProps) => {
 
   return (
     <div className="inline-block">
-      <div
+      <button
+        type="button"
         className={cn('px-2 rounded-tl flex items-center space-x-1 cursor-pointer', className)}
         onClick={() => setModalIsOpen(true)}
       >
         <div className="text-sm">status:</div>
         <HealthDot status={status} />
-      </div>
+      </button>
       <Modal
         className="max-w-[500px]"
         open={modalIsOpen}

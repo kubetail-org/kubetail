@@ -12,39 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
-
 import { config } from '@/app-config';
-import { typenameMap } from '@/lib/workload';
-
-type ConsoleLinkSourceFragment = {
-  __typename?: string;
-  metadata: {
-    namespace: string;
-    name: string;
-  };
-};
-
-const openConsole = (source: ConsoleLinkSourceFragment) => {
-  const workload = typenameMap[source.__typename || ''];
-  if (!workload) throw new Error(`not implemented: ${source.__typename}`);
-
-  const urlArg = `${workload}/${encodeURIComponent(source.metadata.namespace)}/${encodeURIComponent(source.metadata.name)}`;
-  const windowArgs = 'width=700,height=400,location=no,menubar=no,resizable=yes,scrollbars=no,status=no,titlebar=no,toolbar=no';
-  window.open(`/console?source=${urlArg}`, '_blank', windowArgs);
-};
-
-export function ConsoleLink({ source }: { source: ConsoleLinkSourceFragment }) {
-  return (
-    <span
-      className="flex items-center space-x-[2px] underline text-primary cursor-pointer"
-      onClick={() => openConsole(source)}
-    >
-      <span>logs</span>
-      <ArrowTopRightOnSquareIcon className="h-[16px]" />
-    </span>
-  );
-}
 
 /**
  * CSS-safe encoder
