@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: '1.21.6'
-      - name: Run tests
+      - name: Run linter
         working-directory: ./backend
         run: |
           test -z $(gofmt -l .)
@@ -37,7 +37,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: '1.21.6'
-      - name: Run tests
+      - name: Run code vetter
         working-directory: ./backend
         run: |
           go vet ./...
@@ -52,7 +52,7 @@ jobs:
       - uses: pnpm/action-setup@v3
         with:
           version: 8
-      - name: Set up and run tests
+      - name: Set up and run linter
         working-directory: ./frontend
         run: |
           pnpm install
@@ -84,7 +84,7 @@ jobs:
       - uses: pnpm/action-setup@v3
         with:
           version: 8
-      - name: Set up and run tests
+      - name: Set up and run build script
         working-directory: ./frontend
         run: |
           pnpm install
