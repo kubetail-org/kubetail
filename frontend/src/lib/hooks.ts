@@ -28,7 +28,7 @@ type GenericListFragment = {
       uid: string;
     };
   }[];
-}
+};
 
 type GenericCounterFragment = {
   metadata: {
@@ -40,7 +40,7 @@ type GenericCounterFragment = {
       resourceVersion: string;
     }
   }[];
-}
+};
 
 type GenericWatchEventFragment = {
   type: string;
@@ -64,11 +64,11 @@ const RETRY_TIMEOUT = 5000;
  * Is watch expired error?
  */
 
-function isWatchExpiredError(err: Error): Boolean {
+function isWatchExpiredError(err: Error): boolean {
   const { graphQLErrors } = err as CustomError;
   if (graphQLErrors && graphQLErrors.length) {
     const gqlErr = graphQLErrors[0];
-    return (gqlErr.extensions?.code === "KUBETAIL_WATCH_ERROR" && gqlErr.extensions?.reason === "Expired")
+    return (gqlErr.extensions?.code === 'KUBETAIL_WATCH_ERROR' && gqlErr.extensions?.reason === 'Expired');
   }
   return false;
 }
@@ -82,7 +82,9 @@ function useRetryOnError() {
 
   useEffect(() => {
     isMountedRef.current = true;
-    return () => {isMountedRef.current = false;}
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   return (retryFn: () => Promise<any>) => {
@@ -92,7 +94,7 @@ function useRetryOnError() {
         clearInterval(timeout);
         return;
       }
-  
+
       // execute query
       try {
         await retryFn();
@@ -133,21 +135,24 @@ export function useGetQueryWithSubscription<
   TSData = any,
   TSVariables extends GetQueryWithSubscriptionTSVariables = GetQueryWithSubscriptionTSVariables,
 >(args: GetQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
-  const namespace = args.variables.namespace;
-  const name = args.variables.name;
+  const { name, namespace } = args.variables;
 
   const retryOnError = useRetryOnError();
 
   // get workload object
-  const { loading, error, data, subscribeToMore, refetch } = useQuery(args.query, {
+  const {
+    loading, error, data, subscribeToMore, refetch,
+  } = useQuery(args.query, {
     skip: args.skip,
     variables: args.variables,
-    onError: () => {retryOnError(refetch)},
+    onError: () => {
+      retryOnError(refetch);
+    },
   });
 
   // subscribe to changes
-  useEffect(() => {
-    return subscribeToMore({
+  useEffect(
+    () => subscribeToMore({
       document: args.subscription,
       variables: { namespace, fieldSelector: `metadata.name=${name}` } as any,
       updateQuery: (prev, { subscriptionData }) => {
@@ -158,8 +163,9 @@ export function useGetQueryWithSubscription<
       onError: (err) => {
         if (isWatchExpiredError(err)) refetch();
       },
-    });
-  }, [subscribeToMore]);
+    }),
+    [subscribeToMore],
+  );
 
   return { loading, error, data };
 }
@@ -186,10 +192,14 @@ export function useListQueryWithSubscription<
   const retryOnError = useRetryOnError();
 
   // initial query
-  const { loading, error, data, fetchMore, subscribeToMore, refetch } = useQuery(args.query, {
+  const {
+    loading, error, data, fetchMore, subscribeToMore, refetch,
+  } = useQuery(args.query, {
     skip: args.skip,
     variables: args.variables,
-    onError: () => {retryOnError(refetch)},
+    onError: () => {
+      retryOnError(refetch);
+    },
   });
 
   // TODO: tighten `any`
@@ -235,8 +245,8 @@ export function useListQueryWithSubscription<
         merged.metadata.resourceVersion = ev.object.metadata.resourceVersion;
 
         // add and re-sort item if not already in list
-        if (!merged.items.some(item => item.metadata.uid === ev.object.metadata.uid)) {
-          let items = Array.from(merged.items);
+        if (!merged.items.some((item) => item.metadata.uid === ev.object.metadata.uid)) {
+          const items = Array.from(merged.items);
           items.push(ev.object);
           items.sort((a, b) => {
             if (!a.metadata.name) return 1;
@@ -256,7 +266,9 @@ export function useListQueryWithSubscription<
 
   const fetching = Boolean(loading || continueVal);
 
-  return { loading, fetching, error, data };
+  return {
+    loading, fetching, error, data,
+  };
 }
 
 /**
@@ -281,10 +293,14 @@ export function useCounterQueryWithSubscription<
   const retryOnError = useRetryOnError();
 
   // initial query
-  const { loading, error, data, subscribeToMore, refetch } = useQuery(args.query, {
+  const {
+    loading, error, data, subscribeToMore, refetch,
+  } = useQuery(args.query, {
     skip: args.skip,
     variables: args.variables,
-    onError: () => {retryOnError(refetch)},
+    onError: () => {
+      retryOnError(refetch);
+    },
   });
 
   // TODO: tighten `any`
@@ -333,7 +349,9 @@ export function useCounterQueryWithSubscription<
   let count: number | undefined;
   if (respData) count = respData.items.length + Number(respData.metadata.remainingItemCount);
 
-  return { loading, error, count };
+  return {
+    loading, error, count,
+  };
 }
 
 /**
@@ -353,19 +371,21 @@ export function useColors(streams: string[]) {
   console.log(colorMap);
   useEffect(() => {
     const promises: Promise<ArrayBuffer>[] = [];
-    streams.forEach(stream => {
+
+    streams.forEach((stream) => {
       const streamUTF8 = new TextEncoder().encode(stream);
       promises.push(crypto.subtle.digest('SHA-256', streamUTF8));
     });
+
     Promise.all(promises).then((values) => {
       values.forEach((value, i) => {
         const view = new DataView(value);
         const n = view.getUint8(0);
-        const idx = (2 * n % 400) % 20;
+        const idx = ((2 * n) % 400) % 20;
         colorMap.set(streams[i], palette[idx].hex());
       });
       setColorMap(new Map(colorMap));
-    })
+    });
   }, [streams]);
 
   return { colorMap };

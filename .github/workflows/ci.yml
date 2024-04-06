@@ -6,7 +6,19 @@ on:
       - '**'
 
 jobs:
-  test-backend:
+  backend-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.21.6'
+      - name: Run linter
+        working-directory: ./backend
+        run: |
+          test -z $(gofmt -l .)
+
+  backend-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,9 +28,37 @@ jobs:
       - name: Run tests
         working-directory: ./backend
         run: |
-          go test ./...
-  
-  test-frontend:
+          go test -race ./...
+
+  backend-vet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.21.6'
+      - name: Run code vetter
+        working-directory: ./backend
+        run: |
+          go vet ./...
+
+  frontend-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 8
+      - name: Set up and run linter
+        working-directory: ./frontend
+        run: |
+          pnpm install
+          pnpm lint
+
+  frontend-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,12 +72,32 @@ jobs:
         working-directory: ./frontend
         run: |
           pnpm install
-          pnpm test
-  
+          pnpm test run
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 8
+      - name: Set up and run build script
+        working-directory: ./frontend
+        run: |
+          pnpm install
+          pnpm build
+
   build:
     needs:
-      - test-backend
-      - test-frontend
+      - backend-lint
+      - backend-test
+      - backend-vet
+      - frontend-lint
+      - frontend-test
+      - frontend-build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

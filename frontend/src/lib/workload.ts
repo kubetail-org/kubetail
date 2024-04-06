@@ -61,11 +61,11 @@ export const labelsPMap = {
 };
 
 export const typenameMap: Record<string, Workload> = {
-  'AppsV1DaemonSet': Workload.DAEMONSETS,
-  'AppsV1Deployment': Workload.DEPLOYMENTS,
-  'AppsV1ReplicaSet': Workload.REPLICASETS,
-  'AppsV1StatefulSet': Workload.STATEFULSETS,
-  'BatchV1CronJob': Workload.CRONJOBS,
-  'BatchV1Job': Workload.JOBS,
-  'CoreV1Pod': Workload.PODS,
+  AppsV1DaemonSet: Workload.DAEMONSETS,
+  AppsV1Deployment: Workload.DEPLOYMENTS,
+  AppsV1ReplicaSet: Workload.REPLICASETS,
+  AppsV1StatefulSet: Workload.STATEFULSETS,
+  BatchV1CronJob: Workload.CRONJOBS,
+  BatchV1Job: Workload.JOBS,
+  CoreV1Pod: Workload.PODS,
 };

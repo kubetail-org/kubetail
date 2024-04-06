@@ -296,7 +296,6 @@ export const SOURCE_PICKER_GENERIC_LIST_ITEM_FRAGMENT = gql(`
   }
 `);
 
-
 /**
  * Explorer list-related fragments
  */
@@ -423,7 +422,6 @@ export const EXPLORER_STATEFULSETS_LIST_ITEM_FRAGMENT = gql(`
 
   }
 `);
-
 
 /**
  * Explorer object-related fragments

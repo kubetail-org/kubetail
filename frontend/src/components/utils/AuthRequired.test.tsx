@@ -28,7 +28,7 @@ describe('AuthRequired component tests', () => {
     render(
       <Router location={history.location} navigator={history}>
         <AuthRequired>my content</AuthRequired>
-      </Router>
+      </Router>,
     );
 
     // assertions
@@ -45,7 +45,7 @@ describe('AuthRequired component tests', () => {
     const { getByText } = render(
       <MemoryRouter>
         <AuthRequired>my content</AuthRequired>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     // assertions
@@ -55,13 +55,13 @@ describe('AuthRequired component tests', () => {
   it('should render inner content if session is authenticated', () => {
     // configure mock
     (useSession as Mock).mockReturnValue({
-      session: { user: "test" },
+      session: { user: 'test' },
     });
 
     const { getByText } = render(
       <MemoryRouter>
         <AuthRequired>my content</AuthRequired>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     // assertions

@@ -12,26 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-export enum Theme {
+export const enum Theme {
   Light = 'light',
   Dark = 'dark',
 }
 
-export enum UserPreference {
+export const enum UserPreference {
   System = 'system',
   Light = 'light',
   Dark = 'dark',
 }
 
-type Context = {
+type ContextType = {
   theme: Theme;
   userPreference: UserPreference;
   setUserPreference: React.Dispatch<UserPreference>;
 };
 
-const Context = createContext<Context>({} as Context);
+const Context = createContext({} as ContextType);
 
 /**
  * Media query helper
@@ -77,7 +77,7 @@ export function useTheme() {
   return {
     theme,
     userPreference,
-    setUserPreference
+    setUserPreference,
   };
 }
 
@@ -100,37 +100,40 @@ export function ThemeProvider({ children }: React.PropsWithChildren) {
     const mediaQuery = getMediaQuery();
     const fn = (ev: MediaQueryListEvent) => {
       if (getUserPreference() === UserPreference.System) setTheme(getSystemTheme(ev));
-    }
+    };
     mediaQuery.addEventListener('change', fn);
 
     // cleanup
     return () => mediaQuery.removeEventListener('change', fn);
   }, []);
 
-  const context = {
-    theme,
-    userPreference,
-    setUserPreference: (value: UserPreference) => {
-      // upate localStorage
-      switch (value) {
-        case UserPreference.System:
-          localStorage.removeItem('theme');
-          break;
-        case UserPreference.Dark:
-          localStorage.setItem('theme', 'dark');
-          break;
-        case UserPreference.Light:
-          localStorage.setItem('theme', 'light');
-          break;
-        default:
-          throw new Error('not implemented');
-      }
+  const context = useMemo(
+    () => ({
+      theme,
+      userPreference,
+      setUserPreference: (value: UserPreference) => {
+        // upate localStorage
+        switch (value) {
+          case UserPreference.System:
+            localStorage.removeItem('theme');
+            break;
+          case UserPreference.Dark:
+            localStorage.setItem('theme', 'dark');
+            break;
+          case UserPreference.Light:
+            localStorage.setItem('theme', 'light');
+            break;
+          default:
+            throw new Error('not implemented');
+        }
 
-      // update react states
-      setUserPreference(getUserPreference());
-      setTheme(getTheme());      
-    },
-  }
+        // update react states
+        setUserPreference(getUserPreference());
+        setTheme(getTheme());
+      },
+    }),
+    [theme, userPreference, setUserPreference, setTheme],
+  );
 
   return (
     <Context.Provider value={context}>

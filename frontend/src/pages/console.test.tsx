@@ -29,7 +29,7 @@ describe('console page', () => {
     render(
       <Router location={history.location} navigator={history}>
         <Console />
-      </Router>
+      </Router>,
     );
 
     // assertions

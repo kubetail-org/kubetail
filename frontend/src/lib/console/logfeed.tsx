@@ -73,7 +73,7 @@ type LogFeedHeadOptions = {
 };
 
 type LogFeedTailOptions = {
-  before?: string;
+  before?: string | null;
   last?: number;
 };
 
@@ -87,7 +87,7 @@ interface LogRecord extends GraphQLLogRecord {
   node: Node;
   pod: Pod;
   container: string;
-};
+}
 
 interface PodLogQueryResponse extends GraphQLPodLogQueryResponse {
   results: LogRecord[];
@@ -186,7 +186,7 @@ export const useLogFeedControls = () => {
     const bc = new BroadcastChannel(channelID);
     bc.postMessage(command);
     bc.close();
-  }
+  };
 
   return {
     tail: () => {
@@ -228,7 +228,7 @@ export function useLogFeedFacets() {
 
   // count pods per node
   const nodeVals: string[] = [];
-  pods?.forEach(pod => nodeVals.push(pod.spec.nodeName));
+  pods?.forEach((pod) => nodeVals.push(pod.spec.nodeName));
   const nodeCounts = new Counter(nodeVals);
 
   // count pods per node facets
@@ -237,11 +237,11 @@ export function useLogFeedFacets() {
   const archCounts = new Counter();
   const osCounts = new Counter();
 
-  nodes?.forEach(node => {
+  nodes?.forEach((node) => {
     const count = nodeCounts.get(node.metadata.name) || 0;
     if (!count) return;
 
-    const labels = node.metadata.labels;
+    const { labels } = node.metadata;
 
     const region = labels['topology.kubernetes.io/region'];
     if (region) regionCounts.update(region, count);
@@ -253,7 +253,7 @@ export function useLogFeedFacets() {
     if (os) osCounts.update(os, count);
 
     const arch = labels['kubernetes.io/arch'];
-    if (arch) archCounts.update(arch, count)
+    if (arch) archCounts.update(arch, count);
   });
 
   return {
@@ -282,15 +282,15 @@ function useAllowedContainers(): Set<string> | undefined {
 
   // map nodes to containers
   const nodesToContainersIDX = new MapSet();
-  pods.pods?.forEach(pod => {
-    pod.spec.containers.forEach(container => {
+  pods.pods?.forEach((pod) => {
+    pod.spec.containers.forEach((container) => {
       nodesToContainersIDX.add(pod.spec.nodeName, `${pod.metadata.namespace}/${pod.metadata.name}/${container.name}`);
     });
   });
 
   // map facets to nodes
   const facetsToNodesIDX = new MapSet();
-  nodes.nodes?.forEach(node => {
+  nodes.nodes?.forEach((node) => {
     const { name, labels } = node.metadata;
 
     // skip if no pods on node
@@ -314,14 +314,14 @@ function useAllowedContainers(): Set<string> | undefined {
   // get allowed containers from each filter
   const allowedContainerSets = new Array<Set<string>>();
 
-  // @ts-ignore
+  // @ts-expect-error Argument of type 'Set<string> | undefined' is not assignable to parameter of type 'Set<string>'.
   if (filters.has('container')) allowedContainerSets.push(filters.get('container'));
 
-  ['node', 'region', 'zone', 'os', 'arch'].forEach(key => {
+  ['node', 'region', 'zone', 'os', 'arch'].forEach((key) => {
     const containers = new Array<string>();
-    filters.get(key)?.forEach(val => {
-      facetsToNodesIDX.get(`${key}:${val}`)?.forEach(node => {
-        Array.prototype.push.apply(containers, Array.from(nodesToContainersIDX.get(node) || []))
+    filters.get(key)?.forEach((val) => {
+      facetsToNodesIDX.get(`${key}:${val}`)?.forEach((node) => {
+        Array.prototype.push.apply(containers, Array.from(nodesToContainersIDX.get(node) || []));
       });
     });
     if (containers.length) allowedContainerSets.push(new Set(containers));
@@ -354,10 +354,11 @@ const LoadingOverlay = ({ height, width }: { height: number; width: number; }) =
 
 const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
   switch (col) {
-    case LogFeedColumn.Timestamp:
+    case LogFeedColumn.Timestamp: {
       const tsWithTZ = utcToZonedTime(record.timestamp, 'UTC');
       return format(tsWithTZ, 'LLL dd, y HH:mm:ss.SSS', { timeZone: 'UTC' });
-    case LogFeedColumn.ColorDot:
+    }
+    case LogFeedColumn.ColorDot: {
       const k = cssID(record.pod, record.container);
       const el = (
         <div
@@ -366,6 +367,7 @@ const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
         />
       );
       return el;
+    }
     case LogFeedColumn.PodContainer:
       return `${record.pod.metadata.name}/${record.container}`;
     case LogFeedColumn.Region:
@@ -379,7 +381,7 @@ const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
     case LogFeedColumn.Node:
       return record.pod.spec.nodeName;
     case LogFeedColumn.Message:
-      return <AnsiHtml text={record.message} />
+      return <AnsiHtml text={record.message} />;
     default:
       throw new Error('not implemented');
   }
@@ -391,7 +393,7 @@ type RowData = {
   hasMoreAfter: boolean;
   visibleCols: Set<string>;
   isWrap: boolean;
-}
+};
 
 type RowProps = {
   index: any;
@@ -414,14 +416,14 @@ const Row = memo(
 
       // get current column widths
       const currColWidths = new Map<LogFeedColumn, number>();
-      Array.from(rowEl.children || []).forEach(colEl => {
+      Array.from(rowEl.children || []).forEach((colEl) => {
         const colId = (colEl as HTMLElement).dataset.colId as LogFeedColumn;
         if (!colId || colId === LogFeedColumn.Message) return;
         currColWidths.set(colId, colEl.scrollWidth);
       });
 
       // update colWidths state (if necessary)
-      setColWidths(oldVals => {
+      setColWidths((oldVals) => {
         const changedVals = new Map<LogFeedColumn, number>();
         currColWidths.forEach((currWidth, colId) => {
           const oldWidth = oldVals.get(colId);
@@ -433,7 +435,7 @@ const Row = memo(
       });
 
       // update maxRowWidth state
-      setMaxRowWidth(currVal => Math.max(currVal, rowEl.scrollWidth));
+      setMaxRowWidth((currVal) => Math.max(currVal, rowEl.scrollWidth));
     }, [visibleCols]);
 
     // first row
@@ -450,7 +452,7 @@ const Row = memo(
     const record = items[index - 1];
 
     const els: JSX.Element[] = [];
-    allLogFeedColumns.forEach(col => {
+    allLogFeedColumns.forEach((col) => {
       if (visibleCols.has(col)) {
         els.push((
           <div
@@ -469,7 +471,7 @@ const Row = memo(
           </div>
         ));
       }
-    })
+    });
 
     const { width, ...otherStyles } = style;
     return (
@@ -496,9 +498,12 @@ type LogFeedContentProps = {
   hasMoreAfter: boolean;
   loadMoreBefore: () => Promise<void>;
   loadMoreAfter: () => Promise<void>;
-}
+};
 
-const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, LogFeedContentProps> = (props, ref) => {
+const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, LogFeedContentProps> = (
+  props: LogFeedContentProps,
+  ref: React.ForwardedRef<LogFeedContentHandle>,
+  ) => {
   const { hasMoreBefore, hasMoreAfter, loadMoreBefore, loadMoreAfter } = props;
   let { items } = props;
 
@@ -530,7 +535,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
   const [msgColWidth, setMsgColWidth] = useState(0);
 
   // apply filter
-  items = items.filter(item => {
+  items = items.filter((item) => {
     const { pod } = item;
     const { namespace, name } = pod.metadata;
     const k = `${namespace}/${name}/${item.container}`;
@@ -739,7 +744,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
           className="flex leading-[18px] border-b border-chrome-divider bg-chrome-200 [&>*]:border-r [&>*:not(:last-child)]:border-chrome-divider"
           style={{ minWidth: (isWrap) ? '100%' : `${maxRowWidth}px` }}
         >
-          {allLogFeedColumns.map(col => {
+          {allLogFeedColumns.map((col) => {
             if (visibleCols.has(col)) {
               return (
                 <div
@@ -756,6 +761,7 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
                 </div>
               );
             }
+            return null;
           })}
         </div>
       </div>
@@ -770,11 +776,11 @@ const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, L
                 loadMoreItems={loadMoreItems}
                 threshold={20}
               >
-                {({ onItemsRendered, ref }) => (
+                {({ onItemsRendered, ref: thisRef }) => (
                   <VariableSizeList
-                    ref={list => {
-                      ref(list);
-                      // @ts-ignore
+                    ref={(list) => {
+                      thisRef(list);
+                      // @ts-expect-error Cannot assign to 'current' because it is a read-only property.
                       listRef.current = list;
                     }}
                     className="font-mono"
@@ -828,16 +834,17 @@ type LogFeedRecordFetcherHandle = {
   reset: () => void;
 };
 
-const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetcherHandle, LogFeedRecordFetcherProps> = (props, ref) => {
+const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetcherHandle, LogFeedRecordFetcherProps> = (
+  props: LogFeedRecordFetcherProps,
+  ref: React.ForwardedRef<LogFeedRecordFetcherHandle>,
+ ) => {
   const { node, pod, container, defaultFollowAfter, onFollowData } = props;
   const { namespace, name } = pod.metadata;
 
   const isFollow = useRecoilValue(isFollowState);
   const [followAfter, setFollowAfter] = useState<string | null | undefined>(defaultFollowAfter);
 
-  const upgradeRecord = (record: GraphQLLogRecord) => {
-    return { ...record, node, pod, container };
-  };
+  const upgradeRecord = (record: GraphQLLogRecord) => ({ ...record, node, pod, container });
 
   // head
   const head = useQuery(ops.HEAD_CONTAINER_LOG, {
@@ -871,7 +878,7 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
       // execute callback
       onFollowData(record);
     },
-  })
+  });
 
   const key = `${namespace}/${name}/${container}`;
 
@@ -880,10 +887,10 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
     key,
     head: async (opts: LogFeedHeadOptions) => {
       // reset previous refetch() args
-      opts = Object.assign({ after: undefined, since: undefined }, opts);
+      const newOpts = { after: undefined, since: undefined, ...opts };
 
       // execute query
-      const response = (await head.refetch(opts)).data.podLogHead;
+      const response = (await head.refetch(newOpts)).data.podLogHead;
       if (!response) throw new Error('query response is null');
 
       // update followAfter
@@ -894,16 +901,16 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
         key,
         {
           ...response,
-          results: response.results.map(record => upgradeRecord(record))
+          results: response.results.map((record) => upgradeRecord(record)),
         },
       ];
     },
     tail: async (opts: LogFeedTailOptions) => {
       // reset previous refetch() args
-      opts = Object.assign({ before: undefined }, opts);
+      const newOpts = { before: undefined, ...opts };
 
       // execute query
-      const response = (await tail.refetch(opts)).data.podLogTail;
+      const response = (await tail.refetch(newOpts)).data.podLogTail;
       if (!response) throw new Error('query response is null');
 
       // update followAfter
@@ -914,7 +921,7 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
         key,
         {
           ...response,
-          results: response.results.map(record => upgradeRecord(record))
+          results: response.results.map((record) => upgradeRecord(record)),
         },
       ];
     },
@@ -938,7 +945,7 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
         key,
         {
           ...response,
-          results: response.results.map(record => upgradeRecord(record))
+          results: response.results.map((record) => upgradeRecord(record)),
         },
       ];
     },
@@ -947,10 +954,32 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
     },
   }));
 
-  return <></>;
+  return null;
 };
 
 const LogFeedRecordFetcher = forwardRef(LogFeedRecordFetcherImpl);
+
+/**
+ * hasPreviousPageSome
+ */
+
+const hasPreviousPageSome = (cursorMap: Map<string, PageInfo>) => {
+  for (const [, pageInfo] of cursorMap) {
+    if (pageInfo.hasPreviousPage) return true;
+  }
+  return false;
+};
+
+/**
+ * hasNextPageSome
+ */
+
+const hasNextPageSome = (cursorMap: Map<string, PageInfo>) => {
+  for (const [, pageInfo] of cursorMap) {
+    if (pageInfo.hasNextPage) return true;
+  }
+  return false;
+};
 
 /**
  * LogFeedLoader component
@@ -970,8 +999,8 @@ type LogFeedLoaderHandle = {
 const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, LogFeedLoaderProps> = (
   {
     onFollowData,
-  },
-  ref,
+  }: LogFeedLoaderProps,
+  ref: React.ForwardedRef<LogFeedLoaderHandle>,
 ) => {
   const nodes = useNodes();
   const pods = usePods();
@@ -988,9 +1017,8 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
     return () => { clearTimeout(id); };
   }, [nodes.loading, pods.loading]);
 
-
   // only load containers from nodes that we have a record of
-  const nodeMap = new Map(nodes.nodes.map(node => [node.metadata.name, node]));
+  const nodeMap = new Map(nodes.nodes.map((node) => [node.metadata.name, node]));
 
   const els: JSX.Element[] = [];
   const elKeys: string[] = [];
@@ -999,22 +1027,19 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
     pod.status.containerStatuses.forEach((status, j) => {
       const node = nodeMap.get(pod.spec.nodeName);
       if (status.state.running?.startedAt && node) {
-        //const ref = createRef<LogFeedRecordFetcherHandle>();
-        //refs.push(ref);
-
         const k = `${pod.metadata.namespace}/${pod.metadata.name}/${status.name}`;
         elKeys.push(k);
 
         els.push(
           <LogFeedRecordFetcher
             key={k}
-            ref={fetcher => fetchersRef.current[i + j] = fetcher}
+            ref={(fetcher) => { fetchersRef.current[i + j] = fetcher; }}
             node={node}
             pod={pod}
             container={status.name}
             defaultFollowAfter={defaultFollowAfter}
             onFollowData={onFollowData}
-          />
+          />,
         );
       }
     });
@@ -1034,17 +1059,17 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
       const cursorMap = new Map(oldCursorMap);
 
       // build queries
-      fetchersRef.current.forEach(fetcher => {
+      fetchersRef.current.forEach((fetcher) => {
         if (!fetcher) return;
 
-        const pageInfo = cursorMap.get(fetcher.key)
+        const pageInfo = cursorMap.get(fetcher.key);
 
         if (pageInfo === undefined) {
           // pass through query
           promises.push(fetcher.head(opts));
         } else if (pageInfo.hasNextPage) {
           // use end cursor from last time
-          const newOpts = Object.assign({}, opts, { after: pageInfo.endCursor });
+          const newOpts = { ...opts, after: pageInfo.endCursor };
           promises.push(fetcher.head(newOpts));
         }
       });
@@ -1058,9 +1083,11 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
         records.push(...response.results);
 
         // update cursor
-        const cursor = Object.assign({}, cursorMap.get(key) || response.pageInfo);
-        cursor.endCursor = response.pageInfo.endCursor;
-        cursor.hasNextPage = response.pageInfo.hasNextPage;
+        const cursor = {
+          ...(cursorMap.get(key) || response.pageInfo),
+          endCursor: response.pageInfo.endCursor,
+          hasNextPage: response.pageInfo.hasNextPage,
+        };
         cursorMap.set(key, cursor);
       });
 
@@ -1077,17 +1104,17 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
       const cursorMap = new Map(oldCursorMap);
 
       // build queries
-      fetchersRef.current.forEach(fetcher => {
+      fetchersRef.current.forEach((fetcher) => {
         if (!fetcher) return;
 
-        const pageInfo = cursorMap.get(fetcher.key)
+        const pageInfo = cursorMap.get(fetcher.key);
 
         if (pageInfo === undefined) {
           // pass through query
           promises.push(fetcher.tail(opts));
         } else if (pageInfo.hasPreviousPage) {
           // use start cursor from last time
-          const newOpts = Object.assign({}, opts, { before: pageInfo.startCursor });
+          const newOpts = { ...opts, before: pageInfo.startCursor };
           promises.push(fetcher.tail(newOpts));
         }
       });
@@ -1104,9 +1131,11 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
         records.push(...response.results);
 
         // update cursor
-        const cursor = Object.assign({}, cursorMap.get(key) || response.pageInfo);
-        cursor.startCursor = response.pageInfo.startCursor;
-        cursor.hasPreviousPage = response.pageInfo.hasPreviousPage;
+        const cursor = {
+          ...(cursorMap.get(key) || response.pageInfo),
+          startCursor: response.pageInfo.startCursor,
+          hasPreviousPage: response.pageInfo.hasPreviousPage,
+        };
         cursorMap.set(key, cursor);
       });
 
@@ -1120,10 +1149,10 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
       const cursorMap = new Map(oldCursorMap);
 
       // build queries
-      fetchersRef.current.forEach(fetcher => {
+      fetchersRef.current.forEach((fetcher) => {
         if (!fetcher) return;
 
-        const pageInfo = oldCursorMap.get(fetcher.key)
+        const pageInfo = oldCursorMap.get(fetcher.key);
 
         if (pageInfo === undefined) {
           // pass through query
@@ -1143,9 +1172,11 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
         records.push(...response.results);
 
         // update cursor
-        const cursor = Object.assign({}, cursorMap.get(key) || response.pageInfo);
-        cursor.endCursor = response.pageInfo.endCursor;
-        cursor.hasNextPage = response.pageInfo.hasNextPage;
+        const cursor = {
+          ...(cursorMap.get(key) || response.pageInfo),
+          endCursor: response.pageInfo.endCursor,
+          hasNextPage: response.pageInfo.hasNextPage,
+        };
         cursorMap.set(key, cursor);
       });
 
@@ -1158,11 +1189,11 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
       return [records, cursorMap];
     },
     reset: () => {
-      fetchersRef.current.forEach(fetcher => fetcher?.reset());
+      fetchersRef.current.forEach((fetcher) => fetcher?.reset());
     },
   }), [elKeys]);
 
-  return <>{els}</>;
+  return <div>{els}</div>;
 };
 
 const LogFeedLoader = forwardRef(LogFeedLoaderImpl);
@@ -1170,21 +1201,6 @@ const LogFeedLoader = forwardRef(LogFeedLoaderImpl);
 /**
  * LogFeedViewer component
  */
-
-const hasPreviousPageSome = (cursorMap: Map<string, PageInfo>) => {
-  for (const [, pageInfo] of cursorMap) {
-    if (pageInfo.hasPreviousPage) return true;
-  }
-  return false;
-};
-
-const hasNextPageSome = (cursorMap: Map<string, PageInfo>) => {
-  for (const [, pageInfo] of cursorMap) {
-    if (pageInfo.hasNextPage) return true;
-  }
-  return false;
-};
-
 
 export const LogFeedViewer = () => {
   const [channelID, setChannelID] = useRecoilState(controlChannelIDState);
@@ -1201,7 +1217,7 @@ export const LogFeedViewer = () => {
 
   const beforeBufferRef = useRef(new Array<LogRecord>());
   const afterBufferRef = useRef(new Array<LogRecord>());
-  const cursorMapRef = useRef(new Map<string, PageInfo>);
+  const cursorMapRef = useRef(new Map<string, PageInfo>());
   const isSendFollowToBufferRef = useRef(true);
 
   const batchSize = 300;
@@ -1210,7 +1226,7 @@ export const LogFeedViewer = () => {
     if (isSendFollowToBufferRef.current) {
       afterBufferRef.current.push(record);
     } else {
-      setLogRecords(currRecords => [...currRecords, record]);
+      setLogRecords((currRecords) => [...currRecords, record]);
       contentRef.current?.autoScroll();
     }
   };
@@ -1235,7 +1251,7 @@ export const LogFeedViewer = () => {
     // update content
     const newRecords = beforeBufferRef.current.splice(-1 * batchSize);
 
-    setLogRecords(oldRecords => [...newRecords, ...oldRecords]);
+    setLogRecords((oldRecords) => [...newRecords, ...oldRecords]);
     setHasMoreBefore(beforeBufferRef.current.length > 0 || hasPreviousPageSome(cursorMap));
   };
 
@@ -1258,29 +1274,29 @@ export const LogFeedViewer = () => {
 
     // update content
     const newRecords = afterBufferRef.current.splice(0, batchSize);
-    setLogRecords(oldRecords => [...oldRecords, ...newRecords]);
+    setLogRecords((oldRecords) => [...oldRecords, ...newRecords]);
 
-    const hasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMap);
-    if (!hasMoreAfter) isSendFollowToBufferRef.current = false;
-    setHasMoreAfter(hasMoreAfter);
+    const newHasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMap);
+    if (!newHasMoreAfter) isSendFollowToBufferRef.current = false;
+    setHasMoreAfter(newHasMoreAfter);
   };
 
   // listen to control channel
   useEffect(() => {
     // initalize broadcast channel
-    const channelID = Math.random().toString();
-    const channel = new BroadcastChannel(channelID);
+    const newChannelID = Math.random().toString();
+    const channel = new BroadcastChannel(newChannelID);
 
     const fn = async (ev: MessageEvent<Command>) => {
       const client = loaderRef.current;
       if (!client) return;
 
-      let hasMoreAfter: boolean;
+      let newHasMoreAfter: boolean;
 
       const reset = () => {
         beforeBufferRef.current = [];
         afterBufferRef.current = [];
-      }
+      };
 
       // handle commands
       switch (ev.data.type) {
@@ -1299,9 +1315,9 @@ export const LogFeedViewer = () => {
           // update content
           setLogRecords(afterBufferRef.current.splice(0, batchSize));
 
-          hasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current);
-          if (!hasMoreAfter) isSendFollowToBufferRef.current = false;
-          setHasMoreAfter(hasMoreAfter);
+          newHasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current);
+          if (!newHasMoreAfter) isSendFollowToBufferRef.current = false;
+          setHasMoreAfter(newHasMoreAfter);
 
           contentRef.current?.scrollTo('first');
 
@@ -1342,15 +1358,15 @@ export const LogFeedViewer = () => {
           // update content
           setLogRecords(afterBufferRef.current.splice(0, batchSize));
 
-          hasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current);
-          if (!hasMoreAfter) isSendFollowToBufferRef.current = false;
-          setHasMoreAfter(hasMoreAfter);
+          newHasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current);
+          if (!newHasMoreAfter) isSendFollowToBufferRef.current = false;
+          setHasMoreAfter(newHasMoreAfter);
 
           contentRef.current?.scrollTo('first');
 
           setIsLoading(false);
           break;
-        case 'play':
+        case 'play': {
           // execute query
           const response = await client.skipForward(batchSize, cursorMapRef.current);
 
@@ -1361,27 +1377,27 @@ export const LogFeedViewer = () => {
           // update state
           cursorMapRef.current = response[1];
 
-          hasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current);
+          newHasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current);
 
-          if (!hasMoreAfter) isSendFollowToBufferRef.current = false;
+          if (!newHasMoreAfter) isSendFollowToBufferRef.current = false;
           else isSendFollowToBufferRef.current = true;
 
-          setHasMoreAfter(hasMoreAfter);
+          setHasMoreAfter(newHasMoreAfter);
           setIsFollow(true);
 
           break;
+        }
         case 'pause':
           setIsFollow(false);
           break;
         default:
           throw new Error('not implemented');
       }
-
     };
     channel.addEventListener('message', fn);
 
     // update state
-    setChannelID(channelID);
+    setChannelID(newChannelID);
 
     return () => {
       setChannelID(undefined);

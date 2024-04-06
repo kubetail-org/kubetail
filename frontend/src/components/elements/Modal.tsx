@@ -76,6 +76,11 @@ const ModalTitle = React.forwardRef((
 
 ModalTitle.displayName = 'ModalTitle';
 
-export default Object.assign(Modal, {
+// add name to default export for linting rule: react-refresh/only-export-components
+const DefaultExport = Object.assign(Modal, {
   Title: ModalTitle,
 });
+
+DefaultExport.displayName = 'Modal';
+
+export default DefaultExport;
