@@ -67,7 +67,7 @@ type ServerStatusProps = {
   className?: string;
 };
 
-export default ({ className }: ServerStatusProps) => {
+const ServerStatusWidget = ({ className }: ServerStatusProps) => {
   const { status, details } = useServerStatus();
   const [modalIsOpen, setModalIsOpen] = useState(false);
 
@@ -110,3 +110,5 @@ export default ({ className }: ServerStatusProps) => {
     </div>
   );
 };
+
+export default ServerStatusWidget;

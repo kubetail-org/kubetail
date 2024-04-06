@@ -90,12 +90,16 @@ export const SessionProvider = ({ children }: SessionProviderProps) => {
 
   // fetch on first mount
   useEffect(() => {
-    (async () => await getSession())();
+    (async () => {
+      await getSession();
+    })();
   }, []);
 
   // fetch on visibility change
   useEffect(() => {
-    const fn = async () => await getSession();
+    const fn = async () => {
+      await getSession();
+    };
     document.addEventListener('visibilitychange', getSession);
     return () => document.removeEventListener('visibilitychange', fn);
   }, []);

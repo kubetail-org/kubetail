@@ -1193,7 +1193,7 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
     },
   }), [elKeys]);
 
-  return <>{els}</>;
+  return <div>{els}</div>;
 };
 
 const LogFeedLoader = forwardRef(LogFeedLoaderImpl);

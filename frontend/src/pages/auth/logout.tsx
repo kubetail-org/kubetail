@@ -37,8 +37,8 @@ export default function Logout() {
         headers: { 'X-CSRF-Token': await getCSRFToken() },
       });
 
-      // update session and exit
-      if (resp.ok) return await getSession();
+      // update session
+      if (resp.ok) await getSession();
     })();
   }, []);
 

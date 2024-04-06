@@ -68,6 +68,30 @@ export class Duration {
   }
 }
 
+/*
+ * Duration button component
+ */
+
+type DurationButtonProps = {
+  value: string;
+  unit: DurationUnit;
+  setDurationValue: React.Dispatch<string>;
+  setDurationUnit: React.Dispatch<DurationUnit>;
+};
+
+const DurationButton = ({ value, unit, setDurationValue, setDurationUnit }: DurationButtonProps) => (
+  <Button
+    intent="outline"
+    size="xs"
+    onClick={() => {
+      setDurationValue(value);
+      setDurationUnit(unit);
+    }}
+  >
+    {value}
+  </Button>
+);
+
 /**
  * Relative time picker component
  */
@@ -99,30 +123,27 @@ const RelativeTimePicker = forwardRef<RelativeTimePickerHandle, unknown>((_, ref
     getValue: validate,
   }));
 
-  const DurationButton = ({ value, unit }: { value: number; unit: DurationUnit }) => (
-    <Button
-      intent="outline"
-      size="xs"
-      onClick={() => {
-        setDurationValue(value.toString());
-        setDurationUnit(unit);
-      }}
-    >
-      {value}
-    </Button>
-  );
+  const buttonArgs = { setDurationValue, setDurationUnit };
 
   return (
     <>
       <div className="grid grid-cols-6 gap-2 text-sm pt-3 pl-3 pr-3">
         <div className="flex items-center">Minutes</div>
-        {[5, 10, 15, 30, 45].map((val) => (<DurationButton key={val} value={val} unit={DurationUnit.Minutes} />))}
+        {[5, 10, 15, 30, 45].map((val) => (
+          <DurationButton key={val} value={val.toString()} unit={DurationUnit.Minutes} {...buttonArgs} />
+        ))}
         <div className="flex items-center">Hours</div>
-        {[1, 2, 3, 6, 12].map((val) => (<DurationButton key={val} value={val} unit={DurationUnit.Hours} />))}
+        {[1, 2, 3, 6, 12].map((val) => (
+          <DurationButton key={val} value={val.toString()} unit={DurationUnit.Hours} {...buttonArgs} />
+        ))}
         <div className="flex items-center">Days</div>
-        {[1, 2, 3, 4, 5].map((val) => (<DurationButton key={val} value={val} unit={DurationUnit.Days} />))}
+        {[1, 2, 3, 4, 5].map((val) => (
+          <DurationButton key={val} value={val.toString()} unit={DurationUnit.Days} {...buttonArgs} />
+        ))}
         <div className="flex items-center">Weeks</div>
-        {[1, 2, 3, 4, 5].map((val) => (<DurationButton key={val} value={val} unit={DurationUnit.Weeks} />))}
+        {[1, 2, 3, 4, 5].map((val) => (
+          <DurationButton key={val} value={val.toString()} unit={DurationUnit.Weeks} {...buttonArgs} />
+        ))}
       </div>
       <div className="grid grid-cols-2 w-full gap-5 mt-5">
         <div>

@@ -46,7 +46,9 @@ const wsClientOptions: ClientOptions = {
   keepAlive: 3000,
   retryAttempts: Infinity,
   shouldRetry: () => true,
-  retryWait: () => new Promise((resolve) => setTimeout(resolve, 3000)),
+  retryWait: () => new Promise((resolve) => {
+    setTimeout(resolve, 3000);
+  }),
 };
 
 export const wsClient = createClient(wsClientOptions);

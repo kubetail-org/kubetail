@@ -212,7 +212,7 @@ const LoadCronJobWorkload = ({ sourcePath }: { sourcePath: string }) => {
 
   // load streams
   return (
-    <>
+    <div>
       {jobsReq.data?.batchV1JobsList?.items.map((job) => {
         if (job.metadata.ownerReferences.some((ownerRef) => ownerRef.uid === item?.metadata.uid)) {
           return (
@@ -226,7 +226,7 @@ const LoadCronJobWorkload = ({ sourcePath }: { sourcePath: string }) => {
         }
         return null;
       })}
-    </>
+    </div>
   );
 };
 
