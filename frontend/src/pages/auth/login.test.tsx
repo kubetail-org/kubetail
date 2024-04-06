@@ -32,7 +32,7 @@ describe('Login Page', () => {
 
     // assertions
     expect(getByText('Loading...')).toBeInTheDocument();
-  })
+  });
 
   it('renders login form when user is logged out', () => {
     const { getByText } = renderElement(<LoginPage />);
@@ -50,7 +50,7 @@ describe('Login Page', () => {
     render(
       <Router location="?callbackUrl=%2Ftest-url" navigator={history}>
         <LoginPage />
-      </Router>
+      </Router>,
     );
 
     // assertions

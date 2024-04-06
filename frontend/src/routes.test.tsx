@@ -18,30 +18,30 @@ import { MemoryRouter, Routes } from 'react-router-dom';
 import { routes } from './routes';
 
 vi.mock('@/pages/home', () => ({
-  default: () => <div>Home</div>
+  default: () => <div>Home</div>,
 }));
 
 vi.mock('@/pages/console', () => ({
-  default: () => <div>Console</div>
+  default: () => <div>Console</div>,
 }));
 
 vi.mock('@/pages/auth/login', () => ({
-  default: () => <div>Auth-Login</div>
+  default: () => <div>Auth-Login</div>,
 }));
 
 vi.mock('@/pages/auth/logout', () => ({
-  default: () => <div>Auth-Logout</div>
+  default: () => <div>Auth-Logout</div>,
 }));
 
-const renderPage = (path: string) => {
-  return render(
+const renderPage = (path: string) => (
+  render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         {routes}
       </Routes>
-    </MemoryRouter>
-  );
-};
+    </MemoryRouter>,
+  )
+);
 
 describe('route tests', () => {
   it('/', () => {

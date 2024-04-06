@@ -12,6 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/**
+ * camelCaseToUpperCaseWithUnderscores
+ */
+
+function camelCaseToUpperCaseWithUnderscores(input: string) {
+  return input.replace(/([A-Z])/g, '_$1').toUpperCase();
+}
+
+/**
+ * Config
+ */
+
 class Config {
   basePath: string = '/';
 
@@ -22,27 +34,23 @@ class Config {
     for (const key in this) {
       // ignore inherited properties
       if (!this.hasOwnProperty(key)) {
-        continue
+        continue;
       }
 
       // 1 - check runtime config
       if (key in runtimeConfig) {
-        // @ts-ignore
+        // @ts-expect-error Type 'string' is not assignable to type 'this[Extract<keyof this, string>]'.
         this[key] = runtimeConfig[key];
-        continue
+        continue;
       }
 
       // 2 - check import.meta.env
-      const envKey = `VITE_${this.#camelCaseToUpperCaseWithUnderscores(key)}`;
+      const envKey = `VITE_${camelCaseToUpperCaseWithUnderscores(key)}`;
       if (envKey in import.meta.env) {
         this[key] = import.meta.env[envKey];
-        continue
+        continue;
       }
     }
-  }
-
-  #camelCaseToUpperCaseWithUnderscores(input: string) {
-    return input.replace(/([A-Z])/g, '_$1').toUpperCase();
   }
 }
 

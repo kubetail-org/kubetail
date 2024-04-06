@@ -23,7 +23,7 @@ describe('ProfilePicDropdown component tests', () => {
   it('should render profile pic with hidden menu by default', () => {
     // configure mock
     (useSession as Mock).mockReturnValue({
-      session: { user: "test-user" },
+      session: { user: 'test-user' },
     });
 
     const { getByTitle, getByText } = render(<ProfilePicDropdown />);
@@ -36,13 +36,13 @@ describe('ProfilePicDropdown component tests', () => {
   it('should render menu when profile pic is clicked', async () => {
     // configure mock
     (useSession as Mock).mockReturnValue({
-      session: { user: "test-user" },
+      session: { user: 'test-user' },
     });
 
     const { getByRole, getByText } = render(
       <MemoryRouter>
         <ProfilePicDropdown />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     const buttonEl = getByRole('button');
@@ -63,13 +63,13 @@ describe('ProfilePicDropdown component tests', () => {
   it('should not render signout link when user is `local`', async () => {
     // configure mock
     (useSession as Mock).mockReturnValue({
-      session: { user: "local" },
+      session: { user: 'local' },
     });
 
     const { getByRole, queryByText } = render(
       <MemoryRouter>
         <ProfilePicDropdown />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     const buttonEl = getByRole('button');

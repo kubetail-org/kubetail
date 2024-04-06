@@ -27,8 +27,8 @@ import './index.css';
 
 // handle runtimeConfig (inserted by server in production)
 if ('runtimeConfig' in window) {
-  // @ts-ignore
-  import.meta.env['VITE_HELLO'] = window.runtimeConfig.basePath;
+  // @ts-expect-error 'window.runtimeConfig' is of type 'unknown'
+  import.meta.env.VITE_HELLO = window.runtimeConfig.basePath;
   console.log(import.meta.env.VITE_HELLO);
 }
 
@@ -43,5 +43,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         </ThemeProvider>
       </SessionProvider>
     </ApolloProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

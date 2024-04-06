@@ -39,12 +39,12 @@ const HealthDot = ({ status }: { status: Status }) => {
   return (
     <div
       className={cn(
-        "inline-block w-[8px] h-[8px] rounded-full",
+        'inline-block w-[8px] h-[8px] rounded-full',
         {
           'bg-chrome-300': color === 'chrome',
           'bg-red-500': color === 'red',
-          'bg-green-500': color === 'green'
-        }
+          'bg-green-500': color === 'green',
+        },
       )}
     />
   );
@@ -61,25 +61,26 @@ const statusMessage = (s: ServerStatus, unknownDefault: string): string => {
     default:
       throw new Error('not implemented');
   }
-}
+};
 
 type ServerStatusProps = {
   className?: string;
 };
 
-export default ({ className }: ServerStatusProps) => {
+const ServerStatusWidget = ({ className }: ServerStatusProps) => {
   const { status, details } = useServerStatus();
   const [modalIsOpen, setModalIsOpen] = useState(false);
 
   return (
     <div className="inline-block">
-      <div
+      <button
+        type="button"
         className={cn('px-2 rounded-tl flex items-center space-x-1 cursor-pointer', className)}
         onClick={() => setModalIsOpen(true)}
       >
         <div className="text-sm">status:</div>
         <HealthDot status={status} />
-      </div>
+      </button>
       <Modal
         className="max-w-[500px]"
         open={modalIsOpen}
@@ -109,3 +110,5 @@ export default ({ className }: ServerStatusProps) => {
     </div>
   );
 };
+
+export default ServerStatusWidget;

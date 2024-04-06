@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import TimeAgo from 'react-timeago';
 
@@ -29,14 +29,14 @@ import { useCounterQueryWithSubscription, useListQueryWithSubscription } from '@
 import { cn } from '@/lib/utils';
 import { Workload, allWorkloads, iconMap, labelsPMap, typenameMap } from '@/lib/workload';
 
-type Context = {
+type ContextType = {
   namespace: string;
   setNamespace: React.Dispatch<string>;
   selectedSources: Set<string>;
   setSelectedSources: React.Dispatch<Set<string>>;
-}
+};
 
-const Context = createContext({} as Context);
+const Context = createContext({} as ContextType);
 
 /**
  * Workload counter hook
@@ -100,8 +100,8 @@ function useWorkloadCounter(namespace: string = '') {
   });
 
   const reqs = [cronjobs, daemonsets, deployments, jobs, pods, replicasets, statefulsets];
-  const loading = reqs.some(req => req.loading);
-  const error = reqs.find(req => Boolean(req.error));
+  const loading = reqs.some((req) => req.loading);
+  const error = reqs.find((req) => Boolean(req.error));
 
   const counter = new Counter<Workload>();
 
@@ -143,7 +143,7 @@ const Namespaces = () => {
       value={namespace}
     >
       <Form.Option value="">All namespaces</Form.Option>
-      {data?.coreV1NamespacesList?.items.map(item => (
+      {data?.coreV1NamespacesList?.items.map((item) => (
         <Form.Option key={item.id} value={item.metadata.name}>{item.metadata.name}</Form.Option>
       ))}
     </Form.Select>
@@ -164,19 +164,22 @@ const Sidebar = ({
   const [currWorkload, setCurrWorkload] = workloadState;
 
   return (
-    <>
-      <ul className="text-[.85rem]">
-        <li>
-          <div className="font-bold text-chrome-600 mt-[5px] mb-[12px]">Workloads</div>
-          <div>
-            <ul className="inline-grid space-y-0">
-              {allWorkloads.map((workload) => {
-                const Icon = iconMap[workload];
-                return (
-                  <li
-                    key={workload}
+    <ul className="text-[.85rem]">
+      <li>
+        <div className="font-bold text-chrome-600 mt-[5px] mb-[12px]">Workloads</div>
+        <div>
+          <ul className="inline-grid space-y-0">
+            {allWorkloads.map((workload) => {
+              const Icon = iconMap[workload];
+              return (
+                <li
+                  key={workload}
+                  className="ml-[-8px]"
+                >
+                  <button
+                    type="button"
                     className={cn(
-                      "ml-[-8px] px-[8px] py-[5px] cursor-pointer rounded-sm flex items-center",
+                      'w-full px-[8px] py-[5px] cursor-pointer rounded-sm flex items-center',
                       currWorkload === workload ? 'bg-chrome-300' : 'hover:bg-chrome-200',
                     )}
                     onClick={() => setCurrWorkload(workload)}
@@ -185,16 +188,16 @@ const Sidebar = ({
                     <div className="ml-1 text-chrome-700">
                       {labelsPMap[workload]}
                       {' '}
-                      {counter.has(workload) && <>({counter.get(workload)})</>}
+                      {counter.has(workload) && `(${counter.get(workload)})`}
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </li>
-      </ul>
-    </>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </li>
+    </ul>
   );
 };
 
@@ -212,13 +215,13 @@ type DisplayItemsProps = {
       creationTimestamp: any;
     }
   }[];
-}
+};
 
 function isSuperset<T>(set: Set<T>, subset: Set<T>) {
-  for (let elem of subset) {
-      if (!set.has(elem)) {
-          return false;
-      }
+  for (const elem of subset) {
+    if (!set.has(elem)) {
+      return false;
+    }
   }
   return true;
 }
@@ -227,9 +230,7 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
   const { namespace, selectedSources, setSelectedSources } = useContext(Context);
 
   // filter items
-  const filteredItems = items?.filter((item) => {
-    return (namespace === '' || item.metadata.namespace === namespace);
-  });
+  const filteredItems = items?.filter((item) => namespace === '' || item.metadata.namespace === namespace);
 
   // handle sorting
   const [sortBy, setSortBy] = useState<SortBy>({ field: 'name', direction: 'ASC' });
@@ -241,7 +242,7 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
       switch (sortBy.field) {
         case 'name':
           cmp = a.metadata.name.localeCompare(b.metadata.name);
-          break
+          break;
         case 'namespace':
           cmp = a.metadata.namespace.localeCompare(b.metadata.namespace);
           if (cmp === 0) cmp = a.metadata.name.localeCompare(b.metadata.name);
@@ -258,15 +259,13 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
 
       // otherwise use original cmp
       return sortBy.direction === 'ASC' ? cmp : cmp * -1;
-    })
+    });
   }
 
-  const genSourcePath = (item: any) => {
-    return `${typenameMap[item.__typename || '']}/${item.metadata.namespace}/${item.metadata.name}`;
-  };
+  const genSourcePath = (item: any) => `${typenameMap[item.__typename || '']}/${item.metadata.namespace}/${item.metadata.name}`;
 
   // source toggler
-  const filteredSourcePaths = new Set(filteredItems.map(item => genSourcePath(item)));
+  const filteredSourcePaths = new Set(filteredItems.map((item) => genSourcePath(item)));
 
   const [allSourcesChecked, setAllSourcesChecked] = useState(isSuperset(selectedSources, filteredSourcePaths));
 
@@ -283,8 +282,8 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
 
   const handleAllSourcesToggle = () => {
     const isChecked = !allSourcesChecked;
-    if (isChecked) filteredSourcePaths.forEach(path => selectedSources.add(path));
-    else filteredSourcePaths.forEach(path => selectedSources.delete(path));
+    if (isChecked) filteredSourcePaths.forEach((path) => selectedSources.add(path));
+    else filteredSourcePaths.forEach((path) => selectedSources.delete(path));
     setSelectedSources(new Set(selectedSources));
     setAllSourcesChecked(isChecked);
   };
@@ -308,7 +307,7 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
         </DataTable.Row>
       </DataTable.Header>
       <DataTable.Body>
-        {filteredItems.map(item => {
+        {filteredItems.map((item) => {
           const sourcePath = genSourcePath(item);
           return (
             <DataTable.Row key={item.metadata.uid}>
@@ -455,7 +454,7 @@ const Main = ({
   workloadState: [Workload | null, React.Dispatch<React.SetStateAction<Workload | null>>];
 }) => {
   const [currWorkload] = workloadState;
-  if (!currWorkload) return <div></div>;
+  if (!currWorkload) return <div />;
   const DisplayWorkloadComponent = displayWorkloadComponents[currWorkload];
 
   return (
@@ -478,7 +477,7 @@ const Explorer = () => {
       </div>
     </div>
   );
-}
+};
 
 /**
  * Default component
@@ -493,14 +492,21 @@ const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void; })
     sourcePaths.sort();
 
     searchParams.delete('source');
-    sourcePaths.forEach(sourcePath => searchParams.append('source', sourcePath));
+    sourcePaths.forEach((sourcePath) => searchParams.append('source', sourcePath));
     setSearchParams(new URLSearchParams(searchParams), { replace: true });
 
     onClose();
   };
 
+  const context = useMemo(() => ({
+    namespace,
+    setNamespace,
+    selectedSources,
+    setSelectedSources,
+  }), [namespace, setNamespace, selectedSources, setSelectedSources]);
+
   return (
-    <Context.Provider value={{ namespace, setNamespace, selectedSources, setSelectedSources }}>
+    <Context.Provider value={context}>
       <Modal open onClose={() => onClose()} className="!max-w-[1000px]">
         <div className="flex items-center justify-between mb-[15px]">
           <div className="font-semibold">Choose logging sources</div>

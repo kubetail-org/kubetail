@@ -62,6 +62,8 @@ CMD []
 
 FROM alpine:3.19.1 AS debug
 
+WORKDIR /app
+
 # copy certs for tls verification
 COPY --from=backend-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
@@ -69,11 +71,8 @@ COPY --from=backend-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=backend-builder /backend/server /app/server
 COPY --from=backend-builder /backend/templates /app/templates
 
-
 # copy frontend
 COPY --from=frontend-builder /frontend/dist /app/website
-
-WORKDIR /app
 
 ENTRYPOINT ["./server"]
 CMD []
@@ -82,6 +81,8 @@ CMD []
 
 FROM scratch AS final
 
+WORKDIR /app
+
 # copy certs for tls verification
 COPY --from=backend-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
@@ -91,8 +92,6 @@ COPY --from=backend-builder /backend/templates /app/templates
 
 # copy frontend
 COPY --from=frontend-builder /frontend/dist /app/website
-
-WORKDIR /app
 
 ENTRYPOINT ["./server"]
 CMD []
