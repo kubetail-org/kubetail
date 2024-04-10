@@ -39,28 +39,26 @@ Our goal is to build a powerful cloud-native logging platform designed from the 
 
 To allow kubetail to use an internal cluster service account to query your Kubernetes API, use the `-clusterauth` manifest file: 
 
-```sh
+```console
 kubectl apply -f https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-clusterauth.yaml
 ```
 
 To require kubetail users to utilize their own Kubernetes authentication token, use the `-tokenauth` manifest file: 
 
-```sh
+```console
 kubectl apply -f https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-tokenauth.yaml
 ```
 
 ### Option 2: Helm chart
 
-```sh
-# Add the kubetail repository
+To install kubetail using helm, first add the kubetail repository, then install the chart:
+```console
 helm repo add kubetail https://kubetail-org.github.io/helm/
-
-# Deploy a Helm release named "kubetail" using the kubetail chart
 helm install kubetail kubetail/kubetail --namespace kubetail --create-namespace
 ```
 
 To configure the helm chart, please refer to [values.yaml](https://github.com/kubetail-org/helm/blob/main/charts/kubetail/values.yaml) for valid values and their defaults. You can use a YAML file or specify each parameter using the `--set key=value[,key=value]` argument:
-```sh
+```console
 helm install kubetail kubetail/kubetail \
   --namespace kubetail \
   --create-namespace \
@@ -76,7 +74,7 @@ There are several ways to access the kubetail dashboard once the kubetail applic
 
 The simplest way to access the dashboard, is using `kubectl proxy`:
 
-```sh
+```console
 kubectl proxy
 ```
 
@@ -86,7 +84,7 @@ Now you can access the dashboard at: [http://localhost:8001/api/v1/namespaces/ku
 
 Another way to access the dashboard is using `kubectl port-forward`:
 
-```sh
+```console
 kubectl port-forward -n kubetail svc/kubetail 4000:4000
 ```
 
@@ -96,7 +94,7 @@ Now you can access the dashboard at: [http://localhost:4000](http://localhost:40
 
 If you've enabled `auth-mode: token`, then we recommend accessing the dashboard with the kubectl [auth-proxy plugin](https://github.com/int128/kauthproxy) which will automatically obtain an access token locally and add it to the HTTP headers when you make requests to the kubetail service:
 
-```sh
+```console
 kubectl auth-proxy -n kubetail http://kubetail.svc
 ```
 
@@ -154,7 +152,7 @@ Kubetail can be configured using a configuration file written in YAML, JSON, TOM
 This repository is organized as a monorepo containing a Go-based backend server and a React-based frontend static website in their respective directories (see [backend](backend) and [frontend](frontend)). The website queries the backend server which proxies requests to a Kubernetes API and also performs a few other custom tasks (e.g. authentication). In production, the frontend website is bundled into the backend server and served as a static website (see [Build](#build)). In development, the backend and frontend are run separately but configured to work together.
 
 To run the backend development server, cd into the `backend` directory and run the `server` command:
-```sh
+```console
 cd backend
 go run ./cmd/server -c hack/server.conf
 ```
@@ -162,7 +160,7 @@ go run ./cmd/server -c hack/server.conf
 Now access the health status at [http://localhost:4000/healthz](http://localhost:4000/healthz). 
 
 To run the frontend development website, cd into to the `frontend` directory and run the `install` and `dev` commands:
-```sh
+```console
 cd frontend
 pnpm install
 pnpm dev
@@ -174,7 +172,7 @@ Now access the dashboard at [http://localhost:5173](http://localhost:5173).
 
 To build a docker image for a production deployment, run the following command:
 
-```sh
+```console
 docker build -t kubetail:latest .
 ```
 
