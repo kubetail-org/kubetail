@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { useQuery, useSubscription } from '@apollo/client';
-import { format, utcToZonedTime } from 'date-fns-tz';
+import { format, toZonedTime } from 'date-fns-tz';
 import { stripAnsi } from 'fancy-ansi';
 import { AnsiHtml } from 'fancy-ansi/react';
 import { forwardRef, memo, useEffect, useImperativeHandle, useRef, useState } from 'react';
@@ -355,7 +355,7 @@ const LoadingOverlay = ({ height, width }: { height: number; width: number; }) =
 const getAttribute = (record: LogRecord, col: LogFeedColumn) => {
   switch (col) {
     case LogFeedColumn.Timestamp: {
-      const tsWithTZ = utcToZonedTime(record.timestamp, 'UTC');
+      const tsWithTZ = toZonedTime(record.timestamp, 'UTC');
       return format(tsWithTZ, 'LLL dd, y HH:mm:ss.SSS', { timeZone: 'UTC' });
     }
     case LogFeedColumn.ColorDot: {
