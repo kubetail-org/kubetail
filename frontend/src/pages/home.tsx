@@ -431,7 +431,7 @@ export default function Page() {
   return (
     <AuthRequired>
       <Home />
-      <div className="sticky bottom-0">
+      <div className="fixed bottom-0 w-full">
         <Footer />
       </div>
     </AuthRequired>
