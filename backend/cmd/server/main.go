@@ -229,8 +229,16 @@ func main() {
 			}
 
 			// run server
+			var serverErr error
 			zlog.Info().Msg("Starting server on " + v.GetString("addr"))
-			if err := server.ListenAndServe(); err != nil {
+
+			if cfg.TLS.Enabled {
+				serverErr = server.ListenAndServeTLS(cfg.TLS.CertFile, cfg.TLS.KeyFile)
+			} else {
+				serverErr = server.ListenAndServe()
+			}
+
+			if serverErr != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
 		},

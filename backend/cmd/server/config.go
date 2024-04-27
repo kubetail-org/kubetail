@@ -82,6 +82,18 @@ type Config struct {
 			HideHealthChecks bool `mapstructure:"hide-health-checks"`
 		} `mapstructure:"access-log"`
 	}
+
+	// TLS options
+	TLS struct {
+		// enable tls termination
+		Enabled bool
+
+		// TLS certificate file
+		CertFile string `mapstructure:"cert-file" validate:"omitempty,file"`
+
+		// TLS certificate key file
+		KeyFile string `mapstructure:"key-file" validate:"omitempty,file"`
+	}
 }
 
 // Validate config
@@ -125,6 +137,10 @@ func DefaultConfig() Config {
 	cfg.Logging.Format = "json"
 	cfg.Logging.AccessLog.Enabled = appDefault.AccessLog.Enabled
 	cfg.Logging.AccessLog.HideHealthChecks = appDefault.AccessLog.HideHealthChecks
+
+	cfg.TLS.Enabled = false
+	cfg.TLS.CertFile = ""
+	cfg.TLS.KeyFile = ""
 
 	return cfg
 }

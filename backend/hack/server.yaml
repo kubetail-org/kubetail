@@ -52,3 +52,8 @@ logging:
   access-log:
     enabled: true
     hide-health-checks: false
+
+tls:
+  enabled: false
+  cert-file: 
+  key-file:
