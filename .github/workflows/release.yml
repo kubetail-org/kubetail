@@ -38,8 +38,11 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        runner: [ubuntu-latest, ubuntu-arm64]
-        arch: [amd64, arm64]
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-arm64
+            arch: arm64
     steps:
       - name: Get tag name
         uses: olegtarasov/get-tag@2.1.3
