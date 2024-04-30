@@ -71,8 +71,9 @@ jobs:
           push: true
           tags: kubetail/kubetail:${{ steps.tagName.outputs.tag }}-arm64
 
-  create-manifest:
+  create-and-publish-manifest:
     runs-on: ubuntu-latest
+    needs: [build-and-publish-amd64, build-and-publish-arm64]
     steps:
       - name: Get tag name
         uses: olegtarasov/get-tag@2.1.3
