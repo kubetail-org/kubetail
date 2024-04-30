@@ -6,7 +6,7 @@ on:
       - '**'
 
 jobs:
-  build:
+  build-and-publish-amd64:
     runs-on: ubuntu-latest
     steps:
       - name: Get tag name
@@ -14,8 +14,6 @@ jobs:
         id: tagName
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3        
       - name: Login to Docker Hub
@@ -27,6 +25,88 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
           push: true
-          tags: kubetail/kubetail:${{ steps.tagName.outputs.tag }}
+          tags: kubetail/kubetail:${{ steps.tagName.outputs.tag }}-amd64
+
+  build-and-publish-arm64:
+    runs-on: ubuntu-arm64
+    steps:
+      - name: Get tag name
+        uses: olegtarasov/get-tag@2.1.3
+        id: tagName
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Docker
+        run: |
+          # Add Docker's official GPG key:
+          sudo apt-get update
+          sudo apt-get install ca-certificates curl
+          sudo install -m 0755 -d /etc/apt/keyrings
+          sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+          sudo chmod a+r /etc/apt/keyrings/docker.asc
+          
+          # Add the repository to Apt sources:
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+            $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+            sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          sudo apt-get update
+
+          sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      
+          sudo usermod -aG docker $USER
+          sudo apt-get install acl
+          sudo setfacl --modify user:$USER:rw /var/run/docker.sock
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3        
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: kubetail/kubetail:${{ steps.tagName.outputs.tag }}-arm64
+
+  create-and-publish-manifest:
+    runs-on: ubuntu-latest
+    needs: [build-and-publish-amd64, build-and-publish-arm64]
+    steps:
+      - name: Get tag name
+        uses: olegtarasov/get-tag@2.1.3
+        id: tagName
+      - name: 'Setup jq'
+        uses: dcarbone/install-jq-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3        
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Create and push manifest
+        run: |
+          docker buildx imagetools create -t kubetail/kubetail:${{ steps.tagName.outputs.tag }} \
+            kubetail/kubetail:${{ steps.tagName.outputs.tag }}-amd64 \
+            kubetail/kubetail:${{ steps.tagName.outputs.tag }}-arm64
+      - name: Fetch docker token
+        run: |
+          TOKEN=$(curl -X POST "https://hub.docker.com/v2/users/login" -H "Content-Type: application/json" -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' | jq -r '.token')
+          echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+      - name: Delete extra arch manifests
+        run: |
+          declare -a archs=("amd64" "arm64")
+          for arch in "${archs[@]}"
+          do
+            RESPONSE=$(curl -s -w "%{http_code}" \
+              -X DELETE \
+              -H "Authorization: Bearer $TOKEN" \
+              "https://hub.docker.com/v2/repositories/kubetail/kubetail/tags/${{ steps.tagName.outputs.tag }}-$arch")
+            if [ "$RESPONSE" -ne 204 ]; then
+              echo "DELETE for $arch failed with status $RESPONSE"
+              exit 1
+            fi
+          done
