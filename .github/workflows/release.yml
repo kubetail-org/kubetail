@@ -98,5 +98,13 @@ jobs:
           echo "TOKEN=$TOKEN" >> $GITHUB_ENV
       - name: Delete extra arch manifests
         run: |
-          curl -X DELETE -H "Authorization: Bearer ${TOKEN}" "https://hub.docker.com/v2/repositories/kubetail/kubetail/tags/${{ steps.tagName.outputs.tag }}-amd64"
-          curl -X DELETE -H  "Authorization: Bearer ${TOKEN}" "https://hub.docker.com/v2/repositories/kubetail/kubetail/tags/${{ steps.tagName.outputs.tag }}-arm64"
+          declare -a archs=("amd64" "arm64")
+          for arch in "${archs[@]}"
+          do
+            RESPONSE=$(curl -X DELETE -H "Authorization: Bearer $TOKEN" \
+              "https://hub.docker.com/v2/repositories/kubetail/kubetail/tags/${{ steps.tagName.outputs.tag }}-$arch")
+            if [ "$RESPONSE" -ne 204 ]; then
+              echo "DELETE for $arch failed with status $RESPONSE"
+              exit 1
+            fi
+          done
