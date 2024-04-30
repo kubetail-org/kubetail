@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.21.6 AS backend-builder
+FROM golang:1.21.9 AS backend-builder
 
 WORKDIR /backend
 
@@ -32,13 +32,13 @@ CMD []
 
 # -----------------------------------------------------------
 
-FROM node:20.11.0-alpine3.18 AS frontend-builder
+FROM node:20.12.2-alpine3.19 AS frontend-builder
 
 WORKDIR /frontend
 
 # enable pnpm
 RUN corepack enable
-RUN corepack prepare pnpm@8.15.5 --activate
+RUN corepack prepare pnpm@9.0.6 --activate
 
 # set up git+ssh for private package download from github
 RUN apk add git openssh-client
