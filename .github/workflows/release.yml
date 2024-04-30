@@ -92,8 +92,11 @@ jobs:
           docker buildx imagetools create -t kubetail/kubetail:${{ steps.tagName.outputs.tag }} \
             kubetail/kubetail:${{ steps.tagName.outputs.tag }}-amd64 \
             kubetail/kubetail:${{ steps.tagName.outputs.tag }}-arm64
-      - name: Delete extra arch manifests
+      - name: Fetch docker token
         run: |
           TOKEN=$(curl -X POST "https://hub.docker.com/v2/users/login" -H "Content-Type: application/json" -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' | jq -r '.token')
-          curl -X DELETE -H "Authorization: ${TOKEN}" "https://hub.docker.com/v2/repositories/kubetail/kubetail/tags/${{ steps.tagName.outputs.tag }}-amd64"
-          curl -X DELETE -H  "Authorization: ${TOKEN}" "https://hub.docker.com/v2/repositories/kubetail/kubetail/tags/${{ steps.tagName.outputs.tag }}-arm64"
+          echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+      - name: Delete extra arch manifests
+        run: |
+          curl -X DELETE -H "Authorization: Bearer ${TOKEN}" "https://hub.docker.com/v2/repositories/kubetail/kubetail/tags/${{ steps.tagName.outputs.tag }}-amd64"
+          curl -X DELETE -H  "Authorization: Bearer ${TOKEN}" "https://hub.docker.com/v2/repositories/kubetail/kubetail/tags/${{ steps.tagName.outputs.tag }}-arm64"
