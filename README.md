@@ -53,11 +53,11 @@ kubectl apply -f https://github.com/kubetail-org/kubetail/releases/latest/downlo
 
 To install kubetail using helm, first add the kubetail repository, then install the chart:
 ```console
-helm repo add kubetail https://kubetail-org.github.io/helm/
+helm repo add kubetail https://kubetail-org.github.io/helm-charts/
 helm install kubetail kubetail/kubetail --namespace kubetail --create-namespace
 ```
 
-To configure the helm chart, please refer to [values.yaml](https://github.com/kubetail-org/helm/blob/main/charts/kubetail/values.yaml) for valid values and their defaults. You can use a YAML file or specify each parameter using the `--set key=value[,key=value]` argument:
+To configure the helm chart, please refer to [values.yaml](https://github.com/kubetail-org/helm-charts/blob/main/charts/kubetail/values.yaml) for valid values and their defaults. You can use a YAML file or specify each parameter using the `--set key=value[,key=value]` argument:
 ```console
 helm install kubetail kubetail/kubetail \
   --namespace kubetail \
