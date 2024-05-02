@@ -25,6 +25,7 @@ import { RetryLink } from '@apollo/client/link/retry';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { getMainDefinition } from '@apollo/client/utilities';
 import { ClientOptions, createClient } from 'graphql-ws';
+import toast from 'react-hot-toast';
 
 import generatedIntrospection from '@/lib/graphql/__generated__/introspection-result.json';
 import { getBasename, getCSRFToken, joinPaths } from './lib/helpers';
@@ -66,9 +67,9 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
   }
 
   if (graphQLErrors) {
-    graphQLErrors.forEach(({ message, locations, path }) => {
+    graphQLErrors.forEach(({ message, path }) => {
       const msg = `[GraphQL Error] ${message}`;
-      console.error(`${msg} (Loc: ${locations}, Path: ${path})`);
+      toast(msg, { id: `${path}` });
     });
   }
 });
@@ -82,7 +83,6 @@ const retryLink = new RetryLink({
   attempts: {
     max: Infinity,
     retryIf: (error) => {
-      console.log('retryIf');
       console.log(error);
       return true;
     },
