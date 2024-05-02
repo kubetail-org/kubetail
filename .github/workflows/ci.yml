@@ -108,6 +108,8 @@ jobs:
           context: .
           push: false
           tags: kubetail:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   build-arm64:
     needs:
@@ -148,3 +150,5 @@ jobs:
           context: .
           push: false
           tags: kubetail:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
