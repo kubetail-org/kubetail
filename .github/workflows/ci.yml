@@ -102,12 +102,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Build
         uses: docker/build-push-action@v5
         with:
           context: .
           push: false
           tags: kubetail:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   build-arm64:
     needs:
@@ -142,9 +146,13 @@ jobs:
           sudo usermod -aG docker $USER
           sudo apt-get install acl
           sudo setfacl --modify user:$USER:rw /var/run/docker.sock
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Build
         uses: docker/build-push-action@v5
         with:
           context: .
           push: false
           tags: kubetail:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
