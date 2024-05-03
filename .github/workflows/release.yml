@@ -27,8 +27,6 @@ jobs:
           context: .
           push: true
           tags: kubetail/kubetail:${{ steps.tagName.outputs.tag }}-amd64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   build-and-publish-arm64:
     runs-on: ubuntu-arm64
@@ -72,8 +70,6 @@ jobs:
           context: .
           push: true
           tags: kubetail/kubetail:${{ steps.tagName.outputs.tag }}-arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   create-and-publish-manifest:
     runs-on: ubuntu-latest
