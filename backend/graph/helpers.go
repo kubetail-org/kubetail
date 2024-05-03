@@ -29,10 +29,10 @@ import (
 	"github.com/sosodev/duration"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 
@@ -85,28 +85,40 @@ type FollowArgs struct {
 	Since string
 }
 
-// gvr
-func initGVR[T runtime.Object]() (schema.GroupVersionResource, error) {
-	switch any((*T)(nil)).(type) {
+// getGVR
+func getGVR(obj runtime.Object) (schema.GroupVersionResource, error) {
+	switch (obj).(type) {
 	case *corev1.PodList:
 		return schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, nil
 	default:
-		return schema.GroupVersionResource{}, fmt.Errorf("not implemented")
+		return schema.GroupVersionResource{}, fmt.Errorf("not implemented: %T", obj)
 	}
 }
 
 // listResource
-func listResource[T runtime.Object](ctx context.Context, dynamicClient dynamic.Interface, namespace string, options *metav1.ListOptions) (T, error) {
+func listResource[T runtime.Object](r *queryResolver, ctx context.Context, namespace *string, options *metav1.ListOptions) (T, error) {
 	var output T
 
-	gvr, err := initGVR[T]()
+	gvr, err := getGVR(output)
 	if err != nil {
 		return output, err
 	}
 
-	list, err := dynamicClient.Resource(gvr).Namespace(namespace).List(ctx, toListOptions(options))
+	ns, err := r.ToNamespace2(namespace)
 	if err != nil {
 		return output, err
+	}
+
+	var list *unstructured.UnstructuredList
+
+	if ns == "" && len(r.allowedNamespaces) > 0 {
+		// implement list across namespaces
+
+	} else {
+		list, err = r.K8SDynamicClient(ctx).Resource(gvr).Namespace(ns).List(ctx, toListOptions(options))
+		if err != nil {
+			return output, err
+		}
 	}
 
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(list.UnstructuredContent(), &output)

@@ -99,6 +99,20 @@ func (r *Resolver) ToNamespace(namespace *string) string {
 	return ns
 }
 
+func (r *Resolver) ToNamespace2(namespace *string) (string, error) {
+	ns := metav1.NamespaceDefault
+	if namespace != nil {
+		ns = *namespace
+	}
+
+	// perform auth
+	if ns != "" && len(r.allowedNamespaces) > 0 && !slices.Contains(r.allowedNamespaces, ns) {
+		return "", ErrForbidden
+	}
+
+	return ns, nil
+}
+
 func NewResolver(cfg *rest.Config, allowedNamespaces []string) (*Resolver, error) {
 	// try in-cluster config
 	return &Resolver{k8sCfg: cfg, allowedNamespaces: allowedNamespaces}, nil

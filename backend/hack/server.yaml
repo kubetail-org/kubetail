@@ -23,7 +23,7 @@ auth-mode: local
 kube-config: ${HOME}/.kube/config
 base-path: /
 allowed-namespaces:
-  - default
+  - kubernetes-dashboard
   - kube-system
 
 session:
