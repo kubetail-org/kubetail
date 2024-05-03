@@ -21,6 +21,7 @@ import (
 	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
@@ -59,6 +60,25 @@ func (r *Resolver) K8SClientset(ctx context.Context) kubernetes.Interface {
 	}
 
 	return clientset
+}
+
+func (r *Resolver) K8SDynamicClient(ctx context.Context) dynamic.Interface {
+	// copy config
+	cfg := rest.CopyConfig(r.k8sCfg)
+
+	// get token from context
+	token, ok := ctx.Value(K8STokenCtxKey).(string)
+	if ok {
+		cfg.BearerToken = token
+		cfg.BearerTokenFile = ""
+	}
+
+	dynamicClient, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	return dynamicClient
 }
 
 func (r *Resolver) ToNamespace(namespace *string) string {

@@ -158,7 +158,24 @@ func (r *queryResolver) CoreV1PodsGet(ctx context.Context, namespace *string, na
 
 // CoreV1PodsList is the resolver for the coreV1PodsList field.
 func (r *queryResolver) CoreV1PodsList(ctx context.Context, namespace *string, options *metav1.ListOptions) (*corev1.PodList, error) {
-	return r.K8SClientset(ctx).CoreV1().Pods(r.ToNamespace(namespace)).List(ctx, toListOptions(options))
+	/*
+		podGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+
+		list, err := r.K8SDynamicClient(ctx).Resource(podGVR).Namespace(r.ToNamespace(namespace)).List(ctx, toListOptions(options))
+		if err != nil {
+			return nil, err
+		}
+
+		podList := &corev1.PodList{}
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(list.UnstructuredContent(), podList)
+		if err != nil {
+			return nil, err
+		}
+
+		return podList, err
+	*/
+	//return r.K8SClientset(ctx).CoreV1().Pods(r.ToNamespace(namespace)).List(ctx, toListOptions(options))
+	return listResource[*corev1.PodList](ctx, r.K8SDynamicClient(ctx), r.ToNamespace(namespace), options)
 }
 
 // CoreV1PodsGetLogs is the resolver for the coreV1PodsGetLogs field.
