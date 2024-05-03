@@ -18,6 +18,7 @@ import (
 	//"os"
 
 	"context"
+	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -32,9 +33,9 @@ import (
 //go:generate go run github.com/99designs/gqlgen generate
 
 type Resolver struct {
-	k8sCfg        *rest.Config
-	namespace     string
-	TestClientset *fake.Clientset
+	k8sCfg            *rest.Config
+	allowedNamespaces []string
+	TestClientset     *fake.Clientset
 }
 
 func (r *Resolver) K8SClientset(ctx context.Context) kubernetes.Interface {
@@ -62,8 +63,12 @@ func (r *Resolver) K8SClientset(ctx context.Context) kubernetes.Interface {
 
 func (r *Resolver) ToNamespace(namespace *string) string {
 	// check configured namespace
-	if r.namespace != "" {
-		return r.namespace
+	if len(r.allowedNamespaces) > 0 {
+		if slices.Contains(r.allowedNamespaces, *namespace) {
+			return *namespace
+		} else {
+			panic("xxx")
+		}
 	}
 
 	// use default behavior
@@ -74,7 +79,7 @@ func (r *Resolver) ToNamespace(namespace *string) string {
 	return ns
 }
 
-func NewResolver(cfg *rest.Config, namespace string) (*Resolver, error) {
+func NewResolver(cfg *rest.Config, allowedNamespaces []string) (*Resolver, error) {
 	// try in-cluster config
-	return &Resolver{k8sCfg: cfg, namespace: namespace}, nil
+	return &Resolver{k8sCfg: cfg, allowedNamespaces: allowedNamespaces}, nil
 }

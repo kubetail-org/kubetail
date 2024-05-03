@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/kubetail-org/kubetail/graph/model"
@@ -127,12 +128,15 @@ func (r *queryResolver) BatchV1JobsList(ctx context.Context, namespace *string, 
 // CoreV1NamespacesList is the resolver for the coreV1NamespacesList field.
 func (r *queryResolver) CoreV1NamespacesList(ctx context.Context, options *metav1.ListOptions) (*corev1.NamespaceList, error) {
 	response, err := r.K8SClientset(ctx).CoreV1().Namespaces().List(ctx, toListOptions(options))
+	if err != nil {
+		return response, nil
+	}
 
 	// apply app namespace filter
-	if response != nil && r.namespace != "" {
+	if len(r.allowedNamespaces) > 0 {
 		items := []corev1.Namespace{}
 		for _, item := range response.Items {
-			if item.Name == r.namespace {
+			if slices.Contains(r.allowedNamespaces, item.Name) {
 				items = append(items, item)
 			}
 		}
