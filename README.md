@@ -146,6 +146,9 @@ Kubetail can be configured using a configuration file written in YAML, JSON, TOM
 | session.cookie.secure                 | bool     | Session cookie secure property                       | false                  |
 | session.cookie.http-only              | bool     | Session cookie HttpOnly property                     | true                   |
 | session.cookie.same-site              | string   | Session cookie SameSite property (strict, lax, none) | "strict"               |
+| tls.enabled                           | bool     | Enable TLS endpoint termination                      | false                  |
+| tls.cert-file                         | string   | Path to cert file                                    | ""                     |
+| tls.key-file                          | string   | Path to key file                                     | ""                     |
 
 ## Develop
 
