@@ -372,9 +372,8 @@ func (r *subscriptionResolver) PodLogFollow(ctx context.Context, namespace *stri
 	go func() {
 	Loop:
 		for record := range inCh {
-			x := record // for loop variable problem (https://github.com/golang/go/discussions/56010)
 			select {
-			case outCh <- &x:
+			case outCh <- &record:
 				// wrote to output channel
 			case <-ctx.Done():
 				// listener closed connection
