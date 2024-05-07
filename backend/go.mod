@@ -3,7 +3,7 @@ module github.com/kubetail-org/kubetail
 go 1.22.2
 
 require (
-	github.com/99designs/gqlgen v0.17.45
+	github.com/99designs/gqlgen v0.17.46
 	github.com/gin-contrib/gzip v1.0.0
 	github.com/gin-contrib/requestid v1.0.2
 	github.com/gin-contrib/secure v1.1.0
@@ -99,7 +99,7 @@ require (
 	golang.org/x/term v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.20.0 // indirect
+	golang.org/x/tools v0.21.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
