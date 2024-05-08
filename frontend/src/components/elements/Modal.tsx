@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { Dialog, DialogProps, DialogTitleProps } from '@headlessui/react';
-import React from 'react';
+import React, { useRef } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -35,25 +35,30 @@ const Modal = React.forwardRef((
     ...props
   }: ModalProps<'div'>,
   ref: React.ForwardedRef<HTMLDivElement>,
-) => (
-  <Dialog
-    {...props}
-    ref={ref}
-    className="relative z-10"
-  >
-    {/* backdrop */}
-    <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+) => {
+  const focusRef = useRef<HTMLDivElement>(null);
 
-    {/* full-screen container to center the panel */}
-    <div className="fixed z-10 inset-0 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-full">
-        <Dialog.Panel className={cn(modalPanelBaseCls, className)}>
-          {children}
-        </Dialog.Panel>
+  return (
+    <Dialog
+      {...props}
+      ref={ref}
+      initialFocus={focusRef}
+      className="relative z-10"
+    >
+      {/* backdrop */}
+      <div className="fixed inset-0 bg-black/30" aria-hidden="true" ref={focusRef} />
+
+      {/* full-screen container to center the panel */}
+      <div className="fixed z-10 inset-0 overflow-y-auto">
+        <div className="flex items-center justify-center min-h-full">
+          <Dialog.Panel className={cn(modalPanelBaseCls, className)}>
+            {children}
+          </Dialog.Panel>
+        </div>
       </div>
-    </div>
-  </Dialog>
-));
+    </Dialog>
+  );
+});
 
 Modal.displayName = 'Modal';
 
