@@ -99,7 +99,9 @@ func (r *Resolver) ToNamespace(namespace *string) string {
 	return ns
 }
 
-func (r *Resolver) ToNamespace2(namespace *string) (string, error) {
+func (r *Resolver) ToNamespaces(namespace *string) ([]string, error) {
+	var namespaces []string
+
 	ns := metav1.NamespaceDefault
 	if namespace != nil {
 		ns = *namespace
@@ -107,10 +109,17 @@ func (r *Resolver) ToNamespace2(namespace *string) (string, error) {
 
 	// perform auth
 	if ns != "" && len(r.allowedNamespaces) > 0 && !slices.Contains(r.allowedNamespaces, ns) {
-		return "", ErrForbidden
+		return nil, ErrForbidden
 	}
 
-	return ns, nil
+	// listify
+	if ns == "" && len(r.allowedNamespaces) > 0 {
+		namespaces = r.allowedNamespaces
+	} else {
+		namespaces = []string{ns}
+	}
+
+	return namespaces, nil
 }
 
 func NewResolver(cfg *rest.Config, allowedNamespaces []string) (*Resolver, error) {

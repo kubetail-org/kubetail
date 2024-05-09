@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -30,7 +31,7 @@ import (
 	"github.com/sosodev/duration"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
@@ -97,56 +98,105 @@ func getGVR(obj runtime.Object) (schema.GroupVersionResource, error) {
 	}
 }
 
-// fetchListResource
-func fetchListResource(ctx context.Context, dynamicClient dynamic.NamespaceableResourceInterface, namespace string, options *metav1.ListOptions, wg *sync.WaitGroup, results chan<- *unstructured.UnstructuredList) {
-	defer wg.Done()
-	list, err := dynamicClient.Namespace(namespace).List(ctx, toListOptions(options))
-	if err != nil {
-		// log error here
+// Represents response from fetchListResource()
+type FetchResponse[T runtime.Object] struct {
+	Namespace string
+	Result    T
+	Error     error
+}
+
+// mergeResults
+func mergeResults(results []*unstructured.UnstructuredList, options metav1.ListOptions) *unstructured.UnstructuredList {
+	// loop through results
+	items := []unstructured.Unstructured{}
+	remainingItemCount := int64(0)
+	resourceVersionMap := map[string]string{}
+	continueMap := map[string]string{}
+
+	for _, result := range results {
+		remainingItemCount += *result.GetRemainingItemCount()
+		for _, item := range result.Items {
+			items = append(items, item)
+		}
 	}
-	results <- list
+
+	// sort items
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].GetName() < items[j].GetName()
+	})
+
+	// init merged object
+	output := new(unstructured.UnstructuredList)
+	output.SetRemainingItemCount(&remainingItemCount)
+	output.Items = items[:options.Limit]
+
+	return output
+}
+
+// fetchListResource
+func fetchListResource[T runtime.Object](ctx context.Context, client dynamic.NamespaceableResourceInterface, namespace string, options metav1.ListOptions, wg *sync.WaitGroup, ch chan<- FetchResponse[T]) {
+	defer wg.Done()
+
+	list, err := client.Namespace(namespace).List(ctx, options)
+	if err != nil {
+		ch <- FetchResponse[T]{Error: err}
+		return
+	}
+
+	var result T
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(list.UnstructuredContent(), &result)
+	if err != nil {
+		ch <- FetchResponse[T]{Error: err}
+		return
+	}
+
+	ch <- FetchResponse[T]{Result: result}
 }
 
 // listResource
 func listResource[T runtime.Object](r *queryResolver, ctx context.Context, namespace *string, options *metav1.ListOptions) (T, error) {
 	var output T
 
+	// init client
 	gvr, err := getGVR(output)
 	if err != nil {
 		return output, err
 	}
+	client := r.K8SDynamicClient(ctx).Resource(gvr)
 
-	ns, err := r.ToNamespace2(namespace)
+	// init namespaces
+	namespaces, err := r.ToNamespaces(namespace)
 	if err != nil {
 		return output, err
 	}
 
-	namespaces := []string{}
-	if ns == "" && len(r.allowedNamespaces) > 0 {
-		// implement list across namespaces
-		namespaces = r.allowedNamespaces
-	} else {
-		namespaces = []string{ns}
-	}
+	// init list options
+	opts := toListOptions(options)
 
+	// execute requests in parallel
 	var wg sync.WaitGroup
-	results := make(chan *unstructured.UnstructuredList, len(namespaces))
-	var list *unstructured.UnstructuredList
+	ch := make(chan FetchResponse[T], len(namespaces))
 
-	if ns == "" && len(r.allowedNamespaces) > 0 {
-		// implement list across namespaces
+	for _, namespace := range namespaces {
+		wg.Add(1)
+		go fetchListResource[T](ctx, client, namespace, opts, &wg, ch)
+	}
 
-	} else {
-		list, err = r.K8SDynamicClient(ctx).Resource(gvr).Namespace(ns).List(ctx, toListOptions(options))
-		if err != nil {
-			return output, err
+	wg.Wait()
+	close(ch)
+
+	results := make([]T, len(namespaces))
+
+	i := 0
+	for resp := range ch {
+		if resp.Error != nil {
+			return output, resp.Error
 		}
+		results[i] = resp.Result
+		i += 1
 	}
 
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(list.UnstructuredContent(), &output)
-	if err != nil {
-		return output, err
-	}
+	result := mergeResults(results)
 
 	return output, nil
 }
