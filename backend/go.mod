@@ -1,6 +1,6 @@
 module github.com/kubetail-org/kubetail
 
-go 1.22.2
+go 1.22.3
 
 require (
 	github.com/99designs/gqlgen v0.17.46
