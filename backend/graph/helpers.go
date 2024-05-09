@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
@@ -126,10 +127,10 @@ func mergeResults(responses []FetchResponse, options metav1.ListOptions) (*unstr
 		resourceVersionMap[resp.Namespace] = result.GetResourceVersion()
 		continueMap[resp.Namespace] = result.GetContinue()
 
-		// loop through items
-		for _, item := range result.Items {
-			items = append(items, item)
-		}
+		fmt.Println(storage.DecodeContinue(result.GetContinue(), ""))
+
+		// items
+		items = append(items, result.Items...)
 	}
 
 	// sort items
