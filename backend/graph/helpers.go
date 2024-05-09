@@ -98,8 +98,13 @@ func getGVR(obj runtime.Object) (schema.GroupVersionResource, error) {
 }
 
 // fetchListResource
-func fetchListResource(ctx context.Context, dynamicClient dynamic.NamespaceableResourceInterface, namespace *string, options *metav1.ListOptions, wg *sync.WaitGroup, results chan<- []string) {
-
+func fetchListResource(ctx context.Context, dynamicClient dynamic.NamespaceableResourceInterface, namespace string, options *metav1.ListOptions, wg *sync.WaitGroup, results chan<- *unstructured.UnstructuredList) {
+	defer wg.Done()
+	list, err := dynamicClient.Namespace(namespace).List(ctx, toListOptions(options))
+	if err != nil {
+		// log error here
+	}
+	results <- list
 }
 
 // listResource
@@ -116,6 +121,16 @@ func listResource[T runtime.Object](r *queryResolver, ctx context.Context, names
 		return output, err
 	}
 
+	namespaces := []string{}
+	if ns == "" && len(r.allowedNamespaces) > 0 {
+		// implement list across namespaces
+		namespaces = r.allowedNamespaces
+	} else {
+		namespaces = []string{ns}
+	}
+
+	var wg sync.WaitGroup
+	results := make(chan *unstructured.UnstructuredList, len(namespaces))
 	var list *unstructured.UnstructuredList
 
 	if ns == "" && len(r.allowedNamespaces) > 0 {
