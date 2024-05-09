@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 
@@ -93,6 +95,11 @@ func getGVR(obj runtime.Object) (schema.GroupVersionResource, error) {
 	default:
 		return schema.GroupVersionResource{}, fmt.Errorf("not implemented: %T", obj)
 	}
+}
+
+// fetchListResource
+func fetchListResource(ctx context.Context, dynamicClient dynamic.NamespaceableResourceInterface, namespace *string, options *metav1.ListOptions, wg *sync.WaitGroup, results chan<- []string) {
+
 }
 
 // listResource
