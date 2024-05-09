@@ -99,22 +99,34 @@ func getGVR(obj runtime.Object) (schema.GroupVersionResource, error) {
 }
 
 // Represents response from fetchListResource()
-type FetchResponse[T runtime.Object] struct {
+type FetchResponse struct {
 	Namespace string
-	Result    T
+	Result    *unstructured.UnstructuredList
 	Error     error
 }
 
 // mergeResults
-func mergeResults(results []*unstructured.UnstructuredList, options metav1.ListOptions) *unstructured.UnstructuredList {
+func mergeResults(responses []FetchResponse, options metav1.ListOptions) (*unstructured.UnstructuredList, error) {
 	// loop through results
 	items := []unstructured.Unstructured{}
 	remainingItemCount := int64(0)
 	resourceVersionMap := map[string]string{}
 	continueMap := map[string]string{}
 
-	for _, result := range results {
+	for _, resp := range responses {
+		// exit if any query resulted in error
+		if resp.Error != nil {
+			return nil, resp.Error
+		}
+
+		result := resp.Result
+
+		// metadata
 		remainingItemCount += *result.GetRemainingItemCount()
+		resourceVersionMap[resp.Namespace] = result.GetResourceVersion()
+		continueMap[resp.Namespace] = result.GetContinue()
+
+		// loop through items
 		for _, item := range result.Items {
 			items = append(items, item)
 		}
@@ -130,27 +142,20 @@ func mergeResults(results []*unstructured.UnstructuredList, options metav1.ListO
 	output.SetRemainingItemCount(&remainingItemCount)
 	output.Items = items[:options.Limit]
 
-	return output
+	return output, nil
 }
 
 // fetchListResource
-func fetchListResource[T runtime.Object](ctx context.Context, client dynamic.NamespaceableResourceInterface, namespace string, options metav1.ListOptions, wg *sync.WaitGroup, ch chan<- FetchResponse[T]) {
+func fetchListResource[T runtime.Object](ctx context.Context, client dynamic.NamespaceableResourceInterface, namespace string, options metav1.ListOptions, wg *sync.WaitGroup, ch chan<- FetchResponse) {
 	defer wg.Done()
 
 	list, err := client.Namespace(namespace).List(ctx, options)
 	if err != nil {
-		ch <- FetchResponse[T]{Error: err}
+		ch <- FetchResponse{Error: err}
 		return
 	}
 
-	var result T
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(list.UnstructuredContent(), &result)
-	if err != nil {
-		ch <- FetchResponse[T]{Error: err}
-		return
-	}
-
-	ch <- FetchResponse[T]{Result: result}
+	ch <- FetchResponse{Namespace: namespace, Result: list}
 }
 
 // listResource
@@ -175,7 +180,7 @@ func listResource[T runtime.Object](r *queryResolver, ctx context.Context, names
 
 	// execute requests in parallel
 	var wg sync.WaitGroup
-	ch := make(chan FetchResponse[T], len(namespaces))
+	ch := make(chan FetchResponse, len(namespaces))
 
 	for _, namespace := range namespaces {
 		wg.Add(1)
@@ -185,18 +190,25 @@ func listResource[T runtime.Object](r *queryResolver, ctx context.Context, names
 	wg.Wait()
 	close(ch)
 
-	results := make([]T, len(namespaces))
-
+	// gather responses
+	responses := make([]FetchResponse, len(namespaces))
 	i := 0
 	for resp := range ch {
-		if resp.Error != nil {
-			return output, resp.Error
-		}
-		results[i] = resp.Result
+		responses[i] = resp
 		i += 1
 	}
 
-	result := mergeResults(results)
+	// merge results
+	list, err := mergeResults(responses, opts)
+	if err != nil {
+		return output, err
+	}
+
+	// de-serialize
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(list.UnstructuredContent(), &output)
+	if err != nil {
+		return output, err
+	}
 
 	return output, nil
 }
