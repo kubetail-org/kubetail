@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
@@ -121,8 +123,47 @@ func encodeContinue(resourceVersions map[string]string, startKey string) (string
 		return "", err
 	}
 
-	// base64-encoding
+	// base64-encode
 	return base64.StdEncoding.EncodeToString(tokenBytes), nil
+}
+
+// decode continue token
+func decodeContinue(tokenStr string) (map[string]string, error) {
+	if tokenStr == "" {
+		return map[string]string{}, nil
+	}
+
+	// base64-decode
+	tokenBytes, err := base64.StdEncoding.DecodeString(tokenStr)
+	if err != nil {
+		return nil, err
+	}
+
+	// json-decode
+	token := &continueToken{}
+	err = json.Unmarshal(tokenBytes, token)
+	if err != nil {
+		return nil, err
+	}
+
+	// generate continue tokens
+	continueMap := map[string]string{}
+	for namespace, rvStr := range token.ResourceVersions {
+		rvInt64, err := strconv.ParseInt(rvStr, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		continueStr, err := storage.EncodeContinue("/"+token.StartKey, "/", rvInt64)
+		if err != nil {
+			return nil, err
+		}
+		continueMap[namespace] = continueStr
+	}
+
+	fmt.Println(token.ResourceVersions)
+	fmt.Println(continueMap)
+	return continueMap, nil
 }
 
 // mergeResults
@@ -172,7 +213,7 @@ func mergeResults(responses []FetchResponse, options metav1.ListOptions) (*unstr
 	// generate continue token
 	var continueToken string
 	if len(items) > 0 {
-		continueToken, err = encodeContinue(resourceVersionMap, items[0].GetName())
+		continueToken, err = encodeContinue(resourceVersionMap, items[len(items)-1].GetName())
 		if err != nil {
 			return nil, err
 		}
@@ -188,17 +229,85 @@ func mergeResults(responses []FetchResponse, options metav1.ListOptions) (*unstr
 	return output, nil
 }
 
-// fetchListResource
-func fetchListResource[T runtime.Object](ctx context.Context, client dynamic.NamespaceableResourceInterface, namespace string, options metav1.ListOptions, wg *sync.WaitGroup, ch chan<- FetchResponse) {
-	defer wg.Done()
+// listResourceSingle
+func listResourceSingle[T runtime.Object](ctx context.Context, client dynamic.NamespaceableResourceInterface, namespace string, options metav1.ListOptions) (T, error) {
+	var output T
 
 	list, err := client.Namespace(namespace).List(ctx, options)
 	if err != nil {
-		ch <- FetchResponse{Error: err}
-		return
+		return output, err
 	}
 
-	ch <- FetchResponse{Namespace: namespace, Result: list}
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(list.UnstructuredContent(), &output)
+	if err != nil {
+		return output, err
+	}
+
+	return output, nil
+}
+
+// listResourceMulti
+func listResourceMulti[T runtime.Object](ctx context.Context, client dynamic.NamespaceableResourceInterface, namespaces []string, options metav1.ListOptions) (T, error) {
+	var output T
+	var wg sync.WaitGroup
+	ch := make(chan FetchResponse, len(namespaces))
+
+	// decode continue token
+	continueMap, err := decodeContinue(options.Continue)
+	if err != nil {
+		return output, err
+	}
+
+	// execute queries
+	for _, namespace := range namespaces {
+		wg.Add(1)
+		go func(namespace string) {
+			defer wg.Done()
+
+			thisOpts := options
+			thisContinue, exists := continueMap[namespace]
+			if exists {
+				thisOpts.Continue = thisContinue
+			} else {
+				thisOpts.Continue = ""
+			}
+
+			fmt.Println(thisOpts)
+
+			list, err := client.Namespace(namespace).List(ctx, thisOpts)
+			if err != nil {
+				ch <- FetchResponse{Error: err}
+				return
+			}
+
+			ch <- FetchResponse{Namespace: namespace, Result: list}
+		}(namespace)
+	}
+
+	wg.Wait()
+	close(ch)
+
+	// gather responses
+	responses := make([]FetchResponse, len(namespaces))
+	i := 0
+	for resp := range ch {
+		responses[i] = resp
+		i += 1
+	}
+
+	// merge results
+	list, err := mergeResults(responses, options)
+	if err != nil {
+		return output, err
+	}
+
+	// de-serialize
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(list.UnstructuredContent(), &output)
+	if err != nil {
+		return output, err
+	}
+
+	return output, nil
 }
 
 // listResource
@@ -221,47 +330,11 @@ func listResource[T runtime.Object](r *queryResolver, ctx context.Context, names
 	// init list options
 	opts := toListOptions(options)
 
-	// execute requests in parallel
-	var wg sync.WaitGroup
-	ch := make(chan FetchResponse, len(namespaces))
-
-	for _, namespace := range namespaces {
-		wg.Add(1)
-		go fetchListResource[T](ctx, client, namespace, opts, &wg, ch)
-	}
-
-	wg.Wait()
-	close(ch)
-
-	// gather responses
-	responses := make([]FetchResponse, len(namespaces))
-	i := 0
-	for resp := range ch {
-		responses[i] = resp
-		i += 1
-	}
-
-	// if multiple queries, merge results
-	var list *unstructured.UnstructuredList
-	if len(namespaces) > 1 {
-		list, err = mergeResults(responses, opts)
-		if err != nil {
-			return output, err
-		}
+	if len(namespaces) == 1 {
+		return listResourceSingle[T](ctx, client, namespaces[0], opts)
 	} else {
-		if responses[0].Error != nil {
-			return output, responses[0].Error
-		}
-		list = responses[0].Result
+		return listResourceMulti[T](ctx, client, namespaces, opts)
 	}
-
-	// de-serialize
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(list.UnstructuredContent(), &output)
-	if err != nil {
-		return output, err
-	}
-
-	return output, nil
 }
 
 // watchEventProxyChannel
