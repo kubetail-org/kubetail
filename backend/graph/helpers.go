@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
@@ -106,13 +105,32 @@ type FetchResponse struct {
 	Error     error
 }
 
+// represents multi-namespace continue token
+type continueToken struct {
+	ResourceVersions map[string]string `json:"rv"`
+	StartKey         string            `json:"start"`
+}
+
+// encode continue token
+func encodeContinue(resourceVersions map[string]string, startKey string) (string, error) {
+	token := continueToken{ResourceVersions: resourceVersions, StartKey: startKey}
+
+	// json-encoding
+	tokenBytes, err := json.Marshal(token)
+	if err != nil {
+		return "", err
+	}
+
+	// base64-encoding
+	return base64.StdEncoding.EncodeToString(tokenBytes), nil
+}
+
 // mergeResults
 func mergeResults(responses []FetchResponse, options metav1.ListOptions) (*unstructured.UnstructuredList, error) {
 	// loop through results
 	items := []unstructured.Unstructured{}
 	remainingItemCount := int64(0)
 	resourceVersionMap := map[string]string{}
-	continueMap := map[string]string{}
 
 	for _, resp := range responses {
 		// exit if any query resulted in error
@@ -123,11 +141,10 @@ func mergeResults(responses []FetchResponse, options metav1.ListOptions) (*unstr
 		result := resp.Result
 
 		// metadata
-		remainingItemCount += *result.GetRemainingItemCount()
+		remainingItemCount += ptr.Deref(result.GetRemainingItemCount(), 0)
 		resourceVersionMap[resp.Namespace] = result.GetResourceVersion()
-		continueMap[resp.Namespace] = result.GetContinue()
 
-		fmt.Println(storage.DecodeContinue(result.GetContinue(), ""))
+		//fmt.Println(storage.DecodeContinue(result.GetContinue(), ""))
 
 		// items
 		items = append(items, result.Items...)
@@ -138,10 +155,35 @@ func mergeResults(responses []FetchResponse, options metav1.ListOptions) (*unstr
 		return items[i].GetName() < items[j].GetName()
 	})
 
+	// slice items
+	ignoreCount := int64(len(items) - int(options.Limit))
+	if ignoreCount > 0 {
+		remainingItemCount += ignoreCount
+		items = items[:options.Limit]
+	}
+
+	// encode resourceVersionMap
+	resourceVersionBytes, err := json.Marshal(resourceVersionMap)
+	if err != nil {
+		return nil, err
+	}
+	resourceVersion := base64.StdEncoding.EncodeToString(resourceVersionBytes)
+
+	// generate continue token
+	var continueToken string
+	if len(items) > 0 {
+		continueToken, err = encodeContinue(resourceVersionMap, items[0].GetName())
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// init merged object
 	output := new(unstructured.UnstructuredList)
 	output.SetRemainingItemCount(&remainingItemCount)
-	output.Items = items[:options.Limit]
+	output.SetResourceVersion(resourceVersion)
+	output.SetContinue(continueToken)
+	output.Items = items
 
 	return output, nil
 }
@@ -199,10 +241,18 @@ func listResource[T runtime.Object](r *queryResolver, ctx context.Context, names
 		i += 1
 	}
 
-	// merge results
-	list, err := mergeResults(responses, opts)
-	if err != nil {
-		return output, err
+	// if multiple queries, merge results
+	var list *unstructured.UnstructuredList
+	if len(namespaces) > 1 {
+		list, err = mergeResults(responses, opts)
+		if err != nil {
+			return output, err
+		}
+	} else {
+		if responses[0].Error != nil {
+			return output, responses[0].Error
+		}
+		list = responses[0].Result
 	}
 
 	// de-serialize
