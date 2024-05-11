@@ -114,7 +114,7 @@ type continueToken struct {
 }
 
 // encode continue token
-func encodeContinue(resourceVersions map[string]string, startKey string) (string, error) {
+func encodeContinueMulti(resourceVersions map[string]string, startKey string) (string, error) {
 	token := continueToken{ResourceVersions: resourceVersions, StartKey: startKey}
 
 	// json-encoding
@@ -128,7 +128,7 @@ func encodeContinue(resourceVersions map[string]string, startKey string) (string
 }
 
 // decode continue token
-func decodeContinue(tokenStr string) (map[string]string, error) {
+func decodeContinueMulti(tokenStr string) (map[string]string, error) {
 	if tokenStr == "" {
 		return map[string]string{}, nil
 	}
@@ -154,15 +154,13 @@ func decodeContinue(tokenStr string) (map[string]string, error) {
 			return nil, err
 		}
 
-		continueStr, err := storage.EncodeContinue("/"+token.StartKey, "/", rvInt64)
+		continueStr, err := storage.EncodeContinue("/"+token.StartKey+"\u0000", "/", rvInt64)
 		if err != nil {
 			return nil, err
 		}
 		continueMap[namespace] = continueStr
 	}
 
-	fmt.Println(token.ResourceVersions)
-	fmt.Println(continueMap)
 	return continueMap, nil
 }
 
@@ -184,8 +182,6 @@ func mergeResults(responses []FetchResponse, options metav1.ListOptions) (*unstr
 		// metadata
 		remainingItemCount += ptr.Deref(result.GetRemainingItemCount(), 0)
 		resourceVersionMap[resp.Namespace] = result.GetResourceVersion()
-
-		//fmt.Println(storage.DecodeContinue(result.GetContinue(), ""))
 
 		// items
 		items = append(items, result.Items...)
@@ -213,7 +209,7 @@ func mergeResults(responses []FetchResponse, options metav1.ListOptions) (*unstr
 	// generate continue token
 	var continueToken string
 	if len(items) > 0 {
-		continueToken, err = encodeContinue(resourceVersionMap, items[len(items)-1].GetName())
+		continueToken, err = encodeContinueMulti(resourceVersionMap, items[len(items)-1].GetName())
 		if err != nil {
 			return nil, err
 		}
@@ -253,7 +249,7 @@ func listResourceMulti[T runtime.Object](ctx context.Context, client dynamic.Nam
 	ch := make(chan FetchResponse, len(namespaces))
 
 	// decode continue token
-	continueMap, err := decodeContinue(options.Continue)
+	continueMap, err := decodeContinueMulti(options.Continue)
 	if err != nil {
 		return output, err
 	}
@@ -265,14 +261,13 @@ func listResourceMulti[T runtime.Object](ctx context.Context, client dynamic.Nam
 			defer wg.Done()
 
 			thisOpts := options
+
 			thisContinue, exists := continueMap[namespace]
 			if exists {
 				thisOpts.Continue = thisContinue
 			} else {
 				thisOpts.Continue = ""
 			}
-
-			fmt.Println(thisOpts)
 
 			list, err := client.Namespace(namespace).List(ctx, thisOpts)
 			if err != nil {
