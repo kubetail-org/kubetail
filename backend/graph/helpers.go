@@ -225,33 +225,15 @@ func mergeResults(responses []FetchResponse, options metav1.ListOptions) (*unstr
 	return output, nil
 }
 
-// listResourceSingle
-func listResourceSingle[T runtime.Object](ctx context.Context, client dynamic.NamespaceableResourceInterface, namespace string, options metav1.ListOptions) (T, error) {
-	var output T
-
-	list, err := client.Namespace(namespace).List(ctx, options)
-	if err != nil {
-		return output, err
-	}
-
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(list.UnstructuredContent(), &output)
-	if err != nil {
-		return output, err
-	}
-
-	return output, nil
-}
-
 // listResourceMulti
-func listResourceMulti[T runtime.Object](ctx context.Context, client dynamic.NamespaceableResourceInterface, namespaces []string, options metav1.ListOptions) (T, error) {
-	var output T
+func listResourceMulti(ctx context.Context, client dynamic.NamespaceableResourceInterface, namespaces []string, options metav1.ListOptions) (*unstructured.UnstructuredList, error) {
 	var wg sync.WaitGroup
 	ch := make(chan FetchResponse, len(namespaces))
 
 	// decode continue token
 	continueMap, err := decodeContinueMulti(options.Continue)
 	if err != nil {
-		return output, err
+		return nil, err
 	}
 
 	// execute queries
@@ -291,18 +273,7 @@ func listResourceMulti[T runtime.Object](ctx context.Context, client dynamic.Nam
 	}
 
 	// merge results
-	list, err := mergeResults(responses, options)
-	if err != nil {
-		return output, err
-	}
-
-	// de-serialize
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(list.UnstructuredContent(), &output)
-	if err != nil {
-		return output, err
-	}
-
-	return output, nil
+	return mergeResults(responses, options)
 }
 
 // listResource
@@ -325,11 +296,21 @@ func listResource[T runtime.Object](r *queryResolver, ctx context.Context, names
 	// init list options
 	opts := toListOptions(options)
 
-	if len(namespaces) == 1 {
-		return listResourceSingle[T](ctx, client, namespaces[0], opts)
-	} else {
-		return listResourceMulti[T](ctx, client, namespaces, opts)
+	// execute requests
+	list, err := func() (*unstructured.UnstructuredList, error) {
+		if len(namespaces) == 1 {
+			return client.Namespace(namespaces[0]).List(ctx, opts)
+		} else {
+			return listResourceMulti(ctx, client, namespaces, opts)
+		}
+	}()
+	if err != nil {
+		return output, err
 	}
+
+	// return de-serialized object
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(list.UnstructuredContent(), &output)
+	return output, err
 }
 
 // watchEventProxyChannel
