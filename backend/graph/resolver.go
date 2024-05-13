@@ -18,10 +18,12 @@ import (
 	//"os"
 
 	"context"
+	"fmt"
 	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
+	dynamicFake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
@@ -37,6 +39,7 @@ type Resolver struct {
 	k8sCfg            *rest.Config
 	allowedNamespaces []string
 	TestClientset     *fake.Clientset
+	TestDynamicClient *dynamicFake.FakeDynamicClient
 }
 
 func (r *Resolver) K8SClientset(ctx context.Context) kubernetes.Interface {
@@ -63,8 +66,14 @@ func (r *Resolver) K8SClientset(ctx context.Context) kubernetes.Interface {
 }
 
 func (r *Resolver) K8SDynamicClient(ctx context.Context) dynamic.Interface {
+	if r.TestDynamicClient != nil {
+		return r.TestDynamicClient
+	}
+
 	// copy config
 	cfg := rest.CopyConfig(r.k8sCfg)
+
+	fmt.Println("111")
 
 	// get token from context
 	token, ok := ctx.Value(K8STokenCtxKey).(string)
@@ -72,6 +81,8 @@ func (r *Resolver) K8SDynamicClient(ctx context.Context) dynamic.Interface {
 		cfg.BearerToken = token
 		cfg.BearerTokenFile = ""
 	}
+
+	fmt.Println("222")
 
 	dynamicClient, err := dynamic.NewForConfig(cfg)
 	if err != nil {

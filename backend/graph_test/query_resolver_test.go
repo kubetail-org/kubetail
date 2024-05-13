@@ -777,11 +777,11 @@ func (suite *QueryResolverTestSuite) TestCoreV1PodsList() {
 	}
 
 	// add data
-	obj1 := corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "x1"}}
-	suite.resolver.TestClientset.CoreV1().Pods("ns").Create(context.Background(), &obj1, metav1.CreateOptions{})
-
-	obj2 := corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "x2"}}
-	suite.resolver.TestClientset.CoreV1().Pods("ns").Create(context.Background(), &obj2, metav1.CreateOptions{})
+	suite.PopulateDynamicClient(
+		"ns",
+		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "x1"}},
+		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "x2"}},
+	)
 
 	// check not empty
 	{

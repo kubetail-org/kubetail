@@ -158,8 +158,11 @@ func (r *queryResolver) CoreV1PodsGet(ctx context.Context, namespace *string, na
 
 // CoreV1PodsList is the resolver for the coreV1PodsList field.
 func (r *queryResolver) CoreV1PodsList(ctx context.Context, namespace *string, options *metav1.ListOptions) (*corev1.PodList, error) {
-	//return r.K8SClientset(ctx).CoreV1().Pods(r.ToNamespace(namespace)).List(ctx, toListOptions(options))
-	return listResource[*corev1.PodList](r, ctx, namespace, options)
+	podList := &corev1.PodList{}
+	if err := listResource(r, ctx, namespace, options, podList); err != nil {
+		return nil, err
+	}
+	return podList, nil
 }
 
 // CoreV1PodsGetLogs is the resolver for the coreV1PodsGetLogs field.

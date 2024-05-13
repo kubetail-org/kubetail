@@ -90,9 +90,11 @@ type FollowArgs struct {
 	Since string
 }
 
-// getGVR
-func getGVR(obj runtime.Object) (schema.GroupVersionResource, error) {
+// GetGVR
+func GetGVR(obj runtime.Object) (schema.GroupVersionResource, error) {
 	switch (obj).(type) {
+	case *corev1.Pod:
+		return schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, nil
 	case *corev1.PodList:
 		return schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, nil
 	default:
@@ -108,14 +110,14 @@ type FetchResponse struct {
 }
 
 // represents multi-namespace continue token
-type continueToken struct {
+type continueMultiToken struct {
 	ResourceVersions map[string]string `json:"rv"`
 	StartKey         string            `json:"start"`
 }
 
 // encode continue token
 func encodeContinueMulti(resourceVersions map[string]string, startKey string) (string, error) {
-	token := continueToken{ResourceVersions: resourceVersions, StartKey: startKey}
+	token := continueMultiToken{ResourceVersions: resourceVersions, StartKey: startKey}
 
 	// json-encoding
 	tokenBytes, err := json.Marshal(token)
@@ -140,7 +142,7 @@ func decodeContinueMulti(tokenStr string) (map[string]string, error) {
 	}
 
 	// json-decode
-	token := &continueToken{}
+	token := &continueMultiToken{}
 	err = json.Unmarshal(tokenBytes, token)
 	if err != nil {
 		return nil, err
@@ -277,20 +279,19 @@ func listResourceMulti(ctx context.Context, client dynamic.NamespaceableResource
 }
 
 // listResource
-func listResource[T runtime.Object](r *queryResolver, ctx context.Context, namespace *string, options *metav1.ListOptions) (T, error) {
-	var output T
-
+func listResource(r *queryResolver, ctx context.Context, namespace *string, options *metav1.ListOptions, modelPtr runtime.Object) error {
 	// init client
-	gvr, err := getGVR(output)
+	gvr, err := GetGVR(modelPtr)
 	if err != nil {
-		return output, err
+		return err
 	}
+
 	client := r.K8SDynamicClient(ctx).Resource(gvr)
 
 	// init namespaces
 	namespaces, err := r.ToNamespaces(namespace)
 	if err != nil {
-		return output, err
+		return err
 	}
 
 	// init list options
@@ -305,12 +306,11 @@ func listResource[T runtime.Object](r *queryResolver, ctx context.Context, names
 		}
 	}()
 	if err != nil {
-		return output, err
+		return err
 	}
 
 	// return de-serialized object
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(list.UnstructuredContent(), &output)
-	return output, err
+	return runtime.DefaultUnstructuredConverter.FromUnstructured(list.UnstructuredContent(), modelPtr)
 }
 
 // watchEventProxyChannel
