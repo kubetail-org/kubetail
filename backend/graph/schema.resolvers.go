@@ -72,7 +72,11 @@ func (r *queryResolver) AppsV1DaemonSetsGet(ctx context.Context, name string, na
 
 // AppsV1DaemonSetsList is the resolver for the appsV1DaemonSetsList field.
 func (r *queryResolver) AppsV1DaemonSetsList(ctx context.Context, namespace *string, options *metav1.ListOptions) (*appsv1.DaemonSetList, error) {
-	return r.K8SClientset(ctx).AppsV1().DaemonSets(r.ToNamespace(namespace)).List(ctx, toListOptions(options))
+	daemonSetList := &appsv1.DaemonSetList{}
+	if err := listResource(r, ctx, namespace, options, daemonSetList); err != nil {
+		return nil, err
+	}
+	return daemonSetList, nil
 }
 
 // AppsV1DeploymentsGet is the resolver for the appsV1DeploymentsGet field.
@@ -82,7 +86,11 @@ func (r *queryResolver) AppsV1DeploymentsGet(ctx context.Context, name string, n
 
 // AppsV1DeploymentsList is the resolver for the appsV1DeploymentsList field.
 func (r *queryResolver) AppsV1DeploymentsList(ctx context.Context, namespace *string, options *metav1.ListOptions) (*appsv1.DeploymentList, error) {
-	return r.K8SClientset(ctx).AppsV1().Deployments(r.ToNamespace(namespace)).List(ctx, toListOptions(options))
+	deploymentList := &appsv1.DeploymentList{}
+	if err := listResource(r, ctx, namespace, options, deploymentList); err != nil {
+		return nil, err
+	}
+	return deploymentList, nil
 }
 
 // AppsV1ReplicaSetsGet is the resolver for the appsV1ReplicaSetsGet field.
@@ -92,7 +100,11 @@ func (r *queryResolver) AppsV1ReplicaSetsGet(ctx context.Context, name string, n
 
 // AppsV1ReplicaSetsList is the resolver for the appsV1ReplicaSetsList field.
 func (r *queryResolver) AppsV1ReplicaSetsList(ctx context.Context, namespace *string, options *metav1.ListOptions) (*appsv1.ReplicaSetList, error) {
-	return r.K8SClientset(ctx).AppsV1().ReplicaSets(r.ToNamespace(namespace)).List(ctx, toListOptions(options))
+	replicaSetList := &appsv1.ReplicaSetList{}
+	if err := listResource(r, ctx, namespace, options, replicaSetList); err != nil {
+		return nil, err
+	}
+	return replicaSetList, nil
 }
 
 // AppsV1StatefulSetsGet is the resolver for the appsV1StatefulSetsGet field.
@@ -102,7 +114,11 @@ func (r *queryResolver) AppsV1StatefulSetsGet(ctx context.Context, name string, 
 
 // AppsV1StatefulSetsList is the resolver for the appsV1StatefulSetsList field.
 func (r *queryResolver) AppsV1StatefulSetsList(ctx context.Context, namespace *string, options *metav1.ListOptions) (*appsv1.StatefulSetList, error) {
-	return r.K8SClientset(ctx).AppsV1().StatefulSets(r.ToNamespace(namespace)).List(ctx, toListOptions(options))
+	statefulSetList := &appsv1.StatefulSetList{}
+	if err := listResource(r, ctx, namespace, options, statefulSetList); err != nil {
+		return nil, err
+	}
+	return statefulSetList, nil
 }
 
 // BatchV1CronJobsGet is the resolver for the batchV1CronJobsGet field.
@@ -112,7 +128,11 @@ func (r *queryResolver) BatchV1CronJobsGet(ctx context.Context, name string, nam
 
 // BatchV1CronJobsList is the resolver for the batchV1CronJobsList field.
 func (r *queryResolver) BatchV1CronJobsList(ctx context.Context, namespace *string, options *metav1.ListOptions) (*batchv1.CronJobList, error) {
-	return r.K8SClientset(ctx).BatchV1().CronJobs(r.ToNamespace(namespace)).List(ctx, toListOptions(options))
+	cronJobList := &batchv1.CronJobList{}
+	if err := listResource(r, ctx, namespace, options, cronJobList); err != nil {
+		return nil, err
+	}
+	return cronJobList, nil
 }
 
 // BatchV1JobsGet is the resolver for the batchV1JobsGet field.
@@ -122,7 +142,11 @@ func (r *queryResolver) BatchV1JobsGet(ctx context.Context, name string, namespa
 
 // BatchV1JobsList is the resolver for the batchV1JobsList field.
 func (r *queryResolver) BatchV1JobsList(ctx context.Context, namespace *string, options *metav1.ListOptions) (*batchv1.JobList, error) {
-	return r.K8SClientset(ctx).BatchV1().Jobs(r.ToNamespace(namespace)).List(ctx, toListOptions(options))
+	jobList := &batchv1.JobList{}
+	if err := listResource(r, ctx, namespace, options, jobList); err != nil {
+		return nil, err
+	}
+	return jobList, nil
 }
 
 // CoreV1NamespacesList is the resolver for the coreV1NamespacesList field.

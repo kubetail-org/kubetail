@@ -105,11 +105,11 @@ func (suite *QueryResolverTestSuite) TestAppsV1DaemonSetsList() {
 	}
 
 	// add data
-	obj1 := appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Name: "x1"}}
-	suite.resolver.TestClientset.AppsV1().DaemonSets("ns").Create(context.Background(), &obj1, metav1.CreateOptions{})
-
-	obj2 := appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Name: "x2"}}
-	suite.resolver.TestClientset.AppsV1().DaemonSets("ns").Create(context.Background(), &obj2, metav1.CreateOptions{})
+	suite.PopulateDynamicClient(
+		"ns",
+		&appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Name: "x1"}},
+		&appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Name: "x2"}},
+	)
 
 	// check not empty
 	{
@@ -199,11 +199,11 @@ func (suite *QueryResolverTestSuite) TestAppsV1DeploymentsList() {
 	}
 
 	// add data
-	obj1 := appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "x1"}}
-	suite.resolver.TestClientset.AppsV1().Deployments("ns").Create(context.Background(), &obj1, metav1.CreateOptions{})
-
-	obj2 := appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "x2"}}
-	suite.resolver.TestClientset.AppsV1().Deployments("ns").Create(context.Background(), &obj2, metav1.CreateOptions{})
+	suite.PopulateDynamicClient(
+		"ns",
+		&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "x1"}},
+		&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "x2"}},
+	)
 
 	// check not empty
 	{
@@ -293,11 +293,11 @@ func (suite *QueryResolverTestSuite) TestAppsV1ReplicaSetsList() {
 	}
 
 	// add data
-	obj1 := appsv1.ReplicaSet{ObjectMeta: metav1.ObjectMeta{Name: "x1"}}
-	suite.resolver.TestClientset.AppsV1().ReplicaSets("ns").Create(context.Background(), &obj1, metav1.CreateOptions{})
-
-	obj2 := appsv1.ReplicaSet{ObjectMeta: metav1.ObjectMeta{Name: "x2"}}
-	suite.resolver.TestClientset.AppsV1().ReplicaSets("ns").Create(context.Background(), &obj2, metav1.CreateOptions{})
+	suite.PopulateDynamicClient(
+		"ns",
+		&appsv1.ReplicaSet{ObjectMeta: metav1.ObjectMeta{Name: "x1"}},
+		&appsv1.ReplicaSet{ObjectMeta: metav1.ObjectMeta{Name: "x2"}},
+	)
 
 	// check not empty
 	{
@@ -387,11 +387,11 @@ func (suite *QueryResolverTestSuite) TestAppsV1StatefulSetsList() {
 	}
 
 	// add data
-	obj1 := appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: "x1"}}
-	suite.resolver.TestClientset.AppsV1().StatefulSets("ns").Create(context.Background(), &obj1, metav1.CreateOptions{})
-
-	obj2 := appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: "x2"}}
-	suite.resolver.TestClientset.AppsV1().StatefulSets("ns").Create(context.Background(), &obj2, metav1.CreateOptions{})
+	suite.PopulateDynamicClient(
+		"ns",
+		&appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: "x1"}},
+		&appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: "x2"}},
+	)
 
 	// check not empty
 	{
@@ -481,11 +481,11 @@ func (suite *QueryResolverTestSuite) TestBatchV1CronJobsList() {
 	}
 
 	// add data
-	obj1 := batchv1.CronJob{ObjectMeta: metav1.ObjectMeta{Name: "x1"}}
-	suite.resolver.TestClientset.BatchV1().CronJobs("ns").Create(context.Background(), &obj1, metav1.CreateOptions{})
-
-	obj2 := batchv1.CronJob{ObjectMeta: metav1.ObjectMeta{Name: "x2"}}
-	suite.resolver.TestClientset.BatchV1().CronJobs("ns").Create(context.Background(), &obj2, metav1.CreateOptions{})
+	suite.PopulateDynamicClient(
+		"ns",
+		&batchv1.CronJob{ObjectMeta: metav1.ObjectMeta{Name: "x1"}},
+		&batchv1.CronJob{ObjectMeta: metav1.ObjectMeta{Name: "x2"}},
+	)
 
 	// check not empty
 	{
@@ -575,11 +575,11 @@ func (suite *QueryResolverTestSuite) TestBatchV1JobsList() {
 	}
 
 	// add data
-	obj1 := batchv1.Job{ObjectMeta: metav1.ObjectMeta{Name: "x1"}}
-	suite.resolver.TestClientset.BatchV1().Jobs("ns").Create(context.Background(), &obj1, metav1.CreateOptions{})
-
-	obj2 := batchv1.Job{ObjectMeta: metav1.ObjectMeta{Name: "x2"}}
-	suite.resolver.TestClientset.BatchV1().Jobs("ns").Create(context.Background(), &obj2, metav1.CreateOptions{})
+	suite.PopulateDynamicClient(
+		"ns",
+		&batchv1.Job{ObjectMeta: metav1.ObjectMeta{Name: "x1"}},
+		&batchv1.Job{ObjectMeta: metav1.ObjectMeta{Name: "x2"}},
+	)
 
 	// check not empty
 	{

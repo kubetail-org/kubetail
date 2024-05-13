@@ -33,6 +33,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/suite"
 	"github.com/vektah/gqlparser/v2/gqlerror"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -90,6 +92,12 @@ func (suite *GraphTestSuite) SetupTest() {
 
 	// init fake dynamic client
 	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		panic(err)
+	}
+	if err := batchv1.AddToScheme(scheme); err != nil {
+		panic(err)
+	}
 	if err := corev1.AddToScheme(scheme); err != nil {
 		panic(err)
 	}

@@ -30,6 +30,8 @@ import (
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/sosodev/duration"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -93,9 +95,19 @@ type FollowArgs struct {
 // GetGVR
 func GetGVR(obj runtime.Object) (schema.GroupVersionResource, error) {
 	switch (obj).(type) {
-	case *corev1.Pod:
-		return schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, nil
-	case *corev1.PodList:
+	case *appsv1.DaemonSet, *appsv1.DaemonSetList:
+		return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}, nil
+	case *appsv1.Deployment, *appsv1.DeploymentList:
+		return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}, nil
+	case *appsv1.ReplicaSet, *appsv1.ReplicaSetList:
+		return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}, nil
+	case *appsv1.StatefulSet, *appsv1.StatefulSetList:
+		return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}, nil
+	case *batchv1.Job, *batchv1.JobList:
+		return schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}, nil
+	case *batchv1.CronJob, *batchv1.CronJobList:
+		return schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"}, nil
+	case *corev1.Pod, *corev1.PodList:
 		return schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, nil
 	default:
 		return schema.GroupVersionResource{}, fmt.Errorf("not implemented: %T", obj)
