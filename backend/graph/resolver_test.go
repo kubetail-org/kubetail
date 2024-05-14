@@ -69,7 +69,8 @@ func TestToNamespaceSuccess(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := Resolver{allowedNamespaces: tt.setAllowedNamespaces}
-			actualNamespace := r.ToNamespace(tt.setNamespace)
+			actualNamespace, err := r.ToNamespace(tt.setNamespace)
+			assert.Nil(t, err)
 			assert.Equal(t, tt.wantNamespace, actualNamespace)
 		})
 	}
@@ -115,10 +116,11 @@ func TestToNamespaceError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Panics(t, func() {
-				r := Resolver{allowedNamespaces: tt.setAllowedNamespaces}
-				r.ToNamespace(tt.setNamespace)
-			})
+			r := Resolver{allowedNamespaces: tt.setAllowedNamespaces}
+			ns, err := r.ToNamespace(tt.setNamespace)
+			assert.Equal(t, ns, "")
+			assert.NotNil(t, err)
+			assert.Equal(t, err, ErrForbidden)
 		})
 	}
 }

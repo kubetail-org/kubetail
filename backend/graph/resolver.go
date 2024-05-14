@@ -85,22 +85,18 @@ func (r *Resolver) K8SDynamicClient(ctx context.Context) dynamic.Interface {
 	return dynamicClient
 }
 
-func (r *Resolver) ToNamespace(namespace *string) string {
-	// check configured namespace
-	if len(r.allowedNamespaces) > 0 {
-		if slices.Contains(r.allowedNamespaces, *namespace) {
-			return *namespace
-		} else {
-			panic("xxx")
-		}
-	}
-
-	// use default behavior
+func (r *Resolver) ToNamespace(namespace *string) (string, error) {
 	ns := metav1.NamespaceDefault
 	if namespace != nil {
 		ns = *namespace
 	}
-	return ns
+
+	// perform auth
+	if len(r.allowedNamespaces) > 0 && !slices.Contains(r.allowedNamespaces, ns) {
+		return "", ErrForbidden
+	}
+
+	return ns, nil
 }
 
 func (r *Resolver) ToNamespaces(namespace *string) ([]string, error) {

@@ -1,3 +1,17 @@
+// Copyright 2024 Andres Morey
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package graph
 
 // This file will be automatically regenerated based on the schema, any resolver implementations
@@ -67,7 +81,11 @@ func (r *coreV1PodsWatchEventResolver) Object(ctx context.Context, obj *watch.Ev
 
 // AppsV1DaemonSetsGet is the resolver for the appsV1DaemonSetsGet field.
 func (r *queryResolver) AppsV1DaemonSetsGet(ctx context.Context, name string, namespace *string, options *metav1.GetOptions) (*appsv1.DaemonSet, error) {
-	return r.K8SClientset(ctx).AppsV1().DaemonSets(r.ToNamespace(namespace)).Get(ctx, name, toGetOptions(options))
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+	return r.K8SClientset(ctx).AppsV1().DaemonSets(ns).Get(ctx, name, toGetOptions(options))
 }
 
 // AppsV1DaemonSetsList is the resolver for the appsV1DaemonSetsList field.
@@ -81,7 +99,11 @@ func (r *queryResolver) AppsV1DaemonSetsList(ctx context.Context, namespace *str
 
 // AppsV1DeploymentsGet is the resolver for the appsV1DeploymentsGet field.
 func (r *queryResolver) AppsV1DeploymentsGet(ctx context.Context, name string, namespace *string, options *metav1.GetOptions) (*appsv1.Deployment, error) {
-	return r.K8SClientset(ctx).AppsV1().Deployments(r.ToNamespace(namespace)).Get(ctx, name, toGetOptions(options))
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+	return r.K8SClientset(ctx).AppsV1().Deployments(ns).Get(ctx, name, toGetOptions(options))
 }
 
 // AppsV1DeploymentsList is the resolver for the appsV1DeploymentsList field.
@@ -95,7 +117,11 @@ func (r *queryResolver) AppsV1DeploymentsList(ctx context.Context, namespace *st
 
 // AppsV1ReplicaSetsGet is the resolver for the appsV1ReplicaSetsGet field.
 func (r *queryResolver) AppsV1ReplicaSetsGet(ctx context.Context, name string, namespace *string, options *metav1.GetOptions) (*appsv1.ReplicaSet, error) {
-	return r.K8SClientset(ctx).AppsV1().ReplicaSets(r.ToNamespace(namespace)).Get(ctx, name, toGetOptions(options))
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+	return r.K8SClientset(ctx).AppsV1().ReplicaSets(ns).Get(ctx, name, toGetOptions(options))
 }
 
 // AppsV1ReplicaSetsList is the resolver for the appsV1ReplicaSetsList field.
@@ -109,7 +135,11 @@ func (r *queryResolver) AppsV1ReplicaSetsList(ctx context.Context, namespace *st
 
 // AppsV1StatefulSetsGet is the resolver for the appsV1StatefulSetsGet field.
 func (r *queryResolver) AppsV1StatefulSetsGet(ctx context.Context, name string, namespace *string, options *metav1.GetOptions) (*appsv1.StatefulSet, error) {
-	return r.K8SClientset(ctx).AppsV1().StatefulSets(r.ToNamespace(namespace)).Get(ctx, name, toGetOptions(options))
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+	return r.K8SClientset(ctx).AppsV1().StatefulSets(ns).Get(ctx, name, toGetOptions(options))
 }
 
 // AppsV1StatefulSetsList is the resolver for the appsV1StatefulSetsList field.
@@ -123,7 +153,11 @@ func (r *queryResolver) AppsV1StatefulSetsList(ctx context.Context, namespace *s
 
 // BatchV1CronJobsGet is the resolver for the batchV1CronJobsGet field.
 func (r *queryResolver) BatchV1CronJobsGet(ctx context.Context, name string, namespace *string, options *metav1.GetOptions) (*batchv1.CronJob, error) {
-	return r.K8SClientset(ctx).BatchV1().CronJobs(r.ToNamespace(namespace)).Get(ctx, name, toGetOptions(options))
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+	return r.K8SClientset(ctx).BatchV1().CronJobs(ns).Get(ctx, name, toGetOptions(options))
 }
 
 // BatchV1CronJobsList is the resolver for the batchV1CronJobsList field.
@@ -137,7 +171,11 @@ func (r *queryResolver) BatchV1CronJobsList(ctx context.Context, namespace *stri
 
 // BatchV1JobsGet is the resolver for the batchV1JobsGet field.
 func (r *queryResolver) BatchV1JobsGet(ctx context.Context, name string, namespace *string, options *metav1.GetOptions) (*batchv1.Job, error) {
-	return r.K8SClientset(ctx).BatchV1().Jobs(r.ToNamespace(namespace)).Get(ctx, name, toGetOptions(options))
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+	return r.K8SClientset(ctx).BatchV1().Jobs(ns).Get(ctx, name, toGetOptions(options))
 }
 
 // BatchV1JobsList is the resolver for the batchV1JobsList field.
@@ -177,7 +215,11 @@ func (r *queryResolver) CoreV1NodesList(ctx context.Context, options *metav1.Lis
 
 // CoreV1PodsGet is the resolver for the coreV1PodsGet field.
 func (r *queryResolver) CoreV1PodsGet(ctx context.Context, namespace *string, name string, options *metav1.GetOptions) (*corev1.Pod, error) {
-	return r.K8SClientset(ctx).CoreV1().Pods(r.ToNamespace(namespace)).Get(ctx, name, toGetOptions(options))
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+	return r.K8SClientset(ctx).CoreV1().Pods(ns).Get(ctx, name, toGetOptions(options))
 }
 
 // CoreV1PodsList is the resolver for the coreV1PodsList field.
@@ -196,8 +238,14 @@ func (r *queryResolver) CoreV1PodsGetLogs(ctx context.Context, namespace *string
 	opts.Follow = false
 	opts.Timestamps = true
 
+	// init namespace
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	// execute query
-	req := r.K8SClientset(ctx).CoreV1().Pods(r.ToNamespace(namespace)).GetLogs(name, &opts)
+	req := r.K8SClientset(ctx).CoreV1().Pods(ns).GetLogs(name, &opts)
 	podLogs, err := req.Stream(ctx)
 	if err != nil {
 		return nil, err
@@ -223,6 +271,12 @@ func (r *queryResolver) CoreV1PodsGetLogs(ctx context.Context, namespace *string
 
 // PodLogHead is the resolver for the podLogHead field.
 func (r *queryResolver) PodLogHead(ctx context.Context, namespace *string, name string, container *string, after *string, since *string, first *int) (*model.PodLogQueryResponse, error) {
+	// init namespace
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	// build query args
 	args := HeadArgs{}
 
@@ -238,11 +292,17 @@ func (r *queryResolver) PodLogHead(ctx context.Context, namespace *string, name 
 		args.First = uint(*first)
 	}
 
-	return headPodLog(ctx, r.K8SClientset(ctx), r.ToNamespace(namespace), name, container, args)
+	return headPodLog(ctx, r.K8SClientset(ctx), ns, name, container, args)
 }
 
 // PodLogTail is the resolver for the podLogTail field.
 func (r *queryResolver) PodLogTail(ctx context.Context, namespace *string, name string, container *string, before *string, last *int) (*model.PodLogQueryResponse, error) {
+	// init namespace
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	// build query args
 	args := TailArgs{}
 
@@ -254,7 +314,7 @@ func (r *queryResolver) PodLogTail(ctx context.Context, namespace *string, name 
 		args.Last = uint(*last)
 	}
 
-	return tailPodLog(ctx, r.K8SClientset(ctx), r.ToNamespace(namespace), name, container, args)
+	return tailPodLog(ctx, r.K8SClientset(ctx), ns, name, container, args)
 }
 
 // LivezGet is the resolver for the livezGet field.
@@ -269,7 +329,13 @@ func (r *queryResolver) ReadyzGet(ctx context.Context) (model.HealthCheckRespons
 
 // AppsV1DaemonSetsWatch is the resolver for the appsV1DaemonSetsWatch field.
 func (r *subscriptionResolver) AppsV1DaemonSetsWatch(ctx context.Context, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
-	watchAPI, err := r.K8SClientset(ctx).AppsV1().DaemonSets(r.ToNamespace(namespace)).Watch(ctx, toListOptions(options))
+	// init namespace
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	watchAPI, err := r.K8SClientset(ctx).AppsV1().DaemonSets(ns).Watch(ctx, toListOptions(options))
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +344,13 @@ func (r *subscriptionResolver) AppsV1DaemonSetsWatch(ctx context.Context, namesp
 
 // AppsV1DeploymentsWatch is the resolver for the appsV1DeploymentsWatch field.
 func (r *subscriptionResolver) AppsV1DeploymentsWatch(ctx context.Context, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
-	watchAPI, err := r.K8SClientset(ctx).AppsV1().Deployments(r.ToNamespace(namespace)).Watch(ctx, toListOptions(options))
+	// init namespace
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	watchAPI, err := r.K8SClientset(ctx).AppsV1().Deployments(ns).Watch(ctx, toListOptions(options))
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +359,13 @@ func (r *subscriptionResolver) AppsV1DeploymentsWatch(ctx context.Context, names
 
 // AppsV1ReplicaSetsWatch is the resolver for the appsV1ReplicaSetsWatch field.
 func (r *subscriptionResolver) AppsV1ReplicaSetsWatch(ctx context.Context, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
-	watchAPI, err := r.K8SClientset(ctx).AppsV1().ReplicaSets(r.ToNamespace(namespace)).Watch(ctx, toListOptions(options))
+	// init namespace
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	watchAPI, err := r.K8SClientset(ctx).AppsV1().ReplicaSets(ns).Watch(ctx, toListOptions(options))
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +374,13 @@ func (r *subscriptionResolver) AppsV1ReplicaSetsWatch(ctx context.Context, names
 
 // AppsV1StatefulSetsWatch is the resolver for the appsV1StatefulSetsWatch field.
 func (r *subscriptionResolver) AppsV1StatefulSetsWatch(ctx context.Context, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
-	watchAPI, err := r.K8SClientset(ctx).AppsV1().StatefulSets(r.ToNamespace(namespace)).Watch(ctx, toListOptions(options))
+	// init namespace
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	watchAPI, err := r.K8SClientset(ctx).AppsV1().StatefulSets(ns).Watch(ctx, toListOptions(options))
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +389,13 @@ func (r *subscriptionResolver) AppsV1StatefulSetsWatch(ctx context.Context, name
 
 // BatchV1CronJobsWatch is the resolver for the batchV1CronJobsWatch field.
 func (r *subscriptionResolver) BatchV1CronJobsWatch(ctx context.Context, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
-	watchAPI, err := r.K8SClientset(ctx).BatchV1().CronJobs(r.ToNamespace(namespace)).Watch(ctx, toListOptions(options))
+	// init namespace
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	watchAPI, err := r.K8SClientset(ctx).BatchV1().CronJobs(ns).Watch(ctx, toListOptions(options))
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +404,13 @@ func (r *subscriptionResolver) BatchV1CronJobsWatch(ctx context.Context, namespa
 
 // BatchV1JobsWatch is the resolver for the batchV1JobsWatch field.
 func (r *subscriptionResolver) BatchV1JobsWatch(ctx context.Context, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
-	watchAPI, err := r.K8SClientset(ctx).BatchV1().Jobs(r.ToNamespace(namespace)).Watch(ctx, toListOptions(options))
+	// init namespace
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	watchAPI, err := r.K8SClientset(ctx).BatchV1().Jobs(ns).Watch(ctx, toListOptions(options))
 	if err != nil {
 		return nil, err
 	}
@@ -341,7 +437,13 @@ func (r *subscriptionResolver) CoreV1NodesWatch(ctx context.Context, options *me
 
 // CoreV1PodsWatch is the resolver for the coreV1PodsWatch field.
 func (r *subscriptionResolver) CoreV1PodsWatch(ctx context.Context, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
-	watchAPI, err := r.K8SClientset(ctx).CoreV1().Pods(r.ToNamespace(namespace)).Watch(ctx, toListOptions(options))
+	// init namespace
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	watchAPI, err := r.K8SClientset(ctx).CoreV1().Pods(ns).Watch(ctx, toListOptions(options))
 	if err != nil {
 		return nil, err
 	}
@@ -355,8 +457,14 @@ func (r *subscriptionResolver) CoreV1PodLogTail(ctx context.Context, namespace *
 	opts.Follow = true
 	opts.Timestamps = true
 
+	// init namespace
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	// execute query
-	req := r.K8SClientset(ctx).CoreV1().Pods(r.ToNamespace(namespace)).GetLogs(name, &opts)
+	req := r.K8SClientset(ctx).CoreV1().Pods(ns).GetLogs(name, &opts)
 	podLogs, err := req.Stream(ctx)
 	if err != nil {
 		return nil, err
@@ -380,6 +488,12 @@ func (r *subscriptionResolver) CoreV1PodLogTail(ctx context.Context, namespace *
 
 // PodLogFollow is the resolver for the podLogFollow field.
 func (r *subscriptionResolver) PodLogFollow(ctx context.Context, namespace *string, name string, container *string, after *string, since *string) (<-chan *model.LogRecord, error) {
+	// init namespace
+	ns, err := r.ToNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	// build follow args
 	args := FollowArgs{}
 
@@ -392,7 +506,7 @@ func (r *subscriptionResolver) PodLogFollow(ctx context.Context, namespace *stri
 	}
 
 	// init follow
-	inCh, err := followPodLog(ctx, r.K8SClientset(ctx), r.ToNamespace(namespace), name, container, args)
+	inCh, err := followPodLog(ctx, r.K8SClientset(ctx), ns, name, container, args)
 	if err != nil {
 		return nil, err
 	}
