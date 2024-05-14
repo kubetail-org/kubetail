@@ -31,6 +31,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
@@ -329,17 +330,8 @@ func (r *queryResolver) ReadyzGet(ctx context.Context) (model.HealthCheckRespons
 
 // AppsV1DaemonSetsWatch is the resolver for the appsV1DaemonSetsWatch field.
 func (r *subscriptionResolver) AppsV1DaemonSetsWatch(ctx context.Context, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
-	// init namespace
-	ns, err := r.ToNamespace(namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	watchAPI, err := r.K8SClientset(ctx).AppsV1().DaemonSets(ns).Watch(ctx, toListOptions(options))
-	if err != nil {
-		return nil, err
-	}
-	return watchEventProxyChannel(ctx, watchAPI), nil
+	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}
+	return watchResource(r, ctx, gvr, namespace, options)
 }
 
 // AppsV1DeploymentsWatch is the resolver for the appsV1DeploymentsWatch field.

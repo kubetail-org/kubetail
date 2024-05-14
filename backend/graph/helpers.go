@@ -367,6 +367,91 @@ func watchEventProxyChannel(ctx context.Context, watchAPI watch.Interface) <-cha
 	return outCh
 }
 
+// watchResource
+func watchResource(r *subscriptionResolver, ctx context.Context, gvr schema.GroupVersionResource, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+	client := r.K8SDynamicClient(ctx).Resource(gvr)
+
+	// init namespaces
+	namespaces, err := r.ToNamespaces(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	// init list options
+	opts := toListOptions(options)
+
+	// init watch api's
+	watchAPIs := []watch.Interface{}
+	for _, ns := range namespaces {
+		watchAPI, err := client.Namespace(ns).Watch(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+		watchAPIs = append(watchAPIs, watchAPI)
+	}
+
+	// start watches
+	outCh := make(chan *watch.Event)
+	var wg sync.WaitGroup
+
+	for _, watchAPI := range watchAPIs {
+		wg.Add(1)
+		go func(watchAPI watch.Interface) {
+			defer wg.Done()
+
+			for ev := range watchAPI.ResultChan() {
+				// just-in-case (maybe this is unnecessary)
+				if ev.Type == "" || ev.Object == nil {
+					break
+				}
+
+				// exit if error
+				if ev.Type == watch.Error {
+					status, ok := ev.Object.(*metav1.Status)
+					if ok {
+						transport.AddSubscriptionError(ctx, NewWatchError(status))
+					} else {
+						transport.AddSubscriptionError(ctx, ErrInternalServerError)
+					}
+					break
+				}
+
+				//runtime.DefaultUnstructuredConverter.FromUnstructured(ev.UnstructuredContent(), &ev.Object)
+
+				// write to output channel
+				outCh <- &ev
+			}
+
+			// cleanup
+			watchAPI.Stop()
+		}(watchAPI)
+	}
+
+	// monitor watch api's and ctx
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	go func() {
+		select {
+		case <-done:
+			// do nothing
+		case <-ctx.Done():
+			// do nothing
+		}
+
+		// stop watchers
+		for _, watchAPI := range watchAPIs {
+			watchAPI.Stop()
+		}
+		close(outCh)
+	}()
+
+	return outCh, nil
+}
+
 // getHealth
 func getHealth(ctx context.Context, clientset kubernetes.Interface, endpoint string) model.HealthCheckResponse {
 	resp := model.HealthCheckResponse{
@@ -454,6 +539,9 @@ func typeassertRuntimeObject[T any](object runtime.Object) (T, error) {
 	switch o := object.(type) {
 	case T:
 		return o, nil
+	case *unstructured.Unstructured:
+		err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.UnstructuredContent(), &zeroVal)
+		return zeroVal, err
 	default:
 		return zeroVal, fmt.Errorf("not expecting type %T", o)
 	}
