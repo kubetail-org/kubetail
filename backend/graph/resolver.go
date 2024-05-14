@@ -15,10 +15,7 @@
 package graph
 
 import (
-	//"os"
-
 	"context"
-	"fmt"
 	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,16 +70,12 @@ func (r *Resolver) K8SDynamicClient(ctx context.Context) dynamic.Interface {
 	// copy config
 	cfg := rest.CopyConfig(r.k8sCfg)
 
-	fmt.Println("111")
-
 	// get token from context
 	token, ok := ctx.Value(K8STokenCtxKey).(string)
 	if ok {
 		cfg.BearerToken = token
 		cfg.BearerTokenFile = ""
 	}
-
-	fmt.Println("222")
 
 	dynamicClient, err := dynamic.NewForConfig(cfg)
 	if err != nil {

@@ -222,7 +222,7 @@ func mergeResults(responses []FetchResponse, options metav1.ListOptions) (*unstr
 
 	// generate continue token
 	var continueToken string
-	if len(items) > 0 {
+	if len(items) > 0 && remainingItemCount > 0 {
 		continueToken, err = encodeContinueMulti(resourceVersionMap, items[len(items)-1].GetName())
 		if err != nil {
 			return nil, err
