@@ -87,6 +87,11 @@ func TestToNamespaceError(t *testing.T) {
 			nil,
 		},
 		{
+			"single namespace allowed: <all>",
+			[]string{"testns"},
+			ptr.To[string](""),
+		},
+		{
 			"single namespace allowed: not-testns",
 			[]string{"testns"},
 			ptr.To[string]("not-testns"),
@@ -95,6 +100,11 @@ func TestToNamespaceError(t *testing.T) {
 			"multiple namespaces allowed: <empty>",
 			[]string{"testns1", "testns2"},
 			nil,
+		},
+		{
+			"multiple namespaces allowed: <all>",
+			[]string{"testns1", "testns2"},
+			ptr.To[string](""),
 		},
 		{
 			"multiple namespaces allowed: not-testns1",
