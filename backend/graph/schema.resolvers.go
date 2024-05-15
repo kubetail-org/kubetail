@@ -361,7 +361,7 @@ func (r *subscriptionResolver) BatchV1CronJobsWatch(ctx context.Context, namespa
 
 // BatchV1JobsWatch is the resolver for the batchV1JobsWatch field.
 func (r *subscriptionResolver) BatchV1JobsWatch(ctx context.Context, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
-	gvr := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"}
+	gvr := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
 	return watchResourceMulti(r, ctx, gvr, namespace, options)
 }
 

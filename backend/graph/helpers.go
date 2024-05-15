@@ -413,10 +413,6 @@ Loop:
 			// listener closed connection or another goroutine encountered an error
 			break Loop
 		case ev := <-evCh:
-			if ev.Type == "MODIFIED" {
-				fmt.Println(ev)
-			}
-
 			// just-in-case (maybe this is unnecessary)
 			if ev.Type == "" || ev.Object == nil {
 				// stop all
@@ -593,7 +589,7 @@ func typeassertRuntimeObject[T any](object runtime.Object) (T, error) {
 	case T:
 		return o, nil
 	case *unstructured.Unstructured:
-		err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.UnstructuredContent(), &zeroVal)
+		err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.Object, &zeroVal)
 		return zeroVal, err
 	default:
 		return zeroVal, fmt.Errorf("not expecting type %T", o)
