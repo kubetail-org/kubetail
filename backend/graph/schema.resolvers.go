@@ -235,16 +235,16 @@ func (r *queryResolver) CoreV1PodsList(ctx context.Context, namespace *string, o
 
 // CoreV1PodsGetLogs is the resolver for the coreV1PodsGetLogs field.
 func (r *queryResolver) CoreV1PodsGetLogs(ctx context.Context, namespace *string, name string, options *corev1.PodLogOptions) ([]model.LogRecord, error) {
-	// init options
-	opts := toPodLogOptions(options)
-	opts.Follow = false
-	opts.Timestamps = true
-
 	// init namespace
 	ns, err := r.ToNamespace(namespace)
 	if err != nil {
 		return nil, err
 	}
+
+	// init options
+	opts := toPodLogOptions(options)
+	opts.Follow = false
+	opts.Timestamps = true
 
 	// execute query
 	req := r.K8SClientset(ctx).CoreV1().Pods(ns).GetLogs(name, &opts)
@@ -381,7 +381,7 @@ func (r *subscriptionResolver) CoreV1NamespacesWatch(ctx context.Context, option
 				break
 			}
 
-			// perform auth and write to channel
+			// filter out non-authorized namespaces
 			if len(r.allowedNamespaces) == 0 || (len(r.allowedNamespaces) > 0 && slices.Contains(r.allowedNamespaces, ns.Name)) {
 				outCh <- ev
 			}
@@ -410,16 +410,16 @@ func (r *subscriptionResolver) CoreV1PodsWatch(ctx context.Context, namespace *s
 
 // CoreV1PodLogTail is the resolver for the coreV1PodLogTail field.
 func (r *subscriptionResolver) CoreV1PodLogTail(ctx context.Context, namespace *string, name string, options *corev1.PodLogOptions) (<-chan *model.LogRecord, error) {
-	// init options
-	opts := toPodLogOptions(options)
-	opts.Follow = true
-	opts.Timestamps = true
-
 	// init namespace
 	ns, err := r.ToNamespace(namespace)
 	if err != nil {
 		return nil, err
 	}
+
+	// init options
+	opts := toPodLogOptions(options)
+	opts.Follow = true
+	opts.Timestamps = true
 
 	// execute query
 	req := r.K8SClientset(ctx).CoreV1().Pods(ns).GetLogs(name, &opts)
