@@ -26,6 +26,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/kubetail-org/kubetail/graph/model"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -331,82 +332,37 @@ func (r *queryResolver) ReadyzGet(ctx context.Context) (model.HealthCheckRespons
 // AppsV1DaemonSetsWatch is the resolver for the appsV1DaemonSetsWatch field.
 func (r *subscriptionResolver) AppsV1DaemonSetsWatch(ctx context.Context, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
 	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}
-	return watchResource(r, ctx, gvr, namespace, options)
+	return watchResourceMulti(r, ctx, gvr, namespace, options)
 }
 
 // AppsV1DeploymentsWatch is the resolver for the appsV1DeploymentsWatch field.
 func (r *subscriptionResolver) AppsV1DeploymentsWatch(ctx context.Context, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
-	// init namespace
-	ns, err := r.ToNamespace(namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	watchAPI, err := r.K8SClientset(ctx).AppsV1().Deployments(ns).Watch(ctx, toListOptions(options))
-	if err != nil {
-		return nil, err
-	}
-	return watchEventProxyChannel(ctx, watchAPI), nil
+	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+	return watchResourceMulti(r, ctx, gvr, namespace, options)
 }
 
 // AppsV1ReplicaSetsWatch is the resolver for the appsV1ReplicaSetsWatch field.
 func (r *subscriptionResolver) AppsV1ReplicaSetsWatch(ctx context.Context, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
-	// init namespace
-	ns, err := r.ToNamespace(namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	watchAPI, err := r.K8SClientset(ctx).AppsV1().ReplicaSets(ns).Watch(ctx, toListOptions(options))
-	if err != nil {
-		return nil, err
-	}
-	return watchEventProxyChannel(ctx, watchAPI), nil
+	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
+	return watchResourceMulti(r, ctx, gvr, namespace, options)
 }
 
 // AppsV1StatefulSetsWatch is the resolver for the appsV1StatefulSetsWatch field.
 func (r *subscriptionResolver) AppsV1StatefulSetsWatch(ctx context.Context, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
-	// init namespace
-	ns, err := r.ToNamespace(namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	watchAPI, err := r.K8SClientset(ctx).AppsV1().StatefulSets(ns).Watch(ctx, toListOptions(options))
-	if err != nil {
-		return nil, err
-	}
-	return watchEventProxyChannel(ctx, watchAPI), nil
+	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
+	return watchResourceMulti(r, ctx, gvr, namespace, options)
 }
 
 // BatchV1CronJobsWatch is the resolver for the batchV1CronJobsWatch field.
 func (r *subscriptionResolver) BatchV1CronJobsWatch(ctx context.Context, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
-	// init namespace
-	ns, err := r.ToNamespace(namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	watchAPI, err := r.K8SClientset(ctx).BatchV1().CronJobs(ns).Watch(ctx, toListOptions(options))
-	if err != nil {
-		return nil, err
-	}
-	return watchEventProxyChannel(ctx, watchAPI), nil
+	gvr := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"}
+	return watchResourceMulti(r, ctx, gvr, namespace, options)
 }
 
 // BatchV1JobsWatch is the resolver for the batchV1JobsWatch field.
 func (r *subscriptionResolver) BatchV1JobsWatch(ctx context.Context, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
-	// init namespace
-	ns, err := r.ToNamespace(namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	watchAPI, err := r.K8SClientset(ctx).BatchV1().Jobs(ns).Watch(ctx, toListOptions(options))
-	if err != nil {
-		return nil, err
-	}
-	return watchEventProxyChannel(ctx, watchAPI), nil
+	gvr := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"}
+	return watchResourceMulti(r, ctx, gvr, namespace, options)
 }
 
 // CoreV1NamespacesWatch is the resolver for the coreV1NamespacesWatch field.
@@ -415,7 +371,26 @@ func (r *subscriptionResolver) CoreV1NamespacesWatch(ctx context.Context, option
 	if err != nil {
 		return nil, err
 	}
-	return watchEventProxyChannel(ctx, watchAPI), nil
+
+	outCh := make(chan *watch.Event)
+	go func() {
+		for ev := range watchEventProxyChannel(ctx, watchAPI) {
+			ns, err := typeassertRuntimeObject[*corev1.Namespace](ev.Object)
+			if err != nil {
+				transport.AddSubscriptionError(ctx, ErrInternalServerError)
+				break
+			}
+
+			// perform auth and write to channel
+			if len(r.allowedNamespaces) == 0 || (len(r.allowedNamespaces) > 0 && slices.Contains(r.allowedNamespaces, ns.Name)) {
+				outCh <- ev
+			}
+		}
+		close(outCh)
+	}()
+
+	return outCh, nil
+
 }
 
 // CoreV1NodesWatch is the resolver for the coreV1NodesWatch field.
@@ -429,17 +404,8 @@ func (r *subscriptionResolver) CoreV1NodesWatch(ctx context.Context, options *me
 
 // CoreV1PodsWatch is the resolver for the coreV1PodsWatch field.
 func (r *subscriptionResolver) CoreV1PodsWatch(ctx context.Context, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
-	// init namespace
-	ns, err := r.ToNamespace(namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	watchAPI, err := r.K8SClientset(ctx).CoreV1().Pods(ns).Watch(ctx, toListOptions(options))
-	if err != nil {
-		return nil, err
-	}
-	return watchEventProxyChannel(ctx, watchAPI), nil
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	return watchResourceMulti(r, ctx, gvr, namespace, options)
 }
 
 // CoreV1PodLogTail is the resolver for the coreV1PodLogTail field.

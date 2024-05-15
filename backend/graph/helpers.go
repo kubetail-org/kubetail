@@ -127,6 +127,41 @@ type continueMultiToken struct {
 	StartKey         string            `json:"start"`
 }
 
+// encode resource version
+func encodeResourceVersionMulti(resourceVersionMap map[string]string) (string, error) {
+	// json encode
+	resourceVersionBytes, err := json.Marshal(resourceVersionMap)
+	if err != nil {
+		return "", err
+	}
+
+	// base64 encode
+	return base64.StdEncoding.EncodeToString(resourceVersionBytes), nil
+}
+
+// decode resource version
+func decodeResourceVersionMulti(resourceVersionToken string) (map[string]string, error) {
+	resourceVersionMap := map[string]string{}
+
+	if resourceVersionToken == "" {
+		return resourceVersionMap, nil
+	}
+
+	// base64 decode
+	resourceVersionBytes, err := base64.StdEncoding.DecodeString(resourceVersionToken)
+	if err != nil {
+		return nil, err
+	}
+
+	// json decode
+	err = json.Unmarshal(resourceVersionBytes, &resourceVersionMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return resourceVersionMap, nil
+}
+
 // encode continue token
 func encodeContinueMulti(resourceVersions map[string]string, startKey string) (string, error) {
 	token := continueMultiToken{ResourceVersions: resourceVersions, StartKey: startKey}
@@ -214,11 +249,10 @@ func mergeResults(responses []FetchResponse, options metav1.ListOptions) (*unstr
 	}
 
 	// encode resourceVersionMap
-	resourceVersionBytes, err := json.Marshal(resourceVersionMap)
+	resourceVersion, err := encodeResourceVersionMulti(resourceVersionMap)
 	if err != nil {
 		return nil, err
 	}
-	resourceVersion := base64.StdEncoding.EncodeToString(resourceVersionBytes)
 
 	// generate continue token
 	var continueToken string
@@ -368,7 +402,51 @@ func watchEventProxyChannel(ctx context.Context, watchAPI watch.Interface) <-cha
 }
 
 // watchResource
-func watchResource(r *subscriptionResolver, ctx context.Context, gvr schema.GroupVersionResource, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+func watchResource(ctx context.Context, watchAPI watch.Interface, outCh chan<- *watch.Event, cancel context.CancelFunc, wg *sync.WaitGroup) {
+	defer wg.Done()
+	evCh := watchAPI.ResultChan()
+
+Loop:
+	for {
+		select {
+		case <-ctx.Done():
+			// listener closed connection or another goroutine encountered an error
+			break Loop
+		case ev := <-evCh:
+			if ev.Type == "MODIFIED" {
+				fmt.Println(ev)
+			}
+
+			// just-in-case (maybe this is unnecessary)
+			if ev.Type == "" || ev.Object == nil {
+				// stop all
+				cancel()
+			}
+
+			// exit if error
+			if ev.Type == watch.Error {
+				status, ok := ev.Object.(*metav1.Status)
+				if ok {
+					transport.AddSubscriptionError(ctx, NewWatchError(status))
+				} else {
+					transport.AddSubscriptionError(ctx, ErrInternalServerError)
+				}
+
+				// stop all
+				cancel()
+			}
+
+			// write to output channel
+			outCh <- &ev
+		}
+	}
+
+	// cleanup
+	watchAPI.Stop()
+}
+
+// watchResourceMulti
+func watchResourceMulti(r *subscriptionResolver, ctx context.Context, gvr schema.GroupVersionResource, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
 	client := r.K8SDynamicClient(ctx).Resource(gvr)
 
 	// init namespaces
@@ -380,72 +458,47 @@ func watchResource(r *subscriptionResolver, ctx context.Context, gvr schema.Grou
 	// init list options
 	opts := toListOptions(options)
 
+	// decode resource version
+	resourceVersionMap, err := decodeResourceVersionMulti(opts.ResourceVersion)
+	if err != nil {
+		return nil, err
+	}
+
 	// init watch api's
 	watchAPIs := []watch.Interface{}
 	for _, ns := range namespaces {
-		watchAPI, err := client.Namespace(ns).Watch(ctx, opts)
+		// init options
+		thisOpts := opts
+
+		thisResourceVersion, exists := resourceVersionMap[ns]
+		if exists {
+			thisOpts.ResourceVersion = thisResourceVersion
+		} else {
+			thisOpts.ResourceVersion = ""
+		}
+
+		// init watch api
+		watchAPI, err := client.Namespace(ns).Watch(ctx, thisOpts)
 		if err != nil {
 			return nil, err
 		}
 		watchAPIs = append(watchAPIs, watchAPI)
 	}
 
-	// start watches
+	// start watchers
 	outCh := make(chan *watch.Event)
+	ctx, cancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
 
 	for _, watchAPI := range watchAPIs {
 		wg.Add(1)
-		go func(watchAPI watch.Interface) {
-			defer wg.Done()
-
-			for ev := range watchAPI.ResultChan() {
-				// just-in-case (maybe this is unnecessary)
-				if ev.Type == "" || ev.Object == nil {
-					break
-				}
-
-				// exit if error
-				if ev.Type == watch.Error {
-					status, ok := ev.Object.(*metav1.Status)
-					if ok {
-						transport.AddSubscriptionError(ctx, NewWatchError(status))
-					} else {
-						transport.AddSubscriptionError(ctx, ErrInternalServerError)
-					}
-					break
-				}
-
-				//runtime.DefaultUnstructuredConverter.FromUnstructured(ev.UnstructuredContent(), &ev.Object)
-
-				// write to output channel
-				outCh <- &ev
-			}
-
-			// cleanup
-			watchAPI.Stop()
-		}(watchAPI)
+		go watchResource(ctx, watchAPI, outCh, cancel, &wg)
 	}
 
-	// monitor watch api's and ctx
-	done := make(chan struct{})
+	// cleanup
 	go func() {
 		wg.Wait()
-		close(done)
-	}()
-
-	go func() {
-		select {
-		case <-done:
-			// do nothing
-		case <-ctx.Done():
-			// do nothing
-		}
-
-		// stop watchers
-		for _, watchAPI := range watchAPIs {
-			watchAPI.Stop()
-		}
+		cancel()
 		close(outCh)
 	}()
 
