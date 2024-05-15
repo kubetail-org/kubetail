@@ -49,7 +49,7 @@ func (suite *SubscriptionResolverTestSuite) TestAppsV1DaemonSetsWatch() {
 	// init reactor
 	watcher := watch.NewFake()
 	defer watcher.Stop()
-	suite.resolver.TestClientset.PrependWatchReactor("daemonsets", k8stesting.DefaultWatchReactor(watcher, nil))
+	suite.resolver.TestDynamicClient.PrependWatchReactor("daemonsets", k8stesting.DefaultWatchReactor(watcher, nil))
 
 	// init subscription
 	sub := suite.MustSubscribe(GraphQLRequest{Query: query}, nil)
@@ -93,7 +93,7 @@ func (suite *SubscriptionResolverTestSuite) TestAppsV1DeploymentsWatch() {
 	// init reactor
 	watcher := watch.NewFake()
 	defer watcher.Stop()
-	suite.resolver.TestClientset.PrependWatchReactor("deployments", k8stesting.DefaultWatchReactor(watcher, nil))
+	suite.resolver.TestDynamicClient.PrependWatchReactor("deployments", k8stesting.DefaultWatchReactor(watcher, nil))
 
 	// init subscription
 	sub := suite.MustSubscribe(GraphQLRequest{Query: query}, nil)
@@ -137,7 +137,7 @@ func (suite *SubscriptionResolverTestSuite) TestAppsV1ReplicaSetsWatch() {
 	// init reactor
 	watcher := watch.NewFake()
 	defer watcher.Stop()
-	suite.resolver.TestClientset.PrependWatchReactor("replicasets", k8stesting.DefaultWatchReactor(watcher, nil))
+	suite.resolver.TestDynamicClient.PrependWatchReactor("replicasets", k8stesting.DefaultWatchReactor(watcher, nil))
 
 	// init subscription
 	sub := suite.MustSubscribe(GraphQLRequest{Query: query}, nil)
@@ -181,7 +181,7 @@ func (suite *SubscriptionResolverTestSuite) TestAppsV1StatefulSetsWatch() {
 	// init reactor
 	watcher := watch.NewFake()
 	defer watcher.Stop()
-	suite.resolver.TestClientset.PrependWatchReactor("statefulsets", k8stesting.DefaultWatchReactor(watcher, nil))
+	suite.resolver.TestDynamicClient.PrependWatchReactor("statefulsets", k8stesting.DefaultWatchReactor(watcher, nil))
 
 	// init subscription
 	sub := suite.MustSubscribe(GraphQLRequest{Query: query}, nil)
@@ -225,7 +225,7 @@ func (suite *SubscriptionResolverTestSuite) TestBatchV1CronJobsWatch() {
 	// init reactor
 	watcher := watch.NewFake()
 	defer watcher.Stop()
-	suite.resolver.TestClientset.PrependWatchReactor("cronjobs", k8stesting.DefaultWatchReactor(watcher, nil))
+	suite.resolver.TestDynamicClient.PrependWatchReactor("cronjobs", k8stesting.DefaultWatchReactor(watcher, nil))
 
 	// init subscription
 	sub := suite.MustSubscribe(GraphQLRequest{Query: query}, nil)
@@ -269,7 +269,7 @@ func (suite *SubscriptionResolverTestSuite) TestBatchV1JobsWatch() {
 	// init reactor
 	watcher := watch.NewFake()
 	defer watcher.Stop()
-	suite.resolver.TestClientset.PrependWatchReactor("jobs", k8stesting.DefaultWatchReactor(watcher, nil))
+	suite.resolver.TestDynamicClient.PrependWatchReactor("jobs", k8stesting.DefaultWatchReactor(watcher, nil))
 
 	// init subscription
 	sub := suite.MustSubscribe(GraphQLRequest{Query: query}, nil)
@@ -401,7 +401,7 @@ func (suite *SubscriptionResolverTestSuite) TestCoreV1PodsWatch() {
 	// init reactor
 	watcher := watch.NewFake()
 	defer watcher.Stop()
-	suite.resolver.TestClientset.PrependWatchReactor("pods", k8stesting.DefaultWatchReactor(watcher, nil))
+	suite.resolver.TestDynamicClient.PrependWatchReactor("pods", k8stesting.DefaultWatchReactor(watcher, nil))
 
 	// init subscription
 	sub := suite.MustSubscribe(GraphQLRequest{Query: query}, nil)

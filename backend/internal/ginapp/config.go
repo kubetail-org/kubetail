@@ -30,8 +30,8 @@ type Config struct {
 	// Base path
 	BasePath string
 
-	// namespace filter
-	Namespace string
+	// Allowed namespaces
+	AllowedNamespaces []string
 
 	// access log options
 	AccessLog struct {
@@ -79,7 +79,7 @@ func DefaultConfig() Config {
 
 	cfg.AuthMode = AuthModeToken
 	cfg.BasePath = "/"
-	cfg.Namespace = ""
+	cfg.AllowedNamespaces = []string{}
 
 	cfg.AccessLog.Enabled = true
 	cfg.AccessLog.HideHealthChecks = false

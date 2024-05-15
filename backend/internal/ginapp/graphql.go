@@ -36,9 +36,9 @@ type GraphQLHandlers struct {
 }
 
 // GET|POST "/graphql": GraphQL query endpoint
-func (app *GraphQLHandlers) EndpointHandler(cfg *rest.Config, namespace string, csrfProtect func(http.Handler) http.Handler) gin.HandlerFunc {
+func (app *GraphQLHandlers) EndpointHandler(cfg *rest.Config, allowedNamespaces []string, csrfProtect func(http.Handler) http.Handler) gin.HandlerFunc {
 	// init resolver
-	r, err := graph.NewResolver(cfg, namespace)
+	r, err := graph.NewResolver(cfg, allowedNamespaces)
 	if err != nil {
 		panic(err)
 	}

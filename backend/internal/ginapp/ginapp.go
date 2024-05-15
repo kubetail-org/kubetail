@@ -182,7 +182,7 @@ func NewGinApp(config Config) (*GinApp, error) {
 
 			// graphql handler
 			h := &GraphQLHandlers{app}
-			endpointHandler := h.EndpointHandler(k8sCfg, config.Namespace, csrfProtect)
+			endpointHandler := h.EndpointHandler(k8sCfg, config.AllowedNamespaces, csrfProtect)
 			graphql.GET("", endpointHandler)
 			graphql.POST("", endpointHandler)
 		}
