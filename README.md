@@ -120,9 +120,10 @@ Kubetail can be configured using a configuration file written in YAML, JSON, TOM
 | ------------------------------------- | -------- | ---------------------------------------------------- | ---------------------- |
 | addr                                  | string   | Host address to bind to                              | ":4000"                |
 | auth-mode                             | string   | Auth mode (token, cluster, local)                    | "token"                |
+| allowed-namespaces                    | []string | If populated, restricts namespace access             | []                     |
+| base-path                             | string   | URL path prefix                                      | "/"                    |
 | gin-mode                              | string   | Gin mode (release, debug)                            | "release"              |
 | kube-config                           | string   | Kubectl config file path                             | "${HOME}/.kube/config" |
-| base-path                             | string   | URL path prefix                                      | "/"                    |
 | csrf.enabled                          | bool     | Enable CSRF protection                               | true                   |
 | csrf.field-name                       | string   | CSRF token name in forms                             | "csrf_token"           |
 | csrf.secret                           | string   | CSRF hash key                                        | ""                     |

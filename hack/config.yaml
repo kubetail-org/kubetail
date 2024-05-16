@@ -22,6 +22,22 @@ addr: :4000
 #
 auth-mode: token
 
+## allowed-namespaces ##
+#
+# If non-empty, restricts queries to allowed namespaces
+#
+# Default value: []
+#
+allowed-namespaces: []
+
+## base-path ##
+#
+# Sets the url path prefix (useful for deploying on a sub-path behind a reverse proxy)
+# 
+# Default value: /
+#
+base-path: /
+
 ## gin-mode ##
 #
 # Sets the mode for the Gin framework
@@ -41,22 +57,6 @@ gin-mode: release
 # Default value: ${HOME}/.kube/config
 #
 kube-config: ${HOME}/.kube/config
-
-## base-path ##
-#
-# Sets the url path prefix (useful for deploying on a sub-path behind a reverse proxy)
-# 
-# Default value: /
-#
-base-path: /
-
-## allowed-namespaces ##
-#
-# If non-empty, restricts queries to allowed namespaces
-#
-# Default value: []
-#
-allowed-namespaces: []
 
 ## csrf ##
 #
