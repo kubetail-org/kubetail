@@ -242,7 +242,7 @@ func mergeResults(responses []FetchResponse, options metav1.ListOptions) (*unstr
 	})
 
 	// slice items
-	ignoreCount := int64(len(items) - int(options.Limit))
+	ignoreCount := int64(len(items)) - options.Limit
 	if ignoreCount > 0 {
 		remainingItemCount += ignoreCount
 		items = items[:options.Limit]
