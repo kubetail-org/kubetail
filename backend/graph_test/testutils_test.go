@@ -33,6 +33,13 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/suite"
 	"github.com/vektah/gqlparser/v2/gqlerror"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	dynamicFake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/kubetail-org/kubetail/graph"
@@ -82,6 +89,42 @@ func (suite *GraphTestSuite) TearDownSuite() {
 func (suite *GraphTestSuite) SetupTest() {
 	// init fake clientset
 	suite.resolver.TestClientset = fake.NewSimpleClientset()
+
+	// init fake dynamic client
+	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		panic(err)
+	}
+	if err := batchv1.AddToScheme(scheme); err != nil {
+		panic(err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		panic(err)
+	}
+	suite.resolver.TestDynamicClient = dynamicFake.NewSimpleDynamicClient(scheme)
+}
+
+func (suite *GraphTestSuite) PopulateDynamicClient(ns string, objects ...runtime.Object) {
+	for _, obj := range objects {
+		// get gvr
+		gvr, err := graph.GetGVR(obj)
+		if err != nil {
+			panic(err)
+		}
+
+		// initialize unstructured object
+		unstrObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+		if err != nil {
+			panic(err)
+		}
+		x := unstructured.Unstructured{Object: unstrObj}
+
+		// create
+		_, err = suite.resolver.TestDynamicClient.Resource(gvr).Namespace(ns).Create(context.Background(), &x, metav1.CreateOptions{})
+		if err != nil {
+			panic(err)
+		}
+	}
 }
 
 func (suite *GraphTestSuite) Post(request GraphQLRequest, prepareContext PrepareContextFunc) (*http.Response, error) {

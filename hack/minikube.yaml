@@ -21,30 +21,101 @@ data:
       secret: REPLACEME
     csrf:
       secret: REPLACEME
+#---
+#kind: ClusterRole
+#apiVersion: rbac.authorization.k8s.io/v1
+#metadata:
+#  name: kubetail
+#  annotations:
+#rules:
+#- apiGroups: ["", apps, batch]
+#  resources: [cronjobs, daemonsets, deployments, jobs, namespaces, nodes, pods, pods/log, replicasets, statefulsets]
+#  verbs: [get, list, watch]
+#---
+#kind: ClusterRoleBinding
+#apiVersion: rbac.authorization.k8s.io/v1
+#metadata:
+#  name: kubetail
+#  annotations:
+#roleRef:
+#  apiGroup: rbac.authorization.k8s.io
+#  kind: ClusterRole
+#  name: kubetail
+#subjects:
+#- kind: ServiceAccount
+#  name: kubetail
+#  namespace: kubetail
+#---
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kubetail
-  annotations:
 rules:
-- apiGroups: ["", apps, batch]
-  resources: [cronjobs, daemonsets, deployments, jobs, namespaces, nodes, pods, pods/log, replicasets, statefulsets]
-  verbs: [get, list, watch]
+- apiGroups: [""]
+  resources: ["nodes", "namespaces"]
+  verbs: ["get", "list", "watch"]
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kubetail
-  annotations:
+subjects:
+- kind: ServiceAccount
+  namespace: kubetail
+  name: kubetail
 roleRef:
-  apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
+  name: kubetail
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: kubernetes-dashboard
+  name: kubetail
+rules:
+- apiGroups: ["", "apps", "batch"]
+  resources: ["cronjobs", "daemonsets", "deployments", "jobs", "pods", "pods/log", "replicasets", "statefulsets"]
+  verbs: ["get", "list", "watch"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: kubernetes-dashboard
   name: kubetail
 subjects:
 - kind: ServiceAccount
   name: kubetail
   namespace: kubetail
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kubetail
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: kube-system
+  name: kubetail
+rules:
+- apiGroups: ["", "apps", "batch"]
+  resources: ["cronjobs", "daemonsets", "deployments", "jobs", "pods", "pods/log", "replicasets", "statefulsets"]
+  verbs: ["get", "list", "watch"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: kube-system
+  name: kubetail
+subjects:
+- kind: ServiceAccount
+  name: kubetail
+  namespace: kubetail
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kubetail
 ---
 kind: Service
 apiVersion: v1
@@ -98,8 +169,8 @@ spec:
           type: RuntimeDefault
       containers:
       - name: kubetail
-        #image: docker.io/kubetail/kubetail:0.4.5
-        image: kubetail:latest
+        image: docker.io/kubetail/kubetail:0.4.6
+        #image: kubetail:latest
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

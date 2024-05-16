@@ -22,15 +22,24 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/sosodev/duration"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apiserver/pkg/storage"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 
@@ -83,6 +92,273 @@ type FollowArgs struct {
 	Since string
 }
 
+// GetGVR
+func GetGVR(obj runtime.Object) (schema.GroupVersionResource, error) {
+	switch (obj).(type) {
+	case *appsv1.DaemonSet, *appsv1.DaemonSetList:
+		return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}, nil
+	case *appsv1.Deployment, *appsv1.DeploymentList:
+		return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}, nil
+	case *appsv1.ReplicaSet, *appsv1.ReplicaSetList:
+		return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}, nil
+	case *appsv1.StatefulSet, *appsv1.StatefulSetList:
+		return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}, nil
+	case *batchv1.Job, *batchv1.JobList:
+		return schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}, nil
+	case *batchv1.CronJob, *batchv1.CronJobList:
+		return schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"}, nil
+	case *corev1.Pod, *corev1.PodList:
+		return schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, nil
+	default:
+		return schema.GroupVersionResource{}, fmt.Errorf("not implemented: %T", obj)
+	}
+}
+
+// Represents response from fetchListResource()
+type FetchResponse struct {
+	Namespace string
+	Result    *unstructured.UnstructuredList
+	Error     error
+}
+
+// represents multi-namespace continue token
+type continueMultiToken struct {
+	ResourceVersions map[string]string `json:"rv"`
+	StartKey         string            `json:"start"`
+}
+
+// encode resource version
+func encodeResourceVersionMulti(resourceVersionMap map[string]string) (string, error) {
+	// json encode
+	resourceVersionBytes, err := json.Marshal(resourceVersionMap)
+	if err != nil {
+		return "", err
+	}
+
+	// base64 encode
+	return base64.StdEncoding.EncodeToString(resourceVersionBytes), nil
+}
+
+// decode resource version
+func decodeResourceVersionMulti(resourceVersionToken string) (map[string]string, error) {
+	resourceVersionMap := map[string]string{}
+
+	if resourceVersionToken == "" {
+		return resourceVersionMap, nil
+	}
+
+	// base64 decode
+	resourceVersionBytes, err := base64.StdEncoding.DecodeString(resourceVersionToken)
+	if err != nil {
+		return nil, err
+	}
+
+	// json decode
+	err = json.Unmarshal(resourceVersionBytes, &resourceVersionMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return resourceVersionMap, nil
+}
+
+// encode continue token
+func encodeContinueMulti(resourceVersions map[string]string, startKey string) (string, error) {
+	token := continueMultiToken{ResourceVersions: resourceVersions, StartKey: startKey}
+
+	// json-encoding
+	tokenBytes, err := json.Marshal(token)
+	if err != nil {
+		return "", err
+	}
+
+	// base64-encode
+	return base64.StdEncoding.EncodeToString(tokenBytes), nil
+}
+
+// decode continue token
+func decodeContinueMulti(tokenStr string) (map[string]string, error) {
+	if tokenStr == "" {
+		return map[string]string{}, nil
+	}
+
+	// base64-decode
+	tokenBytes, err := base64.StdEncoding.DecodeString(tokenStr)
+	if err != nil {
+		return nil, err
+	}
+
+	// json-decode
+	token := &continueMultiToken{}
+	err = json.Unmarshal(tokenBytes, token)
+	if err != nil {
+		return nil, err
+	}
+
+	// generate continue tokens
+	continueMap := map[string]string{}
+	for namespace, rvStr := range token.ResourceVersions {
+		rvInt64, err := strconv.ParseInt(rvStr, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		continueStr, err := storage.EncodeContinue("/"+token.StartKey+"\u0000", "/", rvInt64)
+		if err != nil {
+			return nil, err
+		}
+		continueMap[namespace] = continueStr
+	}
+
+	return continueMap, nil
+}
+
+// mergeResults
+func mergeResults(responses []FetchResponse, options metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+	// loop through results
+	items := []unstructured.Unstructured{}
+	remainingItemCount := int64(0)
+	resourceVersionMap := map[string]string{}
+
+	for _, resp := range responses {
+		// exit if any query resulted in error
+		if resp.Error != nil {
+			return nil, resp.Error
+		}
+
+		result := resp.Result
+
+		// metadata
+		remainingItemCount += ptr.Deref(result.GetRemainingItemCount(), 0)
+		resourceVersionMap[resp.Namespace] = result.GetResourceVersion()
+
+		// items
+		items = append(items, result.Items...)
+	}
+
+	// sort items
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].GetName() < items[j].GetName()
+	})
+
+	// slice items
+	ignoreCount := int64(len(items)) - options.Limit
+	if ignoreCount > 0 {
+		remainingItemCount += ignoreCount
+		items = items[:options.Limit]
+	}
+
+	// encode resourceVersionMap
+	resourceVersion, err := encodeResourceVersionMulti(resourceVersionMap)
+	if err != nil {
+		return nil, err
+	}
+
+	// generate continue token
+	var continueToken string
+	if len(items) > 0 && remainingItemCount > 0 {
+		continueToken, err = encodeContinueMulti(resourceVersionMap, items[len(items)-1].GetName())
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// init merged object
+	output := new(unstructured.UnstructuredList)
+	output.SetRemainingItemCount(&remainingItemCount)
+	output.SetResourceVersion(resourceVersion)
+	output.SetContinue(continueToken)
+	output.Items = items
+
+	return output, nil
+}
+
+// listResourceMulti
+func listResourceMulti(ctx context.Context, client dynamic.NamespaceableResourceInterface, namespaces []string, options metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+	var wg sync.WaitGroup
+	ch := make(chan FetchResponse, len(namespaces))
+
+	// decode continue token
+	continueMap, err := decodeContinueMulti(options.Continue)
+	if err != nil {
+		return nil, err
+	}
+
+	// execute queries
+	for _, namespace := range namespaces {
+		wg.Add(1)
+		go func(namespace string) {
+			defer wg.Done()
+
+			thisOpts := options
+
+			thisContinue, exists := continueMap[namespace]
+			if exists {
+				thisOpts.Continue = thisContinue
+			} else {
+				thisOpts.Continue = ""
+			}
+
+			list, err := client.Namespace(namespace).List(ctx, thisOpts)
+			if err != nil {
+				ch <- FetchResponse{Error: err}
+				return
+			}
+
+			ch <- FetchResponse{Namespace: namespace, Result: list}
+		}(namespace)
+	}
+
+	wg.Wait()
+	close(ch)
+
+	// gather responses
+	responses := make([]FetchResponse, len(namespaces))
+	i := 0
+	for resp := range ch {
+		responses[i] = resp
+		i += 1
+	}
+
+	// merge results
+	return mergeResults(responses, options)
+}
+
+// listResource
+func listResource(r *queryResolver, ctx context.Context, namespace *string, options *metav1.ListOptions, modelPtr runtime.Object) error {
+	// init client
+	gvr, err := GetGVR(modelPtr)
+	if err != nil {
+		return err
+	}
+
+	client := r.K8SDynamicClient(ctx).Resource(gvr)
+
+	// init namespaces
+	namespaces, err := r.ToNamespaces(namespace)
+	if err != nil {
+		return err
+	}
+
+	// init list options
+	opts := toListOptions(options)
+
+	// execute requests
+	list, err := func() (*unstructured.UnstructuredList, error) {
+		if len(namespaces) == 1 {
+			return client.Namespace(namespaces[0]).List(ctx, opts)
+		} else {
+			return listResourceMulti(ctx, client, namespaces, opts)
+		}
+	}()
+	if err != nil {
+		return err
+	}
+
+	// return de-serialized object
+	return runtime.DefaultUnstructuredConverter.FromUnstructured(list.UnstructuredContent(), modelPtr)
+}
+
 // watchEventProxyChannel
 func watchEventProxyChannel(ctx context.Context, watchAPI watch.Interface) <-chan *watch.Event {
 	evCh := watchAPI.ResultChan()
@@ -123,6 +399,106 @@ func watchEventProxyChannel(ctx context.Context, watchAPI watch.Interface) <-cha
 	}()
 
 	return outCh
+}
+
+// watchResource
+func watchResource(ctx context.Context, watchAPI watch.Interface, outCh chan<- *watch.Event, cancel context.CancelFunc, wg *sync.WaitGroup) {
+	defer wg.Done()
+	evCh := watchAPI.ResultChan()
+
+Loop:
+	for {
+		select {
+		case <-ctx.Done():
+			// listener closed connection or another goroutine encountered an error
+			break Loop
+		case ev := <-evCh:
+			// just-in-case (maybe this is unnecessary)
+			if ev.Type == "" || ev.Object == nil {
+				// stop all
+				cancel()
+			}
+
+			// exit if error
+			if ev.Type == watch.Error {
+				status, ok := ev.Object.(*metav1.Status)
+				if ok {
+					transport.AddSubscriptionError(ctx, NewWatchError(status))
+				} else {
+					transport.AddSubscriptionError(ctx, ErrInternalServerError)
+				}
+
+				// stop all
+				cancel()
+			}
+
+			// write to output channel
+			outCh <- &ev
+		}
+	}
+
+	// cleanup
+	watchAPI.Stop()
+}
+
+// watchResourceMulti
+func watchResourceMulti(r *subscriptionResolver, ctx context.Context, gvr schema.GroupVersionResource, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+	client := r.K8SDynamicClient(ctx).Resource(gvr)
+
+	// init namespaces
+	namespaces, err := r.ToNamespaces(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	// init list options
+	opts := toListOptions(options)
+
+	// decode resource version
+	resourceVersionMap, err := decodeResourceVersionMulti(opts.ResourceVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	// init watch api's
+	watchAPIs := []watch.Interface{}
+	for _, ns := range namespaces {
+		// init options
+		thisOpts := opts
+
+		thisResourceVersion, exists := resourceVersionMap[ns]
+		if exists {
+			thisOpts.ResourceVersion = thisResourceVersion
+		} else {
+			thisOpts.ResourceVersion = ""
+		}
+
+		// init watch api
+		watchAPI, err := client.Namespace(ns).Watch(ctx, thisOpts)
+		if err != nil {
+			return nil, err
+		}
+		watchAPIs = append(watchAPIs, watchAPI)
+	}
+
+	// start watchers
+	outCh := make(chan *watch.Event)
+	ctx, cancel := context.WithCancel(ctx)
+	var wg sync.WaitGroup
+
+	for _, watchAPI := range watchAPIs {
+		wg.Add(1)
+		go watchResource(ctx, watchAPI, outCh, cancel, &wg)
+	}
+
+	// cleanup
+	go func() {
+		wg.Wait()
+		cancel()
+		close(outCh)
+	}()
+
+	return outCh, nil
 }
 
 // getHealth
@@ -212,6 +588,9 @@ func typeassertRuntimeObject[T any](object runtime.Object) (T, error) {
 	switch o := object.(type) {
 	case T:
 		return o, nil
+	case *unstructured.Unstructured:
+		err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.Object, &zeroVal)
+		return zeroVal, err
 	default:
 		return zeroVal, fmt.Errorf("not expecting type %T", o)
 	}

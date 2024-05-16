@@ -22,6 +22,7 @@ import (
 // custom errors
 var (
 	ErrUnauthenticated     = NewError("KUBETAIL_UNAUTHENTICATED", "Authentication required")
+	ErrForbidden           = NewError("KUBETAIL_FORBIDDEN", "Access forbidden")
 	ErrWatchError          = NewError("KUBETAIL_WATCH_ERROR", "Watch error")
 	ErrInternalServerError = NewError("INTERNAL_SERVER_ERROR", "Internal server error")
 )

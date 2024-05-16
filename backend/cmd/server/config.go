@@ -23,10 +23,10 @@ import (
 )
 
 type Config struct {
-	AuthMode   ginapp.AuthMode `mapstructure:"auth-mode" validate:"oneof=cluster token local"`
-	KubeConfig string          `mapstructure:"kube-config"`
-	BasePath   string          `mapstructure:"base-path"`
-	Namespace  string
+	AuthMode          ginapp.AuthMode `mapstructure:"auth-mode" validate:"oneof=cluster token local"`
+	KubeConfig        string          `mapstructure:"kube-config"`
+	BasePath          string          `mapstructure:"base-path"`
+	AllowedNamespaces []string        `mapstructure:"allowed-namespaces"`
 
 	// session options
 	Session struct {
@@ -110,7 +110,7 @@ func DefaultConfig() Config {
 	cfg.AuthMode = appDefault.AuthMode
 	cfg.KubeConfig = filepath.Join(home, ".kube", "config")
 	cfg.BasePath = appDefault.BasePath
-	cfg.Namespace = appDefault.Namespace
+	cfg.AllowedNamespaces = appDefault.AllowedNamespaces
 
 	cfg.Session.Secret = appDefault.Session.Secret
 	cfg.Session.Cookie.Name = appDefault.Session.Cookie.Name

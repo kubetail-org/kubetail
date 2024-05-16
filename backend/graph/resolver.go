@@ -15,11 +15,12 @@
 package graph
 
 import (
-	//"os"
-
 	"context"
+	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
+	dynamicFake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
@@ -32,9 +33,10 @@ import (
 //go:generate go run github.com/99designs/gqlgen generate
 
 type Resolver struct {
-	k8sCfg        *rest.Config
-	namespace     string
-	TestClientset *fake.Clientset
+	k8sCfg            *rest.Config
+	allowedNamespaces []string
+	TestClientset     *fake.Clientset
+	TestDynamicClient *dynamicFake.FakeDynamicClient
 }
 
 func (r *Resolver) K8SClientset(ctx context.Context) kubernetes.Interface {
@@ -60,21 +62,67 @@ func (r *Resolver) K8SClientset(ctx context.Context) kubernetes.Interface {
 	return clientset
 }
 
-func (r *Resolver) ToNamespace(namespace *string) string {
-	// check configured namespace
-	if r.namespace != "" {
-		return r.namespace
+func (r *Resolver) K8SDynamicClient(ctx context.Context) dynamic.Interface {
+	if r.TestDynamicClient != nil {
+		return r.TestDynamicClient
 	}
 
-	// use default behavior
+	// copy config
+	cfg := rest.CopyConfig(r.k8sCfg)
+
+	// get token from context
+	token, ok := ctx.Value(K8STokenCtxKey).(string)
+	if ok {
+		cfg.BearerToken = token
+		cfg.BearerTokenFile = ""
+	}
+
+	dynamicClient, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	return dynamicClient
+}
+
+func (r *Resolver) ToNamespace(namespace *string) (string, error) {
 	ns := metav1.NamespaceDefault
 	if namespace != nil {
 		ns = *namespace
 	}
-	return ns
+
+	// perform auth
+	if len(r.allowedNamespaces) > 0 && !slices.Contains(r.allowedNamespaces, ns) {
+		return "", ErrForbidden
+	}
+
+	return ns, nil
 }
 
-func NewResolver(cfg *rest.Config, namespace string) (*Resolver, error) {
+func (r *Resolver) ToNamespaces(namespace *string) ([]string, error) {
+	var namespaces []string
+
+	ns := metav1.NamespaceDefault
+	if namespace != nil {
+		ns = *namespace
+	}
+
+	// perform auth
+	if ns != "" && len(r.allowedNamespaces) > 0 && !slices.Contains(r.allowedNamespaces, ns) {
+		return nil, ErrForbidden
+	}
+
+	// listify
+	if ns == "" && len(r.allowedNamespaces) > 0 {
+		namespaces = r.allowedNamespaces
+	} else {
+		namespaces = []string{ns}
+	}
+
+	return namespaces, nil
+}
+
+func NewResolver(cfg *rest.Config, allowedNamespaces []string) (*Resolver, error) {
 	// try in-cluster config
-	return &Resolver{k8sCfg: cfg, namespace: namespace}, nil
+	return &Resolver{k8sCfg: cfg, allowedNamespaces: allowedNamespaces}, nil
 }
