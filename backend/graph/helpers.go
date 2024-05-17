@@ -455,9 +455,13 @@ func watchResourceMulti(r *subscriptionResolver, ctx context.Context, gvr schema
 	opts := toListOptions(options)
 
 	// decode resource version
-	resourceVersionMap, err := decodeResourceVersionMulti(opts.ResourceVersion)
-	if err != nil {
-		return nil, err
+	// TODO: fix me
+	resourceVersionMap := map[string]string{}
+	if len(r.allowedNamespaces) > 0 {
+		resourceVersionMap, err = decodeResourceVersionMulti(opts.ResourceVersion)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// init watch api's
@@ -471,6 +475,11 @@ func watchResourceMulti(r *subscriptionResolver, ctx context.Context, gvr schema
 			thisOpts.ResourceVersion = thisResourceVersion
 		} else {
 			thisOpts.ResourceVersion = ""
+		}
+
+		// TODO: replace me
+		if len(r.allowedNamespaces) == 0 {
+			thisOpts.ResourceVersion = opts.ResourceVersion
 		}
 
 		// init watch api
