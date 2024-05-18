@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useQuery, useSubscription } from '@apollo/client';
+import { useQuery } from '@apollo/client';
 import { format, toZonedTime } from 'date-fns-tz';
 import { stripAnsi } from 'fancy-ansi';
 import { AnsiHtml } from 'fancy-ansi/react';
@@ -842,7 +842,7 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
   const { namespace, name } = pod.metadata;
 
   const isFollow = useRecoilValue(isFollowState);
-  const [followAfter, setFollowAfter] = useState<string | null | undefined>(defaultFollowAfter);
+  const followAfterRef = useRef<string | null | undefined>(defaultFollowAfter);
 
   const upgradeRecord = (record: GraphQLLogRecord) => ({ ...record, node, pod, container });
 
@@ -863,22 +863,29 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
   });
 
   // follow
-  useSubscription(ops.FOLLOW_CONTAINER_LOG, {
-    variables: { namespace, name, container, after: followAfter },
-    skip: !(isFollow && followAfter),
-    fetchPolicy: 'no-cache',
-    onError: console.log,
-    onData: ({ data: { data } }) => {
-      if (!data?.podLogFollow) return;
-      const record = upgradeRecord(data.podLogFollow);
+  useEffect(() => {
+    if (!isFollow) return;
+    return tail.subscribeToMore({
+      document: ops.FOLLOW_CONTAINER_LOG,
+      variables: { namespace, name, container, after: followAfterRef.current },
+      updateQuery: (prev, { subscriptionData }) => {
+        const { data: { podLogFollow: data } } = subscriptionData;
+        if (data) {
+          const record = upgradeRecord(data);
 
-      // update folowAfter
-      setFollowAfter(record.timestamp);
+          // update followAfter
+          followAfterRef.current = record.timestamp;
 
-      // execute callback
-      onFollowData(record);
-    },
-  });
+          // execute callback
+          onFollowData(record);
+        }
+        return prev;
+      },
+      onError: (err) => {
+        console.log(err);
+      },
+    });
+  }, [isFollow, tail.subscribeToMore]);
 
   const key = `${namespace}/${name}/${container}`;
 
@@ -894,7 +901,7 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
       if (!response) throw new Error('query response is null');
 
       // update followAfter
-      if (!response.pageInfo.hasNextPage) setFollowAfter(response.pageInfo.endCursor);
+      if (!response.pageInfo.hasNextPage) followAfterRef.current = response.pageInfo.endCursor;
 
       // return with upgraded results
       return [
@@ -914,7 +921,7 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
       if (!response) throw new Error('query response is null');
 
       // update followAfter
-      if (!response.pageInfo.hasNextPage) setFollowAfter(response.pageInfo.endCursor);
+      if (!response.pageInfo.hasNextPage) followAfterRef.current = response.pageInfo.endCursor;
 
       // return with upgraded results
       return [
@@ -929,7 +936,7 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
       // build args (including resetting `since`)
       const opts = { first: batchSize, since: undefined } as LogFeedHeadOptions;
 
-      if (followAfter && followAfter.localeCompare(after || '')) opts.after = followAfter;
+      if (followAfterRef.current && followAfterRef.current.localeCompare(after || '')) opts.after = followAfterRef.current;
       else opts.after = after;
 
       // execute query
@@ -937,8 +944,8 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
       if (!response) throw new Error('query response is null');
 
       // update followAfter
-      if (!response.pageInfo.hasNextPage) setFollowAfter(response.pageInfo.endCursor);
-      else setFollowAfter(undefined);
+      if (!response.pageInfo.hasNextPage) followAfterRef.current = response.pageInfo.endCursor;
+      else followAfterRef.current = undefined;
 
       // return with upgraded results
       return [
@@ -950,7 +957,7 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
       ];
     },
     reset: () => {
-      setFollowAfter(undefined);
+      followAfterRef.current = undefined;
     },
   }));
 
