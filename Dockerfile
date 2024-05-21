@@ -32,13 +32,13 @@ CMD []
 
 # -----------------------------------------------------------
 
-FROM node:20.12.2-alpine3.19 AS frontend-builder
+FROM node:20.13.1-alpine3.19 AS frontend-builder
 
 WORKDIR /frontend
 
 # enable pnpm
 RUN corepack enable
-RUN corepack prepare pnpm@9.0.6 --activate
+RUN corepack prepare pnpm@9.1.2 --activate
 
 # set up git+ssh for private package download from github
 RUN apk add git openssh-client

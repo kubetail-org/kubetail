@@ -25,13 +25,6 @@ import { ThemeProvider } from '@/lib/theme';
 
 import './index.css';
 
-// handle runtimeConfig (inserted by server in production)
-if ('runtimeConfig' in window) {
-  // @ts-expect-error 'window.runtimeConfig' is of type 'unknown'
-  import.meta.env.VITE_HELLO = window.runtimeConfig.basePath;
-  console.log(import.meta.env.VITE_HELLO);
-}
-
 const router = createBrowserRouter(createRoutesFromElements(routes), { basename: getBasename() });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
