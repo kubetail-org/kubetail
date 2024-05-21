@@ -32,6 +32,12 @@ export type Node = ExtractQueryType<typeof fragments.CONSOLE_NODES_LIST_ITEM_FRA
 export type Workload = ExtractQueryType<typeof fragments.CONSOLE_LOGGING_RESOURCES_GENERIC_OBJECT_FRAGMENT>;
 export type Pod = ExtractQueryType<typeof fragments.CONSOLE_LOGGING_RESOURCES_POD_FRAGMENT>;
 
+type LoadWorkloadProps = {
+  namespace: string;
+  name: string;
+  sourcePath: string;
+};
+
 class WorkloadResponse {
   loading: boolean = false;
 
@@ -182,16 +188,13 @@ const LoadPodsForLabels = ({
  * Fetch a CronJob workload and associated streams
  */
 
-const LoadCronJobWorkload = ({ sourcePath }: { sourcePath: string }) => {
-  const parts = sourcePath.split('/');
-  const [namespace, name] = [parts[1], parts[2]];
-
+const LoadCronJobWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => {
   const { loading, error, data } = useGetQueryWithSubscription({
     query: ops.CONSOLE_LOGGING_RESOURCES_CRONJOB_GET,
     subscription: ops.CONSOLE_LOGGING_RESOURCES_CRONJOB_WATCH,
     queryDataKey: 'batchV1CronJobsGet',
     subscriptionDataKey: 'batchV1CronJobsWatch',
-    skip: parts.length < 2,
+    skip: (!namespace || !name),
     variables: { namespace, name },
   });
 
@@ -234,14 +237,11 @@ const LoadCronJobWorkload = ({ sourcePath }: { sourcePath: string }) => {
  * Fetch a DaemonSet workload and associated streams
  */
 
-const LoadDaemonSetWorkload = ({ sourcePath }: { sourcePath: string }) => {
-  const parts = sourcePath.split('/');
-  const [namespace, name] = [parts[1], parts[2]];
-
+const LoadDaemonSetWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => {
   const { loading, error, data } = useGetQueryWithSubscription({
     query: ops.CONSOLE_LOGGING_RESOURCES_DAEMONSET_GET,
     subscription: ops.CONSOLE_LOGGING_RESOURCES_DAEMONSET_WATCH,
-    skip: parts.length < 2,
+    skip: (!namespace || !name),
     variables: { namespace, name },
     queryDataKey: 'appsV1DaemonSetsGet',
     subscriptionDataKey: 'appsV1DaemonSetsWatch',
@@ -268,14 +268,11 @@ const LoadDaemonSetWorkload = ({ sourcePath }: { sourcePath: string }) => {
  * Fetch a Deployment workload and associated streams
  */
 
-const LoadDeploymentWorkload = ({ sourcePath }: { sourcePath: string }) => {
-  const parts = sourcePath.split('/');
-  const [namespace, name] = [parts[1], parts[2]];
-
+const LoadDeploymentWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => {
   const { loading, error, data } = useGetQueryWithSubscription({
     query: ops.CONSOLE_LOGGING_RESOURCES_DEPLOYMENT_GET,
     subscription: ops.CONSOLE_LOGGING_RESOURCES_DEPLOYMENT_WATCH,
-    skip: parts.length < 2,
+    skip: (!namespace || !name),
     variables: { namespace, name },
     queryDataKey: 'appsV1DeploymentsGet',
     subscriptionDataKey: 'appsV1DeploymentsWatch',
@@ -302,14 +299,11 @@ const LoadDeploymentWorkload = ({ sourcePath }: { sourcePath: string }) => {
  * Fetch a Job workload and associated streams
  */
 
-const LoadJobWorkload = ({ sourcePath }: { sourcePath: string }) => {
-  const parts = sourcePath.split('/');
-  const [namespace, name] = [parts[1], parts[2]];
-
+const LoadJobWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => {
   const { loading, error, data } = useGetQueryWithSubscription({
     query: ops.CONSOLE_LOGGING_RESOURCES_JOB_GET,
     subscription: ops.CONSOLE_LOGGING_RESOURCES_JOB_WATCH,
-    skip: parts.length < 2,
+    skip: (!namespace || !name),
     variables: { namespace, name },
     queryDataKey: 'batchV1JobsGet',
     subscriptionDataKey: 'batchV1JobsWatch',
@@ -336,14 +330,11 @@ const LoadJobWorkload = ({ sourcePath }: { sourcePath: string }) => {
  * Fetch a Pod workload and associated streams
  */
 
-const LoadPodWorkload = ({ sourcePath }: { sourcePath: string }) => {
-  const parts = sourcePath.split('/');
-  const [namespace, name] = [parts[1], parts[2]];
-
+const LoadPodWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => {
   const { loading, error, data } = useGetQueryWithSubscription({
     query: ops.CONSOLE_LOGGING_RESOURCES_POD_GET,
     subscription: ops.CONSOLE_LOGGING_RESOURCES_POD_WATCH,
-    skip: parts.length < 3,
+    skip: (!namespace || !name),
     variables: { namespace, name },
     queryDataKey: 'coreV1PodsGet',
     subscriptionDataKey: 'coreV1PodsWatch',
@@ -370,14 +361,11 @@ const LoadPodWorkload = ({ sourcePath }: { sourcePath: string }) => {
  * Fetch a ReplicaSet workload and associated streams
  */
 
-const LoadReplicaSetWorkload = ({ sourcePath }: { sourcePath: string }) => {
-  const parts = sourcePath.split('/');
-  const [namespace, name] = [parts[1], parts[2]];
-
+const LoadReplicaSetWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => {
   const { loading, error, data } = useGetQueryWithSubscription({
     query: ops.CONSOLE_LOGGING_RESOURCES_REPLICASET_GET,
     subscription: ops.CONSOLE_LOGGING_RESOURCES_REPLICASET_WATCH,
-    skip: parts.length < 2,
+    skip: (!namespace || !name),
     variables: { namespace, name },
     queryDataKey: 'appsV1ReplicaSetsGet',
     subscriptionDataKey: 'appsV1ReplicaSetsWatch',
@@ -404,14 +392,11 @@ const LoadReplicaSetWorkload = ({ sourcePath }: { sourcePath: string }) => {
  * Fetch a StatefulSet workload and associated streams
  */
 
-const LoadStatefulSetWorkload = ({ sourcePath }: { sourcePath: string }) => {
-  const parts = sourcePath.split('/');
-  const [namespace, name] = [parts[1], parts[2]];
-
+const LoadStatefulSetWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => {
   const { loading, error, data } = useGetQueryWithSubscription({
     query: ops.CONSOLE_LOGGING_RESOURCES_STATEFULSET_GET,
     subscription: ops.CONSOLE_LOGGING_RESOURCES_STATEFULSET_WATCH,
-    skip: parts.length < 2,
+    skip: (!namespace || !name),
     variables: { namespace, name },
     queryDataKey: 'appsV1StatefulSetsGet',
     subscriptionDataKey: 'appsV1StatefulSetsWatch',
@@ -432,6 +417,32 @@ const LoadStatefulSetWorkload = ({ sourcePath }: { sourcePath: string }) => {
       matchLabels={item.spec.selector?.matchLabels}
     />
   );
+};
+
+/**
+ * Fetch all pods and associated streams for a given namespace
+ */
+
+const LoadPodWorkloadWildcard = ({ namespace, sourcePath }: { namespace: string; sourcePath: string; }) => {
+  const { loading, error, data } = useListQueryWithSubscription({
+    query: ops.CONSOLE_LOGGING_RESOURCES_PODS_LIST_FETCH,
+    subscription: ops.CONSOLE_LOGGING_RESOURCES_PODS_LIST_WATCH,
+    skip: !namespace,
+    variables: { namespace },
+    queryDataKey: 'coreV1PodsList',
+    subscriptionDataKey: 'coreV1PodsWatch',
+  });
+
+  const [sourceToPodListResponseMap, setSourceToPodListResponseMap] = useRecoilState(sourceToPodListResponseMapState);
+
+  useEffect(() => {
+    const items = data?.coreV1PodsList?.items;
+    const newMap = new Map(sourceToPodListResponseMap);
+    newMap.set(sourcePath, { loading, error, items });
+    setSourceToPodListResponseMap(newMap);
+  }, [loading, error, data]);
+
+  return null;
 };
 
 /**
@@ -490,10 +501,13 @@ export const LoggingResourcesProvider = ({ sourcePaths, children }: LoggingResou
     <RecoilRoot>
       <SourceDeletionHandler sourcePaths={sourcePathsSorted} />
       {sourcePathsSorted.map((path) => {
-        const parts = path.split('/');
-        if (!(parts[0] in resourceLoaders)) throw new Error(`not implemented: ${parts[0]}`);
-        const Component = resourceLoaders[parts[0] as WorkloadType];
-        return <Component key={path} sourcePath={path} />;
+        const [namespace, workloadType, workloadName] = path.split('/');
+        if (workloadType === WorkloadType.PODS && workloadName === '*') {
+          return <LoadPodWorkloadWildcard key={path} namespace={namespace} sourcePath={path} />;
+        }
+        if (!(workloadType in resourceLoaders)) throw new Error(`not implemented: ${workloadType}`);
+        const Component = resourceLoaders[workloadType as WorkloadType];
+        return <Component key={path} namespace={namespace} name={workloadName} sourcePath={path} />;
       })}
       {children}
     </RecoilRoot>

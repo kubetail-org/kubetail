@@ -218,7 +218,7 @@ const DisplayItems = ({
           </DataTable.Header>
           <DataTable.Body className="rounded-tbody">
             {visibleItems?.map((item) => {
-              const sourceString = `${workload}/${item.metadata.namespace}/${item.metadata.name}`;
+              const sourceString = `${item.metadata.namespace}/${workload}/${item.metadata.name}`;
               return (
                 <DataTable.Row key={item.metadata.uid} className="text-chrome-700">
                   <DataTable.DataCell>

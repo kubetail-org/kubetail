@@ -293,6 +293,31 @@ export const CONSOLE_LOGGING_RESOURCES_POD_WATCH = gql(`
   }
 `);
 
+export const CONSOLE_LOGGING_RESOURCES_PODS_LIST_FETCH = gql(`
+  query ConsolePodsListFetch($namespace: String!, $continue: String = "") {
+    coreV1PodsList(namespace: $namespace, options: { limit: "50", continue: $continue }) {
+      metadata {
+        continue
+        resourceVersion
+      }
+      items {
+        ...ConsoleLoggingResourcesPodFragment
+      }
+    }
+  }
+`);
+
+export const CONSOLE_LOGGING_RESOURCES_PODS_LIST_WATCH = gql(`
+  subscription ConsolePodsListWatch($namespace: String!, $resourceVersion: String = "") {
+    coreV1PodsWatch(namespace: $namespace, options: { resourceVersion: $resourceVersion }) {
+      type
+      object {
+        ...ConsoleLoggingResourcesPodFragment
+      }
+    }
+  }
+`);
+
 export const CONSOLE_LOGGING_RESOURCES_REPLICASET_GET = gql(`
   query ConsoleLoggingResourcesReplicaSetGet($namespace: String!, $name: String!) {
     appsV1ReplicaSetsGet(namespace: $namespace, name: $name) {
