@@ -192,7 +192,7 @@ const SidebarWorkloads = () => {
                     <span className="whitespace-nowrap overflow-hidden text-ellipsis">{obj.metadata.name}</span>
                     <button
                       type="button"
-                      onClick={() => deleteSource(`${workload}/${obj.metadata.namespace}/${obj.metadata.name}`)}
+                      onClick={() => deleteSource(`${obj.metadata.namespace}/${workload}/${obj.metadata.name}`)}
                       aria-label="Delete source"
                     >
                       <TrashIcon className="h-[18px] w-[18px] text-chrome-300 hover:text-chrome-500 cursor-pointer" />
