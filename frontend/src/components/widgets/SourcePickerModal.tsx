@@ -262,7 +262,7 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
     });
   }
 
-  const genSourcePath = (item: any) => `${typenameMap[item.__typename || '']}/${item.metadata.namespace}/${item.metadata.name}`;
+  const genSourcePath = (item: any) => `${item.metadata.namespace}/${typenameMap[item.__typename || '']}/${item.metadata.name}`;
 
   // source toggler
   const filteredSourcePaths = new Set(filteredItems.map((item) => genSourcePath(item)));
@@ -483,7 +483,7 @@ const Explorer = () => {
  * Default component
  */
 const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void; }) => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [namespace, setNamespace] = useState('');
   const [selectedSources, setSelectedSources] = useState(new Set(searchParams.getAll('source')));
 
@@ -493,7 +493,11 @@ const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void; })
 
     searchParams.delete('source');
     sourcePaths.forEach((sourcePath) => searchParams.append('source', sourcePath));
-    setSearchParams(new URLSearchParams(searchParams), { replace: true });
+
+    // TODO: instead of navigating to new url can we use react-router?
+    const currentUrl = new URL(window.location.href);
+    currentUrl.search = (new URLSearchParams(searchParams)).toString();
+    window.location.href = currentUrl.toString();
 
     onClose();
   };
