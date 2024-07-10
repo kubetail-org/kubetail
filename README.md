@@ -66,6 +66,21 @@ helm install kubetail kubetail/kubetail \
   --set key1=val1,key2=val2
 ```
 
+### Option 3: Installation via Glasskube
+
+[Glasskube](https://glasskube.dev/) is a package manager that simplifies the package installation process and can be used to automatically upgrade Kubetail to the latest version. For more information on how to install Glasskube, see [Glasskube Installation](https://glasskube.dev/docs/getting-started/install/).
+
+Once Glasskube is installed, run the following command to install Kubetail: 
+
+``` bash
+glasskube install kubetail
+# Upon successfull installation
+glasskube open kubetail
+```
+
+Once successfully installed Kubetail will always be automatically upgraded to the latest version.
+
+Glasskube also offers a GUI through which you can easily access the Kubetail dashboard.
 ## Access
 
 There are several ways to access the kubetail dashboard once the kubetail application is running in your cluster. For simplicity, we recommend using `kubectl proxy` if your kubetail deployment is using `auth-mode: cluster` and the `kubectl auth-proxy` plugin if it's using `auth-mode: token`.
