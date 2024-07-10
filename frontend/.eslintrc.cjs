@@ -13,6 +13,7 @@ module.exports = {
     '.eslintrc.cjs',
     'codegen.ts',
     'vite.config.ts',
+    'vitest.setup.ts',
     '**/__generated__/*.ts',
   ],
   parser: '@typescript-eslint/parser',
