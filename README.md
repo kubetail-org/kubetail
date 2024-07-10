@@ -1,6 +1,6 @@
 # kubetail
 
-Kubetail is a web-based, real-time log viewer for Kubernetes clusters
+Kubetail is a private, real-time log viewer for Kubernetes clusters
 
 <img src="https://github.com/kubetail-org/kubetail/assets/75881/7647bd90-0859-4b0b-9400-c7cdeb6a93e6" width="300px" title="screenshot">
 
@@ -66,21 +66,18 @@ helm install kubetail kubetail/kubetail \
   --set key1=val1,key2=val2
 ```
 
-### Option 3: Installation via Glasskube
+### Option 3: Glasskube
 
-[Glasskube](https://glasskube.dev/) is a package manager that simplifies the package installation process and can be used to automatically upgrade Kubetail to the latest version. For more information on how to install Glasskube, see [Glasskube Installation](https://glasskube.dev/docs/getting-started/install/).
-
-Once Glasskube is installed, run the following command to install Kubetail: 
-
-``` bash
+To install kubetail using [Glasskube](https://glasskube.dev/), you can select "kubetail" from the "ClusterPackages" tab in the Glasskube GUI then click "install" or you can run the following command: 
+```console
 glasskube install kubetail
-# Upon successfull installation
+```
+
+Once kubetail is installed you can use it by clicking "open" in the Glasskube GUI or by using the `open` command:
+```console
 glasskube open kubetail
 ```
 
-Once successfully installed Kubetail will always be automatically upgraded to the latest version.
-
-Glasskube also offers a GUI through which you can easily access the Kubetail dashboard.
 ## Access
 
 There are several ways to access the kubetail dashboard once the kubetail application is running in your cluster. For simplicity, we recommend using `kubectl proxy` if your kubetail deployment is using `auth-mode: cluster` and the `kubectl auth-proxy` plugin if it's using `auth-mode: token`.
