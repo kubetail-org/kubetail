@@ -1,6 +1,6 @@
 # kubetail
 
-Kubetail is a web-based, real-time log viewer for Kubernetes clusters
+Kubetail is a private, real-time log viewer for Kubernetes clusters
 
 <img src="https://github.com/kubetail-org/kubetail/assets/75881/7647bd90-0859-4b0b-9400-c7cdeb6a93e6" width="300px" title="screenshot">
 
@@ -64,6 +64,18 @@ helm install kubetail kubetail/kubetail \
   --create-namespace \
   -f values.yaml \
   --set key1=val1,key2=val2
+```
+
+### Option 3: Glasskube
+
+To install kubetail using [Glasskube](https://glasskube.dev/), you can select "kubetail" from the "ClusterPackages" tab in the Glasskube GUI then click "install" or you can run the following command: 
+```console
+glasskube install kubetail
+```
+
+Once kubetail is installed you can use it by clicking "open" in the Glasskube GUI or by using the `open` command:
+```console
+glasskube open kubetail
 ```
 
 ## Access
