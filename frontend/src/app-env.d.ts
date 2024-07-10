@@ -13,5 +13,6 @@
 // limitations under the License.
 
 import type { TypedDocumentNode } from '@apollo/client';
+import '@testing-library/jest-dom'; // adds .toBeInTheDocument() to global `expect`
 
 export type ExtractQueryType<DocumentNode> = DocumentNode extends TypedDocumentNode<infer Result> ? Result : never;
