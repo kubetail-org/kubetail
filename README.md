@@ -167,7 +167,7 @@ Kubetail can be configured using a configuration file written in YAML, JSON, TOM
 
 This repository is organized as a monorepo containing a Go-based backend server and a React-based frontend static website in their respective directories (see [backend](backend) and [frontend](frontend)). The website queries the backend server which proxies requests to a Kubernetes API and also performs a few other custom tasks (e.g. authentication). In production, the frontend website is bundled into the backend server and served as a static website (see [Build](#build)). In development, the backend and frontend are run separately but configured to work together using [Tilt](https://tilt.dev).
 
-To develop kubetail, first create a kubernetes dev cluster using a tool such as [minikube](https://minikube.sigs.k8s.io), [Docker for Mac](https://docs.docker.com/desktop/install/mac-install/), [kind](https://kind.sigs.k8s.io/) or one of the other dev cluster tools that [works with Tilt](https://docs.tilt.dev/choosing_clusters#microk8s). To automate the process you can also use [ctlptl](https://github.com/tilt-dev/ctlptl) and one of the configs available in the [`hack/ctlptl`](hack/ctlptl) directory:
+To develop kubetail, first create a kubernetes dev cluster using a dev cluster tool that [works with Tilt](https://docs.tilt.dev/choosing_clusters#microk8s). To automate the process you can also use [ctlptl](https://github.com/tilt-dev/ctlptl) and one of the configs available in the [`hack/ctlptl`](hack/ctlptl) directory. For example, to create a dev cluster using [minikube](https://minikube.sigs.k8s.io/docs/) you can use this command:
 
 ```console
 ctlptl apply -f hack/ctlptl/minikube.yaml
