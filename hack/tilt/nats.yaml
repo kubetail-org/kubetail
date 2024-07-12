@@ -1,0 +1,129 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nats
+  namespace: default
+data:
+  nats.conf: |
+    http: 8222
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nats
+  namespace: default
+  labels:
+    app.kubernetes.io/name: nats
+    app.kubernetes.io/instance: kubetail-dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nats
+      app.kubernetes.io/instance: kubetail-dev
+  replicas: 1
+  revisionHistoryLimit: 5
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nats
+        app.kubernetes.io/instance: kubetail-dev
+    spec:
+      # Common volumes for the containers
+      volumes:
+        - name: config-volume
+          configMap:
+            name: nats
+        - name: pid
+          emptyDir: {}
+
+      # Required to be able to HUP signal and apply config reload
+      # to the server without restarting the pod.
+      shareProcessNamespace: true
+
+      #################
+      #               #
+      #  NATS Server  #
+      #               #
+      #################
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: nats
+          image: nats:2.10.16-alpine3.19
+          ports:
+            - containerPort: 4222
+              name: client
+            - containerPort: 6222
+              name: cluster
+            - containerPort: 742
+              name: leafnodes
+            - containerPort: 7777
+              name: metrics
+            - containerPort: 8222
+              name: monitor
+          command:
+            - "nats-server"
+            - "--config"
+            - "/etc/nats-config/nats.conf"
+
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/nats-config
+            - name: pid
+              mountPath: /var/run/nats
+
+          resources: {}
+
+          # Liveness/Readiness probes against the monitoring
+          #
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8222
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8222
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+
+          # Gracefully stop NATS Server on pod deletion or image upgrade.
+          #
+          lifecycle:
+            preStop:
+              exec:
+                # Using the alpine based NATS image, we add an extra sleep that is
+                # the same amount as the terminationGracePeriodSeconds to allow
+                # the NATS Server to gracefully terminate the client connections.
+                #
+                command: ["/bin/sh", "-c", "/nats-server -sl=ldm=/var/run/nats/nats.pid && /bin/sleep 60"]
+---
+# service for nats clients
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats
+  namespace: default
+  labels:
+    app.kubernetes.io/name: nats
+    app.kubernetes.io/instance: kubetail-dev
+spec:
+  selector:
+    app.kubernetes.io/name: nats
+    app.kubernetes.io/instance: kubetail-dev
+  ports:
+    - name: client
+      port: 4222
+    - name: cluster
+      port: 6222
+    - name: leafnodes
+      port: 7422
+    - name: gateways
+      port: 7522
+    - name: metrics
+      port: 7777
+    - name: monitor
+      port: 8222
+---

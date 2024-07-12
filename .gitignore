@@ -23,7 +23,10 @@ lerna-debug.log*
 # build
 /frontend/dist
 /frontend/dist-ssr
-/backend/website
+/backend/server/website
+
+# tilt (custom)
+.tilt
 
 # tilt (custom)
 .tilt

@@ -1,11 +1,35 @@
 load('ext://restart_process', 'docker_build_with_restart')
 
+# kubetail-agent
+local_resource(
+  'kubetail-agent-compile',
+  'cd backend && CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/agent ./agent/cmd/main.go',
+  deps=[
+    './backend/agent',
+    './backend/common/agentpb'
+  ]
+)
+
+docker_build_with_restart(
+  'kubetail-agent',
+  dockerfile='hack/tilt/Dockerfile.kubetail-agent',
+  context='.',
+  entrypoint="/agent/agent",
+  only=[
+    './.tilt/agent',
+  ],
+  live_update=[
+    sync('./.tilt/agent', '/agent/agent'),
+  ]
+)
+
 # kubetail-server
 local_resource(
   'kubetail-server-compile',
-  'cd backend && CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/server ./cmd/server',
+  'cd backend && CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/server ./server/cmd/main.go',
   deps=[
-    './backend'
+    './backend/server',
+    './backend/common/agentpb'
   ]
 )
 
@@ -16,16 +40,18 @@ docker_build_with_restart(
   entrypoint="/server/server -c /etc/kubetail/config.yaml",
   only=[
     './.tilt/server',
-    './backend/templates'
+    './backend/server/templates'
   ],
   live_update=[
     sync('./.tilt/server', '/server/server'),
-    sync('./backend/templates', '/templates')
+    sync('./backend/server/templates', '/server/templates')
   ]
 )
 
-# --- apply manifests ---
-
+# apply manifests
+k8s_yaml('hack/tilt/nats.yaml')
+k8s_yaml('hack/tilt/nats-box.yaml')
+k8s_yaml('hack/tilt/kubetail-agent.yaml')
 k8s_yaml('hack/tilt/kubetail-server.yaml')
 k8s_yaml('hack/tilt/loggen.yaml')
 k8s_yaml('hack/tilt/loggen-ansi.yaml')
@@ -33,7 +59,19 @@ k8s_yaml('hack/tilt/echoserver.yaml')
 k8s_yaml('hack/tilt/cronjob.yaml')
 #k8s_yaml('hack/tilt/chaoskube.yaml')
 
-# --- define resources ---
+# define resources
+k8s_resource(
+  'nats',
+  objects=[
+    'nats:configmap'
+  ]
+)
+k8s_resource(
+  'kubetail-agent',
+  resource_deps=[
+    'nats'
+  ]
+)
 
 k8s_resource(
   'kubetail-server',
@@ -44,7 +82,9 @@ k8s_resource(
     'kubetail-server:clusterrolebinding',
     'kubetail-server:configmap'
   ],
-  resource_deps=[]
+  resource_deps=[
+    'nats'
+  ]
 )
 
 #k8s_resource(

@@ -1,0 +1,7 @@
+go 1.22.3
+
+use (
+	./agent
+	./server
+	./common
+)

@@ -1,0 +1,9 @@
+FROM alpine:3.20.0
+
+WORKDIR /agent
+
+# copy
+COPY .tilt/agent .
+
+ENTRYPOINT ["./agent"]
+CMD []

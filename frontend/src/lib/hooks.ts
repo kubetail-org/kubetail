@@ -17,6 +17,8 @@ import type { TypedDocumentNode, OperationVariables } from '@apollo/client';
 import distinctColors from 'distinct-colors';
 import { useEffect, useRef, useState } from 'react';
 
+import * as ops from '@/lib/graphql/ops';
+
 type GenericListFragment = {
   metadata: {
     continue: string;
@@ -140,9 +142,7 @@ export function useGetQueryWithSubscription<
   const retryOnError = useRetryOnError();
 
   // get workload object
-  const {
-    loading, error, data, subscribeToMore, refetch,
-  } = useQuery(args.query, {
+  const { loading, error, data, subscribeToMore, refetch } = useQuery(args.query, {
     skip: args.skip,
     variables: args.variables,
     onError: () => {
@@ -192,9 +192,7 @@ export function useListQueryWithSubscription<
   const retryOnError = useRetryOnError();
 
   // initial query
-  const {
-    loading, error, data, fetchMore, subscribeToMore, refetch,
-  } = useQuery(args.query, {
+  const { loading, error, data, fetchMore, subscribeToMore, refetch } = useQuery(args.query, {
     skip: args.skip,
     variables: args.variables,
     onError: () => {
@@ -293,9 +291,7 @@ export function useCounterQueryWithSubscription<
   const retryOnError = useRetryOnError();
 
   // initial query
-  const {
-    loading, error, data, subscribeToMore, refetch,
-  } = useQuery(args.query, {
+  const { loading, error, data, subscribeToMore, refetch } = useQuery(args.query, {
     skip: args.skip,
     variables: args.variables,
     onError: () => {
@@ -352,6 +348,74 @@ export function useCounterQueryWithSubscription<
   return {
     loading, error, count,
   };
+}
+
+/**
+ * LogMetadata hook
+ */
+
+type LogMetadataHookOptions = {
+  onUpdate?: (containerID: string) => void;
+}
+
+export function useLogMetadata(options?: LogMetadataHookOptions) {
+  const retryOnError = useRetryOnError();
+
+  // initial query
+  const { loading, error, data, subscribeToMore, refetch } = useQuery(ops.LOGMETADATA_LIST_FETCH, {
+    onError: () => {
+      retryOnError(refetch);
+    },
+  });
+
+  const { onUpdate } = options || {};
+
+  // subscribe to changes
+  useEffect(() => {
+    // wait for all data to get fetched
+    if (loading || error) return;
+
+    return subscribeToMore({
+      document: ops.LOGMETADATA_LIST_WATCH,
+      updateQuery: (prev, { subscriptionData }) => {
+        const ev = subscriptionData.data.logMetadataWatch;
+
+        if (!ev?.type || !ev?.object) return prev;
+
+        if (!prev.logMetadataList) return prev;
+
+        // execute callback
+        if (ev.type === 'MODIFIED' || ev.type === 'ADDED') {
+          onUpdate && onUpdate(ev.object.spec.containerID);
+        }
+
+        // let apollo handle update
+        if (ev.type === 'MODIFIED') {
+          return prev;
+        }
+
+        const merged = { ...prev.logMetadataList};
+        let items = Array.from(merged.items);
+
+        // merge
+        switch (ev.type) {
+          case 'ADDED':
+            items.push(ev.object);
+            break;
+          case 'DELETED':
+            items = items.filter((item) => item.id !== ev.object?.id);
+            break;
+          default:
+            throw new Error('not implemented');
+        }
+
+        merged.items = items;
+        return { logMetadataList: merged };
+      },
+    });
+  }, [subscribeToMore, loading, error]);
+
+  return { loading, error, data };
 }
 
 /**
