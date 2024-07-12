@@ -165,17 +165,22 @@ Kubetail can be configured using a configuration file written in YAML, JSON, TOM
 
 ## Develop
 
-This repository is organized as a monorepo containing a Go-based backend server and a React-based frontend static website in their respective directories (see [backend](backend) and [frontend](frontend)). The website queries the backend server which proxies requests to a Kubernetes API and also performs a few other custom tasks (e.g. authentication). In production, the frontend website is bundled into the backend server and served as a static website (see [Build](#build)). In development, the backend and frontend are run separately but configured to work together.
+This repository is organized as a monorepo containing a Go-based backend server and a React-based frontend static website in their respective directories (see [backend](backend) and [frontend](frontend)). The website queries the backend server which proxies requests to a Kubernetes API and also performs a few other custom tasks (e.g. authentication). In production, the frontend website is bundled into the backend server and served as a static website (see [Build](#build)). In development, the backend and frontend are run separately but configured to work together using [Tilt](https://tilt.dev).
 
-To run the backend development server, cd into the `backend` directory and run the `server` command:
+To develop kubetail, first create a kubernetes cluster using a tool such as [minikube](https://minikube.sigs.k8s.io), [Docker for Mac](https://docs.docker.com/desktop/install/mac-install/), [kind](https://kind.sigs.k8s.io/) or one of the other dev cluster tools that [works with Tilt](https://docs.tilt.dev/choosing_clusters#microk8s). To automate the process you can also use [ctlptl](https://github.com/tilt-dev/ctlptl) and one of the configs available in the [`hack/ctlptl`](hack/ctlptl) directory:
+
 ```console
-cd backend
-go run ./cmd/server -c hack/server.conf
+ctlptl apply -f hack/ctlptl/minikube.yaml
 ```
 
-Now access the health status at [http://localhost:4000/healthz](http://localhost:4000/healthz). 
+Once the dev cluster is running and `kubectl` is pointing to it, you can bring up the dev environment using Tilt: 
 
-To run the frontend development website, cd into to the `frontend` directory and run the `install` and `dev` commands:
+```console
+tilt up
+```
+
+After Tilt brings up the backend server you can access it on your localhost on port 4000. To run the frontend development website, cd into to the `frontend` directory and run the `install` and `dev` commands:
+
 ```console
 cd frontend
 pnpm install
