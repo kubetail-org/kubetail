@@ -1,0 +1,13 @@
+apiVersion: ctlptl.dev/v1alpha1
+kind: Registry
+name: ctlptl-registry
+port: 5005
+---
+apiVersion: ctlptl.dev/v1alpha1
+kind: Cluster
+product: minikube
+registry: ctlptl-registry
+minikube:
+  startFlags:
+    - --nodes=3
+    - --addons=metrics-server

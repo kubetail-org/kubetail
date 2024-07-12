@@ -25,6 +25,9 @@ lerna-debug.log*
 /frontend/dist-ssr
 /backend/website
 
+# tilt (custom)
+.tilt
+
 # misc
 /frontend/stats.html
 
