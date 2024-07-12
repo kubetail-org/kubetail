@@ -1,0 +1,28 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loggen-ansi
+  namespace: default
+  labels:
+    app.kubernetes.io/name: loggen
+    app.kubernetes.io/instance: kubetail-dev-2
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: loggen
+      app.kubernetes.io/instance: kubetail-dev-2
+  replicas: 3
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: loggen
+        app.kubernetes.io/instance: kubetail-dev-2
+        app.kubernetes.io/version: "0.1.3"
+    spec:
+      containers:
+      - name: loggen
+        image: docker.io/kubetail/loggen:0.1.2
+        args: ["-ansi"]
+        resources: {}

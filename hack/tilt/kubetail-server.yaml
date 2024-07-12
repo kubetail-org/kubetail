@@ -1,0 +1,123 @@
+---
+kind: ServiceAccount
+apiVersion: v1
+automountServiceAccountToken: true
+metadata:
+  name: kubetail-server
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kubetail-server
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: kubetail-server
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kubetail-server
+data:
+  config.yaml: |
+    addr: :4000
+    gin-mode: debug
+    auth-mode: cluster
+    allowed-namespaces: []
+    base-path: /
+    session:
+      secret: REPLACEME
+      cookie:
+        name: session
+        path: /
+        max-age: 2592000
+        secure: false
+        http-only: true
+        same-site: lax
+    csrf:
+      enabled: true
+      secret: REPLACEME
+      field-name: csrf_token
+      cookie:
+        name: csrf
+        path: /
+        max-age: 43200
+        secure: false
+        http-only: true
+        same-site: strict
+    logging:
+      enabled: true
+      level: info
+      format: pretty
+      access-log:
+        enabled: true
+        hide-health-checks: false
+    tls:
+      enabled: false
+      cert-file:
+      key-file:
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-server
+  labels:
+    app.kubernetes.io/name: kubetail-server
+rules:
+- apiGroups: ["", apps, batch]
+  resources: [cronjobs, daemonsets, deployments, jobs, namespaces, nodes, pods, pods/log, replicasets, statefulsets]
+  verbs: [get, list, watch]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-server
+  labels:
+    app.kubernetes.io/name: kubetail-server
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubetail-server
+subjects:
+- kind: ServiceAccount
+  name: kubetail-server
+  namespace: default
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: kubetail-server
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kubetail-server
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kubetail-server
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kubetail-server
+    spec:
+      automountServiceAccountToken: true
+      serviceAccountName: kubetail-server
+      containers:
+      - name: kubetail-server
+        image: kubetail-server
+        ports:
+        - name: http
+          protocol: TCP
+          containerPort: 4000
+        args:
+        - --config=/etc/kubetail/config.yaml
+        resources: {}
+        volumeMounts:
+        - name: config
+          mountPath: /etc/kubetail
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: kubetail-server
+---
