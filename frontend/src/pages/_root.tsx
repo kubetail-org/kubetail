@@ -51,7 +51,7 @@ const CustomToaster = () => {
   };
 
   return (
-    <div className="fixed bottom-[28px] right-[5px] p-2 bg-red-100 border-2 border-red-200">
+    <div className="fixed bottom-[28px] right-[5px] p-2 bg-red-100 border-2 border-red-200 z-10">
       <button
         type="button"
         className="absolute top-[-10px] left-[-10px] bg-red-100 rounded-full cursor-pointer"
@@ -85,7 +85,7 @@ const CustomToaster = () => {
           </div>
         </Modal.Title>
         <div className="text-sm space-y-4">
-          {toasts.map((toast) => <QueryError toast={toast} />)}
+          {toasts.map((toast, i) => <QueryError key={i} toast={toast} />)}
         </div>
       </Modal>
     </div>
