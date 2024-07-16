@@ -85,7 +85,7 @@ const CustomToaster = () => {
           </div>
         </Modal.Title>
         <div className="text-sm space-y-4">
-          {toasts.map((toast, i) => <QueryError key={i} toast={toast} />)}
+          {toasts.map((toast) => <QueryError key={toast.id} toast={toast} />)}
         </div>
       </Modal>
     </div>
