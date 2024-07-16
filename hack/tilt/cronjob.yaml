@@ -5,7 +5,7 @@ metadata:
   name: cronjob
   namespace: default
 spec:
-  schedule: "*/1 * * * *"
+  schedule: "*/5 * * * *"
   successfulJobsHistoryLimit: 5
   failedJobsHistoryLimit: 5
   jobTemplate:
