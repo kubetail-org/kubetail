@@ -176,7 +176,7 @@ const LoadPodsForLabels = ({
     setSourceToPodListResponseMap((oldVal) => {
       const items = data?.coreV1PodsList?.items;
       const newVal = new Map(oldVal);
-      newVal.set(sourcePath, { loading, error, items });
+      newVal.set(sourcePath + labelSelector, { loading, error, items });
       return newVal;
     });
   }, [loading, error, data]);
