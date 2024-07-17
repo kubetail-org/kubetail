@@ -1033,7 +1033,7 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
   pods.pods.forEach((pod, i) => {
     pod.status.containerStatuses.forEach((status, j) => {
       const node = nodeMap.get(pod.spec.nodeName);
-      if (status.state.running?.startedAt && node) {
+      if (node && (status.state.running?.startedAt || status.state.terminated?.exitCode === 0)) {
         const k = `${pod.metadata.namespace}/${pod.metadata.name}/${status.name}`;
         elKeys.push(k);
 
@@ -1115,7 +1115,6 @@ const LogFeedLoaderImpl: React.ForwardRefRenderFunction<LogFeedLoaderHandle, Log
         if (!fetcher) return;
 
         const pageInfo = cursorMap.get(fetcher.key);
-
         if (pageInfo === undefined) {
           // pass through query
           promises.push(fetcher.tail(opts));

@@ -182,6 +182,9 @@ export const CONSOLE_LOGGING_RESOURCES_POD_FRAGMENT = gql(`
           running {
             startedAt
           }
+          terminated {
+            exitCode
+          }
         }
       }
     }

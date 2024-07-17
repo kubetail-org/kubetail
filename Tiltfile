@@ -30,6 +30,7 @@ k8s_yaml('hack/tilt/kubetail-server.yaml')
 k8s_yaml('hack/tilt/loggen.yaml')
 k8s_yaml('hack/tilt/loggen-ansi.yaml')
 k8s_yaml('hack/tilt/echoserver.yaml')
+k8s_yaml('hack/tilt/cronjob.yaml')
 #k8s_yaml('hack/tilt/chaoskube.yaml')
 
 # --- define resources ---
