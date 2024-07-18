@@ -18,7 +18,6 @@ import (
 	"html/template"
 	"path"
 
-	"github.com/nats-io/nats.go"
 	"k8s.io/client-go/rest"
 
 	"github.com/kubetail-org/kubetail/backend/server/internal/grpchelpers"
@@ -55,14 +54,6 @@ func mustLoadTemplatesWithFuncs(glob string) *template.Template {
 	}
 
 	return parsedTemplates
-}
-
-func mustConnectNATS() *nats.Conn {
-	nc, err := nats.Connect("nats://nats:4222/") //nats.DefaultURL)
-	if err != nil {
-		panic(err)
-	}
-	return nc
 }
 
 func mustNewGcrpConnectionManager() *grpchelpers.ConnectionManager {

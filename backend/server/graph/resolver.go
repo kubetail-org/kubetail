@@ -18,7 +18,6 @@ import (
 	"context"
 	"slices"
 
-	"github.com/nats-io/nats.go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	dynamicFake "k8s.io/client-go/dynamic/fake"
@@ -37,7 +36,6 @@ import (
 
 type Resolver struct {
 	k8sCfg            *rest.Config
-	nc                *nats.Conn
 	gcm               grpchelpers.ConnectionManagerInterface
 	allowedNamespaces []string
 	TestClientset     *fake.Clientset
@@ -127,11 +125,10 @@ func (r *Resolver) ToNamespaces(namespace *string) ([]string, error) {
 	return namespaces, nil
 }
 
-func NewResolver(cfg *rest.Config, nc *nats.Conn, gcm *grpchelpers.ConnectionManager, allowedNamespaces []string) (*Resolver, error) {
+func NewResolver(cfg *rest.Config, gcm *grpchelpers.ConnectionManager, allowedNamespaces []string) (*Resolver, error) {
 	// init resolver
 	r := &Resolver{
 		k8sCfg:            cfg,
-		nc:                nc,
 		gcm:               gcm,
 		allowedNamespaces: allowedNamespaces,
 	}

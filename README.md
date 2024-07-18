@@ -17,17 +17,17 @@ Viewing application logs in a containerized environment can be challenging. Typi
 
 Kubetail solves this problem by providing an easy-to-use, web-based interface that allows you to view all the logs for a set of Kubernetes workloads (e.g. Deployment, CronJob, StatefulSet) simultaneously, in real-time. Under the hood, it uses your cluster's Kubernetes API to monitor your workloads and detect when a new workload container gets created or an old one deleted. Kubetail will then add messages from the new container to your viewing stream or update its UI to reflect that an old container will no longer produce messages. This allows you to follow your application logs easily as user requests move from one ephemeral container to another across services. Kubetail can also help you to debug application issues by allowing you to filter your logs by node properties such as availability zone, CPU architecture or node ID. This can be useful to find problems that are specific to a given environment that an application instance is running in.
 
-The kubetail application consists of a Go-based backend server that connects to your Kubernetes API and a React-based static website that queries the backend server and displays results in the browser. Kubetail is typically deployed as a docker container inside your cluster using a manifest file or a helm chart and can be accessed via a web browser using the same methods you use to connect to your Kubernetes Dashboard (e.g. `kubectl proxy`). Since, internally, kubetail uses your Kubernetes API to request logs, your log messages always stay in your possession and kubetail is private by default.
+The kubetail application consists of a Go-based backend server that connects to your Kubernetes API and a React-based static website that queries the backend server and displays results in the browser. Kubetail is typically deployed as a docker container inside your cluster using a manifest file or a helm chart and can be accessed via a web browser using the same methods you use to connect to your Kubernetes Dashboard (e.g. `kubectl proxy`). Since, internally, kubetail uses your Kubernetes API to request logs and , your log messages always stay in your possession and kubetail is private by default.
 
 Our goal is to build a powerful cloud-native logging platform designed from the ground up for a containerized environment and this project is a work-in-progress. If you notice a bug or have a suggestion please create a GitHub Issue or send us an email (hello@kubetail.com)!
 
 ## Key features
 
-* Small and resource efficient (<30MB of memory, negligible CPU)
+* Small and resource efficient (<50MB of memory, negligible CPU)
 * View log messages in real-time
 * View logs that are part of a specific workload (e.g. Deployment, CronJob, StatefulSet)
 * Detects creation and deletion of workload containers and adds their logs to the viewing stream automatically
-* Uses your Kubernetes API so log messages never leave your possession (private by default)
+* Uses your Kubernetes API to retrieve log messages so data never leaves your possession (private by default)
 * Filter logs based on time
 * Filter logs based on node properties such as availability zone, CPU architecture or node ID
 * Color-coded log lines to distinguish between different containers
