@@ -868,7 +868,7 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
     return tail.subscribeToMore({
       document: ops.FOLLOW_CONTAINER_LOG,
       variables: { namespace, name, container, after: followAfterRef.current },
-      updateQuery: (prev, { subscriptionData }) => {
+      updateQuery: (_, { subscriptionData }) => {
         const { data: { podLogFollow: data } } = subscriptionData;
         if (data) {
           const record = upgradeRecord(data);
@@ -879,7 +879,7 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
           // execute callback
           onFollowData(record);
         }
-        return prev;
+        return { podLogTail: null };
       },
       onError: (err) => {
         console.log(err);
