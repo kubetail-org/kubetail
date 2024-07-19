@@ -112,62 +112,11 @@ kubectl auth-proxy -n kubetail http://kubetail.svc
 
 Now your computer will automatically open a new browser tab pointing to the Kubetail dashboard.
 
-## Configure
-
-### CLI
-
-The Kubetail backend server executable (`kubetail-server`) supports the following command line configuration options:
-
-| Flag         | Datatype    | Description               | Default   |
-| ------------ | ----------- | ------------------------- | --------- |
-| -c, --config | string      | Path to config file       | ""        |
-| -a, --addr   | string      | Host address to bind to   | ":4000"   |
-| --gin-mode   | string      | Gin mode (release, debug) | "release" |
-
-### Config file
-
-Kubetail can be configured using a configuration file written in YAML, JSON, TOML, HCL or envfile format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [hack/config.yaml](hack/config.yaml)):
-
-| Name                                  | Datatype | Description                                          | Default                |
-| ------------------------------------- | -------- | ---------------------------------------------------- | ---------------------- |
-| addr                                  | string   | Host address to bind to                              | ":4000"                |
-| auth-mode                             | string   | Auth mode (token, cluster, local)                    | "token"                |
-| allowed-namespaces                    | []string | If populated, restricts namespace access             | []                     |
-| base-path                             | string   | URL path prefix                                      | "/"                    |
-| gin-mode                              | string   | Gin mode (release, debug)                            | "release"              |
-| kube-config                           | string   | Kubectl config file path                             | "${HOME}/.kube/config" |
-| csrf.enabled                          | bool     | Enable CSRF protection                               | true                   |
-| csrf.field-name                       | string   | CSRF token name in forms                             | "csrf_token"           |
-| csrf.secret                           | string   | CSRF hash key                                        | ""                     |
-| csrf.cookie.name                      | string   | CSRF cookie name                                     | "csrf"                 |
-| csrf.cookie.path                      | string   | CSRF cookie path                                     | "/"                    |
-| csrf.cookie.domain                    | string   | CSRF cookie domain                                   | ""                     |
-| csrf.cookie.max-age                   | int      | CSRF cookie max age (in seconds)                     | 43200                  |
-| csrf.cookie.secure                    | bool     | CSRF cookie secure property                          | false                  |
-| csrf.cookie.http-only                 | bool     | CSRF cookie HttpOnly property                        | true                   |
-| csrf.cookie.same-site                 | string   | CSRF cookie SameSite property (strict, lax, none)    | "strict"               |
-| logging.enabled                       | bool     | Enable logging                                       | true                   |
-| logging.level                         | string   | Log level                                            | "info"                 |
-| logging.format                        | string   | Log format (json, pretty)                            | "json"                 |
-| logging.access-log.enabled            | bool     | Enable access log                                    | true                   |
-| logging.access-log.hide-health-checks | bool     | Hide requests to /healthz from access log            | false                  |
-| session.secret                        | string   | Session hash key                                     | ""                     |
-| session.cookie.name                   | string   | Session cookie name                                  | "session"              |
-| session.cookie.path                   | string   | Session cookie path                                  | "/"                    |
-| session.cookie.domain                 | string   | Session cookie domain                                | ""                     |
-| session.cookie.max-age                | int      | Session cookie max age (in seconds)                  | 43200                  |
-| session.cookie.secure                 | bool     | Session cookie secure property                       | false                  |
-| session.cookie.http-only              | bool     | Session cookie HttpOnly property                     | true                   |
-| session.cookie.same-site              | string   | Session cookie SameSite property (strict, lax, none) | "strict"               |
-| tls.enabled                           | bool     | Enable TLS endpoint termination                      | false                  |
-| tls.cert-file                         | string   | Path to cert file                                    | ""                     |
-| tls.key-file                          | string   | Path to key file                                     | ""                     |
-
 ## Develop
 
-This repository is organized as a monorepo containing a Go-based backend server and a React-based frontend static website in their respective directories (see [backend](backend) and [frontend](frontend)). The website queries the backend server which proxies requests to a Kubernetes API and also performs a few other custom tasks (e.g. authentication). In production, the frontend website is bundled into the backend server and served as a static website (see [Build](#build)). In development, the backend and frontend are run separately but configured to work together using [Tilt](https://tilt.dev).
+This repository is organized as a monorepo containing a Go-based backend and a React-based frontend static website in their respective directories (see [backend](backend) and [frontend](frontend)). The website queries a backend server which proxies requests to the Kubernetes API and to backend agents running on each node, and also performs a few other custom tasks (e.g. authentication). In production, the frontend website is bundled into the backend server and served as a static website (see [Build](#build)). In development, the backend and frontend are run separately but configured to work together using [Tilt](https://tilt.dev).
 
-To develop kubetail, first create a kubernetes dev cluster using a dev cluster tool that [works with Tilt](https://docs.tilt.dev/choosing_clusters#microk8s). To automate the process you can also use [ctlptl](https://github.com/tilt-dev/ctlptl) and one of the configs available in the [`hack/ctlptl`](hack/ctlptl) directory. For example, to create a dev cluster using [minikube](https://minikube.sigs.k8s.io/docs/) you can use this command:
+To develop Kubetail, first create a Kubernetes dev cluster using a dev cluster tool that [works with Tilt](https://docs.tilt.dev/choosing_clusters#microk8s). To automate the process you can also use [ctlptl](https://github.com/tilt-dev/ctlptl) and one of the configs available in the [`hack/ctlptl`](hack/ctlptl) directory. For example, to create a dev cluster using [minikube](https://minikube.sigs.k8s.io/docs/) you can use this command:
 
 ```console
 ctlptl apply -f hack/ctlptl/minikube.yaml
@@ -191,10 +140,20 @@ Now access the dashboard at [http://localhost:5173](http://localhost:5173).
 
 ## Build
 
-To build a docker image for a production deployment, run the following command:
+### kubetail-server
+
+To build a docker image for a production deployment of the backend server, run the following command:
 
 ```console
-docker build -t kubetail:latest .
+docker build -f build/package/Dockerfile.server -t kubetail-server:latest .
+```
+
+### kubetail-agent
+
+To build a docker image for a production deployment of the backend agent, run the following command:
+
+```console
+docker build -f build/package/Dockerfile.agent -t kubetail-agent:latest .
 ```
 
 ## How to help

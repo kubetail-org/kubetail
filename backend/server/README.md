@@ -20,8 +20,6 @@ The Kubetail backend server executable (`kubetail-server`) supports the followin
 | -a, --addr   | string      | Host address to bind to   | ":4000"   |
 | --gin-mode   | string      | Gin mode (release, debug) | "release" |
 
-### Config Params
-
 ### Config file
 
 Kubetail can be configured using a configuration file written in YAML, JSON, TOML, HCL or envfile format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [hack/config.yaml](hack/config.yaml)):
