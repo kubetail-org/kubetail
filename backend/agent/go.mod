@@ -1,6 +1,6 @@
 module github.com/kubetail-org/kubetail/backend/agent
 
-go 1.22.3
+go 1.22
 
 replace github.com/kubetail-org/kubetail/backend/common => ../common
 
@@ -12,9 +12,8 @@ require (
 )
 
 require (
-	github.com/golang/protobuf v1.5.4 // indirect
-	golang.org/x/net v0.22.0 // indirect
+	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
-	google.golang.org/genproto v0.0.0-20200825200019-8632dd797987 // indirect
+	golang.org/x/text v0.15.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237 // indirect
 )

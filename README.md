@@ -1,4 +1,4 @@
-# kubetail
+# Kubetail
 
 Kubetail is a private, real-time log viewer for Kubernetes clusters
 
@@ -17,13 +17,13 @@ Viewing application logs in a containerized environment can be challenging. Typi
 
 Kubetail solves this problem by providing an easy-to-use, web-based interface that allows you to view all the logs for a set of Kubernetes workloads (e.g. Deployment, CronJob, StatefulSet) simultaneously, in real-time. Under the hood, it uses your cluster's Kubernetes API to monitor your workloads and detect when a new workload container gets created or an old one deleted. Kubetail will then add messages from the new container to your viewing stream or update its UI to reflect that an old container will no longer produce messages. This allows you to follow your application logs easily as user requests move from one ephemeral container to another across services. Kubetail can also help you to debug application issues by allowing you to filter your logs by node properties such as availability zone, CPU architecture or node ID. This can be useful to find problems that are specific to a given environment that an application instance is running in.
 
-The kubetail application consists of a Go-based backend server that connects to your Kubernetes API and a React-based static website that queries the backend server and displays results in the browser. Kubetail is typically deployed as a docker container inside your cluster using a manifest file or a helm chart and can be accessed via a web browser using the same methods you use to connect to your Kubernetes Dashboard (e.g. `kubectl proxy`). Since, internally, kubetail uses your Kubernetes API to request logs and , your log messages always stay in your possession and kubetail is private by default.
+The Kubetail application consists of a Go-based backend that connects to your Kubernetes API and monitors your log files on-disk, and a React-based static website that queries the backend and displays results in the browser. Kubetail is deployed inside your cluster using a manifest file or a helm chart and can be accessed via a web browser using the same methods you use to connect to your Kubernetes Dashboard (e.g. `kubectl proxy`). Since, internally, Kubetail uses your Kubernetes API to request logs, your log messages always stay in your possession and kubetail is private by default.
 
 Our goal is to build a powerful cloud-native logging platform designed from the ground up for a containerized environment and this project is a work-in-progress. If you notice a bug or have a suggestion please create a GitHub Issue or send us an email (hello@kubetail.com)!
 
 ## Key features
 
-* Small and resource efficient (<50MB of memory, negligible CPU)
+* Small and resource efficient (server: <40MB memory, agents: <10MB memory, negligible CPU)
 * View log messages in real-time
 * View logs that are part of a specific workload (e.g. Deployment, CronJob, StatefulSet)
 * Detects creation and deletion of workload containers and adds their logs to the viewing stream automatically
@@ -73,14 +73,14 @@ To install kubetail using [Glasskube](https://glasskube.dev/), you can select "k
 glasskube install kubetail
 ```
 
-Once kubetail is installed you can use it by clicking "open" in the Glasskube GUI or by using the `open` command:
+Once Kubetail is installed you can use it by clicking "open" in the Glasskube GUI or by using the `open` command:
 ```console
 glasskube open kubetail
 ```
 
 ## Access
 
-There are several ways to access the kubetail dashboard once the kubetail application is running in your cluster. For simplicity, we recommend using `kubectl proxy` if your kubetail deployment is using `auth-mode: cluster` and the `kubectl auth-proxy` plugin if it's using `auth-mode: token`.
+There are several ways to access the Kubetail dashboard once the application is running in your cluster. For simplicity, we recommend using `kubectl proxy` if your Kubetail deployment is using `auth-mode: cluster` and the `kubectl auth-proxy` plugin if it's using `auth-mode: token`.
 
 ### Option 1: kubectl proxy
 
@@ -110,13 +110,13 @@ If you've enabled `auth-mode: token`, then we recommend accessing the dashboard 
 kubectl auth-proxy -n kubetail http://kubetail.svc
 ```
 
-Now your computer will automatically open a new browser tab pointing to the kubetail dashboard.
+Now your computer will automatically open a new browser tab pointing to the Kubetail dashboard.
 
 ## Configure
 
 ### CLI
 
-The kubetail server executable (`server`) supports the following command line configuration options:
+The Kubetail backend server executable (`kubetail-server`) supports the following command line configuration options:
 
 | Flag         | Datatype    | Description               | Default   |
 | ------------ | ----------- | ------------------------- | --------- |
