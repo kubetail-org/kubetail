@@ -1,4 +1,4 @@
-# Kubetail > Frontend
+# Kubetail Frontend
 
 React-based static website for Kubetail application
 

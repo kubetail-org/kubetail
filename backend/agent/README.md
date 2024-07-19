@@ -1,4 +1,4 @@
-# Kubetail > Backend > Agent
+# Kubetail Backend Agent
 
 Go-based service that runs on every node in a cluster and responds to requests from Kubetail backend server instances
 

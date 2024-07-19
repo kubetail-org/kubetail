@@ -1,4 +1,4 @@
-# Kubetail > Backend > Server
+# Kubetail Backend Server
 
 Go-based HTTP server that handles web requests for the Kubetail frontend
 
