@@ -10,4 +10,4 @@ The Kubetail application's backend consists of a Go-based backend server (`kubet
 * [agent](agent) - Backend agent
 * [common](common) - Shared libraries
 
-Please look at the README in each module directory for more details.
+Please view the README in each module directory for more details.
