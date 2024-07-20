@@ -80,7 +80,7 @@ glasskube open kubetail
 
 ## Access
 
-There are several ways to access the kubetail dashboard once the kubetail application is running in your cluster. For simplicity, we recommend using `kubectl proxy` if your kubetail deployment is using `auth-mode: cluster` and the `kubectl auth-proxy` plugin if it's using `auth-mode: token`.
+There are several ways to access the kubetail dashboard once the kubetail application is running in your cluster. For simplicity, we recommend using `kubectl proxy` if your kubetail deployment is using `auth-mode: cluster` and the `kubectl auth-proxy` plugin if it's using `auth-mode: token`. If using the [Helm chart](https://github.com/kubetail-org/helm/) it has support for ingress and that is the preferred method of access.
 
 ### Option 1: kubectl proxy
 
@@ -111,6 +111,27 @@ kubectl auth-proxy -n kubetail http://kubetail.svc
 ```
 
 Now your computer will automatically open a new browser tab pointing to the kubetail dashboard.
+
+### Option 4: ingress with Helm chart
+
+Set the following in your `values.yaml` replacing where applicable:
+
+```yaml
+ingress:
+  enabled: true
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls.certresolver: le
+  hosts:
+    - host: kubetail.mydomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - kubetail.mydomain.com
+```
 
 ## Configure
 
