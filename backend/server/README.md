@@ -1,6 +1,6 @@
 # Kubetail Backend Server
 
-Go-based HTTP server that handles web requests for the Kubetail frontend
+Go-based HTTP server that handles web requests from the Kubetail frontend
 
 ## Overview
 
@@ -64,7 +64,6 @@ Kubetail can be configured using a configuration file written in YAML, JSON, TOM
 The GraphQL schema can be found here: [GraphQL schema](graph/schema.graphqls). To run the gqlgen GraphQL code generator use the `go generate` command:
 
 ```console
-cd backend/server
 go generate ./...
 ```
 
@@ -73,6 +72,5 @@ go generate ./...
 This project uses the [stretchr/testify](https://github.com/stretchr/testify) library for testing. To run the test suite execute this command:
 
 ```console
-cd backend/server
 go test ./...
 ```

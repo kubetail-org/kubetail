@@ -1,10 +1,10 @@
 # Kubetail Frontend
 
-React-based static website for Kubetail application
+React-based static website for the Kubetail application
 
 ## Overview
 
-The kubetail frontend website is a React-based static website that's designed to query the kubetail backend server and display results to the user in a clean, easy-to-use interface. Kubernetes-related requests to the backend server's GraphQL endpoint are made using [Apollo Client](https://www.apollographql.com/docs/react/) and authentication-related requests to the REST API are made using simple `fetch()` requests. The code is written in TypeScript and is generally written to be as type-safe as possible. In development, the application uses [vite](https://vitejs.dev/) and in production, it's deployed as a static website hosted by the backend server.
+The Kubetail frontend website is a React-based static website that's designed to query the Kubetail backend server and display results to the user in a clean, easy-to-use interface. Kubernetes-related requests to the backend server's GraphQL endpoint are made using [Apollo Client](https://www.apollographql.com/docs/react/) and authentication-related requests to the REST API are made using simple `fetch()` requests. The code is written in TypeScript and is generally written to be as type-safe as possible. In development, the application uses [vite](https://vitejs.dev/) and in production, it's deployed as a static website hosted by the backend server.
 
 ## GraphQL
 
