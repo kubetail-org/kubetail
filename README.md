@@ -17,7 +17,7 @@ Viewing application logs in a containerized environment can be challenging. Typi
 
 Kubetail solves this problem by providing an easy-to-use, web-based interface that allows you to view all the logs for a set of Kubernetes workloads (e.g. Deployment, CronJob, StatefulSet) simultaneously, in real-time. Under the hood, it uses your cluster's Kubernetes API to monitor your workloads and detect when a new workload container gets created or an old one deleted. Kubetail will then add messages from the new container to your viewing stream or update its UI to reflect that an old container will no longer produce messages. This allows you to follow your application logs easily as user requests move from one ephemeral container to another across services. Kubetail can also help you to debug application issues by allowing you to filter your logs by node properties such as availability zone, CPU architecture or node ID. This can be useful to find problems that are specific to a given environment that an application instance is running in.
 
-The Kubetail application consists of a Go-based backend that connects to your Kubernetes API and monitors your log files on-disk, and a React-based static website that queries the backend and displays results in the browser. Kubetail is deployed inside your cluster using a manifest file or a helm chart and can be accessed via a web browser using the same methods you use to connect to your Kubernetes Dashboard (e.g. `kubectl proxy`). Since, internally, Kubetail uses your Kubernetes API to request logs, your log messages always stay in your possession and kubetail is private by default.
+The Kubetail application consists of a Go-based backend server (`kubetail-server`) and a set of small Go-based backend agents (`kubetail-agent`) that run on each node in your cluster. The server hosts a React-based website that you can access once the backend components are running inside your cluster. The website sends queries to the server which performs actions inside the cluster on your behalf such as fetching data from your Kubernetes API and monitoring your log files on-disk using the agents. Since, internally, Kubetail uses your Kubernetes API to request logs, your log messages always stay in your possession and kubetail is private by default. Kubetail is deployed inside your cluster using a manifest file or a helm chart and can be accessed via a web browser using the same methods you use to connect to your Kubernetes Dashboard (e.g. `kubectl proxy`). 
 
 Our goal is to build a powerful cloud-native logging platform designed from the ground up for a containerized environment and this project is a work-in-progress. If you notice a bug or have a suggestion please create a GitHub Issue or send us an email (hello@kubetail.com)!
 
@@ -37,13 +37,13 @@ Our goal is to build a powerful cloud-native logging platform designed from the 
 
 ### Option 1: Manifest file
 
-To allow kubetail to use an internal cluster service account to query your Kubernetes API, use the `-clusterauth` manifest file: 
+To allow Kubetail to use an internal cluster service account to query your Kubernetes API, use the `-clusterauth` manifest file: 
 
 ```console
 kubectl apply -f https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-clusterauth.yaml
 ```
 
-To require kubetail users to utilize their own Kubernetes authentication token, use the `-tokenauth` manifest file: 
+To require Kubetail users to utilize their own Kubernetes authentication token, use the `-tokenauth` manifest file: 
 
 ```console
 kubectl apply -f https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-tokenauth.yaml
@@ -51,7 +51,7 @@ kubectl apply -f https://github.com/kubetail-org/kubetail/releases/latest/downlo
 
 ### Option 2: Helm chart
 
-To install kubetail using helm, first add the kubetail repository, then install the chart:
+To install Kubetail using helm, first add the "kubetail" repository, then install the "kubetail" chart:
 ```console
 helm repo add kubetail https://kubetail-org.github.io/helm-charts/
 helm install kubetail kubetail/kubetail --namespace kubetail --create-namespace
@@ -68,7 +68,7 @@ helm install kubetail kubetail/kubetail \
 
 ### Option 3: Glasskube
 
-To install kubetail using [Glasskube](https://glasskube.dev/), you can select "kubetail" from the "ClusterPackages" tab in the Glasskube GUI then click "install" or you can run the following command: 
+To install Kubetail using [Glasskube](https://glasskube.dev/), you can select "kubetail" from the "ClusterPackages" tab in the Glasskube GUI then click "install" or you can run the following command: 
 ```console
 glasskube install kubetail
 ```
@@ -111,6 +111,13 @@ kubectl auth-proxy -n kubetail http://kubetail.svc
 ```
 
 Now your computer will automatically open a new browser tab pointing to the Kubetail dashboard.
+
+## Configure
+
+To see the configuration options for each Kubetail component, please see the "Config" section in the documentation for each component:
+
+* [`kubetail-server`](backend/server#Config)
+* [`kubetail-agent`](backend/agent#Config)
 
 ## Develop
 
