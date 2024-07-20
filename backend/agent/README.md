@@ -10,7 +10,4 @@ The Kubetail backend agent is a small Go-based service that's designed to run on
 
 ### CLI
 
-
-
 ### Config params
-

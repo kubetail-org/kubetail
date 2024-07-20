@@ -59,9 +59,7 @@ Kubetail can be configured using a configuration file written in YAML, JSON, TOM
 | tls.cert-file                         | string   | Path to cert file                                    | ""                     |
 | tls.key-file                          | string   | Path to key file                                     | ""                     |
 
-## Develop
-
-### GraphQL
+## GraphQL
 
 The GraphQL schema can be found here: [GraphQL schema](graph/schema.graphqls). To run the gqlgen GraphQL code generator use the `go generate` command:
 
@@ -70,7 +68,7 @@ cd backend/server
 go generate ./...
 ```
 
-### Test
+## Test
 
 This project uses the [stretchr/testify](https://github.com/stretchr/testify) library for testing. To run the test suite execute this command:
 
