@@ -114,10 +114,10 @@ Now your computer will automatically open a new browser tab pointing to the Kube
 
 ## Configure
 
-To see the configuration options for Kubetail, please see the "Config" section in the documentation for each component:
+To see the configuration options for Kubetail, please see the "Configure" section in the documentation for each component:
 
-* [`kubetail-server`](backend/server#Config)
-* [`kubetail-agent`](backend/agent#Config)
+* [`kubetail-server`](backend/server#Configure)
+* [`kubetail-agent`](backend/agent#Configure)
 
 ## Develop
 
