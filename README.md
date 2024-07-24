@@ -11,7 +11,7 @@ Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 
 ## Introduction
 
-<img src="assets/github-logo.svg" width="300px" title="KubeTail">
+<img src="assets/github-logo.svg" width="300px" title="Kubetail">
 
 Viewing application logs in a containerized environment can be challenging. Typically, an application consists of several services, each deployed across multiple containers which are load balanced to ensure an even consumption of resources. Although viewing individual container logs is easy using tools such as `kubectl` or the Kubernetes Dashboard, simultaneously monitoring logs from all the containers that constitute an application is more difficult. This is made even more difficult by the ephemeral nature of containers, which constantly cycle in and out of existence.
 
@@ -118,26 +118,59 @@ Now your computer will automatically open a new browser tab pointing to the Kube
 
 The Kubetail backend server executable (`kubetail-server`) supports the following command line configuration options:
 
-| Flag             | Datatype    | Description               | Default   |
-| ---------------- | ----------- | ------------------------- | --------- |
-| -c, --config     | string      | Path to config file       | ""        |
-| -a, --addr       | string      | Host address to bind to   | ":4000"   |
-|     --gin-mode   | string      | Gin mode (release, debug) | "release" |
+| Flag         | Datatype    | Description               | Default   |
+| ------------ | ----------- | ------------------------- | --------- |
+| -c, --config | string      | Path to config file       | ""        |
+| -a, --addr   | string      | Host address to bind to   | ":4000"   |
+| --gin-mode   | string      | Gin mode (release, debug) | "release" |
+  -p, --param  | stringArray | Config params             | ""        |
 
 The Kubetail backend agent executable (`kubetail-agent`) supports the following command line configuration options:
 
 | Flag         | Datatype    | Description               | Default   |
 | ------------ | ----------- | ------------------------- | --------- |
 | -c, --config | string      | Path to config file       | ""        |
-| -a, --addr   | string      | Host address to bind to   | ":4000"   |
-| --gin-mode   | string      | Gin mode (release, debug) | "release" |
+| -a, --addr   | string      | Host address to bind to   | ":50051"  |
+  -p, --param  | stringArray | Config params             | ""        |
 
+### Config file
 
+Kubetail can be configured using a configuration file written in YAML, JSON, TOML, HCL or envfile format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [hack/config.yaml](hack/config.yaml)):
 
-To see the configuration options for Kubetail, please see the "Configure" section in the documentation for each component:
-
-* [`kubetail-server`](backend/server#Configure)
-* [`kubetail-agent`](backend/agent#Configure)
+| Name                                         | Datatype | Description                                          | Default                |
+| -------------------------------------------- | -------- | ---------------------------------------------------- | ---------------------- |
+| auth-mode                                    | string   | Auth mode (token, cluster, local)                    | "token"                |
+| allowed-namespaces                           | []string | If populated, restricts namespace access             | []                     |
+| server.addr                                  | string   | Host address to bind to                              | ":4000"                |
+| server.base-path                             | string   | URL path prefix                                      | "/"                    |
+| server.gin-mode                              | string   | Gin mode (release, debug)                            | "release"              |
+| server.csrf.enabled                          | bool     | Enable CSRF protection                               | true                   |
+| server.csrf.field-name                       | string   | CSRF token name in forms                             | "csrf_token"           |
+| server.csrf.secret                           | string   | CSRF hash key                                        | ""                     |
+| server.csrf.cookie.name                      | string   | CSRF cookie name                                     | "csrf"                 |
+| server.csrf.cookie.path                      | string   | CSRF cookie path                                     | "/"                    |
+| server.csrf.cookie.domain                    | string   | CSRF cookie domain                                   | ""                     |
+| server.csrf.cookie.max-age                   | int      | CSRF cookie max age (in seconds)                     | 43200                  |
+| server.csrf.cookie.secure                    | bool     | CSRF cookie secure property                          | false                  |
+| server.csrf.cookie.http-only                 | bool     | CSRF cookie HttpOnly property                        | true                   |
+| server.csrf.cookie.same-site                 | string   | CSRF cookie SameSite property (strict, lax, none)    | "strict"               |
+| server.logging.enabled                       | bool     | Enable logging                                       | true                   |
+| server.logging.level                         | string   | Log level                                            | "info"                 |
+| server.logging.format                        | string   | Log format (json, pretty)                            | "json"                 |
+| server.logging.access-log.enabled            | bool     | Enable access log                                    | true                   |
+| server.logging.access-log.hide-health-checks | bool     | Hide requests to /healthz from access log            | false                  |
+| server.session.secret                        | string   | Session hash key                                     | ""                     |
+| server.session.cookie.name                   | string   | Session cookie name                                  | "session"              |
+| server.session.cookie.path                   | string   | Session cookie path                                  | "/"                    |
+| server.session.cookie.domain                 | string   | Session cookie domain                                | ""                     |
+| server.session.cookie.max-age                | int      | Session cookie max age (in seconds)                  | 43200                  |
+| server.session.cookie.secure                 | bool     | Session cookie secure property                       | false                  |
+| server.session.cookie.http-only              | bool     | Session cookie HttpOnly property                     | true                   |
+| server.session.cookie.same-site              | string   | Session cookie SameSite property (strict, lax, none) | "strict"               |
+| server.tls.enabled                           | bool     | Enable TLS endpoint termination                      | false                  |
+| server.tls.cert-file                         | string   | Path to cert file                                    | ""                     |
+| server.tls.key-file                          | string   | Path to key file                                     | ""                     |
+| agent.addr                                   | string   | Host address to bind to                              | ":50051"               |   
 
 ## Develop
 
