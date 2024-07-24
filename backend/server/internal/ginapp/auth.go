@@ -22,15 +22,8 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 
+	"github.com/kubetail-org/kubetail/backend/common/config"
 	"github.com/kubetail-org/kubetail/backend/server/internal/formerrors"
-)
-
-type AuthMode string
-
-const (
-	AuthModeCluster = "cluster"
-	AuthModeToken   = "token"
-	AuthModeLocal   = "local"
 )
 
 type LoginForm struct {
@@ -39,7 +32,7 @@ type LoginForm struct {
 
 type AuthHandlers struct {
 	*GinApp
-	mode AuthMode
+	mode config.AuthMode
 }
 
 // Login endpoint
@@ -96,9 +89,9 @@ func (app *AuthHandlers) SessionGET(c *gin.Context) {
 	}
 
 	switch app.mode {
-	case AuthModeCluster, AuthModeLocal:
+	case config.AuthModeCluster:
 		response["user"] = string(app.mode)
-	case AuthModeToken:
+	case config.AuthModeToken:
 		token := c.GetString(k8sTokenCtxKey)
 
 		// no token found

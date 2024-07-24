@@ -25,14 +25,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
+	"github.com/kubetail-org/kubetail/backend/common/config"
 	"github.com/kubetail-org/kubetail/backend/server/graph"
 )
 
 // Add user to context if authenticated
-func authenticationMiddleware(mode AuthMode) gin.HandlerFunc {
+func authenticationMiddleware(mode config.AuthMode) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// continue if not in token mode
-		if mode != AuthModeToken {
+		if mode != config.AuthModeToken {
 			c.Next()
 			return
 		}

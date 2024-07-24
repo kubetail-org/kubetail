@@ -20,6 +20,7 @@ import (
 
 	"k8s.io/client-go/rest"
 
+	"github.com/kubetail-org/kubetail/backend/common/config"
 	"github.com/kubetail-org/kubetail/backend/server/internal/grpchelpers"
 	"github.com/kubetail-org/kubetail/backend/server/internal/k8shelpers"
 )
@@ -27,12 +28,12 @@ import (
 const k8sTokenSessionKey = "k8sToken"
 const k8sTokenCtxKey = "k8sToken"
 
-func mustConfigureK8S(config Config) *rest.Config {
-	opts := k8shelpers.Options{KubeConfig: config.KubeConfig, Mode: k8shelpers.ModeCluster}
-	switch config.AuthMode {
-	case AuthModeCluster:
+func mustConfigureK8S(cfg *config.Config) *rest.Config {
+	opts := k8shelpers.Options{KubeConfig: cfg.KubeConfig, Mode: k8shelpers.ModeCluster}
+	switch cfg.AuthMode {
+	case config.AuthModeCluster:
 		opts.Mode = k8shelpers.ModeCluster
-	case AuthModeLocal:
+	case config.AuthModeLocal:
 		opts.Mode = k8shelpers.ModeLocal
 	default:
 		opts.Mode = k8shelpers.ModeToken
@@ -56,8 +57,8 @@ func mustLoadTemplatesWithFuncs(glob string) *template.Template {
 	return parsedTemplates
 }
 
-func mustNewGcrpConnectionManager() *grpchelpers.ConnectionManager {
-	gcm, err := grpchelpers.NewConnectionManager()
+func mustNewGrpcConnectionManager(cfg *config.Config, k8sCfg *rest.Config) *grpchelpers.ConnectionManager {
+	gcm, err := grpchelpers.NewConnectionManager(cfg, k8sCfg)
 	if err != nil {
 		panic(err)
 	}

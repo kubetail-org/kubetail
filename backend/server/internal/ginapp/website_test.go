@@ -59,7 +59,7 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 		app := NewTestApp(cfg)
 
 		h := &WebsiteHandlers{app, websiteDir}
-		app.GET("/website-test", h.EndpointHandler(*cfg))
+		app.GET("/website-test", h.EndpointHandler(cfg))
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/website-test", nil)
@@ -84,7 +84,7 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 		app := NewTestApp(cfg)
 
 		h := &WebsiteHandlers{app, websiteDir}
-		app.GET("/website-test", h.EndpointHandler(*cfg))
+		app.GET("/website-test", h.EndpointHandler(cfg))
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/website-test", nil)
@@ -106,7 +106,7 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 		app := NewTestApp(cfg)
 
 		h := &WebsiteHandlers{app, websiteDir}
-		app.GET("/website-test", h.EndpointHandler(*cfg))
+		app.GET("/website-test", h.EndpointHandler(cfg))
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/website-test", nil)
@@ -125,11 +125,11 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 		})
 
 		cfg := NewTestConfig()
-		cfg.BasePath = "/my-base-path"
+		cfg.Server.BasePath = "/my-base-path"
 		app := NewTestApp(cfg)
 
 		h := &WebsiteHandlers{app, websiteDir}
-		app.GET("/website-test", h.EndpointHandler(*cfg))
+		app.GET("/website-test", h.EndpointHandler(cfg))
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/website-test", nil)
@@ -148,11 +148,11 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 		})
 
 		cfg := NewTestConfig()
-		cfg.BasePath = "/my-base-path"
+		cfg.Server.BasePath = "/my-base-path"
 		app := NewTestApp(cfg)
 
 		h := &WebsiteHandlers{app, websiteDir}
-		app.GET("/website-test", h.EndpointHandler(*cfg))
+		app.GET("/website-test", h.EndpointHandler(cfg))
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/website-test", nil)

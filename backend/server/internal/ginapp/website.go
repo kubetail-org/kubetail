@@ -22,6 +22,8 @@ import (
 	"path"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/kubetail-org/kubetail/backend/common/config"
 )
 
 type WebsiteHandlers struct {
@@ -35,7 +37,7 @@ func (app *WebsiteHandlers) InitStaticHandlers(root *gin.RouterGroup) {
 	root.Static("/assets", path.Join(app.websiteDir, "/assets"))
 }
 
-func (app *WebsiteHandlers) EndpointHandler(config Config) gin.HandlerFunc {
+func (app *WebsiteHandlers) EndpointHandler(cfg *config.Config) gin.HandlerFunc {
 	// read manifest file
 	manifestFile, err := os.Open(path.Join(app.websiteDir, ".vite/manifest.json"))
 	if err != nil {
@@ -57,7 +59,7 @@ func (app *WebsiteHandlers) EndpointHandler(config Config) gin.HandlerFunc {
 
 	// define runtime config for react app
 	runtimeConfig := map[string]string{
-		"basePath": config.BasePath,
+		"basePath": cfg.Server.BasePath,
 	}
 
 	runtimeConfigBytes, err := json.Marshal(runtimeConfig)
@@ -68,7 +70,7 @@ func (app *WebsiteHandlers) EndpointHandler(config Config) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{
-			"config":        config,
+			"config":        cfg,
 			"manifest":      manifest,
 			"runtimeConfig": template.JS(runtimeConfigJS),
 		})

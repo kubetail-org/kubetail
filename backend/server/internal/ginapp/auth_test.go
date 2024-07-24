@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"k8s.io/utils/pointer"
 
+	"github.com/kubetail-org/kubetail/backend/common/config"
 	"github.com/kubetail-org/kubetail/backend/server/internal/k8shelpers/mock"
 )
 
@@ -133,13 +134,12 @@ func (suite *AuthTestSuite) TestSessionGET() {
 
 	tests := []struct {
 		name              string
-		setAuthMode       AuthMode
+		setAuthMode       config.AuthMode
 		wantLoggedOutUser *string
 		wantLoggedInUser  *string
 	}{
-		{"cluster", AuthModeCluster, pointer.String("cluster"), pointer.String("cluster")},
-		{"local", AuthModeLocal, pointer.String("local"), pointer.String("local")},
-		{"token", AuthModeToken, nil, pointer.String("user")},
+		{"cluster", config.AuthModeCluster, pointer.String("cluster"), pointer.String("cluster")},
+		{"token", config.AuthModeToken, nil, pointer.String("user")},
 	}
 
 	for _, tt := range tests {

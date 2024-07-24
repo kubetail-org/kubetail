@@ -25,8 +25,10 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/csrf"
-	"github.com/kubetail-org/kubetail/backend/server/graph"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/kubetail-org/kubetail/backend/common/config"
+	"github.com/kubetail-org/kubetail/backend/server/graph"
 )
 
 func TestRequestID(t *testing.T) {
@@ -84,32 +86,32 @@ func TestGzip(t *testing.T) {
 
 func TestSessionCookieOptions(t *testing.T) {
 	cfg1 := NewTestConfig()
-	cfg1.Session.Cookie.Path = "/xxx"
+	cfg1.Server.Session.Cookie.Path = "/xxx"
 
 	cfg2 := NewTestConfig()
-	cfg2.Session.Cookie.Domain = "x.example.com"
+	cfg2.Server.Session.Cookie.Domain = "x.example.com"
 
 	cfg3 := NewTestConfig()
-	cfg3.Session.Cookie.MaxAge = 1
+	cfg3.Server.Session.Cookie.MaxAge = 1
 
 	cfg4 := NewTestConfig()
-	cfg4.Session.Cookie.Secure = false
+	cfg4.Server.Session.Cookie.Secure = false
 
 	cfg5 := NewTestConfig()
-	cfg5.Session.Cookie.Secure = true
+	cfg5.Server.Session.Cookie.Secure = true
 
 	cfg6 := NewTestConfig()
-	cfg6.Session.Cookie.HttpOnly = false
+	cfg6.Server.Session.Cookie.HttpOnly = false
 
 	cfg7 := NewTestConfig()
-	cfg7.Session.Cookie.HttpOnly = true
+	cfg7.Server.Session.Cookie.HttpOnly = true
 
 	cfg8 := NewTestConfig()
-	cfg8.Session.Cookie.SameSite = http.SameSiteNoneMode
+	cfg8.Server.Session.Cookie.SameSite = http.SameSiteNoneMode
 
 	tests := []struct {
 		name   string
-		setCfg *Config
+		setCfg *config.Config
 	}{
 		{"Path", cfg1},
 		{"Domain", cfg2},
@@ -143,44 +145,44 @@ func TestSessionCookieOptions(t *testing.T) {
 			// check session cookie
 			cookie := GetCookie(w.Result().Cookies(), "session")
 			assert.NotNil(t, cookie)
-			assert.Equal(t, tt.setCfg.Session.Cookie.Path, cookie.Path)
-			assert.Equal(t, tt.setCfg.Session.Cookie.Domain, cookie.Domain)
-			assert.Equal(t, tt.setCfg.Session.Cookie.MaxAge, cookie.MaxAge)
-			assert.Equal(t, tt.setCfg.Session.Cookie.Secure, cookie.Secure)
-			assert.Equal(t, tt.setCfg.Session.Cookie.HttpOnly, cookie.HttpOnly)
-			assert.Equal(t, tt.setCfg.Session.Cookie.SameSite, cookie.SameSite)
+			assert.Equal(t, tt.setCfg.Server.Session.Cookie.Path, cookie.Path)
+			assert.Equal(t, tt.setCfg.Server.Session.Cookie.Domain, cookie.Domain)
+			assert.Equal(t, tt.setCfg.Server.Session.Cookie.MaxAge, cookie.MaxAge)
+			assert.Equal(t, tt.setCfg.Server.Session.Cookie.Secure, cookie.Secure)
+			assert.Equal(t, tt.setCfg.Server.Session.Cookie.HttpOnly, cookie.HttpOnly)
+			assert.Equal(t, tt.setCfg.Server.Session.Cookie.SameSite, cookie.SameSite)
 		})
 	}
 }
 
 func TestCsrfCookieOptions(t *testing.T) {
 	cfg1 := NewTestConfig()
-	cfg1.CSRF.Cookie.Path = "/xxx"
+	cfg1.Server.CSRF.Cookie.Path = "/xxx"
 
 	cfg2 := NewTestConfig()
-	cfg2.CSRF.Cookie.Domain = "x.example.com"
+	cfg2.Server.CSRF.Cookie.Domain = "x.example.com"
 
 	cfg3 := NewTestConfig()
-	cfg3.CSRF.Cookie.MaxAge = 1
+	cfg3.Server.CSRF.Cookie.MaxAge = 1
 
 	cfg4 := NewTestConfig()
-	cfg4.CSRF.Cookie.Secure = false
+	cfg4.Server.CSRF.Cookie.Secure = false
 
 	cfg5 := NewTestConfig()
-	cfg5.CSRF.Cookie.Secure = true
+	cfg5.Server.CSRF.Cookie.Secure = true
 
 	cfg6 := NewTestConfig()
-	cfg6.CSRF.Cookie.HttpOnly = false
+	cfg6.Server.CSRF.Cookie.HttpOnly = false
 
 	cfg7 := NewTestConfig()
-	cfg7.CSRF.Cookie.HttpOnly = true
+	cfg7.Server.CSRF.Cookie.HttpOnly = true
 
 	cfg8 := NewTestConfig()
-	cfg8.CSRF.Cookie.SameSite = csrf.SameSiteNoneMode
+	cfg8.Server.CSRF.Cookie.SameSite = csrf.SameSiteNoneMode
 
 	tests := []struct {
 		name   string
-		setCfg *Config
+		setCfg *config.Config
 	}{
 		{"Path", cfg1},
 		{"Domain", cfg2},
@@ -194,8 +196,8 @@ func TestCsrfCookieOptions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.setCfg.CSRF.Enabled = true
-			tt.setCfg.CSRF.Cookie.Name = "customname"
+			tt.setCfg.Server.CSRF.Enabled = true
+			tt.setCfg.Server.CSRF.Cookie.Name = "customname"
 			app := NewTestApp(tt.setCfg)
 
 			// add route for testing
@@ -209,14 +211,14 @@ func TestCsrfCookieOptions(t *testing.T) {
 			app.ServeHTTP(w, r)
 
 			// check session cookie
-			cookie := GetCookie(w.Result().Cookies(), tt.setCfg.CSRF.Cookie.Name)
+			cookie := GetCookie(w.Result().Cookies(), tt.setCfg.Server.CSRF.Cookie.Name)
 			assert.NotNil(t, cookie)
-			assert.Equal(t, tt.setCfg.CSRF.Cookie.Path, cookie.Path)
-			assert.Equal(t, tt.setCfg.CSRF.Cookie.Domain, cookie.Domain)
-			assert.Equal(t, tt.setCfg.CSRF.Cookie.MaxAge, cookie.MaxAge)
-			assert.Equal(t, tt.setCfg.CSRF.Cookie.Secure, cookie.Secure)
-			assert.Equal(t, tt.setCfg.CSRF.Cookie.HttpOnly, cookie.HttpOnly)
-			assert.Equal(t, tt.setCfg.CSRF.Cookie.SameSite, csrf.SameSiteMode(cookie.SameSite))
+			assert.Equal(t, tt.setCfg.Server.CSRF.Cookie.Path, cookie.Path)
+			assert.Equal(t, tt.setCfg.Server.CSRF.Cookie.Domain, cookie.Domain)
+			assert.Equal(t, tt.setCfg.Server.CSRF.Cookie.MaxAge, cookie.MaxAge)
+			assert.Equal(t, tt.setCfg.Server.CSRF.Cookie.Secure, cookie.Secure)
+			assert.Equal(t, tt.setCfg.Server.CSRF.Cookie.HttpOnly, cookie.HttpOnly)
+			assert.Equal(t, tt.setCfg.Server.CSRF.Cookie.SameSite, csrf.SameSiteMode(cookie.SameSite))
 		})
 	}
 }
@@ -224,12 +226,11 @@ func TestCsrfCookieOptions(t *testing.T) {
 func TestAuthMiddlewareChain(t *testing.T) {
 	tests := []struct {
 		name         string
-		setAuthMode  AuthMode
+		setAuthMode  config.AuthMode
 		wantHasToken bool
 	}{
-		{"cluster", AuthModeCluster, false},
-		{"local", AuthModeLocal, false},
-		{"token", AuthModeToken, true},
+		{"cluster", config.AuthModeCluster, false},
+		{"token", config.AuthModeToken, true},
 	}
 
 	for _, tt := range tests {

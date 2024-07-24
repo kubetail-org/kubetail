@@ -25,11 +25,16 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/fsnotify/fsnotify"
+	"github.com/go-playground/validator/v10"
+	zlog "github.com/rs/zerolog/log"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
+	"github.com/kubetail-org/kubetail/backend/common/config"
 )
 
 // Define a regex pattern to match the filename format
@@ -258,22 +263,79 @@ func (s *server) Watch(req *agentpb.LogMetadataWatchRequest, stream agentpb.LogM
 	}
 }
 
+type CLI struct {
+	Addr   string `validate:"omitempty,hostname_port"`
+	Config string `validate:"omitempty,file"`
+}
+
 func main() {
-	// init service
-	s := &server{nodeName: os.Getenv("NODE_NAME")}
+	var cli CLI
+	var params []string
 
-	// init grpc server
-	grpcServer := grpc.NewServer()
-	agentpb.RegisterLogMetadataServiceServer(grpcServer, s)
+	// init cobra command
+	cmd := cobra.Command{
+		Use:   "kubetail-agent",
+		Short: "Kubetail Backend Agent",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			// validate cli flags
+			return validator.New().Struct(cli)
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			// init viper
+			v := viper.New()
+			v.BindPFlag("addr", cmd.Flags().Lookup("addr"))
 
-	// listen
-	lis, err := net.Listen("tcp", ":5000")
-	if err != nil {
-		panic(err)
+			// override params from cli
+			for _, param := range params {
+				split := strings.SplitN(param, ":", 2)
+				if len(split) == 2 {
+					v.Set(split[0], split[1])
+				}
+			}
+
+			// init config
+			cfg, err := config.NewConfig(v, cli.Config)
+			if err != nil {
+				zlog.Fatal().Caller().Err(err).Send()
+			}
+
+			// configure logger
+			config.ConfigureLogger(config.LoggerOptions{
+				Enabled: cfg.Server.Logging.Enabled,
+				Level:   cfg.Server.Logging.Level,
+				Format:  cfg.Server.Logging.Format,
+			})
+
+			// init service
+			s := &server{nodeName: os.Getenv("NODE_NAME")}
+
+			// init grpc server
+			grpcServer := grpc.NewServer()
+			agentpb.RegisterLogMetadataServiceServer(grpcServer, s)
+
+			// init listener
+			lis, err := net.Listen("tcp", cfg.Agent.Addr)
+			if err != nil {
+				zlog.Fatal().Caller().Err(err).Send()
+			}
+
+			// start grpc server
+			zlog.Info().Msg("Starting server on " + cfg.Agent.Addr)
+			if err := grpcServer.Serve(lis); err != nil {
+				zlog.Fatal().Caller().Err(err).Send()
+			}
+		},
 	}
 
-	// start grpc server
-	if err := grpcServer.Serve(lis); err != nil {
-		panic(err)
+	// define flags
+	flagset := cmd.Flags()
+	flagset.SortFlags = false
+	flagset.StringVarP(&cli.Config, "config", "c", "", "Path to configuration file (e.g. \"/etc/kubetail/config.yaml\")")
+	flagset.StringP("addr", "a", ":50051", "Host address to bind to")
+	flagset.StringArrayVarP(&params, "param", "p", []string{}, "Config params")
+
+	// execute command
+	if err := cmd.Execute(); err != nil {
+		zlog.Fatal().Caller().Err(err).Send()
 	}
 }

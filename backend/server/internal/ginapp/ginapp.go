@@ -31,6 +31,7 @@ import (
 	adapter "github.com/gwatts/gin-adapter"
 	"k8s.io/client-go/rest"
 
+	"github.com/kubetail-org/kubetail/backend/common/config"
 	"github.com/kubetail-org/kubetail/backend/server/internal/grpchelpers"
 	"github.com/kubetail-org/kubetail/backend/server/internal/k8shelpers"
 )
@@ -53,7 +54,7 @@ func (app *GinApp) Teardown() {
 }
 
 // Create new kubetail Gin app
-func NewGinApp(config Config) (*GinApp, error) {
+func NewGinApp(cfg *config.Config) (*GinApp, error) {
 	// init app
 	app := &GinApp{Engine: gin.New()}
 
@@ -61,13 +62,13 @@ func NewGinApp(config Config) (*GinApp, error) {
 	var k8sCfg *rest.Config
 	if gin.Mode() != gin.TestMode {
 		// configure kubernetes
-		k8sCfg = mustConfigureK8S(config)
+		k8sCfg = mustConfigureK8S(cfg)
 
 		// init k8s helper service
-		app.k8sHelperService = k8shelpers.NewK8sHelperService(k8sCfg, k8shelpers.Mode(config.AuthMode))
+		app.k8sHelperService = k8shelpers.NewK8sHelperService(k8sCfg, k8shelpers.Mode(cfg.AuthMode))
 
 		// init grpc connection manager
-		app.gcm = mustNewGcrpConnectionManager()
+		app.gcm = mustNewGrpcConnectionManager(cfg, k8sCfg)
 
 		// add recovery middleware
 		app.Use(gin.Recovery())
@@ -105,30 +106,30 @@ func NewGinApp(config Config) (*GinApp, error) {
 	app.Use(requestid.New())
 
 	// add logging middleware
-	if config.AccessLog.Enabled {
-		app.Use(loggingMiddleware(config.AccessLog.HideHealthChecks))
+	if cfg.Server.Logging.AccessLog.Enabled {
+		app.Use(loggingMiddleware(cfg.Server.Logging.AccessLog.HideHealthChecks))
 	}
 
 	// gzip middleware
 	app.Use(gzip.Gzip(gzip.DefaultCompression))
 
 	// root route
-	root := app.Group(config.BasePath)
+	root := app.Group(cfg.Server.BasePath)
 
 	// dynamic routes
 	dynamicRoutes := root.Group("/")
 	{
 		// session middleware
-		sessionStore := cookie.NewStore([]byte(config.Session.Secret))
+		sessionStore := cookie.NewStore([]byte(cfg.Server.Session.Secret))
 		sessionStore.Options(sessions.Options{
-			Path:     config.Session.Cookie.Path,
-			Domain:   config.Session.Cookie.Domain,
-			MaxAge:   config.Session.Cookie.MaxAge,
-			Secure:   config.Session.Cookie.Secure,
-			HttpOnly: config.Session.Cookie.HttpOnly,
-			SameSite: config.Session.Cookie.SameSite,
+			Path:     cfg.Server.Session.Cookie.Path,
+			Domain:   cfg.Server.Session.Cookie.Domain,
+			MaxAge:   cfg.Server.Session.Cookie.MaxAge,
+			Secure:   cfg.Server.Session.Cookie.Secure,
+			HttpOnly: cfg.Server.Session.Cookie.HttpOnly,
+			SameSite: cfg.Server.Session.Cookie.SameSite,
 		})
-		dynamicRoutes.Use(sessions.Sessions(config.Session.Cookie.Name, sessionStore))
+		dynamicRoutes.Use(sessions.Sessions(cfg.Server.Session.Cookie.Name, sessionStore))
 
 		// https://security.stackexchange.com/questions/147554/security-headers-for-a-web-api
 		// https://observatory.mozilla.org/faq/
@@ -141,7 +142,7 @@ func NewGinApp(config Config) (*GinApp, error) {
 
 		// disable csrf protection for graphql endpoint (already rejects simple requests)
 		dynamicRoutes.Use(func(c *gin.Context) {
-			if c.Request.URL.Path == path.Join(config.BasePath, "/graphql") {
+			if c.Request.URL.Path == path.Join(cfg.Server.BasePath, "/graphql") {
 				c.Request = csrf.UnsafeSkipCheck(c.Request)
 			}
 			c.Next()
@@ -150,17 +151,17 @@ func NewGinApp(config Config) (*GinApp, error) {
 		var csrfProtect func(http.Handler) http.Handler
 
 		// csrf middleware
-		if config.CSRF.Enabled {
+		if cfg.Server.CSRF.Enabled {
 			csrfProtect = csrf.Protect(
-				[]byte(config.CSRF.Secret),
-				csrf.FieldName(config.CSRF.FieldName),
-				csrf.CookieName(config.CSRF.Cookie.Name),
-				csrf.Path(config.CSRF.Cookie.Path),
-				csrf.Domain(config.CSRF.Cookie.Domain),
-				csrf.MaxAge(config.CSRF.Cookie.MaxAge),
-				csrf.Secure(config.CSRF.Cookie.Secure),
-				csrf.HttpOnly(config.CSRF.Cookie.HttpOnly),
-				csrf.SameSite(config.CSRF.Cookie.SameSite),
+				[]byte(cfg.Server.CSRF.Secret),
+				csrf.FieldName(cfg.Server.CSRF.FieldName),
+				csrf.CookieName(cfg.Server.CSRF.Cookie.Name),
+				csrf.Path(cfg.Server.CSRF.Cookie.Path),
+				csrf.Domain(cfg.Server.CSRF.Cookie.Domain),
+				csrf.MaxAge(cfg.Server.CSRF.Cookie.MaxAge),
+				csrf.Secure(cfg.Server.CSRF.Cookie.Secure),
+				csrf.HttpOnly(cfg.Server.CSRF.Cookie.HttpOnly),
+				csrf.SameSite(cfg.Server.CSRF.Cookie.SameSite),
 			)
 
 			// add to gin middleware
@@ -173,12 +174,12 @@ func NewGinApp(config Config) (*GinApp, error) {
 		}
 
 		// authentication middleware
-		dynamicRoutes.Use(authenticationMiddleware(config.AuthMode))
+		dynamicRoutes.Use(authenticationMiddleware(cfg.AuthMode))
 
 		// auth routes
 		auth := dynamicRoutes.Group("/api/auth")
 		{
-			h := &AuthHandlers{GinApp: app, mode: config.AuthMode}
+			h := &AuthHandlers{GinApp: app, mode: cfg.AuthMode}
 			auth.POST("/login", h.LoginPOST)
 			auth.POST("/logout", h.LogoutPOST)
 			auth.GET("/session", h.SessionGET)
@@ -188,13 +189,13 @@ func NewGinApp(config Config) (*GinApp, error) {
 		graphql := dynamicRoutes.Group("/graphql")
 		{
 			// require token
-			if config.AuthMode == AuthModeToken {
+			if cfg.AuthMode == config.AuthModeToken {
 				graphql.Use(k8sTokenRequiredMiddleware)
 			}
 
 			// graphql handler
 			h := &GraphQLHandlers{app}
-			endpointHandler := h.EndpointHandler(k8sCfg, app.gcm, config.AllowedNamespaces, csrfProtect)
+			endpointHandler := h.EndpointHandler(k8sCfg, app.gcm, cfg.AllowedNamespaces, csrfProtect)
 			graphql.GET("", endpointHandler)
 			graphql.POST("", endpointHandler)
 		}
@@ -212,7 +213,7 @@ func NewGinApp(config Config) (*GinApp, error) {
 	h := &WebsiteHandlers{app, path.Join(basepath, "/website")}
 	h.InitStaticHandlers(root)
 
-	endpointHandler := h.EndpointHandler(config)
+	endpointHandler := h.EndpointHandler(cfg)
 	root.GET("/", endpointHandler)
 	app.NoRoute(endpointHandler)
 

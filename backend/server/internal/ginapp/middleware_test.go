@@ -23,28 +23,26 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/kubetail-org/kubetail/backend/common/config"
 )
 
 func TestAuthenticationMiddleware(t *testing.T) {
 	tests := []struct {
 		name                string
-		mode                AuthMode
+		mode                config.AuthMode
 		hasSessionToken     bool
 		hasBearerToken      bool
 		wantContextHasToken bool
 	}{
-		{"cluster-mode without tokens", AuthModeCluster, false, false, false},
-		{"cluster-mode with session token", AuthModeCluster, true, false, false},
-		{"cluster-mode with bearer token", AuthModeCluster, false, true, false},
-		{"cluster-mode with both tokens", AuthModeCluster, true, true, false},
-		{"local-mode without tokens", AuthModeLocal, false, false, false},
-		{"local-mode with session token", AuthModeLocal, true, false, false},
-		{"local-mode with bearer token", AuthModeLocal, false, true, false},
-		{"local-mode with both tokens", AuthModeLocal, true, true, false},
-		{"token-mode without tokens", AuthModeToken, false, false, false},
-		{"token-mode with session token", AuthModeToken, true, false, true},
-		{"token-mode with bearer token", AuthModeToken, false, true, true},
-		{"token-mode with both tokens", AuthModeToken, false, true, true},
+		{"cluster-mode without tokens", config.AuthModeCluster, false, false, false},
+		{"cluster-mode with session token", config.AuthModeCluster, true, false, false},
+		{"cluster-mode with bearer token", config.AuthModeCluster, false, true, false},
+		{"cluster-mode with both tokens", config.AuthModeCluster, true, true, false},
+		{"token-mode without tokens", config.AuthModeToken, false, false, false},
+		{"token-mode with session token", config.AuthModeToken, true, false, true},
+		{"token-mode with bearer token", config.AuthModeToken, false, true, true},
+		{"token-mode with both tokens", config.AuthModeToken, false, true, true},
 	}
 
 	for _, tt := range tests {

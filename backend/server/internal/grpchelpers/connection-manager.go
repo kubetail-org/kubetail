@@ -17,8 +17,10 @@ package grpchelpers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
+	"github.com/kubetail-org/kubetail/backend/common/config"
 	zlog "github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -80,13 +82,8 @@ func (cm *ConnectionManager) Teardown() {
 }
 
 // NewGrpcConnectionManager
-func NewConnectionManager() (*ConnectionManager, error) {
-	cfg, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	clientset, err := kubernetes.NewForConfig(cfg)
+func NewConnectionManager(cfg *config.Config, k8sCfg *rest.Config) (*ConnectionManager, error) {
+	clientset, err := kubernetes.NewForConfig(k8sCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -96,6 +93,13 @@ func NewConnectionManager() (*ConnectionManager, error) {
 		k8sClientset: clientset,
 		cancel:       cancel,
 		conns:        make(map[string]*grpc.ClientConn),
+	}
+
+	// get agent port from config
+	port := "50051"
+	parts := strings.Split(cfg.Agent.Addr, ":")
+	if len(parts) == 2 {
+		port = parts[1]
 	}
 
 	go func() {
@@ -131,9 +135,7 @@ func NewConnectionManager() (*ConnectionManager, error) {
 				case "ADDED", "MODIFIED":
 					if isPodRunning(pod) {
 						fmt.Printf("connecting to %s\n", pod.Status.PodIP)
-						//fqdn := fmt.Sprintf("%s.default.pod.cluster.local", pod.Name)
-						//addr := ptr.To(fqdn + ":5000")
-						addr := ptr.To(fmt.Sprintf("%s:5000", pod.Status.PodIP))
+						addr := ptr.To(fmt.Sprintf("%s:"+port, pod.Status.PodIP))
 						conn, err := grpc.NewClient(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 						if err != nil {
 							panic(err)

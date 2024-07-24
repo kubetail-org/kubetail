@@ -22,6 +22,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/kubetail-org/kubetail/backend/common/config"
 )
 
 type GraphQLTestSuite struct {
@@ -122,7 +124,7 @@ func (suite *GraphQLTestSuite) TestAccess() {
 		suite.Run("websocket requests require csrf validation when csrf protection is enabled", func() {
 			// init client
 			cfg := NewTestConfig()
-			cfg.CSRF.Enabled = true
+			cfg.Server.CSRF.Enabled = true
 			client := NewWebTestClient(suite.T(), NewTestApp(cfg))
 			defer client.Teardown()
 
@@ -151,22 +153,17 @@ func (suite *GraphQLTestSuite) TestAccess() {
 func (suite *GraphQLTestSuite) TestAuth() {
 	tests := []struct {
 		name     string
-		mode     AuthMode
+		mode     config.AuthMode
 		wantCode int
 	}{
 		{
-			"local",
-			AuthModeLocal,
-			http.StatusUnprocessableEntity,
-		},
-		{
 			"cluster",
-			AuthModeCluster,
+			config.AuthModeCluster,
 			http.StatusUnprocessableEntity,
 		},
 		{
 			"token",
-			AuthModeToken,
+			config.AuthModeToken,
 			http.StatusUnauthorized,
 		},
 	}

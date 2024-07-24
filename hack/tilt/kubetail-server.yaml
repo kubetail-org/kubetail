@@ -17,42 +17,43 @@ metadata:
     app.kubernetes.io/name: kubetail-server
 data:
   config.yaml: |
-    addr: :4000
-    gin-mode: debug
     auth-mode: cluster
     allowed-namespaces: []
-    base-path: /
-    session:
-      secret: REPLACEME
-      cookie:
-        name: session
-        path: /
-        max-age: 2592000
-        secure: false
-        http-only: true
-        same-site: lax
-    csrf:
-      enabled: true
-      secret: REPLACEME
-      field-name: csrf_token
-      cookie:
-        name: csrf
-        path: /
-        max-age: 43200
-        secure: false
-        http-only: true
-        same-site: strict
-    logging:
-      enabled: true
-      level: info
-      format: pretty
-      access-log:
+    server:
+      addr: :4000
+      gin-mode: debug
+      base-path: /
+      session:
+        secret: REPLACEME
+        cookie:
+          name: session
+          path: /
+          max-age: 2592000
+          secure: false
+          http-only: true
+          same-site: lax
+      csrf:
         enabled: true
-        hide-health-checks: false
-    tls:
-      enabled: false
-      cert-file:
-      key-file:
+        secret: REPLACEME
+        field-name: csrf_token
+        cookie:
+          name: csrf
+          path: /
+          max-age: 43200
+          secure: false
+          http-only: true
+          same-site: strict
+      logging:
+        enabled: true
+        level: info
+        format: pretty
+        access-log:
+          enabled: true
+          hide-health-checks: false
+      tls:
+        enabled: false
+        cert-file:
+        key-file:
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1

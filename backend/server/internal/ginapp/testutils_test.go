@@ -28,6 +28,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/kubetail-org/kubetail/backend/common/config"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -202,24 +203,24 @@ func (c *WebTestClient) NewRequest(method, target string, body io.Reader) *http.
 }
 
 // Create new base config for testing
-func NewTestConfig() *Config {
-	cfg := Config{}
-	cfg.BasePath = "/"
-	cfg.AccessLog.Enabled = false
-	cfg.Session.Secret = "TESTSESSIONSECRET"
-	cfg.Session.Cookie.Name = "session"
-	cfg.CSRF.Enabled = false
-	cfg.CSRF.Secret = "TESTCSRFSECRET"
+func NewTestConfig() *config.Config {
+	cfg := config.Config{}
+	cfg.Server.BasePath = "/"
+	cfg.Server.Logging.AccessLog.Enabled = false
+	cfg.Server.Session.Secret = "TESTSESSIONSECRET"
+	cfg.Server.Session.Cookie.Name = "session"
+	cfg.Server.CSRF.Enabled = false
+	cfg.Server.CSRF.Secret = "TESTCSRFSECRET"
 	return &cfg
 }
 
 // Create new app for testing
-func NewTestApp(cfg *Config) *GinApp {
+func NewTestApp(cfg *config.Config) *GinApp {
 	if cfg == nil {
 		cfg = NewTestConfig()
 	}
 
-	app, err := NewGinApp(*cfg)
+	app, err := NewGinApp(cfg)
 	if err != nil {
 		panic(err)
 	}

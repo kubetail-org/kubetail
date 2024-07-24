@@ -10,4 +10,11 @@ The Kubetail backend agent is a small Go-based service that's designed to run on
 
 ### CLI
 
+The Kubetail backend agent executable (`kubetail-agent`) supports the following command line configuration options:
+
+| Flag         | Datatype    | Description               | Default   |
+| ------------ | ----------- | ------------------------- | --------- |
+| -c, --config | string      | Path to config file       | ""        |
+| -a, --addr   | string      | Host address to bind to   | ":5000"   |
+
 ### Config params
