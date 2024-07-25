@@ -118,7 +118,7 @@ Now your computer will automatically open a new browser tab pointing to the Kube
 
 #### `kubetail-server`
 
-The Kubetail backend server executable (`kubetail-server`) supports the following command line configuration options:
+The Kubetail backend server executable supports the following command line configuration options:
 
 | Flag         | Datatype | Description                      | Default   |
 | ------------ | -------- | -------------------------------- | --------- |
@@ -129,7 +129,7 @@ The Kubetail backend server executable (`kubetail-server`) supports the followin
 
 #### `kubetail-agent`
 
-The Kubetail backend agent executable (`kubetail-agent`) supports the following command line configuration options:
+The Kubetail backend agent executable supports the following command line configuration options:
 
 | Flag         | Datatype | Description                      | Default  |
 | ------------ | -------- | -------------------------------- | -------- |
