@@ -1,20 +1,10 @@
----
-kind: ServiceAccount
-apiVersion: v1
-automountServiceAccountToken: true
-metadata:
-  name: kubetail-server
-  namespace: default
-  labels:
-    app.kubernetes.io/name: kubetail-server
----
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: kubetail-server
+  name: kubetail
   namespace: default
   labels:
-    app.kubernetes.io/name: kubetail-server
+    app.kubernetes.io/name: kubetail
 data:
   config.yaml: |
     auth-mode: cluster
@@ -54,13 +44,26 @@ data:
         enabled: false
         cert-file:
         key-file:
+    agent:
+      addr: :50051
+---
+kind: ServiceAccount
+apiVersion: v1
+automountServiceAccountToken: true
+metadata:
+  name: kubetail-server
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: server
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kubetail-server
   labels:
-    app.kubernetes.io/name: kubetail-server
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: server
 rules:
 - apiGroups: ["", apps, batch]
   resources: [cronjobs, daemonsets, deployments, jobs, namespaces, nodes, pods, pods/log, replicasets, statefulsets]
@@ -71,7 +74,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kubetail-server
   labels:
-    app.kubernetes.io/name: kubetail-server
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: server
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -87,19 +91,22 @@ metadata:
   name: kubetail-server
   namespace: default
   labels:
-    app.kubernetes.io/name: kubetail-server
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: server
 spec:
   replicas: 1
   revisionHistoryLimit: 5
   selector:
     matchLabels:
-      app.kubernetes.io/name: kubetail-server
+      app.kubernetes.io/name: kubetail
+      app.kubernetes.io/component: server
   strategy:
     type: RollingUpdate
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: kubetail-server
+        app.kubernetes.io/name: kubetail
+        app.kubernetes.io/component: server
     spec:
       automountServiceAccountToken: true
       serviceAccountName: kubetail-server
@@ -120,5 +127,49 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: kubetail-server
+          name: kubetail
+---
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: kubetail-agent
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: agent
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kubetail
+      app.kubernetes.io/component: agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kubetail
+        app.kubernetes.io/component: agent
+    spec:
+      containers:
+      - name: kubetail-agent
+        image: kubetail-agent
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        args:
+        - --config=/etc/kubetail/config.yaml
+        volumeMounts:
+        - name: config
+          mountPath: /etc/kubetail
+          readOnly: true
+        - name: varlog
+          mountPath: /var/log
+        resources: {}
+      volumes:
+      - name: config
+        configMap:
+          name: kubetail
+      - name: varlog
+        hostPath:
+          path: /var/log
 ---

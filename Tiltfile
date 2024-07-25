@@ -49,8 +49,7 @@ docker_build_with_restart(
 )
 
 # apply manifests
-k8s_yaml('hack/tilt/kubetail-agent.yaml')
-k8s_yaml('hack/tilt/kubetail-server.yaml')
+k8s_yaml('hack/tilt/kubetail.yaml')
 k8s_yaml('hack/tilt/loggen.yaml')
 k8s_yaml('hack/tilt/loggen-ansi.yaml')
 k8s_yaml('hack/tilt/echoserver.yaml')
@@ -59,8 +58,8 @@ k8s_yaml('hack/tilt/chaoskube.yaml')
 
 # define resources
 k8s_resource(
-  'kubetail-agent',
-  resource_deps=[]
+  objects=['kubetail:configmap'],
+  new_name='kubetail-config'
 )
 
 k8s_resource(
@@ -69,8 +68,7 @@ k8s_resource(
   objects=[
     'kubetail-server:serviceaccount',
     'kubetail-server:clusterrole',
-    'kubetail-server:clusterrolebinding',
-    'kubetail-server:configmap'
+    'kubetail-server:clusterrolebinding'
   ],
   resource_deps=[]
 )
