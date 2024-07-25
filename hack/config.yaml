@@ -280,3 +280,48 @@ server:
     # Default value: __empty__
     #
     key-file:
+
+## agent ##
+#
+agent:
+
+  ## addr ##
+  #
+  # Sets the target ip and port to bind the server to
+  #
+  # Default value: ":4000"
+  #
+  addr: :4000
+
+  ## logging ##
+  #
+  logging:
+  
+    ## enabled ##
+    #
+    # Default value: true
+    #
+    enabled: true
+  
+    ## level ##
+    #
+    # Default value: info
+    #
+    # One of:
+    # - debug
+    # - info
+    # - warn
+    # - error
+    # - disabled
+    #
+    level: info
+  
+    ## format ##
+    #
+    # Default value: json
+    #
+    # One of:
+    # - json
+    # - pretty
+    #
+    format: json

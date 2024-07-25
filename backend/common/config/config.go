@@ -112,6 +112,18 @@ type Config struct {
 	// agent options
 	Agent struct {
 		Addr string `validate:"omitempty,hostname_port"`
+
+		// logging options
+		Logging struct {
+			// enable logging
+			Enabled bool
+
+			// log level
+			Level string `validate:"oneof=debug info warn error disabled"`
+
+			// log format
+			Format string `validate:"oneof=json pretty"`
+		}
 	}
 }
 
@@ -157,6 +169,9 @@ func DefaultConfig() *Config {
 	cfg.Server.Logging.AccessLog.HideHealthChecks = false
 
 	cfg.Agent.Addr = ":50051"
+	cfg.Agent.Logging.Enabled = true
+	cfg.Agent.Logging.Level = "info"
+	cfg.Agent.Logging.Format = "json"
 
 	return cfg
 }

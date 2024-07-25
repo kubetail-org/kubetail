@@ -175,6 +175,8 @@ func (s *server) List(ctx context.Context, req *agentpb.LogMetadataListRequest) 
 
 // implementation of FileInfoWatch in PodLogMetadata service
 func (s *server) Watch(req *agentpb.LogMetadataWatchRequest, stream agentpb.LogMetadataService_WatchServer) error {
+	zlog.Debug().Msgf("[%s] client connected\n", s.nodeName)
+
 	if len(req.Namespaces) == 0 {
 		return fmt.Errorf("non-empty `namespaces` required")
 	}
@@ -235,7 +237,7 @@ func (s *server) Watch(req *agentpb.LogMetadataWatchRequest, stream agentpb.LogM
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Printf("[%s] client disconnected\n", s.nodeName)
+			zlog.Debug().Msgf("[%s] client disconnected\n", s.nodeName)
 			return nil
 		case inEv, ok := <-watcher.Events:
 			if !ok {
@@ -301,9 +303,9 @@ func main() {
 
 			// configure logger
 			config.ConfigureLogger(config.LoggerOptions{
-				Enabled: cfg.Server.Logging.Enabled,
-				Level:   cfg.Server.Logging.Level,
-				Format:  cfg.Server.Logging.Format,
+				Enabled: cfg.Agent.Logging.Enabled,
+				Level:   cfg.Agent.Logging.Level,
+				Format:  cfg.Agent.Logging.Format,
 			})
 
 			// init service

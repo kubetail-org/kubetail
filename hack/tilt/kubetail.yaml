@@ -46,6 +46,10 @@ data:
         key-file:
     agent:
       addr: :50051
+      logging:
+        enabled: true
+        level: info
+        format: pretty
 ---
 kind: ServiceAccount
 apiVersion: v1
