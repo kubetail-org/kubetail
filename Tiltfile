@@ -58,8 +58,10 @@ k8s_yaml('hack/tilt/chaoskube.yaml')
 
 # define resources
 k8s_resource(
-  objects=['kubetail:configmap'],
-  new_name='kubetail-config'
+  objects=[
+    'kubetail:configmap'
+  ],
+  new_name="kubetail-shared"
 )
 
 k8s_resource(
@@ -70,7 +72,12 @@ k8s_resource(
     'kubetail-server:clusterrole',
     'kubetail-server:clusterrolebinding'
   ],
-  resource_deps=[]
+  resource_deps=['kubetail-shared'],
+)
+
+k8s_resource(
+  'kubetail-agent',
+  resource_deps=['kubetail-shared'],
 )
 
 k8s_resource(
