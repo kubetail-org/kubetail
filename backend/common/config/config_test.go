@@ -1,7 +1,7 @@
 package config
 
 import (
-	"fmt"
+	"net/http"
 	"os"
 	"testing"
 
@@ -26,11 +26,8 @@ func TestConfig(t *testing.T) {
 	assert.Nil(t, err)
 	tmpFile.Close()
 
-	v := viper.New()
-
-	cfg, err := NewConfig(v, tmpFile.Name())
+	cfg, err := NewConfig(viper.New(), tmpFile.Name())
 	assert.Nil(t, err)
-	fmt.Println(err)
-	//assert.Equal(t, cfg.AuthMode, "cluster")
-	fmt.Println(cfg.Server.Session.Cookie.SameSite)
+	assert.Equal(t, AuthModeCluster, cfg.AuthMode)
+	assert.Equal(t, http.SameSiteStrictMode, cfg.Server.Session.Cookie.SameSite)
 }

@@ -28,7 +28,7 @@ jobs:
       - name: Run tests
         working-directory: ./backend
         run: |
-          go test -race ./...
+          go test -race github.com/kubetail-org/kubetail/backend/...
 
   backend-vet:
     runs-on: ubuntu-latest
@@ -40,7 +40,7 @@ jobs:
       - name: Run code vetter
         working-directory: ./backend
         run: |
-          go vet ./...
+          go vet github.com/kubetail-org/kubetail/backend/...
 
   frontend-lint:
     runs-on: ubuntu-latest

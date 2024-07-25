@@ -24,9 +24,9 @@ import (
 type AuthMode string
 
 const (
-	AuthModeCluster = "cluster"
-	AuthModeToken   = "token"
-	AuthModeLocal   = "local"
+	AuthModeCluster AuthMode = "cluster"
+	AuthModeToken   AuthMode = "token"
+	AuthModeLocal   AuthMode = "local"
 )
 
 // Application configuration
