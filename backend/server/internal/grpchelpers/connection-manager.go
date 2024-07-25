@@ -20,15 +20,17 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kubetail-org/kubetail/backend/common/config"
 	zlog "github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
+
+	"github.com/kubetail-org/kubetail/backend/common/config"
 )
 
 type ConnectionManagerInterface interface {
@@ -103,7 +105,12 @@ func NewConnectionManager(cfg *config.Config, k8sCfg *rest.Config) (*ConnectionM
 	}
 
 	go func() {
-		options := metav1.ListOptions{LabelSelector: "app.kubernetes.io/name=kubetail-agent"}
+		ls := labels.SelectorFromSet(labels.Set{
+			"app.kubernetes.io/name":      "kubetail",
+			"app.kubernetes.io/component": "agent",
+		}).String()
+
+		options := metav1.ListOptions{LabelSelector: ls}
 		watchAPI, err := clientset.CoreV1().Pods("default").Watch(ctx, options)
 		if err != nil {
 			fmt.Println("xx")
