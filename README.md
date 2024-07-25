@@ -116,6 +116,8 @@ Now your computer will automatically open a new browser tab pointing to the Kube
 
 ### CLI Flags
 
+#### `kubetail-server`
+
 The Kubetail backend server executable (`kubetail-server`) supports the following command line configuration options:
 
 | Flag         | Datatype | Description                      | Default   |
@@ -124,6 +126,8 @@ The Kubetail backend server executable (`kubetail-server`) supports the followin
 | -a, --addr   | string   | Host address to bind to          | ":4000"   |
 | --gin-mode   | string   | Gin mode (release, debug)        | "release" |
 | -p, --param  | []string | Config params ("key:val" format) | []        |
+
+#### `kubetail-agent`
 
 The Kubetail backend agent executable (`kubetail-agent`) supports the following command line configuration options:
 
