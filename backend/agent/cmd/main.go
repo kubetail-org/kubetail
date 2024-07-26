@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 
-	"github.com/kubetail-org/kubetail/backend/agent/internal/logmetadataservice"
+	"github.com/kubetail-org/kubetail/backend/agent/internal/services/logmetadata"
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
 	"github.com/kubetail-org/kubetail/backend/common/config"
 )
@@ -74,7 +74,7 @@ func main() {
 			})
 
 			// init service
-			s, err := logmetadataservice.NewLogMetadataService(os.Getenv("NODE_NAME"))
+			s, err := logmetadata.NewLogMetadataService(os.Getenv("NODE_NAME"))
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
