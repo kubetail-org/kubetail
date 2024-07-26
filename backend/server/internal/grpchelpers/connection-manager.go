@@ -113,7 +113,6 @@ func NewConnectionManager(cfg *config.Config, k8sCfg *rest.Config) (*ConnectionM
 		options := metav1.ListOptions{LabelSelector: ls}
 		watchAPI, err := clientset.CoreV1().Pods("default").Watch(ctx, options)
 		if err != nil {
-			fmt.Println("xx")
 			panic(err)
 		}
 		defer watchAPI.Stop()
@@ -134,14 +133,14 @@ func NewConnectionManager(cfg *config.Config, k8sCfg *rest.Config) (*ConnectionM
 
 				pod, ok := event.Object.(*corev1.Pod)
 				if !ok {
-					fmt.Printf("Unexpected type: %v\n", event.Object)
+					zlog.Error().Msgf("unexpected type: %v", event.Object)
 					continue
 				}
 
 				switch event.Type {
 				case "ADDED", "MODIFIED":
 					if isPodRunning(pod) {
-						fmt.Printf("connecting to %s\n", pod.Status.PodIP)
+						zlog.Debug().Msgf("connecting to %s", pod.Status.PodIP)
 						addr := ptr.To(fmt.Sprintf("%s:"+port, pod.Status.PodIP))
 						conn, err := grpc.NewClient(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 						if err != nil {

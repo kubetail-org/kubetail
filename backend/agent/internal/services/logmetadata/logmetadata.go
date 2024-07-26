@@ -109,7 +109,7 @@ type LogMetadataService struct {
 	nodeName string
 }
 
-// implementation of FileInfoList in LogMetadataService
+// Implementation of List() in LogMetadataService
 func (s *LogMetadataService) List(ctx context.Context, req *agentpb.LogMetadataListRequest) (*agentpb.LogMetadataList, error) {
 	if len(req.Namespaces) == 0 {
 		return nil, fmt.Errorf("non-empty `namespaces` required")
@@ -166,7 +166,7 @@ func (s *LogMetadataService) List(ctx context.Context, req *agentpb.LogMetadataL
 	return &agentpb.LogMetadataList{Items: items}, nil
 }
 
-// implementation of FileInfoWatch in LogMetadataService
+// Implementation of Watch() in LogMetadataService
 func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream agentpb.LogMetadataService_WatchServer) error {
 	zlog.Debug().Msgf("[%s] client connected\n", s.nodeName)
 
