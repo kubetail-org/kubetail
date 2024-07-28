@@ -87,6 +87,20 @@ func (suite *LogMetadataTestSuite) TearDownSuite() {
 	suite.grpcServer.Stop()
 }
 
+func (suite *LogMetadataTestSuite) SetupTest() {
+	// delete contents of container dir
+	fileInfo1, err := os.Stat(suite.containerLogsDir)
+	suite.Require().Nil(err)
+	os.RemoveAll(suite.containerLogsDir)
+	os.Mkdir(suite.containerLogsDir, fileInfo1.Mode())
+
+	// delete contents of pod dir
+	fileInfo2, err := os.Stat(suite.podLogsDir)
+	suite.Require().Nil(err)
+	os.RemoveAll(suite.podLogsDir)
+	os.Mkdir(suite.podLogsDir, fileInfo2.Mode())
+}
+
 func (suite *LogMetadataTestSuite) createContainerLogFile(namespace string, podName string, containerName string, containerID string) *os.File {
 	// create pod log file
 	f, err := os.CreateTemp(suite.podLogsDir, "logmetadata-*.log")
@@ -151,7 +165,44 @@ func (suite *LogMetadataTestSuite) TestList() {
 	suite.Equal(int64(3), item2.FileInfo.Size)
 }
 
-func (suite *LogMetadataTestSuite) TestWatch() {
+func (suite *LogMetadataTestSuite) TestWatchAdded() {
+
+}
+
+func (suite *LogMetadataTestSuite) TestWatchModified() {
+	// create file
+	f := suite.createContainerLogFile("ns1", "pn1", "cn", "123")
+	defer f.Close()
+
+	// init client
+	client := agentpb.NewLogMetadataServiceClient(suite.grpcConn)
+
+	// init request
+	req := &agentpb.LogMetadataWatchRequest{
+		Namespaces: []string{"ns1"},
+	}
+
+	fmt.Println("xxx1")
+	//ctx, cancel := context.WithCancel(context.Background())
+	//defer cancel()
+
+	//stream, err := client.Watch(ctx, req)
+	//suite.Require().Nil(err)
+	fmt.Println("xxx2")
+
+	// write to file
+	//f.Write([]byte("123"))
+
+	//res, err := stream.Recv()
+	//suite.Require().Nil(err)
+	//fmt.Println(res)
+
+	// ensure no more messages
+	//_, err = stream.Recv()
+	//suite.Require().NotNil(err)
+}
+
+func (suite *LogMetadataTestSuite) TestWatchDeleted() {
 
 }
 
