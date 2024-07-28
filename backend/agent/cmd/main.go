@@ -74,7 +74,7 @@ func main() {
 			})
 
 			// init service
-			s, err := logmetadata.NewLogMetadataService(os.Getenv("NODE_NAME"))
+			s, err := logmetadata.NewLogMetadataService(os.Getenv("NODE_NAME"), cfg.Agent.ContainersLogDir)
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}

@@ -16,21 +16,36 @@ package logmetadata
 
 import (
 	"context"
-	"fmt"
 	"net"
+	"os"
+	"path"
 	"testing"
 
-	"github.com/kubetail-org/kubetail/backend/common/agentpb"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
+
+	"github.com/kubetail-org/kubetail/backend/common/agentpb"
 )
 
-func TestList(t *testing.T) {
-	s, err := NewLogMetadataService("node-name")
-	assert.Nil(t, err)
+type LogMetadataTestSuite struct {
+	suite.Suite
+	grpcServer *grpc.Server
+	grpcConn   *grpc.ClientConn
+	logsDir    string
+}
 
+func (suite *LogMetadataTestSuite) SetupSuite() {
+	// Create a temporary directory in the default location for temporary files.
+	logsDir, err := os.MkdirTemp("", "logmetadata")
+	suite.Require().Nil(err)
+
+	// init service
+	s, err := NewLogMetadataService("node-name", logsDir)
+	suite.Require().Nil(err)
+
+	// init server
 	grpcServer := grpc.NewServer()
 	agentpb.RegisterLogMetadataServiceServer(grpcServer, s)
 
@@ -40,29 +55,62 @@ func TestList(t *testing.T) {
 			panic(err)
 		}
 	}()
-	defer grpcServer.Stop()
 
 	// init conn
-	conn, err := grpc.NewClient(
+	dialerFunc := func(ctx context.Context, _ string) (net.Conn, error) {
+		return lis.DialContext(ctx)
+	}
+	grpcConn, err := grpc.NewClient(
 		"passthrough://bufnet",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
-			return lis.DialContext(ctx)
-		}),
+		grpc.WithContextDialer(dialerFunc),
 	)
-	assert.Nil(t, err)
-	defer conn.Close()
+	suite.Require().Nil(err)
 
-	// init client
-	client := agentpb.NewLogMetadataServiceClient(conn)
-
-	// make request
-	req := &agentpb.LogMetadataListRequest{}
-	resp, err := client.List(context.Background(), req)
-	fmt.Println(err)
-	fmt.Println(resp)
+	// save references
+	suite.logsDir = logsDir
+	suite.grpcServer = grpcServer
+	suite.grpcConn = grpcConn
 }
 
-func TestWatch(t *testing.T) {
-	assert.Equal(t, 1, 1)
+func (suite *LogMetadataTestSuite) TearDownSuite() {
+	defer os.RemoveAll(suite.logsDir)
+	suite.grpcConn.Close()
+	suite.grpcServer.Stop()
+}
+
+func (suite *LogMetadataTestSuite) TestList() {
+	// create temp files
+	f1, err := os.Create(path.Join(suite.logsDir, "podname_default_containername-id123.log"))
+	suite.Require().Nil(err)
+	f1.Write([]byte("12345"))
+
+	// init client
+	client := agentpb.NewLogMetadataServiceClient(suite.grpcConn)
+
+	// make request
+	req := &agentpb.LogMetadataListRequest{
+		Namespaces: []string{"default"},
+	}
+	resp, err := client.List(context.Background(), req)
+	suite.Require().Nil(err)
+	suite.Equal(1, len(resp.Items))
+
+	item := resp.Items[0]
+	suite.Equal("id123", item.Id)
+	suite.Equal("node-name", item.Spec.NodeName)
+	suite.Equal("default", item.Spec.Namespace)
+	suite.Equal("podname", item.Spec.PodName)
+	suite.Equal("containername", item.Spec.ContainerName)
+	suite.Equal("id123", item.Spec.ContainerId)
+	suite.Equal(int64(5), item.FileInfo.Size)
+}
+
+func (suite *LogMetadataTestSuite) TestWatch() {
+
+}
+
+// test runner
+func TestLogMetadata(t *testing.T) {
+	suite.Run(t, new(LogMetadataTestSuite))
 }

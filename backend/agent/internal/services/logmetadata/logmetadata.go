@@ -34,9 +34,9 @@ import (
 // Define a regex pattern to match the filename format
 var logfileRegex = regexp.MustCompile(`^(?P<PodName>[^_]+)_(?P<Namespace>[^_]+)_(?P<ContainerName>.+)-(?P<ContainerID>[^-]+)\.log$`)
 
-func newLogMetadataSpec(nodeName string, pathname string) (*agentpb.LogMetadataSpec, error) {
+func newLogMetadataSpec(nodeName string, pathname string, prefix string) (*agentpb.LogMetadataSpec, error) {
 	// parse file name
-	matches := logfileRegex.FindStringSubmatch(strings.TrimPrefix(pathname, "/var/log/containers/"))
+	matches := logfileRegex.FindStringSubmatch(strings.TrimPrefix(pathname, prefix))
 	if matches == nil {
 		return nil, fmt.Errorf("filename format incorrect: %s", pathname)
 	}
@@ -106,7 +106,8 @@ func newLogMetadataWatchEvent(event fsnotify.Event, specMap map[string]*agentpb.
 
 type LogMetadataService struct {
 	agentpb.UnimplementedLogMetadataServiceServer
-	nodeName string
+	nodeName         string
+	containersLogDir string
 }
 
 // Implementation of List() in LogMetadataService
@@ -115,7 +116,7 @@ func (s *LogMetadataService) List(ctx context.Context, req *agentpb.LogMetadataL
 		return nil, fmt.Errorf("non-empty `namespaces` required")
 	}
 
-	files, err := os.ReadDir("/var/log/containers")
+	files, err := os.ReadDir(s.containersLogDir)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +125,7 @@ func (s *LogMetadataService) List(ctx context.Context, req *agentpb.LogMetadataL
 
 	for _, file := range files {
 		// get info
-		fileInfo, err := newLogMetadataFileInfo(path.Join("/var/log/containers", file.Name()))
+		fileInfo, err := newLogMetadataFileInfo(path.Join(s.containersLogDir, file.Name()))
 		if err != nil {
 			return nil, err
 		}
@@ -184,7 +185,7 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 	defer watcher.Close()
 
 	// add current files to watcher
-	err = filepath.Walk("/var/log/containers", func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(s.containersLogDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -196,7 +197,7 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 			}
 
 			// init spec
-			spec, err := newLogMetadataSpec(s.nodeName, path)
+			spec, err := newLogMetadataSpec(s.nodeName, path, s.containersLogDir)
 			if err != nil {
 				return err
 			}
@@ -221,7 +222,7 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 	}
 
 	// listen for new files
-	if err := watcher.Add("/var/log/containers"); err != nil {
+	if err := watcher.Add(s.containersLogDir); err != nil {
 		return err
 	}
 
@@ -259,6 +260,10 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 }
 
 // Create new service instance
-func NewLogMetadataService(nodeName string) (*LogMetadataService, error) {
-	return &LogMetadataService{nodeName: nodeName}, nil
+func NewLogMetadataService(nodeName string, containersLogDir string) (*LogMetadataService, error) {
+	lms := &LogMetadataService{
+		nodeName:         nodeName,
+		containersLogDir: containersLogDir,
+	}
+	return lms, nil
 }
