@@ -183,19 +183,20 @@ func (suite *LogMetadataTestSuite) TestWatchModified() {
 	}
 
 	fmt.Println("xxx1")
-	//ctx, cancel := context.WithCancel(context.Background())
-	//defer cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	//stream, err := client.Watch(ctx, req)
-	//suite.Require().Nil(err)
+	stream, err := client.Watch(ctx, req)
+	suite.Require().Nil(err)
+	fmt.Println(stream)
 	fmt.Println("xxx2")
 
 	// write to file
-	//f.Write([]byte("123"))
+	f.Write([]byte("123"))
 
-	//res, err := stream.Recv()
-	//suite.Require().Nil(err)
-	//fmt.Println(res)
+	res, err := stream.Recv()
+	suite.Require().Nil(err)
+	fmt.Println(res)
 
 	// ensure no more messages
 	//_, err = stream.Recv()
