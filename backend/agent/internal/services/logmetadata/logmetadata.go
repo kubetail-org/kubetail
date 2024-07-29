@@ -169,7 +169,8 @@ func (s *LogMetadataService) List(ctx context.Context, req *agentpb.LogMetadataL
 
 // Implementation of Watch() in LogMetadataService
 func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream agentpb.LogMetadataService_WatchServer) error {
-	zlog.Debug().Msgf("[%s] client connected\n", s.nodeName)
+	fmt.Println("WATch")
+	zlog.Debug().Msgf("[%s] new client connected\n", s.nodeName)
 
 	if len(req.Namespaces) == 0 {
 		return fmt.Errorf("non-empty `namespaces` required")
@@ -192,7 +193,11 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 
 		if info.Mode()&os.ModeSymlink != 0 {
 			target, err := filepath.EvalSymlinks(path)
+			fmt.Println(path)
+			fmt.Println(target)
+			fmt.Println(err)
 			if err != nil {
+				fmt.Println("poop")
 				return err
 			}
 
@@ -210,6 +215,7 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 			// cache spec
 			specMap[target] = spec
 
+			fmt.Printf("adding watcher: %s\n", target)
 			if err := watcher.Add(target); err != nil {
 				return err
 			}

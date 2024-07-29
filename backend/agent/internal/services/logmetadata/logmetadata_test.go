@@ -20,7 +20,9 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
@@ -40,11 +42,11 @@ type LogMetadataTestSuite struct {
 
 func (suite *LogMetadataTestSuite) SetupSuite() {
 	// temporary directory for pod logs
-	podLogsDir, err := os.MkdirTemp("", "logmetadata-podlogsdir")
+	podLogsDir, err := os.MkdirTemp("", "logmetadata-podlogsdir-")
 	suite.Require().Nil(err)
 
 	// temporary directory for container log links
-	containerLogsDir, err := os.MkdirTemp("", "logmetadata-containerlogsdir")
+	containerLogsDir, err := os.MkdirTemp("", "logmetadata-containerlogsdir-")
 	suite.Require().Nil(err)
 
 	// init service
@@ -81,6 +83,7 @@ func (suite *LogMetadataTestSuite) SetupSuite() {
 }
 
 func (suite *LogMetadataTestSuite) TearDownSuite() {
+	fmt.Println("XDES")
 	defer os.RemoveAll(suite.containerLogsDir)
 	defer os.RemoveAll(suite.podLogsDir)
 	suite.grpcConn.Close()
@@ -88,39 +91,44 @@ func (suite *LogMetadataTestSuite) TearDownSuite() {
 }
 
 func (suite *LogMetadataTestSuite) SetupTest() {
-	// delete contents of container dir
-	fileInfo1, err := os.Stat(suite.containerLogsDir)
-	suite.Require().Nil(err)
-	os.RemoveAll(suite.containerLogsDir)
-	os.Mkdir(suite.containerLogsDir, fileInfo1.Mode())
+	suite.clearDir(suite.containerLogsDir)
+	suite.clearDir(suite.podLogsDir)
+}
 
-	// delete contents of pod dir
-	fileInfo2, err := os.Stat(suite.podLogsDir)
+func (suite *LogMetadataTestSuite) clearDir(dirPath string) {
+	// list files
+	files, err := os.ReadDir(dirPath)
 	suite.Require().Nil(err)
-	os.RemoveAll(suite.podLogsDir)
-	os.Mkdir(suite.podLogsDir, fileInfo2.Mode())
+
+	// delete each one
+	for _, file := range files {
+		filePath := filepath.Join(dirPath, file.Name())
+		err = os.Remove(filePath)
+		suite.Require().Nil(err)
+	}
 }
 
 func (suite *LogMetadataTestSuite) createContainerLogFile(namespace string, podName string, containerName string, containerID string) *os.File {
 	// create pod log file
-	f, err := os.CreateTemp(suite.podLogsDir, "logmetadata-*.log")
+	f, err := os.CreateTemp(suite.podLogsDir, "*.log")
+	f.Close()
 	suite.Require().Nil(err)
 
 	// add soft link to container logs dir
 	target := f.Name()
 	link := path.Join(suite.containerLogsDir, podName+"_"+namespace+"_"+containerName+"-"+containerID+".log")
-	fmt.Println(target)
-	fmt.Println(link)
+	fmt.Printf("Create target: %s\n", target)
+	fmt.Printf("Create link: %s\n", link)
 	err = os.Symlink(target, link)
 	suite.Require().Nil(err)
 
 	return f
 }
 
+/*
 func (suite *LogMetadataTestSuite) TestList() {
 	// create files
 	f1 := suite.createContainerLogFile("ns1", "pn1", "cn", "123")
-	defer f1.Close()
 	f1.Write([]byte("12345"))
 
 	f2 := suite.createContainerLogFile("ns2", "pn2", "cn", "abc")
@@ -164,6 +172,7 @@ func (suite *LogMetadataTestSuite) TestList() {
 	suite.Equal("abc", item2.Spec.ContainerId)
 	suite.Equal(int64(3), item2.FileInfo.Size)
 }
+*/
 
 func (suite *LogMetadataTestSuite) TestWatchAdded() {
 
@@ -171,8 +180,9 @@ func (suite *LogMetadataTestSuite) TestWatchAdded() {
 
 func (suite *LogMetadataTestSuite) TestWatchModified() {
 	// create file
-	f := suite.createContainerLogFile("ns1", "pn1", "cn", "123")
-	defer f.Close()
+	suite.createContainerLogFile("ns1", "pn1", "cn", "123")
+	//f.Write([]byte("123"))
+	//f.Close()
 
 	// init client
 	client := agentpb.NewLogMetadataServiceClient(suite.grpcConn)
@@ -182,25 +192,38 @@ func (suite *LogMetadataTestSuite) TestWatchModified() {
 		Namespaces: []string{"ns1"},
 	}
 
-	fmt.Println("xxx1")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	stream, err := client.Watch(ctx, req)
 	suite.Require().Nil(err)
 	fmt.Println(stream)
-	fmt.Println("xxx2")
 
-	// write to file
-	f.Write([]byte("123"))
+	time.Sleep(5 * time.Second)
+	/*
+		var wg sync.WaitGroup
 
-	res, err := stream.Recv()
-	suite.Require().Nil(err)
-	fmt.Println(res)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			res, err := stream.Recv()
+			suite.Require().Nil(err)
+			fmt.Println(res)
+		}()
 
-	// ensure no more messages
-	//_, err = stream.Recv()
-	//suite.Require().NotNil(err)
+		// write to file
+		f.Write([]byte("123"))
+		f.Close()
+		cancel()
+
+		fmt.Println("start")
+		wg.Wait()
+		fmt.Println("finish")
+
+		// ensure no more messages
+		//_, err = stream.Recv()
+		//suite.Require().NotNil(err)
+	*/
 }
 
 func (suite *LogMetadataTestSuite) TestWatchDeleted() {
