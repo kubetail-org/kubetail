@@ -70,6 +70,8 @@ func newLogMetadataFileInfo(pathname string) (*agentpb.LogMetadataFileInfo, erro
 
 // generate new LogMetadataWatchEvent from an fsnotify event
 func newLogMetadataWatchEvent(event fsnotify.Event, specMap map[string]*agentpb.LogMetadataSpec) (*agentpb.LogMetadataWatchEvent, error) {
+	fmt.Println(specMap)
+	fmt.Println(event.Name)
 	// init watch event
 	watchEv := &agentpb.LogMetadataWatchEvent{
 		Object: &agentpb.LogMetadata{
@@ -107,7 +109,8 @@ func newLogMetadataWatchEvent(event fsnotify.Event, specMap map[string]*agentpb.
 type LogMetadataService struct {
 	agentpb.UnimplementedLogMetadataServiceServer
 	nodeName         string
-	containersLogDir string
+	containerLogsDir string
+	testEventCh      chan string
 }
 
 // Implementation of List() in LogMetadataService
@@ -116,7 +119,7 @@ func (s *LogMetadataService) List(ctx context.Context, req *agentpb.LogMetadataL
 		return nil, fmt.Errorf("non-empty `namespaces` required")
 	}
 
-	files, err := os.ReadDir(s.containersLogDir)
+	files, err := os.ReadDir(s.containerLogsDir)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +128,7 @@ func (s *LogMetadataService) List(ctx context.Context, req *agentpb.LogMetadataL
 
 	for _, file := range files {
 		// get info
-		fileInfo, err := newLogMetadataFileInfo(path.Join(s.containersLogDir, file.Name()))
+		fileInfo, err := newLogMetadataFileInfo(path.Join(s.containerLogsDir, file.Name()))
 		if err != nil {
 			return nil, err
 		}
@@ -169,7 +172,6 @@ func (s *LogMetadataService) List(ctx context.Context, req *agentpb.LogMetadataL
 
 // Implementation of Watch() in LogMetadataService
 func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream agentpb.LogMetadataService_WatchServer) error {
-	fmt.Println("WATch")
 	zlog.Debug().Msgf("[%s] new client connected\n", s.nodeName)
 
 	if len(req.Namespaces) == 0 {
@@ -186,23 +188,19 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 	defer watcher.Close()
 
 	// add current files to watcher
-	err = filepath.Walk(s.containersLogDir, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(s.containerLogsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
 		if info.Mode()&os.ModeSymlink != 0 {
 			target, err := filepath.EvalSymlinks(path)
-			fmt.Println(path)
-			fmt.Println(target)
-			fmt.Println(err)
 			if err != nil {
-				fmt.Println("poop")
 				return err
 			}
 
 			// init spec
-			spec, err := newLogMetadataSpec(s.nodeName, path, s.containersLogDir)
+			spec, err := newLogMetadataSpec(s.nodeName, path, s.containerLogsDir)
 			if err != nil {
 				return err
 			}
@@ -215,7 +213,6 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 			// cache spec
 			specMap[target] = spec
 
-			fmt.Printf("adding watcher: %s\n", target)
 			if err := watcher.Add(target); err != nil {
 				return err
 			}
@@ -228,8 +225,12 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 	}
 
 	// listen for new files
-	if err := watcher.Add(s.containersLogDir); err != nil {
+	if err := watcher.Add(s.containerLogsDir); err != nil {
 		return err
+	}
+
+	if s.testEventCh != nil {
+		s.testEventCh <- "watch started"
 	}
 
 	ctx := stream.Context()
@@ -246,13 +247,12 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 
 			// handle new files
 			if inEv.Op&fsnotify.Create == fsnotify.Create {
-				fmt.Println(inEv)
 				continue
 			}
 
 			// initialize output event
 			if outEv, err := newLogMetadataWatchEvent(inEv, specMap); err != nil {
-				fmt.Println(err)
+				zlog.Error().Err(err).Send()
 			} else if outEv != nil {
 				stream.Send(outEv)
 			}
@@ -266,10 +266,10 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 }
 
 // Create new service instance
-func NewLogMetadataService(nodeName string, containersLogDir string) (*LogMetadataService, error) {
+func NewLogMetadataService(nodeName string, containerLogsDir string) (*LogMetadataService, error) {
 	lms := &LogMetadataService{
 		nodeName:         nodeName,
-		containersLogDir: containersLogDir,
+		containerLogsDir: containerLogsDir,
 	}
 	return lms, nil
 }

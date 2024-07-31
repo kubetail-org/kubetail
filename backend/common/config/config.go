@@ -112,7 +112,7 @@ type Config struct {
 	// agent options
 	Agent struct {
 		Addr             string `validate:"omitempty,hostname_port"`
-		ContainersLogDir string `mapstructure:"containers-log-dir"`
+		ContainerLogsDir string `mapstructure:"container-logs-dir"`
 
 		// logging options
 		Logging struct {
@@ -170,7 +170,7 @@ func DefaultConfig() *Config {
 	cfg.Server.Logging.AccessLog.HideHealthChecks = false
 
 	cfg.Agent.Addr = ":50051"
-	cfg.Agent.ContainersLogDir = "/var/log/containers"
+	cfg.Agent.ContainerLogsDir = "/var/log/containers"
 	cfg.Agent.Logging.Enabled = true
 	cfg.Agent.Logging.Level = "info"
 	cfg.Agent.Logging.Format = "json"

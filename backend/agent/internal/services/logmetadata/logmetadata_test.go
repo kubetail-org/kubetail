@@ -21,8 +21,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
@@ -38,6 +38,7 @@ type LogMetadataTestSuite struct {
 	grpcConn         *grpc.ClientConn
 	podLogsDir       string
 	containerLogsDir string
+	testEventCh      chan string
 }
 
 func (suite *LogMetadataTestSuite) SetupSuite() {
@@ -49,8 +50,11 @@ func (suite *LogMetadataTestSuite) SetupSuite() {
 	containerLogsDir, err := os.MkdirTemp("", "logmetadata-containerlogsdir-")
 	suite.Require().Nil(err)
 
+	// init test channel
+
 	// init service
 	s, err := NewLogMetadataService("node-name", containerLogsDir)
+	s.testEventCh = make(chan string)
 	suite.Require().Nil(err)
 
 	// init server
@@ -80,6 +84,7 @@ func (suite *LogMetadataTestSuite) SetupSuite() {
 	suite.containerLogsDir = containerLogsDir
 	suite.grpcServer = grpcServer
 	suite.grpcConn = grpcConn
+	suite.testEventCh = s.testEventCh
 }
 
 func (suite *LogMetadataTestSuite) TearDownSuite() {
@@ -111,14 +116,11 @@ func (suite *LogMetadataTestSuite) clearDir(dirPath string) {
 func (suite *LogMetadataTestSuite) createContainerLogFile(namespace string, podName string, containerName string, containerID string) *os.File {
 	// create pod log file
 	f, err := os.CreateTemp(suite.podLogsDir, "*.log")
-	f.Close()
 	suite.Require().Nil(err)
 
 	// add soft link to container logs dir
 	target := f.Name()
 	link := path.Join(suite.containerLogsDir, podName+"_"+namespace+"_"+containerName+"-"+containerID+".log")
-	fmt.Printf("Create target: %s\n", target)
-	fmt.Printf("Create link: %s\n", link)
 	err = os.Symlink(target, link)
 	suite.Require().Nil(err)
 
@@ -180,50 +182,43 @@ func (suite *LogMetadataTestSuite) TestWatchAdded() {
 
 func (suite *LogMetadataTestSuite) TestWatchModified() {
 	// create file
-	suite.createContainerLogFile("ns1", "pn1", "cn", "123")
-	//f.Write([]byte("123"))
-	//f.Close()
+	f := suite.createContainerLogFile("ns1", "pn1", "cn", "123")
 
-	// init client
-	client := agentpb.NewLogMetadataServiceClient(suite.grpcConn)
+	var wg sync.WaitGroup
 
-	// init request
-	req := &agentpb.LogMetadataWatchRequest{
-		Namespaces: []string{"ns1"},
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+		// init client
+		client := agentpb.NewLogMetadataServiceClient(suite.grpcConn)
 
-	stream, err := client.Watch(ctx, req)
-	suite.Require().Nil(err)
-	fmt.Println(stream)
+		// init request
+		req := &agentpb.LogMetadataWatchRequest{
+			Namespaces: []string{"ns1"},
+		}
 
-	time.Sleep(5 * time.Second)
-	/*
-		var wg sync.WaitGroup
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			res, err := stream.Recv()
-			suite.Require().Nil(err)
-			fmt.Println(res)
-		}()
+		stream, err := client.Watch(ctx, req)
+		suite.Require().Nil(err)
 
-		// write to file
-		f.Write([]byte("123"))
-		f.Close()
-		cancel()
+		res, err := stream.Recv()
+		suite.Require().Nil(err)
+		fmt.Println(res)
+		fmt.Println("xxx")
+	}()
 
-		fmt.Println("start")
-		wg.Wait()
-		fmt.Println("finish")
+	// wait for watch to start
+	<-suite.testEventCh
 
-		// ensure no more messages
-		//_, err = stream.Recv()
-		//suite.Require().NotNil(err)
-	*/
+	// modify file
+	f.Write([]byte("123"))
+	f.Close()
+
+	// wait for test to complete
+	wg.Wait()
 }
 
 func (suite *LogMetadataTestSuite) TestWatchDeleted() {
