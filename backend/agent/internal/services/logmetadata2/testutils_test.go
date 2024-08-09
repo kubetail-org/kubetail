@@ -52,7 +52,7 @@ type TestServer struct {
 }
 
 // Initialize new TestClient instance
-func (ts *TestServer) NewTestClient() (*TestClient, error) {
+func (ts *TestServer) NewTestClient() *TestClient {
 	// init conn
 	dialerFunc := func(ctx context.Context, _ string) (net.Conn, error) {
 		return ts.lis.DialContext(ctx)
@@ -66,14 +66,14 @@ func (ts *TestServer) NewTestClient() (*TestClient, error) {
 
 	grpcConn, err := grpc.NewClient("passthrough://bufnet", opts...)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
 	// init client
 	client := agentpb.NewLogMetadataServiceClient(grpcConn)
 
 	// return test client
-	return &TestClient{LogMetadataServiceClient: client, grpcConn: grpcConn}, nil
+	return &TestClient{LogMetadataServiceClient: client, grpcConn: grpcConn}
 }
 
 // Initialize new TestServer instance
@@ -88,7 +88,7 @@ func NewTestServer(cfg *config.Config) (*TestServer, error) {
 	svc.testClientset = fake.NewSimpleClientset()
 
 	// pre-approve certain permission checks
-	allowSSAR(svc.testClientset, []string{"ns1"}, []string{"x"})
+	allowSSAR(svc.testClientset, []string{"ns1"}, []string{"list"})
 
 	// init server
 	grpcServer := server.NewServer(cfg)

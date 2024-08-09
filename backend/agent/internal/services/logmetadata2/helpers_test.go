@@ -25,6 +25,49 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 )
 
+func TestLogfileRegex(t *testing.T) {
+	tests := []struct {
+		name        string
+		setInput    string
+		wantMatches []string
+	}{
+		{
+			"without slash",
+			"pn_ns_cn-123.log",
+			[]string{"pn", "ns", "cn", "123"},
+		},
+		{
+			"pod name with hyphen",
+			"pn-123_ns_cn-123.log",
+			[]string{"pn-123", "ns", "cn", "123"},
+		},
+		{
+			"namespace with hyphen",
+			"pn_ns-123_cn-123.log",
+			[]string{"pn", "ns-123", "cn", "123"},
+		},
+		{
+			"container name with hyphen",
+			"pn_ns_cn-123-123.log",
+			[]string{"pn", "ns", "cn-123", "123"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			matches := logfileRegex.FindStringSubmatch(tt.setInput)
+
+			// check number of matches
+			require.Equal(t, len(tt.wantMatches)+1, len(matches))
+
+			// check matched values
+			for i := 0; i < len(tt.wantMatches); i++ {
+				require.Equal(t, tt.wantMatches[i], matches[i+1])
+			}
+		})
+	}
+}
+
 func TestCheckPermissionFailure(t *testing.T) {
 	t.Run("namespaces required", func(t *testing.T) {
 		err := checkPermission(context.Background(), nil, []string{}, "x")

@@ -15,6 +15,7 @@
 package logmetadata2
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	"github.com/kubetail-org/kubetail/backend/common/agentpb"
 	"github.com/kubetail-org/kubetail/backend/common/config"
 )
 
@@ -95,13 +97,78 @@ func (suite *LogMetadataTestSuite) createContainerLogFile(namespace string, podN
 	target := f.Name()
 	link := path.Join(suite.containerLogsDir, fmt.Sprintf("%s_%s_%s-%s.log", podName, namespace, containerName, containerID))
 	err = os.Symlink(target, link)
+	fmt.Println(err)
 	suite.Require().Nil(err)
 
 	return f
 }
 
 func (suite *LogMetadataTestSuite) TestList() {
-	suite.Equal(1, 1)
+	// add file to namespace ns1
+	f0 := suite.createContainerLogFile("ns1", "pn1", "cn", "000")
+	f0.Close()
+
+	// add file to namespace ns1
+	f1 := suite.createContainerLogFile("ns1", "pn2", "cn", "111")
+	f1.Write([]byte("123"))
+	f1.Close()
+
+	// add file to namespace ns2
+	f2 := suite.createContainerLogFile("ns2", "pn", "cn", "222")
+	f2.Write([]byte("123456"))
+	f2.Close()
+
+	// add file to namespace ns2
+	f3 := suite.createContainerLogFile("ns3", "pn", "cn", "333")
+	f3.Write([]byte("123456789"))
+	f3.Close()
+
+	suite.Run("single namespace", func() {
+		client := suite.testServer.NewTestClient()
+		resp, err := client.List(context.Background(), &agentpb.LogMetadataListRequest{Namespaces: []string{"ns1"}})
+		suite.Require().Nil(err)
+
+		// check number of items
+		suite.Require().Equal(2, len(resp.Items))
+
+		// check item0
+		item0 := resp.Items[0]
+		suite.Equal("000", item0.Id)
+		suite.Equal("ns1", item0.Spec.Namespace)
+		suite.Equal("pn1", item0.Spec.PodName)
+		suite.Equal("cn", item0.Spec.ContainerName)
+		suite.Equal("000", item0.Spec.ContainerId)
+
+		// check item1
+		item1 := resp.Items[1]
+		suite.Equal("111", item1.Id)
+		suite.Equal("ns1", item1.Spec.Namespace)
+		suite.Equal("pn2", item1.Spec.PodName)
+		suite.Equal("cn", item1.Spec.ContainerName)
+		suite.Equal("111", item1.Spec.ContainerId)
+	})
+
+	suite.Run("multiple namespaces", func() {
+		suite.testServer
+		client := suite.testServer.NewTestClient()
+		resp, err := client.List(context.Background(), &agentpb.LogMetadataListRequest{Namespaces: []string{"ns1", "ns2"}})
+		suite.Require().Nil(err)
+
+		// check number of items
+		suite.Require().Equal(3, len(resp.Items))
+
+		// check item2
+		item2 := resp.Items[2]
+		suite.Equal("222", item2.Id)
+		suite.Equal("ns2", item2.Spec.Namespace)
+		suite.Equal("pn", item2.Spec.PodName)
+		suite.Equal("cn", item2.Spec.ContainerName)
+		suite.Equal("222", item2.Spec.ContainerId)
+	})
+
+	suite.Run("all namespaces", func() {
+
+	})
 }
 
 // test runner

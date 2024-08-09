@@ -16,6 +16,10 @@ package logmetadata2
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path"
+	"slices"
 
 	"github.com/kubetail-org/kubetail/backend/agent/internal/grpchelpers"
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
@@ -37,11 +41,60 @@ func (s *LogMetadataService) List(ctx context.Context, req *agentpb.LogMetadataL
 	clientset := s.newK8SClientset(ctx)
 
 	// check permission
-	if err := checkPermission(ctx, clientset, req.Namespaces, "get"); err != nil {
+	if err := checkPermission(ctx, clientset, req.Namespaces, "list"); err != nil {
 		return nil, err
 	}
 
-	return &agentpb.LogMetadataList{}, nil
+	files, err := os.ReadDir(s.containerLogsDir)
+	if err != nil {
+		return nil, err
+	}
+
+	items := []*agentpb.LogMetadata{}
+
+	// iterate over files
+	for _, file := range files {
+		// get info
+		fileInfo, err := newLogMetadataFileInfo(path.Join(s.containerLogsDir, file.Name()))
+		if err != nil {
+			return nil, err
+		}
+
+		// parse file name
+		matches := logfileRegex.FindStringSubmatch(file.Name())
+		if matches == nil {
+			return nil, fmt.Errorf("filename format incorrect: %s", file.Name())
+		}
+
+		// extract vars
+		podName := matches[1]
+		namespace := matches[2]
+		containerName := matches[3]
+		containerID := matches[4]
+
+		// skip if namespace not in request args
+		if req.Namespaces[0] != "" && !slices.Contains(req.Namespaces, namespace) {
+			continue
+		}
+
+		// init item
+		item := &agentpb.LogMetadata{
+			Id: containerID,
+			Spec: &agentpb.LogMetadataSpec{
+				NodeName:      s.nodeName,
+				Namespace:     namespace,
+				PodName:       podName,
+				ContainerName: containerName,
+				ContainerId:   containerID,
+			},
+			FileInfo: fileInfo,
+		}
+
+		// append to list
+		items = append(items, item)
+	}
+
+	return &agentpb.LogMetadataList{Items: items}, nil
 }
 
 // Implementation of Watch() in LogMetadataService

@@ -18,14 +18,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
 
+	"github.com/kubetail-org/kubetail/backend/common/agentpb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
+// Regex for container log file names
+var logfileRegex = regexp.MustCompile(`^(?P<PodName>[^_]+)_(?P<Namespace>[^_]+)_(?P<ContainerName>.+)-(?P<ContainerID>[^-]+)\.log$`)
+
+// Check if client has required pods/log permissions for given namespace+verb
 func checkPermission(ctx context.Context, clientset kubernetes.Interface, namespaces []string, verb string) error {
 	// ensure namespaces argument is present
 	if len(namespaces) < 1 {
@@ -54,4 +63,40 @@ func checkPermission(ctx context.Context, clientset kubernetes.Interface, namesp
 	}
 
 	return nil
+}
+
+// Get file info for file
+func newLogMetadataFileInfo(pathname string) (*agentpb.LogMetadataFileInfo, error) {
+	// do stat
+	fileInfo, err := os.Stat(pathname)
+	if err != nil {
+		return nil, err
+	}
+
+	// init output
+	out := &agentpb.LogMetadataFileInfo{
+		Size:           fileInfo.Size(),
+		LastModifiedAt: timestamppb.New(fileInfo.ModTime()),
+	}
+
+	return out, nil
+}
+
+// Get log metadata from file
+func newLogMetadataSpec(nodeName string, pathname string) (*agentpb.LogMetadataSpec, error) {
+	// parse file name
+	matches := logfileRegex.FindStringSubmatch(filepath.Base(pathname))
+	if matches == nil {
+		return nil, fmt.Errorf("filename format incorrect: %s", pathname)
+	}
+
+	spec := &agentpb.LogMetadataSpec{
+		NodeName:      nodeName,
+		PodName:       matches[1],
+		Namespace:     matches[2],
+		ContainerName: matches[3],
+		ContainerId:   matches[4],
+	}
+
+	return spec, nil
 }
