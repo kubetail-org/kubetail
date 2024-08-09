@@ -270,6 +270,8 @@ func (r *queryResolver) LogMetadataList(ctx context.Context, namespace *string) 
 		return nil, err
 	}
 
+	fmt.Println(namespaces)
+
 	// init response
 	outList := &agentpb.LogMetadataList{}
 

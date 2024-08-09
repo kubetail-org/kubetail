@@ -23,11 +23,12 @@ import (
 	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"google.golang.org/grpc"
 
-	"github.com/kubetail-org/kubetail/backend/agent/internal/services/logmetadata"
+	"github.com/kubetail-org/kubetail/backend/agent/internal/server"
+	"github.com/kubetail-org/kubetail/backend/agent/internal/services/logmetadata2"
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
 	"github.com/kubetail-org/kubetail/backend/common/config"
+	"github.com/kubetail-org/kubetail/backend/common/k8shelpers"
 )
 
 type CLI struct {
@@ -50,7 +51,7 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {
 			// init viper
 			v := viper.New()
-			v.BindPFlag("addr", cmd.Flags().Lookup("addr"))
+			v.BindPFlag("agent.addr", cmd.Flags().Lookup("addr"))
 
 			// override params from cli
 			for _, param := range params {
@@ -73,15 +74,21 @@ func main() {
 				Format:  cfg.Agent.Logging.Format,
 			})
 
+			// configure k8s
+			k8sCfg, err := k8shelpers.Configure(cfg)
+			if err != nil {
+				zlog.Fatal().Caller().Err(err).Send()
+			}
+
 			// init service
-			s, err := logmetadata.NewLogMetadataService(os.Getenv("NODE_NAME"), cfg.Agent.ContainerLogsDir)
+			svc, err := logmetadata2.NewLogMetadataService(k8sCfg, os.Getenv("NODE_NAME"), cfg.Agent.ContainerLogsDir)
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
 
 			// init grpc server
-			grpcServer := grpc.NewServer()
-			agentpb.RegisterLogMetadataServiceServer(grpcServer, s)
+			grpcServer := server.NewServer(cfg)
+			agentpb.RegisterLogMetadataServiceServer(grpcServer, svc)
 
 			// init listener
 			lis, err := net.Listen("tcp", cfg.Agent.Addr)

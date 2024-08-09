@@ -14,7 +14,7 @@ docker_build_with_restart(
   'kubetail-agent',
   dockerfile='hack/tilt/Dockerfile.kubetail-agent',
   context='.',
-  entrypoint="/agent/agent",
+  entrypoint="/agent/agent -c /etc/kubetail/config.yaml",
   only=[
     './.tilt/agent',
   ],
@@ -77,6 +77,11 @@ k8s_resource(
 
 k8s_resource(
   'kubetail-agent',
+  objects=[
+    'kubetail-agent:serviceaccount',
+    'kubetail-agent:clusterrole',
+    'kubetail-agent:clusterrolebinding',
+  ],
   resource_deps=['kubetail-shared'],
 )
 

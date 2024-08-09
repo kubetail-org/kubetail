@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -47,6 +48,7 @@ func main() {
 			}
 
 			// init config
+			fmt.Printf("config path: %s\n", cli.Config)
 			cfg, err := config.NewConfig(v, cli.Config)
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()

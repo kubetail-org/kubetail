@@ -123,15 +123,53 @@ spec:
           containerPort: 4000
         args:
         - --config=/etc/kubetail/config.yaml
-        resources: {}
         volumeMounts:
         - name: config
           mountPath: /etc/kubetail
           readOnly: true
+        resources: {}
       volumes:
       - name: config
         configMap:
           name: kubetail
+---
+kind: ServiceAccount
+apiVersion: v1
+automountServiceAccountToken: true
+metadata:
+  name: kubetail-agent
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: agent
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-agent
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: agent
+rules:
+- apiGroups: [""]
+  resources: [pods/log]
+  verbs: [get, watch]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-agent
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubetail-agent
+subjects:
+- kind: ServiceAccount
+  name: kubetail-agent
+  namespace: default
 ---
 kind: DaemonSet
 apiVersion: apps/v1
@@ -152,9 +190,14 @@ spec:
         app.kubernetes.io/name: kubetail
         app.kubernetes.io/component: agent
     spec:
+      serviceAccountName: kubetail-agent
       containers:
       - name: kubetail-agent
         image: kubetail-agent
+        ports:
+        - name: grpc
+          protocol: TCP
+          containerPort: 50051
         env:
         - name: NODE_NAME
           valueFrom:

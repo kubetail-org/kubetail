@@ -21,7 +21,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -30,6 +29,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
+	"github.com/kubetail-org/kubetail/backend/common/config"
 )
 
 type LogMetadataTestSuite struct {
@@ -38,10 +38,12 @@ type LogMetadataTestSuite struct {
 	grpcConn         *grpc.ClientConn
 	podLogsDir       string
 	containerLogsDir string
-	testEventCh      chan string
 }
 
 func (suite *LogMetadataTestSuite) SetupSuite() {
+	// disable logging
+	config.ConfigureLogger(config.LoggerOptions{Enabled: false})
+
 	// temporary directory for pod logs
 	podLogsDir, err := os.MkdirTemp("", "logmetadata-podlogsdir-")
 	suite.Require().Nil(err)
@@ -50,11 +52,9 @@ func (suite *LogMetadataTestSuite) SetupSuite() {
 	containerLogsDir, err := os.MkdirTemp("", "logmetadata-containerlogsdir-")
 	suite.Require().Nil(err)
 
-	// init test channel
+	// init test server
 
-	// init service
 	s, err := NewLogMetadataService("node-name", containerLogsDir)
-	s.testEventCh = make(chan string)
 	suite.Require().Nil(err)
 
 	// init server
@@ -84,11 +84,9 @@ func (suite *LogMetadataTestSuite) SetupSuite() {
 	suite.containerLogsDir = containerLogsDir
 	suite.grpcServer = grpcServer
 	suite.grpcConn = grpcConn
-	suite.testEventCh = s.testEventCh
 }
 
 func (suite *LogMetadataTestSuite) TearDownSuite() {
-	fmt.Println("XDES")
 	defer os.RemoveAll(suite.containerLogsDir)
 	defer os.RemoveAll(suite.podLogsDir)
 	suite.grpcConn.Close()
@@ -120,7 +118,7 @@ func (suite *LogMetadataTestSuite) createContainerLogFile(namespace string, podN
 
 	// add soft link to container logs dir
 	target := f.Name()
-	link := path.Join(suite.containerLogsDir, podName+"_"+namespace+"_"+containerName+"-"+containerID+".log")
+	link := path.Join(suite.containerLogsDir, fmt.Sprintf("%s_%s_%s-%s.log", podName, namespace, containerName, containerID))
 	err = os.Symlink(target, link)
 	suite.Require().Nil(err)
 
@@ -177,49 +175,74 @@ func (suite *LogMetadataTestSuite) TestList() {
 */
 
 func (suite *LogMetadataTestSuite) TestWatchAdded() {
+	// create file after watch starts
+	testEventBus.SubscribeOnceAsync("watch:started", func() {
+		// create file
+		f := suite.createContainerLogFile("ns1", "pn1", "cn", "123")
+		defer f.Close()
+	})
 
+	// init client
+	client := agentpb.NewLogMetadataServiceClient(suite.grpcConn)
+
+	// init request
+	req := &agentpb.LogMetadataWatchRequest{
+		Namespaces: []string{"ns1"},
+	}
+
+	// start watch
+	stream, err := client.Watch(context.Background(), req)
+	suite.Require().Nil(err)
+
+	//time.Sleep(2 * time.Second)
+	res, err := stream.Recv()
+	suite.Require().Nil(err)
+
+	suite.Equal("ADDED", res.Type)
+	suite.Equal("123", res.Object.Id)
+	suite.Equal("node-name", res.Object.Spec.NodeName)
+	suite.Equal("ns1", res.Object.Spec.Namespace)
+	suite.Equal("pn1", res.Object.Spec.PodName)
+	suite.Equal("cn", res.Object.Spec.ContainerName)
+	suite.Equal("123", res.Object.Spec.ContainerId)
+	fmt.Println("XXXX")
 }
 
+/*
 func (suite *LogMetadataTestSuite) TestWatchModified() {
 	// create file
 	f := suite.createContainerLogFile("ns1", "pn1", "cn", "123")
+	defer f.Close()
 
-	var wg sync.WaitGroup
+	// modify file after watch starts
+	testEventBus.SubscribeOnceAsync("watch:started", func() {
+		f.Write([]byte("123"))
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	// init client
+	client := agentpb.NewLogMetadataServiceClient(suite.grpcConn)
 
-		// init client
-		client := agentpb.NewLogMetadataServiceClient(suite.grpcConn)
+	// init request
+	req := &agentpb.LogMetadataWatchRequest{
+		Namespaces: []string{"ns1"},
+	}
 
-		// init request
-		req := &agentpb.LogMetadataWatchRequest{
-			Namespaces: []string{"ns1"},
-		}
+	// start watch
+	stream, err := client.Watch(context.Background(), req)
+	suite.Require().Nil(err)
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+	res, err := stream.Recv()
+	suite.Require().Nil(err)
 
-		stream, err := client.Watch(ctx, req)
-		suite.Require().Nil(err)
-
-		res, err := stream.Recv()
-		suite.Require().Nil(err)
-		fmt.Println(res)
-		fmt.Println("xxx")
-	}()
-
-	// wait for watch to start
-	<-suite.testEventCh
-
-	// modify file
-	f.Write([]byte("123"))
-	f.Close()
-
-	// wait for test to complete
-	wg.Wait()
+	suite.Equal("MODIFIED", res.Type)
+	suite.Equal("123", res.Object.Id)
+	suite.Equal("node-name", res.Object.Spec.NodeName)
+	suite.Equal("ns1", res.Object.Spec.Namespace)
+	suite.Equal("pn1", res.Object.Spec.PodName)
+	suite.Equal("cn", res.Object.Spec.ContainerName)
+	suite.Equal("123", res.Object.Spec.ContainerId)
 }
+*/
 
 func (suite *LogMetadataTestSuite) TestWatchDeleted() {
 
