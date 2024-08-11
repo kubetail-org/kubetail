@@ -110,6 +110,7 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 	return nil
 }
 
+// Initialize new kubernetes clientset
 func (s *LogMetadataService) newK8SClientset(ctx context.Context) kubernetes.Interface {
 	if s.testClientset != nil {
 		return s.testClientset

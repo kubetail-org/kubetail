@@ -48,7 +48,30 @@ func (tc *TestClient) Close() error {
 type TestServer struct {
 	*grpc.Server
 	cfg *config.Config
+	svc *LogMetadataService
 	lis *bufconn.Listener
+}
+
+// Allow pods/log actions
+func (ts *TestServer) AllowSSAR(namespaces []string, verbs []string) {
+	ts.svc.testClientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		// Cast the action to CreateAction to access the object being created
+		createAction := action.(k8stesting.CreateAction)
+		ssar := createAction.GetObject().(*authv1.SelfSubjectAccessReview)
+
+		// check ssar
+		if slices.Contains(verbs, ssar.Spec.ResourceAttributes.Verb) && slices.Contains(namespaces, ssar.Spec.ResourceAttributes.Namespace) {
+			ssar.Status.Allowed = true
+		}
+
+		// Return the modified SelfSubjectAccessReview
+		return true, ssar, nil
+	})
+}
+
+// Clear actions
+func (ts *TestServer) ResetClientset() {
+	ts.svc.testClientset = fake.NewSimpleClientset()
 }
 
 // Initialize new TestClient instance
@@ -87,9 +110,6 @@ func NewTestServer(cfg *config.Config) (*TestServer, error) {
 	// init fake clientset
 	svc.testClientset = fake.NewSimpleClientset()
 
-	// pre-approve certain permission checks
-	allowSSAR(svc.testClientset, []string{"ns1"}, []string{"list"})
-
 	// init server
 	grpcServer := server.NewServer(cfg)
 	agentpb.RegisterLogMetadataServiceServer(grpcServer, svc)
@@ -102,7 +122,15 @@ func NewTestServer(cfg *config.Config) (*TestServer, error) {
 		}
 	}()
 
-	return &TestServer{Server: grpcServer, lis: lis, cfg: cfg}, nil
+	// init test server
+	ts := &TestServer{
+		Server: grpcServer,
+		svc:    svc,
+		lis:    lis,
+		cfg:    cfg,
+	}
+
+	return ts, nil
 }
 
 func allowSSAR(clientset *fake.Clientset, namespaces []string, verbs []string) {

@@ -85,6 +85,9 @@ func (suite *LogMetadataTestSuite) SetupTest() {
 			suite.Require().Nil(err)
 		}
 	}
+
+	// reset clientset
+	suite.testServer.ResetClientset()
 }
 
 // Helper method to create a container log file
@@ -97,7 +100,6 @@ func (suite *LogMetadataTestSuite) createContainerLogFile(namespace string, podN
 	target := f.Name()
 	link := path.Join(suite.containerLogsDir, fmt.Sprintf("%s_%s_%s-%s.log", podName, namespace, containerName, containerID))
 	err = os.Symlink(target, link)
-	fmt.Println(err)
 	suite.Require().Nil(err)
 
 	return f
@@ -124,6 +126,9 @@ func (suite *LogMetadataTestSuite) TestList() {
 	f3.Close()
 
 	suite.Run("single namespace", func() {
+		// allow access
+		suite.testServer.AllowSSAR([]string{"ns1"}, []string{"list"})
+
 		client := suite.testServer.NewTestClient()
 		resp, err := client.List(context.Background(), &agentpb.LogMetadataListRequest{Namespaces: []string{"ns1"}})
 		suite.Require().Nil(err)
@@ -149,7 +154,9 @@ func (suite *LogMetadataTestSuite) TestList() {
 	})
 
 	suite.Run("multiple namespaces", func() {
-		suite.testServer
+		// allow access
+		suite.testServer.AllowSSAR([]string{"ns1", "ns2"}, []string{"list"})
+
 		client := suite.testServer.NewTestClient()
 		resp, err := client.List(context.Background(), &agentpb.LogMetadataListRequest{Namespaces: []string{"ns1", "ns2"}})
 		suite.Require().Nil(err)
@@ -167,7 +174,23 @@ func (suite *LogMetadataTestSuite) TestList() {
 	})
 
 	suite.Run("all namespaces", func() {
+		// allow access
+		suite.testServer.AllowSSAR([]string{""}, []string{"list"})
 
+		client := suite.testServer.NewTestClient()
+		resp, err := client.List(context.Background(), &agentpb.LogMetadataListRequest{Namespaces: []string{""}})
+		suite.Require().Nil(err)
+
+		// check number of items
+		suite.Require().Equal(4, len(resp.Items))
+
+		// check item3
+		item3 := resp.Items[3]
+		suite.Equal("333", item3.Id)
+		suite.Equal("ns3", item3.Spec.Namespace)
+		suite.Equal("pn", item3.Spec.PodName)
+		suite.Equal("cn", item3.Spec.ContainerName)
+		suite.Equal("333", item3.Spec.ContainerId)
 	})
 }
 
