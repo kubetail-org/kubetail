@@ -194,6 +194,25 @@ func (suite *LogMetadataTestSuite) TestList() {
 	})
 }
 
+func (suite *LogMetadataTestSuite) TestWatchClientClose() {
+	// init client
+	client := suite.testServer.NewTestClient()
+	suite.testServer.AllowSSAR([]string{""}, []string{"watch"})
+
+	// close client connection after watch starts
+	testEventBus.SubscribeOnceAsync("watch:started", func() {
+		client.Close()
+	})
+
+	// init watch
+	stream, err := client.Watch(context.Background(), &agentpb.LogMetadataWatchRequest{Namespaces: []string{""}})
+	suite.Require().Nil(err)
+
+	// wait for stream
+	_, err = stream.Recv()
+	suite.Require().ErrorContains(err, "client connection is closing")
+}
+
 // test runner
 func TestLogMetadata(t *testing.T) {
 	suite.Run(t, new(LogMetadataTestSuite))

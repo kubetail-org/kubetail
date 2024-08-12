@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -99,4 +100,84 @@ func newLogMetadataSpec(nodeName string, pathname string) (*agentpb.LogMetadataS
 	}
 
 	return spec, nil
+}
+
+// Check if container log file is in namespace
+/*func isInNamespaces(pathname string, namespaces []string) (bool, error) {
+
+}*/
+
+// Container logs watcher instance
+type containerLogsWatcher struct {
+	watcher *fsnotify.Watcher
+	Events  chan *agentpb.LogMetadataWatchEvent
+}
+
+// Close watcher
+func (w *containerLogsWatcher) Close() error {
+	return w.watcher.Close()
+}
+
+func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, namespaces []string) (*containerLogsWatcher, error) {
+	// create new watcher
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
+
+	// add current files to watcher
+	err = filepath.Walk(containerLogsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// add link targets to watcher
+		if info.Mode()&os.ModeSymlink != 0 {
+			// TODO
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// listen for new files
+	if err := watcher.Add(containerLogsDir); err != nil {
+		return nil, err
+	}
+
+	outCh := make(chan *agentpb.LogMetadataWatchEvent)
+
+	// handle new files
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				// handle context cancel
+				return
+			case inEv, ok := <-watcher.Events:
+				// handle watcher close
+				if !ok {
+					close(outCh)
+					return
+				}
+
+				// handle new files
+				if inEv.Op&fsnotify.Create == fsnotify.Create {
+					// TODO
+				} else {
+					// handle other events
+					fmt.Println(inEv)
+				}
+			}
+		}
+	}()
+
+	obj := &containerLogsWatcher{
+		watcher: watcher,
+		Events:  outCh,
+	}
+
+	return obj, nil
 }

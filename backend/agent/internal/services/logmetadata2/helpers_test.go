@@ -16,6 +16,8 @@ package logmetadata2
 
 import (
 	"context"
+	"os"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -132,4 +134,34 @@ func TestCheckPermissionRequest(t *testing.T) {
 	})
 
 	checkPermission(context.Background(), clientset, []string{"ns1"}, "x")
+}
+
+func TestContainerLogsWatcher(t *testing.T) {
+	t.Run("handles close", func(t *testing.T) {
+		// temporary directory for container log links
+		dirname, err := os.MkdirTemp("", "logmetadata-containerlogsdir-")
+		require.Nil(t, err)
+		defer os.RemoveAll(dirname)
+
+		// init watcher
+		watcher, err := newContainerLogsWatcher(context.Background(), dirname, []string{})
+		require.Nil(t, err)
+
+		// check that events passes through close event
+		var wg sync.WaitGroup
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, ok := <-watcher.Events
+			require.False(t, ok)
+		}()
+
+		// execute close
+		err = watcher.Close()
+		require.Nil(t, err)
+
+		// wait
+		wg.Wait()
+	})
 }

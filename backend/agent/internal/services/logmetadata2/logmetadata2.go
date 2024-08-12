@@ -21,12 +21,18 @@ import (
 	"path"
 	"slices"
 
-	"github.com/kubetail-org/kubetail/backend/agent/internal/grpchelpers"
-	"github.com/kubetail-org/kubetail/backend/common/agentpb"
+	eventbus "github.com/asaskevich/EventBus"
+	zlog "github.com/rs/zerolog/log"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
+
+	"github.com/kubetail-org/kubetail/backend/agent/internal/grpchelpers"
+	"github.com/kubetail-org/kubetail/backend/common/agentpb"
 )
+
+// event bus for test events
+var testEventBus = eventbus.New()
 
 type LogMetadataService struct {
 	agentpb.UnimplementedLogMetadataServiceServer
@@ -99,6 +105,8 @@ func (s *LogMetadataService) List(ctx context.Context, req *agentpb.LogMetadataL
 
 // Implementation of Watch() in LogMetadataService
 func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream agentpb.LogMetadataService_WatchServer) error {
+	zlog.Debug().Msgf("[%s] new client connected\n", s.nodeName)
+
 	ctx := stream.Context()
 	clientset := s.newK8SClientset(ctx)
 
@@ -107,7 +115,29 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 		return err
 	}
 
-	return nil
+	// create new watcher
+	watcher, err := newContainerLogsWatcher(ctx, s.containerLogsDir, req.Namespaces)
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+
+	testEventBus.Publish("watch:started")
+
+	// worker loop
+	for {
+		select {
+		case <-ctx.Done():
+			zlog.Debug().Msgf("[%s] client disconnected\n", s.nodeName)
+			return nil
+		case _, ok := <-watcher.Events:
+			if !ok {
+				return nil
+			}
+
+			// TODO: handle events
+		}
+	}
 }
 
 // Initialize new kubernetes clientset
