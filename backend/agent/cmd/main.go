@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/kubetail-org/kubetail/backend/agent/internal/server"
-	"github.com/kubetail-org/kubetail/backend/agent/internal/services/logmetadata2"
+	"github.com/kubetail-org/kubetail/backend/agent/internal/services/logmetadata"
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
 	"github.com/kubetail-org/kubetail/backend/common/config"
 	"github.com/kubetail-org/kubetail/backend/common/k8shelpers"
@@ -81,7 +81,7 @@ func main() {
 			}
 
 			// init service
-			svc, err := logmetadata2.NewLogMetadataService(k8sCfg, os.Getenv("NODE_NAME"), cfg.Agent.ContainerLogsDir)
+			svc, err := logmetadata.NewLogMetadataService(k8sCfg, os.Getenv("NODE_NAME"), cfg.Agent.ContainerLogsDir)
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
