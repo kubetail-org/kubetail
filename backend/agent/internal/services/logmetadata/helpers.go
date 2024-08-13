@@ -278,7 +278,12 @@ func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, names
 						continue
 					}
 				} else {
-					inEv.Name = symlinkCache[inEv.Name]
+					// check cache
+					filename, exists := symlinkCache[inEv.Name]
+					if !exists {
+						continue
+					}
+					inEv.Name = filename
 				}
 
 				// write to output channel

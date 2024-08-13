@@ -21,6 +21,7 @@ import (
 	"path"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/stretchr/testify/require"
@@ -178,6 +179,27 @@ func (suite *ContainerLogsWatcherTestSuite) createContainerLogFile(namespace str
 	suite.Require().Nil(err)
 
 	return f
+}
+
+// Helper method to delete a container log file
+func (suite *ContainerLogsWatcherTestSuite) removeContainerLogFile(namespace string, podName string, containerName string, containerID string) error {
+	pathname := path.Join(suite.containerLogsDir, fmt.Sprintf("%s_%s_%s-%s.log", podName, namespace, containerName, containerID))
+
+	// get target
+	target, err := os.Readlink(pathname)
+	if err != nil {
+		return err
+	}
+
+	// delete files
+	if err := os.Remove(target); err != nil {
+		return err
+	}
+	if err := os.Remove(pathname); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (suite *ContainerLogsWatcherTestSuite) TestClose() {
@@ -397,7 +419,7 @@ func (suite *ContainerLogsWatcherTestSuite) TestDelete() {
 			// init watcher
 			watcher, err := newContainerLogsWatcher(context.Background(), suite.containerLogsDir, tt.setNamespaces)
 			suite.Require().Nil(err)
-			defer watcher.Close()
+			//defer watcher.Close()
 
 			var wg sync.WaitGroup
 
@@ -405,13 +427,21 @@ func (suite *ContainerLogsWatcherTestSuite) TestDelete() {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				_, ok := <-watcher.Events
-				suite.Require().True(ok)
+				n := 0
+				for range watcher.Events {
+					n += 1
+				}
+				suite.Equal(1, n)
 			}()
 
 			// delete file
-			err = os.Remove(f.Name())
+			err = suite.removeContainerLogFile("ns1", "pn", "cn", "123")
 			suite.Require().Nil(err)
+
+			// wait for event to get processed
+			time.Sleep(50 * time.Millisecond)
+
+			watcher.Close()
 
 			// wait
 			wg.Wait()
