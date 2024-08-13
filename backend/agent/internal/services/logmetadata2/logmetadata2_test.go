@@ -194,7 +194,7 @@ func (suite *LogMetadataTestSuite) TestList() {
 	})
 }
 
-func (suite *LogMetadataTestSuite) TestWatchClientClose() {
+func (suite *LogMetadataTestSuite) TestWatchDisconnectOnClientClose() {
 	// init client
 	client := suite.testServer.NewTestClient()
 	suite.testServer.AllowSSAR([]string{""}, []string{"watch"})
@@ -211,6 +211,150 @@ func (suite *LogMetadataTestSuite) TestWatchClientClose() {
 	// wait for stream
 	_, err = stream.Recv()
 	suite.Require().ErrorContains(err, "client connection is closing")
+}
+
+func (suite *LogMetadataTestSuite) TestWatchAdded() {
+	tests := []struct {
+		name          string
+		setNamespaces []string
+	}{
+		{
+			"single namespace",
+			[]string{"ns1"},
+		},
+		{
+			"multiple namespaces",
+			[]string{"ns1", "ns2"},
+		},
+		{
+			"all namespaces",
+			[]string{""},
+		},
+	}
+
+	for _, tt := range tests {
+		suite.SetupTest()
+
+		// init client
+		client := suite.testServer.NewTestClient()
+		suite.testServer.AllowSSAR(tt.setNamespaces, []string{"watch"})
+
+		// create file after watch starts
+		testEventBus.SubscribeOnceAsync("watch:started", func() {
+			f := suite.createContainerLogFile("ns1", "pn", "cn", "123")
+			defer f.Close()
+		})
+
+		// init watch
+		stream, err := client.Watch(context.Background(), &agentpb.LogMetadataWatchRequest{Namespaces: tt.setNamespaces})
+		suite.Require().Nil(err)
+
+		// wait for stream
+		ev, err := stream.Recv()
+		suite.Require().Nil(err)
+
+		suite.Equal("ADDED", ev.Type)
+		suite.Equal("123", ev.Object.Id)
+		suite.Equal(int64(0), ev.Object.FileInfo.Size)
+	}
+}
+
+func (suite *LogMetadataTestSuite) TestWatchModified() {
+	tests := []struct {
+		name          string
+		setNamespaces []string
+	}{
+		{
+			"single namespace",
+			[]string{"ns1"},
+		},
+		{
+			"multiple namespaces",
+			[]string{"ns1", "ns2"},
+		},
+		{
+			"all namespaces",
+			[]string{""},
+		},
+	}
+
+	for _, tt := range tests {
+		suite.SetupTest()
+
+		// create file
+		f := suite.createContainerLogFile("ns1", "pn", "cn", "123")
+		defer f.Close()
+
+		// init client
+		client := suite.testServer.NewTestClient()
+		suite.testServer.AllowSSAR(tt.setNamespaces, []string{"watch"})
+
+		// write to file after watch starts
+		testEventBus.SubscribeOnceAsync("watch:started", func() {
+			f.Write([]byte("123"))
+		})
+
+		// init watch
+		stream, err := client.Watch(context.Background(), &agentpb.LogMetadataWatchRequest{Namespaces: tt.setNamespaces})
+		suite.Require().Nil(err)
+
+		// wait for stream
+		ev, err := stream.Recv()
+		suite.Require().Nil(err)
+
+		suite.Equal("MODIFIED", ev.Type)
+		suite.Equal("123", ev.Object.Id)
+		suite.Equal(int64(3), ev.Object.FileInfo.Size)
+	}
+}
+
+func (suite *LogMetadataTestSuite) TestWatchDeleted() {
+	tests := []struct {
+		name          string
+		setNamespaces []string
+	}{
+		{
+			"single namespace",
+			[]string{"ns1"},
+		},
+		{
+			"multiple namespaces",
+			[]string{"ns1", "ns2"},
+		},
+		{
+			"all namespaces",
+			[]string{""},
+		},
+	}
+
+	for _, tt := range tests {
+		suite.SetupTest()
+
+		// create file
+		f := suite.createContainerLogFile("ns1", "pn", "cn", "123")
+		f.Close()
+
+		// init client
+		client := suite.testServer.NewTestClient()
+		suite.testServer.AllowSSAR(tt.setNamespaces, []string{"watch"})
+
+		// delete file after watch starts
+		testEventBus.SubscribeOnceAsync("watch:started", func() {
+			os.Remove(f.Name())
+		})
+
+		// init watch
+		stream, err := client.Watch(context.Background(), &agentpb.LogMetadataWatchRequest{Namespaces: tt.setNamespaces})
+		suite.Require().Nil(err)
+
+		// wait for stream
+		ev, err := stream.Recv()
+		suite.Require().Nil(err)
+
+		suite.Equal("DELETED", ev.Type)
+		suite.Equal("123", ev.Object.Id)
+		suite.Equal(int64(0), ev.Object.FileInfo.Size)
+	}
 }
 
 // test runner

@@ -130,12 +130,24 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 		case <-ctx.Done():
 			zlog.Debug().Msgf("[%s] client disconnected\n", s.nodeName)
 			return nil
-		case _, ok := <-watcher.Events:
+		case ev, ok := <-watcher.Events:
 			if !ok {
 				return nil
 			}
 
-			// TODO: handle events
+			// init watch event
+			outEv, err := newLogMetadataWatchEvent(ev, s.nodeName)
+			if err != nil {
+				zlog.Error().Err(err).Send()
+				continue
+			}
+
+			// write to stream
+			err = stream.Send(outEv)
+			if err != nil {
+				zlog.Error().Err(err).Send()
+				return err
+			}
 		}
 	}
 }

@@ -106,17 +106,9 @@ func newLogMetadataSpec(nodeName string, pathname string) (*agentpb.LogMetadataS
 }
 
 // generate new LogMetadataWatchEvent from an fsnotify event
-func newLogMetadataWatchEvent(event fsnotify.Event, nodeName string, symlinkCache map[string]string) (*agentpb.LogMetadataWatchEvent, error) {
-	containerLogFilename, ok := symlinkCache[event.Name]
-	if !ok {
-		containerLogFilename = event.Name
-	}
-	fmt.Printf("n: %s\n", event.Name)
-	fmt.Printf("cfn: %s\n", containerLogFilename)
-	fmt.Println(event)
-
-	// get-or-create from cache
-	spec, err := newLogMetadataSpec(nodeName, containerLogFilename)
+func newLogMetadataWatchEvent(event fsnotify.Event, nodeName string) (*agentpb.LogMetadataWatchEvent, error) {
+	// init spec
+	spec, err := newLogMetadataSpec(nodeName, event.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -133,13 +125,11 @@ func newLogMetadataWatchEvent(event fsnotify.Event, nodeName string, symlinkCach
 	switch {
 	case event.Op&fsnotify.Create == fsnotify.Create:
 		watchEv.Type = "ADDED"
-		// TODO
-		/*
-			if fileInfo, err := newLogMetadataFileInfo(event.Name); err != nil {
-				return nil, err
-			} else {
-				watchEv.Object.FileInfo = fileInfo
-			}*/
+		if fileInfo, err := newLogMetadataFileInfo(event.Name); err != nil {
+			return nil, err
+		} else {
+			watchEv.Object.FileInfo = fileInfo
+		}
 	case event.Op&fsnotify.Write == fsnotify.Write:
 		watchEv.Type = "MODIFIED"
 		if fileInfo, err := newLogMetadataFileInfo(event.Name); err != nil {
@@ -173,110 +163,6 @@ func isInNamespace(pathname string, namespaces []string) bool {
 	// check if file's namespace is in namespace list
 	return slices.Contains(namespaces, parts[1])
 }
-
-/*
-// Container logs watcher instance
-type containerLogsWatcher struct {
-	watcher *fsnotify.Watcher
-	Events  chan *agentpb.LogMetadataWatchEvent
-}
-
-// Close watcher
-func (w *containerLogsWatcher) Close() error {
-	return w.watcher.Close()
-}
-
-func newContainerLogsWatcher(ctx context.Context, nodeName string, namespaces []string, containerLogsDir string) (*containerLogsWatcher, error) {
-	if len(namespaces) < 1 {
-		return nil, fmt.Errorf("namespaces required")
-	}
-
-	// create new watcher
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, err
-	}
-
-	symlinkCache := make(map[string]string)
-
-	handleFile := func(pathname string) error {
-		// get target
-		target, err := os.Readlink(pathname)
-		if err != nil {
-			return err
-		}
-
-		// add target to watcher
-		if err := watcher.Add(target); err != nil {
-			return err
-		}
-
-		// update cache
-		symlinkCache[target] = filepath.Base(pathname)
-
-		return nil
-	}
-
-	// add current files to watcher
-	err = filepath.Walk(containerLogsDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if isInNamespace(path, namespaces) {
-			return handleFile(path)
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// listen for new files
-	if err := watcher.Add(containerLogsDir); err != nil {
-		return nil, err
-	}
-
-	outCh := make(chan *agentpb.LogMetadataWatchEvent)
-
-	// handle new files
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				// handle context cancel
-				return
-			case inEv, ok := <-watcher.Events:
-				// handle watcher close
-				if !ok {
-					close(outCh)
-					return
-				}
-
-				// handle new files
-				if inEv.Op&fsnotify.Create == fsnotify.Create && isInNamespace(inEv.Name, namespaces) {
-					handleFile(inEv.Name)
-				}
-
-				// initialize output event
-				if outEv, err := newLogMetadataWatchEvent(inEv, nodeName, symlinkCache); err != nil {
-					fmt.Println(err)
-				} else if outEv != nil {
-					outCh <- outEv
-				}
-			}
-		}
-	}()
-
-	obj := &containerLogsWatcher{
-		watcher: watcher,
-		Events:  outCh,
-	}
-
-	return obj, nil
-}
-*/
 
 // Container logs watcher instance
 type containerLogsWatcher struct {
