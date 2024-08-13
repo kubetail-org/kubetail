@@ -116,7 +116,7 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 	}
 
 	// create new watcher
-	watcher, err := newContainerLogsWatcher(ctx, s.nodeName, req.Namespaces, s.containerLogsDir)
+	watcher, err := newContainerLogsWatcher(ctx, s.containerLogsDir, req.Namespaces)
 	if err != nil {
 		return err
 	}

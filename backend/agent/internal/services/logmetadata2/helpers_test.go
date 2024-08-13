@@ -22,6 +22,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	authv1 "k8s.io/api/authorization/v1"
@@ -160,8 +161,8 @@ func (suite *ContainerLogsWatcherTestSuite) SetupTest() {
 }
 
 func (suite *ContainerLogsWatcherTestSuite) TearDownTest() {
-	defer os.RemoveAll(suite.containerLogsDir)
-	defer os.RemoveAll(suite.podLogsDir)
+	os.RemoveAll(suite.containerLogsDir)
+	os.RemoveAll(suite.podLogsDir)
 }
 
 // Helper method to create a container log file
@@ -181,7 +182,7 @@ func (suite *ContainerLogsWatcherTestSuite) createContainerLogFile(namespace str
 
 func (suite *ContainerLogsWatcherTestSuite) TestClose() {
 	// init watcher
-	watcher, err := newContainerLogsWatcher(context.Background(), "node-name", []string{""}, suite.containerLogsDir)
+	watcher, err := newContainerLogsWatcher(context.Background(), suite.containerLogsDir, []string{""})
 	suite.Require().Nil(err)
 
 	// check that events passes through close event
@@ -203,37 +204,59 @@ func (suite *ContainerLogsWatcherTestSuite) TestClose() {
 }
 
 func (suite *ContainerLogsWatcherTestSuite) TestCreate() {
-	// init watcher
-	watcher, err := newContainerLogsWatcher(context.Background(), "node-name", []string{"ns1"}, suite.containerLogsDir)
-	suite.Require().Nil(err)
-	defer watcher.Close()
+	tests := []struct {
+		name          string
+		setNamespaces []string
+	}{
+		{
+			"single namespace",
+			[]string{"ns1"},
+		},
+		{
+			"multiple namespaces",
+			[]string{"ns1", "ns2"},
+		},
+		{
+			"all namespaces",
+			[]string{""},
+		},
+	}
 
-	var wg sync.WaitGroup
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.TearDownTest()
+			suite.SetupTest()
 
-	// check that file modification event gets handled
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		ev, ok := <-watcher.Events
-		suite.Require().True(ok)
-		suite.Equal("ADDED", ev.Type)
-		suite.Equal("123", ev.Object.Id)
-		suite.Equal(int64(0), ev.Object.FileInfo.Size)
-	}()
+			// init watcher
+			watcher, err := newContainerLogsWatcher(context.Background(), suite.containerLogsDir, tt.setNamespaces)
+			suite.Require().Nil(err)
+			defer watcher.Close()
 
-	// create file
-	f := suite.createContainerLogFile("ns1", "pn", "cn", "123")
-	defer f.Close()
+			var wg sync.WaitGroup
 
-	// wait
-	wg.Wait()
+			// check that file modification event gets handled
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				ev, ok := <-watcher.Events
+				suite.Require().True(ok)
+				suite.Equal(fsnotify.Create, ev.Op&fsnotify.Create)
+			}()
+
+			// create file
+			f := suite.createContainerLogFile("ns1", "pn", "cn", "123")
+			defer f.Close()
+
+			// wait
+			wg.Wait()
+		})
+	}
 }
 
 func (suite *ContainerLogsWatcherTestSuite) TestCreateOutsideNamespace() {
 	// init watcher
-	watcher, err := newContainerLogsWatcher(context.Background(), "node-name", []string{"ns1"}, suite.containerLogsDir)
+	watcher, err := newContainerLogsWatcher(context.Background(), suite.containerLogsDir, []string{"ns1"})
 	suite.Require().Nil(err)
-	defer watcher.Close()
 
 	var wg sync.WaitGroup
 
@@ -257,35 +280,58 @@ func (suite *ContainerLogsWatcherTestSuite) TestCreateOutsideNamespace() {
 }
 
 func (suite *ContainerLogsWatcherTestSuite) TestModify() {
-	// create file
-	f := suite.createContainerLogFile("ns1", "pn", "cn", "123")
-	f.Write([]byte("123"))
-	defer f.Close()
+	tests := []struct {
+		name          string
+		setNamespaces []string
+	}{
+		{
+			"single namespace",
+			[]string{"ns1"},
+		},
+		{
+			"multiple namespaces",
+			[]string{"ns1", "ns2"},
+		},
+		{
+			"all namespaces",
+			[]string{""},
+		},
+	}
 
-	// init watcher
-	watcher, err := newContainerLogsWatcher(context.Background(), "node-name", []string{"ns1"}, suite.containerLogsDir)
-	suite.Require().Nil(err)
-	defer watcher.Close()
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.TearDownTest()
+			suite.SetupTest()
 
-	var wg sync.WaitGroup
+			// create file
+			f := suite.createContainerLogFile("ns1", "pn", "cn", "123")
+			f.Write([]byte("123"))
+			defer f.Close()
 
-	// check that file modification event gets handled
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		ev, ok := <-watcher.Events
-		suite.Require().True(ok)
-		suite.Equal("MODIFIED", ev.Type)
-		suite.Equal("123", ev.Object.Id)
-		suite.Equal(int64(6), ev.Object.FileInfo.Size)
-	}()
+			// init watcher
+			watcher, err := newContainerLogsWatcher(context.Background(), suite.containerLogsDir, tt.setNamespaces)
+			suite.Require().Nil(err)
+			defer watcher.Close()
 
-	// modify file
-	_, err = f.Write([]byte("456"))
-	suite.Require().Nil(err)
+			var wg sync.WaitGroup
 
-	// wait
-	wg.Wait()
+			// check that file modification event gets handled
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				ev, ok := <-watcher.Events
+				suite.Require().True(ok)
+				suite.Equal(fsnotify.Write, ev.Op&fsnotify.Write)
+			}()
+
+			// modify file
+			_, err = f.Write([]byte("456"))
+			suite.Require().Nil(err)
+
+			// wait
+			wg.Wait()
+		})
+	}
 }
 
 func (suite *ContainerLogsWatcherTestSuite) TestModifyOutsideNamespace() {
@@ -295,7 +341,7 @@ func (suite *ContainerLogsWatcherTestSuite) TestModifyOutsideNamespace() {
 	defer f.Close()
 
 	// init watcher
-	watcher, err := newContainerLogsWatcher(context.Background(), "node-name", []string{"ns2"}, suite.containerLogsDir)
+	watcher, err := newContainerLogsWatcher(context.Background(), suite.containerLogsDir, []string{"ns2"})
 	suite.Require().Nil(err)
 
 	var wg sync.WaitGroup
@@ -319,6 +365,92 @@ func (suite *ContainerLogsWatcherTestSuite) TestModifyOutsideNamespace() {
 	wg.Wait()
 }
 
+/*
+func (suite *ContainerLogsWatcherTestSuite) TestDelete() {
+	tests := []struct {
+		name          string
+		setNamespaces []string
+	}{
+		{
+			"single namespace",
+			[]string{"ns1"},
+		},
+		{
+			"multiple namespaces",
+			[]string{"ns1", "ns2"},
+		},
+		{
+			"all namespaces",
+			[]string{""},
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.TearDownTest()
+			suite.SetupTest()
+
+			// create file
+			f := suite.createContainerLogFile("ns1", "pn", "cn", "123")
+			f.Write([]byte("123"))
+			f.Close()
+
+			// init watcher
+			watcher, err := newContainerLogsWatcher(context.Background(), suite.containerLogsDir, tt.setNamespaces)
+			suite.Require().Nil(err)
+			defer watcher.Close()
+
+			var wg sync.WaitGroup
+
+			// check that file modification event gets handled
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_, ok := <-watcher.Events
+				suite.Require().True(ok)
+			}()
+
+			// delete file
+			err = os.Remove(f.Name())
+			suite.Require().Nil(err)
+
+			// wait
+			wg.Wait()
+		})
+	}
+}
+
+func (suite *ContainerLogsWatcherTestSuite) TestDeleteOutsideNamespace() {
+	// create file
+	f := suite.createContainerLogFile("ns1", "pn", "cn", "123")
+	f.Write([]byte("123"))
+	f.Close()
+
+	// init watcher
+	watcher, err := newContainerLogsWatcher(context.Background(), suite.containerLogsDir, []string{"ns2"})
+	suite.Require().Nil(err)
+
+	var wg sync.WaitGroup
+
+	// check that file modification event gets ignored
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_, ok := <-watcher.Events
+		suite.Require().False(ok)
+	}()
+
+	// delete file in ns1
+	err = os.Remove(f.Name())
+	suite.Require().Nil(err)
+
+	// close
+	watcher.Close()
+
+	// wait
+	wg.Wait()
+}
+*/
 // test runner
 func TestContainerLogsWatcher(t *testing.T) {
 	suite.Run(t, new(ContainerLogsWatcherTestSuite))

@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
@@ -105,10 +106,17 @@ func newLogMetadataSpec(nodeName string, pathname string) (*agentpb.LogMetadataS
 }
 
 // generate new LogMetadataWatchEvent from an fsnotify event
-func newLogMetadataWatchEvent(event fsnotify.Event, nodeName string) (*agentpb.LogMetadataWatchEvent, error) {
-	// get-or-create from cache
+func newLogMetadataWatchEvent(event fsnotify.Event, nodeName string, symlinkCache map[string]string) (*agentpb.LogMetadataWatchEvent, error) {
+	containerLogFilename, ok := symlinkCache[event.Name]
+	if !ok {
+		containerLogFilename = event.Name
+	}
+	fmt.Printf("n: %s\n", event.Name)
+	fmt.Printf("cfn: %s\n", containerLogFilename)
+	fmt.Println(event)
 
-	spec, err := newLogMetadataSpec(nodeName, event.Name)
+	// get-or-create from cache
+	spec, err := newLogMetadataSpec(nodeName, containerLogFilename)
 	if err != nil {
 		return nil, err
 	}
@@ -125,11 +133,13 @@ func newLogMetadataWatchEvent(event fsnotify.Event, nodeName string) (*agentpb.L
 	switch {
 	case event.Op&fsnotify.Create == fsnotify.Create:
 		watchEv.Type = "ADDED"
-		if fileInfo, err := newLogMetadataFileInfo(event.Name); err != nil {
-			return nil, err
-		} else {
-			watchEv.Object.FileInfo = fileInfo
-		}
+		// TODO
+		/*
+			if fileInfo, err := newLogMetadataFileInfo(event.Name); err != nil {
+				return nil, err
+			} else {
+				watchEv.Object.FileInfo = fileInfo
+			}*/
 	case event.Op&fsnotify.Write == fsnotify.Write:
 		watchEv.Type = "MODIFIED"
 		if fileInfo, err := newLogMetadataFileInfo(event.Name); err != nil {
@@ -164,6 +174,7 @@ func isInNamespace(pathname string, namespaces []string) bool {
 	return slices.Contains(namespaces, parts[1])
 }
 
+/*
 // Container logs watcher instance
 type containerLogsWatcher struct {
 	watcher *fsnotify.Watcher
@@ -186,6 +197,8 @@ func newContainerLogsWatcher(ctx context.Context, nodeName string, namespaces []
 		return nil, err
 	}
 
+	symlinkCache := make(map[string]string)
+
 	handleFile := func(pathname string) error {
 		// get target
 		target, err := os.Readlink(pathname)
@@ -197,6 +210,9 @@ func newContainerLogsWatcher(ctx context.Context, nodeName string, namespaces []
 		if err := watcher.Add(target); err != nil {
 			return err
 		}
+
+		// update cache
+		symlinkCache[target] = filepath.Base(pathname)
 
 		return nil
 	}
@@ -244,7 +260,7 @@ func newContainerLogsWatcher(ctx context.Context, nodeName string, namespaces []
 				}
 
 				// initialize output event
-				if outEv, err := newLogMetadataWatchEvent(inEv, nodeName); err != nil {
+				if outEv, err := newLogMetadataWatchEvent(inEv, nodeName, symlinkCache); err != nil {
 					fmt.Println(err)
 				} else if outEv != nil {
 					outCh <- outEv
@@ -259,4 +275,124 @@ func newContainerLogsWatcher(ctx context.Context, nodeName string, namespaces []
 	}
 
 	return obj, nil
+}
+*/
+
+// Container logs watcher instance
+type containerLogsWatcher struct {
+	watcher *fsnotify.Watcher
+	Events  chan fsnotify.Event
+	closed  bool
+	mu      sync.Mutex
+}
+
+// Close watcher
+func (clw *containerLogsWatcher) Close() error {
+	clw.mu.Lock()
+	defer clw.mu.Unlock()
+
+	err := clw.watcher.Close()
+
+	if !clw.closed {
+		close(clw.Events)
+		clw.closed = true
+	}
+
+	return err
+}
+
+func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, namespaces []string) (*containerLogsWatcher, error) {
+	if len(namespaces) < 1 {
+		return nil, fmt.Errorf("namespaces required")
+	}
+
+	// create new watcher
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
+
+	symlinkCache := make(map[string]string)
+
+	addTarget := func(pathname string) error {
+		// get target
+		target, err := os.Readlink(pathname)
+		if err != nil {
+			return err
+		}
+
+		// cache result
+		symlinkCache[target] = pathname
+
+		// add target to watcher
+		if err := watcher.Add(target); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	// add current files to watcher
+	err = filepath.Walk(containerLogsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if isInNamespace(path, namespaces) {
+			return addTarget(path)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// listen for new files
+	if err := watcher.Add(containerLogsDir); err != nil {
+		return nil, err
+	}
+
+	clw := &containerLogsWatcher{
+		watcher: watcher,
+		Events:  make(chan fsnotify.Event),
+	}
+
+	// handle new files
+	go func() {
+		defer clw.Close()
+
+		for {
+			select {
+			case <-ctx.Done():
+				// kill goroutine on context cancel
+				return
+			case <-watcher.Errors:
+				// kill goroutine on watcher errors
+				return
+			case inEv, ok := <-watcher.Events:
+				// kill goroutine on watcher close
+				if !ok {
+					return
+				}
+
+				// handle new files
+				if inEv.Op&fsnotify.Create == fsnotify.Create {
+					if isInNamespace(inEv.Name, namespaces) {
+						addTarget(inEv.Name)
+					} else {
+						// exit loop if not in namespace
+						continue
+					}
+				} else {
+					inEv.Name = symlinkCache[inEv.Name]
+				}
+
+				// write to output channel
+				clw.Events <- inEv
+			}
+		}
+	}()
+
+	return clw, nil
 }
