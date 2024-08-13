@@ -365,7 +365,6 @@ func (suite *ContainerLogsWatcherTestSuite) TestModifyOutsideNamespace() {
 	wg.Wait()
 }
 
-/*
 func (suite *ContainerLogsWatcherTestSuite) TestDelete() {
 	tests := []struct {
 		name          string
@@ -450,7 +449,7 @@ func (suite *ContainerLogsWatcherTestSuite) TestDeleteOutsideNamespace() {
 	// wait
 	wg.Wait()
 }
-*/
+
 // test runner
 func TestContainerLogsWatcher(t *testing.T) {
 	suite.Run(t, new(ContainerLogsWatcherTestSuite))

@@ -291,14 +291,21 @@ func (clw *containerLogsWatcher) Close() error {
 	clw.mu.Lock()
 	defer clw.mu.Unlock()
 
-	err := clw.watcher.Close()
-
-	if !clw.closed {
-		close(clw.Events)
-		clw.closed = true
+	if clw.closed {
+		return nil
 	}
 
+	err := clw.watcher.Close()
+	close(clw.Events)
+	clw.closed = true
 	return err
+}
+
+// Close checker
+func (clw *containerLogsWatcher) IsClosed() bool {
+	clw.mu.Lock()
+	defer clw.mu.Unlock()
+	return clw.closed
 }
 
 func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, namespaces []string) (*containerLogsWatcher, error) {
@@ -372,7 +379,7 @@ func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, names
 				return
 			case inEv, ok := <-watcher.Events:
 				// kill goroutine on watcher close
-				if !ok {
+				if !ok || clw.IsClosed() {
 					return
 				}
 
@@ -389,7 +396,11 @@ func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, names
 				}
 
 				// write to output channel
-				clw.Events <- inEv
+				select {
+				case clw.Events <- inEv:
+				case <-ctx.Done(): // Handle case where context is canceled before sending
+					return
+				}
 			}
 		}
 	}()
