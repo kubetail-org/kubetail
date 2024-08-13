@@ -21,6 +21,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
+	"strings"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
@@ -102,10 +104,65 @@ func newLogMetadataSpec(nodeName string, pathname string) (*agentpb.LogMetadataS
 	return spec, nil
 }
 
-// Check if container log file is in namespace
-/*func isInNamespaces(pathname string, namespaces []string) (bool, error) {
+// generate new LogMetadataWatchEvent from an fsnotify event
+func newLogMetadataWatchEvent(event fsnotify.Event, nodeName string) (*agentpb.LogMetadataWatchEvent, error) {
+	// get-or-create from cache
 
-}*/
+	spec, err := newLogMetadataSpec(nodeName, event.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	// init watch event
+	watchEv := &agentpb.LogMetadataWatchEvent{
+		Object: &agentpb.LogMetadata{
+			Id:       spec.ContainerId,
+			Spec:     spec,
+			FileInfo: &agentpb.LogMetadataFileInfo{},
+		},
+	}
+
+	switch {
+	case event.Op&fsnotify.Create == fsnotify.Create:
+		watchEv.Type = "ADDED"
+		if fileInfo, err := newLogMetadataFileInfo(event.Name); err != nil {
+			return nil, err
+		} else {
+			watchEv.Object.FileInfo = fileInfo
+		}
+	case event.Op&fsnotify.Write == fsnotify.Write:
+		watchEv.Type = "MODIFIED"
+		if fileInfo, err := newLogMetadataFileInfo(event.Name); err != nil {
+			return nil, err
+		} else {
+			watchEv.Object.FileInfo = fileInfo
+		}
+	case event.Op&fsnotify.Remove == fsnotify.Remove:
+		watchEv.Type = "DELETED"
+		watchEv.Object.FileInfo = &agentpb.LogMetadataFileInfo{}
+	default:
+		return nil, nil
+	}
+
+	return watchEv, nil
+}
+
+// check if a container log file is in a given namespace
+func isInNamespace(pathname string, namespaces []string) bool {
+	// split on underscores
+	parts := strings.SplitN(filepath.Base(pathname), "_", 3)
+	if len(parts) < 3 {
+		return false
+	}
+
+	// allow all
+	if namespaces[0] == "" {
+		return true
+	}
+
+	// check if file's namespace is in namespace list
+	return slices.Contains(namespaces, parts[1])
+}
 
 // Container logs watcher instance
 type containerLogsWatcher struct {
@@ -118,11 +175,30 @@ func (w *containerLogsWatcher) Close() error {
 	return w.watcher.Close()
 }
 
-func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, namespaces []string) (*containerLogsWatcher, error) {
+func newContainerLogsWatcher(ctx context.Context, nodeName string, namespaces []string, containerLogsDir string) (*containerLogsWatcher, error) {
+	if len(namespaces) < 1 {
+		return nil, fmt.Errorf("namespaces required")
+	}
+
 	// create new watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
+	}
+
+	handleFile := func(pathname string) error {
+		// get target
+		target, err := os.Readlink(pathname)
+		if err != nil {
+			return err
+		}
+
+		// add target to watcher
+		if err := watcher.Add(target); err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	// add current files to watcher
@@ -131,9 +207,8 @@ func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, names
 			return err
 		}
 
-		// add link targets to watcher
-		if info.Mode()&os.ModeSymlink != 0 {
-			// TODO
+		if isInNamespace(path, namespaces) {
+			return handleFile(path)
 		}
 
 		return nil
@@ -164,11 +239,15 @@ func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, names
 				}
 
 				// handle new files
-				if inEv.Op&fsnotify.Create == fsnotify.Create {
-					// TODO
-				} else {
-					// handle other events
-					fmt.Println(inEv)
+				if inEv.Op&fsnotify.Create == fsnotify.Create && isInNamespace(inEv.Name, namespaces) {
+					handleFile(inEv.Name)
+				}
+
+				// initialize output event
+				if outEv, err := newLogMetadataWatchEvent(inEv, nodeName); err != nil {
+					fmt.Println(err)
+				} else if outEv != nil {
+					outCh <- outEv
 				}
 			}
 		}

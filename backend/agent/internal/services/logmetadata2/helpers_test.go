@@ -16,11 +16,14 @@ package logmetadata2
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"path"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	authv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
@@ -34,7 +37,7 @@ func TestLogfileRegex(t *testing.T) {
 		wantMatches []string
 	}{
 		{
-			"without slash",
+			"no hyphens",
 			"pn_ns_cn-123.log",
 			[]string{"pn", "ns", "cn", "123"},
 		},
@@ -136,32 +139,187 @@ func TestCheckPermissionRequest(t *testing.T) {
 	checkPermission(context.Background(), clientset, []string{"ns1"}, "x")
 }
 
+type ContainerLogsWatcherTestSuite struct {
+	suite.Suite
+	containerLogsDir string
+	podLogsDir       string
+}
+
+func (suite *ContainerLogsWatcherTestSuite) SetupTest() {
+	// temporary directory for pod logs
+	podLogsDir, err := os.MkdirTemp("", "podlogsdir-")
+	suite.Require().Nil(err)
+
+	// temporary directory for container log links
+	containerLogsDir, err := os.MkdirTemp("", "containerlogsdir-")
+	suite.Require().Nil(err)
+
+	// save references
+	suite.podLogsDir = podLogsDir
+	suite.containerLogsDir = containerLogsDir
+}
+
+func (suite *ContainerLogsWatcherTestSuite) TearDownTest() {
+	defer os.RemoveAll(suite.containerLogsDir)
+	defer os.RemoveAll(suite.podLogsDir)
+}
+
+// Helper method to create a container log file
+func (suite *ContainerLogsWatcherTestSuite) createContainerLogFile(namespace string, podName string, containerName string, containerID string) *os.File {
+	// create pod log file
+	f, err := os.CreateTemp(suite.podLogsDir, "*.log")
+	suite.Require().Nil(err)
+
+	// add soft link to container logs dir
+	target := f.Name()
+	link := path.Join(suite.containerLogsDir, fmt.Sprintf("%s_%s_%s-%s.log", podName, namespace, containerName, containerID))
+	err = os.Symlink(target, link)
+	suite.Require().Nil(err)
+
+	return f
+}
+
+func (suite *ContainerLogsWatcherTestSuite) TestClose() {
+	// init watcher
+	watcher, err := newContainerLogsWatcher(context.Background(), "node-name", []string{""}, suite.containerLogsDir)
+	suite.Require().Nil(err)
+
+	// check that events passes through close event
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_, ok := <-watcher.Events
+		suite.Require().False(ok)
+	}()
+
+	// execute close
+	err = watcher.Close()
+	suite.Require().Nil(err)
+
+	// wait
+	wg.Wait()
+}
+
+func (suite *ContainerLogsWatcherTestSuite) TestCreate() {
+	// init watcher
+	watcher, err := newContainerLogsWatcher(context.Background(), "node-name", []string{"ns1"}, suite.containerLogsDir)
+	suite.Require().Nil(err)
+	defer watcher.Close()
+
+	var wg sync.WaitGroup
+
+	// check that file modification event gets handled
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ev, ok := <-watcher.Events
+		suite.Require().True(ok)
+		suite.Equal("ADDED", ev.Type)
+		suite.Equal("123", ev.Object.Id)
+		suite.Equal(int64(0), ev.Object.FileInfo.Size)
+	}()
+
+	// create file
+	f := suite.createContainerLogFile("ns1", "pn", "cn", "123")
+	defer f.Close()
+
+	// wait
+	wg.Wait()
+}
+
+func (suite *ContainerLogsWatcherTestSuite) TestCreateOutsideNamespace() {
+	// init watcher
+	watcher, err := newContainerLogsWatcher(context.Background(), "node-name", []string{"ns1"}, suite.containerLogsDir)
+	suite.Require().Nil(err)
+	defer watcher.Close()
+
+	var wg sync.WaitGroup
+
+	// check that file modification event gets handled
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_, ok := <-watcher.Events
+		suite.Require().False(ok)
+	}()
+
+	// create file
+	f := suite.createContainerLogFile("ns2", "pn", "cn", "123")
+	defer f.Close()
+
+	// close watcher
+	watcher.Close()
+
+	// wait
+	wg.Wait()
+}
+
+func (suite *ContainerLogsWatcherTestSuite) TestModify() {
+	// create file
+	f := suite.createContainerLogFile("ns1", "pn", "cn", "123")
+	f.Write([]byte("123"))
+	defer f.Close()
+
+	// init watcher
+	watcher, err := newContainerLogsWatcher(context.Background(), "node-name", []string{"ns1"}, suite.containerLogsDir)
+	suite.Require().Nil(err)
+	defer watcher.Close()
+
+	var wg sync.WaitGroup
+
+	// check that file modification event gets handled
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ev, ok := <-watcher.Events
+		suite.Require().True(ok)
+		suite.Equal("MODIFIED", ev.Type)
+		suite.Equal("123", ev.Object.Id)
+		suite.Equal(int64(6), ev.Object.FileInfo.Size)
+	}()
+
+	// modify file
+	_, err = f.Write([]byte("456"))
+	suite.Require().Nil(err)
+
+	// wait
+	wg.Wait()
+}
+
+func (suite *ContainerLogsWatcherTestSuite) TestModifyOutsideNamespace() {
+	// create file
+	f := suite.createContainerLogFile("ns1", "pn", "cn", "123")
+	f.Write([]byte("123"))
+	defer f.Close()
+
+	// init watcher
+	watcher, err := newContainerLogsWatcher(context.Background(), "node-name", []string{"ns2"}, suite.containerLogsDir)
+	suite.Require().Nil(err)
+
+	var wg sync.WaitGroup
+
+	// check that file modification event gets ignored
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_, ok := <-watcher.Events
+		suite.Require().False(ok)
+	}()
+
+	// modify file in ns1
+	_, err = f.Write([]byte("456"))
+	suite.Require().Nil(err)
+
+	// close
+	watcher.Close()
+
+	// wait
+	wg.Wait()
+}
+
+// test runner
 func TestContainerLogsWatcher(t *testing.T) {
-	t.Run("handles close", func(t *testing.T) {
-		// temporary directory for container log links
-		dirname, err := os.MkdirTemp("", "logmetadata-containerlogsdir-")
-		require.Nil(t, err)
-		defer os.RemoveAll(dirname)
-
-		// init watcher
-		watcher, err := newContainerLogsWatcher(context.Background(), dirname, []string{})
-		require.Nil(t, err)
-
-		// check that events passes through close event
-		var wg sync.WaitGroup
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_, ok := <-watcher.Events
-			require.False(t, ok)
-		}()
-
-		// execute close
-		err = watcher.Close()
-		require.Nil(t, err)
-
-		// wait
-		wg.Wait()
-	})
+	suite.Run(t, new(ContainerLogsWatcherTestSuite))
 }
