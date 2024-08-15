@@ -14,3 +14,128 @@
 
 package grpchelpers
 
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+)
+
+func NewTestConnectionManager() *ConnectionManager {
+	return &ConnectionManager{
+		conns:  make(map[string]ClientConnInterface),
+		cancel: func() {},
+	}
+}
+
+// Object for spying
+type Spy struct {
+	mock.Mock
+}
+
+func (s *Spy) Cancel() {
+	s.Called()
+}
+
+// Mock for ClientConn
+type ClientConnMock struct {
+	mock.Mock
+	*grpc.ClientConn
+}
+
+func (m *ClientConnMock) Close() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+func TestConnectionManagerGet(t *testing.T) {
+	// init
+	cm := NewTestConnectionManager()
+
+	// populate
+	conn1 := new(ClientConnMock)
+	cm.add("node1", conn1)
+
+	// check that get returns connection for given node
+	assert.Equal(t, conn1, cm.Get("node1"))
+
+	// check that missing node returns nil
+	assert.Nil(t, cm.Get("node2"))
+}
+
+func TestConnectionManagerGetAll(t *testing.T) {
+	// init and populate
+	cm := NewTestConnectionManager()
+	conn1 := new(ClientConnMock)
+	conn2 := new(ClientConnMock)
+	cm.add("node1", conn1)
+	cm.add("node2", conn2)
+
+	// check map
+	m := cm.GetAll()
+	require.Equal(t, 2, len(m))
+	assert.Equal(t, m["node1"], conn1)
+	assert.Equal(t, m["node2"], conn2)
+}
+
+func TestConnectionManagerTeardown(t *testing.T) {
+	spy := new(Spy)
+	spy.On("Cancel").Return()
+
+	// init and populate
+	cm := NewTestConnectionManager()
+	cm.cancel = spy.Cancel
+
+	// add conns
+	conn1 := new(ClientConnMock)
+	conn1.On("Close").Return(nil)
+	cm.add("node1", conn1)
+
+	conn2 := new(ClientConnMock)
+	conn2.On("Close").Return(nil)
+	cm.add("node2", conn2)
+
+	// check with isRunning false
+	cm.Teardown()
+	conn1.AssertNumberOfCalls(t, "Close", 0)
+	conn2.AssertNumberOfCalls(t, "Close", 0)
+	spy.AssertNotCalled(t, "Cancel")
+
+	// check with isRunning true
+	cm.isRunning = true
+	cm.Teardown()
+	conn1.AssertNumberOfCalls(t, "Close", 1)
+	conn2.AssertNumberOfCalls(t, "Close", 1)
+	spy.AssertNumberOfCalls(t, "Cancel", 1)
+}
+
+func TestConnectionManagerAdd(t *testing.T) {
+	cm := NewTestConnectionManager()
+
+	// add connection and check that get returns it
+	conn1 := new(ClientConnMock)
+	cm.add("node1", conn1)
+	assert.Equal(t, conn1, cm.Get("node1"))
+
+	// add new connection and check that get returns that one
+	conn2 := new(ClientConnMock)
+	cm.add("node1", conn2)
+	assert.Equal(t, conn2, cm.Get("node1"))
+}
+
+func TestConnectionManagerRemove(t *testing.T) {
+	cm := NewTestConnectionManager()
+
+	// add connection and check that get returns it
+	conn1 := new(ClientConnMock)
+	conn1.On("Close").Return(nil)
+	cm.add("node1", conn1)
+	assert.Equal(t, conn1, cm.Get("node1"))
+
+	// remove and check again
+	cm.remove("node1")
+	conn1.On("Close").Return(nil)
+	assert.Nil(t, cm.Get("node1"))
+}

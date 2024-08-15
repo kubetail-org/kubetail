@@ -17,27 +17,185 @@ package grpchelpers
 import (
 	"context"
 	"fmt"
-	"strings"
+	"os"
 	"sync"
+	"time"
 
-	zlog "github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/utils/ptr"
-
-	"github.com/kubetail-org/kubetail/backend/common/config"
+	"k8s.io/client-go/tools/cache"
 )
 
-type ConnectionManagerInterface interface {
-	Get(nodeName string) *grpc.ClientConn
-	GetAll() map[string]*grpc.ClientConn
+type ClientConnInterface interface {
+	grpc.ClientConnInterface
+	Close() error
 }
 
+type ConnectionManagerInterface interface {
+	Start(ctx context.Context) error
+	Get(nodeName string) ClientConnInterface
+	GetAll() map[string]ClientConnInterface
+	Teardown()
+}
+
+type ConnectionManager struct {
+	mu        sync.Mutex
+	conns     map[string]ClientConnInterface
+	clientset kubernetes.Interface
+	namespace string
+	port      int
+	cancel    context.CancelFunc
+	isRunning bool
+}
+
+// Start
+func (cm *ConnectionManager) Start(ctx context.Context) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// check if running
+	if cm.isRunning {
+		return nil
+	}
+
+	// init cancel func
+	_, cancel := context.WithCancel(ctx)
+	cm.cancel = cancel
+
+	watchlist := cache.NewListWatchFromClient(
+		cm.clientset.CoreV1().RESTClient(),
+		"pods",
+		cm.namespace,
+		fields.Everything(),
+	)
+
+	// init informer with 5 minute resync period
+	_, controller := cache.NewInformer(
+		watchlist,
+		&metav1.PartialObjectMetadata{},
+		5*time.Minute,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				fmt.Println("Pod added:", obj)
+			},
+			DeleteFunc: func(obj interface{}) {
+				fmt.Println("Pod deleted:", obj)
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				fmt.Println("Pod updated:", newObj)
+			},
+		},
+	)
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	// Start watching
+	fmt.Println("Starting pod watcher...")
+	controller.Run(stop)
+
+	// set flag
+	cm.isRunning = true
+
+	return nil
+}
+
+// Get gRPC connection for a specific node
+func (cm *ConnectionManager) Get(nodeName string) ClientConnInterface {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	return cm.conns[nodeName]
+}
+
+// Get all gRPC connections (one per node)
+func (cm *ConnectionManager) GetAll() map[string]ClientConnInterface {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	return cm.conns
+}
+
+// Teardown
+func (cm *ConnectionManager) Teardown() {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// check flag
+	if !cm.isRunning {
+		return
+	}
+
+	// cancel context
+	cm.cancel()
+
+	// close grpc connections
+	for _, conn := range cm.conns {
+		conn.Close()
+	}
+
+	// reset map
+	cm.conns = make(map[string]ClientConnInterface)
+
+	// set flag
+	cm.isRunning = false
+}
+
+// Add a gRPC connection
+func (cm *ConnectionManager) add(nodeName string, conn ClientConnInterface) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.conns[nodeName] = conn
+}
+
+// Remove a gRPC connection
+func (cm *ConnectionManager) remove(nodeName string) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// close if exists
+	if conn, exists := cm.conns[nodeName]; exists {
+		conn.Close()
+	}
+
+	// remove from map
+	delete(cm.conns, nodeName)
+}
+
+// Create new ConnectionManager instance
+func NewConnectionManager(port int) (*ConnectionManager, error) {
+	// config k8s
+	// TODO: should connection manager support out-of-cluster config?
+	k8scfg, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get in-cluster config: %v", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(k8scfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Kubernetes client: %v", err)
+	}
+
+	// get current namespace from file system
+	nsPathname := "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+	nsBytes, err := os.ReadFile(nsPathname)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read current namespace from %s: %v", nsPathname, err)
+	}
+
+	// Convert the byte slice to a string and return
+	return &ConnectionManager{
+		conns:     make(map[string]ClientConnInterface),
+		clientset: clientset,
+		namespace: string(nsBytes),
+		port:      port,
+	}, nil
+}
+
+/*
 type ConnectionManager struct {
 	mu           sync.Mutex
 	k8sClientset kubernetes.Interface
@@ -171,3 +329,4 @@ func isPodRunning(pod *corev1.Pod) bool {
 	}
 	return true
 }
+*/
