@@ -23,6 +23,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -127,6 +129,47 @@ func TestConnectionManagerStart(t *testing.T) {
 		cm.mu.Lock()
 		require.False(t, cm.isRunning)
 		cm.mu.Unlock()
+	})
+
+	t.Run("handles new pods", func(t *testing.T) {
+		var wg sync.WaitGroup
+
+		// init
+		cm := NewTestConnectionManager()
+		defer cm.Teardown()
+		cm.Start(context.Background())
+
+		// setup test
+		wg.Add(1)
+		testEventBus.SubscribeOnceAsync("informer:added", func() {
+			defer wg.Done()
+			conn := cm.Get("test-node")
+			require.NotNil(t, conn)
+		})
+
+		// add pod to the fake clientset
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-pod",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":      "kubetail",
+					"app.kubernetes.io/component": "agent",
+				},
+			},
+			Spec: corev1.PodSpec{
+				NodeName: "test-node",
+			},
+			Status: corev1.PodStatus{
+				Phase: corev1.PodRunning,
+				PodIP: "192.168.1.1",
+			},
+		}
+
+		_, err := cm.clientset.CoreV1().Pods("default").Create(context.Background(), pod, metav1.CreateOptions{})
+		require.NoError(t, err)
+
+		// wait for tests
+		wg.Wait()
 	})
 }
 

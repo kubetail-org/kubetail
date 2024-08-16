@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	eventbus "github.com/asaskevich/EventBus"
 	zlog "github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -34,6 +35,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 )
+
+var testEventBus = eventbus.New()
 
 type ConnectionManager struct {
 	mu        sync.Mutex
@@ -97,6 +100,8 @@ func (cm *ConnectionManager) Start(ctx context.Context) {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				zlog.Debug().Msgf("[grpc-connection-manager] pod added: %v", obj)
+				defer testEventBus.Publish("informer:added")
+
 				pod := obj.(*corev1.Pod)
 				if isPodRunning(pod) {
 					zlog.Debug().Msgf("connecting to %s", pod.Status.PodIP)
@@ -110,6 +115,8 @@ func (cm *ConnectionManager) Start(ctx context.Context) {
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				zlog.Debug().Msgf("[grpc-connection-manager] pod updated: %v", newObj)
+				defer testEventBus.Publish("informer:updated")
+
 				pod := newObj.(*corev1.Pod)
 				if isPodRunning(pod) {
 					zlog.Debug().Msgf("connecting to %s", pod.Status.PodIP)
@@ -123,6 +130,8 @@ func (cm *ConnectionManager) Start(ctx context.Context) {
 			},
 			DeleteFunc: func(obj interface{}) {
 				zlog.Debug().Msgf("[grpc-connection-manager] pod deleted: %v", obj)
+				defer testEventBus.Publish("informer:deleted")
+
 				pod := obj.(*corev1.Pod)
 				cm.remove(pod.Spec.NodeName)
 			},
@@ -178,6 +187,13 @@ func (cm *ConnectionManager) Teardown() {
 func (cm *ConnectionManager) add(nodeName string, conn ClientConnInterface) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
+
+	// close old connection if exists
+	if oldConn, exists := cm.conns[nodeName]; exists {
+		oldConn.Close()
+	}
+
+	// add to map
 	cm.conns[nodeName] = conn
 }
 
