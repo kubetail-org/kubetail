@@ -58,7 +58,7 @@ func mustLoadTemplatesWithFuncs(glob string) *template.Template {
 }
 
 func mustNewGrpcConnectionManager(cfg *config.Config, k8sCfg *rest.Config) *grpchelpers.ConnectionManager {
-	gcm, err := grpchelpers.NewConnectionManager(cfg, k8sCfg)
+	gcm, err := grpchelpers.NewConnectionManager(50051)
 	if err != nil {
 		panic(err)
 	}

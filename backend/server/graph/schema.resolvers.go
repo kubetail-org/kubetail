@@ -17,8 +17,8 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
 	"github.com/kubetail-org/kubetail/backend/server/graph/model"
+	"github.com/kubetail-org/kubetail/backend/server/internal/grpchelpers"
 	"github.com/vektah/gqlparser/v2/gqlerror"
-	"google.golang.org/grpc"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -285,7 +285,7 @@ func (r *queryResolver) LogMetadataList(ctx context.Context, namespace *string) 
 
 	for nodeName, conn := range r.gcm.GetAll() {
 		wg.Add(1)
-		go func(nodeName string, conn *grpc.ClientConn) {
+		go func(nodeName string, conn grpchelpers.ClientConnInterface) {
 			defer wg.Done()
 
 			// init client
@@ -503,7 +503,7 @@ func (r *subscriptionResolver) LogMetadataWatch(ctx context.Context, namespace *
 	conns := r.gcm.GetAll()
 
 	for _, conn := range conns {
-		go func(conn *grpc.ClientConn) {
+		go func(conn grpchelpers.ClientConnInterface) {
 			// init client
 			c := agentpb.NewLogMetadataServiceClient(conn)
 
