@@ -15,6 +15,7 @@
 package grpchelpers
 
 import (
+	"context"
 	"sync"
 	"testing"
 
@@ -22,11 +23,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 func NewTestConnectionManager() *ConnectionManager {
 	return &ConnectionManager{
-		conns: make(map[string]ClientConnInterface),
+		conns:     make(map[string]ClientConnInterface),
+		clientset: fake.NewSimpleClientset(),
 	}
 }
 
@@ -71,41 +74,142 @@ func TestConnectionManagerGetAll(t *testing.T) {
 	assert.Equal(t, m["node2"], conn2)
 }
 
+func TestConnectionManagerStart(t *testing.T) {
+	t.Run("sets isRunning to true", func(t *testing.T) {
+		cm := NewTestConnectionManager()
+		defer cm.Teardown()
+		require.False(t, cm.isRunning)
+		cm.Start(context.Background())
+		require.True(t, cm.isRunning)
+	})
+
+	t.Run("initializes stopCh", func(t *testing.T) {
+		cm := NewTestConnectionManager()
+		defer cm.Teardown()
+		require.Nil(t, cm.stopCh)
+		cm.Start(context.Background())
+		require.NotNil(t, cm.stopCh)
+	})
+
+	t.Run("doesnt run if isRunning is true", func(t *testing.T) {
+		cm := NewTestConnectionManager()
+		defer cm.Teardown()
+		cm.Start(context.Background())
+		stopCh := cm.stopCh
+		cm.Start(context.Background())
+		require.Equal(t, stopCh, cm.stopCh)
+	})
+
+	t.Run("calls stop on context cancel", func(t *testing.T) {
+		cm := NewTestConnectionManager()
+		defer cm.Teardown()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cm.Start(ctx)
+
+		var wg sync.WaitGroup
+
+		// check that stopCh is closed
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, ok := <-cm.stopCh
+			require.False(t, ok)
+		}()
+
+		// before
+		require.True(t, cm.isRunning)
+
+		cancel()
+		wg.Wait()
+
+		// after
+		cm.mu.Lock()
+		require.False(t, cm.isRunning)
+		cm.mu.Unlock()
+	})
+}
+
 func TestConnectionManagerTeardown(t *testing.T) {
-	// init and populate
-	cm := NewTestConnectionManager()
-	cm.stopCh = make(chan struct{})
+	t.Run("sets isRunning to false", func(t *testing.T) {
+		cm := NewTestConnectionManager()
+		cm.Start(context.Background())
 
-	var wg sync.WaitGroup
+		require.True(t, cm.isRunning)
+		cm.Teardown()
+		require.False(t, cm.isRunning)
+	})
 
-	// check that stopCh is closed
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		_, ok := <-cm.stopCh
-		require.False(t, ok)
-	}()
+	t.Run("closes stopCh", func(t *testing.T) {
+		cm := NewTestConnectionManager()
+		cm.Start(context.Background())
 
-	// add conns
-	conn1 := new(ClientConnMock)
-	conn1.On("Close").Return(nil)
-	cm.add("node1", conn1)
+		var wg sync.WaitGroup
 
-	conn2 := new(ClientConnMock)
-	conn2.On("Close").Return(nil)
-	cm.add("node2", conn2)
+		// check that stopCh is closed
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, ok := <-cm.stopCh
+			require.False(t, ok)
+		}()
 
-	// check with isRunning false
-	cm.Teardown()
-	conn1.AssertNumberOfCalls(t, "Close", 0)
-	conn2.AssertNumberOfCalls(t, "Close", 0)
+		require.NotNil(t, cm.stopCh)
+		cm.Teardown()
+		wg.Wait()
+	})
 
-	// check with isRunning true
-	cm.isRunning = true
-	cm.Teardown()
-	wg.Wait() // wait for stopCh
-	conn1.AssertNumberOfCalls(t, "Close", 1)
-	conn2.AssertNumberOfCalls(t, "Close", 1)
+	t.Run("calls close on grpc conns", func(t *testing.T) {
+		cm := NewTestConnectionManager()
+		cm.Start(context.Background())
+
+		// add conns
+		conn1 := new(ClientConnMock)
+		conn1.On("Close").Return(nil)
+		cm.add("node1", conn1)
+
+		conn2 := new(ClientConnMock)
+		conn2.On("Close").Return(nil)
+		cm.add("node2", conn2)
+
+		// teardown and check function calls
+		cm.Teardown()
+		conn1.AssertNumberOfCalls(t, "Close", 1)
+		conn2.AssertNumberOfCalls(t, "Close", 1)
+	})
+
+	t.Run("resets conns map", func(t *testing.T) {
+		cm := NewTestConnectionManager()
+		cm.Start(context.Background())
+
+		// add conns
+		conn1 := new(ClientConnMock)
+		conn1.On("Close").Return(nil)
+		cm.add("node1", conn1)
+
+		conn2 := new(ClientConnMock)
+		conn2.On("Close").Return(nil)
+		cm.add("node2", conn2)
+
+		// teardown and check conns
+		require.Equal(t, 2, len(cm.conns))
+		cm.Teardown()
+		require.Equal(t, 0, len(cm.conns))
+	})
+
+	t.Run("doesnt run if isRunning is false", func(t *testing.T) {
+		cm := NewTestConnectionManager()
+
+		// add conns
+		conn1 := new(ClientConnMock)
+		conn1.On("Close").Return(nil)
+		cm.add("node1", conn1)
+
+		// teardown and check conns
+		require.Equal(t, 1, len(cm.conns))
+		cm.Teardown()
+		require.Equal(t, 1, len(cm.conns))
+	})
 }
 
 func TestConnectionManagerAdd(t *testing.T) {

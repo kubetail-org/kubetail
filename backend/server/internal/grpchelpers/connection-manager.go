@@ -45,15 +45,31 @@ type ConnectionManager struct {
 	isRunning bool
 }
 
+// Get gRPC connection for a specific node
+func (cm *ConnectionManager) Get(nodeName string) ClientConnInterface {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	return cm.conns[nodeName]
+}
+
+// Get all gRPC connections (one per node)
+func (cm *ConnectionManager) GetAll() map[string]ClientConnInterface {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	return cm.conns
+}
+
 // Start background process to monitor kubetail-agent pods and
 // initialize grpc connections to them
-func (cm *ConnectionManager) Start(ctx context.Context) error {
+func (cm *ConnectionManager) Start(ctx context.Context) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
 	// check if running
 	if cm.isRunning {
-		return nil
+		return
 	}
 
 	// init listwatch
@@ -131,24 +147,6 @@ func (cm *ConnectionManager) Start(ctx context.Context) error {
 		close(cm.stopCh)
 		cm.isRunning = false
 	}()
-
-	return nil
-}
-
-// Get gRPC connection for a specific node
-func (cm *ConnectionManager) Get(nodeName string) ClientConnInterface {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	return cm.conns[nodeName]
-}
-
-// Get all gRPC connections (one per node)
-func (cm *ConnectionManager) GetAll() map[string]ClientConnInterface {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	return cm.conns
 }
 
 // Teardown

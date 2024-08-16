@@ -27,7 +27,7 @@ type ClientConnInterface interface {
 }
 
 type ConnectionManagerInterface interface {
-	Start(ctx context.Context) error
+	Start(ctx context.Context)
 	Get(nodeName string) ClientConnInterface
 	GetAll() map[string]ClientConnInterface
 	Teardown()
