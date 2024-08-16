@@ -41,7 +41,7 @@ type ConnectionManager struct {
 	clientset kubernetes.Interface
 	namespace string
 	port      int
-	cancel    context.CancelFunc
+	stopCh    chan struct{}
 	isRunning bool
 }
 
@@ -56,10 +56,6 @@ func (cm *ConnectionManager) Start(ctx context.Context) error {
 		return nil
 	}
 
-	// init cancel func
-	ctx, cancel := context.WithCancel(ctx)
-	cm.cancel = cancel
-
 	// init listwatch
 	labelSelector := labels.SelectorFromSet(labels.Set{
 		"app.kubernetes.io/name":      "kubetail",
@@ -69,11 +65,11 @@ func (cm *ConnectionManager) Start(ctx context.Context) error {
 	watchlist := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = labelSelector
-			return cm.clientset.CoreV1().Pods(cm.namespace).List(ctx, options)
+			return cm.clientset.CoreV1().Pods(cm.namespace).List(context.Background(), options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			options.LabelSelector = labelSelector
-			return cm.clientset.CoreV1().Pods(cm.namespace).Watch(ctx, options)
+			return cm.clientset.CoreV1().Pods(cm.namespace).Watch(context.Background(), options)
 		},
 	}
 
@@ -117,15 +113,24 @@ func (cm *ConnectionManager) Start(ctx context.Context) error {
 		},
 	)
 
-	stop := make(chan struct{})
-	defer close(stop)
+	cm.stopCh = make(chan struct{})
 
-	// Start watching
-	fmt.Println("Starting pod watcher...")
-	controller.Run(stop)
+	// run watcher in a go routine
+	go controller.Run(cm.stopCh)
 
 	// set flag
 	cm.isRunning = true
+
+	// handle context stopping in a goroutine
+	go func() {
+		<-ctx.Done()
+
+		cm.mu.Lock()
+		defer cm.mu.Unlock()
+
+		close(cm.stopCh)
+		cm.isRunning = false
+	}()
 
 	return nil
 }
@@ -156,8 +161,8 @@ func (cm *ConnectionManager) Teardown() {
 		return
 	}
 
-	// cancel context
-	cm.cancel()
+	// stop informer
+	close(cm.stopCh)
 
 	// close grpc connections
 	for _, conn := range cm.conns {

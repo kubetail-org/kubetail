@@ -15,6 +15,7 @@
 package ginapp
 
 import (
+	"context"
 	"html/template"
 	"path"
 
@@ -57,10 +58,11 @@ func mustLoadTemplatesWithFuncs(glob string) *template.Template {
 	return parsedTemplates
 }
 
-func mustNewGrpcConnectionManager(cfg *config.Config, k8sCfg *rest.Config) *grpchelpers.ConnectionManager {
+func mustNewGrpcConnectionManager() *grpchelpers.ConnectionManager {
 	gcm, err := grpchelpers.NewConnectionManager(50051)
 	if err != nil {
 		panic(err)
 	}
+	gcm.Start(context.Background())
 	return gcm
 }

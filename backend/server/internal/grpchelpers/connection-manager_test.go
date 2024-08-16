@@ -15,6 +15,7 @@
 package grpchelpers
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,18 +26,8 @@ import (
 
 func NewTestConnectionManager() *ConnectionManager {
 	return &ConnectionManager{
-		conns:  make(map[string]ClientConnInterface),
-		cancel: func() {},
+		conns: make(map[string]ClientConnInterface),
 	}
-}
-
-// Object for spying
-type Spy struct {
-	mock.Mock
-}
-
-func (s *Spy) Cancel() {
-	s.Called()
 }
 
 // Mock for ClientConn
@@ -81,12 +72,19 @@ func TestConnectionManagerGetAll(t *testing.T) {
 }
 
 func TestConnectionManagerTeardown(t *testing.T) {
-	spy := new(Spy)
-	spy.On("Cancel").Return()
-
 	// init and populate
 	cm := NewTestConnectionManager()
-	cm.cancel = spy.Cancel
+	cm.stopCh = make(chan struct{})
+
+	var wg sync.WaitGroup
+
+	// check that stopCh is closed
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_, ok := <-cm.stopCh
+		require.False(t, ok)
+	}()
 
 	// add conns
 	conn1 := new(ClientConnMock)
@@ -101,14 +99,13 @@ func TestConnectionManagerTeardown(t *testing.T) {
 	cm.Teardown()
 	conn1.AssertNumberOfCalls(t, "Close", 0)
 	conn2.AssertNumberOfCalls(t, "Close", 0)
-	spy.AssertNotCalled(t, "Cancel")
 
 	// check with isRunning true
 	cm.isRunning = true
 	cm.Teardown()
+	wg.Wait() // wait for stopCh
 	conn1.AssertNumberOfCalls(t, "Close", 1)
 	conn2.AssertNumberOfCalls(t, "Close", 1)
-	spy.AssertNumberOfCalls(t, "Cancel", 1)
 }
 
 func TestConnectionManagerAdd(t *testing.T) {
