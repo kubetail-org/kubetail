@@ -25,6 +25,7 @@ import (
 	zlog "github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/resolver"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -36,7 +37,19 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+// Register custom resolver
+func init() {
+	resolver.Register(&customResolverBuilder{})
+}
+
 var testEventBus = eventbus.New()
+
+var agentLabelSet = labels.Set{
+	"app.kubernetes.io/name":      "kubetail",
+	"app.kubernetes.io/component": "agent",
+}
+
+var agentLabelSelectorString = labels.SelectorFromSet(agentLabelSet).String()
 
 type ConnectionManager struct {
 	mu        sync.Mutex
@@ -76,18 +89,13 @@ func (cm *ConnectionManager) Start(ctx context.Context) {
 	}
 
 	// init listwatch
-	labelSelector := labels.SelectorFromSet(labels.Set{
-		"app.kubernetes.io/name":      "kubetail",
-		"app.kubernetes.io/component": "agent",
-	}).String()
-
 	watchlist := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			options.LabelSelector = labelSelector
+			options.LabelSelector = agentLabelSelectorString
 			return cm.clientset.CoreV1().Pods(cm.namespace).List(context.Background(), options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			options.LabelSelector = labelSelector
+			options.LabelSelector = agentLabelSelectorString
 			return cm.clientset.CoreV1().Pods(cm.namespace).Watch(context.Background(), options)
 		},
 	}
@@ -101,39 +109,17 @@ func (cm *ConnectionManager) Start(ctx context.Context) {
 			AddFunc: func(obj interface{}) {
 				zlog.Debug().Msgf("[grpc-connection-manager] pod added: %v", obj)
 				defer testEventBus.Publish("informer:added")
-
-				pod := obj.(*corev1.Pod)
-				if isPodRunning(pod) {
-					zlog.Debug().Msgf("connecting to %s", pod.Status.PodIP)
-					addr := ptr.To(fmt.Sprintf("%s:%d", pod.Status.PodIP, cm.port))
-					conn, err := grpc.NewClient(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-					if err != nil {
-						panic(err)
-					}
-					cm.add(pod.Spec.NodeName, conn)
-				}
+				cm.handlePodAdd(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				zlog.Debug().Msgf("[grpc-connection-manager] pod updated: %v", newObj)
 				defer testEventBus.Publish("informer:updated")
-
-				pod := newObj.(*corev1.Pod)
-				if isPodRunning(pod) {
-					zlog.Debug().Msgf("connecting to %s", pod.Status.PodIP)
-					addr := ptr.To(fmt.Sprintf("%s:%d", pod.Status.PodIP, cm.port))
-					conn, err := grpc.NewClient(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-					if err != nil {
-						panic(err)
-					}
-					cm.add(pod.Spec.NodeName, conn)
-				}
+				cm.handlePodUpdate(newObj)
 			},
 			DeleteFunc: func(obj interface{}) {
 				zlog.Debug().Msgf("[grpc-connection-manager] pod deleted: %v", obj)
 				defer testEventBus.Publish("informer:deleted")
-
-				pod := obj.(*corev1.Pod)
-				cm.remove(pod.Spec.NodeName)
+				cm.handlePodDelete(obj)
 			},
 		},
 	)
@@ -183,8 +169,41 @@ func (cm *ConnectionManager) Teardown() {
 	cm.isRunning = false
 }
 
+// Handle a pod add event
+func (cm *ConnectionManager) handlePodAdd(obj interface{}) {
+	pod := obj.(*corev1.Pod)
+
+	if isPodRunning(pod) {
+		// check old conn
+		if conn, err := cm.newConn(pod.Status.PodIP); err != nil {
+			zlog.Error().Err(err).Send()
+		} else {
+			cm.addConn(pod.Spec.NodeName, conn)
+		}
+	}
+}
+
+// Handle a pod update event
+func (cm *ConnectionManager) handlePodUpdate(obj interface{}) {
+	pod := obj.(*corev1.Pod)
+	if isPodRunning(pod) {
+		zlog.Debug().Msgf("connecting to %s", pod.Status.PodIP)
+		addr := ptr.To(fmt.Sprintf("%s:%d", pod.Status.PodIP, cm.port))
+		conn, err := grpc.NewClient(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			panic(err)
+		}
+		cm.addConn(pod.Spec.NodeName, conn)
+	}
+}
+
+func (cm *ConnectionManager) handlePodDelete(obj interface{}) {
+	pod := obj.(*corev1.Pod)
+	cm.removeConn(pod.Spec.NodeName)
+}
+
 // Add a gRPC connection
-func (cm *ConnectionManager) add(nodeName string, conn ClientConnInterface) {
+func (cm *ConnectionManager) addConn(nodeName string, conn ClientConnInterface) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
@@ -198,7 +217,7 @@ func (cm *ConnectionManager) add(nodeName string, conn ClientConnInterface) {
 }
 
 // Remove a gRPC connection
-func (cm *ConnectionManager) remove(nodeName string) {
+func (cm *ConnectionManager) removeConn(nodeName string) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
@@ -209,6 +228,13 @@ func (cm *ConnectionManager) remove(nodeName string) {
 
 	// remove from map
 	delete(cm.conns, nodeName)
+}
+
+// Initialize new gRPC connection
+func (cm *ConnectionManager) newConn(ip string) (*grpc.ClientConn, error) {
+	zlog.Debug().Msgf("connecting to %s", ip)
+	addr := ptr.To(fmt.Sprintf("%s:%d", ip, cm.port))
+	return grpc.NewClient(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 }
 
 // Create new ConnectionManager instance

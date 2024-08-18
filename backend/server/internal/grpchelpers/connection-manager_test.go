@@ -52,7 +52,7 @@ func TestConnectionManagerGet(t *testing.T) {
 
 	// populate
 	conn1 := new(ClientConnMock)
-	cm.add("node1", conn1)
+	cm.addConn("node1", conn1)
 
 	// check that get returns connection for given node
 	assert.Equal(t, conn1, cm.Get("node1"))
@@ -66,8 +66,8 @@ func TestConnectionManagerGetAll(t *testing.T) {
 	cm := NewTestConnectionManager()
 	conn1 := new(ClientConnMock)
 	conn2 := new(ClientConnMock)
-	cm.add("node1", conn1)
-	cm.add("node2", conn2)
+	cm.addConn("node1", conn1)
+	cm.addConn("node2", conn2)
 
 	// check map
 	m := cm.GetAll()
@@ -131,7 +131,7 @@ func TestConnectionManagerStart(t *testing.T) {
 		cm.mu.Unlock()
 	})
 
-	t.Run("handles new pods", func(t *testing.T) {
+	t.Run("establishes connections to new pods", func(t *testing.T) {
 		var wg sync.WaitGroup
 
 		// init
@@ -150,11 +150,8 @@ func TestConnectionManagerStart(t *testing.T) {
 		// add pod to the fake clientset
 		pod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-pod",
-				Labels: map[string]string{
-					"app.kubernetes.io/name":      "kubetail",
-					"app.kubernetes.io/component": "agent",
-				},
+				Name:   "test-pod",
+				Labels: agentLabelSet,
 			},
 			Spec: corev1.PodSpec{
 				NodeName: "test-node",
@@ -168,7 +165,7 @@ func TestConnectionManagerStart(t *testing.T) {
 		_, err := cm.clientset.CoreV1().Pods("default").Create(context.Background(), pod, metav1.CreateOptions{})
 		require.NoError(t, err)
 
-		// wait for tests
+		// wait for test to finish
 		wg.Wait()
 	})
 }
@@ -209,11 +206,11 @@ func TestConnectionManagerTeardown(t *testing.T) {
 		// add conns
 		conn1 := new(ClientConnMock)
 		conn1.On("Close").Return(nil)
-		cm.add("node1", conn1)
+		cm.addConn("node1", conn1)
 
 		conn2 := new(ClientConnMock)
 		conn2.On("Close").Return(nil)
-		cm.add("node2", conn2)
+		cm.addConn("node2", conn2)
 
 		// teardown and check function calls
 		cm.Teardown()
@@ -228,11 +225,11 @@ func TestConnectionManagerTeardown(t *testing.T) {
 		// add conns
 		conn1 := new(ClientConnMock)
 		conn1.On("Close").Return(nil)
-		cm.add("node1", conn1)
+		cm.addConn("node1", conn1)
 
 		conn2 := new(ClientConnMock)
 		conn2.On("Close").Return(nil)
-		cm.add("node2", conn2)
+		cm.addConn("node2", conn2)
 
 		// teardown and check conns
 		require.Equal(t, 2, len(cm.conns))
@@ -246,7 +243,7 @@ func TestConnectionManagerTeardown(t *testing.T) {
 		// add conns
 		conn1 := new(ClientConnMock)
 		conn1.On("Close").Return(nil)
-		cm.add("node1", conn1)
+		cm.addConn("node1", conn1)
 
 		// teardown and check conns
 		require.Equal(t, 1, len(cm.conns))
@@ -255,31 +252,31 @@ func TestConnectionManagerTeardown(t *testing.T) {
 	})
 }
 
-func TestConnectionManagerAdd(t *testing.T) {
+func TestConnectionManagerAddConn(t *testing.T) {
 	cm := NewTestConnectionManager()
 
 	// add connection and check that get returns it
 	conn1 := new(ClientConnMock)
-	cm.add("node1", conn1)
+	cm.addConn("node1", conn1)
 	assert.Equal(t, conn1, cm.Get("node1"))
 
 	// add new connection and check that get returns that one
 	conn2 := new(ClientConnMock)
-	cm.add("node1", conn2)
+	cm.addConn("node1", conn2)
 	assert.Equal(t, conn2, cm.Get("node1"))
 }
 
-func TestConnectionManagerRemove(t *testing.T) {
+func TestConnectionManagerRemoveConn(t *testing.T) {
 	cm := NewTestConnectionManager()
 
 	// add connection and check that get returns it
 	conn1 := new(ClientConnMock)
 	conn1.On("Close").Return(nil)
-	cm.add("node1", conn1)
+	cm.addConn("node1", conn1)
 	assert.Equal(t, conn1, cm.Get("node1"))
 
 	// remove and check again
-	cm.remove("node1")
+	cm.removeConn("node1")
 	conn1.On("Close").Return(nil)
 	assert.Nil(t, cm.Get("node1"))
 }
