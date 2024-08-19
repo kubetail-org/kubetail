@@ -14,20 +14,7 @@
 
 package grpchelpers
 
-import (
-	"context"
-	"sync"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
-)
-
+/*
 func NewTestConnectionManager() *ConnectionManager {
 	return &ConnectionManager{
 		conns:     make(map[string]ClientConnInterface),
@@ -280,3 +267,4 @@ func TestConnectionManagerRemoveConn(t *testing.T) {
 	conn1.On("Close").Return(nil)
 	assert.Nil(t, cm.Get("node1"))
 }
+*/

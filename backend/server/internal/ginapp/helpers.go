@@ -59,7 +59,7 @@ func mustLoadTemplatesWithFuncs(glob string) *template.Template {
 }
 
 func mustNewGrpcConnectionManager() *grpchelpers.ConnectionManager {
-	gcm, err := grpchelpers.NewConnectionManager(50051)
+	gcm, err := grpchelpers.NewConnectionManager()
 	if err != nil {
 		panic(err)
 	}
