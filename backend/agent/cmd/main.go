@@ -15,11 +15,13 @@
 package main
 
 import (
+	"context"
 	"net"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	zlog "github.com/rs/zerolog/log"
@@ -115,12 +117,27 @@ func main() {
 			<-quit
 
 			// shutdown server
-			// TODO: add support for graceful timeout
-			zlog.Info().Msg("Shutting down...")
+			zlog.Info().Msg("Attempting graceful shutdown...")
 
-			grpcServer.GracefulStop()
+			// Create a context with a timeout for the shutdown
+			// TODO: make timeout configurable
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
 
-			zlog.Info().Msg("bye bye")
+			// Attempt to gracefully stop the server
+			done := make(chan struct{})
+			go func() {
+				grpcServer.GracefulStop()
+				close(done)
+			}()
+
+			select {
+			case <-done:
+				zlog.Info().Msg("Stopped gracefully")
+			case <-ctx.Done():
+				grpcServer.Stop()
+				zlog.Info().Msg("Reached timed out (stopped forcefully)")
+			}
 		},
 	}
 
