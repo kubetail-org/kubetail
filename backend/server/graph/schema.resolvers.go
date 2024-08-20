@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"slices"
 	"strings"
@@ -532,13 +533,17 @@ func (r *subscriptionResolver) LogMetadataWatch(ctx context.Context, namespace *
 						case codes.Canceled:
 							// ignore
 							break
+						case codes.Unavailable:
+							fmt.Println(s.Details())
+							fmt.Println(s.Err())
+							fmt.Printf("%t\n", s.Err())
 						default:
-							zlog.Error().Err(err).Msgf("Unexpected gRPC error: %v\n", s.Message())
+							zlog.Error().Caller().Err(err).Msgf("Unexpected gRPC error: %v\n", s.Message())
 						}
 						break
 					}
 
-					zlog.Error().Err(err).Msg("unexpected error")
+					zlog.Error().Caller().Err(err).Msg("unexpected error")
 
 					break
 				}

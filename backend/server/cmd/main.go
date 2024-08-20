@@ -116,7 +116,7 @@ func main() {
 			// teardown app
 			app.Teardown()
 
-			zlog.Info().Msg("Server exiting")
+			zlog.Info().Msg("bye bye")
 		},
 	}
 

@@ -24,6 +24,7 @@ import (
 	eventbus "github.com/asaskevich/EventBus"
 	zlog "github.com/rs/zerolog/log"
 	"google.golang.org/grpc/attributes"
+	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/resolver"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,8 +83,8 @@ func (r *agentResolver) handleAddrDelete(nodeName string, podName string) {
 	if nodeName != r.nodeName {
 		return
 	}
-	r.deleteAddr(podName)
-	r.updateClientConnState()
+	//r.deleteAddr(podName)
+	//r.updateClientConnState()
 }
 
 // Thread-safe function to add address
@@ -114,15 +115,7 @@ func (r *agentResolver) updateClientConnState() {
 		i += 1
 	}
 
-	var newState resolver.State
-	if len(addrs) == 0 {
-		// no endpoints state
-		newState = resolver.State{ServiceConfig: r.cc.ParseServiceConfig(`{"loadBalancingPolicy":"pick_first"}`)}
-	} else {
-		newState = resolver.State{Addresses: addrs}
-	}
-
-	if err := r.cc.UpdateState(newState); err != nil {
+	if err := r.cc.UpdateState(resolver.State{Addresses: addrs}); err != nil && err != balancer.ErrBadResolverState {
 		zlog.Error().Err(err).Msg("resolver encountered error while updating clientconn state")
 	}
 }
@@ -206,17 +199,17 @@ func (b *agentResolverBuilder) Start(ctx context.Context) {
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			zlog.Debug().Msgf("[grpc-connection-manager] pod added: %v", obj)
+			zlog.Debug().Caller().Msgf("pod added: %v", obj)
 			defer testEventBus.Publish("informer:added")
 			b.handlePodAddOrUpdate(obj)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			zlog.Debug().Msgf("[grpc-connection-manager] pod updated: %v", newObj)
+			zlog.Debug().Caller().Msgf("pod updated: %v", newObj)
 			defer testEventBus.Publish("informer:updated")
 			b.handlePodAddOrUpdate(newObj)
 		},
 		DeleteFunc: func(obj interface{}) {
-			zlog.Debug().Msgf("[grpc-connection-manager] pod deleted: %v", obj)
+			zlog.Debug().Caller().Msgf("pod deleted: %v", obj)
 			defer testEventBus.Publish("informer:deleted")
 			b.handlePodDelete(obj)
 		},
@@ -229,9 +222,9 @@ func (b *agentResolverBuilder) Start(ctx context.Context) {
 	go informer.Run(b.stopCh)
 
 	// Ensure the informer has synced
-	if !cache.WaitForCacheSync(b.stopCh, informer.HasSynced) {
-		panic("informer cache sync timeout")
-	}
+	//if !cache.WaitForCacheSync(b.stopCh, informer.HasSynced) {
+	//	panic("informer cache sync timeout")
+	//}
 
 	// set flag
 	b.isRunning = true

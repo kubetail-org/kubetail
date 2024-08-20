@@ -9,7 +9,6 @@ replace github.com/kubetail-org/kubetail/backend/common => ../common
 require (
 	github.com/99designs/gqlgen v0.17.46
 	github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef
-	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/gin-contrib/gzip v1.0.0
 	github.com/gin-contrib/requestid v1.0.2
 	github.com/gin-contrib/secure v1.1.0

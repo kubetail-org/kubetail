@@ -17,7 +17,9 @@ package main
 import (
 	"net"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/go-playground/validator/v10"
 	zlog "github.com/rs/zerolog/log"
@@ -49,6 +51,11 @@ func main() {
 			return validator.New().Struct(cli)
 		},
 		Run: func(cmd *cobra.Command, args []string) {
+			// listen for termination signals as early as possible
+			quit := make(chan os.Signal, 1)
+			signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+			defer close(quit)
+
 			// init viper
 			v := viper.New()
 			v.BindPFlag("agent.addr", cmd.Flags().Lookup("addr"))
@@ -96,11 +103,24 @@ func main() {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
 
-			// start grpc server
-			zlog.Info().Msg("Starting server on " + cfg.Agent.Addr)
-			if err := grpcServer.Serve(lis); err != nil {
-				zlog.Fatal().Caller().Err(err).Send()
-			}
+			// run server in go routine
+			go func() {
+				zlog.Info().Msg("Starting kubetail-agent on " + cfg.Agent.Addr)
+				if err := grpcServer.Serve(lis); err != nil {
+					zlog.Fatal().Caller().Err(err).Send()
+				}
+			}()
+
+			// wait for termination signal
+			<-quit
+
+			// shutdown server
+			// TODO: add support for graceful timeout
+			zlog.Info().Msg("Shutting down...")
+
+			grpcServer.GracefulStop()
+
+			zlog.Info().Msg("bye bye")
 		},
 	}
 
