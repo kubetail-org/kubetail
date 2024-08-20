@@ -8,7 +8,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"slices"
 	"strings"
@@ -18,7 +17,10 @@ import (
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
 	"github.com/kubetail-org/kubetail/backend/server/graph/model"
 	"github.com/kubetail-org/kubetail/backend/server/internal/grpchelpers"
+	zlog "github.com/rs/zerolog/log"
 	"github.com/vektah/gqlparser/v2/gqlerror"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -516,13 +518,29 @@ func (r *subscriptionResolver) LogMetadataWatch(ctx context.Context, namespace *
 
 			for {
 				ev, err := stream.Recv()
-				if err == io.EOF {
-					fmt.Println(err)
-					break
-				}
+
+				// handle errors
 				if err != nil {
-					fmt.Println(err)
-					return
+					if err == io.EOF || err == context.Canceled {
+						// ignore normal errors
+						break
+					}
+
+					// check for gRPC status error
+					if s, ok := status.FromError(err); ok {
+						switch s.Code() {
+						case codes.Canceled:
+							// ignore
+							break
+						default:
+							zlog.Error().Err(err).Msgf("Unexpected gRPC error: %v\n", s.Message())
+						}
+						break
+					}
+
+					zlog.Error().Err(err).Msg("unexpected error")
+
+					break
 				}
 
 				// forward event

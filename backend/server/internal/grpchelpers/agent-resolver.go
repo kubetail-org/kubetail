@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	eventbus "github.com/asaskevich/EventBus"
 	zlog "github.com/rs/zerolog/log"
 	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/resolver"
@@ -43,23 +44,95 @@ var agentLabelSelectorString = labels.SelectorFromSet(agentLabelSet).String()
 
 // Agent Resolver
 type agentResolver struct {
-	cc     resolver.ClientConn
-	target resolver.Target
-	addrs  []resolver.Address
+	cc       resolver.ClientConn
+	nodeName string
+	addrMap  map[string]resolver.Address
+	eventBus eventbus.Bus
+	mu       sync.Mutex
 }
 
 // no-op
-func (r *agentResolver) ResolveNow(o resolver.ResolveNowOptions) {
-}
+func (r *agentResolver) ResolveNow(o resolver.ResolveNowOptions) {}
 
-// no-op
+// Stop background processes
 func (r *agentResolver) Close() {
+	zlog.Debug().Msg("closing agent resolver")
+	r.eventBus.Unsubscribe("addr:added", r.handleAddrAdd)
+	r.eventBus.Unsubscribe("addr:deleted", r.handleAddrDelete)
+}
+
+// Start background processes
+func (r *agentResolver) start() {
+	r.eventBus.SubscribeAsync("addr:added", r.handleAddrAdd, false)
+	r.eventBus.SubscribeAsync("addr:deleted", r.handleAddrDelete, false)
+	r.updateClientConnState()
+}
+
+// Callback method for addr:added event
+func (r *agentResolver) handleAddrAdd(nodeName string, podName string, addr resolver.Address) {
+	if nodeName != r.nodeName {
+		return
+	}
+	r.addAddr(podName, addr)
+	r.updateClientConnState()
+}
+
+// Callback method for addr:deleted event
+func (r *agentResolver) handleAddrDelete(nodeName string, podName string) {
+	if nodeName != r.nodeName {
+		return
+	}
+	r.deleteAddr(podName)
+	r.updateClientConnState()
+}
+
+// Thread-safe function to add address
+func (r *agentResolver) addAddr(podName string, addr resolver.Address) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.addrMap[podName] = addr
+}
+
+// Thread-safe function to delete address
+func (r *agentResolver) deleteAddr(podName string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	delete(r.addrMap, podName)
+}
+
+// Thread-safe function to update clientconn state
+func (r *agentResolver) updateClientConnState() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	addrs := make([]resolver.Address, len(r.addrMap))
+	i := 0
+	for _, addr := range r.addrMap {
+		addrs[i] = addr
+		i += 1
+	}
+
+	if err := r.cc.UpdateState(resolver.State{Addresses: addrs}); err != nil {
+		zlog.Error().Err(err).Msg("resolver encountered error while updating clientconn state")
+	}
 }
 
 // Create new agent resolver instance
-func NewAgentResolver(target resolver.Target, cc resolver.ClientConn, addrs []resolver.Address) *agentResolver {
-	cc.UpdateState(resolver.State{Addresses: addrs})
-	return &agentResolver{cc, target, addrs}
+func NewAgentResolver(target resolver.Target, cc resolver.ClientConn, addrs []resolver.Address, eventBus eventbus.Bus) *agentResolver {
+	// build initial address map
+	addrMap := make(map[string]resolver.Address)
+	for _, addr := range addrs {
+		podName := addr.Attributes.Value("podName").(string)
+		addrMap[podName] = addr
+	}
+
+	// init instance
+	r := &agentResolver{cc: cc, nodeName: target.Endpoint(), addrMap: addrMap, eventBus: eventBus}
+	r.start()
+
+	return r
 }
 
 // Agent Resolver Builder
@@ -70,6 +143,7 @@ type agentResolverBuilder struct {
 	namespace string
 	isRunning bool
 	stopCh    chan struct{}
+	eventBus  eventbus.Bus
 }
 
 func (b *agentResolverBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
@@ -86,7 +160,7 @@ func (b *agentResolverBuilder) Build(target resolver.Target, cc resolver.ClientC
 	}
 
 	// init resolver with subset from addresses
-	return NewAgentResolver(target, cc, addrs), nil
+	return NewAgentResolver(target, cc, addrs, b.eventBus), nil
 }
 
 func (*agentResolverBuilder) Scheme() string {
@@ -198,14 +272,23 @@ func (b *agentResolverBuilder) handlePodAddOrUpdate(obj interface{}) {
 			New("nodeName", pod.Spec.NodeName).
 			WithValue("podName", pod.Name)
 
-		// add new entry to map
-		b.addrsMap[pod.Name] = resolver.Address{
+		// init address
+		addr := resolver.Address{
 			Addr:       fmt.Sprintf("%s:50051", pod.Status.PodIP),
 			Attributes: attrs,
 		}
+
+		// add to map
+		b.addrsMap[pod.Name] = addr
+
+		// publish event
+		b.eventBus.Publish("addr:added", pod.Spec.NodeName, pod.Name, addr)
 	} else if exists && !isRunning {
 		// remove entry from map
 		delete(b.addrsMap, pod.Name)
+
+		// publish event
+		b.eventBus.Publish("addr:deleted", pod.Spec.NodeName, pod.Name)
 	}
 }
 
@@ -243,6 +326,7 @@ func NewAgentResolverBuilder() (*agentResolverBuilder, error) {
 		addrsMap:  make(map[string]resolver.Address),
 		clientset: clientset,
 		namespace: string(nsBytes),
+		eventBus:  eventbus.New(),
 	}, nil
 }
 

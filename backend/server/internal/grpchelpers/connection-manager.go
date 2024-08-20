@@ -57,7 +57,6 @@ func (cm *ConnectionManager) GetAll() map[string]ClientConnInterface {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	fmt.Println(cm.conns)
 	return cm.conns
 }
 
@@ -149,7 +148,9 @@ func (cm *ConnectionManager) Teardown() {
 
 	// close grpc connections
 	for _, conn := range cm.conns {
-		conn.Close()
+		if err := conn.Close(); err != nil {
+			zlog.Error().Err(err).Msg("grpc clientconn close error")
+		}
 	}
 
 	// reset map
@@ -194,7 +195,7 @@ func (cm *ConnectionManager) handleNodeDelete(obj interface{}) {
 
 // Initialize new gRPC connection
 func (cm *ConnectionManager) newConn(nodeName string) (*grpc.ClientConn, error) {
-	zlog.Debug().Msgf("initializing grcp clientconn for node %s", nodeName)
+	zlog.Debug().Msgf("initializing grpc clientconn for node %s", nodeName)
 	return grpc.NewClient(
 		fmt.Sprintf("kubetail-agent:///%s", nodeName),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

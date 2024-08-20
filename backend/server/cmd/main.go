@@ -1,9 +1,12 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -34,6 +37,11 @@ func main() {
 			return validator.New().Struct(cli)
 		},
 		Run: func(cmd *cobra.Command, args []string) {
+			// listen for termination signals as early as possible
+			quit := make(chan os.Signal, 1)
+			signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+			defer close(quit)
+
 			// init viper
 			v := viper.New()
 			v.BindPFlag("server.addr", cmd.Flags().Lookup("addr"))
@@ -48,7 +56,6 @@ func main() {
 			}
 
 			// init config
-			fmt.Printf("config path: %s\n", cli.Config)
 			cfg, err := config.NewConfig(v, cli.Config)
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
@@ -66,7 +73,6 @@ func main() {
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
-			defer app.Teardown()
 
 			// create server
 			server := http.Server{
@@ -77,19 +83,40 @@ func main() {
 				WriteTimeout: 10 * time.Second,
 			}
 
-			// run server
-			var serverErr error
-			zlog.Info().Msg("Starting server on " + cfg.Server.Addr)
+			// run server in go routine
+			go func() {
+				var serverErr error
+				zlog.Info().Msg("Starting server on " + cfg.Server.Addr)
 
-			if cfg.Server.TLS.Enabled {
-				serverErr = server.ListenAndServeTLS(cfg.Server.TLS.CertFile, cfg.Server.TLS.KeyFile)
-			} else {
-				serverErr = server.ListenAndServe()
+				if cfg.Server.TLS.Enabled {
+					serverErr = server.ListenAndServeTLS(cfg.Server.TLS.CertFile, cfg.Server.TLS.KeyFile)
+				} else {
+					serverErr = server.ListenAndServe()
+				}
+
+				// log non-normal errors
+				if serverErr != nil && serverErr != http.ErrServerClosed {
+					zlog.Fatal().Caller().Err(err).Send()
+				}
+			}()
+
+			// wait for termination signal
+			<-quit
+
+			// shutdown server
+			// TODO: make timeout configurable
+			zlog.Info().Msg("Shutting down...")
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			if err := server.Shutdown(ctx); err != nil {
+				zlog.Fatal().Err(err).Msg("Server forced to shutdown")
 			}
 
-			if serverErr != nil {
-				zlog.Fatal().Caller().Err(err).Send()
-			}
+			// teardown app
+			app.Teardown()
+
+			zlog.Info().Msg("Server exiting")
 		},
 	}
 
