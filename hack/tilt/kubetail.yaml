@@ -35,7 +35,7 @@ data:
           same-site: strict
       logging:
         enabled: true
-        level: info
+        level: debug
         format: pretty
         access-log:
           enabled: true

@@ -59,13 +59,11 @@ func (r *agentResolver) ResolveNow(o resolver.ResolveNowOptions) {}
 func (r *agentResolver) Close() {
 	zlog.Debug().Msg("closing agent resolver")
 	r.eventBus.Unsubscribe("addr:added", r.handleAddrAdd)
-	r.eventBus.Unsubscribe("addr:deleted", r.handleAddrDelete)
 }
 
 // Start background processes
 func (r *agentResolver) start() {
 	r.eventBus.SubscribeAsync("addr:added", r.handleAddrAdd, false)
-	r.eventBus.SubscribeAsync("addr:deleted", r.handleAddrDelete, false)
 	r.updateClientConnState()
 }
 
@@ -78,29 +76,12 @@ func (r *agentResolver) handleAddrAdd(nodeName string, podName string, addr reso
 	r.updateClientConnState()
 }
 
-// Callback method for addr:deleted event
-func (r *agentResolver) handleAddrDelete(nodeName string, podName string) {
-	if nodeName != r.nodeName {
-		return
-	}
-	//r.deleteAddr(podName)
-	//r.updateClientConnState()
-}
-
 // Thread-safe function to add address
 func (r *agentResolver) addAddr(podName string, addr resolver.Address) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	r.addrMap[podName] = addr
-}
-
-// Thread-safe function to delete address
-func (r *agentResolver) deleteAddr(podName string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	delete(r.addrMap, podName)
 }
 
 // Thread-safe function to update clientconn state
@@ -199,17 +180,14 @@ func (b *agentResolverBuilder) Start(ctx context.Context) {
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			zlog.Debug().Caller().Msgf("pod added: %v", obj)
 			defer testEventBus.Publish("informer:added")
 			b.handlePodAddOrUpdate(obj)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			zlog.Debug().Caller().Msgf("pod updated: %v", newObj)
 			defer testEventBus.Publish("informer:updated")
 			b.handlePodAddOrUpdate(newObj)
 		},
 		DeleteFunc: func(obj interface{}) {
-			zlog.Debug().Caller().Msgf("pod deleted: %v", obj)
 			defer testEventBus.Publish("informer:deleted")
 			b.handlePodDelete(obj)
 		},
@@ -284,12 +262,16 @@ func (b *agentResolverBuilder) handlePodAddOrUpdate(obj interface{}) {
 
 		// publish event
 		b.eventBus.Publish("addr:added", pod.Spec.NodeName, pod.Name, addr)
+
+		zlog.Debug().Caller().Msgf("addr added: %s (%s)", pod.Name, pod.Status.PodIP)
 	} else if exists && !isRunning {
 		// remove entry from map
 		delete(b.addrsMap, pod.Name)
 
 		// publish event
 		b.eventBus.Publish("addr:deleted", pod.Spec.NodeName, pod.Name)
+
+		zlog.Debug().Caller().Msgf("addr deleted: %s (%s)", pod.Name, pod.Status.PodIP)
 	}
 }
 
@@ -299,7 +281,15 @@ func (b *agentResolverBuilder) handlePodDelete(obj interface{}) {
 	defer b.mu.Unlock()
 
 	pod := obj.(*corev1.Pod)
-	delete(b.addrsMap, pod.Name)
+
+	if _, exists := b.addrsMap[pod.Name]; exists {
+		delete(b.addrsMap, pod.Name)
+
+		// publish event
+		b.eventBus.Publish("addr:deleted", pod.Spec.NodeName, pod.Name)
+
+		zlog.Debug().Caller().Msgf("addr deleted: %s (%s)", pod.Name, pod.Status.PodIP)
+	}
 }
 
 // Create new AgentResolverBuilder instance

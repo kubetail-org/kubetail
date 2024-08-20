@@ -8,7 +8,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"slices"
 	"strings"
@@ -527,16 +526,15 @@ func (r *subscriptionResolver) LogMetadataWatch(ctx context.Context, namespace *
 						break
 					}
 
-					// check for gRPC status error
+					// check for grpc status error
 					if s, ok := status.FromError(err); ok {
 						switch s.Code() {
-						case codes.Canceled:
-							// ignore
-							break
 						case codes.Unavailable:
-							fmt.Println(s.Details())
-							fmt.Println(s.Err())
-							fmt.Printf("%t\n", s.Err())
+							// server down (probably restarting)
+							zlog.Debug().Caller().Msg("gRPC server unavailable")
+						case codes.Canceled:
+							// connection closed client-side
+							zlog.Debug().Caller().Msg("gRPC connection closed by gRPC client")
 						default:
 							zlog.Error().Caller().Err(err).Msgf("Unexpected gRPC error: %v\n", s.Message())
 						}

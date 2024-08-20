@@ -117,14 +117,14 @@ func main() {
 			<-quit
 
 			// shutdown server
-			zlog.Info().Msg("Attempting graceful shutdown...")
+			zlog.Info().Msg("Shutting down...")
 
-			// Create a context with a timeout for the shutdown
+			// create a context with a timeout
 			// TODO: make timeout configurable
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			// Attempt to gracefully stop the server
+			// attempt graceful shutdown
 			done := make(chan struct{})
 			go func() {
 				grpcServer.GracefulStop()
@@ -133,11 +133,12 @@ func main() {
 
 			select {
 			case <-done:
-				zlog.Info().Msg("Stopped gracefully")
+				// noop
 			case <-ctx.Done():
 				grpcServer.Stop()
-				zlog.Info().Msg("Reached timed out (stopped forcefully)")
 			}
+
+			zlog.Info().Msg("Bye bye")
 		},
 	}
 

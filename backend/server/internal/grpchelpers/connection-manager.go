@@ -93,12 +93,10 @@ func (cm *ConnectionManager) Start(ctx context.Context) {
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			zlog.Debug().Msgf("[grpc-connection-manager] node added: %v", obj)
 			defer testEventBus.Publish("informer:added")
 			cm.handleNodeAdd(obj)
 		},
 		DeleteFunc: func(obj interface{}) {
-			zlog.Debug().Msgf("[grpc-connection-manager] node deleted: %v", obj)
 			defer testEventBus.Publish("informer:deleted")
 			cm.handleNodeDelete(obj)
 		},
@@ -167,6 +165,8 @@ func (cm *ConnectionManager) handleNodeAdd(obj interface{}) {
 
 	node := obj.(*corev1.Node)
 
+	zlog.Debug().Caller().Msgf("node added: %s", node.Name)
+
 	// initialize connection
 	conn, err := cm.newConn(node.Name)
 	if err != nil {
@@ -183,6 +183,8 @@ func (cm *ConnectionManager) handleNodeDelete(obj interface{}) {
 	defer cm.mu.Unlock()
 
 	node := obj.(*corev1.Node)
+
+	zlog.Debug().Caller().Msgf("node deleted: %s", node.Name)
 
 	// close old connection if exists
 	if oldConn, exists := cm.conns[node.Name]; exists {
