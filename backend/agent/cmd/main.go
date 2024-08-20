@@ -124,21 +124,23 @@ func main() {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			// attempt graceful shutdown
+			// start graceful shutdown
 			done := make(chan struct{})
 			go func() {
 				grpcServer.GracefulStop()
 				close(done)
 			}()
 
+			// shutdown service
+			svc.Shutdown()
+
 			select {
 			case <-done:
-				// noop
+				zlog.Info().Msg("Bye bye")
 			case <-ctx.Done():
+				zlog.Error().Msg("Unable to shutdown gracefully")
 				grpcServer.Stop()
 			}
-
-			zlog.Info().Msg("Bye bye")
 		},
 	}
 

@@ -40,6 +40,7 @@ type LogMetadataService struct {
 	nodeName         string
 	containerLogsDir string
 	testClientset    *fake.Clientset
+	shutdownCh       chan struct{}
 }
 
 // Implementation of List() in LogMetadataService
@@ -127,6 +128,9 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 	// worker loop
 	for {
 		select {
+		case <-s.shutdownCh:
+			zlog.Debug().Caller().Msgf("[%s] received shutdown signal\n", s.nodeName)
+			return nil
 		case <-ctx.Done():
 			zlog.Debug().Msgf("[%s] client disconnected\n", s.nodeName)
 			return nil
@@ -150,6 +154,11 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 			}
 		}
 	}
+}
+
+// Initiate shutdown
+func (s *LogMetadataService) Shutdown() {
+	close(s.shutdownCh)
 }
 
 // Initialize new kubernetes clientset
@@ -182,6 +191,7 @@ func NewLogMetadataService(k8sCfg *rest.Config, nodeName string, containerLogsDi
 		k8sCfg:           k8sCfg,
 		nodeName:         nodeName,
 		containerLogsDir: containerLogsDir,
+		shutdownCh:       make(chan struct{}),
 	}
 	return s, nil
 }

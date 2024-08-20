@@ -521,8 +521,12 @@ func (r *subscriptionResolver) LogMetadataWatch(ctx context.Context, namespace *
 
 				// handle errors
 				if err != nil {
-					if err == io.EOF || err == context.Canceled {
-						// ignore normal errors
+					// ignore normal errors
+					if err == io.EOF {
+						zlog.Debug().Caller().Msg("connection closed by server")
+						break
+					} else if err == context.Canceled {
+						zlog.Debug().Caller().Msg("connection closed by client")
 						break
 					}
 
@@ -531,10 +535,10 @@ func (r *subscriptionResolver) LogMetadataWatch(ctx context.Context, namespace *
 						switch s.Code() {
 						case codes.Unavailable:
 							// server down (probably restarting)
-							zlog.Debug().Caller().Msg("gRPC server unavailable")
+							zlog.Debug().Caller().Msg("server unavailable")
 						case codes.Canceled:
 							// connection closed client-side
-							zlog.Debug().Caller().Msg("gRPC connection closed by gRPC client")
+							zlog.Debug().Caller().Msg("connection closed by clientconn")
 						default:
 							zlog.Error().Caller().Err(err).Msgf("Unexpected gRPC error: %v\n", s.Message())
 						}

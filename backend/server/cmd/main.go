@@ -117,9 +117,12 @@ func main() {
 				if err := server.Shutdown(ctx); err != nil {
 					zlog.Fatal().Err(err).Msg("HTTP server forced to shutdown")
 				}
-				app.Teardown()
 				close(done)
 			}()
+
+			// shutdown app
+			// TODO: handle long-lived requests shutdown (e.g. websockets)
+			app.Teardown()
 
 			select {
 			case <-done:

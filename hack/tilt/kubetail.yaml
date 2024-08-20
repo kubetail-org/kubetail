@@ -48,7 +48,7 @@ data:
       addr: :50051
       logging:
         enabled: true
-        level: info
+        level: debug
         format: pretty
 ---
 kind: ServiceAccount
