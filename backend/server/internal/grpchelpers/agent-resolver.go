@@ -114,7 +114,15 @@ func (r *agentResolver) updateClientConnState() {
 		i += 1
 	}
 
-	if err := r.cc.UpdateState(resolver.State{Addresses: addrs}); err != nil {
+	var newState resolver.State
+	if len(addrs) == 0 {
+		// no endpoints state
+		newState = resolver.State{ServiceConfig: r.cc.ParseServiceConfig(`{"loadBalancingPolicy":"pick_first"}`)}
+	} else {
+		newState = resolver.State{Addresses: addrs}
+	}
+
+	if err := r.cc.UpdateState(newState); err != nil {
 		zlog.Error().Err(err).Msg("resolver encountered error while updating clientconn state")
 	}
 }
