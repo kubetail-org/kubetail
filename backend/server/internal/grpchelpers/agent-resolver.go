@@ -47,7 +47,7 @@ var agentLabelSelectorString = labels.SelectorFromSet(agentLabelSet).String()
 type agentResolver struct {
 	cc       resolver.ClientConn
 	nodeName string
-	addrMap  map[string]resolver.Address
+	addr     resolver.Address
 	eventBus eventbus.Bus
 	mu       sync.Mutex
 }
@@ -68,20 +68,20 @@ func (r *agentResolver) start() {
 }
 
 // Callback method for addr:added event
-func (r *agentResolver) handleAddrAdd(nodeName string, podName string, addr resolver.Address) {
+func (r *agentResolver) handleAddrAdd(nodeName string, addr resolver.Address) {
 	if nodeName != r.nodeName {
 		return
 	}
-	r.addAddr(podName, addr)
+	r.addAddr(addr)
 	r.updateClientConnState()
 }
 
 // Thread-safe function to add address
-func (r *agentResolver) addAddr(podName string, addr resolver.Address) {
+func (r *agentResolver) addAddr(addr resolver.Address) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.addrMap[podName] = addr
+	r.addr = addr
 }
 
 // Thread-safe function to update clientconn state
@@ -89,38 +89,23 @@ func (r *agentResolver) updateClientConnState() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	addrs := make([]resolver.Address, len(r.addrMap))
-	i := 0
-	for _, addr := range r.addrMap {
-		addrs[i] = addr
-		i += 1
-	}
-
-	if err := r.cc.UpdateState(resolver.State{Addresses: addrs}); err != nil && err != balancer.ErrBadResolverState {
+	state := resolver.State{Addresses: []resolver.Address{r.addr}}
+	if err := r.cc.UpdateState(state); err != nil && err != balancer.ErrBadResolverState {
 		zlog.Error().Err(err).Msg("resolver encountered error while updating clientconn state")
 	}
 }
 
 // Create new agent resolver instance
-func NewAgentResolver(target resolver.Target, cc resolver.ClientConn, addrs []resolver.Address, eventBus eventbus.Bus) *agentResolver {
-	// build initial address map
-	addrMap := make(map[string]resolver.Address)
-	for _, addr := range addrs {
-		podName := addr.Attributes.Value("podName").(string)
-		addrMap[podName] = addr
-	}
-
-	// init instance
-	r := &agentResolver{cc: cc, nodeName: target.Endpoint(), addrMap: addrMap, eventBus: eventBus}
+func NewAgentResolver(target resolver.Target, cc resolver.ClientConn, addr resolver.Address, eventBus eventbus.Bus) *agentResolver {
+	r := &agentResolver{cc: cc, nodeName: target.Endpoint(), addr: addr, eventBus: eventBus}
 	r.start()
-
 	return r
 }
 
 // Agent Resolver Builder
 type agentResolverBuilder struct {
 	mu        sync.Mutex
-	addrsMap  map[string]resolver.Address
+	addrMap   map[string]resolver.Address
 	clientset kubernetes.Interface
 	namespace string
 	isRunning bool
@@ -132,17 +117,13 @@ func (b *agentResolverBuilder) Build(target resolver.Target, cc resolver.ClientC
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	wantNode := target.Endpoint()
-
-	addrs := []resolver.Address{}
-	for _, addr := range b.addrsMap {
-		if addr.Attributes.Value("nodeName").(string) == wantNode {
-			addrs = append(addrs, addr)
-		}
+	addr, exists := b.addrMap[target.Endpoint()]
+	if !exists {
+		return nil, fmt.Errorf("address not found for node: %s", target.Endpoint())
 	}
 
 	// init resolver with subset from addresses
-	return NewAgentResolver(target, cc, addrs, b.eventBus), nil
+	return NewAgentResolver(target, cc, addr, b.eventBus), nil
 }
 
 func (*agentResolverBuilder) Scheme() string {
@@ -187,10 +168,6 @@ func (b *agentResolverBuilder) Start(ctx context.Context) {
 			defer testEventBus.Publish("informer:updated")
 			b.handlePodAddOrUpdate(newObj)
 		},
-		DeleteFunc: func(obj interface{}) {
-			defer testEventBus.Publish("informer:deleted")
-			b.handlePodDelete(obj)
-		},
 	},
 	)
 
@@ -198,11 +175,6 @@ func (b *agentResolverBuilder) Start(ctx context.Context) {
 
 	// run watcher in a go routine
 	go informer.Run(b.stopCh)
-
-	// Ensure the informer has synced
-	//if !cache.WaitForCacheSync(b.stopCh, informer.HasSynced) {
-	//	panic("informer cache sync timeout")
-	//}
 
 	// set flag
 	b.isRunning = true
@@ -243,10 +215,12 @@ func (b *agentResolverBuilder) handlePodAddOrUpdate(obj interface{}) {
 
 	pod := obj.(*corev1.Pod)
 
-	_, exists := b.addrsMap[pod.Name]
-	isRunning := isPodRunning(pod)
+	addr, exists := b.addrMap[pod.Spec.NodeName]
+	if exists && addr.Attributes.Value("podName").(string) != pod.Name {
+		exists = false
+	}
 
-	if !exists && isRunning {
+	if !exists && isPodRunning(pod) {
 		attrs := attributes.
 			New("nodeName", pod.Spec.NodeName).
 			WithValue("podName", pod.Name)
@@ -258,37 +232,13 @@ func (b *agentResolverBuilder) handlePodAddOrUpdate(obj interface{}) {
 		}
 
 		// add to map
-		b.addrsMap[pod.Name] = addr
+		b.addrMap[pod.Spec.NodeName] = addr
 
 		// publish event
-		b.eventBus.Publish("addr:added", pod.Spec.NodeName, pod.Name, addr)
+		b.eventBus.Publish("addr:added", pod.Spec.NodeName, addr)
+		b.eventBus.WaitAsync()
 
 		zlog.Debug().Caller().Msgf("addr added: %s (%s)", pod.Name, pod.Status.PodIP)
-	} else if exists && !isRunning {
-		// remove entry from map
-		delete(b.addrsMap, pod.Name)
-
-		// publish event
-		b.eventBus.Publish("addr:deleted", pod.Spec.NodeName, pod.Name)
-
-		zlog.Debug().Caller().Msgf("addr deleted: %s (%s)", pod.Name, pod.Status.PodIP)
-	}
-}
-
-// Pod delete handler
-func (b *agentResolverBuilder) handlePodDelete(obj interface{}) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	pod := obj.(*corev1.Pod)
-
-	if _, exists := b.addrsMap[pod.Name]; exists {
-		delete(b.addrsMap, pod.Name)
-
-		// publish event
-		b.eventBus.Publish("addr:deleted", pod.Spec.NodeName, pod.Name)
-
-		zlog.Debug().Caller().Msgf("addr deleted: %s (%s)", pod.Name, pod.Status.PodIP)
 	}
 }
 
@@ -314,7 +264,7 @@ func NewAgentResolverBuilder() (*agentResolverBuilder, error) {
 	}
 
 	return &agentResolverBuilder{
-		addrsMap:  make(map[string]resolver.Address),
+		addrMap:   make(map[string]resolver.Address),
 		clientset: clientset,
 		namespace: string(nsBytes),
 		eventBus:  eventbus.New(),
