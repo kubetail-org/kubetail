@@ -17,6 +17,7 @@ package grpchelpers
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -36,12 +37,14 @@ import (
 var testEventBus = eventbus.New()
 
 type ConnectionManager struct {
-	mu        sync.Mutex
-	clientset kubernetes.Interface
-	resolver  *agentResolverBuilder
-	conns     map[string]ClientConnInterface
-	stopCh    chan struct{}
-	isRunning bool
+	mu          sync.Mutex
+	clientset   kubernetes.Interface
+	namespace   string
+	podInformer cache.SharedInformer
+	resolver    *agentResolverBuilder
+	conns       map[string]ClientConnInterface
+	stopCh      chan struct{}
+	isRunning   bool
 }
 
 // Get gRPC connection for a specific node
@@ -71,31 +74,21 @@ func (cm *ConnectionManager) Start(ctx context.Context) {
 		return
 	}
 
-	// start resolver
-	cm.resolver.Start(ctx)
-
-	// init listwatch
-	watchlist := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			return cm.clientset.CoreV1().Nodes().List(context.Background(), options)
+	// init node informer with 10 minute resync period
+	nodeInformer := cache.NewSharedInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return cm.clientset.CoreV1().Nodes().List(context.Background(), options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return cm.clientset.CoreV1().Nodes().Watch(context.Background(), options)
+			},
 		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			return cm.clientset.CoreV1().Nodes().Watch(context.Background(), options)
-		},
-	}
-
-	// init informer with 10 minute resync period
-	informer := cache.NewSharedInformer(
-		watchlist,
 		&corev1.Node{},
 		10*time.Minute,
 	)
 
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			defer testEventBus.Publish("informer:added")
-			cm.handleNodeAdd(obj)
-		},
+	nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj interface{}) {
 			defer testEventBus.Publish("informer:deleted")
 			cm.handleNodeDelete(obj)
@@ -103,15 +96,46 @@ func (cm *ConnectionManager) Start(ctx context.Context) {
 	},
 	)
 
+	// init pod informer with 2 minute resync period
+	cm.podInformer = cache.NewSharedInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				options.LabelSelector = agentLabelSelectorString
+				return cm.clientset.CoreV1().Pods(cm.namespace).List(context.Background(), options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				options.LabelSelector = agentLabelSelectorString
+				return cm.clientset.CoreV1().Pods(cm.namespace).Watch(context.Background(), options)
+			},
+		},
+		&corev1.Pod{},
+		5*time.Minute,
+	)
+
+	cm.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			defer testEventBus.Publish("informer:added")
+			cm.handlePodAddOrUpdate(obj)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			defer testEventBus.Publish("informer:updated")
+			cm.handlePodAddOrUpdate(newObj)
+		},
+	},
+	)
+
 	cm.stopCh = make(chan struct{})
 
-	// run watcher in a go routine
-	go informer.Run(cm.stopCh)
+	// run watchers in go routines
+	go nodeInformer.Run(cm.stopCh)
+	go cm.podInformer.Run(cm.stopCh)
 
-	// ensure the informer has synced
-	if !cache.WaitForCacheSync(cm.stopCh, informer.HasSynced) {
-		panic("informer cache sync timeout")
+	// initialize agent resolver
+	resolver, err := newAgentResolverBuilder(cm.podInformer)
+	if err != nil {
+		panic(err)
 	}
+	cm.resolver = resolver
 
 	// set flag
 	cm.isRunning = true
@@ -138,9 +162,6 @@ func (cm *ConnectionManager) Teardown() {
 		return
 	}
 
-	// stop resolver
-	cm.resolver.Teardown()
-
 	// stop informer
 	close(cm.stopCh)
 
@@ -159,22 +180,25 @@ func (cm *ConnectionManager) Teardown() {
 }
 
 // Handle a node add event
-func (cm *ConnectionManager) handleNodeAdd(obj interface{}) {
+func (cm *ConnectionManager) handlePodAddOrUpdate(obj interface{}) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	node := obj.(*corev1.Node)
+	pod := obj.(*corev1.Pod)
 
-	zlog.Debug().Caller().Msgf("node added: %s", node.Name)
+	_, exists := cm.conns[pod.Spec.NodeName]
 
-	// initialize connection
-	conn, err := cm.newConn(node.Name)
-	if err != nil {
-		zlog.Error().Err(err).Send()
+	// add if entry doesn't exist and pod is already running
+	if !exists && isPodRunning(pod) {
+		// initialize connection
+		conn, err := cm.newConn(pod.Spec.NodeName)
+		if err != nil {
+			zlog.Error().Err(err).Send()
+		}
+
+		// add to map
+		cm.conns[pod.Spec.NodeName] = conn
 	}
-
-	// add to map
-	cm.conns[node.Name] = conn
 }
 
 // Handle a node delete event
@@ -197,7 +221,7 @@ func (cm *ConnectionManager) handleNodeDelete(obj interface{}) {
 
 // Initialize new gRPC connection
 func (cm *ConnectionManager) newConn(nodeName string) (*grpc.ClientConn, error) {
-	zlog.Debug().Msgf("initializing grpc clientconn for node %s", nodeName)
+	zlog.Debug().Caller().Msgf("initializing clientconn for node %s", nodeName)
 	return grpc.NewClient(
 		fmt.Sprintf("kubetail-agent:///%s", nodeName),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -219,16 +243,17 @@ func NewConnectionManager() (*ConnectionManager, error) {
 		return nil, err
 	}
 
-	// initialize agent resolver
-	resolver, err := NewAgentResolverBuilder()
+	// get current namespace from file system
+	nsPathname := "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+	nsBytes, err := os.ReadFile(nsPathname)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to read current namespace from %s: %v", nsPathname, err)
 	}
 
 	// Convert the byte slice to a string and return
 	return &ConnectionManager{
 		conns:     make(map[string]ClientConnInterface),
 		clientset: clientset,
-		resolver:  resolver,
+		namespace: string(nsBytes),
 	}, nil
 }

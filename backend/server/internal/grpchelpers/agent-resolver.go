@@ -15,11 +15,8 @@
 package grpchelpers
 
 import (
-	"context"
 	"fmt"
-	"os"
 	"sync"
-	"time"
 
 	eventbus "github.com/asaskevich/EventBus"
 	zlog "github.com/rs/zerolog/log"
@@ -27,21 +24,8 @@ import (
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/resolver"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
-
-var agentLabelSet = labels.Set{
-	"app.kubernetes.io/name":      "kubetail",
-	"app.kubernetes.io/component": "agent",
-}
-
-var agentLabelSelectorString = labels.SelectorFromSet(agentLabelSet).String()
 
 // Agent Resolver
 type agentResolver struct {
@@ -96,7 +80,7 @@ func (r *agentResolver) updateClientConnState() {
 }
 
 // Create new agent resolver instance
-func NewAgentResolver(target resolver.Target, cc resolver.ClientConn, addr resolver.Address, eventBus eventbus.Bus) *agentResolver {
+func newAgentResolver(target resolver.Target, cc resolver.ClientConn, addr resolver.Address, eventBus eventbus.Bus) *agentResolver {
 	r := &agentResolver{cc: cc, nodeName: target.Endpoint(), addr: addr, eventBus: eventBus}
 	r.start()
 	return r
@@ -104,13 +88,9 @@ func NewAgentResolver(target resolver.Target, cc resolver.ClientConn, addr resol
 
 // Agent Resolver Builder
 type agentResolverBuilder struct {
-	mu        sync.Mutex
-	addrMap   map[string]resolver.Address
-	clientset kubernetes.Interface
-	namespace string
-	isRunning bool
-	stopCh    chan struct{}
-	eventBus  eventbus.Bus
+	mu       sync.Mutex
+	addrMap  map[string]resolver.Address
+	eventBus eventbus.Bus
 }
 
 func (b *agentResolverBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
@@ -123,89 +103,11 @@ func (b *agentResolverBuilder) Build(target resolver.Target, cc resolver.ClientC
 	}
 
 	// init resolver with subset from addresses
-	return NewAgentResolver(target, cc, addr, b.eventBus), nil
+	return newAgentResolver(target, cc, addr, b.eventBus), nil
 }
 
 func (*agentResolverBuilder) Scheme() string {
 	return "kubetail-agent"
-}
-
-// Start background process to update pod addresses
-func (b *agentResolverBuilder) Start(ctx context.Context) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	// check if running
-	if b.isRunning {
-		return
-	}
-
-	// init listwatch
-	watchlist := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			options.LabelSelector = agentLabelSelectorString
-			return b.clientset.CoreV1().Pods(b.namespace).List(context.Background(), options)
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			options.LabelSelector = agentLabelSelectorString
-			return b.clientset.CoreV1().Pods(b.namespace).Watch(context.Background(), options)
-		},
-	}
-
-	// init informer with 5 minute resync period
-	informer := cache.NewSharedInformer(
-		watchlist,
-		&corev1.Pod{},
-		5*time.Minute,
-	)
-
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			defer testEventBus.Publish("informer:added")
-			b.handlePodAddOrUpdate(obj)
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			defer testEventBus.Publish("informer:updated")
-			b.handlePodAddOrUpdate(newObj)
-		},
-	},
-	)
-
-	b.stopCh = make(chan struct{})
-
-	// run watcher in a go routine
-	go informer.Run(b.stopCh)
-
-	// set flag
-	b.isRunning = true
-
-	// handle context stopping in a goroutine
-	go func() {
-		<-ctx.Done()
-
-		b.mu.Lock()
-		defer b.mu.Unlock()
-
-		close(b.stopCh)
-		b.isRunning = false
-	}()
-}
-
-// Teardown
-func (b *agentResolverBuilder) Teardown() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	// check flag
-	if !b.isRunning {
-		return
-	}
-
-	// stop informer
-	close(b.stopCh)
-
-	// set flag
-	b.isRunning = false
 }
 
 // Pod add-or-update handler
@@ -243,39 +145,24 @@ func (b *agentResolverBuilder) handlePodAddOrUpdate(obj interface{}) {
 }
 
 // Create new AgentResolverBuilder instance
-func NewAgentResolverBuilder() (*agentResolverBuilder, error) {
-	// config k8s
-	// TODO: should connection manager support out-of-cluster config?
-	k8scfg, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get in-cluster config: %v", err)
+func newAgentResolverBuilder(podInformer cache.SharedInformer) (*agentResolverBuilder, error) {
+	rb := &agentResolverBuilder{
+		addrMap:  make(map[string]resolver.Address),
+		eventBus: eventbus.New(),
 	}
 
-	clientset, err := kubernetes.NewForConfig(k8scfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Kubernetes client: %v", err)
-	}
+	// add event handlers
+	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			defer testEventBus.Publish("informer:added")
+			rb.handlePodAddOrUpdate(obj)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			defer testEventBus.Publish("informer:updated")
+			rb.handlePodAddOrUpdate(newObj)
+		},
+	},
+	)
 
-	// get current namespace from file system
-	nsPathname := "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
-	nsBytes, err := os.ReadFile(nsPathname)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read current namespace from %s: %v", nsPathname, err)
-	}
-
-	return &agentResolverBuilder{
-		addrMap:   make(map[string]resolver.Address),
-		clientset: clientset,
-		namespace: string(nsBytes),
-		eventBus:  eventbus.New(),
-	}, nil
-}
-
-// Check if pod is running
-func isPodRunning(pod *corev1.Pod) bool {
-	if pod.ObjectMeta.DeletionTimestamp != nil {
-		// terminating
-		return false
-	}
-	return pod.Status.Phase == corev1.PodRunning
+	return rb, nil
 }
