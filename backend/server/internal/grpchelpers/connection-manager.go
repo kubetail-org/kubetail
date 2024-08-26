@@ -47,6 +47,62 @@ type ConnectionManager struct {
 	isRunning   bool
 }
 
+func (cm *ConnectionManager) Doit(fn func(conn ClientConnInterface)) (func() error, error) {
+	var mu sync.Mutex
+	isRunning := make(map[string]bool)
+
+	handleAddOrUpdate := func(obj interface{}) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		pod := obj.(*corev1.Pod)
+		_, exists := isRunning[pod.Name]
+
+		if !exists && isPodRunning(pod) {
+			// init new connection
+			conn, err := grpc.NewClient(
+				fmt.Sprintf("%s:50051", pod.Status.PodIP),
+				grpc.WithTransportCredentials(insecure.NewCredentials()),
+			)
+			if err != nil {
+				zlog.Error().Caller().Err(err).Msgf("error establishing connection to %s", pod.Name)
+				return
+			}
+
+			zlog.Debug().Msgf("doit: %s", pod.Status.PodIP)
+			// execute function in goroutine
+			go fn(conn)
+
+			// update map
+			isRunning[pod.Name] = true
+		}
+	}
+
+	reg, err := cm.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			handleAddOrUpdate(obj)
+		},
+		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
+			handleAddOrUpdate(newObj)
+		},
+		DeleteFunc: func(obj interface{}) {
+			mu.Lock()
+			defer mu.Unlock()
+
+			pod := obj.(*corev1.Pod)
+			delete(isRunning, pod.Name)
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	unsubscribeFn := func() error {
+		return cm.podInformer.RemoveEventHandler(reg)
+	}
+	return unsubscribeFn, nil
+}
+
 // Get gRPC connection for a specific node
 func (cm *ConnectionManager) Get(nodeName string) ClientConnInterface {
 	cm.mu.Lock()

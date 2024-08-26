@@ -498,63 +498,70 @@ func (r *subscriptionResolver) LogMetadataWatch(ctx context.Context, namespace *
 		return nil, err
 	}
 
-	// get gprc connections
 	outCh := make(chan *agentpb.LogMetadataWatchEvent)
-	conns := r.gcm.GetAll()
 
-	for _, conn := range conns {
-		go func(conn grpchelpers.ClientConnInterface) {
-			// init client
-			c := agentpb.NewLogMetadataServiceClient(conn)
+	// doit
+	unsubscribe, err := r.gcm.Doit(func(conn grpchelpers.ClientConnInterface) {
+		// init client
+		c := agentpb.NewLogMetadataServiceClient(conn)
 
-			// init request
-			req := &agentpb.LogMetadataWatchRequest{Namespaces: namespaces}
+		// init request
+		req := &agentpb.LogMetadataWatchRequest{Namespaces: namespaces}
 
-			// execute
-			stream, err := c.Watch(ctx, req)
+		// execute
+		stream, err := c.Watch(ctx, req)
+		if err != nil {
+			return
+		}
+
+		for {
+			ev, err := stream.Recv()
+
+			// handle errors
 			if err != nil {
-				return
-			}
-
-			for {
-				ev, err := stream.Recv()
-
-				// handle errors
-				if err != nil {
-					// ignore normal errors
-					if err == io.EOF {
-						zlog.Debug().Caller().Msg("connection closed by server")
-						break
-					} else if err == context.Canceled {
-						zlog.Debug().Caller().Msg("connection closed by client")
-						break
-					}
-
-					// check for grpc status error
-					if s, ok := status.FromError(err); ok {
-						switch s.Code() {
-						case codes.Unavailable:
-							// server down (probably restarting)
-							zlog.Debug().Caller().Msg("server unavailable")
-						case codes.Canceled:
-							// connection closed client-side
-							zlog.Debug().Caller().Msg("connection closed by clientconn")
-						default:
-							zlog.Error().Caller().Err(err).Msgf("Unexpected gRPC error: %v\n", s.Message())
-						}
-						break
-					}
-
-					zlog.Error().Caller().Err(err).Msg("unexpected error")
-
+				// ignore normal errors
+				if err == io.EOF {
+					zlog.Debug().Caller().Msg("connection closed by server")
+					break
+				} else if err == context.Canceled {
+					zlog.Debug().Caller().Msg("connection closed by client")
 					break
 				}
 
-				// forward event
-				outCh <- ev
+				// check for grpc status error
+				if s, ok := status.FromError(err); ok {
+					switch s.Code() {
+					case codes.Unavailable:
+						// server down (probably restarting)
+						zlog.Debug().Caller().Msg("server unavailable")
+					case codes.Canceled:
+						// connection closed client-side
+						zlog.Debug().Caller().Msg("connection closed by clientconn")
+					default:
+						zlog.Error().Caller().Err(err).Msgf("Unexpected gRPC error: %v\n", s.Message())
+					}
+					break
+				}
+
+				zlog.Error().Caller().Err(err).Msg("unexpected error")
+
+				break
 			}
-		}(conn)
+
+			// forward event
+			outCh <- ev
+		}
+	})
+	if err != nil {
+		return nil, err
 	}
+
+	// unsubscribe when client disconnects
+	go func() {
+		<-ctx.Done()
+		zlog.Debug().Msg("client disconnected")
+		unsubscribe()
+	}()
 
 	return outCh, nil
 }

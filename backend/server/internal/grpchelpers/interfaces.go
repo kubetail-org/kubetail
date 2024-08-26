@@ -27,6 +27,7 @@ type ClientConnInterface interface {
 }
 
 type ConnectionManagerInterface interface {
+	Doit(fn func(conn ClientConnInterface)) (func() error, error)
 	Start(ctx context.Context)
 	Get(nodeName string) ClientConnInterface
 	GetAll() map[string]ClientConnInterface
