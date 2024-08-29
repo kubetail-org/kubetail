@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 
+	"github.com/kubetail-org/kubetail/backend/server/internal/fannypack"
 	"github.com/kubetail-org/kubetail/backend/server/internal/grpchelpers"
 )
 
@@ -37,6 +38,7 @@ import (
 type Resolver struct {
 	k8sCfg            *rest.Config
 	gcm               grpchelpers.ConnectionManagerInterface
+	grpcDispatcher    fannypack.DispatcherInterface
 	allowedNamespaces []string
 	TestClientset     *fake.Clientset
 	TestDynamicClient *dynamicFake.FakeDynamicClient
@@ -125,11 +127,12 @@ func (r *Resolver) ToNamespaces(namespace *string) ([]string, error) {
 	return namespaces, nil
 }
 
-func NewResolver(cfg *rest.Config, gcm *grpchelpers.ConnectionManager, allowedNamespaces []string) (*Resolver, error) {
+func NewResolver(cfg *rest.Config, gcm *grpchelpers.ConnectionManager, grpcDispatcher fannypack.DispatcherInterface, allowedNamespaces []string) (*Resolver, error) {
 	// init resolver
 	r := &Resolver{
 		k8sCfg:            cfg,
 		gcm:               gcm,
+		grpcDispatcher:    grpcDispatcher,
 		allowedNamespaces: allowedNamespaces,
 	}
 

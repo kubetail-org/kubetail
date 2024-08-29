@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/kubetail-org/kubetail/backend/common/config"
+	"github.com/kubetail-org/kubetail/backend/server/internal/fannypack"
 	"github.com/kubetail-org/kubetail/backend/server/internal/grpchelpers"
 	"github.com/kubetail-org/kubetail/backend/server/internal/k8shelpers"
 )
@@ -65,4 +66,12 @@ func mustNewGrpcConnectionManager() *grpchelpers.ConnectionManager {
 	}
 	gcm.Start(context.Background())
 	return gcm
+}
+
+func mustNewGrpcDispatcher() *fannypack.Dispatcher {
+	d, err := fannypack.Connect("kubernetes://kubetail-agent")
+	if err != nil {
+		panic(err)
+	}
+	return d
 }
