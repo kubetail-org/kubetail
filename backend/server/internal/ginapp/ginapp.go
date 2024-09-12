@@ -29,19 +29,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/csrf"
 	adapter "github.com/gwatts/gin-adapter"
+	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 	"k8s.io/client-go/rest"
 
 	"github.com/kubetail-org/kubetail/backend/common/config"
-	"github.com/kubetail-org/kubetail/backend/server/internal/fannypack"
-	"github.com/kubetail-org/kubetail/backend/server/internal/grpchelpers"
 	"github.com/kubetail-org/kubetail/backend/server/internal/k8shelpers"
 )
 
 type GinApp struct {
 	*gin.Engine
 	k8sHelperService k8shelpers.Service
-	gcm              *grpchelpers.ConnectionManager
-	grpcDispatcher   fannypack.DispatcherInterface
+	grpcDispatcher   *grpcdispatcher.Dispatcher
 
 	// for testing
 	dynamicroutes *gin.RouterGroup
@@ -49,14 +47,10 @@ type GinApp struct {
 }
 
 func (app *GinApp) Teardown() {
-	// teardown grpc connection manager
-	if app.gcm != nil {
-		app.gcm.Teardown()
-	}
-
 	// stop grpc dispatcher
 	if app.grpcDispatcher != nil {
-		app.grpcDispatcher.Stop()
+		// TODO: log dispatcher shutdown errors
+		app.grpcDispatcher.Shutdown()
 	}
 }
 
@@ -73,9 +67,6 @@ func NewGinApp(cfg *config.Config) (*GinApp, error) {
 
 		// init k8s helper service
 		app.k8sHelperService = k8shelpers.NewK8sHelperService(k8sCfg, k8shelpers.Mode(cfg.AuthMode))
-
-		// init grpc connection manager
-		app.gcm = mustNewGrpcConnectionManager()
 
 		// init grpc dispatcher
 		app.grpcDispatcher = mustNewGrpcDispatcher()
@@ -205,7 +196,7 @@ func NewGinApp(cfg *config.Config) (*GinApp, error) {
 
 			// graphql handler
 			h := &GraphQLHandlers{app}
-			endpointHandler := h.EndpointHandler(k8sCfg, app.gcm, app.grpcDispatcher, cfg.AllowedNamespaces, csrfProtect)
+			endpointHandler := h.EndpointHandler(k8sCfg, app.grpcDispatcher, cfg.AllowedNamespaces, csrfProtect)
 			graphql.GET("", endpointHandler)
 			graphql.POST("", endpointHandler)
 		}

@@ -24,9 +24,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"k8s.io/client-go/rest"
 
+	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 	"github.com/kubetail-org/kubetail/backend/server/graph"
-	"github.com/kubetail-org/kubetail/backend/server/internal/fannypack"
-	"github.com/kubetail-org/kubetail/backend/server/internal/grpchelpers"
 )
 
 type key int
@@ -38,9 +37,9 @@ type GraphQLHandlers struct {
 }
 
 // GET|POST "/graphql": GraphQL query endpoint
-func (app *GraphQLHandlers) EndpointHandler(cfg *rest.Config, gcm *grpchelpers.ConnectionManager, grpcDispatcher fannypack.DispatcherInterface, allowedNamespaces []string, csrfProtect func(http.Handler) http.Handler) gin.HandlerFunc {
+func (app *GraphQLHandlers) EndpointHandler(cfg *rest.Config, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string, csrfProtect func(http.Handler) http.Handler) gin.HandlerFunc {
 	// init resolver
-	r, err := graph.NewResolver(cfg, gcm, grpcDispatcher, allowedNamespaces)
+	r, err := graph.NewResolver(cfg, grpcDispatcher, allowedNamespaces)
 	if err != nil {
 		panic(err)
 	}

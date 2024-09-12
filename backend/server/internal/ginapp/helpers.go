@@ -15,15 +15,15 @@
 package ginapp
 
 import (
-	"context"
 	"html/template"
 	"path"
 
+	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/client-go/rest"
 
 	"github.com/kubetail-org/kubetail/backend/common/config"
-	"github.com/kubetail-org/kubetail/backend/server/internal/fannypack"
-	"github.com/kubetail-org/kubetail/backend/server/internal/grpchelpers"
 	"github.com/kubetail-org/kubetail/backend/server/internal/k8shelpers"
 )
 
@@ -59,17 +59,14 @@ func mustLoadTemplatesWithFuncs(glob string) *template.Template {
 	return parsedTemplates
 }
 
-func mustNewGrpcConnectionManager() *grpchelpers.ConnectionManager {
-	gcm, err := grpchelpers.NewConnectionManager()
-	if err != nil {
-		panic(err)
-	}
-	gcm.Start(context.Background())
-	return gcm
-}
-
-func mustNewGrpcDispatcher() *fannypack.Dispatcher {
-	d, err := fannypack.Connect("kubernetes://kubetail-agent")
+func mustNewGrpcDispatcher() *grpcdispatcher.Dispatcher {
+	// TODO: reuse app clientset
+	d, err := grpcdispatcher.NewDispatcher(
+		"kubernetes://kubetail-agent",
+		grpcdispatcher.WithDialOptions(
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		),
+	)
 	if err != nil {
 		panic(err)
 	}

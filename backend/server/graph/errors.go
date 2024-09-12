@@ -17,8 +17,8 @@ package graph
 import (
 	"fmt"
 
-	"github.com/kubetail-org/kubetail/backend/server/internal/grpchelpers"
 	"github.com/vektah/gqlparser/v2/gqlerror"
+	"google.golang.org/grpc"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -54,7 +54,7 @@ func NewWatchError(status *metav1.Status) *gqlerror.Error {
 }
 
 // New GRPC error
-func NewGrpcError(conn grpchelpers.ClientConnInterface, err error) *gqlerror.Error {
+func NewGrpcError(conn *grpc.ClientConn, err error) *gqlerror.Error {
 	err = fmt.Errorf("%s: %w", conn.CanonicalTarget(), err)
 	return NewError("INTERNAL_SERVER_ERROR", err.Error())
 }

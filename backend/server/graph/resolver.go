@@ -18,15 +18,13 @@ import (
 	"context"
 	"slices"
 
+	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	dynamicFake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
-
-	"github.com/kubetail-org/kubetail/backend/server/internal/fannypack"
-	"github.com/kubetail-org/kubetail/backend/server/internal/grpchelpers"
 )
 
 // This file will not be regenerated automatically.
@@ -37,8 +35,7 @@ import (
 
 type Resolver struct {
 	k8sCfg            *rest.Config
-	gcm               grpchelpers.ConnectionManagerInterface
-	grpcDispatcher    fannypack.DispatcherInterface
+	grpcDispatcher    *grpcdispatcher.Dispatcher
 	allowedNamespaces []string
 	TestClientset     *fake.Clientset
 	TestDynamicClient *dynamicFake.FakeDynamicClient
@@ -127,11 +124,10 @@ func (r *Resolver) ToNamespaces(namespace *string) ([]string, error) {
 	return namespaces, nil
 }
 
-func NewResolver(cfg *rest.Config, gcm *grpchelpers.ConnectionManager, grpcDispatcher fannypack.DispatcherInterface, allowedNamespaces []string) (*Resolver, error) {
+func NewResolver(cfg *rest.Config, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string) (*Resolver, error) {
 	// init resolver
 	r := &Resolver{
 		k8sCfg:            cfg,
-		gcm:               gcm,
 		grpcDispatcher:    grpcDispatcher,
 		allowedNamespaces: allowedNamespaces,
 	}
