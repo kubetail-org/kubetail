@@ -17,6 +17,7 @@ package logmetadata
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -194,7 +195,7 @@ func (suite *LogMetadataTestSuite) TestList() {
 	})
 }
 
-func (suite *LogMetadataTestSuite) TestWatchDisconnectOnClientClose() {
+func (suite *LogMetadataTestSuite) TestWatch_HandleClientClose() {
 	// init client
 	client := suite.testServer.NewTestClient()
 	suite.testServer.AllowSSAR([]string{""}, []string{"watch"})
@@ -213,7 +214,30 @@ func (suite *LogMetadataTestSuite) TestWatchDisconnectOnClientClose() {
 	suite.Require().ErrorContains(err, "client connection is closing")
 }
 
-func (suite *LogMetadataTestSuite) TestWatchAdded() {
+func (suite *LogMetadataTestSuite) TestWatch_HandleShutdown() {
+	// init client
+	client := suite.testServer.NewTestClient()
+	suite.testServer.AllowSSAR([]string{""}, []string{"watch"})
+
+	// shutdown service after watch starts
+	testEventBus.SubscribeOnceAsync("watch:started", func() {
+		suite.testServer.svc.Shutdown()
+	})
+
+	// init watch
+	stream, err := client.Watch(context.Background(), &agentpb.LogMetadataWatchRequest{Namespaces: []string{""}})
+	suite.Require().Nil(err)
+
+	// wait for stream
+	_, err = stream.Recv()
+	suite.Require().Error(io.EOF, err)
+
+	// reset service
+	// TODO: move this to suite setup/teardown
+	suite.testServer.svc.shutdownCh = make(chan struct{})
+}
+
+func (suite *LogMetadataTestSuite) TestWatch_Added() {
 	tests := []struct {
 		name          string
 		setNamespaces []string
@@ -259,7 +283,7 @@ func (suite *LogMetadataTestSuite) TestWatchAdded() {
 	}
 }
 
-func (suite *LogMetadataTestSuite) TestWatchModified() {
+func (suite *LogMetadataTestSuite) TestWatch_Modified() {
 	tests := []struct {
 		name          string
 		setNamespaces []string
@@ -308,7 +332,7 @@ func (suite *LogMetadataTestSuite) TestWatchModified() {
 	}
 }
 
-func (suite *LogMetadataTestSuite) TestWatchDeleted() {
+func (suite *LogMetadataTestSuite) TestWatch_Deleted() {
 	tests := []struct {
 		name          string
 		setNamespaces []string

@@ -40,17 +40,23 @@ type GinApp struct {
 	*gin.Engine
 	k8sHelperService k8shelpers.Service
 	grpcDispatcher   *grpcdispatcher.Dispatcher
+	shutdownCh       chan struct{}
 
 	// for testing
 	dynamicroutes *gin.RouterGroup
 	wraponce      gin.HandlerFunc
 }
 
-func (app *GinApp) Teardown() {
+func (app *GinApp) Shutdown() {
 	// stop grpc dispatcher
 	if app.grpcDispatcher != nil {
 		// TODO: log dispatcher shutdown errors
 		app.grpcDispatcher.Shutdown()
+	}
+
+	// send shutdown signal to internal processes
+	if app.shutdownCh != nil {
+		close(app.shutdownCh)
 	}
 }
 

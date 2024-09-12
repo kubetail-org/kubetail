@@ -70,5 +70,9 @@ func mustNewGrpcDispatcher() *grpcdispatcher.Dispatcher {
 	if err != nil {
 		panic(err)
 	}
+
+	// start background processes
+	d.Start()
+
 	return d
 }

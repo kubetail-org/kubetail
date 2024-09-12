@@ -82,6 +82,13 @@ func (app *GraphQLHandlers) EndpointHandler(cfg *rest.Config, grpcDispatcher *gr
 			return ctx, nil, errors.New("AUTHORIZATION_REQUIRED")
 		}
 
+		// close websockets on shutdown signal
+		ctx, cancel := context.WithCancel(ctx)
+		go func() {
+			defer cancel()
+			<-app.shutdownCh
+		}()
+
 		return ctx, &initPayload, nil
 	}
 

@@ -103,10 +103,9 @@ func main() {
 			// wait for termination signal
 			<-quit
 
-			// shutdown server
-			zlog.Info().Msg("Attempting graceful shutdown...")
+			zlog.Info().Msg("Starting graceful shutdown...")
 
-			// create a context with a timeout
+			// graceful shutdown with 30 second deadline
 			// TODO: make timeout configurable
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
@@ -115,20 +114,20 @@ func main() {
 			done := make(chan struct{})
 			go func() {
 				if err := server.Shutdown(ctx); err != nil {
-					zlog.Fatal().Err(err).Msg("HTTP server forced to shutdown")
+					zlog.Error().Err(err).Send()
 				}
 				close(done)
 			}()
 
 			// shutdown app
 			// TODO: handle long-lived requests shutdown (e.g. websockets)
-			app.Teardown()
+			app.Shutdown()
 
 			select {
 			case <-done:
-				zlog.Info().Msg("Stopped gracefully")
+				zlog.Info().Msg("Completed graceful shutdown")
 			case <-ctx.Done():
-				zlog.Info().Msg("Reached timed out (stopped forcefully)")
+				zlog.Info().Msg("Exceeded deadline, exiting now")
 			}
 		},
 	}

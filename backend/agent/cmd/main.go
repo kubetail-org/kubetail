@@ -117,9 +117,9 @@ func main() {
 			<-quit
 
 			// shutdown server
-			zlog.Info().Msg("Shutting down...")
+			zlog.Info().Msg("Starting graceful shutting...")
 
-			// create a context with a timeout
+			// graceful shutdown with 30 sec deadline
 			// TODO: make timeout configurable
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
@@ -136,9 +136,9 @@ func main() {
 
 			select {
 			case <-done:
-				zlog.Info().Msg("Bye bye")
+				zlog.Info().Msg("Completed graceful shutdown")
 			case <-ctx.Done():
-				zlog.Error().Msg("Unable to shutdown gracefully")
+				zlog.Error().Msg("Exceeded deadline, shutting down forcefully")
 				grpcServer.Stop()
 			}
 		},

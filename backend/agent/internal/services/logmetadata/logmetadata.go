@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/kubetail-org/kubetail/backend/agent/internal/grpchelpers"
+	"github.com/kubetail-org/kubetail/backend/agent/internal/helpers"
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
 )
 
@@ -106,7 +107,12 @@ func (s *LogMetadataService) List(ctx context.Context, req *agentpb.LogMetadataL
 
 // Implementation of Watch() in LogMetadataService
 func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream agentpb.LogMetadataService_WatchServer) error {
-	zlog.Debug().Msgf("[%s] new client connected\n", s.nodeName)
+	logger := zlog.With().
+		Str("component", "watch").
+		Str("request-id", helpers.RandomString(8)).
+		Logger()
+
+	logger.Debug().Msg("New client connected")
 
 	ctx := stream.Context()
 	clientset := s.newK8SClientset(ctx)
@@ -129,13 +135,14 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 	for {
 		select {
 		case <-s.shutdownCh:
-			zlog.Debug().Caller().Msgf("[%s] received shutdown signal\n", s.nodeName)
+			logger.Debug().Msg("Received shutdown signal")
 			return nil
 		case <-ctx.Done():
-			zlog.Debug().Msgf("[%s] client disconnected\n", s.nodeName)
+			logger.Debug().Msg("Client disconnected")
 			return nil
 		case ev, ok := <-watcher.Events:
 			if !ok {
+				logger.Debug().Msg("Container logs watcher closed")
 				return nil
 			}
 
