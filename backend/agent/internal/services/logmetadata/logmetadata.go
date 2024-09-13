@@ -20,9 +20,12 @@ import (
 	"os"
 	"path"
 	"slices"
+	"time"
 
 	eventbus "github.com/asaskevich/EventBus"
+	"github.com/fsnotify/fsnotify"
 	zlog "github.com/rs/zerolog/log"
+	"github.com/zmwangx/debounce"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
@@ -131,14 +134,36 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 
 	testEventBus.Publish("watch:started")
 
-	// init throttler
-	throttlerCtx, throttlerCancel := context.WithCancel(ctx)
-	throttler := newKeyedThrottler(throttlerCtx)
-	defer throttlerCancel()
-
 	// init write error channel
 	writeErrCh := make(chan error)
 	defer close(writeErrCh)
+
+	// init debouncer
+	debouncedSend, controller := debounce.DebounceWithCustomSignature(
+		func(args ...interface{}) interface{} {
+			ev := args[0].(fsnotify.Event)
+
+			// init watch event
+			outEv, err := newLogMetadataWatchEvent(ev, s.nodeName)
+			if err != nil {
+				zlog.Error().Err(err).Send()
+				return nil
+			}
+
+			// write to stream
+			err = stream.Send(outEv)
+			if err != nil {
+				writeErrCh <- err
+				return nil
+			}
+
+			return nil
+		},
+		1*time.Second,
+		debounce.WithLeading(true),
+		debounce.WithTrailing(true),
+	)
+	defer controller.Cancel()
 
 	// worker loop
 	for {
@@ -158,22 +183,7 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 				return nil
 			}
 
-			// run event through throttler
-			throttler.Do(ev.Name, func() {
-				// init watch event
-				outEv, err := newLogMetadataWatchEvent(ev, s.nodeName)
-				if err != nil {
-					zlog.Error().Err(err).Send()
-					return
-				}
-
-				// write to stream
-				err = stream.Send(outEv)
-				if err != nil {
-					writeErrCh <- err
-					return
-				}
-			})
+			debouncedSend(ev)
 		}
 	}
 }
