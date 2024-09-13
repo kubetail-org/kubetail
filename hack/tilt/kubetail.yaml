@@ -260,3 +260,20 @@ spec:
   selector:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: agent
+---
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: kubetail-agent
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kubetail
+      app.kubernetes.io/component: agent
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: kubetail
+          app.kubernetes.io/component: server
