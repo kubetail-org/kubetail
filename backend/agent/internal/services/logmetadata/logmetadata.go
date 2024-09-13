@@ -131,6 +131,15 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 
 	testEventBus.Publish("watch:started")
 
+	// init throttler
+	throttlerCtx, throttlerCancel := context.WithCancel(ctx)
+	throttler := newKeyedThrottler(throttlerCtx)
+	defer throttlerCancel()
+
+	// init write error channel
+	writeErrCh := make(chan error)
+	defer close(writeErrCh)
+
 	// worker loop
 	for {
 		select {
@@ -140,25 +149,31 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 		case <-ctx.Done():
 			logger.Debug().Msg("Client disconnected")
 			return nil
+		case err := <-writeErrCh:
+			logger.Error().Err(err)
+			return err
 		case ev, ok := <-watcher.Events:
 			if !ok {
 				logger.Debug().Msg("Container logs watcher closed")
 				return nil
 			}
 
-			// init watch event
-			outEv, err := newLogMetadataWatchEvent(ev, s.nodeName)
-			if err != nil {
-				zlog.Error().Err(err).Send()
-				continue
-			}
+			// run event through throttler
+			throttler.Do(ev.Name, func() {
+				// init watch event
+				outEv, err := newLogMetadataWatchEvent(ev, s.nodeName)
+				if err != nil {
+					zlog.Error().Err(err).Send()
+					return
+				}
 
-			// write to stream
-			err = stream.Send(outEv)
-			if err != nil {
-				zlog.Error().Err(err).Send()
-				return err
-			}
+				// write to stream
+				err = stream.Send(outEv)
+				if err != nil {
+					writeErrCh <- err
+					return
+				}
+			})
 		}
 	}
 }

@@ -298,3 +298,54 @@ func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, names
 
 	return clw, nil
 }
+
+// Throttles events with both leading and trailing edge execution.
+//
+// * Processes the first event in a group immediately when a burst of events begins
+// * Coalesces intermediate events
+// * Processes the last event after the burst has ended (i.e., after a period of inactivity)
+type throttler struct {
+	ctx context.Context
+}
+
+func (t *throttler) Do(fn func()) {
+	// skip if context is closed
+	if t.ctx.Err() != nil {
+		return
+	}
+
+	fn()
+}
+
+func newThrottler(ctx context.Context) *throttler {
+	return &throttler{ctx}
+}
+
+// Throttles events grouped by keys
+type keyedThrottler struct {
+	ctx          context.Context
+	throttlerMap map[string]*throttler
+}
+
+func (kt *keyedThrottler) Do(key string, fn func()) {
+	// skip if context is closed
+	if kt.ctx.Err() != nil {
+		return
+	}
+
+	// get-or-create throttler
+	throttler, exists := kt.throttlerMap[key]
+	if !exists {
+		throttler = newThrottler(kt.ctx)
+		kt.throttlerMap[key] = throttler
+	}
+
+	throttler.Do(fn)
+}
+
+func newKeyedThrottler(ctx context.Context) *keyedThrottler {
+	return &keyedThrottler{
+		ctx:          ctx,
+		throttlerMap: make(map[string]*throttler),
+	}
+}
