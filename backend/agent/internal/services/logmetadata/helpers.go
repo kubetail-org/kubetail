@@ -24,9 +24,11 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
+	"github.com/zmwangx/debounce"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -299,53 +301,57 @@ func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, names
 	return clw, nil
 }
 
-// Throttles events with both leading and trailing edge execution.
-//
-// * Processes the first event in a group immediately when a burst of events begins
-// * Coalesces intermediate events
-// * Processes the last event after the burst has ended (i.e., after a period of inactivity)
-type throttler struct {
-	ctx context.Context
-}
-
-func (t *throttler) Do(fn func()) {
-	// skip if context is closed
-	if t.ctx.Err() != nil {
-		return
+// Represents debouncer grouped by filesystem event pathnames
+func newEventDebouncer(ctx context.Context, fn func(fsnotify.Event)) func(fsnotify.Event) {
+	type cacheVal struct {
+		debouncedFn func(args ...fsnotify.Event) error
+		controller  debounce.ControlWithReturnValue[error]
 	}
 
-	fn()
-}
+	cache := make(map[string]cacheVal)
 
-func newThrottler(ctx context.Context) *throttler {
-	return &throttler{ctx}
-}
+	var mu sync.Mutex
 
-// Throttles events grouped by keys
-type keyedThrottler struct {
-	ctx          context.Context
-	throttlerMap map[string]*throttler
-}
+	// cancel all controllers when context closes
+	go func() {
+		<-ctx.Done()
 
-func (kt *keyedThrottler) Do(key string, fn func()) {
-	// skip if context is closed
-	if kt.ctx.Err() != nil {
-		return
-	}
+		mu.Lock()
+		defer mu.Unlock()
 
-	// get-or-create throttler
-	throttler, exists := kt.throttlerMap[key]
-	if !exists {
-		throttler = newThrottler(kt.ctx)
-		kt.throttlerMap[key] = throttler
-	}
+		for _, val := range cache {
+			val.controller.Cancel()
+		}
+	}()
 
-	throttler.Do(fn)
-}
+	return func(ev fsnotify.Event) {
+		mu.Lock()
 
-func newKeyedThrottler(ctx context.Context) *keyedThrottler {
-	return &keyedThrottler{
-		ctx:          ctx,
-		throttlerMap: make(map[string]*throttler),
+		// exit if context is finished
+		if ctx.Err() != nil {
+			mu.Unlock()
+			return
+		}
+
+		val, exists := cache[ev.Name]
+		if !exists {
+			// initialize new debouncer
+			debouncedFn, controller := debounce.DebounceWithCustomSignature(
+				func(evs ...fsnotify.Event) error {
+					fn(evs[0])
+					return nil
+				},
+				1*time.Second,
+				debounce.WithLeading(true),
+				debounce.WithTrailing(true),
+			)
+			val = cacheVal{debouncedFn, controller}
+			cache[ev.Name] = val
+		}
+
+		mu.Unlock()
+
+		// execute debounced method
+		val.debouncedFn(ev)
 	}
 }
