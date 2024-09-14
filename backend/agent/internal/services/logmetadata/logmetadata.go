@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 
+	"github.com/kubetail-org/kubetail/backend/agent/internal/debounce"
 	"github.com/kubetail-org/kubetail/backend/agent/internal/grpchelpers"
 	"github.com/kubetail-org/kubetail/backend/agent/internal/helpers"
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
@@ -138,7 +139,7 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 	defer close(writeErrCh)
 
 	// init debouncer
-	debouncedSend := newEventDebouncer(ctx, 2*time.Second, func(ev fsnotify.Event) {
+	debouncedSend := debounce.DebounceByKey[string](ctx, 2*time.Second, func(ev fsnotify.Event) {
 		// init watch event
 		outEv, err := newLogMetadataWatchEvent(ev, s.nodeName)
 		if err != nil {
@@ -172,7 +173,7 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 				return nil
 			}
 
-			debouncedSend(ev)
+			debouncedSend(ev.Name, ev)
 		}
 	}
 }

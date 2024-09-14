@@ -24,11 +24,9 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
-	"github.com/zmwangx/debounce"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -299,59 +297,4 @@ func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, names
 	}()
 
 	return clw, nil
-}
-
-// Represents debouncer grouped by filesystem event pathnames
-func newEventDebouncer(ctx context.Context, wait time.Duration, fn func(fsnotify.Event)) func(fsnotify.Event) {
-	type cacheVal struct {
-		debouncedFn func(args ...fsnotify.Event) error
-		controller  debounce.ControlWithReturnValue[error]
-	}
-
-	cache := make(map[string]*cacheVal)
-
-	var mu sync.Mutex
-
-	// cancel all controllers when context closes
-	go func() {
-		<-ctx.Done()
-
-		mu.Lock()
-		defer mu.Unlock()
-
-		for _, val := range cache {
-			val.controller.Cancel()
-		}
-	}()
-
-	return func(ev fsnotify.Event) {
-		mu.Lock()
-
-		// exit if context is finished
-		if ctx.Err() != nil {
-			mu.Unlock()
-			return
-		}
-
-		val, exists := cache[ev.Name]
-		if !exists {
-			// initialize new debouncer
-			debouncedFn, controller := debounce.DebounceWithCustomSignature(
-				func(evs ...fsnotify.Event) error {
-					fn(evs[0])
-					return nil
-				},
-				wait,
-				debounce.WithLeading(true),
-				debounce.WithTrailing(true),
-			)
-			val = &cacheVal{debouncedFn, controller}
-			cache[ev.Name] = val
-		}
-
-		mu.Unlock()
-
-		// execute debounced method
-		val.debouncedFn(ev)
-	}
 }
