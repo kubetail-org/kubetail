@@ -302,13 +302,13 @@ func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, names
 }
 
 // Represents debouncer grouped by filesystem event pathnames
-func newEventDebouncer(ctx context.Context, fn func(fsnotify.Event)) func(fsnotify.Event) {
+func newEventDebouncer(ctx context.Context, wait time.Duration, fn func(fsnotify.Event)) func(fsnotify.Event) {
 	type cacheVal struct {
 		debouncedFn func(args ...fsnotify.Event) error
 		controller  debounce.ControlWithReturnValue[error]
 	}
 
-	cache := make(map[string]cacheVal)
+	cache := make(map[string]*cacheVal)
 
 	var mu sync.Mutex
 
@@ -341,11 +341,11 @@ func newEventDebouncer(ctx context.Context, fn func(fsnotify.Event)) func(fsnoti
 					fn(evs[0])
 					return nil
 				},
-				1*time.Second,
+				wait,
 				debounce.WithLeading(true),
 				debounce.WithTrailing(true),
 			)
-			val = cacheVal{debouncedFn, controller}
+			val = &cacheVal{debouncedFn, controller}
 			cache[ev.Name] = val
 		}
 

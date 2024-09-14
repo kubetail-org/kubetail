@@ -20,6 +20,7 @@ import (
 	"os"
 	"path"
 	"slices"
+	"time"
 
 	eventbus "github.com/asaskevich/EventBus"
 	"github.com/fsnotify/fsnotify"
@@ -137,7 +138,7 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 	defer close(writeErrCh)
 
 	// init debouncer
-	debouncedSend := newEventDebouncer(ctx, func(ev fsnotify.Event) {
+	debouncedSend := newEventDebouncer(ctx, 2*time.Second, func(ev fsnotify.Event) {
 		// init watch event
 		outEv, err := newLogMetadataWatchEvent(ev, s.nodeName)
 		if err != nil {
