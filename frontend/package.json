@@ -13,7 +13,7 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@apollo/client": "^3.10.8",
+    "@apollo/client": "^3.11.8",
     "@headlessui/react": "^1.7.19",
     "@heroicons/react": "^2.1.5",
     "@kubetail/ui": "0.1.4",

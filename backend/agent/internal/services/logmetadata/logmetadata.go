@@ -172,7 +172,6 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 				logger.Debug().Msg("Container logs watcher closed")
 				return nil
 			}
-
 			debouncedSend(ev.Name, ev)
 		}
 	}

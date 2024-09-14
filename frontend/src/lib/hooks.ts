@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useQuery } from '@apollo/client';
+import { useApolloClient, useQuery } from '@apollo/client';
 import type { TypedDocumentNode, OperationVariables } from '@apollo/client';
 import distinctColors from 'distinct-colors';
 import { useEffect, useRef, useState } from 'react';
@@ -28,6 +28,7 @@ type GenericListFragment = {
     metadata: {
       name: string;
       uid: string;
+      deletionTimestamp: null | string;
     };
   }[];
 };
@@ -189,6 +190,7 @@ export function useListQueryWithSubscription<
   TSData = any,
   TSVariables extends OperationVariables = OperationVariables,
 >(args: ListQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
+  const client = useApolloClient();
   const retryOnError = useRetryOnError();
 
   // initial query
@@ -230,6 +232,25 @@ export function useListQueryWithSubscription<
         const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
 
         if (!ev?.type || !ev?.object) return prev;
+
+        // handle forced deletions that don't set `deletionTimestamp`
+        if (ev.type === 'DELETED' && ev.object.metadata.deletionTimestamp === null) {
+          // update the cache
+          client.cache.modify({
+            id: client.cache.identify(ev.object),
+            fields: {
+              metadata: (currMetadata) => ({
+                ...currMetadata,
+                deletionTimestamp: new Date().toISOString(),
+              }),
+            },
+          });
+
+          // remove from list result
+          const newResult = { ...prev[args.queryDataKey] } as GenericListFragment;
+          newResult.items = newResult.items.filter((item) => item.metadata.uid !== ev.object.metadata.uid);
+          return { [args.queryDataKey]: newResult } as TQData;
+        }
 
         // only handle additions
         if (ev.type !== 'ADDED') return prev;
