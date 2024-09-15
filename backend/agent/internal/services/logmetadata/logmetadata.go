@@ -143,6 +143,9 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 		// init watch event
 		outEv, err := newLogMetadataWatchEvent(ev, s.nodeName)
 		if err != nil {
+			if err == unhandledOpErr {
+				return
+			}
 			zlog.Error().Err(err).Send()
 			return
 		}

@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"slices"
 	"strings"
@@ -501,7 +502,6 @@ func (r *subscriptionResolver) LogMetadataWatch(ctx context.Context, namespace *
 		req := &agentpb.LogMetadataWatchRequest{Namespaces: namespaces}
 
 		// execute
-		// TODO: log errors
 		stream, err := c.Watch(ctx, req)
 		if err != nil {
 			return
@@ -535,6 +535,11 @@ func (r *subscriptionResolver) LogMetadataWatch(ctx context.Context, namespace *
 				zlog.Error().Caller().Err(err).Msg("Unexpected error")
 
 				break
+			}
+
+			if strings.HasPrefix(ev.Object.Spec.PodName, "cronjob-") {
+				fmt.Println("cronjob you are looking for")
+				fmt.Println(ev)
 			}
 
 			// forward event

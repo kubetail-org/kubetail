@@ -32,6 +32,7 @@ import * as ops from '@/lib/graphql/ops';
 import { getBasename, joinPaths } from '@/lib/helpers';
 import { useListQueryWithSubscription, useLogMetadata } from '@/lib/hooks';
 import { Workload, iconMap, labelsPMap } from '@/lib/workload';
+import { fromTheme } from 'tailwind-merge';
 
 type FileInfo = {
   size: string;
@@ -216,6 +217,12 @@ const DisplayItems = ({
   const ids = filteredItems?.map((item) => item.metadata.uid) || [];
   const logFileInfo = useLogFileInfo(ids, ownershipMap);
 
+  if (workload === Workload.CRONJOBS) {
+    console.log(ids);
+    console.log(ownershipMap);
+    console.log(logFileInfo);
+  }
+
   // handle sorting
   const [sortBy, setSortBy] = useState<SortBy>({ field: 'name', direction: 'ASC' });
   const handleSortByChange = (newSortBy: SortBy) => setSortBy(newSortBy);
@@ -394,12 +401,16 @@ const DisplayItems = ({
                     <TimeAgo key={Math.random()} date={item.metadata.creationTimestamp} title={item.metadata.creationTimestamp.toUTCString()} />
                   </DataTable.DataCell>
                   <DataTable.DataCell className="text-right pr-[35px]">
-                    {fileInfo?.size !== undefined && (
+                    {fileInfo?.size === undefined ? (
+                      <span>--</span>
+                    ) : (
                       numeral(fileInfo.size).format('0.0 b')
                     )}
                   </DataTable.DataCell>
                   <DataTable.DataCell className={lastEventCls}>
-                    {fileInfo?.lastModifiedAt !== undefined && (
+                    {fileInfo?.size === undefined ? (
+                      <span>--</span>
+                    ) : (
                       <TimeAgo
                         key={Math.random()} 
                         date={fileInfo.lastModifiedAt}
