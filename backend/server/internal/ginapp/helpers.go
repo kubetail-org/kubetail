@@ -19,7 +19,9 @@ import (
 	"path"
 
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
+	zlog "github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/client-go/rest"
 
@@ -59,16 +61,24 @@ func mustLoadTemplatesWithFuncs(glob string) *template.Template {
 	return parsedTemplates
 }
 
-func mustNewGrpcDispatcher() *grpcdispatcher.Dispatcher {
+func mustNewGrpcDispatcher(cfg *config.Config) *grpcdispatcher.Dispatcher {
+	dialOpts := []grpc.DialOption{}
+
+	// configure tls
+	if cfg.Agent.TLS.Enabled {
+		creds, err := credentials.NewServerTLSFromFile(cfg.Agent.TLS.CertFile, cfg.Agent.TLS.KeyFile)
+		if err != nil {
+			zlog.Fatal().Err(err).Send()
+		}
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
+	} else {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
 	// TODO: reuse app clientset
-	d, err := grpcdispatcher.NewDispatcher(
-		"kubernetes://kubetail-agent",
-		grpcdispatcher.WithDialOptions(
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		),
-	)
+	d, err := grpcdispatcher.NewDispatcher("kubernetes://kubetail-agent", grpcdispatcher.WithDialOptions(dialOpts...))
 	if err != nil {
-		panic(err)
+		zlog.Fatal().Err(err).Send()
 	}
 
 	// start background processes

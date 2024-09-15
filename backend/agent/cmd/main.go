@@ -96,7 +96,10 @@ func main() {
 			}
 
 			// init grpc server
-			grpcServer := server.NewServer(cfg)
+			grpcServer, err := server.NewServer(cfg)
+			if err != nil {
+				zlog.Fatal().Caller().Err(err).Send()
+			}
 			agentpb.RegisterLogMetadataServiceServer(grpcServer, svc)
 
 			// init listener

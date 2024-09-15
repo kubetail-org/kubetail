@@ -174,7 +174,13 @@ The Kubetail application can be configured using a configuration file written in
 | server.tls.enabled                           | bool     | Enable TLS endpoint termination                      | false        |
 | server.tls.cert-file                         | string   | Path to cert file                                    | ""           |
 | server.tls.key-file                          | string   | Path to key file                                     | ""           |
-| agent.addr                                   | string   | Host address to bind to                              | ":50051"     |   
+| agent.addr                                   | string   | Host address to bind to                              | ":50051"     |
+| agent.logging.enabled                        | bool     | Enable logging                                       | true         |
+| agent.logging.level                          | string   | Log level                                            | "info"       |
+| agent.logging.format                         | string   | Log format (json, pretty)                            | "json"       |
+| agent.tls.enabled                            | bool     | Enable TLS endpoint termination                      | false        |
+| agent.tls.cert-file                          | string   | Path to cert file                                    | ""           |
+| agent.tls.key-file                           | string   | Path to key file                                     | ""           |
 
 ## Develop
 

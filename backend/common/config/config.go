@@ -114,6 +114,18 @@ type Config struct {
 		Addr             string `validate:"omitempty,hostname_port"`
 		ContainerLogsDir string `mapstructure:"container-logs-dir"`
 
+		// TLS options
+		TLS struct {
+			// enable tls termination
+			Enabled bool
+
+			// TLS certificate file
+			CertFile string `mapstructure:"cert-file" validate:"omitempty,file"`
+
+			// TLS certificate key file
+			KeyFile string `mapstructure:"key-file" validate:"omitempty,file"`
+		}
+
 		// logging options
 		Logging struct {
 			// enable logging

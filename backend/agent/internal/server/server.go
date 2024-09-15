@@ -16,15 +16,26 @@ package server
 
 import (
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"github.com/kubetail-org/kubetail/backend/agent/internal/grpchelpers"
 	"github.com/kubetail-org/kubetail/backend/common/config"
 )
 
-func NewServer(cfg *config.Config) *grpc.Server {
+func NewServer(cfg *config.Config) (*grpc.Server, error) {
 	// init grpc server
 	opts := []grpc.ServerOption{
 		grpc.UnaryInterceptor(grpchelpers.NewUnaryAuthServerInterceptor(cfg)),
 	}
-	return grpc.NewServer(opts...)
+
+	// configure tls
+	if cfg.Agent.TLS.Enabled {
+		creds, err := credentials.NewServerTLSFromFile(cfg.Agent.TLS.CertFile, cfg.Agent.TLS.KeyFile)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, grpc.Creds(creds))
+	}
+
+	return grpc.NewServer(opts...), nil
 }

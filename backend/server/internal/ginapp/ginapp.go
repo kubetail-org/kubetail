@@ -75,7 +75,7 @@ func NewGinApp(cfg *config.Config) (*GinApp, error) {
 		app.k8sHelperService = k8shelpers.NewK8sHelperService(k8sCfg, k8shelpers.Mode(cfg.AuthMode))
 
 		// init grpc dispatcher
-		app.grpcDispatcher = mustNewGrpcDispatcher()
+		app.grpcDispatcher = mustNewGrpcDispatcher(cfg)
 
 		// add recovery middleware
 		app.Use(gin.Recovery())

@@ -6,7 +6,7 @@ local_resource(
   'cd backend && CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/agent ./agent/cmd/main.go',
   deps=[
     './backend/agent',
-    './backend/common/agentpb'
+    './backend/common'
   ]
 )
 
@@ -29,7 +29,7 @@ local_resource(
   'cd backend && CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/server ./server/cmd/main.go',
   deps=[
     './backend/server',
-    './backend/common/agentpb'
+    './backend/common'
   ]
 )
 
@@ -70,7 +70,9 @@ k8s_resource(
   objects=[
     'kubetail-server:serviceaccount',
     'kubetail-server:clusterrole',
-    'kubetail-server:clusterrolebinding'
+    'kubetail-server:clusterrolebinding',
+    'kubetail-server:role',
+    'kubetail-server:rolebinding',
   ],
   resource_deps=['kubetail-shared'],
 )
@@ -81,6 +83,7 @@ k8s_resource(
     'kubetail-agent:serviceaccount',
     'kubetail-agent:clusterrole',
     'kubetail-agent:clusterrolebinding',
+    'kubetail-agent:networkpolicy',
   ],
   resource_deps=['kubetail-shared'],
 )
