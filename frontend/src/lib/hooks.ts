@@ -28,6 +28,7 @@ type GenericListFragment = {
     metadata: {
       name: string;
       uid: string;
+      resourceVersion: string;
       deletionTimestamp: null | string;
     };
   }[];
@@ -247,35 +248,48 @@ export function useListQueryWithSubscription<
           });
 
           // remove from list result
-          const newResult = { ...prev[args.queryDataKey] } as GenericListFragment;
-          newResult.items = newResult.items.filter((item) => item.metadata.uid !== ev.object.metadata.uid);
+          const oldResult = prev[args.queryDataKey] as GenericListFragment;
+          const newResult = {
+            ...oldResult,
+            metadata: { ...oldResult.metadata, resourceVersion: ev.object.metadata.resourceVersion },
+            items: oldResult.items.filter((item) => item.metadata.uid !== ev.object.metadata.uid),
+          } as GenericListFragment;
           return { [args.queryDataKey]: newResult } as TQData;
         }
 
-        // only handle additions
-        if (ev.type !== 'ADDED') return prev;
+        if (ev.type === 'DELETED' || ev.type === 'MODIFIED') {
+          // update resourceVersion
+          const oldResult = prev[args.queryDataKey] as GenericListFragment;
+          const newResult = {
+            ...oldResult,
+            metadata: { ...oldResult.metadata, resourceVersion: ev.object.metadata.resourceVersion },
+          } as GenericListFragment;
+          return { [args.queryDataKey]: newResult } as TQData;
+        } else if (ev.type === 'ADDED') {
+          // merge
+          if (!prev[args.queryDataKey]) return prev;
+          const merged = { ...prev[args.queryDataKey] } as GenericListFragment;
 
-        // merge
-        if (!prev[args.queryDataKey]) return prev;
-        const merged = { ...prev[args.queryDataKey] } as GenericListFragment;
+          // update resourceVersion
+          merged.metadata = { ...merged.metadata };
+          merged.metadata.resourceVersion = ev.object.metadata.resourceVersion;
 
-        // update resourceVersion
-        merged.metadata = { ...merged.metadata };
-        merged.metadata.resourceVersion = ev.object.metadata.resourceVersion;
+          // add and re-sort item if not already in list
+          if (!merged.items.some((item) => item.metadata.uid === ev.object.metadata.uid)) {
+            const items = Array.from(merged.items);
+            items.push(ev.object);
+            items.sort((a, b) => {
+              if (!a.metadata.name) return 1;
+              if (!b.metadata.name) return -1;
+              return a.metadata.name.localeCompare(b.metadata.name);
+            });
+            merged.items = items;
+          }
 
-        // add and re-sort item if not already in list
-        if (!merged.items.some((item) => item.metadata.uid === ev.object.metadata.uid)) {
-          const items = Array.from(merged.items);
-          items.push(ev.object);
-          items.sort((a, b) => {
-            if (!a.metadata.name) return 1;
-            if (!b.metadata.name) return -1;
-            return a.metadata.name.localeCompare(b.metadata.name);
-          });
-          merged.items = items;
+          return { [args.queryDataKey]: merged } as TQData;
         }
 
-        return { [args.queryDataKey]: merged } as TQData;
+        return prev;
       },
       onError: (err) => {
         if (isWatchExpiredError(err)) refetch();
@@ -415,7 +429,7 @@ export function useLogMetadata(options?: LogMetadataHookOptions) {
           return prev;
         }
 
-        const merged = { ...prev.logMetadataList};
+        const merged = { ...prev.logMetadataList };
         let items = Array.from(merged.items);
 
         // merge

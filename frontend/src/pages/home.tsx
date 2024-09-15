@@ -32,7 +32,6 @@ import * as ops from '@/lib/graphql/ops';
 import { getBasename, joinPaths } from '@/lib/helpers';
 import { useListQueryWithSubscription, useLogMetadata } from '@/lib/hooks';
 import { Workload, iconMap, labelsPMap } from '@/lib/workload';
-import { fromTheme } from 'tailwind-merge';
 
 type FileInfo = {
   size: string;
@@ -216,12 +215,6 @@ const DisplayItems = ({
 
   const ids = filteredItems?.map((item) => item.metadata.uid) || [];
   const logFileInfo = useLogFileInfo(ids, ownershipMap);
-
-  if (workload === Workload.CRONJOBS) {
-    console.log(ids);
-    console.log(ownershipMap);
-    console.log(logFileInfo);
-  }
 
   // handle sorting
   const [sortBy, setSortBy] = useState<SortBy>({ field: 'name', direction: 'ASC' });
