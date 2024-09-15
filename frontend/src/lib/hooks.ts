@@ -233,63 +233,53 @@ export function useListQueryWithSubscription<
         const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
 
         if (!ev?.type || !ev?.object) return prev;
+        if (!prev[args.queryDataKey]) return prev;
 
-        // handle forced deletions that don't set `deletionTimestamp`
-        if (ev.type === 'DELETED' && ev.object.metadata.deletionTimestamp === null) {
-          // update the cache
-          client.cache.modify({
-            id: client.cache.identify(ev.object),
-            fields: {
-              metadata: (currMetadata) => ({
-                ...currMetadata,
-                deletionTimestamp: new Date().toISOString(),
-              }),
-            },
-          });
+        const oldResult = prev[args.queryDataKey] as GenericListFragment;
 
-          // remove from list result
-          const oldResult = prev[args.queryDataKey] as GenericListFragment;
-          const newResult = {
-            ...oldResult,
-            metadata: { ...oldResult.metadata, resourceVersion: ev.object.metadata.resourceVersion },
-            items: oldResult.items.filter((item) => item.metadata.uid !== ev.object.metadata.uid),
-          } as GenericListFragment;
+        // initialize new result and update resourceVersion
+        const newResult = {
+          ...oldResult,
+          metadata: { ...oldResult.metadata, resourceVersion: ev.object.metadata.resourceVersion },
+        };
+
+        if (ev.type === 'MODIFIED') {
           return { [args.queryDataKey]: newResult } as TQData;
-        }
+        } else if (ev.type === 'DELETED') {
+          // handle forced deletions that don't set `deletionTimestamp`
+          if (ev.object.metadata.deletionTimestamp === null) {
+            client.cache.modify({
+              id: client.cache.identify(ev.object),
+              fields: {
+                metadata: (currMetadata) => ({
+                  ...currMetadata,
+                  deletionTimestamp: new Date().toISOString(),
+                }),
+              },
+            });
+          }
 
-        if (ev.type === 'DELETED' || ev.type === 'MODIFIED') {
-          // update resourceVersion
-          const oldResult = prev[args.queryDataKey] as GenericListFragment;
-          const newResult = {
-            ...oldResult,
-            metadata: { ...oldResult.metadata, resourceVersion: ev.object.metadata.resourceVersion },
-          } as GenericListFragment;
+          // remove deleted item
+          newResult.items = oldResult.items.filter((item) => item.metadata.uid !== ev.object.metadata.uid);
+
           return { [args.queryDataKey]: newResult } as TQData;
         } else if (ev.type === 'ADDED') {
-          // merge
-          if (!prev[args.queryDataKey]) return prev;
-          const merged = { ...prev[args.queryDataKey] } as GenericListFragment;
-
-          // update resourceVersion
-          merged.metadata = { ...merged.metadata };
-          merged.metadata.resourceVersion = ev.object.metadata.resourceVersion;
-
           // add and re-sort item if not already in list
-          if (!merged.items.some((item) => item.metadata.uid === ev.object.metadata.uid)) {
-            const items = Array.from(merged.items);
+          if (!newResult.items.some((item) => item.metadata.uid === ev.object.metadata.uid)) {
+            const items = Array.from(newResult.items);
             items.push(ev.object);
             items.sort((a, b) => {
               if (!a.metadata.name) return 1;
               if (!b.metadata.name) return -1;
               return a.metadata.name.localeCompare(b.metadata.name);
             });
-            merged.items = items;
+            newResult.items = items;
           }
 
-          return { [args.queryDataKey]: merged } as TQData;
+          return { [args.queryDataKey]: newResult } as TQData;
         }
 
-        return prev;
+        return prev
       },
       onError: (err) => {
         if (isWatchExpiredError(err)) refetch();
@@ -467,7 +457,6 @@ const palette = distinctColors({
 
 export function useColors(streams: string[]) {
   const [colorMap, setColorMap] = useState<Map<string, string>>(new Map());
-  console.log(colorMap);
   useEffect(() => {
     const promises: Promise<ArrayBuffer>[] = [];
 
