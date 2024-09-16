@@ -419,7 +419,6 @@ func (suite *ContainerLogsWatcherTestSuite) TestDelete() {
 			// init watcher
 			watcher, err := newContainerLogsWatcher(context.Background(), suite.containerLogsDir, tt.setNamespaces)
 			suite.Require().Nil(err)
-			//defer watcher.Close()
 
 			var wg sync.WaitGroup
 
@@ -439,7 +438,7 @@ func (suite *ContainerLogsWatcherTestSuite) TestDelete() {
 			suite.Require().Nil(err)
 
 			// wait for event to get processed
-			time.Sleep(50 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 
 			watcher.Close()
 
