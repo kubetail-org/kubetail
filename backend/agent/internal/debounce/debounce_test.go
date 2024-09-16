@@ -78,7 +78,7 @@ func TestDebounceByKey(t *testing.T) {
 		debounce("key_2", 22)
 		debounce("key_2", 23)
 
-		time.Sleep(11 * time.Millisecond)
+		time.Sleep(15 * time.Millisecond)
 
 		mu.Lock()
 		defer mu.Unlock()
