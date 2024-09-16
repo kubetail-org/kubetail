@@ -10,9 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.21.6'
+          go-version: '1.22.7'
+          cache: false
       - name: Run linter
         working-directory: ./backend
         run: |
@@ -22,9 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.21.6'
+          go-version: '1.22.7'
+          cache: false
       - name: Run tests
         working-directory: ./backend
         run: |
@@ -34,9 +36,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.21.6'
+          go-version: '1.22.7'
+          cache: false
       - name: Run code vetter
         working-directory: ./backend
         run: |
@@ -51,7 +54,7 @@ jobs:
           node-version: 20
       - uses: pnpm/action-setup@v3
         with:
-          version: 8
+          version: 9
       - name: Set up and run linter
         working-directory: ./frontend
         run: |
@@ -67,7 +70,7 @@ jobs:
           node-version: 20
       - uses: pnpm/action-setup@v3
         with:
-          version: 8
+          version: 9
       - name: Set up and run tests
         working-directory: ./frontend
         run: |
@@ -83,7 +86,7 @@ jobs:
           node-version: 20
       - uses: pnpm/action-setup@v3
         with:
-          version: 8
+          version: 9
       - name: Set up and run build script
         working-directory: ./frontend
         run: |
