@@ -422,15 +422,18 @@ func (suite *ContainerLogsWatcherTestSuite) TestDelete() {
 
 			var wg sync.WaitGroup
 
-			// check that file modification event gets handled
+			// check that file removal event gets picked up
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				n := 0
-				for range watcher.Events {
-					n += 1
+
+				// handle cases were os emits CHMOD events before REMOVE (e.g. ubuntu)
+				var lastEv fsnotify.Event
+				for ev := range watcher.Events {
+					lastEv = ev
 				}
-				suite.Equal(1, n)
+
+				suite.Equal(fsnotify.Remove, lastEv.Op&fsnotify.Remove)
 			}()
 
 			// delete file
@@ -438,7 +441,7 @@ func (suite *ContainerLogsWatcherTestSuite) TestDelete() {
 			suite.Require().Nil(err)
 
 			// wait for event to get processed
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(50 * time.Millisecond)
 
 			watcher.Close()
 
