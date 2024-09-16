@@ -93,7 +93,7 @@ jobs:
           pnpm install
           pnpm build
 
-  build-amd64:
+  build-amd64-server:
     needs:
       - backend-lint
       - backend-test
@@ -109,10 +109,31 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: build/package/Dockerfile.server
           push: false
-          tags: kubetail:latest
+          tags: kubetail-server:latest
 
-  build-arm64:
+  build-amd64-agent:
+    needs:
+      - backend-lint
+      - backend-test
+      - backend-vet
+      - frontend-lint
+      - frontend-test
+      - frontend-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: build/package/Dockerfile.agent
+          push: false
+          tags: kubetail-agent:latest
+
+  build-arm64-sever:
     needs:
       - backend-lint
       - backend-test
@@ -128,5 +149,26 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: build/package/Dockerfile.server
           push: false
-          tags: kubetail:latest
+          tags: kubetail-server:latest
+
+  build-arm64-agent:
+    needs:
+      - backend-lint
+      - backend-test
+      - backend-vet
+      - frontend-lint
+      - frontend-test
+      - frontend-build
+    runs-on: arm64-ubuntu-22
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: build/package/Dockerfile.agent
+          push: false
+          tags: kubetail-agent:latest

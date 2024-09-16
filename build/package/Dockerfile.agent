@@ -12,20 +12,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.22.5 AS builder
+FROM golang:1.22.7 AS builder
 
-WORKDIR /agent
+WORKDIR /backend
 
 # install dependencies (for cache)
-COPY backend/agent/go.mod .
-#COPY backend/agent/go.sum .
+COPY backend/go.work .
+COPY backend/go.work.sum .
+COPY backend/common/go.mod ./common/go.mod
+COPY backend/common/go.sum ./common/go.sum
+COPY backend/agent/go.mod ./agent/go.mod
+COPY backend/agent/go.sum ./agent/go.sum
+COPY backend/server/go.mod ./server/go.mod
+COPY backend/server/go.sum ./server/go.sum
 RUN go mod download
 
 # copy code
-COPY backend/agent .
+COPY backend/common ./common
+COPY backend/agent ./agent
 
 # build agent
-RUN CGO_ENABLED=0 go build -o agent main.go
+RUN CGO_ENABLED=0 go build -o bin/agent ./agent/cmd/main.go
+
+ENTRYPOINT ["./bin/agent"]
+CMD []
+
+# -----------------------------------------------------------
+
+FROM scratch AS final
+
+WORKDIR /agent
+
+# copy agent
+COPY --from=builder /backend/bin/agent /agent/agent
 
 ENTRYPOINT ["./agent"]
 CMD []

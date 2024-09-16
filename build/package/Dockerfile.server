@@ -12,20 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.22.5 AS server-builder
+FROM golang:1.22.7 AS server-builder
 
-WORKDIR /server
+WORKDIR /backend
 
 # install dependencies (for cache)
-COPY backend/server/go.mod .
-COPY backend/server/go.sum .
+COPY backend/go.work .
+COPY backend/go.work.sum .
+COPY backend/common/go.mod ./common/go.mod
+COPY backend/common/go.sum ./common/go.sum
+COPY backend/agent/go.mod ./agent/go.mod
+COPY backend/agent/go.sum ./agent/go.sum
+COPY backend/server/go.mod ./server/go.mod
+COPY backend/server/go.sum ./server/go.sum
 RUN go mod download
 
 # copy code
-COPY backend/server .
+COPY backend/common ./common
+COPY backend/server ./server
 
 # build server
-RUN CGO_ENABLED=0 go build -o server ./cmd
+RUN CGO_ENABLED=0 go build -o bin/server ./server/cmd/main.go
 
 ENTRYPOINT ["./server"]
 CMD []
@@ -38,7 +45,7 @@ WORKDIR /frontend
 
 # enable pnpm
 RUN corepack enable
-RUN corepack prepare pnpm@9.5.0 --activate
+RUN corepack prepare pnpm@9.10.0 --activate
 
 # set up git+ssh for private package download from github
 RUN apk add git openssh-client
@@ -62,17 +69,17 @@ CMD []
 
 FROM alpine:3.20.0 AS debug
 
-WORKDIR /app
+WORKDIR /server
 
 # copy certs for tls verification
 COPY --from=server-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # copy server
-COPY --from=server-builder /server/server /app/server
-COPY --from=server-builder /server/templates /app/templates
+COPY --from=server-builder /backend/bin/server /server/server
+COPY --from=server-builder /backend/server/templates /server/templates
 
 # copy frontend
-COPY --from=frontend-builder /frontend/dist /app/website
+COPY --from=frontend-builder /frontend/dist /server/website
 
 ENTRYPOINT ["./server"]
 CMD []
@@ -81,17 +88,17 @@ CMD []
 
 FROM scratch AS final
 
-WORKDIR /app
+WORKDIR /server
 
 # copy certs for tls verification
 COPY --from=server-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # copy server
-COPY --from=server-builder /server/server /app/server
-COPY --from=server-builder /server/templates /app/templates
+COPY --from=server-builder /backend/bin/server /server/server
+COPY --from=server-builder /backend/server/templates /server/templates
 
 # copy frontend
-COPY --from=frontend-builder /frontend/dist /app/website
+COPY --from=frontend-builder /frontend/dist /server/website
 
 ENTRYPOINT ["./server"]
 CMD []
