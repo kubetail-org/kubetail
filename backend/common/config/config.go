@@ -1,3 +1,17 @@
+// Copyright 2024 Andres Morey
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package config
 
 import (
@@ -10,6 +24,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -313,32 +328,37 @@ type LoggerOptions struct {
 	Format  string
 }
 
+var configureLoggerOnce sync.Once
+
 func ConfigureLogger(opts LoggerOptions) {
-	if !opts.Enabled {
-		zlog.Logger = zerolog.Nop()
-		log.SetOutput(io.Discard)
-		return
-	}
+	// ensure this will only be called once
+	configureLoggerOnce.Do(func() {
+		if !opts.Enabled {
+			zlog.Logger = zerolog.Nop()
+			log.SetOutput(io.Discard)
+			return
+		}
 
-	// global settings
-	zerolog.TimestampFunc = func() time.Time {
-		return time.Now().UTC()
-	}
-	zerolog.TimeFieldFormat = time.RFC3339Nano
-	zerolog.DurationFieldUnit = time.Millisecond
+		// global settings
+		zerolog.TimestampFunc = func() time.Time {
+			return time.Now().UTC()
+		}
+		zerolog.TimeFieldFormat = time.RFC3339Nano
+		zerolog.DurationFieldUnit = time.Millisecond
 
-	// set log level
-	level, err := zerolog.ParseLevel(opts.Level)
-	if err != nil {
-		panic(err)
-	}
-	zerolog.SetGlobalLevel(level)
+		// set log level
+		level, err := zerolog.ParseLevel(opts.Level)
+		if err != nil {
+			panic(err)
+		}
+		zerolog.SetGlobalLevel(level)
 
-	// configure output format
-	if opts.Format == "pretty" {
-		zlog.Logger = zlog.Logger.Output(zerolog.ConsoleWriter{
-			Out:        os.Stdout,
-			TimeFormat: time.RFC3339Nano,
-		})
-	}
+		// configure output format
+		if opts.Format == "pretty" {
+			zlog.Logger = zlog.Logger.Output(zerolog.ConsoleWriter{
+				Out:        os.Stdout,
+				TimeFormat: time.RFC3339Nano,
+			})
+		}
+	})
 }
