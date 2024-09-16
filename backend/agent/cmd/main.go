@@ -27,6 +27,8 @@ import (
 	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/kubetail-org/kubetail/backend/agent/internal/server"
 	"github.com/kubetail-org/kubetail/backend/agent/internal/services/logmetadata"
@@ -89,18 +91,29 @@ func main() {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
 
-			// init service
-			svc, err := logmetadata.NewLogMetadataService(k8sCfg, os.Getenv("NODE_NAME"), cfg.Agent.ContainerLogsDir)
-			if err != nil {
-				zlog.Fatal().Caller().Err(err).Send()
-			}
-
 			// init grpc server
 			grpcServer, err := server.NewServer(cfg)
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
+
+			// init logmetadata service
+			svc, err := logmetadata.NewLogMetadataService(k8sCfg, os.Getenv("NODE_NAME"), cfg.Agent.ContainerLogsDir)
+			if err != nil {
+				zlog.Fatal().Caller().Err(err).Send()
+			}
+
+			// register logmetadata service
 			agentpb.RegisterLogMetadataServiceServer(grpcServer, svc)
+
+			// create health server
+			healthServer := health.NewServer()
+
+			// register health server
+			grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
+
+			// set overall health status
+			healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 
 			// init listener
 			lis, err := net.Listen("tcp", cfg.Agent.Addr)

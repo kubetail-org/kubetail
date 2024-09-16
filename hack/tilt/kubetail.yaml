@@ -39,7 +39,7 @@ data:
         format: pretty
         access-log:
           enabled: true
-          hide-health-checks: false
+          hide-health-checks: true
       tls:
         enabled: false
         cert-file:
@@ -50,6 +50,10 @@ data:
         enabled: true
         level: debug
         format: pretty
+      tls:
+        enabled: false
+        cert-file:
+        key-file:
 ---
 kind: ServiceAccount
 apiVersion: v1
@@ -155,6 +159,24 @@ spec:
         - name: config
           mountPath: /etc/kubetail
           readOnly: true
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /healthz
+            port: http
+          initialDelaySeconds: 10
+          timeoutSeconds: 30
+          periodSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /healthz
+            port: http
+          initialDelaySeconds: 10
+          timeoutSeconds: 30
+          periodSeconds: 5
+          failureThreshold: 3
         resources: {}
       volumes:
       - name: config
@@ -238,6 +260,20 @@ spec:
           readOnly: true
         - name: varlog
           mountPath: /var/log
+        readinessProbe:
+          grpc:
+            port: 50051
+          initialDelaySeconds: 10
+          timeoutSeconds: 30
+          periodSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          grpc:
+            port: 50051
+          initialDelaySeconds: 10
+          timeoutSeconds: 30
+          periodSeconds: 5
+          failureThreshold: 3
         resources: {}
       volumes:
       - name: config
