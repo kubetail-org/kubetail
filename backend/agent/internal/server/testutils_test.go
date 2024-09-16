@@ -82,7 +82,7 @@ func NewTestServer(cfg *config.Config) *TestServer {
 	svc := &TestService{}
 
 	// init server
-	server := NewServer(cfg)
+	server, _ := NewServer(cfg)
 	testpb.RegisterTestServiceServer(server, svc)
 
 	// init listener

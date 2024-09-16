@@ -23,8 +23,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/kubetail-org/kubetail/backend/agent/internal/grpchelpers"
 	"github.com/kubetail-org/kubetail/backend/common/config"
+	"github.com/kubetail-org/kubetail/backend/common/grpchelpers"
 	"github.com/kubetail-org/kubetail/backend/common/testpb"
 )
 

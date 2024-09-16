@@ -26,6 +26,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/kubetail-org/kubetail/backend/common/config"
+	"github.com/kubetail-org/kubetail/backend/common/grpchelpers"
 	"github.com/kubetail-org/kubetail/backend/server/graph"
 )
 
@@ -58,8 +59,12 @@ func authenticationMiddleware(mode config.AuthMode) gin.HandlerFunc {
 			// add to gin context
 			c.Set(k8sTokenCtxKey, token)
 
-			// add to request context (for graphql)
+			// add token for graphql requests
 			ctx := context.WithValue(c.Request.Context(), graph.K8STokenCtxKey, token)
+
+			// add token for grpc requests
+			ctx = context.WithValue(ctx, grpchelpers.K8STokenCtxKey, token)
+
 			c.Request = c.Request.WithContext(ctx)
 		}
 

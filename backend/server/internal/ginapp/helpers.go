@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/kubetail-org/kubetail/backend/common/config"
+	"github.com/kubetail-org/kubetail/backend/common/grpchelpers"
 	"github.com/kubetail-org/kubetail/backend/server/internal/k8shelpers"
 )
 
@@ -62,7 +63,9 @@ func mustLoadTemplatesWithFuncs(glob string) *template.Template {
 }
 
 func mustNewGrpcDispatcher(cfg *config.Config) *grpcdispatcher.Dispatcher {
-	dialOpts := []grpc.DialOption{}
+	dialOpts := []grpc.DialOption{
+		grpc.WithUnaryInterceptor(grpchelpers.NewUnaryAuthClientInterceptor(cfg)),
+	}
 
 	// configure tls
 	if cfg.Agent.TLS.Enabled {

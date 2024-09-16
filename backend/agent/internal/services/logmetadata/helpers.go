@@ -105,7 +105,7 @@ func newLogMetadataSpec(nodeName string, pathname string) (*agentpb.LogMetadataS
 	return spec, nil
 }
 
-var unhandledOpErr = errors.New("unhandled event op")
+var errUnhandledOp = errors.New("unhandled event op")
 
 // generate new LogMetadataWatchEvent from an fsnotify event
 func newLogMetadataWatchEvent(event fsnotify.Event, nodeName string) (*agentpb.LogMetadataWatchEvent, error) {
@@ -143,7 +143,7 @@ func newLogMetadataWatchEvent(event fsnotify.Event, nodeName string) (*agentpb.L
 		watchEv.Type = "DELETED"
 		watchEv.Object.FileInfo = &agentpb.LogMetadataFileInfo{}
 	default:
-		return nil, unhandledOpErr
+		return nil, errUnhandledOp
 	}
 
 	return watchEv, nil

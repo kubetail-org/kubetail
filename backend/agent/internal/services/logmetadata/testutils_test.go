@@ -27,10 +27,10 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
-	"github.com/kubetail-org/kubetail/backend/agent/internal/grpchelpers"
 	"github.com/kubetail-org/kubetail/backend/agent/internal/server"
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
 	"github.com/kubetail-org/kubetail/backend/common/config"
+	"github.com/kubetail-org/kubetail/backend/common/grpchelpers"
 )
 
 // Test client
@@ -111,7 +111,7 @@ func NewTestServer(cfg *config.Config) (*TestServer, error) {
 	svc.testClientset = fake.NewSimpleClientset()
 
 	// init server
-	grpcServer := server.NewServer(cfg)
+	grpcServer, _ := server.NewServer(cfg)
 	agentpb.RegisterLogMetadataServiceServer(grpcServer, svc)
 
 	// init listener

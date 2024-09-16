@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/name: kubetail
 data:
   config.yaml: |
-    auth-mode: cluster
+    auth-mode: token
     allowed-namespaces: []
     server:
       addr: :4000
@@ -53,7 +53,6 @@ data:
 ---
 kind: ServiceAccount
 apiVersion: v1
-automountServiceAccountToken: true
 metadata:
   name: kubetail-server
   namespace: default
@@ -142,7 +141,6 @@ spec:
         app.kubernetes.io/name: kubetail
         app.kubernetes.io/component: server
     spec:
-      automountServiceAccountToken: true
       serviceAccountName: kubetail-server
       containers:
       - name: kubetail-server
@@ -165,7 +163,6 @@ spec:
 ---
 kind: ServiceAccount
 apiVersion: v1
-automountServiceAccountToken: true
 metadata:
   name: kubetail-agent
   namespace: default
@@ -277,3 +274,55 @@ spec:
         matchLabels:
           app.kubernetes.io/name: kubetail
           app.kubernetes.io/component: server
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: kubetail-testuser
+  namespace: default
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-testuser
+rules:
+- apiGroups: ["", apps, batch]
+  resources: [cronjobs, daemonsets, deployments, jobs, namespaces, nodes, pods, pods/log, replicasets, statefulsets]
+  verbs: [get, list, watch]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-testuser
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubetail-testuser
+subjects:
+- kind: ServiceAccount
+  name: kubetail-testuser
+  namespace: default
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-testuser
+  namespace: default
+rules:
+- apiGroups: [discovery.k8s.io]
+  resources: [endpointslices]
+  verbs: [list, watch]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-testuser
+  namespace: default
+roleRef:
+  kind: Role
+  name: kubetail-testuser
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: kubetail-testuser
+    namespace: default

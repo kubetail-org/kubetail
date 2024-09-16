@@ -97,12 +97,12 @@ func TestDebounceByKey(t *testing.T) {
 		debounce("key_1", 11)
 		debounce("key_2", 21)
 
-		time.Sleep(11 * time.Millisecond)
+		time.Sleep(15 * time.Millisecond)
 
 		debounce("key_1", 12)
 		debounce("key_2", 22)
 
-		time.Sleep(11 * time.Millisecond)
+		time.Sleep(15 * time.Millisecond)
 
 		debounce("key_1", 13)
 		debounce("key_2", 23)

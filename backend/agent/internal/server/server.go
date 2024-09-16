@@ -18,8 +18,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"github.com/kubetail-org/kubetail/backend/agent/internal/grpchelpers"
 	"github.com/kubetail-org/kubetail/backend/common/config"
+	"github.com/kubetail-org/kubetail/backend/common/grpchelpers"
 )
 
 func NewServer(cfg *config.Config) (*grpc.Server, error) {

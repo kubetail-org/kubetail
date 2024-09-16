@@ -30,9 +30,9 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/kubetail-org/kubetail/backend/agent/internal/debounce"
-	"github.com/kubetail-org/kubetail/backend/agent/internal/grpchelpers"
 	"github.com/kubetail-org/kubetail/backend/agent/internal/helpers"
 	"github.com/kubetail-org/kubetail/backend/common/agentpb"
+	"github.com/kubetail-org/kubetail/backend/common/grpchelpers"
 )
 
 // event bus for test events
@@ -143,7 +143,7 @@ func (s *LogMetadataService) Watch(req *agentpb.LogMetadataWatchRequest, stream 
 		// init watch event
 		outEv, err := newLogMetadataWatchEvent(ev, s.nodeName)
 		if err != nil {
-			if err == unhandledOpErr {
+			if err == errUnhandledOp {
 				return
 			}
 			zlog.Error().Err(err).Send()
