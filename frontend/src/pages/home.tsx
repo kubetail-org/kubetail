@@ -46,8 +46,7 @@ const Context = createContext<ContextType>({
   logMetadataMap: new Map(),
 });
 
-function getContainerIDs(parentID: string, ownershipMap: Map<string, string[]>, containerIDs?: string[]): string[] {
-  if (!containerIDs) containerIDs = new Array<string>();
+function getContainerIDs(parentID: string, ownershipMap: Map<string, string[]>, containerIDs: string[] = []): string[] {
   ownershipMap.get(parentID)?.forEach((childID) => {
     if (ownershipMap.has(childID)) getContainerIDs(childID, ownershipMap, containerIDs);
     else containerIDs.push(childID);
@@ -136,13 +135,13 @@ function useLogFileInfo(uids: string[], ownershipMap: Map<string, string[]>) {
       const val = logMetadataMap.get(containerID);
 
       if (val?.size) {
-        fileInfo.size += parseInt(val.size);
+        fileInfo.size += parseInt(val.size, 10);
       }
 
       if (val?.lastModifiedAt) {
         fileInfo.lastModifiedAt = new Date(Math.max(val.lastModifiedAt.getTime(), fileInfo.lastModifiedAt.getTime()));
       }
-    })
+    });
 
     // update map
     if (fileInfo.lastModifiedAt.getTime() > 0) logFileInfo.set(uid, fileInfo);
@@ -182,7 +181,7 @@ const lastModifiedAtFormatter: Formatter = (value: number, unit: Unit, suffix: S
   if (suffix === 'from now' || unit === 'second') return 'just now';
   if (nextFormatter) return nextFormatter(value, unit, suffix, epochMilliseconds);
   return '';
-}
+};
 
 type DisplayItemsProps = {
   workload: Workload;
@@ -202,7 +201,7 @@ type DisplayItemsProps = {
 };
 
 const DisplayItems = ({
-  workload, namespace, fetching, items, ownershipMap
+  workload, namespace, fetching, items, ownershipMap,
 }: DisplayItemsProps) => {
   // filter items
   const filteredItems = items?.filter((item) => {
@@ -234,16 +233,18 @@ const DisplayItems = ({
         case 'created':
           cmp = a.metadata.creationTimestamp - b.metadata.creationTimestamp;
           break;
-        case 'size':
+        case 'size': {
           const sizeA = logFileInfo.get(a.metadata.uid)?.size || 0;
           const sizeB = logFileInfo.get(b.metadata.uid)?.size || 0;
           cmp = sizeA - sizeB;
           break;
-        case 'lastEvent':
+        }
+        case 'lastEvent': {
           const tsA = logFileInfo.get(a.metadata.uid)?.lastModifiedAt || new Date(0);
           const tsB = logFileInfo.get(b.metadata.uid)?.lastModifiedAt || new Date(0);
           cmp = tsA.getTime() - tsB.getTime();
           break;
+        }
         default:
           throw new Error('sort field not implemented');
       }
@@ -405,7 +406,7 @@ const DisplayItems = ({
                       <span>--</span>
                     ) : (
                       <TimeAgo
-                        key={Math.random()} 
+                        key={Math.random()}
                         date={fileInfo.lastModifiedAt}
                         formatter={lastModifiedAtFormatter}
                         minPeriod={60}
@@ -465,22 +466,22 @@ const LoadingModal = () => (
 );
 
 const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
-  const cronjobs = useCronJobs(),
-    daemonsets = useDaemonSets(),
-    deployments = useDeployments(),
-    jobs = useJobs(),
-    pods = usePods(),
-    replicasets = useReplicaSets(),
-    statefulsets = useStatefulSets();
+  const cronjobs = useCronJobs();
+  const daemonsets = useDaemonSets();
+  const deployments = useDeployments();
+  const jobs = useJobs();
+  const pods = usePods();
+  const replicasets = useReplicaSets();
+  const statefulsets = useStatefulSets();
 
   const logMetadata = useLogMetadata({
     onUpdate: (containerID) => {
       document.querySelectorAll(`.last_event_${containerID}`).forEach((el) => {
         const k = 'animate-flash-bg-green';
-        el.classList.remove(k)
+        el.classList.remove(k);
         el.classList.add(k);
         setTimeout(() => el.classList.remove(k), 1000);
-      })
+      });
     },
   });
 
@@ -505,10 +506,10 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
 
     // add container ids
     pods.data?.coreV1PodsList?.items.forEach((pod) => {
-      const containerIDs = pod.status.containerStatuses.map((status) => {
-        // strip out prefix (e.g. "containerd://")
-        return status.containerID.replace(/^[^:]+:\/\/(.*)/, '$1');
-      });
+      // strip out prefix (e.g. "containerd://")
+      const containerIDs = pod.status.containerStatuses.map((status) => (
+        status.containerID.replace(/^[^:]+:\/\/(.*)/, '$1')
+      ));
       m.set(pod.metadata.uid, containerIDs);
     });
 

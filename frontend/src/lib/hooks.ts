@@ -243,43 +243,44 @@ export function useListQueryWithSubscription<
           metadata: { ...oldResult.metadata, resourceVersion: ev.object.metadata.resourceVersion },
         };
 
-        if (ev.type === 'MODIFIED') {
-          return { [args.queryDataKey]: newResult } as TQData;
-        } else if (ev.type === 'DELETED') {
-          // handle forced deletions that don't set `deletionTimestamp`
-          if (ev.object.metadata.deletionTimestamp === null) {
-            client.cache.modify({
-              id: client.cache.identify(ev.object),
-              fields: {
-                metadata: (currMetadata) => ({
-                  ...currMetadata,
-                  deletionTimestamp: new Date().toISOString(),
-                }),
-              },
-            });
-          }
+        switch (ev.type) {
+          case 'ADDED':
+            // add and re-sort item if not already in list
+            if (!newResult.items.some((item) => item.metadata.uid === ev.object.metadata.uid)) {
+              const items = Array.from(newResult.items);
+              items.push(ev.object);
+              items.sort((a, b) => {
+                if (!a.metadata.name) return 1;
+                if (!b.metadata.name) return -1;
+                return a.metadata.name.localeCompare(b.metadata.name);
+              });
+              newResult.items = items;
+            }
+            break;
+          case 'MODIFIED':
+            break;
+          case 'DELETED':
+            // handle forced deletions that don't set `deletionTimestamp`
+            if (ev.object.metadata.deletionTimestamp === null) {
+              client.cache.modify({
+                id: client.cache.identify(ev.object),
+                fields: {
+                  metadata: (currMetadata) => ({
+                    ...currMetadata,
+                    deletionTimestamp: new Date().toISOString(),
+                  }),
+                },
+              });
+            }
 
-          // remove deleted item
-          newResult.items = oldResult.items.filter((item) => item.metadata.uid !== ev.object.metadata.uid);
-
-          return { [args.queryDataKey]: newResult } as TQData;
-        } else if (ev.type === 'ADDED') {
-          // add and re-sort item if not already in list
-          if (!newResult.items.some((item) => item.metadata.uid === ev.object.metadata.uid)) {
-            const items = Array.from(newResult.items);
-            items.push(ev.object);
-            items.sort((a, b) => {
-              if (!a.metadata.name) return 1;
-              if (!b.metadata.name) return -1;
-              return a.metadata.name.localeCompare(b.metadata.name);
-            });
-            newResult.items = items;
-          }
-
-          return { [args.queryDataKey]: newResult } as TQData;
+            // remove deleted item
+            newResult.items = oldResult.items.filter((item) => item.metadata.uid !== ev.object.metadata.uid);
+            break;
+          default:
+            return prev;
         }
 
-        return prev
+        return { [args.queryDataKey]: newResult } as TQData;
       },
       onError: (err) => {
         if (isWatchExpiredError(err)) refetch();
@@ -381,7 +382,7 @@ export function useCounterQueryWithSubscription<
 
 type LogMetadataHookOptions = {
   onUpdate?: (containerID: string) => void;
-}
+};
 
 export function useLogMetadata(options?: LogMetadataHookOptions) {
   const retryOnError = useRetryOnError();
@@ -411,7 +412,7 @@ export function useLogMetadata(options?: LogMetadataHookOptions) {
 
         // execute callback
         if (ev.type === 'MODIFIED' || ev.type === 'ADDED') {
-          onUpdate && onUpdate(ev.object.spec.containerID);
+          if (onUpdate) onUpdate(ev.object.spec.containerID);
         }
 
         // let apollo handle update
