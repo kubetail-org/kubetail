@@ -50,6 +50,9 @@ func TestDebounceByKey(t *testing.T) {
 
 		time.Sleep(3 * time.Millisecond)
 
+		mu.Lock()
+		defer mu.Unlock()
+
 		sort.Ints(args)
 		require.Equal(t, []int{11, 21}, args)
 	})
@@ -76,6 +79,9 @@ func TestDebounceByKey(t *testing.T) {
 		debounce("key_2", 23)
 
 		time.Sleep(11 * time.Millisecond)
+
+		mu.Lock()
+		defer mu.Unlock()
 
 		sort.Ints(args)
 		require.Equal(t, []int{11, 13, 21, 23}, args)
@@ -106,6 +112,9 @@ func TestDebounceByKey(t *testing.T) {
 
 		debounce("key_1", 13)
 		debounce("key_2", 23)
+
+		mu.Lock()
+		defer mu.Unlock()
 
 		sort.Ints(args)
 		require.Equal(t, []int{11, 12, 13, 21, 22, 23}, args)

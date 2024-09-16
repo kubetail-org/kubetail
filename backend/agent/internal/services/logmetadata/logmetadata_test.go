@@ -233,8 +233,8 @@ func (suite *LogMetadataTestSuite) TestWatch_HandleShutdown() {
 	suite.Require().Error(io.EOF, err)
 
 	// reset service
-	// TODO: move this to suite setup/teardown
-	suite.testServer.svc.shutdownCh = make(chan struct{})
+	suite.TearDownSuite()
+	suite.SetupSuite()
 }
 
 func (suite *LogMetadataTestSuite) TestWatch_Added() {

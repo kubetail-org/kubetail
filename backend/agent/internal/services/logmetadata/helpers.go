@@ -289,11 +289,14 @@ func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, names
 				}
 
 				// write to output channel
+				clw.mu.Lock()
 				select {
 				case clw.Events <- inEv:
 				case <-ctx.Done(): // Handle case where context is canceled before sending
+					clw.mu.Unlock()
 					return
 				}
+				clw.mu.Unlock()
 			}
 		}
 	}()
