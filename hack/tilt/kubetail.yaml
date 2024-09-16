@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/name: kubetail
 data:
   config.yaml: |
-    auth-mode: token
+    auth-mode: cluster
     allowed-namespaces: []
     server:
       addr: :4000
