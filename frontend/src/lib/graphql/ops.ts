@@ -1090,6 +1090,31 @@ export const FOLLOW_CONTAINER_LOG = gql(`
 `);
 
 /**
+ * LogMetadata
+ */
+
+export const LOGMETADATA_LIST_FETCH = gql(`
+  query LogMetadataListFetch($namespace: String = "") {
+    logMetadataList(namespace: $namespace) {
+      items {
+        ...LogMetadataListItemFragment
+      }
+    }
+  }
+`);
+
+export const LOGMETADATA_LIST_WATCH = gql(`
+  subscription LogMetadataListWatch($namespace: String = "") {
+    logMetadataWatch(namespace: $namespace) {
+      type
+      object {
+        ...LogMetadataListItemFragment
+      }
+    }
+  }
+`);
+
+/**
  * Health checks
  */
 

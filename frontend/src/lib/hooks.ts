@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useQuery } from '@apollo/client';
+import { useApolloClient, useQuery } from '@apollo/client';
 import type { TypedDocumentNode, OperationVariables } from '@apollo/client';
 import distinctColors from 'distinct-colors';
 import { useEffect, useRef, useState } from 'react';
+
+import * as ops from '@/lib/graphql/ops';
 
 type GenericListFragment = {
   metadata: {
@@ -26,6 +28,8 @@ type GenericListFragment = {
     metadata: {
       name: string;
       uid: string;
+      resourceVersion: string;
+      deletionTimestamp: null | string;
     };
   }[];
 };
@@ -140,9 +144,7 @@ export function useGetQueryWithSubscription<
   const retryOnError = useRetryOnError();
 
   // get workload object
-  const {
-    loading, error, data, subscribeToMore, refetch,
-  } = useQuery(args.query, {
+  const { loading, error, data, subscribeToMore, refetch } = useQuery(args.query, {
     skip: args.skip,
     variables: args.variables,
     onError: () => {
@@ -189,12 +191,11 @@ export function useListQueryWithSubscription<
   TSData = any,
   TSVariables extends OperationVariables = OperationVariables,
 >(args: ListQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
+  const client = useApolloClient();
   const retryOnError = useRetryOnError();
 
   // initial query
-  const {
-    loading, error, data, fetchMore, subscribeToMore, refetch,
-  } = useQuery(args.query, {
+  const { loading, error, data, fetchMore, subscribeToMore, refetch } = useQuery(args.query, {
     skip: args.skip,
     variables: args.variables,
     onError: () => {
@@ -232,31 +233,54 @@ export function useListQueryWithSubscription<
         const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
 
         if (!ev?.type || !ev?.object) return prev;
-
-        // only handle additions
-        if (ev.type !== 'ADDED') return prev;
-
-        // merge
         if (!prev[args.queryDataKey]) return prev;
-        const merged = { ...prev[args.queryDataKey] } as GenericListFragment;
 
-        // update resourceVersion
-        merged.metadata = { ...merged.metadata };
-        merged.metadata.resourceVersion = ev.object.metadata.resourceVersion;
+        const oldResult = prev[args.queryDataKey] as GenericListFragment;
 
-        // add and re-sort item if not already in list
-        if (!merged.items.some((item) => item.metadata.uid === ev.object.metadata.uid)) {
-          const items = Array.from(merged.items);
-          items.push(ev.object);
-          items.sort((a, b) => {
-            if (!a.metadata.name) return 1;
-            if (!b.metadata.name) return -1;
-            return a.metadata.name.localeCompare(b.metadata.name);
-          });
-          merged.items = items;
+        // initialize new result and update resourceVersion
+        const newResult = {
+          ...oldResult,
+          metadata: { ...oldResult.metadata, resourceVersion: ev.object.metadata.resourceVersion },
+        };
+
+        switch (ev.type) {
+          case 'ADDED':
+            // add and re-sort item if not already in list
+            if (!newResult.items.some((item) => item.metadata.uid === ev.object.metadata.uid)) {
+              const items = Array.from(newResult.items);
+              items.push(ev.object);
+              items.sort((a, b) => {
+                if (!a.metadata.name) return 1;
+                if (!b.metadata.name) return -1;
+                return a.metadata.name.localeCompare(b.metadata.name);
+              });
+              newResult.items = items;
+            }
+            break;
+          case 'MODIFIED':
+            break;
+          case 'DELETED':
+            // handle forced deletions that don't set `deletionTimestamp`
+            if (ev.object.metadata.deletionTimestamp === null) {
+              client.cache.modify({
+                id: client.cache.identify(ev.object),
+                fields: {
+                  metadata: (currMetadata) => ({
+                    ...currMetadata,
+                    deletionTimestamp: new Date().toISOString(),
+                  }),
+                },
+              });
+            }
+
+            // remove deleted item
+            newResult.items = oldResult.items.filter((item) => item.metadata.uid !== ev.object.metadata.uid);
+            break;
+          default:
+            return prev;
         }
 
-        return { [args.queryDataKey]: merged } as TQData;
+        return { [args.queryDataKey]: newResult } as TQData;
       },
       onError: (err) => {
         if (isWatchExpiredError(err)) refetch();
@@ -293,9 +317,7 @@ export function useCounterQueryWithSubscription<
   const retryOnError = useRetryOnError();
 
   // initial query
-  const {
-    loading, error, data, subscribeToMore, refetch,
-  } = useQuery(args.query, {
+  const { loading, error, data, subscribeToMore, refetch } = useQuery(args.query, {
     skip: args.skip,
     variables: args.variables,
     onError: () => {
@@ -355,6 +377,74 @@ export function useCounterQueryWithSubscription<
 }
 
 /**
+ * LogMetadata hook
+ */
+
+type LogMetadataHookOptions = {
+  onUpdate?: (containerID: string) => void;
+};
+
+export function useLogMetadata(options?: LogMetadataHookOptions) {
+  const retryOnError = useRetryOnError();
+
+  // initial query
+  const { loading, error, data, subscribeToMore, refetch } = useQuery(ops.LOGMETADATA_LIST_FETCH, {
+    onError: () => {
+      retryOnError(refetch);
+    },
+  });
+
+  const { onUpdate } = options || {};
+
+  // subscribe to changes
+  useEffect(() => {
+    // wait for all data to get fetched
+    if (loading || error) return;
+
+    return subscribeToMore({
+      document: ops.LOGMETADATA_LIST_WATCH,
+      updateQuery: (prev, { subscriptionData }) => {
+        const ev = subscriptionData.data.logMetadataWatch;
+
+        if (!ev?.type || !ev?.object) return prev;
+
+        if (!prev.logMetadataList) return prev;
+
+        // execute callback
+        if (ev.type === 'MODIFIED' || ev.type === 'ADDED') {
+          if (onUpdate) onUpdate(ev.object.spec.containerID);
+        }
+
+        // let apollo handle update
+        if (ev.type === 'MODIFIED') {
+          return prev;
+        }
+
+        const merged = { ...prev.logMetadataList };
+        let items = Array.from(merged.items);
+
+        // merge
+        switch (ev.type) {
+          case 'ADDED':
+            items.push(ev.object);
+            break;
+          case 'DELETED':
+            items = items.filter((item) => item.id !== ev.object?.id);
+            break;
+          default:
+            throw new Error('not implemented');
+        }
+
+        merged.items = items;
+        return { logMetadataList: merged };
+      },
+    });
+  }, [subscribeToMore, loading, error]);
+
+  return { loading, error, data };
+}
+
+/**
  * Color picker hook
  */
 
@@ -368,7 +458,6 @@ const palette = distinctColors({
 
 export function useColors(streams: string[]) {
   const [colorMap, setColorMap] = useState<Map<string, string>>(new Map());
-  console.log(colorMap);
   useEffect(() => {
     const promises: Promise<ArrayBuffer>[] = [];
 

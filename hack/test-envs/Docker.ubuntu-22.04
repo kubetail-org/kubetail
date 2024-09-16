@@ -1,0 +1,33 @@
+# Use the official Ubuntu 22.04 as the base image
+FROM ubuntu:22.04
+
+# Set the environment variables for non-interactive apt-get install
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install necessary dependencies
+RUN apt-get update && \
+    apt-get install -y curl build-essential git ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set Go version
+ENV GO_VERSION=1.22.7
+
+# Download and install Go
+RUN curl -OL https://go.dev/dl/go$GO_VERSION.linux-amd64.tar.gz && \
+    tar -C /usr/local -xzf go$GO_VERSION.linux-amd64.tar.gz && \
+    rm go$GO_VERSION.linux-amd64.tar.gz
+
+# Set up Go environment variables
+ENV PATH="/usr/local/go/bin:$PATH"
+ENV GOPATH="/go"
+ENV GOBIN="$GOPATH/bin"
+RUN mkdir -p "$GOPATH" "$GOBIN"
+
+# Verify Go installation
+RUN go version
+
+# Set the working directory
+WORKDIR /kubetail
+
+# Command to start the container
+CMD ["/bin/bash"]

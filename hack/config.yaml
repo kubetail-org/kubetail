@@ -1,14 +1,6 @@
 ## Kubetail Configuration
 #
 
-## addr ##
-#
-# Sets the target ip and port to bind the server to
-#
-# Default value: ":4000"
-#
-addr: :4000
-
 ## auth-mode ##
 #
 # Sets the authentication method for the app
@@ -30,257 +22,306 @@ auth-mode: token
 #
 allowed-namespaces: []
 
-## base-path ##
+## server ##
 #
-# Sets the url path prefix (useful for deploying on a sub-path behind a reverse proxy)
-# 
-# Default value: /
-#
-base-path: /
+server:
 
-## gin-mode ##
-#
-# Sets the mode for the Gin framework
-#
-# Default value: release
-#
-# One of:
-# - release
-# - debug
-#
-gin-mode: release
-
-## kube-config ##
-#
-# Sets the location of the kubectl config file (for use with `auth-mode: local`)
-#
-# Default value: ${HOME}/.kube/config
-#
-kube-config: ${HOME}/.kube/config
-
-## csrf ##
-#
-csrf:
-
-  ## enabled ##
+  ## addr ##
   #
-  # Default value: true
+  # Sets the target ip and port to bind the server to
   #
-  enabled: true
-
-  ## field-name ##
+  # Default value: ":4000"
   #
-  # Name to use for token in forms
+  addr: :4000
+  
+  ## base-path ##
   #
-  # Default value: csrf_token
+  # Sets the url path prefix (useful for deploying on a sub-path behind a reverse proxy)
+  # 
+  # Default value: /
   #
-  field-name: csrf_token
-
-  ## secret ##
+  base-path: /
+  
+  ## gin-mode ##
   #
-  # 32-byte long hash key
+  # Sets the mode for the Gin framework
   #
-  # Default value: __empty__
-  #
-  secret:
-
-  ## cookie ##
-  #
-  # Set csrf cookie options
-  #
-  cookie:
-
-    ## name ##
-    #
-    # Default value: csrf
-    #
-    name: csrf
-
-    ## path ##
-    #
-    # Default value: /
-    #
-    path: /
-
-    ## domain ##
-    #
-    # Default value: __empty__
-    #
-    domain: 
-
-    ## max-age ##
-    #
-    # Cookie max age (in seconds)
-    # 
-    # Default value: 43200
-    #
-    max-age: 43200
-
-    ## secure ##
-    #
-    # Default value: false
-    #
-    secure: false
-
-    ## http-only ##
-    #
-    # Default value: true
-    #
-    http-only: true
-
-    ## same-site ##
-    #
-    # Default value: strict
-    #
-    # One of:
-    # - strict
-    # - lax
-    # - none
-    #
-    same-site: strict
-
-## logging ##
-#
-logging:
-
-  ## enabled ##
-  #
-  # Default value: true
-  #
-  enabled: true
-
-  ## level ##
-  #
-  # Default value: info
+  # Default value: release
   #
   # One of:
+  # - release
   # - debug
-  # - info
-  # - warn
-  # - error
-  # - disabled
   #
-  level: info
-
-  ## format ##
+  gin-mode: release
+  
+  ## csrf ##
   #
-  # Default value: json
-  #
-  # One of:
-  # - json
-  # - pretty
-  #
-  format: json
-
-  ## access-log ##
-  #
-  access-log:  
-
+  csrf:
+  
     ## enabled ##
-    #
-    # Enables web access logs for app
     #
     # Default value: true
     #
     enabled: true
-
-    ## hide-health-checks ##
+  
+    ## field-name ##
     #
-    # Hides health checks from access log
+    # Name to use for token in forms
     #
-    # Default: false
+    # Default value: csrf_token
     #
-    hide-health-checks: false
-
-## session ##
-#
-session:
-
-  ## secret ##
-  #
-  # 32-byte long hash key
-  #
-  # Default value: __empty__
-  #
-  secret:
-
-  ## cookie ##
-  #
-  # Set session cookie options
-  #
-  cookie:
-
-    ## name ##
+    field-name: csrf_token
+  
+    ## secret ##
     #
-    # Default value: csrf
-    #
-    name: session
-
-    ## path ##
-    #
-    # Default value: /
-    #
-    path: /
-
-    ## domain ##
+    # 32-byte long hash key
     #
     # Default value: __empty__
     #
-    domain: 
-
-    ## max-age ##
+    secret:
+  
+    ## cookie ##
     #
-    # Cookie max age (in seconds)
-    # 
-    # Default value: 1092000
+    # Set csrf cookie options
     #
-    max-age: 1092000
-
-    ## secure ##
-    #
-    # Default value: false
-    #
-    secure: false
-
-    ## http-only ##
+    cookie:
+  
+      ## name ##
+      #
+      # Default value: csrf
+      #
+      name: csrf
+  
+      ## path ##
+      #
+      # Default value: /
+      #
+      path: /
+  
+      ## domain ##
+      #
+      # Default value: __empty__
+      #
+      domain: 
+  
+      ## max-age ##
+      #
+      # Cookie max age (in seconds)
+      # 
+      # Default value: 43200
+      #
+      max-age: 43200
+  
+      ## secure ##
+      #
+      # Default value: false
+      #
+      secure: false
+  
+      ## http-only ##
+      #
+      # Default value: true
+      #
+      http-only: true
+  
+      ## same-site ##
+      #
+      # Default value: strict
+      #
+      # One of:
+      # - strict
+      # - lax
+      # - none
+      #
+      same-site: strict
+  
+  ## logging ##
+  #
+  logging:
+  
+    ## enabled ##
     #
     # Default value: true
     #
-    http-only: true
-
-    ## same-site ##
+    enabled: true
+  
+    ## level ##
     #
-    # Default value: lax
+    # Default value: info
     #
     # One of:
-    # - strict
-    # - lax
-    # - none
+    # - debug
+    # - info
+    # - warn
+    # - error
+    # - disabled
     #
-    same-site: lax
+    level: info
+  
+    ## format ##
+    #
+    # Default value: json
+    #
+    # One of:
+    # - json
+    # - pretty
+    #
+    format: json
+  
+    ## access-log ##
+    #
+    access-log:  
+  
+      ## enabled ##
+      #
+      # Enables web access logs for app
+      #
+      # Default value: true
+      #
+      enabled: true
+  
+      ## hide-health-checks ##
+      #
+      # Hides health checks from access log
+      #
+      # Default: false
+      #
+      hide-health-checks: false
+  
+  ## session ##
+  #
+  session:
+  
+    ## secret ##
+    #
+    # 32-byte long hash key
+    #
+    # Default value: __empty__
+    #
+    secret:
+  
+    ## cookie ##
+    #
+    # Set session cookie options
+    #
+    cookie:
+  
+      ## name ##
+      #
+      # Default value: csrf
+      #
+      name: session
+  
+      ## path ##
+      #
+      # Default value: /
+      #
+      path: /
+  
+      ## domain ##
+      #
+      # Default value: __empty__
+      #
+      domain: 
+  
+      ## max-age ##
+      #
+      # Cookie max age (in seconds)
+      # 
+      # Default value: 1092000
+      #
+      max-age: 1092000
+  
+      ## secure ##
+      #
+      # Default value: false
+      #
+      secure: false
+  
+      ## http-only ##
+      #
+      # Default value: true
+      #
+      http-only: true
+  
+      ## same-site ##
+      #
+      # Default value: lax
+      #
+      # One of:
+      # - strict
+      # - lax
+      # - none
+      #
+      same-site: lax
+  
+  ## tls ##
+  #
+  tls:
+  
+    ## enabled ##
+    #
+    # Default value: false
+    #
+    enabled: false
+  
+    ## cert-file ##
+    #
+    # Path to tls certificate file
+    #
+    # Default value: __empty__
+    #
+    cert-file:
+  
+    ## key-file ##
+    #
+    # Path to tls key file
+    #
+    # Default value: __empty__
+    #
+    key-file:
 
-## tls ##
+## agent ##
 #
-tls:
+agent:
 
-  ## enabled ##
+  ## addr ##
   #
-  # Default value: false
+  # Sets the target ip and port to bind the server to
   #
-  enabled: false
+  # Default value: ":4000"
+  #
+  addr: :4000
 
-  ## cert-file ##
+  ## logging ##
   #
-  # Path to tls certificate file
-  #
-  # Default value: ""
-  #
-  cert-file: ""
-
-  ## key-file ##
-  #
-  # Path to tls key file
-  #
-  # Default value: ""
-  #
-  key-file: ""
+  logging:
+  
+    ## enabled ##
+    #
+    # Default value: true
+    #
+    enabled: true
+  
+    ## level ##
+    #
+    # Default value: info
+    #
+    # One of:
+    # - debug
+    # - info
+    # - warn
+    # - error
+    # - disabled
+    #
+    level: info
+  
+    ## format ##
+    #
+    # Default value: json
+    #
+    # One of:
+    # - json
+    # - pretty
+    #
+    format: json
