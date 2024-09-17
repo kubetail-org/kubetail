@@ -287,11 +287,11 @@ agent:
 
   ## addr ##
   #
-  # Sets the target ip and port to bind the server to
+  # Sets the target ip and port to bind the gRPC server to
   #
-  # Default value: ":4000"
+  # Default value: ":50051"
   #
-  addr: :4000
+  addr: :50051
 
   ## logging ##
   #
@@ -325,3 +325,29 @@ agent:
     # - pretty
     #
     format: json
+
+  ## tls ##
+  #
+  tls:
+  
+    ## enabled ##
+    #
+    # Default value: false
+    #
+    enabled: false
+  
+    ## cert-file ##
+    #
+    # Path to tls certificate file
+    #
+    # Default value: __empty__
+    #
+    cert-file:
+  
+    ## key-file ##
+    #
+    # Path to tls key file
+    #
+    # Default value: __empty__
+    #
+    key-file:
