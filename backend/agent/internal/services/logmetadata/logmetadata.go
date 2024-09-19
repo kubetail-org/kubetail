@@ -203,7 +203,7 @@ func (s *LogMetadataService) newK8SClientset(ctx context.Context) kubernetes.Int
 
 	clientset, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		panic(err)
+		zlog.Fatal().Err(err).Send()
 	}
 
 	return clientset

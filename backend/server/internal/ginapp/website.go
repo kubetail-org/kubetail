@@ -22,6 +22,7 @@ import (
 	"path"
 
 	"github.com/gin-gonic/gin"
+	zlog "github.com/rs/zerolog/log"
 
 	"github.com/kubetail-org/kubetail/backend/common/config"
 )
@@ -54,7 +55,7 @@ func (app *WebsiteHandlers) EndpointHandler(cfg *config.Config) gin.HandlerFunc 
 	decoder := json.NewDecoder(manifestFile)
 	err = decoder.Decode(&manifest)
 	if err != nil {
-		panic(err)
+		zlog.Fatal().Err(err).Send()
 	}
 
 	// define runtime config for react app
@@ -64,7 +65,7 @@ func (app *WebsiteHandlers) EndpointHandler(cfg *config.Config) gin.HandlerFunc 
 
 	runtimeConfigBytes, err := json.Marshal(runtimeConfig)
 	if err != nil {
-		panic(err)
+		zlog.Fatal().Err(err).Send()
 	}
 	runtimeConfigJS := template.JS(string(runtimeConfigBytes))
 

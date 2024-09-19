@@ -22,6 +22,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/gin-gonic/gin"
+	zlog "github.com/rs/zerolog/log"
 	"k8s.io/client-go/rest"
 
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
@@ -41,7 +42,7 @@ func (app *GraphQLHandlers) EndpointHandler(cfg *rest.Config, grpcDispatcher *gr
 	// init resolver
 	r, err := graph.NewResolver(cfg, grpcDispatcher, allowedNamespaces)
 	if err != nil {
-		panic(err)
+		zlog.Fatal().Err(err).Send()
 	}
 
 	csrfTestServer := http.NewServeMux()

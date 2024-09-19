@@ -20,6 +20,7 @@ import (
 	"os"
 	"regexp"
 
+	zlog "github.com/rs/zerolog/log"
 	authv1 "k8s.io/api/authentication/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,7 +46,7 @@ type Options struct {
 func MustConfigure(opts Options) *rest.Config {
 	cfg, err := configure(opts)
 	if err != nil {
-		panic(err)
+		zlog.Fatal().Err(err).Send()
 	}
 	return cfg
 }
@@ -64,7 +65,7 @@ func configure(opts Options) (*rest.Config, error) {
 		}
 		return configureLocal(opts.KubeConfig)
 	default:
-		panic(errors.New("not implemented"))
+		panic("not implemented")
 	}
 }
 
@@ -131,7 +132,7 @@ func (s *K8sHelperService) HasAccess(token string) (string, error) {
 
 		return getUsername(result.Status.User.Username), nil
 	default:
-		panic(errors.New("not implemented"))
+		panic("not implemented")
 	}
 }
 

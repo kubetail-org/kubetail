@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -29,6 +28,7 @@ import (
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
+	zlog "github.com/rs/zerolog/log"
 	"github.com/sosodev/duration"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -613,12 +613,12 @@ func newLogRecordFromLogLine(logLine string) model.LogRecord {
 
 	parts := strings.SplitN(logLine, " ", 2)
 	if len(parts) != 2 {
-		panic(errors.New("log line timestamp not found"))
+		panic("log line timestamp not found")
 	}
 
 	ts, err := time.Parse(time.RFC3339Nano, parts[0])
 	if err != nil {
-		panic(err)
+		zlog.Fatal().Err(err).Send()
 	}
 
 	return model.LogRecord{
@@ -645,7 +645,7 @@ func decodeTailCursor(input string) (*TailCursor, error) {
 	}
 	cursor := &TailCursor{}
 	if err = json.Unmarshal(decodedData, cursor); err != nil {
-		panic(err)
+		zlog.Fatal().Err(err).Send()
 	}
 	return cursor, nil
 }
