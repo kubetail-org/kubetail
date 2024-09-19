@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -9,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -21,7 +23,7 @@ import (
 type CLI struct {
 	Addr    string `validate:"omitempty,hostname_port"`
 	Config  string `validate:"omitempty,file"`
-	GinMode string `validate:"omitempty,oneof=debug release"`
+	GinMode string `validate:"omitempty,oneof=release debug"`
 }
 
 func main() {
@@ -60,6 +62,11 @@ func main() {
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
+
+			// set gin mode
+			fmt.Println(v.GetString("server.gin-mode"))
+			fmt.Println(cfg.Server.GinMode)
+			gin.SetMode(cfg.Server.GinMode)
 
 			// configure logger
 			config.ConfigureLogger(config.LoggerOptions{

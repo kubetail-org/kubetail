@@ -54,7 +54,7 @@ type Config struct {
 	Server struct {
 		Addr     string `validate:"omitempty,hostname_port"`
 		BasePath string `mapstructure:"base-path"`
-		GinMode  string `validate:"omitempty,oneof=debug release"`
+		GinMode  string `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
 
 		// session options
 		Session struct {

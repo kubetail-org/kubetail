@@ -11,8 +11,8 @@ data:
     allowed-namespaces: []
     server:
       addr: :4000
-      gin-mode: debug
       base-path: /
+      gin-mode: debug
       session:
         secret: REPLACEME
         cookie:
