@@ -73,11 +73,11 @@ k8s_resource(
   'kubetail-server',
   port_forwards='4000:4000',
   objects=[
-    'kubetail-server:serviceaccount',
     'kubetail-server:clusterrole',
     'kubetail-server:clusterrolebinding',
     'kubetail-server:role',
     'kubetail-server:rolebinding',
+    'kubetail-server:serviceaccount',
   ],
   resource_deps=['kubetail-shared'],
 )
