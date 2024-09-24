@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -64,8 +63,6 @@ func main() {
 			}
 
 			// set gin mode
-			fmt.Println(v.GetString("server.gin-mode"))
-			fmt.Println(cfg.Server.GinMode)
 			gin.SetMode(cfg.Server.GinMode)
 
 			// configure logger
