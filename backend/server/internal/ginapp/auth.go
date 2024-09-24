@@ -15,7 +15,6 @@
 package ginapp
 
 import (
-	"errors"
 	"net/http"
 	"time"
 
@@ -108,7 +107,7 @@ func (app *AuthHandlers) SessionGET(c *gin.Context) {
 			response["user"] = nil
 		}
 	default:
-		panic(errors.New("not implemented"))
+		panic("not implemented")
 	}
 
 	c.JSON(http.StatusOK, response)

@@ -11,8 +11,8 @@ data:
     allowed-namespaces: []
     server:
       addr: :4000
-      gin-mode: debug
       base-path: /
+      gin-mode: debug
       session:
         secret: REPLACEME
         cookie:
@@ -182,6 +182,22 @@ spec:
       - name: config
         configMap:
           name: kubetail
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: kubetail-server
+  namespace: default
+spec:
+  selector:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: server
+  ports:
+  - name: http
+    protocol: TCP
+    port: 4000
+    targetPort: http
+    appProtocol: http
 ---
 kind: ServiceAccount
 apiVersion: v1

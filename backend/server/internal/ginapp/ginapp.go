@@ -30,6 +30,7 @@ import (
 	"github.com/gorilla/csrf"
 	adapter "github.com/gwatts/gin-adapter"
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
+	zlog "github.com/rs/zerolog/log"
 	"k8s.io/client-go/rest"
 
 	"github.com/kubetail-org/kubetail/backend/common/config"
@@ -101,7 +102,7 @@ func NewGinApp(cfg *config.Config) (*GinApp, error) {
 		// set basepath to cwd
 		basepathTmp, err := os.Getwd()
 		if err != nil {
-			panic(err)
+			zlog.Fatal().Err(err).Send()
 		}
 		basepath = basepathTmp
 	}

@@ -58,7 +58,7 @@ func mustLoadTemplatesWithFuncs(glob string) *template.Template {
 	// parse templates from a specified directory or pattern
 	parsedTemplates, err := tmpl.ParseGlob(glob)
 	if err != nil {
-		panic(err)
+		zlog.Fatal().Err(err).Send()
 	}
 
 	return parsedTemplates

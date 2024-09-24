@@ -18,13 +18,15 @@ import (
 	"context"
 	"slices"
 
-	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
+	zlog "github.com/rs/zerolog/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	dynamicFake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
+
+	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 )
 
 // This file will not be regenerated automatically.
@@ -58,7 +60,7 @@ func (r *Resolver) K8SClientset(ctx context.Context) kubernetes.Interface {
 
 	clientset, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		panic(err)
+		zlog.Fatal().Err(err).Send()
 	}
 
 	return clientset
@@ -81,7 +83,7 @@ func (r *Resolver) K8SDynamicClient(ctx context.Context) dynamic.Interface {
 
 	dynamicClient, err := dynamic.NewForConfig(cfg)
 	if err != nil {
-		panic(err)
+		zlog.Fatal().Err(err).Send()
 	}
 
 	return dynamicClient

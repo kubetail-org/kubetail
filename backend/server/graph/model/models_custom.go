@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/99designs/gqlgen/graphql"
+	zlog "github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -51,7 +52,7 @@ func MarshalStringMap(val map[string]string) graphql.Marshaler {
 	return graphql.WriterFunc(func(w io.Writer) {
 		err := json.NewEncoder(w).Encode(val)
 		if err != nil {
-			panic(err)
+			zlog.Fatal().Err(err).Send()
 		}
 	})
 }
