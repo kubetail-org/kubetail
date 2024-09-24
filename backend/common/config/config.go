@@ -52,9 +52,10 @@ type Config struct {
 
 	// server options
 	Server struct {
-		Addr     string `validate:"omitempty,hostname_port"`
-		BasePath string `mapstructure:"base-path"`
-		GinMode  string `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
+		Addr             string `validate:"omitempty,hostname_port"`
+		BasePath         string `mapstructure:"base-path"`
+		GinMode          string `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
+		AgentDispatchUrl string `mapstructure:"agent-dispatch-url"`
 
 		// session options
 		Session struct {
@@ -172,6 +173,7 @@ func DefaultConfig() *Config {
 	cfg.Server.Addr = ":4000"
 	cfg.Server.BasePath = "/"
 	cfg.Server.GinMode = "release"
+	cfg.Server.AgentDispatchUrl = "kubernetes://kubetail-agent:50051"
 	cfg.Server.Session.Secret = ""
 	cfg.Server.Session.Cookie.Name = "session"
 	cfg.Server.Session.Cookie.Path = "/"
