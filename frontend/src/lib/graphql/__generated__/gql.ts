@@ -20,7 +20,7 @@ const documents = {
     "\n  fragment HomeDeploymentsListItemFragment on AppsV1Deployment {\n    ...HomeGenericListItemFragment\n  }\n": types.HomeDeploymentsListItemFragmentFragmentDoc,
     "\n  fragment HomeJobsListItemFragment on BatchV1Job {\n    ...HomeGenericListItemFragment\n  }\n": types.HomeJobsListItemFragmentFragmentDoc,
     "\n  fragment HomeNamespacesListItemFragment on CoreV1Namespace {\n    ...HomeGenericListItemFragment\n  }\n": types.HomeNamespacesListItemFragmentFragmentDoc,
-    "\n  fragment HomePodsListItemFragment on CoreV1Pod {\n    ...HomeGenericListItemFragment\n  }\n": types.HomePodsListItemFragmentFragmentDoc,
+    "\n  fragment HomePodsListItemFragment on CoreV1Pod {\n    ...HomeGenericListItemFragment\n    status {\n      containerStatuses {\n        containerID\n        started\n      }\n    }\n  }\n": types.HomePodsListItemFragmentFragmentDoc,
     "\n  fragment HomeReplicaSetsListItemFragment on AppsV1ReplicaSet {\n    ...HomeGenericListItemFragment\n  }\n": types.HomeReplicaSetsListItemFragmentFragmentDoc,
     "\n  fragment HomeStatefulSetsListItemFragment on AppsV1StatefulSet {\n    ...HomeGenericListItemFragment\n  }\n": types.HomeStatefulSetsListItemFragmentFragmentDoc,
     "\n  fragment ConsoleLoggingResourcesGenericObjectFragment on Object {\n    id\n    metadata {\n      namespace\n      name\n      uid\n      creationTimestamp\n      deletionTimestamp\n      resourceVersion\n      ownerReferences {\n        name\n        uid\n        controller\n      }\n    }\n  }\n": types.ConsoleLoggingResourcesGenericObjectFragmentFragmentDoc,
@@ -55,6 +55,7 @@ const documents = {
     "\n  fragment ExplorerReplicaSetsObjectFragment on AppsV1ReplicaSet {\n    ...ExplorerGenericObjectFragment\n  }\n": types.ExplorerReplicaSetsObjectFragmentFragmentDoc,
     "\n  fragment ExplorerStatefulSetsObjectFragment on AppsV1StatefulSet {\n    ...ExplorerGenericObjectFragment\n  }\n": types.ExplorerStatefulSetsObjectFragmentFragmentDoc,
     "\n  fragment PodLogQueryResponseFragment on PodLogQueryResponse {\n    results {\n      timestamp\n      message\n    }\n    pageInfo {\n      hasPreviousPage\n      hasNextPage\n      startCursor\n      endCursor\n    }\n  }\n": types.PodLogQueryResponseFragmentFragmentDoc,
+    "\n  fragment LogMetadataListItemFragment on LogMetadata {\n    id\n    spec {\n      nodeName\n      namespace\n      podName\n      containerName\n      containerID\n    }\n    fileInfo {\n      size\n      lastModifiedAt\n    }\n  }\n": types.LogMetadataListItemFragmentFragmentDoc,
     "\n  query HomeCronJobsListFetch($namespace: String = \"\", $continue: String = \"\") {\n    batchV1CronJobsList(namespace: $namespace, options: { limit: \"50\", continue: $continue }) {\n      ...HomeGenericListFragment\n      items {\n        ...HomeCronJobsListItemFragment\n      }\n    }\n  }\n": types.HomeCronJobsListFetchDocument,
     "\n  subscription HomeCronJobsListWatch($namespace: String = \"\", $resourceVersion: String = \"\") {\n    batchV1CronJobsWatch(namespace: $namespace, options: { resourceVersion: $resourceVersion }) {\n      type\n      object {\n        ...HomeCronJobsListItemFragment\n      }\n    }\n  }\n": types.HomeCronJobsListWatchDocument,
     "\n  query HomeDaemonSetsListFetch($namespace: String = \"\", $continue: String = \"\") {\n    appsV1DaemonSetsList(namespace: $namespace, options: { limit: \"50\", continue: $continue }) {\n      ...HomeGenericListFragment\n      items {\n        ...HomeDaemonSetsListItemFragment\n      }\n    }\n  }\n": types.HomeDaemonSetsListFetchDocument,
@@ -154,6 +155,8 @@ const documents = {
     "\n  query HeadContainerLog($namespace: String!, $name: String!, $container: String, $after: ID, $since: String, $first: Int) {\n    podLogHead(namespace: $namespace, name: $name, container: $container, after: $after, since: $since, first: $first) {\n      ...PodLogQueryResponseFragment\n    }\n  }\n": types.HeadContainerLogDocument,
     "\n  query TailContainerLog($namespace: String!, $name: String!, $container: String, $before: ID, $last: Int) {\n    podLogTail(namespace: $namespace, name: $name, container: $container, before: $before, last: $last) {\n      ...PodLogQueryResponseFragment\n    }\n  }\n": types.TailContainerLogDocument,
     "\n  subscription FollowContainerLog($namespace: String!, $name: String!, $container: String, $after: ID, $since: String) {\n    podLogFollow(namespace: $namespace, name: $name, container: $container, after: $after, since: $since) {\n      timestamp\n      message\n    }\n  }\n": types.FollowContainerLogDocument,
+    "\n  query LogMetadataListFetch($namespace: String = \"\") {\n    logMetadataList(namespace: $namespace) {\n      items {\n        ...LogMetadataListItemFragment\n      }\n    }\n  }\n": types.LogMetadataListFetchDocument,
+    "\n  subscription LogMetadataListWatch($namespace: String = \"\") {\n    logMetadataWatch(namespace: $namespace) {\n      type\n      object {\n        ...LogMetadataListItemFragment\n      }\n    }\n  }\n": types.LogMetadataListWatchDocument,
     "\n  subscription LivezWatch {\n    livezWatch {\n      status\n      message\n      timestamp\n    }\n  }\n": types.LivezWatchDocument,
     "\n  subscription ReadyzWatch {\n    readyzWatch {\n      status\n      message\n      timestamp\n    }\n  }\n": types.ReadyzWatchDocument,
 };
@@ -203,7 +206,7 @@ export function gql(source: "\n  fragment HomeNamespacesListItemFragment on Core
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function gql(source: "\n  fragment HomePodsListItemFragment on CoreV1Pod {\n    ...HomeGenericListItemFragment\n  }\n"): (typeof documents)["\n  fragment HomePodsListItemFragment on CoreV1Pod {\n    ...HomeGenericListItemFragment\n  }\n"];
+export function gql(source: "\n  fragment HomePodsListItemFragment on CoreV1Pod {\n    ...HomeGenericListItemFragment\n    status {\n      containerStatuses {\n        containerID\n        started\n      }\n    }\n  }\n"): (typeof documents)["\n  fragment HomePodsListItemFragment on CoreV1Pod {\n    ...HomeGenericListItemFragment\n    status {\n      containerStatuses {\n        containerID\n        started\n      }\n    }\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -340,6 +343,10 @@ export function gql(source: "\n  fragment ExplorerStatefulSetsObjectFragment on 
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function gql(source: "\n  fragment PodLogQueryResponseFragment on PodLogQueryResponse {\n    results {\n      timestamp\n      message\n    }\n    pageInfo {\n      hasPreviousPage\n      hasNextPage\n      startCursor\n      endCursor\n    }\n  }\n"): (typeof documents)["\n  fragment PodLogQueryResponseFragment on PodLogQueryResponse {\n    results {\n      timestamp\n      message\n    }\n    pageInfo {\n      hasPreviousPage\n      hasNextPage\n      startCursor\n      endCursor\n    }\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  fragment LogMetadataListItemFragment on LogMetadata {\n    id\n    spec {\n      nodeName\n      namespace\n      podName\n      containerName\n      containerID\n    }\n    fileInfo {\n      size\n      lastModifiedAt\n    }\n  }\n"): (typeof documents)["\n  fragment LogMetadataListItemFragment on LogMetadata {\n    id\n    spec {\n      nodeName\n      namespace\n      podName\n      containerName\n      containerID\n    }\n    fileInfo {\n      size\n      lastModifiedAt\n    }\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -736,6 +743,14 @@ export function gql(source: "\n  query TailContainerLog($namespace: String!, $na
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function gql(source: "\n  subscription FollowContainerLog($namespace: String!, $name: String!, $container: String, $after: ID, $since: String) {\n    podLogFollow(namespace: $namespace, name: $name, container: $container, after: $after, since: $since) {\n      timestamp\n      message\n    }\n  }\n"): (typeof documents)["\n  subscription FollowContainerLog($namespace: String!, $name: String!, $container: String, $after: ID, $since: String) {\n    podLogFollow(namespace: $namespace, name: $name, container: $container, after: $after, since: $since) {\n      timestamp\n      message\n    }\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  query LogMetadataListFetch($namespace: String = \"\") {\n    logMetadataList(namespace: $namespace) {\n      items {\n        ...LogMetadataListItemFragment\n      }\n    }\n  }\n"): (typeof documents)["\n  query LogMetadataListFetch($namespace: String = \"\") {\n    logMetadataList(namespace: $namespace) {\n      items {\n        ...LogMetadataListItemFragment\n      }\n    }\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  subscription LogMetadataListWatch($namespace: String = \"\") {\n    logMetadataWatch(namespace: $namespace) {\n      type\n      object {\n        ...LogMetadataListItemFragment\n      }\n    }\n  }\n"): (typeof documents)["\n  subscription LogMetadataListWatch($namespace: String = \"\") {\n    logMetadataWatch(namespace: $namespace) {\n      type\n      object {\n        ...LogMetadataListItemFragment\n      }\n    }\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

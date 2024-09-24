@@ -146,6 +146,11 @@ export class CustomCache extends InMemoryCache {
             lastSuccessfulTime: dateField,
           },
         },
+        LogMetadataFileInfo: {
+          fields: {
+            lastModifiedAt: dateField,
+          },
+        },
         MetaV1ListMeta: {
           fields: {
             remainingItemCount: bigIntField,

@@ -20,6 +20,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: true,
     proxy: {
       '^/api/auth/.*': {
         target: 'http://localhost:4000',

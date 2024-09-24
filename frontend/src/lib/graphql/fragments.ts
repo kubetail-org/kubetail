@@ -79,6 +79,12 @@ export const HOME_NAMESPACES_LIST_ITEM_FRAGMENT = gql(`
 export const HOME_PODS_LIST_ITEM_FRAGMENT = gql(`
   fragment HomePodsListItemFragment on CoreV1Pod {
     ...HomeGenericListItemFragment
+    status {
+      containerStatuses {
+        containerID
+        started
+      }
+    }
   }
 `);
 
@@ -575,6 +581,26 @@ export const POD_LOG_QUERY_RESPONSE_FRAGMENT = gql(`
       hasNextPage
       startCursor
       endCursor
+    }
+  }
+`);
+
+/**
+ * LogMetadata fragments
+ */
+export const LOGMETADATA_LIST_ITEM_FRAGMENT = gql(`
+  fragment LogMetadataListItemFragment on LogMetadata {
+    id
+    spec {
+      nodeName
+      namespace
+      podName
+      containerName
+      containerID
+    }
+    fileInfo {
+      size
+      lastModifiedAt
     }
   }
 `);

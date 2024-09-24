@@ -3,8 +3,8 @@ FROM alpine:3.20.0
 WORKDIR /server
 
 # copy
-COPY .tilt/server ./server
-COPY backend/templates ./templates
+COPY .tilt/server .
+COPY backend/server/templates ./templates
 
 ENTRYPOINT ["./server"]
 CMD []
