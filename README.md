@@ -23,7 +23,7 @@ Our goal is to build a powerful cloud-native logging platform designed from the 
 
 ## Key features
 
-* Small and resource efficient (server: <40MB memory, agents: <10MB memory, negligible CPU)
+* Small and resource efficient (server: <40MB memory, agents: <20MB memory, negligible CPU)
 * View log messages in real-time
 * View logs that are part of a specific workload (e.g. Deployment, CronJob, StatefulSet)
 * Detects creation and deletion of workload containers and adds their logs to the viewing stream automatically
