@@ -15,9 +15,7 @@
 package ginapp
 
 import (
-	"fmt"
 	"html/template"
-	"net"
 	"path"
 
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
@@ -80,15 +78,9 @@ func mustNewGrpcDispatcher(cfg *config.Config) *grpcdispatcher.Dispatcher {
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	// get port
-	_, port, err := net.SplitHostPort(cfg.Agent.Addr)
-	if err != nil {
-		zlog.Fatal().Err(err).Send()
-	}
-
 	// TODO: reuse app clientset
 	d, err := grpcdispatcher.NewDispatcher(
-		fmt.Sprintf("kubernetes://kubetail-agent:%s", port),
+		cfg.Server.AgentDispatchUrl,
 		grpcdispatcher.WithDialOptions(dialOpts...),
 	)
 	if err != nil {
