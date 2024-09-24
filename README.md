@@ -90,97 +90,27 @@ The simplest way to access the dashboard, is using `kubectl proxy`:
 kubectl proxy
 ```
 
-Now you can access the dashboard at: [http://localhost:8001/api/v1/namespaces/kubetail/services/kubetail:4000/proxy/](http://localhost:8001/api/v1/namespaces/kubetail/services/kubetail:4000/proxy/).
+Now you can access the dashboard at: [http://localhost:8001/api/v1/namespaces/kubetail/services/kubetail-server:80/proxy/](http://localhost:8001/api/v1/namespaces/kubetail/services/kubetail-server:80/proxy/).
 
 ### Option 2: kubectl port-forward
 
 Another way to access the dashboard is using `kubectl port-forward`:
 
 ```console
-kubectl port-forward -n kubetail svc/kubetail 4000:4000
+kubectl port-forward -n kubetail svc/kubetail-server 80:4000
 ```
 
 Now you can access the dashboard at: [http://localhost:4000](http://localhost:4000).
 
 ### Option 3: kubectl auth-proxy
 
-If you've enabled `auth-mode: token`, then we recommend accessing the dashboard with the kubectl [auth-proxy plugin](https://github.com/int128/kauthproxy) which will automatically obtain an access token locally and add it to the HTTP headers when you make requests to the kubetail service:
+If you've enabled `auth-mode: token`, then we recommend accessing the dashboard with the kubectl [auth-proxy plugin](https://github.com/int128/kauthproxy) which will automatically obtain an access token locally and add it to the HTTP headers when you make requests to the kubetail-server service:
 
 ```console
-kubectl auth-proxy -n kubetail http://kubetail.svc
+kubectl auth-proxy -n kubetail http://kubetail-server.svc
 ```
 
 Now your computer will automatically open a new browser tab pointing to the Kubetail dashboard.
-
-## Configure
-
-### CLI Flags
-
-#### kubetail-server
-
-The Kubetail backend server executable supports the following command line configuration options:
-
-| Flag         | Datatype | Description                      | Default   |
-| ------------ | -------- | -------------------------------- | --------- |
-| -c, --config | string   | Path to Kubetail config file     | ""        |
-| -a, --addr   | string   | Host address to bind to          | ":4000"   |
-| --gin-mode   | string   | Gin mode (release, debug)        | "release" |
-| -p, --param  | []string | Config params ("key:val" format) | []        |
-
-#### kubetail-agent
-
-The Kubetail backend agent executable supports the following command line configuration options:
-
-| Flag         | Datatype | Description                      | Default  |
-| ------------ | -------- | -------------------------------- | -------- |
-| -c, --config | string   | Path to Kubetail config file     | ""       |
-| -a, --addr   | string   | Host address to bind to          | ":50051" |
-| -p, --param  | []string | Config params ("key:val" format) | []       |
-
-### Config file
-
-The Kubetail application can be configured using a configuration file written in YAML, JSON, TOML, HCL or envfile format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [hack/config.yaml](hack/config.yaml)):
-
-| Name                                         | Datatype | Description                                          | Default      |
-| -------------------------------------------- | -------- | ---------------------------------------------------- | ------------ |
-| auth-mode                                    | string   | Auth mode (token, cluster, local)                    | "token"      |
-| allowed-namespaces                           | []string | If populated, restricts namespace access             | []           |
-| server.addr                                  | string   | Host address to bind to                              | ":4000"      |
-| server.base-path                             | string   | URL path prefix                                      | "/"          |
-| server.gin-mode                              | string   | Gin mode (release, debug)                            | "release"    |
-| server.csrf.enabled                          | bool     | Enable CSRF protection                               | true         |
-| server.csrf.field-name                       | string   | CSRF token name in forms                             | "csrf_token" |
-| server.csrf.secret                           | string   | CSRF hash key                                        | ""           |
-| server.csrf.cookie.name                      | string   | CSRF cookie name                                     | "csrf"       |
-| server.csrf.cookie.path                      | string   | CSRF cookie path                                     | "/"          |
-| server.csrf.cookie.domain                    | string   | CSRF cookie domain                                   | ""           |
-| server.csrf.cookie.max-age                   | int      | CSRF cookie max age (in seconds)                     | 43200        |
-| server.csrf.cookie.secure                    | bool     | CSRF cookie secure property                          | false        |
-| server.csrf.cookie.http-only                 | bool     | CSRF cookie HttpOnly property                        | true         |
-| server.csrf.cookie.same-site                 | string   | CSRF cookie SameSite property (strict, lax, none)    | "strict"     |
-| server.logging.enabled                       | bool     | Enable logging                                       | true         |
-| server.logging.level                         | string   | Log level                                            | "info"       |
-| server.logging.format                        | string   | Log format (json, pretty)                            | "json"       |
-| server.logging.access-log.enabled            | bool     | Enable access log                                    | true         |
-| server.logging.access-log.hide-health-checks | bool     | Hide requests to /healthz from access log            | false        |
-| server.session.secret                        | string   | Session hash key                                     | ""           |
-| server.session.cookie.name                   | string   | Session cookie name                                  | "session"    |
-| server.session.cookie.path                   | string   | Session cookie path                                  | "/"          |
-| server.session.cookie.domain                 | string   | Session cookie domain                                | ""           |
-| server.session.cookie.max-age                | int      | Session cookie max age (in seconds)                  | 43200        |
-| server.session.cookie.secure                 | bool     | Session cookie secure property                       | false        |
-| server.session.cookie.http-only              | bool     | Session cookie HttpOnly property                     | true         |
-| server.session.cookie.same-site              | string   | Session cookie SameSite property (strict, lax, none) | "strict"     |
-| server.tls.enabled                           | bool     | Enable TLS endpoint termination                      | false        |
-| server.tls.cert-file                         | string   | Path to cert file                                    | ""           |
-| server.tls.key-file                          | string   | Path to key file                                     | ""           |
-| agent.addr                                   | string   | Host address to bind to                              | ":50051"     |
-| agent.logging.enabled                        | bool     | Enable logging                                       | true         |
-| agent.logging.level                          | string   | Log level                                            | "info"       |
-| agent.logging.format                         | string   | Log format (json, pretty)                            | "json"       |
-| agent.tls.enabled                            | bool     | Enable TLS endpoint termination                      | false        |
-| agent.tls.cert-file                          | string   | Path to cert file                                    | ""           |
-| agent.tls.key-file                           | string   | Path to key file                                     | ""           |
 
 ## Develop
 
