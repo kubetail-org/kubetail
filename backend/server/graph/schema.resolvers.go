@@ -258,7 +258,9 @@ func (r *queryResolver) CoreV1PodsGetLogs(ctx context.Context, namespace *string
 	out := []model.LogRecord{}
 	for _, line := range logLines {
 		if len(line) != 0 {
-			out = append(out, newLogRecordFromLogLine(line))
+			if record, err := newLogRecordFromLogLine(line); err == nil {
+				out = append(out, record)
+			}
 		}
 	}
 
@@ -474,8 +476,9 @@ func (r *subscriptionResolver) CoreV1PodLogTail(ctx context.Context, namespace *
 
 		scanner := bufio.NewScanner(podLogs)
 		for scanner.Scan() {
-			logRecord := newLogRecordFromLogLine(scanner.Text())
-			outCh <- &logRecord
+			if logRecord, err := newLogRecordFromLogLine(scanner.Text()); err == nil {
+				outCh <- &logRecord
+			}
 		}
 		close(outCh)
 	}()

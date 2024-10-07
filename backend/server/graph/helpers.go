@@ -602,13 +602,13 @@ func typeassertRuntimeObject[T any](object runtime.Object) (T, error) {
 	}
 }
 
-func newLogRecordFromLogLine(logLine string) model.LogRecord {
+func newLogRecordFromLogLine(logLine string) (model.LogRecord, error) {
 	// handle logs from kubernetes fake clientset
 	if logLine == "fake logs" {
 		return model.LogRecord{
 			Timestamp: time.Now().UTC(),
 			Message:   "fake logs",
-		}
+		}, nil
 	}
 
 	parts := strings.SplitN(logLine, " ", 2)
@@ -618,13 +618,13 @@ func newLogRecordFromLogLine(logLine string) model.LogRecord {
 
 	ts, err := time.Parse(time.RFC3339Nano, parts[0])
 	if err != nil {
-		zlog.Fatal().Err(err).Send()
+		return model.LogRecord{}, err
 	}
 
 	return model.LogRecord{
 		Timestamp: ts,
 		Message:   parts[1],
-	}
+	}, nil
 }
 
 // encode cursor to base64-encoded json
@@ -736,7 +736,10 @@ func headPodLog(ctx context.Context, clientset kubernetes.Interface, namespace s
 
 	scanner := bufio.NewScanner(podLogs)
 	for scanner.Scan() {
-		logRecord := newLogRecordFromLogLine(scanner.Text())
+		logRecord, err := newLogRecordFromLogLine(scanner.Text())
+		if err != nil {
+			continue
+		}
 
 		// ignore if log record comes before time window
 		if headSince == HeadSinceTime && logRecord.Timestamp.Before(sinceTime) {
@@ -846,7 +849,10 @@ Loop:
 
 		scanner := bufio.NewScanner(podLogs)
 		for scanner.Scan() {
-			logRecord := newLogRecordFromLogLine(scanner.Text())
+			logRecord, err := newLogRecordFromLogLine(scanner.Text())
+			if err != nil {
+				continue
+			}
 
 			// exit if log record comes after time window
 			if tailUntil == TailUntilTime && logRecord.Timestamp.After(untilTime) {
@@ -971,7 +977,10 @@ func followPodLog(ctx context.Context, clientset kubernetes.Interface, namespace
 
 		scanner := bufio.NewScanner(podLogs)
 		for scanner.Scan() {
-			logRecord := newLogRecordFromLogLine(scanner.Text())
+			logRecord, err := newLogRecordFromLogLine(scanner.Text())
+			if err != nil {
+				continue
+			}
 
 			// ignore if log record comes before time window
 			if logRecord.Timestamp.Before(sinceTime) {
