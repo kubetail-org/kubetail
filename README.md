@@ -1,13 +1,29 @@
 # Kubetail
 
-Kubetail is a CLI tool with a web dashboard for viewing Kubernetes logs
+Kubetail is a Kubernetes logging tool with a realtime web dashboard
 
 <img src="https://github.com/kubetail-org/kubetail/assets/75881/7647bd90-0859-4b0b-9400-c7cdeb6a93e6" width="300px" title="screenshot">
 
 Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 
+![Discord](https://img.shields.io/discord/1212031524216770650?style=flat&logo=discord&logoColor=white&label=Discord&labelColor=5B65F0&link=https%3A%2F%2Fdiscord.gg%2F7ft5WKYv)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kubetail)](https://artifacthub.io/packages/search?repo=kubetail)
-[![slack](https://img.shields.io/badge/Slack-Join%20Our%20Community-364954?logo=slack&labelColor=4D1C51)](https://join.slack.com/t/kubetail/shared_invite/zt-2cq01cbm8-e1kbLT3EmcLPpHSeoFYm1w)
+
+## Quickstart
+
+First, install `kubetail` via [homebrew](https://brew.sh/) (you can also download it manually from the release [binaries](https://github.com/kubetail-org/kubetail/releases/tag/0.8.0-rc1)):
+
+```console
+brew install kubetail-org/tap/kubetail
+```
+
+Next, start the web dashboard using the `serve` subcommand:
+
+```console
+kubetail serve
+```
+
+This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun viewing your Kubernetes logs in realtime!
 
 ## Introduction
 
@@ -21,23 +37,6 @@ The main entry point for Kubetail is a CLI tool called `kubetail` that you can u
 
 Our goal is to build a powerful cloud-native logging platform designed from the ground up for a containerized environment and this project is a work-in-progress. If you notice a bug or have a suggestion please create a GitHub Issue or send us an email (hello@kubetail.com)!
 
-## Quickstart
-
-You can install Kubetail via [Homebrew](https://brew.sh/):
-
-```console
-brew install kubetail-org/tap/kubetail
-```
-
-You can also install it manually from the release [binaries](https://github.com/kubetail-org/kubetail/releases/tag/0.8.0-rc1). Once the CLI is installed, you can start the UI:
-
-```console
-kubetail serve
-```
-
-This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser.
-
-
 ## Key features
 
 * View log messages in real-time
@@ -49,7 +48,9 @@ This command will open [http://localhost:7500/](http://localhost:7500/) in your 
 * Color-coded log lines to distinguish between different containers
 * A clean, easy-to-use interface
 
-## Advanced Install
+## Advanced Installation
+
+There are several options for installing the Kubetail web dashboard in your cluster so cluster users can use it without installing the CLI tool.
 
 ### Option 1: 
 
