@@ -21,6 +21,23 @@ The main entry point for Kubetail is a CLI tool called `kubetail` that you can u
 
 Our goal is to build a powerful cloud-native logging platform designed from the ground up for a containerized environment and this project is a work-in-progress. If you notice a bug or have a suggestion please create a GitHub Issue or send us an email (hello@kubetail.com)!
 
+## Quickstart
+
+You can install Kubetail via [Homebrew](https://brew.sh/) or from the release [binaries](https://github.com/kubetail-org/kubetail/releases/tag/0.8.0-rc1):
+
+```console
+brew install kubetail-org/tap/kubetail
+```
+
+Now start the UI:
+
+```console
+kubetail serve
+```
+
+This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser.
+
+
 ## Key features
 
 * View log messages in real-time
@@ -31,24 +48,6 @@ Our goal is to build a powerful cloud-native logging platform designed from the 
 * Filter logs based on node properties such as availability zone, CPU architecture or node ID
 * Color-coded log lines to distinguish between different containers
 * A clean, easy-to-use interface
-
-## Quickstart
-
-You can install Kubetail via [Homebrew](https://brew.sh/):
-
-```console
-brew install kubetail-org/tap/kubetail
-```
-
-For other installation options see the [Advanced Install](#advanced-install) section below.
-
-Once the CLI is installed, you can start the UI:
-
-```console
-kubetail serve
-```
-
-This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser.
 
 ## Advanced Install
 
