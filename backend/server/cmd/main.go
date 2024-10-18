@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/kubetail-org/kubetail/backend/common/config"
-	"github.com/kubetail-org/kubetail/backend/server/internal/ginapp"
+	"github.com/kubetail-org/kubetail/backend/server/pkg/ginapp"
 )
 
 type CLI struct {

@@ -27,6 +27,8 @@ function camelCaseToUpperCaseWithUnderscores(input: string) {
 class Config {
   basePath: string = '/';
 
+  extensionsEnabled: boolean = false;
+
   constructor() {
     const runtimeConfig = ('runtimeConfig' in window ? window.runtimeConfig : {}) as { [key: string]: string };
 

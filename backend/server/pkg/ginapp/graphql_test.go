@@ -15,6 +15,7 @@
 package ginapp
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -82,7 +83,8 @@ func (suite *GraphQLTestSuite) TestAccess() {
 
 			// execute request
 			resp := client.Do(req)
-
+			fmt.Println(resp.StatusCode)
+			fmt.Println(string(resp.Body))
 			// check response
 			suite.Equal(http.StatusNotFound, resp.StatusCode)
 		})

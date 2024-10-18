@@ -23,13 +23,13 @@ export default defineConfig({
     host: true,
     proxy: {
       '^/api/auth/.*': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:7500',
       },
       '^/csrf-token': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:7500',
       },
       '^/graphql': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:7500',
         ws: true,
       },
     }

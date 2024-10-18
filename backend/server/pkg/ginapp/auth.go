@@ -88,7 +88,7 @@ func (app *AuthHandlers) SessionGET(c *gin.Context) {
 	}
 
 	switch app.mode {
-	case config.AuthModeCluster:
+	case config.AuthModeCluster, config.AuthModeLocal:
 		response["user"] = string(app.mode)
 	case config.AuthModeToken:
 		token := c.GetString(k8sTokenCtxKey)

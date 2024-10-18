@@ -16,11 +16,11 @@ package ginapp
 
 import (
 	"encoding/json"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"testing"
+	"testing/fstest"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/suite"
@@ -32,22 +32,26 @@ type WebsiteTestSuite struct {
 
 func (suite *WebsiteTestSuite) TestMissing() {
 	suite.Run("missing manifest should return 404", func() {
-		// build request
-		client := suite.defaultclient
-		req := client.NewRequest("GET", "/", nil)
+		// empty website directory
+		websiteFS := fstest.MapFS{}
 
-		// execute request
-		resp := client.Do(req)
+		cfg := NewTestConfig()
+		app := NewTestApp(cfg)
 
-		// check response
-		suite.Equal(http.StatusNotFound, resp.StatusCode)
-		suite.Contains(string(resp.Body), "website not found")
+		h := &WebsiteHandlers{app, websiteFS}
+		app.GET("/website-test", h.EndpointHandler(cfg))
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest("GET", "/website-test", nil)
+		app.ServeHTTP(w, r)
+		suite.Equal(http.StatusNotFound, w.Code)
+		suite.Contains(w.Body.String(), "website not found")
 	})
 }
 
 func (suite *WebsiteTestSuite) TestTemplate() {
 	suite.Run("handles manifest['index.html']['file'] argument", func() {
-		websiteDir := suite.createManifest(gin.H{
+		websiteFS := suite.createManifest(gin.H{
 			"index.html": gin.H{
 				"file":    "assets/index-xxx.js",
 				"imports": []string{},
@@ -58,7 +62,7 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 		cfg := NewTestConfig()
 		app := NewTestApp(cfg)
 
-		h := &WebsiteHandlers{app, websiteDir}
+		h := &WebsiteHandlers{app, websiteFS}
 		app.GET("/website-test", h.EndpointHandler(cfg))
 
 		w := httptest.NewRecorder()
@@ -69,7 +73,7 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 	})
 
 	suite.Run("handles manifest['index.html']['imports'] argument", func() {
-		websiteDir := suite.createManifest(gin.H{
+		websiteFS := suite.createManifest(gin.H{
 			"_vendor-xxx.js": gin.H{
 				"file": "assets/vendor-xxx.js",
 			},
@@ -83,7 +87,7 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 		cfg := NewTestConfig()
 		app := NewTestApp(cfg)
 
-		h := &WebsiteHandlers{app, websiteDir}
+		h := &WebsiteHandlers{app, websiteFS}
 		app.GET("/website-test", h.EndpointHandler(cfg))
 
 		w := httptest.NewRecorder()
@@ -94,7 +98,7 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 	})
 
 	suite.Run("handles manifest['index.html']['css'] argument", func() {
-		websiteDir := suite.createManifest(gin.H{
+		websiteFS := suite.createManifest(gin.H{
 			"index.html": gin.H{
 				"file":    "",
 				"imports": []string{},
@@ -105,7 +109,7 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 		cfg := NewTestConfig()
 		app := NewTestApp(cfg)
 
-		h := &WebsiteHandlers{app, websiteDir}
+		h := &WebsiteHandlers{app, websiteFS}
 		app.GET("/website-test", h.EndpointHandler(cfg))
 
 		w := httptest.NewRecorder()
@@ -116,7 +120,7 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 	})
 
 	suite.Run("prepends asset urls with config.BasePath", func() {
-		websiteDir := suite.createManifest(gin.H{
+		websiteFS := suite.createManifest(gin.H{
 			"index.html": gin.H{
 				"file":    "assets/index-xxx.js",
 				"imports": []string{},
@@ -128,7 +132,7 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 		cfg.Server.BasePath = "/my-base-path"
 		app := NewTestApp(cfg)
 
-		h := &WebsiteHandlers{app, websiteDir}
+		h := &WebsiteHandlers{app, websiteFS}
 		app.GET("/website-test", h.EndpointHandler(cfg))
 
 		w := httptest.NewRecorder()
@@ -139,7 +143,7 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 	})
 
 	suite.Run("adds runtimeConfig to html", func() {
-		websiteDir := suite.createManifest(gin.H{
+		websiteFS := suite.createManifest(gin.H{
 			"index.html": gin.H{
 				"file":    "",
 				"imports": []string{},
@@ -151,7 +155,7 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 		cfg.Server.BasePath = "/my-base-path"
 		app := NewTestApp(cfg)
 
-		h := &WebsiteHandlers{app, websiteDir}
+		h := &WebsiteHandlers{app, websiteFS}
 		app.GET("/website-test", h.EndpointHandler(cfg))
 
 		w := httptest.NewRecorder()
@@ -162,31 +166,18 @@ func (suite *WebsiteTestSuite) TestTemplate() {
 	})
 }
 
-func (suite *WebsiteTestSuite) createManifest(manifest gin.H) string {
-	// create temporary directory
-	tempDir, err := os.MkdirTemp("", "kubetail-test-*")
-	if err != nil {
-		panic(err)
-	}
-
-	// create directory for vite manifest file
-	viteDir := filepath.Join(tempDir, ".vite")
-	if err := os.MkdirAll(viteDir, os.ModePerm); err != nil {
-		panic(err)
-	}
-
+func (suite *WebsiteTestSuite) createManifest(manifest gin.H) fs.FS {
 	// encode to json
-	manifestJson, err := json.Marshal(manifest)
+	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
 		panic(err)
 	}
 
-	// write to disk
-	if err := os.WriteFile(filepath.Join(viteDir, "manifest.json"), manifestJson, 0644); err != nil {
-		panic(err)
+	return fstest.MapFS{
+		".vite/manifest.json": &fstest.MapFile{
+			Data: manifestBytes,
+		},
 	}
-
-	return tempDir
 }
 
 // test runner

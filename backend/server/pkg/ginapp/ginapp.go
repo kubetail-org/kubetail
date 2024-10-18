@@ -15,11 +15,10 @@
 package ginapp
 
 import (
+	"html/template"
+	"io/fs"
 	"net/http"
-	"os"
 	"path"
-	"path/filepath"
-	"runtime"
 
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/requestid"
@@ -30,10 +29,10 @@ import (
 	"github.com/gorilla/csrf"
 	adapter "github.com/gwatts/gin-adapter"
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
-	zlog "github.com/rs/zerolog/log"
 	"k8s.io/client-go/rest"
 
 	"github.com/kubetail-org/kubetail/backend/common/config"
+	"github.com/kubetail-org/kubetail/backend/server"
 	"github.com/kubetail-org/kubetail/backend/server/internal/k8shelpers"
 )
 
@@ -76,13 +75,13 @@ func NewGinApp(cfg *config.Config) (*GinApp, error) {
 		app.k8sHelperService = k8shelpers.NewK8sHelperService(k8sCfg, k8shelpers.Mode(cfg.AuthMode))
 
 		// init grpc dispatcher
-		app.grpcDispatcher = mustNewGrpcDispatcher(cfg)
+		if cfg.Server.ExtensionsEnabled {
+			app.grpcDispatcher = mustNewGrpcDispatcher(cfg)
+		}
 
 		// add recovery middleware
 		app.Use(gin.Recovery())
 	}
-
-	var basepath string
 
 	// for tests
 	if gin.Mode() == gin.TestMode {
@@ -94,21 +93,17 @@ func NewGinApp(cfg *config.Config) (*GinApp, error) {
 				c.Next()
 			}
 		})
-
-		// set basepath relative to this file
-		_, b, _, _ := runtime.Caller(0)
-		basepath = path.Join(filepath.Dir(b), "../../")
-	} else {
-		// set basepath to cwd
-		basepathTmp, err := os.Getwd()
-		if err != nil {
-			zlog.Fatal().Err(err).Send()
-		}
-		basepath = basepathTmp
 	}
 
 	// register templates
-	app.SetHTMLTemplate(mustLoadTemplatesWithFuncs(path.Join(basepath, "templates/*")))
+	//app.SetHTMLTemplate(mustLoadTemplatesWithFuncs(path.Join(basepath, "templates/*")))
+	tmpl := template.Must(template.New("").
+		Funcs(template.FuncMap{
+			"pathJoin": path.Join,
+		}).
+		ParseFS(server.TemplatesEmbedFS, "templates/*"),
+	)
+	app.SetHTMLTemplate(tmpl)
 
 	// add request-id middleware
 	app.Use(requestid.New())
@@ -218,7 +213,12 @@ func NewGinApp(cfg *config.Config) (*GinApp, error) {
 	})
 
 	// serve website from "/" and also unknown routes
-	h := &WebsiteHandlers{app, path.Join(basepath, "/website")}
+	websiteFS, err := fs.Sub(server.WebsiteEmbedFS, "website")
+	if err != nil {
+		return nil, err
+	}
+
+	h := &WebsiteHandlers{app, websiteFS}
 	h.InitStaticHandlers(root)
 
 	endpointHandler := h.EndpointHandler(cfg)

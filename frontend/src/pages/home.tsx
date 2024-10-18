@@ -24,6 +24,7 @@ import type { SortBy } from '@kubetail/ui/elements/DataTable/Header';
 import Form from '@kubetail/ui/elements/Form';
 import Spinner from '@kubetail/ui/elements/Spinner';
 
+import { config } from '@/app-config';
 import logo from '@/assets/logo.svg';
 import AuthRequired from '@/components/utils/AuthRequired';
 import Footer from '@/components/widgets/Footer';
@@ -353,19 +354,23 @@ const DisplayItems = ({
               >
                 Created
               </DataTable.HeaderCell>
-              <DataTable.HeaderCell
-                sortField="size"
-                initialSortDirection="DESC"
-                className="text-right"
-              >
-                Size
-              </DataTable.HeaderCell>
-              <DataTable.HeaderCell
-                sortField="lastEvent"
-                initialSortDirection="DESC"
-              >
-                Last Event
-              </DataTable.HeaderCell>
+              {config.extensionsEnabled === true && (
+                <>
+                  <DataTable.HeaderCell
+                    sortField="size"
+                    initialSortDirection="DESC"
+                    className="text-right"
+                  >
+                    Size
+                  </DataTable.HeaderCell>
+                  <DataTable.HeaderCell
+                    sortField="lastEvent"
+                    initialSortDirection="DESC"
+                  >
+                    Last Event
+                  </DataTable.HeaderCell>
+                </>
+              )}
               <DataTable.HeaderCell>&nbsp;</DataTable.HeaderCell>
             </DataTable.Row>
           </DataTable.Header>
@@ -394,26 +399,30 @@ const DisplayItems = ({
                   <DataTable.DataCell>
                     <TimeAgo key={Math.random()} date={item.metadata.creationTimestamp} title={item.metadata.creationTimestamp.toUTCString()} />
                   </DataTable.DataCell>
-                  <DataTable.DataCell className="text-right pr-[35px]">
-                    {fileInfo?.size === undefined ? (
-                      <span>--</span>
-                    ) : (
-                      numeral(fileInfo.size).format('0.0 b')
-                    )}
-                  </DataTable.DataCell>
-                  <DataTable.DataCell className={lastEventCls}>
-                    {fileInfo?.size === undefined ? (
-                      <span>--</span>
-                    ) : (
-                      <TimeAgo
-                        key={Math.random()}
-                        date={fileInfo.lastModifiedAt}
-                        formatter={lastModifiedAtFormatter}
-                        minPeriod={60}
-                        title={fileInfo.lastModifiedAt.toUTCString()}
-                      />
-                    )}
-                  </DataTable.DataCell>
+                  {config.extensionsEnabled === true && (
+                    <>
+                      <DataTable.DataCell className="text-right pr-[35px]">
+                        {fileInfo?.size === undefined ? (
+                          <span>--</span>
+                        ) : (
+                          numeral(fileInfo.size).format('0.0 b')
+                        )}
+                      </DataTable.DataCell>
+                      <DataTable.DataCell className={lastEventCls}>
+                        {fileInfo?.size === undefined ? (
+                          <span>--</span>
+                        ) : (
+                          <TimeAgo
+                            key={Math.random()}
+                            date={fileInfo.lastModifiedAt}
+                            formatter={lastModifiedAtFormatter}
+                            minPeriod={60}
+                            title={fileInfo.lastModifiedAt.toUTCString()}
+                          />
+                        )}
+                      </DataTable.DataCell>
+                    </>
+                  )}
                   <DataTable.DataCell>
                     <a
                       target="_blank"
@@ -475,6 +484,7 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
   const statefulsets = useStatefulSets();
 
   const logMetadata = useLogMetadata({
+    enabled: config.extensionsEnabled,
     onUpdate: (containerID) => {
       document.querySelectorAll(`.last_event_${containerID}`).forEach((el) => {
         const k = 'animate-flash-bg-green';

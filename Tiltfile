@@ -40,11 +40,9 @@ docker_build_with_restart(
   entrypoint="/server/server -c /etc/kubetail/config.yaml",
   only=[
     './.tilt/server',
-    './backend/server/templates'
   ],
   live_update=[
     sync('./.tilt/server', '/server/server'),
-    sync('./backend/server/templates', '/server/templates')
   ]
 )
 
