@@ -1,6 +1,6 @@
 # Kubetail
 
-Kubetail is a private, real-time log viewer for Kubernetes clusters
+Kubetail is a CLI tool with a web dashboard for viewing Kubernetes logs
 
 <img src="https://github.com/kubetail-org/kubetail/assets/75881/7647bd90-0859-4b0b-9400-c7cdeb6a93e6" width="300px" title="screenshot">
 
@@ -17,7 +17,7 @@ Viewing application logs in a containerized environment can be challenging. Typi
 
 Kubetail solves this problem by providing an easy-to-use, web-based interface that allows you to view all the logs for a set of Kubernetes workloads (e.g. Deployment, CronJob, StatefulSet) simultaneously, in real-time. Under the hood, it uses your cluster's Kubernetes API to monitor your workloads and detect when a new workload container gets created or an old one deleted. Kubetail will then add messages from the new container to your viewing stream or update its UI to reflect that an old container will no longer produce messages. This allows you to follow your application logs easily as user requests move from one ephemeral container to another across services. Kubetail can also help you to debug application issues by allowing you to filter your logs by node properties such as availability zone, CPU architecture or node ID. This can be useful to find problems that are specific to a given environment that an application instance is running in.
 
-The main entry point for Kubetail is a CLI tool called `kubetail` that you can use to run the application locally on your desktop. The application will make requests to your Kubernetes API using the current cluster specified in your local kube config file. In addition, you can run Kubetail inside your cluster if you want to enable cluster users to use it without installing the CLI tool. Internally, Kubetail uses your Kubernetes API to request logs, so your log messages always stay in your possession and Kubetail is private by default. Most of Kubetail is written in Go and the web interface is written in Typescript/React.
+The main entry point for Kubetail is a CLI tool called `kubetail` that you can use to run a web dashboard locally on your desktop. The web dashboard will make requests to your Kubernetes API using the current cluster specified in your local kube config file. In addition, you can run the web dashboard inside your cluster if you want to enable cluster users to use it without installing the CLI tool. Internally, Kubetail uses your Kubernetes API to request logs, so your log messages always stay in your possession and Kubetail is private by default. Most of Kubetail is written in Go and the web interface is written in Typescript/React.
 
 Our goal is to build a powerful cloud-native logging platform designed from the ground up for a containerized environment and this project is a work-in-progress. If you notice a bug or have a suggestion please create a GitHub Issue or send us an email (hello@kubetail.com)!
 
