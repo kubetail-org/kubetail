@@ -9,22 +9,6 @@ Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Our%20Community-64B73A?logo=discord&logoColor=FFFFFF&labelColor=5B65F0)](https://discord.gg/pXHXaUqt)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kubetail)](https://artifacthub.io/packages/search?repo=kubetail)
 
-## Quickstart
-
-First, install `kubetail` via [homebrew](https://brew.sh/) (you can also download it manually from the release [binaries](https://github.com/kubetail-org/kubetail/releases/tag/0.8.0-rc1)):
-
-```console
-brew install kubetail-org/tap/kubetail
-```
-
-Next, start the web dashboard using the `serve` subcommand:
-
-```console
-kubetail serve
-```
-
-This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun viewing your Kubernetes logs in realtime!
-
 ## Introduction
 
 <img src="assets/github-logo.svg" width="300px" title="Kubetail">
@@ -47,6 +31,22 @@ Our goal is to build a powerful cloud-native logging platform designed from the 
 * Filter logs based on node properties such as availability zone, CPU architecture or node ID
 * Color-coded log lines to distinguish between different containers
 * A clean, easy-to-use interface
+
+## Quickstart
+
+First, install `kubetail` via [homebrew](https://brew.sh/) (you can also download it manually from the release [binaries](https://github.com/kubetail-org/kubetail/releases/tag/0.8.0-rc1)):
+
+```console
+brew install kubetail-org/tap/kubetail
+```
+
+Next, start the web dashboard using the `serve` subcommand:
+
+```console
+kubetail serve
+```
+
+This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun viewing your Kubernetes logs in realtime!
 
 ## Advanced Installation
 
