@@ -10,6 +10,26 @@ DASHBOARD_SERVER_DIR := ./backend/server
 OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 ARCH := $(shell uname -m)
 
+# Translate the architecture to Go's format
+ifeq ($(ARCH),x86_64)
+  GOARCH := amd64
+else ifeq ($(ARCH),arm64)
+  GOARCH := arm64
+else
+  GOARCH := $(ARCH)
+endif
+
+# Translate the OS to Go's format
+ifeq ($(OS),darwin)
+  GOOS := darwin
+else ifeq ($(OS),linux)
+  GOOS := linux
+else ifeq ($(OS),windows)
+  GOOS := windows
+else
+  GOOS := $(OS)
+endif
+
 # Default target
 all: build
 
@@ -30,7 +50,7 @@ build-dashboard-ui:
 # Build CLI binary for host platform
 build-cli:
 	@echo "Building kubetail CLI binary..."
-	@cd $(CLI_DIR) && GOOS=darwin GOARCH=arm64 go build -o ../../$(OUTPUT_DIR)/$(CLI_BINARY)-darwin-arm64 ./main.go
+	@cd $(CLI_DIR) && GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o ../../$(OUTPUT_DIR)/$(CLI_BINARY) ./main.go
 
 # Build all the CLI binaries
 build-cli-all:
