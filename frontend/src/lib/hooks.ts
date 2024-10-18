@@ -381,6 +381,7 @@ export function useCounterQueryWithSubscription<
  */
 
 type LogMetadataHookOptions = {
+  enabled: boolean;
   onUpdate?: (containerID: string) => void;
 };
 
@@ -389,6 +390,7 @@ export function useLogMetadata(options?: LogMetadataHookOptions) {
 
   // initial query
   const { loading, error, data, subscribeToMore, refetch } = useQuery(ops.LOGMETADATA_LIST_FETCH, {
+    skip: !options?.enabled,
     onError: () => {
       retryOnError(refetch);
     },
@@ -399,7 +401,7 @@ export function useLogMetadata(options?: LogMetadataHookOptions) {
   // subscribe to changes
   useEffect(() => {
     // wait for all data to get fetched
-    if (loading || error) return;
+    if (loading || error || !options?.enabled) return;
 
     return subscribeToMore({
       document: ops.LOGMETADATA_LIST_WATCH,

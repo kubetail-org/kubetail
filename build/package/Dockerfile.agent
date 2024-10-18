@@ -19,6 +19,8 @@ WORKDIR /backend
 # install dependencies (for cache)
 COPY backend/go.work .
 COPY backend/go.work.sum .
+COPY backend/cli/go.mod ./cli/go.mod
+COPY backend/cli/go.sum ./cli/go.sum
 COPY backend/common/go.mod ./common/go.mod
 COPY backend/common/go.sum ./common/go.sum
 COPY backend/agent/go.mod ./agent/go.mod

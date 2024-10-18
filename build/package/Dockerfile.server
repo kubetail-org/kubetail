@@ -12,35 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.22.7 AS server-builder
-
-WORKDIR /backend
-
-# install dependencies (for cache)
-COPY backend/go.work .
-COPY backend/go.work.sum .
-COPY backend/common/go.mod ./common/go.mod
-COPY backend/common/go.sum ./common/go.sum
-COPY backend/agent/go.mod ./agent/go.mod
-COPY backend/agent/go.sum ./agent/go.sum
-COPY backend/server/go.mod ./server/go.mod
-COPY backend/server/go.sum ./server/go.sum
-RUN go mod download
-
-# copy code
-COPY backend/common ./common
-COPY backend/server ./server
-
-# build server
-RUN CGO_ENABLED=0 go build -o bin/server ./server/cmd/main.go
-
-ENTRYPOINT ["./server"]
-CMD []
-
 # -----------------------------------------------------------
 
 FROM node:20.13.1-alpine3.19 AS frontend-builder
-
 WORKDIR /frontend
 
 # enable pnpm
@@ -66,6 +40,38 @@ ENTRYPOINT []
 CMD []
 
 # -----------------------------------------------------------
+  
+FROM golang:1.22.7 AS server-builder
+
+WORKDIR /backend
+
+# install dependencies (for cache)
+COPY backend/go.work .
+COPY backend/go.work.sum .
+COPY backend/cli/go.mod ./cli/go.mod
+COPY backend/cli/go.sum ./cli/go.sum
+COPY backend/common/go.mod ./common/go.mod
+COPY backend/common/go.sum ./common/go.sum
+COPY backend/agent/go.mod ./agent/go.mod
+COPY backend/agent/go.sum ./agent/go.sum
+COPY backend/server/go.mod ./server/go.mod
+COPY backend/server/go.sum ./server/go.sum
+RUN go mod download
+
+# copy code
+COPY backend/common ./common
+COPY backend/server ./server
+
+# copy frontend
+COPY --from=frontend-builder /frontend/dist /server/website
+
+# build server
+RUN CGO_ENABLED=0 go build -o bin/server ./server/cmd/main.go
+
+ENTRYPOINT ["./server"]
+CMD []
+
+# -----------------------------------------------------------
 
 FROM alpine:3.20.0 AS debug
 
@@ -76,10 +82,6 @@ COPY --from=server-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # copy server
 COPY --from=server-builder /backend/bin/server /server/server
-COPY --from=server-builder /backend/server/templates /server/templates
-
-# copy frontend
-COPY --from=frontend-builder /frontend/dist /server/website
 
 ENTRYPOINT ["./server"]
 CMD []
@@ -95,10 +97,6 @@ COPY --from=server-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # copy server
 COPY --from=server-builder /backend/bin/server /server/server
-COPY --from=server-builder /backend/server/templates /server/templates
-
-# copy frontend
-COPY --from=frontend-builder /frontend/dist /server/website
 
 ENTRYPOINT ["./server"]
 CMD []
