@@ -17,9 +17,9 @@ package ginapp
 import (
 	"encoding/json"
 	"html/template"
+	"io/fs"
 	"net/http"
-	"os"
-	"path"
+	"slices"
 
 	"github.com/gin-gonic/gin"
 	zlog "github.com/rs/zerolog/log"
@@ -29,18 +29,25 @@ import (
 
 type WebsiteHandlers struct {
 	*GinApp
-	websiteDir string
+	//embedFS *embed.FS
+	websiteFS fs.FS
 }
 
 func (app *WebsiteHandlers) InitStaticHandlers(root *gin.RouterGroup) {
-	root.StaticFile("/favicon.ico", path.Join(app.websiteDir, "/favicon.ico"))
-	root.StaticFile("/graphiql", path.Join(app.websiteDir, "/graphiql.html"))
-	root.Static("/assets", path.Join(app.websiteDir, "/assets"))
+	// add top-level files
+	httpFS := http.FS(app.websiteFS)
+	root.StaticFileFS("/favicon.ico", "/favicon.ico", httpFS)
+	root.StaticFileFS("/graphiql", "/graphiql.html", httpFS)
+
+	// add assets directory
+	if assetsFS, err := fs.Sub(app.websiteFS, "assets"); err == nil {
+		root.StaticFS("/assets", http.FS(assetsFS))
+	}
 }
 
 func (app *WebsiteHandlers) EndpointHandler(cfg *config.Config) gin.HandlerFunc {
 	// read manifest file
-	manifestFile, err := os.Open(path.Join(app.websiteDir, ".vite/manifest.json"))
+	manifestFile, err := app.websiteFS.Open(".vite/manifest.json")
 	if err != nil {
 		return func(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{
@@ -59,8 +66,9 @@ func (app *WebsiteHandlers) EndpointHandler(cfg *config.Config) gin.HandlerFunc 
 	}
 
 	// define runtime config for react app
-	runtimeConfig := map[string]string{
-		"basePath": cfg.Server.BasePath,
+	runtimeConfig := map[string]interface{}{
+		"basePath":          cfg.Server.BasePath,
+		"extensionsEnabled": cfg.Server.ExtensionsEnabled,
 	}
 
 	runtimeConfigBytes, err := json.Marshal(runtimeConfig)
@@ -70,10 +78,17 @@ func (app *WebsiteHandlers) EndpointHandler(cfg *config.Config) gin.HandlerFunc 
 	runtimeConfigJS := template.JS(string(runtimeConfigBytes))
 
 	return func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.tmpl", gin.H{
-			"config":        cfg,
-			"manifest":      manifest,
-			"runtimeConfig": template.JS(runtimeConfigJS),
-		})
+		// reject non-GET/HEAD requests
+		if slices.Contains([]string{"GET", "HEAD"}, c.Request.Method) {
+			c.HTML(http.StatusOK, "index.tmpl", gin.H{
+				"config":        cfg,
+				"manifest":      manifest,
+				"runtimeConfig": template.JS(runtimeConfigJS),
+			})
+		} else {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "Resource not found",
+			})
+		}
 	}
 }

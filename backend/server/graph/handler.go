@@ -23,6 +23,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/gorilla/websocket"
+	"github.com/vektah/gqlparser/v2/ast"
 )
 
 type HandlerOptions struct {
@@ -49,7 +50,7 @@ func NewHandler(r *Resolver, options *HandlerOptions) *handler.Server {
 	h.AddTransport(transport.GET{})
 	h.AddTransport(transport.POST{})
 
-	h.SetQueryCache(lru.New(1000))
+	h.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
 	// configure WebSocket (without CORS)
 	h.AddTransport(&transport.Websocket{
@@ -70,7 +71,7 @@ func NewHandler(r *Resolver, options *HandlerOptions) *handler.Server {
 
 	h.Use(extension.Introspection{})
 	h.Use(extension.AutomaticPersistedQuery{
-		Cache: lru.New(100),
+		Cache: lru.New[string](100),
 	})
 
 	return h

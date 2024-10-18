@@ -13,6 +13,7 @@ data:
       addr: :4000
       base-path: /
       gin-mode: debug
+      extensions-enabled: true
       session:
         secret: REPLACEME
         cookie:

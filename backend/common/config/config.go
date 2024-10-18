@@ -52,10 +52,11 @@ type Config struct {
 
 	// server options
 	Server struct {
-		Addr             string `validate:"omitempty,hostname_port"`
-		BasePath         string `mapstructure:"base-path"`
-		GinMode          string `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
-		AgentDispatchUrl string `mapstructure:"agent-dispatch-url"`
+		Addr              string `validate:"omitempty,hostname_port"`
+		BasePath          string `mapstructure:"base-path"`
+		GinMode           string `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
+		AgentDispatchUrl  string `mapstructure:"agent-dispatch-url"`
+		ExtensionsEnabled bool   `mapstructure:"extensions-enabled"`
 
 		// session options
 		Session struct {

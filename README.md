@@ -17,13 +17,12 @@ Viewing application logs in a containerized environment can be challenging. Typi
 
 Kubetail solves this problem by providing an easy-to-use, web-based interface that allows you to view all the logs for a set of Kubernetes workloads (e.g. Deployment, CronJob, StatefulSet) simultaneously, in real-time. Under the hood, it uses your cluster's Kubernetes API to monitor your workloads and detect when a new workload container gets created or an old one deleted. Kubetail will then add messages from the new container to your viewing stream or update its UI to reflect that an old container will no longer produce messages. This allows you to follow your application logs easily as user requests move from one ephemeral container to another across services. Kubetail can also help you to debug application issues by allowing you to filter your logs by node properties such as availability zone, CPU architecture or node ID. This can be useful to find problems that are specific to a given environment that an application instance is running in.
 
-The Kubetail application consists of a Go-based backend server (`kubetail-server`) and a set of small Go-based backend agents (`kubetail-agent`) that run on each node in your cluster. The server hosts a React-based website that you can access once the backend components are running inside your cluster. The website sends queries to the server which performs actions inside the cluster on your behalf such as fetching data from your Kubernetes API and monitoring your log files on-disk using the agents. Since, internally, Kubetail uses your Kubernetes API to request logs, your log messages always stay in your possession and Kubetail is private by default.
+The main entry point for Kubetail is a CLI tool called `kubetail` that you can use to run the application locally on your desktop. The application will make requests to your Kubernetes API using the current specified in your local kube config file. In addition, you can run Kubetail inside your cluster if you want to enable cluster users to use it without installing the CLI. Internally, Kubetail uses your Kubernetes API to request logs, so your log messages always stay in your possession and Kubetail is private by default. Most of Kubetail is written in Go and the web interface is written in Typescript/React.
 
 Our goal is to build a powerful cloud-native logging platform designed from the ground up for a containerized environment and this project is a work-in-progress. If you notice a bug or have a suggestion please create a GitHub Issue or send us an email (hello@kubetail.com)!
 
 ## Key features
 
-* Small and resource efficient (server: <40MB memory, agents: <20MB memory, negligible CPU)
 * View log messages in real-time
 * View logs that are part of a specific workload (e.g. Deployment, CronJob, StatefulSet)
 * Detects creation and deletion of workload containers and adds their logs to the viewing stream automatically
@@ -33,7 +32,27 @@ Our goal is to build a powerful cloud-native logging platform designed from the 
 * Color-coded log lines to distinguish between different containers
 * A clean, easy-to-use interface
 
-## Install
+## Quickstart
+
+You can install Kubetail via [Homebrew](https://brew.sh/):
+
+```console
+brew install kubetail-org/tap/kubetail
+```
+
+For other installation options see the [Advanced Install](#advanced-install) section below.
+
+Once the CLI is installed, you can start the UI:
+
+```console
+kubetail serve
+```
+
+This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser.
+
+## Advanced Install
+
+### Option 1: 
 
 ### Option 1: Manifest file
 

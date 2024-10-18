@@ -4,7 +4,6 @@ WORKDIR /server
 
 # copy
 COPY .tilt/server .
-COPY backend/server/templates ./templates
 
 ENTRYPOINT ["./server"]
 CMD []
