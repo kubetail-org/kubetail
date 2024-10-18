@@ -6,7 +6,7 @@ Kubetail is a Kubernetes logging tool with a realtime web dashboard
 
 Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 
-![Discord](https://img.shields.io/discord/1212031524216770650?style=flat&logo=discord&logoColor=white&label=Discord&labelColor=5B65F0&link=https%3A%2F%2Fdiscord.gg%2F7ft5WKYv)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Our%20Community-64B73A?logo=discord&logoColor=FFFFFF&labelColor=5B65F0)](https://discord.gg/pXHXaUqt)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kubetail)](https://artifacthub.io/packages/search?repo=kubetail)
 
 ## Quickstart
