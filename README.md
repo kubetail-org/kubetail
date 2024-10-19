@@ -1,6 +1,6 @@
 # Kubetail
 
-Kubetail is a logging tool for Kubernetes with a realtime web dashboard
+Kubetail is a logging tool for Kubernetes with a real-time web dashboard
 
 <img src="https://github.com/kubetail-org/kubetail/assets/75881/7647bd90-0859-4b0b-9400-c7cdeb6a93e6" width="300px" title="screenshot">
 
@@ -34,7 +34,7 @@ Our goal is to build a powerful cloud-native logging platform designed from the 
 
 ## Quickstart
 
-First, install the Kubetail CLI tool (`kubetail`) via [homebrew](https://brew.sh/) (you can also download it manually from the release [binaries](https://github.com/kubetail-org/kubetail/releases/tag/0.8.0-rc1)):
+First, install the Kubetail CLI tool (`kubetail`) via [homebrew](https://brew.sh/) (or [release binaries](https://github.com/kubetail-org/kubetail/releases/tag/0.8.0-rc1)):
 
 ```console
 brew install kubetail-org/tap/kubetail
