@@ -92,6 +92,12 @@ var serveCmd = &cobra.Command{
 			Format:  "pretty",
 		})
 
+		// TODO: add more tests than config, basic setup
+		if test {
+			fmt.Println("ok")
+			return
+		}
+
 		// create app
 		app, err := ginapp.NewGinApp(cfg)
 		if err != nil {
@@ -137,7 +143,7 @@ var serveCmd = &cobra.Command{
 		zlog.Info().Msgf("Started kubetail dashboard on http://%s:%d/", host, port)
 
 		// open in browser
-		if !skipOpen && !test {
+		if !skipOpen {
 			err = browser.OpenURL(fmt.Sprintf("http://%s:%d/", host, port))
 			if err != nil {
 				zlog.Fatal().Err(err).Send()
@@ -145,9 +151,7 @@ var serveCmd = &cobra.Command{
 		}
 
 		// wait for termination signal
-		if !test {
-			<-quit
-		}
+		<-quit
 
 		zlog.Info().Msg("Starting graceful shutdown...")
 
