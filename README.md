@@ -1,12 +1,12 @@
 # Kubetail
 
-Kubetail is a Kubernetes logging tool with a realtime web dashboard
+Kubetail is a logging tool for Kubernetes with a realtime web dashboard
 
 <img src="https://github.com/kubetail-org/kubetail/assets/75881/7647bd90-0859-4b0b-9400-c7cdeb6a93e6" width="300px" title="screenshot">
 
 Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 
-[![Discord](https://img.shields.io/badge/Discord-Join%20Our%20Community-64B73A?logo=discord&logoColor=FFFFFF&labelColor=5B65F0)](https://discord.gg/pXHXaUqt)
+[![Discord](https://img.shields.io/badge/Discord-Chat%20With%20Us-64B73A?logo=discord&logoColor=FFFFFF&labelColor=5B65F0)](https://discord.gg/pXHXaUqt)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kubetail)](https://artifacthub.io/packages/search?repo=kubetail)
 
 ## Introduction
