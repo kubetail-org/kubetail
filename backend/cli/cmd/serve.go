@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -48,6 +49,7 @@ var serveCmd = &cobra.Command{
 		skipOpen, _ := cmd.Flags().GetBool("skip-open")
 		//remote, _ := cmd.Flags().GetBool("remote")
 		remote := false
+		test, _ := cmd.Flags().GetBool("test")
 
 		// Handle remote tunnel
 		if remote {
@@ -105,18 +107,37 @@ var serveCmd = &cobra.Command{
 			WriteTimeout: 10 * time.Second,
 		}
 
+		// create listener
+		listener, err := net.Listen("tcp", server.Addr)
+		if err != nil {
+			// let system pick port
+			listener, err = net.Listen("tcp", fmt.Sprintf("%s:0", host))
+			if err != nil {
+				zlog.Fatal().Caller().Err(err).Send()
+			}
+		}
+		defer listener.Close()
+
+		// get actual port
+		port = listener.Addr().(*net.TCPAddr).Port
+
+		serverReady := make(chan struct{})
+
 		// run server in goroutine
 		go func() {
-			err := server.ListenAndServe()
+			close(serverReady)
+			err := server.Serve(listener)
 			if err != nil && err != http.ErrServerClosed {
 				zlog.Fatal().Err(err).Send()
 			}
 		}()
 
+		<-serverReady
+
 		zlog.Info().Msgf("Started kubetail dashboard on http://%s:%d/", host, port)
 
 		// open in browser
-		if !skipOpen {
+		if !skipOpen && !test {
 			err = browser.OpenURL(fmt.Sprintf("http://%s:%d/", host, port))
 			if err != nil {
 				zlog.Fatal().Err(err).Send()
@@ -124,7 +145,9 @@ var serveCmd = &cobra.Command{
 		}
 
 		// wait for termination signal
-		<-quit
+		if !test {
+			<-quit
+		}
 
 		zlog.Info().Msg("Starting graceful shutdown...")
 
@@ -220,4 +243,5 @@ func init() {
 	flagset.StringP("log-level", "l", "info", "Log level (debug, info, warn, error, disabled)")
 	flagset.Bool("skip-open", false, "Skip opening the browser")
 	//flagset.Bool("remote", false, "Open tunnel to remote dashboard")
+	flagset.Bool("test", false, "Run internal tests and exit")
 }
