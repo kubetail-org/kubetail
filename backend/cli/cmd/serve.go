@@ -18,7 +18,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -111,8 +110,16 @@ var serveCmd = &cobra.Command{
 		// create listener
 		listener, err := net.Listen("tcp", server.Addr)
 		if err != nil {
-			log.Fatalf("Failed to start listener: %v", err)
+			// let system pick port
+			listener, err = net.Listen("tcp", fmt.Sprintf("%s:0", host))
+			if err != nil {
+				zlog.Fatal().Caller().Err(err).Send()
+			}
 		}
+		defer listener.Close()
+
+		// get actual port
+		port = listener.Addr().(*net.TCPAddr).Port
 
 		serverReady := make(chan struct{})
 
