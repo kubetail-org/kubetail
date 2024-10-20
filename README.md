@@ -1,6 +1,6 @@
 # Kubetail
 
-Kubetail is a tool for viewing logs from multiple Kubernetes pods simultaneously
+Kubetail is a real-time web dashboard for viewing Kubernetes container log files (runs on desktop or in cluster)
 
 <img src="https://github.com/kubetail-org/kubetail/assets/75881/7647bd90-0859-4b0b-9400-c7cdeb6a93e6" width="300px" title="screenshot">
 
