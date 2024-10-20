@@ -6,7 +6,7 @@ Kubetail is a tool for viewing logs from multiple Kubernetes pods simultaneously
 
 Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 
-[![Discord](https://img.shields.io/badge/Discord-Chat%20With%20Us-64B73A?logo=discord&logoColor=FFFFFF&labelColor=5B65F0)](https://discord.gg/pXHXaUqt)
+<a href="https://discord.gg/pXHXaUqt"><img src="https://img.shields.io/discord/1212031524216770650?logo=Discord&style=flat-square&logoColor=FFFFFF&labelColor=5B65F0&label=Discord&color=64B73A"></a>
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kubetail)](https://artifacthub.io/packages/search?repo=kubetail)
 
 ## Introduction
