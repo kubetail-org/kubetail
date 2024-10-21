@@ -93,7 +93,7 @@ jobs:
           pnpm install
           pnpm build
 
-  build-amd64-server:
+  build-server-amd64:
     needs:
       - modules-lint
       - modules-test
@@ -113,7 +113,27 @@ jobs:
           push: false
           tags: kubetail-server:latest
 
-  build-amd64-agent:
+  build-server-arm64:
+    needs:
+      - modules-lint
+      - modules-test
+      - modules-vet
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
+    runs-on: arm64-ubuntu-22
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: build/package/Dockerfile.server
+          push: false
+          tags: kubetail-server:latest
+      
+  build-agent-amd64:
     needs:
       - modules-lint
       - modules-test
@@ -133,27 +153,7 @@ jobs:
           push: false
           tags: kubetail-agent:latest
 
-  build-arm64-server:
-    needs:
-      - modules-lint
-      - modules-test
-      - modules-vet
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
-    runs-on: arm64-ubuntu-22
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Build
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: build/package/Dockerfile.server
-          push: false
-          tags: kubetail-server:latest
-
-  build-arm64-agent:
+  build-agent-arm64:
     needs:
       - modules-lint
       - modules-test
@@ -173,7 +173,32 @@ jobs:
           push: false
           tags: kubetail-agent:latest
 
-  build-cli:
+  build-cli-linux-amd64:
+    needs:
+      - modules-lint
+      - modules-test
+      - modules-vet
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.7'
+          cache: false  
+      - name: Run build script
+        working-directory: ./
+        run: make build
+
+  build-cli-linux-arm64:
     needs:
       - modules-lint
       - modules-test
@@ -196,4 +221,104 @@ jobs:
           cache: false  
       - name: Run build script
         working-directory: ./
-        run: make build-all
+        run: make build
+
+  build-cli-macos-15:
+    needs:
+      - modules-lint
+      - modules-test
+      - modules-vet
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.7'
+          cache: false  
+      - name: Run build script
+        working-directory: ./
+        run: make build
+
+  build-cli-macos-14:
+    needs:
+      - modules-lint
+      - modules-test
+      - modules-vet
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.7'
+          cache: false  
+      - name: Run build script
+        working-directory: ./
+        run: make build
+
+  build-cli-macos-13:
+    needs:
+      - modules-lint
+      - modules-test
+      - modules-vet
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.7'
+          cache: false  
+      - name: Run build script
+        working-directory: ./
+        run: make build
+
+  build-cli-windows:
+    needs:
+      - modules-lint
+      - modules-test
+      - modules-vet
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.7'
+          cache: false  
+      - name: Run build script
+        working-directory: ./
+        run: make build
