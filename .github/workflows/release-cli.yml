@@ -48,12 +48,15 @@ jobs:
       - name: Calculate sha256 checksum
         shell: bash
         run: |
+          FILE=bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+          OUTPUT_FILE=${FILE}.sha256
+
           if [ "$RUNNER_OS" == "Linux" ]; then
-            sha256sum bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }} | cut -d " " -f 1 >> bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}.sha256
+            sha256sum "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           elif [ "$RUNNER_OS" == "Windows" ]; then
-            certutil -hashfile bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }} SHA256 >> bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}.sha256
+            certutil -hashfile "$FILE" SHA256 | findstr /v "SHA256" | findstr /v "CertUtil" > "$OUTPUT_FILE"
           elif [ "$RUNNER_OS" == "macOS" ]; then
-            shasum -a 256 bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }} | cut -d " " -f 1 >> bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}.sha256
+            shasum -a 256 "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           fi
       - name: Attach files to gh release
         uses: softprops/action-gh-release@v2
