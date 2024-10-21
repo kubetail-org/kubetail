@@ -8,9 +8,29 @@ on:
 jobs:
   build:
     name: Build binaries
+    #strategy:
+    #  matrix:
+    #    os: [ubuntu-latest, arm64-ubuntu-22, macos-latest, macos-13, windows-latest]
+    #    include:
+    #      - os: ubuntu-latest
+    #        GOOS: linux
+    #        GOARCH: amd64
+    #      - os: arm64-ubuntu-22
+    #        GOOS: linux
+    #        GOARCH: arm64
+    #      - os: macos-latest
+    #        GOOS: darwin
+    #        GOARCH: arm64
+    #      - os: macos-13
+    #        GOOS: darwin
+    #        GOARCH: amd64
+    #      - os: windows-latest
+    #        GOOS: windows
+    #        GOARCH: amd64
+    #runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, arm64-ubuntu-22, macos-latest, macos-13, windows-latest]
+        os: [windows-latest] #[ubuntu-latest, arm64-ubuntu-22, macos-latest, macos-13, windows-latest]
         include:
           - os: ubuntu-latest
             GOOS: linux
@@ -54,7 +74,7 @@ jobs:
           if [ "$RUNNER_OS" == "Linux" ]; then
             sha256sum "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           elif [ "$RUNNER_OS" == "Windows" ]; then
-            certutil -hashfile "$FILE" SHA256 | findstr /v "SHA256" | findstr /v "CertUtil" > "$OUTPUT_FILE"
+            certutil -hashfile "$FILE" SHA256 | findstr /v /c:"SHA256" /c:"CertUtil" > "$OUTPUT_FILE"
           elif [ "$RUNNER_OS" == "macOS" ]; then
             shasum -a 256 "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           fi
