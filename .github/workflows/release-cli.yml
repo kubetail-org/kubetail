@@ -55,7 +55,7 @@ jobs:
       #  run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
       - name: Write string to a file
         run: |
-          $content = "This is the string to write"
+          $content = "Line1\nLine2\nLine3\n"
           $path = "bin"
           if (!(Test-Path -Path $path)) {
             New-Item -ItemType Directory -Path $path
@@ -71,14 +71,12 @@ jobs:
           if [ "$RUNNER_OS" == "Linux" ]; then
             sha256sum "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           elif [ "$RUNNER_OS" == "Windows" ]; then
-            certutil -hashfile "$FILE" SHA256 > "$OUTPUT_FILE"
-            findstr /v "SHA256" Z:\"$OUTPUT_FILE" >Z:\"$OUTPUT_FILE"
-            findstr /v "CertUtil" Z:\"$OUTPUT_FILE" >Z:\"$OUTPUT_FILE"
+            certutil -hashfile "$FILE" SHA256 | awk 'NR==2' > "$OUTPUT_FILE"
           elif [ "$RUNNER_OS" == "macOS" ]; then
             shasum -a 256 "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           fi
-      #- name: Attach files to gh release
-      #  uses: softprops/action-gh-release@v2
-      #  with:
-      #    files: bin/*
-      #    draft: true
+      - name: Attach files to gh release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: bin/*
+          draft: true
