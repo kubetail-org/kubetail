@@ -5,8 +5,7 @@ Go module containing shared backend libraries
 ## Dependencies
 
 ```console
-go install google.golang.org/protobuf/cmd/protoc-gen-go
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
+brew install protobuf protoc-gen-go protoc-gen-go-grpc
 ```
 
 ## gRPC
