@@ -43,37 +43,44 @@ jobs:
       - name: Run build script
         working-directory: ./
         run: make build
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v3
+      - name: Attach binary to tag
+        uses: actions/upload-release-asset@v1
         with:
-          name: kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
-          path: build/kubetail
+          upload_url: https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}
+          asset_path: build/kubetail
+          asset_name: kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+          asset_content_type: application/octet-stream
+      #- name: Upload build artifact
+      #  uses: actions/upload-artifact@v3
+      #  with:
+      #    name: kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+      #    path: build/kubetail
 
-  attach:
-    name: Attach binaries to tag
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Download built binaries
-        uses: actions/download-artifact@v3
-        with:
-          path: ./build
-      - name: Attach linux-amd64 binary to tag
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}
-          asset_path: build/kubetail-linux-amd64
-          asset_name: kubetail-linux-amd64
-          asset_content_type: application/octet-stream
-      - name: Attach linux-arm64 binary to tag
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}
-          asset_path: build/kubetail-linux-arm64
-          asset_name: kubetail-linux-arm64
-          asset_content_type: application/octet-stream
+  #tach:
+  #name: Attach binaries to tag
+  #runs-on: ubuntu-latest
+  #needs: build
+  #steps:
+  #  - name: Checkout code
+  #    uses: actions/checkout@v3
+  #  - name: Download built binaries
+  #    uses: actions/download-artifact@v3
+  #    with:
+  #      path: ./build
+  #  - name: Attach linux-amd64 binary to tag
+  #    uses: actions/upload-release-asset@v1
+  #    with:
+  #      upload_url: https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}
+  #      asset_path: build/kubetail-linux-amd64
+  #      asset_name: kubetail-linux-amd64
+  #      asset_content_type: application/octet-stream
+  #  - name: Attach linux-arm64 binary to tag
+  #    uses: actions/upload-release-asset@v1
+  #    with:
+  #      upload_url: https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}
+  #      asset_path: build/kubetail-linux-arm64
+  #      asset_name: kubetail-linux-arm64
+  #      asset_content_type: application/octet-stream
       #- name: Attach macOS Binary to Tag
       #  uses: actions/upload-release-asset@v1
       #  with:
