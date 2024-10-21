@@ -58,7 +58,7 @@ jobs:
         run: |
           FILE=bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
           OUTPUT_FILE=${FILE}.sha256
-          echo "blahblah" > "$FILE"
+          touch "$FILE"
           if [ "$RUNNER_OS" == "Linux" ]; then
             sha256sum "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           elif [ "$RUNNER_OS" == "Windows" ]; then
