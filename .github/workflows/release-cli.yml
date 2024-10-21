@@ -37,22 +37,22 @@ jobs:
             GOARCH: amd64
     runs-on: ${{ matrix.os }}
     steps:
-      #- uses: actions/checkout@v4
-      #- uses: actions/setup-node@v4
-      #  with:
-      #    node-version: 20
-      #- uses: pnpm/action-setup@v3
-      #  with:
-      #    version: 9
-      #- uses: actions/setup-go@v5
-      #  with:
-      #    go-version: '1.22.7'
-      #    cache: false  
-      #- name: Run build script
-      #  working-directory: ./
-      #  run: make build
-      #- name: Append os/arch to binary file name
-      #  run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.7'
+          cache: false  
+      - name: Run build script
+        working-directory: ./
+        run: make build
+      - name: Append os/arch to binary file name
+        run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
       - name: Calculate sha256 checksum
         shell: bash
         run: |
@@ -63,7 +63,7 @@ jobs:
             sha256sum "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           elif [ "$RUNNER_OS" == "Windows" ]; then
             certutil -hashfile "$FILE" SHA256 > "$OUTPUT_FILE"
-            cat "$OUTPUT_FILE" | findstr /r "^[0-9a-fA-F]" > "$OUTPUT_FILE"
+            cat "$OUTPUT_FILE" | findstr /v "SHA256" | findstr /v "CertUtil" > "$OUTPUT_FILE"
           elif [ "$RUNNER_OS" == "macOS" ]; then
             shasum -a 256 "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           fi
