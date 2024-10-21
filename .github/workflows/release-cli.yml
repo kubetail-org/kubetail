@@ -8,7 +8,6 @@ on:
 jobs:
   build:
     name: Build binaries
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         os: [ubuntu-latest, arm64-ubuntu-22, macos-latest, macos-13, windows-latest]
@@ -28,6 +27,7 @@ jobs:
           - os: windows-latest
             GOOS: windows
             GOARCH: amd64
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -46,7 +46,7 @@ jobs:
       - name: Append os/arch to binary file name
         run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
       - name: Calculate sha256 checksum
-        run: sha256sum bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }} >> bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}.sha256
+        run: sha256sum bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }} | cut -d " " -f 1 >> bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}.sha256
       - name: Attach files to gh release
         uses: softprops/action-gh-release@v2
         with:
