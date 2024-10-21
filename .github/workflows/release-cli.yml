@@ -30,41 +30,29 @@ jobs:
     #runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest] #[ubuntu-latest, arm64-ubuntu-22, macos-latest, macos-13, windows-latest]
+        os: [windows-latest]
         include:
-          - os: ubuntu-latest
-            GOOS: linux
-            GOARCH: amd64
-          - os: arm64-ubuntu-22
-            GOOS: linux
-            GOARCH: arm64
-          - os: macos-latest
-            GOOS: darwin
-            GOARCH: arm64
-          - os: macos-13
-            GOOS: darwin
-            GOARCH: amd64
           - os: windows-latest
             GOOS: windows
             GOARCH: amd64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - uses: pnpm/action-setup@v3
-        with:
-          version: 9
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.22.7'
-          cache: false  
-      - name: Run build script
-        working-directory: ./
-        run: make build
-      - name: Append os/arch to binary file name
-        run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+      #- uses: actions/checkout@v4
+      #- uses: actions/setup-node@v4
+      #  with:
+      #    node-version: 20
+      #- uses: pnpm/action-setup@v3
+      #  with:
+      #    version: 9
+      #- uses: actions/setup-go@v5
+      #  with:
+      #    go-version: '1.22.7'
+      #    cache: false  
+      #- name: Run build script
+      #  working-directory: ./
+      #  run: make build
+      #- name: Append os/arch to binary file name
+      #  run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
       - name: Calculate sha256 checksum
         shell: bash
         run: |
@@ -75,7 +63,7 @@ jobs:
             sha256sum "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           elif [ "$RUNNER_OS" == "Windows" ]; then
             certutil -hashfile "$FILE" SHA256 > "$OUTPUT_FILE"
-            type "$OUTPUT_FILE" > findstr /r "^[0-9a-fA-F]" > "$OUTPUT_FILE"
+            cat "$OUTPUT_FILE" | findstr /r "^[0-9a-fA-F]" > "$OUTPUT_FILE"
           elif [ "$RUNNER_OS" == "macOS" ]; then
             shasum -a 256 "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           fi
