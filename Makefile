@@ -44,12 +44,12 @@ build-dashboard-ui:
 	@echo "Dashboard UI built and copied successfully."
 
 # Build CLI binary for host platform
-build-cli:
+build-cli: build-dashboard-ui
 	@echo "Building kubetail CLI binary..."
 	@cd $(CLI_DIR) && GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o ../../$(OUTPUT_DIR)/$(CLI_BINARY) ./main.go
 
 # Build all the CLI binaries
-build-cli-all:
+build-cli-all: build-dashboard-ui
 	@echo "Building kubetail CLI binaries..."
 	@cd $(CLI_DIR) && GOOS=darwin GOARCH=amd64 go build -o ../../$(OUTPUT_DIR)/$(CLI_BINARY)-darwin-amd64 ./main.go
 	@echo "Built kubetail for darwin-amd64."
