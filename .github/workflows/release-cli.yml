@@ -56,7 +56,11 @@ jobs:
       - name: Write string to a file
         run: |
           $content = "This is the string to write"
-          Set-Content -Path "bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}" -Value $content
+          $path = "bin"
+          if (!(Test-Path -Path $path)) {
+            New-Item -ItemType Directory -Path $path
+          }
+          Set-Content -Path "bin/kubetail-windows-amd64" -Value $content
         shell: pwsh
       - name: Calculate sha256 checksum
         shell: bash
@@ -72,8 +76,8 @@ jobs:
           elif [ "$RUNNER_OS" == "macOS" ]; then
             shasum -a 256 "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           fi
-      - name: Attach files to gh release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: bin/*
-          draft: true
+      #- name: Attach files to gh release
+      #  uses: softprops/action-gh-release@v2
+      #  with:
+      #    files: bin/*
+      #    draft: true
