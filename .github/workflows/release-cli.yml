@@ -47,7 +47,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
-          path: build/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+          path: build/kubetail
 
   attach:
     name: Attach binaries to tag
