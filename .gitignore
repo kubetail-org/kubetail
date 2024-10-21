@@ -26,9 +26,9 @@ lerna-debug.log*
 /frontend/dist-ssr
 
 # build artifacts
-/backend/server/website/*
-!/backend/server/website/
-!/backend/server/website/.gitkeep
+/modules/server/website/*
+!/modules/server/website/
+!/modules/server/website/.gitkeep
 
 # tilt (custom)
 .tilt
