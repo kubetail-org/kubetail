@@ -47,14 +47,18 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}
-          asset_path: build/kubetail
+          asset_path: bin/kubetail
           asset_name: kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
           asset_content_type: application/octet-stream
-      #- name: Upload build artifact
-      #  uses: actions/upload-artifact@v3
-      #  with:
-      #    name: kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
-      #    path: build/kubetail
+      - name: Calculate sha256 checksums
+        run: sha256sum bin/kubetail >> bin/kubetail.sha256
+      - name: Attach sha256 checksum to tag
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}
+          asset_path: bin/kubetail.sha56
+          asset_name: kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}.sha256
+          asset_content_type: text/plain
 
   #tach:
   #name: Attach binaries to tag
