@@ -1,33 +1,29 @@
 # Define variables
-CLI_DIR := ./backend/cli
+CLI_DIR := ./modules/cli
 OUTPUT_DIR := ./bin
 CLI_BINARY := kubetail
 
-DASHBOARD_UI_DIR := ./frontend
-DASHBOARD_SERVER_DIR := ./backend/server
+DASHBOARD_UI_DIR := ./dashboard-ui
+DASHBOARD_SERVER_DIR := ./modules/server
 
 # Detect the operating system
 OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 ARCH := $(shell uname -m)
 
-# Translate the architecture to Go's format
-ifeq ($(ARCH),x86_64)
-  GOARCH := amd64
-else ifeq ($(ARCH),arm64)
-  GOARCH := arm64
-else
-  GOARCH := $(ARCH)
-endif
-
 # Translate the OS to Go's format
-ifeq ($(OS),darwin)
-  GOOS := darwin
-else ifeq ($(OS),linux)
-  GOOS := linux
-else ifeq ($(OS),windows)
+ifeq ($(findstring _nt,$(OS)),_nt)
   GOOS := windows
 else
   GOOS := $(OS)
+endif
+
+# Translate the architecture to Go's format
+ifeq ($(ARCH),x86_64)
+  GOARCH := amd64
+else ifeq ($(ARCH),aarch64)
+  GOARCH := arm64
+else
+  GOARCH := $(ARCH)
 endif
 
 # Default target
@@ -48,12 +44,12 @@ build-dashboard-ui:
 	@echo "Dashboard UI built and copied successfully."
 
 # Build CLI binary for host platform
-build-cli:
+build-cli: build-dashboard-ui
 	@echo "Building kubetail CLI binary..."
 	@cd $(CLI_DIR) && GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o ../../$(OUTPUT_DIR)/$(CLI_BINARY) ./main.go
 
 # Build all the CLI binaries
-build-cli-all:
+build-cli-all: build-dashboard-ui
 	@echo "Building kubetail CLI binaries..."
 	@cd $(CLI_DIR) && GOOS=darwin GOARCH=amd64 go build -o ../../$(OUTPUT_DIR)/$(CLI_BINARY)-darwin-amd64 ./main.go
 	@echo "Built kubetail for darwin-amd64."

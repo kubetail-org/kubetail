@@ -1,4 +1,4 @@
 node_modules
 .git
-/backend/website
-/frontend/.env*.local
+/modules/server/website
+/dashboard-ui/.env*.local

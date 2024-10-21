@@ -15,7 +15,7 @@
 # -----------------------------------------------------------
 
 FROM node:20.13.1-alpine3.19 AS frontend-builder
-WORKDIR /frontend
+WORKDIR /dashboard-ui
 
 # enable pnpm
 RUN corepack enable
@@ -26,12 +26,12 @@ RUN apk add git openssh-client
 RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 # fetch dependencies
-COPY frontend/package.json ./
-COPY frontend/pnpm-lock.yaml ./
+COPY dashboard-ui/package.json ./
+COPY dashboard-ui/pnpm-lock.yaml ./
 RUN pnpm install
 
 # copy code
-COPY frontend/ .
+COPY dashboard-ui/ .
 
 # build
 RUN pnpm build
@@ -43,30 +43,24 @@ CMD []
   
 FROM golang:1.22.7 AS server-builder
 
-WORKDIR /backend
+WORKDIR /work
 
 # install dependencies (for cache)
-COPY backend/go.work .
-COPY backend/go.work.sum .
-COPY backend/cli/go.mod ./cli/go.mod
-COPY backend/cli/go.sum ./cli/go.sum
-COPY backend/common/go.mod ./common/go.mod
-COPY backend/common/go.sum ./common/go.sum
-COPY backend/agent/go.mod ./agent/go.mod
-COPY backend/agent/go.sum ./agent/go.sum
-COPY backend/server/go.mod ./server/go.mod
-COPY backend/server/go.sum ./server/go.sum
-RUN go mod download
+COPY modules/common/go.mod ./common/go.mod
+COPY modules/common/go.sum ./common/go.sum
+COPY modules/server/go.mod ./server/go.mod
+COPY modules/server/go.sum ./server/go.sum
+RUN cd server && go mod download all
 
 # copy code
-COPY backend/common ./common
-COPY backend/server ./server
+COPY modules/common ./common
+COPY modules/server ./server
 
 # copy frontend
-COPY --from=frontend-builder /frontend/dist /server/website
+COPY --from=frontend-builder /dashboard-ui/dist ./server/website
 
 # build server
-RUN CGO_ENABLED=0 go build -o bin/server ./server/cmd/main.go
+RUN cd server && CGO_ENABLED=0 go build -o ../bin/server ./cmd/main.go
 
 ENTRYPOINT ["./server"]
 CMD []
@@ -81,7 +75,7 @@ WORKDIR /server
 COPY --from=server-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # copy server
-COPY --from=server-builder /backend/bin/server /server/server
+COPY --from=server-builder /work/bin/server /server/server
 
 ENTRYPOINT ["./server"]
 CMD []
@@ -96,7 +90,7 @@ WORKDIR /server
 COPY --from=server-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # copy server
-COPY --from=server-builder /backend/bin/server /server/server
+COPY --from=server-builder /work/bin/server /server/server
 
 ENTRYPOINT ["./server"]
 CMD []
