@@ -6,7 +6,7 @@ on:
       - '**'
 
 jobs:
-  backend-lint:
+  modules-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,11 +15,11 @@ jobs:
           go-version: '1.22.7'
           cache: false
       - name: Run linter
-        working-directory: ./backend
+        working-directory: ./modules
         run: |
           test -z $(gofmt -l .)
 
-  backend-test:
+  modules-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,11 +28,11 @@ jobs:
           go-version: '1.22.7'
           cache: false
       - name: Run tests
-        working-directory: ./backend
+        working-directory: ./modules
         run: |
-          go test -race github.com/kubetail-org/kubetail/backend/...
+          go test -race github.com/kubetail-org/kubetail/modules/...
 
-  backend-vet:
+  modules-vet:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,9 +43,9 @@ jobs:
       - name: Run code vetter
         working-directory: ./backend
         run: |
-          go vet github.com/kubetail-org/kubetail/backend/...
+          go vet github.com/kubetail-org/kubetail/modules/...
 
-  frontend-lint:
+  dashboard-ui-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -56,12 +56,12 @@ jobs:
         with:
           version: 9
       - name: Set up and run linter
-        working-directory: ./frontend
+        working-directory: ./dashboard-ui
         run: |
           pnpm install
           pnpm lint
 
-  frontend-test:
+  dashboard-ui-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -72,12 +72,12 @@ jobs:
         with:
           version: 9
       - name: Set up and run tests
-        working-directory: ./frontend
+        working-directory: ./dashboard-ui
         run: |
           pnpm install
           pnpm test run
 
-  frontend-build:
+  dashboard-ui-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -88,19 +88,19 @@ jobs:
         with:
           version: 9
       - name: Set up and run build script
-        working-directory: ./frontend
+        working-directory: ./dashboard-ui
         run: |
           pnpm install
           pnpm build
 
   build-amd64-server:
     needs:
-      - backend-lint
-      - backend-test
-      - backend-vet
-      - frontend-lint
-      - frontend-test
-      - frontend-build
+      - modules-lint
+      - modules-test
+      - modules-vet
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -115,12 +115,12 @@ jobs:
 
   build-amd64-agent:
     needs:
-      - backend-lint
-      - backend-test
-      - backend-vet
-      - frontend-lint
-      - frontend-test
-      - frontend-build
+      - modules-lint
+      - modules-test
+      - modules-vet
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -133,14 +133,14 @@ jobs:
           push: false
           tags: kubetail-agent:latest
 
-  build-arm64-sever:
+  build-arm64-server:
     needs:
-      - backend-lint
-      - backend-test
-      - backend-vet
-      - frontend-lint
-      - frontend-test
-      - frontend-build
+      - modules-lint
+      - modules-test
+      - modules-vet
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
     runs-on: arm64-ubuntu-22
     steps:
       - name: Checkout
@@ -155,12 +155,12 @@ jobs:
 
   build-arm64-agent:
     needs:
-      - backend-lint
-      - backend-test
-      - backend-vet
-      - frontend-lint
-      - frontend-test
-      - frontend-build
+      - modules-lint
+      - modules-test
+      - modules-vet
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
     runs-on: arm64-ubuntu-22
     steps:
       - name: Checkout
@@ -172,3 +172,28 @@ jobs:
           file: build/package/Dockerfile.agent
           push: false
           tags: kubetail-agent:latest
+
+  build-cli:
+    needs:
+      - modules-lint
+      - modules-test
+      - modules-vet
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
+    runs-on: arm64-ubuntu-22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.7'
+          cache: false  
+      - name: Run build script
+        working-directory: ./
+        run: make build-all
