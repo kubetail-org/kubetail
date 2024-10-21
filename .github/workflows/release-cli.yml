@@ -1,0 +1,181 @@
+name: publish
+
+on:
+  push:
+    tags:
+      - 'cli/v*'
+
+jobs:
+  build:
+    name: Build binaries
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, arm64-ubuntu-22, macos-latest, macos-13, windows-latest]
+        include:
+          - os: ubuntu-latest
+            GOOS: linux
+            GOARCH: amd64
+          - os: arm64-ubuntu-22
+            GOOS: linux
+            GOARCH: arm64
+          - os: macos-latest
+            GOOS: darwin
+            GOARCH: arm64
+          - os: macos-13
+            GOOS: darwin
+            GOARCH: amd64
+          - os: windows-latest
+            GOOS: windows
+            GOARCH: amd64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.7'
+          cache: false  
+      - name: Run build script
+        working-directory: ./
+        run: make build
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+          path: build/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+
+  attach:
+    name: Attach binaries to tag
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Download built binaries
+        uses: actions/download-artifact@v3
+        with:
+          path: ./build
+      - name: Attach linux-amd64 binary to tag
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}
+          asset_path: build/kubetail-linux-amd64
+          asset_name: kubetail-linux-amd64
+          asset_content_type: application/octet-stream
+      - name: Attach linux-arm64 binary to tag
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}
+          asset_path: build/kubetail-linux-arm64
+          asset_name: kubetail-linux-arm64
+          asset_content_type: application/octet-stream
+      #- name: Attach macOS Binary to Tag
+      #  uses: actions/upload-release-asset@v1
+      #  with:
+      #    upload_url: https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}
+      #    asset_path: build/kubetail-darwin-amd64
+      #    asset_name: kubetail-darwin-amd64
+      #    asset_content_type: application/octet-stream
+      #- name: Attach Windows Binary to Tag
+      #  uses: actions/upload-release-asset@v1
+      #  with:
+      #    upload_url: https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}
+      #    asset_path: build/kubetail-windows-amd64.exe
+      #    asset_name: kubetail-windows-amd64.exe
+      #    asset_content_type: application/octet-stream
+
+
+  #build-linux-amd64:
+  #  runs-on: ubuntu-latest
+  #  steps:
+  #    - uses: actions/checkout@v4
+  #    - uses: actions/setup-node@v4
+  #      with:
+  #        node-version: 20
+  #    - uses: pnpm/action-setup@v3
+  #      with:
+  #        version: 9
+  #    - uses: actions/setup-go@v5
+  #      with:
+  #        go-version: '1.22.7'
+  #        cache: false  
+  #    - name: Run build script
+  #      working-directory: ./
+  #      run: make build
+#
+  #build-linux-arm64:
+  #  runs-on: arm64-ubuntu-22
+  #  steps:
+  #    - uses: actions/checkout@v4
+  #    - uses: actions/setup-node@v4
+  #      with:
+  #        node-version: 20
+  #    - uses: pnpm/action-setup@v3
+  #      with:
+  #        version: 9
+  #    - uses: actions/setup-go@v5
+  #      with:
+  #        go-version: '1.22.7'
+  #        cache: false  
+  #    - name: Run build script
+  #      working-directory: ./
+  #      run: make build
+#
+  #build-darwin-arm64:
+  #  runs-on: macos-15
+  #  steps:
+  #    - uses: actions/checkout@v4
+  #    - uses: actions/setup-node@v4
+  #      with:
+  #        node-version: 20
+  #    - uses: pnpm/action-setup@v3
+  #      with:
+  #        version: 9
+  #    - uses: actions/setup-go@v5
+  #      with:
+  #        go-version: '1.22.7'
+  #        cache: false  
+  #    - name: Run build script
+  #      working-directory: ./
+  #      run: make build
+#
+  #build-darwin-amd64:
+  #  runs-on: macos-13
+  #  steps:
+  #    - uses: actions/checkout@v4
+  #    - uses: actions/setup-node@v4
+  #      with:
+  #        node-version: 20
+  #    - uses: pnpm/action-setup@v3
+  #      with:
+  #        version: 9
+  #    - uses: actions/setup-go@v5
+  #      with:
+  #        go-version: '1.22.7'
+  #        cache: false  
+  #    - name: Run build script
+  #      working-directory: ./
+  #      run: make build
+#
+  #build-windows:
+  #  runs-on: windows-latest
+  #  steps:
+  #    - uses: actions/checkout@v4
+  #    - uses: actions/setup-node@v4
+  #      with:
+  #        node-version: 20
+  #    - uses: pnpm/action-setup@v3
+  #      with:
+  #        version: 9
+  #    - uses: actions/setup-go@v5
+  #      with:
+  #        go-version: '1.22.7'
+  #        cache: false  
+  #    - name: Run build script
+  #      working-directory: ./
+  #      run: make build
