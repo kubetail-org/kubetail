@@ -51,3 +51,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: bin/*
+          draft: true
