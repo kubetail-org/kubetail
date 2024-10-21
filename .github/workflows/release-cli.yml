@@ -72,6 +72,7 @@ jobs:
             sha256sum "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           elif [ "$RUNNER_OS" == "Windows" ]; then
             certutil -hashfile "$FILE" SHA256 > "$OUTPUT_FILE"
+            ls bin
             type "$OUTPUT_FILE" | findstr /V "SHA256" | findstr /V "CertUtil" > "$OUTPUT_FILE"
           elif [ "$RUNNER_OS" == "macOS" ]; then
             shasum -a 256 "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
