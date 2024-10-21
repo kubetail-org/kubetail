@@ -14,27 +14,21 @@
 
 FROM golang:1.22.7 AS builder
 
-WORKDIR /backend
+WORKDIR /work
 
 # install dependencies (for cache)
-COPY backend/go.work .
-COPY backend/go.work.sum .
-COPY backend/cli/go.mod ./cli/go.mod
-COPY backend/cli/go.sum ./cli/go.sum
-COPY backend/common/go.mod ./common/go.mod
-COPY backend/common/go.sum ./common/go.sum
-COPY backend/agent/go.mod ./agent/go.mod
-COPY backend/agent/go.sum ./agent/go.sum
-COPY backend/server/go.mod ./server/go.mod
-COPY backend/server/go.sum ./server/go.sum
-RUN go mod download
+COPY modules/common/go.mod ./common/go.mod
+COPY modules/common/go.sum ./common/go.sum
+COPY modules/agent/go.mod ./agent/go.mod
+COPY modules/agent/go.sum ./agent/go.sum
+RUN cd agent && go mod download all
 
 # copy code
-COPY backend/common ./common
-COPY backend/agent ./agent
+COPY modules/common ./common
+COPY modules/agent ./agent
 
 # build agent
-RUN CGO_ENABLED=0 go build -o bin/agent ./agent/cmd/main.go
+RUN cd agent && CGO_ENABLED=0 go build -o ../bin/agent ./cmd/main.go
 
 ENTRYPOINT ["./bin/agent"]
 CMD []
@@ -46,7 +40,7 @@ FROM scratch AS final
 WORKDIR /agent
 
 # copy agent
-COPY --from=builder /backend/bin/agent /agent/agent
+COPY --from=builder /work/bin/agent /agent/agent
 
 ENTRYPOINT ["./agent"]
 CMD []

@@ -1,10 +1,10 @@
 # Define variables
-CLI_DIR := ./backend/cli
+CLI_DIR := ./modules/cli
 OUTPUT_DIR := ./bin
 CLI_BINARY := kubetail
 
-DASHBOARD_UI_DIR := ./frontend
-DASHBOARD_SERVER_DIR := ./backend/server
+DASHBOARD_UI_DIR := ./dashboard-ui
+DASHBOARD_SERVER_DIR := ./modules/server
 
 # Detect the operating system
 OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')

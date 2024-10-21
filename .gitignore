@@ -10,20 +10,20 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # dependencies
-/frontend/node_modules
-/frontend/.pnp
-/frontend/.pnp.js
+/dashboard-ui/node_modules
+/dashboard-ui/.pnp
+/dashboard-ui/.pnp.js
 
 # dev
-/frontend/*.local
+/dashboard-ui/*.local
 
 # testing
-/frontend/coverage
+/dashboard-ui/coverage
 
 # build
 /bin
-/frontend/dist
-/frontend/dist-ssr
+/dashboard-ui/dist
+/dashboard-ui/dist-ssr
 
 # build artifacts
 /modules/server/website/*
@@ -34,7 +34,7 @@ lerna-debug.log*
 .tilt
 
 # misc
-/frontend/stats.html
+/dashboard-ui/stats.html
 
 # Editor directories and files
 .vscode/*
