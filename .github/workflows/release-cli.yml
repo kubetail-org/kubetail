@@ -53,17 +53,22 @@ jobs:
       #  run: make build
       #- name: Append os/arch to binary file name
       #  run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+      - name: Write string to a file
+        run: |
+          $content = "This is the string to write"
+          Set-Content -Path "bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}" -Value $content
+        shell: pwsh
       - name: Calculate sha256 checksum
         shell: bash
         run: |
           FILE=bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
           OUTPUT_FILE=${FILE}.sha256
-          touch "$FILE"
+
           if [ "$RUNNER_OS" == "Linux" ]; then
             sha256sum "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           elif [ "$RUNNER_OS" == "Windows" ]; then
             certutil -hashfile "$FILE" SHA256 > "$OUTPUT_FILE"
-            cat "$OUTPUT_FILE" | findstr /V "SHA256" | findstr /V "CertUtil" > "$OUTPUT_FILE"
+            type "$OUTPUT_FILE" | findstr /V "SHA256" | findstr /V "CertUtil" > "$OUTPUT_FILE"
           elif [ "$RUNNER_OS" == "macOS" ]; then
             shasum -a 256 "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           fi
