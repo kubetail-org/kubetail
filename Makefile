@@ -46,20 +46,20 @@ build-dashboard-ui:
 # Build CLI binary for host platform
 build-cli: build-dashboard-ui
 	@echo "Building kubetail CLI binary..."
-	@cd $(CLI_DIR) && GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o ../../$(OUTPUT_DIR)/$(CLI_BINARY) ./main.go
+	@cd $(CLI_DIR) && GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -ldflags="-s -w" -o ../../$(OUTPUT_DIR)/$(CLI_BINARY) ./main.go
 
 # Build all the CLI binaries
 build-cli-all: build-dashboard-ui
 	@echo "Building kubetail CLI binaries..."
-	@cd $(CLI_DIR) && GOOS=darwin GOARCH=amd64 go build -o ../../$(OUTPUT_DIR)/$(CLI_BINARY)-darwin-amd64 ./main.go
+	@cd $(CLI_DIR) && GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../../$(OUTPUT_DIR)/$(CLI_BINARY)-darwin-amd64 ./main.go
 	@echo "Built kubetail for darwin-amd64."
-	@cd $(CLI_DIR) && GOOS=darwin GOARCH=arm64 go build -o ../../$(OUTPUT_DIR)/$(CLI_BINARY)-darwin-arm64 ./main.go
+	@cd $(CLI_DIR) && GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../../$(OUTPUT_DIR)/$(CLI_BINARY)-darwin-arm64 ./main.go
 	@echo "Built kubetail for darwin-arm64."
-	@cd $(CLI_DIR) && GOOS=linux GOARCH=amd64 go build -o ../../$(OUTPUT_DIR)/$(CLI_BINARY)-linux-amd64 ./main.go
+	@cd $(CLI_DIR) && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../../$(OUTPUT_DIR)/$(CLI_BINARY)-linux-amd64 ./main.go
 	@echo "Built kubetail for linux-amd64."
-	@cd $(CLI_DIR) && GOOS=linux GOARCH=arm64 go build -o ../../$(OUTPUT_DIR)/$(CLI_BINARY)-linux-arm64 ./main.go
+	@cd $(CLI_DIR) && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../../$(OUTPUT_DIR)/$(CLI_BINARY)-linux-arm64 ./main.go
 	@echo "Built kubetail for linux-arm64."
-	@cd $(CLI_DIR) && GOOS=windows GOARCH=amd64 go build -o ../../$(OUTPUT_DIR)/$(CLI_BINARY)-windows-adm64 ./main.go
+	@cd $(CLI_DIR) && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../../$(OUTPUT_DIR)/$(CLI_BINARY)-windows-adm64 ./main.go
 	@echo "Built kubetail for windows-amd64."
 	@echo "Kubetail CLI binaries built successfully."
 
