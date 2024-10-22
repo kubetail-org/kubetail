@@ -3,10 +3,10 @@ load('ext://restart_process', 'docker_build_with_restart')
 # kubetail-agent
 local_resource(
   'kubetail-agent-compile',
-  'cd backend && CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/agent ./agent/cmd/main.go',
+  'cd modules && CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/agent ./agent/cmd/main.go',
   deps=[
-    './backend/agent',
-    './backend/common'
+    './modules/agent',
+    './modules/common'
   ]
 )
 
@@ -26,10 +26,10 @@ docker_build_with_restart(
 # kubetail-server
 local_resource(
   'kubetail-server-compile',
-  'cd backend && CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/server ./server/cmd/main.go',
+  'cd modules && CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/server ./server/cmd/main.go',
   deps=[
-    './backend/server',
-    './backend/common'
+    './modules/server',
+    './modules/common'
   ]
 )
 
@@ -69,7 +69,7 @@ k8s_resource(
 
 k8s_resource(
   'kubetail-server',
-  port_forwards='4000:4000',
+  port_forwards='7500:4000',
   objects=[
     'kubetail-server:clusterrole',
     'kubetail-server:clusterrolebinding',
