@@ -46,10 +46,6 @@ import (
 	"github.com/kubetail-org/kubetail/modules/server/graph/model"
 )
 
-type Key int
-
-const K8STokenCtxKey Key = iota
-
 // Head enums
 type HeadSince int8
 
