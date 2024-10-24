@@ -27,7 +27,7 @@ import (
 
 	"github.com/kubetail-org/kubetail/modules/common/config"
 	"github.com/kubetail-org/kubetail/modules/common/grpchelpers"
-	"github.com/kubetail-org/kubetail/modules/server/graph"
+	"github.com/kubetail-org/kubetail/modules/common/k8shelpers"
 )
 
 // Add user to context if authenticated
@@ -60,7 +60,7 @@ func authenticationMiddleware(mode config.AuthMode) gin.HandlerFunc {
 			c.Set(k8sTokenCtxKey, token)
 
 			// add token for graphql requests
-			ctx := context.WithValue(c.Request.Context(), graph.K8STokenCtxKey, token)
+			ctx := context.WithValue(c.Request.Context(), k8shelpers.K8STokenCtxKey, token)
 
 			// add token for grpc requests
 			ctx = context.WithValue(ctx, grpchelpers.K8STokenCtxKey, token)
