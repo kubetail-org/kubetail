@@ -60,13 +60,13 @@ There are several options for installing the Kubetail web dashboard in your clus
 To allow Kubetail to use an internal cluster service account to query your Kubernetes API, use the `-clusterauth` manifest file: 
 
 ```console
-kubectl apply -f https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-clusterauth.yaml
+kubectl apply -f https://github.com/kubetail-org/helm-charts/releases/latest/download/kubetail-clusterauth.yaml
 ```
 
 To require Kubetail users to utilize their own Kubernetes authentication token, use the `-tokenauth` manifest file: 
 
 ```console
-kubectl apply -f https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-tokenauth.yaml
+kubectl apply -f https://github.com/kubetail-org/helm-charts/releases/latest/download/kubetail-tokenauth.yaml
 ```
 
 ### Option 2: Helm chart
@@ -74,13 +74,13 @@ kubectl apply -f https://github.com/kubetail-org/kubetail/releases/latest/downlo
 To install Kubetail using helm, first add the "kubetail" repository, then install the "kubetail" chart:
 ```console
 helm repo add kubetail https://kubetail-org.github.io/helm-charts/
-helm install kubetail kubetail/kubetail --namespace kubetail --create-namespace
+helm install kubetail kubetail/kubetail --namespace kubetail-system --create-namespace
 ```
 
 To configure the helm chart, please refer to [values.yaml](https://github.com/kubetail-org/helm-charts/blob/main/charts/kubetail/values.yaml) for valid values and their defaults. You can use a YAML file or specify each parameter using the `--set key=value[,key=value]` argument:
 ```console
 helm install kubetail kubetail/kubetail \
-  --namespace kubetail \
+  --namespace kubetail-system \
   --create-namespace \
   -f values.yaml \
   --set key1=val1,key2=val2
