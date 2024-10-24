@@ -28,7 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/kubetail-org/kubetail/modules/common/config"
-	"github.com/kubetail-org/kubetail/modules/server/graph"
+	"github.com/kubetail-org/kubetail/modules/common/k8shelpers"
 )
 
 func TestRequestID(t *testing.T) {
@@ -248,7 +248,7 @@ func TestAuthMiddlewareChain(t *testing.T) {
 			}
 
 			// check go context
-			tokenIF := c.Request.Context().Value(graph.K8STokenCtxKey)
+			tokenIF := c.Request.Context().Value(k8shelpers.K8STokenCtxKey)
 			if tt.wantHasToken {
 				assert.NotNil(t, tokenIF)
 				token2, ok := tokenIF.(string)

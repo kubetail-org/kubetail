@@ -16,6 +16,7 @@ package graph
 
 import (
 	"context"
+	"net/http"
 	"slices"
 
 	zlog "github.com/rs/zerolog/log"
@@ -27,6 +28,8 @@ import (
 	"k8s.io/client-go/rest"
 
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
+
+	"github.com/kubetail-org/kubetail/modules/common/k8shelpers"
 )
 
 // This file will not be regenerated automatically.
@@ -37,6 +40,8 @@ import (
 
 type Resolver struct {
 	k8sCfg            *rest.Config
+	clientset         kubernetes.Interface
+	dynamicClient     dynamic.Interface
 	grpcDispatcher    *grpcdispatcher.Dispatcher
 	allowedNamespaces []string
 	TestClientset     *fake.Clientset
@@ -48,22 +53,23 @@ func (r *Resolver) K8SClientset(ctx context.Context) kubernetes.Interface {
 		return r.TestClientset
 	}
 
-	// copy config
-	cfg := rest.CopyConfig(r.k8sCfg)
+	// If undefined, create new clientset
+	if r.clientset == nil {
+		cfg := rest.CopyConfig(r.k8sCfg)
 
-	// get token from context
-	token, ok := ctx.Value(K8STokenCtxKey).(string)
-	if ok {
-		cfg.BearerToken = token
-		cfg.BearerTokenFile = ""
+		cfg.WrapTransport = func(transport http.RoundTripper) http.RoundTripper {
+			return k8shelpers.NewBearerTokenRoundTripper(transport)
+		}
+
+		clientset, err := kubernetes.NewForConfig(cfg)
+		if err != nil {
+			zlog.Fatal().Err(err).Send()
+		}
+
+		r.clientset = clientset
 	}
 
-	clientset, err := kubernetes.NewForConfig(cfg)
-	if err != nil {
-		zlog.Fatal().Err(err).Send()
-	}
-
-	return clientset
+	return r.clientset
 }
 
 func (r *Resolver) K8SDynamicClient(ctx context.Context) dynamic.Interface {
@@ -71,22 +77,23 @@ func (r *Resolver) K8SDynamicClient(ctx context.Context) dynamic.Interface {
 		return r.TestDynamicClient
 	}
 
-	// copy config
-	cfg := rest.CopyConfig(r.k8sCfg)
+	// If undefined, create new dynamic client
+	if r.dynamicClient == nil {
+		cfg := rest.CopyConfig(r.k8sCfg)
 
-	// get token from context
-	token, ok := ctx.Value(K8STokenCtxKey).(string)
-	if ok {
-		cfg.BearerToken = token
-		cfg.BearerTokenFile = ""
+		cfg.WrapTransport = func(transport http.RoundTripper) http.RoundTripper {
+			return k8shelpers.NewBearerTokenRoundTripper(transport)
+		}
+
+		dynamicClient, err := dynamic.NewForConfig(cfg)
+		if err != nil {
+			zlog.Fatal().Err(err).Send()
+		}
+
+		r.dynamicClient = dynamicClient
 	}
 
-	dynamicClient, err := dynamic.NewForConfig(cfg)
-	if err != nil {
-		zlog.Fatal().Err(err).Send()
-	}
-
-	return dynamicClient
+	return r.dynamicClient
 }
 
 func (r *Resolver) ToNamespace(namespace *string) (string, error) {
