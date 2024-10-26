@@ -30,6 +30,9 @@ lerna-debug.log*
 !/modules/server/website/
 !/modules/server/website/.gitkeep
 
+# vite
+.vite
+
 # tilt (custom)
 .tilt
 

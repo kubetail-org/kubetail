@@ -458,22 +458,6 @@ const DisplayItems = ({
   );
 };
 
-const LoadingModal = () => (
-  <div className="relative z-10" role="dialog">
-    <div className="fixed inset-0 bg-chrome-500 bg-opacity-75" />
-    <div className="fixed inset-0 z-10 w-screen">
-      <div className="flex min-h-full items-center justify-center p-0 text-center">
-        <div className="relative transform overflow-hidden rounded-lg bg-background my-8 p-6 text-left shadow-xl">
-          <div className="flex items-center space-x-2">
-            <div>Loading Workloads</div>
-            <Spinner size="sm" />
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
 const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
   const cronjobs = useCronJobs();
   const daemonsets = useDaemonSets();
@@ -532,8 +516,6 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
     statefulsets.data?.appsV1StatefulSetsList?.metadata.resourceVersion,
   ]);
 
-  const loading = cronjobs.loading || daemonsets.loading || deployments.loading || jobs.loading || pods.loading || replicasets.loading || statefulsets.loading;
-
   const logMetadataMap = new Map<string, FileInfo>();
   logMetadata.data?.logMetadataList?.items.forEach((item) => {
     logMetadataMap.set(item.spec.containerID, item.fileInfo);
@@ -544,7 +526,6 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
 
   return (
     <Context.Provider value={context}>
-      {loading && <LoadingModal />}
       <DataTable className="rounded-table-wrapper min-w-[600px]" size="sm">
         <DisplayItems
           workload={Workload.CRONJOBS}
