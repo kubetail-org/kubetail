@@ -544,7 +544,7 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
 
   return (
     <Context.Provider value={context}>
-      {loading && <LoadingModal />}
+      {loading && false && <LoadingModal />}
       <DataTable className="rounded-table-wrapper min-w-[600px]" size="sm">
         <DisplayItems
           workload={Workload.CRONJOBS}
