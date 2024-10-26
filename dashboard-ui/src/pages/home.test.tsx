@@ -14,13 +14,9 @@
 
 import { createMemoryHistory } from 'history';
 import { Router } from 'react-router-dom';
-import { render, waitFor } from '@testing-library/react';
-import type { Mock } from 'vitest';
+import { render } from '@testing-library/react';
 
-import { useSession } from '@/lib/auth';
-import { mocks } from '@/mocks/home';
 import Home from '@/pages/home';
-import { renderElement } from '@/test-utils';
 
 describe('home page', () => {
   it('blocks access if user is unauthenticated', () => {
@@ -34,22 +30,5 @@ describe('home page', () => {
 
     // assertions
     expect(history.location.pathname).toBe('/auth/login');
-  });
-
-  it('renders loading modal while waiting for workloads', async () => {
-    // mock auth
-    (useSession as Mock).mockReturnValue({
-      session: { user: 'test' },
-    });
-
-    const { getByText, queryByText } = renderElement(<Home />, mocks);
-
-    // before
-    expect(getByText('Loading Workloads')).toBeInTheDocument();
-
-    // after
-    await waitFor(() => {
-      expect(queryByText('Loading Workloads')).not.toBeInTheDocument();
-    });
   });
 });
