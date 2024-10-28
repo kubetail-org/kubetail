@@ -352,7 +352,7 @@ const Sidebar = () => {
   return (
     <div className="text-sm px-[7px] pt-[10px]">
       <a href={joinPaths(getBasename(), '/')}>
-        <img src={joinPaths(getBasename(), logo)} alt="logo" className="display-block h-[31.4167px] mb-[10px]" />
+        <img src={joinPaths(getBasename(), logo)} alt="logo" className="display-block h-[45px] mb-[10px]" />
       </a>
       <SidebarWorkloads />
       <SidebarPodsAndContainers />

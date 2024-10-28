@@ -305,7 +305,7 @@ const DisplayItems = ({
             <div className="flex items-center space-x-1">
               <Icon className="w-[22px] h-[22px]" />
               <div>{label}</div>
-              <div>{`(${filteredItems?.length})`}</div>
+              <div>{filteredItems && `(${filteredItems?.length})`}</div>
               {fetching && <div><Spinner size="xs" /></div>}
             </div>
           </td>
@@ -588,7 +588,7 @@ const Home = () => {
     <>
       <div className="px-[10px] py-[5px] flex items-center justify-between border-b-[1px] border-chrome-300 bg-chrome-100">
         <a href="/">
-          <img src={joinPaths(getBasename(), logo)} alt="logo" className="display-block h-[31.4167px]" />
+          <img src={joinPaths(getBasename(), logo)} alt="logo" className="display-block h-[40px]" />
         </a>
         <ProfilePicDropdown />
       </div>
