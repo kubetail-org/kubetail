@@ -2,7 +2,7 @@
 
 Kubetail is a web dashboard for viewing Kubernetes container logs simultaneously, in real-time (runs on desktop or in cluster)
 
-<img src="https://github.com/kubetail-org/kubetail/assets/75881/7647bd90-0859-4b0b-9400-c7cdeb6a93e6" width="300px" title="screenshot">
+<img src="https://github.com/user-attachments/assets/396a24b0-86e6-469b-9d32-379044aa1da1" width="300px" title="screenshot">
 
 Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 
