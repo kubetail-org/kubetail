@@ -1,6 +1,6 @@
 # Kubetail
 
-Kubetail is a web dashboard for Kubernetes container logs that view multiple event streams simultaneously, in real-time (runs on desktop or in cluster)
+Kubetail is a web dashboard for Kubernetes container logs that lets you view multiple event streams simultaneously, in real-time (runs on desktop or in cluster)
 
 <img src="https://github.com/user-attachments/assets/396a24b0-86e6-469b-9d32-379044aa1da1" width="300px" title="screenshot">
 
