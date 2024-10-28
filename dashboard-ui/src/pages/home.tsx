@@ -305,7 +305,7 @@ const DisplayItems = ({
             <div className="flex items-center space-x-1">
               <Icon className="w-[22px] h-[22px]" />
               <div>{label}</div>
-              <div>{`(${filteredItems?.length})`}</div>
+              <div>{filteredItems && `(${filteredItems?.length})`}</div>
               {fetching && <div><Spinner size="xs" /></div>}
             </div>
           </td>
