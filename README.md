@@ -35,7 +35,7 @@ Our goal is to build a powerful cloud-native logging platform designed from the 
 
 ## Quickstart
 
-First, install the Kubetail CLI tool (`kubetail`) via [homebrew](https://brew.sh/) (or [release binaries](https://github.com/kubetail-org/kubetail/releases/tag/cli/v0.0.4)):
+First, install the Kubetail CLI tool (`kubetail`) via [homebrew](https://brew.sh/) (or [release binaries](https://github.com/kubetail-org/kubetail/releases/latest)):
 
 ```console
 brew install kubetail
