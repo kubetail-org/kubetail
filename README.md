@@ -25,17 +25,17 @@ Our goal is to build a powerful cloud-native logging platform designed from the 
 ## Key features
 
 * View log messages in real-time
-* View logs that are part of a specific workload (e.g. Deployment, CronJob, StatefulSet)
-* Detects creation and deletion of workload containers and adds their logs to the viewing stream automatically
+* View logs by workload (e.g. Deployment, CronJob, StatefulSet)
+* Handles pod creation/deletion automatically
 * Uses your Kubernetes API to retrieve log messages so data never leaves your possession (private by default)
 * Filter logs based on time
 * Filter logs based on node properties such as availability zone, CPU architecture or node ID
-* Color-coded log lines to distinguish between different containers
+* Web dashboard can be installed on desktop or in cluster
 * A clean, easy-to-use interface
 
 ## Quickstart
 
-First, install the Kubetail CLI tool (`kubetail`) via [homebrew](https://brew.sh/) (or [release binaries](https://github.com/kubetail-org/kubetail/releases/latest)):
+To run Kubetail on your desktop, first install the Kubetail CLI tool (`kubetail`) via [homebrew](https://brew.sh/) (or the latest [release binaries](https://github.com/kubetail-org/kubetail/releases/latest)):
 
 ```console
 brew install kubetail
@@ -49,88 +49,11 @@ kubetail serve
 
 This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun viewing your Kubernetes logs in realtime!
 
-## Advanced Installation
+The web dashboard can also be installed in your cluster and exposed via a service or an ingress. For more information on how to install Kubetail in a cluster see the [cluster install](https://www.kubetail.com/docs/install/cluster) documentation.
 
-There are several options for installing the Kubetail web dashboard in your cluster so cluster users can use it without installing the CLI tool.
+## Documentation
 
-### Option 1: 
-
-### Option 1: Manifest file
-
-To allow Kubetail to use an internal cluster service account to query your Kubernetes API, use the `-clusterauth` manifest file: 
-
-```console
-kubectl apply -f https://github.com/kubetail-org/helm-charts/releases/latest/download/kubetail-clusterauth.yaml
-```
-
-To require Kubetail users to utilize their own Kubernetes authentication token, use the `-tokenauth` manifest file: 
-
-```console
-kubectl apply -f https://github.com/kubetail-org/helm-charts/releases/latest/download/kubetail-tokenauth.yaml
-```
-
-### Option 2: Helm chart
-
-To install Kubetail using helm, first add the "kubetail" repository, then install the "kubetail" chart:
-```console
-helm repo add kubetail https://kubetail-org.github.io/helm-charts/
-helm install kubetail kubetail/kubetail --namespace kubetail-system --create-namespace
-```
-
-To configure the helm chart, please refer to [values.yaml](https://github.com/kubetail-org/helm-charts/blob/main/charts/kubetail/values.yaml) for valid values and their defaults. You can use a YAML file or specify each parameter using the `--set key=value[,key=value]` argument:
-```console
-helm install kubetail kubetail/kubetail \
-  --namespace kubetail-system \
-  --create-namespace \
-  -f values.yaml \
-  --set key1=val1,key2=val2
-```
-
-### Option 3: Glasskube
-
-To install Kubetail using [Glasskube](https://glasskube.dev/), you can select "kubetail" from the "ClusterPackages" tab in the Glasskube GUI then click "install" or you can run the following command: 
-```console
-glasskube install kubetail
-```
-
-Once Kubetail is installed you can use it by clicking "open" in the Glasskube GUI or by using the `open` command:
-```console
-glasskube open kubetail
-```
-
-## Access
-
-There are several ways to access the Kubetail dashboard once the application is running in your cluster. For simplicity, we recommend using `kubectl proxy` if your Kubetail deployment is using `auth-mode: cluster` and the `kubectl auth-proxy` plugin if it's using `auth-mode: token`.
-
-### Option 1: kubectl proxy
-
-The simplest way to access the dashboard, is using `kubectl proxy`:
-
-```console
-kubectl proxy
-```
-
-Now you can access the dashboard at: [http://localhost:8001/api/v1/namespaces/kubetail/services/kubetail-server:80/proxy/](http://localhost:8001/api/v1/namespaces/kubetail/services/kubetail-server:80/proxy/).
-
-### Option 2: kubectl port-forward
-
-Another way to access the dashboard is using `kubectl port-forward`:
-
-```console
-kubectl port-forward -n kubetail svc/kubetail-server 80:4000
-```
-
-Now you can access the dashboard at: [http://localhost:4000](http://localhost:4000).
-
-### Option 3: kubectl auth-proxy
-
-If you've enabled `auth-mode: token`, then we recommend accessing the dashboard with the kubectl [auth-proxy plugin](https://github.com/int128/kauthproxy) which will automatically obtain an access token locally and add it to the HTTP headers when you make requests to the kubetail-server service:
-
-```console
-kubectl auth-proxy -n kubetail http://kubetail-server.svc
-```
-
-Now your computer will automatically open a new browser tab pointing to the Kubetail dashboard.
+See [https://www.kubetail.com/](https://www.kubetail.com/)
 
 ## Develop
 
