@@ -47,7 +47,7 @@ Next, start the web dashboard using the `serve` subcommand:
 kubetail serve
 ```
 
-This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun viewing your Kubernetes logs in realtime!
+This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. To view the logs for a different cluster just change your `kubectl` context. Have fun viewing your Kubernetes logs in realtime!
 
 The web dashboard can also be installed in your cluster and exposed via a service or an ingress. For more information on how to install Kubetail in a cluster see the [cluster install](https://www.kubetail.com/docs/install/cluster) documentation.
 
