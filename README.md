@@ -6,7 +6,7 @@ Kubetail is a logging dashboard for Kubernetes that lets you view multiple log s
 
 Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 
-<a href="https://discord.gg/pXHXaUqt"><img src="https://img.shields.io/discord/1212031524216770650?logo=Discord&style=flat-square&logoColor=FFFFFF&labelColor=5B65F0&label=Discord&color=64B73A"></a>
+<a href="https://discord.gg/CmsmWAVkvX"><img src="https://img.shields.io/discord/1212031524216770650?logo=Discord&style=flat-square&logoColor=FFFFFF&labelColor=5B65F0&label=Discord&color=64B73A"></a>
 [![slack](https://img.shields.io/badge/Slack-kubetail-364954?logo=slack&labelColor=4D1C51)](https://join.slack.com/t/kubetail/shared_invite/zt-2cq01cbm8-e1kbLT3EmcLPpHSeoFYm1w)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kubetail)](https://artifacthub.io/packages/search?repo=kubetail)
 
@@ -24,14 +24,14 @@ Our goal is to build a powerful cloud-native logging platform designed from the 
 
 ## Key features
 
+* A clean, easy-to-use interface
 * View log messages in real-time
 * View logs by workload (e.g. Deployment, CronJob, StatefulSet)
-* Handles pod creation/deletion automatically
-* Uses your Kubernetes API to retrieve log messages so data never leaves your possession (private by default)
 * Filter logs based on time
 * Filter logs based on node properties such as availability zone, CPU architecture or node ID
+* Handles pod creation/deletion automatically
+* Uses your Kubernetes API to retrieve log messages so data never leaves your possession (private by default)
 * Web dashboard can be installed on desktop or in cluster
-* A clean, easy-to-use interface
 
 ## Quickstart
 
