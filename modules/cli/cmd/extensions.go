@@ -19,14 +19,15 @@ import (
 )
 
 // extCmd represents the ext command
-var extCmd = &cobra.Command{
-	Use:   "ext",
-	Short: "Manage Kubetail cluster extensions",
-	Long:  `Subcommands for interacting with Kubetail cluster extensions.`,
+var extensionsCmd = &cobra.Command{
+	Use:     "extensions",
+	Aliases: []string{"ext"},
+	Short:   "Cluster extensions commands",
+	Long:    `Subcommands for interacting with Kubetail cluster extensions.`,
 }
 
 func init() {
-	rootCmd.AddCommand(extCmd)
+	rootCmd.AddCommand(extensionsCmd)
 
 	// Here you will define your flags and configuration settings.
 
