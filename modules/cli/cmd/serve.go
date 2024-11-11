@@ -40,7 +40,7 @@ import (
 // serveCmd represents the serve command
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Open dashboard",
+	Short: "Open web dashboard",
 	Long:  `Start server and open the dashboard UI`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Get flags
