@@ -15,8 +15,10 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
-	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -26,32 +28,25 @@ const targetRepoURL = "https://github.com/kubetail-org/helm-charts"
 // clusterInstallCmd represents the `cluster install` command
 var clusterInstallCmd = &cobra.Command{
 	Use:   "install",
-	Short: "Install cluster resources",
-	Long: `This command installs Kubetail cluster resources into an
-	existing Kubernetes cluster.`,
+	Short: "Install from latest chart available locally",
+	Long: `This command creates a new release in an existing
+	Kubernetes cluster using the latest chart available locally.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Initialize Helm settings
-		settings := cli.New()
+		// Execute the `helm repo list` command
+		xcmd := exec.Command("helm", "repo", "list")
+		var out bytes.Buffer
+		xcmd.Stdout = &out
 
-		// Load the repository file
-		repoFile := settings.RepositoryConfig
-		r, err := repo.LoadFile(repoFile)
-		if err != nil {
-			fmt.Printf("Failed to load repo file: %v\n", err)
-			os.Exit(1)
+		// Run the command and capture the output
+		if err := xcmd.Run(); err != nil {
+			fmt.Printf("Error executing helm command: %v\n", err)
+			return
 		}
 
-		// Check if the target repository is in the list
-		repoFound := false
-		for _, cfg := range r.Repositories {
-			if cfg.URL == targetRepoURL {
-				repoFound = true
-				fmt.Printf("Repository '%s' is installed.\n", targetRepoURL)
-				break
-			}
-		}
-
-		if !repoFound {
+		// Check if the output contains the target repo URL
+		if strings.Contains(out.String(), targetRepoURL) {
+			fmt.Printf("Repository '%s' is installed.\n", targetRepoURL)
+		} else {
 			fmt.Printf("Repository '%s' is not installed.\n", targetRepoURL)
 		}
 	},

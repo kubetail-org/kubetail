@@ -23,9 +23,9 @@ import (
 // clusterUpgradeCmd represents the `cluster upgrade` command
 var clusterUpgradeCmd = &cobra.Command{
 	Use:   "upgrade",
-	Short: "Upgrade an existing installation",
-	Long: `This command upgrades an existing Kubetail cluster resources
-	installation in a Kubernetes cluster.`,
+	Short: "Upgrade an existing release",
+	Long: `This command upgrades an existing release using the latest
+	chart available locally.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("install called")
 	},

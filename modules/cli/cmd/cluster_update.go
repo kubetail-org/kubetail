@@ -20,27 +20,27 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// clusterUninstallCmd represents the `cluster uninstall` command
-var clusterUninstallCmd = &cobra.Command{
-	Use:   "uninstall",
-	Short: "Remove an existing release",
-	Long: `This command removes a release from an existing
-	Kubernetes cluster.`,
+// clusterUpdateCmd represents the `cluster Update` command
+var clusterUpdateCmd = &cobra.Command{
+	Use:   "update",
+	Short: "Update local charts from remote repository",
+	Long: `This command updates the information of available charts locally
+	from the remote chart respository.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Uninstall called")
+		fmt.Println("Update called")
 	},
 }
 
 func init() {
-	clusterCmd.AddCommand(clusterUninstallCmd)
+	clusterCmd.AddCommand(clusterUpdateCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// UninstallCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// UpdateCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// UninstallCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// UpdateCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
