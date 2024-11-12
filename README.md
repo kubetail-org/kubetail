@@ -35,7 +35,9 @@ Our goal is to build a powerful cloud-native logging platform designed from the 
 
 ## Quickstart
 
-To run Kubetail on your desktop, first install the Kubetail CLI tool (`kubetail`) via [homebrew](https://brew.sh/) (or the latest [release binaries](https://github.com/kubetail-org/kubetail/releases/latest)):
+### Option 1: Homebrew (or release binaries)
+
+First, install the Kubetail CLI tool (`kubetail`) via [homebrew](https://brew.sh/) (or the latest [release binaries](https://github.com/kubetail-org/kubetail/releases/latest)):
 
 ```console
 brew install kubetail
@@ -49,8 +51,64 @@ kubetail serve
 
 This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. To view the logs for a different cluster just change your `kubectl` context. Have fun viewing your Kubernetes logs in realtime!
 
-> [!TIP]
-> The web dashboard can also be installed in your cluster and exposed via a service or an ingress. For more information on how to install Kubetail in a cluster see the [cluster install](https://www.kubetail.com/docs/install/cluster) documentation.
+### Option 2: Helm
+
+First, add the Kubetail org's chart repository, then install the "kubetail" chart:
+
+```console
+helm repo add kubetail https://kubetail-org.github.io/helm-charts/
+helm install kubetail kubetail/kubetail --namespace kubetail-system --create-namespace
+```
+
+For more information on how to configure the helm chart, see the chart's [values.yaml](https://github.com/kubetail-org/helm-charts/blob/main/charts/kubetail/values.yaml) file. To access the web dashboard you can expose it as an ingress using the chart or you can use your usual access methods such as `kubectl port-forward`:
+
+```console
+kubectl port-forward -n kubetail-system svc/kubetail-server 7500:7500
+```
+
+Visit [http://localhost:7500](http://localhost:7500). Have fun viewing your Kubernetes logs in realtime!
+
+### Option 3: YAML Manifest
+
+First, create a namespace for the Kubetail resources:
+
+```console
+kubectl create namespace kubetail-system
+```
+
+Next, choose your authentication mode (`cluster` or `token`) and apply the latest manifest file:
+
+```console
+# For cluster-based authentication use kubetail-clusterauth.yaml:
+kubectl apply -f https://github.com/kubetail-org/helm-charts/releases/latest/download/kubetail-clusterauth.yaml
+
+# For token-based authentication use kubetail-tokenauth.yaml:
+kubectl apply -f https://github.com/kubetail-org/helm-charts/releases/latest/download/kubetail-tokenauth.yaml
+```
+
+To access the web dashboard you can use your usual access methods such as `kubectl port-forward`:
+
+```console
+kubectl port-forward -n kubetail-system svc/kubetail-server 7500:7500
+```
+
+Visit [http://localhost:7500](http://localhost:7500). Have fun viewing your Kubernetes logs in realtime!
+
+### Option 4: Glasskube
+
+To install Kubetail using [Glasskube](https://glasskube.dev/), you can select "Kubetail" from the "ClusterPackages" tab in the Glasskube GUI then click "install" or you can run the following command:
+
+```console
+glasskube install kubetail
+```
+
+Once Kubetail is installed you can use it by clicking "open" in the Glasskube GUI or by using the `open` command:
+
+```console
+glasskube open kubetail
+```
+
+Have fun viewing your Kubernetes logs in realtime!
 
 ## Documentation
 
@@ -84,6 +142,15 @@ Now access the dashboard at [http://localhost:5173](http://localhost:5173).
 
 ## Build
 
+### cli
+
+To build an executable for the Kubetail CLI tool (`kubetail`), run the following command:
+
+```console
+cd modules
+go build -o kubetail cli/main.go
+```
+
 ### kubetail-server
 
 To build a docker image for a production deployment of the backend server, run the following command:
@@ -100,9 +167,9 @@ To build a docker image for a production deployment of the backend agent, run th
 docker build -f build/package/Dockerfile.agent -t kubetail-agent:latest .
 ```
 
-## How to help
+## How to get involved
 
-Our goal is to build a powerful cloud-native logging platform designed from the ground up for a containerized environment and this project is a work-in-progress. If you're interested in getting involved please send us an email (hello@kubetail.com) or join our Slack channel (kubetail). In particular we're looking for help with the following:
+Our goal is to build a powerful cloud-native logging platform designed from the ground up for a containerized environment and this project is a work-in-progress. If you're interested in getting involved please send us an email (hello@kubetail.com) or join our [Discord server](https://discord.gg/CmsmWAVkvX) or [Slack channel](https://join.slack.com/t/kubetail/shared_invite/zt-2cq01cbm8-e1kbLT3EmcLPpHSeoFYm1w). In particular we're looking for help with the following:
 
 * UI/design
 * React frontend development
