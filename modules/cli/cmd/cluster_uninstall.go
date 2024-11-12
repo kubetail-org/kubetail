@@ -15,27 +15,32 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
-// extCmd represents the ext command
-var extensionsCmd = &cobra.Command{
-	Use:     "extensions",
-	Aliases: []string{"ext"},
-	Short:   "Cluster extensions commands",
-	Long:    `Subcommands for interacting with Kubetail cluster extensions.`,
+// clusterUninstallCmd represents the `cluster uninstall` command
+var clusterUninstallCmd = &cobra.Command{
+	Use:   "uninstall",
+	Short: "Remove an existing installation",
+	Long: `This command removes a Kubetail cluster resources
+	installation from an existing Kubernetes cluster.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Uninstall called")
+	},
 }
 
 func init() {
-	rootCmd.AddCommand(extensionsCmd)
+	clusterCmd.AddCommand(clusterUninstallCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// extCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// UninstallCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// extCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// UninstallCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
