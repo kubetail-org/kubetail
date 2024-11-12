@@ -60,7 +60,9 @@ helm repo add kubetail https://kubetail-org.github.io/helm-charts/
 helm install kubetail kubetail/kubetail --namespace kubetail-system --create-namespace
 ```
 
-For more information on how to configure the helm chart, see the chart's [values.yaml](https://github.com/kubetail-org/helm-charts/blob/main/charts/kubetail/values.yaml) file. To access the web dashboard you can expose it as an ingress using the chart or you can use your usual access methods such as `kubectl port-forward`:
+For more information on how to configure the helm chart, see the chart's [values.yaml](https://github.com/kubetail-org/helm-charts/blob/main/charts/kubetail/values.yaml) file.
+
+To access the web dashboard you can expose it as an ingress using the chart or you can use your usual access methods such as `kubectl port-forward`:
 
 ```console
 kubectl port-forward -n kubetail-system svc/kubetail-server 7500:7500
@@ -142,7 +144,7 @@ Now access the dashboard at [http://localhost:5173](http://localhost:5173).
 
 ## Build
 
-### cli
+### CLI
 
 To build an executable for the Kubetail CLI tool (`kubetail`), run the following command:
 
