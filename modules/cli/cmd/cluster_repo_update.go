@@ -20,27 +20,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// clusterPurgeCmd represents the `cluster Purge` command
-var clusterPurgeCmd = &cobra.Command{
-	Use:   "purge",
-	Short: "Remove local charts and remote repository information",
-	Long: `This command Purges the information of available charts locally
-from the remote chart respository.`,
+// clusterRepoUpdateCmd represents the `cluster repo update` command
+var clusterRepoUpdateCmd = &cobra.Command{
+	Use:   "update",
+	Short: "Update local charts from remote repository",
+	Long:  `This command updates the information of locally available charts from the remote chart respository.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Purge called")
+		fmt.Println("repo update")
 	},
 }
 
 func init() {
-	clusterCmd.AddCommand(clusterPurgeCmd)
+	clusterRepoCmd.AddCommand(clusterRepoUpdateCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// PurgeCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// installCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// PurgeCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// installCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

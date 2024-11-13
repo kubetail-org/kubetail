@@ -17,6 +17,7 @@ package helm
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -28,15 +29,16 @@ import (
 
 // Target repository name and URL
 const (
-	targetRepoName = "kubetail"
-	targetRepoURL  = "https://kubetail-org.github.io/helm-charts/"
+	targetRepoURL = "https://kubetail-org.github.io/helm-charts/"
 
+	defaultRepoName    = "kubetail"
 	defaultChartName   = "kubetail"
 	defaultReleaseName = "kubetail"
 	defaultNamespace   = "kubetail-system"
 )
 
-/*
+func noopLogger(format string, v ...interface{}) {}
+
 // ensureHelmEnv initializes the Helm environment, creating necessary files and directories if needed.
 func ensureHelmEnv() error {
 	settings := cli.New()
@@ -47,15 +49,17 @@ func ensureHelmEnv() error {
 		return err
 	}
 
-	// Ensure Helm cache directory exists
-	helmCacheHome := settings.RepositoryCache
-	if err := ensureDirExists(helmCacheHome); err != nil {
-		return fmt.Errorf("failed to set up Helm cache directory: %v", err)
-	}
-
+	/*
+		// Ensure Helm cache directory exists
+		helmCacheHome := settings.RepositoryCache
+		if err := ensureDirExists(helmCacheHome); err != nil {
+			return fmt.Errorf("failed to set up Helm cache directory: %v", err)
+		}
+	*/
 	return nil
 }
 
+/*
 // Ensure that a directory exists, creating it if necessary.
 func ensureDirExists(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -65,6 +69,7 @@ func ensureDirExists(path string) error {
 	}
 	return nil
 }
+*/
 
 // Ensure the Helm repository configuration file exists
 func ensureRepoFileExists(repoFile string) error {
@@ -91,13 +96,12 @@ func ensureRepoFileExists(repoFile string) error {
 
 	return nil
 }
-*/
 
 // EnsureRepo checks if the target repository exists, and if not, it adds it.
 func EnsureRepo() (string, error) {
-	/*if err := ensureHelmEnv(); err != nil {
+	if err := ensureHelmEnv(); err != nil {
 		return "", err
-	}*/
+	}
 
 	// Initialize Helm settings
 	settings := cli.New()
@@ -119,7 +123,7 @@ func EnsureRepo() (string, error) {
 
 	// Create a new repository entry
 	entry := &repo.Entry{
-		Name: targetRepoName,
+		Name: defaultRepoName,
 		URL:  targetRepoURL,
 	}
 
@@ -132,7 +136,7 @@ func EnsureRepo() (string, error) {
 	// Download the index file to verify the repository
 	_, err = newRepo.DownloadIndexFile()
 	if err != nil {
-		return "", fmt.Errorf("failed to download index file for repo '%s': %v", targetRepoName, err)
+		return "", fmt.Errorf("failed to download index file for repo '%s': %v", defaultRepoName, err)
 	}
 
 	// Update the repository list and save it to the configuration file
@@ -141,7 +145,7 @@ func EnsureRepo() (string, error) {
 		return "", fmt.Errorf("failed to write repository file: %v", err)
 	}
 
-	return targetRepoName, nil
+	return defaultRepoName, nil
 }
 
 // Function to install the latest version of a chart
@@ -149,10 +153,7 @@ func InstallLatest(repoName string) (*release.Release, error) {
 	// Ensure Helm settings and action configuration
 	settings := cli.New()
 	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(settings.RESTClientGetter(), defaultNamespace, os.Getenv("HELM_DRIVER"), func(format string, v ...interface{}) {
-		format = fmt.Sprintf("[debug] %s\n", format)
-		fmt.Printf(format, v...)
-	}); err != nil {
+	if err := actionConfig.Init(settings.RESTClientGetter(), defaultNamespace, os.Getenv("HELM_DRIVER"), noopLogger); err != nil {
 		return nil, fmt.Errorf("failed to initialize Helm action configuration: %v", err)
 	}
 
@@ -175,12 +176,36 @@ func InstallLatest(repoName string) (*release.Release, error) {
 		return nil, fmt.Errorf("failed to load chart from path '%s': %v", chartPath, err)
 	}
 
-	fmt.Println("WERR")
 	// Install the chart
 	release, err := install.Run(chart, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to install chart '%s': %v", defaultChartName, err)
 	}
-	fmt.Println(release)
+
 	return release, nil
+}
+
+// UninstallRelease uninstalls a Helm release
+func UninstallRelease() error {
+	releaseName := defaultReleaseName
+	namespace := defaultNamespace
+
+	actionConfig := new(action.Configuration)
+	settings := cli.New()
+
+	// Initialize Helm action configuration
+	if err := actionConfig.Init(settings.RESTClientGetter(), namespace, os.Getenv("HELM_DRIVER"), noopLogger); err != nil {
+		return fmt.Errorf("failed to initialize Helm action config: %w", err)
+	}
+
+	uninstall := action.NewUninstall(actionConfig)
+
+	// Uninstall the release
+	response, err := uninstall.Run(releaseName)
+	if err != nil {
+		return fmt.Errorf("failed to uninstall release %s: %w", releaseName, err)
+	}
+
+	fmt.Printf("Uninstalled release: %s\n", response.Release.Name)
+	return nil
 }
