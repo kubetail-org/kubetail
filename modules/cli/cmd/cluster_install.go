@@ -15,40 +15,31 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
-	"os/exec"
-	"strings"
+	"log"
 
 	"github.com/spf13/cobra"
-)
 
-const targetRepoURL = "https://github.com/kubetail-org/helm-charts"
+	"github.com/kubetail-org/kubetail/modules/cli/internal/helm"
+)
 
 // clusterInstallCmd represents the `cluster install` command
 var clusterInstallCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install from latest chart available locally",
-	Long: `This command creates a new release in an existing
-	Kubernetes cluster using the latest chart available locally.`,
+	Long:  `This command creates a new release using the latest chart available locally.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Execute the `helm repo list` command
-		xcmd := exec.Command("helm", "repo", "list")
-		var out bytes.Buffer
-		xcmd.Stdout = &out
-
-		// Run the command and capture the output
-		if err := xcmd.Run(); err != nil {
-			fmt.Printf("Error executing helm command: %v\n", err)
-			return
+		repoName, err := helm.EnsureRepo()
+		if err != nil {
+			log.Fatal(err)
 		}
 
-		// Check if the output contains the target repo URL
-		if strings.Contains(out.String(), targetRepoURL) {
-			fmt.Printf("Repository '%s' is installed.\n", targetRepoURL)
-		} else {
-			fmt.Printf("Repository '%s' is not installed.\n", targetRepoURL)
+		release, err := helm.InstallLatest(repoName)
+		if err != nil {
+			log.Fatal(err)
 		}
+
+		fmt.Printf("Installed successfully as release '%s'\n", release.Name)
 	},
 }
 

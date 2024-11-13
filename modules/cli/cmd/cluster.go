@@ -22,7 +22,7 @@ import (
 var clusterCmd = &cobra.Command{
 	Use:   "cluster",
 	Short: "Manage cluster resources",
-	Long:  `Subcommands for interacting with cluster resources.`,
+	Long:  `Subcommands for installing cluster resources using Helm.`,
 }
 
 func init() {

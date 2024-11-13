@@ -23,9 +23,8 @@ import (
 // clusterUninstallCmd represents the `cluster uninstall` command
 var clusterUninstallCmd = &cobra.Command{
 	Use:   "uninstall",
-	Short: "Remove an existing release",
-	Long: `This command removes a release from an existing
-	Kubernetes cluster.`,
+	Short: "Uninstall an existing release",
+	Long:  `This command removes an existing release.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Uninstall called")
 	},

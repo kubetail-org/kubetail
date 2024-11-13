@@ -24,8 +24,7 @@ import (
 var clusterUpdateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update local charts from remote repository",
-	Long: `This command updates the information of available charts locally
-	from the remote chart respository.`,
+	Long:  `This command updates the information of locally available charts from the remote chart respository.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Update called")
 	},
