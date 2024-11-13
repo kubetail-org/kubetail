@@ -120,7 +120,7 @@ See [https://www.kubetail.com/](https://www.kubetail.com/)
 
 This repository is organized as a monorepo containing the following components in their respective directories:
 
-* CLI tool ([modules/cli](modules/cli)
+* CLI tool ([modules/cli](modules/cli))
 * Backend server ([modules/server](modules/server))
 * Backend agent ([modules/agent](modules/agent))
 * Dashboard UI ([dashboard-ui](dashbord-ui))
