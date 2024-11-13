@@ -123,7 +123,7 @@ This repository is organized as a monorepo containing the following components i
 * CLI tool ([modules/cli](modules/cli)
 * Backend server ([modules/server](modules/server))
 * Backend agent ([modules/agent](modules/agent))
-* Dashboard UI ([dashboard-ui](dashbord-ui)
+* Dashboard UI ([dashboard-ui](dashbord-ui))
 
 The CLI and backend components are written in Go and the Dashboard UI is a React-based static website.
 
