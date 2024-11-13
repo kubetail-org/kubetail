@@ -118,7 +118,14 @@ See [https://www.kubetail.com/](https://www.kubetail.com/)
 
 ## Develop
 
-This repository is organized as a monorepo containing the backend components (a Go-based server, a Go-based agent) and the frontend code (a React-based static website) in their respective top-level directories ([backend](backend), [frontend](frontend)). The website queries the server which proxies requests to the Kubernetes API and to agents running on each node, and also performs a few other custom tasks (e.g. authentication). In production, the frontend website is bundled into the backend server and served as a static website (see [Build](#build)). In development, the backend and frontend are run separately but configured to work together using [Tilt](https://tilt.dev).
+This repository is organized as a monorepo containing the following components in their respective directories:
+
+* CLI tool ([modules/cli](modules/cli)
+* Backend server ([modules/server](modules/server))
+* Backend agent ([modules/agent](modules/agent))
+* Dashboard UI ([dashboard-ui](dashbord-ui)
+
+The CLI and backend components are written in Go and the Dashboard UI is a React-based static website.
 
 To develop Kubetail, first create a Kubernetes dev cluster using a dev cluster tool that [works with Tilt](https://docs.tilt.dev/choosing_clusters#microk8s). To automate the process you can also use [ctlptl](https://github.com/tilt-dev/ctlptl) and one of the configs available in the [`hack/ctlptl`](hack/ctlptl) directory. For example, to create a dev cluster using [minikube](https://minikube.sigs.k8s.io/docs/) you can use this command:
 
@@ -132,10 +139,10 @@ Once the dev cluster is running and `kubectl` is pointing to it, you can bring u
 tilt up
 ```
 
-After Tilt brings up the backend server you can access it on your localhost on port 4000. To run the frontend development website, cd into to the `frontend` directory and run the `install` and `dev` commands:
+After Tilt brings up the backend server you can access it on your localhost on port 7500. To run the dashboard development website, cd into to the `dashboard-ui` directory and run the `install` and `dev` commands:
 
 ```console
-cd frontend
+cd dashboard-ui
 pnpm install
 pnpm dev
 ```
