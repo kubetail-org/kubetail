@@ -16,8 +16,11 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/spf13/cobra"
+
+	"github.com/kubetail-org/kubetail/modules/cli/internal/helm"
 )
 
 // clusterRepoUpdateCmd represents the `cluster repo update` command
@@ -26,7 +29,11 @@ var clusterRepoUpdateCmd = &cobra.Command{
 	Short: "Update local charts from remote repository",
 	Long:  `This command updates the information of locally available charts from the remote chart respository.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("repo update")
+		err := helm.UpdateRepo()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("Updated repository")
 	},
 }
 

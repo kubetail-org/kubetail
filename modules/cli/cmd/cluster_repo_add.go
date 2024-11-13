@@ -18,25 +18,24 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/spf13/cobra"
-
 	"github.com/kubetail-org/kubetail/modules/cli/internal/helm"
+	"github.com/spf13/cobra"
 )
 
-// clusterUninstallCmd represents the `cluster uninstall` command
-var clusterUninstallCmd = &cobra.Command{
-	Use:   "uninstall",
-	Short: "Uninstall an existing release",
-	Long:  `This command removes an existing release.`,
+// clusterRepoAddCmd represents the `cluster repo Add` command
+var clusterRepoAddCmd = &cobra.Command{
+	Use:   "add",
+	Short: "Add remote repository to local cache",
+	Long:  `This command adds the remote charts repository to the local cache.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		response, err := helm.UninstallRelease()
+		err := helm.AddRepo()
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("Deleted release '%s' in namespace '%s'\n", response.Release.Name, response.Release.Namespace)
+		fmt.Println("Added repository")
 	},
 }
 
 func init() {
-	clusterCmd.AddCommand(clusterUninstallCmd)
+	clusterRepoCmd.AddCommand(clusterRepoAddCmd)
 }

@@ -16,7 +16,9 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 
+	"github.com/kubetail-org/kubetail/modules/cli/internal/helm"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +28,11 @@ var clusterRepoRemoveCmd = &cobra.Command{
 	Short: "Remove local charts and repository index",
 	Long:  `This command removes the local charts and the charts repository index.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("remove called")
+		err := helm.RemoveRepo()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("Removed repository")
 	},
 }
 

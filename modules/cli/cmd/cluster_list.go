@@ -16,8 +16,13 @@ package cmd
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+
+	"github.com/kubetail-org/kubetail/modules/cli/internal/helm"
 )
 
 // clusterListCmd represents the `cluster list` command
@@ -26,7 +31,25 @@ var clusterListCmd = &cobra.Command{
 	Short: "List current releases",
 	Long:  `This command lists the currently installed releases.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("list")
+		releases, err := helm.ListReleases()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Create a new tab writer with desired padding and settings
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+
+		// Print headers
+		fmt.Fprintln(w, "NAME\tNAMESPACE\tREVISION\tUPDATED\tSTATUS\tCHART\tAPP VERSION")
+
+		// Print data rows
+		for _, r := range releases {
+			chartName := fmt.Sprintf("%s-%s", r.Chart.Metadata.Name, r.Chart.Metadata.Version)
+			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\n", r.Name, r.Namespace, r.Version, r.Info.LastDeployed, r.Info.Status, chartName, r.Chart.AppVersion())
+		}
+
+		// Flush to output
+		w.Flush()
 	},
 }
 
