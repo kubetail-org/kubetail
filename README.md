@@ -125,7 +125,7 @@ This repository is organized as a monorepo containing the following components i
 * Backend agent ([modules/agent](modules/agent))
 * Dashboard UI ([dashboard-ui](dashbord-ui))
 
-The CLI and backend components are written in Go and the Dashboard UI is a React-based static website.
+The CLI and backend components are written in Go and the Dashboard UI is a React-based static website. In production, the dashboard UI is packaged into the backend server and the CLI tool.
 
 To develop Kubetail, first create a Kubernetes dev cluster using a dev cluster tool that [works with Tilt](https://docs.tilt.dev/choosing_clusters#microk8s). To automate the process you can also use [ctlptl](https://github.com/tilt-dev/ctlptl) and one of the configs available in the [`hack/ctlptl`](hack/ctlptl) directory. For example, to create a dev cluster using [minikube](https://minikube.sigs.k8s.io/docs/) you can use this command:
 
@@ -153,12 +153,13 @@ Now access the dashboard at [http://localhost:5173](http://localhost:5173).
 
 ### CLI
 
-To build an executable for the Kubetail CLI tool (`kubetail`), run the following command:
+To build the Kubetail CLI tool executable (`kubetail`), run the following command:
 
 ```console
-cd modules
-go build -o kubetail cli/main.go
+make
 ```
+
+When the build process finishes you can find the executable in the local `bin/` directory.
 
 ### kubetail-server
 
