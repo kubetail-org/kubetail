@@ -18,23 +18,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const clusterHelp = `
+Subcommands for installing cluster resources using Helm.
+`
+
 // clusterCmd represents the ext command
 var clusterCmd = &cobra.Command{
 	Use:   "cluster",
 	Short: "Manage cluster resources",
-	Long:  `Subcommands for installing cluster resources using Helm.`,
+	Long:  clusterHelp,
 }
 
 func init() {
 	rootCmd.AddCommand(clusterCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// extCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// extCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

@@ -23,11 +23,15 @@ import (
 	"github.com/kubetail-org/kubetail/modules/cli/internal/helm"
 )
 
+const clusterUpgradeHelp = `
+This command upgrades an existing release using the latest chart available locally.
+`
+
 // clusterUpgradeCmd represents the `cluster upgrade` command
 var clusterUpgradeCmd = &cobra.Command{
 	Use:   "upgrade",
 	Short: "Upgrade an existing release",
-	Long:  `This command upgrades an existing release using the latest chart available locally.`,
+	Long:  clusterUpgradeHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		release, err := helm.UpgradeRelease()
 		if err != nil {
@@ -40,14 +44,4 @@ var clusterUpgradeCmd = &cobra.Command{
 
 func init() {
 	clusterCmd.AddCommand(clusterUpgradeCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// installCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// installCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

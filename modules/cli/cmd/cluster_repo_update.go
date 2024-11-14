@@ -23,11 +23,16 @@ import (
 	"github.com/kubetail-org/kubetail/modules/cli/internal/helm"
 )
 
+const clusterRepoUpdateHelp = `
+This command updates the information of locally available charts and the repository index 
+from Kubetail's remote chart respository.
+`
+
 // clusterRepoUpdateCmd represents the `cluster repo update` command
 var clusterRepoUpdateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Update local charts from remote repository",
-	Long:  `This command updates the information of locally available charts from the remote chart respository.`,
+	Short: "Update local charts and index from remote repository",
+	Long:  clusterRepoUpdateHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		err := helm.UpdateRepo()
 		if err != nil {
@@ -39,14 +44,4 @@ var clusterRepoUpdateCmd = &cobra.Command{
 
 func init() {
 	clusterRepoCmd.AddCommand(clusterRepoUpdateCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// installCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// installCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

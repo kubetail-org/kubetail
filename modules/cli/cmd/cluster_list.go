@@ -25,11 +25,15 @@ import (
 	"github.com/kubetail-org/kubetail/modules/cli/internal/helm"
 )
 
+const clusterListHelp = `
+This command lists the currently installed releases.
+`
+
 // clusterListCmd represents the `cluster list` command
 var clusterListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List current releases",
-	Long:  `This command lists the currently installed releases.`,
+	Long:  clusterListHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		releases, err := helm.ListReleases()
 		if err != nil {
@@ -55,14 +59,4 @@ var clusterListCmd = &cobra.Command{
 
 func init() {
 	clusterCmd.AddCommand(clusterListCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// installCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// installCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

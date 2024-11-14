@@ -23,11 +23,15 @@ import (
 	"github.com/kubetail-org/kubetail/modules/cli/internal/helm"
 )
 
+const clusterUninstallHelp = `
+This command removes an existing release.
+`
+
 // clusterUninstallCmd represents the `cluster uninstall` command
 var clusterUninstallCmd = &cobra.Command{
 	Use:   "uninstall",
 	Short: "Uninstall an existing release",
-	Long:  `This command removes an existing release.`,
+	Long:  clusterUninstallHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		response, err := helm.UninstallRelease()
 		if err != nil {

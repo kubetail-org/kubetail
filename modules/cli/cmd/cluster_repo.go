@@ -18,11 +18,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const clusterRepoHelp = `
+Subcommands for interacting with the Kubetail charts repository.
+`
+
 // clusterRepoCmd represents the `cluster repo` command
 var clusterRepoCmd = &cobra.Command{
 	Use:   "repo",
 	Short: "Manage charts repository",
-	Long:  `Subcommands for interacting with charts repository.`,
+	Long:  clusterRepoHelp,
 }
 
 func init() {

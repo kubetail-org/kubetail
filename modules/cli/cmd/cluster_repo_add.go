@@ -22,11 +22,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const clusterRepoAddHelp = `
+This command adds Kubetail's remote charts repository to the local cache.
+`
+
 // clusterRepoAddCmd represents the `cluster repo Add` command
 var clusterRepoAddCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add remote repository to local cache",
-	Long:  `This command adds the remote charts repository to the local cache.`,
+	Long:  clusterRepoAddHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		err := helm.AddRepo()
 		if err != nil {
