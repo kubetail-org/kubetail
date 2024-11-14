@@ -30,7 +30,7 @@ This command creates a new release using the latest chart available locally.
 // clusterInstallCmd represents the `cluster install` command
 var clusterInstallCmd = &cobra.Command{
 	Use:   "install",
-	Short: "Install from latest chart available locally",
+	Short: "Create a new release",
 	Long:  clusterInstallHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		repoName, err := helm.EnsureRepo()

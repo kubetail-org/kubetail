@@ -19,7 +19,10 @@ import (
 )
 
 const clusterRepoHelp = `
-Subcommands for interacting with the Kubetail charts repository.
+Subcommands for interacting with Kubetail's charts repository in Helm.
+
+The Kubetail charts repository is located at:
+https://kubetail-org.github.io/helm-charts/
 `
 
 // clusterRepoCmd represents the `cluster repo` command

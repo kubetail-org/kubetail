@@ -19,7 +19,13 @@ import (
 )
 
 const clusterHelp = `
-Subcommands for installing cluster resources using Helm.
+Subcommands for installing Kubetail cluster resources using Helm.
+
+These commands use the Helm library under-the-hood so you don't need
+to have Helm installed in order to use them. If you do have Helm
+installed, these commands will integrate nicely with your existing
+installation so you can switch between using them or Helm itself to
+manage your cluster resources seamlessly.
 `
 
 // clusterCmd represents the ext command

@@ -23,13 +23,13 @@ import (
 )
 
 const clusterRepoRemoveHelp = `
-This command removes the local charts and the repository index for the Kubetail charts repository.
+This command removes Kubetail's charts repository from Helm.
 `
 
 // clusterRepoRemoveCmd represents the `cluster repo remove` command
 var clusterRepoRemoveCmd = &cobra.Command{
 	Use:   "remove",
-	Short: "Remove local charts and repository index",
+	Short: "Remove the repository",
 	Long:  clusterRepoRemoveHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		err := helm.RemoveRepo()

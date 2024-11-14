@@ -24,14 +24,13 @@ import (
 )
 
 const clusterRepoUpdateHelp = `
-This command updates the information of locally available charts and the repository index 
-from Kubetail's remote chart respository.
+This command updates Kubetail's chart respository in Helm.
 `
 
 // clusterRepoUpdateCmd represents the `cluster repo update` command
 var clusterRepoUpdateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Update local charts and index from remote repository",
+	Short: "Update the repository",
 	Long:  clusterRepoUpdateHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		err := helm.UpdateRepo()
