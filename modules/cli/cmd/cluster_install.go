@@ -24,7 +24,11 @@ import (
 )
 
 const clusterInstallHelp = `
-This command creates a new release using the latest chart available locally.
+This command creates a new release using the latest chart available.
+
+If the Kubetail charts repository is already present in Helm, this command
+will use the latest version of the "kubetail" chart available locally. If
+it isn't, it will add the repository and then install the latest version.
 `
 
 // clusterInstallCmd represents the `cluster install` command

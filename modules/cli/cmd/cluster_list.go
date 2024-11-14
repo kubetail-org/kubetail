@@ -26,7 +26,7 @@ import (
 )
 
 const clusterListHelp = `
-This command lists the currently installed releases.
+This command lists the currently installed releases of the chart.
 `
 
 // clusterListCmd represents the `cluster list` command
