@@ -1,8 +1,10 @@
 # Kubetail
 
-Kubetail is a logging dashboard for Kubernetes clusters that lets you view multiple log streams simultaneously, in real-time (runs on desktop or in cluster)
+Kubetail is a logging dashboard for Kubernetes that lets you view multiple log streams simultaneously, in real-time (runs on desktop or in cluster)
 
-[Demo Video](https://github.com/user-attachments/assets/172ab63b-b18a-4b24-a5c6-3028309075b1#gh-light-mode-only)
+<a href="https://www.youtube.com/watch?v=zyML-Pg12vw">
+  <img width="350" alt="demo-light-thumbnail" src="https://github.com/user-attachments/assets/b37a6ca2-75b8-416a-a2e4-653c67f7fadd">
+</a>
 
 Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 
