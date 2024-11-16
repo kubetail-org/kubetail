@@ -16,12 +16,12 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
+	"github.com/kubetail-org/kubetail/modules/cli/internal/cli"
 	"github.com/kubetail-org/kubetail/modules/cli/internal/helm"
 )
 
@@ -35,10 +35,13 @@ var clusterListCmd = &cobra.Command{
 	Short: "List current releases",
 	Long:  clusterListHelp,
 	Run: func(cmd *cobra.Command, args []string) {
-		releases, err := helm.ListReleases()
-		if err != nil {
-			log.Fatal(err)
-		}
+		// Init client
+		client, err := helm.NewClient()
+		cli.ExitOnError(err)
+
+		// Get releases
+		releases, err := client.ListReleases()
+		cli.ExitOnError(err)
 
 		// Create a new tab writer with desired padding and settings
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)

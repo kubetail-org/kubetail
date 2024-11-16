@@ -16,10 +16,10 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/spf13/cobra"
 
+	"github.com/kubetail-org/kubetail/modules/cli/internal/cli"
 	"github.com/kubetail-org/kubetail/modules/cli/internal/helm"
 )
 
@@ -33,11 +33,15 @@ var clusterRepoUpdateCmd = &cobra.Command{
 	Short: "Update the repository",
 	Long:  clusterRepoUpdateHelp,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := helm.UpdateRepo()
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println("Updated repository")
+		// Init client
+		client, err := helm.NewClient()
+		cli.ExitOnError(err)
+
+		// Update repo
+		err = client.UpdateRepo()
+		cli.ExitOnError(err)
+
+		fmt.Println("Updated repository 'kubetail'")
 	},
 }
 

@@ -16,10 +16,10 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
+	"github.com/kubetail-org/kubetail/modules/cli/internal/cli"
 	"github.com/kubetail-org/kubetail/modules/cli/internal/helm"
 )
 
@@ -37,17 +37,13 @@ var clusterInstallCmd = &cobra.Command{
 	Short: "Create a new release",
 	Long:  clusterInstallHelp,
 	Run: func(cmd *cobra.Command, args []string) {
-		repoName, err := helm.EnsureRepo()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+		// Init client
+		client, err := helm.NewClient()
+		cli.ExitOnError(err)
 
-		release, err := helm.InstallLatest(repoName)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+		// Install
+		release, err := client.InstallLatest()
+		cli.ExitOnError(err)
 
 		fmt.Printf("Installed release '%s' into namespace '%s' successfully\n", release.Namespace, release.Name)
 	},

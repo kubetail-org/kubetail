@@ -16,10 +16,10 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/spf13/cobra"
 
+	"github.com/kubetail-org/kubetail/modules/cli/internal/cli"
 	"github.com/kubetail-org/kubetail/modules/cli/internal/helm"
 )
 
@@ -33,12 +33,15 @@ var clusterUpgradeCmd = &cobra.Command{
 	Short: "Upgrade an existing release",
 	Long:  clusterUpgradeHelp,
 	Run: func(cmd *cobra.Command, args []string) {
-		release, err := helm.UpgradeRelease()
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("Successfully upgraded release: %s to version %s\n", release.Name, release.Chart.Metadata.Version)
+		// Init client
+		client, err := helm.NewClient()
+		cli.ExitOnError(err)
 
+		// Upgrade
+		release, err := client.UpgradeRelease()
+		cli.ExitOnError(err)
+
+		fmt.Printf("Successfully upgraded release: %s to version %s\n", release.Name, release.Chart.Metadata.Version)
 	},
 }
 

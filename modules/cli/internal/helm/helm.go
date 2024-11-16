@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 
 	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/getter"
@@ -27,17 +28,191 @@ import (
 	"helm.sh/helm/v3/pkg/repo"
 )
 
-// Target repository name and URL
+// Target repo and chart values
 const (
 	targetRepoURL   = "https://kubetail-org.github.io/helm-charts/"
 	targetRepoName  = "kubetail"
 	targetChartName = "kubetail"
+)
 
+// Default values
+const (
 	DefaultReleaseName = "kubetail"
 	DefaultNamespace   = "kubetail-system"
 )
 
 func noopLogger(format string, v ...interface{}) {}
+
+// Client
+type Client struct {
+	settings     *cli.EnvSettings
+	actionConfig *action.Configuration
+}
+
+// InstallLatest creates a new release from the latest chart
+func (c *Client) InstallLatest() (*release.Release, error) {
+	// Create an install action
+	install := action.NewInstall(c.actionConfig)
+	install.ReleaseName = DefaultReleaseName
+	install.Namespace = DefaultNamespace
+	install.CreateNamespace = true
+
+	// Get chart
+	chart, err := c.getChart(install.ChartPathOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	// Install the chart
+	release, err := install.Run(chart, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to install chart '%s': %v", targetChartName, err)
+	}
+
+	return release, nil
+}
+
+// UpgradeRelease upgrades an existing release
+func (c *Client) UpgradeRelease() (*release.Release, error) {
+	// Create upgrade action
+	upgrade := action.NewUpgrade(c.actionConfig)
+	upgrade.Namespace = DefaultNamespace
+
+	// Get chart
+	chart, err := c.getChart(upgrade.ChartPathOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	// Run upgrade
+	release, err := upgrade.Run(DefaultReleaseName, chart, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to upgrade release %s: %w", DefaultReleaseName, err)
+	}
+
+	return release, nil
+}
+
+// ListReleases lists all releases across all namespaces.
+func (c *Client) ListReleases() ([]*release.Release, error) {
+	list := action.NewList(c.actionConfig)
+	list.AllNamespaces = true                          // Enable search across all namespaces
+	list.Filter = fmt.Sprintf("^%s$", targetChartName) // Set filter for specific chart name
+
+	// Run the list action
+	releases, err := list.Run()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list releases: %w", err)
+	}
+
+	return releases, nil
+}
+
+// AddRepo adds the repository
+func (c *Client) AddRepo() error {
+	// Load the Helm repository file
+	repoFileContent, err := repo.LoadFile(c.settings.RepositoryConfig)
+	if err != nil {
+		return fmt.Errorf("failed to load repository file: %w", err)
+	}
+
+	// Check if the repository already exists
+	for _, r := range repoFileContent.Repositories {
+		if r.Name == targetRepoName {
+			return fmt.Errorf("repository %s already exists", targetRepoName)
+		}
+	}
+
+	// Define the new repository entry
+	newEntry := &repo.Entry{
+		Name: targetRepoName,
+		URL:  targetRepoURL,
+	}
+
+	// Initialize the new repository
+	chartRepo, err := repo.NewChartRepository(newEntry, getter.All(c.settings))
+	if err != nil {
+		return fmt.Errorf("failed to initialize chart repository: %w", err)
+	}
+	chartRepo.CachePath = c.settings.RepositoryCache
+
+	// Download the repository index to verify it’s accessible
+	if _, err := chartRepo.DownloadIndexFile(); err != nil {
+		return fmt.Errorf("failed to reach repository %s at %s: %w", targetRepoName, targetRepoURL, err)
+	}
+
+	// Add the repository to the repo file content and save it
+	repoFileContent.Repositories = append(repoFileContent.Repositories, newEntry)
+	if err := repoFileContent.WriteFile(c.settings.RepositoryConfig, os.FileMode(0644)); err != nil {
+		return fmt.Errorf("failed to save repository file: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateRepo updates the repository
+func (c *Client) UpdateRepo() error {
+	// Read the repository file
+	repoFileContent, err := repo.LoadFile(c.settings.RepositoryConfig)
+	if err != nil {
+		return fmt.Errorf("repository '%s' not found", targetRepoName)
+	}
+
+	// Find the repository entry
+	var entry *repo.Entry
+	for _, r := range repoFileContent.Repositories {
+		if r.Name == targetRepoName {
+			entry = r
+			break
+		}
+	}
+
+	if entry == nil {
+		return fmt.Errorf("repository '%s' not found", targetRepoName)
+	}
+
+	// Set up the repository chart
+	chartRepo, err := repo.NewChartRepository(entry, getter.All(c.settings))
+	if err != nil {
+		return fmt.Errorf("failed to initialize chart repository: %w", err)
+	}
+	chartRepo.CachePath = c.settings.RepositoryCache
+
+	// Download the latest index file for the repository
+	if _, err := chartRepo.DownloadIndexFile(); err != nil {
+		return fmt.Errorf("failed to update repository '%s': %w", targetRepoName, err)
+	}
+
+	return nil
+}
+
+// getChart returns the kubetail chart
+func (c *Client) getChart(pathOptions action.ChartPathOptions) (*chart.Chart, error) {
+	// Get the latest version of the chart
+	chartID := fmt.Sprintf("%s/%s", targetRepoName, targetChartName)
+	chartPath, err := pathOptions.LocateChart(chartID, c.settings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to locate chart '%s': %w", chartID, err)
+	}
+
+	// Load the chart
+	chart, err := loader.Load(chartPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load chart: %w", err)
+	}
+
+	return chart, err
+}
+
+// Return new client
+func NewClient() (*Client, error) {
+	settings := cli.New()
+	actionConfig := new(action.Configuration)
+	if err := actionConfig.Init(settings.RESTClientGetter(), DefaultNamespace, os.Getenv("HELM_DRIVER"), noopLogger); err != nil {
+		return nil, fmt.Errorf("failed to initialize Helm action configuration: %v", err)
+	}
+	return &Client{settings, actionConfig}, nil
+}
 
 // ensureHelmEnv initializes the Helm environment, creating necessary files and directories if needed.
 func ensureHelmEnv() error {
@@ -228,7 +403,7 @@ func UpgradeRelease() (*release.Release, error) {
 	return release, nil
 }
 
-// ListReleases lists all releases of a specific chart across all namespaces.
+// ListReleases lists all releases across all namespaces.
 func ListReleases() ([]*release.Release, error) {
 	settings := cli.New()
 	actionConfig := new(action.Configuration)
