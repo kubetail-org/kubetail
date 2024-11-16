@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -30,12 +29,12 @@ import (
 
 // Target repository name and URL
 const (
-	targetRepoURL = "https://kubetail-org.github.io/helm-charts/"
+	targetRepoURL   = "https://kubetail-org.github.io/helm-charts/"
+	targetRepoName  = "kubetail"
+	targetChartName = "kubetail"
 
-	defaultRepoName    = "kubetail"
-	defaultChartName   = "kubetail"
-	defaultReleaseName = "kubetail"
-	defaultNamespace   = "kubetail-system"
+	DefaultReleaseName = "kubetail"
+	DefaultNamespace   = "kubetail-system"
 )
 
 func noopLogger(format string, v ...interface{}) {}
@@ -124,7 +123,7 @@ func EnsureRepo() (string, error) {
 
 	// Create a new repository entry
 	entry := &repo.Entry{
-		Name: defaultRepoName,
+		Name: targetRepoName,
 		URL:  targetRepoURL,
 	}
 
@@ -137,7 +136,7 @@ func EnsureRepo() (string, error) {
 	// Download the index file to verify the repository
 	_, err = newRepo.DownloadIndexFile()
 	if err != nil {
-		return "", fmt.Errorf("failed to download index file for repo '%s': %v", defaultRepoName, err)
+		return "", fmt.Errorf("failed to download index file for repo '%s': %v", targetRepoName, err)
 	}
 
 	// Update the repository list and save it to the configuration file
@@ -146,7 +145,7 @@ func EnsureRepo() (string, error) {
 		return "", fmt.Errorf("failed to write repository file: %v", err)
 	}
 
-	return defaultRepoName, nil
+	return targetRepoName, nil
 }
 
 // Function to install the latest version of a chart
@@ -154,18 +153,18 @@ func InstallLatest(repoName string) (*release.Release, error) {
 	// Ensure Helm settings and action configuration
 	settings := cli.New()
 	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(settings.RESTClientGetter(), defaultNamespace, os.Getenv("HELM_DRIVER"), noopLogger); err != nil {
+	if err := actionConfig.Init(settings.RESTClientGetter(), DefaultNamespace, os.Getenv("HELM_DRIVER"), noopLogger); err != nil {
 		return nil, fmt.Errorf("failed to initialize Helm action configuration: %v", err)
 	}
 
 	// Create an install action
 	install := action.NewInstall(actionConfig)
-	install.ReleaseName = defaultReleaseName
-	install.Namespace = defaultNamespace
+	install.ReleaseName = DefaultReleaseName
+	install.Namespace = DefaultNamespace
 	install.CreateNamespace = true
 
 	// Get the latest version of the chart
-	chartID := fmt.Sprintf("%s/%s", repoName, defaultChartName)
+	chartID := fmt.Sprintf("%s/%s", repoName, targetChartName)
 	chartPath, err := install.ChartPathOptions.LocateChart(chartID, settings)
 	fmt.Println(chartPath)
 	if err != nil {
@@ -181,7 +180,7 @@ func InstallLatest(repoName string) (*release.Release, error) {
 	// Install the chart
 	release, err := install.Run(chart, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to install chart '%s': %v", defaultChartName, err)
+		return nil, fmt.Errorf("failed to install chart '%s': %v", targetChartName, err)
 	}
 
 	return release, nil
@@ -189,10 +188,11 @@ func InstallLatest(repoName string) (*release.Release, error) {
 
 // UpgradeRelease upgrades a Helm release to a new chart version.
 func UpgradeRelease() (*release.Release, error) {
-	repoName := defaultRepoName
-	releaseName := defaultReleaseName
-	chartName := defaultChartName
-	namespace := defaultNamespace
+	repoName := targetRepoName
+	chartName := targetChartName
+
+	releaseName := DefaultReleaseName
+	namespace := DefaultNamespace
 
 	settings := cli.New()
 	actionConfig := new(action.Configuration)
@@ -230,8 +230,6 @@ func UpgradeRelease() (*release.Release, error) {
 
 // ListReleases lists all releases of a specific chart across all namespaces.
 func ListReleases() ([]*release.Release, error) {
-	chartName := defaultChartName
-
 	settings := cli.New()
 	actionConfig := new(action.Configuration)
 
@@ -241,9 +239,9 @@ func ListReleases() ([]*release.Release, error) {
 	}
 
 	list := action.NewList(actionConfig)
-	list.AllNamespaces = true                    // Enable search across all namespaces
-	list.Filter = fmt.Sprintf("^%s$", chartName) // Set filter for specific chart name
-	list.Deployed = true                         // List only deployed releases (you can add other statuses if needed)
+	list.AllNamespaces = true                          // Enable search across all namespaces
+	list.Filter = fmt.Sprintf("^%s$", targetChartName) // Set filter for specific chart name
+	//list.Deployed = true                         // List only deployed releases (you can add other statuses if needed)
 
 	// Run the list action
 	releases, err := list.Run()
@@ -251,21 +249,13 @@ func ListReleases() ([]*release.Release, error) {
 		return nil, fmt.Errorf("failed to list releases: %w", err)
 	}
 
-	// Filter releases by chart name
-	var filteredReleases []*release.Release
-	for _, rel := range releases {
-		if strings.HasPrefix(rel.Chart.Metadata.Name, chartName) {
-			filteredReleases = append(filteredReleases, rel)
-		}
-	}
-
-	return filteredReleases, nil
+	return releases, nil
 }
 
 // UninstallRelease uninstalls a Helm release
 func UninstallRelease() (*release.UninstallReleaseResponse, error) {
-	releaseName := defaultReleaseName
-	namespace := defaultNamespace
+	releaseName := DefaultReleaseName
+	namespace := DefaultNamespace
 
 	actionConfig := new(action.Configuration)
 	settings := cli.New()
@@ -288,7 +278,7 @@ func UninstallRelease() (*release.UninstallReleaseResponse, error) {
 
 // AddHRepo adds a new Helm repository with the given name and URL.
 func AddRepo() error {
-	repoName := defaultRepoName
+	repoName := targetRepoName
 	repoURL := targetRepoURL
 
 	settings := cli.New()
@@ -336,7 +326,7 @@ func AddRepo() error {
 
 // UpdateRepo updates the Helm repository with the given name.
 func UpdateRepo() error {
-	repoName := defaultRepoName
+	repoName := targetRepoName
 
 	settings := cli.New()
 
@@ -380,7 +370,7 @@ func UpdateRepo() error {
 
 // RemoveHelmRepo removes the Helm repository with the given name.
 func RemoveRepo() error {
-	repoName := defaultRepoName
+	repoName := targetRepoName
 
 	settings := cli.New()
 
