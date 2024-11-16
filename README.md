@@ -35,7 +35,7 @@ Our goal is to build a powerful cloud-native logging platform designed from the 
 * Uses your Kubernetes API to retrieve log messages so data never leaves your possession (private by default)
 * Web dashboard can be installed on desktop or in cluster
 
-## Quickstart (Desktop)
+## Quickstart - Desktop
 
 First, install the Kubetail CLI tool (`kubetail`) via [homebrew](https://brew.sh/) (or the latest [release binaries](https://github.com/kubetail-org/kubetail/releases/latest)):
 
@@ -51,7 +51,7 @@ kubetail serve
 
 This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. To view the logs for a different cluster just change your `kubectl` context. Have fun viewing your Kubernetes logs in realtime!
 
-## Quickstart (Cluster)
+## Quickstart - Cluster
 
 ### Option 1: Helm
 
