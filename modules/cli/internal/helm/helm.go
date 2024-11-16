@@ -110,6 +110,11 @@ func (c *Client) ListReleases() ([]*release.Release, error) {
 
 // AddRepo adds the repository
 func (c *Client) AddRepo() error {
+	// Ensure helm environment
+	if err := c.ensureEnv(); err != nil {
+		return err
+	}
+
 	// Load the Helm repository file
 	repoFileContent, err := repo.LoadFile(c.settings.RepositoryConfig)
 	if err != nil {
@@ -141,9 +146,15 @@ func (c *Client) AddRepo() error {
 		return fmt.Errorf("failed to reach repository %s at %s: %w", targetRepoName, targetRepoURL, err)
 	}
 
+	// Get current repository file stat
+	fileInfo, err := os.Stat(c.settings.RegistryConfig)
+	if err != nil {
+		return fmt.Errorf("failed to read repository file: %w", err)
+	}
+
 	// Add the repository to the repo file content and save it
 	repoFileContent.Repositories = append(repoFileContent.Repositories, newEntry)
-	if err := repoFileContent.WriteFile(c.settings.RepositoryConfig, os.FileMode(0644)); err != nil {
+	if err := repoFileContent.WriteFile(c.settings.RepositoryConfig, fileInfo.Mode()); err != nil {
 		return fmt.Errorf("failed to save repository file: %w", err)
 	}
 
@@ -184,6 +195,78 @@ func (c *Client) UpdateRepo() error {
 	}
 
 	return nil
+}
+
+func (c *Client) RemoveRepo() error {
+	// Load the Helm repository file
+	repoFileContent, err := repo.LoadFile(c.settings.RegistryConfig)
+	if err != nil {
+		return fmt.Errorf("repository '%s' not found", targetRepoName)
+	}
+
+	// Check if the repository exists
+	repoIndex := -1
+	for i, r := range repoFileContent.Repositories {
+		if r.Name == targetRepoName {
+			repoIndex = i
+			break
+		}
+	}
+
+	if repoIndex == -1 {
+		return fmt.Errorf("repository '%s' not found", targetRepoName)
+	}
+
+	// Remove the repository entry
+	repoFileContent.Repositories = append(repoFileContent.Repositories[:repoIndex], repoFileContent.Repositories[repoIndex+1:]...)
+
+	// Get current repository file mode
+	fileInfo, err := os.Stat(c.settings.RegistryConfig)
+	if err != nil {
+		return fmt.Errorf("failed to read repository file: %w", err)
+	}
+
+	// Save the updated repository file
+	if err := repoFileContent.WriteFile(c.settings.RegistryConfig, fileInfo.Mode()); err != nil {
+		return fmt.Errorf("failed to save updated repository file: %w", err)
+	}
+
+	return nil
+}
+
+// ensureEnv ensures helm environment is up
+func (c *Client) ensureEnv() error {
+	repoFile := c.settings.RegistryConfig
+
+	// Check if the repositories.yaml file exists
+	if _, err := os.Stat(repoFile); os.IsNotExist(err) {
+		// Create the necessary directories if they don’t exist
+		if err := os.MkdirAll(filepath.Dir(repoFile), os.ModePerm); err != nil {
+			return fmt.Errorf("failed to create directories for repo file: %w", err)
+		}
+
+		// Create an empty repositories file
+		f, err := os.Create(repoFile)
+		if err != nil {
+			return fmt.Errorf("failed to create repo file: %w", err)
+		}
+		defer f.Close()
+
+		// Get file info
+		stat, err := f.Stat()
+		if err != nil {
+			return fmt.Errorf("failed to get file info: %w", err)
+		}
+
+		// Write an empty repository configuration
+		emptyRepoFile := &repo.File{}
+		if err := emptyRepoFile.WriteFile(repoFile, stat.Mode()); err != nil {
+			return fmt.Errorf("failed to write empty repo file: %w", err)
+		}
+	}
+
+	return nil
+
 }
 
 // getChart returns the kubetail chart
