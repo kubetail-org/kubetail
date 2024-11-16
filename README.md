@@ -35,9 +35,7 @@ Our goal is to build a powerful cloud-native logging platform designed from the 
 * Uses your Kubernetes API to retrieve log messages so data never leaves your possession (private by default)
 * Web dashboard can be installed on desktop or in cluster
 
-## Quickstart
-
-### Option 1: Homebrew (or release binaries)
+## Quickstart (Desktop)
 
 First, install the Kubetail CLI tool (`kubetail`) via [homebrew](https://brew.sh/) (or the latest [release binaries](https://github.com/kubetail-org/kubetail/releases/latest)):
 
@@ -53,7 +51,9 @@ kubetail serve
 
 This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. To view the logs for a different cluster just change your `kubectl` context. Have fun viewing your Kubernetes logs in realtime!
 
-### Option 2: Helm
+## Quickstart (Cluster)
+
+### Option 1: Helm
 
 First, add the Kubetail org's chart repository, then install the "kubetail" chart:
 
@@ -72,7 +72,7 @@ kubectl port-forward -n kubetail-system svc/kubetail-server 7500:7500
 
 Visit [http://localhost:7500](http://localhost:7500). Have fun viewing your Kubernetes logs in realtime!
 
-### Option 3: YAML Manifest
+### Option 2: YAML Manifest
 
 First, create a namespace for the Kubetail resources:
 
@@ -98,7 +98,7 @@ kubectl port-forward -n kubetail-system svc/kubetail-server 7500:7500
 
 Visit [http://localhost:7500](http://localhost:7500). Have fun viewing your Kubernetes logs in realtime!
 
-### Option 4: Glasskube
+### Option 3: Glasskube
 
 To install Kubetail using [Glasskube](https://glasskube.dev/), you can select "Kubetail" from the "ClusterPackages" tab in the Glasskube GUI then click "install" or you can run the following command:
 
