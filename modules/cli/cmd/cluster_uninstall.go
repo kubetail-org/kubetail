@@ -16,10 +16,10 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/spf13/cobra"
 
+	"github.com/kubetail-org/kubetail/modules/cli/internal/cli"
 	"github.com/kubetail-org/kubetail/modules/cli/internal/helm"
 )
 
@@ -33,10 +33,14 @@ var clusterUninstallCmd = &cobra.Command{
 	Short: "Uninstall an existing release",
 	Long:  clusterUninstallHelp,
 	Run: func(cmd *cobra.Command, args []string) {
-		response, err := helm.UninstallRelease()
-		if err != nil {
-			log.Fatal(err)
-		}
+		// Init client
+		client, err := helm.NewClient()
+		cli.ExitOnError(err)
+
+		// Uninstall
+		response, err := client.UninstallRelease()
+		cli.ExitOnError(err)
+
 		fmt.Printf("Deleted release '%s' in namespace '%s'\n", response.Release.Name, response.Release.Namespace)
 	},
 }

@@ -100,6 +100,20 @@ func (c *Client) UpgradeRelease() (*release.Release, error) {
 	return release, nil
 }
 
+// UninstallRelease uninstalls a release
+func (c *Client) UninstallRelease() (*release.UninstallReleaseResponse, error) {
+	// Create uninstall action
+	uninstall := action.NewUninstall(c.actionConfig)
+
+	// Run uninstall
+	response, err := uninstall.Run(DefaultReleaseName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to uninstall release %s: %w", DefaultReleaseName, err)
+	}
+
+	return response, nil
+}
+
 // ListReleases lists all releases across all namespaces.
 func (c *Client) ListReleases() ([]*release.Release, error) {
 	list := action.NewList(c.actionConfig)
