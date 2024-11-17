@@ -41,7 +41,7 @@ var clusterUpgradeCmd = &cobra.Command{
 		release, err := client.UpgradeRelease()
 		cli.ExitOnError(err)
 
-		fmt.Printf("Successfully upgraded release: %s to version %s\n", release.Name, release.Chart.Metadata.Version)
+		fmt.Printf("Successfully upgraded release '%s' in namespace '%s' (revision: %d)\n", release.Name, release.Namespace, release.Version)
 	},
 }
 
