@@ -24,18 +24,21 @@ The main entry point for Kubetail is a CLI tool called `kubetail` that you can u
 
 Our goal is to build a powerful cloud-native logging platform designed from the ground up for a containerized environment and this project is a work-in-progress. If you notice a bug or have a suggestion please create a GitHub Issue or send us an email (hello@kubetail.com)!
 
-## Key features
+## Features
 
-* A clean, easy-to-use interface
+* Clean, easy-to-use interface
 * View log messages in real-time
-* View logs by workload (e.g. Deployment, CronJob, StatefulSet)
-* Filter logs based on time
-* Filter logs based on node properties such as availability zone, CPU architecture or node ID
-* Handles pod creation/deletion automatically
+* Filter logs by:
+  * Workload (e.g. Deployment, CronJob, StatefulSet)
+  * Absolute or relative time range
+  * Node properties (e.g. availability zone, CPU architecture, node ID)
+* Handles ephemeral container events automatically
 * Uses your Kubernetes API to retrieve log messages so data never leaves your possession (private by default)
 * Web dashboard can be installed on desktop or in cluster
 
-## Quickstart - Desktop
+## Quickstart
+
+### Desktop Installation
 
 First, install the Kubetail CLI tool (`kubetail`) via [homebrew](https://brew.sh/) (or the latest [release binaries](https://github.com/kubetail-org/kubetail/releases/latest)):
 
@@ -51,9 +54,9 @@ kubetail serve
 
 This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. To view the logs for a different cluster just change your `kubectl` context. Have fun viewing your Kubernetes logs in realtime!
 
-## Quickstart - Cluster
+### Cluster Installation
 
-### Option 1: Helm
+#### Option 1: Helm
 
 First, add the Kubetail org's chart repository, then install the "kubetail" chart:
 
@@ -72,7 +75,7 @@ kubectl port-forward -n kubetail-system svc/kubetail-server 7500:7500
 
 Visit [http://localhost:7500](http://localhost:7500). Have fun viewing your Kubernetes logs in realtime!
 
-### Option 2: YAML Manifest
+#### Option 2: YAML Manifest
 
 First, create a namespace for the Kubetail resources:
 
@@ -98,7 +101,7 @@ kubectl port-forward -n kubetail-system svc/kubetail-server 7500:7500
 
 Visit [http://localhost:7500](http://localhost:7500). Have fun viewing your Kubernetes logs in realtime!
 
-### Option 3: Glasskube
+#### Option 3: Glasskube
 
 To install Kubetail using [Glasskube](https://glasskube.dev/), you can select "Kubetail" from the "ClusterPackages" tab in the Glasskube GUI then click "install" or you can run the following command:
 
@@ -116,32 +119,34 @@ Have fun viewing your Kubernetes logs in realtime!
 
 ## Documentation
 
-See [https://www.kubetail.com/](https://www.kubetail.com/)
+Visit the [Kubetail documentation](https://www.kubetail.com/)
 
-## Develop
+## Development
 
-This repository is organized as a monorepo containing the following components in their respective directories:
+### Repository Structure
 
-* CLI tool ([modules/cli](modules/cli))
-* Backend server ([modules/server](modules/server))
-* Backend agent ([modules/agent](modules/agent))
+This monorepo contains:
+
+* CLI Tool ([modules/cli](modules/cli))
+* Backend Server ([modules/server](modules/server))
+* Backend Agent ([modules/agent](modules/agent))
 * Dashboard UI ([dashboard-ui](dashbord-ui))
 
-The CLI and backend components are written in Go and the Dashboard UI is a React-based static website. In production, the dashboard UI is packaged into the backend server and the CLI tool.
+### Setting up the Development Environment
 
-To develop Kubetail, first create a Kubernetes dev cluster using a dev cluster tool that [works with Tilt](https://docs.tilt.dev/choosing_clusters#microk8s). To automate the process you can also use [ctlptl](https://github.com/tilt-dev/ctlptl) and one of the configs available in the [`hack/ctlptl`](hack/ctlptl) directory. For example, to create a dev cluster using [minikube](https://minikube.sigs.k8s.io/docs/) you can use this command:
+1. Create a Kubernetes dev cluster that [works with Tilt](https://docs.tilt.dev/choosing_clusters#microk8s):
 
 ```console
 ctlptl apply -f hack/ctlptl/minikube.yaml
 ```
 
-Once the dev cluster is running and `kubectl` is pointing to it, you can bring up the dev environment using Tilt: 
+2. Start the dev environment:
 
 ```console
 tilt up
 ```
 
-After Tilt brings up the backend server you can access it on your localhost on port 7500. To run the dashboard development website, cd into to the `dashboard-ui` directory and run the `install` and `dev` commands:
+3. Run the Dashboard UI locally:
 
 ```console
 cd dashboard-ui
@@ -153,7 +158,7 @@ Now access the dashboard at [http://localhost:5173](http://localhost:5173).
 
 ## Build
 
-### CLI
+### CLI Tool
 
 To build the Kubetail CLI tool executable (`kubetail`), run the following command:
 
@@ -163,7 +168,7 @@ make
 
 When the build process finishes you can find the executable in the local `bin/` directory.
 
-### kubetail-server
+### Backend Server
 
 To build a docker image for a production deployment of the backend server, run the following command:
 
@@ -171,7 +176,7 @@ To build a docker image for a production deployment of the backend server, run t
 docker build -f build/package/Dockerfile.server -t kubetail-server:latest .
 ```
 
-### kubetail-agent
+### Backend Agent
 
 To build a docker image for a production deployment of the backend agent, run the following command:
 
@@ -179,9 +184,12 @@ To build a docker image for a production deployment of the backend agent, run th
 docker build -f build/package/Dockerfile.agent -t kubetail-agent:latest .
 ```
 
-## How to get involved
+## Get Involved
 
-Our goal is to build a powerful cloud-native logging platform designed from the ground up for a containerized environment and this project is a work-in-progress. If you're interested in getting involved please send us an email (hello@kubetail.com) or join our [Discord server](https://discord.gg/CmsmWAVkvX) or [Slack channel](https://join.slack.com/t/kubetail/shared_invite/zt-2cq01cbm8-e1kbLT3EmcLPpHSeoFYm1w). In particular we're looking for help with the following:
+We're building a **cloud-native logging platform** and would love your contributions! Here's how you can help:
 
-* UI/design
+* UI/UX design
 * React frontend development
+* Reporting issues and suggesting features
+
+Reach us at hello@kubetail.com, or join our [Discord server](https://discord.gg/CmsmWAVkvX) or [Slack channel](https://join.slack.com/t/kubetail/shared_invite/zt-2cq01cbm8-e1kbLT3EmcLPpHSeoFYm1w).
