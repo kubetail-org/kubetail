@@ -37,11 +37,15 @@ import (
 	"github.com/kubetail-org/kubetail/modules/cli/internal/tunnel"
 )
 
+const serveHelp = `
+This command starts the dashboard server and opens the UI in your default browser.
+`
+
 // serveCmd represents the serve command
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Open dashboard",
-	Long:  `Start server and open the dashboard UI`,
+	Short: "Start dashboard server and open web UI",
+	Long:  serveHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Get flags
 		port, _ := cmd.Flags().GetInt("port")

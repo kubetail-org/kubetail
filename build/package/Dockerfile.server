@@ -14,16 +14,16 @@
 
 # -----------------------------------------------------------
 
-FROM node:20.13.1-alpine3.19 AS frontend-builder
+FROM node:22.11.0-alpine3.20 AS frontend-builder
 WORKDIR /dashboard-ui
 
 # enable pnpm
 RUN corepack enable
-RUN corepack prepare pnpm@9.10.0 --activate
+RUN corepack prepare pnpm@latest --activate
 
 # set up git+ssh for private package download from github
-RUN apk add git openssh-client
-RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+#RUN apk add git openssh-client
+#RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 # fetch dependencies
 COPY dashboard-ui/package.json ./

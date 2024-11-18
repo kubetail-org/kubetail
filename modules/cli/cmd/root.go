@@ -24,7 +24,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:     "kubetail",
 	Version: "0.0.7",
-	Short:   "Kubetail - Kubernetes Logging Utility",
+	Short:   "Kubetail - Kubernetes logging utility",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
