@@ -21,10 +21,6 @@ WORKDIR /dashboard-ui
 RUN corepack enable
 RUN corepack prepare pnpm@latest --activate
 
-# set up git+ssh for private package download from github
-#RUN apk add git openssh-client
-#RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
-
 # fetch dependencies
 COPY dashboard-ui/package.json ./
 COPY dashboard-ui/pnpm-lock.yaml ./
