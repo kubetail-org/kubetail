@@ -37,6 +37,8 @@ func (app *WebsiteHandlers) InitStaticHandlers(root *gin.RouterGroup) {
 	// add top-level files
 	httpFS := http.FS(app.websiteFS)
 	root.StaticFileFS("/favicon.ico", "/favicon.ico", httpFS)
+	root.StaticFileFS("/favicon.svg", "/favicon.svg", httpFS)
+	root.StaticFileFS("/robots.txt", "/robots.txt", httpFS)
 	root.StaticFileFS("/graphiql", "/graphiql.html", httpFS)
 
 	// add assets directory
