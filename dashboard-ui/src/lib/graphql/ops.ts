@@ -1137,3 +1137,9 @@ export const READYZ_WATCH = gql(`
     }
   }
 `);
+
+export const READY_WAIT = gql(`
+  query ReadyWait {
+    readyWait(timeout: 20)
+  }
+`);

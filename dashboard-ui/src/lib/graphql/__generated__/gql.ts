@@ -11,6 +11,7 @@ import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/
  * 3. It does not support dead code elimination, so it will add unused operations.
  *
  * Therefore it is highly recommended to use the babel or swc plugin for production.
+ * Learn more about it here: https://the-guild.dev/graphql/codegen/plugins/presets/preset-client#reducing-bundle-size
  */
 const documents = {
     "\n  fragment HomeGenericListFragment on List {\n    metadata {\n      continue\n      resourceVersion\n    }\n  }\n": types.HomeGenericListFragmentFragmentDoc,
@@ -159,6 +160,7 @@ const documents = {
     "\n  subscription LogMetadataListWatch($namespace: String = \"\") {\n    logMetadataWatch(namespace: $namespace) {\n      type\n      object {\n        ...LogMetadataListItemFragment\n      }\n    }\n  }\n": types.LogMetadataListWatchDocument,
     "\n  subscription LivezWatch {\n    livezWatch {\n      status\n      message\n      timestamp\n    }\n  }\n": types.LivezWatchDocument,
     "\n  subscription ReadyzWatch {\n    readyzWatch {\n      status\n      message\n      timestamp\n    }\n  }\n": types.ReadyzWatchDocument,
+    "\n  query ReadyWait {\n    readyWait(timeout: 20)\n  }\n": types.ReadyWaitDocument,
 };
 
 /**
@@ -759,6 +761,10 @@ export function gql(source: "\n  subscription LivezWatch {\n    livezWatch {\n  
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function gql(source: "\n  subscription ReadyzWatch {\n    readyzWatch {\n      status\n      message\n      timestamp\n    }\n  }\n"): (typeof documents)["\n  subscription ReadyzWatch {\n    readyzWatch {\n      status\n      message\n      timestamp\n    }\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  query ReadyWait {\n    readyWait(timeout: 20)\n  }\n"): (typeof documents)["\n  query ReadyWait {\n    readyWait(timeout: 20)\n  }\n"];
 
 export function gql(source: string) {
   return (documents as any)[source] ?? {};

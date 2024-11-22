@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/kubetail-org/kubetail/modules/common/agentpb"
@@ -368,6 +369,44 @@ func (r *queryResolver) LivezGet(ctx context.Context) (model.HealthCheckResponse
 // ReadyzGet is the resolver for the readyzGet field.
 func (r *queryResolver) ReadyzGet(ctx context.Context) (model.HealthCheckResponse, error) {
 	return getHealth(ctx, r.K8SClientset(ctx), "readyz"), nil
+}
+
+// ReadyWait is the resolver for the readyWait field.
+func (r *queryResolver) ReadyWait(ctx context.Context, timeout *int) (bool, error) {
+	t := 20 * time.Second
+	if timeout != nil {
+		t = time.Duration(*timeout) * time.Second
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, t)
+	defer cancel()
+
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+
+		select {
+		case <-r.clientsetReadyCh:
+			// continue
+		case <-ctx.Done():
+			return
+		}
+
+		select {
+		case <-r.dynamicClientReadyCh:
+			// continue
+		case <-ctx.Done():
+			return
+		}
+	}()
+
+	select {
+	case <-done:
+		return true, nil
+	case <-ctx.Done():
+		return false, nil
+	}
 }
 
 // AppsV1DaemonSetsWatch is the resolver for the appsV1DaemonSetsWatch field.

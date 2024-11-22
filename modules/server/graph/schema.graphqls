@@ -721,6 +721,10 @@ type Query {
   """
   livezGet: HealthCheckResponse!
   readyzGet: HealthCheckResponse!
+
+  readyWait(
+    timeout: Int = 20,
+  ): Boolean!
 }
 
 type Subscription {
