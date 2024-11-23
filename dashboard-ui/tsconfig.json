@@ -35,7 +35,8 @@
   },
   "include": [
     "src",
-    "tailwind.config.ts"
+    "tailwind.config.ts",
+    "vitest.setup.ts"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

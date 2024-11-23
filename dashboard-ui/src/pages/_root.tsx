@@ -119,15 +119,17 @@ export default function Root() {
     el.setAttribute('href', joinPaths(getBasename(), '/favicon.ico'));
   }, []);
 
+  /*
   const { loading } = useQuery(ops.READY_WAIT, {
     fetchPolicy: 'no-cache',
     onError: console.log,
   });
+  */
 
   return (
     <>
       <CustomToaster />
-      {loading ? <LoadingModal /> : <Outlet />}
+      <Outlet />
     </>
   );
 }
