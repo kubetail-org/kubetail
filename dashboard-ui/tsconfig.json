@@ -23,9 +23,9 @@
     /* import paths */
     "baseUrl": ".",
     "paths": {
-        "@/*": [
-            "./src/*"
-        ]
+      "@/*": [
+        "./src/*"
+      ]
     },
 
     /* misc */
