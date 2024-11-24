@@ -13,9 +13,12 @@
 // limitations under the License.
 
 import { ApolloProvider } from '@apollo/client';
-import React from 'react';
+import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
+import { ErrorBoundary } from 'react-error-boundary';
 import { createBrowserRouter, createRoutesFromElements, RouterProvider } from 'react-router-dom';
+
+import Spinner from '@kubetail/ui/elements/Spinner';
 
 import { routes } from './routes';
 import client from '@/apollo-client';
@@ -27,12 +30,41 @@ import './index.css';
 
 const router = createBrowserRouter(createRoutesFromElements(routes), { basename: getBasename() });
 
+function fallbackRenderError({ error }: { error: Error }) {
+  return (
+    <div role="alert">
+      <p>Something went wrong:</p>
+      <pre className="text-red-500">{error.message}</pre>
+    </div>
+  );
+}
+
+const LoadingModal = () => (
+  <div className="relative z-10" role="dialog">
+    <div className="fixed inset-0 bg-chrome-500 bg-opacity-75" />
+    <div className="fixed inset-0 z-10 w-screen">
+      <div className="flex min-h-full items-center justify-center p-0 text-center">
+        <div className="relative transform overflow-hidden rounded-lg bg-background my-8 p-6 text-left shadow-xl">
+          <div className="flex items-center space-x-2">
+            <div>Connecting...</div>
+            <Spinner size="sm" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ApolloProvider client={client}>
       <SessionProvider>
         <ThemeProvider>
-          <RouterProvider router={router} />
+          <ErrorBoundary fallbackRender={fallbackRenderError}>
+            <Suspense fallback={<LoadingModal />}>
+              <RouterProvider router={router} />
+            </Suspense>
+          </ErrorBoundary>
         </ThemeProvider>
       </SessionProvider>
     </ApolloProvider>

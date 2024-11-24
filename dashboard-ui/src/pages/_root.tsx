@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { useSuspenseQuery } from '@apollo/client';
 import { XCircleIcon } from '@heroicons/react/24/outline';
 import { useEffect, useState } from 'react';
 import toastlib, { useToaster, resolveValue } from 'react-hot-toast';
@@ -21,6 +22,7 @@ import { Outlet } from 'react-router-dom';
 import Button from '@kubetail/ui/elements/Button';
 
 import Modal from '@/components/elements/Modal';
+import * as ops from '@/lib/graphql/ops';
 import { joinPaths, getBasename } from '@/lib/helpers';
 
 const QueryError = ({ toast }: { toast: Toast }) => (
@@ -99,6 +101,11 @@ export default function Root() {
     if (!el) return;
     el.setAttribute('href', joinPaths(getBasename(), '/favicon.ico'));
   }, []);
+
+  useSuspenseQuery(ops.READY_WAIT, {
+    fetchPolicy: 'no-cache',
+    onError: console.log,
+  });
 
   return (
     <>

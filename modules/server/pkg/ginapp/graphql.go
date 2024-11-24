@@ -45,6 +45,9 @@ func (app *GraphQLHandlers) EndpointHandler(cfg *rest.Config, grpcDispatcher *gr
 		zlog.Fatal().Err(err).Send()
 	}
 
+	// warm up in background
+	r.WarmUp()
+
 	csrfTestServer := http.NewServeMux()
 	csrfTestServer.HandleFunc("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 

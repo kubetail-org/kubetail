@@ -18,9 +18,11 @@ import (
 	"context"
 	"net/http"
 	"slices"
+	"time"
 
 	zlog "github.com/rs/zerolog/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	dynamicFake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes"
@@ -39,13 +41,15 @@ import (
 //go:generate go run github.com/99designs/gqlgen generate
 
 type Resolver struct {
-	k8sCfg            *rest.Config
-	clientset         kubernetes.Interface
-	dynamicClient     dynamic.Interface
-	grpcDispatcher    *grpcdispatcher.Dispatcher
-	allowedNamespaces []string
-	TestClientset     *fake.Clientset
-	TestDynamicClient *dynamicFake.FakeDynamicClient
+	k8sCfg               *rest.Config
+	clientset            *kubernetes.Clientset
+	clientsetReadyCh     chan struct{}
+	dynamicClient        *dynamic.DynamicClient
+	dynamicClientReadyCh chan struct{}
+	grpcDispatcher       *grpcdispatcher.Dispatcher
+	allowedNamespaces    []string
+	TestClientset        *fake.Clientset
+	TestDynamicClient    *dynamicFake.FakeDynamicClient
 }
 
 func (r *Resolver) K8SClientset(ctx context.Context) kubernetes.Interface {
@@ -133,12 +137,57 @@ func (r *Resolver) ToNamespaces(namespace *string) ([]string, error) {
 	return namespaces, nil
 }
 
+func (r *Resolver) WarmUp() {
+	if r.k8sCfg == nil {
+		return
+	}
+
+	// warm up clientset in background
+	go func() {
+		if r.TestClientset != nil {
+			close(r.clientsetReadyCh)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+
+		clientset := r.K8SClientset(ctx)
+		clientset.Discovery().ServerVersion()
+		close(r.clientsetReadyCh)
+	}()
+
+	// warm up dynamic client in background
+	go func() {
+		if r.TestDynamicClient != nil {
+			close(r.dynamicClientReadyCh)
+			return
+		}
+
+		namespaceGVR := schema.GroupVersionResource{
+			Group:    "",   // Core API group
+			Version:  "v1", // API version
+			Resource: "namespaces",
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+
+		// Make a lightweight API call to list namespaces
+		client := r.K8SDynamicClient(ctx)
+		client.Resource(namespaceGVR).List(ctx, metav1.ListOptions{Limit: 1})
+		close(r.dynamicClientReadyCh)
+	}()
+}
+
 func NewResolver(cfg *rest.Config, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string) (*Resolver, error) {
 	// init resolver
 	r := &Resolver{
-		k8sCfg:            cfg,
-		grpcDispatcher:    grpcDispatcher,
-		allowedNamespaces: allowedNamespaces,
+		k8sCfg:               cfg,
+		clientsetReadyCh:     make(chan struct{}),
+		dynamicClientReadyCh: make(chan struct{}),
+		grpcDispatcher:       grpcDispatcher,
+		allowedNamespaces:    allowedNamespaces,
 	}
 
 	return r, nil

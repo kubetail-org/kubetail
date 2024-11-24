@@ -12,9 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render } from '@testing-library/react';
+import { MockedProvider } from '@apollo/client/testing';
+import type { MockedResponse } from '@apollo/client/testing';
+import { render, waitFor } from '@testing-library/react';
+import { Suspense } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
 import { MemoryRouter, Routes } from 'react-router-dom';
 
+import * as ops from '@/lib/graphql/ops';
 import { routes } from './routes';
 
 vi.mock('@/pages/home', () => ({
@@ -33,34 +38,64 @@ vi.mock('@/pages/auth/logout', () => ({
   default: () => <div>Auth-Logout</div>,
 }));
 
+const mocks: MockedResponse[] = [
+  {
+    request: {
+      query: ops.READY_WAIT,
+    },
+    result: {
+      data: {
+        readyWait: true,
+      },
+    },
+  },
+];
+
 const renderPage = (path: string) => (
   render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        {routes}
-      </Routes>
-    </MemoryRouter>,
+    <MockedProvider
+      mocks={mocks}
+      addTypename={false}
+    >
+      <ErrorBoundary fallback={<div>error</div>}>
+        <Suspense fallback={<div>loading...</div>}>
+          <MemoryRouter initialEntries={[path]}>
+            <Routes>
+              {routes}
+            </Routes>
+          </MemoryRouter>
+        </Suspense>
+      </ErrorBoundary>
+    </MockedProvider>,
   )
 );
 
 describe('route tests', () => {
-  it('/', () => {
+  it('/', async () => {
     const { getByText } = renderPage('/');
-    expect(getByText('Home')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getByText('Home')).toBeInTheDocument();
+    });
   });
 
-  it('/console', () => {
+  it('/console', async () => {
     const { getByText } = renderPage('/console');
-    expect(getByText('Console')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getByText('Console')).toBeInTheDocument();
+    });
   });
 
-  it('/auth/login', () => {
+  it('/auth/login', async () => {
     const { getByText } = renderPage('/auth/login');
-    expect(getByText('Auth-Login')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getByText('Auth-Login')).toBeInTheDocument();
+    });
   });
 
-  it('/auth/logout', () => {
+  it('/auth/logout', async () => {
     const { getByText } = renderPage('/auth/logout');
-    expect(getByText('Auth-Logout')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getByText('Auth-Logout')).toBeInTheDocument();
+    });
   });
 });

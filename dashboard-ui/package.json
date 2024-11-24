@@ -30,6 +30,7 @@
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",
+    "react-error-boundary": "^4.1.2",
     "react-hot-toast": "^2.4.1",
     "react-timeago": "^7.2.0",
     "react-virtualized-auto-sizer": "^1.0.24",
@@ -42,7 +43,7 @@
   "devDependencies": {
     "@apollo/react-testing": "^4.0.0",
     "@graphql-codegen/cli": "^5.0.3",
-    "@graphql-codegen/client-preset": "^4.4.0",
+    "@graphql-codegen/client-preset": "^4.5.1",
     "@graphql-codegen/fragment-matcher": "^5.0.2",
     "@graphql-typed-document-node/core": "^3.2.0",
     "@testing-library/jest-dom": "^6.6.2",
@@ -79,5 +80,5 @@
     "vite-tsconfig-paths": "^5.0.1",
     "vitest": "^1.6.0"
   },
-  "packageManager": "pnpm@9.13.2+sha512.88c9c3864450350e65a33587ab801acf946d7c814ed1134da4a924f6df5a2120fd36b46aab68f7cd1d413149112d53c7db3a4136624cfd00ff1846a0c6cef48a"
+  "packageManager": "pnpm@9.14.2+sha512.6e2baf77d06b9362294152c851c4f278ede37ab1eba3a55fda317a4a17b209f4dbb973fb250a77abc463a341fcb1f17f17cfa24091c4eb319cda0d9b84278387"
 }
