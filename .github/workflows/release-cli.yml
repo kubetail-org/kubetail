@@ -29,6 +29,11 @@ jobs:
             GOARCH: amd64
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Get tag name
+        uses: olegtarasov/get-tag@2.1.3
+        id: tagName
+        with:
+          tagRegex: "cli/v(.*)"
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -39,9 +44,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22.7'
-          cache: false  
+          cache: false
+      - name: Set CLI version number
+        run: bash ./scripts/set-cli-version.sh ${{ steps.tagName.outputs.tag }}
       - name: Run build script
-        working-directory: ./
         run: make build
       - name: Append os/arch to binary file name
         run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}

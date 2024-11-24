@@ -23,7 +23,7 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:     "kubetail",
-	Version: "0.0.7",
+	Version: "dev",
 	Short:   "Kubetail - Kubernetes logging utility",
 }
 

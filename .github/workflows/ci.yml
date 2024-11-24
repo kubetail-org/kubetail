@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - uses: pnpm/action-setup@v3
         with:
           version: 9
@@ -67,7 +67,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - uses: pnpm/action-setup@v3
         with:
           version: 9
@@ -83,7 +83,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - uses: pnpm/action-setup@v3
         with:
           version: 9
@@ -186,16 +186,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - uses: pnpm/action-setup@v3
         with:
           version: 9
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22.7'
-          cache: false  
+          cache: false
+      - name: Set CLI version number
+        run: bash ./scripts/set-cli-version.sh test
       - name: Run build script
-        working-directory: ./
         run: make build
 
   build-cli-linux-arm64:
@@ -211,7 +212,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - uses: pnpm/action-setup@v3
         with:
           version: 9
@@ -219,8 +220,9 @@ jobs:
         with:
           go-version: '1.22.7'
           cache: false  
+      - name: Set CLI version number
+        run: bash ./scripts/set-cli-version.sh test
       - name: Run build script
-        working-directory: ./
         run: make build
 
   build-cli-macos-15:
@@ -236,7 +238,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - uses: pnpm/action-setup@v3
         with:
           version: 9
@@ -244,8 +246,9 @@ jobs:
         with:
           go-version: '1.22.7'
           cache: false  
+      - name: Set CLI version number
+        run: bash ./scripts/set-cli-version.sh test
       - name: Run build script
-        working-directory: ./
         run: make build
 
   build-cli-macos-14:
@@ -261,16 +264,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - uses: pnpm/action-setup@v3
         with:
           version: 9
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22.7'
-          cache: false  
+          cache: false
+      - name: Set CLI version number
+        run: bash ./scripts/set-cli-version.sh test
       - name: Run build script
-        working-directory: ./
         run: make build
 
   build-cli-macos-13:
@@ -286,16 +290,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - uses: pnpm/action-setup@v3
         with:
           version: 9
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22.7'
-          cache: false  
+          cache: false
+      - name: Set CLI version number
+        run: bash ./scripts/set-cli-version.sh test
       - name: Run build script
-        working-directory: ./
         run: make build
 
   build-cli-windows:
@@ -311,14 +316,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - uses: pnpm/action-setup@v3
         with:
           version: 9
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22.7'
-          cache: false  
+          cache: false
+      - name: Set CLI version number
+        run: bash ./scripts/set-cli-version.sh test
       - name: Run build script
-        working-directory: ./
         run: make build
