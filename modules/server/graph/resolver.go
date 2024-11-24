@@ -137,18 +137,18 @@ func (r *Resolver) ToNamespaces(namespace *string) ([]string, error) {
 	return namespaces, nil
 }
 
-func NewResolver(cfg *rest.Config, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string) (*Resolver, error) {
-	// init resolver
-	r := &Resolver{
-		k8sCfg:               cfg,
-		clientsetReadyCh:     make(chan struct{}),
-		dynamicClientReadyCh: make(chan struct{}),
-		grpcDispatcher:       grpcDispatcher,
-		allowedNamespaces:    allowedNamespaces,
+func (r *Resolver) WarmUp() {
+	if r.k8sCfg == nil {
+		return
 	}
 
 	// warm up clientset in background
 	go func() {
+		if r.TestClientset != nil {
+			close(r.clientsetReadyCh)
+			return
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
 
@@ -159,6 +159,11 @@ func NewResolver(cfg *rest.Config, grpcDispatcher *grpcdispatcher.Dispatcher, al
 
 	// warm up dynamic client in background
 	go func() {
+		if r.TestDynamicClient != nil {
+			close(r.dynamicClientReadyCh)
+			return
+		}
+
 		namespaceGVR := schema.GroupVersionResource{
 			Group:    "",   // Core API group
 			Version:  "v1", // API version
@@ -173,6 +178,17 @@ func NewResolver(cfg *rest.Config, grpcDispatcher *grpcdispatcher.Dispatcher, al
 		client.Resource(namespaceGVR).List(ctx, metav1.ListOptions{Limit: 1})
 		close(r.dynamicClientReadyCh)
 	}()
+}
+
+func NewResolver(cfg *rest.Config, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string) (*Resolver, error) {
+	// init resolver
+	r := &Resolver{
+		k8sCfg:               cfg,
+		clientsetReadyCh:     make(chan struct{}),
+		dynamicClientReadyCh: make(chan struct{}),
+		grpcDispatcher:       grpcDispatcher,
+		allowedNamespaces:    allowedNamespaces,
+	}
 
 	return r, nil
 }
