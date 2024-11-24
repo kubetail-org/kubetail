@@ -20,10 +20,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var version = "dev" // default version for local builds
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:     "kubetail",
-	Version: "dev",
+	Version: version,
 	Short:   "Kubetail - Kubernetes logging utility",
 }
 
