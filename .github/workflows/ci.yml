@@ -194,8 +194,6 @@ jobs:
         with:
           go-version: '1.22.7'
           cache: false
-      - name: Set CLI version number
-        run: bash ./scripts/set-cli-version.sh test
       - name: Run build script
         run: make build
 
@@ -220,8 +218,6 @@ jobs:
         with:
           go-version: '1.22.7'
           cache: false  
-      - name: Set CLI version number
-        run: bash ./scripts/set-cli-version.sh test
       - name: Run build script
         run: make build
 
@@ -246,8 +242,6 @@ jobs:
         with:
           go-version: '1.22.7'
           cache: false  
-      - name: Set CLI version number
-        run: bash ./scripts/set-cli-version.sh test
       - name: Run build script
         run: make build
 
@@ -272,8 +266,6 @@ jobs:
         with:
           go-version: '1.22.7'
           cache: false
-      - name: Set CLI version number
-        run: bash ./scripts/set-cli-version.sh test
       - name: Run build script
         run: make build
 
@@ -298,8 +290,6 @@ jobs:
         with:
           go-version: '1.22.7'
           cache: false
-      - name: Set CLI version number
-        run: bash ./scripts/set-cli-version.sh test
       - name: Run build script
         run: make build
 
@@ -324,7 +314,5 @@ jobs:
         with:
           go-version: '1.22.7'
           cache: false
-      - name: Set CLI version number
-        run: bash ./scripts/set-cli-version.sh test
       - name: Run build script
         run: make build
