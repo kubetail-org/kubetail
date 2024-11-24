@@ -47,7 +47,7 @@ jobs:
           cache: false
       - name: Set CLI version number
         working-directory: ./
-        run: bash set-cli-version.sh ${{ steps.tagName.outputs.tag }}
+        run: bash .github/scripts/set-cli-version.sh ${{ steps.tagName.outputs.tag }}
       - name: Run build script
         working-directory: ./
         run: make build
