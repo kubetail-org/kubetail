@@ -46,10 +46,8 @@ jobs:
           go-version: '1.22.7'
           cache: false
       - name: Set CLI version number
-        working-directory: ./
         run: bash .github/scripts/set-cli-version.sh ${{ steps.tagName.outputs.tag }}
       - name: Run build script
-        working-directory: ./
         run: make build
       - name: Append os/arch to binary file name
         run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
