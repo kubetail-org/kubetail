@@ -27,7 +27,7 @@ else
 endif
 
 # Allow version override via CLI argument (default to "dev")
-VERSION ?:= dev
+VERSION ?= dev
 
 # Define ldflags
 LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/modules/cli/cmd.version=$(VERSION)'"
