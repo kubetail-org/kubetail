@@ -20,6 +20,7 @@ import {
   from,
 } from '@apollo/client';
 import type { HttpOptions } from '@apollo/client';
+import type { Operation } from '@apollo/client/link/core';
 import { onError } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
@@ -82,8 +83,9 @@ const retryLink = new RetryLink({
   },
   attempts: {
     max: Infinity,
-    retryIf: (error) => {
-      console.log(error);
+    retryIf: (error: any, operation: Operation) => {
+      const msg = `[NetworkError] ${error.message} (${operation.operationName})`;
+      toast(msg, { id: `${error.name}|${operation.operationName}` });
       return true;
     },
   },
