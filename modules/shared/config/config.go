@@ -140,10 +140,10 @@ type Config struct {
 
 	// Cluster API options
 	ClusterAPI struct {
-		Addr             string `validate:"omitempty,hostname_port"`
-		GinMode          string `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
-		BasePath         string `mapstructure:"base-path"`
-		AgentDispatchUrl string `mapstructure:"agent-dispatch-url"`
+		Addr                    string `validate:"omitempty,hostname_port"`
+		GinMode                 string `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
+		BasePath                string `mapstructure:"base-path"`
+		ClusterAgentDispatchUrl string `mapstructure:"cluster-agent-dispatch-url"`
 
 		// csrf options
 		CSRF struct {
@@ -195,7 +195,7 @@ type Config struct {
 				HideHealthChecks bool `mapstructure:"hide-health-checks"`
 			} `mapstructure:"access-log"`
 		}
-	}
+	} `mapstructure:"cluster-api"`
 
 	// Cluster Agent options
 	ClusterAgent struct {
@@ -225,7 +225,7 @@ type Config struct {
 			// log format
 			Format string `validate:"oneof=json pretty"`
 		}
-	}
+	} `mapstructure:"cluster-agent"`
 }
 
 // Validate config
@@ -275,7 +275,7 @@ func DefaultConfig() *Config {
 	cfg.ClusterAPI.Addr = ":80"
 	cfg.ClusterAPI.BasePath = "/"
 	cfg.ClusterAPI.GinMode = "release"
-	cfg.ClusterAPI.AgentDispatchUrl = "kubernetes://kubetail-cluster-agent:50051"
+	cfg.ClusterAPI.ClusterAgentDispatchUrl = "kubernetes://kubetail-cluster-agent:50051"
 	cfg.ClusterAPI.CSRF.Enabled = true
 	cfg.ClusterAPI.CSRF.Secret = ""
 	cfg.ClusterAPI.CSRF.FieldName = "csrf_token"

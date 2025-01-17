@@ -44,7 +44,7 @@ func mustNewGrpcDispatcher(cfg *config.Config) *grpcdispatcher.Dispatcher {
 
 	// TODO: reuse app clientset
 	d, err := grpcdispatcher.NewDispatcher(
-		cfg.ClusterAPI.AgentDispatchUrl,
+		cfg.ClusterAPI.ClusterAgentDispatchUrl,
 		grpcdispatcher.WithDialOptions(dialOpts...),
 	)
 	if err != nil {
