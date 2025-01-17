@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,14 +15,16 @@
 import { useSubscription } from '@apollo/client';
 import { useEffect, useState } from 'react';
 
-import { wsClient } from '@/apollo-client';
-import * as ops from '@/lib/graphql/ops';
-import { HealthCheckStatus, type HealthCheckResponse } from '@/lib/graphql/__generated__/graphql';
+import { dashboardWSClient } from '@/apollo-client';
+import * as dashboardOps from '@/lib/graphql/dashboard/ops';
+import { HealthCheckStatus, type HealthCheckResponse } from '@/lib/graphql/dashboard/__generated__/graphql';
 
 export const enum Status {
   Healthy = 'HEALTHY',
   Unhealthy = 'UNHEALTHY',
+  Degraded = 'DEGRADED',
   Unknown = 'UNKNOWN',
+  NotFound = 'NOTFOUND',
 }
 
 export class ServerStatus {
@@ -36,49 +38,47 @@ export class ServerStatus {
     Object.assign(this, init);
   }
 
-  static fromK8sHealthCheck(healthCheck: HealthCheckResponse | undefined) {
-    return new ServerStatus({
-      status: healthCheck?.status === HealthCheckStatus.Success ? Status.Healthy : Status.Unhealthy,
-      message: healthCheck?.message || null,
-      lastUpdatedAt: healthCheck?.timestamp || null,
+  static fromHealthCheckResponse(healthCheckResponse: HealthCheckResponse | undefined) {
+    const ss = new ServerStatus({
+      message: healthCheckResponse?.message || null,
+      lastUpdatedAt: healthCheckResponse?.timestamp || null,
     });
+
+    switch (healthCheckResponse?.status) {
+      case HealthCheckStatus.Success:
+        ss.status = Status.Healthy;
+        break;
+      case HealthCheckStatus.Notfound:
+        ss.status = Status.NotFound;
+        break;
+      default:
+        ss.status = Status.Unhealthy;
+    }
+
+    return ss;
   }
 }
 
-export function useServerStatus() {
-  const [backendStatus, setBackendStatus] = useState<ServerStatus>(new ServerStatus());
-  const [k8sLivezStatus, setK8sLivezStatus] = useState<ServerStatus>(new ServerStatus());
-  const [k8sReadyzStatus, setK8sReadyzStatus] = useState<ServerStatus>(new ServerStatus());
-
-  useSubscription(ops.LIVEZ_WATCH, {
-    onData: ({ data }) => setK8sLivezStatus(ServerStatus.fromK8sHealthCheck(data.data?.livezWatch)),
-  });
-
-  useSubscription(ops.READYZ_WATCH, {
-    onData: ({ data }) => setK8sReadyzStatus(ServerStatus.fromK8sHealthCheck(data.data?.readyzWatch)),
-  });
+export function useDashboardServerStatus() {
+  const [status, setStatus] = useState<ServerStatus>(new ServerStatus());
 
   useEffect(() => {
     const fns = [
-      wsClient.on('connected', () => {
-        setBackendStatus(new ServerStatus({ status: Status.Healthy, lastUpdatedAt: new Date() }));
+      dashboardWSClient.on('connected', () => {
+        setStatus(new ServerStatus({ status: Status.Healthy, lastUpdatedAt: new Date() }));
       }),
-      wsClient.on('pong', () => {
-        setBackendStatus(new ServerStatus({ status: Status.Healthy, lastUpdatedAt: new Date() }));
+      dashboardWSClient.on('pong', () => {
+        setStatus(new ServerStatus({ status: Status.Healthy, lastUpdatedAt: new Date() }));
       }),
-      wsClient.on('closed', () => {
-        const status = new ServerStatus({ status: Status.Unhealthy, lastUpdatedAt: new Date() });
-        status.message = 'Unable to connect';
-        setBackendStatus(status);
-        setK8sLivezStatus(new ServerStatus());
-        setK8sReadyzStatus(new ServerStatus());
+      dashboardWSClient.on('closed', () => {
+        const newStatus = new ServerStatus({ status: Status.Unhealthy, lastUpdatedAt: new Date() });
+        newStatus.message = 'Unable to connect';
+        setStatus(newStatus);
       }),
-      wsClient.on('error', () => {
-        const status = new ServerStatus({ status: Status.Unhealthy, lastUpdatedAt: new Date() });
-        status.message = 'Error while establishing connection';
-        setBackendStatus(status);
-        setK8sLivezStatus(new ServerStatus());
-        setK8sReadyzStatus(new ServerStatus());
+      dashboardWSClient.on('error', () => {
+        const newStatus = new ServerStatus({ status: Status.Unhealthy, lastUpdatedAt: new Date() });
+        newStatus.message = 'Error while establishing connection';
+        setStatus(newStatus);
       }),
     ];
 
@@ -86,18 +86,27 @@ export function useServerStatus() {
     return () => fns.forEach((fn) => fn());
   }, []);
 
-  const all = [backendStatus, k8sLivezStatus, k8sReadyzStatus];
+  return status;
+}
 
-  let status = Status.Unknown;
-  if (all.every((item) => item.status === Status.Healthy)) status = Status.Healthy;
-  else if (all.some((item) => item.status === Status.Unhealthy)) status = Status.Unhealthy;
+export function useKubernetesAPIServerStatus(kubeContext: string) {
+  const [status, setStatus] = useState<ServerStatus>(new ServerStatus());
 
-  return {
-    status,
-    details: {
-      backendServer: backendStatus,
-      k8sLivez: k8sLivezStatus,
-      k8sReadyz: k8sReadyzStatus,
-    },
-  };
+  useSubscription(dashboardOps.SERVER_STATUS_KUBERNETES_API_HEALTHZ_WATCH, {
+    variables: { kubeContext },
+    onData: ({ data }) => setStatus(ServerStatus.fromHealthCheckResponse(data.data?.kubernetesAPIHealthzWatch)),
+  });
+
+  return status;
+}
+
+export function useKubetailClusterAPIServerStatus(kubeContext: string) {
+  const [status, setStatus] = useState<ServerStatus>(new ServerStatus());
+
+  useSubscription(dashboardOps.SERVER_STATUS_KUBETAIL_CLUSTER_API_HEALTHZ_WATCH, {
+    variables: { kubeContext },
+    onData: ({ data }) => setStatus(ServerStatus.fromHealthCheckResponse(data.data?.kubetailClusterAPIHealthzWatch)),
+  });
+
+  return status;
 }

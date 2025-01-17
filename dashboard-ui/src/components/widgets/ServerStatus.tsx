@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,13 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useState } from 'react';
+import { useMutation, useSubscription } from '@apollo/client';
+import { Fragment, useEffect, useState } from 'react';
+import { RecoilRoot, atom, useRecoilValue, useSetRecoilState, type SetterOrUpdater } from 'recoil';
 
+import Button from '@kubetail/ui/elements/Button';
 import DataTable from '@kubetail/ui/elements/DataTable';
 
+import appConfig from '@/app-config';
 import Modal from '@/components/elements/Modal';
-import { Status, useServerStatus, type ServerStatus } from '@/lib/server-status';
-import { cn } from '@/lib/utils';
+import * as dashboardOps from '@/lib/graphql/dashboard/ops';
+import { ServerStatus, Status, useDashboardServerStatus, useKubernetesAPIServerStatus, useKubetailClusterAPIServerStatus } from '@/lib/server-status';
+import { cn } from '@/lib/util';
+
+const kubernetesAPIServerStatusMapState = atom({
+  key: 'kubernetesAPIServerStatusMap',
+  default: new Map<string, ServerStatus>(),
+});
+
+const kubetailClusterAPIServerStatusMapState = atom({
+  key: 'kubetailClusterAPIServerStatusMap',
+  default: new Map<string, ServerStatus>(),
+});
 
 const HealthDot = ({ status }: { status: Status }) => {
   let color;
@@ -28,6 +43,12 @@ const HealthDot = ({ status }: { status: Status }) => {
       break;
     case Status.Unhealthy:
       color = 'red';
+      break;
+    case Status.Degraded:
+      color = 'yellow';
+      break;
+    case Status.NotFound:
+      color = 'yellow';
       break;
     case Status.Unknown:
       color = 'chrome';
@@ -44,6 +65,7 @@ const HealthDot = ({ status }: { status: Status }) => {
           'bg-chrome-300': color === 'chrome',
           'bg-red-500': color === 'red',
           'bg-green-500': color === 'green',
+          'bg-yellow-500': color === 'yellow',
         },
       )}
     />
@@ -56,6 +78,8 @@ const statusMessage = (s: ServerStatus, unknownDefault: string): string => {
       return s.message || 'Ok';
     case Status.Unhealthy:
       return s.message || 'Error';
+    case Status.NotFound:
+      return s.message || 'Not found';
     case Status.Unknown:
       return s.message || unknownDefault;
     default:
@@ -63,13 +87,146 @@ const statusMessage = (s: ServerStatus, unknownDefault: string): string => {
   }
 };
 
-type ServerStatusProps = {
+function useEffectServerStatus(kubeContext: string, setServerStatusMap: SetterOrUpdater<Map<string, ServerStatus>>, serverStatus: ServerStatus) {
+  useEffect(() => {
+    setServerStatusMap((currVal) => {
+      const newVal = new Map(currVal);
+      newVal.set(kubeContext, serverStatus);
+      return newVal;
+    });
+
+    // Clean up
+    return () => {
+      setServerStatusMap((currVal) => {
+        const newVal = new Map(currVal);
+        newVal.set(kubeContext, new ServerStatus());
+        return newVal;
+      });
+    };
+  }, [serverStatus.status]);
+}
+
+const KubernetesAPIServerStatusFetcher = ({ kubeContext }: { kubeContext: string }) => {
+  const serverStatus = useKubernetesAPIServerStatus(kubeContext);
+
+  // Update map
+  const setServerStatusMap = useSetRecoilState(kubernetesAPIServerStatusMapState);
+  useEffectServerStatus(kubeContext, setServerStatusMap, serverStatus);
+
+  return null;
+};
+
+const KubetailClusterAPIServerStatusFetcher = ({ kubeContext }: { kubeContext: string }) => {
+  const serverStatus = useKubetailClusterAPIServerStatus(kubeContext);
+
+  // Update map
+  const setServerStatusMap = useSetRecoilState(kubetailClusterAPIServerStatusMapState);
+  useEffectServerStatus(kubeContext, setServerStatusMap, serverStatus);
+
+  return null;
+};
+
+type ServerStatusCellsProps = {
+  serverStatus: ServerStatus;
+  defaultMessage?: string;
+};
+
+const ServerStatusCells = ({ serverStatus, defaultMessage }: ServerStatusCellsProps) => (
+  <>
+    <DataTable.DataCell className="w-[1px]"><HealthDot status={serverStatus.status} /></DataTable.DataCell>
+    <DataTable.DataCell className="whitespace-normal">{statusMessage(serverStatus, defaultMessage || 'Uknown')}</DataTable.DataCell>
+  </>
+);
+
+type ServerStatusRowProps = {
+  kubeContext: string;
+  dashboardServerStatus: ServerStatus;
+};
+
+const KubernetesAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: ServerStatusRowProps) => {
+  const serverStatusMap = useRecoilValue(kubernetesAPIServerStatusMapState);
+  const serverStatus = serverStatusMap.get(kubeContext) || new ServerStatus();
+
+  return (
+    <DataTable.Row>
+      <DataTable.DataCell className="w-[1px]">Kubernetes API</DataTable.DataCell>
+      {dashboardServerStatus.status === Status.Unhealthy ? (
+        <ServerStatusCells serverStatus={new ServerStatus()} />
+      ) : (
+        <ServerStatusCells serverStatus={serverStatus} />
+      )}
+    </DataTable.Row>
+  );
+};
+
+const KubetailClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: ServerStatusRowProps) => {
+  const serverStatusMap = useRecoilValue(kubetailClusterAPIServerStatusMapState);
+  const serverStatus = serverStatusMap.get(kubeContext) || new ServerStatus();
+
+  const [install, { loading, data }] = useMutation(dashboardOps.KUBETAIL_CLUSTER_API_INSTALL);
+
+  const handleInstall = async () => {
+    await install({ variables: { kubeContext } });
+  };
+
+  return (
+    <DataTable.Row>
+      <DataTable.DataCell className="w-[1px]">Kubetail Cluster API</DataTable.DataCell>
+      {dashboardServerStatus.status === Status.Unhealthy ? (
+        <ServerStatusCells serverStatus={new ServerStatus()} />
+      ) : (
+        <>
+          <DataTable.DataCell className="w-[1px]"><HealthDot status={serverStatus.status} /></DataTable.DataCell>
+          {appConfig.environment === 'desktop' && serverStatus.status === Status.NotFound ? (
+            <DataTable.DataCell className="whitespace-normal flex justify-between items-center">
+              <span>{statusMessage(serverStatus, 'Uknown')}</span>
+              {data?.kubetailClusterAPIInstall !== true && (
+                <Button intent="outline" size="xs" onClick={handleInstall} disabled={loading}>install</Button>
+              )}
+            </DataTable.DataCell>
+          ) : (
+            <DataTable.DataCell className="whitespace-normal flex justify-between items-center">
+              {statusMessage(serverStatus, 'Uknown')}
+            </DataTable.DataCell>
+          )}
+        </>
+      )}
+    </DataTable.Row>
+  );
+};
+
+type ServerStatusWidgetProps = {
   className?: string;
 };
 
-const ServerStatusWidget = ({ className }: ServerStatusProps) => {
-  const { status, details } = useServerStatus();
+const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
+  const { data } = useSubscription(dashboardOps.KUBE_CONFIG_WATCH, { skip: appConfig.environment === 'cluster' });
+
+  const kubeContexts = new Array<string>();
+  if (appConfig.environment === 'cluster') {
+    kubeContexts.push('');
+  } else {
+    data?.kubeConfigWatch?.object?.contexts.map((context) => kubeContexts.push(context.name));
+  }
+
+  const dashboardServerStatus = useDashboardServerStatus();
+  const kubernetesAPIServertatusMap = useRecoilValue(kubernetesAPIServerStatusMapState);
+  const kubetailClusterAPIServerStatusMap = useRecoilValue(kubetailClusterAPIServerStatusMapState);
+
   const [modalIsOpen, setModalIsOpen] = useState(false);
+
+  // Determine overall status
+  let overallStatus = Status.Unknown;
+  if (dashboardServerStatus.status === Status.Unhealthy) {
+    overallStatus = Status.Unhealthy;
+  } else {
+    const all = [dashboardServerStatus];
+    for (const val of kubernetesAPIServertatusMap.values()) all.push(val);
+    for (const val of kubetailClusterAPIServerStatusMap.values()) all.push(val);
+
+    if (all.every((item) => item.status === Status.Healthy)) overallStatus = Status.Healthy;
+    else overallStatus = Status.Degraded;
+  }
 
   return (
     <div className="inline-block">
@@ -79,36 +236,48 @@ const ServerStatusWidget = ({ className }: ServerStatusProps) => {
         onClick={() => setModalIsOpen(true)}
       >
         <div className="text-sm">status:</div>
-        <HealthDot status={status} />
+        <HealthDot status={overallStatus} />
       </button>
       <Modal
-        className="max-w-[500px]"
+        className="max-w-[500px] pb-10"
         open={modalIsOpen}
         onClose={() => setModalIsOpen(false)}
       >
-        <Modal.Title>Server Status</Modal.Title>
+        <Modal.Title>Health Status</Modal.Title>
         <DataTable>
           <DataTable.Body>
             <DataTable.Row>
-              <DataTable.DataCell className="w-[1px]">Kubetail Backend</DataTable.DataCell>
-              <DataTable.DataCell className="w-[1px]"><HealthDot status={details.backendServer.status} /></DataTable.DataCell>
-              <DataTable.DataCell className="whitespace-normal">{statusMessage(details.backendServer, 'Connecting...')}</DataTable.DataCell>
-            </DataTable.Row>
-            <DataTable.Row>
-              <DataTable.DataCell className="w-[1px]">Kubernetes Livez</DataTable.DataCell>
-              <DataTable.DataCell className="w-[1px]"><HealthDot status={details.k8sLivez.status} /></DataTable.DataCell>
-              <DataTable.DataCell className="whitespace-normal">{statusMessage(details.k8sLivez, 'Uknown')}</DataTable.DataCell>
-            </DataTable.Row>
-            <DataTable.Row>
-              <DataTable.DataCell className="w-[1px]">Kubernetes Readyz</DataTable.DataCell>
-              <DataTable.DataCell className="w-[1px]"><HealthDot status={details.k8sReadyz.status} /></DataTable.DataCell>
-              <DataTable.DataCell className="whitespace-normal">{statusMessage(details.k8sReadyz, 'Unknown')}</DataTable.DataCell>
+              <DataTable.DataCell className="w-[1px]">Dashboard Backend</DataTable.DataCell>
+              <ServerStatusCells serverStatus={dashboardServerStatus} defaultMessage="Connecting..." />
             </DataTable.Row>
           </DataTable.Body>
         </DataTable>
+        {kubeContexts.map((kubeContext) => (
+          <Fragment key={kubeContext}>
+            <div className="mt-8 ml-3 mb-1">{kubeContext || 'Cluster'}</div>
+            <DataTable>
+              <DataTable.Body>
+                <KubernetesAPIServerStatusRow kubeContext={kubeContext} dashboardServerStatus={dashboardServerStatus} />
+                <KubetailClusterAPIServerStatusRow kubeContext={kubeContext} dashboardServerStatus={dashboardServerStatus} />
+              </DataTable.Body>
+            </DataTable>
+          </Fragment>
+        ))}
       </Modal>
+      {kubeContexts.map((kubeContext) => (
+        <Fragment key={kubeContext}>
+          <KubernetesAPIServerStatusFetcher kubeContext={kubeContext} />
+          <KubetailClusterAPIServerStatusFetcher kubeContext={kubeContext} />
+        </Fragment>
+      ))}
     </div>
   );
 };
 
-export default ServerStatusWidget;
+const ServerStatusWidgetWrapper = (props: ServerStatusWidgetProps) => (
+  <RecoilRoot>
+    <ServerStatusWidget {...props} />
+  </RecoilRoot>
+);
+
+export default ServerStatusWidgetWrapper;

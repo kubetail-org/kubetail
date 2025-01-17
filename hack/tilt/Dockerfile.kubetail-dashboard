@@ -1,0 +1,9 @@
+FROM alpine:3.20.0
+
+WORKDIR /dashboard
+
+# copy
+COPY .tilt/dashboard .
+
+ENTRYPOINT ["./dashboard"]
+CMD []

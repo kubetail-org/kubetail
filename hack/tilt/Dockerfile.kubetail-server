@@ -1,9 +1,0 @@
-FROM alpine:3.20.0
-
-WORKDIR /server
-
-# copy
-COPY .tilt/server .
-
-ENTRYPOINT ["./server"]
-CMD []

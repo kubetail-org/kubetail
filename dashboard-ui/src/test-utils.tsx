@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,14 +17,14 @@ import { render } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
-import { CustomCache } from '@/apollo-client';
+import { DashboardCustomCache } from '@/apollo-client';
 
 export const renderElement = (component: React.ReactElement, mocks?: MockedResponse[]) => (
   render(
     <MockedProvider
       mocks={mocks}
       addTypename
-      cache={new CustomCache()}
+      cache={new DashboardCustomCache()}
       defaultOptions={{
         watchQuery: { fetchPolicy: 'cache-first' },
       }}

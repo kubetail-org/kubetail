@@ -1,19 +1,6 @@
 ## Kubetail Configuration
 #
 
-## auth-mode ##
-#
-# Sets the authentication method for the app
-#
-# Default value: token
-# 
-# One of:
-# - token
-# - cluster
-# - local
-#
-auth-mode: token
-
 ## allowed-namespaces ##
 #
 # If non-empty, restricts queries to allowed namespaces
@@ -22,18 +9,30 @@ auth-mode: token
 #
 allowed-namespaces: []
 
-## server ##
+## dashboard ##
 #
-server:
+dashboard:
 
   ## addr ##
   #
   # Sets the target ip and port to bind the server to
   #
-  # Default value: ":4000"
+  # Default value: ":80"
   #
-  addr: :4000
-  
+  addr: :80
+
+  ## auth-mode (experimental) ##
+  #
+  # Sets the authentication method for the app
+  #
+  # Default value: auto
+  # 
+  # One of:
+  # - auto
+  # - token
+  #
+  auth-mode: auto
+
   ## base-path ##
   #
   # Sets the url path prefix (useful for deploying on a sub-path behind a reverse proxy)
@@ -41,7 +40,27 @@ server:
   # Default value: /
   #
   base-path: /
+
+  ## cluster-api-endpoint (experimental) ##
+  #
+  # Service url for cluster-api
+  # 
+  # Default value: http://kubetail-cluster-api
+  #
+  cluster-api-endpoint: http://kubetail-cluster-api
   
+  ## environment (experimental) ##
+  #
+  # Sets the authentication method for the app
+  #
+  # Default value: auto
+  # 
+  # One of:
+  # - desktop
+  # - cluster
+  #
+  environment: desktop
+
   ## gin-mode ##
   #
   # Sets the mode for the Gin framework
@@ -53,17 +72,17 @@ server:
   # - debug
   #
   gin-mode: release
-  
+
   ## csrf ##
   #
   csrf:
-  
+
     ## enabled ##
     #
     # Default value: true
     #
     enabled: true
-  
+
     ## field-name ##
     #
     # Name to use for token in forms
@@ -88,9 +107,9 @@ server:
   
       ## name ##
       #
-      # Default value: csrf
+      # Default value: kubetail_dashboard_csrf
       #
-      name: csrf
+      name: kubetail_dashboard_csrf
   
       ## path ##
       #
@@ -281,9 +300,221 @@ server:
     #
     key-file:
 
-## agent ##
+  ## ui ##
+  #
+  ui:
+
+    ## cluster-api-enabled (experimental) ##
+    #
+    # Enable features that use cluster-api
+    #
+    # Default value: true
+    #
+    cluster-api-enabled: true
+
+## cluster-api ##
 #
-agent:
+cluster-api:
+
+  ## addr ##
+  #
+  # Sets the target ip and port to bind the server to
+  #
+  # Default value: ":80"
+  #
+  addr: :80
+
+  ## base-path ##
+  #
+  # Sets the url path prefix (useful for deploying on a sub-path behind a reverse proxy)
+  # 
+  # Default value: /
+  #
+  base-path: /
+
+  ## cluster-agent-dispatch-url ##
+  #
+  # Service url for gRPC fanout queries to cluster-agent
+  #
+  # Default value: kubernetes://kubetail-cluster-agent:50051
+  #
+  cluster-agent-dispatch-url: kubernetes://kubetail-cluster-agent:50051
+
+  ## gin-mode ##
+  #
+  # Sets the mode for the Gin framework
+  #
+  # Default value: release
+  #
+  # One of:
+  # - release
+  # - debug
+  #
+  gin-mode: release
+
+  ## csrf ##
+  #
+  csrf:
+  
+    ## enabled ##
+    #
+    # Default value: true
+    #
+    enabled: true
+  
+    ## field-name ##
+    #
+    # Name to use for token in forms
+    #
+    # Default value: csrf_token
+    #
+    field-name: csrf_token
+  
+    ## secret ##
+    #
+    # 32-byte long hash key
+    #
+    # Default value: __empty__
+    #
+    secret:
+  
+    ## cookie ##
+    #
+    # Set csrf cookie options
+    #
+    cookie:
+  
+      ## name ##
+      #
+      # Default value: kubetail_api_csrf
+      #
+      name: kubetail_api_csrf
+  
+      ## path ##
+      #
+      # Default value: /
+      #
+      path: /
+  
+      ## domain ##
+      #
+      # Default value: __empty__
+      #
+      domain: 
+  
+      ## max-age ##
+      #
+      # Cookie max age (in seconds)
+      # 
+      # Default value: 43200
+      #
+      max-age: 43200
+  
+      ## secure ##
+      #
+      # Default value: false
+      #
+      secure: false
+  
+      ## http-only ##
+      #
+      # Default value: true
+      #
+      http-only: true
+  
+      ## same-site ##
+      #
+      # Default value: strict
+      #
+      # One of:
+      # - strict
+      # - lax
+      # - none
+      #
+      same-site: strict
+
+  ## logging ##
+  #
+  logging:
+  
+    ## enabled ##
+    #
+    # Default value: true
+    #
+    enabled: true
+  
+    ## level ##
+    #
+    # Default value: info
+    #
+    # One of:
+    # - debug
+    # - info
+    # - warn
+    # - error
+    # - disabled
+    #
+    level: info
+  
+    ## format ##
+    #
+    # Default value: json
+    #
+    # One of:
+    # - json
+    # - pretty
+    #
+    format: json
+  
+    ## access-log ##
+    #
+    access-log:  
+  
+      ## enabled ##
+      #
+      # Enables web access logs for app
+      #
+      # Default value: true
+      #
+      enabled: true
+  
+      ## hide-health-checks ##
+      #
+      # Hides health checks from access log
+      #
+      # Default: false
+      #
+      hide-health-checks: false
+
+  ## tls ##
+  #
+  tls:
+  
+    ## enabled ##
+    #
+    # Default value: false
+    #
+    enabled: false
+  
+    ## cert-file ##
+    #
+    # Path to tls certificate file
+    #
+    # Default value: __empty__
+    #
+    cert-file:
+  
+    ## key-file ##
+    #
+    # Path to tls key file
+    #
+    # Default value: __empty__
+    #
+    key-file:
+
+## cluster-agent ##
+#
+cluster-agent:
 
   ## addr ##
   #

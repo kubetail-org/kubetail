@@ -1,0 +1,11 @@
+allowed-namespaces: []
+dashboard:
+  addr: :4000
+  base-path: /
+  gin-mode: debug
+  csrf:
+    secret: replaceme
+  logging:
+    format: pretty
+  session:
+    secret: replaceme

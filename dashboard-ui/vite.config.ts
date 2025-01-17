@@ -1,46 +1,60 @@
-/// <reference types="vitest" />
-import react from '@vitejs/plugin-react';
-import path from 'path';
-import { visualizer } from 'rollup-plugin-visualizer';
-import { defineConfig, splitVendorChunkPlugin } from 'vite';
+/// <reference types="vitest/config" />
+import react from '@vitejs/plugin-react-swc';
+import { defineConfig, loadEnv } from 'vite';
 import svgr from 'vite-plugin-svgr';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
-export default defineConfig({
-  plugins: [
-    tsconfigPaths(),
-    svgr(),
-    splitVendorChunkPlugin(),
-    react(),
-    visualizer(),
-  ],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
+export default ({ mode }: { mode: string; }) => {
+  const env = loadEnv(mode, process.cwd());
+
+  const backendTarget = `http://localhost:${env.VITE_DASHBOARD_PROXY_PORT}`;
+
+  return defineConfig({
+    plugins: [
+      tsconfigPaths(),
+      svgr(),
+      react(),
+    ],
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+      ],
     },
-  },
-  server: {
-    host: true,
-    proxy: {
-      '^/api/auth/.*': {
-        target: 'http://localhost:7500',
+    server: {
+      host: true,
+      proxy: {
+        '^/api/.*': {
+          target: backendTarget,
+        },
+        '^/cluster-api-proxy/.*': {
+          target: backendTarget,
+          ws: true,
+        },
+        '^/csrf-token': {
+          target: backendTarget,
+        },
+        '^/graphql': {
+          target: backendTarget,
+          ws: true,
+        },
       },
-      '^/csrf-token': {
-        target: 'http://localhost:7500',
+    },
+    build: {
+      manifest: true,
+      sourcemap: true,
+      rollupOptions: {
+        output: {
+          manualChunks(id: string) {
+            if (id.includes('/node_modules/')) return 'vendor';
+          },
+        },
       },
-      '^/graphql': {
-        target: 'http://localhost:7500',
-        ws: true,
-      },
-    }
-  },
-  build: {
-    manifest: true,
-    sourcemap: true,
-  },
-  test: {
-    environment: 'jsdom',
-    globals: true,
-    setupFiles: ['./vitest.setup.ts']
-  }
-});
+    },
+    test: {
+      environment: 'jsdom',
+      globals: true,
+      setupFiles: ['./vitest.setup.ts'],
+    },
+  });
+};

@@ -1,17 +1,37 @@
-# Kubetail Backend
+# Kubetail Go Modules
 
-Go workspace that contains the modules used by the Kubetail backend
+Workspace that contains the Go modules used by Kubetail
 
 ## Overview
 
-The Kubetail application's backend consists of a Go-based backend server and a set of small Go-based backend agents that run on each node in your cluster. The backend code is organized as a Go workspace that contains the Go modules for the server, the agent and shared libraries:
+This workspace contains the following modules:
 
-* [server](server) - Backend server
-* [agent](agent) - Backend agent
-* [common](common) - Shared libraries
-
-This workspace also contains the Protocol Buffer definition files for the agent:
-
-* [proto](proto) - Protocol Buffer definition files 
+* [cli](cli) - Kubetail CLI
+* [cluster-agent](cluster-agent) - Kubetail Cluster Agent
+* [cluster-api](cluster-api) - Kubetail Cluster API
+* [dashboard](dashboard) - Kubetail Dashboard
+* [shared](shared) - Shared libraries
 
 Please view the README in each directory for more details. 
+
+## Run code generators
+
+First install the dependencies:
+
+```console
+brew install protobuf protoc-gen-go protoc-gen-go-grpc
+```
+
+Next, run the code generators:
+
+```console
+go generate github.com/kubetail-org/kubetail/modules/...
+```
+
+## Run tests
+
+To run the tests in all the modules:
+
+```console
+go test github.com/kubetail-org/kubetail/modules/...
+```

@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Menu, Transition } from '@headlessui/react';
+import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
 import { UserCircleIcon } from '@heroicons/react/24/solid';
 import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
@@ -25,10 +25,10 @@ const ProfilePicDropdown = () => {
   return (
     <Menu as="div" className="ml-3 relative">
       <div>
-        <Menu.Button className="max-w-xs bg-background flex items-center text-sm rounded-full focus:outline-none">
+        <MenuButton className="max-w-xs bg-background flex items-center text-sm rounded-full focus:outline-none">
           <span className="sr-only">Open user menu</span>
           <UserCircleIcon className="h-11 w-11 fill-chrome-400 hover:fill-chrome-600 bg-chrome-100" aria-hidden="true" title={session?.user || ''} />
-        </Menu.Button>
+        </MenuButton>
       </div>
       <Transition
         as={Fragment}
@@ -39,23 +39,23 @@ const ProfilePicDropdown = () => {
         leaveFrom="transform opacity-100 scale-100"
         leaveTo="transform opacity-0 scale-95"
       >
-        <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-background ring-1 ring-black ring-opacity-5 focus:outline-none">
-          <Menu.Item>
+        <MenuItems className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-background ring-1 ring-black ring-opacity-5 focus:outline-none">
+          <MenuItem>
             <div className="px-4 py-2 text-sm font-semibold text-chrome-700 border-b">
               {`User: ${session?.user}`}
             </div>
-          </Menu.Item>
+          </MenuItem>
           {['cluster', 'local'].includes(session?.user || '') === false && (
-            <Menu.Item>
+            <MenuItem>
               <Link
                 className="block px-4 py-2 text-sm text-chrome-700 cursor-pointer"
                 to={`/auth/logout?${new URLSearchParams({ callbackUrl: window.location.pathname + window.location.search })}`}
               >
                 Sign out
               </Link>
-            </Menu.Item>
+            </MenuItem>
           )}
-        </Menu.Items>
+        </MenuItems>
       </Transition>
     </Menu>
   );

@@ -14,7 +14,7 @@
 
 import type { MockedResponse } from '@apollo/client/testing';
 
-import * as ops from '@/lib/graphql/ops';
+import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 
 const genericListResponse = (typename: string) => ({
   __typename: typename,
@@ -29,7 +29,7 @@ export const mocks: MockedResponse[] = [
   // cronjobs
   {
     request: {
-      query: ops.HOME_CRONJOBS_LIST_FETCH,
+      query: dashboardOps.HOME_CRONJOBS_LIST_FETCH,
       variables: { namespace: '', continue: '' },
     },
     result: {
@@ -40,7 +40,7 @@ export const mocks: MockedResponse[] = [
   },
   {
     request: {
-      query: ops.HOME_CRONJOBS_LIST_WATCH,
+      query: dashboardOps.HOME_CRONJOBS_LIST_WATCH,
       variables: { namespace: '', resourceVersion: 'v1' },
     },
     result: {
@@ -53,7 +53,7 @@ export const mocks: MockedResponse[] = [
   // daemonsets
   {
     request: {
-      query: ops.HOME_DAEMONSETS_LIST_FETCH,
+      query: dashboardOps.HOME_DAEMONSETS_LIST_FETCH,
       variables: { namespace: '', continue: '' },
     },
     result: {
@@ -64,7 +64,7 @@ export const mocks: MockedResponse[] = [
   },
   {
     request: {
-      query: ops.HOME_DAEMONSETS_LIST_WATCH,
+      query: dashboardOps.HOME_DAEMONSETS_LIST_WATCH,
       variables: { namespace: '', resourceVersion: 'v1' },
     },
     result: {
@@ -77,7 +77,7 @@ export const mocks: MockedResponse[] = [
   // deployments
   {
     request: {
-      query: ops.HOME_DEPLOYMENTS_LIST_FETCH,
+      query: dashboardOps.HOME_DEPLOYMENTS_LIST_FETCH,
       variables: { namespace: '', continue: '' },
     },
     result: {
@@ -88,7 +88,7 @@ export const mocks: MockedResponse[] = [
   },
   {
     request: {
-      query: ops.HOME_DEPLOYMENTS_LIST_WATCH,
+      query: dashboardOps.HOME_DEPLOYMENTS_LIST_WATCH,
       variables: { namespace: '', resourceVersion: 'v1' },
     },
     result: {
@@ -101,7 +101,7 @@ export const mocks: MockedResponse[] = [
   // jobs
   {
     request: {
-      query: ops.HOME_JOBS_LIST_FETCH,
+      query: dashboardOps.HOME_JOBS_LIST_FETCH,
       variables: { namespace: '', continue: '' },
     },
     result: {
@@ -112,7 +112,7 @@ export const mocks: MockedResponse[] = [
   },
   {
     request: {
-      query: ops.HOME_JOBS_LIST_WATCH,
+      query: dashboardOps.HOME_JOBS_LIST_WATCH,
       variables: { namespace: '', resourceVersion: 'v1' },
     },
     result: {
@@ -125,7 +125,7 @@ export const mocks: MockedResponse[] = [
   // namespaces
   {
     request: {
-      query: ops.HOME_NAMESPACES_LIST_FETCH,
+      query: dashboardOps.HOME_NAMESPACES_LIST_FETCH,
       variables: { continue: '' },
     },
     result: {
@@ -136,7 +136,7 @@ export const mocks: MockedResponse[] = [
   },
   {
     request: {
-      query: ops.HOME_NAMESPACES_LIST_WATCH,
+      query: dashboardOps.HOME_NAMESPACES_LIST_WATCH,
       variables: { resourceVersion: 'v1' },
     },
     result: {
@@ -149,7 +149,7 @@ export const mocks: MockedResponse[] = [
   // pods
   {
     request: {
-      query: ops.HOME_PODS_LIST_FETCH,
+      query: dashboardOps.HOME_PODS_LIST_FETCH,
       variables: { namespace: '', continue: '' },
     },
     result: {
@@ -160,7 +160,7 @@ export const mocks: MockedResponse[] = [
   },
   {
     request: {
-      query: ops.HOME_PODS_LIST_WATCH,
+      query: dashboardOps.HOME_PODS_LIST_WATCH,
       variables: { namespace: '', resourceVersion: 'v1' },
     },
     result: {
@@ -173,7 +173,7 @@ export const mocks: MockedResponse[] = [
   // replicasets
   {
     request: {
-      query: ops.HOME_REPLICASETS_LIST_FETCH,
+      query: dashboardOps.HOME_REPLICASETS_LIST_FETCH,
       variables: { namespace: '', continue: '' },
     },
     result: {
@@ -184,7 +184,7 @@ export const mocks: MockedResponse[] = [
   },
   {
     request: {
-      query: ops.HOME_REPLICASETS_LIST_WATCH,
+      query: dashboardOps.HOME_REPLICASETS_LIST_WATCH,
       variables: { namespace: '', resourceVersion: 'v1' },
     },
     result: {
@@ -197,7 +197,7 @@ export const mocks: MockedResponse[] = [
   // statefulsets
   {
     request: {
-      query: ops.HOME_STATEFULSETS_LIST_FETCH,
+      query: dashboardOps.HOME_STATEFULSETS_LIST_FETCH,
       variables: { namespace: '', continue: '' },
     },
     result: {
@@ -208,7 +208,7 @@ export const mocks: MockedResponse[] = [
   },
   {
     request: {
-      query: ops.HOME_STATEFULSETS_LIST_WATCH,
+      query: dashboardOps.HOME_STATEFULSETS_LIST_WATCH,
       variables: { namespace: '', resourceVersion: 'v1' },
     },
     result: {
@@ -218,31 +218,14 @@ export const mocks: MockedResponse[] = [
     },
   },
 
-  // livez
+  // healthz
   {
     request: {
-      query: ops.LIVEZ_WATCH,
+      query: dashboardOps.SERVER_STATUS_KUBERNETES_API_HEALTHZ_WATCH,
     },
     result: {
       data: {
         livezWatch: {
-          __typename: 'HealthCheckResponse',
-          status: 'SUCCESS',
-          message: null,
-          timestamp: null,
-        },
-      },
-    },
-  },
-
-  // readyz
-  {
-    request: {
-      query: ops.READYZ_WATCH,
-    },
-    result: {
-      data: {
-        readyzWatch: {
           __typename: 'HealthCheckResponse',
           status: 'SUCCESS',
           message: null,

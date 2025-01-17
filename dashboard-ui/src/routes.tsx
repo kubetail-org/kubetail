@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,11 @@
 import { Route } from 'react-router-dom';
 
 import Root from '@/pages/_root';
+import Console from '@/pages/console';
+import ErrorPage from '@/error-page';
+import Home from '@/pages/home';
 import Login from '@/pages/auth/login';
 import Logout from '@/pages/auth/logout';
-import Console from '@/pages/console';
-import Home from '@/pages/home';
-import ErrorPage from '@/error-page';
 
 export const routes = (
   <Route path="/" element={<Root />} errorElement={<ErrorPage />}>

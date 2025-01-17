@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,8 +19,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kubetail-org/kubetail/modules/shared/helm"
+
 	"github.com/kubetail-org/kubetail/modules/cli/internal/cli"
-	"github.com/kubetail-org/kubetail/modules/cli/internal/helm"
 )
 
 const clusterUpgradeHelp = `

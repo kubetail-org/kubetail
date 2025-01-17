@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,19 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useSuspenseQuery } from '@apollo/client';
 import { XCircleIcon } from '@heroicons/react/24/outline';
-import { Suspense, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import toastlib, { useToaster, resolveValue } from 'react-hot-toast';
 import type { Toast } from 'react-hot-toast';
 import { Outlet } from 'react-router-dom';
 
 import Button from '@kubetail/ui/elements/Button';
-import Spinner from '@kubetail/ui/elements/Spinner';
 
 import Modal from '@/components/elements/Modal';
-import * as ops from '@/lib/graphql/ops';
-import { joinPaths, getBasename } from '@/lib/helpers';
+import { joinPaths, getBasename } from '@/lib/util';
 
 const QueryError = ({ toast }: { toast: Toast }) => (
   <div className="relative bg-red-100 border-2 border-red-200 p-1">
@@ -95,30 +92,6 @@ const CustomToaster = () => {
   );
 };
 
-const LoadingModal = () => (
-  <div className="relative z-10" role="dialog">
-    <div className="fixed inset-0 bg-chrome-500 bg-opacity-75" />
-    <div className="fixed inset-0 z-10 w-screen">
-      <div className="flex min-h-full items-center justify-center p-0 text-center">
-        <div className="relative transform overflow-hidden rounded-lg bg-background my-8 p-6 text-left shadow-xl">
-          <div className="flex items-center space-x-2">
-            <div>Connecting...</div>
-            <Spinner size="sm" />
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-function OutletWrapper() {
-  useSuspenseQuery(ops.READY_WAIT, {
-    fetchPolicy: 'no-cache',
-  });
-
-  return <Outlet />;
-}
-
 export default function Root() {
   // update favicon location
   useEffect(() => {
@@ -129,9 +102,7 @@ export default function Root() {
 
   return (
     <>
-      <Suspense fallback={<LoadingModal />}>
-        <OutletWrapper />
-      </Suspense>
+      <Outlet />
       <CustomToaster />
     </>
   );

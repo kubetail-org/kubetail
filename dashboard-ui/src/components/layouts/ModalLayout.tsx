@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 import logo from '@/assets/logo.svg';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/util';
 
 interface ModalLayoutProps extends React.PropsWithChildren {
   innerClassName?: string;

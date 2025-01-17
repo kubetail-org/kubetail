@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
 import { CodegenConfig } from '@graphql-codegen/cli';
 
 const config: CodegenConfig = {
-  schema: '../modules/server/graph/schema.graphqls',
-  documents: ['./src/**/*.{ts,tsx}'],
   generates: {
-    './src/lib/graphql/__generated__/': {
+    './src/lib/graphql/dashboard/__generated__/': {
+      schema: '../modules/dashboard/graph/schema.graphqls',
+      documents: './src/lib/graphql/dashboard/*.ts',
       preset: 'client',
       plugins: [],
       presetConfig: {
@@ -26,10 +26,30 @@ const config: CodegenConfig = {
         fragmentMasking: false,
       }
     },
-    './src/lib/graphql/__generated__/introspection-result.json': {
+    './src/lib/graphql/dashboard/__generated__/introspection-result.json': {
+      schema: '../modules/dashboard/graph/schema.graphqls',
+      documents: './src/lib/graphql/dashboard/*.ts',
       plugins: ['fragment-matcher'],
       config: {
-        module: 'commonjs'
+        module: 'commonjs',
+      },
+    },
+    './src/lib/graphql/cluster-api/__generated__/': {
+      schema: '../modules/cluster-api/graph/schema.graphqls',
+      documents: './src/lib/graphql/cluster-api/*.ts',
+      preset: 'client',
+      plugins: [],
+      presetConfig: {
+        gqlTagName: 'gql',
+        fragmentMasking: false,
+      }
+    },
+    './src/lib/graphql/cluster-api/__generated__/introspection-result.json': {
+      schema: '../modules/cluster-api/graph/schema.graphqls',
+      documents: './src/lib/graphql/cluster-api/*.ts',
+      plugins: ['fragment-matcher'],
+      config: {
+        module: 'commonjs',
       },
     },
   },

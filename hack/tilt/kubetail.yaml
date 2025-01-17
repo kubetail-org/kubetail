@@ -2,18 +2,21 @@ kind: ConfigMap
 apiVersion: v1
 metadata:
   name: kubetail
-  namespace: default
+  namespace: kubetail-system
   labels:
     app.kubernetes.io/name: kubetail
 data:
   config.yaml: |
-    auth-mode: cluster
     allowed-namespaces: []
-    server:
-      addr: :4000
+    dashboard:
+      addr: :80
+      auth-mode: auto
       base-path: /
+      cluster-api-endpoint: http://kubetail-cluster-api.kubetail-system.svc:80
+      environment: cluster
       gin-mode: debug
-      extensions-enabled: true
+      ui:
+        cluster-api-enabled: true
       session:
         secret: REPLACEME
         cookie:
@@ -28,7 +31,34 @@ data:
         secret: REPLACEME
         field-name: csrf_token
         cookie:
-          name: csrf
+          name: kubetail_dashboard_csrf
+          path: /
+          max-age: 43200
+          secure: false
+          http-only: true
+          same-site: strict
+      logging:
+        enabled: true
+        level: debug
+        format: pretty
+        access-log:
+          enabled: true
+          hide-health-checks: true
+      tls:
+        enabled: false
+        cert-file:
+        key-file:
+    api:
+      addr: :80
+      base-path: /
+      gin-mode: debug
+      agent-dispatch-url: kubernetes://kubetail-cluster-agent:50051
+      csrf:
+        enabled: true
+        secret: REPLACEME
+        field-name: csrf_token
+        cookie:
+          name: kubetail_cluster_api_csrf
           path: /
           max-age: 43200
           secure: false
@@ -59,101 +89,77 @@ data:
 kind: ServiceAccount
 apiVersion: v1
 metadata:
-  name: kubetail-server
-  namespace: default
+  name: kubetail-dashboard
+  namespace: kubetail-system
   labels:
     app.kubernetes.io/name: kubetail
-    app.kubernetes.io/component: server
+    app.kubernetes.io/component: dashboard
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: kubetail-server
+  name: kubetail-dashboard
   labels:
     app.kubernetes.io/name: kubetail
-    app.kubernetes.io/component: server
+    app.kubernetes.io/component: dashboard
 rules:
 - apiGroups: ["", apps, batch]
   resources: [cronjobs, daemonsets, deployments, jobs, namespaces, nodes, pods, pods/log, replicasets, statefulsets]
   verbs: [get, list, watch]
+- apiGroups: [discovery.k8s.io]
+  resources: [endpointslices]
+  verbs: [list, watch]
+- apiGroups: [authentication.k8s.io]
+  resources: [tokenreviews]
+  verbs: [create]
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: kubetail-server
+  name: kubetail-dashboard
   labels:
     app.kubernetes.io/name: kubetail
-    app.kubernetes.io/component: server
+    app.kubernetes.io/component: dashboard
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kubetail-server
+  name: kubetail-dashboard
 subjects:
 - kind: ServiceAccount
-  name: kubetail-server
-  namespace: default
----
-kind: Role
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kubetail-server
-  namespace: default
-  labels:
-    app.kubernetes.io/name: kubetail
-    app.kubernetes.io/component: server
-rules:
-- apiGroups: [discovery.k8s.io]
-  resources: [endpointslices]
-  verbs: [list, watch]
----
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kubetail-server
-  namespace: default
-  labels:
-    app.kubernetes.io/name: kubetail
-    app.kubernetes.io/component: server
-roleRef:
-  kind: Role
-  name: kubetail-server
-  apiGroup: rbac.authorization.k8s.io
-subjects:
-  - kind: ServiceAccount
-    name: kubetail-server
-    namespace: default
+  name: kubetail-dashboard
+  namespace: kubetail-system
 ---
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: kubetail-server
-  namespace: default
+  name: kubetail-dashboard
+  namespace: kubetail-system
   labels:
     app.kubernetes.io/name: kubetail
-    app.kubernetes.io/component: server
+    app.kubernetes.io/component: dashboard
 spec:
   replicas: 1
   revisionHistoryLimit: 5
   selector:
     matchLabels:
       app.kubernetes.io/name: kubetail
-      app.kubernetes.io/component: server
+      app.kubernetes.io/component: dashboard
   strategy:
     type: RollingUpdate
   template:
     metadata:
       labels:
         app.kubernetes.io/name: kubetail
-        app.kubernetes.io/component: server
+        app.kubernetes.io/component: dashboard
     spec:
-      serviceAccountName: kubetail-server
+      serviceAccountName: kubetail-dashboard
       containers:
-      - name: kubetail-server
-        image: kubetail-server
+      - name: kubetail-dashboard
+        image: kubetail-dashboard
         ports:
         - name: http
           protocol: TCP
-          containerPort: 4000
+          containerPort: 80
         args:
         - --config=/etc/kubetail/config.yaml
         volumeMounts:
@@ -187,35 +193,157 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: kubetail-server
-  namespace: default
+  name: kubetail-dashboard
+  namespace: kubetail-system
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: dashboard
 spec:
   selector:
     app.kubernetes.io/name: kubetail
-    app.kubernetes.io/component: server
+    app.kubernetes.io/component: dashboard
   ports:
   - name: http
     protocol: TCP
-    port: 4000
+    port: 80
+    targetPort: http
+    appProtocol: http
+---    
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: kubetail-cluster-api
+  namespace: kubetail-system
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: cluster-api
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-cluster-api
+  namespace: kubetail-system
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: cluster-api
+rules:
+- apiGroups: [discovery.k8s.io]
+  resources: [endpointslices]
+  verbs: [list, watch]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-cluster-api
+  namespace: kubetail-system
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: cluster-api
+roleRef:
+  kind: Role
+  name: kubetail-cluster-api
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: kubetail-cluster-api
+  namespace: kubetail-system    
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: kubetail-cluster-api
+  namespace: kubetail-system
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: cluster-api
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kubetail
+      app.kubernetes.io/component: cluster-api
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kubetail
+        app.kubernetes.io/component: cluster-api
+    spec:
+      serviceAccountName: kubetail-cluster-api
+      containers:
+      - name: kubetail-cluster-api
+        image: kubetail-cluster-api
+        ports:
+        - name: http
+          protocol: TCP
+          containerPort: 80
+        args:
+        - --config=/etc/kubetail/config.yaml
+        volumeMounts:
+        - name: config
+          mountPath: /etc/kubetail
+          readOnly: true
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /healthz
+            port: http
+          initialDelaySeconds: 10
+          timeoutSeconds: 30
+          periodSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /healthz
+            port: http
+          initialDelaySeconds: 10
+          timeoutSeconds: 30
+          periodSeconds: 5
+          failureThreshold: 3
+        resources: {}
+      volumes:
+      - name: config
+        configMap:
+          name: kubetail
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: kubetail-cluster-api
+  namespace: kubetail-system
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: cluster-api
+spec:
+  selector:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: cluster-api
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
     targetPort: http
     appProtocol: http
 ---
 kind: ServiceAccount
 apiVersion: v1
 metadata:
-  name: kubetail-agent
-  namespace: default
+  name: kubetail-cluster-agent
+  namespace: kubetail-system
   labels:
     app.kubernetes.io/name: kubetail
-    app.kubernetes.io/component: agent
+    app.kubernetes.io/component: cluster-agent
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: kubetail-agent
+  name: kubetail-cluster-agent
   labels:
     app.kubernetes.io/name: kubetail
-    app.kubernetes.io/component: agent
+    app.kubernetes.io/component: cluster-agent
 rules:
 - apiGroups: [""]
   resources: [pods/log]
@@ -224,42 +352,42 @@ rules:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: kubetail-agent
+  name: kubetail-cluster-agent
   labels:
     app.kubernetes.io/name: kubetail
-    app.kubernetes.io/component: agent
+    app.kubernetes.io/component: cluster-agent
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kubetail-agent
+  name: kubetail-cluster-agent
 subjects:
 - kind: ServiceAccount
-  name: kubetail-agent
-  namespace: default
+  name: kubetail-cluster-agent
+  namespace: kubetail-system
 ---
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: kubetail-agent
-  namespace: default
+  name: kubetail-cluster-agent
+  namespace: kubetail-system
   labels:
     app.kubernetes.io/name: kubetail
-    app.kubernetes.io/component: agent
+    app.kubernetes.io/component: cluster-agent
 spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: kubetail
-      app.kubernetes.io/component: agent
+      app.kubernetes.io/component: cluster-agent
   template:
     metadata:
       labels:
         app.kubernetes.io/name: kubetail
-        app.kubernetes.io/component: agent
+        app.kubernetes.io/component: cluster-agent
     spec:
-      serviceAccountName: kubetail-agent
+      serviceAccountName: kubetail-cluster-agent
       containers:
-      - name: kubetail-agent
-        image: kubetail-agent
+      - name: kubetail-cluster-agent
+        image: kubetail-cluster-agent
         ports:
         - name: grpc
           protocol: TCP
@@ -303,30 +431,73 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: kubetail-agent
-  namespace: default
+  name: kubetail-cluster-agent
+  namespace: kubetail-system
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: cluster-agent
 spec:
   clusterIP: None
   selector:
     app.kubernetes.io/name: kubetail
-    app.kubernetes.io/component: agent
+    app.kubernetes.io/component: cluster-agent
 ---
 kind: NetworkPolicy
 apiVersion: networking.k8s.io/v1
 metadata:
-  name: kubetail-agent
-  namespace: default
+  name: kubetail-cluster-agent
+  namespace: kubetail-system
+  labels: 
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: cluster-agent
 spec:
   podSelector:
     matchLabels:
       app.kubernetes.io/name: kubetail
-      app.kubernetes.io/component: agent
+      app.kubernetes.io/component: cluster-agent
   ingress:
   - from:
     - podSelector:
         matchLabels:
           app.kubernetes.io/name: kubetail
-          app.kubernetes.io/component: server
+          app.kubernetes.io/component: cluster-api
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: kubetail-cli
+  namespace: kubetail-system
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: cli
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-cli
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: cli
+rules:
+- apiGroups: [""]
+  resources: [pods/log]
+  verbs: [list, watch]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-cli
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: cli
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubetail-cli
+subjects:
+- kind: ServiceAccount
+  name: kubetail-cli
+  namespace: kubetail-system
 ---
 kind: ServiceAccount
 apiVersion: v1
@@ -360,7 +531,7 @@ kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kubetail-testuser
-  namespace: default
+  namespace: kubetail-system
 rules:
 - apiGroups: [discovery.k8s.io]
   resources: [endpointslices]
@@ -370,12 +541,12 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kubetail-testuser
-  namespace: default
+  namespace: kubetail-system
 roleRef:
   kind: Role
   name: kubetail-testuser
   apiGroup: rbac.authorization.k8s.io
 subjects:
-  - kind: ServiceAccount
-    name: kubetail-testuser
-    namespace: default
+- kind: ServiceAccount
+  name: kubetail-testuser
+  namespace: default

@@ -14,14 +14,26 @@
 
 import type { MockedResponse } from '@apollo/client/testing';
 
-import * as ops from '@/lib/graphql/ops';
+import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 
 export const mocks: MockedResponse[] = [
+  // kubeConfig
+  {
+    request: {
+      query: dashboardOps.KUBE_CONFIG_WATCH,
+    },
+    result: {
+      data: {
+        kubeConfigWatch: null,
+      },
+    },
+  },
+
   // nodes
   {
     request: {
-      query: ops.CONSOLE_NODES_LIST_FETCH,
-      variables: { continue: '' },
+      query: dashboardOps.CONSOLE_NODES_LIST_FETCH,
+      variables: { kubeContext: '', continue: '' },
     },
     result: {
       data: {
@@ -37,7 +49,7 @@ export const mocks: MockedResponse[] = [
   },
   {
     request: {
-      query: ops.CONSOLE_NODES_LIST_WATCH,
+      query: dashboardOps.CONSOLE_NODES_LIST_WATCH,
       variables: { resourceVersion: 'v1' },
     },
     result: {
@@ -47,31 +59,14 @@ export const mocks: MockedResponse[] = [
     },
   },
 
-  // livez
+  // healthz
   {
     request: {
-      query: ops.LIVEZ_WATCH,
+      query: dashboardOps.SERVER_STATUS_KUBERNETES_API_HEALTHZ_WATCH,
     },
     result: {
       data: {
         livezWatch: {
-          __typename: 'HealthCheckResponse',
-          status: 'SUCCESS',
-          message: null,
-          timestamp: null,
-        },
-      },
-    },
-  },
-
-  // readyz
-  {
-    request: {
-      query: ops.READYZ_WATCH,
-    },
-    result: {
-      data: {
-        readyzWatch: {
           __typename: 'HealthCheckResponse',
           status: 'SUCCESS',
           message: null,

@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,13 +14,12 @@
 
 import { ApolloError } from '@apollo/client';
 import { useEffect } from 'react';
-import {
-  RecoilRoot, atom, useRecoilState, useRecoilValue, useSetRecoilState,
-} from 'recoil';
+import { useSearchParams } from 'react-router-dom';
+import { RecoilRoot, atom, useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
 
 import type { ExtractQueryType } from '@/app-env';
-import * as fragments from '@/lib/graphql/fragments';
-import * as ops from '@/lib/graphql/ops';
+import * as dashboardFragments from '@/lib/graphql/dashboard/fragments';
+import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { useGetQueryWithSubscription, useListQueryWithSubscription } from '@/lib/hooks';
 import { Workload as WorkloadType, typenameMap } from '@/lib/workload';
 
@@ -28,11 +27,12 @@ import { Workload as WorkloadType, typenameMap } from '@/lib/workload';
  * Shared types
  */
 
-export type Node = ExtractQueryType<typeof fragments.CONSOLE_NODES_LIST_ITEM_FRAGMENT>;
-export type Workload = ExtractQueryType<typeof fragments.CONSOLE_LOGGING_RESOURCES_GENERIC_OBJECT_FRAGMENT>;
-export type Pod = ExtractQueryType<typeof fragments.CONSOLE_LOGGING_RESOURCES_POD_FRAGMENT>;
+export type Node = ExtractQueryType<typeof dashboardFragments.CONSOLE_NODES_LIST_ITEM_FRAGMENT>;
+export type Workload = ExtractQueryType<typeof dashboardFragments.CONSOLE_LOGGING_RESOURCES_GENERIC_OBJECT_FRAGMENT>;
+export type Pod = ExtractQueryType<typeof dashboardFragments.CONSOLE_LOGGING_RESOURCES_POD_FRAGMENT>;
 
 type LoadWorkloadProps = {
+  kubeContext: string;
   namespace: string;
   name: string;
   sourcePath: string;
@@ -72,12 +72,21 @@ const sourceToPodListResponseMapState = atom({
  * Hooks
  */
 
+export function useKubeContext() {
+  // TODO: kubeContext should come from LoggingResourceProvider more directly
+  const [searchParams] = useSearchParams();
+  return searchParams.get('kubeContext') || '';
+}
+
 export function useNodes() {
+  const kubeContext = useKubeContext();
+
   const { fetching, data } = useListQueryWithSubscription({
-    query: ops.CONSOLE_NODES_LIST_FETCH,
-    subscription: ops.CONSOLE_NODES_LIST_WATCH,
+    query: dashboardOps.CONSOLE_NODES_LIST_FETCH,
+    subscription: dashboardOps.CONSOLE_NODES_LIST_WATCH,
     queryDataKey: 'coreV1NodesList',
     subscriptionDataKey: 'coreV1NodesWatch',
+    variables: { kubeContext },
   });
 
   const loading = fetching; // treat still-fetching as still-loading
@@ -150,10 +159,12 @@ function useWorkloadMapUpdater(sourcePath: string, value: WorkloadResponse) {
  */
 
 const LoadPodsForLabels = ({
+  kubeContext,
   sourcePath,
   namespace,
   matchLabels,
 }: {
+  kubeContext: string;
   sourcePath: string;
   namespace: string;
   matchLabels: Record<string, string> | null | undefined;
@@ -162,12 +173,12 @@ const LoadPodsForLabels = ({
   if (matchLabels) labelSelector = Object.keys(matchLabels).map((k) => `${k}=${matchLabels[k]}`).join(',');
 
   const { loading, error, data } = useListQueryWithSubscription({
-    query: ops.CONSOLE_LOGGING_RESOURCES_PODS_FIND,
-    subscription: ops.CONSOLE_LOGGING_RESOURCES_PODS_WATCH,
+    query: dashboardOps.CONSOLE_LOGGING_RESOURCES_PODS_FIND,
+    subscription: dashboardOps.CONSOLE_LOGGING_RESOURCES_PODS_WATCH,
     queryDataKey: 'coreV1PodsList',
     subscriptionDataKey: 'coreV1PodsWatch',
     skip: !namespace || !labelSelector,
-    variables: { namespace, labelSelector },
+    variables: { kubeContext, namespace, labelSelector },
   });
 
   const setSourceToPodListResponseMap = useSetRecoilState(sourceToPodListResponseMapState);
@@ -188,24 +199,24 @@ const LoadPodsForLabels = ({
  * Fetch a CronJob workload and associated streams
  */
 
-const LoadCronJobWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => {
+const LoadCronJobWorkload = ({ kubeContext, namespace, name, sourcePath }: LoadWorkloadProps) => {
   const { loading, error, data } = useGetQueryWithSubscription({
-    query: ops.CONSOLE_LOGGING_RESOURCES_CRONJOB_GET,
-    subscription: ops.CONSOLE_LOGGING_RESOURCES_CRONJOB_WATCH,
+    query: dashboardOps.CONSOLE_LOGGING_RESOURCES_CRONJOB_GET,
+    subscription: dashboardOps.CONSOLE_LOGGING_RESOURCES_CRONJOB_WATCH,
     queryDataKey: 'batchV1CronJobsGet',
     subscriptionDataKey: 'batchV1CronJobsWatch',
     skip: (!namespace || !name),
-    variables: { namespace, name },
+    variables: { kubeContext, namespace, name },
   });
 
   // get all jobs in namespace
   const jobsReq = useListQueryWithSubscription({
-    query: ops.CONSOLE_LOGGING_RESOURCES_JOBS_FIND,
-    subscription: ops.CONSOLE_LOGGING_RESOURCES_JOBS_WATCH,
+    query: dashboardOps.CONSOLE_LOGGING_RESOURCES_JOBS_FIND,
+    subscription: dashboardOps.CONSOLE_LOGGING_RESOURCES_JOBS_WATCH,
     queryDataKey: 'batchV1JobsList',
     subscriptionDataKey: 'batchV1JobsWatch',
     skip: !namespace,
-    variables: { namespace },
+    variables: { kubeContext, namespace },
   });
 
   const item = data?.batchV1CronJobsGet;
@@ -221,6 +232,7 @@ const LoadCronJobWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps)
           return (
             <LoadPodsForLabels
               key={job.metadata.uid}
+              kubeContext={kubeContext}
               sourcePath={sourcePath}
               namespace={namespace}
               matchLabels={job.spec.selector?.matchLabels}
@@ -237,12 +249,12 @@ const LoadCronJobWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps)
  * Fetch a DaemonSet workload and associated streams
  */
 
-const LoadDaemonSetWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => {
+const LoadDaemonSetWorkload = ({ kubeContext, namespace, name, sourcePath }: LoadWorkloadProps) => {
   const { loading, error, data } = useGetQueryWithSubscription({
-    query: ops.CONSOLE_LOGGING_RESOURCES_DAEMONSET_GET,
-    subscription: ops.CONSOLE_LOGGING_RESOURCES_DAEMONSET_WATCH,
+    query: dashboardOps.CONSOLE_LOGGING_RESOURCES_DAEMONSET_GET,
+    subscription: dashboardOps.CONSOLE_LOGGING_RESOURCES_DAEMONSET_WATCH,
     skip: (!namespace || !name),
-    variables: { namespace, name },
+    variables: { kubeContext, namespace, name },
     queryDataKey: 'appsV1DaemonSetsGet',
     subscriptionDataKey: 'appsV1DaemonSetsWatch',
   });
@@ -257,6 +269,7 @@ const LoadDaemonSetWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProp
 
   return (
     <LoadPodsForLabels
+      kubeContext={kubeContext}
       sourcePath={sourcePath}
       namespace={namespace}
       matchLabels={item.spec.selector?.matchLabels}
@@ -268,12 +281,12 @@ const LoadDaemonSetWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProp
  * Fetch a Deployment workload and associated streams
  */
 
-const LoadDeploymentWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => {
+const LoadDeploymentWorkload = ({ kubeContext, namespace, name, sourcePath }: LoadWorkloadProps) => {
   const { loading, error, data } = useGetQueryWithSubscription({
-    query: ops.CONSOLE_LOGGING_RESOURCES_DEPLOYMENT_GET,
-    subscription: ops.CONSOLE_LOGGING_RESOURCES_DEPLOYMENT_WATCH,
+    query: dashboardOps.CONSOLE_LOGGING_RESOURCES_DEPLOYMENT_GET,
+    subscription: dashboardOps.CONSOLE_LOGGING_RESOURCES_DEPLOYMENT_WATCH,
     skip: (!namespace || !name),
-    variables: { namespace, name },
+    variables: { kubeContext, namespace, name },
     queryDataKey: 'appsV1DeploymentsGet',
     subscriptionDataKey: 'appsV1DeploymentsWatch',
   });
@@ -288,6 +301,7 @@ const LoadDeploymentWorkload = ({ namespace, name, sourcePath }: LoadWorkloadPro
 
   return (
     <LoadPodsForLabels
+      kubeContext={kubeContext}
       sourcePath={sourcePath}
       namespace={namespace}
       matchLabels={item.spec.selector?.matchLabels}
@@ -299,12 +313,12 @@ const LoadDeploymentWorkload = ({ namespace, name, sourcePath }: LoadWorkloadPro
  * Fetch a Job workload and associated streams
  */
 
-const LoadJobWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => {
+const LoadJobWorkload = ({ kubeContext, namespace, name, sourcePath }: LoadWorkloadProps) => {
   const { loading, error, data } = useGetQueryWithSubscription({
-    query: ops.CONSOLE_LOGGING_RESOURCES_JOB_GET,
-    subscription: ops.CONSOLE_LOGGING_RESOURCES_JOB_WATCH,
+    query: dashboardOps.CONSOLE_LOGGING_RESOURCES_JOB_GET,
+    subscription: dashboardOps.CONSOLE_LOGGING_RESOURCES_JOB_WATCH,
     skip: (!namespace || !name),
-    variables: { namespace, name },
+    variables: { kubeContext, namespace, name },
     queryDataKey: 'batchV1JobsGet',
     subscriptionDataKey: 'batchV1JobsWatch',
   });
@@ -319,6 +333,7 @@ const LoadJobWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => 
 
   return (
     <LoadPodsForLabels
+      kubeContext={kubeContext}
       sourcePath={sourcePath}
       namespace={namespace}
       matchLabels={item.spec.selector?.matchLabels}
@@ -330,12 +345,12 @@ const LoadJobWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => 
  * Fetch a Pod workload and associated streams
  */
 
-const LoadPodWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => {
+const LoadPodWorkload = ({ kubeContext, namespace, name, sourcePath }: LoadWorkloadProps) => {
   const { loading, error, data } = useGetQueryWithSubscription({
-    query: ops.CONSOLE_LOGGING_RESOURCES_POD_GET,
-    subscription: ops.CONSOLE_LOGGING_RESOURCES_POD_WATCH,
+    query: dashboardOps.CONSOLE_LOGGING_RESOURCES_POD_GET,
+    subscription: dashboardOps.CONSOLE_LOGGING_RESOURCES_POD_WATCH,
     skip: (!namespace || !name),
-    variables: { namespace, name },
+    variables: { kubeContext, namespace, name },
     queryDataKey: 'coreV1PodsGet',
     subscriptionDataKey: 'coreV1PodsWatch',
   });
@@ -361,12 +376,12 @@ const LoadPodWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => 
  * Fetch a ReplicaSet workload and associated streams
  */
 
-const LoadReplicaSetWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => {
+const LoadReplicaSetWorkload = ({ kubeContext, namespace, name, sourcePath }: LoadWorkloadProps) => {
   const { loading, error, data } = useGetQueryWithSubscription({
-    query: ops.CONSOLE_LOGGING_RESOURCES_REPLICASET_GET,
-    subscription: ops.CONSOLE_LOGGING_RESOURCES_REPLICASET_WATCH,
+    query: dashboardOps.CONSOLE_LOGGING_RESOURCES_REPLICASET_GET,
+    subscription: dashboardOps.CONSOLE_LOGGING_RESOURCES_REPLICASET_WATCH,
     skip: (!namespace || !name),
-    variables: { namespace, name },
+    variables: { kubeContext, namespace, name },
     queryDataKey: 'appsV1ReplicaSetsGet',
     subscriptionDataKey: 'appsV1ReplicaSetsWatch',
   });
@@ -381,6 +396,7 @@ const LoadReplicaSetWorkload = ({ namespace, name, sourcePath }: LoadWorkloadPro
 
   return (
     <LoadPodsForLabels
+      kubeContext={kubeContext}
       sourcePath={sourcePath}
       namespace={namespace}
       matchLabels={item.spec.selector?.matchLabels}
@@ -392,12 +408,12 @@ const LoadReplicaSetWorkload = ({ namespace, name, sourcePath }: LoadWorkloadPro
  * Fetch a StatefulSet workload and associated streams
  */
 
-const LoadStatefulSetWorkload = ({ namespace, name, sourcePath }: LoadWorkloadProps) => {
+const LoadStatefulSetWorkload = ({ kubeContext, namespace, name, sourcePath }: LoadWorkloadProps) => {
   const { loading, error, data } = useGetQueryWithSubscription({
-    query: ops.CONSOLE_LOGGING_RESOURCES_STATEFULSET_GET,
-    subscription: ops.CONSOLE_LOGGING_RESOURCES_STATEFULSET_WATCH,
+    query: dashboardOps.CONSOLE_LOGGING_RESOURCES_STATEFULSET_GET,
+    subscription: dashboardOps.CONSOLE_LOGGING_RESOURCES_STATEFULSET_WATCH,
     skip: (!namespace || !name),
-    variables: { namespace, name },
+    variables: { kubeContext, namespace, name },
     queryDataKey: 'appsV1StatefulSetsGet',
     subscriptionDataKey: 'appsV1StatefulSetsWatch',
   });
@@ -412,6 +428,7 @@ const LoadStatefulSetWorkload = ({ namespace, name, sourcePath }: LoadWorkloadPr
 
   return (
     <LoadPodsForLabels
+      kubeContext={kubeContext}
       sourcePath={sourcePath}
       namespace={namespace}
       matchLabels={item.spec.selector?.matchLabels}
@@ -423,12 +440,12 @@ const LoadStatefulSetWorkload = ({ namespace, name, sourcePath }: LoadWorkloadPr
  * Fetch all pods and associated streams for a given namespace
  */
 
-const LoadPodWorkloadWildcard = ({ namespace, sourcePath }: { namespace: string; sourcePath: string; }) => {
+const LoadPodWorkloadWildcard = ({ kubeContext, namespace, sourcePath }: { kubeContext: string; namespace: string; sourcePath: string; }) => {
   const { loading, error, data } = useListQueryWithSubscription({
-    query: ops.CONSOLE_LOGGING_RESOURCES_PODS_LIST_FETCH,
-    subscription: ops.CONSOLE_LOGGING_RESOURCES_PODS_LIST_WATCH,
+    query: dashboardOps.CONSOLE_LOGGING_RESOURCES_PODS_LIST_FETCH,
+    subscription: dashboardOps.CONSOLE_LOGGING_RESOURCES_PODS_LIST_WATCH,
     skip: !namespace,
-    variables: { namespace },
+    variables: { kubeContext, namespace },
     queryDataKey: 'coreV1PodsList',
     subscriptionDataKey: 'coreV1PodsWatch',
   });
@@ -479,10 +496,11 @@ const SourceDeletionHandler = ({ sourcePaths }: SourceDeletionHandlerProps) => {
  */
 
 interface LoggingResourcesProviderProps extends React.PropsWithChildren {
+  kubeContext: string;
   sourcePaths: string[];
 }
 
-export const LoggingResourcesProvider = ({ sourcePaths, children }: LoggingResourcesProviderProps) => {
+export const LoggingResourcesProvider = ({ kubeContext, sourcePaths, children }: LoggingResourcesProviderProps) => {
   // uniquify sourcePaths
   const sourcePathsSorted = Array.from(new Set(sourcePaths || []));
   sourcePathsSorted.sort();
@@ -503,11 +521,11 @@ export const LoggingResourcesProvider = ({ sourcePaths, children }: LoggingResou
       {sourcePathsSorted.map((path) => {
         const [namespace, workloadType, workloadName] = path.split('/');
         if (workloadType === WorkloadType.PODS && workloadName === '*') {
-          return <LoadPodWorkloadWildcard key={path} namespace={namespace} sourcePath={path} />;
+          return <LoadPodWorkloadWildcard key={path} kubeContext={kubeContext} namespace={namespace} sourcePath={path} />;
         }
         if (!(workloadType in resourceLoaders)) throw new Error(`not implemented: ${workloadType}`);
         const Component = resourceLoaders[workloadType as WorkloadType];
-        return <Component key={path} namespace={namespace} name={workloadName} sourcePath={path} />;
+        return <Component key={path} kubeContext={kubeContext} namespace={namespace} name={workloadName} sourcePath={path} />;
       })}
       {children}
     </RecoilRoot>

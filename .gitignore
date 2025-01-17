@@ -26,9 +26,9 @@ lerna-debug.log*
 /dashboard-ui/dist-ssr
 
 # build artifacts
-/modules/server/website/*
-!/modules/server/website/
-!/modules/server/website/.gitkeep
+/modules/dashboard/website/*
+!/modules/dashboard/website/
+!/modules/dashboard/website/.gitkeep
 
 # vite
 .vite

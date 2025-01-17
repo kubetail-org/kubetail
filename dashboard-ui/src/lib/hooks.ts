@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,11 +13,13 @@
 // limitations under the License.
 
 import { useApolloClient, useQuery } from '@apollo/client';
-import type { TypedDocumentNode, OperationVariables } from '@apollo/client';
+import type { TypedDocumentNode, OperationVariables, Unmasked, MaybeMasked } from '@apollo/client';
 import distinctColors from 'distinct-colors';
 import { useEffect, useRef, useState } from 'react';
 
-import * as ops from '@/lib/graphql/ops';
+import { getClusterAPIClient } from '@/apollo-client';
+import * as dashboardOps from '@/lib/graphql/dashboard/ops';
+import * as clusterAPIOps from '@/lib/graphql/cluster-api/ops';
 
 type GenericListFragment = {
   metadata: {
@@ -115,11 +117,13 @@ function useRetryOnError() {
  */
 
 interface GetQueryWithSubscriptionTQVariables {
+  kubeContext?: string;
   namespace: string;
   name: string;
 }
 
 interface GetQueryWithSubscriptionTSVariables {
+  kubeContext?: string;
   namespace: string;
   fieldSelector: string;
 }
@@ -128,7 +132,7 @@ interface GetQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>
   query: TypedDocumentNode<TQData, TQVariables>;
   subscription: TypedDocumentNode<TSData, TSVariables>;
   queryDataKey: keyof TQData;
-  subscriptionDataKey: keyof TSData;
+  subscriptionDataKey: keyof Unmasked<TSData>;
   skip?: boolean;
   variables: TQVariables;
 }
@@ -139,7 +143,7 @@ export function useGetQueryWithSubscription<
   TSData = any,
   TSVariables extends GetQueryWithSubscriptionTSVariables = GetQueryWithSubscriptionTSVariables,
 >(args: GetQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
-  const { name, namespace } = args.variables;
+  const { kubeContext, name, namespace } = args.variables;
 
   const retryOnError = useRetryOnError();
 
@@ -156,10 +160,10 @@ export function useGetQueryWithSubscription<
   useEffect(
     () => subscribeToMore({
       document: args.subscription,
-      variables: { namespace, fieldSelector: `metadata.name=${name}` } as any,
+      variables: { kubeContext, namespace, fieldSelector: `metadata.name=${name}` } as any,
       updateQuery: (prev, { subscriptionData }) => {
         const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
-        if (ev?.type === 'ADDED' && ev.object) return { [args.queryDataKey]: ev.object } as TQData;
+        if (ev?.type === 'ADDED' && ev.object) return { [args.queryDataKey]: ev.object } as Unmasked<TQData>;
         return prev;
       },
       onError: (err) => {
@@ -179,8 +183,8 @@ export function useGetQueryWithSubscription<
 interface ListQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables> {
   query: TypedDocumentNode<TQData, TQVariables>;
   subscription: TypedDocumentNode<TSData, TSVariables>;
-  queryDataKey: keyof TQData;
-  subscriptionDataKey: keyof TSData;
+  queryDataKey: keyof Unmasked<TQData>;
+  subscriptionDataKey: keyof Unmasked<TSData>;
   skip?: boolean;
   variables?: TQVariables;
 }
@@ -204,7 +208,7 @@ export function useListQueryWithSubscription<
   });
 
   // TODO: tighten `any`
-  const respData = data ? data[args.queryDataKey] as GenericListFragment : null;
+  const respData = data ? data[args.queryDataKey as keyof MaybeMasked<TQData>] as GenericListFragment : null;
 
   // fetch rest
   const fetchMoreRef = useRef(new Set<string>([]));
@@ -280,7 +284,7 @@ export function useListQueryWithSubscription<
             return prev;
         }
 
-        return { [args.queryDataKey]: newResult } as TQData;
+        return { [args.queryDataKey]: newResult } as Unmasked<TQData>;
       },
       onError: (err) => {
         if (isWatchExpiredError(err)) refetch();
@@ -302,8 +306,8 @@ export function useListQueryWithSubscription<
 interface CounterQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables> {
   query: TypedDocumentNode<TQData, TQVariables>;
   subscription: TypedDocumentNode<TSData, TSVariables>;
-  queryDataKey: keyof TQData;
-  subscriptionDataKey: keyof TSData;
+  queryDataKey: keyof Unmasked<TQData>;
+  subscriptionDataKey: keyof Unmasked<TSData>;
   skip?: boolean;
   variables?: TQVariables;
 }
@@ -326,7 +330,7 @@ export function useCounterQueryWithSubscription<
   });
 
   // TODO: tighten `any`
-  const respData = data ? data[args.queryDataKey] as GenericCounterFragment : null;
+  const respData = data ? data[args.queryDataKey as keyof MaybeMasked<TQData>] as GenericCounterFragment : null;
 
   // subscribe to changes
   useEffect(() => {
@@ -360,7 +364,7 @@ export function useCounterQueryWithSubscription<
         if (ev.type === 'ADDED') merged.metadata.remainingItemCount += BigInt(1);
         else merged.metadata.remainingItemCount -= BigInt(1);
 
-        return { [args.queryDataKey]: merged } as TQData;
+        return { [args.queryDataKey]: merged } as Unmasked<TQData>;
       },
       onError: (err) => {
         if (isWatchExpiredError(err)) refetch();
@@ -382,15 +386,28 @@ export function useCounterQueryWithSubscription<
 
 type LogMetadataHookOptions = {
   enabled: boolean;
+  kubeContext: string;
   onUpdate?: (containerID: string) => void;
 };
 
 export function useLogMetadata(options?: LogMetadataHookOptions) {
   const retryOnError = useRetryOnError();
 
+  const connectArgs = {
+    kubeContext: options?.kubeContext || '',
+    namespace: 'kubetail-system',
+    serviceName: 'kubetail-cluster-api',
+  };
+
+  const readyWait = useQuery(dashboardOps.KUBETAIL_CLUSTER_API_READY_WAIT, {
+    variables: connectArgs,
+  });
+  const ready = readyWait.data?.kubetailClusterAPIReadyWait;
+
   // initial query
-  const { loading, error, data, subscribeToMore, refetch } = useQuery(ops.LOGMETADATA_LIST_FETCH, {
-    skip: !options?.enabled,
+  const { loading, error, data, subscribeToMore, refetch } = useQuery(clusterAPIOps.LOG_METADATA_LIST_FETCH, {
+    skip: ready !== true || !options?.enabled,
+    client: getClusterAPIClient(connectArgs),
     onError: () => {
       retryOnError(refetch);
     },
@@ -404,7 +421,7 @@ export function useLogMetadata(options?: LogMetadataHookOptions) {
     if (loading || error || !options?.enabled) return;
 
     return subscribeToMore({
-      document: ops.LOGMETADATA_LIST_WATCH,
+      document: clusterAPIOps.LOG_METADATA_LIST_WATCH,
       updateQuery: (prev, { subscriptionData }) => {
         const ev = subscriptionData.data.logMetadataWatch;
 

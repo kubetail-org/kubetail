@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,28 +13,28 @@
 // limitations under the License.
 
 import { ApolloProvider } from '@apollo/client';
-import React from 'react';
-import ReactDOM from 'react-dom/client';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, createRoutesFromElements, RouterProvider } from 'react-router-dom';
 
 import { routes } from './routes';
-import client from '@/apollo-client';
+import { dashboardClient } from '@/apollo-client';
 import { SessionProvider } from '@/lib/auth';
-import { getBasename } from '@/lib/helpers';
+import { getBasename } from '@/lib/util';
 import { ThemeProvider } from '@/lib/theme';
 
 import './index.css';
 
 const router = createBrowserRouter(createRoutesFromElements(routes), { basename: getBasename() });
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <ApolloProvider client={client}>
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <ApolloProvider client={dashboardClient}>
       <SessionProvider>
         <ThemeProvider>
           <RouterProvider router={router} />
         </ThemeProvider>
       </SessionProvider>
     </ApolloProvider>
-  </React.StrictMode>,
+  </StrictMode>,
 );

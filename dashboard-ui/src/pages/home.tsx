@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { useQuery, useSubscription } from '@apollo/client';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import numeral from 'numeral';
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import TimeAgo from 'react-timeago';
 import type { Formatter, Suffix, Unit } from 'react-timeago';
 
@@ -24,15 +25,19 @@ import type { SortBy } from '@kubetail/ui/elements/DataTable/Header';
 import Form from '@kubetail/ui/elements/Form';
 import Spinner from '@kubetail/ui/elements/Spinner';
 
-import { config } from '@/app-config';
+import appConfig from '@/app-config';
 import logo from '@/assets/logo.svg';
 import AuthRequired from '@/components/utils/AuthRequired';
 import Footer from '@/components/widgets/Footer';
 import ProfilePicDropdown from '@/components/widgets/ProfilePicDropdown';
-import * as ops from '@/lib/graphql/ops';
-import { getBasename, joinPaths } from '@/lib/helpers';
+import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { useListQueryWithSubscription, useLogMetadata } from '@/lib/hooks';
+import { joinPaths, getBasename } from '@/lib/util';
 import { Workload, iconMap, labelsPMap } from '@/lib/workload';
+
+const basename = getBasename();
+
+const defaultKubeContext = appConfig.environment === 'cluster' ? '' : undefined;
 
 type FileInfo = {
   size: string;
@@ -55,66 +60,73 @@ function getContainerIDs(parentID: string, ownershipMap: Map<string, string[]>, 
   return containerIDs;
 }
 
-function useCronJobs() {
+function useCronJobs(kubeContext: string) {
   return useListQueryWithSubscription({
-    query: ops.HOME_CRONJOBS_LIST_FETCH,
-    subscription: ops.HOME_CRONJOBS_LIST_WATCH,
+    query: dashboardOps.HOME_CRONJOBS_LIST_FETCH,
+    subscription: dashboardOps.HOME_CRONJOBS_LIST_WATCH,
     queryDataKey: 'batchV1CronJobsList',
     subscriptionDataKey: 'batchV1CronJobsWatch',
+    variables: { kubeContext },
   });
 }
 
-function useDaemonSets() {
+function useDaemonSets(kubeContext: string) {
   return useListQueryWithSubscription({
-    query: ops.HOME_DAEMONSETS_LIST_FETCH,
-    subscription: ops.HOME_DAEMONSETS_LIST_WATCH,
+    query: dashboardOps.HOME_DAEMONSETS_LIST_FETCH,
+    subscription: dashboardOps.HOME_DAEMONSETS_LIST_WATCH,
     queryDataKey: 'appsV1DaemonSetsList',
     subscriptionDataKey: 'appsV1DaemonSetsWatch',
+    variables: { kubeContext },
   });
 }
 
-function useDeployments() {
+function useDeployments(kubeContext: string) {
   return useListQueryWithSubscription({
-    query: ops.HOME_DEPLOYMENTS_LIST_FETCH,
-    subscription: ops.HOME_DEPLOYMENTS_LIST_WATCH,
+    query: dashboardOps.HOME_DEPLOYMENTS_LIST_FETCH,
+    subscription: dashboardOps.HOME_DEPLOYMENTS_LIST_WATCH,
     queryDataKey: 'appsV1DeploymentsList',
     subscriptionDataKey: 'appsV1DeploymentsWatch',
+    variables: { kubeContext },
   });
 }
 
-function useJobs() {
+function useJobs(kubeContext: string) {
   return useListQueryWithSubscription({
-    query: ops.HOME_JOBS_LIST_FETCH,
-    subscription: ops.HOME_JOBS_LIST_WATCH,
+    query: dashboardOps.HOME_JOBS_LIST_FETCH,
+    subscription: dashboardOps.HOME_JOBS_LIST_WATCH,
     queryDataKey: 'batchV1JobsList',
     subscriptionDataKey: 'batchV1JobsWatch',
+    variables: { kubeContext },
   });
 }
 
-function usePods() {
+function usePods(kubeContext: string) {
   return useListQueryWithSubscription({
-    query: ops.HOME_PODS_LIST_FETCH,
-    subscription: ops.HOME_PODS_LIST_WATCH,
+    query: dashboardOps.HOME_PODS_LIST_FETCH,
+    subscription: dashboardOps.HOME_PODS_LIST_WATCH,
     queryDataKey: 'coreV1PodsList',
     subscriptionDataKey: 'coreV1PodsWatch',
+    variables: { kubeContext },
   });
 }
 
-function useReplicaSets() {
+function useReplicaSets(kubeContext: string) {
   return useListQueryWithSubscription({
-    query: ops.HOME_REPLICASETS_LIST_FETCH,
-    subscription: ops.HOME_REPLICASETS_LIST_WATCH,
+    query: dashboardOps.HOME_REPLICASETS_LIST_FETCH,
+    subscription: dashboardOps.HOME_REPLICASETS_LIST_WATCH,
     queryDataKey: 'appsV1ReplicaSetsList',
     subscriptionDataKey: 'appsV1ReplicaSetsWatch',
+    variables: { kubeContext },
   });
 }
 
-function useStatefulSets() {
+function useStatefulSets(kubeContext: string) {
   return useListQueryWithSubscription({
-    query: ops.HOME_STATEFULSETS_LIST_FETCH,
-    subscription: ops.HOME_STATEFULSETS_LIST_WATCH,
+    query: dashboardOps.HOME_STATEFULSETS_LIST_FETCH,
+    subscription: dashboardOps.HOME_STATEFULSETS_LIST_WATCH,
     queryDataKey: 'appsV1StatefulSetsList',
     subscriptionDataKey: 'appsV1StatefulSetsWatch',
+    variables: { kubeContext },
   });
 }
 
@@ -152,28 +164,38 @@ function useLogFileInfo(uids: string[], ownershipMap: Map<string, string[]>) {
 }
 
 const Namespaces = ({
+  kubeContext,
   value,
   setValue,
 }: {
-  value: string;
+  kubeContext: string;
+  value?: string;
   setValue: (value: string) => void;
 }) => {
-  const { data } = useListQueryWithSubscription({
-    query: ops.HOME_NAMESPACES_LIST_FETCH,
-    subscription: ops.HOME_NAMESPACES_LIST_WATCH,
+  const { loading, data } = useListQueryWithSubscription({
+    query: dashboardOps.HOME_NAMESPACES_LIST_FETCH,
+    subscription: dashboardOps.HOME_NAMESPACES_LIST_WATCH,
     queryDataKey: 'coreV1NamespacesList',
     subscriptionDataKey: 'coreV1NamespacesWatch',
+    variables: { kubeContext },
   });
 
   return (
     <Form.Select
-      onChange={(ev) => setValue(ev.target.value)}
       value={value}
+      onChange={(ev) => setValue(ev.target.value)}
+      disabled={loading}
     >
-      <Form.Option value="">All namespaces</Form.Option>
-      {data?.coreV1NamespacesList?.items.map((item) => (
-        <Form.Option key={item.id} value={item.metadata.name}>{item.metadata.name}</Form.Option>
-      ))}
+      {loading ? (
+        <Form.Option>Loading...</Form.Option>
+      ) : (
+        <>
+          <Form.Option value="">All namespaces</Form.Option>
+          {data?.coreV1NamespacesList?.items.map((item) => (
+            <Form.Option key={item.id} value={item.metadata.name}>{item.metadata.name}</Form.Option>
+          ))}
+        </>
+      )}
     </Form.Select>
   );
 };
@@ -186,6 +208,7 @@ const lastModifiedAtFormatter: Formatter = (value: number, unit: Unit, suffix: S
 
 type DisplayItemsProps = {
   workload: Workload;
+  kubeContext: string;
   namespace: string;
   fetching: boolean;
   items: {
@@ -202,7 +225,7 @@ type DisplayItemsProps = {
 };
 
 const DisplayItems = ({
-  workload, namespace, fetching, items, ownershipMap,
+  workload, kubeContext, namespace, fetching, items, ownershipMap,
 }: DisplayItemsProps) => {
   // filter items
   const filteredItems = items?.filter((item) => {
@@ -354,7 +377,7 @@ const DisplayItems = ({
               >
                 Created
               </DataTable.HeaderCell>
-              {config.extensionsEnabled === true && (
+              {appConfig.clusterAPIEnabled === true && (
                 <>
                   <DataTable.HeaderCell
                     sortField="size"
@@ -399,7 +422,7 @@ const DisplayItems = ({
                   <DataTable.DataCell>
                     <TimeAgo key={Math.random()} date={item.metadata.creationTimestamp} title={item.metadata.creationTimestamp.toUTCString()} />
                   </DataTable.DataCell>
-                  {config.extensionsEnabled === true && (
+                  {appConfig.clusterAPIEnabled === true && (
                     <>
                       <DataTable.DataCell className="text-right pr-[35px]">
                         {fileInfo?.size === undefined ? (
@@ -426,7 +449,7 @@ const DisplayItems = ({
                   <DataTable.DataCell>
                     <a
                       target="_blank"
-                      href={`${joinPaths(getBasename(), '/console')}?source=${encodeURIComponent(sourceString)}`}
+                      href={`${joinPaths(basename, '/console')}?kubeContext=${encodeURIComponent(kubeContext)}&source=${encodeURIComponent(sourceString)}`}
                       className="flex items-center underline text-primary"
                     >
                       <div>view</div>
@@ -458,17 +481,24 @@ const DisplayItems = ({
   );
 };
 
-const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
-  const cronjobs = useCronJobs();
-  const daemonsets = useDaemonSets();
-  const deployments = useDeployments();
-  const jobs = useJobs();
-  const pods = usePods();
-  const replicasets = useReplicaSets();
-  const statefulsets = useStatefulSets();
+const DisplayWorkloads = ({
+  kubeContext,
+  namespace,
+}: {
+  kubeContext: string;
+  namespace: string;
+}) => {
+  const cronjobs = useCronJobs(kubeContext);
+  const daemonsets = useDaemonSets(kubeContext);
+  const deployments = useDeployments(kubeContext);
+  const jobs = useJobs(kubeContext);
+  const pods = usePods(kubeContext);
+  const replicasets = useReplicaSets(kubeContext);
+  const statefulsets = useStatefulSets(kubeContext);
 
   const logMetadata = useLogMetadata({
-    enabled: config.extensionsEnabled,
+    enabled: appConfig.clusterAPIEnabled,
+    kubeContext,
     onUpdate: (containerID) => {
       document.querySelectorAll(`.last_event_${containerID}`).forEach((el) => {
         const k = 'animate-flash-bg-green';
@@ -529,6 +559,7 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
       <DataTable className="rounded-table-wrapper min-w-[600px]" size="sm">
         <DisplayItems
           workload={Workload.CRONJOBS}
+          kubeContext={kubeContext}
           namespace={namespace}
           fetching={cronjobs.fetching}
           items={cronjobs.data?.batchV1CronJobsList?.items}
@@ -536,6 +567,7 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
         />
         <DisplayItems
           workload={Workload.DAEMONSETS}
+          kubeContext={kubeContext}
           namespace={namespace}
           fetching={daemonsets.fetching}
           items={daemonsets.data?.appsV1DaemonSetsList?.items}
@@ -543,6 +575,7 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
         />
         <DisplayItems
           workload={Workload.DEPLOYMENTS}
+          kubeContext={kubeContext}
           namespace={namespace}
           fetching={deployments.fetching}
           items={deployments.data?.appsV1DeploymentsList?.items}
@@ -550,6 +583,7 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
         />
         <DisplayItems
           workload={Workload.JOBS}
+          kubeContext={kubeContext}
           namespace={namespace}
           fetching={jobs.fetching}
           items={jobs.data?.batchV1JobsList?.items}
@@ -557,6 +591,7 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
         />
         <DisplayItems
           workload={Workload.PODS}
+          kubeContext={kubeContext}
           namespace={namespace}
           fetching={pods.fetching}
           items={pods.data?.coreV1PodsList?.items}
@@ -564,6 +599,7 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
         />
         <DisplayItems
           workload={Workload.REPLICASETS}
+          kubeContext={kubeContext}
           namespace={namespace}
           fetching={replicasets.fetching}
           items={replicasets.data?.appsV1ReplicaSetsList?.items}
@@ -571,6 +607,7 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
         />
         <DisplayItems
           workload={Workload.STATEFULSETS}
+          kubeContext={kubeContext}
           namespace={namespace}
           fetching={statefulsets.fetching}
           items={statefulsets.data?.appsV1StatefulSetsList?.items}
@@ -581,34 +618,86 @@ const DisplayWorkloads = ({ namespace }: { namespace: string; }) => {
   );
 };
 
+const KubeContextPicker = ({
+  value,
+  setValue,
+}: {
+  value?: string;
+  setValue: (value: string) => void;
+}) => {
+  const { loading, data } = useSubscription(dashboardOps.KUBE_CONFIG_WATCH);
+  const kubeConfig = data?.kubeConfigWatch?.object;
+
+  // Set default value
+  useEffect(() => {
+    const defaultValue = kubeConfig?.currentContext;
+    if (defaultValue) setValue(defaultValue);
+  }, [loading]);
+
+  return (
+    <Form.Select
+      value={value}
+      onChange={(ev) => setValue(ev.target.value)}
+      disabled={loading}
+    >
+      {loading ? (
+        <Form.Option>Loading...</Form.Option>
+      ) : (
+        kubeConfig && kubeConfig.contexts.map((context) => (
+          <Form.Option key={context.name} value={context.name}>{context.name}</Form.Option>
+        ))
+      )}
+    </Form.Select>
+  );
+};
+
 const Home = () => {
-  const [namespace, setNamespace] = useState('');
+  const [kubeContext, setKubeContext] = useState(defaultKubeContext);
+  const [namespace, setNamespace] = useState<string>('');
+
+  const readyWait = useQuery(dashboardOps.KUBERNETES_API_READY_WAIT, {
+    variables: { kubeContext },
+  });
 
   return (
     <>
       <div className="px-[10px] py-[5px] flex items-center justify-between border-b-[1px] border-chrome-300 bg-chrome-100">
-        <a href="/">
-          <img src={joinPaths(getBasename(), logo)} alt="logo" className="display-block h-[40px]" />
-        </a>
-        <ProfilePicDropdown />
+        <div className="flex items-center space-x-4">
+          <a href="/">
+            <img src={joinPaths(basename, logo)} alt="logo" className="display-block h-[40px]" />
+          </a>
+          {appConfig.environment === 'desktop' && (
+            <span>
+              <KubeContextPicker value={kubeContext} setValue={setKubeContext} />
+            </span>
+          )}
+        </div>
+        {appConfig.authMode === 'token' && (
+          <ProfilePicDropdown />
+        )}
       </div>
       <main className="px-[10px]">
-        <form
-          method="get"
-          target="_blank"
-          action={joinPaths(getBasename(), '/console')}
-        >
-          <div className="flex items-start justify-between mt-[10px] mb-[20px]">
-            <div className="block w-[200px]">
-              <Namespaces value={namespace} setValue={setNamespace} />
+        {(readyWait.loading || kubeContext === undefined) ? (
+          <div>Connecting...</div>
+        ) : (
+          <form
+            method="get"
+            target="_blank"
+            action={joinPaths(basename, '/console')}
+          >
+            <input type="hidden" name="kubeContext" value={kubeContext} />
+            <div className="flex items-start justify-between mt-[10px] mb-[20px]">
+              <div className="block w-[200px]">
+                <Namespaces kubeContext={kubeContext} value={namespace} setValue={setNamespace} />
+              </div>
+              <Button type="submit">
+                View in console
+                <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] ml-1" />
+              </Button>
             </div>
-            <Button type="submit">
-              View in console
-              <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] ml-1" />
-            </Button>
-          </div>
-          <DisplayWorkloads namespace={namespace} />
-        </form>
+            <DisplayWorkloads kubeContext={kubeContext} namespace={namespace} />
+          </form>
+        )}
       </main>
     </>
   );

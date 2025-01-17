@@ -1,0 +1,62 @@
+// Copyright 2024-2025 Andres Morey
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package cluster_agent;
+
+option go_package = "shared/clusteragentpb";
+
+import "google/protobuf/timestamp.proto";
+
+service LogMetadataService {
+  rpc List (LogMetadataListRequest) returns (LogMetadataList);
+  rpc Watch (LogMetadataWatchRequest) returns (stream LogMetadataWatchEvent);
+}
+
+message LogMetadata {
+  string id = 1;
+  LogMetadataSpec spec = 2;
+  LogMetadataFileInfo fileInfo = 3;
+}
+
+message LogMetadataFileInfo {
+  int64 size = 1;
+  google.protobuf.Timestamp last_modified_at = 2;
+}
+
+message LogMetadataSpec {
+  string node_name = 1;
+  string namespace = 2;
+  string pod_name = 3;
+  string container_name = 4;
+  string container_id = 5;
+}
+
+message LogMetadataList {
+  repeated LogMetadata items = 1;
+}
+
+message LogMetadataListRequest {
+  repeated string namespaces = 1;
+}
+
+message LogMetadataWatchRequest {
+  repeated string namespaces = 1;
+}
+
+message LogMetadataWatchEvent {
+  string type = 1;
+  LogMetadata object = 2;
+}

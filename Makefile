@@ -4,7 +4,7 @@ OUTPUT_DIR := ./bin
 CLI_BINARY := kubetail
 
 DASHBOARD_UI_DIR := ./dashboard-ui
-DASHBOARD_SERVER_DIR := ./modules/server
+DASHBOARD_SERVER_DIR := ./modules/dashboard
 
 # Detect the operating system
 OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')

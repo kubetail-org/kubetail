@@ -1,0 +1,9 @@
+FROM alpine:3.20.0
+
+WORKDIR /cluster-api
+
+# copy
+COPY .tilt/cluster-api .
+
+ENTRYPOINT ["./cluster-api"]
+CMD []
