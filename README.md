@@ -1,6 +1,6 @@
 # Kubetail
 
-Kubetail is a web dashboard for Kubernetes logs that lets you view multiple log streams simultaneously, in real-time (runs on desktop or in cluster)
+Kubetail is a logging dashboard for Kubernetes that lets you view multiple log streams simultaneously, in real-time (runs on desktop or in cluster)
 
 <a href="https://www.youtube.com/watch?v=zyML-Pg12vw">
   <img width="350" alt="demo-light-thumbnail" src="https://github.com/user-attachments/assets/b37a6ca2-75b8-416a-a2e4-653c67f7fadd">
@@ -68,7 +68,7 @@ For more information on how to configure the helm chart, see the chart's [values
 To access the web dashboard you can expose it as an ingress using the chart or you can use your usual access methods such as `kubectl port-forward`:
 
 ```console
-kubectl port-forward -n kubetail-system svc/kubetail-server 7500:7500
+kubectl port-forward -n kubetail-system svc/kubetail-dashboard 7500:80
 ```
 
 Visit [http://localhost:7500](http://localhost:7500). Have fun viewing your Kubernetes logs in realtime!
@@ -94,7 +94,7 @@ kubectl apply -f https://github.com/kubetail-org/helm-charts/releases/latest/dow
 To access the web dashboard you can use your usual access methods such as `kubectl port-forward`:
 
 ```console
-kubectl port-forward -n kubetail-system svc/kubetail-server 7500:7500
+kubectl port-forward -n kubetail-system svc/kubetail-dashboard 7500:80
 ```
 
 Visit [http://localhost:7500](http://localhost:7500). Have fun viewing your Kubernetes logs in realtime!
@@ -125,10 +125,11 @@ Visit the [Kubetail documentation](https://www.kubetail.com/)
 
 This monorepo contains:
 
-* CLI Tool ([modules/cli](modules/cli))
-* Backend Server ([modules/server](modules/server))
-* Backend Agent ([modules/agent](modules/agent))
-* Dashboard UI ([dashboard-ui](dashbord-ui))
+* Kubetail CLI ([modules/cli](modules/cli))
+* Kubetail Cluster API ([modules/cluster-api](modules/cluster-api))
+* Kubetail Cluster Agent ([modules/cluster-agent](modules/cluster-agent))
+* Kubetail Dashboard Server ([modules/dashboard](modules/dashboard))
+* Kubetail Dashboard UI ([dashboard-ui](dashbord-ui))
 
 ### Setting up the Development Environment
 
@@ -166,20 +167,28 @@ make
 
 When the build process finishes you can find the executable in the local `bin/` directory.
 
-### Backend Server
+### Dashboard
 
-To build a docker image for a production deployment of the backend server, run the following command:
+To build a docker image for a production deployment of the Kubetail Dashboard server, run the following command:
 
 ```console
-docker build -f build/package/Dockerfile.server -t kubetail-server:latest .
+docker build -f build/package/Dockerfile.dashboard -t kubetail-dashboard:latest .
 ```
 
-### Backend Agent
+### Cluster API
 
-To build a docker image for a production deployment of the backend agent, run the following command:
+To build a docker image for a production deployment of the Kubetail Cluster API server, run the following command:
 
 ```console
-docker build -f build/package/Dockerfile.agent -t kubetail-agent:latest .
+docker build -f build/package/Dockerfile.cluster-api -t kubetail-cluster-api:latest .
+```
+
+### Cluster Agent
+
+To build a docker image for a production deployment of the Kubetail Cluster Agent, run the following command:
+
+```console
+docker build -f build/package/Dockerfile.cluster-agent -t kubetail-cluster-agent:latest .
 ```
 
 ## Get Involved

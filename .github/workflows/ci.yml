@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22.7'
+          go-version: '1.23.4'
           cache: false
       - name: Run linter
         working-directory: ./modules
@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22.7'
+          go-version: '1.23.4'
           cache: false
       - name: Run tests
         working-directory: ./modules
@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22.7'
+          go-version: '1.23.4'
           cache: false
       - name: Run code vetter
         working-directory: ./modules
@@ -93,7 +93,7 @@ jobs:
           pnpm install
           pnpm build
 
-  build-server-amd64:
+  build-dashboard-amd64:
     needs:
       - modules-lint
       - modules-test
@@ -109,11 +109,11 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: build/package/Dockerfile.server
+          file: build/package/Dockerfile.dashboard
           push: false
-          tags: kubetail-server:latest
+          tags: kubetail-dashboard:latest
 
-  build-server-arm64:
+  build-dashboard-arm64:
     needs:
       - modules-lint
       - modules-test
@@ -129,11 +129,51 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: build/package/Dockerfile.server
+          file: build/package/Dockerfile.dashboard
           push: false
-          tags: kubetail-server:latest
+          tags: kubetail-dashboard:latest
+        
+  build-cluster-api-amd64:
+    needs:
+      - modules-lint
+      - modules-test
+      - modules-vet
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: build/package/Dockerfile.cluster-api
+          push: false
+          tags: kubetail-cluster-api:latest
+
+  build-cluster-api-arm64:
+    needs:
+      - modules-lint
+      - modules-test
+      - modules-vet
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
+    runs-on: arm64-ubuntu-22
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: build/package/Dockerfile.cluster-api
+          push: false
+          tags: kubetail-cluster-api:latest
       
-  build-agent-amd64:
+  build-cluster-agent-amd64:
     needs:
       - modules-lint
       - modules-test
@@ -149,11 +189,11 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: build/package/Dockerfile.agent
+          file: build/package/Dockerfile.cluster-agent
           push: false
-          tags: kubetail-agent:latest
+          tags: kubetail-cluster-agent:latest
 
-  build-agent-arm64:
+  build-cluster-agent-arm64:
     needs:
       - modules-lint
       - modules-test
@@ -169,9 +209,9 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: build/package/Dockerfile.agent
+          file: build/package/Dockerfile.cluster-agent
           push: false
-          tags: kubetail-agent:latest
+          tags: kubetail-cluster-agent:latest
 
   build-cli-linux-amd64:
     needs:
@@ -192,7 +232,7 @@ jobs:
           version: 9
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22.7'
+          go-version: '1.23.4'
           cache: false
       - name: Run build script
         run: make build
@@ -216,7 +256,7 @@ jobs:
           version: 9
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22.7'
+          go-version: '1.23.4'
           cache: false  
       - name: Run build script
         run: make build
@@ -240,7 +280,7 @@ jobs:
           version: 9
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22.7'
+          go-version: '1.23.4'
           cache: false  
       - name: Run build script
         run: make build
@@ -264,7 +304,7 @@ jobs:
           version: 9
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22.7'
+          go-version: '1.23.4'
           cache: false
       - name: Run build script
         run: make build
@@ -288,7 +328,7 @@ jobs:
           version: 9
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22.7'
+          go-version: '1.23.4'
           cache: false
       - name: Run build script
         run: make build
@@ -312,7 +352,7 @@ jobs:
           version: 9
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22.7'
+          go-version: '1.23.4'
           cache: false
       - name: Run build script
         run: make build

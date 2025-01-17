@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,9 +25,13 @@ function camelCaseToUpperCaseWithUnderscores(input: string) {
  */
 
 class Config {
+  authMode: string = 'auto';
+
   basePath: string = '/';
 
-  extensionsEnabled: boolean = false;
+  clusterAPIEnabled: boolean = true;
+
+  environment: string = 'desktop';
 
   constructor() {
     const runtimeConfig = ('runtimeConfig' in window ? window.runtimeConfig : {}) as { [key: string]: string };

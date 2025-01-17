@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,11 @@
 import {
   ApolloClient,
   InMemoryCache,
+  NormalizedCacheObject,
   createHttpLink,
   split,
   from,
 } from '@apollo/client';
-import type { HttpOptions } from '@apollo/client';
 import type { Operation } from '@apollo/client/link/core';
 import { onError } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
@@ -28,23 +28,20 @@ import { getMainDefinition } from '@apollo/client/utilities';
 import { ClientOptions, createClient } from 'graphql-ws';
 import toast from 'react-hot-toast';
 
-import generatedIntrospection from '@/lib/graphql/__generated__/introspection-result.json';
-import { getBasename, getCSRFToken, joinPaths } from './lib/helpers';
+import appConfig from '@/app-config';
+import clusterAPI from '@/lib/graphql/cluster-api/__generated__/introspection-result.json';
+import dashboard from '@/lib/graphql/dashboard/__generated__/introspection-result.json';
+import { getBasename, getCSRFToken, joinPaths } from '@/lib/util';
 
-const graphqlEndpoint = (new URL(joinPaths(getBasename(), '/graphql'), window.location.origin)).toString();
+/**
+ * Shared items
+ */
 
-// http client options
-const httpClientOptions: HttpOptions = {
-  uri: graphqlEndpoint,
-};
+const basename = getBasename();
 
-// init websocket client
 const wsClientOptions: ClientOptions = {
-  url: graphqlEndpoint.replace(/^(http)/, 'ws'),
+  url: '',
   connectionAckWaitTimeout: 3000,
-  connectionParams: async () => ({
-    authorization: `${await getCSRFToken()}`,
-  }),
   keepAlive: 3000,
   retryAttempts: Infinity,
   shouldRetry: () => true,
@@ -52,13 +49,6 @@ const wsClientOptions: ClientOptions = {
     setTimeout(resolve, 3000);
   }),
 };
-
-export const wsClient = createClient(wsClientOptions);
-
-// init links
-const httpLink = createHttpLink(httpClientOptions);
-
-const wsLink = new GraphQLWsLink(wsClient);
 
 const errorLink = onError(({ graphQLErrors, networkError }) => {
   if (networkError) {
@@ -91,14 +81,40 @@ const retryLink = new RetryLink({
   },
 });
 
-const splitLink = split(
-  ({ query }) => {
-    const definition = getMainDefinition(query);
-    return definition.kind === 'OperationDefinition' && definition.operation === 'subscription';
-  },
-  wsLink,
-  from([errorLink, retryLink, httpLink]),
-);
+const createLink = (basepath: string) => {
+  const uri = new URL(joinPaths(basepath, 'graphql'), window.location.origin).toString();
+
+  // Create http link
+  const httpLink = createHttpLink({ uri });
+
+  // Create wsClient
+  const wsClient = createClient({
+    ...wsClientOptions,
+    url: uri.replace(/^(http)/, 'ws'),
+    connectionParams: async () => ({
+      authorization: `${await getCSRFToken(basepath)}`,
+    }),
+  });
+
+  // Create websocket link
+  const wsLink = new GraphQLWsLink(wsClient);
+
+  // Combine using split link
+  const link = split(
+    ({ query }) => {
+      const definition = getMainDefinition(query);
+      return definition.kind === 'OperationDefinition' && definition.operation === 'subscription';
+    },
+    wsLink,
+    from([errorLink, retryLink, httpLink]),
+  );
+
+  return { link, wsClient };
+};
+
+/**
+ * Dashboard client
+ */
 
 const bigIntField = {
   read(value?: string | null): bigint | undefined | null {
@@ -114,10 +130,9 @@ const dateField = {
   },
 };
 
-// pagination helper
 function k8sPagination() {
   return {
-    keyArgs: ['namespace', 'options', ['labelSelector'], '@connection', ['key']],
+    keyArgs: ['kubeContext', 'namespace', 'options', ['labelSelector'], '@connection', ['key']],
     merge(existing: any, incoming: any, x: any) {
       // first call
       if (existing === undefined) return incoming;
@@ -136,21 +151,15 @@ function k8sPagination() {
   };
 }
 
-// define CustomCache
-export class CustomCache extends InMemoryCache {
+export class DashboardCustomCache extends InMemoryCache {
   constructor() {
     super({
-      possibleTypes: generatedIntrospection.possibleTypes,
+      possibleTypes: dashboard.possibleTypes,
       typePolicies: {
         BatchV1CronJobStatus: {
           fields: {
             lastScheduleTime: dateField,
             lastSuccessfulTime: dateField,
-          },
-        },
-        LogMetadataFileInfo: {
-          fields: {
-            lastModifiedAt: dateField,
           },
         },
         MetaV1ListMeta: {
@@ -189,12 +198,74 @@ export class CustomCache extends InMemoryCache {
   }
 }
 
-// init client
-const client = new ApolloClient({
-  cache: new CustomCache(),
-  link: splitLink,
-  name: 'kubetail',
+const { link: dashboardLink, wsClient: dashboardWSClient } = createLink(basename);
+
+export const dashboardClient = new ApolloClient({
+  cache: new DashboardCustomCache(),
+  link: dashboardLink,
+  name: 'kubetail/dashboard',
   version: '0.1.0',
 });
 
-export default client;
+export { dashboardWSClient };
+
+/**
+ * Cluster API client
+ */
+
+type ClusterAPIContext = {
+  kubeContext: string;
+  namespace: string;
+  serviceName: string;
+};
+
+const clusterAPIClientCache = new Map<string, ApolloClient<NormalizedCacheObject>>();
+
+export class ClusterAPICustomCache extends InMemoryCache {
+  constructor() {
+    super({
+      possibleTypes: clusterAPI.possibleTypes,
+      typePolicies: {
+        LogMetadataFileInfo: {
+          fields: {
+            lastModifiedAt: dateField,
+          },
+        },
+      },
+    });
+  }
+}
+
+export const getClusterAPIClient = (context: ClusterAPIContext) => {
+  // Build cache key
+  let k = context.kubeContext;
+  if (appConfig.environment === 'desktop') {
+    k += `::${context.namespace}::${context.serviceName}`;
+  }
+
+  // Check cache
+  let client = clusterAPIClientCache.get(k);
+
+  if (!client) {
+    // Build basepath
+    let basepath = joinPaths(basename, 'cluster-api-proxy');
+    if (appConfig.environment === 'desktop') {
+      basepath = joinPaths(basepath, context.kubeContext, context.namespace, context.serviceName);
+    }
+
+    const { link } = createLink(basepath);
+
+    // Init new client
+    client = new ApolloClient({
+      cache: new ClusterAPICustomCache(),
+      link,
+      name: 'kubetail/dashboard',
+      version: '0.1.0',
+    });
+
+    // Add to cache
+    clusterAPIClientCache.set(k, client);
+  }
+
+  return client;
+};

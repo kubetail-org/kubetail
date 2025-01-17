@@ -1,0 +1,473 @@
+# Where are all the schema files located? globs are supported eg  src/**/*.graphqls
+schema:
+  - graph/*.graphqls
+
+# Where should the generated server code go?
+exec:
+  filename: graph/generated.go
+  package: graph
+  # Optional: Maximum number of goroutines in concurrency to use per child resolvers(default: unlimited)
+  # worker_limit: 1000
+
+# Uncomment to enable federation
+# federation:
+#   filename: graph/federation.go
+#   package: graph
+#   version: 2
+#   options
+#     computed_requires: true
+
+# Where should any generated models go?
+model:
+  filename: graph/model/models_gen.go
+  package: model
+
+# Where should the resolver implementations go?
+resolver:
+  layout: follow-schema
+  dir: graph
+  package: graph
+  filename_template: "{name}.resolvers.go"
+  # Optional: turn on to not generate template comments above resolvers
+  # omit_template_comment: false
+
+# Optional: turn on use ` + "`" + `gqlgen:"fieldName"` + "`" + ` tags in your models
+# struct_tag: json
+
+# Optional: turn on to use []Thing instead of []*Thing
+# omit_slice_element_pointers: false
+
+# Optional: turn on to omit Is<Name>() methods to interface and unions
+# omit_interface_checks : true
+
+# Optional: turn on to skip generation of ComplexityRoot struct content and Complexity function
+# omit_complexity: false
+
+# Optional: turn on to not generate any file notice comments in generated files
+# omit_gqlgen_file_notice: false
+
+# Optional: turn on to exclude the gqlgen version in the generated file notice. No effect if `omit_gqlgen_file_notice` is true.
+# omit_gqlgen_version_in_file_notice: false
+
+# Optional: turn off to make struct-type struct fields not use pointers
+# e.g. type Thing struct { FieldA OtherThing } instead of { FieldA *OtherThing }
+# struct_fields_always_pointers: true
+
+# Optional: turn off to make resolvers return values instead of pointers for structs
+# resolvers_always_return_pointers: true
+
+# Optional: turn on to return pointers instead of values in unmarshalInput
+# return_pointers_in_unmarshalinput: false
+
+# Optional: wrap nullable input fields with Omittable
+# nullable_input_omittable: true
+
+# Optional: set to speed up generation time by not performing a final validation pass.
+# skip_validation: true
+
+# Optional: set to skip running `go mod tidy` when generating server code
+# skip_mod_tidy: true
+
+# Optional: if this is set to true, argument directives that
+# decorate a field with a null value will still be called.
+#
+# This enables argumment directives to not just mutate
+# argument values but to set them even if they're null.
+call_argument_directives_with_null: true
+
+# gqlgen will search for any type names in the schema in these go packages
+# if they match it will use them, otherwise it will generate them.
+autobind:
+#  - "github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
+
+# This section declares type mapping between the GraphQL and go type systems
+#
+# The first line in each type will be used as defaults for resolver arguments and
+# modelgen, the others will be allowed when binding to fields. Configure them to
+# your liking
+models:
+  # --- Interfaces ---
+  List:
+    model: github.com/kubetail-org/kubetail/modules/dashboard/graph/model.List
+
+  Object:
+    model: github.com/kubetail-org/kubetail/modules/dashboard/graph/model.Object
+
+  # --- AppsV1 ---
+  AppsV1DaemonSet:
+    model: k8s.io/api/apps/v1.DaemonSet
+    fields:
+      id:
+        fieldName: UID
+      metadata:
+        fieldName: ObjectMeta
+
+  AppsV1DaemonSetCondition:
+    model: k8s.io/api/apps/v1.DaemonSetCondition
+
+  AppsV1DaemonSetConditionType:
+    model: k8s.io/api/apps/v1.DaemonSetConditionType
+
+  AppsV1DaemonSetList:
+    model: k8s.io/api/apps/v1.DaemonSetList
+    fields:
+      metadata:
+        fieldName: ListMeta
+
+  AppsV1DaemonSetSpec:
+    model: k8s.io/api/apps/v1.DaemonSetSpec
+
+  AppsV1DaemonSetStatus:
+    model: k8s.io/api/apps/v1.DaemonSetStatus
+
+  AppsV1DaemonSetsWatchEvent:
+    model: k8s.io/apimachinery/pkg/watch.Event
+    fields:
+      object:
+        resolver: true
+
+  AppsV1Deployment:
+    model: k8s.io/api/apps/v1.Deployment
+    fields:
+      id:
+        fieldName: UID
+      metadata:
+        fieldName: ObjectMeta
+
+  AppsV1DeploymentList:
+    model: k8s.io/api/apps/v1.DeploymentList
+    fields:
+      metadata:
+        fieldName: ListMeta
+
+  AppsV1DeploymentSpec:
+    model: k8s.io/api/apps/v1.DeploymentSpec
+
+  AppsV1DeploymentStatus:
+    model: k8s.io/api/apps/v1.DeploymentStatus
+
+  AppsV1DeploymentsWatchEvent:
+    model: k8s.io/apimachinery/pkg/watch.Event
+    fields:
+      object:
+        resolver: true
+
+  AppsV1ReplicaSet:
+    model: k8s.io/api/apps/v1.ReplicaSet
+    fields:
+      id:
+        fieldName: UID
+      metadata:
+        fieldName: ObjectMeta
+
+  AppsV1ReplicaSetList:
+    model: k8s.io/api/apps/v1.ReplicaSetList
+    fields:
+      metadata:
+        fieldName: ListMeta
+
+  AppsV1ReplicaSetSpec:
+    model: k8s.io/api/apps/v1.ReplicaSetSpec
+
+  AppsV1ReplicaSetStatus:
+    model: k8s.io/api/apps/v1.ReplicaSetStatus
+
+  AppsV1ReplicaSetsWatchEvent:
+    model: k8s.io/apimachinery/pkg/watch.Event
+    fields:
+      object:
+        resolver: true
+
+  AppsV1StatefulSet:
+    model: k8s.io/api/apps/v1.StatefulSet
+    fields:
+      id:
+        fieldName: UID
+      metadata:
+        fieldName: ObjectMeta
+
+  AppsV1StatefulSetList:
+    model: k8s.io/api/apps/v1.StatefulSetList
+    fields:
+      metadata:
+        fieldName: ListMeta
+
+  AppsV1StatefulSetSpec:
+    model: k8s.io/api/apps/v1.StatefulSetSpec
+
+  AppsV1StatefulSetsWatchEvent:
+    model: k8s.io/apimachinery/pkg/watch.Event
+    fields:
+      object:
+        resolver: true
+
+  # --- BatchV1 ---
+
+  BatchV1CronJob:
+    model: k8s.io/api/batch/v1.CronJob
+    fields:
+      id:
+        fieldName: UID
+      metadata:
+        fieldName: ObjectMeta
+
+  BatchV1CronJobList:
+    model: k8s.io/api/batch/v1.CronJobList
+    fields:
+      metadata:
+        fieldName: ListMeta
+
+  BatchV1CronJobSpec:
+    model: k8s.io/api/batch/v1.CronJobSpec
+
+  BatchV1CronJobStatus:
+    model: k8s.io/api/batch/v1.CronJobStatus
+
+  BatchV1CronJobsWatchEvent:
+    model: k8s.io/apimachinery/pkg/watch.Event
+    fields:
+      object:
+        resolver: true
+
+  BatchV1Job:
+    model: k8s.io/api/batch/v1.Job
+    fields:
+      id:
+        fieldName: UID
+      metadata:
+        fieldName: ObjectMeta
+
+  BatchV1JobCondition:
+    model: k8s.io/api/batch/v1.JobCondition
+
+  BatchV1JobConditionType:
+    model: k8s.io/api/batch/v1.JobConditionType
+
+  BatchV1JobList:
+    model: k8s.io/api/batch/v1.JobList
+    fields:
+      metadata:
+        fieldName: ListMeta
+
+  BatchV1JobSpec:
+    model: k8s.io/api/batch/v1.JobSpec
+
+  BatchV1JobStatus:
+    model: k8s.io/api/batch/v1.JobStatus
+
+  BatchV1JobTemplateSpec:
+    model: k8s.io/api/batch/v1.JobTemplateSpec
+    fields:
+      metadata:
+        fieldName: ObjectMeta
+
+  BatchV1JobsWatchEvent:
+    model: k8s.io/apimachinery/pkg/watch.Event
+    fields:
+      object:
+        resolver: true
+
+  # --- CoreV1 ---
+
+  CoreV1ConditionStatus:
+    model: k8s.io/api/core/v1.ConditionStatus
+
+  CoreV1Container:
+    model: k8s.io/api/core/v1.Container
+
+  CoreV1ContainerState:
+    model: k8s.io/api/core/v1.ContainerState
+
+  CoreV1ContainerStateWaiting:
+    model: k8s.io/api/core/v1.ContainerStateWaiting
+
+  CoreV1ContainerStateRunning:
+    model: k8s.io/api/core/v1.ContainerStateRunning
+
+  CoreV1ContainerStateTerminated:
+    model: k8s.io/api/core/v1.ContainerStateTerminated
+
+  CoreV1ContainerStatus:
+    model: k8s.io/api/core/v1.ContainerStatus
+
+  CoreV1Namespace:
+    model: k8s.io/api/core/v1.Namespace
+    fields:
+      id:
+        fieldName: UID
+      metadata:
+        fieldName: ObjectMeta
+
+  CoreV1NamespaceList:
+    model: k8s.io/api/core/v1.NamespaceList
+    fields:
+      metadata:
+        fieldName: ListMeta
+
+  CoreV1NamespacesWatchEvent:
+    model: k8s.io/apimachinery/pkg/watch.Event
+    fields:
+      object:
+        resolver: true
+
+  CoreV1Node:
+    model: k8s.io/api/core/v1.Node
+    fields:
+      id:
+        fieldName: UID
+      metadata:
+        fieldName: ObjectMeta
+
+  CoreV1NodeList:
+    model: k8s.io/api/core/v1.NodeList
+    fields:
+      metadata:
+        fieldName: ListMeta
+
+  CoreV1NodesWatchEvent:
+    model: k8s.io/apimachinery/pkg/watch.Event
+    fields:
+      object:
+        resolver: true
+
+  CoreV1ObjectReference:
+    model: k8s.io/api/core/v1.ObjectReference
+
+  CoreV1Pod:
+    model: k8s.io/api/core/v1.Pod
+    fields:
+      id:
+        fieldName: UID
+      metadata:
+        fieldName: ObjectMeta
+
+  CoreV1PodList:
+    model: k8s.io/api/core/v1.PodList
+    fields:
+      metadata:
+        fieldName: ListMeta
+
+  CoreV1PodLogOptions:
+    model: k8s.io/api/core/v1.PodLogOptions
+
+  CoreV1PodPhase:
+    model: k8s.io/api/core/v1.PodPhase
+
+  CoreV1PodSpec:
+    model: k8s.io/api/core/v1.PodSpec
+
+  CoreV1PodStatus:
+    model: k8s.io/api/core/v1.PodStatus
+
+  CoreV1PodsWatchEvent:
+    model: k8s.io/apimachinery/pkg/watch.Event
+    fields:
+      object:
+        resolver: true
+
+  CoreV1Service:
+    model: k8s.io/api/core/v1.Service
+    fields:
+      id:
+        fieldName: UID
+      metadata:
+        fieldName: ObjectMeta
+
+  CoreV1ServiceList:
+    model: k8s.io/api/core/v1.ServiceList
+    fields:
+      metadata:
+        fieldName: ListMeta
+
+  CoreV1ServicePort:
+    model: k8s.io/api/core/v1.ServicePort
+
+  CoreV1ServiceSpec:
+    model: k8s.io/api/core/v1.ServiceSpec
+
+  CoreV1ServicesWatchEvent:
+    model: k8s.io/apimachinery/pkg/watch.Event
+    fields:
+      object:
+        resolver: true
+
+  # --- KubeConfig ---
+  KubeConfig:
+    model: github.com/kubetail-org/kubetail/modules/dashboard/graph/model.KubeConfig
+    fields:
+      authInfos:
+        resolver: true
+      clusters:
+        resolver: true
+      contexts:
+        resolver: true
+
+  KubeConfigAuthInfo:
+    model: github.com/kubetail-org/kubetail/modules/dashboard/graph/model.KubeConfigAuthInfo
+
+  KubeConfigCluster:
+    model: github.com/kubetail-org/kubetail/modules/dashboard/graph/model.KubeConfigCluster
+
+  KubeConfigContext:
+    model: github.com/kubetail-org/kubetail/modules/dashboard/graph/model.KubeConfigContext
+
+  KubeConfigExtensions:
+    model: github.com/kubetail-org/kubetail/modules/dashboard/graph/model.KubeConfigExtensions
+
+  # --- MetaV1 ---
+  MetaV1GetOptions:
+    model: k8s.io/apimachinery/pkg/apis/meta/v1.GetOptions
+
+  MetaV1LabelSelector:
+    model: k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector
+
+  MetaV1LabelSelectorRequirement:
+    model: k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement
+
+  MetaV1LabelSelectorOperator:
+    model: k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorOperator
+
+  MetaV1ListMeta:
+    model: k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta
+
+  MetaV1ListOptions:
+    model: k8s.io/apimachinery/pkg/apis/meta/v1.ListOptions
+
+  MetaV1ObjectMeta:
+    model: k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta
+
+  MetaV1OwnerReference:
+    model: k8s.io/apimachinery/pkg/apis/meta/v1.OwnerReference
+
+  MetaV1ResourceVersionMatch:
+    model: k8s.io/apimachinery/pkg/apis/meta/v1.ResourceVersionMatch
+
+  # --- Watch ---
+  WatchEventType:
+    model: k8s.io/apimachinery/pkg/watch.EventType
+
+  # --- custom scalars ---
+  Int64:
+    model: github.com/kubetail-org/kubetail/modules/shared/graphql/model.Int64
+
+  MetaV1Time:
+    model:
+      - github.com/kubetail-org/kubetail/modules/dashboard/graph/model.MetaV1Time
+
+  StringMap:
+    model: github.com/kubetail-org/kubetail/modules/dashboard/graph/model.StringMap
+
+  # --- gqlgen ---
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.ID
+      - github.com/99designs/gqlgen/graphql.Int
+      - github.com/99designs/gqlgen/graphql.Int64
+      - github.com/99designs/gqlgen/graphql.Int32
+      - k8s.io/apimachinery/pkg/types.UID
+
+  Int:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int
+      - github.com/99designs/gqlgen/graphql.Int64
+      - github.com/99designs/gqlgen/graphql.Int32

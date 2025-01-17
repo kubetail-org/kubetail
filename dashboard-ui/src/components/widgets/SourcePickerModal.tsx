@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,10 +23,9 @@ import Form from '@kubetail/ui/elements/Form';
 import Spinner from '@kubetail/ui/elements/Spinner';
 
 import Modal from '@/components/elements/Modal';
-import * as ops from '@/lib/graphql/ops';
-import { Counter } from '@/lib/helpers';
+import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { useCounterQueryWithSubscription, useListQueryWithSubscription } from '@/lib/hooks';
-import { cn } from '@/lib/utils';
+import { Counter, cn } from '@/lib/util';
 import { Workload, allWorkloads, iconMap, labelsPMap, typenameMap } from '@/lib/workload';
 
 type ContextType = {
@@ -42,61 +41,61 @@ const Context = createContext({} as ContextType);
  * Workload counter hook
  */
 
-function useWorkloadCounter(namespace: string = '') {
+function useWorkloadCounter(kubeContext: string, namespace: string = '') {
   const cronjobs = useCounterQueryWithSubscription({
-    query: ops.SOURCE_PICKER_CRONJOBS_COUNT_FETCH,
-    subscription: ops.SOURCE_PICKER_CRONJOBS_COUNT_WATCH,
+    query: dashboardOps.SOURCE_PICKER_CRONJOBS_COUNT_FETCH,
+    subscription: dashboardOps.SOURCE_PICKER_CRONJOBS_COUNT_WATCH,
     queryDataKey: 'batchV1CronJobsList',
     subscriptionDataKey: 'batchV1CronJobsWatch',
-    variables: { namespace },
+    variables: { kubeContext, namespace },
   });
 
   const daemonsets = useCounterQueryWithSubscription({
-    query: ops.SOURCE_PICKER_DAEMONSETS_COUNT_FETCH,
-    subscription: ops.SOURCE_PICKER_DAEMONSETS_COUNT_WATCH,
+    query: dashboardOps.SOURCE_PICKER_DAEMONSETS_COUNT_FETCH,
+    subscription: dashboardOps.SOURCE_PICKER_DAEMONSETS_COUNT_WATCH,
     queryDataKey: 'appsV1DaemonSetsList',
     subscriptionDataKey: 'appsV1DaemonSetsWatch',
-    variables: { namespace },
+    variables: { kubeContext, namespace },
   });
 
   const deployments = useCounterQueryWithSubscription({
-    query: ops.SOURCE_PICKER_DEPLOYMENTS_COUNT_FETCH,
-    subscription: ops.SOURCE_PICKER_DEPLOYMENTS_COUNT_WATCH,
+    query: dashboardOps.SOURCE_PICKER_DEPLOYMENTS_COUNT_FETCH,
+    subscription: dashboardOps.SOURCE_PICKER_DEPLOYMENTS_COUNT_WATCH,
     queryDataKey: 'appsV1DeploymentsList',
     subscriptionDataKey: 'appsV1DeploymentsWatch',
-    variables: { namespace },
+    variables: { kubeContext, namespace },
   });
 
   const jobs = useCounterQueryWithSubscription({
-    query: ops.SOURCE_PICKER_JOBS_COUNT_FETCH,
-    subscription: ops.SOURCE_PICKER_JOBS_COUNT_WATCH,
+    query: dashboardOps.SOURCE_PICKER_JOBS_COUNT_FETCH,
+    subscription: dashboardOps.SOURCE_PICKER_JOBS_COUNT_WATCH,
     queryDataKey: 'batchV1JobsList',
     subscriptionDataKey: 'batchV1JobsWatch',
-    variables: { namespace },
+    variables: { kubeContext, namespace },
   });
 
   const pods = useCounterQueryWithSubscription({
-    query: ops.SOURCE_PICKER_PODS_COUNT_FETCH,
-    subscription: ops.SOURCE_PICKER_PODS_COUNT_WATCH,
+    query: dashboardOps.SOURCE_PICKER_PODS_COUNT_FETCH,
+    subscription: dashboardOps.SOURCE_PICKER_PODS_COUNT_WATCH,
     queryDataKey: 'coreV1PodsList',
     subscriptionDataKey: 'coreV1PodsWatch',
-    variables: { namespace },
+    variables: { kubeContext, namespace },
   });
 
   const replicasets = useCounterQueryWithSubscription({
-    query: ops.SOURCE_PICKER_REPLICASETS_COUNT_FETCH,
-    subscription: ops.SOURCE_PICKER_REPLICASETS_COUNT_WATCH,
+    query: dashboardOps.SOURCE_PICKER_REPLICASETS_COUNT_FETCH,
+    subscription: dashboardOps.SOURCE_PICKER_REPLICASETS_COUNT_WATCH,
     queryDataKey: 'appsV1ReplicaSetsList',
     subscriptionDataKey: 'appsV1ReplicaSetsWatch',
-    variables: { namespace },
+    variables: { kubeContext, namespace },
   });
 
   const statefulsets = useCounterQueryWithSubscription({
-    query: ops.SOURCE_PICKER_STATEFULSETS_COUNT_FETCH,
-    subscription: ops.SOURCE_PICKER_STATEFULSETS_COUNT_WATCH,
+    query: dashboardOps.SOURCE_PICKER_STATEFULSETS_COUNT_FETCH,
+    subscription: dashboardOps.SOURCE_PICKER_STATEFULSETS_COUNT_WATCH,
     queryDataKey: 'appsV1StatefulSetsList',
     subscriptionDataKey: 'appsV1StatefulSetsWatch',
-    variables: { namespace },
+    variables: { kubeContext, namespace },
   });
 
   const reqs = [cronjobs, daemonsets, deployments, jobs, pods, replicasets, statefulsets];
@@ -130,8 +129,8 @@ const Namespaces = () => {
   const { namespace, setNamespace } = useContext(Context);
 
   const { data } = useListQueryWithSubscription({
-    query: ops.SOURCE_PICKER_NAMESPACES_LIST_FETCH,
-    subscription: ops.SOURCE_PICKER_NAMESPACES_LIST_WATCH,
+    query: dashboardOps.SOURCE_PICKER_NAMESPACES_LIST_FETCH,
+    subscription: dashboardOps.SOURCE_PICKER_NAMESPACES_LIST_WATCH,
     queryDataKey: 'coreV1NamespacesList',
     subscriptionDataKey: 'coreV1NamespacesWatch',
   });
@@ -339,8 +338,8 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
 
 const DisplayCronJobs = () => {
   const { loading, data } = useListQueryWithSubscription({
-    query: ops.SOURCE_PICKER_CRONJOBS_LIST_FETCH,
-    subscription: ops.SOURCE_PICKER_CRONJOBS_LIST_WATCH,
+    query: dashboardOps.SOURCE_PICKER_CRONJOBS_LIST_FETCH,
+    subscription: dashboardOps.SOURCE_PICKER_CRONJOBS_LIST_WATCH,
     queryDataKey: 'batchV1CronJobsList',
     subscriptionDataKey: 'batchV1CronJobsWatch',
   });
@@ -353,8 +352,8 @@ const DisplayCronJobs = () => {
 
 const DisplayDaemonSets = () => {
   const { loading, data } = useListQueryWithSubscription({
-    query: ops.SOURCE_PICKER_DAEMONSETS_LIST_FETCH,
-    subscription: ops.SOURCE_PICKER_DAEMONSETS_LIST_WATCH,
+    query: dashboardOps.SOURCE_PICKER_DAEMONSETS_LIST_FETCH,
+    subscription: dashboardOps.SOURCE_PICKER_DAEMONSETS_LIST_WATCH,
     queryDataKey: 'appsV1DaemonSetsList',
     subscriptionDataKey: 'appsV1DaemonSetsWatch',
   });
@@ -367,8 +366,8 @@ const DisplayDaemonSets = () => {
 
 const DisplayDeployments = () => {
   const { loading, data } = useListQueryWithSubscription({
-    query: ops.SOURCE_PICKER_DEPLOYMENTS_LIST_FETCH,
-    subscription: ops.SOURCE_PICKER_DEPLOYMENTS_LIST_WATCH,
+    query: dashboardOps.SOURCE_PICKER_DEPLOYMENTS_LIST_FETCH,
+    subscription: dashboardOps.SOURCE_PICKER_DEPLOYMENTS_LIST_WATCH,
     queryDataKey: 'appsV1DeploymentsList',
     subscriptionDataKey: 'appsV1DeploymentsWatch',
   });
@@ -381,8 +380,8 @@ const DisplayDeployments = () => {
 
 const DisplayJobs = () => {
   const { loading, data } = useListQueryWithSubscription({
-    query: ops.SOURCE_PICKER_JOBS_LIST_FETCH,
-    subscription: ops.SOURCE_PICKER_JOBS_LIST_WATCH,
+    query: dashboardOps.SOURCE_PICKER_JOBS_LIST_FETCH,
+    subscription: dashboardOps.SOURCE_PICKER_JOBS_LIST_WATCH,
     queryDataKey: 'batchV1JobsList',
     subscriptionDataKey: 'batchV1JobsWatch',
   });
@@ -395,8 +394,8 @@ const DisplayJobs = () => {
 
 const DisplayPods = () => {
   const { loading, data } = useListQueryWithSubscription({
-    query: ops.SOURCE_PICKER_PODS_LIST_FETCH,
-    subscription: ops.SOURCE_PICKER_PODS_LIST_WATCH,
+    query: dashboardOps.SOURCE_PICKER_PODS_LIST_FETCH,
+    subscription: dashboardOps.SOURCE_PICKER_PODS_LIST_WATCH,
     queryDataKey: 'coreV1PodsList',
     subscriptionDataKey: 'coreV1PodsWatch',
   });
@@ -409,8 +408,8 @@ const DisplayPods = () => {
 
 const DisplayReplicaSets = () => {
   const { loading, data } = useListQueryWithSubscription({
-    query: ops.SOURCE_PICKER_REPLICASETS_LIST_FETCH,
-    subscription: ops.SOURCE_PICKER_REPLICASETS_LIST_WATCH,
+    query: dashboardOps.SOURCE_PICKER_REPLICASETS_LIST_FETCH,
+    subscription: dashboardOps.SOURCE_PICKER_REPLICASETS_LIST_WATCH,
     queryDataKey: 'appsV1ReplicaSetsList',
     subscriptionDataKey: 'appsV1ReplicaSetsWatch',
   });
@@ -423,8 +422,8 @@ const DisplayReplicaSets = () => {
 
 const DisplayStatefulSets = () => {
   const { loading, data } = useListQueryWithSubscription({
-    query: ops.SOURCE_PICKER_STATEFULSETS_LIST_FETCH,
-    subscription: ops.SOURCE_PICKER_STATEFULSETS_LIST_WATCH,
+    query: dashboardOps.SOURCE_PICKER_STATEFULSETS_LIST_FETCH,
+    subscription: dashboardOps.SOURCE_PICKER_STATEFULSETS_LIST_WATCH,
     queryDataKey: 'appsV1StatefulSetsList',
     subscriptionDataKey: 'appsV1StatefulSetsWatch',
   });

@@ -10,15 +10,15 @@ module.exports = {
   ],
   ignorePatterns: [
     'dist',
-    '.eslintrc.cjs',
     'codegen.ts',
-    'vite.config.ts',
-    'vitest.setup.ts',
     '**/__generated__/*.ts',
   ],
   parser: '@typescript-eslint/parser',
   parserOptions: {
-    project: './tsconfig.json'
+    project: [
+      './tsconfig.node.json',
+      './tsconfig.app.json'
+    ]
   },
   plugins: ['react-refresh'],
   rules: {

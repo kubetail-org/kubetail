@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-import { getBasename, joinPaths } from '@/lib/helpers';
+import { getBasename, joinPaths } from '@/lib/util';
 
 const bcName = 'auth/session';
 const bc = new BroadcastChannel(bcName);

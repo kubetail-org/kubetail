@@ -1,48 +1,95 @@
 load('ext://restart_process', 'docker_build_with_restart')
+load('ext://namespace', 'namespace_create')
 
-# kubetail-agent
+namespace_create('kubetail-system')
+
+# kubetail-cluster-api
 local_resource(
-  'kubetail-agent-compile',
-  'cd modules && CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/agent ./agent/cmd/main.go',
+  'kubetail-cluster-api-compile',
+  'cd modules && CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/cluster-api ./cluster-api/cmd/main.go',
   deps=[
-    './modules/agent',
-    './modules/common'
+    './modules/cluster-api',
+    './modules/shared'
   ]
 )
 
 docker_build_with_restart(
-  'kubetail-agent',
-  dockerfile='hack/tilt/Dockerfile.kubetail-agent',
+  'kubetail-cluster-api',
+  dockerfile='hack/tilt/Dockerfile.kubetail-cluster-api',
   context='.',
-  entrypoint="/agent/agent -c /etc/kubetail/config.yaml",
+  entrypoint="/cluster-api/cluster-api -c /etc/kubetail/config.yaml",
   only=[
-    './.tilt/agent',
+    './.tilt/cluster-api',
   ],
   live_update=[
-    sync('./.tilt/agent', '/agent/agent'),
+    sync('./.tilt/cluster-api', '/cluster-api/cluster-api'),
   ]
 )
 
-# kubetail-server
+# kubetail-cluster-agent
 local_resource(
-  'kubetail-server-compile',
-  'cd modules && CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/server ./server/cmd/main.go',
+  'kubetail-cluster-agent-compile',
+  'cd modules && CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/cluster-agent ./cluster-agent/cmd/main.go',
   deps=[
-    './modules/server',
-    './modules/common'
+    './modules/cluster-agent',
+    './modules/shared'
   ]
 )
 
 docker_build_with_restart(
-  'kubetail-server',
-  dockerfile='hack/tilt/Dockerfile.kubetail-server',
+  'kubetail-cluster-agent',
+  dockerfile='hack/tilt/Dockerfile.kubetail-cluster-agent',
   context='.',
-  entrypoint="/server/server -c /etc/kubetail/config.yaml",
+  entrypoint="/cluster-agent/cluster-agent -c /etc/kubetail/config.yaml",
   only=[
-    './.tilt/server',
+    './.tilt/cluster-agent',
   ],
   live_update=[
-    sync('./.tilt/server', '/server/server'),
+    sync('./.tilt/cluster-agent', '/cluster-agent/cluster-agent'),
+  ]
+)
+
+# kubetail-dashboard
+
+local_resource(
+  'kubetail-dashboard-compile',
+  '''
+  # Check if the dashboard-ui/dist directory exists
+  if [ -d dashboard-ui/dist ]; then
+    rm -rf modules/dashboard/website &&
+    cp -r dashboard-ui/dist modules/dashboard/website
+  fi
+
+  # Build the Go binary
+  cd modules &&
+  CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/dashboard ./dashboard/cmd/main.go
+
+  # Reset dashboard/website directory
+  if [ ! -f dashboard/website/.gitkeep ]; then
+    rm -rf dashboard/website &&
+    git checkout dashboard/website
+  fi
+  ''',
+  deps=[
+    './dashboard-ui/dist',
+    './modules/dashboard',
+    './modules/shared'
+  ],
+  ignore=[
+    './modules/dashboard/website'
+  ]
+)
+
+docker_build_with_restart(
+  'kubetail-dashboard',
+  dockerfile='hack/tilt/Dockerfile.kubetail-dashboard',
+  context='.',
+  entrypoint="/dashboard/dashboard -c /etc/kubetail/config.yaml",
+  only=[
+    './.tilt/dashboard',
+  ],
+  live_update=[
+    sync('./.tilt/dashboard', '/dashboard/dashboard'),
   ]
 )
 
@@ -57,6 +104,7 @@ k8s_yaml('hack/tilt/chaoskube.yaml')
 # define resources
 k8s_resource(
   objects=[
+    'kubetail-system:namespace',
     'kubetail:configmap',
     'kubetail-testuser:serviceaccount',
     'kubetail-testuser:role',
@@ -68,27 +116,45 @@ k8s_resource(
 )
 
 k8s_resource(
-  'kubetail-server',
-  port_forwards='7500:4000',
+  'kubetail-dashboard',
+  port_forwards='4500:80',
   objects=[
-    'kubetail-server:clusterrole',
-    'kubetail-server:clusterrolebinding',
-    'kubetail-server:role',
-    'kubetail-server:rolebinding',
-    'kubetail-server:serviceaccount',
+    'kubetail-dashboard:clusterrole',
+    'kubetail-dashboard:clusterrolebinding',
+    'kubetail-dashboard:serviceaccount',
   ],
   resource_deps=['kubetail-shared'],
 )
 
 k8s_resource(
-  'kubetail-agent',
+  'kubetail-cluster-api',
+  port_forwards='4501:80',
   objects=[
-    'kubetail-agent:serviceaccount',
-    'kubetail-agent:clusterrole',
-    'kubetail-agent:clusterrolebinding',
-    'kubetail-agent:networkpolicy',
+    'kubetail-cluster-api:serviceaccount',
+    'kubetail-cluster-api:role',
+    'kubetail-cluster-api:rolebinding',
   ],
   resource_deps=['kubetail-shared'],
+)
+
+k8s_resource(
+  'kubetail-cluster-agent',
+  objects=[
+    'kubetail-cluster-agent:serviceaccount',
+    'kubetail-cluster-agent:clusterrole',
+    'kubetail-cluster-agent:clusterrolebinding',
+    'kubetail-cluster-agent:networkpolicy',
+  ],
+  resource_deps=['kubetail-shared'],
+)
+
+k8s_resource(
+  objects=[
+    'kubetail-cli:serviceaccount',
+    'kubetail-cli:clusterrole',
+    'kubetail-cli:clusterrolebinding',
+  ],
+  new_name='kubetail-cli',
 )
 
 k8s_resource(

@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,11 +24,9 @@ import (
 	zlog "github.com/rs/zerolog/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
-
-	"github.com/kubetail-org/kubetail/modules/common/config"
-	"github.com/kubetail-org/kubetail/modules/common/k8shelpers"
 )
 
 // Represents local tunnel to remote service
@@ -59,15 +57,18 @@ func (t *Tunnel) Shutdown(ctx context.Context) error {
 }
 
 func NewTunnel(namespace, serviceName string, remotePort, localPort int) (*Tunnel, error) {
-	cfg := config.DefaultConfig()
-	cfg.AuthMode = config.AuthModeLocal
-
-	k8sCfg, err := k8shelpers.Configure(cfg)
+	kubeConfig, err := clientcmd.LoadFromFile(clientcmd.RecommendedHomeFile)
 	if err != nil {
 		return nil, err
 	}
 
-	clientset, err := kubernetes.NewForConfig(k8sCfg)
+	clientConfig := clientcmd.NewDefaultClientConfig(*kubeConfig, &clientcmd.ConfigOverrides{})
+	restConfig, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +108,7 @@ func NewTunnel(namespace, serviceName string, remotePort, localPort int) (*Tunne
 		SubResource("portforward").
 		URL()
 
-	roundTripper, upgrader, _ := spdy.RoundTripperFor(k8sCfg)
+	roundTripper, upgrader, _ := spdy.RoundTripperFor(restConfig)
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: roundTripper}, "POST", url)
 
 	ports := []string{fmt.Sprintf("%d:%d", localPort, remotePort)}

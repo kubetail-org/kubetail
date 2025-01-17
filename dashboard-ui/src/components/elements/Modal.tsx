@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 import { Dialog, DialogProps, DialogTitleProps } from '@headlessui/react';
 import React, { useRef } from 'react';
 
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/util';
 
 type ModalProps<T extends React.ElementType> = DialogProps<T> & {
   className?: string;

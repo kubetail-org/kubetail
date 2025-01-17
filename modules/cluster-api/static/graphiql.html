@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Kubetail API Playground</title>
+    <style>
+      body {
+        height: 100%;
+        margin: 0;
+        width: 100%;
+      }
+
+      #graphiql {
+        height: 100vh;
+      }
+    </style>
+    <script
+      src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"
+      integrity="sha256-S0lp+k7zWUMk2ixteM6HZvu8L9Eh//OVrt+ZfbCpmgY="
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"
+      integrity="sha256-IXWO0ITNDjfnNXIu5POVfqlgYoop36bDzhodR6LW5Pc="
+      crossorigin="anonymous"
+    ></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/graphiql@3.0.6/graphiql.min.css"
+      integrity="sha256-wTzfn13a+pLMB5rMeysPPR1hO7x0SwSeQI+cnw7VdbE="
+      crossorigin="anonymous"
+    />
+  </head>
+  <body>
+    <div id="graphiql">Loading...</div>
+    <script 
+      src="https://cdn.jsdelivr.net/npm/graphiql@3.0.6/graphiql.min.js"
+      integrity="sha256-eNxH+Ah7Z9up9aJYTQycgyNuy953zYZwE9Rqf5rH+r4="
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      (async () => {
+        let basePath;
+
+        // get basePath
+        const pathname = window.location.pathname;
+        if (pathname.includes('/proxy/')) {
+          const m = pathname.match(/^(.*?)\/proxy\//);
+          if (m) basePath = m[0];
+        } else {
+          basePath = '/';
+        }
+
+        // get csrfToken
+        const url = new URL(basePath + 'csrf-token', window.location.origin);
+        const resp = await fetch(url);
+        const csrfToken = (await resp.json()).value;
+
+        // get graphql endpoint
+        const graphqlEndpoint = (new URL(basePath + 'graphql', window.location.origin)).toString();
+
+        // init fetcher
+        const fetcher = GraphiQL.createFetcher({
+          url: graphqlEndpoint,
+          subscriptionUrl: graphqlEndpoint.replace(/^(http)/, 'ws'),
+          wsConnectionParams: {
+            'Authorization': csrfToken,
+          },
+        });
+
+        ReactDOM.render(
+          React.createElement(GraphiQL, { fetcher }),
+          document.getElementById('graphiql'),
+        );
+      })();
+    </script>
+  </body>
+</html>

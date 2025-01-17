@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,17 +25,16 @@ import { useDebounceCallback } from 'usehooks-ts';
 
 import Spinner from '@kubetail/ui/elements/Spinner';
 
-import { Counter, MapSet, intersectSets } from '@/lib/helpers';
 import type {
   LogRecord as GraphQLLogRecord,
   PageInfo,
   PodLogQueryResponse as GraphQLPodLogQueryResponse,
-} from '@/lib/graphql/__generated__/graphql';
-import * as ops from '@/lib/graphql/ops';
-import { cn } from '@/lib/utils';
+} from '@/lib/graphql/dashboard/__generated__/graphql';
+import * as dashboardOps from '@/lib/graphql/dashboard/ops';
+import { Counter, MapSet, cn, intersectSets } from '@/lib/util';
 
 import { cssID } from './helpers';
-import { useNodes, usePods } from './logging-resources';
+import { useKubeContext, useNodes, usePods } from './logging-resources';
 import type { Node, Pod } from './logging-resources';
 
 /**
@@ -838,6 +837,8 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
   props: LogFeedRecordFetcherProps,
   ref: React.ForwardedRef<LogFeedRecordFetcherHandle>,
  ) => {
+  const kubeContext = useKubeContext();
+
   const { node, pod, container, defaultFollowAfter, onFollowData } = props;
   const { namespace, name } = pod.metadata;
 
@@ -847,16 +848,16 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
   const upgradeRecord = (record: GraphQLLogRecord) => ({ ...record, node, pod, container });
 
   // head
-  const head = useQuery(ops.HEAD_CONTAINER_LOG, {
-    variables: { namespace, name, container },
+  const head = useQuery(dashboardOps.POD_LOG_HEAD, {
+    variables: { kubeContext, namespace, name, container },
     skip: true,
     fetchPolicy: 'no-cache',
     onError: console.log,
   });
 
   // tail
-  const tail = useQuery(ops.TAIL_CONTAINER_LOG, {
-    variables: { namespace, name, container },
+  const tail = useQuery(dashboardOps.POD_LOG_TAIL, {
+    variables: { kubeContext, namespace, name, container },
     skip: true,
     fetchPolicy: 'no-cache',
     onError: console.log,
@@ -866,8 +867,8 @@ const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetc
   useEffect(() => {
     if (!isFollow) return;
     return tail.subscribeToMore({
-      document: ops.FOLLOW_CONTAINER_LOG,
-      variables: { namespace, name, container, after: followAfterRef.current },
+      document: dashboardOps.POD_LOG_FOLLOW,
+      variables: { kubeContext, namespace, name, container, after: followAfterRef.current },
       updateQuery: (_, { subscriptionData }) => {
         const { data: { podLogFollow: data } } = subscriptionData;
         if (data) {

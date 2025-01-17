@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ syntax = "proto3";
 
 package testpb;
 
-option go_package = "common/testpb";
+option go_package = "shared/testpb";
 
 service TestService {
   rpc Echo (EchoRequest) returns (EchoResponse);

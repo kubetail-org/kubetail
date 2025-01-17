@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ import {
 } from '@/lib/console/logfeed';
 import {
   Counter, MapSet, getBasename, joinPaths,
-} from '@/lib/helpers';
+} from '@/lib/util';
 import { allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
 
 /**
@@ -153,6 +153,8 @@ const SidebarWorkloads = () => {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const kubeContext = searchParams.get('kubeContext') || '';
+
   const deleteSource = (sourcePath: string) => {
     searchParams.delete('source', sourcePath);
     setSearchParams(new URLSearchParams(searchParams), { replace: true });
@@ -161,6 +163,15 @@ const SidebarWorkloads = () => {
   return (
     <>
       {isPickerOpen && <SourcePickerModal onClose={() => setIsPickerOpen(false)} />}
+      {kubeContext !== '' && (
+        <div
+          className="mb-2 font-bold text-primary overflow-hidden text-ellipsis whitespace-nowrap"
+          title={kubeContext}
+        >
+          Cluster:
+          {kubeContext}
+        </div>
+      )}
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center space-x-1">
           <span className="font-bold text-chrome-500">Sources</span>
@@ -511,7 +522,7 @@ export default function Page() {
 
   return (
     <AuthRequired>
-      <LoggingResourcesProvider sourcePaths={searchParams.getAll('source')}>
+      <LoggingResourcesProvider kubeContext={searchParams.get('kubeContext') || ''} sourcePaths={searchParams.getAll('source')}>
         <AppLayout>
           <ConfigureContainerColors />
           <InnerLayout

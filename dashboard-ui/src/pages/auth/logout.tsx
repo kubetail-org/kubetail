@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import LoadingPage from '@/components/utils/LoadingPage';
 import { getSession, useSession } from '@/lib/auth';
-import { getCSRFToken } from '@/lib/helpers';
+import { getBasename, getCSRFToken } from '@/lib/util';
+
+const basename = getBasename();
 
 export default function Logout() {
   const navigate = useNavigate();
@@ -34,7 +36,7 @@ export default function Logout() {
       const url = new URL('/api/auth/logout', window.location.origin);
       const resp = await fetch(url, {
         method: 'post',
-        headers: { 'X-CSRF-Token': await getCSRFToken() },
+        headers: { 'X-CSRF-Token': await getCSRFToken(basename) },
       });
 
       // update session

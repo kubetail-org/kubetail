@@ -5,10 +5,6 @@ import type { Mock } from 'vitest';
 
 import { getSession, useSession } from '@/lib/auth';
 
-// display apollo error messages in console
-loadDevMessages();
-loadErrorMessages();
-
 vi.mock('@/lib/auth', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@/lib/auth')>();
   return {
@@ -18,13 +14,28 @@ vi.mock('@/lib/auth', async (importOriginal) => {
   };
 });
 
-vi.mock('@/lib/helpers', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('@/lib/helpers')>();
+vi.mock('@/lib/util', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@/lib/util')>();
   return {
     ...mod,
     getCSRFToken: vi.fn().mockResolvedValue('testtoken'),
   };
 });
+
+// Stub the global ResizeObserver
+class ResizeObserverMock {
+  observe = vi.fn();
+
+  unobserve = vi.fn();
+
+  disconnect = vi.fn();
+}
+
+vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+
+// Display apollo error messages in console
+loadDevMessages();
+loadErrorMessages();
 
 beforeEach(() => {
   // init auth mocks

@@ -1,0 +1,46 @@
+# Copyright 2024-2025 Andres Morey
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+FROM golang:1.23.4 AS builder
+
+WORKDIR /work
+
+# install dependencies (for cache)
+COPY modules/shared/go.mod ./shared/go.mod
+COPY modules/shared/go.sum ./shared/go.sum
+COPY modules/cluster-api/go.mod ./cluster-api/go.mod
+COPY modules/cluster-api/go.sum ./cluster-api/go.sum
+RUN cd cluster-api && go mod download all
+
+# copy code
+COPY modules/shared ./shared
+COPY modules/cluster-api ./cluster-api
+
+# build cluster-api
+RUN cd cluster-api && CGO_ENABLED=0 go build -ldflags="-s -w" -o ../bin/cluster-api ./cmd/main.go
+
+ENTRYPOINT ["./bin/cluster-api"]
+CMD []
+
+# -----------------------------------------------------------
+
+FROM scratch AS final
+
+WORKDIR /cluster-api
+
+# copy cluster-api
+COPY --from=builder /work/bin/cluster-api /agent/cluster-api
+
+ENTRYPOINT ["./cluster-api"]
+CMD []
