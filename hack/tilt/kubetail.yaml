@@ -337,34 +337,6 @@ metadata:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cluster-agent
 ---
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kubetail-cluster-agent
-  labels:
-    app.kubernetes.io/name: kubetail
-    app.kubernetes.io/component: cluster-agent
-rules:
-- apiGroups: [""]
-  resources: [pods/log]
-  verbs: [list, watch]
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kubetail-cluster-agent
-  labels:
-    app.kubernetes.io/name: kubetail
-    app.kubernetes.io/component: cluster-agent
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kubetail-cluster-agent
-subjects:
-- kind: ServiceAccount
-  name: kubetail-cluster-agent
-  namespace: kubetail-system
----
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
