@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"k8s.io/utils/ptr"
 
+	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
 
 	k8shelpersmock "github.com/kubetail-org/kubetail/modules/dashboard/internal/k8shelpers/mock"
@@ -133,4 +134,29 @@ func TestAllowedNamespacesListQueries(t *testing.T) {
 			assert.Equal(t, err, errors.ErrForbidden)
 		})
 	}
+}
+
+func TestDesktopOnlyRequests(t *testing.T) {
+	resolver := &Resolver{environment: config.EnvironmentCluster}
+
+	t.Run("kubeConfigGet", func(t *testing.T) {
+		r := &queryResolver{resolver}
+		_, err := r.KubeConfigGet(context.Background())
+		assert.NotNil(t, err)
+		assert.Equal(t, err, errors.ErrForbidden)
+	})
+
+	t.Run("kubeConfigWatch", func(t *testing.T) {
+		r := &subscriptionResolver{resolver}
+		_, err := r.KubeConfigWatch(context.Background())
+		assert.NotNil(t, err)
+		assert.Equal(t, err, errors.ErrForbidden)
+	})
+
+	t.Run("kubetailClusterAPIInstall", func(t *testing.T) {
+		r := &mutationResolver{resolver}
+		_, err := r.KubetailClusterAPIInstall(context.Background(), nil)
+		assert.NotNil(t, err)
+		assert.Equal(t, err, errors.ErrForbidden)
+	})
 }

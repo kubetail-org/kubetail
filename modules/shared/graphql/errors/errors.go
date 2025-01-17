@@ -21,7 +21,7 @@ var (
 	ErrValidationError     = NewError("KUBETAIL_VALIDATION_ERROR", "Validation error")
 	ErrRecordNotFound      = NewError("KUBETAIL_RECORD_NOT_FOUND", "Record not found")
 	ErrUnauthenticated     = NewError("KUBETAIL_UNAUTHENTICATED", "Authentication required")
-	ErrForbidden           = NewError("KUBETAIL_FORBIDDEN", "Access forbidden")
+	ErrForbidden           = NewError("KUBETAIL_FORBIDDEN", "Forbidden")
 	ErrWatchError          = NewError("KUBETAIL_WATCH_ERROR", "Watch error")
 	ErrInternalServerError = NewError("INTERNAL_SERVER_ERROR", "Internal server error")
 )
