@@ -40,7 +40,7 @@ FROM scratch AS final
 WORKDIR /cluster-api
 
 # copy cluster-api
-COPY --from=builder /work/bin/cluster-api /agent/cluster-api
+COPY --from=builder /work/bin/cluster-api /cluster-api/cluster-api
 
 ENTRYPOINT ["./cluster-api"]
 CMD []
