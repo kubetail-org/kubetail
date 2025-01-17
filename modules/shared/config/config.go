@@ -259,7 +259,7 @@ func DefaultConfig() *Config {
 	cfg.Dashboard.Logging.AccessLog.Enabled = true
 	cfg.Dashboard.Logging.AccessLog.HideHealthChecks = false
 	cfg.Dashboard.Session.Secret = ""
-	cfg.Dashboard.Session.Cookie.Name = "session"
+	cfg.Dashboard.Session.Cookie.Name = "kubetail_dashboard_session"
 	cfg.Dashboard.Session.Cookie.Path = "/"
 	cfg.Dashboard.Session.Cookie.Domain = ""
 	cfg.Dashboard.Session.Cookie.MaxAge = 86400 * 30 // 30 days
