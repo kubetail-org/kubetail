@@ -6,13 +6,13 @@ package graph
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
 	"github.com/kubetail-org/kubetail/modules/dashboard/internal/k8shelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/config"
 	gqlerrors "github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
 	"github.com/kubetail-org/kubetail/modules/shared/helm"
 	sharedk8shelpers "github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
@@ -120,6 +120,11 @@ func (r *kubeConfigResolver) Contexts(ctx context.Context, obj *model.KubeConfig
 
 // KubetailClusterAPIInstall is the resolver for the kubetailClusterAPIInstall field.
 func (r *mutationResolver) KubetailClusterAPIInstall(ctx context.Context, kubeContext *string) (*bool, error) {
+	// Reject requests not in desktop environment
+	if r.environment != config.EnvironmentDesktop {
+		return nil, gqlerrors.ErrForbidden
+	}
+
 	// Init client
 	client, err := helm.NewClient()
 	if err != nil {
@@ -440,10 +445,16 @@ func (r *queryResolver) KubetailClusterAPIHealthzGet(ctx context.Context, kubeCo
 
 // KubeConfigGet is the resolver for the kubeConfigGet field.
 func (r *queryResolver) KubeConfigGet(ctx context.Context) (*model.KubeConfig, error) {
+	// Reject requests not in desktop environment
+	if r.environment != config.EnvironmentDesktop {
+		return nil, gqlerrors.ErrForbidden
+	}
+
 	cm, ok := r.cm.(*k8shelpers.DesktopConnectionManager)
 	if !ok {
-		return nil, fmt.Errorf("DesktopConnectionManager not found")
+		return nil, gqlerrors.ErrInternalServerError
 	}
+
 	return &model.KubeConfig{Config: cm.GetKubeConfig()}, nil
 }
 
@@ -662,9 +673,14 @@ func (r *subscriptionResolver) KubetailClusterAPIHealthzWatch(ctx context.Contex
 
 // KubeConfigWatch is the resolver for the kubeConfigWatch field.
 func (r *subscriptionResolver) KubeConfigWatch(ctx context.Context) (<-chan *model.KubeConfigWatchEvent, error) {
+	// Reject requests not in desktop environment
+	if r.environment != config.EnvironmentDesktop {
+		return nil, gqlerrors.ErrForbidden
+	}
+
 	cm, ok := r.cm.(*k8shelpers.DesktopConnectionManager)
 	if !ok {
-		return nil, fmt.Errorf("DesktopConnectionManager not found")
+		return nil, gqlerrors.ErrInternalServerError
 	}
 
 	// Init output channel
