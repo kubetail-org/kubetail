@@ -1,6 +1,6 @@
-# Kubetail shared libraries
+# Kubetail Shared Go Libraries
 
-Go module containing shared libraries
+Go module containing shared go libraries
 
 ## Dependencies
 

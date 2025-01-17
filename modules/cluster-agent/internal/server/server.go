@@ -30,8 +30,8 @@ func NewServer(cfg *config.Config) (*grpc.Server, error) {
 	}
 
 	// configure tls
-	if cfg.Agent.TLS.Enabled {
-		creds, err := credentials.NewServerTLSFromFile(cfg.Agent.TLS.CertFile, cfg.Agent.TLS.KeyFile)
+	if cfg.ClusterAgent.TLS.Enabled {
+		creds, err := credentials.NewServerTLSFromFile(cfg.ClusterAgent.TLS.CertFile, cfg.ClusterAgent.TLS.KeyFile)
 		if err != nil {
 			return nil, err
 		}

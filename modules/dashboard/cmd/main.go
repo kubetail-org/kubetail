@@ -49,7 +49,7 @@ func main() {
 
 	// Init cobra command
 	cmd := cobra.Command{
-		Use:   "kubetail-dashboard",
+		Use:   "dashboard",
 		Short: "Kubetail Dashboard",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			// Validate CLI flags
@@ -63,8 +63,8 @@ func main() {
 
 			// Init viper
 			v := viper.New()
-			v.BindPFlag("api.addr", cmd.Flags().Lookup("addr"))
-			v.BindPFlag("api.gin-mode", cmd.Flags().Lookup("gin-mode"))
+			v.BindPFlag("dashboard.addr", cmd.Flags().Lookup("addr"))
+			v.BindPFlag("dashboard.gin-mode", cmd.Flags().Lookup("gin-mode"))
 
 			// Init config
 			cfg, err := config.NewConfig(v, cli.Config)
@@ -121,7 +121,7 @@ func main() {
 				var serverErr error
 				zlog.Info().Msg("Starting server on " + cfg.Dashboard.Addr)
 
-				if cfg.API.TLS.Enabled {
+				if cfg.Dashboard.TLS.Enabled {
 					serverErr = server.ListenAndServeTLS(cfg.Dashboard.TLS.CertFile, cfg.Dashboard.TLS.KeyFile)
 				} else {
 					serverErr = server.ListenAndServe()

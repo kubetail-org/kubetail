@@ -54,7 +54,7 @@ func (suite *LogMetadataTestSuite) SetupSuite() {
 
 	// test config
 	cfg := config.DefaultConfig()
-	cfg.Agent.ContainerLogsDir = containerLogsDir
+	cfg.ClusterAgent.ContainerLogsDir = containerLogsDir
 
 	// init test server
 	testServer, err := NewTestServer(cfg)

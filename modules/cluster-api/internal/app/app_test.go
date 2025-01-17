@@ -84,28 +84,28 @@ func TestGzip(t *testing.T) {
 
 func TestCsrfCookieOptions(t *testing.T) {
 	cfg1 := NewTestConfig()
-	cfg1.API.CSRF.Cookie.Path = "/xxx"
+	cfg1.ClusterAPI.CSRF.Cookie.Path = "/xxx"
 
 	cfg2 := NewTestConfig()
-	cfg2.API.CSRF.Cookie.Domain = "x.example.com"
+	cfg2.ClusterAPI.CSRF.Cookie.Domain = "x.example.com"
 
 	cfg3 := NewTestConfig()
-	cfg3.API.CSRF.Cookie.MaxAge = 1
+	cfg3.ClusterAPI.CSRF.Cookie.MaxAge = 1
 
 	cfg4 := NewTestConfig()
-	cfg4.API.CSRF.Cookie.Secure = false
+	cfg4.ClusterAPI.CSRF.Cookie.Secure = false
 
 	cfg5 := NewTestConfig()
-	cfg5.API.CSRF.Cookie.Secure = true
+	cfg5.ClusterAPI.CSRF.Cookie.Secure = true
 
 	cfg6 := NewTestConfig()
-	cfg6.API.CSRF.Cookie.HttpOnly = false
+	cfg6.ClusterAPI.CSRF.Cookie.HttpOnly = false
 
 	cfg7 := NewTestConfig()
-	cfg7.API.CSRF.Cookie.HttpOnly = true
+	cfg7.ClusterAPI.CSRF.Cookie.HttpOnly = true
 
 	cfg8 := NewTestConfig()
-	cfg8.API.CSRF.Cookie.SameSite = csrf.SameSiteNoneMode
+	cfg8.ClusterAPI.CSRF.Cookie.SameSite = csrf.SameSiteNoneMode
 
 	tests := []struct {
 		name   string
@@ -123,8 +123,8 @@ func TestCsrfCookieOptions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.setCfg.API.CSRF.Enabled = true
-			tt.setCfg.API.CSRF.Cookie.Name = "customname"
+			tt.setCfg.ClusterAPI.CSRF.Enabled = true
+			tt.setCfg.ClusterAPI.CSRF.Cookie.Name = "customname"
 			app := NewTestApp(tt.setCfg)
 
 			// add route for testing
@@ -138,14 +138,14 @@ func TestCsrfCookieOptions(t *testing.T) {
 			app.ServeHTTP(w, r)
 
 			// check session cookie
-			cookie := GetCookie(w.Result().Cookies(), tt.setCfg.API.CSRF.Cookie.Name)
+			cookie := GetCookie(w.Result().Cookies(), tt.setCfg.ClusterAPI.CSRF.Cookie.Name)
 			assert.NotNil(t, cookie)
-			assert.Equal(t, tt.setCfg.API.CSRF.Cookie.Path, cookie.Path)
-			assert.Equal(t, tt.setCfg.API.CSRF.Cookie.Domain, cookie.Domain)
-			assert.Equal(t, tt.setCfg.API.CSRF.Cookie.MaxAge, cookie.MaxAge)
-			assert.Equal(t, tt.setCfg.API.CSRF.Cookie.Secure, cookie.Secure)
-			assert.Equal(t, tt.setCfg.API.CSRF.Cookie.HttpOnly, cookie.HttpOnly)
-			assert.Equal(t, tt.setCfg.API.CSRF.Cookie.SameSite, csrf.SameSiteMode(cookie.SameSite))
+			assert.Equal(t, tt.setCfg.ClusterAPI.CSRF.Cookie.Path, cookie.Path)
+			assert.Equal(t, tt.setCfg.ClusterAPI.CSRF.Cookie.Domain, cookie.Domain)
+			assert.Equal(t, tt.setCfg.ClusterAPI.CSRF.Cookie.MaxAge, cookie.MaxAge)
+			assert.Equal(t, tt.setCfg.ClusterAPI.CSRF.Cookie.Secure, cookie.Secure)
+			assert.Equal(t, tt.setCfg.ClusterAPI.CSRF.Cookie.HttpOnly, cookie.HttpOnly)
+			assert.Equal(t, tt.setCfg.ClusterAPI.CSRF.Cookie.SameSite, csrf.SameSiteMode(cookie.SameSite))
 		})
 	}
 }

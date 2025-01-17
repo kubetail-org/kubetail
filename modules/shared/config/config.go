@@ -138,8 +138,8 @@ type Config struct {
 		}
 	}
 
-	// API options
-	API struct {
+	// Cluster API options
+	ClusterAPI struct {
 		Addr             string `validate:"omitempty,hostname_port"`
 		GinMode          string `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
 		BasePath         string `mapstructure:"base-path"`
@@ -197,8 +197,8 @@ type Config struct {
 		}
 	}
 
-	// agent options
-	Agent struct {
+	// Cluster Agent options
+	ClusterAgent struct {
 		Addr             string `validate:"omitempty,hostname_port"`
 		ContainerLogsDir string `mapstructure:"container-logs-dir"`
 
@@ -247,15 +247,6 @@ func DefaultConfig() *Config {
 	cfg.Dashboard.ClusterAPIEndpoint = "http://kubetail-cluster-api"
 	cfg.Dashboard.Environment = EnvironmentDesktop
 	cfg.Dashboard.GinMode = "release"
-	cfg.Dashboard.UI.ClusterAPIEnabled = true
-	cfg.Dashboard.Session.Secret = ""
-	cfg.Dashboard.Session.Cookie.Name = "session"
-	cfg.Dashboard.Session.Cookie.Path = "/"
-	cfg.Dashboard.Session.Cookie.Domain = ""
-	cfg.Dashboard.Session.Cookie.MaxAge = 86400 * 30 // 30 days
-	cfg.Dashboard.Session.Cookie.Secure = false
-	cfg.Dashboard.Session.Cookie.HttpOnly = true
-	cfg.Dashboard.Session.Cookie.SameSite = http.SameSiteLaxMode
 	cfg.Dashboard.CSRF.Enabled = true
 	cfg.Dashboard.CSRF.Secret = ""
 	cfg.Dashboard.CSRF.FieldName = "csrf_token"
@@ -271,32 +262,41 @@ func DefaultConfig() *Config {
 	cfg.Dashboard.Logging.Format = "json"
 	cfg.Dashboard.Logging.AccessLog.Enabled = true
 	cfg.Dashboard.Logging.AccessLog.HideHealthChecks = false
+	cfg.Dashboard.Session.Secret = ""
+	cfg.Dashboard.Session.Cookie.Name = "session"
+	cfg.Dashboard.Session.Cookie.Path = "/"
+	cfg.Dashboard.Session.Cookie.Domain = ""
+	cfg.Dashboard.Session.Cookie.MaxAge = 86400 * 30 // 30 days
+	cfg.Dashboard.Session.Cookie.Secure = false
+	cfg.Dashboard.Session.Cookie.HttpOnly = true
+	cfg.Dashboard.Session.Cookie.SameSite = http.SameSiteLaxMode
+	cfg.Dashboard.UI.ClusterAPIEnabled = true
 
-	cfg.API.Addr = ":80"
-	cfg.API.BasePath = "/"
-	cfg.API.GinMode = "release"
-	cfg.API.AgentDispatchUrl = "kubernetes://kubetail-cluster-agent:50051"
-	cfg.API.CSRF.Enabled = true
-	cfg.API.CSRF.Secret = ""
-	cfg.API.CSRF.FieldName = "csrf_token"
-	cfg.API.CSRF.Cookie.Name = "kubetail_cluster_api_csrf"
-	cfg.API.CSRF.Cookie.Path = "/"
-	cfg.API.CSRF.Cookie.Domain = ""
-	cfg.API.CSRF.Cookie.MaxAge = 60 * 60 * 12 // 12 hours
-	cfg.API.CSRF.Cookie.Secure = false
-	cfg.API.CSRF.Cookie.HttpOnly = true
-	cfg.API.CSRF.Cookie.SameSite = csrf.SameSiteStrictMode
-	cfg.API.Logging.Enabled = true
-	cfg.API.Logging.Level = "info"
-	cfg.API.Logging.Format = "json"
-	cfg.API.Logging.AccessLog.Enabled = true
-	cfg.API.Logging.AccessLog.HideHealthChecks = false
+	cfg.ClusterAPI.Addr = ":80"
+	cfg.ClusterAPI.BasePath = "/"
+	cfg.ClusterAPI.GinMode = "release"
+	cfg.ClusterAPI.AgentDispatchUrl = "kubernetes://kubetail-cluster-agent:50051"
+	cfg.ClusterAPI.CSRF.Enabled = true
+	cfg.ClusterAPI.CSRF.Secret = ""
+	cfg.ClusterAPI.CSRF.FieldName = "csrf_token"
+	cfg.ClusterAPI.CSRF.Cookie.Name = "kubetail_cluster_api_csrf"
+	cfg.ClusterAPI.CSRF.Cookie.Path = "/"
+	cfg.ClusterAPI.CSRF.Cookie.Domain = ""
+	cfg.ClusterAPI.CSRF.Cookie.MaxAge = 60 * 60 * 12 // 12 hours
+	cfg.ClusterAPI.CSRF.Cookie.Secure = false
+	cfg.ClusterAPI.CSRF.Cookie.HttpOnly = true
+	cfg.ClusterAPI.CSRF.Cookie.SameSite = csrf.SameSiteStrictMode
+	cfg.ClusterAPI.Logging.Enabled = true
+	cfg.ClusterAPI.Logging.Level = "info"
+	cfg.ClusterAPI.Logging.Format = "json"
+	cfg.ClusterAPI.Logging.AccessLog.Enabled = true
+	cfg.ClusterAPI.Logging.AccessLog.HideHealthChecks = false
 
-	cfg.Agent.Addr = ":50051"
-	cfg.Agent.ContainerLogsDir = "/var/log/containers"
-	cfg.Agent.Logging.Enabled = true
-	cfg.Agent.Logging.Level = "info"
-	cfg.Agent.Logging.Format = "json"
+	cfg.ClusterAgent.Addr = ":50051"
+	cfg.ClusterAgent.ContainerLogsDir = "/var/log/containers"
+	cfg.ClusterAgent.Logging.Enabled = true
+	cfg.ClusterAgent.Logging.Level = "info"
+	cfg.ClusterAgent.Logging.Format = "json"
 
 	return cfg
 }

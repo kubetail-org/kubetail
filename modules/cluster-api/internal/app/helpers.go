@@ -32,8 +32,8 @@ func mustNewGrpcDispatcher(cfg *config.Config) *grpcdispatcher.Dispatcher {
 	}
 
 	// configure tls
-	if cfg.Agent.TLS.Enabled {
-		creds, err := credentials.NewServerTLSFromFile(cfg.Agent.TLS.CertFile, cfg.Agent.TLS.KeyFile)
+	if cfg.ClusterAgent.TLS.Enabled {
+		creds, err := credentials.NewServerTLSFromFile(cfg.ClusterAgent.TLS.CertFile, cfg.ClusterAgent.TLS.KeyFile)
 		if err != nil {
 			zlog.Fatal().Err(err).Send()
 		}
@@ -44,7 +44,7 @@ func mustNewGrpcDispatcher(cfg *config.Config) *grpcdispatcher.Dispatcher {
 
 	// TODO: reuse app clientset
 	d, err := grpcdispatcher.NewDispatcher(
-		cfg.API.AgentDispatchUrl,
+		cfg.ClusterAPI.AgentDispatchUrl,
 		grpcdispatcher.WithDialOptions(dialOpts...),
 	)
 	if err != nil {

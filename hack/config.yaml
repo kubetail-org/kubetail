@@ -1,19 +1,6 @@
 ## Kubetail Configuration
 #
 
-## auth-mode ##
-#
-# Sets the authentication method for the app
-#
-# Default value: token
-# 
-# One of:
-# - token
-# - cluster
-# - local
-#
-auth-mode: token
-
 ## allowed-namespaces ##
 #
 # If non-empty, restricts queries to allowed namespaces
@@ -33,7 +20,19 @@ dashboard:
   # Default value: ":80"
   #
   addr: :80
-  
+
+  ## auth-mode (experimental) ##
+  #
+  # Sets the authentication method for the app
+  #
+  # Default value: auto
+  # 
+  # One of:
+  # - auto
+  # - token
+  #
+  auth-mode: auto
+
   ## base-path ##
   #
   # Sets the url path prefix (useful for deploying on a sub-path behind a reverse proxy)
@@ -41,7 +40,27 @@ dashboard:
   # Default value: /
   #
   base-path: /
+
+  ## cluster-api-endpoint (experimental) ##
+  #
+  # Service url for cluster-api
+  # 
+  # Default value: http://kubetail-cluster-api
+  #
+  cluster-api-endpoint: http://kubetail-cluster-api
   
+  ## environment (experimental) ##
+  #
+  # Sets the authentication method for the app
+  #
+  # Default value: auto
+  # 
+  # One of:
+  # - desktop
+  # - cluster
+  #
+  environment: desktop
+
   ## gin-mode ##
   #
   # Sets the mode for the Gin framework
@@ -53,17 +72,17 @@ dashboard:
   # - debug
   #
   gin-mode: release
-  
+
   ## csrf ##
   #
   csrf:
-  
+
     ## enabled ##
     #
     # Default value: true
     #
     enabled: true
-  
+
     ## field-name ##
     #
     # Name to use for token in forms
@@ -281,9 +300,21 @@ dashboard:
     #
     key-file:
 
-## api ##
+  ## ui ##
+  #
+  ui:
+
+    ## cluster-api-enabled (experimental) ##
+    #
+    # Enable features that use cluster-api
+    #
+    # Default value: true
+    #
+    cluster-api-enabled: true
+
+## cluster-api ##
 #
-api:
+cluster-api:
 
   ## addr ##
   #
@@ -305,13 +336,13 @@ api:
   #
   gin-mode: release
 
-  ## agent-dispatch-url ##
+  ## cluster-agent-dispatch-url ##
   #
-  # Service url for gRPC fanout queries to agent
+  # Service url for gRPC fanout queries to cluster-agent
   #
   # Default value: kubernetes://kubetail-cluster-agent:50051
   #
-  agent-dispatch-url: kubernetes://kubetail-cluster-agent:50051
+  cluster-agent-dispatch-url: kubernetes://kubetail-cluster-agent:50051
 
   ## csrf ##
   #
@@ -473,9 +504,9 @@ api:
     #
     key-file:
 
-## agent ##
+## cluster-agent ##
 #
-agent:
+cluster-agent:
 
   ## addr ##
   #

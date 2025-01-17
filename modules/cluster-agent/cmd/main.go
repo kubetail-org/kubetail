@@ -62,7 +62,7 @@ func main() {
 
 			// init viper
 			v := viper.New()
-			v.BindPFlag("agent.addr", cmd.Flags().Lookup("addr"))
+			v.BindPFlag("cluster-agent.addr", cmd.Flags().Lookup("addr"))
 
 			// override params from cli
 			for _, param := range params {
@@ -80,9 +80,9 @@ func main() {
 
 			// configure logger
 			config.ConfigureLogger(config.LoggerOptions{
-				Enabled: cfg.Agent.Logging.Enabled,
-				Level:   cfg.Agent.Logging.Level,
-				Format:  cfg.Agent.Logging.Format,
+				Enabled: cfg.ClusterAgent.Logging.Enabled,
+				Level:   cfg.ClusterAgent.Logging.Level,
+				Format:  cfg.ClusterAgent.Logging.Format,
 			})
 
 			// configure k8s
@@ -98,7 +98,7 @@ func main() {
 			}
 
 			// init logmetadata service
-			svc, err := logmetadata.NewLogMetadataService(k8sCfg, os.Getenv("NODE_NAME"), cfg.Agent.ContainerLogsDir)
+			svc, err := logmetadata.NewLogMetadataService(k8sCfg, os.Getenv("NODE_NAME"), cfg.ClusterAgent.ContainerLogsDir)
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
@@ -116,14 +116,14 @@ func main() {
 			healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 
 			// init listener
-			lis, err := net.Listen("tcp", cfg.Agent.Addr)
+			lis, err := net.Listen("tcp", cfg.ClusterAgent.Addr)
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
 
 			// run server in go routine
 			go func() {
-				zlog.Info().Msg("Starting cluster-agent on " + cfg.Agent.Addr)
+				zlog.Info().Msg("Starting cluster-agent on " + cfg.ClusterAgent.Addr)
 				if err := grpcServer.Serve(lis); err != nil {
 					zlog.Fatal().Caller().Err(err).Send()
 				}

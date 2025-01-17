@@ -29,10 +29,10 @@ func init() {
 // Create new base config for testing
 func NewTestConfig() *config.Config {
 	cfg := config.Config{}
-	cfg.API.BasePath = "/"
-	cfg.API.Logging.AccessLog.Enabled = false
-	cfg.API.CSRF.Enabled = false
-	cfg.API.CSRF.Secret = "TESTCSRFSECRET"
+	cfg.ClusterAPI.BasePath = "/"
+	cfg.ClusterAPI.Logging.AccessLog.Enabled = false
+	cfg.ClusterAPI.CSRF.Enabled = false
+	cfg.ClusterAPI.CSRF.Secret = "TESTCSRFSECRET"
 	return &cfg
 }
 

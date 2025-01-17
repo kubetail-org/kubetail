@@ -58,8 +58,8 @@ func main() {
 
 			// Init viper
 			v := viper.New()
-			v.BindPFlag("api.addr", cmd.Flags().Lookup("addr"))
-			v.BindPFlag("api.gin-mode", cmd.Flags().Lookup("gin-mode"))
+			v.BindPFlag("cluster-api.addr", cmd.Flags().Lookup("addr"))
+			v.BindPFlag("cluster-api.gin-mode", cmd.Flags().Lookup("gin-mode"))
 
 			// Init config
 			cfg, err := config.NewConfig(v, cli.Config)
@@ -68,7 +68,7 @@ func main() {
 			}
 
 			// set gin mode
-			gin.SetMode(cfg.API.GinMode)
+			gin.SetMode(cfg.ClusterAPI.GinMode)
 
 			// Override params from cli
 			for _, param := range params {
@@ -80,9 +80,9 @@ func main() {
 
 			// Configure logger
 			config.ConfigureLogger(config.LoggerOptions{
-				Enabled: cfg.API.Logging.Enabled,
-				Level:   cfg.API.Logging.Level,
-				Format:  cfg.API.Logging.Format,
+				Enabled: cfg.ClusterAPI.Logging.Enabled,
+				Level:   cfg.ClusterAPI.Logging.Level,
+				Format:  cfg.ClusterAPI.Logging.Format,
 			})
 
 			// Create app
@@ -93,7 +93,7 @@ func main() {
 
 			// create server
 			server := http.Server{
-				Addr:         cfg.API.Addr,
+				Addr:         cfg.ClusterAPI.Addr,
 				Handler:      app,
 				IdleTimeout:  1 * time.Minute,
 				ReadTimeout:  5 * time.Second,
@@ -103,10 +103,10 @@ func main() {
 			// run server in go routine
 			go func() {
 				var serverErr error
-				zlog.Info().Msg("Starting server on " + cfg.API.Addr)
+				zlog.Info().Msg("Starting server on " + cfg.ClusterAPI.Addr)
 
-				if cfg.API.TLS.Enabled {
-					serverErr = server.ListenAndServeTLS(cfg.API.TLS.CertFile, cfg.API.TLS.KeyFile)
+				if cfg.ClusterAPI.TLS.Enabled {
+					serverErr = server.ListenAndServeTLS(cfg.ClusterAPI.TLS.CertFile, cfg.ClusterAPI.TLS.KeyFile)
 				} else {
 					serverErr = server.ListenAndServe()
 				}

@@ -125,11 +125,11 @@ Visit the [Kubetail documentation](https://www.kubetail.com/)
 
 This monorepo contains:
 
-* Kubetail CLI ([modules/cli](modules/cli))
-* Kubetail Cluster API ([modules/cluster-api](modules/cluster-api))
-* Kubetail Cluster Agent ([modules/cluster-agent](modules/cluster-agent))
-* Kubetail Dashboard Server ([modules/dashboard](modules/dashboard))
-* Kubetail Dashboard UI ([dashboard-ui](dashbord-ui))
+* CLI ([modules/cli](modules/cli))
+* Cluster API ([modules/cluster-api](modules/cluster-api))
+* Cluster Agent ([modules/cluster-agent](modules/cluster-agent))
+* Dashboard Server ([modules/dashboard](modules/dashboard))
+* Dashboard UI ([dashboard-ui](dashbord-ui))
 
 ### Setting up the Development Environment
 

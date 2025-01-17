@@ -73,15 +73,15 @@ func NewApp(cfg *config.Config) (*App, error) {
 	app.Use(requestid.New())
 
 	// Add logging middleware
-	if cfg.API.Logging.AccessLog.Enabled {
-		app.Use(middleware.LoggingMiddleware(cfg.API.Logging.AccessLog.HideHealthChecks))
+	if cfg.ClusterAPI.Logging.AccessLog.Enabled {
+		app.Use(middleware.LoggingMiddleware(cfg.ClusterAPI.Logging.AccessLog.HideHealthChecks))
 	}
 
 	// Gzip middleware
 	app.Use(gzip.Gzip(gzip.DefaultCompression))
 
 	// Routes
-	root := app.Group(cfg.API.BasePath)
+	root := app.Group(cfg.ClusterAPI.BasePath)
 
 	// Dynamic routes
 	dynamicRoutes := root.Group("/")
@@ -97,7 +97,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 
 		// Disable csrf protection for graphql endpoint (already rejects simple requests)
 		dynamicRoutes.Use(func(c *gin.Context) {
-			if c.Request.URL.Path == path.Join(cfg.API.BasePath, "/graphql") {
+			if c.Request.URL.Path == path.Join(cfg.ClusterAPI.BasePath, "/graphql") {
 				c.Request = csrf.UnsafeSkipCheck(c.Request)
 			}
 			c.Next()
@@ -106,17 +106,17 @@ func NewApp(cfg *config.Config) (*App, error) {
 		var csrfProtect func(http.Handler) http.Handler
 
 		// CSRF middleware
-		if cfg.API.CSRF.Enabled {
+		if cfg.ClusterAPI.CSRF.Enabled {
 			csrfProtect = csrf.Protect(
-				[]byte(cfg.API.CSRF.Secret),
-				csrf.FieldName(cfg.API.CSRF.FieldName),
-				csrf.CookieName(cfg.API.CSRF.Cookie.Name),
-				csrf.Path(cfg.API.CSRF.Cookie.Path),
-				csrf.Domain(cfg.API.CSRF.Cookie.Domain),
-				csrf.MaxAge(cfg.API.CSRF.Cookie.MaxAge),
-				csrf.Secure(cfg.API.CSRF.Cookie.Secure),
-				csrf.HttpOnly(cfg.API.CSRF.Cookie.HttpOnly),
-				csrf.SameSite(cfg.API.CSRF.Cookie.SameSite),
+				[]byte(cfg.ClusterAPI.CSRF.Secret),
+				csrf.FieldName(cfg.ClusterAPI.CSRF.FieldName),
+				csrf.CookieName(cfg.ClusterAPI.CSRF.Cookie.Name),
+				csrf.Path(cfg.ClusterAPI.CSRF.Cookie.Path),
+				csrf.Domain(cfg.ClusterAPI.CSRF.Cookie.Domain),
+				csrf.MaxAge(cfg.ClusterAPI.CSRF.Cookie.MaxAge),
+				csrf.Secure(cfg.ClusterAPI.CSRF.Cookie.Secure),
+				csrf.HttpOnly(cfg.ClusterAPI.CSRF.Cookie.HttpOnly),
+				csrf.SameSite(cfg.ClusterAPI.CSRF.Cookie.SameSite),
 			)
 
 			// Add to gin middleware

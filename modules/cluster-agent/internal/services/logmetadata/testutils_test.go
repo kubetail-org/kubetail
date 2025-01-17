@@ -103,7 +103,7 @@ func (ts *TestServer) NewTestClient() *TestClient {
 // Initialize new TestServer instance
 func NewTestServer(cfg *config.Config) (*TestServer, error) {
 	// init service
-	svc, err := NewLogMetadataService(nil, "node-name", cfg.Agent.ContainerLogsDir)
+	svc, err := NewLogMetadataService(nil, "node-name", cfg.ClusterAgent.ContainerLogsDir)
 	if err != nil {
 		return nil, err
 	}
