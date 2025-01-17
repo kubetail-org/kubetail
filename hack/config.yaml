@@ -323,7 +323,23 @@ cluster-api:
   # Default value: ":80"
   #
   addr: :80
-    
+
+  ## base-path ##
+  #
+  # Sets the url path prefix (useful for deploying on a sub-path behind a reverse proxy)
+  # 
+  # Default value: /
+  #
+  base-path: /
+
+  ## cluster-agent-dispatch-url ##
+  #
+  # Service url for gRPC fanout queries to cluster-agent
+  #
+  # Default value: kubernetes://kubetail-cluster-agent:50051
+  #
+  cluster-agent-dispatch-url: kubernetes://kubetail-cluster-agent:50051
+
   ## gin-mode ##
   #
   # Sets the mode for the Gin framework
@@ -335,14 +351,6 @@ cluster-api:
   # - debug
   #
   gin-mode: release
-
-  ## cluster-agent-dispatch-url ##
-  #
-  # Service url for gRPC fanout queries to cluster-agent
-  #
-  # Default value: kubernetes://kubetail-cluster-agent:50051
-  #
-  cluster-agent-dispatch-url: kubernetes://kubetail-cluster-agent:50051
 
   ## csrf ##
   #

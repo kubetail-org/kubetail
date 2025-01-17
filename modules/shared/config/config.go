@@ -270,8 +270,8 @@ func DefaultConfig() *Config {
 
 	cfg.ClusterAPI.Addr = ":80"
 	cfg.ClusterAPI.BasePath = "/"
-	cfg.ClusterAPI.GinMode = "release"
 	cfg.ClusterAPI.ClusterAgentDispatchUrl = "kubernetes://kubetail-cluster-agent:50051"
+	cfg.ClusterAPI.GinMode = "release"
 	cfg.ClusterAPI.CSRF.Enabled = true
 	cfg.ClusterAPI.CSRF.Secret = ""
 	cfg.ClusterAPI.CSRF.FieldName = "csrf_token"

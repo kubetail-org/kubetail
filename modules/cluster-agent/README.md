@@ -22,21 +22,20 @@ The Kubetail Cluster Agent executable supports the following command line config
 
 The Kubetail Cluster Agent can be configured using a configuration file written in YAML, JSON, TOML, HCL or envfile format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [hack/config.yaml](../../hack/config.yaml)):
 
-| Name                  | Datatype | Description                              | Default  |
-| --------------------- | -------- | ---------------------------------------- | -------- |
-| auth-mode             | string   | Auth mode (token, cluster, local)        | "token"  |
-| allowed-namespaces    | []string | If populated, restricts namespace access | []       |
-| agent.addr            | string   | Host address to bind to                  | ":50051" |
-| agent.logging.enabled | bool     | Enable logging                           | true     |
-| agent.logging.level   | string   | Log level                                | "info"   |
-| agent.logging.format  | string   | Log format (json, pretty)                | "json"   |
-| agent.tls.enabled     | bool     | Enable TLS endpoint termination          | false    |
-| agent.tls.cert-file   | string   | Path to cert file                        | ""       |
-| agent.tls.key-file    | string   | Path to key file                         | ""       |
+| Name                         | Datatype | Description                              | Default  |
+| ---------------------------- | -------- | ---------------------------------------- | -------- |
+| allowed-namespaces           | []string | If populated, restricts namespace access | []       |
+| cluser-agent.addr            | string   | Host address to bind to                  | ":50051" |
+| cluser-agent.logging.enabled | bool     | Enable logging                           | true     |
+| cluser-agent.logging.level   | string   | Log level                                | "info"   |
+| cluser-agent.logging.format  | string   | Log format (json, pretty)                | "json"   |
+| cluser-agent.tls.enabled     | bool     | Enable TLS endpoint termination          | false    |
+| cluser-agent.tls.cert-file   | string   | Path to cert file                        | ""       |
+| cluser-agent.tls.key-file    | string   | Path to key file                         | ""       |
 
 ## gRPC
 
-The Kubetail Cluster Agent implements the gRPC service `LogMetadataService` documented in [agent.proto](../../proto/agent.proto).
+The Kubetail Cluster Agent implements the gRPC service `LogMetadataService` documented in [cluster_agent.proto](../../proto/cluster_agent.proto).
 
 ## Test
 

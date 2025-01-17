@@ -163,7 +163,7 @@ func main() {
 	// define flags
 	flagset := cmd.Flags()
 	flagset.SortFlags = false
-	flagset.StringVarP(&cli.Config, "config", "c", "", "Path to configuration file (e.g. \"/etc/kubetail/config.yaml\")")
+	flagset.StringVarP(&cli.Config, "config", "c", "", "Path to configuration file (e.g. \"/etc/kubetail/cluster-agent.yaml\")")
 	flagset.StringP("addr", "a", ":50051", "Host address to bind to")
 	flagset.StringArrayVarP(&params, "param", "p", []string{}, "Config params")
 

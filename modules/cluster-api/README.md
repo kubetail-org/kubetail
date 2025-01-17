@@ -19,31 +19,31 @@ The Kubetail Cluster API executable supports the following command line configur
 
 The Kubetail Cluster API executable can be configured using a configuration file written in YAML, JSON, TOML, HCL or envfile format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [hack/config.yaml](../../hack/config.yaml)):
 
-| Name                                      | Datatype | Description                                          | Default                                     |
-| ----------------------------------------- | -------- | ---------------------------------------------------- | ------------------------------------------- |
-| allowed-namespaces                        | []string | If populated, restricts namespace access             | []                                          |
-| api.addr                                  | string   | Host address to bind to                              | ":80"                                       |
-| api.agent-dispatch-url                    | string   | Url for sending dispatch requests to agent           | "kubernetes://kubetail-cluster-agent:50051" |
-| api.base-path                             | string   | URL path prefix                                      | "/"                                         |
-| api.gin-mode                              | string   | Gin mode (release, debug)                            | "release"                                   |
-| api.csrf.enabled                          | bool     | Enable CSRF protection                               | true                                        |
-| api.csrf.field-name                       | string   | CSRF token name in forms                             | "csrf_token"                                |
-| api.csrf.secret                           | string   | CSRF hash key                                        | ""                                          |
-| api.csrf.cookie.name                      | string   | CSRF cookie name                                     | "csrf"                                      |
-| api.csrf.cookie.path                      | string   | CSRF cookie path                                     | "/"                                         |
-| api.csrf.cookie.domain                    | string   | CSRF cookie domain                                   | ""                                          |
-| api.csrf.cookie.max-age                   | int      | CSRF cookie max age (in seconds)                     | 43200                                       |
-| api.csrf.cookie.secure                    | bool     | CSRF cookie secure property                          | false                                       |
-| api.csrf.cookie.http-only                 | bool     | CSRF cookie HttpOnly property                        | true                                        |
-| api.csrf.cookie.same-site                 | string   | CSRF cookie SameSite property (strict, lax, none)    | "strict"                                    |
-| api.logging.enabled                       | bool     | Enable logging                                       | true                                        |
-| api.logging.level                         | string   | Log level                                            | "info"                                      |
-| api.logging.format                        | string   | Log format (json, pretty)                            | "json"                                      |
-| api.logging.access-log.enabled            | bool     | Enable access log                                    | true                                        |
-| api.logging.access-log.hide-health-checks | bool     | Hide requests to /healthz from access log            | false                                       |
-| api.tls.enabled                           | bool     | Enable TLS endpoint termination                      | false                                       |
-| api.tls.cert-file                         | string   | Path to cert file                                    | ""                                          |
-| api.tls.key-file                          | string   | Path to key file                                     | ""                                          |
+| Name                                              | Datatype | Description                                          | Default                                     |
+| ------------------------------------------------- | -------- | ---------------------------------------------------- | ------------------------------------------- |
+| allowed-namespaces                                | []string | If populated, restricts namespace access             | []                                          |
+| cluster-api.addr                                  | string   | Host address to bind to                              | ":80"                                       |
+| cluster-api.base-path                             | string   | URL path prefix                                      | "/"                                         |
+| cluster-api.cluster-agent-dispatch-url            | string   | URL for sending dispatch requests to cluster-agent   | "kubernetes://kubetail-cluster-agent:50051" |
+| cluster-api.gin-mode                              | string   | Gin mode (release, debug)                            | "release"                                   |
+| cluster-api.csrf.enabled                          | bool     | Enable CSRF protection                               | true                                        |
+| cluster-api.csrf.field-name                       | string   | CSRF token name in forms                             | "csrf_token"                                |
+| cluster-api.csrf.secret                           | string   | CSRF hash key                                        | ""                                          |
+| cluster-api.csrf.cookie.name                      | string   | CSRF cookie name                                     | "csrf"                                      |
+| cluster-api.csrf.cookie.path                      | string   | CSRF cookie path                                     | "/"                                         |
+| cluster-api.csrf.cookie.domain                    | string   | CSRF cookie domain                                   | ""                                          |
+| cluster-api.csrf.cookie.max-age                   | int      | CSRF cookie max age (in seconds)                     | 43200                                       |
+| cluster-api.csrf.cookie.secure                    | bool     | CSRF cookie secure property                          | false                                       |
+| cluster-api.csrf.cookie.http-only                 | bool     | CSRF cookie HttpOnly property                        | true                                        |
+| cluster-api.csrf.cookie.same-site                 | string   | CSRF cookie SameSite property (strict, lax, none)    | "strict"                                    |
+| cluster-api.logging.enabled                       | bool     | Enable logging                                       | true                                        |
+| cluster-api.logging.level                         | string   | Log level                                            | "info"                                      |
+| cluster-api.logging.format                        | string   | Log format (json, pretty)                            | "json"                                      |
+| cluster-api.logging.access-log.enabled            | bool     | Enable access log                                    | true                                        |
+| cluster-api.logging.access-log.hide-health-checks | bool     | Hide requests to /healthz from access log            | false                                       |
+| cluster-api.tls.enabled                           | bool     | Enable TLS endpoint termination                      | false                                       |
+| cluster-api.tls.cert-file                         | string   | Path to cert file                                    | ""                                          |
+| cluster-api.tls.key-file                          | string   | Path to key file                                     | ""                                          |
 
 ## GraphQL
 
