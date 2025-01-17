@@ -54,7 +54,6 @@ const (
 // Application configuration
 type Config struct {
 	AllowedNamespaces []string `mapstructure:"allowed-namespaces"`
-	KubeConfig        string   `mapstructure:"kube-config"`
 
 	// dashboard options
 	Dashboard struct {
@@ -234,12 +233,9 @@ func (cfg *Config) validate() error {
 }
 
 func DefaultConfig() *Config {
-	home, _ := os.UserHomeDir()
-
 	cfg := &Config{}
 
 	cfg.AllowedNamespaces = []string{}
-	cfg.KubeConfig = filepath.Join(home, ".kube", "config")
 
 	cfg.Dashboard.Addr = ":80"
 	cfg.Dashboard.AuthMode = AuthModeAuto
