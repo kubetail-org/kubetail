@@ -20,7 +20,7 @@ data:
       session:
         secret: REPLACEME
         cookie:
-          name: session
+          name: kubetail_dashboard_session
           path: /
           max-age: 2592000
           secure: false
@@ -103,12 +103,12 @@ metadata:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: dashboard
 rules:
-- apiGroups: ["", apps, batch]
-  resources: [cronjobs, daemonsets, deployments, jobs, namespaces, nodes, pods, pods/log, replicasets, statefulsets]
+- apiGroups: [""]
+  resources: [namespaces, nodes]
   verbs: [get, list, watch]
-- apiGroups: [discovery.k8s.io]
-  resources: [endpointslices]
-  verbs: [list, watch]
+- apiGroups: ["", apps, batch]
+  resources: [cronjobs, daemonsets, deployments, jobs, pods, pods/log, replicasets, statefulsets]
+  verbs: [get, list, watch]
 - apiGroups: [authentication.k8s.io]
   resources: [tokenreviews]
   verbs: [create]
@@ -128,6 +128,36 @@ subjects:
 - kind: ServiceAccount
   name: kubetail-dashboard
   namespace: kubetail-system
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-dashboard
+  namespace: kubetail-system
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: dashboard
+rules:
+- apiGroups: [discovery.k8s.io]
+  resources: [endpointslices]
+  verbs: [list, watch]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-dashboard
+  namespace: kubetail-system
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: dashboard
+roleRef:
+  kind: Role
+  name: kubetail-dashboard
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: kubetail-dashboard
+  namespace: kubetail-system    
 ---
 kind: Deployment
 apiVersion: apps/v1
