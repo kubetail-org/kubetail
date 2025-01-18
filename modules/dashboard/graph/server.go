@@ -47,15 +47,13 @@ type Server struct {
 }
 
 // Create new Server instance
-func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, csrfProtectMiddleware func(http.Handler) http.Handler) (*Server, error) {
+func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, csrfProtectMiddleware func(http.Handler) http.Handler) *Server {
 	// Init health monitor manager
-	hmm, err := clusterapi.NewHealthMonitorManager(config, cm)
-	if err != nil {
-		return nil, err
-	}
+	hmm := clusterapi.NewHealthMonitorManager(config, cm)
 
 	// Init resolver
 	r := &Resolver{
+		config:            config,
 		cm:                cm,
 		hmm:               hmm,
 		environment:       config.Dashboard.Environment,
@@ -154,7 +152,9 @@ func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, csrfProte
 // Shutdown
 func (s *Server) Shutdown() {
 	close(s.shutdownCh)
-	s.hmm.Shutdown()
+	if s.hmm != nil {
+		s.hmm.Shutdown()
+	}
 }
 
 // ServeHTTP

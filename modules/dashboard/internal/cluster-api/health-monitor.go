@@ -41,8 +41,16 @@ const (
 	HealthStatusUknown   = "UNKNOWN"
 )
 
-// Represents HealthMonitor
-type HealthMonitor struct {
+type HealthMonitor interface {
+	Start(ctx context.Context) error
+	Shutdown()
+	GetHealthStatus() HealthStatus
+	WatchHealthStatus(ctx context.Context) (<-chan HealthStatus, error)
+	ReadyWait(ctx context.Context) error
+}
+
+// Represents EndpointSlicesHealthMonitor
+type EndpointSlicesHealthMonitor struct {
 	lastStatus HealthStatus
 	factory    informers.SharedInformerFactory
 	informer   cache.SharedIndexInformer
@@ -51,8 +59,8 @@ type HealthMonitor struct {
 	mu         sync.RWMutex
 }
 
-// Create new HealthMonitor instance
-func NewHealthMonitor(ctx context.Context, clientset kubernetes.Interface, namespace string, serviceName string) (*HealthMonitor, error) {
+// Create new EndpointSlicesHealthMonitor instance
+func NewEndpointSlicesHealthMonitor(ctx context.Context, clientset kubernetes.Interface, namespace string, serviceName string) (*EndpointSlicesHealthMonitor, error) {
 	// Init factory
 	labelSelector := labels.Set{
 		discoveryv1.LabelServiceName: serviceName,
@@ -66,7 +74,7 @@ func NewHealthMonitor(ctx context.Context, clientset kubernetes.Interface, names
 	informer := factory.Discovery().V1().EndpointSlices().Informer()
 
 	// Initialize instance
-	hm := &HealthMonitor{
+	hm := &EndpointSlicesHealthMonitor{
 		lastStatus: HealthStatusUknown,
 		factory:    factory,
 		informer:   informer,
@@ -88,7 +96,7 @@ func NewHealthMonitor(ctx context.Context, clientset kubernetes.Interface, names
 }
 
 // Start
-func (hm *HealthMonitor) Start(ctx context.Context) error {
+func (hm *EndpointSlicesHealthMonitor) Start(ctx context.Context) error {
 	// Start background processes
 	hm.factory.Start(hm.shutdownCh)
 
@@ -109,20 +117,20 @@ func (hm *HealthMonitor) Start(ctx context.Context) error {
 }
 
 // Shutdown
-func (hm *HealthMonitor) Shutdown() {
+func (hm *EndpointSlicesHealthMonitor) Shutdown() {
 	close(hm.shutdownCh)
 	hm.factory.Shutdown()
 }
 
 // GetHealthStatus
-func (hm *HealthMonitor) GetHealthStatus() HealthStatus {
+func (hm *EndpointSlicesHealthMonitor) GetHealthStatus() HealthStatus {
 	hm.mu.RLock()
 	defer hm.mu.RUnlock()
 	return hm.lastStatus
 }
 
 // WatchHealthStatus
-func (hm *HealthMonitor) WatchHealthStatus(ctx context.Context) (<-chan HealthStatus, error) {
+func (hm *EndpointSlicesHealthMonitor) WatchHealthStatus(ctx context.Context) (<-chan HealthStatus, error) {
 	outCh := make(chan HealthStatus)
 
 	var mu sync.Mutex
@@ -163,7 +171,7 @@ func (hm *HealthMonitor) WatchHealthStatus(ctx context.Context) (<-chan HealthSt
 }
 
 // ReadyWait
-func (hm *HealthMonitor) ReadyWait(ctx context.Context) error {
+func (hm *EndpointSlicesHealthMonitor) ReadyWait(ctx context.Context) error {
 	if hm.GetHealthStatus() == HealthStatusSuccess {
 		return nil
 	}
@@ -187,7 +195,7 @@ func (hm *HealthMonitor) ReadyWait(ctx context.Context) error {
 }
 
 // onInformerEvent
-func (hm *HealthMonitor) onInformerEvent() {
+func (hm *EndpointSlicesHealthMonitor) onInformerEvent() {
 	list := hm.informer.GetStore().List()
 
 	// Return NotFound if no endpoint slices exist
@@ -211,7 +219,7 @@ func (hm *HealthMonitor) onInformerEvent() {
 }
 
 // updateHealthStatus
-func (hm *HealthMonitor) updateHealthStatus(newStatus HealthStatus) {
+func (hm *EndpointSlicesHealthMonitor) updateHealthStatus(newStatus HealthStatus) {
 	hm.mu.Lock()
 	defer hm.mu.Unlock()
 	if newStatus != hm.lastStatus {
