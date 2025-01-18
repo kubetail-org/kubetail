@@ -155,7 +155,7 @@ func TestDesktopOnlyRequests(t *testing.T) {
 
 	t.Run("kubetailClusterAPIInstall", func(t *testing.T) {
 		r := &mutationResolver{resolver}
-		_, err := r.KubetailClusterAPIInstall(context.Background(), nil)
+		_, err := r.ClusterAPIInstall(context.Background(), nil)
 		assert.NotNil(t, err)
 		assert.Equal(t, err, errors.ErrForbidden)
 	})

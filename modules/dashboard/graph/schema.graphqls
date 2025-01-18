@@ -733,10 +733,10 @@ type Query {
   kubernetesAPIHealthzGet(kubeContext: String): HealthCheckResponse!
 
   """
-  Kubetail Cluster API
+  Cluster API
   """
-  kubetailClusterAPIReadyWait(kubeContext: String, namespace: String, serviceName: String): Boolean!
-  kubetailClusterAPIHealthzGet(kubeContext: String, namespace: String, serviceName: String): HealthCheckResponse!
+  clusterAPIReadyWait(kubeContext: String, namespace: String, serviceName: String): Boolean!
+  clusterAPIHealthzGet(kubeContext: String, namespace: String, serviceName: String): HealthCheckResponse!
 
   """
   KubeConfig queries
@@ -788,9 +788,9 @@ type Query {
 
 type Mutation {
   """
-  Kubetail Cluster API
+  Cluster API
   """
-  kubetailClusterAPIInstall(kubeContext: String): Boolean
+  clusterAPIInstall(kubeContext: String): Boolean
 }
 
 type Subscription {
@@ -822,9 +822,9 @@ type Subscription {
   kubernetesAPIHealthzWatch(kubeContext: String): HealthCheckResponse!
 
   """
-  Kubetail API
+  Cluster API
   """
-  kubetailClusterAPIHealthzWatch(kubeContext: String, namespace: String, serviceName: String): HealthCheckResponse!
+  clusterAPIHealthzWatch(kubeContext: String, namespace: String, serviceName: String): HealthCheckResponse!
 
   """
   KubeConfig watchers
