@@ -22,7 +22,7 @@ import DataTable from '@kubetail/ui/elements/DataTable';
 import appConfig from '@/app-config';
 import Modal from '@/components/elements/Modal';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
-import { ServerStatus, Status, useDashboardServerStatus, useKubernetesAPIServerStatus, useKubetailClusterAPIServerStatus } from '@/lib/server-status';
+import { ServerStatus, Status, useDashboardServerStatus, useKubernetesAPIServerStatus, useClusterAPIServerStatus } from '@/lib/server-status';
 import { cn } from '@/lib/util';
 
 const kubernetesAPIServerStatusMapState = atom({
@@ -30,8 +30,8 @@ const kubernetesAPIServerStatusMapState = atom({
   default: new Map<string, ServerStatus>(),
 });
 
-const kubetailClusterAPIServerStatusMapState = atom({
-  key: 'kubetailClusterAPIServerStatusMap',
+const clusterAPIServerStatusMapState = atom({
+  key: 'clusterAPIServerStatusMap',
   default: new Map<string, ServerStatus>(),
 });
 
@@ -116,11 +116,11 @@ const KubernetesAPIServerStatusFetcher = ({ kubeContext }: { kubeContext: string
   return null;
 };
 
-const KubetailClusterAPIServerStatusFetcher = ({ kubeContext }: { kubeContext: string }) => {
-  const serverStatus = useKubetailClusterAPIServerStatus(kubeContext);
+const ClusterAPIServerStatusFetcher = ({ kubeContext }: { kubeContext: string }) => {
+  const serverStatus = useClusterAPIServerStatus(kubeContext);
 
   // Update map
-  const setServerStatusMap = useSetRecoilState(kubetailClusterAPIServerStatusMapState);
+  const setServerStatusMap = useSetRecoilState(clusterAPIServerStatusMapState);
   useEffectServerStatus(kubeContext, setServerStatusMap, serverStatus);
 
   return null;
@@ -159,11 +159,11 @@ const KubernetesAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Se
   );
 };
 
-const KubetailClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: ServerStatusRowProps) => {
-  const serverStatusMap = useRecoilValue(kubetailClusterAPIServerStatusMapState);
+const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: ServerStatusRowProps) => {
+  const serverStatusMap = useRecoilValue(clusterAPIServerStatusMapState);
   const serverStatus = serverStatusMap.get(kubeContext) || new ServerStatus();
 
-  const [install, { loading, data }] = useMutation(dashboardOps.KUBETAIL_CLUSTER_API_INSTALL);
+  const [install, { loading, data }] = useMutation(dashboardOps.CLUSTER_API_INSTALL);
 
   const handleInstall = async () => {
     await install({ variables: { kubeContext } });
@@ -180,7 +180,7 @@ const KubetailClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus 
           {appConfig.environment === 'desktop' && serverStatus.status === Status.NotFound ? (
             <DataTable.DataCell className="whitespace-normal flex justify-between items-center">
               <span>{statusMessage(serverStatus, 'Uknown')}</span>
-              {data?.kubetailClusterAPIInstall !== true && (
+              {data?.clusterAPIInstall !== true && (
                 <Button intent="outline" size="xs" onClick={handleInstall} disabled={loading}>install</Button>
               )}
             </DataTable.DataCell>
@@ -211,7 +211,7 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
 
   const dashboardServerStatus = useDashboardServerStatus();
   const kubernetesAPIServertatusMap = useRecoilValue(kubernetesAPIServerStatusMapState);
-  const kubetailClusterAPIServerStatusMap = useRecoilValue(kubetailClusterAPIServerStatusMapState);
+  const clusterAPIServerStatusMap = useRecoilValue(clusterAPIServerStatusMapState);
 
   const [modalIsOpen, setModalIsOpen] = useState(false);
 
@@ -222,7 +222,7 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
   } else {
     const all = [dashboardServerStatus];
     for (const val of kubernetesAPIServertatusMap.values()) all.push(val);
-    for (const val of kubetailClusterAPIServerStatusMap.values()) all.push(val);
+    for (const val of clusterAPIServerStatusMap.values()) all.push(val);
 
     if (all.every((item) => item.status === Status.Healthy)) overallStatus = Status.Healthy;
     else overallStatus = Status.Degraded;
@@ -258,7 +258,7 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
             <DataTable>
               <DataTable.Body>
                 <KubernetesAPIServerStatusRow kubeContext={kubeContext} dashboardServerStatus={dashboardServerStatus} />
-                <KubetailClusterAPIServerStatusRow kubeContext={kubeContext} dashboardServerStatus={dashboardServerStatus} />
+                <ClusterAPIServerStatusRow kubeContext={kubeContext} dashboardServerStatus={dashboardServerStatus} />
               </DataTable.Body>
             </DataTable>
           </Fragment>
@@ -267,7 +267,7 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
       {kubeContexts.map((kubeContext) => (
         <Fragment key={kubeContext}>
           <KubernetesAPIServerStatusFetcher kubeContext={kubeContext} />
-          <KubetailClusterAPIServerStatusFetcher kubeContext={kubeContext} />
+          <ClusterAPIServerStatusFetcher kubeContext={kubeContext} />
         </Fragment>
       ))}
     </div>

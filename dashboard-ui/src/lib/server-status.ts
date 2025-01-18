@@ -100,12 +100,12 @@ export function useKubernetesAPIServerStatus(kubeContext: string) {
   return status;
 }
 
-export function useKubetailClusterAPIServerStatus(kubeContext: string) {
+export function useClusterAPIServerStatus(kubeContext: string) {
   const [status, setStatus] = useState<ServerStatus>(new ServerStatus());
 
-  useSubscription(dashboardOps.SERVER_STATUS_KUBETAIL_CLUSTER_API_HEALTHZ_WATCH, {
+  useSubscription(dashboardOps.SERVER_STATUS_CLUSTER_API_HEALTHZ_WATCH, {
     variables: { kubeContext },
-    onData: ({ data }) => setStatus(ServerStatus.fromHealthCheckResponse(data.data?.kubetailClusterAPIHealthzWatch)),
+    onData: ({ data }) => setStatus(ServerStatus.fromHealthCheckResponse(data.data?.clusterAPIHealthzWatch)),
   });
 
   return status;
