@@ -60,7 +60,7 @@ type EndpointSlicesHealthMonitor struct {
 }
 
 // Create new EndpointSlicesHealthMonitor instance
-func NewEndpointSlicesHealthMonitor(ctx context.Context, clientset kubernetes.Interface, namespace string, serviceName string) (*EndpointSlicesHealthMonitor, error) {
+func NewEndpointSlicesHealthMonitor(clientset kubernetes.Interface, namespace string, serviceName string) (*EndpointSlicesHealthMonitor, error) {
 	// Init factory
 	labelSelector := labels.Set{
 		discoveryv1.LabelServiceName: serviceName,
@@ -226,4 +226,37 @@ func (hm *EndpointSlicesHealthMonitor) updateHealthStatus(newStatus HealthStatus
 		hm.lastStatus = newStatus
 		hm.eventbus.Publish("UPDATE", newStatus)
 	}
+}
+
+// Represents NoopHealthMonitor
+type NoopHealthMonitor struct{}
+
+// Create new NoopHealthMonitor instance
+func NewNoopHealthMonitor() *NoopHealthMonitor {
+	return &NoopHealthMonitor{}
+}
+
+// Start
+func (*NoopHealthMonitor) Start(ctx context.Context) error {
+	return nil
+}
+
+// Shutdown
+func (*NoopHealthMonitor) Shutdown() {
+	// Do nothing
+}
+
+// GetHealthStatus
+func (*NoopHealthMonitor) GetHealthStatus() HealthStatus {
+	return HealthStatusUknown
+}
+
+// WatchHealthStatus
+func (*NoopHealthMonitor) WatchHealthStatus(ctx context.Context) (<-chan HealthStatus, error) {
+	return nil, fmt.Errorf("not configured")
+}
+
+// ReadyWait
+func (*NoopHealthMonitor) ReadyWait(ctx context.Context) error {
+	return fmt.Errorf("not configured")
 }

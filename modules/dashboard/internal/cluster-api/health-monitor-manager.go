@@ -31,10 +31,10 @@ type HealthMonitorManager interface {
 }
 
 // Create new HealthMonitorManager instance
-func NewHealthMonitorManager(cfg *config.Config, cm k8shelpers.ConnectionManager) HealthMonitorManager {
+func NewHealthMonitorManager(cfg *config.Config, cm k8shelpers.ConnectionManager) (HealthMonitorManager, error) {
 	switch cfg.Dashboard.Environment {
 	case config.EnvironmentDesktop:
-		return NewDesktopHealthMonitorManager(cm)
+		return NewDesktopHealthMonitorManager(cm), nil
 	case config.EnvironmentCluster:
 		return NewInClusterHealthMonitorManager(cm, cfg.Dashboard.ClusterAPIEndpoint)
 	default:
@@ -92,7 +92,7 @@ func (hmm *DesktopHealthMonitorManager) GetOrCreateMonitor(ctx context.Context, 
 		}
 
 		// Initialize health monitor
-		monitor, err = NewEndpointSlicesHealthMonitor(ctx, clientset, namespace, serviceName)
+		monitor, err = NewEndpointSlicesHealthMonitor(clientset, namespace, serviceName)
 		if err != nil {
 			return nil, err
 		}
@@ -116,15 +116,35 @@ type InClusterHealthMonitorManager struct {
 }
 
 // Create new InClusterHealthMonitorManager instance
-func NewInClusterHealthMonitorManager(cm k8shelpers.ConnectionManager, clusterAPIEndpoint string) *InClusterHealthMonitorManager {
-	hmm := new(InClusterHealthMonitorManager)
+func NewInClusterHealthMonitorManager(cm k8shelpers.ConnectionManager, clusterAPIEndpoint string) (*InClusterHealthMonitorManager, error) {
+	hmm := &InClusterHealthMonitorManager{}
 
-	connectArsg, err := parseConnectUrl(clusterAPIEndpoint)
-	if err != nil {
-		panic("oops")
+	if clusterAPIEndpoint == "" {
+		// Initialize NoopHealthMonitor and return
+		hmm.monitor = NewNoopHealthMonitor()
+		return hmm, nil
 	}
 
-	return &InClusterHealthMonitorManager{}
+	// Parse endpoint url
+	connectArgs, err := parseConnectUrl(clusterAPIEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get clientset
+	clientset, err := cm.GetOrCreateClientset(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize EndpointSlicesHealthMonitor
+	monitor, err := NewEndpointSlicesHealthMonitor(clientset, connectArgs.Namespace, connectArgs.ServiceName)
+	if err != nil {
+		return nil, err
+	}
+	hmm.monitor = monitor
+
+	return hmm, nil
 }
 
 // Shutdown all managed monitors
