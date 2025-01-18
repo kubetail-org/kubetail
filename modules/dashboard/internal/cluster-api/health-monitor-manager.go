@@ -101,8 +101,7 @@ func (hmm *DesktopHealthMonitorManager) GetOrCreateMonitor(ctx context.Context, 
 		hmm.monitorCache[k] = monitor
 
 		// Start background processes and wait for cache to sync
-		err = monitor.Start(ctx)
-		if err != nil {
+		if err := monitor.Start(ctx); err != nil {
 			return nil, err
 		}
 	}
@@ -112,47 +111,67 @@ func (hmm *DesktopHealthMonitorManager) GetOrCreateMonitor(ctx context.Context, 
 
 // Represents InClusterHealthMonitorManager
 type InClusterHealthMonitorManager struct {
-	monitor HealthMonitor
+	cm                 k8shelpers.ConnectionManager
+	clusterAPIEndpoint string
+	monitor            HealthMonitor
+	mu                 sync.Mutex
 }
 
 // Create new InClusterHealthMonitorManager instance
 func NewInClusterHealthMonitorManager(cm k8shelpers.ConnectionManager, clusterAPIEndpoint string) (*InClusterHealthMonitorManager, error) {
-	hmm := &InClusterHealthMonitorManager{}
+	hmm := &InClusterHealthMonitorManager{
+		cm:                 cm,
+		clusterAPIEndpoint: clusterAPIEndpoint,
+	}
 
 	if clusterAPIEndpoint == "" {
 		// Initialize NoopHealthMonitor and return
 		hmm.monitor = NewNoopHealthMonitor()
-		return hmm, nil
 	}
-
-	// Parse endpoint url
-	connectArgs, err := parseConnectUrl(clusterAPIEndpoint)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get clientset
-	clientset, err := cm.GetOrCreateClientset(nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Initialize EndpointSlicesHealthMonitor
-	monitor, err := NewEndpointSlicesHealthMonitor(clientset, connectArgs.Namespace, connectArgs.ServiceName)
-	if err != nil {
-		return nil, err
-	}
-	hmm.monitor = monitor
 
 	return hmm, nil
 }
 
 // Shutdown all managed monitors
 func (hmm *InClusterHealthMonitorManager) Shutdown() {
-	hmm.monitor.Shutdown()
+	if hmm.monitor != nil {
+		hmm.monitor.Shutdown()
+	}
 }
 
 // GetOrCreateMonitor
 func (hmm *InClusterHealthMonitorManager) GetOrCreateMonitor(ctx context.Context, kubeContextPtr *string, namespacePtr *string, serviceNamePtr *string) (HealthMonitor, error) {
+	hmm.mu.Lock()
+	defer hmm.mu.Unlock()
+
+	// Check cache
+	if hmm.monitor == nil {
+		// Parse endpoint url
+		connectArgs, err := parseConnectUrl(hmm.clusterAPIEndpoint)
+		if err != nil {
+			return nil, err
+		}
+
+		// Get clientset
+		clientset, err := hmm.cm.GetOrCreateClientset(nil)
+		if err != nil {
+			return nil, err
+		}
+
+		// Initialize EndpointSlicesHealthMonitor
+		monitor, err := NewEndpointSlicesHealthMonitor(clientset, connectArgs.Namespace, connectArgs.ServiceName)
+		if err != nil {
+			return nil, err
+		}
+
+		// Start background processes
+		if err := monitor.Start(ctx); err != nil {
+			return nil, err
+		}
+
+		// Cache monitor
+		hmm.monitor = monitor
+	}
+
 	return hmm.monitor, nil
 }
