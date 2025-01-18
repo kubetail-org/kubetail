@@ -237,7 +237,7 @@ func DefaultConfig() *Config {
 
 	cfg.AllowedNamespaces = []string{}
 
-	cfg.Dashboard.Addr = ":80"
+	cfg.Dashboard.Addr = ":8080"
 	cfg.Dashboard.AuthMode = AuthModeAuto
 	cfg.Dashboard.BasePath = "/"
 	cfg.Dashboard.ClusterAPIEndpoint = "http://kubetail-cluster-api"
@@ -268,7 +268,7 @@ func DefaultConfig() *Config {
 	cfg.Dashboard.Session.Cookie.SameSite = http.SameSiteLaxMode
 	cfg.Dashboard.UI.ClusterAPIEnabled = true
 
-	cfg.ClusterAPI.Addr = ":80"
+	cfg.ClusterAPI.Addr = ":8080"
 	cfg.ClusterAPI.BasePath = "/"
 	cfg.ClusterAPI.ClusterAgentDispatchUrl = "kubernetes://kubetail-cluster-agent:50051"
 	cfg.ClusterAPI.GinMode = "release"
