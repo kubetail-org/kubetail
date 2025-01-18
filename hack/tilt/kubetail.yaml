@@ -9,10 +9,10 @@ data:
   config.yaml: |
     allowed-namespaces: []
     dashboard:
-      addr: :80
+      addr: :8080
       auth-mode: auto
       base-path: /
-      cluster-api-endpoint: http://kubetail-cluster-api.kubetail-system.svc:80
+      cluster-api-endpoint: http://kubetail-cluster-api.kubetail-system.svc:8080
       environment: cluster
       gin-mode: debug
       ui:
@@ -48,8 +48,8 @@ data:
         enabled: false
         cert-file:
         key-file:
-    api:
-      addr: :80
+    cluster-api:
+      addr: :8080
       base-path: /
       gin-mode: debug
       agent-dispatch-url: kubernetes://kubetail-cluster-agent:50051
@@ -75,7 +75,7 @@ data:
         enabled: false
         cert-file:
         key-file:
-    agent:
+    cluster-agent:
       addr: :50051
       logging:
         enabled: true
@@ -189,7 +189,7 @@ spec:
         ports:
         - name: http
           protocol: TCP
-          containerPort: 80
+          containerPort: 8080
         args:
         - --config=/etc/kubetail/config.yaml
         volumeMounts:
@@ -235,7 +235,7 @@ spec:
   ports:
   - name: http
     protocol: TCP
-    port: 80
+    port: 8080
     targetPort: http
     appProtocol: http
 ---    
@@ -308,7 +308,7 @@ spec:
         ports:
         - name: http
           protocol: TCP
-          containerPort: 80
+          containerPort: 8080
         args:
         - --config=/etc/kubetail/config.yaml
         volumeMounts:
@@ -354,7 +354,7 @@ spec:
   ports:
   - name: http
     protocol: TCP
-    port: 80
+    port: 8080
     targetPort: http
     appProtocol: http
 ---
