@@ -42,17 +42,25 @@ const cookiesCtxKey ctxKey = iota
 type Server struct {
 	r          *Resolver
 	h          http.Handler
-	hmm        *clusterapi.HealthMonitorManager
+	hmm        clusterapi.HealthMonitorManager
 	shutdownCh chan struct{}
 }
 
 // Create new Server instance
-func NewServer(cm k8shelpers.ConnectionManager, environment config.Environment, allowedNamespaces []string, csrfProtectMiddleware func(http.Handler) http.Handler) *Server {
+func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, csrfProtectMiddleware func(http.Handler) http.Handler) (*Server, error) {
 	// Init health monitor manager
-	hmm := clusterapi.NewHealthMonitorManager(cm)
+	hmm, err := clusterapi.NewHealthMonitorManager(config, cm)
+	if err != nil {
+		return nil, err
+	}
 
 	// Init resolver
-	r := &Resolver{cm, hmm, environment, allowedNamespaces}
+	r := &Resolver{
+		cm:                cm,
+		hmm:               hmm,
+		environment:       config.Dashboard.Environment,
+		allowedNamespaces: config.AllowedNamespaces,
+	}
 
 	// Setup csrf query method
 	var csrfProtect http.Handler

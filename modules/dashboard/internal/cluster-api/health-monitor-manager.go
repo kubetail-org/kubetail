@@ -20,26 +20,45 @@ import (
 	"sync"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/internal/k8shelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"k8s.io/utils/ptr"
 )
 
 // Represents HealthMonitorManager
-type HealthMonitorManager struct {
+type HealthMonitorManager interface {
+	GetOrCreateMonitor(ctx context.Context, kubeContextPtr *string, namespacePtr *string, serviceNamePtr *string) (*HealthMonitor, error)
+	Shutdown()
+}
+
+// Create new HealthMonitorManager instance
+func NewHealthMonitorManager(cfg *config.Config, cm k8shelpers.ConnectionManager) (HealthMonitorManager, error) {
+	switch cfg.Dashboard.Environment {
+	case config.EnvironmentDesktop:
+		return NewDesktopHealthMonitorManager(cm)
+	case config.EnvironmentCluster:
+		return NewInClusterHealthMonitorManager(cfg, cm)
+	default:
+		panic("not implemented")
+	}
+}
+
+// Represents DesktopHealthMonitorManager
+type DesktopHealthMonitorManager struct {
 	cm           k8shelpers.ConnectionManager
 	monitorCache map[string]*HealthMonitor
 	mu           sync.Mutex
 }
 
-// Create new HealthMonitorManager instance
-func NewHealthMonitorManager(cm k8shelpers.ConnectionManager) *HealthMonitorManager {
-	return &HealthMonitorManager{
+// Create new DesktopHealthMonitorManager instance
+func NewDesktopHealthMonitorManager(cm k8shelpers.ConnectionManager) (*DesktopHealthMonitorManager, error) {
+	return &DesktopHealthMonitorManager{
 		cm:           cm,
 		monitorCache: make(map[string]*HealthMonitor),
-	}
+	}, nil
 }
 
 // Shutdown all managed monitors
-func (hmm *HealthMonitorManager) Shutdown() {
+func (hmm *DesktopHealthMonitorManager) Shutdown() {
 	var wg sync.WaitGroup
 	for _, monitor := range hmm.monitorCache {
 		wg.Add(1)
@@ -52,7 +71,7 @@ func (hmm *HealthMonitorManager) Shutdown() {
 }
 
 // GetOrCreateMonitor
-func (hmm *HealthMonitorManager) GetOrCreateMonitor(ctx context.Context, kubeContextPtr *string, namespacePtr *string, serviceNamePtr *string) (*HealthMonitor, error) {
+func (hmm *DesktopHealthMonitorManager) GetOrCreateMonitor(ctx context.Context, kubeContextPtr *string, namespacePtr *string, serviceNamePtr *string) (*HealthMonitor, error) {
 	hmm.mu.Lock()
 	defer hmm.mu.Unlock()
 
@@ -89,4 +108,23 @@ func (hmm *HealthMonitorManager) GetOrCreateMonitor(ctx context.Context, kubeCon
 	}
 
 	return monitor, nil
+}
+
+// Represents InClusterHealthMonitorManager
+type InClusterHealthMonitorManager struct {
+}
+
+// Create new InClusterHealthMonitorManager instance
+func NewInClusterHealthMonitorManager(cfg *config.Config, cm k8shelpers.ConnectionManager) (*InClusterHealthMonitorManager, error) {
+
+	return &InClusterHealthMonitorManager{}, nil
+}
+
+// Shutdown all managed monitors
+func (hmm *InClusterHealthMonitorManager) Shutdown() {
+}
+
+// GetOrCreateMonitor
+func (hmm *InClusterHealthMonitorManager) GetOrCreateMonitor(ctx context.Context, kubeContextPtr *string, namespacePtr *string, serviceNamePtr *string) (*HealthMonitor, error) {
+	return &HealthMonitor{}, nil
 }

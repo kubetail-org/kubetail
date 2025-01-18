@@ -14,5 +14,56 @@
 
 package clusterapi
 
+import (
+	"fmt"
+	"net/url"
+	"os"
+	"strings"
+)
+
 const DefaultNamespace = "kubetail-system"
 const DefaultServiceName = "kubetail-cluster-api"
+
+// Represents connect args
+type connectArgs struct {
+	Namespace   string
+	ServiceName string
+	Port        string
+}
+
+// Parse connect url and return connect args
+func parseConnectUrl(connectUrl string) (*connectArgs, error) {
+	u, err := url.Parse(connectUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	parts := strings.Split(u.Hostname(), ".")
+
+	serviceName := parts[0]
+
+	// get namespace
+	var namespace string
+	if len(parts) > 1 {
+		namespace = parts[1]
+	} else {
+		nsPathname := "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+		nsBytes, err := os.ReadFile(nsPathname)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read current namespace from %s: %v", nsPathname, err)
+		}
+		namespace = string(nsBytes)
+	}
+
+	// get port
+	port := u.Port()
+	if port == "" {
+		port = "50051"
+	}
+
+	return &connectArgs{
+		Namespace:   namespace,
+		ServiceName: serviceName,
+		Port:        port,
+	}, nil
+}

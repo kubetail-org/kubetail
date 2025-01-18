@@ -48,7 +48,7 @@ import (
 
 type Resolver struct {
 	cm                k8shelpers.ConnectionManager
-	hmm               *clusterapi.HealthMonitorManager
+	hmm               clusterapi.HealthMonitorManager
 	environment       config.Environment
 	allowedNamespaces []string
 }
