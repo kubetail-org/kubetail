@@ -419,7 +419,9 @@ func (r *queryResolver) KubetailClusterAPIReadyWait(ctx context.Context, kubeCon
 		return false, err
 	}
 
-	monitor.ReadyWait(ctx)
+	if err := monitor.ReadyWait(ctx); err != nil {
+		return false, err
+	}
 
 	if ctx.Err() != nil {
 		return false, ctx.Err()

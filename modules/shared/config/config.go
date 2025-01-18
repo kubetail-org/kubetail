@@ -240,7 +240,7 @@ func DefaultConfig() *Config {
 	cfg.Dashboard.Addr = ":8080"
 	cfg.Dashboard.AuthMode = AuthModeAuto
 	cfg.Dashboard.BasePath = "/"
-	cfg.Dashboard.ClusterAPIEndpoint = "http://kubetail-cluster-api"
+	cfg.Dashboard.ClusterAPIEndpoint = ""
 	cfg.Dashboard.Environment = EnvironmentDesktop
 	cfg.Dashboard.GinMode = "release"
 	cfg.Dashboard.CSRF.Enabled = true

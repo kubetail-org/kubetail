@@ -33,6 +33,7 @@ func init() {
 func newTestConfig() *config.Config {
 	cfg := config.Config{}
 	cfg.Dashboard.BasePath = "/"
+	cfg.Dashboard.Environment = config.EnvironmentCluster
 	cfg.Dashboard.Logging.AccessLog.Enabled = false
 	cfg.Dashboard.Session.Secret = "TESTSESSIONSECRET"
 	cfg.Dashboard.Session.Cookie.Name = "session"

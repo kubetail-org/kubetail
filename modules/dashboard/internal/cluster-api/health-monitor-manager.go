@@ -20,26 +20,45 @@ import (
 	"sync"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/internal/k8shelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"k8s.io/utils/ptr"
 )
 
 // Represents HealthMonitorManager
-type HealthMonitorManager struct {
-	cm           k8shelpers.ConnectionManager
-	monitorCache map[string]*HealthMonitor
-	mu           sync.Mutex
+type HealthMonitorManager interface {
+	GetOrCreateMonitor(ctx context.Context, kubeContextPtr *string, namespacePtr *string, serviceNamePtr *string) (HealthMonitor, error)
+	Shutdown()
 }
 
 // Create new HealthMonitorManager instance
-func NewHealthMonitorManager(cm k8shelpers.ConnectionManager) *HealthMonitorManager {
-	return &HealthMonitorManager{
+func NewHealthMonitorManager(cfg *config.Config, cm k8shelpers.ConnectionManager) (HealthMonitorManager, error) {
+	switch cfg.Dashboard.Environment {
+	case config.EnvironmentDesktop:
+		return NewDesktopHealthMonitorManager(cm), nil
+	case config.EnvironmentCluster:
+		return NewInClusterHealthMonitorManager(cm, cfg.Dashboard.ClusterAPIEndpoint)
+	default:
+		panic("not implemented")
+	}
+}
+
+// Represents DesktopHealthMonitorManager
+type DesktopHealthMonitorManager struct {
+	cm           k8shelpers.ConnectionManager
+	monitorCache map[string]HealthMonitor
+	mu           sync.Mutex
+}
+
+// Create new DesktopHealthMonitorManager instance
+func NewDesktopHealthMonitorManager(cm k8shelpers.ConnectionManager) *DesktopHealthMonitorManager {
+	return &DesktopHealthMonitorManager{
 		cm:           cm,
-		monitorCache: make(map[string]*HealthMonitor),
+		monitorCache: make(map[string]HealthMonitor),
 	}
 }
 
 // Shutdown all managed monitors
-func (hmm *HealthMonitorManager) Shutdown() {
+func (hmm *DesktopHealthMonitorManager) Shutdown() {
 	var wg sync.WaitGroup
 	for _, monitor := range hmm.monitorCache {
 		wg.Add(1)
@@ -52,7 +71,7 @@ func (hmm *HealthMonitorManager) Shutdown() {
 }
 
 // GetOrCreateMonitor
-func (hmm *HealthMonitorManager) GetOrCreateMonitor(ctx context.Context, kubeContextPtr *string, namespacePtr *string, serviceNamePtr *string) (*HealthMonitor, error) {
+func (hmm *DesktopHealthMonitorManager) GetOrCreateMonitor(ctx context.Context, kubeContextPtr *string, namespacePtr *string, serviceNamePtr *string) (HealthMonitor, error) {
 	hmm.mu.Lock()
 	defer hmm.mu.Unlock()
 
@@ -73,7 +92,7 @@ func (hmm *HealthMonitorManager) GetOrCreateMonitor(ctx context.Context, kubeCon
 		}
 
 		// Initialize health monitor
-		monitor, err = NewHealthMonitor(ctx, clientset, namespace, serviceName)
+		monitor, err = NewEndpointSlicesHealthMonitor(clientset, namespace, serviceName)
 		if err != nil {
 			return nil, err
 		}
@@ -89,4 +108,51 @@ func (hmm *HealthMonitorManager) GetOrCreateMonitor(ctx context.Context, kubeCon
 	}
 
 	return monitor, nil
+}
+
+// Represents InClusterHealthMonitorManager
+type InClusterHealthMonitorManager struct {
+	monitor HealthMonitor
+}
+
+// Create new InClusterHealthMonitorManager instance
+func NewInClusterHealthMonitorManager(cm k8shelpers.ConnectionManager, clusterAPIEndpoint string) (*InClusterHealthMonitorManager, error) {
+	hmm := &InClusterHealthMonitorManager{}
+
+	if clusterAPIEndpoint == "" {
+		// Initialize NoopHealthMonitor and return
+		hmm.monitor = NewNoopHealthMonitor()
+		return hmm, nil
+	}
+
+	// Parse endpoint url
+	connectArgs, err := parseConnectUrl(clusterAPIEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get clientset
+	clientset, err := cm.GetOrCreateClientset(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize EndpointSlicesHealthMonitor
+	monitor, err := NewEndpointSlicesHealthMonitor(clientset, connectArgs.Namespace, connectArgs.ServiceName)
+	if err != nil {
+		return nil, err
+	}
+	hmm.monitor = monitor
+
+	return hmm, nil
+}
+
+// Shutdown all managed monitors
+func (hmm *InClusterHealthMonitorManager) Shutdown() {
+	hmm.monitor.Shutdown()
+}
+
+// GetOrCreateMonitor
+func (hmm *InClusterHealthMonitorManager) GetOrCreateMonitor(ctx context.Context, kubeContextPtr *string, namespacePtr *string, serviceNamePtr *string) (HealthMonitor, error) {
+	return hmm.monitor, nil
 }

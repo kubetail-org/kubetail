@@ -195,10 +195,15 @@ func NewApp(cfg *config.Config) (*App, error) {
 			// Add K8S auth middleware
 			protectedRoutes.Use(k8sAuthenticationMiddleware(cfg.Dashboard.AuthMode))
 
-			// GraphQL endpoint
-			graphqlServer := graph.NewServer(app.cm, cfg.Dashboard.Environment, cfg.AllowedNamespaces, csrfProtect)
-			protectedRoutes.Any("/graphql", gin.WrapH(graphqlServer))
+			// Init graphql server
+			graphqlServer, err := graph.NewServer(cfg, app.cm, csrfProtect)
+			if err != nil {
+				return nil, err
+			}
 			app.graphqlServer = graphqlServer
+
+			// GraphQL endpoint
+			protectedRoutes.Any("/graphql", gin.WrapH(graphqlServer))
 
 			// Cluster API proxy routes
 			protectedRoutes.Any("/cluster-api-proxy/*path", gin.WrapH(app.clusterAPIProxy))

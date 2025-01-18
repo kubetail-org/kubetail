@@ -28,7 +28,11 @@ import (
 
 func TestServer(t *testing.T) {
 	t.Run("cross-origin websocket requests are allowed when csrf protection is disabled", func(t *testing.T) {
-		graphqlServer := NewServer(nil, config.EnvironmentCluster, []string{}, nil)
+		cfg := config.DefaultConfig()
+		cfg.Dashboard.Environment = config.EnvironmentCluster
+
+		graphqlServer, err := NewServer(cfg, nil, nil)
+		assert.Nil(t, err)
 
 		client := testutils.NewWebTestClient(t, graphqlServer)
 		defer client.Teardown()
@@ -60,7 +64,11 @@ func TestServer(t *testing.T) {
 			})
 		}
 
-		graphqlServer := NewServer(nil, config.EnvironmentCluster, []string{}, csrfProtect)
+		cfg := config.DefaultConfig()
+		cfg.Dashboard.Environment = config.EnvironmentCluster
+
+		graphqlServer, err := NewServer(cfg, nil, csrfProtect)
+		assert.Nil(t, err)
 
 		client := testutils.NewWebTestClient(t, graphqlServer)
 		defer client.Teardown()

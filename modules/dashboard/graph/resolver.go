@@ -47,8 +47,9 @@ import (
 //go:generate go run github.com/99designs/gqlgen generate
 
 type Resolver struct {
+	config            *config.Config
 	cm                k8shelpers.ConnectionManager
-	hmm               *clusterapi.HealthMonitorManager
+	hmm               clusterapi.HealthMonitorManager
 	environment       config.Environment
 	allowedNamespaces []string
 }

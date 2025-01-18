@@ -41,8 +41,16 @@ const (
 	HealthStatusUknown   = "UNKNOWN"
 )
 
-// Represents HealthMonitor
-type HealthMonitor struct {
+type HealthMonitor interface {
+	Start(ctx context.Context) error
+	Shutdown()
+	GetHealthStatus() HealthStatus
+	WatchHealthStatus(ctx context.Context) (<-chan HealthStatus, error)
+	ReadyWait(ctx context.Context) error
+}
+
+// Represents EndpointSlicesHealthMonitor
+type EndpointSlicesHealthMonitor struct {
 	lastStatus HealthStatus
 	factory    informers.SharedInformerFactory
 	informer   cache.SharedIndexInformer
@@ -51,8 +59,8 @@ type HealthMonitor struct {
 	mu         sync.RWMutex
 }
 
-// Create new HealthMonitor instance
-func NewHealthMonitor(ctx context.Context, clientset kubernetes.Interface, namespace string, serviceName string) (*HealthMonitor, error) {
+// Create new EndpointSlicesHealthMonitor instance
+func NewEndpointSlicesHealthMonitor(clientset kubernetes.Interface, namespace string, serviceName string) (*EndpointSlicesHealthMonitor, error) {
 	// Init factory
 	labelSelector := labels.Set{
 		discoveryv1.LabelServiceName: serviceName,
@@ -66,7 +74,7 @@ func NewHealthMonitor(ctx context.Context, clientset kubernetes.Interface, names
 	informer := factory.Discovery().V1().EndpointSlices().Informer()
 
 	// Initialize instance
-	hm := &HealthMonitor{
+	hm := &EndpointSlicesHealthMonitor{
 		lastStatus: HealthStatusUknown,
 		factory:    factory,
 		informer:   informer,
@@ -88,7 +96,7 @@ func NewHealthMonitor(ctx context.Context, clientset kubernetes.Interface, names
 }
 
 // Start
-func (hm *HealthMonitor) Start(ctx context.Context) error {
+func (hm *EndpointSlicesHealthMonitor) Start(ctx context.Context) error {
 	// Start background processes
 	hm.factory.Start(hm.shutdownCh)
 
@@ -109,20 +117,20 @@ func (hm *HealthMonitor) Start(ctx context.Context) error {
 }
 
 // Shutdown
-func (hm *HealthMonitor) Shutdown() {
+func (hm *EndpointSlicesHealthMonitor) Shutdown() {
 	close(hm.shutdownCh)
 	hm.factory.Shutdown()
 }
 
 // GetHealthStatus
-func (hm *HealthMonitor) GetHealthStatus() HealthStatus {
+func (hm *EndpointSlicesHealthMonitor) GetHealthStatus() HealthStatus {
 	hm.mu.RLock()
 	defer hm.mu.RUnlock()
 	return hm.lastStatus
 }
 
 // WatchHealthStatus
-func (hm *HealthMonitor) WatchHealthStatus(ctx context.Context) (<-chan HealthStatus, error) {
+func (hm *EndpointSlicesHealthMonitor) WatchHealthStatus(ctx context.Context) (<-chan HealthStatus, error) {
 	outCh := make(chan HealthStatus)
 
 	var mu sync.Mutex
@@ -163,7 +171,7 @@ func (hm *HealthMonitor) WatchHealthStatus(ctx context.Context) (<-chan HealthSt
 }
 
 // ReadyWait
-func (hm *HealthMonitor) ReadyWait(ctx context.Context) error {
+func (hm *EndpointSlicesHealthMonitor) ReadyWait(ctx context.Context) error {
 	if hm.GetHealthStatus() == HealthStatusSuccess {
 		return nil
 	}
@@ -187,7 +195,7 @@ func (hm *HealthMonitor) ReadyWait(ctx context.Context) error {
 }
 
 // onInformerEvent
-func (hm *HealthMonitor) onInformerEvent() {
+func (hm *EndpointSlicesHealthMonitor) onInformerEvent() {
 	list := hm.informer.GetStore().List()
 
 	// Return NotFound if no endpoint slices exist
@@ -211,11 +219,44 @@ func (hm *HealthMonitor) onInformerEvent() {
 }
 
 // updateHealthStatus
-func (hm *HealthMonitor) updateHealthStatus(newStatus HealthStatus) {
+func (hm *EndpointSlicesHealthMonitor) updateHealthStatus(newStatus HealthStatus) {
 	hm.mu.Lock()
 	defer hm.mu.Unlock()
 	if newStatus != hm.lastStatus {
 		hm.lastStatus = newStatus
 		hm.eventbus.Publish("UPDATE", newStatus)
 	}
+}
+
+// Represents NoopHealthMonitor
+type NoopHealthMonitor struct{}
+
+// Create new NoopHealthMonitor instance
+func NewNoopHealthMonitor() *NoopHealthMonitor {
+	return &NoopHealthMonitor{}
+}
+
+// Start
+func (*NoopHealthMonitor) Start(ctx context.Context) error {
+	return nil
+}
+
+// Shutdown
+func (*NoopHealthMonitor) Shutdown() {
+	// Do nothing
+}
+
+// GetHealthStatus
+func (*NoopHealthMonitor) GetHealthStatus() HealthStatus {
+	return HealthStatusUknown
+}
+
+// WatchHealthStatus
+func (*NoopHealthMonitor) WatchHealthStatus(ctx context.Context) (<-chan HealthStatus, error) {
+	return nil, fmt.Errorf("not configured")
+}
+
+// ReadyWait
+func (*NoopHealthMonitor) ReadyWait(ctx context.Context) error {
+	return fmt.Errorf("not configured")
 }
