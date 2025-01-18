@@ -118,8 +118,8 @@ func (r *kubeConfigResolver) Contexts(ctx context.Context, obj *model.KubeConfig
 	return outList, nil
 }
 
-// KubetailClusterAPIInstall is the resolver for the kubetailClusterAPIInstall field.
-func (r *mutationResolver) KubetailClusterAPIInstall(ctx context.Context, kubeContext *string) (*bool, error) {
+// ClusterAPIInstall is the resolver for the clusterAPIInstall field.
+func (r *mutationResolver) ClusterAPIInstall(ctx context.Context, kubeContext *string) (*bool, error) {
 	// Reject requests not in desktop environment
 	if r.environment != config.EnvironmentDesktop {
 		return nil, gqlerrors.ErrForbidden
@@ -412,8 +412,8 @@ func (r *queryResolver) KubernetesAPIHealthzGet(ctx context.Context, kubeContext
 	return r.kubernetesAPIHealthzGet(ctx, kubeContext), nil
 }
 
-// KubetailClusterAPIReadyWait is the resolver for the kubetailClusterAPIReadyWait field.
-func (r *queryResolver) KubetailClusterAPIReadyWait(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (bool, error) {
+// ClusterAPIReadyWait is the resolver for the clusterAPIReadyWait field.
+func (r *queryResolver) ClusterAPIReadyWait(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (bool, error) {
 	monitor, err := r.hmm.GetOrCreateMonitor(ctx, kubeContext, namespace, serviceName)
 	if err != nil {
 		return false, err
@@ -430,8 +430,8 @@ func (r *queryResolver) KubetailClusterAPIReadyWait(ctx context.Context, kubeCon
 	return true, nil
 }
 
-// KubetailClusterAPIHealthzGet is the resolver for the kubetailClusterAPIHealthzGet field.
-func (r *queryResolver) KubetailClusterAPIHealthzGet(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (*model.HealthCheckResponse, error) {
+// ClusterAPIHealthzGet is the resolver for the clusterAPIHealthzGet field.
+func (r *queryResolver) ClusterAPIHealthzGet(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (*model.HealthCheckResponse, error) {
 	monitor, err := r.hmm.GetOrCreateMonitor(ctx, kubeContext, namespace, serviceName)
 	if err != nil {
 		return nil, err
@@ -643,8 +643,8 @@ func (r *subscriptionResolver) KubernetesAPIHealthzWatch(ctx context.Context, ku
 	return outCh, nil
 }
 
-// KubetailClusterAPIHealthzWatch is the resolver for the kubetailClusterAPIHealthzWatch field.
-func (r *subscriptionResolver) KubetailClusterAPIHealthzWatch(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (<-chan *model.HealthCheckResponse, error) {
+// ClusterAPIHealthzWatch is the resolver for the clusterAPIHealthzWatch field.
+func (r *subscriptionResolver) ClusterAPIHealthzWatch(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (<-chan *model.HealthCheckResponse, error) {
 	monitor, err := r.hmm.GetOrCreateMonitor(ctx, kubeContext, namespace, serviceName)
 	if err != nil {
 		return nil, err
@@ -865,3 +865,89 @@ type kubeConfigResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *mutationResolver) KubetailClusterAPIInstall(ctx context.Context, kubeContext *string) (*bool, error) {
+	// Reject requests not in desktop environment
+	if r.environment != config.EnvironmentDesktop {
+		return nil, gqlerrors.ErrForbidden
+	}
+
+	// Init client
+	client, err := helm.NewClient()
+	if err != nil {
+		return nil, err
+	}
+
+	// Install
+	_, err = client.InstallLatest()
+	if err != nil {
+		return nil, err
+	}
+
+	return ptr.To(true), nil
+}
+func (r *queryResolver) KubetailClusterAPIReadyWait(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (bool, error) {
+	monitor, err := r.hmm.GetOrCreateMonitor(ctx, kubeContext, namespace, serviceName)
+	if err != nil {
+		return false, err
+	}
+
+	if err := monitor.ReadyWait(ctx); err != nil {
+		return false, err
+	}
+
+	if ctx.Err() != nil {
+		return false, ctx.Err()
+	}
+
+	return true, nil
+}
+func (r *queryResolver) KubetailClusterAPIHealthzGet(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (*model.HealthCheckResponse, error) {
+	monitor, err := r.hmm.GetOrCreateMonitor(ctx, kubeContext, namespace, serviceName)
+	if err != nil {
+		return nil, err
+	}
+
+	status := monitor.GetHealthStatus()
+
+	return &model.HealthCheckResponse{
+		Status:    healthCheckStatusFromClusterAPIHealthStatus(status),
+		Timestamp: time.Now().UTC(),
+	}, nil
+}
+func (r *subscriptionResolver) KubetailClusterAPIHealthzWatch(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (<-chan *model.HealthCheckResponse, error) {
+	monitor, err := r.hmm.GetOrCreateMonitor(ctx, kubeContext, namespace, serviceName)
+	if err != nil {
+		return nil, err
+	}
+
+	statusCh, err := monitor.WatchHealthStatus(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	outCh := make(chan *model.HealthCheckResponse)
+
+	// Run in go routine
+	go func() {
+		defer close(outCh)
+
+		for status := range statusCh {
+			resp := &model.HealthCheckResponse{
+				Status:    healthCheckStatusFromClusterAPIHealthStatus(status),
+				Timestamp: time.Now().UTC(),
+			}
+			outCh <- resp
+		}
+	}()
+
+	return outCh, nil
+}
+*/

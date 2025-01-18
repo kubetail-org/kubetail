@@ -533,7 +533,7 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		KubetailClusterAPIInstall func(childComplexity int, kubeContext *string) int
+		ClusterAPIInstall func(childComplexity int, kubeContext *string) int
 	}
 
 	PageInfo struct {
@@ -549,48 +549,48 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		AppsV1DaemonSetsGet          func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
-		AppsV1DaemonSetsList         func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		AppsV1DeploymentsGet         func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
-		AppsV1DeploymentsList        func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		AppsV1ReplicaSetsGet         func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
-		AppsV1ReplicaSetsList        func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		AppsV1StatefulSetsGet        func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
-		AppsV1StatefulSetsList       func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		BatchV1CronJobsGet           func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
-		BatchV1CronJobsList          func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		BatchV1JobsGet               func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
-		BatchV1JobsList              func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		CoreV1NamespacesList         func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
-		CoreV1NodesList              func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
-		CoreV1PodsGet                func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
-		CoreV1PodsList               func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		CoreV1ServicesGet            func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
-		CoreV1ServicesList           func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		KubeConfigGet                func(childComplexity int) int
-		KubernetesAPIHealthzGet      func(childComplexity int, kubeContext *string) int
-		KubernetesAPIReadyWait       func(childComplexity int, kubeContext *string) int
-		KubetailClusterAPIHealthzGet func(childComplexity int, kubeContext *string, namespace *string, serviceName *string) int
-		KubetailClusterAPIReadyWait  func(childComplexity int, kubeContext *string, namespace *string, serviceName *string) int
-		PodLogHead                   func(childComplexity int, kubeContext *string, namespace *string, name string, container *string, after *string, since *string, first *int) int
-		PodLogTail                   func(childComplexity int, kubeContext *string, namespace *string, name string, container *string, before *string, last *int) int
+		AppsV1DaemonSetsGet     func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
+		AppsV1DaemonSetsList    func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		AppsV1DeploymentsGet    func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
+		AppsV1DeploymentsList   func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		AppsV1ReplicaSetsGet    func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
+		AppsV1ReplicaSetsList   func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		AppsV1StatefulSetsGet   func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
+		AppsV1StatefulSetsList  func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		BatchV1CronJobsGet      func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
+		BatchV1CronJobsList     func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		BatchV1JobsGet          func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
+		BatchV1JobsList         func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		ClusterAPIHealthzGet    func(childComplexity int, kubeContext *string, namespace *string, serviceName *string) int
+		ClusterAPIReadyWait     func(childComplexity int, kubeContext *string, namespace *string, serviceName *string) int
+		CoreV1NamespacesList    func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
+		CoreV1NodesList         func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
+		CoreV1PodsGet           func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
+		CoreV1PodsList          func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		CoreV1ServicesGet       func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
+		CoreV1ServicesList      func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		KubeConfigGet           func(childComplexity int) int
+		KubernetesAPIHealthzGet func(childComplexity int, kubeContext *string) int
+		KubernetesAPIReadyWait  func(childComplexity int, kubeContext *string) int
+		PodLogHead              func(childComplexity int, kubeContext *string, namespace *string, name string, container *string, after *string, since *string, first *int) int
+		PodLogTail              func(childComplexity int, kubeContext *string, namespace *string, name string, container *string, before *string, last *int) int
 	}
 
 	Subscription struct {
-		AppsV1DaemonSetsWatch          func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		AppsV1DeploymentsWatch         func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		AppsV1ReplicaSetsWatch         func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		AppsV1StatefulSetsWatch        func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		BatchV1CronJobsWatch           func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		BatchV1JobsWatch               func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		CoreV1NamespacesWatch          func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
-		CoreV1NodesWatch               func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
-		CoreV1PodsWatch                func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		CoreV1ServicesWatch            func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		KubeConfigWatch                func(childComplexity int) int
-		KubernetesAPIHealthzWatch      func(childComplexity int, kubeContext *string) int
-		KubetailClusterAPIHealthzWatch func(childComplexity int, kubeContext *string, namespace *string, serviceName *string) int
-		PodLogFollow                   func(childComplexity int, kubeContext *string, namespace *string, name string, container *string, after *string, since *string) int
+		AppsV1DaemonSetsWatch     func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		AppsV1DeploymentsWatch    func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		AppsV1ReplicaSetsWatch    func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		AppsV1StatefulSetsWatch   func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		BatchV1CronJobsWatch      func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		BatchV1JobsWatch          func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		ClusterAPIHealthzWatch    func(childComplexity int, kubeContext *string, namespace *string, serviceName *string) int
+		CoreV1NamespacesWatch     func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
+		CoreV1NodesWatch          func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
+		CoreV1PodsWatch           func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		CoreV1ServicesWatch       func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		KubeConfigWatch           func(childComplexity int) int
+		KubernetesAPIHealthzWatch func(childComplexity int, kubeContext *string) int
+		PodLogFollow              func(childComplexity int, kubeContext *string, namespace *string, name string, container *string, after *string, since *string) int
 	}
 }
 
@@ -630,7 +630,7 @@ type KubeConfigResolver interface {
 	Contexts(ctx context.Context, obj *model.KubeConfig) ([]*model.KubeConfigContext, error)
 }
 type MutationResolver interface {
-	KubetailClusterAPIInstall(ctx context.Context, kubeContext *string) (*bool, error)
+	ClusterAPIInstall(ctx context.Context, kubeContext *string) (*bool, error)
 }
 type QueryResolver interface {
 	AppsV1DaemonSetsGet(ctx context.Context, kubeContext *string, namespace *string, name string, options *v1.GetOptions) (*v11.DaemonSet, error)
@@ -653,8 +653,8 @@ type QueryResolver interface {
 	CoreV1ServicesList(ctx context.Context, kubeContext *string, namespace *string, options *v1.ListOptions) (*v13.ServiceList, error)
 	KubernetesAPIReadyWait(ctx context.Context, kubeContext *string) (bool, error)
 	KubernetesAPIHealthzGet(ctx context.Context, kubeContext *string) (*model.HealthCheckResponse, error)
-	KubetailClusterAPIReadyWait(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (bool, error)
-	KubetailClusterAPIHealthzGet(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (*model.HealthCheckResponse, error)
+	ClusterAPIReadyWait(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (bool, error)
+	ClusterAPIHealthzGet(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (*model.HealthCheckResponse, error)
 	KubeConfigGet(ctx context.Context) (*model.KubeConfig, error)
 	PodLogHead(ctx context.Context, kubeContext *string, namespace *string, name string, container *string, after *string, since *string, first *int) (*model.PodLogQueryResponse, error)
 	PodLogTail(ctx context.Context, kubeContext *string, namespace *string, name string, container *string, before *string, last *int) (*model.PodLogQueryResponse, error)
@@ -671,7 +671,7 @@ type SubscriptionResolver interface {
 	CoreV1PodsWatch(ctx context.Context, kubeContext *string, namespace *string, options *v1.ListOptions) (<-chan *watch.Event, error)
 	CoreV1ServicesWatch(ctx context.Context, kubeContext *string, namespace *string, options *v1.ListOptions) (<-chan *watch.Event, error)
 	KubernetesAPIHealthzWatch(ctx context.Context, kubeContext *string) (<-chan *model.HealthCheckResponse, error)
-	KubetailClusterAPIHealthzWatch(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (<-chan *model.HealthCheckResponse, error)
+	ClusterAPIHealthzWatch(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (<-chan *model.HealthCheckResponse, error)
 	KubeConfigWatch(ctx context.Context) (<-chan *model.KubeConfigWatchEvent, error)
 	PodLogFollow(ctx context.Context, kubeContext *string, namespace *string, name string, container *string, after *string, since *string) (<-chan *model.LogRecord, error)
 }
@@ -2515,17 +2515,17 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.MetaV1OwnerReference.UID(childComplexity), true
 
-	case "Mutation.kubetailClusterAPIInstall":
-		if e.complexity.Mutation.KubetailClusterAPIInstall == nil {
+	case "Mutation.clusterAPIInstall":
+		if e.complexity.Mutation.ClusterAPIInstall == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_kubetailClusterAPIInstall_args(context.TODO(), rawArgs)
+		args, err := ec.field_Mutation_clusterAPIInstall_args(context.TODO(), rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Mutation.KubetailClusterAPIInstall(childComplexity, args["kubeContext"].(*string)), true
+		return e.complexity.Mutation.ClusterAPIInstall(childComplexity, args["kubeContext"].(*string)), true
 
 	case "PageInfo.endCursor":
 		if e.complexity.PageInfo.EndCursor == nil {
@@ -2713,6 +2713,30 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.BatchV1JobsList(childComplexity, args["kubeContext"].(*string), args["namespace"].(*string), args["options"].(*v1.ListOptions)), true
 
+	case "Query.clusterAPIHealthzGet":
+		if e.complexity.Query.ClusterAPIHealthzGet == nil {
+			break
+		}
+
+		args, err := ec.field_Query_clusterAPIHealthzGet_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.ClusterAPIHealthzGet(childComplexity, args["kubeContext"].(*string), args["namespace"].(*string), args["serviceName"].(*string)), true
+
+	case "Query.clusterAPIReadyWait":
+		if e.complexity.Query.ClusterAPIReadyWait == nil {
+			break
+		}
+
+		args, err := ec.field_Query_clusterAPIReadyWait_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.ClusterAPIReadyWait(childComplexity, args["kubeContext"].(*string), args["namespace"].(*string), args["serviceName"].(*string)), true
+
 	case "Query.coreV1NamespacesList":
 		if e.complexity.Query.CoreV1NamespacesList == nil {
 			break
@@ -2816,30 +2840,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.KubernetesAPIReadyWait(childComplexity, args["kubeContext"].(*string)), true
 
-	case "Query.kubetailClusterAPIHealthzGet":
-		if e.complexity.Query.KubetailClusterAPIHealthzGet == nil {
-			break
-		}
-
-		args, err := ec.field_Query_kubetailClusterAPIHealthzGet_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.KubetailClusterAPIHealthzGet(childComplexity, args["kubeContext"].(*string), args["namespace"].(*string), args["serviceName"].(*string)), true
-
-	case "Query.kubetailClusterAPIReadyWait":
-		if e.complexity.Query.KubetailClusterAPIReadyWait == nil {
-			break
-		}
-
-		args, err := ec.field_Query_kubetailClusterAPIReadyWait_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.KubetailClusterAPIReadyWait(childComplexity, args["kubeContext"].(*string), args["namespace"].(*string), args["serviceName"].(*string)), true
-
 	case "Query.podLogHead":
 		if e.complexity.Query.PodLogHead == nil {
 			break
@@ -2936,6 +2936,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Subscription.BatchV1JobsWatch(childComplexity, args["kubeContext"].(*string), args["namespace"].(*string), args["options"].(*v1.ListOptions)), true
 
+	case "Subscription.clusterAPIHealthzWatch":
+		if e.complexity.Subscription.ClusterAPIHealthzWatch == nil {
+			break
+		}
+
+		args, err := ec.field_Subscription_clusterAPIHealthzWatch_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Subscription.ClusterAPIHealthzWatch(childComplexity, args["kubeContext"].(*string), args["namespace"].(*string), args["serviceName"].(*string)), true
+
 	case "Subscription.coreV1NamespacesWatch":
 		if e.complexity.Subscription.CoreV1NamespacesWatch == nil {
 			break
@@ -3002,18 +3014,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Subscription.KubernetesAPIHealthzWatch(childComplexity, args["kubeContext"].(*string)), true
-
-	case "Subscription.kubetailClusterAPIHealthzWatch":
-		if e.complexity.Subscription.KubetailClusterAPIHealthzWatch == nil {
-			break
-		}
-
-		args, err := ec.field_Subscription_kubetailClusterAPIHealthzWatch_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Subscription.KubetailClusterAPIHealthzWatch(childComplexity, args["kubeContext"].(*string), args["namespace"].(*string), args["serviceName"].(*string)), true
 
 	case "Subscription.podLogFollow":
 		if e.complexity.Subscription.PodLogFollow == nil {
@@ -3222,17 +3222,17 @@ func (ec *executionContext) dir_validate_argsMessage(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_kubetailClusterAPIInstall_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Mutation_clusterAPIInstall_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := ec.field_Mutation_kubetailClusterAPIInstall_argsKubeContext(ctx, rawArgs)
+	arg0, err := ec.field_Mutation_clusterAPIInstall_argsKubeContext(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
 	args["kubeContext"] = arg0
 	return args, nil
 }
-func (ec *executionContext) field_Mutation_kubetailClusterAPIInstall_argsKubeContext(
+func (ec *executionContext) field_Mutation_clusterAPIInstall_argsKubeContext(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (*string, error) {
@@ -4084,6 +4084,124 @@ func (ec *executionContext) field_Query_batchV1JobsList_argsOptions(
 	return zeroVal, nil
 }
 
+func (ec *executionContext) field_Query_clusterAPIHealthzGet_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Query_clusterAPIHealthzGet_argsKubeContext(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["kubeContext"] = arg0
+	arg1, err := ec.field_Query_clusterAPIHealthzGet_argsNamespace(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["namespace"] = arg1
+	arg2, err := ec.field_Query_clusterAPIHealthzGet_argsServiceName(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["serviceName"] = arg2
+	return args, nil
+}
+func (ec *executionContext) field_Query_clusterAPIHealthzGet_argsKubeContext(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("kubeContext"))
+	if tmp, ok := rawArgs["kubeContext"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_clusterAPIHealthzGet_argsNamespace(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("namespace"))
+	if tmp, ok := rawArgs["namespace"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_clusterAPIHealthzGet_argsServiceName(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("serviceName"))
+	if tmp, ok := rawArgs["serviceName"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_clusterAPIReadyWait_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Query_clusterAPIReadyWait_argsKubeContext(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["kubeContext"] = arg0
+	arg1, err := ec.field_Query_clusterAPIReadyWait_argsNamespace(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["namespace"] = arg1
+	arg2, err := ec.field_Query_clusterAPIReadyWait_argsServiceName(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["serviceName"] = arg2
+	return args, nil
+}
+func (ec *executionContext) field_Query_clusterAPIReadyWait_argsKubeContext(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("kubeContext"))
+	if tmp, ok := rawArgs["kubeContext"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_clusterAPIReadyWait_argsNamespace(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("namespace"))
+	if tmp, ok := rawArgs["namespace"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_clusterAPIReadyWait_argsServiceName(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("serviceName"))
+	if tmp, ok := rawArgs["serviceName"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
 func (ec *executionContext) field_Query_coreV1NamespacesList_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -4477,124 +4595,6 @@ func (ec *executionContext) field_Query_kubernetesAPIReadyWait_argsKubeContext(
 ) (*string, error) {
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("kubeContext"))
 	if tmp, ok := rawArgs["kubeContext"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_kubetailClusterAPIHealthzGet_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Query_kubetailClusterAPIHealthzGet_argsKubeContext(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["kubeContext"] = arg0
-	arg1, err := ec.field_Query_kubetailClusterAPIHealthzGet_argsNamespace(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["namespace"] = arg1
-	arg2, err := ec.field_Query_kubetailClusterAPIHealthzGet_argsServiceName(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["serviceName"] = arg2
-	return args, nil
-}
-func (ec *executionContext) field_Query_kubetailClusterAPIHealthzGet_argsKubeContext(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("kubeContext"))
-	if tmp, ok := rawArgs["kubeContext"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_kubetailClusterAPIHealthzGet_argsNamespace(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("namespace"))
-	if tmp, ok := rawArgs["namespace"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_kubetailClusterAPIHealthzGet_argsServiceName(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("serviceName"))
-	if tmp, ok := rawArgs["serviceName"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_kubetailClusterAPIReadyWait_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Query_kubetailClusterAPIReadyWait_argsKubeContext(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["kubeContext"] = arg0
-	arg1, err := ec.field_Query_kubetailClusterAPIReadyWait_argsNamespace(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["namespace"] = arg1
-	arg2, err := ec.field_Query_kubetailClusterAPIReadyWait_argsServiceName(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["serviceName"] = arg2
-	return args, nil
-}
-func (ec *executionContext) field_Query_kubetailClusterAPIReadyWait_argsKubeContext(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("kubeContext"))
-	if tmp, ok := rawArgs["kubeContext"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_kubetailClusterAPIReadyWait_argsNamespace(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("namespace"))
-	if tmp, ok := rawArgs["namespace"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_kubetailClusterAPIReadyWait_argsServiceName(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("serviceName"))
-	if tmp, ok := rawArgs["serviceName"]; ok {
 		return ec.unmarshalOString2ᚖstring(ctx, tmp)
 	}
 
@@ -5270,6 +5270,65 @@ func (ec *executionContext) field_Subscription_batchV1JobsWatch_argsOptions(
 	return zeroVal, nil
 }
 
+func (ec *executionContext) field_Subscription_clusterAPIHealthzWatch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Subscription_clusterAPIHealthzWatch_argsKubeContext(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["kubeContext"] = arg0
+	arg1, err := ec.field_Subscription_clusterAPIHealthzWatch_argsNamespace(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["namespace"] = arg1
+	arg2, err := ec.field_Subscription_clusterAPIHealthzWatch_argsServiceName(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["serviceName"] = arg2
+	return args, nil
+}
+func (ec *executionContext) field_Subscription_clusterAPIHealthzWatch_argsKubeContext(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("kubeContext"))
+	if tmp, ok := rawArgs["kubeContext"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Subscription_clusterAPIHealthzWatch_argsNamespace(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("namespace"))
+	if tmp, ok := rawArgs["namespace"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Subscription_clusterAPIHealthzWatch_argsServiceName(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("serviceName"))
+	if tmp, ok := rawArgs["serviceName"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
 func (ec *executionContext) field_Subscription_coreV1NamespacesWatch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -5486,65 +5545,6 @@ func (ec *executionContext) field_Subscription_kubernetesAPIHealthzWatch_argsKub
 ) (*string, error) {
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("kubeContext"))
 	if tmp, ok := rawArgs["kubeContext"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Subscription_kubetailClusterAPIHealthzWatch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Subscription_kubetailClusterAPIHealthzWatch_argsKubeContext(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["kubeContext"] = arg0
-	arg1, err := ec.field_Subscription_kubetailClusterAPIHealthzWatch_argsNamespace(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["namespace"] = arg1
-	arg2, err := ec.field_Subscription_kubetailClusterAPIHealthzWatch_argsServiceName(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["serviceName"] = arg2
-	return args, nil
-}
-func (ec *executionContext) field_Subscription_kubetailClusterAPIHealthzWatch_argsKubeContext(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("kubeContext"))
-	if tmp, ok := rawArgs["kubeContext"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Subscription_kubetailClusterAPIHealthzWatch_argsNamespace(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("namespace"))
-	if tmp, ok := rawArgs["namespace"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Subscription_kubetailClusterAPIHealthzWatch_argsServiceName(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("serviceName"))
-	if tmp, ok := rawArgs["serviceName"]; ok {
 		return ec.unmarshalOString2ᚖstring(ctx, tmp)
 	}
 
@@ -17919,8 +17919,8 @@ func (ec *executionContext) fieldContext_MetaV1OwnerReference_controller(_ conte
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_kubetailClusterAPIInstall(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_kubetailClusterAPIInstall(ctx, field)
+func (ec *executionContext) _Mutation_clusterAPIInstall(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_clusterAPIInstall(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -17933,7 +17933,7 @@ func (ec *executionContext) _Mutation_kubetailClusterAPIInstall(ctx context.Cont
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().KubetailClusterAPIInstall(rctx, fc.Args["kubeContext"].(*string))
+		return ec.resolvers.Mutation().ClusterAPIInstall(rctx, fc.Args["kubeContext"].(*string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -17947,7 +17947,7 @@ func (ec *executionContext) _Mutation_kubetailClusterAPIInstall(ctx context.Cont
 	return ec.marshalOBoolean2ᚖbool(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Mutation_kubetailClusterAPIInstall(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_clusterAPIInstall(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
@@ -17964,7 +17964,7 @@ func (ec *executionContext) fieldContext_Mutation_kubetailClusterAPIInstall(ctx 
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_kubetailClusterAPIInstall_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_clusterAPIInstall_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -19507,8 +19507,8 @@ func (ec *executionContext) fieldContext_Query_kubernetesAPIHealthzGet(ctx conte
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_kubetailClusterAPIReadyWait(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_kubetailClusterAPIReadyWait(ctx, field)
+func (ec *executionContext) _Query_clusterAPIReadyWait(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_clusterAPIReadyWait(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -19521,7 +19521,7 @@ func (ec *executionContext) _Query_kubetailClusterAPIReadyWait(ctx context.Conte
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().KubetailClusterAPIReadyWait(rctx, fc.Args["kubeContext"].(*string), fc.Args["namespace"].(*string), fc.Args["serviceName"].(*string))
+		return ec.resolvers.Query().ClusterAPIReadyWait(rctx, fc.Args["kubeContext"].(*string), fc.Args["namespace"].(*string), fc.Args["serviceName"].(*string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -19538,7 +19538,7 @@ func (ec *executionContext) _Query_kubetailClusterAPIReadyWait(ctx context.Conte
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Query_kubetailClusterAPIReadyWait(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_clusterAPIReadyWait(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
@@ -19555,15 +19555,15 @@ func (ec *executionContext) fieldContext_Query_kubetailClusterAPIReadyWait(ctx c
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_kubetailClusterAPIReadyWait_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Query_clusterAPIReadyWait_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_kubetailClusterAPIHealthzGet(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_kubetailClusterAPIHealthzGet(ctx, field)
+func (ec *executionContext) _Query_clusterAPIHealthzGet(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_clusterAPIHealthzGet(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -19576,7 +19576,7 @@ func (ec *executionContext) _Query_kubetailClusterAPIHealthzGet(ctx context.Cont
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().KubetailClusterAPIHealthzGet(rctx, fc.Args["kubeContext"].(*string), fc.Args["namespace"].(*string), fc.Args["serviceName"].(*string))
+		return ec.resolvers.Query().ClusterAPIHealthzGet(rctx, fc.Args["kubeContext"].(*string), fc.Args["namespace"].(*string), fc.Args["serviceName"].(*string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -19593,7 +19593,7 @@ func (ec *executionContext) _Query_kubetailClusterAPIHealthzGet(ctx context.Cont
 	return ec.marshalNHealthCheckResponse2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐHealthCheckResponse(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Query_kubetailClusterAPIHealthzGet(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_clusterAPIHealthzGet(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
@@ -19618,7 +19618,7 @@ func (ec *executionContext) fieldContext_Query_kubetailClusterAPIHealthzGet(ctx 
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_kubetailClusterAPIHealthzGet_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Query_clusterAPIHealthzGet_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -20764,8 +20764,8 @@ func (ec *executionContext) fieldContext_Subscription_kubernetesAPIHealthzWatch(
 	return fc, nil
 }
 
-func (ec *executionContext) _Subscription_kubetailClusterAPIHealthzWatch(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
-	fc, err := ec.fieldContext_Subscription_kubetailClusterAPIHealthzWatch(ctx, field)
+func (ec *executionContext) _Subscription_clusterAPIHealthzWatch(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	fc, err := ec.fieldContext_Subscription_clusterAPIHealthzWatch(ctx, field)
 	if err != nil {
 		return nil
 	}
@@ -20778,7 +20778,7 @@ func (ec *executionContext) _Subscription_kubetailClusterAPIHealthzWatch(ctx con
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Subscription().KubetailClusterAPIHealthzWatch(rctx, fc.Args["kubeContext"].(*string), fc.Args["namespace"].(*string), fc.Args["serviceName"].(*string))
+		return ec.resolvers.Subscription().ClusterAPIHealthzWatch(rctx, fc.Args["kubeContext"].(*string), fc.Args["namespace"].(*string), fc.Args["serviceName"].(*string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -20809,7 +20809,7 @@ func (ec *executionContext) _Subscription_kubetailClusterAPIHealthzWatch(ctx con
 	}
 }
 
-func (ec *executionContext) fieldContext_Subscription_kubetailClusterAPIHealthzWatch(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Subscription_clusterAPIHealthzWatch(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Subscription",
 		Field:      field,
@@ -20834,7 +20834,7 @@ func (ec *executionContext) fieldContext_Subscription_kubetailClusterAPIHealthzW
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Subscription_kubetailClusterAPIHealthzWatch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Subscription_clusterAPIHealthzWatch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -26938,9 +26938,9 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
-		case "kubetailClusterAPIInstall":
+		case "clusterAPIInstall":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_kubetailClusterAPIInstall(ctx, field)
+				return ec._Mutation_clusterAPIInstall(ctx, field)
 			})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -27462,7 +27462,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "kubetailClusterAPIReadyWait":
+		case "clusterAPIReadyWait":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -27471,7 +27471,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_kubetailClusterAPIReadyWait(ctx, field)
+				res = ec._Query_clusterAPIReadyWait(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -27484,7 +27484,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "kubetailClusterAPIHealthzGet":
+		case "clusterAPIHealthzGet":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -27493,7 +27493,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_kubetailClusterAPIHealthzGet(ctx, field)
+				res = ec._Query_clusterAPIHealthzGet(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -27629,8 +27629,8 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 		return ec._Subscription_coreV1ServicesWatch(ctx, fields[0])
 	case "kubernetesAPIHealthzWatch":
 		return ec._Subscription_kubernetesAPIHealthzWatch(ctx, fields[0])
-	case "kubetailClusterAPIHealthzWatch":
-		return ec._Subscription_kubetailClusterAPIHealthzWatch(ctx, fields[0])
+	case "clusterAPIHealthzWatch":
+		return ec._Subscription_clusterAPIHealthzWatch(ctx, fields[0])
 	case "kubeConfigWatch":
 		return ec._Subscription_kubeConfigWatch(ctx, fields[0])
 	case "podLogFollow":

@@ -465,18 +465,18 @@ export const KUBERNETES_API_READY_WAIT = gql(`
 `);
 
 /**
- * Kubetail Cluster API
+ * Cluster API
  */
 
-export const KUBETAIL_CLUSTER_API_INSTALL = gql(`
-  mutation KubetailClusterAPIInstall($kubeContext: String!) {
-    kubetailClusterAPIInstall(kubeContext: $kubeContext)
+export const CLUSTER_API_INSTALL = gql(`
+  mutation ClusterAPIInstall($kubeContext: String!) {
+    clusterAPIInstall(kubeContext: $kubeContext)
   }
 `);
 
-export const KUBETAIL_CLUSTER_API_READY_WAIT = gql(`
-  query KubetailClusterAPIReadyWait($kubeContext: String!, $namespace: String!, $serviceName: String!) {
-    kubetailClusterAPIReadyWait(kubeContext: $kubeContext, namespace: $namespace, serviceName: $serviceName)
+export const CLUSTER_API_READY_WAIT = gql(`
+  query ClusterAPIReadyWait($kubeContext: String!, $namespace: String!, $serviceName: String!) {
+    clusterAPIReadyWait(kubeContext: $kubeContext, namespace: $namespace, serviceName: $serviceName)
   }
 `);
 
@@ -529,17 +529,17 @@ export const SERVER_STATUS_KUBERNETES_API_HEALTHZ_WATCH = gql(`
   }
 `);
 
-export const SERVER_STATUS_KUBETAIL_CLUSTER_API_HEALTHZ_GET = gql(`
-  query ServerStatusKubetailClusterAPIHealthzGet($kubeContext: String!, $namespace: String, $serviceName: String) {
-    kubetailClusterAPIHealthzGet(kubeContext: $kubeContext, namespace: $namespace, serviceName: $serviceName) {
+export const SERVER_STATUS_CLUSTER_API_HEALTHZ_GET = gql(`
+  query ServerStatusClusterAPIHealthzGet($kubeContext: String!, $namespace: String, $serviceName: String) {
+    clusterAPIHealthzGet(kubeContext: $kubeContext, namespace: $namespace, serviceName: $serviceName) {
       ...HealthCheckResponseFragment
     }
   }
 `);
 
-export const SERVER_STATUS_KUBETAIL_CLUSTER_API_HEALTHZ_WATCH = gql(`
-  subscription ServerStatusKubetailClusterAPIHealthzWatch($kubeContext: String!, $namespace: String, $serviceName: String) {
-    kubetailClusterAPIHealthzWatch(kubeContext: $kubeContext, namespace: $namespace, serviceName: $serviceName) {
+export const SERVER_STATUS_CLUSTER_API_HEALTHZ_WATCH = gql(`
+  subscription ServerStatusClusterAPIHealthzWatch($kubeContext: String!, $namespace: String, $serviceName: String) {
+    clusterAPIHealthzWatch(kubeContext: $kubeContext, namespace: $namespace, serviceName: $serviceName) {
       ...HealthCheckResponseFragment
     }
   }
