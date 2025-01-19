@@ -414,12 +414,7 @@ func (r *queryResolver) KubernetesAPIHealthzGet(ctx context.Context, kubeContext
 
 // ClusterAPIReadyWait is the resolver for the clusterAPIReadyWait field.
 func (r *queryResolver) ClusterAPIReadyWait(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (bool, error) {
-	monitor, err := r.hmm.GetOrCreateMonitor(ctx, kubeContext, namespace, serviceName)
-	if err != nil {
-		return false, err
-	}
-
-	if err := monitor.ReadyWait(ctx); err != nil {
+	if err := r.hm.ReadyWait(ctx, kubeContext, namespace, serviceName); err != nil {
 		return false, err
 	}
 
@@ -432,12 +427,10 @@ func (r *queryResolver) ClusterAPIReadyWait(ctx context.Context, kubeContext *st
 
 // ClusterAPIHealthzGet is the resolver for the clusterAPIHealthzGet field.
 func (r *queryResolver) ClusterAPIHealthzGet(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (*model.HealthCheckResponse, error) {
-	monitor, err := r.hmm.GetOrCreateMonitor(ctx, kubeContext, namespace, serviceName)
+	status, err := r.hm.GetHealthStatus(ctx, kubeContext, namespace, serviceName)
 	if err != nil {
 		return nil, err
 	}
-
-	status := monitor.GetHealthStatus()
 
 	return &model.HealthCheckResponse{
 		Status:    healthCheckStatusFromClusterAPIHealthStatus(status),
@@ -645,12 +638,7 @@ func (r *subscriptionResolver) KubernetesAPIHealthzWatch(ctx context.Context, ku
 
 // ClusterAPIHealthzWatch is the resolver for the clusterAPIHealthzWatch field.
 func (r *subscriptionResolver) ClusterAPIHealthzWatch(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (<-chan *model.HealthCheckResponse, error) {
-	monitor, err := r.hmm.GetOrCreateMonitor(ctx, kubeContext, namespace, serviceName)
-	if err != nil {
-		return nil, err
-	}
-
-	statusCh, err := monitor.WatchHealthStatus(ctx)
+	statusCh, err := r.hm.WatchHealthStatus(ctx, kubeContext, namespace, serviceName)
 	if err != nil {
 		return nil, err
 	}
