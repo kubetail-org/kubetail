@@ -17,7 +17,7 @@ The Kubetail backend server executable supports the following command line confi
 | Flag         | Datatype | Description                      | Default   |
 | ------------ | -------- | -------------------------------- | --------- |
 | -c, --config | string   | Path to Kubetail config file     | ""        |
-| -a, --addr   | string   | Host address to bind to          | ":80"     |
+| -a, --addr   | string   | Host address to bind to          | ":8080"   |
 | --gin-mode   | string   | Gin mode (release, debug)        | "release" |
 | -p, --param  | []string | Config params ("key:val" format) | []        |
 
@@ -28,10 +28,10 @@ The Kubetail Dashboard server can be configured using a configuration file writt
 | Name                                            | Datatype | Description                                          | Default                       | Status       |
 | ----------------------------------------------- | -------- | ---------------------------------------------------- | ----------------------------- | ------------ |
 | allowed-namespaces                              | []string | If populated, restricts namespace access             | []                            |              |
-| dashboard.addr                                  | string   | Host address to bind to                              | ":80"                         |              |
+| dashboard.addr                                  | string   | Host address to bind to                              | ":8080"                       |              |
 | dashboard.auth-mode                             | string   | Auth mode (auto, token)                              | "auto"                        | experimental |
 | dashboard.base-path                             | string   | URL path prefix                                      | "/"                           |              |
-| dashboard.cluster-api-endpoint                  | string   | Service url for Cluster API                          | "http://kubetail-cluster-api" | experimental |
+| dashboard.cluster-api-endpoint                  | string   | Service url for Cluster API                          | ""                            | experimental |
 | dashboard.environment                           | string   | Environment (desktop, cluster)                       | "desktop"                     | experimental |
 | dashboard.gin-mode                              | string   | Gin mode (release, debug)                            | "release"                     |              |
 | dashboard.csrf.enabled                          | bool     | Enable CSRF protection                               | true                          |              |
