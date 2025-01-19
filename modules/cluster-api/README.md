@@ -11,7 +11,7 @@ The Kubetail Cluster API executable supports the following command line configur
 | Flag         | Datatype | Description                      | Default   |
 | ------------ | -------- | -------------------------------- | --------- |
 | -c, --config | string   | Path to Kubetail config file     | ""        |
-| -a, --addr   | string   | Host address to bind to          | ":80"     |
+| -a, --addr   | string   | Host address to bind to          | ":8080"   |
 | --gin-mode   | string   | Gin mode (release, debug)        | "release" |
 | -p, --param  | []string | Config params ("key:val" format) | []        |
 
@@ -22,7 +22,7 @@ The Kubetail Cluster API executable can be configured using a configuration file
 | Name                                              | Datatype | Description                                          | Default                                     |
 | ------------------------------------------------- | -------- | ---------------------------------------------------- | ------------------------------------------- |
 | allowed-namespaces                                | []string | If populated, restricts namespace access             | []                                          |
-| cluster-api.addr                                  | string   | Host address to bind to                              | ":80"                                       |
+| cluster-api.addr                                  | string   | Host address to bind to                              | ":8080"                                     |
 | cluster-api.base-path                             | string   | URL path prefix                                      | "/"                                         |
 | cluster-api.cluster-agent-dispatch-url            | string   | URL for sending dispatch requests to cluster-agent   | "kubernetes://kubetail-cluster-agent:50051" |
 | cluster-api.gin-mode                              | string   | Gin mode (release, debug)                            | "release"                                   |

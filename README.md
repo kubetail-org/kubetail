@@ -123,21 +123,26 @@ Visit the [Kubetail documentation](https://www.kubetail.com/)
 
 ### Repository Structure
 
-This monorepo contains:
+This monorepo contains the following modules:
 
-* CLI ([modules/cli](modules/cli))
-* Cluster API ([modules/cluster-api](modules/cluster-api))
-* Cluster Agent ([modules/cluster-agent](modules/cluster-agent))
-* Dashboard Server ([modules/dashboard](modules/dashboard))
-* Dashboard UI ([dashboard-ui](dashbord-ui))
+* Kubetail CLI ([modules/cli](modules/cli))
+* Kubetail Cluster API ([modules/cluster-api](modules/cluster-api))
+* Kubetail Cluster Agent ([modules/cluster-agent](modules/cluster-agent))
+* Kubetail Dashboard ([modules/dashboard](modules/dashboard))
+
+It also contains the source code for the Kubetail Dashboard's frontend:
+
+* Dashboard UI ([dashboard-ui](dashbaord-ui))
 
 ### Setting up the Development Environment
 
-1. Create a Kubernetes dev cluster that [works with Tilt](https://docs.tilt.dev/choosing_clusters#microk8s):
+1. Create a Kubernetes dev cluster:
 
 ```console
 ctlptl apply -f hack/ctlptl/minikube.yaml
 ```
+
+You can use any type of cluster that [works with Tilt](https://docs.tilt.dev/choosing_clusters#microk8s).
 
 2. Start the dev environment:
 
