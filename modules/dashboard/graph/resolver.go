@@ -49,14 +49,14 @@ import (
 type Resolver struct {
 	config            *config.Config
 	cm                k8shelpers.ConnectionManager
-	hmm               clusterapi.HealthMonitorManager
+	hm                clusterapi.HealthMonitor
 	environment       config.Environment
 	allowedNamespaces []string
 }
 
 // Teardown
 func (r *Resolver) Teardown() {
-	r.hmm.Shutdown()
+	r.hm.Shutdown()
 }
 
 // listResource

@@ -31,8 +31,7 @@ func TestServer(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Dashboard.Environment = config.EnvironmentCluster
 
-		graphqlServer, err := NewServer(cfg, nil, nil)
-		assert.Nil(t, err)
+		graphqlServer := NewServer(cfg, nil, nil)
 
 		client := testutils.NewWebTestClient(t, graphqlServer)
 		defer client.Teardown()
@@ -67,8 +66,7 @@ func TestServer(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Dashboard.Environment = config.EnvironmentCluster
 
-		graphqlServer, err := NewServer(cfg, nil, csrfProtect)
-		assert.Nil(t, err)
+		graphqlServer := NewServer(cfg, nil, csrfProtect)
 
 		client := testutils.NewWebTestClient(t, graphqlServer)
 		defer client.Teardown()
