@@ -137,15 +137,10 @@ func NewApp(cfg *config.Config) (*App, error) {
 	}
 	app.dynamicRoutes = dynamicRoutes // for unit tests
 
-	// Serve GraphQL playground at root
-	sub, err := fs.Sub(clusterapi.StaticEmbedFS, "static")
-	if err != nil {
-		return nil, err
-	}
-	staticFS := http.FS(sub)
-	root.StaticFileFS("/", "/graphiql.html", staticFS)
-	root.StaticFileFS("/favicon.ico", "/favicon.ico", staticFS)
-	root.StaticFileFS("/favicon.svg", "/favicon.svg", staticFS)
+	// Root endpoint
+	root.GET("/", func(c *gin.Context) {
+		c.String(http.StatusOK, "Kubetail Cluster API")
+	})
 
 	// Health endpoint
 	root.GET("/healthz", func(c *gin.Context) {
@@ -153,6 +148,19 @@ func NewApp(cfg *config.Config) (*App, error) {
 			"status": "ok",
 		})
 	})
+
+	// Init staticFS
+	sub, err := fs.Sub(clusterapi.StaticEmbedFS, "static")
+	if err != nil {
+		return nil, err
+	}
+	staticFS := http.FS(sub)
+
+	// GraphQL Playground
+	root.StaticFileFS("/graphiql", "/graphiql.html", staticFS)
+
+	root.StaticFileFS("/favicon.ico", "/favicon.ico", staticFS)
+	root.StaticFileFS("/favicon.svg", "/favicon.svg", staticFS)
 
 	return app, nil
 }
