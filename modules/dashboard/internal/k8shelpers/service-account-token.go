@@ -16,7 +16,6 @@ package k8shelpers
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -78,12 +77,7 @@ func (sat *ServiceAccountToken) refreshToken_UNSAFE(ctx context.Context) error {
 	// Prepare the TokenRequest object
 	tokenRequest := &authv1.TokenRequest{
 		Spec: authv1.TokenRequestSpec{
-			//ExpirationSeconds: ptr.To[int64](3600), // Token validity (e.g., 1 hour)
-			ExpirationSeconds: ptr.To[int64](600), // Token validity (e.g., 1 hour)
-			Audiences: []string{
-				"https://kubernetes.default.svc.cluster.local",
-				fmt.Sprintf("http://kubetail-cluster-api.%s.svc.cluster.local", sat.namespace),
-			},
+			ExpirationSeconds: ptr.To[int64](3600), // Token validity (e.g., 1 hour)
 		},
 	}
 

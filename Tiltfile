@@ -170,5 +170,5 @@ k8s_resource(
 
 k8s_resource(
   'echoserver',
-  port_forwards='8080:8080',
+  port_forwards='4502:8080',
 )
