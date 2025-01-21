@@ -1,0 +1,55 @@
+// Copyright 2024-2025 Andres Morey
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import { Settings as SettingsIcon } from 'lucide-react';
+
+import Button from '@kubetail/ui/elements/Button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@kubetail/ui/elements/DropdownMenu';
+
+import { useSession } from '@/lib/auth';
+
+const SettingsDropdownMenu = () => {
+  const { session } = useSession();
+  console.log(session);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button intent="outline" size="sm"><SettingsIcon size={18} strokeWidth={1.5} /></Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Label 1</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem>
+            Option 1
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            Option 2
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+export default SettingsDropdownMenu;

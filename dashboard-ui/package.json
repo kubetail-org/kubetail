@@ -15,7 +15,7 @@
     "@apollo/client": "^3.12.6",
     "@headlessui/react": "^2.2.0",
     "@heroicons/react": "^2.2.0",
-    "@kubetail/ui": "^0.1.4",
+    "@kubetail/ui": "0.1.5-rc2",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "date-fns-tz": "^3.2.0",
