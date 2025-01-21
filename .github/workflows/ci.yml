@@ -7,7 +7,7 @@ on:
 
 jobs:
   modules-lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -20,7 +20,7 @@ jobs:
           test -z $(gofmt -l .)
 
   modules-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -33,7 +33,7 @@ jobs:
           go test -race github.com/kubetail-org/kubetail/modules/...
 
   modules-vet:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -46,7 +46,7 @@ jobs:
           go vet github.com/kubetail-org/kubetail/modules/...
 
   dashboard-ui-lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -62,7 +62,7 @@ jobs:
           pnpm lint
 
   dashboard-ui-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -78,7 +78,7 @@ jobs:
           pnpm test run
 
   dashboard-ui-build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -101,7 +101,7 @@ jobs:
       - dashboard-ui-lint
       - dashboard-ui-test
       - dashboard-ui-build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -121,7 +121,7 @@ jobs:
       - dashboard-ui-lint
       - dashboard-ui-test
       - dashboard-ui-build
-    runs-on: arm64-ubuntu-22
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -141,7 +141,7 @@ jobs:
       - dashboard-ui-lint
       - dashboard-ui-test
       - dashboard-ui-build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -161,7 +161,7 @@ jobs:
       - dashboard-ui-lint
       - dashboard-ui-test
       - dashboard-ui-build
-    runs-on: arm64-ubuntu-22
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -181,7 +181,7 @@ jobs:
       - dashboard-ui-lint
       - dashboard-ui-test
       - dashboard-ui-build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -201,7 +201,7 @@ jobs:
       - dashboard-ui-lint
       - dashboard-ui-test
       - dashboard-ui-build
-    runs-on: arm64-ubuntu-22
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -221,7 +221,7 @@ jobs:
       - dashboard-ui-lint
       - dashboard-ui-test
       - dashboard-ui-build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -245,7 +245,7 @@ jobs:
       - dashboard-ui-lint
       - dashboard-ui-test
       - dashboard-ui-build
-    runs-on: arm64-ubuntu-22
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
