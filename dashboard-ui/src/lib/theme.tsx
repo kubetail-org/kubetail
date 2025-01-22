@@ -15,14 +15,14 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 export const enum Theme {
-  Light = 'light',
-  Dark = 'dark',
+  Light = 'Light',
+  Dark = 'Dark',
 }
 
 export const enum UserPreference {
-  System = 'system',
-  Light = 'light',
-  Dark = 'dark',
+  System = 'System',
+  Light = 'Light',
+  Dark = 'Dark',
 }
 
 type ContextType = {

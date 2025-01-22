@@ -29,7 +29,7 @@ import appConfig from '@/app-config';
 import logo from '@/assets/logo.svg';
 import AuthRequired from '@/components/utils/AuthRequired';
 import Footer from '@/components/widgets/Footer';
-import SettingsDropdownMenu from '@/components/widgets/SettingsDropdownMenu';
+import SettingsDropdown from '@/components/widgets/SettingsDropdown';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { useListQueryWithSubscription, useLogMetadata } from '@/lib/hooks';
 import { joinPaths, getBasename } from '@/lib/util';
@@ -672,7 +672,7 @@ const Home = () => {
             </span>
           )}
         </div>
-        <SettingsDropdownMenu />
+        <SettingsDropdown />
       </div>
       <main className="px-[10px]">
         {(readyWait.loading || kubeContext === undefined) ? (
