@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useSubscription } from '@apollo/client';
+import { useQuery, useSubscription } from '@apollo/client';
 import { useEffect, useState } from 'react';
 
 import Form from '@kubetail/ui/elements/Form';
@@ -66,6 +66,11 @@ type ClusterSettingsDialogProps = {
 
 export const ClusterSettingsDialog = ({ isOpen = false, onClose }: ClusterSettingsDialogProps) => {
   const [kubeContext, setKubeContext] = useState(defaultKubeContext);
+
+  const { loading, data } = useQuery(dashboardOps.HELM_LIST_RELEASES, {
+    skip: kubeContext === undefined,
+    variables: { kubeContext }
+  });
 
   return (
     <Modal open={isOpen} onClose={onClose} className="!max-w-[550px]">

@@ -526,6 +526,26 @@ enum HealthCheckStatus {
   NOTFOUND
 }
 
+# --- Helm ---
+
+type HelmChart {
+  metadata: HelmChartMetadata
+}
+
+type HelmChartMetadata {
+  name: String!
+  version: String!
+  condition: String!
+  appVersion: String!
+}
+
+type HelmRelease {
+  name: String!
+  version: Int!
+  namespace: String!
+  chart: HelmChart
+}
+
 # --- KubeConfig ---
 
 # https://pkg.go.dev/k8s.io/client-go/tools/clientcmd/api#Config
@@ -739,6 +759,11 @@ type Query {
   clusterAPIHealthzGet(kubeContext: String, namespace: String, serviceName: String): HealthCheckResponse!
 
   """
+  Helm
+  """
+  helmListReleases(kubeContext: String): [HelmRelease!]
+
+  """
   KubeConfig queries
   """
   kubeConfigGet: KubeConfig
@@ -788,9 +813,9 @@ type Query {
 
 type Mutation {
   """
-  Cluster API
+  Helm
   """
-  clusterAPIInstall(kubeContext: String): Boolean
+  helmInstallLatest(kubeContext: String): HelmRelease
 }
 
 type Subscription {

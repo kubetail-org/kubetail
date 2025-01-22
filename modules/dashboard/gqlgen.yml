@@ -391,6 +391,16 @@ models:
       object:
         resolver: true
 
+  # --- Helm ---
+  HelmChart:
+    model: helm.sh/helm/v3/pkg/chart.Chart
+
+  HelmChartMetadata:
+    model: helm.sh/helm/v3/pkg/chart.Metadata
+
+  HelmRelease:
+    model: helm.sh/helm/v3/pkg/release.Release
+
   # --- KubeConfig ---
   KubeConfig:
     model: github.com/kubetail-org/kubetail/modules/dashboard/graph/model.KubeConfig

@@ -35,7 +35,7 @@ var clusterUninstallCmd = &cobra.Command{
 	Long:  clusterUninstallHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Init client
-		client, err := helm.NewClient()
+		client, err := helm.NewClient(nil)
 		cli.ExitOnError(err)
 
 		// Uninstall

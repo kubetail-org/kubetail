@@ -184,6 +184,25 @@ export const HEALTH_CHECK_RESPONSE_FRAGMENT = gql(`
 `);
 
 /**
+ * Helm fragments
+ */
+
+export const HELM_RELEASE_FRAGMENT = gql(`
+  fragment HelmReleaseFragment on HelmRelease {
+    name
+    version
+    namespace
+    chart {
+      metadata {
+        name
+        version
+        appVersion
+      }
+    }
+  }
+`);
+
+/**
  * Home page fragments
  */
 

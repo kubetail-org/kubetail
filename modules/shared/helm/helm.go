@@ -117,8 +117,8 @@ func (c *Client) UninstallRelease() (*release.UninstallReleaseResponse, error) {
 // ListReleases lists all releases across all namespaces.
 func (c *Client) ListReleases() ([]*release.Release, error) {
 	list := action.NewList(c.actionConfig)
-	list.AllNamespaces = true                          // Enable search across all namespaces
-	list.Filter = fmt.Sprintf("^%s$", targetChartName) // Set filter for specific chart name
+	list.AllNamespaces = true // Enable search across all namespaces
+	list.Limit = 0
 
 	// Run the list action
 	releases, err := list.Run()
@@ -126,7 +126,15 @@ func (c *Client) ListReleases() ([]*release.Release, error) {
 		return nil, fmt.Errorf("failed to list releases: %w", err)
 	}
 
-	return releases, nil
+	// Filter releases
+	var filteredReleases []*release.Release
+	for _, r := range releases {
+		if r.Chart != nil && strings.HasPrefix(r.Chart.Metadata.Name, targetChartName) {
+			filteredReleases = append(filteredReleases, r)
+		}
+	}
+
+	return filteredReleases, nil
 }
 
 // AddRepo adds the repository
@@ -303,10 +311,15 @@ func (c *Client) getChart(pathOptions action.ChartPathOptions) (*chart.Chart, er
 }
 
 // Return new client
-func NewClient() (*Client, error) {
+func NewClient(kubeContext *string) (*Client, error) {
 	settings := cli.New()
+
+	if kubeContext != nil {
+		settings.KubeContext = *kubeContext
+	}
+
 	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(settings.RESTClientGetter(), DefaultNamespace, os.Getenv("HELM_DRIVER"), noopLogger); err != nil {
+	if err := actionConfig.Init(settings.RESTClientGetter(), "", os.Getenv("HELM_DRIVER"), noopLogger); err != nil {
 		return nil, fmt.Errorf("failed to initialize Helm action configuration: %v", err)
 	}
 	return &Client{settings, actionConfig}, nil

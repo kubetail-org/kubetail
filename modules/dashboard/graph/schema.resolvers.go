@@ -16,6 +16,7 @@ import (
 	gqlerrors "github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
 	"github.com/kubetail-org/kubetail/modules/shared/helm"
 	sharedk8shelpers "github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
+	"helm.sh/helm/v3/pkg/release"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -118,26 +119,26 @@ func (r *kubeConfigResolver) Contexts(ctx context.Context, obj *model.KubeConfig
 	return outList, nil
 }
 
-// ClusterAPIInstall is the resolver for the clusterAPIInstall field.
-func (r *mutationResolver) ClusterAPIInstall(ctx context.Context, kubeContext *string) (*bool, error) {
+// HelmInstallLatest is the resolver for the helmInstallLatest field.
+func (r *mutationResolver) HelmInstallLatest(ctx context.Context, kubeContext *string) (*release.Release, error) {
 	// Reject requests not in desktop environment
 	if r.environment != config.EnvironmentDesktop {
 		return nil, gqlerrors.ErrForbidden
 	}
 
 	// Init client
-	client, err := helm.NewClient()
+	client, err := helm.NewClient(kubeContext)
 	if err != nil {
 		return nil, err
 	}
 
 	// Install
-	_, err = client.InstallLatest()
+	release, err := client.InstallLatest()
 	if err != nil {
 		return nil, err
 	}
 
-	return ptr.To(true), nil
+	return release, nil
 }
 
 // AppsV1DaemonSetsGet is the resolver for the appsV1DaemonSetsGet field.
@@ -436,6 +437,28 @@ func (r *queryResolver) ClusterAPIHealthzGet(ctx context.Context, kubeContext *s
 		Status:    healthCheckStatusFromClusterAPIHealthStatus(status),
 		Timestamp: time.Now().UTC(),
 	}, nil
+}
+
+// HelmListReleases is the resolver for the helmListReleases field.
+func (r *queryResolver) HelmListReleases(ctx context.Context, kubeContext *string) ([]*release.Release, error) {
+	// Reject requests not in desktop environment
+	if r.environment != config.EnvironmentDesktop {
+		return nil, gqlerrors.ErrForbidden
+	}
+
+	// Init client
+	client, err := helm.NewClient(kubeContext)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get list
+	releases, err := client.ListReleases()
+	if err != nil {
+		return nil, err
+	}
+
+	return releases, nil
 }
 
 // KubeConfigGet is the resolver for the kubeConfigGet field.

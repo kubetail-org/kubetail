@@ -35,7 +35,7 @@ var clusterRepoUpdateCmd = &cobra.Command{
 	Long:  clusterRepoUpdateHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Init client
-		client, err := helm.NewClient()
+		client, err := helm.NewClient(nil)
 		cli.ExitOnError(err)
 
 		// Update repo
