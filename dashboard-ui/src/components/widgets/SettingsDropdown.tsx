@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { CheckIcon } from '@radix-ui/react-icons';
 import { Settings as SettingsIcon } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import Button from '@kubetail/ui/elements/Button';
@@ -23,7 +23,6 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuPortal,
   DropdownMenuSeparator,
   DropdownMenuSub,
@@ -34,53 +33,56 @@ import {
 
 import appConfig from '@/app-config';
 import { useTheme, UserPreference } from '@/lib/theme';
+import { ClusterSettingsDialog } from '@/components/widgets/ClusterSettingsDialog';
 
 const SettingsDropdown = () => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { userPreference, setUserPreference } = useTheme();
 
   const themes = [UserPreference.Light, UserPreference.Dark, UserPreference.System];
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button intent="outline" size="sm"><SettingsIcon size={18} strokeWidth={1.5} /></Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Settings</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem>
-            Cluster API
-          </DropdownMenuItem>
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>Theme</DropdownMenuSubTrigger>
-            <DropdownMenuPortal>
-              <DropdownMenuSubContent>
-                {themes.map((theme) => (
-                  <DropdownMenuCheckboxItem
-                    key={theme}
-                    checked={theme === userPreference}
-                    onCheckedChange={() => setUserPreference(theme)}
-                  >
-                    {theme}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuPortal>
-          </DropdownMenuSub>
-        </DropdownMenuGroup>
-        {appConfig.authMode === 'token' && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Link to={`/auth/logout?${new URLSearchParams({ callbackUrl: window.location.pathname + window.location.search })}`}>
-                Sign out
-              </Link>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button intent="outline" size="sm"><SettingsIcon size={18} strokeWidth={1.5} /></Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-[150px]">
+          <DropdownMenuGroup>
+            <DropdownMenuItem onSelect={() => setIsDialogOpen(true)}>
+              Cluster Settings
             </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Theme</DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  {themes.map((theme) => (
+                    <DropdownMenuCheckboxItem
+                      key={theme}
+                      checked={theme === userPreference}
+                      onCheckedChange={() => setUserPreference(theme)}
+                    >
+                      {theme}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+          </DropdownMenuGroup>
+          {appConfig.authMode === 'token' && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <Link to={`/auth/logout?${new URLSearchParams({ callbackUrl: window.location.pathname + window.location.search })}`}>
+                  Sign out
+                </Link>
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ClusterSettingsDialog isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} />
+    </>
   );
 };
 
