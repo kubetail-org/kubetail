@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useQuery, useSubscription } from '@apollo/client';
+import { useMutation, useQuery, useSubscription } from '@apollo/client';
 import { PlusCircleIcon } from '@heroicons/react/24/solid';
 import { useEffect, useState } from 'react';
 
@@ -62,18 +62,40 @@ const KubeContextPicker = ({
 };
 
 type ClusterAPIPickerProps = {
-  kubeContext: string;
+  kubeContext?: string;
 }
 
 const ClusterAPIPicker = ({ kubeContext }: ClusterAPIPickerProps) => {
-  const { loading, data } = useQuery(dashboardOps.HELM_LIST_RELEASES, {
+  const [installFeedback, setInstallFeedback] = useState<string>();
+
+  const listQuery = useQuery(dashboardOps.HELM_LIST_RELEASES, {
     skip: kubeContext === undefined,
     variables: { kubeContext: kubeContext || '' }
   });
 
-  const releases = data?.helmListReleases;
+  const [install, installMutation ] = useMutation(dashboardOps.HELM_INSTALL_LATEST);
 
-  if (loading) return <div className="h-10 leading-10">Loading...</div>;
+  const handleInstall = async () => {
+    if (kubeContext === undefined) return;
+
+    setInstallFeedback('');
+
+    try {
+      await install({ variables: { kubeContext } });
+      await listQuery.refetch();
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setInstallFeedback(e.message);
+      } else {
+        setInstallFeedback("An unknown error occurred (see console)");
+        console.error(e);
+      }
+    }
+  };
+
+  const releases = listQuery.data?.helmListReleases;
+
+  if (listQuery.loading) return <div className="h-10 leading-10">Loading...</div>;
 
   if (releases) {
     return (
@@ -88,7 +110,13 @@ const ClusterAPIPicker = ({ kubeContext }: ClusterAPIPickerProps) => {
   }
 
   return (
-    <Button intent="ghost" size="sm"><PlusCircleIcon className="h-5 w-5 mr-1" /> Install</Button>
+    <div>
+      <Button intent="secondary" size="sm" onClick={handleInstall} disabled={installMutation.loading}>
+        <PlusCircleIcon className="h-5 w-5 mr-1" />
+        Install
+      </Button>
+      {installFeedback && <Form.Feedback>{installFeedback}</Form.Feedback>}
+    </div>
   );
 };
 
@@ -124,7 +152,7 @@ export const ClusterSettingsDialog = ({ isOpen = false, onClose }: ClusterSettin
             <Form.Label>
               Kubetail Cluster API
             </Form.Label>
-            <ClusterAPIPicker kubeContext={kubeContext || ''} />
+            <ClusterAPIPicker kubeContext={kubeContext} />
           </Form.Group>
         </Form>
         <div className="mt-8">

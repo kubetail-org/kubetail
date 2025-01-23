@@ -30,16 +30,23 @@ This command removes an existing release.
 
 // clusterUninstallCmd represents the `cluster uninstall` command
 var clusterUninstallCmd = &cobra.Command{
-	Use:   "uninstall",
+	Use:   "uninstall [release-name]",
 	Short: "Uninstall an existing release",
 	Long:  clusterUninstallHelp,
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		// Get args
+		releaseName := args[0]
+
+		// Get flags
+		kubeContext, _ := cmd.Flags().GetString("kube-context")
+
 		// Init client
-		client, err := helm.NewClient(nil)
+		client, err := helm.NewClient(kubeContext)
 		cli.ExitOnError(err)
 
 		// Uninstall
-		response, err := client.UninstallRelease()
+		response, err := client.UninstallRelease(releaseName)
 		cli.ExitOnError(err)
 
 		fmt.Printf("Deleted release '%s' in namespace '%s'\n", response.Release.Name, response.Release.Namespace)
@@ -48,4 +55,11 @@ var clusterUninstallCmd = &cobra.Command{
 
 func init() {
 	clusterCmd.AddCommand(clusterUninstallCmd)
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	flagset := clusterUninstallCmd.Flags()
+	flagset.SortFlags = false
+	flagset.String("kube-context", "", "Name of the kubeconfig context to use")
 }

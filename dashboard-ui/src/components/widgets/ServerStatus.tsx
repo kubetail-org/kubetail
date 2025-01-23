@@ -163,12 +163,6 @@ const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Serve
   const serverStatusMap = useRecoilValue(clusterAPIServerStatusMapState);
   const serverStatus = serverStatusMap.get(kubeContext) || new ServerStatus();
 
-  const [install, { loading, data }] = useMutation(dashboardOps.CLUSTER_API_INSTALL);
-
-  const handleInstall = async () => {
-    await install({ variables: { kubeContext } });
-  };
-
   return (
     <DataTable.Row>
       <DataTable.DataCell className="w-[1px]">Kubetail Cluster API</DataTable.DataCell>
@@ -177,18 +171,9 @@ const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Serve
       ) : (
         <>
           <DataTable.DataCell className="w-[1px]"><HealthDot status={serverStatus.status} /></DataTable.DataCell>
-          {appConfig.environment === 'desktop' && serverStatus.status === Status.NotFound ? (
-            <DataTable.DataCell className="whitespace-normal flex justify-between items-center">
-              <span>{statusMessage(serverStatus, 'Uknown')}</span>
-              {data?.clusterAPIInstall !== true && (
-                <Button intent="outline" size="xs" onClick={handleInstall} disabled={loading}>install</Button>
-              )}
-            </DataTable.DataCell>
-          ) : (
-            <DataTable.DataCell className="whitespace-normal flex justify-between items-center">
-              {statusMessage(serverStatus, 'Uknown')}
-            </DataTable.DataCell>
-          )}
+          <DataTable.DataCell className="whitespace-normal flex justify-between items-center">
+            {statusMessage(serverStatus, 'Uknown')}
+          </DataTable.DataCell>
         </>
       )}
     </DataTable.Row>

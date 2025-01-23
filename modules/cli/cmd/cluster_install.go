@@ -34,16 +34,24 @@ it isn't, it will add the repository and then install the latest version.
 
 // clusterInstallCmd represents the `cluster install` command
 var clusterInstallCmd = &cobra.Command{
-	Use:   "install",
+	Use:   "install [release-name]",
 	Short: "Create a new release",
 	Long:  clusterInstallHelp,
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		// Get args
+		releaseName := args[0]
+
+		// Get flags
+		kubeContext, _ := cmd.Flags().GetString("kube-context")
+		namespace, _ := cmd.Flags().GetString("namespace")
+
 		// Init client
-		client, err := helm.NewClient(nil)
+		client, err := helm.NewClient(kubeContext)
 		cli.ExitOnError(err)
 
 		// Install
-		release, err := client.InstallLatest()
+		release, err := client.InstallLatest(releaseName, namespace)
 		cli.ExitOnError(err)
 
 		fmt.Printf("Installed release '%s' into namespace '%s' successfully\n", release.Name, release.Namespace)
@@ -52,4 +60,12 @@ var clusterInstallCmd = &cobra.Command{
 
 func init() {
 	clusterCmd.AddCommand(clusterInstallCmd)
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	flagset := clusterInstallCmd.Flags()
+	flagset.SortFlags = false
+	flagset.String("kube-context", "", "Name of the kubeconfig context to use")
+	flagset.StringP("namespace", "n", helm.DefaultNamespace, "Namespace to install into")
 }

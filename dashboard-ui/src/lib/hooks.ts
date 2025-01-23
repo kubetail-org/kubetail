@@ -418,7 +418,7 @@ export function useLogMetadata(options?: LogMetadataHookOptions) {
   // subscribe to changes
   useEffect(() => {
     // wait for all data to get fetched
-    if (loading || error || !options?.enabled) return;
+    if (!ready || loading || error || !options?.enabled) return;
 
     return subscribeToMore({
       document: clusterAPIOps.LOG_METADATA_LIST_WATCH,

@@ -51,11 +51,11 @@ type Client struct {
 }
 
 // InstallLatest creates a new release from the latest chart
-func (c *Client) InstallLatest() (*release.Release, error) {
+func (c *Client) InstallLatest(releaseName, namespace string) (*release.Release, error) {
 	// Create an install action
 	install := action.NewInstall(c.actionConfig)
-	install.ReleaseName = DefaultReleaseName
-	install.Namespace = DefaultNamespace
+	install.ReleaseName = releaseName
+	install.Namespace = namespace
 	install.CreateNamespace = true
 
 	// Get chart
@@ -80,7 +80,7 @@ func (c *Client) InstallLatest() (*release.Release, error) {
 }
 
 // UpgradeRelease upgrades an existing release
-func (c *Client) UpgradeRelease() (*release.Release, error) {
+func (c *Client) UpgradeRelease(releaseName string) (*release.Release, error) {
 	// Create upgrade action
 	upgrade := action.NewUpgrade(c.actionConfig)
 	upgrade.Namespace = DefaultNamespace
@@ -92,23 +92,23 @@ func (c *Client) UpgradeRelease() (*release.Release, error) {
 	}
 
 	// Run upgrade
-	release, err := upgrade.Run(DefaultReleaseName, chart, nil)
+	release, err := upgrade.Run(releaseName, chart, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to upgrade release %s: %w", DefaultReleaseName, err)
+		return nil, fmt.Errorf("failed to upgrade release %s: %w", releaseName, err)
 	}
 
 	return release, nil
 }
 
 // UninstallRelease uninstalls a release
-func (c *Client) UninstallRelease() (*release.UninstallReleaseResponse, error) {
+func (c *Client) UninstallRelease(releaseName string) (*release.UninstallReleaseResponse, error) {
 	// Create uninstall action
 	uninstall := action.NewUninstall(c.actionConfig)
 
 	// Run uninstall
-	response, err := uninstall.Run(DefaultReleaseName)
+	response, err := uninstall.Run(releaseName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to uninstall release %s: %w", DefaultReleaseName, err)
+		return nil, fmt.Errorf("failed to uninstall release %s: %w", releaseName, err)
 	}
 
 	return response, nil
@@ -311,16 +311,17 @@ func (c *Client) getChart(pathOptions action.ChartPathOptions) (*chart.Chart, er
 }
 
 // Return new client
-func NewClient(kubeContext *string) (*Client, error) {
+func NewClient(kubeContext string) (*Client, error) {
 	settings := cli.New()
 
-	if kubeContext != nil {
-		settings.KubeContext = *kubeContext
+	if kubeContext != "" {
+		settings.KubeContext = kubeContext
 	}
 
 	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(settings.RESTClientGetter(), "", os.Getenv("HELM_DRIVER"), noopLogger); err != nil {
+	if err := actionConfig.Init(settings.RESTClientGetter(), "kubetail-system", os.Getenv("HELM_DRIVER"), noopLogger); err != nil {
 		return nil, fmt.Errorf("failed to initialize Helm action configuration: %v", err)
 	}
+
 	return &Client{settings, actionConfig}, nil
 }
