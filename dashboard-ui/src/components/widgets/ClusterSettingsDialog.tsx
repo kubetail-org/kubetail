@@ -61,6 +61,37 @@ const KubeContextPicker = ({
   );
 };
 
+type ClusterAPIPickerProps = {
+  kubeContext: string;
+}
+
+const ClusterAPIPicker = ({ kubeContext }: ClusterAPIPickerProps) => {
+  const { loading, data } = useQuery(dashboardOps.HELM_LIST_RELEASES, {
+    skip: kubeContext === undefined,
+    variables: { kubeContext: kubeContext || '' }
+  });
+
+  const releases = data?.helmListReleases;
+
+  if (loading) return <div className="h-10 leading-10">Loading...</div>;
+
+  if (releases) {
+    return (
+      <Form.Select>
+        {releases?.map((release) => (
+          <Form.Option key={release.name}>
+            {release.name} (namespace: {release.namespace}, chart: {release.chart?.metadata?.version}, app: {release.chart?.metadata?.appVersion})
+          </Form.Option>
+        ))}
+      </Form.Select>
+    );
+  }
+
+  return (
+    <Button intent="ghost" size="sm"><PlusCircleIcon className="h-5 w-5 mr-1" /> Install</Button>
+  );
+};
+
 type ClusterSettingsDialogProps = {
   isOpen?: boolean;
   onClose: (value?: boolean) => void;
@@ -69,17 +100,10 @@ type ClusterSettingsDialogProps = {
 export const ClusterSettingsDialog = ({ isOpen = false, onClose }: ClusterSettingsDialogProps) => {
   const [kubeContext, setKubeContext] = useState(defaultKubeContext);
 
-  const { loading, data } = useQuery(dashboardOps.HELM_LIST_RELEASES, {
-    skip: kubeContext === undefined,
-    variables: { kubeContext: kubeContext || '' }
-  });
-
-  const releases = data?.helmListReleases;
-
   return (
     <Modal open={isOpen} onClose={onClose} className="!max-w-[700px]">
-      <Modal.Title>Cluster Settings</Modal.Title>
-      <div>
+      <Modal.Title className="flex items-center space-x-3">
+        <span>Cluster Settings</span>
         {appConfig.environment === 'desktop' && (
           <KubeContextPicker
             className="w-auto"
@@ -87,6 +111,8 @@ export const ClusterSettingsDialog = ({ isOpen = false, onClose }: ClusterSettin
             setValue={setKubeContext}
           />
         )}
+      </Modal.Title>
+      <div>
         <Form className="mt-5">
           <Form.Group>
             <Form.Label>
@@ -98,19 +124,13 @@ export const ClusterSettingsDialog = ({ isOpen = false, onClose }: ClusterSettin
             <Form.Label>
               Kubetail Cluster API
             </Form.Label>
-            <Form.Select>
-              {loading && <Form.Option value="">Loading...</Form.Option>}
-              {!releases && <Form.Option value="">None found</Form.Option>}
-              {releases?.map((release) => (
-                <Form.Option key={release.name}>
-                  {release.name} (namespace: {release.namespace}, app: {release.chart?.metadata?.version}, chart: {release.chart?.metadata?.appVersion})
-                </Form.Option>
-              ))}
-            </Form.Select>
-            <Button intent="ghost" size="sm"><PlusCircleIcon className="h-5 w-5 mr-1" /> Install</Button>
+            <ClusterAPIPicker kubeContext={kubeContext || ''} />
           </Form.Group>
         </Form>
+        <div className="mt-8">
+          <Button>Save</Button>
+        </div>
       </div>
-    </Modal>
+    </Modal >
   );
 };
