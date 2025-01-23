@@ -30,16 +30,13 @@ This command upgrades an existing release using the latest chart available local
 
 // clusterUpgradeCmd represents the `cluster upgrade` command
 var clusterUpgradeCmd = &cobra.Command{
-	Use:   "upgrade [release-name]",
+	Use:   "upgrade",
 	Short: "Upgrade an existing release",
 	Long:  clusterUpgradeHelp,
-	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		// Get args
-		releaseName := args[0]
-
 		// Get flags
 		kubeContext, _ := cmd.Flags().GetString("kube-context")
+		name, _ := cmd.Flags().GetString("name")
 		namespace, _ := cmd.Flags().GetString("namespace")
 
 		// Init client
@@ -47,7 +44,7 @@ var clusterUpgradeCmd = &cobra.Command{
 		cli.ExitOnError(err)
 
 		// Upgrade
-		release, err := client.UpgradeRelease(namespace, releaseName)
+		release, err := client.UpgradeRelease(namespace, name)
 		cli.ExitOnError(err)
 
 		fmt.Printf("Successfully upgraded release '%s' in namespace '%s' (revision: %d)\n", release.Name, release.Namespace, release.Version)
@@ -63,5 +60,6 @@ func init() {
 	flagset := clusterUpgradeCmd.Flags()
 	flagset.SortFlags = false
 	flagset.String("kube-context", "", "Name of the kubeconfig context to use")
+	flagset.String("name", helm.DefaultReleaseName, "Relase name")
 	flagset.StringP("namespace", "n", helm.DefaultNamespace, "Namespace to install into")
 }

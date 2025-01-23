@@ -75,8 +75,17 @@ func (c *Client) InstallLatest(namespace, releaseName string) (*release.Release,
 		}
 	}
 
+	// Exclude dashboard
+	vals := map[string]interface{}{
+		"kubetail": map[string]interface{}{
+			"dashboard": map[string]interface{}{
+				"enabled": false,
+			},
+		},
+	}
+
 	// Install the chart
-	release, err := install.Run(chart, nil)
+	release, err := install.Run(chart, vals)
 	if err != nil {
 		return nil, fmt.Errorf("failed to install chart '%s': %v", targetChartName, err)
 	}
@@ -87,13 +96,14 @@ func (c *Client) InstallLatest(namespace, releaseName string) (*release.Release,
 // UpgradeRelease upgrades an existing release
 func (c *Client) UpgradeRelease(namespace, releaseName string) (*release.Release, error) {
 	// Init action config
-	actionConfig, err := c.newActionConfig("")
+	actionConfig, err := c.newActionConfig(namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create upgrade action
 	upgrade := action.NewUpgrade(actionConfig)
+	upgrade.Namespace = namespace
 
 	// Get chart
 	chart, err := c.getChart(upgrade.ChartPathOptions)
