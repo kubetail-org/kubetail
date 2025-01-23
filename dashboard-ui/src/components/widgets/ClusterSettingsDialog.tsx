@@ -13,8 +13,10 @@
 // limitations under the License.
 
 import { useQuery, useSubscription } from '@apollo/client';
+import { PlusCircleIcon } from '@heroicons/react/24/solid';
 import { useEffect, useState } from 'react';
 
+import Button from '@kubetail/ui/elements/Button';
 import Form from '@kubetail/ui/elements/Form';
 
 import appConfig from '@/app-config';
@@ -69,11 +71,13 @@ export const ClusterSettingsDialog = ({ isOpen = false, onClose }: ClusterSettin
 
   const { loading, data } = useQuery(dashboardOps.HELM_LIST_RELEASES, {
     skip: kubeContext === undefined,
-    variables: { kubeContext }
+    variables: { kubeContext: kubeContext || '' }
   });
 
+  const releases = data?.helmListReleases;
+
   return (
-    <Modal open={isOpen} onClose={onClose} className="!max-w-[550px]">
+    <Modal open={isOpen} onClose={onClose} className="!max-w-[700px]">
       <Modal.Title>Cluster Settings</Modal.Title>
       <div>
         {appConfig.environment === 'desktop' && (
@@ -90,21 +94,21 @@ export const ClusterSettingsDialog = ({ isOpen = false, onClose }: ClusterSettin
             </Form.Label>
             <Form.Control placeholder="Token..." />
           </Form.Group>
-          <Form.Fieldset>
+          <Form.Group>
             <Form.Label>
               Kubetail Cluster API
             </Form.Label>
-            <div className="flex">
-              <Form.Group>
-                <Form.Label>Namespace</Form.Label>
-                <Form.Control placeholder="Namespace" />
-              </Form.Group>
-              <Form.Group>
-                <Form.Label>Service Name</Form.Label>
-                <Form.Control placeholder="Service Name" />
-              </Form.Group>
-            </div>
-          </Form.Fieldset>
+            <Form.Select>
+              {loading && <Form.Option value="">Loading...</Form.Option>}
+              {!releases && <Form.Option value="">None found</Form.Option>}
+              {releases?.map((release) => (
+                <Form.Option key={release.name}>
+                  {release.name} (namespace: {release.namespace}, app: {release.chart?.metadata?.version}, chart: {release.chart?.metadata?.appVersion})
+                </Form.Option>
+              ))}
+            </Form.Select>
+            <Button intent="ghost" size="sm"><PlusCircleIcon className="h-5 w-5 mr-1" /> Install</Button>
+          </Form.Group>
         </Form>
       </div>
     </Modal>
