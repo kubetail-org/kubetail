@@ -40,13 +40,14 @@ var clusterUninstallCmd = &cobra.Command{
 
 		// Get flags
 		kubeContext, _ := cmd.Flags().GetString("kube-context")
+		namespace, _ := cmd.Flags().GetString("namespace")
 
 		// Init client
 		client, err := helm.NewClient(kubeContext)
 		cli.ExitOnError(err)
 
 		// Uninstall
-		response, err := client.UninstallRelease(releaseName)
+		response, err := client.UninstallRelease(namespace, releaseName)
 		cli.ExitOnError(err)
 
 		fmt.Printf("Deleted release '%s' in namespace '%s'\n", response.Release.Name, response.Release.Namespace)
@@ -62,4 +63,5 @@ func init() {
 	flagset := clusterUninstallCmd.Flags()
 	flagset.SortFlags = false
 	flagset.String("kube-context", "", "Name of the kubeconfig context to use")
+	flagset.StringP("namespace", "n", helm.DefaultNamespace, "Namespace to install into")
 }

@@ -46,14 +46,19 @@ func noopLogger(format string, v ...interface{}) {}
 
 // Client
 type Client struct {
-	settings     *cli.EnvSettings
-	actionConfig *action.Configuration
+	settings *cli.EnvSettings
 }
 
 // InstallLatest creates a new release from the latest chart
-func (c *Client) InstallLatest(releaseName, namespace string) (*release.Release, error) {
+func (c *Client) InstallLatest(namespace, releaseName string) (*release.Release, error) {
+	// Init action config
+	actionConfig, err := c.newActionConfig(namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create an install action
-	install := action.NewInstall(c.actionConfig)
+	install := action.NewInstall(actionConfig)
 	install.ReleaseName = releaseName
 	install.Namespace = namespace
 	install.CreateNamespace = true
@@ -80,10 +85,15 @@ func (c *Client) InstallLatest(releaseName, namespace string) (*release.Release,
 }
 
 // UpgradeRelease upgrades an existing release
-func (c *Client) UpgradeRelease(releaseName string) (*release.Release, error) {
+func (c *Client) UpgradeRelease(namespace, releaseName string) (*release.Release, error) {
+	// Init action config
+	actionConfig, err := c.newActionConfig("")
+	if err != nil {
+		return nil, err
+	}
+
 	// Create upgrade action
-	upgrade := action.NewUpgrade(c.actionConfig)
-	upgrade.Namespace = DefaultNamespace
+	upgrade := action.NewUpgrade(actionConfig)
 
 	// Get chart
 	chart, err := c.getChart(upgrade.ChartPathOptions)
@@ -101,9 +111,15 @@ func (c *Client) UpgradeRelease(releaseName string) (*release.Release, error) {
 }
 
 // UninstallRelease uninstalls a release
-func (c *Client) UninstallRelease(releaseName string) (*release.UninstallReleaseResponse, error) {
+func (c *Client) UninstallRelease(namespace, releaseName string) (*release.UninstallReleaseResponse, error) {
+	// Init action config
+	actionConfig, err := c.newActionConfig(namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create uninstall action
-	uninstall := action.NewUninstall(c.actionConfig)
+	uninstall := action.NewUninstall(actionConfig)
 
 	// Run uninstall
 	response, err := uninstall.Run(releaseName)
@@ -116,7 +132,14 @@ func (c *Client) UninstallRelease(releaseName string) (*release.UninstallRelease
 
 // ListReleases lists all releases across all namespaces.
 func (c *Client) ListReleases() ([]*release.Release, error) {
-	list := action.NewList(c.actionConfig)
+	// Init action config
+	actionConfig, err := c.newActionConfig("")
+	if err != nil {
+		return nil, err
+	}
+
+	// New list action
+	list := action.NewList(actionConfig)
 	list.AllNamespaces = true // Enable search across all namespaces
 	list.Limit = 0
 
@@ -264,6 +287,15 @@ func (c *Client) RemoveRepo() error {
 	return nil
 }
 
+// newActionConfig
+func (c *Client) newActionConfig(namespace string) (*action.Configuration, error) {
+	actionConfig := new(action.Configuration)
+	if err := actionConfig.Init(c.settings.RESTClientGetter(), namespace, os.Getenv("HELM_DRIVER"), noopLogger); err != nil {
+		return nil, fmt.Errorf("failed to initialize Helm action configuration: %v", err)
+	}
+	return actionConfig, nil
+}
+
 // ensureEnv ensures helm environment is up
 func (c *Client) ensureEnv() error {
 	repoFile := c.settings.RepositoryConfig
@@ -318,10 +350,5 @@ func NewClient(kubeContext string) (*Client, error) {
 		settings.KubeContext = kubeContext
 	}
 
-	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(settings.RESTClientGetter(), "kubetail-system", os.Getenv("HELM_DRIVER"), noopLogger); err != nil {
-		return nil, fmt.Errorf("failed to initialize Helm action configuration: %v", err)
-	}
-
-	return &Client{settings, actionConfig}, nil
+	return &Client{settings}, nil
 }

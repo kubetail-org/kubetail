@@ -51,7 +51,7 @@ var clusterInstallCmd = &cobra.Command{
 		cli.ExitOnError(err)
 
 		// Install
-		release, err := client.InstallLatest(releaseName, namespace)
+		release, err := client.InstallLatest(namespace, releaseName)
 		cli.ExitOnError(err)
 
 		fmt.Printf("Installed release '%s' into namespace '%s' successfully\n", release.Name, release.Namespace)

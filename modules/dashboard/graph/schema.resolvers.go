@@ -133,7 +133,7 @@ func (r *mutationResolver) HelmInstallLatest(ctx context.Context, kubeContext *s
 	}
 
 	// Install
-	release, err := client.InstallLatest(helm.DefaultReleaseName, helm.DefaultNamespace)
+	release, err := client.InstallLatest(helm.DefaultNamespace, helm.DefaultReleaseName)
 	if err != nil {
 		return nil, err
 	}
