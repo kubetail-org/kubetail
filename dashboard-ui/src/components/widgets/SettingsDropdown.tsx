@@ -19,27 +19,18 @@ import { Link } from 'react-router-dom';
 import Button from '@kubetail/ui/elements/Button';
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuPortal,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@kubetail/ui/elements/DropdownMenu';
 
 import appConfig from '@/app-config';
-import { useTheme, UserPreference } from '@/lib/theme';
 import { ClusterSettingsDialog } from '@/components/widgets/ClusterSettingsDialog';
 
 const SettingsDropdown = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { userPreference, setUserPreference } = useTheme();
-
-  const themes = [UserPreference.Light, UserPreference.Dark, UserPreference.System];
 
   return (
     <>
@@ -52,22 +43,6 @@ const SettingsDropdown = () => {
             <DropdownMenuItem onSelect={() => setIsDialogOpen(true)}>
               Cluster Settings
             </DropdownMenuItem>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Theme</DropdownMenuSubTrigger>
-              <DropdownMenuPortal>
-                <DropdownMenuSubContent>
-                  {themes.map((theme) => (
-                    <DropdownMenuCheckboxItem
-                      key={theme}
-                      checked={theme === userPreference}
-                      onCheckedChange={() => setUserPreference(theme)}
-                    >
-                      {theme}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuPortal>
-            </DropdownMenuSub>
           </DropdownMenuGroup>
           {appConfig.authMode === 'token' && (
             <>

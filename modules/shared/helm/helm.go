@@ -66,8 +66,15 @@ func (c *Client) InstallLatest(namespace, releaseName string) (*release.Release,
 	// Get chart
 	chart, err := c.getChart(install.ChartPathOptions)
 	if err != nil {
-		if strings.Contains(err.Error(), "repo kubetail not found") {
+		if strings.Contains(err.Error(), fmt.Sprintf("repo %s not found", targetRepoName)) {
+			// Add repo
 			if err := c.AddRepo(); err != nil {
+				return nil, err
+			}
+
+			// Get chart again
+			chart, err = c.getChart(install.ChartPathOptions)
+			if err != nil {
 				return nil, err
 			}
 		} else {

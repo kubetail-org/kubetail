@@ -95,6 +95,10 @@ const ClusterAPIPicker = ({ kubeContext }: ClusterAPIPickerProps) => {
     }
   };
 
+  const handleChange = async (ev: React.ChangeEventHandler<HTMLSelectElement>) => {
+    console.log(ev);
+  };
+
   const releases = listQuery.data?.helmListReleases;
 
   if (listQuery.loading) {
@@ -103,7 +107,10 @@ const ClusterAPIPicker = ({ kubeContext }: ClusterAPIPickerProps) => {
 
   if (releases) {
     return (
-      <Form.Select name="cluster_api_release_name">
+      <Form.Select
+        name="cluster_api_release_name"
+        onChange={handleChange}
+      >
         {releases?.map((release) => (
           <Form.Option key={release.name} value={release.name}>
             {`${release.name} (namespace: ${release.namespace}, chart: ${release.chart?.metadata?.version}, app: ${release.chart?.metadata?.appVersion})`}
@@ -145,7 +152,7 @@ export const ClusterSettingsDialog = ({ isOpen = false, onClose }: ClusterSettin
 
   return (
     <Modal open={isOpen} onClose={onClose} className="!max-w-[600px]">
-      <Form className="mt-5" onSubmit={handleSubmit}>
+      <Form className="mt-5 pb-8" onSubmit={handleSubmit}>
         <Modal.Title className="flex items-center space-x-3">
           <span>Cluster Settings</span>
           {appConfig.environment === 'desktop' && (
@@ -158,22 +165,10 @@ export const ClusterSettingsDialog = ({ isOpen = false, onClose }: ClusterSettin
         </Modal.Title>
         <Form.Group>
           <Form.Label>
-            Kubernetes API Token
-          </Form.Label>
-          <Form.Control
-            name="kubernetes_api_token"
-            placeholder="Token..."
-          />
-        </Form.Group>
-        <Form.Group>
-          <Form.Label>
             Kubetail Cluster API
           </Form.Label>
           <ClusterAPIPicker kubeContext={kubeContext} />
         </Form.Group>
-        <div className="mt-8">
-          <Button type="submit">Save</Button>
-        </div>
       </Form>
     </Modal>
   );
