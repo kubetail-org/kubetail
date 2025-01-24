@@ -13,11 +13,12 @@
 // limitations under the License.
 
 import { useMutation, useQuery, useSubscription } from '@apollo/client';
-import { PlusCircleIcon } from '@heroicons/react/24/solid';
+import { PlusCircleIcon } from '@heroicons/react/24/outline';
 import { useEffect, useState } from 'react';
 
 import Button from '@kubetail/ui/elements/Button';
 import Form from '@kubetail/ui/elements/Form';
+import Spinner from '@kubetail/ui/elements/Spinner';
 
 import appConfig from '@/app-config';
 import Modal from '@/components/elements/Modal';
@@ -46,6 +47,7 @@ const KubeContextPicker = ({
   return (
     <Form.Select
       className={className}
+      name="kube_context"
       value={value}
       onChange={(ev) => setValue(ev.target.value)}
       disabled={loading}
@@ -63,17 +65,17 @@ const KubeContextPicker = ({
 
 type ClusterAPIPickerProps = {
   kubeContext?: string;
-}
+};
 
 const ClusterAPIPicker = ({ kubeContext }: ClusterAPIPickerProps) => {
   const [installFeedback, setInstallFeedback] = useState<string>();
 
   const listQuery = useQuery(dashboardOps.HELM_LIST_RELEASES, {
     skip: kubeContext === undefined,
-    variables: { kubeContext: kubeContext || '' }
+    variables: { kubeContext: kubeContext || '' },
   });
 
-  const [install, installMutation ] = useMutation(dashboardOps.HELM_INSTALL_LATEST);
+  const [install, installMutation] = useMutation(dashboardOps.HELM_INSTALL_LATEST);
 
   const handleInstall = async () => {
     if (kubeContext === undefined) return;
@@ -87,7 +89,7 @@ const ClusterAPIPicker = ({ kubeContext }: ClusterAPIPickerProps) => {
       if (e instanceof Error) {
         setInstallFeedback(e.message);
       } else {
-        setInstallFeedback("An unknown error occurred (see console)");
+        setInstallFeedback('An unknown error occurred (see console)');
         console.error(e);
       }
     }
@@ -95,14 +97,16 @@ const ClusterAPIPicker = ({ kubeContext }: ClusterAPIPickerProps) => {
 
   const releases = listQuery.data?.helmListReleases;
 
-  if (listQuery.loading) return <div className="h-10 leading-10">Loading...</div>;
+  if (listQuery.loading) {
+    return <div className="h-10 leading-10">Loading...</div>;
+  }
 
   if (releases) {
     return (
-      <Form.Select>
+      <Form.Select name="cluster_api_release_name">
         {releases?.map((release) => (
-          <Form.Option key={release.name}>
-            {release.name} (namespace: {release.namespace}, chart: {release.chart?.metadata?.version}, app: {release.chart?.metadata?.appVersion})
+          <Form.Option key={release.name} value={release.name}>
+            {`${release.name} (namespace: ${release.namespace}, chart: ${release.chart?.metadata?.version}, app: ${release.chart?.metadata?.appVersion})`}
           </Form.Option>
         ))}
       </Form.Select>
@@ -112,7 +116,11 @@ const ClusterAPIPicker = ({ kubeContext }: ClusterAPIPickerProps) => {
   return (
     <div>
       <Button intent="secondary" size="sm" onClick={handleInstall} disabled={installMutation.loading}>
-        <PlusCircleIcon className="h-5 w-5 mr-1" />
+        {installMutation.loading ? (
+          <Spinner size="xs" />
+        ) : (
+          <PlusCircleIcon className="h-5 w-5 mr-1" />
+        )}
         Install
       </Button>
       {installFeedback && <Form.Feedback>{installFeedback}</Form.Feedback>}
@@ -128,37 +136,45 @@ type ClusterSettingsDialogProps = {
 export const ClusterSettingsDialog = ({ isOpen = false, onClose }: ClusterSettingsDialogProps) => {
   const [kubeContext, setKubeContext] = useState(defaultKubeContext);
 
+  const handleSubmit = (ev: React.FormEvent<HTMLFormElement>) => {
+    ev.preventDefault();
+
+    const formData = new FormData(ev.currentTarget);
+    console.log(formData);
+  };
+
   return (
-    <Modal open={isOpen} onClose={onClose} className="!max-w-[700px]">
-      <Modal.Title className="flex items-center space-x-3">
-        <span>Cluster Settings</span>
-        {appConfig.environment === 'desktop' && (
-          <KubeContextPicker
-            className="w-auto"
-            value={kubeContext}
-            setValue={setKubeContext}
+    <Modal open={isOpen} onClose={onClose} className="!max-w-[600px]">
+      <Form className="mt-5" onSubmit={handleSubmit}>
+        <Modal.Title className="flex items-center space-x-3">
+          <span>Cluster Settings</span>
+          {appConfig.environment === 'desktop' && (
+            <KubeContextPicker
+              className="w-auto"
+              value={kubeContext}
+              setValue={setKubeContext}
+            />
+          )}
+        </Modal.Title>
+        <Form.Group>
+          <Form.Label>
+            Kubernetes API Token
+          </Form.Label>
+          <Form.Control
+            name="kubernetes_api_token"
+            placeholder="Token..."
           />
-        )}
-      </Modal.Title>
-      <div>
-        <Form className="mt-5">
-          <Form.Group>
-            <Form.Label>
-              Kubernetes API Token
-            </Form.Label>
-            <Form.Control placeholder="Token..." />
-          </Form.Group>
-          <Form.Group>
-            <Form.Label>
-              Kubetail Cluster API
-            </Form.Label>
-            <ClusterAPIPicker kubeContext={kubeContext} />
-          </Form.Group>
-        </Form>
+        </Form.Group>
+        <Form.Group>
+          <Form.Label>
+            Kubetail Cluster API
+          </Form.Label>
+          <ClusterAPIPicker kubeContext={kubeContext} />
+        </Form.Group>
         <div className="mt-8">
-          <Button>Save</Button>
+          <Button type="submit">Save</Button>
         </div>
-      </div>
-    </Modal >
+      </Form>
+    </Modal>
   );
 };

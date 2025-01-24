@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useMutation, useSubscription } from '@apollo/client';
+import { useSubscription } from '@apollo/client';
 import { Fragment, useEffect, useState } from 'react';
 import { RecoilRoot, atom, useRecoilValue, useSetRecoilState, type SetterOrUpdater } from 'recoil';
 
-import Button from '@kubetail/ui/elements/Button';
 import DataTable from '@kubetail/ui/elements/DataTable';
 
 import appConfig from '@/app-config';
