@@ -441,6 +441,32 @@ export const CLUSTER_API_READY_WAIT = gql(`
   }
 `);
 
+export const CLUSTER_API_SERVICES_LIST_FETCH = gql(`
+  query ClusterAPIServicesListFetch($kubeContext: String!) {
+    clusterAPIServicesList(kubeContext: $kubeContext) {
+      metadata {
+        continue
+        resourceVersion
+      }
+      items {
+        ...ClusterAPIServicesListItemFragment
+      }
+    }
+  }
+`);
+
+export const CLUSTER_API_SERVICES_LIST_WATCH = gql(`
+  subscription ClusterAPIServicesListWatch($kubeContext: String!) {
+    clusterAPIServicesWatch(kubeContext: $kubeContext) {
+      type
+      object {
+        ...ClusterAPIServicesListItemFragment
+      }
+    }    
+  }
+`);
+  
+
 /**
  * Helm API
  */

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useMutation, useQuery, useSubscription } from '@apollo/client';
+import { useMutation, useSubscription } from '@apollo/client';
 import { PlusCircleIcon } from '@heroicons/react/24/outline';
 import { useEffect, useState } from 'react';
 
@@ -23,6 +23,7 @@ import Spinner from '@kubetail/ui/elements/Spinner';
 import appConfig from '@/app-config';
 import Modal from '@/components/elements/Modal';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
+import { useListQueryWithSubscription } from '@/lib/hooks';
 
 const defaultKubeContext = appConfig.environment === 'cluster' ? '' : undefined;
 
@@ -68,14 +69,18 @@ type ClusterAPIPickerProps = {
 };
 
 const ClusterAPIPicker = ({ kubeContext }: ClusterAPIPickerProps) => {
-  const [installFeedback, setInstallFeedback] = useState<string>();
-
-  const listQuery = useQuery(dashboardOps.HELM_LIST_RELEASES, {
+  const { loading, data } = useListQueryWithSubscription({
     skip: kubeContext === undefined,
+    query: dashboardOps.CLUSTER_API_SERVICES_LIST_FETCH,
+    subscription: dashboardOps.CLUSTER_API_SERVICES_LIST_WATCH,
+    queryDataKey: 'clusterAPIServicesList',
+    subscriptionDataKey: 'clusterAPIServicesWatch',
     variables: { kubeContext: kubeContext || '' },
   });
 
   const [install, installMutation] = useMutation(dashboardOps.HELM_INSTALL_LATEST);
+
+  const [installFeedback, setInstallFeedback] = useState<string>();
 
   const handleInstall = async () => {
     if (kubeContext === undefined) return;
@@ -84,7 +89,6 @@ const ClusterAPIPicker = ({ kubeContext }: ClusterAPIPickerProps) => {
 
     try {
       await install({ variables: { kubeContext } });
-      await listQuery.refetch();
     } catch (e: unknown) {
       if (e instanceof Error) {
         setInstallFeedback(e.message);
@@ -95,25 +99,25 @@ const ClusterAPIPicker = ({ kubeContext }: ClusterAPIPickerProps) => {
     }
   };
 
-  const handleChange = async (ev: React.ChangeEventHandler<HTMLSelectElement>) => {
+  const handleChange = async (ev: React.ChangeEvent<HTMLSelectElement>) => {
     console.log(ev);
   };
 
-  const releases = listQuery.data?.helmListReleases;
+  const services = data?.clusterAPIServicesList?.items;
 
-  if (listQuery.loading) {
+  if (loading) {
     return <div className="h-10 leading-10">Loading...</div>;
   }
 
-  if (releases) {
+  if (services?.length) {
     return (
       <Form.Select
         name="cluster_api_release_name"
         onChange={handleChange}
       >
-        {releases?.map((release) => (
-          <Form.Option key={release.name} value={release.name}>
-            {`${release.name} (namespace: ${release.namespace}, chart: ${release.chart?.metadata?.version}, app: ${release.chart?.metadata?.appVersion})`}
+        {services?.map((service) => (
+          <Form.Option key={service.metadata.name} value={service.metadata.name}>
+            {`${service.metadata.name}.${service.metadata.namespace}.svc`}
           </Form.Option>
         ))}
       </Form.Select>

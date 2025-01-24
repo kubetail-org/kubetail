@@ -36,6 +36,7 @@ const documents = {
     "\n  fragment HomePodsListItemFragment on CoreV1Pod {\n    ...HomeGenericListItemFragment\n    status {\n      containerStatuses {\n        containerID\n        started\n      }\n    }\n  }\n": types.HomePodsListItemFragmentFragmentDoc,
     "\n  fragment HomeReplicaSetsListItemFragment on AppsV1ReplicaSet {\n    ...HomeGenericListItemFragment\n  }\n": types.HomeReplicaSetsListItemFragmentFragmentDoc,
     "\n  fragment HomeStatefulSetsListItemFragment on AppsV1StatefulSet {\n    ...HomeGenericListItemFragment\n  }\n": types.HomeStatefulSetsListItemFragmentFragmentDoc,
+    "\n  fragment ClusterAPIServicesListItemFragment on CoreV1Service {\n    metadata {\n      namespace\n      name\n      uid\n      creationTimestamp\n      deletionTimestamp\n      resourceVersion\n    }\n  }\n": types.ClusterApiServicesListItemFragmentFragmentDoc,
     "\n  fragment KubeConfigFragment on KubeConfig {\n    currentContext\n    contexts {\n      name\n      cluster\n      namespace\n    }\n  }\n": types.KubeConfigFragmentFragmentDoc,
     "\n  fragment PodLogQueryResponseFragment on PodLogQueryResponse {\n    results {\n      timestamp\n      message\n    }\n    pageInfo {\n      hasPreviousPage\n      hasNextPage\n      startCursor\n      endCursor\n    }\n  }\n": types.PodLogQueryResponseFragmentFragmentDoc,
     "\n  fragment SourcePickerGenericCounterFragment on List {\n    metadata {\n      remainingItemCount\n      resourceVersion\n    }\n    items {\n      ...SourcePickerGenericCounterItemFragment\n    }\n  }\n": types.SourcePickerGenericCounterFragmentFragmentDoc,
@@ -81,6 +82,8 @@ const documents = {
     "\n  query HomeStatefulSetsListFetch($kubeContext: String!, $namespace: String = \"\", $continue: String = \"\") {\n    appsV1StatefulSetsList(kubeContext: $kubeContext, namespace: $namespace, options: { limit: \"50\", continue: $continue }) {\n      ...HomeGenericListFragment\n      items {\n        ...HomeStatefulSetsListItemFragment\n      }\n    }\n  }\n": types.HomeStatefulSetsListFetchDocument,
     "\n  subscription HomeStatefulSetsListWatch($kubeContext: String!, $namespace: String = \"\", $resourceVersion: String = \"\") {\n    appsV1StatefulSetsWatch(kubeContext: $kubeContext, namespace: $namespace, options: { resourceVersion: $resourceVersion }) {\n      type\n      object {\n        ...HomeStatefulSetsListItemFragment\n      }\n    }\n  }\n": types.HomeStatefulSetsListWatchDocument,
     "\n  query ClusterAPIReadyWait($kubeContext: String!, $namespace: String!, $serviceName: String!) {\n    clusterAPIReadyWait(kubeContext: $kubeContext, namespace: $namespace, serviceName: $serviceName)\n  }\n": types.ClusterApiReadyWaitDocument,
+    "\n  query ClusterAPIServicesListFetch($kubeContext: String!) {\n    clusterAPIServicesList(kubeContext: $kubeContext) {\n      metadata {\n        continue\n        resourceVersion\n      }\n      items {\n        ...ClusterAPIServicesListItemFragment\n      }\n    }\n  }\n": types.ClusterApiServicesListFetchDocument,
+    "\n  subscription ClusterAPIServicesListWatch($kubeContext: String!) {\n    clusterAPIServicesWatch(kubeContext: $kubeContext) {\n      type\n      object {\n        ...ClusterAPIServicesListItemFragment\n      }\n    }    \n  }\n": types.ClusterApiServicesListWatchDocument,
     "\n  mutation HelmInstallLatest($kubeContext: String!) {\n    helmInstallLatest(kubeContext: $kubeContext) {\n      ...HelmReleaseFragment\n    }\n  }\n": types.HelmInstallLatestDocument,
     "\n  query HelmListReleases($kubeContext: String!) {\n    helmListReleases(kubeContext: $kubeContext) {\n      ...HelmReleaseFragment\n    }\n  }\n": types.HelmListReleasesDocument,
     "\n  query KubeConfigGet {\n    kubeConfigGet {\n      ...KubeConfigFragment\n    }\n  }\n": types.KubeConfigGetDocument,
@@ -227,6 +230,10 @@ export function gql(source: "\n  fragment HomeReplicaSetsListItemFragment on App
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function gql(source: "\n  fragment HomeStatefulSetsListItemFragment on AppsV1StatefulSet {\n    ...HomeGenericListItemFragment\n  }\n"): (typeof documents)["\n  fragment HomeStatefulSetsListItemFragment on AppsV1StatefulSet {\n    ...HomeGenericListItemFragment\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  fragment ClusterAPIServicesListItemFragment on CoreV1Service {\n    metadata {\n      namespace\n      name\n      uid\n      creationTimestamp\n      deletionTimestamp\n      resourceVersion\n    }\n  }\n"): (typeof documents)["\n  fragment ClusterAPIServicesListItemFragment on CoreV1Service {\n    metadata {\n      namespace\n      name\n      uid\n      creationTimestamp\n      deletionTimestamp\n      resourceVersion\n    }\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -407,6 +414,14 @@ export function gql(source: "\n  subscription HomeStatefulSetsListWatch($kubeCon
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function gql(source: "\n  query ClusterAPIReadyWait($kubeContext: String!, $namespace: String!, $serviceName: String!) {\n    clusterAPIReadyWait(kubeContext: $kubeContext, namespace: $namespace, serviceName: $serviceName)\n  }\n"): (typeof documents)["\n  query ClusterAPIReadyWait($kubeContext: String!, $namespace: String!, $serviceName: String!) {\n    clusterAPIReadyWait(kubeContext: $kubeContext, namespace: $namespace, serviceName: $serviceName)\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  query ClusterAPIServicesListFetch($kubeContext: String!) {\n    clusterAPIServicesList(kubeContext: $kubeContext) {\n      metadata {\n        continue\n        resourceVersion\n      }\n      items {\n        ...ClusterAPIServicesListItemFragment\n      }\n    }\n  }\n"): (typeof documents)["\n  query ClusterAPIServicesListFetch($kubeContext: String!) {\n    clusterAPIServicesList(kubeContext: $kubeContext) {\n      metadata {\n        continue\n        resourceVersion\n      }\n      items {\n        ...ClusterAPIServicesListItemFragment\n      }\n    }\n  }\n"];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n  subscription ClusterAPIServicesListWatch($kubeContext: String!) {\n    clusterAPIServicesWatch(kubeContext: $kubeContext) {\n      type\n      object {\n        ...ClusterAPIServicesListItemFragment\n      }\n    }    \n  }\n"): (typeof documents)["\n  subscription ClusterAPIServicesListWatch($kubeContext: String!) {\n    clusterAPIServicesWatch(kubeContext: $kubeContext) {\n      type\n      object {\n        ...ClusterAPIServicesListItemFragment\n      }\n    }    \n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

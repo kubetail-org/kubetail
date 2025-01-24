@@ -421,6 +421,25 @@ func (r *queryResolver) ClusterAPIHealthzGet(ctx context.Context, kubeContext *s
 	}, nil
 }
 
+// ClusterAPIServicesList is the resolver for the clusterAPIServicesList field.
+func (r *queryResolver) ClusterAPIServicesList(ctx context.Context, kubeContext *string) (*corev1.ServiceList, error) {
+	// Reject requests not in desktop environment
+	if r.environment != config.EnvironmentDesktop {
+		return nil, gqlerrors.ErrForbidden
+	}
+
+	options := &metav1.ListOptions{
+		LabelSelector: "app.kubernetes.io/name=kubetail,app.kubernetes.io/component=cluster-api",
+	}
+
+	outList := &corev1.ServiceList{}
+	if err := r.listResource(ctx, kubeContext, sharedk8shelpers.BypassNamespaceCheck, options, outList); err != nil {
+		return nil, err
+	}
+
+	return outList, nil
+}
+
 // HelmListReleases is the resolver for the helmListReleases field.
 func (r *queryResolver) HelmListReleases(ctx context.Context, kubeContext *string) ([]*release.Release, error) {
 	// Reject requests not in desktop environment
@@ -682,6 +701,21 @@ func (r *subscriptionResolver) ClusterAPIHealthzWatch(ctx context.Context, kubeC
 	}()
 
 	return outCh, nil
+}
+
+// ClusterAPIServicesWatch is the resolver for the clusterAPIServicesWatch field.
+func (r *subscriptionResolver) ClusterAPIServicesWatch(ctx context.Context, kubeContext *string) (<-chan *watch.Event, error) {
+	// Reject requests not in desktop environment
+	if r.environment != config.EnvironmentDesktop {
+		return nil, gqlerrors.ErrForbidden
+	}
+
+	options := &metav1.ListOptions{
+		LabelSelector: "app.kubernetes.io/name=kubetail,app.kubernetes.io/component=cluster-api",
+	}
+
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}
+	return r.watchResourceMulti(ctx, kubeContext, sharedk8shelpers.BypassNamespaceCheck, options, gvr)
 }
 
 // KubeConfigWatch is the resolver for the kubeConfigWatch field.
