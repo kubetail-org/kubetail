@@ -747,12 +747,6 @@ type Query {
   coreV1ServicesList(kubeContext: String, namespace: String, options: MetaV1ListOptions): CoreV1ServiceList
 
   """
-  Kubernetes API
-  """
-  kubernetesAPIReadyWait(kubeContext: String): Boolean!
-  kubernetesAPIHealthzGet(kubeContext: String): HealthCheckResponse!
-
-  """
   Cluster API
   """
   clusterAPIReadyWait(kubeContext: String, namespace: String, serviceName: String): Boolean!
@@ -767,6 +761,12 @@ type Query {
   KubeConfig queries
   """
   kubeConfigGet: KubeConfig
+
+  """
+  Kubernetes API
+  """
+  kubernetesAPIReadyWait(kubeContext: String): Boolean!
+  kubernetesAPIHealthzGet(kubeContext: String): HealthCheckResponse!
 
   """
   Pod logs API
@@ -813,7 +813,7 @@ type Query {
 
 type Mutation {
   """
-  Helm
+  Helm mutations
   """
   helmInstallLatest(kubeContext: String): HelmRelease
 }

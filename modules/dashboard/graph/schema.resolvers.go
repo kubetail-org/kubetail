@@ -395,24 +395,6 @@ func (r *queryResolver) CoreV1ServicesList(ctx context.Context, kubeContext *str
 	return outList, nil
 }
 
-// KubernetesAPIReadyWait is the resolver for the kubernetesAPIReadyWait field.
-func (r *queryResolver) KubernetesAPIReadyWait(ctx context.Context, kubeContext *string) (bool, error) {
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
-	defer cancel()
-
-	// Execute
-	if err := r.cm.WaitUntilReady(ctx, kubeContext); err != nil {
-		return false, err
-	}
-
-	return true, nil
-}
-
-// KubernetesAPIHealthzGet is the resolver for the kubernetesAPIHealthzGet field.
-func (r *queryResolver) KubernetesAPIHealthzGet(ctx context.Context, kubeContext *string) (*model.HealthCheckResponse, error) {
-	return r.kubernetesAPIHealthzGet(ctx, kubeContext), nil
-}
-
 // ClusterAPIReadyWait is the resolver for the clusterAPIReadyWait field.
 func (r *queryResolver) ClusterAPIReadyWait(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (bool, error) {
 	if err := r.hm.ReadyWait(ctx, kubeContext, namespace, serviceName); err != nil {
@@ -474,6 +456,24 @@ func (r *queryResolver) KubeConfigGet(ctx context.Context) (*model.KubeConfig, e
 	}
 
 	return &model.KubeConfig{Config: cm.GetKubeConfig()}, nil
+}
+
+// KubernetesAPIReadyWait is the resolver for the kubernetesAPIReadyWait field.
+func (r *queryResolver) KubernetesAPIReadyWait(ctx context.Context, kubeContext *string) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+
+	// Execute
+	if err := r.cm.WaitUntilReady(ctx, kubeContext); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+// KubernetesAPIHealthzGet is the resolver for the kubernetesAPIHealthzGet field.
+func (r *queryResolver) KubernetesAPIHealthzGet(ctx context.Context, kubeContext *string) (*model.HealthCheckResponse, error) {
+	return r.kubernetesAPIHealthzGet(ctx, kubeContext), nil
 }
 
 // PodLogHead is the resolver for the podLogHead field.
