@@ -465,7 +465,6 @@ export const CLUSTER_API_SERVICES_LIST_WATCH = gql(`
     }    
   }
 `);
-  
 
 /**
  * Helm API

@@ -179,7 +179,7 @@ const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Serve
             {appConfig.environment === 'desktop' && (
               <>
                 <Button size="xs" intent="outline" onClick={() => setIsDialogOpen(true)}>settings</Button>
-                <ClusterSettingsDialog isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} defaultKubeContext={kubeContext}/>
+                <ClusterSettingsDialog isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} defaultKubeContext={kubeContext} />
               </>
             )}
           </DataTable.DataCell>

@@ -62,11 +62,11 @@ const KubeContextPicker = ({ className, value, setValue }: KubeContextPickerProp
 };
 
 const generateServiceUrl = (service: ClusterApiServicesListItemFragmentFragment) => {
-  const ports = service.spec.ports;
+  const { ports } = service.spec;
   const appProtocol = ports.length ? ports[0].appProtocol : 'http';
   const port = ports.length ? ports[0].port : 'http';
   return `${appProtocol}://${service.metadata.name}.${service.metadata.namespace}.svc:${port}`;
-}
+};
 
 type ClusterAPIPickerDesktopProps = {
   kubeContext?: string;
@@ -130,7 +130,7 @@ const ClusterAPIPickerDesktop = ({ kubeContext }: ClusterAPIPickerDesktopProps) 
               <PlusCircleIcon className="h-5 w-5 mr-1" />
             )}
             Install
-          </Button >
+          </Button>
           {installFeedback && <Form.Feedback>{installFeedback}</Form.Feedback>}
         </div>
       )}
@@ -138,17 +138,15 @@ const ClusterAPIPickerDesktop = ({ kubeContext }: ClusterAPIPickerDesktopProps) 
   );
 };
 
-const ClusterAPIPickerCluster = () => {
-  return (
-    <Form.Select disabled={true}>
-      {appConfig.clusterAPIEndpoint ? (
-        <Form.Option>{appConfig.clusterAPIEndpoint}</Form.Option>
-      ) : (
-        <Form.Option>Disabled</Form.Option>
-      )}
-    </Form.Select>
-  );
-};
+const ClusterAPIPickerCluster = () => (
+  <Form.Select disabled>
+    {appConfig.clusterAPIEndpoint ? (
+      <Form.Option>{appConfig.clusterAPIEndpoint}</Form.Option>
+    ) : (
+      <Form.Option>Disabled</Form.Option>
+    )}
+  </Form.Select>
+);
 
 type ClusterSettingsDialogProps = {
   isOpen?: boolean;
