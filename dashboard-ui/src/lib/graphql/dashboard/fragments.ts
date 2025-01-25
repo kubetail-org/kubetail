@@ -302,6 +302,13 @@ export const CLUSTER_API_SERVICES_LIST_ITEM_FRAGMENT = gql(`
       deletionTimestamp
       resourceVersion
     }
+    spec {
+      ports {
+        name
+        port
+        appProtocol
+      }
+    }
   }
 `);
 

@@ -10,7 +10,7 @@ data:
     allowed-namespaces: []
     dashboard:
       addr: :8080
-      auth-mode: token
+      auth-mode: auto
       base-path: /
       cluster-api-endpoint: http://kubetail-cluster-api.kubetail-system.svc:8080
       environment: cluster

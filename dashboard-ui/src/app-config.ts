@@ -31,6 +31,8 @@ class Config {
 
   clusterAPIEnabled: boolean = true;
 
+  clusterAPIEndpoint: string = '';
+
   environment: string = 'desktop';
 
   constructor() {

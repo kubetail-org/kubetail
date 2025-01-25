@@ -442,7 +442,7 @@ export const CLUSTER_API_READY_WAIT = gql(`
 `);
 
 export const CLUSTER_API_SERVICES_LIST_FETCH = gql(`
-  query ClusterAPIServicesListFetch($kubeContext: String!) {
+  query ClusterAPIServicesListFetch($kubeContext: String) {
     clusterAPIServicesList(kubeContext: $kubeContext) {
       metadata {
         continue
@@ -456,7 +456,7 @@ export const CLUSTER_API_SERVICES_LIST_FETCH = gql(`
 `);
 
 export const CLUSTER_API_SERVICES_LIST_WATCH = gql(`
-  subscription ClusterAPIServicesListWatch($kubeContext: String!) {
+  subscription ClusterAPIServicesListWatch($kubeContext: String) {
     clusterAPIServicesWatch(kubeContext: $kubeContext) {
       type
       object {
@@ -472,7 +472,7 @@ export const CLUSTER_API_SERVICES_LIST_WATCH = gql(`
  */
 
 export const HELM_INSTALL_LATEST = gql(`
-  mutation HelmInstallLatest($kubeContext: String!) {
+  mutation HelmInstallLatest($kubeContext: String) {
     helmInstallLatest(kubeContext: $kubeContext) {
       ...HelmReleaseFragment
     }
@@ -480,7 +480,7 @@ export const HELM_INSTALL_LATEST = gql(`
 `);
 
 export const HELM_LIST_RELEASES = gql(`
-  query HelmListReleases($kubeContext: String!) {
+  query HelmListReleases($kubeContext: String) {
     helmListReleases(kubeContext: $kubeContext) {
       ...HelmReleaseFragment
     }

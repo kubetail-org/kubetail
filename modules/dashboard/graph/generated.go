@@ -435,7 +435,9 @@ type ComplexityRoot struct {
 	}
 
 	CoreV1ServicePort struct {
-		Name func(childComplexity int) int
+		AppProtocol func(childComplexity int) int
+		Name        func(childComplexity int) int
+		Port        func(childComplexity int) int
 	}
 
 	CoreV1ServiceSpec struct {
@@ -2156,12 +2158,26 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.CoreV1ServiceList.ListMeta(childComplexity), true
 
+	case "CoreV1ServicePort.appProtocol":
+		if e.complexity.CoreV1ServicePort.AppProtocol == nil {
+			break
+		}
+
+		return e.complexity.CoreV1ServicePort.AppProtocol(childComplexity), true
+
 	case "CoreV1ServicePort.name":
 		if e.complexity.CoreV1ServicePort.Name == nil {
 			break
 		}
 
 		return e.complexity.CoreV1ServicePort.Name(childComplexity), true
+
+	case "CoreV1ServicePort.port":
+		if e.complexity.CoreV1ServicePort.Port == nil {
+			break
+		}
+
+		return e.complexity.CoreV1ServicePort.Port(childComplexity), true
 
 	case "CoreV1ServiceSpec.clusterIP":
 		if e.complexity.CoreV1ServiceSpec.ClusterIP == nil {
@@ -15688,14 +15704,102 @@ func (ec *executionContext) _CoreV1ServicePort_name(ctx context.Context, field g
 		return graphql.Null
 	}
 	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
 		return graphql.Null
 	}
 	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalOString2string(ctx, field.Selections, res)
+	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_CoreV1ServicePort_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CoreV1ServicePort",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CoreV1ServicePort_port(ctx context.Context, field graphql.CollectedField, obj *v13.ServicePort) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CoreV1ServicePort_port(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Port, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int32)
+	fc.Result = res
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CoreV1ServicePort_port(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CoreV1ServicePort",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CoreV1ServicePort_appProtocol(ctx context.Context, field graphql.CollectedField, obj *v13.ServicePort) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CoreV1ServicePort_appProtocol(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.AppProtocol, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CoreV1ServicePort_appProtocol(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "CoreV1ServicePort",
 		Field:      field,
@@ -15749,6 +15853,10 @@ func (ec *executionContext) fieldContext_CoreV1ServiceSpec_ports(_ context.Conte
 			switch field.Name {
 			case "name":
 				return ec.fieldContext_CoreV1ServicePort_name(ctx, field)
+			case "port":
+				return ec.fieldContext_CoreV1ServicePort_port(ctx, field)
+			case "appProtocol":
+				return ec.fieldContext_CoreV1ServicePort_appProtocol(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type CoreV1ServicePort", field.Name)
 		},
@@ -20198,11 +20306,14 @@ func (ec *executionContext) _Query_helmListReleases(ctx context.Context, field g
 		return graphql.Null
 	}
 	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
 		return graphql.Null
 	}
 	res := resTmp.([]*release.Release)
 	fc.Result = res
-	return ec.marshalOHelmRelease2ᚕᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋreleaseᚐReleaseᚄ(ctx, field.Selections, res)
+	return ec.marshalNHelmRelease2ᚕᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋreleaseᚐReleaseᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_helmListReleases(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -26881,6 +26992,16 @@ func (ec *executionContext) _CoreV1ServicePort(ctx context.Context, sel ast.Sele
 			out.Values[i] = graphql.MarshalString("CoreV1ServicePort")
 		case "name":
 			out.Values[i] = ec._CoreV1ServicePort_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "port":
+			out.Values[i] = ec._CoreV1ServicePort_port(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "appProtocol":
+			out.Values[i] = ec._CoreV1ServicePort_appProtocol(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -28429,13 +28550,16 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 		case "helmListReleases":
 			field := field
 
-			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
 				res = ec._Query_helmListReleases(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
 				return res
 			}
 
@@ -29886,6 +30010,50 @@ func (ec *executionContext) marshalNHealthCheckStatus2githubᚗcomᚋkubetailᚑ
 	return v
 }
 
+func (ec *executionContext) marshalNHelmRelease2ᚕᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋreleaseᚐReleaseᚄ(ctx context.Context, sel ast.SelectionSet, v []*release.Release) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNHelmRelease2ᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋreleaseᚐRelease(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) marshalNHelmRelease2ᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋreleaseᚐRelease(ctx context.Context, sel ast.SelectionSet, v *release.Release) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -30918,53 +31086,6 @@ func (ec *executionContext) marshalOHelmChartMetadata2ᚖhelmᚗshᚋhelmᚋv3�
 		return graphql.Null
 	}
 	return ec._HelmChartMetadata(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalOHelmRelease2ᚕᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋreleaseᚐReleaseᚄ(ctx context.Context, sel ast.SelectionSet, v []*release.Release) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNHelmRelease2ᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋreleaseᚐRelease(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
 }
 
 func (ec *executionContext) marshalOHelmRelease2ᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋreleaseᚐRelease(ctx context.Context, sel ast.SelectionSet, v *release.Release) graphql.Marshaler {
