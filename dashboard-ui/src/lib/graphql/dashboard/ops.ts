@@ -436,7 +436,7 @@ export const HOME_STATEFULSETS_LIST_WATCH = gql(`
  */
 
 export const CLUSTER_API_READY_WAIT = gql(`
-  query ClusterAPIReadyWait($kubeContext: String!, $namespace: String!, $serviceName: String!) {
+  subscription ClusterAPIReadyWait($kubeContext: String!, $namespace: String!, $serviceName: String!) {
     clusterAPIReadyWait(kubeContext: $kubeContext, namespace: $namespace, serviceName: $serviceName)
   }
 `);
@@ -515,7 +515,7 @@ export const KUBE_CONFIG_WATCH = gql(`
  */
 
 export const KUBERNETES_API_READY_WAIT = gql(`
-  query KubernetesAPIReadyWait($kubeContext: String) {
+  subscription KubernetesAPIReadyWait($kubeContext: String) {
     kubernetesAPIReadyWait(kubeContext: $kubeContext)
   }
 `);

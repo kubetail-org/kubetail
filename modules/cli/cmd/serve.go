@@ -112,7 +112,7 @@ var serveCmd = &cobra.Command{
 		server := http.Server{
 			Addr:         cfg.Dashboard.Addr,
 			Handler:      app,
-			IdleTimeout:  5 * time.Minute,
+			IdleTimeout:  1 * time.Minute,
 			ReadTimeout:  5 * time.Second,
 			WriteTimeout: 10 * time.Second,
 		}

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useQuery, useSubscription } from '@apollo/client';
+import { useSubscription } from '@apollo/client';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import numeral from 'numeral';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
@@ -655,7 +655,7 @@ const Home = () => {
   const [kubeContext, setKubeContext] = useState(defaultKubeContext);
   const [namespace, setNamespace] = useState<string>('');
 
-  const readyWait = useQuery(dashboardOps.KUBERNETES_API_READY_WAIT, {
+  const readyWait = useSubscription(dashboardOps.KUBERNETES_API_READY_WAIT, {
     variables: { kubeContext },
   });
 

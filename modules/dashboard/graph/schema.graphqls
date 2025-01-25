@@ -847,11 +847,13 @@ type Subscription {
   """
   Kubernetes API
   """
+  kubernetesAPIReadyWait(kubeContext: String): Boolean!
   kubernetesAPIHealthzWatch(kubeContext: String): HealthCheckResponse!
 
   """
   Cluster API
   """
+  clusterAPIReadyWait(kubeContext: String, namespace: String, serviceName: String): Boolean!
   clusterAPIHealthzWatch(kubeContext: String, namespace: String, serviceName: String): HealthCheckResponse!
   clusterAPIServicesWatch(kubeContext: String): CoreV1ServicesWatchEvent
 

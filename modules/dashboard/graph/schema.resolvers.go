@@ -643,6 +643,25 @@ func (r *subscriptionResolver) CoreV1ServicesWatch(ctx context.Context, kubeCont
 	return r.watchResourceMulti(ctx, kubeContext, namespace, options, gvr)
 }
 
+// KubernetesAPIReadyWait is the resolver for the kubernetesAPIReadyWait field.
+func (r *subscriptionResolver) KubernetesAPIReadyWait(ctx context.Context, kubeContext *string) (<-chan bool, error) {
+	outCh := make(chan bool)
+
+	// Run in go routine
+	go func() {
+		defer close(outCh)
+
+		if err := r.cm.WaitUntilReady(ctx, kubeContext); err != nil {
+			transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
+			return
+		}
+
+		outCh <- true
+	}()
+
+	return outCh, nil
+}
+
 // KubernetesAPIHealthzWatch is the resolver for the kubernetesAPIHealthzWatch field.
 func (r *subscriptionResolver) KubernetesAPIHealthzWatch(ctx context.Context, kubeContext *string) (<-chan *model.HealthCheckResponse, error) {
 	outCh := make(chan *model.HealthCheckResponse)
@@ -673,6 +692,25 @@ func (r *subscriptionResolver) KubernetesAPIHealthzWatch(ctx context.Context, ku
 		// cleanup
 		ticker.Stop()
 		close(outCh)
+	}()
+
+	return outCh, nil
+}
+
+// ClusterAPIReadyWait is the resolver for the clusterAPIReadyWait field.
+func (r *subscriptionResolver) ClusterAPIReadyWait(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (<-chan bool, error) {
+	outCh := make(chan bool)
+
+	// Run in go routine
+	go func() {
+		defer close(outCh)
+
+		if err := r.hm.ReadyWait(ctx, kubeContext, namespace, serviceName); err != nil {
+			transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
+			return
+		}
+
+		outCh <- true
 	}()
 
 	return outCh, nil

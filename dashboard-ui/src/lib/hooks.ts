@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useApolloClient, useQuery } from '@apollo/client';
+import { useApolloClient, useQuery, useSubscription } from '@apollo/client';
 import type { TypedDocumentNode, OperationVariables, Unmasked, MaybeMasked } from '@apollo/client';
 import distinctColors from 'distinct-colors';
 import { useEffect, useRef, useState } from 'react';
@@ -399,7 +399,7 @@ export function useLogMetadata(options?: LogMetadataHookOptions) {
     serviceName: 'kubetail-cluster-api',
   };
 
-  const readyWait = useQuery(dashboardOps.CLUSTER_API_READY_WAIT, {
+  const readyWait = useSubscription(dashboardOps.CLUSTER_API_READY_WAIT, {
     variables: connectArgs,
   });
   const ready = readyWait.data?.clusterAPIReadyWait;
