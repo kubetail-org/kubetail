@@ -14,6 +14,10 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
+const defaultNamespace = 'kubetail-system';
+
+const defaultServiceName = 'kubetail-cluster-api';
+
 type ConnectArgs = {
   namespace: string;
   serviceName: string;
@@ -31,9 +35,10 @@ const Context = createContext({} as ContextType);
  */
 
 export function useClusterAPI(kubeContext: string) {
-  const { connectArgs, setConnectArgs } = useContext(Context);
+  //const { connectArgs, setConnectArgs } = useContext(Context);
 
-  return { connectArgs, setConnectArgs };
+  //return { connectArgs, setConnectArgs };
+  return { kubeContext, namespace: defaultNamespace, serviceName: defaultServiceName };
 }
 
 /**
