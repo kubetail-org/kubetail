@@ -33,6 +33,9 @@ import clusterAPI from '@/lib/graphql/cluster-api/__generated__/introspection-re
 import dashboard from '@/lib/graphql/dashboard/__generated__/introspection-result.json';
 import { getBasename, getCSRFToken, joinPaths } from '@/lib/util';
 
+import { setLogVerbosity } from '@apollo/client';
+setLogVerbosity('debug');
+
 /**
  * Shared items
  */
