@@ -138,7 +138,7 @@ function k8sPagination() {
       if (existing === undefined) return incoming;
 
       // merge if incoming is called with continue arg from existing
-      if (x.args.options.continue && x.args.options.continue === existing.metadata.continue) {
+      if (x.args.options && x.args.options.continue && x.args.options.continue === existing.metadata.continue) {
         const mergedObj = { ...existing };
         mergedObj.metadata = incoming.metadata;
         mergedObj.items = [...existing.items, ...incoming.items];

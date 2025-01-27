@@ -18,7 +18,6 @@ import distinctColors from 'distinct-colors';
 import { useEffect, useRef, useState } from 'react';
 
 import { getClusterAPIClient } from '@/apollo-client';
-import { useClusterAPI } from '@/lib/cluster-api';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import * as clusterAPIOps from '@/lib/graphql/cluster-api/ops';
 
@@ -394,11 +393,16 @@ type LogMetadataHookOptions = {
 export function useLogMetadata(options?: LogMetadataHookOptions) {
   const retryOnError = useRetryOnError();
 
-  const connectArgs = useClusterAPI(options?.kubeContext || '');
+  const connectArgs = {
+    kubeContext: options?.kubeContext || '',
+    namespace: 'kubetail-system',
+    serviceName: 'kubetail-cluster-api',
+  };
 
   const readyWait = useSubscription(dashboardOps.CLUSTER_API_READY_WAIT, {
     variables: connectArgs,
   });
+
   const ready = readyWait.data?.clusterAPIReadyWait;
 
   // initial query

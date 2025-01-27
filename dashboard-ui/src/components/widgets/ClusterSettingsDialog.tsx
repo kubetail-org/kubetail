@@ -101,26 +101,24 @@ const ClusterAPIPickerDesktop = ({ kubeContext }: ClusterAPIPickerDesktopProps) 
     }
   };
 
-  const handleChange = async (ev: React.ChangeEvent<HTMLSelectElement>) => {
-    console.log(ev);
-  };
-
   const services = data?.clusterAPIServicesList?.items;
 
   if (kubeContext === undefined || loading) {
     return <div className="h-10 leading-10">Loading...</div>;
   }
 
+  // Check if kubetail is installed in default place
+  let clusterAPIEndpoint = '';
+  services?.forEach((service) => {
+    if (service.metadata.namespace === 'kubetail-system' && service.metadata.name === 'kubetail-cluster-api') {
+      clusterAPIEndpoint = generateServiceUrl(service);
+    }
+  });
+
   return (
     <>
-      {services?.length ? (
-        <Form.Select onChange={handleChange}>
-          {services?.map((service) => (
-            <Form.Option key={service.metadata.name} value={service.metadata.name}>
-              {generateServiceUrl(service)}
-            </Form.Option>
-          ))}
-        </Form.Select>
+      {clusterAPIEndpoint ? (
+        <div>{clusterAPIEndpoint}</div>
       ) : (
         <div>
           <Button intent="secondary" size="sm" onClick={handleInstall} disabled={installMutation.loading}>
