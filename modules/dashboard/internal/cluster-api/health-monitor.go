@@ -296,11 +296,11 @@ func newEndpointSlicesHealthMonitorWorker(clientset kubernetes.Interface, namesp
 	}
 
 	// Register event handlers
-	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := informer.AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { w.onInformerEvent() },
 		UpdateFunc: func(oldObj, newObj interface{}) { w.onInformerEvent() },
 		DeleteFunc: func(obj interface{}) { w.onInformerEvent() },
-	})
+	}, 10*time.Minute)
 	if err != nil {
 		return nil, err
 	}
@@ -409,15 +409,6 @@ func (w *endpointSlicesHealthMonitorWorker) ReadyWait(ctx context.Context) error
 
 // onInformerEvent
 func (w *endpointSlicesHealthMonitorWorker) onInformerEvent() {
-	// Wait for cache to sync (5 sec timeout)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if !cache.WaitForCacheSync(ctx.Done(), w.informer.HasSynced) {
-		zlog.Warn().Caller().Msg("faled to sync")
-		return
-	}
-
 	list := w.informer.GetStore().List()
 
 	// Return NotFound if no endpoint slices exist
