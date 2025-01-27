@@ -294,6 +294,7 @@ export const HOME_STATEFULSETS_LIST_ITEM_FRAGMENT = gql(`
 
 export const CLUSTER_API_SERVICES_LIST_ITEM_FRAGMENT = gql(`
   fragment ClusterAPIServicesListItemFragment on CoreV1Service {
+    id
     metadata {
       namespace
       name
