@@ -24,9 +24,9 @@ import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 
 type InstallButtonProps = {
   kubeContext: string;
-}
+};
 
-const InstallButton = ({ kubeContext }: InstallButtonProps ) => {
+const InstallButton = ({ kubeContext }: InstallButtonProps) => {
   const [install, installMutation] = useMutation(dashboardOps.HELM_INSTALL_LATEST);
   const [clicked, setClicked] = useState(false);
 
@@ -57,6 +57,6 @@ const InstallButton = ({ kubeContext }: InstallButtonProps ) => {
       {label}
     </Button>
   );
-}
+};
 
 export default InstallButton;
