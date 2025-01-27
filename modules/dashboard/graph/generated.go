@@ -585,7 +585,7 @@ type ComplexityRoot struct {
 		BatchV1JobsList         func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
 		ClusterAPIHealthzGet    func(childComplexity int, kubeContext *string, namespace *string, serviceName *string) int
 		ClusterAPIReadyWait     func(childComplexity int, kubeContext *string, namespace *string, serviceName *string) int
-		ClusterAPIServicesList  func(childComplexity int, kubeContext *string) int
+		ClusterAPIServicesList  func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
 		CoreV1NamespacesList    func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
 		CoreV1NodesList         func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
 		CoreV1PodsGet           func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
@@ -609,7 +609,7 @@ type ComplexityRoot struct {
 		BatchV1JobsWatch          func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
 		ClusterAPIHealthzWatch    func(childComplexity int, kubeContext *string, namespace *string, serviceName *string) int
 		ClusterAPIReadyWait       func(childComplexity int, kubeContext *string, namespace *string, serviceName *string) int
-		ClusterAPIServicesWatch   func(childComplexity int, kubeContext *string) int
+		ClusterAPIServicesWatch   func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
 		CoreV1NamespacesWatch     func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
 		CoreV1NodesWatch          func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
 		CoreV1PodsWatch           func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
@@ -680,7 +680,7 @@ type QueryResolver interface {
 	CoreV1ServicesList(ctx context.Context, kubeContext *string, namespace *string, options *v1.ListOptions) (*v13.ServiceList, error)
 	ClusterAPIReadyWait(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (bool, error)
 	ClusterAPIHealthzGet(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (*model.HealthCheckResponse, error)
-	ClusterAPIServicesList(ctx context.Context, kubeContext *string) (*v13.ServiceList, error)
+	ClusterAPIServicesList(ctx context.Context, kubeContext *string, options *v1.ListOptions) (*v13.ServiceList, error)
 	HelmListReleases(ctx context.Context, kubeContext *string) ([]*release.Release, error)
 	KubeConfigGet(ctx context.Context) (*model.KubeConfig, error)
 	KubernetesAPIReadyWait(ctx context.Context, kubeContext *string) (bool, error)
@@ -703,7 +703,7 @@ type SubscriptionResolver interface {
 	KubernetesAPIHealthzWatch(ctx context.Context, kubeContext *string) (<-chan *model.HealthCheckResponse, error)
 	ClusterAPIReadyWait(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (<-chan bool, error)
 	ClusterAPIHealthzWatch(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (<-chan *model.HealthCheckResponse, error)
-	ClusterAPIServicesWatch(ctx context.Context, kubeContext *string) (<-chan *watch.Event, error)
+	ClusterAPIServicesWatch(ctx context.Context, kubeContext *string, options *v1.ListOptions) (<-chan *watch.Event, error)
 	KubeConfigWatch(ctx context.Context) (<-chan *model.KubeConfigWatchEvent, error)
 	PodLogFollow(ctx context.Context, kubeContext *string, namespace *string, name string, container *string, after *string, since *string) (<-chan *model.LogRecord, error)
 }
@@ -2856,7 +2856,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.ClusterAPIServicesList(childComplexity, args["kubeContext"].(*string)), true
+		return e.complexity.Query.ClusterAPIServicesList(childComplexity, args["kubeContext"].(*string), args["options"].(*v1.ListOptions)), true
 
 	case "Query.coreV1NamespacesList":
 		if e.complexity.Query.CoreV1NamespacesList == nil {
@@ -3103,7 +3103,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Subscription.ClusterAPIServicesWatch(childComplexity, args["kubeContext"].(*string)), true
+		return e.complexity.Subscription.ClusterAPIServicesWatch(childComplexity, args["kubeContext"].(*string), args["options"].(*v1.ListOptions)), true
 
 	case "Subscription.coreV1NamespacesWatch":
 		if e.complexity.Subscription.CoreV1NamespacesWatch == nil {
@@ -4379,6 +4379,11 @@ func (ec *executionContext) field_Query_clusterAPIServicesList_args(ctx context.
 		return nil, err
 	}
 	args["kubeContext"] = arg0
+	arg1, err := ec.field_Query_clusterAPIServicesList_argsOptions(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["options"] = arg1
 	return args, nil
 }
 func (ec *executionContext) field_Query_clusterAPIServicesList_argsKubeContext(
@@ -4391,6 +4396,19 @@ func (ec *executionContext) field_Query_clusterAPIServicesList_argsKubeContext(
 	}
 
 	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_clusterAPIServicesList_argsOptions(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*v1.ListOptions, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("options"))
+	if tmp, ok := rawArgs["options"]; ok {
+		return ec.unmarshalOMetaV1ListOptions2ᚖk8sᚗioᚋapimachineryᚋpkgᚋapisᚋmetaᚋv1ᚐListOptions(ctx, tmp)
+	}
+
+	var zeroVal *v1.ListOptions
 	return zeroVal, nil
 }
 
@@ -5611,6 +5629,11 @@ func (ec *executionContext) field_Subscription_clusterAPIServicesWatch_args(ctx 
 		return nil, err
 	}
 	args["kubeContext"] = arg0
+	arg1, err := ec.field_Subscription_clusterAPIServicesWatch_argsOptions(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["options"] = arg1
 	return args, nil
 }
 func (ec *executionContext) field_Subscription_clusterAPIServicesWatch_argsKubeContext(
@@ -5623,6 +5646,19 @@ func (ec *executionContext) field_Subscription_clusterAPIServicesWatch_argsKubeC
 	}
 
 	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Subscription_clusterAPIServicesWatch_argsOptions(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*v1.ListOptions, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("options"))
+	if tmp, ok := rawArgs["options"]; ok {
+		return ec.unmarshalOMetaV1ListOptions2ᚖk8sᚗioᚋapimachineryᚋpkgᚋapisᚋmetaᚋv1ᚐListOptions(ctx, tmp)
+	}
+
+	var zeroVal *v1.ListOptions
 	return zeroVal, nil
 }
 
@@ -20347,7 +20383,7 @@ func (ec *executionContext) _Query_clusterAPIServicesList(ctx context.Context, f
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().ClusterAPIServicesList(rctx, fc.Args["kubeContext"].(*string))
+		return ec.resolvers.Query().ClusterAPIServicesList(rctx, fc.Args["kubeContext"].(*string), fc.Args["options"].(*v1.ListOptions))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -21946,7 +21982,7 @@ func (ec *executionContext) _Subscription_clusterAPIServicesWatch(ctx context.Co
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Subscription().ClusterAPIServicesWatch(rctx, fc.Args["kubeContext"].(*string))
+		return ec.resolvers.Subscription().ClusterAPIServicesWatch(rctx, fc.Args["kubeContext"].(*string), fc.Args["options"].(*v1.ListOptions))
 	})
 	if err != nil {
 		ec.Error(ctx, err)

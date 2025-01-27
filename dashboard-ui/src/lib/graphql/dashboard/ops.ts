@@ -442,8 +442,8 @@ export const CLUSTER_API_READY_WAIT = gql(`
 `);
 
 export const CLUSTER_API_SERVICES_LIST_FETCH = gql(`
-  query ClusterAPIServicesListFetch($kubeContext: String) {
-    clusterAPIServicesList(kubeContext: $kubeContext) {
+  query ClusterAPIServicesListFetch($kubeContext: String, $continue: String = "") {
+    clusterAPIServicesList(kubeContext: $kubeContext, options: { limit: "50", continue: $continue }) {
       metadata {
         continue
         resourceVersion
@@ -456,8 +456,8 @@ export const CLUSTER_API_SERVICES_LIST_FETCH = gql(`
 `);
 
 export const CLUSTER_API_SERVICES_LIST_WATCH = gql(`
-  subscription ClusterAPIServicesListWatch($kubeContext: String) {
-    clusterAPIServicesWatch(kubeContext: $kubeContext) {
+  subscription ClusterAPIServicesListWatch($kubeContext: String, $resourceVersion: String = "") {
+    clusterAPIServicesWatch(kubeContext: $kubeContext, options: { resourceVersion: $resourceVersion }) {
       type
       object {
         ...ClusterAPIServicesListItemFragment

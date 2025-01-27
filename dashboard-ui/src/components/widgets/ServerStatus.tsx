@@ -16,12 +16,11 @@ import { useSubscription } from '@apollo/client';
 import { Fragment, useEffect, useState } from 'react';
 import { RecoilRoot, atom, useRecoilValue, useSetRecoilState, type SetterOrUpdater } from 'recoil';
 
-import Button from '@kubetail/ui/elements/Button';
 import DataTable from '@kubetail/ui/elements/DataTable';
 
 import appConfig from '@/app-config';
 import Modal from '@/components/elements/Modal';
-import { ClusterSettingsDialog } from '@/components/widgets/ClusterSettingsDialog';
+import ClusterAPIInstallButton from '@/components/widgets/ClusterAPIInstallButton';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { ServerStatus, Status, useDashboardServerStatus, useKubernetesAPIServerStatus, useClusterAPIServerStatus } from '@/lib/server-status';
 import { cn } from '@/lib/util';
@@ -164,8 +163,6 @@ const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Serve
   const serverStatusMap = useRecoilValue(clusterAPIServerStatusMapState);
   const serverStatus = serverStatusMap.get(kubeContext) || new ServerStatus();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-
   return (
     <DataTable.Row>
       <DataTable.DataCell className="w-[1px]">Kubetail Cluster API</DataTable.DataCell>
@@ -176,11 +173,8 @@ const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Serve
           <DataTable.DataCell className="w-[1px]"><HealthDot status={serverStatus.status} /></DataTable.DataCell>
           <DataTable.DataCell className="whitespace-normal flex justify-between items-center">
             {statusMessage(serverStatus, 'Uknown')}
-            {appConfig.environment === 'desktop' && (
-              <>
-                <Button size="xs" intent="outline" onClick={() => setIsDialogOpen(true)}>settings</Button>
-                <ClusterSettingsDialog isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} defaultKubeContext={kubeContext} />
-              </>
+            {appConfig.environment === 'desktop' && serverStatus.status === Status.NotFound && (
+              <ClusterAPIInstallButton kubeContext={kubeContext} />
             )}
           </DataTable.DataCell>
         </>

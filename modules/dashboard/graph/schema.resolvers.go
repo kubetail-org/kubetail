@@ -155,8 +155,11 @@ func (r *queryResolver) AppsV1DaemonSetsGet(ctx context.Context, kubeContext *st
 		return nil, err
 	}
 
+	// Deref options
+	opts := ptr.Deref(options, metav1.GetOptions{})
+
 	// Execute
-	return clientset.AppsV1().DaemonSets(ns).Get(ctx, name, toGetOptions(options))
+	return clientset.AppsV1().DaemonSets(ns).Get(ctx, name, opts)
 }
 
 // AppsV1DaemonSetsList is the resolver for the appsV1DaemonSetsList field.
@@ -182,8 +185,11 @@ func (r *queryResolver) AppsV1DeploymentsGet(ctx context.Context, kubeContext *s
 		return nil, err
 	}
 
+	// Deref options
+	opts := ptr.Deref(options, metav1.GetOptions{})
+
 	// Execute
-	return clientset.AppsV1().Deployments(ns).Get(ctx, name, toGetOptions(options))
+	return clientset.AppsV1().Deployments(ns).Get(ctx, name, opts)
 }
 
 // AppsV1DeploymentsList is the resolver for the appsV1DeploymentsList field.
@@ -209,8 +215,11 @@ func (r *queryResolver) AppsV1ReplicaSetsGet(ctx context.Context, kubeContext *s
 		return nil, err
 	}
 
+	// Deref options
+	opts := ptr.Deref(options, metav1.GetOptions{})
+
 	// Execute
-	return clientset.AppsV1().ReplicaSets(ns).Get(ctx, name, toGetOptions(options))
+	return clientset.AppsV1().ReplicaSets(ns).Get(ctx, name, opts)
 }
 
 // AppsV1ReplicaSetsList is the resolver for the appsV1ReplicaSetsList field.
@@ -236,8 +245,11 @@ func (r *queryResolver) AppsV1StatefulSetsGet(ctx context.Context, kubeContext *
 		return nil, err
 	}
 
+	// Deref options
+	opts := ptr.Deref(options, metav1.GetOptions{})
+
 	// Execute
-	return clientset.AppsV1().StatefulSets(ns).Get(ctx, name, toGetOptions(options))
+	return clientset.AppsV1().StatefulSets(ns).Get(ctx, name, opts)
 }
 
 // AppsV1StatefulSetsList is the resolver for the appsV1StatefulSetsList field.
@@ -263,8 +275,11 @@ func (r *queryResolver) BatchV1CronJobsGet(ctx context.Context, kubeContext *str
 		return nil, err
 	}
 
+	// Deref options
+	opts := ptr.Deref(options, metav1.GetOptions{})
+
 	// Execute
-	return clientset.BatchV1().CronJobs(ns).Get(ctx, name, toGetOptions(options))
+	return clientset.BatchV1().CronJobs(ns).Get(ctx, name, opts)
 }
 
 // BatchV1CronJobsList is the resolver for the batchV1CronJobsList field.
@@ -290,8 +305,11 @@ func (r *queryResolver) BatchV1JobsGet(ctx context.Context, kubeContext *string,
 		return nil, err
 	}
 
+	// Deref options
+	opts := ptr.Deref(options, metav1.GetOptions{})
+
 	// Execute
-	return clientset.BatchV1().Jobs(ns).Get(ctx, name, toGetOptions(options))
+	return clientset.BatchV1().Jobs(ns).Get(ctx, name, opts)
 }
 
 // BatchV1JobsList is the resolver for the batchV1JobsList field.
@@ -310,7 +328,10 @@ func (r *queryResolver) CoreV1NamespacesList(ctx context.Context, kubeContext *s
 		return nil, err
 	}
 
-	response, err := clientset.CoreV1().Namespaces().List(ctx, toListOptions(options))
+	// Deref options
+	opts := ptr.Deref(options, metav1.ListOptions{})
+
+	response, err := clientset.CoreV1().Namespaces().List(ctx, opts)
 	if err != nil {
 		return response, nil
 	}
@@ -337,8 +358,11 @@ func (r *queryResolver) CoreV1NodesList(ctx context.Context, kubeContext *string
 		return nil, err
 	}
 
+	// Deref options
+	opts := ptr.Deref(options, metav1.ListOptions{})
+
 	// Execute
-	return clientset.CoreV1().Nodes().List(ctx, toListOptions(options))
+	return clientset.CoreV1().Nodes().List(ctx, opts)
 }
 
 // CoreV1PodsGet is the resolver for the coreV1PodsGet field.
@@ -355,8 +379,11 @@ func (r *queryResolver) CoreV1PodsGet(ctx context.Context, kubeContext *string, 
 		return nil, err
 	}
 
+	// Deref options
+	opts := ptr.Deref(options, metav1.GetOptions{})
+
 	// Execute
-	return clientset.CoreV1().Pods(ns).Get(ctx, name, toGetOptions(options))
+	return clientset.CoreV1().Pods(ns).Get(ctx, name, opts)
 }
 
 // CoreV1PodsList is the resolver for the coreV1PodsList field.
@@ -382,8 +409,11 @@ func (r *queryResolver) CoreV1ServicesGet(ctx context.Context, kubeContext *stri
 		return nil, err
 	}
 
+	// Deref options
+	opts := ptr.Deref(options, metav1.GetOptions{})
+
 	// Execute
-	return clientset.CoreV1().Services(ns).Get(ctx, name, toGetOptions(options))
+	return clientset.CoreV1().Services(ns).Get(ctx, name, opts)
 }
 
 // CoreV1ServicesList is the resolver for the coreV1ServicesList field.
@@ -422,18 +452,18 @@ func (r *queryResolver) ClusterAPIHealthzGet(ctx context.Context, kubeContext *s
 }
 
 // ClusterAPIServicesList is the resolver for the clusterAPIServicesList field.
-func (r *queryResolver) ClusterAPIServicesList(ctx context.Context, kubeContext *string) (*corev1.ServiceList, error) {
+func (r *queryResolver) ClusterAPIServicesList(ctx context.Context, kubeContext *string, options *metav1.ListOptions) (*corev1.ServiceList, error) {
 	// Reject requests not in desktop environment
 	if r.environment != config.EnvironmentDesktop {
 		return nil, gqlerrors.ErrForbidden
 	}
 
-	options := &metav1.ListOptions{
-		LabelSelector: "app.kubernetes.io/name=kubetail,app.kubernetes.io/component=cluster-api",
-	}
+	// Restrict query to Cluster API services
+	opts := ptr.Deref(options, metav1.ListOptions{})
+	opts.LabelSelector = "app.kubernetes.io/name=kubetail,app.kubernetes.io/component=cluster-api"
 
 	outList := &corev1.ServiceList{}
-	if err := r.listResource(ctx, kubeContext, sharedk8shelpers.BypassNamespaceCheck, options, outList); err != nil {
+	if err := r.listResource(ctx, kubeContext, sharedk8shelpers.BypassNamespaceCheck, &opts, outList); err != nil {
 		return nil, err
 	}
 
@@ -587,8 +617,11 @@ func (r *subscriptionResolver) CoreV1NamespacesWatch(ctx context.Context, kubeCo
 		return nil, err
 	}
 
+	// Deref options
+	opts := ptr.Deref(options, metav1.ListOptions{})
+
 	// Init watch
-	watchAPI, err := clientset.CoreV1().Namespaces().Watch(ctx, toListOptions(options))
+	watchAPI, err := clientset.CoreV1().Namespaces().Watch(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -622,8 +655,11 @@ func (r *subscriptionResolver) CoreV1NodesWatch(ctx context.Context, kubeContext
 		return nil, err
 	}
 
+	// Deref options
+	opts := ptr.Deref(options, metav1.ListOptions{})
+
 	// Init watch
-	watchAPI, err := clientset.CoreV1().Nodes().Watch(ctx, toListOptions(options))
+	watchAPI, err := clientset.CoreV1().Nodes().Watch(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -742,18 +778,18 @@ func (r *subscriptionResolver) ClusterAPIHealthzWatch(ctx context.Context, kubeC
 }
 
 // ClusterAPIServicesWatch is the resolver for the clusterAPIServicesWatch field.
-func (r *subscriptionResolver) ClusterAPIServicesWatch(ctx context.Context, kubeContext *string) (<-chan *watch.Event, error) {
+func (r *subscriptionResolver) ClusterAPIServicesWatch(ctx context.Context, kubeContext *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
 	// Reject requests not in desktop environment
 	if r.environment != config.EnvironmentDesktop {
 		return nil, gqlerrors.ErrForbidden
 	}
 
-	options := &metav1.ListOptions{
-		LabelSelector: "app.kubernetes.io/name=kubetail,app.kubernetes.io/component=cluster-api",
-	}
+	// Restrict query
+	opts := ptr.Deref(options, metav1.ListOptions{})
+	opts.LabelSelector = "app.kubernetes.io/name=kubetail,app.kubernetes.io/component=cluster-api"
 
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}
-	return r.watchResourceMulti(ctx, kubeContext, sharedk8shelpers.BypassNamespaceCheck, options, gvr)
+	return r.watchResourceMulti(ctx, kubeContext, sharedk8shelpers.BypassNamespaceCheck, &opts, gvr)
 }
 
 // KubeConfigWatch is the resolver for the kubeConfigWatch field.

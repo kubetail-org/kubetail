@@ -404,23 +404,6 @@ func mergeResults(responses []FetchResponse, options metav1.ListOptions) (*unstr
 	return output, nil
 }
 
-// conversion helpers
-func toListOptions(options *metav1.ListOptions) metav1.ListOptions {
-	opts := metav1.ListOptions{}
-	if options != nil {
-		opts = *options
-	}
-	return opts
-}
-
-func toGetOptions(options *metav1.GetOptions) metav1.GetOptions {
-	opts := metav1.GetOptions{}
-	if options != nil {
-		opts = *options
-	}
-	return opts
-}
-
 func typeassertRuntimeObject[T any](object runtime.Object) (T, error) {
 	var zeroVal T
 

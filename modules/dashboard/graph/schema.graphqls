@@ -753,7 +753,7 @@ type Query {
   """
   clusterAPIReadyWait(kubeContext: String, namespace: String, serviceName: String): Boolean!
   clusterAPIHealthzGet(kubeContext: String, namespace: String, serviceName: String): HealthCheckResponse!
-  clusterAPIServicesList(kubeContext: String): CoreV1ServiceList
+  clusterAPIServicesList(kubeContext: String, options: MetaV1ListOptions): CoreV1ServiceList
 
   """
   Helm
@@ -855,7 +855,7 @@ type Subscription {
   """
   clusterAPIReadyWait(kubeContext: String, namespace: String, serviceName: String): Boolean!
   clusterAPIHealthzWatch(kubeContext: String, namespace: String, serviceName: String): HealthCheckResponse!
-  clusterAPIServicesWatch(kubeContext: String): CoreV1ServicesWatchEvent
+  clusterAPIServicesWatch(kubeContext: String, options: MetaV1ListOptions): CoreV1ServicesWatchEvent
 
   """
   KubeConfig watchers

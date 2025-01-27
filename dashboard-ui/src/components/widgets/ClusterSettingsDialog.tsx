@@ -12,16 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useMutation, useSubscription } from '@apollo/client';
-import { PlusCircleIcon } from '@heroicons/react/24/outline';
+import { useSubscription } from '@apollo/client';
 import { useEffect, useState } from 'react';
 
-import Button from '@kubetail/ui/elements/Button';
 import Form from '@kubetail/ui/elements/Form';
-import Spinner from '@kubetail/ui/elements/Spinner';
 
 import appConfig from '@/app-config';
 import Modal from '@/components/elements/Modal';
+import ClusterAPIInstallButton from '@/components/widgets/ClusterAPIInstallButton';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import type { ClusterApiServicesListItemFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { useListQueryWithSubscription } from '@/lib/hooks';
@@ -82,25 +80,6 @@ const ClusterAPIPickerDesktop = ({ kubeContext }: ClusterAPIPickerDesktopProps) 
     variables: { kubeContext },
   });
 
-  const [install, installMutation] = useMutation(dashboardOps.HELM_INSTALL_LATEST);
-
-  const [installFeedback, setInstallFeedback] = useState<string>();
-
-  const handleInstall = async () => {
-    setInstallFeedback('');
-
-    try {
-      await install({ variables: { kubeContext } });
-    } catch (e: unknown) {
-      if (e instanceof Error) {
-        setInstallFeedback(e.message);
-      } else {
-        setInstallFeedback('An unknown error occurred (see console)');
-        console.error(e);
-      }
-    }
-  };
-
   const services = data?.clusterAPIServicesList?.items;
 
   if (kubeContext === undefined || loading) {
@@ -121,15 +100,7 @@ const ClusterAPIPickerDesktop = ({ kubeContext }: ClusterAPIPickerDesktopProps) 
         <div>{clusterAPIEndpoint}</div>
       ) : (
         <div>
-          <Button intent="secondary" size="sm" onClick={handleInstall} disabled={installMutation.loading}>
-            {installMutation.loading ? (
-              <Spinner size="xs" />
-            ) : (
-              <PlusCircleIcon className="h-5 w-5 mr-1" />
-            )}
-            Install
-          </Button>
-          {installFeedback && <Form.Feedback>{installFeedback}</Form.Feedback>}
+          <ClusterAPIInstallButton kubeContext={kubeContext} />
         </div>
       )}
     </>
