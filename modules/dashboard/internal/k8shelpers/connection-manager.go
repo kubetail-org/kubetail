@@ -171,6 +171,7 @@ func (cm *DesktopConnectionManager) WaitUntilReady(ctx context.Context, kubeCont
 	// Get clientset
 	clientset, err := cm.getOrCreateClientset_UNSAFE(kubeContext)
 	if err != nil {
+		cm.mu.Unlock()
 		return err
 	}
 
