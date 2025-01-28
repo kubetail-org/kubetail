@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -41,6 +42,9 @@ const (
 	DefaultReleaseName = "kubetail"
 	DefaultNamespace   = "kubetail-system"
 )
+
+// Chart version constraint
+const chartSemverConstraint = ">= 0.9.0"
 
 func noopLogger(format string, v ...interface{}) {}
 
@@ -80,6 +84,21 @@ func (c *Client) InstallLatest(namespace, releaseName string) (*release.Release,
 		} else {
 			return nil, err
 		}
+	}
+
+	// Check semver constraints
+	constraint, err := semver.NewConstraint(chartSemverConstraint)
+	if err != nil {
+		return nil, err
+	}
+
+	v, err := semver.NewVersion(chart.Metadata.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	if !constraint.Check(v) {
+		return nil, fmt.Errorf("requires chart version %s", chartSemverConstraint)
 	}
 
 	// Exclude dashboard
