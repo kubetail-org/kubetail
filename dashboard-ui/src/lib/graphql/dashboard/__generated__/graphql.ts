@@ -501,6 +501,7 @@ export type HealthCheckResponse = {
 export enum HealthCheckStatus {
   Failure = 'FAILURE',
   Notfound = 'NOTFOUND',
+  Pending = 'PENDING',
   Success = 'SUCCESS',
   Unknown = 'UNKNOWN'
 }

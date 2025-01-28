@@ -14,6 +14,8 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
+const storageKey = 'kubetail:theme';
+
 export const enum Theme {
   Light = 'Light',
   Dark = 'Dark',
@@ -46,8 +48,8 @@ function getMediaQuery() {
  */
 
 function getUserPreference() {
-  if (!('theme' in localStorage)) return UserPreference.System;
-  return (localStorage.theme === 'dark') ? UserPreference.Dark : UserPreference.Light;
+  if (!(storageKey in localStorage)) return UserPreference.System;
+  return (localStorage[storageKey] === 'dark') ? UserPreference.Dark : UserPreference.Light;
 }
 
 function getSystemTheme(ev?: MediaQueryListEvent) {
@@ -115,13 +117,13 @@ export function ThemeProvider({ children }: React.PropsWithChildren) {
         // upate localStorage
         switch (value) {
           case UserPreference.System:
-            localStorage.removeItem('theme');
+            localStorage.removeItem(storageKey);
             break;
           case UserPreference.Dark:
-            localStorage.setItem('theme', 'dark');
+            localStorage.setItem(storageKey, 'dark');
             break;
           case UserPreference.Light:
-            localStorage.setItem('theme', 'light');
+            localStorage.setItem(storageKey, 'light');
             break;
           default:
             throw new Error('not implemented');

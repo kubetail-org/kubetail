@@ -524,6 +524,7 @@ type HealthCheckResponse {
 enum HealthCheckStatus {
   SUCCESS
   FAILURE
+  PENDING
   UNKNOWN
   NOTFOUND
 }

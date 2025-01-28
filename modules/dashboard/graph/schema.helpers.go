@@ -507,6 +507,8 @@ func healthCheckStatusFromClusterAPIHealthStatus(statusIn clusterapi.HealthStatu
 		return model.HealthCheckStatusSuccess
 	case clusterapi.HealthStatusFailure:
 		return model.HealthCheckStatusFailure
+	case clusterapi.HealthStatusPending:
+		return model.HealthCheckStatusPending
 	case clusterapi.HealthStatusNotFound:
 		return model.HealthCheckStatusNotfound
 	case clusterapi.HealthStatusUknown:

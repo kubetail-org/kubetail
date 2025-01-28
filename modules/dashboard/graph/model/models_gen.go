@@ -57,6 +57,7 @@ type HealthCheckStatus string
 const (
 	HealthCheckStatusSuccess  HealthCheckStatus = "SUCCESS"
 	HealthCheckStatusFailure  HealthCheckStatus = "FAILURE"
+	HealthCheckStatusPending  HealthCheckStatus = "PENDING"
 	HealthCheckStatusUnknown  HealthCheckStatus = "UNKNOWN"
 	HealthCheckStatusNotfound HealthCheckStatus = "NOTFOUND"
 )
@@ -64,13 +65,14 @@ const (
 var AllHealthCheckStatus = []HealthCheckStatus{
 	HealthCheckStatusSuccess,
 	HealthCheckStatusFailure,
+	HealthCheckStatusPending,
 	HealthCheckStatusUnknown,
 	HealthCheckStatusNotfound,
 }
 
 func (e HealthCheckStatus) IsValid() bool {
 	switch e {
-	case HealthCheckStatusSuccess, HealthCheckStatusFailure, HealthCheckStatusUnknown, HealthCheckStatusNotfound:
+	case HealthCheckStatusSuccess, HealthCheckStatusFailure, HealthCheckStatusPending, HealthCheckStatusUnknown, HealthCheckStatusNotfound:
 		return true
 	}
 	return false

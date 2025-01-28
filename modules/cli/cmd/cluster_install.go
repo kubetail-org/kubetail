@@ -40,8 +40,10 @@ var clusterInstallCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Get flags
 		kubeContext, _ := cmd.Flags().GetString("kube-context")
-		name, _ := cmd.Flags().GetString("name")
-		namespace, _ := cmd.Flags().GetString("namespace")
+		//name, _ := cmd.Flags().GetString("name")
+		//namespace, _ := cmd.Flags().GetString("namespace")
+		name := helm.DefaultReleaseName
+		namespace := helm.DefaultNamespace
 
 		// Init client
 		client, err := helm.NewClient(kubeContext)
@@ -64,6 +66,6 @@ func init() {
 	flagset := clusterInstallCmd.Flags()
 	flagset.SortFlags = false
 	flagset.String("kube-context", "", "Name of the kubeconfig context to use")
-	flagset.String("name", helm.DefaultReleaseName, "Release name")
-	flagset.StringP("namespace", "n", helm.DefaultNamespace, "Namespace to install into")
+	//flagset.String("name", helm.DefaultReleaseName, "Release name")
+	//flagset.StringP("namespace", "n", helm.DefaultNamespace, "Namespace to install into")
 }

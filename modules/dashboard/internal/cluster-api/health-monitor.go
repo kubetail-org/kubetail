@@ -41,6 +41,7 @@ type HealthStatus string
 const (
 	HealthStatusSuccess  = "SUCCESS"
 	HealthStatusFailure  = "FAILURE"
+	HealthStatusPending  = "PENDING"
 	HealthStatusNotFound = "NOTFOUND"
 	HealthStatusUknown   = "UNKNOWN"
 )
@@ -267,6 +268,7 @@ type endpointSlicesHealthMonitorWorker struct {
 	lastStatus HealthStatus
 	factory    informers.SharedInformerFactory
 	informer   cache.SharedIndexInformer
+	esCache    map[string]*discoveryv1.EndpointSlice
 	eventbus   evbus.Bus
 	shutdownCh chan struct{}
 	mu         sync.RWMutex
@@ -291,16 +293,17 @@ func newEndpointSlicesHealthMonitorWorker(clientset kubernetes.Interface, namesp
 		lastStatus: HealthStatusUknown,
 		factory:    factory,
 		informer:   informer,
+		esCache:    make(map[string]*discoveryv1.EndpointSlice),
 		eventbus:   evbus.New(),
 		shutdownCh: make(chan struct{}),
 	}
 
 	// Register event handlers
-	_, err := informer.AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { w.onInformerEvent() },
-		UpdateFunc: func(oldObj, newObj interface{}) { w.onInformerEvent() },
-		DeleteFunc: func(obj interface{}) { w.onInformerEvent() },
-	}, 10*time.Minute)
+	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    w.onInformerAdd,
+		UpdateFunc: w.onInformerUpdate,
+		DeleteFunc: w.onInformerDelete,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -310,6 +313,9 @@ func newEndpointSlicesHealthMonitorWorker(clientset kubernetes.Interface, namesp
 
 // Start
 func (w *endpointSlicesHealthMonitorWorker) Start(ctx context.Context) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	// Start background processes
 	w.factory.Start(w.shutdownCh)
 
@@ -323,8 +329,14 @@ func (w *endpointSlicesHealthMonitorWorker) Start(ctx context.Context) error {
 		return ctx.Err()
 	}
 
-	// Initialize status
-	w.onInformerEvent()
+	// Init cache
+	for _, obj := range w.informer.GetStore().List() {
+		es := obj.(*discoveryv1.EndpointSlice)
+		w.esCache[string(es.UID)] = es
+	}
+
+	// Init status
+	w.updateHealthStatus_UNSAFE()
 
 	return nil
 }
@@ -407,6 +419,34 @@ func (w *endpointSlicesHealthMonitorWorker) ReadyWait(ctx context.Context) error
 	}
 }
 
+// onInformerAdd
+func (w *endpointSlicesHealthMonitorWorker) onInformerAdd(obj interface{}) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	es := obj.(*discoveryv1.EndpointSlice)
+	w.esCache[string(es.UID)] = es
+	w.updateHealthStatus_UNSAFE()
+}
+
+// onInformerUpdate
+func (w *endpointSlicesHealthMonitorWorker) onInformerUpdate(oldObj, newObj interface{}) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	es := newObj.(*discoveryv1.EndpointSlice)
+	w.esCache[string(es.UID)] = es
+	w.updateHealthStatus_UNSAFE()
+}
+
+// onInformerDelete
+func (w *endpointSlicesHealthMonitorWorker) onInformerDelete(obj interface{}) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	es := obj.(*discoveryv1.EndpointSlice)
+	delete(w.esCache, string(es.UID))
+	w.updateHealthStatus_UNSAFE()
+}
+
+/*
 // onInformerEvent
 func (w *endpointSlicesHealthMonitorWorker) onInformerEvent() {
 	list := w.informer.GetStore().List()
@@ -435,6 +475,37 @@ func (w *endpointSlicesHealthMonitorWorker) onInformerEvent() {
 func (w *endpointSlicesHealthMonitorWorker) updateHealthStatus(newStatus HealthStatus) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if newStatus != w.lastStatus {
+		w.lastStatus = newStatus
+		w.eventbus.Publish("UPDATE", newStatus)
+	}
+}
+*/
+
+func (w *endpointSlicesHealthMonitorWorker) getHealthStatus_UNSAFE() HealthStatus {
+	if len(w.esCache) == 0 {
+		return HealthStatusNotFound
+	}
+
+	for _, es := range w.esCache {
+		for _, endpoint := range es.Endpoints {
+			if ptr.Deref(endpoint.Conditions.Ready, false) {
+				return HealthStatusSuccess
+			}
+		}
+	}
+
+	return HealthStatusFailure
+}
+
+func (w *endpointSlicesHealthMonitorWorker) updateHealthStatus_UNSAFE() {
+	newStatus := w.getHealthStatus_UNSAFE()
+
+	// Handle "pending"
+	if newStatus == HealthStatusFailure && (w.lastStatus == HealthStatusNotFound || w.lastStatus == HealthStatusPending) {
+		newStatus = HealthStatusPending
+	}
+
 	if newStatus != w.lastStatus {
 		w.lastStatus = newStatus
 		w.eventbus.Publish("UPDATE", newStatus)

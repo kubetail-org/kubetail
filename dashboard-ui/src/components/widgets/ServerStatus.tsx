@@ -44,6 +44,9 @@ const HealthDot = ({ status }: { status: Status }) => {
     case Status.Unhealthy:
       color = 'red';
       break;
+    case Status.Pending:
+      color = 'yellow';
+      break;
     case Status.Degraded:
       color = 'yellow';
       break;
@@ -78,6 +81,8 @@ const statusMessage = (s: ServerStatus, unknownDefault: string): string => {
       return s.message || 'Ok';
     case Status.Unhealthy:
       return s.message || 'Error';
+    case Status.Pending:
+      return s.message || 'Pending';
     case Status.NotFound:
       return s.message || 'Not found';
     case Status.Unknown:
