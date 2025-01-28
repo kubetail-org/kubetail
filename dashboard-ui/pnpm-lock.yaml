@@ -18,8 +18,8 @@ importers:
         specifier: ^2.2.0
         version: 2.2.0(react@18.3.1)
       '@kubetail/ui':
-        specifier: 0.1.5-rc3
-        version: 0.1.5-rc3(@heroicons/react@2.2.0(react@18.3.1))(@tailwindcss/forms@0.5.10(tailwindcss@3.4.17))(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(date-fns@3.6.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17)
+        specifier: 0.1.5
+        version: 0.1.5(@heroicons/react@2.2.0(react@18.3.1))(@tailwindcss/forms@0.5.10(tailwindcss@3.4.17))(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(date-fns@3.6.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -224,8 +224,8 @@ packages:
       subscriptions-transport-ws:
         optional: true
 
-  '@apollo/client@3.12.7':
-    resolution: {integrity: sha512-c0LSzS3tmJ06WSyNxsTHlfc4OLLYDnWtN+zkRjMQ80KCcp89sEpNgZP5ZCXdt2pUwUqOAvZFKJW7L8tolDzkrw==}
+  '@apollo/client@3.12.8':
+    resolution: {integrity: sha512-053z5eCM7zNl81Lxs/SqHv8e+x3sszrtmGS2TNuPW0ZTZzmKATMsIsoblx1Kt0E67Ze3jb99JSPiQHG9ozGc3g==}
     peerDependencies:
       graphql: ^15.0.0 || ^16.0.0
       graphql-ws: ^5.5.5
@@ -1016,8 +1016,8 @@ packages:
   '@kamilkisiela/fast-url-parser@1.1.4':
     resolution: {integrity: sha512-gbkePEBupNydxCelHCESvFSFM8XPh1Zs/OAVRW/rKpEqPAl5PbOM90Si8mv9bvnR53uPD2s/FiRxdvSejpRJew==}
 
-  '@kubetail/ui@0.1.5-rc3':
-    resolution: {integrity: sha512-vfV/elmefGNMKGUFoe4xxPnNPvzBBdB2I7t6mxC4x3oIy79vS6sZkU9eEdbSFBAioMgWRFjosBfNfzXBrlT6VA==}
+  '@kubetail/ui@0.1.5':
+    resolution: {integrity: sha512-eD3tH4hSU6ZqTNEp1BpcUIOi8UuuIPgcwoeDeNQI1jLYX2La/wRXyGcZu7hi1y0hBbHheUrK2Kw2V5SlPzMu+A==}
     peerDependencies:
       '@heroicons/react': ^2.0.15
       '@tailwindcss/forms': ^0.5.7
@@ -4520,7 +4520,7 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
 
-  '@apollo/client@3.12.7(@types/react@18.3.18)(graphql-ws@5.16.2(graphql@16.10.0))(graphql@16.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@apollo/client@3.12.8(@types/react@18.3.18)(graphql-ws@5.16.2(graphql@16.10.0))(graphql@16.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@graphql-typed-document-node/core': 3.2.0(graphql@16.10.0)
       '@wry/caches': 1.0.1
@@ -4532,7 +4532,6 @@ snapshots:
       optimism: 0.18.1
       prop-types: 15.8.1
       rehackt: 0.1.0(@types/react@18.3.18)(react@18.3.1)
-      response-iterator: 0.2.16
       symbol-observable: 4.0.0
       ts-invariant: 0.10.3
       tslib: 2.8.1
@@ -4546,7 +4545,7 @@ snapshots:
 
   '@apollo/react-testing@4.0.0(@types/react@18.3.18)(graphql-ws@5.16.2(graphql@16.10.0))(graphql@16.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@apollo/client': 3.12.7(@types/react@18.3.18)(graphql-ws@5.16.2(graphql@16.10.0))(graphql@16.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@apollo/client': 3.12.8(@types/react@18.3.18)(graphql-ws@5.16.2(graphql@16.10.0))(graphql@16.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
     transitivePeerDependencies:
       - '@types/react'
       - graphql
@@ -5557,7 +5556,7 @@ snapshots:
 
   '@kamilkisiela/fast-url-parser@1.1.4': {}
 
-  '@kubetail/ui@0.1.5-rc3(@heroicons/react@2.2.0(react@18.3.1))(@tailwindcss/forms@0.5.10(tailwindcss@3.4.17))(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(date-fns@3.6.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17)':
+  '@kubetail/ui@0.1.5(@heroicons/react@2.2.0(react@18.3.1))(@tailwindcss/forms@0.5.10(tailwindcss@3.4.17))(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(date-fns@3.6.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17)':
     dependencies:
       '@heroicons/react': 2.2.0(react@18.3.1)
       '@radix-ui/react-dropdown-menu': 2.1.4(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
