@@ -432,6 +432,61 @@ export const HOME_STATEFULSETS_LIST_WATCH = gql(`
 `);
 
 /**
+ * Cluster API
+ */
+
+export const CLUSTER_API_READY_WAIT = gql(`
+  subscription ClusterAPIReadyWait($kubeContext: String!, $namespace: String!, $serviceName: String!) {
+    clusterAPIReadyWait(kubeContext: $kubeContext, namespace: $namespace, serviceName: $serviceName)
+  }
+`);
+
+export const CLUSTER_API_SERVICES_LIST_FETCH = gql(`
+  query ClusterAPIServicesListFetch($kubeContext: String, $continue: String = "") {
+    clusterAPIServicesList(kubeContext: $kubeContext, options: { limit: "50", continue: $continue }) {
+      metadata {
+        continue
+        resourceVersion
+      }
+      items {
+        ...ClusterAPIServicesListItemFragment
+      }
+    }
+  }
+`);
+
+export const CLUSTER_API_SERVICES_LIST_WATCH = gql(`
+  subscription ClusterAPIServicesListWatch($kubeContext: String, $resourceVersion: String = "") {
+    clusterAPIServicesWatch(kubeContext: $kubeContext, options: { resourceVersion: $resourceVersion }) {
+      type
+      object {
+        ...ClusterAPIServicesListItemFragment
+      }
+    }    
+  }
+`);
+
+/**
+ * Helm API
+ */
+
+export const HELM_INSTALL_LATEST = gql(`
+  mutation HelmInstallLatest($kubeContext: String) {
+    helmInstallLatest(kubeContext: $kubeContext) {
+      ...HelmReleaseFragment
+    }
+  }
+`);
+
+export const HELM_LIST_RELEASES = gql(`
+  query HelmListReleases($kubeContext: String) {
+    helmListReleases(kubeContext: $kubeContext) {
+      ...HelmReleaseFragment
+    }
+  }
+`);
+
+/**
  * KubeConfig queries
  */
 
@@ -459,24 +514,8 @@ export const KUBE_CONFIG_WATCH = gql(`
  */
 
 export const KUBERNETES_API_READY_WAIT = gql(`
-  query KubernetesAPIReadyWait($kubeContext: String) {
+  subscription KubernetesAPIReadyWait($kubeContext: String) {
     kubernetesAPIReadyWait(kubeContext: $kubeContext)
-  }
-`);
-
-/**
- * Cluster API
- */
-
-export const CLUSTER_API_INSTALL = gql(`
-  mutation ClusterAPIInstall($kubeContext: String!) {
-    clusterAPIInstall(kubeContext: $kubeContext)
-  }
-`);
-
-export const CLUSTER_API_READY_WAIT = gql(`
-  query ClusterAPIReadyWait($kubeContext: String!, $namespace: String!, $serviceName: String!) {
-    clusterAPIReadyWait(kubeContext: $kubeContext, namespace: $namespace, serviceName: $serviceName)
   }
 `);
 

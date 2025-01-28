@@ -36,8 +36,11 @@ var clusterListCmd = &cobra.Command{
 	Short: "List current releases",
 	Long:  clusterListHelp,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Get flags
+		kubeContext, _ := cmd.Flags().GetString("kube-context")
+
 		// Init client
-		client, err := helm.NewClient()
+		client, err := helm.NewClient(kubeContext)
 		cli.ExitOnError(err)
 
 		// Get releases
@@ -63,4 +66,11 @@ var clusterListCmd = &cobra.Command{
 
 func init() {
 	clusterCmd.AddCommand(clusterListCmd)
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	flagset := clusterListCmd.Flags()
+	flagset.SortFlags = false
+	flagset.String("kube-context", "", "Name of the kubeconfig context to use")
 }

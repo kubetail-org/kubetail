@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useMutation, useSubscription } from '@apollo/client';
+import { useSubscription } from '@apollo/client';
 import { Fragment, useEffect, useState } from 'react';
 import { RecoilRoot, atom, useRecoilValue, useSetRecoilState, type SetterOrUpdater } from 'recoil';
 
-import Button from '@kubetail/ui/elements/Button';
 import DataTable from '@kubetail/ui/elements/DataTable';
 
 import appConfig from '@/app-config';
 import Modal from '@/components/elements/Modal';
+import ClusterAPIInstallButton from '@/components/widgets/ClusterAPIInstallButton';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { ServerStatus, Status, useDashboardServerStatus, useKubernetesAPIServerStatus, useClusterAPIServerStatus } from '@/lib/server-status';
 import { cn } from '@/lib/util';
@@ -43,6 +43,9 @@ const HealthDot = ({ status }: { status: Status }) => {
       break;
     case Status.Unhealthy:
       color = 'red';
+      break;
+    case Status.Pending:
+      color = 'yellow';
       break;
     case Status.Degraded:
       color = 'yellow';
@@ -78,6 +81,8 @@ const statusMessage = (s: ServerStatus, unknownDefault: string): string => {
       return s.message || 'Ok';
     case Status.Unhealthy:
       return s.message || 'Error';
+    case Status.Pending:
+      return s.message || 'Pending';
     case Status.NotFound:
       return s.message || 'Not found';
     case Status.Unknown:
@@ -163,12 +168,6 @@ const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Serve
   const serverStatusMap = useRecoilValue(clusterAPIServerStatusMapState);
   const serverStatus = serverStatusMap.get(kubeContext) || new ServerStatus();
 
-  const [install, { loading, data }] = useMutation(dashboardOps.CLUSTER_API_INSTALL);
-
-  const handleInstall = async () => {
-    await install({ variables: { kubeContext } });
-  };
-
   return (
     <DataTable.Row>
       <DataTable.DataCell className="w-[1px]">Kubetail Cluster API</DataTable.DataCell>
@@ -177,18 +176,12 @@ const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Serve
       ) : (
         <>
           <DataTable.DataCell className="w-[1px]"><HealthDot status={serverStatus.status} /></DataTable.DataCell>
-          {appConfig.environment === 'desktop' && serverStatus.status === Status.NotFound ? (
-            <DataTable.DataCell className="whitespace-normal flex justify-between items-center">
-              <span>{statusMessage(serverStatus, 'Uknown')}</span>
-              {data?.clusterAPIInstall !== true && (
-                <Button intent="outline" size="xs" onClick={handleInstall} disabled={loading}>install</Button>
-              )}
-            </DataTable.DataCell>
-          ) : (
-            <DataTable.DataCell className="whitespace-normal flex justify-between items-center">
-              {statusMessage(serverStatus, 'Uknown')}
-            </DataTable.DataCell>
-          )}
+          <DataTable.DataCell className="whitespace-normal flex justify-between items-center">
+            {statusMessage(serverStatus, 'Uknown')}
+            {appConfig.environment === 'desktop' && serverStatus.status === Status.NotFound && (
+              <ClusterAPIInstallButton kubeContext={kubeContext} />
+            )}
+          </DataTable.DataCell>
         </>
       )}
     </DataTable.Row>

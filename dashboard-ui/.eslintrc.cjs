@@ -40,6 +40,7 @@ module.exports = {
     'prefer-destructuring': ['error', { array: false, object: true }],
     'react/function-component-definition': 'off',
     'react/jsx-no-target-blank': 'off',
+    'react/jsx-no-useless-fragment': 'off',
     'react/jsx-props-no-spreading': 'off',
     'react/react-in-jsx-scope': 'off',
     'react/require-default-props': 'off',

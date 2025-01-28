@@ -22,6 +22,7 @@ import { HealthCheckStatus, type HealthCheckResponse } from '@/lib/graphql/dashb
 export const enum Status {
   Healthy = 'HEALTHY',
   Unhealthy = 'UNHEALTHY',
+  Pending = 'PENDING',
   Degraded = 'DEGRADED',
   Unknown = 'UNKNOWN',
   NotFound = 'NOTFOUND',
@@ -47,6 +48,9 @@ export class ServerStatus {
     switch (healthCheckResponse?.status) {
       case HealthCheckStatus.Success:
         ss.status = Status.Healthy;
+        break;
+      case HealthCheckStatus.Pending:
+        ss.status = Status.Pending;
         break;
       case HealthCheckStatus.Notfound:
         ss.status = Status.NotFound;

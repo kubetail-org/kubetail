@@ -38,12 +38,19 @@ var clusterInstallCmd = &cobra.Command{
 	Short: "Create a new release",
 	Long:  clusterInstallHelp,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Get flags
+		kubeContext, _ := cmd.Flags().GetString("kube-context")
+		//name, _ := cmd.Flags().GetString("name")
+		//namespace, _ := cmd.Flags().GetString("namespace")
+		name := helm.DefaultReleaseName
+		namespace := helm.DefaultNamespace
+
 		// Init client
-		client, err := helm.NewClient()
+		client, err := helm.NewClient(kubeContext)
 		cli.ExitOnError(err)
 
 		// Install
-		release, err := client.InstallLatest()
+		release, err := client.InstallLatest(namespace, name)
 		cli.ExitOnError(err)
 
 		fmt.Printf("Installed release '%s' into namespace '%s' successfully\n", release.Name, release.Namespace)
@@ -52,4 +59,13 @@ var clusterInstallCmd = &cobra.Command{
 
 func init() {
 	clusterCmd.AddCommand(clusterInstallCmd)
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	flagset := clusterInstallCmd.Flags()
+	flagset.SortFlags = false
+	flagset.String("kube-context", "", "Name of the kubeconfig context to use")
+	//flagset.String("name", helm.DefaultReleaseName, "Release name")
+	//flagset.StringP("namespace", "n", helm.DefaultNamespace, "Namespace to install into")
 }

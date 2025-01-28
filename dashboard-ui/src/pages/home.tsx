@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useQuery, useSubscription } from '@apollo/client';
+import { useSubscription } from '@apollo/client';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import numeral from 'numeral';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
@@ -29,7 +29,7 @@ import appConfig from '@/app-config';
 import logo from '@/assets/logo.svg';
 import AuthRequired from '@/components/utils/AuthRequired';
 import Footer from '@/components/widgets/Footer';
-import ProfilePicDropdown from '@/components/widgets/ProfilePicDropdown';
+import SettingsDropdown from '@/components/widgets/SettingsDropdown';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { useListQueryWithSubscription, useLogMetadata } from '@/lib/hooks';
 import { joinPaths, getBasename } from '@/lib/util';
@@ -655,7 +655,7 @@ const Home = () => {
   const [kubeContext, setKubeContext] = useState(defaultKubeContext);
   const [namespace, setNamespace] = useState<string>('');
 
-  const readyWait = useQuery(dashboardOps.KUBERNETES_API_READY_WAIT, {
+  const readyWait = useSubscription(dashboardOps.KUBERNETES_API_READY_WAIT, {
     variables: { kubeContext },
   });
 
@@ -672,9 +672,7 @@ const Home = () => {
             </span>
           )}
         </div>
-        {appConfig.authMode === 'token' && (
-          <ProfilePicDropdown />
-        )}
+        <SettingsDropdown />
       </div>
       <main className="px-[10px]">
         {(readyWait.loading || kubeContext === undefined) ? (

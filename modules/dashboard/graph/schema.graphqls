@@ -493,7 +493,9 @@ type CoreV1ServiceList implements List {
 
 # https://pkg.go.dev/k8s.io/api/core/v1#ServicePort
 type CoreV1ServicePort {
-  name: String
+  name: String!
+  port: Int!
+  appProtocol: String
 }
 
 # https://pkg.go.dev/k8s.io/api/core/v1#ServiceSpec
@@ -522,8 +524,29 @@ type HealthCheckResponse {
 enum HealthCheckStatus {
   SUCCESS
   FAILURE
+  PENDING
   UNKNOWN
   NOTFOUND
+}
+
+# --- Helm ---
+
+type HelmChart {
+  metadata: HelmChartMetadata
+}
+
+type HelmChartMetadata {
+  name: String!
+  version: String!
+  condition: String!
+  appVersion: String!
+}
+
+type HelmRelease {
+  name: String!
+  version: Int!
+  namespace: String!
+  chart: HelmChart
 }
 
 # --- KubeConfig ---
@@ -727,21 +750,27 @@ type Query {
   coreV1ServicesList(kubeContext: String, namespace: String, options: MetaV1ListOptions): CoreV1ServiceList
 
   """
-  Kubernetes API
-  """
-  kubernetesAPIReadyWait(kubeContext: String): Boolean!
-  kubernetesAPIHealthzGet(kubeContext: String): HealthCheckResponse!
-
-  """
   Cluster API
   """
   clusterAPIReadyWait(kubeContext: String, namespace: String, serviceName: String): Boolean!
   clusterAPIHealthzGet(kubeContext: String, namespace: String, serviceName: String): HealthCheckResponse!
+  clusterAPIServicesList(kubeContext: String, options: MetaV1ListOptions): CoreV1ServiceList
+
+  """
+  Helm
+  """
+  helmListReleases(kubeContext: String): [HelmRelease!]!
 
   """
   KubeConfig queries
   """
   kubeConfigGet: KubeConfig
+
+  """
+  Kubernetes API
+  """
+  kubernetesAPIReadyWait(kubeContext: String): Boolean!
+  kubernetesAPIHealthzGet(kubeContext: String): HealthCheckResponse!
 
   """
   Pod logs API
@@ -788,9 +817,9 @@ type Query {
 
 type Mutation {
   """
-  Cluster API
+  Helm mutations
   """
-  clusterAPIInstall(kubeContext: String): Boolean
+  helmInstallLatest(kubeContext: String): HelmRelease
 }
 
 type Subscription {
@@ -819,12 +848,15 @@ type Subscription {
   """
   Kubernetes API
   """
+  kubernetesAPIReadyWait(kubeContext: String): Boolean!
   kubernetesAPIHealthzWatch(kubeContext: String): HealthCheckResponse!
 
   """
   Cluster API
   """
+  clusterAPIReadyWait(kubeContext: String, namespace: String, serviceName: String): Boolean!
   clusterAPIHealthzWatch(kubeContext: String, namespace: String, serviceName: String): HealthCheckResponse!
+  clusterAPIServicesWatch(kubeContext: String, options: MetaV1ListOptions): CoreV1ServicesWatchEvent
 
   """
   KubeConfig watchers

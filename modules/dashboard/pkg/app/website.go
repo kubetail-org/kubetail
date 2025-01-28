@@ -66,10 +66,11 @@ func (app *websiteHandlers) EndpointHandler(cfg *config.Config) gin.HandlerFunc 
 
 	// define runtime config for react app
 	runtimeConfig := map[string]interface{}{
-		"authMode":          cfg.Dashboard.AuthMode,
-		"basePath":          cfg.Dashboard.BasePath,
-		"environment":       cfg.Dashboard.Environment,
-		"clusterAPIEnabled": cfg.Dashboard.UI.ClusterAPIEnabled,
+		"authMode":           cfg.Dashboard.AuthMode,
+		"basePath":           cfg.Dashboard.BasePath,
+		"environment":        cfg.Dashboard.Environment,
+		"clusterAPIEnabled":  cfg.Dashboard.UI.ClusterAPIEnabled,
+		"clusterAPIEndpoint": cfg.Dashboard.ClusterAPIEndpoint,
 	}
 
 	runtimeConfigBytes, err := json.Marshal(runtimeConfig)

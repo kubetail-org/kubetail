@@ -80,8 +80,8 @@ func (r *Resolver) listResource(ctx context.Context, kubeContext *string, namesp
 
 	client := dynamicClient.Resource(gvr)
 
-	// in it list options
-	opts := toListOptions(options)
+	// Deref options
+	opts := ptr.Deref(options, metav1.ListOptions{})
 
 	// execute requests
 	list, err := func() (*unstructured.UnstructuredList, error) {
@@ -115,8 +115,8 @@ func (r *Resolver) watchResourceMulti(ctx context.Context, kubeContext *string, 
 
 	client := dynamicClient.Resource(gvr)
 
-	// init list options
-	opts := toListOptions(options)
+	// Deref options
+	opts := ptr.Deref(options, metav1.ListOptions{})
 
 	// decode resource version
 	// TODO: fix me

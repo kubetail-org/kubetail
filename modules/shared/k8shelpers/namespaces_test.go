@@ -38,32 +38,38 @@ func TestDerefNamespaceSuccess(t *testing.T) {
 		{
 			"any namespace allowed: <all>",
 			[]string{},
-			ptr.To[string](""),
+			ptr.To(""),
 			"",
 		},
 		{
 			"any namespace allowed: default",
 			[]string{},
-			ptr.To[string]("default"),
+			ptr.To("default"),
 			"default",
 		},
 		{
 			"any namespace allowed: testns",
 			[]string{},
-			ptr.To[string]("testns"),
+			ptr.To("testns"),
 			"testns",
 		},
 		{
 			"single namespace allowed: testns",
 			[]string{"testns"},
-			ptr.To[string]("testns"),
+			ptr.To("testns"),
 			"testns",
 		},
 		{
 			"multiple namespaces allowed: <all>",
 			[]string{"testns1", "testns2"},
-			ptr.To[string]("testns1"),
+			ptr.To("testns1"),
 			"testns1",
+		},
+		{
+			"BypassNamespaceCheck",
+			[]string{"testns1", "testns2"},
+			BypassNamespaceCheck,
+			"",
 		},
 	}
 
@@ -90,12 +96,12 @@ func TestDerefNamespaceError(t *testing.T) {
 		{
 			"single namespace allowed: <all>",
 			[]string{"testns"},
-			ptr.To[string](""),
+			ptr.To(""),
 		},
 		{
 			"single namespace allowed: not-testns",
 			[]string{"testns"},
-			ptr.To[string]("not-testns"),
+			ptr.To("not-testns"),
 		},
 		{
 			"multiple namespaces allowed: <empty>",
@@ -105,12 +111,12 @@ func TestDerefNamespaceError(t *testing.T) {
 		{
 			"multiple namespaces allowed: <all>",
 			[]string{"testns1", "testns2"},
-			ptr.To[string](""),
+			ptr.To(""),
 		},
 		{
 			"multiple namespaces allowed: not-testns1",
 			[]string{"testns1", "testns2"},
-			ptr.To[string]("not-testns1"),
+			ptr.To("not-testns1"),
 		},
 	}
 
@@ -140,44 +146,50 @@ func TestDerefNamespaceToListSuccess(t *testing.T) {
 		{
 			"any namespace allowed: <all>",
 			[]string{},
-			ptr.To[string](""),
+			ptr.To(""),
 			[]string{""},
 		},
 		{
 			"any namespace allowed: default",
 			[]string{},
-			ptr.To[string]("default"),
+			ptr.To("default"),
 			[]string{"default"},
 		},
 		{
 			"any namespace allowed: testns",
 			[]string{},
-			ptr.To[string]("testns"),
+			ptr.To("testns"),
 			[]string{"testns"},
 		},
 		{
 			"single namespace allowed: <all>",
 			[]string{"testns"},
-			ptr.To[string](""),
+			ptr.To(""),
 			[]string{"testns"},
 		},
 		{
 			"single namespace allowed: testns",
 			[]string{"testns"},
-			ptr.To[string]("testns"),
+			ptr.To("testns"),
 			[]string{"testns"},
 		},
 		{
 			"multiple namespaces allowed: <all>",
 			[]string{"testns1", "testns2"},
-			ptr.To[string](""),
+			ptr.To(""),
 			[]string{"testns1", "testns2"},
 		},
 		{
 			"multiple namespaces allowed: testns1",
 			[]string{"testns1", "testns2"},
-			ptr.To[string]("testns1"),
+			ptr.To("testns1"),
 			[]string{"testns1"},
+		},
+		{
+			"BypassNamespaceCheck",
+			[]string{"testns1", "testns2"},
+			BypassNamespaceCheck,
+			[]string{""},
 		},
 	}
 
@@ -206,7 +218,7 @@ func TestToNamespacesError(t *testing.T) {
 		{
 			"single namespace allowed: not-testns",
 			[]string{"testns"},
-			ptr.To[string]("not-testns"),
+			ptr.To("not-testns"),
 			errors.ErrForbidden,
 		},
 		{
@@ -218,7 +230,7 @@ func TestToNamespacesError(t *testing.T) {
 		{
 			"multiple namespaces allowed: not-testns1",
 			[]string{"testns1", "testns2"},
-			ptr.To[string]("not-testns1"),
+			ptr.To("not-testns1"),
 			errors.ErrForbidden,
 		},
 	}

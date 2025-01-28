@@ -153,9 +153,16 @@ func TestDesktopOnlyRequests(t *testing.T) {
 		assert.Equal(t, err, errors.ErrForbidden)
 	})
 
-	t.Run("kubetailClusterAPIInstall", func(t *testing.T) {
+	t.Run("helmListReleases", func(t *testing.T) {
+		r := &queryResolver{resolver}
+		_, err := r.HelmListReleases(context.Background(), nil)
+		assert.NotNil(t, err)
+		assert.Equal(t, err, errors.ErrForbidden)
+	})
+
+	t.Run("helmInstallLatest", func(t *testing.T) {
 		r := &mutationResolver{resolver}
-		_, err := r.ClusterAPIInstall(context.Background(), nil)
+		_, err := r.HelmInstallLatest(context.Background(), nil)
 		assert.NotNil(t, err)
 		assert.Equal(t, err, errors.ErrForbidden)
 	})

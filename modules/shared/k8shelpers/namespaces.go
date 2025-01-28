@@ -22,9 +22,17 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
 )
 
+// Use this ptr to bypass namespace checks
+var BypassNamespaceCheck = ptr.To("")
+
 // Dereference `namespace` argument and check that it is allowed
 func DerefNamespace(allowedNamespaces []string, namespace *string, defaultNamespace string) (string, error) {
 	ns := ptr.Deref(namespace, defaultNamespace)
+
+	// bypass auth
+	if namespace == BypassNamespaceCheck {
+		return ns, nil
+	}
 
 	// perform auth
 	if len(allowedNamespaces) > 0 && !slices.Contains(allowedNamespaces, ns) {
@@ -37,6 +45,11 @@ func DerefNamespace(allowedNamespaces []string, namespace *string, defaultNamesp
 // Dereference `namespace` argument, check if it's allowed, if equal to "" then return allowedNamespaes
 func DerefNamespaceToList(allowedNamespaces []string, namespace *string, defaultNamespace string) ([]string, error) {
 	ns := ptr.Deref(namespace, defaultNamespace)
+
+	// bypass auth
+	if namespace == BypassNamespaceCheck {
+		return []string{""}, nil
+	}
 
 	// perform auth
 	if ns != "" && len(allowedNamespaces) > 0 && !slices.Contains(allowedNamespaces, ns) {

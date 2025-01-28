@@ -41,6 +41,7 @@ type HealthStatus string
 const (
 	HealthStatusSuccess  = "SUCCESS"
 	HealthStatusFailure  = "FAILURE"
+	HealthStatusPending  = "PENDING"
 	HealthStatusNotFound = "NOTFOUND"
 	HealthStatusUknown   = "UNKNOWN"
 )
@@ -267,6 +268,7 @@ type endpointSlicesHealthMonitorWorker struct {
 	lastStatus HealthStatus
 	factory    informers.SharedInformerFactory
 	informer   cache.SharedIndexInformer
+	esCache    map[string]*discoveryv1.EndpointSlice
 	eventbus   evbus.Bus
 	shutdownCh chan struct{}
 	mu         sync.RWMutex
@@ -287,34 +289,38 @@ func newEndpointSlicesHealthMonitorWorker(clientset kubernetes.Interface, namesp
 	informer := factory.Discovery().V1().EndpointSlices().Informer()
 
 	// Initialize instance
-	hm := &endpointSlicesHealthMonitorWorker{
+	w := &endpointSlicesHealthMonitorWorker{
 		lastStatus: HealthStatusUknown,
 		factory:    factory,
 		informer:   informer,
+		esCache:    make(map[string]*discoveryv1.EndpointSlice),
 		eventbus:   evbus.New(),
 		shutdownCh: make(chan struct{}),
 	}
 
 	// Register event handlers
 	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { hm.onInformerEvent() },
-		UpdateFunc: func(oldObj, newObj interface{}) { hm.onInformerEvent() },
-		DeleteFunc: func(obj interface{}) { hm.onInformerEvent() },
+		AddFunc:    w.onInformerAdd,
+		UpdateFunc: w.onInformerUpdate,
+		DeleteFunc: w.onInformerDelete,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return hm, nil
+	return w, nil
 }
 
 // Start
-func (hm *endpointSlicesHealthMonitorWorker) Start(ctx context.Context) error {
+func (w *endpointSlicesHealthMonitorWorker) Start(ctx context.Context) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	// Start background processes
-	hm.factory.Start(hm.shutdownCh)
+	w.factory.Start(w.shutdownCh)
 
 	// Wait for cache to sync
-	if !cache.WaitForCacheSync(ctx.Done(), hm.informer.HasSynced) {
+	if !cache.WaitForCacheSync(ctx.Done(), w.informer.HasSynced) {
 		return fmt.Errorf("failed to sync")
 	}
 
@@ -323,27 +329,33 @@ func (hm *endpointSlicesHealthMonitorWorker) Start(ctx context.Context) error {
 		return ctx.Err()
 	}
 
-	// Initialize status
-	hm.onInformerEvent()
+	// Init cache
+	for _, obj := range w.informer.GetStore().List() {
+		es := obj.(*discoveryv1.EndpointSlice)
+		w.esCache[string(es.UID)] = es
+	}
+
+	// Init status
+	w.updateHealthStatus_UNSAFE()
 
 	return nil
 }
 
 // Shutdown
-func (hm *endpointSlicesHealthMonitorWorker) Shutdown() {
-	close(hm.shutdownCh)
-	hm.factory.Shutdown()
+func (w *endpointSlicesHealthMonitorWorker) Shutdown() {
+	close(w.shutdownCh)
+	w.factory.Shutdown()
 }
 
 // GetHealthStatus
-func (hm *endpointSlicesHealthMonitorWorker) GetHealthStatus() HealthStatus {
-	hm.mu.RLock()
-	defer hm.mu.RUnlock()
-	return hm.lastStatus
+func (w *endpointSlicesHealthMonitorWorker) GetHealthStatus() HealthStatus {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.lastStatus
 }
 
 // WatchHealthStatus
-func (hm *endpointSlicesHealthMonitorWorker) WatchHealthStatus(ctx context.Context) (<-chan HealthStatus, error) {
+func (w *endpointSlicesHealthMonitorWorker) WatchHealthStatus(ctx context.Context) (<-chan HealthStatus, error) {
 	outCh := make(chan HealthStatus)
 
 	var mu sync.Mutex
@@ -359,20 +371,20 @@ func (hm *endpointSlicesHealthMonitorWorker) WatchHealthStatus(ctx context.Conte
 	}
 
 	// Subscribe to updates
-	err := hm.eventbus.SubscribeAsync("UPDATE", sendStatus, true)
+	err := w.eventbus.SubscribeAsync("UPDATE", sendStatus, true)
 	if err != nil {
 		return nil, err
 	}
 
 	go func() {
 		// send initial state
-		sendStatus(hm.GetHealthStatus())
+		sendStatus(w.GetHealthStatus())
 
 		// Wait for client to close
 		<-ctx.Done()
 
 		// Unsubscribe and close output channel
-		err := hm.eventbus.Unsubscribe("UPDATE", sendStatus)
+		err := w.eventbus.Unsubscribe("UPDATE", sendStatus)
 		if err != nil {
 			zlog.Error().Err(err).Caller().Send()
 		}
@@ -384,13 +396,13 @@ func (hm *endpointSlicesHealthMonitorWorker) WatchHealthStatus(ctx context.Conte
 }
 
 // ReadyWait
-func (hm *endpointSlicesHealthMonitorWorker) ReadyWait(ctx context.Context) error {
-	if hm.GetHealthStatus() == HealthStatusSuccess {
+func (w *endpointSlicesHealthMonitorWorker) ReadyWait(ctx context.Context) error {
+	if w.GetHealthStatus() == HealthStatusSuccess {
 		return nil
 	}
 
 	// Otherwise, watch for updates until success or context canceled
-	ch, err := hm.WatchHealthStatus(ctx)
+	ch, err := w.WatchHealthStatus(ctx)
 	if err != nil {
 		return err
 	}
@@ -407,13 +419,41 @@ func (hm *endpointSlicesHealthMonitorWorker) ReadyWait(ctx context.Context) erro
 	}
 }
 
+// onInformerAdd
+func (w *endpointSlicesHealthMonitorWorker) onInformerAdd(obj interface{}) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	es := obj.(*discoveryv1.EndpointSlice)
+	w.esCache[string(es.UID)] = es
+	w.updateHealthStatus_UNSAFE()
+}
+
+// onInformerUpdate
+func (w *endpointSlicesHealthMonitorWorker) onInformerUpdate(oldObj, newObj interface{}) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	es := newObj.(*discoveryv1.EndpointSlice)
+	w.esCache[string(es.UID)] = es
+	w.updateHealthStatus_UNSAFE()
+}
+
+// onInformerDelete
+func (w *endpointSlicesHealthMonitorWorker) onInformerDelete(obj interface{}) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	es := obj.(*discoveryv1.EndpointSlice)
+	delete(w.esCache, string(es.UID))
+	w.updateHealthStatus_UNSAFE()
+}
+
+/*
 // onInformerEvent
-func (hm *endpointSlicesHealthMonitorWorker) onInformerEvent() {
-	list := hm.informer.GetStore().List()
+func (w *endpointSlicesHealthMonitorWorker) onInformerEvent() {
+	list := w.informer.GetStore().List()
 
 	// Return NotFound if no endpoint slices exist
 	if len(list) == 0 {
-		hm.updateHealthStatus(HealthStatusNotFound)
+		w.updateHealthStatus(HealthStatusNotFound)
 		return
 	}
 
@@ -422,22 +462,53 @@ func (hm *endpointSlicesHealthMonitorWorker) onInformerEvent() {
 		es := obj.(*discoveryv1.EndpointSlice)
 		for _, endpoint := range es.Endpoints {
 			if ptr.Deref(endpoint.Conditions.Ready, false) {
-				hm.updateHealthStatus(HealthStatusSuccess)
+				w.updateHealthStatus(HealthStatusSuccess)
 				return
 			}
 		}
 	}
 
-	hm.updateHealthStatus(HealthStatusFailure)
+	w.updateHealthStatus(HealthStatusFailure)
 }
 
 // updateHealthStatus
-func (hm *endpointSlicesHealthMonitorWorker) updateHealthStatus(newStatus HealthStatus) {
-	hm.mu.Lock()
-	defer hm.mu.Unlock()
-	if newStatus != hm.lastStatus {
-		hm.lastStatus = newStatus
-		hm.eventbus.Publish("UPDATE", newStatus)
+func (w *endpointSlicesHealthMonitorWorker) updateHealthStatus(newStatus HealthStatus) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if newStatus != w.lastStatus {
+		w.lastStatus = newStatus
+		w.eventbus.Publish("UPDATE", newStatus)
+	}
+}
+*/
+
+func (w *endpointSlicesHealthMonitorWorker) getHealthStatus_UNSAFE() HealthStatus {
+	if len(w.esCache) == 0 {
+		return HealthStatusNotFound
+	}
+
+	for _, es := range w.esCache {
+		for _, endpoint := range es.Endpoints {
+			if ptr.Deref(endpoint.Conditions.Ready, false) {
+				return HealthStatusSuccess
+			}
+		}
+	}
+
+	return HealthStatusFailure
+}
+
+func (w *endpointSlicesHealthMonitorWorker) updateHealthStatus_UNSAFE() {
+	newStatus := w.getHealthStatus_UNSAFE()
+
+	// Handle "pending"
+	if newStatus == HealthStatusFailure && (w.lastStatus == HealthStatusNotFound || w.lastStatus == HealthStatusPending) {
+		newStatus = HealthStatusPending
+	}
+
+	if newStatus != w.lastStatus {
+		w.lastStatus = newStatus
+		w.eventbus.Publish("UPDATE", newStatus)
 	}
 }
 

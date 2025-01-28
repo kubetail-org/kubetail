@@ -35,7 +35,7 @@ var clusterRepoRemoveCmd = &cobra.Command{
 	Long:  clusterRepoRemoveHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Init client
-		client, err := helm.NewClient()
+		client, err := helm.NewClient("")
 		cli.ExitOnError(err)
 
 		// Update repo

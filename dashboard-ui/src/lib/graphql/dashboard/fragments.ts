@@ -184,6 +184,25 @@ export const HEALTH_CHECK_RESPONSE_FRAGMENT = gql(`
 `);
 
 /**
+ * Helm fragments
+ */
+
+export const HELM_RELEASE_FRAGMENT = gql(`
+  fragment HelmReleaseFragment on HelmRelease {
+    name
+    version
+    namespace
+    chart {
+      metadata {
+        name
+        version
+        appVersion
+      }
+    }
+  }
+`);
+
+/**
  * Home page fragments
  */
 
@@ -266,6 +285,31 @@ export const HOME_REPLICASETS_LIST_ITEM_FRAGMENT = gql(`
 export const HOME_STATEFULSETS_LIST_ITEM_FRAGMENT = gql(`
   fragment HomeStatefulSetsListItemFragment on AppsV1StatefulSet {
     ...HomeGenericListItemFragment
+  }
+`);
+
+/**
+ * Cluster API fragments
+ */
+
+export const CLUSTER_API_SERVICES_LIST_ITEM_FRAGMENT = gql(`
+  fragment ClusterAPIServicesListItemFragment on CoreV1Service {
+    id
+    metadata {
+      namespace
+      name
+      uid
+      creationTimestamp
+      deletionTimestamp
+      resourceVersion
+    }
+    spec {
+      ports {
+        name
+        port
+        appProtocol
+      }
+    }
   }
 `);
 
