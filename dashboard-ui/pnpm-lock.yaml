@@ -11,6 +11,9 @@ importers:
       '@apollo/client':
         specifier: ^3.12.6
         version: 3.12.6(@types/react@18.3.18)(graphql-ws@5.16.2(graphql@16.10.0))(graphql@16.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@fontsource-variable/roboto-flex':
+        specifier: ^5.1.1
+        version: 5.1.1
       '@headlessui/react':
         specifier: ^2.2.0
         version: 2.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -180,6 +183,9 @@ importers:
       typescript-eslint:
         specifier: ^8.20.0
         version: 8.20.0(eslint@8.57.1)(typescript@5.5.4)
+      unplugin-fonts:
+        specifier: ^1.3.1
+        version: 1.3.1(vite@5.4.11(@types/node@22.10.7))
       vite:
         specifier: ^5.4.11
         version: 5.4.11(@types/node@22.10.7)
@@ -731,6 +737,9 @@ packages:
 
   '@floating-ui/utils@0.2.9':
     resolution: {integrity: sha512-MDWhGtE+eHw5JW7lq4qhc5yRLS11ERl1c7Z6Xd0a58DozHES6EnNNwUWbMiG4J9Cgj053Bhk8zvlhFYKVhULwg==}
+
+  '@fontsource-variable/roboto-flex@5.1.1':
+    resolution: {integrity: sha512-cMtqtR+EhqTcox5+Sz+/+N7C8hHheQm1EtxJ9qrr356N2lwbpEU0y5OA4as+V7cdiaEFxXw6jzO9KoqLMZ6tNg==}
 
   '@graphql-codegen/add@5.0.3':
     resolution: {integrity: sha512-SxXPmramkth8XtBlAHu4H4jYcYXM/o3p01+psU+0NADQowA8jtYkK6MW5rV6T+CxkEaNZItfSmZRPgIuypcqnA==}
@@ -4227,6 +4236,19 @@ packages:
     resolution: {integrity: sha512-6bc58dPYhCMHHuwxldQxO3RRNZ4eCogZ/st++0+fcC1nr0jiGUtAdBJ2qzmLQWSxbtz42pWt4QQMiZ9HvZf5cg==}
     engines: {node: '>=0.10.0'}
 
+  unplugin-fonts@1.3.1:
+    resolution: {integrity: sha512-GmaJWPAWH6lBI4fP8xKdbMZJwTgsnr8PGJOfQE52jlod8QkqSO4M529Nox2L8zYapjB5hox2wCu4N3c/LOal/A==}
+    peerDependencies:
+      '@nuxt/kit': ^3.0.0
+      vite: ^2.0.0 || ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0
+    peerDependenciesMeta:
+      '@nuxt/kit':
+        optional: true
+
+  unplugin@2.0.0-beta.1:
+    resolution: {integrity: sha512-2qzQo5LN2DmUZXkWDHvGKLF5BP0WN+KthD6aPnPJ8plRBIjv4lh5O07eYcSxgO2znNw9s4MNhEO1sB+JDllDbQ==}
+    engines: {node: '>=18.12.0'}
+
   update-browserslist-db@1.1.2:
     resolution: {integrity: sha512-PPypAm5qvlD7XMZC3BujecnaOxwhrtoFR+Dqkk5Aa/6DssiH0ibKoketaj9w8LP7Bont1rYeoV5plxD7RTEPRg==}
     hasBin: true
@@ -4372,6 +4394,9 @@ packages:
   webidl-conversions@7.0.0:
     resolution: {integrity: sha512-VwddBukDzu71offAQR975unBIGqfKZpM+8ZX6ySk8nYhVoo5CYaZyzt3YBvYtRtO+aoGlqxPg/B87NGVZ/fu6g==}
     engines: {node: '>=12'}
+
+  webpack-virtual-modules@0.6.2:
+    resolution: {integrity: sha512-66/V2i5hQanC51vBQKPH4aI8NMAcBW59FVBs+rC7eGHupMyfn34q7rZIE+ETlJ+XTevqfUhVVBgSUNSW2flEUQ==}
 
   whatwg-encoding@3.1.1:
     resolution: {integrity: sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ==}
@@ -5050,6 +5075,8 @@ snapshots:
       tabbable: 6.2.0
 
   '@floating-ui/utils@0.2.9': {}
+
+  '@fontsource-variable/roboto-flex@5.1.1': {}
 
   '@graphql-codegen/add@5.0.3(graphql@16.10.0)':
     dependencies:
@@ -9087,6 +9114,17 @@ snapshots:
     dependencies:
       normalize-path: 2.1.1
 
+  unplugin-fonts@1.3.1(vite@5.4.11(@types/node@22.10.7)):
+    dependencies:
+      fast-glob: 3.3.3
+      unplugin: 2.0.0-beta.1
+      vite: 5.4.11(@types/node@22.10.7)
+
+  unplugin@2.0.0-beta.1:
+    dependencies:
+      acorn: 8.14.0
+      webpack-virtual-modules: 0.6.2
+
   update-browserslist-db@1.1.2(browserslist@4.24.4):
     dependencies:
       browserslist: 4.24.4
@@ -9233,6 +9271,8 @@ snapshots:
   webidl-conversions@3.0.1: {}
 
   webidl-conversions@7.0.0: {}
+
+  webpack-virtual-modules@0.6.2: {}
 
   whatwg-encoding@3.1.1:
     dependencies:
