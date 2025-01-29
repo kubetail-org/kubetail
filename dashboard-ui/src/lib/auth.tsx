@@ -14,10 +14,14 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
+import appConfig from '@/app-config';
 import { getBasename, joinPaths } from '@/lib/util';
 
+interface SessionProviderProps extends React.PropsWithChildren { }
+
 const bcName = 'auth/session';
-const bc = new BroadcastChannel(bcName);
+const bcIn = new BroadcastChannel(bcName);
+const bcOut = new BroadcastChannel(bcName);
 
 export type Session = {
   auth_mode: string;
@@ -45,9 +49,7 @@ export async function getSession(): Promise<Session> {
   sess.timestamp = new Date(sess.timestamp);
 
   // publish
-  const bcTmp = new BroadcastChannel(bcName);
-  bcTmp.postMessage(sess);
-  bcTmp.close();
+  bcOut.postMessage(sess);
 
   return sess;
 }
@@ -66,12 +68,31 @@ export function useSession() {
 }
 
 /**
- * Session provider
+ * Session provider (Desktop)
  */
 
-interface SessionProviderProps extends React.PropsWithChildren {}
+export const SessionProviderDesktop = ({ children }: SessionProviderProps) => {
+  const context = useMemo(() => ({
+    session: {
+      auth_mode: 'auto',
+      user: 'auto',
+      message: null,
+      timestamp: new Date(),
+    },
+   }), []);
 
-export const SessionProvider = ({ children }: SessionProviderProps) => {
+  return (
+    <Context.Provider value={context}>
+      {children}
+    </Context.Provider>
+  );
+};
+
+/**
+ * Session provider (Cluster)
+ */
+
+export const SessionProviderCluster = ({ children }: SessionProviderProps) => {
   const [session, setSession] = useState<Session | undefined>(undefined);
 
   // subscribe to broadcast messages
@@ -84,15 +105,14 @@ export const SessionProvider = ({ children }: SessionProviderProps) => {
         setSession(newSession);
       }
     };
-    bc.addEventListener('message', fn);
-    return () => bc.removeEventListener('message', fn);
-  }, []);
+    bcIn.addEventListener('message', fn);
 
-  // fetch on first mount
-  useEffect(() => {
+    // fetch on first mount
     (async () => {
       await getSession();
     })();
+
+    return () => bcIn.removeEventListener('message', fn);
   }, []);
 
   // fetch on visibility change
@@ -111,4 +131,15 @@ export const SessionProvider = ({ children }: SessionProviderProps) => {
       {children}
     </Context.Provider>
   );
+};
+
+/**
+ * Session provider
+ */
+
+export const SessionProvider = ({ children }: SessionProviderProps) => {
+  if (appConfig.environment === 'desktop') {
+    return <SessionProviderDesktop>{children}</SessionProviderDesktop>;
+  }
+  return <SessionProviderCluster>{children}</SessionProviderCluster>;
 };

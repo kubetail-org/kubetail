@@ -10,7 +10,7 @@
     <div id="root"></div>
     <script>
       // set theme as early as possible
-      if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      if (localStorage['kubetail:theme'] === 'dark' || (!('kubetail:theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
       }
     </script>

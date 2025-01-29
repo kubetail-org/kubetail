@@ -24,7 +24,7 @@ export default ({ mode }: { mode: string; }) => {
            },
          ],
         },
-       }), 
+       }),
     ],
     optimizeDeps: {
       include: [

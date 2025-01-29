@@ -4,7 +4,7 @@
 
 @layer base {
   html {
-    font-family: 'Roboto Flex Variable', 'Inter Variable', Arial, Helvetica, sans-serif;
+    font-family: 'Roboto Flex Variable', Arial, Helvetica, sans-serif;
     @apply h-full;
   }
 

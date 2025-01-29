@@ -59,22 +59,6 @@ func authenticationMiddleware(mode config.AuthMode) gin.HandlerFunc {
 	}
 }
 
-/*
-// Require token
-func k8sTokenRequiredMiddleware(c *gin.Context) {
-	// set "Cache-Control: no-store" so that pages requiring authentication are not stored in the users browser cache
-	c.Header("Cache-Control", "no-store")
-
-	token := c.GetString(k8sTokenGinKey)
-	if token == "" {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	c.Next()
-}
-*/
-
 func k8sAuthenticationMiddleware(mode config.AuthMode) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// set "Cache-Control: no-store" so that pages aren't stored in the users browser cache

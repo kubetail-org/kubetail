@@ -93,7 +93,8 @@ func NewApp(cfg *config.Config) (*App, error) {
 	// Register templates
 	tmpl := template.Must(template.New("").
 		Funcs(template.FuncMap{
-			"pathJoin": path.Join,
+			"pathJoin":  path.Join,
+			"hasSuffix": strings.HasSuffix,
 		}).
 		ParseFS(dashboard.TemplatesEmbedFS, "templates/*"),
 	)
@@ -111,6 +112,9 @@ func NewApp(cfg *config.Config) (*App, error) {
 	app.Use(gzip.Gzip(gzip.DefaultCompression,
 		gzip.WithExcludedPaths([]string{
 			path.Join(cfg.Dashboard.BasePath, "/cluster-api-proxy/"),
+		}),
+		gzip.WithExcludedExtensions([]string{
+			".woff2",
 		}),
 	))
 
