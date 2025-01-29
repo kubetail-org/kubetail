@@ -1,17 +1,23 @@
+
 <!doctype html>
 <html lang="en">
   <head>
+    {{- range $key, $val := .manifest }}
+    {{- if hasSuffix $key ".woff2" }}
+    <link rel="preload" as="font" type="font/woff2" href="{{ pathJoin $.config.Dashboard.BasePath $val.file }}" crossorigin="anonymous">
+    {{- end }}
+    {{- end }}
     <meta charset="UTF-8" />
     <link rel="icon" href="{{ pathJoin .config.Dashboard.BasePath "favicon.ico" }}"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Kubetail | Log Viewer</title>
     <script>
-      if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      if (localStorage['kubetail:theme'] === 'dark' || (!('kubetail:theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
       }
       window.runtimeConfig = {{ .runtimeConfig }};
     </script>
-    {{- $index := (index .manifest "index.html") }}    
+    {{- $index := (index .manifest "index.html") }}
     <script type="module" crossorigin src="{{ pathJoin $.config.Dashboard.BasePath $index.file }}"></script>
     {{- range $importRef := $index.imports }}
     {{- $import := index $.manifest $importRef }}

@@ -24,6 +24,7 @@ import { getBasename } from '@/lib/util';
 import { ThemeProvider } from '@/lib/theme';
 
 import './index.css';
+import 'unfonts.css';
 
 const router = createBrowserRouter(createRoutesFromElements(routes), { basename: getBasename() });
 
