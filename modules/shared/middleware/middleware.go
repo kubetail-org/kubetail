@@ -66,3 +66,9 @@ func LoggingMiddleware(hideHealthChecks bool) gin.HandlerFunc {
 		m.Send()
 	}
 }
+
+// Add far-future expires cache headers
+func CacheControlMiddleware(c *gin.Context) {
+	c.Writer.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	c.Next()
+}

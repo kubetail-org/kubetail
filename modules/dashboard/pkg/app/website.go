@@ -25,6 +25,7 @@ import (
 	zlog "github.com/rs/zerolog/log"
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
+	"github.com/kubetail-org/kubetail/modules/shared/middleware"
 )
 
 type websiteHandlers struct {
@@ -40,7 +41,9 @@ func (app *websiteHandlers) InitStaticHandlers(root *gin.RouterGroup) {
 
 	// add assets directory
 	if assetsFS, err := fs.Sub(app.websiteFS, "assets"); err == nil {
-		root.StaticFS("/assets", http.FS(assetsFS))
+		assetsGroup := root.Group("/assets")
+		assetsGroup.Use(middleware.CacheControlMiddleware)
+		assetsGroup.StaticFS("/", http.FS(assetsFS))
 	}
 }
 
