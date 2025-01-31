@@ -58,13 +58,13 @@ This command will open [http://localhost:7500/](http://localhost:7500/) in your 
 
 First, download and run the [install.sh](/install.sh) script:
 
-```sh
+```console
 curl -sS https://www.kubetail.com/install.sh | bash
 ```
 
 Next, start the web dashboard using the `serve` subcommand:
 
-```sh
+```console
 kubetail serve
 ```
 
@@ -82,14 +82,14 @@ Download the binary for your OS/Arch (from the latest [release binaries](https:/
 
 Rename the file and make it executable:
 
-```sh
+```console
 mv <filename> kubetail
 chmod a+x kubetail
 ```
 
 Next, start the web dashboard using the `serve` subcommand:
 
-```sh
+```console
 kubetail serve
 ```
 
