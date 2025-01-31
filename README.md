@@ -38,7 +38,9 @@ Our goal is to build a powerful cloud-native logging platform designed from the 
 
 ## Quickstart (Desktop)
 
-First, install the Kubetail CLI tool (`kubetail`) via [homebrew](https://brew.sh/) (or the latest [release binaries](https://github.com/kubetail-org/kubetail/releases/latest)):
+### Option 1: Homebrew
+
+First, install the Kubetail CLI tool (`kubetail`) via [homebrew](https://brew.sh/):
 
 ```console
 brew install kubetail
@@ -50,7 +52,48 @@ Next, start the web dashboard using the `serve` subcommand:
 kubetail serve
 ```
 
-This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. To view the logs for a different cluster just change your `kubectl` context. Have fun viewing your Kubernetes logs in realtime!
+This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun viewing your Kubernetes logs in realtime!
+
+### Option 2: Shell
+
+First, download and run the [install.sh](/install.sh) script:
+
+```console
+curl -sS https://www.kubetail.com/install.sh | bash
+```
+
+Next, start the web dashboard using the `serve` subcommand:
+
+```console
+kubetail serve
+```
+
+This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser.
+
+### Option 3: Binaries
+
+Download the binary for your OS/Arch (from the latest [release binaries](https://github.com/kubetail-org/kubetail/releases/latest)):
+
+* [Darwin/amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-darwin-amd64)
+* [Darwin/arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-darwin-arm64)
+* [Linux/amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-amd64)
+* [Linux/arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-arm64)
+* [Windows/amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-amd64)
+
+Rename the file and make it executable:
+
+```console
+mv <filename> kubetail
+chmod a+x kubetail
+```
+
+Next, start the web dashboard using the `serve` subcommand:
+
+```console
+kubetail serve
+```
+
+This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser.
 
 ## Quickstart (Cluster)
 
