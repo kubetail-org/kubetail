@@ -20,7 +20,7 @@ Viewing application logs in a containerized environment can be challenging. Typi
 
 Kubetail solves this problem by providing an easy-to-use, web-based interface that allows you to view all the logs for a set of Kubernetes workloads (e.g. Deployment, CronJob, StatefulSet) simultaneously, in real-time. Under the hood, it uses your cluster's Kubernetes API to monitor your workloads and detect when a new workload container gets created or an old one deleted so it can keep your messages up-to-date in one stream. This allows you to follow your application logs easily as user requests move from one ephemeral container to another across services. Kubetail can also help you to debug application issues by allowing you to filter your logs by node properties such as availability zone, CPU architecture or node ID. This can be useful to find problems that are specific to a given environment that an application instance is running in.
 
-The main entry point for Kubetail is a CLI tool called `kubetail` that you can use to run a web dashboard locally on your desktop. The web dashboard uses your local kube config file to detect your clusters and lets you switch between them easily. In addition, you can run the web dashboard inside an individual cluster if you want to enable cluster users to use it without installing the CLI tool. Internally, Kubetail uses your Kubernetes API to request logs, so your log messages always stay in your possession and Kubetail is private by default. Most of Kubetail is written in Go and the web interface is written in Typescript/React.
+The main entry point for Kubetail is a CLI tool called `kubetail` that you can use to run a web dashboard locally on your desktop. The web dashboard uses your local kube config file to detect your clusters and lets you switch between them easily. In addition, you can run the web dashboard inside an individual cluster if you want to enable cluster users to use it without installing the CLI tool. Internally, Kubetail uses your Kubernetes API to request logs, so your log messages always stay in your possession and Kubetail is private by default. In addition, you can install the Kubetail Cluster API to provide extra information about your logs such as file size and last event timestamp.
 
 Our goal is to build a powerful cloud-native logging platform designed from the ground up for a containerized environment and this project is a work-in-progress. If you notice a bug or have a suggestion please create a GitHub Issue or send us an email (hello@kubetail.com)!
 
@@ -175,7 +175,7 @@ This monorepo contains the following modules:
 
 It also contains the source code for the Kubetail Dashboard's frontend:
 
-* Dashboard UI ([dashboard-ui](dashbaord-ui))
+* Dashboard UI ([dashboard-ui](dashboard-ui))
 
 ### Setting up the Development Environment
 
