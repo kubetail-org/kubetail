@@ -19,7 +19,7 @@ WORKDIR /dashboard-ui
 
 # enable pnpm
 RUN corepack enable
-RUN corepack prepare pnpm@latest --activate
+RUN corepack prepare pnpm@9.14.2 --activate
 
 # fetch dependencies
 COPY dashboard-ui/package.json ./
