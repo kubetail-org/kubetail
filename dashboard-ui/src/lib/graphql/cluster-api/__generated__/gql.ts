@@ -13,7 +13,12 @@ import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/
  * Therefore it is highly recommended to use the babel or swc plugin for production.
  * Learn more about it here: https://the-guild.dev/graphql/codegen/plugins/presets/preset-client#reducing-bundle-size
  */
-const documents = {
+type Documents = {
+    "\n  fragment LogMetadataListItemFragment on LogMetadata {\n    id\n    spec {\n      nodeName\n      namespace\n      podName\n      containerName\n      containerID\n    }\n    fileInfo {\n      size\n      lastModifiedAt\n    }\n  }\n": typeof types.LogMetadataListItemFragmentFragmentDoc,
+    "\n  query LogMetadataListFetch($namespace: String = \"\") {\n    logMetadataList(namespace: $namespace) {\n      items {\n        ...LogMetadataListItemFragment\n      }\n    }\n  }\n": typeof types.LogMetadataListFetchDocument,
+    "\n  subscription LogMetadataListWatch($namespace: String = \"\") {\n    logMetadataWatch(namespace: $namespace) {\n      type\n      object {\n        ...LogMetadataListItemFragment\n      }\n    }\n  }\n": typeof types.LogMetadataListWatchDocument,
+};
+const documents: Documents = {
     "\n  fragment LogMetadataListItemFragment on LogMetadata {\n    id\n    spec {\n      nodeName\n      namespace\n      podName\n      containerName\n      containerID\n    }\n    fileInfo {\n      size\n      lastModifiedAt\n    }\n  }\n": types.LogMetadataListItemFragmentFragmentDoc,
     "\n  query LogMetadataListFetch($namespace: String = \"\") {\n    logMetadataList(namespace: $namespace) {\n      items {\n        ...LogMetadataListItemFragment\n      }\n    }\n  }\n": types.LogMetadataListFetchDocument,
     "\n  subscription LogMetadataListWatch($namespace: String = \"\") {\n    logMetadataWatch(namespace: $namespace) {\n      type\n      object {\n        ...LogMetadataListItemFragment\n      }\n    }\n  }\n": types.LogMetadataListWatchDocument,
