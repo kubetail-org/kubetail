@@ -119,7 +119,10 @@ func NewServer(grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []st
 			ctx, cancel := context.WithCancel(ctx)
 			go func() {
 				defer cancel()
-				<-shutdownCh
+				select {
+				case <-ctx.Done():
+				case <-shutdownCh:
+				}
 			}()
 
 			return ctx, &initPayload, nil

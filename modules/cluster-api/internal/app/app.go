@@ -132,8 +132,8 @@ func NewApp(cfg *config.Config) (*App, error) {
 		dynamicRoutes.Use(authenticationMiddleware)
 
 		// GraphQL endpoint
-		graphqlServer := graph.NewServer(app.grpcDispatcher, cfg.AllowedNamespaces, csrfProtect)
-		dynamicRoutes.Any("/graphql", gin.WrapH(graphqlServer))
+		app.graphqlServer = graph.NewServer(app.grpcDispatcher, cfg.AllowedNamespaces, csrfProtect)
+		dynamicRoutes.Any("/graphql", gin.WrapH(app.graphqlServer))
 	}
 	app.dynamicRoutes = dynamicRoutes // for unit tests
 

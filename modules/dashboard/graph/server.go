@@ -134,7 +134,10 @@ func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, csrfProte
 			ctx, cancel := context.WithCancel(ctx)
 			go func() {
 				defer cancel()
-				<-shutdownCh
+				select {
+				case <-ctx.Done():
+				case <-shutdownCh:
+				}
 			}()
 
 			return ctx, &initPayload, nil
