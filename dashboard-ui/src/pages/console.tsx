@@ -377,13 +377,34 @@ const Sidebar = () => {
  */
 
 const Header = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const controls = useLogFeedControls();
   const feed = useLogFeedMetadata();
 
   const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30';
 
   const handleDateRangeDropdownChange = (args: DateRangeDropdownOnChangeArgs) => {
-    if (args.since) controls.seek(args.since.toISOString());
+    if (args.since) {
+      const since = args.since.toISOString();
+      searchParams.set('mode', 'seek');
+      searchParams.set('since', since);
+      setSearchParams(new URLSearchParams(searchParams), { replace: true });
+      controls.seek(since);
+    }
+  };
+
+  const handleJumpToBeginningPress = () => {
+    searchParams.set('mode', 'head');
+    searchParams.delete('since');
+    setSearchParams(new URLSearchParams(searchParams), { replace: true });
+    controls.head();
+  };
+
+  const handleJumpToEndPress = () => {
+    searchParams.set('mode', 'tail');
+    searchParams.delete('since');
+    setSearchParams(new URLSearchParams(searchParams), { replace: true });
+    controls.tail();
   };
 
   return (
@@ -404,7 +425,7 @@ const Header = () => {
           className={buttonCN}
           title="Jump to beginning"
           aria-label="Jump to beginning"
-          onClick={() => controls.head()}
+          onClick={handleJumpToBeginningPress}
         >
           <SkipBackIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
         </button>
@@ -434,7 +455,7 @@ const Header = () => {
           className={buttonCN}
           title="Jump to end"
           aria-label="Jump to end"
-          onClick={() => controls.tail()}
+          onClick={handleJumpToEndPress}
         >
           <SkipForwardIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
         </button>
@@ -528,7 +549,12 @@ export default function Page() {
           <InnerLayout
             sidebar={<Sidebar />}
             header={<Header />}
-            content={<LogFeedViewer />}
+            content={(
+              <LogFeedViewer
+                defaultMode={searchParams.get('mode')}
+                defaultSince={searchParams.get('since')}
+              />
+            )}
           />
         </AppLayout>
       </LoggingResourcesProvider>
