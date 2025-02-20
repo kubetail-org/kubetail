@@ -398,14 +398,14 @@ const Header = () => {
     searchParams.delete('since');
     setSearchParams(new URLSearchParams(searchParams), { replace: true });
     controls.head();
-  }
+  };
 
   const handleJumpToEndPress = () => {
     searchParams.set('mode', 'tail');
     searchParams.delete('since');
     setSearchParams(new URLSearchParams(searchParams), { replace: true });
     controls.tail();
-  }
+  };
 
   return (
     <div className="flex justify-between items-end p-1">
