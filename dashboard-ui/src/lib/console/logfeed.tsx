@@ -1209,7 +1209,15 @@ const LogFeedLoader = forwardRef(LogFeedLoaderImpl);
  * LogFeedViewer component
  */
 
-export const LogFeedViewer = () => {
+type LogFeedViewerProps = {
+  defaultMode?: string | null;
+  defaultSince?: string | null;
+};
+
+export const LogFeedViewer = ({
+  defaultMode,
+  defaultSince,
+}: LogFeedViewerProps) => {
   const [channelID, setChannelID] = useRecoilState(controlChannelIDState);
   const isReady = useRecoilValue(isReadyState);
   const setIsLoading = useSetRecoilState(isLoadingState);
@@ -1413,15 +1421,30 @@ export const LogFeedViewer = () => {
     };
   }, []);
 
-  // tail by default
+  // handle default
   useEffect(() => {
     setIsLoading(true);
 
     if (!isReady || !channelID) return;
 
+    let msg = {} as any;
+
+    switch (defaultMode) {
+      case 'head':
+        msg = { type: 'head' };
+        break;
+      case 'seek':
+        msg = { type: 'seek' };
+        if (defaultSince) msg.since = defaultSince;
+        break;
+      default:
+        msg = { type: 'tail' };
+        break;
+    }
+
     setTimeout(() => {
       const bc = new BroadcastChannel(channelID);
-      bc.postMessage({ type: 'tail' });
+      bc.postMessage(msg);
       bc.close();
     }, 0);
   }, [isReady, channelID]);
