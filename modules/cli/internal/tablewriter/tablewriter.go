@@ -258,7 +258,7 @@ func (tw *TableWriter) PrintSeparator() error {
 		if i < tw.numCols-1 && tw.columnBuffer > 0 {
 			width += tw.columnBuffer
 		}
-		
+
 		// For the last column, use a minimal separator (just one dash)
 		// This allows the last column to have variable width
 		if i == tw.numCols-1 {
