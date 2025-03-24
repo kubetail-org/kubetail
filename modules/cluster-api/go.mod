@@ -17,7 +17,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/gwatts/gin-adapter v1.0.0
 	github.com/kubetail-org/grpc-dispatcher-go v0.1.0
-	github.com/kubetail-org/kubetail/modules/shared v0.0.0-20250220214902-f9dee9a7ccb9
+	github.com/kubetail-org/kubetail/modules/shared v0.0.0-00010101000000-000000000000
 	github.com/rs/zerolog v1.33.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.19.0
