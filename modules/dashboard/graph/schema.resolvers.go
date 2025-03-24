@@ -11,7 +11,6 @@ import (
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
-	"github.com/kubetail-org/kubetail/modules/dashboard/internal/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/config"
 	gqlerrors "github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
 	"github.com/kubetail-org/kubetail/modules/shared/helm"
@@ -79,7 +78,7 @@ func (r *coreV1ServicesWatchEventResolver) Object(ctx context.Context, obj *watc
 
 // AuthInfos is the resolver for the authInfos field.
 func (r *kubeConfigResolver) AuthInfos(ctx context.Context, obj *model.KubeConfig) ([]*model.KubeConfigAuthInfo, error) {
-	outList := make([]*model.KubeConfigAuthInfo, len(obj.Config.Clusters))
+	outList := make([]*model.KubeConfigAuthInfo, len(obj.Config.AuthInfos))
 	i := 0
 	for name, val := range obj.Config.AuthInfos {
 		outList[i] = &model.KubeConfigAuthInfo{
@@ -107,7 +106,7 @@ func (r *kubeConfigResolver) Clusters(ctx context.Context, obj *model.KubeConfig
 
 // Contexts is the resolver for the contexts field.
 func (r *kubeConfigResolver) Contexts(ctx context.Context, obj *model.KubeConfig) ([]*model.KubeConfigContext, error) {
-	outList := make([]*model.KubeConfigContext, len(obj.Config.Clusters))
+	outList := make([]*model.KubeConfigContext, len(obj.Config.Contexts))
 	i := 0
 	for name, val := range obj.Config.Contexts {
 		outList[i] = &model.KubeConfigContext{
@@ -499,7 +498,7 @@ func (r *queryResolver) KubeConfigGet(ctx context.Context) (*model.KubeConfig, e
 		return nil, gqlerrors.ErrForbidden
 	}
 
-	cm, ok := r.cm.(*k8shelpers.DesktopConnectionManager)
+	cm, ok := r.cm.(*sharedk8shelpers.DesktopConnectionManager)
 	if !ok {
 		return nil, gqlerrors.ErrInternalServerError
 	}
@@ -799,7 +798,7 @@ func (r *subscriptionResolver) KubeConfigWatch(ctx context.Context) (<-chan *mod
 		return nil, gqlerrors.ErrForbidden
 	}
 
-	cm, ok := r.cm.(*k8shelpers.DesktopConnectionManager)
+	cm, ok := r.cm.(*sharedk8shelpers.DesktopConnectionManager)
 	if !ok {
 		return nil, gqlerrors.ErrInternalServerError
 	}

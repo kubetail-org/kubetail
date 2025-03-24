@@ -29,9 +29,9 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
-	"github.com/kubetail-org/kubetail/modules/dashboard/internal/k8shelpers"
 )
 
 type ctxKey int

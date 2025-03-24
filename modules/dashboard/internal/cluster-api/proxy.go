@@ -27,7 +27,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kubetail-org/kubetail/modules/dashboard/internal/k8shelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"k8s.io/kubectl/pkg/proxy"
 	"k8s.io/utils/ptr"
 )

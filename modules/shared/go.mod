@@ -7,6 +7,8 @@ toolchain go1.23.4
 require (
 	github.com/99designs/gqlgen v0.17.66
 	github.com/Masterminds/semver/v3 v3.3.1
+	github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef
+	github.com/deckarep/golang-set/v2 v2.8.0
 	github.com/gin-contrib/requestid v1.0.4
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-playground/validator/v10 v10.25.0
@@ -19,6 +21,9 @@ require (
 	google.golang.org/grpc v1.71.0
 	google.golang.org/protobuf v1.36.5
 	helm.sh/helm/v3 v3.17.1
+	k8s.io/api v0.32.3
+	k8s.io/apimachinery v0.32.3
+	k8s.io/client-go v0.32.3
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 )
 
@@ -139,6 +144,7 @@ require (
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/cobra v1.9.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
@@ -170,12 +176,9 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.0 // indirect
-	k8s.io/api v0.32.3 // indirect
 	k8s.io/apiextensions-apiserver v0.32.3 // indirect
-	k8s.io/apimachinery v0.32.3 // indirect
 	k8s.io/apiserver v0.32.3 // indirect
 	k8s.io/cli-runtime v0.32.3 // indirect
-	k8s.io/client-go v0.32.3 // indirect
 	k8s.io/component-base v0.32.3 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250304201544-e5f78fe3ede9 // indirect

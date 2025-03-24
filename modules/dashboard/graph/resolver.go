@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sosodev/duration"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -32,12 +33,10 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
-	sharedk8shelpers "github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
-	"github.com/sosodev/duration"
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
-	"github.com/kubetail-org/kubetail/modules/dashboard/internal/k8shelpers"
 )
 
 // This file will not be regenerated automatically.
@@ -62,7 +61,7 @@ func (r *Resolver) Teardown() {
 // listResource
 func (r *Resolver) listResource(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions, modelPtr runtime.Object) error {
 	// Deref namespace
-	nsList, err := sharedk8shelpers.DerefNamespaceToList(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContext))
+	nsList, err := k8shelpers.DerefNamespaceToList(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContext))
 	if err != nil {
 		return err
 	}
@@ -102,7 +101,7 @@ func (r *Resolver) listResource(ctx context.Context, kubeContext *string, namesp
 // watchResourceMulti
 func (r *Resolver) watchResourceMulti(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions, gvr schema.GroupVersionResource) (<-chan *watch.Event, error) {
 	// Deref namespace
-	nsList, err := sharedk8shelpers.DerefNamespaceToList(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContext))
+	nsList, err := k8shelpers.DerefNamespaceToList(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContext))
 	if err != nil {
 		return nil, err
 	}

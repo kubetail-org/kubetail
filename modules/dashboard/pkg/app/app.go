@@ -31,12 +31,12 @@ import (
 	adapter "github.com/gwatts/gin-adapter"
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/middleware"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard"
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph"
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
-	"github.com/kubetail-org/kubetail/modules/dashboard/internal/k8shelpers"
 )
 
 type App struct {
