@@ -19,7 +19,7 @@ require (
 	github.com/gorilla/csrf v1.7.2
 	github.com/gorilla/websocket v1.5.3
 	github.com/gwatts/gin-adapter v1.0.0
-	github.com/kubetail-org/kubetail/modules/shared v0.0.0-20250220214902-f9dee9a7ccb9
+	github.com/kubetail-org/kubetail/modules/shared v0.0.0-20250313051907-65b1fd9afe8a
 	github.com/rs/zerolog v1.33.0
 	github.com/sosodev/duration v1.3.1
 	github.com/spf13/cobra v1.9.1
