@@ -18,11 +18,13 @@ import (
 	"context"
 	"fmt"
 
-	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
-	"github.com/kubetail-org/kubetail/modules/dashboard/internal/k8shelpers"
-	"github.com/kubetail-org/kubetail/modules/shared/config"
 	authv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kubetail-org/kubetail/modules/shared/config"
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
+
+	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
 )
 
 const k8sTokenSessionKey = "k8sToken"

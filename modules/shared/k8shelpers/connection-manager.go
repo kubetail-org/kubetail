@@ -30,7 +30,6 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
-	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
 // ConnectionManager interface
@@ -210,7 +209,7 @@ func (cm *DesktopConnectionManager) getOrCreateRestConfig_UNSAFE(kubeContext str
 
 	// Add authentication handler
 	rc.WrapTransport = func(transport http.RoundTripper) http.RoundTripper {
-		return k8shelpers.NewBearerTokenRoundTripper(transport)
+		return NewBearerTokenRoundTripper(transport)
 	}
 
 	// Add to cache
@@ -426,7 +425,7 @@ func (cm *InClusterConnectionManager) getOrCreateRestConfig_UNSAFE() (*rest.Conf
 
 	// Add authentication middleware
 	restConfig.WrapTransport = func(transport http.RoundTripper) http.RoundTripper {
-		return k8shelpers.NewBearerTokenRoundTripper(transport)
+		return NewBearerTokenRoundTripper(transport)
 	}
 
 	// Add to cache

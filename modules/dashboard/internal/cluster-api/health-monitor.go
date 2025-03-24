@@ -31,8 +31,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
-
-	"github.com/kubetail-org/kubetail/modules/dashboard/internal/k8shelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
 // Represents HealthStatus enum

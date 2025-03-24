@@ -25,7 +25,7 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
 
-	k8shelpersmock "github.com/kubetail-org/kubetail/modules/dashboard/internal/k8shelpers/mock"
+	k8shelpersmock "github.com/kubetail-org/kubetail/modules/shared/k8shelpers/mock"
 )
 
 func TestAllowedNamespacesGetQueries(t *testing.T) {
