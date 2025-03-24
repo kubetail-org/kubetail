@@ -1,7 +1,6 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # logs
-logs
 *.log
 npm-debug.log*
 yarn-debug.log*
