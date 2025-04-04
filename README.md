@@ -1,6 +1,6 @@
 # Kubetail
 
-Kubetail is a logging dashboard for Kubernetes that lets you view multiple log streams simultaneously, in real-time (runs on desktop or in cluster)
+Kubetail is a logging dashboard for Kubernetes designed to help you view logs from multi-container workloads simultaneously, in real-time
 
 <a href="https://www.youtube.com/watch?v=zyML-Pg12vw">
   <img width="350" alt="demo-light-thumbnail" src="https://github.com/user-attachments/assets/b37a6ca2-75b8-416a-a2e4-653c67f7fadd">
@@ -16,13 +16,16 @@ Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 
 <img src="https://github.com/user-attachments/assets/3713a774-1b3a-41f9-8e9d-9331bbf8acac" width="300" title="Kubetail">
 
-Viewing application logs in a containerized environment can be challenging. Typically, an application consists of several services, each deployed across multiple containers which are load balanced to ensure an even consumption of resources. Although viewing individual container logs is easy using tools such as `kubectl` or the Kubernetes Dashboard, simultaneously monitoring logs from all the containers that constitute an application is more difficult. This is made even more difficult by the ephemeral nature of containers, which constantly cycle in and out of existence.
+<br>
+<br>
 
-Kubetail solves this problem by providing an easy-to-use, web-based interface that allows you to view all the logs for a set of Kubernetes workloads (e.g. Deployment, CronJob, StatefulSet) simultaneously, in real-time. Under the hood, it uses your cluster's Kubernetes API to monitor your workloads and detect when a new workload container gets created or an old one deleted so it can keep your messages up-to-date in one stream. This allows you to follow your application logs easily as user requests move from one ephemeral container to another across services. Kubetail can also help you to debug application issues by allowing you to filter your logs by node properties such as availability zone, CPU architecture or node ID. This can be useful to find problems that are specific to a given environment that an application instance is running in.
+Kubetail is an easy-to-use, privacy-first logging dashboard for Kubernetes, built to make it easy to view logs from multi-container workloads in real-time. The primary entry point is the `kubetail` CLI tool, which can launch a local web dashboard on your desktop or stream raw log lines directly in your terminal. 
 
-The main entry point for Kubetail is a CLI tool called `kubetail` that you can use to run a web dashboard locally on your desktop. The web dashboard uses your local kube config file to detect your clusters and lets you switch between them easily. In addition, you can run the web dashboard inside an individual cluster if you want to enable cluster users to use it without installing the CLI tool. Internally, Kubetail uses your Kubernetes API to request logs, so your log messages always stay in your possession and Kubetail is private by default. In addition, you can install the Kubetail Cluster API to provide extra information about your logs such as file size and last event timestamp.
+Under the hood, Kubetail uses your cluster's Kubernetes API to automatically track container lifecycle events - so when containers start or stop your log view stays in sync. This lets you follow logs seamlessly as user requests move from one ephemeral container to another across services.
 
-Our goal is to build a powerful cloud-native logging platform designed from the ground up for a containerized environment and this project is a work-in-progress. If you notice a bug or have a suggestion please create a GitHub Issue or send us an email (hello@kubetail.com)!
+In addition, Kubetail runs entirely on your desktop or inside your Kubernetes cluster, ensuring that your log messages never leave your posession. This makes it private by default.
+
+Our goal is to build the most user-friendly, cost-effective, and secure logging platform for Kubernetes and we'd love your input. If you notice a bug or have a suggestion please create a GitHub Issue or send us an email (hello@kubetail.com)!
 
 ## Features
 
@@ -32,6 +35,7 @@ Our goal is to build a powerful cloud-native logging platform designed from the 
   * Workload (e.g. Deployment, CronJob, StatefulSet)
   * Absolute or relative time range
   * Node properties (e.g. availability zone, CPU architecture, node ID)
+  * Grep 
 * Uses your Kubernetes API to retrieve log messages so data never leaves your possession (private by default)
 * Web dashboard can be installed on desktop or in cluster
 * Switch between multiple clusters (Desktop-only)
@@ -241,7 +245,7 @@ docker build -f build/package/Dockerfile.cluster-agent -t kubetail-cluster-agent
 
 ## Get Involved
 
-We're building a **cloud-native logging platform** and would love your contributions! Here's how you can help:
+We're building the most **user-friendly**, **cost-effective**, and **secure** logging platform for Kubernetes and we'd love your contributions! Here's how you can help:
 
 * UI/UX design
 * React frontend development
