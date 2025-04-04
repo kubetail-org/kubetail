@@ -19,11 +19,9 @@ Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 <br>
 <br>
 
-Kubetail is an easy-to-use, privacy-first logging dashboard for Kubernetes designed to help you view logs from multi-container workloads simultaneously, in real-time. Kubetail retrieves log records from the container log files in your cluster and presents them to you sorted and merged in one timeline. The primary entry point for Kubetail is the `kubetail` CLI tool, which can launch a local web dashboard on your desktop or stream raw log lines directly in your terminal. 
+Kubetail is an easy-to-use, privacy-first logging dashboard for Kubernetes designed to help you view logs from multi-container workloads simultaneously, in real-time. Kubetail retrieves messages from the container logs in your cluster and presents them to you sorted and merged in one beautiful timeline. Since your log messages never leave your posession, Kubetail is private by default.
 
-Under the hood, Kubetail uses your cluster's Kubernetes API to automatically track container lifecycle events - so when containers start or stop your log view stays in sync. This lets you follow logs seamlessly as user requests move from one ephemeral container to another across services.
-
-In addition, Kubetail runs entirely on your desktop or inside your Kubernetes cluster, ensuring that your log messages never leave your posession. This makes it private by default.
+The primary entry point for Kubetail is the `kubetail` CLI tool, which can launch a local web dashboard on your desktop or stream raw log lines directly in your terminal. Under the hood, Kubetail uses your cluster's Kubernetes API to automatically track container lifecycle events - so when containers start or stop your log view stays in sync. This lets you follow logs seamlessly as user requests move from one ephemeral container to another across services.
 
 Our goal is to build the most user-friendly, cost-effective, and secure logging platform for Kubernetes and we'd love your input. If you notice a bug or have a suggestion please create a GitHub Issue or send us an email (hello@kubetail.com)!
 
