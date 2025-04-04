@@ -19,7 +19,7 @@ Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 <br>
 <br>
 
-Kubetail is an easy-to-use, privacy-first logging dashboard for Kubernetes, built to make it easy to view logs from multi-container workloads in real-time. The primary entry point for Kubetail is the `kubetail` CLI tool, which can launch a local web dashboard on your desktop or stream raw log lines directly in your terminal. 
+Kubetail is an easy-to-use, privacy-first logging dashboard for Kubernetes designed to help you view logs from multi-container workloads simultaneously, in real-time. Kubetail retrieves log records from the container log files in your cluster and presents them to you sorted and merged in one timeline. The primary entry point for Kubetail is the `kubetail` CLI tool, which can launch a local web dashboard on your desktop or stream raw log lines directly in your terminal. 
 
 Under the hood, Kubetail uses your cluster's Kubernetes API to automatically track container lifecycle events - so when containers start or stop your log view stays in sync. This lets you follow logs seamlessly as user requests move from one ephemeral container to another across services.
 
