@@ -19,9 +19,11 @@ Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 <br>
 <br>
 
-Kubetail is an easy-to-use, privacy-first logging dashboard for Kubernetes designed to help you view your Kubernetes container logs in real-time. Kubetail works well for individual container logs but it works especially well for multi-container workloads such as deployments and daemonsets which are presented to you in one beautiful timeline. Kubetail retrieves messages from the container logs in your cluster and your messages never leave your posession which makes it private by default.
+**Kubetail** is a general-purpose logging dashboard for Kubernetes, optimized for real-time log access and tailing across multi-container workloads. With Kubetail, you can view logs from all containers in a workload (like a Deployment or DaemonSet) in a single, beautifully organized timeline - in real-time.
 
-The primary entry point for Kubetail is the `kubetail` CLI tool, which can launch a local web dashboard on your desktop or stream raw log lines directly in your terminal. Under the hood, Kubetail uses your cluster's Kubernetes API to automatically track container lifecycle events - so when containers start or stop your log view stays in sync. This lets you follow logs seamlessly as user requests move from one ephemeral container to another across services.
+The primary entry point for Kubetail is the `kubetail` CLI tool, which can launch either a local web dashboard on your desktop or stream raw logs directly to your terminal. Kubetail uses your cluster's Kubernetes API to fetch logs directly from your cluster, so it works out of the box without needing to forward your logs to an external service first. This also means that your log data never leaves your possession - making it private by default.
+
+Behind the scenes, Kubetail also uses your cluster's Kubernetes API to track container lifecycle events. As containers start, stop or get replaced, your log timeline stays in sync - making it easy to follow logs seamlessly as user requests move from one ephemeral container to another across services.
 
 Our goal is to build the most user-friendly, cost-effective, and secure logging platform for Kubernetes and we'd love your input. If you notice a bug or have a suggestion please create a GitHub Issue or send us an email (hello@kubetail.com)!
 
