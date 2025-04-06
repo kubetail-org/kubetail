@@ -29,6 +29,7 @@ import { Counter, cn } from '@/lib/util';
 import { Workload, allWorkloads, iconMap, labelsPMap, typenameMap } from '@/lib/workload';
 
 type ContextType = {
+  kubeContext: string;
   namespace: string;
   setNamespace: React.Dispatch<string>;
   selectedSources: Set<string>;
@@ -126,13 +127,14 @@ function useWorkloadCounter(kubeContext: string, namespace: string = '') {
  */
 
 const Namespaces = () => {
-  const { namespace, setNamespace } = useContext(Context);
+  const { kubeContext, namespace, setNamespace } = useContext(Context);
 
   const { data } = useListQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_NAMESPACES_LIST_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_NAMESPACES_LIST_WATCH,
     queryDataKey: 'coreV1NamespacesList',
     subscriptionDataKey: 'coreV1NamespacesWatch',
+    variables: { kubeContext },
   });
 
   return (
@@ -337,11 +339,14 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
  */
 
 const DisplayCronJobs = () => {
+  const { kubeContext } = useContext(Context);
+
   const { loading, data } = useListQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_CRONJOBS_LIST_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_CRONJOBS_LIST_WATCH,
     queryDataKey: 'batchV1CronJobsList',
     subscriptionDataKey: 'batchV1CronJobsWatch',
+    variables: { kubeContext },
   });
 
   if (loading) return <Spinner size="sm" />;
@@ -351,11 +356,14 @@ const DisplayCronJobs = () => {
 };
 
 const DisplayDaemonSets = () => {
+  const { kubeContext } = useContext(Context);
+
   const { loading, data } = useListQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_DAEMONSETS_LIST_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_DAEMONSETS_LIST_WATCH,
     queryDataKey: 'appsV1DaemonSetsList',
     subscriptionDataKey: 'appsV1DaemonSetsWatch',
+    variables: { kubeContext },
   });
 
   if (loading) return <Spinner size="sm" />;
@@ -365,11 +373,14 @@ const DisplayDaemonSets = () => {
 };
 
 const DisplayDeployments = () => {
+  const { kubeContext } = useContext(Context);
+
   const { loading, data } = useListQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_DEPLOYMENTS_LIST_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_DEPLOYMENTS_LIST_WATCH,
     queryDataKey: 'appsV1DeploymentsList',
     subscriptionDataKey: 'appsV1DeploymentsWatch',
+    variables: { kubeContext },
   });
 
   if (loading) return <Spinner size="sm" />;
@@ -379,11 +390,14 @@ const DisplayDeployments = () => {
 };
 
 const DisplayJobs = () => {
+  const { kubeContext } = useContext(Context);
+
   const { loading, data } = useListQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_JOBS_LIST_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_JOBS_LIST_WATCH,
     queryDataKey: 'batchV1JobsList',
     subscriptionDataKey: 'batchV1JobsWatch',
+    variables: { kubeContext },
   });
 
   if (loading) return <Spinner size="sm" />;
@@ -393,11 +407,14 @@ const DisplayJobs = () => {
 };
 
 const DisplayPods = () => {
+  const { kubeContext } = useContext(Context);
+
   const { loading, data } = useListQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_PODS_LIST_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_PODS_LIST_WATCH,
     queryDataKey: 'coreV1PodsList',
     subscriptionDataKey: 'coreV1PodsWatch',
+    variables: { kubeContext },
   });
 
   if (loading) return <Spinner size="sm" />;
@@ -407,11 +424,14 @@ const DisplayPods = () => {
 };
 
 const DisplayReplicaSets = () => {
+  const { kubeContext } = useContext(Context);
+
   const { loading, data } = useListQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_REPLICASETS_LIST_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_REPLICASETS_LIST_WATCH,
     queryDataKey: 'appsV1ReplicaSetsList',
     subscriptionDataKey: 'appsV1ReplicaSetsWatch',
+    variables: { kubeContext },
   });
 
   if (loading) return <Spinner size="sm" />;
@@ -421,11 +441,14 @@ const DisplayReplicaSets = () => {
 };
 
 const DisplayStatefulSets = () => {
+  const { kubeContext } = useContext(Context);
+
   const { loading, data } = useListQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_STATEFULSETS_LIST_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_STATEFULSETS_LIST_WATCH,
     queryDataKey: 'appsV1StatefulSetsList',
     subscriptionDataKey: 'appsV1StatefulSetsWatch',
+    variables: { kubeContext },
   });
 
   if (loading) return <Spinner size="sm" />;
@@ -486,6 +509,8 @@ const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void; })
   const [namespace, setNamespace] = useState('');
   const [selectedSources, setSelectedSources] = useState(new Set(searchParams.getAll('source')));
 
+  const kubeContext = searchParams.get('kubeContext') || '';
+
   const handleUpdate = () => {
     const sourcePaths = Array.from(selectedSources);
     sourcePaths.sort();
@@ -502,11 +527,12 @@ const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void; })
   };
 
   const context = useMemo(() => ({
+    kubeContext,
     namespace,
     setNamespace,
     selectedSources,
     setSelectedSources,
-  }), [namespace, setNamespace, selectedSources, setSelectedSources]);
+  }), [kubeContext, namespace, setNamespace, selectedSources, setSelectedSources]);
 
   return (
     <Context.Provider value={context}>
