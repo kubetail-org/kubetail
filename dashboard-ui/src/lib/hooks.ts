@@ -349,22 +349,27 @@ export function useCounterQueryWithSubscription<
         const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
 
         if (!ev?.type || !ev?.object) return prev;
+        if (!prev[args.queryDataKey]) return prev;
 
-        // only handle additions and deletions
+        // Only handle additions and deletions
         if (!['ADDED', 'DELETED'].includes(ev.type)) return prev;
 
-        // merge
-        if (!prev[args.queryDataKey]) return prev;
-        const merged = { ...prev[args.queryDataKey] } as GenericCounterFragment;
+        const oldResult = prev[args.queryDataKey] as GenericCounterFragment;
 
-        // update resourceVersion
-        merged.metadata.resourceVersion = ev.object.metadata.resourceVersion;
+        const oldCount = oldResult.metadata.remainingItemCount;
+        const newCount = oldCount + ((ev.type === 'ADDED') ? BigInt(1) : BigInt(-1));
 
-        // update remainingItemsCount
-        if (ev.type === 'ADDED') merged.metadata.remainingItemCount += BigInt(1);
-        else merged.metadata.remainingItemCount -= BigInt(1);
+        // Initialize new result and update resourceVersion
+        const newResult = {
+          ...oldResult,
+          metadata: {
+            ...oldResult.metadata,
+            resourceVersion: ev.object.metadata.resourceVersion,
+            remainingItemCount: newCount,
+          },
+        };
 
-        return { [args.queryDataKey]: merged } as Unmasked<TQData>;
+        return { [args.queryDataKey]: newResult } as Unmasked<TQData>;
       },
       onError: (err) => {
         if (isWatchExpiredError(err)) refetch();
