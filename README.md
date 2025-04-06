@@ -195,7 +195,14 @@ You can use any type of cluster that [works with Tilt](https://docs.tilt.dev/cho
 tilt up
 ```
 
-3. Run the Dashboard UI locally:
+3. Start the Dashboard server:
+
+```console
+cd modules/dashboard
+go run cmd/main.go -c hack/config.yaml
+```
+
+4. Run the Dashboard UI locally:
 
 ```console
 cd dashboard-ui
