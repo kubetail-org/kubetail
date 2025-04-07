@@ -181,6 +181,7 @@ export class DashboardCustomCache extends InMemoryCache {
             batchV1CronJobsList: k8sPagination(),
             batchV1JobsList: k8sPagination(),
             clusterAPIServicesList: k8sPagination(),
+            coreV1NamespacesList: k8sPagination(),
             coreV1PodsList: k8sPagination(),
             podLogQuery: {
               merge: false,
