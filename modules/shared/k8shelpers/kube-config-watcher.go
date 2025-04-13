@@ -15,6 +15,9 @@
 package k8shelpers
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 
 	evbus "github.com/asaskevich/EventBus"
@@ -26,34 +29,75 @@ import (
 
 // Represents KubeConfigWatcher
 type KubeConfigWatcher struct {
+	configDir  string
 	kubeConfig *api.Config
 	watcher    *fsnotify.Watcher
 	eventbus   evbus.Bus
 	mu         sync.RWMutex
 }
 
+// build custom config loading rules
+func buildCustomConfigLoadingRules(configDir string) (*clientcmd.ClientConfigLoadingRules, error) {
+	rules := clientcmd.NewDefaultClientConfigLoadingRules()
+
+	// check if KUBECONFIG is set
+	if envPath := os.Getenv(clientcmd.RecommendedConfigPathEnvVar); envPath != "" {
+		rules.ExplicitPath = envPath
+		return rules, nil
+	}
+
+	// otherwise, collect all < 1MB files from ~/.kube/
+	files, err := os.ReadDir(configDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read .kube directory: %w", err)
+	}
+
+	var configPaths []string
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		fullPath := filepath.Join(configDir, file.Name())
+
+		info, err := file.Info()
+		if err != nil {
+			continue
+		}
+		if info.Size() < 1<<20 { // less than 1MB
+			configPaths = append(configPaths, fullPath)
+		}
+	}
+
+	rules.Precedence = configPaths
+	return rules, nil
+}
+
 // Creates new KubeConfigWatcher instance
 func NewKubeConfigWatcher() (*KubeConfigWatcher, error) {
 	// Initialize kube config
 	// TODO: Handle missing kube config files more gracefully
-	kubeConfig, err := clientcmd.LoadFromFile(clientcmd.RecommendedHomeFile)
+	configDir := clientcmd.RecommendedConfigDir
+	rules, err := buildCustomConfigLoadingRules(configDir)
 	if err != nil {
 		return nil, err
 	}
 
+	// Ignore errors, as they are likely caused by invalid kubeconfig files in the .kube directory.
+	kubeConfig, _ := rules.Load()
 	// Initialize watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
 
-	err = watcher.Add(clientcmd.RecommendedHomeFile)
+	err = watcher.Add(configDir)
 	if err != nil {
 		return nil, err
 	}
 
 	// Initialize
 	w := &KubeConfigWatcher{
+		configDir:  configDir,
 		kubeConfig: kubeConfig,
 		watcher:    watcher,
 		eventbus:   evbus.New(),
@@ -110,45 +154,20 @@ func (w *KubeConfigWatcher) start() {
 				return
 			}
 
-			// Handle fsnotify events
-			switch {
-			case fsEv.Op&fsnotify.Create == fsnotify.Create:
-				// Load config
+			if fsEv.Op&(fsnotify.Create|fsnotify.Remove|fsnotify.Rename|fsnotify.Write) != 0 {
 				w.mu.Lock()
-				kubeConfig, err := clientcmd.LoadFromFile(clientcmd.RecommendedHomeFile)
+				rules, err := buildCustomConfigLoadingRules(w.configDir)
 				if err != nil {
 					w.mu.Unlock()
 					zlog.Error().Err(err).Caller().Send()
 					break
 				}
+				oldConfig := w.kubeConfig
+				kubeConfig, _ := rules.Load()
 				w.kubeConfig = kubeConfig
 				w.mu.Unlock()
-
 				// Publish event
-				w.eventbus.Publish("ADDED", kubeConfig)
-			case fsEv.Op&fsnotify.Write == fsnotify.Write:
-				// Load config
-				w.mu.Lock()
-				oldConfig := w.kubeConfig
-				newConfig, err := clientcmd.LoadFromFile(clientcmd.RecommendedHomeFile)
-				if err != nil {
-					w.mu.Unlock()
-					zlog.Error().Err(err).Caller().Send()
-					break
-				}
-				w.kubeConfig = newConfig
-				w.mu.Unlock()
-
-				// Publish event
-				w.eventbus.Publish("MODIFIED", oldConfig, newConfig)
-			case fsEv.Op&fsnotify.Remove == fsnotify.Remove:
-				w.mu.Lock()
-				oldConfig := w.kubeConfig
-				w.kubeConfig = nil
-				w.mu.Unlock()
-
-				// Publish event
-				w.eventbus.Publish("DELETED", oldConfig)
+				w.eventbus.Publish("MODIFIED", oldConfig, kubeConfig)
 			}
 		}
 	}
