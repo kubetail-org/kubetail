@@ -58,7 +58,7 @@ This command will open [http://localhost:7500/](http://localhost:7500/) in your 
 
 ### Option 2: Shell
 
-First, download and run the [install.sh](/install.sh) script:
+First, download and run the install script:
 
 ```console
 curl -sS https://www.kubetail.com/install.sh | bash
