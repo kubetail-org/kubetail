@@ -14,7 +14,6 @@
 
 import { useSubscription } from '@apollo/client';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
-import { MagnifyingGlassIcon } from '@heroicons/react/24/solid';
 import numeral from 'numeral';
 import {
   createContext,
@@ -35,8 +34,6 @@ import type { SortBy } from '@kubetail/ui/elements/DataTable/Header';
 import Form from '@kubetail/ui/elements/Form';
 import Spinner from '@kubetail/ui/elements/Spinner';
 
-import FormSelect from '@kubetail/ui/elements/FormSelect';
-import FormOption from '@kubetail/ui/elements/FormOption';
 import { Boxes, Layers3, PanelLeftClose } from 'lucide-react';
 import appConfig from '@/app-config';
 import logo from '@/assets/logo.svg';
@@ -372,7 +369,6 @@ const DisplayItems = ({
 
   return (
     <>
-      {/* @todo implement the search and filter functionality */}
       <section className="flex flex-row justify-between items-center search-filter-section">
         <div className="flex items-center space-x-2">
           <Icon className="w-[22px] h-[22px]" />
@@ -386,26 +382,7 @@ const DisplayItems = ({
             </div>
           )}
         </div>
-        <div className="flex flex-row gap-2 items-center">
-          <div className={cn('relative')}>
-            <Form.Control
-              type="text"
-              placeholder={`Search ${workload}`}
-              className="w-full border-secondary  pl-9 placeholder-secondary md:w-71 mt-1"
-            />
-            <MagnifyingGlassIcon className="absolute left-3 top-[27%] h-5 w-5 text-secondary " />
-          </div>
-          <FormSelect
-            onChange={() => console.log('handle change')}
-            className="w-32"
-            id="table-filter"
-            value="table filter"
-          >
-            <FormOption>filter</FormOption>
-            <FormOption>filter1</FormOption>
-            <FormOption>filter2</FormOption>
-          </FormSelect>
-        </div>
+        {/* @todo implement the search and filter functionality */}
       </section>
       <DataTable className="rounded-table-wrapper rounded-sm w-full" size="sm">
         <DataTable.Header
@@ -414,7 +391,7 @@ const DisplayItems = ({
           onSortByChange={handleSortByChange}
         >
           <DataTable.Row>
-            <DataTable.HeaderCell className="p-3">
+            <DataTable.HeaderCell>
               <Form.Check checked={selectAll} onChange={handleSelectAllChange} />
             </DataTable.HeaderCell>
             <DataTable.HeaderCell sortField="name" initialSortDirection="ASC">
@@ -467,7 +444,7 @@ const DisplayItems = ({
 
             return (
               <DataTable.Row key={item.metadata.uid} className="text-chrome-700">
-                <DataTable.DataCell className="p-3">
+                <DataTable.DataCell>
                   <Form.Check
                     name="source"
                     value={sourceString}
@@ -750,8 +727,8 @@ const DashBoardSidebar = ({
           <button
             type="button"
             className={cn(
-              'flex capitalize items-center py-2 px-4 rounded-lg   w-full',
-              item.id === workload ? 'bg-primary text-white' : 'hover:bg-primary/20',
+              'flex capitalize items-center py-2 px-4 rounded-lg hover:bg-blue-100  w-full',
+              item.id === workload ? 'bg-blue-100 text-primary font-medium' : 'text-chrome-500',
             )}
             onClick={() => setWorkload(item.id as WorkloadSidebarOptions)}
           >
@@ -776,8 +753,8 @@ const SidebarContainer = ({
 }) => (
   <aside
     className={cn(
-      'absolute transition-all duration-300 ease-in w-72 border border-y-0 border-l-0  border-chrome-300',
-      sidebarOpen ? 'left-0' : '-left-[17rem]',
+      'absolute transition-all duration-300 ease-in w-60 border border-y-0 border-l-0  border-chrome-300',
+      sidebarOpen ? 'left-0' : '-left-[14rem]',
     )}
   >
     {children}
@@ -788,7 +765,7 @@ const ContentArea = ({ children, sidebarOpen }: { children: ReactNode; sidebarOp
   <section
     className={cn(
       'px-4 mt-4  absolute  transition-all duration-300 ease-in',
-      sidebarOpen ? 'left-72 right-0 w-[calc(100%-18rem)]' : 'left-4 w-[calc(100%-1rem)] ',
+      sidebarOpen ? 'left-60 right-0 w-[calc(100%-15rem)]' : 'left-4 w-[calc(100%-1rem)] ',
     )}
   >
     {children}
@@ -807,7 +784,6 @@ const Home = () => {
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
-    console.log('toggle sidebar');
   };
 
   return (
@@ -846,7 +822,7 @@ const Home = () => {
                 <input type="hidden" name="kubeContext" value={kubeContext} />
                 <div className="flex flex-row  justify-between mt-[10px] mb-[20px]">
                   <div>
-                    <h1 className="text-2xl font-semibold">Kubetail Dashboard</h1>
+                    <h1 className="text-2xl font-semibold ">Dashboard</h1>
                   </div>
                   <div className="flex flex-row  gap-3">
                     <Namespaces
@@ -860,7 +836,7 @@ const Home = () => {
                     </Button>
                   </div>
                 </div>
-                <section className="workloads-display h-screen overflow-scroll pb-36 px-2">
+                <section className="workloads-display h-screen  overflow-scroll pb-36 px-2">
                   <DisplayWorkloads
                     kubeContext={kubeContext}
                     namespace={namespace}
