@@ -246,18 +246,18 @@ type DisplayItemsProps = {
   namespace: string;
   fetching: boolean;
   items:
-    | {
-        id: string;
-        metadata: {
-          uid: string;
-          namespace: string;
-          name: string;
-          creationTimestamp: any;
-          deletionTimestamp?: Date;
-        };
-      }[]
-    | undefined
-    | null;
+  | {
+    id: string;
+    metadata: {
+      uid: string;
+      namespace: string;
+      name: string;
+      creationTimestamp: any;
+      deletionTimestamp?: Date;
+    };
+  }[]
+  | undefined
+  | null;
   ownershipMap: Map<string, string[]>;
 };
 
@@ -571,9 +571,7 @@ const DisplayWorkloads = ({
     // add container ids
     pods.data?.coreV1PodsList?.items.forEach((pod) => {
       // strip out prefix (e.g. "containerd://")
-      const containerIDs = pod.status.containerStatuses.map((status) =>
-        status.containerID.replace(/^[^:]+:\/\/(.*)/, '$1'),
-      );
+      const containerIDs = pod.status.containerStatuses.map((status) => status.containerID.replace(/^[^:]+:\/\/(.*)/, '$1'));
       m.set(pod.metadata.uid, containerIDs);
     });
 
@@ -681,8 +679,8 @@ const KubeContextPicker = ({
       {loading ? (
         <Form.Option>Loading...</Form.Option>
       ) : (
-        kubeConfig &&
-        kubeConfig.contexts.map((context) => (
+        kubeConfig
+        && kubeConfig.contexts.map((context) => (
           <Form.Option key={context.name} value={context.name}>
             {context.name}
           </Form.Option>
