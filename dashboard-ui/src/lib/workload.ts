@@ -30,6 +30,8 @@ export enum Workload {
   STATEFULSETS = 'statefulsets',
 }
 
+export type WorkloadSidebarOptions = Workload | 'all workloads';
+
 export const allWorkloads = [
   Workload.CRONJOBS,
   Workload.DAEMONSETS,
@@ -38,6 +40,17 @@ export const allWorkloads = [
   Workload.PODS,
   Workload.REPLICASETS,
   Workload.STATEFULSETS,
+];
+
+export const sidebarWorkloads = [
+  { id: 'all workloads', value: 'All Workloads' },
+  { id: Workload.CRONJOBS, value: 'Cron Jobs' },
+  { id: Workload.DAEMONSETS, value: 'Daemon Sets' },
+  { id: Workload.DEPLOYMENTS, value: 'Deployments' },
+  { id: Workload.JOBS, value: 'Jobs' },
+  { id: Workload.PODS, value: 'Pods' },
+  { id: Workload.REPLICASETS, value: 'Replica Sets' },
+  { id: Workload.STATEFULSETS, value: 'Stateful Sets' },
 ];
 
 export const iconMap = {

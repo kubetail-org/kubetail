@@ -15,7 +15,16 @@
 import { useSubscription } from '@apollo/client';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import numeral from 'numeral';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  Dispatch,
+  ReactNode,
+  SetStateAction,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import TimeAgo from 'react-timeago';
 import type { Formatter, Suffix, Unit } from 'react-timeago';
 
@@ -25,6 +34,7 @@ import type { SortBy } from '@kubetail/ui/elements/DataTable/Header';
 import Form from '@kubetail/ui/elements/Form';
 import Spinner from '@kubetail/ui/elements/Spinner';
 
+import { Boxes, Layers3, PanelLeftClose } from 'lucide-react';
 import appConfig from '@/app-config';
 import logo from '@/assets/logo.svg';
 import AuthRequired from '@/components/utils/AuthRequired';
@@ -32,8 +42,14 @@ import Footer from '@/components/widgets/Footer';
 import SettingsDropdown from '@/components/widgets/SettingsDropdown';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { useListQueryWithSubscription, useLogMetadata } from '@/lib/hooks';
-import { joinPaths, getBasename } from '@/lib/util';
-import { Workload, iconMap, labelsPMap } from '@/lib/workload';
+import { joinPaths, getBasename, cn } from '@/lib/util';
+import {
+  Workload,
+  WorkloadSidebarOptions,
+  iconMap,
+  labelsPMap,
+  sidebarWorkloads,
+} from '@/lib/workload';
 
 const basename = getBasename();
 
@@ -52,7 +68,11 @@ const Context = createContext<ContextType>({
   logMetadataMap: new Map(),
 });
 
-function getContainerIDs(parentID: string, ownershipMap: Map<string, string[]>, containerIDs: string[] = []): string[] {
+function getContainerIDs(
+  parentID: string,
+  ownershipMap: Map<string, string[]>,
+  containerIDs: string[] = [],
+): string[] {
   ownershipMap.get(parentID)?.forEach((childID) => {
     if (ownershipMap.has(childID)) getContainerIDs(childID, ownershipMap, containerIDs);
     else containerIDs.push(childID);
@@ -133,7 +153,10 @@ function useStatefulSets(kubeContext: string) {
 function useLogFileInfo(uids: string[], ownershipMap: Map<string, string[]>) {
   const { logMetadataMap } = useContext(Context);
 
-  const logFileInfo = new Map<string, { size: number, lastModifiedAt: Date, containerIDs: string[] }>();
+  const logFileInfo = new Map<
+    string,
+    { size: number; lastModifiedAt: Date; containerIDs: string[] }
+  >();
   uids.forEach((uid) => {
     const containerIDs = getContainerIDs(uid, ownershipMap);
 
@@ -152,7 +175,9 @@ function useLogFileInfo(uids: string[], ownershipMap: Map<string, string[]>) {
       }
 
       if (val?.lastModifiedAt) {
-        fileInfo.lastModifiedAt = new Date(Math.max(val.lastModifiedAt.getTime(), fileInfo.lastModifiedAt.getTime()));
+        fileInfo.lastModifiedAt = new Date(
+          Math.max(val.lastModifiedAt.getTime(), fileInfo.lastModifiedAt.getTime()),
+        );
       }
     });
 
@@ -182,6 +207,7 @@ const Namespaces = ({
 
   return (
     <Form.Select
+      className="mt-0"
       value={value}
       onChange={(ev) => setValue(ev.target.value)}
       disabled={loading}
@@ -192,7 +218,9 @@ const Namespaces = ({
         <>
           <Form.Option value="">All namespaces</Form.Option>
           {data?.coreV1NamespacesList?.items.map((item) => (
-            <Form.Option key={item.id} value={item.metadata.name}>{item.metadata.name}</Form.Option>
+            <Form.Option key={item.id} value={item.metadata.name}>
+              {item.metadata.name}
+            </Form.Option>
           ))}
         </>
       )}
@@ -200,7 +228,13 @@ const Namespaces = ({
   );
 };
 
-const lastModifiedAtFormatter: Formatter = (value: number, unit: Unit, suffix: Suffix, epochMilliseconds: number, nextFormatter?: Formatter) => {
+const lastModifiedAtFormatter: Formatter = (
+  value: number,
+  unit: Unit,
+  suffix: Suffix,
+  epochMilliseconds: number,
+  nextFormatter?: Formatter,
+) => {
   if (suffix === 'from now' || unit === 'second') return 'just now';
   if (nextFormatter) return nextFormatter(value, unit, suffix, epochMilliseconds);
   return '';
@@ -211,7 +245,8 @@ type DisplayItemsProps = {
   kubeContext: string;
   namespace: string;
   fetching: boolean;
-  items: {
+  items:
+  | {
     id: string;
     metadata: {
       uid: string;
@@ -220,12 +255,19 @@ type DisplayItemsProps = {
       creationTimestamp: any;
       deletionTimestamp?: Date;
     };
-  }[] | undefined | null;
+  }[]
+  | undefined
+  | null;
   ownershipMap: Map<string, string[]>;
 };
 
 const DisplayItems = ({
-  workload, kubeContext, namespace, fetching, items, ownershipMap,
+  workload,
+  kubeContext,
+  namespace,
+  fetching,
+  items,
+  ownershipMap,
 }: DisplayItemsProps) => {
   // filter items
   const filteredItems = items?.filter((item) => {
@@ -233,14 +275,17 @@ const DisplayItems = ({
     if (item.metadata.deletionTimestamp) return false;
 
     // remove items not in filtered namespace
-    return (namespace === '' || item.metadata.namespace === namespace);
+    return namespace === '' || item.metadata.namespace === namespace;
   });
 
   const ids = filteredItems?.map((item) => item.metadata.uid) || [];
   const logFileInfo = useLogFileInfo(ids, ownershipMap);
 
   // handle sorting
-  const [sortBy, setSortBy] = useState<SortBy>({ field: 'name', direction: 'ASC' });
+  const [sortBy, setSortBy] = useState<SortBy>({
+    field: 'name',
+    direction: 'ASC',
+  });
   const handleSortByChange = (newSortBy: SortBy) => setSortBy(newSortBy);
 
   if (filteredItems) {
@@ -274,7 +319,9 @@ const DisplayItems = ({
       }
 
       // sort alphabetically if same
-      if (cmp === 0 && sortBy.field !== 'name') return a.metadata.name.localeCompare(b.metadata.name);
+      if (cmp === 0 && sortBy.field !== 'name') {
+        return a.metadata.name.localeCompare(b.metadata.name);
+      }
 
       // otherwise use original cmp
       return sortBy.direction === 'ASC' ? cmp : cmp * -1;
@@ -283,7 +330,7 @@ const DisplayItems = ({
 
   // handle show some-or-all
   const [showAll, setShowAll] = useState(false);
-  const visibleItems = (filteredItems && showAll) ? filteredItems : filteredItems?.slice(0, 5);
+  const visibleItems = filteredItems && showAll ? filteredItems : filteredItems?.slice(0, 5);
   const hasMore = filteredItems && filteredItems.length > 5;
 
   // handle toggle-all
@@ -322,161 +369,152 @@ const DisplayItems = ({
 
   return (
     <>
-      <thead>
-        <tr>
-          <td colSpan={5} className="pb-[5px] text-[0.9rem]">
-            <div className="flex items-center space-x-1">
-              <Icon className="w-[22px] h-[22px]" />
-              <div>{label}</div>
-              <div>{filteredItems && `(${filteredItems?.length})`}</div>
-              {fetching && <div><Spinner size="xs" /></div>}
+      <section className="flex flex-row justify-between items-center search-filter-section">
+        <div className="flex items-center space-x-2">
+          <Icon className="w-[22px] h-[22px]" />
+          <div className="text-lg font-semibold">{label}</div>
+          <div className="px-3 py-1 font-semibold bg-chrome-300 rounded-full text-xs text-chrome-foreground ">
+            {filteredItems && `${filteredItems?.length}`}
+          </div>
+          {fetching && (
+            <div>
+              <Spinner size="xs" />
             </div>
-          </td>
-        </tr>
-      </thead>
-      {!filteredItems?.length && (
-        <tbody>
-          <tr>
-            <td colSpan={5} className="pb-[30px] italic text-chrome-400">
-              No results
-            </td>
-          </tr>
-        </tbody>
-      )}
-      {filteredItems && filteredItems.length > 0 && (
-        <>
-          <DataTable.Header
-            className="rounded-thead bg-transparent"
-            sortBy={sortBy}
-            onSortByChange={handleSortByChange}
-          >
-            <DataTable.Row>
-              <DataTable.HeaderCell>
-                <Form.Check
-                  checked={selectAll}
-                  onChange={handleSelectAllChange}
-                />
+          )}
+        </div>
+        {/* @todo implement the search and filter functionality */}
+      </section>
+      <DataTable className="rounded-table-wrapper rounded-sm w-full" size="sm">
+        <DataTable.Header
+          className="rounded-thead bg-transparent "
+          sortBy={sortBy}
+          onSortByChange={handleSortByChange}
+        >
+          <DataTable.Row>
+            <DataTable.HeaderCell>
+              <Form.Check checked={selectAll} onChange={handleSelectAllChange} />
+            </DataTable.HeaderCell>
+            <DataTable.HeaderCell sortField="name" initialSortDirection="ASC">
+              Name
+            </DataTable.HeaderCell>
+            {namespace === '' && (
+              <DataTable.HeaderCell sortField="namespace" initialSortDirection="ASC">
+                Namespace
               </DataTable.HeaderCell>
-              <DataTable.HeaderCell
-                sortField="name"
-                initialSortDirection="ASC"
-              >
-                Name
-              </DataTable.HeaderCell>
-              {namespace === '' && (
+            )}
+            <DataTable.HeaderCell sortField="created" initialSortDirection="DESC">
+              Created
+            </DataTable.HeaderCell>
+            {appConfig.clusterAPIEnabled === true && (
+              <>
                 <DataTable.HeaderCell
-                  sortField="namespace"
-                  initialSortDirection="ASC"
+                  sortField="size"
+                  initialSortDirection="DESC"
+                  className="text-right"
                 >
-                  Namespace
+                  Size
                 </DataTable.HeaderCell>
-              )}
-              <DataTable.HeaderCell
-                sortField="created"
-                initialSortDirection="DESC"
-              >
-                Created
-              </DataTable.HeaderCell>
-              {appConfig.clusterAPIEnabled === true && (
-                <>
-                  <DataTable.HeaderCell
-                    sortField="size"
-                    initialSortDirection="DESC"
-                    className="text-right"
-                  >
-                    Size
-                  </DataTable.HeaderCell>
-                  <DataTable.HeaderCell
-                    sortField="lastEvent"
-                    initialSortDirection="DESC"
-                  >
-                    Last Event
-                  </DataTable.HeaderCell>
-                </>
-              )}
-              <DataTable.HeaderCell>&nbsp;</DataTable.HeaderCell>
+                <DataTable.HeaderCell sortField="lastEvent" initialSortDirection="DESC">
+                  Last Event
+                </DataTable.HeaderCell>
+              </>
+            )}
+            <DataTable.HeaderCell>&nbsp;</DataTable.HeaderCell>
+          </DataTable.Row>
+        </DataTable.Header>
+        {!filteredItems?.length && (
+          <DataTable.Body className="rounded-tbody no-results-ui">
+            <DataTable.Row>
+              <DataTable.DataCell colSpan={7} className="text-center italic">
+                <div className="flex py-2 flex-col items-center justify-center gap-2">
+                  <Layers3 className="h-6 w-6 text-chrome-400" />
+                  <p className="text-chrome-400 italic font-medium">No resource found</p>
+                </div>
+              </DataTable.DataCell>
             </DataTable.Row>
-          </DataTable.Header>
-          <DataTable.Body className="rounded-tbody">
-            {visibleItems?.map((item) => {
-              const sourceString = `${item.metadata.namespace}/${workload}/${item.metadata.name}`;
-              const fileInfo = logFileInfo.get(item.metadata.uid);
-
-              // for last event
-              const lastEventCls = fileInfo?.containerIDs.map((id) => `last_event_${id}`).join(' ');
-
-              return (
-                <DataTable.Row key={item.metadata.uid} className="text-chrome-700">
-                  <DataTable.DataCell>
-                    <Form.Check
-                      name="source"
-                      value={sourceString}
-                      checked={isChecked.get(item.id) || false}
-                      onChange={() => handleSingleCheckboxChange(item.id)}
-                    />
-                  </DataTable.DataCell>
-                  <DataTable.DataCell>{item.metadata.name}</DataTable.DataCell>
-                  {namespace === '' && (
-                    <DataTable.DataCell>{item.metadata.namespace}</DataTable.DataCell>
-                  )}
-                  <DataTable.DataCell>
-                    <TimeAgo key={Math.random()} date={item.metadata.creationTimestamp} title={item.metadata.creationTimestamp.toUTCString()} />
-                  </DataTable.DataCell>
-                  {appConfig.clusterAPIEnabled === true && (
-                    <>
-                      <DataTable.DataCell className="text-right pr-[35px]">
-                        {fileInfo?.size === undefined ? (
-                          <span>--</span>
-                        ) : (
-                          numeral(fileInfo.size).format('0.0 b')
-                        )}
-                      </DataTable.DataCell>
-                      <DataTable.DataCell className={lastEventCls}>
-                        {fileInfo?.size === undefined ? (
-                          <span>--</span>
-                        ) : (
-                          <TimeAgo
-                            key={Math.random()}
-                            date={fileInfo.lastModifiedAt}
-                            formatter={lastModifiedAtFormatter}
-                            minPeriod={60}
-                            title={fileInfo.lastModifiedAt.toUTCString()}
-                          />
-                        )}
-                      </DataTable.DataCell>
-                    </>
-                  )}
-                  <DataTable.DataCell>
-                    <a
-                      target="_blank"
-                      href={`${joinPaths(basename, '/console')}?kubeContext=${encodeURIComponent(kubeContext)}&source=${encodeURIComponent(sourceString)}`}
-                      className="flex items-center underline text-primary"
-                    >
-                      <div>view</div>
-                      <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] ml-1" />
-                    </a>
-                  </DataTable.DataCell>
-                </DataTable.Row>
-              );
-            })}
           </DataTable.Body>
-          <tbody>
-            <tr>
-              <td colSpan={5} className="pb-[30px]">
-                {hasMore && (
-                  <button
-                    type="button"
-                    className="block underline cursor-pointer text-chrome-500"
-                    onClick={() => setShowAll(!showAll)}
-                  >
-                    {showAll ? 'Show less...' : 'Show more...'}
-                  </button>
+        )}
+        <DataTable.Body className="rounded-tbody">
+          {visibleItems?.map((item) => {
+            const sourceString = `${item.metadata.namespace}/${workload}/${item.metadata.name}`;
+            const fileInfo = logFileInfo.get(item.metadata.uid);
+
+            // for last event
+            const lastEventCls = fileInfo?.containerIDs.map((id) => `last_event_${id}`).join(' ');
+
+            return (
+              <DataTable.Row key={item.metadata.uid} className="text-chrome-700">
+                <DataTable.DataCell>
+                  <Form.Check
+                    name="source"
+                    value={sourceString}
+                    checked={isChecked.get(item.id) || false}
+                    onChange={() => handleSingleCheckboxChange(item.id)}
+                  />
+                </DataTable.DataCell>
+                <DataTable.DataCell>{item.metadata.name}</DataTable.DataCell>
+                {namespace === '' && (
+                  <DataTable.DataCell>{item.metadata.namespace}</DataTable.DataCell>
                 )}
-              </td>
-            </tr>
-          </tbody>
-        </>
-      )}
+                <DataTable.DataCell>
+                  <TimeAgo
+                    key={Math.random()}
+                    date={item.metadata.creationTimestamp}
+                    title={item.metadata.creationTimestamp.toUTCString()}
+                  />
+                </DataTable.DataCell>
+                {appConfig.clusterAPIEnabled === true && (
+                  <>
+                    <DataTable.DataCell className="text-right pr-[35px]">
+                      {fileInfo?.size === undefined ? (
+                        <span>--</span>
+                      ) : (
+                        numeral(fileInfo.size).format('0.0 b')
+                      )}
+                    </DataTable.DataCell>
+                    <DataTable.DataCell className={lastEventCls}>
+                      {fileInfo?.size === undefined ? (
+                        <span>--</span>
+                      ) : (
+                        <TimeAgo
+                          key={Math.random()}
+                          date={fileInfo.lastModifiedAt}
+                          formatter={lastModifiedAtFormatter}
+                          minPeriod={60}
+                          title={fileInfo.lastModifiedAt.toUTCString()}
+                        />
+                      )}
+                    </DataTable.DataCell>
+                  </>
+                )}
+                <DataTable.DataCell>
+                  <a
+                    target="_blank"
+                    href={`${joinPaths(basename, '/console')}?kubeContext=${encodeURIComponent(kubeContext)}&source=${encodeURIComponent(sourceString)}`}
+                    className="flex items-center underline text-primary"
+                  >
+                    <div>view</div>
+                    <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] ml-1" />
+                  </a>
+                </DataTable.DataCell>
+              </DataTable.Row>
+            );
+          })}
+        </DataTable.Body>
+      </DataTable>
+      <section className="show-more-section">
+        <div className="pb-[30px]">
+          {hasMore && (
+            <button
+              type="button"
+              className="block underline cursor-pointer text-chrome-500"
+              onClick={() => setShowAll(!showAll)}
+            >
+              {showAll ? 'Show less...' : 'Show more...'}
+            </button>
+          )}
+        </div>
+      </section>
     </>
   );
 };
@@ -484,9 +522,11 @@ const DisplayItems = ({
 const DisplayWorkloads = ({
   kubeContext,
   namespace,
+  workload,
 }: {
   kubeContext: string;
   namespace: string;
+  workload: WorkloadSidebarOptions;
 }) => {
   const cronjobs = useCronJobs(kubeContext);
   const daemonsets = useDaemonSets(kubeContext);
@@ -531,9 +571,7 @@ const DisplayWorkloads = ({
     // add container ids
     pods.data?.coreV1PodsList?.items.forEach((pod) => {
       // strip out prefix (e.g. "containerd://")
-      const containerIDs = pod.status.containerStatuses.map((status) => (
-        status.containerID.replace(/^[^:]+:\/\/(.*)/, '$1')
-      ));
+      const containerIDs = pod.status.containerStatuses.map((status) => status.containerID.replace(/^[^:]+:\/\/(.*)/, '$1'));
       m.set(pod.metadata.uid, containerIDs);
     });
 
@@ -554,66 +592,63 @@ const DisplayWorkloads = ({
   const value = { logMetadataMap };
   const context = useMemo(() => value, [value]);
 
+  const workloadConfigs = [
+    {
+      type: Workload.CRONJOBS,
+      fetching: cronjobs.fetching,
+      items: cronjobs.data?.batchV1CronJobsList?.items,
+    },
+    {
+      type: Workload.DEPLOYMENTS,
+      fetching: deployments.fetching,
+      items: deployments.data?.appsV1DeploymentsList?.items,
+    },
+    {
+      type: Workload.DAEMONSETS,
+      fetching: daemonsets.fetching,
+      items: daemonsets.data?.appsV1DaemonSetsList?.items,
+    },
+    {
+      type: Workload.JOBS,
+      fetching: jobs.fetching,
+      items: jobs.data?.batchV1JobsList?.items,
+    },
+    {
+      type: Workload.PODS,
+      fetching: pods.fetching,
+      items: pods.data?.coreV1PodsList?.items,
+    },
+    {
+      type: Workload.STATEFULSETS,
+      fetching: statefulsets.fetching,
+      items: statefulsets.data?.appsV1StatefulSetsList?.items,
+    },
+    {
+      type: Workload.REPLICASETS,
+      fetching: replicasets.fetching,
+      items: replicasets.data?.appsV1ReplicaSetsList?.items,
+    },
+  ];
+
+  const filteredConfigs = workloadConfigs.filter(
+    (config) => config.type === workload || workload === 'all workloads',
+  );
+
   return (
     <Context.Provider value={context}>
-      <DataTable className="rounded-table-wrapper min-w-[600px]" size="sm">
-        <DisplayItems
-          workload={Workload.CRONJOBS}
-          kubeContext={kubeContext}
-          namespace={namespace}
-          fetching={cronjobs.fetching}
-          items={cronjobs.data?.batchV1CronJobsList?.items}
-          ownershipMap={ownershipMap}
-        />
-        <DisplayItems
-          workload={Workload.DAEMONSETS}
-          kubeContext={kubeContext}
-          namespace={namespace}
-          fetching={daemonsets.fetching}
-          items={daemonsets.data?.appsV1DaemonSetsList?.items}
-          ownershipMap={ownershipMap}
-        />
-        <DisplayItems
-          workload={Workload.DEPLOYMENTS}
-          kubeContext={kubeContext}
-          namespace={namespace}
-          fetching={deployments.fetching}
-          items={deployments.data?.appsV1DeploymentsList?.items}
-          ownershipMap={ownershipMap}
-        />
-        <DisplayItems
-          workload={Workload.JOBS}
-          kubeContext={kubeContext}
-          namespace={namespace}
-          fetching={jobs.fetching}
-          items={jobs.data?.batchV1JobsList?.items}
-          ownershipMap={ownershipMap}
-        />
-        <DisplayItems
-          workload={Workload.PODS}
-          kubeContext={kubeContext}
-          namespace={namespace}
-          fetching={pods.fetching}
-          items={pods.data?.coreV1PodsList?.items}
-          ownershipMap={ownershipMap}
-        />
-        <DisplayItems
-          workload={Workload.REPLICASETS}
-          kubeContext={kubeContext}
-          namespace={namespace}
-          fetching={replicasets.fetching}
-          items={replicasets.data?.appsV1ReplicaSetsList?.items}
-          ownershipMap={ownershipMap}
-        />
-        <DisplayItems
-          workload={Workload.STATEFULSETS}
-          kubeContext={kubeContext}
-          namespace={namespace}
-          fetching={statefulsets.fetching}
-          items={statefulsets.data?.appsV1StatefulSetsList?.items}
-          ownershipMap={ownershipMap}
-        />
-      </DataTable>
+      <div className="flex flex-col gap-2">
+        {filteredConfigs.map((config) => (
+          <DisplayItems
+            key={config.type}
+            workload={config.type}
+            kubeContext={kubeContext}
+            namespace={namespace}
+            fetching={config.fetching}
+            items={config.items}
+            ownershipMap={ownershipMap}
+          />
+        ))}
+      </div>
     </Context.Provider>
   );
 };
@@ -637,64 +672,178 @@ const KubeContextPicker = ({
   return (
     <Form.Select
       value={value}
+      className="m-0"
       onChange={(ev) => setValue(ev.target.value)}
       disabled={loading}
     >
       {loading ? (
         <Form.Option>Loading...</Form.Option>
       ) : (
-        kubeConfig && kubeConfig.contexts.map((context) => (
-          <Form.Option key={context.name} value={context.name}>{context.name}</Form.Option>
+        kubeConfig
+        && kubeConfig.contexts.map((context) => (
+          <Form.Option key={context.name} value={context.name}>
+            {context.name}
+          </Form.Option>
         ))
       )}
     </Form.Select>
   );
 };
 
+const DashBoardSidebar = ({
+  sidebarOpen,
+  toggleSidebar,
+  workload,
+  setWorkload,
+}: {
+  sidebarOpen: boolean;
+  toggleSidebar: () => void;
+  workload: WorkloadSidebarOptions;
+  setWorkload: Dispatch<SetStateAction<WorkloadSidebarOptions>>;
+}) => (
+  <div className="h-screen p-4 ">
+    <header className="relative sidebar-header w-full flex justify-between items-center py-3 ">
+      <div className="flex items-center gap-2">
+        <Boxes className="h-6 w-6 text-chrome-600" />
+        <h1 className="text-xl font-semibold"> Workloads</h1>
+      </div>
+      <PanelLeftClose className={cn('cursor-pointer text-chrome-600')} onClick={toggleSidebar} />
+    </header>
+    {!sidebarOpen && (
+      <span className="absolute right-1 top-0 sidebar-toggle-line flex  justify-center items-center h-full w-[5px]">
+        <button
+          type="button"
+          className="bg-primary/40 h-20  -translate-y-10 -translate-x-[1px] cursor-pointer rounded-sm w-full"
+          onClick={toggleSidebar}
+          aria-label="toggle sidebar"
+        />
+      </span>
+    )}
+    <ul className="space-y-2">
+      {sidebarWorkloads.map((item) => (
+        <li key={item.id}>
+          <button
+            type="button"
+            className={cn(
+              'flex capitalize items-center py-2 px-4 rounded-lg hover:bg-blue-100  w-full',
+              item.id === workload ? 'bg-blue-100 text-primary font-medium' : 'text-chrome-500',
+            )}
+            onClick={() => setWorkload(item.id as WorkloadSidebarOptions)}
+          >
+            {item.value}
+          </button>
+        </li>
+      ))}
+    </ul>
+  </div>
+);
+
+const MainContainer = ({ children }: { children: ReactNode }) => (
+  <div className="relative flex flex-row h-screen w-screen overflow-hidden">{children}</div>
+);
+
+const SidebarContainer = ({
+  children,
+  sidebarOpen,
+}: {
+  children: ReactNode;
+  sidebarOpen: boolean;
+}) => (
+  <aside
+    className={cn(
+      'absolute transition-all duration-300 ease-in w-60 border border-y-0 border-l-0  border-chrome-300',
+      sidebarOpen ? 'left-0' : '-left-[14rem]',
+    )}
+  >
+    {children}
+  </aside>
+);
+
+const ContentArea = ({ children, sidebarOpen }: { children: ReactNode; sidebarOpen: boolean }) => (
+  <section
+    className={cn(
+      'px-4 mt-4  absolute  transition-all duration-300 ease-in',
+      sidebarOpen ? 'left-60 right-0 w-[calc(100%-15rem)]' : 'left-4 w-[calc(100%-1rem)] ',
+    )}
+  >
+    {children}
+  </section>
+);
+
 const Home = () => {
   const [kubeContext, setKubeContext] = useState(defaultKubeContext);
   const [namespace, setNamespace] = useState<string>('');
+  const [workload, setWorkload] = useState<WorkloadSidebarOptions>('all workloads');
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
 
   const readyWait = useSubscription(dashboardOps.KUBERNETES_API_READY_WAIT, {
     variables: { kubeContext },
   });
 
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
   return (
     <>
-      <div className="px-[10px] py-[5px] flex items-center justify-between border-b-[1px] border-chrome-300 bg-chrome-100">
+      <div className="px-4 py-[5px] flex items-center justify-between border-b-[1px] border-chrome-300 bg-chrome-100">
         <div className="flex items-center space-x-4">
           <a href="/">
             <img src={joinPaths(basename, logo)} alt="logo" className="display-block h-[40px]" />
           </a>
+        </div>
+        <div className="flex flex-row items-center  gap-3">
           {appConfig.environment === 'desktop' && (
             <span>
               <KubeContextPicker value={kubeContext} setValue={setKubeContext} />
             </span>
           )}
+
+          <SettingsDropdown />
         </div>
-        <SettingsDropdown />
       </div>
-      <main className="px-[10px]">
-        {(readyWait.loading || kubeContext === undefined) ? (
+      <main className="">
+        {readyWait.loading || kubeContext === undefined ? (
           <div>Connecting...</div>
         ) : (
-          <form
-            method="get"
-            target="_blank"
-            action={joinPaths(basename, '/console')}
-          >
-            <input type="hidden" name="kubeContext" value={kubeContext} />
-            <div className="flex items-start justify-between mt-[10px] mb-[20px]">
-              <div className="block w-[200px]">
-                <Namespaces kubeContext={kubeContext} value={namespace} setValue={setNamespace} />
-              </div>
-              <Button type="submit">
-                View in console
-                <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] ml-1" />
-              </Button>
-            </div>
-            <DisplayWorkloads kubeContext={kubeContext} namespace={namespace} />
-          </form>
+          <MainContainer>
+            <SidebarContainer sidebarOpen={sidebarOpen}>
+              <DashBoardSidebar
+                sidebarOpen={sidebarOpen}
+                toggleSidebar={toggleSidebar}
+                workload={workload}
+                setWorkload={setWorkload}
+              />
+            </SidebarContainer>
+            <ContentArea sidebarOpen={sidebarOpen}>
+              <form method="get" target="_blank" action={joinPaths(basename, '/console')}>
+                <input type="hidden" name="kubeContext" value={kubeContext} />
+                <div className="flex flex-row  justify-between mt-[10px] mb-[20px]">
+                  <div>
+                    <h1 className="text-2xl font-semibold ">Dashboard</h1>
+                  </div>
+                  <div className="flex flex-row  gap-3">
+                    <Namespaces
+                      kubeContext={kubeContext}
+                      value={namespace}
+                      setValue={setNamespace}
+                    />
+                    <Button type="submit" className="flex flex-row gap-2 py-0">
+                      <span>View in console</span>
+                      <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] mb-1" />
+                    </Button>
+                  </div>
+                </div>
+                <section className="workloads-display h-screen  overflow-scroll pb-36 px-2">
+                  <DisplayWorkloads
+                    kubeContext={kubeContext}
+                    namespace={namespace}
+                    workload={workload}
+                  />
+                </section>
+              </form>
+            </ContentArea>
+          </MainContainer>
         )}
       </main>
     </>

@@ -36,7 +36,9 @@ const SettingsDropdown = () => {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button intent="outline" size="sm"><SettingsIcon size={18} strokeWidth={1.5} /></Button>
+          <Button intent="outline" size="sm" className="py-[10px]">
+            <SettingsIcon size={18} strokeWidth={1.5} />
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[150px]">
           <DropdownMenuGroup>
@@ -48,7 +50,9 @@ const SettingsDropdown = () => {
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
-                <Link to={`/auth/logout?${new URLSearchParams({ callbackUrl: window.location.pathname + window.location.search })}`}>
+                <Link
+                  to={`/auth/logout?${new URLSearchParams({ callbackUrl: window.location.pathname + window.location.search })}`}
+                >
                   Sign out
                 </Link>
               </DropdownMenuItem>
@@ -56,7 +60,10 @@ const SettingsDropdown = () => {
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      <ClusterSettingsDialog isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} />
+      <ClusterSettingsDialog
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+      />
     </>
   );
 };
