@@ -763,7 +763,7 @@ const ContentArea = ({ children, sidebarOpen }: { children: ReactNode; sidebarOp
   <section
     className={cn(
       'px-4 mt-4  absolute  transition-all duration-300 ease-in',
-      sidebarOpen ? 'left-60 right-0 w-[calc(100%-15rem)]' : 'left-4 w-[calc(100%-1rem)] ',
+      sidebarOpen ? 'left-60 right-0 w-[calc(100%-16rem)]' : 'left-4 w-[calc(100%-2rem)] ',
     )}
   >
     {children}
@@ -834,7 +834,7 @@ const Home = () => {
                     </Button>
                   </div>
                 </div>
-                <section className="workloads-display h-screen  overflow-scroll pb-36 px-2">
+                <section className="workloads-display h-screen  overflow-scroll [&::-webkit-scrollbar]:hidden [scrollbar-width:none]  pb-36 px-2">
                   <DisplayWorkloads
                     kubeContext={kubeContext}
                     namespace={namespace}
