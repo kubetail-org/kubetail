@@ -256,7 +256,7 @@ export const CONSOLE_NODES_LIST_WATCH = gql(`
  */
 
 export const HOME_CRONJOBS_LIST_FETCH = gql(`
-  query HomeCronJobsListFetch($kubeContext: String!, $namespace: String = "", $continue: String = "") {
+  query HomeCronJobsListFetch($kubeContext: String, $namespace: String = "", $continue: String = "") {
     batchV1CronJobsList(kubeContext: $kubeContext, namespace: $namespace, options: { limit: "50", continue: $continue }) {
       ...HomeGenericListFragment
       items {
@@ -267,7 +267,7 @@ export const HOME_CRONJOBS_LIST_FETCH = gql(`
 `);
 
 export const HOME_CRONJOBS_LIST_WATCH = gql(`
-  subscription HomeCronJobsListWatch($kubeContext: String!, $namespace: String = "", $resourceVersion: String = "") {
+  subscription HomeCronJobsListWatch($kubeContext: String, $namespace: String = "", $resourceVersion: String = "") {
     batchV1CronJobsWatch(kubeContext: $kubeContext, namespace: $namespace, options: { resourceVersion: $resourceVersion }) {
       type
       object {
@@ -278,7 +278,7 @@ export const HOME_CRONJOBS_LIST_WATCH = gql(`
 `);
 
 export const HOME_DAEMONSETS_LIST_FETCH = gql(`
-  query HomeDaemonSetsListFetch($kubeContext: String!, $namespace: String = "", $continue: String = "") {
+  query HomeDaemonSetsListFetch($kubeContext: String, $namespace: String = "", $continue: String = "") {
     appsV1DaemonSetsList(kubeContext: $kubeContext, namespace: $namespace, options: { limit: "50", continue: $continue }) {
       ...HomeGenericListFragment
       items {
@@ -289,7 +289,7 @@ export const HOME_DAEMONSETS_LIST_FETCH = gql(`
 `);
 
 export const HOME_DAEMONSETS_LIST_WATCH = gql(`
-  subscription HomeDaemonSetsListWatch($kubeContext: String!, $namespace: String = "", $resourceVersion: String = "") {
+  subscription HomeDaemonSetsListWatch($kubeContext: String, $namespace: String = "", $resourceVersion: String = "") {
     appsV1DaemonSetsWatch(kubeContext: $kubeContext, namespace: $namespace, options: { resourceVersion: $resourceVersion }) {
       type
       object {
@@ -300,7 +300,7 @@ export const HOME_DAEMONSETS_LIST_WATCH = gql(`
 `);
 
 export const HOME_DEPLOYMENTS_LIST_FETCH = gql(`
-  query HomeDeploymentsListFetch($kubeContext: String!, $namespace: String = "", $continue: String = "") {
+  query HomeDeploymentsListFetch($kubeContext: String, $namespace: String = "", $continue: String = "") {
     appsV1DeploymentsList(kubeContext: $kubeContext, namespace: $namespace, options: { limit: "50", continue: $continue }) {
       ...HomeGenericListFragment
       items {
@@ -311,7 +311,7 @@ export const HOME_DEPLOYMENTS_LIST_FETCH = gql(`
 `);
 
 export const HOME_DEPLOYMENTS_LIST_WATCH = gql(`
-  subscription HomeDeploymentsListWatch($kubeContext: String!, $namespace: String = "", $resourceVersion: String = "") {
+  subscription HomeDeploymentsListWatch($kubeContext: String, $namespace: String = "", $resourceVersion: String = "") {
     appsV1DeploymentsWatch(kubeContext: $kubeContext, namespace: $namespace, options: { resourceVersion: $resourceVersion }) {
       type
       object {
@@ -322,7 +322,7 @@ export const HOME_DEPLOYMENTS_LIST_WATCH = gql(`
 `);
 
 export const HOME_JOBS_LIST_FETCH = gql(`
-  query HomeJobsListFetch($kubeContext: String!, $namespace: String = "", $continue: String = "") {
+  query HomeJobsListFetch($kubeContext: String, $namespace: String = "", $continue: String = "") {
     batchV1JobsList(kubeContext: $kubeContext, namespace: $namespace, options: { limit: "50", continue: $continue }) {
       ...HomeGenericListFragment
       items {
@@ -333,7 +333,7 @@ export const HOME_JOBS_LIST_FETCH = gql(`
 `);
 
 export const HOME_JOBS_LIST_WATCH = gql(`
-  subscription HomeJobsListWatch($kubeContext: String!, $namespace: String = "", $resourceVersion: String = "") {
+  subscription HomeJobsListWatch($kubeContext: String, $namespace: String = "", $resourceVersion: String = "") {
     batchV1JobsWatch(kubeContext: $kubeContext, namespace: $namespace, options: { resourceVersion: $resourceVersion }) {
       type
       object {
@@ -344,7 +344,7 @@ export const HOME_JOBS_LIST_WATCH = gql(`
 `);
 
 export const HOME_NAMESPACES_LIST_FETCH = gql(`
-  query HomeNamespacesListFetch($kubeContext: String!, $continue: String = "") {
+  query HomeNamespacesListFetch($kubeContext: String, $continue: String = "") {
     coreV1NamespacesList(kubeContext: $kubeContext, options: { limit: "50", continue: $continue }) {
       ...HomeGenericListFragment
       items {
@@ -355,7 +355,7 @@ export const HOME_NAMESPACES_LIST_FETCH = gql(`
 `);
 
 export const HOME_NAMESPACES_LIST_WATCH = gql(`
-  subscription HomeNamespacesListWatch($kubeContext: String!, $resourceVersion: String = "") {
+  subscription HomeNamespacesListWatch($kubeContext: String, $resourceVersion: String = "") {
     coreV1NamespacesWatch(kubeContext: $kubeContext, options: { resourceVersion: $resourceVersion }) {
       type
       object {
@@ -366,7 +366,7 @@ export const HOME_NAMESPACES_LIST_WATCH = gql(`
 `);
 
 export const HOME_PODS_LIST_FETCH = gql(`
-  query HomePodsListFetch($kubeContext: String!, $namespace: String = "", $continue: String = "") {
+  query HomePodsListFetch($kubeContext: String, $namespace: String = "", $continue: String = "") {
     coreV1PodsList(kubeContext: $kubeContext, namespace: $namespace, options: { limit: "50", continue: $continue }) {
       ...HomeGenericListFragment
       items {
@@ -377,7 +377,7 @@ export const HOME_PODS_LIST_FETCH = gql(`
 `);
 
 export const HOME_PODS_LIST_WATCH = gql(`
-  subscription HomePodsListWatch($kubeContext: String!, $namespace: String = "", $resourceVersion: String = "") {
+  subscription HomePodsListWatch($kubeContext: String, $namespace: String = "", $resourceVersion: String = "") {
     coreV1PodsWatch(kubeContext: $kubeContext, namespace: $namespace, options: { resourceVersion: $resourceVersion }) {
       type
       object {
@@ -388,7 +388,7 @@ export const HOME_PODS_LIST_WATCH = gql(`
 `);
 
 export const HOME_REPLICASETS_LIST_FETCH = gql(`
-  query HomeReplicaSetsListFetch($kubeContext: String!, $namespace: String = "", $continue: String = "") {
+  query HomeReplicaSetsListFetch($kubeContext: String, $namespace: String = "", $continue: String = "") {
     appsV1ReplicaSetsList(kubeContext: $kubeContext, namespace: $namespace, options: { limit: "50", continue: $continue }) {
       ...HomeGenericListFragment
       items {
@@ -399,7 +399,7 @@ export const HOME_REPLICASETS_LIST_FETCH = gql(`
 `);
 
 export const HOME_REPLICASETS_LIST_WATCH = gql(`
-  subscription HomeReplicaSetsListWatch($kubeContext: String!, $namespace: String = "", $resourceVersion: String = "") {
+  subscription HomeReplicaSetsListWatch($kubeContext: String, $namespace: String = "", $resourceVersion: String = "") {
     appsV1ReplicaSetsWatch(kubeContext: $kubeContext, namespace: $namespace, options: { resourceVersion: $resourceVersion }) {
       type
       object {
@@ -410,7 +410,7 @@ export const HOME_REPLICASETS_LIST_WATCH = gql(`
 `);
 
 export const HOME_STATEFULSETS_LIST_FETCH = gql(`
-  query HomeStatefulSetsListFetch($kubeContext: String!, $namespace: String = "", $continue: String = "") {
+  query HomeStatefulSetsListFetch($kubeContext: String, $namespace: String = "", $continue: String = "") {
     appsV1StatefulSetsList(kubeContext: $kubeContext, namespace: $namespace, options: { limit: "50", continue: $continue }) {
       ...HomeGenericListFragment
       items {
@@ -421,7 +421,7 @@ export const HOME_STATEFULSETS_LIST_FETCH = gql(`
 `);
 
 export const HOME_STATEFULSETS_LIST_WATCH = gql(`
-  subscription HomeStatefulSetsListWatch($kubeContext: String!, $namespace: String = "", $resourceVersion: String = "") {
+  subscription HomeStatefulSetsListWatch($kubeContext: String, $namespace: String = "", $resourceVersion: String = "") {
     appsV1StatefulSetsWatch(kubeContext: $kubeContext, namespace: $namespace, options: { resourceVersion: $resourceVersion }) {
       type
       object {

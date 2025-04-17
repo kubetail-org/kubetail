@@ -14,13 +14,10 @@
 
 import { useSubscription } from '@apollo/client';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
-import { Boxes, Layers3, PanelLeftClose } from 'lucide-react';
+import { Boxes, Layers3, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import numeral from 'numeral';
-import {
+import React, {
   createContext,
-  Dispatch,
-  ReactNode,
-  SetStateAction,
   useContext,
   useEffect,
   useMemo,
@@ -28,6 +25,7 @@ import {
 } from 'react';
 import TimeAgo from 'react-timeago';
 import type { Formatter, Suffix, Unit } from 'react-timeago';
+import { RecoilRoot, atom, useRecoilValue, useSetRecoilState } from 'recoil';
 
 import Button from '@kubetail/ui/elements/Button';
 import DataTable from '@kubetail/ui/elements/DataTable';
@@ -39,35 +37,38 @@ import appConfig from '@/app-config';
 import logo from '@/assets/logo.svg';
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
-import Footer from '@/components/widgets/Footer';
 import SettingsDropdown from '@/components/widgets/SettingsDropdown';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { useListQueryWithSubscription, useLogMetadata } from '@/lib/hooks';
 import { joinPaths, getBasename, cn } from '@/lib/util';
-import {
-  Workload,
-  WorkloadSidebarOptions,
-  iconMap,
-  labelsPMap,
-  sidebarWorkloads,
-} from '@/lib/workload';
+import { Workload, allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
+
+/**
+ * Shared variables and helper methods
+ */
 
 const basename = getBasename();
 
 const defaultKubeContext = appConfig.environment === 'cluster' ? '' : undefined;
 
+const logMetadataMapState = atom({
+  key: 'homeLogMetadataMap',
+  default: new Map<string, FileInfo>(),
+});
+
+type ContextType = {
+  kubeContext?: string;
+  setKubeContext: React.Dispatch<React.SetStateAction<string | undefined>>;
+  workloadFilter?: Workload;
+  setWorkloadFilter: React.Dispatch<React.SetStateAction<Workload | undefined>>;
+};
+
+const Context = createContext({} as ContextType);
+
 type FileInfo = {
   size: string;
   lastModifiedAt?: Date;
 };
-
-type ContextType = {
-  logMetadataMap: Map<string, FileInfo>;
-};
-
-const Context = createContext<ContextType>({
-  logMetadataMap: new Map(),
-});
 
 function getContainerIDs(
   parentID: string,
@@ -81,7 +82,11 @@ function getContainerIDs(
   return containerIDs;
 }
 
-function useCronJobs(kubeContext: string) {
+/**
+ * Custom hooks
+ */
+
+function useCronJobs(kubeContext?: string) {
   return useListQueryWithSubscription({
     query: dashboardOps.HOME_CRONJOBS_LIST_FETCH,
     subscription: dashboardOps.HOME_CRONJOBS_LIST_WATCH,
@@ -91,7 +96,7 @@ function useCronJobs(kubeContext: string) {
   });
 }
 
-function useDaemonSets(kubeContext: string) {
+function useDaemonSets(kubeContext?: string) {
   return useListQueryWithSubscription({
     query: dashboardOps.HOME_DAEMONSETS_LIST_FETCH,
     subscription: dashboardOps.HOME_DAEMONSETS_LIST_WATCH,
@@ -101,7 +106,7 @@ function useDaemonSets(kubeContext: string) {
   });
 }
 
-function useDeployments(kubeContext: string) {
+function useDeployments(kubeContext?: string) {
   return useListQueryWithSubscription({
     query: dashboardOps.HOME_DEPLOYMENTS_LIST_FETCH,
     subscription: dashboardOps.HOME_DEPLOYMENTS_LIST_WATCH,
@@ -111,7 +116,7 @@ function useDeployments(kubeContext: string) {
   });
 }
 
-function useJobs(kubeContext: string) {
+function useJobs(kubeContext?: string) {
   return useListQueryWithSubscription({
     query: dashboardOps.HOME_JOBS_LIST_FETCH,
     subscription: dashboardOps.HOME_JOBS_LIST_WATCH,
@@ -121,7 +126,7 @@ function useJobs(kubeContext: string) {
   });
 }
 
-function usePods(kubeContext: string) {
+function usePods(kubeContext?: string) {
   return useListQueryWithSubscription({
     query: dashboardOps.HOME_PODS_LIST_FETCH,
     subscription: dashboardOps.HOME_PODS_LIST_WATCH,
@@ -131,7 +136,7 @@ function usePods(kubeContext: string) {
   });
 }
 
-function useReplicaSets(kubeContext: string) {
+function useReplicaSets(kubeContext?: string) {
   return useListQueryWithSubscription({
     query: dashboardOps.HOME_REPLICASETS_LIST_FETCH,
     subscription: dashboardOps.HOME_REPLICASETS_LIST_WATCH,
@@ -141,7 +146,7 @@ function useReplicaSets(kubeContext: string) {
   });
 }
 
-function useStatefulSets(kubeContext: string) {
+function useStatefulSets(kubeContext?: string) {
   return useListQueryWithSubscription({
     query: dashboardOps.HOME_STATEFULSETS_LIST_FETCH,
     subscription: dashboardOps.HOME_STATEFULSETS_LIST_WATCH,
@@ -152,7 +157,7 @@ function useStatefulSets(kubeContext: string) {
 }
 
 function useLogFileInfo(uids: string[], ownershipMap: Map<string, string[]>) {
-  const { logMetadataMap } = useContext(Context);
+  const logMetadataMap = useRecoilValue(logMetadataMapState);
 
   const logFileInfo = new Map<
     string,
@@ -189,7 +194,87 @@ function useLogFileInfo(uids: string[], ownershipMap: Map<string, string[]>) {
   return logFileInfo;
 }
 
-const Namespaces = ({
+/**
+ * LogMetadataMapProvider component
+ */
+
+const LogMetadataMapProvider = () => {
+  const { kubeContext } = useContext(Context);
+  const setLogMetadataMap = useSetRecoilState(logMetadataMapState);
+
+  const logMetadata = useLogMetadata({
+    enabled: appConfig.clusterAPIEnabled && kubeContext !== undefined,
+    kubeContext: kubeContext || '',
+    onUpdate: (containerID) => {
+      document.querySelectorAll(`.last_event_${containerID}`).forEach((el) => {
+        const k = 'animate-flash-bg-green';
+        el.classList.remove(k);
+        el.classList.add(k);
+        setTimeout(() => el.classList.remove(k), 1000);
+      });
+    },
+  });
+
+  // TODO: This should be replaced with a more efficient implementation that updates
+  //       the shared state using the hook's onUpdate() method
+  useEffect(() => {
+    const logMetadataMap = new Map<string, FileInfo>();
+    logMetadata.data?.logMetadataList?.items.forEach((item) => {
+      logMetadataMap.set(item.spec.containerID, item.fileInfo);
+    });
+
+    setLogMetadataMap(() => logMetadataMap);
+  }, [JSON.stringify(logMetadata.data?.logMetadataList?.items)]);
+
+  return null;
+};
+
+/**
+ * KubeContextPicker component
+ */
+
+const KubeContextPicker = ({
+  value,
+  setValue,
+}: {
+  value?: string;
+  setValue: (value: string) => void;
+}) => {
+  const { loading, data } = useSubscription(dashboardOps.KUBE_CONFIG_WATCH);
+  const kubeConfig = data?.kubeConfigWatch?.object;
+
+  // Set default value
+  useEffect(() => {
+    const defaultValue = kubeConfig?.currentContext;
+    if (defaultValue) setValue(defaultValue);
+  }, [loading]);
+
+  return (
+    <Form.Select
+      value={value}
+      className="m-0"
+      onChange={(ev) => setValue(ev.target.value)}
+      disabled={loading}
+    >
+      {loading ? (
+        <Form.Option>Loading...</Form.Option>
+      ) : (
+        kubeConfig
+        && kubeConfig.contexts.map((context) => (
+          <Form.Option key={context.name} value={context.name}>
+            {context.name}
+          </Form.Option>
+        ))
+      )}
+    </Form.Select>
+  );
+};
+
+/**
+ * NamespacesPicker component
+ */
+
+const NamespacesPicker = ({
   kubeContext,
   value,
   setValue,
@@ -229,13 +314,11 @@ const Namespaces = ({
   );
 };
 
-const lastModifiedAtFormatter: Formatter = (
-  value: number,
-  unit: Unit,
-  suffix: Suffix,
-  epochMilliseconds: number,
-  nextFormatter?: Formatter,
-) => {
+/**
+ * DisplayItems component
+ */
+
+const lastModifiedAtFormatter: Formatter = (value: number, unit: Unit, suffix: Suffix, epochMilliseconds: number, nextFormatter?: Formatter) => {
   if (suffix === 'from now' || unit === 'second') return 'just now';
   if (nextFormatter) return nextFormatter(value, unit, suffix, epochMilliseconds);
   return '';
@@ -243,11 +326,9 @@ const lastModifiedAtFormatter: Formatter = (
 
 type DisplayItemsProps = {
   workload: Workload;
-  kubeContext: string;
   namespace: string;
   fetching: boolean;
-  items:
-  | {
+  items: {
     id: string;
     metadata: {
       uid: string;
@@ -256,37 +337,29 @@ type DisplayItemsProps = {
       creationTimestamp: any;
       deletionTimestamp?: Date;
     };
-  }[]
-  | undefined
-  | null;
+  }[] | undefined | null;
   ownershipMap: Map<string, string[]>;
 };
 
 const DisplayItems = ({
-  workload,
-  kubeContext,
-  namespace,
-  fetching,
-  items,
-  ownershipMap,
+  workload, namespace, fetching, items, ownershipMap,
 }: DisplayItemsProps) => {
+  const { kubeContext } = useContext(Context);
+
   // filter items
   const filteredItems = items?.filter((item) => {
     // remove deleted items
     if (item.metadata.deletionTimestamp) return false;
 
     // remove items not in filtered namespace
-    return namespace === '' || item.metadata.namespace === namespace;
+    return (namespace === '' || item.metadata.namespace === namespace);
   });
 
   const ids = filteredItems?.map((item) => item.metadata.uid) || [];
   const logFileInfo = useLogFileInfo(ids, ownershipMap);
 
   // handle sorting
-  const [sortBy, setSortBy] = useState<SortBy>({
-    field: 'name',
-    direction: 'ASC',
-  });
+  const [sortBy, setSortBy] = useState<SortBy>({ field: 'name', direction: 'ASC' });
   const handleSortByChange = (newSortBy: SortBy) => setSortBy(newSortBy);
 
   if (filteredItems) {
@@ -320,9 +393,7 @@ const DisplayItems = ({
       }
 
       // sort alphabetically if same
-      if (cmp === 0 && sortBy.field !== 'name') {
-        return a.metadata.name.localeCompare(b.metadata.name);
-      }
+      if (cmp === 0 && sortBy.field !== 'name') return a.metadata.name.localeCompare(b.metadata.name);
 
       // otherwise use original cmp
       return sortBy.direction === 'ASC' ? cmp : cmp * -1;
@@ -331,7 +402,7 @@ const DisplayItems = ({
 
   // handle show some-or-all
   const [showAll, setShowAll] = useState(false);
-  const visibleItems = filteredItems && showAll ? filteredItems : filteredItems?.slice(0, 5);
+  const visibleItems = (filteredItems && showAll) ? filteredItems : filteredItems?.slice(0, 5);
   const hasMore = filteredItems && filteredItems.length > 5;
 
   // handle toggle-all
@@ -370,163 +441,181 @@ const DisplayItems = ({
 
   return (
     <>
-      <div className="flex flex-row justify-between items-center">
-        <div className="flex items-center space-x-2">
-          <Icon className="w-[22px] h-[22px]" />
-          <div className="text-lg font-semibold">{label}</div>
-          <div className="px-3 py-1 font-semibold bg-chrome-300 rounded-full text-xs text-chrome-foreground ">
-            {filteredItems && `${filteredItems?.length}`}
-          </div>
-          {fetching && (
-            <div>
-              <Spinner size="xs" />
+      <thead>
+        <tr>
+          <td colSpan={5} className="pb-[5px] text-[0.9rem]">
+            <div className="flex items-center space-x-1">
+              <Icon className="w-[22px] h-[22px]" />
+              <div>{label}</div>
+              <div className="px-[10px] py-[2px] bg-chrome-100 font-semibold rounded-full text-xs text-chrome-foreground">
+                {filteredItems && `${filteredItems?.length}`}
+              </div>
+              {fetching && <div><Spinner size="xs" /></div>}
             </div>
-          )}
-        </div>
-        {/* @todo implement the search and filter functionality */}
-      </div>
-      <DataTable className="rounded-table-wrapper rounded-sm w-full" size="sm">
-        <DataTable.Header
-          className="rounded-thead bg-transparent "
-          sortBy={sortBy}
-          onSortByChange={handleSortByChange}
-        >
-          <DataTable.Row>
-            <DataTable.HeaderCell>
-              <Form.Check checked={selectAll} onChange={handleSelectAllChange} />
-            </DataTable.HeaderCell>
-            <DataTable.HeaderCell sortField="name" initialSortDirection="ASC">
-              Name
-            </DataTable.HeaderCell>
-            {namespace === '' && (
-              <DataTable.HeaderCell sortField="namespace" initialSortDirection="ASC">
-                Namespace
-              </DataTable.HeaderCell>
-            )}
-            <DataTable.HeaderCell sortField="created" initialSortDirection="DESC">
-              Created
-            </DataTable.HeaderCell>
-            {appConfig.clusterAPIEnabled === true && (
-              <>
-                <DataTable.HeaderCell
-                  sortField="size"
-                  initialSortDirection="DESC"
-                  className="text-right"
-                >
-                  Size
-                </DataTable.HeaderCell>
-                <DataTable.HeaderCell sortField="lastEvent" initialSortDirection="DESC">
-                  Last Event
-                </DataTable.HeaderCell>
-              </>
-            )}
-            <DataTable.HeaderCell>&nbsp;</DataTable.HeaderCell>
-          </DataTable.Row>
-        </DataTable.Header>
-        {!filteredItems?.length && (
-          <DataTable.Body className="rounded-tbody no-results-ui">
-            <DataTable.Row>
-              <DataTable.DataCell colSpan={7} className="text-center italic">
-                <div className="flex py-2 flex-col items-center justify-center gap-2">
-                  <Layers3 className="h-6 w-6 text-chrome-400" />
-                  <p className="text-chrome-400 italic font-medium">No resource found</p>
-                </div>
-              </DataTable.DataCell>
-            </DataTable.Row>
-          </DataTable.Body>
-        )}
-        <DataTable.Body className="rounded-tbody">
-          {visibleItems?.map((item) => {
-            const sourceString = `${item.metadata.namespace}/${workload}/${item.metadata.name}`;
-            const fileInfo = logFileInfo.get(item.metadata.uid);
-
-            // for last event
-            const lastEventCls = fileInfo?.containerIDs.map((id) => `last_event_${id}`).join(' ');
-
-            return (
-              <DataTable.Row key={item.metadata.uid} className="text-chrome-700">
-                <DataTable.DataCell>
-                  <Form.Check
-                    name="source"
-                    value={sourceString}
-                    checked={isChecked.get(item.id) || false}
-                    onChange={() => handleSingleCheckboxChange(item.id)}
-                  />
-                </DataTable.DataCell>
-                <DataTable.DataCell>{item.metadata.name}</DataTable.DataCell>
-                {namespace === '' && (
-                  <DataTable.DataCell>{item.metadata.namespace}</DataTable.DataCell>
-                )}
-                <DataTable.DataCell>
-                  <TimeAgo
-                    key={Math.random()}
-                    date={item.metadata.creationTimestamp}
-                    title={item.metadata.creationTimestamp.toUTCString()}
-                  />
-                </DataTable.DataCell>
-                {appConfig.clusterAPIEnabled === true && (
-                  <>
-                    <DataTable.DataCell className="text-right pr-[35px]">
-                      {fileInfo?.size === undefined ? (
-                        <span>--</span>
-                      ) : (
-                        numeral(fileInfo.size).format('0.0 b')
-                      )}
-                    </DataTable.DataCell>
-                    <DataTable.DataCell className={lastEventCls}>
-                      {fileInfo?.size === undefined ? (
-                        <span>--</span>
-                      ) : (
-                        <TimeAgo
-                          key={Math.random()}
-                          date={fileInfo.lastModifiedAt}
-                          formatter={lastModifiedAtFormatter}
-                          minPeriod={60}
-                          title={fileInfo.lastModifiedAt.toUTCString()}
-                        />
-                      )}
-                    </DataTable.DataCell>
-                  </>
-                )}
-                <DataTable.DataCell>
-                  <a
-                    target="_blank"
-                    href={`${joinPaths(basename, '/console')}?kubeContext=${encodeURIComponent(kubeContext)}&source=${encodeURIComponent(sourceString)}`}
-                    className="flex items-center underline text-primary"
-                  >
-                    <div>view</div>
-                    <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] ml-1" />
-                  </a>
-                </DataTable.DataCell>
-              </DataTable.Row>
-            );
-          })}
-        </DataTable.Body>
-      </DataTable>
-      <div className="pb-[30px]">
-        {hasMore && (
-          <button
-            type="button"
-            className="block underline cursor-pointer text-chrome-500 text-sm"
-            onClick={() => setShowAll(!showAll)}
+          </td>
+        </tr>
+      </thead>
+      {!filteredItems?.length && (
+        <tbody>
+          <tr>
+            <td colSpan={7} className="pb-[30px] italic text-chrome-400">
+              <div className="flex py-2 gap-2">
+                <Layers3 className="h-6 w-6 text-chrome-400" />
+                <span className="text-chrome-400 italic font-medium">No resources found</span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      )}
+      {filteredItems && filteredItems.length > 0 && (
+        <>
+          <DataTable.Header
+            className="rounded-thead bg-transparent"
+            sortBy={sortBy}
+            onSortByChange={handleSortByChange}
           >
-            {showAll ? 'Show less...' : 'Show more...'}
-          </button>
-        )}
-      </div>
+            <DataTable.Row>
+              <DataTable.HeaderCell>
+                <Form.Check
+                  checked={selectAll}
+                  onChange={handleSelectAllChange}
+                />
+              </DataTable.HeaderCell>
+              <DataTable.HeaderCell
+                sortField="name"
+                initialSortDirection="ASC"
+              >
+                Name
+              </DataTable.HeaderCell>
+              {namespace === '' && (
+                <DataTable.HeaderCell
+                  sortField="namespace"
+                  initialSortDirection="ASC"
+                >
+                  Namespace
+                </DataTable.HeaderCell>
+              )}
+              <DataTable.HeaderCell
+                sortField="created"
+                initialSortDirection="DESC"
+              >
+                Created
+              </DataTable.HeaderCell>
+              {appConfig.clusterAPIEnabled === true && (
+                <>
+                  <DataTable.HeaderCell
+                    sortField="size"
+                    initialSortDirection="DESC"
+                    className="text-right"
+                  >
+                    Size
+                  </DataTable.HeaderCell>
+                  <DataTable.HeaderCell
+                    sortField="lastEvent"
+                    initialSortDirection="DESC"
+                  >
+                    Last Event
+                  </DataTable.HeaderCell>
+                </>
+              )}
+              <DataTable.HeaderCell>&nbsp;</DataTable.HeaderCell>
+            </DataTable.Row>
+          </DataTable.Header>
+          <DataTable.Body className="rounded-tbody">
+            {visibleItems?.map((item) => {
+              const sourceString = `${item.metadata.namespace}/${workload}/${item.metadata.name}`;
+              const fileInfo = logFileInfo.get(item.metadata.uid);
+
+              // for last event
+              const lastEventCls = fileInfo?.containerIDs.map((id) => `last_event_${id}`).join(' ');
+
+              return (
+                <DataTable.Row key={item.metadata.uid} className="text-chrome-700">
+                  <DataTable.DataCell>
+                    <Form.Check
+                      name="source"
+                      value={sourceString}
+                      checked={isChecked.get(item.id) || false}
+                      onChange={() => handleSingleCheckboxChange(item.id)}
+                    />
+                  </DataTable.DataCell>
+                  <DataTable.DataCell>{item.metadata.name}</DataTable.DataCell>
+                  {namespace === '' && (
+                    <DataTable.DataCell>{item.metadata.namespace}</DataTable.DataCell>
+                  )}
+                  <DataTable.DataCell>
+                    <TimeAgo key={Math.random()} date={item.metadata.creationTimestamp} title={item.metadata.creationTimestamp.toUTCString()} />
+                  </DataTable.DataCell>
+                  {appConfig.clusterAPIEnabled === true && (
+                    <>
+                      <DataTable.DataCell className="text-right pr-[35px]">
+                        {fileInfo?.size === undefined ? (
+                          <span>--</span>
+                        ) : (
+                          numeral(fileInfo.size).format('0.0 b')
+                        )}
+                      </DataTable.DataCell>
+                      <DataTable.DataCell className={lastEventCls}>
+                        {fileInfo?.size === undefined ? (
+                          <span>--</span>
+                        ) : (
+                          <TimeAgo
+                            key={Math.random()}
+                            date={fileInfo.lastModifiedAt}
+                            formatter={lastModifiedAtFormatter}
+                            minPeriod={60}
+                            title={fileInfo.lastModifiedAt.toUTCString()}
+                          />
+                        )}
+                      </DataTable.DataCell>
+                    </>
+                  )}
+                  <DataTable.DataCell>
+                    <a
+                      target="_blank"
+                      href={`${joinPaths(basename, '/console')}?kubeContext=${encodeURIComponent(kubeContext || '')}&source=${encodeURIComponent(sourceString)}`}
+                      className="flex items-center underline text-primary"
+                    >
+                      <div>view</div>
+                      <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] ml-1" />
+                    </a>
+                  </DataTable.DataCell>
+                </DataTable.Row>
+              );
+            })}
+          </DataTable.Body>
+          <tbody>
+            <tr>
+              <td colSpan={5} className="pb-[30px]">
+                {hasMore && (
+                  <button
+                    type="button"
+                    className="block underline cursor-pointer text-chrome-500"
+                    onClick={() => setShowAll(!showAll)}
+                  >
+                    {showAll ? 'Show less...' : 'Show more...'}
+                  </button>
+                )}
+              </td>
+            </tr>
+          </tbody>
+        </>
+      )}
     </>
   );
 };
 
+/**
+ * DisplayWorkloads component
+ */
+
 const DisplayWorkloads = ({
-  kubeContext,
   namespace,
-  workload,
 }: {
-  kubeContext: string;
   namespace: string;
-  workload: WorkloadSidebarOptions;
 }) => {
+  const { kubeContext, workloadFilter } = useContext(Context);
+
   const cronjobs = useCronJobs(kubeContext);
   const daemonsets = useDaemonSets(kubeContext);
   const deployments = useDeployments(kubeContext);
@@ -534,19 +623,6 @@ const DisplayWorkloads = ({
   const pods = usePods(kubeContext);
   const replicasets = useReplicaSets(kubeContext);
   const statefulsets = useStatefulSets(kubeContext);
-
-  const logMetadata = useLogMetadata({
-    enabled: appConfig.clusterAPIEnabled,
-    kubeContext,
-    onUpdate: (containerID) => {
-      document.querySelectorAll(`.last_event_${containerID}`).forEach((el) => {
-        const k = 'animate-flash-bg-green';
-        el.classList.remove(k);
-        el.classList.add(k);
-        setTimeout(() => el.classList.remove(k), 1000);
-      });
-    },
-  });
 
   // calculate ownership map
   const ownershipMap = useMemo(() => {
@@ -583,268 +659,104 @@ const DisplayWorkloads = ({
     statefulsets.data?.appsV1StatefulSetsList?.metadata.resourceVersion,
   ]);
 
-  const logMetadataMap = new Map<string, FileInfo>();
-  logMetadata.data?.logMetadataList?.items.forEach((item) => {
-    logMetadataMap.set(item.spec.containerID, item.fileInfo);
-  });
+  // Render data tables
+  const tableEls: JSX.Element[] = [];
 
-  const value = { logMetadataMap };
-  const context = useMemo(() => value, [value]);
+  if (!workloadFilter || workloadFilter === Workload.CRONJOBS) {
+    tableEls.push(
+      <DisplayItems
+        key={Workload.CRONJOBS}
+        workload={Workload.CRONJOBS}
+        namespace={namespace}
+        fetching={cronjobs.fetching}
+        items={cronjobs.data?.batchV1CronJobsList?.items}
+        ownershipMap={ownershipMap}
+      />,
+    );
+  }
 
-  const workloadConfigs = [
-    {
-      type: Workload.CRONJOBS,
-      fetching: cronjobs.fetching,
-      items: cronjobs.data?.batchV1CronJobsList?.items,
-    },
-    {
-      type: Workload.DEPLOYMENTS,
-      fetching: deployments.fetching,
-      items: deployments.data?.appsV1DeploymentsList?.items,
-    },
-    {
-      type: Workload.DAEMONSETS,
-      fetching: daemonsets.fetching,
-      items: daemonsets.data?.appsV1DaemonSetsList?.items,
-    },
-    {
-      type: Workload.JOBS,
-      fetching: jobs.fetching,
-      items: jobs.data?.batchV1JobsList?.items,
-    },
-    {
-      type: Workload.PODS,
-      fetching: pods.fetching,
-      items: pods.data?.coreV1PodsList?.items,
-    },
-    {
-      type: Workload.STATEFULSETS,
-      fetching: statefulsets.fetching,
-      items: statefulsets.data?.appsV1StatefulSetsList?.items,
-    },
-    {
-      type: Workload.REPLICASETS,
-      fetching: replicasets.fetching,
-      items: replicasets.data?.appsV1ReplicaSetsList?.items,
-    },
-  ];
+  if (!workloadFilter || workloadFilter === Workload.DAEMONSETS) {
+    tableEls.push(
+      <DisplayItems
+        key={Workload.DAEMONSETS}
+        workload={Workload.DAEMONSETS}
+        namespace={namespace}
+        fetching={daemonsets.fetching}
+        items={daemonsets.data?.appsV1DaemonSetsList?.items}
+        ownershipMap={ownershipMap}
+      />,
+    );
+  }
 
-  const filteredConfigs = workloadConfigs.filter(
-    (config) => config.type === workload || workload === 'all workloads',
-  );
+  if (!workloadFilter || workloadFilter === Workload.DEPLOYMENTS) {
+    tableEls.push(
+      <DisplayItems
+        key={Workload.DEPLOYMENTS}
+        workload={Workload.DEPLOYMENTS}
+        namespace={namespace}
+        fetching={deployments.fetching}
+        items={deployments.data?.appsV1DeploymentsList?.items}
+        ownershipMap={ownershipMap}
+      />,
+    );
+  }
 
-  return (
-    <Context.Provider value={context}>
-      <div className="flex flex-col gap-2">
-        {filteredConfigs.map((config) => (
-          <DisplayItems
-            key={config.type}
-            workload={config.type}
-            kubeContext={kubeContext}
-            namespace={namespace}
-            fetching={config.fetching}
-            items={config.items}
-            ownershipMap={ownershipMap}
-          />
-        ))}
-      </div>
-    </Context.Provider>
-  );
-};
+  if (!workloadFilter || workloadFilter === Workload.JOBS) {
+    tableEls.push(
+      <DisplayItems
+        key={Workload.JOBS}
+        workload={Workload.JOBS}
+        namespace={namespace}
+        fetching={jobs.fetching}
+        items={jobs.data?.batchV1JobsList?.items}
+        ownershipMap={ownershipMap}
+      />,
+    );
+  }
 
-const KubeContextPicker = ({
-  value,
-  setValue,
-}: {
-  value?: string;
-  setValue: (value: string) => void;
-}) => {
-  const { loading, data } = useSubscription(dashboardOps.KUBE_CONFIG_WATCH);
-  const kubeConfig = data?.kubeConfigWatch?.object;
+  if (!workloadFilter || workloadFilter === Workload.PODS) {
+    tableEls.push(
+      <DisplayItems
+        key={Workload.PODS}
+        workload={Workload.PODS}
+        namespace={namespace}
+        fetching={pods.fetching}
+        items={pods.data?.coreV1PodsList?.items}
+        ownershipMap={ownershipMap}
+      />,
+    );
+  }
 
-  // Set default value
-  useEffect(() => {
-    const defaultValue = kubeConfig?.currentContext;
-    if (defaultValue) setValue(defaultValue);
-  }, [loading]);
+  if (!workloadFilter || workloadFilter === Workload.REPLICASETS) {
+    tableEls.push(
+      <DisplayItems
+        key={Workload.REPLICASETS}
+        workload={Workload.REPLICASETS}
+        namespace={namespace}
+        fetching={replicasets.fetching}
+        items={replicasets.data?.appsV1ReplicaSetsList?.items}
+        ownershipMap={ownershipMap}
+      />,
+    );
+  }
 
-  return (
-    <Form.Select
-      value={value}
-      className="m-0"
-      onChange={(ev) => setValue(ev.target.value)}
-      disabled={loading}
-    >
-      {loading ? (
-        <Form.Option>Loading...</Form.Option>
-      ) : (
-        kubeConfig
-        && kubeConfig.contexts.map((context) => (
-          <Form.Option key={context.name} value={context.name}>
-            {context.name}
-          </Form.Option>
-        ))
-      )}
-    </Form.Select>
-  );
-};
-
-const DashBoardSidebar = ({
-  sidebarOpen,
-  toggleSidebar,
-  workload,
-  setWorkload,
-}: {
-  sidebarOpen: boolean;
-  toggleSidebar: () => void;
-  workload: WorkloadSidebarOptions;
-  setWorkload: Dispatch<SetStateAction<WorkloadSidebarOptions>>;
-}) => (
-  <div className="h-screen p-4 ">
-    <header className="relative sidebar-header w-full flex justify-between items-center py-3 ">
-      <div className="flex items-center gap-2">
-        <Boxes className="h-6 w-6 text-chrome-600" />
-        <h1 className="text-xl font-semibold"> Workloads</h1>
-      </div>
-      <PanelLeftClose className={cn('cursor-pointer text-chrome-600')} onClick={toggleSidebar} />
-    </header>
-    {!sidebarOpen && (
-      <span className="absolute right-1 top-0 sidebar-toggle-line flex  justify-center items-center h-full w-[5px]">
-        <button
-          type="button"
-          className="bg-primary/40 h-20  -translate-y-10 -translate-x-[1px] cursor-pointer rounded-sm w-full"
-          onClick={toggleSidebar}
-          aria-label="toggle sidebar"
-        />
-      </span>
-    )}
-    <ul className="space-y-2">
-      {sidebarWorkloads.map((item) => (
-        <li key={item.id}>
-          <button
-            type="button"
-            className={cn(
-              'flex capitalize items-center py-2 px-4 rounded-lg hover:bg-blue-100  w-full',
-              item.id === workload ? 'bg-blue-100 text-primary font-medium' : 'text-chrome-500',
-            )}
-            onClick={() => setWorkload(item.id as WorkloadSidebarOptions)}
-          >
-            {item.value}
-          </button>
-        </li>
-      ))}
-    </ul>
-  </div>
-);
-
-const MainContainer = ({ children }: { children: ReactNode }) => (
-  <div className="relative flex flex-row h-screen w-screen overflow-hidden">{children}</div>
-);
-
-const SidebarContainer = ({
-  children,
-  sidebarOpen,
-}: {
-  children: ReactNode;
-  sidebarOpen: boolean;
-}) => (
-  <div
-    className={cn(
-      'absolute transition-all duration-300 ease-in w-60 border border-y-0 border-l-0  border-chrome-300',
-      sidebarOpen ? 'left-0' : '-left-[14rem]',
-    )}
-  >
-    {children}
-  </div>
-);
-
-const ContentArea = ({ children, sidebarOpen }: { children: ReactNode; sidebarOpen: boolean }) => (
-  <div
-    className={cn(
-      'px-4 mt-4  absolute  transition-all duration-300 ease-in',
-      sidebarOpen ? 'left-60 right-0 w-[calc(100%-16rem)]' : 'left-4 w-[calc(100%-2rem)] ',
-    )}
-  >
-    {children}
-  </div>
-);
-
-const Home = () => {
-  const [kubeContext, setKubeContext] = useState(defaultKubeContext);
-  const [namespace, setNamespace] = useState<string>('');
-  const [workload, setWorkload] = useState<WorkloadSidebarOptions>('all workloads');
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
-
-  const readyWait = useSubscription(dashboardOps.KUBERNETES_API_READY_WAIT, {
-    variables: { kubeContext },
-  });
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
+  if (!workloadFilter || workloadFilter === Workload.STATEFULSETS) {
+    tableEls.push(
+      <DisplayItems
+        key={Workload.STATEFULSETS}
+        workload={Workload.STATEFULSETS}
+        namespace={namespace}
+        fetching={statefulsets.fetching}
+        items={statefulsets.data?.appsV1StatefulSetsList?.items}
+        ownershipMap={ownershipMap}
+      />,
+    );
+  }
 
   return (
-    <>
-      <div className="px-4 py-[5px] flex items-center justify-between border-b-[1px] border-chrome-300 bg-chrome-100">
-        <div className="flex items-center space-x-4">
-          <a href="/">
-            <img src={joinPaths(basename, logo)} alt="logo" className="display-block h-[40px]" />
-          </a>
-        </div>
-        <div className="flex flex-row items-center  gap-3">
-          {appConfig.environment === 'desktop' && (
-            <span>
-              <KubeContextPicker value={kubeContext} setValue={setKubeContext} />
-            </span>
-          )}
-          <SettingsDropdown />
-        </div>
-      </div>
-      <main>
-        {readyWait.loading || kubeContext === undefined ? (
-          <div>Connecting...</div>
-        ) : (
-          <MainContainer>
-            <SidebarContainer sidebarOpen={sidebarOpen}>
-              <DashBoardSidebar
-                sidebarOpen={sidebarOpen}
-                toggleSidebar={toggleSidebar}
-                workload={workload}
-                setWorkload={setWorkload}
-              />
-            </SidebarContainer>
-            <ContentArea sidebarOpen={sidebarOpen}>
-              <form method="get" target="_blank" action={joinPaths(basename, '/console')}>
-                <input type="hidden" name="kubeContext" value={kubeContext} />
-                <div className="flex flex-row  justify-between mt-[10px] mb-[20px]">
-                  <div>
-                    <h1 className="text-2xl font-semibold ">Dashboard</h1>
-                  </div>
-                  <div className="flex flex-row  gap-3">
-                    <Namespaces
-                      kubeContext={kubeContext}
-                      value={namespace}
-                      setValue={setNamespace}
-                    />
-                    <Button type="submit" className="flex flex-row gap-2 py-0">
-                      <span>View in console</span>
-                      <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] mb-1" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="h-screen  overflow-scroll [&::-webkit-scrollbar]:hidden [scrollbar-width:none] pb-36 px-2">
-                  <DisplayWorkloads
-                    kubeContext={kubeContext}
-                    namespace={namespace}
-                    workload={workload}
-                  />
-                </div>
-              </form>
-            </ContentArea>
-          </MainContainer>
-        )}
-      </main>
-    </>
+    <DataTable className="rounded-table-wrapper min-w-[600px]" size="sm">
+      {tableEls}
+    </DataTable>
   );
 };
 
@@ -852,10 +764,106 @@ const Home = () => {
  * Header component
  */
 
+const Header = () => {
+  const { kubeContext, setKubeContext } = useContext(Context);
 
+  return (
+    <div className="px-4 py-[5px] flex items-center justify-between">
+      <div className="flex items-center space-x-4">
+        <a href="/">
+          <img src={joinPaths(basename, logo)} alt="logo" className="display-block h-[40px]" />
+        </a>
+      </div>
+      <div className="flex flex-row items-center gap-3">
+        {appConfig.environment === 'desktop' && (
+          <KubeContextPicker value={kubeContext} setValue={setKubeContext} />
+        )}
+        <SettingsDropdown />
+      </div>
+    </div>
+  );
+};
 
 /**
- * Inner Layout component
+ * Sidebar component
+ */
+
+const Sidebar = () => {
+  const { workloadFilter, setWorkloadFilter } = useContext(Context);
+
+  return (
+    <div className="p-4">
+      <div className="relative flex justify-between items-center pb-2">
+        <button
+          type="button"
+          className="flex items-center gap-2"
+          onClick={() => setWorkloadFilter(undefined)}
+        >
+          <Boxes className="h-4 w-4 text-chrome-600" />
+          <span className="font-semibold"> Workloads</span>
+        </button>
+      </div>
+      <ul className="space-y-1">
+        {allWorkloads.map((workload) => (
+          <li key={workload}>
+            <button
+              type="button"
+              className={cn(
+                'flex items-center py-2 pl-[25px] rounded-lg hover:bg-blue-100 w-full',
+                workload === workloadFilter ? 'bg-blue-100 text-primary font-medium' : 'text-chrome-500',
+              )}
+              onClick={() => setWorkloadFilter(workload)}
+            >
+              {labelsPMap[workload]}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+/**
+ * Content component
+ */
+
+const Content = () => {
+  const { kubeContext } = useContext(Context);
+  const [namespace, setNamespace] = useState<string>('');
+
+  const readyWait = useSubscription(dashboardOps.KUBERNETES_API_READY_WAIT, {
+    variables: { kubeContext },
+  });
+
+  return (
+    <div className="px-[20px] py-[10px]">
+      {(readyWait.loading || kubeContext === undefined) ? (
+        <div>Connecting...</div>
+      ) : (
+        <form
+          method="get"
+          target="_blank"
+          action={joinPaths(basename, '/console')}
+        >
+          <input type="hidden" name="kubeContext" value={kubeContext} />
+          <div className="flex items-start justify-between mt-[10px] mb-[20px]">
+            <div className="block w-[200px]">
+              <NamespacesPicker kubeContext={kubeContext} value={namespace} setValue={setNamespace} />
+            </div>
+            <Button type="submit">
+              View in console
+              <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] ml-1" />
+            </Button>
+          </div>
+          <DisplayWorkloads namespace={namespace} />
+        </form>
+      )}
+    </div>
+  );
+};
+
+/**
+ * InnerLayout component
  */
 
 type InnerLayoutProps = {
@@ -865,21 +873,68 @@ type InnerLayoutProps = {
 };
 
 const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
-}
+  const sidebarWidth = (sidebarOpen) ? 180 : 30;
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="bg-chrome-100 border-b border-chrome-divider">
+        {header}
+      </div>
+      <div className="flex-1 h-0">
+        <div className="flex h-full">
+          <aside
+            className="flex-shrink-0 bg-chrome-100 relative overflow-y-auto"
+            style={{ width: `${sidebarWidth}px` }}
+          >
+            <div className="absolute top-0 right-0 p-1">
+              {sidebarOpen ? (
+                <PanelLeftClose className="cursor-pointer text-chrome-400" onClick={() => setSidebarOpen(false)} />
+              ) : (
+                <PanelLeftOpen className="cursor-pointer text-chrome-400" onClick={() => setSidebarOpen(true)} />
+              )}
+            </div>
+            {sidebarOpen && sidebar}
+          </aside>
+          <main className="flex-1 overflow-auto">
+            {content}
+          </main>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 /**
  * Default component
  */
 
 export default function Page() {
+  const [kubeContext, setKubeContext] = useState(defaultKubeContext);
+  const [workloadFilter, setWorkloadFilter] = useState<Workload>();
+
+  const context = useMemo(() => ({
+    kubeContext,
+    setKubeContext,
+    workloadFilter,
+    setWorkloadFilter,
+  }), [kubeContext, setKubeContext, workloadFilter, setWorkloadFilter]);
+
   return (
     <AuthRequired>
-      <AppLayout>
-        <InnerLayout 
-          header=
-        />
-      </AppLayout>
+      <Context.Provider value={context}>
+        <RecoilRoot>
+          <LogMetadataMapProvider />
+          <AppLayout>
+            <InnerLayout
+              header={<Header />}
+              sidebar={<Sidebar />}
+              content={<Content />}
+            />
+          </AppLayout>
+        </RecoilRoot>
+      </Context.Provider>
     </AuthRequired>
   );
 }
