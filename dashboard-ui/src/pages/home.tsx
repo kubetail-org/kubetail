@@ -14,6 +14,7 @@
 
 import { useSubscription } from '@apollo/client';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
+import { Boxes, Layers3, PanelLeftClose } from 'lucide-react';
 import numeral from 'numeral';
 import {
   createContext,
@@ -34,9 +35,9 @@ import type { SortBy } from '@kubetail/ui/elements/DataTable/Header';
 import Form from '@kubetail/ui/elements/Form';
 import Spinner from '@kubetail/ui/elements/Spinner';
 
-import { Boxes, Layers3, PanelLeftClose } from 'lucide-react';
 import appConfig from '@/app-config';
 import logo from '@/assets/logo.svg';
+import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
 import Footer from '@/components/widgets/Footer';
 import SettingsDropdown from '@/components/widgets/SettingsDropdown';
@@ -369,7 +370,7 @@ const DisplayItems = ({
 
   return (
     <>
-      <section className="flex flex-row justify-between items-center search-filter-section">
+      <div className="flex flex-row justify-between items-center">
         <div className="flex items-center space-x-2">
           <Icon className="w-[22px] h-[22px]" />
           <div className="text-lg font-semibold">{label}</div>
@@ -383,7 +384,7 @@ const DisplayItems = ({
           )}
         </div>
         {/* @todo implement the search and filter functionality */}
-      </section>
+      </div>
       <DataTable className="rounded-table-wrapper rounded-sm w-full" size="sm">
         <DataTable.Header
           className="rounded-thead bg-transparent "
@@ -502,19 +503,17 @@ const DisplayItems = ({
           })}
         </DataTable.Body>
       </DataTable>
-      <section className="show-more-section">
-        <div className="pb-[30px]">
-          {hasMore && (
-            <button
-              type="button"
-              className="block underline cursor-pointer text-chrome-500"
-              onClick={() => setShowAll(!showAll)}
-            >
-              {showAll ? 'Show less...' : 'Show more...'}
-            </button>
-          )}
-        </div>
-      </section>
+      <div className="pb-[30px]">
+        {hasMore && (
+          <button
+            type="button"
+            className="block underline cursor-pointer text-chrome-500 text-sm"
+            onClick={() => setShowAll(!showAll)}
+          >
+            {showAll ? 'Show less...' : 'Show more...'}
+          </button>
+        )}
+      </div>
     </>
   );
 };
@@ -749,25 +748,25 @@ const SidebarContainer = ({
   children: ReactNode;
   sidebarOpen: boolean;
 }) => (
-  <aside
+  <div
     className={cn(
       'absolute transition-all duration-300 ease-in w-60 border border-y-0 border-l-0  border-chrome-300',
       sidebarOpen ? 'left-0' : '-left-[14rem]',
     )}
   >
     {children}
-  </aside>
+  </div>
 );
 
 const ContentArea = ({ children, sidebarOpen }: { children: ReactNode; sidebarOpen: boolean }) => (
-  <section
+  <div
     className={cn(
       'px-4 mt-4  absolute  transition-all duration-300 ease-in',
       sidebarOpen ? 'left-60 right-0 w-[calc(100%-16rem)]' : 'left-4 w-[calc(100%-2rem)] ',
     )}
   >
     {children}
-  </section>
+  </div>
 );
 
 const Home = () => {
@@ -798,11 +797,10 @@ const Home = () => {
               <KubeContextPicker value={kubeContext} setValue={setKubeContext} />
             </span>
           )}
-
           <SettingsDropdown />
         </div>
       </div>
-      <main className="">
+      <main>
         {readyWait.loading || kubeContext === undefined ? (
           <div>Connecting...</div>
         ) : (
@@ -834,13 +832,13 @@ const Home = () => {
                     </Button>
                   </div>
                 </div>
-                <section className="workloads-display h-screen  overflow-scroll [&::-webkit-scrollbar]:hidden [scrollbar-width:none]  pb-36 px-2">
+                <div className="h-screen  overflow-scroll [&::-webkit-scrollbar]:hidden [scrollbar-width:none] pb-36 px-2">
                   <DisplayWorkloads
                     kubeContext={kubeContext}
                     namespace={namespace}
                     workload={workload}
                   />
-                </section>
+                </div>
               </form>
             </ContentArea>
           </MainContainer>
@@ -851,16 +849,37 @@ const Home = () => {
 };
 
 /**
+ * Header component
+ */
+
+
+
+/**
+ * Inner Layout component
+ */
+
+type InnerLayoutProps = {
+  header: JSX.Element;
+  sidebar: JSX.Element;
+  content: JSX.Element;
+};
+
+const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
+
+}
+
+/**
  * Default component
  */
 
 export default function Page() {
   return (
     <AuthRequired>
-      <Home />
-      <div className="fixed bottom-0 w-full">
-        <Footer />
-      </div>
+      <AppLayout>
+        <InnerLayout 
+          header=
+        />
+      </AppLayout>
     </AuthRequired>
   );
 }
