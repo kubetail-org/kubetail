@@ -21,7 +21,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.5.23
 	google.golang.org/grpc v1.71.0
 	google.golang.org/protobuf v1.36.6
-	helm.sh/helm/v3 v3.17.1
+	helm.sh/helm/v3 v3.17.3
 	k8s.io/api v0.32.3
 	k8s.io/apimachinery v0.32.3
 	k8s.io/client-go v0.32.3
