@@ -555,8 +555,9 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
           </>
         )}
       </div>
-      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+      { }
       {!isSidebarCollapsed && (
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions
         <div
           className="absolute bg-chrome-divider w-[4px] h-full border-l-2 border-chrome-100 cursor-ew-resize"
           style={{ left: `${sidebarWidth}px` }}
