@@ -21,8 +21,6 @@ import {
   Settings as SettingsIcon,
   SkipBack as SkipBackIcon,
   SkipForward as SkipForwardIcon,
-  ChevronLeft,
-  ChevronRight,
   PanelLeftClose,
   PanelRightClose,
 } from 'lucide-react';
