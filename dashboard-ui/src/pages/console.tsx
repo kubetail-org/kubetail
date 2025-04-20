@@ -524,22 +524,24 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
         style={{ width: `${effectiveSidebarWidth}px` }}
       >
         {isSidebarCollapsed ? (
-          <div className="flex items-center justify-between px-2 pt-2 relative h-[50px]">
-            <a href={joinPaths(getBasename(), '/')} className="flex-shrink-0">
-              <img
-                src={joinPaths(getBasename(), logoicon)}
-                alt="logo"
-                className="h-[40px] w-[40px] object-contain"
-              />
-            </a>
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              title="Expand sidebar"
-              className="ml-1"
-            >
-              <PanelRightClose size={20} strokeWidth={2} className="text-chrome-500" />
-            </button>
+          <div className="px-2 pt-2 h-full border-r-2 border-chrome-divider">
+            <div className="flex items-center justify-between">
+              <a href={joinPaths(getBasename(), '/')} className="flex-shrink-0">
+                <img
+                  src={joinPaths(getBasename(), logoicon)}
+                  alt="logo"
+                  className="h-[40px] w-[40px] object-contain"
+                />
+              </a>
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                title="Expand sidebar"
+                className="ml-1"
+              >
+                <PanelRightClose size={20} strokeWidth={2} className="text-chrome-500" />
+              </button>
+            </div>
           </div>
         ) : (
           <>
