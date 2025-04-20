@@ -21,6 +21,8 @@ import {
   Settings as SettingsIcon,
   SkipBack as SkipBackIcon,
   SkipForward as SkipForwardIcon,
+  PanelLeftClose,
+  PanelRightClose,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -30,6 +32,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@kubetail/ui/elements/P
 import Spinner from '@kubetail/ui/elements/Spinner';
 
 import logo from '@/assets/logo.svg';
+import logoicon from '@/assets/logo-icon.svg';
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
 import { DateRangeDropdown, DateRangeDropdownOnChangeArgs } from '@/components/widgets/DateRangeDropdown';
@@ -165,7 +168,7 @@ const SidebarWorkloads = () => {
       {isPickerOpen && <SourcePickerModal onClose={() => setIsPickerOpen(false)} />}
       {kubeContext !== '' && (
         <div
-          className="mb-2 font-bold text-primary overflow-hidden text-ellipsis whitespace-nowrap"
+          className="mb-2 font-bold text-primary overflow-hidden text-ellipsis"
           title={kubeContext}
         >
           Cluster:
@@ -468,7 +471,7 @@ const Header = () => {
 };
 
 /**
- * Layout component
+ * Layout component with collapsible sidebar
  */
 
 type InnerLayoutProps = {
@@ -479,12 +482,18 @@ type InnerLayoutProps = {
 
 const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
   const [sidebarWidth, setSidebarWidth] = useState(300);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Determine the effective width depending on the collapsed state
+  const effectiveSidebarWidth = isSidebarCollapsed ? 80 : sidebarWidth;
 
   const handleDrag = () => {
-    // change width when mouse moves
+    if (isSidebarCollapsed) return; // disable dragging when collapsed
     const fn = (ev: MouseEvent) => {
       const newWidth = Math.max(ev.clientX, 100);
-      setSidebarWidth(newWidth);
+      if (newWidth > 180) {
+        setSidebarWidth(newWidth);
+      }
     };
     document.addEventListener('mousemove', fn);
 
@@ -505,23 +514,59 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
     });
   };
 
+  // Toggle sidebar collapse/expand
+  const toggleSidebar = () => setIsSidebarCollapsed(!isSidebarCollapsed);
+
   return (
     <div className="relative h-full">
       <div
         className="absolute h-full bg-chrome-100 overflow-x-hidden"
-        style={{ width: `${sidebarWidth}px` }}
+        style={{ width: `${effectiveSidebarWidth}px` }}
       >
-        {sidebar}
+        {isSidebarCollapsed ? (
+          <div className="flex items-center justify-between px-2 pt-2 relative h-[50px]">
+            <a href={joinPaths(getBasename(), '/')} className="flex-shrink-0">
+              <img
+                src={joinPaths(getBasename(), logoicon)}
+                alt="logo"
+                className="h-[40px] w-[40px] object-contain"
+              />
+            </a>
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title="Expand sidebar"
+              className="ml-1"
+            >
+              <PanelRightClose size={20} strokeWidth={2} className="text-chrome-500" />
+            </button>
+          </div>
+        ) : (
+          <>
+            {sidebar}
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title="Collapse sidebar"
+              className="absolute right-0 top-[30px] transform -translate-y-1/2"
+            >
+              <PanelLeftClose size={20} strokeWidth={2} className="text-chrome-500" />
+            </button>
+          </>
+        )}
       </div>
-      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
-      <div
-        className="absolute bg-chrome-divider w-[4px] h-full border-l-2 border-chrome-100 cursor-ew-resize"
-        style={{ left: `${sidebarWidth}px` }}
-        onMouseDown={handleDrag}
-      />
+      { }
+      {!isSidebarCollapsed && (
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+        <div
+          className="absolute bg-chrome-divider w-[4px] h-full border-l-2 border-chrome-100 cursor-ew-resize"
+          style={{ left: `${sidebarWidth}px` }}
+          onMouseDown={handleDrag}
+        />
+      )}
       <main
         className="h-full flex flex-col overflow-hidden"
-        style={{ marginLeft: `${sidebarWidth + 4}px` }}
+        style={{ marginLeft: `${effectiveSidebarWidth + (isSidebarCollapsed ? 0 : 4)}px` }}
       >
         <div className="bg-chrome-100 border-b border-chrome-divider">
           {header}
