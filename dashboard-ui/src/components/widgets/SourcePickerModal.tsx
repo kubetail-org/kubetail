@@ -160,8 +160,8 @@ const Sidebar = ({
 }: {
   workloadState: [Workload | null, React.Dispatch<React.SetStateAction<Workload | null>>];
 }) => {
-  const { namespace } = useContext(Context);
-  const { counter } = useWorkloadCounter(namespace);
+  const { kubeContext, namespace } = useContext(Context);
+  const { counter } = useWorkloadCounter(kubeContext, namespace);
   const [currWorkload, setCurrWorkload] = workloadState;
 
   return (
