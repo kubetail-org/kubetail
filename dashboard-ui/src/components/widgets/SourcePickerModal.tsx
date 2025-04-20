@@ -24,8 +24,8 @@ import Spinner from '@kubetail/ui/elements/Spinner';
 
 import Modal from '@/components/elements/Modal';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
-import { useCounterQueryWithSubscription, useListQueryWithSubscription } from '@/lib/hooks';
-import { Counter, cn } from '@/lib/util';
+import { useListQueryWithSubscription, useWorkloadCounter } from '@/lib/hooks';
+import { cn } from '@/lib/util';
 import { Workload, allWorkloads, iconMap, labelsPMap, typenameMap } from '@/lib/workload';
 
 type ContextType = {
@@ -37,90 +37,6 @@ type ContextType = {
 };
 
 const Context = createContext({} as ContextType);
-
-/**
- * Workload counter hook
- */
-
-function useWorkloadCounter(kubeContext: string, namespace: string = '') {
-  const cronjobs = useCounterQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_CRONJOBS_COUNT_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_CRONJOBS_COUNT_WATCH,
-    queryDataKey: 'batchV1CronJobsList',
-    subscriptionDataKey: 'batchV1CronJobsWatch',
-    variables: { kubeContext, namespace },
-  });
-
-  const daemonsets = useCounterQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_DAEMONSETS_COUNT_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_DAEMONSETS_COUNT_WATCH,
-    queryDataKey: 'appsV1DaemonSetsList',
-    subscriptionDataKey: 'appsV1DaemonSetsWatch',
-    variables: { kubeContext, namespace },
-  });
-
-  const deployments = useCounterQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_DEPLOYMENTS_COUNT_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_DEPLOYMENTS_COUNT_WATCH,
-    queryDataKey: 'appsV1DeploymentsList',
-    subscriptionDataKey: 'appsV1DeploymentsWatch',
-    variables: { kubeContext, namespace },
-  });
-
-  const jobs = useCounterQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_JOBS_COUNT_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_JOBS_COUNT_WATCH,
-    queryDataKey: 'batchV1JobsList',
-    subscriptionDataKey: 'batchV1JobsWatch',
-    variables: { kubeContext, namespace },
-  });
-
-  const pods = useCounterQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_PODS_COUNT_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_PODS_COUNT_WATCH,
-    queryDataKey: 'coreV1PodsList',
-    subscriptionDataKey: 'coreV1PodsWatch',
-    variables: { kubeContext, namespace },
-  });
-
-  const replicasets = useCounterQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_REPLICASETS_COUNT_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_REPLICASETS_COUNT_WATCH,
-    queryDataKey: 'appsV1ReplicaSetsList',
-    subscriptionDataKey: 'appsV1ReplicaSetsWatch',
-    variables: { kubeContext, namespace },
-  });
-
-  const statefulsets = useCounterQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_STATEFULSETS_COUNT_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_STATEFULSETS_COUNT_WATCH,
-    queryDataKey: 'appsV1StatefulSetsList',
-    subscriptionDataKey: 'appsV1StatefulSetsWatch',
-    variables: { kubeContext, namespace },
-  });
-
-  const reqs = [cronjobs, daemonsets, deployments, jobs, pods, replicasets, statefulsets];
-  const loading = reqs.some((req) => req.loading);
-  const error = reqs.find((req) => Boolean(req.error));
-
-  const counter = new Counter<Workload>();
-
-  function updateCounter(key: Workload, count: number | undefined) {
-    if (count !== undefined) counter.set(key, count);
-  }
-
-  if (!loading && !error) {
-    updateCounter(Workload.CRONJOBS, cronjobs.count);
-    updateCounter(Workload.DAEMONSETS, daemonsets.count);
-    updateCounter(Workload.DEPLOYMENTS, deployments.count);
-    updateCounter(Workload.JOBS, jobs.count);
-    updateCounter(Workload.PODS, pods.count);
-    updateCounter(Workload.REPLICASETS, replicasets.count);
-    updateCounter(Workload.STATEFULSETS, statefulsets.count);
-  }
-
-  return { loading, error, counter };
-}
 
 /**
  * Namespaces component

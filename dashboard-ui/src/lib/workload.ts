@@ -40,18 +40,6 @@ export const allWorkloads = [
   Workload.STATEFULSETS,
 ];
 
-export const sidebarResources = {
-  [Workload.CRONJOBS]: undefined,
-  [Workload.DAEMONSETS]: undefined,
-  [Workload.DEPLOYMENTS]: undefined,
-  [Workload.JOBS]: undefined,
-  [Workload.PODS]: undefined,
-  [Workload.REPLICASETS]: undefined,
-  [Workload.STATEFULSETS]: undefined,
-};
-
-export type SidebarResources = Record<Workload, number | undefined>;
-
 export const iconMap = {
   [Workload.CRONJOBS]: CronJobIcon,
   [Workload.DAEMONSETS]: DaemonSetIcon,

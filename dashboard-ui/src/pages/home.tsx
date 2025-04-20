@@ -39,9 +39,9 @@ import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
 import SettingsDropdown from '@/components/widgets/SettingsDropdown';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
-import { useListQueryWithSubscription, useLogMetadata } from '@/lib/hooks';
+import { useListQueryWithSubscription, useLogMetadata, useWorkloadCounter } from '@/lib/hooks';
 import { joinPaths, getBasename, cn } from '@/lib/util';
-import { SidebarResources, Workload, iconMap, labelsPMap, sidebarResources } from '@/lib/workload';
+import { Workload, iconMap, labelsPMap } from '@/lib/workload';
 
 /**
  * Shared variables and helper methods
@@ -50,6 +50,15 @@ import { SidebarResources, Workload, iconMap, labelsPMap, sidebarResources } fro
 const basename = getBasename();
 
 const defaultKubeContext = appConfig.environment === 'cluster' ? '' : undefined;
+const defaultSidebarItems: Map<Workload, undefined> = new Map([
+  [Workload.CRONJOBS, undefined],
+  [Workload.DAEMONSETS, undefined],
+  [Workload.DEPLOYMENTS, undefined],
+  [Workload.JOBS, undefined],
+  [Workload.PODS, undefined],
+  [Workload.REPLICASETS, undefined],
+  [Workload.STATEFULSETS, undefined],
+]);
 
 const logMetadataMapState = atom({
   key: 'homeLogMetadataMap',
@@ -59,12 +68,12 @@ const logMetadataMapState = atom({
 type ContextType = {
   kubeContext?: string;
   setKubeContext: React.Dispatch<React.SetStateAction<string | undefined>>;
+  namespace: string;
+  setNamespace: React.Dispatch<React.SetStateAction<string>>;
   workloadFilter?: Workload;
   setWorkloadFilter: React.Dispatch<React.SetStateAction<Workload | undefined>>;
   sidebarOpen: boolean;
   setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  sidebar: SidebarResources,
-  setSidebar: React.Dispatch<React.SetStateAction<SidebarResources>>;
 };
 
 const Context = createContext({} as ContextType);
@@ -278,15 +287,9 @@ const KubeContextPicker = ({
  * NamespacesPicker component
  */
 
-const NamespacesPicker = ({
-  kubeContext,
-  value,
-  setValue,
-}: {
-  kubeContext: string;
-  value?: string;
-  setValue: (value: string) => void;
-}) => {
+const NamespacesPicker = () => {
+  const { kubeContext, namespace, setNamespace } = useContext(Context);
+
   const { loading, data } = useListQueryWithSubscription({
     query: dashboardOps.HOME_NAMESPACES_LIST_FETCH,
     subscription: dashboardOps.HOME_NAMESPACES_LIST_WATCH,
@@ -298,8 +301,8 @@ const NamespacesPicker = ({
   return (
     <Form.Select
       className="mt-0"
-      value={value}
-      onChange={(ev) => setValue(ev.target.value)}
+      value={namespace}
+      onChange={(ev) => setNamespace(ev.target.value)}
       disabled={loading}
     >
       {loading ? (
@@ -348,7 +351,7 @@ type DisplayItemsProps = {
 const DisplayItems = ({
   workload, namespace, fetching, items, ownershipMap,
 }: DisplayItemsProps) => {
-  const { kubeContext } = useContext(Context);
+  const { kubeContext, workloadFilter } = useContext(Context);
 
   // filter items
   const filteredItems = items?.filter((item) => {
@@ -404,8 +407,11 @@ const DisplayItems = ({
     });
   }
 
+  // not showing all the rows at once when user selects all workloads filter
+  const allWorkloadView = useMemo(() => workloadFilter === undefined, [workloadFilter]);
+
   // handle show some-or-all
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(!allWorkloadView);
   const visibleItems = (filteredItems && showAll) ? filteredItems : filteredItems?.slice(0, 5);
   const hasMore = filteredItems && filteredItems.length > 5;
 
@@ -442,6 +448,12 @@ const DisplayItems = ({
   // for label
   const Icon = iconMap[workload];
   const label = labelsPMap[workload];
+
+  // updating showAll when we change workloadFilter,
+  // the state was persistent when switching between workload filters earlier.
+  useEffect(() => {
+    setShowAll(!allWorkloadView);
+  }, [workloadFilter]);
 
   return (
     <>
@@ -594,7 +606,8 @@ const DisplayItems = ({
         <tbody>
           <tr>
             <td colSpan={5} className="pb-[30px]">
-              {hasMore && (
+              {/* showing this button only for all workloads view  */}
+              {hasMore && allWorkloadView && (
                 <button
                   type="button"
                   className="block underline cursor-pointer text-chrome-500"
@@ -615,12 +628,8 @@ const DisplayItems = ({
  * DisplayWorkloads component
  */
 
-const DisplayWorkloads = ({
-  namespace,
-}: {
-  namespace: string;
-}) => {
-  const { kubeContext, workloadFilter } = useContext(Context);
+const DisplayWorkloads = () => {
+  const { kubeContext, workloadFilter, namespace } = useContext(Context);
 
   const cronjobs = useCronJobs(kubeContext);
   const daemonsets = useDaemonSets(kubeContext);
@@ -791,28 +800,44 @@ const Header = () => {
 };
 
 /**
+ * CountBadge component
+ */
+
+const CountBadge = ({ count, workload, workloadFilter }: { count: number, workload: Workload, workloadFilter: Workload | undefined }) => (
+  <span className={cn('text-xs font-medium px-2 py-[1px]  rounded-full  group-hover:bg-blue-200', workload === workloadFilter ? 'bg-blue-200' : 'bg-gray-200')}>
+    {count}
+  </span>
+);
+
+/**
  * Sidebar component
  */
 
 const Sidebar = () => {
-  const { workloadFilter, setWorkloadFilter, sidebar } = useContext(Context);
-  const sidebarOptions = Object.entries(sidebar) as [Workload, number | undefined][];
+  const { workloadFilter, setWorkloadFilter, kubeContext, namespace } = useContext(Context);
+
+  // kubeContext sometimes is undefined
+  const { counter } = useWorkloadCounter(kubeContext ?? '', namespace);
+
+  // the counter returns a empty map sometimes
+  const sidebarItems = counter.size === 0 ? Array.from(defaultSidebarItems) : Array.from(counter.entries());
 
   return (
     <div className="px-4">
       <ul className="space-y-1">
-        {sidebarOptions.map(([workload, resCount]) => (
+        {sidebarItems.map(([workload, count]) => (
           <li key={workload}>
             <button
               type="button"
               className={cn(
-                'flex items-center py-2 px-4 rounded-lg hover:bg-blue-100 w-full',
+                'flex items-center justify-between py-2 px-4 rounded-lg group hover:bg-blue-100 w-full',
                 workload === workloadFilter ? 'bg-blue-100 text-primary font-medium' : 'text-chrome-500',
               )}
               onClick={() => setWorkloadFilter(workload)}
             >
-              {labelsPMap[workload]}
-              {resCount && resCount}
+              <span>{labelsPMap[workload]}</span>
+              {count !== undefined
+                && <CountBadge count={count} workload={workload} workloadFilter={workloadFilter} />}
             </button>
           </li>
         ))}
@@ -827,7 +852,6 @@ const Sidebar = () => {
 
 const Content = () => {
   const { kubeContext, sidebarOpen, setSidebarOpen } = useContext(Context);
-  const [namespace, setNamespace] = useState<string>('');
 
   const readyWait = useSubscription(dashboardOps.KUBERNETES_API_READY_WAIT, {
     variables: { kubeContext },
@@ -852,7 +876,7 @@ const Content = () => {
             </div>
             <div className="flex gap-2 ">
               <div className="block w-[200px]">
-                <NamespacesPicker kubeContext={kubeContext} value={namespace} setValue={setNamespace} />
+                <NamespacesPicker />
               </div>
               <Button type="submit">
                 View in console
@@ -860,7 +884,7 @@ const Content = () => {
               </Button>
             </div>
           </div>
-          <DisplayWorkloads namespace={namespace} />
+          <DisplayWorkloads />
         </form>
       )}
     </div>
@@ -923,18 +947,19 @@ export default function Page() {
   const [kubeContext, setKubeContext] = useState(defaultKubeContext);
   const [workloadFilter, setWorkloadFilter] = useState<Workload>();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebar, setSidebar] = useState<SidebarResources>(sidebarResources);
+
+  const [namespace, setNamespace] = useState('');
 
   const context = useMemo(() => ({
     kubeContext,
     setKubeContext,
+    namespace,
+    setNamespace,
     workloadFilter,
     setWorkloadFilter,
     sidebarOpen,
     setSidebarOpen,
-    sidebar,
-    setSidebar,
-  }), [kubeContext, setKubeContext, workloadFilter, setWorkloadFilter, sidebarOpen, setSidebarOpen, sidebar, setSidebar]);
+  }), [kubeContext, setKubeContext, namespace, setNamespace, workloadFilter, setWorkloadFilter, sidebarOpen, setSidebarOpen]);
 
   return (
     <AuthRequired>
