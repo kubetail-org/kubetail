@@ -533,6 +533,7 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
               />
             </a>
             <button
+              type="button"
               onClick={toggleSidebar}
               title="Expand sidebar"
               className="ml-1"
@@ -544,6 +545,7 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
           <>
             {sidebar}
             <button
+              type="button"
               onClick={toggleSidebar}
               title="Collapse sidebar"
               className="absolute right-0 top-[30px] transform -translate-y-1/2"
