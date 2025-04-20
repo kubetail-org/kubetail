@@ -41,7 +41,7 @@ import SettingsDropdown from '@/components/widgets/SettingsDropdown';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { useListQueryWithSubscription, useLogMetadata } from '@/lib/hooks';
 import { joinPaths, getBasename, cn } from '@/lib/util';
-import { Workload, allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
+import { SidebarResources, Workload, iconMap, labelsPMap, sidebarResources } from '@/lib/workload';
 
 /**
  * Shared variables and helper methods
@@ -61,6 +61,10 @@ type ContextType = {
   setKubeContext: React.Dispatch<React.SetStateAction<string | undefined>>;
   workloadFilter?: Workload;
   setWorkloadFilter: React.Dispatch<React.SetStateAction<Workload | undefined>>;
+  sidebarOpen: boolean;
+  setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  sidebar: SidebarResources,
+  setSidebar: React.Dispatch<React.SetStateAction<SidebarResources>>;
 };
 
 const Context = createContext({} as ContextType);
@@ -446,161 +450,163 @@ const DisplayItems = ({
           <td colSpan={5} className="pb-[5px] text-[0.9rem]">
             <div className="flex items-center space-x-1">
               <Icon className="w-[22px] h-[22px]" />
-              <div>{label}</div>
-              <div className="px-[10px] py-[2px] bg-chrome-100 font-semibold rounded-full text-xs text-chrome-foreground">
-                {filteredItems && `${filteredItems?.length}`}
-              </div>
-              {fetching && <div><Spinner size="xs" /></div>}
+              <div className="font-medium">{label}</div>
+              {fetching ? <div><Spinner size="xs" /></div> : (
+                <div className="px-[10px] py-[2px] bg-chrome-100 font-semibold rounded-full text-xs text-chrome-foreground">
+                  {filteredItems && `${filteredItems?.length}`}
+                </div>
+              )}
             </div>
           </td>
         </tr>
       </thead>
-      {!filteredItems?.length && (
+      <>
+        <DataTable.Header
+          className="rounded-thead bg-transparent"
+          sortBy={sortBy}
+          onSortByChange={handleSortByChange}
+        >
+          <DataTable.Row>
+            <DataTable.HeaderCell>
+              <Form.Check
+                checked={selectAll}
+                onChange={handleSelectAllChange}
+              />
+            </DataTable.HeaderCell>
+            <DataTable.HeaderCell
+              sortField="name"
+              initialSortDirection="ASC"
+            >
+              Name
+            </DataTable.HeaderCell>
+            {namespace === '' && (
+              <DataTable.HeaderCell
+                sortField="namespace"
+                initialSortDirection="ASC"
+              >
+                Namespace
+              </DataTable.HeaderCell>
+            )}
+            <DataTable.HeaderCell
+              sortField="created"
+              initialSortDirection="DESC"
+            >
+              Created
+            </DataTable.HeaderCell>
+            {appConfig.clusterAPIEnabled === true && (
+              <>
+                <DataTable.HeaderCell
+                  sortField="size"
+                  initialSortDirection="DESC"
+                  className="text-right"
+                >
+                  Size
+                </DataTable.HeaderCell>
+                <DataTable.HeaderCell
+                  sortField="lastEvent"
+                  initialSortDirection="DESC"
+                >
+                  Last Event
+                </DataTable.HeaderCell>
+              </>
+            )}
+            <DataTable.HeaderCell>&nbsp;</DataTable.HeaderCell>
+          </DataTable.Row>
+        </DataTable.Header>
+
+        {/* no resource found ui */}
+        {!filteredItems?.length && (
+          <DataTable.Body className="rounded-tbody">
+            <DataTable.Row>
+              <DataTable.DataCell colSpan={7}>
+                <div className="flex flex-col items-center  py-1 ">
+                  <Layers3 className="h-5 w-5 text-chrome-400" />
+                  <span className="text-chrome-400 italic font-medium">No resources found</span>
+                </div>
+              </DataTable.DataCell>
+            </DataTable.Row>
+          </DataTable.Body>
+        )}
+
+        <DataTable.Body className="rounded-tbody">
+          {visibleItems?.map((item) => {
+            const sourceString = `${item.metadata.namespace}/${workload}/${item.metadata.name}`;
+            const fileInfo = logFileInfo.get(item.metadata.uid);
+
+            // for last event
+            const lastEventCls = fileInfo?.containerIDs.map((id) => `last_event_${id}`).join(' ');
+
+            return (
+              <DataTable.Row key={item.metadata.uid} className="text-chrome-700">
+                <DataTable.DataCell>
+                  <Form.Check
+                    name="source"
+                    value={sourceString}
+                    checked={isChecked.get(item.id) || false}
+                    onChange={() => handleSingleCheckboxChange(item.id)}
+                  />
+                </DataTable.DataCell>
+                <DataTable.DataCell>{item.metadata.name}</DataTable.DataCell>
+                {namespace === '' && (
+                  <DataTable.DataCell>{item.metadata.namespace}</DataTable.DataCell>
+                )}
+                <DataTable.DataCell>
+                  <TimeAgo key={Math.random()} date={item.metadata.creationTimestamp} title={item.metadata.creationTimestamp.toUTCString()} />
+                </DataTable.DataCell>
+                {appConfig.clusterAPIEnabled === true && (
+                  <>
+                    <DataTable.DataCell className="text-right pr-[35px]">
+                      {fileInfo?.size === undefined ? (
+                        <span>--</span>
+                      ) : (
+                        numeral(fileInfo.size).format('0.0 b')
+                      )}
+                    </DataTable.DataCell>
+                    <DataTable.DataCell className={lastEventCls}>
+                      {fileInfo?.size === undefined ? (
+                        <span>--</span>
+                      ) : (
+                        <TimeAgo
+                          key={Math.random()}
+                          date={fileInfo.lastModifiedAt}
+                          formatter={lastModifiedAtFormatter}
+                          minPeriod={60}
+                          title={fileInfo.lastModifiedAt.toUTCString()}
+                        />
+                      )}
+                    </DataTable.DataCell>
+                  </>
+                )}
+                <DataTable.DataCell>
+                  <a
+                    target="_blank"
+                    href={`${joinPaths(basename, '/console')}?kubeContext=${encodeURIComponent(kubeContext || '')}&source=${encodeURIComponent(sourceString)}`}
+                    className="flex items-center underline text-primary"
+                  >
+                    <div>view</div>
+                    <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] ml-1" />
+                  </a>
+                </DataTable.DataCell>
+              </DataTable.Row>
+            );
+          })}
+        </DataTable.Body>
         <tbody>
           <tr>
-            <td colSpan={7} className="pb-[30px] italic text-chrome-400">
-              <div className="flex py-2 gap-2">
-                <Layers3 className="h-6 w-6 text-chrome-400" />
-                <span className="text-chrome-400 italic font-medium">No resources found</span>
-              </div>
+            <td colSpan={5} className="pb-[30px]">
+              {hasMore && (
+                <button
+                  type="button"
+                  className="block underline cursor-pointer text-chrome-500"
+                  onClick={() => setShowAll(!showAll)}
+                >
+                  {showAll ? 'Show less...' : 'Show more...'}
+                </button>
+              )}
             </td>
           </tr>
         </tbody>
-      )}
-      {filteredItems && filteredItems.length > 0 && (
-        <>
-          <DataTable.Header
-            className="rounded-thead bg-transparent"
-            sortBy={sortBy}
-            onSortByChange={handleSortByChange}
-          >
-            <DataTable.Row>
-              <DataTable.HeaderCell>
-                <Form.Check
-                  checked={selectAll}
-                  onChange={handleSelectAllChange}
-                />
-              </DataTable.HeaderCell>
-              <DataTable.HeaderCell
-                sortField="name"
-                initialSortDirection="ASC"
-              >
-                Name
-              </DataTable.HeaderCell>
-              {namespace === '' && (
-                <DataTable.HeaderCell
-                  sortField="namespace"
-                  initialSortDirection="ASC"
-                >
-                  Namespace
-                </DataTable.HeaderCell>
-              )}
-              <DataTable.HeaderCell
-                sortField="created"
-                initialSortDirection="DESC"
-              >
-                Created
-              </DataTable.HeaderCell>
-              {appConfig.clusterAPIEnabled === true && (
-                <>
-                  <DataTable.HeaderCell
-                    sortField="size"
-                    initialSortDirection="DESC"
-                    className="text-right"
-                  >
-                    Size
-                  </DataTable.HeaderCell>
-                  <DataTable.HeaderCell
-                    sortField="lastEvent"
-                    initialSortDirection="DESC"
-                  >
-                    Last Event
-                  </DataTable.HeaderCell>
-                </>
-              )}
-              <DataTable.HeaderCell>&nbsp;</DataTable.HeaderCell>
-            </DataTable.Row>
-          </DataTable.Header>
-          <DataTable.Body className="rounded-tbody">
-            {visibleItems?.map((item) => {
-              const sourceString = `${item.metadata.namespace}/${workload}/${item.metadata.name}`;
-              const fileInfo = logFileInfo.get(item.metadata.uid);
-
-              // for last event
-              const lastEventCls = fileInfo?.containerIDs.map((id) => `last_event_${id}`).join(' ');
-
-              return (
-                <DataTable.Row key={item.metadata.uid} className="text-chrome-700">
-                  <DataTable.DataCell>
-                    <Form.Check
-                      name="source"
-                      value={sourceString}
-                      checked={isChecked.get(item.id) || false}
-                      onChange={() => handleSingleCheckboxChange(item.id)}
-                    />
-                  </DataTable.DataCell>
-                  <DataTable.DataCell>{item.metadata.name}</DataTable.DataCell>
-                  {namespace === '' && (
-                    <DataTable.DataCell>{item.metadata.namespace}</DataTable.DataCell>
-                  )}
-                  <DataTable.DataCell>
-                    <TimeAgo key={Math.random()} date={item.metadata.creationTimestamp} title={item.metadata.creationTimestamp.toUTCString()} />
-                  </DataTable.DataCell>
-                  {appConfig.clusterAPIEnabled === true && (
-                    <>
-                      <DataTable.DataCell className="text-right pr-[35px]">
-                        {fileInfo?.size === undefined ? (
-                          <span>--</span>
-                        ) : (
-                          numeral(fileInfo.size).format('0.0 b')
-                        )}
-                      </DataTable.DataCell>
-                      <DataTable.DataCell className={lastEventCls}>
-                        {fileInfo?.size === undefined ? (
-                          <span>--</span>
-                        ) : (
-                          <TimeAgo
-                            key={Math.random()}
-                            date={fileInfo.lastModifiedAt}
-                            formatter={lastModifiedAtFormatter}
-                            minPeriod={60}
-                            title={fileInfo.lastModifiedAt.toUTCString()}
-                          />
-                        )}
-                      </DataTable.DataCell>
-                    </>
-                  )}
-                  <DataTable.DataCell>
-                    <a
-                      target="_blank"
-                      href={`${joinPaths(basename, '/console')}?kubeContext=${encodeURIComponent(kubeContext || '')}&source=${encodeURIComponent(sourceString)}`}
-                      className="flex items-center underline text-primary"
-                    >
-                      <div>view</div>
-                      <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] ml-1" />
-                    </a>
-                  </DataTable.DataCell>
-                </DataTable.Row>
-              );
-            })}
-          </DataTable.Body>
-          <tbody>
-            <tr>
-              <td colSpan={5} className="pb-[30px]">
-                {hasMore && (
-                  <button
-                    type="button"
-                    className="block underline cursor-pointer text-chrome-500"
-                    onClick={() => setShowAll(!showAll)}
-                  >
-                    {showAll ? 'Show less...' : 'Show more...'}
-                  </button>
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </>
-      )}
+      </>
     </>
   );
 };
@@ -754,7 +760,7 @@ const DisplayWorkloads = ({
   }
 
   return (
-    <DataTable className="rounded-table-wrapper min-w-[600px]" size="sm">
+    <DataTable className="rounded-table-wrapper w-full" size="sm">
       {tableEls}
     </DataTable>
   );
@@ -789,32 +795,24 @@ const Header = () => {
  */
 
 const Sidebar = () => {
-  const { workloadFilter, setWorkloadFilter } = useContext(Context);
+  const { workloadFilter, setWorkloadFilter, sidebar } = useContext(Context);
+  const sidebarOptions = Object.entries(sidebar) as [Workload, number | undefined][];
 
   return (
-    <div className="p-4">
-      <div className="relative flex justify-between items-center pb-2">
-        <button
-          type="button"
-          className="flex items-center gap-2"
-          onClick={() => setWorkloadFilter(undefined)}
-        >
-          <Boxes className="h-4 w-4 text-chrome-600" />
-          <span className="font-semibold"> Workloads</span>
-        </button>
-      </div>
+    <div className="px-4">
       <ul className="space-y-1">
-        {allWorkloads.map((workload) => (
+        {sidebarOptions.map(([workload, resCount]) => (
           <li key={workload}>
             <button
               type="button"
               className={cn(
-                'flex items-center py-2 pl-[25px] rounded-lg hover:bg-blue-100 w-full',
+                'flex items-center py-2 px-4 rounded-lg hover:bg-blue-100 w-full',
                 workload === workloadFilter ? 'bg-blue-100 text-primary font-medium' : 'text-chrome-500',
               )}
               onClick={() => setWorkloadFilter(workload)}
             >
               {labelsPMap[workload]}
+              {resCount && resCount}
             </button>
           </li>
         ))}
@@ -828,7 +826,7 @@ const Sidebar = () => {
  */
 
 const Content = () => {
-  const { kubeContext } = useContext(Context);
+  const { kubeContext, sidebarOpen, setSidebarOpen } = useContext(Context);
   const [namespace, setNamespace] = useState<string>('');
 
   const readyWait = useSubscription(dashboardOps.KUBERNETES_API_READY_WAIT, {
@@ -836,7 +834,7 @@ const Content = () => {
   });
 
   return (
-    <div className="px-[20px] py-[10px]">
+    <div className="px-[20px] py-[10px] ">
       {(readyWait.loading || kubeContext === undefined) ? (
         <div>Connecting...</div>
       ) : (
@@ -846,14 +844,21 @@ const Content = () => {
           action={joinPaths(basename, '/console')}
         >
           <input type="hidden" name="kubeContext" value={kubeContext} />
-          <div className="flex items-start justify-between mt-[10px] mb-[20px]">
-            <div className="block w-[200px]">
-              <NamespacesPicker kubeContext={kubeContext} value={namespace} setValue={setNamespace} />
+          <div className="flex py-4 justify-between  flex-row ">
+            <div className="flex gap-2 flex-row items-center">
+              {!sidebarOpen
+                && <PanelLeftOpen className="cursor-pointer  text-chrome-400 hover:text-primary " onClick={() => setSidebarOpen(true)} />}
+              <h1 className="text-2xl font-semibold">Dashboard</h1>
             </div>
-            <Button type="submit">
-              View in console
-              <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] ml-1" />
-            </Button>
+            <div className="flex gap-2 ">
+              <div className="block w-[200px]">
+                <NamespacesPicker kubeContext={kubeContext} value={namespace} setValue={setNamespace} />
+              </div>
+              <Button type="submit">
+                View in console
+                <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] ml-1" />
+              </Button>
+            </div>
           </div>
           <DisplayWorkloads namespace={namespace} />
         </form>
@@ -873,9 +878,9 @@ type InnerLayoutProps = {
 };
 
 const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { setWorkloadFilter, sidebarOpen, setSidebarOpen } = useContext(Context);
 
-  const sidebarWidth = (sidebarOpen) ? 180 : 30;
+  const sidebarWidth = (sidebarOpen) ? 200 : 0;
 
   return (
     <div className="h-full flex flex-col">
@@ -885,16 +890,20 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
       <div className="flex-1 h-0">
         <div className="flex h-full">
           <aside
-            className="flex-shrink-0 bg-chrome-100 relative overflow-y-auto"
+            className="flex-shrink-0  bg-chrome-100 transition-all duration-100 ease-in relative overflow-y-auto"
             style={{ width: `${sidebarWidth}px` }}
           >
-            <div className="absolute top-0 right-0 p-1">
-              {sidebarOpen ? (
-                <PanelLeftClose className="cursor-pointer text-chrome-400" onClick={() => setSidebarOpen(false)} />
-              ) : (
-                <PanelLeftOpen className="cursor-pointer text-chrome-400" onClick={() => setSidebarOpen(true)} />
-              )}
-            </div>
+            <header className="flex flex-row px-4 pt-8 py-4 justify-between items-center gap-2">
+              <button
+                type="button"
+                className="flex items-center gap-2"
+                onClick={() => setWorkloadFilter(undefined)}
+              >
+                <Boxes className="h-6 w-6 text-chrome-600" />
+                <span className="font-semibold text-lg"> Workloads</span>
+              </button>
+              <PanelLeftClose className="cursor-pointer  text-chrome-400 hover:text-primary " onClick={() => setSidebarOpen(false)} />
+            </header>
             {sidebarOpen && sidebar}
           </aside>
           <main className="flex-1 overflow-auto">
@@ -913,13 +922,19 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
 export default function Page() {
   const [kubeContext, setKubeContext] = useState(defaultKubeContext);
   const [workloadFilter, setWorkloadFilter] = useState<Workload>();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebar, setSidebar] = useState<SidebarResources>(sidebarResources);
 
   const context = useMemo(() => ({
     kubeContext,
     setKubeContext,
     workloadFilter,
     setWorkloadFilter,
-  }), [kubeContext, setKubeContext, workloadFilter, setWorkloadFilter]);
+    sidebarOpen,
+    setSidebarOpen,
+    sidebar,
+    setSidebar,
+  }), [kubeContext, setKubeContext, workloadFilter, setWorkloadFilter, sidebarOpen, setSidebarOpen, sidebar, setSidebar]);
 
   return (
     <AuthRequired>
