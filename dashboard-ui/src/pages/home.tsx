@@ -937,7 +937,7 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
 export default function Page() {
   const [kubeContext, setKubeContext] = useState(defaultKubeContext);
   const [workloadFilter, setWorkloadFilter] = useState<Workload>();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const [namespace, setNamespace] = useState('');
 
