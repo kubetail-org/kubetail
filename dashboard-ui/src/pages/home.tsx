@@ -533,7 +533,7 @@ const DisplayItems = ({
 
         <DataTable.Body className="rounded-tbody">
           {visibleItems?.map((item) => {
-            const sourceString = `${item.metadata.namespace}/${workload}/${item.metadata.name}`;
+            const sourceString = `${item.metadata.namespace}:${workload}/${item.metadata.name}`;
             const fileInfo = logFileInfo.get(item.metadata.uid);
 
             // for last event

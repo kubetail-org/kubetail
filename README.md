@@ -181,6 +181,11 @@ It also contains the source code for the Kubetail Dashboard's frontend:
 
 ### Setting up the Development Environment
 
+Dependencies:
+* [Go](https://go.dev/)
+* [Rust](https://www.rust-lang.org/)
+* [Cross](https://github.com/cross-rs/cross)
+
 1. Create a Kubernetes dev cluster:
 
 ```console

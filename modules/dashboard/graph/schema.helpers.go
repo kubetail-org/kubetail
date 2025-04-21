@@ -27,6 +27,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	zlog "github.com/rs/zerolog/log"
+	"github.com/sosodev/duration"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -422,30 +423,22 @@ func typeassertRuntimeObject[T any](object runtime.Object) (T, error) {
 	}
 }
 
-// Create new log record
-func newLogRecordFromLogLine(logLine string) (*model.LogRecord, error) {
-	// handle logs from kubernetes fake clientset
-	if logLine == "fake logs" {
-		return &model.LogRecord{
-			Timestamp: time.Now().UTC(),
-			Message:   "fake logs",
-		}, nil
+// Parse an input either as an ISO timestamp or an ISO duration string
+func parseTimeArg(arg string) (time.Time, error) {
+	var zero time.Time
+
+	arg = strings.TrimSpace(arg)
+	if arg == "" {
+		return zero, nil
+	} else if timeAgo, err := duration.Parse(arg); err == nil {
+		// Parsed as ISO duration
+		return time.Now().Add(-1 * timeAgo.ToTimeDuration()), nil
+	} else if ts, err := time.Parse(time.RFC3339Nano, arg); err == nil {
+		// Parsed as ISO timestamp
+		return ts, nil
 	}
 
-	parts := strings.SplitN(logLine, " ", 2)
-	if len(parts) != 2 {
-		panic("log line timestamp not found")
-	}
-
-	ts, err := time.Parse(time.RFC3339Nano, parts[0])
-	if err != nil {
-		return &model.LogRecord{}, err
-	}
-
-	return &model.LogRecord{
-		Timestamp: ts,
-		Message:   parts[1],
-	}, nil
+	return zero, fmt.Errorf("unable to parse arg %s", arg)
 }
 
 // encode cursor to base64-encoded json

@@ -425,16 +425,6 @@ type CoreV1Pod implements Object {
   status: CoreV1PodStatus!
 }
 
-# https://pkg.go.dev/k8s.io/api/core/v1#PodLogOptions
-input CoreV1PodLogOptions {
-  container: String
-  previous: Boolean
-  sinceSeconds: Int64
-  sinceTime: MetaV1Time
-  tailLines: Int64
-  limitBytes: Int64
-}
-
 # https://pkg.go.dev/k8s.io/api/core/v1#PodList
 type CoreV1PodList implements List {
   kind: String!
@@ -597,6 +587,51 @@ scalar KubeConfigExtensions
 type LogRecord {
   timestamp: Time!
   message: String!
+  source: LogSource!
+}
+
+# --- Log Records Query ---
+
+enum LogRecordsQueryMode {
+  HEAD
+  TAIL
+}
+
+type LogRecordsQueryResponse {
+  records: [LogRecord!]!
+  nextCursor: ID
+}
+
+# --- Log Source ---
+
+type LogSource {
+  metadata: LogSourceMetadata!
+  namespace: String!
+  podName: String!
+  containerName: String!
+  containerID: String!
+}
+
+input LogSourceFilter {
+  region: [String!]
+  zone: [String!]
+  os: [String!]
+  arch: [String!]
+  node: [String!]
+  container: [String!]
+}
+
+type LogSourceMetadata {
+  region: String!
+  zone: String!
+  os: String!
+  arch: String!
+  node: String!
+}
+
+type LogSourceWatchEvent {
+  type: WatchEventType!
+  object: LogSource
 }
 
 # --- MetaV1 ---
@@ -698,13 +733,6 @@ type PageInfo {
   startCursor: ID
 }
 
-# --- PodLogQueryResponse ---
-
-type PodLogQueryResponse {
-  results: [LogRecord!]!
-  pageInfo: PageInfo!
-}
-
 # --- Watch ---
 
 # https://pkg.go.dev/k8s.io/apimachinery/pkg/watch#EventType
@@ -773,46 +801,20 @@ type Query {
   kubernetesAPIHealthzGet(kubeContext: String): HealthCheckResponse!
 
   """
-  Pod logs API
+  Log records API
   """
-  podLogHead(
-    kubeContext: String,
-    namespace: String,
-    name: String!,
-    container: String,
-
-    """
-    Returns log records that came after the specified cursor.
-    """
-    after: ID,
-
-    """
-    Returns log records that came since the specified option (e.g. "BEGINNING", "PT5M", "2006-01-02T15:04:05Z07:00")
-    """
-    since: String = "BEGINNING",
-
-    """
-    Return the first _n_ results
-    """
-    first: Int = 100 @validate(rule: "gte=0", message: "Value must be >= 0"),
-  ): PodLogQueryResponse @nullIfValidationFailed
-
-  podLogTail(
-    kubeContext: String,
-    namespace: String,
-    name: String!,
-    container: String,
-
-    """
-    Returns log records that came before the specified cursor.
-    """
-    before: ID,
-
-    """
-    Return the last _n_ results
-    """
-    last: Int = 100 @validate(rule: "gt=0", message: "Value must be > 0")
-  ): PodLogQueryResponse @nullIfValidationFailed
+  logRecordsFetch(
+    kubeContext: String
+    sources: [String!]!
+    mode: LogRecordsQueryMode = TAIL
+    since: String
+    until: String
+    after: String
+    before: String
+    grep: String
+    sourceFilter: LogSourceFilter
+    limit: Int = 100 @validate(rule: "gt=0", message: "Value must be > 0")
+  ): LogRecordsQueryResponse @nullIfValidationFailed
 }
 
 type Mutation {
@@ -864,24 +866,21 @@ type Subscription {
   kubeConfigWatch: KubeConfigWatchEvent
 
   """
-  Pod logs API
+  LogRecords API
   """
-  podLogFollow(
-    kubeContext: String,
-    namespace: String
-    name: String!
-    container: String
-
-    """
-    Returns log records that came after the specified cursor
-    """
-    after: ID
-
-    """
-    Returns log records that came since the specified option (e.g. "NOW", "2006-01-02T15:04:05Z07:00")
-    """
-    since: String = "NOW"
+  logRecordsFollow(
+    kubeContext: String
+    sources: [String!]!
+    since: String
+    after: String
+    grep: String
+    sourceFilter: LogSourceFilter
   ): LogRecord @nullIfValidationFailed
+
+  """
+  LogSources API
+  """
+  logSourcesWatch(kubeContext: String, sources: [String!]!): LogSourceWatchEvent
 }
 
 # --- Helpers ---

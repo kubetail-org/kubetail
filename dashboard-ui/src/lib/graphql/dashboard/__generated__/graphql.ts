@@ -413,15 +413,6 @@ export type CoreV1PodList = List & {
   metadata: MetaV1ListMeta;
 };
 
-export type CoreV1PodLogOptions = {
-  container?: InputMaybe<Scalars['String']['input']>;
-  limitBytes?: InputMaybe<Scalars['Int64']['input']>;
-  previous?: InputMaybe<Scalars['Boolean']['input']>;
-  sinceSeconds?: InputMaybe<Scalars['Int64']['input']>;
-  sinceTime?: InputMaybe<Scalars['MetaV1Time']['input']>;
-  tailLines?: InputMaybe<Scalars['Int64']['input']>;
-};
-
 export enum CoreV1PodPhase {
   Failed = 'Failed',
   Pending = 'Pending',
@@ -577,7 +568,51 @@ export type List = {
 export type LogRecord = {
   __typename?: 'LogRecord';
   message: Scalars['String']['output'];
+  source: LogSource;
   timestamp: Scalars['Time']['output'];
+};
+
+export enum LogRecordsQueryMode {
+  Head = 'HEAD',
+  Tail = 'TAIL'
+}
+
+export type LogRecordsQueryResponse = {
+  __typename?: 'LogRecordsQueryResponse';
+  nextCursor?: Maybe<Scalars['ID']['output']>;
+  records: Array<LogRecord>;
+};
+
+export type LogSource = {
+  __typename?: 'LogSource';
+  containerID: Scalars['String']['output'];
+  containerName: Scalars['String']['output'];
+  metadata: LogSourceMetadata;
+  namespace: Scalars['String']['output'];
+  podName: Scalars['String']['output'];
+};
+
+export type LogSourceFilter = {
+  arch?: InputMaybe<Array<Scalars['String']['input']>>;
+  node?: InputMaybe<Array<Scalars['String']['input']>>;
+  os?: InputMaybe<Array<Scalars['String']['input']>>;
+  region?: InputMaybe<Array<Scalars['String']['input']>>;
+  zone?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
+export type LogSourceMetadata = {
+  __typename?: 'LogSourceMetadata';
+  arch: Scalars['String']['output'];
+  node: Scalars['String']['output'];
+  os: Scalars['String']['output'];
+  region: Scalars['String']['output'];
+  zone: Scalars['String']['output'];
+};
+
+export type LogSourceWatchEvent = {
+  __typename?: 'LogSourceWatchEvent';
+  object?: Maybe<LogSource>;
+  type: WatchEventType;
 };
 
 export type MetaV1GetOptions = {
@@ -679,12 +714,6 @@ export type PageInfo = {
   startCursor?: Maybe<Scalars['ID']['output']>;
 };
 
-export type PodLogQueryResponse = {
-  __typename?: 'PodLogQueryResponse';
-  pageInfo: PageInfo;
-  results: Array<LogRecord>;
-};
-
 export type Query = {
   __typename?: 'Query';
   /** AppsV1 queries */
@@ -719,9 +748,8 @@ export type Query = {
   kubernetesAPIHealthzGet: HealthCheckResponse;
   /** Kubernetes API */
   kubernetesAPIReadyWait: Scalars['Boolean']['output'];
-  /** Pod logs API */
-  podLogHead?: Maybe<PodLogQueryResponse>;
-  podLogTail?: Maybe<PodLogQueryResponse>;
+  /** Log records API */
+  logRecordsFetch?: Maybe<LogRecordsQueryResponse>;
 };
 
 
@@ -892,24 +920,17 @@ export type QueryKubernetesApiReadyWaitArgs = {
 };
 
 
-export type QueryPodLogHeadArgs = {
-  after?: InputMaybe<Scalars['ID']['input']>;
-  container?: InputMaybe<Scalars['String']['input']>;
-  first?: InputMaybe<Scalars['Int']['input']>;
+export type QueryLogRecordsFetchArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  grep?: InputMaybe<Scalars['String']['input']>;
   kubeContext?: InputMaybe<Scalars['String']['input']>;
-  name: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  mode?: InputMaybe<LogRecordsQueryMode>;
   since?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type QueryPodLogTailArgs = {
-  before?: InputMaybe<Scalars['ID']['input']>;
-  container?: InputMaybe<Scalars['String']['input']>;
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  last?: InputMaybe<Scalars['Int']['input']>;
-  name: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
+  sourceFilter?: InputMaybe<LogSourceFilter>;
+  sources: Array<Scalars['String']['input']>;
+  until?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type Subscription = {
@@ -936,8 +957,10 @@ export type Subscription = {
   kubernetesAPIHealthzWatch: HealthCheckResponse;
   /** Kubernetes API */
   kubernetesAPIReadyWait: Scalars['Boolean']['output'];
-  /** Pod logs API */
-  podLogFollow?: Maybe<LogRecord>;
+  /** Log records API */
+  logRecordsFollow?: Maybe<LogRecord>;
+  /** Log sources API */
+  logSourcesWatch?: Maybe<LogSourceWatchEvent>;
 };
 
 
@@ -1039,13 +1062,19 @@ export type SubscriptionKubernetesApiReadyWaitArgs = {
 };
 
 
-export type SubscriptionPodLogFollowArgs = {
-  after?: InputMaybe<Scalars['ID']['input']>;
-  container?: InputMaybe<Scalars['String']['input']>;
+export type SubscriptionLogRecordsFollowArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  grep?: InputMaybe<Scalars['String']['input']>;
   kubeContext?: InputMaybe<Scalars['String']['input']>;
-  name: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
   since?: InputMaybe<Scalars['String']['input']>;
+  sourceFilter?: InputMaybe<LogSourceFilter>;
+  sources: Array<Scalars['String']['input']>;
+};
+
+
+export type SubscriptionLogSourcesWatchArgs = {
+  kubeContext?: InputMaybe<Scalars['String']['input']>;
+  sources: Array<Scalars['String']['input']>;
 };
 
 export enum WatchEventType {
@@ -1164,7 +1193,9 @@ export type ClusterApiServicesListItemFragmentFragment = { __typename?: 'CoreV1S
 
 export type KubeConfigFragmentFragment = { __typename?: 'KubeConfig', currentContext: string, contexts: Array<{ __typename?: 'KubeConfigContext', name: string, cluster: string, namespace: string }> };
 
-export type PodLogQueryResponseFragmentFragment = { __typename?: 'PodLogQueryResponse', results: Array<{ __typename?: 'LogRecord', timestamp: any, message: string }>, pageInfo: { __typename?: 'PageInfo', hasPreviousPage: boolean, hasNextPage: boolean, startCursor?: string | null, endCursor?: string | null } };
+export type LogRecordsFragmentFragment = { __typename?: 'LogRecord', timestamp: any, message: string, source: { __typename?: 'LogSource', namespace: string, podName: string, containerName: string, containerID: string, metadata: { __typename?: 'LogSourceMetadata', region: string, zone: string, os: string, arch: string, node: string } } };
+
+export type LogSourceFragmentFragment = { __typename?: 'LogSource', namespace: string, podName: string, containerName: string, containerID: string, metadata: { __typename?: 'LogSourceMetadata', region: string, zone: string, os: string, arch: string, node: string } };
 
 type SourcePickerGenericCounterFragment_AppsV1DaemonSetList_Fragment = { __typename?: 'AppsV1DaemonSetList', metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string }, items: Array<{ __typename?: 'AppsV1DaemonSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }> };
 
@@ -1650,42 +1681,41 @@ export type KubernetesApiReadyWaitSubscriptionVariables = Exact<{
 
 export type KubernetesApiReadyWaitSubscription = { __typename?: 'Subscription', kubernetesAPIReadyWait: boolean };
 
-export type PodLogHeadQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  name: Scalars['String']['input'];
-  container?: InputMaybe<Scalars['String']['input']>;
-  after?: InputMaybe<Scalars['ID']['input']>;
+export type LogRecordsFetchQueryVariables = Exact<{
+  kubeContext?: InputMaybe<Scalars['String']['input']>;
+  sources: Array<Scalars['String']['input']> | Scalars['String']['input'];
+  mode?: InputMaybe<LogRecordsQueryMode>;
   since?: InputMaybe<Scalars['String']['input']>;
-  first?: InputMaybe<Scalars['Int']['input']>;
+  until?: InputMaybe<Scalars['String']['input']>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  grep?: InputMaybe<Scalars['String']['input']>;
+  sourceFilter?: InputMaybe<LogSourceFilter>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
-export type PodLogHeadQuery = { __typename?: 'Query', podLogHead?: { __typename?: 'PodLogQueryResponse', results: Array<{ __typename?: 'LogRecord', timestamp: any, message: string }>, pageInfo: { __typename?: 'PageInfo', hasPreviousPage: boolean, hasNextPage: boolean, startCursor?: string | null, endCursor?: string | null } } | null };
+export type LogRecordsFetchQuery = { __typename?: 'Query', logRecordsFetch?: { __typename?: 'LogRecordsQueryResponse', nextCursor?: string | null, records: Array<{ __typename?: 'LogRecord', timestamp: any, message: string, source: { __typename?: 'LogSource', namespace: string, podName: string, containerName: string, containerID: string, metadata: { __typename?: 'LogSourceMetadata', region: string, zone: string, os: string, arch: string, node: string } } }> } | null };
 
-export type PodLogTailQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  name: Scalars['String']['input'];
-  container?: InputMaybe<Scalars['String']['input']>;
-  before?: InputMaybe<Scalars['ID']['input']>;
-  last?: InputMaybe<Scalars['Int']['input']>;
-}>;
-
-
-export type PodLogTailQuery = { __typename?: 'Query', podLogTail?: { __typename?: 'PodLogQueryResponse', results: Array<{ __typename?: 'LogRecord', timestamp: any, message: string }>, pageInfo: { __typename?: 'PageInfo', hasPreviousPage: boolean, hasNextPage: boolean, startCursor?: string | null, endCursor?: string | null } } | null };
-
-export type PodLogFollowSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  name: Scalars['String']['input'];
-  container?: InputMaybe<Scalars['String']['input']>;
-  after?: InputMaybe<Scalars['ID']['input']>;
+export type LogRecordsFollowSubscriptionVariables = Exact<{
+  kubeContext?: InputMaybe<Scalars['String']['input']>;
+  sources: Array<Scalars['String']['input']> | Scalars['String']['input'];
   since?: InputMaybe<Scalars['String']['input']>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  grep?: InputMaybe<Scalars['String']['input']>;
+  sourceFilter?: InputMaybe<LogSourceFilter>;
 }>;
 
 
-export type PodLogFollowSubscription = { __typename?: 'Subscription', podLogFollow?: { __typename?: 'LogRecord', timestamp: any, message: string } | null };
+export type LogRecordsFollowSubscription = { __typename?: 'Subscription', logRecordsFollow?: { __typename?: 'LogRecord', timestamp: any, message: string, source: { __typename?: 'LogSource', namespace: string, podName: string, containerName: string, containerID: string, metadata: { __typename?: 'LogSourceMetadata', region: string, zone: string, os: string, arch: string, node: string } } } | null };
+
+export type LogSourcesWatchSubscriptionVariables = Exact<{
+  kubeContext?: InputMaybe<Scalars['String']['input']>;
+  sources: Array<Scalars['String']['input']> | Scalars['String']['input'];
+}>;
+
+
+export type LogSourcesWatchSubscription = { __typename?: 'Subscription', logSourcesWatch?: { __typename?: 'LogSourceWatchEvent', type: WatchEventType, object?: { __typename?: 'LogSource', namespace: string, podName: string, containerName: string, containerID: string, metadata: { __typename?: 'LogSourceMetadata', region: string, zone: string, os: string, arch: string, node: string } } | null } | null };
 
 export type ServerStatusKubernetesApiHealthzGetQueryVariables = Exact<{
   kubeContext: Scalars['String']['input'];
@@ -2004,7 +2034,8 @@ export const HomeReplicaSetsListItemFragmentFragmentDoc = {"kind":"Document","de
 export const HomeStatefulSetsListItemFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"HomeStatefulSetsListItemFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"AppsV1StatefulSet"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"HomeGenericListItemFragment"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"HomeGenericListItemFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Object"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"metadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"namespace"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"uid"}},{"kind":"Field","name":{"kind":"Name","value":"creationTimestamp"}},{"kind":"Field","name":{"kind":"Name","value":"deletionTimestamp"}},{"kind":"Field","name":{"kind":"Name","value":"resourceVersion"}},{"kind":"Field","name":{"kind":"Name","value":"ownerReferences"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"uid"}},{"kind":"Field","name":{"kind":"Name","value":"controller"}}]}}]}}]}}]} as unknown as DocumentNode<HomeStatefulSetsListItemFragmentFragment, unknown>;
 export const ClusterApiServicesListItemFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ClusterAPIServicesListItemFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"CoreV1Service"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"metadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"namespace"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"uid"}},{"kind":"Field","name":{"kind":"Name","value":"creationTimestamp"}},{"kind":"Field","name":{"kind":"Name","value":"deletionTimestamp"}},{"kind":"Field","name":{"kind":"Name","value":"resourceVersion"}}]}},{"kind":"Field","name":{"kind":"Name","value":"spec"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"ports"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"port"}},{"kind":"Field","name":{"kind":"Name","value":"appProtocol"}}]}}]}}]}}]} as unknown as DocumentNode<ClusterApiServicesListItemFragmentFragment, unknown>;
 export const KubeConfigFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"KubeConfigFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"KubeConfig"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"currentContext"}},{"kind":"Field","name":{"kind":"Name","value":"contexts"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"cluster"}},{"kind":"Field","name":{"kind":"Name","value":"namespace"}}]}}]}}]} as unknown as DocumentNode<KubeConfigFragmentFragment, unknown>;
-export const PodLogQueryResponseFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PodLogQueryResponseFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"PodLogQueryResponse"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"results"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"timestamp"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}},{"kind":"Field","name":{"kind":"Name","value":"pageInfo"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"hasPreviousPage"}},{"kind":"Field","name":{"kind":"Name","value":"hasNextPage"}},{"kind":"Field","name":{"kind":"Name","value":"startCursor"}},{"kind":"Field","name":{"kind":"Name","value":"endCursor"}}]}}]}}]} as unknown as DocumentNode<PodLogQueryResponseFragmentFragment, unknown>;
+export const LogSourceFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LogSourceFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LogSource"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"region"}},{"kind":"Field","name":{"kind":"Name","value":"zone"}},{"kind":"Field","name":{"kind":"Name","value":"os"}},{"kind":"Field","name":{"kind":"Name","value":"arch"}},{"kind":"Field","name":{"kind":"Name","value":"node"}}]}},{"kind":"Field","name":{"kind":"Name","value":"namespace"}},{"kind":"Field","name":{"kind":"Name","value":"podName"}},{"kind":"Field","name":{"kind":"Name","value":"containerName"}},{"kind":"Field","name":{"kind":"Name","value":"containerID"}}]}}]} as unknown as DocumentNode<LogSourceFragmentFragment, unknown>;
+export const LogRecordsFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LogRecordsFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LogRecord"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"timestamp"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"source"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"LogSourceFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LogSourceFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LogSource"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"region"}},{"kind":"Field","name":{"kind":"Name","value":"zone"}},{"kind":"Field","name":{"kind":"Name","value":"os"}},{"kind":"Field","name":{"kind":"Name","value":"arch"}},{"kind":"Field","name":{"kind":"Name","value":"node"}}]}},{"kind":"Field","name":{"kind":"Name","value":"namespace"}},{"kind":"Field","name":{"kind":"Name","value":"podName"}},{"kind":"Field","name":{"kind":"Name","value":"containerName"}},{"kind":"Field","name":{"kind":"Name","value":"containerID"}}]}}]} as unknown as DocumentNode<LogRecordsFragmentFragment, unknown>;
 export const SourcePickerGenericCounterItemFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SourcePickerGenericCounterItemFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Object"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"metadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"resourceVersion"}}]}}]}}]} as unknown as DocumentNode<SourcePickerGenericCounterItemFragmentFragment, unknown>;
 export const SourcePickerGenericCounterFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SourcePickerGenericCounterFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"List"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"remainingItemCount"}},{"kind":"Field","name":{"kind":"Name","value":"resourceVersion"}}]}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SourcePickerGenericCounterItemFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SourcePickerGenericCounterItemFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Object"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"metadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"resourceVersion"}}]}}]}}]} as unknown as DocumentNode<SourcePickerGenericCounterFragmentFragment, unknown>;
 export const SourcePickerGenericListFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SourcePickerGenericListFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"List"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"continue"}},{"kind":"Field","name":{"kind":"Name","value":"resourceVersion"}}]}}]}}]} as unknown as DocumentNode<SourcePickerGenericListFragmentFragment, unknown>;
@@ -2055,9 +2086,9 @@ export const HelmListReleasesDocument = {"kind":"Document","definitions":[{"kind
 export const KubeConfigGetDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"KubeConfigGet"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"kubeConfigGet"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"KubeConfigFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"KubeConfigFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"KubeConfig"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"currentContext"}},{"kind":"Field","name":{"kind":"Name","value":"contexts"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"cluster"}},{"kind":"Field","name":{"kind":"Name","value":"namespace"}}]}}]}}]} as unknown as DocumentNode<KubeConfigGetQuery, KubeConfigGetQueryVariables>;
 export const KubeConfigWatchDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"KubeConfigWatch"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"kubeConfigWatch"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"object"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"KubeConfigFragment"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"KubeConfigFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"KubeConfig"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"currentContext"}},{"kind":"Field","name":{"kind":"Name","value":"contexts"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"cluster"}},{"kind":"Field","name":{"kind":"Name","value":"namespace"}}]}}]}}]} as unknown as DocumentNode<KubeConfigWatchSubscription, KubeConfigWatchSubscriptionVariables>;
 export const KubernetesApiReadyWaitDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"KubernetesAPIReadyWait"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"kubernetesAPIReadyWait"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"kubeContext"},"value":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}}}]}]}}]} as unknown as DocumentNode<KubernetesApiReadyWaitSubscription, KubernetesApiReadyWaitSubscriptionVariables>;
-export const PodLogHeadDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PodLogHead"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"namespace"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"name"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"container"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"after"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"since"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"first"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"podLogHead"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"kubeContext"},"value":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}}},{"kind":"Argument","name":{"kind":"Name","value":"namespace"},"value":{"kind":"Variable","name":{"kind":"Name","value":"namespace"}}},{"kind":"Argument","name":{"kind":"Name","value":"name"},"value":{"kind":"Variable","name":{"kind":"Name","value":"name"}}},{"kind":"Argument","name":{"kind":"Name","value":"container"},"value":{"kind":"Variable","name":{"kind":"Name","value":"container"}}},{"kind":"Argument","name":{"kind":"Name","value":"after"},"value":{"kind":"Variable","name":{"kind":"Name","value":"after"}}},{"kind":"Argument","name":{"kind":"Name","value":"since"},"value":{"kind":"Variable","name":{"kind":"Name","value":"since"}}},{"kind":"Argument","name":{"kind":"Name","value":"first"},"value":{"kind":"Variable","name":{"kind":"Name","value":"first"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"PodLogQueryResponseFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PodLogQueryResponseFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"PodLogQueryResponse"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"results"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"timestamp"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}},{"kind":"Field","name":{"kind":"Name","value":"pageInfo"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"hasPreviousPage"}},{"kind":"Field","name":{"kind":"Name","value":"hasNextPage"}},{"kind":"Field","name":{"kind":"Name","value":"startCursor"}},{"kind":"Field","name":{"kind":"Name","value":"endCursor"}}]}}]}}]} as unknown as DocumentNode<PodLogHeadQuery, PodLogHeadQueryVariables>;
-export const PodLogTailDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PodLogTail"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"namespace"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"name"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"container"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"before"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"last"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"podLogTail"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"kubeContext"},"value":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}}},{"kind":"Argument","name":{"kind":"Name","value":"namespace"},"value":{"kind":"Variable","name":{"kind":"Name","value":"namespace"}}},{"kind":"Argument","name":{"kind":"Name","value":"name"},"value":{"kind":"Variable","name":{"kind":"Name","value":"name"}}},{"kind":"Argument","name":{"kind":"Name","value":"container"},"value":{"kind":"Variable","name":{"kind":"Name","value":"container"}}},{"kind":"Argument","name":{"kind":"Name","value":"before"},"value":{"kind":"Variable","name":{"kind":"Name","value":"before"}}},{"kind":"Argument","name":{"kind":"Name","value":"last"},"value":{"kind":"Variable","name":{"kind":"Name","value":"last"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"PodLogQueryResponseFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PodLogQueryResponseFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"PodLogQueryResponse"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"results"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"timestamp"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}},{"kind":"Field","name":{"kind":"Name","value":"pageInfo"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"hasPreviousPage"}},{"kind":"Field","name":{"kind":"Name","value":"hasNextPage"}},{"kind":"Field","name":{"kind":"Name","value":"startCursor"}},{"kind":"Field","name":{"kind":"Name","value":"endCursor"}}]}}]}}]} as unknown as DocumentNode<PodLogTailQuery, PodLogTailQueryVariables>;
-export const PodLogFollowDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"PodLogFollow"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"namespace"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"name"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"container"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"after"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"since"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"podLogFollow"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"kubeContext"},"value":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}}},{"kind":"Argument","name":{"kind":"Name","value":"namespace"},"value":{"kind":"Variable","name":{"kind":"Name","value":"namespace"}}},{"kind":"Argument","name":{"kind":"Name","value":"name"},"value":{"kind":"Variable","name":{"kind":"Name","value":"name"}}},{"kind":"Argument","name":{"kind":"Name","value":"container"},"value":{"kind":"Variable","name":{"kind":"Name","value":"container"}}},{"kind":"Argument","name":{"kind":"Name","value":"after"},"value":{"kind":"Variable","name":{"kind":"Name","value":"after"}}},{"kind":"Argument","name":{"kind":"Name","value":"since"},"value":{"kind":"Variable","name":{"kind":"Name","value":"since"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"timestamp"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]}}]} as unknown as DocumentNode<PodLogFollowSubscription, PodLogFollowSubscriptionVariables>;
+export const LogRecordsFetchDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"LogRecordsFetch"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"sources"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"mode"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"LogRecordsQueryMode"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"since"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"until"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"after"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"before"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"grep"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"sourceFilter"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"LogSourceFilter"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"limit"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"logRecordsFetch"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"kubeContext"},"value":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}}},{"kind":"Argument","name":{"kind":"Name","value":"sources"},"value":{"kind":"Variable","name":{"kind":"Name","value":"sources"}}},{"kind":"Argument","name":{"kind":"Name","value":"mode"},"value":{"kind":"Variable","name":{"kind":"Name","value":"mode"}}},{"kind":"Argument","name":{"kind":"Name","value":"since"},"value":{"kind":"Variable","name":{"kind":"Name","value":"since"}}},{"kind":"Argument","name":{"kind":"Name","value":"until"},"value":{"kind":"Variable","name":{"kind":"Name","value":"until"}}},{"kind":"Argument","name":{"kind":"Name","value":"after"},"value":{"kind":"Variable","name":{"kind":"Name","value":"after"}}},{"kind":"Argument","name":{"kind":"Name","value":"before"},"value":{"kind":"Variable","name":{"kind":"Name","value":"before"}}},{"kind":"Argument","name":{"kind":"Name","value":"grep"},"value":{"kind":"Variable","name":{"kind":"Name","value":"grep"}}},{"kind":"Argument","name":{"kind":"Name","value":"sourceFilter"},"value":{"kind":"Variable","name":{"kind":"Name","value":"sourceFilter"}}},{"kind":"Argument","name":{"kind":"Name","value":"limit"},"value":{"kind":"Variable","name":{"kind":"Name","value":"limit"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"records"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"LogRecordsFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"nextCursor"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LogSourceFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LogSource"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"region"}},{"kind":"Field","name":{"kind":"Name","value":"zone"}},{"kind":"Field","name":{"kind":"Name","value":"os"}},{"kind":"Field","name":{"kind":"Name","value":"arch"}},{"kind":"Field","name":{"kind":"Name","value":"node"}}]}},{"kind":"Field","name":{"kind":"Name","value":"namespace"}},{"kind":"Field","name":{"kind":"Name","value":"podName"}},{"kind":"Field","name":{"kind":"Name","value":"containerName"}},{"kind":"Field","name":{"kind":"Name","value":"containerID"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LogRecordsFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LogRecord"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"timestamp"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"source"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"LogSourceFragment"}}]}}]}}]} as unknown as DocumentNode<LogRecordsFetchQuery, LogRecordsFetchQueryVariables>;
+export const LogRecordsFollowDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"LogRecordsFollow"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"sources"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"since"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"after"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"grep"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"sourceFilter"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"LogSourceFilter"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"logRecordsFollow"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"kubeContext"},"value":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}}},{"kind":"Argument","name":{"kind":"Name","value":"sources"},"value":{"kind":"Variable","name":{"kind":"Name","value":"sources"}}},{"kind":"Argument","name":{"kind":"Name","value":"since"},"value":{"kind":"Variable","name":{"kind":"Name","value":"since"}}},{"kind":"Argument","name":{"kind":"Name","value":"after"},"value":{"kind":"Variable","name":{"kind":"Name","value":"after"}}},{"kind":"Argument","name":{"kind":"Name","value":"grep"},"value":{"kind":"Variable","name":{"kind":"Name","value":"grep"}}},{"kind":"Argument","name":{"kind":"Name","value":"sourceFilter"},"value":{"kind":"Variable","name":{"kind":"Name","value":"sourceFilter"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"LogRecordsFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LogSourceFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LogSource"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"region"}},{"kind":"Field","name":{"kind":"Name","value":"zone"}},{"kind":"Field","name":{"kind":"Name","value":"os"}},{"kind":"Field","name":{"kind":"Name","value":"arch"}},{"kind":"Field","name":{"kind":"Name","value":"node"}}]}},{"kind":"Field","name":{"kind":"Name","value":"namespace"}},{"kind":"Field","name":{"kind":"Name","value":"podName"}},{"kind":"Field","name":{"kind":"Name","value":"containerName"}},{"kind":"Field","name":{"kind":"Name","value":"containerID"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LogRecordsFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LogRecord"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"timestamp"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"source"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"LogSourceFragment"}}]}}]}}]} as unknown as DocumentNode<LogRecordsFollowSubscription, LogRecordsFollowSubscriptionVariables>;
+export const LogSourcesWatchDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"LogSourcesWatch"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"sources"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"logSourcesWatch"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"kubeContext"},"value":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}}},{"kind":"Argument","name":{"kind":"Name","value":"sources"},"value":{"kind":"Variable","name":{"kind":"Name","value":"sources"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"object"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"LogSourceFragment"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LogSourceFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LogSource"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"region"}},{"kind":"Field","name":{"kind":"Name","value":"zone"}},{"kind":"Field","name":{"kind":"Name","value":"os"}},{"kind":"Field","name":{"kind":"Name","value":"arch"}},{"kind":"Field","name":{"kind":"Name","value":"node"}}]}},{"kind":"Field","name":{"kind":"Name","value":"namespace"}},{"kind":"Field","name":{"kind":"Name","value":"podName"}},{"kind":"Field","name":{"kind":"Name","value":"containerName"}},{"kind":"Field","name":{"kind":"Name","value":"containerID"}}]}}]} as unknown as DocumentNode<LogSourcesWatchSubscription, LogSourcesWatchSubscriptionVariables>;
 export const ServerStatusKubernetesApiHealthzGetDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ServerStatusKubernetesAPIHealthzGet"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"kubernetesAPIHealthzGet"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"kubeContext"},"value":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"HealthCheckResponseFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"HealthCheckResponseFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"HealthCheckResponse"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"timestamp"}}]}}]} as unknown as DocumentNode<ServerStatusKubernetesApiHealthzGetQuery, ServerStatusKubernetesApiHealthzGetQueryVariables>;
 export const ServerStatusKubernetesApiHealthzWatchDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"ServerStatusKubernetesAPIHealthzWatch"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"kubernetesAPIHealthzWatch"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"kubeContext"},"value":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"HealthCheckResponseFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"HealthCheckResponseFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"HealthCheckResponse"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"timestamp"}}]}}]} as unknown as DocumentNode<ServerStatusKubernetesApiHealthzWatchSubscription, ServerStatusKubernetesApiHealthzWatchSubscriptionVariables>;
 export const ServerStatusClusterApiHealthzGetDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ServerStatusClusterAPIHealthzGet"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"namespace"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"serviceName"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"clusterAPIHealthzGet"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"kubeContext"},"value":{"kind":"Variable","name":{"kind":"Name","value":"kubeContext"}}},{"kind":"Argument","name":{"kind":"Name","value":"namespace"},"value":{"kind":"Variable","name":{"kind":"Name","value":"namespace"}}},{"kind":"Argument","name":{"kind":"Name","value":"serviceName"},"value":{"kind":"Variable","name":{"kind":"Name","value":"serviceName"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"HealthCheckResponseFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"HealthCheckResponseFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"HealthCheckResponse"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"timestamp"}}]}}]} as unknown as DocumentNode<ServerStatusClusterApiHealthzGetQuery, ServerStatusClusterApiHealthzGetQueryVariables>;

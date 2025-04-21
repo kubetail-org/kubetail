@@ -17,6 +17,8 @@ export type Scalars = {
   /** A 64-bit integer. */
   Int64: { input: any; output: any; }
   /** An ISO-8601 encoded UTC date string. */
+  Time: { input: any; output: any; }
+  /** An ISO-8601 encoded UTC date string. */
   TimestampPBTimestamp: { input: any; output: any; }
 };
 
@@ -53,9 +55,37 @@ export type LogMetadataWatchEvent = {
   type: Scalars['String']['output'];
 };
 
+export type LogRecord = {
+  __typename?: 'LogRecord';
+  message: Scalars['String']['output'];
+  timestamp: Scalars['Time']['output'];
+};
+
+export type PageInfo = {
+  __typename?: 'PageInfo';
+  /** When paginating forwards, the cursor to continue. */
+  endCursor?: Maybe<Scalars['ID']['output']>;
+  /** When paginating forwards, are there more items? */
+  hasNextPage: Scalars['Boolean']['output'];
+  /** When paginating backwards, are there more items? */
+  hasPreviousPage: Scalars['Boolean']['output'];
+  /** When paginating backwards, the cursor to continue. */
+  startCursor?: Maybe<Scalars['ID']['output']>;
+};
+
+export type PodLogQueryResponse = {
+  __typename?: 'PodLogQueryResponse';
+  pageInfo: PageInfo;
+  results: Array<LogRecord>;
+};
+
 export type Query = {
   __typename?: 'Query';
+  /** Log Metadata API */
   logMetadataList?: Maybe<LogMetadataList>;
+  /** Pod logs API */
+  podLogHead?: Maybe<PodLogQueryResponse>;
+  podLogTail?: Maybe<PodLogQueryResponse>;
 };
 
 
@@ -63,14 +93,54 @@ export type QueryLogMetadataListArgs = {
   namespace?: InputMaybe<Scalars['String']['input']>;
 };
 
+
+export type QueryPodLogHeadArgs = {
+  after?: InputMaybe<Scalars['ID']['input']>;
+  container?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  kubeContext?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  namespace?: InputMaybe<Scalars['String']['input']>;
+  node?: InputMaybe<Scalars['String']['input']>;
+  query?: InputMaybe<Scalars['String']['input']>;
+  since?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type QueryPodLogTailArgs = {
+  before?: InputMaybe<Scalars['ID']['input']>;
+  container?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: InputMaybe<Scalars['String']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
+  name: Scalars['String']['input'];
+  namespace?: InputMaybe<Scalars['String']['input']>;
+  node?: InputMaybe<Scalars['String']['input']>;
+  query?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type Subscription = {
   __typename?: 'Subscription';
+  /** Log Metadata API */
   logMetadataWatch?: Maybe<LogMetadataWatchEvent>;
+  /** Pod logs API */
+  podLogFollow?: Maybe<LogRecord>;
 };
 
 
 export type SubscriptionLogMetadataWatchArgs = {
   namespace?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type SubscriptionPodLogFollowArgs = {
+  after?: InputMaybe<Scalars['ID']['input']>;
+  container?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  namespace?: InputMaybe<Scalars['String']['input']>;
+  node?: InputMaybe<Scalars['String']['input']>;
+  query?: InputMaybe<Scalars['String']['input']>;
+  since?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type LogMetadataListItemFragmentFragment = { __typename?: 'LogMetadata', id: string, spec: { __typename?: 'LogMetadataSpec', nodeName: string, namespace: string, podName: string, containerName: string, containerID: string }, fileInfo: { __typename?: 'LogMetadataFileInfo', size: any, lastModifiedAt?: any | null } };

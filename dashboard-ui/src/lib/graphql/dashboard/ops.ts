@@ -520,30 +520,39 @@ export const KUBERNETES_API_READY_WAIT = gql(`
 `);
 
 /**
- * Pod log queries
+ * Log records queries
  */
 
-export const POD_LOG_HEAD = gql(`
-  query PodLogHead($kubeContext: String!, $namespace: String!, $name: String!, $container: String, $after: ID, $since: String, $first: Int) {
-    podLogHead(kubeContext: $kubeContext, namespace: $namespace, name: $name, container: $container, after: $after, since: $since, first: $first) {
-      ...PodLogQueryResponseFragment
+export const LOG_RECORDS_FETCH = gql(`
+  query LogRecordsFetch($kubeContext: String, $sources: [String!]!, $mode: LogRecordsQueryMode, $since: String, $until: String, $after: String, $before: String, $grep: String, $sourceFilter: LogSourceFilter, $limit: Int) {
+    logRecordsFetch(kubeContext: $kubeContext, sources: $sources, mode: $mode, since: $since, until: $until, after: $after, before: $before, grep: $grep, sourceFilter: $sourceFilter, limit: $limit) {
+      records {
+        ...LogRecordsFragment
+      }
+      nextCursor
     }
   }
 `);
 
-export const POD_LOG_TAIL = gql(`
-  query PodLogTail($kubeContext: String!, $namespace: String!, $name: String!, $container: String, $before: ID, $last: Int) {
-    podLogTail(kubeContext: $kubeContext, namespace: $namespace, name: $name, container: $container, before: $before, last: $last) {
-      ...PodLogQueryResponseFragment
+export const LOG_RECORDS_FOLLOW = gql(`
+  subscription LogRecordsFollow($kubeContext: String, $sources: [String!]!, $since: String, $after: String, $grep: String, $sourceFilter: LogSourceFilter) {
+    logRecordsFollow(kubeContext: $kubeContext, sources: $sources, since: $since, after: $after, grep: $grep, sourceFilter: $sourceFilter) {
+      ...LogRecordsFragment
     }
   }
 `);
 
-export const POD_LOG_FOLLOW = gql(`
-  subscription PodLogFollow($kubeContext: String!, $namespace: String!, $name: String!, $container: String, $after: ID, $since: String) {
-    podLogFollow(kubeContext: $kubeContext, namespace: $namespace, name: $name, container: $container, after: $after, since: $since) {
-      timestamp
-      message
+/**
+ * Log sources queries
+ */
+
+export const LOG_SOURCES_WATCH = gql(`
+  subscription LogSourcesWatch($kubeContext: String, $sources: [String!]!) {
+    logSourcesWatch(kubeContext: $kubeContext, sources: $sources) {
+      type
+      object {
+        ...LogSourceFragment
+      }
     }
   }
 `);

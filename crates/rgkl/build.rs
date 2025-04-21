@@ -12,10 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { cssEncode } from '@/lib/util';
-
-import type { Pod } from './logging-resources';
-
-export function cssID(pod: Pod, container: string) {
-  return cssEncode(`${pod.metadata.namespace}/${pod.metadata.name}/${container}`);
+fn main() {
+    tonic_build::configure()
+        .type_attribute(".", "#[derive(serde::Serialize)]")
+        .extern_path(".google.protobuf.Timestamp", "::prost_wkt_types::Timestamp")
+        .compile_protos(
+            // List your proto files here
+            &["../../proto/cluster_agent.proto"],
+            // Include path(s) for proto file imports
+            &["../../proto"],
+        )
+        .unwrap();
 }

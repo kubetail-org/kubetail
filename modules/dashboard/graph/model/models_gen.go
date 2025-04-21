@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/kubetail-org/kubetail/modules/shared/logs"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
@@ -22,9 +23,23 @@ type KubeConfigWatchEvent struct {
 	Object *KubeConfig     `json:"object,omitempty"`
 }
 
-type LogRecord struct {
-	Timestamp time.Time `json:"timestamp"`
-	Message   string    `json:"message"`
+type LogRecordsQueryResponse struct {
+	Records    []*logs.LogRecord `json:"records"`
+	NextCursor *string           `json:"nextCursor,omitempty"`
+}
+
+type LogSourceFilter struct {
+	Region    []string `json:"region,omitempty"`
+	Zone      []string `json:"zone,omitempty"`
+	Os        []string `json:"os,omitempty"`
+	Arch      []string `json:"arch,omitempty"`
+	Node      []string `json:"node,omitempty"`
+	Container []string `json:"container,omitempty"`
+}
+
+type LogSourceWatchEvent struct {
+	Type   watch.EventType `json:"type"`
+	Object *logs.LogSource `json:"object,omitempty"`
 }
 
 type Mutation struct {
@@ -39,14 +54,6 @@ type PageInfo struct {
 	HasPreviousPage bool `json:"hasPreviousPage"`
 	// When paginating backwards, the cursor to continue.
 	StartCursor *string `json:"startCursor,omitempty"`
-}
-
-type PodLogQueryResponse struct {
-	Results  []*LogRecord `json:"results"`
-	PageInfo *PageInfo    `json:"pageInfo"`
-}
-
-type Query struct {
 }
 
 type Subscription struct {
@@ -96,5 +103,46 @@ func (e *HealthCheckStatus) UnmarshalGQL(v any) error {
 }
 
 func (e HealthCheckStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+type LogRecordsQueryMode string
+
+const (
+	LogRecordsQueryModeHead LogRecordsQueryMode = "HEAD"
+	LogRecordsQueryModeTail LogRecordsQueryMode = "TAIL"
+)
+
+var AllLogRecordsQueryMode = []LogRecordsQueryMode{
+	LogRecordsQueryModeHead,
+	LogRecordsQueryModeTail,
+}
+
+func (e LogRecordsQueryMode) IsValid() bool {
+	switch e {
+	case LogRecordsQueryModeHead, LogRecordsQueryModeTail:
+		return true
+	}
+	return false
+}
+
+func (e LogRecordsQueryMode) String() string {
+	return string(e)
+}
+
+func (e *LogRecordsQueryMode) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = LogRecordsQueryMode(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid LogRecordsQueryMode", str)
+	}
+	return nil
+}
+
+func (e LogRecordsQueryMode) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
 }

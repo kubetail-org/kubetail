@@ -21,6 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/kubetail-org/kubetail/modules/shared/grpchelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
 // Add user to context if authenticated
@@ -34,6 +35,12 @@ func authenticationMiddleware(c *gin.Context) {
 	}
 	if strings.HasPrefix(header, "Bearer ") {
 		token = strings.TrimPrefix(header, "Bearer ")
+	}
+
+	// Add to context for kubernetes requests
+	if token != "" {
+		ctx := context.WithValue(c.Request.Context(), k8shelpers.K8STokenCtxKey, token)
+		c.Request = c.Request.WithContext(ctx)
 	}
 
 	// Add to context for gRPC requests

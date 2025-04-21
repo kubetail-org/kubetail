@@ -29,6 +29,9 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
+
+	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
 type ctxKey int
@@ -43,9 +46,9 @@ type Server struct {
 }
 
 // Create new Server instance
-func NewServer(grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string, csrfProtectMiddleware func(http.Handler) http.Handler) *Server {
+func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string, csrfProtectMiddleware func(http.Handler) http.Handler) *Server {
 	// Init resolver
-	r := &Resolver{grpcDispatcher, allowedNamespaces}
+	r := &Resolver{cm, grpcDispatcher, allowedNamespaces}
 
 	// Setup csrf query method
 	var csrfProtect http.Handler
@@ -55,6 +58,8 @@ func NewServer(grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []st
 
 	// Init config
 	cfg := Config{Resolvers: r}
+	cfg.Directives.Validate = directives.ValidateDirective
+	cfg.Directives.NullIfValidationFailed = directives.NullIfValidationFailedDirective
 
 	// Init schema
 	schema := NewExecutableSchema(cfg)
