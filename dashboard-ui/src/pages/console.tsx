@@ -428,7 +428,7 @@ const SidebarPodsAndContainers = () => {
 
   // Create synthetic sources from search params
   searchParams.getAll('container').forEach((key) => {
-    const match = key.match(/^([^:]+):([^\/]+)\/(.+)$/);
+    const match = key.match(/^([^:]+):([^/]+)\/(.+)$/);
     if (!match) return; // Skip if pattern doesn't match
 
     const synthetic = {
@@ -662,6 +662,7 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
         )}
       </div>
       {!isSidebarCollapsed && (
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions
         <div
           className="absolute bg-chrome-divider w-[4px] h-full border-l-2 border-chrome-100 cursor-ew-resize"
           style={{ left: `${effectiveSidebarWidth}px` }}
