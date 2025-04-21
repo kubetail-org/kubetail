@@ -26,54 +26,13 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/kubetail-org/kubetail/modules/shared/clusteragentpb"
-	"github.com/kubetail-org/kubetail/modules/shared/grpchelpers"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	authv1 "k8s.io/api/authorization/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+
+	"github.com/kubetail-org/kubetail/modules/shared/clusteragentpb"
 )
 
 // Regex for container log file names
 var logfileRegex = regexp.MustCompile(`^(?P<PodName>[^_]+)_(?P<Namespace>[^_]+)_(?P<ContainerName>.+)-(?P<ContainerID>[^-]+)\.log$`)
-
-// Check if client has required pods/log permissions for given namespace+verb
-func checkPermission(ctx context.Context, clientset kubernetes.Interface, namespaces []string, verb string) error {
-	// Ensure token is present
-	if _, ok := ctx.Value(grpchelpers.K8STokenCtxKey).(string); !ok {
-		return status.Errorf(codes.Unauthenticated, "missing token")
-	}
-
-	// ensure namespaces argument is present
-	if len(namespaces) < 1 {
-		return errors.New("namespaces required")
-	}
-
-	// check each namespace individually
-	for _, namespace := range namespaces {
-		sar := &authv1.SelfSubjectAccessReview{
-			Spec: authv1.SelfSubjectAccessReviewSpec{
-				ResourceAttributes: &authv1.ResourceAttributes{
-					Namespace: namespace,
-					Group:     "",
-					Verb:      verb,
-					Resource:  "pods/log",
-				},
-			},
-		}
-
-		if result, err := clientset.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{}); err != nil {
-			return err
-		} else if !result.Status.Allowed {
-			fmt := "permission denied: `%s pods/log` in namespace `%s`"
-			return status.Errorf(codes.Unauthenticated, fmt, verb, namespace)
-		}
-	}
-
-	return nil
-}
 
 // Get file info for file
 func newLogMetadataFileInfo(pathname string) (*clusteragentpb.LogMetadataFileInfo, error) {

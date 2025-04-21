@@ -329,21 +329,36 @@ export const KUBE_CONFIG_FRAGMENT = gql(`
 `);
 
 /**
- * Pod log fragments
+ * Log records fragments
  */
 
-export const POD_LOG_QUERY_RESPONSE_FRAGMENT = gql(`
-  fragment PodLogQueryResponseFragment on PodLogQueryResponse {
-    results {
-      timestamp
-      message
+export const LOG_RECORDS_FRAGMENT = gql(`
+  fragment LogRecordsFragment on LogRecord {
+    timestamp
+    message
+    source {
+      ...LogSourceFragment
     }
-    pageInfo {
-      hasPreviousPage
-      hasNextPage
-      startCursor
-      endCursor
+  }
+`);
+
+/**
+ * Log source fragments
+ */
+
+export const LOG_SOURCE_FRAGMENT = gql(`
+  fragment LogSourceFragment on LogSource {
+    metadata {
+      region
+      zone
+      os
+      arch
+      node
     }
+    namespace
+    podName
+    containerName
+    containerID
   }
 `);
 

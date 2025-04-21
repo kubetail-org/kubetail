@@ -18,6 +18,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
 	model1 "github.com/kubetail-org/kubetail/modules/shared/graphql/model"
+	"github.com/kubetail-org/kubetail/modules/shared/logs"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 	"helm.sh/helm/v3/pkg/chart"
@@ -514,7 +515,34 @@ type ComplexityRoot struct {
 
 	LogRecord struct {
 		Message   func(childComplexity int) int
+		Source    func(childComplexity int) int
 		Timestamp func(childComplexity int) int
+	}
+
+	LogRecordsQueryResponse struct {
+		NextCursor func(childComplexity int) int
+		Records    func(childComplexity int) int
+	}
+
+	LogSource struct {
+		ContainerID   func(childComplexity int) int
+		ContainerName func(childComplexity int) int
+		Metadata      func(childComplexity int) int
+		Namespace     func(childComplexity int) int
+		PodName       func(childComplexity int) int
+	}
+
+	LogSourceMetadata struct {
+		Arch   func(childComplexity int) int
+		Node   func(childComplexity int) int
+		OS     func(childComplexity int) int
+		Region func(childComplexity int) int
+		Zone   func(childComplexity int) int
+	}
+
+	LogSourceWatchEvent struct {
+		Object func(childComplexity int) int
+		Type   func(childComplexity int) int
 	}
 
 	MetaV1LabelSelector struct {
@@ -565,11 +593,6 @@ type ComplexityRoot struct {
 		StartCursor     func(childComplexity int) int
 	}
 
-	PodLogQueryResponse struct {
-		PageInfo func(childComplexity int) int
-		Results  func(childComplexity int) int
-	}
-
 	Query struct {
 		AppsV1DaemonSetsGet     func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
 		AppsV1DaemonSetsList    func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
@@ -596,8 +619,7 @@ type ComplexityRoot struct {
 		KubeConfigGet           func(childComplexity int) int
 		KubernetesAPIHealthzGet func(childComplexity int, kubeContext *string) int
 		KubernetesAPIReadyWait  func(childComplexity int, kubeContext *string) int
-		PodLogHead              func(childComplexity int, kubeContext *string, namespace *string, name string, container *string, after *string, since *string, first *int) int
-		PodLogTail              func(childComplexity int, kubeContext *string, namespace *string, name string, container *string, before *string, last *int) int
+		LogRecordsFetch         func(childComplexity int, kubeContext *string, sources []string, mode *model.LogRecordsQueryMode, since *string, until *string, after *string, before *string, grep *string, sourceFilter *model.LogSourceFilter, limit *int) int
 	}
 
 	Subscription struct {
@@ -617,7 +639,8 @@ type ComplexityRoot struct {
 		KubeConfigWatch           func(childComplexity int) int
 		KubernetesAPIHealthzWatch func(childComplexity int, kubeContext *string) int
 		KubernetesAPIReadyWait    func(childComplexity int, kubeContext *string) int
-		PodLogFollow              func(childComplexity int, kubeContext *string, namespace *string, name string, container *string, after *string, since *string) int
+		LogRecordsFollow          func(childComplexity int, kubeContext *string, sources []string, since *string, after *string, grep *string, sourceFilter *model.LogSourceFilter) int
+		LogSourcesWatch           func(childComplexity int, kubeContext *string, sources []string) int
 	}
 }
 
@@ -685,8 +708,7 @@ type QueryResolver interface {
 	KubeConfigGet(ctx context.Context) (*model.KubeConfig, error)
 	KubernetesAPIReadyWait(ctx context.Context, kubeContext *string) (bool, error)
 	KubernetesAPIHealthzGet(ctx context.Context, kubeContext *string) (*model.HealthCheckResponse, error)
-	PodLogHead(ctx context.Context, kubeContext *string, namespace *string, name string, container *string, after *string, since *string, first *int) (*model.PodLogQueryResponse, error)
-	PodLogTail(ctx context.Context, kubeContext *string, namespace *string, name string, container *string, before *string, last *int) (*model.PodLogQueryResponse, error)
+	LogRecordsFetch(ctx context.Context, kubeContext *string, sources []string, mode *model.LogRecordsQueryMode, since *string, until *string, after *string, before *string, grep *string, sourceFilter *model.LogSourceFilter, limit *int) (*model.LogRecordsQueryResponse, error)
 }
 type SubscriptionResolver interface {
 	AppsV1DaemonSetsWatch(ctx context.Context, kubeContext *string, namespace *string, options *v1.ListOptions) (<-chan *watch.Event, error)
@@ -705,7 +727,8 @@ type SubscriptionResolver interface {
 	ClusterAPIHealthzWatch(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (<-chan *model.HealthCheckResponse, error)
 	ClusterAPIServicesWatch(ctx context.Context, kubeContext *string, options *v1.ListOptions) (<-chan *watch.Event, error)
 	KubeConfigWatch(ctx context.Context) (<-chan *model.KubeConfigWatchEvent, error)
-	PodLogFollow(ctx context.Context, kubeContext *string, namespace *string, name string, container *string, after *string, since *string) (<-chan *model.LogRecord, error)
+	LogRecordsFollow(ctx context.Context, kubeContext *string, sources []string, since *string, after *string, grep *string, sourceFilter *model.LogSourceFilter) (<-chan *logs.LogRecord, error)
+	LogSourcesWatch(ctx context.Context, kubeContext *string, sources []string) (<-chan *model.LogSourceWatchEvent, error)
 }
 
 type executableSchema struct {
@@ -2463,12 +2486,117 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.LogRecord.Message(childComplexity), true
 
+	case "LogRecord.source":
+		if e.complexity.LogRecord.Source == nil {
+			break
+		}
+
+		return e.complexity.LogRecord.Source(childComplexity), true
+
 	case "LogRecord.timestamp":
 		if e.complexity.LogRecord.Timestamp == nil {
 			break
 		}
 
 		return e.complexity.LogRecord.Timestamp(childComplexity), true
+
+	case "LogRecordsQueryResponse.nextCursor":
+		if e.complexity.LogRecordsQueryResponse.NextCursor == nil {
+			break
+		}
+
+		return e.complexity.LogRecordsQueryResponse.NextCursor(childComplexity), true
+
+	case "LogRecordsQueryResponse.records":
+		if e.complexity.LogRecordsQueryResponse.Records == nil {
+			break
+		}
+
+		return e.complexity.LogRecordsQueryResponse.Records(childComplexity), true
+
+	case "LogSource.containerID":
+		if e.complexity.LogSource.ContainerID == nil {
+			break
+		}
+
+		return e.complexity.LogSource.ContainerID(childComplexity), true
+
+	case "LogSource.containerName":
+		if e.complexity.LogSource.ContainerName == nil {
+			break
+		}
+
+		return e.complexity.LogSource.ContainerName(childComplexity), true
+
+	case "LogSource.metadata":
+		if e.complexity.LogSource.Metadata == nil {
+			break
+		}
+
+		return e.complexity.LogSource.Metadata(childComplexity), true
+
+	case "LogSource.namespace":
+		if e.complexity.LogSource.Namespace == nil {
+			break
+		}
+
+		return e.complexity.LogSource.Namespace(childComplexity), true
+
+	case "LogSource.podName":
+		if e.complexity.LogSource.PodName == nil {
+			break
+		}
+
+		return e.complexity.LogSource.PodName(childComplexity), true
+
+	case "LogSourceMetadata.arch":
+		if e.complexity.LogSourceMetadata.Arch == nil {
+			break
+		}
+
+		return e.complexity.LogSourceMetadata.Arch(childComplexity), true
+
+	case "LogSourceMetadata.node":
+		if e.complexity.LogSourceMetadata.Node == nil {
+			break
+		}
+
+		return e.complexity.LogSourceMetadata.Node(childComplexity), true
+
+	case "LogSourceMetadata.os":
+		if e.complexity.LogSourceMetadata.OS == nil {
+			break
+		}
+
+		return e.complexity.LogSourceMetadata.OS(childComplexity), true
+
+	case "LogSourceMetadata.region":
+		if e.complexity.LogSourceMetadata.Region == nil {
+			break
+		}
+
+		return e.complexity.LogSourceMetadata.Region(childComplexity), true
+
+	case "LogSourceMetadata.zone":
+		if e.complexity.LogSourceMetadata.Zone == nil {
+			break
+		}
+
+		return e.complexity.LogSourceMetadata.Zone(childComplexity), true
+
+	case "LogSourceWatchEvent.object":
+		if e.complexity.LogSourceWatchEvent.Object == nil {
+			break
+		}
+
+		return e.complexity.LogSourceWatchEvent.Object(childComplexity), true
+
+	case "LogSourceWatchEvent.type":
+		if e.complexity.LogSourceWatchEvent.Type == nil {
+			break
+		}
+
+		return e.complexity.LogSourceWatchEvent.Type(childComplexity), true
 
 	case "MetaV1LabelSelector.matchExpressions":
 		if e.complexity.MetaV1LabelSelector.MatchExpressions == nil {
@@ -2663,20 +2791,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.PageInfo.StartCursor(childComplexity), true
-
-	case "PodLogQueryResponse.pageInfo":
-		if e.complexity.PodLogQueryResponse.PageInfo == nil {
-			break
-		}
-
-		return e.complexity.PodLogQueryResponse.PageInfo(childComplexity), true
-
-	case "PodLogQueryResponse.results":
-		if e.complexity.PodLogQueryResponse.Results == nil {
-			break
-		}
-
-		return e.complexity.PodLogQueryResponse.Results(childComplexity), true
 
 	case "Query.appsV1DaemonSetsGet":
 		if e.complexity.Query.AppsV1DaemonSetsGet == nil {
@@ -2973,29 +3087,17 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.KubernetesAPIReadyWait(childComplexity, args["kubeContext"].(*string)), true
 
-	case "Query.podLogHead":
-		if e.complexity.Query.PodLogHead == nil {
+	case "Query.logRecordsFetch":
+		if e.complexity.Query.LogRecordsFetch == nil {
 			break
 		}
 
-		args, err := ec.field_Query_podLogHead_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_logRecordsFetch_args(context.TODO(), rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Query.PodLogHead(childComplexity, args["kubeContext"].(*string), args["namespace"].(*string), args["name"].(string), args["container"].(*string), args["after"].(*string), args["since"].(*string), args["first"].(*int)), true
-
-	case "Query.podLogTail":
-		if e.complexity.Query.PodLogTail == nil {
-			break
-		}
-
-		args, err := ec.field_Query_podLogTail_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.PodLogTail(childComplexity, args["kubeContext"].(*string), args["namespace"].(*string), args["name"].(string), args["container"].(*string), args["before"].(*string), args["last"].(*int)), true
+		return e.complexity.Query.LogRecordsFetch(childComplexity, args["kubeContext"].(*string), args["sources"].([]string), args["mode"].(*model.LogRecordsQueryMode), args["since"].(*string), args["until"].(*string), args["after"].(*string), args["before"].(*string), args["grep"].(*string), args["sourceFilter"].(*model.LogSourceFilter), args["limit"].(*int)), true
 
 	case "Subscription.appsV1DaemonSetsWatch":
 		if e.complexity.Subscription.AppsV1DaemonSetsWatch == nil {
@@ -3184,17 +3286,29 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Subscription.KubernetesAPIReadyWait(childComplexity, args["kubeContext"].(*string)), true
 
-	case "Subscription.podLogFollow":
-		if e.complexity.Subscription.PodLogFollow == nil {
+	case "Subscription.logRecordsFollow":
+		if e.complexity.Subscription.LogRecordsFollow == nil {
 			break
 		}
 
-		args, err := ec.field_Subscription_podLogFollow_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_logRecordsFollow_args(context.TODO(), rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Subscription.PodLogFollow(childComplexity, args["kubeContext"].(*string), args["namespace"].(*string), args["name"].(string), args["container"].(*string), args["after"].(*string), args["since"].(*string)), true
+		return e.complexity.Subscription.LogRecordsFollow(childComplexity, args["kubeContext"].(*string), args["sources"].([]string), args["since"].(*string), args["after"].(*string), args["grep"].(*string), args["sourceFilter"].(*model.LogSourceFilter)), true
+
+	case "Subscription.logSourcesWatch":
+		if e.complexity.Subscription.LogSourcesWatch == nil {
+			break
+		}
+
+		args, err := ec.field_Subscription_logSourcesWatch_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Subscription.LogSourcesWatch(childComplexity, args["kubeContext"].(*string), args["sources"].([]string)), true
 
 	}
 	return 0, false
@@ -3204,7 +3318,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := executionContext{opCtx, e, 0, 0, make(chan graphql.DeferredResult)}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
-		ec.unmarshalInputCoreV1PodLogOptions,
+		ec.unmarshalInputLogSourceFilter,
 		ec.unmarshalInputMetaV1GetOptions,
 		ec.unmarshalInputMetaV1ListOptions,
 	)
@@ -4835,47 +4949,62 @@ func (ec *executionContext) field_Query_kubernetesAPIReadyWait_argsKubeContext(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Query_podLogHead_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Query_logRecordsFetch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := ec.field_Query_podLogHead_argsKubeContext(ctx, rawArgs)
+	arg0, err := ec.field_Query_logRecordsFetch_argsKubeContext(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
 	args["kubeContext"] = arg0
-	arg1, err := ec.field_Query_podLogHead_argsNamespace(ctx, rawArgs)
+	arg1, err := ec.field_Query_logRecordsFetch_argsSources(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["namespace"] = arg1
-	arg2, err := ec.field_Query_podLogHead_argsName(ctx, rawArgs)
+	args["sources"] = arg1
+	arg2, err := ec.field_Query_logRecordsFetch_argsMode(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["name"] = arg2
-	arg3, err := ec.field_Query_podLogHead_argsContainer(ctx, rawArgs)
+	args["mode"] = arg2
+	arg3, err := ec.field_Query_logRecordsFetch_argsSince(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["container"] = arg3
-	arg4, err := ec.field_Query_podLogHead_argsAfter(ctx, rawArgs)
+	args["since"] = arg3
+	arg4, err := ec.field_Query_logRecordsFetch_argsUntil(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["after"] = arg4
-	arg5, err := ec.field_Query_podLogHead_argsSince(ctx, rawArgs)
+	args["until"] = arg4
+	arg5, err := ec.field_Query_logRecordsFetch_argsAfter(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["since"] = arg5
-	arg6, err := ec.field_Query_podLogHead_argsFirst(ctx, rawArgs)
+	args["after"] = arg5
+	arg6, err := ec.field_Query_logRecordsFetch_argsBefore(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["first"] = arg6
+	args["before"] = arg6
+	arg7, err := ec.field_Query_logRecordsFetch_argsGrep(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["grep"] = arg7
+	arg8, err := ec.field_Query_logRecordsFetch_argsSourceFilter(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["sourceFilter"] = arg8
+	arg9, err := ec.field_Query_logRecordsFetch_argsLimit(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["limit"] = arg9
 	return args, nil
 }
-func (ec *executionContext) field_Query_podLogHead_argsKubeContext(
+func (ec *executionContext) field_Query_logRecordsFetch_argsKubeContext(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (*string, error) {
@@ -4888,59 +5017,33 @@ func (ec *executionContext) field_Query_podLogHead_argsKubeContext(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Query_podLogHead_argsNamespace(
+func (ec *executionContext) field_Query_logRecordsFetch_argsSources(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("namespace"))
-	if tmp, ok := rawArgs["namespace"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+) ([]string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("sources"))
+	if tmp, ok := rawArgs["sources"]; ok {
+		return ec.unmarshalNString2ᚕstringᚄ(ctx, tmp)
 	}
 
-	var zeroVal *string
+	var zeroVal []string
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Query_podLogHead_argsName(
+func (ec *executionContext) field_Query_logRecordsFetch_argsMode(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
-	if tmp, ok := rawArgs["name"]; ok {
-		return ec.unmarshalNString2string(ctx, tmp)
+) (*model.LogRecordsQueryMode, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("mode"))
+	if tmp, ok := rawArgs["mode"]; ok {
+		return ec.unmarshalOLogRecordsQueryMode2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐLogRecordsQueryMode(ctx, tmp)
 	}
 
-	var zeroVal string
+	var zeroVal *model.LogRecordsQueryMode
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Query_podLogHead_argsContainer(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("container"))
-	if tmp, ok := rawArgs["container"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_podLogHead_argsAfter(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("after"))
-	if tmp, ok := rawArgs["after"]; ok {
-		return ec.unmarshalOID2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_podLogHead_argsSince(
+func (ec *executionContext) field_Query_logRecordsFetch_argsSince(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (*string, error) {
@@ -4953,95 +5056,12 @@ func (ec *executionContext) field_Query_podLogHead_argsSince(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Query_podLogHead_argsFirst(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*int, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("first"))
-	directive0 := func(ctx context.Context) (any, error) {
-		tmp, ok := rawArgs["first"]
-		if !ok {
-			var zeroVal *int
-			return zeroVal, nil
-		}
-		return ec.unmarshalOInt2ᚖint(ctx, tmp)
-	}
-
-	directive1 := func(ctx context.Context) (any, error) {
-		rule, err := ec.unmarshalNString2string(ctx, "gte=0")
-		if err != nil {
-			var zeroVal *int
-			return zeroVal, err
-		}
-		message, err := ec.unmarshalOString2ᚖstring(ctx, "Value must be >= 0")
-		if err != nil {
-			var zeroVal *int
-			return zeroVal, err
-		}
-		if ec.directives.Validate == nil {
-			var zeroVal *int
-			return zeroVal, errors.New("directive validate is not implemented")
-		}
-		return ec.directives.Validate(ctx, rawArgs, directive0, rule, message)
-	}
-
-	tmp, err := directive1(ctx)
-	if err != nil {
-		var zeroVal *int
-		return zeroVal, graphql.ErrorOnPath(ctx, err)
-	}
-	if data, ok := tmp.(*int); ok {
-		return data, nil
-	} else if tmp == nil {
-		var zeroVal *int
-		return zeroVal, nil
-	} else {
-		var zeroVal *int
-		return zeroVal, graphql.ErrorOnPath(ctx, fmt.Errorf(`unexpected type %T from directive, should be *int`, tmp))
-	}
-}
-
-func (ec *executionContext) field_Query_podLogTail_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Query_podLogTail_argsKubeContext(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["kubeContext"] = arg0
-	arg1, err := ec.field_Query_podLogTail_argsNamespace(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["namespace"] = arg1
-	arg2, err := ec.field_Query_podLogTail_argsName(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["name"] = arg2
-	arg3, err := ec.field_Query_podLogTail_argsContainer(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["container"] = arg3
-	arg4, err := ec.field_Query_podLogTail_argsBefore(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["before"] = arg4
-	arg5, err := ec.field_Query_podLogTail_argsLast(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["last"] = arg5
-	return args, nil
-}
-func (ec *executionContext) field_Query_podLogTail_argsKubeContext(
+func (ec *executionContext) field_Query_logRecordsFetch_argsUntil(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("kubeContext"))
-	if tmp, ok := rawArgs["kubeContext"]; ok {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("until"))
+	if tmp, ok := rawArgs["until"]; ok {
 		return ec.unmarshalOString2ᚖstring(ctx, tmp)
 	}
 
@@ -5049,12 +5069,12 @@ func (ec *executionContext) field_Query_podLogTail_argsKubeContext(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Query_podLogTail_argsNamespace(
+func (ec *executionContext) field_Query_logRecordsFetch_argsAfter(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("namespace"))
-	if tmp, ok := rawArgs["namespace"]; ok {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("after"))
+	if tmp, ok := rawArgs["after"]; ok {
 		return ec.unmarshalOString2ᚖstring(ctx, tmp)
 	}
 
@@ -5062,52 +5082,52 @@ func (ec *executionContext) field_Query_podLogTail_argsNamespace(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Query_podLogTail_argsName(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
-	if tmp, ok := rawArgs["name"]; ok {
-		return ec.unmarshalNString2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_podLogTail_argsContainer(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("container"))
-	if tmp, ok := rawArgs["container"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_podLogTail_argsBefore(
+func (ec *executionContext) field_Query_logRecordsFetch_argsBefore(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (*string, error) {
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("before"))
 	if tmp, ok := rawArgs["before"]; ok {
-		return ec.unmarshalOID2ᚖstring(ctx, tmp)
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
 	}
 
 	var zeroVal *string
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Query_podLogTail_argsLast(
+func (ec *executionContext) field_Query_logRecordsFetch_argsGrep(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("grep"))
+	if tmp, ok := rawArgs["grep"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_logRecordsFetch_argsSourceFilter(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*model.LogSourceFilter, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("sourceFilter"))
+	if tmp, ok := rawArgs["sourceFilter"]; ok {
+		return ec.unmarshalOLogSourceFilter2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐLogSourceFilter(ctx, tmp)
+	}
+
+	var zeroVal *model.LogSourceFilter
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_logRecordsFetch_argsLimit(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (*int, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("last"))
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("limit"))
 	directive0 := func(ctx context.Context) (any, error) {
-		tmp, ok := rawArgs["last"]
+		tmp, ok := rawArgs["limit"]
 		if !ok {
 			var zeroVal *int
 			return zeroVal, nil
@@ -5908,42 +5928,42 @@ func (ec *executionContext) field_Subscription_kubernetesAPIReadyWait_argsKubeCo
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Subscription_podLogFollow_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Subscription_logRecordsFollow_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := ec.field_Subscription_podLogFollow_argsKubeContext(ctx, rawArgs)
+	arg0, err := ec.field_Subscription_logRecordsFollow_argsKubeContext(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
 	args["kubeContext"] = arg0
-	arg1, err := ec.field_Subscription_podLogFollow_argsNamespace(ctx, rawArgs)
+	arg1, err := ec.field_Subscription_logRecordsFollow_argsSources(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["namespace"] = arg1
-	arg2, err := ec.field_Subscription_podLogFollow_argsName(ctx, rawArgs)
+	args["sources"] = arg1
+	arg2, err := ec.field_Subscription_logRecordsFollow_argsSince(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["name"] = arg2
-	arg3, err := ec.field_Subscription_podLogFollow_argsContainer(ctx, rawArgs)
+	args["since"] = arg2
+	arg3, err := ec.field_Subscription_logRecordsFollow_argsAfter(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["container"] = arg3
-	arg4, err := ec.field_Subscription_podLogFollow_argsAfter(ctx, rawArgs)
+	args["after"] = arg3
+	arg4, err := ec.field_Subscription_logRecordsFollow_argsGrep(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["after"] = arg4
-	arg5, err := ec.field_Subscription_podLogFollow_argsSince(ctx, rawArgs)
+	args["grep"] = arg4
+	arg5, err := ec.field_Subscription_logRecordsFollow_argsSourceFilter(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["since"] = arg5
+	args["sourceFilter"] = arg5
 	return args, nil
 }
-func (ec *executionContext) field_Subscription_podLogFollow_argsKubeContext(
+func (ec *executionContext) field_Subscription_logRecordsFollow_argsKubeContext(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (*string, error) {
@@ -5956,59 +5976,20 @@ func (ec *executionContext) field_Subscription_podLogFollow_argsKubeContext(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Subscription_podLogFollow_argsNamespace(
+func (ec *executionContext) field_Subscription_logRecordsFollow_argsSources(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("namespace"))
-	if tmp, ok := rawArgs["namespace"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+) ([]string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("sources"))
+	if tmp, ok := rawArgs["sources"]; ok {
+		return ec.unmarshalNString2ᚕstringᚄ(ctx, tmp)
 	}
 
-	var zeroVal *string
+	var zeroVal []string
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Subscription_podLogFollow_argsName(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
-	if tmp, ok := rawArgs["name"]; ok {
-		return ec.unmarshalNString2string(ctx, tmp)
-	}
-
-	var zeroVal string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Subscription_podLogFollow_argsContainer(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("container"))
-	if tmp, ok := rawArgs["container"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Subscription_podLogFollow_argsAfter(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("after"))
-	if tmp, ok := rawArgs["after"]; ok {
-		return ec.unmarshalOID2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Subscription_podLogFollow_argsSince(
+func (ec *executionContext) field_Subscription_logRecordsFollow_argsSince(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (*string, error) {
@@ -6018,6 +5999,86 @@ func (ec *executionContext) field_Subscription_podLogFollow_argsSince(
 	}
 
 	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Subscription_logRecordsFollow_argsAfter(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("after"))
+	if tmp, ok := rawArgs["after"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Subscription_logRecordsFollow_argsGrep(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("grep"))
+	if tmp, ok := rawArgs["grep"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Subscription_logRecordsFollow_argsSourceFilter(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*model.LogSourceFilter, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("sourceFilter"))
+	if tmp, ok := rawArgs["sourceFilter"]; ok {
+		return ec.unmarshalOLogSourceFilter2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐLogSourceFilter(ctx, tmp)
+	}
+
+	var zeroVal *model.LogSourceFilter
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Subscription_logSourcesWatch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Subscription_logSourcesWatch_argsKubeContext(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["kubeContext"] = arg0
+	arg1, err := ec.field_Subscription_logSourcesWatch_argsSources(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["sources"] = arg1
+	return args, nil
+}
+func (ec *executionContext) field_Subscription_logSourcesWatch_argsKubeContext(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("kubeContext"))
+	if tmp, ok := rawArgs["kubeContext"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Subscription_logSourcesWatch_argsSources(
+	ctx context.Context,
+	rawArgs map[string]any,
+) ([]string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("sources"))
+	if tmp, ok := rawArgs["sources"]; ok {
+		return ec.unmarshalNString2ᚕstringᚄ(ctx, tmp)
+	}
+
+	var zeroVal []string
 	return zeroVal, nil
 }
 
@@ -17759,7 +17820,7 @@ func (ec *executionContext) fieldContext_KubeConfigWatchEvent_object(_ context.C
 	return fc, nil
 }
 
-func (ec *executionContext) _LogRecord_timestamp(ctx context.Context, field graphql.CollectedField, obj *model.LogRecord) (ret graphql.Marshaler) {
+func (ec *executionContext) _LogRecord_timestamp(ctx context.Context, field graphql.CollectedField, obj *logs.LogRecord) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_LogRecord_timestamp(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -17803,7 +17864,7 @@ func (ec *executionContext) fieldContext_LogRecord_timestamp(_ context.Context, 
 	return fc, nil
 }
 
-func (ec *executionContext) _LogRecord_message(ctx context.Context, field graphql.CollectedField, obj *model.LogRecord) (ret graphql.Marshaler) {
+func (ec *executionContext) _LogRecord_message(ctx context.Context, field graphql.CollectedField, obj *logs.LogRecord) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_LogRecord_message(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -17842,6 +17903,704 @@ func (ec *executionContext) fieldContext_LogRecord_message(_ context.Context, fi
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LogRecord_source(ctx context.Context, field graphql.CollectedField, obj *logs.LogRecord) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LogRecord_source(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Source, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(logs.LogSource)
+	fc.Result = res
+	return ec.marshalNLogSource2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋsharedᚋlogsᚐLogSource(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LogRecord_source(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LogRecord",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "metadata":
+				return ec.fieldContext_LogSource_metadata(ctx, field)
+			case "namespace":
+				return ec.fieldContext_LogSource_namespace(ctx, field)
+			case "podName":
+				return ec.fieldContext_LogSource_podName(ctx, field)
+			case "containerName":
+				return ec.fieldContext_LogSource_containerName(ctx, field)
+			case "containerID":
+				return ec.fieldContext_LogSource_containerID(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type LogSource", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LogRecordsQueryResponse_records(ctx context.Context, field graphql.CollectedField, obj *model.LogRecordsQueryResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LogRecordsQueryResponse_records(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Records, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*logs.LogRecord)
+	fc.Result = res
+	return ec.marshalNLogRecord2ᚕᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋsharedᚋlogsᚐLogRecordᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LogRecordsQueryResponse_records(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LogRecordsQueryResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "timestamp":
+				return ec.fieldContext_LogRecord_timestamp(ctx, field)
+			case "message":
+				return ec.fieldContext_LogRecord_message(ctx, field)
+			case "source":
+				return ec.fieldContext_LogRecord_source(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type LogRecord", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LogRecordsQueryResponse_nextCursor(ctx context.Context, field graphql.CollectedField, obj *model.LogRecordsQueryResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LogRecordsQueryResponse_nextCursor(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.NextCursor, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOID2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LogRecordsQueryResponse_nextCursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LogRecordsQueryResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LogSource_metadata(ctx context.Context, field graphql.CollectedField, obj *logs.LogSource) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LogSource_metadata(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Metadata, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(logs.LogSourceMetadata)
+	fc.Result = res
+	return ec.marshalNLogSourceMetadata2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋsharedᚋlogsᚐLogSourceMetadata(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LogSource_metadata(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LogSource",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "region":
+				return ec.fieldContext_LogSourceMetadata_region(ctx, field)
+			case "zone":
+				return ec.fieldContext_LogSourceMetadata_zone(ctx, field)
+			case "os":
+				return ec.fieldContext_LogSourceMetadata_os(ctx, field)
+			case "arch":
+				return ec.fieldContext_LogSourceMetadata_arch(ctx, field)
+			case "node":
+				return ec.fieldContext_LogSourceMetadata_node(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type LogSourceMetadata", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LogSource_namespace(ctx context.Context, field graphql.CollectedField, obj *logs.LogSource) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LogSource_namespace(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Namespace, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LogSource_namespace(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LogSource",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LogSource_podName(ctx context.Context, field graphql.CollectedField, obj *logs.LogSource) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LogSource_podName(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.PodName, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LogSource_podName(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LogSource",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LogSource_containerName(ctx context.Context, field graphql.CollectedField, obj *logs.LogSource) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LogSource_containerName(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ContainerName, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LogSource_containerName(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LogSource",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LogSource_containerID(ctx context.Context, field graphql.CollectedField, obj *logs.LogSource) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LogSource_containerID(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ContainerID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LogSource_containerID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LogSource",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LogSourceMetadata_region(ctx context.Context, field graphql.CollectedField, obj *logs.LogSourceMetadata) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LogSourceMetadata_region(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Region, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LogSourceMetadata_region(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LogSourceMetadata",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LogSourceMetadata_zone(ctx context.Context, field graphql.CollectedField, obj *logs.LogSourceMetadata) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LogSourceMetadata_zone(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Zone, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LogSourceMetadata_zone(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LogSourceMetadata",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LogSourceMetadata_os(ctx context.Context, field graphql.CollectedField, obj *logs.LogSourceMetadata) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LogSourceMetadata_os(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.OS, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LogSourceMetadata_os(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LogSourceMetadata",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LogSourceMetadata_arch(ctx context.Context, field graphql.CollectedField, obj *logs.LogSourceMetadata) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LogSourceMetadata_arch(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Arch, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LogSourceMetadata_arch(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LogSourceMetadata",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LogSourceMetadata_node(ctx context.Context, field graphql.CollectedField, obj *logs.LogSourceMetadata) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LogSourceMetadata_node(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Node, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LogSourceMetadata_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LogSourceMetadata",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LogSourceWatchEvent_type(ctx context.Context, field graphql.CollectedField, obj *model.LogSourceWatchEvent) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LogSourceWatchEvent_type(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Type, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(watch.EventType)
+	fc.Result = res
+	return ec.marshalNWatchEventType2k8sᚗioᚋapimachineryᚋpkgᚋwatchᚐEventType(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LogSourceWatchEvent_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LogSourceWatchEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type WatchEventType does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LogSourceWatchEvent_object(ctx context.Context, field graphql.CollectedField, obj *model.LogSourceWatchEvent) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LogSourceWatchEvent_object(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Object, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*logs.LogSource)
+	fc.Result = res
+	return ec.marshalOLogSource2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋsharedᚋlogsᚐLogSource(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LogSourceWatchEvent_object(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LogSourceWatchEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "metadata":
+				return ec.fieldContext_LogSource_metadata(ctx, field)
+			case "namespace":
+				return ec.fieldContext_LogSource_namespace(ctx, field)
+			case "podName":
+				return ec.fieldContext_LogSource_podName(ctx, field)
+			case "containerName":
+				return ec.fieldContext_LogSource_containerName(ctx, field)
+			case "containerID":
+				return ec.fieldContext_LogSource_containerID(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type LogSource", field.Name)
 		},
 	}
 	return fc, nil
@@ -19044,110 +19803,6 @@ func (ec *executionContext) fieldContext_PageInfo_startCursor(_ context.Context,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type ID does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _PodLogQueryResponse_results(ctx context.Context, field graphql.CollectedField, obj *model.PodLogQueryResponse) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_PodLogQueryResponse_results(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Results, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.([]*model.LogRecord)
-	fc.Result = res
-	return ec.marshalNLogRecord2ᚕᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐLogRecordᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_PodLogQueryResponse_results(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "PodLogQueryResponse",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "timestamp":
-				return ec.fieldContext_LogRecord_timestamp(ctx, field)
-			case "message":
-				return ec.fieldContext_LogRecord_message(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type LogRecord", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _PodLogQueryResponse_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.PodLogQueryResponse) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_PodLogQueryResponse_pageInfo(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.PageInfo, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*model.PageInfo)
-	fc.Result = res
-	return ec.marshalNPageInfo2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐPageInfo(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_PodLogQueryResponse_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "PodLogQueryResponse",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "endCursor":
-				return ec.fieldContext_PageInfo_endCursor(ctx, field)
-			case "hasNextPage":
-				return ec.fieldContext_PageInfo_hasNextPage(ctx, field)
-			case "hasPreviousPage":
-				return ec.fieldContext_PageInfo_hasPreviousPage(ctx, field)
-			case "startCursor":
-				return ec.fieldContext_PageInfo_startCursor(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
 		},
 	}
 	return fc, nil
@@ -20713,8 +21368,8 @@ func (ec *executionContext) fieldContext_Query_kubernetesAPIHealthzGet(ctx conte
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_podLogHead(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_podLogHead(ctx, field)
+func (ec *executionContext) _Query_logRecordsFetch(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_logRecordsFetch(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -20728,12 +21383,12 @@ func (ec *executionContext) _Query_podLogHead(ctx context.Context, field graphql
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		directive0 := func(rctx context.Context) (any, error) {
 			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Query().PodLogHead(rctx, fc.Args["kubeContext"].(*string), fc.Args["namespace"].(*string), fc.Args["name"].(string), fc.Args["container"].(*string), fc.Args["after"].(*string), fc.Args["since"].(*string), fc.Args["first"].(*int))
+			return ec.resolvers.Query().LogRecordsFetch(rctx, fc.Args["kubeContext"].(*string), fc.Args["sources"].([]string), fc.Args["mode"].(*model.LogRecordsQueryMode), fc.Args["since"].(*string), fc.Args["until"].(*string), fc.Args["after"].(*string), fc.Args["before"].(*string), fc.Args["grep"].(*string), fc.Args["sourceFilter"].(*model.LogSourceFilter), fc.Args["limit"].(*int))
 		}
 
 		directive1 := func(ctx context.Context) (any, error) {
 			if ec.directives.NullIfValidationFailed == nil {
-				var zeroVal *model.PodLogQueryResponse
+				var zeroVal *model.LogRecordsQueryResponse
 				return zeroVal, errors.New("directive nullIfValidationFailed is not implemented")
 			}
 			return ec.directives.NullIfValidationFailed(ctx, nil, directive0)
@@ -20746,10 +21401,10 @@ func (ec *executionContext) _Query_podLogHead(ctx context.Context, field graphql
 		if tmp == nil {
 			return nil, nil
 		}
-		if data, ok := tmp.(*model.PodLogQueryResponse); ok {
+		if data, ok := tmp.(*model.LogRecordsQueryResponse); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/kubetail-org/kubetail/modules/dashboard/graph/model.PodLogQueryResponse`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/kubetail-org/kubetail/modules/dashboard/graph/model.LogRecordsQueryResponse`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -20758,12 +21413,12 @@ func (ec *executionContext) _Query_podLogHead(ctx context.Context, field graphql
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(*model.PodLogQueryResponse)
+	res := resTmp.(*model.LogRecordsQueryResponse)
 	fc.Result = res
-	return ec.marshalOPodLogQueryResponse2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐPodLogQueryResponse(ctx, field.Selections, res)
+	return ec.marshalOLogRecordsQueryResponse2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐLogRecordsQueryResponse(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Query_podLogHead(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_logRecordsFetch(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
@@ -20771,12 +21426,12 @@ func (ec *executionContext) fieldContext_Query_podLogHead(ctx context.Context, f
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "results":
-				return ec.fieldContext_PodLogQueryResponse_results(ctx, field)
-			case "pageInfo":
-				return ec.fieldContext_PodLogQueryResponse_pageInfo(ctx, field)
+			case "records":
+				return ec.fieldContext_LogRecordsQueryResponse_records(ctx, field)
+			case "nextCursor":
+				return ec.fieldContext_LogRecordsQueryResponse_nextCursor(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type PodLogQueryResponse", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type LogRecordsQueryResponse", field.Name)
 		},
 	}
 	defer func() {
@@ -20786,87 +21441,7 @@ func (ec *executionContext) fieldContext_Query_podLogHead(ctx context.Context, f
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_podLogHead_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_podLogTail(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_podLogTail(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		directive0 := func(rctx context.Context) (any, error) {
-			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Query().PodLogTail(rctx, fc.Args["kubeContext"].(*string), fc.Args["namespace"].(*string), fc.Args["name"].(string), fc.Args["container"].(*string), fc.Args["before"].(*string), fc.Args["last"].(*int))
-		}
-
-		directive1 := func(ctx context.Context) (any, error) {
-			if ec.directives.NullIfValidationFailed == nil {
-				var zeroVal *model.PodLogQueryResponse
-				return zeroVal, errors.New("directive nullIfValidationFailed is not implemented")
-			}
-			return ec.directives.NullIfValidationFailed(ctx, nil, directive0)
-		}
-
-		tmp, err := directive1(rctx)
-		if err != nil {
-			return nil, graphql.ErrorOnPath(ctx, err)
-		}
-		if tmp == nil {
-			return nil, nil
-		}
-		if data, ok := tmp.(*model.PodLogQueryResponse); ok {
-			return data, nil
-		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/kubetail-org/kubetail/modules/dashboard/graph/model.PodLogQueryResponse`, tmp)
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*model.PodLogQueryResponse)
-	fc.Result = res
-	return ec.marshalOPodLogQueryResponse2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐPodLogQueryResponse(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_podLogTail(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "results":
-				return ec.fieldContext_PodLogQueryResponse_results(ctx, field)
-			case "pageInfo":
-				return ec.fieldContext_PodLogQueryResponse_pageInfo(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type PodLogQueryResponse", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_podLogTail_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Query_logRecordsFetch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -20915,6 +21490,8 @@ func (ec *executionContext) fieldContext_Query___type(ctx context.Context, field
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -20927,8 +21504,6 @@ func (ec *executionContext) fieldContext_Query___type(ctx context.Context, field
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -22149,8 +22724,8 @@ func (ec *executionContext) fieldContext_Subscription_kubeConfigWatch(_ context.
 	return fc, nil
 }
 
-func (ec *executionContext) _Subscription_podLogFollow(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
-	fc, err := ec.fieldContext_Subscription_podLogFollow(ctx, field)
+func (ec *executionContext) _Subscription_logRecordsFollow(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	fc, err := ec.fieldContext_Subscription_logRecordsFollow(ctx, field)
 	if err != nil {
 		return nil
 	}
@@ -22164,12 +22739,12 @@ func (ec *executionContext) _Subscription_podLogFollow(ctx context.Context, fiel
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		directive0 := func(rctx context.Context) (any, error) {
 			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Subscription().PodLogFollow(rctx, fc.Args["kubeContext"].(*string), fc.Args["namespace"].(*string), fc.Args["name"].(string), fc.Args["container"].(*string), fc.Args["after"].(*string), fc.Args["since"].(*string))
+			return ec.resolvers.Subscription().LogRecordsFollow(rctx, fc.Args["kubeContext"].(*string), fc.Args["sources"].([]string), fc.Args["since"].(*string), fc.Args["after"].(*string), fc.Args["grep"].(*string), fc.Args["sourceFilter"].(*model.LogSourceFilter))
 		}
 
 		directive1 := func(ctx context.Context) (any, error) {
 			if ec.directives.NullIfValidationFailed == nil {
-				var zeroVal *model.LogRecord
+				var zeroVal *logs.LogRecord
 				return zeroVal, errors.New("directive nullIfValidationFailed is not implemented")
 			}
 			return ec.directives.NullIfValidationFailed(ctx, nil, directive0)
@@ -22182,10 +22757,10 @@ func (ec *executionContext) _Subscription_podLogFollow(ctx context.Context, fiel
 		if tmp == nil {
 			return nil, nil
 		}
-		if data, ok := tmp.(<-chan *model.LogRecord); ok {
+		if data, ok := tmp.(<-chan *logs.LogRecord); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be <-chan *github.com/kubetail-org/kubetail/modules/dashboard/graph/model.LogRecord`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be <-chan *github.com/kubetail-org/kubetail/modules/shared/logs.LogRecord`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -22196,7 +22771,7 @@ func (ec *executionContext) _Subscription_podLogFollow(ctx context.Context, fiel
 	}
 	return func(ctx context.Context) graphql.Marshaler {
 		select {
-		case res, ok := <-resTmp.(<-chan *model.LogRecord):
+		case res, ok := <-resTmp.(<-chan *logs.LogRecord):
 			if !ok {
 				return nil
 			}
@@ -22204,7 +22779,7 @@ func (ec *executionContext) _Subscription_podLogFollow(ctx context.Context, fiel
 				w.Write([]byte{'{'})
 				graphql.MarshalString(field.Alias).MarshalGQL(w)
 				w.Write([]byte{':'})
-				ec.marshalOLogRecord2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐLogRecord(ctx, field.Selections, res).MarshalGQL(w)
+				ec.marshalOLogRecord2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋsharedᚋlogsᚐLogRecord(ctx, field.Selections, res).MarshalGQL(w)
 				w.Write([]byte{'}'})
 			})
 		case <-ctx.Done():
@@ -22213,7 +22788,7 @@ func (ec *executionContext) _Subscription_podLogFollow(ctx context.Context, fiel
 	}
 }
 
-func (ec *executionContext) fieldContext_Subscription_podLogFollow(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Subscription_logRecordsFollow(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Subscription",
 		Field:      field,
@@ -22225,6 +22800,8 @@ func (ec *executionContext) fieldContext_Subscription_podLogFollow(ctx context.C
 				return ec.fieldContext_LogRecord_timestamp(ctx, field)
 			case "message":
 				return ec.fieldContext_LogRecord_message(ctx, field)
+			case "source":
+				return ec.fieldContext_LogRecord_source(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type LogRecord", field.Name)
 		},
@@ -22236,7 +22813,79 @@ func (ec *executionContext) fieldContext_Subscription_podLogFollow(ctx context.C
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Subscription_podLogFollow_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Subscription_logRecordsFollow_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_logSourcesWatch(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	fc, err := ec.fieldContext_Subscription_logSourcesWatch(ctx, field)
+	if err != nil {
+		return nil
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = nil
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Subscription().LogSourcesWatch(rctx, fc.Args["kubeContext"].(*string), fc.Args["sources"].([]string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return nil
+	}
+	if resTmp == nil {
+		return nil
+	}
+	return func(ctx context.Context) graphql.Marshaler {
+		select {
+		case res, ok := <-resTmp.(<-chan *model.LogSourceWatchEvent):
+			if !ok {
+				return nil
+			}
+			return graphql.WriterFunc(func(w io.Writer) {
+				w.Write([]byte{'{'})
+				graphql.MarshalString(field.Alias).MarshalGQL(w)
+				w.Write([]byte{':'})
+				ec.marshalOLogSourceWatchEvent2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐLogSourceWatchEvent(ctx, field.Selections, res).MarshalGQL(w)
+				w.Write([]byte{'}'})
+			})
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (ec *executionContext) fieldContext_Subscription_logSourcesWatch(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "type":
+				return ec.fieldContext_LogSourceWatchEvent_type(ctx, field)
+			case "object":
+				return ec.fieldContext_LogSourceWatchEvent_object(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type LogSourceWatchEvent", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Subscription_logSourcesWatch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -22323,6 +22972,50 @@ func (ec *executionContext) fieldContext___Directive_description(_ context.Conte
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) ___Directive_isRepeatable(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Directive_isRepeatable(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.IsRepeatable, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext___Directive_isRepeatable(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Directive",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
 		},
 	}
 	return fc, nil
@@ -22437,50 +23130,6 @@ func (ec *executionContext) fieldContext___Directive_args(ctx context.Context, f
 	if fc.Args, err = ec.field___Directive_args_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) ___Directive_isRepeatable(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext___Directive_isRepeatable(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.IsRepeatable, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(bool)
-	fc.Result = res
-	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext___Directive_isRepeatable(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "__Directive",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Boolean does not have child fields")
-		},
 	}
 	return fc, nil
 }
@@ -22854,6 +23503,8 @@ func (ec *executionContext) fieldContext___Field_type(_ context.Context, field g
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -22866,8 +23517,6 @@ func (ec *executionContext) fieldContext___Field_type(_ context.Context, field g
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -23092,6 +23741,8 @@ func (ec *executionContext) fieldContext___InputValue_type(_ context.Context, fi
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -23104,8 +23755,6 @@ func (ec *executionContext) fieldContext___InputValue_type(_ context.Context, fi
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -23327,6 +23976,8 @@ func (ec *executionContext) fieldContext___Schema_types(_ context.Context, field
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -23339,8 +23990,6 @@ func (ec *executionContext) fieldContext___Schema_types(_ context.Context, field
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -23395,6 +24044,8 @@ func (ec *executionContext) fieldContext___Schema_queryType(_ context.Context, f
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -23407,8 +24058,6 @@ func (ec *executionContext) fieldContext___Schema_queryType(_ context.Context, f
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -23460,6 +24109,8 @@ func (ec *executionContext) fieldContext___Schema_mutationType(_ context.Context
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -23472,8 +24123,6 @@ func (ec *executionContext) fieldContext___Schema_mutationType(_ context.Context
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -23525,6 +24174,8 @@ func (ec *executionContext) fieldContext___Schema_subscriptionType(_ context.Con
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -23537,8 +24188,6 @@ func (ec *executionContext) fieldContext___Schema_subscriptionType(_ context.Con
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -23591,12 +24240,12 @@ func (ec *executionContext) fieldContext___Schema_directives(_ context.Context, 
 				return ec.fieldContext___Directive_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Directive_description(ctx, field)
+			case "isRepeatable":
+				return ec.fieldContext___Directive_isRepeatable(ctx, field)
 			case "locations":
 				return ec.fieldContext___Directive_locations(ctx, field)
 			case "args":
 				return ec.fieldContext___Directive_args(ctx, field)
-			case "isRepeatable":
-				return ec.fieldContext___Directive_isRepeatable(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type __Directive", field.Name)
 		},
@@ -23730,6 +24379,47 @@ func (ec *executionContext) fieldContext___Type_description(_ context.Context, f
 	return fc, nil
 }
 
+func (ec *executionContext) ___Type_specifiedByURL(ctx context.Context, field graphql.CollectedField, obj *introspection.Type) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext___Type_specifiedByURL(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.SpecifiedByURL(), nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext___Type_specifiedByURL(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "__Type",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) ___Type_fields(ctx context.Context, field graphql.CollectedField, obj *introspection.Type) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext___Type_fields(ctx, field)
 	if err != nil {
@@ -23838,6 +24528,8 @@ func (ec *executionContext) fieldContext___Type_interfaces(_ context.Context, fi
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -23850,8 +24542,6 @@ func (ec *executionContext) fieldContext___Type_interfaces(_ context.Context, fi
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -23903,6 +24593,8 @@ func (ec *executionContext) fieldContext___Type_possibleTypes(_ context.Context,
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -23915,8 +24607,6 @@ func (ec *executionContext) fieldContext___Type_possibleTypes(_ context.Context,
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
@@ -24085,6 +24775,8 @@ func (ec *executionContext) fieldContext___Type_ofType(_ context.Context, field 
 				return ec.fieldContext___Type_name(ctx, field)
 			case "description":
 				return ec.fieldContext___Type_description(ctx, field)
+			case "specifiedByURL":
+				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "fields":
 				return ec.fieldContext___Type_fields(ctx, field)
 			case "interfaces":
@@ -24097,53 +24789,10 @@ func (ec *executionContext) fieldContext___Type_ofType(_ context.Context, field 
 				return ec.fieldContext___Type_inputFields(ctx, field)
 			case "ofType":
 				return ec.fieldContext___Type_ofType(ctx, field)
-			case "specifiedByURL":
-				return ec.fieldContext___Type_specifiedByURL(ctx, field)
 			case "isOneOf":
 				return ec.fieldContext___Type_isOneOf(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type __Type", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) ___Type_specifiedByURL(ctx context.Context, field graphql.CollectedField, obj *introspection.Type) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext___Type_specifiedByURL(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.SpecifiedByURL(), nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*string)
-	fc.Result = res
-	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext___Type_specifiedByURL(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "__Type",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -24194,62 +24843,62 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
-func (ec *executionContext) unmarshalInputCoreV1PodLogOptions(ctx context.Context, obj any) (v13.PodLogOptions, error) {
-	var it v13.PodLogOptions
+func (ec *executionContext) unmarshalInputLogSourceFilter(ctx context.Context, obj any) (model.LogSourceFilter, error) {
+	var it model.LogSourceFilter
 	asMap := map[string]any{}
 	for k, v := range obj.(map[string]any) {
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"container", "previous", "sinceSeconds", "sinceTime", "tailLines", "limitBytes"}
+	fieldsInOrder := [...]string{"region", "zone", "os", "arch", "node", "container"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
+		case "region":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("region"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Region = data
+		case "zone":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("zone"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Zone = data
+		case "os":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("os"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Os = data
+		case "arch":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("arch"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Arch = data
+		case "node":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("node"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Node = data
 		case "container":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("container"))
-			data, err := ec.unmarshalOString2string(ctx, v)
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.Container = data
-		case "previous":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("previous"))
-			data, err := ec.unmarshalOBoolean2bool(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Previous = data
-		case "sinceSeconds":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sinceSeconds"))
-			data, err := ec.unmarshalOInt642ᚖint64(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.SinceSeconds = data
-		case "sinceTime":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sinceTime"))
-			data, err := ec.unmarshalOMetaV1Time2ᚖk8sᚗioᚋapimachineryᚋpkgᚋapisᚋmetaᚋv1ᚐTime(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.SinceTime = data
-		case "tailLines":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("tailLines"))
-			data, err := ec.unmarshalOInt642ᚖint64(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.TailLines = data
-		case "limitBytes":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("limitBytes"))
-			data, err := ec.unmarshalOInt642ᚖint64(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.LimitBytes = data
 		}
 	}
 
@@ -28191,7 +28840,7 @@ func (ec *executionContext) _KubeConfigWatchEvent(ctx context.Context, sel ast.S
 
 var logRecordImplementors = []string{"LogRecord"}
 
-func (ec *executionContext) _LogRecord(ctx context.Context, sel ast.SelectionSet, obj *model.LogRecord) graphql.Marshaler {
+func (ec *executionContext) _LogRecord(ctx context.Context, sel ast.SelectionSet, obj *logs.LogRecord) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, logRecordImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -28210,6 +28859,211 @@ func (ec *executionContext) _LogRecord(ctx context.Context, sel ast.SelectionSet
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "source":
+			out.Values[i] = ec._LogRecord_source(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var logRecordsQueryResponseImplementors = []string{"LogRecordsQueryResponse"}
+
+func (ec *executionContext) _LogRecordsQueryResponse(ctx context.Context, sel ast.SelectionSet, obj *model.LogRecordsQueryResponse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, logRecordsQueryResponseImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("LogRecordsQueryResponse")
+		case "records":
+			out.Values[i] = ec._LogRecordsQueryResponse_records(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "nextCursor":
+			out.Values[i] = ec._LogRecordsQueryResponse_nextCursor(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var logSourceImplementors = []string{"LogSource"}
+
+func (ec *executionContext) _LogSource(ctx context.Context, sel ast.SelectionSet, obj *logs.LogSource) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, logSourceImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("LogSource")
+		case "metadata":
+			out.Values[i] = ec._LogSource_metadata(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "namespace":
+			out.Values[i] = ec._LogSource_namespace(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "podName":
+			out.Values[i] = ec._LogSource_podName(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "containerName":
+			out.Values[i] = ec._LogSource_containerName(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "containerID":
+			out.Values[i] = ec._LogSource_containerID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var logSourceMetadataImplementors = []string{"LogSourceMetadata"}
+
+func (ec *executionContext) _LogSourceMetadata(ctx context.Context, sel ast.SelectionSet, obj *logs.LogSourceMetadata) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, logSourceMetadataImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("LogSourceMetadata")
+		case "region":
+			out.Values[i] = ec._LogSourceMetadata_region(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "zone":
+			out.Values[i] = ec._LogSourceMetadata_zone(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "os":
+			out.Values[i] = ec._LogSourceMetadata_os(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "arch":
+			out.Values[i] = ec._LogSourceMetadata_arch(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._LogSourceMetadata_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var logSourceWatchEventImplementors = []string{"LogSourceWatchEvent"}
+
+func (ec *executionContext) _LogSourceWatchEvent(ctx context.Context, sel ast.SelectionSet, obj *model.LogSourceWatchEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, logSourceWatchEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("LogSourceWatchEvent")
+		case "type":
+			out.Values[i] = ec._LogSourceWatchEvent_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "object":
+			out.Values[i] = ec._LogSourceWatchEvent_object(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -28566,50 +29420,6 @@ func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "startCursor":
 			out.Values[i] = ec._PageInfo_startCursor(ctx, field, obj)
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var podLogQueryResponseImplementors = []string{"PodLogQueryResponse"}
-
-func (ec *executionContext) _PodLogQueryResponse(ctx context.Context, sel ast.SelectionSet, obj *model.PodLogQueryResponse) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, podLogQueryResponseImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("PodLogQueryResponse")
-		case "results":
-			out.Values[i] = ec._PodLogQueryResponse_results(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "pageInfo":
-			out.Values[i] = ec._PodLogQueryResponse_pageInfo(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -29142,7 +29952,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "podLogHead":
+		case "logRecordsFetch":
 			field := field
 
 			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
@@ -29151,26 +29961,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_podLogHead(ctx, field)
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "podLogTail":
-			field := field
-
-			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_podLogTail(ctx, field)
+				res = ec._Query_logRecordsFetch(ctx, field)
 				return res
 			}
 
@@ -29256,8 +30047,10 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 		return ec._Subscription_clusterAPIServicesWatch(ctx, fields[0])
 	case "kubeConfigWatch":
 		return ec._Subscription_kubeConfigWatch(ctx, fields[0])
-	case "podLogFollow":
-		return ec._Subscription_podLogFollow(ctx, fields[0])
+	case "logRecordsFollow":
+		return ec._Subscription_logRecordsFollow(ctx, fields[0])
+	case "logSourcesWatch":
+		return ec._Subscription_logSourcesWatch(ctx, fields[0])
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}
@@ -29281,6 +30074,11 @@ func (ec *executionContext) ___Directive(ctx context.Context, sel ast.SelectionS
 			}
 		case "description":
 			out.Values[i] = ec.___Directive_description(ctx, field, obj)
+		case "isRepeatable":
+			out.Values[i] = ec.___Directive_isRepeatable(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "locations":
 			out.Values[i] = ec.___Directive_locations(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -29288,11 +30086,6 @@ func (ec *executionContext) ___Directive(ctx context.Context, sel ast.SelectionS
 			}
 		case "args":
 			out.Values[i] = ec.___Directive_args(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "isRepeatable":
-			out.Values[i] = ec.___Directive_isRepeatable(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -29555,6 +30348,8 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 			out.Values[i] = ec.___Type_name(ctx, field, obj)
 		case "description":
 			out.Values[i] = ec.___Type_description(ctx, field, obj)
+		case "specifiedByURL":
+			out.Values[i] = ec.___Type_specifiedByURL(ctx, field, obj)
 		case "fields":
 			out.Values[i] = ec.___Type_fields(ctx, field, obj)
 		case "interfaces":
@@ -29567,8 +30362,6 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 			out.Values[i] = ec.___Type_inputFields(ctx, field, obj)
 		case "ofType":
 			out.Values[i] = ec.___Type_ofType(ctx, field, obj)
-		case "specifiedByURL":
-			out.Values[i] = ec.___Type_specifiedByURL(ctx, field, obj)
 		case "isOneOf":
 			out.Values[i] = ec.___Type_isOneOf(ctx, field, obj)
 		default:
@@ -30810,7 +31603,7 @@ func (ec *executionContext) marshalNKubeConfigContext2ᚖgithubᚗcomᚋkubetail
 	return ec._KubeConfigContext(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNLogRecord2ᚕᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐLogRecordᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.LogRecord) graphql.Marshaler {
+func (ec *executionContext) marshalNLogRecord2ᚕᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋsharedᚋlogsᚐLogRecordᚄ(ctx context.Context, sel ast.SelectionSet, v []*logs.LogRecord) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -30834,7 +31627,7 @@ func (ec *executionContext) marshalNLogRecord2ᚕᚖgithubᚗcomᚋkubetailᚑor
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNLogRecord2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐLogRecord(ctx, sel, v[i])
+			ret[i] = ec.marshalNLogRecord2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋsharedᚋlogsᚐLogRecord(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -30854,7 +31647,7 @@ func (ec *executionContext) marshalNLogRecord2ᚕᚖgithubᚗcomᚋkubetailᚑor
 	return ret
 }
 
-func (ec *executionContext) marshalNLogRecord2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐLogRecord(ctx context.Context, sel ast.SelectionSet, v *model.LogRecord) graphql.Marshaler {
+func (ec *executionContext) marshalNLogRecord2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋsharedᚋlogsᚐLogRecord(ctx context.Context, sel ast.SelectionSet, v *logs.LogRecord) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -30862,6 +31655,14 @@ func (ec *executionContext) marshalNLogRecord2ᚖgithubᚗcomᚋkubetailᚑorg�
 		return graphql.Null
 	}
 	return ec._LogRecord(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNLogSource2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋsharedᚋlogsᚐLogSource(ctx context.Context, sel ast.SelectionSet, v logs.LogSource) graphql.Marshaler {
+	return ec._LogSource(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNLogSourceMetadata2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋsharedᚋlogsᚐLogSourceMetadata(ctx context.Context, sel ast.SelectionSet, v logs.LogSourceMetadata) graphql.Marshaler {
+	return ec._LogSourceMetadata(ctx, sel, &v)
 }
 
 func (ec *executionContext) unmarshalNMetaV1LabelSelectorOperator2k8sᚗioᚋapimachineryᚋpkgᚋapisᚋmetaᚋv1ᚐLabelSelectorOperator(ctx context.Context, v any) (v1.LabelSelectorOperator, error) {
@@ -30997,16 +31798,6 @@ func (ec *executionContext) marshalNMetaV1Time2k8sᚗioᚋapimachineryᚋpkgᚋa
 		}
 	}
 	return res
-}
-
-func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v *model.PageInfo) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._PageInfo(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
@@ -31722,11 +32513,56 @@ func (ec *executionContext) marshalOKubeConfigWatchEvent2ᚖgithubᚗcomᚋkubet
 	return ec._KubeConfigWatchEvent(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOLogRecord2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐLogRecord(ctx context.Context, sel ast.SelectionSet, v *model.LogRecord) graphql.Marshaler {
+func (ec *executionContext) marshalOLogRecord2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋsharedᚋlogsᚐLogRecord(ctx context.Context, sel ast.SelectionSet, v *logs.LogRecord) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._LogRecord(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOLogRecordsQueryMode2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐLogRecordsQueryMode(ctx context.Context, v any) (*model.LogRecordsQueryMode, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(model.LogRecordsQueryMode)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOLogRecordsQueryMode2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐLogRecordsQueryMode(ctx context.Context, sel ast.SelectionSet, v *model.LogRecordsQueryMode) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
+}
+
+func (ec *executionContext) marshalOLogRecordsQueryResponse2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐLogRecordsQueryResponse(ctx context.Context, sel ast.SelectionSet, v *model.LogRecordsQueryResponse) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._LogRecordsQueryResponse(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOLogSource2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋsharedᚋlogsᚐLogSource(ctx context.Context, sel ast.SelectionSet, v *logs.LogSource) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._LogSource(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOLogSourceFilter2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐLogSourceFilter(ctx context.Context, v any) (*model.LogSourceFilter, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputLogSourceFilter(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOLogSourceWatchEvent2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐLogSourceWatchEvent(ctx context.Context, sel ast.SelectionSet, v *model.LogSourceWatchEvent) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._LogSourceWatchEvent(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOMetaV1GetOptions2ᚖk8sᚗioᚋapimachineryᚋpkgᚋapisᚋmetaᚋv1ᚐGetOptions(ctx context.Context, v any) (*v1.GetOptions, error) {
@@ -31777,13 +32613,6 @@ func (ec *executionContext) marshalOMetaV1Time2ᚖk8sᚗioᚋapimachineryᚋpkg�
 	}
 	res := model.MarshalMetaV1Time(*v)
 	return res
-}
-
-func (ec *executionContext) marshalOPodLogQueryResponse2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐPodLogQueryResponse(ctx context.Context, sel ast.SelectionSet, v *model.PodLogQueryResponse) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._PodLogQueryResponse(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOString2string(ctx context.Context, v any) (string, error) {

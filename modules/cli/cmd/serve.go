@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -164,24 +165,30 @@ var serveCmd = &cobra.Command{
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
+		var wg sync.WaitGroup
+		wg.Add(2)
+
 		// attempt graceful shutdown
-		done := make(chan struct{})
 		go func() {
+			defer wg.Done()
 			if err := server.Shutdown(ctx); err != nil {
 				zlog.Error().Err(err).Send()
 			}
-			close(done)
 		}()
 
 		// shutdown app
 		// TODO: handle long-lived requests shutdown (e.g. websockets)
-		app.Shutdown()
+		go func() {
+			defer wg.Done()
+			if err := app.Shutdown(ctx); err != nil {
+				zlog.Error().Err(err).Send()
+			}
+		}()
 
-		select {
-		case <-done:
+		wg.Wait()
+
+		if ctx.Err() == nil {
 			zlog.Info().Msg("Completed graceful shutdown")
-		case <-ctx.Done():
-			zlog.Info().Msg("Exceeded deadline, exiting now")
 		}
 	},
 }

@@ -23,9 +23,14 @@ import (
 
 	evbus "github.com/asaskevich/EventBus"
 	set "github.com/deckarep/golang-set/v2"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	appsv1 "k8s.io/api/apps/v1"
+	authv1 "k8s.io/api/authorization/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -34,60 +39,65 @@ import (
 )
 
 // Event enum
-type watchEvent string
+type SourceWatcherEvent string
 
 const (
-	watchEventAdded    watchEvent = "ADDED"
-	watchEventModified watchEvent = "MODIFIED"
-	watchEventDeleted  watchEvent = "DELETED"
+	SourceWatcherEventAdded    SourceWatcherEvent = "ADDED"
+	SourceWatcherEventModified SourceWatcherEvent = "MODIFIED"
+	SourceWatcherEventDeleted  SourceWatcherEvent = "DELETED"
 )
+
+// Convenience struct for organizing unique (namespace, workload-type)'s
+type fetchTuple struct {
+	namespace    string
+	workloadType WorkloadType
+}
 
 // Represents log source
 type LogSource struct {
 	Metadata      LogSourceMetadata
 	Namespace     string
-	NodeName      string
 	PodName       string
 	ContainerName string
 	ContainerID   string
 }
 
 type LogSourceMetadata struct {
-	Region          string
-	Zone            string
-	OperatingSystem string
-	Architecture    string
+	Region string
+	Zone   string
+	OS     string
+	Arch   string
+	Node   string
 }
 
 // SourceWatcher interface
 type SourceWatcher interface {
 	Start(ctx context.Context) error
 	Set() set.Set[LogSource]
-	Subscribe(event watchEvent, fn any)
-	Unsubscribe(event watchEvent, fn any)
-	Shutdown(ctx context.Context) error
-}
-
-// Represents SourceWatcher configuration
-type sourceWatcherConfig struct {
-	DefaultNamespace string
-	Regions          []string
-	Zones            []string
-	Oses             []string
-	Arches           []string
-	Nodes            []string
+	Subscribe(event SourceWatcherEvent, fn any)
+	Unsubscribe(event SourceWatcherEvent, fn any)
+	Close()
 }
 
 // Represents SourceWatcher
 type sourceWatcher struct {
-	cfg         *sourceWatcherConfig
-	parsedPaths []parsedPath
-	sources     set.Set[LogSource]
-	index       *workloadIndex
-	nodeMap     map[string]*corev1.Node
-
-	fm       k8shelpers.SharedInformerFactoryManager
+	cm       k8shelpers.ConnectionManager
 	eventbus evbus.Bus
+
+	kubeContext *string
+	bearerToken string
+	regions     []string
+	zones       []string
+	oses        []string
+	arches      []string
+	nodes       []string
+	containers  []string
+
+	allowedNamespaces []string
+	parsedPaths       []parsedPath
+	sources           set.Set[LogSource]
+	index             *workloadIndex
+	nodeMap           map[string]*corev1.Node
 
 	mu        sync.Mutex
 	isReady   bool
@@ -96,33 +106,45 @@ type sourceWatcher struct {
 }
 
 // Initialize new source watcher
-func NewSourceWatcher(clientset kubernetes.Interface, sourcePaths []string, cfg *sourceWatcherConfig) (SourceWatcher, error) {
-
-	// Validate config
-	if cfg == nil {
-		cfg = &sourceWatcherConfig{}
+func NewSourceWatcher(cm k8shelpers.ConnectionManager, sourcePaths []string, opts ...Option) (SourceWatcher, error) {
+	// Init source watcher instance
+	sw := &sourceWatcher{
+		cm:       cm,
+		sources:  set.NewSet[LogSource](),
+		index:    newWorkloadIndex(),
+		nodeMap:  make(map[string]*corev1.Node),
+		eventbus: evbus.New(),
+		stopCh:   make(chan struct{}),
 	}
 
+	// Apply options
+	for _, opt := range opts {
+		if err := opt(sw); err != nil {
+			return nil, err
+		}
+	}
+
+	// Get default namespace
+	defaultNamespace := cm.GetDefaultNamespace(sw.kubeContext)
+
 	// Parse paths
-	parsedPaths := make([]parsedPath, len(sourcePaths))
-	for i, p := range sourcePaths {
-		pp, err := parsePath(p, cfg.DefaultNamespace)
+	parsedPaths := []parsedPath{}
+	for _, p := range sourcePaths {
+		pp, err := parsePath(p, defaultNamespace)
 		if err != nil {
 			return nil, err
 		}
-		parsedPaths[i] = pp
-	}
 
-	return &sourceWatcher{
-		cfg:         cfg,
-		parsedPaths: parsedPaths,
-		sources:     set.NewSet[LogSource](),
-		index:       newWorkloadIndex(),
-		nodeMap:     make(map[string]*corev1.Node),
-		fm:          k8shelpers.NewSharedInformerFactoryManager(clientset),
-		eventbus:    evbus.New(),
-		stopCh:      make(chan struct{}),
-	}, nil
+		// Remove paths that do not match allowed namespaces
+		if len(sw.allowedNamespaces) > 0 && !slices.Contains(sw.allowedNamespaces, pp.Namespace) {
+			continue
+		}
+
+		parsedPaths = append(parsedPaths, pp)
+	}
+	sw.parsedPaths = parsedPaths
+
+	return sw, nil
 }
 
 // Current sources as a set
@@ -133,23 +155,24 @@ func (w *sourceWatcher) Set() set.Set[LogSource] {
 }
 
 // Subscribe to events
-func (w *sourceWatcher) Subscribe(event watchEvent, fn any) {
+func (w *sourceWatcher) Subscribe(event SourceWatcherEvent, fn any) {
 	w.eventbus.SubscribeAsync(string(event), fn, true)
 }
 
 // Unsubscribe from events
-func (w *sourceWatcher) Unsubscribe(event watchEvent, fn any) {
+func (w *sourceWatcher) Unsubscribe(event SourceWatcherEvent, fn any) {
 	w.eventbus.Unsubscribe(string(event), fn)
+}
+
+// Close background processes
+func (w *sourceWatcher) Close() {
+	w.closeOnce.Do(func() {
+		close(w.stopCh)
+	})
 }
 
 // Start background processes
 func (w *sourceWatcher) Start(ctx context.Context) error {
-	// Gather unique (namespace, workload-type)'s
-	type fetchTuple struct {
-		namespace    string
-		workloadType WorkloadType
-	}
-
 	set := set.NewSet[fetchTuple]()
 
 	for _, pp := range w.parsedPaths {
@@ -167,6 +190,8 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 		set.Add(fetchTuple{pp.Namespace, WorkloadTypePod})
 	}
 
+	checkPermissionsFunc := createCheckPermissionsFunc(ctx, set.ToSlice())
+
 	// Initialize informers in background
 	var wg sync.WaitGroup
 	errs := ThreadSafeSlice[error]{}
@@ -177,7 +202,7 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 			defer wg.Done()
 
 			// Init shared informer factory
-			factory, err := w.fm.GetOrCreateFactory(ft.namespace)
+			factory, stopCh, err := w.cm.GetOrCreateSharedInformerFactory(w.kubeContext, w.bearerToken, ft.namespace, checkPermissionsFunc)
 			if err != nil {
 				errs.Add(err)
 				return
@@ -216,8 +241,8 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 				return
 			}
 
-			// Run in background
-			go informer.Run(w.stopCh)
+			// Restart factory
+			factory.Start(stopCh)
 
 			// Wait for cache to sync
 			if !cache.WaitForCacheSync(w.stopCh, handle.HasSynced) {
@@ -235,7 +260,7 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 		defer wg.Done()
 
 		// Init shared informer factory
-		factory, err := w.fm.GetOrCreateFactory("")
+		factory, stopCh, err := w.cm.GetOrCreateSharedInformerFactory(w.kubeContext, w.bearerToken, "", checkPermissionsFunc)
 		if err != nil {
 			errs.Add(err)
 			return
@@ -255,8 +280,8 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 			return
 		}
 
-		// Run in background
-		go informer.Run(w.stopCh)
+		// Restart factory
+		factory.Start(stopCh)
 
 		// Wait for cache to sync
 		if !cache.WaitForCacheSync(w.stopCh, handle.HasSynced) {
@@ -283,14 +308,6 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 	w.isReady = true
 
 	return nil
-}
-
-// Stop background processes
-func (w *sourceWatcher) Shutdown(ctx context.Context) error {
-	w.closeOnce.Do(func() {
-		close(w.stopCh)
-	})
-	return w.fm.Shutdown(ctx)
 }
 
 // Handle workload resource addition
@@ -403,6 +420,12 @@ func (w *sourceWatcher) updateSources_UNSAFE() {
 						continue
 					}
 
+					// Filter by container
+					k := fmt.Sprintf("%s:%s/%s", pod.Namespace, pod.Name, status.Name)
+					if len(w.containers) > 0 && !slices.Contains(w.containers, k) {
+						continue
+					}
+
 					// Ensure node is available
 					node, exists := w.nodeMap[pod.Spec.NodeName]
 					if !exists {
@@ -410,40 +433,40 @@ func (w *sourceWatcher) updateSources_UNSAFE() {
 					}
 
 					// Filter by node
-					if len(w.cfg.Nodes) > 0 && !slices.Contains(w.cfg.Nodes, node.Name) {
+					if len(w.nodes) > 0 && !slices.Contains(w.nodes, node.Name) {
 						continue
 					}
 
 					// Filter by region
-					if len(w.cfg.Regions) > 0 && !slices.Contains(w.cfg.Regions, node.Labels["topology.kubernetes.io/region"]) {
+					if len(w.regions) > 0 && !slices.Contains(w.regions, node.Labels["topology.kubernetes.io/region"]) {
 						continue
 					}
 
 					// Filter by zone
-					if len(w.cfg.Zones) > 0 && !slices.Contains(w.cfg.Zones, node.Labels["topology.kubernetes.io/zone"]) {
+					if len(w.zones) > 0 && !slices.Contains(w.zones, node.Labels["topology.kubernetes.io/zone"]) {
 						continue
 					}
 
 					// Filter by os
-					if len(w.cfg.Oses) > 0 && !slices.Contains(w.cfg.Oses, node.Status.NodeInfo.OperatingSystem) {
+					if len(w.oses) > 0 && !slices.Contains(w.oses, node.Status.NodeInfo.OperatingSystem) {
 						continue
 					}
 
 					// Filter by arch
-					if len(w.cfg.Arches) > 0 && !slices.Contains(w.cfg.Arches, node.Status.NodeInfo.Architecture) {
+					if len(w.arches) > 0 && !slices.Contains(w.arches, node.Status.NodeInfo.Architecture) {
 						continue
 					}
 
 					if wantName == "*" || wantName == status.Name || (wantName == "" && n == 0) {
 						wantSources.Add(LogSource{
 							Metadata: LogSourceMetadata{
-								Region:          node.Labels["topology.kubernetes.io/region"],
-								Zone:            node.Labels["topology.kubernetes.io/zone"],
-								OperatingSystem: node.Status.NodeInfo.OperatingSystem,
-								Architecture:    node.Status.NodeInfo.Architecture,
+								Region: node.Labels["topology.kubernetes.io/region"],
+								Zone:   node.Labels["topology.kubernetes.io/zone"],
+								OS:     node.Status.NodeInfo.OperatingSystem,
+								Arch:   node.Status.NodeInfo.Architecture,
+								Node:   pod.Spec.NodeName,
 							},
 							Namespace:     pod.Namespace,
-							NodeName:      pod.Spec.NodeName,
 							PodName:       pod.Name,
 							ContainerName: status.Name,
 							ContainerID:   status.ContainerID,
@@ -467,6 +490,158 @@ func (w *sourceWatcher) updateSources_UNSAFE() {
 	})
 
 	w.sources = wantSources
+}
+
+// Check permissions
+func (w *sourceWatcher) checkPermissions(ctx context.Context, fetchTuples []fetchTuple) error {
+	// Clone rest config and set bearer token
+	rc, err := w.cm.GetOrCreateRestConfig(w.kubeContext)
+	if err != nil {
+		return err
+	}
+
+	rcClone := *rc
+	rcClone.BearerToken = w.bearerToken
+
+	// Init clientset
+	// TODO: use kubernetes.NewForConfigAndClient to re-use underlying transport
+	clientset, err := kubernetes.NewForConfig(&rcClone)
+	if err != nil {
+		return err
+	}
+
+	// Convenience method for handing errors
+	doSAR := func(namespace, group, verb, resource string) error {
+		sar := &authv1.SelfSubjectAccessReview{
+			Spec: authv1.SelfSubjectAccessReviewSpec{
+				ResourceAttributes: &authv1.ResourceAttributes{
+					Namespace: namespace,
+					Group:     group,
+					Verb:      verb,
+					Resource:  resource,
+				},
+			},
+		}
+
+		result, err := clientset.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+
+		if !result.Status.Allowed {
+			attrs := result.Spec.ResourceAttributes
+			fmt := "permission denied: `%s \"%s\"/\"%s\"` in namespace `%s`"
+			return status.Errorf(codes.Unauthenticated, fmt, attrs.Verb, attrs.Group, attrs.Resource, attrs.Namespace)
+		}
+
+		return nil
+	}
+
+	// Make individual requests in an error group
+	g, ctx := errgroup.WithContext(ctx)
+
+	// Check node `list` permissions
+	g.Go(func() error {
+		return doSAR("", "", "list", "nodes")
+	})
+
+	// Check node `watch` permissions
+	g.Go(func() error {
+		return doSAR("", "", "watch", "nodes")
+	})
+
+	// Individual resource permissions
+	for _, ft := range fetchTuples {
+		namespace := ft.namespace
+		group, resource, err := ft.workloadType.GroupResource()
+		if err != nil {
+			g.Go(func() error {
+				return err
+			})
+			break
+		}
+
+		// Check `list` permissions
+		g.Go(func() error {
+			return doSAR(namespace, group, "list", resource)
+		})
+
+		// Check `watch` permissions
+		g.Go(func() error {
+			return doSAR(namespace, group, "watch", resource)
+		})
+	}
+
+	return g.Wait()
+}
+
+// Create a CheckPermissionsFunc for shared informer factory
+func createCheckPermissionsFunc(ctx context.Context, fetchTuples []fetchTuple) k8shelpers.CheckPermissionsFunc {
+	return func(clientset *kubernetes.Clientset) error {
+		// Make individual requests in an error group
+		g, ctx := errgroup.WithContext(ctx)
+
+		// Convenience method for handing errors
+		doSAR := func(namespace, group, verb, resource string) error {
+			sar := &authv1.SelfSubjectAccessReview{
+				Spec: authv1.SelfSubjectAccessReviewSpec{
+					ResourceAttributes: &authv1.ResourceAttributes{
+						Namespace: namespace,
+						Group:     group,
+						Verb:      verb,
+						Resource:  resource,
+					},
+				},
+			}
+
+			result, err := clientset.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
+			if err != nil {
+				return err
+			}
+
+			if !result.Status.Allowed {
+				attrs := result.Spec.ResourceAttributes
+				fmt := "permission denied: `%s \"%s\"/\"%s\"` in namespace `%s`"
+				return status.Errorf(codes.Unauthenticated, fmt, attrs.Verb, attrs.Group, attrs.Resource, attrs.Namespace)
+			}
+
+			return nil
+		}
+
+		// Check node `list` permissions
+		g.Go(func() error {
+			return doSAR("", "", "list", "nodes")
+		})
+
+		// Check node `watch` permissions
+		g.Go(func() error {
+			return doSAR("", "", "watch", "nodes")
+		})
+
+		// Individual resource permissions
+		for _, ft := range fetchTuples {
+			namespace := ft.namespace
+			group, resource, err := ft.workloadType.GroupResource()
+			if err != nil {
+				g.Go(func() error {
+					return err
+				})
+				break
+			}
+
+			// Check `list` permissions
+			g.Go(func() error {
+				return doSAR(namespace, group, "list", resource)
+			})
+
+			// Check `watch` permissions
+			g.Go(func() error {
+				return doSAR(namespace, group, "watch", resource)
+			})
+		}
+
+		return g.Wait()
+	}
 }
 
 // Represents result of parsePath()

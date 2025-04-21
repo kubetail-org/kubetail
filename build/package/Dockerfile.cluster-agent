@@ -12,7 +12,48 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.23.4 AS builder
+FROM rust:1.84.1 AS rustbuilder
+
+WORKDIR /work
+
+# System dependencies
+RUN apt-get update && apt-get install -yq patchelf
+
+# Install Rust dependencies (for cache)
+COPY crates/rgkl/Cargo.toml ./Cargo.toml
+COPY crates/rgkl/Cargo.lock ./Cargo.lock
+COPY crates/rgkl/src/main.rs ./src/main.rs
+RUN cargo fetch
+
+# Copy code
+COPY crates/rgkl .
+
+# Build
+RUN cargo build --release
+
+# Make bundle
+RUN \
+    ARCH="$(uname -m)" && \
+    if [ "$ARCH" = "x86_64" ]; then \
+      LIBC_PATH="/lib/x86_64-linux-gnu"; \
+      LINKER_PATH="/lib64/ld-linux-x86-64.so.2"; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+      LIBC_PATH="/lib/aarch64-linux-gnu"; \
+      LINKER_PATH="/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1"; \
+    else \
+      echo "Unsupported architecture: $ARCH"; exit 1; \
+    fi && \
+    mkdir -p /out/lib && \
+    cp -v /work/target/release/rgkl /out/rgkl && \
+    cp -v $LIBC_PATH/libc.so.6 /out/lib/ && \
+    cp -v $LIBC_PATH/libgcc_s.so.1 /out/lib/ && \
+    cp -v $LINKER_PATH /out/lib/ld-linux.so
+
+RUN patchelf --set-rpath "\$ORIGIN/lib" /out/rgkl
+
+# -----------------------------------------------------------
+
+FROM golang:1.23.4 AS gobuilder
 
 WORKDIR /work
 
@@ -28,10 +69,8 @@ COPY modules/shared ./shared
 COPY modules/cluster-agent ./cluster-agent
 
 # build cluster-agent
-RUN cd cluster-agent && CGO_ENABLED=0 go build -ldflags="-s -w" -o ../bin/cluster-agent ./cmd/main.go
-
-ENTRYPOINT ["./bin/cluster-agent"]
-CMD []
+ENV CGO_ENABLED=0
+RUN cd cluster-agent && go build -ldflags="-s -w" -o ../bin/cluster-agent ./cmd/main.go
 
 # -----------------------------------------------------------
 
@@ -39,8 +78,8 @@ FROM scratch AS final
 
 WORKDIR /cluster-agent
 
-# copy cluster-agent
-COPY --from=builder /work/bin/cluster-agent /cluster-agent/cluster-agent
+COPY --from=rustbuilder /out /rgkl
+COPY --from=gobuilder /work/bin/cluster-agent .
 
 ENTRYPOINT ["./cluster-agent"]
 CMD []

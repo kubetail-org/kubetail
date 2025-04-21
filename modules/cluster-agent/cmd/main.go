@@ -31,10 +31,12 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"k8s.io/client-go/rest"
 
-	"github.com/kubetail-org/kubetail/modules/cluster-agent/internal/server"
-	"github.com/kubetail-org/kubetail/modules/cluster-agent/internal/services/logmetadata"
 	"github.com/kubetail-org/kubetail/modules/shared/clusteragentpb"
 	"github.com/kubetail-org/kubetail/modules/shared/config"
+
+	"github.com/kubetail-org/kubetail/modules/cluster-agent/internal/server"
+	"github.com/kubetail-org/kubetail/modules/cluster-agent/internal/services/logmetadata"
+	"github.com/kubetail-org/kubetail/modules/cluster-agent/internal/services/logrecords"
 )
 
 type CLI struct {
@@ -98,13 +100,22 @@ func main() {
 			}
 
 			// init logmetadata service
-			svc, err := logmetadata.NewLogMetadataService(k8sCfg, os.Getenv("NODE_NAME"), cfg.ClusterAgent.ContainerLogsDir)
+			lmSvc, err := logmetadata.NewLogMetadataService(k8sCfg, os.Getenv("NODE_NAME"), cfg.ClusterAgent.ContainerLogsDir)
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
 
 			// register logmetadata service
-			clusteragentpb.RegisterLogMetadataServiceServer(grpcServer, svc)
+			clusteragentpb.RegisterLogMetadataServiceServer(grpcServer, lmSvc)
+
+			// init logrecords service
+			lrSvc, err := logrecords.NewLogRecordsService(k8sCfg, cfg.ClusterAgent.ContainerLogsDir)
+			if err != nil {
+				zlog.Fatal().Caller().Err(err).Send()
+			}
+
+			// register logrecords service
+			clusteragentpb.RegisterLogRecordsServiceServer(grpcServer, lrSvc)
 
 			// create health server
 			healthServer := health.NewServer()
@@ -147,8 +158,9 @@ func main() {
 				close(done)
 			}()
 
-			// shutdown service
-			svc.Shutdown()
+			// shutdown services
+			lmSvc.Shutdown()
+			lrSvc.Shutdown()
 
 			select {
 			case <-done:

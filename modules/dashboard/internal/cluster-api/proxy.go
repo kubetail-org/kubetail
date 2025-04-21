@@ -27,9 +27,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"k8s.io/kubectl/pkg/proxy"
 	"k8s.io/utils/ptr"
+
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
 // For parsing paths of the form /:kubeContext/:namespace/:serviceName/*relPath

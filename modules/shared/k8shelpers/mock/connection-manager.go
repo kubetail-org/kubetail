@@ -17,8 +17,10 @@ package mock
 import (
 	"context"
 
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/stretchr/testify/mock"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -61,6 +63,22 @@ func (m *MockConnectionManager) GetOrCreateDynamicClient(kubeContext *string) (d
 	return r0, ret.Error(1)
 }
 
+func (m *MockConnectionManager) GetOrCreateSharedInformerFactory(kubeContext *string, bearerToken string, namespace string, checkPermissions k8shelpers.CheckPermissionsFunc) (informers.SharedInformerFactory, <-chan struct{}, error) {
+	ret := m.Called(kubeContext, bearerToken, namespace, checkPermissions)
+
+	var r0 informers.SharedInformerFactory
+	if ret.Get(0) != nil {
+		r0 = ret.Get(0).(informers.SharedInformerFactory)
+	}
+
+	var r1 chan struct{}
+	if ret.Get(1) != nil {
+		r1 = ret.Get(1).(chan struct{})
+	}
+
+	return r0, r1, ret.Error(2)
+}
+
 func (m *MockConnectionManager) GetDefaultNamespace(kubeContext *string) string {
 	ret := m.Called(kubeContext)
 	return ret.String(0)
@@ -76,6 +94,7 @@ func (m *MockConnectionManager) WaitUntilReady(ctx context.Context, kubeContext 
 	return ret.Error(0)
 }
 
-func (m *MockConnectionManager) Teardown() {
-	m.Called()
+func (m *MockConnectionManager) Shutdown(ctx context.Context) error {
+	ret := m.Called(ctx)
+	return ret.Error(0)
 }

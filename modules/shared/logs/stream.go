@@ -19,23 +19,20 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
 	set "github.com/deckarep/golang-set/v2"
-	zlog "github.com/rs/zerolog/log"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/utils/ptr"
+
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
 // LogRecord represents a log record
 type LogRecord struct {
-	Source    LogSource
 	Timestamp time.Time
 	Message   string
+	Source    LogSource
+	err       error // for use internally
 }
 
 // streamMode enum type
@@ -53,52 +50,47 @@ type Stream struct {
 	sinceTime time.Time
 	untilTime time.Time
 
-	reverse bool
-	follow  bool
-
-	grep    *regexp.Regexp
-	regions []string
-	zones   []string
-	oses    []string
-	arches  []string
-	nodes   []string
+	//reverse bool
+	follow bool
+	grep   *regexp.Regexp
 
 	rootCtx       context.Context
 	rootCtxCancel context.CancelFunc
 
-	mode             streamMode
-	maxNum           int64
-	sources          set.Set[LogSource]
-	defaultNamespace string
+	mode    streamMode
+	maxNum  int64
+	sources set.Set[LogSource]
 
+	kubeContext *string
 	sw          SourceWatcher
-	logProvider logProvider
-	isStarted   bool
-	futureWG    sync.WaitGroup
-	pastCh      chan LogRecord
-	futureCh    chan LogRecord
-	outCh       chan LogRecord
-	mu          sync.Mutex
+	logFetcher  LogFetcher
+
+	isStarted bool
+	futureWG  sync.WaitGroup
+	pastCh    chan LogRecord
+	futureCh  chan LogRecord
+	outCh     chan LogRecord
+	err       error
+	mu        sync.Mutex
 
 	closePastChOnce   sync.Once
 	closeFutureChOnce sync.Once
 	closeOutChOnce    sync.Once
+	setErrorOnce      sync.Once
 }
 
 // Initialize new stream
-func NewStream(ctx context.Context, clientset kubernetes.Interface, sourcePaths []string, opts ...StreamOption) (*Stream, error) {
+func NewStream(ctx context.Context, cm k8shelpers.ConnectionManager, sourcePaths []string, opts ...Option) (*Stream, error) {
 	rootCtx, rootCtxCancel := context.WithCancel(ctx)
 
 	// Init stream instance
 	stream := &Stream{
-		rootCtx:          rootCtx,
-		rootCtxCancel:    rootCtxCancel,
-		defaultNamespace: "default",
-		sources:          set.NewSet[LogSource](),
-		logProvider:      newK8sLogProvider(clientset),
-		pastCh:           make(chan LogRecord),
-		futureCh:         make(chan LogRecord),
-		outCh:            make(chan LogRecord),
+		rootCtx:       rootCtx,
+		rootCtxCancel: rootCtxCancel,
+		sources:       set.NewSet[LogSource](),
+		pastCh:        make(chan LogRecord),
+		futureCh:      make(chan LogRecord),
+		outCh:         make(chan LogRecord),
 	}
 
 	// Apply options
@@ -118,20 +110,20 @@ func NewStream(ctx context.Context, clientset kubernetes.Interface, sourcePaths 
 	}
 
 	// Init source watcher
-	cfg := &sourceWatcherConfig{
-		DefaultNamespace: stream.defaultNamespace,
-		Regions:          stream.regions,
-		Zones:            stream.zones,
-		Oses:             stream.oses,
-		Arches:           stream.arches,
-		Nodes:            stream.nodes,
-	}
-
-	sw, err := NewSourceWatcher(clientset, sourcePaths, cfg)
+	sw, err := NewSourceWatcher(cm, sourcePaths, opts...)
 	if err != nil {
 		return nil, err
 	}
 	stream.sw = sw
+
+	// Init log fetcher if not already set
+	if stream.logFetcher == nil {
+		clientset, err := cm.GetOrCreateClientset(stream.kubeContext)
+		if err != nil {
+			return nil, err
+		}
+		stream.logFetcher = NewKubeLogFetcher(clientset)
+	}
 
 	return stream, nil
 }
@@ -140,8 +132,8 @@ func NewStream(ctx context.Context, clientset kubernetes.Interface, sourcePaths 
 // TODO: make this idempodent
 func (s *Stream) Start(ctx context.Context) error {
 	// Add source watcher event handlers
-	s.sw.Subscribe(watchEventAdded, s.handleSourceAdd)
-	s.sw.Subscribe(watchEventDeleted, s.handleSourceDelete)
+	s.sw.Subscribe(SourceWatcherEventAdded, s.handleSourceAdd)
+	s.sw.Subscribe(SourceWatcherEventDeleted, s.handleSourceDelete)
 
 	// Start source watcher
 	if err := s.sw.Start(ctx); err != nil {
@@ -201,17 +193,24 @@ func (s *Stream) Records() <-chan LogRecord {
 	return s.outCh
 }
 
+// Err returns any error that occurred during stream processing
+func (s *Stream) Err() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.err
+}
+
 // Close stops internal data fetchers and closes the output channel
-func (s *Stream) Close(ctx context.Context) error {
+func (s *Stream) Close() {
 	// Remove source watcher event handlers
-	s.sw.Unsubscribe(watchEventAdded, s.handleSourceAdd)
-	s.sw.Unsubscribe(watchEventDeleted, s.handleSourceDelete)
+	s.sw.Unsubscribe(SourceWatcherEventAdded, s.handleSourceAdd)
+	s.sw.Unsubscribe(SourceWatcherEventDeleted, s.handleSourceDelete)
 
 	// Stop background processes
 	s.rootCtxCancel()
 
-	// Shutdown source watcher
-	return s.sw.Shutdown(ctx)
+	// Close output channel
+	s.closeOutCh()
 }
 
 // Handle source ADDED event
@@ -229,16 +228,15 @@ func (s *Stream) handleSourceAdd(source LogSource) {
 		return
 	}
 
-	// Start following
-	opts := &corev1.PodLogOptions{
-		Follow:    true,
-		TailLines: ptr.To[int64](0),
+	// Stream from beginning and keep following
+	opts := FetcherOptions{
+		Grep:       s.grep,
+		FollowFrom: FollowFromDefault,
 	}
 
-	stream, err := s.logProvider.GetLogs(s.rootCtx, source, opts)
+	stream, err := s.logFetcher.StreamForward(s.rootCtx, source, opts)
 	if err != nil {
-		// Log error
-		zlog.Error().Err(err).Send()
+		s.setError_UNSAFE(err)
 		return
 	}
 
@@ -247,23 +245,29 @@ func (s *Stream) handleSourceAdd(source LogSource) {
 	go func() {
 		defer s.futureWG.Done()
 
-		for record := range stream {
-			// Exit loop if record is after `untilTime`
-			if !s.untilTime.IsZero() && record.Timestamp.After(s.untilTime) {
-				break
-			}
-
-			// Skip records that don't match grep pattern
-			if s.grep != nil && !s.grep.MatchString(record.Message) {
-				continue
-			}
-
-			// Send record to future channel
+		for {
 			select {
 			case <-s.rootCtx.Done():
 				return
-			case s.futureCh <- record:
-				// Sent successfully
+			case record, ok := <-stream:
+				if !ok {
+					return
+				}
+
+				// Check for errors
+				if record.err != nil {
+					s.setError_SAFE(record.err)
+					s.rootCtxCancel() // Kill the entire stream
+					return
+				}
+
+				// Send record
+				select {
+				case <-s.rootCtx.Done():
+					return
+				case s.futureCh <- record:
+					// Sent successfully
+				}
 			}
 		}
 	}()
@@ -290,19 +294,20 @@ func (s *Stream) handleSourceDelete(source LogSource) {
 func (s *Stream) startHead_UNSAFE() error {
 	ctx, cancel := context.WithCancel(s.rootCtx)
 
+	opts := FetcherOptions{
+		StartTime: s.sinceTime,
+		StopTime:  s.untilTime,
+		Grep:      s.grep,
+	}
+
 	streams := make([]<-chan LogRecord, s.sources.Cardinality())
 	for i, source := range s.sources.ToSlice() {
-		opts := &corev1.PodLogOptions{}
-		if !s.sinceTime.IsZero() {
-			opts.SinceTime = &metav1.Time{Time: s.sinceTime}
-		}
-
-		if stream, err := s.logProvider.GetLogs(ctx, source, opts); err != nil {
+		stream, err := s.logFetcher.StreamForward(ctx, source, opts)
+		if err != nil {
 			cancel()
 			return err
-		} else {
-			streams[i] = stream
 		}
+		streams[i] = stream
 	}
 
 	// Process in goroutine
@@ -314,19 +319,10 @@ func (s *Stream) startHead_UNSAFE() error {
 		var count int
 
 		for record := range mergeLogStreams(ctx, false, streams...) {
-			// Skip if records is before `sinceTime`
-			if !s.sinceTime.IsZero() && record.Timestamp.Before(s.sinceTime) {
-				continue
-			}
-
-			// Exit loop if record is after `untilTime`
-			if !s.untilTime.IsZero() && record.Timestamp.After(s.untilTime) {
-				break
-			}
-
-			// Skip records that don't match grep pattern
-			if s.grep != nil && !s.grep.MatchString(record.Message) {
-				continue
+			// Handle errors
+			if record.err != nil {
+				s.setError_SAFE(record.err)
+				return
 			}
 
 			// Write out
@@ -357,14 +353,21 @@ func (s *Stream) startTail_UNSAFE() error {
 		batchSize = 300
 	}
 
+	opts := FetcherOptions{
+		StartTime:     s.sinceTime,
+		StopTime:      s.untilTime,
+		Grep:          s.grep,
+		BatchSizeHint: batchSize,
+	}
+
 	streams := make([]<-chan LogRecord, s.sources.Cardinality())
 	for i, source := range s.sources.ToSlice() {
-		if stream, err := s.logProvider.GetLogsReverse(ctx, source, batchSize, s.sinceTime); err != nil {
+		stream, err := s.logFetcher.StreamBackward(ctx, source, opts)
+		if err != nil {
 			cancel()
 			return err
-		} else {
-			streams[i] = stream
 		}
+		streams[i] = stream
 	}
 
 	// Process in goroutine
@@ -377,19 +380,10 @@ func (s *Stream) startTail_UNSAFE() error {
 		tailRecords := []LogRecord{}
 
 		for record := range mergeLogStreams(ctx, true, streams...) {
-			// Skip records that are after `untilTime`
-			if !s.untilTime.IsZero() && record.Timestamp.After(s.untilTime) {
-				continue
-			}
-
-			// Exit loop if records are before `sinceTime`
-			if !s.sinceTime.IsZero() && record.Timestamp.Before(s.sinceTime) {
-				break
-			}
-
-			// Skip records that don't match grep pattern
-			if s.grep != nil && !s.grep.MatchString(record.Message) {
-				continue
+			// Handle errors
+			if record.err != nil {
+				s.setError_SAFE(record.err)
+				return
 			}
 
 			tailRecords = append(tailRecords, record)
@@ -419,13 +413,14 @@ func (s *Stream) startFollow_UNSAFE() error {
 
 	var wg sync.WaitGroup
 
-	for _, source := range s.sources.ToSlice() {
-		opts := &corev1.PodLogOptions{
-			Follow:    true,
-			TailLines: ptr.To[int64](0),
-		}
+	opts := FetcherOptions{
+		StopTime:   s.untilTime,
+		Grep:       s.grep,
+		FollowFrom: FollowFromEnd,
+	}
 
-		stream, err := s.logProvider.GetLogs(ctx, source, opts)
+	for _, source := range s.sources.ToSlice() {
+		stream, err := s.logFetcher.StreamForward(ctx, source, opts)
 		if err != nil {
 			cancel() // stop all fetchers
 			return err
@@ -438,23 +433,22 @@ func (s *Stream) startFollow_UNSAFE() error {
 			defer s.futureWG.Done()
 			defer wg.Done()
 
-			for record := range stream {
-				// Exit loop if record is after `untilTime`
-				if !s.untilTime.IsZero() && record.Timestamp.After(s.untilTime) {
-					break
-				}
-
-				// Skip records that don't match grep pattern
-				if s.grep != nil && !s.grep.MatchString(record.Message) {
-					continue
-				}
-
-				// Send record to future channel
+			for {
 				select {
 				case <-ctx.Done():
 					return
-				case s.futureCh <- record:
-					// Sent successfully
+				case record, ok := <-stream:
+					if !ok {
+						return
+					}
+
+					// Send record
+					select {
+					case <-ctx.Done():
+						return
+					case s.futureCh <- record:
+						// Sent successfully
+					}
 				}
 			}
 		}(stream)
@@ -501,7 +495,6 @@ LOOP:
 			if !ok {
 				return // exit
 			}
-
 			buffer = append(buffer, r)
 		}
 	}
@@ -553,6 +546,20 @@ LOOP:
 	}
 }
 
+// Set error and close channels if needed
+func (s *Stream) setError_SAFE(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.setError_UNSAFE(err)
+}
+
+// Set error and close channels if needed
+func (s *Stream) setError_UNSAFE(err error) {
+	s.setErrorOnce.Do(func() {
+		s.err = err
+	})
+}
+
 // Close past channel safely
 func (s *Stream) closePastCh() {
 	s.closePastChOnce.Do(func() {
@@ -563,10 +570,7 @@ func (s *Stream) closePastCh() {
 // Close future channel safely
 func (s *Stream) closeFutureCh() {
 	s.closeFutureChOnce.Do(func() {
-		if s.futureCh != nil {
-			close(s.futureCh)
-		}
-		s.futureCh = nil
+		close(s.futureCh)
 	})
 }
 
@@ -575,150 +579,4 @@ func (s *Stream) closeOutCh() {
 	s.closeOutChOnce.Do(func() {
 		close(s.outCh)
 	})
-}
-
-// Option defines signature for functional options
-type StreamOption func(s *Stream) error
-
-// WithDefaultNamespace sets the default namespace for use with the source path parser
-func WithDefaultNamespace(namespace string) StreamOption {
-	return func(s *Stream) error {
-		s.defaultNamespace = namespace
-		return nil
-	}
-}
-
-// WithKubeContext sets the kube context of the stream
-func WithKubeContext(kubeContext string) StreamOption {
-	return func(s *Stream) error {
-		//s.kubeContext = kubeContext
-		return nil
-	}
-}
-
-// WithSince sets the since time for the stream
-func WithSince(ts time.Time) StreamOption {
-	return func(s *Stream) error {
-		s.sinceTime = ts
-		return nil
-	}
-}
-
-// WithUntil sets the until time for the stream
-func WithUntil(ts time.Time) StreamOption {
-	return func(s *Stream) error {
-		s.untilTime = ts
-		return nil
-	}
-}
-
-// WithReverse sets whether to return logs in reverse order
-func WithReverse(reverse bool) StreamOption {
-	return func(s *Stream) error {
-		s.reverse = reverse
-		return nil
-	}
-}
-
-// WithFollow sets whether to follow/tail the log stream
-func WithFollow(follow bool) StreamOption {
-	return func(s *Stream) error {
-		s.follow = follow
-		return nil
-	}
-}
-
-// WithHead sets the number of lines to return from the beginning
-func WithHead(n int64) StreamOption {
-	return func(s *Stream) error {
-		if n < 0 {
-			return fmt.Errorf("head must be >= 0")
-		}
-		s.mode = streamModeHead
-		s.maxNum = n
-		return nil
-	}
-}
-
-// WithTail sets the number of lines to return from the end
-func WithTail(n int64) StreamOption {
-	return func(s *Stream) error {
-		if n < 0 {
-			return fmt.Errorf("tail must be >= 0")
-		}
-		s.mode = streamModeTail
-		s.maxNum = n
-		return nil
-	}
-}
-
-// WithAll sets whether to return all logs
-func WithAll() StreamOption {
-	return func(s *Stream) error {
-		s.mode = streamModeAll
-		return nil
-	}
-}
-
-// WithGrep sets the grep filter for the stream
-func WithGrep(pattern string) StreamOption {
-	return func(s *Stream) error {
-		pattern = strings.TrimSpace(pattern)
-		if pattern == "" {
-			s.grep = nil
-			return nil
-		}
-
-		// Replace spaces with ANSI-tolerant pattern
-		pattern = strings.ReplaceAll(pattern, " ", `(?:(?:\x1B\[[0-9;]*[mK])?)*\s(?:(?:\x1B\[[0-9;]*[mK])?)*`)
-
-		// Compile the regex pattern
-		regex, err := regexp.Compile(pattern)
-		if err != nil {
-			return fmt.Errorf("invalid grep pattern: %w", err)
-		}
-
-		s.grep = regex
-		return nil
-	}
-}
-
-// WithRegion sets the region filters for the stream
-func WithRegions(regions []string) StreamOption {
-	return func(s *Stream) error {
-		s.regions = regions
-		return nil
-	}
-}
-
-// WithZones sets the zone filters for the stream
-func WithZones(zones []string) StreamOption {
-	return func(s *Stream) error {
-		s.zones = zones
-		return nil
-	}
-}
-
-// WithOS sets the operating system filters for the stream
-func WithOSes(oses []string) StreamOption {
-	return func(s *Stream) error {
-		s.oses = oses
-		return nil
-	}
-}
-
-// WithArch sets the architecture filters for the stream
-func WithArches(arches []string) StreamOption {
-	return func(s *Stream) error {
-		s.arches = arches
-		return nil
-	}
-}
-
-// WithNode sets the node filters for the stream
-func WithNodes(nodes []string) StreamOption {
-	return func(s *Stream) error {
-		s.nodes = nodes
-		return nil
-	}
 }

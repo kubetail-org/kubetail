@@ -14,6 +14,11 @@
 
 # Kubetail API GraphQL schema
 
+# --- directives ---
+
+directive @validate(rule: String!, message: String) on INPUT_FIELD_DEFINITION | ARGUMENT_DEFINITION
+directive @nullIfValidationFailed on FIELD_DEFINITION
+
 # --- Log Metadata ---
 
 type LogMetadata {
@@ -44,14 +49,145 @@ type LogMetadataWatchEvent {
   object: LogMetadata
 }
 
-# -- root operations ---
+# --- Log Records ---
+
+type LogRecord {
+  timestamp: Time!
+  message: String!
+  source: LogSource!
+}
+
+# --- Log Records Query ---
+
+enum LogRecordsQueryMode {
+  HEAD
+  TAIL
+}
+
+type LogRecordsQueryResponse {
+  records: [LogRecord!]!
+  nextCursor: ID
+}
+
+# --- Log Source ---
+
+type LogSource {
+  metadata: LogSourceMetadata!
+  namespace: String!
+  podName: String!
+  containerName: String!
+  containerID: String!
+}
+
+input LogSourceFilter {
+  region: [String!]
+  zone: [String!]
+  os: [String!]
+  arch: [String!]
+  node: [String!]
+  container: [String!]
+}
+
+type LogSourceMetadata {
+  region: String!
+  zone: String!
+  os: String!
+  arch: String!
+  node: String!
+}
+
+type LogSourceWatchEvent {
+  type: WatchEventType!
+  object: LogSource
+}
+
+# --- PageInfo ---
+
+type PageInfo {
+  """
+  When paginating forwards, the cursor to continue.
+  """
+  endCursor: ID
+
+  """
+  When paginating forwards, are there more items?
+  """
+  hasNextPage: Boolean!
+
+  """
+  When paginating backwards, are there more items?
+  """
+  hasPreviousPage: Boolean!
+
+  """
+  When paginating backwards, the cursor to continue.
+  """
+  startCursor: ID
+}
+
+# --- PodLogQueryResponse ---
+
+type PodLogQueryResponse {
+  results: [LogRecord!]!
+  pageInfo: PageInfo!
+}
+
+# https://pkg.go.dev/k8s.io/apimachinery/pkg/watch#EventType
+enum WatchEventType {
+  ADDED
+  MODIFIED
+  DELETED
+  BOOKMARK
+  ERROR
+}
+
+# --- root operations ---
 
 type Query {
+  """
+  LogMetadata API
+  """
   logMetadataList(namespace: String): LogMetadataList
+
+  """
+  LogRecords API
+  """
+  logRecordsFetch(
+    kubeContext: String
+    sources: [String!]!
+    mode: LogRecordsQueryMode = TAIL
+    since: String
+    until: String
+    after: String
+    before: String
+    grep: String
+    sourceFilter: LogSourceFilter
+    limit: Int = 100 @validate(rule: "gt=0", message: "Value must be > 0")
+  ): LogRecordsQueryResponse @nullIfValidationFailed
 }
 
 type Subscription {
+  """
+  LogMetadata API
+  """
   logMetadataWatch(namespace: String): LogMetadataWatchEvent
+
+  """
+  LogRecords API
+  """
+  logRecordsFollow(
+    kubeContext: String
+    sources: [String!]!
+    since: String
+    after: String
+    grep: String
+    sourceFilter: LogSourceFilter
+  ): LogRecord @nullIfValidationFailed
+
+  """
+  LogSources API
+  """
+  logSourcesWatch(kubeContext: String, sources: [String!]!): LogSourceWatchEvent
 }
 
 # --- helpers ---
@@ -65,3 +201,8 @@ scalar Int64
 An ISO-8601 encoded UTC date string.
 """
 scalar TimestampPBTimestamp
+
+"""
+An ISO-8601 encoded UTC date string.
+"""
+scalar Time

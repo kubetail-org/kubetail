@@ -29,6 +29,7 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
+	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
@@ -68,8 +69,8 @@ func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, csrfProte
 
 	// Init config
 	cfg := Config{Resolvers: r}
-	cfg.Directives.Validate = ValidateDirective
-	cfg.Directives.NullIfValidationFailed = NullIfValidationFailedDirective
+	cfg.Directives.Validate = directives.ValidateDirective
+	cfg.Directives.NullIfValidationFailed = directives.NullIfValidationFailedDirective
 
 	// Init schema
 	schema := NewExecutableSchema(cfg)

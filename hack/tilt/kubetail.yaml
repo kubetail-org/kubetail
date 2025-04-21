@@ -482,6 +482,12 @@ metadata:
     app.kubernetes.io/component: cli
 rules:
 - apiGroups: [""]
+  resources: [nodes]
+  verbs: [get, list, watch]
+- apiGroups: ["", apps, batch]
+  resources: [cronjobs, daemonsets, deployments, jobs, pods, replicasets, statefulsets]
+  verbs: [get, list, watch]
+- apiGroups: [""]
   resources: [pods/log]
   verbs: [list, watch]
 ---

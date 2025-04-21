@@ -1,0 +1,53 @@
+FROM rust:1.84.1 AS rustbuilder
+
+WORKDIR /work
+
+# System dependencies
+RUN apt-get update && apt-get install -yq patchelf
+
+# Install Rust dependencies (for cache)
+COPY crates/rgkl/Cargo.toml ./rgkl/Cargo.toml
+COPY crates/rgkl/Cargo.lock ./rgkl/Cargo.lock
+COPY crates/rgkl/src/main.rs ./rgkl/src/main.rs
+RUN cd rgkl && cargo fetch
+
+# Copy code
+COPY crates/rgkl ./rgkl
+
+# Build
+RUN cd rgkl && cargo build --release
+
+# Make bundle
+RUN \
+    ARCH="$(uname -m)" && \
+    if [ "$ARCH" = "x86_64" ]; then \
+      LIBC_PATH="/lib/x86_64-linux-gnu"; \
+      LINKER_PATH="/lib64/ld-linux-x86-64.so.2"; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+      LIBC_PATH="/lib/aarch64-linux-gnu"; \
+      LINKER_PATH="/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1"; \
+    else \
+      echo "Unsupported architecture: $TARGETARCH"; exit 1; \
+    fi && \
+    mkdir -p /out/lib && \
+    cp -v /work/rgkl/target/release/rgkl /out/rgkl && \
+    cp -v $LIBC_PATH/libc.so.6 /out/lib/ && \
+    cp -v $LIBC_PATH/libgcc_s.so.1 /out/lib/ && \
+    cp -v $LINKER_PATH /out/lib/ld-linux.so.1
+
+RUN patchelf --set-rpath "\$ORIGIN/lib" /out/rgkl
+
+ENTRYPOINT ["sh"]
+CMD []
+
+# ---
+
+FROM scratch AS final
+
+WORKDIR /
+
+# Copy required shared libraries
+COPY --from=rustbuilder /out /rgkl
+
+ENTRYPOINT ["/rgkl/lib/ld-linux.so.1", "/rgkl/rgkl"]
+CMD []

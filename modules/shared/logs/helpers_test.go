@@ -16,11 +16,20 @@ package logs
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 )
+
+// RoundTripperFunc type is an adapter to allow the use of ordinary functions as http.RoundTripper.
+type RoundTripperFunc func(*http.Request) (*http.Response, error)
+
+// RoundTrip calls f(r).
+func (f RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
 
 func TestMergeLogStreams(t *testing.T) {
 	now := time.Now()
