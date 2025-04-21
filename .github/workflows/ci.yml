@@ -11,18 +11,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run tests
-        working-directory: ./crates/rgkl
         run: |
-          cargo test
+          cargo test --manifest-path crates/rgkl/Cargo.toml
 
   crates-build:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Run tests
-        working-directory: ./crates/rgkl
         run: |
-          cargo build
+          cargo build --release --manifest-path crates/rgkl/Cargo.toml
 
   modules-lint:
     runs-on: ubuntu-24.04
