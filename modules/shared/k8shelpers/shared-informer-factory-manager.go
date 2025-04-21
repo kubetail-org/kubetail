@@ -24,12 +24,12 @@ import (
 
 // SharedInformerFactoryManager interface
 type SharedInformerFactoryManager interface {
-	GetOrCreateFactory(namespace string) (informers.SharedInformerFactory, error)
+	GetOrCreateFactory(namespace string) (informers.SharedInformerFactory, <-chan struct{}, error)
 	Shutdown(ctx context.Context) error
 }
 
 // Represents SharedInformerFactoryManager
-type sharedInformerFactoryManager struct {
+type DefaultSharedInformerFactoryManager struct {
 	clientset    kubernetes.Interface
 	factoryCache map[string]informers.SharedInformerFactory
 	mu           sync.Mutex
@@ -39,7 +39,7 @@ type sharedInformerFactoryManager struct {
 
 // Initialize shared informer factory manager
 func NewSharedInformerFactoryManager(clientset kubernetes.Interface) SharedInformerFactoryManager {
-	return &sharedInformerFactoryManager{
+	return &DefaultSharedInformerFactoryManager{
 		clientset:    clientset,
 		factoryCache: make(map[string]informers.SharedInformerFactory),
 		shutdownCh:   make(chan struct{}),
@@ -47,13 +47,13 @@ func NewSharedInformerFactoryManager(clientset kubernetes.Interface) SharedInfor
 }
 
 // GetOrCreateFactory implementation
-func (m *sharedInformerFactoryManager) GetOrCreateFactory(namespace string) (informers.SharedInformerFactory, error) {
+func (m *DefaultSharedInformerFactoryManager) GetOrCreateFactory(namespace string) (informers.SharedInformerFactory, <-chan struct{}, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	// Check cache
 	if factory, exists := m.factoryCache[namespace]; exists {
-		return factory, nil
+		return factory, m.shutdownCh, nil
 	}
 
 	// Create factory
@@ -65,11 +65,11 @@ func (m *sharedInformerFactoryManager) GetOrCreateFactory(namespace string) (inf
 	// Add to cache
 	m.factoryCache[namespace] = factory
 
-	return factory, nil
+	return factory, m.shutdownCh, nil
 }
 
 // Shutdown all factories
-func (m *sharedInformerFactoryManager) Shutdown(ctx context.Context) error {
+func (m *DefaultSharedInformerFactoryManager) Shutdown(ctx context.Context) error {
 	// Issue shutdown signal
 	m.shutdownOnce.Do(func() {
 		close(m.shutdownCh)

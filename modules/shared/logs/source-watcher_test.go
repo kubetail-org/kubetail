@@ -18,17 +18,23 @@ import (
 	"testing"
 	"time"
 
+	k8shelpersmock "github.com/kubetail-org/kubetail/modules/shared/k8shelpers/mock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestNewSourceWatcher(t *testing.T) {
-	obj, err := NewSourceWatcher(nil, []string{}, &sourceWatcherConfig{})
+	// Init connection Manager
+	cm := &k8shelpersmock.MockConnectionManager{}
+	cm.On("GetDefaultNamespace", mock.Anything).Return("default")
+
+	// Init source watcher
+	obj, err := NewSourceWatcher(cm, []string{})
 	require.NoError(t, err)
 
 	w, ok := obj.(*sourceWatcher)
@@ -36,8 +42,22 @@ func TestNewSourceWatcher(t *testing.T) {
 	assert.NotNil(t, w.parsedPaths)
 	assert.NotNil(t, w.sources)
 	assert.NotNil(t, w.index)
-	assert.NotNil(t, w.fm)
 	assert.NotNil(t, w.stopCh)
+}
+
+func TestNewSourceWatcherWithAllowedNamespaces(t *testing.T) {
+	// Init connection Manager
+	cm := &k8shelpersmock.MockConnectionManager{}
+	cm.On("GetDefaultNamespace", mock.Anything).Return("default")
+
+	// Init source watcher
+	obj, err := NewSourceWatcher(cm, []string{"ns1:pods/pod1", "ns2:pods/pod2"}, WithAllowedNamespaces([]string{"ns1"}))
+	require.NoError(t, err)
+
+	w, ok := obj.(*sourceWatcher)
+	require.True(t, ok)
+	assert.Equal(t, []string{"ns1"}, w.allowedNamespaces)
+	assert.Equal(t, []parsedPath{{Namespace: "ns1", WorkloadType: WorkloadTypePod, WorkloadName: "pod1", ContainerName: ""}}, w.parsedPaths)
 }
 
 func TestHandleWorkloadAdd(t *testing.T) {
@@ -76,7 +96,9 @@ func TestHandleWorkloadAdd(t *testing.T) {
 	}
 
 	mockSource := LogSource{
-		NodeName:      "node1",
+		Metadata: LogSourceMetadata{
+			Node: "node1",
+		},
 		Namespace:     "default",
 		PodName:       "pod1",
 		ContainerName: "container1",
@@ -116,8 +138,12 @@ func TestHandleWorkloadAdd(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Init connection Manager
+			cm := &k8shelpersmock.MockConnectionManager{}
+			cm.On("GetDefaultNamespace", mock.Anything).Return("default")
+
 			// Initialize source watcher
-			w, err := NewSourceWatcher(fake.NewSimpleClientset(), []string{"default:pods/pod1"}, &sourceWatcherConfig{})
+			w, err := NewSourceWatcher(cm, []string{"default:pods/pod1"})
 			assert.NoError(t, err)
 
 			sw := w.(*sourceWatcher)
@@ -125,7 +151,7 @@ func TestHandleWorkloadAdd(t *testing.T) {
 
 			// Track events
 			var events []string
-			sw.Subscribe(watchEventAdded, func(s LogSource) {
+			sw.Subscribe(SourceWatcherEventAdded, func(s LogSource) {
 				events = append(events, "ADDED")
 			})
 
@@ -179,7 +205,9 @@ func TestHandleWorkloadDelete(t *testing.T) {
 	}
 
 	mockSource := LogSource{
-		NodeName:      "node1",
+		Metadata: LogSourceMetadata{
+			Node: "node1",
+		},
 		Namespace:     "default",
 		PodName:       "pod1",
 		ContainerName: "container1",
@@ -223,8 +251,12 @@ func TestHandleWorkloadDelete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Init connection Manager
+			cm := &k8shelpersmock.MockConnectionManager{}
+			cm.On("GetDefaultNamespace", mock.Anything).Return("default")
+
 			// Initialize source watcher
-			w, err := NewSourceWatcher(fake.NewSimpleClientset(), []string{"default:pods/pod1"}, &sourceWatcherConfig{})
+			w, err := NewSourceWatcher(cm, []string{"default:pods/pod1"})
 			assert.NoError(t, err)
 
 			sw := w.(*sourceWatcher)
@@ -240,7 +272,7 @@ func TestHandleWorkloadDelete(t *testing.T) {
 
 			// Track events
 			var events []string
-			sw.Subscribe(watchEventDeleted, func(s LogSource) {
+			sw.Subscribe(SourceWatcherEventDeleted, func(s LogSource) {
 				events = append(events, "DELETED")
 			})
 
@@ -736,7 +768,9 @@ func TestUpdateSourcesWithNodeFilter(t *testing.T) {
 	}
 
 	mockSource1 := LogSource{
-		NodeName:      "node1",
+		Metadata: LogSourceMetadata{
+			Node: "node1",
+		},
 		Namespace:     "default",
 		PodName:       "pod1",
 		ContainerName: "container1",
@@ -744,7 +778,9 @@ func TestUpdateSourcesWithNodeFilter(t *testing.T) {
 	}
 
 	mockSource2 := LogSource{
-		NodeName:      "node2",
+		Metadata: LogSourceMetadata{
+			Node: "node2",
+		},
 		Namespace:     "default",
 		PodName:       "pod2",
 		ContainerName: "container1",
@@ -792,14 +828,12 @@ func TestUpdateSourcesWithNodeFilter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Init connection Manager
+			cm := &k8shelpersmock.MockConnectionManager{}
+			cm.On("GetDefaultNamespace", mock.Anything).Return("default")
+
 			// Initialize source watcher with the node filter
-			w, err := NewSourceWatcher(
-				fake.NewSimpleClientset(),
-				[]string{"default:pods/*"},
-				&sourceWatcherConfig{
-					Nodes: tt.nodes,
-				},
-			)
+			w, err := NewSourceWatcher(cm, []string{"default:pods/*"}, WithNodes(tt.nodes))
 			require.NoError(t, err)
 
 			sw := w.(*sourceWatcher)

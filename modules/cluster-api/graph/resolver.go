@@ -16,6 +16,8 @@ package graph
 
 import (
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
+
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
 // This file will not be regenerated automatically.
@@ -25,6 +27,7 @@ import (
 //go:generate go run github.com/99designs/gqlgen generate
 
 type Resolver struct {
+	cm                k8shelpers.ConnectionManager
 	grpcDispatcher    *grpcdispatcher.Dispatcher
 	allowedNamespaces []string
 }

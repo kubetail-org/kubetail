@@ -59,6 +59,35 @@ export const mocks: MockedResponse[] = [
     },
   },
 
+  // log records
+  {
+    request: {
+      query: dashboardOps.LOG_RECORDS_FETCH,
+      variables: { kubeContext: null, sources: [], limit: 301, mode: 'TAIL' },
+    },
+    result: {
+      data: {
+        logRecordsFetch: {
+          records: [],
+          nextCursor: null,
+        },
+      },
+    },
+  },
+
+  // log sources
+  {
+    request: {
+      query: dashboardOps.LOG_SOURCES_WATCH,
+      variables: { kubeContext: null, sources: [] },
+    },
+    result: {
+      data: {
+        logSourcesWatch: null,
+      },
+    },
+  },
+
   // healthz
   {
     request: {

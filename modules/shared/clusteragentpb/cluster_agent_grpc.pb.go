@@ -175,3 +175,149 @@ var LogMetadataService_ServiceDesc = grpc.ServiceDesc{
 	},
 	Metadata: "cluster_agent.proto",
 }
+
+const (
+	LogRecordsService_StreamForward_FullMethodName  = "/cluster_agent.LogRecordsService/StreamForward"
+	LogRecordsService_StreamBackward_FullMethodName = "/cluster_agent.LogRecordsService/StreamBackward"
+)
+
+// LogRecordsServiceClient is the client API for LogRecordsService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type LogRecordsServiceClient interface {
+	StreamForward(ctx context.Context, in *LogRecordsStreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[LogRecord], error)
+	StreamBackward(ctx context.Context, in *LogRecordsStreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[LogRecord], error)
+}
+
+type logRecordsServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewLogRecordsServiceClient(cc grpc.ClientConnInterface) LogRecordsServiceClient {
+	return &logRecordsServiceClient{cc}
+}
+
+func (c *logRecordsServiceClient) StreamForward(ctx context.Context, in *LogRecordsStreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[LogRecord], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &LogRecordsService_ServiceDesc.Streams[0], LogRecordsService_StreamForward_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[LogRecordsStreamRequest, LogRecord]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type LogRecordsService_StreamForwardClient = grpc.ServerStreamingClient[LogRecord]
+
+func (c *logRecordsServiceClient) StreamBackward(ctx context.Context, in *LogRecordsStreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[LogRecord], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &LogRecordsService_ServiceDesc.Streams[1], LogRecordsService_StreamBackward_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[LogRecordsStreamRequest, LogRecord]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type LogRecordsService_StreamBackwardClient = grpc.ServerStreamingClient[LogRecord]
+
+// LogRecordsServiceServer is the server API for LogRecordsService service.
+// All implementations must embed UnimplementedLogRecordsServiceServer
+// for forward compatibility.
+type LogRecordsServiceServer interface {
+	StreamForward(*LogRecordsStreamRequest, grpc.ServerStreamingServer[LogRecord]) error
+	StreamBackward(*LogRecordsStreamRequest, grpc.ServerStreamingServer[LogRecord]) error
+	mustEmbedUnimplementedLogRecordsServiceServer()
+}
+
+// UnimplementedLogRecordsServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedLogRecordsServiceServer struct{}
+
+func (UnimplementedLogRecordsServiceServer) StreamForward(*LogRecordsStreamRequest, grpc.ServerStreamingServer[LogRecord]) error {
+	return status.Errorf(codes.Unimplemented, "method StreamForward not implemented")
+}
+func (UnimplementedLogRecordsServiceServer) StreamBackward(*LogRecordsStreamRequest, grpc.ServerStreamingServer[LogRecord]) error {
+	return status.Errorf(codes.Unimplemented, "method StreamBackward not implemented")
+}
+func (UnimplementedLogRecordsServiceServer) mustEmbedUnimplementedLogRecordsServiceServer() {}
+func (UnimplementedLogRecordsServiceServer) testEmbeddedByValue()                           {}
+
+// UnsafeLogRecordsServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to LogRecordsServiceServer will
+// result in compilation errors.
+type UnsafeLogRecordsServiceServer interface {
+	mustEmbedUnimplementedLogRecordsServiceServer()
+}
+
+func RegisterLogRecordsServiceServer(s grpc.ServiceRegistrar, srv LogRecordsServiceServer) {
+	// If the following call pancis, it indicates UnimplementedLogRecordsServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&LogRecordsService_ServiceDesc, srv)
+}
+
+func _LogRecordsService_StreamForward_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(LogRecordsStreamRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(LogRecordsServiceServer).StreamForward(m, &grpc.GenericServerStream[LogRecordsStreamRequest, LogRecord]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type LogRecordsService_StreamForwardServer = grpc.ServerStreamingServer[LogRecord]
+
+func _LogRecordsService_StreamBackward_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(LogRecordsStreamRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(LogRecordsServiceServer).StreamBackward(m, &grpc.GenericServerStream[LogRecordsStreamRequest, LogRecord]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type LogRecordsService_StreamBackwardServer = grpc.ServerStreamingServer[LogRecord]
+
+// LogRecordsService_ServiceDesc is the grpc.ServiceDesc for LogRecordsService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var LogRecordsService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "cluster_agent.LogRecordsService",
+	HandlerType: (*LogRecordsServiceServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamForward",
+			Handler:       _LogRecordsService_StreamForward_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "StreamBackward",
+			Handler:       _LogRecordsService_StreamBackward_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "cluster_agent.proto",
+}

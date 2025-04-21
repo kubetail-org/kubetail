@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -91,8 +92,8 @@ func main() {
 			})
 
 			// Capture unhandled kubernetes client errors
-			k8sruntime.ErrorHandlers = []k8sruntime.ErrorHandler{func(ctx context.Context, err error, msg string, keysAndValues ...interface{}) {
-				zlog.Error().Err(err).Msg(msg)
+			k8sruntime.ErrorHandlers = []k8sruntime.ErrorHandler{func(ctx context.Context, err error, msg string, keysAndValues ...any) {
+				// Suppress for now
 			}}
 
 			// Capture messages sent to klog
@@ -143,24 +144,30 @@ func main() {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			// Attempt graceful shutdown
-			done := make(chan struct{})
+			var wg sync.WaitGroup
+			wg.Add(2)
+
+			// attempt graceful shutdown
 			go func() {
+				defer wg.Done()
 				if err := server.Shutdown(ctx); err != nil {
 					zlog.Error().Err(err).Send()
 				}
-				close(done)
 			}()
 
-			// Shutdown app
+			// shutdown app
 			// TODO: handle long-lived requests shutdown (e.g. websockets)
-			app.Shutdown()
+			go func() {
+				defer wg.Done()
+				if err := app.Shutdown(ctx); err != nil {
+					zlog.Error().Err(err).Send()
+				}
+			}()
 
-			select {
-			case <-done:
+			wg.Wait()
+
+			if ctx.Err() == nil {
 				zlog.Info().Msg("Completed graceful shutdown")
-			case <-ctx.Done():
-				zlog.Info().Msg("Exceeded deadline, exiting now")
 			}
 		},
 	}

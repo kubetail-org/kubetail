@@ -23,6 +23,7 @@ import (
 	zlog "github.com/rs/zerolog/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
@@ -33,15 +34,25 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/config"
 )
 
+// Represents shared informer factory manager cache key
+type fmCacheKey struct {
+	kubeContext string
+	bearerToken string
+}
+
+// Signature for permission checker function
+type CheckPermissionsFunc func(clientset *kubernetes.Clientset) error
+
 // ConnectionManager interface
 type ConnectionManager interface {
 	GetOrCreateRestConfig(kubeContext *string) (*rest.Config, error)
 	GetOrCreateClientset(kubeContext *string) (kubernetes.Interface, error)
 	GetOrCreateDynamicClient(kubeContext *string) (dynamic.Interface, error)
+	GetOrCreateSharedInformerFactory(kubeContext *string, bearerToken string, namespace string, checkPermissions CheckPermissionsFunc) (informers.SharedInformerFactory, <-chan struct{}, error)
 	GetDefaultNamespace(kubeContext *string) string
 	DerefKubeContext(kubeContext *string) string
 	WaitUntilReady(ctx context.Context, kubeContext *string) error
-	Teardown()
+	Shutdown(ctx context.Context) error
 }
 
 // Represents DesktopConnectionManager
@@ -52,27 +63,28 @@ type DesktopConnectionManager struct {
 	rcCache           map[string]*rest.Config
 	csCache           map[string]*kubernetes.Clientset
 	dcCache           map[string]*dynamic.DynamicClient
+	fmCache           map[fmCacheKey]SharedInformerFactoryManager
 	rootCtx           context.Context
 	rootCtxCancel     context.CancelFunc
 	readyChs          map[string]chan struct{}
 	mu                sync.Mutex
-	shutdownCh        chan struct{}
 }
 
 // Initialize new DesktopConnectionManager instance
 func NewDesktopConnectionManager(options ...ConnectionManagerOption) (*DesktopConnectionManager, error) {
 	cm := &DesktopConnectionManager{
-		rcCache:    make(map[string]*rest.Config),
-		csCache:    make(map[string]*kubernetes.Clientset),
-		dcCache:    make(map[string]*dynamic.DynamicClient),
-		readyChs:   make(map[string]chan struct{}),
-		rootCtx:    context.Background(),
-		shutdownCh: make(chan struct{}),
+		rcCache:  make(map[string]*rest.Config),
+		csCache:  make(map[string]*kubernetes.Clientset),
+		dcCache:  make(map[string]*dynamic.DynamicClient),
+		fmCache:  make(map[fmCacheKey]SharedInformerFactoryManager),
+		readyChs: make(map[string]chan struct{}),
+		rootCtx:  context.Background(),
 	}
 
 	// Init root context
 	cm.rootCtx, cm.rootCtxCancel = context.WithCancel(context.Background())
 
+	// Apply options
 	for _, option := range options {
 		option(cm)
 	}
@@ -99,12 +111,29 @@ func NewDesktopConnectionManager(options ...ConnectionManagerOption) (*DesktopCo
 }
 
 // Stop bacgkround listeners and close underlying connections
-func (cm *DesktopConnectionManager) Teardown() {
+func (cm *DesktopConnectionManager) Shutdown(ctx context.Context) error {
 	cm.rootCtxCancel()
+
+	// Initialize shutdown of shared informer factory managers
+	var wg sync.WaitGroup
+	for _, fm := range cm.fmCache {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fm.Shutdown(ctx)
+		}()
+	}
+
+	// Unsubscribe from config watcher events and close
 	cm.KubeConfigWatcher.Unsubscribe("ADDED", cm.kubeConfigAdded)
 	cm.KubeConfigWatcher.Unsubscribe("MODIFIED", cm.kubeConfigModified)
 	cm.KubeConfigWatcher.Unsubscribe("DELETED", cm.kubeConfigDeleted)
-	close(cm.shutdownCh)
+	cm.KubeConfigWatcher.Close()
+
+	// Wait for shutdown to complete
+	wg.Wait()
+
+	return ctx.Err()
 }
 
 // Get cached REST config or create a new one
@@ -132,6 +161,54 @@ func (cm *DesktopConnectionManager) GetOrCreateDynamicClient(kubeContextPtr *str
 
 	kubeContext := ptr.Deref(kubeContextPtr, cm.kubeConfig.CurrentContext)
 	return cm.getOrCreateDynamicClient_UNSAFE(kubeContext)
+}
+
+// Get shared informer factory or create a new one
+func (cm *DesktopConnectionManager) GetOrCreateSharedInformerFactory(kubeContextPtr *string, bearerToken string, namespace string, checkPermissions CheckPermissionsFunc) (informers.SharedInformerFactory, <-chan struct{}, error) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// Init cache key
+	kubeContext := ptr.Deref(kubeContextPtr, cm.kubeConfig.CurrentContext)
+	k := fmCacheKey{kubeContext, bearerToken}
+
+	// Check cache
+	fm, exists := cm.fmCache[k]
+	if exists {
+		return fm.GetOrCreateFactory(namespace)
+	}
+
+	// Clone rest config and set bearer token
+	clientConfig := clientcmd.NewNonInteractiveClientConfig(*cm.kubeConfig, kubeContext, &clientcmd.ConfigOverrides{}, nil)
+	rc, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if bearerToken != "" {
+		rc.BearerTokenFile = ""
+		rc.BearerToken = bearerToken
+	}
+
+	// Init clientset
+	// TODO: use kubernetes.NewForConfigAndClient to re-use underlying transport
+	clientset, err := kubernetes.NewForConfig(rc)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Check permissions
+	if err := checkPermissions(clientset); err != nil {
+		return nil, nil, err
+	}
+
+	// Create new factory manager
+	fm = NewSharedInformerFactoryManager(clientset)
+
+	// Add to cache
+	cm.fmCache[k] = fm
+
+	return fm.GetOrCreateFactory(namespace)
 }
 
 // GetDefaultNamespace
@@ -238,6 +315,7 @@ func (cm *DesktopConnectionManager) getOrCreateClientset_UNSAFE(kubeContext stri
 	}
 
 	// Create client
+	// TODO: use kubernetes.NewForConfigAndClient to re-use underlying transport
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
@@ -263,6 +341,7 @@ func (cm *DesktopConnectionManager) getOrCreateDynamicClient_UNSAFE(kubeContext 
 	}
 
 	// Create client
+	// TODO: use dynamic.NewForConfigAndClient to re-use underlying transport
 	dynamicClient, err := dynamic.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
@@ -325,17 +404,39 @@ type InClusterConnectionManager struct {
 	restConfig    *rest.Config
 	clientset     *kubernetes.Clientset
 	dynamicClient *dynamic.DynamicClient
+	fmCache       map[string]SharedInformerFactoryManager
 	mu            sync.Mutex
 }
 
 // Initialize new InClusterConnectionManager instance
 func NewInClusterConnectionManager(options ...ConnectionManagerOption) (*InClusterConnectionManager, error) {
-	return &InClusterConnectionManager{}, nil
+	cm := &InClusterConnectionManager{
+		fmCache: make(map[string]SharedInformerFactoryManager),
+	}
+
+	// Apply options
+	for _, option := range options {
+		option(cm)
+	}
+
+	return cm, nil
 }
 
 // Stop bacgkround listeners and close underlying connections
-func (cm *InClusterConnectionManager) Teardown() {
-	// Do nothing
+func (cm *InClusterConnectionManager) Shutdown(ctx context.Context) error {
+	// Initialize shutdown of shared informer factory managers
+	var wg sync.WaitGroup
+	for _, fm := range cm.fmCache {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fm.Shutdown(ctx)
+		}()
+	}
+	// Wait for shutdown to complete
+	wg.Wait()
+
+	return ctx.Err()
 }
 
 // Get cached Clientset or create a new one
@@ -362,6 +463,7 @@ func (cm *InClusterConnectionManager) GetOrCreateClientset(kubeContext *string) 
 	}
 
 	// Create client
+	// TODO: use kubernetes.NewForConfigAndClient to re-use underlying transport
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
@@ -390,6 +492,7 @@ func (cm *InClusterConnectionManager) GetOrCreateDynamicClient(kubeContext *stri
 	}
 
 	// Create client
+	// TODO: use dynamic.NewForConfigAndClient to re-use underlying transport
 	dynamicClient, err := dynamic.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
@@ -399,6 +502,49 @@ func (cm *InClusterConnectionManager) GetOrCreateDynamicClient(kubeContext *stri
 	cm.dynamicClient = dynamicClient
 
 	return dynamicClient, nil
+}
+
+// Get shared informer factory or create a new one
+func (cm *InClusterConnectionManager) GetOrCreateSharedInformerFactory(kubeContextPtr *string, bearerToken string, namespace string, checkPermissions CheckPermissionsFunc) (informers.SharedInformerFactory, <-chan struct{}, error) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// Check cache
+	fm, exists := cm.fmCache[bearerToken]
+	if exists {
+		return fm.GetOrCreateFactory(namespace)
+	}
+
+	// New rest config
+	rc, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if bearerToken != "" {
+		rc.BearerTokenFile = ""
+		rc.BearerToken = bearerToken
+	}
+
+	// Init clientset
+	// TODO: use kubernetes.NewForConfigAndClient to re-use underlying transport
+	clientset, err := kubernetes.NewForConfig(rc)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Check permissions
+	if err := checkPermissions(clientset); err != nil {
+		return nil, nil, err
+	}
+
+	// Create new factory manager
+	fm = NewSharedInformerFactoryManager(clientset)
+
+	// Add to cache
+	cm.fmCache[bearerToken] = fm
+
+	return fm.GetOrCreateFactory(namespace)
 }
 
 // Get default namespace from local filesystem on pod
@@ -424,20 +570,20 @@ func (cm *InClusterConnectionManager) getOrCreateRestConfig_UNSAFE() (*rest.Conf
 	}
 
 	// Create
-	restConfig, err := rest.InClusterConfig()
+	rc, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
 	}
 
 	// Add authentication middleware
-	restConfig.WrapTransport = func(transport http.RoundTripper) http.RoundTripper {
+	rc.WrapTransport = func(transport http.RoundTripper) http.RoundTripper {
 		return NewBearerTokenRoundTripper(transport)
 	}
 
 	// Add to cache
-	cm.restConfig = restConfig
+	cm.restConfig = rc
 
-	return restConfig, nil
+	return rc, nil
 }
 
 type ConnectionManagerOption func(cm ConnectionManager)

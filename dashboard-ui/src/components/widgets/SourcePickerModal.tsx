@@ -179,7 +179,7 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
     });
   }
 
-  const genSourcePath = (item: any) => `${item.metadata.namespace}/${typenameMap[item.__typename || '']}/${item.metadata.name}`;
+  const genSourcePath = (item: any) => `${item.metadata.namespace}:${typenameMap[item.__typename || '']}/${item.metadata.name}`;
 
   // source toggler
   const filteredSourcePaths = new Set(filteredItems.map((item) => genSourcePath(item)));

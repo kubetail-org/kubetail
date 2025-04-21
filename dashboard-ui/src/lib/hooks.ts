@@ -85,7 +85,7 @@ function isWatchExpiredError(err: Error): boolean {
  * Retries query until hook is unmounted
  */
 
-function useRetryOnError() {
+export function useRetryOnError() {
   const isMountedRef = useRef(true);
 
   useEffect(() => {

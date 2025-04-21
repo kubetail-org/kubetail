@@ -15,6 +15,7 @@
 package app
 
 import (
+	"context"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -52,15 +53,15 @@ type App struct {
 }
 
 // Shutdown
-func (a *App) Shutdown() {
-	// Shutdown connection manager
-	a.cm.Teardown()
-
+func (a *App) Shutdown(ctx context.Context) error {
 	// Shutdown GraphQL server
 	a.graphqlServer.Shutdown()
 
 	// Shudown Cluster API proxy
 	a.clusterAPIProxy.Shutdown()
+
+	// Shutdown connection manager
+	return a.cm.Shutdown(ctx)
 }
 
 // Create new gin app
