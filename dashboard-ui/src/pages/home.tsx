@@ -41,7 +41,7 @@ import SettingsDropdown from '@/components/widgets/SettingsDropdown';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { useListQueryWithSubscription, useLogMetadata, useWorkloadCounter } from '@/lib/hooks';
 import { joinPaths, getBasename, cn } from '@/lib/util';
-import { Workload, iconMap, labelsPMap } from '@/lib/workload';
+import { Workload, allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
 
 /**
  * Shared variables and helper methods
@@ -50,15 +50,6 @@ import { Workload, iconMap, labelsPMap } from '@/lib/workload';
 const basename = getBasename();
 
 const defaultKubeContext = appConfig.environment === 'cluster' ? '' : undefined;
-const defaultSidebarItems: Map<Workload, undefined> = new Map([
-  [Workload.CRONJOBS, undefined],
-  [Workload.DAEMONSETS, undefined],
-  [Workload.DEPLOYMENTS, undefined],
-  [Workload.JOBS, undefined],
-  [Workload.PODS, undefined],
-  [Workload.REPLICASETS, undefined],
-  [Workload.STATEFULSETS, undefined],
-]);
 
 const logMetadataMapState = atom({
   key: 'homeLogMetadataMap',
@@ -408,7 +399,7 @@ const DisplayItems = ({
   }
 
   // not showing all the rows at once when user selects all workloads filter
-  const allWorkloadView = useMemo(() => workloadFilter === undefined, [workloadFilter]);
+  const allWorkloadView = workloadFilter === undefined;
 
   // handle show some-or-all
   const [showAll, setShowAll] = useState(!allWorkloadView);
@@ -817,10 +808,10 @@ const Sidebar = () => {
   const { workloadFilter, setWorkloadFilter, kubeContext, namespace } = useContext(Context);
 
   // kubeContext sometimes is undefined
-  const { counter } = useWorkloadCounter(kubeContext ?? '', namespace);
+  const { loading, error, counter } = useWorkloadCounter(kubeContext ?? '', namespace);
 
-  // the counter returns a empty map sometimes
-  const sidebarItems = counter.size === 0 ? Array.from(defaultSidebarItems) : Array.from(counter.entries());
+  // using some default sidebar values during data loading and error states
+  const sidebarItems: [Workload, number][] = loading || error ? allWorkloads.map((w) => [w, 0]) : Array.from(counter.entries());
 
   return (
     <div className="px-4">
