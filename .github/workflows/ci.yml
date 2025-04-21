@@ -13,7 +13,7 @@ jobs:
       - name: Run tests
         working-directory: ./crates/rgkl
         run: |
-          cargo test --verbose
+          cargo test
 
   crates-build:
     runs-on: ubuntu-24.04
@@ -22,8 +22,8 @@ jobs:
       - name: Run tests
         working-directory: ./crates/rgkl
         run: |
-          cargo build --verbose
-        
+          cargo build
+
   modules-lint:
     runs-on: ubuntu-24.04
     steps:
