@@ -6,6 +6,24 @@ on:
       - '**'
 
 jobs:
+  crates-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests
+        working-directory: ./crates/rgkl
+        run: |
+          cargo test --verbose
+
+  crates-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests
+        working-directory: ./crates/rgkl
+        run: |
+          cargo build --verbose
+        
   modules-lint:
     runs-on: ubuntu-24.04
     steps:
