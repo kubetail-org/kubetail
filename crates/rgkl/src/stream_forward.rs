@@ -150,15 +150,15 @@ pub fn run<W: Write>(
     }
 
     // Follow
-    let mut search_slice = |str: &[u8]| {
+    let mut search_slice = |input_str: &[u8]| {
         if trimmed_grep.is_empty() {
             let matcher = PassThroughMatcher::new();
             let sink = printer.sink(&matcher);
-            let _ = searcher.search_slice(&matcher, str, sink);
+            let _ = searcher.search_slice(&matcher, input_str, sink);
         } else {
             let matcher = LogFileRegexMatcher::new(trimmed_grep).unwrap();
             let sink = printer.sink(&matcher);
-            let _ = searcher.search_slice(&matcher, str, sink);
+            let _ = searcher.search_slice(&matcher, input_str, sink);
         }
     };
 

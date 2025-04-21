@@ -30,6 +30,7 @@ import { useSearchParams } from 'react-router-dom';
 import Form from '@kubetail/ui/elements/Form';
 import { Popover, PopoverTrigger, PopoverContent } from '@kubetail/ui/elements/Popover';
 
+import appConfig from '@/app-config';
 import logo from '@/assets/logo.svg';
 import logoicon from '@/assets/logo-icon.svg';
 import AppLayout from '@/components/layouts/AppLayout';
@@ -193,58 +194,84 @@ const Header = ({ viewerRef }: { viewerRef: React.RefObject<LogFeedViewerHandle>
     viewerRef.current?.seekTail();
   };
 
+  const handleSubmit = (ev: React.FormEvent<HTMLFormElement>) => {
+    ev.preventDefault();
+
+    const formData = new FormData(ev.currentTarget);
+    const grep = (formData.get('grep') as string || '').trim();
+
+    // Update location
+    if (grep === '') searchParams.delete('grep');
+    else searchParams.set('grep', grep);
+    setSearchParams(new URLSearchParams(searchParams), { replace: true });
+  };
+
   return (
     <div className="flex justify-between items-end p-1">
-      <div className="flex px-2">
-        <DateRangeDropdown onChange={handleDateRangeDropdownChange}>
+      <div className="flex items-center px-4">
+        <div className="flex px-2">
+          <DateRangeDropdown onChange={handleDateRangeDropdownChange}>
+            <button
+              type="button"
+              className={buttonCN}
+              title="Jump to time"
+              aria-label="Jump to time"
+            >
+              <HistoryIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+            </button>
+          </DateRangeDropdown>
           <button
             type="button"
             className={buttonCN}
-            title="Jump to time"
-            aria-label="Jump to time"
+            title="Jump to beginning"
+            aria-label="Jump to beginning"
+            onClick={handleJumpToBeginningPress}
           >
-            <HistoryIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+            <SkipBackIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
-        </DateRangeDropdown>
-        <button
-          type="button"
-          className={buttonCN}
-          title="Jump to beginning"
-          aria-label="Jump to beginning"
-          onClick={handleJumpToBeginningPress}
-        >
-          <SkipBackIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
-        </button>
-        {feed.isFollow ? (
+          {feed.isFollow ? (
+            <button
+              type="button"
+              className={buttonCN}
+              title="Pause"
+              aria-label="Pause"
+              onClick={() => viewerRef.current?.pause()}
+            >
+              <PauseIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={buttonCN}
+              title="Play"
+              aria-label="Play"
+              onClick={() => viewerRef.current?.play()}
+            >
+              <PlayIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+            </button>
+          )}
           <button
             type="button"
             className={buttonCN}
-            title="Pause"
-            aria-label="Pause"
-            onClick={() => viewerRef.current?.pause()}
+            title="Jump to end"
+            aria-label="Jump to end"
+            onClick={handleJumpToEndPress}
           >
-            <PauseIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+            <SkipForwardIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
-        ) : (
-          <button
-            type="button"
-            className={buttonCN}
-            title="Play"
-            aria-label="Play"
-            onClick={() => viewerRef.current?.play()}
-          >
-            <PlayIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
-          </button>
-        )}
-        <button
-          type="button"
-          className={buttonCN}
-          title="Jump to end"
-          aria-label="Jump to end"
-          onClick={handleJumpToEndPress}
-        >
-          <SkipForwardIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
-        </button>
+        </div>
+        <div>
+          {appConfig.clusterAPIEnabled && (
+            <Form onSubmit={handleSubmit}>
+              <Form.Control
+                name="grep"
+                className="w-[300px]"
+                placeholder="Search logs..."
+                defaultValue={searchParams.get('grep') || ''}
+              />
+            </Form>
+          )}
+        </div>
       </div>
       <div className="h-full flex flex-col justify-end items-end">
         <SettingsButton />
@@ -707,6 +734,7 @@ export default function Page() {
         kubeContext={searchParams.get('kubeContext')}
         sources={searchParams.getAll('source')}
         sourceFilter={sourceFilter}
+        grep={searchParams.get('grep')}
       >
         <ConfigureContainerColors />
         <AppLayout>

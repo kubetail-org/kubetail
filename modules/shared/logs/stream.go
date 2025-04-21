@@ -51,8 +51,9 @@ type Stream struct {
 	untilTime time.Time
 
 	//reverse bool
-	follow bool
-	grep   *regexp.Regexp
+	follow    bool
+	grep      string
+	grepRegex *regexp.Regexp
 
 	rootCtx       context.Context
 	rootCtxCancel context.CancelFunc
@@ -231,6 +232,7 @@ func (s *Stream) handleSourceAdd(source LogSource) {
 	// Stream from beginning and keep following
 	opts := FetcherOptions{
 		Grep:       s.grep,
+		GrepRegex:  s.grepRegex,
 		FollowFrom: FollowFromDefault,
 	}
 
@@ -298,6 +300,7 @@ func (s *Stream) startHead_UNSAFE() error {
 		StartTime: s.sinceTime,
 		StopTime:  s.untilTime,
 		Grep:      s.grep,
+		GrepRegex: s.grepRegex,
 	}
 
 	streams := make([]<-chan LogRecord, s.sources.Cardinality())
@@ -357,6 +360,7 @@ func (s *Stream) startTail_UNSAFE() error {
 		StartTime:     s.sinceTime,
 		StopTime:      s.untilTime,
 		Grep:          s.grep,
+		GrepRegex:     s.grepRegex,
 		BatchSizeHint: batchSize,
 	}
 
@@ -416,6 +420,7 @@ func (s *Stream) startFollow_UNSAFE() error {
 	opts := FetcherOptions{
 		StopTime:   s.untilTime,
 		Grep:       s.grep,
+		GrepRegex:  s.grepRegex,
 		FollowFrom: FollowFromEnd,
 	}
 

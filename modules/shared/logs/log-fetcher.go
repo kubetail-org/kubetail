@@ -50,7 +50,8 @@ const (
 type FetcherOptions struct {
 	StartTime     time.Time
 	StopTime      time.Time
-	Grep          *regexp.Regexp
+	Grep          string
+	GrepRegex     *regexp.Regexp
 	FollowFrom    FollowFrom
 	BatchSizeHint int64
 }
@@ -127,7 +128,7 @@ func (f *KubeLogFetcher) StreamForward(ctx context.Context, source LogSource, op
 			}
 
 			// Check grep
-			if opts.Grep != nil && !opts.Grep.MatchString(record.Message) {
+			if opts.GrepRegex != nil && !opts.GrepRegex.MatchString(record.Message) {
 				continue
 			}
 
@@ -290,7 +291,7 @@ func (f *KubeLogFetcher) StreamBackward(ctx context.Context, source LogSource, o
 				}
 
 				// Check grep
-				if opts.Grep != nil && !opts.Grep.MatchString(record.Message) {
+				if opts.GrepRegex != nil && !opts.GrepRegex.MatchString(record.Message) {
 					continue
 				}
 
@@ -346,6 +347,7 @@ func (f *AgentLogFetcher) StreamForward(ctx context.Context, source LogSource, o
 			Namespace:     source.Namespace,
 			PodName:       source.PodName,
 			ContainerName: source.ContainerName,
+			Grep:          opts.Grep,
 		}
 
 		if !opts.StartTime.IsZero() {
@@ -441,6 +443,7 @@ func (f *AgentLogFetcher) StreamBackward(ctx context.Context, source LogSource, 
 			Namespace:     source.Namespace,
 			PodName:       source.PodName,
 			ContainerName: source.ContainerName,
+			Grep:          opts.Grep,
 		}
 
 		if !opts.StartTime.IsZero() {

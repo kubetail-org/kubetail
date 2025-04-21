@@ -128,7 +128,6 @@ func WithGrep(pattern string) Option {
 		case *Stream:
 			pattern = strings.TrimSpace(pattern)
 			if pattern == "" {
-				t.grep = nil
 				return nil
 			}
 
@@ -141,7 +140,8 @@ func WithGrep(pattern string) Option {
 				return fmt.Errorf("invalid grep pattern: %w", err)
 			}
 
-			t.grep = regex
+			t.grep = pattern
+			t.grepRegex = regex
 		}
 		return nil
 	}

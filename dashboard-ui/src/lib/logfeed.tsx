@@ -36,6 +36,7 @@ type ContextType = {
   kubeContext: string | null;
   sources: string[];
   sourceFilter: LogSourceFilter;
+  grep: string | null;
 };
 
 const Context = createContext<ContextType>({} as ContextType);
@@ -727,7 +728,7 @@ const LogRecordsFetcherImpl: React.ForwardRefRenderFunction<LogRecordsFetcherHan
   { onFollowData }: LogRecordsFetcherProps,
   ref: React.ForwardedRef<LogRecordsFetcherHandle>,
 ) => {
-  const { kubeContext, sources, sourceFilter } = useContext(Context);
+  const { kubeContext, sources, sourceFilter, grep } = useContext(Context);
   const isFollow = useRecoilValue(isFollowState);
 
   const [isReachedEnd, setIsReachedEnd] = useState(false);
@@ -746,7 +747,7 @@ const LogRecordsFetcherImpl: React.ForwardRefRenderFunction<LogRecordsFetcherHan
   const query = useQuery(dashboardOps.LOG_RECORDS_FETCH, {
     client,
     skip: true,
-    variables: { kubeContext, sources, sourceFilter, limit: batchSize + 1 },
+    variables: { kubeContext, sources, sourceFilter, grep, limit: batchSize + 1 },
   });
 
   // Expose handler
@@ -795,7 +796,7 @@ const LogRecordsFetcherImpl: React.ForwardRefRenderFunction<LogRecordsFetcherHan
 
     return query.subscribeToMore({
       document: dashboardOps.LOG_RECORDS_FOLLOW,
-      variables: { kubeContext, sources, sourceFilter, after: lastTS.current },
+      variables: { kubeContext, sources, sourceFilter, grep, after: lastTS.current },
       updateQuery: (_, { subscriptionData }) => {
         const { data: { logRecordsFollow: record } } = subscriptionData;
         if (record) {
@@ -839,7 +840,7 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
   }: ViewerProps,
   ref: React.ForwardedRef<ViewerHandle>,
 ) => {
-  const { kubeContext, sources, sourceFilter } = useContext(Context);
+  const { kubeContext, grep, sources, sourceFilter } = useContext(Context);
 
   const [items, setItems] = useRecoilState(logRecordsState);
   const [hasMoreBefore, setHasMoreBefore] = useState(false);
@@ -975,7 +976,7 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
         handle.seekTail();
         break;
     }
-  }, [kubeContext, JSON.stringify(sources), JSON.stringify(sourceFilter)]);
+  }, [kubeContext, grep, JSON.stringify(sources), JSON.stringify(sourceFilter)]);
 
   return (
     <>
@@ -1005,19 +1006,22 @@ type ProviderProps = {
   kubeContext: string | null;
   sources: string[];
   sourceFilter: LogSourceFilter;
+  grep: string | null;
 };
 
 export const Provider = ({
   kubeContext,
   sources,
   sourceFilter,
+  grep,
   children,
 }: React.PropsWithChildren<ProviderProps>) => {
   const context = useMemo(() => ({
     kubeContext,
     sources,
     sourceFilter,
-  }), [kubeContext, JSON.stringify(sources), JSON.stringify(sourceFilter)]);
+    grep,
+  }), [kubeContext, grep, JSON.stringify(sources), JSON.stringify(sourceFilter)]);
 
   return (
     <Context.Provider value={context}>
