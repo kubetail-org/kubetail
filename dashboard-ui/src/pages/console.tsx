@@ -22,9 +22,9 @@ import {
   SkipBack as SkipBackIcon,
   SkipForward as SkipForwardIcon,
   PanelLeftClose as PanelLeftCloseIcon,
-  PanelRightClose as PanelRightCloseIcon,
+  PanelLeftOpen as PanelLeftOpenIcon,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import Form from '@kubetail/ui/elements/Form';
@@ -32,7 +32,6 @@ import { Popover, PopoverTrigger, PopoverContent } from '@kubetail/ui/elements/P
 
 import appConfig from '@/app-config';
 import logo from '@/assets/logo.svg';
-import logoicon from '@/assets/logo-icon.svg';
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
 import SourcePickerModal from '@/components/widgets/SourcePickerModal';
@@ -50,9 +49,20 @@ import {
   useViewerMetadata,
   useViewerVisibleCols,
 } from '@/lib/logfeed';
-import { Counter, cssEncode, getBasename, joinPaths, MapSet } from '@/lib/util';
+import { Counter, cn, cssEncode, getBasename, joinPaths, MapSet } from '@/lib/util';
 import { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { Workload, allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
+
+/**
+ * Shared
+ */
+
+type ContextType = {
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+};
+
+const Context = createContext({} as ContextType);
 
 /**
  * Helper methods
@@ -157,6 +167,7 @@ const SettingsButton = () => {
 
 const Header = ({ viewerRef }: { viewerRef: React.RefObject<LogFeedViewerHandle> }) => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { isSidebarOpen, setIsSidebarOpen } = useContext(Context);
   const feed = useViewerMetadata();
 
   const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30';
@@ -208,8 +219,18 @@ const Header = ({ viewerRef }: { viewerRef: React.RefObject<LogFeedViewerHandle>
 
   return (
     <div className="flex justify-between items-end p-1">
-      <div className="flex items-center px-4">
-        <div className="flex px-2">
+      <div className="flex items-center">
+        {!isSidebarOpen && (
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen(true)}
+            title="Collapse sidebar"
+            className="pr-2"
+          >
+            <PanelLeftOpenIcon size={20} strokeWidth={2} className="text-chrome-500" />
+          </button>
+        )}
+        <div className={cn('flex', isSidebarOpen ? 'px-4' : 'px-2')}>
           <DateRangeDropdown onChange={handleDateRangeDropdownChange}>
             <button
               type="button"
@@ -612,15 +633,10 @@ type InnerLayoutProps = {
 };
 
 const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
+  const { isSidebarOpen, setIsSidebarOpen } = useContext(Context);
   const [sidebarWidth, setSidebarWidth] = useState(300);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-  // Determine the effective width depending on the collapsed state
-  const effectiveSidebarWidth = isSidebarCollapsed ? 80 : sidebarWidth;
 
   const handleDrag = () => {
-    if (isSidebarCollapsed) return; // disable dragging when collapsed
-
     // change width when mouse moves
     const fn = (ev: MouseEvent) => {
       const newWidth = Math.max(ev.clientX, 180);
@@ -645,60 +661,35 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
     });
   };
 
-  // Toggle sidebar collapse/expand
-  const toggleSidebar = () => setIsSidebarCollapsed(!isSidebarCollapsed);
-
   return (
     <div className="relative h-full">
-      <div
-        className="absolute h-full bg-chrome-100 overflow-x-hidden"
-        style={{ width: `${effectiveSidebarWidth}px` }}
-      >
-        {isSidebarCollapsed ? (
-          <div className="px-2 pt-2 h-full border-r-2 border-chrome-divider">
-            <div className="flex items-center justify-between">
-              <a href={joinPaths(getBasename(), '/')} className="flex-shrink-0">
-                <img
-                  src={joinPaths(getBasename(), logoicon)}
-                  alt="logo"
-                  className="h-[40px] w-[40px] object-contain"
-                />
-              </a>
-              <button
-                type="button"
-                onClick={toggleSidebar}
-                title="Expand sidebar"
-                className="ml-1"
-              >
-                <PanelRightCloseIcon size={20} strokeWidth={2} className="text-chrome-500" />
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
+      {isSidebarOpen && (
+        <>
+          <div
+            className="absolute h-full bg-chrome-100 overflow-x-hidden"
+            style={{ width: `${sidebarWidth}px` }}
+          >
             {sidebar}
             <button
               type="button"
-              onClick={toggleSidebar}
+              onClick={() => setIsSidebarOpen(false)}
               title="Collapse sidebar"
               className="absolute right-0 top-[30px] transform -translate-y-1/2"
             >
               <PanelLeftCloseIcon size={20} strokeWidth={2} className="text-chrome-500" />
             </button>
-          </>
-        )}
-      </div>
-      {!isSidebarCollapsed && (
-        // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-        <div
-          className="absolute bg-chrome-divider w-[4px] h-full border-l-2 border-chrome-100 cursor-ew-resize"
-          style={{ left: `${effectiveSidebarWidth}px` }}
-          onMouseDown={handleDrag}
-        />
+          </div>
+          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+          <div
+            className="absolute bg-chrome-divider w-[4px] h-full border-l-2 border-chrome-100 cursor-ew-resize"
+            style={{ left: `${sidebarWidth}px` }}
+            onMouseDown={handleDrag}
+          />
+        </>
       )}
       <main
         className="h-full flex flex-col overflow-hidden"
-        style={{ marginLeft: `${effectiveSidebarWidth + (isSidebarCollapsed ? 0 : 4)}px` }}
+        style={{ marginLeft: `${isSidebarOpen ? sidebarWidth + 4 : 0}px` }}
       >
         <div className="bg-chrome-100 border-b border-chrome-divider">
           {header}
@@ -718,6 +709,7 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
 export default function Page() {
   const [searchParams] = useSearchParams();
   const viewerRef = useRef<LogFeedViewerHandle>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const sourceFilter = {
     region: searchParams.getAll('region'),
@@ -728,29 +720,36 @@ export default function Page() {
     container: searchParams.getAll('container'),
   };
 
+  const context = useMemo(() => ({
+    isSidebarOpen,
+    setIsSidebarOpen,
+  }), [isSidebarOpen, setIsSidebarOpen]);
+
   return (
     <AuthRequired>
-      <LogFeedProvider
-        kubeContext={searchParams.get('kubeContext')}
-        sources={searchParams.getAll('source')}
-        sourceFilter={sourceFilter}
-        grep={searchParams.get('grep')}
-      >
-        <ConfigureContainerColors />
-        <AppLayout>
-          <InnerLayout
-            sidebar={<Sidebar />}
-            header={<Header viewerRef={viewerRef} />}
-            content={(
-              <LogFeedViewer
-                ref={viewerRef}
-                defaultMode={searchParams.get('mode')}
-                defaultSince={searchParams.get('since')}
-              />
-            )}
-          />
-        </AppLayout>
-      </LogFeedProvider>
+      <Context.Provider value={context}>
+        <LogFeedProvider
+          kubeContext={searchParams.get('kubeContext')}
+          sources={searchParams.getAll('source')}
+          sourceFilter={sourceFilter}
+          grep={searchParams.get('grep')}
+        >
+          <ConfigureContainerColors />
+          <AppLayout>
+            <InnerLayout
+              sidebar={<Sidebar />}
+              header={<Header viewerRef={viewerRef} />}
+              content={(
+                <LogFeedViewer
+                  ref={viewerRef}
+                  defaultMode={searchParams.get('mode')}
+                  defaultSince={searchParams.get('since')}
+                />
+              )}
+            />
+          </AppLayout>
+        </LogFeedProvider>
+      </Context.Provider>
     </AuthRequired>
   );
 }
