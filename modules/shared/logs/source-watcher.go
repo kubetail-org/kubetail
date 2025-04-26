@@ -31,6 +31,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -190,7 +191,7 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 		set.Add(fetchTuple{pp.Namespace, WorkloadTypePod})
 	}
 
-	checkPermissionsFunc := createCheckPermissionsFunc(ctx, set.ToSlice())
+	//checkPermissionsFunc := createCheckPermissionsFunc(ctx, set.ToSlice())
 
 	// Initialize informers in background
 	var wg sync.WaitGroup
@@ -201,37 +202,15 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 
-			// Init shared informer factory
-			factory, stopCh, err := w.cm.GetOrCreateSharedInformerFactory(w.kubeContext, w.bearerToken, ft.namespace, checkPermissionsFunc)
+			// Init informer
+			informer, start, err := w.cm.GetOrCreateInformer(ctx, w.kubeContext, w.bearerToken, ft.namespace, ft.workloadType.GVR())
 			if err != nil {
 				errs.Add(err)
 				return
 			}
 
-			// Init informer
-			var informer cache.SharedIndexInformer
-			switch ft.workloadType {
-			case WorkloadTypeCronJob:
-				informer = factory.Batch().V1().CronJobs().Informer()
-			case WorkloadTypeDaemonSet:
-				informer = factory.Apps().V1().DaemonSets().Informer()
-			case WorkloadTypeDeployment:
-				informer = factory.Apps().V1().Deployments().Informer()
-			case WorkloadTypeJob:
-				informer = factory.Batch().V1().Jobs().Informer()
-			case WorkloadTypePod:
-				informer = factory.Core().V1().Pods().Informer()
-			case WorkloadTypeReplicaSet:
-				informer = factory.Apps().V1().ReplicaSets().Informer()
-			case WorkloadTypeStatefulSet:
-				informer = factory.Apps().V1().StatefulSets().Informer()
-			default:
-				errs.Add(fmt.Errorf("not implemented"))
-				return
-			}
-
 			// Add event handlers
-			handle, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			handle, err := informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 				AddFunc:    w.handleWorkloadAdd,
 				UpdateFunc: w.handleWorkloadUpdate,
 				DeleteFunc: w.handleWorkloadDelete,
@@ -241,8 +220,8 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 				return
 			}
 
-			// Restart factory
-			factory.Start(stopCh)
+			// Start informer
+			start()
 
 			// Wait for cache to sync
 			if !cache.WaitForCacheSync(w.stopCh, handle.HasSynced) {
@@ -259,18 +238,21 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 
-		// Init shared informer factory
-		factory, stopCh, err := w.cm.GetOrCreateSharedInformerFactory(w.kubeContext, w.bearerToken, "", checkPermissionsFunc)
+		gvr := schema.GroupVersionResource{
+			Group:    "",
+			Version:  "v1",
+			Resource: "nodes",
+		}
+
+		// Init informer
+		informer, start, err := w.cm.GetOrCreateInformer(ctx, w.kubeContext, w.bearerToken, "", gvr)
 		if err != nil {
 			errs.Add(err)
 			return
 		}
 
-		// Init informer
-		informer := factory.Core().V1().Nodes().Informer()
-
 		// Add event handlers
-		handle, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		handle, err := informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc:    w.handleNodeAdd,
 			UpdateFunc: w.handleNodeUpdate,
 			DeleteFunc: w.handleNodeDelete,
@@ -280,8 +262,8 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 			return
 		}
 
-		// Restart factory
-		factory.Start(stopCh)
+		// Start informer
+		start()
 
 		// Wait for cache to sync
 		if !cache.WaitForCacheSync(w.stopCh, handle.HasSynced) {

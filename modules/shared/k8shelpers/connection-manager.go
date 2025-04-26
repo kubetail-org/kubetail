@@ -21,7 +21,12 @@ import (
 	"time"
 
 	zlog "github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -39,6 +44,12 @@ type fmCacheKey struct {
 	bearerToken string
 }
 
+// Represents shared informer factory cache key
+type sifCacheKey struct {
+	kubeContext string
+	namespace   string
+}
+
 // Signature for permission checker function
 type CheckPermissionsFunc func(clientset *kubernetes.Clientset) error
 
@@ -47,7 +58,8 @@ type ConnectionManager interface {
 	GetOrCreateRestConfig(kubeContext *string) (*rest.Config, error)
 	GetOrCreateClientset(kubeContext *string) (kubernetes.Interface, error)
 	GetOrCreateDynamicClient(kubeContext *string) (dynamic.Interface, error)
-	GetOrCreateSharedInformerFactory(kubeContext *string, bearerToken string, namespace string, checkPermissions CheckPermissionsFunc) (informers.SharedInformerFactory, <-chan struct{}, error)
+	GetOrCreateSharedInformerFactory(kubeContext *string, token string, namespace string, checkPermissions CheckPermissionsFunc) (informers.SharedInformerFactory, <-chan struct{}, error)
+	GetOrCreateInformer(ctx context.Context, kubeContext *string, token string, namespace string, gvr schema.GroupVersionResource) (informers.GenericInformer, func(), error)
 	GetDefaultNamespace(kubeContext *string) string
 	DerefKubeContext(kubeContext *string) string
 	WaitUntilReady(ctx context.Context, kubeContext *string) error
@@ -62,9 +74,11 @@ type DesktopConnectionManager struct {
 	csCache           map[string]*kubernetes.Clientset
 	dcCache           map[string]*dynamic.DynamicClient
 	fmCache           map[fmCacheKey]SharedInformerFactoryManager
+	sifCache          map[sifCacheKey]informers.SharedInformerFactory
 	rootCtx           context.Context
 	rootCtxCancel     context.CancelFunc
 	readyChs          map[string]chan struct{}
+	stopCh            chan struct{}
 	mu                sync.Mutex
 }
 
@@ -75,7 +89,9 @@ func NewDesktopConnectionManager() (*DesktopConnectionManager, error) {
 		csCache:  make(map[string]*kubernetes.Clientset),
 		dcCache:  make(map[string]*dynamic.DynamicClient),
 		fmCache:  make(map[fmCacheKey]SharedInformerFactoryManager),
+		sifCache: make(map[sifCacheKey]informers.SharedInformerFactory),
 		readyChs: make(map[string]chan struct{}),
+		stopCh:   make(chan struct{}),
 		rootCtx:  context.Background(),
 	}
 
@@ -106,6 +122,9 @@ func NewDesktopConnectionManager() (*DesktopConnectionManager, error) {
 // Stop bacgkround listeners and close underlying connections
 func (cm *DesktopConnectionManager) Shutdown(ctx context.Context) error {
 	cm.rootCtxCancel()
+
+	// TODO: Wait for shared informer factories to shutdown
+	close(cm.stopCh)
 
 	// Initialize shutdown of shared informer factory managers
 	var wg sync.WaitGroup
@@ -202,6 +221,37 @@ func (cm *DesktopConnectionManager) GetOrCreateSharedInformerFactory(kubeContext
 	cm.fmCache[k] = fm
 
 	return fm.GetOrCreateFactory(namespace)
+}
+
+func (cm *DesktopConnectionManager) GetOrCreateInformer(ctx context.Context, kubeContextPtr *string, token string, namespace string, gvr schema.GroupVersionResource) (informers.GenericInformer, func(), error) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	kubeContext := ptr.Deref(kubeContextPtr, cm.kubeConfig.CurrentContext)
+
+	// Check permission
+	if err := cm.isAuthorizedForInformer_UNSAFE(ctx, kubeContext, token, namespace, gvr); err != nil {
+		return nil, nil, err
+	}
+
+	// Get or create factory
+	factory, err := cm.getOrCreateSharedInformerFactory_UNSAFE(kubeContext, namespace)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Init informer
+	informer, err := factory.ForResource(gvr)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Create start function
+	startFn := func() {
+		factory.Start(cm.stopCh)
+	}
+
+	return informer, startFn, nil
 }
 
 // GetDefaultNamespace
@@ -346,6 +396,33 @@ func (cm *DesktopConnectionManager) getOrCreateDynamicClient_UNSAFE(kubeContext 
 	return dynamicClient, nil
 }
 
+func (cm *DesktopConnectionManager) getOrCreateSharedInformerFactory_UNSAFE(kubeContext string, namespace string) (informers.SharedInformerFactory, error) {
+	k := sifCacheKey{kubeContext, namespace}
+
+	// Check cache
+	factory, exists := cm.sifCache[k]
+	if exists {
+		return factory, nil
+	}
+
+	// Get or create clientset
+	clientset, err := cm.getOrCreateClientset_UNSAFE(kubeContext)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create factory
+	factory = informers.NewSharedInformerFactoryWithOptions(clientset, 0, informers.WithNamespace(namespace))
+
+	// Start
+	factory.Start(cm.stopCh)
+
+	// Add to cache
+	cm.sifCache[k] = factory
+
+	return factory, nil
+}
+
 // Warm up cache in background
 func (cm *DesktopConnectionManager) warmUpCache() {
 	cm.mu.Lock()
@@ -390,6 +467,57 @@ func (cm *DesktopConnectionManager) kubeConfigDeleted(oldConfig *api.Config) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	cm.kubeConfig = &api.Config{}
+}
+
+// Check informer authorization
+func (cm *DesktopConnectionManager) isAuthorizedForInformer_UNSAFE(ctx context.Context, kubeContext string, namespace string, verb string, gvr schema.GroupVersionResource) error {
+	// Init clientset
+	clientset, err := cm.getOrCreateClientset_UNSAFE(kubeContext)
+	if err != nil {
+		return err
+	}
+
+	// Convenience method for handing errors
+	doSAR := func(verb string) error {
+		sar := &authv1.SelfSubjectAccessReview{
+			Spec: authv1.SelfSubjectAccessReviewSpec{
+				ResourceAttributes: &authv1.ResourceAttributes{
+					Namespace: namespace,
+					Group:     gvr.Group,
+					Verb:      verb,
+					Resource:  gvr.Resource,
+				},
+			},
+		}
+
+		result, err := clientset.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+
+		if !result.Status.Allowed {
+			attrs := result.Spec.ResourceAttributes
+			fmt := "permission denied: `%s \"%s\"/\"%s\"` in namespace `%s`"
+			return status.Errorf(codes.Unauthenticated, fmt, attrs.Verb, attrs.Group, attrs.Resource, attrs.Namespace)
+		}
+
+		return nil
+	}
+
+	// Make individual requests in an error group
+	g, ctx := errgroup.WithContext(ctx)
+
+	// Check node `list` permissions
+	g.Go(func() error {
+		return doSAR("list")
+	})
+
+	// Check node `watch` permissions
+	g.Go(func() error {
+		return doSAR("watch")
+	})
+
+	return g.Wait()
 }
 
 // Represents InClusterConnectionManager
@@ -531,6 +659,11 @@ func (cm *InClusterConnectionManager) GetOrCreateSharedInformerFactory(kubeConte
 	cm.fmCache[bearerToken] = fm
 
 	return fm.GetOrCreateFactory(namespace)
+}
+
+// Get generic informer or create new one
+func (cm *InClusterConnectionManager) GetOrCreateInformer(ctx context.Context, kubeContextPtr *string, token string, namespace string, gvr schema.GroupVersionResource) (informers.GenericInformer, func(), error) {
+	panic("not implemented")
 }
 
 // Get default namespace from local filesystem on pod
