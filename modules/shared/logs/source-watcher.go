@@ -203,7 +203,7 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 			defer wg.Done()
 
 			// Init informer
-			informer, start, err := w.cm.GetOrCreateInformer(ctx, w.kubeContext, w.bearerToken, ft.namespace, ft.workloadType.GVR())
+			informer, start, err := w.cm.NewInformer(ctx, w.kubeContext, w.bearerToken, ft.namespace, ft.workloadType.GVR())
 			if err != nil {
 				errs.Add(err)
 				return
@@ -245,7 +245,7 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 		}
 
 		// Init informer
-		informer, start, err := w.cm.GetOrCreateInformer(ctx, w.kubeContext, w.bearerToken, "", gvr)
+		informer, start, err := w.cm.NewInformer(ctx, w.kubeContext, w.bearerToken, "", gvr)
 		if err != nil {
 			errs.Add(err)
 			return
