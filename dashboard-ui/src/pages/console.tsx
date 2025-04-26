@@ -286,8 +286,8 @@ const Header = ({ viewerRef }: { viewerRef: React.RefObject<LogFeedViewerHandle>
             <Form onSubmit={handleSubmit}>
               <Form.Control
                 name="grep"
-                className="w-[300px]"
-                placeholder="Search logs..."
+                className="w-[400px]"
+                placeholder="Match string or /regex/..."
                 defaultValue={searchParams.get('grep') || ''}
               />
             </Form>
@@ -725,6 +725,23 @@ export default function Page() {
     setIsSidebarOpen,
   }), [isSidebarOpen, setIsSidebarOpen]);
 
+  const grepVal = searchParams.get('grep');
+
+  // Process the grep parameter
+  const processedGrep = useMemo(() => {
+    if (!grepVal) return null;
+
+    // If the input is in the format /regex/, extract the regex pattern
+    const regexMatch = /^\/(.+)\/$/.exec(grepVal);
+    if (regexMatch) {
+      // Return the regex pattern without the slashes
+      return regexMatch[1];
+    }
+
+    // Otherwise, escape special regex characters to make it a literal string search
+    return grepVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }, [grepVal]);
+
   return (
     <AuthRequired>
       <Context.Provider value={context}>
@@ -732,7 +749,7 @@ export default function Page() {
           kubeContext={searchParams.get('kubeContext')}
           sources={searchParams.getAll('source')}
           sourceFilter={sourceFilter}
-          grep={searchParams.get('grep')}
+          grep={processedGrep}
         >
           <ConfigureContainerColors />
           <AppLayout>
