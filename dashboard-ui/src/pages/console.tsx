@@ -730,14 +730,14 @@ export default function Page() {
   // Process the grep parameter
   const processedGrep = useMemo(() => {
     if (!grepVal) return null;
-    
+
     // If the input is in the format /regex/, extract the regex pattern
     const regexMatch = /^\/(.+)\/$/.exec(grepVal);
     if (regexMatch) {
       // Return the regex pattern without the slashes
       return regexMatch[1];
     }
-    
+
     // Otherwise, escape special regex characters to make it a literal string search
     return grepVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }, [grepVal]);
