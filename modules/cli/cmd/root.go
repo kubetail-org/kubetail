@@ -52,6 +52,4 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	flagset := rootCmd.PersistentFlags()
-	flagset.String(KubeconfigFlag, "", "path to the kubeconfig file to use for CLI requests.")
 }
