@@ -247,6 +247,7 @@ func init() {
 	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	flagset := serveCmd.Flags()
 	flagset.SortFlags = false
+	flagset.String(KubeconfigFlag, "", "Path to kubeconfig file")
 	flagset.IntP("port", "p", 7500, "Port number to listen on")
 	flagset.String("host", "localhost", "Host address to bind to")
 	flagset.StringP("log-level", "l", "info", "Log level (debug, info, warn, error, disabled)")
