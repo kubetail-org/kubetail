@@ -23,8 +23,98 @@ import (
 	"github.com/stretchr/testify/mock"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
+
+// MockDesktopAuthorizer is a mock implementation of DesktopAuthorizer for testing
+type MockDesktopAuthorizer struct {
+	mock.Mock
+}
+
+// IsAllowedInformer is a mock implementation of the DesktopAuthorizer.IsAllowedInformer method
+func (m *MockDesktopAuthorizer) IsAllowedInformer(ctx context.Context, clientset kubernetes.Interface, namespace string, gvr schema.GroupVersionResource) error {
+	args := m.Called(ctx, clientset, namespace, gvr)
+	return args.Error(0)
+}
+
+func TestDesktopConnectionManager_NewInformer_AuthorizationFailure(t *testing.T) {
+	// Set up the expected error
+	expectedError := errors.New("authorization failed")
+
+	// Create a mock authorizer
+	mockAuthorizer := new(MockDesktopAuthorizer)
+	mockAuthorizer.On("IsAllowedInformer",
+		mock.Anything,    // context
+		mock.Anything,    // clientset
+		"test-namespace", // namespace
+		mock.MatchedBy(func(gvr schema.GroupVersionResource) bool {
+			return gvr.Group == "apps" && gvr.Version == "v1" && gvr.Resource == "deployments"
+		}), // gvr
+	).Return(expectedError)
+
+	// Create DesktopConnectionManager with the mock authorizer
+	csCache := make(map[string]*kubernetes.Clientset)
+	csCache["test-context"] = &kubernetes.Clientset{}
+
+	cm := &DesktopConnectionManager{
+		authorizer: mockAuthorizer,
+		csCache:    csCache,
+	}
+
+	// Set up test parameters
+	ctx := context.Background()
+	kubeContext := "test-context"
+	token := "" // Empty as tokens are not used in DesktopConnectionManager
+	namespace := "test-namespace"
+	gvr := schema.GroupVersionResource{
+		Group:    "apps",
+		Version:  "v1",
+		Resource: "deployments",
+	}
+
+	// Call the method under test
+	informer, startFn, err := cm.NewInformer(ctx, kubeContext, token, namespace, gvr)
+	assert.Nil(t, informer)
+	assert.Nil(t, startFn)
+	assert.Error(t, err)
+	assert.Equal(t, expectedError, err)
+
+	// Verify that the mock was called as expected
+	mockAuthorizer.AssertExpectations(t)
+}
+
+func TestDesktopConnectionManager_NewInformer_TokenNotSupported(t *testing.T) {
+	mockAuthorizer := new(MockDesktopAuthorizer)
+
+	// Create DesktopConnectionManager with the mock authorizer
+	cm := &DesktopConnectionManager{
+		authorizer: mockAuthorizer,
+	}
+
+	// Set up test parameters with a non-empty token
+	ctx := context.Background()
+	kubeContext := "test-context"
+	token := "test-token" // This should cause an error as it's not supported
+	namespace := "test-namespace"
+	gvr := schema.GroupVersionResource{
+		Group:    "apps",
+		Version:  "v1",
+		Resource: "deployments",
+	}
+
+	// Call the method under test
+	informer, startFn, err := cm.NewInformer(ctx, kubeContext, token, namespace, gvr)
+
+	// Verify the results
+	assert.Nil(t, informer)
+	assert.Nil(t, startFn)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "token is not supported")
+
+	// The mock should not have been called since the error happens before authorization check
+	mockAuthorizer.AssertNotCalled(t, "IsAllowedInformer")
+}
 
 // MockInClusterAuthorizer is a mock implementation of InClusterAuthorizer for testing
 type MockInClusterAuthorizer struct {
