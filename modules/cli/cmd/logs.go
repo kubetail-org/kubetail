@@ -274,7 +274,7 @@ var logsCmd = &cobra.Command{
 		}
 
 		// Init connection manager
-		cm, err := k8shelpers.NewDesktopConnectionManager(kubeconfig)
+		cm, err := k8shelpers.NewDesktopConnectionManager(k8shelpers.WithKubeconfig(kubeconfig))
 		cli.ExitOnError(err)
 
 		kubeContextPtr := ptr.To(kubeContext)
