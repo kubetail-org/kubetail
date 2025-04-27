@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -65,6 +64,7 @@ type ConnectionManager interface {
 type DesktopConnectionManager struct {
 	KubeConfigWatcher *KubeConfigWatcher
 	kubeConfig        *api.Config
+	authorizer        *DesktopAuthorizer
 	rcCache           map[string]*rest.Config
 	csCache           map[string]*kubernetes.Clientset
 	dcCache           map[string]*dynamic.DynamicClient
@@ -79,6 +79,7 @@ type DesktopConnectionManager struct {
 // Initialize new DesktopConnectionManager instance
 func NewDesktopConnectionManager() (*DesktopConnectionManager, error) {
 	cm := &DesktopConnectionManager{
+		authorizer:   NewDesktopAuthorizer(),
 		rcCache:      make(map[string]*rest.Config),
 		csCache:      make(map[string]*kubernetes.Clientset),
 		dcCache:      make(map[string]*dynamic.DynamicClient),
@@ -173,13 +174,18 @@ func (cm *DesktopConnectionManager) GetOrCreateDynamicClient(kubeContext string)
 }
 
 func (cm *DesktopConnectionManager) NewInformer(ctx context.Context, kubeContext string, token string, namespace string, gvr schema.GroupVersionResource) (informers.GenericInformer, func(), error) {
-	// Require empty token
 	if token != "" {
 		return nil, nil, fmt.Errorf("token is not supported")
 	}
 
+	// Get clientset
+	clientset, err := cm.GetOrCreateClientset(kubeContext)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	// Check permission
-	if err := isAuthorizedForInformer(ctx, cm, kubeContext, token, namespace, gvr); err != nil {
+	if err := cm.authorizer.IsAllowedInformer(ctx, clientset, namespace, gvr); err != nil {
 		return nil, nil, err
 	}
 
@@ -423,6 +429,7 @@ func (cm *DesktopConnectionManager) kubeConfigDeleted(oldConfig *api.Config) {
 
 // Represents InClusterConnectionManager
 type InClusterConnectionManager struct {
+	authorizer    *InClusterAuthorizer
 	restConfig    *rest.Config
 	clientset     *kubernetes.Clientset
 	dynamicClient *dynamic.DynamicClient
@@ -434,6 +441,7 @@ type InClusterConnectionManager struct {
 // Initialize new InClusterConnectionManager instance
 func NewInClusterConnectionManager() (*InClusterConnectionManager, error) {
 	return &InClusterConnectionManager{
+		authorizer:   NewInClusterAuthorizer(),
 		factoryCache: make(map[string]informers.SharedInformerFactory),
 		stopCh:       make(chan struct{}),
 	}, nil
@@ -533,16 +541,14 @@ func (cm *InClusterConnectionManager) NewInformer(ctx context.Context, kubeConte
 		return nil, nil, fmt.Errorf("kubeContext is not supported")
 	}
 
-	// Trim token
-	tokenTrimmed := strings.TrimSpace(token)
-
-	// Require token
-	if tokenTrimmed == "" {
-		return nil, nil, fmt.Errorf("token is required")
+	// Get rest config
+	restConfig, err := cm.GetOrCreateRestConfig(kubeContext)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	// Check permission
-	if err := isAuthorizedForInformer(ctx, cm, "", tokenTrimmed, namespace, gvr); err != nil {
+	if err := cm.authorizer.IsAllowedInformer(ctx, restConfig, token, namespace, gvr); err != nil {
 		return nil, nil, err
 	}
 

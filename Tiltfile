@@ -157,6 +157,8 @@ k8s_resource(
   port_forwards='4501:8080',
   objects=[
     'kubetail-cluster-api:serviceaccount',
+    'kubetail-cluster-api:clusterrole',
+    'kubetail-cluster-api:clusterrolebinding',
     'kubetail-cluster-api:role',
     'kubetail-cluster-api:rolebinding',
   ],
