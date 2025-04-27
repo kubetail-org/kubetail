@@ -29,17 +29,22 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+// Represents DesktopAuthorizer interface
+type DesktopAuthorizer interface {
+	IsAllowedInformer(ctx context.Context, clientset kubernetes.Interface, namespace string, gvr schema.GroupVersionResource) error
+}
+
 // Represents DesktopAuthorizer
-type DesktopAuthorizer struct {
+type DefaultDesktopAuthorizer struct {
 }
 
 // Create new DesktopAuthorizer instance
-func NewDesktopAuthorizer() *DesktopAuthorizer {
-	return &DesktopAuthorizer{}
+func NewDesktopAuthorizer() DesktopAuthorizer {
+	return &DefaultDesktopAuthorizer{}
 }
 
 // Check permission for creating new informers
-func (a *DesktopAuthorizer) IsAllowedInformer(ctx context.Context, clientset kubernetes.Interface, namespace string, gvr schema.GroupVersionResource) error {
+func (a *DefaultDesktopAuthorizer) IsAllowedInformer(ctx context.Context, clientset kubernetes.Interface, namespace string, gvr schema.GroupVersionResource) error {
 	// Convenience method for handing errors
 	doSAR := func(verb string) error {
 		sar := &authv1.SelfSubjectAccessReview{
@@ -83,17 +88,22 @@ func (a *DesktopAuthorizer) IsAllowedInformer(ctx context.Context, clientset kub
 	return g.Wait()
 }
 
+// Represents InClusterAuthorizer interface
+type InClusterAuthorizer interface {
+	IsAllowedInformer(ctx context.Context, restConfig *rest.Config, token string, namespace string, gvr schema.GroupVersionResource) error
+}
+
 // Represents InClusterAuthorizer
-type InClusterAuthorizer struct {
+type DefaultInClusterAuthorizer struct {
 }
 
 // Create new InClusterAuthorizer instance
-func NewInClusterAuthorizer() *InClusterAuthorizer {
-	return &InClusterAuthorizer{}
+func NewInClusterAuthorizer() InClusterAuthorizer {
+	return &DefaultInClusterAuthorizer{}
 }
 
 // Check permission for creating new informers
-func (a *InClusterAuthorizer) IsAllowedInformer(ctx context.Context, restConfig *rest.Config, token string, namespace string, gvr schema.GroupVersionResource) error {
+func (a *DefaultInClusterAuthorizer) IsAllowedInformer(ctx context.Context, restConfig *rest.Config, token string, namespace string, gvr schema.GroupVersionResource) error {
 	tokenTrimmed := strings.TrimSpace(token)
 
 	if tokenTrimmed == "" {

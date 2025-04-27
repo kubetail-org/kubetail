@@ -64,7 +64,7 @@ type ConnectionManager interface {
 type DesktopConnectionManager struct {
 	KubeConfigWatcher *KubeConfigWatcher
 	kubeConfig        *api.Config
-	authorizer        *DesktopAuthorizer
+	authorizer        DesktopAuthorizer
 	rcCache           map[string]*rest.Config
 	csCache           map[string]*kubernetes.Clientset
 	dcCache           map[string]*dynamic.DynamicClient
@@ -429,10 +429,10 @@ func (cm *DesktopConnectionManager) kubeConfigDeleted(oldConfig *api.Config) {
 
 // Represents InClusterConnectionManager
 type InClusterConnectionManager struct {
-	authorizer    *InClusterAuthorizer
 	restConfig    *rest.Config
 	clientset     *kubernetes.Clientset
 	dynamicClient *dynamic.DynamicClient
+	authorizer    InClusterAuthorizer
 	factoryCache  map[string]informers.SharedInformerFactory
 	stopCh        chan struct{}
 	mu            sync.Mutex
