@@ -13,3 +13,108 @@
 // limitations under the License.
 
 package k8shelpers
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/rest"
+)
+
+// MockInClusterAuthorizer is a mock implementation of InClusterAuthorizer for testing
+type MockInClusterAuthorizer struct {
+	mock.Mock
+}
+
+// IsAllowedInformer is a mock implementation of the InClusterAuthorizer.IsAllowedInformer method
+func (m *MockInClusterAuthorizer) IsAllowedInformer(ctx context.Context, restConfig *rest.Config, token string, namespace string, gvr schema.GroupVersionResource) error {
+	args := m.Called(ctx, restConfig, token, namespace, gvr)
+	return args.Error(0)
+}
+
+func TestInClusterConnectionManager_NewInformer_AuthorizationFailure(t *testing.T) {
+	// Set up the expected error
+	expectedError := errors.New("authorization failed")
+
+	// Create a mock authorizer
+	mockAuthorizer := new(MockInClusterAuthorizer)
+	mockAuthorizer.On("IsAllowedInformer",
+		mock.Anything,    // context
+		mock.Anything,    // restConfig
+		"test-token",     // token
+		"test-namespace", // namespace
+		mock.MatchedBy(func(gvr schema.GroupVersionResource) bool {
+			return gvr.Group == "apps" && gvr.Version == "v1" && gvr.Resource == "deployments"
+		}), // gvr
+	).Return(expectedError)
+
+	// Create InClusterConnectionManager with the mock authorizer
+	cm := &InClusterConnectionManager{
+		restConfig:   &rest.Config{},
+		authorizer:   mockAuthorizer,
+		stopCh:       make(chan struct{}),
+		factoryCache: make(map[string]informers.SharedInformerFactory),
+	}
+
+	// Set up test parameters
+	ctx := context.Background()
+	kubeContext := "" // Empty as it's not supported in InClusterConnectionManager
+	token := "test-token"
+	namespace := "test-namespace"
+	gvr := schema.GroupVersionResource{
+		Group:    "apps",
+		Version:  "v1",
+		Resource: "deployments",
+	}
+
+	// Call the method under test
+	informer, startFn, err := cm.NewInformer(ctx, kubeContext, token, namespace, gvr)
+
+	// Verify the results
+	assert.Nil(t, informer)
+	assert.Nil(t, startFn)
+	assert.Error(t, err)
+	assert.Equal(t, expectedError, err)
+
+	// Verify that the mock was called as expected
+	mockAuthorizer.AssertExpectations(t)
+}
+
+func TestInClusterConnectionManager_NewInformer_KubeContextNotSupported(t *testing.T) {
+	// Create a mock authorizer
+	mockAuthorizer := new(MockInClusterAuthorizer)
+
+	// Create InClusterConnectionManager with the mock authorizer
+	cm := &InClusterConnectionManager{
+		authorizer:   mockAuthorizer,
+		stopCh:       make(chan struct{}),
+		factoryCache: make(map[string]informers.SharedInformerFactory),
+	}
+
+	// Set up test parameters with a non-empty kubeContext
+	ctx := context.Background()
+	kubeContext := "some-context" // This should cause an error as it's not supported
+	token := "test-token"
+	namespace := "test-namespace"
+	gvr := schema.GroupVersionResource{
+		Group:    "apps",
+		Version:  "v1",
+		Resource: "deployments",
+	}
+
+	// Call the method under test
+	informer, startFn, err := cm.NewInformer(ctx, kubeContext, token, namespace, gvr)
+
+	// Verify the results
+	assert.Nil(t, informer)
+	assert.Nil(t, startFn)
+	assert.Error(t, err)
+
+	// The mock should not have been called since the error happens before authorization check
+	mockAuthorizer.AssertNotCalled(t, "IsAllowedInformer")
+}
