@@ -22,10 +22,6 @@ import (
 	"time"
 
 	zlog "github.com/rs/zerolog/log"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -676,65 +672,4 @@ func NewConnectionManager(env config.Environment) (ConnectionManager, error) {
 	default:
 		panic("not supported")
 	}
-}
-
-// Check informer authorization
-func isAuthorizedForInformer(ctx context.Context, cm ConnectionManager, kubeContext string, token string, namespace string, gvr schema.GroupVersionResource) error {
-	// Clone rest config and set bearer token
-	rc, err := cm.GetOrCreateRestConfig(kubeContext)
-	if err != nil {
-		return err
-	}
-
-	rcClone := *rc
-	rcClone.BearerToken = token
-
-	// Init clientset
-	// TODO: use kubernetes.NewForConfigAndClient to re-use underlying transport
-	clientset, err := kubernetes.NewForConfig(&rcClone)
-	if err != nil {
-		return err
-	}
-
-	// Convenience method for handing errors
-	doSAR := func(verb string) error {
-		sar := &authv1.SelfSubjectAccessReview{
-			Spec: authv1.SelfSubjectAccessReviewSpec{
-				ResourceAttributes: &authv1.ResourceAttributes{
-					Namespace: namespace,
-					Group:     gvr.Group,
-					Verb:      verb,
-					Resource:  gvr.Resource,
-				},
-			},
-		}
-
-		result, err := clientset.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
-		if err != nil {
-			return err
-		}
-
-		if !result.Status.Allowed {
-			attrs := result.Spec.ResourceAttributes
-			fmt := "permission denied: `%s \"%s\"/\"%s\"` in namespace `%s`"
-			return status.Errorf(codes.Unauthenticated, fmt, attrs.Verb, attrs.Group, attrs.Resource, attrs.Namespace)
-		}
-
-		return nil
-	}
-
-	// Make individual requests in an error group
-	g, ctx := errgroup.WithContext(ctx)
-
-	// Check node `list` permissions
-	g.Go(func() error {
-		return doSAR("list")
-	})
-
-	// Check node `watch` permissions
-	g.Go(func() error {
-		return doSAR("watch")
-	})
-
-	return g.Wait()
 }
