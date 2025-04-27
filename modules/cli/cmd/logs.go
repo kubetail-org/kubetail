@@ -27,7 +27,6 @@ import (
 	"github.com/sosodev/duration"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/utils/ptr"
 
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
@@ -279,7 +278,7 @@ var logsCmd = &cobra.Command{
 
 		// Init stream
 		streamOpts := []logs.Option{
-			logs.WithKubeContext(ptr.To(kubeContext)),
+			logs.WithKubeContext(kubeContext),
 			logs.WithSince(sinceTime),
 			logs.WithUntil(untilTime),
 			logs.WithFollow(follow),

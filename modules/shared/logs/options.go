@@ -24,7 +24,7 @@ import (
 type Option func(target any) error
 
 // WithKubeContext sets the kube context of the stream or source watcher
-func WithKubeContext(kubeContext *string) Option {
+func WithKubeContext(kubeContext string) Option {
 	return func(target any) error {
 		switch t := target.(type) {
 		case *Stream:

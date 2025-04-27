@@ -62,7 +62,7 @@ func newRealQueryHelpers(cm k8shelpers.ConnectionManager) *realQueryHelpers {
 // HasAccess
 func (qh *realQueryHelpers) HasAccess(ctx context.Context, token string) (*authv1.TokenReview, error) {
 	// Get client
-	clientset, err := qh.cm.GetOrCreateClientset(nil)
+	clientset, err := qh.cm.GetOrCreateClientset("")
 	if err != nil {
 		return nil, err
 	}

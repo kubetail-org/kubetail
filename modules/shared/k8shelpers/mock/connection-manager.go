@@ -17,8 +17,8 @@ package mock
 import (
 	"context"
 
-	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/stretchr/testify/mock"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -30,7 +30,7 @@ type MockConnectionManager struct {
 	mock.Mock
 }
 
-func (m *MockConnectionManager) GetOrCreateRestConfig(kubeContext *string) (*rest.Config, error) {
+func (m *MockConnectionManager) GetOrCreateRestConfig(kubeContext string) (*rest.Config, error) {
 	ret := m.Called(kubeContext)
 
 	var r0 *rest.Config
@@ -41,7 +41,7 @@ func (m *MockConnectionManager) GetOrCreateRestConfig(kubeContext *string) (*res
 	return r0, ret.Error(1)
 }
 
-func (m *MockConnectionManager) GetOrCreateClientset(kubeContext *string) (kubernetes.Interface, error) {
+func (m *MockConnectionManager) GetOrCreateClientset(kubeContext string) (kubernetes.Interface, error) {
 	ret := m.Called(kubeContext)
 
 	var r0 kubernetes.Interface
@@ -52,7 +52,7 @@ func (m *MockConnectionManager) GetOrCreateClientset(kubeContext *string) (kuber
 	return r0, ret.Error(1)
 }
 
-func (m *MockConnectionManager) GetOrCreateDynamicClient(kubeContext *string) (dynamic.Interface, error) {
+func (m *MockConnectionManager) GetOrCreateDynamicClient(kubeContext string) (dynamic.Interface, error) {
 	ret := m.Called(kubeContext)
 
 	var r0 dynamic.Interface
@@ -63,33 +63,33 @@ func (m *MockConnectionManager) GetOrCreateDynamicClient(kubeContext *string) (d
 	return r0, ret.Error(1)
 }
 
-func (m *MockConnectionManager) GetOrCreateSharedInformerFactory(kubeContext *string, bearerToken string, namespace string, checkPermissions k8shelpers.CheckPermissionsFunc) (informers.SharedInformerFactory, <-chan struct{}, error) {
-	ret := m.Called(kubeContext, bearerToken, namespace, checkPermissions)
+func (m *MockConnectionManager) NewInformer(ctx context.Context, kubeContext string, token string, namespace string, gvr schema.GroupVersionResource) (informers.GenericInformer, func(), error) {
+	ret := m.Called(ctx, kubeContext, token, namespace, gvr)
 
-	var r0 informers.SharedInformerFactory
+	var r0 informers.GenericInformer
 	if ret.Get(0) != nil {
-		r0 = ret.Get(0).(informers.SharedInformerFactory)
+		r0 = ret.Get(0).(informers.GenericInformer)
 	}
 
-	var r1 chan struct{}
+	var r1 func()
 	if ret.Get(1) != nil {
-		r1 = ret.Get(1).(chan struct{})
+		r1 = ret.Get(1).(func())
 	}
 
 	return r0, r1, ret.Error(2)
 }
 
-func (m *MockConnectionManager) GetDefaultNamespace(kubeContext *string) string {
+func (m *MockConnectionManager) GetDefaultNamespace(kubeContext string) string {
 	ret := m.Called(kubeContext)
 	return ret.String(0)
 }
 
-func (m *MockConnectionManager) DerefKubeContext(kubeContext *string) string {
-	ret := m.Called(kubeContext)
+func (m *MockConnectionManager) DerefKubeContext(kubeContextPtr *string) string {
+	ret := m.Called(kubeContextPtr)
 	return ret.String(0)
 }
 
-func (m *MockConnectionManager) WaitUntilReady(ctx context.Context, kubeContext *string) error {
+func (m *MockConnectionManager) WaitUntilReady(ctx context.Context, kubeContext string) error {
 	ret := m.Called(ctx, kubeContext)
 	return ret.Error(0)
 }

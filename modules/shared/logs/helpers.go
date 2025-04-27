@@ -24,6 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 )
@@ -84,6 +85,28 @@ func (w WorkloadType) GroupResource() (string, string, error) {
 		return "apps", "statefulsets", nil
 	default:
 		return "", "", fmt.Errorf("not implemented: %s", w)
+	}
+}
+
+// Return GroupResourveVersion schema instance
+func (w WorkloadType) GVR() schema.GroupVersionResource {
+	switch w {
+	case WorkloadTypeCronJob:
+		return schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"}
+	case WorkloadTypeDaemonSet:
+		return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}
+	case WorkloadTypeDeployment:
+		return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+	case WorkloadTypeJob:
+		return schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
+	case WorkloadTypePod:
+		return schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	case WorkloadTypeReplicaSet:
+		return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
+	case WorkloadTypeStatefulSet:
+		return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
+	default:
+		return schema.GroupVersionResource{}
 	}
 }
 

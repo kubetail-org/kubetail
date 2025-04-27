@@ -23,16 +23,11 @@ import (
 
 	evbus "github.com/asaskevich/EventBus"
 	set "github.com/deckarep/golang-set/v2"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	appsv1 "k8s.io/api/apps/v1"
-	authv1 "k8s.io/api/authorization/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
@@ -84,7 +79,7 @@ type sourceWatcher struct {
 	cm       k8shelpers.ConnectionManager
 	eventbus evbus.Bus
 
-	kubeContext *string
+	kubeContext string
 	bearerToken string
 	regions     []string
 	zones       []string
@@ -190,8 +185,6 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 		set.Add(fetchTuple{pp.Namespace, WorkloadTypePod})
 	}
 
-	checkPermissionsFunc := createCheckPermissionsFunc(ctx, set.ToSlice())
-
 	// Initialize informers in background
 	var wg sync.WaitGroup
 	errs := ThreadSafeSlice[error]{}
@@ -201,37 +194,15 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 
-			// Init shared informer factory
-			factory, stopCh, err := w.cm.GetOrCreateSharedInformerFactory(w.kubeContext, w.bearerToken, ft.namespace, checkPermissionsFunc)
+			// Init informer
+			informer, start, err := w.cm.NewInformer(ctx, w.kubeContext, w.bearerToken, ft.namespace, ft.workloadType.GVR())
 			if err != nil {
 				errs.Add(err)
 				return
 			}
 
-			// Init informer
-			var informer cache.SharedIndexInformer
-			switch ft.workloadType {
-			case WorkloadTypeCronJob:
-				informer = factory.Batch().V1().CronJobs().Informer()
-			case WorkloadTypeDaemonSet:
-				informer = factory.Apps().V1().DaemonSets().Informer()
-			case WorkloadTypeDeployment:
-				informer = factory.Apps().V1().Deployments().Informer()
-			case WorkloadTypeJob:
-				informer = factory.Batch().V1().Jobs().Informer()
-			case WorkloadTypePod:
-				informer = factory.Core().V1().Pods().Informer()
-			case WorkloadTypeReplicaSet:
-				informer = factory.Apps().V1().ReplicaSets().Informer()
-			case WorkloadTypeStatefulSet:
-				informer = factory.Apps().V1().StatefulSets().Informer()
-			default:
-				errs.Add(fmt.Errorf("not implemented"))
-				return
-			}
-
 			// Add event handlers
-			handle, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			handle, err := informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 				AddFunc:    w.handleWorkloadAdd,
 				UpdateFunc: w.handleWorkloadUpdate,
 				DeleteFunc: w.handleWorkloadDelete,
@@ -241,8 +212,8 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 				return
 			}
 
-			// Restart factory
-			factory.Start(stopCh)
+			// Start informer
+			start()
 
 			// Wait for cache to sync
 			if !cache.WaitForCacheSync(w.stopCh, handle.HasSynced) {
@@ -259,18 +230,21 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 
-		// Init shared informer factory
-		factory, stopCh, err := w.cm.GetOrCreateSharedInformerFactory(w.kubeContext, w.bearerToken, "", checkPermissionsFunc)
+		gvr := schema.GroupVersionResource{
+			Group:    "",
+			Version:  "v1",
+			Resource: "nodes",
+		}
+
+		// Init informer
+		informer, start, err := w.cm.NewInformer(ctx, w.kubeContext, w.bearerToken, "", gvr)
 		if err != nil {
 			errs.Add(err)
 			return
 		}
 
-		// Init informer
-		informer := factory.Core().V1().Nodes().Informer()
-
 		// Add event handlers
-		handle, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		handle, err := informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc:    w.handleNodeAdd,
 			UpdateFunc: w.handleNodeUpdate,
 			DeleteFunc: w.handleNodeDelete,
@@ -280,8 +254,8 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 			return
 		}
 
-		// Restart factory
-		factory.Start(stopCh)
+		// Start informer
+		start()
 
 		// Wait for cache to sync
 		if !cache.WaitForCacheSync(w.stopCh, handle.HasSynced) {
@@ -490,158 +464,6 @@ func (w *sourceWatcher) updateSources_UNSAFE() {
 	})
 
 	w.sources = wantSources
-}
-
-// Check permissions
-func (w *sourceWatcher) checkPermissions(ctx context.Context, fetchTuples []fetchTuple) error {
-	// Clone rest config and set bearer token
-	rc, err := w.cm.GetOrCreateRestConfig(w.kubeContext)
-	if err != nil {
-		return err
-	}
-
-	rcClone := *rc
-	rcClone.BearerToken = w.bearerToken
-
-	// Init clientset
-	// TODO: use kubernetes.NewForConfigAndClient to re-use underlying transport
-	clientset, err := kubernetes.NewForConfig(&rcClone)
-	if err != nil {
-		return err
-	}
-
-	// Convenience method for handing errors
-	doSAR := func(namespace, group, verb, resource string) error {
-		sar := &authv1.SelfSubjectAccessReview{
-			Spec: authv1.SelfSubjectAccessReviewSpec{
-				ResourceAttributes: &authv1.ResourceAttributes{
-					Namespace: namespace,
-					Group:     group,
-					Verb:      verb,
-					Resource:  resource,
-				},
-			},
-		}
-
-		result, err := clientset.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
-		if err != nil {
-			return err
-		}
-
-		if !result.Status.Allowed {
-			attrs := result.Spec.ResourceAttributes
-			fmt := "permission denied: `%s \"%s\"/\"%s\"` in namespace `%s`"
-			return status.Errorf(codes.Unauthenticated, fmt, attrs.Verb, attrs.Group, attrs.Resource, attrs.Namespace)
-		}
-
-		return nil
-	}
-
-	// Make individual requests in an error group
-	g, ctx := errgroup.WithContext(ctx)
-
-	// Check node `list` permissions
-	g.Go(func() error {
-		return doSAR("", "", "list", "nodes")
-	})
-
-	// Check node `watch` permissions
-	g.Go(func() error {
-		return doSAR("", "", "watch", "nodes")
-	})
-
-	// Individual resource permissions
-	for _, ft := range fetchTuples {
-		namespace := ft.namespace
-		group, resource, err := ft.workloadType.GroupResource()
-		if err != nil {
-			g.Go(func() error {
-				return err
-			})
-			break
-		}
-
-		// Check `list` permissions
-		g.Go(func() error {
-			return doSAR(namespace, group, "list", resource)
-		})
-
-		// Check `watch` permissions
-		g.Go(func() error {
-			return doSAR(namespace, group, "watch", resource)
-		})
-	}
-
-	return g.Wait()
-}
-
-// Create a CheckPermissionsFunc for shared informer factory
-func createCheckPermissionsFunc(ctx context.Context, fetchTuples []fetchTuple) k8shelpers.CheckPermissionsFunc {
-	return func(clientset *kubernetes.Clientset) error {
-		// Make individual requests in an error group
-		g, ctx := errgroup.WithContext(ctx)
-
-		// Convenience method for handing errors
-		doSAR := func(namespace, group, verb, resource string) error {
-			sar := &authv1.SelfSubjectAccessReview{
-				Spec: authv1.SelfSubjectAccessReviewSpec{
-					ResourceAttributes: &authv1.ResourceAttributes{
-						Namespace: namespace,
-						Group:     group,
-						Verb:      verb,
-						Resource:  resource,
-					},
-				},
-			}
-
-			result, err := clientset.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
-			if err != nil {
-				return err
-			}
-
-			if !result.Status.Allowed {
-				attrs := result.Spec.ResourceAttributes
-				fmt := "permission denied: `%s \"%s\"/\"%s\"` in namespace `%s`"
-				return status.Errorf(codes.Unauthenticated, fmt, attrs.Verb, attrs.Group, attrs.Resource, attrs.Namespace)
-			}
-
-			return nil
-		}
-
-		// Check node `list` permissions
-		g.Go(func() error {
-			return doSAR("", "", "list", "nodes")
-		})
-
-		// Check node `watch` permissions
-		g.Go(func() error {
-			return doSAR("", "", "watch", "nodes")
-		})
-
-		// Individual resource permissions
-		for _, ft := range fetchTuples {
-			namespace := ft.namespace
-			group, resource, err := ft.workloadType.GroupResource()
-			if err != nil {
-				g.Go(func() error {
-					return err
-				})
-				break
-			}
-
-			// Check `list` permissions
-			g.Go(func() error {
-				return doSAR(namespace, group, "list", resource)
-			})
-
-			// Check `watch` permissions
-			g.Go(func() error {
-				return doSAR(namespace, group, "watch", resource)
-			})
-		}
-
-		return g.Wait()
-	}
 }
 
 // Represents result of parsePath()
