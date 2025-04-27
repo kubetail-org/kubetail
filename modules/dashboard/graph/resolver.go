@@ -53,7 +53,7 @@ func (r *Resolver) Teardown() {
 }
 
 // listResource
-func (r *Resolver) listResource(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions, modelPtr runtime.Object) error {
+func (r *Resolver) listResource(ctx context.Context, kubeContext string, namespace *string, options *metav1.ListOptions, modelPtr runtime.Object) error {
 	// Deref namespace
 	nsList, err := k8shelpers.DerefNamespaceToList(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContext))
 	if err != nil {
@@ -93,7 +93,7 @@ func (r *Resolver) listResource(ctx context.Context, kubeContext *string, namesp
 }
 
 // watchResourceMulti
-func (r *Resolver) watchResourceMulti(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions, gvr schema.GroupVersionResource) (<-chan *watch.Event, error) {
+func (r *Resolver) watchResourceMulti(ctx context.Context, kubeContext string, namespace *string, options *metav1.ListOptions, gvr schema.GroupVersionResource) (<-chan *watch.Event, error) {
 	// Deref namespace
 	nsList, err := k8shelpers.DerefNamespaceToList(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContext))
 	if err != nil {
@@ -166,7 +166,7 @@ func (r *Resolver) watchResourceMulti(ctx context.Context, kubeContext *string, 
 }
 
 // kubernetesAPIHealthzGet
-func (r *Resolver) kubernetesAPIHealthzGet(ctx context.Context, kubeContext *string) *model.HealthCheckResponse {
+func (r *Resolver) kubernetesAPIHealthzGet(ctx context.Context, kubeContext string) *model.HealthCheckResponse {
 	resp := &model.HealthCheckResponse{
 		Status:    model.HealthCheckStatusFailure,
 		Timestamp: time.Now().UTC(),

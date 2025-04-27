@@ -248,6 +248,37 @@ metadata:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cluster-api
 ---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-cluster-api
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: cli
+rules:
+- apiGroups: [""]
+  resources: [nodes]
+  verbs: [get, list, watch]
+- apiGroups: ["", apps, batch]
+  resources: [cronjobs, daemonsets, deployments, jobs, pods, replicasets, statefulsets]
+  verbs: [get, list, watch]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-cluster-api
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: cli
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubetail-cluster-api
+subjects:
+- kind: ServiceAccount
+  name: kubetail-cluster-api
+  namespace: kubetail-system
+---
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:

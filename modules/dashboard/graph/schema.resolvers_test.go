@@ -31,6 +31,7 @@ func TestAllowedNamespacesGetQueries(t *testing.T) {
 	// Init connection manager
 	cm := &k8shelpersmock.MockConnectionManager{}
 	cm.On("GetDefaultNamespace", mock.Anything).Return("default")
+	cm.On("DerefKubeContext", mock.Anything).Return("")
 
 	// Init resolver
 	r := &queryResolver{&Resolver{
@@ -44,8 +45,8 @@ func TestAllowedNamespacesGetQueries(t *testing.T) {
 		setNamespace *string
 	}{
 		{"namespace not specified", nil},
-		{"namespace specified but not allowed", ptr.To[string]("nsforbidden")},
-		{"namespace specified as wildcard", ptr.To[string]("")},
+		{"namespace specified but not allowed", ptr.To("nsforbidden")},
+		{"namespace specified as wildcard", ptr.To("")},
 	}
 
 	for _, tt := range tests {
@@ -85,6 +86,7 @@ func TestAllowedNamespacesListQueries(t *testing.T) {
 	// Init connection manager
 	cm := &k8shelpersmock.MockConnectionManager{}
 	cm.On("GetDefaultNamespace", mock.Anything).Return("default")
+	cm.On("DerefKubeContext", mock.Anything).Return("")
 
 	// Init resolver
 	r := &queryResolver{&Resolver{
@@ -136,7 +138,13 @@ func TestAllowedNamespacesListQueries(t *testing.T) {
 }
 
 func TestDesktopOnlyRequests(t *testing.T) {
-	resolver := &Resolver{environment: config.EnvironmentCluster}
+	cm := &k8shelpersmock.MockConnectionManager{}
+	cm.On("DerefKubeContext", mock.Anything).Return("")
+
+	resolver := &Resolver{
+		environment: config.EnvironmentCluster,
+		cm:          cm,
+	}
 
 	t.Run("kubeConfigGet", func(t *testing.T) {
 		r := &queryResolver{resolver}
