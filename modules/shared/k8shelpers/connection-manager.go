@@ -48,6 +48,7 @@ type ConnectionManager interface {
 type DesktopConnectionManager struct {
 	KubeConfigWatcher *KubeConfigWatcher
 	kubeConfig        *api.Config
+	kubeconfigPath    string
 	rcCache           map[string]*rest.Config
 	csCache           map[string]*kubernetes.Clientset
 	dcCache           map[string]*dynamic.DynamicClient
@@ -59,7 +60,7 @@ type DesktopConnectionManager struct {
 }
 
 // Initialize new DesktopConnectionManager instance
-func NewDesktopConnectionManager() (*DesktopConnectionManager, error) {
+func NewDesktopConnectionManager(options ...ConnectionManagerOption) (*DesktopConnectionManager, error) {
 	cm := &DesktopConnectionManager{
 		rcCache:    make(map[string]*rest.Config),
 		csCache:    make(map[string]*kubernetes.Clientset),
@@ -72,8 +73,12 @@ func NewDesktopConnectionManager() (*DesktopConnectionManager, error) {
 	// Init root context
 	cm.rootCtx, cm.rootCtxCancel = context.WithCancel(context.Background())
 
+	for _, option := range options {
+		option(cm)
+	}
+
 	// Init KubeConfigWatcher
-	kfw, err := NewKubeConfigWatcher()
+	kfw, err := NewKubeConfigWatcher(cm.kubeconfigPath)
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +329,7 @@ type InClusterConnectionManager struct {
 }
 
 // Initialize new InClusterConnectionManager instance
-func NewInClusterConnectionManager() (*InClusterConnectionManager, error) {
+func NewInClusterConnectionManager(options ...ConnectionManagerOption) (*InClusterConnectionManager, error) {
 	return &InClusterConnectionManager{}, nil
 }
 
@@ -435,14 +440,30 @@ func (cm *InClusterConnectionManager) getOrCreateRestConfig_UNSAFE() (*rest.Conf
 	return restConfig, nil
 }
 
+type ConnectionManagerOption func(cm ConnectionManager)
+
+func WithKubeconfig(kubeconfig string) ConnectionManagerOption {
+	return func(cm ConnectionManager) {
+		switch t := cm.(type) {
+		case *DesktopConnectionManager:
+			t.kubeconfigPath = kubeconfig
+		case *InClusterConnectionManager:
+			break
+		}
+	}
+}
+
 // Initialize new ConnectionManager depending on environment
-func NewConnectionManager(env config.Environment) (ConnectionManager, error) {
+func NewConnectionManager(env config.Environment, options ...ConnectionManagerOption) (ConnectionManager, error) {
+	var cm ConnectionManager
+	var err error
 	switch env {
 	case config.EnvironmentDesktop:
-		return NewDesktopConnectionManager()
+		cm, err = NewDesktopConnectionManager(options...)
 	case config.EnvironmentCluster:
-		return NewInClusterConnectionManager()
+		cm, err = NewInClusterConnectionManager(options...)
 	default:
 		panic("not supported")
 	}
+	return cm, err
 }

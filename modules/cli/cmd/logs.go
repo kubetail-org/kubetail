@@ -194,6 +194,7 @@ var logsCmd = &cobra.Command{
 		flags := cmd.Flags()
 
 		kubeContext, _ := flags.GetString("kube-context")
+		kubeconfig, _ := flags.GetString(KubeconfigFlag)
 
 		head := flags.Changed("head")
 		headVal, _ := flags.GetInt64("head")
@@ -273,7 +274,7 @@ var logsCmd = &cobra.Command{
 		}
 
 		// Init connection manager
-		cm, err := k8shelpers.NewDesktopConnectionManager()
+		cm, err := k8shelpers.NewDesktopConnectionManager(k8shelpers.WithKubeconfig(kubeconfig))
 		cli.ExitOnError(err)
 
 		kubeContextPtr := ptr.To(kubeContext)
@@ -521,7 +522,6 @@ func init() {
 	flagset.SortFlags = false
 
 	flagset.String("kube-context", "", "Specify the kubeconfig context to use")
-
 	flagset.Int64P("head", "h", 10, "Return first N records")
 	flagset.Lookup("head").NoOptDefVal = "10"
 	flagset.Int64P("tail", "t", 10, "Return last N records")
