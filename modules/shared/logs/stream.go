@@ -62,7 +62,7 @@ type Stream struct {
 	maxNum  int64
 	sources set.Set[LogSource]
 
-	kubeContext *string
+	kubeContext string
 	sw          SourceWatcher
 	logFetcher  LogFetcher
 

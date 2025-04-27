@@ -22,12 +22,11 @@ import (
 	k8shelpersmock "github.com/kubetail-org/kubetail/modules/shared/k8shelpers/mock"
 	"github.com/stretchr/testify/mock"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/utils/ptr"
 )
 
 func TestOptions(t *testing.T) {
 	opts := []Option{
-		WithKubeContext(ptr.To("test")),
+		WithKubeContext("test"),
 		WithRegions([]string{"us-east-1"}),
 	}
 

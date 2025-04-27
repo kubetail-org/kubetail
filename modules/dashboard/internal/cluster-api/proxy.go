@@ -28,7 +28,6 @@ import (
 	"sync"
 
 	"k8s.io/kubectl/pkg/proxy"
-	"k8s.io/utils/ptr"
 
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
@@ -143,7 +142,7 @@ func (p *DesktopProxy) getOrCreateKubernetesProxyHandler(kubeContext string) (ht
 	h, exists := p.phCache[kubeContext]
 	if !exists {
 		// Get rest config
-		restConfig, err := p.cm.GetOrCreateRestConfig(ptr.To(kubeContext))
+		restConfig, err := p.cm.GetOrCreateRestConfig(kubeContext)
 		if err != nil {
 			return nil, err
 		}
@@ -172,7 +171,7 @@ func (p *DesktopProxy) getOrCreateServiceAccountToken(ctx context.Context, kubeC
 	// Check cache
 	sat, exists := p.satCache[k]
 	if !exists {
-		clientset, err := p.cm.GetOrCreateClientset(ptr.To(kubeContext))
+		clientset, err := p.cm.GetOrCreateClientset(kubeContext)
 		if err != nil {
 			return nil, err
 		}

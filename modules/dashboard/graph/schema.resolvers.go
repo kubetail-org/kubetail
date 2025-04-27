@@ -121,14 +121,16 @@ func (r *kubeConfigResolver) Contexts(ctx context.Context, obj *model.KubeConfig
 }
 
 // HelmInstallLatest is the resolver for the helmInstallLatest field.
-func (r *mutationResolver) HelmInstallLatest(ctx context.Context, kubeContext *string) (*release.Release, error) {
+func (r *mutationResolver) HelmInstallLatest(ctx context.Context, kubeContextPtr *string) (*release.Release, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Reject requests not in desktop environment
 	if r.environment != config.EnvironmentDesktop {
 		return nil, gqlerrors.ErrForbidden
 	}
 
 	// Init client
-	client, err := helm.NewClient(ptr.Deref(kubeContext, ""))
+	client, err := helm.NewClient(kubeContext)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +145,9 @@ func (r *mutationResolver) HelmInstallLatest(ctx context.Context, kubeContext *s
 }
 
 // AppsV1DaemonSetsGet is the resolver for the appsV1DaemonSetsGet field.
-func (r *queryResolver) AppsV1DaemonSetsGet(ctx context.Context, kubeContext *string, namespace *string, name string, options *metav1.GetOptions) (*appsv1.DaemonSet, error) {
+func (r *queryResolver) AppsV1DaemonSetsGet(ctx context.Context, kubeContextPtr *string, namespace *string, name string, options *metav1.GetOptions) (*appsv1.DaemonSet, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Deref namespace
 	ns, err := k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContext))
 	if err != nil {
@@ -164,16 +168,21 @@ func (r *queryResolver) AppsV1DaemonSetsGet(ctx context.Context, kubeContext *st
 }
 
 // AppsV1DaemonSetsList is the resolver for the appsV1DaemonSetsList field.
-func (r *queryResolver) AppsV1DaemonSetsList(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions) (*appsv1.DaemonSetList, error) {
+func (r *queryResolver) AppsV1DaemonSetsList(ctx context.Context, kubeContextPtr *string, namespace *string, options *metav1.ListOptions) (*appsv1.DaemonSetList, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	outList := &appsv1.DaemonSetList{}
 	if err := r.listResource(ctx, kubeContext, namespace, options, outList); err != nil {
 		return nil, err
 	}
+
 	return outList, nil
 }
 
 // AppsV1DeploymentsGet is the resolver for the appsV1DeploymentsGet field.
-func (r *queryResolver) AppsV1DeploymentsGet(ctx context.Context, kubeContext *string, namespace *string, name string, options *metav1.GetOptions) (*appsv1.Deployment, error) {
+func (r *queryResolver) AppsV1DeploymentsGet(ctx context.Context, kubeContextPtr *string, namespace *string, name string, options *metav1.GetOptions) (*appsv1.Deployment, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Deref namespace
 	ns, err := k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContext))
 	if err != nil {
@@ -194,16 +203,21 @@ func (r *queryResolver) AppsV1DeploymentsGet(ctx context.Context, kubeContext *s
 }
 
 // AppsV1DeploymentsList is the resolver for the appsV1DeploymentsList field.
-func (r *queryResolver) AppsV1DeploymentsList(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions) (*appsv1.DeploymentList, error) {
+func (r *queryResolver) AppsV1DeploymentsList(ctx context.Context, kubeContextPtr *string, namespace *string, options *metav1.ListOptions) (*appsv1.DeploymentList, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	outList := &appsv1.DeploymentList{}
 	if err := r.listResource(ctx, kubeContext, namespace, options, outList); err != nil {
 		return nil, err
 	}
+
 	return outList, nil
 }
 
 // AppsV1ReplicaSetsGet is the resolver for the appsV1ReplicaSetsGet field.
-func (r *queryResolver) AppsV1ReplicaSetsGet(ctx context.Context, kubeContext *string, namespace *string, name string, options *metav1.GetOptions) (*appsv1.ReplicaSet, error) {
+func (r *queryResolver) AppsV1ReplicaSetsGet(ctx context.Context, kubeContextPtr *string, namespace *string, name string, options *metav1.GetOptions) (*appsv1.ReplicaSet, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Deref namespace
 	ns, err := k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContext))
 	if err != nil {
@@ -224,16 +238,21 @@ func (r *queryResolver) AppsV1ReplicaSetsGet(ctx context.Context, kubeContext *s
 }
 
 // AppsV1ReplicaSetsList is the resolver for the appsV1ReplicaSetsList field.
-func (r *queryResolver) AppsV1ReplicaSetsList(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions) (*appsv1.ReplicaSetList, error) {
+func (r *queryResolver) AppsV1ReplicaSetsList(ctx context.Context, kubeContextPtr *string, namespace *string, options *metav1.ListOptions) (*appsv1.ReplicaSetList, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	outList := &appsv1.ReplicaSetList{}
 	if err := r.listResource(ctx, kubeContext, namespace, options, outList); err != nil {
 		return nil, err
 	}
+
 	return outList, nil
 }
 
 // AppsV1StatefulSetsGet is the resolver for the appsV1StatefulSetsGet field.
-func (r *queryResolver) AppsV1StatefulSetsGet(ctx context.Context, kubeContext *string, namespace *string, name string, options *metav1.GetOptions) (*appsv1.StatefulSet, error) {
+func (r *queryResolver) AppsV1StatefulSetsGet(ctx context.Context, kubeContextPtr *string, namespace *string, name string, options *metav1.GetOptions) (*appsv1.StatefulSet, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Deref namespace
 	ns, err := k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContext))
 	if err != nil {
@@ -254,16 +273,21 @@ func (r *queryResolver) AppsV1StatefulSetsGet(ctx context.Context, kubeContext *
 }
 
 // AppsV1StatefulSetsList is the resolver for the appsV1StatefulSetsList field.
-func (r *queryResolver) AppsV1StatefulSetsList(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions) (*appsv1.StatefulSetList, error) {
+func (r *queryResolver) AppsV1StatefulSetsList(ctx context.Context, kubeContextPtr *string, namespace *string, options *metav1.ListOptions) (*appsv1.StatefulSetList, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	outList := &appsv1.StatefulSetList{}
 	if err := r.listResource(ctx, kubeContext, namespace, options, outList); err != nil {
 		return nil, err
 	}
+
 	return outList, nil
 }
 
 // BatchV1CronJobsGet is the resolver for the batchV1CronJobsGet field.
-func (r *queryResolver) BatchV1CronJobsGet(ctx context.Context, kubeContext *string, namespace *string, name string, options *metav1.GetOptions) (*batchv1.CronJob, error) {
+func (r *queryResolver) BatchV1CronJobsGet(ctx context.Context, kubeContextPtr *string, namespace *string, name string, options *metav1.GetOptions) (*batchv1.CronJob, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Deref namespace
 	ns, err := k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContext))
 	if err != nil {
@@ -284,16 +308,21 @@ func (r *queryResolver) BatchV1CronJobsGet(ctx context.Context, kubeContext *str
 }
 
 // BatchV1CronJobsList is the resolver for the batchV1CronJobsList field.
-func (r *queryResolver) BatchV1CronJobsList(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions) (*batchv1.CronJobList, error) {
+func (r *queryResolver) BatchV1CronJobsList(ctx context.Context, kubeContextPtr *string, namespace *string, options *metav1.ListOptions) (*batchv1.CronJobList, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	outList := &batchv1.CronJobList{}
 	if err := r.listResource(ctx, kubeContext, namespace, options, outList); err != nil {
 		return nil, err
 	}
+
 	return outList, nil
 }
 
 // BatchV1JobsGet is the resolver for the batchV1JobsGet field.
-func (r *queryResolver) BatchV1JobsGet(ctx context.Context, kubeContext *string, namespace *string, name string, options *metav1.GetOptions) (*batchv1.Job, error) {
+func (r *queryResolver) BatchV1JobsGet(ctx context.Context, kubeContextPtr *string, namespace *string, name string, options *metav1.GetOptions) (*batchv1.Job, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Deref namespace
 	ns, err := k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContext))
 	if err != nil {
@@ -314,16 +343,22 @@ func (r *queryResolver) BatchV1JobsGet(ctx context.Context, kubeContext *string,
 }
 
 // BatchV1JobsList is the resolver for the batchV1JobsList field.
-func (r *queryResolver) BatchV1JobsList(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions) (*batchv1.JobList, error) {
+func (r *queryResolver) BatchV1JobsList(ctx context.Context, kubeContextPtr *string, namespace *string, options *metav1.ListOptions) (*batchv1.JobList, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	outList := &batchv1.JobList{}
 	if err := r.listResource(ctx, kubeContext, namespace, options, outList); err != nil {
 		return nil, err
 	}
+
 	return outList, nil
 }
 
 // CoreV1NamespacesList is the resolver for the coreV1NamespacesList field.
-func (r *queryResolver) CoreV1NamespacesList(ctx context.Context, kubeContext *string, options *metav1.ListOptions) (*corev1.NamespaceList, error) {
+func (r *queryResolver) CoreV1NamespacesList(ctx context.Context, kubeContextPtr *string, options *metav1.ListOptions) (*corev1.NamespaceList, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
+	// Get client
 	clientset, err := r.cm.GetOrCreateClientset(kubeContext)
 	if err != nil {
 		return nil, err
@@ -352,7 +387,9 @@ func (r *queryResolver) CoreV1NamespacesList(ctx context.Context, kubeContext *s
 }
 
 // CoreV1NodesList is the resolver for the coreV1NodesList field.
-func (r *queryResolver) CoreV1NodesList(ctx context.Context, kubeContext *string, options *metav1.ListOptions) (*corev1.NodeList, error) {
+func (r *queryResolver) CoreV1NodesList(ctx context.Context, kubeContextPtr *string, options *metav1.ListOptions) (*corev1.NodeList, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Get client
 	clientset, err := r.cm.GetOrCreateClientset(kubeContext)
 	if err != nil {
@@ -367,7 +404,9 @@ func (r *queryResolver) CoreV1NodesList(ctx context.Context, kubeContext *string
 }
 
 // CoreV1PodsGet is the resolver for the coreV1PodsGet field.
-func (r *queryResolver) CoreV1PodsGet(ctx context.Context, kubeContext *string, namespace *string, name string, options *metav1.GetOptions) (*corev1.Pod, error) {
+func (r *queryResolver) CoreV1PodsGet(ctx context.Context, kubeContextPtr *string, namespace *string, name string, options *metav1.GetOptions) (*corev1.Pod, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Deref namespace
 	ns, err := k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContext))
 	if err != nil {
@@ -388,16 +427,21 @@ func (r *queryResolver) CoreV1PodsGet(ctx context.Context, kubeContext *string, 
 }
 
 // CoreV1PodsList is the resolver for the coreV1PodsList field.
-func (r *queryResolver) CoreV1PodsList(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions) (*corev1.PodList, error) {
+func (r *queryResolver) CoreV1PodsList(ctx context.Context, kubeContextPtr *string, namespace *string, options *metav1.ListOptions) (*corev1.PodList, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	outList := &corev1.PodList{}
 	if err := r.listResource(ctx, kubeContext, namespace, options, outList); err != nil {
 		return nil, err
 	}
+
 	return outList, nil
 }
 
 // CoreV1ServicesGet is the resolver for the coreV1ServicesGet field.
-func (r *queryResolver) CoreV1ServicesGet(ctx context.Context, kubeContext *string, namespace *string, name string, options *metav1.GetOptions) (*corev1.Service, error) {
+func (r *queryResolver) CoreV1ServicesGet(ctx context.Context, kubeContextPtr *string, namespace *string, name string, options *metav1.GetOptions) (*corev1.Service, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Deref namespace
 	ns, err := k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContext))
 	if err != nil {
@@ -418,16 +462,21 @@ func (r *queryResolver) CoreV1ServicesGet(ctx context.Context, kubeContext *stri
 }
 
 // CoreV1ServicesList is the resolver for the coreV1ServicesList field.
-func (r *queryResolver) CoreV1ServicesList(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions) (*corev1.ServiceList, error) {
+func (r *queryResolver) CoreV1ServicesList(ctx context.Context, kubeContextPtr *string, namespace *string, options *metav1.ListOptions) (*corev1.ServiceList, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	outList := &corev1.ServiceList{}
 	if err := r.listResource(ctx, kubeContext, namespace, options, outList); err != nil {
 		return nil, err
 	}
+
 	return outList, nil
 }
 
 // ClusterAPIReadyWait is the resolver for the clusterAPIReadyWait field.
-func (r *queryResolver) ClusterAPIReadyWait(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (bool, error) {
+func (r *queryResolver) ClusterAPIReadyWait(ctx context.Context, kubeContextPtr *string, namespace *string, serviceName *string) (bool, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	if err := r.hm.ReadyWait(ctx, kubeContext, namespace, serviceName); err != nil {
 		return false, err
 	}
@@ -440,7 +489,9 @@ func (r *queryResolver) ClusterAPIReadyWait(ctx context.Context, kubeContext *st
 }
 
 // ClusterAPIHealthzGet is the resolver for the clusterAPIHealthzGet field.
-func (r *queryResolver) ClusterAPIHealthzGet(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (*model.HealthCheckResponse, error) {
+func (r *queryResolver) ClusterAPIHealthzGet(ctx context.Context, kubeContextPtr *string, namespace *string, serviceName *string) (*model.HealthCheckResponse, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	status, err := r.hm.GetHealthStatus(ctx, kubeContext, namespace, serviceName)
 	if err != nil {
 		return nil, err
@@ -453,7 +504,9 @@ func (r *queryResolver) ClusterAPIHealthzGet(ctx context.Context, kubeContext *s
 }
 
 // ClusterAPIServicesList is the resolver for the clusterAPIServicesList field.
-func (r *queryResolver) ClusterAPIServicesList(ctx context.Context, kubeContext *string, options *metav1.ListOptions) (*corev1.ServiceList, error) {
+func (r *queryResolver) ClusterAPIServicesList(ctx context.Context, kubeContextPtr *string, options *metav1.ListOptions) (*corev1.ServiceList, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Reject requests not in desktop environment
 	if r.environment != config.EnvironmentDesktop {
 		return nil, gqlerrors.ErrForbidden
@@ -472,14 +525,16 @@ func (r *queryResolver) ClusterAPIServicesList(ctx context.Context, kubeContext 
 }
 
 // HelmListReleases is the resolver for the helmListReleases field.
-func (r *queryResolver) HelmListReleases(ctx context.Context, kubeContext *string) ([]*release.Release, error) {
+func (r *queryResolver) HelmListReleases(ctx context.Context, kubeContextPtr *string) ([]*release.Release, error) {
 	// Reject requests not in desktop environment
 	if r.environment != config.EnvironmentDesktop {
 		return nil, gqlerrors.ErrForbidden
 	}
 
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Init client
-	client, err := helm.NewClient(ptr.Deref(kubeContext, ""))
+	client, err := helm.NewClient(kubeContext)
 	if err != nil {
 		return nil, err
 	}
@@ -509,7 +564,9 @@ func (r *queryResolver) KubeConfigGet(ctx context.Context) (*model.KubeConfig, e
 }
 
 // KubernetesAPIReadyWait is the resolver for the kubernetesAPIReadyWait field.
-func (r *queryResolver) KubernetesAPIReadyWait(ctx context.Context, kubeContext *string) (bool, error) {
+func (r *queryResolver) KubernetesAPIReadyWait(ctx context.Context, kubeContextPtr *string) (bool, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 
@@ -522,12 +579,16 @@ func (r *queryResolver) KubernetesAPIReadyWait(ctx context.Context, kubeContext 
 }
 
 // KubernetesAPIHealthzGet is the resolver for the kubernetesAPIHealthzGet field.
-func (r *queryResolver) KubernetesAPIHealthzGet(ctx context.Context, kubeContext *string) (*model.HealthCheckResponse, error) {
+func (r *queryResolver) KubernetesAPIHealthzGet(ctx context.Context, kubeContextPtr *string) (*model.HealthCheckResponse, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	return r.kubernetesAPIHealthzGet(ctx, kubeContext), nil
 }
 
 // LogRecordsFetch is the resolver for the logRecordsFetch field.
-func (r *queryResolver) LogRecordsFetch(ctx context.Context, kubeContext *string, sources []string, mode *model.LogRecordsQueryMode, since *string, until *string, after *string, before *string, grep *string, sourceFilter *model.LogSourceFilter, limit *int) (*model.LogRecordsQueryResponse, error) {
+func (r *queryResolver) LogRecordsFetch(ctx context.Context, kubeContextPtr *string, sources []string, mode *model.LogRecordsQueryMode, since *string, until *string, after *string, before *string, grep *string, sourceFilter *model.LogSourceFilter, limit *int) (*model.LogRecordsQueryResponse, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Parse time args
 	sinceTime, err := parseTimeArg(ptr.Deref(since, ""))
 	if err != nil {
@@ -622,43 +683,51 @@ func (r *queryResolver) LogRecordsFetch(ctx context.Context, kubeContext *string
 }
 
 // AppsV1DaemonSetsWatch is the resolver for the appsV1DaemonSetsWatch field.
-func (r *subscriptionResolver) AppsV1DaemonSetsWatch(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+func (r *subscriptionResolver) AppsV1DaemonSetsWatch(ctx context.Context, kubeContextPtr *string, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
 	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}
 	return r.watchResourceMulti(ctx, kubeContext, namespace, options, gvr)
 }
 
 // AppsV1DeploymentsWatch is the resolver for the appsV1DeploymentsWatch field.
-func (r *subscriptionResolver) AppsV1DeploymentsWatch(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+func (r *subscriptionResolver) AppsV1DeploymentsWatch(ctx context.Context, kubeContextPtr *string, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
 	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
 	return r.watchResourceMulti(ctx, kubeContext, namespace, options, gvr)
 }
 
 // AppsV1ReplicaSetsWatch is the resolver for the appsV1ReplicaSetsWatch field.
-func (r *subscriptionResolver) AppsV1ReplicaSetsWatch(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+func (r *subscriptionResolver) AppsV1ReplicaSetsWatch(ctx context.Context, kubeContextPtr *string, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
 	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
 	return r.watchResourceMulti(ctx, kubeContext, namespace, options, gvr)
 }
 
 // AppsV1StatefulSetsWatch is the resolver for the appsV1StatefulSetsWatch field.
-func (r *subscriptionResolver) AppsV1StatefulSetsWatch(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+func (r *subscriptionResolver) AppsV1StatefulSetsWatch(ctx context.Context, kubeContextPtr *string, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
 	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
 	return r.watchResourceMulti(ctx, kubeContext, namespace, options, gvr)
 }
 
 // BatchV1CronJobsWatch is the resolver for the batchV1CronJobsWatch field.
-func (r *subscriptionResolver) BatchV1CronJobsWatch(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+func (r *subscriptionResolver) BatchV1CronJobsWatch(ctx context.Context, kubeContextPtr *string, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
 	gvr := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"}
 	return r.watchResourceMulti(ctx, kubeContext, namespace, options, gvr)
 }
 
 // BatchV1JobsWatch is the resolver for the batchV1JobsWatch field.
-func (r *subscriptionResolver) BatchV1JobsWatch(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+func (r *subscriptionResolver) BatchV1JobsWatch(ctx context.Context, kubeContextPtr *string, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
 	gvr := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
 	return r.watchResourceMulti(ctx, kubeContext, namespace, options, gvr)
 }
 
 // CoreV1NamespacesWatch is the resolver for the coreV1NamespacesWatch field.
-func (r *subscriptionResolver) CoreV1NamespacesWatch(ctx context.Context, kubeContext *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+func (r *subscriptionResolver) CoreV1NamespacesWatch(ctx context.Context, kubeContextPtr *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Get client
 	clientset, err := r.cm.GetOrCreateClientset(kubeContext)
 	if err != nil {
@@ -696,7 +765,9 @@ func (r *subscriptionResolver) CoreV1NamespacesWatch(ctx context.Context, kubeCo
 }
 
 // CoreV1NodesWatch is the resolver for the coreV1NodesWatch field.
-func (r *subscriptionResolver) CoreV1NodesWatch(ctx context.Context, kubeContext *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+func (r *subscriptionResolver) CoreV1NodesWatch(ctx context.Context, kubeContextPtr *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Get client
 	clientset, err := r.cm.GetOrCreateClientset(kubeContext)
 	if err != nil {
@@ -716,19 +787,23 @@ func (r *subscriptionResolver) CoreV1NodesWatch(ctx context.Context, kubeContext
 }
 
 // CoreV1PodsWatch is the resolver for the coreV1PodsWatch field.
-func (r *subscriptionResolver) CoreV1PodsWatch(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+func (r *subscriptionResolver) CoreV1PodsWatch(ctx context.Context, kubeContextPtr *string, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
 	return r.watchResourceMulti(ctx, kubeContext, namespace, options, gvr)
 }
 
 // CoreV1ServicesWatch is the resolver for the coreV1ServicesWatch field.
-func (r *subscriptionResolver) CoreV1ServicesWatch(ctx context.Context, kubeContext *string, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+func (r *subscriptionResolver) CoreV1ServicesWatch(ctx context.Context, kubeContextPtr *string, namespace *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}
 	return r.watchResourceMulti(ctx, kubeContext, namespace, options, gvr)
 }
 
 // KubernetesAPIReadyWait is the resolver for the kubernetesAPIReadyWait field.
-func (r *subscriptionResolver) KubernetesAPIReadyWait(ctx context.Context, kubeContext *string) (<-chan bool, error) {
+func (r *subscriptionResolver) KubernetesAPIReadyWait(ctx context.Context, kubeContextPtr *string) (<-chan bool, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	outCh := make(chan bool)
 
 	// Run in go routine
@@ -747,7 +822,9 @@ func (r *subscriptionResolver) KubernetesAPIReadyWait(ctx context.Context, kubeC
 }
 
 // KubernetesAPIHealthzWatch is the resolver for the kubernetesAPIHealthzWatch field.
-func (r *subscriptionResolver) KubernetesAPIHealthzWatch(ctx context.Context, kubeContext *string) (<-chan *model.HealthCheckResponse, error) {
+func (r *subscriptionResolver) KubernetesAPIHealthzWatch(ctx context.Context, kubeContextPtr *string) (<-chan *model.HealthCheckResponse, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	outCh := make(chan *model.HealthCheckResponse)
 
 	go func() {
@@ -782,7 +859,9 @@ func (r *subscriptionResolver) KubernetesAPIHealthzWatch(ctx context.Context, ku
 }
 
 // ClusterAPIReadyWait is the resolver for the clusterAPIReadyWait field.
-func (r *subscriptionResolver) ClusterAPIReadyWait(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (<-chan bool, error) {
+func (r *subscriptionResolver) ClusterAPIReadyWait(ctx context.Context, kubeContextPtr *string, namespace *string, serviceName *string) (<-chan bool, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	outCh := make(chan bool)
 
 	// Run in go routine
@@ -801,7 +880,9 @@ func (r *subscriptionResolver) ClusterAPIReadyWait(ctx context.Context, kubeCont
 }
 
 // ClusterAPIHealthzWatch is the resolver for the clusterAPIHealthzWatch field.
-func (r *subscriptionResolver) ClusterAPIHealthzWatch(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (<-chan *model.HealthCheckResponse, error) {
+func (r *subscriptionResolver) ClusterAPIHealthzWatch(ctx context.Context, kubeContextPtr *string, namespace *string, serviceName *string) (<-chan *model.HealthCheckResponse, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	statusCh, err := r.hm.WatchHealthStatus(ctx, kubeContext, namespace, serviceName)
 	if err != nil {
 		return nil, err
@@ -826,7 +907,9 @@ func (r *subscriptionResolver) ClusterAPIHealthzWatch(ctx context.Context, kubeC
 }
 
 // ClusterAPIServicesWatch is the resolver for the clusterAPIServicesWatch field.
-func (r *subscriptionResolver) ClusterAPIServicesWatch(ctx context.Context, kubeContext *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+func (r *subscriptionResolver) ClusterAPIServicesWatch(ctx context.Context, kubeContextPtr *string, options *metav1.ListOptions) (<-chan *watch.Event, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Reject requests not in desktop environment
 	if r.environment != config.EnvironmentDesktop {
 		return nil, gqlerrors.ErrForbidden
@@ -911,7 +994,9 @@ func (r *subscriptionResolver) KubeConfigWatch(ctx context.Context) (<-chan *mod
 }
 
 // LogRecordsFollow is the resolver for the logRecordsFollow field.
-func (r *subscriptionResolver) LogRecordsFollow(ctx context.Context, kubeContext *string, sources []string, since *string, after *string, grep *string, sourceFilter *model.LogSourceFilter) (<-chan *logs.LogRecord, error) {
+func (r *subscriptionResolver) LogRecordsFollow(ctx context.Context, kubeContextPtr *string, sources []string, since *string, after *string, grep *string, sourceFilter *model.LogSourceFilter) (<-chan *logs.LogRecord, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	// Parse time args
 	sinceTime, err := parseTimeArg(ptr.Deref(since, ""))
 	if err != nil {
@@ -990,7 +1075,9 @@ func (r *subscriptionResolver) LogRecordsFollow(ctx context.Context, kubeContext
 }
 
 // LogSourcesWatch is the resolver for the logSourcesWatch field.
-func (r *subscriptionResolver) LogSourcesWatch(ctx context.Context, kubeContext *string, sources []string) (<-chan *model.LogSourceWatchEvent, error) {
+func (r *subscriptionResolver) LogSourcesWatch(ctx context.Context, kubeContextPtr *string, sources []string) (<-chan *model.LogSourceWatchEvent, error) {
+	kubeContext := r.cm.DerefKubeContext(kubeContextPtr)
+
 	sw, err := logs.NewSourceWatcher(r.cm, sources, logs.WithKubeContext(kubeContext))
 	if err != nil {
 		return nil, err
