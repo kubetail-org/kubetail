@@ -33,6 +33,7 @@ import (
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 // Auth-mode
@@ -54,7 +55,7 @@ const (
 // Application configuration
 type Config struct {
 	AllowedNamespaces []string `mapstructure:"allowed-namespaces"`
-
+	Kubeconfig        string   `mapstructure:"kubeconfig"`
 	// dashboard options
 	Dashboard struct {
 		Addr               string   `validate:"omitempty,hostname_port"`
@@ -236,7 +237,7 @@ func DefaultConfig() *Config {
 	cfg := &Config{}
 
 	cfg.AllowedNamespaces = []string{}
-
+	cfg.Kubeconfig = clientcmd.RecommendedHomeFile
 	cfg.Dashboard.Addr = ":8080"
 	cfg.Dashboard.AuthMode = AuthModeAuto
 	cfg.Dashboard.BasePath = "/"

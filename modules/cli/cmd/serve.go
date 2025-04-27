@@ -76,6 +76,7 @@ var serveCmd = &cobra.Command{
 		if err != nil {
 			zlog.Fatal().Caller().Err(err).Send()
 		}
+		cfg.Kubeconfig, _ = cmd.Flags().GetString(KubeconfigFlag)
 
 		cfg.Dashboard.Environment = config.EnvironmentDesktop
 		cfg.Dashboard.Logging.AccessLog.Enabled = false

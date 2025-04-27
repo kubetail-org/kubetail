@@ -194,6 +194,7 @@ var logsCmd = &cobra.Command{
 		flags := cmd.Flags()
 
 		kubeContext, _ := flags.GetString("kube-context")
+		kubeconfig, _ := flags.GetString(KubeconfigFlag)
 
 		head := flags.Changed("head")
 		headVal, _ := flags.GetInt64("head")
@@ -273,7 +274,7 @@ var logsCmd = &cobra.Command{
 		}
 
 		// Init connection manager
-		cm, err := k8shelpers.NewDesktopConnectionManager()
+		cm, err := k8shelpers.NewDesktopConnectionManager(kubeconfig)
 		cli.ExitOnError(err)
 
 		kubeContextPtr := ptr.To(kubeContext)

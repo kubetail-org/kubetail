@@ -33,17 +33,22 @@ type KubeConfigWatcher struct {
 }
 
 // Creates new KubeConfigWatcher instance
-func NewKubeConfigWatcher(filename string) (*KubeConfigWatcher, error) {
+func NewKubeConfigWatcher(kubeconfigPath string) (*KubeConfigWatcher, error) {
 	// Initialize kube config
 	// TODO: Handle missing kube config files more gracefully
 	var kubeConfig *api.Config
 	var err error
-	if filename != "" {
-		kubeConfig, err = clientcmd.LoadFromFile(filename)
+
+	if kubeconfigPath != "" {
+		zlog.Info().Msgf("Loaded kubeconfig %s", kubeconfigPath)
+		kubeConfig, err = clientcmd.LoadFromFile(kubeconfigPath)
 	} else {
+		zlog.Info().Msgf("Loaded default kubeconfig: %s", clientcmd.RecommendedHomeFile)
 		kubeConfig, err = clientcmd.LoadFromFile(clientcmd.RecommendedHomeFile)
 	}
+
 	if err != nil {
+		zlog.Error().Msg("Kubeconfig is corrupted or missing. Please provide a valid kubeconfig.")
 		return nil, err
 	}
 

@@ -59,7 +59,7 @@ type DesktopConnectionManager struct {
 }
 
 // Initialize new DesktopConnectionManager instance
-func NewDesktopConnectionManager() (*DesktopConnectionManager, error) {
+func NewDesktopConnectionManager(kubeconfigPath string) (*DesktopConnectionManager, error) {
 	cm := &DesktopConnectionManager{
 		rcCache:    make(map[string]*rest.Config),
 		csCache:    make(map[string]*kubernetes.Clientset),
@@ -73,7 +73,7 @@ func NewDesktopConnectionManager() (*DesktopConnectionManager, error) {
 	cm.rootCtx, cm.rootCtxCancel = context.WithCancel(context.Background())
 
 	// Init KubeConfigWatcher
-	kfw, err := NewKubeConfigWatcher()
+	kfw, err := NewKubeConfigWatcher(kubeconfigPath)
 	if err != nil {
 		return nil, err
 	}
@@ -436,10 +436,10 @@ func (cm *InClusterConnectionManager) getOrCreateRestConfig_UNSAFE() (*rest.Conf
 }
 
 // Initialize new ConnectionManager depending on environment
-func NewConnectionManager(env config.Environment) (ConnectionManager, error) {
+func NewConnectionManager(env config.Environment, kubeconfigPath string) (ConnectionManager, error) {
 	switch env {
 	case config.EnvironmentDesktop:
-		return NewDesktopConnectionManager()
+		return NewDesktopConnectionManager(kubeconfigPath)
 	case config.EnvironmentCluster:
 		return NewInClusterConnectionManager()
 	default:
