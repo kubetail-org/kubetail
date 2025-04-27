@@ -521,7 +521,6 @@ func init() {
 	flagset.SortFlags = false
 
 	flagset.String("kube-context", "", "Specify the kubeconfig context to use")
-
 	flagset.Int64P("head", "h", 10, "Return first N records")
 	flagset.Lookup("head").NoOptDefVal = "10"
 	flagset.Int64P("tail", "t", 10, "Return last N records")

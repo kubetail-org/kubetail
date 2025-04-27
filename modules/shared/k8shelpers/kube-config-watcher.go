@@ -33,10 +33,16 @@ type KubeConfigWatcher struct {
 }
 
 // Creates new KubeConfigWatcher instance
-func NewKubeConfigWatcher() (*KubeConfigWatcher, error) {
+func NewKubeConfigWatcher(filename string) (*KubeConfigWatcher, error) {
 	// Initialize kube config
 	// TODO: Handle missing kube config files more gracefully
-	kubeConfig, err := clientcmd.LoadFromFile(clientcmd.RecommendedHomeFile)
+	var kubeConfig *api.Config
+	var err error
+	if filename != "" {
+		kubeConfig, err = clientcmd.LoadFromFile(filename)
+	} else {
+		kubeConfig, err = clientcmd.LoadFromFile(clientcmd.RecommendedHomeFile)
+	}
 	if err != nil {
 		return nil, err
 	}

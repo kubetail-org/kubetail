@@ -3,7 +3,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: loggen-ansi
-  namespace: default
   labels:
     app.kubernetes.io/name: loggen
     app.kubernetes.io/instance: kubetail-dev-2
