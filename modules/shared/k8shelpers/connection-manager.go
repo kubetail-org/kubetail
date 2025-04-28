@@ -177,10 +177,6 @@ func (cm *DesktopConnectionManager) GetOrCreateDynamicClient(kubeContext string)
 }
 
 func (cm *DesktopConnectionManager) NewInformer(ctx context.Context, kubeContext string, token string, namespace string, gvr schema.GroupVersionResource) (informers.GenericInformer, func(), error) {
-	if token != "" {
-		return nil, nil, fmt.Errorf("token is not supported")
-	}
-
 	// Get clientset
 	clientset, err := cm.GetOrCreateClientset(kubeContext)
 	if err != nil {
