@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::error::Error;
+
 use grep::{
     matcher::{self, Match, Matcher},
     regex::{self, RegexMatcher, RegexMatcherBuilder},
 };
 use memchr::memmem;
+use serde_json;
 
 // PassThroughMatcher
 pub struct PassThroughMatcher {}
@@ -66,23 +69,76 @@ impl LogFileRegexMatcher {
 
         Ok(LogFileRegexMatcher { inner })
     }
+
+    /// Locate `needle` (the log string) within `haystack` and return its start
+    /// offset so we can translate match positions back to the original buffer.
+    fn locate<'a>(
+        haystack: &'a [u8],
+        needle: &'a [u8],
+    ) -> Result<usize, Box<dyn Error + Send + Sync>> {
+        memmem::find(haystack, needle)
+            .ok_or_else(|| "could not locate `log` field bytes in haystack".into())
+    }
 }
 
 impl Matcher for LogFileRegexMatcher {
-    type Captures = regex::RegexCaptures;
+    type Captures = matcher::NoCaptures;
     type Error = matcher::NoError;
 
     fn find_at(&self, haystack: &[u8], start: usize) -> Result<Option<Match>, Self::Error> {
-        // Start + 19 starts looking after the non-decimal part of ISO8601 timestamp
-        if let Some(offset) = find_log_message_start(haystack, start + 19) {
-            self.inner.find_at(haystack, offset)
-        } else {
-            Ok(None)
+        if start >= haystack.len() {
+            return Ok(None);
         }
+
+        // Determine the format and extract the log content
+        let log_data: Vec<u8>;
+        let log = if haystack[start] == b'{' {
+            // JSON format - parse and extract the "log" field
+            match serde_json::from_slice::<serde_json::Value>(&haystack[start..]) {
+                Ok(json) => {
+                    if let Some(log_value) = json.get("log") {
+                        if let Some(log_str) = log_value.as_str() {
+                            // Convert to owned bytes
+                            log_data = log_str.as_bytes().to_vec();
+                            &log_data
+                        } else {
+                            // If "log" field is not a string, return None
+                            return Ok(None);
+                        }
+                    } else {
+                        // If no "log" field, return None
+                        return Ok(None);
+                    }
+                }
+                Err(_) => {
+                    // If JSON parsing fails, return None
+                    return Ok(None);
+                }
+            }
+        } else {
+            // CRI log format: <isotimestamp> <stdout/stderr> <P/F> <log>
+            // Start + 19 starts looking after the non-decimal part of ISO8601 timestamp
+            if start + 19 >= haystack.len() {
+                return Ok(None);
+            }
+
+            if let Some(offset) = find_log_message_start(haystack, start + 19) {
+                &haystack[offset..]
+            } else {
+                return Ok(None);
+            }
+        };
+
+        if let Ok(Some(m)) = self.inner.find(log) {
+            // Translate local match offsets back to the full buffer.
+            let base = Self::locate(haystack, log).unwrap_or(start);
+            return Ok(Some(Match::new(base + m.start(), base + m.end())));
+        }
+        Ok(None)
     }
 
     fn new_captures(&self) -> Result<Self::Captures, Self::Error> {
-        self.inner.new_captures()
+        Ok(matcher::NoCaptures::new())
     }
 }
 
