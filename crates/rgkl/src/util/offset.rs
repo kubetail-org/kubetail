@@ -162,9 +162,9 @@ fn parse_timestamp(line: &str) -> Result<DateTime<Utc>, Box<dyn std::error::Erro
     if line.starts_with('{') {
         // Parse the JSON
         let json: serde_json::Value = serde_json::from_str(line)?;
-        
+
         // Extract the timestamp field
-        if let Some(timestamp) = json.get("timestamp").and_then(|t| t.as_str()) {
+        if let Some(timestamp) = json.get("time").and_then(|t| t.as_str()) {
             let ts = DateTime::parse_from_rfc3339(timestamp)?.with_timezone(&Utc);
             return Ok(ts);
         } else {
@@ -229,6 +229,67 @@ mod tests_find_nearest_offset_since {
             "2024-10-01T05:40:58.564018502Z stdout F linenum 8",
             "2024-10-01T05:40:58.612948127Z stdout F linenum 9",
             "2024-10-01T05:40:59.103901461Z stdout F linenum 10",
+        ];
+        let (tmpfile, offsets) = common::create_temp_log(&lines)?;
+
+        // Define test cases as (target_timestamp, expected_offset).
+        // For targets beyond the last log, we expect -1.
+        let test_cases = vec![
+            (
+                "2024-10-01T05:40:46.960135302Z",
+                Some(&offsets[0]), // first log
+            ),
+            (
+                "2024-10-01T05:40:59.103901461Z",
+                Some(&offsets[9]), // last log
+            ),
+            (
+                // Before the first log timestamp, should return the first entry.
+                "2024-10-01T05:40:46.960135301Z",
+                Some(&offsets[0]),
+            ),
+            (
+                // After the last log timestamp, should return -1.
+                "2024-10-01T05:40:59.103901462Z",
+                None,
+            ),
+            (
+                // Exact match in the middle.
+                "2024-10-01T05:40:52.222363431Z",
+                Some(&offsets[3]),
+            ),
+            (
+                // Just before an entry in the middle.
+                "2024-10-01T05:40:52.222363430Z",
+                Some(&offsets[3]),
+            ),
+        ];
+
+        let file = tmpfile.into_file();
+        let max_offset = file.metadata()?.len();
+
+        for (target_str, expected) in test_cases {
+            let target_time = DateTime::parse_from_rfc3339(target_str)?.with_timezone(&Utc);
+            let offset = find_nearest_offset_since(&file, target_time, 0, max_offset)?;
+            assert_eq!(offset.as_ref(), expected, "target: {}", target_str);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_normal_json() -> Result<(), Box<dyn Error>> {
+        let lines = [
+            "{\"time\":\"2024-10-01T05:40:46.960135302Z\", \"log\":\"linenum 1\"}",
+            "{\"time\":\"2024-10-01T05:40:48.840712595Z\", \"log\":\"linenum 2\"}",
+            "{\"time\":\"2024-10-01T05:40:50.075182095Z\", \"log\":\"linenum 3\"}",
+            "{\"time\":\"2024-10-01T05:40:52.222363431Z\", \"log\":\"linenum 4\"}",
+            "{\"time\":\"2024-10-01T05:40:54.911909292Z\", \"log\":\"linenum 5\"}",
+            "{\"time\":\"2024-10-01T05:40:57.041413876Z\", \"log\":\"linenum 6\"}",
+            "{\"time\":\"2024-10-01T05:40:58.197779961Z\", \"log\":\"linenum 7\"}",
+            "{\"time\":\"2024-10-01T05:40:58.564018502Z\", \"log\":\"linenum 8\"}",
+            "{\"time\":\"2024-10-01T05:40:58.612948127Z\", \"log\":\"linenum 9\"}",
+            "{\"time\":\"2024-10-01T05:40:59.103901461Z\", \"log\":\"linenum 10\"}",
         ];
         let (tmpfile, offsets) = common::create_temp_log(&lines)?;
 
