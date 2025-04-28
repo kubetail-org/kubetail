@@ -21,6 +21,7 @@ use prost_wkt_types::Timestamp;
 use serde_json;
 
 use cluster_agent::LogRecord;
+use crate::util::format::FileFormat;
 
 pub mod cluster_agent {
     tonic::include_proto!("cluster_agent");
@@ -80,7 +81,7 @@ where
 }
 
 /// Function that processes the output.
-pub fn process_output<W: Write>(chunk: &[u8], writer: &mut W) {
+pub fn process_output<W: Write>(chunk: &[u8], writer: &mut W, format: FileFormat) {
     // For example, convert to string and print.
     let json: serde_json::Value = serde_json::from_slice(chunk).unwrap();
     if let (Some(t), Some(data)) = (json["type"].as_str(), json["data"].as_object()) {
@@ -90,15 +91,31 @@ pub fn process_output<W: Write>(chunk: &[u8], writer: &mut W) {
 
         if let Some(lines) = data["lines"].as_object() {
             if let Some(text) = lines["text"].as_str() {
-                if text.starts_with('{') {
-                    // Parse as JSON if it starts with '{'
-                    if let Ok(log_json) = serde_json::from_str::<serde_json::Value>(text) {
-                        if let (Some(time_str), Some(log_msg)) =
-                            (log_json["time"].as_str(), log_json["log"].as_str())
-                        {
+                match format {
+                    FileFormat::Docker => {
+                        // Parse as JSON (Docker format)
+                        if let Ok(log_json) = serde_json::from_str::<serde_json::Value>(text) {
+                            if let (Some(time_str), Some(log_msg)) =
+                                (log_json["time"].as_str(), log_json["log"].as_str())
+                            {
+                                let record = LogRecord {
+                                    timestamp: Some(Timestamp::from_str(time_str).unwrap_or_default()),
+                                    message: log_msg.trim_end().to_string(),
+                                };
+
+                                serde_json::to_writer(&mut *writer, &record)
+                                    .expect("failed to write JSON record");
+                                writer.write_all(b"\n").expect("failed to write newline");
+                                writer.flush().expect("failed to flush writer");
+                            }
+                        }
+                    }
+                    FileFormat::CRI => {
+                        // Original logic for CRI format
+                        if let Some((first, rest)) = text.split_once(' ') {
                             let record = LogRecord {
-                                timestamp: Some(Timestamp::from_str(time_str).unwrap_or_default()),
-                                message: log_msg.trim_end().to_string(),
+                                timestamp: Some(Timestamp::from_str(first).unwrap()),
+                                message: rest[9..].trim_end().to_string(),
                             };
 
                             serde_json::to_writer(&mut *writer, &record)
@@ -107,17 +124,6 @@ pub fn process_output<W: Write>(chunk: &[u8], writer: &mut W) {
                             writer.flush().expect("failed to flush writer");
                         }
                     }
-                } else if let Some((first, rest)) = text.split_once(' ') {
-                    // Original logic for non-JSON format
-                    let record = LogRecord {
-                        timestamp: Some(Timestamp::from_str(first).unwrap()),
-                        message: rest[9..].trim_end().to_string(),
-                    };
-
-                    serde_json::to_writer(&mut *writer, &record)
-                        .expect("failed to write JSON record");
-                    writer.write_all(b"\n").expect("failed to write newline");
-                    writer.flush().expect("failed to flush writer");
                 }
             }
         }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{process::ExitCode, thread, io::stdout};
+use std::{io::stdout, process::ExitCode, thread};
 
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
@@ -131,15 +131,21 @@ fn main() -> ExitCode {
             grep,
         } => {
             let mut stdout = stdout().lock();
-            match stream_backward::run(file, start_time.clone(), stop_time.clone(), grep, term_rx, &mut stdout)
-            {
+            match stream_backward::run(
+                file,
+                start_time.clone(),
+                stop_time.clone(),
+                grep,
+                term_rx,
+                &mut stdout,
+            ) {
                 Ok(_) => ExitCode::SUCCESS,
                 Err(err) => {
                     eprintln!("Error: {:#}", err);
                     ExitCode::FAILURE
                 }
             }
-        },
+        }
         Commands::Z { file, query } => z::run(file, query),
     }
 }

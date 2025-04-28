@@ -27,6 +27,7 @@ use grep::{
 use notify::{recommended_watcher, EventKind, RecursiveMode, Watcher};
 
 use crate::util::{
+    format::FileFormat,
     matcher::{LogFileRegexMatcher, PassThroughMatcher},
     offset::{find_nearest_offset_since, find_nearest_offset_until},
     reader::TermReader,
@@ -65,13 +66,20 @@ pub fn run<W: Write>(
 
     let max_offset = file.metadata()?.len();
 
+    // Determine format based on filename
+    let format = if path.to_string_lossy().ends_with("-json.log") {
+        FileFormat::Docker
+    } else {
+        FileFormat::CRI
+    };
+
     // Get start pos
     let mut start_pos: u64 = 0;
     if follow_from == FollowFrom::End {
         // When following from the end, start at the end of the file
         start_pos = max_offset;
     } else if let Some(start_time) = start_time {
-        if let Some(offset) = find_nearest_offset_since(&file, start_time, 0, max_offset)? {
+        if let Some(offset) = find_nearest_offset_since(&file, start_time, 0, max_offset, format)? {
             start_pos = offset.byte_offset;
         } else {
             return Ok(()); // No records, exit early
@@ -83,7 +91,7 @@ pub fn run<W: Write>(
     if follow_from != FollowFrom::End {
         if let Some(stop_time) = stop_time {
             if let Some(offset) =
-                find_nearest_offset_until(&file, stop_time, start_pos, max_offset)?
+                find_nearest_offset_until(&file, stop_time, start_pos, max_offset, format)?
             {
                 take_length = Some(offset.byte_offset + offset.line_length - start_pos);
             } else {
@@ -112,7 +120,7 @@ pub fn run<W: Write>(
         .build();
 
     // Init writer
-    let writer_fn = |chunk: &[u8]| process_output(chunk, writer);
+    let writer_fn = |chunk: &[u8]| process_output(chunk, writer, format);
     let writer = CallbackWriter::new(writer_fn);
 
     // Init printer
@@ -126,7 +134,7 @@ pub fn run<W: Write>(
         let sink = printer.sink(&matcher);
         let _ = searcher.search_reader(&matcher, term_reader, sink);
     } else {
-        let matcher = LogFileRegexMatcher::new(trimmed_grep).unwrap();
+        let matcher = LogFileRegexMatcher::new(trimmed_grep, format).unwrap();
         let sink = printer.sink(&matcher);
         let _ = searcher.search_reader(&matcher, term_reader, sink);
     }
@@ -156,7 +164,7 @@ pub fn run<W: Write>(
             let sink = printer.sink(&matcher);
             let _ = searcher.search_slice(&matcher, input_str, sink);
         } else {
-            let matcher = LogFileRegexMatcher::new(trimmed_grep).unwrap();
+            let matcher = LogFileRegexMatcher::new(trimmed_grep, format).unwrap();
             let sink = printer.sink(&matcher);
             let _ = searcher.search_slice(&matcher, input_str, sink);
         }

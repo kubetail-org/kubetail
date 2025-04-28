@@ -26,6 +26,7 @@ use grep::{
 };
 
 use crate::util::{
+    format::FileFormat,
     matcher::{LogFileRegexMatcher, PassThroughMatcher},
     offset::{find_nearest_offset_since, find_nearest_offset_until},
     reader::{ReverseLineReader, TermReader},
@@ -48,11 +49,19 @@ pub fn run<W: Write>(
 
     // Open file
     let file = File::open(&path)?;
+
     let max_offset = file.metadata()?.len();
+
+    // Determine format based on filename
+    let format = if path.to_string_lossy().ends_with("-json.log") {
+        FileFormat::Docker
+    } else {
+        FileFormat::CRI
+    };
 
     // Get start pos
     let start_pos: u64 = if let Some(ts) = start_time {
-        if let Some(offset) = find_nearest_offset_since(&file, ts, 0, max_offset)? {
+        if let Some(offset) = find_nearest_offset_since(&file, ts, 0, max_offset, format)? {
             offset.byte_offset
         } else {
             return Ok(()); // No records, exit early
@@ -63,7 +72,7 @@ pub fn run<W: Write>(
 
     // Get end pos
     let end_pos: u64 = if let Some(ts) = stop_time {
-        if let Some(offset) = find_nearest_offset_until(&file, ts, 0, max_offset)? {
+        if let Some(offset) = find_nearest_offset_until(&file, ts, 0, max_offset, format)? {
             offset.byte_offset + offset.line_length
         } else {
             return Ok(()); // No records, exit early
@@ -85,7 +94,7 @@ pub fn run<W: Write>(
         .build();
 
     // Init writer
-    let writer_fn = |chunk: &[u8]| process_output(chunk, writer);
+    let writer_fn = |chunk: &[u8]| process_output(chunk, writer, format);
     let writer = CallbackWriter::new(writer_fn);
 
     // Init printer
@@ -99,7 +108,7 @@ pub fn run<W: Write>(
         let sink = printer.sink(&matcher);
         let _ = searcher.search_reader(&matcher, term_reverse_reader, sink);
     } else {
-        let matcher = LogFileRegexMatcher::new(trimmed_grep).unwrap();
+        let matcher = LogFileRegexMatcher::new(trimmed_grep, format).unwrap();
         let sink = printer.sink(&matcher);
         let _ = searcher.search_reader(&matcher, term_reverse_reader, sink);
     }

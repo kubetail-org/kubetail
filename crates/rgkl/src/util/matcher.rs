@@ -21,6 +21,8 @@ use grep::{
 use memchr::memmem;
 use serde_json;
 
+use crate::util::format::FileFormat;
+
 // PassThroughMatcher
 pub struct PassThroughMatcher {}
 
@@ -51,10 +53,14 @@ impl Matcher for PassThroughMatcher {
 // LogFileRegexMatcher
 pub struct LogFileRegexMatcher {
     inner: RegexMatcher,
+    format: FileFormat,
 }
 
 impl LogFileRegexMatcher {
-    pub fn new(inner_pattern: &str) -> Result<LogFileRegexMatcher, regex::Error> {
+    pub fn new(
+        inner_pattern: &str,
+        format: FileFormat,
+    ) -> Result<LogFileRegexMatcher, regex::Error> {
         // Replaces spaces with ANSI-tolerant pattern
         let regex_pattern = &inner_pattern.replace(
             " ",
@@ -67,7 +73,7 @@ impl LogFileRegexMatcher {
             .case_insensitive(false)
             .build(regex_pattern)?;
 
-        Ok(LogFileRegexMatcher { inner })
+        Ok(LogFileRegexMatcher { inner, format })
     }
 
     /// Locate `needle` (the log string) within `haystack` and return its start
@@ -92,40 +98,43 @@ impl Matcher for LogFileRegexMatcher {
 
         // Determine the format and extract the log content
         let log_data: Vec<u8>;
-        let log = if haystack[start] == b'{' {
-            // JSON format - parse and extract the "log" field
-            match serde_json::from_slice::<serde_json::Value>(&haystack[start..]) {
-                Ok(json) => {
-                    if let Some(log_value) = json.get("log") {
-                        if let Some(log_str) = log_value.as_str() {
-                            // Convert to owned bytes
-                            log_data = log_str.as_bytes().to_vec();
-                            &log_data
+        let log = match self.format {
+            FileFormat::Docker => {
+                // JSON format - parse and extract the "log" field
+                match serde_json::from_slice::<serde_json::Value>(&haystack[start..]) {
+                    Ok(json) => {
+                        if let Some(log_value) = json.get("log") {
+                            if let Some(log_str) = log_value.as_str() {
+                                // Convert to owned bytes
+                                log_data = log_str.as_bytes().to_vec();
+                                &log_data
+                            } else {
+                                // If "log" field is not a string, return None
+                                return Ok(None);
+                            }
                         } else {
-                            // If "log" field is not a string, return None
+                            // If no "log" field, return None
                             return Ok(None);
                         }
-                    } else {
-                        // If no "log" field, return None
+                    }
+                    Err(_) => {
+                        // If JSON parsing fails, return None
                         return Ok(None);
                     }
                 }
-                Err(_) => {
-                    // If JSON parsing fails, return None
+            }
+            FileFormat::CRI => {
+                // CRI log format: <isotimestamp> <stdout/stderr> <P/F> <log>
+                // Start + 19 starts looking after the non-decimal part of ISO8601 timestamp
+                if start + 19 >= haystack.len() {
                     return Ok(None);
                 }
-            }
-        } else {
-            // CRI log format: <isotimestamp> <stdout/stderr> <P/F> <log>
-            // Start + 19 starts looking after the non-decimal part of ISO8601 timestamp
-            if start + 19 >= haystack.len() {
-                return Ok(None);
-            }
 
-            if let Some(offset) = find_log_message_start(haystack, start + 19) {
-                &haystack[offset..]
-            } else {
-                return Ok(None);
+                if let Some(offset) = find_log_message_start(haystack, start + 19) {
+                    &haystack[offset..]
+                } else {
+                    return Ok(None);
+                }
             }
         };
 
