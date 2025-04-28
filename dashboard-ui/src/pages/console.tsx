@@ -385,6 +385,7 @@ const Header = () => {
   const feed = useLogFeedMetadata();
 
   const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30';
+  const inputCN = 'rounded-lg h-[40px] w-[200px] flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30';
 
   const handleDateRangeDropdownChange = (args: DateRangeDropdownOnChangeArgs) => {
     if (args.since) {
@@ -408,6 +409,21 @@ const Header = () => {
     searchParams.delete('since');
     setSearchParams(new URLSearchParams(searchParams), { replace: true });
     controls.tail();
+  };
+
+  const handleFilterInputChange = (ev: any) => {
+    controls.grep(ev.currentTarget.value);
+    const mode = searchParams.get('mode')
+    if (mode === 'seek') {
+      const since = searchParams.get('since');
+      if (since) {
+        controls.seek(since);
+      }
+    } else if (mode === 'head') {
+      controls.head();
+    } else {
+      controls.tail();
+    }
   };
 
   return (
@@ -462,6 +478,14 @@ const Header = () => {
         >
           <SkipForwardIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
         </button>
+        <input
+          type="text"
+          className={inputCN}
+          aria-label="Filter keyword"
+          placeholder='Filter keyword'
+          onInput ={handleFilterInputChange}
+        >
+        </input>
       </div>
       <div className="h-full flex flex-col justify-end items-end">
         <SettingsButton />

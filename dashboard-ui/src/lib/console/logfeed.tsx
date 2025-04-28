@@ -117,7 +117,13 @@ interface PauseCommand extends BaseCommand {
   type: 'pause';
 }
 
-type Command = HeadCommand | TailCommand | SeekCommand | PlayCommand | PauseCommand;
+
+interface GrepCommand extends BaseCommand {
+  type: 'grep';
+  filter: string;
+}
+
+type Command = HeadCommand | TailCommand | SeekCommand | PlayCommand | PauseCommand | GrepCommand;
 
 /**
  * State
@@ -203,6 +209,9 @@ export const useLogFeedControls = () => {
     pause: () => {
       postMessage({ type: 'pause' });
     },
+    grep: (filter: string) => {
+      postMessage({ type: 'grep', filter });
+    }
   };
 };
 
@@ -502,7 +511,7 @@ type LogFeedContentProps = {
 const LogFeedContentImpl: React.ForwardRefRenderFunction<LogFeedContentHandle, LogFeedContentProps> = (
   props: LogFeedContentProps,
   ref: React.ForwardedRef<LogFeedContentHandle>,
-  ) => {
+) => {
   const { hasMoreBefore, hasMoreAfter, loadMoreBefore, loadMoreAfter } = props;
   let { items } = props;
 
@@ -836,7 +845,7 @@ type LogFeedRecordFetcherHandle = {
 const LogFeedRecordFetcherImpl: React.ForwardRefRenderFunction<LogFeedRecordFetcherHandle, LogFeedRecordFetcherProps> = (
   props: LogFeedRecordFetcherProps,
   ref: React.ForwardedRef<LogFeedRecordFetcherHandle>,
- ) => {
+) => {
   const kubeContext = useKubeContext();
 
   const { node, pod, container, defaultFollowAfter, onFollowData } = props;
@@ -1234,10 +1243,25 @@ export const LogFeedViewer = ({
   const afterBufferRef = useRef(new Array<LogRecord>());
   const cursorMapRef = useRef(new Map<string, PageInfo>());
   const isSendFollowToBufferRef = useRef(true);
+  const grepFilterRef = useRef("")
 
   const batchSize = 300;
 
+  const filterLogRecords = (records: LogRecord[]) => {
+    if (grepFilterRef.current === "") return records;
+    records = records.filter((record) => record.message.match(grepFilterRef.current))
+    records.forEach((record) => {
+      record.message = record.message.replace(grepFilterRef.current, `\u001b[31;43m${grepFilterRef.current}\u001b[0m`)
+    })
+    return records
+  }
+
   const handleOnFollowData = (record: LogRecord) => {
+    var records = filterLogRecords([record]);
+    if (records.length === 0) {
+      return
+    }
+    record = records[0]
     if (isSendFollowToBufferRef.current) {
       afterBufferRef.current.push(record);
     } else {
@@ -1265,8 +1289,9 @@ export const LogFeedViewer = ({
 
     // update content
     const newRecords = beforeBufferRef.current.splice(-1 * batchSize);
+    const filterdRecords = filterLogRecords(newRecords)
 
-    setLogRecords((oldRecords) => [...newRecords, ...oldRecords]);
+    setLogRecords((oldRecords) => [...filterdRecords, ...oldRecords]);
     setHasMoreBefore(beforeBufferRef.current.length > 0 || hasPreviousPageSome(cursorMap));
   };
 
@@ -1289,7 +1314,8 @@ export const LogFeedViewer = ({
 
     // update content
     const newRecords = afterBufferRef.current.splice(0, batchSize);
-    setLogRecords((oldRecords) => [...oldRecords, ...newRecords]);
+    const filterdRecords = filterLogRecords(newRecords)
+    setLogRecords((oldRecords) => [...oldRecords, ...filterdRecords]);
 
     const newHasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMap);
     if (!newHasMoreAfter) isSendFollowToBufferRef.current = false;
@@ -1328,7 +1354,8 @@ export const LogFeedViewer = ({
           [afterBufferRef.current, cursorMapRef.current] = await client.head({ since: 'beginning', first: batchSize });
 
           // update content
-          setLogRecords(afterBufferRef.current.splice(0, batchSize));
+          var filterdRecords = filterLogRecords(afterBufferRef.current.splice(0, batchSize))
+          setLogRecords(filterdRecords);
 
           newHasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current);
           if (!newHasMoreAfter) isSendFollowToBufferRef.current = false;
@@ -1351,7 +1378,8 @@ export const LogFeedViewer = ({
           [beforeBufferRef.current, cursorMapRef.current] = await client.tail({ last: batchSize });
 
           // update content
-          setLogRecords(beforeBufferRef.current.splice(-1 * batchSize));
+          var filterdRecords = filterLogRecords(beforeBufferRef.current.splice(-1 * batchSize))
+          setLogRecords(filterdRecords);
           setHasMoreBefore(beforeBufferRef.current.length > 0 || hasPreviousPageSome(cursorMapRef.current));
 
           contentRef.current?.scrollTo('last');
@@ -1369,9 +1397,9 @@ export const LogFeedViewer = ({
 
           // execute query and reset state
           [afterBufferRef.current, cursorMapRef.current] = await client.head({ since: ev.data.sinceTS, first: batchSize });
-
           // update content
-          setLogRecords(afterBufferRef.current.splice(0, batchSize));
+          var filterdRecords = filterLogRecords(afterBufferRef.current.splice(0, batchSize))
+          setLogRecords(filterdRecords);
 
           newHasMoreAfter = afterBufferRef.current.length > 0 || hasNextPageSome(cursorMapRef.current);
           if (!newHasMoreAfter) isSendFollowToBufferRef.current = false;
@@ -1405,6 +1433,11 @@ export const LogFeedViewer = ({
         case 'pause':
           setIsFollow(false);
           break;
+
+        case 'grep':
+          grepFilterRef.current = ev.data.filter;
+          break;
+
         default:
           throw new Error('not implemented');
       }
