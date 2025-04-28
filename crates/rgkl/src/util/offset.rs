@@ -19,6 +19,7 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
+use serde_json;
 
 /// Represents an offset result from find_nearest_offset()
 #[derive(Debug, PartialEq)]
@@ -154,14 +155,30 @@ fn scan_timestamp(
 }
 
 /// Attempts to parse a timestamp from the beginning of the log line.
-/// The log line is expected to start with an RFC 3339 formatted timestamp.
+/// The log line is expected to start with an RFC 3339 formatted timestamp
+/// or be in Docker JSON format with a "timestamp" field.
 fn parse_timestamp(line: &str) -> Result<DateTime<Utc>, Box<dyn std::error::Error>> {
-    let parts: Vec<&str> = line.splitn(2, ' ').collect();
-    if parts.len() < 2 {
-        return Err(format!("invalid log line: {}", line).into());
+    // Check if the line starts with '{' which indicates JSON format (Docker logs)
+    if line.starts_with('{') {
+        // Parse the JSON
+        let json: serde_json::Value = serde_json::from_str(line)?;
+        
+        // Extract the timestamp field
+        if let Some(timestamp) = json.get("timestamp").and_then(|t| t.as_str()) {
+            let ts = DateTime::parse_from_rfc3339(timestamp)?.with_timezone(&Utc);
+            return Ok(ts);
+        } else {
+            return Err(format!("missing timestamp field in JSON log: {}", line).into());
+        }
+    } else {
+        // Original CRI format parsing
+        let parts: Vec<&str> = line.splitn(2, ' ').collect();
+        if parts.len() < 2 {
+            return Err(format!("invalid log line: {}", line).into());
+        }
+        let ts = DateTime::parse_from_rfc3339(parts[0])?.with_timezone(&Utc);
+        Ok(ts)
     }
-    let ts = DateTime::parse_from_rfc3339(parts[0])?.with_timezone(&Utc);
-    Ok(ts)
 }
 
 #[cfg(test)]
