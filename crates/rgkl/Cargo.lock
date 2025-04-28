@@ -1359,6 +1359,7 @@ dependencies = [
  "prost-wkt",
  "prost-wkt-types",
  "rand 0.9.1",
+ "regex",
  "rstest",
  "serde",
  "serde_json",

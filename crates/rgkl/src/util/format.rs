@@ -12,8 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod format;
-pub mod matcher;
-pub mod offset;
-pub mod reader;
-pub mod writer;
+/// Represents the format of log files
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FileFormat {
+    /// Docker JSON format logs
+    Docker,
+    /// Kubernetes CRI format logs
+    CRI,
+}
+
+impl Default for FileFormat {
+    /// Default to CRI format for backward compatibility
+    fn default() -> Self {
+        FileFormat::CRI
+    }
+}

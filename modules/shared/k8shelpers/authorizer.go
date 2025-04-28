@@ -16,7 +16,6 @@ package k8shelpers
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"golang.org/x/sync/errgroup"
@@ -106,13 +105,13 @@ func NewInClusterAuthorizer() InClusterAuthorizer {
 func (a *DefaultInClusterAuthorizer) IsAllowedInformer(ctx context.Context, restConfig *rest.Config, token string, namespace string, gvr schema.GroupVersionResource) error {
 	tokenTrimmed := strings.TrimSpace(token)
 
-	if tokenTrimmed == "" {
-		return fmt.Errorf("token is required")
-	}
-
 	// Clone rest config and set bearer token
 	rcClone := *restConfig
 	rcClone.BearerToken = tokenTrimmed
+
+	if tokenTrimmed != "" {
+		rcClone.BearerTokenFile = ""
+	}
 
 	// Init clientset
 	// TODO: use kubernetes.NewForConfigAndClient to re-use underlying transport

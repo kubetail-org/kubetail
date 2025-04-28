@@ -72,6 +72,12 @@ func (r *queryResolver) LogMetadataList(ctx context.Context, namespace *string) 
 
 // LogRecordsFetch is the resolver for the logRecordsFetch field.
 func (r *queryResolver) LogRecordsFetch(ctx context.Context, kubeContext *string, sources []string, mode *model.LogRecordsQueryMode, since *string, until *string, after *string, before *string, grep *string, sourceFilter *model.LogSourceFilter, limit *int) (*model.LogRecordsQueryResponse, error) {
+	// Get bearer token
+	token, err := r.getBearerTokenRequired(ctx)
+	if err != nil {
+		return nil, gqlerrors.ErrUnauthenticated
+	}
+
 	// Parse time args
 	sinceTime, err := parseTimeArg(ptr.Deref(since, ""))
 	if err != nil {
@@ -100,12 +106,6 @@ func (r *queryResolver) LogRecordsFetch(ctx context.Context, kubeContext *string
 
 	if !beforeTime.IsZero() {
 		untilTime = beforeTime.Add(-1 * time.Nanosecond)
-	}
-
-	// Get bearer token
-	var token string
-	if tokenValue, ok := ctx.Value(k8shelpers.K8STokenCtxKey).(string); ok {
-		token = tokenValue
 	}
 
 	// Init stream
@@ -237,6 +237,12 @@ func (r *subscriptionResolver) LogMetadataWatch(ctx context.Context, namespace *
 
 // LogRecordsFollow is the resolver for the logRecordsFollow field.
 func (r *subscriptionResolver) LogRecordsFollow(ctx context.Context, kubeContext *string, sources []string, since *string, after *string, grep *string, sourceFilter *model.LogSourceFilter) (<-chan *logs.LogRecord, error) {
+	// Get bearer token
+	token, err := r.getBearerTokenRequired(ctx)
+	if err != nil {
+		return nil, gqlerrors.ErrUnauthenticated
+	}
+
 	// Parse time args
 	sinceTime, err := parseTimeArg(ptr.Deref(since, ""))
 	if err != nil {
@@ -251,12 +257,6 @@ func (r *subscriptionResolver) LogRecordsFollow(ctx context.Context, kubeContext
 	// Handle after
 	if !afterTime.IsZero() {
 		sinceTime = afterTime.Add(1 * time.Nanosecond)
-	}
-
-	// Get bearer token
-	var token string
-	if tokenValue, ok := ctx.Value(k8shelpers.K8STokenCtxKey).(string); ok {
-		token = tokenValue
 	}
 
 	// Init stream
