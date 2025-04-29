@@ -118,6 +118,8 @@ jobs:
 
   build-dashboard-amd64:
     needs:
+      - crates-test
+      - crates-build
       - modules-lint
       - modules-test
       - modules-vet
@@ -138,6 +140,8 @@ jobs:
 
   build-dashboard-arm64:
     needs:
+      - crates-test
+      - crates-build
       - modules-lint
       - modules-test
       - modules-vet
@@ -158,6 +162,8 @@ jobs:
         
   build-cluster-api-amd64:
     needs:
+      - crates-test
+      - crates-build
       - modules-lint
       - modules-test
       - modules-vet
@@ -178,6 +184,8 @@ jobs:
 
   build-cluster-api-arm64:
     needs:
+      - crates-test
+      - crates-build
       - modules-lint
       - modules-test
       - modules-vet
@@ -198,6 +206,8 @@ jobs:
       
   build-cluster-agent-amd64:
     needs:
+      - crates-test
+      - crates-build
       - modules-lint
       - modules-test
       - modules-vet
@@ -218,6 +228,8 @@ jobs:
 
   build-cluster-agent-arm64:
     needs:
+      - crates-test
+      - crates-build
       - modules-lint
       - modules-test
       - modules-vet
@@ -238,6 +250,8 @@ jobs:
 
   build-cli-linux-amd64:
     needs:
+      - crates-test
+      - crates-build
       - modules-lint
       - modules-test
       - modules-vet
@@ -262,6 +276,8 @@ jobs:
 
   build-cli-linux-arm64:
     needs:
+      - crates-test
+      - crates-build
       - modules-lint
       - modules-test
       - modules-vet
@@ -286,6 +302,8 @@ jobs:
 
   build-cli-macos-15:
     needs:
+      - crates-test
+      - crates-build
       - modules-lint
       - modules-test
       - modules-vet
@@ -310,6 +328,8 @@ jobs:
 
   build-cli-macos-14:
     needs:
+      - crates-test
+      - crates-build
       - modules-lint
       - modules-test
       - modules-vet
@@ -334,6 +354,8 @@ jobs:
 
   build-cli-macos-13:
     needs:
+      - crates-test
+      - crates-build
       - modules-lint
       - modules-test
       - modules-vet
@@ -358,6 +380,8 @@ jobs:
 
   build-cli-windows:
     needs:
+      - crates-test
+      - crates-build
       - modules-lint
       - modules-test
       - modules-vet
