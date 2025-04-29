@@ -26,68 +26,73 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
 // Event enum
-type watchEvent string
+type SourceWatcherEvent string
 
 const (
-	watchEventAdded    watchEvent = "ADDED"
-	watchEventModified watchEvent = "MODIFIED"
-	watchEventDeleted  watchEvent = "DELETED"
+	SourceWatcherEventAdded    SourceWatcherEvent = "ADDED"
+	SourceWatcherEventModified SourceWatcherEvent = "MODIFIED"
+	SourceWatcherEventDeleted  SourceWatcherEvent = "DELETED"
 )
+
+// Convenience struct for organizing unique (namespace, workload-type)'s
+type fetchTuple struct {
+	namespace    string
+	workloadType WorkloadType
+}
 
 // Represents log source
 type LogSource struct {
 	Metadata      LogSourceMetadata
 	Namespace     string
-	NodeName      string
 	PodName       string
 	ContainerName string
 	ContainerID   string
 }
 
 type LogSourceMetadata struct {
-	Region          string
-	Zone            string
-	OperatingSystem string
-	Architecture    string
+	Region string
+	Zone   string
+	OS     string
+	Arch   string
+	Node   string
 }
 
 // SourceWatcher interface
 type SourceWatcher interface {
 	Start(ctx context.Context) error
 	Set() set.Set[LogSource]
-	Subscribe(event watchEvent, fn any)
-	Unsubscribe(event watchEvent, fn any)
-	Shutdown(ctx context.Context) error
-}
-
-// Represents SourceWatcher configuration
-type sourceWatcherConfig struct {
-	DefaultNamespace string
-	Regions          []string
-	Zones            []string
-	Oses             []string
-	Arches           []string
-	Nodes            []string
+	Subscribe(event SourceWatcherEvent, fn any)
+	Unsubscribe(event SourceWatcherEvent, fn any)
+	Close()
 }
 
 // Represents SourceWatcher
 type sourceWatcher struct {
-	cfg         *sourceWatcherConfig
-	parsedPaths []parsedPath
-	sources     set.Set[LogSource]
-	index       *workloadIndex
-	nodeMap     map[string]*corev1.Node
-
-	fm       k8shelpers.SharedInformerFactoryManager
+	cm       k8shelpers.ConnectionManager
 	eventbus evbus.Bus
+
+	kubeContext string
+	bearerToken string
+	regions     []string
+	zones       []string
+	oses        []string
+	arches      []string
+	nodes       []string
+	containers  []string
+
+	allowedNamespaces []string
+	parsedPaths       []parsedPath
+	sources           set.Set[LogSource]
+	index             *workloadIndex
+	nodeMap           map[string]*corev1.Node
 
 	mu        sync.Mutex
 	isReady   bool
@@ -96,33 +101,45 @@ type sourceWatcher struct {
 }
 
 // Initialize new source watcher
-func NewSourceWatcher(clientset kubernetes.Interface, sourcePaths []string, cfg *sourceWatcherConfig) (SourceWatcher, error) {
-
-	// Validate config
-	if cfg == nil {
-		cfg = &sourceWatcherConfig{}
+func NewSourceWatcher(cm k8shelpers.ConnectionManager, sourcePaths []string, opts ...Option) (SourceWatcher, error) {
+	// Init source watcher instance
+	sw := &sourceWatcher{
+		cm:       cm,
+		sources:  set.NewSet[LogSource](),
+		index:    newWorkloadIndex(),
+		nodeMap:  make(map[string]*corev1.Node),
+		eventbus: evbus.New(),
+		stopCh:   make(chan struct{}),
 	}
 
+	// Apply options
+	for _, opt := range opts {
+		if err := opt(sw); err != nil {
+			return nil, err
+		}
+	}
+
+	// Get default namespace
+	defaultNamespace := cm.GetDefaultNamespace(sw.kubeContext)
+
 	// Parse paths
-	parsedPaths := make([]parsedPath, len(sourcePaths))
-	for i, p := range sourcePaths {
-		pp, err := parsePath(p, cfg.DefaultNamespace)
+	parsedPaths := []parsedPath{}
+	for _, p := range sourcePaths {
+		pp, err := parsePath(p, defaultNamespace)
 		if err != nil {
 			return nil, err
 		}
-		parsedPaths[i] = pp
-	}
 
-	return &sourceWatcher{
-		cfg:         cfg,
-		parsedPaths: parsedPaths,
-		sources:     set.NewSet[LogSource](),
-		index:       newWorkloadIndex(),
-		nodeMap:     make(map[string]*corev1.Node),
-		fm:          k8shelpers.NewSharedInformerFactoryManager(clientset),
-		eventbus:    evbus.New(),
-		stopCh:      make(chan struct{}),
-	}, nil
+		// Remove paths that do not match allowed namespaces
+		if len(sw.allowedNamespaces) > 0 && !slices.Contains(sw.allowedNamespaces, pp.Namespace) {
+			continue
+		}
+
+		parsedPaths = append(parsedPaths, pp)
+	}
+	sw.parsedPaths = parsedPaths
+
+	return sw, nil
 }
 
 // Current sources as a set
@@ -133,23 +150,24 @@ func (w *sourceWatcher) Set() set.Set[LogSource] {
 }
 
 // Subscribe to events
-func (w *sourceWatcher) Subscribe(event watchEvent, fn any) {
+func (w *sourceWatcher) Subscribe(event SourceWatcherEvent, fn any) {
 	w.eventbus.SubscribeAsync(string(event), fn, true)
 }
 
 // Unsubscribe from events
-func (w *sourceWatcher) Unsubscribe(event watchEvent, fn any) {
+func (w *sourceWatcher) Unsubscribe(event SourceWatcherEvent, fn any) {
 	w.eventbus.Unsubscribe(string(event), fn)
+}
+
+// Close background processes
+func (w *sourceWatcher) Close() {
+	w.closeOnce.Do(func() {
+		close(w.stopCh)
+	})
 }
 
 // Start background processes
 func (w *sourceWatcher) Start(ctx context.Context) error {
-	// Gather unique (namespace, workload-type)'s
-	type fetchTuple struct {
-		namespace    string
-		workloadType WorkloadType
-	}
-
 	set := set.NewSet[fetchTuple]()
 
 	for _, pp := range w.parsedPaths {
@@ -176,37 +194,15 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 
-			// Init shared informer factory
-			factory, err := w.fm.GetOrCreateFactory(ft.namespace)
+			// Init informer
+			informer, start, err := w.cm.NewInformer(ctx, w.kubeContext, w.bearerToken, ft.namespace, ft.workloadType.GVR())
 			if err != nil {
 				errs.Add(err)
 				return
 			}
 
-			// Init informer
-			var informer cache.SharedIndexInformer
-			switch ft.workloadType {
-			case WorkloadTypeCronJob:
-				informer = factory.Batch().V1().CronJobs().Informer()
-			case WorkloadTypeDaemonSet:
-				informer = factory.Apps().V1().DaemonSets().Informer()
-			case WorkloadTypeDeployment:
-				informer = factory.Apps().V1().Deployments().Informer()
-			case WorkloadTypeJob:
-				informer = factory.Batch().V1().Jobs().Informer()
-			case WorkloadTypePod:
-				informer = factory.Core().V1().Pods().Informer()
-			case WorkloadTypeReplicaSet:
-				informer = factory.Apps().V1().ReplicaSets().Informer()
-			case WorkloadTypeStatefulSet:
-				informer = factory.Apps().V1().StatefulSets().Informer()
-			default:
-				errs.Add(fmt.Errorf("not implemented"))
-				return
-			}
-
 			// Add event handlers
-			handle, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			handle, err := informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 				AddFunc:    w.handleWorkloadAdd,
 				UpdateFunc: w.handleWorkloadUpdate,
 				DeleteFunc: w.handleWorkloadDelete,
@@ -216,8 +212,8 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 				return
 			}
 
-			// Run in background
-			go informer.Run(w.stopCh)
+			// Start informer
+			start()
 
 			// Wait for cache to sync
 			if !cache.WaitForCacheSync(w.stopCh, handle.HasSynced) {
@@ -234,18 +230,21 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 
-		// Init shared informer factory
-		factory, err := w.fm.GetOrCreateFactory("")
+		gvr := schema.GroupVersionResource{
+			Group:    "",
+			Version:  "v1",
+			Resource: "nodes",
+		}
+
+		// Init informer
+		informer, start, err := w.cm.NewInformer(ctx, w.kubeContext, w.bearerToken, "", gvr)
 		if err != nil {
 			errs.Add(err)
 			return
 		}
 
-		// Init informer
-		informer := factory.Core().V1().Nodes().Informer()
-
 		// Add event handlers
-		handle, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		handle, err := informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc:    w.handleNodeAdd,
 			UpdateFunc: w.handleNodeUpdate,
 			DeleteFunc: w.handleNodeDelete,
@@ -255,8 +254,8 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 			return
 		}
 
-		// Run in background
-		go informer.Run(w.stopCh)
+		// Start informer
+		start()
 
 		// Wait for cache to sync
 		if !cache.WaitForCacheSync(w.stopCh, handle.HasSynced) {
@@ -283,14 +282,6 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 	w.isReady = true
 
 	return nil
-}
-
-// Stop background processes
-func (w *sourceWatcher) Shutdown(ctx context.Context) error {
-	w.closeOnce.Do(func() {
-		close(w.stopCh)
-	})
-	return w.fm.Shutdown(ctx)
 }
 
 // Handle workload resource addition
@@ -403,6 +394,12 @@ func (w *sourceWatcher) updateSources_UNSAFE() {
 						continue
 					}
 
+					// Filter by container
+					k := fmt.Sprintf("%s:%s/%s", pod.Namespace, pod.Name, status.Name)
+					if len(w.containers) > 0 && !slices.Contains(w.containers, k) {
+						continue
+					}
+
 					// Ensure node is available
 					node, exists := w.nodeMap[pod.Spec.NodeName]
 					if !exists {
@@ -410,40 +407,40 @@ func (w *sourceWatcher) updateSources_UNSAFE() {
 					}
 
 					// Filter by node
-					if len(w.cfg.Nodes) > 0 && !slices.Contains(w.cfg.Nodes, node.Name) {
+					if len(w.nodes) > 0 && !slices.Contains(w.nodes, node.Name) {
 						continue
 					}
 
 					// Filter by region
-					if len(w.cfg.Regions) > 0 && !slices.Contains(w.cfg.Regions, node.Labels["topology.kubernetes.io/region"]) {
+					if len(w.regions) > 0 && !slices.Contains(w.regions, node.Labels["topology.kubernetes.io/region"]) {
 						continue
 					}
 
 					// Filter by zone
-					if len(w.cfg.Zones) > 0 && !slices.Contains(w.cfg.Zones, node.Labels["topology.kubernetes.io/zone"]) {
+					if len(w.zones) > 0 && !slices.Contains(w.zones, node.Labels["topology.kubernetes.io/zone"]) {
 						continue
 					}
 
 					// Filter by os
-					if len(w.cfg.Oses) > 0 && !slices.Contains(w.cfg.Oses, node.Status.NodeInfo.OperatingSystem) {
+					if len(w.oses) > 0 && !slices.Contains(w.oses, node.Status.NodeInfo.OperatingSystem) {
 						continue
 					}
 
 					// Filter by arch
-					if len(w.cfg.Arches) > 0 && !slices.Contains(w.cfg.Arches, node.Status.NodeInfo.Architecture) {
+					if len(w.arches) > 0 && !slices.Contains(w.arches, node.Status.NodeInfo.Architecture) {
 						continue
 					}
 
 					if wantName == "*" || wantName == status.Name || (wantName == "" && n == 0) {
 						wantSources.Add(LogSource{
 							Metadata: LogSourceMetadata{
-								Region:          node.Labels["topology.kubernetes.io/region"],
-								Zone:            node.Labels["topology.kubernetes.io/zone"],
-								OperatingSystem: node.Status.NodeInfo.OperatingSystem,
-								Architecture:    node.Status.NodeInfo.Architecture,
+								Region: node.Labels["topology.kubernetes.io/region"],
+								Zone:   node.Labels["topology.kubernetes.io/zone"],
+								OS:     node.Status.NodeInfo.OperatingSystem,
+								Arch:   node.Status.NodeInfo.Architecture,
+								Node:   pod.Spec.NodeName,
 							},
 							Namespace:     pod.Namespace,
-							NodeName:      pod.Spec.NodeName,
 							PodName:       pod.Name,
 							ContainerName: status.Name,
 							ContainerID:   status.ContainerID,

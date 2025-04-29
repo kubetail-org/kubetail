@@ -20,6 +20,8 @@ option go_package = "shared/clusteragentpb";
 
 import "google/protobuf/timestamp.proto";
 
+// Define LogMetadata service
+
 service LogMetadataService {
   rpc List (LogMetadataListRequest) returns (LogMetadataList);
   rpc Watch (LogMetadataWatchRequest) returns (stream LogMetadataWatchEvent);
@@ -59,4 +61,32 @@ message LogMetadataWatchRequest {
 message LogMetadataWatchEvent {
   string type = 1;
   LogMetadata object = 2;
+}
+
+// Define LogRecords service
+
+service LogRecordsService {
+  rpc StreamForward (LogRecordsStreamRequest) returns (stream LogRecord);
+  rpc StreamBackward (LogRecordsStreamRequest) returns (stream LogRecord);
+}
+
+message LogRecordsStreamRequest {
+  string namespace = 1;
+  string pod_name = 2;
+  string container_name = 3;
+  string start_time = 4;
+  string stop_time = 5;
+  string grep = 6;
+  FollowFrom follow_from = 7;
+}
+
+message LogRecord {
+  google.protobuf.Timestamp timestamp = 1;
+  string message = 2;
+}
+
+enum FollowFrom {
+  NOOP = 0;
+  DEFAULT = 1; // Use default behavior for follow
+  END = 2;     // Follow from the end of the log
 }

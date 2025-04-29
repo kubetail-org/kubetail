@@ -27,7 +27,6 @@ import (
 	"github.com/sosodev/duration"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/utils/ptr"
 
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
@@ -277,15 +276,9 @@ var logsCmd = &cobra.Command{
 		cm, err := k8shelpers.NewDesktopConnectionManager(k8shelpers.WithKubeconfig(kubeconfig))
 		cli.ExitOnError(err)
 
-		kubeContextPtr := ptr.To(kubeContext)
-
-		// Init clientset
-		clientset, err := cm.GetOrCreateClientset(kubeContextPtr)
-		cli.ExitOnError(err)
-
 		// Init stream
-		streamOpts := []logs.StreamOption{
-			logs.WithDefaultNamespace(cm.GetDefaultNamespace(kubeContextPtr)),
+		streamOpts := []logs.Option{
+			logs.WithKubeContext(kubeContext),
 			logs.WithSince(sinceTime),
 			logs.WithUntil(untilTime),
 			logs.WithFollow(follow),
@@ -312,8 +305,9 @@ var logsCmd = &cobra.Command{
 		rootCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop() // clean up resources
 
-		stream, err := logs.NewStream(rootCtx, clientset, args, streamOpts...)
+		stream, err := logs.NewStream(rootCtx, cm, args, streamOpts...)
 		cli.ExitOnError(err)
+		defer stream.Close()
 
 		// Start stream
 		err = stream.Start(rootCtx)
@@ -346,7 +340,7 @@ var logsCmd = &cobra.Command{
 				row = append(row, record.Timestamp.Format(time.RFC3339Nano))
 			}
 			if withNode {
-				row = append(row, record.Source.NodeName)
+				row = append(row, record.Source.Metadata.Node)
 			}
 			if withRegion {
 				row = append(row, orDefault(record.Source.Metadata.Region, "-"))
@@ -355,10 +349,10 @@ var logsCmd = &cobra.Command{
 				row = append(row, orDefault(record.Source.Metadata.Zone, "-"))
 			}
 			if withOS {
-				row = append(row, orDefault(record.Source.Metadata.OperatingSystem, "-"))
+				row = append(row, orDefault(record.Source.Metadata.OS, "-"))
 			}
 			if withArch {
-				row = append(row, orDefault(record.Source.Metadata.Architecture, "-"))
+				row = append(row, orDefault(record.Source.Metadata.Arch, "-"))
 			}
 			if withNamespace {
 				row = append(row, orDefault(record.Source.Namespace, "-"))
@@ -381,6 +375,14 @@ var logsCmd = &cobra.Command{
 			return
 		}
 
+		// Exit if stream encountered error
+		cli.ExitOnError(stream.Err())
+
+		// Check if any errors occurred during streaming
+		if err := stream.Err(); err != nil {
+			fmt.Fprintf(cmd.OutOrStderr(), "\nError: %v\n", err)
+		}
+
 		// Output paging cursors if requested
 		if withCursors && !follow && !all {
 			if head && lastRecord != nil {
@@ -395,8 +397,7 @@ var logsCmd = &cobra.Command{
 		// Graceful close
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-
-		err = stream.Close(ctx)
+		err = cm.Shutdown(ctx)
 		cli.ExitOnError(err)
 	},
 }
@@ -428,11 +429,11 @@ func getTableWriterHeaders(flags *pflag.FlagSet, sources []logs.LogSource) ([]st
 
 	// Find maximum length for each attribute across all sources
 	for _, source := range sources {
-		maxNodeLen = max(maxNodeLen, len(source.NodeName))
+		maxNodeLen = max(maxNodeLen, len(source.Metadata.Node))
 		maxRegionLen = max(maxRegionLen, len(source.Metadata.Region))
 		maxZoneLen = max(maxZoneLen, len(source.Metadata.Zone))
-		maxOSLen = max(maxOSLen, len(source.Metadata.OperatingSystem))
-		maxArchLen = max(maxArchLen, len(source.Metadata.Architecture))
+		maxOSLen = max(maxOSLen, len(source.Metadata.OS))
+		maxArchLen = max(maxArchLen, len(source.Metadata.Arch))
 		maxNamespaceLen = max(maxArchLen, len(source.Namespace))
 		maxPodLen = max(maxArchLen, len(source.PodName))
 		maxContainerLen = max(maxArchLen, len(source.ContainerName))

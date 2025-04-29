@@ -15,17 +15,16 @@
 package logs
 
 import (
-	"bufio"
 	"container/heap"
 	"context"
 	"fmt"
 	"io"
-	"slices"
 	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 )
@@ -67,6 +66,50 @@ func (w WorkloadType) String() string {
 	}
 }
 
+// Return group and resource
+func (w WorkloadType) GroupResource() (string, string, error) {
+	switch w {
+	case WorkloadTypeCronJob:
+		return "batch", "cronjobs", nil
+	case WorkloadTypeDaemonSet:
+		return "apps", "daemonsets", nil
+	case WorkloadTypeDeployment:
+		return "apps", "deployments", nil
+	case WorkloadTypeJob:
+		return "batch", "jobs", nil
+	case WorkloadTypePod:
+		return "", "pods", nil
+	case WorkloadTypeReplicaSet:
+		return "apps", "replicasets", nil
+	case WorkloadTypeStatefulSet:
+		return "apps", "statefulsets", nil
+	default:
+		return "", "", fmt.Errorf("not implemented: %s", w)
+	}
+}
+
+// Return GroupResourveVersion schema instance
+func (w WorkloadType) GVR() schema.GroupVersionResource {
+	switch w {
+	case WorkloadTypeCronJob:
+		return schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"}
+	case WorkloadTypeDaemonSet:
+		return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}
+	case WorkloadTypeDeployment:
+		return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+	case WorkloadTypeJob:
+		return schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
+	case WorkloadTypePod:
+		return schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	case WorkloadTypeReplicaSet:
+		return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
+	case WorkloadTypeStatefulSet:
+		return schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
+	default:
+		return schema.GroupVersionResource{}
+	}
+}
+
 // Return result map key
 func (w WorkloadType) Key(args ...string) string {
 	return fmt.Sprintf("%s/%s", w.String(), strings.Join(args, "/"))
@@ -92,198 +135,6 @@ func parseWorkloadType(workloadStr string) WorkloadType {
 	default:
 		return WorkloadTypeUknown
 	}
-}
-
-// logProvider defines the interface for getting pod logs
-type logProvider interface {
-	GetLogs(ctx context.Context, source LogSource, opts *corev1.PodLogOptions) (<-chan LogRecord, error)
-	GetLogsReverse(ctx context.Context, source LogSource, batchSize int64, sinceTime time.Time) (<-chan LogRecord, error)
-}
-
-// k8sLogProvider implements logProvider using Kubernetes clientset
-type k8sLogProvider struct {
-	clientset kubernetes.Interface
-}
-
-func newK8sLogProvider(clientset kubernetes.Interface) *k8sLogProvider {
-	return &k8sLogProvider{
-		clientset: clientset,
-	}
-}
-
-func (p *k8sLogProvider) GetLogs(ctx context.Context, source LogSource, opts *corev1.PodLogOptions) (<-chan LogRecord, error) {
-	return newPodLogStream(ctx, p.clientset, source, opts)
-}
-
-func (p *k8sLogProvider) GetLogsReverse(ctx context.Context, source LogSource, batchSize int64, sinceTime time.Time) (<-chan LogRecord, error) {
-	return newPodLogStreamReverse(ctx, p.clientset, source, batchSize, sinceTime)
-}
-
-func newPodLogStream(ctx context.Context, clientset kubernetes.Interface, source LogSource, opts *corev1.PodLogOptions) (<-chan LogRecord, error) {
-	outCh := make(chan LogRecord)
-
-	if opts == nil {
-		opts = &corev1.PodLogOptions{}
-	}
-
-	// Always add timestamps and set the container name from source
-	opts.Timestamps = true
-	opts.Container = source.ContainerName
-
-	// Execute query
-	req := clientset.CoreV1().Pods(source.Namespace).GetLogs(source.PodName, opts)
-	podLogs, err := req.Stream(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Read in goroutine
-	go func() {
-		defer podLogs.Close()
-		defer close(outCh)
-
-		scanner := bufio.NewScanner(podLogs)
-
-	Loop:
-		for scanner.Scan() {
-			record, err := newLogRecordFromLogLine(scanner.Text())
-			if err != nil {
-				continue
-			}
-
-			record.Source = source
-
-			// Write to output channel
-			select {
-			case <-ctx.Done():
-				break Loop
-			case outCh <- record:
-			}
-		}
-	}()
-
-	return outCh, nil
-}
-
-// newPodLogStreamReverse creates a new log stream that fetches logs in reverse order
-// It uses the Kubernetes API TailLines option to fetch logs from the end of the log file
-// and streams them in reverse order (last-to-first)
-func newPodLogStreamReverse(ctx context.Context, clientset kubernetes.Interface, source LogSource, batchSize int64, sinceTime time.Time) (<-chan LogRecord, error) {
-	// Create a channel to send log records on
-	outCh := make(chan LogRecord)
-
-	// Get first timestamp
-	firstTS, err := getFirstTimestamp(ctx, clientset, source, sinceTime)
-	if err != nil {
-		close(outCh)
-		return nil, err
-	} else if firstTS.IsZero() {
-		close(outCh)
-		return outCh, nil
-	}
-
-	go func() {
-		defer close(outCh)
-
-		tailLines := batchSize
-		lastBatchTS := time.Time{}
-
-		// Keep fetching batches until we've reached the beginning of the logs
-	Loop:
-		for {
-			// Create options for this batch
-			opts := &corev1.PodLogOptions{
-				Timestamps: true,
-				Container:  source.ContainerName,
-				TailLines:  &tailLines,
-			}
-
-			// Execute query
-			req := clientset.CoreV1().Pods(source.Namespace).GetLogs(source.PodName, opts)
-			podLogs, err := req.Stream(ctx)
-			if err != nil {
-				if ctx.Err() != context.Canceled {
-					// Log error but continue with what we have
-					fmt.Printf("error getting logs for %s/%s: %v\n", source.Namespace, source.PodName, err)
-				}
-				break Loop // exit
-			}
-
-			// Read logs from this batch
-			scanner := bufio.NewScanner(podLogs)
-			batchRecords := []LogRecord{}
-			isFirst := true
-			increaseBatchSize := false
-
-			for scanner.Scan() {
-				// Check if context is done
-				if ctx.Err() != nil {
-					break
-				}
-
-				record, err := newLogRecordFromLogLine(scanner.Text())
-				if err != nil {
-					continue
-				}
-
-				// Check if log is getting ahead of us
-				if isFirst {
-					// If current batch starts after last batch then increase batch size
-					if !lastBatchTS.IsZero() && record.Timestamp.After(lastBatchTS) {
-						increaseBatchSize = true
-						break
-					}
-					isFirst = false
-				}
-
-				// Stop reading if we've reached the beginning of the last batch
-				if !lastBatchTS.IsZero() && record.Timestamp.Equal(lastBatchTS) {
-					break
-				}
-
-				record.Source = source
-				batchRecords = append(batchRecords, record)
-			}
-			podLogs.Close()
-
-			// Check if context is done
-			if ctx.Err() != nil {
-				return // exit
-			}
-
-			if increaseBatchSize {
-				// Increase batch size if this batch started after last batch
-				batchSize = batchSize * 2
-				tailLines += batchSize
-				continue
-			}
-
-			// Reverse order
-			slices.Reverse(batchRecords)
-
-			// Send to output channel
-			for _, record := range batchRecords {
-				select {
-				case <-ctx.Done():
-					return // exit
-				case outCh <- record:
-					// Successfully sent record
-				}
-			}
-
-			if batchRecords[len(batchRecords)-1].Timestamp == firstTS {
-				break Loop
-			}
-
-			// Update batch timestamp
-			lastBatchTS = batchRecords[0].Timestamp
-
-			// Increase tailLines for the next batch
-			tailLines += batchSize
-		}
-	}()
-
-	return outCh, nil
 }
 
 // Create new log record

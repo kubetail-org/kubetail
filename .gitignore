@@ -32,6 +32,14 @@ lerna-debug.log*
 # vite
 .vite
 
+# rust
+*.rs.bk
+*.dll
+*.so
+*.dylib
+*.rmeta
+/crates/*/target
+
 # tilt (custom)
 .tilt
 

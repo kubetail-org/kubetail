@@ -15,7 +15,13 @@
 package graph
 
 import (
+	"context"
+	"fmt"
+	"strings"
+
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
+
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
 // This file will not be regenerated automatically.
@@ -25,6 +31,20 @@ import (
 //go:generate go run github.com/99designs/gqlgen generate
 
 type Resolver struct {
+	cm                k8shelpers.ConnectionManager
 	grpcDispatcher    *grpcdispatcher.Dispatcher
 	allowedNamespaces []string
+}
+
+func (r *Resolver) getBearerTokenRequired(ctx context.Context) (string, error) {
+	var token string
+	if tokenValue, ok := ctx.Value(k8shelpers.K8STokenCtxKey).(string); ok {
+		token = strings.TrimSpace(tokenValue)
+	}
+
+	if token == "" {
+		return "", fmt.Errorf("token required")
+	}
+
+	return token, nil
 }

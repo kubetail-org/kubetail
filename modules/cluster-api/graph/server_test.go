@@ -27,7 +27,7 @@ import (
 
 func TestServer(t *testing.T) {
 	t.Run("cross-origin websocket requests are allowed when csrf protection is disabled", func(t *testing.T) {
-		graphqlServer := NewServer(nil, []string{}, nil)
+		graphqlServer := NewServer(nil, nil, []string{}, nil)
 
 		client := testutils.NewWebTestClient(t, graphqlServer)
 		defer client.Teardown()
@@ -59,7 +59,7 @@ func TestServer(t *testing.T) {
 			})
 		}
 
-		graphqlServer := NewServer(nil, []string{}, csrfProtect)
+		graphqlServer := NewServer(nil, nil, []string{}, csrfProtect)
 
 		client := testutils.NewWebTestClient(t, graphqlServer)
 		defer client.Teardown()

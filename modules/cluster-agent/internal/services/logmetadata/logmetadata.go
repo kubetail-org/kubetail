@@ -29,10 +29,11 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 
-	"github.com/kubetail-org/kubetail/modules/cluster-agent/internal/debounce"
-	"github.com/kubetail-org/kubetail/modules/cluster-agent/internal/helpers"
 	"github.com/kubetail-org/kubetail/modules/shared/clusteragentpb"
 	"github.com/kubetail-org/kubetail/modules/shared/grpchelpers"
+
+	"github.com/kubetail-org/kubetail/modules/cluster-agent/internal/debounce"
+	"github.com/kubetail-org/kubetail/modules/cluster-agent/internal/helpers"
 )
 
 // event bus for test events
@@ -47,12 +48,28 @@ type LogMetadataService struct {
 	shutdownCh       chan struct{}
 }
 
+// Initialize new instance of LogMetadataService
+func NewLogMetadataService(k8sCfg *rest.Config, nodeName string, containerLogsDir string) (*LogMetadataService, error) {
+	s := &LogMetadataService{
+		k8sCfg:           k8sCfg,
+		nodeName:         nodeName,
+		containerLogsDir: containerLogsDir,
+		shutdownCh:       make(chan struct{}),
+	}
+	return s, nil
+}
+
+// Initiate shutdown
+func (s *LogMetadataService) Shutdown() {
+	close(s.shutdownCh)
+}
+
 // Implementation of List() in LogMetadataService
 func (s *LogMetadataService) List(ctx context.Context, req *clusteragentpb.LogMetadataListRequest) (*clusteragentpb.LogMetadataList, error) {
 	clientset := s.newK8SClientset(ctx)
 
 	// check permission
-	if err := checkPermission(ctx, clientset, req.Namespaces, "list"); err != nil {
+	if err := helpers.CheckPermission(ctx, clientset, req.Namespaces, "list"); err != nil {
 		return nil, err
 	}
 
@@ -111,17 +128,17 @@ func (s *LogMetadataService) List(ctx context.Context, req *clusteragentpb.LogMe
 // Implementation of Watch() in LogMetadataService
 func (s *LogMetadataService) Watch(req *clusteragentpb.LogMetadataWatchRequest, stream clusteragentpb.LogMetadataService_WatchServer) error {
 	logger := zlog.With().
-		Str("component", "watch").
+		Str("component", "logmetadata/watch").
 		Str("request-id", helpers.RandomString(8)).
 		Logger()
 
-	logger.Debug().Msg("New client connected")
+	logger.Debug().Msg("new client connected")
 
 	ctx := stream.Context()
 	clientset := s.newK8SClientset(ctx)
 
 	// check permission
-	if err := checkPermission(ctx, clientset, req.Namespaces, "watch"); err != nil {
+	if err := helpers.CheckPermission(ctx, clientset, req.Namespaces, "watch"); err != nil {
 		return err
 	}
 
@@ -162,27 +179,22 @@ func (s *LogMetadataService) Watch(req *clusteragentpb.LogMetadataWatchRequest, 
 	for {
 		select {
 		case <-s.shutdownCh:
-			logger.Debug().Msg("Received shutdown signal")
+			logger.Debug().Msg("received shutdown signal")
 			return nil
 		case <-ctx.Done():
-			logger.Debug().Msg("Client disconnected")
+			logger.Debug().Msg("client disconnected")
 			return nil
 		case err := <-writeErrCh:
 			logger.Error().Err(err)
 			return err
 		case ev, ok := <-watcher.Events:
 			if !ok {
-				logger.Debug().Msg("Container logs watcher closed")
+				logger.Debug().Msg("container logs watcher closed")
 				return nil
 			}
 			debouncedSend(ev.Name, ev)
 		}
 	}
-}
-
-// Initiate shutdown
-func (s *LogMetadataService) Shutdown() {
-	close(s.shutdownCh)
 }
 
 // Initialize new kubernetes clientset
@@ -207,15 +219,4 @@ func (s *LogMetadataService) newK8SClientset(ctx context.Context) kubernetes.Int
 	}
 
 	return clientset
-}
-
-// Initialize new instance of LogMetadataService
-func NewLogMetadataService(k8sCfg *rest.Config, nodeName string, containerLogsDir string) (*LogMetadataService, error) {
-	s := &LogMetadataService{
-		k8sCfg:           k8sCfg,
-		nodeName:         nodeName,
-		containerLogsDir: containerLogsDir,
-		shutdownCh:       make(chan struct{}),
-	}
-	return s, nil
 }

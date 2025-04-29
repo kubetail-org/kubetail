@@ -4,9 +4,17 @@ load('ext://namespace', 'namespace_create')
 namespace_create('kubetail-system')
 
 # kubetail-cluster-api
+
 local_resource(
   'kubetail-cluster-api-compile',
-  'cd modules && CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/cluster-api ./cluster-api/cmd/main.go',
+  '''
+  cd modules
+
+  # Build Go binary  
+  export CGO_ENABLED=0
+  export GOOS=linux
+  go build -o ../.tilt/cluster-api ./cluster-api/cmd/main.go
+  ''',
   deps=[
     './modules/cluster-api',
     './modules/shared'
@@ -27,9 +35,17 @@ docker_build_with_restart(
 )
 
 # kubetail-cluster-agent
+
 local_resource(
   'kubetail-cluster-agent-compile',
-  'cd modules && CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/cluster-agent ./cluster-agent/cmd/main.go',
+  '''
+  cd modules
+
+  # Build Go binary  
+  export CGO_ENABLED=0
+  export GOOS=linux
+  go build -o ../.tilt/cluster-agent ./cluster-agent/cmd/main.go
+  ''',
   deps=[
     './modules/cluster-agent',
     './modules/shared'
@@ -42,7 +58,12 @@ docker_build_with_restart(
   context='.',
   entrypoint="/cluster-agent/cluster-agent -c /etc/kubetail/config.yaml",
   only=[
-    './.tilt/cluster-agent',
+    './crates/rgkl',
+    './proto',
+    './.tilt/cluster-agent'
+  ],
+  ignore=[
+    './crates/rgkl/target'
   ],
   live_update=[
     sync('./.tilt/cluster-agent', '/cluster-agent/cluster-agent'),
@@ -60,9 +81,12 @@ local_resource(
     cp -r dashboard-ui/dist modules/dashboard/website
   fi
 
+  cd modules
+
   # Build the Go binary
-  cd modules &&
-  CGO_ENABLED=0 GOOS=linux go build -o ../.tilt/dashboard ./dashboard/cmd/main.go
+  export CGO_ENABLED=0
+  export GOOS=linux
+  go build -o ../.tilt/dashboard ./dashboard/cmd/main.go
 
   # Reset dashboard/website directory
   if [ ! -f dashboard/website/.gitkeep ]; then
@@ -133,6 +157,8 @@ k8s_resource(
   port_forwards='4501:8080',
   objects=[
     'kubetail-cluster-api:serviceaccount',
+    'kubetail-cluster-api:clusterrole',
+    'kubetail-cluster-api:clusterrolebinding',
     'kubetail-cluster-api:role',
     'kubetail-cluster-api:rolebinding',
   ],

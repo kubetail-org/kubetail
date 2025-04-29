@@ -6,6 +6,26 @@ on:
       - '**'
 
 jobs:
+  crates-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-protoc@v3
+      - name: Run tests
+        working-directory: ./crates/rgkl
+        run: |
+          cargo test
+
+  crates-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-protoc@v3
+      - name: Run tests
+        working-directory: ./crates/rgkl
+        run: |
+          cargo build --release
+
   modules-lint:
     runs-on: ubuntu-24.04
     steps:

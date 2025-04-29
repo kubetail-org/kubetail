@@ -12,10 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { cssEncode } from '@/lib/util';
-
-import type { Pod } from './logging-resources';
-
-export function cssID(pod: Pod, container: string) {
-  return cssEncode(`${pod.metadata.namespace}/${pod.metadata.name}/${container}`);
-}
+pub mod format;
+pub mod matcher;
+pub mod offset;
+pub mod reader;
+pub mod writer;

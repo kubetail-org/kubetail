@@ -21,6 +21,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/kubetail-org/kubetail/modules/shared/grpchelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -80,8 +81,14 @@ func TestAuthenticationMiddleware(t *testing.T) {
 			router.GET("/", func(c *gin.Context) {
 				// Check token
 				ctx := c.Request.Context()
-				val := ctx.Value(grpchelpers.K8STokenCtxKey)
-				assert.Equal(t, tt.wantToken, val)
+
+				// Check token for kubernetes requests
+				val1 := ctx.Value(k8shelpers.K8STokenCtxKey)
+				assert.Equal(t, tt.wantToken, val1)
+
+				// Check token for gRPC requests
+				val2 := ctx.Value(grpchelpers.K8STokenCtxKey)
+				assert.Equal(t, tt.wantToken, val2)
 
 				c.String(http.StatusOK, "ok")
 			})

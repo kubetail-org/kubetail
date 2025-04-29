@@ -15,6 +15,7 @@
 package app
 
 import (
+	"context"
 	"io/fs"
 	"net/http"
 	"path"
@@ -29,6 +30,7 @@ import (
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/middleware"
 
 	clusterapi "github.com/kubetail-org/kubetail/modules/cluster-api"
@@ -37,6 +39,7 @@ import (
 
 type App struct {
 	*gin.Engine
+	cm             k8shelpers.ConnectionManager
 	grpcDispatcher *grpcdispatcher.Dispatcher
 	graphqlServer  *graph.Server
 
@@ -45,8 +48,8 @@ type App struct {
 }
 
 // Shutdown
-func (a *App) Shutdown() {
-	// stop grpc dispatcher
+func (a *App) Shutdown(ctx context.Context) error {
+	// Stop grpc dispatcher
 	if a.grpcDispatcher != nil {
 		// TODO: log dispatcher shutdown errors
 		a.grpcDispatcher.Shutdown()
@@ -54,6 +57,9 @@ func (a *App) Shutdown() {
 
 	// Shutdown GraphQL server
 	a.graphqlServer.Shutdown()
+
+	// Shutdown connection manager
+	return a.cm.Shutdown(ctx)
 }
 
 // Create new gin app
@@ -64,6 +70,13 @@ func NewApp(cfg *config.Config) (*App, error) {
 	// If not in test-mode
 	if gin.Mode() != gin.TestMode {
 		app.Use(gin.Recovery())
+
+		// Init connection manager
+		cm, err := k8shelpers.NewConnectionManager(config.EnvironmentCluster)
+		if err != nil {
+			return nil, err
+		}
+		app.cm = cm
 
 		// init grpc dispatcher
 		app.grpcDispatcher = mustNewGrpcDispatcher(cfg)
@@ -132,7 +145,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 		dynamicRoutes.Use(authenticationMiddleware)
 
 		// GraphQL endpoint
-		app.graphqlServer = graph.NewServer(app.grpcDispatcher, cfg.AllowedNamespaces, csrfProtect)
+		app.graphqlServer = graph.NewServer(app.cm, app.grpcDispatcher, cfg.AllowedNamespaces, csrfProtect)
 		dynamicRoutes.Any("/graphql", gin.WrapH(app.graphqlServer))
 	}
 	app.dynamicRoutes = dynamicRoutes // for unit tests
