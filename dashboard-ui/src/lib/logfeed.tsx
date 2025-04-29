@@ -27,10 +27,9 @@ import Spinner from '@kubetail/ui/elements/Spinner';
 
 import { ConsoleNodesListItemFragmentFragment, LogRecordsFragmentFragment as LogRecord, LogRecordsQueryMode, LogSourceFilter, LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
-import { useListQueryWithSubscription } from '@/lib/hooks';
+import { useIsClusterAPIEnabled, useListQueryWithSubscription } from '@/lib/hooks';
 import { Counter, MapSet, cn, cssEncode } from '@/lib/util';
 import { getClusterAPIClient } from '@/apollo-client';
-import appConfig from '@/app-config';
 
 type ContextType = {
   kubeContext: string | null;
@@ -736,12 +735,13 @@ const LogRecordsFetcherImpl: React.ForwardRefRenderFunction<LogRecordsFetcherHan
 
   const batchSize = 300;
 
+  const isClusterAPIEnabled = useIsClusterAPIEnabled();
   const connectArgs = {
     kubeContext: kubeContext || '',
     namespace: 'kubetail-system',
     serviceName: 'kubetail-cluster-api',
   };
-  const client = appConfig.clusterAPIEnabled ? getClusterAPIClient(connectArgs) : undefined;
+  const client = isClusterAPIEnabled ? getClusterAPIClient(connectArgs) : undefined;
 
   // Initialize query
   const query = useQuery(dashboardOps.LOG_RECORDS_FETCH, {

@@ -17,6 +17,7 @@ import type { TypedDocumentNode, OperationVariables, Unmasked, MaybeMasked } fro
 import distinctColors from 'distinct-colors';
 import { useEffect, useRef, useState } from 'react';
 
+import appConfig from '@/app-config';
 import { getClusterAPIClient } from '@/apollo-client';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import * as clusterAPIOps from '@/lib/graphql/cluster-api/ops';
@@ -385,6 +386,15 @@ export function useCounterQueryWithSubscription<
   return {
     loading, error, count,
   };
+}
+
+/**
+ * ClusterAPIEnabled hook
+ */
+
+export function useIsClusterAPIEnabled() {
+  if (appConfig.environment === 'cluster' && appConfig.clusterAPIEnabled) return true;
+  return false;
 }
 
 /**
