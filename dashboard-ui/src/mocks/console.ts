@@ -63,7 +63,7 @@ export const mocks: MockedResponse[] = [
   {
     request: {
       query: dashboardOps.LOG_RECORDS_FETCH,
-      variables: { "kubeContext": null, "sources": [], "sourceFilter": { "region": [], "zone": [], "os": [], "arch": [], "node": [], "container": [] }, "grep": null, "limit": 301, "after": undefined, "before": undefined, "since": undefined, "mode": "TAIL" },
+      variables: { kubeContext: null, sources: [], sourceFilter: { region: [], zone: [], os: [], arch: [], node: [], container: [] }, grep: null, limit: 301, after: undefined, before: undefined, since: undefined, mode: 'TAIL' },
     },
     result: {
       data: {
