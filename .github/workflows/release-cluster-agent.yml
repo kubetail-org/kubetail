@@ -1,5 +1,8 @@
 name: release-cluster-agent
 
+permissions:
+  contents: read
+
 on:
   push:
     tags:

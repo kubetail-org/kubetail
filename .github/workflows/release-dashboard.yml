@@ -1,5 +1,8 @@
 name: release-dashboard
 
+permissions:
+  contents: read
+
 on:
   push:
     tags:

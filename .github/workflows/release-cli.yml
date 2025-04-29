@@ -1,5 +1,8 @@
 name: release-cli
 
+permissions:
+  contents: write
+
 on:
   push:
     tags:
