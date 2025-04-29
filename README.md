@@ -1,8 +1,8 @@
 # Kubetail
 
-_Kubetail is a real-time logging dashboard for Kubernetes (browser/terminal/cluster)_ 
+_Kubetail is a real-time logging dashboard for Kubernetes (browser/terminal)_ 
 
-<a href="https://youtu.be/Hm___X0VzAc">
+<a href="https://youtu.be/8oUQRP3OpvA">
   <img width="350" alt="demo-thumbnail" src="https://github.com/user-attachments/assets/c68cd271-a2c7-4e4b-88a0-4c188860b2d5">
 </a>
 
