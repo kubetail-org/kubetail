@@ -40,10 +40,8 @@ func NewKubeConfigWatcher(kubeconfigPath string) (*KubeConfigWatcher, error) {
 	var err error
 
 	if kubeconfigPath != "" {
-		zlog.Info().Msgf("Loaded kubeconfig %s", kubeconfigPath)
 		kubeConfig, err = clientcmd.LoadFromFile(kubeconfigPath)
 	} else {
-		zlog.Info().Msgf("Loaded default kubeconfig: %s", clientcmd.RecommendedHomeFile)
 		kubeConfig, err = clientcmd.LoadFromFile(clientcmd.RecommendedHomeFile)
 	}
 
