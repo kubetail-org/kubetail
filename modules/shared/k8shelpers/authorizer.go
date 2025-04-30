@@ -16,7 +16,10 @@ package k8shelpers
 
 import (
 	"context"
+	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -28,6 +31,25 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+const (
+	// CacheTTL defines the time-to-live for cached authorization results (5 minutes)
+	cacheTTL = 5 * time.Minute
+)
+
+// cacheKey represents a unique key for caching authorization results
+type cacheKey struct {
+	namespace string
+	group     string
+	resource  string
+	verb      string
+}
+
+// cacheValue represents a cached authorization result with expiration
+type cacheValue struct {
+	allowed    bool
+	expiration time.Time
+}
+
 // Represents DesktopAuthorizer interface
 type DesktopAuthorizer interface {
 	IsAllowedInformer(ctx context.Context, clientset kubernetes.Interface, namespace string, gvr schema.GroupVersionResource) error
@@ -35,17 +57,50 @@ type DesktopAuthorizer interface {
 
 // Represents DesktopAuthorizer
 type DefaultDesktopAuthorizer struct {
+	cache sync.Map // map[cacheKey]cacheValue
 }
 
 // Create new DesktopAuthorizer instance
 func NewDesktopAuthorizer() DesktopAuthorizer {
-	return &DefaultDesktopAuthorizer{}
+	return &DefaultDesktopAuthorizer{
+		cache: sync.Map{},
+	}
 }
 
 // Check permission for creating new informers
 func (a *DefaultDesktopAuthorizer) IsAllowedInformer(ctx context.Context, clientset kubernetes.Interface, namespace string, gvr schema.GroupVersionResource) error {
 	// Convenience method for handing errors
 	doSAR := func(verb string) error {
+		// Check cache first
+		key := cacheKey{
+			namespace: namespace,
+			group:     gvr.Group,
+			resource:  gvr.Resource,
+			verb:      verb,
+		}
+
+		// Check if we have a valid cached result
+		if val, ok := a.cache.Load(key); ok {
+			cachedVal := val.(cacheValue)
+			if time.Now().Before(cachedVal.expiration) {
+				// Cache hit and still valid
+				if !cachedVal.allowed {
+					attrs := &authv1.ResourceAttributes{
+						Namespace: namespace,
+						Group:     gvr.Group,
+						Verb:      verb,
+						Resource:  gvr.Resource,
+					}
+					fmt := "permission denied: `%s \"%s\"/\"%s\"` in namespace `%s`"
+					return status.Errorf(codes.Unauthenticated, fmt, attrs.Verb, attrs.Group, attrs.Resource, attrs.Namespace)
+				}
+				return nil
+			}
+			// Cache expired, remove it
+			a.cache.Delete(key)
+		}
+
+		// Cache miss or expired, perform the actual check
 		sar := &authv1.SelfSubjectAccessReview{
 			Spec: authv1.SelfSubjectAccessReviewSpec{
 				ResourceAttributes: &authv1.ResourceAttributes{
@@ -60,6 +115,14 @@ func (a *DefaultDesktopAuthorizer) IsAllowedInformer(ctx context.Context, client
 		result, err := clientset.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
 		if err != nil {
 			return err
+		}
+
+		// Cache the result only if the user is authorized
+		if result.Status.Allowed {
+			a.cache.Store(key, cacheValue{
+				allowed:    true,
+				expiration: time.Now().Add(cacheTTL),
+			})
 		}
 
 		if !result.Status.Allowed {
@@ -94,16 +157,22 @@ type InClusterAuthorizer interface {
 
 // Represents InClusterAuthorizer
 type DefaultInClusterAuthorizer struct {
+	cache sync.Map // map[cacheKey]cacheValue
 }
 
 // Create new InClusterAuthorizer instance
 func NewInClusterAuthorizer() InClusterAuthorizer {
-	return &DefaultInClusterAuthorizer{}
+	return &DefaultInClusterAuthorizer{
+		cache: sync.Map{},
+	}
 }
 
 // Check permission for creating new informers
 func (a *DefaultInClusterAuthorizer) IsAllowedInformer(ctx context.Context, restConfig *rest.Config, token string, namespace string, gvr schema.GroupVersionResource) error {
 	tokenTrimmed := strings.TrimSpace(token)
+
+	// For in-cluster authorizer, include token in cache key
+	cacheKeyPrefix := fmt.Sprintf("%s:", tokenTrimmed)
 
 	// Clone rest config and set bearer token
 	rcClone := *restConfig
@@ -122,6 +191,39 @@ func (a *DefaultInClusterAuthorizer) IsAllowedInformer(ctx context.Context, rest
 
 	// Convenience method for handing errors
 	doSAR := func(verb string) error {
+		// Check cache first
+		key := cacheKey{
+			namespace: namespace,
+			group:     gvr.Group,
+			resource:  gvr.Resource,
+			verb:      verb,
+		}
+
+		// Add token to make the key unique for each token
+		tokenKey := fmt.Sprintf("%s%v", cacheKeyPrefix, key)
+
+		// Check if we have a valid cached result
+		if val, ok := a.cache.Load(tokenKey); ok {
+			cachedVal := val.(cacheValue)
+			if time.Now().Before(cachedVal.expiration) {
+				// Cache hit and still valid
+				if !cachedVal.allowed {
+					attrs := &authv1.ResourceAttributes{
+						Namespace: namespace,
+						Group:     gvr.Group,
+						Verb:      verb,
+						Resource:  gvr.Resource,
+					}
+					fmt := "permission denied: `%s \"%s\"/\"%s\"` in namespace `%s`"
+					return status.Errorf(codes.Unauthenticated, fmt, attrs.Verb, attrs.Group, attrs.Resource, attrs.Namespace)
+				}
+				return nil
+			}
+			// Cache expired, remove it
+			a.cache.Delete(tokenKey)
+		}
+
+		// Cache miss or expired, perform the actual check
 		sar := &authv1.SelfSubjectAccessReview{
 			Spec: authv1.SelfSubjectAccessReviewSpec{
 				ResourceAttributes: &authv1.ResourceAttributes{
@@ -136,6 +238,14 @@ func (a *DefaultInClusterAuthorizer) IsAllowedInformer(ctx context.Context, rest
 		result, err := clientset.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
 		if err != nil {
 			return err
+		}
+
+		// Cache the result only if the user is authorized
+		if result.Status.Allowed {
+			a.cache.Store(tokenKey, cacheValue{
+				allowed:    true,
+				expiration: time.Now().Add(cacheTTL),
+			})
 		}
 
 		if !result.Status.Allowed {
