@@ -4,6 +4,7 @@ import { cleanup } from '@testing-library/react';
 import type { Mock } from 'vitest';
 
 import { getSession, useSession } from '@/lib/auth';
+import { useIsClusterAPIEnabled } from '@/lib/hooks';
 
 vi.mock('@/lib/auth', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@/lib/auth')>();
@@ -19,6 +20,14 @@ vi.mock('@/lib/util', async (importOriginal) => {
   return {
     ...mod,
     getCSRFToken: vi.fn().mockResolvedValue('testtoken'),
+  };
+});
+
+vi.mock('@/lib/hooks', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@/lib/hooks')>();
+  return {
+    ...mod,
+    useIsClusterAPIEnabled: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -48,6 +57,8 @@ beforeEach(() => {
     loading: false,
     session: { user: null },
   });
+
+  (useIsClusterAPIEnabled as Mock).mockReturnValue(true);
 });
 
 afterEach(() => {

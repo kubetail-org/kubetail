@@ -30,8 +30,10 @@ import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { useIsClusterAPIEnabled, useListQueryWithSubscription } from '@/lib/hooks';
 import { Counter, MapSet, cn, cssEncode } from '@/lib/util';
 import { getClusterAPIClient } from '@/apollo-client';
+import LoadingPage from '@/components/utils/LoadingPage';
 
 type ContextType = {
+  useClusterAPI: boolean | undefined;
   kubeContext: string | null;
   sources: string[];
   sourceFilter: LogSourceFilter;
@@ -170,7 +172,11 @@ export const useViewerMetadata = () => {
   const isReady = useRecoilValue(isReadyState);
   const isLoading = useRecoilValue(isLoadingState);
   const isFollow = useRecoilValue(isFollowState);
-  return { isReady, isLoading, isFollow };
+
+  const { kubeContext } = useContext(Context);
+  const isUseClusterAPIEnabled = useIsClusterAPIEnabled(kubeContext);
+
+  return { isReady, isLoading, isFollow, isSearchEnabled: isUseClusterAPIEnabled };
 };
 
 export const useViewerVisibleCols = () => useRecoilState(visibleColsState);
@@ -727,7 +733,7 @@ const LogRecordsFetcherImpl: React.ForwardRefRenderFunction<LogRecordsFetcherHan
   { onFollowData }: LogRecordsFetcherProps,
   ref: React.ForwardedRef<LogRecordsFetcherHandle>,
 ) => {
-  const { kubeContext, sources, sourceFilter, grep } = useContext(Context);
+  const { useClusterAPI, kubeContext, sources, sourceFilter, grep } = useContext(Context);
   const isFollow = useRecoilValue(isFollowState);
 
   const [isReachedEnd, setIsReachedEnd] = useState(false);
@@ -735,13 +741,12 @@ const LogRecordsFetcherImpl: React.ForwardRefRenderFunction<LogRecordsFetcherHan
 
   const batchSize = 300;
 
-  const isClusterAPIEnabled = useIsClusterAPIEnabled();
   const connectArgs = {
     kubeContext: kubeContext || '',
     namespace: 'kubetail-system',
     serviceName: 'kubetail-cluster-api',
   };
-  const client = isClusterAPIEnabled ? getClusterAPIClient(connectArgs) : undefined;
+  const client = useClusterAPI ? getClusterAPIClient(connectArgs) : undefined;
 
   // Initialize query
   const query = useQuery(dashboardOps.LOG_RECORDS_FETCH, {
@@ -788,7 +793,7 @@ const LogRecordsFetcherImpl: React.ForwardRefRenderFunction<LogRecordsFetcherHan
       lastTS.current = undefined;
       setIsReachedEnd(false);
     },
-  }), [kubeContext, JSON.stringify(sources)]);
+  }), [kubeContext, JSON.stringify(sources), JSON.stringify(sourceFilter), grep]);
 
   // Follow
   useEffect(() => {
@@ -1016,12 +1021,17 @@ export const Provider = ({
   grep,
   children,
 }: React.PropsWithChildren<ProviderProps>) => {
+  const useClusterAPI = useIsClusterAPIEnabled(kubeContext);
+
   const context = useMemo(() => ({
+    useClusterAPI,
     kubeContext,
     sources,
     sourceFilter,
     grep,
-  }), [kubeContext, grep, JSON.stringify(sources), JSON.stringify(sourceFilter)]);
+  }), [useClusterAPI, kubeContext, grep, JSON.stringify(sources), JSON.stringify(sourceFilter)]);
+
+  if (useClusterAPI === undefined) return <LoadingPage />;
 
   return (
     <Context.Provider value={context}>
