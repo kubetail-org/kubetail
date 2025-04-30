@@ -23,6 +23,7 @@ import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import * as clusterAPIOps from '@/lib/graphql/cluster-api/ops';
 import { Counter } from './util';
 import { Workload } from './workload';
+import { Status, useClusterAPIServerStatus } from './server-status';
 
 type GenericListFragment = {
   metadata: {
@@ -392,9 +393,21 @@ export function useCounterQueryWithSubscription<
  * ClusterAPIEnabled hook
  */
 
-export function useIsClusterAPIEnabled() {
+export function useIsClusterAPIEnabled(kubeContext: string | null) {
+  const status = useClusterAPIServerStatus(kubeContext || '');
+
+  // Return if running in cluster with ClusterAPI enabled
   if (appConfig.environment === 'cluster' && appConfig.clusterAPIEnabled) return true;
-  return false;
+
+  switch (status.status) {
+    case Status.NotFound:
+      return false;
+    case Status.Unknown:
+    case Status.Pending:
+      return undefined;
+    default:
+      return true;
+  }
 }
 
 /**

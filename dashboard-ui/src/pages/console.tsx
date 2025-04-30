@@ -35,7 +35,6 @@ import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
 import SourcePickerModal from '@/components/widgets/SourcePickerModal';
 import { DateRangeDropdown, DateRangeDropdownOnChangeArgs } from '@/components/widgets/DateRangeDropdown';
-import { useIsClusterAPIEnabled } from '@/lib/hooks';
 import {
   Provider as LogFeedProvider,
   Viewer as LogFeedViewer,
@@ -169,7 +168,6 @@ const Header = ({ viewerRef }: { viewerRef: React.RefObject<LogFeedViewerHandle>
   const [searchParams, setSearchParams] = useSearchParams();
   const { isSidebarOpen, setIsSidebarOpen } = useContext(Context);
   const feed = useViewerMetadata();
-  const isUseClusterAPIEnabled = useIsClusterAPIEnabled();
 
   const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30';
 
@@ -283,7 +281,7 @@ const Header = ({ viewerRef }: { viewerRef: React.RefObject<LogFeedViewerHandle>
           </button>
         </div>
         <div>
-          {isUseClusterAPIEnabled && (
+          {feed.isSearchEnabled && (
             <Form onSubmit={handleSubmit}>
               <Form.Control
                 name="grep"
