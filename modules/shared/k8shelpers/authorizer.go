@@ -157,13 +157,15 @@ type InClusterAuthorizer interface {
 
 // Represents InClusterAuthorizer
 type DefaultInClusterAuthorizer struct {
-	cache sync.Map // map[cacheKey]cacheValue
+	clientsetInitializer clientsetInitializer
+	cache                sync.Map // map[cacheKey]cacheValue
 }
 
 // Create new InClusterAuthorizer instance
 func NewInClusterAuthorizer() InClusterAuthorizer {
 	return &DefaultInClusterAuthorizer{
-		cache: sync.Map{},
+		clientsetInitializer: &defaultClientsetInitializer{},
+		cache:                sync.Map{},
 	}
 }
 
@@ -184,7 +186,7 @@ func (a *DefaultInClusterAuthorizer) IsAllowedInformer(ctx context.Context, rest
 
 	// Init clientset
 	// TODO: use kubernetes.NewForConfigAndClient to re-use underlying transport
-	clientset, err := kubernetes.NewForConfig(&rcClone)
+	clientset, err := a.clientsetInitializer.newClientset(&rcClone)
 	if err != nil {
 		return err
 	}
@@ -271,4 +273,17 @@ func (a *DefaultInClusterAuthorizer) IsAllowedInformer(ctx context.Context, rest
 	})
 
 	return g.Wait()
+}
+
+// Interface to facilitate testing
+type clientsetInitializer interface {
+	newClientset(restConfig *rest.Config) (kubernetes.Interface, error)
+}
+
+// Default implementation
+type defaultClientsetInitializer struct{}
+
+// Create new clientset
+func (d *defaultClientsetInitializer) newClientset(restConfig *rest.Config) (kubernetes.Interface, error) {
+	return kubernetes.NewForConfig(restConfig)
 }
