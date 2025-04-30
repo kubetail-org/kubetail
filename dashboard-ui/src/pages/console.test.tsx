@@ -18,6 +18,7 @@ import { render } from '@testing-library/react';
 import type { Mock } from 'vitest';
 
 import { useSession } from '@/lib/auth';
+import { useIsClusterAPIEnabled } from '@/lib/hooks';
 import { mocks } from '@/mocks/console';
 import Console from '@/pages/console';
 import { renderElement } from '@/test-utils';
@@ -36,11 +37,14 @@ describe('console page', () => {
     expect(history.location.pathname).toBe('/auth/login');
   });
 
-  it('renders console UI if user is logged in', async () => {
+  it('renders console UI if user is logged in and cluster API is enabled', async () => {
     // mock auth
     (useSession as Mock).mockReturnValue({
       session: { user: 'test' },
     });
+
+    // mock cluster API enabled
+    (useIsClusterAPIEnabled as Mock).mockReturnValue(true);
 
     const { getByText } = renderElement(<Console />, mocks);
     expect(getByText('Pods/Containers')).toBeInTheDocument();
