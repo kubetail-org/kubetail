@@ -677,6 +677,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
                     onItemsRendered={(args) => {
                       onItemsRendered(args);
                       if (!isListReady) setIsListReady(true);
+                      if (isWrap) setTimeout(() => listRef.current?.resetAfterIndex(0), 0);
                     }}
                     onScroll={handleContentScrollY}
                     height={height}
