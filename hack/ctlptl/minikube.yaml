@@ -11,4 +11,3 @@ minikube:
   startFlags:
     - --nodes=3
     - --addons=metrics-server
-  containerRuntime: docker
