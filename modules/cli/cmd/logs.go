@@ -522,7 +522,6 @@ func init() {
 	flagset := logsCmd.Flags()
 	flagset.SortFlags = false
 
-	flagset.String(KubeconfigFlag, "", "Path to kubeconfig file")
 	flagset.String("kube-context", "", "Specify the kubeconfig context to use")
 	flagset.Int64P("head", "h", 10, "Return first N records")
 	flagset.Lookup("head").NoOptDefVal = "10"

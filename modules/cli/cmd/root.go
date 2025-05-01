@@ -18,13 +18,15 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 const (
-	KubeconfigFlag = "kubeconfig"
+	KubeconfigFlag = clientcmd.RecommendedConfigPathFlag
 )
 
 var version = "dev" // default version for local builds
+var kubeconfigFlagValue = clientcmd.RecommendedHomeFile
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -48,6 +50,7 @@ func init() {
 	// will be global for your application.
 
 	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cli.yaml)")
+	rootCmd.PersistentFlags().StringVar(&kubeconfigFlagValue, KubeconfigFlag, "", "Path to kubeconfig file")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
