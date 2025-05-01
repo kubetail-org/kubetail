@@ -609,6 +609,10 @@ func (cm *InClusterConnectionManager) getOrCreateRestConfig_UNSAFE() (*rest.Conf
 		return nil, err
 	}
 
+	// Set rate limits
+	rc.QPS = 10.0
+	rc.Burst = 40
+
 	// Add authentication middleware
 	rc.WrapTransport = func(transport http.RoundTripper) http.RoundTripper {
 		return NewBearerTokenRoundTripper(transport)
