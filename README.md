@@ -2,8 +2,8 @@
 
 _Kubetail is a real-time logging dashboard for Kubernetes (browser/terminal)_ 
 
-<a href="https://youtu.be/8oUQRP3OpvA">
-  <img width="350" alt="demo-thumbnail" src="https://github.com/user-attachments/assets/c68cd271-a2c7-4e4b-88a0-4c188860b2d5">
+<a href="https://youtu.be/q9rV9gHQb4Q">
+  <img width="350" alt="demo-thumbnail" src="https://github.com/user-attachments/assets/3b528e7e-5f8a-4bfd-86a1-0b70691b8a4c">
 </a>
 
 Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
