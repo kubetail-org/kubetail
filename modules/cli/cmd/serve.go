@@ -56,17 +56,6 @@ var serveCmd = &cobra.Command{
 		remote := false
 		test, _ := cmd.Flags().GetBool("test")
 
-		// Handle remote tunnel
-		if remote {
-			serveRemote(port, skipOpen)
-			return
-		}
-
-		// listen for termination signals
-		quit := make(chan os.Signal, 1)
-		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-		defer close(quit)
-
 		// Init viper
 		v := viper.New()
 		v.BindPFlag("dashboard.logging.level", cmd.Flags().Lookup("log-level"))
@@ -78,9 +67,19 @@ var serveCmd = &cobra.Command{
 			zlog.Fatal().Caller().Err(err).Send()
 		}
 		cfg.Kubeconfig, _ = cmd.Flags().GetString(KubeconfigFlag)
-
 		cfg.Dashboard.Environment = config.EnvironmentDesktop
 		cfg.Dashboard.Logging.AccessLog.Enabled = false
+
+		// Handle remote tunnel
+		if remote {
+			serveRemote(cfg.Kubeconfig, port, skipOpen)
+			return
+		}
+
+		// listen for termination signals
+		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		defer close(quit)
 
 		secret, err := generateRandomString(32)
 		if err != nil {
@@ -194,13 +193,12 @@ var serveCmd = &cobra.Command{
 	},
 }
 
-func serveRemote(localPort int, skipOpen bool) {
+func serveRemote(kubeconfig string, localPort int, skipOpen bool) {
 	// listen for termination signals
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	defer close(quit)
-
-	tunnel, err := tunnel.NewTunnel("kubetail-system", "kubetail-dashboard", 80, localPort)
+	tunnel, err := tunnel.NewTunnel(kubeconfig, "kubetail-system", "kubetail-dashboard", 80, localPort)
 	if err != nil {
 		zlog.Fatal().Err(err).Send()
 	}
