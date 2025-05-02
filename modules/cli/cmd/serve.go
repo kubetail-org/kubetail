@@ -31,6 +31,7 @@ import (
 	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/app"
 	"github.com/kubetail-org/kubetail/modules/shared/config"
@@ -66,13 +67,13 @@ var serveCmd = &cobra.Command{
 		if err != nil {
 			zlog.Fatal().Caller().Err(err).Send()
 		}
-		cfg.Kubeconfig, _ = cmd.Flags().GetString(KubeconfigFlag)
+		cfg.KubeconfigPath, _ = cmd.Flags().GetString(KubeconfigFlag)
 		cfg.Dashboard.Environment = config.EnvironmentDesktop
 		cfg.Dashboard.Logging.AccessLog.Enabled = false
 
 		// Handle remote tunnel
 		if remote {
-			serveRemote(cfg.Kubeconfig, port, skipOpen)
+			serveRemote(cfg.KubeconfigPath, port, skipOpen)
 			return
 		}
 
@@ -193,12 +194,12 @@ var serveCmd = &cobra.Command{
 	},
 }
 
-func serveRemote(kubeconfig string, localPort int, skipOpen bool) {
+func serveRemote(kubeconfigPath string, localPort int, skipOpen bool) {
 	// listen for termination signals
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	defer close(quit)
-	tunnel, err := tunnel.NewTunnel(kubeconfig, "kubetail-system", "kubetail-dashboard", 80, localPort)
+	tunnel, err := tunnel.NewTunnel(kubeconfigPath, "kubetail-system", "kubetail-dashboard", 80, localPort)
 	if err != nil {
 		zlog.Fatal().Err(err).Send()
 	}
@@ -252,7 +253,7 @@ func init() {
 	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	flagset := serveCmd.Flags()
 	flagset.SortFlags = false
-	flagset.String(KubeconfigFlag, "", "Path to kubeconfig file")
+	flagset.String(KubeconfigFlag, clientcmd.RecommendedHomeFile, "Path to kubeconfig file")
 	flagset.IntP("port", "p", 7500, "Port number to listen on")
 	flagset.String("host", "localhost", "Host address to bind to")
 	flagset.StringP("log-level", "l", "info", "Log level (debug, info, warn, error, disabled)")

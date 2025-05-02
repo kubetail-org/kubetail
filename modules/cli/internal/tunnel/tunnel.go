@@ -56,8 +56,8 @@ func (t *Tunnel) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func NewTunnel(kubeconfig, namespace, serviceName string, remotePort, localPort int) (*Tunnel, error) {
-	kubeconfigConf, err := clientcmd.LoadFromFile(kubeconfig)
+func NewTunnel(kubeconfigPath, namespace, serviceName string, remotePort, localPort int) (*Tunnel, error) {
+	kubeconfigConf, err := clientcmd.LoadFromFile(kubeconfigPath)
 	if err != nil {
 		return nil, err
 	}
