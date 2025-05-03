@@ -192,7 +192,7 @@ Dependencies:
 ctlptl apply -f hack/ctlptl/minikube.yaml
 ```
 
-You can use any type of cluster that [works with Tilt](https://docs.tilt.dev/choosing_clusters#microk8s).
+You can use any type of cluster that [works with Tilt](https://docs.tilt.dev/choosing_clusters.html).
 
 2. Start the dev environment:
 
