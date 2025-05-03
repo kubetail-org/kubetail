@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -27,14 +28,18 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-logr/logr"
 	"github.com/pkg/browser"
 	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	k8sruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/app"
 	"github.com/kubetail-org/kubetail/modules/shared/config"
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 
 	"github.com/kubetail-org/kubetail/modules/cli/internal/tunnel"
 )
@@ -97,6 +102,17 @@ var serveCmd = &cobra.Command{
 			Level:   cfg.Dashboard.Logging.Level,
 			Format:  "pretty",
 		})
+
+		// Capture unhandled kubernetes client errors
+		k8sruntime.ErrorHandlers = []k8sruntime.ErrorHandler{func(ctx context.Context, err error, msg string, keysAndValues ...any) {
+			// Suppress for now
+		}}
+
+		// Supress messages sent to klog for now
+		klog.SetLogger(logr.Discard())
+
+		// Capture messages sent to system logger
+		log.SetOutput(k8shelpers.NewZlogWriter(zlog.Logger))
 
 		// TODO: add more tests than config, basic setup
 		if test {
