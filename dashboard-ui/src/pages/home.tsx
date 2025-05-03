@@ -14,7 +14,6 @@
 
 import { useSubscription } from '@apollo/client';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
-import { Boxes, Layers3, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
 import numeral from 'numeral';
 import React, {
   createContext,
@@ -27,27 +26,34 @@ import TimeAgo from 'react-timeago';
 import type { Formatter, Suffix, Unit } from 'react-timeago';
 import { RecoilRoot, atom, useRecoilValue, useSetRecoilState } from 'recoil';
 
+import { Boxes, Layers3, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
+import { useDebounceCallback } from 'usehooks-ts';
+
+import FormControl from '@kubetail/ui/elements/FormControl';
 import Button from '@kubetail/ui/elements/Button';
 import DataTable from '@kubetail/ui/elements/DataTable';
 import type { SortBy } from '@kubetail/ui/elements/DataTable/Header';
 import Form from '@kubetail/ui/elements/Form';
 import Spinner from '@kubetail/ui/elements/Spinner';
 
-import FormControl from '@kubetail/ui/elements/FormControl';
-import { useDebounceCallback } from 'usehooks-ts';
 import appConfig from '@/app-config';
 import logo from '@/assets/logo.svg';
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
 import SettingsDropdown from '@/components/widgets/SettingsDropdown';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
-import {
-  useListQueryWithSubscription,
-  useLogMetadata,
-  useWorkloadCounter,
-} from '@/lib/hooks';
+import { useListQueryWithSubscription, useLogMetadata, useWorkloadCounter } from '@/lib/hooks';
 import { joinPaths, getBasename, cn } from '@/lib/util';
 import { Workload, allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
+import type {
+  HomeCronJobsListItemFragmentFragment,
+  HomeDaemonSetsListItemFragmentFragment,
+  HomePodsListItemFragmentFragment,
+  HomeJobsListItemFragmentFragment,
+  HomeDeploymentsListItemFragmentFragment,
+  HomeReplicaSetsListItemFragmentFragment,
+  HomeStatefulSetsListItemFragmentFragment,
+} from '@/lib/graphql/dashboard/__generated__/graphql';
 
 /**
  * Shared variables and helper methods
@@ -75,16 +81,7 @@ type ContextType = {
   setSearch: React.Dispatch<React.SetStateAction<string>>;
 };
 
-type WorkloadItem = {
-  id: string;
-  metadata: {
-    uid: string;
-    namespace: string;
-    name: string;
-    creationTimestamp: any;
-    deletionTimestamp?: Date;
-  };
-};
+type WorkloadItem = HomeCronJobsListItemFragmentFragment | HomeJobsListItemFragmentFragment | HomeDeploymentsListItemFragmentFragment | HomePodsListItemFragmentFragment | HomeDaemonSetsListItemFragmentFragment | HomeReplicaSetsListItemFragmentFragment | HomeStatefulSetsListItemFragmentFragment;
 
 const Context = createContext({} as ContextType);
 
@@ -232,7 +229,7 @@ function useLogFileInfo(uids: string[], ownershipMap: Map<string, string[]>) {
  * function to apply filters and search
  */
 
-function useSearchAndFilter(fetching: boolean, items: WorkloadItem[] | null | undefined, search: string, namespace: string): undefined | WorkloadItem[] {
+function applySearchAndFilter(fetching: boolean, items: WorkloadItem[] | null | undefined, search: string, namespace: string): undefined | WorkloadItem[] {
   if (fetching) return undefined;
 
   // filter items
@@ -337,21 +334,18 @@ const SearchBox = () => {
   const deboucedSearch = useDebounceCallback((value: string) => setSearch(value), 300);
 
   return (
-    <div
-      className={cn(
-        'search-input relative',
-      )}
-    >
-      <FormControl
-        id="search-box"
-        onChange={(e) => deboucedSearch(e.target.value)}
-        type="search"
-        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); } }} // prevent form submission on enter
-        placeholder="search workloads..."
-        className="text-sm align-bottom pl-10 placeholder:text-chrome-400 w-96"
-      />
-      <Search className="absolute left-3 top-1/4 h-5 w-5 text-chrome-500" />
-    </div>
+    <Form onSubmit={(e) => e.preventDefault()}>
+      <div className={cn('search-input relative')}>
+        <FormControl
+          id="search-box"
+          onChange={(e) => deboucedSearch(e.target.value)}
+          type="search"
+          placeholder="search workloads..."
+          className="text-sm align-bottom pl-10 placeholder:text-chrome-400 w-96"
+        />
+        <Search className="absolute left-3 top-1/4 h-5 w-5 text-chrome-500" />
+      </div>
+    </Form>
   );
 };
 
@@ -397,13 +391,7 @@ const NamespacesPicker = () => {
  * DisplayItems component
  */
 
-const lastModifiedAtFormatter: Formatter = (
-  value: number,
-  unit: Unit,
-  suffix: Suffix,
-  epochMilliseconds: number,
-  nextFormatter?: Formatter,
-) => {
+const lastModifiedAtFormatter: Formatter = (value: number, unit: Unit, suffix: Suffix, epochMilliseconds: number, nextFormatter?: Formatter) => {
   if (suffix === 'from now' || unit === 'second') return 'just now';
   if (nextFormatter) return nextFormatter(value, unit, suffix, epochMilliseconds);
   return '';
@@ -432,7 +420,7 @@ const DisplayItems = ({
   // destructuring items array due to read-only array issue
   const filteredItems = items ? [...items] : [];
 
-  const ids = items?.map((item) => item.metadata.uid) || [];
+  const ids = filteredItems?.map((item) => item.metadata.uid) || [];
   const logFileInfo = useLogFileInfo(ids, ownershipMap);
 
   // handle sorting
@@ -766,13 +754,13 @@ const DisplayWorkloads = () => {
     statefulsets.data?.appsV1StatefulSetsList?.metadata.resourceVersion,
   ]);
 
-  const filterCronJobs = useSearchAndFilter(cronjobs.fetching, cronjobs.data?.batchV1CronJobsList?.items, search, namespace);
-  const filterDaemonsets = useSearchAndFilter(daemonsets.fetching, daemonsets.data?.appsV1DaemonSetsList?.items, search, namespace);
-  const filterPods = useSearchAndFilter(pods.fetching, pods.data?.coreV1PodsList?.items, search, namespace);
-  const filterJobs = useSearchAndFilter(jobs.fetching, jobs.data?.batchV1JobsList?.items, search, namespace);
-  const filterDeployments = useSearchAndFilter(deployments.fetching, deployments.data?.appsV1DeploymentsList?.items, search, namespace);
-  const filterReplicasets = useSearchAndFilter(replicasets.fetching, replicasets.data?.appsV1ReplicaSetsList?.items, search, namespace);
-  const filterStatefulsets = useSearchAndFilter(statefulsets.fetching, statefulsets.data?.appsV1StatefulSetsList?.items, search, namespace);
+  const filterCronJobs = applySearchAndFilter(cronjobs.fetching, cronjobs.data?.batchV1CronJobsList?.items, search, namespace);
+  const filterDaemonsets = applySearchAndFilter(daemonsets.fetching, daemonsets.data?.appsV1DaemonSetsList?.items, search, namespace);
+  const filterPods = applySearchAndFilter(pods.fetching, pods.data?.coreV1PodsList?.items, search, namespace);
+  const filterJobs = applySearchAndFilter(jobs.fetching, jobs.data?.batchV1JobsList?.items, search, namespace);
+  const filterDeployments = applySearchAndFilter(deployments.fetching, deployments.data?.appsV1DeploymentsList?.items, search, namespace);
+  const filterReplicasets = applySearchAndFilter(replicasets.fetching, replicasets.data?.appsV1ReplicaSetsList?.items, search, namespace);
+  const filterStatefulsets = applySearchAndFilter(statefulsets.fetching, statefulsets.data?.appsV1StatefulSetsList?.items, search, namespace);
 
   // we want to show this only when user searches for a workload
   const noResultFound = search !== '' ? noSearchResults(filterCronJobs, filterDeployments, filterPods, filterJobs, filterDaemonsets, filterReplicasets, filterStatefulsets) : false;
@@ -921,21 +909,8 @@ const Header = () => {
  * CountBadge component
  */
 
-const CountBadge = ({
-  count,
-  workload,
-  workloadFilter,
-}: {
-  count: number;
-  workload: Workload;
-  workloadFilter: Workload | undefined;
-}) => (
-  <span
-    className={cn(
-      'text-xs font-medium px-2 py-[1px]  rounded-full  group-hover:bg-blue-200',
-      workload === workloadFilter ? 'bg-blue-200' : 'bg-chrome-200 ',
-    )}
-  >
+const CountBadge = ({ count, workload, workloadFilter }: { count: number, workload: Workload, workloadFilter: Workload | undefined }) => (
+  <span className={cn('text-xs font-medium px-2 py-[1px]  rounded-full  group-hover:bg-blue-200', workload === workloadFilter ? 'bg-blue-200' : 'bg-gray-200')}>
     {count}
   </span>
 );
@@ -1011,12 +986,8 @@ const Content = () => {
           <input type="hidden" name="kubeContext" value={kubeContext} />
           <div className="flex py-4 justify-between  flex-row ">
             <div className="flex gap-2 flex-row items-center">
-              {!sidebarOpen && (
-                <PanelLeftOpen
-                  className="cursor-pointer  text-chrome-400 hover:text-primary "
-                  onClick={() => setSidebarOpen(true)}
-                />
-              )}
+              {!sidebarOpen
+                && <PanelLeftOpen className="cursor-pointer  text-chrome-400 hover:text-primary " onClick={() => setSidebarOpen(true)} />}
               <h1 className="text-2xl font-semibold">Dashboard</h1>
             </div>
             <div className="flex gap-2 ">
@@ -1072,10 +1043,7 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
                 <Boxes className="h-6 w-6 text-chrome-600" />
                 <span className="font-semibold text-lg"> Workloads</span>
               </button>
-              <PanelLeftClose
-                className="cursor-pointer  text-chrome-400 hover:text-primary "
-                onClick={() => setSidebarOpen(false)}
-              />
+              <PanelLeftClose className="cursor-pointer text-chrome-400 hover:text-primary " onClick={() => setSidebarOpen(false)} />
             </header>
             {sidebarOpen && sidebar}
           </aside>
@@ -1098,32 +1066,18 @@ export default function Page() {
 
   const [namespace, setNamespace] = useState('');
 
-  const context = useMemo(
-    () => ({
-      kubeContext,
-      setKubeContext,
-      namespace,
-      setNamespace,
-      workloadFilter,
-      setWorkloadFilter,
-      sidebarOpen,
-      setSidebarOpen,
-      search,
-      setSearch,
-    }),
-    [
-      kubeContext,
-      setKubeContext,
-      namespace,
-      setNamespace,
-      workloadFilter,
-      setWorkloadFilter,
-      sidebarOpen,
-      setSidebarOpen,
-      search,
-      setSearch,
-    ],
-  );
+  const context = useMemo(() => ({
+    kubeContext,
+    setKubeContext,
+    namespace,
+    setNamespace,
+    workloadFilter,
+    setWorkloadFilter,
+    sidebarOpen,
+    setSidebarOpen,
+    search,
+    setSearch,
+  }), [kubeContext, setKubeContext, namespace, setNamespace, workloadFilter, setWorkloadFilter, sidebarOpen, setSidebarOpen, search, setSearch]);
 
   return (
     <AuthRequired>
