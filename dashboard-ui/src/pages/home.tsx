@@ -335,18 +335,17 @@ const SearchBox = () => {
   const deboucedSearch = useDebounceCallback((value: string) => setSearch(value), 300);
 
   return (
-    <Form onSubmit={(e) => e.preventDefault()}>
-      <div className={cn('search-input relative')}>
-        <FormControl
-          id="search-box"
-          onChange={(e) => deboucedSearch(e.target.value)}
-          type="search"
-          placeholder="search workloads..."
-          className="text-sm align-bottom pl-10 placeholder:text-chrome-400 w-96"
-        />
-        <Search className="absolute left-3 top-1/4 h-5 w-5 text-chrome-500" />
-      </div>
-    </Form>
+    <div className={cn('search-input relative')}>
+      <FormControl
+        id="search-box"
+        onChange={(e) => deboucedSearch(e.target.value)}
+        type="search"
+        onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+        placeholder="search workloads..."
+        className="text-sm align-bottom pl-10 placeholder:text-chrome-400 w-64"
+      />
+      <Search className="absolute left-3 top-1/4 h-5 w-5 text-chrome-500" />
+    </div>
   );
 };
 
@@ -986,7 +985,7 @@ const Content = () => {
         >
           <input type="hidden" name="kubeContext" value={kubeContext} />
           <div className="flex py-4 justify-between  flex-row ">
-            <div className="flex gap-2 flex-row items-center">
+            <div className="flex mr-3 gap-2 flex-row items-center">
               {!sidebarOpen
                 && <PanelLeftOpen className="cursor-pointer  text-chrome-400 hover:text-primary " onClick={() => setSidebarOpen(true)} />}
               <h1 className="text-2xl font-semibold">Dashboard</h1>
