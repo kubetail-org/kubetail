@@ -19,8 +19,14 @@ import { render } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 
 import Home, { applySearchAndFilter, noSearchResults } from '@/pages/home';
-import { ownerShipMapMock, workloadItemMock } from '@/mocks/home';
+import { workloadItemMock } from '@/mocks/home';
 import { getContainerIDs } from './home';
+
+const ownershipMapMock = new Map([
+  ['dc8fbace-67c0-43d5-a59d-aaff6dbe2d7a', ['60c83096-174e-4191-a705-1245b52a0e33', '5955f63b-b69b-45de-b2e1-2eb60e4cd15e']],
+  ['60c83096-174e-4191-a705-1245b52a0e33', ['93edde53-0bb8-44e6-b271-0022abe42100', 'edc816e9-dea5-4133-b499-89984b9ebb14']],
+  ['db03b586-95df-48f3-aaeb-9e0de42d3926', ['3596ec70-0de7-40a9-90a8-d57f8931ae15', '603414f8-cdec-40dd-bbbe-7ada2473d77c']],
+]);
 
 describe('home page', () => {
   it('blocks access if user is unauthenticated', () => {
@@ -54,9 +60,9 @@ describe('applySearchAndFilter', () => {
 
   it('returns only the non deleted workload items', () => {
     const result = applySearchAndFilter(false, workloadItemMock, '', '');
-    const nonDeletedWorkload = workloadItemMock.filter((item) => item.metadata.deletionTimestamp === null);
+    const expected = workloadItemMock.filter((item) => item.metadata.deletionTimestamp === null);
 
-    expect(result).toEqual(nonDeletedWorkload);
+    expect(result).toEqual(expected);
   });
 
   it('returns workload items within selected namespace and search string', () => {
@@ -64,15 +70,15 @@ describe('applySearchAndFilter', () => {
     const search = 'kind';
 
     const result = applySearchAndFilter(false, workloadItemMock, search, namespace);
-    const output = workloadItemMock.filter((item) => item.metadata.namespace === namespace && item.metadata.name.includes(search));
+    const expected = workloadItemMock.filter((item) => item.metadata.namespace === namespace && item.metadata.name.includes(search));
 
-    expect(result).toEqual(output);
+    expect(result).toEqual(expected);
   });
 
   it('returns all workloads from selected namespace', () => {
     const firstResult = applySearchAndFilter(false, workloadItemMock, '', 'kube-system');
-    const output = workloadItemMock.filter((item) => item.metadata.namespace === 'kube-system');
-    expect(firstResult).toEqual(output);
+    const expected = workloadItemMock.filter((item) => item.metadata.namespace === 'kube-system');
+    expect(firstResult).toEqual(expected);
 
     // returns empty array as the only workload item in namespace kubetail-system has a deletion timestamp
     const secondResult = applySearchAndFilter(false, workloadItemMock, '', 'kubetail-system');
@@ -101,31 +107,26 @@ describe('noSearchResults', () => {
 });
 
 describe('getContainerIDs', () => {
-  it('return an empty array if parentId is not present in the ownership map', () => {
-    const result = getContainerIDs('dc8fbace-67c0-aaff6dbe2d7a-id-not-present', ownerShipMapMock);
+  it('returns an empty array if parentId is not present in the ownership map', () => {
+    const result = getContainerIDs('dc8fbace-67c0-aaff6dbe2d7a-id-not-present', ownershipMapMock);
 
     expect(result).toEqual([]);
   });
 
-  it('returns all the values of a parentId when the childId is not a key in the ownership map', () => {
-    const parentId = 'dc8fbace-67c0-43d5-a59d-aaff6dbe2d7a';
-    const result = getContainerIDs(parentId, ownerShipMapMock);
-    const output = ownerShipMapMock.get(parentId);
+  it('returns all the immediate child IDs when none of them have children of their own ', () => {
+    const parentId = 'db03b586-95df-48f3-aaeb-9e0de42d3926';
+    const result = getContainerIDs(parentId, ownershipMapMock);
+    const expected = ownershipMapMock.get(parentId);
 
-    expect(result).toEqual(output);
+    expect(result).toEqual(expected);
   });
 
-  it('returns parentId values merged with childId values, excluding childId itself that is a key in ownership map', () => {
-    const parentId = 'db03b586-95df-48f3-aaeb-9e0de42d3926';
+  it('returns only the leaf node IDs while omitting the parent nodes from results', () => {
+    const parentId = 'dc8fbace-67c0-43d5-a59d-aaff6dbe2d7a';
+    const result = getContainerIDs(parentId, ownershipMapMock);
 
-    // this is the childId of parentId that is also a key in ownership map
-    const childId = '603414f8-cdec-40dd-bbbe-7ada2473d77c';
-    const result = getContainerIDs(parentId, ownerShipMapMock);
+    const expected = ['5955f63b-b69b-45de-b2e1-2eb60e4cd15e', '93edde53-0bb8-44e6-b271-0022abe42100', 'edc816e9-dea5-4133-b499-89984b9ebb14'];
 
-    const mainIds = ownerShipMapMock.get(parentId)?.filter((id) => id !== childId) ?? [];
-    const childIds = ownerShipMapMock.get(childId) ?? [];
-    const output = [...mainIds, ...childIds];
-
-    expect(new Set(result)).toEqual(new Set(output));
+    expect(new Set(result)).toEqual(new Set(expected));
   });
 });

@@ -281,11 +281,3 @@ export const workloadItemMock: WorkloadItem[] = [
     },
   },
 ];
-
-export const ownerShipMapMock = new Map([
-  ['dc8fbace-67c0-43d5-a59d-aaff6dbe2d7a', ['60c83096-174e-4191-a705-1245b52a0e33', '5955f63b-b69b-45de-b2e1-2eb60e4cd15e', '9b72c3fd-c800-45ed-97e4-d7d965d9cf65']],
-  ['fada4cb6-0bb4-46f7-99cd-05498ef732f4', ['93edde53-0bb8-44e6-b271-0022abe42100', 'edc816e9-dea5-4133-b499-89984b9ebb14', '750545e3-2266-4891-b6eb-18bd7c5e4f09']],
-  ['db03b586-95df-48f3-aaeb-9e0de42d3926', ['3596ec70-0de7-40a9-90a8-d57f8931ae15', '603414f8-cdec-40dd-bbbe-7ada2473d77c', 'd0e68602-898a-44e3-abce-1d98ab2eee44',
-    'e7ab0fb4-ae9e-4ffe-82ec-899254e096b0']],
-  ['603414f8-cdec-40dd-bbbe-7ada2473d77c', ['fff3a147-8c0e-489d-983a-2a190b4b1999', 'ab79e4af-dccb-4b9b-9063-eea4a1c40e8c', 'dd4ad9ff-622b-4697-bbab-0b22fdb2031e']],
-]);
