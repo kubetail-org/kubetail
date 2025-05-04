@@ -10,7 +10,7 @@ Grep-like tool for Kubernetes log files, written in Rust.
 
 It supports **time-bounded searches**, **regex matching**, and **live log streaming** — all with efficient, zero-allocation processing under the hood.
 
-In the context of **Kubetail**, rgkl is used by the **Kubetail Cluster Agent** ([modules/cluster-agent](modules/cluster-agent)) to fulfill log search and streaming requests from users.
+In the context of **Kubetail**, rgkl is used by the **Kubetail Cluster Agent** ([modules/cluster-agent](modules/cluster-agent)) to fulfill log search and streaming requests from users; when the **Kubetail Cluster API** is available ([modules/cluster-api](modules/cluster-api)).
 
 ---
 ## 🚀 Quickstart
@@ -59,13 +59,6 @@ Reads and optionally follows a log file forward in time.
 Searches the file in reverse (most recent lines first), useful for finding recent errors quickly.
 
 * Same options as `stream-forward`, except no `follow-from`.
-
-#### `z`
-
-Minimalist regex matcher using `ripgrep` internals. Does not care about format or time range.
-
-* `--query/-q <REGEX>`: Regex to search for.
-* `file`: Path to the log file.
 
 ---
 
