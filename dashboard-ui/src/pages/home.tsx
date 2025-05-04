@@ -81,7 +81,7 @@ type ContextType = {
   setSearch: React.Dispatch<React.SetStateAction<string>>;
 };
 
-type WorkloadItem = HomeCronJobsListItemFragmentFragment | HomeJobsListItemFragmentFragment | HomeDeploymentsListItemFragmentFragment | HomePodsListItemFragmentFragment | HomeDaemonSetsListItemFragmentFragment | HomeReplicaSetsListItemFragmentFragment | HomeStatefulSetsListItemFragmentFragment;
+export type WorkloadItem = HomeCronJobsListItemFragmentFragment | HomeJobsListItemFragmentFragment | HomeDeploymentsListItemFragmentFragment | HomePodsListItemFragmentFragment | HomeDaemonSetsListItemFragmentFragment | HomeReplicaSetsListItemFragmentFragment | HomeStatefulSetsListItemFragmentFragment;
 
 const Context = createContext({} as ContextType);
 
@@ -90,7 +90,7 @@ type FileInfo = {
   lastModifiedAt?: Date;
 };
 
-function getContainerIDs(
+export function getContainerIDs(
   parentID: string,
   ownershipMap: Map<string, string[]>,
   containerIDs: string[] = [],
@@ -99,6 +99,7 @@ function getContainerIDs(
     if (ownershipMap.has(childID)) getContainerIDs(childID, ownershipMap, containerIDs);
     else containerIDs.push(childID);
   });
+
   return containerIDs;
 }
 
@@ -106,7 +107,7 @@ function getContainerIDs(
  * Checks if all provided arrays are either undefined or empty
  */
 
-function noSearchResults(...arrays: (WorkloadItem[] | undefined)[]) {
+export function noSearchResults(...arrays: (WorkloadItem[] | undefined)[]) {
   return arrays.every((array) => array === undefined || array.length === 0);
 }
 
@@ -229,7 +230,7 @@ function useLogFileInfo(uids: string[], ownershipMap: Map<string, string[]>) {
  * function to apply filters and search
  */
 
-function applySearchAndFilter(fetching: boolean, items: WorkloadItem[] | null | undefined, search: string, namespace: string): undefined | WorkloadItem[] {
+export function applySearchAndFilter(fetching: boolean, items: WorkloadItem[] | null | undefined, search: string, namespace: string): undefined | WorkloadItem[] {
   if (fetching) return undefined;
 
   // filter items
