@@ -54,7 +54,7 @@ Next, start the web dashboard using the `serve` subcommand:
 kubetail serve
 ```
 
-This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun viewing your Kubernetes logs in realtime!
+This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun tailing your logs!
 
 ### Option 2: Shell
 
@@ -70,7 +70,7 @@ Next, start the web dashboard using the `serve` subcommand:
 kubetail serve
 ```
 
-This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser.
+This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun tailing your logs!
 
 ### Option 3: Binaries
 
@@ -95,7 +95,7 @@ Next, start the web dashboard using the `serve` subcommand:
 kubetail serve
 ```
 
-This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser.
+This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun tailing your logs!
 
 ## Quickstart (Cluster)
 
@@ -116,7 +116,7 @@ To access the web dashboard you can expose it as an ingress using the chart or y
 kubectl port-forward -n kubetail-system svc/kubetail-dashboard 8080:8080
 ```
 
-Visit [http://localhost:8080](http://localhost:8080). Have fun viewing your Kubernetes logs in realtime!
+Visit [http://localhost:8080](http://localhost:8080). Have fun tailing your logs!
 
 ### Option 2: YAML Manifest
 
@@ -142,7 +142,7 @@ To access the web dashboard you can use your usual access methods such as `kubec
 kubectl port-forward -n kubetail-system svc/kubetail-dashboard 8080:8080
 ```
 
-Visit [http://localhost:8080](http://localhost:8080). Have fun viewing your Kubernetes logs in realtime!
+Visit [http://localhost:8080](http://localhost:8080). Have fun tailing your logs!
 
 ### Option 3: Glasskube
 
@@ -158,7 +158,7 @@ Once Kubetail is installed you can use it by clicking "open" in the Glasskube GU
 glasskube open kubetail
 ```
 
-Have fun viewing your Kubernetes logs in realtime!
+Have fun tailing your logs!
 
 ## Documentation
 
@@ -175,16 +175,18 @@ This monorepo contains the following modules:
 * Kubetail Cluster Agent ([modules/cluster-agent](modules/cluster-agent))
 * Kubetail Dashboard ([modules/dashboard](modules/dashboard))
 
-It also contains the source code for the Kubetail Dashboard's frontend:
+It also contains the source code for the Kubetail Dashboard's frontend and the Rust binary that powers log search:
 
 * Dashboard UI ([dashboard-ui](dashboard-ui))
+* rgkl ([crates/rgkl](crates/rgkl))
 
 ### Setting up the Development Environment
 
 Dependencies:
+* [Tilt](https://tilt.dev/)
 * [Go](https://go.dev/)
-* [Rust](https://www.rust-lang.org/)
-* [Cross](https://github.com/cross-rs/cross)
+* [pnpm](https://pnpm.io/)
+* [ctlptl](https://github.com/tilt-dev/ctlptl) (optional)
 
 1. Create a Kubernetes dev cluster:
 
