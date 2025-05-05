@@ -18,9 +18,9 @@ import { render } from '@testing-library/react';
 
 import { describe, it, expect } from 'vitest';
 
-import Home, { applySearchAndFilter, noSearchResults } from '@/pages/home';
+import Home from '@/pages/home';
 import { workloadItemMock } from '@/mocks/home';
-import { getContainerIDs } from './home';
+import { applySearchAndFilter, noSearchResults, getContainerIDs } from '@/lib/home';
 
 const ownershipMapMock = new Map([
   ['dc8fbace-67c0-43d5-a59d-aaff6dbe2d7a', ['60c83096-174e-4191-a705-1245b52a0e33', '5955f63b-b69b-45de-b2e1-2eb60e4cd15e']],

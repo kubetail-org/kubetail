@@ -15,7 +15,7 @@
 import type { MockedResponse } from '@apollo/client/testing';
 
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
-import { WorkloadItem } from '@/pages/home';
+import type { WorkloadItem } from '@/pages/home';
 
 const genericListResponse = (typename: string) => ({
   __typename: typename,

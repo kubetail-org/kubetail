@@ -54,6 +54,7 @@ import type {
   HomeReplicaSetsListItemFragmentFragment,
   HomeStatefulSetsListItemFragmentFragment,
 } from '@/lib/graphql/dashboard/__generated__/graphql';
+import { applySearchAndFilter, noSearchResults, getContainerIDs } from '@/lib/home';
 
 /**
  * Shared variables and helper methods
@@ -89,27 +90,6 @@ type FileInfo = {
   size: string;
   lastModifiedAt?: Date;
 };
-
-export function getContainerIDs(
-  parentID: string,
-  ownershipMap: Map<string, string[]>,
-  containerIDs: string[] = [],
-): string[] {
-  ownershipMap.get(parentID)?.forEach((childID) => {
-    if (ownershipMap.has(childID)) getContainerIDs(childID, ownershipMap, containerIDs);
-    else containerIDs.push(childID);
-  });
-
-  return containerIDs;
-}
-
-/**
- * Checks if all provided arrays are either undefined or empty
- */
-
-export function noSearchResults(...arrays: (WorkloadItem[] | undefined)[]) {
-  return arrays.every((array) => array === undefined || array.length === 0);
-}
 
 /**
  * Custom hooks
@@ -227,30 +207,6 @@ function useLogFileInfo(uids: string[], ownershipMap: Map<string, string[]>) {
 }
 
 /**
- * function to apply filters and search
- */
-
-export function applySearchAndFilter(fetching: boolean, items: WorkloadItem[] | null | undefined, search: string, namespace: string): undefined | WorkloadItem[] {
-  if (fetching) return undefined;
-
-  // filter items
-  const filteredItems = items?.filter((item) => {
-    // remove deleted items
-    if (item.metadata.deletionTimestamp) return false;
-
-    // workloads withing namespace filter and search
-    if (search !== '') {
-      return ((namespace === '' || item.metadata.namespace === namespace) && item.metadata.name.includes(search));
-    }
-
-    // remove items not in filtered namespace
-    return namespace === '' || item.metadata.namespace === namespace;
-  });
-
-  return filteredItems;
-}
-
-/**
  * LogMetadataMapProvider component
  */
 
@@ -332,7 +288,7 @@ const KubeContextPicker = ({
 
 const SearchBox = () => {
   const { setSearch } = useContext(Context);
-  const deboucedSearch = useDebounceCallback((value: string) => setSearch(value), 300);
+  const deboucedSearch = useDebounceCallback((value: string) => setSearch(value), 100);
 
   return (
     <div className={cn('search-input relative')}>
