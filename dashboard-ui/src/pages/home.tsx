@@ -974,7 +974,7 @@ const Content = () => {
   });
 
   return (
-    <div className="px-[20px] py-[10px] ">
+    <div className="inline-block min-w-full px-[20px] py-[10px]">
       {readyWait.loading || kubeContext === undefined ? (
         <div>Connecting...</div>
       ) : (
@@ -982,37 +982,30 @@ const Content = () => {
           method="get"
           target="_blank"
           action={joinPaths(basename, '/console')}
-          className="w-full"
         >
           <input type="hidden" name="kubeContext" value={kubeContext} />
-          <div className="overflow-x-scroll">
-            <div className="min-w-[810px] w-full">
-              <div className="flex gap-4 py-4 justify-between flex-row w-full">
-                <div className="flex gap-2 flex-row items-center">
-                  {!sidebarOpen && (
-                    <PanelLeftOpen
-                      className="cursor-pointer text-chrome-400 hover:text-primary"
-                      onClick={() => setSidebarOpen(true)}
-                    />
-                  )}
-                  <h1 className="text-2xl font-semibold">Dashboard</h1>
-                </div>
-                <div className="flex gap-2">
-                  <SearchBox />
-                  <div className="block w-[200px]">
-                    <NamespacesPicker />
-                  </div>
-                  <Button type="submit">
-                    View in console
-                    <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] ml-1" />
-                  </Button>
-                </div>
+          <div className="flex gap-4 py-4 justify-between flex-row">
+            <div className="flex gap-2 flex-row items-center">
+              {!sidebarOpen && (
+                <PanelLeftOpen
+                  className="cursor-pointer text-chrome-400 hover:text-primary"
+                  onClick={() => setSidebarOpen(true)}
+                />
+              )}
+              <h1 className="text-2xl font-semibold">Dashboard</h1>
+            </div>
+            <div className="flex gap-2">
+              <SearchBox />
+              <div className="block w-[200px]">
+                <NamespacesPicker />
               </div>
-
-              {/* Tables will be inside the same width-constrained container */}
-              <DisplayWorkloads />
+              <Button type="submit">
+                View in console
+                <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] ml-1" />
+              </Button>
             </div>
           </div>
+          <DisplayWorkloads />
         </form>
       )}
     </div>
