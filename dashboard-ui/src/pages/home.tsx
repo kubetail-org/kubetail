@@ -622,7 +622,7 @@ const DisplayItems = ({
             return (
               <DataTable.Row
                 key={item.metadata.uid}
-                className="text-chrome-700 max-w-full overflow-x-scroll"
+                className="text-chrome-700 max-w-full"
               >
                 <DataTable.DataCell>
                   <Form.Check
@@ -861,7 +861,7 @@ const DisplayWorkloads = () => {
 
   return (
     <>
-      <DataTable className="rounded-table-wrapper overflow-x-scroll  w-full" size="sm">
+      <DataTable className="rounded-table-wrapper overflow-visible w-full" size="sm">
         {tableEls}
       </DataTable>
       {/* showing this only on all workloads view */}
@@ -982,26 +982,37 @@ const Content = () => {
           method="get"
           target="_blank"
           action={joinPaths(basename, '/console')}
+          className="w-full"
         >
           <input type="hidden" name="kubeContext" value={kubeContext} />
-          <div className="flex py-4 justify-between  flex-row ">
-            <div className="flex mr-3 gap-2 flex-row items-center">
-              {!sidebarOpen
-                && <PanelLeftOpen className="cursor-pointer  text-chrome-400 hover:text-primary " onClick={() => setSidebarOpen(true)} />}
-              <h1 className="text-2xl font-semibold">Dashboard</h1>
-            </div>
-            <div className="flex gap-2 ">
-              <SearchBox />
-              <div className="block w-[200px]">
-                <NamespacesPicker />
+          <div className="overflow-x-scroll">
+            <div className="min-w-[810px] w-full">
+              <div className="flex gap-4 py-4 justify-between flex-row w-full">
+                <div className="flex gap-2 flex-row items-center">
+                  {!sidebarOpen && (
+                    <PanelLeftOpen
+                      className="cursor-pointer text-chrome-400 hover:text-primary"
+                      onClick={() => setSidebarOpen(true)}
+                    />
+                  )}
+                  <h1 className="text-2xl font-semibold">Dashboard</h1>
+                </div>
+                <div className="flex gap-2">
+                  <SearchBox />
+                  <div className="block w-[200px]">
+                    <NamespacesPicker />
+                  </div>
+                  <Button type="submit">
+                    View in console
+                    <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] ml-1" />
+                  </Button>
+                </div>
               </div>
-              <Button type="submit">
-                View in console
-                <ArrowTopRightOnSquareIcon className="w-[18px] h-[18px] ml-1" />
-              </Button>
+
+              {/* Tables will be inside the same width-constrained container */}
+              <DisplayWorkloads />
             </div>
           </div>
-          <DisplayWorkloads />
         </form>
       )}
     </div>
