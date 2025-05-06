@@ -68,7 +68,7 @@ func NewHealthMonitor(cfg *config.Config, cm k8shelpers.ConnectionManager) Healt
 // Represents DesktopHealthMonitor
 type DesktopHealthMonitor struct {
 	cm          k8shelpers.ConnectionManager
-	workerCache map[string]*endpointSlicesHealthMonitorWorker
+	workerCache map[string]healthMonitorWorker
 	contextMu   map[string]*sync.Mutex
 	mu          sync.Mutex
 }
@@ -77,7 +77,7 @@ type DesktopHealthMonitor struct {
 func NewDesktopHealthMonitor(cm k8shelpers.ConnectionManager) *DesktopHealthMonitor {
 	return &DesktopHealthMonitor{
 		cm:          cm,
-		workerCache: make(map[string]*endpointSlicesHealthMonitorWorker),
+		workerCache: make(map[string]healthMonitorWorker),
 		contextMu:   make(map[string]*sync.Mutex),
 	}
 }
@@ -123,7 +123,7 @@ func (hm *DesktopHealthMonitor) ReadyWait(ctx context.Context, kubeContext strin
 }
 
 // getOrCreateWorker
-func (hm *DesktopHealthMonitor) getOrCreateWorker(ctx context.Context, kubeContext string, namespacePtr *string, serviceNamePtr *string) (*endpointSlicesHealthMonitorWorker, error) {
+func (hm *DesktopHealthMonitor) getOrCreateWorker(ctx context.Context, kubeContext string, namespacePtr *string, serviceNamePtr *string) (healthMonitorWorker, error) {
 	// Get or create mutex for this kubeContext
 	hm.mu.Lock()
 	contextMutex, exists := hm.contextMu[kubeContext]
@@ -152,10 +152,17 @@ func (hm *DesktopHealthMonitor) getOrCreateWorker(ctx context.Context, kubeConte
 			return nil, err
 		}
 
-		// Initialize worker
-		worker, err = newEndpointSlicesHealthMonitorWorker(clientset, namespace, serviceName)
-		if err != nil {
-			return nil, err
+		// Check if the Kubernetes API supports EndpointSlices
+		resources, err := clientset.Discovery().ServerResourcesForGroupVersion("discovery.k8s.io/v1")
+		if err != nil || resources == nil {
+			// EndpointSlices not supported, initialize NoopHealthMonitor
+			worker = newNoopHealthMonitorWorker()
+		} else {
+			// EndpointSlices supported, initialize EndpointSlicesHealthMonitor
+			worker, err = newEndpointSlicesHealthMonitorWorker(clientset, namespace, serviceName)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		// Add to cache
@@ -246,10 +253,20 @@ func (hm *InClusterHealthMonitor) getOrCreateWorker(ctx context.Context) (health
 			return nil, err
 		}
 
-		// Initialize EndpointSlicesHealthMonitor
-		worker, err := newEndpointSlicesHealthMonitorWorker(clientset, connectArgs.Namespace, connectArgs.ServiceName)
-		if err != nil {
-			return nil, err
+		var worker healthMonitorWorker
+
+		// Check if the Kubernetes API supports EndpointSlices
+		resources, err := clientset.Discovery().ServerResourcesForGroupVersion("discovery.k8s.io/v1")
+		if err != nil || resources == nil {
+			// EndpointSlices not supported, initialize NoopHealthMonitor
+			worker = newNoopHealthMonitorWorker()
+		} else {
+			// EndpointSlices supported, initialize EndpointSlicesHealthMonitor
+			worker, err = newEndpointSlicesHealthMonitorWorker(clientset, connectArgs.Namespace, connectArgs.ServiceName)
+			if err != nil {
+				return nil, err
+			}
+
 		}
 
 		// Start background processes
@@ -511,10 +528,10 @@ func (*noopHealthMonitorWorker) GetHealthStatus() HealthStatus {
 
 // WatchHealthStatus
 func (*noopHealthMonitorWorker) WatchHealthStatus(ctx context.Context) (<-chan HealthStatus, error) {
-	return nil, fmt.Errorf("not configured")
+	return nil, fmt.Errorf("not available")
 }
 
 // ReadyWait
 func (*noopHealthMonitorWorker) ReadyWait(ctx context.Context) error {
-	return fmt.Errorf("not configured")
+	return fmt.Errorf("not available")
 }
