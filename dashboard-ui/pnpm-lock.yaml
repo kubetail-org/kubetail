@@ -21,8 +21,8 @@ importers:
         specifier: ^2.2.0
         version: 2.2.0(react@18.3.1)
       '@kubetail/ui':
-        specifier: 0.1.5
-        version: 0.1.5(@heroicons/react@2.2.0(react@18.3.1))(@tailwindcss/forms@0.5.10(tailwindcss@3.4.17))(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(date-fns@3.6.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17)
+        specifier: 0.1.8
+        version: 0.1.8(@heroicons/react@2.2.0(react@18.3.1))(@tailwindcss/forms@0.5.10(tailwindcss@3.4.17))(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(date-fns@3.6.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -831,8 +831,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.25':
     resolution: {integrity: sha512-vNk6aEwybGtawWmy/PzwnGDOjCkLWSD2wqvjGGAgOAwCGWySYXfYoxt00IJkTF+8Lb57DwOb3Aa0o9CApepiYQ==}
 
-  '@kubetail/ui@0.1.5':
-    resolution: {integrity: sha512-eD3tH4hSU6ZqTNEp1BpcUIOi8UuuIPgcwoeDeNQI1jLYX2La/wRXyGcZu7hi1y0hBbHheUrK2Kw2V5SlPzMu+A==}
+  '@kubetail/ui@0.1.8':
+    resolution: {integrity: sha512-CTXqJSeUXra/HY+YruoJMlPUhpUpgF4HgZK8stmuSbXyYtOm0fz1wAjJTTWtU8B0xUB8Vj/uV+oMTmww7BjfyQ==}
     peerDependencies:
       '@heroicons/react': ^2.0.15
       '@tailwindcss/forms': ^0.5.7
@@ -5122,7 +5122,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.0
 
-  '@kubetail/ui@0.1.5(@heroicons/react@2.2.0(react@18.3.1))(@tailwindcss/forms@0.5.10(tailwindcss@3.4.17))(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(date-fns@3.6.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17)':
+  '@kubetail/ui@0.1.8(@heroicons/react@2.2.0(react@18.3.1))(@tailwindcss/forms@0.5.10(tailwindcss@3.4.17))(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(date-fns@3.6.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17)':
     dependencies:
       '@heroicons/react': 2.2.0(react@18.3.1)
       '@radix-ui/react-dropdown-menu': 2.1.7(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
