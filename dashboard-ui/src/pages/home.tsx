@@ -45,16 +45,8 @@ import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { useListQueryWithSubscription, useLogMetadata, useWorkloadCounter } from '@/lib/hooks';
 import { joinPaths, getBasename, cn } from '@/lib/util';
 import { Workload, allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
-import type {
-  HomeCronJobsListItemFragmentFragment,
-  HomeDaemonSetsListItemFragmentFragment,
-  HomePodsListItemFragmentFragment,
-  HomeJobsListItemFragmentFragment,
-  HomeDeploymentsListItemFragmentFragment,
-  HomeReplicaSetsListItemFragmentFragment,
-  HomeStatefulSetsListItemFragmentFragment,
-} from '@/lib/graphql/dashboard/__generated__/graphql';
 import { applySearchAndFilter, noSearchResults, getContainerIDs } from '@/lib/home';
+import type { WorkloadItem } from '@/lib/home';
 
 /**
  * Shared variables and helper methods
@@ -81,8 +73,6 @@ type ContextType = {
   search: string;
   setSearch: React.Dispatch<React.SetStateAction<string>>;
 };
-
-export type WorkloadItem = HomeCronJobsListItemFragmentFragment | HomeJobsListItemFragmentFragment | HomeDeploymentsListItemFragmentFragment | HomePodsListItemFragmentFragment | HomeDaemonSetsListItemFragmentFragment | HomeReplicaSetsListItemFragmentFragment | HomeStatefulSetsListItemFragmentFragment;
 
 const Context = createContext({} as ContextType);
 
