@@ -12,7 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { WorkloadItem } from '@/pages/home';
+import type {
+  HomeCronJobsListItemFragmentFragment,
+  HomeDaemonSetsListItemFragmentFragment,
+  HomePodsListItemFragmentFragment,
+  HomeJobsListItemFragmentFragment,
+  HomeDeploymentsListItemFragmentFragment,
+  HomeReplicaSetsListItemFragmentFragment,
+  HomeStatefulSetsListItemFragmentFragment,
+} from '@/lib/graphql/dashboard/__generated__/graphql';
+
+export type WorkloadItem = HomeCronJobsListItemFragmentFragment | HomeJobsListItemFragmentFragment | HomeDeploymentsListItemFragmentFragment | HomePodsListItemFragmentFragment | HomeDaemonSetsListItemFragmentFragment | HomeReplicaSetsListItemFragmentFragment | HomeStatefulSetsListItemFragmentFragment;
 
 /**
  * gets all the leaf node IDs of parent node
