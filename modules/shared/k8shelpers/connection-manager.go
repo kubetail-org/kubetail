@@ -62,6 +62,7 @@ type DesktopConnectionManager struct {
 	KubeConfigWatcher *KubeConfigWatcher
 	kubeConfig        *api.Config
 	kubeconfigPath    string
+	isLazy            bool
 	authorizer        DesktopAuthorizer
 	rcCache           map[string]*rest.Config
 	csCache           map[string]*kubernetes.Clientset
@@ -104,8 +105,10 @@ func NewDesktopConnectionManager(options ...ConnectionManagerOption) (*DesktopCo
 	// Cache kube config
 	cm.kubeConfig = kfw.Get()
 
-	// Warm up cache in background
-	go cm.warmUpCache()
+	// Warm up cache in background (if not lazy)
+	if !cm.isLazy {
+		go cm.warmUpCache()
+	}
 
 	// Register kube config watch handlers
 	kfw.Subscribe("ADDED", cm.kubeConfigAdded)
@@ -700,6 +703,18 @@ func WithKubeconfig(kubeconfig string) ConnectionManagerOption {
 		switch t := cm.(type) {
 		case *DesktopConnectionManager:
 			t.kubeconfigPath = kubeconfig
+		case *InClusterConnectionManager:
+			break
+		}
+	}
+}
+
+// WithLazyConnect skips cache warmer
+func WithLazyConnect(isLazy bool) ConnectionManagerOption {
+	return func(cm ConnectionManager) {
+		switch t := cm.(type) {
+		case *DesktopConnectionManager:
+			t.isLazy = isLazy
 		case *InClusterConnectionManager:
 			break
 		}
