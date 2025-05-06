@@ -15,6 +15,7 @@
 import type { MockedResponse } from '@apollo/client/testing';
 
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
+import type { WorkloadItem } from '@/pages/home';
 
 const genericListResponse = (typename: string) => ({
   __typename: typename,
@@ -232,6 +233,51 @@ export const mocks: MockedResponse[] = [
           timestamp: null,
         },
       },
+    },
+  },
+];
+
+export const workloadItemMock: WorkloadItem[] = [
+  {
+    __typename: 'AppsV1DaemonSet',
+    id: 'b19915f5-cfcf-442e-b5a9-7eeea9c6de08',
+    metadata: {
+      __typename: 'MetaV1ObjectMeta',
+      namespace: 'kube-system',
+      name: 'kindnet',
+      uid: 'b19915f5-cfcf-442e-b5a9-7eeea9c6de08',
+      creationTimestamp: '2025-05-03T11:01:32.000Z',
+      deletionTimestamp: null,
+      resourceVersion: '621',
+      ownerReferences: [],
+    },
+  },
+  {
+    __typename: 'AppsV1DaemonSet',
+    id: 'f816bf39-fd58-44c0-918c-c56e3be62f59',
+    metadata: {
+      __typename: 'MetaV1ObjectMeta',
+      namespace: 'kube-system',
+      name: 'kube-proxy',
+      uid: 'f816bf39-fd58-44c0-918c-c56e3be62f59',
+      creationTimestamp: '2025-05-03T11:01:31.000Z',
+      deletionTimestamp: null,
+      resourceVersion: '564',
+      ownerReferences: [],
+    },
+  },
+  {
+    __typename: 'AppsV1DaemonSet',
+    id: 'b7577341-a44c-494e-bb1a-a45200fe57e3',
+    metadata: {
+      __typename: 'MetaV1ObjectMeta',
+      namespace: 'kubetail-system',
+      name: 'kubetail-cluster-agent',
+      uid: 'b7577341-a44c-494e-bb1a-a45200fe57e3',
+      creationTimestamp: '2025-05-03T11:23:29.000Z',
+      deletionTimestamp: '2025-05-03T13:01:31.000Z',
+      resourceVersion: '12542',
+      ownerReferences: [],
     },
   },
 ];
