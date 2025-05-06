@@ -14,7 +14,6 @@
 
 import { useSubscription } from '@apollo/client';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
-import { Boxes, Layers3, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import numeral from 'numeral';
 import React, {
   createContext,
@@ -27,6 +26,10 @@ import TimeAgo from 'react-timeago';
 import type { Formatter, Suffix, Unit } from 'react-timeago';
 import { RecoilRoot, atom, useRecoilValue, useSetRecoilState } from 'recoil';
 
+import { Boxes, Layers3, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
+import { useDebounceCallback } from 'usehooks-ts';
+
+import FormControl from '@kubetail/ui/elements/FormControl';
 import Button from '@kubetail/ui/elements/Button';
 import DataTable from '@kubetail/ui/elements/DataTable';
 import type { SortBy } from '@kubetail/ui/elements/DataTable/Header';
@@ -42,6 +45,16 @@ import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { useListQueryWithSubscription, useLogMetadata, useWorkloadCounter } from '@/lib/hooks';
 import { joinPaths, getBasename, cn } from '@/lib/util';
 import { Workload, allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
+import type {
+  HomeCronJobsListItemFragmentFragment,
+  HomeDaemonSetsListItemFragmentFragment,
+  HomePodsListItemFragmentFragment,
+  HomeJobsListItemFragmentFragment,
+  HomeDeploymentsListItemFragmentFragment,
+  HomeReplicaSetsListItemFragmentFragment,
+  HomeStatefulSetsListItemFragmentFragment,
+} from '@/lib/graphql/dashboard/__generated__/graphql';
+import { applySearchAndFilter, noSearchResults, getContainerIDs } from '@/lib/home';
 
 /**
  * Shared variables and helper methods
@@ -65,7 +78,11 @@ type ContextType = {
   setWorkloadFilter: React.Dispatch<React.SetStateAction<Workload | undefined>>;
   sidebarOpen: boolean;
   setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  search: string;
+  setSearch: React.Dispatch<React.SetStateAction<string>>;
 };
+
+export type WorkloadItem = HomeCronJobsListItemFragmentFragment | HomeJobsListItemFragmentFragment | HomeDeploymentsListItemFragmentFragment | HomePodsListItemFragmentFragment | HomeDaemonSetsListItemFragmentFragment | HomeReplicaSetsListItemFragmentFragment | HomeStatefulSetsListItemFragmentFragment;
 
 const Context = createContext({} as ContextType);
 
@@ -73,18 +90,6 @@ type FileInfo = {
   size: string;
   lastModifiedAt?: Date;
 };
-
-function getContainerIDs(
-  parentID: string,
-  ownershipMap: Map<string, string[]>,
-  containerIDs: string[] = [],
-): string[] {
-  ownershipMap.get(parentID)?.forEach((childID) => {
-    if (ownershipMap.has(childID)) getContainerIDs(childID, ownershipMap, containerIDs);
-    else containerIDs.push(childID);
-  });
-  return containerIDs;
-}
 
 /**
  * Custom hooks
@@ -186,7 +191,10 @@ function useLogFileInfo(uids: string[], ownershipMap: Map<string, string[]>) {
 
       if (val?.lastModifiedAt) {
         fileInfo.lastModifiedAt = new Date(
-          Math.max(val.lastModifiedAt.getTime(), fileInfo.lastModifiedAt.getTime()),
+          Math.max(
+            val.lastModifiedAt.getTime(),
+            fileInfo.lastModifiedAt.getTime(),
+          ),
         );
       }
     });
@@ -275,6 +283,29 @@ const KubeContextPicker = ({
 };
 
 /**
+ * SearchBox component
+ */
+
+const SearchBox = () => {
+  const { setSearch } = useContext(Context);
+  const deboucedSearch = useDebounceCallback((value: string) => setSearch(value), 100);
+
+  return (
+    <div className={cn('search-input relative')}>
+      <FormControl
+        id="search-box"
+        onChange={(e) => deboucedSearch(e.target.value)}
+        type="search"
+        onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+        placeholder="search workloads..."
+        className="text-sm align-bottom pl-10 placeholder:text-chrome-400 w-64"
+      />
+      <Search className="absolute left-3 top-1/4 h-5 w-5 text-chrome-500" />
+    </div>
+  );
+};
+
+/**
  * NamespacesPicker component
  */
 
@@ -326,38 +357,33 @@ type DisplayItemsProps = {
   workload: Workload;
   namespace: string;
   fetching: boolean;
-  items: {
-    id: string;
-    metadata: {
-      uid: string;
-      namespace: string;
-      name: string;
-      creationTimestamp: any;
-      deletionTimestamp?: Date;
-    };
-  }[] | undefined | null;
+  items:
+  | WorkloadItem[]
+  | undefined
+  | null;
   ownershipMap: Map<string, string[]>;
 };
 
 const DisplayItems = ({
-  workload, namespace, fetching, items, ownershipMap,
+  workload,
+  namespace,
+  fetching,
+  items,
+  ownershipMap,
 }: DisplayItemsProps) => {
-  const { kubeContext, workloadFilter } = useContext(Context);
+  const { kubeContext, search, workloadFilter } = useContext(Context);
 
-  // filter items
-  const filteredItems = items?.filter((item) => {
-    // remove deleted items
-    if (item.metadata.deletionTimestamp) return false;
-
-    // remove items not in filtered namespace
-    return (namespace === '' || item.metadata.namespace === namespace);
-  });
+  // destructuring items array due to read-only array issue
+  const filteredItems = items ? [...items] : [];
 
   const ids = filteredItems?.map((item) => item.metadata.uid) || [];
   const logFileInfo = useLogFileInfo(ids, ownershipMap);
 
   // handle sorting
-  const [sortBy, setSortBy] = useState<SortBy>({ field: 'name', direction: 'ASC' });
+  const [sortBy, setSortBy] = useState<SortBy>({
+    field: 'name',
+    direction: 'ASC',
+  });
   const handleSortByChange = (newSortBy: SortBy) => setSortBy(newSortBy);
 
   if (filteredItems) {
@@ -403,7 +429,7 @@ const DisplayItems = ({
 
   // handle show some-or-all
   const [showAll, setShowAll] = useState(!allWorkloadView);
-  const visibleItems = (filteredItems && showAll) ? filteredItems : filteredItems?.slice(0, 5);
+  const visibleItems = filteredItems && showAll ? filteredItems : filteredItems?.slice(0, 5);
   const hasMore = filteredItems && filteredItems.length > 5;
 
   // handle toggle-all
@@ -446,6 +472,11 @@ const DisplayItems = ({
     setShowAll(!allWorkloadView);
   }, [workloadFilter]);
 
+  // hides workloads that doesn't have any filtered items during search
+  if (allWorkloadView && filteredItems?.length === 0 && search !== '') {
+    return null;
+  }
+
   return (
     <>
       <thead>
@@ -454,9 +485,13 @@ const DisplayItems = ({
             <div className="flex items-center space-x-1">
               <Icon className="w-[22px] h-[22px]" />
               <div className="font-medium">{label}</div>
-              {fetching ? <div><Spinner size="xs" /></div> : (
+              {fetching ? (
+                <div>
+                  <Spinner size="xs" />
+                </div>
+              ) : (
                 <div className="px-[10px] py-[2px] bg-chrome-100 font-semibold rounded-full text-xs text-chrome-foreground">
-                  {filteredItems && `${filteredItems?.length}`}
+                  {items && `${items?.length}`}
                 </div>
               )}
             </div>
@@ -476,10 +511,7 @@ const DisplayItems = ({
                 onChange={handleSelectAllChange}
               />
             </DataTable.HeaderCell>
-            <DataTable.HeaderCell
-              sortField="name"
-              initialSortDirection="ASC"
-            >
+            <DataTable.HeaderCell sortField="name" initialSortDirection="ASC">
               Name
             </DataTable.HeaderCell>
             {namespace === '' && (
@@ -518,13 +550,15 @@ const DisplayItems = ({
         </DataTable.Header>
 
         {/* no resource found ui */}
-        {!filteredItems?.length && (
+        {!items?.length && (
           <DataTable.Body className="rounded-tbody">
             <DataTable.Row>
               <DataTable.DataCell colSpan={7}>
                 <div className="flex flex-col items-center  py-1 ">
                   <Layers3 className="h-5 w-5 text-chrome-400" />
-                  <span className="text-chrome-400 italic font-medium">No resources found</span>
+                  <span className="text-chrome-400 italic font-medium">
+                    No resources found
+                  </span>
                 </div>
               </DataTable.DataCell>
             </DataTable.Row>
@@ -537,10 +571,15 @@ const DisplayItems = ({
             const fileInfo = logFileInfo.get(item.metadata.uid);
 
             // for last event
-            const lastEventCls = fileInfo?.containerIDs.map((id) => `last_event_${id}`).join(' ');
+            const lastEventCls = fileInfo?.containerIDs
+              .map((id) => `last_event_${id}`)
+              .join(' ');
 
             return (
-              <DataTable.Row key={item.metadata.uid} className="text-chrome-700">
+              <DataTable.Row
+                key={item.metadata.uid}
+                className="text-chrome-700 max-w-full"
+              >
                 <DataTable.DataCell>
                   <Form.Check
                     name="source"
@@ -551,10 +590,16 @@ const DisplayItems = ({
                 </DataTable.DataCell>
                 <DataTable.DataCell>{item.metadata.name}</DataTable.DataCell>
                 {namespace === '' && (
-                  <DataTable.DataCell>{item.metadata.namespace}</DataTable.DataCell>
+                  <DataTable.DataCell>
+                    {item.metadata.namespace}
+                  </DataTable.DataCell>
                 )}
                 <DataTable.DataCell>
-                  <TimeAgo key={Math.random()} date={item.metadata.creationTimestamp} title={item.metadata.creationTimestamp.toUTCString()} />
+                  <TimeAgo
+                    key={Math.random()}
+                    date={item.metadata.creationTimestamp}
+                    title={item.metadata.creationTimestamp.toUTCString()}
+                  />
                 </DataTable.DataCell>
                 {appConfig.clusterAPIEnabled === true && (
                   <>
@@ -620,7 +665,7 @@ const DisplayItems = ({
  */
 
 const DisplayWorkloads = () => {
-  const { kubeContext, workloadFilter, namespace } = useContext(Context);
+  const { search, kubeContext, workloadFilter, namespace } = useContext(Context);
 
   const cronjobs = useCronJobs(kubeContext);
   const daemonsets = useDaemonSets(kubeContext);
@@ -665,6 +710,17 @@ const DisplayWorkloads = () => {
     statefulsets.data?.appsV1StatefulSetsList?.metadata.resourceVersion,
   ]);
 
+  const filterCronJobs = applySearchAndFilter(cronjobs.fetching, cronjobs.data?.batchV1CronJobsList?.items, search, namespace);
+  const filterDaemonsets = applySearchAndFilter(daemonsets.fetching, daemonsets.data?.appsV1DaemonSetsList?.items, search, namespace);
+  const filterPods = applySearchAndFilter(pods.fetching, pods.data?.coreV1PodsList?.items, search, namespace);
+  const filterJobs = applySearchAndFilter(jobs.fetching, jobs.data?.batchV1JobsList?.items, search, namespace);
+  const filterDeployments = applySearchAndFilter(deployments.fetching, deployments.data?.appsV1DeploymentsList?.items, search, namespace);
+  const filterReplicasets = applySearchAndFilter(replicasets.fetching, replicasets.data?.appsV1ReplicaSetsList?.items, search, namespace);
+  const filterStatefulsets = applySearchAndFilter(statefulsets.fetching, statefulsets.data?.appsV1StatefulSetsList?.items, search, namespace);
+
+  // we want to show this only when user searches for a workload
+  const noResultFound = search !== '' ? noSearchResults(filterCronJobs, filterDeployments, filterPods, filterJobs, filterDaemonsets, filterReplicasets, filterStatefulsets) : false;
+
   // Render data tables
   const tableEls: JSX.Element[] = [];
 
@@ -675,7 +731,7 @@ const DisplayWorkloads = () => {
         workload={Workload.CRONJOBS}
         namespace={namespace}
         fetching={cronjobs.fetching}
-        items={cronjobs.data?.batchV1CronJobsList?.items}
+        items={filterCronJobs}
         ownershipMap={ownershipMap}
       />,
     );
@@ -688,7 +744,7 @@ const DisplayWorkloads = () => {
         workload={Workload.DAEMONSETS}
         namespace={namespace}
         fetching={daemonsets.fetching}
-        items={daemonsets.data?.appsV1DaemonSetsList?.items}
+        items={filterDaemonsets}
         ownershipMap={ownershipMap}
       />,
     );
@@ -701,7 +757,7 @@ const DisplayWorkloads = () => {
         workload={Workload.DEPLOYMENTS}
         namespace={namespace}
         fetching={deployments.fetching}
-        items={deployments.data?.appsV1DeploymentsList?.items}
+        items={filterDeployments}
         ownershipMap={ownershipMap}
       />,
     );
@@ -714,7 +770,7 @@ const DisplayWorkloads = () => {
         workload={Workload.JOBS}
         namespace={namespace}
         fetching={jobs.fetching}
-        items={jobs.data?.batchV1JobsList?.items}
+        items={filterJobs}
         ownershipMap={ownershipMap}
       />,
     );
@@ -727,7 +783,7 @@ const DisplayWorkloads = () => {
         workload={Workload.PODS}
         namespace={namespace}
         fetching={pods.fetching}
-        items={pods.data?.coreV1PodsList?.items}
+        items={filterPods}
         ownershipMap={ownershipMap}
       />,
     );
@@ -740,7 +796,7 @@ const DisplayWorkloads = () => {
         workload={Workload.REPLICASETS}
         namespace={namespace}
         fetching={replicasets.fetching}
-        items={replicasets.data?.appsV1ReplicaSetsList?.items}
+        items={filterReplicasets}
         ownershipMap={ownershipMap}
       />,
     );
@@ -753,16 +809,27 @@ const DisplayWorkloads = () => {
         workload={Workload.STATEFULSETS}
         namespace={namespace}
         fetching={statefulsets.fetching}
-        items={statefulsets.data?.appsV1StatefulSetsList?.items}
+        items={filterStatefulsets}
         ownershipMap={ownershipMap}
       />,
     );
   }
 
   return (
-    <DataTable className="rounded-table-wrapper w-full" size="sm">
-      {tableEls}
-    </DataTable>
+    <>
+      <DataTable className="rounded-table-wrapper overflow-visible w-full" size="sm">
+        {tableEls}
+      </DataTable>
+      {/* showing this only on all workloads view */}
+      {noResultFound && workloadFilter === undefined && (
+        <div className="flex items-center border border-dashed border-secondary rounded-md justify-center h-32">
+          <div className="text-center">
+            <Search className="h-8 w-8 text-chrome-400 mx-auto mb-2" />
+            <p className="text-base text-chrome-400">No matching workloads found</p>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -777,7 +844,11 @@ const Header = () => {
     <div className="px-4 py-[5px] flex items-center justify-between">
       <div className="flex items-center space-x-4">
         <a href="/">
-          <img src={joinPaths(basename, logo)} alt="logo" className="display-block h-[40px]" />
+          <img
+            src={joinPaths(basename, logo)}
+            alt="logo"
+            className="display-block h-[40px]"
+          />
         </a>
       </div>
       <div className="flex flex-row items-center gap-3">
@@ -808,10 +879,15 @@ const Sidebar = () => {
   const { workloadFilter, setWorkloadFilter, kubeContext, namespace } = useContext(Context);
 
   // kubeContext sometimes is undefined
-  const { loading, error, counter } = useWorkloadCounter(kubeContext ?? '', namespace);
+  const { loading, error, counter } = useWorkloadCounter(
+    kubeContext ?? '',
+    namespace,
+  );
 
   // using some default sidebar values during data loading and error states
-  const sidebarItems: [Workload, number][] = loading || error ? allWorkloads.map((w) => [w, 0]) : Array.from(counter.entries());
+  const sidebarItems: [Workload, number][] = loading || error
+    ? allWorkloads.map((w) => [w, 0])
+    : Array.from(counter.entries());
 
   return (
     <div className="px-4">
@@ -822,13 +898,18 @@ const Sidebar = () => {
               type="button"
               className={cn(
                 'flex items-center justify-between py-2 px-4 rounded-lg group hover:bg-blue-100 w-full',
-                workload === workloadFilter ? 'bg-blue-100 text-primary font-medium' : 'text-chrome-500',
+                workload === workloadFilter
+                  ? 'bg-blue-100 text-primary font-medium'
+                  : 'text-chrome-500 ',
               )}
               onClick={() => setWorkloadFilter(workload)}
             >
               <span>{labelsPMap[workload]}</span>
-              {count !== undefined
-                && <CountBadge count={count} workload={workload} workloadFilter={workloadFilter} />}
+              <CountBadge
+                count={count}
+                workload={workload}
+                workloadFilter={workloadFilter}
+              />
             </button>
           </li>
         ))}
@@ -849,8 +930,8 @@ const Content = () => {
   });
 
   return (
-    <div className="px-[20px] py-[10px] ">
-      {(readyWait.loading || kubeContext === undefined) ? (
+    <div className="inline-block min-w-full px-[20px] py-[10px]">
+      {readyWait.loading || kubeContext === undefined ? (
         <div>Connecting...</div>
       ) : (
         <form
@@ -859,13 +940,18 @@ const Content = () => {
           action={joinPaths(basename, '/console')}
         >
           <input type="hidden" name="kubeContext" value={kubeContext} />
-          <div className="flex py-4 justify-between  flex-row ">
+          <div className="flex gap-4 py-4 justify-between flex-row">
             <div className="flex gap-2 flex-row items-center">
-              {!sidebarOpen
-                && <PanelLeftOpen className="cursor-pointer  text-chrome-400 hover:text-primary " onClick={() => setSidebarOpen(true)} />}
+              {!sidebarOpen && (
+                <PanelLeftOpen
+                  className="cursor-pointer text-chrome-400 hover:text-primary"
+                  onClick={() => setSidebarOpen(true)}
+                />
+              )}
               <h1 className="text-2xl font-semibold">Dashboard</h1>
             </div>
-            <div className="flex gap-2 ">
+            <div className="flex gap-2">
+              <SearchBox />
               <div className="block w-[200px]">
                 <NamespacesPicker />
               </div>
@@ -895,7 +981,7 @@ type InnerLayoutProps = {
 const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
   const { setWorkloadFilter, sidebarOpen, setSidebarOpen } = useContext(Context);
 
-  const sidebarWidth = (sidebarOpen) ? 200 : 0;
+  const sidebarWidth = sidebarOpen ? 200 : 0;
 
   return (
     <div className="h-full flex flex-col">
@@ -917,13 +1003,11 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
                 <Boxes className="h-6 w-6 text-chrome-600" />
                 <span className="font-semibold text-lg"> Workloads</span>
               </button>
-              <PanelLeftClose className="cursor-pointer  text-chrome-400 hover:text-primary " onClick={() => setSidebarOpen(false)} />
+              <PanelLeftClose className="cursor-pointer text-chrome-400 hover:text-primary " onClick={() => setSidebarOpen(false)} />
             </header>
             {sidebarOpen && sidebar}
           </aside>
-          <main className="flex-1 overflow-auto">
-            {content}
-          </main>
+          <main className="flex-1 overflow-auto">{content}</main>
         </div>
       </div>
     </div>
@@ -938,6 +1022,7 @@ export default function Page() {
   const [kubeContext, setKubeContext] = useState(defaultKubeContext);
   const [workloadFilter, setWorkloadFilter] = useState<Workload>();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [search, setSearch] = useState('');
 
   const [namespace, setNamespace] = useState('');
 
@@ -950,7 +1035,9 @@ export default function Page() {
     setWorkloadFilter,
     sidebarOpen,
     setSidebarOpen,
-  }), [kubeContext, setKubeContext, namespace, setNamespace, workloadFilter, setWorkloadFilter, sidebarOpen, setSidebarOpen]);
+    search,
+    setSearch,
+  }), [kubeContext, setKubeContext, namespace, setNamespace, workloadFilter, setWorkloadFilter, sidebarOpen, setSidebarOpen, search, setSearch]);
 
   return (
     <AuthRequired>
