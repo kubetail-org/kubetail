@@ -10,7 +10,6 @@ on:
 
 jobs:
   crates-lint:
-    name: Rust fmt & Clippy
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
