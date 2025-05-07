@@ -9,6 +9,26 @@ on:
       - '**'
 
 jobs:
+  crates-lint:
+    name: Rust fmt & Clippy
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: rustfmt
+        working-directory: ./crates/rgkl
+        run: cargo fmt --all -- --check
+
+      - name: clippy
+        working-directory: ./crates/rgkl
+        run: cargo clippy --all -- -D warnings
+
   crates-test:
     runs-on: ubuntu-24.04
     steps:
