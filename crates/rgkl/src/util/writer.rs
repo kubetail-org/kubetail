@@ -20,8 +20,8 @@ use std::{
 use prost_wkt_types::Timestamp;
 use serde_json;
 
-use cluster_agent::LogRecord;
 use crate::util::format::FileFormat;
+use cluster_agent::LogRecord;
 
 pub mod cluster_agent {
     tonic::include_proto!("cluster_agent");
@@ -99,7 +99,9 @@ pub fn process_output<W: Write>(chunk: &[u8], writer: &mut W, format: FileFormat
                                 (log_json["time"].as_str(), log_json["log"].as_str())
                             {
                                 let record = LogRecord {
-                                    timestamp: Some(Timestamp::from_str(time_str).unwrap_or_default()),
+                                    timestamp: Some(
+                                        Timestamp::from_str(time_str).unwrap_or_default(),
+                                    ),
                                     message: log_msg.trim_end().to_string(),
                                 };
 
