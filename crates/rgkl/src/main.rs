@@ -129,14 +129,7 @@ fn main() -> ExitCode {
             grep,
         } => {
             let mut stdout = stdout().lock();
-            match stream_backward::run(
-                file,
-                *start_time,
-                *stop_time,
-                grep,
-                term_rx,
-                &mut stdout,
-            ) {
+            match stream_backward::run(file, *start_time, *stop_time, grep, term_rx, &mut stdout) {
                 Ok(_) => ExitCode::SUCCESS,
                 Err(err) => {
                     eprintln!("Error: {:#}", err);
