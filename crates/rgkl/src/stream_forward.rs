@@ -148,7 +148,7 @@ pub fn run<W: Write>(
     }
 
     // Exit if we didn't read to end
-    if let Some(_) = take_length {
+    if take_length.is_some() {
         return Ok(());
     }
 
