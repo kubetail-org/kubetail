@@ -85,9 +85,8 @@ fn main() -> ExitCode {
         Ok(mut signals) => {
             thread::spawn(move || {
                 if signals.forever().next().is_some() {
-                    let _ = term_tx.send(());
+                    drop(term_tx);
                 }
-                drop(term_tx);
             });
         }
         Err(err) => {
