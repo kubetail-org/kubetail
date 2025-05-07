@@ -110,10 +110,10 @@ fn main() -> ExitCode {
             let mut stdout = stdout().lock();
             match stream_forward::run(
                 file,
-                start_time.clone(),
-                stop_time.clone(),
+                *start_time,
+                *stop_time,
                 grep,
-                follow_from.clone(),
+                *follow_from,
                 term_rx,
                 &mut stdout,
             ) {
@@ -133,8 +133,8 @@ fn main() -> ExitCode {
             let mut stdout = stdout().lock();
             match stream_backward::run(
                 file,
-                start_time.clone(),
-                stop_time.clone(),
+                *start_time,
+                *stop_time,
                 grep,
                 term_rx,
                 &mut stdout,
