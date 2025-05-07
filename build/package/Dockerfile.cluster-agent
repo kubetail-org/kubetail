@@ -17,7 +17,7 @@ FROM rust:1.86.0 AS rustbuilder
 WORKDIR /work
 
 # System dependencies
-RUN apt-get update && apt-get install -yq patchelf protobuf-compiler
+RUN apt-get update && apt-get install -yq protobuf-compiler
 
 # Install Rust dependencies (for cache)
 COPY crates/rgkl/Cargo.toml ./crates/rgkl/Cargo.toml
@@ -28,28 +28,12 @@ RUN cd crates/rgkl && cargo fetch
 # Copy code
 COPY . .
 
-# Build
-RUN cd crates/rgkl && cargo build --release
-
-# Make bundle
-RUN \
-    ARCH="$(uname -m)" && \
-    if [ "$ARCH" = "x86_64" ]; then \
-      LIBC_PATH="/lib/x86_64-linux-gnu"; \
-      LINKER_PATH="/lib64/ld-linux-x86-64.so.2"; \
-    elif [ "$ARCH" = "aarch64" ]; then \
-      LIBC_PATH="/lib/aarch64-linux-gnu"; \
-      LINKER_PATH="/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1"; \
-    else \
-      echo "Unsupported architecture: $ARCH"; exit 1; \
-    fi && \
-    mkdir -p /out/lib && \
-    cp -v /work/crates/rgkl/target/release/rgkl /out/rgkl && \
-    cp -v $LIBC_PATH/libc.so.6 /out/lib/ && \
-    cp -v $LIBC_PATH/libgcc_s.so.1 /out/lib/ && \
-    cp -v $LINKER_PATH /out/lib/ld-linux.so
-
-RUN patchelf --set-rpath "\$ORIGIN/lib" /out/rgkl
+# Build with dynamic linking against glibc
+RUN cd crates/rgkl && \
+    RUSTFLAGS="-C target-feature=-crt-static" \
+    cargo build --release && \
+    mkdir -p /out && \
+    cp target/release/rgkl /out/rgkl
 
 # -----------------------------------------------------------
 
@@ -74,12 +58,20 @@ RUN cd cluster-agent && go build -ldflags="-s -w" -o ../bin/cluster-agent ./cmd/
 
 # -----------------------------------------------------------
 
-FROM scratch AS final
+FROM debian:bookworm-slim AS final
 
-WORKDIR /cluster-agent
+WORKDIR /app
 
-COPY --from=rustbuilder /out /rgkl
-COPY --from=gobuilder /work/bin/cluster-agent .
+# Install required runtime dependencies for glibc binaries (if not already present)
+RUN apt-get update && apt-get install -y --no-install-recommends libc6 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy binaries
+COPY --from=rustbuilder /out/rgkl /usr/local/bin/rgkl
+COPY --from=gobuilder /work/bin/cluster-agent ./cluster-agent
+
+# Set PATH to include /usr/local/bin
+ENV PATH="/usr/local/bin:${PATH}"
 
 ENTRYPOINT ["./cluster-agent"]
 CMD []
