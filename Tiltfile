@@ -52,21 +52,47 @@ local_resource(
   ]
 )
 
+local_resource(
+  'build-rgkl',
+  '''
+  cd crates/rgkl
+
+  # ensure the host-side cache dir exists
+  mkdir -p ../../.tilt/rgkl/target
+
+  # write all build artifacts into .tilt/rgkl/target
+  export CARGO_TARGET_DIR=../../.tilt/rgkl/target
+
+  # point Cargo at the cross-C compiler
+  export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+
+  # build once (no more rm -rf)
+  cargo build --target aarch64-unknown-linux-gnu
+  ''',
+  deps=[
+    './crates/rgkl/src',
+    './crates/rgkl/{Cargo.toml,Cargo.lock}',
+    './proto',
+  ]
+)
+
+
 docker_build_with_restart(
   'kubetail-cluster-agent',
   dockerfile='hack/tilt/Dockerfile.kubetail-cluster-agent',
   context='.',
   entrypoint="/cluster-agent/cluster-agent -c /etc/kubetail/config.yaml",
   only=[
-    './crates/rgkl',
     './proto',
-    './.tilt/cluster-agent'
-  ],
-  ignore=[
-    './crates/rgkl/target'
+    './.tilt/cluster-agent',
+    './.tilt/rgkl/target/aarch64-unknown-linux-gnu/debug/rgkl',
   ],
   live_update=[
-    sync('./.tilt/cluster-agent', '/cluster-agent/cluster-agent'),
+    sync('./.tilt/cluster-agent/cluster-agent', '/cluster-agent/cluster-agent'),
+    sync(
+      './.tilt/rgkl/target/aarch64-unknown-linux-gnu/debug/rgkl',
+      '/usr/local/bin/rgkl'
+    ),
   ]
 )
 
