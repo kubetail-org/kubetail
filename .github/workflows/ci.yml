@@ -9,6 +9,16 @@ on:
       - '**'
 
 jobs:
+  crates-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-protoc@v3
+      - name: Run builder
+        working-directory: ./crates/rgkl
+        run: |
+          cargo build --release
+
   crates-lint:
     runs-on: ubuntu-24.04
     steps:
@@ -19,14 +29,25 @@ jobs:
           toolchain: stable
           profile: minimal
           override: true
-
-      - name: rustfmt
+      - name: Run linter
         working-directory: ./crates/rgkl
-        run: cargo fmt --all -- --check
+        run: |
+          cargo fmt --all -- --check
 
-      - name: clippy
+  crates-vet:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-protoc@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+      - name: Run code vetter
         working-directory: ./crates/rgkl
-        run: cargo clippy --all -- -D warnings
+        run: |
+          cargo clippy --all -- -D warnings
 
   crates-test:
     runs-on: ubuntu-24.04
@@ -37,16 +58,6 @@ jobs:
         working-directory: ./crates/rgkl
         run: |
           cargo test
-
-  crates-build:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: arduino/setup-protoc@v3
-      - name: Run tests
-        working-directory: ./crates/rgkl
-        run: |
-          cargo build --release
 
   modules-lint:
     runs-on: ubuntu-24.04
