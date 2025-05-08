@@ -84,11 +84,9 @@ fn main() -> ExitCode {
     match Signals::new([SIGINT, SIGTERM]) {
         Ok(mut signals) => {
             thread::spawn(move || {
-                for _sig in signals.forever() {
-                    //let _ = term_tx.send(());
-                    break;
+                if signals.forever().next().is_some() {
+                    drop(term_tx);
                 }
-                drop(term_tx);
             });
         }
         Err(err) => {
@@ -110,10 +108,10 @@ fn main() -> ExitCode {
             let mut stdout = stdout().lock();
             match stream_forward::run(
                 file,
-                start_time.clone(),
-                stop_time.clone(),
+                *start_time,
+                *stop_time,
                 grep,
-                follow_from.clone(),
+                *follow_from,
                 term_rx,
                 &mut stdout,
             ) {
@@ -131,14 +129,7 @@ fn main() -> ExitCode {
             grep,
         } => {
             let mut stdout = stdout().lock();
-            match stream_backward::run(
-                file,
-                start_time.clone(),
-                stop_time.clone(),
-                grep,
-                term_rx,
-                &mut stdout,
-            ) {
+            match stream_backward::run(file, *start_time, *stop_time, grep, term_rx, &mut stdout) {
                 Ok(_) => ExitCode::SUCCESS,
                 Err(err) => {
                     eprintln!("Error: {:#}", err);

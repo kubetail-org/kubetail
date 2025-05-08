@@ -13,6 +13,7 @@
 // limitations under the License.
 
 /// Represents the format of log files
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FileFormat {
     /// Docker JSON format logs
