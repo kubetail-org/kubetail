@@ -69,23 +69,24 @@ jobs:
           elif [ "$RUNNER_OS" == "macOS" ]; then
             shasum -a 256 "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           fi
-      - name: Upload binaries
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
           path: bin/*
 
   release:
+    name: Create GitHub release
     needs: build
     runs-on: ubuntu-24.04
     steps:
-      - name: Download all binaries and shasums
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: bin
           pattern: artifacts-*
           merge-multiple: true
-      - name: Create GitHub release
+      - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           files: bin/*
