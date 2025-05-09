@@ -69,18 +69,29 @@ jobs:
           elif [ "$RUNNER_OS" == "macOS" ]; then
             shasum -a 256 "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           fi
+      #- name: Create zip archive
+      #  if: matrix.GOOS == 'windows'
+      #  working-directory: ./bin
+      #  shell: bash
+      #  run: |
+      #    FILE=kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+      #    ZIP=${FILE}.zip
+      #    ZIP_SHA256=${ZIP}.sha256
+      #    cp ${FILE} kubetail.exe
+      #    zip ${ZIP} kubetail.exe
+      #    certutil -hashfile "$ZIP" SHA256 | awk 'NR==2' > "$ZIP_SHA256"
+      #    rm -rf kubetail.exe
       - name: Create zip archive
         if: matrix.GOOS == 'windows'
         working-directory: ./bin
-        shell: bash
+        shell: pwsh
         run: |
-          FILE=kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
-          ZIP=${FILE}.zip
-          ZIP_SHA256=${ZIP}.sha256
-          cp ${FILE} kubetail.exe
-          zip ${ZIP} kubetail.exe
-          certutil -hashfile "$ZIP" SHA256 | awk 'NR==2' > "$ZIP_SHA256"
-          rm -rf kubetail.exe
+          $file = "kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}"
+          Copy-Item -Path $file -Destination kubetail.exe
+          Compress-Archive -Path kubetail.exe -DestinationPath "${file}.zip"
+          (Get-FileHash -Algorithm SHA256 "${file}.zip").Hash |
+            Out-File -FilePath "${file}.zip.sha256" -Encoding ascii
+          Remove-Item kubetail.exe
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
