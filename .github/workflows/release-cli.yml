@@ -73,7 +73,7 @@ jobs:
         shell: bash
         run: |
           mkdir bin
-          echo "hello" > bin/file.txt
+          echo "hello" > bin/file-${{ matrix.GOOS }}-${{ matrix.GOARCH }}.txt
       - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
