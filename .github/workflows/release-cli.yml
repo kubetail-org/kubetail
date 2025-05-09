@@ -30,7 +30,12 @@ jobs:
           - os: windows-latest
             GOOS: windows
             GOARCH: amd64
+          - os: windows-11-arm
+            GOOS: windows
+            GOARCH: arm64
     runs-on: ${{ matrix.os }}
+    outputs:
+      artifacts: ${{ steps.upload.outputs.artifact-names }}
     steps:
       - name: Get tag name
         uses: olegtarasov/get-tag@2.1.3
@@ -57,7 +62,6 @@ jobs:
         run: |
           FILE=bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
           OUTPUT_FILE=${FILE}.sha256
-
           if [ "$RUNNER_OS" == "Linux" ]; then
             sha256sum "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           elif [ "$RUNNER_OS" == "Windows" ]; then
@@ -65,7 +69,24 @@ jobs:
           elif [ "$RUNNER_OS" == "macOS" ]; then
             shasum -a 256 "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           fi
-      - name: Attach files to gh release
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+          path: bin/*
+
+  release:
+    name: Create GitHub release
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: bin
+          pattern: artifacts-*
+          merge-multiple: true
+      - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           files: bin/*
