@@ -57,17 +57,33 @@ local_resource(
   '''
   cd crates/rgkl
 
-  # ensure the host-side cache dir exists
-  mkdir -p ../../.tilt/rgkl/target
+  # detect host arch
+  arch=$(uname -m)
+  case "$arch" in
+    x86_64) target="x86_64-unknown-linux-gnu" ;;
+    aarch64) target="aarch64-unknown-linux-gnu" ;;
+    *)
+      echo "Unsupported arch: $arch" >&2
+      exit 1 ;;
+  esac
 
-  # write all build artifacts into .tilt/rgkl/target
-  export CARGO_TARGET_DIR=../../.tilt/rgkl/target
+  # cache build artifacts
+  cache_dir=../../.tilt/rgkl/target/$target
+  mkdir -p "$cache_dir"
+  export CARGO_TARGET_DIR="$cache_dir"
 
-  # point Cargo at the cross-C compiler
-  export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+  # if cross-compiling, point Cargo at the right CC
+  if [ "$target" != "${arch}-unknown-linux-gnu" ]; then
+    cc_var="CC_${target//-/_}"
+    export $cc_var=${target%%-unknown-linux-gnu}-gcc
+  fi
 
-  # build once (no more rm -rf)
-  cargo build --target aarch64-unknown-linux-gnu
+  echo "Building for $target"
+  cargo build --target $target
+
+  # copy just the built binary out
+  mkdir -p ../../.tilt/rgkl
+  install -m755 "$cache_dir/$target/debug/rgkl" ../../.tilt/rgkl/rgkl
   ''',
   deps=[
     './crates/rgkl/src',
@@ -85,12 +101,12 @@ docker_build_with_restart(
   only=[
     './proto',
     './.tilt/cluster-agent',
-    './.tilt/rgkl/target/aarch64-unknown-linux-gnu/debug/rgkl',
+    './.tilt/rgkl/rgkl',
   ],
   live_update=[
     sync('./.tilt/cluster-agent/cluster-agent', '/cluster-agent/cluster-agent'),
     sync(
-      './.tilt/rgkl/target/aarch64-unknown-linux-gnu/debug/rgkl',
+      './.tilt/rgkl/rgkl',
       '/usr/local/bin/rgkl'
     ),
   ]

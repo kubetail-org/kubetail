@@ -7,7 +7,6 @@ RUN apk add --no-cache libc6-compat
 COPY .tilt/cluster-agent .
 
 # pre-built Rust binary
-COPY .tilt/rgkl/target/aarch64-unknown-linux-gnu/debug/rgkl /usr/local/bin/rgkl
-RUN chmod +x /usr/local/bin/rgkl
+COPY .tilt/rgkl/rgkl /usr/local/bin/rgkl
 
 ENTRYPOINT ["/cluster-agent/cluster-agent", "-c", "/etc/kubetail/config.yaml"]
