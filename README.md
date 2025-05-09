@@ -81,6 +81,7 @@ Download the binary for your OS/Arch (from the latest [release binaries](https:/
 * [Linux/amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-amd64)
 * [Linux/arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-arm64)
 * [Windows/amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-amd64)
+* [Windows/arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-arm64)
 
 Rename the file and make it executable:
 
