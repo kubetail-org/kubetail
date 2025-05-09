@@ -84,9 +84,8 @@ fn main() -> ExitCode {
     match Signals::new([SIGINT, SIGTERM]) {
         Ok(mut signals) => {
             thread::spawn(move || {
-                if signals.forever().next().is_some() {
-                    drop(term_tx);
-                }
+                let _ = signals.wait().next();
+                drop(term_tx);
             });
         }
         Err(err) => {
