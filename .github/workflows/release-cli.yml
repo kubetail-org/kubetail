@@ -30,6 +30,9 @@ jobs:
           - os: windows-latest
             GOOS: windows
             GOARCH: amd64
+          - os: windows-11-arm
+            GOOS: windows
+            GOARCH: arm64
     runs-on: ${{ matrix.os }}
     steps:
       - name: Get tag name
@@ -51,7 +54,12 @@ jobs:
       - name: Run build script
         run: make build VERSION=${{ steps.tagName.outputs.tag }}
       - name: Append os/arch to binary file name
-        run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}.exe
+          else
+            mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+          fi
       - name: Calculate sha256 checksum
         shell: bash
         run: |

@@ -408,7 +408,7 @@ jobs:
       - name: Run build script
         run: make build
 
-  build-cli-windows:
+  build-cli-windows-amd64:
     needs:
       - crates-test
       - crates-build
@@ -419,6 +419,32 @@ jobs:
       - dashboard-ui-test
       - dashboard-ui-build
     runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.4'
+          cache: false
+      - name: Run build script
+        run: make build
+
+  build-cli-windows-arm64:
+    needs:
+      - crates-test
+      - crates-build
+      - modules-lint
+      - modules-test
+      - modules-vet
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
+    runs-on: windows-11-arm
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
