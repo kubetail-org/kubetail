@@ -71,8 +71,9 @@ jobs:
             shasum -a 256 "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           fi
       - name: Upload binaries
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
+          name: bin
           path: bin/
 
   release:
@@ -80,7 +81,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Download all binaries and shasums
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: bin/
       - name: Create GitHub release
