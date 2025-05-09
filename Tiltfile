@@ -53,43 +53,35 @@ local_resource(
 )
 
 local_resource(
-  'build-rgkl',
-  '''
+  "build-rgkl",
+  """
   cd crates/rgkl
 
-  # detect host arch
+  # ---------------- arch → musl target ----------------
   arch=$(uname -m)
   case "$arch" in
-    x86_64) target="x86_64-unknown-linux-gnu" ;;
-    aarch64) target="aarch64-unknown-linux-gnu" ;;
-    *)
-      echo "Unsupported arch: $arch" >&2
-      exit 1 ;;
+    x86_64|amd64) target_arch="x86_64"  ;;
+    aarch64|arm64) target_arch="aarch64" ;;
+    *) echo "Unsupported arch: $arch" >&2; exit 1 ;;
   esac
+  target="${target_arch}-unknown-linux-musl"
+  export CARGO_TARGET_DIR="../../.tilt/rgkl/target"
 
-  # cache build artifacts
-  cache_dir=../../.tilt/rgkl/target/$target
-  mkdir -p "$cache_dir"
-  export CARGO_TARGET_DIR="$cache_dir"
+  # ---------------- build ----------------
+  echo "🔨 building rgkl → ${target}"
+  cargo build --target "${target}"
 
-  # if cross-compiling, point Cargo at the right CC
-  if [ "$target" != "${arch}-unknown-linux-gnu" ]; then
-    cc_var="CC_${target//-/_}"
-    export $cc_var=${target%%-unknown-linux-gnu}-gcc
-  fi
-
-  echo "Building for $target"
-  cargo build --target $target
-
-  # copy just the built binary out
-  mkdir -p ../../.tilt/rgkl
-  install -m755 "$cache_dir/$target/debug/rgkl" ../../.tilt/rgkl/rgkl
-  ''',
+  # ---------------- copy ----------------
+  install -Dm755 \
+    "${CARGO_TARGET_DIR}/${target}/debug/rgkl" \
+    "../../.tilt/rgkl/rgkl"
+  """,
   deps=[
-    './crates/rgkl/src',
-    './crates/rgkl/{Cargo.toml,Cargo.lock}',
-    './proto',
-  ]
+    "./crates/rgkl/src",
+    "./crates/rgkl/Cargo.toml",
+    "./crates/rgkl/Cargo.lock",
+    "./proto",
+  ],
 )
 
 

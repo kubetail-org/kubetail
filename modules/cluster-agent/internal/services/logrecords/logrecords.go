@@ -32,6 +32,8 @@ import (
 	"github.com/kubetail-org/kubetail/modules/cluster-agent/internal/helpers"
 )
 
+const rgklPath = "/usr/local/bin/rgkl"
+
 // Represents LogRecords service
 type LogRecordsService struct {
 	clusteragentpb.UnimplementedLogRecordsServiceServer
@@ -80,7 +82,6 @@ func (s *LogRecordsService) StreamForward(req *clusteragentpb.LogRecordsStreamRe
 	}
 
 	args := []string{
-		"/rgkl/rgkl",
 		"stream-forward", pathname,
 		"--grep", req.Grep,
 		"--follow-from", strings.ToLower(req.FollowFrom.String()),
@@ -94,7 +95,7 @@ func (s *LogRecordsService) StreamForward(req *clusteragentpb.LogRecordsStreamRe
 		args = append(args, "--stop-time", req.StopTime)
 	}
 
-	cmd := exec.CommandContext(ctx, "/rgkl/lib/ld-linux.so", args...)
+	cmd := exec.CommandContext(ctx, rgklPath, args...)
 
 	// Get a pipe
 	stdout, err := cmd.StdoutPipe()
@@ -202,7 +203,6 @@ func (s *LogRecordsService) StreamBackward(req *clusteragentpb.LogRecordsStreamR
 	}
 
 	args := []string{
-		"/rgkl/rgkl",
 		"stream-backward", pathname,
 		"--grep", req.Grep,
 	}
@@ -215,7 +215,7 @@ func (s *LogRecordsService) StreamBackward(req *clusteragentpb.LogRecordsStreamR
 		args = append(args, "--stop-time", req.StopTime)
 	}
 
-	cmd := exec.CommandContext(ctx, "/rgkl/lib/ld-linux.so", args...)
+	cmd := exec.CommandContext(ctx, rgklPath, args...)
 
 	// Get a pipe
 	stdout, err := cmd.StdoutPipe()
