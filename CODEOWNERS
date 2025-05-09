@@ -1,0 +1,6 @@
+# kubetail CLI ownership
+/modules/cli/   @rxinui @amorey
+/modules/shared/    @rxinui @amorey
+
+# kubetail repository ownership
+*   @amorey
