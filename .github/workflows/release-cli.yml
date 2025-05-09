@@ -37,39 +37,43 @@ jobs:
     outputs:
       artifacts: ${{ steps.upload.outputs.artifact-names }}
     steps:
-      - name: Get tag name
-        uses: olegtarasov/get-tag@2.1.3
-        id: tagName
-        with:
-          tagRegex: "cli/v(.*)"
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: pnpm/action-setup@v3
-        with:
-          version: 9
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.23.4'
-          cache: false
-      - name: Run build script
-        run: make build VERSION=${{ steps.tagName.outputs.tag }}
-      - name: Append os/arch to binary file name
-        run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
-      - name: Calculate sha256 checksum
+      #- name: Get tag name
+      #  uses: olegtarasov/get-tag@2.1.3
+      #  id: tagName
+      #  with:
+      #    tagRegex: "cli/v(.*)"
+      #- uses: actions/checkout@v4
+      #- uses: actions/setup-node@v4
+      #  with:
+      #    node-version: 22
+      #- uses: pnpm/action-setup@v3
+      #  with:
+      #    version: 9
+      #- uses: actions/setup-go@v5
+      #  with:
+      #    go-version: '1.23.4'
+      #    cache: false
+      #- name: Run build script
+      #  run: make build VERSION=${{ steps.tagName.outputs.tag }}
+      #- name: Append os/arch to binary file name
+      #  run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+      #- name: Calculate sha256 checksum
+      #  shell: bash
+      #  run: |
+      #    FILE=bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+      #    OUTPUT_FILE=${FILE}.sha256
+      #    if [ "$RUNNER_OS" == "Linux" ]; then
+      #      sha256sum "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
+      #    elif [ "$RUNNER_OS" == "Windows" ]; then
+      #      certutil -hashfile "$FILE" SHA256 | awk 'NR==2' > "$OUTPUT_FILE"
+      #    elif [ "$RUNNER_OS" == "macOS" ]; then
+      #      shasum -a 256 "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
+      #    fi
+      - name: Test data
         shell: bash
         run: |
-          FILE=bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
-          OUTPUT_FILE=${FILE}.sha256
-
-          if [ "$RUNNER_OS" == "Linux" ]; then
-            sha256sum "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
-          elif [ "$RUNNER_OS" == "Windows" ]; then
-            certutil -hashfile "$FILE" SHA256 | awk 'NR==2' > "$OUTPUT_FILE"
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-            shasum -a 256 "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
-          fi
+          mkdir bin
+          echo "hello" > bin/file.txt
       - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
@@ -84,6 +88,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: bin
+          pattern: artifacts-*
+          merge-multiple: true
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
