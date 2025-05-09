@@ -69,18 +69,6 @@ jobs:
           elif [ "$RUNNER_OS" == "macOS" ]; then
             shasum -a 256 "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
           fi
-      #- name: Create zip archive
-      #  if: matrix.GOOS == 'windows'
-      #  working-directory: ./bin
-      #  shell: bash
-      #  run: |
-      #    FILE=kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
-      #    ZIP=${FILE}.zip
-      #    ZIP_SHA256=${ZIP}.sha256
-      #    cp ${FILE} kubetail.exe
-      #    zip ${ZIP} kubetail.exe
-      #    certutil -hashfile "$ZIP" SHA256 | awk 'NR==2' > "$ZIP_SHA256"
-      #    rm -rf kubetail.exe
       - name: Create zip archive
         if: matrix.GOOS == 'windows'
         working-directory: ./bin
