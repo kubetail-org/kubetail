@@ -321,3 +321,59 @@ func TestNewLogRecordFromLogLine(t *testing.T) {
 		})
 	}
 }
+
+func TestParseWorkloadType(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected WorkloadType
+	}{
+		// Test exact matches
+		{name: "cronjob", input: "cronjob", expected: WorkloadTypeCronJob},
+		{name: "daemonset", input: "daemonset", expected: WorkloadTypeDaemonSet},
+		{name: "deployment", input: "deployment", expected: WorkloadTypeDeployment},
+		{name: "job", input: "job", expected: WorkloadTypeJob},
+		{name: "pod", input: "pod", expected: WorkloadTypePod},
+		{name: "replicaset", input: "replicaset", expected: WorkloadTypeReplicaSet},
+		{name: "statefulset", input: "statefulset", expected: WorkloadTypeStatefulSet},
+
+		// Test with trailing 's'
+		{name: "cronjobs", input: "cronjobs", expected: WorkloadTypeCronJob},
+		{name: "daemonsets", input: "daemonsets", expected: WorkloadTypeDaemonSet},
+		{name: "deployments", input: "deployments", expected: WorkloadTypeDeployment},
+		{name: "jobs", input: "jobs", expected: WorkloadTypeJob},
+		{name: "pods", input: "pods", expected: WorkloadTypePod},
+		{name: "replicasets", input: "replicasets", expected: WorkloadTypeReplicaSet},
+		{name: "statefulsets", input: "statefulsets", expected: WorkloadTypeStatefulSet},
+
+		// Test with mixed case
+		{name: "CronJob", input: "CronJob", expected: WorkloadTypeCronJob},
+		{name: "DaemonSet", input: "DaemonSet", expected: WorkloadTypeDaemonSet},
+		{name: "Deployment", input: "Deployment", expected: WorkloadTypeDeployment},
+		{name: "Job", input: "Job", expected: WorkloadTypeJob},
+		{name: "Pod", input: "Pod", expected: WorkloadTypePod},
+		{name: "ReplicaSet", input: "ReplicaSet", expected: WorkloadTypeReplicaSet},
+		{name: "StatefulSet", input: "StatefulSet", expected: WorkloadTypeStatefulSet},
+
+		// Test with mixed case and trailing 's'
+		{name: "CronJobs", input: "CronJobs", expected: WorkloadTypeCronJob},
+		{name: "DaemonSets", input: "DaemonSets", expected: WorkloadTypeDaemonSet},
+		{name: "Deployments", input: "Deployments", expected: WorkloadTypeDeployment},
+		{name: "Jobs", input: "Jobs", expected: WorkloadTypeJob},
+		{name: "Pods", input: "Pods", expected: WorkloadTypePod},
+		{name: "ReplicaSets", input: "ReplicaSets", expected: WorkloadTypeReplicaSet},
+		{name: "StatefulSets", input: "StatefulSets", expected: WorkloadTypeStatefulSet},
+
+		// Test unknown workload types
+		{name: "unknown", input: "unknown", expected: WorkloadTypeUknown},
+		{name: "empty string", input: "", expected: WorkloadTypeUknown},
+		{name: "random string", input: "randomstring", expected: WorkloadTypeUknown},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseWorkloadType(tt.input)
+			assert.Equal(t, tt.expected, result, "parseWorkloadType(%q) should return %v", tt.input, tt.expected)
+		})
+	}
+}
