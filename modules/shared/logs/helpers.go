@@ -117,7 +117,7 @@ func (w WorkloadType) Key(args ...string) string {
 
 // Parse string and return corresponding workload
 func parseWorkloadType(workloadStr string) WorkloadType {
-	switch strings.Trim(strings.ToLower(workloadStr), "s") {
+	switch strings.TrimRight(strings.ToLower(workloadStr), "s") {
 	case "cronjob":
 		return WorkloadTypeCronJob
 	case "daemonset":
