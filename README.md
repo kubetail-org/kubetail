@@ -188,6 +188,37 @@ Dependencies:
 * [Go](https://go.dev/)
 * [pnpm](https://pnpm.io/)
 * [ctlptl](https://github.com/tilt-dev/ctlptl) (optional)
+* [Rust](https://www.rust-lang.org/) (with toolchain manager [rustup](https://rustup.rs/))
+* [Protobuf Compiler (protoc)](https://grpc.io/docs/protoc-installation/)
+* `gcc-aarch64-linux-gnu` and `binutils-aarch64-linux-gnu` (for cross-compiling Rust to ARM64)
+### Setting up the Development Environment
+
+Dependencies:
+
+* [Tilt](https://tilt.dev/)
+* [Go](https://go.dev/)
+* [Rust](https://rust-lang.org/) (with toolchain manager [rustup](https://rustup.rs/))
+* Protobuf Compiler (`protoc`)
+* `gcc-aarch64-linux-gnu` and `binutils-aarch64-linux-gnu` (for cross-compiling Rust to ARM64)
+
+  * **Linux**:
+
+    ```bash
+    sudo apt-get update
+    sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+    ```
+  * **macOS** (using Homebrew + osxcross):
+
+    ```bash
+    brew tap osxcross/osxcross
+    brew install aarch64-unknown-linux-gnu
+    ```
+
+Before proceeding, install the Rust ARM64 target on your host:
+
+```bash
+rustup target add aarch64-unknown-linux-gnu
+```
 
 1. Create a Kubernetes dev cluster:
 

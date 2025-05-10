@@ -52,21 +52,55 @@ local_resource(
   ]
 )
 
+local_resource(
+  "build-rgkl",
+  """
+  cd crates/rgkl
+
+  # ---------------- arch → musl target ----------------
+  arch=$(uname -m)
+  case "$arch" in
+    x86_64|amd64) target_arch="x86_64"  ;;
+    aarch64|arm64) target_arch="aarch64" ;;
+    *) echo "Unsupported arch: $arch" >&2; exit 1 ;;
+  esac
+  target="${target_arch}-unknown-linux-musl"
+  export CARGO_TARGET_DIR="../../.tilt/rgkl/target"
+
+  # ---------------- build ----------------
+  echo "🔨 building rgkl → ${target}"
+  cargo build --target "${target}"
+
+  # ---------------- copy ----------------
+  install -Dm755 \
+    "${CARGO_TARGET_DIR}/${target}/debug/rgkl" \
+    "../../.tilt/rgkl/rgkl"
+  """,
+  deps=[
+    "./crates/rgkl/src",
+    "./crates/rgkl/Cargo.toml",
+    "./crates/rgkl/Cargo.lock",
+    "./proto",
+  ],
+)
+
+
 docker_build_with_restart(
   'kubetail-cluster-agent',
   dockerfile='hack/tilt/Dockerfile.kubetail-cluster-agent',
   context='.',
   entrypoint="/cluster-agent/cluster-agent -c /etc/kubetail/config.yaml",
   only=[
-    './crates/rgkl',
     './proto',
-    './.tilt/cluster-agent'
-  ],
-  ignore=[
-    './crates/rgkl/target'
+    './.tilt/cluster-agent',
+    './.tilt/rgkl/rgkl',
   ],
   live_update=[
-    sync('./.tilt/cluster-agent', '/cluster-agent/cluster-agent'),
+    sync('./.tilt/cluster-agent/cluster-agent', '/cluster-agent/cluster-agent'),
+    sync(
+      './.tilt/rgkl/rgkl',
+      '/usr/local/bin/rgkl'
+    ),
   ]
 )
 
