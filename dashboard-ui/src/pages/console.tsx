@@ -399,7 +399,7 @@ const SidebarWorkloads = () => {
               <ul className="pl-[23px]">
                 {vals.map((val) => (
                   <li key={val.name} className="flex items-center justify-between">
-                    <span className="whitespace-nowrap overflow-hidden text-ellipsis">{val.name}</span>
+                    <span className="whitespace-nowrap overflow-hidden text-ellipsis">{val.name.replace(/\/\*$/, '')}</span>
                     <button
                       type="button"
                       onClick={() => deleteSource(`${val.namespace}:${workload}/${val.name}`)}
@@ -469,6 +469,26 @@ const Containers = ({
   );
 };
 
+class ContainerGroup {
+  namespace: string;
+
+  podName: string;
+
+  containers: string[];
+
+  constructor(namespace: string, podName: string, containers: string[] = []) {
+    this.namespace = namespace;
+    this.podName = podName;
+    this.containers = containers;
+  }
+
+  addContainer(containerName: string): void {
+    if (!this.containers.includes(containerName)) {
+      this.containers.push(containerName);
+    }
+  }
+}
+
 const SidebarPodsAndContainers = () => {
   const { sources } = useSources();
   const [searchParams] = useSearchParams();
@@ -493,29 +513,33 @@ const SidebarPodsAndContainers = () => {
   const generateMapKey = (namespace: string, podName: string) => `${namespace}/${podName}`;
 
   // Group containers by pod
-  const containerGroups = new Map<string, string[]>();
+  const groupMap = new Map<string, ContainerGroup>();
   sources.forEach((source) => {
     const k = generateMapKey(source.namespace, source.podName);
-    if (!containerGroups.has(k)) containerGroups.set(k, []);
-    containerGroups.get(k)?.push(source.containerName);
+    if (!groupMap.has(k)) groupMap.set(k, new ContainerGroup(source.namespace, source.podName));
+    groupMap.get(k)?.addContainer(source.containerName);
   });
 
-  const generateKey = (source: LogSourceFragmentFragment) => `${source.namespace}/${source.podName}/${source.containerName}`;
+  const containerGroups = Array.from(groupMap.values()).sort((a, b) => {
+    const keyA = `${a.namespace}/${a.podName}`;
+    const keyB = `${b.namespace}/${b.podName}`;
+    return keyA.localeCompare(keyB);
+  });
 
   return (
     <>
       <div className="border-t border-chrome-divider mt-[10px]" />
       <div className="py-[10px] font-bold text-chrome-500">Pods/Containers</div>
       <div className="space-y-3">
-        {sources.map((source) => (
-          <div key={generateKey(source)}>
+        {containerGroups.map((group) => (
+          <div key={`${group.namespace}/${group.podName}`}>
             <div className="flex items-center justify-between">
-              <div className="whitespace-nowrap overflow-hidden text-ellipsis">{source.podName}</div>
+              <div className="whitespace-nowrap overflow-hidden text-ellipsis">{group.podName}</div>
             </div>
             <Containers
-              namespace={source.namespace}
-              podName={source.podName}
-              containerNames={containerGroups.get(generateMapKey(source.namespace, source.podName))}
+              namespace={group.namespace}
+              podName={group.podName}
+              containerNames={group.containers}
             />
           </div>
         ))}

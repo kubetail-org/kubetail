@@ -29,6 +29,9 @@ lerna-debug.log*
 !/modules/dashboard/website/
 !/modules/dashboard/website/.gitkeep
 
+# pnpm
+.pnpm-store
+
 # vite
 .vite
 
