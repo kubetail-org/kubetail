@@ -206,14 +206,14 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
   };
 
   return (
-    <DataTable size="sm" className='h-full overflow-y-auto'>
+    <DataTable size="sm" className="h-full overflow-y-auto">
       <DataTable.Header
         sortBy={sortBy}
         onSortByChange={handleSortByChange}
-        className='sticky top-0'
+        className="sticky top-0"
       >
         <DataTable.Row>
-          <DataTable.HeaderCell className='w-8'>
+          <DataTable.HeaderCell className="w-8">
             <Form.Check
               checked={allSourcesChecked}
               onChange={handleAllSourcesToggle}
@@ -228,10 +228,10 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
         {filteredItems.map((item) => {
           const sourcePath = genSourcePath(item);
           return (
-            <DataTable.Row 
-              key={item.metadata.uid} 
-              onClick={()=> handleSourceToggle(sourcePath)}
-              className='cursor-pointer'
+            <DataTable.Row
+              key={item.metadata.uid}
+              onClick={() => handleSourceToggle(sourcePath)}
+              className="cursor-pointer"
             >
               <DataTable.DataCell>
                 <Form.Check
@@ -396,11 +396,11 @@ const Main = ({
   workloadState: [Workload | null, React.Dispatch<React.SetStateAction<Workload | null>>];
 }) => {
   const [currWorkload] = workloadState;
-  if (!currWorkload) return <div className='h-[50vh]'/>;
+  if (!currWorkload) return <div className="h-[50vh]" />;
   const DisplayWorkloadComponent = displayWorkloadComponents[currWorkload];
 
   return (
-    <div className='h-[50vh] w-full'>
+    <div className="h-[50vh] w-full">
       <DisplayWorkloadComponent />
     </div>
   );
