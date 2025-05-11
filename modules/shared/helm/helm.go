@@ -378,13 +378,28 @@ func (c *Client) getChart(pathOptions action.ChartPathOptions) (*chart.Chart, er
 	return chart, err
 }
 
-// Return new client
-func NewClient(kubeContext string) (*Client, error) {
-	settings := cli.New()
+type ClientOption func(c *Client)
 
-	if kubeContext != "" {
-		settings.KubeContext = kubeContext
+// Return new client
+func NewClient(options ...ClientOption) *Client {
+	c := &Client{cli.New()}
+	for _, option := range options {
+		option(c)
+	}
+	return c
+}
+
+// Option Kubeconfig
+func WithKubeconfig(kubeconfig string) ClientOption {
+	return func(c *Client) {
+		c.settings.KubeConfig = kubeconfig
 	}
 
-	return &Client{settings}, nil
+}
+
+// Option Kubecontext
+func WithKubecontext(kubeContext string) ClientOption {
+	return func(c *Client) {
+		c.settings.KubeContext = kubeContext
+	}
 }

@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	KubeconfigFlag = clientcmd.RecommendedConfigPathFlag
+	KubeconfigFlag  = clientcmd.RecommendedConfigPathFlag
+	KubecontextFlag = "kube-context"
 )
 
 var version = "dev" // default version for local builds
@@ -49,7 +50,7 @@ func init() {
 	// will be global for your application.
 
 	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cli.yaml)")
-	// rootCmd.PersistentFlags().String(KubeconfigFlag, clientcmd.RecommendedHomeFile, "Path to kubeconfig file")
+	rootCmd.PersistentFlags().String(KubeconfigFlag, clientcmd.RecommendedHomeFile, "Path to kubeconfig file")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

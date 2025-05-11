@@ -35,11 +35,10 @@ var clusterRepoUpdateCmd = &cobra.Command{
 	Long:  clusterRepoUpdateHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Init client
-		client, err := helm.NewClient("")
-		cli.ExitOnError(err)
+		client := helm.NewClient()
 
 		// Update repo
-		err = client.UpdateRepo()
+		err := client.UpdateRepo()
 		cli.ExitOnError(err)
 
 		fmt.Println("Updated repository 'kubetail'")

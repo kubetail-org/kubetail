@@ -27,7 +27,6 @@ import (
 	"github.com/sosodev/duration"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
@@ -193,7 +192,7 @@ var logsCmd = &cobra.Command{
 		// Get flags
 		flags := cmd.Flags()
 
-		kubeContext, _ := flags.GetString("kube-context")
+		kubeContext, _ := flags.GetString(KubecontextFlag)
 		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
 
 		head := flags.Changed("head")
@@ -523,8 +522,7 @@ func init() {
 	flagset := logsCmd.Flags()
 	flagset.SortFlags = false
 
-	flagset.String(KubeconfigFlag, clientcmd.RecommendedHomeFile, "Path to kubeconfig file")
-	flagset.String("kube-context", "", "Specify the kubeconfig context to use")
+	flagset.String(KubecontextFlag, "", "Specify the kubeconfig context to use")
 	flagset.Int64P("head", "h", 10, "Return first N records")
 	flagset.Lookup("head").NoOptDefVal = "10"
 	flagset.Int64P("tail", "t", 10, "Return last N records")
