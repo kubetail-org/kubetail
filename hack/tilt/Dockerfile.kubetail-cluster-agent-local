@@ -1,0 +1,6 @@
+FROM busybox
+
+COPY .tilt/cluster-agent /cluster-agent/
+COPY .tilt/rgkl /usr/local/bin/rgkl
+
+ENTRYPOINT ["/cluster-agent/cluster-agent", "-c", "/etc/kubetail/config.yaml"]
