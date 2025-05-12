@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM rust:1.86.0 AS rustbuilder
+FROM rust:1.86.0-slim AS rustbuilder
 
 WORKDIR /work
 
@@ -28,12 +28,8 @@ RUN cd crates/rgkl && cargo fetch
 # Copy code
 COPY . .
 
-# Build with dynamic linking against glibc
-RUN cd crates/rgkl && \
-    RUSTFLAGS="-C target-feature=-crt-static" \
-    cargo build --release && \
-    mkdir -p /out && \
-    cp target/release/rgkl /out/rgkl
+# Build
+RUN cd crates/rgkl && cargo build --release
 
 # -----------------------------------------------------------
 
@@ -58,20 +54,20 @@ RUN cd cluster-agent && go build -ldflags="-s -w" -o ../bin/cluster-agent ./cmd/
 
 # -----------------------------------------------------------
 
-FROM debian:bookworm-slim AS final
+FROM scratch AS final
 
-WORKDIR /app
+WORKDIR /cluster-agent
 
-# Install required runtime dependencies for glibc binaries (if not already present)
-RUN apt-get update && apt-get install -y --no-install-recommends libc6 && \
-    rm -rf /var/lib/apt/lists/*
+# copy dynamic loader
+COPY --from=rustbuilder /lib64/ld-linux-x86-64.so.2 /lib64/
 
-# Copy binaries
-COPY --from=rustbuilder /out/rgkl /usr/local/bin/rgkl
-COPY --from=gobuilder /work/bin/cluster-agent ./cluster-agent
+# copy glibc runtime libraries
+COPY --from=rustbuilder /lib/x86_64-linux-gnu/libc.so.6 /lib/x86_64-linux-gnu/
+COPY --from=rustbuilder /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/
 
-# Set PATH to include /usr/local/bin
-ENV PATH="/usr/local/bin:${PATH}"
+# copy executables
+COPY --from=rustbuilder /work/crates/rgkl/target/release/rgkl .
+COPY --from=gobuilder /work/bin/cluster-agent .
 
 ENTRYPOINT ["./cluster-agent"]
 CMD []
