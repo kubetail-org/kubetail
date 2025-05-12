@@ -2,8 +2,7 @@ FROM rust:1.84.1 AS rustbuilder
 
 WORKDIR /work
 
-RUN rustup target add x86_64-unknown-linux-musl aarch64-unknown-linux-musl
-RUN apt-get update && apt-get install -yq musl-tools protobuf-compiler
+RUN apt-get update && apt-get install -yq protobuf-compiler
 
 # Install Rust dependencies (for cache)
 COPY crates/rgkl/Cargo.toml ./crates/rgkl/Cargo.toml
@@ -17,22 +16,27 @@ COPY . .
 # Detect architecture and build statically
 RUN ARCH="$(uname -m)" && \
     if [ "$ARCH" = "x86_64" ]; then \
-      TARGET="x86_64-unknown-linux-musl"; \
+      TARGET="x86_64-unknown-linux-gnu"; \
     elif [ "$ARCH" = "aarch64" ]; then \
-      TARGET="aarch64-unknown-linux-musl"; \
+      TARGET="aarch64-unknown-linux-gnu"; \
     else \
       echo "Unsupported architecture: $ARCH"; exit 1; \
     fi && \
     cd crates/rgkl && \
+    RUSTFLAGS="-C target-feature=-crt-static" \
     cargo build --target=$TARGET && \
     mkdir -p /out && \
     cp target/$TARGET/debug/rgkl /out/rgkl
 
 # -----------------------------------------------------------
 
-FROM alpine:3.20.0
+FROM debian:bookworm-slim AS final
 
 WORKDIR /cluster-agent
+
+# Install required runtime dependencies for glibc binaries (if not already present)
+RUN apt-get update && apt-get install -y --no-install-recommends libc6 && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY --from=rustbuilder /out/rgkl /usr/local/bin/rgkl
 COPY .tilt/cluster-agent .
