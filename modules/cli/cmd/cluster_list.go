@@ -38,10 +38,10 @@ var clusterListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Get flags
 		Kubeconfig, _ := cmd.Flags().GetString(KubeconfigFlag)
-		kubeContext, _ := cmd.Flags().GetString(KubecontextFlag)
+		kubeContext, _ := cmd.Flags().GetString(KubeContextFlag)
 
 		// Init client
-		client := helm.NewClient(helm.WithKubecontext(kubeContext), helm.WithKubeconfig(Kubeconfig))
+		client := helm.NewClient(helm.WithKubeContext(kubeContext), helm.WithKubeconfig(Kubeconfig))
 
 		// Get releases
 		releases, err := client.ListReleases()
@@ -72,5 +72,5 @@ func init() {
 	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	flagset := clusterListCmd.Flags()
 	flagset.SortFlags = false
-	flagset.String(KubecontextFlag, "", "Name of the kubeconfig context to use")
+	flagset.String(KubeContextFlag, "", "Name of the kubeconfig context to use")
 }

@@ -23,7 +23,7 @@ import (
 
 const (
 	KubeconfigFlag  = clientcmd.RecommendedConfigPathFlag
-	KubecontextFlag = "kube-context"
+	KubeContextFlag = "kube-context"
 )
 
 var version = "dev" // default version for local builds

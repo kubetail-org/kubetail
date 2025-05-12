@@ -50,7 +50,7 @@ func noopLogger(format string, v ...interface{}) {}
 
 // Client
 type Client struct {
-	settings *cli.EnvSettings
+	*cli.EnvSettings
 }
 
 // InstallLatest creates a new release from the latest chart
@@ -203,7 +203,7 @@ func (c *Client) AddRepo() error {
 		return err
 	}
 
-	repoFile := c.settings.RepositoryConfig
+	repoFile := c.RepositoryConfig
 
 	// Load the Helm repository file
 	repoFileContent, err := repo.LoadFile(repoFile)
@@ -225,11 +225,11 @@ func (c *Client) AddRepo() error {
 	}
 
 	// Initialize the new repository
-	chartRepo, err := repo.NewChartRepository(newEntry, getter.All(c.settings))
+	chartRepo, err := repo.NewChartRepository(newEntry, getter.All(c.EnvSettings))
 	if err != nil {
 		return fmt.Errorf("failed to initialize chart repository: %w", err)
 	}
-	chartRepo.CachePath = c.settings.RepositoryCache
+	chartRepo.CachePath = c.RepositoryCache
 
 	// Download the repository index to verify it’s accessible
 	if _, err := chartRepo.DownloadIndexFile(); err != nil {
@@ -247,7 +247,7 @@ func (c *Client) AddRepo() error {
 
 // UpdateRepo updates the repository
 func (c *Client) UpdateRepo() error {
-	repoFile := c.settings.RepositoryConfig
+	repoFile := c.RepositoryConfig
 
 	// Read the repository file
 	repoFileContent, err := repo.LoadFile(repoFile)
@@ -269,11 +269,11 @@ func (c *Client) UpdateRepo() error {
 	}
 
 	// Set up the repository chart
-	chartRepo, err := repo.NewChartRepository(entry, getter.All(c.settings))
+	chartRepo, err := repo.NewChartRepository(entry, getter.All(c.EnvSettings))
 	if err != nil {
 		return fmt.Errorf("failed to initialize chart repository: %w", err)
 	}
-	chartRepo.CachePath = c.settings.RepositoryCache
+	chartRepo.CachePath = c.RepositoryCache
 
 	// Download the latest index file for the repository
 	if _, err := chartRepo.DownloadIndexFile(); err != nil {
@@ -285,7 +285,7 @@ func (c *Client) UpdateRepo() error {
 
 // RemoveRepo removes the repository
 func (c *Client) RemoveRepo() error {
-	repoFile := c.settings.RepositoryConfig
+	repoFile := c.RepositoryConfig
 
 	// Load the Helm repository file
 	repoFileContent, err := repo.LoadFile(repoFile)
@@ -326,7 +326,7 @@ func (c *Client) RemoveRepo() error {
 // newActionConfig
 func (c *Client) newActionConfig(namespace string) (*action.Configuration, error) {
 	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(c.settings.RESTClientGetter(), namespace, os.Getenv("HELM_DRIVER"), noopLogger); err != nil {
+	if err := actionConfig.Init(c.RESTClientGetter(), namespace, os.Getenv("HELM_DRIVER"), noopLogger); err != nil {
 		return nil, fmt.Errorf("failed to initialize Helm action configuration: %v", err)
 	}
 	return actionConfig, nil
@@ -334,7 +334,7 @@ func (c *Client) newActionConfig(namespace string) (*action.Configuration, error
 
 // ensureEnv ensures helm environment is up
 func (c *Client) ensureEnv() error {
-	repoFile := c.settings.RepositoryConfig
+	repoFile := c.RepositoryConfig
 
 	// Check if the repositories.yaml file exists
 	if _, err := os.Stat(repoFile); os.IsNotExist(err) {
@@ -364,7 +364,7 @@ func (c *Client) ensureEnv() error {
 func (c *Client) getChart(pathOptions action.ChartPathOptions) (*chart.Chart, error) {
 	// Get the latest version of the chart
 	chartID := fmt.Sprintf("%s/%s", targetRepoName, targetChartName)
-	chartPath, err := pathOptions.LocateChart(chartID, c.settings)
+	chartPath, err := pathOptions.LocateChart(chartID, c.EnvSettings)
 	if err != nil {
 		return nil, fmt.Errorf("failed to locate chart '%s': %w", chartID, err)
 	}
@@ -392,14 +392,14 @@ func NewClient(options ...ClientOption) *Client {
 // Option Kubeconfig
 func WithKubeconfig(kubeconfig string) ClientOption {
 	return func(c *Client) {
-		c.settings.KubeConfig = kubeconfig
+		c.KubeConfig = kubeconfig
 	}
 
 }
 
-// Option Kubecontext
-func WithKubecontext(kubeContext string) ClientOption {
+// Option KubeContext
+func WithKubeContext(kubeContext string) ClientOption {
 	return func(c *Client) {
-		c.settings.KubeContext = kubeContext
+		c.KubeContext = kubeContext
 	}
 }

@@ -192,7 +192,7 @@ var logsCmd = &cobra.Command{
 		// Get flags
 		flags := cmd.Flags()
 
-		kubeContext, _ := flags.GetString(KubecontextFlag)
+		kubeContext, _ := flags.GetString(KubeContextFlag)
 		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
 
 		head := flags.Changed("head")
@@ -522,7 +522,7 @@ func init() {
 	flagset := logsCmd.Flags()
 	flagset.SortFlags = false
 
-	flagset.String(KubecontextFlag, "", "Specify the kubeconfig context to use")
+	flagset.String(KubeContextFlag, "", "Specify the kubeconfig context to use")
 	flagset.Int64P("head", "h", 10, "Return first N records")
 	flagset.Lookup("head").NoOptDefVal = "10"
 	flagset.Int64P("tail", "t", 10, "Return last N records")
