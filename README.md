@@ -246,7 +246,7 @@ rustup target add aarch64-unknown-linux-musl
 Install tools required by Rust cross compiler:
 
 ```console
-# macOS
+# macOS (Homebrew)
 brew install FiloSottile/musl-cross/musl-cross
 
 # Linux (Ubuntu)
