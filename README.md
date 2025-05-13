@@ -233,7 +233,7 @@ By default, the dev environment compiles "release" builds of the Rust components
 * [rustup](https://rustup.rs)
 * [protobuf](https://protobuf.dev/installation/)
 
-Install the Rust target required for your target architecture:
+Install the Rust target required for your architecture:
 
 ```console
 # x86_64
