@@ -41,7 +41,7 @@ Our goal is to build the most powerful, user-friendly logging platform for Kuber
 
 ## Quickstart (Desktop)
 
-### Option 1: Package managers
+### Option 1: Package Manager
 
 First, install the Kubetail CLI tool (`kubetail`) via your favorite package manager:
 
