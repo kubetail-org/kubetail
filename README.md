@@ -191,7 +191,7 @@ It also contains the source code for the Kubetail Dashboard's frontend and the R
 * [pnpm](https://pnpm.io/)
 * [ctlptl](https://github.com/tilt-dev/ctlptl) (optional)
 
-#### Steps
+#### Next steps
 
 1. Create a Kubernetes Dev Cluster
 
@@ -235,17 +235,27 @@ By default, the dev environment compiles "release" builds of the Rust components
 
 Install the Rust target required for your target architecture:
 
-* x86_64 - `rustup target add x86_64-unknown-linux-musl`
-* aarch64 - `rustup target add aarch64-unknown-linux-musl`
+```console
+# x86_64
+rustup target add x86_64-unknown-linux-musl
+
+# aarch64
+rustup target add aarch64-unknown-linux-musl
+```
 
 Install tools required by Rust cross compiler:
 
-* macOS - `brew install FiloSottile/musl-cross/musl-cross`
-* linux - `apt-get install musl-tools`
+```console
+# macOS
+brew install FiloSottile/musl-cross/musl-cross
 
-#### Tilt
+# Linux (Ubuntu)
+apt-get install musl-tools
+```
 
-To use the local compiler, run Tilt using using the `KUBETAIL_DEV_RUST_LOCAL` env flag:
+#### Next steps
+
+To use the local compiler, just run Tilt using using the `KUBETAIL_DEV_RUST_LOCAL` env flag:
 
 ```console
 KUBETAIL_DEV_RUST_LOCAL=true tilt up
