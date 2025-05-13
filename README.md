@@ -184,13 +184,14 @@ It also contains the source code for the Kubetail Dashboard's frontend and the R
 
 ### Setting up the Development Environment
 
-#### Dependencies:
+#### Dependencies
 
 * [Tilt](https://tilt.dev/)
 * [Go](https://go.dev/)
 * [pnpm](https://pnpm.io/)
 * [ctlptl](https://github.com/tilt-dev/ctlptl) (optional)
 
+#### Steps
 
 1. Create a Kubernetes Dev Cluster
 
@@ -223,14 +224,56 @@ pnpm dev
 
 Now access the dashboard at [http://localhost:5173](http://localhost:5173).
 
+### Optimize Environment for Rust Development (Optional)
 
----
+If you want to iterate quickly on Rust components, you can have Tilt compile them locally instead of inside the Docker containers.
+
+#### Dependencies
+
+* [rustup](https://rustup.rs)
+* [protobuf](https://protobuf.dev/installation/)
+
+Install the Rust target required for your target architecture:
+
+* x86_64 - `rustup target add x86_64-unknown-linux-musl`
+* aarch64 - `rustup target add aarch64-unknown-linux-musl`
+
+#### macOS
+
+1. Add targets to rustup
+
+```console
+brew install protobuf
+rustup install stable
+rustup target add x86_64-unknown-linux-musl aarch64-unknown-linux-musl
+brew install FiloSottile/musl-cross/musl-cross
+```
+
+Then add the following to `~/.cargo/config.toml`:
+
+```toml
+[target.x86_64-unknown-linux-musl]
+linker = "x86_64-linux-musl-gcc"
+
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-musl-gcc"
+```
 
 
-### (Optional) Fast Iteration for Rust Development
+```console
+export KUBETAIL_DEV_RUST_LOCAL=true
+```
 
-If you want to iterate quickly on Rust components, you can build them locally instead of through the dev containers.
+This ensures that `cargo` uses the correct linker when building for those targets.
 
+#### Linux
+
+
+
+#### Dependencies
+
+
+#### Steps
 **1. Install Rust and Required Targets**
 
 **macOS:**

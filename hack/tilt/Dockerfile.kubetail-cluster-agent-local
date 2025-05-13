@@ -1,6 +1,6 @@
-FROM busybox
+FROM alpine:3.21.3
 
 COPY .tilt/cluster-agent /cluster-agent/
-COPY .tilt/rgkl /usr/local/bin/rgkl
+COPY .tilt/rgkl /cluster-agent/
 
 ENTRYPOINT ["/cluster-agent/cluster-agent", "-c", "/etc/kubetail/config.yaml"]
