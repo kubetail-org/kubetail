@@ -226,7 +226,7 @@ Now access the dashboard at [http://localhost:5173](http://localhost:5173).
 
 ### Optimize Environment for Rust Development (Optional)
 
-If you want to iterate quickly on Rust components, you can have Tilt compile them locally instead of inside the Docker containers.
+By default, the dev environment compiles "release" builds of the Rust components when you run run `tilt up`. If you want to iterate more quickly, you can have tilt compile the rust code locally using "debug" builds instead.
 
 #### Dependencies
 
@@ -238,81 +238,18 @@ Install the Rust target required for your target architecture:
 * x86_64 - `rustup target add x86_64-unknown-linux-musl`
 * aarch64 - `rustup target add aarch64-unknown-linux-musl`
 
-#### macOS
+Install tools required by Rust cross compiler:
 
-1. Add targets to rustup
+* macOS - `brew install FiloSottile/musl-cross/musl-cross`
+* linux - `apt-get install musl-tools`
 
-```console
-brew install protobuf
-rustup install stable
-rustup target add x86_64-unknown-linux-musl aarch64-unknown-linux-musl
-brew install FiloSottile/musl-cross/musl-cross
-```
+#### Tilt
 
-Then add the following to `~/.cargo/config.toml`:
-
-```toml
-[target.x86_64-unknown-linux-musl]
-linker = "x86_64-linux-musl-gcc"
-
-[target.aarch64-unknown-linux-musl]
-linker = "aarch64-linux-musl-gcc"
-```
-
+To use the local compiler, run Tilt using using the `KUBETAIL_DEV_RUST_LOCAL` env flag:
 
 ```console
-export KUBETAIL_DEV_RUST_LOCAL=true
+KUBETAIL_DEV_RUST_LOCAL=true tilt up
 ```
-
-This ensures that `cargo` uses the correct linker when building for those targets.
-
-#### Linux
-
-
-
-#### Dependencies
-
-
-#### Steps
-**1. Install Rust and Required Targets**
-
-**macOS:**
-
-```sh
-brew install protobuf
-rustup install stable
-rustup target add x86_64-unknown-linux-musl aarch64-unknown-linux-musl
-brew install FiloSottile/musl-cross/musl-cross
-```
-
-Then add the following to `~/.cargo/config.toml`:
-
-```toml
-[target.x86_64-unknown-linux-musl]
-linker = "x86_64-linux-musl-gcc"
-
-[target.aarch64-unknown-linux-musl]
-linker = "aarch64-linux-musl-gcc"
-```
-
-This ensures that `cargo` uses the correct linker when building for those targets.
-
----
-
-**Linux:**
-
-```sh
-sudo apt-get update && sudo apt-get install -y protobuf-compiler musl-tools
-rustup install stable
-rustup target add x86_64-unknown-linux-musl aarch64-unknown-linux-musl
-```
-
-**2. Enable Local Rust Builds with Tilt**
-
-```sh
-BUILD_RUST_LOCALLY=true tilt up
-```
-
 
 ## Build
 
