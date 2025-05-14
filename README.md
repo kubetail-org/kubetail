@@ -41,12 +41,16 @@ Our goal is to build the most powerful, user-friendly logging platform for Kuber
 
 ## Quickstart (Desktop)
 
-### Option 1: Homebrew
+### Option 1: Package Manager
 
-First, install the Kubetail CLI tool (`kubetail`) via [homebrew](https://brew.sh/):
+First, install the Kubetail CLI tool (`kubetail`) via your favorite package manager:
 
 ```console
+# Homebrew
 brew install kubetail
+
+# Winget
+winget install Kubetail.Kubetail
 ```
 
 Next, start the web dashboard using the `serve` subcommand:
@@ -77,12 +81,9 @@ This command will open [http://localhost:7500/](http://localhost:7500/) in your 
 
 Download the binary for your OS/Arch (from the latest [release binaries](https://github.com/kubetail-org/kubetail/releases/latest)):
 
-* [Darwin/amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-darwin-amd64)
-* [Darwin/arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-darwin-arm64)
-* [Linux/amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-amd64)
-* [Linux/arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-arm64)
-* [Windows/amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-amd64)
-* [Windows/arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-arm64)
+* Darwin ([amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-darwin-amd64), [arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-darwin-arm64))
+* Linux ([amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-amd64), [arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-arm64))
+* Windows ([amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-amd64), [arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-arm64))
 
 Rename the file and make it executable:
 
