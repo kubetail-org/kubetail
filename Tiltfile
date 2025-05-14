@@ -69,15 +69,14 @@ if build_rust_locally:
       *) echo "Unsupported arch: $arch"; exit 1 ;;
     esac
     target="${target_arch}-unknown-linux-musl"
-    target_dir="target/.tilt"
 
     # --- Build static binary ---
-    CARGO_TARGET_DIR="${target_dir}" cargo build --target "${target}"
+    cargo build --target "${target}"
 
     # --- Copy to .tilt directory ---
     out_dir="../../.tilt"
     mkdir -p "$out_dir"
-    cp "${target_dir}/${target}/debug/rgkl" "$out_dir"
+    cp "target/${target}/debug/rgkl" "$out_dir"
     ''',
     deps=[
       "./crates/rgkl/src",
