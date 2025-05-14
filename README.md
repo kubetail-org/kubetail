@@ -253,6 +253,16 @@ brew install FiloSottile/musl-cross/musl-cross
 apt-get install musl-tools
 ```
 
+On macOS, add this to your `~/.cargo/config.toml` file:
+
+```
+[target.x86_64-unknown-linux-musl]
+linker = "x86_64-linux-musl-gcc"
+
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-musl-gcc"
+```
+
 #### Next steps
 
 To use the local compiler, just run Tilt using using the `KUBETAIL_DEV_RUST_LOCAL` env flag:
