@@ -10,7 +10,7 @@ local_resource(
   '''
   cd modules
 
-  # Build Go binary  
+  # --- Build Go binary ---
   export CGO_ENABLED=0
   export GOOS=linux
   go build -o ../.tilt/cluster-api ./cluster-api/cmd/main.go
@@ -41,7 +41,7 @@ local_resource(
   '''
   cd modules
 
-  # Build Go binary  
+  # --- Build Go binary   ---
   export CGO_ENABLED=0
   export GOOS=linux
   go build -o ../.tilt/cluster-agent ./cluster-agent/cmd/main.go
@@ -52,16 +52,16 @@ local_resource(
   ]
 )
 
-build_rust_locally = os.getenv("BUILD_RUST_LOCALLY", default='false').lower() == 'true'
+build_rust_locally = os.getenv("KUBETAIL_DEV_RUST_LOCAL", default='false').lower() == 'true'
 if build_rust_locally:
   local_resource(
-    "kubetail-rgkl",
+    "kubetail-rgkl-compile",
     '''
     set -eu
 
     cd crates/rgkl
 
-    # ---------- Determine Target Architecture ----------
+    # --- Determine target architecture ---
     arch=$(uname -m)
     case "$arch" in
       x86_64|amd64) target_arch="x86_64" ;;
@@ -69,25 +69,14 @@ if build_rust_locally:
       *) echo "Unsupported arch: $arch"; exit 1 ;;
     esac
     target="${target_arch}-unknown-linux-musl"
-    export CARGO_TARGET_DIR="target/.tilt"
 
-    # ---------- Ensure musl Target is Installed ----------
-    if ! rustup target list | grep -q "${target} (installed)"; then
-      echo "📦 Installing Rust target ${target}"
-      rustup target add "${target}"
-    fi
-
-    # ---------- Build Static Binary ----------
-    echo "🔨 cargo build --target=${target}"
+    # --- Build static binary ---
     cargo build --target "${target}"
 
-    bin_path="${CARGO_TARGET_DIR}/${target}/release/rgkl"
+    # --- Copy to .tilt directory ---
     out_dir="../../.tilt"
-
-    # ---------- Package Static Binary ----------
     mkdir -p "$out_dir"
-    install -Dm755 "$bin_path" "$out_dir"
-    echo "✅ Static binary packaged in $out_dir"
+    cp "target/${target}/debug/rgkl" "$out_dir"
     ''',
     deps=[
       "./crates/rgkl/src",
@@ -103,16 +92,12 @@ if build_rust_locally:
     context='.',
     entrypoint="/cluster-agent/cluster-agent -c /etc/kubetail/config.yaml",
     only=[
-      './proto',
       './.tilt/cluster-agent',
       './.tilt/rgkl',
     ],
     live_update=[
       sync('./.tilt/cluster-agent', '/cluster-agent/cluster-agent'),
-      sync(
-        './.tilt/rgkl',
-        '/usr/local/bin/rgkl',
-      ),
+      sync('./.tilt/rgkl', '/cluster-agent/rgkl')
     ]
   )
 else:
@@ -147,12 +132,12 @@ local_resource(
 
   cd modules
 
-  # Build the Go binary
+  # --- Build the Go binary ---
   export CGO_ENABLED=0
   export GOOS=linux
   go build -o ../.tilt/dashboard ./dashboard/cmd/main.go
 
-  # Reset dashboard/website directory
+  # --- Reset dashboard/website directory ---
   if [ ! -f dashboard/website/.gitkeep ]; then
     rm -rf dashboard/website &&
     git checkout dashboard/website

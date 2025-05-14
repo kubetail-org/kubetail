@@ -93,7 +93,7 @@ func (s *LogRecordsService) StreamForward(req *clusteragentpb.LogRecordsStreamRe
 		args = append(args, "--stop-time", req.StopTime)
 	}
 
-	cmd := exec.CommandContext(ctx, "rgkl", args...)
+	cmd := exec.CommandContext(ctx, "./rgkl", args...)
 
 	// Get a pipe
 	stdout, err := cmd.StdoutPipe()
@@ -213,7 +213,7 @@ func (s *LogRecordsService) StreamBackward(req *clusteragentpb.LogRecordsStreamR
 		args = append(args, "--stop-time", req.StopTime)
 	}
 
-	cmd := exec.CommandContext(ctx, "rgkl", args...)
+	cmd := exec.CommandContext(ctx, "./rgkl", args...)
 
 	// Get a pipe
 	stdout, err := cmd.StdoutPipe()

@@ -1,4 +1,0 @@
-[profile.dev]
-incremental = true
-debug = true
-opt-level = 1

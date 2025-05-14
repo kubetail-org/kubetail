@@ -184,13 +184,14 @@ It also contains the source code for the Kubetail Dashboard's frontend and the R
 
 ### Setting up the Development Environment
 
-#### Dependencies:
+#### Dependencies
 
 * [Tilt](https://tilt.dev/)
 * [Go](https://go.dev/)
 * [pnpm](https://pnpm.io/)
 * [ctlptl](https://github.com/tilt-dev/ctlptl) (optional)
 
+#### Next steps
 
 1. Create a Kubernetes Dev Cluster
 
@@ -223,28 +224,38 @@ pnpm dev
 
 Now access the dashboard at [http://localhost:5173](http://localhost:5173).
 
+### Optimize Environment for Rust Development (Optional)
 
----
+By default, the dev environment compiles "release" builds of the Rust components when you run run `tilt up`. If you want to iterate more quickly, you can have tilt compile the rust code locally using "debug" builds instead.
 
+#### Dependencies
 
-### (Optional) Fast Iteration for Rust Development
+* [rustup](https://rustup.rs)
+* [protobuf](https://protobuf.dev/installation/)
 
-If you want to iterate quickly on Rust components, you can build them locally instead of through the dev containers.
+Install the Rust target required for your architecture:
 
-**1. Install Rust and Required Targets**
+```console
+# x86_64
+rustup target add x86_64-unknown-linux-musl
 
-**macOS:**
-
-```sh
-brew install protobuf
-rustup install stable
-rustup target add x86_64-unknown-linux-musl aarch64-unknown-linux-musl
-brew install FiloSottile/musl-cross/musl-cross
+# aarch64
+rustup target add aarch64-unknown-linux-musl
 ```
 
-Then add the following to `~/.cargo/config.toml`:
+Install tools required by Rust cross compiler:
 
-```toml
+```console
+# macOS (Homebrew)
+brew install FiloSottile/musl-cross/musl-cross
+
+# Linux (Ubuntu)
+apt-get install musl-tools
+```
+
+On macOS, add this to your `~/.cargo/config.toml` file:
+
+```
 [target.x86_64-unknown-linux-musl]
 linker = "x86_64-linux-musl-gcc"
 
@@ -252,24 +263,13 @@ linker = "x86_64-linux-musl-gcc"
 linker = "aarch64-linux-musl-gcc"
 ```
 
-This ensures that `cargo` uses the correct linker when building for those targets.
+#### Next steps
 
----
+To use the local compiler, just run Tilt using using the `KUBETAIL_DEV_RUST_LOCAL` env flag:
 
-**Linux:**
-
-```sh
-sudo apt-get update && sudo apt-get install -y protobuf-compiler musl-tools
-rustup install stable
-rustup target add x86_64-unknown-linux-musl aarch64-unknown-linux-musl
+```console
+KUBETAIL_DEV_RUST_LOCAL=true tilt up
 ```
-
-**2. Enable Local Rust Builds with Tilt**
-
-```sh
-BUILD_RUST_LOCALLY=true tilt up
-```
-
 
 ## Build
 
