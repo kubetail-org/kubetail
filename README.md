@@ -185,13 +185,16 @@ It also contains the source code for the Kubetail Dashboard's frontend and the R
 
 ### Setting up the Development Environment
 
-Dependencies:
+#### Dependencies
+
 * [Tilt](https://tilt.dev/)
 * [Go](https://go.dev/)
 * [pnpm](https://pnpm.io/)
 * [ctlptl](https://github.com/tilt-dev/ctlptl) (optional)
 
-1. Create a Kubernetes dev cluster:
+#### Next steps
+
+1. Create a Kubernetes Dev Cluster
 
 ```console
 ctlptl apply -f hack/ctlptl/minikube.yaml
@@ -220,7 +223,54 @@ pnpm install
 pnpm dev
 ```
 
-Now access the dashboard at [http://localhost:5173](http://localhost:5173). 
+Now access the dashboard at [http://localhost:5173](http://localhost:5173).
+
+### Optimize Environment for Rust Development (Optional)
+
+By default, the dev environment compiles "release" builds of the Rust components when you run run `tilt up`. If you want to iterate more quickly, you can have tilt compile the rust code locally using "debug" builds instead.
+
+#### Dependencies
+
+* [rustup](https://rustup.rs)
+* [protobuf](https://protobuf.dev/installation/)
+
+Install the Rust target required for your architecture:
+
+```console
+# x86_64
+rustup target add x86_64-unknown-linux-musl
+
+# aarch64
+rustup target add aarch64-unknown-linux-musl
+```
+
+Install tools required by Rust cross compiler:
+
+```console
+# macOS (Homebrew)
+brew install FiloSottile/musl-cross/musl-cross
+
+# Linux (Ubuntu)
+apt-get install musl-tools
+```
+
+On macOS, add this to your `~/.cargo/config.toml` file:
+
+```
+[target.x86_64-unknown-linux-musl]
+linker = "x86_64-linux-musl-gcc"
+
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-musl-gcc"
+```
+
+#### Next steps
+
+To use the local compiler, just run Tilt using using the `KUBETAIL_DEV_RUST_LOCAL` env flag:
+
+```console
+KUBETAIL_DEV_RUST_LOCAL=true tilt up
+```
 
 ## Build
 

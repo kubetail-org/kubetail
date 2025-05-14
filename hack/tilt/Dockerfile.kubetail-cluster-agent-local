@@ -1,0 +1,8 @@
+FROM alpine:3.21.3
+
+WORKDIR /cluster-agent
+
+COPY .tilt/cluster-agent .
+COPY .tilt/rgkl .
+
+ENTRYPOINT ["./cluster-agent", "-c", "/etc/kubetail/config.yaml"]
