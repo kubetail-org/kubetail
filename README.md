@@ -225,7 +225,7 @@ pnpm dev
 
 Now access the dashboard at [http://localhost:5173](http://localhost:5173).
 
-### Optimize Environment for Rust Development (Optional)
+### Optimize Development Environment for Rust (Optional)
 
 By default, the dev environment compiles "release" builds of the Rust components when you run run `tilt up`. If you want to iterate more quickly, you can have tilt compile the rust code locally using "debug" builds instead.
 
