@@ -80,6 +80,37 @@ export class MapSet<K = string, T = string> extends Map<K, Set<T>> {
 }
 
 /**
+ * Go-like WaitGroup class
+ */
+
+export class WaitGroup {
+  private counter = 0;
+
+  /**
+   * Increment internal counter
+   */
+  add(n: number = 1): void {
+    if (n <= 0) throw new Error('must be positive');
+    this.counter += n;
+  }
+
+  /**
+   * Decrement the counter by 1
+   */
+  done(): void {
+    if (this.counter <= 0) throw new Error('done() called more times than add()');
+    this.counter -= 1;
+  }
+
+  /**
+   * Return true if wait group is empty
+   */
+  isEmpty(): boolean {
+    return this.counter === 0;
+  }
+}
+
+/**
  * Classname merger
  */
 

@@ -27,7 +27,7 @@ import Spinner from '@kubetail/ui/elements/Spinner';
 
 import { ConsoleNodesListItemFragmentFragment, LogRecordsFragmentFragment as LogRecord, LogRecordsQueryMode, LogSourceFilter, LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
-import { useIsClusterAPIEnabled, useListQueryWithSubscription } from '@/lib/hooks';
+import { useIsClusterAPIEnabled, useListQueryWithSubscription, useNextTick } from '@/lib/hooks';
 import { Counter, MapSet, cn, cssEncode } from '@/lib/util';
 import { getClusterAPIClient } from '@/apollo-client';
 import LoadingPage from '@/components/utils/LoadingPage';
@@ -379,7 +379,7 @@ const Row = memo(
  */
 
 type ContentHandle = {
-  scrollTo: (pos: 'first' | 'last', callback?: () => void) => void;
+  scrollTo: (pos: 'first' | 'last') => void;
   autoScroll: () => void;
 };
 
@@ -416,12 +416,8 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
 
   const [isListReady, setIsListReady] = useState(false);
 
-  const scrollToRef = useRef<'first' | 'last' | null>(null);
-  const scrollToCallbackRef = useRef<(() => void)>();
-  const [scrollToTrigger, setScrollToTrigger] = useState(0);
-
-  const isAutoScrollRef = useRef(true);
-  const isProgrammaticScrollRef = useRef(false);
+  const isAutoScrollEnabledRef = useRef(false);
+  const lastScrollTopRef = useRef(0);
 
   const [msgColWidth, setMsgColWidth] = useState(0);
 
@@ -430,22 +426,24 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
 
   // define handler api
   useImperativeHandle(ref, () => {
-    const scrollTo = (pos: 'first' | 'last', callback?: () => void) => {
-      // update autoscroll
-      if (pos === 'last') isAutoScrollRef.current = true;
-      else isAutoScrollRef.current = false;
+    const scrollTo = (pos: 'first' | 'last') => {
+      if (pos === 'last') {
+        isAutoScrollEnabledRef.current = true;
+        listRef.current?.scrollToItem(Infinity, 'end');
+      } else {
+        isAutoScrollEnabledRef.current = false;
+        listRef.current?.scrollToItem(0, 'end');
+      }
 
-      scrollToRef.current = pos;
-      scrollToCallbackRef.current = callback;
-      setScrollToTrigger(Math.random());
+      // Reset load cache
+      infiniteLoaderRef.current?.resetloadMoreItemsCache(true);
     };
 
-    return {
-      scrollTo,
-      autoScroll: () => {
-        if (isAutoScrollRef.current) scrollTo('last');
-      },
+    const autoScroll = () => {
+      if (isAutoScrollEnabledRef.current) scrollTo('last');
     };
+
+    return { scrollTo, autoScroll };
   }, [isListReady]);
 
   // -------------------------------------------------------------------------------------
@@ -474,6 +472,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
     setTimeout(() => {
       // maintain scroll position
       if (startIndex === 0 && listOuterRef.current) {
+        // Scroll
         const { scrollTop, scrollHeight } = listOuterRef.current;
         listOuterRef.current.scrollTo({ top: scrollTop + (scrollHeight - origScrollHeight), behavior: 'instant' });
       }
@@ -565,16 +564,24 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
 
   // handle vertical scroll on content
   const handleContentScrollY = () => {
+    const lastScrollTop = lastScrollTopRef.current;
+
+    // Update scroll position tracker
     const el = listOuterRef.current;
-    if (el && !isProgrammaticScrollRef.current) {
-      const tolerance = 20;
-      const { scrollTop, clientHeight, scrollHeight } = el;
-      if (Math.abs((scrollTop + clientHeight) - scrollHeight) <= tolerance) {
-        isAutoScrollRef.current = true;
-      } else {
-        isAutoScrollRef.current = false;
-      }
+    if (el) lastScrollTopRef.current = el.scrollTop;
+    else return; // Exit if element not available
+
+    const { scrollTop, clientHeight, scrollHeight } = el;
+
+    // If scrolling up, turn off auto-scroll and exit
+    if (scrollTop < lastScrollTop) {
+      isAutoScrollEnabledRef.current = false;
+      return;
     }
+
+    // If scrolled to bottom, turn on auto-scroll
+    const tolerance = 10;
+    if (!isAutoScrollEnabledRef.current && Math.abs((scrollTop + clientHeight) - scrollHeight) <= tolerance) isAutoScrollEnabledRef.current = true;
   };
 
   // attach scroll event listeners
@@ -584,34 +591,6 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
     listOuterEl.addEventListener('scroll', handleContentScrollX as any);
     return () => listOuterEl.removeEventListener('scroll', handleContentScrollX as any);
   }, [isListReady]);
-
-  // -------------------------------------------------------------------------------------
-  // Miscellaneous
-  // -------------------------------------------------------------------------------------
-
-  useEffect(() => {
-    if (scrollToRef.current) {
-      isProgrammaticScrollRef.current = true;
-
-      // perform scroll and reset
-      const index = (scrollToRef.current === 'last') ? items.length : 1;
-      listRef.current?.scrollToItem(index);
-      scrollToRef.current = null;
-
-      const callback = scrollToCallbackRef.current;
-      scrollToCallbackRef.current = undefined;
-
-      setTimeout(() => {
-        // reset load cache
-        infiniteLoaderRef.current?.resetloadMoreItemsCache(true);
-
-        // execute callback
-        if (callback) callback();
-
-        isProgrammaticScrollRef.current = false;
-      }, 0);
-    }
-  }, [scrollToTrigger]);
 
   // ------------------------------------------------------------------------------------
   // Renderer
@@ -859,9 +838,11 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
   const fetcherRef = useRef<LogRecordsFetcherHandle>(null);
   const contentRef = useRef<ContentHandle>(null);
 
+  const nextTick = useNextTick();
+
   const handleOnFollowData = (record: LogRecord) => {
     setItems((currItems) => [...currItems, record]);
-    contentRef.current?.autoScroll();
+    nextTick(() => contentRef.current?.autoScroll());
   };
 
   const handleLoadMoreBefore = async () => {
@@ -917,7 +898,10 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
       setItems(response.records);
       setHasMoreAfter(Boolean(response.nextCursor));
 
-      contentRef.current?.scrollTo('first', () => setIsLoading(false));
+      nextTick(() => {
+        contentRef.current?.scrollTo('first');
+        setIsLoading(false);
+      });
     },
     seekTail: async () => {
       setIsLoading(true);
@@ -935,7 +919,10 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
       setItems(response.records);
       setHasMoreBefore(Boolean(response.nextCursor));
 
-      contentRef.current?.scrollTo('last', () => setIsLoading(false));
+      nextTick(() => {
+        contentRef.current?.scrollTo('last');
+        setIsLoading(false);
+      });
     },
     seekTime: async (sinceTS: string) => {
       setIsLoading(true);
@@ -956,7 +943,10 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
       setItems(response.records);
       setHasMoreAfter(Boolean(response.nextCursor));
 
-      contentRef.current?.scrollTo('first', () => setIsLoading(false));
+      nextTick(() => {
+        contentRef.current?.scrollTo('first');
+        setIsLoading(false);
+      });
     },
     play: () => {
       setIsFollow(true);
