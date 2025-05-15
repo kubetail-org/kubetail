@@ -21,6 +21,6 @@ Fixes #
 - [ ] Link the issue number to *Fixes #*
 - [ ] Add summary and explain changes in the PR description
 - [ ] Rebase branch to HEAD
-- [ ] Squash changes into one signed, single commit (*)
+- [ ] Squash changes into one signed, single commit [^1]
 
-* [commit format](https://github.com/kubetail-org/.github/blob/main/pull-request-commit-format.md)
+[^1]: See suggested [commit format](https://github.com/kubetail-org/.github/blob/main/pull-request-commit-format.md)
