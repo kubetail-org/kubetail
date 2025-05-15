@@ -42,7 +42,7 @@ import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
 import SettingsDropdown from '@/components/widgets/SettingsDropdown';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
-import { useListQueryWithSubscription, useLogMetadata, useWorkloadCounter } from '@/lib/hooks';
+import { useListQueryWithSubscription, useLogMetadata } from '@/lib/hooks';
 import { joinPaths, getBasename, cn } from '@/lib/util';
 import { Workload, allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
 import { applySearchAndFilter, noSearchResults, getContainerIDs } from '@/lib/home';
@@ -866,18 +866,28 @@ const CountBadge = ({ count, workload, workloadFilter }: { count: number, worklo
  */
 
 const Sidebar = () => {
-  const { workloadFilter, setWorkloadFilter, kubeContext, namespace } = useContext(Context);
+  const { workloadFilter, setWorkloadFilter, kubeContext, namespace, search } = useContext(Context);
 
-  // kubeContext sometimes is undefined
-  const { loading, error, counter } = useWorkloadCounter(
-    kubeContext ?? '',
-    namespace,
-  );
+  const cronjobs = useCronJobs(kubeContext);
+  const daemonsets = useDaemonSets(kubeContext);
+  const deployments = useDeployments(kubeContext);
+  const jobs = useJobs(kubeContext);
+  const pods = usePods(kubeContext);
+  const replicasets = useReplicaSets(kubeContext);
+  const statefulsets = useStatefulSets(kubeContext);
+
+  const counts = {
+    cronjobs: applySearchAndFilter(cronjobs.fetching, cronjobs.data?.batchV1CronJobsList?.items, search, namespace),
+    daemonsets: applySearchAndFilter(daemonsets.fetching, daemonsets.data?.appsV1DaemonSetsList?.items, search, namespace),
+    pods: applySearchAndFilter(pods.fetching, pods.data?.coreV1PodsList?.items, search, namespace),
+    jobs: applySearchAndFilter(jobs.fetching, jobs.data?.batchV1JobsList?.items, search, namespace),
+    deployments: applySearchAndFilter(deployments.fetching, deployments.data?.appsV1DeploymentsList?.items, search, namespace),
+    replicasets: applySearchAndFilter(replicasets.fetching, replicasets.data?.appsV1ReplicaSetsList?.items, search, namespace),
+    statefulsets: applySearchAndFilter(statefulsets.fetching, statefulsets.data?.appsV1StatefulSetsList?.items, search, namespace),
+  }
 
   // using some default sidebar values during data loading and error states
-  const sidebarItems: [Workload, number][] = loading || error
-    ? allWorkloads.map((w) => [w, 0])
-    : Array.from(counter.entries());
+  const sidebarItems: [Workload, number][] = allWorkloads.map((w) => [w, counts[w]?.length ?? 0])
 
   return (
     <div className="px-4">
