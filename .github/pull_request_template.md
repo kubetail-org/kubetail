@@ -1,25 +1,24 @@
 <!-- 
-Put the emoji in your PR title to indicate the type of PR
-
-🎣 bug fix
-🐋 new feature
-📜 documentation
- -->
+Put one of these emojis in your title to indicate the type of PR:
+- 🎣 Bug fix
+- 🐋 New feature
+- 📜 Documentation
+-->
 
 Fixes # 
 
 ## Summary
 
-*explain the goal of your PR*
+<-- Explain the goal of your PR  -->
 
 ## Changes
 
-*explain the goal of your PR*
+<-- Explain the changes in your PR -->
 
 ## Submitter checklist
 
-- [ ] Add the correct emoji to PR title
+- [ ] Add the correct emoji to the PR title
 - [ ] Link the issue number to *Fixes #*
-- [ ] Explain the changes made
-- [ ] Sign the commit using for [DCO](https://github.com/apps/dco) 
+- [ ] Add summary and explain changes in the PR description
 - [ ] Rebase branch to HEAD
+- [ ] Squash changes into one signed, single commit ([suggested format](/.github/pull-request-commits.md))
