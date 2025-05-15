@@ -34,6 +34,7 @@ import (
 	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 )
 
 // Auth-mode
@@ -54,8 +55,11 @@ const (
 
 // Application configuration
 type Config struct {
-	AllowedNamespaces []string `mapstructure:"allowed-namespaces"`
-	KubeconfigPath    string   `mapstructure:"kubeconfig"`
+	// API config
+	APIConfig            api.Config `mapstructure:"api-config"`
+	KubeConfigPrecedence []string   `mapstructure:"kubeconfig-precedence"`
+	AllowedNamespaces    []string   `mapstructure:"allowed-namespaces"`
+	KubeconfigPath       string     `mapstructure:"kubeconfig"`
 	// dashboard options
 	Dashboard struct {
 		Addr               string   `validate:"omitempty,hostname_port"`
@@ -236,6 +240,7 @@ func (cfg *Config) validate() error {
 func DefaultConfig() *Config {
 	cfg := &Config{}
 
+	cfg.APIConfig = api.Config{}
 	cfg.AllowedNamespaces = []string{}
 	cfg.KubeconfigPath = clientcmd.RecommendedHomeFile
 	cfg.Dashboard.Addr = ":8080"
@@ -417,6 +422,22 @@ func NewConfig(v *viper.Viper, f string) (*Config, error) {
 	}
 
 	cfg := DefaultConfig()
+
+	pathOptions := clientcmd.NewDefaultPathOptions()
+
+	loadingRules := *pathOptions.LoadingRules
+	loadingRules.ExplicitPath = v.GetString(clientcmd.RecommendedConfigPathFlag)
+
+	// config precedence is later needed for kube-config-watcher
+	cfg.KubeConfigPrecedence = loadingRules.GetLoadingPrecedence()
+
+	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&loadingRules, &clientcmd.ConfigOverrides{})
+	rawConfig, err := clientConfig.RawConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.APIConfig = rawConfig
 
 	// unmarshal
 	hookFunc := mapstructure.ComposeDecodeHookFunc(
