@@ -1,6 +1,12 @@
+# kubetail repository ownership
+*   @amorey
+
+# kubetail docs, community and CI ownership
+*.md    @rxinui @amorey
+.github/    @rxinui @amorey
+
 # kubetail CLI ownership
 /modules/cli/   @rxinui @amorey
 /modules/shared/    @rxinui @amorey
-
-# kubetail repository ownership
-*   @amorey
+/modules/cluster-agent/    @rxinui @amorey
+/modules/cluster-api/    @rxinui @amorey
