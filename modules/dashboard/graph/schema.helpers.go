@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
-	zlog "github.com/rs/zerolog/log"
 	"github.com/sosodev/duration"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -38,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 
 	gqlerrors "github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
@@ -439,59 +437,6 @@ func parseTimeArg(arg string) (time.Time, error) {
 	}
 
 	return zero, fmt.Errorf("unable to parse arg %s", arg)
-}
-
-// encode cursor to base64-encoded json
-func encodeTailCursor(cursor TailCursor) (string, error) {
-	jsonData, err := json.Marshal(cursor)
-	if err != nil {
-		return "", err
-	}
-	output := base64.StdEncoding.EncodeToString(jsonData)
-	return output, nil
-}
-
-// decode cursor from base64-encoded json
-func decodeTailCursor(input string) (*TailCursor, error) {
-	decodedData, err := base64.StdEncoding.DecodeString(input)
-	if err != nil {
-		return nil, err
-	}
-	cursor := &TailCursor{}
-	if err = json.Unmarshal(decodedData, cursor); err != nil {
-		zlog.Fatal().Err(err).Send()
-	}
-	return cursor, nil
-}
-
-// get first timestamp in log
-func getFirstTimestamp(ctx context.Context, clientset kubernetes.Interface, namespace string, name string, container *string) (time.Time, error) {
-	var ts time.Time
-
-	// build args
-	opts := &corev1.PodLogOptions{
-		Timestamps: true,
-		LimitBytes: ptr.To[int64](100), // get more bytes than necessary
-	}
-
-	if container != nil {
-		opts.Container = *container
-	}
-
-	// execute query
-	req := clientset.CoreV1().Pods(namespace).GetLogs(name, opts)
-	podLogs, err := req.Stream(ctx)
-	if err != nil {
-		return ts, err
-	}
-	defer podLogs.Close()
-
-	buf := make([]byte, 40) // timestamp is 30-35 bytes long
-	if _, err := podLogs.Read(buf); err != nil {
-		return ts, err
-	}
-
-	return time.Parse(time.RFC3339Nano, strings.Fields(string(buf))[0])
 }
 
 func healthCheckStatusFromClusterAPIHealthStatus(statusIn clusterapi.HealthStatus) model.HealthCheckStatus {
