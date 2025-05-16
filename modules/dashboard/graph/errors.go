@@ -22,17 +22,6 @@ import (
 )
 
 // New Watch API error
-func newWatchError(message string) *gqlerror.Error {
-	// init error
-	return &gqlerror.Error{
-		Message: message,
-		Extensions: map[string]interface{}{
-			"code": errors.ErrWatchError.Extensions["code"],
-		},
-	}
-}
-
-// New Watch API error
 func newWatchErrorFromMetaV1Status(status *metav1.Status) *gqlerror.Error {
 	// init error
 	return &gqlerror.Error{

@@ -745,7 +745,7 @@ func (e *executableSchema) Schema() *ast.Schema {
 	return parsedSchema
 }
 
-func (e *executableSchema) Complexity(typeName, field string, childComplexity int, rawArgs map[string]any) (int, bool) {
+func (e *executableSchema) Complexity(ctx context.Context, typeName, field string, childComplexity int, rawArgs map[string]any) (int, bool) {
 	ec := executionContext{nil, e, 0, 0, nil}
 	_ = ec
 	switch typeName + "." + field {
@@ -2757,7 +2757,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Mutation_helmInstallLatest_args(context.TODO(), rawArgs)
+		args, err := ec.field_Mutation_helmInstallLatest_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2797,7 +2797,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_appsV1DaemonSetsGet_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_appsV1DaemonSetsGet_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2809,7 +2809,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_appsV1DaemonSetsList_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_appsV1DaemonSetsList_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2821,7 +2821,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_appsV1DeploymentsGet_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_appsV1DeploymentsGet_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2833,7 +2833,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_appsV1DeploymentsList_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_appsV1DeploymentsList_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2845,7 +2845,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_appsV1ReplicaSetsGet_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_appsV1ReplicaSetsGet_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2857,7 +2857,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_appsV1ReplicaSetsList_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_appsV1ReplicaSetsList_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2869,7 +2869,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_appsV1StatefulSetsGet_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_appsV1StatefulSetsGet_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2881,7 +2881,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_appsV1StatefulSetsList_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_appsV1StatefulSetsList_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2893,7 +2893,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_batchV1CronJobsGet_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_batchV1CronJobsGet_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2905,7 +2905,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_batchV1CronJobsList_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_batchV1CronJobsList_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2917,7 +2917,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_batchV1JobsGet_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_batchV1JobsGet_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2929,7 +2929,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_batchV1JobsList_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_batchV1JobsList_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2941,7 +2941,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_clusterAPIHealthzGet_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_clusterAPIHealthzGet_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2953,7 +2953,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_clusterAPIReadyWait_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_clusterAPIReadyWait_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2965,7 +2965,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_clusterAPIServicesList_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_clusterAPIServicesList_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2977,7 +2977,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_coreV1NamespacesList_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_coreV1NamespacesList_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -2989,7 +2989,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_coreV1NodesList_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_coreV1NodesList_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3001,7 +3001,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_coreV1PodsGet_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_coreV1PodsGet_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3013,7 +3013,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_coreV1PodsList_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_coreV1PodsList_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3025,7 +3025,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_coreV1ServicesGet_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_coreV1ServicesGet_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3037,7 +3037,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_coreV1ServicesList_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_coreV1ServicesList_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3049,7 +3049,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_helmListReleases_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_helmListReleases_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3068,7 +3068,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_kubernetesAPIHealthzGet_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_kubernetesAPIHealthzGet_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3080,7 +3080,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_kubernetesAPIReadyWait_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_kubernetesAPIReadyWait_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3092,7 +3092,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_logRecordsFetch_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_logRecordsFetch_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3104,7 +3104,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_appsV1DaemonSetsWatch_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_appsV1DaemonSetsWatch_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3116,7 +3116,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_appsV1DeploymentsWatch_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_appsV1DeploymentsWatch_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3128,7 +3128,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_appsV1ReplicaSetsWatch_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_appsV1ReplicaSetsWatch_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3140,7 +3140,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_appsV1StatefulSetsWatch_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_appsV1StatefulSetsWatch_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3152,7 +3152,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_batchV1CronJobsWatch_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_batchV1CronJobsWatch_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3164,7 +3164,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_batchV1JobsWatch_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_batchV1JobsWatch_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3176,7 +3176,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_clusterAPIHealthzWatch_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_clusterAPIHealthzWatch_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3188,7 +3188,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_clusterAPIReadyWait_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_clusterAPIReadyWait_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3200,7 +3200,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_clusterAPIServicesWatch_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_clusterAPIServicesWatch_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3212,7 +3212,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_coreV1NamespacesWatch_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_coreV1NamespacesWatch_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3224,7 +3224,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_coreV1NodesWatch_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_coreV1NodesWatch_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3236,7 +3236,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_coreV1PodsWatch_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_coreV1PodsWatch_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3248,7 +3248,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_coreV1ServicesWatch_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_coreV1ServicesWatch_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3267,7 +3267,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_kubernetesAPIHealthzWatch_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_kubernetesAPIHealthzWatch_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3279,7 +3279,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_kubernetesAPIReadyWait_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_kubernetesAPIReadyWait_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3291,7 +3291,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_logRecordsFollow_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_logRecordsFollow_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -3303,7 +3303,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_logSourcesWatch_args(context.TODO(), rawArgs)
+		args, err := ec.field_Subscription_logSourcesWatch_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
@@ -25016,69 +25016,6 @@ func (ec *executionContext) _List(ctx context.Context, sel ast.SelectionSet, obj
 	switch obj := (obj).(type) {
 	case nil:
 		return graphql.Null
-	case v11.DaemonSetList:
-		return ec._AppsV1DaemonSetList(ctx, sel, &obj)
-	case *v11.DaemonSetList:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._AppsV1DaemonSetList(ctx, sel, obj)
-	case v11.DeploymentList:
-		return ec._AppsV1DeploymentList(ctx, sel, &obj)
-	case *v11.DeploymentList:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._AppsV1DeploymentList(ctx, sel, obj)
-	case v11.ReplicaSetList:
-		return ec._AppsV1ReplicaSetList(ctx, sel, &obj)
-	case *v11.ReplicaSetList:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._AppsV1ReplicaSetList(ctx, sel, obj)
-	case v11.StatefulSetList:
-		return ec._AppsV1StatefulSetList(ctx, sel, &obj)
-	case *v11.StatefulSetList:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._AppsV1StatefulSetList(ctx, sel, obj)
-	case v12.CronJobList:
-		return ec._BatchV1CronJobList(ctx, sel, &obj)
-	case *v12.CronJobList:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._BatchV1CronJobList(ctx, sel, obj)
-	case v12.JobList:
-		return ec._BatchV1JobList(ctx, sel, &obj)
-	case *v12.JobList:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._BatchV1JobList(ctx, sel, obj)
-	case v13.NamespaceList:
-		return ec._CoreV1NamespaceList(ctx, sel, &obj)
-	case *v13.NamespaceList:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._CoreV1NamespaceList(ctx, sel, obj)
-	case v13.NodeList:
-		return ec._CoreV1NodeList(ctx, sel, &obj)
-	case *v13.NodeList:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._CoreV1NodeList(ctx, sel, obj)
-	case v13.PodList:
-		return ec._CoreV1PodList(ctx, sel, &obj)
-	case *v13.PodList:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._CoreV1PodList(ctx, sel, obj)
 	case v13.ServiceList:
 		return ec._CoreV1ServiceList(ctx, sel, &obj)
 	case *v13.ServiceList:
@@ -25086,6 +25023,69 @@ func (ec *executionContext) _List(ctx context.Context, sel ast.SelectionSet, obj
 			return graphql.Null
 		}
 		return ec._CoreV1ServiceList(ctx, sel, obj)
+	case v13.PodList:
+		return ec._CoreV1PodList(ctx, sel, &obj)
+	case *v13.PodList:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CoreV1PodList(ctx, sel, obj)
+	case v13.NodeList:
+		return ec._CoreV1NodeList(ctx, sel, &obj)
+	case *v13.NodeList:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CoreV1NodeList(ctx, sel, obj)
+	case v13.NamespaceList:
+		return ec._CoreV1NamespaceList(ctx, sel, &obj)
+	case *v13.NamespaceList:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CoreV1NamespaceList(ctx, sel, obj)
+	case v12.JobList:
+		return ec._BatchV1JobList(ctx, sel, &obj)
+	case *v12.JobList:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BatchV1JobList(ctx, sel, obj)
+	case v12.CronJobList:
+		return ec._BatchV1CronJobList(ctx, sel, &obj)
+	case *v12.CronJobList:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BatchV1CronJobList(ctx, sel, obj)
+	case v11.StatefulSetList:
+		return ec._AppsV1StatefulSetList(ctx, sel, &obj)
+	case *v11.StatefulSetList:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._AppsV1StatefulSetList(ctx, sel, obj)
+	case v11.ReplicaSetList:
+		return ec._AppsV1ReplicaSetList(ctx, sel, &obj)
+	case *v11.ReplicaSetList:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._AppsV1ReplicaSetList(ctx, sel, obj)
+	case v11.DeploymentList:
+		return ec._AppsV1DeploymentList(ctx, sel, &obj)
+	case *v11.DeploymentList:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._AppsV1DeploymentList(ctx, sel, obj)
+	case v11.DaemonSetList:
+		return ec._AppsV1DaemonSetList(ctx, sel, &obj)
+	case *v11.DaemonSetList:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._AppsV1DaemonSetList(ctx, sel, obj)
 	default:
 		panic(fmt.Errorf("unexpected type %T", obj))
 	}
@@ -25095,69 +25095,6 @@ func (ec *executionContext) _Object(ctx context.Context, sel ast.SelectionSet, o
 	switch obj := (obj).(type) {
 	case nil:
 		return graphql.Null
-	case v11.DaemonSet:
-		return ec._AppsV1DaemonSet(ctx, sel, &obj)
-	case *v11.DaemonSet:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._AppsV1DaemonSet(ctx, sel, obj)
-	case v11.Deployment:
-		return ec._AppsV1Deployment(ctx, sel, &obj)
-	case *v11.Deployment:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._AppsV1Deployment(ctx, sel, obj)
-	case v11.ReplicaSet:
-		return ec._AppsV1ReplicaSet(ctx, sel, &obj)
-	case *v11.ReplicaSet:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._AppsV1ReplicaSet(ctx, sel, obj)
-	case v11.StatefulSet:
-		return ec._AppsV1StatefulSet(ctx, sel, &obj)
-	case *v11.StatefulSet:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._AppsV1StatefulSet(ctx, sel, obj)
-	case v12.CronJob:
-		return ec._BatchV1CronJob(ctx, sel, &obj)
-	case *v12.CronJob:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._BatchV1CronJob(ctx, sel, obj)
-	case v12.Job:
-		return ec._BatchV1Job(ctx, sel, &obj)
-	case *v12.Job:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._BatchV1Job(ctx, sel, obj)
-	case v13.Namespace:
-		return ec._CoreV1Namespace(ctx, sel, &obj)
-	case *v13.Namespace:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._CoreV1Namespace(ctx, sel, obj)
-	case v13.Node:
-		return ec._CoreV1Node(ctx, sel, &obj)
-	case *v13.Node:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._CoreV1Node(ctx, sel, obj)
-	case v13.Pod:
-		return ec._CoreV1Pod(ctx, sel, &obj)
-	case *v13.Pod:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._CoreV1Pod(ctx, sel, obj)
 	case v13.Service:
 		return ec._CoreV1Service(ctx, sel, &obj)
 	case *v13.Service:
@@ -25165,6 +25102,69 @@ func (ec *executionContext) _Object(ctx context.Context, sel ast.SelectionSet, o
 			return graphql.Null
 		}
 		return ec._CoreV1Service(ctx, sel, obj)
+	case v13.Pod:
+		return ec._CoreV1Pod(ctx, sel, &obj)
+	case *v13.Pod:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CoreV1Pod(ctx, sel, obj)
+	case v13.Node:
+		return ec._CoreV1Node(ctx, sel, &obj)
+	case *v13.Node:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CoreV1Node(ctx, sel, obj)
+	case v13.Namespace:
+		return ec._CoreV1Namespace(ctx, sel, &obj)
+	case *v13.Namespace:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CoreV1Namespace(ctx, sel, obj)
+	case v12.Job:
+		return ec._BatchV1Job(ctx, sel, &obj)
+	case *v12.Job:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BatchV1Job(ctx, sel, obj)
+	case v12.CronJob:
+		return ec._BatchV1CronJob(ctx, sel, &obj)
+	case *v12.CronJob:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BatchV1CronJob(ctx, sel, obj)
+	case v11.StatefulSet:
+		return ec._AppsV1StatefulSet(ctx, sel, &obj)
+	case *v11.StatefulSet:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._AppsV1StatefulSet(ctx, sel, obj)
+	case v11.ReplicaSet:
+		return ec._AppsV1ReplicaSet(ctx, sel, &obj)
+	case *v11.ReplicaSet:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._AppsV1ReplicaSet(ctx, sel, obj)
+	case v11.Deployment:
+		return ec._AppsV1Deployment(ctx, sel, &obj)
+	case *v11.Deployment:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._AppsV1Deployment(ctx, sel, obj)
+	case v11.DaemonSet:
+		return ec._AppsV1DaemonSet(ctx, sel, &obj)
+	case *v11.DaemonSet:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._AppsV1DaemonSet(ctx, sel, obj)
 	default:
 		panic(fmt.Errorf("unexpected type %T", obj))
 	}
@@ -30494,6 +30494,7 @@ func (ec *executionContext) unmarshalNAppsV1DaemonSetConditionType2k8sᚗioᚋap
 }
 
 func (ec *executionContext) marshalNAppsV1DaemonSetConditionType2k8sᚗioᚋapiᚋappsᚋv1ᚐDaemonSetConditionType(ctx context.Context, sel ast.SelectionSet, v v11.DaemonSetConditionType) graphql.Marshaler {
+	_ = sel
 	res := graphql.MarshalString(string(v))
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -30834,6 +30835,7 @@ func (ec *executionContext) unmarshalNBatchV1JobConditionType2k8sᚗioᚋapiᚋb
 }
 
 func (ec *executionContext) marshalNBatchV1JobConditionType2k8sᚗioᚋapiᚋbatchᚋv1ᚐJobConditionType(ctx context.Context, sel ast.SelectionSet, v v12.JobConditionType) graphql.Marshaler {
+	_ = sel
 	res := graphql.MarshalString(string(v))
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -30861,6 +30863,7 @@ func (ec *executionContext) unmarshalNBoolean2bool(ctx context.Context, v any) (
 }
 
 func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.SelectionSet, v bool) graphql.Marshaler {
+	_ = sel
 	res := graphql.MarshalBoolean(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -30877,6 +30880,7 @@ func (ec *executionContext) unmarshalNCoreV1ConditionStatus2k8sᚗioᚋapiᚋcor
 }
 
 func (ec *executionContext) marshalNCoreV1ConditionStatus2k8sᚗioᚋapiᚋcoreᚋv1ᚐConditionStatus(ctx context.Context, sel ast.SelectionSet, v v13.ConditionStatus) graphql.Marshaler {
+	_ = sel
 	res := graphql.MarshalString(string(v))
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -31185,6 +31189,7 @@ func (ec *executionContext) unmarshalNCoreV1PodPhase2k8sᚗioᚋapiᚋcoreᚋv1�
 }
 
 func (ec *executionContext) marshalNCoreV1PodPhase2k8sᚗioᚋapiᚋcoreᚋv1ᚐPodPhase(ctx context.Context, sel ast.SelectionSet, v v13.PodPhase) graphql.Marshaler {
+	_ = sel
 	res := graphql.MarshalString(string(v))
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -31387,6 +31392,7 @@ func (ec *executionContext) unmarshalNID2k8sᚗioᚋapimachineryᚋpkgᚋtypes�
 }
 
 func (ec *executionContext) marshalNID2k8sᚗioᚋapimachineryᚋpkgᚋtypesᚐUID(ctx context.Context, sel ast.SelectionSet, v types.UID) graphql.Marshaler {
+	_ = sel
 	res := graphql.MarshalString(string(v))
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -31402,6 +31408,7 @@ func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, 
 }
 
 func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.SelectionSet, v int) graphql.Marshaler {
+	_ = sel
 	res := graphql.MarshalInt(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -31417,6 +31424,7 @@ func (ec *executionContext) unmarshalNInt2int32(ctx context.Context, v any) (int
 }
 
 func (ec *executionContext) marshalNInt2int32(ctx context.Context, sel ast.SelectionSet, v int32) graphql.Marshaler {
+	_ = sel
 	res := graphql.MarshalInt32(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -31432,6 +31440,7 @@ func (ec *executionContext) unmarshalNInt642int64(ctx context.Context, v any) (i
 }
 
 func (ec *executionContext) marshalNInt642int64(ctx context.Context, sel ast.SelectionSet, v int64) graphql.Marshaler {
+	_ = sel
 	res := model1.MarshalInt64(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -31672,6 +31681,7 @@ func (ec *executionContext) unmarshalNMetaV1LabelSelectorOperator2k8sᚗioᚋapi
 }
 
 func (ec *executionContext) marshalNMetaV1LabelSelectorOperator2k8sᚗioᚋapimachineryᚋpkgᚋapisᚋmetaᚋv1ᚐLabelSelectorOperator(ctx context.Context, sel ast.SelectionSet, v v1.LabelSelectorOperator) graphql.Marshaler {
+	_ = sel
 	res := graphql.MarshalString(string(v))
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -31791,6 +31801,7 @@ func (ec *executionContext) unmarshalNMetaV1Time2k8sᚗioᚋapimachineryᚋpkg�
 }
 
 func (ec *executionContext) marshalNMetaV1Time2k8sᚗioᚋapimachineryᚋpkgᚋapisᚋmetaᚋv1ᚐTime(ctx context.Context, sel ast.SelectionSet, v v1.Time) graphql.Marshaler {
+	_ = sel
 	res := model.MarshalMetaV1Time(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -31806,6 +31817,7 @@ func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) 
 }
 
 func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
 	res := graphql.MarshalString(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -31817,9 +31829,7 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 
 func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
 	var vSlice []any
-	if v != nil {
-		vSlice = graphql.CoerceList(v)
-	}
+	vSlice = graphql.CoerceList(v)
 	var err error
 	res := make([]string, len(vSlice))
 	for i := range vSlice {
@@ -31853,6 +31863,7 @@ func (ec *executionContext) unmarshalNTime2timeᚐTime(ctx context.Context, v an
 }
 
 func (ec *executionContext) marshalNTime2timeᚐTime(ctx context.Context, sel ast.SelectionSet, v time.Time) graphql.Marshaler {
+	_ = sel
 	res := graphql.MarshalTime(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -31869,6 +31880,7 @@ func (ec *executionContext) unmarshalNWatchEventType2k8sᚗioᚋapimachineryᚋp
 }
 
 func (ec *executionContext) marshalNWatchEventType2k8sᚗioᚋapimachineryᚋpkgᚋwatchᚐEventType(ctx context.Context, sel ast.SelectionSet, v watch.EventType) graphql.Marshaler {
+	_ = sel
 	res := graphql.MarshalString(string(v))
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -31932,6 +31944,7 @@ func (ec *executionContext) unmarshalN__DirectiveLocation2string(ctx context.Con
 }
 
 func (ec *executionContext) marshalN__DirectiveLocation2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
 	res := graphql.MarshalString(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -31943,9 +31956,7 @@ func (ec *executionContext) marshalN__DirectiveLocation2string(ctx context.Conte
 
 func (ec *executionContext) unmarshalN__DirectiveLocation2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
 	var vSlice []any
-	if v != nil {
-		vSlice = graphql.CoerceList(v)
-	}
+	vSlice = graphql.CoerceList(v)
 	var err error
 	res := make([]string, len(vSlice))
 	for i := range vSlice {
@@ -32122,6 +32133,7 @@ func (ec *executionContext) unmarshalN__TypeKind2string(ctx context.Context, v a
 }
 
 func (ec *executionContext) marshalN__TypeKind2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
 	res := graphql.MarshalString(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -32263,6 +32275,8 @@ func (ec *executionContext) unmarshalOBoolean2bool(ctx context.Context, v any) (
 }
 
 func (ec *executionContext) marshalOBoolean2bool(ctx context.Context, sel ast.SelectionSet, v bool) graphql.Marshaler {
+	_ = sel
+	_ = ctx
 	res := graphql.MarshalBoolean(v)
 	return res
 }
@@ -32279,6 +32293,8 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	if v == nil {
 		return graphql.Null
 	}
+	_ = sel
+	_ = ctx
 	res := graphql.MarshalBoolean(*v)
 	return res
 }
@@ -32421,6 +32437,8 @@ func (ec *executionContext) marshalOID2ᚖstring(ctx context.Context, sel ast.Se
 	if v == nil {
 		return graphql.Null
 	}
+	_ = sel
+	_ = ctx
 	res := graphql.MarshalID(*v)
 	return res
 }
@@ -32437,6 +32455,8 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	if v == nil {
 		return graphql.Null
 	}
+	_ = sel
+	_ = ctx
 	res := graphql.MarshalInt(*v)
 	return res
 }
@@ -32453,6 +32473,8 @@ func (ec *executionContext) marshalOInt2ᚖint32(ctx context.Context, sel ast.Se
 	if v == nil {
 		return graphql.Null
 	}
+	_ = sel
+	_ = ctx
 	res := graphql.MarshalInt32(*v)
 	return res
 }
@@ -32463,6 +32485,8 @@ func (ec *executionContext) unmarshalOInt642int64(ctx context.Context, v any) (i
 }
 
 func (ec *executionContext) marshalOInt642int64(ctx context.Context, sel ast.SelectionSet, v int64) graphql.Marshaler {
+	_ = sel
+	_ = ctx
 	res := model1.MarshalInt64(v)
 	return res
 }
@@ -32479,6 +32503,8 @@ func (ec *executionContext) marshalOInt642ᚖint64(ctx context.Context, sel ast.
 	if v == nil {
 		return graphql.Null
 	}
+	_ = sel
+	_ = ctx
 	res := model1.MarshalInt64(*v)
 	return res
 }
@@ -32502,6 +32528,8 @@ func (ec *executionContext) marshalOKubeConfigExtensions2map(ctx context.Context
 	if v == nil {
 		return graphql.Null
 	}
+	_ = sel
+	_ = ctx
 	res := model.MarshalKubeConfigExtensions(v)
 	return res
 }
@@ -32595,6 +32623,8 @@ func (ec *executionContext) unmarshalOMetaV1ResourceVersionMatch2k8sᚗioᚋapim
 }
 
 func (ec *executionContext) marshalOMetaV1ResourceVersionMatch2k8sᚗioᚋapimachineryᚋpkgᚋapisᚋmetaᚋv1ᚐResourceVersionMatch(ctx context.Context, sel ast.SelectionSet, v v1.ResourceVersionMatch) graphql.Marshaler {
+	_ = sel
+	_ = ctx
 	res := graphql.MarshalString(string(v))
 	return res
 }
@@ -32611,6 +32641,8 @@ func (ec *executionContext) marshalOMetaV1Time2ᚖk8sᚗioᚋapimachineryᚋpkg�
 	if v == nil {
 		return graphql.Null
 	}
+	_ = sel
+	_ = ctx
 	res := model.MarshalMetaV1Time(*v)
 	return res
 }
@@ -32621,6 +32653,8 @@ func (ec *executionContext) unmarshalOString2string(ctx context.Context, v any) 
 }
 
 func (ec *executionContext) marshalOString2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
+	_ = ctx
 	res := graphql.MarshalString(v)
 	return res
 }
@@ -32630,9 +32664,7 @@ func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v
 		return nil, nil
 	}
 	var vSlice []any
-	if v != nil {
-		vSlice = graphql.CoerceList(v)
-	}
+	vSlice = graphql.CoerceList(v)
 	var err error
 	res := make([]string, len(vSlice))
 	for i := range vSlice {
@@ -32675,6 +32707,8 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	if v == nil {
 		return graphql.Null
 	}
+	_ = sel
+	_ = ctx
 	res := graphql.MarshalString(*v)
 	return res
 }
@@ -32691,6 +32725,8 @@ func (ec *executionContext) marshalOStringMap2map(ctx context.Context, sel ast.S
 	if v == nil {
 		return graphql.Null
 	}
+	_ = sel
+	_ = ctx
 	res := model.MarshalStringMap(v)
 	return res
 }
