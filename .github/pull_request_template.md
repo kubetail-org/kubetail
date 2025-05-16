@@ -18,7 +18,7 @@ Fixes #
 ## Submitter checklist
 
 - [ ] Add the correct emoji to the PR title
-- [ ] Link the issue number to *Fixes #*
+- [ ] Link the issue number, if any, to *Fixes #*
 - [ ] Add summary and explain changes in the PR description
 - [ ] Rebase branch to HEAD
 - [ ] Squash changes into one signed, single commit [^1]
