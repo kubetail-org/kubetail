@@ -462,10 +462,11 @@ type LogRecordsStreamRequest struct {
 	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	PodName       string                 `protobuf:"bytes,2,opt,name=pod_name,json=podName,proto3" json:"pod_name,omitempty"`
 	ContainerName string                 `protobuf:"bytes,3,opt,name=container_name,json=containerName,proto3" json:"container_name,omitempty"`
-	StartTime     string                 `protobuf:"bytes,4,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
-	StopTime      string                 `protobuf:"bytes,5,opt,name=stop_time,json=stopTime,proto3" json:"stop_time,omitempty"`
-	Grep          string                 `protobuf:"bytes,6,opt,name=grep,proto3" json:"grep,omitempty"`
-	FollowFrom    FollowFrom             `protobuf:"varint,7,opt,name=follow_from,json=followFrom,proto3,enum=cluster_agent.FollowFrom" json:"follow_from,omitempty"`
+	ContainerId   string                 `protobuf:"bytes,4,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"`
+	StartTime     string                 `protobuf:"bytes,5,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
+	StopTime      string                 `protobuf:"bytes,6,opt,name=stop_time,json=stopTime,proto3" json:"stop_time,omitempty"`
+	Grep          string                 `protobuf:"bytes,7,opt,name=grep,proto3" json:"grep,omitempty"`
+	FollowFrom    FollowFrom             `protobuf:"varint,8,opt,name=follow_from,json=followFrom,proto3,enum=cluster_agent.FollowFrom" json:"follow_from,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -517,6 +518,13 @@ func (x *LogRecordsStreamRequest) GetPodName() string {
 func (x *LogRecordsStreamRequest) GetContainerName() string {
 	if x != nil {
 		return x.ContainerName
+	}
+	return ""
+}
+
+func (x *LogRecordsStreamRequest) GetContainerId() string {
+	if x != nil {
+		return x.ContainerId
 	}
 	return ""
 }
@@ -631,16 +639,17 @@ const file_cluster_agent_proto_rawDesc = "" +
 	"namespaces\"_\n" +
 	"\x15LogMetadataWatchEvent\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x122\n" +
-	"\x06object\x18\x02 \x01(\v2\x1a.cluster_agent.LogMetadataR\x06object\"\x85\x02\n" +
+	"\x06object\x18\x02 \x01(\v2\x1a.cluster_agent.LogMetadataR\x06object\"\xa8\x02\n" +
 	"\x17LogRecordsStreamRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x19\n" +
 	"\bpod_name\x18\x02 \x01(\tR\apodName\x12%\n" +
-	"\x0econtainer_name\x18\x03 \x01(\tR\rcontainerName\x12\x1d\n" +
+	"\x0econtainer_name\x18\x03 \x01(\tR\rcontainerName\x12!\n" +
+	"\fcontainer_id\x18\x04 \x01(\tR\vcontainerId\x12\x1d\n" +
 	"\n" +
-	"start_time\x18\x04 \x01(\tR\tstartTime\x12\x1b\n" +
-	"\tstop_time\x18\x05 \x01(\tR\bstopTime\x12\x12\n" +
-	"\x04grep\x18\x06 \x01(\tR\x04grep\x12:\n" +
-	"\vfollow_from\x18\a \x01(\x0e2\x19.cluster_agent.FollowFromR\n" +
+	"start_time\x18\x05 \x01(\tR\tstartTime\x12\x1b\n" +
+	"\tstop_time\x18\x06 \x01(\tR\bstopTime\x12\x12\n" +
+	"\x04grep\x18\a \x01(\tR\x04grep\x12:\n" +
+	"\vfollow_from\x18\b \x01(\x0e2\x19.cluster_agent.FollowFromR\n" +
 	"followFrom\"_\n" +
 	"\tLogRecord\x128\n" +
 	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x18\n" +

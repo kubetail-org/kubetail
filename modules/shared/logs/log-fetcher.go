@@ -347,6 +347,7 @@ func (f *AgentLogFetcher) StreamForward(ctx context.Context, source LogSource, o
 			Namespace:     source.Namespace,
 			PodName:       source.PodName,
 			ContainerName: source.ContainerName,
+			ContainerId:   source.ContainerID,
 			Grep:          opts.Grep,
 		}
 
@@ -443,6 +444,7 @@ func (f *AgentLogFetcher) StreamBackward(ctx context.Context, source LogSource, 
 			Namespace:     source.Namespace,
 			PodName:       source.PodName,
 			ContainerName: source.ContainerName,
+			ContainerId:   source.ContainerID,
 			Grep:          opts.Grep,
 		}
 
