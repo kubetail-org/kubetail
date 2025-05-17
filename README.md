@@ -167,6 +167,39 @@ Have fun tailing your logs!
 
 Visit the [Kubetail documentation](https://www.kubetail.com/)
 
+## Roadmap and Status
+
+This is our high-level plan for the Kubetail project, in order:
+
+|   | Step                                                  | Status |
+| - | ----------------------------------------------------- | ------ |
+| 1 | Real-time container logs                              | ✅     |
+| 2 | Real-time search and polished user experience         | 🛠️     |
+| 3 | Real-time system logs (e.g. systemd, k8s events)      | 🔲     |
+| 4 | Basic customizability (e.g. colors, time formats)     | 🔲     |
+| 5 | Message parsing and metrics                           | 🔲     |
+| 6 | Historic data (e.g. log archives, metrics timeseries) | 🔲     |
+| 7 | Kubetail API and developer-facing client libraries    | 🔲     |
+| N | World Peace                                           | 🔲     |
+
+And here are some additional details:
+
+**Real-time container logs**
+
+Users can view the container logs from the pods currently running inside their clusters quickly and easily using a web dashboard. Users can view container logs organized by workloads and follow log messages as ephemeral containers get created and deleted. They can also narrow their viewing window by timestamp and filter logs by source properties such as region, zone and node.
+
+**Real-time search and polished user experience**
+
+Users can install Kubetail easily on their desktops and in their clusters. By default, Kubetail will use only the Kubernetes API to fetch basic data such as running workloads and container logs. If a user wants more advanced functionality they can install Kubetail custom services in their cluster (i.e. "Kubetail Cluster API" and "Kubetail Cluster Agent", collectively known as the "Kubetail API") and gain access to features such as log search, log file sizes and last event timestamps. The entire experience of installing, upgrading and uninstalling the Kubetail API is very polished and users are able to view their logs with equally powerful tools in the browser and the terminal using the Kubetail web dashboard and CLI tool.
+
+**Real-time system logs**
+
+Users who install the Kubetail API gain immediate access to their node-level logs (e.g. systemd) and cluster-level logs (e.g. kubernetes events) and view them in an integrated interface that shows their container logs in context with other system information such as CPU utilization, memory usage and disk space. System logs are viewable in real-time, in the same merged timeline with other logs. Users can filter system logs by timestamp and source properties.
+
+**Basic customizability**
+
+Users can fully customize their Kubetail experience when using the web dashboard and CLI tool by modifying their user settings. The user settings are modifiable by hand using a config file or via the dashboard UI. The experience is very polished and works seamlessly across upgrades that may add/remove/modify user settings. Users have the option to sync their settings across multiple devices.
+
 ## Development
 
 ### Repository Structure
