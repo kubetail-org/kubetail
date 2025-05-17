@@ -1,0 +1,37 @@
+title: "[Technical Spec] "
+labels: ["Technical Spec"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Problem Statement
+
+        <!-- What problem will be solved? -->
+
+        ### Goals
+
+        <!-- What will this project accomplish? -->
+
+        ### Scope
+
+        <!-- What is in scope and what is out of scope? -->
+
+        ## Proposed Solution
+
+        <!-- What needs to be done to solve the problem and achieve the project goals? -->
+
+        ### Risks
+
+        <!-- What are the technical, security, or any other types of risks? -->
+
+        ## Alternative Solutions
+
+        <!-- What alternatives did you consider and why did you decide against them? -->
+
+        ## Implementation and Rollout Plan
+
+        <!-- How will this project get accomplished and rolled out? -->
+
+        ## Success Criteria
+
+        <!-- How will we know the project succeeded and how do we monitor performance? -->
