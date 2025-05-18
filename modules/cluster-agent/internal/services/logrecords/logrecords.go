@@ -74,7 +74,7 @@ func (s *LogRecordsService) StreamForward(req *clusteragentpb.LogRecordsStreamRe
 		return err
 	}
 
-	pathname, err := findLogFile(s.containerLogsDir, req.Namespace, req.PodName, req.ContainerName)
+	pathname, err := findLogFile(s.containerLogsDir, req.Namespace, req.PodName, req.ContainerName, req.ContainerId)
 	if err != nil {
 		return err
 	}
@@ -195,7 +195,7 @@ func (s *LogRecordsService) StreamBackward(req *clusteragentpb.LogRecordsStreamR
 		return err
 	}
 
-	pathname, err := findLogFile(s.containerLogsDir, req.Namespace, req.PodName, req.ContainerName)
+	pathname, err := findLogFile(s.containerLogsDir, req.Namespace, req.PodName, req.ContainerName, req.ContainerId)
 	if err != nil {
 		return err
 	}
