@@ -16,6 +16,7 @@ import { useSubscription } from '@apollo/client';
 import { useEffect, useState } from 'react';
 
 import { dashboardWSClient } from '@/apollo-client';
+import appConfig from '@/app-config';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { HealthCheckStatus, type HealthCheckResponse } from '@/lib/graphql/dashboard/__generated__/graphql';
 
@@ -108,6 +109,7 @@ export function useClusterAPIServerStatus(kubeContext: string) {
   const [status, setStatus] = useState<ServerStatus>(new ServerStatus());
 
   useSubscription(dashboardOps.SERVER_STATUS_CLUSTER_API_HEALTHZ_WATCH, {
+    skip: !appConfig.clusterAPIEnabled,
     variables: { kubeContext },
     onData: ({ data }) => setStatus(ServerStatus.fromHealthCheckResponse(data.data?.clusterAPIHealthzWatch)),
   });

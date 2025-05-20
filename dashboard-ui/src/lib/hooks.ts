@@ -440,7 +440,7 @@ export function useIsClusterAPIEnabled(kubeContext: string | null) {
   const status = useClusterAPIServerStatus(kubeContext || '');
 
   // Return if running in cluster with ClusterAPI enabled
-  if (appConfig.environment === 'cluster' && appConfig.clusterAPIEnabled) return true;
+  if (appConfig.environment === 'cluster') return appConfig.clusterAPIEnabled;
 
   switch (status.status) {
     case Status.NotFound:
@@ -473,6 +473,7 @@ export function useLogMetadata(options?: LogMetadataHookOptions) {
   };
 
   const readyWait = useSubscription(dashboardOps.CLUSTER_API_READY_WAIT, {
+    skip: !options?.enabled,
     variables: connectArgs,
   });
 
