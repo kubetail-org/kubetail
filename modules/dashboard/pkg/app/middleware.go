@@ -28,18 +28,14 @@ import (
 
 func authenticationMiddleware(mode config.AuthMode) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// continue if not in token mode
-		if mode != config.AuthModeToken {
-			c.Next()
-			return
-		}
-
 		var token string
 
-		// check cookie session
-		session := sessions.Default(c)
-		if val, ok := session.Get(k8sTokenSessionKey).(string); ok {
-			token = val
+		// Use cookie session in "token" mode
+		if mode == config.AuthModeToken {
+			session := sessions.Default(c)
+			if val, ok := session.Get(k8sTokenSessionKey).(string); ok {
+				token = val
+			}
 		}
 
 		// check Authorization header
