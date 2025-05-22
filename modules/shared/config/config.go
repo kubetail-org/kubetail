@@ -237,6 +237,61 @@ func (cfg *Config) validate() error {
 	return validator.New().Struct(cfg)
 }
 
+// SetKubeConfigPrecedence sets the kubeconfig precedence
+//  1. if the given kubeconfig path is not equal to the default
+//     set the precedence to the given kubeconfig path
+//  2. if the KUBECONFIG env var is set, set the precedence to the
+//     files in the KUBECONFIG env var
+//  3. if KUBECONFIG env var is not set, set the precedence to
+//     the default kubeconfig path (~/.kube/config)
+func (cfg *Config) SetKubeConfigPrecedence(kubeConfigPath string) error {
+	// check if the given kubeconfig path is not equal to the default
+	// if so, set the precedence to the given kubeconfig path
+	if kubeConfigPath != clientcmd.RecommendedHomeFile {
+		cfg.KubeConfigPrecedence = []string{kubeConfigPath}
+		return nil
+	}
+
+	// check KUBECONFIG env var
+	kubeconfig := os.Getenv("KUBECONFIG")
+	if kubeconfig != "" {
+		// NewDefaultPathOptions is only used to read the KUBECONFIG env var and get
+		// a deduplicated list of kubeconfig files
+		pathOptions := clientcmd.NewDefaultPathOptions()
+		// set the precedence to the kubeconfig path
+		cfg.KubeConfigPrecedence = pathOptions.GetEnvVarFiles()
+		return nil
+	}
+
+	// let's continue with the default kubeconfig path (~/.kube/config)
+	if kubeConfigPath == clientcmd.RecommendedHomeFile {
+		// set the precedence to the kubeconfig path
+		cfg.KubeConfigPrecedence = []string{kubeConfigPath}
+		return nil
+	}
+
+	return nil
+}
+
+func (cfg *Config) generateKubeClientConfigLoadingRules() *clientcmd.ClientConfigLoadingRules {
+	loadingRules := clientcmd.ClientConfigLoadingRules{
+		Precedence: cfg.KubeConfigPrecedence,
+	}
+	return &loadingRules
+}
+
+func (cfg *Config) generateKubeAPIConfig(loader clientcmd.ClientConfigLoader) error {
+	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loader, &clientcmd.ConfigOverrides{})
+	rawConfig, err := clientConfig.RawConfig()
+	if err != nil {
+		return err
+	}
+
+	cfg.APIConfig = rawConfig
+
+	return nil
+}
+
 func DefaultConfig() *Config {
 	cfg := &Config{}
 
@@ -423,21 +478,27 @@ func NewConfig(v *viper.Viper, f string) (*Config, error) {
 
 	cfg := DefaultConfig()
 
-	pathOptions := clientcmd.NewDefaultPathOptions()
+	// prepare for generating kubeconfig precedence
 
-	loadingRules := *pathOptions.LoadingRules
-	loadingRules.ExplicitPath = v.GetString(clientcmd.RecommendedConfigPathFlag)
-
-	// config precedence is later needed for kube-config-watcher
-	cfg.KubeConfigPrecedence = loadingRules.GetLoadingPrecedence()
-
-	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&loadingRules, &clientcmd.ConfigOverrides{})
-	rawConfig, err := clientConfig.RawConfig()
-	if err != nil {
+	// set cfg.KubeConfigPrecedence
+	if err := cfg.SetKubeConfigPrecedence(v.GetString(clientcmd.RecommendedConfigPathFlag)); err != nil {
 		return nil, err
 	}
 
-	cfg.APIConfig = rawConfig
+	// generate Kube API config
+	if err := cfg.generateKubeAPIConfig(cfg.generateKubeClientConfigLoadingRules()); err != nil {
+		return nil, err
+	}
+
+	// TODO: remove this
+	// pathOptions := clientcmd.NewDefaultPathOptions()
+
+	// loadingRules := *pathOptions.LoadingRules
+
+	// // config precedence is later needed for kube-config-watcher
+	// cfg.KubeConfigPrecedence = loadingRules.GetLoadingPrecedence()
+
+	// TODO: end
 
 	// unmarshal
 	hookFunc := mapstructure.ComposeDecodeHookFunc(
