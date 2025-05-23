@@ -6,14 +6,19 @@ permissions:
 on:
   push:
     tags:
-      - 'cli/v*'
+      - "cli/v*"
 
 jobs:
   build:
     name: Build binaries
     strategy:
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest, macos-13, windows-latest]
+        os:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - macos-latest
+          - macos-13
+          - windows-latest
         include:
           - os: ubuntu-24.04
             GOOS: linux
@@ -51,7 +56,7 @@ jobs:
           version: 9
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23.4'
+          go-version: "1.23.4"
           cache: false
       - name: Run build script
         run: make build VERSION=${{ steps.tagName.outputs.tag }}
@@ -86,9 +91,138 @@ jobs:
           name: artifacts-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
           path: bin/*
 
+  package-deb:
+    name: Build deb package
+    needs: build
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Get tag name
+        uses: olegtarasov/get-tag@2.1.3
+        id: tagName
+        with:
+          tagRegex: "cli/v(.*)"
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: bin
+          pattern: artifacts-${{ matrix.os }}-${{ matrix.arch }}
+          merge-multiple: true
+
+      - name: Create dir structure for .deb package
+        run: |
+          mkdir -p .debpkg/usr/bin
+          # when we download from deb, the binary should be named kubetail
+          cp -p 'bin/kubetail-${{ matrix.os }}-${{ matrix.arch }}' .debpkg/usr/bin/kubetail
+
+      - name: Create a .deb package
+        uses: jiro4989/build-deb-action@v4
+        with:
+          package: kubetail
+          package_root: .debpkg
+          maintainer: Andres Morey
+          version: ${{ steps.tagName.outputs.tag }}
+          arch: ${{ matrix.arch }}
+          desc: "Real-time logging dashboard for Kubernetes"
+
+      - name: Calculate sha256 checksum
+        run: |
+          FILE='./kubetail_${{ steps.tagName.outputs.tag }}_${{ matrix.arch }}.deb'
+          OUTPUT_FILE=${FILE}.sha256
+          sha256sum "$FILE" | cut -d " " -f 1 >"$OUTPUT_FILE"
+          mkdir -p deb-output
+          mv "${FILE}" "${OUTPUT_FILE}" ./deb-output/
+
+      - name: Upload .deb artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.arch }}-deb
+          path: deb-output/*
+
+  package-rpm:
+    name: Build rpm package
+    needs: build
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            pkgArch: x86_64
+          - os: linux
+            arch: arm64
+            pkgArch: aarch64
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Get tag name
+        uses: olegtarasov/get-tag@2.1.3
+        id: tagName
+        with:
+          tagRegex: "cli/v(.*)"
+      - uses: actions/checkout@v4
+
+      - name: Install the rpm and rpm build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm build-essential
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: bin
+          pattern: artifacts-${{ matrix.os }}-${{ matrix.arch }}
+          merge-multiple: true
+
+      - name: Rename the build binary to kubetail
+        run: |
+          mv 'bin/kubetail-${{ matrix.os }}-${{ matrix.arch }}' bin/kubetail
+
+      - name: Copy spec file to SPEC dir
+        run: |
+          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          cp .github/ci-config/kubetail-rpm.spec ~/rpmbuild/SPECS/kubetail.spec
+
+      - name: Create tarball for the binary
+        run: |
+          CLI_VER='${{ steps.tagName.outputs.tag }}'
+          mkdir -p ~/rpmbuild/SOURCES/kubetail-${CLI_VER}
+          mv bin/kubetail ~/rpmbuild/SOURCES/kubetail-${CLI_VER}
+          cd ~/rpmbuild/SOURCES
+          tar czf "kubetail-${CLI_VER}.tar.gz" "kubetail-${CLI_VER}/"
+
+      - name: Build RPM package
+        run: |
+          CLI_VER='${{ steps.tagName.outputs.tag }}'
+          ARCH='${{ matrix.pkgArch }}'
+
+          rpmbuild -ba --target "${ARCH}" ~/rpmbuild/SPECS/kubetail.spec --define "version ${CLI_VER}"
+
+      - name: Calculate sha256 checksum
+        run: |
+          mkdir -p rpm-output
+          FILE_NAME=kubetail-${{ steps.tagName.outputs.tag }}-1.${{ matrix.pkgArch }}.rpm
+          FILE_NEW_NAME=kubetail-${{ steps.tagName.outputs.tag }}-1.${{ matrix.arch }}.rpm # renaming arch to arm64 and amd64
+
+          mv ~/rpmbuild/RPMS/'${{ matrix.pkgArch }}'/"${FILE_NAME}" ./rpm-output/"${FILE_NEW_NAME}"
+
+          FILE=./rpm-output/"${FILE_NEW_NAME}"
+          OUTPUT_FILE="${FILE}".sha256
+          sha256sum "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
+
+      - name: Upload rpm artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.arch }}-rpm
+          path: rpm-output/*
+
   release:
     name: Create GitHub release
-    needs: build
+    needs: [build, package-deb, package-rpm]
     runs-on: ubuntu-24.04
     steps:
       - name: Download artifacts
