@@ -18,7 +18,7 @@ import Form from "@kubetail/ui/elements/Form";
 import { useIsClusterAPIEnabled } from "@/lib/hooks";
 import Modal from "../elements/Modal";
 
-type EnvironmentControlWidgetProps = {
+type ServerStatusWidgetProps = {
   className?: string;
 };
 
