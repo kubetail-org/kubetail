@@ -88,9 +88,7 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
   );
 };
 
-const EnvironmentControlWidgetWrapper = (
-  props: EnvironmentControlWidgetProps
-) => (
+const EnvironmentControlWidgetWrapper = (props: EnvironmentControlWidgetProps) => (
   <RecoilRoot>
     <EnvironmentControl {...props} />
   </RecoilRoot>
