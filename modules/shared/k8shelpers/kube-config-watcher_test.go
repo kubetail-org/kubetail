@@ -79,7 +79,7 @@ func TestKubeConfigWatcherGet(t *testing.T) {
 	}
 
 	// Initialize watcher
-	watcher, err := NewKubeConfigWatcher(kubeconfigPath)
+	watcher, err := NewKubeConfigWatcher(cfgExpected, kubeconfigPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestKubeConfigWatcherSubscribeModified(t *testing.T) {
 	}
 
 	// Initialize watcher
-	watcher, err := NewKubeConfigWatcher(kubeconfigPath)
+	watcher, err := NewKubeConfigWatcher(cfgOrig, kubeconfigPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +222,7 @@ func TestKubeConfigWatcherSubscribeDeleted(t *testing.T) {
 	}
 
 	// Initialize watcher
-	watcher, err := NewKubeConfigWatcher(kubeconfigPath)
+	watcher, err := NewKubeConfigWatcher(cfgOrig, kubeconfigPath)
 	if err != nil {
 		t.Fatal(err)
 	}
