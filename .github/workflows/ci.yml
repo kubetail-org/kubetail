@@ -148,6 +148,8 @@ jobs:
 
   build-dashboard-amd64:
     needs:
+      - crates-lint
+      - crates-vet
       - crates-test
       - crates-build
       - modules-lint
@@ -170,6 +172,8 @@ jobs:
 
   build-dashboard-arm64:
     needs:
+      - crates-lint
+      - crates-vet
       - crates-test
       - crates-build
       - modules-lint
@@ -192,6 +196,8 @@ jobs:
         
   build-cluster-api-amd64:
     needs:
+      - crates-lint
+      - crates-vet
       - crates-test
       - crates-build
       - modules-lint
@@ -214,6 +220,8 @@ jobs:
 
   build-cluster-api-arm64:
     needs:
+      - crates-lint
+      - crates-vet
       - crates-test
       - crates-build
       - modules-lint
@@ -236,6 +244,8 @@ jobs:
       
   build-cluster-agent-amd64:
     needs:
+      - crates-lint
+      - crates-vet
       - crates-test
       - crates-build
       - modules-lint
@@ -258,6 +268,8 @@ jobs:
 
   build-cluster-agent-arm64:
     needs:
+      - crates-lint
+      - crates-vet
       - crates-test
       - crates-build
       - modules-lint
@@ -280,6 +292,8 @@ jobs:
 
   build-cli-linux-amd64:
     needs:
+      - crates-lint
+      - crates-vet
       - crates-test
       - crates-build
       - modules-lint
@@ -306,6 +320,8 @@ jobs:
 
   build-cli-linux-arm64:
     needs:
+      - crates-lint
+      - crates-vet
       - crates-test
       - crates-build
       - modules-lint
@@ -332,6 +348,8 @@ jobs:
 
   build-cli-macos-15:
     needs:
+      - crates-lint
+      - crates-vet
       - crates-test
       - crates-build
       - modules-lint
@@ -358,6 +376,8 @@ jobs:
 
   build-cli-macos-14:
     needs:
+      - crates-lint
+      - crates-vet
       - crates-test
       - crates-build
       - modules-lint
@@ -384,6 +404,8 @@ jobs:
 
   build-cli-macos-13:
     needs:
+      - crates-lint
+      - crates-vet
       - crates-test
       - crates-build
       - modules-lint
@@ -410,6 +432,8 @@ jobs:
 
   build-cli-windows-amd64:
     needs:
+      - crates-lint
+      - crates-vet
       - crates-test
       - crates-build
       - modules-lint
@@ -436,6 +460,8 @@ jobs:
 
   build-cli-windows-arm64:
     needs:
+      - crates-lint
+      - crates-vet
       - crates-test
       - crates-build
       - modules-lint
