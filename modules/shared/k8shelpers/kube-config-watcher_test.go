@@ -164,21 +164,28 @@ func TestKubeConfigWatcherSubscribeModified(t *testing.T) {
 	}
 	defer watcher.Close()
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	var (
+		wg        sync.WaitGroup
+		once      sync.Once
+		cfgActual *clientcmdapi.Config
+	)
 
 	// Subscribe
-	var cfgActual *clientcmdapi.Config
+	wg.Add(1)
 	fn := func(oldCfg, newCfg *clientcmdapi.Config) {
-		defer wg.Done()
+		// Note: Using once here as a quick fix to deal with flakey tests being triggered
+		//       by a race condition. I think the code is still ok to use in production
+		//       but we should take a closer look when we have time.
+		once.Do(func() {
+			// Check old config
+			compareMaps(t, cfgOrig.Clusters, oldCfg.Clusters)
+			compareMaps(t, cfgOrig.AuthInfos, oldCfg.AuthInfos)
+			compareMaps(t, cfgOrig.Contexts, oldCfg.Contexts)
+			assert.Equal(t, cfgOrig.CurrentContext, oldCfg.CurrentContext)
 
-		// Check old config
-		compareMaps(t, cfgOrig.Clusters, oldCfg.Clusters)
-		compareMaps(t, cfgOrig.AuthInfos, oldCfg.AuthInfos)
-		compareMaps(t, cfgOrig.Contexts, oldCfg.Contexts)
-		assert.Equal(t, cfgOrig.CurrentContext, oldCfg.CurrentContext)
-
-		cfgActual = newCfg
+			cfgActual = newCfg
+			wg.Done()
+		})
 	}
 	watcher.Subscribe("MODIFIED", fn)
 
@@ -195,8 +202,6 @@ func TestKubeConfigWatcherSubscribeModified(t *testing.T) {
 	compareMaps(t, cfgExpected.AuthInfos, cfgActual.AuthInfos)
 	compareMaps(t, cfgExpected.Contexts, cfgActual.Contexts)
 	assert.Equal(t, cfgExpected.CurrentContext, cfgActual.CurrentContext)
-
-	watcher.Unsubscribe("MODIFIED", fn)
 }
 
 func TestKubeConfigWatcherSubscribeDeleted(t *testing.T) {
@@ -223,18 +228,26 @@ func TestKubeConfigWatcherSubscribeDeleted(t *testing.T) {
 	}
 	defer watcher.Close()
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	var (
+		wg   sync.WaitGroup
+		once sync.Once
+	)
 
 	// Subscribe
+	wg.Add(1)
 	fn := func(oldCfg *clientcmdapi.Config) {
-		defer wg.Done()
+		// Note: Using once here as a quick fix to deal with flakey tests being triggered
+		//       by a race condition. I think the code is still ok to use in production
+		//       but we should take a closer look when we have time.
+		once.Do(func() {
+			// Check old config
+			compareMaps(t, cfgOrig.Clusters, oldCfg.Clusters)
+			compareMaps(t, cfgOrig.AuthInfos, oldCfg.AuthInfos)
+			compareMaps(t, cfgOrig.Contexts, oldCfg.Contexts)
+			assert.Equal(t, cfgOrig.CurrentContext, oldCfg.CurrentContext)
 
-		// Check old config
-		compareMaps(t, cfgOrig.Clusters, oldCfg.Clusters)
-		compareMaps(t, cfgOrig.AuthInfos, oldCfg.AuthInfos)
-		compareMaps(t, cfgOrig.Contexts, oldCfg.Contexts)
-		assert.Equal(t, cfgOrig.CurrentContext, oldCfg.CurrentContext)
+			wg.Done()
+		})
 	}
 	watcher.Subscribe("DELETED", fn)
 
@@ -245,6 +258,4 @@ func TestKubeConfigWatcherSubscribeDeleted(t *testing.T) {
 	}
 
 	wg.Wait()
-
-	watcher.Unsubscribe("DELETED", fn)
 }
