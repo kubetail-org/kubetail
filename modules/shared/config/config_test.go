@@ -63,7 +63,7 @@ func TestNewConfig(t *testing.T) {
 
 // TestKubeConfigPrecedence tests the precedence of kubeconfig files
 // based on the KUBECONFIG environment variable and the kubeconfig flag.
-func TestKubeConfigPrecedence(t *testing.T) {
+func TestKubeConfigPath(t *testing.T) {
 
 	homedir, err := os.UserHomeDir()
 	require.NoError(t, err)
@@ -76,7 +76,7 @@ func TestKubeConfigPrecedence(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    []string
+		want    string
 		wantErr bool
 	}{
 		{
@@ -91,7 +91,7 @@ func TestKubeConfigPrecedence(t *testing.T) {
 				f:       "",
 				envVars: map[string]string{},
 			},
-			want:    []string{filepath.Join(homedir, ".kube", "config")},
+			want:    filepath.Join(homedir, ".kube", "config"),
 			wantErr: false,
 		},
 		{
@@ -108,11 +108,11 @@ func TestKubeConfigPrecedence(t *testing.T) {
 					"KUBECONFIG": "/tmp/kubie-configeTtA1B.yaml",
 				},
 			},
-			want:    []string{"/tmp/kubie-configeTtA1B.yaml"},
+			want:    "/tmp/kubie-configeTtA1B.yaml",
 			wantErr: false,
 		},
 		{
-			name: "multiple files in KUBECONFIG set",
+			name: "multiple files in KUBECONFIG set - expect first file",
 			args: args{
 				v: func() *viper.Viper {
 					v := viper.New()
@@ -125,7 +125,7 @@ func TestKubeConfigPrecedence(t *testing.T) {
 					"KUBECONFIG": "/tmp/kubie-configeTtA1B.yaml:/tmp/kubie-configR2D2.yaml",
 				},
 			},
-			want:    []string{"/tmp/kubie-configeTtA1B.yaml", "/tmp/kubie-configR2D2.yaml"},
+			want:    "/tmp/kubie-configeTtA1B.yaml",
 			wantErr: false,
 		},
 		{
@@ -142,7 +142,7 @@ func TestKubeConfigPrecedence(t *testing.T) {
 					"KUBECONFIG": "/tmp/config-g9kJ8.yaml",
 				},
 			},
-			want:    []string{"/tmp/configeTtA1B.yaml"},
+			want:    "/tmp/configeTtA1B.yaml",
 			wantErr: false,
 		},
 		{
@@ -157,7 +157,7 @@ func TestKubeConfigPrecedence(t *testing.T) {
 				f:       "",
 				envVars: map[string]string{},
 			},
-			want:    []string{"/tmp/configeTtA1B.yaml"},
+			want:    "/tmp/configeTtA1B.yaml",
 			wantErr: false,
 		},
 		{
@@ -174,12 +174,13 @@ func TestKubeConfigPrecedence(t *testing.T) {
 					"KUBECONFIG": "/tmp/kubie-configeTtA1B.yaml:/tmp/kubie-configR2D2.yaml:/",
 				},
 			},
-			want:    []string{"/tmp/kubie-configeTtA1B.yaml:/tmp/kubie-configR2D2.yaml"},
-			wantErr: true,
+			want:    "/tmp/kubie-configeTtA1B.yaml",
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+
 			// set environment variables
 			for k, v := range tt.args.envVars {
 				t.Setenv(k, v)
@@ -189,10 +190,10 @@ func TestKubeConfigPrecedence(t *testing.T) {
 
 			switch tt.wantErr {
 			case true:
-				require.Error(t, err)
+				assert.Error(t, err)
 			case false:
-				require.NoError(t, err)
-				assert.Equal(t, got.KubeConfigPrecedence, tt.want)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got.KubeconfigPath)
 			}
 		})
 	}

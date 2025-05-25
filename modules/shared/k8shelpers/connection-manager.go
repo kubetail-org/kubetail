@@ -61,7 +61,7 @@ type ConnectionManager interface {
 type DesktopConnectionManager struct {
 	KubeConfigWatcher *KubeConfigWatcher
 	kubeConfig        *api.Config
-	kubeconfigPath    []string
+	kubeconfigPath    string
 	isLazy            bool
 	authorizer        DesktopAuthorizer
 	rcCache           map[string]*rest.Config
@@ -722,11 +722,11 @@ func WithLazyConnect(isLazy bool) ConnectionManagerOption {
 }
 
 // WithKubeconfigPath sets kubeconfig file path
-func WithKubeConfigPath(kubeConfigPaths []string) ConnectionManagerOption {
+func WithKubeConfigPath(kubeConfigPath string) ConnectionManagerOption {
 	return func(cm ConnectionManager) {
 		switch t := cm.(type) {
 		case *DesktopConnectionManager:
-			t.kubeconfigPath = kubeConfigPaths
+			t.kubeconfigPath = kubeConfigPath
 		case *InClusterConnectionManager:
 			break
 		}

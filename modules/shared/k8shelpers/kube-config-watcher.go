@@ -28,7 +28,7 @@ const HOMEPATH_TILDE = "~"
 
 // Represents KubeConfigWatcher
 type KubeConfigWatcher struct {
-	kubeconfigPath []string
+	kubeconfigPath string
 	kubeConfig     *api.Config
 	watcher        *fsnotify.Watcher
 	eventbus       evbus.Bus
@@ -36,7 +36,7 @@ type KubeConfigWatcher struct {
 }
 
 // Creates new KubeConfigWatcher instance
-func NewKubeConfigWatcher(kubeConfig *api.Config, kubeConfigPaths []string) (*KubeConfigWatcher, error) {
+func NewKubeConfigWatcher(kubeConfig *api.Config, kubeConfigPath string) (*KubeConfigWatcher, error) {
 
 	// Initialize watcher
 	watcher, err := fsnotify.NewWatcher()
@@ -44,17 +44,15 @@ func NewKubeConfigWatcher(kubeConfig *api.Config, kubeConfigPaths []string) (*Ku
 		return nil, err
 	}
 
-	// watch all kubeconfig paths
-	for _, i := range kubeConfigPaths {
-		err = watcher.Add(i)
-		if err != nil {
-			return nil, err
-		}
+	// watch the kubeconfig path
+	err = watcher.Add(kubeConfigPath)
+	if err != nil {
+		return nil, err
 	}
 
 	// Initialize
 	w := &KubeConfigWatcher{
-		kubeconfigPath: kubeConfigPaths,
+		kubeconfigPath: kubeConfigPath,
 		kubeConfig:     kubeConfig,
 		watcher:        watcher,
 		eventbus:       evbus.New(),
