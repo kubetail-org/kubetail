@@ -96,7 +96,7 @@ func NewDesktopConnectionManager(options ...ConnectionManagerOption) (*DesktopCo
 	}
 
 	// Init KubeConfigWatcher
-	kfw, err := NewKubeConfigWatcher(cm.kubeconfigPath)
+	kfw, err := NewKubeConfigWatcher(cm.kubeConfig, cm.kubeconfigPath)
 	if err != nil {
 		return nil, err
 	}
@@ -698,11 +698,11 @@ func NewConnectionManager(env config.Environment, options ...ConnectionManagerOp
 type ConnectionManagerOption func(cm ConnectionManager)
 
 // WithKubeconfig sets kubeconfig file path
-func WithKubeconfig(kubeconfig string) ConnectionManagerOption {
+func WithKubeconfig(kubeConfig *api.Config) ConnectionManagerOption {
 	return func(cm ConnectionManager) {
 		switch t := cm.(type) {
 		case *DesktopConnectionManager:
-			t.kubeconfigPath = kubeconfig
+			t.kubeConfig = kubeConfig
 		case *InClusterConnectionManager:
 			break
 		}
@@ -715,6 +715,18 @@ func WithLazyConnect(isLazy bool) ConnectionManagerOption {
 		switch t := cm.(type) {
 		case *DesktopConnectionManager:
 			t.isLazy = isLazy
+		case *InClusterConnectionManager:
+			break
+		}
+	}
+}
+
+// WithKubeconfigPath sets kubeconfig file path
+func WithKubeConfigPath(kubeConfigPath string) ConnectionManagerOption {
+	return func(cm ConnectionManager) {
+		switch t := cm.(type) {
+		case *DesktopConnectionManager:
+			t.kubeconfigPath = kubeConfigPath
 		case *InClusterConnectionManager:
 			break
 		}
