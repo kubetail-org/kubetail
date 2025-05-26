@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 )
@@ -56,13 +57,8 @@ func (t *Tunnel) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func NewTunnel(kubeconfigPath, namespace, serviceName string, remotePort, localPort int) (*Tunnel, error) {
-	kubeconfigConf, err := clientcmd.LoadFromFile(kubeconfigPath)
-	if err != nil {
-		return nil, err
-	}
-
-	clientConfig := clientcmd.NewDefaultClientConfig(*kubeconfigConf, &clientcmd.ConfigOverrides{})
+func NewTunnel(apiConfig api.Config, namespace, serviceName string, remotePort, localPort int) (*Tunnel, error) {
+	clientConfig := clientcmd.NewDefaultClientConfig(apiConfig, &clientcmd.ConfigOverrides{})
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		return nil, err

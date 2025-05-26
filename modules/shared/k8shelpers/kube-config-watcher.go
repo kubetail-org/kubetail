@@ -15,9 +15,6 @@
 package k8shelpers
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 
 	evbus "github.com/asaskevich/EventBus"
@@ -39,29 +36,7 @@ type KubeConfigWatcher struct {
 }
 
 // Creates new KubeConfigWatcher instance
-func NewKubeConfigWatcher(kubeconfigPath string) (*KubeConfigWatcher, error) {
-	// Initialize kube config
-	// TODO: Handle missing kube config files more gracefully
-	var kubeConfig *api.Config
-	var err error
-
-	if kubeconfigPath == "" {
-		kubeconfigPath = clientcmd.RecommendedHomeFile
-	} else if strings.HasPrefix(kubeconfigPath, HOMEPATH_TILDE) {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			zlog.Error().Msg("Kubeconfig path is corrupted. Please provide a valid path")
-			return nil, err
-		}
-		kubeconfigPath = filepath.Join(homeDir, kubeconfigPath[2:])
-	}
-
-	kubeConfig, err = clientcmd.LoadFromFile(kubeconfigPath)
-
-	if err != nil {
-		zlog.Error().Msg("Kubeconfig is corrupted or missing. Please provide a valid kubeconfig.")
-		return nil, err
-	}
+func NewKubeConfigWatcher(kubeConfig *api.Config, kubeConfigPath string) (*KubeConfigWatcher, error) {
 
 	// Initialize watcher
 	watcher, err := fsnotify.NewWatcher()
@@ -69,14 +44,15 @@ func NewKubeConfigWatcher(kubeconfigPath string) (*KubeConfigWatcher, error) {
 		return nil, err
 	}
 
-	err = watcher.Add(kubeconfigPath)
+	// watch the kubeconfig path
+	err = watcher.Add(kubeConfigPath)
 	if err != nil {
 		return nil, err
 	}
 
 	// Initialize
 	w := &KubeConfigWatcher{
-		kubeconfigPath: kubeconfigPath,
+		kubeconfigPath: kubeConfigPath,
 		kubeConfig:     kubeConfig,
 		watcher:        watcher,
 		eventbus:       evbus.New(),
@@ -138,7 +114,7 @@ func (w *KubeConfigWatcher) start() {
 			case fsEv.Op&fsnotify.Create == fsnotify.Create:
 				// Load config
 				w.mu.Lock()
-				kubeConfig, err := clientcmd.LoadFromFile(w.kubeconfigPath)
+				kubeConfig, err := clientcmd.LoadFromFile(fsEv.Name)
 				if err != nil {
 					w.mu.Unlock()
 					zlog.Error().Err(err).Caller().Send()
@@ -153,7 +129,7 @@ func (w *KubeConfigWatcher) start() {
 				// Load config
 				w.mu.Lock()
 				oldConfig := w.kubeConfig
-				newConfig, err := clientcmd.LoadFromFile(w.kubeconfigPath)
+				newConfig, err := clientcmd.LoadFromFile(fsEv.Name)
 				if err != nil {
 					w.mu.Unlock()
 					zlog.Error().Err(err).Caller().Send()
