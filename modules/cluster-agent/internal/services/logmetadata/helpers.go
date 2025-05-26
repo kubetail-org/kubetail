@@ -172,6 +172,12 @@ func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, names
 		return nil, err
 	}
 
+	// Init containerLogsWatcher
+	clw := &containerLogsWatcher{
+		watcher: watcher,
+		Events:  make(chan fsnotify.Event),
+	}
+
 	symlinkCache := make(map[string]string)
 
 	addTarget := func(pathname string) error {
@@ -179,6 +185,13 @@ func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, names
 		target, err := os.Readlink(pathname)
 		if err != nil {
 			return err
+		}
+
+		clw.mu.Lock()
+		defer clw.mu.Unlock()
+
+		if clw.closed {
+			return errors.New("watcher is closed")
 		}
 
 		// cache result
@@ -211,11 +224,6 @@ func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, names
 	// listen for new files
 	if err := watcher.Add(containerLogsDir); err != nil {
 		return nil, err
-	}
-
-	clw := &containerLogsWatcher{
-		watcher: watcher,
-		Events:  make(chan fsnotify.Event),
 	}
 
 	// handle new files

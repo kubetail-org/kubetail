@@ -41,7 +41,7 @@ Our goal is to build the most powerful, user-friendly logging platform for Kuber
 
 ## Quickstart (Desktop)
 
-### Option 1: Package Manager
+### Option 1: Package Managers
 
 First, install the Kubetail CLI tool (`kubetail`) via your favorite package manager:
 
@@ -51,6 +51,9 @@ brew install kubetail
 
 # Winget
 winget install Kubetail.Kubetail
+
+# Chocolatey
+choco install kubetail
 ```
 
 Next, start the web dashboard using the `serve` subcommand:
