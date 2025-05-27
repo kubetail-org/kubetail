@@ -196,6 +196,36 @@ function useLogFileInfo(uids: string[], ownershipMap: Map<string, string[]>) {
   return logFileInfo;
 }
 
+function useFilteredWorkloads() {
+  const { kubeContext, search, namespace } = useContext(Context);
+
+  const cronjobs = useCronJobs(kubeContext);
+  const daemonsets = useDaemonSets(kubeContext);
+  const deployments = useDeployments(kubeContext);
+  const jobs = useJobs(kubeContext);
+  const pods = usePods(kubeContext);
+  const replicasets = useReplicaSets(kubeContext);
+  const statefulsets = useStatefulSets(kubeContext);
+
+  const filterCronJobs = applySearchAndFilter(cronjobs.fetching, cronjobs.data?.batchV1CronJobsList?.items, search, namespace);
+  const filterDaemonsets = applySearchAndFilter(daemonsets.fetching, daemonsets.data?.appsV1DaemonSetsList?.items, search, namespace);
+  const filterPods = applySearchAndFilter(pods.fetching, pods.data?.coreV1PodsList?.items, search, namespace);
+  const filterJobs = applySearchAndFilter(jobs.fetching, jobs.data?.batchV1JobsList?.items, search, namespace);
+  const filterDeployments = applySearchAndFilter(deployments.fetching, deployments.data?.appsV1DeploymentsList?.items, search, namespace);
+  const filterReplicasets = applySearchAndFilter(replicasets.fetching, replicasets.data?.appsV1ReplicaSetsList?.items, search, namespace);
+  const filterStatefulsets = applySearchAndFilter(statefulsets.fetching, statefulsets.data?.appsV1StatefulSetsList?.items, search, namespace);
+
+  return {
+    filterCronJobs,
+    filterDaemonsets,
+    filterDeployments,
+    filterJobs,
+    filterPods,
+    filterReplicasets,
+    filterStatefulsets,
+  };
+}
+
 /**
  * LogMetadataMapProvider component
  */
@@ -700,13 +730,7 @@ const DisplayWorkloads = () => {
     statefulsets.data?.appsV1StatefulSetsList?.metadata.resourceVersion,
   ]);
 
-  const filterCronJobs = applySearchAndFilter(cronjobs.fetching, cronjobs.data?.batchV1CronJobsList?.items, search, namespace);
-  const filterDaemonsets = applySearchAndFilter(daemonsets.fetching, daemonsets.data?.appsV1DaemonSetsList?.items, search, namespace);
-  const filterPods = applySearchAndFilter(pods.fetching, pods.data?.coreV1PodsList?.items, search, namespace);
-  const filterJobs = applySearchAndFilter(jobs.fetching, jobs.data?.batchV1JobsList?.items, search, namespace);
-  const filterDeployments = applySearchAndFilter(deployments.fetching, deployments.data?.appsV1DeploymentsList?.items, search, namespace);
-  const filterReplicasets = applySearchAndFilter(replicasets.fetching, replicasets.data?.appsV1ReplicaSetsList?.items, search, namespace);
-  const filterStatefulsets = applySearchAndFilter(statefulsets.fetching, statefulsets.data?.appsV1StatefulSetsList?.items, search, namespace);
+  const { filterCronJobs, filterDaemonsets, filterDeployments, filterJobs, filterPods, filterReplicasets, filterStatefulsets } = useFilteredWorkloads();
 
   // we want to show this only when user searches for a workload
   const noResultFound = search !== '' ? noSearchResults(filterCronJobs, filterDeployments, filterPods, filterJobs, filterDaemonsets, filterReplicasets, filterStatefulsets) : false;
@@ -866,28 +890,22 @@ const CountBadge = ({ count, workload, workloadFilter }: { count: number, worklo
  */
 
 const Sidebar = () => {
-  const { workloadFilter, setWorkloadFilter, kubeContext, namespace, search } = useContext(Context);
+  const { workloadFilter, setWorkloadFilter } = useContext(Context);
 
-  const cronjobs = useCronJobs(kubeContext);
-  const daemonsets = useDaemonSets(kubeContext);
-  const deployments = useDeployments(kubeContext);
-  const jobs = useJobs(kubeContext);
-  const pods = usePods(kubeContext);
-  const replicasets = useReplicaSets(kubeContext);
-  const statefulsets = useStatefulSets(kubeContext);
+  const { filterCronJobs, filterDaemonsets, filterDeployments, filterJobs, filterPods, filterReplicasets, filterStatefulsets } = useFilteredWorkloads();
 
   const counts = {
-    cronjobs: applySearchAndFilter(cronjobs.fetching, cronjobs.data?.batchV1CronJobsList?.items, search, namespace),
-    daemonsets: applySearchAndFilter(daemonsets.fetching, daemonsets.data?.appsV1DaemonSetsList?.items, search, namespace),
-    pods: applySearchAndFilter(pods.fetching, pods.data?.coreV1PodsList?.items, search, namespace),
-    jobs: applySearchAndFilter(jobs.fetching, jobs.data?.batchV1JobsList?.items, search, namespace),
-    deployments: applySearchAndFilter(deployments.fetching, deployments.data?.appsV1DeploymentsList?.items, search, namespace),
-    replicasets: applySearchAndFilter(replicasets.fetching, replicasets.data?.appsV1ReplicaSetsList?.items, search, namespace),
-    statefulsets: applySearchAndFilter(statefulsets.fetching, statefulsets.data?.appsV1StatefulSetsList?.items, search, namespace),
-  }
+    cronjobs: filterCronJobs,
+    daemonsets: filterDaemonsets,
+    pods: filterPods,
+    jobs: filterJobs,
+    deployments: filterDeployments,
+    replicasets: filterReplicasets,
+    statefulsets: filterStatefulsets,
+  };
 
   // using some default sidebar values during data loading and error states
-  const sidebarItems: [Workload, number][] = allWorkloads.map((w) => [w, counts[w]?.length ?? 0])
+  const sidebarItems: [Workload, number][] = allWorkloads.map((w) => [w, counts[w]?.length ?? 0]);
 
   return (
     <div className="px-4">
