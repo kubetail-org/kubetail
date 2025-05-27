@@ -216,6 +216,14 @@ function useFilteredWorkloads() {
   const filterStatefulsets = applySearchAndFilter(statefulsets.fetching, statefulsets.data?.appsV1StatefulSetsList?.items, search, namespace);
 
   return {
+    cronjobs: cronjobs.data?.batchV1CronJobsList?.items,
+    daemonsets: daemonsets.data?.appsV1DaemonSetsList?.items,
+    deployments: deployments.data?.appsV1DeploymentsList?.items,
+    jobs: jobs.data?.batchV1JobsList?.items,
+    pods: pods.data?.coreV1PodsList?.items,
+    replicasets: replicasets.data?.appsV1ReplicaSetsList?.items,
+    statefulsets: statefulsets.data?.appsV1StatefulSetsList?.items,
+
     filterCronJobs,
     filterDaemonsets,
     filterDeployments,
@@ -892,17 +900,26 @@ const CountBadge = ({ count, workload, workloadFilter }: { count: number, worklo
 const Sidebar = () => {
   const { workloadFilter, setWorkloadFilter } = useContext(Context);
 
-  const { filterCronJobs, filterDaemonsets, filterDeployments, filterJobs, filterPods, filterReplicasets, filterStatefulsets } = useFilteredWorkloads();
+  const data = useFilteredWorkloads();
 
-  const counts = {
-    cronjobs: filterCronJobs,
-    daemonsets: filterDaemonsets,
-    pods: filterPods,
-    jobs: filterJobs,
-    deployments: filterDeployments,
-    replicasets: filterReplicasets,
-    statefulsets: filterStatefulsets,
-  };
+  const workloadEntries = [
+    ['cronjobs', 'filterCronJobs'],
+    ['daemonsets', 'filterDaemonsets'],
+    ['deployments', 'filterDeployments'],
+    ['jobs', 'filterJobs'],
+    ['pods', 'filterPods'],
+    ['replicasets', 'filterReplicasets'],
+    ['statefulsets', 'filterStatefulsets'],
+  ] as const;
+
+  const counts = Object.fromEntries(
+    workloadEntries.map(([unfilteredKey, filteredKey]) => [
+      unfilteredKey,
+      !workloadFilter || workloadFilter === unfilteredKey
+        ? data[filteredKey]
+        : data[unfilteredKey],
+    ]),
+  );
 
   // using some default sidebar values during data loading and error states
   const sidebarItems: [Workload, number][] = allWorkloads.map((w) => [w, counts[w]?.length ?? 0]);
