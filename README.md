@@ -9,8 +9,9 @@ _Kubetail is a real-time logging dashboard for Kubernetes (browser/terminal)_
 Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 
 <a href="https://discord.gg/CmsmWAVkvX"><img src="https://img.shields.io/discord/1212031524216770650?logo=Discord&style=flat-square&logoColor=FFFFFF&labelColor=5B65F0&label=Discord&color=64B73A"></a>
-[![slack](https://img.shields.io/badge/Slack-kubetail-364954?logo=slack&labelColor=4D1C51)](https://join.slack.com/t/kubetail/shared_invite/zt-2cq01cbm8-e1kbLT3EmcLPpHSeoFYm1w)
-[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kubetail)](https://artifacthub.io/packages/search?repo=kubetail)
+[![Slack](https://img.shields.io/badge/Slack-kubetail-364954?logo=slack&labelColor=4D1C51)](https://kubernetes.slack.com/archives/C08SHG1GR37)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+[![Contributor Resources](https://img.shields.io/badge/Contributor%20Resources-purple?style=flat-square)](https://github.com/kubetail-org)
 
 ## Introduction
 
@@ -40,12 +41,19 @@ Our goal is to build the most powerful, user-friendly logging platform for Kuber
 
 ## Quickstart (Desktop)
 
-### Option 1: Homebrew
+### Option 1: Package Managers
 
-First, install the Kubetail CLI tool (`kubetail`) via [homebrew](https://brew.sh/):
+First, install the Kubetail CLI tool (`kubetail`) via your favorite package manager:
 
 ```console
+# Homebrew
 brew install kubetail
+
+# Winget
+winget install Kubetail.Kubetail
+
+# Chocolatey
+choco install kubetail
 ```
 
 Next, start the web dashboard using the `serve` subcommand:
@@ -76,12 +84,9 @@ This command will open [http://localhost:7500/](http://localhost:7500/) in your 
 
 Download the binary for your OS/Arch (from the latest [release binaries](https://github.com/kubetail-org/kubetail/releases/latest)):
 
-* [Darwin/amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-darwin-amd64)
-* [Darwin/arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-darwin-arm64)
-* [Linux/amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-amd64)
-* [Linux/arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-arm64)
-* [Windows/amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-amd64)
-* [Windows/arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-arm64)
+* Darwin ([amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-darwin-amd64), [arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-darwin-arm64))
+* Linux ([amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-amd64), [arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-arm64))
+* Windows ([amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-amd64), [arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-arm64))
 
 Rename the file and make it executable:
 
@@ -165,6 +170,39 @@ Have fun tailing your logs!
 
 Visit the [Kubetail documentation](https://www.kubetail.com/)
 
+## Roadmap and Status
+
+This is our high-level plan for the Kubetail project, in order:
+
+|   | Step                                                  | Status |
+| - | ----------------------------------------------------- | ------ |
+| 1 | Real-time container logs                              | ✅     |
+| 2 | Real-time search and polished user experience         | 🛠️     |
+| 3 | Real-time system logs (e.g. systemd, k8s events)      | 🔲     |
+| 4 | Basic customizability (e.g. colors, time formats)     | 🔲     |
+| 5 | Message parsing and metrics                           | 🔲     |
+| 6 | Historic data (e.g. log archives, metrics timeseries) | 🔲     |
+| 7 | Kubetail API and developer-facing client libraries    | 🔲     |
+| N | World Peace                                           | 🔲     |
+
+And here are some additional details:
+
+**Real-time container logs**
+
+Users can view the container logs from the pods currently running inside their clusters quickly and easily using a web dashboard. Users can view container logs organized by workloads and follow log messages as ephemeral containers get created and deleted. They can also narrow their viewing window by timestamp and filter logs by source properties such as region, zone and node.
+
+**Real-time search and polished user experience**
+
+Users can install Kubetail easily on their desktops and in their clusters. By default, Kubetail will use only the Kubernetes API to fetch basic data such as running workloads and container logs. If a user wants more advanced functionality they can install Kubetail custom services in their cluster (i.e. "Kubetail Cluster API" and "Kubetail Cluster Agent", collectively known as the "Kubetail API") and gain access to features such as log search, log file sizes and last event timestamps. The entire experience of installing, upgrading and uninstalling the Kubetail API is very polished and users are able to view their logs with equally powerful tools in the browser and the terminal using the Kubetail web dashboard and CLI tool.
+
+**Real-time system logs**
+
+Users who install the Kubetail API gain immediate access to their node-level logs (e.g. systemd) and cluster-level logs (e.g. kubernetes events) and view them in an integrated interface that shows their container logs in context with other system information such as CPU utilization, memory usage and disk space. System logs are viewable in real-time, in the same merged timeline with other logs. Users can filter system logs by timestamp and source properties.
+
+**Basic customizability**
+
+Users can fully customize their Kubetail experience when using the web dashboard and CLI tool by modifying their user settings. The user settings are modifiable by hand using a config file or via the dashboard UI. The experience is very polished and works seamlessly across upgrades that may add/remove/modify user settings. Users have the option to sync their settings across multiple devices.
+
 ## Development
 
 ### Repository Structure
@@ -183,13 +221,16 @@ It also contains the source code for the Kubetail Dashboard's frontend and the R
 
 ### Setting up the Development Environment
 
-Dependencies:
+#### Dependencies
+
 * [Tilt](https://tilt.dev/)
 * [Go](https://go.dev/)
 * [pnpm](https://pnpm.io/)
 * [ctlptl](https://github.com/tilt-dev/ctlptl) (optional)
 
-1. Create a Kubernetes dev cluster:
+#### Next steps
+
+1. Create a Kubernetes Dev Cluster
 
 ```console
 ctlptl apply -f hack/ctlptl/minikube.yaml
@@ -218,7 +259,54 @@ pnpm install
 pnpm dev
 ```
 
-Now access the dashboard at [http://localhost:5173](http://localhost:5173). 
+Now access the dashboard at [http://localhost:5173](http://localhost:5173).
+
+### Optimize Development Environment for Rust (Optional)
+
+By default, the dev environment compiles "release" builds of the Rust components when you run run `tilt up`. If you want to iterate more quickly, you can have Tilt compile the rust code locally using "debug" builds instead.
+
+#### Dependencies
+
+* [rustup](https://rustup.rs)
+* [protobuf](https://protobuf.dev/installation/)
+
+#### Next steps
+
+First, install the Rust target required for your architecture:
+
+```console
+# x86_64
+rustup target add x86_64-unknown-linux-musl
+
+# aarch64
+rustup target add aarch64-unknown-linux-musl
+```
+
+Next, install the tools required by Rust cross compiler:
+
+```console
+# macOS (Homebrew)
+brew install FiloSottile/musl-cross/musl-cross
+
+# Linux (Ubuntu)
+apt-get install musl-tools
+```
+
+On macOS, add this to your `~/.cargo/config.toml` file:
+
+```
+[target.x86_64-unknown-linux-musl]
+linker = "x86_64-linux-musl-gcc"
+
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-musl-gcc"
+```
+
+Finally, to use the local compiler, just run Tilt using using the `KUBETAIL_DEV_RUST_LOCAL` env flag:
+
+```console
+KUBETAIL_DEV_RUST_LOCAL=true tilt up
+```
 
 ## Build
 

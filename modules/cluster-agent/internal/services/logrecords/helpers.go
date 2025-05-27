@@ -16,20 +16,32 @@ package logrecords
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 )
 
-func findLogFile(containerLogsDir string, namespace string, podName string, containerName string) (string, error) {
-	// Construct pattern
-	pattern := filepath.Join(containerLogsDir, fmt.Sprintf("%s_%s_%s-*.log", podName, namespace, containerName))
-
-	// Find file
-	matchingFiles, err := filepath.Glob(pattern)
-	if err != nil {
-		return "", err
-	} else if len(matchingFiles) != 1 {
-		return "", fmt.Errorf("matched %d files", len(matchingFiles))
+// Strip runtime prefix from container IDs
+func stripRuntimePrefix(containerID string) string {
+	parts := strings.SplitN(containerID, "://", 2)
+	if len(parts) == 1 {
+		return parts[0]
 	}
+	return parts[1]
+}
 
-	return matchingFiles[0], nil
+// Find container log file on disk given metadata
+func findLogFile(containerLogsDir string, namespace string, podName string, containerName string, containerID string) (string, error) {
+	// Strip runtime prefix from container ID
+	containerID = stripRuntimePrefix(containerID)
+
+	// Check if file exists
+	filePath := filepath.Join(containerLogsDir, fmt.Sprintf("%s_%s_%s-%s.log", podName, namespace, containerName, containerID))
+	if _, err := os.Stat(filePath); err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("log file not found: %s", filePath)
+		}
+		return "", err
+	}
+	return filePath, nil
 }

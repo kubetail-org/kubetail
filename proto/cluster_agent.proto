@@ -74,10 +74,11 @@ message LogRecordsStreamRequest {
   string namespace = 1;
   string pod_name = 2;
   string container_name = 3;
-  string start_time = 4;
-  string stop_time = 5;
-  string grep = 6;
-  FollowFrom follow_from = 7;
+  string container_id = 4;
+  string start_time = 5;
+  string stop_time = 6;
+  string grep = 7;
+  FollowFrom follow_from = 8;
 }
 
 message LogRecord {

@@ -35,11 +35,10 @@ var clusterRepoRemoveCmd = &cobra.Command{
 	Long:  clusterRepoRemoveHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Init client
-		client, err := helm.NewClient("")
-		cli.ExitOnError(err)
+		client := helm.NewClient()
 
 		// Update repo
-		err = client.RemoveRepo()
+		err := client.RemoveRepo()
 		cli.ExitOnError(err)
 
 		fmt.Println("Removed repository 'kubetail'")

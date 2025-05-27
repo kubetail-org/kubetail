@@ -100,7 +100,7 @@ func TestAllowedNamespacesListQueries(t *testing.T) {
 		setNamespace *string
 	}{
 		{"namespace not specified", nil},
-		{"namespace specified but not allowed", ptr.To[string]("nsforbidden")},
+		{"namespace specified but not allowed", ptr.To("nsforbidden")},
 	}
 
 	for _, tt := range tests {

@@ -34,7 +34,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	k8sruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/app"
@@ -269,7 +268,6 @@ func init() {
 	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	flagset := serveCmd.Flags()
 	flagset.SortFlags = false
-	flagset.String(KubeconfigFlag, clientcmd.RecommendedHomeFile, "Path to kubeconfig file")
 	flagset.IntP("port", "p", 7500, "Port number to listen on")
 	flagset.String("host", "localhost", "Host address to bind to")
 	flagset.StringP("log-level", "l", "info", "Log level (debug, info, warn, error, disabled)")

@@ -15,7 +15,7 @@
 import { useApolloClient, useQuery, useSubscription } from '@apollo/client';
 import type { TypedDocumentNode, OperationVariables, Unmasked, MaybeMasked } from '@apollo/client';
 import distinctColors from 'distinct-colors';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import appConfig from '@/app-config';
 import { getClusterAPIClient } from '@/apollo-client';
@@ -114,6 +114,49 @@ export function useRetryOnError() {
       }
     }, RETRY_TIMEOUT);
   };
+}
+
+/**
+ * Runs queued callbacks on the next reactive cycle
+ * (commit → paint), then clears the queue.
+ *
+ * @returns schedule – call with a callback to run next tick.
+ *
+ * Usage:
+ * const nextTick = useNextTick();
+ * nextTick(() => console.log('I run after the next render + paint'));
+ */
+
+export function useNextTick(): (fn: () => void) => void {
+  const queueRef = useRef<(() => void)[]>([]);
+
+  /** Enqueue a callback for the next tick */
+  const schedule = useCallback((fn: () => void) => {
+    queueRef.current.push(fn);
+  }, []);
+
+  // Flush the queue on every commit; actual execution is deferred
+  // to the next paint using requestAnimationFrame.
+  useEffect(() => {
+    if (queueRef.current.length === 0) return;
+
+    const id = requestAnimationFrame(() => {
+      const queued = queueRef.current.splice(0);
+      queued.forEach((cb) => {
+        try {
+          cb();
+        } catch (err) {
+          // Surface errors so they are not swallowed
+          setTimeout(() => { throw err; });
+        }
+      });
+    });
+
+    // If the component unmounts before RAF fires, cancel it.
+    return () => cancelAnimationFrame(id);
+  });
+
+  return schedule;
 }
 
 /**
@@ -397,7 +440,7 @@ export function useIsClusterAPIEnabled(kubeContext: string | null) {
   const status = useClusterAPIServerStatus(kubeContext || '');
 
   // Return if running in cluster with ClusterAPI enabled
-  if (appConfig.environment === 'cluster' && appConfig.clusterAPIEnabled) return true;
+  if (appConfig.environment === 'cluster') return appConfig.clusterAPIEnabled;
 
   switch (status.status) {
     case Status.NotFound:
@@ -430,6 +473,7 @@ export function useLogMetadata(options?: LogMetadataHookOptions) {
   };
 
   const readyWait = useSubscription(dashboardOps.CLUSTER_API_READY_WAIT, {
+    skip: !options?.enabled,
     variables: connectArgs,
   });
 

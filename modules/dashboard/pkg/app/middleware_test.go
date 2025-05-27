@@ -37,8 +37,8 @@ func TestAuthenticationMiddleware(t *testing.T) {
 	}{
 		{"auto-mode without tokens", config.AuthModeAuto, false, false, false},
 		{"auto-mode with session token", config.AuthModeAuto, true, false, false},
-		{"auto-mode with bearer token", config.AuthModeAuto, false, true, false},
-		{"auto-mode with both tokens", config.AuthModeAuto, true, true, false},
+		{"auto-mode with bearer token", config.AuthModeAuto, false, true, true},
+		{"auto-mode with both tokens", config.AuthModeAuto, true, true, true},
 		{"token-mode without tokens", config.AuthModeToken, false, false, false},
 		{"token-mode with session token", config.AuthModeToken, true, false, true},
 		{"token-mode with bearer token", config.AuthModeToken, false, true, true},

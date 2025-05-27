@@ -10,7 +10,7 @@ local_resource(
   '''
   cd modules
 
-  # Build Go binary  
+  # --- Build Go binary ---
   export CGO_ENABLED=0
   export GOOS=linux
   go build -o ../.tilt/cluster-api ./cluster-api/cmd/main.go
@@ -41,7 +41,7 @@ local_resource(
   '''
   cd modules
 
-  # Build Go binary  
+  # --- Build Go binary   ---
   export CGO_ENABLED=0
   export GOOS=linux
   go build -o ../.tilt/cluster-agent ./cluster-agent/cmd/main.go
@@ -52,23 +52,72 @@ local_resource(
   ]
 )
 
-docker_build_with_restart(
-  'kubetail-cluster-agent',
-  dockerfile='hack/tilt/Dockerfile.kubetail-cluster-agent',
-  context='.',
-  entrypoint="/cluster-agent/cluster-agent -c /etc/kubetail/config.yaml",
-  only=[
-    './crates/rgkl',
-    './proto',
-    './.tilt/cluster-agent'
-  ],
-  ignore=[
-    './crates/rgkl/target'
-  ],
-  live_update=[
-    sync('./.tilt/cluster-agent', '/cluster-agent/cluster-agent'),
-  ]
-)
+build_rust_locally = os.getenv("KUBETAIL_DEV_RUST_LOCAL", default='false').lower() == 'true'
+if build_rust_locally:
+  local_resource(
+    "kubetail-rgkl-compile",
+    '''
+    set -eu
+
+    cd crates/rgkl
+
+    # --- Determine target architecture ---
+    arch=$(uname -m)
+    case "$arch" in
+      x86_64|amd64) target_arch="x86_64" ;;
+      arm64|aarch64) target_arch="aarch64" ;;
+      *) echo "Unsupported arch: $arch"; exit 1 ;;
+    esac
+    target="${target_arch}-unknown-linux-musl"
+
+    # --- Build static binary ---
+    cargo build --target "${target}"
+
+    # --- Copy to .tilt directory ---
+    out_dir="../../.tilt"
+    mkdir -p "$out_dir"
+    cp "target/${target}/debug/rgkl" "$out_dir"
+    ''',
+    deps=[
+      "./crates/rgkl/src",
+      "./crates/rgkl/Cargo.toml",
+      "./crates/rgkl/Cargo.lock",
+      "./proto",
+    ],
+  )
+
+  docker_build_with_restart(
+    'kubetail-cluster-agent',
+    dockerfile='hack/tilt/Dockerfile.kubetail-cluster-agent-local',
+    context='.',
+    entrypoint="/cluster-agent/cluster-agent -c /etc/kubetail/config.yaml",
+    only=[
+      './.tilt/cluster-agent',
+      './.tilt/rgkl',
+    ],
+    live_update=[
+      sync('./.tilt/cluster-agent', '/cluster-agent/cluster-agent'),
+      sync('./.tilt/rgkl', '/cluster-agent/rgkl')
+    ]
+  )
+else:
+  docker_build_with_restart(
+    'kubetail-cluster-agent',
+    dockerfile='hack/tilt/Dockerfile.kubetail-cluster-agent',
+    context='.',
+    entrypoint="/cluster-agent/cluster-agent -c /etc/kubetail/config.yaml",
+    only=[
+      './crates/rgkl',
+      './proto',
+      './.tilt/cluster-agent'
+    ],
+    ignore=[
+      './crates/rgkl/target'
+    ],
+    live_update=[
+      sync('./.tilt/cluster-agent', '/cluster-agent/cluster-agent'),
+    ]
+  )
 
 # kubetail-dashboard
 
@@ -83,12 +132,12 @@ local_resource(
 
   cd modules
 
-  # Build the Go binary
+  # --- Build the Go binary ---
   export CGO_ENABLED=0
   export GOOS=linux
   go build -o ../.tilt/dashboard ./dashboard/cmd/main.go
 
-  # Reset dashboard/website directory
+  # --- Reset dashboard/website directory ---
   if [ ! -f dashboard/website/.gitkeep ]; then
     rm -rf dashboard/website &&
     git checkout dashboard/website

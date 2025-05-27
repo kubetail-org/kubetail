@@ -41,6 +41,11 @@ version = "0.5.4"
 name = "rgkl"
 path = "src/main.rs"
 
+[profile.dev]
+incremental = true
+debug = true
+opt-level = 1
+
 [profile.release]
 opt-level = 3
 debug = "none"

@@ -101,12 +101,12 @@ func (w *KubeConfigWatcher) Get() *api.Config {
 }
 
 // Subscribe
-func (w *KubeConfigWatcher) Subscribe(topic string, fn interface{}) {
+func (w *KubeConfigWatcher) Subscribe(topic string, fn any) {
 	w.eventbus.SubscribeAsync(topic, fn, true)
 }
 
 // Unsubscribe
-func (w *KubeConfigWatcher) Unsubscribe(topic string, fn interface{}) {
+func (w *KubeConfigWatcher) Unsubscribe(topic string, fn any) {
 	w.eventbus.Unsubscribe(topic, fn)
 }
 
