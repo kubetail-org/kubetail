@@ -22,44 +22,53 @@ import {
   type SetterOrUpdater,
 } from "recoil";
 
-import DataTable from "@kubetail/ui/elements/DataTable";
-
 import appConfig from "@/app-config";
-import Modal from "@/components/elements/Modal";
-import ClusterAPIInstallButton from "@/components/widgets/ClusterAPIInstallButton";
 import * as dashboardOps from "@/lib/graphql/dashboard/ops";
-import {
-  ServerStatus,
-  Status,
-  useDashboardServerStatus,
-  useKubernetesAPIServerStatus,
-  useClusterAPIServerStatus,
-} from "@/lib/server-status";
-import { cn } from "@/lib/util";
-import Form from "@kubetail/ui/elements/Form";
 
-type ServerStatusWidgetProps = {
+import Form from "@kubetail/ui/elements/Form";
+import { useIsClusterAPIEnabled } from "@/lib/hooks";
+
+type EnvironmentControlWidgetProps = {
   className?: string;
 };
-const EnvironmentControl = ({ className }: ServerStatusWidgetProps) => {
-  const [env, setEnv] = useState<string>("kubetail api");
+const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
+  const isClusterAPIEnabled = useIsClusterAPIEnabled(null);
+  const [env, setEnv] = useState<string>(() => {
+    return localStorage.getItem("clusterAPIEnabled") || "";
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    console.log(isClusterAPIEnabled);
+    const newEnv = e.target.value;
+    setEnv(newEnv);
+
+    localStorage.setItem("clusterAPIEnabled", newEnv);
+
+    window.location.reload();
+  };
+
   return (
-    <div className="p-3">
-      <Form.Select
-        className="mt-0 py-0 pl-0 pr-0 h-auto border-0 focus:ring-offset-0 focus:ring-0 focus:border-transparent focus:ring-transparent text-xs bg-transparent"
-        value={env}
-        onChange={(ev) => {
-          setEnv(ev.target.value);
-        }}
-      >
-        <Form.Option value="kubetail api">Kubetail api</Form.Option>
-        <Form.Option value="kubernetes api">Kubernetes api</Form.Option>
-      </Form.Select>
+    <div>
+      <div>Environment control</div>
+      <div className="pt-3 ">
+        <Form.Select
+          className="mt-0 w-[110px] py-0 pl-0 pr-0 h-auto border-0 focus:ring-offset-0 focus:ring-0 focus:border-transparent focus:ring-transparent text-xs bg-transparent"
+          value={env}
+          onChange={(ev) => {
+            handleChange(ev);
+          }}
+        >
+          <Form.Option value="enabled">Kubetail api</Form.Option>
+          <Form.Option value="disabled">Kubernetes api</Form.Option>
+        </Form.Select>
+      </div>
     </div>
   );
 };
 
-const EnvironmentControlWidgetWrapper = (props: ServerStatusWidgetProps) => (
+const EnvironmentControlWidgetWrapper = (
+  props: EnvironmentControlWidgetProps
+) => (
   <RecoilRoot>
     <EnvironmentControl {...props} />
   </RecoilRoot>

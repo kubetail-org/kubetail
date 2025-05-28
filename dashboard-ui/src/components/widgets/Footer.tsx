@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Form from '@kubetail/ui/elements/Form';
+import Form from "@kubetail/ui/elements/Form";
 
-import ServerStatus from '@/components/widgets/ServerStatus';
-import { useTheme, UserPreference } from '@/lib/theme';
-import EnvironmentControlWidgetWrapper from './EnvironmentControl';
+import ServerStatus from "@/components/widgets/ServerStatus";
+import { useTheme, UserPreference } from "@/lib/theme";
+import EnvironmentControlWidgetWrapper from "./EnvironmentControl";
 
 export default function Footer() {
   const { userPreference, setUserPreference } = useTheme();
@@ -26,18 +26,25 @@ export default function Footer() {
   };
 
   return (
-    <div className="h-[22px] bg-chrome-100 border-t border-chrome-divider text-sm flex justify-between items-center pl-[10px]">
-      <Form.Select
-        className="w-[65px] mt-0 py-0 pl-0 pr-0 h-auto border-0 focus:ring-offset-0 focus:ring-0 focus:border-transparent focus:ring-transparent text-xs bg-transparent"
-        value={userPreference}
-        onChange={handleChange}
-      >
-        <Form.Option value={UserPreference.System}>system</Form.Option>
-        <Form.Option value={UserPreference.Dark}>dark</Form.Option>
-        <Form.Option value={UserPreference.Light}>light</Form.Option>
-      </Form.Select>
-      <ServerStatus />
-      <EnvironmentControlWidgetWrapper/>
+    <div className="flex flex-col bg-chrome-100 border-chrome-divider text-sm border-t  ">
+      <div className="h-[22px] flex justify-between items-center pl-[10px]">
+        <Form.Select
+          className="w-[65px] mt-0 py-0 pl-0 pr-0 h-auto border-0 focus:ring-offset-0 focus:ring-0 focus:border-transparent focus:ring-transparent text-xs bg-transparent"
+          value={userPreference}
+          onChange={handleChange}
+        >
+          <Form.Option value={UserPreference.System}>system</Form.Option>
+          <Form.Option value={UserPreference.Dark}>dark</Form.Option>
+          <Form.Option value={UserPreference.Light}>light</Form.Option>
+        </Form.Select>
+        <ServerStatus />
+      </div>
+
+      {process.env.NODE_ENV === "development" && (
+        <div className="p-3">
+          <EnvironmentControlWidgetWrapper />
+        </div>
+      )}
     </div>
   );
 }

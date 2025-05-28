@@ -12,18 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useApolloClient, useQuery, useSubscription } from '@apollo/client';
-import type { TypedDocumentNode, OperationVariables, Unmasked, MaybeMasked } from '@apollo/client';
-import distinctColors from 'distinct-colors';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useApolloClient, useQuery, useSubscription } from "@apollo/client";
+import type {
+  TypedDocumentNode,
+  OperationVariables,
+  Unmasked,
+  MaybeMasked,
+} from "@apollo/client";
+import distinctColors from "distinct-colors";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import appConfig from '@/app-config';
-import { getClusterAPIClient } from '@/apollo-client';
-import * as dashboardOps from '@/lib/graphql/dashboard/ops';
-import * as clusterAPIOps from '@/lib/graphql/cluster-api/ops';
-import { Counter } from './util';
-import { Workload } from './workload';
-import { Status, useClusterAPIServerStatus } from './server-status';
+import appConfig from "@/app-config";
+import { getClusterAPIClient } from "@/apollo-client";
+import * as dashboardOps from "@/lib/graphql/dashboard/ops";
+import * as clusterAPIOps from "@/lib/graphql/cluster-api/ops";
+import { Counter } from "./util";
+import { Workload } from "./workload";
+import { Status, useClusterAPIServerStatus } from "./server-status";
 
 type GenericListFragment = {
   metadata: {
@@ -48,7 +53,7 @@ type GenericCounterFragment = {
   items: {
     metadata: {
       resourceVersion: string;
-    }
+    };
   }[];
 };
 
@@ -78,7 +83,10 @@ function isWatchExpiredError(err: Error): boolean {
   const { graphQLErrors } = err as CustomError;
   if (graphQLErrors && graphQLErrors.length) {
     const gqlErr = graphQLErrors[0];
-    return (gqlErr.extensions?.code === 'KUBETAIL_WATCH_ERROR' && gqlErr.extensions?.reason === 'Expired');
+    return (
+      gqlErr.extensions?.code === "KUBETAIL_WATCH_ERROR" &&
+      gqlErr.extensions?.reason === "Expired"
+    );
   }
   return false;
 }
@@ -147,7 +155,9 @@ export function useNextTick(): (fn: () => void) => void {
           cb();
         } catch (err) {
           // Surface errors so they are not swallowed
-          setTimeout(() => { throw err; });
+          setTimeout(() => {
+            throw err;
+          });
         }
       });
     });
@@ -175,7 +185,12 @@ interface GetQueryWithSubscriptionTSVariables {
   fieldSelector: string;
 }
 
-interface GetQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables> {
+interface GetQueryWithSubscriptionArgs<
+  TQData,
+  TQVariables,
+  TSData,
+  TSVariables
+> {
   query: TypedDocumentNode<TQData, TQVariables>;
   subscription: TypedDocumentNode<TSData, TSVariables>;
   queryDataKey: keyof TQData;
@@ -188,36 +203,49 @@ export function useGetQueryWithSubscription<
   TQData = any,
   TQVariables extends GetQueryWithSubscriptionTQVariables = GetQueryWithSubscriptionTQVariables,
   TSData = any,
-  TSVariables extends GetQueryWithSubscriptionTSVariables = GetQueryWithSubscriptionTSVariables,
->(args: GetQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
+  TSVariables extends GetQueryWithSubscriptionTSVariables = GetQueryWithSubscriptionTSVariables
+>(
+  args: GetQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>
+) {
   const { kubeContext, name, namespace } = args.variables;
 
   const retryOnError = useRetryOnError();
 
   // get workload object
-  const { loading, error, data, subscribeToMore, refetch } = useQuery(args.query, {
-    skip: args.skip,
-    variables: args.variables,
-    onError: () => {
-      retryOnError(refetch);
-    },
-  });
+  const { loading, error, data, subscribeToMore, refetch } = useQuery(
+    args.query,
+    {
+      skip: args.skip,
+      variables: args.variables,
+      onError: () => {
+        retryOnError(refetch);
+      },
+    }
+  );
 
   // subscribe to changes
   useEffect(
-    () => subscribeToMore({
-      document: args.subscription,
-      variables: { kubeContext, namespace, fieldSelector: `metadata.name=${name}` } as any,
-      updateQuery: (prev, { subscriptionData }) => {
-        const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
-        if (ev?.type === 'ADDED' && ev.object) return { [args.queryDataKey]: ev.object } as Unmasked<TQData>;
-        return prev;
-      },
-      onError: (err) => {
-        if (isWatchExpiredError(err)) refetch();
-      },
-    }),
-    [subscribeToMore],
+    () =>
+      subscribeToMore({
+        document: args.subscription,
+        variables: {
+          kubeContext,
+          namespace,
+          fieldSelector: `metadata.name=${name}`,
+        } as any,
+        updateQuery: (prev, { subscriptionData }) => {
+          const ev = subscriptionData.data[
+            args.subscriptionDataKey
+          ] as GenericWatchEventFragment;
+          if (ev?.type === "ADDED" && ev.object)
+            return { [args.queryDataKey]: ev.object } as Unmasked<TQData>;
+          return prev;
+        },
+        onError: (err) => {
+          if (isWatchExpiredError(err)) refetch();
+        },
+      }),
+    [subscribeToMore]
   );
 
   return { loading, error, data };
@@ -227,7 +255,12 @@ export function useGetQueryWithSubscription<
  * List-style query with subscription hook
  */
 
-interface ListQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables> {
+interface ListQueryWithSubscriptionArgs<
+  TQData,
+  TQVariables,
+  TSData,
+  TSVariables
+> {
   query: TypedDocumentNode<TQData, TQVariables>;
   subscription: TypedDocumentNode<TSData, TSVariables>;
   queryDataKey: keyof Unmasked<TQData>;
@@ -240,22 +273,29 @@ export function useListQueryWithSubscription<
   TQData = any,
   TQVariables extends OperationVariables = OperationVariables,
   TSData = any,
-  TSVariables extends OperationVariables = OperationVariables,
->(args: ListQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
+  TSVariables extends OperationVariables = OperationVariables
+>(
+  args: ListQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>
+) {
   const client = useApolloClient();
   const retryOnError = useRetryOnError();
 
   // initial query
-  const { loading, error, data, fetchMore, subscribeToMore, refetch } = useQuery(args.query, {
-    skip: args.skip,
-    variables: args.variables,
-    onError: () => {
-      retryOnError(refetch);
-    },
-  });
+  const { loading, error, data, fetchMore, subscribeToMore, refetch } =
+    useQuery(args.query, {
+      skip: args.skip,
+      variables: args.variables,
+      onError: () => {
+        retryOnError(refetch);
+      },
+    });
 
   // TODO: tighten `any`
-  const respData = data ? data[args.queryDataKey as keyof MaybeMasked<TQData>] as GenericListFragment : null;
+  const respData = data
+    ? (data[
+        args.queryDataKey as keyof MaybeMasked<TQData>
+      ] as GenericListFragment)
+    : null;
 
   // fetch rest
   const fetchMoreRef = useRef(new Set<string>([]));
@@ -272,7 +312,7 @@ export function useListQueryWithSubscription<
     // wait for all data to get fetched
     if (loading || continueVal) return;
 
-    const resourceVersion = respData?.metadata.resourceVersion || '';
+    const resourceVersion = respData?.metadata.resourceVersion || "";
 
     // add `resourceVersion`
     const variables = { ...args.variables, resourceVersion } as any;
@@ -281,7 +321,9 @@ export function useListQueryWithSubscription<
       document: args.subscription,
       variables,
       updateQuery: (prev, { subscriptionData }) => {
-        const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
+        const ev = subscriptionData.data[
+          args.subscriptionDataKey
+        ] as GenericWatchEventFragment;
 
         if (!ev?.type || !ev?.object) return prev;
         if (!prev[args.queryDataKey]) return prev;
@@ -291,13 +333,20 @@ export function useListQueryWithSubscription<
         // initialize new result and update resourceVersion
         const newResult = {
           ...oldResult,
-          metadata: { ...oldResult.metadata, resourceVersion: ev.object.metadata.resourceVersion },
+          metadata: {
+            ...oldResult.metadata,
+            resourceVersion: ev.object.metadata.resourceVersion,
+          },
         };
 
         switch (ev.type) {
-          case 'ADDED':
+          case "ADDED":
             // add and re-sort item if not already in list
-            if (!newResult.items.some((item) => item.metadata.uid === ev.object.metadata.uid)) {
+            if (
+              !newResult.items.some(
+                (item) => item.metadata.uid === ev.object.metadata.uid
+              )
+            ) {
               const items = Array.from(newResult.items);
               items.push(ev.object);
               items.sort((a, b) => {
@@ -308,9 +357,9 @@ export function useListQueryWithSubscription<
               newResult.items = items;
             }
             break;
-          case 'MODIFIED':
+          case "MODIFIED":
             break;
-          case 'DELETED':
+          case "DELETED":
             // handle forced deletions that don't set `deletionTimestamp`
             if (ev.object.metadata.deletionTimestamp === null) {
               client.cache.modify({
@@ -325,7 +374,9 @@ export function useListQueryWithSubscription<
             }
 
             // remove deleted item
-            newResult.items = oldResult.items.filter((item) => item.metadata.uid !== ev.object.metadata.uid);
+            newResult.items = oldResult.items.filter(
+              (item) => item.metadata.uid !== ev.object.metadata.uid
+            );
             break;
           default:
             return prev;
@@ -342,7 +393,10 @@ export function useListQueryWithSubscription<
   const fetching = Boolean(loading || continueVal);
 
   return {
-    loading, fetching, error, data,
+    loading,
+    fetching,
+    error,
+    data,
   };
 }
 
@@ -350,7 +404,12 @@ export function useListQueryWithSubscription<
  * Counter-style query with subscription hook
  */
 
-interface CounterQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables> {
+interface CounterQueryWithSubscriptionArgs<
+  TQData,
+  TQVariables,
+  TSData,
+  TSVariables
+> {
   query: TypedDocumentNode<TQData, TQVariables>;
   subscription: TypedDocumentNode<TSData, TSVariables>;
   queryDataKey: keyof Unmasked<TQData>;
@@ -363,28 +422,42 @@ export function useCounterQueryWithSubscription<
   TQData = any,
   TQVariables extends OperationVariables = OperationVariables,
   TSData = any,
-  TSVariables extends OperationVariables = OperationVariables,
->(args: CounterQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
+  TSVariables extends OperationVariables = OperationVariables
+>(
+  args: CounterQueryWithSubscriptionArgs<
+    TQData,
+    TQVariables,
+    TSData,
+    TSVariables
+  >
+) {
   const retryOnError = useRetryOnError();
 
   // initial query
-  const { loading, error, data, subscribeToMore, refetch } = useQuery(args.query, {
-    skip: args.skip,
-    variables: args.variables,
-    onError: () => {
-      retryOnError(refetch);
-    },
-  });
+  const { loading, error, data, subscribeToMore, refetch } = useQuery(
+    args.query,
+    {
+      skip: args.skip,
+      variables: args.variables,
+      onError: () => {
+        retryOnError(refetch);
+      },
+    }
+  );
 
   // TODO: tighten `any`
-  const respData = data ? data[args.queryDataKey as keyof MaybeMasked<TQData>] as GenericCounterFragment : null;
+  const respData = data
+    ? (data[
+        args.queryDataKey as keyof MaybeMasked<TQData>
+      ] as GenericCounterFragment)
+    : null;
 
   // subscribe to changes
   useEffect(() => {
     // wait for all data to get fetched
     if (loading || error) return;
 
-    const resourceVersion = respData?.metadata.resourceVersion || '';
+    const resourceVersion = respData?.metadata.resourceVersion || "";
 
     // add `resourceVersion`
     const variables = { ...args.variables, resourceVersion } as any;
@@ -393,18 +466,21 @@ export function useCounterQueryWithSubscription<
       document: args.subscription,
       variables,
       updateQuery: (prev, { subscriptionData }) => {
-        const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
+        const ev = subscriptionData.data[
+          args.subscriptionDataKey
+        ] as GenericWatchEventFragment;
 
         if (!ev?.type || !ev?.object) return prev;
         if (!prev[args.queryDataKey]) return prev;
 
         // Only handle additions and deletions
-        if (!['ADDED', 'DELETED'].includes(ev.type)) return prev;
+        if (!["ADDED", "DELETED"].includes(ev.type)) return prev;
 
         const oldResult = prev[args.queryDataKey] as GenericCounterFragment;
 
         const oldCount = oldResult.metadata.remainingItemCount;
-        const newCount = oldCount + ((ev.type === 'ADDED') ? BigInt(1) : BigInt(-1));
+        const newCount =
+          oldCount + (ev.type === "ADDED" ? BigInt(1) : BigInt(-1));
 
         // Initialize new result and update resourceVersion
         const newResult = {
@@ -425,10 +501,14 @@ export function useCounterQueryWithSubscription<
   }, [subscribeToMore, loading, error]);
 
   let count: number | undefined;
-  if (respData) count = respData.items.length + Number(respData.metadata.remainingItemCount);
+  if (respData)
+    count =
+      respData.items.length + Number(respData.metadata.remainingItemCount);
 
   return {
-    loading, error, count,
+    loading,
+    error,
+    count,
   };
 }
 
@@ -437,10 +517,21 @@ export function useCounterQueryWithSubscription<
  */
 
 export function useIsClusterAPIEnabled(kubeContext: string | null) {
-  const status = useClusterAPIServerStatus(kubeContext || '');
+  const override = localStorage.getItem("clusterAPIEnabled");
+  if (override === "enabled") return true;
+  if (override === "disabled") return false;
 
+  const status = useClusterAPIServerStatus(kubeContext || "");
+
+  console.log(status, "useIsClusterAPIEnabled");
   // Return if running in cluster with ClusterAPI enabled
-  if (appConfig.environment === 'cluster') return appConfig.clusterAPIEnabled;
+  if (appConfig.environment === "cluster") {
+    console.log(
+      "[ClusterAPI] Using appConfig default:",
+      appConfig.clusterAPIEnabled
+    );
+    return appConfig.clusterAPIEnabled;
+  }
 
   switch (status.status) {
     case Status.NotFound:
@@ -467,9 +558,9 @@ export function useLogMetadata(options?: LogMetadataHookOptions) {
   const retryOnError = useRetryOnError();
 
   const connectArgs = {
-    kubeContext: options?.kubeContext || '',
-    namespace: 'kubetail-system',
-    serviceName: 'kubetail-cluster-api',
+    kubeContext: options?.kubeContext || "",
+    namespace: "kubetail-system",
+    serviceName: "kubetail-cluster-api",
   };
 
   const readyWait = useSubscription(dashboardOps.CLUSTER_API_READY_WAIT, {
@@ -480,13 +571,16 @@ export function useLogMetadata(options?: LogMetadataHookOptions) {
   const ready = readyWait.data?.clusterAPIReadyWait;
 
   // initial query
-  const { loading, error, data, subscribeToMore, refetch } = useQuery(clusterAPIOps.LOG_METADATA_LIST_FETCH, {
-    skip: ready !== true || !options?.enabled,
-    client: getClusterAPIClient(connectArgs),
-    onError: () => {
-      retryOnError(refetch);
-    },
-  });
+  const { loading, error, data, subscribeToMore, refetch } = useQuery(
+    clusterAPIOps.LOG_METADATA_LIST_FETCH,
+    {
+      skip: ready !== true || !options?.enabled,
+      client: getClusterAPIClient(connectArgs),
+      onError: () => {
+        retryOnError(refetch);
+      },
+    }
+  );
 
   const { onUpdate } = options || {};
 
@@ -505,12 +599,12 @@ export function useLogMetadata(options?: LogMetadataHookOptions) {
         if (!prev.logMetadataList) return prev;
 
         // execute callback
-        if (ev.type === 'MODIFIED' || ev.type === 'ADDED') {
+        if (ev.type === "MODIFIED" || ev.type === "ADDED") {
           if (onUpdate) onUpdate(ev.object.spec.containerID);
         }
 
         // let apollo handle update
-        if (ev.type === 'MODIFIED') {
+        if (ev.type === "MODIFIED") {
           return prev;
         }
 
@@ -519,14 +613,14 @@ export function useLogMetadata(options?: LogMetadataHookOptions) {
 
         // merge
         switch (ev.type) {
-          case 'ADDED':
+          case "ADDED":
             items.push(ev.object);
             break;
-          case 'DELETED':
+          case "DELETED":
             items = items.filter((item) => item.id !== ev.object?.id);
             break;
           default:
-            throw new Error('not implemented');
+            throw new Error("not implemented");
         }
 
         merged.items = items;
@@ -557,7 +651,7 @@ export function useColors(streams: string[]) {
 
     streams.forEach((stream) => {
       const streamUTF8 = new TextEncoder().encode(stream);
-      promises.push(crypto.subtle.digest('SHA-256', streamUTF8));
+      promises.push(crypto.subtle.digest("SHA-256", streamUTF8));
     });
 
     Promise.all(promises).then((values) => {
@@ -578,64 +672,75 @@ export function useColors(streams: string[]) {
  * Workload counter hook
  */
 
-export function useWorkloadCounter(kubeContext: string, namespace: string = '') {
+export function useWorkloadCounter(
+  kubeContext: string,
+  namespace: string = ""
+) {
   const cronjobs = useCounterQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_CRONJOBS_COUNT_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_CRONJOBS_COUNT_WATCH,
-    queryDataKey: 'batchV1CronJobsList',
-    subscriptionDataKey: 'batchV1CronJobsWatch',
+    queryDataKey: "batchV1CronJobsList",
+    subscriptionDataKey: "batchV1CronJobsWatch",
     variables: { kubeContext, namespace },
   });
 
   const daemonsets = useCounterQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_DAEMONSETS_COUNT_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_DAEMONSETS_COUNT_WATCH,
-    queryDataKey: 'appsV1DaemonSetsList',
-    subscriptionDataKey: 'appsV1DaemonSetsWatch',
+    queryDataKey: "appsV1DaemonSetsList",
+    subscriptionDataKey: "appsV1DaemonSetsWatch",
     variables: { kubeContext, namespace },
   });
 
   const deployments = useCounterQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_DEPLOYMENTS_COUNT_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_DEPLOYMENTS_COUNT_WATCH,
-    queryDataKey: 'appsV1DeploymentsList',
-    subscriptionDataKey: 'appsV1DeploymentsWatch',
+    queryDataKey: "appsV1DeploymentsList",
+    subscriptionDataKey: "appsV1DeploymentsWatch",
     variables: { kubeContext, namespace },
   });
 
   const jobs = useCounterQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_JOBS_COUNT_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_JOBS_COUNT_WATCH,
-    queryDataKey: 'batchV1JobsList',
-    subscriptionDataKey: 'batchV1JobsWatch',
+    queryDataKey: "batchV1JobsList",
+    subscriptionDataKey: "batchV1JobsWatch",
     variables: { kubeContext, namespace },
   });
 
   const pods = useCounterQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_PODS_COUNT_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_PODS_COUNT_WATCH,
-    queryDataKey: 'coreV1PodsList',
-    subscriptionDataKey: 'coreV1PodsWatch',
+    queryDataKey: "coreV1PodsList",
+    subscriptionDataKey: "coreV1PodsWatch",
     variables: { kubeContext, namespace },
   });
 
   const replicasets = useCounterQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_REPLICASETS_COUNT_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_REPLICASETS_COUNT_WATCH,
-    queryDataKey: 'appsV1ReplicaSetsList',
-    subscriptionDataKey: 'appsV1ReplicaSetsWatch',
+    queryDataKey: "appsV1ReplicaSetsList",
+    subscriptionDataKey: "appsV1ReplicaSetsWatch",
     variables: { kubeContext, namespace },
   });
 
   const statefulsets = useCounterQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_STATEFULSETS_COUNT_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_STATEFULSETS_COUNT_WATCH,
-    queryDataKey: 'appsV1StatefulSetsList',
-    subscriptionDataKey: 'appsV1StatefulSetsWatch',
+    queryDataKey: "appsV1StatefulSetsList",
+    subscriptionDataKey: "appsV1StatefulSetsWatch",
     variables: { kubeContext, namespace },
   });
 
-  const reqs = [cronjobs, daemonsets, deployments, jobs, pods, replicasets, statefulsets];
+  const reqs = [
+    cronjobs,
+    daemonsets,
+    deployments,
+    jobs,
+    pods,
+    replicasets,
+    statefulsets,
+  ];
   const loading = reqs.some((req) => req.loading);
   const error = reqs.find((req) => Boolean(req.error));
 
