@@ -21,16 +21,13 @@ import {
   useSetRecoilState,
   type SetterOrUpdater,
 } from "recoil";
-
-import appConfig from "@/app-config";
-import * as dashboardOps from "@/lib/graphql/dashboard/ops";
-
 import Form from "@kubetail/ui/elements/Form";
 import { useIsClusterAPIEnabled } from "@/lib/hooks";
 
 type EnvironmentControlWidgetProps = {
   className?: string;
 };
+
 const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
   const isClusterAPIEnabled = useIsClusterAPIEnabled(null);
   const [env, setEnv] = useState<string>(() => {
@@ -43,8 +40,6 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
     setEnv(newEnv);
 
     localStorage.setItem("clusterAPIEnabled", newEnv);
-
-    window.location.reload();
   };
 
   return (
