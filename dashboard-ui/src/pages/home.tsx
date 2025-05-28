@@ -197,7 +197,7 @@ function useLogFileInfo(uids: string[], ownershipMap: Map<string, string[]>) {
 }
 
 function useFilteredWorkloads() {
-  const { kubeContext, search, namespace } = useContext(Context);
+  const { kubeContext, search, namespace, workloadFilter } = useContext(Context);
 
   const cronjobs = useCronJobs(kubeContext);
   const daemonsets = useDaemonSets(kubeContext);
@@ -207,23 +207,37 @@ function useFilteredWorkloads() {
   const replicasets = useReplicaSets(kubeContext);
   const statefulsets = useStatefulSets(kubeContext);
 
-  const filterCronJobs = applySearchAndFilter(cronjobs.fetching, cronjobs.data?.batchV1CronJobsList?.items, search, namespace);
-  const filterDaemonsets = applySearchAndFilter(daemonsets.fetching, daemonsets.data?.appsV1DaemonSetsList?.items, search, namespace);
-  const filterPods = applySearchAndFilter(pods.fetching, pods.data?.coreV1PodsList?.items, search, namespace);
-  const filterJobs = applySearchAndFilter(jobs.fetching, jobs.data?.batchV1JobsList?.items, search, namespace);
-  const filterDeployments = applySearchAndFilter(deployments.fetching, deployments.data?.appsV1DeploymentsList?.items, search, namespace);
-  const filterReplicasets = applySearchAndFilter(replicasets.fetching, replicasets.data?.appsV1ReplicaSetsList?.items, search, namespace);
-  const filterStatefulsets = applySearchAndFilter(statefulsets.fetching, statefulsets.data?.appsV1StatefulSetsList?.items, search, namespace);
+  const shouldFilter = (workloadType: Workload) => workloadFilter === undefined || workloadFilter === workloadType;
+
+  const filterCronJobs = shouldFilter(Workload.CRONJOBS)
+    ? applySearchAndFilter(cronjobs.fetching, cronjobs.data?.batchV1CronJobsList?.items, search, namespace)
+    : cronjobs.data?.batchV1CronJobsList?.items;
+
+  const filterDaemonsets = shouldFilter(Workload.DAEMONSETS)
+    ? applySearchAndFilter(daemonsets.fetching, daemonsets.data?.appsV1DaemonSetsList?.items, search, namespace)
+    : daemonsets.data?.appsV1DaemonSetsList?.items;
+
+  const filterPods = shouldFilter(Workload.PODS)
+    ? applySearchAndFilter(pods.fetching, pods.data?.coreV1PodsList?.items, search, namespace)
+    : pods.data?.coreV1PodsList?.items;
+
+  const filterJobs = shouldFilter(Workload.JOBS)
+    ? applySearchAndFilter(jobs.fetching, jobs.data?.batchV1JobsList?.items, search, namespace)
+    : jobs.data?.batchV1JobsList?.items;
+
+  const filterDeployments = shouldFilter(Workload.DEPLOYMENTS)
+    ? applySearchAndFilter(deployments.fetching, deployments.data?.appsV1DeploymentsList?.items, search, namespace)
+    : deployments.data?.appsV1DeploymentsList?.items;
+
+  const filterReplicasets = shouldFilter(Workload.REPLICASETS)
+    ? applySearchAndFilter(replicasets.fetching, replicasets.data?.appsV1ReplicaSetsList?.items, search, namespace)
+    : replicasets.data?.appsV1ReplicaSetsList?.items;
+
+  const filterStatefulsets = shouldFilter(Workload.STATEFULSETS)
+    ? applySearchAndFilter(statefulsets.fetching, statefulsets.data?.appsV1StatefulSetsList?.items, search, namespace)
+    : statefulsets.data?.appsV1StatefulSetsList?.items;
 
   return {
-    cronjobs: cronjobs.data?.batchV1CronJobsList?.items,
-    daemonsets: daemonsets.data?.appsV1DaemonSetsList?.items,
-    deployments: deployments.data?.appsV1DeploymentsList?.items,
-    jobs: jobs.data?.batchV1JobsList?.items,
-    pods: pods.data?.coreV1PodsList?.items,
-    replicasets: replicasets.data?.appsV1ReplicaSetsList?.items,
-    statefulsets: statefulsets.data?.appsV1StatefulSetsList?.items,
-
     filterCronJobs,
     filterDaemonsets,
     filterDeployments,
@@ -899,27 +913,17 @@ const CountBadge = ({ count, workload, workloadFilter }: { count: number, worklo
 
 const Sidebar = () => {
   const { workloadFilter, setWorkloadFilter } = useContext(Context);
-
   const data = useFilteredWorkloads();
 
-  const workloadEntries = [
-    ['cronjobs', 'filterCronJobs'],
-    ['daemonsets', 'filterDaemonsets'],
-    ['deployments', 'filterDeployments'],
-    ['jobs', 'filterJobs'],
-    ['pods', 'filterPods'],
-    ['replicasets', 'filterReplicasets'],
-    ['statefulsets', 'filterStatefulsets'],
-  ] as const;
-
-  const counts = Object.fromEntries(
-    workloadEntries.map(([unfilteredKey, filteredKey]) => [
-      unfilteredKey,
-      !workloadFilter || workloadFilter === unfilteredKey
-        ? data[filteredKey]
-        : data[unfilteredKey],
-    ]),
-  );
+  const counts = {
+    cronjobs: data.filterCronJobs,
+    daemonsets: data.filterDaemonsets,
+    deployments: data.filterDeployments,
+    jobs: data.filterJobs,
+    pods: data.filterPods,
+    replicasets: data.filterReplicasets,
+    statefulsets: data.filterStatefulsets,
+  };
 
   // using some default sidebar values during data loading and error states
   const sidebarItems: [Workload, number][] = allWorkloads.map((w) => [w, counts[w]?.length ?? 0]);
