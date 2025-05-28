@@ -29,18 +29,28 @@ type EnvironmentControlWidgetProps = {
 };
 
 const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
-  const isClusterAPIEnabled = useIsClusterAPIEnabled(null);
   const [env, setEnv] = useState<string>(() => {
     return localStorage.getItem("clusterAPIEnabled") || "";
   });
-
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const isClusterAPIEnabled = useIsClusterAPIEnabled(env);
+  
+  /*const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     console.log(isClusterAPIEnabled);
     const newEnv = e.target.value;
     setEnv(newEnv);
 
     localStorage.setItem("clusterAPIEnabled", newEnv);
+  };*/
+
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newEnv = e.target.value;
+    setEnv(newEnv); 
   };
+
+  useEffect(() => {
+    console.log("EnvironmentControl useEffect", env, isClusterAPIEnabled);
+    localStorage.setItem("clusterAPIEnabled", env);
+  }, [env]);
 
   return (
     <div>
