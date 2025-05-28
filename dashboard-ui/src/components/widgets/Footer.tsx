@@ -40,7 +40,7 @@ export default function Footer() {
         <ServerStatus />
       </div>
 
-      {process.env.NODE_ENV === "development" && (
+      {process.env.NODE_ENV === "dev" && (
         <div className="p-3">
           <EnvironmentControlWidgetWrapper />
         </div>
