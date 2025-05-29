@@ -932,18 +932,8 @@ func (r *subscriptionResolver) KubeConfigWatch(ctx context.Context) (<-chan *mod
 	// Init output channel
 	outCh := make(chan *model.KubeConfigWatchEvent)
 
-	// Define handlers
-	addedHandler := func(config *api.Config) {
-		if ctx.Err() == nil {
-			// Send ADDED event
-			outCh <- &model.KubeConfigWatchEvent{
-				Type:   watch.Added,
-				Object: &model.KubeConfig{Config: config},
-			}
-		}
-	}
-
-	modifiedHandler := func(oldConfig *api.Config, newConfig *api.Config) {
+	// Define callback handler
+	handler := func(newConfig *api.Config) {
 		if ctx.Err() == nil {
 			// Send MODIFIED event
 			outCh <- &model.KubeConfigWatchEvent{
@@ -953,20 +943,9 @@ func (r *subscriptionResolver) KubeConfigWatch(ctx context.Context) (<-chan *mod
 		}
 	}
 
-	deletedHandler := func(lastConfig *api.Config) {
-		if ctx.Err() == nil {
-			// Send DELETED event
-			outCh <- &model.KubeConfigWatchEvent{
-				Type: watch.Deleted,
-			}
-		}
-	}
-
 	go func() {
 		// Close channel and unregister handlers on client close
-		defer cm.KubeConfigWatcher.Unsubscribe("ADDED", addedHandler)
-		defer cm.KubeConfigWatcher.Unsubscribe("MODIFIED", modifiedHandler)
-		defer cm.KubeConfigWatcher.Unsubscribe("DELETED", deletedHandler)
+		defer cm.KubeConfigWatcher.Unsubscribe(handler)
 		defer close(outCh)
 
 		// Send initial config
@@ -976,9 +955,7 @@ func (r *subscriptionResolver) KubeConfigWatch(ctx context.Context) (<-chan *mod
 		}
 
 		// Register handlers
-		cm.KubeConfigWatcher.Subscribe("ADDED", addedHandler)
-		cm.KubeConfigWatcher.Subscribe("MODIFIED", modifiedHandler)
-		cm.KubeConfigWatcher.Subscribe("DELETED", deletedHandler)
+		cm.KubeConfigWatcher.Subscribe(handler)
 
 		// Wait for client close
 		<-ctx.Done()
