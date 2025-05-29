@@ -15,8 +15,8 @@
 package k8shelpers
 
 import (
-	"fmt"
 	"sync"
+	"time"
 
 	evbus "github.com/asaskevich/EventBus"
 	"github.com/fsnotify/fsnotify"
@@ -29,30 +29,18 @@ const HOMEPATH_TILDE = "~"
 
 // Represents KubeConfigWatcher
 type KubeConfigWatcher struct {
-	kubeConfig *api.Config
-	watcher    *fsnotify.Watcher
-	eventbus   evbus.Bus
-	mu         sync.RWMutex
+	kubeConfig   *api.Config
+	loadingRules *clientcmd.ClientConfigLoadingRules
+	watcher      *fsnotify.Watcher
+	eventbus     evbus.Bus
+	mu           sync.RWMutex
 }
 
 // Creates new KubeConfigWatcher instance
 func NewKubeConfigWatcher(kubeconfigPath string) (*KubeConfigWatcher, error) {
-	// Use clientcmd to determine config paths (supports KUBECONFIG env var automatically)
+	// Initialize loading rules (outsources kubeconfig file/env handling to clientcmd library)
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	loadingRules.ExplicitPath = kubeconfigPath
-	files := loadingRules.GetLoadingPrecedence()
-
-	// TODO: Add support for multiple files
-	if len(files) == 0 {
-		return nil, fmt.Errorf("requires at least one config file path, found none")
-	}
-	pathname := files[0]
-
-	// Initialize kubeConfig
-	kubeConfig, err := clientcmd.LoadFromFile(pathname)
-	if err != nil {
-		return nil, err
-	}
 
 	// Initialize watcher
 	watcher, err := fsnotify.NewWatcher()
@@ -60,18 +48,24 @@ func NewKubeConfigWatcher(kubeconfigPath string) (*KubeConfigWatcher, error) {
 		return nil, err
 	}
 
-	// watch the kubeconfig path
-	err = watcher.Add(pathname)
-	if err != nil {
-		return nil, err
+	// Watch kubeconfig paths
+	for _, pathname := range loadingRules.GetLoadingPrecedence() {
+		err = watcher.Add(pathname)
+		if err != nil {
+			watcher.Close()
+			return nil, err
+		}
 	}
 
-	// Initialize
+	// Initialize kube-config-watcher instance
 	w := &KubeConfigWatcher{
-		kubeConfig: kubeConfig,
-		watcher:    watcher,
-		eventbus:   evbus.New(),
+		loadingRules: loadingRules,
+		watcher:      watcher,
+		eventbus:     evbus.New(),
 	}
+
+	// Initialize config
+	w.reloadConfig()
 
 	// Start event listeners
 	go w.start()
@@ -92,13 +86,13 @@ func (w *KubeConfigWatcher) Get() *api.Config {
 }
 
 // Subscribe
-func (w *KubeConfigWatcher) Subscribe(topic string, fn any) {
-	w.eventbus.SubscribeAsync(topic, fn, true)
+func (w *KubeConfigWatcher) Subscribe(fn any) {
+	w.eventbus.SubscribeAsync("MODIFIED", fn, true)
 }
 
 // Unsubscribe
-func (w *KubeConfigWatcher) Unsubscribe(topic string, fn any) {
-	w.eventbus.Unsubscribe(topic, fn)
+func (w *KubeConfigWatcher) Unsubscribe(fn any) {
+	w.eventbus.Unsubscribe("MODIFIED", fn)
 }
 
 // Close
@@ -108,6 +102,9 @@ func (w *KubeConfigWatcher) Close() {
 
 // Start
 func (w *KubeConfigWatcher) start() {
+	var debounceTimer *time.Timer
+	var debounceDelay = 100 * time.Millisecond
+
 	for {
 		select {
 		case err, ok := <-w.watcher.Errors:
@@ -124,46 +121,40 @@ func (w *KubeConfigWatcher) start() {
 				return
 			}
 
-			// Handle fsnotify events
-			switch {
-			case fsEv.Op&fsnotify.Create == fsnotify.Create:
-				// Load config
-				w.mu.Lock()
-				kubeConfig, err := clientcmd.LoadFromFile(fsEv.Name)
-				if err != nil {
-					w.mu.Unlock()
-					zlog.Error().Err(err).Caller().Send()
-					break
+			// Handle fsnotify Create, Write, Remove events
+			if fsEv.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove) != 0 {
+				// Reset timer if it's already running
+				if debounceTimer != nil {
+					debounceTimer.Stop()
 				}
-				w.kubeConfig = kubeConfig
-				w.mu.Unlock()
 
-				// Publish event
-				w.eventbus.Publish("ADDED", kubeConfig)
-			case fsEv.Op&fsnotify.Write == fsnotify.Write:
-				// Load config
-				w.mu.Lock()
-				oldConfig := w.kubeConfig
-				newConfig, err := clientcmd.LoadFromFile(fsEv.Name)
-				if err != nil {
-					w.mu.Unlock()
-					zlog.Error().Err(err).Caller().Send()
-					break
-				}
-				w.kubeConfig = newConfig
-				w.mu.Unlock()
+				// Start a new timer
+				debounceTimer = time.AfterFunc(debounceDelay, func() {
+					// Reload config
+					err := w.reloadConfig()
+					if err != nil {
+						zlog.Error().Err(err).Caller().Send()
+						return
+					}
 
-				// Publish event
-				w.eventbus.Publish("MODIFIED", oldConfig, newConfig)
-			case fsEv.Op&fsnotify.Remove == fsnotify.Remove:
-				w.mu.Lock()
-				oldConfig := w.kubeConfig
-				w.kubeConfig = nil
-				w.mu.Unlock()
-
-				// Publish event
-				w.eventbus.Publish("DELETED", oldConfig)
+					// Publish event
+					w.eventbus.Publish("MODIFIED", w.kubeConfig)
+				})
 			}
 		}
 	}
+}
+
+// Reload config
+func (w *KubeConfigWatcher) reloadConfig() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	cfg, err := w.loadingRules.Load()
+	if err != nil {
+		return err
+	}
+	w.kubeConfig = cfg
+
+	return nil
 }
