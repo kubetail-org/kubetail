@@ -34,7 +34,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	k8sruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/app"
@@ -62,28 +61,26 @@ var serveCmd = &cobra.Command{
 		remote := false
 		test, _ := cmd.Flags().GetBool("test")
 
-		// get the kubeconfig path (if set)
-		kubeconfig, _ := cmd.Flags().GetString(KubeconfigFlag)
+		// Get the kubeconfig path (if set)
+		kubeconfigPath, _ := cmd.Flags().GetString(KubeconfigFlag)
 
 		// Init viper
 		v := viper.New()
-		// set required flags for global config generation
 		v.BindPFlag("dashboard.logging.level", cmd.Flags().Lookup("log-level"))
 		v.Set("dashboard.addr", fmt.Sprintf("%s:%d", host, port))
-		v.Set(KubeconfigFlag, kubeconfig)
 
 		// init config
 		cfg, err := config.NewConfig(v, "")
 		if err != nil {
 			zlog.Fatal().Caller().Err(err).Send()
 		}
-
+		cfg.KubeconfigPath = kubeconfigPath
 		cfg.Dashboard.Environment = config.EnvironmentDesktop
 		cfg.Dashboard.Logging.AccessLog.Enabled = false
 
 		// Handle remote tunnel
 		if remote {
-			serveRemote(cfg.APIConfig, port, skipOpen)
+			serveRemote(cfg.KubeconfigPath, port, skipOpen)
 			return
 		}
 
@@ -215,12 +212,12 @@ var serveCmd = &cobra.Command{
 	},
 }
 
-func serveRemote(apiConfig api.Config, localPort int, skipOpen bool) {
+func serveRemote(kubeconfigPath string, localPort int, skipOpen bool) {
 	// listen for termination signals
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	defer close(quit)
-	tunnel, err := tunnel.NewTunnel(apiConfig, "kubetail-system", "kubetail-dashboard", 80, localPort)
+	tunnel, err := tunnel.NewTunnel(kubeconfigPath, "kubetail-system", "kubetail-dashboard", 80, localPort)
 	if err != nil {
 		zlog.Fatal().Err(err).Send()
 	}

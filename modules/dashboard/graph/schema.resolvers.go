@@ -130,7 +130,7 @@ func (r *mutationResolver) HelmInstallLatest(ctx context.Context, kubeContext *s
 	}
 
 	// Init client
-	client := helm.NewClient(helm.WithKubeContext(kubeContextVal), helm.WithKubeconfig(r.config.KubeconfigPath))
+	client := helm.NewClient(helm.WithKubeconfigPath(r.config.KubeconfigPath), helm.WithKubeContext(kubeContextVal))
 
 	// Install
 	release, err := client.InstallLatest(helm.DefaultNamespace, helm.DefaultReleaseName)
@@ -531,7 +531,7 @@ func (r *queryResolver) HelmListReleases(ctx context.Context, kubeContext *strin
 	kubeContextVal := r.cm.DerefKubeContext(kubeContext)
 
 	// Init client
-	client := helm.NewClient(helm.WithKubeContext(kubeContextVal), helm.WithKubeconfig(r.config.KubeconfigPath))
+	client := helm.NewClient(helm.WithKubeconfigPath(r.config.KubeconfigPath), helm.WithKubeContext(kubeContextVal))
 
 	// Get list
 	releases, err := client.ListReleases()
