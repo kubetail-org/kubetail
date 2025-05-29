@@ -19,7 +19,6 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 
 	"github.com/google/uuid"

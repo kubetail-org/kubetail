@@ -25,8 +25,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 )
 
-const HOMEPATH_TILDE = "~"
-
 // Represents KubeConfigWatcher
 type KubeConfigWatcher struct {
 	kubeConfig   *api.Config
