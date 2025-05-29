@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 )
@@ -57,8 +56,13 @@ func (t *Tunnel) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func NewTunnel(apiConfig api.Config, namespace, serviceName string, remotePort, localPort int) (*Tunnel, error) {
-	clientConfig := clientcmd.NewDefaultClientConfig(apiConfig, &clientcmd.ConfigOverrides{})
+func NewTunnel(kubeconfigPath string, namespace, serviceName string, remotePort, localPort int) (*Tunnel, error) {
+	// Use loading rules from clientcmd
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loadingRules.ExplicitPath = kubeconfigPath
+
+	// Use clientcmd to generate config object (supports KUBECONFIG env var automatically)
+	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		return nil, err

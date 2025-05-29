@@ -33,8 +33,6 @@ import (
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
 )
 
 // Auth-mode
@@ -55,11 +53,10 @@ const (
 
 // Application configuration
 type Config struct {
-	// API config
-	APIConfig         api.Config `mapstructure:"api-config"`
-	AllowedNamespaces []string   `mapstructure:"allowed-namespaces"`
-	KubeconfigPath    string     `mapstructure:"kubeconfig"`
-	// dashboard options
+	AllowedNamespaces []string `mapstructure:"allowed-namespaces"`
+	KubeconfigPath    string   `mapstructure:"kubeconfig"`
+
+	// Dashboard options
 	Dashboard struct {
 		Addr               string   `validate:"omitempty,hostname_port"`
 		AuthMode           AuthMode `mapstructure:"auth-mode"`
@@ -236,48 +233,9 @@ func (cfg *Config) validate() error {
 	return validator.New().Struct(cfg)
 }
 
-// SetKubeConfigPrecedence sets the kubeconfig precedence
-//  1. if the given kubeconfig path is not equal to the default
-//     set to the given kubeconfig path
-//  2. if the KUBECONFIG env var is set, set kubeconfig to the
-//     first file from the KUBECONFIG env var
-//  3. if KUBECONFIG env var is not set, set to
-//     the default kubeconfig path (~/.kube/config)
-func (cfg *Config) SetKubeConfigPath(kubeConfigPath string) {
-
-	switch {
-	// check if the given kubeconfig path is not equal to the default
-	case kubeConfigPath != clientcmd.RecommendedHomeFile:
-		cfg.KubeconfigPath = kubeConfigPath
-	// check KUBECONFIG env var
-	case os.Getenv("KUBECONFIG") != "":
-		// NewDefaultPathOptions is only used to read the KUBECONFIG env var and get
-		// a deduplicated list of kubeconfig files
-		pathOptions := clientcmd.NewDefaultPathOptions()
-		// set the kubeconfig path to the first file in the KUBECONFIG env var
-		// TODO: handle multiple kubeconfig files
-		cfg.KubeconfigPath = pathOptions.GetEnvVarFiles()[0]
-	default:
-		cfg.KubeconfigPath = clientcmd.RecommendedHomeFile
-	}
-}
-
-func (cfg *Config) generateKubeAPIConfig(loader clientcmd.ClientConfigLoader) error {
-	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loader, &clientcmd.ConfigOverrides{})
-	rawConfig, err := clientConfig.RawConfig()
-	if err != nil {
-		return err
-	}
-
-	cfg.APIConfig = rawConfig
-
-	return nil
-}
-
 func DefaultConfig() *Config {
 	cfg := &Config{}
 
-	cfg.APIConfig = api.Config{}
 	cfg.AllowedNamespaces = []string{}
 	cfg.Dashboard.Addr = ":8080"
 	cfg.Dashboard.AuthMode = AuthModeAuto
@@ -458,11 +416,6 @@ func NewConfig(v *viper.Viper, f string) (*Config, error) {
 	}
 
 	cfg := DefaultConfig()
-
-	// set cfg.SetKubeConfigPath in config
-	cfg.SetKubeConfigPath(v.GetString(clientcmd.RecommendedConfigPathFlag))
-	// overwrite kubeconfig path in viper
-	v.Set(clientcmd.RecommendedConfigPathFlag, cfg.KubeconfigPath)
 
 	// unmarshal
 	hookFunc := mapstructure.ComposeDecodeHookFunc(

@@ -389,10 +389,10 @@ func NewClient(options ...ClientOption) *Client {
 	return c
 }
 
-// Option Kubeconfig
-func WithKubeconfig(kubeconfig string) ClientOption {
+// Option KubeconfigPath
+func WithKubeconfigPath(kubeconfigPath string) ClientOption {
 	return func(c *Client) {
-		c.KubeConfig = kubeconfig
+		c.EnvSettings.KubeConfig = kubeconfigPath
 	}
 
 }

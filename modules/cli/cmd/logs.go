@@ -27,9 +27,7 @@ import (
 	"github.com/sosodev/duration"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
 
@@ -195,7 +193,7 @@ var logsCmd = &cobra.Command{
 		flags := cmd.Flags()
 
 		kubeContext, _ := flags.GetString(KubeContextFlag)
-		kubeConfig, _ := flags.GetString(KubeconfigFlag)
+		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
 
 		head := flags.Changed("head")
 		headVal, _ := flags.GetInt64("head")
@@ -229,15 +227,6 @@ var logsCmd = &cobra.Command{
 		withCursors, _ := flags.GetBool("with-cursors")
 
 		hideHeader, _ := flags.GetBool("hide-header")
-
-		v := viper.New()
-		v.Set(KubeconfigFlag, kubeConfig)
-
-		// init config
-		cfg, err := config.NewConfig(v, "")
-		if err != nil {
-			cli.ExitOnError(err)
-		}
 
 		// Stream mode
 		streamMode := logsStreamModeUnknown
@@ -284,7 +273,7 @@ var logsCmd = &cobra.Command{
 		}
 
 		// Init connection manager
-		cm, err := k8shelpers.NewDesktopConnectionManager(k8shelpers.WithKubeconfig(&cfg.APIConfig), k8shelpers.WithLazyConnect(true), k8shelpers.WithKubeConfigPath(cfg.KubeconfigPath))
+		cm, err := k8shelpers.NewDesktopConnectionManager(k8shelpers.WithKubeconfigPath(kubeconfigPath), k8shelpers.WithLazyConnect(true))
 		cli.ExitOnError(err)
 
 		// Init stream

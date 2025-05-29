@@ -39,7 +39,7 @@ var clusterInstallCmd = &cobra.Command{
 	Long:  clusterInstallHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Get flags
-		Kubeconfig, _ := cmd.Flags().GetString(KubeconfigFlag)
+		kubeconfigPath, _ := cmd.Flags().GetString(KubeconfigFlag)
 		kubeContext, _ := cmd.Flags().GetString(KubeContextFlag)
 		//name, _ := cmd.Flags().GetString("name")
 		//namespace, _ := cmd.Flags().GetString("namespace")
@@ -47,7 +47,7 @@ var clusterInstallCmd = &cobra.Command{
 		namespace := helm.DefaultNamespace
 
 		// Init client
-		client := helm.NewClient(helm.WithKubeContext(kubeContext), helm.WithKubeconfig(Kubeconfig))
+		client := helm.NewClient(helm.WithKubeconfigPath(kubeconfigPath), helm.WithKubeContext(kubeContext))
 
 		// Install
 		release, err := client.InstallLatest(namespace, name)

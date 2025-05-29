@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -79,7 +78,7 @@ func TestKubeConfigWatcherGet(t *testing.T) {
 	}
 
 	// Initialize watcher
-	watcher, err := NewKubeConfigWatcher(cfgExpected, kubeconfigPath)
+	watcher, err := NewKubeConfigWatcher(kubeconfigPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,171 +90,4 @@ func TestKubeConfigWatcherGet(t *testing.T) {
 	compareMaps(t, cfgExpected.AuthInfos, cfgActual.AuthInfos)
 	compareMaps(t, cfgExpected.Contexts, cfgActual.Contexts)
 	assert.Equal(t, cfgExpected.CurrentContext, cfgActual.CurrentContext)
-}
-
-/*
-TODO: Currently KubeConfigWatcher throws an erro when file doesn't exist
-
-func TestKubeConfigWatcherSubscribeAdded(t *testing.T) {
-	// Create temporary directory
-	tempDir, err := os.MkdirTemp("", "kube-config-watcher-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir) // Clean up after test
-
-	// Create pathname
-	kubeconfigPath := filepath.Join(tempDir, fmt.Sprintf("config-%s", uuid.New().String()))
-
-	// Initialize watcher
-	watcher, err := NewKubeConfigWatcher(kubeconfigPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer watcher.Close()
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	// Subscribe
-	var cfgActual *clientcmdapi.Config
-	watcher.Subscribe("ADDED", func(cfg *clientcmdapi.Config) {
-		defer wg.Done()
-		cfgActual = cfg
-	})
-
-	// Create config file
-	cfgExpected, err := createKubeConfig(kubeconfigPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	wg.Wait()
-
-	// Check config
-	compareMaps(t, cfgExpected.Clusters, cfgActual.Clusters)
-	compareMaps(t, cfgExpected.AuthInfos, cfgActual.AuthInfos)
-	compareMaps(t, cfgExpected.Contexts, cfgActual.Contexts)
-	assert.Equal(t, cfgExpected.CurrentContext, cfgActual.CurrentContext)
-}
-*/
-
-func TestKubeConfigWatcherSubscribeModified(t *testing.T) {
-	// Create temporary directory
-	tempDir, err := os.MkdirTemp("", "kube-config-watcher-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir) // Clean up after test
-
-	// Create pathname
-	kubeconfigPath := filepath.Join(tempDir, fmt.Sprintf("config-%s", uuid.New().String()))
-
-	// Create config file
-	cfgOrig, err := createKubeConfig(kubeconfigPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Initialize watcher
-	watcher, err := NewKubeConfigWatcher(cfgOrig, kubeconfigPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer watcher.Close()
-
-	var (
-		wg        sync.WaitGroup
-		once      sync.Once
-		cfgActual *clientcmdapi.Config
-	)
-
-	// Subscribe
-	wg.Add(1)
-	fn := func(oldCfg, newCfg *clientcmdapi.Config) {
-		// Note: Using once here as a quick fix to deal with flakey tests being triggered
-		//       by a race condition. I think the code is still ok to use in production
-		//       but we should take a closer look when we have time.
-		once.Do(func() {
-			// Check old config
-			compareMaps(t, cfgOrig.Clusters, oldCfg.Clusters)
-			compareMaps(t, cfgOrig.AuthInfos, oldCfg.AuthInfos)
-			compareMaps(t, cfgOrig.Contexts, oldCfg.Contexts)
-			assert.Equal(t, cfgOrig.CurrentContext, oldCfg.CurrentContext)
-
-			cfgActual = newCfg
-			wg.Done()
-		})
-	}
-	watcher.Subscribe("MODIFIED", fn)
-
-	// Create config file
-	cfgExpected, err := createKubeConfig(kubeconfigPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	wg.Wait()
-
-	// Check new config
-	compareMaps(t, cfgExpected.Clusters, cfgActual.Clusters)
-	compareMaps(t, cfgExpected.AuthInfos, cfgActual.AuthInfos)
-	compareMaps(t, cfgExpected.Contexts, cfgActual.Contexts)
-	assert.Equal(t, cfgExpected.CurrentContext, cfgActual.CurrentContext)
-}
-
-func TestKubeConfigWatcherSubscribeDeleted(t *testing.T) {
-	// Create temporary directory
-	tempDir, err := os.MkdirTemp("", "kube-config-watcher-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir) // Clean up after test
-
-	// Create pathname
-	kubeconfigPath := filepath.Join(tempDir, fmt.Sprintf("config-%s", uuid.New().String()))
-
-	// Create config file
-	cfgOrig, err := createKubeConfig(kubeconfigPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Initialize watcher
-	watcher, err := NewKubeConfigWatcher(cfgOrig, kubeconfigPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer watcher.Close()
-
-	var (
-		wg   sync.WaitGroup
-		once sync.Once
-	)
-
-	// Subscribe
-	wg.Add(1)
-	fn := func(oldCfg *clientcmdapi.Config) {
-		// Note: Using once here as a quick fix to deal with flakey tests being triggered
-		//       by a race condition. I think the code is still ok to use in production
-		//       but we should take a closer look when we have time.
-		once.Do(func() {
-			// Check old config
-			compareMaps(t, cfgOrig.Clusters, oldCfg.Clusters)
-			compareMaps(t, cfgOrig.AuthInfos, oldCfg.AuthInfos)
-			compareMaps(t, cfgOrig.Contexts, oldCfg.Contexts)
-			assert.Equal(t, cfgOrig.CurrentContext, oldCfg.CurrentContext)
-
-			wg.Done()
-		})
-	}
-	watcher.Subscribe("DELETED", fn)
-
-	// Delete file
-	err = os.Remove(kubeconfigPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	wg.Wait()
 }

@@ -15,6 +15,7 @@
 package k8shelpers
 
 import (
+	"fmt"
 	"sync"
 
 	evbus "github.com/asaskevich/EventBus"
@@ -28,15 +29,30 @@ const HOMEPATH_TILDE = "~"
 
 // Represents KubeConfigWatcher
 type KubeConfigWatcher struct {
-	kubeconfigPath string
-	kubeConfig     *api.Config
-	watcher        *fsnotify.Watcher
-	eventbus       evbus.Bus
-	mu             sync.RWMutex
+	kubeConfig *api.Config
+	watcher    *fsnotify.Watcher
+	eventbus   evbus.Bus
+	mu         sync.RWMutex
 }
 
 // Creates new KubeConfigWatcher instance
-func NewKubeConfigWatcher(kubeConfig *api.Config, kubeConfigPath string) (*KubeConfigWatcher, error) {
+func NewKubeConfigWatcher(kubeconfigPath string) (*KubeConfigWatcher, error) {
+	// Use clientcmd to determine config paths (supports KUBECONFIG env var automatically)
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loadingRules.ExplicitPath = kubeconfigPath
+	files := loadingRules.GetLoadingPrecedence()
+
+	// TODO: Add support for multiple files
+	if len(files) == 0 {
+		return nil, fmt.Errorf("requires at least one config file path, found none")
+	}
+	pathname := files[0]
+
+	// Initialize kubeConfig
+	kubeConfig, err := clientcmd.LoadFromFile(pathname)
+	if err != nil {
+		return nil, err
+	}
 
 	// Initialize watcher
 	watcher, err := fsnotify.NewWatcher()
@@ -45,17 +61,16 @@ func NewKubeConfigWatcher(kubeConfig *api.Config, kubeConfigPath string) (*KubeC
 	}
 
 	// watch the kubeconfig path
-	err = watcher.Add(kubeConfigPath)
+	err = watcher.Add(pathname)
 	if err != nil {
 		return nil, err
 	}
 
 	// Initialize
 	w := &KubeConfigWatcher{
-		kubeconfigPath: kubeConfigPath,
-		kubeConfig:     kubeConfig,
-		watcher:        watcher,
-		eventbus:       evbus.New(),
+		kubeConfig: kubeConfig,
+		watcher:    watcher,
+		eventbus:   evbus.New(),
 	}
 
 	// Start event listeners
