@@ -65,7 +65,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23.4'
+          go-version: '1.24.3'
           cache: false
       - name: Run linter
         working-directory: ./modules
@@ -78,7 +78,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23.4'
+          go-version: '1.24.3'
           cache: false
       - name: Run tests
         working-directory: ./modules
@@ -91,7 +91,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23.4'
+          go-version: '1.24.3'
           cache: false
       - name: Run code vetter
         working-directory: ./modules
@@ -313,7 +313,7 @@ jobs:
           version: 10
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23.4'
+          go-version: '1.24.3'
           cache: false
       - name: Run build script
         run: make build
@@ -341,7 +341,7 @@ jobs:
           version: 10
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23.4'
+          go-version: '1.24.3'
           cache: false  
       - name: Run build script
         run: make build
@@ -369,7 +369,7 @@ jobs:
           version: 10
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23.4'
+          go-version: '1.24.3'
           cache: false  
       - name: Run build script
         run: make build
@@ -397,7 +397,7 @@ jobs:
           version: 10
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23.4'
+          go-version: '1.24.3'
           cache: false
       - name: Run build script
         run: make build
@@ -425,7 +425,7 @@ jobs:
           version: 10
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23.4'
+          go-version: '1.24.3'
           cache: false
       - name: Run build script
         run: make build
@@ -453,7 +453,7 @@ jobs:
           version: 10
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23.4'
+          go-version: '1.24.3'
           cache: false
       - name: Run build script
         run: make build
@@ -481,7 +481,7 @@ jobs:
           version: 10
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23.4'
+          go-version: '1.24.3'
           cache: false
       - name: Run build script
         run: make build
