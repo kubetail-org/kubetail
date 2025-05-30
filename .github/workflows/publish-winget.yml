@@ -1,5 +1,8 @@
 name: publish-winget
 
+permissions:
+  contents: read
+
 on:
   release:
     types:
