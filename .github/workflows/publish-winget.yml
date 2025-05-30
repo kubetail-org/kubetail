@@ -1,0 +1,87 @@
+name: publish-winget
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  winget-release:
+    name: Release on winget
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download sha256 files
+        id: release-info
+        uses: robinraju/release-downloader@v1
+        with:
+          latest: true
+          fileName: "kubetail-windows*zip.sha256"
+
+      - name: Sparse checkout only manifests
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/ci-config
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+          path: winget-manifests
+
+      - name: Clone winget-pkgs upstream repo
+        uses: actions/checkout@v4
+        with:
+          repository: microsoft/winget-pkgs
+          path: winget-pkgs
+
+      - name: Extract tags and sha
+        id: meta
+        run: |
+          AMD64_SHA=$( tr -d '\r' < './kubetail-windows-amd64.zip.sha256' )
+          ARM64_SHA=$( tr -d '\r' < './kubetail-windows-arm64.zip.sha256' )
+          TAG_NAME="${{ steps.release-info.outputs.tag_name }}"
+
+          echo "tag=${TAG_NAME#cli/v}" >> $GITHUB_OUTPUT
+          echo "amd64_sha=$AMD64_SHA" >> $GITHUB_OUTPUT
+          echo "arm64_sha=$ARM64_SHA" >> $GITHUB_OUTPUT
+
+      - name: Download yq package
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Copy manifests template to winget-pkgs
+        run: |
+          NEW_FOLDER='./winget-pkgs/manifests/k/Kubetail/Kubetail/${{ steps.meta.outputs.tag }}'
+          mkdir -p "$NEW_FOLDER" 
+
+          cp ./winget-manifests/.github/ci-config/winget/* "$NEW_FOLDER"/
+
+      - name: Update manifests for latest release
+        working-directory: winget-pkgs/manifests/k/Kubetail/Kubetail/${{ steps.meta.outputs.tag }}
+        env:
+          TAG_NAME: ${{ steps.meta.outputs.tag }}
+          BASE_PATH: https://github.com/kubetail-org/kubetail/releases/download
+          AMD64_SHA: ${{ steps.meta.outputs.amd64_sha }}
+          ARM64_SHA: ${{ steps.meta.outputs.arm64_sha }}
+        run: |
+          # update the installer yaml
+          yq e ".PackageVersion = \"$TAG_NAME\"" -i ./Kubetail.Kubetail.installer.yaml
+          yq e ".Installers[0].InstallerUrl = \"${BASE_PATH}/cli%2Fv${TAG_NAME}/kubetail-windows-amd64.zip\"" -i ./Kubetail.Kubetail.installer.yaml
+          yq e ".Installers[1].InstallerUrl = \"${BASE_PATH}/cli%2Fv${TAG_NAME}/kubetail-windows-arm64.zip\"" -i ./Kubetail.Kubetail.installer.yaml
+
+          yq e ".Installers[0].InstallerSha256 = \"${AMD64_SHA}\"" -i ./Kubetail.Kubetail.installer.yaml
+          yq e ".Installers[1].InstallerSha256 = \"${ARM64_SHA}\"" -i ./Kubetail.Kubetail.installer.yaml
+
+          # update the locale and kubetail yaml
+          yq e ".PackageVersion = \"$TAG_NAME\"" -i ./Kubetail.Kubetail.locale.en-US.yaml
+          yq e ".PackageVersion = \"$TAG_NAME\"" -i ./Kubetail.Kubetail.yaml
+
+      - name: Commit and raise PR from forked repo
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.PUBLISH_WINGET_TOKEN }}
+          path: ./winget-pkgs
+          commit-message: "New version: Kubetail.Kubetail ${{ steps.meta.outputs.tag }}"
+          title: "New version: Kubetail.Kubetail version ${{ steps.meta.outputs.tag }}"
+          body: "This PR adds the manifest for Kubetail.Kubetail version ${{ steps.meta.outputs.tag }}."
+          branch: winget-release-${{ steps.meta.outputs.tag }}
+          base: master
+          push-to-fork: kubetail-org/winget-pkgs
