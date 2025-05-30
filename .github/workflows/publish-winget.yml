@@ -85,6 +85,6 @@ jobs:
           commit-message: "New version: Kubetail.Kubetail ${{ steps.meta.outputs.tag }}"
           title: "New version: Kubetail.Kubetail version ${{ steps.meta.outputs.tag }}"
           body: "This PR adds the manifest for Kubetail.Kubetail version ${{ steps.meta.outputs.tag }}."
-          branch: winget-release-${{ steps.meta.outputs.tag }}
+          branch: winget-release-kubetail-${{ steps.meta.outputs.tag }}
           base: master
           push-to-fork: kubetail-org/winget-pkgs
