@@ -18,7 +18,6 @@ import ServerStatus from "@/components/widgets/ServerStatus";
 import { useTheme, UserPreference } from "@/lib/theme";
 import EnvironmentControlWidgetWrapper from "./EnvironmentControl";
 
-
 export default function Footer() {
   const { userPreference, setUserPreference } = useTheme();
 
@@ -38,14 +37,11 @@ export default function Footer() {
           <Form.Option value={UserPreference.Dark}>dark</Form.Option>
           <Form.Option value={UserPreference.Light}>light</Form.Option>
         </Form.Select>
-        <ServerStatus />
-      </div>
-
-      {import.meta.env.MODE === "development" && (
-        <div className="p-3">
+        <ServerStatus />{" "}
+        {import.meta.env.MODE === "development" && (
           <EnvironmentControlWidgetWrapper />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
