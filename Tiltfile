@@ -178,7 +178,6 @@ k8s_yaml('hack/tilt/chaoskube.yaml')
 k8s_resource(
   objects=[
     'kubetail-system:namespace',
-    'kubetail:configmap',
     'kubetail-testuser:serviceaccount',
     'kubetail-testuser:role',
     'kubetail-testuser:clusterrole',
@@ -192,6 +191,7 @@ k8s_resource(
   'kubetail-dashboard',
   port_forwards='4500:8080',
   objects=[
+    'kubetail-dashboard:configmap',
     'kubetail-dashboard:clusterrole',
     'kubetail-dashboard:clusterrolebinding',
     'kubetail-dashboard:role',
@@ -205,6 +205,7 @@ k8s_resource(
   'kubetail-cluster-api',
   port_forwards='4501:8080',
   objects=[
+    'kubetail-cluster-api:configmap',
     'kubetail-cluster-api:serviceaccount',
     'kubetail-cluster-api:clusterrole',
     'kubetail-cluster-api:clusterrolebinding',
@@ -217,6 +218,7 @@ k8s_resource(
 k8s_resource(
   'kubetail-cluster-agent',
   objects=[
+    'kubetail-cluster-agent:configmap',
     'kubetail-cluster-agent:serviceaccount',
     'kubetail-cluster-agent:networkpolicy',
   ],
