@@ -18,6 +18,7 @@ import ServerStatus from "@/components/widgets/ServerStatus";
 import { useTheme, UserPreference } from "@/lib/theme";
 import EnvironmentControlWidgetWrapper from "./EnvironmentControl";
 
+
 export default function Footer() {
   const { userPreference, setUserPreference } = useTheme();
 
@@ -40,7 +41,7 @@ export default function Footer() {
         <ServerStatus />
       </div>
 
-      {process.env.NODE_ENV === "development" && (
+      {import.meta.env.MODE === "development" && (
         <div className="p-3">
           <EnvironmentControlWidgetWrapper />
         </div>
