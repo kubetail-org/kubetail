@@ -61,7 +61,7 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
         className={`text-xs text-chrome-500 hover:text-chrome-700 pr-3 ${className}`}
         onClick={() => setIsDialogOpen(true)}
       >
-        Environment Control{" "}
+        Environment Control
       </button>
       <Modal
         open={isDialogOpen}
@@ -78,7 +78,7 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
             </Form.Label>
             <div className="pt-3 ">
               <Form.Select
-                className="mt-0 w-[110px] py-0 pl-0 pr-0 h-auto border-0 focus:ring-offset-0 focus:ring-0 focus:border-transparent focus:ring-transparent text-xs bg-transparent"
+                className={className}
                 value={env}
                 onChange={(ev) => {
                   handleChange(ev);
