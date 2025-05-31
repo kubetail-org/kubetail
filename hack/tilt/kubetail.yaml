@@ -1,13 +1,13 @@
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: kubetail
+  name: kubetail-dashboard
   namespace: kubetail-system
   labels:
     app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: dashboard
 data:
   config.yaml: |
-    allowed-namespaces: []
     dashboard:
       addr: :8080
       auth-mode: auto
@@ -48,6 +48,17 @@ data:
         enabled: false
         cert-file:
         key-file:
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: kubetail-cluster-api
+  namespace: kubetail-system
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: cluster-api
+data:
+  config.yaml: |
     cluster-api:
       addr: :8080
       base-path: /
@@ -75,6 +86,17 @@ data:
         enabled: false
         cert-file:
         key-file:
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: kubetail-cluster-agent
+  namespace: kubetail-system
+  labels:
+    app.kubernetes.io/name: kubetail
+    app.kubernetes.io/component: cluster-agent
+data:
+  config.yaml: |
     cluster-agent:
       addr: :50051
       logging:
@@ -157,7 +179,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kubetail-dashboard
-  namespace: kubetail-system    
+  namespace: kubetail-system
 ---
 kind: Deployment
 apiVersion: apps/v1
@@ -218,7 +240,7 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: kubetail
+          name: kubetail-dashboard
 ---
 kind: Service
 apiVersion: v1
@@ -238,7 +260,7 @@ spec:
     port: 8080
     targetPort: http
     appProtocol: http
----    
+---
 kind: ServiceAccount
 apiVersion: v1
 metadata:
@@ -307,7 +329,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kubetail-cluster-api
-  namespace: kubetail-system    
+  namespace: kubetail-system
 ---
 kind: Deployment
 apiVersion: apps/v1
@@ -368,7 +390,7 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: kubetail
+          name: kubetail-cluster-api
 ---
 kind: Service
 apiVersion: v1
@@ -459,7 +481,7 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: kubetail
+          name: kubetail-cluster-agent
       - name: varlog
         hostPath:
           path: /var/log
@@ -486,7 +508,7 @@ apiVersion: networking.k8s.io/v1
 metadata:
   name: kubetail-cluster-agent
   namespace: kubetail-system
-  labels: 
+  labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cluster-agent
 spec:
