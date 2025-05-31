@@ -56,13 +56,13 @@ func (t *Tunnel) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func NewTunnel(kubeconfigPath, namespace, serviceName string, remotePort, localPort int) (*Tunnel, error) {
-	kubeconfigConf, err := clientcmd.LoadFromFile(kubeconfigPath)
-	if err != nil {
-		return nil, err
-	}
+func NewTunnel(kubeconfigPath string, namespace, serviceName string, remotePort, localPort int) (*Tunnel, error) {
+	// Use loading rules from clientcmd
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loadingRules.ExplicitPath = kubeconfigPath
 
-	clientConfig := clientcmd.NewDefaultClientConfig(*kubeconfigConf, &clientcmd.ConfigOverrides{})
+	// Use clientcmd to generate config object (supports KUBECONFIG env var automatically)
+	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		return nil, err

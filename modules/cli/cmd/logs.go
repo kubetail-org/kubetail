@@ -273,7 +273,7 @@ var logsCmd = &cobra.Command{
 		}
 
 		// Init connection manager
-		cm, err := k8shelpers.NewDesktopConnectionManager(k8shelpers.WithKubeconfig(kubeconfigPath), k8shelpers.WithLazyConnect(true))
+		cm, err := k8shelpers.NewDesktopConnectionManager(k8shelpers.WithKubeconfigPath(kubeconfigPath), k8shelpers.WithLazyConnect(true))
 		cli.ExitOnError(err)
 
 		// Init stream

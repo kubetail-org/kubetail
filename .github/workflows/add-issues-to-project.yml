@@ -1,8 +1,13 @@
-name: Add all issues to project
+name: Add issues to project
+
+permissions:
+  contents: read
+
 on:
   issues:
     types:
       - opened
+
 jobs:
   add-to-project:
     name: Add issue to project
@@ -11,4 +16,4 @@ jobs:
       - uses: actions/add-to-project@v1.0.2
         with:
           project-url: https://github.com/orgs/kubetail-org/projects/1
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.ADD_ISSUES_TO_PROJECT_TOKEN }}

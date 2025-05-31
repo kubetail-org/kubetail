@@ -42,7 +42,7 @@ import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
 import SettingsDropdown from '@/components/widgets/SettingsDropdown';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
-import { useListQueryWithSubscription, useLogMetadata, useWorkloadCounter } from '@/lib/hooks';
+import { useListQueryWithSubscription, useLogMetadata } from '@/lib/hooks';
 import { joinPaths, getBasename, cn } from '@/lib/util';
 import { Workload, allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
 import { applySearchAndFilter, noSearchResults, getContainerIDs } from '@/lib/home';
@@ -194,6 +194,58 @@ function useLogFileInfo(uids: string[], ownershipMap: Map<string, string[]>) {
   });
 
   return logFileInfo;
+}
+
+function useFilteredWorkloads() {
+  const { kubeContext, search, namespace, workloadFilter } = useContext(Context);
+
+  const cronjobs = useCronJobs(kubeContext);
+  const daemonsets = useDaemonSets(kubeContext);
+  const deployments = useDeployments(kubeContext);
+  const jobs = useJobs(kubeContext);
+  const pods = usePods(kubeContext);
+  const replicasets = useReplicaSets(kubeContext);
+  const statefulsets = useStatefulSets(kubeContext);
+
+  const shouldFilter = (workloadType: Workload) => workloadFilter === undefined || workloadFilter === workloadType;
+
+  const filterCronJobs = shouldFilter(Workload.CRONJOBS)
+    ? applySearchAndFilter(cronjobs.fetching, cronjobs.data?.batchV1CronJobsList?.items, search, namespace)
+    : cronjobs.data?.batchV1CronJobsList?.items;
+
+  const filterDaemonsets = shouldFilter(Workload.DAEMONSETS)
+    ? applySearchAndFilter(daemonsets.fetching, daemonsets.data?.appsV1DaemonSetsList?.items, search, namespace)
+    : daemonsets.data?.appsV1DaemonSetsList?.items;
+
+  const filterPods = shouldFilter(Workload.PODS)
+    ? applySearchAndFilter(pods.fetching, pods.data?.coreV1PodsList?.items, search, namespace)
+    : pods.data?.coreV1PodsList?.items;
+
+  const filterJobs = shouldFilter(Workload.JOBS)
+    ? applySearchAndFilter(jobs.fetching, jobs.data?.batchV1JobsList?.items, search, namespace)
+    : jobs.data?.batchV1JobsList?.items;
+
+  const filterDeployments = shouldFilter(Workload.DEPLOYMENTS)
+    ? applySearchAndFilter(deployments.fetching, deployments.data?.appsV1DeploymentsList?.items, search, namespace)
+    : deployments.data?.appsV1DeploymentsList?.items;
+
+  const filterReplicasets = shouldFilter(Workload.REPLICASETS)
+    ? applySearchAndFilter(replicasets.fetching, replicasets.data?.appsV1ReplicaSetsList?.items, search, namespace)
+    : replicasets.data?.appsV1ReplicaSetsList?.items;
+
+  const filterStatefulsets = shouldFilter(Workload.STATEFULSETS)
+    ? applySearchAndFilter(statefulsets.fetching, statefulsets.data?.appsV1StatefulSetsList?.items, search, namespace)
+    : statefulsets.data?.appsV1StatefulSetsList?.items;
+
+  return {
+    filterCronJobs,
+    filterDaemonsets,
+    filterDeployments,
+    filterJobs,
+    filterPods,
+    filterReplicasets,
+    filterStatefulsets,
+  };
 }
 
 /**
@@ -700,13 +752,7 @@ const DisplayWorkloads = () => {
     statefulsets.data?.appsV1StatefulSetsList?.metadata.resourceVersion,
   ]);
 
-  const filterCronJobs = applySearchAndFilter(cronjobs.fetching, cronjobs.data?.batchV1CronJobsList?.items, search, namespace);
-  const filterDaemonsets = applySearchAndFilter(daemonsets.fetching, daemonsets.data?.appsV1DaemonSetsList?.items, search, namespace);
-  const filterPods = applySearchAndFilter(pods.fetching, pods.data?.coreV1PodsList?.items, search, namespace);
-  const filterJobs = applySearchAndFilter(jobs.fetching, jobs.data?.batchV1JobsList?.items, search, namespace);
-  const filterDeployments = applySearchAndFilter(deployments.fetching, deployments.data?.appsV1DeploymentsList?.items, search, namespace);
-  const filterReplicasets = applySearchAndFilter(replicasets.fetching, replicasets.data?.appsV1ReplicaSetsList?.items, search, namespace);
-  const filterStatefulsets = applySearchAndFilter(statefulsets.fetching, statefulsets.data?.appsV1StatefulSetsList?.items, search, namespace);
+  const { filterCronJobs, filterDaemonsets, filterDeployments, filterJobs, filterPods, filterReplicasets, filterStatefulsets } = useFilteredWorkloads();
 
   // we want to show this only when user searches for a workload
   const noResultFound = search !== '' ? noSearchResults(filterCronJobs, filterDeployments, filterPods, filterJobs, filterDaemonsets, filterReplicasets, filterStatefulsets) : false;
@@ -866,18 +912,21 @@ const CountBadge = ({ count, workload, workloadFilter }: { count: number, worklo
  */
 
 const Sidebar = () => {
-  const { workloadFilter, setWorkloadFilter, kubeContext, namespace } = useContext(Context);
+  const { workloadFilter, setWorkloadFilter } = useContext(Context);
+  const data = useFilteredWorkloads();
 
-  // kubeContext sometimes is undefined
-  const { loading, error, counter } = useWorkloadCounter(
-    kubeContext ?? '',
-    namespace,
-  );
+  const counts = {
+    cronjobs: data.filterCronJobs,
+    daemonsets: data.filterDaemonsets,
+    deployments: data.filterDeployments,
+    jobs: data.filterJobs,
+    pods: data.filterPods,
+    replicasets: data.filterReplicasets,
+    statefulsets: data.filterStatefulsets,
+  };
 
   // using some default sidebar values during data loading and error states
-  const sidebarItems: [Workload, number][] = loading || error
-    ? allWorkloads.map((w) => [w, 0])
-    : Array.from(counter.entries());
+  const sidebarItems: [Workload, number][] = allWorkloads.map((w) => [w, counts[w]?.length ?? 0]);
 
   return (
     <div className="px-4">

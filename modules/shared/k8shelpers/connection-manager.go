@@ -60,8 +60,8 @@ type ConnectionManager interface {
 // Represents DesktopConnectionManager
 type DesktopConnectionManager struct {
 	KubeConfigWatcher *KubeConfigWatcher
-	kubeConfig        *api.Config
 	kubeconfigPath    string
+	kubeConfig        *api.Config
 	isLazy            bool
 	authorizer        DesktopAuthorizer
 	rcCache           map[string]*rest.Config
@@ -110,10 +110,8 @@ func NewDesktopConnectionManager(options ...ConnectionManagerOption) (*DesktopCo
 		go cm.warmUpCache()
 	}
 
-	// Register kube config watch handlers
-	kfw.Subscribe("ADDED", cm.kubeConfigAdded)
-	kfw.Subscribe("MODIFIED", cm.kubeConfigModified)
-	kfw.Subscribe("DELETED", cm.kubeConfigDeleted)
+	// Register kube config watch handler
+	kfw.Subscribe(cm.kubeConfigModified)
 
 	return cm, nil
 }
@@ -135,9 +133,7 @@ func (cm *DesktopConnectionManager) Shutdown(ctx context.Context) error {
 	}
 
 	// Unsubscribe from config watcher events and close
-	cm.KubeConfigWatcher.Unsubscribe("ADDED", cm.kubeConfigAdded)
-	cm.KubeConfigWatcher.Unsubscribe("MODIFIED", cm.kubeConfigModified)
-	cm.KubeConfigWatcher.Unsubscribe("DELETED", cm.kubeConfigDeleted)
+	cm.KubeConfigWatcher.Unsubscribe(cm.kubeConfigModified)
 	cm.KubeConfigWatcher.Close()
 
 	// Wait for shutdown to complete or context to close
@@ -408,25 +404,11 @@ func (cm *DesktopConnectionManager) warmUpCache() {
 	}
 }
 
-// Handle kube config ADDED event
-func (cm *DesktopConnectionManager) kubeConfigAdded(config *api.Config) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	cm.kubeConfig = config
-}
-
-// Handle kube config MODIFIED event
-func (cm *DesktopConnectionManager) kubeConfigModified(oldConfig *api.Config, newConfig *api.Config) {
+// Handle kube config modified event
+func (cm *DesktopConnectionManager) kubeConfigModified(newConfig *api.Config) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	cm.kubeConfig = newConfig
-}
-
-// Handle kube config DELETED event
-func (cm *DesktopConnectionManager) kubeConfigDeleted(oldConfig *api.Config) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	cm.kubeConfig = &api.Config{}
 }
 
 // Represents InClusterConnectionManager
@@ -697,12 +679,12 @@ func NewConnectionManager(env config.Environment, options ...ConnectionManagerOp
 // Represents variadic option type for ConnectionManager
 type ConnectionManagerOption func(cm ConnectionManager)
 
-// WithKubeconfig sets kubeconfig file path
-func WithKubeconfig(kubeconfig string) ConnectionManagerOption {
+// WithKubeconfigPath sets kubeconfig file path
+func WithKubeconfigPath(kubeconfigPath string) ConnectionManagerOption {
 	return func(cm ConnectionManager) {
 		switch t := cm.(type) {
 		case *DesktopConnectionManager:
-			t.kubeconfigPath = kubeconfig
+			t.kubeconfigPath = kubeconfigPath
 		case *InClusterConnectionManager:
 			break
 		}

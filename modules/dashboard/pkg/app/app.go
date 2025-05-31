@@ -74,7 +74,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 		app.Use(gin.Recovery())
 
 		// Init connection manager
-		cm, err := k8shelpers.NewConnectionManager(cfg.Dashboard.Environment, k8shelpers.WithKubeconfig(cfg.KubeconfigPath))
+		cm, err := k8shelpers.NewConnectionManager(cfg.Dashboard.Environment, k8shelpers.WithKubeconfigPath(cfg.KubeconfigPath))
 		if err != nil {
 			return nil, err
 		}

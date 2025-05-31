@@ -1,0 +1,19 @@
+# Created with YamlCreate.ps1 Dumplings Mod
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
+
+PackageIdentifier: Kubetail.Kubetail
+PackageVersion: <placeholder>
+InstallerType: zip
+NestedInstallerType: portable
+NestedInstallerFiles:
+  - RelativeFilePath: kubetail.exe
+    PortableCommandAlias: kubetail
+Installers:
+  - Architecture: x64
+    InstallerUrl: <placeholder>
+    InstallerSha256: <placeholder>
+  - Architecture: arm64
+    InstallerUrl: <placeholder>
+    InstallerSha256: <placeholder>
+ManifestType: installer
+ManifestVersion: 1.10.0
