@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useSubscription } from "@apollo/client";
-import { Fragment, useEffect, useState } from "react";
+import { useSubscription } from '@apollo/client';
+import { Fragment, useEffect, useState } from 'react';
 import {
   RecoilRoot,
   atom,
   useRecoilValue,
   useSetRecoilState,
   type SetterOrUpdater,
-} from "recoil";
-import Form from "@kubetail/ui/elements/Form";
-import { useIsClusterAPIEnabled } from "@/lib/hooks";
-import Modal from "../elements/Modal";
+} from 'recoil';
+import Form from '@kubetail/ui/elements/Form';
+import { useIsClusterAPIEnabled } from '@/lib/hooks';
+import Modal from '../elements/Modal';
 
 type EnvironmentControlWidgetProps = {
   className?: string;
@@ -33,7 +33,7 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const [env, setEnv] = useState<string>(() => {
-    return localStorage.getItem("clusterAPIEnabled") || "";
+    return localStorage.getItem('clusterAPIEnabled') || '';
   });
   const isClusterAPIEnabled = useIsClusterAPIEnabled(env);
 
@@ -51,8 +51,8 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
   };
 
   useEffect(() => {
-    console.log("EnvironmentControl useEffect", env, isClusterAPIEnabled);
-    localStorage.setItem("clusterAPIEnabled", env);
+    console.log('EnvironmentControl useEffect', env, isClusterAPIEnabled);
+    localStorage.setItem('clusterAPIEnabled', env);
   }, [env]);
 
   return (
