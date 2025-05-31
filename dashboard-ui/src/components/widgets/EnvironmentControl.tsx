@@ -23,17 +23,20 @@ import {
 } from "recoil";
 import Form from "@kubetail/ui/elements/Form";
 import { useIsClusterAPIEnabled } from "@/lib/hooks";
+import Modal from "../elements/Modal";
 
 type EnvironmentControlWidgetProps = {
   className?: string;
 };
 
 const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
   const [env, setEnv] = useState<string>(() => {
     return localStorage.getItem("clusterAPIEnabled") || "";
   });
   const isClusterAPIEnabled = useIsClusterAPIEnabled(env);
-  
+
   /*const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     console.log(isClusterAPIEnabled);
     const newEnv = e.target.value;
@@ -44,7 +47,7 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newEnv = e.target.value;
-    setEnv(newEnv); 
+    setEnv(newEnv);
   };
 
   useEffect(() => {
@@ -54,19 +57,40 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
 
   return (
     <div>
-      <div>Environment control</div>
-      <div className="pt-3 ">
-        <Form.Select
-          className="mt-0 w-[110px] py-0 pl-0 pr-0 h-auto border-0 focus:ring-offset-0 focus:ring-0 focus:border-transparent focus:ring-transparent text-xs bg-transparent"
-          value={env}
-          onChange={(ev) => {
-            handleChange(ev);
-          }}
-        >
-          <Form.Option value="enabled">Kubetail api</Form.Option>
-          <Form.Option value="disabled">Kubernetes api</Form.Option>
-        </Form.Select>
-      </div>
+      <button
+        className={`text-xs text-chrome-500 hover:text-chrome-700 pr-3 ${className}`}
+        onClick={() => setIsDialogOpen(true)}
+      >
+        Environment Control{" "}
+      </button>
+      <Modal
+        open={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        className="!max-w-[550px]"
+      >
+        <Modal.Title className="flex items-center space-x-3">
+          <span>Environment control</span>
+        </Modal.Title>
+        <div className="mt-5 pb-8">
+          <Form.Group>
+            <Form.Label>
+              Switch between Kubernetes API and Kubetail API
+            </Form.Label>
+            <div className="pt-3 ">
+              <Form.Select
+                className="mt-0 w-[110px] py-0 pl-0 pr-0 h-auto border-0 focus:ring-offset-0 focus:ring-0 focus:border-transparent focus:ring-transparent text-xs bg-transparent"
+                value={env}
+                onChange={(ev) => {
+                  handleChange(ev);
+                }}
+              >
+                <Form.Option value="enabled">Kubetail api</Form.Option>
+                <Form.Option value="disabled">Kubernetes api</Form.Option>
+              </Form.Select>
+            </div>
+          </Form.Group>
+        </div>
+      </Modal>
     </div>
   );
 };
