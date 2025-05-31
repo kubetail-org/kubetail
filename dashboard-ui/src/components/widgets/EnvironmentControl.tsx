@@ -12,18 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useSubscription } from "@apollo/client";
-import { Fragment, useEffect, useState } from "react";
-import {
-  RecoilRoot,
-  atom,
-  useRecoilValue,
-  useSetRecoilState,
-  type SetterOrUpdater,
-} from "recoil";
-import Form from "@kubetail/ui/elements/Form";
-import { useIsClusterAPIEnabled } from "@/lib/hooks";
-import Modal from "../elements/Modal";
+import { useEffect, useState } from 'react';
+import { RecoilRoot } from 'recoil';
+import Form from '@kubetail/ui/elements/Form';
+import { useIsClusterAPIEnabled } from '@/lib/hooks';
+import Modal from '../elements/Modal';
 
 type EnvironmentControlWidgetProps = {
   className?: string;
@@ -33,8 +26,9 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const [env, setEnv] = useState<string>(() => {
-    return localStorage.getItem("clusterAPIEnabled") || "";
+    return localStorage.getItem('clusterAPIEnabled') || '';
   });
+
   const isClusterAPIEnabled = useIsClusterAPIEnabled(env);
 
   /*const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -51,8 +45,7 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
   };
 
   useEffect(() => {
-    console.log("EnvironmentControl useEffect", env, isClusterAPIEnabled);
-    localStorage.setItem("clusterAPIEnabled", env);
+    localStorage.setItem('clusterAPIEnabled', env);
   }, [env]);
 
   return (
@@ -63,6 +56,7 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
       >
         Environment Control
       </button>
+
       <Modal
         open={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
@@ -71,18 +65,18 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
         <Modal.Title className="flex items-center space-x-3">
           <span>Environment control</span>
         </Modal.Title>
+
         <div className="mt-5 pb-8">
           <Form.Group>
             <Form.Label>
               Switch between Kubernetes API and Kubetail API
             </Form.Label>
-            <div className="pt-3 ">
+
+            <div className="pt-3">
               <Form.Select
                 className={className}
                 value={env}
-                onChange={(ev) => {
-                  handleChange(ev);
-                }}
+                onChange={(ev) => handleChange(ev)}
               >
                 <Form.Option value="enabled">Kubetail api</Form.Option>
                 <Form.Option value="disabled">Kubernetes api</Form.Option>
@@ -95,7 +89,9 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
   );
 };
 
-const EnvironmentControlWidgetWrapper = (props: EnvironmentControlWidgetProps) => (
+const EnvironmentControlWidgetWrapper = (
+  props: EnvironmentControlWidgetProps
+) => (
   <RecoilRoot>
     <EnvironmentControl {...props} />
   </RecoilRoot>
