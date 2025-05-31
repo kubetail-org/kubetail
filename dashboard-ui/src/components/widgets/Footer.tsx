@@ -37,7 +37,7 @@ export default function Footer() {
           <Form.Option value={UserPreference.Dark}>dark</Form.Option>
           <Form.Option value={UserPreference.Light}>light</Form.Option>
         </Form.Select>
-        <ServerStatus />{" "}
+        <ServerStatus />
         {import.meta.env.MODE === "development" && (
           <EnvironmentControlWidgetWrapper />
         )}
