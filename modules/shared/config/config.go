@@ -56,6 +56,15 @@ type Config struct {
 	AllowedNamespaces []string `mapstructure:"allowed-namespaces"`
 	KubeconfigPath    string   `mapstructure:"kubeconfig"`
 
+	// OTel options
+	OTel struct {
+		// Enable OTel tracing
+		Enabled     bool
+		Debug       bool
+		Endpoint    string
+		ServiceName string
+	}
+
 	// Dashboard options
 	Dashboard struct {
 		Addr               string   `validate:"omitempty,hostname_port"`
@@ -235,6 +244,12 @@ func (cfg *Config) validate() error {
 
 func DefaultConfig() *Config {
 	cfg := &Config{}
+
+	// TODO: Bubble this config up somewhere closer to main
+	cfg.OTel.Enabled = true
+	cfg.OTel.Debug = true
+	cfg.OTel.Endpoint = "localhost:4317"
+	cfg.OTel.ServiceName = "kubetail"
 
 	cfg.AllowedNamespaces = []string{}
 	cfg.Dashboard.Addr = ":8080"

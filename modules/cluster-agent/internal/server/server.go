@@ -20,6 +20,7 @@ import (
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/grpchelpers"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 )
 
 func NewServer(cfg *config.Config) (*grpc.Server, error) {
@@ -38,5 +39,9 @@ func NewServer(cfg *config.Config) (*grpc.Server, error) {
 		opts = append(opts, grpc.Creds(creds))
 	}
 
+	// Add otel stats handler if tracing is enabled
+	if cfg.OTel.Enabled {
+		opts = append(opts, grpc.StatsHandler(otelgrpc.NewServerHandler()))
+	}
 	return grpc.NewServer(opts...), nil
 }

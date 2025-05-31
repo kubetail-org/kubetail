@@ -33,6 +33,7 @@ import (
 
 	"github.com/kubetail-org/kubetail/modules/shared/clusteragentpb"
 	"github.com/kubetail-org/kubetail/modules/shared/config"
+	"github.com/kubetail-org/kubetail/modules/shared/otel"
 
 	"github.com/kubetail-org/kubetail/modules/cluster-agent/internal/server"
 	"github.com/kubetail-org/kubetail/modules/cluster-agent/internal/services/logmetadata"
@@ -89,6 +90,17 @@ func main() {
 
 			// configure k8s
 			k8sCfg, err := rest.InClusterConfig()
+			if err != nil {
+				zlog.Fatal().Caller().Err(err).Send()
+			}
+
+			// configure global otel tracer provider
+			err = otel.InitTracer(&otel.OTelConfig{
+				Enabled:     cfg.OTel.Enabled,  // defaults to true
+				Debug:       cfg.OTel.Debug,    // defaults to true
+				Endpoint:    cfg.OTel.Endpoint, // defaults to localhost:4317
+				ServiceName: "kubetail-cluster-agent",
+			})
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
