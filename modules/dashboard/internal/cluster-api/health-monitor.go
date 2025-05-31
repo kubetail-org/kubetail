@@ -169,13 +169,13 @@ func (hm *DesktopHealthMonitor) getOrCreateWorker(ctx context.Context, kubeConte
 			}
 		}
 
-		// Add to cache
-		hm.workerCache.Store(k, worker)
-
 		// Start background processes and wait for cache to sync
 		if err := worker.Start(ctx); err != nil {
 			return nil, err
 		}
+
+		// Add to cache
+		hm.workerCache.Store(k, worker)
 	}
 
 	return worker, nil
