@@ -111,18 +111,7 @@ export function useClusterAPIServerStatus(kubeContext: string) {
   useSubscription(dashboardOps.SERVER_STATUS_CLUSTER_API_HEALTHZ_WATCH, {
     skip: !appConfig.clusterAPIEnabled,
     variables: { kubeContext },
-    onData: ({ data }) => {
-      setStatus(ServerStatus.fromHealthCheckResponse(data.data?.clusterAPIHealthzWatch));
-    },
-    onError: (err) => {
-      if (err.message === 'not available') {
-        setStatus(new ServerStatus({
-          status: Status.NotFound,
-          message: 'Not available',
-          lastUpdatedAt: new Date(),
-        }));
-      }
-    },
+    onData: ({ data }) => setStatus(ServerStatus.fromHealthCheckResponse(data.data?.clusterAPIHealthzWatch)),
   });
 
   return status;

@@ -61,9 +61,6 @@ var serveCmd = &cobra.Command{
 		remote := false
 		test, _ := cmd.Flags().GetBool("test")
 
-		// Get the kubeconfig path (if set)
-		kubeconfigPath, _ := cmd.Flags().GetString(KubeconfigFlag)
-
 		// Init viper
 		v := viper.New()
 		v.BindPFlag("dashboard.logging.level", cmd.Flags().Lookup("log-level"))
@@ -74,7 +71,7 @@ var serveCmd = &cobra.Command{
 		if err != nil {
 			zlog.Fatal().Caller().Err(err).Send()
 		}
-		cfg.KubeconfigPath = kubeconfigPath
+		cfg.KubeconfigPath, _ = cmd.Flags().GetString(KubeconfigFlag)
 		cfg.Dashboard.Environment = config.EnvironmentDesktop
 		cfg.Dashboard.Logging.AccessLog.Enabled = false
 
@@ -110,7 +107,7 @@ var serveCmd = &cobra.Command{
 			// Suppress for now
 		}}
 
-		// Suppress messages sent to klog for now
+		// Supress messages sent to klog for now
 		klog.SetLogger(logr.Discard())
 
 		// Capture messages sent to system logger

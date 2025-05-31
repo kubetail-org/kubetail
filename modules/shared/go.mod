@@ -1,8 +1,8 @@
 module github.com/kubetail-org/kubetail/modules/shared
 
-go 1.24.0
+go 1.23.0
 
-toolchain go1.24.3
+toolchain go1.23.4
 
 require (
 	github.com/99designs/gqlgen v0.17.73

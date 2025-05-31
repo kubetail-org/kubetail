@@ -16,7 +16,6 @@ package k8shelpers
 
 import (
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
 	"sync"
@@ -24,15 +23,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
-
-// Helper function to create a unique pathname
-func generateUniquePathname(dirname string) string {
-	return filepath.Join(dirname, fmt.Sprintf("config-%s", uuid.New().String()))
-}
 
 // Helper function to create a temporary directory with a sample kubeconfig file
 func createKubeConfig(kubeconfigPath string) (*clientcmdapi.Config, error) {
@@ -59,14 +52,6 @@ func createKubeConfig(kubeconfigPath string) (*clientcmdapi.Config, error) {
 	return cfg, nil
 }
 
-// Helper function to merge two maps
-func mergeMaps[K comparable, V any](a, b map[K]V) map[K]V {
-	out := make(map[K]V, len(a)+len(b))
-	maps.Copy(out, a)
-	maps.Copy(out, b)
-	return out
-}
-
 // Helper function to assert that two maps have the same keys
 func compareMaps[K comparable, V any](t *testing.T, m1 map[K]*V, m2 map[K]*V) {
 	assert.Equal(t, len(m1), len(m2))
@@ -84,67 +69,76 @@ func TestKubeConfigWatcherGet(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir) // Clean up after test
 
-	t.Run("single file", func(t *testing.T) {
-		// Create pathname
-		kubeconfigPath := generateUniquePathname(tempDir)
+	// Create pathname
+	kubeconfigPath := filepath.Join(tempDir, fmt.Sprintf("config-%s", uuid.New().String()))
 
-		// Create config file
-		cfgExpected, err := createKubeConfig(kubeconfigPath)
-		if err != nil {
-			t.Fatal(err)
-		}
+	// Create config file
+	cfgExpected, err := createKubeConfig(kubeconfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		// Initialize watcher
-		watcher, err := NewKubeConfigWatcher(kubeconfigPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer watcher.Close()
+	// Initialize watcher
+	watcher, err := NewKubeConfigWatcher(kubeconfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer watcher.Close()
 
-		// Check config
-		cfgActual := watcher.Get()
-		compareMaps(t, cfgExpected.Clusters, cfgActual.Clusters)
-		compareMaps(t, cfgExpected.AuthInfos, cfgActual.AuthInfos)
-		compareMaps(t, cfgExpected.Contexts, cfgActual.Contexts)
-		assert.Equal(t, cfgExpected.CurrentContext, cfgActual.CurrentContext)
-	})
-
-	t.Run("multiple files", func(t *testing.T) {
-		// Create pathnames
-		p1 := generateUniquePathname(tempDir)
-		p2 := generateUniquePathname(tempDir)
-
-		// Create config files
-		cfg1, err := createKubeConfig(p1)
-		require.NoError(t, err)
-		cfg2, err := createKubeConfig(p2)
-		require.NoError(t, err)
-
-		// Set environment
-		t.Setenv(clientcmd.RecommendedConfigPathEnvVar, fmt.Sprintf("%s:%s", p1, p2))
-
-		// Init watcher
-		watcher, err := NewKubeConfigWatcher("")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer watcher.Close()
-
-		// Check config
-		cfgActual := watcher.Get()
-
-		expectedClusters := mergeMaps(cfg1.Clusters, cfg2.Clusters)
-		compareMaps(t, expectedClusters, cfgActual.Clusters)
-
-		expectedAuthInfos := mergeMaps(cfg1.AuthInfos, cfg2.AuthInfos)
-		compareMaps(t, expectedAuthInfos, cfgActual.AuthInfos)
-
-		expectedContexts := mergeMaps(cfg1.Contexts, cfg2.Contexts)
-		compareMaps(t, expectedContexts, cfgActual.Contexts)
-
-		assert.Equal(t, cfg1.CurrentContext, cfgActual.CurrentContext)
-	})
+	// Check config
+	cfgActual := watcher.Get()
+	compareMaps(t, cfgExpected.Clusters, cfgActual.Clusters)
+	compareMaps(t, cfgExpected.AuthInfos, cfgActual.AuthInfos)
+	compareMaps(t, cfgExpected.Contexts, cfgActual.Contexts)
+	assert.Equal(t, cfgExpected.CurrentContext, cfgActual.CurrentContext)
 }
+
+/*
+TODO: Currently KubeConfigWatcher throws an erro when file doesn't exist
+
+func TestKubeConfigWatcherSubscribeAdded(t *testing.T) {
+	// Create temporary directory
+	tempDir, err := os.MkdirTemp("", "kube-config-watcher-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir) // Clean up after test
+
+	// Create pathname
+	kubeconfigPath := filepath.Join(tempDir, fmt.Sprintf("config-%s", uuid.New().String()))
+
+	// Initialize watcher
+	watcher, err := NewKubeConfigWatcher(kubeconfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer watcher.Close()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	// Subscribe
+	var cfgActual *clientcmdapi.Config
+	watcher.Subscribe("ADDED", func(cfg *clientcmdapi.Config) {
+		defer wg.Done()
+		cfgActual = cfg
+	})
+
+	// Create config file
+	cfgExpected, err := createKubeConfig(kubeconfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wg.Wait()
+
+	// Check config
+	compareMaps(t, cfgExpected.Clusters, cfgActual.Clusters)
+	compareMaps(t, cfgExpected.AuthInfos, cfgActual.AuthInfos)
+	compareMaps(t, cfgExpected.Contexts, cfgActual.Contexts)
+	assert.Equal(t, cfgExpected.CurrentContext, cfgActual.CurrentContext)
+}
+*/
 
 func TestKubeConfigWatcherSubscribeModified(t *testing.T) {
 	// Create temporary directory
@@ -154,53 +148,103 @@ func TestKubeConfigWatcherSubscribeModified(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir) // Clean up after test
 
-	// Create pathnames
-	p1 := generateUniquePathname(tempDir)
-	p2 := generateUniquePathname(tempDir)
+	// Create pathname
+	kubeconfigPath := filepath.Join(tempDir, fmt.Sprintf("config-%s", uuid.New().String()))
 
-	// Create config files
-	cfg1, err := createKubeConfig(p1)
-	require.NoError(t, err)
-	_, err = createKubeConfig(p2)
-	require.NoError(t, err)
-
-	// Set environment
-	t.Setenv(clientcmd.RecommendedConfigPathEnvVar, fmt.Sprintf("%s:%s", p1, p2))
+	// Create config file
+	cfgOrig, err := createKubeConfig(kubeconfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Initialize watcher
-	watcher, err := NewKubeConfigWatcher("")
+	watcher, err := NewKubeConfigWatcher(kubeconfigPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer watcher.Close()
 
-	var (
-		wg        sync.WaitGroup
-		cfgActual *clientcmdapi.Config
-	)
-
-	// Subscribe to changes
+	var wg sync.WaitGroup
 	wg.Add(1)
-	watcher.Subscribe(func(newCfg *clientcmdapi.Config) {
-		defer wg.Done()
-		cfgActual = newCfg
-	})
 
-	// Modify one of the files
-	cfg2, err := createKubeConfig(p2)
-	require.NoError(t, err)
+	// Subscribe
+	var cfgActual *clientcmdapi.Config
+	fn := func(oldCfg, newCfg *clientcmdapi.Config) {
+		defer wg.Done()
+
+		// Check old config
+		compareMaps(t, cfgOrig.Clusters, oldCfg.Clusters)
+		compareMaps(t, cfgOrig.AuthInfos, oldCfg.AuthInfos)
+		compareMaps(t, cfgOrig.Contexts, oldCfg.Contexts)
+		assert.Equal(t, cfgOrig.CurrentContext, oldCfg.CurrentContext)
+
+		cfgActual = newCfg
+	}
+	watcher.Subscribe("MODIFIED", fn)
+
+	// Create config file
+	cfgExpected, err := createKubeConfig(kubeconfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	wg.Wait()
 
 	// Check new config
-	expectedClusters := mergeMaps(cfg1.Clusters, cfg2.Clusters)
-	compareMaps(t, expectedClusters, cfgActual.Clusters)
+	compareMaps(t, cfgExpected.Clusters, cfgActual.Clusters)
+	compareMaps(t, cfgExpected.AuthInfos, cfgActual.AuthInfos)
+	compareMaps(t, cfgExpected.Contexts, cfgActual.Contexts)
+	assert.Equal(t, cfgExpected.CurrentContext, cfgActual.CurrentContext)
 
-	expectedAuthInfos := mergeMaps(cfg1.AuthInfos, cfg2.AuthInfos)
-	compareMaps(t, expectedAuthInfos, cfgActual.AuthInfos)
+	watcher.Unsubscribe("MODIFIED", fn)
+}
 
-	expectedContexts := mergeMaps(cfg1.Contexts, cfg2.Contexts)
-	compareMaps(t, expectedContexts, cfgActual.Contexts)
+func TestKubeConfigWatcherSubscribeDeleted(t *testing.T) {
+	// Create temporary directory
+	tempDir, err := os.MkdirTemp("", "kube-config-watcher-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir) // Clean up after test
 
-	assert.Equal(t, cfg1.CurrentContext, cfgActual.CurrentContext)
+	// Create pathname
+	kubeconfigPath := filepath.Join(tempDir, fmt.Sprintf("config-%s", uuid.New().String()))
+
+	// Create config file
+	cfgOrig, err := createKubeConfig(kubeconfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Initialize watcher
+	watcher, err := NewKubeConfigWatcher(kubeconfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer watcher.Close()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	// Subscribe
+	fn := func(oldCfg *clientcmdapi.Config) {
+		defer wg.Done()
+
+		// Check old config
+		compareMaps(t, cfgOrig.Clusters, oldCfg.Clusters)
+		compareMaps(t, cfgOrig.AuthInfos, oldCfg.AuthInfos)
+		compareMaps(t, cfgOrig.Contexts, oldCfg.Contexts)
+		assert.Equal(t, cfgOrig.CurrentContext, oldCfg.CurrentContext)
+	}
+	watcher.Subscribe("DELETED", fn)
+
+	// Delete file
+	err = os.Remove(kubeconfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wg.Wait()
+
+	watcher.Unsubscribe("DELETED", fn)
 }

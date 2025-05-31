@@ -3,7 +3,6 @@ package config
 import (
 	"net/http"
 	"os"
-	"reflect"
 	"testing"
 
 	"github.com/spf13/viper"
@@ -32,29 +31,4 @@ func TestConfig(t *testing.T) {
 	require.Nil(t, err)
 	assert.Equal(t, EnvironmentCluster, cfg.Dashboard.Environment)
 	assert.Equal(t, http.SameSiteStrictMode, cfg.Dashboard.Session.Cookie.SameSite)
-}
-
-func TestNewConfig(t *testing.T) {
-	type args struct {
-		v *viper.Viper
-		f string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *Config
-		wantErr bool
-	}{}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewConfig(tt.args.v, tt.args.f)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewConfig() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewConfig() = %v, want %v", got, tt.want)
-			}
-		})
-	}
 }

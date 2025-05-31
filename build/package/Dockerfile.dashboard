@@ -14,12 +14,12 @@
 
 # -----------------------------------------------------------
 
-FROM node:22.16.0-alpine3.21 AS frontend-builder
+FROM node:22.11.0-alpine3.20 AS frontend-builder
 WORKDIR /dashboard-ui
 
 # enable pnpm
 RUN corepack enable
-RUN corepack prepare pnpm@10.11.0 --activate
+RUN corepack prepare pnpm@9.14.2 --activate
 
 # fetch dependencies
 COPY dashboard-ui/package.json ./
@@ -37,7 +37,7 @@ CMD []
 
 # -----------------------------------------------------------
   
-FROM golang:1.24.3 AS dashboard-builder
+FROM golang:1.23.4 AS dashboard-builder
 
 WORKDIR /work
 
