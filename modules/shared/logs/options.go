@@ -134,6 +134,9 @@ func WithGrep(pattern string) Option {
 			// Replace spaces with ANSI-tolerant pattern
 			pattern = strings.ReplaceAll(pattern, " ", `(?:(?:\x1B\[[0-9;]*[mK])?)*\s(?:(?:\x1B\[[0-9;]*[mK])?)*`)
 
+			// Prepend the (?i) flag to make the regex case-insensitive
+			pattern = "(?i)" + pattern
+
 			// Compile the regex pattern
 			regex, err := regexp.Compile(pattern)
 			if err != nil {
