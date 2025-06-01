@@ -26,10 +26,19 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/kubetail-org/kubetail/modules/shared/clusteragentpb"
 	"github.com/kubetail-org/kubetail/modules/shared/grpchelpers"
 
 	"github.com/kubetail-org/kubetail/modules/cluster-agent/internal/helpers"
+)
+
+var (
+	tracer = otel.Tracer("kubetail/cluster-agent/logrecords")
 )
 
 // Represents LogRecords service
@@ -57,6 +66,18 @@ func (s *LogRecordsService) Shutdown() {
 
 // Implementation of StreamForward() in LogRecordsService
 func (s *LogRecordsService) StreamForward(req *clusteragentpb.LogRecordsStreamRequest, stream clusteragentpb.LogRecordsService_StreamForwardServer) error {
+	ctx, span := tracer.Start(stream.Context(), "logrecords.StreamForward",
+		trace.WithSpanKind(trace.SpanKindServer),
+		trace.WithAttributes(
+			attribute.String("kubernetes.namespace", req.Namespace),
+			attribute.String("kubernetes.pod", req.PodName),
+			attribute.String("kubernetes.container", req.ContainerName),
+			attribute.String("kubernetes.container_id", req.ContainerId),
+			attribute.String("log.grep", req.Grep),
+			attribute.String("log.follow_from", req.FollowFrom.String()),
+		))
+	defer span.End()
+
 	logger := zlog.With().
 		Str("component", "logrecords/stream-forward").
 		Str("request-id", helpers.RandomString(8)).
@@ -64,20 +85,27 @@ func (s *LogRecordsService) StreamForward(req *clusteragentpb.LogRecordsStreamRe
 
 	logger.Debug().Msg("new client connected")
 
-	ctx, cancel := context.WithCancel(stream.Context())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	clientset := s.newK8SClientset(ctx)
 
 	// check permission
 	if err := helpers.CheckPermission(ctx, clientset, []string{req.Namespace}, "list"); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "permission check failed")
 		return err
 	}
 
 	pathname, err := findLogFile(s.containerLogsDir, req.Namespace, req.PodName, req.ContainerName, req.ContainerId)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to find log file")
 		return err
 	}
+
+	// Add the pathname as a span attribute
+	span.SetAttributes(attribute.String("log.file_path", pathname))
 
 	args := []string{
 		"stream-forward", pathname,
@@ -87,10 +115,12 @@ func (s *LogRecordsService) StreamForward(req *clusteragentpb.LogRecordsStreamRe
 
 	if req.StartTime != "" {
 		args = append(args, "--start-time", req.StartTime)
+		span.SetAttributes(attribute.String("log.start_time", req.StartTime))
 	}
 
 	if req.StopTime != "" {
 		args = append(args, "--stop-time", req.StopTime)
+		span.SetAttributes(attribute.String("log.stop_time", req.StopTime))
 	}
 
 	cmd := exec.CommandContext(ctx, "./rgkl", args...)
@@ -98,12 +128,16 @@ func (s *LogRecordsService) StreamForward(req *clusteragentpb.LogRecordsStreamRe
 	// Get a pipe
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to create stdout pipe")
 		return err
 	}
 	scanner := bufio.NewScanner(stdout)
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to create stderr pipe")
 		return err
 	}
 
@@ -137,8 +171,13 @@ func (s *LogRecordsService) StreamForward(req *clusteragentpb.LogRecordsStreamRe
 
 	// Start command
 	if err := cmd.Start(); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to start rgkl command")
 		return err
 	}
+
+	// Add event when streaming starts
+	span.AddEvent("streaming_started")
 
 	// worker loop
 Loop:
@@ -146,13 +185,16 @@ Loop:
 		select {
 		case <-s.shutdownCh:
 			logger.Debug().Msg("received shutdown signal")
+			span.AddEvent("shutdown_signal_received")
 			break Loop
 		case <-ctx.Done():
 			logger.Debug().Msg("client disconnected")
+			span.AddEvent("client_disconnected")
 			break Loop
 		case jsonStr, ok := <-stdoutChan:
 			if !ok {
 				logger.Debug().Str("json", jsonStr).Msg("stdout channel closed")
+				span.AddEvent("stdout_channel_closed")
 				break Loop
 			}
 
@@ -165,6 +207,8 @@ Loop:
 			err = stream.Send(output)
 			if err != nil {
 				logger.Error().Err(err).Send()
+				span.RecordError(err)
+				span.SetStatus(codes.Error, "failed to send log record to client")
 				break Loop
 			}
 		}
@@ -172,6 +216,7 @@ Loop:
 
 	// Kill command
 	cancel()
+	span.AddEvent("streaming_completed")
 
 	return nil
 }
