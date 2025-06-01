@@ -63,9 +63,17 @@ func InitTracer(cfg *OTelConfig) error {
 	}
 
 	// Development mode use gRPC trace exporter to an OTel collector without TLS
-	// since this is a local development setup only for now. This will send data to localhost:4317 by default.
-	// TODO: Add support for a custom collector endpoint.
-	traceExporter, err := otlptracegrpc.New(context.Background(), otlptracegrpc.WithInsecure())
+	// since this is a local development setup only for now.
+	var traceExporter trace.SpanExporter
+	if cfg.Endpoint != "" {
+		// Use custom endpoint
+		traceExporter, err = otlptracegrpc.New(context.Background(),
+			otlptracegrpc.WithInsecure(),
+			otlptracegrpc.WithEndpoint(cfg.Endpoint))
+	} else {
+		// Use default endpoint (localhost:4317)
+		traceExporter, err = otlptracegrpc.New(context.Background(), otlptracegrpc.WithInsecure())
+	}
 	if err != nil {
 		return err
 	}

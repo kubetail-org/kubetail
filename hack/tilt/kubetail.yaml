@@ -430,6 +430,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+        - name: OTEL_EXPORTER_OTLP_HEADERS
+          value: "Authorization=<get-api-key-from-hyperdx-ui>"
         args:
         - --config=/etc/kubetail/config.yaml
         volumeMounts:
@@ -500,6 +502,13 @@ spec:
         matchLabels:
           app.kubernetes.io/name: kubetail
           app.kubernetes.io/component: cluster-api
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: clickstack
+      podSelector:
+        matchLabels:
+          app: clickstack
 ---
 kind: ServiceAccount
 apiVersion: v1

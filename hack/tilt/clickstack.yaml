@@ -1,0 +1,51 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: clickstack
+  labels:
+    name: clickstack
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: clickstack
+  namespace: clickstack
+spec:
+  selector:
+    app: clickstack
+  ports:
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+  - name: webapp
+    port: 8080
+    targetPort: 8080
+  - name: otlp-http
+    port: 4318
+    targetPort: 4318
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: clickstack
+  namespace: clickstack
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickstack
+  template:
+    metadata:
+      labels:
+        app: clickstack
+    spec:
+      containers:
+      - name: clickstack
+        image: docker.hyperdx.io/hyperdx/hyperdx-all-in-one
+        ports:
+        - name: otlp-grpc
+          containerPort: 4317
+        - name: webapp
+          containerPort: 8080
+        - name: otlp-http
+          containerPort: 4318 
