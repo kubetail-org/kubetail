@@ -23,4 +23,9 @@ Fixes #
 - [ ] Rebase branch to HEAD
 - [ ] Squash changes into one signed, single commit [^1]
 
+## If you have UI changes
+
+- [ ] The developer has added tests or explained why testing cannot be added.
+- [ ] Included any necessary screenshots or gifs if it was a UI change.
+
 [^1]: See suggested [commit format](https://github.com/kubetail-org/.github/blob/main/pull-request-commit-format.md)
