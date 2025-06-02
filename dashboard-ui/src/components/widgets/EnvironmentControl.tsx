@@ -28,7 +28,7 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
     return localStorage.getItem('kubetail:dev:clusterAPIEnabledOverride') || '';
   });
 
-  const isClusterAPIEnabled = useIsClusterAPIEnabled(env);
+  const isClusterAPIEnabled = useIsClusterAPIEnabled(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newEnv = e.target.value;

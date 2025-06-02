@@ -444,15 +444,11 @@ export function useIsClusterAPIEnabled(kubeContext: string | null) {
   const status = useClusterAPIServerStatus(kubeContext || "");
 
   if (override !== null) {
-    return JSON.parse(override); 
+    return override; 
   }
 
   // Return if running in cluster with ClusterAPI enabled
   if (appConfig.environment === 'cluster') {
-    console.log(
-      '[ClusterAPI] Using appConfig default:',
-      appConfig.clusterAPIEnabled
-    );
     return appConfig.clusterAPIEnabled;
   }
 
