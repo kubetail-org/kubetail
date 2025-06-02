@@ -12,15 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useSubscription } from '@apollo/client';
-import { Fragment, useEffect, useState } from 'react';
-import {
-  RecoilRoot,
-  atom,
-  useRecoilValue,
-  useSetRecoilState,
-  type SetterOrUpdater,
-} from 'recoil';
+import { useEffect, useState } from 'react';
 import Form from '@kubetail/ui/elements/Form';
 import { useIsClusterAPIEnabled } from '@/lib/hooks';
 import Modal from '../elements/Modal';
@@ -89,9 +81,7 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
 const EnvironmentControlWidgetWrapper = (
   props: EnvironmentControlWidgetProps
 ) => (
-  <RecoilRoot>
     <EnvironmentControl {...props} />
-  </RecoilRoot>
 );
 
 export default EnvironmentControlWidgetWrapper;
