@@ -33,7 +33,7 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const [env, setEnv] = useState<string>(() => {
-    return localStorage.getItem('clusterAPIEnabled') || '';
+    return localStorage.getItem('kubetail:dev:clusterAPIEnabledOverride') || '';
   });
   const isClusterAPIEnabled = useIsClusterAPIEnabled(env);
 
@@ -43,7 +43,7 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
   };
 
   useEffect(() => {
-    localStorage.setItem('clusterAPIEnabled', env);
+    localStorage.setItem('kubetail:dev:clusterAPIEnabledOverride', env);
   }, [env]);
 
   return (

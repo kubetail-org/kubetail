@@ -437,7 +437,7 @@ export function useCounterQueryWithSubscription<
  */
 
 export function useIsClusterAPIEnabled(kubeContext: string | null) {
-  const override = localStorage.getItem('clusterAPIEnabled');
+  const override = localStorage.getItem('kubetail:dev:clusterAPIEnabledOverride');
   if (override === 'enabled') return true;
   if (override === 'disabled') return false;
 
