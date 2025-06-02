@@ -908,11 +908,12 @@ const CountBadge = ({ count, workload, workloadFilter }: { count: number, worklo
 );
 
 /**
- * Sidebar component
+ * SidebarContent component
  */
 
-const Sidebar = () => {
+const SidebarContent = () => {
   const { workloadFilter, setWorkloadFilter } = useContext(Context);
+
   const data = useFilteredWorkloads();
 
   const counts = {
@@ -955,6 +956,24 @@ const Sidebar = () => {
       </ul>
     </div>
   );
+};
+
+/**
+ * Sidebar component
+ */
+
+const Sidebar = () => {
+  const { kubeContext } = useContext(Context);
+
+  const readyWait = useSubscription(dashboardOps.KUBERNETES_API_READY_WAIT, {
+    variables: { kubeContext },
+  });
+
+  if (readyWait.loading || kubeContext === undefined) {
+    return null;
+  }
+
+  return <SidebarContent />;
 };
 
 /**

@@ -130,12 +130,15 @@ const dateField = {
   },
 };
 
-function k8sPagination() {
+export function k8sPagination() {
   return {
     keyArgs: ['kubeContext', 'namespace', 'options', ['labelSelector'], '@connection', ['key']],
     merge(existing: any, incoming: any, x: any) {
       // first call
       if (existing === undefined) return incoming;
+
+      // refetch call
+      if (x.args.options?.continue === '') return incoming;
 
       // merge if incoming is called with continue arg from existing
       if (x.args.options.continue && x.args.options.continue === existing.metadata.continue) {
@@ -145,8 +148,8 @@ function k8sPagination() {
         return mergedObj as typeof incoming;
       }
 
-      // otherwise take incoming
-      return incoming;
+      // otherwise take existing
+      return existing;
     },
   };
 }
