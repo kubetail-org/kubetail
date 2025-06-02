@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::{
-    error::Error,
     fs::File,
     io::{BufRead, BufReader, Seek, SeekFrom},
 };
@@ -38,7 +37,7 @@ pub fn find_nearest_offset_since(
     min_offset: u64,
     max_offset: u64,
     format: FileFormat,
-) -> Result<Option<Offset>, Box<dyn Error>> {
+) -> eyre::Result<Option<Offset>> {
     find_nearest_offset(
         file,
         target_time,
@@ -57,7 +56,7 @@ pub fn find_nearest_offset_until(
     min_offset: u64,
     max_offset: u64,
     format: FileFormat,
-) -> Result<Option<Offset>, Box<dyn Error>> {
+) -> eyre::Result<Option<Offset>> {
     find_nearest_offset(
         file,
         target_time,
@@ -80,7 +79,7 @@ fn find_nearest_offset(
     max_offset: u64,
     mode: FindMode,
     format: FileFormat,
-) -> Result<Option<Offset>, Box<dyn Error>> {
+) -> eyre::Result<Option<Offset>> {
     if max_offset == 0 {
         return Ok(None);
     }
@@ -152,7 +151,7 @@ fn scan_timestamp(
     right: i64,
     start_pos: i64,
     format: FileFormat,
-) -> Result<(i64, Option<ScanResultTuple>), Box<dyn Error>> {
+) -> eyre::Result<(i64, Option<ScanResultTuple>)> {
     let mut pos = start_pos;
     while pos <= right {
         let mut line = String::new();
@@ -216,7 +215,7 @@ mod common {
 
     /// Helper to create a temporary log file from a slice of log lines.
     /// Returns the file and a vector of the starting byte offset for each line.
-    pub fn create_temp_log(lines: &[&str]) -> Result<(NamedTempFile, Vec<Offset>), Box<dyn Error>> {
+    pub fn create_temp_log(lines: &[&str]) -> eyre::Result<(NamedTempFile, Vec<Offset>)> {
         let mut tmpfile = NamedTempFile::new()?;
         let mut offsets = Vec::with_capacity(lines.len());
         let mut byte_offset = 0u64;
@@ -242,7 +241,7 @@ mod tests_find_nearest_offset_since {
     use super::*;
 
     #[test]
-    fn test_normal() -> Result<(), Box<dyn Error>> {
+    fn test_normal() -> eyre::Result<()> {
         let lines = [
             "2024-10-01T05:40:46.960135302Z stdout F linenum 1",
             "2024-10-01T05:40:48.840712595Z stdout F linenum 2",
@@ -304,7 +303,7 @@ mod tests_find_nearest_offset_since {
     }
 
     #[test]
-    fn test_normal_json() -> Result<(), Box<dyn Error>> {
+    fn test_normal_json() -> eyre::Result<()> {
         let lines = [
             "{\"time\":\"2024-10-01T05:40:46.960135302Z\", \"log\":\"linenum 1\"}",
             "{\"time\":\"2024-10-01T05:40:48.840712595Z\", \"log\":\"linenum 2\"}",
@@ -366,7 +365,7 @@ mod tests_find_nearest_offset_since {
     }
 
     #[test]
-    fn test_one_line() -> Result<(), Box<dyn Error>> {
+    fn test_one_line() -> eyre::Result<()> {
         let line = "2024-10-01T05:40:23.308676722Z stdout F linenum 1";
         let (tmpfile, offsets) = common::create_temp_log(&[line])?;
 
@@ -399,7 +398,7 @@ mod tests_find_nearest_offset_since {
     }
 
     #[test]
-    fn test_empty() -> Result<(), Box<dyn Error>> {
+    fn test_empty() -> eyre::Result<()> {
         let (tmpfile, _offsets) = common::create_temp_log(&[])?;
 
         let file = tmpfile.into_file();
@@ -414,7 +413,7 @@ mod tests_find_nearest_offset_since {
     }
 
     #[test]
-    fn test_malformed_single() -> Result<(), Box<dyn Error>> {
+    fn test_malformed_single() -> eyre::Result<()> {
         let line = "failed";
         let (tmpfile, _offsets) = common::create_temp_log(&[line])?;
 
@@ -529,7 +528,7 @@ mod tests_find_nearest_offset_until {
     use super::*;
 
     #[test]
-    fn test_normal() -> Result<(), Box<dyn Error>> {
+    fn test_normal() -> eyre::Result<()> {
         let lines = [
             "2024-10-01T05:40:46.960135302Z stdout F linenum 1",
             "2024-10-01T05:40:48.840712595Z stdout F linenum 2",
@@ -591,7 +590,7 @@ mod tests_find_nearest_offset_until {
     }
 
     #[test]
-    fn test_one_line() -> Result<(), Box<dyn Error>> {
+    fn test_one_line() -> eyre::Result<()> {
         let line = "2024-10-01T05:40:23.308676722Z stdout F linenum 1";
         let (tmpfile, offsets) = common::create_temp_log(&[line])?;
 
@@ -624,7 +623,7 @@ mod tests_find_nearest_offset_until {
     }
 
     #[test]
-    fn test_empty() -> Result<(), Box<dyn Error>> {
+    fn test_empty() -> eyre::Result<()> {
         let (tmpfile, _offsets) = common::create_temp_log(&[])?;
 
         let file = tmpfile.into_file();
@@ -639,7 +638,7 @@ mod tests_find_nearest_offset_until {
     }
 
     #[test]
-    fn test_malformed_single() -> Result<(), Box<dyn Error>> {
+    fn test_malformed_single() -> eyre::Result<()> {
         let line = "failed";
         let (tmpfile, _offsets) = common::create_temp_log(&[line])?;
 

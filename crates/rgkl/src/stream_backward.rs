@@ -40,7 +40,7 @@ pub fn run<W: Write>(
     grep: &str,
     term_rx: Receiver<()>,
     writer: &mut W,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> eyre::Result<()> {
     // Path to the symlink file you want to monitor.
     let symlink_path = Path::new(path);
 
