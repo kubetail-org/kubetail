@@ -27,6 +27,7 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
   const [env, setEnv] = useState<string>(() => {
     return localStorage.getItem('kubetail:dev:clusterAPIEnabledOverride') || '';
   });
+
   const isClusterAPIEnabled = useIsClusterAPIEnabled(env);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -35,7 +36,12 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
   };
 
   useEffect(() => {
-    localStorage.setItem('kubetail:dev:clusterAPIEnabledOverride', env);
+    if (env === '') {
+      localStorage.removeItem('kubetail:dev:clusterAPIEnabledOverride');
+    }
+    else {
+      localStorage.setItem('kubetail:dev:clusterAPIEnabledOverride', env);
+    }
   }, [env]);
 
   return (
@@ -67,8 +73,9 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
                   handleChange(ev);
                 }}
               >
-                <Form.Option value="enabled">Kubetail api</Form.Option>
-                <Form.Option value="disabled">Kubernetes api</Form.Option>
+                <Form.Option value="">Auto</Form.Option>
+                <Form.Option value="true">Kubetail api</Form.Option>
+                <Form.Option value="false">Kubernetes api</Form.Option>
               </Form.Select>
             </div>
           </Form.Group>
@@ -81,7 +88,7 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
 const EnvironmentControlWidgetWrapper = (
   props: EnvironmentControlWidgetProps
 ) => (
-    <EnvironmentControl {...props} />
+  <EnvironmentControl {...props} />
 );
 
 export default EnvironmentControlWidgetWrapper;
