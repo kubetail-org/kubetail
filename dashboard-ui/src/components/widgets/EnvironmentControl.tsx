@@ -37,21 +37,12 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
   });
   const isClusterAPIEnabled = useIsClusterAPIEnabled(env);
 
-  /*const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    console.log(isClusterAPIEnabled);
-    const newEnv = e.target.value;
-    setEnv(newEnv);
-
-    localStorage.setItem("clusterAPIEnabled", newEnv);
-  };*/
-
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newEnv = e.target.value;
     setEnv(newEnv);
   };
 
   useEffect(() => {
-    console.log('EnvironmentControl useEffect', env, isClusterAPIEnabled);
     localStorage.setItem('clusterAPIEnabled', env);
   }, [env]);
 
@@ -66,7 +57,7 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
       <Modal
         open={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
-        className="!max-w-[550px]"
+        className="max-w-[550px]"
       >
         <Modal.Title className="flex items-center space-x-3">
           <span>Environment control</span>
