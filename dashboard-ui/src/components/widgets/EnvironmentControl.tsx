@@ -24,30 +24,28 @@ type EnvironmentControlWidgetProps = {
 const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const [env, setEnv] = useState<string>(() => {
-    return localStorage.getItem('kubetail:dev:clusterAPIEnabledOverride') || '';
-  });
+  const [env, setEnv] = useState<string>(() => localStorage.getItem('kubetail:dev:clusterAPIEnabledOverride') || '');
 
-  const isClusterAPIEnabled = useIsClusterAPIEnabled(null);
+  useEffect(() => {
+    if (env === '') {
+      localStorage.removeItem('kubetail:dev:clusterAPIEnabledOverride');
+    } else {
+      localStorage.setItem('kubetail:dev:clusterAPIEnabledOverride', env);
+    }
+  }, [env]);
+
+  useIsClusterAPIEnabled(null, env);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newEnv = e.target.value;
     setEnv(newEnv);
   };
 
-  useEffect(() => {
-    if (env === '') {
-      localStorage.removeItem('kubetail:dev:clusterAPIEnabledOverride');
-    }
-    else {
-      localStorage.setItem('kubetail:dev:clusterAPIEnabledOverride', env);
-    }
-  }, [env]);
-
   return (
     <div>
       <button
         className={`text-xs text-chrome-500 hover:text-chrome-700 pr-3 ${className}`}
+        type="button"
         onClick={() => setIsDialogOpen(true)}
       >
         Environment Control
@@ -86,7 +84,7 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
 };
 
 const EnvironmentControlWidgetWrapper = (
-  props: EnvironmentControlWidgetProps
+  props: EnvironmentControlWidgetProps,
 ) => (
   <EnvironmentControl {...props} />
 );

@@ -37,7 +37,7 @@ export default function Footer() {
         <Form.Option value={UserPreference.Light}>light</Form.Option>
       </Form.Select>
       <ServerStatus />
-      {import.meta.env.MODE === "development" && (
+      {import.meta.env.MODE === 'development' && (
         <EnvironmentControlWidgetWrapper />
       )}
     </div>
