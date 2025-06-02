@@ -23,6 +23,7 @@ use signal_hook::{
 
 use crate::stream_forward::FollowFrom;
 
+mod error;
 mod stream_backward;
 mod stream_forward;
 mod util;
