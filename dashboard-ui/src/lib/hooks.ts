@@ -436,21 +436,16 @@ export function useCounterQueryWithSubscription<
  * ClusterAPIEnabled hook
  */
 
-export function useIsClusterAPIEnabled(kubeContext: string | null, env: string | null = null) {
-  let override: boolean | null = null;
-
-  if (env !== null && env !== '') {
-    try {
-      override = JSON.parse(env);
-    } catch (e) {
-      override = null;
-    }
-  }
-
+export function useIsClusterAPIEnabled(kubeContext: string | null) {
   const status = useClusterAPIServerStatus(kubeContext || '');
 
-  if (override !== null) {
-    return override;
+  if (import.meta.env.MODE === 'development') {
+    const overrideRaw = localStorage.getItem('kubetail:dev:clusterAPIEnabledOverride');
+    const override = overrideRaw !== null ? JSON.parse(overrideRaw) : null;
+console.log('useIsClusterAPIEnabled', override, status);
+    if (override !== null) {
+      return override;
+    }
   }
 
   // Return if running in cluster with ClusterAPI enabled

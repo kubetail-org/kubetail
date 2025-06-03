@@ -13,9 +13,11 @@
 // limitations under the License.
 
 import { useEffect, useState } from 'react';
+
 import Form from '@kubetail/ui/elements/Form';
+
+import Modal from '@/components/elements/Modal';
 import { useIsClusterAPIEnabled } from '@/lib/hooks';
-import Modal from '../elements/Modal';
 
 type EnvironmentControlWidgetProps = {
   className?: string;
@@ -34,11 +36,12 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
     }
   }, [env]);
 
-  useIsClusterAPIEnabled(null, env);
+  useIsClusterAPIEnabled(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newEnv = e.target.value;
     setEnv(newEnv);
+    window.location.reload();
   };
 
   return (
