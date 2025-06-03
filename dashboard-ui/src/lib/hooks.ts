@@ -442,7 +442,6 @@ export function useIsClusterAPIEnabled(kubeContext: string | null) {
   if (import.meta.env.MODE === 'development') {
     const overrideRaw = localStorage.getItem('kubetail:dev:clusterAPIEnabledOverride');
     const override = overrideRaw !== null ? JSON.parse(overrideRaw) : null;
-console.log('useIsClusterAPIEnabled', override, status);
     if (override !== null) {
       return override;
     }
