@@ -32,6 +32,7 @@ import (
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/syncmap"
 )
 
 // Represents HealthStatus enum
@@ -68,7 +69,7 @@ func NewHealthMonitor(cfg *config.Config, cm k8shelpers.ConnectionManager) Healt
 // Represents DesktopHealthMonitor
 type DesktopHealthMonitor struct {
 	cm          k8shelpers.ConnectionManager
-	workerCache sync.Map
+	workerCache syncmap.Map[string, healthMonitorWorker]
 	contextMu   map[string]*sync.Mutex
 	mu          sync.Mutex
 }
@@ -77,7 +78,7 @@ type DesktopHealthMonitor struct {
 func NewDesktopHealthMonitor(cm k8shelpers.ConnectionManager) *DesktopHealthMonitor {
 	return &DesktopHealthMonitor{
 		cm:          cm,
-		workerCache: sync.Map{},
+		workerCache: syncmap.Map[string, healthMonitorWorker]{},
 		contextMu:   make(map[string]*sync.Mutex),
 	}
 }
@@ -85,12 +86,12 @@ func NewDesktopHealthMonitor(cm k8shelpers.ConnectionManager) *DesktopHealthMoni
 // Shutdown all managed monitors
 func (hm *DesktopHealthMonitor) Shutdown() {
 	var wg sync.WaitGroup
-	hm.workerCache.Range(func(key, value interface{}) bool {
+	hm.workerCache.Range(func(key string, value healthMonitorWorker) bool {
 		wg.Add(1)
 		go func(worker healthMonitorWorker) {
 			defer wg.Done()
 			worker.Shutdown()
-		}(value.(healthMonitorWorker))
+		}(value)
 		return true
 	})
 	wg.Wait()
@@ -146,9 +147,8 @@ func (hm *DesktopHealthMonitor) getOrCreateWorker(ctx context.Context, kubeConte
 
 	// Check cache
 	var worker healthMonitorWorker
-	value, ok := hm.workerCache.Load(k)
-	if ok {
-		worker = value.(healthMonitorWorker)
+	if value, ok := hm.workerCache.Load(k); ok {
+		worker = value
 	} else {
 		// Get clientset
 		clientset, err := hm.cm.GetOrCreateClientset(kubeContext)
