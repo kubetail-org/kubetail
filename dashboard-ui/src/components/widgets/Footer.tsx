@@ -16,7 +16,7 @@ import Form from '@kubetail/ui/elements/Form';
 
 import ServerStatus from '@/components/widgets/ServerStatus';
 import { useTheme, UserPreference } from '@/lib/theme';
-import EnvironmentControlWidgetWrapper from './EnvironmentControl';
+import EnvironmentControl from './EnvironmentControl';
 
 export default function Footer() {
   const { userPreference, setUserPreference } = useTheme();
@@ -38,7 +38,7 @@ export default function Footer() {
       </Form.Select>
       <div className="flex">
         {import.meta.env.MODE === 'development' && (
-          <EnvironmentControlWidgetWrapper />
+          <EnvironmentControl />
         )}
         <ServerStatus />
       </div>

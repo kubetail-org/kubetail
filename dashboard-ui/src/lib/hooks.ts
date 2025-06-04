@@ -19,6 +19,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import appConfig from '@/app-config';
 import { getClusterAPIClient } from '@/apollo-client';
+import { LOCAL_STORAGE_KEY } from '@/components/widgets/EnvironmentControl';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import * as clusterAPIOps from '@/lib/graphql/cluster-api/ops';
 import { Counter } from './util';
@@ -440,11 +441,8 @@ export function useIsClusterAPIEnabled(kubeContext: string | null) {
   const status = useClusterAPIServerStatus(kubeContext || '');
 
   if (import.meta.env.MODE === 'development') {
-    const overrideRaw = localStorage.getItem('kubetail:dev:clusterAPIEnabledOverride');
-    const override = overrideRaw !== null ? JSON.parse(overrideRaw) : null;
-    if (override !== null) {
-      return override;
-    }
+    const overrideValue = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (overrideValue !== null) return JSON.parse(overrideValue);
   }
 
   // Return if running in cluster with ClusterAPI enabled

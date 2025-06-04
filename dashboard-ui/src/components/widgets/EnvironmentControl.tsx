@@ -18,26 +18,29 @@ import Form from '@kubetail/ui/elements/Form';
 
 import Modal from '@/components/elements/Modal';
 
-type EnvironmentControlWidgetProps = {
+type EnvironmentControlProps = {
   className?: string;
 };
 
-const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+export const LOCAL_STORAGE_KEY = 'kubetail:dev:clusterAPIEnabledOverride';
 
-  const [env, setEnv] = useState<string>(() => localStorage.getItem('kubetail:dev:clusterAPIEnabledOverride') || '');
+type APIMode = '' | 'true' | 'false';
+
+const EnvironmentControl = ({ className }: EnvironmentControlProps) => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [apiMode, setApiMode] = useState<APIMode>(() => (localStorage.getItem(LOCAL_STORAGE_KEY) || '') as APIMode);
 
   useEffect(() => {
-    if (env === '') {
-      localStorage.removeItem('kubetail:dev:clusterAPIEnabledOverride');
+    if (apiMode === '') {
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
     } else {
-      localStorage.setItem('kubetail:dev:clusterAPIEnabledOverride', env);
+      localStorage.setItem(LOCAL_STORAGE_KEY, apiMode);
     }
-  }, [env]);
+  }, [apiMode]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newEnv = e.target.value;
-    setEnv(newEnv);
+  const handleModeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newMode = e.target.value as APIMode;
+    setApiMode(newMode);
     window.location.reload();
   };
 
@@ -55,25 +58,21 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
         onClose={() => setIsDialogOpen(false)}
         className="max-w-[550px]"
       >
-        <Modal.Title className="flex items-center space-x-3">
-          <span>Environment control</span>
-        </Modal.Title>
+        <Modal.Title>Environment Control</Modal.Title>
         <div className="mt-5 pb-8">
           <Form.Group>
             <Form.Label>
               Switch between Kubernetes API and Kubetail API
             </Form.Label>
-            <div className="pt-3 ">
+            <div className="pt-3">
               <Form.Select
                 className={className}
-                value={env}
-                onChange={(ev) => {
-                  handleChange(ev);
-                }}
+                value={apiMode}
+                onChange={handleModeChange}
               >
                 <Form.Option value="">Auto</Form.Option>
-                <Form.Option value="true">Kubetail api</Form.Option>
-                <Form.Option value="false">Kubernetes api</Form.Option>
+                <Form.Option value="true">Kubetail API</Form.Option>
+                <Form.Option value="false">Kubernetes API</Form.Option>
               </Form.Select>
             </div>
           </Form.Group>
@@ -83,10 +82,4 @@ const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
   );
 };
 
-const EnvironmentControlWidgetWrapper = (
-  props: EnvironmentControlWidgetProps,
-) => (
-  <EnvironmentControl {...props} />
-);
-
-export default EnvironmentControlWidgetWrapper;
+export default EnvironmentControl;
