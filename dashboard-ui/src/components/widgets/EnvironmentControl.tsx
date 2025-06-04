@@ -1,0 +1,92 @@
+// Copyright 2024-2025 Andres Morey
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import { useEffect, useState } from 'react';
+
+import Form from '@kubetail/ui/elements/Form';
+
+import Modal from '@/components/elements/Modal';
+
+type EnvironmentControlWidgetProps = {
+  className?: string;
+};
+
+const EnvironmentControl = ({ className }: EnvironmentControlWidgetProps) => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const [env, setEnv] = useState<string>(() => localStorage.getItem('kubetail:dev:clusterAPIEnabledOverride') || '');
+
+  useEffect(() => {
+    if (env === '') {
+      localStorage.removeItem('kubetail:dev:clusterAPIEnabledOverride');
+    } else {
+      localStorage.setItem('kubetail:dev:clusterAPIEnabledOverride', env);
+    }
+  }, [env]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newEnv = e.target.value;
+    setEnv(newEnv);
+    window.location.reload();
+  };
+
+  return (
+    <div>
+      <button
+        className={`text-xs text-chrome-500 hover:text-chrome-700 pr-3 ${className}`}
+        type="button"
+        onClick={() => setIsDialogOpen(true)}
+      >
+        Environment Control
+      </button>
+      <Modal
+        open={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        className="max-w-[550px]"
+      >
+        <Modal.Title className="flex items-center space-x-3">
+          <span>Environment control</span>
+        </Modal.Title>
+        <div className="mt-5 pb-8">
+          <Form.Group>
+            <Form.Label>
+              Switch between Kubernetes API and Kubetail API
+            </Form.Label>
+            <div className="pt-3 ">
+              <Form.Select
+                className={className}
+                value={env}
+                onChange={(ev) => {
+                  handleChange(ev);
+                }}
+              >
+                <Form.Option value="">Auto</Form.Option>
+                <Form.Option value="true">Kubetail api</Form.Option>
+                <Form.Option value="false">Kubernetes api</Form.Option>
+              </Form.Select>
+            </div>
+          </Form.Group>
+        </div>
+      </Modal>
+    </div>
+  );
+};
+
+const EnvironmentControlWidgetWrapper = (
+  props: EnvironmentControlWidgetProps,
+) => (
+  <EnvironmentControl {...props} />
+);
+
+export default EnvironmentControlWidgetWrapper;
