@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -29,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"github.com/kubetail-org/kubetail/modules/shared/util"
 )
 
 const (
@@ -57,13 +58,13 @@ type DesktopAuthorizer interface {
 
 // Represents DesktopAuthorizer
 type DefaultDesktopAuthorizer struct {
-	cache sync.Map // map[cacheKey]cacheValue
+	cache util.SyncMap[cacheKey, cacheValue]
 }
 
 // Create new DesktopAuthorizer instance
 func NewDesktopAuthorizer() DesktopAuthorizer {
 	return &DefaultDesktopAuthorizer{
-		cache: sync.Map{},
+		cache: util.SyncMap[cacheKey, cacheValue]{},
 	}
 }
 
@@ -80,8 +81,7 @@ func (a *DefaultDesktopAuthorizer) IsAllowedInformer(ctx context.Context, client
 		}
 
 		// Check if we have a valid cached result
-		if val, ok := a.cache.Load(key); ok {
-			cachedVal := val.(cacheValue)
+		if cachedVal, ok := a.cache.Load(key); ok {
 			if time.Now().Before(cachedVal.expiration) {
 				// Cache hit and still valid
 				if !cachedVal.allowed {
@@ -158,14 +158,14 @@ type InClusterAuthorizer interface {
 // Represents InClusterAuthorizer
 type DefaultInClusterAuthorizer struct {
 	clientsetInitializer clientsetInitializer
-	cache                sync.Map // map[cacheKey]cacheValue
+	cache                util.SyncMap[string, cacheValue]
 }
 
 // Create new InClusterAuthorizer instance
 func NewInClusterAuthorizer() InClusterAuthorizer {
 	return &DefaultInClusterAuthorizer{
 		clientsetInitializer: &defaultClientsetInitializer{},
-		cache:                sync.Map{},
+		cache:                util.SyncMap[string, cacheValue]{},
 	}
 }
 
@@ -205,8 +205,7 @@ func (a *DefaultInClusterAuthorizer) IsAllowedInformer(ctx context.Context, rest
 		tokenKey := fmt.Sprintf("%s%v", cacheKeyPrefix, key)
 
 		// Check if we have a valid cached result
-		if val, ok := a.cache.Load(tokenKey); ok {
-			cachedVal := val.(cacheValue)
+		if cachedVal, ok := a.cache.Load(tokenKey); ok {
 			if time.Now().Before(cachedVal.expiration) {
 				// Cache hit and still valid
 				if !cachedVal.allowed {
