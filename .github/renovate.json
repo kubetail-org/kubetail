@@ -1,0 +1,35 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "mergeConfidence:all-badges",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":semanticPrefixChore",
+    ":label(dependencies)",
+    ":disableRateLimiting"
+  ],
+  "automergeType": "branch",
+  "commitMessagePrefix": "chore: ",
+  "packageRules": [
+    {
+      "groupName": "high confidence: patch dependency updates",
+      "description": "Automerge patch",
+      "matchUpdateTypes": ["patch"],
+      "matchConfidence": ["very high", "high"],
+      "automerge": true
+    },
+    {
+      "groupName": "high confidence: minor dependency updates",
+      "description": "No automerge for minor updates",
+      "matchUpdateTypes": ["minor"],
+      "matchConfidence": ["very high", "high"],
+      "automerge": false
+    },
+    {
+      "description": "No automerge for major updates",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ]
+}
