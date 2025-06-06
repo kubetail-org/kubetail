@@ -72,8 +72,25 @@ go generate ./...
 
 ## Test
 
-To run the test suite execute this command:
+To run the test suite directly:
 
 ```console
 go test ./...
+```
+
+Using the Makefile from the project root:
+
+```console
+# Run tests for all modules including dashboard
+make dashboard-ui-test
+
+# Run linter
+make dashboard-ui-lint
+
+
+```
+
+You can also run all Dashboard checks at once with:
+```console
+make dashboard-ui-all
 ```

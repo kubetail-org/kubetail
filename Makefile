@@ -100,6 +100,9 @@ crates-test:
 	@echo "Testing Rust crates..."
 	@cd $(CRATES_DIR) && cargo test
 
+crates-all: crates-build crates-lint crates-vet crates-test
+	@echo "All Rust crate operations completed successfully."
+
 # Go (modules) targets
 modules-lint:
 	@echo "Linting Go modules..."
@@ -113,6 +116,9 @@ modules-vet:
 	@echo "Vetting Go modules..."
 	@cd $(MODULES_DIR) && go vet github.com/kubetail-org/kubetail/modules/...
 
+modules-all: modules-lint modules-test modules-vet
+	@echo "All Go module operations completed successfully."
+
 # Dashboard UI targets
 dashboard-ui-lint:
 	@echo "Linting dashboard UI..."
@@ -121,6 +127,9 @@ dashboard-ui-lint:
 dashboard-ui-test:
 	@echo "Testing dashboard UI..."
 	@cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm test run
+
+dashboard-ui-all: dashboard-ui-lint dashboard-ui-test
+	@echo "All dashboard UI operations completed successfully."
 
 # Combined targets
 lint-all: crates-lint modules-lint dashboard-ui-lint
@@ -152,11 +161,14 @@ help:
 	@echo "  crates-lint           - Lint Rust crates"
 	@echo "  crates-vet            - Vet Rust crates"
 	@echo "  crates-test           - Test Rust crates"
+	@echo "  crates-all            - Run all Rust crate operations"
 	@echo "  modules-lint          - Lint Go modules"
 	@echo "  modules-test          - Test Go modules"
 	@echo "  modules-vet           - Vet Go modules"
+	@echo "  modules-all           - Run all Go module operations"
 	@echo "  dashboard-ui-lint     - Lint dashboard UI"
 	@echo "  dashboard-ui-test     - Test dashboard UI"
+	@echo "  dashboard-ui-all      - Run all dashboard UI operations"
 	@echo "  lint-all              - Run all lint checks"
 	@echo "  test-all              - Run all tests"
 	@echo "  vet-all               - Run all vetting"
