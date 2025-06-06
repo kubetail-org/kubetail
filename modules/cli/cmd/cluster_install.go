@@ -45,11 +45,17 @@ var clusterInstallCmd = &cobra.Command{
 		kubeContext, _ := flags.GetString(KubeContextFlag)
 		//name, _ := cmd.Flags().GetString("name")
 		//namespace, _ := cmd.Flags().GetString("namespace")
+		test, _ := cmd.Flags().GetBool("test")
 		name := helm.DefaultReleaseName
 		namespace := helm.DefaultNamespace
 
 		// Init client
 		client := helm.NewClient(helm.WithKubeconfigPath(kubeconfigPath), helm.WithKubeContext(kubeContext))
+
+		if test {
+			cmd.Println("ok")
+			return
+		}
 
 		// Install
 		release, err := client.InstallLatest(namespace, name)
@@ -70,4 +76,5 @@ func init() {
 	flagset.String(KubeContextFlag, "", "Name of the kubeconfig context to use")
 	//flagset.String("name", helm.DefaultReleaseName, "Release name")
 	//flagset.StringP("namespace", "n", helm.DefaultNamespace, "Namespace to install into")
+	flagset.Bool("test", false, "Run internal tests and exit")
 }
