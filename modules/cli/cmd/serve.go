@@ -57,7 +57,7 @@ var serveCmd = &cobra.Command{
 		port, _ := cmd.Flags().GetInt("port")
 		host, _ := cmd.Flags().GetString("host")
 		skipOpen, _ := cmd.Flags().GetBool("skip-open")
-		//remote, _ := cmd.Flags().GetBool("remote")
+		// remote, _ := cmd.Flags().GetBool("remote")
 		remote := false
 		test, _ := cmd.Flags().GetBool("test")
 
@@ -213,11 +213,11 @@ var serveCmd = &cobra.Command{
 }
 
 func serveRemote(kubeconfigPath string, localPort int, skipOpen bool) {
-	// listen for termination signals
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	defer close(quit)
-	tunnel, err := tunnel.NewTunnel(kubeconfigPath, "kubetail-system", "kubetail-dashboard", 80, localPort)
+	// Initalize context that stops on SIGTERM
+	rootCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop() // clean up resources
+
+	tunnel, err := tunnel.NewTunnel(rootCtx, kubeconfigPath, "kubetail-system", "kubetail-dashboard", 80, localPort)
 	if err != nil {
 		zlog.Fatal().Err(err).Send()
 	}
@@ -233,7 +233,7 @@ func serveRemote(kubeconfigPath string, localPort int, skipOpen bool) {
 	}
 
 	// wait for termination signal
-	<-quit
+	<-rootCtx.Done()
 
 	// graceful shutdown with 30 second deadline
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -275,6 +275,6 @@ func init() {
 	flagset.String("host", "localhost", "Host address to bind to")
 	flagset.StringP("log-level", "l", "info", "Log level (debug, info, warn, error, disabled)")
 	flagset.Bool("skip-open", false, "Skip opening the browser")
-	//flagset.Bool("remote", false, "Open tunnel to remote dashboard")
+	// flagset.Bool("remote", false, "Open tunnel to remote dashboard")
 	flagset.Bool("test", false, "Run internal tests and exit")
 }
