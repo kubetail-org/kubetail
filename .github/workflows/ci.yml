@@ -187,7 +187,7 @@ jobs:
           file: build/package/Dockerfile.dashboard
           push: false
           tags: kubetail-dashboard:latest
-        
+
   build-cluster-api-amd64:
     needs:
       - crates-lint
@@ -235,7 +235,7 @@ jobs:
           file: build/package/Dockerfile.cluster-api
           push: false
           tags: kubetail-cluster-api:latest
-      
+
   build-cluster-agent-amd64:
     needs:
       - crates-lint
@@ -311,6 +311,11 @@ jobs:
           cache: false
       - name: Run build script
         run: make build
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-linux-amd64
+          path: bin/*
 
   build-cli-linux-arm64:
     needs:
@@ -336,7 +341,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24.3'
-          cache: false  
+          cache: false
       - name: Run build script
         run: make build
 
@@ -364,7 +369,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24.3'
-          cache: false  
+          cache: false
       - name: Run build script
         run: make build
 
@@ -479,3 +484,32 @@ jobs:
           cache: false
       - name: Run build script
         run: make build
+
+  e2e-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.3'
+          cache: false
+
+      - name: Setup k3s cluster using k3d
+        uses: AbsaOSS/k3d-action@v2
+        with:
+          cluster-name: 'kubetail-test-cluster'
+          args: --agents 1
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.33.1
+
+      - name: Test the kubetail logs command
+        run: |
+          make e2e-test

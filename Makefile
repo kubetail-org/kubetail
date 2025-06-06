@@ -144,6 +144,20 @@ vet-all: crates-vet modules-vet
 ci-checks: lint-all test-all vet-all
 	@echo "All CI checks completed successfully."
 
+check-deps:
+	@command -v k3d >/dev/null 2>&1 || { echo "❌ 'k3d' is not installed, Please install it from https://k3d.io/stable/#releases to run the tests"; exit 1; }
+	@command -v kubectl >/dev/null 2>&1 || { echo "❌ 'kubectl' is not installed, Please install it from https://kubernetes.io/docs/tasks/tools to run the tests"; exit 1; }
+	@echo "✅ All dependencies are installed"
+
+e2e-test:check-deps build
+	@kubectl wait --for=condition=Ready nodes --all --timeout=60s
+	@kubectl apply -f .github/ci-config/k3d/log-demo.yaml
+	@kubectl --context=k3d-kubetail-test-cluster wait --for=condition=available deployment/log-demo --timeout=60s
+	
+	@OUTPUT=$$($(OUTPUT_DIR)/$(CLI_BINARY) logs deployments/log-demo --kube-context k3d-kubetail-test-cluster); \
+	echo "$$OUTPUT"; \
+	echo "$$OUTPUT" | grep -q "Kubetail test logs from deployment log-demo" && echo "✅ Test Passed" || (echo "❌ Test Failed" && exit 1)
+
 ## Clean the build output
 clean:
 	@echo "Cleaning up..."
