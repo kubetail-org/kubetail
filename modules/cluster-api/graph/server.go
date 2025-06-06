@@ -19,8 +19,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"time"
 	"slices"
+	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/extension"
