@@ -82,15 +82,17 @@ Using the Makefile from the project root:
 
 ```console
 # Run tests for all modules including dashboard
-make dashboard-ui-test
+make modules-test
 
 # Run linter
-make dashboard-ui-lint
+make modules-lint
+
+# Run code vetting
+make modules-vet
 
 
 ```
-
 You can also run all Dashboard checks at once with:
 ```console
-make dashboard-ui-all
+make modules-all
 ```

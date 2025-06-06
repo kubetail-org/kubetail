@@ -22,12 +22,34 @@ This project uses [vitest](https://vitest.dev/) for testing. To run the test sui
 pnpm test
 ```
 
+Using the Makefile from the project root:
+
+```console
+# Run dashboard UI tests
+make dashboard-ui-test
+```
+
 ## Lint
 
 This project uses TypeScript and enforces the [Airbnb JavaScript styleguide](https://github.com/airbnb/javascript) using eslint. To run the linter:
 
 ```sh
 pnpm lint
+```
+
+Using the Makefile from the project root:
+
+```console
+# Run dashboard UI linting
+make dashboard-ui-lint
+```
+
+## Combined Operations
+
+To run all dashboard UI tests and linting in one command, use:
+
+```console
+make dashboard-ui-all
 ```
 
 ## Build
@@ -39,3 +61,10 @@ pnpm build
 ```
 
 This will place the static assets in the `dist` directory.
+
+Using the Makefile from the project root:
+
+```console
+# Build the dashboard UI
+make build-dashboard-ui
+```
