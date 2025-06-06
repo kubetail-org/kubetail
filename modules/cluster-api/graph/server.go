@@ -48,7 +48,7 @@ type Server struct {
 
 // allowedSecFetchSite defines the secure values for the Sec-Fetch-Site header.
 // It's defined at the package level to avoid re-allocation on every WebSocket upgrade request.
-var allowedSecFetchSite = []string{"same-origin", "same-site"}
+var allowedSecFetchSite = []string{"same-origin"}
 
 // Create new Server instance
 func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string, csrfProtectMiddleware func(http.Handler) http.Handler) *Server {
