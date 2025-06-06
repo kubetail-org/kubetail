@@ -70,8 +70,7 @@ func NewHealthMonitor(cfg *config.Config, cm k8shelpers.ConnectionManager) Healt
 type DesktopHealthMonitor struct {
 	cm          k8shelpers.ConnectionManager
 	workerCache util.SyncMap[string, healthMonitorWorker]
-	contextMu   map[string]*sync.Mutex
-	mu          sync.Mutex
+	contextMu   util.SyncMap[string, *sync.Mutex]
 }
 
 // Create new DesktopHealthMonitor instance
@@ -79,7 +78,7 @@ func NewDesktopHealthMonitor(cm k8shelpers.ConnectionManager) *DesktopHealthMoni
 	return &DesktopHealthMonitor{
 		cm:          cm,
 		workerCache: util.SyncMap[string, healthMonitorWorker]{},
-		contextMu:   make(map[string]*sync.Mutex),
+		contextMu:   util.SyncMap[string, *sync.Mutex]{},
 	}
 }
 
@@ -127,13 +126,7 @@ func (hm *DesktopHealthMonitor) ReadyWait(ctx context.Context, kubeContext strin
 // getOrCreateWorker
 func (hm *DesktopHealthMonitor) getOrCreateWorker(ctx context.Context, kubeContext string, namespacePtr *string, serviceNamePtr *string) (healthMonitorWorker, error) {
 	// Get or create mutex for this kubeContext
-	hm.mu.Lock()
-	contextMutex, exists := hm.contextMu[kubeContext]
-	if !exists {
-		contextMutex = &sync.Mutex{}
-		hm.contextMu[kubeContext] = contextMutex
-	}
-	hm.mu.Unlock()
+	contextMutex, _ := hm.contextMu.LoadOrStore(kubeContext, &sync.Mutex{})
 
 	// Lock the context-specific mutex for worker creation
 	contextMutex.Lock()

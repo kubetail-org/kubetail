@@ -56,7 +56,7 @@ func (t *Tunnel) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func NewTunnel(kubeconfigPath string, namespace, serviceName string, remotePort, localPort int) (*Tunnel, error) {
+func NewTunnel(ctx context.Context, kubeconfigPath string, namespace, serviceName string, remotePort, localPort int) (*Tunnel, error) {
 	// Use loading rules from clientcmd
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	loadingRules.ExplicitPath = kubeconfigPath
@@ -74,7 +74,7 @@ func NewTunnel(kubeconfigPath string, namespace, serviceName string, remotePort,
 	}
 
 	// Find service
-	service, err := clientset.CoreV1().Services(namespace).Get(context.TODO(), serviceName, metav1.GetOptions{})
+	service, err := clientset.CoreV1().Services(namespace).Get(ctx, serviceName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func NewTunnel(kubeconfigPath string, namespace, serviceName string, remotePort,
 		return nil, err
 	}
 
-	podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
+	podList, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: labelSelector.String(),
 	})
 	if err != nil {
