@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"time"
+	"slices"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/extension"
@@ -46,6 +47,10 @@ type Server struct {
 	hm         clusterapi.HealthMonitor
 	shutdownCh chan struct{}
 }
+
+// allowedSecFetchSite defines the secure values for the Sec-Fetch-Site header.
+// It's defined at the package level to avoid re-allocation on every WebSocket upgrade request.
+var allowedSecFetchSite = []string{"same-origin", "same-site"}
 
 // Create new Server instance
 func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, csrfProtectMiddleware func(http.Handler) http.Handler) *Server {
@@ -90,19 +95,25 @@ func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, csrfProte
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
-				// We have to return true here because `kubectl proxy` modifies the Host header
-				// so requests will fail same-origin tests and unfortunately not all browsers
-				// have implemented `sec-fetch-site` header. Instead, we will use CSRF token
-				// validation to ensure requests are coming from the same site.
-				return true
+				// Check the Sec-Fetch-Site header for an additional layer of security.
+				secFetchSite := r.Header.Get("Sec-Fetch-Site")
+
+				// If the header is absent, we fall back to the CSRF token validation
+				// in the InitFunc. This supports older browsers or non-browser clients.
+				if secFetchSite == "" {
+					return true
+				}
+
+				// For modern browsers that send the header, enforce strict same-site policies.
+				// This is the primary defense against Cross-Site WebSocket Hijacking (CSWSH).
+				return slices.Contains(allowedSecFetchSite, secFetchSite)
 			},
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
 		KeepAlivePingInterval: 10 * time.Second,
-		// Because we had to disable same-origin checks in the CheckOrigin() handler
-		// we will use use CSRF token validation to ensure requests are coming from
-		// the same site. (See https://dev.to/pssingh21/websockets-bypassing-sop-cors-5ajm)
+		// The InitFunc below handles the CSRF token validation, serving as our
+		// fallback protection when Sec-Fetch-Site is not available.
 		InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
 			// Check if csrf protection is disabled
 			if csrfProtectMiddleware == nil {
