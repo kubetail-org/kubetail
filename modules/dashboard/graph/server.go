@@ -16,9 +16,8 @@ package graph
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"slices"
 	"time"
 
@@ -34,11 +33,8 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
+	sharedwebsocket "github.com/kubetail-org/kubetail/modules/shared/graphql/websocket"
 )
-
-type ctxKey int
-
-const cookiesCtxKey ctxKey = iota
 
 // Represents Server
 type Server struct {
@@ -120,26 +116,8 @@ func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, csrfProte
 				return ctx, &initPayload, nil
 			}
 
-			csrfToken := initPayload.Authorization()
-
-			cookies, ok := ctx.Value(cookiesCtxKey).([]*http.Cookie)
-			if !ok {
-				return ctx, nil, errors.New("AUTHORIZATION_REQUIRED")
-			}
-
-			// Make mock request
-			r, _ := http.NewRequest("POST", "/", nil)
-			for _, cookie := range cookies {
-				r.AddCookie(cookie)
-			}
-			r.Header.Set("X-CSRF-Token", csrfToken)
-
-			// Run request through csrf protect function
-			rr := httptest.NewRecorder()
-			csrfProtect.ServeHTTP(rr, r)
-
-			if rr.Code != 200 {
-				return ctx, nil, errors.New("AUTHORIZATION_REQUIRED")
+			if err := sharedwebsocket.ValidateCSRFToken(ctx, csrfProtect, initPayload.Authorization()); err != nil {
+				return ctx, nil, fmt.Errorf("CSRF token validation failed: %w", err)
 			}
 
 			// Close websockets on shutdown signal
@@ -175,7 +153,7 @@ func (s *Server) Shutdown() {
 // ServeHTTP
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Add cookies to context for use in WSInitFunc
-	ctx := context.WithValue(r.Context(), cookiesCtxKey, r.Cookies())
+	ctx := context.WithValue(r.Context(), sharedwebsocket.CookiesCtxKey, r.Cookies())
 
 	// Execute
 	s.h.ServeHTTP(w, r.WithContext(ctx))
