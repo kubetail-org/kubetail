@@ -5,8 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-
-	"github.com/gorilla/csrf"
 )
 
 type ctxKey int
@@ -28,11 +26,8 @@ func ValidateCSRFToken(ctx context.Context, csrfProtect http.Handler, csrfToken 
 
 	// Run request through csrf protect function
 	rr := httptest.NewRecorder()
+	csrfProtect.ServeHTTP(rr, r)
 
-	// As this is a mock request, we must signal that the request is being served over plaintext HTTP
-	// so Referer-based origin allow-listing checks are skipped
-	mockReqContext := context.WithValue(ctx, csrf.PlaintextHTTPContextKey, true)
-	csrfProtect.ServeHTTP(rr, r.WithContext(mockReqContext))
 	if rr.Code != 200 {
 		return errors.New("AUTHORIZATION_REQUIRED")
 	}
