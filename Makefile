@@ -144,11 +144,13 @@ vet-all: crates-vet modules-vet
 ci-checks: lint-all test-all vet-all
 	@echo "All CI checks completed successfully."
 
+# checking if the test dependencies are installed
 check-deps:
 	@command -v k3d >/dev/null 2>&1 || { echo "❌ 'k3d' is not installed, Please install it from https://k3d.io/stable/#releases to run the tests"; exit 1; }
 	@command -v kubectl >/dev/null 2>&1 || { echo "❌ 'kubectl' is not installed, Please install it from https://kubernetes.io/docs/tasks/tools to run the tests"; exit 1; }
 	@echo "✅ All dependencies are installed"
 
+# Testing if we can read the expected logs with kubetail 
 e2e-test:check-deps build
 	@if ! k3d cluster list | grep -q 'kubetail-test-cluster'; then \
 		echo "🛠️ Cluster not found. Creating..."; \
