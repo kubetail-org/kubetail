@@ -14,7 +14,9 @@ This workspace contains the following modules:
 
 Please view the README in each directory for more details. 
 
-## Run code generators
+## Development Commands
+
+### Run code generators
 
 First install the dependencies:
 
@@ -28,10 +30,26 @@ Next, run the code generators:
 go generate github.com/kubetail-org/kubetail/modules/...
 ```
 
-## Run tests
+### Run tests
 
-To run the tests in all the modules:
-
+Using the Go toolchain directly:
 ```console
 go test github.com/kubetail-org/kubetail/modules/...
+```
+
+Using the Makefile:
+```console
+# Run tests for all Go modules
+make modules-test
+
+# Run linter for all Go modules
+make modules-lint
+
+# Run code vetting for all Go modules
+make modules-vet
+```
+
+You can also run all Go module checks at once with:
+```console
+make modules-all
 ```
