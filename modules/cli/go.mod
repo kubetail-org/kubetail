@@ -11,8 +11,10 @@ replace github.com/kubetail-org/kubetail/modules/shared => ../shared
 require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-logr/logr v1.4.3
+	github.com/kubetail-org/grpc-dispatcher-go v0.1.0
 	github.com/kubetail-org/kubetail/modules/dashboard v0.0.0-00010101000000-000000000000
 	github.com/kubetail-org/kubetail/modules/shared v0.0.0-20250606073538-44ccee7179d2
+	github.com/mark3labs/mcp-go v0.31.0
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/rs/zerolog v1.34.0
 	github.com/sosodev/duration v1.3.1
@@ -23,6 +25,7 @@ require (
 	k8s.io/apimachinery v0.33.1
 	k8s.io/client-go v0.33.1
 	k8s.io/klog/v2 v2.130.1
+	k8s.io/kubectl v0.33.1
 )
 
 require (
@@ -100,7 +103,6 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
-	github.com/kubetail-org/grpc-dispatcher-go v0.1.0 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
@@ -151,6 +153,7 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
+	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.opentelemetry.io/otel v1.36.0 // indirect
 	go.opentelemetry.io/otel/trace v1.36.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
@@ -178,7 +181,6 @@ require (
 	k8s.io/cli-runtime v0.33.1 // indirect
 	k8s.io/component-base v0.33.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
-	k8s.io/kubectl v0.33.1 // indirect
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397 // indirect
 	oras.land/oras-go/v2 v2.6.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
