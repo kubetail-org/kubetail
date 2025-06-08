@@ -1,0 +1,23 @@
+# https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-demo
+  labels:
+    app: log-demo
+spec:
+  selector:
+    matchLabels:
+      app: log-demo
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: log-demo
+    spec:
+      containers:
+        - name: log-demo
+          image: busybox
+          command: ['/bin/sh', '-c']
+          args:
+            ["echo 'Kubetail test logs from deployment log-demo'; sleep 3600;"]
