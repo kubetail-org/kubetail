@@ -16,7 +16,7 @@
     "@fontsource-variable/roboto-flex": "^5.2.5",
     "@headlessui/react": "2.2.0",
     "@heroicons/react": "^2.2.0",
-    "@kubetail/ui": "0.1.8",
+    "@kubetail/ui": "0.2.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "date-fns-tz": "^3.2.0",
@@ -40,7 +40,7 @@
   },
   "devDependencies": {
     "@apollo/react-testing": "^4.0.0",
-    "@babel/core": "^7.26.10", 
+    "@babel/core": "^7.26.10",
     "@eslint/js": "^9.24.0",
     "@graphql-codegen/cli": "^5.0.5",
     "@graphql-codegen/client-preset": "^4.8.0",
