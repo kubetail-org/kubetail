@@ -23,6 +23,9 @@ export enum Shape {
 
 const AVAILABLE_SHAPES = [Shape.CIRCLE, Shape.SQUARE, Shape.DIAMOND, Shape.TRIANGLE];
 
+// Storage key for container order tracking
+const CONTAINER_ORDER_STORAGE_KEY = 'kubetail-container-order';
+
 // Improved color palettes - 20 colors each theme
 // Light theme: Darker, more saturated colors that show well on white backgrounds
 const LIGHT_THEME_COLORS = [
@@ -72,6 +75,36 @@ const DARK_THEME_COLORS = [
   '#adb5bd', // Light Grey
 ];
 
+// Get or initialize container order from localStorage
+const getContainerOrder = (): string[] => {
+  try {
+    const stored = localStorage.getItem(CONTAINER_ORDER_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+// Add container to order list if not already present
+const addContainerToOrder = (containerKey: string): number => {
+  try {
+    const order = getContainerOrder();
+    const existingIndex = order.indexOf(containerKey);
+    
+    if (existingIndex !== -1) {
+      return existingIndex;
+    }
+    
+    // Add new container to the end
+    order.push(containerKey);
+    localStorage.setItem(CONTAINER_ORDER_STORAGE_KEY, JSON.stringify(order));
+    return order.length - 1;
+  } catch {
+    // Fallback to hash-based index if localStorage fails
+    return Math.abs(containerKey.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 1000;
+  }
+};
+
 export type ContainerShapeProps = {
   containerKey: string;
   size?: 'small' | 'medium';
@@ -80,19 +113,38 @@ export type ContainerShapeProps = {
 };
 
 export const ContainerShape = ({ containerKey, size = 'medium', className = '', theme = 'light' }: ContainerShapeProps) => {
-  // Use hash to consistently assign shapes and colors
-  const getShapeIndex = async (key: string) => {
+  // Use order-based assignment for shapes and hash-based for colors
+  const getAssignment = async (key: string) => {
+    // Get the order index (0-based) for this container
+    const orderIndex = addContainerToOrder(key);
+    
+    // Use hash for consistent color assignment
     const streamUTF8 = new TextEncoder().encode(key);
     const buffer = await crypto.subtle.digest('SHA-256', streamUTF8);
     const view = new DataView(buffer);
-    return view.getUint32(4) % AVAILABLE_SHAPES.length; // Use different offset than color
-  };
-
-  const getColorIndex = async (key: string) => {
-    const streamUTF8 = new TextEncoder().encode(key);
-    const buffer = await crypto.subtle.digest('SHA-256', streamUTF8);
-    const view = new DataView(buffer);
-    return view.getUint32(0) % 20; // Use modulo 20 for 20 colors
+    const colorSeed = view.getUint32(0);
+    
+    let shapeIndex: number;
+    let colorIndex: number;
+    
+    if (orderIndex < 20) {
+      // First 20 containers in order: All circles with sequential colors
+      shapeIndex = 0; // Circle
+      colorIndex = orderIndex % 20;
+    } else if (orderIndex < 80) {
+      // Next 60 containers: Random shapes (excluding circle) with random colors
+      const nonCircleShapes = [1, 2, 3]; // Square, Diamond, Triangle
+      const shapeSeed = view.getUint32(4);
+      shapeIndex = nonCircleShapes[shapeSeed % nonCircleShapes.length];
+      colorIndex = colorSeed % 20;
+    } else {
+      // 80+ containers: Random shapes (all 4) with random colors
+      const shapeSeed = view.getUint32(4);
+      shapeIndex = shapeSeed % AVAILABLE_SHAPES.length;
+      colorIndex = colorSeed % 20;
+    }
+    
+    return { shapeIndex, colorIndex };
   };
 
   const [shape, setShape] = useState<Shape>(Shape.CIRCLE);
@@ -101,10 +153,7 @@ export const ContainerShape = ({ containerKey, size = 'medium', className = '', 
   useEffect(() => {
     const colors = theme === 'dark' ? DARK_THEME_COLORS : LIGHT_THEME_COLORS;
     
-    Promise.all([
-      getShapeIndex(containerKey),
-      getColorIndex(containerKey)
-    ]).then(([shapeIndex, colorIndex]) => {
+    getAssignment(containerKey).then(({ shapeIndex, colorIndex }) => {
       setShape(AVAILABLE_SHAPES[shapeIndex]);
       setColor(colors[colorIndex]);
     });
@@ -168,4 +217,13 @@ export const ContainerShape = ({ containerKey, size = 'medium', className = '', 
 };
 
 // Export color arrays for use in other components if needed
-export { LIGHT_THEME_COLORS, DARK_THEME_COLORS }; 
+export { LIGHT_THEME_COLORS, DARK_THEME_COLORS };
+
+// Export utility function to clear container order (for testing/debugging)
+export const clearContainerOrder = (): void => {
+  try {
+    localStorage.removeItem(CONTAINER_ORDER_STORAGE_KEY);
+  } catch {
+    // Ignore errors
+  }
+}; 
