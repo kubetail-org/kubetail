@@ -445,7 +445,6 @@ func handleStreamingRequest(ctx context.Context, stream *logs.Stream, query stri
 		len(initialRecords), nextPollStr, string(jsonData))), nil
 }
 
-
 func formatResponse(response *LogSearchResponse, format string, records []logs.LogRecord) (*mcp.CallToolResult, error) {
 	switch format {
 	case "raw":

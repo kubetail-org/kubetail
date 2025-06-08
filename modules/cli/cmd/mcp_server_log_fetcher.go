@@ -152,7 +152,7 @@ func (f *ClusterAPIProxyLogFetcher) streamLogs(ctx context.Context, source logs.
 				timestamp, err = time.Parse(time.RFC3339, record.Timestamp)
 				if err != nil {
 					log.Debug().Err(err).Str("timestamp", record.Timestamp).Msg("Could not parse timestamp")
-					timestamp = time.Now() 
+					timestamp = time.Now()
 				}
 			}
 
