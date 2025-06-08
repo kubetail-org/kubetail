@@ -11,7 +11,6 @@ replace github.com/kubetail-org/kubetail/modules/shared => ../shared
 require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-logr/logr v1.4.3
-	github.com/kubetail-org/grpc-dispatcher-go v0.1.0
 	github.com/kubetail-org/kubetail/modules/dashboard v0.0.0-00010101000000-000000000000
 	github.com/kubetail-org/kubetail/modules/shared v0.0.0-20250606073538-44ccee7179d2
 	github.com/mark3labs/mcp-go v0.31.0
@@ -103,6 +102,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
+	github.com/kubetail-org/grpc-dispatcher-go v0.1.0 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect

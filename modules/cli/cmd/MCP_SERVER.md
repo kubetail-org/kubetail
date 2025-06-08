@@ -2,6 +2,15 @@
 
 The Kubetail MCP server provides an interface for AI tools (like Claude Desktop) to access Kubernetes logs through natural language queries.
 
+### Code Structure
+
+The MCP server implementation is split across multiple files for better code organization:
+
+1. **mcp_server.go** - Main command implementation and request handler
+2. **mcp_server_types.go** - Type definitions for request/response structures
+3. **mcp_server_log_fetcher.go** - Implementation of the ClusterAPIProxyLogFetcher
+4. **mcp_server_utils.go** - Utility functions for log processing and response formatting
+
 ### Advanced Filtering
 
 The MCP server supports many filtering options:
