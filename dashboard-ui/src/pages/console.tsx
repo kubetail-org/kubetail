@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
-import distinctColors from 'distinct-colors';
 import {
   History as HistoryIcon,
   Pause as PauseIcon,
@@ -51,6 +50,7 @@ import {
 import { Counter, cn, cssEncode, getBasename, joinPaths, MapSet } from '@/lib/util';
 import { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { Workload, allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
+import { useTheme, Theme } from '@/lib/theme';
 
 /**
  * Shared
@@ -75,17 +75,59 @@ function cssID(namespace: string, podName: string, containerName: string) {
  * Configure container colors component
  */
 
-const palette = distinctColors({
-  count: 20,
-  chromaMin: 40,
-  chromaMax: 100,
-  lightMin: 20,
-  lightMax: 80,
-});
+// Color palettes for each theme - 20 colors ordered by maximum distinctiveness
+const LIGHT_THEME_COLORS = [
+  '#e6194b', // Red
+  '#3cb44b', // Green
+  '#4363d8', // Blue
+  '#ffe119', // Yellow
+  '#f58231', // Orange
+  '#911eb4', // Purple
+  '#46f0f0', // Cyan
+  '#f032e6', // Magenta
+  '#9a6324', // Brown
+  '#fabebe', // Pink
+  '#008080', // Teal
+  '#e6beff', // Lavender
+  '#800000', // Maroon
+  '#808000', // Olive
+  '#000075', // Navy
+  '#bcf60c', // Lime
+  '#fffac8', // Beige
+  '#aaffc3', // Mint
+  '#ffd8b1', // Apricot
+  '#808080', // Grey
+];
+
+const DARK_THEME_COLORS = [
+  '#ff6b6b', // Bright Red
+  '#51cf66', // Bright Green
+  '#74c0fc', // Sky Blue
+  '#ffd43b', // Bright Yellow
+  '#ff922b', // Bright Orange
+  '#cc5de8', // Bright Purple
+  '#22d3ee', // Bright Cyan
+  '#f783ac', // Bright Magenta
+  '#d2691e', // Light Brown
+  '#fbb6ce', // Light Pink
+  '#20c997', // Light Teal
+  '#d0bfff', // Light Lavender
+  '#fa8072', // Light Coral
+  '#a4ac86', // Light Olive
+  '#4dabf7', // Light Navy
+  '#94d82d', // Bright Lime
+  '#f8f9c7', // Light Beige
+  '#96f2d7', // Light Mint
+  '#ffdecc', // Light Apricot
+  '#adb5bd', // Light Grey
+];
 
 const ConfigureContainerColors = () => {
   const { sources } = useSources();
+  const { theme } = useTheme();
   const containerKeysRef = useRef(new Set<string>());
+
+  const colors = theme === Theme.Dark ? DARK_THEME_COLORS : LIGHT_THEME_COLORS;
 
   sources.forEach((source) => {
     const k = cssID(source.namespace, source.podName, source.containerName);
@@ -99,12 +141,17 @@ const ConfigureContainerColors = () => {
       const streamUTF8 = new TextEncoder().encode(k);
       const buffer = await crypto.subtle.digest('SHA-256', streamUTF8);
       const view = new DataView(buffer);
-      const colorIDX = view.getUint32(0) % 20;
+      const colorIDX = view.getUint32(0) % 20; // Use modulo 20 for 20 colors
 
       // set css var
-      document.documentElement.style.setProperty(`--${k}-color`, palette[colorIDX].hex());
+      document.documentElement.style.setProperty(`--${k}-color`, colors[colorIDX]);
     })();
   });
+
+  // Re-apply colors when theme changes
+  useEffect(() => {
+    containerKeysRef.current.clear();
+  }, [theme]);
 
   return null;
 };

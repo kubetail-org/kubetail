@@ -14,8 +14,8 @@
 
 import { useApolloClient, useQuery, useSubscription } from '@apollo/client';
 import type { TypedDocumentNode, OperationVariables, Unmasked, MaybeMasked } from '@apollo/client';
-import distinctColors from 'distinct-colors';
-import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { useCallback, useEffect, useRef} from 'react';
 
 import appConfig from '@/app-config';
 import { getClusterAPIClient } from '@/apollo-client';
@@ -546,41 +546,7 @@ export function useLogMetadata(options?: LogMetadataHookOptions) {
   return { loading, error, data };
 }
 
-/**
- * Color picker hook
- */
 
-const palette = distinctColors({
-  count: 20,
-  chromaMin: 40,
-  chromaMax: 100,
-  lightMin: 20,
-  lightMax: 80,
-});
-
-export function useColors(streams: string[]) {
-  const [colorMap, setColorMap] = useState<Map<string, string>>(new Map());
-  useEffect(() => {
-    const promises: Promise<ArrayBuffer>[] = [];
-
-    streams.forEach((stream) => {
-      const streamUTF8 = new TextEncoder().encode(stream);
-      promises.push(crypto.subtle.digest('SHA-256', streamUTF8));
-    });
-
-    Promise.all(promises).then((values) => {
-      values.forEach((value, i) => {
-        const view = new DataView(value);
-        const n = view.getUint8(0);
-        const idx = ((2 * n) % 400) % 20;
-        colorMap.set(streams[i], palette[idx].hex());
-      });
-      setColorMap(new Map(colorMap));
-    });
-  }, [streams]);
-
-  return { colorMap };
-}
 
 /**
  * Workload counter hook
