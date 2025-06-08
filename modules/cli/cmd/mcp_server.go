@@ -619,15 +619,6 @@ var mcpServerCmd = &cobra.Command{
 				return mcp.NewToolResultError(fmt.Sprintf("Failed to start log stream: %v", err)), nil
 			}
 
-			var records []logs.LogRecord
-			for record := range stream.Records() {
-				records = append(records, record)
-			}
-
-			if stream.Err() != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Error while streaming logs: %v", stream.Err())), nil
-			}
-
 			processingTime := time.Since(startTime).Milliseconds()
 
 			appliedFilters := AppliedFilters{
@@ -661,6 +652,122 @@ var mcpServerCmd = &cobra.Command{
 				ServerSideGrep:   grep != "" && logFetcherType == "AgentLogFetcher",
 				ProcessingTimeMs: processingTime,
 				SourcesScanned:   len(sourcePaths),
+			}
+
+			// Handle streaming (follow) requests
+			if follow {
+				var streamingSince time.Time
+
+				// since parameter was provided
+				if since != "" {
+					var err error
+					streamingSince, err = parseTimeArgMCP(since)
+					if err != nil {
+						return mcp.NewToolResultError(fmt.Sprintf("Invalid since time for streaming: %v", err)), nil
+					}
+				} else {
+					// no since parameter, use current time, start collecting from 5 seconds ago
+					streamingSince = time.Now().Add(-5 * time.Second)
+				}
+
+				hasSinceOption := false
+				for i, opt := range streamOpts {
+					// check the option, if it's a WithSince
+					if optStr := fmt.Sprintf("%T", opt); strings.Contains(optStr, "WithSince") {
+						streamOpts[i] = logs.WithSince(streamingSince)
+						hasSinceOption = true
+						break
+					}
+				}
+
+				// add since option if not found
+				if !hasSinceOption {
+					streamOpts = append(streamOpts, logs.WithSince(streamingSince))
+				}
+
+				var initialRecords []logs.LogRecord
+				recordCount := 0
+				recordLimit := 20 // initial batch size
+
+				timeout := time.After(2 * time.Second)
+				collectDone := false
+
+				for !collectDone {
+					select {
+					case record, ok := <-stream.Records():
+						if !ok {
+							collectDone = true
+							break
+						}
+						initialRecords = append(initialRecords, record)
+						recordCount++
+						if recordCount >= recordLimit {
+							collectDone = true
+						}
+					case <-timeout:
+						collectDone = true
+					case <-ctx.Done():
+						return mcp.NewToolResultError("Request cancelled"), nil
+					}
+				}
+
+				// get latest timestamp from logs for next polling request
+				var latestTimestamp time.Time
+				if len(initialRecords) > 0 {
+					for _, record := range initialRecords {
+						if record.Timestamp.After(latestTimestamp) {
+							latestTimestamp = record.Timestamp
+						}
+					}
+				} else {
+					latestTimestamp = time.Now()
+				}
+
+				// 1 millisecond increment to prevent duplicate logs in next poll
+				nextPollTime := latestTimestamp.Add(time.Millisecond)
+
+				response := buildStructuredResponse(query, initialRecords, appliedFilters, processingInfo)
+
+				// meta info
+				if response.InfraInsights.AppliedFilters == nil {
+					response.InfraInsights.AppliedFilters = []string{}
+				}
+				response.InfraInsights.AppliedFilters = append(
+					response.InfraInsights.AppliedFilters,
+					"Real-time log streaming requires repeated calls with the same parameters")
+
+				if len(initialRecords) == 0 {
+					response.Summary.TotalEntries = 0
+					jsonData, err := json.MarshalIndent(response, "", "  ")
+					if err != nil {
+						return mcp.NewToolResultError(fmt.Sprintf("Failed to serialize response: %v", err)), nil
+					}
+
+					// Use current time as the next poll point
+					nextPollStr := time.Now().Format(time.RFC3339)
+					return mcp.NewToolResultText(fmt.Sprintf("No log entries found. For continuous updates, call again with: since=\"%s\"\n\n%s",
+						nextPollStr, string(jsonData))), nil
+				}
+
+				jsonData, err := json.MarshalIndent(response, "", "  ")
+				if err != nil {
+					return mcp.NewToolResultError(fmt.Sprintf("Failed to serialize response: %v", err)), nil
+				}
+
+				nextPollStr := nextPollTime.Format(time.RFC3339)
+
+				return mcp.NewToolResultText(fmt.Sprintf("Found %d log entries. For continuous updates, call again with: since=\"%s\"\n\n%s",
+					len(initialRecords), nextPollStr, string(jsonData))), nil
+			}
+
+			// For non-streaming requests, collect all records
+			var records []logs.LogRecord
+			for record := range stream.Records() {
+				records = append(records, record)
+			}
+
+			if stream.Err() != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Error while streaming logs: %v", stream.Err())), nil
 			}
 
 			response := buildStructuredResponse(query, records, appliedFilters, processingInfo)
@@ -701,75 +808,194 @@ var mcpServerCmd = &cobra.Command{
 						fetcherInfo += " with server-side filtering"
 					}
 				} else {
-					fetcherInfo = "🔄 KubeLogFetcher (Kubernetes API - client-side processing)"
+					fetcherInfo = "KubeLogFetcher (Kubernetes API - client-side processing)"
 				}
 
-				summaryText := fmt.Sprintf(`Log Analysis Summary for: "%s"
+				var summaryText strings.Builder
 
-📊 **Overview:**
-- Found %d log entries
-- Sources: %d namespaces, %d pods, %d containers  
-- Time range: %s to %s
-- Data source: %s
-- Processing time: %dms
+				fmt.Fprintf(&summaryText, "Logs for query: \"%s\" (Found %d entries)\n\n",
+					query, response.Summary.TotalEntries)
 
-🔍 **Key Insights:**
-- Error entries: %d
-- Warning entries: %d  
-- Top keywords: %v
+				fmt.Fprintf(&summaryText, "**Log Entries:**\n")
 
-📋 **Applied Filters:**`,
-					query,
-					response.Summary.TotalEntries,
-					len(response.Summary.SourceSummary.Namespaces),
-					len(response.Summary.SourceSummary.Pods),
-					len(response.Summary.SourceSummary.Containers),
-					response.Summary.TimeRange.Start,
-					response.Summary.TimeRange.End,
-					fetcherInfo,
-					response.Processing.ProcessingTimeMs,
-					response.Summary.ErrorCount,
-					response.Summary.WarningCount,
-					response.Summary.TopKeywords)
-
-				if appliedFilters.Namespace != "" {
-					summaryText += fmt.Sprintf("\n- Namespace: %s", appliedFilters.Namespace)
-				}
-				if appliedFilters.Pod != "" {
-					summaryText += fmt.Sprintf("\n- Pod: %s", appliedFilters.Pod)
-				}
-				if appliedFilters.Grep != "" {
-					summaryText += fmt.Sprintf("\n- Grep pattern: %s", appliedFilters.Grep)
-				}
-				if len(appliedFilters.Region) > 0 {
-					summaryText += fmt.Sprintf("\n- Regions: %v", appliedFilters.Region)
-				}
-
-				if len(response.Entries) > 0 {
-					summaryText += "\n\n📝 **Sample Entries:**"
-					sampleCount := 3
-					if len(response.Entries) < sampleCount {
-						sampleCount = len(response.Entries)
+				// Prioritize error and warning messages first
+				var errorLogs, warningLogs, otherLogs []LogEntryResponse
+				for _, entry := range response.Entries {
+					if entry.Level == "error" {
+						errorLogs = append(errorLogs, entry)
+					} else if entry.Level == "warning" {
+						warningLogs = append(warningLogs, entry)
+					} else {
+						otherLogs = append(otherLogs, entry)
 					}
+				}
 
-					for i := 0; i < sampleCount; i++ {
-						entry := response.Entries[i]
-						summaryText += fmt.Sprintf("\n[%s] %s/%s [%s]: %s",
+				// limit total entries to display to 10 entries
+				remainingEntries := 10
+
+				// errors first
+				if len(errorLogs) > 0 {
+					fmt.Fprintf(&summaryText, "\n **ERROR LOGS:**\n")
+					for _, entry := range errorLogs {
+						if remainingEntries <= 0 {
+							break
+						}
+						fmt.Fprintf(&summaryText, "  • [%s] %s/%s (%s):\n    %s\n\n",
 							entry.Timestamp,
 							entry.Source.Namespace,
 							entry.Source.PodName,
-							entry.Level,
+							entry.Source.ContainerName,
 							entry.Message)
-					}
-
-					if len(response.Entries) > sampleCount {
-						summaryText += fmt.Sprintf("\n... and %d more entries", len(response.Entries)-sampleCount)
+						remainingEntries--
 					}
 				}
 
-				summaryText += "\n\n💡 **Note:** Use format='detailed' for full structured data or format='raw' for traditional log lines."
+				// warnings
+				if len(warningLogs) > 0 && remainingEntries > 0 {
+					fmt.Fprintf(&summaryText, "\n **WARNING LOGS:**\n")
+					for _, entry := range warningLogs {
+						if remainingEntries <= 0 {
+							break
+						}
+						fmt.Fprintf(&summaryText, "  • [%s] %s/%s (%s):\n    %s\n\n",
+							entry.Timestamp,
+							entry.Source.Namespace,
+							entry.Source.PodName,
+							entry.Source.ContainerName,
+							entry.Message)
+						remainingEntries--
+					}
+				}
 
-				return mcp.NewToolResultText(summaryText), nil
+				// other logs
+				if len(otherLogs) > 0 && remainingEntries > 0 {
+					fmt.Fprintf(&summaryText, "\n **INFO LOGS:**\n")
+					for _, entry := range otherLogs {
+						if remainingEntries <= 0 {
+							break
+						}
+						fmt.Fprintf(&summaryText, "  • [%s] %s/%s (%s):\n    %s\n\n",
+							entry.Timestamp,
+							entry.Source.Namespace,
+							entry.Source.PodName,
+							entry.Source.ContainerName,
+							entry.Message)
+						remainingEntries--
+					}
+				}
+
+				// indicate there are more entries
+				if len(response.Entries) > 10 {
+					fmt.Fprintf(&summaryText, "\n Showing 10 of %d entries. Use format='raw' to see all logs.\n",
+						len(response.Entries))
+				}
+
+				// Display patterns and insights from log analysis
+				fmt.Fprintf(&summaryText, "\n **Log Analysis:**\n")
+
+				// insights about log patterns
+				if response.Summary.ErrorCount > 0 {
+					fmt.Fprintf(&summaryText, "• Found %d error messages - potential issues detected\n",
+						response.Summary.ErrorCount)
+				} else {
+					fmt.Fprintf(&summaryText, "• No errors detected in logs\n")
+				}
+
+				if response.Summary.WarningCount > 0 {
+					fmt.Fprintf(&summaryText, "• Found %d warning messages\n",
+						response.Summary.WarningCount)
+				}
+
+				fmt.Fprintf(&summaryText, "• Timespan: %s to %s\n",
+					response.Summary.TimeRange.Start,
+					response.Summary.TimeRange.End)
+
+				// show top keywords
+				if len(response.Summary.TopKeywords) > 0 {
+					fmt.Fprintf(&summaryText, "• Key topics: %s\n",
+						strings.Join(response.Summary.TopKeywords, ", "))
+				}
+
+				// source information
+				fmt.Fprintf(&summaryText, "\n**Sources:**\n")
+
+				// List all namespaces
+				if len(response.Summary.SourceSummary.Namespaces) > 0 {
+					fmt.Fprintf(&summaryText, "• Namespaces: %s\n",
+						strings.Join(response.Summary.SourceSummary.Namespaces, ", "))
+				}
+
+				// List all pods
+				if len(response.Summary.SourceSummary.Pods) > 0 {
+					if len(response.Summary.SourceSummary.Pods) <= 5 {
+						fmt.Fprintf(&summaryText, "• Pods: %s\n",
+							strings.Join(response.Summary.SourceSummary.Pods, ", "))
+					} else {
+						fmt.Fprintf(&summaryText, "• Pods: %d pods including %s\n",
+							len(response.Summary.SourceSummary.Pods),
+							strings.Join(response.Summary.SourceSummary.Pods[:3], ", "))
+					}
+				}
+
+				// other meta info
+				fmt.Fprintf(&summaryText, "\n **Technical Details:**\n")
+				fmt.Fprintf(&summaryText, "• Data source: %s\n", fetcherInfo)
+				fmt.Fprintf(&summaryText, "• Processing time: %dms\n", response.Processing.ProcessingTimeMs)
+				fmt.Fprintf(&summaryText, "• Sources scanned: %d\n", processingInfo.SourcesScanned)
+
+				if response.InfraInsights.InfrastructureSpan != "" {
+					fmt.Fprintf(&summaryText, "• Infrastructure: %s\n",
+						response.InfraInsights.InfrastructureSpan)
+				}
+
+				// applied filters
+				if appliedFilters.Namespace != "" || appliedFilters.Pod != "" ||
+					appliedFilters.Container != "" || appliedFilters.Grep != "" ||
+					len(appliedFilters.Region) > 0 || len(appliedFilters.Zone) > 0 ||
+					len(appliedFilters.Node) > 0 || appliedFilters.Since != "" ||
+					appliedFilters.Until != "" {
+
+					fmt.Fprintf(&summaryText, "\n**Applied Filters:**\n")
+
+					if appliedFilters.Namespace != "" {
+						fmt.Fprintf(&summaryText, "• Namespace: %s\n", appliedFilters.Namespace)
+					}
+					if appliedFilters.Pod != "" {
+						fmt.Fprintf(&summaryText, "• Pod: %s\n", appliedFilters.Pod)
+					}
+					if appliedFilters.Container != "" {
+						fmt.Fprintf(&summaryText, "• Container: %s\n", appliedFilters.Container)
+					}
+					if appliedFilters.Grep != "" {
+						fmt.Fprintf(&summaryText, "• Grep pattern: %s\n", appliedFilters.Grep)
+					}
+					if len(appliedFilters.Region) > 0 {
+						fmt.Fprintf(&summaryText, "• Regions: %s\n", strings.Join(appliedFilters.Region, ", "))
+					}
+					if len(appliedFilters.Zone) > 0 {
+						fmt.Fprintf(&summaryText, "• Zones: %s\n", strings.Join(appliedFilters.Zone, ", "))
+					}
+					if len(appliedFilters.Node) > 0 {
+						fmt.Fprintf(&summaryText, "• Nodes: %s\n", strings.Join(appliedFilters.Node, ", "))
+					}
+					if appliedFilters.Since != "" {
+						fmt.Fprintf(&summaryText, "• Since: %s\n", appliedFilters.Since)
+					}
+					if appliedFilters.Until != "" {
+						fmt.Fprintf(&summaryText, "• Until: %s\n", appliedFilters.Until)
+					}
+				}
+
+				// streaming instructions if follow is enabled
+				if follow {
+					fmt.Fprintf(&summaryText, "\n **Streaming Instructions:**\n")
+					fmt.Fprintf(&summaryText, "• To continue streaming logs, call again with since=\"%s\"\n",
+						response.Summary.TimeRange.End)
+				}
+
+				fmt.Fprintf(&summaryText, "\n **Note:** Use format='detailed' for full JSON data or format='raw' for traditional log lines.\n\n")
+
+				return mcp.NewToolResultText(summaryText.String()), nil
 			}
 		})
 
