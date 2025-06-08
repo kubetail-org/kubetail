@@ -30,7 +30,6 @@ import (
 	"github.com/sosodev/duration"
 	"github.com/spf13/cobra"
 
-	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,6 +48,7 @@ The server exposes a 'kubernetes_logs_search' tool that can:
 - Search logs across pods and namespaces
 - Filter logs with grep patterns  
 - Query logs using natural language
+- Filter by infrastructure attributes (region, zone, architecture)
 
 Example queries an AI tool can make:
 - "Show me error logs from nginx pods"
@@ -99,10 +99,8 @@ type KubernetesLogsSearchArgs struct {
 // Response structures for AI tool consumption
 type LogEntryResponse struct {
 	Timestamp string            `json:"timestamp"`
-	Namespace string            `json:"namespace"`
-	Pod       string            `json:"pod"`
-	Container string            `json:"container"`
 	Message   string            `json:"message"`
+	Source    logs.LogSource    `json:"source"`
 	Level     string            `json:"level,omitempty"`    // Detected log level
 	Tags      []string          `json:"tags,omitempty"`     // Detected tags/labels
 	Metadata  map[string]string `json:"metadata,omitempty"` // Additional context
@@ -114,7 +112,7 @@ type LogSearchResponse struct {
 	Entries       []LogEntryResponse     `json:"entries"`
 	Filters       AppliedFilters         `json:"filters"`
 	Processing    ProcessingInfo         `json:"processing"`
-	InfraInsights InfrastructureInsights `json:"kubetail_advantages"`
+	InfraInsights InfrastructureInsights `json:"infrastructure_insights"`
 }
 
 type LogSummary struct {
@@ -162,11 +160,11 @@ type ProcessingInfo struct {
 
 // InfrastructureInsights captures Kubetail's infrastructure-aware capabilities
 type InfrastructureInsights struct {
-	AdvancedFiltering    bool     `json:"advanced_filtering"`    // Whether infrastructure-based filters were used (cloud region/os/ cpu architecture)
-	ServerSideFiltering  bool     `json:"server_side_filtering"` // Whether filtering happened on agents vs client
-	ScalabilityAdvantage string   `json:"scalability_advantage"` // Description of performance benefits
-	AppliedFilters       []string `json:"applied_filters"`       // List of applied filters
-	InfrastructureSpan   string   `json:"infrastructure_span"`   // Description of infrastructure coverage
+	AdvancedFiltering   bool     `json:"advanced_filtering"`    // Whether infrastructure-based filters were used (cloud region/os/ cpu architecture)
+	ServerSideFiltering bool     `json:"server_side_filtering"` // Whether filtering happened on agents vs client
+	ProcessingMethod    string   `json:"processing_method"`     // Description of log processing approach
+	AppliedFilters      []string `json:"applied_filters"`       // List of applied filters
+	InfrastructureSpan  string   `json:"infrastructure_span"`   // Description of infrastructure coverage
 }
 
 // ClusterAPIProxyLogFetcher implements LogFetcher using Kubernetes service proxy to reach Cluster API
@@ -758,8 +756,8 @@ var mcpServerCmd = &cobra.Command{
 						entry := response.Entries[i]
 						summaryText += fmt.Sprintf("\n[%s] %s/%s [%s]: %s",
 							entry.Timestamp,
-							entry.Namespace,
-							entry.Pod,
+							entry.Source.Namespace,
+							entry.Source.PodName,
 							entry.Level,
 							entry.Message)
 					}
@@ -1062,10 +1060,8 @@ func buildStructuredResponse(query string, records []logs.LogRecord, filters App
 
 		entry := LogEntryResponse{
 			Timestamp: record.Timestamp.Format(time.RFC3339),
-			Namespace: record.Source.Namespace,
-			Pod:       record.Source.PodName,
-			Container: record.Source.ContainerName,
 			Message:   record.Message,
+			Source:    record.Source,
 			Level:     level,
 			Tags:      extractTags(record.Message),
 			Metadata:  metadata,
@@ -1136,7 +1132,7 @@ func mapKeysToSlice(m map[string]bool) []string {
 func buildInfrastructureInsights(filters AppliedFilters, processing ProcessingInfo) InfrastructureInsights {
 	var appliedFiltersList []string
 	var infrastructureSpan string
-	var scalabilityAdvantage string
+	var processingMethod string
 
 	// Detect advanced infrastructure filtering
 	advancedFiltering := len(filters.Region) > 0 || len(filters.Zone) > 0 ||
@@ -1169,12 +1165,12 @@ func buildInfrastructureInsights(filters AppliedFilters, processing ProcessingIn
 
 	if serverSideFiltering {
 		appliedFiltersList = append(appliedFiltersList, "Agent-based server-side log processing")
-		scalabilityAdvantage = "Logs filtered at source by cluster agents, reducing network transfer and improving query performance"
+		processingMethod = "Logs filtered at source by cluster agents, reducing network transfer and improving query performance"
 		if processing.ServerSideGrep {
 			appliedFiltersList = append(appliedFiltersList, "Server-side regex filtering")
 		}
 	} else {
-		scalabilityAdvantage = "Direct Kubernetes API access with client-side processing"
+		processingMethod = "Direct Kubernetes API access with client-side processing"
 	}
 
 	if infrastructureSpan == "" {
@@ -1190,15 +1186,15 @@ func buildInfrastructureInsights(filters AppliedFilters, processing ProcessingIn
 	appliedFiltersList = append(appliedFiltersList, "Real-time log streaming", "Multi-container correlation", "Structured metadata extraction")
 
 	return InfrastructureInsights{
-		AdvancedFiltering:    advancedFiltering,
-		ServerSideFiltering:  serverSideFiltering,
-		ScalabilityAdvantage: scalabilityAdvantage,
-		AppliedFilters:       appliedFiltersList,
-		InfrastructureSpan:   infrastructureSpan,
+		AdvancedFiltering:   advancedFiltering,
+		ServerSideFiltering: serverSideFiltering,
+		ProcessingMethod:    processingMethod,
+		AppliedFilters:      appliedFiltersList,
+		InfrastructureSpan:  infrastructureSpan,
 	}
 }
 
-// createSmartLogFetcher creates a LogFetcher with AgentLogFetcher priority and graceful fallback
+// createSmartLogFetcher creates a LogFetcher with ClusterAPIProxy priority and graceful fallback
 // This is Kubetail's key advantage: server-side processing when cluster agents are available
 // Returns the fetcher and a string indicating which type was used ("AgentLogFetcher" or "KubeLogFetcher")
 func createSmartLogFetcher(cm k8shelpers.ConnectionManager, kubeContext string) (logs.LogFetcher, string, error) {
@@ -1209,7 +1205,7 @@ func createSmartLogFetcher(cm k8shelpers.ConnectionManager, kubeContext string) 
 		return nil, "KubeLogFetcher", err
 	}
 
-	// Try to create AgentLogFetcher
+	// Try to create AgentLogFetcher via proxy
 	fetcher, fetcherType, err := tryCreateAgentLogFetcher(cm, kubeContext, clientset)
 	if err != nil {
 		log.Debug().Err(err).Msg("Failed to create AgentLogFetcher, using KubeLogFetcher")
@@ -1220,21 +1216,10 @@ func createSmartLogFetcher(cm k8shelpers.ConnectionManager, kubeContext string) 
 	return fetcher, fetcherType, nil
 }
 
-// tryCreateAgentLogFetcher attempts to create an AgentLogFetcher, falling back to ClusterAPIProxyLogFetcher, then KubeLogFetcher if unavailable.
+// tryCreateAgentLogFetcher attempts to create an ClusterAPIProxyLogFetcher (AgentLogFetcher), falling back KubeLogFetcher if unavailable.
 func tryCreateAgentLogFetcher(cm k8shelpers.ConnectionManager, kubeContext string, clientset kubernetes.Interface) (logs.LogFetcher, string, error) {
-	log.Debug().Msg("Trying direct gRPC agent access (AgentLogFetcher) first...")
-	// Try to create a gRPC dispatcher for in-cluster agent connections first
-	dispatcher, err := grpcdispatcher.NewDispatcher(
-		"kubernetes://kubetail-cluster-agent:50051",
-		grpcdispatcher.WithDialOptions(),
-	)
-	if err == nil {
-		log.Debug().Msg("Successfully created direct gRPC AgentLogFetcher")
-		return logs.NewAgentLogFetcher(dispatcher), "AgentLogFetcher", nil
-	}
-	log.Debug().Err(err).Msg("Could not create direct gRPC AgentLogFetcher, falling back to ClusterAPIProxyLogFetcher (GraphQL)")
+	log.Debug().Msg("Using ClusterAPIProxyLogFetcher for accessing Kubetail agents")
 
-	// Try cluster API proxy approach (GraphQL)
 	fetcher, err := NewClusterAPIProxyLogFetcher(cm, kubeContext)
 	if err == nil {
 		log.Debug().Msg("Successfully created ClusterAPIProxyLogFetcher for AgentLogFetcher access")
