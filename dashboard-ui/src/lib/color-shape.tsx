@@ -16,21 +16,19 @@ import { useEffect, useState } from 'react';
 
 export enum Shape {
   CIRCLE = 'circle',
-  SQUARE = 'square', 
+  SQUARE = 'square',
   DIAMOND = 'diamond',
   TRIANGLE = 'triangle',
 }
 
 const AVAILABLE_SHAPES = [Shape.CIRCLE, Shape.SQUARE, Shape.DIAMOND, Shape.TRIANGLE];
 
-// Storage key for container order tracking
+// Local storage key for container order tracking
 const CONTAINER_ORDER_STORAGE_KEY = 'kubetail-container-order';
 
-// Improved color palettes - 20 colors each theme
-// Light theme: Darker, more saturated colors that show well on white backgrounds
 const LIGHT_THEME_COLORS = [
   '#d63031', // Strong Red
-  '#00b894', // Strong Green  
+  '#00b894', // Strong Green
   '#0984e3', // Strong Blue
   '#fdcb6e', // Strong Yellow
   '#e17055', // Strong Orange
@@ -51,7 +49,6 @@ const LIGHT_THEME_COLORS = [
   '#424242', // Strong Grey
 ];
 
-// Dark theme: Brighter colors that show well on dark backgrounds
 const DARK_THEME_COLORS = [
   '#ff6b6b', // Bright Red
   '#51cf66', // Bright Green
@@ -90,11 +87,11 @@ const addContainerToOrder = (containerKey: string): number => {
   try {
     const order = getContainerOrder();
     const existingIndex = order.indexOf(containerKey);
-    
+
     if (existingIndex !== -1) {
       return existingIndex;
     }
-    
+
     // Add new container to the end
     order.push(containerKey);
     localStorage.setItem(CONTAINER_ORDER_STORAGE_KEY, JSON.stringify(order));
@@ -115,20 +112,19 @@ export type ContainerShapeProps = {
 export const ContainerShape = ({ containerKey, size = 'medium', className = '', theme = 'light' }: ContainerShapeProps) => {
   // Use order-based assignment for shapes and hash-based for colors
   const getAssignment = async (key: string) => {
-    // Get the order index (0-based) for this container
     const orderIndex = addContainerToOrder(key);
-    
+
     // Use hash for consistent color assignment
     const streamUTF8 = new TextEncoder().encode(key);
     const buffer = await crypto.subtle.digest('SHA-256', streamUTF8);
     const view = new DataView(buffer);
     const colorSeed = view.getUint32(0);
-    
+
     let shapeIndex: number;
     let colorIndex: number;
-    
+
     if (orderIndex < 20) {
-      // First 20 containers in order: All circles with sequential colors
+      // First 20 containers in order: All circles with unique colors
       shapeIndex = 0; // Circle
       colorIndex = orderIndex % 20;
     } else if (orderIndex < 80) {
@@ -143,7 +139,7 @@ export const ContainerShape = ({ containerKey, size = 'medium', className = '', 
       shapeIndex = shapeSeed % AVAILABLE_SHAPES.length;
       colorIndex = colorSeed % 20;
     }
-    
+
     return { shapeIndex, colorIndex };
   };
 
@@ -152,7 +148,7 @@ export const ContainerShape = ({ containerKey, size = 'medium', className = '', 
 
   useEffect(() => {
     const colors = theme === 'dark' ? DARK_THEME_COLORS : LIGHT_THEME_COLORS;
-    
+
     getAssignment(containerKey).then(({ shapeIndex, colorIndex }) => {
       setShape(AVAILABLE_SHAPES[shapeIndex]);
       setColor(colors[colorIndex]);
@@ -160,7 +156,7 @@ export const ContainerShape = ({ containerKey, size = 'medium', className = '', 
   }, [containerKey, theme]);
 
   const sizeClasses = size === 'small' ? 'w-[8px] h-[8px]' : 'w-[13px] h-[13px]';
-  
+
   const baseStyle = {
     backgroundColor: color,
     display: 'inline-block',
@@ -216,7 +212,6 @@ export const ContainerShape = ({ containerKey, size = 'medium', className = '', 
   }
 };
 
-// Export color arrays for use in other components if needed
 export { LIGHT_THEME_COLORS, DARK_THEME_COLORS };
 
 // Export utility function to clear container order (for testing/debugging)
@@ -226,4 +221,4 @@ export const clearContainerOrder = (): void => {
   } catch {
     // Ignore errors
   }
-}; 
+};

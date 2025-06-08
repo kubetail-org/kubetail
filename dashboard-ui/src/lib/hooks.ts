@@ -15,7 +15,7 @@
 import { useApolloClient, useQuery, useSubscription } from '@apollo/client';
 import type { TypedDocumentNode, OperationVariables, Unmasked, MaybeMasked } from '@apollo/client';
 
-import { useCallback, useEffect, useRef} from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import appConfig from '@/app-config';
 import { getClusterAPIClient } from '@/apollo-client';
@@ -545,8 +545,6 @@ export function useLogMetadata(options?: LogMetadataHookOptions) {
 
   return { loading, error, data };
 }
-
-
 
 /**
  * Workload counter hook

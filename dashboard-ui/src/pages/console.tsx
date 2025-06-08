@@ -72,8 +72,6 @@ function cssID(namespace: string, podName: string, containerName: string) {
   return cssEncode(`${namespace}/${podName}/${containerName}`);
 }
 
-
-
 /**
  * Settings button
  */
@@ -419,10 +417,10 @@ const Containers = ({
         return (
           <div key={containerName} className="flex item-center justify-between">
             <div className="flex items-center space-x-1">
-              <ContainerShape 
-                containerKey={k} 
-                size="medium" 
-                theme={theme === Theme.Dark ? 'dark' : 'light'} 
+              <ContainerShape
+                containerKey={k}
+                size="medium"
+                theme={theme === Theme.Dark ? 'dark' : 'light'}
               />
               <div>{containerName}</div>
             </div>
