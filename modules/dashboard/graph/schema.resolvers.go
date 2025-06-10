@@ -1039,7 +1039,7 @@ func (r *subscriptionResolver) LogRecordsFollow(ctx context.Context, kubeContext
 
 		// Handle errors
 		if stream.Err() != nil {
-			// Just log the error on the server. The channel will be closed, 
+			// Just log the error on the server. The channel will be closed,
 			// and the client will know the subscription has ended.
 			zerolog.Ctx(ctx).Error().Err(stream.Err()).Msg("Error during log stream")
 		}
