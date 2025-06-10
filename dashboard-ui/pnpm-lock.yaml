@@ -22,16 +22,16 @@ importers:
         version: 2.2.0(react@18.3.1)
       '@kubetail/ui':
         specifier: 0.2.0
-        version: 0.2.0(@heroicons/react@2.2.0(react@18.3.1))(@tailwindcss/forms@0.5.10(tailwindcss@3.4.17))(@types/react-dom@18.3.7(@types/react@18.3.23))(@types/react@18.3.23)(date-fns@3.6.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17)
+        version: 0.2.0(@heroicons/react@2.2.0(react@18.3.1))(@tailwindcss/forms@0.5.10(tailwindcss@3.4.17))(@types/react-dom@18.3.7(@types/react@18.3.23))(@types/react@18.3.23)(date-fns@4.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
       date-fns:
-        specifier: ^3.6.0
-        version: 3.6.0
+        specifier: ^4.0.0
+        version: 4.1.0
       date-fns-tz:
         specifier: ^3.2.0
-        version: 3.2.0(date-fns@3.6.0)
+        version: 3.2.0(date-fns@4.1.0)
       distinct-colors:
         specifier: ^3.0.0
         version: 3.0.0
@@ -2126,8 +2126,8 @@ packages:
     peerDependencies:
       date-fns: ^3.0.0 || ^4.0.0
 
-  date-fns@3.6.0:
-    resolution: {integrity: sha512-fRHTG8g/Gif+kSh50gaGEdToemgfj74aRX3swtiouboip5JDLAyDE9F11nHMIcvOaXeOC6D7SpNhi7uFyB7Uww==}
+  date-fns@4.1.0:
+    resolution: {integrity: sha512-Ukq0owbQXxa/U3EGtsdVBkR1w7KOQ5gIBqdH2hkvknzZPYvBxb/aa6E8L7tmjFtkwZBu3UXBbjIgPo/Ez4xaNg==}
 
   debounce@1.2.1:
     resolution: {integrity: sha512-XRRe6Glud4rd/ZGQfiV1ruXSfbvfJedlV9Y6zOlP+2K04vBYiJEte6stfFkCP03aMnY5tsipamumUjL14fofug==}
@@ -5159,7 +5159,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.0
 
-  '@kubetail/ui@0.2.0(@heroicons/react@2.2.0(react@18.3.1))(@tailwindcss/forms@0.5.10(tailwindcss@3.4.17))(@types/react-dom@18.3.7(@types/react@18.3.23))(@types/react@18.3.23)(date-fns@3.6.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17)':
+  '@kubetail/ui@0.2.0(@heroicons/react@2.2.0(react@18.3.1))(@tailwindcss/forms@0.5.10(tailwindcss@3.4.17))(@types/react-dom@18.3.7(@types/react@18.3.23))(@types/react@18.3.23)(date-fns@4.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17)':
     dependencies:
       '@heroicons/react': 2.2.0(react@18.3.1)
       '@radix-ui/react-dropdown-menu': 2.1.15(@types/react-dom@18.3.7(@types/react@18.3.23))(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -5171,7 +5171,7 @@ snapshots:
       clsx: 2.1.1
       lucide-react: 0.364.0(react@18.3.1)
       react: 18.3.1
-      react-day-picker: 8.10.1(date-fns@3.6.0)(react@18.3.1)
+      react-day-picker: 8.10.1(date-fns@4.1.0)(react@18.3.1)
       react-dom: 18.3.1(react@18.3.1)
       tailwind-merge: 2.6.0
       tailwindcss: 3.4.17
@@ -6516,11 +6516,11 @@ snapshots:
 
   dataloader@2.2.3: {}
 
-  date-fns-tz@3.2.0(date-fns@3.6.0):
+  date-fns-tz@3.2.0(date-fns@4.1.0):
     dependencies:
-      date-fns: 3.6.0
+      date-fns: 4.1.0
 
-  date-fns@3.6.0: {}
+  date-fns@4.1.0: {}
 
   debounce@1.2.1: {}
 
@@ -7975,9 +7975,9 @@ snapshots:
 
   queue-microtask@1.2.3: {}
 
-  react-day-picker@8.10.1(date-fns@3.6.0)(react@18.3.1):
+  react-day-picker@8.10.1(date-fns@4.1.0)(react@18.3.1):
     dependencies:
-      date-fns: 3.6.0
+      date-fns: 4.1.0
       react: 18.3.1
 
   react-dom@18.3.1(react@18.3.1):
