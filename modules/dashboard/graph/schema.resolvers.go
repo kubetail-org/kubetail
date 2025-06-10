@@ -17,6 +17,8 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/helm"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
+	zlog "github.com/rs/zerolog/log"
+
 	"helm.sh/helm/v3/pkg/release"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -1038,7 +1040,13 @@ func (r *subscriptionResolver) LogRecordsFollow(ctx context.Context, kubeContext
 
 		// Handle errors
 		if stream.Err() != nil {
-			transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
+			// Log the error on the server, including caller info as requested.
+			zlog.Error().Err(stream.Err()).Caller().Send()
+
+			// If the client connection is still open, let it know that there was an upstream error.
+			if ctx.Err() == nil {
+				transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
+			}
 		}
 	}()
 
