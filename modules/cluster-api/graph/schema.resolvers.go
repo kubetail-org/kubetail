@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/kubetail-org/kubetail/modules/cluster-api/graph/model"
 	"github.com/kubetail-org/kubetail/modules/shared/clusteragentpb"
 	gqlerrors "github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
@@ -305,9 +306,13 @@ func (r *subscriptionResolver) LogRecordsFollow(ctx context.Context, kubeContext
 
 		// Handle errors
 		if stream.Err() != nil {
-			// Just log the error on the server. The channel will be closed,
-			// and the client will know the subscription has ended.
-			zlog.Ctx(ctx).Error().Err(stream.Err()).Msg("Error during log stream")
+			// Log the error on the server
+			zlog.Error().Err(stream.Err()).Msg("Error during log stream")
+
+			// If the client is still connected, let them know the stream ended due to an error
+			if ctx.Err() == nil {
+				transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
+			}
 		}
 	}()
 
