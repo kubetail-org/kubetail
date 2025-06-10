@@ -12,7 +12,7 @@ require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-logr/logr v1.4.3
 	github.com/kubetail-org/kubetail/modules/dashboard v0.0.0-00010101000000-000000000000
-	github.com/kubetail-org/kubetail/modules/shared v0.0.0-20250606073538-44ccee7179d2
+	github.com/kubetail-org/kubetail/modules/shared v0.0.0-20250610072643-2a8760c7bc12
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/rs/zerolog v1.34.0
 	github.com/sosodev/duration v1.3.1
