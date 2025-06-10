@@ -408,7 +408,7 @@ jobs:
       - dashboard-ui-lint
       - dashboard-ui-test
       - dashboard-ui-build
-    runs-on: macos-13
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
