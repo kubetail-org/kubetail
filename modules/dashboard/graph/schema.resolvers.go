@@ -17,6 +17,7 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/helm"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
+	"github.com/rs/zerolog"
 	"helm.sh/helm/v3/pkg/release"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -1038,7 +1039,9 @@ func (r *subscriptionResolver) LogRecordsFollow(ctx context.Context, kubeContext
 
 		// Handle errors
 		if stream.Err() != nil {
-			transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
+			// Just log the error on the server. The channel will be closed, 
+			// and the client will know the subscription has ended.
+			zerolog.Ctx(ctx).Error().Err(stream.Err()).Msg("Error during log stream")
 		}
 	}()
 
