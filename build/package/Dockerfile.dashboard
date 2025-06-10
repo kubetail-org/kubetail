@@ -63,7 +63,7 @@ CMD []
 
 # -----------------------------------------------------------
 
-FROM alpine:3.20.0 AS debug
+FROM alpine:3.22.0 AS debug
 
 WORKDIR /dashboard
 
