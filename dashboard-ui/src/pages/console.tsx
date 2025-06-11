@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
-import distinctColors from 'distinct-colors';
 import {
   History as HistoryIcon,
   Pause as PauseIcon,
@@ -51,6 +50,8 @@ import {
 import { Counter, cn, cssEncode, getBasename, joinPaths, MapSet } from '@/lib/util';
 import { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { Workload, allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
+import { useTheme, Theme } from '@/lib/theme';
+import { ContainerShape } from '@/lib/color-shape';
 
 /**
  * Shared
@@ -70,44 +71,6 @@ const Context = createContext({} as ContextType);
 function cssID(namespace: string, podName: string, containerName: string) {
   return cssEncode(`${namespace}/${podName}/${containerName}`);
 }
-
-/**
- * Configure container colors component
- */
-
-const palette = distinctColors({
-  count: 20,
-  chromaMin: 40,
-  chromaMax: 100,
-  lightMin: 20,
-  lightMax: 80,
-});
-
-const ConfigureContainerColors = () => {
-  const { sources } = useSources();
-  const containerKeysRef = useRef(new Set<string>());
-
-  sources.forEach((source) => {
-    const k = cssID(source.namespace, source.podName, source.containerName);
-
-    // skip if previously defined
-    if (containerKeysRef.current.has(k)) return;
-    containerKeysRef.current.add(k);
-
-    (async () => {
-      // get color
-      const streamUTF8 = new TextEncoder().encode(k);
-      const buffer = await crypto.subtle.digest('SHA-256', streamUTF8);
-      const view = new DataView(buffer);
-      const colorIDX = view.getUint32(0) % 20;
-
-      // set css var
-      document.documentElement.style.setProperty(`--${k}-color`, palette[colorIDX].hex());
-    })();
-  });
-
-  return null;
-};
 
 /**
  * Settings button
@@ -434,6 +397,7 @@ const Containers = ({
   containerNames = [],
 }: ContainersProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { theme } = useTheme();
 
   containerNames.sort();
 
@@ -453,7 +417,11 @@ const Containers = ({
         return (
           <div key={containerName} className="flex item-center justify-between">
             <div className="flex items-center space-x-1">
-              <div className="w-[13px] h-[13px]" style={{ backgroundColor: `var(--${k}-color)` }} />
+              <ContainerShape
+                containerKey={k}
+                size="medium"
+                theme={theme === Theme.Dark ? 'dark' : 'light'}
+              />
               <div>{containerName}</div>
             </div>
             <Form.Check
@@ -774,7 +742,6 @@ export default function Page() {
           sourceFilter={sourceFilter}
           grep={processedGrep}
         >
-          <ConfigureContainerColors />
           <AppLayout>
             <InnerLayout
               sidebar={<Sidebar />}

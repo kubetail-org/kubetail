@@ -31,6 +31,8 @@ import { useIsClusterAPIEnabled, useListQueryWithSubscription, useNextTick } fro
 import { Counter, MapSet, cn, cssEncode } from '@/lib/util';
 import { getClusterAPIClient } from '@/apollo-client';
 import LoadingPage from '@/components/utils/LoadingPage';
+import { ContainerShape } from '@/lib/color-shape';
+import { useTheme, Theme } from '@/lib/theme';
 
 type ContextType = {
   useClusterAPI: boolean | undefined;
@@ -239,7 +241,7 @@ const LoadingOverlay = ({ height, width }: { height: number; width: number; }) =
  * Row component
  */
 
-const getAttribute = (record: LogRecord, col: ViewerColumn) => {
+const getAttribute = (record: LogRecord, col: ViewerColumn, theme?: 'light' | 'dark') => {
   switch (col) {
     case ViewerColumn.Timestamp: {
       const tsWithTZ = toZonedTime(record.timestamp, 'UTC');
@@ -247,13 +249,7 @@ const getAttribute = (record: LogRecord, col: ViewerColumn) => {
     }
     case ViewerColumn.ColorDot: {
       const k = cssEncode(`${record.source.namespace}/${record.source.podName}/${record.source.containerName}`);
-      const el = (
-        <div
-          className="inline-block w-[8px] h-[8px] rounded-full"
-          style={{ backgroundColor: `var(--${k}-color)` }}
-        />
-      );
-      return el;
+      return <ContainerShape containerKey={k} size="small" theme={theme || 'light'} />;
     }
     case ViewerColumn.PodContainer:
       return `${record.source.podName}/${record.source.containerName}`;
@@ -280,6 +276,7 @@ type RowData = {
   hasMoreAfter: boolean;
   visibleCols: Set<string>;
   isWrap: boolean;
+  theme?: 'light' | 'dark';
 };
 
 type RowProps = {
@@ -290,7 +287,7 @@ type RowProps = {
 
 const Row = memo(
   ({ index, style, data }: RowProps) => {
-    const { items, hasMoreBefore, visibleCols, isWrap } = data;
+    const { items, hasMoreBefore, visibleCols, isWrap, theme } = data;
 
     const rowElRef = useRef<HTMLDivElement>(null);
     const [colWidths, setColWidths] = useRecoilState(colWidthsState);
@@ -354,7 +351,7 @@ const Row = memo(
             style={(col !== ViewerColumn.Message) ? { minWidth: `${(colWidths.get(col) || 0)}px` } : {}}
             data-col-id={col}
           >
-            {getAttribute(record, col)}
+            {getAttribute(record, col, theme)}
           </div>
         ));
       }
@@ -403,6 +400,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
   const colWidths = useRecoilValue(colWidthsState);
   const maxRowWidth = useRecoilValue(maxRowWidthState);
   const isWrap = useRecoilValue(isWrapState);
+  const { theme } = useTheme();
 
   const headerOuterElRef = useRef<HTMLDivElement>(null);
   const headerInnerElRef = useRef<HTMLDivElement>(null);
@@ -667,7 +665,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
                     outerRef={listOuterRef}
                     innerRef={listInnerRef}
                     overscanCount={20}
-                    itemData={{ items, hasMoreBefore, hasMoreAfter, visibleCols, isWrap }}
+                    itemData={{ items, hasMoreBefore, hasMoreAfter, visibleCols, isWrap, theme: theme === Theme.Dark ? 'dark' : 'light' }}
                   >
                     {Row}
                   </VariableSizeList>
