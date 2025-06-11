@@ -223,20 +223,26 @@ It also contains the source code for the Kubetail Dashboard's frontend and the R
 
 #### Dependencies
 
-* [Tilt](https://tilt.dev/)
 * [Go](https://go.dev/)
 * [pnpm](https://pnpm.io/)
+* [Tilt](https://tilt.dev/)
+* [Tilt-compatible cluster](https://docs.tilt.dev/choosing_clusters.html) (e.g. [minikube](https://minikube.sigs.k8s.io/docs/), [kind](https://kind.sigs.k8s.io/docs/user/quick-start/), [docker-desktop](https://docs.tilt.dev/choosing_clusters.html#docker-for-desktop))
 * [ctlptl](https://github.com/tilt-dev/ctlptl) (optional)
 
 #### Next steps
 
-1. Create a Kubernetes Dev Cluster
+1. Create a [Tilt-compatible](https://docs.tilt.dev/choosing_clusters.html) Kubernetes Dev Cluster:
 
 ```console
+# minikube
 ctlptl apply -f hack/ctlptl/minikube.yaml
-```
 
-You can use any type of cluster that [works with Tilt](https://docs.tilt.dev/choosing_clusters.html).
+# kind
+ctlptl apply -f hack/ctlptl/kind.yaml
+
+# docker-desktop
+ctlptl apply -f hack/ctlptl/docker-desktop.yaml
+```
 
 2. Start the dev environment:
 
