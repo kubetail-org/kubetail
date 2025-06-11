@@ -130,7 +130,7 @@ var serveCmd = &cobra.Command{
 
 		// create server
 		server := http.Server{
-			Addr:         cfg.Dashboard.Addr,
+			Addr:         fmt.Sprintf("%s:%d", cfg.Dashboard.HTTP.Address, cfg.Dashboard.HTTP.Port),
 			Handler:      app,
 			IdleTimeout:  1 * time.Minute,
 			ReadTimeout:  5 * time.Second,
