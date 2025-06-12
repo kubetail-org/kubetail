@@ -745,7 +745,11 @@ func (r *subscriptionResolver) CoreV1NamespacesWatch(ctx context.Context, kubeCo
 		for ev := range watchEventProxyChannel(ctx, watchAPI) {
 			ns, err := typeassertRuntimeObject[*corev1.Namespace](ev.Object)
 			if err != nil {
-				transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
+				if ctx.Err() == nil {
+					transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
+				} else {
+					zlog.Error().Err(err).Caller().Msg("namespace watch error on closed connection")
+				}
 				break
 			}
 
@@ -807,7 +811,11 @@ func (r *subscriptionResolver) KubernetesAPIReadyWait(ctx context.Context, kubeC
 		defer close(outCh)
 
 		if err := r.cm.WaitUntilReady(ctx, kubeContextVal); err != nil {
-			transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
+			if ctx.Err() == nil {
+				transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
+			} else {
+				zlog.Error().Err(err).Caller().Msg("kubernetes API ready wait error on closed connection")
+			}
 			return
 		}
 
@@ -865,7 +873,11 @@ func (r *subscriptionResolver) ClusterAPIReadyWait(ctx context.Context, kubeCont
 		defer close(outCh)
 
 		if err := r.hm.ReadyWait(ctx, kubeContextVal, namespace, serviceName); err != nil {
-			transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
+			if ctx.Err() == nil {
+				transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
+			} else {
+				zlog.Error().Err(err).Caller().Msg("cluster API ready wait error on closed connection")
+			}
 			return
 		}
 
