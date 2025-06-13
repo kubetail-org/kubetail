@@ -122,7 +122,7 @@ jobs:
           cp -p 'bin/kubetail-${{ matrix.os }}-${{ matrix.arch }}' .debpkg/usr/bin/kubetail
 
       - name: Create a .deb package
-        uses: jiro4989/build-deb-action@v4
+        uses: jiro4989/build-deb-action@975f7f3
         with:
           package: kubetail
           package_root: .debpkg
