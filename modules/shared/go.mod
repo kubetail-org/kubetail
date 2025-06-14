@@ -2,7 +2,7 @@ module github.com/kubetail-org/kubetail/modules/shared
 
 go 1.24.0
 
-toolchain go1.24.3
+toolchain go1.24.4
 
 replace github.com/gorilla/csrf => github.com/gorilla/csrf v1.7.2
 
