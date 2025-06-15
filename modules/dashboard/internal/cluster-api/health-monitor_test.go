@@ -29,84 +29,6 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-// Helper functions and structs for testing
-
-// TestCase represents a common test case structure for health monitor tests
-type TestCase struct {
-	Name           string
-	KubeContext    string
-	Namespace      *string
-	ServiceName    *string
-	Endpoint       string
-	MockStatus     HealthStatus
-	SetupMockError bool
-	ExpectedStatus HealthStatus
-	ExpectError    bool
-	ShutdownTime   time.Duration
-	NumberWorkers  int
-	HasWorker      bool
-}
-
-// setupMockConnectionManager creates and configures a mock connection manager
-func setupMockConnectionManager(tc TestCase) *k8shelpersmock.MockConnectionManager {
-	cm := &k8shelpersmock.MockConnectionManager{}
-
-	if tc.SetupMockError {
-		cm.On("GetOrCreateClientset", tc.KubeContext).Return(nil, fmt.Errorf("connection error"))
-	} else {
-		mockClientset := fake.NewClientset()
-		cm.On("GetOrCreateClientset", tc.KubeContext).Return(mockClientset, nil)
-	}
-
-	return cm
-}
-
-// setupDesktopHealthMonitor creates and configures a DesktopHealthMonitor with mock workers
-func setupDesktopHealthMonitor(tc TestCase) (*DesktopHealthMonitor, *MockHealthMonitorWorker) {
-	cm := setupMockConnectionManager(tc)
-	hm := NewDesktopHealthMonitor(cm)
-
-	var mockWorker *MockHealthMonitorWorker
-
-	// Only create and store a worker if we're not testing an error case
-	if !tc.SetupMockError {
-		namespace := ptr.Deref(tc.Namespace, DefaultNamespace)
-		serviceName := ptr.Deref(tc.ServiceName, DefaultServiceName)
-		cacheKey := fmt.Sprintf("%s::%s::%s", tc.KubeContext, namespace, serviceName)
-
-		mockWorker = newMockHealthMonitorWorker(tc.ShutdownTime)
-		mockWorker.healthStatus = tc.MockStatus
-		hm.workerCache.Store(cacheKey, mockWorker)
-	}
-
-	return hm, mockWorker
-}
-
-// setupInClusterHealthMonitor creates and configures an InClusterHealthMonitor with mock worker
-func setupInClusterHealthMonitor(tc TestCase) (*InClusterHealthMonitor, *MockHealthMonitorWorker) {
-	cm := setupMockConnectionManager(tc)
-	hm := NewInClusterHealthMonitor(cm, tc.Endpoint)
-
-	var mockWorker *MockHealthMonitorWorker
-	if tc.HasWorker {
-		mockWorker = newMockHealthMonitorWorker(tc.ShutdownTime)
-		mockWorker.healthStatus = tc.MockStatus
-		hm.worker = mockWorker
-	}
-
-	return hm, mockWorker
-}
-
-// assertHealthStatus asserts the expected health status and error
-func assertHealthStatus(t *testing.T, status HealthStatus, err error, tc TestCase) {
-	if tc.ExpectError {
-		assert.Error(t, err)
-	} else {
-		assert.NoError(t, err)
-	}
-	assert.Equal(t, tc.ExpectedStatus, status)
-}
-
 // MockHealthMonitorWorker is a mock implementation of the HealthMonitorWorker interface
 type MockHealthMonitorWorker struct {
 	shutdownTime time.Duration
@@ -303,45 +225,50 @@ func TestNewHealthMonitor_InvalidEnvironment(t *testing.T) {
 
 // Shutdown
 func TestDesktopHealthMonitor_Shutdown(t *testing.T) {
-	tests := []TestCase{
+
+	tests := []struct {
+		name          string
+		numberWorkers int
+		showdownTime  time.Duration
+	}{
 		{
-			Name:          "Shutdown with 0 workers",
-			NumberWorkers: 0,
-			ShutdownTime:  1 * time.Second,
+			name:          "Shutdown with 0 workers",
+			numberWorkers: 0,
+			showdownTime:  1 * time.Second,
 		},
 		{
-			Name:          "Shutdown with 1 worker",
-			NumberWorkers: 1,
-			ShutdownTime:  1 * time.Second,
+			name:          "Shutdown with 1 worker",
+			numberWorkers: 2,
+			showdownTime:  1 * time.Second,
 		},
 		{
-			Name:          "Shutdown with multiple workers",
-			NumberWorkers: 2,
-			ShutdownTime:  1 * time.Second,
+			name:          "Shutdown with multiple workers",
+			numberWorkers: 2,
+			showdownTime:  1 * time.Second,
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.Name, func(t *testing.T) {
-			// Create connection manager
-			cm := setupMockConnectionManager(tc)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// create connection manager
+			cm := &k8shelpersmock.MockConnectionManager{}
 
-			// Create health monitor
+			// create health monitor
 			hm := NewDesktopHealthMonitor(cm)
 
 			var workers []*MockHealthMonitorWorker
 
-			// Create mock health monitor workers
-			for i := 0; i < tc.NumberWorkers; i++ {
-				worker := newMockHealthMonitorWorker(tc.ShutdownTime)
+			// create mock health monitor worker
+			for i := 0; i < tt.numberWorkers; i++ {
+				worker := newMockHealthMonitorWorker(tt.showdownTime)
 				workers = append(workers, worker)
 				hm.workerCache.Store(fmt.Sprintf("worker-%d", i), worker)
 			}
 
-			// Shutdown health monitor
+			// shutdown health monitor
 			hm.Shutdown()
 
-			// Assert workers are shutdown
+			// assert worker is shutdown
 			for _, worker := range workers {
 				assert.True(t, worker.shutdown.Load())
 			}
@@ -350,175 +277,242 @@ func TestDesktopHealthMonitor_Shutdown(t *testing.T) {
 }
 
 func TestInClusterHealthMonitor_Shutdown(t *testing.T) {
-	tests := []TestCase{
+
+	tests := []struct {
+		name         string
+		endpoint     string
+		hasWorker    bool
+		showdownTime time.Duration
+		want         interface{}
+	}{
 		{
-			Name:         "Shutdown with endpoint and 0 workers",
-			Endpoint:     "kubetail-cluster-api.kubetail-system.svc.cluster.local:50051",
-			HasWorker:    false,
-			ShutdownTime: 1 * time.Second,
+			name:         "Shutdown with endpoint and 0 workers",
+			endpoint:     "kubetail-cluster-api.kubetail-system.svc.cluster.local:50051",
+			hasWorker:    false,
+			showdownTime: 1 * time.Second,
+			want:         &InClusterHealthMonitor{},
 		},
 		{
-			Name:         "Shutdown with endpoint and 1 worker",
-			Endpoint:     "kubetail-cluster-api.kubetail-system.svc.cluster.local:50051",
-			HasWorker:    true,
-			ShutdownTime: 1 * time.Second,
+			name:         "Shutdown with endpoint and 1 worker",
+			endpoint:     "kubetail-cluster-api.kubetail-system.svc.cluster.local:50051",
+			hasWorker:    true,
+			showdownTime: 1 * time.Second,
+			want:         &InClusterHealthMonitor{},
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.Name, func(t *testing.T) {
-			// Setup test environment
-			hm, worker := setupInClusterHealthMonitor(tc)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// create connection manager
+			cm := &k8shelpersmock.MockConnectionManager{}
 
-			// Assert health monitor is not nil
+			// create health monitor
+			hm := NewInClusterHealthMonitor(cm, tt.endpoint)
+			var worker *MockHealthMonitorWorker
+
+			// create mock health monitor worker
+			if tt.hasWorker {
+				worker = newMockHealthMonitorWorker(tt.showdownTime)
+				hm.worker = worker
+			}
+
+			// assert health monitor is not nil
 			assert.NotNil(t, hm)
 
-			// Assert health monitor is of the expected type
-			assert.IsType(t, &InClusterHealthMonitor{}, hm)
+			// assert health monitor is of the expected type
+			assert.IsType(t, tt.want, hm)
 
-			// Shutdown health monitor
+			// shutdown health monitor
 			hm.Shutdown()
 
-			// Assert worker is shutdown
-			if tc.HasWorker {
+			// assert worker is shutdown
+			if tt.hasWorker {
 				assert.True(t, worker.shutdown.Load())
 			}
+
 		})
 	}
 }
 func TestDesktopHealthMonitor_GetHealthStatus(t *testing.T) {
-	tests := []TestCase{
+	tests := []struct {
+		name           string
+		kubeContext    string
+		namespace      *string
+		serviceName    *string
+		mockStatus     HealthStatus
+		setupMockError bool
+		expectedStatus HealthStatus
+		expectError    bool
+	}{
 		{
-			Name:           "Successful status retrieval - SUCCESS",
-			KubeContext:    "test-context",
-			Namespace:      ptr.To("test-namespace"),
-			ServiceName:    ptr.To("test-service"),
-			MockStatus:     HealthStatusSuccess,
-			SetupMockError: false,
-			ExpectedStatus: HealthStatusSuccess,
-			ExpectError:    false,
-			ShutdownTime:   1 * time.Second,
+			name:           "Successful status retrieval - SUCCESS",
+			kubeContext:    "test-context",
+			namespace:      ptr.To("test-namespace"),
+			serviceName:    ptr.To("test-service"),
+			mockStatus:     HealthStatusSuccess,
+			setupMockError: false,
+			expectedStatus: HealthStatusSuccess,
+			expectError:    false,
 		},
 		{
-			Name:           "Successful status retrieval - FAILURE",
-			KubeContext:    "test-context",
-			Namespace:      ptr.To("test-namespace"),
-			ServiceName:    ptr.To("test-service"),
-			MockStatus:     HealthStatusFailure,
-			SetupMockError: false,
-			ExpectedStatus: HealthStatusFailure,
-			ExpectError:    false,
-			ShutdownTime:   1 * time.Second,
+			name:           "Successful status retrieval - FAILURE",
+			kubeContext:    "test-context",
+			namespace:      ptr.To("test-namespace"),
+			serviceName:    ptr.To("test-service"),
+			mockStatus:     HealthStatusFailure,
+			setupMockError: false,
+			expectedStatus: HealthStatusFailure,
+			expectError:    false,
 		},
 		{
-			Name:           "Successful status retrieval - PENDING",
-			KubeContext:    "test-context",
-			Namespace:      ptr.To("test-namespace"),
-			ServiceName:    ptr.To("test-service"),
-			MockStatus:     HealthStatusPending,
-			SetupMockError: false,
-			ExpectedStatus: HealthStatusPending,
-			ExpectError:    false,
-			ShutdownTime:   1 * time.Second,
+			name:           "Successful status retrieval - PENDING",
+			kubeContext:    "test-context",
+			namespace:      ptr.To("test-namespace"),
+			serviceName:    ptr.To("test-service"),
+			mockStatus:     HealthStatusPending,
+			setupMockError: false,
+			expectedStatus: HealthStatusPending,
+			expectError:    false,
 		},
 		{
-			Name:           "Successful status retrieval - NOTFOUND",
-			KubeContext:    "test-context",
-			Namespace:      ptr.To("test-namespace"),
-			ServiceName:    ptr.To("test-service"),
-			MockStatus:     HealthStatusNotFound,
-			SetupMockError: false,
-			ExpectedStatus: HealthStatusNotFound,
-			ExpectError:    false,
-			ShutdownTime:   1 * time.Second,
+			name:           "Successful status retrieval - NOTFOUND",
+			kubeContext:    "test-context",
+			namespace:      ptr.To("test-namespace"),
+			serviceName:    ptr.To("test-service"),
+			mockStatus:     HealthStatusNotFound,
+			setupMockError: false,
+			expectedStatus: HealthStatusNotFound,
+			expectError:    false,
 		},
 		{
-			Name:           "Worker creation error",
-			KubeContext:    "invalid-context",
-			Namespace:      ptr.To("test-namespace"),
-			ServiceName:    ptr.To("test-service"),
-			MockStatus:     HealthStatusUknown,
-			SetupMockError: true,
-			ExpectedStatus: HealthStatusUknown,
-			ExpectError:    true,
-			ShutdownTime:   1 * time.Second,
+			name:           "Worker creation error",
+			kubeContext:    "invalid-context",
+			namespace:      ptr.To("test-namespace"),
+			serviceName:    ptr.To("test-service"),
+			mockStatus:     HealthStatusUknown,
+			setupMockError: true,
+			expectedStatus: HealthStatusUknown,
+			expectError:    true,
 		},
 		{
-			Name:           "Default namespace and service name",
-			KubeContext:    "test-context",
-			Namespace:      nil,
-			ServiceName:    nil,
-			MockStatus:     HealthStatusSuccess,
-			SetupMockError: false,
-			ExpectedStatus: HealthStatusSuccess,
-			ExpectError:    false,
-			ShutdownTime:   1 * time.Second,
+			name:           "Default namespace and service name",
+			kubeContext:    "test-context",
+			namespace:      nil,
+			serviceName:    nil,
+			mockStatus:     HealthStatusSuccess,
+			setupMockError: false,
+			expectedStatus: HealthStatusSuccess,
+			expectError:    false,
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.Name, func(t *testing.T) {
-			// Setup test environment
-			hm, _ := setupDesktopHealthMonitor(tc)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mock connection manager
+			cm := &k8shelpersmock.MockConnectionManager{}
+
+			if tt.setupMockError {
+				cm.On("GetOrCreateClientset", tt.kubeContext).Return(nil, fmt.Errorf("connection error"))
+			} else {
+				mockClientset := fake.NewClientset()
+				cm.On("GetOrCreateClientset", tt.kubeContext).Return(mockClientset, nil)
+			}
+
+			hm := NewDesktopHealthMonitor(cm)
+
+			if !tt.setupMockError {
+				namespace := ptr.Deref(tt.namespace, DefaultNamespace)
+				serviceName := ptr.Deref(tt.serviceName, DefaultServiceName)
+				cacheKey := fmt.Sprintf("%s::%s::%s", tt.kubeContext, namespace, serviceName)
+
+				mockWorker := newMockHealthMonitorWorker(1 * time.Second)
+				mockWorker.healthStatus = tt.mockStatus
+				hm.workerCache.Store(cacheKey, mockWorker)
+			}
 
 			// Call GetHealthStatus
 			ctx := context.Background()
-			status, err := hm.GetHealthStatus(ctx, tc.KubeContext, tc.Namespace, tc.ServiceName)
+			status, err := hm.GetHealthStatus(ctx, tt.kubeContext, tt.namespace, tt.serviceName)
 
 			// Assert results
-			assertHealthStatus(t, status, err, tc)
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Equal(t, tt.expectedStatus, status)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedStatus, status)
+			}
 		})
 	}
 }
 
 func TestInClusterHealthMonitor_GetHealthStatus(t *testing.T) {
-	tests := []TestCase{
+	tests := []struct {
+		name           string
+		endpoint       string
+		mockStatus     HealthStatus
+		setupMockError bool
+		expectedStatus HealthStatus
+		expectError    bool
+	}{
 		{
-			Name:           "Successful status retrieval - SUCCESS",
-			KubeContext:    "",
-			Endpoint:       "kubetail-cluster-api.kubetail-system.svc.cluster.local:50051",
-			MockStatus:     HealthStatusSuccess,
-			SetupMockError: false,
-			ExpectedStatus: HealthStatusSuccess,
-			ExpectError:    false,
-			ShutdownTime:   1 * time.Second,
-			HasWorker:      true,
+			name:           "Successful status retrieval - SUCCESS",
+			endpoint:       "kubetail-cluster-api.kubetail-system.svc.cluster.local:50051",
+			mockStatus:     HealthStatusSuccess,
+			setupMockError: false,
+			expectedStatus: HealthStatusSuccess,
+			expectError:    false,
 		},
 		{
-			Name:           "No endpoint - should use noop worker",
-			KubeContext:    "",
-			Endpoint:       "",
-			MockStatus:     HealthStatusUknown,
-			SetupMockError: false,
-			ExpectedStatus: HealthStatusUknown,
-			ExpectError:    false,
-			ShutdownTime:   1 * time.Second,
-			HasWorker:      true,
+			name:           "No endpoint - should use noop worker",
+			endpoint:       "",
+			mockStatus:     HealthStatusUknown,
+			setupMockError: false,
+			expectedStatus: HealthStatusUknown,
+			expectError:    false,
 		},
 		{
-			Name:           "Worker creation error",
-			KubeContext:    "",
-			Endpoint:       "kubetail-cluster-api.kubetail-system.svc.cluster.local:50051",
-			MockStatus:     HealthStatusUknown,
-			SetupMockError: true,
-			ExpectedStatus: HealthStatusUknown,
-			ExpectError:    true,
-			ShutdownTime:   1 * time.Second,
-			HasWorker:      false,
+			name:           "Worker creation error",
+			endpoint:       "kubetail-cluster-api.kubetail-system.svc.cluster.local:50051",
+			mockStatus:     HealthStatusUknown,
+			setupMockError: true,
+			expectedStatus: HealthStatusUknown,
+			expectError:    true,
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.Name, func(t *testing.T) {
-			// Setup test environment
-			hm, _ := setupInClusterHealthMonitor(tc)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mock connection manager
+			cm := &k8shelpersmock.MockConnectionManager{}
+
+			if tt.setupMockError {
+				cm.On("GetOrCreateClientset", "").Return(nil, fmt.Errorf("connection error"))
+			} else {
+				mockClientset := fake.NewClientset()
+				cm.On("GetOrCreateClientset", "").Return(mockClientset, nil)
+			}
+
+			hm := NewInClusterHealthMonitor(cm, tt.endpoint)
+
+			if !tt.setupMockError {
+				mockWorker := newMockHealthMonitorWorker(1 * time.Second)
+				mockWorker.healthStatus = tt.mockStatus
+				hm.worker = mockWorker
+			}
 
 			// Call GetHealthStatus
 			ctx := context.Background()
-			status, err := hm.GetHealthStatus(ctx, tc.KubeContext, tc.Namespace, tc.ServiceName)
+			status, err := hm.GetHealthStatus(ctx, "", nil, nil)
 
 			// Assert results
-			assertHealthStatus(t, status, err, tc)
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Equal(t, tt.expectedStatus, status)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedStatus, status)
+			}
 		})
 	}
 }
@@ -527,129 +521,138 @@ func TestInClusterHealthMonitor_GetHealthStatus(t *testing.T) {
 
 // DesktopHealthMonitor
 func TestDesktopHealthMonitor_WatchHealthStatus(t *testing.T) {
-	tests := []TestCase{
+	tests := []struct {
+		name           string
+		kubeContext    string
+		namespace      *string
+		serviceName    *string
+		mockStatus     HealthStatus
+		setupMockError bool
+		expectedStatus HealthStatus
+		expectError    bool
+	}{
 		{
-			Name:           "Successful status retrieval - SUCCESS",
-			KubeContext:    "test-context",
-			Namespace:      ptr.To("test-namespace"),
-			ServiceName:    ptr.To("test-service"),
-			MockStatus:     HealthStatusSuccess,
-			SetupMockError: false,
-			ExpectedStatus: HealthStatusSuccess,
-			ExpectError:    false,
-			ShutdownTime:   1 * time.Second,
+			name:           "Successful status retrieval - SUCCESS",
+			kubeContext:    "test-context",
+			namespace:      ptr.To("test-namespace"),
+			serviceName:    ptr.To("test-service"),
+			mockStatus:     HealthStatusSuccess,
+			setupMockError: false,
+			expectedStatus: HealthStatusSuccess,
+			expectError:    false,
 		},
 		{
-			Name:           "Successful status retrieval - FAILURE",
-			KubeContext:    "test-context",
-			Namespace:      ptr.To("test-namespace"),
-			ServiceName:    ptr.To("test-service"),
-			MockStatus:     HealthStatusFailure,
-			SetupMockError: false,
-			ExpectedStatus: HealthStatusFailure,
-			ExpectError:    false,
-			ShutdownTime:   1 * time.Second,
+			name:           "Successful status retrieval - FAILURE",
+			kubeContext:    "test-context",
+			namespace:      ptr.To("test-namespace"),
+			serviceName:    ptr.To("test-service"),
+			mockStatus:     HealthStatusFailure,
+			setupMockError: false,
+			expectedStatus: HealthStatusFailure,
+			expectError:    false,
 		},
 		{
-			Name:           "Successful status retrieval - PENDING",
-			KubeContext:    "test-context",
-			Namespace:      ptr.To("test-namespace"),
-			ServiceName:    ptr.To("test-service"),
-			MockStatus:     HealthStatusPending,
-			SetupMockError: false,
-			ExpectedStatus: HealthStatusPending,
-			ExpectError:    false,
-			ShutdownTime:   1 * time.Second,
+			name:           "Successful status retrieval - PENDING",
+			kubeContext:    "test-context",
+			namespace:      ptr.To("test-namespace"),
+			serviceName:    ptr.To("test-service"),
+			mockStatus:     HealthStatusPending,
+			setupMockError: false,
+			expectedStatus: HealthStatusPending,
+			expectError:    false,
 		},
 		{
-			Name:           "Successful status retrieval - NOTFOUND",
-			KubeContext:    "test-context",
-			Namespace:      ptr.To("test-namespace"),
-			ServiceName:    ptr.To("test-service"),
-			MockStatus:     HealthStatusNotFound,
-			SetupMockError: false,
-			ExpectedStatus: HealthStatusNotFound,
-			ExpectError:    false,
-			ShutdownTime:   1 * time.Second,
+			name:           "Successful status retrieval - NOTFOUND",
+			kubeContext:    "test-context",
+			namespace:      ptr.To("test-namespace"),
+			serviceName:    ptr.To("test-service"),
+			mockStatus:     HealthStatusNotFound,
+			setupMockError: false,
+			expectedStatus: HealthStatusNotFound,
+			expectError:    false,
 		},
 		{
-			Name:           "Worker creation error",
-			KubeContext:    "invalid-context",
-			Namespace:      ptr.To("test-namespace"),
-			ServiceName:    ptr.To("test-service"),
-			MockStatus:     HealthStatusUknown,
-			SetupMockError: true,
-			ExpectedStatus: HealthStatusUknown,
-			ExpectError:    true,
-			ShutdownTime:   1 * time.Second,
+			name:           "Worker creation error",
+			kubeContext:    "invalid-context",
+			namespace:      ptr.To("test-namespace"),
+			serviceName:    ptr.To("test-service"),
+			mockStatus:     HealthStatusUknown,
+			setupMockError: true,
+			expectedStatus: HealthStatusUknown,
+			expectError:    true,
 		},
 		{
-			Name:           "Default namespace and service name",
-			KubeContext:    "test-context",
-			Namespace:      nil,
-			ServiceName:    nil,
-			MockStatus:     HealthStatusSuccess,
-			SetupMockError: false,
-			ExpectedStatus: HealthStatusSuccess,
-			ExpectError:    false,
-			ShutdownTime:   1 * time.Second,
+			name:           "Default namespace and service name",
+			kubeContext:    "test-context",
+			namespace:      nil,
+			serviceName:    nil,
+			mockStatus:     HealthStatusSuccess,
+			setupMockError: false,
+			expectedStatus: HealthStatusSuccess,
+			expectError:    false,
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.Name, func(t *testing.T) {
-			// Setup test environment
-			hm, mockWorker := setupDesktopHealthMonitor(tc)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup
+			cm := &k8shelpersmock.MockConnectionManager{}
+
+			if tt.setupMockError {
+				cm.On("GetOrCreateClientset", tt.kubeContext).Return(nil, fmt.Errorf("connection error"))
+			} else {
+				mockClientset := fake.NewClientset()
+				cm.On("GetOrCreateClientset", tt.kubeContext).Return(mockClientset, nil)
+			}
+
+			hm := NewDesktopHealthMonitor(cm)
+
+			var mockWorker *MockHealthMonitorWorker
+			namespace := ptr.Deref(tt.namespace, DefaultNamespace)
+			serviceName := ptr.Deref(tt.serviceName, DefaultServiceName)
+			cacheKey := fmt.Sprintf("%s::%s::%s", tt.kubeContext, namespace, serviceName)
+
+			mockWorker = newMockHealthMonitorWorker(1 * time.Second)
+			mockWorker.healthStatus = tt.mockStatus
+			hm.workerCache.Store(cacheKey, mockWorker)
 
 			// Action
 			ctx := context.Background()
-
-			// Only trigger health status if we have a mock worker (not an error case)
-			if mockWorker != nil {
-				mockWorker.TriggerHealthStatus(tc.MockStatus)
-			}
-
-			statusCh, err := hm.WatchHealthStatus(ctx, tc.KubeContext, tc.Namespace, tc.ServiceName)
+			mockWorker.TriggerHealthStatus(tt.mockStatus)
+			status, err := hm.WatchHealthStatus(ctx, tt.kubeContext, tt.namespace, tt.serviceName)
 
 			// Assert
-			if tc.ExpectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				workerStatus := <-statusCh
-				assert.Equal(t, tc.ExpectedStatus, workerStatus)
-			}
+			assert.NoError(t, err)
+			workerStatus := <-status
+			assert.Equal(t, tt.expectedStatus, workerStatus)
 		})
 	}
 }
 
 func TestDesktopHealthMonitor_WatchHealthStatus_ContextCancellation(t *testing.T) {
-	// Setup test case
-	tc := TestCase{
-		Name:           "Context Cancellation",
-		KubeContext:    "test-context",
-		MockStatus:     HealthStatusSuccess,
-		SetupMockError: false,
-		ExpectedStatus: HealthStatusSuccess,
-		ExpectError:    false,
-		ShutdownTime:   1 * time.Second,
-	}
+	// Setup
+	cm := &k8shelpersmock.MockConnectionManager{}
+	kubeContext := "test-context"
+	mockClientset := fake.NewClientset()
+	cm.On("GetOrCreateClientset", kubeContext).Return(mockClientset, nil)
 
-	// Setup test environment
-	hm, mockWorker := setupDesktopHealthMonitor(tc)
+	hm := NewDesktopHealthMonitor(cm)
+	mockWorker := newMockHealthMonitorWorker(1 * time.Second)
+	cacheKey := fmt.Sprintf("%s::%s::%s", kubeContext, DefaultNamespace, DefaultServiceName)
+	hm.workerCache.Store(cacheKey, mockWorker)
 
 	// Create context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Action
 	// Start watching
-	mockWorker.TriggerHealthStatus(tc.MockStatus)
-	statusCh, err := hm.WatchHealthStatus(ctx, tc.KubeContext, tc.Namespace, tc.ServiceName)
+	mockWorker.TriggerHealthStatus(HealthStatusSuccess)
+	statusCh, err := hm.WatchHealthStatus(ctx, kubeContext, nil, nil)
 	assert.NoError(t, err)
 
 	// Receive initial status
 	workerStatus := <-statusCh
-	assert.Equal(t, tc.MockStatus, workerStatus)
+	assert.Equal(t, (HealthStatus)(HealthStatusSuccess), workerStatus)
 
 	// Cancel context
 	cancel()
@@ -672,78 +675,84 @@ func TestDesktopHealthMonitor_WatchHealthStatus_ContextCancellation(t *testing.T
 
 // InClusterHealthMonitor
 func TestInClusterHealthMonitor_WatchHealthStatus(t *testing.T) {
-	tests := []TestCase{
+	tests := []struct {
+		name           string
+		endpoint       string
+		mockStatus     HealthStatus
+		setupMockError bool
+		expectedStatus HealthStatus
+		expectError    bool
+	}{
 		{
-			Name:           "Successful status retrieval - SUCCESS",
-			KubeContext:    "",
-			Endpoint:       "kubetail-cluster-api.kubetail-system.svc.cluster.local:50051",
-			MockStatus:     HealthStatusSuccess,
-			SetupMockError: false,
-			ExpectedStatus: HealthStatusSuccess,
-			ExpectError:    false,
-			ShutdownTime:   1 * time.Second,
-			HasWorker:      true,
+			name:           "Successful status retrieval - SUCCESS",
+			endpoint:       "kubetail-cluster-api.kubetail-system.svc.cluster.local:50051",
+			mockStatus:     HealthStatusSuccess,
+			expectedStatus: HealthStatusSuccess,
+			expectError:    false,
 		},
 		{
-			Name:           "Successful status retrieval - Ungrouped",
-			KubeContext:    "",
-			Endpoint:       "",
-			MockStatus:     HealthStatusUknown,
-			SetupMockError: false,
-			ExpectedStatus: HealthStatusUknown,
-			ExpectError:    false,
-			ShutdownTime:   1 * time.Second,
-			HasWorker:      true,
+			name:           "Successful status retrieval - Ungrouped",
+			endpoint:       "",
+			mockStatus:     HealthStatusUknown,
+			expectedStatus: HealthStatusUknown,
+			expectError:    false,
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.Name, func(t *testing.T) {
-			// Setup test environment
-			hm, mockWorker := setupInClusterHealthMonitor(tc)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mock connection manager
+			cm := &k8shelpersmock.MockConnectionManager{}
+
+			if tt.setupMockError {
+				cm.On("GetOrCreateClientset", "").Return(nil, fmt.Errorf("connection error"))
+			} else {
+				mockClientset := fake.NewClientset()
+				cm.On("GetOrCreateClientset", "").Return(mockClientset, nil)
+			}
+
+			hm := NewInClusterHealthMonitor(cm, tt.endpoint)
+			mockWorker := newMockHealthMonitorWorker(1 * time.Second)
+			mockWorker.healthStatus = tt.mockStatus
+			hm.worker = mockWorker
 
 			// Action
 			ctx := context.Background()
-			mockWorker.TriggerHealthStatus(tc.MockStatus)
-			statusCh, err := hm.WatchHealthStatus(ctx, tc.KubeContext, tc.Namespace, tc.ServiceName)
+			mockWorker.TriggerHealthStatus(tt.mockStatus)
+			status, err := hm.WatchHealthStatus(ctx, "", nil, nil)
 
 			// Assert
 			assert.NoError(t, err)
-			workerStatus := <-statusCh
-			assert.Equal(t, tc.ExpectedStatus, workerStatus)
+			workerStatus := <-status
+			assert.Equal(t, tt.expectedStatus, workerStatus)
 		})
 	}
 }
 
 func TestInClusterHealthMonitor_WatchHealthStatus_ContextCancellation(t *testing.T) {
-	// Setup test case
-	tc := TestCase{
-		Name:           "Context Cancellation",
-		KubeContext:    "",
-		Endpoint:       "",
-		MockStatus:     HealthStatusSuccess,
-		SetupMockError: false,
-		ExpectedStatus: HealthStatusSuccess,
-		ExpectError:    false,
-		ShutdownTime:   1 * time.Second,
-		HasWorker:      true,
-	}
+	// Setup
+	cm := &k8shelpersmock.MockConnectionManager{}
+	kubeContext := "test-context"
+	mockClientset := fake.NewClientset()
+	cm.On("GetOrCreateClientset", kubeContext).Return(mockClientset, nil)
 
-	// Setup test environment
-	hm, mockWorker := setupInClusterHealthMonitor(tc)
+	hm := NewInClusterHealthMonitor(cm, "")
+	mockWorker := newMockHealthMonitorWorker(1 * time.Second)
+	mockWorker.healthStatus = HealthStatusSuccess
+	hm.worker = mockWorker
 
 	// Create context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Action
 	// Start watching
-	mockWorker.TriggerHealthStatus(tc.MockStatus)
-	statusCh, err := hm.WatchHealthStatus(ctx, tc.KubeContext, tc.Namespace, tc.ServiceName)
+	mockWorker.TriggerHealthStatus(HealthStatusSuccess)
+	statusCh, err := hm.WatchHealthStatus(ctx, "", nil, nil)
 	assert.NoError(t, err)
 
 	// Receive initial status
 	workerStatus := <-statusCh
-	assert.Equal(t, tc.MockStatus, workerStatus)
+	assert.Equal(t, (HealthStatus)(HealthStatusSuccess), workerStatus)
 
 	// Cancel context
 	cancel()
@@ -766,41 +775,36 @@ func TestInClusterHealthMonitor_WatchHealthStatus_ContextCancellation(t *testing
 
 // ReadyWait
 func TestDesktopHealthMonitor_ReadyWait_Immediate_Success(t *testing.T) {
-	// Setup test case
-	tc := TestCase{
-		Name:           "Immediate Success",
-		KubeContext:    "test-context",
-		MockStatus:     HealthStatusSuccess,
-		SetupMockError: false,
-		ExpectedStatus: HealthStatusSuccess,
-		ExpectError:    false,
-		ShutdownTime:   1 * time.Second,
-	}
+	// Setup
+	cm := &k8shelpersmock.MockConnectionManager{}
+	kubeContext := "test-context"
+	mockClientset := fake.NewClientset()
+	cm.On("GetOrCreateClientset", kubeContext).Return(mockClientset, nil)
 
-	// Setup test environment
-	hm, _ := setupDesktopHealthMonitor(tc)
+	hm := NewDesktopHealthMonitor(cm)
+	mockWorker := newMockHealthMonitorWorker(1 * time.Second)
+	cacheKey := fmt.Sprintf("%s::%s::%s", kubeContext, DefaultNamespace, DefaultServiceName)
+	hm.workerCache.Store(cacheKey, mockWorker)
 
 	// Action
 	ctx := context.Background()
-	err := hm.ReadyWait(ctx, tc.KubeContext, tc.Namespace, tc.ServiceName)
+	mockWorker.healthStatus = HealthStatusSuccess
+	err := hm.ReadyWait(ctx, kubeContext, nil, nil)
 
 	// Assert
 	assert.NoError(t, err)
 }
 func TestDesktopHealthMonitor_ReadyWait_WaitSuccess(t *testing.T) {
-	// Setup test case
-	tc := TestCase{
-		Name:           "Wait Success",
-		KubeContext:    "test-context",
-		MockStatus:     HealthStatusPending, // Start with pending status
-		SetupMockError: false,
-		ExpectedStatus: HealthStatusSuccess,
-		ExpectError:    false,
-		ShutdownTime:   1 * time.Second,
-	}
+	// Setup
+	cm := &k8shelpersmock.MockConnectionManager{}
+	kubeContext := "test-context"
+	mockClientset := fake.NewClientset()
+	cm.On("GetOrCreateClientset", kubeContext).Return(mockClientset, nil)
 
-	// Setup test environment
-	hm, mockWorker := setupDesktopHealthMonitor(tc)
+	hm := NewDesktopHealthMonitor(cm)
+	mockWorker := newMockHealthMonitorWorker(1 * time.Second)
+	cacheKey := fmt.Sprintf("%s::%s::%s", kubeContext, DefaultNamespace, DefaultServiceName)
+	hm.workerCache.Store(cacheKey, mockWorker)
 
 	// Action
 	ctx := context.Background()
@@ -811,79 +815,64 @@ func TestDesktopHealthMonitor_ReadyWait_WaitSuccess(t *testing.T) {
 	}()
 
 	// Call the health monitor's ReadyWait
-	err := hm.ReadyWait(ctx, tc.KubeContext, tc.Namespace, tc.ServiceName)
+	err := hm.ReadyWait(ctx, kubeContext, nil, nil)
 
 	// Assert
 	assert.NoError(t, err)
 }
 
 func TestDesktopHealthMonitor_ReadyWait_WaitFailure(t *testing.T) {
-	// Setup test case
-	tc := TestCase{
-		Name:           "Wait Failure",
-		KubeContext:    "test-context",
-		MockStatus:     HealthStatusPending, // Start with pending status and never change
-		SetupMockError: false,
-		ExpectedStatus: HealthStatusPending,
-		ExpectError:    true,
-		ShutdownTime:   1 * time.Second,
-	}
+	// Setup
+	cm := &k8shelpersmock.MockConnectionManager{}
+	kubeContext := "test-context"
+	mockClientset := fake.NewClientset()
+	cm.On("GetOrCreateClientset", kubeContext).Return(mockClientset, nil)
 
-	// Setup test environment
-	hm, _ := setupDesktopHealthMonitor(tc)
+	hm := NewDesktopHealthMonitor(cm)
+	mockWorker := newMockHealthMonitorWorker(1 * time.Second)
+	mockWorker.healthStatus = HealthStatusPending
+	cacheKey := fmt.Sprintf("%s::%s::%s", kubeContext, DefaultNamespace, DefaultServiceName)
+	hm.workerCache.Store(cacheKey, mockWorker)
 
 	// Action
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 	defer cancel()
 
 	// Call the health monitor's ReadyWait
-	err := hm.ReadyWait(ctx, tc.KubeContext, tc.Namespace, tc.ServiceName)
+	err := hm.ReadyWait(ctx, kubeContext, nil, nil)
 
-	// Assert
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "context deadline exceeded")
 }
 
 func TestInClusterHealthMonitor_ReadyWait_ImmediateSuccess(t *testing.T) {
-	// Setup test case
-	tc := TestCase{
-		Name:           "Immediate Success",
-		KubeContext:    "test-context",
-		Endpoint:       "",
-		MockStatus:     HealthStatusSuccess,
-		SetupMockError: false,
-		ExpectedStatus: HealthStatusSuccess,
-		ExpectError:    false,
-		ShutdownTime:   1 * time.Second,
-		HasWorker:      true,
-	}
-
-	// Setup test environment
-	hm, _ := setupInClusterHealthMonitor(tc)
+	// Setup
+	cm := &k8shelpersmock.MockConnectionManager{}
+	kubeContext := "test-context"
+	mockClientset := fake.NewClientset()
+	cm.On("GetOrCreateClientset", kubeContext).Return(mockClientset, nil)
+	hm := NewInClusterHealthMonitor(cm, "")
+	mockWorker := newMockHealthMonitorWorker(1 * time.Second)
+	hm.worker = mockWorker
 
 	// Action
 	ctx := context.Background()
-	err := hm.ReadyWait(ctx, tc.KubeContext, tc.Namespace, tc.ServiceName)
+	mockWorker.healthStatus = HealthStatusSuccess
+	err := hm.ReadyWait(ctx, kubeContext, nil, nil)
 
 	// Assert
 	assert.NoError(t, err)
 }
 func TestInClusterHealthMonitor_ReadyWait_WaitSuccess(t *testing.T) {
-	// Setup test case
-	tc := TestCase{
-		Name:           "Wait Success",
-		KubeContext:    "test-context",
-		Endpoint:       "",
-		MockStatus:     HealthStatusPending, // Start with pending status
-		SetupMockError: false,
-		ExpectedStatus: HealthStatusSuccess,
-		ExpectError:    false,
-		ShutdownTime:   1 * time.Second,
-		HasWorker:      true,
-	}
-
-	// Setup test environment
-	hm, mockWorker := setupInClusterHealthMonitor(tc)
+	// Setup
+	cm := &k8shelpersmock.MockConnectionManager{}
+	kubeContext := "test-context"
+	mockClientset := fake.NewClientset()
+	cm.On("GetOrCreateClientset", kubeContext).Return(mockClientset, nil)
+	hm := NewInClusterHealthMonitor(cm, "")
+	mockWorker := newMockHealthMonitorWorker(1 * time.Second)
+	hm.worker = mockWorker
 
 	// Action
 	ctx := context.Background()
@@ -891,37 +880,31 @@ func TestInClusterHealthMonitor_ReadyWait_WaitSuccess(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 		mockWorker.TriggerHealthStatus(HealthStatusSuccess)
 	}()
-	err := hm.ReadyWait(ctx, tc.KubeContext, tc.Namespace, tc.ServiceName)
+	err := hm.ReadyWait(ctx, kubeContext, nil, nil)
 
 	// Assert
 	assert.NoError(t, err)
 }
 
 func TestInClusterHealthMonitor_ReadyWait_WaitFailure(t *testing.T) {
-	// Setup test case
-	tc := TestCase{
-		Name:           "Wait Failure",
-		KubeContext:    "test-context",
-		Endpoint:       "",
-		MockStatus:     HealthStatusPending, // Start with pending status and never change
-		SetupMockError: false,
-		ExpectedStatus: HealthStatusPending,
-		ExpectError:    true,
-		ShutdownTime:   1 * time.Second,
-		HasWorker:      true,
-	}
-
-	// Setup test environment
-	hm, _ := setupInClusterHealthMonitor(tc)
+	// Setup
+	cm := &k8shelpersmock.MockConnectionManager{}
+	kubeContext := "test-context"
+	mockClientset := fake.NewClientset()
+	cm.On("GetOrCreateClientset", kubeContext).Return(mockClientset, nil)
+	hm := NewInClusterHealthMonitor(cm, "")
+	mockWorker := newMockHealthMonitorWorker(1 * time.Second)
+	mockWorker.healthStatus = HealthStatusPending
+	hm.worker = mockWorker
 
 	// Action
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 	defer cancel()
 
 	// Call the health monitor's ReadyWait
-	err := hm.ReadyWait(ctx, tc.KubeContext, tc.Namespace, tc.ServiceName)
+	err := hm.ReadyWait(ctx, kubeContext, nil, nil)
 
-	// Assert
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "context deadline exceeded")
 }
