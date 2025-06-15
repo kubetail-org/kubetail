@@ -1,0 +1,16 @@
+apiVersion: ctlptl.dev/v1alpha1
+kind: Registry
+name: ctlptl-registry
+port: 5005
+---
+apiVersion: ctlptl.dev/v1alpha1
+kind: Cluster
+product: kind
+registry: ctlptl-registry
+kindV1Alpha4Cluster:
+  apiVersion: kind.x-k8s.io/v1alpha4
+  kind: Cluster
+  nodes:
+    - role: control-plane
+    - role: worker
+    - role: worker

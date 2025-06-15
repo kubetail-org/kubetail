@@ -13,469 +13,214 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: arduino/setup-protoc@v3
-      - name: Run builder
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: 'true'
+          setup-protoc: 'true'
+      - name: Build
         working-directory: ./crates/rgkl
-        run: |
-          cargo build --release
+        run: cargo build --release
 
   crates-lint:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: arduino/setup-protoc@v3
-      - name: Enable rustfmt
-        run: rustup component add --toolchain 1.87.0-x86_64-unknown-linux-gnu rustfmt
-      - name: Run linter
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: 'true'
+          setup-protoc: 'true'
+      - name: Run format check
         working-directory: ./crates/rgkl
-        run: |
-          cargo fmt --all -- --check
+        run: cargo fmt --all -- --check
 
   crates-vet:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: arduino/setup-protoc@v3
-      - name: Enable rustfmt
-        run: rustup component add --toolchain 1.87.0-x86_64-unknown-linux-gnu clippy
-      - name: Run code vetter
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: 'true'
+          setup-protoc: 'true'
+      - name: Run clippy
         working-directory: ./crates/rgkl
-        run: |
-          cargo clippy --all -- -D warnings
+        run: cargo clippy --all -- -D warnings
 
   crates-test:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: arduino/setup-protoc@v3
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: 'true'
+          setup-protoc: 'true'
       - name: Run tests
         working-directory: ./crates/rgkl
-        run: |
-          cargo test
+        run: cargo test
 
   modules-lint:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: ./.github/actions/setup-environment
         with:
-          go-version: '1.24.3'
-          cache: false
+          setup-go: 'true'
       - name: Run linter
         working-directory: ./modules
-        run: |
-          test -z $(gofmt -l .)
-
-  modules-test:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.3'
-          cache: false
-      - name: Run tests
-        working-directory: ./modules
-        run: |
-          go test -race github.com/kubetail-org/kubetail/modules/...
+        run: test -z "$(gofmt -l .)"
 
   modules-vet:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: ./.github/actions/setup-environment
         with:
-          go-version: '1.24.3'
-          cache: false
+          setup-go: 'true'
       - name: Run code vetter
         working-directory: ./modules
-        run: |
-          go vet github.com/kubetail-org/kubetail/modules/...
+        run: go vet github.com/kubetail-org/kubetail/modules/...
+
+  modules-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: 'true'
+      - name: Run tests
+        working-directory: ./modules
+        run: go test -race github.com/kubetail-org/kubetail/modules/...
 
   dashboard-ui-lint:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-environment
         with:
-          node-version: 22
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - name: Set up and run linter
+          setup-node: 'true'
+      - name: Install dependencies
         working-directory: ./dashboard-ui
-        run: |
-          pnpm install
-          pnpm lint
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        working-directory: ./dashboard-ui
+        run: pnpm lint
 
   dashboard-ui-test:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-environment
         with:
-          node-version: 22
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - name: Set up and run tests
+          setup-node: 'true'
+      - name: Install dependencies
         working-directory: ./dashboard-ui
-        run: |
-          pnpm install
-          pnpm test run
+        run: pnpm install --frozen-lockfile
+      - name: Test
+        working-directory: ./dashboard-ui
+        run: pnpm test run
 
   dashboard-ui-build:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-environment
         with:
-          node-version: 22
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - name: Set up and run build script
+          setup-node: 'true'
+      - name: Install dependencies
         working-directory: ./dashboard-ui
-        run: |
-          pnpm install
-          pnpm build
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        working-directory: ./dashboard-ui
+        run: pnpm build
 
-  build-dashboard-amd64:
-    needs:
-      - crates-lint
-      - crates-vet
-      - crates-test
-      - crates-build
-      - modules-lint
-      - modules-test
-      - modules-vet
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
-    runs-on: ubuntu-24.04
+  docker-builds:
+    needs: [
+      crates-build, crates-lint, crates-vet, crates-test,
+      modules-lint, modules-vet, modules-test,
+      dashboard-ui-lint, dashboard-ui-test, dashboard-ui-build
+    ]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        include:
+          # AMD64 builds on standard Ubuntu
+          - image: dashboard
+            dockerfile: build/package/Dockerfile.dashboard
+            runner: ubuntu-24.04
+            tag-suffix: latest
+            cache-scope: dashboard-amd64
+          - image: cluster-api
+            dockerfile: build/package/Dockerfile.cluster-api
+            runner: ubuntu-24.04
+            tag-suffix: latest
+            cache-scope: cluster-api-amd64
+          - image: cluster-agent
+            dockerfile: build/package/Dockerfile.cluster-agent
+            runner: ubuntu-24.04
+            tag-suffix: latest
+            cache-scope: cluster-agent-amd64
+          # ARM64 builds on ARM Ubuntu
+          - image: dashboard
+            dockerfile: build/package/Dockerfile.dashboard
+            runner: ubuntu-24.04-arm
+            tag-suffix: arm64
+            cache-scope: dashboard-arm64
+          - image: cluster-api
+            dockerfile: build/package/Dockerfile.cluster-api
+            runner: ubuntu-24.04-arm
+            tag-suffix: arm64
+            cache-scope: cluster-api-arm64
+          - image: cluster-agent
+            dockerfile: build/package/Dockerfile.cluster-agent
+            runner: ubuntu-24.04-arm
+            tag-suffix: arm64
+            cache-scope: cluster-agent-arm64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Build
-        uses: docker/build-push-action@v5
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.image }} for native architecture
+        uses: docker/build-push-action@v6
         with:
           context: .
-          file: build/package/Dockerfile.dashboard
+          file: ${{ matrix.dockerfile }}
           push: false
-          tags: kubetail-dashboard:latest
+          tags: kubetail-${{ matrix.image }}:${{ matrix.tag-suffix }}
+          cache-from: type=gha,scope=${{ matrix.cache-scope }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.cache-scope }}
 
-  build-dashboard-arm64:
-    needs:
-      - crates-lint
-      - crates-vet
-      - crates-test
-      - crates-build
-      - modules-lint
-      - modules-test
-      - modules-vet
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
-    runs-on: ubuntu-24.04-arm
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Build
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: build/package/Dockerfile.dashboard
-          push: false
-          tags: kubetail-dashboard:latest
-        
-  build-cluster-api-amd64:
-    needs:
-      - crates-lint
-      - crates-vet
-      - crates-test
-      - crates-build
-      - modules-lint
-      - modules-test
-      - modules-vet
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Build
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: build/package/Dockerfile.cluster-api
-          push: false
-          tags: kubetail-cluster-api:latest
-
-  build-cluster-api-arm64:
-    needs:
-      - crates-lint
-      - crates-vet
-      - crates-test
-      - crates-build
-      - modules-lint
-      - modules-test
-      - modules-vet
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
-    runs-on: ubuntu-24.04-arm
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Build
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: build/package/Dockerfile.cluster-api
-          push: false
-          tags: kubetail-cluster-api:latest
-      
-  build-cluster-agent-amd64:
-    needs:
-      - crates-lint
-      - crates-vet
-      - crates-test
-      - crates-build
-      - modules-lint
-      - modules-test
-      - modules-vet
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Build
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: build/package/Dockerfile.cluster-agent
-          push: false
-          tags: kubetail-cluster-agent:latest
-
-  build-cluster-agent-arm64:
-    needs:
-      - crates-lint
-      - crates-vet
-      - crates-test
-      - crates-build
-      - modules-lint
-      - modules-test
-      - modules-vet
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
-    runs-on: ubuntu-24.04-arm
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Build
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: build/package/Dockerfile.cluster-agent
-          push: false
-          tags: kubetail-cluster-agent:latest
-
-  build-cli-linux-amd64:
-    needs:
-      - crates-lint
-      - crates-vet
-      - crates-test
-      - crates-build
-      - modules-lint
-      - modules-test
-      - modules-vet
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
-    runs-on: ubuntu-24.04
+  cli-builds:
+    needs: [
+      crates-build, crates-lint, crates-vet, crates-test,
+      modules-lint, modules-vet, modules-test,
+      dashboard-ui-lint, dashboard-ui-test, dashboard-ui-build
+    ]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux-amd64
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
+          - os: macos-15
+            platform: macos-arm64
+          - os: macos-14
+            platform: macos-arm64
+          - os: macos-13
+            platform: macos-amd64
+          - os: windows-latest
+            platform: windows-amd64
+          - os: windows-11-arm
+            platform: windows-arm64
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-environment
         with:
-          node-version: 22
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.3'
-          cache: false
-      - name: Run build script
+          setup-node: 'true'
+          setup-go: 'true'
+      - name: Build CLI for ${{ matrix.platform }}
         run: make build
-
-  build-cli-linux-arm64:
-    needs:
-      - crates-lint
-      - crates-vet
-      - crates-test
-      - crates-build
-      - modules-lint
-      - modules-test
-      - modules-vet
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
-    runs-on: ubuntu-24.04-arm
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.3'
-          cache: false  
-      - name: Run build script
-        run: make build
-
-  build-cli-macos-15:
-    needs:
-      - crates-lint
-      - crates-vet
-      - crates-test
-      - crates-build
-      - modules-lint
-      - modules-test
-      - modules-vet
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.3'
-          cache: false  
-      - name: Run build script
-        run: make build
-
-  build-cli-macos-14:
-    needs:
-      - crates-lint
-      - crates-vet
-      - crates-test
-      - crates-build
-      - modules-lint
-      - modules-test
-      - modules-vet
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.3'
-          cache: false
-      - name: Run build script
-        run: make build
-
-  build-cli-macos-13:
-    needs:
-      - crates-lint
-      - crates-vet
-      - crates-test
-      - crates-build
-      - modules-lint
-      - modules-test
-      - modules-vet
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
-    runs-on: macos-13
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.3'
-          cache: false
-      - name: Run build script
-        run: make build
-
-  build-cli-windows-amd64:
-    needs:
-      - crates-lint
-      - crates-vet
-      - crates-test
-      - crates-build
-      - modules-lint
-      - modules-test
-      - modules-vet
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.3'
-          cache: false
-      - name: Run build script
-        run: make build
-
-  build-cli-windows-arm64:
-    needs:
-      - crates-lint
-      - crates-vet
-      - crates-test
-      - crates-build
-      - modules-lint
-      - modules-test
-      - modules-vet
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
-    runs-on: windows-11-arm
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.3'
-          cache: false
-      - name: Run build script
-        run: make build
+        env:
+          PLATFORM: ${{ matrix.platform }}
