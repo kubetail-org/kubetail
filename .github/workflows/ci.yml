@@ -59,36 +59,45 @@ jobs:
 
   modules-lint:
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        module: [ cli, cluster-agent, cluster-api, dashboard, shared ]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: 'true'
-      - name: Run linter
-        working-directory: ./modules
+      - name: Run linter for ${{ matrix.module }}
+        working-directory: ./modules/${{ matrix.module }}
         run: test -z "$(gofmt -l .)"
 
   modules-vet:
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        module: [ cli, cluster-agent, cluster-api, dashboard, shared ]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: 'true'
-      - name: Run code vetter
-        working-directory: ./modules
-        run: go vet github.com/kubetail-org/kubetail/modules/...
+      - name: Vet ${{ matrix.module }}
+        working-directory: ./modules/${{ matrix.module }}
+        run: go vet ./...
 
   modules-test:
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        module: [ cli, cluster-agent, cluster-api, dashboard, shared ]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: 'true'
-      - name: Run tests
-        working-directory: ./modules
-        run: go test -race github.com/kubetail-org/kubetail/modules/...
+      - name: Run tests for ${{ matrix.module }}
+        working-directory: ./modules/${{ matrix.module }}
+        run: go test -race -timeout 5m ./...
 
   dashboard-ui-lint:
     runs-on: ubuntu-24.04
@@ -142,53 +151,61 @@ jobs:
     timeout-minutes: 20
     strategy:
       matrix:
+        build:
+          - name: dashboard-final
+            image: dashboard
+            target: final
+            dockerfile: build/package/Dockerfile.dashboard
+          - name: dashboard-debug
+            image: dashboard
+            target: debug
+            dockerfile: build/package/Dockerfile.dashboard
+          - name: cluster-api-final
+            image: cluster-api
+            target: final
+            dockerfile: build/package/Dockerfile.cluster-api
+          - name: cluster-agent-final
+            image: cluster-agent
+            target: final
+            dockerfile: build/package/Dockerfile.cluster-agent
+        runner: [ ubuntu-24.04, ubuntu-24.04-arm ]
         include:
-          # AMD64 builds on standard Ubuntu
-          - image: dashboard
-            dockerfile: build/package/Dockerfile.dashboard
-            runner: ubuntu-24.04
-            tag-suffix: latest
-            cache-scope: dashboard-amd64
-          - image: cluster-api
-            dockerfile: build/package/Dockerfile.cluster-api
-            runner: ubuntu-24.04
-            tag-suffix: latest
-            cache-scope: cluster-api-amd64
-          - image: cluster-agent
-            dockerfile: build/package/Dockerfile.cluster-agent
-            runner: ubuntu-24.04
-            tag-suffix: latest
-            cache-scope: cluster-agent-amd64
-          # ARM64 builds on ARM Ubuntu
-          - image: dashboard
-            dockerfile: build/package/Dockerfile.dashboard
-            runner: ubuntu-24.04-arm
-            tag-suffix: arm64
-            cache-scope: dashboard-arm64
-          - image: cluster-api
-            dockerfile: build/package/Dockerfile.cluster-api
-            runner: ubuntu-24.04-arm
-            tag-suffix: arm64
-            cache-scope: cluster-api-arm64
-          - image: cluster-agent
-            dockerfile: build/package/Dockerfile.cluster-agent
-            runner: ubuntu-24.04-arm
-            tag-suffix: arm64
-            cache-scope: cluster-agent-arm64
+          - runner: ubuntu-24.04
+            platform: linux/amd64
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            arch: arm64
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Build ${{ matrix.image }} for native architecture
+
+      - name: Generate metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: kubetail-${{ matrix.build.image }}
+          tags: |
+            type=ref,event=pr,suffix=-${{ matrix.build.target }}
+            type=raw,value=${{ matrix.build.target }}-{{sha}}
+          flavor: |
+            suffix=-${{ matrix.arch }}
+
+      - name: Build ${{ matrix.build.image }} (${{ matrix.build.target }}) natively for ${{ matrix.arch }}
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
+          file: ${{ matrix.build.dockerfile }}
+          platforms: ${{ matrix.platform }}
+          target: ${{ matrix.build.target }}
           push: false
-          tags: kubetail-${{ matrix.image }}:${{ matrix.tag-suffix }}
-          cache-from: type=gha,scope=${{ matrix.cache-scope }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.cache-scope }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.build.image }}-${{ matrix.build.target }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.build.image }}-${{ matrix.build.target }}-${{ matrix.arch }}
 
   cli-builds:
     needs: [
