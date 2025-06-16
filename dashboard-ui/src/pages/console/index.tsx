@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import distinctColors from 'distinct-colors';
 import { PanelLeftClose as PanelLeftCloseIcon } from 'lucide-react';
 import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -32,13 +31,28 @@ import type { ViewerHandle } from './viewer';
  * Configure container colors component
  */
 
-const palette = distinctColors({
-  count: 20,
-  chromaMin: 40,
-  chromaMax: 100,
-  lightMin: 20,
-  lightMax: 80,
-});
+const palette = [
+  '#3B6EDC', // Muted Blue
+  '#2F9E5F', // Muted Green
+  '#D14343', // Muted Red
+  '#D38B2A', // Muted Amber
+  '#8456D8', // Muted Purple
+  '#2C9CB3', // Muted Cyan
+  '#7A6BD1', // Muted Violet
+  '#D14D8A', // Muted Pink
+  '#7FA83A', // Muted Lime
+  '#E06C3A', // Muted Orange
+  '#2F9A8A', // Muted Teal
+  '#5C63D6', // Muted Indigo
+  '#A46A3D', // Muted Brown
+  '#C24A77', // Muted Rose
+  '#6B8F3A', // Muted Forest Green
+  '#4B4FCF', // Muted Deep Blue
+  '#9A4EB3', // Muted Magenta
+  '#BFA23A', // Muted Gold
+  '#4A84C8', // Muted Sky Blue
+  '#247A8A', // Muted Blue-Green
+];
 
 const ConfigureContainerColors = () => {
   const { sources } = useSources();
@@ -53,8 +67,8 @@ const ConfigureContainerColors = () => {
 
     (async () => {
       // set css var
-      const colorIDX = (await safeDigest(k)).getUint32(0) % 20;
-      document.documentElement.style.setProperty(`--${k}-color`, palette[colorIDX].hex());
+      const colorIDX = (await safeDigest(k)).getUint32(0) % palette.length;
+      document.documentElement.style.setProperty(`--${k}-color`, palette[colorIDX]);
     })();
   });
 
