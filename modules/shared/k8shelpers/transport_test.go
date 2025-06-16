@@ -30,7 +30,6 @@ func TestBearerTokenRoundTripper_headerSet(t *testing.T) {
 	ctx := context.WithValue(req.Context(), K8STokenCtxKey, TEST_TOKEN)
 	req = req.WithContext(ctx)
 
-	c.Do(req)
+	_, err = c.Do(req)
 	assert.Nil(t, err)
-
 }
