@@ -1,0 +1,79 @@
+name: 'Setup Environment'
+description: 'Sets up Node.js, PNPM, Go, and Rust conditionally for building Kubetail'
+
+inputs:
+  go-version:
+    description: 'Go version to install'
+    required: false
+    default: '1.24.3'
+  node-version:
+    description: 'Node.js version to install'
+    required: false
+    default: '22'
+  pnpm-version:
+    description: 'PNPM version to install'
+    required: false
+    default: '10'
+  setup-rust:
+    description: 'Whether to set up Rust'
+    required: false
+    default: 'false'
+  rust-toolchain:
+    description: 'Rust toolchain to install'
+    required: false
+    default: '1.87.0'
+  setup-protoc:
+    description: 'Whether to set up Protoc'
+    required: false
+    default: 'false'
+  setup-go:
+    description: 'Whether to set up Go'
+    required: false
+    default: 'false'
+  setup-node:
+    description: 'Whether to set up Node.js and PNPM'
+    required: false
+    default: 'false'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Protoc
+      if: inputs.setup-protoc == 'true'
+      uses: arduino/setup-protoc@v3
+
+    - name: Set up Rust
+      if: inputs.setup-rust == 'true'
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ inputs.rust-toolchain }}
+        components: rustfmt, clippy
+
+    - name: Set up Rust cache
+      if: inputs.setup-rust == 'true'
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: "./crates/rgkl"
+
+    - name: Set up PNPM
+      if: inputs.setup-node == 'true'
+      uses: pnpm/action-setup@v4
+      with:
+        version: ${{ inputs.pnpm-version }}
+
+    - name: Set up Node.js
+      if: inputs.setup-node == 'true'
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: 'pnpm'
+        cache-dependency-path: '**/pnpm-lock.yaml'
+
+    - name: Set up Go
+      if: inputs.setup-go == 'true'
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go-version }}
+        cache-dependency-path: |
+          modules/**/go.sum
+          go.work.sum

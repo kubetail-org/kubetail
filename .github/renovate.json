@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":semanticPrefixChore",
+    ":label(dependencies)",
+    ":disableRateLimiting"
+  ],
+  "automergeType": "branch",
+  "commitMessagePrefix": "chore: ",
+  "packageRules": [
+    {
+      "description": "Automerge patch",
+      "matchUpdateTypes": ["patch"],
+      "automerge": true
+    },
+    {
+      "description": "No automerge for minor and major updates",
+      "matchUpdateTypes": ["minor", "major"],
+      "automerge": false
+    }
+  ]
+}

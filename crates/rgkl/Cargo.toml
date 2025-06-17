@@ -5,7 +5,7 @@ edition = "2021"
 build = "build.rs"
 
 [build-dependencies]
-tonic-build = "0.12.3"
+tonic-build = "0.13.0"
 
 [dependencies]
 chrono = "0.4.39"
@@ -34,7 +34,7 @@ signal-hook = "0.3.17"
 tempfile = "3.17.1"
 termcolor = "1.4.1"
 thiserror = "2.0.12"
-tonic = "0.12.3"
+tonic = "0.13.0"
 
 [target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
 version = "0.5.4"
