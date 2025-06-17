@@ -28,9 +28,10 @@ import Spinner from '@kubetail/ui/elements/Spinner';
 import { ConsoleNodesListItemFragmentFragment, LogRecordsFragmentFragment as LogRecord, LogRecordsQueryMode, LogSourceFilter, LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { useIsClusterAPIEnabled, useListQueryWithSubscription, useNextTick } from '@/lib/hooks';
-import { Counter, MapSet, cn, cssEncode } from '@/lib/util';
+import { Counter, MapSet, cn } from '@/lib/util';
 import { getClusterAPIClient } from '@/apollo-client';
 import LoadingPage from '@/components/utils/LoadingPage';
+import { useContainerColor } from '@/lib/color';
 
 type ContextType = {
   useClusterAPI: boolean | undefined;
@@ -239,6 +240,20 @@ const LoadingOverlay = ({ height, width }: { height: number; width: number; }) =
  * Row component
  */
 
+const ContainerColorDot = ({ namespace, podName, containerName }: {
+  namespace: string;
+  podName: string;
+  containerName: string;
+}) => {
+  const color = useContainerColor(namespace, podName, containerName);
+  return (
+    <div
+      className="w-[8px] h-[8px] rounded-full"
+      style={{ backgroundColor: color }}
+    />
+  );
+};
+
 const getAttribute = (record: LogRecord, col: ViewerColumn) => {
   switch (col) {
     case ViewerColumn.Timestamp: {
@@ -246,14 +261,13 @@ const getAttribute = (record: LogRecord, col: ViewerColumn) => {
       return format(tsWithTZ, 'LLL dd, y HH:mm:ss.SSS', { timeZone: 'UTC' });
     }
     case ViewerColumn.ColorDot: {
-      const k = cssEncode(`${record.source.namespace}/${record.source.podName}/${record.source.containerName}`);
-      const el = (
-        <div
-          className="inline-block w-[8px] h-[8px] rounded-full"
-          style={{ backgroundColor: `var(--${k}-color)` }}
+      return (
+        <ContainerColorDot
+          namespace={record.source.namespace}
+          podName={record.source.podName}
+          containerName={record.source.containerName}
         />
       );
-      return el;
     }
     case ViewerColumn.PodContainer:
       return `${record.source.podName}/${record.source.containerName}`;

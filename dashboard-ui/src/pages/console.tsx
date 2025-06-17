@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
-import distinctColors from 'distinct-colors';
 import {
   History as HistoryIcon,
   Pause as PauseIcon,
@@ -48,9 +47,10 @@ import {
   useViewerMetadata,
   useViewerVisibleCols,
 } from '@/lib/logfeed';
-import { Counter, cn, cssEncode, getBasename, joinPaths, MapSet } from '@/lib/util';
+import { Counter, cn, getBasename, joinPaths, MapSet } from '@/lib/util';
 import { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { Workload, allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
+import { useContainerColor } from '@/lib/color';
 
 /**
  * Shared
@@ -62,52 +62,6 @@ type ContextType = {
 };
 
 const Context = createContext({} as ContextType);
-
-/**
- * Helper methods
- */
-
-function cssID(namespace: string, podName: string, containerName: string) {
-  return cssEncode(`${namespace}/${podName}/${containerName}`);
-}
-
-/**
- * Configure container colors component
- */
-
-const palette = distinctColors({
-  count: 20,
-  chromaMin: 40,
-  chromaMax: 100,
-  lightMin: 20,
-  lightMax: 80,
-});
-
-const ConfigureContainerColors = () => {
-  const { sources } = useSources();
-  const containerKeysRef = useRef(new Set<string>());
-
-  sources.forEach((source) => {
-    const k = cssID(source.namespace, source.podName, source.containerName);
-
-    // skip if previously defined
-    if (containerKeysRef.current.has(k)) return;
-    containerKeysRef.current.add(k);
-
-    (async () => {
-      // get color
-      const streamUTF8 = new TextEncoder().encode(k);
-      const buffer = await crypto.subtle.digest('SHA-256', streamUTF8);
-      const view = new DataView(buffer);
-      const colorIDX = view.getUint32(0) % 20;
-
-      // set css var
-      document.documentElement.style.setProperty(`--${k}-color`, palette[colorIDX].hex());
-    })();
-  });
-
-  return null;
-};
 
 /**
  * Settings button
@@ -428,14 +382,19 @@ type ContainersProps = {
   containerNames?: string[];
 };
 
-const Containers = ({
+const ContainerItem = ({
   namespace,
   podName,
-  containerNames = [],
-}: ContainersProps) => {
+  containerName,
+}: {
+  namespace: string;
+  podName: string;
+  containerName: string;
+}) => {
   const [searchParams, setSearchParams] = useSearchParams();
-
-  containerNames.sort();
+  const color = useContainerColor(namespace, podName, containerName);
+  const urlKey = 'container';
+  const urlVal = `${namespace}:${podName}/${containerName}`;
 
   const handleToggle = (ev: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, checked } = ev.currentTarget;
@@ -445,26 +404,41 @@ const Containers = ({
   };
 
   return (
+    <div className="flex item-center justify-between">
+      <div className="flex items-center space-x-1">
+        <div
+          className="w-[13px] h-[13px] rounded-full"
+          style={{ backgroundColor: color }}
+        />
+        <div>{containerName}</div>
+      </div>
+      <Form.Check
+        checked={searchParams.has(urlKey, urlVal)}
+        name={urlKey}
+        value={urlVal}
+        onChange={handleToggle}
+      />
+    </div>
+  );
+};
+
+const Containers = ({
+  namespace,
+  podName,
+  containerNames = [],
+}: ContainersProps) => {
+  containerNames.sort();
+
+  return (
     <>
-      {containerNames.map((containerName) => {
-        const k = cssID(namespace, podName, containerName);
-        const urlKey = 'container';
-        const urlVal = `${namespace}:${podName}/${containerName}`;
-        return (
-          <div key={containerName} className="flex item-center justify-between">
-            <div className="flex items-center space-x-1">
-              <div className="w-[13px] h-[13px]" style={{ backgroundColor: `var(--${k}-color)` }} />
-              <div>{containerName}</div>
-            </div>
-            <Form.Check
-              checked={searchParams.has(urlKey, urlVal)}
-              name={urlKey}
-              value={urlVal}
-              onChange={handleToggle}
-            />
-          </div>
-        );
-      })}
+      {containerNames.map((containerName) => (
+        <ContainerItem
+          key={containerName}
+          namespace={namespace}
+          podName={podName}
+          containerName={containerName}
+        />
+      ))}
     </>
   );
 };
@@ -774,7 +748,6 @@ export default function Page() {
           sourceFilter={sourceFilter}
           grep={processedGrep}
         >
-          <ConfigureContainerColors />
           <AppLayout>
             <InnerLayout
               sidebar={<Sidebar />}
