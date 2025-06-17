@@ -84,11 +84,6 @@ var serveCmd = &cobra.Command{
 			return
 		}
 
-		// listen for termination signals
-		quit := make(chan os.Signal, 1)
-		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-		defer close(quit)
-
 		secret, err := generateRandomString(32)
 		if err != nil {
 			zlog.Fatal().Caller().Err(err).Send()
@@ -96,7 +91,9 @@ var serveCmd = &cobra.Command{
 		cfg.Dashboard.CSRF.Secret = secret
 
 		// set gin mode
-		gin.SetMode("release")
+		if !test {
+			gin.SetMode("release")
+		}
 
 		// configure logger
 		config.ConfigureLogger(config.LoggerOptions{
@@ -118,98 +115,107 @@ var serveCmd = &cobra.Command{
 
 		// TODO: add more tests than config, basic setup
 		if test {
-			fmt.Println("ok")
+			cmd.Println("ok")
 			return
 		}
 
-		// create app
-		app, err := app.NewApp(cfg)
+		// listen for termination signals
+		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		defer close(quit)
+
+		serve(cfg, host, skipOpen, quit)
+	},
+}
+
+func serve(cfg *config.Config, host string, skipOpen bool, quit <-chan os.Signal) {
+	// create app
+	app, err := app.NewApp(cfg)
+	if err != nil {
+		zlog.Fatal().Caller().Err(err).Send()
+	}
+
+	// create server
+	server := http.Server{
+		Addr:         cfg.Dashboard.Addr,
+		Handler:      app,
+		IdleTimeout:  1 * time.Minute,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	// create listener
+	listener, err := net.Listen("tcp", server.Addr)
+	if err != nil {
+		// let system pick port
+		listener, err = net.Listen("tcp", fmt.Sprintf("%s:0", host))
 		if err != nil {
 			zlog.Fatal().Caller().Err(err).Send()
 		}
+	}
+	defer listener.Close()
 
-		// create server
-		server := http.Server{
-			Addr:         cfg.Dashboard.Addr,
-			Handler:      app,
-			IdleTimeout:  1 * time.Minute,
-			ReadTimeout:  5 * time.Second,
-			WriteTimeout: 10 * time.Second,
+	// get actual port
+	port := listener.Addr().(*net.TCPAddr).Port
+
+	serverReady := make(chan struct{})
+
+	// run server in goroutine
+	go func() {
+		close(serverReady)
+		err := server.Serve(listener)
+		if err != nil && err != http.ErrServerClosed {
+			zlog.Fatal().Err(err).Send()
 		}
+	}()
 
-		// create listener
-		listener, err := net.Listen("tcp", server.Addr)
+	<-serverReady
+
+	zlog.Info().Msgf("Started kubetail dashboard on http://%s:%d/", host, port)
+
+	// open in browser
+	if !skipOpen {
+		err = browser.OpenURL(fmt.Sprintf("http://%s:%d/", host, port))
 		if err != nil {
-			// let system pick port
-			listener, err = net.Listen("tcp", fmt.Sprintf("%s:0", host))
-			if err != nil {
-				zlog.Fatal().Caller().Err(err).Send()
-			}
+			zlog.Fatal().Err(err).Send()
 		}
-		defer listener.Close()
+	}
 
-		// get actual port
-		port = listener.Addr().(*net.TCPAddr).Port
+	// wait for termination signal
+	<-quit
 
-		serverReady := make(chan struct{})
+	zlog.Info().Msg("Starting graceful shutdown...")
 
-		// run server in goroutine
-		go func() {
-			close(serverReady)
-			err := server.Serve(listener)
-			if err != nil && err != http.ErrServerClosed {
-				zlog.Fatal().Err(err).Send()
-			}
-		}()
+	// graceful shutdown with 30 second deadline
+	// TODO: make timeout configurable
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-		<-serverReady
+	var wg sync.WaitGroup
+	wg.Add(2)
 
-		zlog.Info().Msgf("Started kubetail dashboard on http://%s:%d/", host, port)
-
-		// open in browser
-		if !skipOpen {
-			err = browser.OpenURL(fmt.Sprintf("http://%s:%d/", host, port))
-			if err != nil {
-				zlog.Fatal().Err(err).Send()
-			}
+	// attempt graceful shutdown
+	go func() {
+		defer wg.Done()
+		if err := server.Shutdown(ctx); err != nil {
+			zlog.Error().Err(err).Send()
 		}
+	}()
 
-		// wait for termination signal
-		<-quit
-
-		zlog.Info().Msg("Starting graceful shutdown...")
-
-		// graceful shutdown with 30 second deadline
-		// TODO: make timeout configurable
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
-		var wg sync.WaitGroup
-		wg.Add(2)
-
-		// attempt graceful shutdown
-		go func() {
-			defer wg.Done()
-			if err := server.Shutdown(ctx); err != nil {
-				zlog.Error().Err(err).Send()
-			}
-		}()
-
-		// shutdown app
-		// TODO: handle long-lived requests shutdown (e.g. websockets)
-		go func() {
-			defer wg.Done()
-			if err := app.Shutdown(ctx); err != nil {
-				zlog.Error().Err(err).Send()
-			}
-		}()
-
-		wg.Wait()
-
-		if ctx.Err() == nil {
-			zlog.Info().Msg("Completed graceful shutdown")
+	// shutdown app
+	// TODO: handle long-lived requests shutdown (e.g. websockets)
+	go func() {
+		defer wg.Done()
+		if err := app.Shutdown(ctx); err != nil {
+			zlog.Error().Err(err).Send()
 		}
-	},
+	}()
+
+	wg.Wait()
+
+	if ctx.Err() == nil {
+		zlog.Info().Msg("Completed graceful shutdown")
+	}
 }
 
 func serveRemote(kubeconfigPath string, localPort int, skipOpen bool) {
