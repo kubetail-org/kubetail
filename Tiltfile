@@ -197,6 +197,7 @@ k8s_resource(
     'kubetail-dashboard:role',
     'kubetail-dashboard:rolebinding',
     'kubetail-dashboard:serviceaccount',
+    'kubetail-dashboard-tls:secret',
   ],
   resource_deps=['kubetail-shared'],
 )
