@@ -63,8 +63,8 @@ importers:
         specifier: 7.6.2
         version: 7.6.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react-timeago:
-        specifier: ^7.2.0
-        version: 7.2.0(react@18.3.1)
+        specifier: ^8.0.0
+        version: 8.2.0(react@18.3.1)
       react-virtualized-auto-sizer:
         specifier: ^1.0.26
         version: 1.0.26(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -3524,10 +3524,10 @@ packages:
       '@types/react':
         optional: true
 
-  react-timeago@7.2.0:
-    resolution: {integrity: sha512-2KsBEEs+qRhKx/kekUVNSTIpop3Jwd7SRBm0R4Eiq3mPeswRGSsftY9FpKsE/lXLdURyQFiHeHFrIUxLYskG5g==}
+  react-timeago@8.2.0:
+    resolution: {integrity: sha512-RWDlG3Jj+iwv+yNEDweA/Qk1mxE8i/Oc4oW8Irp29ZfBp+eNpqqYPMLPYQJyfRMJcGB8CmWkEGMYhB4fW8eZlQ==}
     peerDependencies:
-      react: ^16.0.0 || ^17.0.0 || ^18.0.0
+      react: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   react-virtualized-auto-sizer@1.0.26:
     resolution: {integrity: sha512-CblNyiNVw2o+hsa5/49NH2ogGxZ+t+3aweRvNSq7TVjDIlwk7ir4lencEg5HxHeSzwNarSkNkiu0qJSOXtxm5A==}
@@ -8081,7 +8081,7 @@ snapshots:
     optionalDependencies:
       '@types/react': 18.3.23
 
-  react-timeago@7.2.0(react@18.3.1):
+  react-timeago@8.2.0(react@18.3.1):
     dependencies:
       react: 18.3.1
 
