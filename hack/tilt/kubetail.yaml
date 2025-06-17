@@ -267,7 +267,7 @@ spec:
           name: kubetail-dashboard
       - name: tls
         secret:
-          secretName: secret-tls
+          secretName: kubetail-dashboard-tls
 ---
 kind: Service
 apiVersion: v1
