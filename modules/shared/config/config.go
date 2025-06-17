@@ -243,12 +243,12 @@ func DefaultConfig() *Config {
 	cfg := &Config{}
 
 	cfg.AllowedNamespaces = []string{}
+	cfg.Dashboard.HTTP.Enabled = true
 	cfg.Dashboard.HTTP.Address = ""
 	cfg.Dashboard.HTTP.Port = 8080
-	cfg.Dashboard.HTTP.Enabled = true
+	cfg.Dashboard.HTTPS.Enabled = false
 	cfg.Dashboard.HTTPS.Address = ""
 	cfg.Dashboard.HTTPS.Port = 8443
-	cfg.Dashboard.HTTPS.Enabled = false
 	cfg.Dashboard.HTTPS.TLS.CertFile = ""
 	cfg.Dashboard.HTTPS.TLS.KeyFile = ""
 	cfg.Dashboard.AuthMode = AuthModeAuto

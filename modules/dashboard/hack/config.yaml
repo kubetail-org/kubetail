@@ -1,8 +1,9 @@
 allowed-namespaces: []
 dashboard:
-  addr: :4000
   base-path: /
   gin-mode: debug
+  http:
+    port: 4000
   csrf:
     secret: replaceme
   logging:
