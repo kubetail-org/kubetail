@@ -304,7 +304,7 @@ func DefaultConfig() *Config {
 	cfg.ClusterAPI.OTel.Enabled = false
 	cfg.ClusterAPI.OTel.Debug = false
 	cfg.ClusterAPI.OTel.Endpoint = "localhost:4317"
-	cfg.ClusterAPI.OTel.ServiceName = "kubetail-cluster-agent"
+	cfg.ClusterAPI.OTel.ServiceName = "kubetail"
 
 	return cfg
 }
