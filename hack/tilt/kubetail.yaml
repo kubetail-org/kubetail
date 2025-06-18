@@ -502,13 +502,6 @@ spec:
         matchLabels:
           app.kubernetes.io/name: kubetail
           app.kubernetes.io/component: cluster-api
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          name: clickstack
-      podSelector:
-        matchLabels:
-          app: clickstack
 ---
 kind: ServiceAccount
 apiVersion: v1
