@@ -40,7 +40,7 @@ func NewServer(cfg *config.Config) (*grpc.Server, error) {
 	}
 
 	// Add otel stats handler if tracing is enabled
-	if cfg.OTel.Enabled {
+	if cfg.ClusterAgent.OTel.Enabled {
 		opts = append(opts, grpc.StatsHandler(otelgrpc.NewServerHandler()))
 	}
 	return grpc.NewServer(opts...), nil
