@@ -64,16 +64,10 @@ func InitTracer(cfg *OTelConfig) error {
 
 	// Development mode use gRPC trace exporter to an OTel collector without TLS
 	// since this is a local development setup only for now.
-	var traceExporter trace.SpanExporter
-	if cfg.Endpoint != "" {
-		// Use custom endpoint
-		traceExporter, err = otlptracegrpc.New(context.Background(),
-			otlptracegrpc.WithInsecure(),
-			otlptracegrpc.WithEndpoint(cfg.Endpoint))
-	} else {
-		// Use default endpoint (localhost:4317)
-		traceExporter, err = otlptracegrpc.New(context.Background(), otlptracegrpc.WithInsecure())
-	}
+	traceExporter, err = otlptracegrpc.New(context.Background(),
+		otlptracegrpc.WithInsecure(),
+		otlptracegrpc.WithEndpoint(cfg.Endpoint),
+	)
 	if err != nil {
 		return err
 	}
@@ -83,5 +77,6 @@ func InitTracer(cfg *OTelConfig) error {
 			trace.WithBatchTimeout(time.Second)),
 		trace.WithResource(resources))
 	otel.SetTracerProvider(traceProvider)
+
 	return nil
 }
