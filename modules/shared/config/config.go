@@ -231,6 +231,14 @@ type Config struct {
 			// log format
 			Format string `validate:"oneof=json pretty"`
 		}
+
+		// OTel options
+		OTel struct {
+			Enabled     bool
+			Debug       bool
+			Endpoint    string
+			ServiceName string
+		}
 	} `mapstructure:"cluster-agent"`
 }
 
@@ -306,6 +314,10 @@ func DefaultConfig() *Config {
 	cfg.ClusterAgent.Logging.Enabled = true
 	cfg.ClusterAgent.Logging.Level = "info"
 	cfg.ClusterAgent.Logging.Format = "json"
+	cfg.ClusterAPI.OTel.Enabled = false
+	cfg.ClusterAPI.OTel.Debug = false
+	cfg.ClusterAPI.OTel.Endpoint = "localhost:4317"
+	cfg.ClusterAPI.OTel.ServiceName = "kubetail"
 
 	return cfg
 }
