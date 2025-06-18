@@ -173,13 +173,11 @@ k8s_yaml('hack/tilt/loggen-ansi.yaml')
 k8s_yaml('hack/tilt/echoserver.yaml')
 k8s_yaml('hack/tilt/cronjob.yaml')
 k8s_yaml('hack/tilt/chaoskube.yaml')
-k8s_yaml('hack/tilt/clickstack.yaml')
 
 # define resources
 k8s_resource(
   objects=[
     'kubetail-system:namespace',
-    'clickstack:namespace',
     'kubetail:configmap',
     'kubetail-testuser:serviceaccount',
     'kubetail-testuser:role',
@@ -248,10 +246,4 @@ k8s_resource(
 k8s_resource(
   'echoserver',
   port_forwards='4502:8080',
-)
-
-k8s_resource(
-  'clickstack',
-  port_forwards=['4503:8080'],
-  resource_deps=['kubetail-shared'],
 )
