@@ -56,15 +56,6 @@ type Config struct {
 	AllowedNamespaces []string `mapstructure:"allowed-namespaces"`
 	KubeconfigPath    string   `mapstructure:"kubeconfig"`
 
-	// OTel options
-	OTel struct {
-		// Enable OTel tracing
-		Enabled     bool
-		Debug       bool
-		Endpoint    string
-		ServiceName string
-	}
-
 	// Dashboard options
 	Dashboard struct {
 		Addr               string   `validate:"omitempty,hostname_port"`
@@ -204,6 +195,14 @@ type Config struct {
 				HideHealthChecks bool `mapstructure:"hide-health-checks"`
 			} `mapstructure:"access-log"`
 		}
+
+		// OTel options
+		OTel struct {
+			Enabled     bool
+			Debug       bool
+			Endpoint    string
+			ServiceName string
+		}
 	} `mapstructure:"cluster-api"`
 
 	// Cluster Agent options
@@ -234,6 +233,14 @@ type Config struct {
 			// log format
 			Format string `validate:"oneof=json pretty"`
 		}
+
+		// OTel options
+		OTel struct {
+			Enabled     bool
+			Debug       bool
+			Endpoint    string
+			ServiceName string
+		}
 	} `mapstructure:"cluster-agent"`
 }
 
@@ -244,12 +251,6 @@ func (cfg *Config) validate() error {
 
 func DefaultConfig() *Config {
 	cfg := &Config{}
-
-	// TODO: Bubble this config up somewhere closer to main
-	cfg.OTel.Enabled = true
-	cfg.OTel.Debug = true
-	cfg.OTel.Endpoint = "localhost:4317"
-	cfg.OTel.ServiceName = "kubetail"
 
 	cfg.AllowedNamespaces = []string{}
 	cfg.Dashboard.Addr = ":8080"
@@ -302,12 +303,20 @@ func DefaultConfig() *Config {
 	cfg.ClusterAPI.Logging.Format = "json"
 	cfg.ClusterAPI.Logging.AccessLog.Enabled = true
 	cfg.ClusterAPI.Logging.AccessLog.HideHealthChecks = false
+	cfg.ClusterAPI.OTel.Enabled = false
+	cfg.ClusterAPI.OTel.Debug = false
+	cfg.ClusterAPI.OTel.Endpoint = "localhost:4317"
+	cfg.ClusterAPI.OTel.ServiceName = "kubetail-cluster-api"
 
 	cfg.ClusterAgent.Addr = ":50051"
 	cfg.ClusterAgent.ContainerLogsDir = "/var/log/containers"
 	cfg.ClusterAgent.Logging.Enabled = true
 	cfg.ClusterAgent.Logging.Level = "info"
 	cfg.ClusterAgent.Logging.Format = "json"
+	cfg.ClusterAPI.OTel.Enabled = false
+	cfg.ClusterAPI.OTel.Debug = false
+	cfg.ClusterAPI.OTel.Endpoint = "localhost:4317"
+	cfg.ClusterAPI.OTel.ServiceName = "kubetail-cluster-agent"
 
 	return cfg
 }
