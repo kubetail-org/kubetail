@@ -430,8 +430,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        - name: OTEL_EXPORTER_OTLP_HEADERS
-          value: "Authorization=<get-api-key-from-hyperdx-ui>"
         args:
         - --config=/etc/kubetail/config.yaml
         volumeMounts:
