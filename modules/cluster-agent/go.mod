@@ -6,7 +6,7 @@ toolchain go1.24.4
 
 replace github.com/kubetail-org/kubetail/modules/shared => ../shared
 
-replace github.com/gorilla/csrf => github.com/gorilla/csrf v1.7.2
+replace github.com/gorilla/csrf => github.com/gorilla/csrf v1.7.3
 
 replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
 
