@@ -195,14 +195,6 @@ type Config struct {
 				HideHealthChecks bool `mapstructure:"hide-health-checks"`
 			} `mapstructure:"access-log"`
 		}
-
-		// OTel options
-		OTel struct {
-			Enabled     bool
-			Debug       bool
-			Endpoint    string
-			ServiceName string
-		}
 	} `mapstructure:"cluster-api"`
 
 	// Cluster Agent options
@@ -303,10 +295,6 @@ func DefaultConfig() *Config {
 	cfg.ClusterAPI.Logging.Format = "json"
 	cfg.ClusterAPI.Logging.AccessLog.Enabled = true
 	cfg.ClusterAPI.Logging.AccessLog.HideHealthChecks = false
-	cfg.ClusterAPI.OTel.Enabled = false
-	cfg.ClusterAPI.OTel.Debug = false
-	cfg.ClusterAPI.OTel.Endpoint = "localhost:4317"
-	cfg.ClusterAPI.OTel.ServiceName = "kubetail-cluster-api"
 
 	cfg.ClusterAgent.Addr = ":50051"
 	cfg.ClusterAgent.ContainerLogsDir = "/var/log/containers"
