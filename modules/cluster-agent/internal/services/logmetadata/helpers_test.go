@@ -192,7 +192,7 @@ func (suite *ContainerLogsWatcherTestSuite) TestCreate() {
 				defer wg.Done()
 				ev, ok := <-watcher.Events
 				suite.Require().True(ok)
-				suite.Equal(fsnotify.Create, ev.Op&fsnotify.Create)
+				suite.True(ev.Op.Has(fsnotify.Create))
 			}()
 
 			// create file
@@ -273,7 +273,7 @@ func (suite *ContainerLogsWatcherTestSuite) TestModify() {
 				defer wg.Done()
 				ev, ok := <-watcher.Events
 				suite.Require().True(ok)
-				suite.Equal(fsnotify.Write, ev.Op&fsnotify.Write)
+				suite.True(ev.Op.Has(fsnotify.Write))
 			}()
 
 			// modify file
@@ -363,7 +363,7 @@ func (suite *ContainerLogsWatcherTestSuite) TestDelete() {
 					lastEv = ev
 				}
 
-				suite.Equal(fsnotify.Remove, lastEv.Op&fsnotify.Remove)
+				suite.True(lastEv.Op.Has(fsnotify.Remove))
 			}()
 
 			// delete file
