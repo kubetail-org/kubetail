@@ -53,24 +53,27 @@ func InitTracer(cfg *OTelConfig) error {
 		if err != nil {
 			return err
 		}
+
 		traceProvider := trace.NewTracerProvider(
 			trace.WithSampler(trace.AlwaysSample()),
 			trace.WithBatcher(traceExporter,
 				trace.WithBatchTimeout(time.Second)),
 			trace.WithResource(resources))
 		otel.SetTracerProvider(traceProvider)
+
 		return nil
 	}
 
 	// Development mode use gRPC trace exporter to an OTel collector without TLS
 	// since this is a local development setup only for now.
-	traceExporter, err = otlptracegrpc.New(context.Background(),
+	traceExporter, err := otlptracegrpc.New(context.Background(),
 		otlptracegrpc.WithInsecure(),
 		otlptracegrpc.WithEndpoint(cfg.Endpoint),
 	)
 	if err != nil {
 		return err
 	}
+
 	traceProvider := trace.NewTracerProvider(
 		trace.WithSampler(trace.AlwaysSample()),
 		trace.WithBatcher(traceExporter,

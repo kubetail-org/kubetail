@@ -314,10 +314,10 @@ func DefaultConfig() *Config {
 	cfg.ClusterAgent.Logging.Enabled = true
 	cfg.ClusterAgent.Logging.Level = "info"
 	cfg.ClusterAgent.Logging.Format = "json"
-	cfg.ClusterAPI.OTel.Enabled = false
-	cfg.ClusterAPI.OTel.Debug = false
-	cfg.ClusterAPI.OTel.Endpoint = "localhost:4317"
-	cfg.ClusterAPI.OTel.ServiceName = "kubetail"
+	cfg.ClusterAgent.OTel.Enabled = false
+	cfg.ClusterAgent.OTel.Debug = false
+	cfg.ClusterAgent.OTel.Endpoint = "localhost:4317"
+	cfg.ClusterAgent.OTel.ServiceName = "kubetail"
 
 	return cfg
 }
