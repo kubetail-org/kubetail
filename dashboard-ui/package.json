@@ -14,7 +14,7 @@
   "dependencies": {
     "@apollo/client": "^3.13.8",
     "@fontsource-variable/roboto-flex": "^5.2.6",
-    "@headlessui/react": "2.2.0",
+    "@headlessui/react": "2.2.4",
     "@heroicons/react": "^2.2.0",
     "@kubetail/ui": "0.2.0",
     "clsx": "^2.1.1",
