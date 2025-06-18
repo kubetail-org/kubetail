@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM rust:1.86.0-slim AS rustbuilder
+FROM rust:1.87.0-slim AS rustbuilder
 
 WORKDIR /work
 
@@ -53,7 +53,7 @@ RUN \
 
 # -----------------------------------------------------------
 
-FROM golang:1.24.3 AS gobuilder
+FROM golang:1.24.4 AS gobuilder
 
 WORKDIR /work
 

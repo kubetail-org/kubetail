@@ -5,6 +5,8 @@ CLI_BINARY := kubetail
 
 DASHBOARD_UI_DIR := ./dashboard-ui
 DASHBOARD_SERVER_DIR := ./modules/dashboard
+CRATES_DIR := ./crates/rgkl
+MODULES_DIR := ./modules
 
 # Detect the operating system
 OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
@@ -25,6 +27,10 @@ else ifeq ($(ARCH),aarch64)
 else
   GOARCH := $(ARCH)
 endif
+
+# Rust toolchain detection
+RUST_VERSION := $(shell rustc --version | cut -d' ' -f2)
+RUST_ARCH := $(shell rustc -vV | grep host | cut -d' ' -f2)
 
 # Allow version override via CLI argument (default to "dev")
 VERSION ?= dev
@@ -75,6 +81,69 @@ build: build-dashboard-ui build-cli
 # Build the CLI
 build-all: build-dashboard-ui build-cli-all
 
+# Rust (crates) targets
+crates-build:
+	@echo "Building Rust crates..."
+	@cd $(CRATES_DIR) && cargo build --release
+
+crates-lint:
+	@echo "Linting Rust crates with architecture $(RUST_ARCH)..."
+	@rustup component add rustfmt
+	@cd $(CRATES_DIR) && cargo fmt --all -- --check
+
+crates-vet:
+	@echo "Vetting Rust crates with architecture $(RUST_ARCH)..."
+	@rustup component add clippy
+	@cd $(CRATES_DIR) && cargo clippy --all -- -D warnings
+
+crates-test:
+	@echo "Testing Rust crates..."
+	@cd $(CRATES_DIR) && cargo test
+
+crates-all: crates-build crates-lint crates-vet crates-test
+	@echo "All Rust crate operations completed successfully."
+
+# Go (modules) targets
+modules-lint:
+	@echo "Linting Go modules..."
+	@cd $(MODULES_DIR) && test -z $$(gofmt -l .)
+
+modules-test:
+	@echo "Testing Go modules..."
+	@cd $(MODULES_DIR) && go test -race github.com/kubetail-org/kubetail/modules/...
+
+modules-vet:
+	@echo "Vetting Go modules..."
+	@cd $(MODULES_DIR) && go vet github.com/kubetail-org/kubetail/modules/...
+
+modules-all: modules-lint modules-test modules-vet
+	@echo "All Go module operations completed successfully."
+
+# Dashboard UI targets
+dashboard-ui-lint:
+	@echo "Linting dashboard UI..."
+	@cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm lint
+
+dashboard-ui-test:
+	@echo "Testing dashboard UI..."
+	@cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm test run
+
+dashboard-ui-all: dashboard-ui-lint dashboard-ui-test
+	@echo "All dashboard UI operations completed successfully."
+
+# Combined targets
+lint-all: crates-lint modules-lint dashboard-ui-lint
+	@echo "All linting completed successfully."
+
+test-all: crates-test modules-test dashboard-ui-test
+	@echo "All tests completed successfully."
+
+vet-all: crates-vet modules-vet
+	@echo "All vetting completed successfully."
+
+ci-checks: lint-all test-all vet-all
+	@echo "All CI checks completed successfully."
+
 ## Clean the build output
 clean:
 	@echo "Cleaning up..."
@@ -86,5 +155,22 @@ help:
 	@echo "Makefile targets:"
 	@echo "  all                   - Build the kubetail CLI"
 	@echo "  build                 - Compile the kubetail CLI for the current OS"
+	@echo "  build-all             - Compile the kubetail CLI for all platforms"
 	@echo "  clean                 - Remove the built binaries"
+	@echo "  crates-build          - Build Rust crates"
+	@echo "  crates-lint           - Lint Rust crates"
+	@echo "  crates-vet            - Vet Rust crates"
+	@echo "  crates-test           - Test Rust crates"
+	@echo "  crates-all            - Run all Rust crate operations"
+	@echo "  modules-lint          - Lint Go modules"
+	@echo "  modules-test          - Test Go modules"
+	@echo "  modules-vet           - Vet Go modules"
+	@echo "  modules-all           - Run all Go module operations"
+	@echo "  dashboard-ui-lint     - Lint dashboard UI"
+	@echo "  dashboard-ui-test     - Test dashboard UI"
+	@echo "  dashboard-ui-all      - Run all dashboard UI operations"
+	@echo "  lint-all              - Run all lint checks"
+	@echo "  test-all              - Run all tests"
+	@echo "  vet-all               - Run all vetting"
+	@echo "  ci-checks             - Run all CI checks (lint, test, vet)"
 	@echo "  help                  - Show this help message"

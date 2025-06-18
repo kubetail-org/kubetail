@@ -37,7 +37,7 @@ CMD []
 
 # -----------------------------------------------------------
   
-FROM golang:1.24.3 AS dashboard-builder
+FROM golang:1.24.4 AS dashboard-builder
 
 WORKDIR /work
 
@@ -63,7 +63,7 @@ CMD []
 
 # -----------------------------------------------------------
 
-FROM alpine:3.20.0 AS debug
+FROM alpine:3.22.0 AS debug
 
 WORKDIR /dashboard
 

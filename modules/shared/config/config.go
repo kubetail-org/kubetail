@@ -58,7 +58,6 @@ type Config struct {
 
 	// Dashboard options
 	Dashboard struct {
-		Addr               string   `validate:"omitempty,hostname_port"`
 		AuthMode           AuthMode `mapstructure:"auth-mode"`
 		BasePath           string   `mapstructure:"base-path"`
 		ClusterAPIEndpoint string   `mapstructure:"cluster-api-endpoint"`
@@ -68,6 +67,25 @@ type Config struct {
 		// UI optins
 		UI struct {
 			ClusterAPIEnabled bool `mapstructure:"cluster-api-enabled"`
+		}
+
+		HTTP struct {
+			Enabled bool
+			Address string `validate:"omitempty,hostname"`
+			Port    uint   `validate:"omitempty,port"`
+		}
+
+		HTTPS struct {
+			Enabled bool
+			Address string `validate:"omitempty,hostname"`
+			Port    uint   `validate:"omitempty,port"`
+			TLS     struct {
+				// TLS certificate file
+				CertFile string `mapstructure:"cert-file" validate:"omitempty,file"`
+
+				// TLS certificate key file
+				KeyFile string `mapstructure:"key-file" validate:"omitempty,file"`
+			}
 		}
 
 		// session options
@@ -123,18 +141,6 @@ type Config struct {
 				// hide health checks
 				HideHealthChecks bool `mapstructure:"hide-health-checks"`
 			} `mapstructure:"access-log"`
-		}
-
-		// TLS options
-		TLS struct {
-			// enable tls termination
-			Enabled bool
-
-			// TLS certificate file
-			CertFile string `mapstructure:"cert-file" validate:"omitempty,file"`
-
-			// TLS certificate key file
-			KeyFile string `mapstructure:"key-file" validate:"omitempty,file"`
 		}
 	}
 
@@ -245,7 +251,14 @@ func DefaultConfig() *Config {
 	cfg := &Config{}
 
 	cfg.AllowedNamespaces = []string{}
-	cfg.Dashboard.Addr = ":8080"
+	cfg.Dashboard.HTTP.Enabled = true
+	cfg.Dashboard.HTTP.Address = ""
+	cfg.Dashboard.HTTP.Port = 8080
+	cfg.Dashboard.HTTPS.Enabled = false
+	cfg.Dashboard.HTTPS.Address = ""
+	cfg.Dashboard.HTTPS.Port = 8443
+	cfg.Dashboard.HTTPS.TLS.CertFile = ""
+	cfg.Dashboard.HTTPS.TLS.KeyFile = ""
 	cfg.Dashboard.AuthMode = AuthModeAuto
 	cfg.Dashboard.BasePath = "/"
 	cfg.Dashboard.ClusterAPIEndpoint = ""

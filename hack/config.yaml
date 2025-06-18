@@ -13,13 +13,69 @@ allowed-namespaces: []
 #
 dashboard:
 
-  ## addr ##
+  ## http ##
   #
-  # Sets the target ip and port to bind the server to
+  http:
+
+    ## enabled ##
+    #
+    # Default value: true
+    #
+    enabled: true
+
+    ## address ##
+    #
+    # Default value: __empty
+    #
+    address: 
+
+    ## port ##
+    #
+    # Default value: 8080
+    #
+    port: 8080
+
+  ## https ##
   #
-  # Default value: ":80"
-  #
-  addr: :80
+  https:
+
+    ## enabled ##
+    #
+    # Default value: false
+    #
+    enabled: false
+
+    ## address ##
+    #
+    # Default value: __empty
+    #
+    address: 
+
+    ## port ##
+    #
+    # Default value: 8443
+    #
+    port: 8443
+
+    ## tls ##
+    #
+    tls:
+  
+      ## cert-file ##
+      #
+      # Path to tls certificate file
+      #
+      # Default value: __empty__
+      #
+      cert-file:
+  
+      ## key-file ##
+      #
+      # Path to tls key file
+      #
+      # Default value: __empty__
+      #
+      key-file:
 
   ## auth-mode (experimental) ##
   #
@@ -274,32 +330,6 @@ dashboard:
       #
       same-site: lax
   
-  ## tls ##
-  #
-  tls:
-  
-    ## enabled ##
-    #
-    # Default value: false
-    #
-    enabled: false
-  
-    ## cert-file ##
-    #
-    # Path to tls certificate file
-    #
-    # Default value: __empty__
-    #
-    cert-file:
-  
-    ## key-file ##
-    #
-    # Path to tls key file
-    #
-    # Default value: __empty__
-    #
-    key-file:
-
   ## ui ##
   #
   ui:

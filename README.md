@@ -20,7 +20,7 @@ Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 <br>
 <br>
 
-**Kubetail** is a general-purpose logging dashboard for Kubernetes, optimized for tailing logs across across multi-container workloads in real-time. With Kubetail, you can view logs from all the containers in a workload (e.g. Deployment or DaemonSet) merged into a single, chronological timeline, delivered to your browser or terminal.
+**Kubetail** is a general-purpose logging dashboard for Kubernetes, optimized for tailing logs across multi-container workloads in real-time. With Kubetail, you can view logs from all the containers in a workload (e.g. Deployment or DaemonSet) merged into a single, chronological timeline, delivered to your browser or terminal.
 
 The primary entry point for Kubetail is the `kubetail` CLI tool, which can launch a local web dashboard on your desktop or stream raw logs directly to your terminal. Behind the scenes, Kubetail uses your cluster's Kubernetes API to fetch logs directly from your cluster, so it works out of the box without needing to forward your logs to an external service first. Kubetail also uses your Kubernetes API to track container lifecycle events in order to keep your log timeline in sync as containers start, stop or get replaced. This makes it easy to follow logs seamlessly as user requests move from one ephemeral container to another across services.
 
@@ -223,20 +223,26 @@ It also contains the source code for the Kubetail Dashboard's frontend and the R
 
 #### Dependencies
 
-* [Tilt](https://tilt.dev/)
 * [Go](https://go.dev/)
 * [pnpm](https://pnpm.io/)
+* [Tilt](https://tilt.dev/)
+* [Tilt-compatible cluster](https://docs.tilt.dev/choosing_clusters.html) (e.g. [minikube](https://minikube.sigs.k8s.io/docs/), [kind](https://kind.sigs.k8s.io/docs/user/quick-start/), [docker-desktop](https://docs.tilt.dev/choosing_clusters.html#docker-for-desktop))
 * [ctlptl](https://github.com/tilt-dev/ctlptl) (optional)
 
 #### Next steps
 
-1. Create a Kubernetes Dev Cluster
+1. Create a [Tilt-compatible](https://docs.tilt.dev/choosing_clusters.html) Kubernetes Dev Cluster:
 
 ```console
+# minikube
 ctlptl apply -f hack/ctlptl/minikube.yaml
-```
 
-You can use any type of cluster that [works with Tilt](https://docs.tilt.dev/choosing_clusters.html).
+# kind
+ctlptl apply -f hack/ctlptl/kind.yaml
+
+# docker-desktop
+ctlptl apply -f hack/ctlptl/docker-desktop.yaml
+```
 
 2. Start the dev environment:
 

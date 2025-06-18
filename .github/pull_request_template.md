@@ -3,6 +3,7 @@ Put one of these emojis in your title to indicate the type of PR:
 - 🎣 Bug fix
 - 🐋 New feature
 - 📜 Documentation
+- ✨ General improvement
 -->
 
 Fixes # 

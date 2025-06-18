@@ -1,0 +1,23 @@
+name: Validate Renovate config
+
+on:
+  pull_request:
+    paths:
+      - ".github/renovate.json"
+  push:
+    paths:
+      - ".github/renovate.json"
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Renovate CLI
+        run: |
+          npm install -g renovate
+
+      - name: Run Renovate config validator
+        run: renovate-config-validator

@@ -306,7 +306,13 @@ func (r *subscriptionResolver) LogRecordsFollow(ctx context.Context, kubeContext
 
 		// Handle errors
 		if stream.Err() != nil {
-			transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
+			// Log the error on the server, including caller info as requested.
+			zlog.Error().Err(stream.Err()).Caller().Send()
+
+			// If the client connection is still open, let it know that there was an upstream error.
+			if ctx.Err() == nil {
+				transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
+			}
 		}
 	}()
 

@@ -16,9 +16,9 @@ package graph
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"net/http"
-	"net/http/httptest"
+	"slices"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler"
@@ -31,6 +31,7 @@ import (
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
+	sharedwebsocket "github.com/kubetail-org/kubetail/modules/shared/graphql/websocket"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
@@ -44,6 +45,10 @@ type Server struct {
 	h          http.Handler
 	shutdownCh chan struct{}
 }
+
+// allowedSecFetchSite defines the secure values for the Sec-Fetch-Site header.
+// It's defined at the package level to avoid re-allocation on every WebSocket upgrade request.
+var allowedSecFetchSite = []string{"same-origin"}
 
 // Create new Server instance
 func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string, csrfProtectMiddleware func(http.Handler) http.Handler) *Server {
@@ -79,45 +84,33 @@ func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.D
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
-				// We have to return true here because `kubectl proxy` modifies the Host header
-				// so requests will fail same-origin tests and unfortunately not all browsers
-				// have implemented `sec-fetch-site` header. Instead, we will use CSRF token
-				// validation to ensure requests are coming from the same site.
-				return true
+				// Check the Sec-Fetch-Site header for an additional layer of security.
+				secFetchSite := r.Header.Get("Sec-Fetch-Site")
+
+				// If the header is absent, we fall back to the CSRF token validation
+				// in the InitFunc. This supports older browsers or non-browser clients.
+				if secFetchSite == "" {
+					return true
+				}
+
+				// For modern browsers that send the header, enforce strict same-site policies.
+				// This is the primary defense against Cross-Site WebSocket Hijacking (CSWSH).
+				return slices.Contains(allowedSecFetchSite, secFetchSite)
 			},
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
 		KeepAlivePingInterval: 10 * time.Second,
-		// Because we had to disable same-origin checks in the CheckOrigin() handler
-		// we will use use CSRF token validation to ensure requests are coming from
-		// the same site. (See https://dev.to/pssingh21/websockets-bypassing-sop-cors-5ajm)
+		// The InitFunc below handles the CSRF token validation, serving as our
+		// fallback protection when Sec-Fetch-Site is not available.
 		InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
 			// Check if csrf protection is disabled
 			if csrfProtectMiddleware == nil {
 				return ctx, &initPayload, nil
 			}
 
-			csrfToken := initPayload.Authorization()
-
-			cookies, ok := ctx.Value(cookiesCtxKey).([]*http.Cookie)
-			if !ok {
-				return ctx, nil, errors.New("AUTHORIZATION_REQUIRED")
-			}
-
-			// Make mock request
-			r, _ := http.NewRequest("POST", "/", nil)
-			for _, cookie := range cookies {
-				r.AddCookie(cookie)
-			}
-			r.Header.Set("X-CSRF-Token", csrfToken)
-
-			// Run request through csrf protect function
-			rr := httptest.NewRecorder()
-			csrfProtect.ServeHTTP(rr, r)
-
-			if rr.Code != 200 {
-				return ctx, nil, errors.New("AUTHORIZATION_REQUIRED")
+			if err := sharedwebsocket.ValidateCSRFToken(ctx, csrfProtect, initPayload.Authorization()); err != nil {
+				return ctx, nil, fmt.Errorf("CSRF token validation failed: %w", err)
 			}
 
 			// Close websockets on shutdown signal
@@ -150,7 +143,7 @@ func (s *Server) Shutdown() {
 // ServeHTTP
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Add cookies to context for use in WSInitFunc
-	ctx := context.WithValue(r.Context(), cookiesCtxKey, r.Cookies())
+	ctx := context.WithValue(r.Context(), sharedwebsocket.CookiesCtxKey, r.Cookies())
 
 	// Execute
 	s.h.ServeHTTP(w, r.WithContext(ctx))

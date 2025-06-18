@@ -1,4 +1,4 @@
-FROM rust:1.86.0-slim AS rustbuilder
+FROM rust:1.87.0-slim AS rustbuilder
 
 WORKDIR /work
 
@@ -39,7 +39,7 @@ RUN \
 
 # -----------------------------------------------------------
 
-FROM alpine:3.21.3
+FROM alpine:3.22.0
 
 WORKDIR /cluster-agent
 

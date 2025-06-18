@@ -17,10 +17,10 @@ package k8shelpers
 import (
 	"context"
 	"errors"
-	"sync"
 	"testing"
 	"time"
 
+	"github.com/kubetail-org/kubetail/modules/shared/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -252,14 +252,14 @@ func TestDesktopAuthorizer_IsAllowedInformer_CacheExpiry(t *testing.T) {
 
 	// Create authorizer and test
 	authorizer := &DefaultDesktopAuthorizer{
-		cache: sync.Map{},
+		cache: util.SyncMap[cacheKey, cacheValue]{},
 	}
 	err := authorizer.IsAllowedInformer(context.Background(), clientset, setNamespace, setGVR)
 	assert.NoError(t, err)
 
 	// Check call and cache
 	var count int
-	authorizer.cache.Range(func(key, value any) bool {
+	authorizer.cache.Range(func(key cacheKey, value cacheValue) bool {
 		count++
 		return true
 	})
@@ -273,10 +273,9 @@ func TestDesktopAuthorizer_IsAllowedInformer_CacheExpiry(t *testing.T) {
 	assert.Equal(t, 2, len(capturedSARs))
 
 	// Expire cache and try again
-	authorizer.cache.Range(func(key, value any) bool {
-		v := value.(cacheValue)
-		v.expiration = time.Now().Add(-1 * time.Minute)
-		authorizer.cache.Store(key, v) // Store the updated value back in the map
+	authorizer.cache.Range(func(key cacheKey, value cacheValue) bool {
+		value.expiration = time.Now().Add(-1 * time.Minute)
+		authorizer.cache.Store(key, value) // Store the updated value back in the map
 		return true
 	})
 
@@ -335,7 +334,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_CorrectBearerToken(t *testing.T) 
 	// Create authorizer with mock
 	authorizer := &DefaultInClusterAuthorizer{
 		clientsetInitializer: mockClientsetInitializer,
-		cache:                sync.Map{},
+		cache:                util.SyncMap[string, cacheValue]{},
 	}
 
 	// Use a dummy rest.Config for the test
@@ -408,7 +407,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_ListPermissionDenied(t *testing.T
 	// Create authorizer with mock and test
 	authorizer := &DefaultInClusterAuthorizer{
 		clientsetInitializer: mockClientsetInitializer,
-		cache:                sync.Map{},
+		cache:                util.SyncMap[string, cacheValue]{},
 	}
 
 	// Use a dummy rest.Config for the test
@@ -472,7 +471,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_WatchPermissionDenied(t *testing.
 	// Create authorizer with mock and test
 	authorizer := &DefaultInClusterAuthorizer{
 		clientsetInitializer: mockClientsetInitializer,
-		cache:                sync.Map{},
+		cache:                util.SyncMap[string, cacheValue]{},
 	}
 
 	// Use a dummy rest.Config for the test
@@ -521,7 +520,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_Error(t *testing.T) {
 	// Create authorizer with mock and test
 	authorizer := &DefaultInClusterAuthorizer{
 		clientsetInitializer: mockClientsetInitializer,
-		cache:                sync.Map{},
+		cache:                util.SyncMap[string, cacheValue]{},
 	}
 
 	// Use a dummy rest.Config for the test
@@ -573,7 +572,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_CacheExpiry(t *testing.T) {
 	// Create authorizer with mock and test
 	authorizer := &DefaultInClusterAuthorizer{
 		clientsetInitializer: mockClientsetInitializer,
-		cache:                sync.Map{},
+		cache:                util.SyncMap[string, cacheValue]{},
 	}
 
 	// Use a dummy rest.Config for the test
@@ -586,7 +585,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_CacheExpiry(t *testing.T) {
 
 	// Check call and cache
 	var count int
-	authorizer.cache.Range(func(key, value any) bool {
+	authorizer.cache.Range(func(key string, value cacheValue) bool {
 		count++
 		return true
 	})
@@ -606,10 +605,9 @@ func TestInClusterAuthorizer_IsAllowedInformer_CacheExpiry(t *testing.T) {
 	mockClientsetInitializer.AssertNumberOfCalls(t, "newClientset", 2)
 
 	// Expire cache and try again
-	authorizer.cache.Range(func(key, value any) bool {
-		v := value.(cacheValue)
-		v.expiration = time.Now().Add(-1 * time.Minute)
-		authorizer.cache.Store(key, v) // Store the updated value back in the map
+	authorizer.cache.Range(func(key string, value cacheValue) bool {
+		value.expiration = time.Now().Add(-1 * time.Minute)
+		authorizer.cache.Store(key, value) // Store the updated value back in the map
 		return true
 	})
 
@@ -638,7 +636,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_ClientsetInitializerError(t *test
 	// Create authorizer with mock
 	authorizer := &DefaultInClusterAuthorizer{
 		clientsetInitializer: mockClientsetInitializer,
-		cache:                sync.Map{},
+		cache:                util.SyncMap[string, cacheValue]{},
 	}
 
 	// Use a dummy rest.Config for the test
@@ -693,7 +691,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_Success(t *testing.T) {
 	// Create authorizer with mock and test
 	authorizer := &DefaultInClusterAuthorizer{
 		clientsetInitializer: mockClientsetInitializer,
-		cache:                sync.Map{},
+		cache:                util.SyncMap[string, cacheValue]{},
 	}
 
 	// Use a dummy rest.Config for the test

@@ -5,12 +5,13 @@ edition = "2021"
 build = "build.rs"
 
 [build-dependencies]
-tonic-build = "0.12.3"
+tonic-build = "0.13.0"
 
 [dependencies]
-chrono = "0.4.39"
-clap = { version = "4.5.20", features = ["derive"] }
+chrono = "0.4.41"
+clap = { version = "4.5.40", features = ["derive"] }
 crossbeam-channel = "0.5.14"
+eyre = "0.6.12"
 grep = "0.3.2"
 grep-cli = "0.1.11"
 grep-matcher = "0.1.7"
@@ -18,21 +19,22 @@ grep-printer = "0.2.2"
 grep-regex = "0.1.13"
 grep-searcher = "0.1.14"
 lazy_static = "1.5.0"
-memchr = "2.7.4"
+memchr = "2.7.5"
 notify = { version = "8.0.0", features = ["crossbeam-channel"] }
 prost = "0.13.5"
 prost-types = "0.13.5"
-prost-wkt = "0.6.0"
-prost-wkt-types = "0.6.0"
+prost-wkt = "0.6.1"
+prost-wkt-types = "0.6.1"
 rand = "0.9.0"
 regex = "1.9.0"
 rstest = "0.25.0"
 serde = { version = "1.0.218", features = ["derive"] }
 serde_json = "1.0.139"
-signal-hook = "0.3.17"
+signal-hook = "0.3.18"
 tempfile = "3.17.1"
 termcolor = "1.4.1"
-tonic = "0.12.3"
+thiserror = "2.0.12"
+tonic = "0.13.0"
 
 [target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
 version = "0.5.4"

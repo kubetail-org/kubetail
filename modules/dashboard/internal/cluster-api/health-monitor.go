@@ -32,6 +32,7 @@ import (
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/util"
 )
 
 // Represents HealthStatus enum
@@ -68,30 +69,30 @@ func NewHealthMonitor(cfg *config.Config, cm k8shelpers.ConnectionManager) Healt
 // Represents DesktopHealthMonitor
 type DesktopHealthMonitor struct {
 	cm          k8shelpers.ConnectionManager
-	workerCache map[string]healthMonitorWorker
-	contextMu   map[string]*sync.Mutex
-	mu          sync.Mutex
+	workerCache util.SyncMap[string, healthMonitorWorker]
+	contextMu   util.SyncMap[string, *sync.Mutex]
 }
 
 // Create new DesktopHealthMonitor instance
 func NewDesktopHealthMonitor(cm k8shelpers.ConnectionManager) *DesktopHealthMonitor {
 	return &DesktopHealthMonitor{
 		cm:          cm,
-		workerCache: make(map[string]healthMonitorWorker),
-		contextMu:   make(map[string]*sync.Mutex),
+		workerCache: util.SyncMap[string, healthMonitorWorker]{},
+		contextMu:   util.SyncMap[string, *sync.Mutex]{},
 	}
 }
 
 // Shutdown all managed monitors
 func (hm *DesktopHealthMonitor) Shutdown() {
 	var wg sync.WaitGroup
-	for _, worker := range hm.workerCache {
+	hm.workerCache.Range(func(_ string, worker healthMonitorWorker) bool {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			worker.Shutdown()
 		}()
-	}
+		return true
+	})
 	wg.Wait()
 }
 
@@ -125,13 +126,7 @@ func (hm *DesktopHealthMonitor) ReadyWait(ctx context.Context, kubeContext strin
 // getOrCreateWorker
 func (hm *DesktopHealthMonitor) getOrCreateWorker(ctx context.Context, kubeContext string, namespacePtr *string, serviceNamePtr *string) (healthMonitorWorker, error) {
 	// Get or create mutex for this kubeContext
-	hm.mu.Lock()
-	contextMutex, exists := hm.contextMu[kubeContext]
-	if !exists {
-		contextMutex = &sync.Mutex{}
-		hm.contextMu[kubeContext] = contextMutex
-	}
-	hm.mu.Unlock()
+	contextMutex, _ := hm.contextMu.LoadOrStore(kubeContext, &sync.Mutex{})
 
 	// Lock the context-specific mutex for worker creation
 	contextMutex.Lock()
@@ -144,8 +139,8 @@ func (hm *DesktopHealthMonitor) getOrCreateWorker(ctx context.Context, kubeConte
 	k := fmt.Sprintf("%s::%s::%s", kubeContext, namespace, serviceName)
 
 	// Check cache
-	worker, exists := hm.workerCache[k]
-	if !exists {
+	worker, ok := hm.workerCache.Load(k)
+	if !ok {
 		// Get clientset
 		clientset, err := hm.cm.GetOrCreateClientset(kubeContext)
 		if err != nil {
@@ -165,13 +160,13 @@ func (hm *DesktopHealthMonitor) getOrCreateWorker(ctx context.Context, kubeConte
 			}
 		}
 
-		// Add to cache
-		hm.workerCache[k] = worker
-
 		// Start background processes and wait for cache to sync
 		if err := worker.Start(ctx); err != nil {
 			return nil, err
 		}
+
+		// Add to cache
+		hm.workerCache.Store(k, worker)
 	}
 
 	return worker, nil

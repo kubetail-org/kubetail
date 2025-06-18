@@ -80,10 +80,29 @@ cargo run -- stream-forward ./pod.log --grep "panic" --follow-from end
 
 ### Run Tests
 
-Run all unit and integration tests:
+Run all unit and integration tests directly with Cargo:
 
 ```bash
 cargo test
+```
+
+Using the Makefile from the project root:
+
+```bash
+# Run all Rust crate tests
+make crates-test
+
+# Run linting for Rust code
+make crates-lint
+
+# Run code vetting with Clippy
+make crates-vet
+```
+
+You can also run all Rust checks at once with:
+
+```bash
+make crates-all
 ```
 
 Test coverage includes:
