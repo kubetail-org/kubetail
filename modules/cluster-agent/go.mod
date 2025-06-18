@@ -6,13 +6,15 @@ toolchain go1.24.4
 
 replace github.com/kubetail-org/kubetail/modules/shared => ../shared
 
+replace github.com/gorilla/csrf => github.com/gorilla/csrf v1.7.2
+
 replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
 
 require (
 	github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-playground/validator/v10 v10.26.0
-	github.com/kubetail-org/kubetail/modules/shared v0.0.0-20250618044952-03109b456090
+	github.com/kubetail-org/kubetail/modules/shared v0.0.0-20250618143019-5339c29581bf
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
