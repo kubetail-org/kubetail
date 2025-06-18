@@ -90,21 +90,21 @@ func newLogMetadataWatchEvent(event fsnotify.Event, nodeName string) (*clusterag
 	}
 
 	switch {
-	case event.Op&fsnotify.Create == fsnotify.Create:
+	case event.Has(fsnotify.Create):
 		watchEv.Type = "ADDED"
 		if fileInfo, err := newLogMetadataFileInfo(event.Name); err != nil {
 			return nil, err
 		} else {
 			watchEv.Object.FileInfo = fileInfo
 		}
-	case event.Op&fsnotify.Write == fsnotify.Write:
+	case event.Has(fsnotify.Write):
 		watchEv.Type = "MODIFIED"
 		if fileInfo, err := newLogMetadataFileInfo(event.Name); err != nil {
 			return nil, err
 		} else {
 			watchEv.Object.FileInfo = fileInfo
 		}
-	case event.Op&fsnotify.Remove == fsnotify.Remove:
+	case event.Has(fsnotify.Remove):
 		watchEv.Type = "DELETED"
 		watchEv.Object.FileInfo = &clusteragentpb.LogMetadataFileInfo{}
 	default:
@@ -245,7 +245,7 @@ func newContainerLogsWatcher(ctx context.Context, containerLogsDir string, names
 				}
 
 				// handle new files
-				if inEv.Op&fsnotify.Create == fsnotify.Create {
+				if inEv.Has(fsnotify.Create) {
 					if isInNamespace(inEv.Name, namespaces) {
 						addTarget(inEv.Name)
 					} else {
