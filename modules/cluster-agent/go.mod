@@ -12,7 +12,7 @@ require (
 	github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-playground/validator/v10 v10.26.0
-	github.com/kubetail-org/kubetail/modules/shared v0.0.0-20250618044952-03109b456090
+	github.com/kubetail-org/kubetail/modules/shared v0.0.0-20250618134904-e14b4b4718f6
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
