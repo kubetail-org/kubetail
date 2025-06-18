@@ -96,10 +96,10 @@ func main() {
 
 			// configure global otel tracer provider
 			err = otel.InitTracer(&otel.OTelConfig{
-				Enabled:     cfg.OTel.Enabled,                 // defaults to true
-				Debug:       false,                            // defaults to true, false send data to local otel collector
-				Endpoint:    "clickstack.clickstack.svc:4317", // TODO: make this configurable?
-				ServiceName: "kubetail-cluster-agent",
+				Enabled:     cfg.ClusterAgent.OTel.Enabled,
+				Debug:       cfg.ClusterAgent.OTel.Debug,
+				Endpoint:    cfg.ClusterAgent.OTel.Endpoint,
+				ServiceName: cfg.ClusterAgent.OTel.ServiceName,
 			})
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
