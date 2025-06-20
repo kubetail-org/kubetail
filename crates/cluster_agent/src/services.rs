@@ -22,13 +22,13 @@ impl LogMetadataService for ClusterAgent {
     type WatchStream = WatchResponseStream;
     async fn list(
         &self,
-        request: Request<LogMetadataListRequest>,
+        _request: Request<LogMetadataListRequest>,
     ) -> Result<Response<LogMetadataList>, Status> {
         todo!()
     }
     async fn watch(
         &self,
-        request: Request<LogMetadataWatchRequest>,
+        _request: Request<LogMetadataWatchRequest>,
     ) -> AgentResult<Self::WatchStream> {
         todo!()
     }
@@ -41,14 +41,14 @@ impl LogRecordsService for ClusterAgent {
 
     async fn stream_backward(
         &self,
-        request: Request<LogRecordsStreamRequest>,
+        _request: Request<LogRecordsStreamRequest>,
     ) -> AgentResult<Self::StreamBackwardStream> {
         todo!()
     }
 
     async fn stream_forward(
         &self,
-        request: Request<LogRecordsStreamRequest>,
+        _request: Request<LogRecordsStreamRequest>,
     ) -> AgentResult<Self::StreamForwardStream> {
         todo!()
     }
