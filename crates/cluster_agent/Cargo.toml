@@ -1,5 +1,5 @@
 [package]
-name = "agent"
+name = "cluster_agent"
 version = "0.1.0"
 edition = "2024"
 
@@ -12,7 +12,7 @@ tonic = { version = "0.13.0", features = ["gzip"] }
 tonic-health = "0.13.0"
 tonic-reflection = "0.13.0"
 tracing = "0.1.41"
-tracing-opentelemetry = { version = "0.28.0", features = ["metrics"] }
+tracing-opentelemetry = { version = "0.31.0", features = ["metrics"] }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "fmt", "registry", "std"] }
 warp = "0.3.7"
 opentelemetry-otlp = { version = "0.30.0", features = ["grpc-tonic"] }
