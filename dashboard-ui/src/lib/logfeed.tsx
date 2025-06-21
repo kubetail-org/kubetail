@@ -25,7 +25,7 @@ import { useDebounceCallback } from 'usehooks-ts';
 
 import Spinner from '@kubetail/ui/elements/Spinner';
 
-import { ConsoleNodesListItemFragmentFragment, LogRecordsFragmentFragment as LogRecord, LogRecordsQueryMode, LogSourceFilter, LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
+import { ConsoleNodesListItemFragmentFragment, LogRecordsFragmentFragment as LogRecord, LogRecordsQueryMode, LogSourceFilter, LogSourceFragmentFragment, WatchEventType } from '@/lib/graphql/dashboard/__generated__/graphql';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { useIsClusterAPIEnabled, useListQueryWithSubscription, useNextTick } from '@/lib/hooks';
 import { Counter, MapSet, cn, cssEncode } from '@/lib/util';
@@ -156,8 +156,8 @@ export const useSources = () => {
       const k = `${source.namespace}/${source.podName}/${source.containerName}`;
       setSourceMap((prevMap) => {
         const newMap = new Map(prevMap);
-        if (ev?.type === 'ADDED') newMap.set(k, source);
-        else if (ev?.type === 'DELETED') newMap.delete(k);
+        if (ev?.type === WatchEventType.Added) newMap.set(k, source);
+        else if (ev?.type === WatchEventType.Deleted) newMap.delete(k);
         return newMap;
       });
     },

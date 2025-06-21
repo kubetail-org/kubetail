@@ -28,6 +28,7 @@
   },
   "include": [
     "vite.config.ts",
-    "tailwind.config.ts"
+    "tailwind.config.ts",
+    "eslint.config.ts",
   ],
 }
