@@ -66,7 +66,17 @@ metadata:
 data:
   config.yaml: |
     cluster-api:
-      addr: :8080
+      http:
+        addr: 0.0.0.0
+        port: 8080
+        enabled: true
+      https:
+        addr: 0.0.0.0
+        port: 8443
+        enabled: true
+        tls:
+          cert-file: /etc/ssl/certs/server.crt
+          key-file: /etc/ssl/private/server.key
       base-path: /
       gin-mode: debug
       agent-dispatch-url: kubernetes://kubetail-cluster-agent:50051
@@ -88,10 +98,6 @@ data:
         access-log:
           enabled: true
           hide-health-checks: true
-      tls:
-        enabled: false
-        cert-file:
-        key-file:
 ---
 kind: ConfigMap
 apiVersion: v1
@@ -131,15 +137,25 @@ metadata:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: dashboard
 rules:
-- apiGroups: [""]
-  resources: [namespaces, nodes]
-  verbs: [get, list, watch]
-- apiGroups: ["", apps, batch]
-  resources: [cronjobs, daemonsets, deployments, jobs, pods, pods/log, replicasets, statefulsets]
-  verbs: [get, list, watch]
-- apiGroups: [authentication.k8s.io]
-  resources: [tokenreviews]
-  verbs: [create]
+  - apiGroups: [""]
+    resources: [namespaces, nodes]
+    verbs: [get, list, watch]
+  - apiGroups: ["", apps, batch]
+    resources:
+      [
+        cronjobs,
+        daemonsets,
+        deployments,
+        jobs,
+        pods,
+        pods/log,
+        replicasets,
+        statefulsets,
+      ]
+    verbs: [get, list, watch]
+  - apiGroups: [authentication.k8s.io]
+    resources: [tokenreviews]
+    verbs: [create]
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -153,9 +169,9 @@ roleRef:
   kind: ClusterRole
   name: kubetail-dashboard
 subjects:
-- kind: ServiceAccount
-  name: kubetail-dashboard
-  namespace: kubetail-system
+  - kind: ServiceAccount
+    name: kubetail-dashboard
+    namespace: kubetail-system
 ---
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
@@ -166,9 +182,9 @@ metadata:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: dashboard
 rules:
-- apiGroups: [discovery.k8s.io]
-  resources: [endpointslices]
-  verbs: [list, watch]
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [list, watch]
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -183,14 +199,24 @@ roleRef:
   name: kubetail-dashboard
   apiGroup: rbac.authorization.k8s.io
 subjects:
-- kind: ServiceAccount
-  name: kubetail-dashboard
-  namespace: kubetail-system
+  - kind: ServiceAccount
+    name: kubetail-dashboard
+    namespace: kubetail-system
 ---
 apiVersion: v1
 kind: Secret
 metadata:
   name: kubetail-dashboard-tls
+  namespace: kubetail-system
+type: kubernetes.io/tls
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVwRENDQW93Q0NRRE50V3ZJZk1LYWREQU5CZ2txaGtpRzl3MEJBUXNGQURBVU1SSXdFQVlEVlFRRERBbHMKYjJOaGJHaHZjM1F3SGhjTk1qVXdOakV6TWpFeE1EVXdXaGNOTWpZd05qRXpNakV4TURVd1dqQVVNUkl3RUFZRApWUVFEREFsc2IyTmhiR2h2YzNRd2dnSWlNQTBHQ1NxR1NJYjNEUUVCQVFVQUE0SUNEd0F3Z2dJS0FvSUNBUUMwCmRIMkxsMFdIRkp3S2JudnhxaDRWVTMxTDFhcVAxRXJLbnpldGhPclVoSS9yVUJVWU9yYjhZUlF2QWphTmh3cm0KTGlRbWtMb01VYzBvRHJDaFF5N3lWbC9PakxHN1RoajNtZExNRmJTWi9PbUtLUGRUNUk3SXpFbWNXV0d5SUN5Mgp0MzRlbS9hM1lwQ1ZJaC9EekZPVFNwSDJydjQ4cHpTN0p4d3hiOEhpd3NiUERqdlA5S0REQ0dnTmRFZXI2K0M0ClV2Rm93azdhazVXOVZjdUlWUjhEM1Y3R2JNQUQxTlErRllvNnUreVN6cXRVaFFwWFJVZUNJREUybmlzU0QvZ3AKeGQ5RlMveU1raFl6WFdZQkFKZUgyQVM5UWFyYkhZS29yMEhYcmh2WFJOaU4xRWMwbjJ5YVA3bGwrQlhwZURBaQpUY3J4Nlp2WjNXNElKcjZqUE1menZ0UEFnaytGYVBJQ3h5TVN6UlVkWUpSazdwK2V2Q2pHeHhRK2RqbmVQeUgzCm5xdGlKTSt2TTJjMXpwZWFTV3lpVUVzTWlDTkNlQWpKSjBQU2lGYmlWOWIwcm15a1k2SGJtc1JLVWRVYjhyQkYKVnFTWEt2TEYvOG1PcUtCVHZITFA2enA5QnFQQ0FBSEhhNU1RVE0yRFRTUDRMMFkyQk9qWktRN3g4YUFCTXRydgpLSGpiOHVidlRidFZxMEY5VU1BNXNqZjRkT1pQMi9Uc25SM1M1aUNDMWhIWmMrYXQrb2M0U052eDNiRHB5KzQ1CkJhMTN2UGdVaGJidGJxdVJvbzYzazdhV09kTHF2NmZmejU4K1JFVmIxRXJ6UlhwcUtzM1ZJZnY4WWsrblZZb08KNk1JZWoySGx3MVp2dlU1VW9HYWxpNWZpa3NEUHc1aDlzYVZhZXFOWVl3SURBUUFCTUEwR0NTcUdTSWIzRFFFQgpDd1VBQTRJQ0FRQ3VMeU9rRVB1WE53dEtaUVhyWCs2S3htMWxKeEFWUXpHaVlDNERjMUdVcjA4VzRHZ09XcU9ICnYzekxNcTZ2MngxOGgwREJTU2VYazhCdzlnZVQ2ZW85aWhmOTF5bFlKRk9iTjltdHpZTnhDZ3E2eFhmb3EzMEMKeFNIV01zM0N0TkY2Q0QxYUpMMWM3NjlvSkJUZXpiVmFxWDVMbkpBdEJZV2gxRHc2S1EzS0tmWDJyaVd4TU02egpWNFVONkRpYkZmb093OWNnblg2T0RqTVBrakUrcmo4UW5XcUlzOGZHUmtWZlhvc0s4eG1XYWN5WFBFVmlTTXhTCnB0SlJkaHZxUEhwdXA0N0NBZnVWUFJ4L0NENHBhYzJkZ21NdGNkY1ErYVd6a0NBaXBzdThvWnVobnNJdWVRSDgKRmNDVUR2cVNKR0g3aVZGTkR2UmFjNjEvYWhTVHRUY1hqWFZSeUo0WGgwQXc5eHMwaFRMQjZsZmhRU2NadWhGdwo2bG9kRGpkczl1bi9MUlNaelRJQmUvSjFJcUxENWNKK2hoZHVIdWVXa29GUzY1RGkxWkNSWGNuNVFGTDAxVDFSCnJheEtVckp6TU1OUk93RWhuNWpGWnNJQUVzcWtQd2ppVUlobGZ5ays2dHVDYUk4SERwM0lmRmt0SnJud0YwVXcKRDErYWRjWjYrU0ZKVHYxSnZNS1JKelM0Q2dMbjd3YUMxNlh6THE5UjJWZER5S3Q4UDgrVVN5Z3JWeTIvK21NRQpIUjFoWFlPNW9tMjRBRGI2aUhmN0c0VjdHdXF5K0QxTnVvcDlFOTBrRWJmalRZbE1yS05NNXY2TmN5L1o2Y1NBCk1kM2docTJFL3NOcVVGWFdUYlJ0cFlhSXczbi8wVDF1UU56ejFUYm9QcTNuZE1NU1NSRDBadz09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUpRZ0lCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQ1N3d2dna29BZ0VBQW9JQ0FRQzBkSDJMbDBXSEZKd0sKYm52eHFoNFZVMzFMMWFxUDFFcktuemV0aE9yVWhJL3JVQlVZT3JiOFlSUXZBamFOaHdybUxpUW1rTG9NVWMwbwpEckNoUXk3eVZsL09qTEc3VGhqM21kTE1GYlNaL09tS0tQZFQ1STdJekVtY1dXR3lJQ3kydDM0ZW0vYTNZcENWCkloL0R6Rk9UU3BIMnJ2NDhwelM3Snh3eGI4SGl3c2JQRGp2UDlLRERDR2dOZEVlcjYrQzRVdkZvd2s3YWs1VzkKVmN1SVZSOEQzVjdHYk1BRDFOUStGWW82dSt5U3pxdFVoUXBYUlVlQ0lERTJuaXNTRC9ncHhkOUZTL3lNa2hZegpYV1lCQUplSDJBUzlRYXJiSFlLb3IwSFhyaHZYUk5pTjFFYzBuMnlhUDdsbCtCWHBlREFpVGNyeDZadlozVzRJCkpyNmpQTWZ6dnRQQWdrK0ZhUElDeHlNU3pSVWRZSlJrN3ArZXZDakd4eFErZGpuZVB5SDNucXRpSk0rdk0yYzEKenBlYVNXeWlVRXNNaUNOQ2VBakpKMFBTaUZiaVY5YjBybXlrWTZIYm1zUktVZFViOHJCRlZxU1hLdkxGLzhtTwpxS0JUdkhMUDZ6cDlCcVBDQUFISGE1TVFUTTJEVFNQNEwwWTJCT2paS1E3eDhhQUJNdHJ2S0hqYjh1YnZUYnRWCnEwRjlVTUE1c2pmNGRPWlAyL1RzblIzUzVpQ0MxaEhaYythdCtvYzRTTnZ4M2JEcHkrNDVCYTEzdlBnVWhiYnQKYnF1Um9vNjNrN2FXT2RMcXY2ZmZ6NTgrUkVWYjFFcnpSWHBxS3MzVklmdjhZaytuVllvTzZNSWVqMkhsdzFadgp2VTVVb0dhbGk1Zmlrc0RQdzVoOXNhVmFlcU5ZWXdJREFRQUJBb0lDQUFoRmZxdXpWMkNGdFZGVkZ5RlFwdWhiClYxYnVpRTduY0RZeGJoL3FBOG1SK2ZiVFNPUS9iTHZNeDF3UVFlZmkxTUVRUkYvd0tsYitPT1VwSnpkOUdOM0sKejhGcitZbVlYdFNhbkdyMlk3emJOdWs2VDN2czhnNktMcVdZQXo1aTh5bTg1MjhIdnh0UXpVZkl0S1FJN1p2Rwp3MElIYTJma1VpcHg5SHpmbm9lQ1hoS0htSDVEdkVxMFMvQ3g3OGNWbk10V0lmS25WVzMzYmRtcjRSUnlzbVUrCjlHVXIvdkV1QkR5RVNEM0E5MnNUUmc4dHVmZWVHVlVCbkwvZ0tDRS8waVE0Q2EvbmQ4QUp3akxBaVRocWlvZVQKZzBRWmluZFl0dkI4ZUF3bTB1ZmZJLzM4U1BkRWgzbmFpZWorb2lKOWU5ZFdzWUs5TG9PaC9yVW84WHdTQVNnNwpQOHFRUEovTTQ1WS9ZVlNQVDhUTlBFYTllQW10aExUeHMxU2Fwam83Y2tBbFZIT2ppRENaUDRBWlhwSmZpOFR4CmdJRTNvcDZJbVNCRHB4enkxSTE2RXhqSy9RMWNneDdHWU1uV2dDTWxxT3NNVXVvU1BxUEMyazhySlFISm1UU3oKdWc5Ym41Ni9XdzJwU0VSQTlyVi9Sdld6Z3FUb3hFZW9KUlBETW0zSG04WjE2TTY1MnFCRjl4SVFCcWUwcnlldQpNVy82bHRJaFZickVTOE01cUpBZzZsT1dRVkp0clJ2NUtkaW1raFQyRE1aZm5Kd1dKTGJlNDNLSm44ak9BeVNHClRXMTl5d0phdGkwaTNXVUZ1R0pRZFlaOWFBdGFsZXpqWk9nVFgxMmJ5MGkyU3FBR2tLaG1HbzQyZGVzWjl2ZXUKRVN3MVlOS3I2M3dYaFluM2N3RmhBb0lCQVFEc2RRcWNjUVRybFpseU9WcFdFNHlRUFk5cXovSzI0eSszL1lPagpsd2pMZ2pzZkRIVEtmcFYvTS9ESzFJNmhpeTlPNjRuTjQwUE5lWXBxM2xsbHdycWVVTkU5b0x4d3ZoeDNUaEVzClRSRW04MmpPcTNRM0M1OGwzYzYxWWNrZnNzQmVGeE84bURjRGxVbjRScVdNSmZ6cHo4K21NdjRZNktRcWtXa2QKZVY3dHF2NGpEY3hNOHptOXlsQW55V2xqSXA2OTN5WkMzUERJa3dNcUJudldUQnNTQU03a3pDb2JVU0RLR1lRMQpaWDM1cHNSTkR3d0pwTmlOYWtvMkYvMmZXVXVnU2Y0c2ptNkd6UUxJNHFWMThxSm9FSjhiSDVQOHpLQ2t0VFhNClMyNjRRUFBZZW5mZHJvU25CTlVGUTQ0T1YrVGJnRVI1TlNyb2lLMksvWG1haWV1dkFvSUJBUUREWG81YWhOajkKUGlXVnQwYU9mNjVpZS8zdVJRSEtHTG1mbVJjSVFPMHJxRXNGaVFkQ3o0NHBkRU04ZGdkaWYrcUxwWC85RTM3bgpROVpjVWxVdFcrSk5hcCt2QlNUVk1TL1hlNmlzc1NYcHVzRis4VzdldFRabmpOQXdQeVRPOGZsUWtVQ1V5TjZXCnNEeis1UC96Mythdi9NOWJCdWs2cEhsNWZDM0thMmg4OVhtUjdETTJ0ZFF3NUdnYXdoSkh0R25BeDJ2dDlvL08KNExYTjQraCsrV2lwbkJPMmtXeHZ5SWR6V3Z6S2ZaSDlGUGhFZHo3UGpNR2cxanNwWVVNU05qcG1lWkNlY0hJdwpvTzFNdmZoVDArb1l1ZWd5cVN5Sjd0ZW9ha1cxeEExazl1a3BPSFI3eUpva2xzYWJEbVJvUzBuNVR2eWxqd3hyCmFSOVJ6dlBoWVVlTkFvSUJBUUMwcU5mcW53ODdUNWxsaEJ4WkY2YVZyZk1ka0xQSXQ5dUZuOVFyOFFGdk81a2cKSjh3enluTStOTmtNbjBvNmNyVTZmd3RTbXdqNnZKbmMvUFVnb3A4aXhteVh3Vzg0VklnN1B4SXYzdEgwQ0pWVApFZnhBOGtndURrSVlveFdmZWxzdmlFSTBIYmdxcksxUFcrcXdJWFlTemd2QTE4VDhFd01hNHU2RTdtNXc5K3dqCnJDOGp1OUdxQ0NFbHhPVVlNU05Idm03bE54bGdwYklOTWRiNzdEbmlqMnVEczltWDlXd3YvVDdkN1NWSzBQZTYKU0h6U0FYalMweHJRS1pSRlkxdzhvMHZuandzelF2K1ZyRlR1d09zRXgyNUlzdC9HampGT3BvVHNDZFlXUU1vTgo0OFFoUTIxbWpuS1RDd0pHUXpFLzQ4aHRNd29Oa0IvSHlkSlhHSGxSQW9JQkFDdVBKWVloSUpBMkR3TTJmZEMvCnZ3M09QMnVranlXVUphN2ozekxENXgxWXhJRlRiLzhCYjl6bVF5ZHoyV21vdzQ2bk04WWxWcUlSaWZYRGxhSXIKWG1XTVpGWU5lNHpkRHFHb3ZJN2tZR09nZEF2dG9KNmZJS1l0eXkwMnB1cE5JUjFKaFhDbTZKb0lhVkVibGNXMgpJaVVTNU5pU3plVjVUbXc3dDZudUVMbnJzVk5McW8rRU11OUR2Y0paaXVIWjQ4cExyRkMrTElvZnArbGo2eTZFClJVV3J1dWwxdXd1aFZqSHVFM2JDVUk1dzRubkJiSXV5QW1udDJmcjc2SXhpOHRwdU9FUmJKZHFaeHM3WmZFaVUKY3hsWU9lRXh2dkJ5QkR0VWxuNVVXL2dxNVFsL3dOam9mUld6V0V5eUJNa01JRTRwd2tMWGhobGNzdEwycFlHVwp3dkVDZ2dFQWN1bDZ5SGJUSzBLN2pSc1dOWDZTTGM5ZVJwTmxQWkxDUCtva2Z5eWFIekFWTTczYWRpUk92OWpOCitnYWJubTJEQmlIdW1VWDVrdnhqS0hOWHhZdExBSk10MTd6ck5kaVNVTkFEdXZEWVA0RXlMdllTQ0VvYm1STEkKZldXVFVYTk8xRjJpNDJpRTJldHRqaGw4Y1dadXloeER2dTBjcmF3ZW8zUHIwaTNWOHdmVzgvdVAvRDJyc0Q1bgozK2lPMFRKa1VOWTREeFBIQStIN0l4aE0zSTd0NS80NC9TS05QNFI0TlEyeFpnZ2JMbFRORFFsdlc1dHdCWEp5ClBnOTZMYUd0dW1ENjR1Tzl2KytSVzhtNmJ4bXFFUm1SbThOV2hiNHNqbzFGRnVreC9kMCszTCtONkNsTGtnc3EKWmxVdHdSVk5ScUpjYUw1N3EvT3k4dmRWTE1UYTR3PT0KLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo=
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kubetail-cluster-api-tls
   namespace: kubetail-system
 type: kubernetes.io/tls
 data:
@@ -222,52 +248,52 @@ spec:
     spec:
       serviceAccountName: kubetail-dashboard
       containers:
-      - name: kubetail-dashboard
-        image: kubetail-dashboard
-        ports:
-        - name: http
-          protocol: TCP
-          containerPort: 8080
-        args:
-        - --config=/etc/kubetail/config.yaml
-        volumeMounts:
-        - name: config
-          mountPath: /etc/kubetail
-          readOnly: true
-        - name: tls
-          mountPath: /etc/ssl/certs/server.crt
-          subPath: tls.crt
-          readOnly: true
-        - name: tls
-          mountPath: /etc/ssl/private/server.key
-          subPath: tls.key
-          readOnly: true
-        readinessProbe:
-          httpGet:
-            scheme: HTTP
-            path: /healthz
-            port: http
-          initialDelaySeconds: 10
-          timeoutSeconds: 30
-          periodSeconds: 5
-          failureThreshold: 3
-        livenessProbe:
-          httpGet:
-            scheme: HTTP
-            path: /healthz
-            port: http
-          initialDelaySeconds: 10
-          timeoutSeconds: 30
-          periodSeconds: 5
-          failureThreshold: 3
-        resources: {}
+        - name: kubetail-dashboard
+          image: kubetail-dashboard
+          ports:
+            - name: http
+              protocol: TCP
+              containerPort: 8080
+          args:
+            - --config=/etc/kubetail/config.yaml
+          volumeMounts:
+            - name: config
+              mountPath: /etc/kubetail
+              readOnly: true
+            - name: tls
+              mountPath: /etc/ssl/certs/server.crt
+              subPath: tls.crt
+              readOnly: true
+            - name: tls
+              mountPath: /etc/ssl/private/server.key
+              subPath: tls.key
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            timeoutSeconds: 30
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            timeoutSeconds: 30
+            periodSeconds: 5
+            failureThreshold: 3
+          resources: {}
       volumes:
-      - name: config
-        configMap:
-          name: kubetail-dashboard
-      - name: tls
-        secret:
-          secretName: kubetail-dashboard-tls
+        - name: config
+          configMap:
+            name: kubetail-dashboard
+        - name: tls
+          secret:
+            secretName: kubetail-dashboard-tls
 ---
 kind: Service
 apiVersion: v1
@@ -282,11 +308,11 @@ spec:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: dashboard
   ports:
-  - name: http
-    protocol: TCP
-    port: 8080
-    targetPort: http
-    appProtocol: http
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: http
+      appProtocol: http
 ---
 kind: ServiceAccount
 apiVersion: v1
@@ -305,12 +331,13 @@ metadata:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cli
 rules:
-- apiGroups: [""]
-  resources: [nodes]
-  verbs: [get, list, watch]
-- apiGroups: ["", apps, batch]
-  resources: [cronjobs, daemonsets, deployments, jobs, pods, replicasets, statefulsets]
-  verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [nodes]
+    verbs: [get, list, watch]
+  - apiGroups: ["", apps, batch]
+    resources:
+      [cronjobs, daemonsets, deployments, jobs, pods, replicasets, statefulsets]
+    verbs: [get, list, watch]
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -324,9 +351,9 @@ roleRef:
   kind: ClusterRole
   name: kubetail-cluster-api
 subjects:
-- kind: ServiceAccount
-  name: kubetail-cluster-api
-  namespace: kubetail-system
+  - kind: ServiceAccount
+    name: kubetail-cluster-api
+    namespace: kubetail-system
 ---
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
@@ -337,9 +364,9 @@ metadata:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cluster-api
 rules:
-- apiGroups: [discovery.k8s.io]
-  resources: [endpointslices]
-  verbs: [list, watch]
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [list, watch]
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -354,9 +381,9 @@ roleRef:
   name: kubetail-cluster-api
   apiGroup: rbac.authorization.k8s.io
 subjects:
-- kind: ServiceAccount
-  name: kubetail-cluster-api
-  namespace: kubetail-system
+  - kind: ServiceAccount
+    name: kubetail-cluster-api
+    namespace: kubetail-system
 ---
 kind: Deployment
 apiVersion: apps/v1
@@ -383,41 +410,52 @@ spec:
     spec:
       serviceAccountName: kubetail-cluster-api
       containers:
-      - name: kubetail-cluster-api
-        image: kubetail-cluster-api
-        ports:
-        - name: http
-          protocol: TCP
-          containerPort: 8080
-        args:
-        - --config=/etc/kubetail/config.yaml
-        volumeMounts:
-        - name: config
-          mountPath: /etc/kubetail
-          readOnly: true
-        readinessProbe:
-          httpGet:
-            scheme: HTTP
-            path: /healthz
-            port: http
-          initialDelaySeconds: 10
-          timeoutSeconds: 30
-          periodSeconds: 5
-          failureThreshold: 3
-        livenessProbe:
-          httpGet:
-            scheme: HTTP
-            path: /healthz
-            port: http
-          initialDelaySeconds: 10
-          timeoutSeconds: 30
-          periodSeconds: 5
-          failureThreshold: 3
-        resources: {}
+        - name: kubetail-cluster-api
+          image: kubetail-cluster-api
+          ports:
+            - name: http
+              protocol: TCP
+              containerPort: 8080
+          args:
+            - --config=/etc/kubetail/config.yaml
+          volumeMounts:
+            - name: config
+              mountPath: /etc/kubetail
+              readOnly: true
+            - name: tls
+              mountPath: /etc/ssl/certs/server.crt
+              subPath: tls.crt
+              readOnly: true
+            - name: tls
+              mountPath: /etc/ssl/private/server.key
+              subPath: tls.key
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            timeoutSeconds: 30
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            timeoutSeconds: 30
+            periodSeconds: 5
+            failureThreshold: 3
+          resources: {}
       volumes:
-      - name: config
-        configMap:
-          name: kubetail-cluster-api
+        - name: config
+          configMap:
+            name: kubetail-cluster-api
+        - name: tls
+          secret:
+            secretName: kubetail-cluster-api-tls
 ---
 kind: Service
 apiVersion: v1
@@ -432,11 +470,11 @@ spec:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cluster-api
   ports:
-  - name: http
-    protocol: TCP
-    port: 8080
-    targetPort: http
-    appProtocol: http
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: http
+      appProtocol: http
 ---
 kind: ServiceAccount
 apiVersion: v1
@@ -468,53 +506,53 @@ spec:
     spec:
       serviceAccountName: kubetail-cluster-agent
       containers:
-      - name: kubetail-cluster-agent
-        image: kubetail-cluster-agent
-        ports:
-        - name: grpc
-          protocol: TCP
-          containerPort: 50051
-        env:
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        args:
-        - --config=/etc/kubetail/config.yaml
-        volumeMounts:
-        - name: config
-          mountPath: /etc/kubetail
-          readOnly: true
-        - name: varlog
-          mountPath: /var/log
-        - name: varlibdockercontainers
-          mountPath: /var/lib/docker/containers
-          readOnly: true
-        readinessProbe:
-          grpc:
-            port: 50051
-          initialDelaySeconds: 10
-          timeoutSeconds: 30
-          periodSeconds: 5
-          failureThreshold: 3
-        livenessProbe:
-          grpc:
-            port: 50051
-          initialDelaySeconds: 10
-          timeoutSeconds: 30
-          periodSeconds: 5
-          failureThreshold: 3
-        resources: {}
+        - name: kubetail-cluster-agent
+          image: kubetail-cluster-agent
+          ports:
+            - name: grpc
+              protocol: TCP
+              containerPort: 50051
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          args:
+            - --config=/etc/kubetail/config.yaml
+          volumeMounts:
+            - name: config
+              mountPath: /etc/kubetail
+              readOnly: true
+            - name: varlog
+              mountPath: /var/log
+            - name: varlibdockercontainers
+              mountPath: /var/lib/docker/containers
+              readOnly: true
+          readinessProbe:
+            grpc:
+              port: 50051
+            initialDelaySeconds: 10
+            timeoutSeconds: 30
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            grpc:
+              port: 50051
+            initialDelaySeconds: 10
+            timeoutSeconds: 30
+            periodSeconds: 5
+            failureThreshold: 3
+          resources: {}
       volumes:
-      - name: config
-        configMap:
-          name: kubetail-cluster-agent
-      - name: varlog
-        hostPath:
-          path: /var/log
-      - name: varlibdockercontainers
-        hostPath:
-          path: /var/lib/docker/containers
+        - name: config
+          configMap:
+            name: kubetail-cluster-agent
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: varlibdockercontainers
+          hostPath:
+            path: /var/lib/docker/containers
 ---
 kind: Service
 apiVersion: v1
@@ -544,11 +582,11 @@ spec:
       app.kubernetes.io/name: kubetail
       app.kubernetes.io/component: cluster-agent
   ingress:
-  - from:
-    - podSelector:
-        matchLabels:
-          app.kubernetes.io/name: kubetail
-          app.kubernetes.io/component: cluster-api
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kubetail
+              app.kubernetes.io/component: cluster-api
 ---
 kind: ServiceAccount
 apiVersion: v1
@@ -567,15 +605,16 @@ metadata:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cli
 rules:
-- apiGroups: [""]
-  resources: [nodes]
-  verbs: [get, list, watch]
-- apiGroups: ["", apps, batch]
-  resources: [cronjobs, daemonsets, deployments, jobs, pods, replicasets, statefulsets]
-  verbs: [get, list, watch]
-- apiGroups: [""]
-  resources: [pods/log]
-  verbs: [list, watch]
+  - apiGroups: [""]
+    resources: [nodes]
+    verbs: [get, list, watch]
+  - apiGroups: ["", apps, batch]
+    resources:
+      [cronjobs, daemonsets, deployments, jobs, pods, replicasets, statefulsets]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods/log]
+    verbs: [list, watch]
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -589,9 +628,9 @@ roleRef:
   kind: ClusterRole
   name: kubetail-cli
 subjects:
-- kind: ServiceAccount
-  name: kubetail-cli
-  namespace: kubetail-system
+  - kind: ServiceAccount
+    name: kubetail-cli
+    namespace: kubetail-system
 ---
 kind: ServiceAccount
 apiVersion: v1
@@ -604,9 +643,21 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kubetail-testuser
 rules:
-- apiGroups: ["", apps, batch]
-  resources: [cronjobs, daemonsets, deployments, jobs, namespaces, nodes, pods, pods/log, replicasets, statefulsets]
-  verbs: [get, list, watch]
+  - apiGroups: ["", apps, batch]
+    resources:
+      [
+        cronjobs,
+        daemonsets,
+        deployments,
+        jobs,
+        namespaces,
+        nodes,
+        pods,
+        pods/log,
+        replicasets,
+        statefulsets,
+      ]
+    verbs: [get, list, watch]
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -617,9 +668,9 @@ roleRef:
   kind: ClusterRole
   name: kubetail-testuser
 subjects:
-- kind: ServiceAccount
-  name: kubetail-testuser
-  namespace: default
+  - kind: ServiceAccount
+    name: kubetail-testuser
+    namespace: default
 ---
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
@@ -627,9 +678,9 @@ metadata:
   name: kubetail-testuser
   namespace: kubetail-system
 rules:
-- apiGroups: [discovery.k8s.io]
-  resources: [endpointslices]
-  verbs: [list, watch]
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [list, watch]
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -641,6 +692,6 @@ roleRef:
   name: kubetail-testuser
   apiGroup: rbac.authorization.k8s.io
 subjects:
-- kind: ServiceAccount
-  name: kubetail-testuser
-  namespace: default
+  - kind: ServiceAccount
+    name: kubetail-testuser
+    namespace: default
