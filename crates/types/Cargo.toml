@@ -1,0 +1,16 @@
+[package]
+name = "types"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+[dependencies]
+prost = "0.13.5"
+prost-types = "0.13.5"
+prost-wkt = "0.6.1"
+prost-wkt-types = "0.6.1"
+tonic = "0.13.0"
+serde = { version = "1.0.218", features = ["derive"] }
+
+[build-dependencies]
+tonic-build = "0.13.0"

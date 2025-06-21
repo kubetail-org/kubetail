@@ -12,10 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::path::PathBuf;
+
 fn main() {
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     tonic_build::configure()
         .type_attribute(".", "#[derive(serde::Serialize)]")
         .extern_path(".google.protobuf.Timestamp", "::prost_wkt_types::Timestamp")
+        .file_descriptor_set_path(out_dir.join("topology_descriptor.bin"))
         .compile_protos(
             // List your proto files here
             &["../../proto/cluster_agent.proto"],

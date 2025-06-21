@@ -21,11 +21,7 @@ use prost_wkt_types::Timestamp;
 use serde_json;
 
 use crate::util::format::FileFormat;
-use cluster_agent::LogRecord;
-
-pub mod cluster_agent {
-    tonic::include_proto!("cluster_agent");
-}
+use types::cluster_agent::LogRecord;
 
 /// A custom writer that calls a callback function whenever data is written.
 pub struct CallbackWriter<F>
