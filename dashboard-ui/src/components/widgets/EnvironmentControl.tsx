@@ -53,23 +53,13 @@ const EnvironmentControl = ({ className }: EnvironmentControlProps) => {
       >
         Environment Control
       </button>
-      <Modal
-        open={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
-        className="max-w-[550px]"
-      >
+      <Modal open={isDialogOpen} onClose={() => setIsDialogOpen(false)} className="max-w-[550px]">
         <Modal.Title>Environment Control</Modal.Title>
         <div className="mt-5 pb-8">
           <Form.Group>
-            <Form.Label>
-              Switch between Kubernetes API and Kubetail API
-            </Form.Label>
+            <Form.Label>Switch between Kubernetes API and Kubetail API</Form.Label>
             <div className="pt-3">
-              <Form.Select
-                className={className}
-                value={apiMode}
-                onChange={handleModeChange}
-              >
+              <Form.Select className={className} value={apiMode} onChange={handleModeChange}>
                 <Form.Option value="">Auto</Form.Option>
                 <Form.Option value="true">Kubetail API</Form.Option>
                 <Form.Option value="false">Kubernetes API</Form.Option>

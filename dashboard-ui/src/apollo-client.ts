@@ -12,14 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-  ApolloClient,
-  InMemoryCache,
-  NormalizedCacheObject,
-  createHttpLink,
-  split,
-  from,
-} from '@apollo/client';
+import { ApolloClient, InMemoryCache, NormalizedCacheObject, createHttpLink, split, from } from '@apollo/client';
 import type { Operation } from '@apollo/client/link/core';
 import { onError } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
@@ -45,9 +38,10 @@ const wsClientOptions: ClientOptions = {
   keepAlive: 3000,
   retryAttempts: Infinity,
   shouldRetry: () => true,
-  retryWait: () => new Promise((resolve) => {
-    setTimeout(resolve, 3000);
-  }),
+  retryWait: () =>
+    new Promise((resolve) => {
+      setTimeout(resolve, 3000);
+    }),
 };
 
 const errorLink = onError(({ graphQLErrors, networkError }) => {

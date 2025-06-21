@@ -14,19 +14,13 @@
 
 import { parse, isValid } from 'date-fns';
 import { format } from 'date-fns-tz';
-import {
-  forwardRef, useImperativeHandle, useRef, useState,
-} from 'react';
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 
 import Button from '@kubetail/ui/elements/Button';
 import { Calendar } from '@kubetail/ui/elements/Calendar';
 import Form from '@kubetail/ui/elements/Form';
-import {
-  Popover, PopoverClose, PopoverTrigger, PopoverContent,
-} from '@kubetail/ui/elements/Popover';
-import {
-  Tabs, TabsContent, TabsList, TabsTrigger,
-} from '@kubetail/ui/elements/Tabs';
+import { Popover, PopoverClose, PopoverTrigger, PopoverContent } from '@kubetail/ui/elements/Popover';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@kubetail/ui/elements/Tabs';
 
 /**
  * Shared types
@@ -314,18 +308,9 @@ export const DateRangeDropdown = ({ children, onChange }: DateRangeDropdownProps
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        {children}
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-auto p-0 bg-background"
-        align="start"
-      >
-        <Tabs
-          className="w-[400px] p-3"
-          defaultValue={tabValue}
-          onValueChange={(value) => setTabValue(value)}
-        >
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent className="w-auto p-0 bg-background" align="start">
+        <Tabs className="w-[400px] p-3" defaultValue={tabValue} onValueChange={(value) => setTabValue(value)}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="relative">Relative</TabsTrigger>
             <TabsTrigger value="absolute">Absolute</TabsTrigger>
@@ -338,12 +323,18 @@ export const DateRangeDropdown = ({ children, onChange }: DateRangeDropdownProps
           </TabsContent>
         </Tabs>
         <div className="flex justify-between mt-4 p-3 border-t">
-          <Button intent="outline" size="sm" onClick={handleClear}>Clear</Button>
+          <Button intent="outline" size="sm" onClick={handleClear}>
+            Clear
+          </Button>
           <div className="flex space-x-2">
             <PopoverClose asChild>
-              <Button ref={cancelButtonRef} intent="ghost" size="sm">Cancel</Button>
+              <Button ref={cancelButtonRef} intent="ghost" size="sm">
+                Cancel
+              </Button>
             </PopoverClose>
-            <Button intent="primary" size="sm" onClick={handleApply}>Apply</Button>
+            <Button intent="primary" size="sm" onClick={handleApply}>
+              Apply
+            </Button>
           </div>
         </div>
       </PopoverContent>

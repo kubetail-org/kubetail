@@ -28,11 +28,7 @@ describe('k8sPagination merge logic', () => {
       items: [{ id: 1 }, { id: 2 }],
     };
 
-    const result = mergeFunction(
-      undefined,
-      incoming,
-      { args: { options: { continue: '' } } },
-    );
+    const result = mergeFunction(undefined, incoming, { args: { options: { continue: '' } } });
 
     expect(result).toEqual(incoming);
   });
@@ -47,11 +43,7 @@ describe('k8sPagination merge logic', () => {
       items: [{ id: 3 }, { id: 4 }],
     };
 
-    const result = mergeFunction(
-      existing,
-      incoming,
-      { args: { options: { continue: '' } } },
-    );
+    const result = mergeFunction(existing, incoming, { args: { options: { continue: '' } } });
 
     expect(result).toEqual(incoming);
   });
@@ -66,11 +58,7 @@ describe('k8sPagination merge logic', () => {
       items: [{ id: 3 }, { id: 4 }],
     };
 
-    const result = mergeFunction(
-      existing,
-      incoming,
-      { args: { options: { continue: 'token1' } } },
-    );
+    const result = mergeFunction(existing, incoming, { args: { options: { continue: 'token1' } } });
 
     expect(result).toEqual({
       metadata: { continue: 'token2' },
@@ -88,11 +76,7 @@ describe('k8sPagination merge logic', () => {
       items: [{ id: 3 }, { id: 4 }],
     };
 
-    const result = mergeFunction(
-      existing,
-      incoming,
-      { args: { options: { continue: 'differentToken' } } },
-    );
+    const result = mergeFunction(existing, incoming, { args: { options: { continue: 'differentToken' } } });
 
     expect(result).toEqual(existing);
   });

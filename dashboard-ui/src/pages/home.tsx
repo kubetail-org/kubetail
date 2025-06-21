@@ -15,13 +15,7 @@
 import { useSubscription } from '@apollo/client';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import numeral from 'numeral';
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import TimeAgo from 'react-timeago';
 import type { Formatter, Suffix, Unit } from 'react-timeago';
 import { RecoilRoot, atom, useRecoilValue, useSetRecoilState } from 'recoil';
@@ -158,10 +152,7 @@ function useStatefulSets(kubeContext?: string) {
 function useLogFileInfo(uids: string[], ownershipMap: Map<string, string[]>) {
   const logMetadataMap = useRecoilValue(logMetadataMapState);
 
-  const logFileInfo = new Map<
-    string,
-    { size: number; lastModifiedAt: Date; containerIDs: string[] }
-  >();
+  const logFileInfo = new Map<string, { size: number; lastModifiedAt: Date; containerIDs: string[] }>();
   uids.forEach((uid) => {
     const containerIDs = getContainerIDs(uid, ownershipMap);
 
@@ -180,12 +171,7 @@ function useLogFileInfo(uids: string[], ownershipMap: Map<string, string[]>) {
       }
 
       if (val?.lastModifiedAt) {
-        fileInfo.lastModifiedAt = new Date(
-          Math.max(
-            val.lastModifiedAt.getTime(),
-            fileInfo.lastModifiedAt.getTime(),
-          ),
-        );
+        fileInfo.lastModifiedAt = new Date(Math.max(val.lastModifiedAt.getTime(), fileInfo.lastModifiedAt.getTime()));
       }
     });
 
@@ -287,13 +273,7 @@ const LogMetadataMapProvider = () => {
  * KubeContextPicker component
  */
 
-const KubeContextPicker = ({
-  value,
-  setValue,
-}: {
-  value?: string;
-  setValue: (value: string) => void;
-}) => {
+const KubeContextPicker = ({ value, setValue }: { value?: string; setValue: (value: string) => void }) => {
   const { loading, data } = useSubscription(dashboardOps.KUBE_CONFIG_WATCH);
   const kubeConfig = data?.kubeConfigWatch?.object;
 
@@ -304,17 +284,12 @@ const KubeContextPicker = ({
   }, [loading]);
 
   return (
-    <Form.Select
-      value={value}
-      className="m-0"
-      onChange={(ev) => setValue(ev.target.value)}
-      disabled={loading}
-    >
+    <Form.Select value={value} className="m-0" onChange={(ev) => setValue(ev.target.value)} disabled={loading}>
       {loading ? (
         <Form.Option>Loading...</Form.Option>
       ) : (
-        kubeConfig
-        && kubeConfig.contexts.map((context) => (
+        kubeConfig &&
+        kubeConfig.contexts.map((context) => (
           <Form.Option key={context.name} value={context.name}>
             {context.name}
           </Form.Option>
@@ -363,12 +338,7 @@ const NamespacesPicker = () => {
   });
 
   return (
-    <Form.Select
-      className="mt-0"
-      value={namespace}
-      onChange={(ev) => setNamespace(ev.target.value)}
-      disabled={loading}
-    >
+    <Form.Select className="mt-0" value={namespace} onChange={(ev) => setNamespace(ev.target.value)} disabled={loading}>
       {loading ? (
         <Form.Option>Loading...</Form.Option>
       ) : (
@@ -389,7 +359,13 @@ const NamespacesPicker = () => {
  * DisplayItems component
  */
 
-const lastModifiedAtFormatter: Formatter = (value: number, unit: Unit, suffix: Suffix, epochMilliseconds: number, nextFormatter?: Formatter) => {
+const lastModifiedAtFormatter: Formatter = (
+  value: number,
+  unit: Unit,
+  suffix: Suffix,
+  epochMilliseconds: number,
+  nextFormatter?: Formatter,
+) => {
   if (suffix === 'from now' || unit === 'second') return 'just now';
   if (nextFormatter) return nextFormatter(value, unit, suffix, epochMilliseconds);
   return '';
@@ -399,20 +375,11 @@ type DisplayItemsProps = {
   workload: Workload;
   namespace: string;
   fetching: boolean;
-  items:
-  | WorkloadItem[]
-  | undefined
-  | null;
+  items: WorkloadItem[] | undefined | null;
   ownershipMap: Map<string, string[]>;
 };
 
-const DisplayItems = ({
-  workload,
-  namespace,
-  fetching,
-  items,
-  ownershipMap,
-}: DisplayItemsProps) => {
+const DisplayItems = ({ workload, namespace, fetching, items, ownershipMap }: DisplayItemsProps) => {
   const { kubeContext, search, workloadFilter } = useContext(Context);
 
   // destructuring items array due to read-only array issue
@@ -541,48 +508,28 @@ const DisplayItems = ({
         </tr>
       </thead>
       <>
-        <DataTable.Header
-          className="rounded-thead bg-transparent"
-          sortBy={sortBy}
-          onSortByChange={handleSortByChange}
-        >
+        <DataTable.Header className="rounded-thead bg-transparent" sortBy={sortBy} onSortByChange={handleSortByChange}>
           <DataTable.Row>
             <DataTable.HeaderCell>
-              <Form.Check
-                checked={selectAll}
-                onChange={handleSelectAllChange}
-              />
+              <Form.Check checked={selectAll} onChange={handleSelectAllChange} />
             </DataTable.HeaderCell>
             <DataTable.HeaderCell sortField="name" initialSortDirection="ASC">
               Name
             </DataTable.HeaderCell>
             {namespace === '' && (
-              <DataTable.HeaderCell
-                sortField="namespace"
-                initialSortDirection="ASC"
-              >
+              <DataTable.HeaderCell sortField="namespace" initialSortDirection="ASC">
                 Namespace
               </DataTable.HeaderCell>
             )}
-            <DataTable.HeaderCell
-              sortField="created"
-              initialSortDirection="DESC"
-            >
+            <DataTable.HeaderCell sortField="created" initialSortDirection="DESC">
               Created
             </DataTable.HeaderCell>
             {appConfig.clusterAPIEnabled === true && (
               <>
-                <DataTable.HeaderCell
-                  sortField="size"
-                  initialSortDirection="DESC"
-                  className="text-right"
-                >
+                <DataTable.HeaderCell sortField="size" initialSortDirection="DESC" className="text-right">
                   Size
                 </DataTable.HeaderCell>
-                <DataTable.HeaderCell
-                  sortField="lastEvent"
-                  initialSortDirection="DESC"
-                >
+                <DataTable.HeaderCell sortField="lastEvent" initialSortDirection="DESC">
                   Last Event
                 </DataTable.HeaderCell>
               </>
@@ -598,9 +545,7 @@ const DisplayItems = ({
               <DataTable.DataCell colSpan={7}>
                 <div className="flex flex-col items-center  py-1 ">
                   <Layers3 className="h-5 w-5 text-chrome-400" />
-                  <span className="text-chrome-400 italic font-medium">
-                    No resources found
-                  </span>
+                  <span className="text-chrome-400 italic font-medium">No resources found</span>
                 </div>
               </DataTable.DataCell>
             </DataTable.Row>
@@ -613,15 +558,10 @@ const DisplayItems = ({
             const fileInfo = logFileInfo.get(item.metadata.uid);
 
             // for last event
-            const lastEventCls = fileInfo?.containerIDs
-              .map((id) => `last_event_${id}`)
-              .join(' ');
+            const lastEventCls = fileInfo?.containerIDs.map((id) => `last_event_${id}`).join(' ');
 
             return (
-              <DataTable.Row
-                key={item.metadata.uid}
-                className="text-chrome-700 max-w-full"
-              >
+              <DataTable.Row key={item.metadata.uid} className="text-chrome-700 max-w-full">
                 <DataTable.DataCell>
                   <Form.Check
                     name="source"
@@ -631,11 +571,7 @@ const DisplayItems = ({
                   />
                 </DataTable.DataCell>
                 <DataTable.DataCell>{item.metadata.name}</DataTable.DataCell>
-                {namespace === '' && (
-                  <DataTable.DataCell>
-                    {item.metadata.namespace}
-                  </DataTable.DataCell>
-                )}
+                {namespace === '' && <DataTable.DataCell>{item.metadata.namespace}</DataTable.DataCell>}
                 <DataTable.DataCell>
                   <TimeAgo
                     key={Math.random()}
@@ -646,11 +582,7 @@ const DisplayItems = ({
                 {appConfig.clusterAPIEnabled === true && (
                   <>
                     <DataTable.DataCell className="text-right pr-[35px]">
-                      {fileInfo?.size === undefined ? (
-                        <span>--</span>
-                      ) : (
-                        numeral(fileInfo.size).format('0.0 b')
-                      )}
+                      {fileInfo?.size === undefined ? <span>--</span> : numeral(fileInfo.size).format('0.0 b')}
                     </DataTable.DataCell>
                     <DataTable.DataCell className={lastEventCls}>
                       {fileInfo?.size === undefined ? (
@@ -739,7 +671,9 @@ const DisplayWorkloads = () => {
     // add container ids
     pods.data?.coreV1PodsList?.items.forEach((pod) => {
       // strip out prefix (e.g. "containerd://")
-      const containerIDs = pod.status.containerStatuses.map((status) => status.containerID.replace(/^[^:]+:\/\/(.*)/, '$1'));
+      const containerIDs = pod.status.containerStatuses.map((status) =>
+        status.containerID.replace(/^[^:]+:\/\/(.*)/, '$1'),
+      );
       m.set(pod.metadata.uid, containerIDs);
     });
 
@@ -752,10 +686,29 @@ const DisplayWorkloads = () => {
     statefulsets.data?.appsV1StatefulSetsList?.metadata.resourceVersion,
   ]);
 
-  const { filterCronJobs, filterDaemonsets, filterDeployments, filterJobs, filterPods, filterReplicasets, filterStatefulsets } = useFilteredWorkloads();
+  const {
+    filterCronJobs,
+    filterDaemonsets,
+    filterDeployments,
+    filterJobs,
+    filterPods,
+    filterReplicasets,
+    filterStatefulsets,
+  } = useFilteredWorkloads();
 
   // we want to show this only when user searches for a workload
-  const noResultFound = search !== '' ? noSearchResults(filterCronJobs, filterDeployments, filterPods, filterJobs, filterDaemonsets, filterReplicasets, filterStatefulsets) : false;
+  const noResultFound =
+    search !== ''
+      ? noSearchResults(
+          filterCronJobs,
+          filterDeployments,
+          filterPods,
+          filterJobs,
+          filterDaemonsets,
+          filterReplicasets,
+          filterStatefulsets,
+        )
+      : false;
 
   // Render data tables
   const tableEls: JSX.Element[] = [];
@@ -880,17 +833,11 @@ const Header = () => {
     <div className="px-4 py-[5px] flex items-center justify-between">
       <div className="flex items-center space-x-4">
         <a href="/">
-          <img
-            src={joinPaths(basename, logo)}
-            alt="logo"
-            className="display-block h-[40px]"
-          />
+          <img src={joinPaths(basename, logo)} alt="logo" className="display-block h-[40px]" />
         </a>
       </div>
       <div className="flex flex-row items-center gap-3">
-        {appConfig.environment === 'desktop' && (
-          <KubeContextPicker value={kubeContext} setValue={setKubeContext} />
-        )}
+        {appConfig.environment === 'desktop' && <KubeContextPicker value={kubeContext} setValue={setKubeContext} />}
         <SettingsDropdown />
       </div>
     </div>
@@ -901,8 +848,21 @@ const Header = () => {
  * CountBadge component
  */
 
-const CountBadge = ({ count, workload, workloadFilter }: { count: number, workload: Workload, workloadFilter: Workload | undefined }) => (
-  <span className={cn('text-xs font-medium px-2 py-[1px]  rounded-full  group-hover:bg-blue-200', workload === workloadFilter ? 'bg-blue-200' : 'bg-gray-200')}>
+const CountBadge = ({
+  count,
+  workload,
+  workloadFilter,
+}: {
+  count: number;
+  workload: Workload;
+  workloadFilter: Workload | undefined;
+}) => (
+  <span
+    className={cn(
+      'text-xs font-medium px-2 py-[1px]  rounded-full  group-hover:bg-blue-200',
+      workload === workloadFilter ? 'bg-blue-200' : 'bg-gray-200',
+    )}
+  >
     {count}
   </span>
 );
@@ -938,18 +898,12 @@ const SidebarContent = () => {
               type="button"
               className={cn(
                 'flex items-center justify-between py-2 px-4 rounded-lg group hover:bg-blue-100 w-full',
-                workload === workloadFilter
-                  ? 'bg-blue-100 text-primary font-medium'
-                  : 'text-chrome-500 ',
+                workload === workloadFilter ? 'bg-blue-100 text-primary font-medium' : 'text-chrome-500 ',
               )}
               onClick={() => setWorkloadFilter(workload)}
             >
               <span>{labelsPMap[workload]}</span>
-              <CountBadge
-                count={count}
-                workload={workload}
-                workloadFilter={workloadFilter}
-              />
+              <CountBadge count={count} workload={workload} workloadFilter={workloadFilter} />
             </button>
           </li>
         ))}
@@ -992,11 +946,7 @@ const Content = () => {
       {readyWait.loading || kubeContext === undefined ? (
         <div>Connecting...</div>
       ) : (
-        <form
-          method="get"
-          target="_blank"
-          action={joinPaths(basename, '/console')}
-        >
+        <form method="get" target="_blank" action={joinPaths(basename, '/console')}>
           <input type="hidden" name="kubeContext" value={kubeContext} />
           <div className="flex gap-4 py-4 justify-between flex-row">
             <div className="flex gap-2 flex-row items-center">
@@ -1043,9 +993,7 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="bg-chrome-100 border-b border-chrome-divider">
-        {header}
-      </div>
+      <div className="bg-chrome-100 border-b border-chrome-divider">{header}</div>
       <div className="flex-1 h-0">
         <div className="flex h-full">
           <aside
@@ -1053,15 +1001,14 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
             style={{ width: `${sidebarWidth}px` }}
           >
             <header className="flex flex-row px-4 pt-8 py-4 justify-between items-center gap-2">
-              <button
-                type="button"
-                className="flex items-center gap-2"
-                onClick={() => setWorkloadFilter(undefined)}
-              >
+              <button type="button" className="flex items-center gap-2" onClick={() => setWorkloadFilter(undefined)}>
                 <Boxes className="h-6 w-6 text-chrome-600" />
                 <span className="font-semibold text-lg"> Workloads</span>
               </button>
-              <PanelLeftClose className="cursor-pointer text-chrome-400 hover:text-primary " onClick={() => setSidebarOpen(false)} />
+              <PanelLeftClose
+                className="cursor-pointer text-chrome-400 hover:text-primary "
+                onClick={() => setSidebarOpen(false)}
+              />
             </header>
             {sidebarOpen && sidebar}
           </aside>
@@ -1084,18 +1031,32 @@ export default function Page() {
 
   const [namespace, setNamespace] = useState('');
 
-  const context = useMemo(() => ({
-    kubeContext,
-    setKubeContext,
-    namespace,
-    setNamespace,
-    workloadFilter,
-    setWorkloadFilter,
-    sidebarOpen,
-    setSidebarOpen,
-    search,
-    setSearch,
-  }), [kubeContext, setKubeContext, namespace, setNamespace, workloadFilter, setWorkloadFilter, sidebarOpen, setSidebarOpen, search, setSearch]);
+  const context = useMemo(
+    () => ({
+      kubeContext,
+      setKubeContext,
+      namespace,
+      setNamespace,
+      workloadFilter,
+      setWorkloadFilter,
+      sidebarOpen,
+      setSidebarOpen,
+      search,
+      setSearch,
+    }),
+    [
+      kubeContext,
+      setKubeContext,
+      namespace,
+      setNamespace,
+      workloadFilter,
+      setWorkloadFilter,
+      sidebarOpen,
+      setSidebarOpen,
+      search,
+      setSearch,
+    ],
+  );
 
   return (
     <AuthRequired>
@@ -1103,11 +1064,7 @@ export default function Page() {
         <RecoilRoot>
           <LogMetadataMapProvider />
           <AppLayout>
-            <InnerLayout
-              header={<Header />}
-              sidebar={<Sidebar />}
-              content={<Content />}
-            />
+            <InnerLayout header={<Header />} sidebar={<Sidebar />} content={<Content />} />
           </AppLayout>
         </RecoilRoot>
       </Context.Provider>

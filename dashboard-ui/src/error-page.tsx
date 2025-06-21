@@ -15,7 +15,7 @@
 import { useRouteError } from 'react-router-dom';
 
 export default function ErrorPage() {
-  const error = useRouteError() as { statusText?: string; message?: string; };
+  const error = useRouteError() as { statusText?: string; message?: string };
 
   return (
     <div className="flex flex-col items-center justify-center w-full space-y-1">

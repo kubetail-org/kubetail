@@ -43,19 +43,16 @@ vi.mock('@/lib/util', async (importOriginal) => {
   };
 });
 
-const renderPage = (path: string) => (
+const renderPage = (path: string) =>
   render(
     <ErrorBoundary fallback={<div>error</div>}>
       <Suspense fallback={<div>loading...</div>}>
         <MemoryRouter initialEntries={[path]}>
-          <Routes>
-            {routes}
-          </Routes>
+          <Routes>{routes}</Routes>
         </MemoryRouter>
       </Suspense>
     </ErrorBoundary>,
-  )
-);
+  );
 
 describe('route tests', () => {
   it('/', async () => {
