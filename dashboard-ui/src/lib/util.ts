@@ -26,15 +26,15 @@ export class Counter<K = string> extends Map<K, number> {
     super();
 
     if (values instanceof Counter) {
-      for (const [key, value] of values.entries()) {
+      values.forEach((value, key) => {
         this.set(key, value);
-      }
+      });
     } else {
       values?.forEach((val) => this.update(val));
     }
   }
 
-  update(key: K, incr: number = 1) {
+  update(key: K, incr = 1) {
     const count = this.get(key) || 0;
     this.set(key, count + incr);
   }
@@ -66,9 +66,9 @@ export class MapSet<K = string, T = string> extends Map<K, Set<T>> {
     super();
 
     if (values) {
-      for (const [key, value] of values.entries()) {
+      values.forEach((value, key) => {
         this.set(key, value);
-      }
+      });
     }
   }
 
@@ -89,7 +89,7 @@ export class WaitGroup {
   /**
    * Increment internal counter
    */
-  add(n: number = 1): void {
+  add(n = 1): void {
     if (n <= 0) throw new Error('must be positive');
     this.counter += n;
   }
@@ -158,7 +158,7 @@ export function getBasename() {
   const { pathname } = window.location;
   if (pathname.includes('/proxy/')) {
     const m = pathname.match(/^(.*?)\/proxy\//);
-    if (m) basename = m[0];
+    if (m) [basename] = m;
   } else {
     basename = config.basePath;
   }
@@ -197,10 +197,10 @@ export function intersectSets<T = string>(sets: Set<T>[]): Set<T> {
   let intersection = new Set(sets[0]);
 
   // Iterate over the rest of the sets
-  for (const set of sets.slice(1)) {
+  sets.slice(1).forEach(set => {
     // Retain only elements that are present in both sets
-    intersection = new Set([...intersection].filter((x) => set.has(x)));
-  }
+    intersection = new Set([...intersection].filter(x => set.has(x)));
+  });
 
   return intersection;
 }

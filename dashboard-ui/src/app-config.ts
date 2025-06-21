@@ -25,40 +25,36 @@ function camelCaseToUpperCaseWithUnderscores(input: string) {
  */
 
 class Config {
-  authMode: string = 'auto';
+  authMode = 'auto';
 
-  basePath: string = '/';
+  basePath = '/';
 
-  clusterAPIEnabled: boolean = true;
+  clusterAPIEnabled = true;
 
-  clusterAPIEndpoint: string = '';
+  clusterAPIEndpoint = '';
 
-  environment: string = 'desktop';
+  environment = 'desktop';
 
   constructor() {
-    const runtimeConfig = ('runtimeConfig' in window ? window.runtimeConfig : {}) as { [key: string]: string };
+    const runtimeConfig = ('runtimeConfig' in window ? window.runtimeConfig : {}) as Record<string, string>;
 
     // override defaults with runtimeConfig or import.meta.env
-    for (const key in this) {
-      // ignore inherited properties
-      if (!this.hasOwnProperty(key)) {
-        continue;
-      }
+    Object.keys(this).forEach((key) => {
+      const configKey = key as keyof this;
 
       // 1 - check runtime config
       if (key in runtimeConfig) {
         // @ts-expect-error Type 'string' is not assignable to type 'this[Extract<keyof this, string>]'.
-        this[key] = runtimeConfig[key];
-        continue;
+        this[configKey] = runtimeConfig[key];
+        return;
       }
 
       // 2 - check import.meta.env
       const envKey = `VITE_${camelCaseToUpperCaseWithUnderscores(key)}`;
       if (envKey in import.meta.env) {
-        this[key] = import.meta.env[envKey];
-        continue;
+        this[configKey] = import.meta.env[envKey];
       }
-    }
+    });
   }
 }
 

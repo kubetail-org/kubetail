@@ -24,8 +24,8 @@ import type { Operation } from '@apollo/client/link/core';
 import { onError } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
-import { getMainDefinition } from '@apollo/client/utilities';
 import { ClientOptions, createClient } from 'graphql-ws';
+import { getOperationAST, OperationTypeNode } from 'graphql';
 import toast from 'react-hot-toast';
 
 import appConfig from '@/app-config';
@@ -92,7 +92,7 @@ const createLink = (basepath: string) => {
     ...wsClientOptions,
     url: uri.replace(/^(http)/, 'ws'),
     connectionParams: async () => ({
-      authorization: `${await getCSRFToken(basepath)}`,
+      authorization: await getCSRFToken(basepath),
     }),
   });
 
@@ -102,8 +102,8 @@ const createLink = (basepath: string) => {
   // Combine using split link
   const link = split(
     ({ query }) => {
-      const definition = getMainDefinition(query);
-      return definition.kind === 'OperationDefinition' && definition.operation === 'subscription';
+      const op = getOperationAST(query);
+      return op?.operation === OperationTypeNode.SUBSCRIPTION;
     },
     wsLink,
     from([errorLink, retryLink, httpLink]),
@@ -145,7 +145,7 @@ export function k8sPagination() {
         const mergedObj = { ...existing };
         mergedObj.metadata = incoming.metadata;
         mergedObj.items = [...existing.items, ...incoming.items];
-        return mergedObj as typeof incoming;
+        return mergedObj;
       }
 
       // otherwise take existing

@@ -135,12 +135,7 @@ type DisplayItemsProps = {
 };
 
 function isSuperset<T>(set: Set<T>, subset: Set<T>) {
-  for (const elem of subset) {
-    if (!set.has(elem)) {
-      return false;
-    }
-  }
-  return true;
+  return [...subset].every(elem => set.has(elem));
 }
 
 const DisplayItems = ({ items }: DisplayItemsProps) => {

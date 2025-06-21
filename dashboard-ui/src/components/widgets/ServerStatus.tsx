@@ -213,10 +213,7 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
   if (dashboardServerStatus.status === Status.Unhealthy) {
     overallStatus = Status.Unhealthy;
   } else {
-    const all = [dashboardServerStatus];
-    for (const val of kubernetesAPIServertatusMap.values()) all.push(val);
-    for (const val of clusterAPIServerStatusMap.values()) all.push(val);
-
+    const all = [dashboardServerStatus, ...kubernetesAPIServertatusMap.values(), ...clusterAPIServerStatusMap.values()];
     if (all.every((item) => item.status === Status.Healthy)) overallStatus = Status.Healthy;
     else overallStatus = Status.Degraded;
   }

@@ -110,7 +110,7 @@ export function useRetryOnError() {
       try {
         await retryFn();
         clearInterval(timeout);
-      } catch (e) {
+      } catch {
         // do nothing
       }
     }, RETRY_TIMEOUT);
@@ -586,7 +586,7 @@ export function useColors(streams: string[]) {
  * Workload counter hook
  */
 
-export function useWorkloadCounter(kubeContext: string, namespace: string = '') {
+export function useWorkloadCounter(kubeContext: string, namespace = '') {
   const cronjobs = useCounterQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_CRONJOBS_COUNT_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_CRONJOBS_COUNT_WATCH,
