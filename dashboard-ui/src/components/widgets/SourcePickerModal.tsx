@@ -61,7 +61,9 @@ const Namespaces = () => {
     >
       <Form.Option value="">All namespaces</Form.Option>
       {data?.coreV1NamespacesList?.items.map((item) => (
-        <Form.Option key={item.id} value={item.metadata.name}>{item.metadata.name}</Form.Option>
+        <Form.Option key={item.id} value={item.metadata.name}>
+          {item.metadata.name}
+        </Form.Option>
       ))}
     </Form.Select>
   );
@@ -89,10 +91,7 @@ const Sidebar = ({
             {allWorkloads.map((workload) => {
               const Icon = iconMap[workload];
               return (
-                <li
-                  key={workload}
-                  className="ml-[-8px]"
-                >
+                <li key={workload} className="ml-[-8px]">
                   <button
                     type="button"
                     className={cn(
@@ -103,9 +102,7 @@ const Sidebar = ({
                   >
                     <Icon className="h-[18px] w-[18px]" />
                     <div className="ml-1 text-chrome-700">
-                      {labelsPMap[workload]}
-                      {' '}
-                      {counter.has(workload) && `(${counter.get(workload)})`}
+                      {labelsPMap[workload]} {counter.has(workload) && `(${counter.get(workload)})`}
                     </div>
                   </button>
                 </li>
@@ -130,12 +127,12 @@ type DisplayItemsProps = {
       namespace: string;
       uid: string;
       creationTimestamp: any;
-    }
+    };
   }[];
 };
 
 function isSuperset<T>(set: Set<T>, subset: Set<T>) {
-  return [...subset].every(elem => set.has(elem));
+  return [...subset].every((elem) => set.has(elem));
 }
 
 const DisplayItems = ({ items }: DisplayItemsProps) => {
@@ -174,7 +171,8 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
     });
   }
 
-  const genSourcePath = (item: any) => `${item.metadata.namespace}:${typenameMap[item.__typename || '']}/${item.metadata.name}`;
+  const genSourcePath = (item: any) =>
+    `${item.metadata.namespace}:${typenameMap[item.__typename || '']}/${item.metadata.name}`;
 
   // source toggler
   const filteredSourcePaths = new Set(filteredItems.map((item) => genSourcePath(item)));
@@ -202,21 +200,22 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
 
   return (
     <DataTable size="sm" className="h-full overflow-y-auto">
-      <DataTable.Header
-        sortBy={sortBy}
-        onSortByChange={handleSortByChange}
-        className="sticky top-0"
-      >
+      <DataTable.Header sortBy={sortBy} onSortByChange={handleSortByChange} className="sticky top-0">
         <DataTable.Row>
           <DataTable.HeaderCell className="w-8">
-            <Form.Check
-              checked={allSourcesChecked}
-              onChange={handleAllSourcesToggle}
-            />
+            <Form.Check checked={allSourcesChecked} onChange={handleAllSourcesToggle} />
           </DataTable.HeaderCell>
-          <DataTable.HeaderCell sortField="name" initialSortDirection="ASC">Name</DataTable.HeaderCell>
-          {namespace === '' && <DataTable.HeaderCell sortField="namespace" initialSortDirection="ASC">Namespace</DataTable.HeaderCell>}
-          <DataTable.HeaderCell sortField="created" initialSortDirection="DESC" className="min-w-[140px]">Created</DataTable.HeaderCell>
+          <DataTable.HeaderCell sortField="name" initialSortDirection="ASC">
+            Name
+          </DataTable.HeaderCell>
+          {namespace === '' && (
+            <DataTable.HeaderCell sortField="namespace" initialSortDirection="ASC">
+              Namespace
+            </DataTable.HeaderCell>
+          )}
+          <DataTable.HeaderCell sortField="created" initialSortDirection="DESC" className="min-w-[140px]">
+            Created
+          </DataTable.HeaderCell>
         </DataTable.Row>
       </DataTable.Header>
       <DataTable.Body>
@@ -229,17 +228,12 @@ const DisplayItems = ({ items }: DisplayItemsProps) => {
               className="cursor-pointer"
             >
               <DataTable.DataCell>
-                <Form.Check
-                  checked={selectedSources.has(sourcePath)}
-                />
+                <Form.Check checked={selectedSources.has(sourcePath)} />
               </DataTable.DataCell>
               <DataTable.DataCell>{item.metadata.name}</DataTable.DataCell>
               {namespace === '' && <DataTable.DataCell>{item.metadata.namespace}</DataTable.DataCell>}
               <DataTable.DataCell>
-                <TimeAgo
-                  date={item.metadata.creationTimestamp}
-                  title={item.metadata.creationTimestamp.toUTCString()}
-                />
+                <TimeAgo date={item.metadata.creationTimestamp} title={item.metadata.creationTimestamp.toUTCString()} />
               </DataTable.DataCell>
             </DataTable.Row>
           );
@@ -265,9 +259,7 @@ const DisplayCronJobs = () => {
   });
 
   if (loading) return <Spinner size="sm" />;
-  return (
-    <DisplayItems items={data?.batchV1CronJobsList?.items || []} />
-  );
+  return <DisplayItems items={data?.batchV1CronJobsList?.items || []} />;
 };
 
 const DisplayDaemonSets = () => {
@@ -282,9 +274,7 @@ const DisplayDaemonSets = () => {
   });
 
   if (loading) return <Spinner size="sm" />;
-  return (
-    <DisplayItems items={data?.appsV1DaemonSetsList?.items || []} />
-  );
+  return <DisplayItems items={data?.appsV1DaemonSetsList?.items || []} />;
 };
 
 const DisplayDeployments = () => {
@@ -299,9 +289,7 @@ const DisplayDeployments = () => {
   });
 
   if (loading) return <Spinner size="sm" />;
-  return (
-    <DisplayItems items={data?.appsV1DeploymentsList?.items || []} />
-  );
+  return <DisplayItems items={data?.appsV1DeploymentsList?.items || []} />;
 };
 
 const DisplayJobs = () => {
@@ -316,9 +304,7 @@ const DisplayJobs = () => {
   });
 
   if (loading) return <Spinner size="sm" />;
-  return (
-    <DisplayItems items={data?.batchV1JobsList?.items || []} />
-  );
+  return <DisplayItems items={data?.batchV1JobsList?.items || []} />;
 };
 
 const DisplayPods = () => {
@@ -333,9 +319,7 @@ const DisplayPods = () => {
   });
 
   if (loading) return <Spinner size="sm" />;
-  return (
-    <DisplayItems items={data?.coreV1PodsList?.items || []} />
-  );
+  return <DisplayItems items={data?.coreV1PodsList?.items || []} />;
 };
 
 const DisplayReplicaSets = () => {
@@ -350,9 +334,7 @@ const DisplayReplicaSets = () => {
   });
 
   if (loading) return <Spinner size="sm" />;
-  return (
-    <DisplayItems items={data?.appsV1ReplicaSetsList?.items || []} />
-  );
+  return <DisplayItems items={data?.appsV1ReplicaSetsList?.items || []} />;
 };
 
 const DisplayStatefulSets = () => {
@@ -367,9 +349,7 @@ const DisplayStatefulSets = () => {
   });
 
   if (loading) return <Spinner size="sm" />;
-  return (
-    <DisplayItems items={data?.appsV1StatefulSetsList?.items || []} />
-  );
+  return <DisplayItems items={data?.appsV1StatefulSetsList?.items || []} />;
 };
 
 const displayWorkloadComponents = {
@@ -421,7 +401,7 @@ const Explorer = () => {
 /**
  * Default component
  */
-const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void; }) => {
+const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void }) => {
   const [searchParams] = useSearchParams();
   const [namespace, setNamespace] = useState('');
   const [selectedSources, setSelectedSources] = useState(new Set(searchParams.getAll('source')));
@@ -437,19 +417,22 @@ const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void; })
 
     // TODO: instead of navigating to new url can we use react-router?
     const currentUrl = new URL(window.location.href);
-    currentUrl.search = (new URLSearchParams(searchParams)).toString();
+    currentUrl.search = new URLSearchParams(searchParams).toString();
     window.location.href = currentUrl.toString();
 
     onClose();
   };
 
-  const context = useMemo(() => ({
-    kubeContext,
-    namespace,
-    setNamespace,
-    selectedSources,
-    setSelectedSources,
-  }), [kubeContext, namespace, setNamespace, selectedSources, setSelectedSources]);
+  const context = useMemo(
+    () => ({
+      kubeContext,
+      namespace,
+      setNamespace,
+      selectedSources,
+      setSelectedSources,
+    }),
+    [kubeContext, namespace, setNamespace, selectedSources, setSelectedSources],
+  );
 
   return (
     <Context.Provider value={context}>
@@ -462,8 +445,12 @@ const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void; })
         </div>
         <Explorer />
         <div className="flex justify-end space-x-2 mt-[15px]">
-          <Button intent="secondary" onClick={() => onClose()}>Cancel</Button>
-          <Button intent="primary" onClick={() => handleUpdate()}>Update</Button>
+          <Button intent="secondary" onClick={() => onClose()}>
+            Cancel
+          </Button>
+          <Button intent="primary" onClick={() => handleUpdate()}>
+            Update
+          </Button>
         </div>
       </Modal>
     </Context.Provider>

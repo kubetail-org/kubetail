@@ -31,10 +31,7 @@ const QueryError = ({ toast }: { toast: Toast }) => (
       onClick={() => toastlib.remove(toast.id)}
       aria-label="remove"
     >
-      <XCircleIcon
-        className="h-5 w-5 text-red-300 hover:text-red-400"
-        aria-hidden="true"
-      />
+      <XCircleIcon className="h-5 w-5 text-red-300 hover:text-red-400" aria-hidden="true" />
     </button>
     {resolveValue(toast.message, toast)}
   </div>
@@ -58,34 +55,28 @@ const CustomToaster = () => {
         onClick={handleRemoveAllClick}
         aria-label="remove all"
       >
-        <XCircleIcon
-          className="h-5 w-5 text-red-300 hover:text-red-400"
-          aria-hidden="true"
-        />
+        <XCircleIcon className="h-5 w-5 text-red-300 hover:text-red-400" aria-hidden="true" />
       </button>
-      <button
-        type="button"
-        onClick={() => setModalIsOpen(true)}
-      >
+      <button type="button" onClick={() => setModalIsOpen(true)}>
         Query Errors
         {`(${toasts.length})`}
       </button>
-      <Modal
-        className="max-w-[500px]"
-        open={modalIsOpen}
-        onClose={() => setModalIsOpen(false)}
-      >
+      <Modal className="max-w-[500px]" open={modalIsOpen} onClose={() => setModalIsOpen(false)}>
         <Modal.Title>
           <div className="flex justify-between">
             <span>
               Query Errors
               {`(${toasts.length})`}
             </span>
-            <Button intent="danger" size="xs" onClick={() => toastlib.remove()}>Dismiss All</Button>
+            <Button intent="danger" size="xs" onClick={() => toastlib.remove()}>
+              Dismiss All
+            </Button>
           </div>
         </Modal.Title>
         <div className="text-sm space-y-4">
-          {toasts.map((toast) => <QueryError key={toast.id} toast={toast} />)}
+          {toasts.map((toast) => (
+            <QueryError key={toast.id} toast={toast} />
+          ))}
         </div>
       </Modal>
     </div>

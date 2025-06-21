@@ -116,11 +116,13 @@ export function useClusterAPIServerStatus(kubeContext: string) {
     },
     onError: (err) => {
       if (err.message === 'not available') {
-        setStatus(new ServerStatus({
-          status: Status.NotFound,
-          message: 'Not available',
-          lastUpdatedAt: new Date(),
-        }));
+        setStatus(
+          new ServerStatus({
+            status: Status.NotFound,
+            message: 'Not available',
+            lastUpdatedAt: new Date(),
+          }),
+        );
       }
     },
   });

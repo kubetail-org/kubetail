@@ -70,20 +70,19 @@ export function useSession() {
  */
 
 export const SessionProviderDesktop = ({ children }: React.PropsWithChildren) => {
-  const context = useMemo(() => ({
-    session: {
-      auth_mode: 'auto',
-      user: 'auto',
-      message: null,
-      timestamp: new Date(),
-    },
-   }), []);
-
-  return (
-    <Context.Provider value={context}>
-      {children}
-    </Context.Provider>
+  const context = useMemo(
+    () => ({
+      session: {
+        auth_mode: 'auto',
+        user: 'auto',
+        message: null,
+        timestamp: new Date(),
+      },
+    }),
+    [],
   );
+
+  return <Context.Provider value={context}>{children}</Context.Provider>;
 };
 
 /**
@@ -124,11 +123,7 @@ export const SessionProviderCluster = ({ children }: React.PropsWithChildren) =>
 
   const context = useMemo(() => ({ session }), [session]);
 
-  return (
-    <Context.Provider value={context}>
-      {children}
-    </Context.Provider>
-  );
+  return <Context.Provider value={context}>{children}</Context.Provider>;
 };
 
 /**

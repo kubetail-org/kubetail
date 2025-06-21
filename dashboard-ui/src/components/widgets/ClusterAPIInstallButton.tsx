@@ -45,15 +45,11 @@ const InstallButton = ({ kubeContext }: InstallButtonProps) => {
     }
   };
 
-  const label = (clicked && installMutation.loading === false) ? 'Waiting' : 'Install';
+  const label = clicked && installMutation.loading === false ? 'Waiting' : 'Install';
 
   return (
     <Button intent="outline" size="xs" onClick={handleClick} disabled={clicked}>
-      {clicked ? (
-        <Spinner size="xs" />
-      ) : (
-        <PlusCircleIcon className="h-5 w-5 mr-1" />
-      )}
+      {clicked ? <Spinner size="xs" /> : <PlusCircleIcon className="h-5 w-5 mr-1" />}
       {label}
     </Button>
   );

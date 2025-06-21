@@ -17,7 +17,17 @@ import { format, toZonedTime } from 'date-fns-tz';
 import { stripAnsi } from 'fancy-ansi';
 import { AnsiHtml } from 'fancy-ansi/react';
 import { RecoilRoot, atom, useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
-import { createContext, forwardRef, memo, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  forwardRef,
+  memo,
+  useContext,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { VariableSizeList, areEqual } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
@@ -25,7 +35,14 @@ import { useDebounceCallback } from 'usehooks-ts';
 
 import Spinner from '@kubetail/ui/elements/Spinner';
 
-import { ConsoleNodesListItemFragmentFragment, LogRecordsFragmentFragment as LogRecord, LogRecordsQueryMode, LogSourceFilter, LogSourceFragmentFragment, WatchEventType } from '@/lib/graphql/dashboard/__generated__/graphql';
+import {
+  ConsoleNodesListItemFragmentFragment,
+  LogRecordsFragmentFragment as LogRecord,
+  LogRecordsQueryMode,
+  LogSourceFilter,
+  LogSourceFragmentFragment,
+  WatchEventType,
+} from '@/lib/graphql/dashboard/__generated__/graphql';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { useIsClusterAPIEnabled, useListQueryWithSubscription, useNextTick } from '@/lib/hooks';
 import { Counter, MapSet, cn, cssEncode } from '@/lib/util';
@@ -135,7 +152,9 @@ export function useNodes() {
   });
 
   const loading = fetching; // treat still-fetching as still-loading
-  const nodes = (data?.coreV1NodesList?.items) ? data.coreV1NodesList.items : [] as ConsoleNodesListItemFragmentFragment[];
+  const nodes = data?.coreV1NodesList?.items
+    ? data.coreV1NodesList.items
+    : ([] as ConsoleNodesListItemFragmentFragment[]);
 
   return { loading, nodes };
 }
@@ -221,7 +240,7 @@ export const useViewerFilters = () => useRecoilState(filtersState);
  * Loading overlay
  */
 
-const LoadingOverlay = ({ height, width }: { height: number; width: number; }) => (
+const LoadingOverlay = ({ height, width }: { height: number; width: number }) => (
   <>
     <div className="top-0 absolute bg-chrome-100 opacity-85" style={{ height, width }} />
     <div className="top-0 absolute" style={{ height, width }}>
@@ -248,10 +267,7 @@ const getAttribute = (record: LogRecord, col: ViewerColumn) => {
     case ViewerColumn.ColorDot: {
       const k = cssEncode(`${record.source.namespace}/${record.source.podName}/${record.source.containerName}`);
       const el = (
-        <div
-          className="inline-block w-[8px] h-[8px] rounded-full"
-          style={{ backgroundColor: `var(--${k}-color)` }}
-        />
+        <div className="inline-block w-[8px] h-[8px] rounded-full" style={{ backgroundColor: `var(--${k}-color)` }} />
       );
       return el;
     }
@@ -288,91 +304,92 @@ type RowProps = {
   data: RowData;
 };
 
-const Row = memo(
-  ({ index, style, data }: RowProps) => {
-    const { items, hasMoreBefore, visibleCols, isWrap } = data;
+const Row = memo(({ index, style, data }: RowProps) => {
+  const { items, hasMoreBefore, visibleCols, isWrap } = data;
 
-    const rowElRef = useRef<HTMLDivElement>(null);
-    const [colWidths, setColWidths] = useRecoilState(colWidthsState);
-    const setMaxRowWidth = useSetRecoilState(maxRowWidthState);
+  const rowElRef = useRef<HTMLDivElement>(null);
+  const [colWidths, setColWidths] = useRecoilState(colWidthsState);
+  const setMaxRowWidth = useSetRecoilState(maxRowWidthState);
 
-    // update global colWidths
-    useEffect(() => {
-      const rowEl = rowElRef.current;
-      if (!rowEl) return;
+  // update global colWidths
+  useEffect(() => {
+    const rowEl = rowElRef.current;
+    if (!rowEl) return;
 
-      // get current column widths
-      const currColWidths = new Map<ViewerColumn, number>();
-      Array.from(rowEl.children || []).forEach((colEl) => {
-        const colId = (colEl as HTMLElement).dataset.colId as ViewerColumn;
-        if (!colId || colId === ViewerColumn.Message) return;
-        currColWidths.set(colId, colEl.scrollWidth);
-      });
-
-      // update colWidths state (if necessary)
-      setColWidths((oldVals) => {
-        const changedVals = new Map<ViewerColumn, number>();
-        currColWidths.forEach((currWidth, colId) => {
-          const oldWidth = oldVals.get(colId);
-          const newWidth = Math.max(currWidth, oldWidth || 0);
-          if (newWidth !== oldWidth) changedVals.set(colId, newWidth);
-        });
-        if (changedVals.size) return new Map([...oldVals, ...changedVals]);
-        return oldVals;
-      });
-
-      // update maxRowWidth state
-      setMaxRowWidth((currVal) => Math.max(currVal, rowEl.scrollWidth));
-    }, [visibleCols]);
-
-    // first row
-    if (index === 0) {
-      const msg = (hasMoreBefore) ? 'Loading...' : 'Beginning of feed';
-      return <div className="px-[8px] leading-[24px]" style={style}>{msg}</div>;
-    }
-
-    // last row (only present when hasMoreAter === true)
-    if (index === (items.length + 1)) {
-      return <div className="px-[8px] leading-[24px]" style={style}>Loading...</div>;
-    }
-
-    const record = items[index - 1];
-
-    const els: JSX.Element[] = [];
-    allViewerColumns.forEach((col) => {
-      if (visibleCols.has(col)) {
-        els.push((
-          <div
-            key={col}
-            className={cn(
-              index % 2 !== 0 && 'bg-chrome-100',
-              'px-[8px]',
-              (isWrap) ? '' : 'whitespace-nowrap',
-              (col === ViewerColumn.Timestamp) ? 'bg-chrome-200' : '',
-              (col === ViewerColumn.Message) ? 'flex-grow' : 'shrink-0',
-            )}
-            style={(col !== ViewerColumn.Message) ? { minWidth: `${(colWidths.get(col) || 0)}px` } : {}}
-            data-col-id={col}
-          >
-            {getAttribute(record, col)}
-          </div>
-        ));
-      }
+    // get current column widths
+    const currColWidths = new Map<ViewerColumn, number>();
+    Array.from(rowEl.children || []).forEach((colEl) => {
+      const colId = (colEl as HTMLElement).dataset.colId as ViewerColumn;
+      if (!colId || colId === ViewerColumn.Message) return;
+      currColWidths.set(colId, colEl.scrollWidth);
     });
 
-    const { width, ...otherStyles } = style;
+    // update colWidths state (if necessary)
+    setColWidths((oldVals) => {
+      const changedVals = new Map<ViewerColumn, number>();
+      currColWidths.forEach((currWidth, colId) => {
+        const oldWidth = oldVals.get(colId);
+        const newWidth = Math.max(currWidth, oldWidth || 0);
+        if (newWidth !== oldWidth) changedVals.set(colId, newWidth);
+      });
+      if (changedVals.size) return new Map([...oldVals, ...changedVals]);
+      return oldVals;
+    });
+
+    // update maxRowWidth state
+    setMaxRowWidth((currVal) => Math.max(currVal, rowEl.scrollWidth));
+  }, [visibleCols]);
+
+  // first row
+  if (index === 0) {
+    const msg = hasMoreBefore ? 'Loading...' : 'Beginning of feed';
     return (
-      <div
-        ref={rowElRef}
-        className="flex leading-[24px]"
-        style={{ width: 'inherit', ...otherStyles }}
-      >
-        {els}
+      <div className="px-[8px] leading-[24px]" style={style}>
+        {msg}
       </div>
     );
-  },
-  areEqual,
-);
+  }
+
+  // last row (only present when hasMoreAter === true)
+  if (index === items.length + 1) {
+    return (
+      <div className="px-[8px] leading-[24px]" style={style}>
+        Loading...
+      </div>
+    );
+  }
+
+  const record = items[index - 1];
+
+  const els: JSX.Element[] = [];
+  allViewerColumns.forEach((col) => {
+    if (visibleCols.has(col)) {
+      els.push(
+        <div
+          key={col}
+          className={cn(
+            index % 2 !== 0 && 'bg-chrome-100',
+            'px-[8px]',
+            isWrap ? '' : 'whitespace-nowrap',
+            col === ViewerColumn.Timestamp ? 'bg-chrome-200' : '',
+            col === ViewerColumn.Message ? 'flex-grow' : 'shrink-0',
+          )}
+          style={col !== ViewerColumn.Message ? { minWidth: `${colWidths.get(col) || 0}px` } : {}}
+          data-col-id={col}
+        >
+          {getAttribute(record, col)}
+        </div>,
+      );
+    }
+  });
+
+  const { width, ...otherStyles } = style;
+  return (
+    <div ref={rowElRef} className="flex leading-[24px]" style={{ width: 'inherit', ...otherStyles }}>
+      {els}
+    </div>
+  );
+}, areEqual);
 
 /**
  * Content component
@@ -453,7 +470,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
   // loaded-item cache logic
   const isItemLoaded = (index: number) => {
     if (index === 0 && hasMoreBefore) return false;
-    if (index === (itemCount - 1) && hasMoreAfter) return false;
+    if (index === itemCount - 1 && hasMoreAfter) return false;
     return true;
   };
 
@@ -494,7 +511,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
     if (!isWrap || !sizerEl) return 24;
 
     // placeholder rows
-    if (index === 0 || index === (items.length + 1)) return 24;
+    if (index === 0 || index === items.length + 1) return 24;
 
     const record = items[index - 1];
     sizerEl.textContent = stripAnsi(record.message); // strip out ansi
@@ -539,7 +556,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
   useEffect(() => {
     const listInnerEl = listInnerRef.current;
     if (!listInnerEl) return;
-    listInnerEl.style.width = (isWrap || !maxRowWidth) ? '100%' : `${maxRowWidth}px`;
+    listInnerEl.style.width = isWrap || !maxRowWidth ? '100%' : `${maxRowWidth}px`;
   }, [isWrap, maxRowWidth]);
 
   // -------------------------------------------------------------------------------------
@@ -581,7 +598,8 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
 
     // If scrolled to bottom, turn on auto-scroll
     const tolerance = 10;
-    if (!isAutoScrollEnabledRef.current && Math.abs((scrollTop + clientHeight) - scrollHeight) <= tolerance) isAutoScrollEnabledRef.current = true;
+    if (!isAutoScrollEnabledRef.current && Math.abs(scrollTop + clientHeight - scrollHeight) <= tolerance)
+      isAutoScrollEnabledRef.current = true;
   };
 
   // attach scroll event listeners
@@ -611,22 +629,22 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
         <div
           ref={headerInnerElRef}
           className="flex leading-[18px] border-b border-chrome-divider bg-chrome-200 [&>*]:border-r [&>*:not(:last-child)]:border-chrome-divider"
-          style={{ minWidth: (isWrap) ? '100%' : `${maxRowWidth}px` }}
+          style={{ minWidth: isWrap ? '100%' : `${maxRowWidth}px` }}
         >
           {allViewerColumns.map((col) => {
             if (visibleCols.has(col)) {
               return (
                 <div
                   key={col}
-                  ref={(col === ViewerColumn.Message) ? msgHeaderColElRef : null}
+                  ref={col === ViewerColumn.Message ? msgHeaderColElRef : null}
                   className={cn(
                     'whitespace-nowrap uppercase px-[8px]',
-                    (col === ViewerColumn.Message) ? 'flex-grow' : 'shrink-0',
+                    col === ViewerColumn.Message ? 'flex-grow' : 'shrink-0',
                   )}
-                  style={(col !== ViewerColumn.Message) ? { minWidth: `${colWidths.get(col) || 0}px` } : {}}
+                  style={col !== ViewerColumn.Message ? { minWidth: `${colWidths.get(col) || 0}px` } : {}}
                   data-col-id={col}
                 >
-                  {(col !== ViewerColumn.ColorDot) && col}
+                  {col !== ViewerColumn.ColorDot && col}
                 </div>
               );
             }
@@ -736,44 +754,48 @@ const LogRecordsFetcherImpl: React.ForwardRefRenderFunction<LogRecordsFetcherHan
   });
 
   // Expose handler
-  useImperativeHandle(ref, () => ({
-    fetch: async (opts: LogRecordsFetchOptions) => {
-      // Reset previous refetch() args
-      const newOpts = { after: undefined, before: undefined, since: undefined, ...opts };
+  useImperativeHandle(
+    ref,
+    () => ({
+      fetch: async (opts: LogRecordsFetchOptions) => {
+        // Reset previous refetch() args
+        const newOpts = { after: undefined, before: undefined, since: undefined, ...opts };
 
-      // Execute query
-      const response = (await query.refetch(newOpts)).data.logRecordsFetch;
-      if (!response) throw new Error('query response is null');
+        // Execute query
+        const response = (await query.refetch(newOpts)).data.logRecordsFetch;
+        if (!response) throw new Error('query response is null');
 
-      let records: LogRecord[] = [];
-      let nextCursor: string | null = null;
+        let records: LogRecord[] = [];
+        let nextCursor: string | null = null;
 
-      // Handle response
-      switch (opts.mode) {
-        case LogRecordsQueryMode.Head:
-          records = response.records.slice(0, batchSize);
-          if (response.records.length > batchSize) nextCursor = records[records.length - 1].timestamp;
-          setIsReachedEnd(!nextCursor);
-          break;
-        case LogRecordsQueryMode.Tail:
-          records = response.records.slice(Math.max(response.records.length - batchSize, 0));
-          if (response.records.length > batchSize) nextCursor = records[0].timestamp;
-          setIsReachedEnd(true);
-          break;
-        default:
-          throw new Error('not implemented');
-      }
+        // Handle response
+        switch (opts.mode) {
+          case LogRecordsQueryMode.Head:
+            records = response.records.slice(0, batchSize);
+            if (response.records.length > batchSize) nextCursor = records[records.length - 1].timestamp;
+            setIsReachedEnd(!nextCursor);
+            break;
+          case LogRecordsQueryMode.Tail:
+            records = response.records.slice(Math.max(response.records.length - batchSize, 0));
+            if (response.records.length > batchSize) nextCursor = records[0].timestamp;
+            setIsReachedEnd(true);
+            break;
+          default:
+            throw new Error('not implemented');
+        }
 
-      // Update last TS
-      if (records.length) lastTS.current = records[records.length - 1].timestamp;
+        // Update last TS
+        if (records.length) lastTS.current = records[records.length - 1].timestamp;
 
-      return { records, nextCursor };
-    },
-    reset: () => {
-      lastTS.current = undefined;
-      setIsReachedEnd(false);
-    },
-  }), [kubeContext, JSON.stringify(sources), JSON.stringify(sourceFilter), grep]);
+        return { records, nextCursor };
+      },
+      reset: () => {
+        lastTS.current = undefined;
+        setIsReachedEnd(false);
+      },
+    }),
+    [kubeContext, JSON.stringify(sources), JSON.stringify(sourceFilter), grep],
+  );
 
   // Follow
   useEffect(() => {
@@ -783,7 +805,9 @@ const LogRecordsFetcherImpl: React.ForwardRefRenderFunction<LogRecordsFetcherHan
       document: dashboardOps.LOG_RECORDS_FOLLOW,
       variables: { kubeContext, sources, sourceFilter, grep, after: lastTS.current },
       updateQuery: (_, { subscriptionData }) => {
-        const { data: { logRecordsFollow: record } } = subscriptionData;
+        const {
+          data: { logRecordsFollow: record },
+        } = subscriptionData;
         if (record) {
           // Update last TS
           lastTS.current = record.timestamp;
@@ -819,10 +843,7 @@ type ViewerProps = {
 };
 
 const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
-  {
-    defaultMode,
-    defaultSince,
-  }: ViewerProps,
+  { defaultMode, defaultSince }: ViewerProps,
   ref: React.ForwardedRef<ViewerHandle>,
 ) => {
   const { kubeContext, grep, sources, sourceFilter } = useContext(Context);
@@ -881,80 +902,83 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
   };
 
   // Handler
-  const handle = useMemo(() => ({
-    seekHead: async () => {
-      setIsLoading(true);
+  const handle = useMemo(
+    () => ({
+      seekHead: async () => {
+        setIsLoading(true);
 
-      // Reset
-      reset();
-      fetcherRef.current?.reset();
+        // Reset
+        reset();
+        fetcherRef.current?.reset();
 
-      // Fetch
-      const response = await fetcherRef.current?.fetch({ mode: LogRecordsQueryMode.Head });
-      if (!response) return;
+        // Fetch
+        const response = await fetcherRef.current?.fetch({ mode: LogRecordsQueryMode.Head });
+        if (!response) return;
 
-      // Update
-      nextCursorRef.current = response.nextCursor;
-      setItems(response.records);
-      setHasMoreAfter(Boolean(response.nextCursor));
+        // Update
+        nextCursorRef.current = response.nextCursor;
+        setItems(response.records);
+        setHasMoreAfter(Boolean(response.nextCursor));
 
-      nextTick(() => {
-        contentRef.current?.scrollTo('first');
-        setIsLoading(false);
-      });
-    },
-    seekTail: async () => {
-      setIsLoading(true);
+        nextTick(() => {
+          contentRef.current?.scrollTo('first');
+          setIsLoading(false);
+        });
+      },
+      seekTail: async () => {
+        setIsLoading(true);
 
-      // Reset
-      reset();
-      fetcherRef.current?.reset();
+        // Reset
+        reset();
+        fetcherRef.current?.reset();
 
-      // Fetch
-      const response = await fetcherRef.current?.fetch({ mode: LogRecordsQueryMode.Tail });
-      if (!response) return;
+        // Fetch
+        const response = await fetcherRef.current?.fetch({ mode: LogRecordsQueryMode.Tail });
+        if (!response) return;
 
-      // Update
-      nextCursorRef.current = response.nextCursor;
-      setItems(response.records);
-      setHasMoreBefore(Boolean(response.nextCursor));
+        // Update
+        nextCursorRef.current = response.nextCursor;
+        setItems(response.records);
+        setHasMoreBefore(Boolean(response.nextCursor));
 
-      nextTick(() => {
-        contentRef.current?.scrollTo('last');
-        setIsLoading(false);
-      });
-    },
-    seekTime: async (sinceTS: string) => {
-      setIsLoading(true);
+        nextTick(() => {
+          contentRef.current?.scrollTo('last');
+          setIsLoading(false);
+        });
+      },
+      seekTime: async (sinceTS: string) => {
+        setIsLoading(true);
 
-      // Reset
-      reset();
-      fetcherRef.current?.reset();
+        // Reset
+        reset();
+        fetcherRef.current?.reset();
 
-      // Fetch
-      const response = await fetcherRef.current?.fetch({
-        mode: LogRecordsQueryMode.Head,
-        since: sinceTS,
-      });
-      if (!response) return;
+        // Fetch
+        const response = await fetcherRef.current?.fetch({
+          mode: LogRecordsQueryMode.Head,
+          since: sinceTS,
+        });
+        if (!response) return;
 
-      // Update
-      nextCursorRef.current = response.nextCursor;
-      setItems(response.records);
-      setHasMoreAfter(Boolean(response.nextCursor));
+        // Update
+        nextCursorRef.current = response.nextCursor;
+        setItems(response.records);
+        setHasMoreAfter(Boolean(response.nextCursor));
 
-      nextTick(() => {
-        contentRef.current?.scrollTo('first');
-        setIsLoading(false);
-      });
-    },
-    play: () => {
-      setIsFollow(true);
-    },
-    pause: () => {
-      setIsFollow(false);
-    },
-  }), []);
+        nextTick(() => {
+          contentRef.current?.scrollTo('first');
+          setIsLoading(false);
+        });
+      },
+      play: () => {
+        setIsFollow(true);
+      },
+      pause: () => {
+        setIsFollow(false);
+      },
+    }),
+    [],
+  );
 
   // Expose handler
   useImperativeHandle(ref, () => handle, [handle]);
@@ -976,10 +1000,7 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
 
   return (
     <>
-      <LogRecordsFetcher
-        ref={fetcherRef}
-        onFollowData={handleOnFollowData}
-      />
+      <LogRecordsFetcher ref={fetcherRef} onFollowData={handleOnFollowData} />
       <Content
         ref={contentRef}
         items={items}
@@ -1014,21 +1035,22 @@ export const Provider = ({
 }: React.PropsWithChildren<ProviderProps>) => {
   const useClusterAPI = useIsClusterAPIEnabled(kubeContext);
 
-  const context = useMemo(() => ({
-    useClusterAPI,
-    kubeContext,
-    sources,
-    sourceFilter,
-    grep,
-  }), [useClusterAPI, kubeContext, grep, JSON.stringify(sources), JSON.stringify(sourceFilter)]);
+  const context = useMemo(
+    () => ({
+      useClusterAPI,
+      kubeContext,
+      sources,
+      sourceFilter,
+      grep,
+    }),
+    [useClusterAPI, kubeContext, grep, JSON.stringify(sources), JSON.stringify(sourceFilter)],
+  );
 
   if (useClusterAPI === undefined) return <LoadingPage />;
 
   return (
     <Context.Provider value={context}>
-      <RecoilRoot>
-        {children}
-      </RecoilRoot>
+      <RecoilRoot>{children}</RecoilRoot>
     </Context.Provider>
   );
 };

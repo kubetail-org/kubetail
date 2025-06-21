@@ -28,56 +28,35 @@ type ModalTitleProps<T extends React.ElementType> = DialogTitleProps<T> & {
 const modalTitleBaseCls = 'text-xl mb-6';
 const modalPanelBaseCls = 'relative bg-background rounded-lg overflow-hidden shadow-xl my-8 max-w-sm w-full p-6';
 
-const Modal = React.forwardRef((
-  {
-    children,
-    className,
-    ...props
-  }: ModalProps<'div'>,
-  ref: React.ForwardedRef<HTMLDivElement>,
-) => {
-  const focusRef = useRef<HTMLDivElement>(null);
+const Modal = React.forwardRef(
+  ({ children, className, ...props }: ModalProps<'div'>, ref: React.ForwardedRef<HTMLDivElement>) => {
+    const focusRef = useRef<HTMLDivElement>(null);
 
-  return (
-    <Dialog
-      {...props}
-      ref={ref}
-      initialFocus={focusRef}
-      className="relative z-10"
-    >
-      {/* backdrop */}
-      <div className="fixed inset-0 bg-black/30" aria-hidden="true" ref={focusRef} />
+    return (
+      <Dialog {...props} ref={ref} initialFocus={focusRef} className="relative z-10">
+        {/* backdrop */}
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" ref={focusRef} />
 
-      {/* full-screen container to center the panel */}
-      <div className="fixed z-10 inset-0 overflow-y-auto">
-        <div className="flex items-center justify-center min-h-full">
-          <Dialog.Panel className={cn(modalPanelBaseCls, className)}>
-            {children}
-          </Dialog.Panel>
+        {/* full-screen container to center the panel */}
+        <div className="fixed z-10 inset-0 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-full">
+            <Dialog.Panel className={cn(modalPanelBaseCls, className)}>{children}</Dialog.Panel>
+          </div>
         </div>
-      </div>
-    </Dialog>
-  );
-});
+      </Dialog>
+    );
+  },
+);
 
 Modal.displayName = 'Modal';
 
-const ModalTitle = React.forwardRef((
-  {
-    children,
-    className,
-    ...props
-  }: ModalTitleProps<'h2'>,
-  ref: React.ForwardedRef<HTMLHeadingElement>,
-) => (
-  <Dialog.Title
-    {...props}
-    ref={ref}
-    className={cn(modalTitleBaseCls, className)}
-  >
-    {children}
-  </Dialog.Title>
-));
+const ModalTitle = React.forwardRef(
+  ({ children, className, ...props }: ModalTitleProps<'h2'>, ref: React.ForwardedRef<HTMLHeadingElement>) => (
+    <Dialog.Title {...props} ref={ref} className={cn(modalTitleBaseCls, className)}>
+      {children}
+    </Dialog.Title>
+  ),
+);
 
 ModalTitle.displayName = 'ModalTitle';
 

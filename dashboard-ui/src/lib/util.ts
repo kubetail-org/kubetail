@@ -137,12 +137,14 @@ export function cssEncode(name: string) {
  */
 
 export function joinPaths(...paths: string[]) {
-  return paths.map((part, index) => {
-    if (index === 0) {
-      return part.replace(/\/+$/, '');
-    }
-    return part.replace(/^\/+|\/+$/g, '');
-  }).join('/');
+  return paths
+    .map((part, index) => {
+      if (index === 0) {
+        return part.replace(/\/+$/, '');
+      }
+      return part.replace(/^\/+|\/+$/g, '');
+    })
+    .join('/');
 }
 
 /**
@@ -197,9 +199,9 @@ export function intersectSets<T = string>(sets: Set<T>[]): Set<T> {
   let intersection = new Set(sets[0]);
 
   // Iterate over the rest of the sets
-  sets.slice(1).forEach(set => {
+  sets.slice(1).forEach((set) => {
     // Retain only elements that are present in both sets
-    intersection = new Set([...intersection].filter(x => set.has(x)));
+    intersection = new Set([...intersection].filter((x) => set.has(x)));
   });
 
   return intersection;

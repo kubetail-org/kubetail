@@ -22,7 +22,14 @@ import type {
   HomeStatefulSetsListItemFragmentFragment,
 } from '@/lib/graphql/dashboard/__generated__/graphql';
 
-export type WorkloadItem = HomeCronJobsListItemFragmentFragment | HomeJobsListItemFragmentFragment | HomeDeploymentsListItemFragmentFragment | HomePodsListItemFragmentFragment | HomeDaemonSetsListItemFragmentFragment | HomeReplicaSetsListItemFragmentFragment | HomeStatefulSetsListItemFragmentFragment;
+export type WorkloadItem =
+  | HomeCronJobsListItemFragmentFragment
+  | HomeJobsListItemFragmentFragment
+  | HomeDeploymentsListItemFragmentFragment
+  | HomePodsListItemFragmentFragment
+  | HomeDaemonSetsListItemFragmentFragment
+  | HomeReplicaSetsListItemFragmentFragment
+  | HomeStatefulSetsListItemFragmentFragment;
 
 /**
  * gets all the leaf node IDs of parent node
@@ -53,7 +60,12 @@ export function noSearchResults(...arrays: (WorkloadItem[] | undefined)[]) {
  * function to apply filters and search
  */
 
-export function applySearchAndFilter(fetching: boolean, items: WorkloadItem[] | null | undefined, search: string, namespace: string): undefined | WorkloadItem[] {
+export function applySearchAndFilter(
+  fetching: boolean,
+  items: WorkloadItem[] | null | undefined,
+  search: string,
+  namespace: string,
+): undefined | WorkloadItem[] {
   if (fetching) return undefined;
 
   // filter items
@@ -63,7 +75,7 @@ export function applySearchAndFilter(fetching: boolean, items: WorkloadItem[] | 
 
     // workloads withing namespace filter and search
     if (search !== '') {
-      return ((namespace === '' || item.metadata.namespace === namespace) && item.metadata.name.includes(search));
+      return (namespace === '' || item.metadata.namespace === namespace) && item.metadata.name.includes(search);
     }
 
     // remove items not in filtered namespace

@@ -20,18 +20,9 @@ const jsConfig = [
   ...configs.base.recommended,
 ];
 
-const reactConfig = [
-  plugins.react,
-  plugins.reactHooks,
-  plugins.reactA11y,
-  ...configs.react.recommended,
-];
+const reactConfig = [plugins.react, plugins.reactHooks, plugins.reactA11y, ...configs.react.recommended];
 
-const typescriptConfig = [
-  plugins.typescriptEslint,
-  ...configs.base.typescript,
-  ...configs.react.typescript,
-];
+const typescriptConfig = [plugins.typescriptEslint, ...configs.base.typescript, ...configs.react.typescript];
 
 const prettierConfig = [
   // Prettier Plugin
@@ -51,10 +42,7 @@ const prettierConfig = [
   },
 ];
 
-const reactRefreshConfig = [
-  reactRefresh.configs.recommended,
-  reactRefresh.configs.vite
-];
+const reactRefreshConfig = [reactRefresh.configs.recommended, reactRefresh.configs.vite];
 
 const customRulesConfig = [
   {
@@ -70,8 +58,7 @@ const customRulesConfig = [
       'max-classes-per-file': 'off',
       'no-console': 'off',
       'no-underscore-dangle': 'off',
-      // 'prettier/prettier': ['error', { singleQuote: true, printWidth: 120 }],
-      'prettier/prettier': 'off',
+      'prettier/prettier': ['error', { singleQuote: true, printWidth: 120 }],
       'react/function-component-definition': 'off',
       'react/jsx-no-target-blank': 'off',
       'react/prop-types': 'off',
@@ -87,11 +74,7 @@ export default [
   // Ignore .gitignore files/folder in eslint
   includeIgnoreFile(gitignorePath),
   {
-    ignores: [
-      'dist',
-      'codegen.ts',
-      '**/__generated__/*.ts',
-    ],
+    ignores: ['dist', 'codegen.ts', '**/__generated__/*.ts'],
   },
   ...jsConfig,
   ...reactConfig,

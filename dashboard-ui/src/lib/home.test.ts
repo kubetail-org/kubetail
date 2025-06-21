@@ -61,9 +61,18 @@ export const workloadItemMock = [
 ] satisfies WorkloadItem[];
 
 const ownershipMapMock = new Map([
-  ['dc8fbace-67c0-43d5-a59d-aaff6dbe2d7a', ['60c83096-174e-4191-a705-1245b52a0e33', '5955f63b-b69b-45de-b2e1-2eb60e4cd15e']],
-  ['60c83096-174e-4191-a705-1245b52a0e33', ['93edde53-0bb8-44e6-b271-0022abe42100', 'edc816e9-dea5-4133-b499-89984b9ebb14']],
-  ['db03b586-95df-48f3-aaeb-9e0de42d3926', ['3596ec70-0de7-40a9-90a8-d57f8931ae15', '603414f8-cdec-40dd-bbbe-7ada2473d77c']],
+  [
+    'dc8fbace-67c0-43d5-a59d-aaff6dbe2d7a',
+    ['60c83096-174e-4191-a705-1245b52a0e33', '5955f63b-b69b-45de-b2e1-2eb60e4cd15e'],
+  ],
+  [
+    '60c83096-174e-4191-a705-1245b52a0e33',
+    ['93edde53-0bb8-44e6-b271-0022abe42100', 'edc816e9-dea5-4133-b499-89984b9ebb14'],
+  ],
+  [
+    'db03b586-95df-48f3-aaeb-9e0de42d3926',
+    ['3596ec70-0de7-40a9-90a8-d57f8931ae15', '603414f8-cdec-40dd-bbbe-7ada2473d77c'],
+  ],
 ]);
 
 describe('applySearchAndFilter', () => {
@@ -93,7 +102,9 @@ describe('applySearchAndFilter', () => {
     const search = 'kind';
 
     const result = applySearchAndFilter(false, workloadItemMock, search, namespace);
-    const expected = workloadItemMock.filter((item) => item.metadata.namespace === namespace && item.metadata.name.includes(search));
+    const expected = workloadItemMock.filter(
+      (item) => item.metadata.namespace === namespace && item.metadata.name.includes(search),
+    );
 
     expect(result).toEqual(expected);
   });
@@ -148,7 +159,11 @@ describe('getContainerIDs', () => {
     const parentId = 'dc8fbace-67c0-43d5-a59d-aaff6dbe2d7a';
     const result = getContainerIDs(parentId, ownershipMapMock);
 
-    const expected = ['5955f63b-b69b-45de-b2e1-2eb60e4cd15e', '93edde53-0bb8-44e6-b271-0022abe42100', 'edc816e9-dea5-4133-b499-89984b9ebb14'];
+    const expected = [
+      '5955f63b-b69b-45de-b2e1-2eb60e4cd15e',
+      '93edde53-0bb8-44e6-b271-0022abe42100',
+      'edc816e9-dea5-4133-b499-89984b9ebb14',
+    ];
 
     expect(new Set(result)).toEqual(new Set(expected));
   });
