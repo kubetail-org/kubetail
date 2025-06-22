@@ -17,7 +17,6 @@ The Kubetail backend server executable supports the following command line confi
 | Flag         | Datatype | Description                      | Default   |
 | ------------ | -------- | -------------------------------- | --------- |
 | -c, --config | string   | Path to Kubetail config file     | ""        |
-| -a, --addr   | string   | Host address to bind to          | ":8080"   |
 | --gin-mode   | string   | Gin mode (release, debug)        | "release" |
 | -p, --param  | []string | Config params ("key:val" format) | []        |
 
@@ -25,42 +24,46 @@ The Kubetail backend server executable supports the following command line confi
 
 The Kubetail Dashboard server can be configured using a configuration file written in YAML, JSON, TOML, HCL or envfile format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [hack/config.yaml](../../hack/config.yaml)):
 
-| Name                                            | Datatype | Description                                          | Default                       | Status       |
-| ----------------------------------------------- | -------- | ---------------------------------------------------- | ----------------------------- | ------------ |
-| allowed-namespaces                              | []string | If populated, restricts namespace access             | []                            |              |
-| dashboard.addr                                  | string   | Host address to bind to                              | ":8080"                       |              |
-| dashboard.auth-mode                             | string   | Auth mode (auto, token)                              | "auto"                        | experimental |
-| dashboard.base-path                             | string   | URL path prefix                                      | "/"                           |              |
-| dashboard.cluster-api-endpoint                  | string   | Service url for Cluster API                          | ""                            | experimental |
-| dashboard.environment                           | string   | Environment (desktop, cluster)                       | "desktop"                     | experimental |
-| dashboard.gin-mode                              | string   | Gin mode (release, debug)                            | "release"                     |              |
-| dashboard.csrf.enabled                          | bool     | Enable CSRF protection                               | true                          |              |
-| dashboard.csrf.field-name                       | string   | CSRF token name in forms                             | "csrf_token"                  |              |
-| dashboard.csrf.secret                           | string   | CSRF hash key                                        | ""                            |              |
-| dashboard.csrf.cookie.name                      | string   | CSRF cookie name                                     | "csrf"                        |              |
-| dashboard.csrf.cookie.path                      | string   | CSRF cookie path                                     | "/"                           |              |
-| dashboard.csrf.cookie.domain                    | string   | CSRF cookie domain                                   | ""                            |              |
-| dashboard.csrf.cookie.max-age                   | int      | CSRF cookie max age (in seconds)                     | 43200                         |              |
-| dashboard.csrf.cookie.secure                    | bool     | CSRF cookie secure property                          | false                         |              |
-| dashboard.csrf.cookie.http-only                 | bool     | CSRF cookie HttpOnly property                        | true                          |              |
-| dashboard.csrf.cookie.same-site                 | string   | CSRF cookie SameSite property (strict, lax, none)    | "strict"                      |              |
-| dashboard.logging.enabled                       | bool     | Enable logging                                       | true                          |              |
-| dashboard.logging.level                         | string   | Log level                                            | "info"                        |              |
-| dashboard.logging.format                        | string   | Log format (json, pretty)                            | "json"                        |              |
-| dashboard.logging.access-log.enabled            | bool     | Enable access log                                    | true                          |              |
-| dashboard.logging.access-log.hide-health-checks | bool     | Hide requests to /healthz from access log            | false                         |              |
-| dashboard.session.secret                        | string   | Session hash key                                     | ""                            |              |
-| dashboard.session.cookie.name                   | string   | Session cookie name                                  | "session"                     |              |
-| dashboard.session.cookie.path                   | string   | Session cookie path                                  | "/"                           |              |
-| dashboard.session.cookie.domain                 | string   | Session cookie domain                                | ""                            |              |
-| dashboard.session.cookie.max-age                | int      | Session cookie max age (in seconds)                  | 43200                         |              |
-| dashboard.session.cookie.secure                 | bool     | Session cookie secure property                       | false                         |              |
-| dashboard.session.cookie.http-only              | bool     | Session cookie HttpOnly property                     | true                          |              |
-| dashboard.session.cookie.same-site              | string   | Session cookie SameSite property (strict, lax, none) | "strict"                      |              |
-| dashboard.tls.enabled                           | bool     | Enable TLS endpoint termination                      | false                         |              |
-| dashboard.tls.cert-file                         | string   | Path to cert file                                    | ""                            |              |
-| dashboard.tls.key-file                          | string   | Path to key file                                     | ""                            |              |
-| dashboard.ui.cluster-api-enabled                | bool     | Enable Cluster API features                          | true                          | experimental |
+| Name                                            | Datatype | Description                                          | Default      | Status       |
+| ----------------------------------------------- | -------- | ---------------------------------------------------- | ------------ | ------------ |
+| allowed-namespaces                              | []string | If populated, restricts namespace access             | []           | stable       |
+| dashboard.auth-mode                             | string   | Auth mode (auto, token)                              | "auto"       | experimental |
+| dashboard.base-path                             | string   | URL path prefix                                      | "/"          | stable       |
+| dashboard.cluster-api-endpoint                  | string   | Service url for Cluster API                          | ""           | experimental |
+| dashboard.environment                           | string   | Environment (desktop, cluster)                       | "desktop"    | experimental |
+| dashboard.http.enabled                          | bool     | Enables http server                                  | true         | stable       |
+| dashboard.http.address                          | string   | URL of the http server                               | ""           | stable       |
+| dashboard.http.port                             | int      | Port of the http server                              | 8080         | stable       |
+| dashboard.https.enabled                         | bool     | Enables https server                                 | false        | stable       |
+| dashboard.https.address                         | string   | URL of the https server                              | ""           | stable       |
+| dashboard.https.port                            | int      | Port of the https server                             | 8443         | stable       |
+| dashboard.https.tls.cert-file                   | string   | Path to tls certificate file                         | ""           | stable       |
+| dashboard.https.tls.key-file                    | string   | Path to tls key file                                 | ""           | stable       |
+| dashboard.gin-mode                              | string   | Gin mode (release, debug)                            | "release"    | stable       |
+| dashboard.csrf.enabled                          | bool     | Enable CSRF protection                               | true         | stable       |
+| dashboard.csrf.field-name                       | string   | CSRF token name in forms                             | "csrf_token" | stable       |
+| dashboard.csrf.secret                           | string   | CSRF hash key                                        | ""           | stable       |
+| dashboard.csrf.cookie.name                      | string   | CSRF cookie name                                     | "csrf"       | stable       |
+| dashboard.csrf.cookie.path                      | string   | CSRF cookie path                                     | "/"          | stable       |
+| dashboard.csrf.cookie.domain                    | string   | CSRF cookie domain                                   | ""           | stable       |
+| dashboard.csrf.cookie.max-age                   | int      | CSRF cookie max age (in seconds)                     | 43200        | stable       |
+| dashboard.csrf.cookie.secure                    | bool     | CSRF cookie secure property                          | false        | stable       |
+| dashboard.csrf.cookie.http-only                 | bool     | CSRF cookie HttpOnly property                        | true         | stable       |
+| dashboard.csrf.cookie.same-site                 | string   | CSRF cookie SameSite property (strict, lax, none)    | "strict"     | stable       |
+| dashboard.logging.enabled                       | bool     | Enable logging                                       | true         | stable       |
+| dashboard.logging.level                         | string   | Log level                                            | "info"       | stable       |
+| dashboard.logging.format                        | string   | Log format (json, pretty)                            | "json"       | stable       |
+| dashboard.logging.access-log.enabled            | bool     | Enable access log                                    | true         | stable       |
+| dashboard.logging.access-log.hide-health-checks | bool     | Hide requests to /healthz from access log            | false        | stable       |
+| dashboard.session.secret                        | string   | Session hash key                                     | ""           | stable       |
+| dashboard.session.cookie.name                   | string   | Session cookie name                                  | "session"    | stable       |
+| dashboard.session.cookie.path                   | string   | Session cookie path                                  | "/"          | stable       |
+| dashboard.session.cookie.domain                 | string   | Session cookie domain                                | ""           | stable       |
+| dashboard.session.cookie.max-age                | int      | Session cookie max age (in seconds)                  | 43200        | stable       |
+| dashboard.session.cookie.secure                 | bool     | Session cookie secure property                       | false        | stable       |
+| dashboard.session.cookie.http-only              | bool     | Session cookie HttpOnly property                     | true         | stable       |
+| dashboard.session.cookie.same-site              | string   | Session cookie SameSite property (strict, lax, none) | "strict"     | stable       |
+| dashboard.ui.cluster-api-enabled                | bool     | Enable Cluster API features                          | true         | experimental |
 
 ## GraphQL
 
@@ -92,7 +95,9 @@ make modules-vet
 
 
 ```
+
 You can also run all Dashboard checks at once with:
+
 ```console
 make modules-all
 ```

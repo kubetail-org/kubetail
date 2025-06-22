@@ -12,11 +12,9 @@ allowed-namespaces: []
 ## dashboard ##
 #
 dashboard:
-
   ## http ##
   #
   http:
-
     ## enabled ##
     #
     # Default value: true
@@ -27,7 +25,7 @@ dashboard:
     #
     # Default value: __empty
     #
-    address: 
+    address:
 
     ## port ##
     #
@@ -38,7 +36,6 @@ dashboard:
   ## https ##
   #
   https:
-
     ## enabled ##
     #
     # Default value: false
@@ -49,7 +46,7 @@ dashboard:
     #
     # Default value: __empty
     #
-    address: 
+    address:
 
     ## port ##
     #
@@ -60,7 +57,6 @@ dashboard:
     ## tls ##
     #
     tls:
-  
       ## cert-file ##
       #
       # Path to tls certificate file
@@ -68,7 +64,7 @@ dashboard:
       # Default value: __empty__
       #
       cert-file:
-  
+
       ## key-file ##
       #
       # Path to tls key file
@@ -82,7 +78,7 @@ dashboard:
   # Sets the authentication method for the app
   #
   # Default value: auto
-  # 
+  #
   # One of:
   # - auto
   # - token
@@ -92,7 +88,7 @@ dashboard:
   ## base-path ##
   #
   # Sets the url path prefix (useful for deploying on a sub-path behind a reverse proxy)
-  # 
+  #
   # Default value: /
   #
   base-path: /
@@ -100,17 +96,17 @@ dashboard:
   ## cluster-api-endpoint (experimental) ##
   #
   # Service url for cluster-api
-  # 
+  #
   # Default value: http://kubetail-cluster-api
   #
   cluster-api-endpoint: http://kubetail-cluster-api
-  
+
   ## environment (experimental) ##
   #
   # Sets the authentication method for the app
   #
   # Default value: auto
-  # 
+  #
   # One of:
   # - desktop
   # - cluster
@@ -132,7 +128,6 @@ dashboard:
   ## csrf ##
   #
   csrf:
-
     ## enabled ##
     #
     # Default value: true
@@ -146,7 +141,7 @@ dashboard:
     # Default value: csrf_token
     #
     field-name: csrf_token
-  
+
     ## secret ##
     #
     # 32-byte long hash key
@@ -154,51 +149,50 @@ dashboard:
     # Default value: __empty__
     #
     secret:
-  
+
     ## cookie ##
     #
     # Set csrf cookie options
     #
     cookie:
-  
       ## name ##
       #
       # Default value: kubetail_dashboard_csrf
       #
       name: kubetail_dashboard_csrf
-  
+
       ## path ##
       #
       # Default value: /
       #
       path: /
-  
+
       ## domain ##
       #
       # Default value: __empty__
       #
-      domain: 
-  
+      domain:
+
       ## max-age ##
       #
       # Cookie max age (in seconds)
-      # 
+      #
       # Default value: 43200
       #
       max-age: 43200
-  
+
       ## secure ##
       #
       # Default value: false
       #
       secure: false
-  
+
       ## http-only ##
       #
       # Default value: true
       #
       http-only: true
-  
+
       ## same-site ##
       #
       # Default value: strict
@@ -209,17 +203,16 @@ dashboard:
       # - none
       #
       same-site: strict
-  
+
   ## logging ##
   #
   logging:
-  
     ## enabled ##
     #
     # Default value: true
     #
     enabled: true
-  
+
     ## level ##
     #
     # Default value: info
@@ -232,7 +225,7 @@ dashboard:
     # - disabled
     #
     level: info
-  
+
     ## format ##
     #
     # Default value: json
@@ -242,11 +235,10 @@ dashboard:
     # - pretty
     #
     format: json
-  
+
     ## access-log ##
     #
-    access-log:  
-  
+    access-log:
       ## enabled ##
       #
       # Enables web access logs for app
@@ -254,7 +246,7 @@ dashboard:
       # Default value: true
       #
       enabled: true
-  
+
       ## hide-health-checks ##
       #
       # Hides health checks from access log
@@ -262,11 +254,10 @@ dashboard:
       # Default: false
       #
       hide-health-checks: false
-  
+
   ## session ##
   #
   session:
-  
     ## secret ##
     #
     # 32-byte long hash key
@@ -274,51 +265,50 @@ dashboard:
     # Default value: __empty__
     #
     secret:
-  
+
     ## cookie ##
     #
     # Set session cookie options
     #
     cookie:
-  
       ## name ##
       #
       # Default value: csrf
       #
       name: session
-  
+
       ## path ##
       #
       # Default value: /
       #
       path: /
-  
+
       ## domain ##
       #
       # Default value: __empty__
       #
-      domain: 
-  
+      domain:
+
       ## max-age ##
       #
       # Cookie max age (in seconds)
-      # 
+      #
       # Default value: 1092000
       #
       max-age: 1092000
-  
+
       ## secure ##
       #
       # Default value: false
       #
       secure: false
-  
+
       ## http-only ##
       #
       # Default value: true
       #
       http-only: true
-  
+
       ## same-site ##
       #
       # Default value: lax
@@ -329,11 +319,10 @@ dashboard:
       # - none
       #
       same-site: lax
-  
+
   ## ui ##
   #
   ui:
-
     ## cluster-api-enabled (experimental) ##
     #
     # Enable features that use cluster-api
@@ -345,19 +334,71 @@ dashboard:
 ## cluster-api ##
 #
 cluster-api:
+  ## http ##
+  #
+  http:
+    ## enabled ##
+    #
+    # Default value: true
+    #
+    enabled: true
 
-  ## addr ##
+    ## address ##
+    #
+    # Default value: __empty
+    #
+    address:
+
+    ## port ##
+    #
+    # Default value: 8080
+    #
+    port: 8080
+
+  ## https ##
   #
-  # Sets the target ip and port to bind the server to
-  #
-  # Default value: ":80"
-  #
-  addr: :80
+  https:
+    ## enabled ##
+    #
+    # Default value: false
+    #
+    enabled: false
+
+    ## address ##
+    #
+    # Default value: __empty
+    #
+    address:
+
+    ## port ##
+    #
+    # Default value: 8443
+    #
+    port: 8443
+
+    ## tls ##
+    #
+    tls:
+      ## cert-file ##
+      #
+      # Path to tls certificate file
+      #
+      # Default value: __empty__
+      #
+      cert-file:
+
+      ## key-file ##
+      #
+      # Path to tls key file
+      #
+      # Default value: __empty__
+      #
+      key-file:
 
   ## base-path ##
   #
   # Sets the url path prefix (useful for deploying on a sub-path behind a reverse proxy)
-  # 
+  #
   # Default value: /
   #
   base-path: /
@@ -385,13 +426,12 @@ cluster-api:
   ## csrf ##
   #
   csrf:
-  
     ## enabled ##
     #
     # Default value: true
-    #
+
     enabled: true
-  
+
     ## field-name ##
     #
     # Name to use for token in forms
@@ -399,7 +439,7 @@ cluster-api:
     # Default value: csrf_token
     #
     field-name: csrf_token
-  
+
     ## secret ##
     #
     # 32-byte long hash key
@@ -407,51 +447,50 @@ cluster-api:
     # Default value: __empty__
     #
     secret:
-  
+
     ## cookie ##
     #
     # Set csrf cookie options
     #
     cookie:
-  
       ## name ##
       #
       # Default value: kubetail_api_csrf
       #
       name: kubetail_api_csrf
-  
+
       ## path ##
       #
       # Default value: /
       #
       path: /
-  
+
       ## domain ##
       #
       # Default value: __empty__
       #
-      domain: 
-  
+      domain:
+
       ## max-age ##
       #
       # Cookie max age (in seconds)
-      # 
+      #
       # Default value: 43200
       #
       max-age: 43200
-  
+
       ## secure ##
       #
       # Default value: false
       #
       secure: false
-  
+
       ## http-only ##
       #
       # Default value: true
       #
       http-only: true
-  
+
       ## same-site ##
       #
       # Default value: strict
@@ -466,13 +505,12 @@ cluster-api:
   ## logging ##
   #
   logging:
-  
     ## enabled ##
     #
     # Default value: true
     #
     enabled: true
-  
+
     ## level ##
     #
     # Default value: info
@@ -485,7 +523,7 @@ cluster-api:
     # - disabled
     #
     level: info
-  
+
     ## format ##
     #
     # Default value: json
@@ -495,11 +533,10 @@ cluster-api:
     # - pretty
     #
     format: json
-  
+
     ## access-log ##
     #
-    access-log:  
-  
+    access-log:
       ## enabled ##
       #
       # Enables web access logs for app
@@ -507,7 +544,7 @@ cluster-api:
       # Default value: true
       #
       enabled: true
-  
+
       ## hide-health-checks ##
       #
       # Hides health checks from access log
@@ -516,16 +553,6 @@ cluster-api:
       #
       hide-health-checks: false
 
-  ## tls ##
-  #
-  tls:
-  
-    ## enabled ##
-    #
-    # Default value: false
-    #
-    enabled: false
-  
     ## cert-file ##
     #
     # Path to tls certificate file
@@ -533,7 +560,7 @@ cluster-api:
     # Default value: __empty__
     #
     cert-file:
-  
+
     ## key-file ##
     #
     # Path to tls key file
@@ -545,7 +572,6 @@ cluster-api:
 ## cluster-agent ##
 #
 cluster-agent:
-
   ## addr ##
   #
   # Sets the target ip and port to bind the gRPC server to
@@ -557,13 +583,12 @@ cluster-agent:
   ## logging ##
   #
   logging:
-  
     ## enabled ##
     #
     # Default value: true
     #
     enabled: true
-  
+
     ## level ##
     #
     # Default value: info
@@ -576,7 +601,7 @@ cluster-agent:
     # - disabled
     #
     level: info
-  
+
     ## format ##
     #
     # Default value: json
@@ -590,13 +615,12 @@ cluster-agent:
   ## tls ##
   #
   tls:
-  
     ## enabled ##
     #
     # Default value: false
     #
     enabled: false
-  
+
     ## cert-file ##
     #
     # Path to tls certificate file
@@ -604,7 +628,7 @@ cluster-agent:
     # Default value: __empty__
     #
     cert-file:
-  
+
     ## key-file ##
     #
     # Path to tls key file

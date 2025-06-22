@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -59,7 +60,6 @@ func main() {
 
 			// Init viper
 			v := viper.New()
-			v.BindPFlag("cluster-api.addr", cmd.Flags().Lookup("addr"))
 			v.BindPFlag("cluster-api.gin-mode", cmd.Flags().Lookup("gin-mode"))
 
 			// Init config
@@ -92,31 +92,59 @@ func main() {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
 
-			// create server
-			server := http.Server{
-				Addr:         cfg.ClusterAPI.Addr,
-				Handler:      app,
-				IdleTimeout:  1 * time.Minute,
-				ReadTimeout:  5 * time.Second,
-				WriteTimeout: 10 * time.Second,
+			// Create servers
+			var servers []*http.Server
+			var serverWg sync.WaitGroup
+
+			// HTTP Server
+			if cfg.ClusterAPI.HTTP.Enabled {
+				httpAddr := fmt.Sprintf("%s:%d", cfg.ClusterAPI.HTTP.Address, cfg.ClusterAPI.HTTP.Port)
+				httpServer := &http.Server{
+					Addr:         httpAddr,
+					Handler:      app,
+					IdleTimeout:  1 * time.Minute,
+					ReadTimeout:  5 * time.Second,
+					WriteTimeout: 10 * time.Second,
+				}
+				servers = append(servers, httpServer)
+
+				serverWg.Add(1)
+				go func() {
+					defer serverWg.Done()
+					zlog.Info().Msg("Starting HTTP server on " + httpAddr)
+					if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+						zlog.Fatal().Caller().Err(err).Send()
+					}
+				}()
 			}
 
-			// run server in go routine
-			go func() {
-				var serverErr error
-				zlog.Info().Msg("Starting server on " + cfg.ClusterAPI.Addr)
+			// HTTPS Server
+			if cfg.ClusterAPI.HTTPS.Enabled {
+				httpsAddr := fmt.Sprintf("%s:%d", cfg.ClusterAPI.HTTPS.Address, cfg.ClusterAPI.HTTPS.Port)
 
-				if cfg.ClusterAPI.TLS.Enabled {
-					serverErr = server.ListenAndServeTLS(cfg.ClusterAPI.TLS.CertFile, cfg.ClusterAPI.TLS.KeyFile)
-				} else {
-					serverErr = server.ListenAndServe()
+				httpsServer := &http.Server{
+					Addr:         httpsAddr,
+					Handler:      app,
+					IdleTimeout:  1 * time.Minute,
+					ReadTimeout:  5 * time.Second,
+					WriteTimeout: 10 * time.Second,
 				}
+				servers = append(servers, httpsServer)
 
-				// log non-normal errors
-				if serverErr != nil && serverErr != http.ErrServerClosed {
-					zlog.Fatal().Caller().Err(err).Send()
-				}
-			}()
+				serverWg.Add(1)
+				go func() {
+					defer serverWg.Done()
+					zlog.Info().Msg("Starting HTTPS server on " + httpsAddr)
+					if err := httpsServer.ListenAndServeTLS(cfg.ClusterAPI.HTTPS.TLS.CertFile, cfg.ClusterAPI.HTTPS.TLS.KeyFile); err != nil && err != http.ErrServerClosed {
+						zlog.Fatal().Caller().Err(err).Send()
+					}
+				}()
+			}
+
+			// Ensure at least one server is enabled
+			if len(servers) == 0 {
+				zlog.Fatal().Msg("No servers enabled. Please enable at least HTTP or HTTPS")
+			}
 
 			// wait for termination signal
 			<-quit
@@ -129,18 +157,21 @@ func main() {
 			defer cancel()
 
 			var wg sync.WaitGroup
-			wg.Add(2)
 
 			// attempt graceful shutdown
-			go func() {
-				defer wg.Done()
-				if err := server.Shutdown(ctx); err != nil {
-					zlog.Error().Err(err).Send()
-				}
-			}()
+			for _, server := range servers {
+				wg.Add(1)
+				go func(s *http.Server) {
+					defer wg.Done()
+					if err := s.Shutdown(ctx); err != nil {
+						zlog.Error().Err(err).Send()
+					}
+				}(server)
+			}
 
 			// shutdown app
 			// TODO: handle long-lived requests shutdown (e.g. websockets)
+			wg.Add(1) // for app shutdown
 			go func() {
 				defer wg.Done()
 				if err := app.Shutdown(ctx); err != nil {
@@ -160,7 +191,6 @@ func main() {
 	flagset := cmd.Flags()
 	flagset.SortFlags = false
 	flagset.StringVarP(&cli.Config, "config", "c", "", "Path to configuration file (e.g. \"/etc/kubetail/cluster-api.yaml\")")
-	flagset.StringP("addr", "a", ":8080", "Host address to bind to")
 	flagset.String("gin-mode", "release", "Gin mode (release, debug)")
 	flagset.StringArrayVarP(&params, "param", "p", []string{}, "Config params")
 
