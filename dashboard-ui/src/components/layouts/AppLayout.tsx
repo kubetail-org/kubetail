@@ -17,9 +17,7 @@ import Footer from '@/components/widgets/Footer';
 export default function AppLayout({ children }: React.PropsWithChildren) {
   return (
     <>
-      <div className="h-[calc(100vh-23px)] overflow-hidden">
-        {children}
-      </div>
+      <div className="h-[calc(100vh-23px)] overflow-hidden">{children}</div>
       <Footer />
     </>
   );

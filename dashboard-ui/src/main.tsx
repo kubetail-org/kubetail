@@ -17,11 +17,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, createRoutesFromElements, RouterProvider } from 'react-router-dom';
 
-import { routes } from './routes';
 import { dashboardClient } from '@/apollo-client';
 import { SessionProvider } from '@/lib/auth';
 import { getBasename } from '@/lib/util';
 import { ThemeProvider } from '@/lib/theme';
+import { routes } from './routes';
 
 import './index.css';
 import 'unfonts.css';

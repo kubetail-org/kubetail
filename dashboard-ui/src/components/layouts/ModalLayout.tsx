@@ -38,26 +38,13 @@ export default function ModalLayout({ children, innerClassName }: ModalLayoutPro
 
   return (
     <div className="min-h-full pt-10 sm:px-6 lg:px-8">
-      <div
-        className={cn(
-            'sm:mx-auto',
-            (innerClassName !== undefined) ? innerClassName : 'sm:w-full sm:max-w-md',
-          )}
-      >
+      <div className={cn('sm:mx-auto', innerClassName !== undefined ? innerClassName : 'sm:w-full sm:max-w-md')}>
         <div className="flex justify-center">
           <Link to="/">
-            <img
-              className="mx-auto h-12 w-auto"
-              src={logo}
-              width={70}
-              height={70}
-              alt="KubeTail"
-            />
+            <img className="mx-auto h-12 w-auto" src={logo} width={70} height={70} alt="KubeTail" />
           </Link>
         </div>
-        <div>
-          {children}
-        </div>
+        <div>{children}</div>
       </div>
     </div>
   );

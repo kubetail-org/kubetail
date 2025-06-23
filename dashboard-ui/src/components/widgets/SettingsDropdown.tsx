@@ -42,9 +42,7 @@ const SettingsDropdown = () => {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[150px]">
           <DropdownMenuGroup>
-            <DropdownMenuItem onSelect={() => setIsDialogOpen(true)}>
-              Cluster Settings
-            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setIsDialogOpen(true)}>Cluster Settings</DropdownMenuItem>
           </DropdownMenuGroup>
           {appConfig.authMode === 'token' && (
             <>
@@ -60,10 +58,7 @@ const SettingsDropdown = () => {
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      <ClusterSettingsDialog
-        isOpen={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
-      />
+      <ClusterSettingsDialog isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} />
     </>
   );
 };

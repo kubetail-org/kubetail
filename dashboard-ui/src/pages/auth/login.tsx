@@ -78,18 +78,14 @@ export default function LoginPage() {
 
   return (
     <ModalLayout>
-      <h2 className="block mt-6 text-center text-3xl font-extrabold text-chrome-900">
-        Sign into Kubernetes
-      </h2>
+      <h2 className="block mt-6 text-center text-3xl font-extrabold text-chrome-900">Sign into Kubernetes</h2>
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-background py-8 px-4 shadow sm:rounded-lg sm:px-10 relative">
           <Form onSubmit={handleSubmit}>
             <Form.Group>
               <Form.Label>Token</Form.Label>
               <Form.Control name="token" placeholder="Enter your kubernetes token..." />
-              {formErrors.token && (
-                <Form.Control.Feedback>{formErrors.token}</Form.Control.Feedback>
-              )}
+              {formErrors.token && <Form.Control.Feedback>{formErrors.token}</Form.Control.Feedback>}
             </Form.Group>
             <Form.Group>
               <Button type="submit">Sign in</Button>

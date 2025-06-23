@@ -3,14 +3,8 @@ import fancyAnsiPlugin from 'fancy-ansi/plugin';
 
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    './src/**/*.{ts,tsx}',
-    './node_modules/@kubetail/ui/**/*.js',
-  ],
-  plugins: [
-    kubetailUIPlugin,
-    fancyAnsiPlugin,
-  ],
+  content: ['./src/**/*.{ts,tsx}', './node_modules/@kubetail/ui/**/*.js'],
+  plugins: [kubetailUIPlugin, fancyAnsiPlugin],
   theme: {
     extend: {
       keyframes: {

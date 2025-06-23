@@ -42,17 +42,15 @@ const KubeContextPicker = ({ className, value, setValue }: KubeContextPickerProp
   }, [loading]);
 
   return (
-    <Form.Select
-      className={className}
-      value={value}
-      onChange={(ev) => setValue(ev.target.value)}
-      disabled={loading}
-    >
+    <Form.Select className={className} value={value} onChange={(ev) => setValue(ev.target.value)} disabled={loading}>
       {loading ? (
         <Form.Option>Loading...</Form.Option>
       ) : (
-        kubeConfig && kubeConfig.contexts.map((context) => (
-          <Form.Option key={context.name} value={context.name}>{context.name}</Form.Option>
+        kubeConfig &&
+        kubeConfig.contexts.map((context) => (
+          <Form.Option key={context.name} value={context.name}>
+            {context.name}
+          </Form.Option>
         ))
       )}
     </Form.Select>
@@ -131,18 +129,12 @@ export const ClusterSettingsDialog = ({ isOpen = false, onClose, defaultKubeCont
       <Modal.Title className="flex items-center space-x-3">
         <span>Cluster Settings</span>
         {appConfig.environment === 'desktop' && (
-          <KubeContextPicker
-            className="w-auto"
-            value={kubeContext}
-            setValue={setKubeContext}
-          />
+          <KubeContextPicker className="w-auto" value={kubeContext} setValue={setKubeContext} />
         )}
       </Modal.Title>
       <div className="mt-5 pb-8">
         <Form.Group>
-          <Form.Label>
-            Cluster API Endpoint
-          </Form.Label>
+          <Form.Label>Cluster API Endpoint</Form.Label>
           {appConfig.environment === 'desktop' ? (
             <ClusterAPIPickerDesktop kubeContext={kubeContext} />
           ) : (

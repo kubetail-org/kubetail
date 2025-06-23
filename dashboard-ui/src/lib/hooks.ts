@@ -49,7 +49,7 @@ type GenericCounterFragment = {
   items: {
     metadata: {
       resourceVersion: string;
-    }
+    };
   }[];
 };
 
@@ -79,7 +79,7 @@ function isWatchExpiredError(err: Error): boolean {
   const { graphQLErrors } = err as CustomError;
   if (graphQLErrors && graphQLErrors.length) {
     const gqlErr = graphQLErrors[0];
-    return (gqlErr.extensions?.code === 'KUBETAIL_WATCH_ERROR' && gqlErr.extensions?.reason === 'Expired');
+    return gqlErr.extensions?.code === 'KUBETAIL_WATCH_ERROR' && gqlErr.extensions?.reason === 'Expired';
   }
   return false;
 }
@@ -110,7 +110,7 @@ export function useRetryOnError() {
       try {
         await retryFn();
         clearInterval(timeout);
-      } catch (e) {
+      } catch {
         // do nothing
       }
     }, RETRY_TIMEOUT);
@@ -148,7 +148,9 @@ export function useNextTick(): (fn: () => void) => void {
           cb();
         } catch (err) {
           // Surface errors so they are not swallowed
-          setTimeout(() => { throw err; });
+          setTimeout(() => {
+            throw err;
+          });
         }
       });
     });
@@ -206,18 +208,19 @@ export function useGetQueryWithSubscription<
 
   // subscribe to changes
   useEffect(
-    () => subscribeToMore({
-      document: args.subscription,
-      variables: { kubeContext, namespace, fieldSelector: `metadata.name=${name}` } as any,
-      updateQuery: (prev, { subscriptionData }) => {
-        const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
-        if (ev?.type === 'ADDED' && ev.object) return { [args.queryDataKey]: ev.object } as Unmasked<TQData>;
-        return prev;
-      },
-      onError: (err) => {
-        if (isWatchExpiredError(err)) refetch();
-      },
-    }),
+    () =>
+      subscribeToMore({
+        document: args.subscription,
+        variables: { kubeContext, namespace, fieldSelector: `metadata.name=${name}` } as any,
+        updateQuery: (prev, { subscriptionData }) => {
+          const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
+          if (ev?.type === 'ADDED' && ev.object) return { [args.queryDataKey]: ev.object } as Unmasked<TQData>;
+          return prev;
+        },
+        onError: (err) => {
+          if (isWatchExpiredError(err)) refetch();
+        },
+      }),
     [subscribeToMore],
   );
 
@@ -256,7 +259,7 @@ export function useListQueryWithSubscription<
   });
 
   // TODO: tighten `any`
-  const respData = data ? data[args.queryDataKey as keyof MaybeMasked<TQData>] as GenericListFragment : null;
+  const respData = data ? (data[args.queryDataKey as keyof MaybeMasked<TQData>] as GenericListFragment) : null;
 
   // fetch rest
   const fetchMoreRef = useRef(new Set<string>([]));
@@ -343,7 +346,10 @@ export function useListQueryWithSubscription<
   const fetching = Boolean(loading || continueVal);
 
   return {
-    loading, fetching, error, data,
+    loading,
+    fetching,
+    error,
+    data,
   };
 }
 
@@ -378,7 +384,7 @@ export function useCounterQueryWithSubscription<
   });
 
   // TODO: tighten `any`
-  const respData = data ? data[args.queryDataKey as keyof MaybeMasked<TQData>] as GenericCounterFragment : null;
+  const respData = data ? (data[args.queryDataKey as keyof MaybeMasked<TQData>] as GenericCounterFragment) : null;
 
   // subscribe to changes
   useEffect(() => {
@@ -405,7 +411,7 @@ export function useCounterQueryWithSubscription<
         const oldResult = prev[args.queryDataKey] as GenericCounterFragment;
 
         const oldCount = oldResult.metadata.remainingItemCount;
-        const newCount = oldCount + ((ev.type === 'ADDED') ? BigInt(1) : BigInt(-1));
+        const newCount = oldCount + (ev.type === 'ADDED' ? BigInt(1) : BigInt(-1));
 
         // Initialize new result and update resourceVersion
         const newResult = {
@@ -429,7 +435,9 @@ export function useCounterQueryWithSubscription<
   if (respData) count = respData.items.length + Number(respData.metadata.remainingItemCount);
 
   return {
-    loading, error, count,
+    loading,
+    error,
+    count,
   };
 }
 
@@ -586,7 +594,7 @@ export function useColors(streams: string[]) {
  * Workload counter hook
  */
 
-export function useWorkloadCounter(kubeContext: string, namespace: string = '') {
+export function useWorkloadCounter(kubeContext: string, namespace = '') {
   const cronjobs = useCounterQueryWithSubscription({
     query: dashboardOps.SOURCE_PICKER_CRONJOBS_COUNT_FETCH,
     subscription: dashboardOps.SOURCE_PICKER_CRONJOBS_COUNT_WATCH,

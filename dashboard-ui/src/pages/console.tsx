@@ -128,12 +128,7 @@ const SettingsButton = () => {
 
   allViewerColumns.forEach((col) => {
     checkboxEls.push(
-      <Form.Check
-        key={col}
-        label={col}
-        checked={visibleCols.has(col)}
-        onChange={(ev) => handleOnChange(col, ev)}
-      />,
+      <Form.Check key={col} label={col} checked={visibleCols.has(col)} onChange={(ev) => handleOnChange(col, ev)} />,
     );
   });
 
@@ -150,11 +145,7 @@ const SettingsButton = () => {
         <div className="border-b mb-1">Columns:</div>
         {checkboxEls}
         <div className="border-b mt-2 mb-1">Options:</div>
-        <Form.Check
-          label="Wrap"
-          checked={isWrap}
-          onChange={() => setIsWrap(!isWrap)}
-        />
+        <Form.Check label="Wrap" checked={isWrap} onChange={() => setIsWrap(!isWrap)} />
       </PopoverContent>
     </Popover>
   );
@@ -169,7 +160,8 @@ const Header = ({ viewerRef }: { viewerRef: React.RefObject<LogFeedViewerHandle>
   const { isSidebarOpen, setIsSidebarOpen } = useContext(Context);
   const feed = useViewerMetadata();
 
-  const buttonCN = 'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30';
+  const buttonCN =
+    'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30';
 
   const handleDateRangeDropdownChange = (args: DateRangeDropdownOnChangeArgs) => {
     if (args.since) {
@@ -208,7 +200,7 @@ const Header = ({ viewerRef }: { viewerRef: React.RefObject<LogFeedViewerHandle>
     ev.preventDefault();
 
     const formData = new FormData(ev.currentTarget);
-    const grep = (formData.get('grep') as string || '').trim();
+    const grep = ((formData.get('grep') as string) || '').trim();
 
     // Update location
     if (grep === '') searchParams.delete('grep');
@@ -220,23 +212,13 @@ const Header = ({ viewerRef }: { viewerRef: React.RefObject<LogFeedViewerHandle>
     <div className="flex justify-between items-end p-1">
       <div className="flex items-center">
         {!isSidebarOpen && (
-          <button
-            type="button"
-            onClick={() => setIsSidebarOpen(true)}
-            title="Collapse sidebar"
-            className="pr-2"
-          >
+          <button type="button" onClick={() => setIsSidebarOpen(true)} title="Collapse sidebar" className="pr-2">
             <PanelLeftOpenIcon size={20} strokeWidth={2} className="text-chrome-500" />
           </button>
         )}
         <div className={cn('flex', isSidebarOpen ? 'px-4' : 'px-2')}>
           <DateRangeDropdown onChange={handleDateRangeDropdownChange}>
-            <button
-              type="button"
-              className={buttonCN}
-              title="Jump to time"
-              aria-label="Jump to time"
-            >
+            <button type="button" className={buttonCN} title="Jump to time" aria-label="Jump to time">
               <HistoryIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
             </button>
           </DateRangeDropdown>
@@ -319,7 +301,9 @@ function parseSourceArg(input: string) {
   const match = input.match(regex);
 
   if (!match) {
-    throw new Error(`Invalid input format. Expected format is "<namespace>:<workload-type>/<workload-name>", got "${input}"`);
+    throw new Error(
+      `Invalid input format. Expected format is "<namespace>:<workload-type>/<workload-name>", got "${input}"`,
+    );
   }
 
   // Destructure the match array. The first element is the full match, so we skip it.
@@ -341,7 +325,7 @@ const SidebarWorkloads = () => {
   const kubeContext = searchParams.get('kubeContext') || '';
 
   // Build workload map
-  const workloadMap = new MapSet<Workload, { namespace: string, name: string }>();
+  const workloadMap = new MapSet<Workload, { namespace: string; name: string }>();
   searchParams.getAll('source').forEach((source) => {
     const { namespace, workloadType, workloadName } = parseSourceArg(source);
     workloadMap.add(workloadType, { namespace, name: workloadName });
@@ -352,7 +336,7 @@ const SidebarWorkloads = () => {
 
     // TODO: instead of navigating to new url can we use react-router?
     const currentUrl = new URL(window.location.href);
-    currentUrl.search = (new URLSearchParams(searchParams)).toString();
+    currentUrl.search = new URLSearchParams(searchParams).toString();
     window.location.href = currentUrl.toString();
   };
 
@@ -393,13 +377,17 @@ const SidebarWorkloads = () => {
           return (
             <div key={workload}>
               <div className="flex items-center space-x-1">
-                <div><Icon className="h-[18px] w-[18px]" /></div>
+                <div>
+                  <Icon className="h-[18px] w-[18px]" />
+                </div>
                 <div className="font-semibold text-chrome-500">{labelsPMap[workload]}</div>
               </div>
               <ul className="pl-[23px]">
                 {vals.map((val) => (
                   <li key={val.name} className="flex items-center justify-between">
-                    <span className="whitespace-nowrap overflow-hidden text-ellipsis">{val.name.replace(/\/\*$/, '')}</span>
+                    <span className="whitespace-nowrap overflow-hidden text-ellipsis">
+                      {val.name.replace(/\/\*$/, '')}
+                    </span>
                     <button
                       type="button"
                       onClick={() => deleteSource(`${val.namespace}:${workload}/${val.name}`)}
@@ -428,11 +416,7 @@ type ContainersProps = {
   containerNames?: string[];
 };
 
-const Containers = ({
-  namespace,
-  podName,
-  containerNames = [],
-}: ContainersProps) => {
+const Containers = ({ namespace, podName, containerNames = [] }: ContainersProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   containerNames.sort();
@@ -504,7 +488,14 @@ const SidebarPodsAndContainers = () => {
       containerName: match[3],
     } as LogSourceFragmentFragment;
 
-    if (!sources.some((s) => s.namespace === synthetic.namespace && s.podName === synthetic.podName && s.containerName === synthetic.containerName)) {
+    if (
+      !sources.some(
+        (s) =>
+          s.namespace === synthetic.namespace &&
+          s.podName === synthetic.podName &&
+          s.containerName === synthetic.containerName,
+      )
+    ) {
       sources.push(synthetic);
     }
   });
@@ -536,11 +527,7 @@ const SidebarPodsAndContainers = () => {
             <div className="flex items-center justify-between">
               <div className="whitespace-nowrap overflow-hidden text-ellipsis">{group.podName}</div>
             </div>
-            <Containers
-              namespace={group.namespace}
-              podName={group.podName}
-              containerNames={group.containers}
-            />
+            <Containers namespace={group.namespace} podName={group.podName} containerNames={group.containers} />
           </div>
         ))}
       </div>
@@ -552,7 +539,7 @@ const SidebarPodsAndContainers = () => {
  * Sidebar facets component
  */
 
-const Facets = ({ label, counter }: { label: string, counter: Counter }) => {
+const Facets = ({ label, counter }: { label: string; counter: Counter }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlKey = label.toLocaleLowerCase();
 
@@ -572,18 +559,11 @@ const Facets = ({ label, counter }: { label: string, counter: Counter }) => {
 
   return (
     <>
-      <div className="border-t border-chrome-300 mt-[10px] py-[10px] font-bold text-chrome-500">
-        {label}
-      </div>
+      <div className="border-t border-chrome-300 mt-[10px] py-[10px] font-bold text-chrome-500">{label}</div>
       {entries.map(([facet, count]) => (
         <div key={facet} className="flex items-center space-x-2">
           <div>
-            <Form.Check
-              checked={searchParams.has(urlKey, facet)}
-              name={urlKey}
-              value={facet}
-              onChange={handleToggle}
-            />
+            <Form.Check checked={searchParams.has(urlKey, facet)} name={urlKey} value={facet} onChange={handleToggle} />
           </div>
           <div className="flex-grow flex justify-between">
             <div>{facet}</div>
@@ -620,14 +600,7 @@ const Sidebar = () => {
   // sync filters with search params
   useEffect(() => {
     const filters = new MapSet<string, string>();
-    [
-      'region',
-      'zone',
-      'os',
-      'arch',
-      'node',
-      'container',
-    ].forEach((key) => {
+    ['region', 'zone', 'os', 'arch', 'node', 'container'].forEach((key) => {
       if (searchParams.has(key)) filters.set(key, new Set(searchParams.getAll(key)));
     });
     setFilters(filters);
@@ -688,10 +661,7 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
     <div className="relative h-full">
       {isSidebarOpen && (
         <>
-          <div
-            className="absolute h-full bg-chrome-100 overflow-x-hidden"
-            style={{ width: `${sidebarWidth}px` }}
-          >
+          <div className="absolute h-full bg-chrome-100 overflow-x-hidden" style={{ width: `${sidebarWidth}px` }}>
             {sidebar}
             <button
               type="button"
@@ -714,12 +684,8 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
         className="h-full flex flex-col overflow-hidden"
         style={{ marginLeft: `${isSidebarOpen ? sidebarWidth + 4 : 0}px` }}
       >
-        <div className="bg-chrome-100 border-b border-chrome-divider">
-          {header}
-        </div>
-        <div className="flex-grow">
-          {content}
-        </div>
+        <div className="bg-chrome-100 border-b border-chrome-divider">{header}</div>
+        <div className="flex-grow">{content}</div>
       </main>
     </div>
   );
@@ -743,10 +709,13 @@ export default function Page() {
     container: searchParams.getAll('container'),
   };
 
-  const context = useMemo(() => ({
-    isSidebarOpen,
-    setIsSidebarOpen,
-  }), [isSidebarOpen, setIsSidebarOpen]);
+  const context = useMemo(
+    () => ({
+      isSidebarOpen,
+      setIsSidebarOpen,
+    }),
+    [isSidebarOpen, setIsSidebarOpen],
+  );
 
   const grepVal = searchParams.get('grep');
 
@@ -779,13 +748,13 @@ export default function Page() {
             <InnerLayout
               sidebar={<Sidebar />}
               header={<Header viewerRef={viewerRef} />}
-              content={(
+              content={
                 <LogFeedViewer
                   ref={viewerRef}
                   defaultMode={searchParams.get('mode')}
                   defaultSince={searchParams.get('since')}
                 />
-              )}
+              }
             />
           </AppLayout>
         </LogFeedProvider>

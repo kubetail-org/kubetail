@@ -146,7 +146,6 @@ type Config struct {
 
 	// Cluster API options
 	ClusterAPI struct {
-		Addr                    string `validate:"omitempty,hostname_port"`
 		GinMode                 string `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
 		BasePath                string `mapstructure:"base-path"`
 		ClusterAgentDispatchUrl string `mapstructure:"cluster-agent-dispatch-url"`
@@ -169,16 +168,23 @@ type Config struct {
 			}
 		}
 
-		// TLS options
-		TLS struct {
-			// enable tls termination
+		HTTP struct {
 			Enabled bool
+			Address string `validate:"omitempty,hostname"`
+			Port    uint   `validate:"omitempty,port"`
+		}
 
-			// TLS certificate file
-			CertFile string `mapstructure:"cert-file" validate:"omitempty,file"`
+		HTTPS struct {
+			Enabled bool
+			Address string `validate:"omitempty,hostname"`
+			Port    uint   `validate:"omitempty,port"`
+			TLS     struct {
+				// TLS certificate file
+				CertFile string `mapstructure:"cert-file" validate:"omitempty,file"`
 
-			// TLS certificate key file
-			KeyFile string `mapstructure:"key-file" validate:"omitempty,file"`
+				// TLS certificate key file
+				KeyFile string `mapstructure:"key-file" validate:"omitempty,file"`
+			}
 		}
 
 		// logging options
@@ -289,7 +295,14 @@ func DefaultConfig() *Config {
 	cfg.Dashboard.Session.Cookie.SameSite = http.SameSiteLaxMode
 	cfg.Dashboard.UI.ClusterAPIEnabled = true
 
-	cfg.ClusterAPI.Addr = ":8080"
+	cfg.ClusterAPI.HTTP.Enabled = true
+	cfg.ClusterAPI.HTTP.Address = ""
+	cfg.ClusterAPI.HTTP.Port = 8080
+	cfg.ClusterAPI.HTTPS.Enabled = false
+	cfg.ClusterAPI.HTTPS.Address = ""
+	cfg.ClusterAPI.HTTPS.Port = 8443
+	cfg.ClusterAPI.HTTPS.TLS.CertFile = ""
+	cfg.ClusterAPI.HTTPS.TLS.KeyFile = ""
 	cfg.ClusterAPI.BasePath = "/"
 	cfg.ClusterAPI.ClusterAgentDispatchUrl = "kubernetes://kubetail-cluster-agent:50051"
 	cfg.ClusterAPI.GinMode = "release"

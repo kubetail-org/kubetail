@@ -212,6 +212,7 @@ k8s_resource(
     'kubetail-cluster-api:clusterrolebinding',
     'kubetail-cluster-api:role',
     'kubetail-cluster-api:rolebinding',
+    'kubetail-cluster-api-tls:secret',
   ],
   resource_deps=['kubetail-shared'],
 )

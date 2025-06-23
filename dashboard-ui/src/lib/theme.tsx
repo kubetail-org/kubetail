@@ -49,7 +49,7 @@ function getMediaQuery() {
 
 function getUserPreference() {
   if (!(storageKey in localStorage)) return UserPreference.System;
-  return (localStorage[storageKey] === 'dark') ? UserPreference.Dark : UserPreference.Light;
+  return localStorage[storageKey] === 'dark' ? UserPreference.Dark : UserPreference.Light;
 }
 
 function getSystemTheme(ev?: MediaQueryListEvent) {
@@ -137,9 +137,5 @@ export function ThemeProvider({ children }: React.PropsWithChildren) {
     [theme, userPreference, setUserPreference, setTheme],
   );
 
-  return (
-    <Context.Provider value={context}>
-      {children}
-    </Context.Provider>
-  );
+  return <Context.Provider value={context}>{children}</Context.Provider>;
 }

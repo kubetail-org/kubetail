@@ -22,7 +22,13 @@ import appConfig from '@/app-config';
 import Modal from '@/components/elements/Modal';
 import ClusterAPIInstallButton from '@/components/widgets/ClusterAPIInstallButton';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
-import { ServerStatus, Status, useDashboardServerStatus, useKubernetesAPIServerStatus, useClusterAPIServerStatus } from '@/lib/server-status';
+import {
+  ServerStatus,
+  Status,
+  useDashboardServerStatus,
+  useKubernetesAPIServerStatus,
+  useClusterAPIServerStatus,
+} from '@/lib/server-status';
 import { cn } from '@/lib/util';
 
 const kubernetesAPIServerStatusMapState = atom({
@@ -62,15 +68,12 @@ const HealthDot = ({ status }: { status: Status }) => {
 
   return (
     <div
-      className={cn(
-        'inline-block w-[8px] h-[8px] rounded-full',
-        {
-          'bg-chrome-300': color === 'chrome',
-          'bg-red-500': color === 'red',
-          'bg-green-500': color === 'green',
-          'bg-yellow-500': color === 'yellow',
-        },
-      )}
+      className={cn('inline-block w-[8px] h-[8px] rounded-full', {
+        'bg-chrome-300': color === 'chrome',
+        'bg-red-500': color === 'red',
+        'bg-green-500': color === 'green',
+        'bg-yellow-500': color === 'yellow',
+      })}
     />
   );
 };
@@ -92,7 +95,11 @@ const statusMessage = (s: ServerStatus, unknownDefault: string): string => {
   }
 };
 
-function useEffectServerStatus(kubeContext: string, setServerStatusMap: SetterOrUpdater<Map<string, ServerStatus>>, serverStatus: ServerStatus) {
+function useEffectServerStatus(
+  kubeContext: string,
+  setServerStatusMap: SetterOrUpdater<Map<string, ServerStatus>>,
+  serverStatus: ServerStatus,
+) {
   useEffect(() => {
     setServerStatusMap((currVal) => {
       const newVal = new Map(currVal);
@@ -138,8 +145,12 @@ type ServerStatusCellsProps = {
 
 const ServerStatusCells = ({ serverStatus, defaultMessage }: ServerStatusCellsProps) => (
   <>
-    <DataTable.DataCell className="w-[1px]"><HealthDot status={serverStatus.status} /></DataTable.DataCell>
-    <DataTable.DataCell className="whitespace-normal">{statusMessage(serverStatus, defaultMessage || 'Uknown')}</DataTable.DataCell>
+    <DataTable.DataCell className="w-[1px]">
+      <HealthDot status={serverStatus.status} />
+    </DataTable.DataCell>
+    <DataTable.DataCell className="whitespace-normal">
+      {statusMessage(serverStatus, defaultMessage || 'Uknown')}
+    </DataTable.DataCell>
   </>
 );
 
@@ -175,7 +186,9 @@ const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Serve
         <ServerStatusCells serverStatus={new ServerStatus()} />
       ) : (
         <>
-          <DataTable.DataCell className="w-[1px]"><HealthDot status={serverStatus.status} /></DataTable.DataCell>
+          <DataTable.DataCell className="w-[1px]">
+            <HealthDot status={serverStatus.status} />
+          </DataTable.DataCell>
           <DataTable.DataCell className="whitespace-normal flex justify-between items-center">
             {statusMessage(serverStatus, 'Uknown')}
             {appConfig.environment === 'desktop' && serverStatus.status === Status.NotFound && (
@@ -213,10 +226,7 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
   if (dashboardServerStatus.status === Status.Unhealthy) {
     overallStatus = Status.Unhealthy;
   } else {
-    const all = [dashboardServerStatus];
-    for (const val of kubernetesAPIServertatusMap.values()) all.push(val);
-    for (const val of clusterAPIServerStatusMap.values()) all.push(val);
-
+    const all = [dashboardServerStatus, ...kubernetesAPIServertatusMap.values(), ...clusterAPIServerStatusMap.values()];
     if (all.every((item) => item.status === Status.Healthy)) overallStatus = Status.Healthy;
     else overallStatus = Status.Degraded;
   }
@@ -231,11 +241,7 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
         <div className="text-sm">status:</div>
         <HealthDot status={overallStatus} />
       </button>
-      <Modal
-        className="max-w-[500px] pb-10"
-        open={modalIsOpen}
-        onClose={() => setModalIsOpen(false)}
-      >
+      <Modal className="max-w-[500px] pb-10" open={modalIsOpen} onClose={() => setModalIsOpen(false)}>
         <Modal.Title>Health Status</Modal.Title>
         <DataTable>
           <DataTable.Body>

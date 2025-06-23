@@ -594,6 +594,7 @@ export type LogSource = {
 
 export type LogSourceFilter = {
   arch?: InputMaybe<Array<Scalars['String']['input']>>;
+  container?: InputMaybe<Array<Scalars['String']['input']>>;
   node?: InputMaybe<Array<Scalars['String']['input']>>;
   os?: InputMaybe<Array<Scalars['String']['input']>>;
   region?: InputMaybe<Array<Scalars['String']['input']>>;
@@ -957,9 +958,9 @@ export type Subscription = {
   kubernetesAPIHealthzWatch: HealthCheckResponse;
   /** Kubernetes API */
   kubernetesAPIReadyWait: Scalars['Boolean']['output'];
-  /** Log records API */
+  /** LogRecords API */
   logRecordsFollow?: Maybe<LogRecord>;
-  /** Log sources API */
+  /** LogSources API */
   logSourcesWatch?: Maybe<LogSourceWatchEvent>;
 };
 

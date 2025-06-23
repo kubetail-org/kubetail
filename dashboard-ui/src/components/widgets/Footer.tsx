@@ -37,9 +37,7 @@ export default function Footer() {
         <Form.Option value={UserPreference.Light}>light</Form.Option>
       </Form.Select>
       <div className="flex">
-        {import.meta.env.MODE === 'development' && (
-          <EnvironmentControl />
-        )}
+        {import.meta.env.MODE === 'development' && <EnvironmentControl />}
         <ServerStatus />
       </div>
     </div>

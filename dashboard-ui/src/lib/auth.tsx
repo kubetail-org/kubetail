@@ -17,8 +17,6 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import appConfig from '@/app-config';
 import { getBasename, joinPaths } from '@/lib/util';
 
-interface SessionProviderProps extends React.PropsWithChildren { }
-
 const bcName = 'auth/session';
 const bcIn = new BroadcastChannel(bcName);
 const bcOut = new BroadcastChannel(bcName);
@@ -71,28 +69,27 @@ export function useSession() {
  * Session provider (Desktop)
  */
 
-export const SessionProviderDesktop = ({ children }: SessionProviderProps) => {
-  const context = useMemo(() => ({
-    session: {
-      auth_mode: 'auto',
-      user: 'auto',
-      message: null,
-      timestamp: new Date(),
-    },
-   }), []);
-
-  return (
-    <Context.Provider value={context}>
-      {children}
-    </Context.Provider>
+export const SessionProviderDesktop = ({ children }: React.PropsWithChildren) => {
+  const context = useMemo(
+    () => ({
+      session: {
+        auth_mode: 'auto',
+        user: 'auto',
+        message: null,
+        timestamp: new Date(),
+      },
+    }),
+    [],
   );
+
+  return <Context.Provider value={context}>{children}</Context.Provider>;
 };
 
 /**
  * Session provider (Cluster)
  */
 
-export const SessionProviderCluster = ({ children }: SessionProviderProps) => {
+export const SessionProviderCluster = ({ children }: React.PropsWithChildren) => {
   const [session, setSession] = useState<Session | undefined>(undefined);
 
   // subscribe to broadcast messages
@@ -126,18 +123,14 @@ export const SessionProviderCluster = ({ children }: SessionProviderProps) => {
 
   const context = useMemo(() => ({ session }), [session]);
 
-  return (
-    <Context.Provider value={context}>
-      {children}
-    </Context.Provider>
-  );
+  return <Context.Provider value={context}>{children}</Context.Provider>;
 };
 
 /**
  * Session provider
  */
 
-export const SessionProvider = ({ children }: SessionProviderProps) => {
+export const SessionProvider = ({ children }: React.PropsWithChildren) => {
   if (appConfig.environment === 'desktop') {
     return <SessionProviderDesktop>{children}</SessionProviderDesktop>;
   }
