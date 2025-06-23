@@ -21,13 +21,10 @@ use signal_hook::{
     iterator::Signals,
 };
 
-use crate::stream_forward::FollowFrom;
+use rgkl::stream_forward::FollowFrom;
+use rgkl::{stream_backward, stream_forward, z};
 
 mod error;
-mod stream_backward;
-mod stream_forward;
-mod util;
-mod z;
 
 // See https://github.com/BurntSushi/ripgrep/blob/master/crates/core/main.rs#L19
 #[cfg(all(target_env = "musl", target_pointer_width = "64"))]
