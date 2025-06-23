@@ -24,6 +24,7 @@ use serde_json;
 use crate::util::format::FileFormat;
 
 // PassThroughMatcher
+#[derive(Default)]
 pub struct PassThroughMatcher {}
 
 impl PassThroughMatcher {

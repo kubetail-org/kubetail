@@ -42,6 +42,8 @@ lerna-debug.log*
 *.dylib
 *.rmeta
 /crates/*/target
+/crates/target
+/target
 
 # tilt (custom)
 .tilt
