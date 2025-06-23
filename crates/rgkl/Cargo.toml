@@ -2,15 +2,13 @@
 name = "rgkl"
 version = "0.1.0"
 edition = "2021"
-build = "build.rs"
 
-[build-dependencies]
-tonic-build = "0.13.0"
 
 [dependencies]
 chrono = "0.4.41"
 clap = { version = "4.5.40", features = ["derive"] }
 crossbeam-channel = "0.5.14"
+types = {path="../types"}
 eyre = "0.6.12"
 grep = "0.3.2"
 grep-cli = "0.1.11"

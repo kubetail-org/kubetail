@@ -6,16 +6,14 @@ WORKDIR /work
 RUN apt-get update && apt-get install -yq patchelf protobuf-compiler
 
 # Install Rust dependencies (for cache)
-COPY crates/rgkl/Cargo.toml ./crates/rgkl/Cargo.toml
-COPY crates/rgkl/Cargo.lock ./crates/rgkl/Cargo.lock
-COPY crates/rgkl/src/main.rs ./crates/rgkl/src/main.rs
+COPY crates/ ./crates
 RUN cd crates/rgkl && cargo fetch
 
 # Copy code
 COPY . .
 
 # Build
-RUN cd crates/rgkl && cargo build --release
+RUN cd crates && cargo build -p rgkl --release
 
 # Cross-platform trickery
 RUN \
@@ -47,7 +45,7 @@ WORKDIR /cluster-agent
 COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
 
 # copy rglk
-COPY --from=rustbuilder /work/crates/rgkl/target/release/rgkl .
+COPY --from=rustbuilder /work/crates/target/release/rgkl .
 
 # copy glibc runtime libraries and dynamic loader (aarch64)
 COPY --from=rustbuilder /lib/aarch64-linux-gnu/libgcc_s.so.1 /lib/aarch64-linux-gnu/

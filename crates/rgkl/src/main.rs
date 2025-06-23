@@ -21,7 +21,8 @@ use signal_hook::{
     iterator::Signals,
 };
 
-use crate::stream_forward::FollowFrom;
+use rgkl::stream_forward::FollowFrom;
+use rgkl::{stream_backward, stream_forward, z};
 
 mod stream_backward;
 mod stream_forward;
