@@ -1,6 +1,6 @@
-Name:           kubetail 
+Name:           kubetail
 Version:        %{version} 
-Release:        1%{?dist}
+Release:        %{release}%{?dist}
 Summary:        Real-time logging dashboard for Kubernetes 
 
 License:        Apache-2.0
