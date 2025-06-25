@@ -151,7 +151,7 @@ check-deps:
 	@echo "✅ All dependencies are installed"
 
 # Testing if we can read the expected logs with kubetail 
-test:check-deps build
+test-e2e:check-deps build
 	@if ! k3d cluster list | grep -q 'kubetail-test-cluster'; then \
 		echo "🛠️ Cluster not found. Creating..."; \
 		k3d cluster create kubetail-test-cluster; \
@@ -159,8 +159,8 @@ test:check-deps build
 		echo "✅ Cluster already exists. Skipping creation."; \
 	fi
 	
-	@kubectl wait --for=condition=Ready nodes --all --timeout=60s
-	@kubectl apply -f .github/ci-config/k3d/log-demo.yaml
+	@kubectl --context=k3d-kubetail-test-cluster wait --for=condition=Ready nodes --all --timeout=60s
+	@kubectl apply -f hack/test-configs/test-deployment.yaml
 	@kubectl --context=k3d-kubetail-test-cluster wait --for=condition=available deployment/log-demo --timeout=60s
 	
 	@OUTPUT=$$($(OUTPUT_DIR)/$(CLI_BINARY) logs deployments/log-demo --kube-context k3d-kubetail-test-cluster); \
@@ -168,8 +168,7 @@ test:check-deps build
 	echo "$$OUTPUT" | grep -q "Kubetail test logs from deployment log-demo" && echo "✅ Test Passed" || (echo "❌ Test Failed" && exit 1) 
 	
 	# cleanup cluster and deployments
-	@echo "🧹 Deleting the deployment and k3s cluster..."
-	@kubectl delete -f .github/ci-config/k3d/log-demo.yaml
+	@echo "🧹 Deleting the k3s cluster..."
 	@k3d cluster delete 'kubetail-test-cluster' 
 
 ## Clean the build output
