@@ -36,30 +36,13 @@ docker_build_with_restart(
 
 # kubetail-cluster-agent
 
-local_resource(
-  'kubetail-cluster-agent-compile',
-  '''
-  cd modules
-
-  # --- Build Go binary   ---
-  export CGO_ENABLED=0
-  export GOOS=linux
-  go build -o ../.tilt/cluster-agent ./cluster-agent/cmd/main.go
-  ''',
-  deps=[
-    './modules/cluster-agent',
-    './modules/shared'
-  ]
-)
 
 build_rust_locally = os.getenv("KUBETAIL_DEV_RUST_LOCAL", default='false').lower() == 'true'
 if build_rust_locally:
   local_resource(
-    "kubetail-rgkl-compile",
+    "kubetail-cluster-agent-compile",
     '''
     set -eu
-
-    cd crates/rgkl
 
     # --- Determine target architecture ---
     arch=$(uname -m)
@@ -70,15 +53,19 @@ if build_rust_locally:
     esac
     target="${target_arch}-unknown-linux-musl"
 
+    cd crates
+
     # --- Build static binary ---
     cargo build --target "${target}"
 
     # --- Copy to .tilt directory ---
-    out_dir="../../.tilt"
+    out_dir="../.tilt"
     mkdir -p "$out_dir"
     cp "target/${target}/debug/rgkl" "$out_dir"
+    cp "target/${target}/debug/cluster_agent" "$out_dir/cluster-agent"
     ''',
     deps=[
+      "./crates/cluster_agent/src",
       "./crates/rgkl/src",
       "./crates/rgkl/Cargo.toml",
       "./crates/rgkl/Cargo.lock",
@@ -101,13 +88,29 @@ if build_rust_locally:
     ]
   )
 else:
+  local_resource(
+    'kubetail-cluster-agent-compile',
+    '''
+    cd modules
+
+    # --- Build Go binary   ---
+    export CGO_ENABLED=0
+    export GOOS=linux
+    go build -o ../.tilt/cluster-agent ./cluster-agent/cmd/main.go
+    ''',
+    deps=[
+      './modules/cluster-agent',
+      './modules/shared'
+    ]
+  )
+
   docker_build_with_restart(
     'kubetail-cluster-agent',
     dockerfile='hack/tilt/Dockerfile.kubetail-cluster-agent',
     context='.',
     entrypoint="/cluster-agent/cluster-agent -c /etc/kubetail/config.yaml",
     only=[
-      './crates/rgkl',
+      './crates',
       './proto',
       './.tilt/cluster-agent'
     ],
