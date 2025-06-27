@@ -10,11 +10,7 @@ use logrecords::LogRecords;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
-    let (agent_health_reporter, agent_health_service) = tonic_health::server::health_reporter();
-
-    agent_health_reporter
-        .set_serving::<LogMetadataServiceServer<LogMetadata>>()
-        .await;
+    let (_, agent_health_service) = tonic_health::server::health_reporter();
 
     let reflection_service = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
@@ -25,7 +21,7 @@ async fn main() -> eyre::Result<()> {
         .add_service(reflection_service)
         .add_service(LogMetadataServiceServer::new(LogMetadata {}))
         .add_service(LogRecordsServiceServer::new(LogRecords {}))
-        .serve("[::1]:50051".parse()?)
+        .serve("[::]:50051".parse()?)
         .await
         .unwrap();
 
