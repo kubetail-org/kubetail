@@ -143,18 +143,16 @@ jobs:
 
   docker-builds:
     needs:
-      [
-        crates-build,
-        crates-lint,
-        crates-vet,
-        crates-test,
-        modules-lint,
-        modules-vet,
-        modules-test,
-        dashboard-ui-lint,
-        dashboard-ui-test,
-        dashboard-ui-build,
-      ]
+      - crates-build
+      - crates-lint
+      - crates-vet
+      - crates-test
+      - modules-lint
+      - modules-vet
+      - modules-test
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     strategy:
@@ -217,18 +215,16 @@ jobs:
 
   cli-builds:
     needs:
-      [
-        crates-build,
-        crates-lint,
-        crates-vet,
-        crates-test,
-        modules-lint,
-        modules-vet,
-        modules-test,
-        dashboard-ui-lint,
-        dashboard-ui-test,
-        dashboard-ui-build,
-      ]
+      - crates-build
+      - crates-lint
+      - crates-vet
+      - crates-test
+      - modules-lint
+      - modules-vet
+      - modules-test
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
     strategy:
       matrix:
         include:
@@ -262,17 +258,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-environment
         with:
-          node-version: 22
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.24.4"
-          cache: false
-
+          setup-node: "true"
+          setup-go: "true"
       - name: Setup k3s cluster using k3d
         uses: AbsaOSS/k3d-action@v2
         with:
@@ -282,7 +271,5 @@ jobs:
         uses: azure/setup-kubectl@v4
         with:
           version: v1.33.1
-
       - name: Test the kubetail logs command
-        run: |
-          make test-e2e
+        run: make test-e2e
