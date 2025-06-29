@@ -20,7 +20,7 @@ async fn main() -> eyre::Result<()> {
         .add_service(agent_health_service)
         .add_service(reflection_service)
         .add_service(LogMetadataServiceServer::new(LogMetadata {}))
-        .add_service(LogRecordsServiceServer::new(LogRecords {}))
+        .add_service(LogRecordsServiceServer::new(LogRecords::new()))
         .serve("[::]:50051".parse()?)
         .await
         .unwrap();

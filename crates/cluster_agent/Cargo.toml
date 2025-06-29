@@ -5,6 +5,15 @@ edition = "2024"
 
 [dependencies]
 
+prost = "0.13.5"
+prost-types = "0.13.5"
+prost-wkt = "0.6.1"
+prost-wkt-types = "0.6.1"
+
+crossbeam-channel = "0.5.14"
+
+rgkl = { path = "../rgkl" }
+
 thiserror = "2.0.11"
 types = {path="../types/"}
 tokio = { version = "1.42.0", features = ["full"] }

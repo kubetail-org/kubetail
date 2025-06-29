@@ -1,0 +1,123 @@
+Backward
+
+{
+  "namespace":  "default",
+  "podName":  "loggen-7c6897cb8d-7wwc8",
+  "containerName":  "loggen",
+  "containerId":  "containerd://ebe4e4cff3203a9a483499a61e9e31c5b75a88f8a3c87269aa07c045ee69b399"
+} 
+
+
+{
+  "timestamp":  "2025-06-27T10:38:38.283958510Z",
+  "message":  "13.250.24.2 - - [27/06/2025:10:38:38] \"POST /api/v1/users HTTP/1.1\" 200 162 \"-\" \"Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)\""
+}
+
+{
+  "timestamp":  "2025-06-27T10:38:36.667989884Z",
+  "message":  "78.21.94.129 - - [27/06/2025:10:38:36] \"GET /settings HTTP/1.1\" 200 162 \"-\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36\""
+}
+
+
+
+Forward
+
+{
+  "namespace":  "default",
+  "podName":  "loggen-7c6897cb8d-7wwc8",
+  "containerName":  "loggen",
+  "containerId":  "containerd://ebe4e4cff3203a9a483499a61e9e31c5b75a88f8a3c87269aa07c045ee69b399",
+  "followFrom":  "END"
+}
+
+
+
+
+
+
+{
+  "namespace":  "default",
+  "podName":  "loggen-7c6897cb8d-7wwc8",
+  "containerName":  "loggen",
+  "containerId":  "containerd://ebe4e4cff3203a9a483499a61e9e31c5b75a88f8a3c87269aa07c045ee69b399",
+  "startTime":  "2025-06-27T10:38:38.283958511Z"
+}
+
+2025-06-27T10:38:40.179699344Z DBG stdout channel closed component=logrecords/stream-forward json= request-id=YyeB8M1r
+
+
+
+
+
+
+GREP
+{
+  "namespace":  "default",
+  "podName":  "loggen-7c6897cb8d-78m49",
+  "containerName":  "loggen",
+  "containerId":  "containerd://98357bc3a285482b5a31ee3b68386c93c8106c88ca165832c1188604fa12b240",
+  "grep":  "(?i)abou",
+  "followFrom":  "END"
+}
+
+{
+  "timestamp":  "2025-06-27T11:14:21.975095592Z",
+  "message":  "13.250.24.2 - - [27/06/2025:11:14:21] \"GET /about HTTP/1.1\" 404 162 \"-\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36\""
+}
+
+{
+  "namespace":  "default",
+  "podName":  "loggen-7c6897cb8d-78m49",
+  "containerName":  "loggen",
+  "containerId":  "containerd://98357bc3a285482b5a31ee3b68386c93c8106c88ca165832c1188604fa12b240",
+  "startTime":  "2025-06-27T11:13:59.558907722Z",
+  "grep":  "(?i)abou"
+}
+
+Closed
+
+
+
+Command line
+
+grpcurl -plaintext -d '{
+  "namespace":  "default",
+  "podName":  "loggen-7c6897cb8d-78ctn",
+  "containerName":  "loggen",
+  "containerId":  "containerd://40a08df4249d14bdf34177d7981a983f1b74abd8bab4afa52e76b9828a293603",
+  "grep":  "(?i)abou",
+  "followFrom":  "END"
+}
+' localhost:50051 cluster_agent.LogRecordsService/StreamForward
+
+
+{
+  "timestamp": "2025-06-27T11:25:34.171423625Z",
+  "message": "25.1.4.140 - - [27/06/2025:11:25:34] \"GET /about HTTP/1.1\" 200 162 \"-\" \"Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)\""
+}
+
+
+
+default/loggen-7c6897cb8d-6lp7q 
+
+grpcurl -plaintext -d '{
+  "namespace":  "default",
+  "podName":  "loggen-7c6897cb8d-vvm77",
+  "containerName":  "loggen",
+  "containerId":  "containerd://15de72a868ab33946e246dd8ea2731b51181eedf135eb8e896c9b8310a9c5f6f",
+  "followFrom":  "END"
+}
+' localhost:50051 cluster_agent.LogRecordsService/StreamForward
+
+
+
+GET container id
+kubectl get pods --all-namespaces \
+  --field-selector spec.nodeName=minikube-m03 \
+  -o json | jq -r '
+    .items[] | 
+    . as $pod |
+    $pod.status.containerStatuses[]? | 
+    "\($pod.metadata.namespace)/\($pod.metadata.name) \(.containerID)"
+'
+

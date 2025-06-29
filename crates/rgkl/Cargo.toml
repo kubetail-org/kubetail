@@ -33,13 +33,10 @@ tempfile = "3.17.1"
 termcolor = "1.4.1"
 thiserror = "2.0.12"
 tonic = "0.13.0"
+tokio = { version = "1.42.0", features = ["sync"] }
 
 [target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
 version = "0.5.4"
-
-[[bin]]
-name = "rgkl"
-path = "src/main.rs"
 
 [profile.dev]
 incremental = true
