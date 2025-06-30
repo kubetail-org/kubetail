@@ -21,7 +21,6 @@ impl LogMetadataService for LogMetadata {
         &self,
         _request: Request<LogMetadataListRequest>,
     ) -> Result<Response<LogMetadataList>, Status> {
-        println!("1111111111111isdasdfasdfasfdsfda");
         todo!()
     }
     async fn watch(

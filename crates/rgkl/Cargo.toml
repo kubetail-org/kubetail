@@ -32,11 +32,12 @@ tempfile = "3.17.1"
 termcolor = "1.4.1"
 thiserror = "2.0.12"
 tonic = "0.13.0"
-tokio = { version = "1.42.0", features = ["sync"] }
+tokio = { version = "1.42.0", features = ["full"] }
 tokio-util = { version = "0.7.15", features = ["rt"] }
 tracing = "0.1.41"
 tracing-opentelemetry = { version = "0.31.0", features = ["metrics"] }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "fmt", "registry", "std"] }
+async-std = { version = "1.13.1", features = ["attributes"] }
 
 [target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
 version = "0.5.4"

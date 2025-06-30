@@ -34,8 +34,11 @@ impl<R: Read> Read for TermReader<R> {
         // check for termination before each read
         match self.term_rx.try_recv() {
             Ok(_) | Err(Closed) | Err(Lagged(_)) => {
-                print!("YOLOOOOOOOOOOOOOO");
-                return Err(io::Error::new(io::ErrorKind::Interrupted, "terminated"));
+                println!(
+                    "Error while checking for termination: {:?}",
+                    self.term_rx.try_recv()
+                );
+                return Ok(0);
             }
             Err(Empty) => {} // Channel is empty but still connected
         }

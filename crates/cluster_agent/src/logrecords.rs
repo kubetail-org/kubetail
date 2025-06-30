@@ -59,10 +59,8 @@ impl LogRecordsService for LogRecords {
         &self,
         request: Request<LogRecordsStreamRequest>,
     ) -> Result<Response<Self::StreamBackwardStream>, Status> {
-        println!("Request = {:?}", request);
-
         let file_path = self.get_log_filename(request.get_ref())?;
-        let (tx, rx) = mpsc::channel(10);
+        let (tx, rx) = mpsc::channel(100);
         let term_rx = self.term_tx.subscribe();
 
         self.task_tracker.spawn(async move {
@@ -76,11 +74,9 @@ impl LogRecordsService for LogRecords {
         &self,
         request: Request<LogRecordsStreamRequest>,
     ) -> Result<Response<Self::StreamForwardStream>, Status> {
-        println!("Request = {:?}", request);
-
         let file_path = self.get_log_filename(request.get_ref())?;
 
-        let (tx, rx) = mpsc::channel(10);
+        let (tx, rx) = mpsc::channel(100);
         let term_tx = self.term_tx.clone();
 
         self.task_tracker.spawn(async move {

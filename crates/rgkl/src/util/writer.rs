@@ -25,7 +25,6 @@ use tonic::Status;
 
 use prost_wkt_types::Timestamp;
 use serde_json;
-use tracing::warn;
 
 use crate::util::format::FileFormat;
 use types::cluster_agent::LogRecord;
@@ -77,7 +76,6 @@ where
         // process it as well.
         if !self.buffer.is_empty() {
             let line: Vec<u8> = self.buffer.drain(..).collect();
-            warn!("pok");
             (self.callback)(line);
         }
         Ok(())
@@ -114,7 +112,7 @@ pub fn process_output(
                                 };
 
                                 let sender = sender.clone();
-                                task::spawn_blocking(move || sender.blocking_send(Ok(record)));
+                                task::block_in_place(move || sender.blocking_send(Ok(record)));
                             }
                         }
                     }
@@ -127,7 +125,7 @@ pub fn process_output(
                             };
 
                             let sender = sender.clone();
-                            task::spawn_blocking(move || sender.blocking_send(Ok(record)));
+                            task::block_in_place(move || sender.blocking_send(Ok(record)));
                         }
                     }
                 }

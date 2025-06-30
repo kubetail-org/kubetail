@@ -24,8 +24,7 @@ async fn main() -> eyre::Result<()> {
         .with_max_level(tracing::Level::WARN)
         .init();
 
-    warn!("WAAAAAAAAAAAT");
-    let (term_tx, _) = broadcast::channel(5);
+    let (term_tx, _term_rx) = broadcast::channel(5);
 
     let task_tracker = TaskTracker::new();
 
@@ -37,7 +36,7 @@ async fn main() -> eyre::Result<()> {
             term_tx.clone(),
             task_tracker.clone(),
         )))
-        .serve_with_shutdown("[::]:50051".parse()?, shutdown_signal(term_tx))
+        .serve_with_shutdown("[::]:50051".parse()?, shutdown(term_tx))
         .await
         .unwrap();
 
@@ -49,7 +48,7 @@ async fn main() -> eyre::Result<()> {
     Ok(())
 }
 
-async fn shutdown_signal(term_tx: Sender<()>) {
+async fn shutdown(term_tx: Sender<()>) {
     let mut term = signal(SignalKind::terminate()).unwrap();
 
     tokio::select! {
