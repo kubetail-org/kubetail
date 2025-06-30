@@ -1,8 +1,10 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use tokio::sync::mpsc;
+use tokio::sync::broadcast::{Receiver, Sender};
+use tokio::sync::mpsc::{self};
 use tokio_stream::wrappers::ReceiverStream;
+use tokio_util::task::TaskTracker;
 use types::cluster_agent::log_records_service_server::LogRecordsService;
 use types::cluster_agent::{LogRecord, LogRecordsStreamRequest};
 
@@ -13,12 +15,16 @@ use tonic::{Request, Response, Status};
 #[derive(Debug)]
 pub struct LogRecords {
     logs_dir: &'static str,
+    term_tx: Sender<()>,
+    task_tracker: TaskTracker,
 }
 
 impl LogRecords {
-    pub fn new() -> Self {
+    pub fn new(term_tx: Sender<()>, task_tracker: TaskTracker) -> Self {
         Self {
             logs_dir: "/var/log/containers",
+            term_tx,
+            task_tracker,
         }
     }
 
@@ -57,9 +63,9 @@ impl LogRecordsService for LogRecords {
 
         let file_path = self.get_log_filename(request.get_ref())?;
         let (tx, rx) = mpsc::channel(10);
+        let term_rx = self.term_tx.subscribe();
 
-        tokio::spawn(async move {
-            let (term_tx, term_rx) = crossbeam_channel::unbounded();
+        self.task_tracker.spawn(async move {
             stream_backward::stream_backward(&file_path, None, None, None, term_rx, tx).await;
         });
 
@@ -75,16 +81,16 @@ impl LogRecordsService for LogRecords {
         let file_path = self.get_log_filename(request.get_ref())?;
 
         let (tx, rx) = mpsc::channel(10);
+        let term_tx = self.term_tx.clone();
 
-        tokio::spawn(async move {
-            let (term_tx, term_rx) = crossbeam_channel::unbounded();
+        self.task_tracker.spawn(async move {
             stream_forward::stream_forward(
                 &file_path,
                 None,
                 None,
                 None,
                 stream_forward::FollowFrom::End,
-                term_rx,
+                term_tx,
                 tx,
             )
             .await;

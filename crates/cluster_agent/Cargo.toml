@@ -10,8 +10,6 @@ prost-types = "0.13.5"
 prost-wkt = "0.6.1"
 prost-wkt-types = "0.6.1"
 
-crossbeam-channel = "0.5.14"
-
 rgkl = { path = "../rgkl" }
 
 thiserror = "2.0.11"
@@ -35,5 +33,6 @@ colored = "3.0.0"
 either = "1.13.0"
 eyre = "0.6.12"
 tokio-stream = { version = "0.1.17", features = ["full"] }
+tokio-util = { version = "0.7.15", features = ["rt"] }
 
 

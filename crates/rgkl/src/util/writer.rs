@@ -25,6 +25,7 @@ use tonic::Status;
 
 use prost_wkt_types::Timestamp;
 use serde_json;
+use tracing::warn;
 
 use crate::util::format::FileFormat;
 use types::cluster_agent::LogRecord;
@@ -76,6 +77,7 @@ where
         // process it as well.
         if !self.buffer.is_empty() {
             let line: Vec<u8> = self.buffer.drain(..).collect();
+            warn!("pok");
             (self.callback)(line);
         }
         Ok(())

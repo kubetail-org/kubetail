@@ -19,15 +19,23 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use crossbeam_channel::{select, unbounded, Receiver};
 use grep::{
     printer::JSONBuilder,
     searcher::{MmapChoice, SearcherBuilder},
 };
-use notify::{recommended_watcher, EventKind, RecursiveMode, Watcher};
-use tokio::sync::mpsc::Sender;
+use notify::{Config, Error, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use tokio::{
+    select,
+    sync::{
+        broadcast::Sender as BcSender,
+        mpsc::{self, Sender},
+    },
+};
 use tonic::Status;
+use tracing::warn;
 use types::cluster_agent::LogRecord;
+
+use tokio::sync::broadcast::{error::TryRecvError::*, Receiver};
 
 use crate::util::{
     format::FileFormat,
@@ -55,7 +63,7 @@ pub async fn stream_forward(
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&str>,
     follow_from: FollowFrom,
-    term_rx: Receiver<()>,
+    term_tx: BcSender<()>,
     sender: Sender<Result<LogRecord, Status>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut file = File::open(&path)?;
@@ -107,7 +115,7 @@ pub async fn stream_forward(
     };
 
     // Wrap in term reader
-    let term_reader = TermReader::new(reader, term_rx.clone());
+    let term_reader = TermReader::new(reader, term_tx.subscribe());
 
     // Init searcher
     let mut searcher = SearcherBuilder::new()
@@ -138,12 +146,16 @@ pub async fn stream_forward(
         }
     }
 
+    warn!("yo");
+
+    let mut term_rx = term_tx.subscribe();
     // Exit here if termination signal has been received
     match term_rx.try_recv() {
-        Ok(_) | Err(crossbeam_channel::TryRecvError::Disconnected) => {
+        Ok(_) | Err(Closed) | Err(Lagged(_)) => {
+            warn!("faaaaaaaAAAAAAAAAAAAAAAA");
             return Ok(()); // Exit cleanly
         }
-        Err(crossbeam_channel::TryRecvError::Empty) => {} // Channel is empty but still connected
+        Err(Empty) => {} // Channel is empty but still connected
     }
 
     // Exit if we didn't read to end
@@ -164,53 +176,74 @@ pub async fn stream_forward(
             let _ = searcher.search_slice(&matcher, input_str, sink);
         }
         None => {
+            warn!("fik");
             let matcher = PassThroughMatcher::new();
             let sink = printer.sink(&matcher);
             let _ = searcher.search_slice(&matcher, input_str, sink);
         }
     };
 
+    warn!("y2o");
     // Set up watcher
-    let (notify_tx, notify_rx) = unbounded();
+    let (notify_tx, mut notify_rx) = mpsc::channel(100);
 
-    let mut watcher = recommended_watcher(notify_tx)?;
+    let mut watcher = RecommendedWatcher::new(
+        move |result: Result<Event, Error>| {
+            warn!("mik?");
+            notify_tx.blocking_send(result);
+        },
+        Config::default(),
+    )?;
+
+    warn!("y22o");
     watcher.watch(&path, RecursiveMode::NonRecursive)?;
 
+    warn!("y2333o");
     let mut reader = BufReader::new(File::open(&path)?);
     reader.seek(SeekFrom::End(0))?;
 
     // Listen for changes
     'outer: loop {
+        warn!("3434y2o");
+
         select! {
-            recv(notify_rx) -> ev => {
+            ev = notify_rx.recv() => {
+                warn!("faaaaaaaAAAAAAAAA33333AAAAAAA");
                 match ev {
-                    Ok(event) => {
-                        if let EventKind::Modify(_) = event?.kind {
+                    Some(Ok(event)) => {
+                        if let EventKind::Modify(_) = event.kind {
                             for line in (&mut reader).lines() {
-                                select! {
-                                    recv(term_rx) -> _ => {
-                                        break 'outer;
-                                    },
-                                    default => {
+                                match term_rx.try_recv() {
+                                    Err(Empty) =>{
                                         match line {
-                                            Ok(l) => search_slice(l.as_bytes()),
+                                            Ok(l) => {
+                                                warn!("f1aaaaaaaAAAAAAAAAAAAAAAA");
+                                                search_slice(l.as_bytes());
+                                            },
                                             Err(e) => {
+                                                warn!("faaaaaaaAAAAAAAAA33333AAAAAAA");
                                                 return Err(Box::new(e));
                                             }
-                                        }
+                                        };
+                                    },
+                                    _ => {
+                                        break 'outer;
                                     }
                                 }
                             }
                         }
                     },
-                    Err(e) => {
+                    Some(Err(e)) => {
                         return Err(Box::new(e));
+                    }
+                    None => {
+                        return Err("Notify channel closed".into());
                     }
                 }
             },
-            recv(term_rx) -> _ => {
-                break 'outer;
-            }
+            _ = term_rx.recv() => {
+                    break 'outer;
+            },
         }
     }
 

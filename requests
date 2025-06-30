@@ -102,13 +102,21 @@ default/loggen-7c6897cb8d-6lp7q
 
 grpcurl -plaintext -d '{
   "namespace":  "default",
-  "podName":  "loggen-7c6897cb8d-vvm77",
+  "podName":  "loggen-7c6897cb8d-c5kc6",
   "containerName":  "loggen",
-  "containerId":  "containerd://15de72a868ab33946e246dd8ea2731b51181eedf135eb8e896c9b8310a9c5f6f",
+  "containerId":  "containerd://bd2c549341787a9f613073c56555b98a2ff737a972c95fd85d6173a23404cc4d",
   "followFrom":  "END"
 }
 ' localhost:50051 cluster_agent.LogRecordsService/StreamForward
 
+
+grpcurl -plaintext -d '{
+  "namespace":  "default",
+  "podName":  "loggen-7c6897cb8d-gpsvf",
+  "containerName":  "loggen",
+  "containerId":  "containerd://b95964c21e9a3e477d1bc6b83b5d2012a4af02666de93704b0382732bdeca5a8",
+}
+' localhost:50051 cluster_agent.LogRecordsService/StreamBackward
 
 
 GET container id

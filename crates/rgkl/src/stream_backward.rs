@@ -14,12 +14,11 @@
 
 use std::{fs::File, path::PathBuf};
 
-use tokio::sync::mpsc::Sender;
+use tokio::sync::{broadcast::Receiver, mpsc::Sender};
 use tonic::Status;
 use types::cluster_agent::LogRecord;
 
 use chrono::{DateTime, Utc};
-use crossbeam_channel::Receiver;
 use grep::{
     printer::JSONBuilder,
     searcher::{MmapChoice, SearcherBuilder},

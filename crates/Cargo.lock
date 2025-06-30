@@ -319,7 +319,6 @@ dependencies = [
  "anyhow",
  "clap",
  "colored",
- "crossbeam-channel",
  "either",
  "eyre",
  "opentelemetry-appender-tracing",
@@ -334,6 +333,7 @@ dependencies = [
  "thiserror 2.0.12",
  "tokio",
  "tokio-stream",
+ "tokio-util",
  "tonic",
  "tonic-health",
  "tonic-reflection",
@@ -1972,7 +1972,6 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "clap",
- "crossbeam-channel",
  "eyre",
  "grep",
  "grep-cli",
@@ -1998,7 +1997,11 @@ dependencies = [
  "termcolor",
  "thiserror 2.0.12",
  "tokio",
+ "tokio-util",
  "tonic",
+ "tracing",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
  "types",
 ]
 
@@ -2402,6 +2405,8 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
+ "futures-util",
+ "hashbrown",
  "pin-project-lite",
  "tokio",
 ]

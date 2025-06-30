@@ -7,7 +7,6 @@ edition = "2021"
 [dependencies]
 chrono = "0.4.41"
 clap = { version = "4.5.40", features = ["derive"] }
-crossbeam-channel = "0.5.14"
 types = {path="../types"}
 eyre = "0.6.12"
 grep = "0.3.2"
@@ -34,6 +33,10 @@ termcolor = "1.4.1"
 thiserror = "2.0.12"
 tonic = "0.13.0"
 tokio = { version = "1.42.0", features = ["sync"] }
+tokio-util = { version = "0.7.15", features = ["rt"] }
+tracing = "0.1.41"
+tracing-opentelemetry = { version = "0.31.0", features = ["metrics"] }
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "fmt", "registry", "std"] }
 
 [target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
 version = "0.5.4"
