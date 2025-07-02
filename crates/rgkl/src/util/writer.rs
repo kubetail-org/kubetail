@@ -43,7 +43,7 @@ where
     F: Fn(Vec<u8>),
 {
     /// Creates a new CallbackWriter with an empty buffer.
-    pub fn new(callback: F) -> Self {
+    pub const fn new(callback: F) -> Self {
         Self {
             callback,
             buffer: Vec::new(),
@@ -64,6 +64,7 @@ where
             // Drain the buffer up to and including the newline character.
             let line: Vec<u8> = self.buffer.drain(..=pos).collect();
             // Call the callback with the complete line.
+
             (self.callback)(line);
         }
 
@@ -78,6 +79,7 @@ where
             let line: Vec<u8> = self.buffer.drain(..).collect();
             (self.callback)(line);
         }
+
         Ok(())
     }
 }
@@ -87,6 +89,7 @@ pub fn process_output(
     chunk: Vec<u8>,
     sender: &Sender<Result<LogRecord, Status>>,
     format: FileFormat,
+    term_tx: tokio::sync::broadcast::Sender<()>,
 ) {
     // For example, convert to string and print.
     let json: serde_json::Value = serde_json::from_slice(&chunk).unwrap();
@@ -112,7 +115,12 @@ pub fn process_output(
                                 };
 
                                 let sender = sender.clone();
-                                task::block_in_place(move || sender.blocking_send(Ok(record)));
+                                let result =
+                                    task::block_in_place(move || sender.blocking_send(Ok(record)));
+                                if result.is_err() {
+                                    println!("Channel closed from client.");
+                                    let _ = term_tx.send(());
+                                }
                             }
                         }
                     }
@@ -125,7 +133,12 @@ pub fn process_output(
                             };
 
                             let sender = sender.clone();
-                            task::block_in_place(move || sender.blocking_send(Ok(record)));
+                            let result =
+                                task::block_in_place(move || sender.blocking_send(Ok(record)));
+                            if result.is_err() {
+                                println!("Channel closed from client.");
+                                let _ = term_tx.send(());
+                            }
                         }
                     }
                 }

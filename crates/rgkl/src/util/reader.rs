@@ -14,7 +14,10 @@
 
 use std::io::{self, Read, Seek, SeekFrom};
 
-use tokio::sync::broadcast::{error::TryRecvError::*, Receiver};
+use tokio::sync::broadcast::{
+    error::TryRecvError::{Closed, Empty, Lagged},
+    Receiver,
+};
 
 const CHUNK_SIZE: usize = 64 * 1024; // 64KB
 
@@ -24,7 +27,7 @@ pub struct TermReader<R> {
 }
 
 impl<R: Read> TermReader<R> {
-    pub fn new(inner: R, term_rx: Receiver<()>) -> Self {
+    pub const fn new(inner: R, term_rx: Receiver<()>) -> Self {
         Self { inner, term_rx }
     }
 }

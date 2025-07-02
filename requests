@@ -104,9 +104,9 @@ tb6jc containerd://1d0b14f475839fdf91aca3a56674f5326fe9b51074476bdeb336958cc8472
 
 grpcurl -plaintext -d '{
   "namespace":  "default",
-  "podName":  "loggen-7c6897cb8d-tb6jc",
+  "podName":  "loggen-7c6897cb8d-kkx56",
   "containerName":  "loggen",
-  "containerId":  "containerd://1d0b14f475839fdf91aca3a56674f5326fe9b51074476bdeb336958cc84725bb",
+  "containerId":  "containerd://bd0876cdc85a011b4b694bc914a3da3b06618132e60b6a0fd4ceb71768784a90",
   "followFrom":  "END"
 }
 ' localhost:50051 cluster_agent.LogRecordsService/StreamForward

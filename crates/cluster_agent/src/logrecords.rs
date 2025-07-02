@@ -21,7 +21,7 @@ pub struct LogRecords {
 }
 
 impl LogRecords {
-    pub fn new(term_tx: Sender<()>, task_tracker: TaskTracker) -> Self {
+    pub const fn new(term_tx: Sender<()>, task_tracker: TaskTracker) -> Self {
         Self {
             logs_dir: "/var/log/containers",
             term_tx,
@@ -63,7 +63,7 @@ impl LogRecordsService for LogRecords {
         let request = request.into_inner();
         let file_path = self.get_log_filename(&request)?;
         let (tx, rx) = mpsc::channel(100);
-        let term_rx = self.term_tx.subscribe();
+        let term_tx = self.term_tx.clone();
 
         self.task_tracker.spawn(async move {
             stream_backward::stream_backward(
@@ -75,7 +75,7 @@ impl LogRecordsService for LogRecords {
                 } else {
                     Some(&request.grep)
                 },
-                term_rx,
+                term_tx,
                 tx,
             )
             .await;

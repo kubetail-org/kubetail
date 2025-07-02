@@ -112,7 +112,7 @@ pub async fn stream_forward(
         .build();
 
     // Init writer
-    let writer_fn = |chunk: Vec<u8>| process_output(chunk, &sender, format);
+    let writer_fn = |chunk: Vec<u8>| process_output(chunk, &sender, format, term_tx.clone());
     let writer = CallbackWriter::new(writer_fn);
 
     // Init printer

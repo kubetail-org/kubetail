@@ -14,7 +14,7 @@
 
 use std::{fs::File, path::PathBuf};
 
-use tokio::sync::{broadcast::Receiver, mpsc::Sender};
+use tokio::sync::{broadcast::Sender as BcSender, mpsc::Sender};
 use tonic::Status;
 use types::cluster_agent::LogRecord;
 
@@ -37,11 +37,11 @@ pub async fn stream_backward(
     start_time: Option<DateTime<Utc>>,
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&str>,
-    term_rx: Receiver<()>,
+    term_tx: BcSender<()>,
     sender: Sender<Result<LogRecord, Status>>,
 ) -> eyre::Result<()> {
     // Open file
-    let file = File::open(&path)?;
+    let file = File::open(path)?;
     let max_offset = file.metadata()?.len();
 
     // Determine format based on filename
@@ -76,7 +76,7 @@ pub async fn stream_backward(
     // Wrap in term reader
     let term_reverse_reader = TermReader::new(
         ReverseLineReader::new(file, start_pos, end_pos).unwrap(),
-        term_rx,
+        term_tx.subscribe(),
     );
 
     // Init searcher
@@ -86,26 +86,23 @@ pub async fn stream_backward(
         .build();
 
     // Init writer
-    let writer_fn = |chunk: Vec<u8>| process_output(chunk, &sender, format);
+    let writer_fn = |chunk: Vec<u8>| process_output(chunk, &sender, format, term_tx.clone());
     let writer = CallbackWriter::new(writer_fn);
 
     // Init printer
     let mut printer = JSONBuilder::new().build(writer);
 
     // Remove leading and trailing whitespace
-    let trimmed_grep = grep.map(|grep| grep.trim()).filter(|grep| grep.is_empty());
+    let trimmed_grep = grep.map(str::trim).filter(|grep| grep.is_empty());
 
-    match trimmed_grep {
-        Some(grep) => {
-            let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
-            let sink = printer.sink(&matcher);
-            let _ = searcher.search_reader(&matcher, term_reverse_reader, sink);
-        }
-        None => {
-            let matcher = PassThroughMatcher::new();
-            let sink = printer.sink(&matcher);
-            let _ = searcher.search_reader(&matcher, term_reverse_reader, sink);
-        }
+    if let Some(grep) = trimmed_grep {
+        let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
+        let sink = printer.sink(&matcher);
+        let _ = searcher.search_reader(&matcher, term_reverse_reader, sink);
+    } else {
+        let matcher = PassThroughMatcher::new();
+        let sink = printer.sink(&matcher);
+        let _ = searcher.search_reader(&matcher, term_reverse_reader, sink);
     }
 
     Ok(())
@@ -188,12 +185,12 @@ mod test {
         };
 
         // Create a channel for termination signal
-        let (_term_tx, term_rx) = broadcast::channel(5);
+        let (term_tx, _term_rx) = broadcast::channel(5);
 
         // Create output channel
         let (tx, mut rx) = mpsc::channel(100);
 
-        stream_backward(&path, start_time, None, None, term_rx, tx).await;
+        let _ = stream_backward(&path, start_time, None, None, term_tx, tx).await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
@@ -229,12 +226,12 @@ mod test {
         };
 
         // Create a channel for termination signal
-        let (_term_tx, term_rx) = broadcast::channel(5);
+        let (term_tx, _term_rx) = broadcast::channel(5);
 
         // Create output channel
         let (tx, mut rx) = mpsc::channel(100);
 
-        stream_backward(&path, None, stop_time, None, term_rx, tx).await;
+        let _ = stream_backward(&path, None, stop_time, None, term_tx, tx).await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
@@ -280,12 +277,12 @@ mod test {
         };
 
         // Create a channel for termination signal
-        let (_term_tx, term_rx) = broadcast::channel(5);
+        let (term_tx, _term_rx) = broadcast::channel(5);
 
         // Create output channel
         let (tx, mut rx) = mpsc::channel(100);
 
-        stream_backward(&path, start_time, stop_time, None, term_rx, tx).await;
+        let _ = stream_backward(&path, start_time, stop_time, None, term_tx, tx).await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
