@@ -3,4 +3,5 @@ node_modules
 /modules/dashboard/website
 /dashboard-ui/.env*.local
 crates/*/target
+crates/target
 target

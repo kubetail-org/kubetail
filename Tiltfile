@@ -61,15 +61,14 @@ if build_rust_locally:
     # --- Copy to .tilt directory ---
     out_dir="../.tilt"
     mkdir -p "$out_dir"
-    cp "target/${target}/debug/rgkl" "$out_dir"
     cp "target/${target}/debug/cluster_agent" "$out_dir/cluster-agent"
     ''',
     deps=[
-      "./crates/cluster_agent/src",
-      "./crates/rgkl/src",
-      "./crates/rgkl/Cargo.toml",
-      "./crates/rgkl/Cargo.lock",
+      "./crates",
       "./proto",
+    ],
+    ignore=[
+      './crates/target'
     ],
   )
 
@@ -88,22 +87,6 @@ if build_rust_locally:
     ]
   )
 else:
-  local_resource(
-    'kubetail-cluster-agent-compile',
-    '''
-    cd modules
-
-    # --- Build Go binary   ---
-    export CGO_ENABLED=0
-    export GOOS=linux
-    go build -o ../.tilt/cluster-agent ./cluster-agent/cmd/main.go
-    ''',
-    deps=[
-      './modules/cluster-agent',
-      './modules/shared'
-    ]
-  )
-
   docker_build_with_restart(
     'kubetail-cluster-agent',
     dockerfile='hack/tilt/Dockerfile.kubetail-cluster-agent',
