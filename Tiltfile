@@ -158,7 +158,7 @@ k8s_yaml('hack/tilt/loggen.yaml')
 k8s_yaml('hack/tilt/loggen-ansi.yaml')
 k8s_yaml('hack/tilt/echoserver.yaml')
 k8s_yaml('hack/tilt/cronjob.yaml')
-#k8s_yaml('hack/tilt/chaoskube.yaml')
+k8s_yaml('hack/tilt/chaoskube.yaml')
 
 # define resources
 k8s_resource(
@@ -222,16 +222,16 @@ k8s_resource(
   new_name='kubetail-cli',
 )
 
-#k8s_resource(
-#  'chaoskube',
-#  objects=[
-#    'chaoskube:serviceaccount',
-##    'chaoskube:clusterrole',
-#    'chaoskube:clusterrolebinding',
-#    'chaoskube:role',
-#    'chaoskube:rolebinding'
-#  ]
-#)
+k8s_resource(
+  'chaoskube',
+  objects=[
+    'chaoskube:serviceaccount',
+    'chaoskube:clusterrole',
+    'chaoskube:clusterrolebinding',
+    'chaoskube:role',
+    'chaoskube:rolebinding'
+  ]
+)
 
 k8s_resource(
   'echoserver',
