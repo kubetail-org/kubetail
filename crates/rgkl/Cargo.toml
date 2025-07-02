@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 chrono = "0.4.41"
-clap = { version = "4.5.40", features = ["derive"] }
 types = {path="../types"}
 eyre = "0.6.12"
 grep = "0.3.2"

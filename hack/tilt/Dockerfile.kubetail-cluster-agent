@@ -7,14 +7,12 @@ RUN apt-get update && apt-get install -yq protobuf-compiler
 # Install Rust dependencies (for cache)
 COPY crates/ ./crates
 COPY proto/ ./proto
-RUN cd crates && cargo fetch --target x86_64-unknown-linux-musl
-
-RUN rustup target add x86_64-unknown-linux-musl
+RUN cd crates && cargo fetch
 
 # Build
-RUN cd crates && cargo build --release --target x86_64-unknown-linux-musl
+RUN cd crates && cargo build --release
 
-FROM rust:1.88-alpine
+FROM rust:1.88-slim
 
 WORKDIR /cluster-agent
 

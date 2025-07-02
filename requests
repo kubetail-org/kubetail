@@ -100,11 +100,13 @@ grpcurl -plaintext -d '{
 
 default/loggen-7c6897cb8d-6lp7q 
 
+tb6jc containerd://1d0b14f475839fdf91aca3a56674f5326fe9b51074476bdeb336958cc84725bb
+
 grpcurl -plaintext -d '{
   "namespace":  "default",
-  "podName":  "loggen-7c6897cb8d-c5kc6",
+  "podName":  "loggen-7c6897cb8d-tb6jc",
   "containerName":  "loggen",
-  "containerId":  "containerd://bd2c549341787a9f613073c56555b98a2ff737a972c95fd85d6173a23404cc4d",
+  "containerId":  "containerd://1d0b14f475839fdf91aca3a56674f5326fe9b51074476bdeb336958cc84725bb",
   "followFrom":  "END"
 }
 ' localhost:50051 cluster_agent.LogRecordsService/StreamForward
@@ -128,4 +130,17 @@ kubectl get pods --all-namespaces \
     $pod.status.containerStatuses[]? | 
     "\($pod.metadata.namespace)/\($pod.metadata.name) \(.containerID)"
 '
+
+
+
+use jemalloc,
+"background_threads_runtime_support not supported for x86_64-unknown-linux-musl" any ideas?
+// See https://github.com/BurntSushi/ripgrep/blob/master/crates/core/main.rs#L19
+#[cfg(all(target_env = "musl", target_pointer_width = "64"))]
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
+
+tls,
+configuration
 

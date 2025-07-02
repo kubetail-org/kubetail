@@ -1,7 +1,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use tokio::sync::broadcast::{Receiver, Sender};
+use chrono::{DateTime, Utc};
+use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::{self};
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::task::TaskTracker;
@@ -59,12 +60,25 @@ impl LogRecordsService for LogRecords {
         &self,
         request: Request<LogRecordsStreamRequest>,
     ) -> Result<Response<Self::StreamBackwardStream>, Status> {
-        let file_path = self.get_log_filename(request.get_ref())?;
+        let request = request.into_inner();
+        let file_path = self.get_log_filename(&request)?;
         let (tx, rx) = mpsc::channel(100);
         let term_rx = self.term_tx.subscribe();
 
         self.task_tracker.spawn(async move {
-            stream_backward::stream_backward(&file_path, None, None, None, term_rx, tx).await;
+            stream_backward::stream_backward(
+                &file_path,
+                request.start_time.parse::<DateTime<Utc>>().ok(),
+                request.stop_time.parse::<DateTime<Utc>>().ok(),
+                if request.grep.is_empty() {
+                    None
+                } else {
+                    Some(&request.grep)
+                },
+                term_rx,
+                tx,
+            )
+            .await;
         });
 
         Ok(Response::new(ReceiverStream::new(rx)))
@@ -74,7 +88,8 @@ impl LogRecordsService for LogRecords {
         &self,
         request: Request<LogRecordsStreamRequest>,
     ) -> Result<Response<Self::StreamForwardStream>, Status> {
-        let file_path = self.get_log_filename(request.get_ref())?;
+        let request = request.into_inner();
+        let file_path = self.get_log_filename(&request)?;
 
         let (tx, rx) = mpsc::channel(100);
         let term_tx = self.term_tx.clone();
@@ -82,10 +97,14 @@ impl LogRecordsService for LogRecords {
         self.task_tracker.spawn(async move {
             stream_forward::stream_forward(
                 &file_path,
-                None,
-                None,
-                None,
-                stream_forward::FollowFrom::End,
+                request.start_time.parse::<DateTime<Utc>>().ok(),
+                request.stop_time.parse::<DateTime<Utc>>().ok(),
+                if request.grep.is_empty() {
+                    None
+                } else {
+                    Some(&request.grep)
+                },
+                request.follow_from(),
                 term_tx,
                 tx,
             )

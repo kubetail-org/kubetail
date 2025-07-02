@@ -1,8 +1,7 @@
 use tokio::signal::{ctrl_c, unix::*};
 use tokio::sync::broadcast::{self, Sender};
-use tokio_util::task::{TaskTracker, task_tracker};
+use tokio_util::task::TaskTracker;
 use tonic::transport::Server;
-use tracing::{trace, warn};
 use types::cluster_agent::FILE_DESCRIPTOR_SET;
 use types::cluster_agent::log_metadata_service_server::LogMetadataServiceServer;
 use types::cluster_agent::log_records_service_server::LogRecordsServiceServer;
@@ -54,11 +53,11 @@ async fn shutdown(term_tx: Sender<()>) {
     tokio::select! {
         _ = ctrl_c()  => {
             println!("SIGINT received, initiating shutdown..");
-            term_tx.send(());
+            let _ = term_tx.send(());
         },
         _ = term.recv() => {
             println!("SIGTERM received, initiating shutdown..");
-            term_tx.send(());
+            let _ = term_tx.send(());
         },
     }
 }

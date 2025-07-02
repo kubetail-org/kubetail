@@ -32,9 +32,9 @@ use tokio::{
     },
 };
 use tonic::Status;
-use types::cluster_agent::LogRecord;
+use types::cluster_agent::{FollowFrom, LogRecord};
 
-use tokio::sync::broadcast::error::TryRecvError::*;
+use tokio::sync::broadcast::error::TryRecvError::{Closed, Empty, Lagged};
 
 use crate::util::{
     format::FileFormat,
@@ -43,17 +43,6 @@ use crate::util::{
     reader::TermReader,
     writer::{process_output, CallbackWriter},
 };
-
-/// Enum representing the position to follow from in a stream
-#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
-pub enum FollowFrom {
-    /// Don't follow
-    Noop,
-    /// Follow from the start_time argument if present, beginning if not
-    Default,
-    /// Follow from the end of the file
-    End,
-}
 
 /// Entrypoint
 pub async fn stream_forward(
@@ -65,7 +54,7 @@ pub async fn stream_forward(
     term_tx: BcSender<()>,
     sender: Sender<Result<LogRecord, Status>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut file = File::open(&path)?;
+    let mut file = File::open(path)?;
 
     let max_offset = file.metadata()?.len();
 
@@ -130,25 +119,22 @@ pub async fn stream_forward(
     let mut printer = JSONBuilder::new().build(writer);
 
     // Remove leading and trailing whitespace
-    let trimmed_grep = grep.map(|grep| grep.trim()).filter(|grep| grep.is_empty());
+    let trimmed_grep = grep.map(str::trim).filter(|grep| grep.is_empty());
 
-    match trimmed_grep {
-        Some(grep) => {
-            let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
-            let sink = printer.sink(&matcher);
-            let _ = searcher.search_reader(&matcher, term_reader, sink);
-        }
-        None => {
-            let matcher = PassThroughMatcher::new();
-            let sink = printer.sink(&matcher);
-            let _ = searcher.search_reader(&matcher, term_reader, sink);
-        }
+    if let Some(grep) = trimmed_grep {
+        let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
+        let sink = printer.sink(&matcher);
+        let _ = searcher.search_reader(&matcher, term_reader, sink);
+    } else {
+        let matcher = PassThroughMatcher::new();
+        let sink = printer.sink(&matcher);
+        let _ = searcher.search_reader(&matcher, term_reader, sink);
     }
 
     let mut term_rx = term_tx.subscribe();
     // Exit here if termination signal has been received
     match term_rx.try_recv() {
-        Ok(_) | Err(Closed) | Err(Lagged(_)) => {
+        Ok(_) | Err(Closed | Lagged(_)) => {
             return Ok(()); // Exit cleanly
         }
         Err(Empty) => {} // Channel is empty but still connected
@@ -165,13 +151,12 @@ pub async fn stream_forward(
     }
 
     // Follow
-    let mut search_slice = |input_str: &[u8]| match trimmed_grep {
-        Some(grep) => {
+    let mut search_slice = |input_str: &[u8]| {
+        if let Some(grep) = trimmed_grep {
             let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
             let sink = printer.sink(&matcher);
             let _ = searcher.search_slice(&matcher, input_str, sink);
-        }
-        None => {
+        } else {
             let matcher = PassThroughMatcher::new();
             let sink = printer.sink(&matcher);
             let _ = searcher.search_slice(&matcher, input_str, sink);
@@ -183,14 +168,14 @@ pub async fn stream_forward(
 
     let mut watcher = RecommendedWatcher::new(
         move |result: Result<Event, Error>| {
-            notify_tx.blocking_send(result);
+            let _ = notify_tx.blocking_send(result);
         },
         Config::default(),
     )?;
 
-    watcher.watch(&path, RecursiveMode::NonRecursive)?;
+    watcher.watch(path, RecursiveMode::NonRecursive)?;
 
-    let mut reader = BufReader::new(File::open(&path)?);
+    let mut reader = BufReader::new(File::open(path)?);
     reader.seek(SeekFrom::End(0))?;
 
     // Listen for changes
@@ -210,7 +195,7 @@ pub async fn stream_forward(
                                             Err(e) => {
                                                 return Err(Box::new(e));
                                             }
-                                        };
+                                        }
                                     },
                                     _ => {
                                         break 'outer;
@@ -340,7 +325,7 @@ mod test {
         let (tx, mut rx) = mpsc::channel(100);
 
         // Call run method
-        stream_forward(
+        let _ = stream_forward(
             &path,
             start_time,
             None,             // No stop time
@@ -391,7 +376,7 @@ mod test {
         let (tx, mut rx) = mpsc::channel(100);
 
         // Call run method
-        stream_forward(
+        let _ = stream_forward(
             &path,
             None, // No start time
             stop_time,
@@ -451,7 +436,7 @@ mod test {
         let (tx, mut rx) = mpsc::channel(100);
 
         // Call run method
-        stream_forward(
+        let _ = stream_forward(
             &path,
             start_time,
             stop_time,
@@ -520,12 +505,12 @@ mod test {
                 std::thread::sleep(std::time::Duration::from_millis(100));
 
                 // Terminate the stream
-                tx.send(());
+                let _ = tx.send(());
             });
         }
 
         // Call run method
-        stream_forward(
+        let _ = stream_forward(
             &path,
             start_time,
             None, // No stop time
