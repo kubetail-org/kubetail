@@ -29,7 +29,7 @@ impl LogRecords {
         }
     }
 
-    fn get_log_filename(&self, request: &LogRecordsStreamRequest) -> Result<PathBuf, Status> {
+    fn get_log_filename(&self, request: &LogRecordsStreamRequest) -> Result<PathBuf, Box<Status>> {
         let container_id = match request.container_id.split_once("://") {
             Some((_, second)) => second,
             None => &request.container_id,
@@ -46,7 +46,8 @@ impl LogRecords {
             Err(Status::new(
                 tonic::Code::NotFound,
                 format!("log file not found: {}", path.to_string_lossy()),
-            ))
+            )
+            .into())
         }
     }
 }
@@ -61,7 +62,7 @@ impl LogRecordsService for LogRecords {
         request: Request<LogRecordsStreamRequest>,
     ) -> Result<Response<Self::StreamBackwardStream>, Status> {
         let request = request.into_inner();
-        let file_path = self.get_log_filename(&request)?;
+        let file_path = self.get_log_filename(&request).map_err(|status| *status)?;
         let (tx, rx) = mpsc::channel(100);
         let term_tx = self.term_tx.clone();
 
@@ -89,7 +90,7 @@ impl LogRecordsService for LogRecords {
         request: Request<LogRecordsStreamRequest>,
     ) -> Result<Response<Self::StreamForwardStream>, Status> {
         let request = request.into_inner();
-        let file_path = self.get_log_filename(&request)?;
+        let file_path = self.get_log_filename(&request).map_err(|status| *status)?;
 
         let (tx, rx) = mpsc::channel(100);
         let term_tx = self.term_tx.clone();
