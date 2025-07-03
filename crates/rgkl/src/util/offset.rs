@@ -190,14 +190,14 @@ fn parse_timestamp(
                 let ts = DateTime::parse_from_rfc3339(timestamp)?.with_timezone(&Utc);
                 Ok(ts)
             } else {
-                Err(format!("missing timestamp field in JSON log: {}", line).into())
+                Err(format!("missing timestamp field in JSON log: {line}").into())
             }
         }
         FileFormat::CRI => {
             // Original CRI format parsing
             let parts: Vec<&str> = line.splitn(2, ' ').collect();
             if parts.len() < 2 {
-                return Err(format!("invalid log line: {}", line).into());
+                return Err(format!("invalid log line: {line}").into());
             }
             let ts = DateTime::parse_from_rfc3339(parts[0])?.with_timezone(&Utc);
             Ok(ts)
