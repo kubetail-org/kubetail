@@ -85,11 +85,25 @@ jobs:
           (Get-FileHash -Algorithm SHA256 "${file}.zip").Hash |
             Out-File -FilePath "${file}.zip.sha256" -Encoding ascii
           Remove-Item kubetail.exe
-      - name: Upload artifact
+      - id: upload-artifact
+        name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
           path: bin/*
+      - name: Sign Windows Binary
+        if: matrix.GOOS == 'windows'
+        uses: signpath/github-action-submit-signing-request@v1.1
+        with:
+          api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
+          organization-id: '${{ secrets.SIGNPATH_ORGANIZATION_ID }}'
+          project-slug: 'kubetail'
+          signing-policy-slug: 'test-signing'
+          github-artifact-id: '${{ steps.upload-artifact.outputs.artifact-id }}'
+          wait-for-completion: true
+          output-artifact-directory: 'bin'
+          parameters: |
+            version: ${{ steps.tagName.outputs.tag }}
 
   package-deb:
     name: Build deb package
