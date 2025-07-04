@@ -103,7 +103,9 @@ jobs:
           wait-for-completion: true
           output-artifact-directory: 'bin'
           parameters: |
-            version: ${{ steps.tagName.outputs.tag }}
+            os: ${{ toJSON(matrix.GOOS) }}
+            arch: ${{ toJSON(matrix.GOARCH) }}
+            version: ${{ toJSON(steps.tagName.outputs.tag) }}
 
   package-deb:
     name: Build deb package
