@@ -5,10 +5,15 @@
   xsi:schemaLocation="http://signpath.io/artifact-configuration/v1 https://app.signpath.io/Web/artifact-configuration/v1.xsd"
 >
   <parameters>
+    <parameter name="os" required="true" />
+    <parameter name="arch" required="true" />
     <parameter name="version" required="true" />
   </parameters>
   <zip-file>
-    <pe-file path="*" product-name="kubetail" product-version="${version}"> 
+    <pe-file path="kubetail-${os}-${arch}" product-name="kubetail" product-version="${version}"> 
+      <authenticode-sign/> 
+    </pe-file>
+    <pe-file path="kubetail-${os}-${arch}.zip" product-name="kubetail" product-version="${version}"> 
       <authenticode-sign/> 
     </pe-file>
   </zip-file>
