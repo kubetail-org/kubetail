@@ -6,7 +6,7 @@ toolchain go1.24.4
 
 replace github.com/gorilla/csrf => github.com/gorilla/csrf v1.7.2
 
-replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
+replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.9.0
 
 require (
 	github.com/99designs/gqlgen v0.17.75
