@@ -16,8 +16,8 @@ import { useQuery, useSubscription } from '@apollo/client';
 import { format, toZonedTime } from 'date-fns-tz';
 import { stripAnsi } from 'fancy-ansi';
 import { AnsiHtml } from 'fancy-ansi/react';
-import { RecoilRoot, atom, useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
-import {
+import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
+import React, {
   createContext,
   forwardRef,
   memo,
@@ -91,50 +91,23 @@ export const allViewerColumns = [
  * State
  */
 
-const logRecordsState = atom({
-  key: 'logFeedLogRecords',
-  default: new Array<LogRecord>(),
-});
+const logRecordsState = atom(new Array<LogRecord>());
 
-const isReadyState = atom({
-  key: 'logFeedIsReady',
-  default: false,
-});
+const isReadyState = atom(false);
 
-const isLoadingState = atom({
-  key: 'logFeedIsLoading',
-  default: true,
-});
+const isLoadingState = atom(true);
 
-const isFollowState = atom({
-  key: 'logFeedIsFollow',
-  default: true,
-});
+const isFollowState = atom(true);
 
-const visibleColsState = atom({
-  key: 'logFeedVisibleCols',
-  default: new Set([ViewerColumn.Timestamp, ViewerColumn.ColorDot, ViewerColumn.Message]),
-});
+const visibleColsState = atom(new Set([ViewerColumn.Timestamp, ViewerColumn.ColorDot, ViewerColumn.Message]));
 
-const isWrapState = atom({
-  key: 'logFeedIsWrap',
-  default: false,
-});
+const isWrapState = atom(false);
 
-const colWidthsState = atom({
-  key: 'logFeedColWidths',
-  default: new Map<ViewerColumn, number>(),
-});
+const colWidthsState = atom(new Map<ViewerColumn, number>());
 
-const maxRowWidthState = atom({
-  key: 'logFeedMaxRowWidth',
-  default: 0,
-});
+const maxRowWidthState = atom(0);
 
-const filtersState = atom({
-  key: 'logFeedFilters',
-  default: new MapSet<string, string>(),
-});
+const filtersState = atom(new MapSet<string, string>());
 
 /**
  * Hooks
@@ -185,12 +158,12 @@ export const useSources = () => {
   return { loading, sources: Array.from(sourceMap.values()) };
 };
 
-export const useViewerIsWrap = () => useRecoilState(isWrapState);
+export const useViewerIsWrap = () => useAtom(isWrapState);
 
 export const useViewerMetadata = () => {
-  const isReady = useRecoilValue(isReadyState);
-  const isLoading = useRecoilValue(isLoadingState);
-  const isFollow = useRecoilValue(isFollowState);
+  const isReady = useAtomValue(isReadyState);
+  const isLoading = useAtomValue(isLoadingState);
+  const isFollow = useAtomValue(isFollowState);
 
   const { kubeContext } = useContext(Context);
   const isUseClusterAPIEnabled = useIsClusterAPIEnabled(kubeContext);
@@ -198,7 +171,7 @@ export const useViewerMetadata = () => {
   return { isReady, isLoading, isFollow, isSearchEnabled: isUseClusterAPIEnabled };
 };
 
-export const useViewerVisibleCols = () => useRecoilState(visibleColsState);
+export const useViewerVisibleCols = () => useAtom(visibleColsState);
 
 export const useViewerFacets = () => {
   const { sources } = useSources();
@@ -234,7 +207,7 @@ export const useViewerFacets = () => {
   };
 };
 
-export const useViewerFilters = () => useRecoilState(filtersState);
+export const useViewerFilters = () => useAtom(filtersState);
 
 /**
  * Loading overlay
@@ -308,8 +281,8 @@ const Row = memo(({ index, style, data }: RowProps) => {
   const { items, hasMoreBefore, visibleCols, isWrap } = data;
 
   const rowElRef = useRef<HTMLDivElement>(null);
-  const [colWidths, setColWidths] = useRecoilState(colWidthsState);
-  const setMaxRowWidth = useSetRecoilState(maxRowWidthState);
+  const [colWidths, setColWidths] = useAtom(colWidthsState);
+  const setMaxRowWidth = useSetAtom(maxRowWidthState);
 
   // update global colWidths
   useEffect(() => {
@@ -415,11 +388,11 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
   const { hasMoreBefore, hasMoreAfter, loadMoreBefore, loadMoreAfter } = props;
   const { items } = props;
 
-  const [isLoading, setIsLoading] = useRecoilState(isLoadingState);
-  const visibleCols = useRecoilValue(visibleColsState);
-  const colWidths = useRecoilValue(colWidthsState);
-  const maxRowWidth = useRecoilValue(maxRowWidthState);
-  const isWrap = useRecoilValue(isWrapState);
+  const [isLoading, setIsLoading] = useAtom(isLoadingState);
+  const visibleCols = useAtomValue(visibleColsState);
+  const colWidths = useAtomValue(colWidthsState);
+  const maxRowWidth = useAtomValue(maxRowWidthState);
+  const isWrap = useAtomValue(isWrapState);
 
   const headerOuterElRef = useRef<HTMLDivElement>(null);
   const headerInnerElRef = useRef<HTMLDivElement>(null);
@@ -732,7 +705,7 @@ const LogRecordsFetcherImpl: React.ForwardRefRenderFunction<LogRecordsFetcherHan
   ref: React.ForwardedRef<LogRecordsFetcherHandle>,
 ) => {
   const { useClusterAPI, kubeContext, sources, sourceFilter, grep } = useContext(Context);
-  const isFollow = useRecoilValue(isFollowState);
+  const isFollow = useAtomValue(isFollowState);
 
   const [isReachedEnd, setIsReachedEnd] = useState(false);
   const lastTS = useRef<string>();
@@ -848,12 +821,12 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
 ) => {
   const { kubeContext, grep, sources, sourceFilter } = useContext(Context);
 
-  const [items, setItems] = useRecoilState(logRecordsState);
+  const [items, setItems] = useAtom(logRecordsState);
   const [hasMoreBefore, setHasMoreBefore] = useState(false);
   const [hasMoreAfter, setHasMoreAfter] = useState(false);
 
-  const setIsLoading = useSetRecoilState(isLoadingState);
-  const setIsFollow = useSetRecoilState(isFollowState);
+  const setIsLoading = useSetAtom(isLoadingState);
+  const setIsFollow = useSetAtom(isFollowState);
   const nextCursorRef = useRef<any>(null);
 
   const fetcherRef = useRef<LogRecordsFetcherHandle>(null);
@@ -1048,9 +1021,5 @@ export const Provider = ({
 
   if (useClusterAPI === undefined) return <LoadingPage />;
 
-  return (
-    <Context.Provider value={context}>
-      <RecoilRoot>{children}</RecoilRoot>
-    </Context.Provider>
-  );
+  return <Context.Provider value={context}>{children}</Context.Provider>;
 };
