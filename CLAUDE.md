@@ -18,7 +18,7 @@ Kubetail is a real-time logging dashboard for Kubernetes that provides both brow
 - **Log Search Engine** (`crates/rgkl/`) - High-performance Rust binary for log searching and streaming
 
 ### Technology Stack
-- **TypeScript/React**: Frontend with Vite, Tailwind CSS, Apollo Client, and Recoil state management
+- **TypeScript/React**: Frontend with Vite, Tailwind CSS, Apollo Client, and Jotai state management
 - **Go 1.24+**: Backend services using Go workspaces (`modules/go.work`)
 - **Rust**: High-performance log processing in `crates/rgkl/`
 - **GraphQL**: User-facing API layer uses gqlgen for Go backends with code generation

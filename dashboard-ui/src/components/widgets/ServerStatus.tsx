@@ -14,7 +14,7 @@
 
 import { useSubscription } from '@apollo/client';
 import { Fragment, useEffect, useState } from 'react';
-import { RecoilRoot, atom, useRecoilValue, useSetRecoilState, type SetterOrUpdater } from 'recoil';
+import { atom, useAtomValue, useSetAtom } from 'jotai';
 
 import DataTable from '@kubetail/ui/elements/DataTable';
 
@@ -31,15 +31,9 @@ import {
 } from '@/lib/server-status';
 import { cn } from '@/lib/util';
 
-const kubernetesAPIServerStatusMapState = atom({
-  key: 'kubernetesAPIServerStatusMap',
-  default: new Map<string, ServerStatus>(),
-});
+const kubernetesAPIServerStatusMapState = atom(new Map<string, ServerStatus>());
 
-const clusterAPIServerStatusMapState = atom({
-  key: 'clusterAPIServerStatusMap',
-  default: new Map<string, ServerStatus>(),
-});
+const clusterAPIServerStatusMapState = atom(new Map<string, ServerStatus>());
 
 const HealthDot = ({ status }: { status: Status }) => {
   let color;
@@ -97,7 +91,7 @@ const statusMessage = (s: ServerStatus, unknownDefault: string): string => {
 
 function useEffectServerStatus(
   kubeContext: string,
-  setServerStatusMap: SetterOrUpdater<Map<string, ServerStatus>>,
+  setServerStatusMap: (update: (prev: Map<string, ServerStatus>) => Map<string, ServerStatus>) => void,
   serverStatus: ServerStatus,
 ) {
   useEffect(() => {
@@ -122,7 +116,7 @@ const KubernetesAPIServerStatusFetcher = ({ kubeContext }: { kubeContext: string
   const serverStatus = useKubernetesAPIServerStatus(kubeContext);
 
   // Update map
-  const setServerStatusMap = useSetRecoilState(kubernetesAPIServerStatusMapState);
+  const setServerStatusMap = useSetAtom(kubernetesAPIServerStatusMapState);
   useEffectServerStatus(kubeContext, setServerStatusMap, serverStatus);
 
   return null;
@@ -132,7 +126,7 @@ const ClusterAPIServerStatusFetcher = ({ kubeContext }: { kubeContext: string })
   const serverStatus = useClusterAPIServerStatus(kubeContext);
 
   // Update map
-  const setServerStatusMap = useSetRecoilState(clusterAPIServerStatusMapState);
+  const setServerStatusMap = useSetAtom(clusterAPIServerStatusMapState);
   useEffectServerStatus(kubeContext, setServerStatusMap, serverStatus);
 
   return null;
@@ -160,7 +154,7 @@ type ServerStatusRowProps = {
 };
 
 const KubernetesAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: ServerStatusRowProps) => {
-  const serverStatusMap = useRecoilValue(kubernetesAPIServerStatusMapState);
+  const serverStatusMap = useAtomValue(kubernetesAPIServerStatusMapState);
   const serverStatus = serverStatusMap.get(kubeContext) || new ServerStatus();
 
   return (
@@ -176,7 +170,7 @@ const KubernetesAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Se
 };
 
 const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: ServerStatusRowProps) => {
-  const serverStatusMap = useRecoilValue(clusterAPIServerStatusMapState);
+  const serverStatusMap = useAtomValue(clusterAPIServerStatusMapState);
   const serverStatus = serverStatusMap.get(kubeContext) || new ServerStatus();
 
   return (
@@ -216,8 +210,8 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
   }
 
   const dashboardServerStatus = useDashboardServerStatus();
-  const kubernetesAPIServertatusMap = useRecoilValue(kubernetesAPIServerStatusMapState);
-  const clusterAPIServerStatusMap = useRecoilValue(clusterAPIServerStatusMapState);
+  const kubernetesAPIServertatusMap = useAtomValue(kubernetesAPIServerStatusMapState);
+  const clusterAPIServerStatusMap = useAtomValue(clusterAPIServerStatusMapState);
 
   const [modalIsOpen, setModalIsOpen] = useState(false);
 
@@ -273,10 +267,6 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
   );
 };
 
-const ServerStatusWidgetWrapper = (props: ServerStatusWidgetProps) => (
-  <RecoilRoot>
-    <ServerStatusWidget {...props} />
-  </RecoilRoot>
-);
+const ServerStatusWidgetWrapper = (props: ServerStatusWidgetProps) => <ServerStatusWidget {...props} />;
 
 export default ServerStatusWidgetWrapper;

@@ -18,7 +18,7 @@ import numeral from 'numeral';
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import TimeAgo from 'react-timeago';
 import type { Formatter, Suffix, Unit } from 'react-timeago';
-import { RecoilRoot, atom, useRecoilValue, useSetRecoilState } from 'recoil';
+import { atom, useAtomValue, useSetAtom } from 'jotai';
 
 import { Boxes, Layers3, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
 import { useDebounceCallback } from 'usehooks-ts';
@@ -50,10 +50,7 @@ const basename = getBasename();
 
 const defaultKubeContext = appConfig.environment === 'cluster' ? '' : undefined;
 
-const logMetadataMapState = atom({
-  key: 'homeLogMetadataMap',
-  default: new Map<string, FileInfo>(),
-});
+const logMetadataMapState = atom(new Map<string, FileInfo>());
 
 type ContextType = {
   kubeContext?: string;
@@ -150,7 +147,7 @@ function useStatefulSets(kubeContext?: string) {
 }
 
 function useLogFileInfo(uids: string[], ownershipMap: Map<string, string[]>) {
-  const logMetadataMap = useRecoilValue(logMetadataMapState);
+  const logMetadataMap = useAtomValue(logMetadataMapState);
 
   const logFileInfo = new Map<string, { size: number; lastModifiedAt: Date; containerIDs: string[] }>();
   uids.forEach((uid) => {
@@ -240,7 +237,7 @@ function useFilteredWorkloads() {
 
 const LogMetadataMapProvider = () => {
   const { kubeContext } = useContext(Context);
-  const setLogMetadataMap = useSetRecoilState(logMetadataMapState);
+  const setLogMetadataMap = useSetAtom(logMetadataMapState);
 
   const logMetadata = useLogMetadata({
     enabled: appConfig.clusterAPIEnabled && kubeContext !== undefined,
@@ -1061,12 +1058,10 @@ export default function Page() {
   return (
     <AuthRequired>
       <Context.Provider value={context}>
-        <RecoilRoot>
-          <LogMetadataMapProvider />
-          <AppLayout>
-            <InnerLayout header={<Header />} sidebar={<Sidebar />} content={<Content />} />
-          </AppLayout>
-        </RecoilRoot>
+        <LogMetadataMapProvider />
+        <AppLayout>
+          <InnerLayout header={<Header />} sidebar={<Sidebar />} content={<Content />} />
+        </AppLayout>
       </Context.Provider>
     </AuthRequired>
   );
