@@ -20,11 +20,11 @@ spec:
         app.kubernetes.io/instance: kubetail-dev
     spec:
       containers:
-      - name: echoserver
-        image: kubetail/echoserver:0.1.1
-        ports:
-        - name: http
-          containerPort: 8080
-        - name: https
-          containerPort: 8443
-        resources: {}
+        - name: echoserver
+          image: kubetail/echoserver:0.1.1
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: https
+              containerPort: 8443
+          resources: {}
