@@ -68,7 +68,8 @@ if build_rust_locally:
       "./proto",
     ],
     ignore=[
-      './crates/target'
+      './crates/target',
+      './creates/*/target'
     ],
   )
 
@@ -79,11 +80,9 @@ if build_rust_locally:
     entrypoint="/cluster-agent/cluster-agent -c /etc/kubetail/config.yaml",
     only=[
       './.tilt/cluster-agent',
-      './.tilt/rgkl',
     ],
     live_update=[
-      sync('./.tilt/cluster-agent', '/cluster-agent/cluster-agent'),
-      sync('./.tilt/rgkl', '/cluster-agent/rgkl')
+      sync('./.tilt/cluster-agent', '/cluster-agent/cluster-agent')
     ]
   )
 else:
@@ -95,10 +94,9 @@ else:
     only=[
       './crates',
       './proto',
-      './.tilt/cluster-agent'
     ],
     ignore=[
-      './crates/rgkl/target'
+      './crates/*/target'
     ],
     live_update=[
       sync('./.tilt/cluster-agent', '/cluster-agent/cluster-agent'),
