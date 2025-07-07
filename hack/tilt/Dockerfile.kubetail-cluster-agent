@@ -1,4 +1,4 @@
-FROM rust:1.88 as builder
+FROM rust:1.88-slim
 
 WORKDIR /work
 
@@ -12,11 +12,10 @@ RUN cd crates && cargo fetch
 # Build
 RUN cd crates && cargo build --release
 
-FROM rust:1.88-slim
-
 WORKDIR /cluster-agent
 
-COPY --from=builder /work/crates/target/release/cluster_agent cluster-agent
+RUN mv /work/crates/target/release/cluster_agent cluster-agent
+RUN rm -rf /work
 
 ENTRYPOINT ["./cluster-agent"]
 CMD []

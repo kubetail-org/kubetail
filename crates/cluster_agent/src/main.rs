@@ -23,7 +23,7 @@ async fn main() -> eyre::Result<()> {
         .with_max_level(tracing::Level::WARN)
         .init();
 
-    let (term_tx, _term_rx) = broadcast::channel(5);
+    let (term_tx, _term_rx) = broadcast::channel(1);
 
     let task_tracker = TaskTracker::new();
 
