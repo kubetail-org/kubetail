@@ -14,13 +14,13 @@ use rgkl::{stream_backward, stream_forward};
 use tonic::{Request, Response, Status};
 
 #[derive(Debug)]
-pub struct LogRecords {
+pub struct LogRecordsImpl {
     logs_dir: &'static str,
     term_tx: Sender<()>,
     task_tracker: TaskTracker,
 }
 
-impl LogRecords {
+impl LogRecordsImpl {
     pub const fn new(term_tx: Sender<()>, task_tracker: TaskTracker) -> Self {
         Self {
             logs_dir: "/var/log/containers",
@@ -53,7 +53,7 @@ impl LogRecords {
 }
 
 #[tonic::async_trait]
-impl LogRecordsService for LogRecords {
+impl LogRecordsService for LogRecordsImpl {
     type StreamForwardStream = ReceiverStream<Result<LogRecord, Status>>;
     type StreamBackwardStream = ReceiverStream<Result<LogRecord, Status>>;
 
