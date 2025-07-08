@@ -17,6 +17,12 @@ use std::{
     str::FromStr,
 };
 
+use tokio::{
+    sync::mpsc::Sender,
+    task::{self},
+};
+use tonic::Status;
+
 use prost_wkt_types::Timestamp;
 use serde_json;
 
@@ -26,7 +32,7 @@ use types::cluster_agent::LogRecord;
 /// A custom writer that calls a callback function whenever data is written.
 pub struct CallbackWriter<F>
 where
-    F: FnMut(&[u8]),
+    F: Fn(Vec<u8>),
 {
     callback: F,
     buffer: Vec<u8>,
@@ -34,10 +40,10 @@ where
 
 impl<F> CallbackWriter<F>
 where
-    F: FnMut(&[u8]),
+    F: Fn(Vec<u8>),
 {
     /// Creates a new CallbackWriter with an empty buffer.
-    pub fn new(callback: F) -> Self {
+    pub const fn new(callback: F) -> Self {
         Self {
             callback,
             buffer: Vec::new(),
@@ -47,7 +53,7 @@ where
 
 impl<F> Write for CallbackWriter<F>
 where
-    F: FnMut(&[u8]),
+    F: Fn(Vec<u8>),
 {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         // Append new data to the internal buffer.
@@ -58,7 +64,8 @@ where
             // Drain the buffer up to and including the newline character.
             let line: Vec<u8> = self.buffer.drain(..=pos).collect();
             // Call the callback with the complete line.
-            (self.callback)(&line);
+
+            (self.callback)(line);
         }
 
         // Report that all bytes were "written".
@@ -70,16 +77,22 @@ where
         // process it as well.
         if !self.buffer.is_empty() {
             let line: Vec<u8> = self.buffer.drain(..).collect();
-            (self.callback)(&line);
+            (self.callback)(line);
         }
+
         Ok(())
     }
 }
 
 /// Function that processes the output.
-pub fn process_output<W: Write>(chunk: &[u8], writer: &mut W, format: FileFormat) {
+pub fn process_output(
+    chunk: Vec<u8>,
+    sender: &Sender<Result<LogRecord, Status>>,
+    format: FileFormat,
+    term_tx: tokio::sync::broadcast::Sender<()>,
+) {
     // For example, convert to string and print.
-    let json: serde_json::Value = serde_json::from_slice(chunk).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&chunk).unwrap();
     if let (Some(t), Some(data)) = (json["type"].as_str(), json["data"].as_object()) {
         if t != "match" {
             return;
@@ -101,10 +114,13 @@ pub fn process_output<W: Write>(chunk: &[u8], writer: &mut W, format: FileFormat
                                     message: log_msg.trim_end().to_string(),
                                 };
 
-                                serde_json::to_writer(&mut *writer, &record)
-                                    .expect("failed to write JSON record");
-                                writer.write_all(b"\n").expect("failed to write newline");
-                                writer.flush().expect("failed to flush writer");
+                                let sender = sender.clone();
+                                let result =
+                                    task::block_in_place(move || sender.blocking_send(Ok(record)));
+                                if result.is_err() {
+                                    println!("Channel closed from client.");
+                                    let _ = term_tx.send(());
+                                }
                             }
                         }
                     }
@@ -116,10 +132,13 @@ pub fn process_output<W: Write>(chunk: &[u8], writer: &mut W, format: FileFormat
                                 message: rest[9..].trim_end().to_string(),
                             };
 
-                            serde_json::to_writer(&mut *writer, &record)
-                                .expect("failed to write JSON record");
-                            writer.write_all(b"\n").expect("failed to write newline");
-                            writer.flush().expect("failed to flush writer");
+                            let sender = sender.clone();
+                            let result =
+                                task::block_in_place(move || sender.blocking_send(Ok(record)));
+                            if result.is_err() {
+                                println!("Channel closed from client.");
+                                let _ = term_tx.send(());
+                            }
                         }
                     }
                 }

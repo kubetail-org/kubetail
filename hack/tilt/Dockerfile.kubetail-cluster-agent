@@ -1,65 +1,24 @@
-FROM rust:1.87.0-slim AS rustbuilder
+FROM rust:1.88-slim
 
 WORKDIR /work
 
-# System dependencies
-RUN apt-get update && apt-get install -yq patchelf protobuf-compiler
+RUN apt-get update && apt-get install -yq protobuf-compiler
 
 # Install Rust dependencies (for cache)
 COPY crates/ ./crates
-RUN cd crates/rgkl && cargo fetch
-
-# Copy code
-COPY . .
+COPY proto/ ./proto
+RUN cd crates && cargo fetch
 
 # Build
-RUN cd crates && cargo build -p rgkl --release
-
-# Cross-platform trickery
-RUN \
-    ARCH="$(uname -m)" && \
-    if [ "$ARCH" = "x86_64" ]; then \
-      mkdir -p /lib/aarch64-linux-gnu; \
-      touch /lib/aarch64-linux-gnu/libgcc_s.so.1; \
-      touch /lib/aarch64-linux-gnu/libpthread.so.0; \
-      touch /lib/aarch64-linux-gnu/libdl.so.2; \
-      touch /lib/aarch64-linux-gnu/libc.so.6; \
-      touch /lib/ld-linux-aarch64.so.1; \
-    elif [ "$ARCH" = "aarch64" ]; then \
-      mkdir -p /lib/x86_64-linux-gnu/; \
-      touch /lib/x86_64-linux-gnu/libgcc_s.so.1; \
-      touch /lib/x86_64-linux-gnu/libc.so.6; \
-      mkdir /lib64; \
-      touch /lib64/ld-linux-x86-64.so.2; \
-    else \
-      echo "Unsupported architecture: $ARCH"; exit 1; \
-    fi
-
-# -----------------------------------------------------------
-
-FROM alpine:3.22.0
+RUN cd crates && cargo build --release
 
 WORKDIR /cluster-agent
 
+RUN mv /work/crates/target/release/cluster_agent cluster-agent
+RUN rm -rf /work
+
 # copy grpc-health-probe
 COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
-
-# copy rglk
-COPY --from=rustbuilder /work/crates/target/release/rgkl .
-
-# copy glibc runtime libraries and dynamic loader (aarch64)
-COPY --from=rustbuilder /lib/aarch64-linux-gnu/libgcc_s.so.1 /lib/aarch64-linux-gnu/
-COPY --from=rustbuilder /lib/aarch64-linux-gnu/libpthread.so.0 /lib/aarch64-linux-gnu/
-COPY --from=rustbuilder /lib/aarch64-linux-gnu/libdl.so.2 /lib/aarch64-linux-gnu/
-COPY --from=rustbuilder /lib/aarch64-linux-gnu/libc.so.6 /lib/aarch64-linux-gnu/
-COPY --from=rustbuilder /lib/ld-linux-aarch64.so.1 /lib/
-
-# copy glibc runtime libraries and dynamic loader (x86_64)
-COPY --from=rustbuilder /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/
-COPY --from=rustbuilder /lib/x86_64-linux-gnu/libc.so.6 /lib/x86_64-linux-gnu/
-COPY --from=rustbuilder /lib64/ld-linux-x86-64.so.2 /lib64/
-
-COPY .tilt/cluster-agent .
 
 ENTRYPOINT ["./cluster-agent"]
 CMD []

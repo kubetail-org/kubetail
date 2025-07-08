@@ -189,11 +189,12 @@ jobs:
             image: cluster-api
             target: final
             dockerfile: build/package/Dockerfile.cluster-api
-          - name: cluster-agent-final
-            image: cluster-agent
-            target: final
-            dockerfile: build/package/Dockerfile.cluster-agent
-        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+          #   TODO: Update Docker images with the rust client
+          # - name: cluster-agent-final
+          #   image: cluster-agent
+          #   target: final
+          #   dockerfile: build/package/Dockerfile.cluster-agent
+        runner: [ ubuntu-24.04, ubuntu-24.04-arm ]
         include:
           - runner: ubuntu-24.04
             platform: linux/amd64
