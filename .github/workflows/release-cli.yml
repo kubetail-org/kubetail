@@ -19,6 +19,7 @@ jobs:
           - macos-latest
           - macos-13
           - windows-latest
+          - windows-11-arm
         include:
           - os: ubuntu-24.04
             GOOS: linux
@@ -62,18 +63,6 @@ jobs:
         run: make build VERSION=${{ steps.tagName.outputs.tag }}
       - name: Append os/arch to binary file name
         run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
-      - name: Calculate sha256 checksum
-        shell: bash
-        run: |
-          FILE=bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
-          OUTPUT_FILE=${FILE}.sha256
-          if [ "$RUNNER_OS" == "Linux" ]; then
-            sha256sum "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
-          elif [ "$RUNNER_OS" == "Windows" ]; then
-            certutil -hashfile "$FILE" SHA256 | awk 'NR==2' > "$OUTPUT_FILE"
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-            shasum -a 256 "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
-          fi
       - name: Create zip archive
         if: matrix.GOOS == 'windows'
         working-directory: ./bin
@@ -82,16 +71,14 @@ jobs:
           $file = "kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}"
           Copy-Item -Path $file -Destination kubetail.exe
           Compress-Archive -Path kubetail.exe -DestinationPath "${file}.zip"
-          (Get-FileHash -Algorithm SHA256 "${file}.zip").Hash |
-            Out-File -FilePath "${file}.zip.sha256" -Encoding ascii
           Remove-Item kubetail.exe
       - id: upload-artifact
-        name: Upload artifact
+        name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
           path: bin/*
-      - name: Sign Windows Binary
+      - name: Sign Windows Binaries
         if: matrix.GOOS == 'windows'
         uses: signpath/github-action-submit-signing-request@v1.1
         with:
@@ -130,13 +117,11 @@ jobs:
           path: bin
           pattern: artifacts-${{ matrix.os }}-${{ matrix.arch }}
           merge-multiple: true
-
       - name: Create dir structure for .deb package
         run: |
           mkdir -p .debpkg/usr/bin
           # when we download from deb, the binary should be named kubetail
           cp -p 'bin/kubetail-${{ matrix.os }}-${{ matrix.arch }}' .debpkg/usr/bin/kubetail
-
       - name: Create a .deb package
         uses: jiro4989/build-deb-action@975f7f362928fd814e1e607fda0294c86ad07f37
         with:
@@ -146,15 +131,6 @@ jobs:
           version: ${{ steps.tagName.outputs.tag }}
           arch: ${{ matrix.arch }}
           desc: 'Real-time logging dashboard for Kubernetes'
-
-      - name: Calculate sha256 checksum
-        run: |
-          FILE='./kubetail_${{ steps.tagName.outputs.tag }}_${{ matrix.arch }}.deb'
-          OUTPUT_FILE=${FILE}.sha256
-          sha256sum "$FILE" | cut -d " " -f 1 >"$OUTPUT_FILE"
-          mkdir -p deb-output
-          mv "${FILE}" "${OUTPUT_FILE}" ./deb-output/
-
       - name: Upload .deb artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -228,7 +204,7 @@ jobs:
           RELEASE='${{ steps.rpmBuildInfo.outputs.release }}'
           ARCH='${{ matrix.pkgArch }}'
           rpmbuild -ba --target "${ARCH}" ~/rpmbuild/SPECS/kubetail.spec --define "version ${VERSION}" --define "release ${RELEASE}"
-      - name: Calculate sha256 checksum
+      - name: Rename file
         run: |
           VERSION='${{ steps.rpmBuildInfo.outputs.version }}' 
           RELEASE='${{ steps.rpmBuildInfo.outputs.release }}'
@@ -238,9 +214,6 @@ jobs:
           FILE_NEW_NAME="kubetail-$VERSION-$RELEASE.${{ matrix.arch }}.rpm" # renaming arch to arm64 and amd64
 
           mv ~/rpmbuild/RPMS/'${{ matrix.pkgArch }}'/"${FILE_NAME}" ./rpm-output/"${FILE_NEW_NAME}"
-          FILE=./rpm-output/"${FILE_NEW_NAME}"
-          OUTPUT_FILE="${FILE}".sha256
-          sha256sum "$FILE" | cut -d " " -f 1 > "$OUTPUT_FILE"
       - name: Upload rpm artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -258,6 +231,15 @@ jobs:
           path: bin
           pattern: artifacts-*
           merge-multiple: true
+      - name: Generate SHA-256 checksums
+        shell: bash
+        run: |
+          shopt -s nullglob
+          for file in bin/*; do
+            if [ -f "$file" ]; then
+              sha256sum "$file" | cut -d " " -f 1 > "${file}.sha256"
+            fi
+          done
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
