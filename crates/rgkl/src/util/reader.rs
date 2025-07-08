@@ -14,7 +14,10 @@
 
 use std::io::{self, Read, Seek, SeekFrom};
 
-use crossbeam_channel::Receiver;
+use tokio::sync::broadcast::{
+    error::TryRecvError::{Closed, Empty, Lagged},
+    Receiver,
+};
 
 const CHUNK_SIZE: usize = 64 * 1024; // 64KB
 
@@ -24,7 +27,7 @@ pub struct TermReader<R> {
 }
 
 impl<R: Read> TermReader<R> {
-    pub fn new(inner: R, term_rx: Receiver<()>) -> Self {
+    pub const fn new(inner: R, term_rx: Receiver<()>) -> Self {
         Self { inner, term_rx }
     }
 }
@@ -33,10 +36,14 @@ impl<R: Read> Read for TermReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         // check for termination before each read
         match self.term_rx.try_recv() {
-            Ok(_) | Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                return Err(io::Error::new(io::ErrorKind::Interrupted, "terminated"))
+            Ok(_) | Err(Closed) | Err(Lagged(_)) => {
+                println!(
+                    "Error while checking for termination: {:?}",
+                    self.term_rx.try_recv()
+                );
+                return Ok(0);
             }
-            Err(crossbeam_channel::TryRecvError::Empty) => {} // Channel is empty but still connected
+            Err(Empty) => {} // Channel is empty but still connected
         }
         self.inner.read(buf)
     }
