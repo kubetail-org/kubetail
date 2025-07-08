@@ -96,6 +96,7 @@ else:
       './proto',
     ],
     ignore=[
+      './crates/target',
       './crates/*/target'
     ],
     live_update=[
