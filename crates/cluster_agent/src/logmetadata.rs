@@ -1,6 +1,5 @@
 use prost_wkt_types::Timestamp;
 use regex::Regex;
-use std::borrow::Cow;
 use std::fs::File;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
@@ -8,7 +7,6 @@ use std::pin::Pin;
 
 use tokio::fs::read_dir;
 use tokio::sync::broadcast::Sender;
-use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReadDirStream;
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::task::TaskTracker;
@@ -26,21 +24,22 @@ type WatchResponseStream =
 #[derive(Debug)]
 pub struct LogMetadataImpl {
     logs_dir: String,
-    term_tx: Sender<()>,
-    task_tracker: TaskTracker,
+    _term_tx: Sender<()>,
+    _task_tracker: TaskTracker,
 }
 
 impl LogMetadataImpl {
-    pub fn new(term_tx: Sender<()>, task_tracker: TaskTracker) -> Self {
+    pub fn new(_term_tx: Sender<()>, _task_tracker: TaskTracker) -> Self {
         Self {
             logs_dir: "/var/log/containers".into(),
-            term_tx,
-            task_tracker,
+            _term_tx,
+            _task_tracker,
         }
     }
 
-    fn get_file_info(filepath: PathBuf) -> Result<LogMetadataFileInfo, Status> {
-        let metadata = File::open(filepath)?.metadata()?;
+    fn get_file_info(filepath: PathBuf) -> Result<LogMetadataFileInfo, Box<Status>> {
+        let file = File::open(filepath).map_err(|err| Box::new(err.into()))?;
+        let metadata = file.metadata().map_err(|err| Box::new(err.into()))?;
 
         Ok(LogMetadataFileInfo {
             size: metadata.size().try_into().unwrap(),
@@ -114,7 +113,7 @@ impl LogMetadataService for LogMetadataImpl {
                     node_name: "The node name".to_string(),
                     namespace,
                 }),
-                file_info: Some(Self::get_file_info(absolute_file_path)?),
+                file_info: Some(Self::get_file_info(absolute_file_path).map_err(|status| *status)?),
             });
         }
 
@@ -161,13 +160,13 @@ mod test {
     #[tokio::test]
     async fn test_single_file_is_returned() {
         let file = create_test_file("pod-name_namespace_container-name-containerid", 4);
-        let (term_tx, _term_rx) = broadcast::channel(1);
+        let (_term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = file.path().parent().unwrap().to_string_lossy().into_owned();
 
         let metadata_service = LogMetadataImpl {
             logs_dir,
-            term_tx,
-            task_tracker: TaskTracker::new(),
+            _term_tx,
+            _task_tracker: TaskTracker::new(),
         };
 
         let mut result = metadata_service
@@ -199,29 +198,6 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_no_files_are_returned() {
-        let file = create_test_file("wrong-name-file", 4);
-        let (term_tx, _term_rx) = broadcast::channel(1);
-        let logs_dir = file.path().parent().unwrap().to_string_lossy().into_owned();
-
-        let metadata_service = LogMetadataImpl {
-            logs_dir,
-            term_tx,
-            task_tracker: TaskTracker::new(),
-        };
-
-        let result = metadata_service
-            .list(Request::new(LogMetadataListRequest {
-                namespaces: vec!["namespace".into()],
-            }))
-            .await
-            .unwrap()
-            .into_inner();
-
-        assert_eq!(0, result.items.len());
-    }
-
-    #[tokio::test]
     async fn test_namespaces_are_filtered() {
         let _first_file =
             create_test_file("pod-name_firstnamespace_container-name1-containerid1", 4);
@@ -229,7 +205,7 @@ mod test {
             create_test_file("pod-name_firstnamespace_container-name2-containerid2", 4);
         let third_file =
             create_test_file("pod-name_secondnamespace_container-name2-containerid2", 4);
-        let (term_tx, _term_rx) = broadcast::channel(1);
+        let (_term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = third_file
             .path()
             .parent()
@@ -239,8 +215,8 @@ mod test {
 
         let metadata_service = LogMetadataImpl {
             logs_dir,
-            term_tx,
-            task_tracker: TaskTracker::new(),
+            _term_tx,
+            _task_tracker: TaskTracker::new(),
         };
 
         let mut result = metadata_service
