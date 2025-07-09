@@ -8,8 +8,8 @@ use types::cluster_agent::log_records_service_server::LogRecordsServiceServer;
 mod logmetadata;
 mod logrecords;
 
-use logmetadata::LogMetadata;
-use logrecords::LogRecords;
+use logmetadata::LogMetadataImpl;
+use logrecords::LogRecordsImpl;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -30,8 +30,11 @@ async fn main() -> eyre::Result<()> {
     Server::builder()
         .add_service(agent_health_service)
         .add_service(reflection_service)
-        .add_service(LogMetadataServiceServer::new(LogMetadata {}))
-        .add_service(LogRecordsServiceServer::new(LogRecords::new(
+        .add_service(LogMetadataServiceServer::new(LogMetadataImpl::new(
+            term_tx.clone(),
+            task_tracker.clone(),
+        )))
+        .add_service(LogRecordsServiceServer::new(LogRecordsImpl::new(
             term_tx.clone(),
             task_tracker.clone(),
         )))
