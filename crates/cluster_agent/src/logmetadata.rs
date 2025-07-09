@@ -1,5 +1,6 @@
 use prost_wkt_types::Timestamp;
 use regex::Regex;
+use std::borrow::Cow;
 use std::fs::File;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
@@ -24,15 +25,15 @@ type WatchResponseStream =
 
 #[derive(Debug)]
 pub struct LogMetadataImpl {
-    logs_dir: &'static str,
+    logs_dir: String,
     term_tx: Sender<()>,
     task_tracker: TaskTracker,
 }
 
 impl LogMetadataImpl {
-    pub const fn new(term_tx: Sender<()>, task_tracker: TaskTracker) -> Self {
+    pub fn new(term_tx: Sender<()>, task_tracker: TaskTracker) -> Self {
         Self {
-            logs_dir: "/var/log/containers",
+            logs_dir: "/var/log/containers".into(),
             term_tx,
             task_tracker,
         }
@@ -57,7 +58,7 @@ impl LogMetadataService for LogMetadataImpl {
         request: Request<LogMetadataListRequest>,
     ) -> Result<Response<LogMetadataList>, Status> {
         let request = request.into_inner();
-        let logs_dir_path = Path::new(self.logs_dir);
+        let logs_dir_path = Path::new(self.logs_dir.as_str());
 
         if !logs_dir_path.is_dir() {
             return Err(Status::new(
@@ -127,5 +128,151 @@ impl LogMetadataService for LogMetadataImpl {
         _request: Request<LogMetadataWatchRequest>,
     ) -> AgentResult<Self::WatchStream> {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::io::Write;
+    use tempfile::{Builder, NamedTempFile};
+    use tokio::sync::broadcast;
+    use tokio_util::task::TaskTracker;
+    use tonic::Request;
+    use types::cluster_agent::{
+        LogMetadataListRequest, log_metadata_service_server::LogMetadataService,
+    };
+
+    use crate::logmetadata::LogMetadataImpl;
+
+    fn create_test_file(name: &str, num_bytes: usize) -> NamedTempFile {
+        let mut test_file = Builder::new()
+            .prefix(name)
+            .suffix(".log")
+            .tempfile()
+            .expect("Failed to create file");
+
+        test_file
+            .write_all(&vec![0; num_bytes])
+            .expect("Failed to write to file");
+
+        test_file
+    }
+
+    #[tokio::test]
+    async fn test_single_file_is_returned() {
+        let file = create_test_file("pod-name_namespace_container-name-containerid", 4);
+        let (term_tx, _term_rx) = broadcast::channel(1);
+        let logs_dir = file.path().parent().unwrap().to_string_lossy().into_owned();
+
+        let metadata_service = LogMetadataImpl {
+            logs_dir,
+            term_tx,
+            task_tracker: TaskTracker::new(),
+        };
+
+        let mut result = metadata_service
+            .list(Request::new(LogMetadataListRequest {
+                namespaces: vec!["namespace".into()],
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert_eq!(1, result.items.len());
+
+        let log_metadata = result.items.pop().unwrap();
+
+        assert!(log_metadata.id.starts_with("containerid"));
+
+        assert!(
+            log_metadata
+                .spec
+                .as_ref()
+                .unwrap()
+                .container_id
+                .starts_with("containerid")
+        );
+        assert_eq!("namespace", log_metadata.spec.as_ref().unwrap().namespace);
+        assert_eq!("pod-name", log_metadata.spec.as_ref().unwrap().pod_name);
+        assert_eq!("container-name", log_metadata.spec.unwrap().container_name);
+        assert_eq!(4, log_metadata.file_info.unwrap().size);
+    }
+
+    #[tokio::test]
+    async fn test_no_files_are_returned() {
+        let file = create_test_file("wrong-name-file", 4);
+        let (term_tx, _term_rx) = broadcast::channel(1);
+        let logs_dir = file.path().parent().unwrap().to_string_lossy().into_owned();
+
+        let metadata_service = LogMetadataImpl {
+            logs_dir,
+            term_tx,
+            task_tracker: TaskTracker::new(),
+        };
+
+        let result = metadata_service
+            .list(Request::new(LogMetadataListRequest {
+                namespaces: vec!["namespace".into()],
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert_eq!(0, result.items.len());
+    }
+
+    #[tokio::test]
+    async fn test_namespaces_are_filtered() {
+        let _first_file =
+            create_test_file("pod-name_firstnamespace_container-name1-containerid1", 4);
+        let _second_file =
+            create_test_file("pod-name_firstnamespace_container-name2-containerid2", 4);
+        let third_file =
+            create_test_file("pod-name_secondnamespace_container-name2-containerid2", 4);
+        let (term_tx, _term_rx) = broadcast::channel(1);
+        let logs_dir = third_file
+            .path()
+            .parent()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+
+        let metadata_service = LogMetadataImpl {
+            logs_dir,
+            term_tx,
+            task_tracker: TaskTracker::new(),
+        };
+
+        let mut result = metadata_service
+            .list(Request::new(LogMetadataListRequest {
+                namespaces: vec!["firstnamespace".into()],
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert_eq!(2, result.items.len());
+
+        let log_metadata = result.items.pop().unwrap();
+
+        assert_eq!("firstnamespace", log_metadata.spec.unwrap().namespace);
+
+        let log_metadata = result.items.pop().unwrap();
+
+        assert_eq!("firstnamespace", log_metadata.spec.unwrap().namespace);
+
+        let mut result = metadata_service
+            .list(Request::new(LogMetadataListRequest {
+                namespaces: vec!["secondnamespace".into()],
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert_eq!(1, result.items.len());
+
+        let log_metadata = result.items.pop().unwrap();
+
+        assert_eq!("secondnamespace", log_metadata.spec.unwrap().namespace);
     }
 }

@@ -37,4 +37,5 @@ tokio-util = { version = "0.7.15", features = ["rt"] }
 kube = { version = "1.1.0" }
 k8s-openapi = { version = "0.25.0", features = ["v1_33"] }
 regex = "1.11.1"
+tempfile = "3.20.0"
 
