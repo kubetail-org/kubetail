@@ -124,7 +124,7 @@ const SettingsButton = () => {
     setVisibleCols(newSet);
   };
 
-  const checkboxEls: JSX.Element[] = [];
+  const checkboxEls: React.ReactElement[] = [];
 
   allViewerColumns.forEach((col) => {
     checkboxEls.push(
@@ -155,7 +155,7 @@ const SettingsButton = () => {
  * Header
  */
 
-const Header = ({ viewerRef }: { viewerRef: React.RefObject<LogFeedViewerHandle> }) => {
+const Header = ({ viewerRef }: { viewerRef: React.RefObject<LogFeedViewerHandle | null> }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isSidebarOpen, setIsSidebarOpen } = useContext(Context);
   const feed = useViewerMetadata();
@@ -167,7 +167,7 @@ const Header = ({ viewerRef }: { viewerRef: React.RefObject<LogFeedViewerHandle>
     if (args.since) {
       // Update location
       const since = args.since.toISOString();
-      searchParams.set('mode', 'head');
+      searchParams.set('mode', 'time');
       searchParams.set('since', since);
       setSearchParams(new URLSearchParams(searchParams), { replace: true });
 
@@ -565,7 +565,7 @@ const Facets = ({ label, counter }: { label: string; counter: Counter }) => {
           <div>
             <Form.Check checked={searchParams.has(urlKey, facet)} name={urlKey} value={facet} onChange={handleToggle} />
           </div>
-          <div className="flex-grow flex justify-between">
+          <div className="grow flex justify-between">
             <div>{facet}</div>
             <div>{`(${count})`}</div>
           </div>
@@ -623,9 +623,9 @@ const Sidebar = () => {
  */
 
 type InnerLayoutProps = {
-  sidebar: JSX.Element;
-  header: JSX.Element;
-  content: JSX.Element;
+  sidebar: React.ReactElement;
+  header: React.ReactElement;
+  content: React.ReactElement;
 };
 
 const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
@@ -685,7 +685,7 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
         style={{ marginLeft: `${isSidebarOpen ? sidebarWidth + 4 : 0}px` }}
       >
         <div className="bg-chrome-100 border-b border-chrome-divider">{header}</div>
-        <div className="flex-grow">{content}</div>
+        <div className="grow">{content}</div>
       </main>
     </div>
   );

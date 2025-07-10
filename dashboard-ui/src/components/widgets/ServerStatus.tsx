@@ -139,7 +139,7 @@ type ServerStatusCellsProps = {
 
 const ServerStatusCells = ({ serverStatus, defaultMessage }: ServerStatusCellsProps) => (
   <>
-    <DataTable.DataCell className="w-[1px]">
+    <DataTable.DataCell className="w-px">
       <HealthDot status={serverStatus.status} />
     </DataTable.DataCell>
     <DataTable.DataCell className="whitespace-normal">
@@ -159,7 +159,7 @@ const KubernetesAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Se
 
   return (
     <DataTable.Row>
-      <DataTable.DataCell className="w-[1px]">Kubernetes API</DataTable.DataCell>
+      <DataTable.DataCell className="w-px">Kubernetes API</DataTable.DataCell>
       {dashboardServerStatus.status === Status.Unhealthy ? (
         <ServerStatusCells serverStatus={new ServerStatus()} />
       ) : (
@@ -175,12 +175,12 @@ const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Serve
 
   return (
     <DataTable.Row>
-      <DataTable.DataCell className="w-[1px]">Kubetail Cluster API</DataTable.DataCell>
+      <DataTable.DataCell className="w-px">Kubetail Cluster API</DataTable.DataCell>
       {dashboardServerStatus.status === Status.Unhealthy ? (
         <ServerStatusCells serverStatus={new ServerStatus()} />
       ) : (
         <>
-          <DataTable.DataCell className="w-[1px]">
+          <DataTable.DataCell className="w-px">
             <HealthDot status={serverStatus.status} />
           </DataTable.DataCell>
           <DataTable.DataCell className="whitespace-normal flex justify-between items-center">
@@ -229,7 +229,7 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
     <div className="inline-block">
       <button
         type="button"
-        className={cn('px-2 rounded-tl flex items-center space-x-1 cursor-pointer', className)}
+        className={cn('px-2 rounded-tl-sm flex items-center space-x-1 cursor-pointer', className)}
         onClick={() => setModalIsOpen(true)}
       >
         <div className="text-sm">status:</div>
@@ -240,7 +240,7 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
         <DataTable>
           <DataTable.Body>
             <DataTable.Row>
-              <DataTable.DataCell className="w-[1px]">Dashboard Backend</DataTable.DataCell>
+              <DataTable.DataCell className="w-px">Dashboard Backend</DataTable.DataCell>
               <ServerStatusCells serverStatus={dashboardServerStatus} defaultMessage="Connecting..." />
             </DataTable.Row>
           </DataTable.Body>

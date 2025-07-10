@@ -55,7 +55,7 @@ const Namespaces = () => {
 
   return (
     <Form.Select
-      className="h-[35px] bg-chrome-50 border border-chrome-30 text-sm rounded-lg !mt-0"
+      className="h-[35px] bg-chrome-50 border border-chrome-30 text-sm rounded-lg mt-0!"
       onChange={(ev) => setNamespace(ev.target.value)}
       value={namespace}
     >
@@ -95,7 +95,7 @@ const Sidebar = ({
                   <button
                     type="button"
                     className={cn(
-                      'w-full px-[8px] py-[5px] cursor-pointer rounded-sm flex items-center',
+                      'w-full px-[8px] py-[5px] cursor-pointer rounded-xs flex items-center',
                       currWorkload === workload ? 'bg-chrome-300' : 'hover:bg-chrome-200',
                     )}
                     onClick={() => setCurrWorkload(workload)}
@@ -391,7 +391,7 @@ const Explorer = () => {
   return (
     <div className="flex space-x-2">
       <Sidebar workloadState={workloadState} />
-      <div className="flex-grow">
+      <div className="grow">
         <Main workloadState={workloadState} />
       </div>
     </div>
@@ -436,7 +436,7 @@ const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void }) 
 
   return (
     <Context.Provider value={context}>
-      <Modal open onClose={() => onClose()} className="!max-w-[1000px]">
+      <Modal open onClose={() => onClose()} className="max-w-[1000px]!">
         <div className="flex items-center justify-between mb-[15px]">
           <div className="font-semibold">Choose logging sources</div>
           <div className="max-w-[200px]">

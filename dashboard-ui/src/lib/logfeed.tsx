@@ -334,7 +334,7 @@ const Row = memo(({ index, style, data }: RowProps) => {
 
   const record = items[index - 1];
 
-  const els: JSX.Element[] = [];
+  const els: React.ReactElement[] = [];
   allViewerColumns.forEach((col) => {
     if (visibleCols.has(col)) {
       els.push(
@@ -345,7 +345,7 @@ const Row = memo(({ index, style, data }: RowProps) => {
             'px-[8px]',
             isWrap ? '' : 'whitespace-nowrap',
             col === ViewerColumn.Timestamp ? 'bg-chrome-200' : '',
-            col === ViewerColumn.Message ? 'flex-grow' : 'shrink-0',
+            col === ViewerColumn.Message ? 'grow' : 'shrink-0',
           )}
           style={col !== ViewerColumn.Message ? { minWidth: `${colWidths.get(col) || 0}px` } : {}}
           data-col-id={col}
@@ -601,7 +601,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
       >
         <div
           ref={headerInnerElRef}
-          className="flex leading-[18px] border-b border-chrome-divider bg-chrome-200 [&>*]:border-r [&>*:not(:last-child)]:border-chrome-divider"
+          className="flex leading-[18px] border-b border-chrome-divider bg-chrome-200 *:border-r [&>*:not(:last-child)]:border-chrome-divider"
           style={{ minWidth: isWrap ? '100%' : `${maxRowWidth}px` }}
         >
           {allViewerColumns.map((col) => {
@@ -612,7 +612,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
                   ref={col === ViewerColumn.Message ? msgHeaderColElRef : null}
                   className={cn(
                     'whitespace-nowrap uppercase px-[8px]',
-                    col === ViewerColumn.Message ? 'flex-grow' : 'shrink-0',
+                    col === ViewerColumn.Message ? 'grow' : 'shrink-0',
                   )}
                   style={col !== ViewerColumn.Message ? { minWidth: `${colWidths.get(col) || 0}px` } : {}}
                   data-col-id={col}
@@ -625,7 +625,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
           })}
         </div>
       </div>
-      <div className="flex-grow relative">
+      <div className="grow relative">
         <AutoSizer>
           {({ height, width }) => (
             <>
@@ -708,7 +708,7 @@ const LogRecordsFetcherImpl: React.ForwardRefRenderFunction<LogRecordsFetcherHan
   const isFollow = useAtomValue(isFollowState);
 
   const [isReachedEnd, setIsReachedEnd] = useState(false);
-  const lastTS = useRef<string>();
+  const lastTS = useRef<string>(undefined);
 
   const batchSize = 300;
 
@@ -927,6 +927,7 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
         fetcherRef.current?.reset();
 
         // Fetch
+        console.log(sinceTS);
         const response = await fetcherRef.current?.fetch({
           mode: LogRecordsQueryMode.Head,
           since: sinceTS,

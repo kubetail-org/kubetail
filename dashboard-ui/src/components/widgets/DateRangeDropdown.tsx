@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { parse, isValid } from 'date-fns';
-import { format } from 'date-fns-tz';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 
 import Button from '@kubetail/ui/elements/Button';
@@ -184,7 +184,7 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, unknown>((_, ref
 
   const [calendarDate, setCalendarDate] = useState<Date | undefined>();
 
-  const [manualStartDate, setManualStartDate] = useState(format(today, dateFmt));
+  const [manualStartDate, setManualStartDate] = useState(formatInTimeZone(today, 'UTC', dateFmt));
   const [manualStartTime, setManualStartTime] = useState('00:00:00');
 
   const [errorMsgs, setErrorMsgs] = useState(new Map<string, string>());
@@ -201,15 +201,18 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, unknown>((_, ref
     // return undefined if validation failed
     if (errorMsgs.size) return undefined;
 
-    // return parsed Date
-    return parse(`${manualStartDate} ${manualStartTime}`, `${dateFmt} HH:mm:ss`, new Date());
+    // parse
+    const localDate = parse(`${manualStartDate} ${manualStartTime}`, `${dateFmt} HH:mm:ss`, new Date());
+
+    // return as UTC time
+    return fromZonedTime(localDate, 'UTC');
   };
 
   // define handler api
   useImperativeHandle(ref, () => ({
     reset: () => {
       setCalendarDate(today);
-      setManualStartDate(format(today, dateFmt));
+      setManualStartDate(formatInTimeZone(today, 'UTC', dateFmt));
       setManualStartTime('00:00:00');
       setErrorMsgs(new Map<string, string>());
     },
@@ -219,7 +222,7 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, unknown>((_, ref
   const handleCalendarSelect = (value: Date | undefined) => {
     if (!value) return;
     setCalendarDate(value);
-    setManualStartDate(format(value, dateFmt));
+    setManualStartDate(formatInTimeZone(value, 'UTC', dateFmt));
     setManualStartTime('00:00:00');
     setErrorMsgs(new Map<string, string>());
   };
@@ -227,13 +230,14 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, unknown>((_, ref
   return (
     <div className="flex flex-col items-center">
       <Calendar
-        initialFocus
+        autoFocus
         mode="single"
         disabled={{ after: today }}
         defaultMonth={today}
         selected={calendarDate}
         onSelect={handleCalendarSelect}
         numberOfMonths={1}
+        timeZone="UTC"
       />
       <div className="flex space-x-4 mt-1">
         <div>
@@ -275,7 +279,7 @@ interface DateRangeDropdownProps extends React.PropsWithChildren {
 export const DateRangeDropdown = ({ children, onChange }: DateRangeDropdownProps) => {
   const [tabValue, setTabValue] = useState('relative');
 
-  const cancelButtonRef = useRef<HTMLButtonElement>();
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const relativePickerRef = useRef<RelativeTimePickerHandle>(null);
   const absolutePickerRef = useRef<AbsoluteTimePickerHandle>(null);
 
