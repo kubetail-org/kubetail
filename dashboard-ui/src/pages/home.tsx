@@ -14,13 +14,11 @@
 
 import { useSubscription } from '@apollo/client';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
-import numeral from 'numeral';
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import TimeAgo from 'react-timeago';
-import type { Formatter, Suffix, Unit } from 'react-timeago';
 import { atom, useAtomValue, useSetAtom } from 'jotai';
-
+import numeral from 'numeral';
+import React, { createContext, ReactElement, useContext, useEffect, useMemo, useState } from 'react';
 import { Boxes, Layers3, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
+import TimeAgo from 'react-timeago';
 import { useDebounceCallback } from 'usehooks-ts';
 
 import FormControl from '@kubetail/ui/elements/FormControl';
@@ -41,6 +39,18 @@ import { joinPaths, getBasename, cn } from '@/lib/util';
 import { Workload, allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
 import { applySearchAndFilter, noSearchResults, getContainerIDs } from '@/lib/home';
 import type { WorkloadItem } from '@/lib/home';
+
+// Timeago types
+type Unit = 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year';
+type Suffix = 'ago' | 'from now';
+type Formatter = (
+  value: number,
+  unit: Unit,
+  suffix: Suffix,
+  epochMilliseconds: number,
+  nextFormatter: Formatter,
+  now: () => number,
+) => React.ReactNode;
 
 /**
  * Shared variables and helper methods
@@ -361,10 +371,11 @@ const lastModifiedAtFormatter: Formatter = (
   unit: Unit,
   suffix: Suffix,
   epochMilliseconds: number,
-  nextFormatter?: Formatter,
+  nextFormatter: Formatter,
+  now: () => number,
 ) => {
   if (suffix === 'from now' || unit === 'second') return 'just now';
-  if (nextFormatter) return nextFormatter(value, unit, suffix, epochMilliseconds);
+  if (nextFormatter) return nextFormatter(value, unit, suffix, epochMilliseconds, nextFormatter, now);
   return '';
 };
 
@@ -708,7 +719,7 @@ const DisplayWorkloads = () => {
       : false;
 
   // Render data tables
-  const tableEls: JSX.Element[] = [];
+  const tableEls: ReactElement[] = [];
 
   if (!workloadFilter || workloadFilter === Workload.CRONJOBS) {
     tableEls.push(
@@ -856,7 +867,7 @@ const CountBadge = ({
 }) => (
   <span
     className={cn(
-      'text-xs font-medium px-2 py-[1px]  rounded-full  group-hover:bg-blue-200',
+      'text-xs font-medium px-2 py-px  rounded-full  group-hover:bg-blue-200',
       workload === workloadFilter ? 'bg-blue-200' : 'bg-gray-200',
     )}
   >
@@ -978,9 +989,9 @@ const Content = () => {
  */
 
 type InnerLayoutProps = {
-  header: JSX.Element;
-  sidebar: JSX.Element;
-  content: JSX.Element;
+  header: ReactElement;
+  sidebar: ReactElement;
+  content: ReactElement;
 };
 
 const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
@@ -994,7 +1005,7 @@ const InnerLayout = ({ sidebar, header, content }: InnerLayoutProps) => {
       <div className="flex-1 h-0">
         <div className="flex h-full">
           <aside
-            className="flex-shrink-0  bg-chrome-100 transition-all duration-100 ease-in relative overflow-y-auto"
+            className="shrink-0  bg-chrome-100 transition-all duration-100 ease-in relative overflow-y-auto"
             style={{ width: `${sidebarWidth}px` }}
           >
             <header className="flex flex-row px-4 pt-8 py-4 justify-between items-center gap-2">

@@ -80,7 +80,7 @@ export default function LoginPage() {
     <ModalLayout>
       <h2 className="block mt-6 text-center text-3xl font-extrabold text-chrome-900">Sign into Kubernetes</h2>
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-background py-8 px-4 shadow sm:rounded-lg sm:px-10 relative">
+        <div className="bg-background py-8 px-4 shadow-sm sm:rounded-lg sm:px-10 relative">
           <Form onSubmit={handleSubmit}>
             <Form.Group>
               <Form.Label>Token</Form.Label>

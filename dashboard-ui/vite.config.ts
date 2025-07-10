@@ -1,4 +1,5 @@
 /// <reference types="vitest/config" />
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react-swc';
 import Unfonts from 'unplugin-fonts/vite';
 import { defineConfig, loadEnv } from 'vite';
@@ -15,6 +16,7 @@ export default ({ mode }: { mode: string }) => {
       tsconfigPaths(),
       svgr(),
       react(),
+      tailwindcss(),
       Unfonts({
         fontsource: {
           families: [

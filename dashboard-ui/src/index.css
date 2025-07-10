@@ -1,6 +1,133 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@import "react-day-picker/style.css";
+
+@import '@kubetail/ui';
+@plugin 'fancy-ansi/plugin';
+
+@source '../node_modules/@kubetail/ui/**/*.js';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --animate-flash-bg-green: flash-bg-green 1s ease-in-out;
+
+  @keyframes flash-bg-green {
+    0% {
+      background-color: #bbf7d0;
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@utility no-scrollbar {
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide scrollbar for IE, Edge and Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+@utility rounded-tbody {
+  @apply relative;
+
+  & tr:last-child td {
+    @apply border-chrome-300;
+  }
+
+  & td:first-child {
+    @apply border-chrome-300;
+  }
+
+  & td:last-child {
+    @apply border-chrome-300;
+  }
+
+  & tr:last-child td {
+    @apply border-b;
+  }
+
+  & td:first-child {
+    @apply border-l;
+  }
+
+  & td:last-child {
+    @apply border-r;
+  }
+
+  & tr:last-child td:first-child {
+    @apply rounded-bl;
+  }
+
+  & tr:last-child td:last-child {
+    @apply rounded-br;
+  }
+}
+
+@utility rounded-table-wrapper {
+  @apply ring-0!;
+  @apply shadow-none!;
+  @apply inline-block;
+
+  & table {
+    @apply border-separate border-spacing-0;
+  }
+}
+
+@utility rounded-thead {
+  & tr:first-child th {
+    @apply bg-chrome-50;
+  }
+
+  & tr:first-child th {
+    @apply border-chrome-300;
+  }
+
+  & tr:first-child th {
+    @apply border-t;
+  }
+
+  & th:first-child {
+    @apply border-l;
+  }
+
+  & th:last-child {
+    @apply border-r;
+  }
+
+  & tr:first-child th:first-child {
+    @apply rounded-tl;
+  }
+
+  & tr:first-child th:last-child {
+    @apply rounded-tr;
+  }
+}
 
 @layer base {
   html {
@@ -17,114 +144,40 @@
   }
 
   :root {
-    --ansi-black: theme(ansi.colors.vscode.black);
-    --ansi-red: theme(ansi.colors.vscode.red);
-    --ansi-green: theme(ansi.colors.vscode.green);
-    --ansi-yellow: theme(ansi.colors.vscode.yellow);
-    --ansi-blue: theme(ansi.colors.vscode.blue);
-    --ansi-magenta: theme(ansi.colors.vscode.magenta);
-    --ansi-cyan: theme(ansi.colors.vscode.cyan);
-    --ansi-white: theme(ansi.colors.vscode.white);
-    --ansi-bright-black: theme(ansi.colors.vscode.bright-black);
-    --ansi-bright-red: theme(ansi.colors.vscode.bright-red);
-    --ansi-bright-green: theme(ansi.colors.vscode.bright-green);
-    --ansi-bright-yellow: theme(ansi.colors.vscode.bright-yellow);
-    --ansi-bright-blue: theme(ansi.colors.vscode.bright-blue);
-    --ansi-bright-magenta: theme(ansi.colors.vscode.magenta);
-    --ansi-bright-cyan: theme(ansi.colors.vscode.cyan);
-    --ansi-bright-white: theme(ansi.colors.vscode.white);
+    --ansi-black: var(--ansi-colors-vscode-black);
+    --ansi-red: var(--ansi-colors-vscode-red);
+    --ansi-green: var(--ansi-colors-vscode-green);
+    --ansi-yellow: var(--ansi-colors-vscode-yellow);
+    --ansi-blue: var(--ansi-colors-vscode-blue);
+    --ansi-magenta: var(--ansi-colors-vscode-magenta);
+    --ansi-cyan: var(--ansi-colors-vscode-cyan);
+    --ansi-white: var(--ansi-colors-vscode-white);
+    --ansi-bright-black: var(--ansi-colors-vscode-bright-black);
+    --ansi-bright-red: var(--ansi-colors-vscode-bright-red);
+    --ansi-bright-green: var(--ansi-colors-vscode-bright-green);
+    --ansi-bright-yellow: var(--ansi-colors-vscode-bright-yellow);
+    --ansi-bright-blue: var(--ansi-colors-vscode-bright-blue);
+    --ansi-bright-magenta: var(--ansi-colors-vscode-magenta);
+    --ansi-bright-cyan: var(--ansi-colors-vscode-cyan);
+    --ansi-bright-white: var(--ansi-colors-vscode-white);
   }
 
   .dark {
-    --ansi-black: theme(ansi.colors.xtermjs.black);
-    --ansi-red: theme(ansi.colors.xtermjs.red);
-    --ansi-green: theme(ansi.colors.xtermjs.green);
-    --ansi-yellow: theme(ansi.colors.xtermjs.yellow);
-    --ansi-blue: theme(ansi.colors.xtermjs.blue);
-    --ansi-magenta: theme(ansi.colors.xtermjs.magenta);
-    --ansi-cyan: theme(ansi.colors.xtermjs.cyan);
-    --ansi-white: theme(ansi.colors.xtermjs.white);
-    --ansi-bright-black: theme(ansi.colors.xtermjs.bright-black);
-    --ansi-bright-red: theme(ansi.colors.xtermjs.bright-red);
-    --ansi-bright-green: theme(ansi.colors.xtermjs.bright-green);
-    --ansi-bright-yellow: theme(ansi.colors.xtermjs.bright-yellow);
-    --ansi-bright-blue: theme(ansi.colors.xtermjs.bright-blue);
-    --ansi-bright-magenta: theme(ansi.colors.xtermjs.magenta);
-    --ansi-bright-cyan: theme(ansi.colors.xtermjs.cyan);
-    --ansi-bright-white: theme(ansi.colors.xtermjs.white);
-  }
-}
-
-@layer components {
-  /* Hide scrollbar for Chrome, Safari and Opera */
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* Hide scrollbar for IE, Edge and Firefox */
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    /* IE and Edge */
-    scrollbar-width: none;
-    /* Firefox */
-  }
-
-  .rounded-tbody {
-    @apply relative;
-  }
-
-  .rounded-table-wrapper {
-    @apply ring-0 !important;
-    @apply shadow-none !important;
-    @apply inline-block;
-  }
-
-  .rounded-table-wrapper table {
-    @apply border-separate border-spacing-0;
-  }
-
-  .rounded-thead tr:first-child th {
-    @apply bg-chrome-50;
-  }
-
-  .rounded-thead tr:first-child th,
-  .rounded-tbody tr:last-child td,
-  .rounded-tbody td:first-child,
-  .rounded-tbody td:last-child {
-    @apply border-chrome-300;
-  }
-
-  .rounded-thead tr:first-child th {
-    @apply border-t;
-  }
-
-  .rounded-tbody tr:last-child td {
-    @apply border-b;
-  }
-
-  .rounded-thead th:first-child,
-  .rounded-tbody td:first-child {
-    @apply border-l;
-  }
-
-  .rounded-thead th:last-child,
-  .rounded-tbody td:last-child {
-    @apply border-r;
-  }
-
-  .rounded-thead tr:first-child th:first-child {
-    @apply rounded-tl;
-  }
-
-  .rounded-thead tr:first-child th:last-child {
-    @apply rounded-tr;
-  }
-
-  .rounded-tbody tr:last-child td:first-child {
-    @apply rounded-bl;
-  }
-
-  .rounded-tbody tr:last-child td:last-child {
-    @apply rounded-br;
+    --ansi-black: var(--ansi-colors-xtermjs-black);
+    --ansi-red: var(--ansi-colors-xtermjs-red);
+    --ansi-green: var(--ansi-colors-xtermjs-green);
+    --ansi-yellow: var(--ansi-colors-xtermjs-yellow);
+    --ansi-blue: var(--ansi-colors-xtermjs-blue);
+    --ansi-magenta: var(--ansi-colors-xtermjs-magenta);
+    --ansi-cyan: var(--ansi-colors-xtermjs-cyan);
+    --ansi-white: var(--ansi-colors-xtermjs-white);
+    --ansi-bright-black: var(--ansi-colors-xtermjs-bright-black);
+    --ansi-bright-red: var(--ansi-colors-xtermjs-bright-red);
+    --ansi-bright-green: var(--ansi-colors-xtermjs-bright-green);
+    --ansi-bright-yellow: var(--ansi-colors-xtermjs-bright-yellow);
+    --ansi-bright-blue: var(--ansi-colors-xtermjs-bright-blue);
+    --ansi-bright-magenta: var(--ansi-colors-xtermjs-magenta);
+    --ansi-bright-cyan: var(--ansi-colors-xtermjs-cyan);
+    --ansi-bright-white: var(--ansi-colors-xtermjs-white);
   }
 }

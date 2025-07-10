@@ -125,7 +125,7 @@ export const ClusterSettingsDialog = ({ isOpen = false, onClose, defaultKubeCont
   const [kubeContext, setKubeContext] = useState(defaultKubeContext);
 
   return (
-    <Modal open={isOpen} onClose={onClose} className="!max-w-[550px]">
+    <Modal open={isOpen} onClose={onClose} className="max-w-[550px]!">
       <Modal.Title className="flex items-center space-x-3">
         <span>Cluster Settings</span>
         {appConfig.environment === 'desktop' && (
