@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	zlog "github.com/rs/zerolog/log"
@@ -333,11 +334,20 @@ func (f *AgentLogFetcher) StreamForward(ctx context.Context, source LogSource, o
 	// Init output channel
 	outCh := make(chan LogRecord)
 
-	var sub *grpcdispatcher.Subscription
-	var err error
+	var (
+		sub  *grpcdispatcher.Subscription
+		err  error
+		once sync.Once
+	)
+
+	closeOutCh := func() {
+		once.Do(func() {
+			close(outCh)
+		})
+	}
 
 	sub, err = f.grpcDispatcher.UnicastSubscribe(ctx, source.Metadata.Node, func(ctx context.Context, conn *grpc.ClientConn) {
-		defer close(outCh)
+		defer closeOutCh()
 
 		// init client
 		c := clusteragentpb.NewLogRecordsServiceClient(conn)
@@ -418,7 +428,7 @@ func (f *AgentLogFetcher) StreamForward(ctx context.Context, source LogSource, o
 		sub.Unsubscribe()
 	})
 	if err != nil {
-		close(outCh)
+		closeOutCh()
 		return nil, err
 	}
 
@@ -430,11 +440,20 @@ func (f *AgentLogFetcher) StreamBackward(ctx context.Context, source LogSource, 
 	// Init output channel
 	outCh := make(chan LogRecord)
 
-	var sub *grpcdispatcher.Subscription
-	var err error
+	var (
+		sub  *grpcdispatcher.Subscription
+		err  error
+		once sync.Once
+	)
+
+	closeOutCh := func() {
+		once.Do(func() {
+			close(outCh)
+		})
+	}
 
 	sub, err = f.grpcDispatcher.UnicastSubscribe(ctx, source.Metadata.Node, func(ctx context.Context, conn *grpc.ClientConn) {
-		defer close(outCh)
+		defer closeOutCh()
 
 		// init client
 		c := clusteragentpb.NewLogRecordsServiceClient(conn)
@@ -504,7 +523,7 @@ func (f *AgentLogFetcher) StreamBackward(ctx context.Context, source LogSource, 
 		sub.Unsubscribe()
 	})
 	if err != nil {
-		close(outCh)
+		closeOutCh()
 		return nil, err
 	}
 
