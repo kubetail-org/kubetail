@@ -6,6 +6,8 @@ toolchain go1.24.3
 
 replace github.com/gorilla/csrf => github.com/gorilla/csrf v1.7.2
 
+replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
+
 require (
 	github.com/99designs/gqlgen v0.17.74
 	github.com/Masterminds/semver/v3 v3.3.1
@@ -17,7 +19,7 @@ require (
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/csrf v1.7.3
-	github.com/kubetail-org/grpc-dispatcher-go v0.1.0
+	github.com/kubetail-org/grpc-dispatcher-go v0.1.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/viper v1.20.1

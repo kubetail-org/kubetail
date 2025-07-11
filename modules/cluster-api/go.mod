@@ -8,6 +8,8 @@ replace github.com/kubetail-org/kubetail/modules/shared => ../shared
 
 replace github.com/gorilla/csrf => github.com/gorilla/csrf v1.7.2
 
+replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
+
 require (
 	github.com/99designs/gqlgen v0.17.74
 	github.com/gin-contrib/gzip v1.2.3
@@ -18,7 +20,7 @@ require (
 	github.com/gorilla/csrf v1.7.3
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/gwatts/gin-adapter v1.0.0
-	github.com/kubetail-org/grpc-dispatcher-go v0.1.0
+	github.com/kubetail-org/grpc-dispatcher-go v0.1.1
 	github.com/kubetail-org/kubetail/modules/shared v0.0.0-00010101000000-000000000000
 	github.com/rs/zerolog v1.34.0
 	github.com/sosodev/duration v1.3.1
