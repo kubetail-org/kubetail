@@ -23,12 +23,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    /* TODO: ENABLE ON TYPESCRIPT UPGRADE */
-    //"noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true
   },
   "include": [
     "vite.config.ts",
-    "tailwind.config.ts",
     "eslint.config.ts",
   ],
 }
