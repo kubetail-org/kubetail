@@ -78,6 +78,9 @@ FROM scratch AS final
 
 WORKDIR /cluster-agent
 
+# copy grpc-health-probe
+COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
+
 # copy glibc runtime libraries and dynamic loader (aarch64)
 COPY --from=rustbuilder /lib/aarch64-linux-gnu/libgcc_s.so.1 /lib/aarch64-linux-gnu/
 COPY --from=rustbuilder /lib/aarch64-linux-gnu/libpthread.so.0 /lib/aarch64-linux-gnu/

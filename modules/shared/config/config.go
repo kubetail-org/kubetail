@@ -16,6 +16,7 @@ package config
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
@@ -146,9 +147,20 @@ type Config struct {
 
 	// Cluster API options
 	ClusterAPI struct {
-		GinMode                 string `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
-		BasePath                string `mapstructure:"base-path"`
-		ClusterAgentDispatchUrl string `mapstructure:"cluster-agent-dispatch-url"`
+		GinMode  string `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
+		BasePath string `mapstructure:"base-path"`
+
+		// Cluster Agent connection options
+		ClusterAgent struct {
+			DispatchUrl string `mapstructure:"dispatch-url"`
+			TLS         struct {
+				Enabled    bool
+				CertFile   string `mapstructure:"cert-file" validate:"omitempty,file"`
+				KeyFile    string `mapstructure:"key-file" validate:"omitempty,file"`
+				CAFile     string `mapstructure:"ca-file" validate:"omitempty,file"`
+				ServerName string `mapstructure:"server-name"`
+			}
+		} `mapstructure:"cluster-agent"`
 
 		// csrf options
 		CSRF struct {
@@ -214,18 +226,6 @@ type Config struct {
 		Addr             string `validate:"omitempty,hostname_port"`
 		ContainerLogsDir string `mapstructure:"container-logs-dir"`
 
-		// TLS options
-		TLS struct {
-			// enable tls termination
-			Enabled bool
-
-			// TLS certificate file
-			CertFile string `mapstructure:"cert-file" validate:"omitempty,file"`
-
-			// TLS certificate key file
-			KeyFile string `mapstructure:"key-file" validate:"omitempty,file"`
-		}
-
 		// logging options
 		Logging struct {
 			// enable logging
@@ -236,6 +236,24 @@ type Config struct {
 
 			// log format
 			Format string `validate:"oneof=json pretty"`
+		}
+
+		// TLS options
+		TLS struct {
+			// Enable tls termination
+			Enabled bool
+
+			// TLS certificate file
+			CertFile string `mapstructure:"cert-file" validate:"omitempty,file"`
+
+			// TLS certificate key file
+			KeyFile string `mapstructure:"key-file" validate:"omitempty,file"`
+
+			// CA bundle file used to verify the client
+			CAFile string `mapstructure:"ca-file" validate:"omitempty,file"`
+
+			// Client certificate authentication behavior
+			ClientAuth tls.ClientAuthType `mapstructure:"client-auth"`
 		}
 
 		// OTel options
@@ -304,7 +322,12 @@ func DefaultConfig() *Config {
 	cfg.ClusterAPI.HTTPS.TLS.CertFile = ""
 	cfg.ClusterAPI.HTTPS.TLS.KeyFile = ""
 	cfg.ClusterAPI.BasePath = "/"
-	cfg.ClusterAPI.ClusterAgentDispatchUrl = "kubernetes://kubetail-cluster-agent:50051"
+	cfg.ClusterAPI.ClusterAgent.DispatchUrl = "kubernetes://kubetail-cluster-agent:50051"
+	cfg.ClusterAPI.ClusterAgent.TLS.Enabled = false
+	cfg.ClusterAPI.ClusterAgent.TLS.CertFile = ""
+	cfg.ClusterAPI.ClusterAgent.TLS.KeyFile = ""
+	cfg.ClusterAPI.ClusterAgent.TLS.CAFile = ""
+	cfg.ClusterAPI.ClusterAgent.TLS.ServerName = ""
 	cfg.ClusterAPI.GinMode = "release"
 	cfg.ClusterAPI.CSRF.Enabled = true
 	cfg.ClusterAPI.CSRF.Secret = ""
@@ -327,6 +350,11 @@ func DefaultConfig() *Config {
 	cfg.ClusterAgent.Logging.Enabled = true
 	cfg.ClusterAgent.Logging.Level = "info"
 	cfg.ClusterAgent.Logging.Format = "json"
+	cfg.ClusterAgent.TLS.Enabled = false
+	cfg.ClusterAgent.TLS.CertFile = ""
+	cfg.ClusterAgent.TLS.KeyFile = ""
+	cfg.ClusterAgent.TLS.CAFile = ""
+	cfg.ClusterAgent.TLS.ClientAuth = tls.NoClientCert
 	cfg.ClusterAgent.OTel.Enabled = false
 	cfg.ClusterAgent.OTel.Debug = false
 	cfg.ClusterAgent.OTel.Endpoint = "localhost:4317"
@@ -435,6 +463,36 @@ func csrfSameSiteDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (i
 	return sameSite, nil
 }
 
+// Custom unmarshaler for tls.ClientAuthType
+func tlsClientAuthTypeDecodeHook(f reflect.Type, t reflect.Type, data any) (any, error) {
+	if f.Kind() != reflect.String {
+		return data, nil
+	}
+
+	if t != reflect.TypeOf(tls.NoClientCert) {
+		return data, nil
+	}
+
+	var authType tls.ClientAuthType
+	authTypeStr := strings.ToLower(data.(string))
+	switch authTypeStr {
+	case "none":
+		authType = tls.NoClientCert
+	case "request":
+		authType = tls.RequestClientCert
+	case "require-any":
+		authType = tls.RequireAnyClientCert
+	case "verify-if-given":
+		authType = tls.VerifyClientCertIfGiven
+	case "require-and-verify":
+		authType = tls.RequireAndVerifyClientCert
+	default:
+		return nil, fmt.Errorf("invalid tls.ClientAuthType value: %s", authTypeStr)
+	}
+
+	return authType, nil
+}
+
 func NewConfig(v *viper.Viper, f string) (*Config, error) {
 	if f != "" {
 		// read contents
@@ -461,6 +519,7 @@ func NewConfig(v *viper.Viper, f string) (*Config, error) {
 		environmentDecodeHook,
 		httpSameSiteDecodeHook,
 		csrfSameSiteDecodeHook,
+		tlsClientAuthTypeDecodeHook,
 	)
 	if err := v.Unmarshal(cfg, viper.DecodeHook(hookFunc)); err != nil {
 		return nil, err

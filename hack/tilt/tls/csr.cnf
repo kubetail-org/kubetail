@@ -1,0 +1,25 @@
+[ req ]
+prompt             = no
+default_bits       = 4096
+default_md         = sha256
+distinguished_name = dn
+x509_extensions    = v3_ca
+
+[ dn ]
+C  = US
+ST = New York
+L  = New York
+O  = Kubetail
+OU = Cluster Components
+CN = kubetail-cluster-ca
+
+[ v3_ca ]
+basicConstraints       = critical, CA:TRUE
+keyUsage               = critical, keyCertSign, cRLSign
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid:always,issuer
+subjectAltName         = @alt_names
+
+[ alt_names ]
+DNS.1 = kubetail-cluster-ca.kubetail-system.svc
+DNS.2 = kubetail-cluster-ca.kubetail-system.svc.cluster.local

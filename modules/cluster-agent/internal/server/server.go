@@ -15,6 +15,11 @@
 package server
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"os"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -24,24 +29,50 @@ import (
 )
 
 func NewServer(cfg *config.Config) (*grpc.Server, error) {
-	// init grpc server
+	// Init server options
 	opts := []grpc.ServerOption{
 		grpc.UnaryInterceptor(grpchelpers.AuthUnaryServerInterceptor),
 		grpc.StreamInterceptor(grpchelpers.AuthStreamServerInterceptor),
 	}
 
-	// configure tls
+	// Configure tls
 	if cfg.ClusterAgent.TLS.Enabled {
-		creds, err := credentials.NewServerTLSFromFile(cfg.ClusterAgent.TLS.CertFile, cfg.ClusterAgent.TLS.KeyFile)
+		// Load server cert and key
+		serverCert, err := tls.LoadX509KeyPair(cfg.ClusterAgent.TLS.CertFile, cfg.ClusterAgent.TLS.KeyFile)
 		if err != nil {
 			return nil, err
 		}
-		opts = append(opts, grpc.Creds(creds))
+
+		// Init tls config
+		tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{serverCert},
+			ClientAuth:   cfg.ClusterAgent.TLS.ClientAuth,
+		}
+
+		// Add CA bundle for mTLS
+		if cfg.ClusterAgent.TLS.CAFile != "" {
+			// Load CA cert to validate client certs
+			caPEM, err := os.ReadFile(cfg.ClusterAgent.TLS.CAFile)
+			if err != nil {
+				return nil, err
+			}
+
+			// Init cert pool
+			certPool := x509.NewCertPool()
+			if !certPool.AppendCertsFromPEM(caPEM) {
+				return nil, fmt.Errorf("failed to append CA cert to pool")
+			}
+
+			tlsConfig.ClientCAs = certPool
+		}
+
+		opts = append(opts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	}
 
 	// Add otel stats handler if tracing is enabled
 	if cfg.ClusterAgent.OTel.Enabled {
 		opts = append(opts, grpc.StatsHandler(otelgrpc.NewServerHandler()))
 	}
+
 	return grpc.NewServer(opts...), nil
 }
