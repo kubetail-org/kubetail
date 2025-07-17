@@ -1,9 +1,81 @@
 load('ext://restart_process', 'docker_build_with_restart')
 load('ext://namespace', 'namespace_create')
+load('ext://secret', 'secret_create_generic', 'secret_create_tls')
 
 namespace_create('kubetail-system')
 
+# kubetail shared
+
+secret_create_generic(
+    name='kubetail-ca',
+    namespace='kubetail-system',
+    from_file=[
+        'ca.crt=./hack/tilt/tls/ca.crt'
+    ],
+)
+
+# kubetail-dashboard
+
+secret_create_tls(
+    name='kubetail-dashboard-tls',
+    namespace='kubetail-system',
+    cert='./hack/tilt/tls/dashboard.crt',
+    key='./hack/tilt/tls/dashboard.key',
+)
+
+local_resource(
+  'kubetail-dashboard-compile',
+  '''
+  # Check if the dashboard-ui/dist directory exists
+  if [ -d dashboard-ui/dist ]; then
+    rm -rf modules/dashboard/website &&
+    cp -r dashboard-ui/dist modules/dashboard/website
+  fi
+
+  cd modules
+
+  # --- Build the Go binary ---
+  export CGO_ENABLED=0
+  export GOOS=linux
+  go build -o ../.tilt/dashboard ./dashboard/cmd/main.go
+
+  # --- Reset dashboard/website directory ---
+  if [ ! -f dashboard/website/.gitkeep ]; then
+    rm -rf dashboard/website &&
+    git checkout dashboard/website
+  fi
+  ''',
+  deps=[
+    './dashboard-ui/dist',
+    './modules/dashboard',
+    './modules/shared'
+  ],
+  ignore=[
+    './modules/dashboard/website'
+  ]
+)
+
+docker_build_with_restart(
+  'kubetail-dashboard',
+  dockerfile='hack/tilt/Dockerfile.kubetail-dashboard',
+  context='.',
+  entrypoint="/dashboard/dashboard -c /etc/kubetail/config.yaml",
+  only=[
+    './.tilt/dashboard',
+  ],
+  live_update=[
+    sync('./.tilt/dashboard', '/dashboard/dashboard'),
+  ]
+)
+
 # kubetail-cluster-api
+
+secret_create_tls(
+    name='kubetail-cluster-api-tls',
+    namespace='kubetail-system',
+    cert='./hack/tilt/tls/cluster-api.crt',
+    key='./hack/tilt/tls/cluster-api.key',
+)
 
 local_resource(
   'kubetail-cluster-api-compile',
@@ -35,6 +107,13 @@ docker_build_with_restart(
 )
 
 # kubetail-cluster-agent
+
+secret_create_tls(
+    name='kubetail-cluster-agent-tls',
+    namespace='kubetail-system',
+    cert='./hack/tilt/tls/cluster-agent.crt',
+    key='./hack/tilt/tls/cluster-agent.key',
+)
 
 local_resource(
   'kubetail-cluster-agent-compile',
@@ -119,53 +198,6 @@ else:
     ]
   )
 
-# kubetail-dashboard
-
-local_resource(
-  'kubetail-dashboard-compile',
-  '''
-  # Check if the dashboard-ui/dist directory exists
-  if [ -d dashboard-ui/dist ]; then
-    rm -rf modules/dashboard/website &&
-    cp -r dashboard-ui/dist modules/dashboard/website
-  fi
-
-  cd modules
-
-  # --- Build the Go binary ---
-  export CGO_ENABLED=0
-  export GOOS=linux
-  go build -o ../.tilt/dashboard ./dashboard/cmd/main.go
-
-  # --- Reset dashboard/website directory ---
-  if [ ! -f dashboard/website/.gitkeep ]; then
-    rm -rf dashboard/website &&
-    git checkout dashboard/website
-  fi
-  ''',
-  deps=[
-    './dashboard-ui/dist',
-    './modules/dashboard',
-    './modules/shared'
-  ],
-  ignore=[
-    './modules/dashboard/website'
-  ]
-)
-
-docker_build_with_restart(
-  'kubetail-dashboard',
-  dockerfile='hack/tilt/Dockerfile.kubetail-dashboard',
-  context='.',
-  entrypoint="/dashboard/dashboard -c /etc/kubetail/config.yaml",
-  only=[
-    './.tilt/dashboard',
-  ],
-  live_update=[
-    sync('./.tilt/dashboard', '/dashboard/dashboard'),
-  ]
-)
-
 # apply manifests
 k8s_yaml('hack/tilt/kubetail.yaml')
 k8s_yaml('hack/tilt/loggen.yaml')
@@ -178,6 +210,7 @@ k8s_yaml('hack/tilt/chaoskube.yaml')
 k8s_resource(
   objects=[
     'kubetail-system:namespace',
+    'kubetail-ca:secret',
     'kubetail-testuser:serviceaccount',
     'kubetail-testuser:role',
     'kubetail-testuser:clusterrole',
@@ -223,6 +256,7 @@ k8s_resource(
     'kubetail-cluster-agent:configmap',
     'kubetail-cluster-agent:serviceaccount',
     'kubetail-cluster-agent:networkpolicy',
+    'kubetail-cluster-agent-tls:secret',
   ],
   resource_deps=['kubetail-shared'],
 )

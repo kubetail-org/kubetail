@@ -1,0 +1,26 @@
+[ req ]
+prompt             = no
+default_bits       = 4096
+default_md         = sha256
+distinguished_name = dn
+req_extensions     = v3_req
+
+[ dn ]
+C  = US
+ST = New York
+L  = New York
+O  = Kubetail
+OU = Cluster Components
+# This should match the Service DNS name pods use:
+CN = kubetail-cluster-agent.kubetail-system.svc
+
+[ v3_req ]
+basicConstraints       = critical, CA:FALSE
+keyUsage               = critical, digitalSignature, keyEncipherment
+extendedKeyUsage       = serverAuth, clientAuth
+subjectKeyIdentifier   = hash
+subjectAltName         = @alt_names
+
+[ alt_names ]
+DNS.1 = kubetail-cluster-agent.kubetail-system.svc
+DNS.2 = kubetail-cluster-agent.kubetail-system.svc.cluster.local

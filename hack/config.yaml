@@ -403,13 +403,65 @@ cluster-api:
   #
   base-path: /
 
-  ## cluster-agent-dispatch-url ##
+  ## cluster-agent ##
   #
-  # Service url for gRPC fanout queries to cluster-agent
+  # Configure connection to Cluster Agent
   #
-  # Default value: kubernetes://kubetail-cluster-agent:50051
-  #
-  cluster-agent-dispatch-url: kubernetes://kubetail-cluster-agent:50051
+  cluster-agent:
+
+    ## dispatch-url ##
+    #
+    # Service url for gRPC fanout queries to Cluster Agent
+    #
+    # Default value: kubernetes://kubetail-cluster-agent:50051
+    #
+    dispatch-url: kubernetes://kubetail-cluster-agent:50051
+
+    ## tls ##
+    #
+    # Configure tls when dialing Cluster Agent gRPC server
+    #
+    tls:
+
+      ## enabled ##
+      #
+      # Enable tls for gRPC calls
+      #
+      # Default value: false
+      #
+      enabled: false
+
+      ## cert-file ##
+      #
+      # Path to the client certificate (PEM) to present
+      #
+      # Default value: __empty__
+      #
+      cert-file:
+
+      ## key-file ##
+      #
+      # Path to the client private key (PEM)
+      #
+      # Default value: __empty__
+      #
+      key-file:
+
+      ## ca-file ##
+      #
+      # Path to the CA bundle (PEM) used to verify the server
+      #
+      # Default value: __empty__
+      #
+      ca-file:
+
+      ## server-name ##
+      #
+      # Authority name to use for TLS hostname verification
+      #
+      # Default value: __empty__
+      #
+      server-name:
 
   ## gin-mode ##
   #
@@ -636,3 +688,26 @@ cluster-agent:
     # Default value: __empty__
     #
     key-file:
+
+    ## ca-file ##
+    #
+    # Path to CA bundle for verifying client certs
+    #
+    # Default value: __empty__
+    #
+    ca-file:
+
+    ## client-auth ##
+    #
+    # Controls client certificate authentication behavior
+    # 
+    # Default value: none
+    #
+    # One of:
+    #   - none
+    #   - request
+    #   - require-any
+    #   - verify-if-given
+    #   - require-and-verify
+    #
+    client-auth:

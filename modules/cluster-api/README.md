@@ -22,8 +22,13 @@ The Kubetail Cluster API executable can be configured using a configuration file
 | ------------------------------------------------- | -------- | -------------------------------------------------- | ------------------------------------------- | ------ |
 | allowed-namespaces                                | []string | If populated, restricts namespace access           | []                                          | stable |
 | cluster-api.base-path                             | string   | URL path prefix                                    | "/"                                         | stable |
-| cluster-api.cluster-agent-dispatch-url            | string   | URL for sending dispatch requests to cluster-agent | "kubernetes://kubetail-cluster-agent:50051" | stable |
 | cluster-api.gin-mode                              | string   | Gin mode (release, debug)                          | "release"                                   | stable |
+| cluster-api.cluster-agent.dispatch-url            | string   | URL for sending dispatch requests to cluster-agent | "kubernetes://kubetail-cluster-agent:50051" | alpha  |
+| cluster-api.cluster-agent.tls.enabled             | bool     | Enable tls                                         | false                                       | alpha  |
+| cluster-api.cluster-agent.tls.cert-file           | string   | Path to tls certificate file                       | ""                                          | alpha  |
+| cluster-api.cluster-agent.tls.key-file            | string   | Path to tls key file                               | ""                                          | alpha  |  
+| cluster-api.cluster-agent.tls.ca-file             | string   | Path to tls CA bundle file                         | ""                                          | alpha  |
+| cluster-api.cluster-agent.tls.server-name         | string   | Server name for conection verification             | ""                                          | alpha  |
 | cluster-api.csrf.enabled                          | bool     | Enable CSRF protection                             | true                                        | stable |
 | cluster-api.csrf.field-name                       | string   | CSRF token name in forms                           | "csrf_token"                                | stable |
 | cluster-api.csrf.secret                           | string   | CSRF hash key                                      | ""                                          | stable |

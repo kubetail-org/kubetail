@@ -43,6 +43,10 @@ FROM alpine:3.22.0
 
 WORKDIR /cluster-agent
 
+# copy grpc-health-probe
+COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
+
+# copy rglk
 COPY --from=rustbuilder /work/crates/rgkl/target/release/rgkl .
 
 # copy glibc runtime libraries and dynamic loader (aarch64)

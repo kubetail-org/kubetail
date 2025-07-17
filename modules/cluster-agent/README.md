@@ -22,16 +22,18 @@ The Kubetail Cluster Agent executable supports the following command line config
 
 The Kubetail Cluster Agent can be configured using a configuration file written in YAML, JSON, TOML, HCL or envfile format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [hack/config.yaml](../../hack/config.yaml)):
 
-| Name                         | Datatype | Description                              | Default  |
-| ---------------------------- | -------- | ---------------------------------------- | -------- |
-| allowed-namespaces           | []string | If populated, restricts namespace access | []       |
-| cluser-agent.addr            | string   | Host address to bind to                  | ":50051" |
-| cluser-agent.logging.enabled | bool     | Enable logging                           | true     |
-| cluser-agent.logging.level   | string   | Log level                                | "info"   |
-| cluser-agent.logging.format  | string   | Log format (json, pretty)                | "json"   |
-| cluser-agent.tls.enabled     | bool     | Enable TLS endpoint termination          | false    |
-| cluser-agent.tls.cert-file   | string   | Path to cert file                        | ""       |
-| cluser-agent.tls.key-file    | string   | Path to key file                         | ""       |
+| Name                         | Datatype | Description                              | Default  | Status |
+| ---------------------------- | -------- | ---------------------------------------- | -------- | ------ |
+| allowed-namespaces           | []string | If populated, restricts namespace access | []       | stable |
+| cluser-agent.addr            | string   | Host address to bind to                  | ":50051" | stable |
+| cluser-agent.logging.enabled | bool     | Enable logging                           | true     | stable |
+| cluser-agent.logging.level   | string   | Log level                                | "info"   | stable |
+| cluser-agent.logging.format  | string   | Log format (json, pretty)                | "json"   | stable |
+| cluser-agent.tls.enabled     | bool     | Enable TLS endpoint termination          | false    | stable |
+| cluser-agent.tls.cert-file   | string   | Path to cert file                        | ""       | stable |
+| cluser-agent.tls.key-file    | string   | Path to key file                         | ""       | stable |
+| cluser-agent.tls.ca-file     | string   | Path to client CA bundle file            | ""       | alpha  |
+| cluser-agent.tls.client-auth | string   | Controls client cert authentication      | "none"   | alpha  |
 
 ## gRPC
 
