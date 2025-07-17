@@ -54,13 +54,11 @@ func TestDesktopConnectionManager_NewInformer_AuthorizationFailure(t *testing.T)
 	).Return(expectedError)
 
 	// Create DesktopConnectionManager with the mock authorizer
-	csCache := make(map[string]*kubernetes.Clientset)
-	csCache["test-context"] = &kubernetes.Clientset{}
-
 	cm := &DesktopConnectionManager{
 		authorizer: mockAuthorizer,
-		csCache:    csCache,
 	}
+
+	cm.csCache.Store("test-context", &kubernetes.Clientset{})
 
 	// Set up test parameters
 	ctx := context.Background()

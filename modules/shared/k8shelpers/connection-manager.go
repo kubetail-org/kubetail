@@ -34,6 +34,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
+	"github.com/kubetail-org/kubetail/modules/shared/util"
 )
 
 // Represents shared informer factory cache key
@@ -64,13 +65,13 @@ type DesktopConnectionManager struct {
 	kubeConfig        *api.Config
 	isLazy            bool
 	authorizer        DesktopAuthorizer
-	rcCache           map[string]*rest.Config
-	csCache           map[string]*kubernetes.Clientset
-	dcCache           map[string]*dynamic.DynamicClient
-	factoryCache      map[factoryCacheKey]informers.SharedInformerFactory
+	rcCache           util.SyncMap[string, *rest.Config]
+	csCache           util.SyncMap[string, *kubernetes.Clientset]
+	dcCache           util.SyncMap[string, *dynamic.DynamicClient]
+	factoryCache      util.SyncMap[factoryCacheKey, informers.SharedInformerFactory]
+	isReadyCache      util.SyncMap[string, bool]
 	rootCtx           context.Context
 	rootCtxCancel     context.CancelFunc
-	readyChs          map[string]chan struct{}
 	stopCh            chan struct{}
 	mu                sync.Mutex
 }
@@ -78,13 +79,8 @@ type DesktopConnectionManager struct {
 // Initialize new DesktopConnectionManager instance
 func NewDesktopConnectionManager(options ...ConnectionManagerOption) (*DesktopConnectionManager, error) {
 	cm := &DesktopConnectionManager{
-		authorizer:   NewDesktopAuthorizer(),
-		rcCache:      make(map[string]*rest.Config),
-		csCache:      make(map[string]*kubernetes.Clientset),
-		dcCache:      make(map[string]*dynamic.DynamicClient),
-		factoryCache: make(map[factoryCacheKey]informers.SharedInformerFactory),
-		readyChs:     make(map[string]chan struct{}),
-		stopCh:       make(chan struct{}),
+		authorizer: NewDesktopAuthorizer(),
+		stopCh:     make(chan struct{}),
 	}
 
 	// Init root context
@@ -123,14 +119,14 @@ func (cm *DesktopConnectionManager) Shutdown(ctx context.Context) error {
 
 	// Initialize shutdown of shared informer factory managers
 	var wg sync.WaitGroup
-	for _, factory := range cm.factoryCache {
+	cm.factoryCache.Range(func(key factoryCacheKey, factory informers.SharedInformerFactory) bool {
 		wg.Add(1)
-		factory := factory
-		go func() {
+		go func(f informers.SharedInformerFactory) {
 			defer wg.Done()
-			factory.Shutdown()
-		}()
-	}
+			f.Shutdown()
+		}(factory)
+		return true
+	})
 
 	// Unsubscribe from config watcher events and close
 	cm.KubeConfigWatcher.Unsubscribe(cm.kubeConfigModified)
@@ -156,23 +152,33 @@ func (cm *DesktopConnectionManager) Shutdown(ctx context.Context) error {
 
 // Get cached REST config or create a new one
 func (cm *DesktopConnectionManager) GetOrCreateRestConfig(kubeContext string) (*rest.Config, error) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	return cm.getOrCreateRestConfig_UNSAFE(kubeContext)
+	return cm.rcCache.LoadOrCompute(kubeContext, func() (*rest.Config, error) {
+		kubeConfig := cm.GetKubeConfig()
+
+		// Create new REST config
+		clientConfig := clientcmd.NewNonInteractiveClientConfig(*kubeConfig, kubeContext, &clientcmd.ConfigOverrides{}, nil)
+		rc, err := clientConfig.ClientConfig()
+		if err != nil {
+			return nil, err
+		}
+
+		// Add authentication handler
+		rc.WrapTransport = func(transport http.RoundTripper) http.RoundTripper {
+			return NewBearerTokenRoundTripper(transport)
+		}
+
+		return rc, nil
+	})
 }
 
 // Get cached Clientset or create a new one
 func (cm *DesktopConnectionManager) GetOrCreateClientset(kubeContext string) (kubernetes.Interface, error) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	return cm.getOrCreateClientset_UNSAFE(kubeContext)
+	return cm.getOrCreateClientset(kubeContext)
 }
 
 // Get cached dynamic client or create a new one
 func (cm *DesktopConnectionManager) GetOrCreateDynamicClient(kubeContext string) (dynamic.Interface, error) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	return cm.getOrCreateDynamicClient_UNSAFE(kubeContext)
+	return cm.getOrCreateDynamicClient(kubeContext)
 }
 
 func (cm *DesktopConnectionManager) NewInformer(ctx context.Context, kubeContext string, token string, namespace string, gvr schema.GroupVersionResource) (informers.GenericInformer, func(), error) {
@@ -187,11 +193,8 @@ func (cm *DesktopConnectionManager) NewInformer(ctx context.Context, kubeContext
 		return nil, nil, err
 	}
 
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
 	// Get or create factory
-	factory, err := cm.getOrCreateSharedInformerFactory_UNSAFE(kubeContext, namespace)
+	factory, err := cm.getOrCreateSharedInformerFactory(kubeContext, namespace)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -231,39 +234,20 @@ func (cm *DesktopConnectionManager) DerefKubeContext(kubeContextPtr *string) str
 
 // Sleep until clients have been initialized
 func (cm *DesktopConnectionManager) WaitUntilReady(ctx context.Context, kubeContext string) error {
-	cm.mu.Lock()
+	_, err := cm.isReadyCache.LoadOrComputeWithContext(ctx, kubeContext, func() (bool, error) {
+		// Get clientset
+		clientset, err := cm.getOrCreateClientset(kubeContext)
+		if err != nil {
+			return false, err
+		}
 
-	// Check cache
-	if readyCh, exists := cm.readyChs[kubeContext]; exists {
-		cm.mu.Unlock()
+		// Make a lightweight API call to warm up http connections
+		// NOTE: all clients that share rest config will get warmed up automatically
+		clientset.Discovery().ServerVersion()
 
-		// Wait until channel is closed
-		<-readyCh
-
-		return nil
-	}
-
-	// Create channel and add it to the cache
-	readyCh := make(chan struct{})
-	cm.readyChs[kubeContext] = readyCh
-
-	// Get clientset
-	clientset, err := cm.getOrCreateClientset_UNSAFE(kubeContext)
-	if err != nil {
-		cm.mu.Unlock()
-		return err
-	}
-
-	cm.mu.Unlock()
-
-	// Make a lightweight API call to warm up http connections
-	// NOTE: all clients that share rest config will get warmed up automatically
-	clientset.Discovery().ServerVersion()
-
-	// Send stop signal to channel
-	close(readyCh)
-
-	return nil
+		return true, nil
+	})
+	return err
 }
 
 // Get kube config
@@ -273,116 +257,70 @@ func (cm *DesktopConnectionManager) GetKubeConfig() *api.Config {
 	return cm.kubeConfig
 }
 
-// Get or create REST config (not thread safe)
-func (cm *DesktopConnectionManager) getOrCreateRestConfig_UNSAFE(kubeContext string) (*rest.Config, error) {
-	// Check cache
-	if rc, exists := cm.rcCache[kubeContext]; exists {
-		return rc, nil
-	}
+// Get or create clientset (thread safe)
+func (cm *DesktopConnectionManager) getOrCreateClientset(kubeContext string) (*kubernetes.Clientset, error) {
+	return cm.csCache.LoadOrCompute(kubeContext, func() (*kubernetes.Clientset, error) {
+		// Get rest config
+		restConfig, err := cm.GetOrCreateRestConfig(kubeContext)
+		if err != nil {
+			return nil, err
+		}
 
-	// Create new REST config
-	clientConfig := clientcmd.NewNonInteractiveClientConfig(*cm.kubeConfig, kubeContext, &clientcmd.ConfigOverrides{}, nil)
-	rc, err := clientConfig.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
+		// Create client
+		// TODO: use kubernetes.NewForConfigAndClient to re-use underlying transport
+		clientset, err := kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			return nil, err
+		}
 
-	// Add authentication handler
-	rc.WrapTransport = func(transport http.RoundTripper) http.RoundTripper {
-		return NewBearerTokenRoundTripper(transport)
-	}
-
-	// Add to cache
-	cm.rcCache[kubeContext] = rc
-
-	return rc, nil
-}
-
-// Get or create clientset (not thread safe)
-func (cm *DesktopConnectionManager) getOrCreateClientset_UNSAFE(kubeContext string) (*kubernetes.Clientset, error) {
-	// Check cache
-	if clientset, exists := cm.csCache[kubeContext]; exists {
 		return clientset, nil
-	}
-
-	// Get rest config
-	restConfig, err := cm.getOrCreateRestConfig_UNSAFE(kubeContext)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create client
-	// TODO: use kubernetes.NewForConfigAndClient to re-use underlying transport
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	// Add to cache
-	cm.csCache[kubeContext] = clientset
-
-	return clientset, nil
+	})
 }
 
-// Get or create dynamic client (not thread safe)
-func (cm *DesktopConnectionManager) getOrCreateDynamicClient_UNSAFE(kubeContext string) (*dynamic.DynamicClient, error) {
-	// Check cache
-	if dynamicClient, exists := cm.dcCache[kubeContext]; exists {
+// Get or create dynamic client (thread safe)
+func (cm *DesktopConnectionManager) getOrCreateDynamicClient(kubeContext string) (*dynamic.DynamicClient, error) {
+	return cm.dcCache.LoadOrCompute(kubeContext, func() (*dynamic.DynamicClient, error) {
+		// Get rest config
+		restConfig, err := cm.GetOrCreateRestConfig(kubeContext)
+		if err != nil {
+			return nil, err
+		}
+
+		// Create client
+		// TODO: use dynamic.NewForConfigAndClient to re-use underlying transport
+		dynamicClient, err := dynamic.NewForConfig(restConfig)
+		if err != nil {
+			return nil, err
+		}
+
 		return dynamicClient, nil
-	}
-
-	// Get rest config
-	restConfig, err := cm.getOrCreateRestConfig_UNSAFE(kubeContext)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create client
-	// TODO: use dynamic.NewForConfigAndClient to re-use underlying transport
-	dynamicClient, err := dynamic.NewForConfig(restConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	// Add to cache
-	cm.dcCache[kubeContext] = dynamicClient
-
-	return dynamicClient, nil
+	})
 }
 
-// Get or create shared informer factory (not thread safe)
-func (cm *DesktopConnectionManager) getOrCreateSharedInformerFactory_UNSAFE(kubeContext string, namespace string) (informers.SharedInformerFactory, error) {
+// Get or create shared informer factory (thread safe)
+func (cm *DesktopConnectionManager) getOrCreateSharedInformerFactory(kubeContext string, namespace string) (informers.SharedInformerFactory, error) {
 	k := factoryCacheKey{kubeContext, namespace}
 
-	// Check cache
-	factory, exists := cm.factoryCache[k]
-	if exists {
+	return cm.factoryCache.LoadOrCompute(k, func() (informers.SharedInformerFactory, error) {
+		// Get or create clientset
+		clientset, err := cm.getOrCreateClientset(kubeContext)
+		if err != nil {
+			return nil, err
+		}
+
+		// Create factory
+		factory := informers.NewSharedInformerFactoryWithOptions(clientset, 0, informers.WithNamespace(namespace))
+
+		// Start
+		factory.Start(cm.stopCh)
+
 		return factory, nil
-	}
-
-	// Get or create clientset
-	clientset, err := cm.getOrCreateClientset_UNSAFE(kubeContext)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create factory
-	factory = informers.NewSharedInformerFactoryWithOptions(clientset, 0, informers.WithNamespace(namespace))
-
-	// Start
-	factory.Start(cm.stopCh)
-
-	// Add to cache
-	cm.factoryCache[k] = factory
-
-	return factory, nil
+	})
 }
 
 // Warm up cache in background
 func (cm *DesktopConnectionManager) warmUpCache() {
-	cm.mu.Lock()
-	kubeConfig := cm.kubeConfig
-	cm.mu.Unlock()
+	kubeConfig := cm.GetKubeConfig()
 
 	ctx, cancel := context.WithTimeout(cm.rootCtx, 20*time.Second)
 	defer cancel()
