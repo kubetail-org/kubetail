@@ -12,66 +12,14 @@ allowed-namespaces: []
 ## dashboard ##
 #
 dashboard:
-  ## http ##
+
+  ## addr ##
   #
-  http:
-    ## enabled ##
-    #
-    # Default value: true
-    #
-    enabled: true
-
-    ## address ##
-    #
-    # Default value: __empty
-    #
-    address:
-
-    ## port ##
-    #
-    # Default value: 8080
-    #
-    port: 8080
-
-  ## https ##
+  # Sets the target ip and port to bind the server to
   #
-  https:
-    ## enabled ##
-    #
-    # Default value: false
-    #
-    enabled: false
-
-    ## address ##
-    #
-    # Default value: __empty
-    #
-    address:
-
-    ## port ##
-    #
-    # Default value: 8443
-    #
-    port: 8443
-
-    ## tls ##
-    #
-    tls:
-      ## cert-file ##
-      #
-      # Path to tls certificate file
-      #
-      # Default value: __empty__
-      #
-      cert-file:
-
-      ## key-file ##
-      #
-      # Path to tls key file
-      #
-      # Default value: __empty__
-      #
-      key-file:
+  # Default value: ":80"
+  #
+  addr: :80
 
   ## auth-mode (experimental) ##
   #
@@ -128,6 +76,7 @@ dashboard:
   ## csrf ##
   #
   csrf:
+
     ## enabled ##
     #
     # Default value: true
@@ -155,6 +104,7 @@ dashboard:
     # Set csrf cookie options
     #
     cookie:
+
       ## name ##
       #
       # Default value: kubetail_dashboard_csrf
@@ -207,6 +157,7 @@ dashboard:
   ## logging ##
   #
   logging:
+
     ## enabled ##
     #
     # Default value: true
@@ -239,6 +190,7 @@ dashboard:
     ## access-log ##
     #
     access-log:
+
       ## enabled ##
       #
       # Enables web access logs for app
@@ -258,6 +210,7 @@ dashboard:
   ## session ##
   #
   session:
+
     ## secret ##
     #
     # 32-byte long hash key
@@ -271,6 +224,7 @@ dashboard:
     # Set session cookie options
     #
     cookie:
+
       ## name ##
       #
       # Default value: csrf
@@ -320,9 +274,36 @@ dashboard:
       #
       same-site: lax
 
+  ## tls ##
+  #
+  tls:
+  
+    ## enabled ##
+    #
+    # Default value: false
+    #
+    enabled: false
+  
+    ## cert-file ##
+    #
+    # Path to tls certificate file
+    #
+    # Default value: __empty__
+    #
+    cert-file:
+  
+    ## key-file ##
+    #
+    # Path to tls key file
+    #
+    # Default value: __empty__
+    #
+    key-file:
+
   ## ui ##
   #
   ui:
+
     ## cluster-api-enabled (experimental) ##
     #
     # Enable features that use cluster-api
@@ -334,66 +315,14 @@ dashboard:
 ## cluster-api ##
 #
 cluster-api:
-  ## http ##
+
+  ## addr ##
   #
-  http:
-    ## enabled ##
-    #
-    # Default value: true
-    #
-    enabled: true
-
-    ## address ##
-    #
-    # Default value: __empty
-    #
-    address:
-
-    ## port ##
-    #
-    # Default value: 8080
-    #
-    port: 8080
-
-  ## https ##
+  # Sets the target ip and port to bind the server to
   #
-  https:
-    ## enabled ##
-    #
-    # Default value: false
-    #
-    enabled: false
-
-    ## address ##
-    #
-    # Default value: __empty
-    #
-    address:
-
-    ## port ##
-    #
-    # Default value: 8443
-    #
-    port: 8443
-
-    ## tls ##
-    #
-    tls:
-      ## cert-file ##
-      #
-      # Path to tls certificate file
-      #
-      # Default value: __empty__
-      #
-      cert-file:
-
-      ## key-file ##
-      #
-      # Path to tls key file
-      #
-      # Default value: __empty__
-      #
-      key-file:
+  # Default value: ":8080"
+  #
+  addr: :8080
 
   ## base-path ##
   #
@@ -478,6 +407,7 @@ cluster-api:
   ## csrf ##
   #
   csrf:
+
     ## enabled ##
     #
     # Default value: true
@@ -505,6 +435,7 @@ cluster-api:
     # Set csrf cookie options
     #
     cookie:
+
       ## name ##
       #
       # Default value: kubetail_api_csrf
@@ -557,6 +488,7 @@ cluster-api:
   ## logging ##
   #
   logging:
+
     ## enabled ##
     #
     # Default value: true
@@ -589,6 +521,7 @@ cluster-api:
     ## access-log ##
     #
     access-log:
+
       ## enabled ##
       #
       # Enables web access logs for app
@@ -604,6 +537,16 @@ cluster-api:
       # Default: false
       #
       hide-health-checks: false
+
+  ## tls ##
+  #
+  tls:
+
+    ## enabled ##
+    #
+    # Default value: false
+    #
+    enabled: false
 
     ## cert-file ##
     #
@@ -624,6 +567,7 @@ cluster-api:
 ## cluster-agent ##
 #
 cluster-agent:
+
   ## addr ##
   #
   # Sets the target ip and port to bind the gRPC server to
@@ -635,6 +579,7 @@ cluster-agent:
   ## logging ##
   #
   logging:
+
     ## enabled ##
     #
     # Default value: true
@@ -667,6 +612,7 @@ cluster-agent:
   ## tls ##
   #
   tls:
+
     ## enabled ##
     #
     # Default value: false

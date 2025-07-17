@@ -16,7 +16,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -65,6 +64,7 @@ func main() {
 
 			// Init viper
 			v := viper.New()
+			v.BindPFlag("dashboard.addr", cmd.Flags().Lookup("addr"))
 			v.BindPFlag("dashboard.gin-mode", cmd.Flags().Lookup("gin-mode"))
 
 			// Init config
@@ -108,59 +108,31 @@ func main() {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
 
-			// Create servers
-			var servers []*http.Server
-			var serverWg sync.WaitGroup
+			// Create server
+			server := &http.Server{
+				Addr:         cfg.Dashboard.Addr,
+				Handler:      app,
+				IdleTimeout:  1 * time.Minute,
+				ReadTimeout:  5 * time.Second,
+				WriteTimeout: 10 * time.Second,
+			}
 
-			// HTTP Server
-			if cfg.Dashboard.HTTP.Enabled {
-				httpAddr := fmt.Sprintf("%s:%d", cfg.Dashboard.HTTP.Address, cfg.Dashboard.HTTP.Port)
-				httpServer := &http.Server{
-					Addr:         httpAddr,
-					Handler:      app,
-					IdleTimeout:  1 * time.Minute,
-					ReadTimeout:  5 * time.Second,
-					WriteTimeout: 10 * time.Second,
+			// Run server in goroutine
+			go func() {
+				var serverErr error
+				zlog.Info().Msg("Starting server on " + cfg.Dashboard.Addr)
+
+				if cfg.Dashboard.TLS.Enabled {
+					serverErr = server.ListenAndServeTLS(cfg.Dashboard.TLS.CertFile, cfg.Dashboard.TLS.KeyFile)
+				} else {
+					serverErr = server.ListenAndServe()
 				}
-				servers = append(servers, httpServer)
 
-				serverWg.Add(1)
-				go func() {
-					defer serverWg.Done()
-					zlog.Info().Msg("Starting HTTP server on " + httpAddr)
-					if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-						zlog.Fatal().Caller().Err(err).Send()
-					}
-				}()
-			}
-
-			// HTTPS Server
-			if cfg.Dashboard.HTTPS.Enabled {
-				httpsAddr := fmt.Sprintf("%s:%d", cfg.Dashboard.HTTPS.Address, cfg.Dashboard.HTTPS.Port)
-
-				httpsServer := &http.Server{
-					Addr:         httpsAddr,
-					Handler:      app,
-					IdleTimeout:  1 * time.Minute,
-					ReadTimeout:  5 * time.Second,
-					WriteTimeout: 10 * time.Second,
+				// log non-normal errors
+				if serverErr != nil && serverErr != http.ErrServerClosed {
+					zlog.Fatal().Caller().Err(err).Send()
 				}
-				servers = append(servers, httpsServer)
-
-				serverWg.Add(1)
-				go func() {
-					defer serverWg.Done()
-					zlog.Info().Msg("Starting HTTPS server on " + httpsAddr)
-					if err := httpsServer.ListenAndServeTLS(cfg.Dashboard.HTTPS.TLS.CertFile, cfg.Dashboard.HTTPS.TLS.KeyFile); err != nil && err != http.ErrServerClosed {
-						zlog.Fatal().Caller().Err(err).Send()
-					}
-				}()
-			}
-
-			// Ensure at least one server is enabled
-			if len(servers) == 0 {
-				zlog.Fatal().Msg("No servers enabled. Please enable at least HTTP or HTTPS")
-			}
+			}()
 
 			// wait for termination signal
 			<-quit
@@ -175,15 +147,13 @@ func main() {
 			var wg sync.WaitGroup
 
 			// attempt graceful shutdown
-			for _, server := range servers {
-				wg.Add(1)
-				go func(s *http.Server) {
-					defer wg.Done()
-					if err := s.Shutdown(ctx); err != nil {
-						zlog.Error().Err(err).Send()
-					}
-				}(server)
-			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if err := server.Shutdown(ctx); err != nil {
+					zlog.Error().Err(err).Send()
+				}
+			}()
 
 			// shutdown app
 			// TODO: handle long-lived requests shutdown (e.g. websockets)
@@ -207,6 +177,7 @@ func main() {
 	flagset := cmd.Flags()
 	flagset.SortFlags = false
 	flagset.StringVarP(&cli.Config, "config", "c", "", "Path to configuration file (e.g. \"/etc/kubetail/dashboard.yaml\")")
+	flagset.StringP("addr", "a", ":8080", "Host address to bind to")
 	flagset.String("gin-mode", "release", "Gin mode (release, debug)")
 	flagset.StringArrayVarP(&params, "param", "p", []string{}, "Config params")
 
