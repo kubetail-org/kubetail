@@ -8,11 +8,12 @@ Go-based HTTP server that handles Kubetail Cluster API requests
 
 The Kubetail Cluster API executable supports the following command line configuration options:
 
-| Flag         | Datatype   | Description                      | Default                   |
-| ------------ | ---------- | -------------------------------- | ------------------------- | --------- | --- |
-| -c, --config | string     | Path to Kubetail config file     | ""                        |
-| <!--         | --gin-mode | string                           | Gin mode (release, debug) | "release" | --> |
-| -p, --param  | []string   | Config params ("key:val" format) | []                        |
+| Flag         | Datatype   | Description                      | Default   |
+| ------------ | ---------- | -------------------------------- | --------- |
+| -c, --config | string     | Path to Kubetail config file     | ""        |
+| -a, --addr   | string     | Host address to bind to          | ":8080"   |
+| --gin-mode   | string     | Gin mode (release, debug)        | "release" |
+| -p, --param  | []string   | Config params ("key:val" format) | []        |
 
 ### Config file
 
@@ -21,6 +22,7 @@ The Kubetail Cluster API executable can be configured using a configuration file
 | Name                                              | Datatype | Description                                        | Default                                     | Status |
 | ------------------------------------------------- | -------- | -------------------------------------------------- | ------------------------------------------- | ------ |
 | allowed-namespaces                                | []string | If populated, restricts namespace access           | []                                          | stable |
+| cluster-api.addr                                  | string   | Host address to bind to                            | ":8080"                                     | stable |
 | cluster-api.base-path                             | string   | URL path prefix                                    | "/"                                         | stable |
 | cluster-api.gin-mode                              | string   | Gin mode (release, debug)                          | "release"                                   | stable |
 | cluster-api.cluster-agent.dispatch-url            | string   | URL for sending dispatch requests to cluster-agent | "kubernetes://kubetail-cluster-agent:50051" | alpha  |
@@ -39,19 +41,14 @@ The Kubetail Cluster API executable can be configured using a configuration file
 | cluster-api.csrf.cookie.secure                    | bool     | CSRF cookie secure property                        | false                                       | stable |
 | cluster-api.csrf.cookie.http-only                 | bool     | CSRF cookie HttpOnly property                      | true                                        | stable |
 | cluster-api.csrf.cookie.same-site                 | string   | CSRF cookie SameSite property (strict, lax, none)  | "strict"                                    | stable |
-| cluster-api.http.enabled                          | bool     | Enables http server                                | true                                        | stable |
-| cluster-api.http.address                          | string   | URL of the http server                             | ""                                          | stable |
-| cluster-api.http.port                             | int      | Port of the http server                            | 8080                                        | stable |
-| cluster-api.https.enabled                         | bool     | Enables https server                               | false                                       | stable |
-| cluster-api.https.address                         | string   | URL of the https server                            | ""                                          | stable |
-| cluster-api.https.port                            | int      | Port of the https server                           | 8443                                        | stable |
-| cluster-api.https.tls.cert-file                   | string   | Path to tls certificate file                       | ""                                          | stable |
-| cluster-api.https.tls.key-file                    | string   | Path to tls key file                               | ""                                          | stable |
 | cluster-api.logging.enabled                       | bool     | Enable logging                                     | true                                        | stable |
 | cluster-api.logging.level                         | string   | Log level                                          | "info"                                      | stable |
 | cluster-api.logging.format                        | string   | Log format (json, pretty)                          | "json"                                      | stable |
 | cluster-api.logging.access-log.enabled            | bool     | Enable access log                                  | true                                        | stable |
 | cluster-api.logging.access-log.hide-health-checks | bool     | Hide requests to /healthz from access log          | false                                       | stable |
+| cluster-api.tls.enabled                           | bool     | Enable tls                                         | false                                       | stable |
+| cluster-api.tls.cert-file                         | string   | Path to tls certificate file                       | ""                                          | stable |
+| cluster-api.tls.key-file                          | string   | Path to tls key file                               | ""                                          | stable |  
 
 ## GraphQL
 
