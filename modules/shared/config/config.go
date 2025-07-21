@@ -59,34 +59,50 @@ type Config struct {
 
 	// Dashboard options
 	Dashboard struct {
+		Addr               string   `validate:"omitempty,hostname_port"`
 		AuthMode           AuthMode `mapstructure:"auth-mode"`
 		BasePath           string   `mapstructure:"base-path"`
 		ClusterAPIEndpoint string   `mapstructure:"cluster-api-endpoint"`
 		GinMode            string   `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
 		Environment        Environment
 
-		// UI optins
-		UI struct {
-			ClusterAPIEnabled bool `mapstructure:"cluster-api-enabled"`
-		}
+		// csrf options
+		CSRF struct {
+			Enabled   bool
+			Secret    string
+			FieldName string `mapstructure:"field-name"`
 
-		HTTP struct {
-			Enabled bool
-			Address string `validate:"omitempty,hostname"`
-			Port    uint   `validate:"omitempty,port"`
-		}
-
-		HTTPS struct {
-			Enabled bool
-			Address string `validate:"omitempty,hostname"`
-			Port    uint   `validate:"omitempty,port"`
-			TLS     struct {
-				// TLS certificate file
-				CertFile string `mapstructure:"cert-file" validate:"omitempty,file"`
-
-				// TLS certificate key file
-				KeyFile string `mapstructure:"key-file" validate:"omitempty,file"`
+			// cookie options
+			Cookie struct {
+				Name     string
+				Path     string
+				Domain   string
+				MaxAge   int `mapstructure:"max-age"`
+				Secure   bool
+				HttpOnly bool              `mapstructure:"http-only"`
+				SameSite csrf.SameSiteMode `mapstructure:"same-site"`
 			}
+		}
+
+		// logging options
+		Logging struct {
+			// enable logging
+			Enabled bool
+
+			// log level
+			Level string `validate:"oneof=debug info warn error disabled"`
+
+			// log format
+			Format string `validate:"oneof=json pretty"`
+
+			// access-log options
+			AccessLog struct {
+				// enable access-log
+				Enabled bool
+
+				// hide health checks
+				HideHealthChecks bool `mapstructure:"hide-health-checks"`
+			} `mapstructure:"access-log"`
 		}
 
 		// session options
@@ -105,6 +121,30 @@ type Config struct {
 			}
 		}
 
+		// TLS options
+		TLS struct {
+			// Enable TLS termination
+			Enabled bool
+
+			// TLS certificate file
+			CertFile string `mapstructure:"cert-file" validate:"omitempty,file"`
+
+			// TLS certificate key file
+			KeyFile string `mapstructure:"key-file" validate:"omitempty,file"`
+		}
+
+		// UI optins
+		UI struct {
+			ClusterAPIEnabled bool `mapstructure:"cluster-api-enabled"`
+		}
+	}
+
+	// Cluster API options
+	ClusterAPI struct {
+		Addr     string `validate:"omitempty,hostname_port"`
+		GinMode  string `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
+		BasePath string `mapstructure:"base-path"`
+
 		// csrf options
 		CSRF struct {
 			Enabled   bool
@@ -122,33 +162,6 @@ type Config struct {
 				SameSite csrf.SameSiteMode `mapstructure:"same-site"`
 			}
 		}
-
-		// logging options
-		Logging struct {
-			// enable logging
-			Enabled bool
-
-			// log level
-			Level string `validate:"oneof=debug info warn error disabled"`
-
-			// log format
-			Format string `validate:"oneof=json pretty"`
-
-			// access-log options
-			AccessLog struct {
-				// enable access-log
-				Enabled bool
-
-				// hide health checks
-				HideHealthChecks bool `mapstructure:"hide-health-checks"`
-			} `mapstructure:"access-log"`
-		}
-	}
-
-	// Cluster API options
-	ClusterAPI struct {
-		GinMode  string `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
-		BasePath string `mapstructure:"base-path"`
 
 		// Cluster Agent connection options
 		ClusterAgent struct {
@@ -162,43 +175,6 @@ type Config struct {
 			}
 		} `mapstructure:"cluster-agent"`
 
-		// csrf options
-		CSRF struct {
-			Enabled   bool
-			Secret    string
-			FieldName string `mapstructure:"field-name"`
-
-			// cookie options
-			Cookie struct {
-				Name     string
-				Path     string
-				Domain   string
-				MaxAge   int `mapstructure:"max-age"`
-				Secure   bool
-				HttpOnly bool              `mapstructure:"http-only"`
-				SameSite csrf.SameSiteMode `mapstructure:"same-site"`
-			}
-		}
-
-		HTTP struct {
-			Enabled bool
-			Address string `validate:"omitempty,hostname"`
-			Port    uint   `validate:"omitempty,port"`
-		}
-
-		HTTPS struct {
-			Enabled bool
-			Address string `validate:"omitempty,hostname"`
-			Port    uint   `validate:"omitempty,port"`
-			TLS     struct {
-				// TLS certificate file
-				CertFile string `mapstructure:"cert-file" validate:"omitempty,file"`
-
-				// TLS certificate key file
-				KeyFile string `mapstructure:"key-file" validate:"omitempty,file"`
-			}
-		}
-
 		// logging options
 		Logging struct {
 			// enable logging
@@ -218,6 +194,18 @@ type Config struct {
 				// hide health checks
 				HideHealthChecks bool `mapstructure:"hide-health-checks"`
 			} `mapstructure:"access-log"`
+		}
+
+		// TLS options
+		TLS struct {
+			// Enable TLS termination
+			Enabled bool
+
+			// TLS certificate file
+			CertFile string `mapstructure:"cert-file" validate:"omitempty,file"`
+
+			// TLS certificate key file
+			KeyFile string `mapstructure:"key-file" validate:"omitempty,file"`
 		}
 	} `mapstructure:"cluster-api"`
 
@@ -238,6 +226,14 @@ type Config struct {
 			Format string `validate:"oneof=json pretty"`
 		}
 
+		// OTel options
+		OTel struct {
+			Enabled     bool
+			Debug       bool
+			Endpoint    string
+			ServiceName string
+		}
+
 		// TLS options
 		TLS struct {
 			// Enable tls termination
@@ -255,14 +251,6 @@ type Config struct {
 			// Client certificate authentication behavior
 			ClientAuth tls.ClientAuthType `mapstructure:"client-auth"`
 		}
-
-		// OTel options
-		OTel struct {
-			Enabled     bool
-			Debug       bool
-			Endpoint    string
-			ServiceName string
-		}
 	} `mapstructure:"cluster-agent"`
 }
 
@@ -275,14 +263,7 @@ func DefaultConfig() *Config {
 	cfg := &Config{}
 
 	cfg.AllowedNamespaces = []string{}
-	cfg.Dashboard.HTTP.Enabled = true
-	cfg.Dashboard.HTTP.Address = ""
-	cfg.Dashboard.HTTP.Port = 8080
-	cfg.Dashboard.HTTPS.Enabled = false
-	cfg.Dashboard.HTTPS.Address = ""
-	cfg.Dashboard.HTTPS.Port = 8443
-	cfg.Dashboard.HTTPS.TLS.CertFile = ""
-	cfg.Dashboard.HTTPS.TLS.KeyFile = ""
+	cfg.Dashboard.Addr = ":8080"
 	cfg.Dashboard.AuthMode = AuthModeAuto
 	cfg.Dashboard.BasePath = "/"
 	cfg.Dashboard.ClusterAPIEndpoint = ""
@@ -311,16 +292,12 @@ func DefaultConfig() *Config {
 	cfg.Dashboard.Session.Cookie.Secure = false
 	cfg.Dashboard.Session.Cookie.HttpOnly = true
 	cfg.Dashboard.Session.Cookie.SameSite = http.SameSiteLaxMode
+	cfg.Dashboard.TLS.Enabled = false
+	cfg.Dashboard.TLS.CertFile = ""
+	cfg.Dashboard.TLS.KeyFile = ""
 	cfg.Dashboard.UI.ClusterAPIEnabled = true
 
-	cfg.ClusterAPI.HTTP.Enabled = true
-	cfg.ClusterAPI.HTTP.Address = ""
-	cfg.ClusterAPI.HTTP.Port = 8080
-	cfg.ClusterAPI.HTTPS.Enabled = false
-	cfg.ClusterAPI.HTTPS.Address = ""
-	cfg.ClusterAPI.HTTPS.Port = 8443
-	cfg.ClusterAPI.HTTPS.TLS.CertFile = ""
-	cfg.ClusterAPI.HTTPS.TLS.KeyFile = ""
+	cfg.ClusterAPI.Addr = ":8080"
 	cfg.ClusterAPI.BasePath = "/"
 	cfg.ClusterAPI.ClusterAgent.DispatchUrl = "kubernetes://kubetail-cluster-agent:50051"
 	cfg.ClusterAPI.ClusterAgent.TLS.Enabled = false
@@ -344,21 +321,24 @@ func DefaultConfig() *Config {
 	cfg.ClusterAPI.Logging.Format = "json"
 	cfg.ClusterAPI.Logging.AccessLog.Enabled = true
 	cfg.ClusterAPI.Logging.AccessLog.HideHealthChecks = false
+	cfg.ClusterAPI.TLS.Enabled = false
+	cfg.ClusterAPI.TLS.CertFile = ""
+	cfg.ClusterAPI.TLS.KeyFile = ""
 
 	cfg.ClusterAgent.Addr = ":50051"
 	cfg.ClusterAgent.ContainerLogsDir = "/var/log/containers"
 	cfg.ClusterAgent.Logging.Enabled = true
 	cfg.ClusterAgent.Logging.Level = "info"
 	cfg.ClusterAgent.Logging.Format = "json"
+	cfg.ClusterAgent.OTel.Enabled = false
+	cfg.ClusterAgent.OTel.Debug = false
+	cfg.ClusterAgent.OTel.Endpoint = "localhost:4317"
+	cfg.ClusterAgent.OTel.ServiceName = "kubetail"
 	cfg.ClusterAgent.TLS.Enabled = false
 	cfg.ClusterAgent.TLS.CertFile = ""
 	cfg.ClusterAgent.TLS.KeyFile = ""
 	cfg.ClusterAgent.TLS.CAFile = ""
 	cfg.ClusterAgent.TLS.ClientAuth = tls.NoClientCert
-	cfg.ClusterAgent.OTel.Enabled = false
-	cfg.ClusterAgent.OTel.Debug = false
-	cfg.ClusterAgent.OTel.Endpoint = "localhost:4317"
-	cfg.ClusterAgent.OTel.ServiceName = "kubetail"
 
 	return cfg
 }
