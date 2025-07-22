@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Download sha256 files
         id: release-info
-        uses: robinraju/release-downloader@daf26c5
+        uses: robinraju/release-downloader@v1.12
         with:
           latest: true
           fileName: "kubetail-windows*zip.sha256"
@@ -78,7 +78,7 @@ jobs:
           yq e ".PackageVersion = \"$TAG_NAME\"" -i ./Kubetail.Kubetail.yaml
 
       - name: Commit and raise PR from forked repo
-        uses: peter-evans/create-pull-request@271a8d0
+        uses: peter-evans/create-pull-request@v7.0.8
         with:
           token: ${{ secrets.PUBLISH_WINGET_TOKEN }}
           path: ./winget-pkgs
