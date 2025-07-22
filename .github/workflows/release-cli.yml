@@ -123,7 +123,7 @@ jobs:
           # when we download from deb, the binary should be named kubetail
           cp -p 'bin/kubetail-${{ matrix.os }}-${{ matrix.arch }}' .debpkg/usr/bin/kubetail
       - name: Create a .deb package
-        uses: jiro4989/build-deb-action@975f7f362928fd814e1e607fda0294c86ad07f37
+        uses: jiro4989/build-deb-action@v4.2.1
         with:
           package: kubetail
           package_root: .debpkg
@@ -241,7 +241,7 @@ jobs:
             fi
           done
       - name: Create release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.3.2
         with:
           files: bin/*
           draft: true

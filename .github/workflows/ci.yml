@@ -263,7 +263,7 @@ jobs:
           setup-node: "true"
           setup-go: "true"
       - name: Setup k3s cluster using k3d
-        uses: AbsaOSS/k3d-action@v2
+        uses: AbsaOSS/k3d-action@v2.4.0
         with:
           cluster-name: "kubetail-test-cluster"
           args: --agents 1
