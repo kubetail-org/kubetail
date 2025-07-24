@@ -26,6 +26,8 @@ use tonic::Status;
 use prost_wkt_types::Timestamp;
 use serde_json;
 
+use tracing::info;
+
 use crate::util::format::FileFormat;
 use types::cluster_agent::LogRecord;
 
@@ -118,7 +120,7 @@ pub fn process_output(
                                 let result =
                                     task::block_in_place(move || sender.blocking_send(Ok(record)));
                                 if result.is_err() {
-                                    println!("Channel closed from client.");
+                                    info!("Channel closed from client.");
                                     let _ = term_tx.send(());
                                 }
                             }
@@ -136,7 +138,7 @@ pub fn process_output(
                             let result =
                                 task::block_in_place(move || sender.blocking_send(Ok(record)));
                             if result.is_err() {
-                                println!("Channel closed from client.");
+                                info!("Channel closed from client.");
                                 let _ = term_tx.send(());
                             }
                         }

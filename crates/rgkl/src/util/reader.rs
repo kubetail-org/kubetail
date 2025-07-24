@@ -18,9 +18,11 @@ use tokio::sync::broadcast::{
     error::TryRecvError::{Closed, Empty, Lagged},
     Receiver,
 };
+use tracing::warn;
 
 const CHUNK_SIZE: usize = 64 * 1024; // 64KB
 
+#[derive(Debug)]
 pub struct TermReader<R> {
     inner: R,
     term_rx: Receiver<()>,
@@ -34,11 +36,11 @@ impl<R: Read> TermReader<R> {
 
 impl<R: Read> Read for TermReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        
         // check for termination before each read
         match self.term_rx.try_recv() {
             Ok(_) | Err(Closed) | Err(Lagged(_)) => {
-                println!(
-                    "Error while checking for termination: {:?}",
+                warn!("Error while checking for termination: {:?}",
                     self.term_rx.try_recv()
                 );
                 return Ok(0);
@@ -200,6 +202,10 @@ mod tests {
 
     use tempfile::NamedTempFile;
 
+    use tokio::sync::broadcast::{self};
+
+    use tracing_test::traced_test;
+
     use super::*;
 
     #[test]
@@ -235,6 +241,38 @@ mod tests {
             assert_eq!(trimmed_line, lines[n], "n: {}", n);
             n += 1;
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_term_reader() -> Result<(), Box<dyn Error>> {
+        let (_term_tx, term_rx) = broadcast::channel(1);
+        let data = b"This is a Test";
+        let mut buf = [0u8; 14];
+
+        let mut reader = TermReader::new(&data[0..14], term_rx);
+        let bytes_read = reader.read(&mut buf).expect("Read should succeed");
+
+        assert_eq!(bytes_read, 14, "Should read 14 bytes");
+        assert_eq!(&buf, b"This is a Test", "Buffer should contain 'hello'");
+        Ok(())
+    }
+
+    #[test]
+    #[traced_test]
+    fn test_term_reader_termination() -> Result<(), Box<dyn Error>>  {
+        let data = b"This is a Test";
+        let (term_tx, term_rx) = broadcast::channel(1);
+        let mut reader = TermReader::new(&data[0..14], term_rx);
+
+        term_tx.send(()).expect("Send should succeed");
+
+        let mut buf = [0u8; 14];
+        let bytes_read = reader.read(&mut buf).expect("Read should succeed");
+
+        assert_eq!(bytes_read, 0, "Should return 0 bytes on termination");
+        assert!(logs_contain("Error while checking for termination:"));
 
         Ok(())
     }
