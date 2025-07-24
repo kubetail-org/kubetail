@@ -745,11 +745,7 @@ func (r *subscriptionResolver) CoreV1NamespacesWatch(ctx context.Context, kubeCo
 		for ev := range watchEventProxyChannel(ctx, watchAPI) {
 			ns, err := typeassertRuntimeObject[*corev1.Namespace](ev.Object)
 			if err != nil {
-				if ctx.Err() == nil {
-					transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
-				} else {
-					zlog.Error().Err(err).Caller().Msg("namespace watch error on closed connection")
-				}
+				transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
 				break
 			}
 
@@ -809,16 +805,10 @@ func (r *subscriptionResolver) KubernetesAPIReadyWait(ctx context.Context, kubeC
 	// Run in go routine
 	go func() {
 		defer close(outCh)
-
 		if err := r.cm.WaitUntilReady(ctx, kubeContextVal); err != nil {
-			if ctx.Err() == nil {
-				transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
-			} else {
-				zlog.Error().Err(err).Caller().Msg("kubernetes API ready wait error on closed connection")
-			}
+			transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
 			return
 		}
-
 		outCh <- true
 	}()
 
@@ -873,11 +863,7 @@ func (r *subscriptionResolver) ClusterAPIReadyWait(ctx context.Context, kubeCont
 		defer close(outCh)
 
 		if err := r.hm.ReadyWait(ctx, kubeContextVal, namespace, serviceName); err != nil {
-			if ctx.Err() == nil {
-				transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
-			} else {
-				zlog.Error().Err(err).Caller().Msg("cluster API ready wait error on closed connection")
-			}
+			transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
 			return
 		}
 
@@ -1056,9 +1042,7 @@ func (r *subscriptionResolver) LogRecordsFollow(ctx context.Context, kubeContext
 			zlog.Error().Err(stream.Err()).Caller().Send()
 
 			// If the client connection is still open, let it know that there was an upstream error.
-			if ctx.Err() == nil {
-				transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
-			}
+			transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
 		}
 	}()
 
