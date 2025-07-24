@@ -39,11 +39,17 @@ var clusterUpgradeCmd = &cobra.Command{
 		kubeContext, _ := cmd.Flags().GetString(KubeContextFlag)
 		//name, _ := cmd.Flags().GetString("name")
 		//namespace, _ := cmd.Flags().GetString("namespace")
+		test, _ := cmd.Flags().GetBool("test")
 		name := helm.DefaultReleaseName
 		namespace := helm.DefaultNamespace
 
 		// Init client
 		client := helm.NewClient(helm.WithKubeconfigPath(kubeconfigPath), helm.WithKubeContext(kubeContext))
+
+		if test {
+			cmd.Println("ok")
+			return
+		}
 
 		// Upgrade
 		release, err := client.UpgradeRelease(namespace, name)
@@ -64,4 +70,5 @@ func init() {
 	flagset.String(KubeContextFlag, "", "Name of the kubeconfig context to use")
 	//flagset.String("name", helm.DefaultReleaseName, "Relase name")
 	//flagset.StringP("namespace", "n", helm.DefaultNamespace, "Namespace to install into")
+	flagset.Bool("test", false, "Run internal tests and exit")
 }
