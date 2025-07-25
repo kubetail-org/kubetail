@@ -243,7 +243,10 @@ func (cm *DesktopConnectionManager) WaitUntilReady(ctx context.Context, kubeCont
 
 		// Make a lightweight API call to warm up http connections
 		// NOTE: all clients that share rest config will get warmed up automatically
-		clientset.Discovery().ServerVersion()
+		_, err = clientset.Discovery().ServerVersion()
+		if err != nil {
+			return false, err
+		}
 
 		return true, nil
 	})
