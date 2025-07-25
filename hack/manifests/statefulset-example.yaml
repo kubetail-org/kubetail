@@ -29,6 +29,6 @@ spec:
         app.kubernetes.io/instance: kubetail-dev
     spec:
       containers:
-      - name: loggen
-        image: docker.io/kubetail/loggen:0.1.2
-        resources: {}
+        - name: loggen
+          image: docker.io/kubetail/loggen:0.1.2
+          resources: {}
