@@ -2,29 +2,20 @@
 name: YAML Lint
 
 on:
-  push:
-    paths:
-      - "**.yml"
-      - "**.yaml"
   pull_request:
     paths:
       - "**.yml"
       - "**.yaml"
 
 jobs:
-  yamllint:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
       - name: Install yamllint
         run: pip install yamllint
 
       - name: Run yamllint
-        run: yamllint .
+        run: yamllint --config-file .yamllint.yml .
