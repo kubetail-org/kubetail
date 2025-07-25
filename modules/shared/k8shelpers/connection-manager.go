@@ -21,7 +21,6 @@ import (
 	"sync"
 	"time"
 
-	zlog "github.com/rs/zerolog/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -65,11 +64,11 @@ type DesktopConnectionManager struct {
 	kubeConfig        *api.Config
 	isLazy            bool
 	authorizer        DesktopAuthorizer
-	rcCache           util.SyncMap[string, *rest.Config]
-	csCache           util.SyncMap[string, *kubernetes.Clientset]
-	dcCache           util.SyncMap[string, *dynamic.DynamicClient]
-	factoryCache      util.SyncMap[factoryCacheKey, informers.SharedInformerFactory]
-	isReadyCache      util.SyncMap[string, bool]
+	rcCache           util.SyncGroup[string, *rest.Config]
+	csCache           util.SyncGroup[string, *kubernetes.Clientset]
+	dcCache           util.SyncGroup[string, *dynamic.DynamicClient]
+	factoryCache      util.SyncGroup[factoryCacheKey, informers.SharedInformerFactory]
+	isReadyCache      util.SyncGroup[string, bool]
 	rootCtx           context.Context
 	rootCtxCancel     context.CancelFunc
 	stopCh            chan struct{}
@@ -152,7 +151,7 @@ func (cm *DesktopConnectionManager) Shutdown(ctx context.Context) error {
 
 // Get cached REST config or create a new one
 func (cm *DesktopConnectionManager) GetOrCreateRestConfig(kubeContext string) (*rest.Config, error) {
-	return cm.rcCache.LoadOrCompute(kubeContext, func() (*rest.Config, error) {
+	v, _, err := cm.rcCache.LoadOrCompute(kubeContext, func() (*rest.Config, error) {
 		kubeConfig := cm.GetKubeConfig()
 
 		// Create new REST config
@@ -169,6 +168,7 @@ func (cm *DesktopConnectionManager) GetOrCreateRestConfig(kubeContext string) (*
 
 		return rc, nil
 	})
+	return v, err
 }
 
 // Get cached Clientset or create a new one
@@ -234,7 +234,7 @@ func (cm *DesktopConnectionManager) DerefKubeContext(kubeContextPtr *string) str
 
 // Sleep until clients have been initialized
 func (cm *DesktopConnectionManager) WaitUntilReady(ctx context.Context, kubeContext string) error {
-	_, err := cm.isReadyCache.LoadOrComputeWithContext(ctx, kubeContext, func() (bool, error) {
+	_, _, err := cm.isReadyCache.LoadOrComputeWithContext(ctx, kubeContext, func() (bool, error) {
 		// Get clientset
 		clientset, err := cm.getOrCreateClientset(kubeContext)
 		if err != nil {
@@ -247,6 +247,7 @@ func (cm *DesktopConnectionManager) WaitUntilReady(ctx context.Context, kubeCont
 
 		return true, nil
 	})
+
 	return err
 }
 
@@ -259,7 +260,7 @@ func (cm *DesktopConnectionManager) GetKubeConfig() *api.Config {
 
 // Get or create clientset (thread safe)
 func (cm *DesktopConnectionManager) getOrCreateClientset(kubeContext string) (*kubernetes.Clientset, error) {
-	return cm.csCache.LoadOrCompute(kubeContext, func() (*kubernetes.Clientset, error) {
+	v, _, err := cm.csCache.LoadOrCompute(kubeContext, func() (*kubernetes.Clientset, error) {
 		// Get rest config
 		restConfig, err := cm.GetOrCreateRestConfig(kubeContext)
 		if err != nil {
@@ -275,11 +276,12 @@ func (cm *DesktopConnectionManager) getOrCreateClientset(kubeContext string) (*k
 
 		return clientset, nil
 	})
+	return v, err
 }
 
 // Get or create dynamic client (thread safe)
 func (cm *DesktopConnectionManager) getOrCreateDynamicClient(kubeContext string) (*dynamic.DynamicClient, error) {
-	return cm.dcCache.LoadOrCompute(kubeContext, func() (*dynamic.DynamicClient, error) {
+	v, _, err := cm.dcCache.LoadOrCompute(kubeContext, func() (*dynamic.DynamicClient, error) {
 		// Get rest config
 		restConfig, err := cm.GetOrCreateRestConfig(kubeContext)
 		if err != nil {
@@ -295,13 +297,14 @@ func (cm *DesktopConnectionManager) getOrCreateDynamicClient(kubeContext string)
 
 		return dynamicClient, nil
 	})
+	return v, err
 }
 
 // Get or create shared informer factory (thread safe)
 func (cm *DesktopConnectionManager) getOrCreateSharedInformerFactory(kubeContext string, namespace string) (informers.SharedInformerFactory, error) {
 	k := factoryCacheKey{kubeContext, namespace}
 
-	return cm.factoryCache.LoadOrCompute(k, func() (informers.SharedInformerFactory, error) {
+	v, _, err := cm.factoryCache.LoadOrCompute(k, func() (informers.SharedInformerFactory, error) {
 		// Get or create clientset
 		clientset, err := cm.getOrCreateClientset(kubeContext)
 		if err != nil {
@@ -316,6 +319,8 @@ func (cm *DesktopConnectionManager) getOrCreateSharedInformerFactory(kubeContext
 
 		return factory, nil
 	})
+
+	return v, err
 }
 
 // Warm up cache in background
@@ -328,7 +333,6 @@ func (cm *DesktopConnectionManager) warmUpCache() {
 	var wg sync.WaitGroup
 	for contextName := range kubeConfig.Contexts {
 		wg.Add(1)
-		contextName := contextName
 		go func() {
 			defer wg.Done()
 			cm.WaitUntilReady(ctx, contextName)
@@ -336,10 +340,6 @@ func (cm *DesktopConnectionManager) warmUpCache() {
 	}
 
 	wg.Wait()
-
-	if ctx.Err() != nil {
-		zlog.Error().Err(ctx.Err()).Caller().Send()
-	}
 }
 
 // Handle kube config modified event
@@ -384,7 +384,6 @@ func (cm *InClusterConnectionManager) Shutdown(ctx context.Context) error {
 	var wg sync.WaitGroup
 	for _, factory := range cm.factoryCache {
 		wg.Add(1)
-		factory := factory
 		go func() {
 			defer wg.Done()
 			factory.Shutdown()

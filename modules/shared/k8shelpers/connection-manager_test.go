@@ -58,7 +58,9 @@ func TestDesktopConnectionManager_NewInformer_AuthorizationFailure(t *testing.T)
 		authorizer: mockAuthorizer,
 	}
 
-	cm.csCache.Store("test-context", &kubernetes.Clientset{})
+	cm.csCache.LoadOrCompute("test-context", func() (*kubernetes.Clientset, error) {
+		return &kubernetes.Clientset{}, nil
+	})
 
 	// Set up test parameters
 	ctx := context.Background()
