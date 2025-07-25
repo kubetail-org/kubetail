@@ -53,7 +53,7 @@ jobs:
       - name: Copy manifests template to winget-pkgs
         run: |
           NEW_FOLDER='./winget-pkgs/manifests/k/Kubetail/Kubetail/${{ steps.meta.outputs.tag }}'
-          mkdir -p "$NEW_FOLDER" 
+          mkdir -p "$NEW_FOLDER"
 
           cp ./winget-manifests/.github/ci-config/winget/* "$NEW_FOLDER"/
 

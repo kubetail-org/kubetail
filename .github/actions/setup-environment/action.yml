@@ -1,39 +1,39 @@
-name: 'Setup Environment'
-description: 'Sets up Node.js, PNPM, Go, and Rust conditionally for building Kubetail'
+name: "Setup Environment"
+description: "Sets up Node.js, PNPM, Go, and Rust conditionally for building Kubetail"
 
 inputs:
   go-version:
-    description: 'Go version to install'
+    description: "Go version to install"
     required: false
-    default: '1.24.4'
+    default: "1.24.4"
   node-version:
-    description: 'Node.js version to install'
+    description: "Node.js version to install"
     required: false
-    default: '22'
+    default: "22"
   pnpm-version:
-    description: 'PNPM version to install'
+    description: "PNPM version to install"
     required: false
-    default: '10'
+    default: "10"
   setup-rust:
-    description: 'Whether to set up Rust'
+    description: "Whether to set up Rust"
     required: false
-    default: 'false'
+    default: "false"
   rust-toolchain:
-    description: 'Rust toolchain to install'
+    description: "Rust toolchain to install"
     required: false
-    default: '1.87.0'
+    default: "1.87.0"
   setup-protoc:
-    description: 'Whether to set up Protoc'
+    description: "Whether to set up Protoc"
     required: false
-    default: 'false'
+    default: "false"
   setup-go:
-    description: 'Whether to set up Go'
+    description: "Whether to set up Go"
     required: false
-    default: 'false'
+    default: "false"
   setup-node:
-    description: 'Whether to set up Node.js and PNPM'
+    description: "Whether to set up Node.js and PNPM"
     required: false
-    default: 'false'
+    default: "false"
 
 runs:
   using: "composite"
@@ -66,8 +66,8 @@ runs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node-version }}
-        cache: 'pnpm'
-        cache-dependency-path: '**/pnpm-lock.yaml'
+        cache: "pnpm"
+        cache-dependency-path: "**/pnpm-lock.yaml"
 
     - name: Set up Go
       if: inputs.setup-go == 'true'
