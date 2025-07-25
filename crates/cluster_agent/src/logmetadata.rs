@@ -11,6 +11,7 @@ use tokio_stream::wrappers::ReadDirStream;
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::task::TaskTracker;
 use tonic::{Request, Response, Status};
+use tracing::warn;
 use types::cluster_agent::log_metadata_service_server::LogMetadataService;
 use types::cluster_agent::{
     LogMetadata, LogMetadataFileInfo, LogMetadataList, LogMetadataListRequest, LogMetadataSpec,
@@ -52,6 +53,7 @@ impl LogMetadataImpl {
 impl LogMetadataService for LogMetadataImpl {
     type WatchStream = WatchResponseStream;
 
+    #[tracing::instrument]
     async fn list(
         &self,
         request: Request<LogMetadataListRequest>,
@@ -88,7 +90,7 @@ impl LogMetadataService for LogMetadataImpl {
             let captures = filename_regex.captures(filename.as_ref());
 
             if captures.is_none() {
-                println!("Filename could not be parsed: {}", filename.as_ref());
+                warn!("Filename could not be parsed: {}", filename.as_ref());
                 continue;
             }
 
@@ -140,7 +142,7 @@ mod test {
     use types::cluster_agent::{
         LogMetadataListRequest, log_metadata_service_server::LogMetadataService,
     };
-
+    use tracing_test::traced_test;
     use crate::logmetadata::LogMetadataImpl;
 
     fn create_test_file(name: &str, num_bytes: usize) -> NamedTempFile {
@@ -158,6 +160,7 @@ mod test {
     }
 
     #[tokio::test]
+    #[traced_test]
     async fn test_single_file_is_returned() {
         let file = create_test_file("pod-name_namespace_container-name-containerid", 4);
         let (_term_tx, _term_rx) = broadcast::channel(1);
@@ -195,9 +198,11 @@ mod test {
         assert_eq!("pod-name", log_metadata.spec.as_ref().unwrap().pod_name);
         assert_eq!("container-name", log_metadata.spec.unwrap().container_name);
         assert_eq!(4, log_metadata.file_info.unwrap().size);
+        assert!(logs_contain("Filename could not be parsed:"));
     }
 
     #[tokio::test]
+    #[traced_test]
     async fn test_namespaces_are_filtered() {
         let _first_file =
             create_test_file("pod-name_firstnamespace_container-name1-containerid1", 4);
@@ -250,5 +255,6 @@ mod test {
         let log_metadata = result.items.pop().unwrap();
 
         assert_eq!("secondnamespace", log_metadata.spec.unwrap().namespace);
+        assert!(logs_contain("Filename could not be parsed:"));
     }
 }
