@@ -15,15 +15,13 @@
 package util
 
 import (
-	"context"
 	"sync"
 )
 
 // SyncMap is a typed wrapper around sync.Map.
 // The zero value is ready for use.
 type SyncMap[K comparable, V any] struct {
-	m  sync.Map
-	mu sync.Mutex
+	m sync.Map
 }
 
 // Load returns the value stored in the map for a key, or zero value if none.
@@ -80,62 +78,6 @@ func (m *SyncMap[K, V]) Swap(key K, value V) (V, bool) {
 // CompareAndSwap swaps the old and new values if the value stored for the key equals old.
 func (m *SyncMap[K, V]) CompareAndSwap(key K, old, new V) bool {
 	return m.m.CompareAndSwap(key, old, new)
-}
-
-// LoadOrCompute returns the existing value for the key if present.
-// Otherwise, it calls the compute function and stores the result.
-// The compute function is only called once per key, even under concurrent access.
-func (m *SyncMap[K, V]) LoadOrCompute(key K, compute func() (V, error)) (V, error) {
-	// Use mutex to ensure only one goroutine creates the value
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	// Fast path: check if value already exists
-	if v, ok := m.Load(key); ok {
-		return v, nil
-	}
-
-	// Create and store the value
-	value, err := compute()
-	if err != nil {
-		return value, err
-	}
-
-	m.Store(key, value)
-	return value, nil
-}
-
-// LoadOrComputeWithContext returns the existing value for the key if present.
-// Otherwise, it calls the compute function and stores the result.
-// The compute function is only called once per key, even under concurrent access.
-// If the context is cancelled during computation, returns the context error.
-func (m *SyncMap[K, V]) LoadOrComputeWithContext(ctx context.Context, key K, compute func() (V, error)) (V, error) {
-	// Exit early if context already canceled
-	if err := ctx.Err(); err != nil {
-		var zero V
-		return zero, err
-	}
-
-	type result struct {
-		value V
-		err   error
-	}
-
-	resultCh := make(chan result, 1)
-
-	// Execute inner LoadOrCompute() inside goroutine
-	go func() {
-		v, err := m.LoadOrCompute(key, compute)
-		resultCh <- result{v, err}
-	}()
-
-	select {
-	case <-ctx.Done():
-		var zero V
-		return zero, ctx.Err()
-	case res := <-resultCh:
-		return res.value, res.err
-	}
 }
 
 // Range calls f sequentially for each key and value present in the map.

@@ -170,7 +170,7 @@ var serveCmd = &cobra.Command{
 		if !skipOpen {
 			err = browser.OpenURL(fmt.Sprintf("http://%s:%d/", host, port))
 			if err != nil {
-				zlog.Fatal().Err(err).Send()
+				zlog.Warn().Err(err).Msg("Unable to open browser automatically. Please open the dashboard URL manually.")
 			}
 		}
 
