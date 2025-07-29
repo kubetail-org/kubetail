@@ -38,6 +38,11 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Authenticate git for GitHub
+      shell: bash
+      run: |
+        git config --global url."https://${{ secrets.GITHUB_TOKEN }}:@github.com/".insteadOf "https://github.com/"
+
     - name: Set up Protoc
       if: inputs.setup-protoc == 'true'
       uses: arduino/setup-protoc@v3
@@ -48,6 +53,8 @@ runs:
       with:
         toolchain: ${{ inputs.rust-toolchain }}
         components: rustfmt, clippy
+      env:
+        CARGO_NET_GIT_FETCH_WITH_CLI: "true" # Optional: Avoid API rate limits for libgit2 by using CLI
 
     - name: Set up Rust cache
       if: inputs.setup-rust == 'true'
