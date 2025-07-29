@@ -11,6 +11,8 @@ on:
 jobs:
   crates-build:
     runs-on: ubuntu-24.04
+    env:
+      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-environment
@@ -23,6 +25,8 @@ jobs:
 
   crates-lint:
     runs-on: ubuntu-24.04
+    env:
+      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-environment
@@ -35,6 +39,8 @@ jobs:
 
   crates-vet:
     runs-on: ubuntu-24.04
+    env:
+      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-environment
@@ -47,6 +53,8 @@ jobs:
 
   crates-test:
     runs-on: ubuntu-24.04
+    env:
+      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-environment
