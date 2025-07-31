@@ -53,8 +53,6 @@ runs:
       with:
         toolchain: ${{ inputs.rust-toolchain }}
         components: rustfmt, clippy
-      env:
-        CARGO_NET_GIT_FETCH_WITH_CLI: "true" # Optional: Avoid API rate limits for libgit2 by using CLI
 
     - name: Set up Rust cache
       if: inputs.setup-rust == 'true'
