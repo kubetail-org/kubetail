@@ -1,14 +1,14 @@
 use prost_wkt_types::Timestamp;
-use regex::Regex;
+use regex::{Captures, Regex};
 use std::fs::File;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
+use std::sync::LazyLock;
 
 use tokio::fs::read_dir;
 use tokio::sync::broadcast::Sender;
-use tokio_stream::wrappers::ReadDirStream;
-use tokio_stream::{Stream, StreamExt};
+use tokio_stream::StreamExt;
+use tokio_stream::wrappers::{ReadDirStream, ReceiverStream};
 use tokio_util::task::TaskTracker;
 use tonic::{Request, Response, Status};
 use tracing::warn;
@@ -18,24 +18,73 @@ use types::cluster_agent::{
     LogMetadataWatchEvent, LogMetadataWatchRequest,
 };
 
-type AgentResult<T> = Result<Response<T>, Status>;
-type WatchResponseStream =
-    Pin<Box<dyn Stream<Item = Result<LogMetadataWatchEvent, Status>> + Send>>;
+use crate::logmetadata::logmetadata_watcher::LogMetadataWatcher;
+
+mod logmetadata_watcher;
+
+pub static LOG_FILE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+            r"^(?P<pod_name>[^_]+)_(?P<namespace>[^_]+)_(?P<container_name>.+)-(?P<container_id>[^-]+)\.log$",
+        ).unwrap()
+});
 
 #[derive(Debug)]
 pub struct LogMetadataImpl {
     logs_dir: String,
-    _term_tx: Sender<()>,
-    _task_tracker: TaskTracker,
+    term_tx: Sender<()>,
+    task_tracker: TaskTracker,
 }
 
 impl LogMetadataImpl {
-    pub fn new(_term_tx: Sender<()>, _task_tracker: TaskTracker) -> Self {
+    pub fn new(term_tx: Sender<()>, task_tracker: TaskTracker) -> Self {
         Self {
             logs_dir: "/var/log/containers".into(),
-            _term_tx,
-            _task_tracker,
+            term_tx,
+            task_tracker,
         }
+    }
+
+    fn get_log_metadata(
+        filepath: PathBuf,
+        logs_dir: PathBuf,
+        namespaces: Option<&Vec<String>>,
+        file_exists: bool,
+    ) -> Result<Option<LogMetadata>, Box<Status>> {
+        let filename = filepath.to_string_lossy();
+        let captures = LOG_FILE_REGEX.captures(filename.as_ref());
+
+        if captures.is_none() {
+            println!("Filename could not be parsed: {}", filename.as_ref());
+            return Ok(None);
+        }
+
+        let captures: Captures = captures.unwrap();
+        let container_id = captures["container_id"].to_string();
+        let container_name = captures["container_name"].to_string();
+        let pod_name = captures["pod_name"].to_string();
+        let namespace = captures["namespace"].to_string();
+        let mut absolute_file_path = logs_dir;
+        absolute_file_path.push(filepath);
+
+        if namespaces.is_some_and(|namespaces| !namespaces.contains(&namespace)) {
+            return Ok(None);
+        }
+
+        Ok(Some(LogMetadata {
+            id: container_id.clone(),
+            spec: Some(LogMetadataSpec {
+                container_id,
+                container_name,
+                pod_name,
+                node_name: "The node name".to_string(),
+                namespace,
+            }),
+            file_info: if file_exists {
+                Some(Self::get_file_info(absolute_file_path).map_err(|status| *status)?)
+            } else {
+                None
+            },
+        }))
     }
 
     fn get_file_info(filepath: PathBuf) -> Result<LogMetadataFileInfo, Box<Status>> {
@@ -51,7 +100,7 @@ impl LogMetadataImpl {
 
 #[tonic::async_trait]
 impl LogMetadataService for LogMetadataImpl {
-    type WatchStream = WatchResponseStream;
+    type WatchStream = ReceiverStream<Result<LogMetadataWatchEvent, Status>>;
 
     #[tracing::instrument]
     async fn list(
@@ -73,10 +122,6 @@ impl LogMetadataService for LogMetadataImpl {
 
         let mut files = ReadDirStream::new(read_dir(logs_dir_path).await?);
 
-        let filename_regex = Regex::new(
-            r"^(?P<pod_name>[^_]+)_(?P<namespace>[^_]+)_(?P<container_name>.+)-(?P<container_id>[^-]+)\.log$",
-        ).unwrap();
-
         let mut metadata_items = Vec::new();
 
         while let Some(file) = files.next().await {
@@ -85,38 +130,17 @@ impl LogMetadataService for LogMetadataImpl {
                 Err(error) => return Err(Status::new(tonic::Code::Unknown, error.to_string())),
             };
 
-            let filepath: PathBuf = file.file_name().into();
-            let filename = filepath.to_string_lossy();
-            let captures = filename_regex.captures(filename.as_ref());
+            let metadata = Self::get_log_metadata(
+                file.file_name().into(),
+                logs_dir_path.to_path_buf(),
+                Some(&request.namespaces),
+                true,
+            )
+            .map_err(|status| *status)?;
 
-            if captures.is_none() {
-                warn!("Filename could not be parsed: {}", filename.as_ref());
-                continue;
+            if let Some(metadata) = metadata {
+                metadata_items.push(metadata);
             }
-
-            let captures = captures.unwrap();
-            let container_id = captures["container_id"].to_string();
-            let container_name = captures["container_name"].to_string();
-            let pod_name = captures["pod_name"].to_string();
-            let namespace = captures["namespace"].to_string();
-            let mut absolute_file_path = logs_dir_path.to_path_buf();
-            absolute_file_path.push(filepath);
-
-            if !request.namespaces.contains(&namespace) {
-                continue;
-            }
-
-            metadata_items.push(LogMetadata {
-                id: container_id.clone(),
-                spec: Some(LogMetadataSpec {
-                    container_id,
-                    container_name,
-                    pod_name,
-                    node_name: "The node name".to_string(),
-                    namespace,
-                }),
-                file_info: Some(Self::get_file_info(absolute_file_path).map_err(|status| *status)?),
-            });
         }
 
         return Ok(Response::new(LogMetadataList {
@@ -126,9 +150,23 @@ impl LogMetadataService for LogMetadataImpl {
 
     async fn watch(
         &self,
-        _request: Request<LogMetadataWatchRequest>,
-    ) -> AgentResult<Self::WatchStream> {
-        todo!()
+        request: Request<LogMetadataWatchRequest>,
+    ) -> Result<Response<Self::WatchStream>, Status> {
+        let request = request.into_inner();
+        let term_tx = self.term_tx.clone();
+
+        let (log_metadata_watcher, log_metadata_rx) = LogMetadataWatcher::new(
+            Path::new(&self.logs_dir).to_path_buf(),
+            request.namespaces,
+            term_tx,
+        );
+
+        self.task_tracker.spawn(async move {
+            // TODO: Add error handling
+            let _ = log_metadata_watcher.watch().await;
+        });
+
+        Ok(Response::new(ReceiverStream::new(log_metadata_rx)))
     }
 }
 
@@ -145,7 +183,7 @@ mod test {
         LogMetadataListRequest, log_metadata_service_server::LogMetadataService,
     };
 
-    fn create_test_file(name: &str, num_bytes: usize) -> NamedTempFile {
+    pub fn create_test_file(name: &str, num_bytes: usize) -> NamedTempFile {
         let mut test_file = Builder::new()
             .prefix(name)
             .suffix(".log")
@@ -163,13 +201,13 @@ mod test {
     #[traced_test]
     async fn test_single_file_is_returned() {
         let file = create_test_file("pod-name_namespace_container-name-containerid", 4);
-        let (_term_tx, _term_rx) = broadcast::channel(1);
+        let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = file.path().parent().unwrap().to_string_lossy().into_owned();
 
         let metadata_service = LogMetadataImpl {
             logs_dir,
-            _term_tx,
-            _task_tracker: TaskTracker::new(),
+            term_tx,
+            task_tracker: TaskTracker::new(),
         };
 
         let mut result = metadata_service
@@ -209,7 +247,7 @@ mod test {
             create_test_file("pod-name_firstnamespace_container-name2-containerid2", 4);
         let third_file =
             create_test_file("pod-name_secondnamespace_container-name2-containerid2", 4);
-        let (_term_tx, _term_rx) = broadcast::channel(1);
+        let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = third_file
             .path()
             .parent()
@@ -219,8 +257,8 @@ mod test {
 
         let metadata_service = LogMetadataImpl {
             logs_dir,
-            _term_tx,
-            _task_tracker: TaskTracker::new(),
+            term_tx,
+            task_tracker: TaskTracker::new(),
         };
 
         let mut result = metadata_service

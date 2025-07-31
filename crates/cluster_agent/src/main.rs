@@ -1,4 +1,5 @@
-use tokio::signal::{ctrl_c, unix::*};
+use tokio::signal::ctrl_c;
+use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::broadcast::{self, Sender};
 use tokio_util::task::TaskTracker;
 use tonic::transport::Server;
