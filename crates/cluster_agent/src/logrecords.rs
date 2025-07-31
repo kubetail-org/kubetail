@@ -67,6 +67,7 @@ impl LogRecordsService for LogRecordsImpl {
         let term_tx = self.term_tx.clone();
 
         self.task_tracker.spawn(async move {
+            // TODO: Add error handling
             let _ = stream_backward::stream_backward(
                 &file_path,
                 request.start_time.parse::<DateTime<Utc>>().ok(),
@@ -96,6 +97,7 @@ impl LogRecordsService for LogRecordsImpl {
         let term_tx = self.term_tx.clone();
 
         self.task_tracker.spawn(async move {
+            // TODO: Add error handling
             let _ = stream_forward::stream_forward(
                 &file_path,
                 request.start_time.parse::<DateTime<Utc>>().ok(),
