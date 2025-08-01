@@ -411,6 +411,8 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
 
   const [msgColWidth, setMsgColWidth] = useState(0);
 
+  const nextTick = useNextTick();
+
   let itemCount = items.length + 1; // always add extra row before
   if (hasMoreAfter) itemCount += 1; // only add extra row if more are hidden
 
@@ -459,7 +461,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
     if (startIndex === 0) await loadMoreBefore();
     else await loadMoreAfter();
 
-    setTimeout(() => {
+    nextTick(() => {
       // maintain scroll position
       if (startIndex === 0 && listOuterRef.current) {
         // Scroll
@@ -472,7 +474,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
 
       // stop loading
       setIsLoading(false);
-    }, 0);
+    });
   };
 
   // -------------------------------------------------------------------------------------
