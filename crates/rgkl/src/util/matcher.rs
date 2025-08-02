@@ -12,14 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::error::Error;
-
 use grep::{
     matcher::{self, Match, Matcher},
     regex::{self, RegexMatcher, RegexMatcherBuilder},
 };
 use memchr::memmem;
-use serde_json;
+use serde::Deserialize;
 
 use crate::util::format::FileFormat;
 
@@ -38,11 +36,11 @@ impl Matcher for PassThroughMatcher {
     type Error = matcher::NoError;
 
     fn find_at(&self, haystack: &[u8], start: usize) -> Result<Option<Match>, Self::Error> {
-        if start <= haystack.len() {
-            Ok(Some(Match::new(start, haystack.len())))
-        } else {
-            Ok(None)
+        // Ignore haystacks with multiple messages
+        if start > 0 {
+            return Ok(None);
         }
+        Ok(Some(Match::new(start, haystack.len())))
     }
 
     fn new_captures(&self) -> Result<Self::Captures, Self::Error> {
@@ -75,16 +73,6 @@ impl LogFileRegexMatcher {
 
         Ok(LogFileRegexMatcher { inner, format })
     }
-
-    /// Locate `needle` (the log string) within `haystack` and return its start
-    /// offset so we can translate match positions back to the original buffer.
-    fn locate<'a>(
-        haystack: &'a [u8],
-        needle: &'a [u8],
-    ) -> Result<usize, Box<dyn Error + Send + Sync>> {
-        memmem::find(haystack, needle)
-            .ok_or_else(|| "could not locate `log` field bytes in haystack".into())
-    }
 }
 
 impl Matcher for LogFileRegexMatcher {
@@ -92,58 +80,19 @@ impl Matcher for LogFileRegexMatcher {
     type Error = matcher::NoError;
 
     fn find_at(&self, haystack: &[u8], start: usize) -> Result<Option<Match>, Self::Error> {
-        if start >= haystack.len() {
+        // We can ignore haystacks with multiple messages
+        if start > 0 {
             return Ok(None);
         }
 
-        // Determine the format and extract the log content
-        let log_data: Vec<u8>;
-        let log = match self.format {
-            FileFormat::Docker => {
-                // JSON format - parse and extract the "log" field
-                match serde_json::from_slice::<serde_json::Value>(&haystack[start..]) {
-                    Ok(json) => {
-                        if let Some(log_value) = json.get("log") {
-                            if let Some(log_str) = log_value.as_str() {
-                                // Convert to owned bytes
-                                log_data = log_str.as_bytes().to_vec();
-                                &log_data
-                            } else {
-                                // If "log" field is not a string, return None
-                                return Ok(None);
-                            }
-                        } else {
-                            // If no "log" field, return None
-                            return Ok(None);
-                        }
-                    }
-                    Err(_) => {
-                        // If JSON parsing fails, return None
-                        return Ok(None);
-                    }
-                }
-            }
-            FileFormat::CRI => {
-                // CRI log format: <isotimestamp> <stdout/stderr> <P/F> <log>
-                // Start + 19 starts looking after the non-decimal part of ISO8601 timestamp
-                if start + 19 >= haystack.len() {
-                    return Ok(None);
-                }
+        // Execute format‐specific check, then convert the bool into an Option<Match>
+        let result = (match self.format {
+            FileFormat::Docker => self.has_match_docker(haystack)?,
+            FileFormat::CRI => self.has_match_cri(haystack)?,
+        })
+        .then(|| Match::new(start, haystack.len()));
 
-                if let Some(offset) = find_log_message_start(haystack, start + 19) {
-                    &haystack[offset..]
-                } else {
-                    return Ok(None);
-                }
-            }
-        };
-
-        if let Ok(Some(m)) = self.inner.find(log) {
-            // Translate local match offsets back to the full buffer.
-            let base = Self::locate(haystack, log).unwrap_or(start);
-            return Ok(Some(Match::new(base + m.start(), base + m.end())));
-        }
-        Ok(None)
+        Ok(result)
     }
 
     fn new_captures(&self) -> Result<Self::Captures, Self::Error> {
@@ -151,15 +100,100 @@ impl Matcher for LogFileRegexMatcher {
     }
 }
 
-pub fn find_log_message_start(haystack: &[u8], start: usize) -> Option<usize> {
-    if start >= haystack.len() {
+impl LogFileRegexMatcher {
+    fn has_match_docker(&self, haystack: &[u8]) -> Result<bool, matcher::NoError> {
+        if let Some(msg) = extract_message_docker(haystack) {
+            if self.inner.find(msg.as_slice())?.is_some() {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    fn has_match_cri(&self, haystack: &[u8]) -> Result<bool, matcher::NoError> {
+        if let Some(msg) = extract_message_cri(haystack) {
+            if self.inner.find(msg)?.is_some() {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+}
+
+// Extract <message> from docker format
+pub fn extract_message_docker(line: &[u8]) -> Option<Vec<u8>> {
+    /// A helper struct that only deserializes the top-level "log" field.
+    #[derive(Deserialize)]
+    struct LogOnlyJson {
+        log: String,
+    }
+
+    // Deserialize JSON and extract the "log" field as a string
+    let v: LogOnlyJson = serde_json::from_slice(line).ok()?;
+    Some(v.log.into_bytes())
+}
+
+// Extract <message> from CRI format (<isotimestamp> <stdout/stderr> <P/F> <message>)
+pub fn extract_message_cri(line: &[u8]) -> Option<&[u8]> {
+    // Advance past the non-decimal part of the ISO8601 timestamp
+    let start_pos = 19;
+    let partial = line.get(start_pos..)?;
+
+    // Find the space that precedes "<stdout/stderr>"
+    let space_idx = memmem::find(partial, b" ")?;
+
+    // Skip to beginning of <message>
+    let log_start = start_pos + space_idx + 10;
+
+    // Check bounds
+    if log_start >= line.len() {
         return None;
     }
 
-    // Define the literal part that follows the timestamp.
-    // The prefix is: "<ISO8601 timestamp> stdout f "
-    // We assume the timestamp is of variable length and we just search for " stdout f ".
+    // Return <message>
+    Some(&line[log_start..line.len()])
+}
 
-    // Search for the literal in the haystack.
-    memmem::find(&haystack[start..], b" ").map(|pos| start + pos + 10)
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use rstest::rstest;
+
+    #[rstest]
+    #[case("2025-07-31T12:06:00.001936471Z stdout F hello world", "hello world")]
+    #[case("2025-07-31T12:06:00.001936471Z stderr F hello world", "hello world")]
+    #[case("2025-07-31T12:06:00.001936471Z stdout P hello world", "hello world")]
+    #[case("2025-07-31T12:06:00.00Z stdout F hello world", "hello world")]
+    #[case(
+        "2025-07-31T12:06:00.001936471+3:00 stdout F hello world",
+        "hello world"
+    )]
+    fn test_extract_message_cri(#[case] line_str: String, #[case] expected_msg: String) {
+        let msg_maybe = extract_message_cri(line_str.as_bytes());
+        assert_eq!(msg_maybe, Some(expected_msg.as_bytes()));
+    }
+
+    #[rstest]
+    #[case(
+        r#"{"log": "hello world","stream":"stdout","time":"2025-07-31T12:06:00.001936471Z"}"#,
+        "hello world"
+    )]
+    #[case(
+        r#"{"log": "hello world\n","stream":"stderr","time":"2025-07-31T12:06:00.001936471Z"}"#,
+        "hello world\n"
+    )]
+    #[case(r#"{"log":"multi line\nmessage","stream":"stdout","time":"2025-07-31T12:06:00.001936471Z"}"#, "multi line\nmessage")]
+    #[case(
+        r#"{"log":"","stream":"stdout","time":"2025-07-31T12:06:00.001936471Z"}"#,
+        ""
+    )]
+    #[case(
+        r#"{"log":"with \"quotes\"","stream":"stdout","time":"2025-07-31T12:06:00.001936471Z"}"#,
+        "with \"quotes\""
+    )]
+    fn test_extract_message_docker(#[case] line_str: String, #[case] expected_msg: String) {
+        let msg_maybe = extract_message_docker(line_str.as_bytes());
+        assert_eq!(msg_maybe, Some(expected_msg.into_bytes()));
+    }
 }
