@@ -32,7 +32,6 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
-	sharedwebsocket "github.com/kubetail-org/kubetail/modules/shared/graphql/websocket"
 )
 
 // Represents Server
@@ -137,9 +136,5 @@ func (s *Server) Shutdown() {
 
 // ServeHTTP
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Add cookies to context for use in WSInitFunc
-	ctx := context.WithValue(r.Context(), sharedwebsocket.CookiesCtxKey, r.Cookies())
-
-	// Execute
-	s.h.ServeHTTP(w, r.WithContext(ctx))
+	s.h.ServeHTTP(w, r)
 }
