@@ -15,13 +15,6 @@ vi.mock('@/lib/auth', async (importOriginal) => {
   };
 });
 
-vi.mock('@/lib/util', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('@/lib/util')>();
-  return {
-    ...mod,
-    getCSRFToken: vi.fn().mockResolvedValue('testtoken'),
-  };
-});
 
 vi.mock('@/lib/hooks', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@/lib/hooks')>();

@@ -168,25 +168,6 @@ export function getBasename() {
   return basename as string;
 }
 
-/**
- * Get CSRF token from server
- */
-
-const csrfTokenCache = new Map<string, string>();
-
-export async function getCSRFToken(basepath: string) {
-  let csrfToken = csrfTokenCache.get(basepath);
-  if (csrfToken === undefined) {
-    const url = new URL(joinPaths(basepath, 'csrf-token'), window.location.origin);
-    const resp = await fetch(url);
-    csrfToken = (await resp.json()).value;
-    if (!csrfToken) {
-      throw new Error(`unable to obtain csrf token from ${url}`);
-    }
-    csrfTokenCache.set(basepath, csrfToken);
-  }
-  return csrfToken;
-}
 
 /**
  * Find intersection of multiple sets

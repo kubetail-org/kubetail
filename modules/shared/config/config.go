@@ -269,7 +269,7 @@ func DefaultConfig() *Config {
 	cfg.Dashboard.ClusterAPIEndpoint = ""
 	cfg.Dashboard.Environment = EnvironmentDesktop
 	cfg.Dashboard.GinMode = "release"
-	cfg.Dashboard.CSRF.Enabled = true
+	cfg.Dashboard.CSRF.Enabled = false
 	cfg.Dashboard.CSRF.Secret = ""
 	cfg.Dashboard.CSRF.FieldName = "csrf_token"
 	cfg.Dashboard.CSRF.Cookie.Name = "kubetail_dashboard_csrf"
@@ -306,7 +306,7 @@ func DefaultConfig() *Config {
 	cfg.ClusterAPI.ClusterAgent.TLS.CAFile = ""
 	cfg.ClusterAPI.ClusterAgent.TLS.ServerName = ""
 	cfg.ClusterAPI.GinMode = "release"
-	cfg.ClusterAPI.CSRF.Enabled = true
+	cfg.ClusterAPI.CSRF.Enabled = false
 	cfg.ClusterAPI.CSRF.Secret = ""
 	cfg.ClusterAPI.CSRF.FieldName = "csrf_token"
 	cfg.ClusterAPI.CSRF.Cookie.Name = "kubetail_cluster_api_csrf"
