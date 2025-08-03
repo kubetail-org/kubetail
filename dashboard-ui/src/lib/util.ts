@@ -168,7 +168,6 @@ export function getBasename() {
   return basename as string;
 }
 
-
 /**
  * Find intersection of multiple sets
  */

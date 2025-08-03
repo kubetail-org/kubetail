@@ -15,7 +15,6 @@ vi.mock('@/lib/auth', async (importOriginal) => {
   };
 });
 
-
 vi.mock('@/lib/hooks', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@/lib/hooks')>();
   return {
