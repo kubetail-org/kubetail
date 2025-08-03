@@ -6,8 +6,6 @@ toolchain go1.24.4
 
 replace github.com/kubetail-org/kubetail/modules/shared => ../shared
 
-replace github.com/gorilla/csrf => github.com/gorilla/csrf v1.7.2
-
 replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
 
 require (
@@ -20,9 +18,7 @@ require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-logr/zerologr v1.2.3
 	github.com/go-playground/validator/v10 v10.26.0
-	github.com/gorilla/csrf v1.7.3
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
-	github.com/gwatts/gin-adapter v1.0.0
 	github.com/kubetail-org/kubetail/modules/shared v0.0.0-00010101000000-000000000000
 	github.com/rs/zerolog v1.34.0
 	github.com/sosodev/duration v1.3.1

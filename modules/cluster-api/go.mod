@@ -6,8 +6,6 @@ toolchain go1.24.4
 
 replace github.com/kubetail-org/kubetail/modules/shared => ../shared
 
-replace github.com/gorilla/csrf => github.com/gorilla/csrf v1.7.2
-
 replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
 
 require (
@@ -17,9 +15,7 @@ require (
 	github.com/gin-contrib/secure v1.1.2
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-playground/validator/v10 v10.26.0
-	github.com/gorilla/csrf v1.7.3
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
-	github.com/gwatts/gin-adapter v1.0.0
 	github.com/kubetail-org/grpc-dispatcher-go v0.1.1
 	github.com/kubetail-org/kubetail/modules/shared v0.0.0-00010101000000-000000000000
 	github.com/rs/zerolog v1.34.0
@@ -60,7 +56,6 @@ require (
 	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
