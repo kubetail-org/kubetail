@@ -18,14 +18,11 @@ import (
 	"context"
 	"io/fs"
 	"net/http"
-	"path"
 
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-contrib/secure"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/csrf"
-	adapter "github.com/gwatts/gin-adapter"
 
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 
@@ -108,44 +105,11 @@ func NewApp(cfg *config.Config) (*App, error) {
 			ContentTypeNosniff:    true,
 		}))
 
-		// Disable csrf protection for graphql endpoint (already rejects simple requests)
-		dynamicRoutes.Use(func(c *gin.Context) {
-			if c.Request.URL.Path == path.Join(cfg.ClusterAPI.BasePath, "/graphql") {
-				c.Request = csrf.UnsafeSkipCheck(c.Request)
-			}
-			c.Next()
-		})
-
-		var csrfProtect func(http.Handler) http.Handler
-
-		// CSRF middleware
-		if cfg.ClusterAPI.CSRF.Enabled {
-			csrfProtect = csrf.Protect(
-				[]byte(cfg.ClusterAPI.CSRF.Secret),
-				csrf.FieldName(cfg.ClusterAPI.CSRF.FieldName),
-				csrf.CookieName(cfg.ClusterAPI.CSRF.Cookie.Name),
-				csrf.Path(cfg.ClusterAPI.CSRF.Cookie.Path),
-				csrf.Domain(cfg.ClusterAPI.CSRF.Cookie.Domain),
-				csrf.MaxAge(cfg.ClusterAPI.CSRF.Cookie.MaxAge),
-				csrf.Secure(cfg.ClusterAPI.CSRF.Cookie.Secure),
-				csrf.HttpOnly(cfg.ClusterAPI.CSRF.Cookie.HttpOnly),
-				csrf.SameSite(cfg.ClusterAPI.CSRF.Cookie.SameSite),
-			)
-
-			// Add to gin middleware
-			dynamicRoutes.Use(adapter.Wrap(csrfProtect))
-
-			// Add token fetcher helper
-			dynamicRoutes.GET("/csrf-token", func(c *gin.Context) {
-				c.JSON(http.StatusOK, gin.H{"value": csrf.Token(c.Request)})
-			})
-		}
-
 		// authentication middleware
 		dynamicRoutes.Use(authenticationMiddleware)
 
 		// GraphQL endpoint
-		app.graphqlServer = graph.NewServer(app.cm, app.grpcDispatcher, cfg.AllowedNamespaces, csrfProtect)
+		app.graphqlServer = graph.NewServer(cfg, app.cm, app.grpcDispatcher, cfg.AllowedNamespaces)
 		dynamicRoutes.Any("/graphql", gin.WrapH(app.graphqlServer))
 	}
 	app.dynamicRoutes = dynamicRoutes // for unit tests

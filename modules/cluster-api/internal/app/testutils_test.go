@@ -32,7 +32,6 @@ func NewTestConfig() *config.Config {
 	cfg.ClusterAPI.BasePath = "/"
 	cfg.ClusterAPI.Logging.AccessLog.Enabled = false
 	cfg.ClusterAPI.CSRF.Enabled = false
-	cfg.ClusterAPI.CSRF.Secret = "TESTCSRFSECRET"
 	return &cfg
 }
 

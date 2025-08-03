@@ -16,7 +16,6 @@ package graph
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"slices"
 	"time"
@@ -30,14 +29,10 @@ import (
 
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 
+	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
-	sharedwebsocket "github.com/kubetail-org/kubetail/modules/shared/graphql/websocket"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
-
-type ctxKey int
-
-const cookiesCtxKey ctxKey = iota
 
 // Represents Server
 type Server struct {
@@ -51,15 +46,9 @@ type Server struct {
 var allowedSecFetchSite = []string{"same-origin"}
 
 // Create new Server instance
-func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string, csrfProtectMiddleware func(http.Handler) http.Handler) *Server {
+func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string) *Server {
 	// Init resolver
 	r := &Resolver{cm, grpcDispatcher, allowedNamespaces}
-
-	// Setup csrf query method
-	var csrfProtect http.Handler
-	if csrfProtectMiddleware != nil {
-		csrfProtect = csrfProtectMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	}
 
 	// Init config
 	cfg := Config{Resolvers: r}
@@ -84,35 +73,27 @@ func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.D
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
-				// Check the Sec-Fetch-Site header for an additional layer of security.
+				// Allow all if CSRF protection is disabled
+				if !config.ClusterAPI.CSRF.Enabled {
+					return true
+				}
+
 				secFetchSite := r.Header.Get("Sec-Fetch-Site")
 
-				// If the header is absent, we fall back to the CSRF token validation
-				// in the InitFunc. This supports older browsers or non-browser clients.
+				// If empty, request is from non-browser or legacy browser
 				if secFetchSite == "" {
 					return true
 				}
 
-				// For modern browsers that send the header, enforce strict same-site policies.
-				// This is the primary defense against Cross-Site WebSocket Hijacking (CSWSH).
+				// Check the Sec-Fetch-Site header as our primary defense against
+				// Cross-Site WebSocket Hijacking (CSWSH)
 				return slices.Contains(allowedSecFetchSite, secFetchSite)
 			},
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
 		KeepAlivePingInterval: 10 * time.Second,
-		// The InitFunc below handles the CSRF token validation, serving as our
-		// fallback protection when Sec-Fetch-Site is not available.
 		InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
-			// Check if csrf protection is disabled
-			if csrfProtectMiddleware == nil {
-				return ctx, &initPayload, nil
-			}
-
-			if err := sharedwebsocket.ValidateCSRFToken(ctx, csrfProtect, initPayload.Authorization()); err != nil {
-				return ctx, nil, fmt.Errorf("CSRF token validation failed: %w", err)
-			}
-
 			// Close websockets on shutdown signal
 			ctx, cancel := context.WithCancel(ctx)
 			go func() {
@@ -142,9 +123,5 @@ func (s *Server) Shutdown() {
 
 // ServeHTTP
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Add cookies to context for use in WSInitFunc
-	ctx := context.WithValue(r.Context(), sharedwebsocket.CookiesCtxKey, r.Cookies())
-
-	// Execute
-	s.h.ServeHTTP(w, r.WithContext(ctx))
+	s.h.ServeHTTP(w, r)
 }

@@ -16,7 +16,6 @@ package graph
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"slices"
 	"time"
@@ -49,7 +48,7 @@ type Server struct {
 var allowedSecFetchSite = []string{"same-origin"}
 
 // Create new Server instance
-func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, csrfProtectMiddleware func(http.Handler) http.Handler) *Server {
+func NewServer(config *config.Config, cm k8shelpers.ConnectionManager) *Server {
 	// Init health monitor
 	hm := clusterapi.NewHealthMonitor(config, cm)
 
@@ -60,12 +59,6 @@ func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, csrfProte
 		hm:                hm,
 		environment:       config.Dashboard.Environment,
 		allowedNamespaces: config.AllowedNamespaces,
-	}
-
-	// Setup csrf query method
-	var csrfProtect http.Handler
-	if csrfProtectMiddleware != nil {
-		csrfProtect = csrfProtectMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	}
 
 	// Init config
@@ -91,35 +84,27 @@ func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, csrfProte
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
-				// Check the Sec-Fetch-Site header for an additional layer of security.
+				// Allow all if CSRF protection is disabled
+				if !config.Dashboard.CSRF.Enabled {
+					return true
+				}
+
 				secFetchSite := r.Header.Get("Sec-Fetch-Site")
 
-				// If the header is absent, we fall back to the CSRF token validation
-				// in the InitFunc. This supports older browsers or non-browser clients.
+				// If empty, request is from non-browser or legacy browser
 				if secFetchSite == "" {
 					return true
 				}
 
-				// For modern browsers that send the header, enforce strict same-site policies.
-				// This is the primary defense against Cross-Site WebSocket Hijacking (CSWSH).
+				// Check the Sec-Fetch-Site header as our primary defense against
+				// Cross-Site WebSocket Hijacking (CSWSH)
 				return slices.Contains(allowedSecFetchSite, secFetchSite)
 			},
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
 		KeepAlivePingInterval: 10 * time.Second,
-		// The InitFunc below handles the CSRF token validation, serving as our
-		// fallback protection when Sec-Fetch-Site is not available.
 		InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
-			// Check if csrf protection is disabled
-			if csrfProtectMiddleware == nil {
-				return ctx, &initPayload, nil
-			}
-
-			if err := sharedwebsocket.ValidateCSRFToken(ctx, csrfProtect, initPayload.Authorization()); err != nil {
-				return ctx, nil, fmt.Errorf("CSRF token validation failed: %w", err)
-			}
-
 			// Close websockets on shutdown signal
 			ctx, cancel := context.WithCancel(ctx)
 			go func() {
