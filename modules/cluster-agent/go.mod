@@ -2,7 +2,7 @@ module github.com/kubetail-org/kubetail/modules/cluster-agent
 
 go 1.24.0
 
-toolchain go1.24.4
+toolchain go1.24.5
 
 replace github.com/kubetail-org/kubetail/modules/shared => ../shared
 

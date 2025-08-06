@@ -2,7 +2,7 @@ module github.com/kubetail-org/kubetail/modules/shared
 
 go 1.24.0
 
-toolchain go1.24.4
+toolchain go1.24.5
 
 replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
 
