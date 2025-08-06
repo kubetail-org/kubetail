@@ -53,7 +53,7 @@ RUN \
 
 # -----------------------------------------------------------
 
-FROM golang:1.24.4 AS gobuilder
+FROM golang:1.24.5 AS gobuilder
 
 WORKDIR /work
 
