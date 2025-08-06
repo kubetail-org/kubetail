@@ -47,7 +47,7 @@ impl LogMetadataImpl {
     fn get_log_metadata(
         filepath: PathBuf,
         logs_dir: PathBuf,
-        namespaces: Option<&Vec<String>>,
+        namespaces: &Vec<String>,
         file_exists: bool,
     ) -> Result<Option<LogMetadata>, Box<Status>> {
         let filename = filepath.to_string_lossy();
@@ -66,7 +66,7 @@ impl LogMetadataImpl {
         let mut absolute_file_path = logs_dir;
         absolute_file_path.push(filepath);
 
-        if namespaces.is_some_and(|namespaces| !namespaces.contains(&namespace)) {
+        if !namespaces.contains(&namespace) {
             return Ok(None);
         }
 
@@ -133,7 +133,7 @@ impl LogMetadataService for LogMetadataImpl {
             let metadata = Self::get_log_metadata(
                 file.file_name().into(),
                 logs_dir_path.to_path_buf(),
-                Some(&request.namespaces),
+                &request.namespaces,
                 true,
             )
             .map_err(|status| *status)?;

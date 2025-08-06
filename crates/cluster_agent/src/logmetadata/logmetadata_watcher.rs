@@ -54,13 +54,16 @@ impl LogMetadataWatcher {
     pub async fn watch(&self) -> Result<(), Box<Status>> {
         let (internal_tx, mut intenral_rx) = channel(10);
         let runtime_handle = Handle::current();
+        let namespaces = self.namespaces.clone();
 
         let mut debouncer = new_debouncer(
             Duration::from_secs(2),
             None,
             move |result: DebounceEventResult| {
                 runtime_handle.block_on(async {
-                    let _ = internal_tx.send(handle_debounced_events(result)).await;
+                    let _ = internal_tx
+                        .send(handle_debounced_events(result, &namespaces))
+                        .await;
                 });
             },
         )
@@ -189,6 +192,7 @@ async fn find_log_files(directory: &Path, namespaces: &[String]) -> Result<Vec<P
 
 fn handle_debounced_events(
     debounced_event_result: DebounceEventResult,
+    namespaces: &Vec<String>,
 ) -> Vec<Result<LogMetadataWatchEvent, Box<Status>>> {
     if let Err(errors) = debounced_event_result {
         return errors
@@ -211,11 +215,14 @@ fn handle_debounced_events(
                 EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
             )
         })
-        .flat_map(|debounced_event| transform_notify_event(&debounced_event.event))
+        .flat_map(|debounced_event| transform_notify_event(&debounced_event.event, namespaces))
         .collect()
 }
 
-fn transform_notify_event(event: &Event) -> Vec<Result<LogMetadataWatchEvent, Box<Status>>> {
+fn transform_notify_event(
+    event: &Event,
+    namespaces: &Vec<String>,
+) -> Vec<Result<LogMetadataWatchEvent, Box<Status>>> {
     let mut result = Vec::new();
 
     if let EventKind::Modify(ModifyKind::Name(rename_mode)) = event.kind {
@@ -225,22 +232,26 @@ fn transform_notify_event(event: &Event) -> Vec<Result<LogMetadataWatchEvent, Bo
                     &mut result,
                     &LogMetadataWatchEventType::Deleted,
                     event.paths.first(),
+                    namespaces,
                 );
                 push_watch_event(
                     &mut result,
                     &LogMetadataWatchEventType::Added,
                     event.paths.get(1),
+                    namespaces,
                 );
             }
             RenameMode::From => push_watch_event(
                 &mut result,
                 &LogMetadataWatchEventType::Deleted,
                 event.paths.first(),
+                namespaces,
             ),
             RenameMode::To => push_watch_event(
                 &mut result,
                 &LogMetadataWatchEventType::Added,
                 event.paths.first(),
+                namespaces,
             ),
             _ => {
                 return result;
@@ -254,7 +265,7 @@ fn transform_notify_event(event: &Event) -> Vec<Result<LogMetadataWatchEvent, Bo
             _ => return result,
         };
 
-        push_watch_event(&mut result, &event_type, event.paths.first());
+        push_watch_event(&mut result, &event_type, event.paths.first(), namespaces);
     }
 
     result
@@ -296,6 +307,7 @@ fn push_watch_event(
     events: &mut Vec<Result<LogMetadataWatchEvent, Box<Status>>>,
     event_type: &LogMetadataWatchEventType,
     path: Option<&PathBuf>,
+    namespaces: &Vec<String>,
 ) {
     let Some(Some(filename)) = path.map(|path| path.file_name()) else {
         return;
@@ -308,8 +320,12 @@ fn push_watch_event(
         event_type,
         LogMetadataWatchEventType::Added | LogMetadataWatchEventType::Modified
     );
-    let log_metadata =
-        LogMetadataImpl::get_log_metadata(filename.into(), logs_dir.into(), None, file_exists);
+    let log_metadata = LogMetadataImpl::get_log_metadata(
+        filename.into(),
+        logs_dir.into(),
+        namespaces,
+        file_exists,
+    );
     let event_metadata = match log_metadata {
         Err(err) => {
             events.push(Err(err));
@@ -325,4 +341,92 @@ fn push_watch_event(
     };
 
     events.push(Ok(watch_event));
+}
+
+#[cfg(test)]
+mod test {
+    use crate::logmetadata::test::create_test_file;
+
+    use super::*;
+    use tokio::{
+        sync::{broadcast, mpsc::error::TryRecvError},
+        task,
+        time::sleep,
+    };
+
+    #[tokio::test]
+    async fn test_create_events_are_generated() {
+        let file = create_test_file("pod-name_namespace_container-name-containerid", 4);
+        let namespaces = vec!["namespace".into()];
+        let (term_tx, _term_rx) = broadcast::channel(1);
+        let logs_dir = file.path().parent().unwrap().to_owned();
+
+        let (log_metadata_watcher, mut log_metadata_rx) =
+            LogMetadataWatcher::new(logs_dir, namespaces, term_tx.clone());
+
+        task::spawn(async move { log_metadata_watcher.watch().await });
+
+        sleep(Duration::from_millis(100)).await;
+
+        let _first_file =
+            create_test_file("pod-name_namespace_firstContainer-name-firstContainerid", 4);
+        let _second_file = create_test_file(
+            "pod-name_namespace_secondContainer-name-secondContainerid",
+            4,
+        );
+        let _third_file = create_test_file("pod-name_wrongNamespace_container-name-containerid", 4);
+
+        let first_event = log_metadata_rx.recv().await.unwrap().unwrap();
+
+        verify_event(
+            first_event,
+            "ADDED",
+            "firstContainerid",
+            "The node name",
+            "namespace",
+            "pod-name",
+            "firstContainer-name",
+            4,
+        );
+
+        let second_event = log_metadata_rx.recv().await.unwrap().unwrap();
+
+        verify_event(
+            second_event,
+            "ADDED",
+            "secondContainerid",
+            "The node name",
+            "namespace",
+            "pod-name",
+            "secondContainer-name",
+            4,
+        );
+
+        let result = log_metadata_rx.try_recv();
+
+        assert!(matches!(result, Err(TryRecvError::Empty)));
+    }
+
+    fn verify_event(
+        event: LogMetadataWatchEvent,
+        event_type: &str,
+        container_id: &str,
+        node_name: &str,
+        namespace: &str,
+        pod_name: &str,
+        container_name: &str,
+        file_size: usize,
+    ) {
+        assert_eq!(event.r#type, event_type);
+        assert!(event.object.as_ref().unwrap().id.starts_with(container_id));
+
+        let event_spec = event.object.as_ref().unwrap().spec.as_ref().unwrap();
+        let event_file_info = event.object.as_ref().unwrap().file_info.as_ref().unwrap();
+
+        assert_eq!(event_spec.node_name, node_name);
+        assert_eq!(event_spec.namespace, namespace);
+        assert_eq!(event_spec.pod_name, pod_name);
+        assert_eq!(event_spec.container_name, container_name);
+        assert_eq!(event_file_info.size, file_size as i64);
+    }
 }
