@@ -20,7 +20,7 @@ use tokio::{
 };
 use tokio_stream::{StreamExt, wrappers::ReadDirStream};
 use tonic::Status;
-use types::cluster_agent::LogMetadataWatchEvent;
+use types::cluster_agent::{LogMetadata, LogMetadataWatchEvent};
 
 use crate::logmetadata::{LOG_FILE_REGEX, LogMetadataImpl};
 
@@ -192,7 +192,7 @@ async fn find_log_files(directory: &Path, namespaces: &[String]) -> Result<Vec<P
 
 fn handle_debounced_events(
     debounced_event_result: DebounceEventResult,
-    namespaces: &Vec<String>,
+    namespaces: &[String],
 ) -> Vec<Result<LogMetadataWatchEvent, Box<Status>>> {
     if let Err(errors) = debounced_event_result {
         return errors
@@ -221,7 +221,7 @@ fn handle_debounced_events(
 
 fn transform_notify_event(
     event: &Event,
-    namespaces: &Vec<String>,
+    namespaces: &[String],
 ) -> Vec<Result<LogMetadataWatchEvent, Box<Status>>> {
     let mut result = Vec::new();
 
@@ -230,26 +230,26 @@ fn transform_notify_event(
             RenameMode::Both => {
                 push_watch_event(
                     &mut result,
-                    &LogMetadataWatchEventType::Deleted,
+                    LogMetadataWatchEventType::Deleted,
                     event.paths.first(),
                     namespaces,
                 );
                 push_watch_event(
                     &mut result,
-                    &LogMetadataWatchEventType::Added,
+                    LogMetadataWatchEventType::Added,
                     event.paths.get(1),
                     namespaces,
                 );
             }
             RenameMode::From => push_watch_event(
                 &mut result,
-                &LogMetadataWatchEventType::Deleted,
+                LogMetadataWatchEventType::Deleted,
                 event.paths.first(),
                 namespaces,
             ),
             RenameMode::To => push_watch_event(
                 &mut result,
-                &LogMetadataWatchEventType::Added,
+                LogMetadataWatchEventType::Added,
                 event.paths.first(),
                 namespaces,
             ),
@@ -265,7 +265,7 @@ fn transform_notify_event(
             _ => return result,
         };
 
-        push_watch_event(&mut result, &event_type, event.paths.first(), namespaces);
+        push_watch_event(&mut result, event_type, event.paths.first(), namespaces);
     }
 
     result
@@ -305,39 +305,34 @@ impl LogMetadataWatchEventType {
 
 fn push_watch_event(
     events: &mut Vec<Result<LogMetadataWatchEvent, Box<Status>>>,
-    event_type: &LogMetadataWatchEventType,
+    mut event_type: LogMetadataWatchEventType,
     path: Option<&PathBuf>,
-    namespaces: &Vec<String>,
+    namespaces: &[String],
 ) {
-    let Some(Some(filename)) = path.map(|path| path.file_name()) else {
+    let path = path.unwrap();
+
+    let Some(metadata_spec) = LogMetadataImpl::get_log_metadata_spec(path, namespaces) else {
         return;
     };
 
-    let path = path.unwrap();
-    let logs_dir = path.parent().unwrap();
+    let file_info = LogMetadataImpl::get_file_info(path);
 
-    let file_exists = matches!(
-        event_type,
-        LogMetadataWatchEventType::Added | LogMetadataWatchEventType::Modified
-    );
-    let log_metadata = LogMetadataImpl::get_log_metadata(
-        filename.into(),
-        logs_dir.into(),
-        namespaces,
-        file_exists,
-    );
-    let event_metadata = match log_metadata {
-        Err(err) => {
-            events.push(Err(err));
+    if let Err(ref status) = file_info {
+        if status.code() == tonic::Code::NotFound {
+            event_type = LogMetadataWatchEventType::Deleted;
+        } else {
+            events.push(Err(status.to_owned()));
             return;
         }
-        Ok(None) => return,
-        Ok(Some(log_metadata)) => Some(log_metadata),
-    };
+    }
 
     let watch_event = LogMetadataWatchEvent {
         r#type: event_type.as_str().to_owned(),
-        object: event_metadata,
+        object: Some(LogMetadata {
+            id: metadata_spec.container_id.clone(),
+            spec: Some(metadata_spec),
+            file_info: file_info.ok(),
+        }),
     };
 
     events.push(Ok(watch_event));
@@ -386,7 +381,7 @@ mod test {
             "namespace",
             "pod-name",
             "firstContainer-name",
-            4,
+            Some(4),
         );
 
         let second_event = log_metadata_rx.recv().await.unwrap().unwrap();
@@ -399,12 +394,42 @@ mod test {
             "namespace",
             "pod-name",
             "secondContainer-name",
-            4,
+            Some(4),
         );
 
         let result = log_metadata_rx.try_recv();
 
         assert!(matches!(result, Err(TryRecvError::Empty)));
+    }
+
+    #[tokio::test]
+    async fn test_delete_events_are_generated() {
+        let file = create_test_file("pod-name_namespace_container-name-containerid", 4);
+        let namespaces = vec!["namespace".into()];
+        let (term_tx, _term_rx) = broadcast::channel(1);
+        let logs_dir = file.path().parent().unwrap().to_owned();
+
+        let (log_metadata_watcher, mut log_metadata_rx) =
+            LogMetadataWatcher::new(logs_dir, namespaces, term_tx.clone());
+
+        task::spawn(async move { log_metadata_watcher.watch().await });
+
+        sleep(Duration::from_millis(100)).await;
+
+        let _ = file.close();
+
+        let event = log_metadata_rx.recv().await.unwrap().unwrap();
+
+        verify_event(
+            event,
+            "DELETED",
+            "containerid",
+            "The node name",
+            "namespace",
+            "pod-name",
+            "container-name",
+            None,
+        );
     }
 
     fn verify_event(
@@ -415,18 +440,23 @@ mod test {
         namespace: &str,
         pod_name: &str,
         container_name: &str,
-        file_size: usize,
+        file_size: Option<usize>,
     ) {
         assert_eq!(event.r#type, event_type);
         assert!(event.object.as_ref().unwrap().id.starts_with(container_id));
 
         let event_spec = event.object.as_ref().unwrap().spec.as_ref().unwrap();
-        let event_file_info = event.object.as_ref().unwrap().file_info.as_ref().unwrap();
+        let event_file_info = event.object.as_ref().unwrap().file_info;
 
         assert_eq!(event_spec.node_name, node_name);
         assert_eq!(event_spec.namespace, namespace);
         assert_eq!(event_spec.pod_name, pod_name);
         assert_eq!(event_spec.container_name, container_name);
-        assert_eq!(event_file_info.size, file_size as i64);
+
+        if let Some(file_size) = file_size {
+            assert_eq!(event_file_info.as_ref().unwrap().size, file_size as i64);
+        } else {
+            assert_eq!(event_file_info, None);
+        }
     }
 }

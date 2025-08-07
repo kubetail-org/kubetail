@@ -44,18 +44,13 @@ impl LogMetadataImpl {
         }
     }
 
-    fn get_log_metadata(
-        filepath: PathBuf,
-        logs_dir: PathBuf,
-        namespaces: &Vec<String>,
-        file_exists: bool,
-    ) -> Result<Option<LogMetadata>, Box<Status>> {
-        let filename = filepath.to_string_lossy();
+    fn get_log_metadata_spec(filepath: &Path, namespaces: &[String]) -> Option<LogMetadataSpec> {
+        let filename = filepath.file_name()?.to_string_lossy();
         let captures = LOG_FILE_REGEX.captures(filename.as_ref());
 
         if captures.is_none() {
             println!("Filename could not be parsed: {}", filename.as_ref());
-            return Ok(None);
+            return None;
         }
 
         let captures: Captures = captures.unwrap();
@@ -63,31 +58,21 @@ impl LogMetadataImpl {
         let container_name = captures["container_name"].to_string();
         let pod_name = captures["pod_name"].to_string();
         let namespace = captures["namespace"].to_string();
-        let mut absolute_file_path = logs_dir;
-        absolute_file_path.push(filepath);
 
         if !namespaces.contains(&namespace) {
-            return Ok(None);
+            return None;
         }
 
-        Ok(Some(LogMetadata {
-            id: container_id.clone(),
-            spec: Some(LogMetadataSpec {
-                container_id,
-                container_name,
-                pod_name,
-                node_name: "The node name".to_string(),
-                namespace,
-            }),
-            file_info: if file_exists {
-                Some(Self::get_file_info(absolute_file_path).map_err(|status| *status)?)
-            } else {
-                None
-            },
-        }))
+        Some(LogMetadataSpec {
+            container_id,
+            container_name,
+            pod_name,
+            node_name: "The node name".to_string(),
+            namespace,
+        })
     }
 
-    fn get_file_info(filepath: PathBuf) -> Result<LogMetadataFileInfo, Box<Status>> {
+    fn get_file_info(filepath: &Path) -> Result<LogMetadataFileInfo, Box<Status>> {
         let file = File::open(filepath).map_err(|err| Box::new(err.into()))?;
         let metadata = file.metadata().map_err(|err| Box::new(err.into()))?;
 
@@ -130,16 +115,26 @@ impl LogMetadataService for LogMetadataImpl {
                 Err(error) => return Err(Status::new(tonic::Code::Unknown, error.to_string())),
             };
 
-            let metadata = Self::get_log_metadata(
-                file.file_name().into(),
-                logs_dir_path.to_path_buf(),
-                &request.namespaces,
-                true,
-            )
-            .map_err(|status| *status)?;
+            let mut filepath = PathBuf::from(logs_dir_path);
+            filepath.set_file_name(file.file_name());
 
-            if let Some(metadata) = metadata {
-                metadata_items.push(metadata);
+            let file_info = Self::get_file_info(&filepath);
+
+            if let Err(status) = file_info {
+                match status.code() {
+                    tonic::Code::NotFound => continue,
+                    _ => return Err(*status),
+                }
+            }
+
+            let metadata_spec = Self::get_log_metadata_spec(&filepath, &request.namespaces);
+
+            if let Some(metadata_spec) = metadata_spec {
+                metadata_items.push(LogMetadata {
+                    id: metadata_spec.container_id.clone(),
+                    spec: Some(metadata_spec),
+                    file_info: Some(file_info.unwrap()),
+                });
             }
         }
 
