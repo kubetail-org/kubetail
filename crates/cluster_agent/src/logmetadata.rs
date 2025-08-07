@@ -114,7 +114,12 @@ impl LogMetadataService for LogMetadataImpl {
             };
 
             let mut filepath = PathBuf::from(logs_dir_path);
-            filepath.set_file_name(file.file_name());
+            filepath.push(file.file_name());
+
+            let Some(metadata_spec) = Self::get_log_metadata_spec(&filepath, &request.namespaces)
+            else {
+                continue;
+            };
 
             let file_info = Self::get_file_info(&filepath);
 
@@ -125,15 +130,11 @@ impl LogMetadataService for LogMetadataImpl {
                 }
             }
 
-            let metadata_spec = Self::get_log_metadata_spec(&filepath, &request.namespaces);
-
-            if let Some(metadata_spec) = metadata_spec {
-                metadata_items.push(LogMetadata {
-                    id: metadata_spec.container_id.clone(),
-                    spec: Some(metadata_spec),
-                    file_info: Some(file_info.unwrap()),
-                });
-            }
+            metadata_items.push(LogMetadata {
+                id: metadata_spec.container_id.clone(),
+                spec: Some(metadata_spec),
+                file_info: Some(file_info.unwrap()),
+            });
         }
 
         return Ok(Response::new(LogMetadataList {
@@ -165,6 +166,7 @@ impl LogMetadataService for LogMetadataImpl {
 
 #[cfg(test)]
 mod test {
+    use serial_test::serial;
     use std::io::Write;
     use tempfile::{Builder, NamedTempFile};
     use tokio::sync::broadcast;
@@ -191,6 +193,7 @@ mod test {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_single_file_is_returned() {
         let file = create_test_file("pod-name_namespace_container-name-containerid", 4);
         let (term_tx, _term_rx) = broadcast::channel(1);
@@ -231,6 +234,7 @@ mod test {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_namespaces_are_filtered() {
         let _first_file =
             create_test_file("pod-name_firstnamespace_container-name1-containerid1", 4);

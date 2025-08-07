@@ -4,10 +4,7 @@ use std::{
     time::Duration,
 };
 
-use notify::{
-    Event, EventKind, RecommendedWatcher, RecursiveMode,
-    event::{ModifyKind, RenameMode},
-};
+use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode};
 use notify_debouncer_full::{DebounceEventResult, Debouncer, RecommendedCache, new_debouncer};
 use tokio::{
     fs::read_dir,
@@ -215,60 +212,42 @@ fn handle_debounced_events(
                 EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
             )
         })
-        .flat_map(|debounced_event| transform_notify_event(&debounced_event.event, namespaces))
+        .filter_map(|debounced_event| transform_notify_event(&debounced_event.event, namespaces))
         .collect()
 }
 
 fn transform_notify_event(
     event: &Event,
     namespaces: &[String],
-) -> Vec<Result<LogMetadataWatchEvent, Box<Status>>> {
-    let mut result = Vec::new();
+) -> Option<Result<LogMetadataWatchEvent, Box<Status>>> {
+    let mut event_type = match event.kind {
+        EventKind::Modify(_) => LogMetadataWatchEventType::Modified,
+        EventKind::Create(_) => LogMetadataWatchEventType::Added,
+        EventKind::Remove(_) => LogMetadataWatchEventType::Deleted,
+        _ => return None,
+    };
 
-    if let EventKind::Modify(ModifyKind::Name(rename_mode)) = event.kind {
-        match rename_mode {
-            RenameMode::Both => {
-                push_watch_event(
-                    &mut result,
-                    LogMetadataWatchEventType::Deleted,
-                    event.paths.first(),
-                    namespaces,
-                );
-                push_watch_event(
-                    &mut result,
-                    LogMetadataWatchEventType::Added,
-                    event.paths.get(1),
-                    namespaces,
-                );
-            }
-            RenameMode::From => push_watch_event(
-                &mut result,
-                LogMetadataWatchEventType::Deleted,
-                event.paths.first(),
-                namespaces,
-            ),
-            RenameMode::To => push_watch_event(
-                &mut result,
-                LogMetadataWatchEventType::Added,
-                event.paths.first(),
-                namespaces,
-            ),
-            _ => {
-                return result;
-            }
+    let path = event.paths.first().unwrap();
+
+    let metadata_spec = LogMetadataImpl::get_log_metadata_spec(path, namespaces)?;
+    let file_info = LogMetadataImpl::get_file_info(path);
+
+    if let Err(ref status) = file_info {
+        if status.code() == tonic::Code::NotFound {
+            event_type = LogMetadataWatchEventType::Deleted;
+        } else {
+            return Some(Err(status.to_owned()));
         }
-    } else {
-        let event_type = match event.kind {
-            EventKind::Modify(_) => LogMetadataWatchEventType::Modified,
-            EventKind::Create(_) => LogMetadataWatchEventType::Added,
-            EventKind::Remove(_) => LogMetadataWatchEventType::Deleted,
-            _ => return result,
-        };
-
-        push_watch_event(&mut result, event_type, event.paths.first(), namespaces);
     }
 
-    result
+    Some(Ok(LogMetadataWatchEvent {
+        r#type: event_type.as_str().to_owned(),
+        object: Some(LogMetadata {
+            id: metadata_spec.container_id.clone(),
+            spec: Some(metadata_spec),
+            file_info: file_info.ok(),
+        }),
+    }))
 }
 
 #[derive(Debug)]
@@ -303,46 +282,17 @@ impl LogMetadataWatchEventType {
     }
 }
 
-fn push_watch_event(
-    events: &mut Vec<Result<LogMetadataWatchEvent, Box<Status>>>,
-    mut event_type: LogMetadataWatchEventType,
-    path: Option<&PathBuf>,
-    namespaces: &[String],
-) {
-    let path = path.unwrap();
-
-    let Some(metadata_spec) = LogMetadataImpl::get_log_metadata_spec(path, namespaces) else {
-        return;
-    };
-
-    let file_info = LogMetadataImpl::get_file_info(path);
-
-    if let Err(ref status) = file_info {
-        if status.code() == tonic::Code::NotFound {
-            event_type = LogMetadataWatchEventType::Deleted;
-        } else {
-            events.push(Err(status.to_owned()));
-            return;
-        }
-    }
-
-    let watch_event = LogMetadataWatchEvent {
-        r#type: event_type.as_str().to_owned(),
-        object: Some(LogMetadata {
-            id: metadata_spec.container_id.clone(),
-            spec: Some(metadata_spec),
-            file_info: file_info.ok(),
-        }),
-    };
-
-    events.push(Ok(watch_event));
-}
-
 #[cfg(test)]
 mod test {
+    use std::{
+        fs::{File, remove_file, rename},
+        io::Write,
+    };
+
     use crate::logmetadata::test::create_test_file;
 
     use super::*;
+    use serial_test::serial;
     use tokio::{
         sync::{broadcast, mpsc::error::TryRecvError},
         task,
@@ -350,6 +300,7 @@ mod test {
     };
 
     #[tokio::test]
+    #[serial]
     async fn test_create_events_are_generated() {
         let file = create_test_file("pod-name_namespace_container-name-containerid", 4);
         let namespaces = vec!["namespace".into()];
@@ -403,6 +354,7 @@ mod test {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_delete_events_are_generated() {
         let file = create_test_file("pod-name_namespace_container-name-containerid", 4);
         let namespaces = vec!["namespace".into()];
@@ -430,6 +382,63 @@ mod test {
             "container-name",
             None,
         );
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_renamed_file_is_being_watched() {
+        let file = create_test_file("pod-name_namespace_container-name-containerid", 4);
+        let namespaces = vec!["namespace".into()];
+        let (term_tx, _term_rx) = broadcast::channel(1);
+        let logs_dir = file.path().parent().unwrap().to_owned();
+
+        let (log_metadata_watcher, mut log_metadata_rx) =
+            LogMetadataWatcher::new(logs_dir, namespaces, term_tx.clone());
+
+        task::spawn(async move { log_metadata_watcher.watch().await });
+
+        sleep(Duration::from_millis(100)).await;
+
+        let mut new_path = file.path().to_owned();
+        new_path.set_file_name("pod-name_namespace_container-name-updatedcontainerid.log");
+        let _ = rename(file.path(), &new_path);
+
+        let mut renamed_file = File::options()
+            .write(true)
+            .append(true)
+            .open(&new_path)
+            .unwrap();
+        let _ = renamed_file.write_all(&vec![1; 5]);
+
+        for _i in 0..3 {
+            let event = log_metadata_rx.recv().await.unwrap().unwrap();
+
+            if event.r#type == "DELETED" {
+                verify_event(
+                    event,
+                    "DELETED",
+                    "containerid",
+                    "The node name",
+                    "namespace",
+                    "pod-name",
+                    "container-name",
+                    None,
+                );
+            } else {
+                verify_event(
+                    event,
+                    "MODIFIED",
+                    "updatedcontainerid",
+                    "The node name",
+                    "namespace",
+                    "pod-name",
+                    "container-name",
+                    Some(9),
+                );
+            }
+        }
+
+        let _ = remove_file(&new_path);
     }
 
     fn verify_event(
