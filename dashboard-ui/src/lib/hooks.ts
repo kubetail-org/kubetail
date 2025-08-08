@@ -22,7 +22,7 @@ import { getClusterAPIClient } from '@/apollo-client';
 import { LOCAL_STORAGE_KEY } from '@/components/widgets/EnvironmentControl';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import * as clusterAPIOps from '@/lib/graphql/cluster-api/ops';
-import { Counter } from './util';
+import { Counter, safeDigest } from './util';
 import { Workload } from './workload';
 import { Status, useClusterAPIServerStatus } from './server-status';
 
@@ -569,16 +569,10 @@ const palette = distinctColors({
 export function useColors(streams: string[]) {
   const [colorMap, setColorMap] = useState<Map<string, string>>(new Map());
   useEffect(() => {
-    const promises: Promise<ArrayBuffer>[] = [];
-
-    streams.forEach((stream) => {
-      const streamUTF8 = new TextEncoder().encode(stream);
-      promises.push(crypto.subtle.digest('SHA-256', streamUTF8));
-    });
+    const promises = streams.map((stream) => safeDigest(stream));
 
     Promise.all(promises).then((values) => {
-      values.forEach((value, i) => {
-        const view = new DataView(value);
+      values.forEach((view, i) => {
         const n = view.getUint8(0);
         const idx = ((2 * n) % 400) % 20;
         colorMap.set(streams[i], palette[idx].hex());
