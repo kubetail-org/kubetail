@@ -21,15 +21,21 @@ use types::cluster_agent::{LogMetadata, LogMetadataWatchEvent};
 
 use crate::logmetadata::{LOG_FILE_REGEX, LogMetadataImpl};
 
+/// Uses notify crate internally to provide notifications of file updates.
 #[derive(Debug)]
 pub struct LogMetadataWatcher {
+    /// Internal channel to send log metadata updates.
     log_metadata_tx: Sender<Result<LogMetadataWatchEvent, Status>>,
+    /// Channel to receive a termination signal and end the watch loop.
     term_tx: BcSender<()>,
+    /// K8s namespaces to watch for.
     namespaces: Vec<String>,
+    /// Directory to watch for updates.
     directory: PathBuf,
 }
 
 impl LogMetadataWatcher {
+    /// Returns a new watcher and a channel to receive log metadata updates.
     pub fn new(
         directory: PathBuf,
         namespaces: Vec<String>,
@@ -48,6 +54,8 @@ impl LogMetadataWatcher {
         )
     }
 
+    /// Starts watching the log directory for log updates. Blocks until a message is sent in the
+    /// termination channel.
     pub async fn watch(&self) -> Result<(), Box<Status>> {
         let (internal_tx, mut intenral_rx) = channel(10);
         let runtime_handle = Handle::current();
@@ -117,12 +125,17 @@ impl LogMetadataWatcher {
         Ok(())
     }
 
+    // In case of a new log file creation, it adds the path to the notify watcher in order to
+    // receive updates for the file in the future. On removal, the path is removed from the watcher
+    // accordingly.
     fn update_watcher(
         &self,
         watch_event: LogMetadataWatchEvent,
         watcher: &mut Debouncer<RecommendedWatcher, RecommendedCache>,
     ) {
         match LogMetadataWatchEventType::from_str(&watch_event.r#type) {
+            // Methods watch and unwatch can fail on adding an existing path or on removing a
+            // non-existing one. There are no specific actions needed in case this happens.
             Some(LogMetadataWatchEventType::Added) => {
                 let _ = watcher.watch(self.get_file_path(watch_event), RecursiveMode::NonRecursive);
             }
@@ -133,6 +146,7 @@ impl LogMetadataWatcher {
         }
     }
 
+    // Reconstruct the absolut file path from a LogMetadataWatchEvent.
     fn get_file_path(&self, watch_event: LogMetadataWatchEvent) -> PathBuf {
         let file_metadata = watch_event.object.unwrap().spec.unwrap();
         let mut file_path = self.directory.clone();
@@ -147,6 +161,7 @@ impl LogMetadataWatcher {
     }
 }
 
+// Helper method to find the log files in a directory that belonging to the specified namespaces.
 async fn find_log_files(directory: &Path, namespaces: &[String]) -> Result<Vec<PathBuf>, Status> {
     if !directory.is_dir() {
         return Err(Status::new(
@@ -187,6 +202,8 @@ async fn find_log_files(directory: &Path, namespaces: &[String]) -> Result<Vec<P
     Ok(result)
 }
 
+// A DebounceEventResult contains many file events. This method breaks it down and transforms each
+// event to a LogMetadataWatchEvent or to an error in case the debounced events are errors.
 fn handle_debounced_events(
     debounced_event_result: DebounceEventResult,
     namespaces: &[String],
@@ -203,6 +220,8 @@ fn handle_debounced_events(
             .collect();
     }
 
+    // TODO: As we are mapping many types of events into three types of LogMetadataWatchEvent, this
+    // function can still produce duplicates. We should probably dedup using an IndexSet.
     debounced_event_result
         .unwrap()
         .into_iter()
@@ -216,6 +235,8 @@ fn handle_debounced_events(
         .collect()
 }
 
+// Transform a single Event to a LogMetadataWatchEvent. Fails in cases there is an IO error when
+// trying to get the file metadata from the filesystem.
 fn transform_notify_event(
     event: &Event,
     namespaces: &[String],
@@ -232,6 +253,8 @@ fn transform_notify_event(
     let metadata_spec = LogMetadataImpl::get_log_metadata_spec(path, namespaces)?;
     let file_info = LogMetadataImpl::get_file_info(path);
 
+    // In case the file doesn't exist turn the event into a deletion event, otherwise propagete the
+    // error.
     if let Err(ref status) = file_info {
         if status.code() == tonic::Code::NotFound {
             event_type = LogMetadataWatchEventType::Deleted;
@@ -255,12 +278,6 @@ enum LogMetadataWatchEventType {
     Added,
     Modified,
     Deleted,
-}
-
-impl fmt::Display for LogMetadataWatchEventType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(self, f)
-    }
 }
 
 impl LogMetadataWatchEventType {
@@ -310,10 +327,11 @@ mod test {
         let (log_metadata_watcher, mut log_metadata_rx) =
             LogMetadataWatcher::new(logs_dir, namespaces, term_tx.clone());
 
+        // Start the watcher and give it some time to execute before creating events.
         task::spawn(async move { log_metadata_watcher.watch().await });
-
         sleep(Duration::from_millis(100)).await;
 
+        // Create three files, one with an unrelated namespace.
         let _first_file =
             create_test_file("pod-name_namespace_firstContainer-name-firstContainerid", 4);
         let _second_file = create_test_file(
@@ -322,8 +340,8 @@ mod test {
         );
         let _third_file = create_test_file("pod-name_wrongNamespace_container-name-containerid", 4);
 
+        // Get the events and verify them.
         let first_event = log_metadata_rx.recv().await.unwrap().unwrap();
-
         verify_event(
             first_event,
             "ADDED",
@@ -336,7 +354,6 @@ mod test {
         );
 
         let second_event = log_metadata_rx.recv().await.unwrap().unwrap();
-
         verify_event(
             second_event,
             "ADDED",
@@ -348,8 +365,8 @@ mod test {
             Some(4),
         );
 
+        // Ensure no more events are created.
         let result = log_metadata_rx.try_recv();
-
         assert!(matches!(result, Err(TryRecvError::Empty)));
     }
 
@@ -364,14 +381,15 @@ mod test {
         let (log_metadata_watcher, mut log_metadata_rx) =
             LogMetadataWatcher::new(logs_dir, namespaces, term_tx.clone());
 
+        // Start the watcher and give it some time to execute before creating events.
         task::spawn(async move { log_metadata_watcher.watch().await });
-
         sleep(Duration::from_millis(100)).await;
 
+        // Delete the file.
         let _ = file.close();
 
+        // Receive the events and verify them.
         let event = log_metadata_rx.recv().await.unwrap().unwrap();
-
         verify_event(
             event,
             "DELETED",
@@ -395,14 +413,16 @@ mod test {
         let (log_metadata_watcher, mut log_metadata_rx) =
             LogMetadataWatcher::new(logs_dir, namespaces, term_tx.clone());
 
+        // Start the watcher and give it some time to execute before creating events.
         task::spawn(async move { log_metadata_watcher.watch().await });
-
         sleep(Duration::from_millis(100)).await;
 
+        // Rename the file.
         let mut new_path = file.path().to_owned();
         new_path.set_file_name("pod-name_namespace_container-name-updatedcontainerid.log");
         let _ = rename(file.path(), &new_path);
 
+        // Edit the file.
         let mut renamed_file = File::options()
             .write(true)
             .append(true)
@@ -410,6 +430,7 @@ mod test {
             .unwrap();
         let _ = renamed_file.write_all(&vec![1; 5]);
 
+        // Ensure that the old file path is marked as deleted and that the new path is modified.
         for _i in 0..3 {
             let event = log_metadata_rx.recv().await.unwrap().unwrap();
 
@@ -438,6 +459,7 @@ mod test {
             }
         }
 
+        // The renamed file won't be delted automatically when it gets out of scope.
         let _ = remove_file(&new_path);
     }
 
