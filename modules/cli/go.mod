@@ -8,8 +8,6 @@ replace github.com/kubetail-org/kubetail/modules/dashboard => ../dashboard
 
 replace github.com/kubetail-org/kubetail/modules/shared => ../shared
 
-replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
-
 require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-logr/logr v1.4.3
