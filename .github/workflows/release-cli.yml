@@ -93,6 +93,14 @@ jobs:
             os: ${{ toJSON(matrix.GOOS) }}
             arch: ${{ toJSON(matrix.GOARCH) }}
             version: ${{ toJSON(steps.tagName.outputs.tag) }}
+      - id: upload-signed-artifact
+        if: matrix.GOOS == 'windows'
+        name: Upload signed artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+          path: bin/*
+          overwrite: true
 
   package-deb:
     name: Build deb package
