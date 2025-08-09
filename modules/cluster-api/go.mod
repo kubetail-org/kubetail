@@ -6,8 +6,6 @@ toolchain go1.24.5
 
 replace github.com/kubetail-org/kubetail/modules/shared => ../shared
 
-replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
-
 require (
 	github.com/99designs/gqlgen v0.17.75
 	github.com/gin-contrib/gzip v1.2.3

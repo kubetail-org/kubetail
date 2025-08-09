@@ -4,8 +4,6 @@ go 1.24.0
 
 toolchain go1.24.5
 
-replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
-
 require (
 	github.com/99designs/gqlgen v0.17.75
 	github.com/Masterminds/semver/v3 v3.3.1
