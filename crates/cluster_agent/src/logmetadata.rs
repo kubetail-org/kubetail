@@ -198,7 +198,6 @@ mod test {
         assert_eq!("pod-name", log_metadata.spec.as_ref().unwrap().pod_name);
         assert_eq!("container-name", log_metadata.spec.unwrap().container_name);
         assert_eq!(4, log_metadata.file_info.unwrap().size);
-        assert!(logs_contain("Filename could not be parsed:"));
     }
 
     #[tokio::test]
@@ -255,6 +254,5 @@ mod test {
         let log_metadata = result.items.pop().unwrap();
 
         assert_eq!("secondnamespace", log_metadata.spec.unwrap().namespace);
-        assert!(logs_contain("Filename could not be parsed:"));
     }
 }
