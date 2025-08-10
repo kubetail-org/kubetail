@@ -2,26 +2,27 @@ use tokio::signal::{ctrl_c, unix::*};
 use tokio::sync::broadcast::{self, Sender};
 use tokio_util::task::TaskTracker;
 use tonic::transport::Server;
+use tracing::info;
 use types::cluster_agent::FILE_DESCRIPTOR_SET;
 use types::cluster_agent::log_metadata_service_server::LogMetadataServiceServer;
 use types::cluster_agent::log_records_service_server::LogRecordsServiceServer;
+
 mod logmetadata;
 mod logrecords;
-
 use logmetadata::LogMetadataImpl;
 use logrecords::LogRecordsImpl;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .init();
+
     let (_, agent_health_service) = tonic_health::server::health_reporter();
 
     let reflection_service = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
         .build_v1()?;
-
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::WARN)
-        .init();
 
     let (term_tx, _term_rx) = broadcast::channel(1);
 
@@ -45,7 +46,7 @@ async fn main() -> eyre::Result<()> {
     task_tracker.close();
     task_tracker.wait().await;
 
-    println!("Shutdown completed.");
+    info!("Shutdown completed.");
 
     Ok(())
 }
@@ -55,11 +56,11 @@ async fn shutdown(term_tx: Sender<()>) {
 
     tokio::select! {
         _ = ctrl_c()  => {
-            println!("SIGINT received, initiating shutdown..");
+            info!("SIGINT received, initiating shutdown..");
             let _ = term_tx.send(());
         },
         _ = term.recv() => {
-            println!("SIGTERM received, initiating shutdown..");
+            info!("SIGTERM received, initiating shutdown..");
             let _ = term_tx.send(());
         },
     }
