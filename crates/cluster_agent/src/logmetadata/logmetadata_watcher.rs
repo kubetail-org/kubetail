@@ -16,6 +16,7 @@ use tokio::{
 };
 use tokio_stream::{StreamExt, wrappers::ReadDirStream};
 use tonic::Status;
+use tracing::{debug, info, warn};
 use types::cluster_agent::{LogMetadata, LogMetadataWatchEvent};
 
 use crate::logmetadata::{LOG_FILE_REGEX, LogMetadataImpl};
@@ -98,7 +99,7 @@ impl LogMetadataWatcher {
                     if let Some(metadata_events) = metadata_events {
                         for metadata_event in metadata_events {
                             if self.log_metadata_tx.send(metadata_event.clone().map_err(|error| *error)).await.is_err() {
-                                    println!("Channel closed from client.");
+                                    info!("Channel closed from client.");
                                     break 'outer;
                             }
 
@@ -107,18 +108,18 @@ impl LogMetadataWatcher {
                             }
                         }
                     } else {
-                        println!("Internal channel closed!");
+                        warn!("Internal channel closed!");
                         break;
                     }
                 }
                 _ = term_rx.recv() => {
-                        println!("Finished");
+                        debug!("Received termination message");
                         break;
                     }
             }
         }
 
-        println!("Stopping watcher");
+        info!("Stopping watcher..");
         debouncer.stop();
 
         Ok(())

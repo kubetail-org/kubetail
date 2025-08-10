@@ -57,6 +57,7 @@ impl LogRecordsService for LogRecordsImpl {
     type StreamForwardStream = ReceiverStream<Result<LogRecord, Status>>;
     type StreamBackwardStream = ReceiverStream<Result<LogRecord, Status>>;
 
+    #[tracing::instrument]
     async fn stream_backward(
         &self,
         request: Request<LogRecordsStreamRequest>,
@@ -86,6 +87,7 @@ impl LogRecordsService for LogRecordsImpl {
         Ok(Response::new(ReceiverStream::new(rx)))
     }
 
+    #[tracing::instrument]
     async fn stream_forward(
         &self,
         request: Request<LogRecordsStreamRequest>,

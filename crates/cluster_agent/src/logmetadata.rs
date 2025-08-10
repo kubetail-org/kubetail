@@ -4,6 +4,7 @@ use std::fs::File;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
+use tracing::debug;
 
 use tokio::fs::read_dir;
 use tokio::sync::broadcast::Sender;
@@ -48,7 +49,7 @@ impl LogMetadataImpl {
         let captures = LOG_FILE_REGEX.captures(filename.as_ref());
 
         if captures.is_none() {
-            println!("Filename could not be parsed: {}", filename.as_ref());
+            debug!("Filename could not be parsed: {}", filename.as_ref());
             return None;
         }
 
@@ -143,6 +144,7 @@ impl LogMetadataService for LogMetadataImpl {
         }));
     }
 
+    #[tracing::instrument]
     async fn watch(
         &self,
         request: Request<LogMetadataWatchRequest>,
