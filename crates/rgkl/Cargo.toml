@@ -36,5 +36,6 @@ tokio-util = { version = "0.7.15", features = ["rt"] }
 tracing = "0.1.41"
 tracing-opentelemetry = { version = "0.31.0", features = ["metrics"] }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "fmt", "registry", "std"] }
+tracing-test = "0.2.5"
 async-std = { version = "1.13.1", features = ["attributes"] }
 
