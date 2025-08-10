@@ -134,16 +134,16 @@ impl LogMetadataService for LogMetadataImpl {
 
 #[cfg(test)]
 mod test {
+    use crate::logmetadata::LogMetadataImpl;
     use std::io::Write;
     use tempfile::{Builder, NamedTempFile};
     use tokio::sync::broadcast;
     use tokio_util::task::TaskTracker;
     use tonic::Request;
+    use tracing_test::traced_test;
     use types::cluster_agent::{
         LogMetadataListRequest, log_metadata_service_server::LogMetadataService,
     };
-    use tracing_test::traced_test;
-    use crate::logmetadata::LogMetadataImpl;
 
     fn create_test_file(name: &str, num_bytes: usize) -> NamedTempFile {
         let mut test_file = Builder::new()

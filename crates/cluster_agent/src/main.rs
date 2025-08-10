@@ -2,10 +2,10 @@ use tokio::signal::{ctrl_c, unix::*};
 use tokio::sync::broadcast::{self, Sender};
 use tokio_util::task::TaskTracker;
 use tonic::transport::Server;
+use tracing::info;
 use types::cluster_agent::FILE_DESCRIPTOR_SET;
 use types::cluster_agent::log_metadata_service_server::LogMetadataServiceServer;
 use types::cluster_agent::log_records_service_server::LogRecordsServiceServer;
-use tracing::info;
 
 mod logmetadata;
 mod logrecords;

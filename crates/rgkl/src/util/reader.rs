@@ -36,11 +36,11 @@ impl<R: Read> TermReader<R> {
 
 impl<R: Read> Read for TermReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        
         // check for termination before each read
         match self.term_rx.try_recv() {
             Ok(_) | Err(Closed) | Err(Lagged(_)) => {
-                warn!("Error while checking for termination: {:?}",
+                warn!(
+                    "Error while checking for termination: {:?}",
                     self.term_rx.try_recv()
                 );
                 return Ok(0);
@@ -261,7 +261,7 @@ mod tests {
 
     #[test]
     #[traced_test]
-    fn test_term_reader_termination() -> Result<(), Box<dyn Error>>  {
+    fn test_term_reader_termination() -> Result<(), Box<dyn Error>> {
         let data = b"This is a Test";
         let (term_tx, term_rx) = broadcast::channel(1);
         let mut reader = TermReader::new(&data[0..14], term_rx);
