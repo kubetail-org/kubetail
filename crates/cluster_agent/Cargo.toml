@@ -4,43 +4,46 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-chrono = "0.4.41"
-prost = "0.13.5"
-prost-types = "0.13.5"
-prost-wkt = "0.6.1"
-prost-wkt-types = "0.6.1"
-
 rgkl = { path = "../rgkl" }
-
-thiserror = "2.0.11"
 types = {path="../types/"}
-tokio = { version = "1.42.0", features = ["full"] }
-tonic = { version = "0.13.0", features = ["gzip"] }
-tonic-health = "0.13.0"
-tonic-reflection = "0.13.0"
-tracing = "0.1.41"
-tracing-opentelemetry = { version = "0.31.0", features = ["metrics"] }
-tracing-subscriber = { version = "0.3.19", features = ["env-filter", "fmt", "registry", "std"] }
-tracing-test = "0.2.5"
-warp = "0.3.7"
+
+prost = { workspace = true}
+prost-types = { workspace = true}
+
+tokio = { workspace = true, features = ["full"] }
+tokio-stream = { workspace = true, features = ["full"] }
+tokio-util = { workspace = true, features = ["rt"] }
+
+tonic = { workspace = true, features = ["gzip"] }
+tonic-health = { workspace = true}
+tonic-reflection = { workspace = true}
+
+tracing = { workspace = true }
+tracing-opentelemetry = { workspace = true, features = ["metrics"] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "registry", "std"] }
+tracing-test = { workspace = true }
+
+notify = { workspace = true}
+notify-debouncer-full = "0.6.0"
+
+chrono = { workspace = true}
+tempfile = { workspace = true }
+
 opentelemetry-otlp = { version = "0.30.0", features = ["grpc-tonic"] }
 opentelemetry-stdout = { version = "0.30.0", features = ["logs"] }
-opentelemetry-appender-tracing = "0.30.0"
+opentelemetry-appender-tracing = "0.30.1"
 opentelemetry-resource-detectors = "0.9.0"
+
 
 anyhow = "1.0.98"
 colored = "3.0.0"
-either = "1.13.0"
+either = "1.15.0"
 eyre = "0.6.12"
-tokio-stream = { version = "0.1.17", features = ["full"] }
-tokio-util = { version = "0.7.15", features = ["rt"] }
 
 kube = { version = "1.1.0" }
 k8s-openapi = { version = "0.25.0", features = ["v1_33"] }
 regex = "1.11.1"
-tempfile = "3.20.0"
-notify = "8.1.0"
-notify-debouncer-full = "0.5.0"
+
 
 [dev-dependencies]
 serial_test = "3.2.0"

@@ -5,8 +5,24 @@ edition = "2021"
 
 
 [dependencies]
-chrono = "0.4.41"
 types = {path="../types"}
+
+tokio = { workspace = true, features = ["full"] }
+tokio-util = { workspace = true, features = ["rt"] }
+
+tonic = { workspace = true, features = ["gzip"] }
+
+chrono = { workspace = true}
+prost = { workspace = true}
+prost-types = { workspace = true}
+tempfile = { workspace = true }
+notify = { workspace = true, features = ["crossbeam-channel"] }
+
+tracing = { workspace = true }
+tracing-opentelemetry = { workspace = true, features = ["metrics"] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "registry", "std"] }
+tracing-test = { workspace = true }
+
 eyre = "0.6.12"
 grep = "0.3.2"
 grep-cli = "0.1.11"
@@ -16,26 +32,14 @@ grep-regex = "0.1.13"
 grep-searcher = "0.1.14"
 lazy_static = "1.5.0"
 memchr = "2.7.5"
-notify = { version = "8.0.0", features = ["crossbeam-channel"] }
-prost = "0.13.5"
-prost-types = "0.13.5"
-prost-wkt = "0.6.1"
-prost-wkt-types = "0.6.1"
-rand = "0.9.0"
-regex = "1.9.0"
-rstest = "0.25.0"
-serde = { version = "1.0.218", features = ["derive"] }
-serde_json = "1.0.139"
+rand = "0.9.2"
+regex = "1.11.1"
+rstest = "0.26.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 signal-hook = "0.3.18"
-tempfile = "3.17.1"
 termcolor = "1.4.1"
 thiserror = "2.0.12"
-tonic = "0.13.0"
-tokio = { version = "1.42.0", features = ["full"] }
-tokio-util = { version = "0.7.15", features = ["rt"] }
-tracing = "0.1.41"
-tracing-opentelemetry = { version = "0.31.0", features = ["metrics"] }
-tracing-subscriber = { version = "0.3.19", features = ["env-filter", "fmt", "registry", "std"] }
-tracing-test = "0.2.5"
+
 async-std = { version = "1.13.1", features = ["attributes"] }
 
