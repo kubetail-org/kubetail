@@ -48,7 +48,7 @@ import {
   useViewerMetadata,
   useViewerVisibleCols,
 } from '@/lib/logfeed';
-import { Counter, cn, cssEncode, getBasename, joinPaths, MapSet } from '@/lib/util';
+import { Counter, MapSet, cn, cssEncode, getBasename, joinPaths, safeDigest } from '@/lib/util';
 import { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { Workload, allWorkloads, iconMap, labelsPMap } from '@/lib/workload';
 
@@ -95,13 +95,8 @@ const ConfigureContainerColors = () => {
     containerKeysRef.current.add(k);
 
     (async () => {
-      // get color
-      const streamUTF8 = new TextEncoder().encode(k);
-      const buffer = await crypto.subtle.digest('SHA-256', streamUTF8);
-      const view = new DataView(buffer);
-      const colorIDX = view.getUint32(0) % 20;
-
       // set css var
+      const colorIDX = (await safeDigest(k)).getUint32(0) % 20;
       document.documentElement.style.setProperty(`--${k}-color`, palette[colorIDX].hex());
     })();
   });

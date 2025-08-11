@@ -186,3 +186,30 @@ export function intersectSets<T = string>(sets: Set<T>[]): Set<T> {
 
   return intersection;
 }
+
+/*
+ * Calculate hash with fallback if crypto.subtle is not available
+ */
+
+export async function safeDigest(input: string): Promise<DataView> {
+  const bytes = new TextEncoder().encode(input);
+
+  if (globalThis.crypto && 'subtle' in globalThis.crypto) {
+    // Use Web Crypto API when available
+    const buffer = await crypto.subtle.digest('SHA-256', bytes);
+    return new DataView(buffer);
+  }
+
+  // Non-crypto fallback hash (FNV-1a 32-bit over UTF-8)
+  let h = 0x811c9dc5; // FNV offset basis
+  for (let i = 0; i < bytes.length; i += 1) {
+    h ^= bytes[i]; // eslint-disable-line no-bitwise
+    h = Math.imul(h, 0x01000193); // FNV prime
+  }
+  h >>>= 0; // eslint-disable-line no-bitwise
+
+  const buf = new ArrayBuffer(32);
+  const view = new DataView(buf);
+  view.setUint32(0, h, false); // big-endian
+  return view;
+}
