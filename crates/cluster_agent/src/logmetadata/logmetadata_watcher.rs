@@ -58,8 +58,32 @@ impl LogMetadataWatcher {
 
     /// Starts watching the log directory for log updates. Blocks until a message is sent in the
     /// termination channel.
-    pub async fn watch(&self) -> Result<(), Box<Status>> {
-        let (internal_tx, mut intenral_rx) = channel(10);
+    pub async fn watch(&self) {
+        let (internal_tx, internal_rx) = channel(10);
+        let setup_result = self.setup_notify_watcher(internal_tx).await;
+
+        if let Err(watcher_error) = setup_result {
+            let _ = self.log_metadata_tx.send(Err(watcher_error.into())).await;
+            return;
+        }
+
+        let debouncer = setup_result.unwrap();
+        let term_rx = self.term_tx.subscribe();
+
+        self.listen_for_changes(internal_rx, debouncer, term_rx)
+            .await;
+    }
+
+    /// Creates the notify fs watcher and adds to the watch list all files
+    /// that have the correct k8s namespace.
+    ///
+    /// # Arguments
+    ///
+    /// * `internal_tx` - The sender to use to propagate filesystem updates.
+    async fn setup_notify_watcher(
+        &self,
+        internal_tx: Sender<Vec<Result<LogMetadataWatchEvent, WatcherError>>>,
+    ) -> Result<Debouncer<RecommendedWatcher, RecommendedCache>, WatcherError> {
         let runtime_handle = Handle::current();
         let namespaces = self.namespaces.clone();
 
@@ -73,25 +97,36 @@ impl LogMetadataWatcher {
                         .await;
                 });
             },
-        )
-        .map_err(|error| Box::new(WatcherError::from(error).into()))?;
+        )?;
 
-        let paths_to_add = find_log_files(&self.directory, &self.namespaces)
-            .await
-            .map_err(|error| Box::new(error.into()))?;
+        let paths_to_add = find_log_files(&self.directory, &self.namespaces).await?;
 
         for path in paths_to_add {
-            let _ = debouncer.watch(&path, notify::RecursiveMode::NonRecursive);
+            debouncer.watch(&path, notify::RecursiveMode::NonRecursive)?;
         }
-        debouncer
-            .watch(&self.directory, notify::RecursiveMode::NonRecursive)
-            .map_err(|error| Box::new(WatcherError::from(error).into()))?;
 
-        let mut term_rx = self.term_tx.subscribe();
+        debouncer.watch(&self.directory, notify::RecursiveMode::NonRecursive)?;
 
+        Ok(debouncer)
+    }
+
+    /// Blocks and listens for notify fs changes until either a message is sent to `term_rx` or
+    /// `log_metadata_tx` is closed.
+    ///
+    /// # Arguments
+    ///
+    /// * `internal_rx` - Receiver of filesystem updates.
+    /// * `debouncer` - The notify filesystem watcher.
+    /// * `term_rx` - Receiver of the termination channel.
+    async fn listen_for_changes(
+        &self,
+        mut internal_rx: Receiver<Vec<Result<LogMetadataWatchEvent, WatcherError>>>,
+        mut debouncer: Debouncer<RecommendedWatcher, RecommendedCache>,
+        mut term_rx: tokio::sync::broadcast::Receiver<()>,
+    ) {
         'outer: loop {
             select! {
-                metadata_events = intenral_rx.recv() => {
+                metadata_events = internal_rx.recv() => {
                     if let Some(metadata_events) = metadata_events {
                         for metadata_event in metadata_events {
                             if let Ok(ref metadata_event) = metadata_event {
@@ -117,8 +152,6 @@ impl LogMetadataWatcher {
 
         info!("Stopping watcher..");
         debouncer.stop();
-
-        Ok(())
     }
 
     // In case of a new log file creation, it adds the path to the notify watcher in order to

@@ -171,7 +171,7 @@ impl LogMetadataService for LogMetadataImpl {
         );
 
         self.task_tracker.spawn(async move {
-            let _ = log_metadata_watcher.watch().await;
+            log_metadata_watcher.watch().await;
         });
 
         Ok(Response::new(ReceiverStream::new(log_metadata_rx)))
