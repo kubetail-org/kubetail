@@ -20,29 +20,42 @@ option go_package = "shared/clusteragentpb";
 
 import "google/protobuf/timestamp.proto";
 
-// Define LogMetadata service
-
+// LogMetadataService provides metadata for the log files in a directory.
 service LogMetadataService {
+  // List the log files and their metadata.
   rpc List (LogMetadataListRequest) returns (LogMetadataList);
+
+  // Subscribe for changes on a directory and its files (non-recursive).
   rpc Watch (LogMetadataWatchRequest) returns (stream LogMetadataWatchEvent);
 }
 
+// Metadata for a log file.
 message LogMetadata {
+  // Container id.
   string id = 1;
+
   LogMetadataSpec spec = 2;
+
   LogMetadataFileInfo fileInfo = 3;
 }
 
 message LogMetadataFileInfo {
+  // Size of the file in bytes.
   int64 size = 1;
+
   google.protobuf.Timestamp last_modified_at = 2;
 }
 
+// K8s metadata information.
 message LogMetadataSpec {
   string node_name = 1;
+
   string namespace = 2;
+
   string pod_name = 3;
+
   string container_name = 4;
+
   string container_id = 5;
 }
 
@@ -58,8 +71,14 @@ message LogMetadataWatchRequest {
   repeated string namespaces = 1;
 }
 
+// Represents an update of the metadata of the log file.
 message LogMetadataWatchEvent {
+  // Possible values:
+  // ADDED -> A new file was created.
+  // MODIFIED -> File has been modified.
+  // DELETED -> File was deleted.
   string type = 1;
+
   LogMetadata object = 2;
 }
 
