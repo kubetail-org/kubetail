@@ -223,18 +223,15 @@ pub async fn stream_forward(
 
 #[cfg(test)]
 mod test {
-    use std::{io::Write, path::Path};
+    use std::{io::Write, path::Path, sync::LazyLock};
 
-    use lazy_static::lazy_static;
     use rstest::rstest;
     use tempfile::NamedTempFile;
     use tokio::sync::broadcast;
 
     use super::*;
 
-    lazy_static! {
-        static ref TEST_FILE: NamedTempFile = create_test_file();
-    }
+    static TEST_FILE: LazyLock<NamedTempFile> = LazyLock::new(|| create_test_file());
 
     fn create_test_file() -> NamedTempFile {
         let lines = [

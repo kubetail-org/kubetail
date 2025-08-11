@@ -110,17 +110,14 @@ pub async fn stream_backward(
 
 #[cfg(test)]
 mod test {
-    use lazy_static::lazy_static;
     use rstest::rstest;
-    use std::io::Write;
+    use std::{io::Write, sync::LazyLock};
     use tempfile::NamedTempFile;
     use tokio::sync::{broadcast, mpsc};
 
     use super::*;
 
-    lazy_static! {
-        static ref TEST_FILE: NamedTempFile = create_test_file();
-    }
+    static TEST_FILE: LazyLock<NamedTempFile> = LazyLock::new(|| create_test_file());
 
     fn create_test_file() -> NamedTempFile {
         let lines = [
