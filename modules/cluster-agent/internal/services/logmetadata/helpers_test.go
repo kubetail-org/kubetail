@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -78,6 +79,9 @@ type ContainerLogsWatcherTestSuite struct {
 }
 
 func (suite *ContainerLogsWatcherTestSuite) SetupTest() {
+	if runtime.GOOS == "windows" {
+		suite.T().Skip("symlink-based tests are skipped on Windows")
+	}
 	// temporary directory for pod logs
 	podLogsDir, err := os.MkdirTemp("", "podlogsdir-")
 	suite.Require().Nil(err)

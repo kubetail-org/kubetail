@@ -101,7 +101,7 @@ func TestNewServerTLSConfiguration(t *testing.T) {
 			certFile:    "/nonexistent/cert.pem",
 			keyFile:     keyFile,
 			wantErr:     true,
-			errContains: "no such file or directory",
+			errContains: "",
 		},
 		{
 			name:        "TLS enabled with missing key file",
@@ -109,7 +109,7 @@ func TestNewServerTLSConfiguration(t *testing.T) {
 			certFile:    certFile,
 			keyFile:     "/nonexistent/key.pem",
 			wantErr:     true,
-			errContains: "no such file or directory",
+			errContains: "",
 		},
 		{
 			name:        "TLS enabled with missing CA file",
@@ -118,7 +118,7 @@ func TestNewServerTLSConfiguration(t *testing.T) {
 			keyFile:     keyFile,
 			caFile:      "/nonexistent/ca.pem",
 			wantErr:     true,
-			errContains: "no such file or directory",
+			errContains: "",
 		},
 		{
 			name:        "TLS enabled with invalid CA file",
@@ -146,6 +146,8 @@ func TestNewServerTLSConfiguration(t *testing.T) {
 				assert.Error(t, err)
 				if tt.errContains != "" {
 					assert.Contains(t, err.Error(), tt.errContains)
+				} else {
+					assert.ErrorIs(t, err, os.ErrNotExist)
 				}
 				assert.Nil(t, server)
 			} else {

@@ -121,7 +121,8 @@ func TestKubeConfigWatcherGet(t *testing.T) {
 		require.NoError(t, err)
 
 		// Set environment
-		t.Setenv(clientcmd.RecommendedConfigPathEnvVar, fmt.Sprintf("%s:%s", p1, p2))
+		sep := string(os.PathListSeparator)
+		t.Setenv(clientcmd.RecommendedConfigPathEnvVar, fmt.Sprintf("%s%s%s", p1, sep, p2))
 
 		// Init watcher
 		watcher, err := NewKubeConfigWatcher("")
@@ -165,7 +166,8 @@ func TestKubeConfigWatcherSubscribeModified(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set environment
-	t.Setenv(clientcmd.RecommendedConfigPathEnvVar, fmt.Sprintf("%s:%s", p1, p2))
+	sep := string(os.PathListSeparator)
+	t.Setenv(clientcmd.RecommendedConfigPathEnvVar, fmt.Sprintf("%s%s%s", p1, sep, p2))
 
 	// Initialize watcher
 	watcher, err := NewKubeConfigWatcher("")
