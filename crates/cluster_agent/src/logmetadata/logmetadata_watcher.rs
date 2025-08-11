@@ -1,10 +1,12 @@
 use std::{
+    io,
     path::{Path, PathBuf},
     time::Duration,
 };
 
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode};
 use notify_debouncer_full::{DebounceEventResult, Debouncer, RecommendedCache, new_debouncer};
+use thiserror::Error;
 use tokio::{
     fs::read_dir,
     runtime::Handle,
@@ -72,24 +74,18 @@ impl LogMetadataWatcher {
                 });
             },
         )
-        .map_err(|error| Box::new(Status::new(tonic::Code::Unknown, format!("{error:?}"))))?;
+        .map_err(|error| Box::new(WatcherError::from(error).into()))?;
 
-        let paths_to_add = find_log_files(&self.directory, &self.namespaces).await?;
+        let paths_to_add = find_log_files(&self.directory, &self.namespaces)
+            .await
+            .map_err(|error| Box::new(error.into()))?;
 
         for path in paths_to_add {
             let _ = debouncer.watch(&path, notify::RecursiveMode::NonRecursive);
         }
         debouncer
             .watch(&self.directory, notify::RecursiveMode::NonRecursive)
-            .map_err(|error| {
-                Box::new(Status::new(
-                    tonic::Code::NotFound,
-                    format!(
-                        "Could not watch directory: {:?} {:?}",
-                        error.kind, error.paths
-                    ),
-                ))
-            })?;
+            .map_err(|error| Box::new(WatcherError::from(error).into()))?;
 
         let mut term_rx = self.term_tx.subscribe();
 
@@ -98,13 +94,13 @@ impl LogMetadataWatcher {
                 metadata_events = intenral_rx.recv() => {
                     if let Some(metadata_events) = metadata_events {
                         for metadata_event in metadata_events {
-                            if self.log_metadata_tx.send(metadata_event.clone().map_err(|error| *error)).await.is_err() {
-                                    info!("Channel closed from client.");
-                                    break 'outer;
+                            if let Ok(ref metadata_event) = metadata_event {
+                                self.update_watcher(metadata_event, &mut debouncer);
                             }
 
-                            if let Ok(metadata_event) = metadata_event {
-                                self.update_watcher(metadata_event, &mut debouncer);
+                            if self.log_metadata_tx.send(metadata_event.map_err(Status::from)).await.is_err() {
+                                    info!("Channel closed from client.");
+                                    break 'outer;
                             }
                         }
                     } else {
@@ -130,7 +126,7 @@ impl LogMetadataWatcher {
     // accordingly.
     fn update_watcher(
         &self,
-        watch_event: LogMetadataWatchEvent,
+        watch_event: &LogMetadataWatchEvent,
         watcher: &mut Debouncer<RecommendedWatcher, RecommendedCache>,
     ) {
         match LogMetadataWatchEventType::from_str(&watch_event.r#type) {
@@ -147,8 +143,8 @@ impl LogMetadataWatcher {
     }
 
     // Reconstruct the absolut file path from a LogMetadataWatchEvent.
-    fn get_file_path(&self, watch_event: LogMetadataWatchEvent) -> PathBuf {
-        let file_metadata = watch_event.object.unwrap().spec.unwrap();
+    fn get_file_path(&self, watch_event: &LogMetadataWatchEvent) -> PathBuf {
+        let file_metadata = watch_event.object.as_ref().unwrap().spec.as_ref().unwrap();
         let mut file_path = self.directory.clone();
         file_path.set_file_name(format!(
             "{}_{}_{}-{}.log",
@@ -161,12 +157,36 @@ impl LogMetadataWatcher {
     }
 }
 
+#[derive(Error, Debug)]
+enum WatcherError {
+    #[error("Error while accessing file: {0}")]
+    Io(#[from] io::Error),
+
+    #[error("Error while trying to watch: {0}")]
+    Watch(#[from] notify::Error),
+
+    #[error("log directory not found: {0}")]
+    DirNotFound(String),
+}
+
+impl From<WatcherError> for Status {
+    fn from(watcher_error: WatcherError) -> Self {
+        match watcher_error {
+            WatcherError::Io(io_error) => io_error.into(),
+            WatcherError::Watch(notify_error) => Self::from_error(Box::new(notify_error)),
+            WatcherError::DirNotFound(error_msg) => Self::new(tonic::Code::NotFound, error_msg),
+        }
+    }
+}
+
 // Helper method to find the log files in a directory that belonging to the specified namespaces.
-async fn find_log_files(directory: &Path, namespaces: &[String]) -> Result<Vec<PathBuf>, Status> {
+async fn find_log_files(
+    directory: &Path,
+    namespaces: &[String],
+) -> Result<Vec<PathBuf>, WatcherError> {
     if !directory.is_dir() {
-        return Err(Status::new(
-            tonic::Code::NotFound,
-            format!("log directory not found: {}", directory.to_string_lossy()),
+        return Err(WatcherError::DirNotFound(
+            directory.to_string_lossy().to_string(),
         ));
     }
 
@@ -207,17 +227,9 @@ async fn find_log_files(directory: &Path, namespaces: &[String]) -> Result<Vec<P
 fn handle_debounced_events(
     debounced_event_result: DebounceEventResult,
     namespaces: &[String],
-) -> Vec<Result<LogMetadataWatchEvent, Box<Status>>> {
+) -> Vec<Result<LogMetadataWatchEvent, WatcherError>> {
     if let Err(errors) = debounced_event_result {
-        return errors
-            .into_iter()
-            .map(|error| {
-                Err(Box::new(Status::new(
-                    tonic::Code::Unknown,
-                    format!("{error:?}"),
-                )))
-            })
-            .collect();
+        return errors.into_iter().map(|error| Err(error.into())).collect();
     }
 
     // TODO: As we are mapping many types of events into three types of LogMetadataWatchEvent, this
@@ -240,7 +252,7 @@ fn handle_debounced_events(
 fn transform_notify_event(
     event: &Event,
     namespaces: &[String],
-) -> Option<Result<LogMetadataWatchEvent, Box<Status>>> {
+) -> Option<Result<LogMetadataWatchEvent, WatcherError>> {
     let mut event_type = match event.kind {
         EventKind::Modify(_) => LogMetadataWatchEventType::Modified,
         EventKind::Create(_) => LogMetadataWatchEventType::Added,
@@ -248,18 +260,18 @@ fn transform_notify_event(
         _ => return None,
     };
 
-    let path = event.paths.first().unwrap();
+    let path = event.paths.first()?;
 
     let metadata_spec = LogMetadataImpl::get_log_metadata_spec(path, namespaces)?;
     let file_info = LogMetadataImpl::get_file_info(path);
 
     // In case the file doesn't exist turn the event into a deletion event, otherwise propagete the
     // error.
-    if let Err(ref status) = file_info {
-        if status.code() == tonic::Code::NotFound {
+    if let Err(ref io_error) = file_info {
+        if io_error.kind() == std::io::ErrorKind::NotFound {
             event_type = LogMetadataWatchEventType::Deleted;
         } else {
-            return Some(Err(status.to_owned()));
+            return Some(Err(file_info.unwrap_err().into()));
         }
     }
 
