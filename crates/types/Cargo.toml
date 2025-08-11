@@ -5,12 +5,10 @@ edition = "2024"
 build = "build.rs"
 
 [dependencies]
-prost = "0.13.5"
-prost-types = "0.13.5"
-prost-wkt = "0.6.1"
-prost-wkt-types = "0.6.1"
-tonic = "0.13.0"
-serde = { version = "1.0.218", features = ["derive"] }
+prost = { workspace = true }
+prost-types = { workspace = true }
+tonic = { workspace = true }
+tonic-prost = { workspace = true }
 
 [build-dependencies]
-tonic-build = "0.13.0"
+tonic-prost-build = { workspace = true }

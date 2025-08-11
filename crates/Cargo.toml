@@ -17,3 +17,27 @@ lto = "fat"
 panic = "abort"
 incremental = false
 codegen-units = 1
+
+[workspace.dependencies]
+chrono = "0.4"
+thiserror = "2.0"
+tempfile = "3.20"
+notify = "8.2"
+
+prost = "0.14"
+prost-types = "0.14"
+
+tokio = "1.47"
+tokio-stream = "0.1"
+tokio-util = "0.7"
+
+tonic = "0.14"
+tonic-health = "0.14"
+tonic-reflection = "0.14"
+tonic-prost = "0.14"
+tonic-prost-build = "0.14"
+
+tracing = "0.1"
+tracing-opentelemetry = "0.31" 
+tracing-subscriber = "0.3" 
+tracing-test = "0.2"
