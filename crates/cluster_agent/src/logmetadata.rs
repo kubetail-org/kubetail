@@ -1,4 +1,4 @@
-use prost_wkt_types::Timestamp;
+use prost_types::Timestamp;
 use regex::{Captures, Regex};
 use std::fs::File;
 use std::os::unix::fs::MetadataExt;
