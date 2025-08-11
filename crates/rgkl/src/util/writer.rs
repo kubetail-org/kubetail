@@ -23,7 +23,7 @@ use tokio::{
 };
 use tonic::Status;
 
-use prost_wkt_types::Timestamp;
+use prost_types::Timestamp;
 use serde_json;
 
 use tracing::info;
