@@ -48,6 +48,8 @@ func TestNewServerTLSConfiguration(t *testing.T) {
 	// Generate test certificate and key
 	certFile, keyFile, caFile := generateTestCerts(t, tempDir)
 
+	invalidCAPath := createInvalidCAFile(t, tempDir)
+
 	tests := []struct {
 		name        string
 		tlsEnabled  bool
@@ -56,7 +58,6 @@ func TestNewServerTLSConfiguration(t *testing.T) {
 		caFile      string
 		clientAuth  tls.ClientAuthType
 		wantErr     bool
-		errContains string
 	}{
 		{
 			name:       "TLS disabled",
@@ -101,7 +102,6 @@ func TestNewServerTLSConfiguration(t *testing.T) {
 			certFile:    "/nonexistent/cert.pem",
 			keyFile:     keyFile,
 			wantErr:     true,
-			errContains: "",
 		},
 		{
 			name:        "TLS enabled with missing key file",
@@ -109,7 +109,6 @@ func TestNewServerTLSConfiguration(t *testing.T) {
 			certFile:    certFile,
 			keyFile:     "/nonexistent/key.pem",
 			wantErr:     true,
-			errContains: "",
 		},
 		{
 			name:        "TLS enabled with missing CA file",
@@ -118,7 +117,6 @@ func TestNewServerTLSConfiguration(t *testing.T) {
 			keyFile:     keyFile,
 			caFile:      "/nonexistent/ca.pem",
 			wantErr:     true,
-			errContains: "",
 		},
 		{
 			name:        "TLS enabled with invalid CA file",
@@ -127,7 +125,6 @@ func TestNewServerTLSConfiguration(t *testing.T) {
 			keyFile:     keyFile,
 			caFile:      createInvalidCAFile(t, tempDir),
 			wantErr:     true,
-			errContains: "failed to append CA cert to pool",
 		},
 	}
 
@@ -144,8 +141,8 @@ func TestNewServerTLSConfiguration(t *testing.T) {
 
 			if tt.wantErr {
 				assert.Error(t, err)
-				if tt.errContains != "" {
-					assert.Contains(t, err.Error(), tt.errContains)
+				if tt.caFile == invalidCAPath {
+					assert.Contains(t, err.Error(), "failed to append CA cert to pool")
 				} else {
 					assert.ErrorIs(t, err, os.ErrNotExist)
 				}

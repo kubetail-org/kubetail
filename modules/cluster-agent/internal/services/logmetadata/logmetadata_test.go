@@ -21,7 +21,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -42,9 +41,6 @@ var ctxWithToken = context.WithValue(context.Background(), grpchelpers.K8STokenC
 
 // Setup suite
 func (suite *LogMetadataTestSuite) SetupSuite() {
-	if runtime.GOOS == "windows" {
-		suite.T().Skip("logmetadata symlink-based tests are skipped on Windows")
-	}
 	// disable logging
 	config.ConfigureLogger(config.LoggerOptions{Enabled: false})
 
@@ -425,8 +421,5 @@ func (suite *LogMetadataTestSuite) TestWatch_Deleted() {
 
 // test runner
 func TestLogMetadata(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("logmetadata symlink-based tests are skipped on Windows")
-	}
 	suite.Run(t, new(LogMetadataTestSuite))
 }
