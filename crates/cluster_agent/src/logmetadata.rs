@@ -99,7 +99,7 @@ impl LogMetadataService for LogMetadataImpl {
             return Err(Status::new(
                 tonic::Code::NotFound,
                 format!(
-                    "log directory not found: {}",
+                    "Log directory not found: {}",
                     logs_dir_path.to_string_lossy()
                 ),
             ));

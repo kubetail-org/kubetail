@@ -198,7 +198,7 @@ enum WatcherError {
     #[error("Error while trying to watch: {0}")]
     Watch(#[from] notify::Error),
 
-    #[error("log directory not found: {0}")]
+    #[error("Log directory not found: {0}")]
     DirNotFound(String),
 }
 
@@ -207,7 +207,9 @@ impl From<WatcherError> for Status {
         match watcher_error {
             WatcherError::Io(io_error) => io_error.into(),
             WatcherError::Watch(notify_error) => Self::from_error(Box::new(notify_error)),
-            WatcherError::DirNotFound(error_msg) => Self::new(tonic::Code::NotFound, error_msg),
+            WatcherError::DirNotFound(_) => {
+                Self::new(tonic::Code::NotFound, watcher_error.to_string())
+            }
         }
     }
 }
@@ -413,6 +415,26 @@ mod test {
         // Ensure no more events are created.
         let result = log_metadata_rx.try_recv();
         assert!(matches!(result, Err(TryRecvError::Empty)));
+    }
+
+    #[tokio::test]
+    async fn test_error_is_returned_on_unknown_directory() {
+        let namespaces = vec!["namespace".into()];
+        let (term_tx, _term_rx) = broadcast::channel(1);
+        let logs_dir = PathBuf::from("/a/dir/that/doesnt/exist");
+
+        let (log_metadata_watcher, mut log_metadata_rx) =
+            LogMetadataWatcher::new(logs_dir, namespaces, term_tx.clone());
+
+        task::spawn(async move { log_metadata_watcher.watch().await });
+        sleep(Duration::from_millis(100)).await;
+
+        let result = log_metadata_rx.recv().await.unwrap();
+        assert!(matches!(result, Err(_)));
+
+        let status = result.unwrap_err();
+        assert_eq!(status.code(), tonic::Code::NotFound);
+        assert!(status.message().contains("/a/dir/that/doesnt/exist"));
     }
 
     #[tokio::test]
