@@ -28,7 +28,7 @@ use tokio::{
     select,
     sync::{
         broadcast::Sender as BcSender,
-        mpsc::{self, Sender},
+        mpsc::{self, Receiver, Sender},
     },
 };
 use tonic::Status;
@@ -36,15 +36,32 @@ use types::cluster_agent::{FollowFrom, LogRecord};
 
 use tokio::sync::broadcast::error::TryRecvError::{Closed, Empty, Lagged};
 
-use crate::util::{
-    format::FileFormat,
-    matcher::{LogFileRegexMatcher, PassThroughMatcher},
-    offset::{find_nearest_offset_since, find_nearest_offset_until},
-    reader::TermReader,
-    writer::{process_output, CallbackWriter},
+use crate::{
+    fs_watcher_error::FsWatcherError,
+    util::{
+        format::FileFormat,
+        matcher::{LogFileRegexMatcher, PassThroughMatcher},
+        offset::{find_nearest_offset_since, find_nearest_offset_until},
+        reader::TermReader,
+        writer::{process_output, CallbackWriter},
+    },
 };
 
-/// Entrypoint
+/// A watcher for file updates.
+struct FsWatcher<F>
+where
+    F: FnMut(&[u8]),
+{
+    /// Performs the grep search, meant to be used on each new log line.
+    search_callback: F,
+    /// Reader to get log lines from.
+    log_file_reader: BufReader<File>,
+    /// Output channel to write notify events.
+    output_rx: Receiver<Result<Event, Error>>,
+    /// Internal notify watcher.
+    _notify_watcher: RecommendedWatcher,
+}
+
 pub async fn stream_forward(
     path: &PathBuf,
     start_time: Option<DateTime<Utc>>,
@@ -53,7 +70,37 @@ pub async fn stream_forward(
     follow_from: FollowFrom,
     term_tx: BcSender<()>,
     sender: Sender<Result<LogRecord, Status>>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) {
+    let result = setup_fs_watcher(
+        path,
+        start_time,
+        stop_time,
+        grep,
+        follow_from,
+        &term_tx,
+        &sender,
+    );
+
+    match result {
+        Err(fs_error) => {
+            let _ = sender.send(Err(fs_error.into())).await;
+        }
+        Ok(None) => (),
+        Ok(Some(watcher)) => listen_for_changes(watcher, sender.clone(), term_tx.clone()).await,
+    }
+}
+
+type ResultOption<T, E> = Result<Option<T>, E>;
+
+fn setup_fs_watcher<'a>(
+    path: &PathBuf,
+    start_time: Option<DateTime<Utc>>,
+    stop_time: Option<DateTime<Utc>>,
+    grep: Option<&'a str>,
+    follow_from: FollowFrom,
+    term_tx: &'a BcSender<()>,
+    sender: &'a Sender<Result<LogRecord, Status>>,
+) -> ResultOption<FsWatcher<impl FnMut(&[u8]) + use<'a>>, FsWatcherError> {
     let mut file = File::open(path)?;
 
     let max_offset = file.metadata()?.len();
@@ -74,7 +121,7 @@ pub async fn stream_forward(
         if let Some(offset) = find_nearest_offset_since(&file, start_time, 0, max_offset, format)? {
             start_pos = offset.byte_offset;
         } else {
-            return Ok(()); // No records, exit early
+            return Ok(None); // No records, exit early
         }
     }
 
@@ -87,7 +134,7 @@ pub async fn stream_forward(
             {
                 take_length = Some(offset.byte_offset + offset.line_length - start_pos);
             } else {
-                return Ok(()); // No records, exit early
+                return Ok(None); // No records, exit early
             }
         }
     }
@@ -112,7 +159,7 @@ pub async fn stream_forward(
         .build();
 
     // Init writer
-    let writer_fn = |chunk: Vec<u8>| process_output(chunk, &sender, format, term_tx.clone());
+    let writer_fn = move |chunk: Vec<u8>| process_output(chunk, sender, format, term_tx.clone());
     let writer = CallbackWriter::new(writer_fn);
 
     // Init printer
@@ -132,26 +179,26 @@ pub async fn stream_forward(
     }
 
     let mut term_rx = term_tx.subscribe();
-    // Exit here if termination signal has been received
+
+    // Check for termination signal.
     match term_rx.try_recv() {
-        Ok(_) | Err(Closed | Lagged(_)) => {
-            return Ok(()); // Exit cleanly
+        Ok(()) | Err(Closed | Lagged(_)) => {
+            return Ok(None);
         }
         Err(Empty) => {} // Channel is empty but still connected
     }
 
-    // Exit if we didn't read to end
+    // Return None if we didn't read to end
     if take_length.is_some() {
-        return Ok(());
+        return Ok(None);
     }
 
-    // Exit if no follow requested
+    // Return None if no follow requested
     if follow_from == FollowFrom::Noop {
-        return Ok(());
+        return Ok(None);
     }
 
-    // Follow
-    let mut search_slice = |input_str: &[u8]| {
+    let search_slice = move |input_str: &[u8]| {
         if let Some(grep) = trimmed_grep {
             let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
             let sink = printer.sink(&matcher);
@@ -164,7 +211,7 @@ pub async fn stream_forward(
     };
 
     // Set up watcher
-    let (notify_tx, mut notify_rx) = mpsc::channel(100);
+    let (notify_tx, notify_rx) = mpsc::channel(100);
 
     let mut watcher = RecommendedWatcher::new(
         move |result: Result<Event, Error>| {
@@ -178,22 +225,37 @@ pub async fn stream_forward(
     let mut reader = BufReader::new(File::open(path)?);
     reader.seek(SeekFrom::End(0))?;
 
-    // Listen for changes
+    Ok(Some(FsWatcher {
+        search_callback: search_slice,
+        log_file_reader: reader,
+        _notify_watcher: watcher,
+        output_rx: notify_rx,
+    }))
+}
+
+async fn listen_for_changes(
+    mut fs_watcher: FsWatcher<impl FnMut(&[u8])>,
+    sender: Sender<Result<LogRecord, Status>>,
+    term_tx: BcSender<()>,
+) {
+    let mut term_rx = term_tx.subscribe();
+
     'outer: loop {
         select! {
-            ev = notify_rx.recv() => {
+            ev = fs_watcher.output_rx.recv() => {
                 match ev {
                     Some(Ok(event)) => {
                         if let EventKind::Modify(_) = event.kind {
-                            for line in (&mut reader).lines() {
+                            for line in (&mut fs_watcher.log_file_reader).lines() {
                                 match term_rx.try_recv() {
                                     Err(Empty) =>{
                                         match line {
                                             Ok(l) => {
-                                                search_slice(l.as_bytes());
+                                                (fs_watcher.search_callback)(l.as_bytes());
                                             },
                                             Err(e) => {
-                                                return Err(Box::new(e));
+                                                let _ = sender.send(Err(Status::from_error(Box::new(e)))).await;
+                                                return;
                                             }
                                         }
                                     },
@@ -205,10 +267,12 @@ pub async fn stream_forward(
                         }
                     },
                     Some(Err(e)) => {
-                        return Err(Box::new(e));
+                        let _ = sender.send(Err(Status::from(FsWatcherError::Watch(e)))).await;
+                        return;
                     }
                     None => {
-                        return Err("Notify channel closed".into());
+                        let _ = sender.send(Err(Status::new(tonic::Code::Unknown, "Notify channel closed."))).await;
+                        return;
                     }
                 }
             },
@@ -217,8 +281,6 @@ pub async fn stream_forward(
             },
         }
     }
-
-    Ok(())
 }
 
 #[cfg(test)]
@@ -322,7 +384,7 @@ mod test {
         let (tx, mut rx) = mpsc::channel(100);
 
         // Call run method
-        let _ = stream_forward(
+        stream_forward(
             &path,
             start_time,
             None,             // No stop time
@@ -373,7 +435,7 @@ mod test {
         let (tx, mut rx) = mpsc::channel(100);
 
         // Call run method
-        let _ = stream_forward(
+        stream_forward(
             &path,
             None, // No start time
             stop_time,
@@ -433,7 +495,7 @@ mod test {
         let (tx, mut rx) = mpsc::channel(100);
 
         // Call run method
-        let _ = stream_forward(
+        stream_forward(
             &path,
             start_time,
             stop_time,
@@ -507,7 +569,7 @@ mod test {
         }
 
         // Call run method
-        let _ = stream_forward(
+        stream_forward(
             &path,
             start_time,
             None, // No stop time
