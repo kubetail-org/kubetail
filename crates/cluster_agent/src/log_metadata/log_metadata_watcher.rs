@@ -21,7 +21,7 @@ use tonic::Status;
 use tracing::{debug, info, warn};
 use types::cluster_agent::{LogMetadata, LogMetadataWatchEvent};
 
-use crate::logmetadata::{LOG_FILE_REGEX, LogMetadataImpl};
+use crate::log_metadata::{LOG_FILE_REGEX, LogMetadataImpl};
 
 /// Uses notify crate internally to provide notifications of file updates.
 #[derive(Debug)]
@@ -353,7 +353,7 @@ mod test {
         io::Write,
     };
 
-    use crate::logmetadata::test::create_test_file;
+    use crate::log_metadata::test::create_test_file;
 
     use super::*;
     use serial_test::serial;

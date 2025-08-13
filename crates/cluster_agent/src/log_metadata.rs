@@ -18,9 +18,9 @@ use types::cluster_agent::{
     LogMetadataWatchEvent, LogMetadataWatchRequest,
 };
 
-use crate::logmetadata::logmetadata_watcher::LogMetadataWatcher;
+use crate::log_metadata::log_metadata_watcher::LogMetadataWatcher;
 
-mod logmetadata_watcher;
+mod log_metadata_watcher;
 
 pub static LOG_FILE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
@@ -180,7 +180,7 @@ impl LogMetadataService for LogMetadataImpl {
 
 #[cfg(test)]
 mod test {
-    use crate::logmetadata::LogMetadataImpl;
+    use crate::log_metadata::LogMetadataImpl;
     use serial_test::serial;
     use std::io::Write;
     use tempfile::{Builder, NamedTempFile};
