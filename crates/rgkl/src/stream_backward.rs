@@ -39,6 +39,21 @@ pub async fn stream_backward(
     grep: Option<&str>,
     term_tx: BcSender<()>,
     sender: Sender<Result<LogRecord, Status>>,
+) {
+    let result = stream_backward_internal(path, start_time, stop_time, grep, &term_tx, &sender);
+
+    if let Err(error) = result {
+        let _ = sender.send(Err(Status::from_error(error.into()))).await;
+    }
+}
+
+fn stream_backward_internal(
+    path: &PathBuf,
+    start_time: Option<DateTime<Utc>>,
+    stop_time: Option<DateTime<Utc>>,
+    grep: Option<&str>,
+    term_tx: &BcSender<()>,
+    sender: &Sender<Result<LogRecord, Status>>,
 ) -> eyre::Result<()> {
     // Open file
     let file = File::open(path)?;
@@ -86,7 +101,7 @@ pub async fn stream_backward(
         .build();
 
     // Init writer
-    let writer_fn = |chunk: Vec<u8>| process_output(chunk, &sender, format, term_tx.clone());
+    let writer_fn = |chunk: Vec<u8>| process_output(chunk, sender, format, term_tx.clone());
     let writer = CallbackWriter::new(writer_fn);
 
     // Init printer
@@ -187,7 +202,7 @@ mod test {
         // Create output channel
         let (tx, mut rx) = mpsc::channel(100);
 
-        let _ = stream_backward(&path, start_time, None, None, term_tx, tx).await;
+        stream_backward(&path, start_time, None, None, term_tx, tx).await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
@@ -228,7 +243,7 @@ mod test {
         // Create output channel
         let (tx, mut rx) = mpsc::channel(100);
 
-        let _ = stream_backward(&path, None, stop_time, None, term_tx, tx).await;
+        stream_backward(&path, None, stop_time, None, term_tx, tx).await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
@@ -242,7 +257,6 @@ mod test {
     }
 
     // Test `start_time` and `stop_time` args together
-    //
     #[tokio::test(flavor = "multi_thread")]
     #[rstest]
     #[case("", "", vec!["linenum 10", "linenum 9", "linenum 8", "linenum 7", "linenum 6", "linenum 5", "linenum 4", "linenum 3", "linenum 2", "linenum 1"])]
@@ -279,7 +293,7 @@ mod test {
         // Create output channel
         let (tx, mut rx) = mpsc::channel(100);
 
-        let _ = stream_backward(&path, start_time, stop_time, None, term_tx, tx).await;
+        stream_backward(&path, start_time, stop_time, None, term_tx, tx).await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
@@ -290,5 +304,25 @@ mod test {
 
         // Compare output with expected lines
         compare_lines(output, expected_lines);
+    }
+
+    #[tokio::test]
+    async fn test_error_propagates_to_client() {
+        let path = PathBuf::from("/a/dir/that/doesnt/exist");
+
+        // Create a channel for termination signal
+        let (term_tx, _term_rx) = broadcast::channel(5);
+
+        // Create output channel
+        let (tx, mut rx) = mpsc::channel(100);
+
+        stream_backward(&path, None, None, None, term_tx, tx).await;
+
+        let result = rx.recv().await.unwrap();
+        assert!(matches!(result, Err(_)));
+
+        let status = result.unwrap_err();
+        assert_eq!(status.code(), tonic::Code::Unknown);
+        assert!(status.message().contains("No such file or directory"));
     }
 }
