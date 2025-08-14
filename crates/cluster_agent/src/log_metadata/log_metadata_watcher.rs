@@ -1,4 +1,5 @@
 use std::{
+    collections::{HashSet, VecDeque},
     io,
     path::{Path, PathBuf},
     time::Duration,
@@ -82,7 +83,7 @@ impl LogMetadataWatcher {
     /// * `internal_tx` - The sender to use to propagate filesystem updates.
     async fn setup_notify_watcher(
         &self,
-        internal_tx: Sender<Vec<Result<LogMetadataWatchEvent, WatcherError>>>,
+        internal_tx: Sender<VecDeque<Result<LogMetadataWatchEvent, WatcherError>>>,
     ) -> Result<Debouncer<RecommendedWatcher, RecommendedCache>, WatcherError> {
         let runtime_handle = Handle::current();
         let namespaces = self.namespaces.clone();
@@ -120,7 +121,7 @@ impl LogMetadataWatcher {
     /// * `term_rx` - Receiver of the termination channel.
     async fn listen_for_changes(
         &self,
-        mut internal_rx: Receiver<Vec<Result<LogMetadataWatchEvent, WatcherError>>>,
+        mut internal_rx: Receiver<VecDeque<Result<LogMetadataWatchEvent, WatcherError>>>,
         mut debouncer: Debouncer<RecommendedWatcher, RecommendedCache>,
         mut term_rx: tokio::sync::broadcast::Receiver<()>,
     ) {
@@ -262,14 +263,12 @@ async fn find_log_files(
 fn handle_debounced_events(
     debounced_event_result: DebounceEventResult,
     namespaces: &[String],
-) -> Vec<Result<LogMetadataWatchEvent, WatcherError>> {
+) -> VecDeque<Result<LogMetadataWatchEvent, WatcherError>> {
     if let Err(errors) = debounced_event_result {
         return errors.into_iter().map(|error| Err(error.into())).collect();
     }
 
-    // TODO: As we are mapping many types of events into three types of LogMetadataWatchEvent, this
-    // function can still produce duplicates. We should probably dedup using an IndexSet.
-    debounced_event_result
+    let events = debounced_event_result
         .unwrap()
         .into_iter()
         .filter(|debounced_event| {
@@ -279,7 +278,30 @@ fn handle_debounced_events(
             )
         })
         .filter_map(|debounced_event| transform_notify_event(&debounced_event.event, namespaces))
-        .collect()
+        .collect();
+
+    deduplicate_metadata_events(events)
+}
+
+// Deduplicates a list of metadata events by discarding the duplicate events which are oldest.
+fn deduplicate_metadata_events(
+    metadata_events: Vec<Result<LogMetadataWatchEvent, WatcherError>>,
+) -> VecDeque<Result<LogMetadataWatchEvent, WatcherError>> {
+    let mut deduped_events = VecDeque::new();
+    let mut event_index = HashSet::new();
+
+    for result in metadata_events.into_iter().rev() {
+        match &result {
+            Err(_) => deduped_events.push_front(result),
+            Ok(event) => {
+                if event_index.insert(event.clone()) {
+                    deduped_events.push_front(result);
+                }
+            }
+        }
+    }
+
+    deduped_events
 }
 
 // Transform a single Event to a LogMetadataWatchEvent. Fails in cases there is an IO error when
@@ -497,34 +519,33 @@ mod test {
             .unwrap();
         let _ = renamed_file.write_all(&vec![1; 5]);
 
-        // Ensure that the old file path is marked as deleted and that the new path is modified.
-        for _i in 0..3 {
-            let event = log_metadata_rx.recv().await.unwrap().unwrap();
+        let event = log_metadata_rx.recv().await.unwrap().unwrap();
+        verify_event(
+            event,
+            "DELETED",
+            "containerid",
+            "The node name",
+            "namespace",
+            "pod-name",
+            "container-name",
+            None,
+        );
 
-            if event.r#type == "DELETED" {
-                verify_event(
-                    event,
-                    "DELETED",
-                    "containerid",
-                    "The node name",
-                    "namespace",
-                    "pod-name",
-                    "container-name",
-                    None,
-                );
-            } else {
-                verify_event(
-                    event,
-                    "MODIFIED",
-                    "updatedcontainerid",
-                    "The node name",
-                    "namespace",
-                    "pod-name",
-                    "container-name",
-                    Some(9),
-                );
-            }
-        }
+        let event = log_metadata_rx.recv().await.unwrap().unwrap();
+
+        verify_event(
+            event,
+            "MODIFIED",
+            "updatedcontainerid",
+            "The node name",
+            "namespace",
+            "pod-name",
+            "container-name",
+            Some(9),
+        );
+
+        let result = log_metadata_rx.try_recv();
+        assert!(matches!(result, Err(TryRecvError::Empty)));
 
         // The renamed file won't be delted automatically when it gets out of scope.
         let _ = remove_file(&new_path);
