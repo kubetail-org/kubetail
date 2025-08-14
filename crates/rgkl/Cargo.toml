@@ -17,20 +17,19 @@ prost = { workspace = true}
 prost-types = { workspace = true}
 tempfile = { workspace = true }
 notify = { workspace = true, features = ["crossbeam-channel"] }
+thiserror = { workspace = true }
 
 tracing = { workspace = true }
 tracing-opentelemetry = { workspace = true, features = ["metrics"] }
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "registry", "std"] }
 tracing-test = { workspace = true }
 
-eyre = "0.6.12"
 grep = "0.3.2"
 grep-cli = "0.1.11"
 grep-matcher = "0.1.7"
 grep-printer = "0.2.2"
 grep-regex = "0.1.13"
 grep-searcher = "0.1.14"
-lazy_static = "1.5.0"
 memchr = "2.7.5"
 rand = "0.9.2"
 regex = "1.11.1"
@@ -39,7 +38,3 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 signal-hook = "0.3.18"
 termcolor = "1.4.1"
-thiserror = "2.0.12"
-
-async-std = { version = "1.13.1", features = ["attributes"] }
-

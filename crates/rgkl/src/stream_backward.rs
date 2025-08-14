@@ -24,12 +24,15 @@ use grep::{
     searcher::{MmapChoice, SearcherBuilder},
 };
 
-use crate::util::{
-    format::FileFormat,
-    matcher::{LogFileRegexMatcher, PassThroughMatcher},
-    offset::{find_nearest_offset_since, find_nearest_offset_until},
-    reader::{ReverseLineReader, TermReader},
-    writer::{process_output, CallbackWriter},
+use crate::{
+    fs_watcher_error::FsWatcherError,
+    util::{
+        format::FileFormat,
+        matcher::{LogFileRegexMatcher, PassThroughMatcher},
+        offset::{find_nearest_offset_since, find_nearest_offset_until},
+        reader::{ReverseLineReader, TermReader},
+        writer::{process_output, CallbackWriter},
+    },
 };
 
 pub async fn stream_backward(
@@ -39,7 +42,22 @@ pub async fn stream_backward(
     grep: Option<&str>,
     term_tx: BcSender<()>,
     sender: Sender<Result<LogRecord, Status>>,
-) -> eyre::Result<()> {
+) {
+    let result = stream_backward_internal(path, start_time, stop_time, grep, &term_tx, &sender);
+
+    if let Err(error) = result {
+        let _ = sender.send(Err(error.into())).await;
+    }
+}
+
+fn stream_backward_internal(
+    path: &PathBuf,
+    start_time: Option<DateTime<Utc>>,
+    stop_time: Option<DateTime<Utc>>,
+    grep: Option<&str>,
+    term_tx: &BcSender<()>,
+    sender: &Sender<Result<LogRecord, Status>>,
+) -> Result<(), FsWatcherError> {
     // Open file
     let file = File::open(path)?;
     let max_offset = file.metadata()?.len();
@@ -88,7 +106,7 @@ pub async fn stream_backward(
         .build();
 
     // Init writer
-    let writer_fn = |chunk: Vec<u8>| process_output(chunk, &sender, format, term_tx.clone());
+    let writer_fn = |chunk: Vec<u8>| process_output(chunk, sender, format, term_tx.clone());
     let writer = CallbackWriter::new(writer_fn);
 
     // Init printer
@@ -112,17 +130,14 @@ pub async fn stream_backward(
 
 #[cfg(test)]
 mod test {
-    use lazy_static::lazy_static;
     use rstest::rstest;
-    use std::io::Write;
+    use std::{io::Write, sync::LazyLock};
     use tempfile::NamedTempFile;
     use tokio::sync::{broadcast, mpsc};
 
     use super::*;
 
-    lazy_static! {
-        static ref TEST_FILE: NamedTempFile = create_test_file();
-    }
+    static TEST_FILE: LazyLock<NamedTempFile> = LazyLock::new(|| create_test_file());
 
     fn create_test_file() -> NamedTempFile {
         let lines = [
@@ -192,7 +207,7 @@ mod test {
         // Create output channel
         let (tx, mut rx) = mpsc::channel(100);
 
-        let _ = stream_backward(&path, start_time, None, None, term_tx, tx).await;
+        stream_backward(&path, start_time, None, None, term_tx, tx).await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
@@ -233,7 +248,7 @@ mod test {
         // Create output channel
         let (tx, mut rx) = mpsc::channel(100);
 
-        let _ = stream_backward(&path, None, stop_time, None, term_tx, tx).await;
+        stream_backward(&path, None, stop_time, None, term_tx, tx).await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
@@ -247,7 +262,6 @@ mod test {
     }
 
     // Test `start_time` and `stop_time` args together
-    //
     #[tokio::test(flavor = "multi_thread")]
     #[rstest]
     #[case("", "", vec!["linenum 10", "linenum 9", "linenum 8", "linenum 7", "linenum 6", "linenum 5", "linenum 4", "linenum 3", "linenum 2", "linenum 1"])]
@@ -284,7 +298,7 @@ mod test {
         // Create output channel
         let (tx, mut rx) = mpsc::channel(100);
 
-        let _ = stream_backward(&path, start_time, stop_time, None, term_tx, tx).await;
+        stream_backward(&path, start_time, stop_time, None, term_tx, tx).await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
@@ -295,5 +309,25 @@ mod test {
 
         // Compare output with expected lines
         compare_lines(output, expected_lines);
+    }
+
+    #[tokio::test]
+    async fn test_error_propagates_to_client() {
+        let path = PathBuf::from("/a/dir/that/doesnt/exist");
+
+        // Create a channel for termination signal
+        let (term_tx, _term_rx) = broadcast::channel(5);
+
+        // Create output channel
+        let (tx, mut rx) = mpsc::channel(100);
+
+        stream_backward(&path, None, None, None, term_tx, tx).await;
+
+        let result = rx.recv().await.unwrap();
+        assert!(matches!(result, Err(_)));
+
+        let status = result.unwrap_err();
+        assert_eq!(status.code(), tonic::Code::NotFound);
+        assert!(status.message().contains("No such file or directory"));
     }
 }
