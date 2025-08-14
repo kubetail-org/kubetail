@@ -51,13 +51,13 @@ func TestNewServerTLSConfiguration(t *testing.T) {
 	invalidCAPath := createInvalidCAFile(t, tempDir)
 
 	tests := []struct {
-		name        string
-		tlsEnabled  bool
-		certFile    string
-		keyFile     string
-		caFile      string
-		clientAuth  tls.ClientAuthType
-		wantErr     bool
+		name       string
+		tlsEnabled bool
+		certFile   string
+		keyFile    string
+		caFile     string
+		clientAuth tls.ClientAuthType
+		wantErr    bool
 	}{
 		{
 			name:       "TLS disabled",
@@ -97,34 +97,34 @@ func TestNewServerTLSConfiguration(t *testing.T) {
 			wantErr:    false,
 		},
 		{
-			name:        "TLS enabled with missing cert file",
-			tlsEnabled:  true,
-			certFile:    "/nonexistent/cert.pem",
-			keyFile:     keyFile,
-			wantErr:     true,
+			name:       "TLS enabled with missing cert file",
+			tlsEnabled: true,
+			certFile:   "/nonexistent/cert.pem",
+			keyFile:    keyFile,
+			wantErr:    true,
 		},
 		{
-			name:        "TLS enabled with missing key file",
-			tlsEnabled:  true,
-			certFile:    certFile,
-			keyFile:     "/nonexistent/key.pem",
-			wantErr:     true,
+			name:       "TLS enabled with missing key file",
+			tlsEnabled: true,
+			certFile:   certFile,
+			keyFile:    "/nonexistent/key.pem",
+			wantErr:    true,
 		},
 		{
-			name:        "TLS enabled with missing CA file",
-			tlsEnabled:  true,
-			certFile:    certFile,
-			keyFile:     keyFile,
-			caFile:      "/nonexistent/ca.pem",
-			wantErr:     true,
+			name:       "TLS enabled with missing CA file",
+			tlsEnabled: true,
+			certFile:   certFile,
+			keyFile:    keyFile,
+			caFile:     "/nonexistent/ca.pem",
+			wantErr:    true,
 		},
 		{
-			name:        "TLS enabled with invalid CA file",
-			tlsEnabled:  true,
-			certFile:    certFile,
-			keyFile:     keyFile,
-			caFile:      createInvalidCAFile(t, tempDir),
-			wantErr:     true,
+			name:       "TLS enabled with invalid CA file",
+			tlsEnabled: true,
+			certFile:   certFile,
+			keyFile:    keyFile,
+			caFile:     invalidCAPath,
+			wantErr:    true,
 		},
 	}
 
