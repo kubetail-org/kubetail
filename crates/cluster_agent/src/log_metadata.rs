@@ -2,7 +2,7 @@ use prost_types::Timestamp;
 use regex::{Captures, Regex};
 use std::fs::File;
 use std::os::unix::fs::MetadataExt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::LazyLock;
 use tracing::debug;
 
@@ -18,9 +18,9 @@ use types::cluster_agent::{
     LogMetadataWatchEvent, LogMetadataWatchRequest,
 };
 
-use crate::logmetadata::logmetadata_watcher::LogMetadataWatcher;
+use crate::log_metadata::log_metadata_watcher::LogMetadataWatcher;
 
-mod logmetadata_watcher;
+mod log_metadata_watcher;
 
 pub static LOG_FILE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
@@ -72,9 +72,9 @@ impl LogMetadataImpl {
         })
     }
 
-    fn get_file_info(filepath: &Path) -> Result<LogMetadataFileInfo, Box<Status>> {
-        let file = File::open(filepath).map_err(|err| Box::new(err.into()))?;
-        let metadata = file.metadata().map_err(|err| Box::new(err.into()))?;
+    fn get_file_info(filepath: &Path) -> Result<LogMetadataFileInfo, std::io::Error> {
+        let file = File::open(filepath)?;
+        let metadata = file.metadata()?;
 
         Ok(LogMetadataFileInfo {
             size: metadata.size().try_into().unwrap(),
@@ -99,7 +99,7 @@ impl LogMetadataService for LogMetadataImpl {
             return Err(Status::new(
                 tonic::Code::NotFound,
                 format!(
-                    "log directory not found: {}",
+                    "Log directory not found: {}",
                     logs_dir_path.to_string_lossy()
                 ),
             ));
@@ -110,25 +110,37 @@ impl LogMetadataService for LogMetadataImpl {
         let mut metadata_items = Vec::new();
 
         while let Some(file) = files.next().await {
-            let file = match file {
-                Ok(file) => file,
-                Err(error) => return Err(Status::new(tonic::Code::Unknown, error.to_string())),
-            };
+            if let Err(io_error) = file {
+                match io_error.kind() {
+                    std::io::ErrorKind::NotFound => {
+                        debug!("Could not open file: {}", io_error);
+                        continue;
+                    }
+                    _ => return Err(io_error.into()),
+                }
+            }
 
-            let mut filepath = PathBuf::from(logs_dir_path);
-            filepath.push(file.file_name());
+            let file = file.unwrap();
 
-            let Some(metadata_spec) = Self::get_log_metadata_spec(&filepath, &request.namespaces)
+            let Some(metadata_spec) =
+                Self::get_log_metadata_spec(&file.path(), &request.namespaces)
             else {
                 continue;
             };
 
-            let file_info = Self::get_file_info(&filepath);
+            let file_info = Self::get_file_info(&file.path());
 
-            if let Err(status) = file_info {
-                match status.code() {
-                    tonic::Code::NotFound => continue,
-                    _ => return Err(*status),
+            if let Err(io_error) = file_info {
+                match io_error.kind() {
+                    std::io::ErrorKind::NotFound => {
+                        debug!(
+                            "Could not open file {}, error {}",
+                            file.path().to_string_lossy(),
+                            io_error
+                        );
+                        continue;
+                    }
+                    _ => return Err(io_error.into()),
                 }
             }
 
@@ -159,8 +171,7 @@ impl LogMetadataService for LogMetadataImpl {
         );
 
         self.task_tracker.spawn(async move {
-            // TODO: Add error handling
-            let _ = log_metadata_watcher.watch().await;
+            log_metadata_watcher.watch().await;
         });
 
         Ok(Response::new(ReceiverStream::new(log_metadata_rx)))
@@ -169,7 +180,7 @@ impl LogMetadataService for LogMetadataImpl {
 
 #[cfg(test)]
 mod test {
-    use crate::logmetadata::LogMetadataImpl;
+    use crate::log_metadata::LogMetadataImpl;
     use serial_test::serial;
     use std::io::Write;
     use tempfile::{Builder, NamedTempFile};
