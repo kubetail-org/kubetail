@@ -56,7 +56,7 @@ where
     search_callback: F,
     /// Reader to get log lines from.
     log_file_reader: BufReader<File>,
-    /// Output channel to write notify events.
+    /// Receives the events that come from notify.
     output_rx: Receiver<Result<Event, Error>>,
     /// Internal notify watcher.
     _notify_watcher: RecommendedWatcher,
@@ -158,11 +158,8 @@ fn setup_fs_watcher<'a>(
         .memory_map(MmapChoice::never())
         .build();
 
-    // Init writer
     let writer_fn = move |chunk: Vec<u8>| process_output(chunk, sender, format, term_tx.clone());
     let writer = CallbackWriter::new(writer_fn);
-
-    // Init printer
     let mut printer = JSONBuilder::new().build(writer);
 
     // Remove leading and trailing whitespace
@@ -180,7 +177,6 @@ fn setup_fs_watcher<'a>(
 
     let mut term_rx = term_tx.subscribe();
 
-    // Check for termination signal.
     match term_rx.try_recv() {
         Ok(()) | Err(Closed | Lagged(_)) => {
             return Ok(None);
@@ -188,12 +184,10 @@ fn setup_fs_watcher<'a>(
         Err(Empty) => {} // Channel is empty but still connected
     }
 
-    // Return None if we didn't read to end
     if take_length.is_some() {
         return Ok(None);
     }
 
-    // Return None if no follow requested
     if follow_from == FollowFrom::Noop {
         return Ok(None);
     }
@@ -233,6 +227,8 @@ fn setup_fs_watcher<'a>(
     }))
 }
 
+/// Listens for update Events from notify, process the new log lines to produce `LogRecord` events
+/// and pushes them  to the sender. Loops until a signal is sent to the `term_tx` channel.
 async fn listen_for_changes(
     mut fs_watcher: FsWatcher<impl FnMut(&[u8])>,
     sender: Sender<Result<LogRecord, Status>>,
