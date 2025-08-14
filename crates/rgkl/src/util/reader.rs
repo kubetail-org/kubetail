@@ -200,8 +200,6 @@ mod tests {
 
     use tokio::sync::broadcast::{self};
 
-    use tracing_test::traced_test;
-
     use super::*;
 
     #[test]
