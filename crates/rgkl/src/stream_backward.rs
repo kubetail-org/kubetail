@@ -24,12 +24,15 @@ use grep::{
     searcher::{MmapChoice, SearcherBuilder},
 };
 
-use crate::util::{
-    format::FileFormat,
-    matcher::{LogFileRegexMatcher, PassThroughMatcher},
-    offset::{find_nearest_offset_since, find_nearest_offset_until},
-    reader::{ReverseLineReader, TermReader},
-    writer::{process_output, CallbackWriter},
+use crate::{
+    fs_watcher_error::FsWatcherError,
+    util::{
+        format::FileFormat,
+        matcher::{LogFileRegexMatcher, PassThroughMatcher},
+        offset::{find_nearest_offset_since, find_nearest_offset_until},
+        reader::{ReverseLineReader, TermReader},
+        writer::{process_output, CallbackWriter},
+    },
 };
 
 pub async fn stream_backward(
@@ -43,7 +46,7 @@ pub async fn stream_backward(
     let result = stream_backward_internal(path, start_time, stop_time, grep, &term_tx, &sender);
 
     if let Err(error) = result {
-        let _ = sender.send(Err(Status::from_error(error.into()))).await;
+        let _ = sender.send(Err(error.into())).await;
     }
 }
 
@@ -54,7 +57,7 @@ fn stream_backward_internal(
     grep: Option<&str>,
     term_tx: &BcSender<()>,
     sender: &Sender<Result<LogRecord, Status>>,
-) -> eyre::Result<()> {
+) -> Result<(), FsWatcherError> {
     // Open file
     let file = File::open(path)?;
     let max_offset = file.metadata()?.len();
@@ -322,7 +325,7 @@ mod test {
         assert!(matches!(result, Err(_)));
 
         let status = result.unwrap_err();
-        assert_eq!(status.code(), tonic::Code::Unknown);
+        assert_eq!(status.code(), tonic::Code::NotFound);
         assert!(status.message().contains("No such file or directory"));
     }
 }

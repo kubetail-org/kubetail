@@ -1958,7 +1958,6 @@ name = "rgkl"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "eyre",
  "grep",
  "grep-cli",
  "grep-matcher",

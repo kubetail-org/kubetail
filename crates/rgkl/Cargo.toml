@@ -24,7 +24,6 @@ tracing-opentelemetry = { workspace = true, features = ["metrics"] }
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "registry", "std"] }
 tracing-test = { workspace = true }
 
-eyre = "0.6.12"
 grep = "0.3.2"
 grep-cli = "0.1.11"
 grep-matcher = "0.1.7"

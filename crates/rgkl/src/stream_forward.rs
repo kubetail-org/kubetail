@@ -589,4 +589,34 @@ mod test {
 
         compare_lines(output, expected_lines);
     }
+
+    #[tokio::test]
+    async fn test_errors_are_propagated_to_client() {
+        let path = PathBuf::from("/a/dir/that/doesnt/exist");
+
+        // Create a channel for termination signal
+        let (term_tx, _term_rx) = broadcast::channel(5);
+
+        // Create output channel
+        let (tx, mut rx) = mpsc::channel(100);
+
+        // Call run method
+        stream_forward(
+            &path,
+            None,
+            None,
+            None,             // No grep filter
+            FollowFrom::Noop, // Don't follow
+            term_tx,
+            tx,
+        )
+        .await;
+
+        let result = rx.recv().await.unwrap();
+        assert!(matches!(result, Err(_)));
+
+        let status = result.unwrap_err();
+        assert_eq!(status.code(), tonic::Code::NotFound);
+        assert!(status.message().contains("No such file or directory"));
+    }
 }
