@@ -1,5 +1,6 @@
 use prost_types::Timestamp;
 use regex::{Captures, Regex};
+use std::env;
 use std::fs::File;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
@@ -33,6 +34,7 @@ pub struct LogMetadataImpl {
     logs_dir: String,
     term_tx: Sender<()>,
     task_tracker: TaskTracker,
+    node_name: String,
 }
 
 impl LogMetadataImpl {
@@ -41,10 +43,15 @@ impl LogMetadataImpl {
             logs_dir: "/var/log/containers".into(),
             term_tx,
             task_tracker,
+            node_name: env::var("NODE_NAME").unwrap_or_else(|_| "Env variable not set".to_owned()),
         }
     }
 
-    fn get_log_metadata_spec(filepath: &Path, namespaces: &[String]) -> Option<LogMetadataSpec> {
+    fn get_log_metadata_spec(
+        filepath: &Path,
+        namespaces: &[String],
+        node_name: &str,
+    ) -> Option<LogMetadataSpec> {
         let filename = filepath.file_name()?.to_string_lossy();
         let captures = LOG_FILE_REGEX.captures(filename.as_ref());
 
@@ -67,7 +74,7 @@ impl LogMetadataImpl {
             container_id,
             container_name,
             pod_name,
-            node_name: "The node name".to_string(),
+            node_name: node_name.to_owned(),
             namespace,
         })
     }
@@ -123,7 +130,7 @@ impl LogMetadataService for LogMetadataImpl {
             let file = file.unwrap();
 
             let Some(metadata_spec) =
-                Self::get_log_metadata_spec(&file.path(), &request.namespaces)
+                Self::get_log_metadata_spec(&file.path(), &request.namespaces, &self.node_name)
             else {
                 continue;
             };
@@ -168,6 +175,7 @@ impl LogMetadataService for LogMetadataImpl {
             Path::new(&self.logs_dir).to_path_buf(),
             request.namespaces,
             term_tx,
+            self.node_name.clone(),
         );
 
         self.task_tracker.spawn(async move {
@@ -216,6 +224,7 @@ mod test {
             logs_dir,
             term_tx,
             task_tracker: TaskTracker::new(),
+            node_name: "Node name".to_owned(),
         };
 
         let mut result = metadata_service
@@ -267,6 +276,7 @@ mod test {
             logs_dir,
             term_tx,
             task_tracker: TaskTracker::new(),
+            node_name: "Node name".to_owned(),
         };
 
         let mut result = metadata_service
