@@ -4,4 +4,7 @@ WORKDIR /cluster-agent
 
 COPY .tilt/cluster-agent .
 
+# copy grpc-health-probe
+COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
+
 ENTRYPOINT ["./cluster-agent", "-c", "/etc/kubetail/config.yaml"]
