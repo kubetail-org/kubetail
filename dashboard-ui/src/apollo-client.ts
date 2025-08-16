@@ -24,7 +24,7 @@ import toast from 'react-hot-toast';
 import appConfig from '@/app-config';
 import clusterAPI from '@/lib/graphql/cluster-api/__generated__/introspection-result.json';
 import dashboard from '@/lib/graphql/dashboard/__generated__/introspection-result.json';
-import { getBasename, getCSRFToken, joinPaths } from '@/lib/util';
+import { getBasename, joinPaths } from '@/lib/util';
 
 /**
  * Shared items
@@ -85,9 +85,6 @@ const createLink = (basepath: string) => {
   const wsClient = createClient({
     ...wsClientOptions,
     url: uri.replace(/^(http)/, 'ws'),
-    connectionParams: async () => ({
-      authorization: await getCSRFToken(basepath),
-    }),
   });
 
   // Create websocket link

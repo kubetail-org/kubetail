@@ -91,6 +91,8 @@ pub fn run<W: Write>(
     let mut searcher = SearcherBuilder::new()
         .line_number(false)
         .memory_map(MmapChoice::never())
+        .multi_line(false)
+        .heap_limit(Some(1024 * 1024)) // TODO: Make this configurable
         .build();
 
     // Init writer

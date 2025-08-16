@@ -17,9 +17,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import LoadingPage from '@/components/utils/LoadingPage';
 import { getSession, useSession } from '@/lib/auth';
-import { getBasename, getCSRFToken } from '@/lib/util';
-
-const basename = getBasename();
 
 export default function Logout() {
   const navigate = useNavigate();
@@ -36,7 +33,6 @@ export default function Logout() {
       const url = new URL('/api/auth/logout', window.location.origin);
       const resp = await fetch(url, {
         method: 'post',
-        headers: { 'X-CSRF-Token': await getCSRFToken(basename) },
       });
 
       // update session

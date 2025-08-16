@@ -20,67 +20,73 @@ import (
 	"testing"
 
 	"github.com/gorilla/websocket"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/testutils"
 )
 
 func TestServer(t *testing.T) {
-	t.Run("cross-origin websocket requests are allowed when csrf protection is disabled", func(t *testing.T) {
-		graphqlServer := NewServer(nil, nil, []string{}, nil)
+	tests := []struct {
+		name           string
+		setCsrfEnabled bool
+		setHeader      http.Header
+		wantStatus     int
+	}{
+		{
+			"csrf disabled, non-browser client",
+			false,
+			http.Header{},
+			http.StatusSwitchingProtocols,
+		},
+		{
+			"csrf disabled, same-origin request",
+			false,
+			http.Header{"Sec-Fetch-Site": []string{"same-origin"}},
+			http.StatusSwitchingProtocols,
+		},
+		{
+			"csrf disabled, cross-site request",
+			false,
+			http.Header{"Sec-Fetch-Site": []string{"cross-site"}},
+			http.StatusSwitchingProtocols,
+		},
+		{
+			"csrf enabled, non-browser client",
+			true,
+			http.Header{},
+			http.StatusSwitchingProtocols,
+		},
+		{
+			"csrf enabled, same-origin request",
+			true,
+			http.Header{"Sec-Fetch-Site": []string{"same-origin"}},
+			http.StatusSwitchingProtocols,
+		},
+		{
+			"csrf enabled, cross-site request",
+			true,
+			http.Header{"Sec-Fetch-Site": []string{"cross-site"}},
+			http.StatusForbidden,
+		},
+	}
 
-		client := testutils.NewWebTestClient(t, graphqlServer)
-		defer client.Teardown()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.Config{}
+			cfg.ClusterAPI.CSRF.Enabled = tt.setCsrfEnabled
 
-		// init websocket connection
-		u := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
-		h := http.Header{}
-		conn, resp, err := websocket.DefaultDialer.Dial(u, h)
+			graphqlServer := NewServer(cfg, nil, nil, []string{})
 
-		// check that response was ok
-		assert.Nil(t, err)
-		assert.NotNil(t, conn)
-		assert.Equal(t, 101, resp.StatusCode)
-		defer conn.Close()
+			client := testutils.NewWebTestClient(t, graphqlServer)
+			defer client.Teardown()
 
-		// write
-		conn.WriteJSON(map[string]string{"type": "connection_init"})
+			// init websocket connection
+			u := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
+			_, resp, _ := websocket.DefaultDialer.Dial(u, tt.setHeader)
 
-		// read
-		_, msg, err := conn.ReadMessage()
-		assert.Nil(t, err)
-		assert.Contains(t, string(msg), "connection_ack")
-	})
-
-	t.Run("websocket requests require csrf validation when csrf protection is enabled", func(t *testing.T) {
-		csrfProtect := func(h http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				http.Error(w, "nope", http.StatusUnauthorized)
-			})
-		}
-
-		graphqlServer := NewServer(nil, nil, []string{}, csrfProtect)
-
-		client := testutils.NewWebTestClient(t, graphqlServer)
-		defer client.Teardown()
-
-		// init websocket connection
-		u := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
-		h := http.Header{}
-		conn, resp, err := websocket.DefaultDialer.Dial(u, h)
-
-		// check that response was ok
-		assert.Nil(t, err)
-		assert.NotNil(t, conn)
-		assert.Equal(t, 101, resp.StatusCode)
-		defer conn.Close()
-
-		// write
-		conn.WriteJSON(map[string]string{"type": "connection_init"})
-
-		// read
-		_, msg, err := conn.ReadMessage()
-		assert.Nil(t, err)
-		assert.Contains(t, string(msg), "connection_error")
-	})
+			// check status code
+			require.Equal(t, tt.wantStatus, resp.StatusCode)
+		})
+	}
 }

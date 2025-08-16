@@ -48,15 +48,16 @@ func TestNewServerTLSConfiguration(t *testing.T) {
 	// Generate test certificate and key
 	certFile, keyFile, caFile := generateTestCerts(t, tempDir)
 
+	invalidCAPath := createInvalidCAFile(t, tempDir)
+
 	tests := []struct {
-		name        string
-		tlsEnabled  bool
-		certFile    string
-		keyFile     string
-		caFile      string
-		clientAuth  tls.ClientAuthType
-		wantErr     bool
-		errContains string
+		name       string
+		tlsEnabled bool
+		certFile   string
+		keyFile    string
+		caFile     string
+		clientAuth tls.ClientAuthType
+		wantErr    bool
 	}{
 		{
 			name:       "TLS disabled",
@@ -96,38 +97,34 @@ func TestNewServerTLSConfiguration(t *testing.T) {
 			wantErr:    false,
 		},
 		{
-			name:        "TLS enabled with missing cert file",
-			tlsEnabled:  true,
-			certFile:    "/nonexistent/cert.pem",
-			keyFile:     keyFile,
-			wantErr:     true,
-			errContains: "no such file or directory",
+			name:       "TLS enabled with missing cert file",
+			tlsEnabled: true,
+			certFile:   "/nonexistent/cert.pem",
+			keyFile:    keyFile,
+			wantErr:    true,
 		},
 		{
-			name:        "TLS enabled with missing key file",
-			tlsEnabled:  true,
-			certFile:    certFile,
-			keyFile:     "/nonexistent/key.pem",
-			wantErr:     true,
-			errContains: "no such file or directory",
+			name:       "TLS enabled with missing key file",
+			tlsEnabled: true,
+			certFile:   certFile,
+			keyFile:    "/nonexistent/key.pem",
+			wantErr:    true,
 		},
 		{
-			name:        "TLS enabled with missing CA file",
-			tlsEnabled:  true,
-			certFile:    certFile,
-			keyFile:     keyFile,
-			caFile:      "/nonexistent/ca.pem",
-			wantErr:     true,
-			errContains: "no such file or directory",
+			name:       "TLS enabled with missing CA file",
+			tlsEnabled: true,
+			certFile:   certFile,
+			keyFile:    keyFile,
+			caFile:     "/nonexistent/ca.pem",
+			wantErr:    true,
 		},
 		{
-			name:        "TLS enabled with invalid CA file",
-			tlsEnabled:  true,
-			certFile:    certFile,
-			keyFile:     keyFile,
-			caFile:      createInvalidCAFile(t, tempDir),
-			wantErr:     true,
-			errContains: "failed to append CA cert to pool",
+			name:       "TLS enabled with invalid CA file",
+			tlsEnabled: true,
+			certFile:   certFile,
+			keyFile:    keyFile,
+			caFile:     invalidCAPath,
+			wantErr:    true,
 		},
 	}
 
@@ -144,8 +141,10 @@ func TestNewServerTLSConfiguration(t *testing.T) {
 
 			if tt.wantErr {
 				assert.Error(t, err)
-				if tt.errContains != "" {
-					assert.Contains(t, err.Error(), tt.errContains)
+				if tt.caFile == invalidCAPath {
+					assert.Contains(t, err.Error(), "failed to append CA cert to pool")
+				} else {
+					assert.ErrorIs(t, err, os.ErrNotExist)
 				}
 				assert.Nil(t, server)
 			} else {

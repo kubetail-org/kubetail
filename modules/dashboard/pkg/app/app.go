@@ -28,8 +28,6 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/csrf"
-	adapter "github.com/gwatts/gin-adapter"
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
@@ -146,42 +144,6 @@ func NewApp(cfg *config.Config) (*App, error) {
 			ContentTypeNosniff:    true,
 		}))
 
-		// Disable csrf protection for graphql and proxy endpoints
-		u1 := path.Join(cfg.Dashboard.BasePath, "/graphql")
-		u2 := path.Join(cfg.Dashboard.BasePath, "/cluster-api-proxy/")
-		dynamicRoutes.Use(func(c *gin.Context) {
-			p := c.Request.URL.Path
-			if strings.HasPrefix(p, u1) || strings.HasPrefix(p, u2) {
-				c.Request = csrf.UnsafeSkipCheck(c.Request)
-			}
-			c.Next()
-		})
-
-		var csrfProtect func(http.Handler) http.Handler
-
-		// CSRF middleware
-		if cfg.Dashboard.CSRF.Enabled {
-			csrfProtect = csrf.Protect(
-				[]byte(cfg.Dashboard.CSRF.Secret),
-				csrf.FieldName(cfg.Dashboard.CSRF.FieldName),
-				csrf.CookieName(cfg.Dashboard.CSRF.Cookie.Name),
-				csrf.Path(cfg.Dashboard.CSRF.Cookie.Path),
-				csrf.Domain(cfg.Dashboard.CSRF.Cookie.Domain),
-				csrf.MaxAge(cfg.Dashboard.CSRF.Cookie.MaxAge),
-				csrf.Secure(cfg.Dashboard.CSRF.Cookie.Secure),
-				csrf.HttpOnly(cfg.Dashboard.CSRF.Cookie.HttpOnly),
-				csrf.SameSite(cfg.Dashboard.CSRF.Cookie.SameSite),
-			)
-
-			// Add to gin middleware
-			dynamicRoutes.Use(adapter.Wrap(csrfProtect))
-
-			// Add token fetcher helper
-			dynamicRoutes.GET("/csrf-token", func(c *gin.Context) {
-				c.JSON(http.StatusOK, gin.H{"value": csrf.Token(c.Request)})
-			})
-		}
-
 		// Add authentication middleware
 		dynamicRoutes.Use(authenticationMiddleware(cfg.Dashboard.AuthMode))
 
@@ -201,7 +163,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 			protectedRoutes.Use(k8sAuthenticationMiddleware(cfg.Dashboard.AuthMode))
 
 			// GraphQL endpoint
-			app.graphqlServer = graph.NewServer(cfg, app.cm, csrfProtect)
+			app.graphqlServer = graph.NewServer(cfg, app.cm)
 			protectedRoutes.Any("/graphql", gin.WrapH(app.graphqlServer))
 
 			// Cluster API proxy routes

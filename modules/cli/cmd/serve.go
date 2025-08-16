@@ -89,12 +89,6 @@ var serveCmd = &cobra.Command{
 		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 		defer close(quit)
 
-		secret, err := generateRandomString(32)
-		if err != nil {
-			zlog.Fatal().Caller().Err(err).Send()
-		}
-		cfg.Dashboard.CSRF.Secret = secret
-
 		// set gin mode
 		gin.SetMode("release")
 

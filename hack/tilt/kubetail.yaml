@@ -28,15 +28,6 @@ data:
           same-site: lax
       csrf:
         enabled: true
-        secret: REPLACEME
-        field-name: csrf_token
-        cookie:
-          name: kubetail_dashboard_csrf
-          path: /
-          max-age: 43200
-          secure: false
-          http-only: true
-          same-site: strict
       logging:
         enabled: true
         level: debug
@@ -73,15 +64,6 @@ data:
           server-name: kubetail-cluster-agent.kubetail-system.svc
       csrf:
         enabled: true
-        secret: REPLACEME
-        field-name: csrf_token
-        cookie:
-          name: kubetail_cluster_api_csrf
-          path: /
-          max-age: 43200
-          secure: false
-          http-only: true
-          same-site: strict
       logging:
         enabled: true
         level: debug

@@ -2,15 +2,11 @@ module github.com/kubetail-org/kubetail/modules/cli
 
 go 1.24.0
 
-toolchain go1.24.4
+toolchain go1.24.5
 
 replace github.com/kubetail-org/kubetail/modules/dashboard => ../dashboard
 
 replace github.com/kubetail-org/kubetail/modules/shared => ../shared
-
-replace github.com/gorilla/csrf => github.com/gorilla/csrf v1.7.2
-
-replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
 
 require (
 	github.com/gin-gonic/gin v1.10.1
@@ -87,13 +83,11 @@ require (
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/context v1.1.2 // indirect
-	github.com/gorilla/csrf v1.7.3 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/gorilla/sessions v1.4.0 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
-	github.com/gwatts/gin-adapter v1.0.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect

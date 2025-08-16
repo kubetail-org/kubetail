@@ -35,15 +35,6 @@ The Kubetail Dashboard server can be configured using a configuration file writt
 | dashboard.environment                           | string   | Environment (desktop, cluster)                       | "desktop"    | experimental |
 | dashboard.gin-mode                              | string   | Gin mode (release, debug)                            | "release"    | stable       |
 | dashboard.csrf.enabled                          | bool     | Enable CSRF protection                               | true         | stable       |
-| dashboard.csrf.field-name                       | string   | CSRF token name in forms                             | "csrf_token" | stable       |
-| dashboard.csrf.secret                           | string   | CSRF hash key                                        | ""           | stable       |
-| dashboard.csrf.cookie.name                      | string   | CSRF cookie name                                     | "csrf"       | stable       |
-| dashboard.csrf.cookie.path                      | string   | CSRF cookie path                                     | "/"          | stable       |
-| dashboard.csrf.cookie.domain                    | string   | CSRF cookie domain                                   | ""           | stable       |
-| dashboard.csrf.cookie.max-age                   | int      | CSRF cookie max age (in seconds)                     | 43200        | stable       |
-| dashboard.csrf.cookie.secure                    | bool     | CSRF cookie secure property                          | false        | stable       |
-| dashboard.csrf.cookie.http-only                 | bool     | CSRF cookie HttpOnly property                        | true         | stable       |
-| dashboard.csrf.cookie.same-site                 | string   | CSRF cookie SameSite property (strict, lax, none)    | "strict"     | stable       |
 | dashboard.logging.enabled                       | bool     | Enable logging                                       | true         | stable       |
 | dashboard.logging.level                         | string   | Log level                                            | "info"       | stable       |
 | dashboard.logging.format                        | string   | Log format (json, pretty)                            | "json"       | stable       |

@@ -83,77 +83,6 @@ dashboard:
     #
     enabled: true
 
-    ## field-name ##
-    #
-    # Name to use for token in forms
-    #
-    # Default value: csrf_token
-    #
-    field-name: csrf_token
-
-    ## secret ##
-    #
-    # 32-byte long hash key
-    #
-    # Default value: __empty__
-    #
-    secret:
-
-    ## cookie ##
-    #
-    # Set csrf cookie options
-    #
-    cookie:
-
-      ## name ##
-      #
-      # Default value: kubetail_dashboard_csrf
-      #
-      name: kubetail_dashboard_csrf
-
-      ## path ##
-      #
-      # Default value: /
-      #
-      path: /
-
-      ## domain ##
-      #
-      # Default value: __empty__
-      #
-      domain:
-
-      ## max-age ##
-      #
-      # Cookie max age (in seconds)
-      #
-      # Default value: 43200
-      #
-      max-age: 43200
-
-      ## secure ##
-      #
-      # Default value: false
-      #
-      secure: false
-
-      ## http-only ##
-      #
-      # Default value: true
-      #
-      http-only: true
-
-      ## same-site ##
-      #
-      # Default value: strict
-      #
-      # One of:
-      # - strict
-      # - lax
-      # - none
-      #
-      same-site: strict
-
   ## logging ##
   #
   logging:
@@ -227,7 +156,7 @@ dashboard:
 
       ## name ##
       #
-      # Default value: csrf
+      # Default value: session
       #
       name: session
 
@@ -413,77 +342,6 @@ cluster-api:
     # Default value: true
 
     enabled: true
-
-    ## field-name ##
-    #
-    # Name to use for token in forms
-    #
-    # Default value: csrf_token
-    #
-    field-name: csrf_token
-
-    ## secret ##
-    #
-    # 32-byte long hash key
-    #
-    # Default value: __empty__
-    #
-    secret:
-
-    ## cookie ##
-    #
-    # Set csrf cookie options
-    #
-    cookie:
-
-      ## name ##
-      #
-      # Default value: kubetail_api_csrf
-      #
-      name: kubetail_api_csrf
-
-      ## path ##
-      #
-      # Default value: /
-      #
-      path: /
-
-      ## domain ##
-      #
-      # Default value: __empty__
-      #
-      domain:
-
-      ## max-age ##
-      #
-      # Cookie max age (in seconds)
-      #
-      # Default value: 43200
-      #
-      max-age: 43200
-
-      ## secure ##
-      #
-      # Default value: false
-      #
-      secure: false
-
-      ## http-only ##
-      #
-      # Default value: true
-      #
-      http-only: true
-
-      ## same-site ##
-      #
-      # Default value: strict
-      #
-      # One of:
-      # - strict
-      # - lax
-      # - none
-      #
-      same-site: strict
 
   ## logging ##
   #

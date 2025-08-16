@@ -122,7 +122,7 @@ func (w *KubeConfigWatcher) start() {
 			}
 
 			// Handle fsnotify Create, Write, Remove events
-			if fsEv.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove) != 0 {
+			if fsEv.Has(fsnotify.Create) || fsEv.Has(fsnotify.Write) || fsEv.Has(fsnotify.Remove) {
 				// Reset timer if it's already running
 				if debounceTimer != nil {
 					debounceTimer.Stop()

@@ -2,13 +2,9 @@ module github.com/kubetail-org/kubetail/modules/cluster-agent
 
 go 1.24.0
 
-toolchain go1.24.4
+toolchain go1.24.5
 
 replace github.com/kubetail-org/kubetail/modules/shared => ../shared
-
-replace github.com/gorilla/csrf => github.com/gorilla/csrf v1.7.2
-
-replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
 
 require (
 	github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef
@@ -48,8 +44,6 @@ require (
 	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/csrf v1.7.3 // indirect
-	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
