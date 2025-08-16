@@ -38,7 +38,11 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Authenticate git for GitHub
+    - name: Set up git authentication for GitHub requests in Rust environment
+       if: inputs.setup-rust == 'true' && inputs.github-token != ''
+       shell: bash
+      run: |
+        git config --global url."https://${{ inputs.GITHUB_TOKEN }}:@github.com/".insteadOf "https://github.com/"
       shell: bash
       run: |
         git config --global url."https://${{ secrets.GITHUB_TOKEN }}:@github.com/".insteadOf "https://github.com/"
