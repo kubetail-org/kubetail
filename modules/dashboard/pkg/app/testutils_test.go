@@ -38,7 +38,6 @@ func newTestConfig() *config.Config {
 	cfg.Dashboard.Session.Secret = "TESTSESSIONSECRET"
 	cfg.Dashboard.Session.Cookie.Name = "session"
 	cfg.Dashboard.CSRF.Enabled = false
-	cfg.Dashboard.CSRF.Secret = "TESTCSRFSECRET"
 	return &cfg
 }
 

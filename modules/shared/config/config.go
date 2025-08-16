@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/gorilla/csrf"
 	"github.com/mitchellh/mapstructure"
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
@@ -68,20 +67,7 @@ type Config struct {
 
 		// csrf options
 		CSRF struct {
-			Enabled   bool
-			Secret    string
-			FieldName string `mapstructure:"field-name"`
-
-			// cookie options
-			Cookie struct {
-				Name     string
-				Path     string
-				Domain   string
-				MaxAge   int `mapstructure:"max-age"`
-				Secure   bool
-				HttpOnly bool              `mapstructure:"http-only"`
-				SameSite csrf.SameSiteMode `mapstructure:"same-site"`
-			}
+			Enabled bool
 		}
 
 		// logging options
@@ -147,20 +133,7 @@ type Config struct {
 
 		// csrf options
 		CSRF struct {
-			Enabled   bool
-			Secret    string
-			FieldName string `mapstructure:"field-name"`
-
-			// cookie options
-			Cookie struct {
-				Name     string
-				Path     string
-				Domain   string
-				MaxAge   int `mapstructure:"max-age"`
-				Secure   bool
-				HttpOnly bool              `mapstructure:"http-only"`
-				SameSite csrf.SameSiteMode `mapstructure:"same-site"`
-			}
+			Enabled bool
 		}
 
 		// Cluster Agent connection options
@@ -270,15 +243,6 @@ func DefaultConfig() *Config {
 	cfg.Dashboard.Environment = EnvironmentDesktop
 	cfg.Dashboard.GinMode = "release"
 	cfg.Dashboard.CSRF.Enabled = true
-	cfg.Dashboard.CSRF.Secret = ""
-	cfg.Dashboard.CSRF.FieldName = "csrf_token"
-	cfg.Dashboard.CSRF.Cookie.Name = "kubetail_dashboard_csrf"
-	cfg.Dashboard.CSRF.Cookie.Path = "/"
-	cfg.Dashboard.CSRF.Cookie.Domain = ""
-	cfg.Dashboard.CSRF.Cookie.MaxAge = 60 * 60 * 12 // 12 hours
-	cfg.Dashboard.CSRF.Cookie.Secure = false
-	cfg.Dashboard.CSRF.Cookie.HttpOnly = true
-	cfg.Dashboard.CSRF.Cookie.SameSite = csrf.SameSiteStrictMode
 	cfg.Dashboard.Logging.Enabled = true
 	cfg.Dashboard.Logging.Level = "info"
 	cfg.Dashboard.Logging.Format = "json"
@@ -307,15 +271,6 @@ func DefaultConfig() *Config {
 	cfg.ClusterAPI.ClusterAgent.TLS.ServerName = ""
 	cfg.ClusterAPI.GinMode = "release"
 	cfg.ClusterAPI.CSRF.Enabled = true
-	cfg.ClusterAPI.CSRF.Secret = ""
-	cfg.ClusterAPI.CSRF.FieldName = "csrf_token"
-	cfg.ClusterAPI.CSRF.Cookie.Name = "kubetail_cluster_api_csrf"
-	cfg.ClusterAPI.CSRF.Cookie.Path = "/"
-	cfg.ClusterAPI.CSRF.Cookie.Domain = ""
-	cfg.ClusterAPI.CSRF.Cookie.MaxAge = 60 * 60 * 12 // 12 hours
-	cfg.ClusterAPI.CSRF.Cookie.Secure = false
-	cfg.ClusterAPI.CSRF.Cookie.HttpOnly = true
-	cfg.ClusterAPI.CSRF.Cookie.SameSite = csrf.SameSiteStrictMode
 	cfg.ClusterAPI.Logging.Enabled = true
 	cfg.ClusterAPI.Logging.Level = "info"
 	cfg.ClusterAPI.Logging.Format = "json"
@@ -417,32 +372,6 @@ func httpSameSiteDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (i
 	return sameSite, nil
 }
 
-// Custom unmarshaler for csrf.SameSite
-func csrfSameSiteDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
-	if f.Kind() != reflect.String {
-		return data, nil
-	}
-
-	if t != reflect.TypeOf(csrf.SameSiteStrictMode) {
-		return data, nil
-	}
-
-	var sameSite csrf.SameSiteMode
-	sameSiteStr := strings.ToLower(data.(string))
-	switch sameSiteStr {
-	case "strict":
-		sameSite = csrf.SameSiteStrictMode
-	case "lax":
-		sameSite = csrf.SameSiteLaxMode
-	case "none":
-		sameSite = csrf.SameSiteNoneMode
-	default:
-		return nil, fmt.Errorf("invalid csrf.SameSite value: %s", sameSiteStr)
-	}
-
-	return sameSite, nil
-}
-
 // Custom unmarshaler for tls.ClientAuthType
 func tlsClientAuthTypeDecodeHook(f reflect.Type, t reflect.Type, data any) (any, error) {
 	if f.Kind() != reflect.String {
@@ -498,7 +427,6 @@ func NewConfig(v *viper.Viper, f string) (*Config, error) {
 		authModeDecodeHook,
 		environmentDecodeHook,
 		httpSameSiteDecodeHook,
-		csrfSameSiteDecodeHook,
 		tlsClientAuthTypeDecodeHook,
 	)
 	if err := v.Unmarshal(cfg, viper.DecodeHook(hookFunc)); err != nil {

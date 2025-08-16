@@ -41,9 +41,6 @@ export default ({ mode }: { mode: string }) => {
           target: backendTarget,
           ws: true,
         },
-        '^/csrf-token': {
-          target: backendTarget,
-        },
         '^/graphql': {
           target: backendTarget,
           ws: true,

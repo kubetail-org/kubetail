@@ -24,7 +24,6 @@ import (
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/csrf"
 	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/stretchr/testify/assert"
 )
@@ -149,74 +148,6 @@ func TestSessionCookieOptions(t *testing.T) {
 			assert.Equal(t, tt.setCfg.Dashboard.Session.Cookie.Secure, cookie.Secure)
 			assert.Equal(t, tt.setCfg.Dashboard.Session.Cookie.HttpOnly, cookie.HttpOnly)
 			assert.Equal(t, tt.setCfg.Dashboard.Session.Cookie.SameSite, cookie.SameSite)
-		})
-	}
-}
-
-func TestCsrfCookieOptions(t *testing.T) {
-	cfg1 := newTestConfig()
-	cfg1.Dashboard.CSRF.Cookie.Path = "/xxx"
-
-	cfg2 := newTestConfig()
-	cfg2.Dashboard.CSRF.Cookie.Domain = "x.example.com"
-
-	cfg3 := newTestConfig()
-	cfg3.Dashboard.CSRF.Cookie.MaxAge = 1
-
-	cfg4 := newTestConfig()
-	cfg4.Dashboard.CSRF.Cookie.Secure = false
-
-	cfg5 := newTestConfig()
-	cfg5.Dashboard.CSRF.Cookie.Secure = true
-
-	cfg6 := newTestConfig()
-	cfg6.Dashboard.CSRF.Cookie.HttpOnly = false
-
-	cfg7 := newTestConfig()
-	cfg7.Dashboard.CSRF.Cookie.HttpOnly = true
-
-	cfg8 := newTestConfig()
-	cfg8.Dashboard.CSRF.Cookie.SameSite = csrf.SameSiteNoneMode
-
-	tests := []struct {
-		name   string
-		setCfg *config.Config
-	}{
-		{"Path", cfg1},
-		{"Domain", cfg2},
-		{"MaxAge", cfg3},
-		{"Secure:false", cfg4},
-		{"Secure:true", cfg5},
-		{"HttpOnly:false", cfg6},
-		{"HttpOnly:true", cfg7},
-		{"SameSite", cfg8},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.setCfg.Dashboard.CSRF.Enabled = true
-			tt.setCfg.Dashboard.CSRF.Cookie.Name = "customname"
-			app := newTestApp(tt.setCfg)
-
-			// add route for testing
-			app.dynamicRoutes.GET("/test", func(c *gin.Context) {
-				c.String(http.StatusOK, "ok")
-			})
-
-			// request
-			w := httptest.NewRecorder()
-			r := httptest.NewRequest("GET", "/test", nil)
-			app.ServeHTTP(w, r)
-
-			// check session cookie
-			cookie := getCookie(w.Result().Cookies(), tt.setCfg.Dashboard.CSRF.Cookie.Name)
-			assert.NotNil(t, cookie)
-			assert.Equal(t, tt.setCfg.Dashboard.CSRF.Cookie.Path, cookie.Path)
-			assert.Equal(t, tt.setCfg.Dashboard.CSRF.Cookie.Domain, cookie.Domain)
-			assert.Equal(t, tt.setCfg.Dashboard.CSRF.Cookie.MaxAge, cookie.MaxAge)
-			assert.Equal(t, tt.setCfg.Dashboard.CSRF.Cookie.Secure, cookie.Secure)
-			assert.Equal(t, tt.setCfg.Dashboard.CSRF.Cookie.HttpOnly, cookie.HttpOnly)
-			assert.Equal(t, tt.setCfg.Dashboard.CSRF.Cookie.SameSite, csrf.SameSiteMode(cookie.SameSite))
 		})
 	}
 }

@@ -32,15 +32,6 @@ The Kubetail Cluster API executable can be configured using a configuration file
 | cluster-api.cluster-agent.tls.ca-file             | string   | Path to tls CA bundle file                         | ""                                          | alpha  |
 | cluster-api.cluster-agent.tls.server-name         | string   | Server name for conection verification             | ""                                          | alpha  |
 | cluster-api.csrf.enabled                          | bool     | Enable CSRF protection                             | true                                        | stable |
-| cluster-api.csrf.field-name                       | string   | CSRF token name in forms                           | "csrf_token"                                | stable |
-| cluster-api.csrf.secret                           | string   | CSRF hash key                                      | ""                                          | stable |
-| cluster-api.csrf.cookie.name                      | string   | CSRF cookie name                                   | "csrf"                                      | stable |
-| cluster-api.csrf.cookie.path                      | string   | CSRF cookie path                                   | "/"                                         | stable |
-| cluster-api.csrf.cookie.domain                    | string   | CSRF cookie domain                                 | ""                                          | stable |
-| cluster-api.csrf.cookie.max-age                   | int      | CSRF cookie max age (in seconds)                   | 43200                                       | stable |
-| cluster-api.csrf.cookie.secure                    | bool     | CSRF cookie secure property                        | false                                       | stable |
-| cluster-api.csrf.cookie.http-only                 | bool     | CSRF cookie HttpOnly property                      | true                                        | stable |
-| cluster-api.csrf.cookie.same-site                 | string   | CSRF cookie SameSite property (strict, lax, none)  | "strict"                                    | stable |
 | cluster-api.logging.enabled                       | bool     | Enable logging                                     | true                                        | stable |
 | cluster-api.logging.level                         | string   | Log level                                          | "info"                                      | stable |
 | cluster-api.logging.format                        | string   | Log format (json, pretty)                          | "json"                                      | stable |

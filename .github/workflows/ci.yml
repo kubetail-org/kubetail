@@ -10,7 +10,10 @@ on:
 
 jobs:
   crates-build:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-environment
@@ -46,7 +49,10 @@ jobs:
         run: cargo clippy --all -- -D warnings
 
   crates-test:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-environment
@@ -86,10 +92,28 @@ jobs:
         run: go vet ./...
 
   modules-test:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-14, macos-13, windows-latest]
         module: [cli, cluster-agent, cluster-api, dashboard, shared]
+        exclude:
+          - os: macos-15
+            module: cluster-api
+          - os: macos-15
+            module: cluster-agent
+          - os: macos-14
+            module: cluster-api
+          - os: macos-14
+            module: cluster-agent
+          - os: macos-13
+            module: cluster-api
+          - os: macos-13
+            module: cluster-agent
+          - os: windows-latest
+            module: cluster-api
+          - os: windows-latest
+            module: cluster-agent
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-environment

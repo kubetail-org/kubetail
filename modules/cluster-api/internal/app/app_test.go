@@ -23,10 +23,7 @@ import (
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/csrf"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/kubetail-org/kubetail/modules/shared/config"
 )
 
 func TestRequestID(t *testing.T) {
@@ -80,74 +77,6 @@ func TestGzip(t *testing.T) {
 	uncompressed, err := io.ReadAll(gzreader)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, "ok", string(uncompressed))
-}
-
-func TestCsrfCookieOptions(t *testing.T) {
-	cfg1 := NewTestConfig()
-	cfg1.ClusterAPI.CSRF.Cookie.Path = "/xxx"
-
-	cfg2 := NewTestConfig()
-	cfg2.ClusterAPI.CSRF.Cookie.Domain = "x.example.com"
-
-	cfg3 := NewTestConfig()
-	cfg3.ClusterAPI.CSRF.Cookie.MaxAge = 1
-
-	cfg4 := NewTestConfig()
-	cfg4.ClusterAPI.CSRF.Cookie.Secure = false
-
-	cfg5 := NewTestConfig()
-	cfg5.ClusterAPI.CSRF.Cookie.Secure = true
-
-	cfg6 := NewTestConfig()
-	cfg6.ClusterAPI.CSRF.Cookie.HttpOnly = false
-
-	cfg7 := NewTestConfig()
-	cfg7.ClusterAPI.CSRF.Cookie.HttpOnly = true
-
-	cfg8 := NewTestConfig()
-	cfg8.ClusterAPI.CSRF.Cookie.SameSite = csrf.SameSiteNoneMode
-
-	tests := []struct {
-		name   string
-		setCfg *config.Config
-	}{
-		{"Path", cfg1},
-		{"Domain", cfg2},
-		{"MaxAge", cfg3},
-		{"Secure:false", cfg4},
-		{"Secure:true", cfg5},
-		{"HttpOnly:false", cfg6},
-		{"HttpOnly:true", cfg7},
-		{"SameSite", cfg8},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.setCfg.ClusterAPI.CSRF.Enabled = true
-			tt.setCfg.ClusterAPI.CSRF.Cookie.Name = "customname"
-			app := NewTestApp(tt.setCfg)
-
-			// add route for testing
-			app.dynamicRoutes.GET("/test", func(c *gin.Context) {
-				c.String(http.StatusOK, "ok")
-			})
-
-			// request
-			w := httptest.NewRecorder()
-			r := httptest.NewRequest("GET", "/test", nil)
-			app.ServeHTTP(w, r)
-
-			// check session cookie
-			cookie := GetCookie(w.Result().Cookies(), tt.setCfg.ClusterAPI.CSRF.Cookie.Name)
-			assert.NotNil(t, cookie)
-			assert.Equal(t, tt.setCfg.ClusterAPI.CSRF.Cookie.Path, cookie.Path)
-			assert.Equal(t, tt.setCfg.ClusterAPI.CSRF.Cookie.Domain, cookie.Domain)
-			assert.Equal(t, tt.setCfg.ClusterAPI.CSRF.Cookie.MaxAge, cookie.MaxAge)
-			assert.Equal(t, tt.setCfg.ClusterAPI.CSRF.Cookie.Secure, cookie.Secure)
-			assert.Equal(t, tt.setCfg.ClusterAPI.CSRF.Cookie.HttpOnly, cookie.HttpOnly)
-			assert.Equal(t, tt.setCfg.ClusterAPI.CSRF.Cookie.SameSite, csrf.SameSiteMode(cookie.SameSite))
-		})
-	}
 }
 
 func TestHealthz(t *testing.T) {

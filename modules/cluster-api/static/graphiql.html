@@ -51,11 +51,6 @@
           basePath = '/';
         }
 
-        // get csrfToken
-        const url = new URL(basePath + 'csrf-token', window.location.origin);
-        const resp = await fetch(url);
-        const csrfToken = (await resp.json()).value;
-
         // get graphql endpoint
         const graphqlEndpoint = (new URL(basePath + 'graphql', window.location.origin)).toString();
 
@@ -63,9 +58,6 @@
         const fetcher = GraphiQL.createFetcher({
           url: graphqlEndpoint,
           subscriptionUrl: graphqlEndpoint.replace(/^(http)/, 'ws'),
-          wsConnectionParams: {
-            'Authorization': csrfToken,
-          },
         });
 
         ReactDOM.render(

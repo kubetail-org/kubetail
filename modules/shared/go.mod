@@ -2,11 +2,7 @@ module github.com/kubetail-org/kubetail/modules/shared
 
 go 1.24.0
 
-toolchain go1.24.4
-
-replace github.com/gorilla/csrf => github.com/gorilla/csrf v1.7.2
-
-replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
+toolchain go1.24.5
 
 require (
 	github.com/99designs/gqlgen v0.17.75
@@ -18,7 +14,6 @@ require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/csrf v1.7.3
 	github.com/kubetail-org/grpc-dispatcher-go v0.1.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/rs/zerolog v1.34.0
@@ -88,7 +83,6 @@ require (
 	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect

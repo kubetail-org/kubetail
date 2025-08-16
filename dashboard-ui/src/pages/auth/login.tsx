@@ -22,9 +22,6 @@ import Spinner from '@kubetail/ui/elements/Spinner';
 import ModalLayout from '@/components/layouts/ModalLayout';
 import LoadingPage from '@/components/utils/LoadingPage';
 import { getSession, useSession } from '@/lib/auth';
-import { getBasename, getCSRFToken } from '@/lib/util';
-
-const basename = getBasename();
 
 type LoginFormElement = HTMLFormElement & {
   token: HTMLInputElement;
@@ -52,7 +49,6 @@ export default function LoginPage() {
     const url = new URL('/api/auth/login', window.location.origin);
     const resp = await fetch(url, {
       method: 'post',
-      headers: { 'X-CSRF-Token': await getCSRFToken(basename) },
       body: new FormData(formEl),
     });
 
