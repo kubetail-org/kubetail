@@ -238,17 +238,10 @@ async fn find_log_files(
         .filter_map(|file| {
             let filename = file.file_name();
             let filename = filename.to_string_lossy();
-            let captures = LOG_FILE_REGEX.captures(&filename);
+            let captures = LOG_FILE_REGEX.captures(&filename)?;
 
-            if captures.is_some()
-                && namespaces.contains(
-                    &captures
-                        .unwrap()
-                        .name("namespace")
-                        .unwrap()
-                        .as_str()
-                        .to_owned(),
-                )
+            if namespaces.is_empty()
+                || namespaces.contains(&captures.name("namespace").unwrap().as_str().to_owned())
             {
                 let mut absolute_path = directory.to_path_buf();
                 absolute_path.push(file.file_name());

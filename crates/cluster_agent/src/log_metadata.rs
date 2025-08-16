@@ -66,7 +66,7 @@ impl LogMetadataImpl {
         let pod_name = captures["pod_name"].to_string();
         let namespace = captures["namespace"].to_string();
 
-        if !namespaces.contains(&namespace) {
+        if !namespaces.is_empty() && !namespaces.contains(&namespace) {
             return None;
         }
 
@@ -112,6 +112,12 @@ impl LogMetadataService for LogMetadataImpl {
             ));
         }
 
+        let namespaces: Vec<String> = request
+            .namespaces
+            .into_iter()
+            .filter(|namespace| !namespace.is_empty())
+            .collect();
+
         let mut files = ReadDirStream::new(read_dir(logs_dir_path).await?);
 
         let mut metadata_items = Vec::new();
@@ -130,7 +136,7 @@ impl LogMetadataService for LogMetadataImpl {
             let file = file.unwrap();
 
             let Some(metadata_spec) =
-                Self::get_log_metadata_spec(&file.path(), &request.namespaces, &self.node_name)
+                Self::get_log_metadata_spec(&file.path(), &namespaces, &self.node_name)
             else {
                 continue;
             };
@@ -171,9 +177,15 @@ impl LogMetadataService for LogMetadataImpl {
         let request = request.into_inner();
         let term_tx = self.term_tx.clone();
 
+        let namespaces: Vec<String> = request
+            .namespaces
+            .into_iter()
+            .filter(|namespace| !namespace.is_empty())
+            .collect();
+
         let (log_metadata_watcher, log_metadata_rx) = LogMetadataWatcher::new(
             Path::new(&self.logs_dir).to_path_buf(),
-            request.namespaces,
+            namespaces,
             term_tx,
             self.node_name.clone(),
         );
@@ -310,5 +322,49 @@ mod test {
         let log_metadata = result.items.pop().unwrap();
 
         assert_eq!("secondnamespace", log_metadata.spec.unwrap().namespace);
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_empty_namespaces_returns_everything() {
+        let first_file =
+            create_test_file("pod-name_firstnamespace_container-name1-containerid1", 4);
+        let _second_file =
+            create_test_file("pod-name_secondnamespace_container-name2-containerid2", 4);
+
+        let (term_tx, _term_rx) = broadcast::channel(1);
+        let logs_dir = first_file
+            .path()
+            .parent()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+
+        let metadata_service = LogMetadataImpl {
+            logs_dir,
+            term_tx,
+            task_tracker: TaskTracker::new(),
+            node_name: "Node name".to_owned(),
+        };
+
+        let mut result = metadata_service
+            .list(Request::new(LogMetadataListRequest {
+                namespaces: Vec::new(),
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert_eq!(2, result.items.len());
+        let namespaces = vec![
+            String::from("firstnamespace"),
+            String::from("secondnamespace"),
+        ];
+
+        let log_metadata = result.items.pop().unwrap();
+        assert!(namespaces.contains(&log_metadata.spec.unwrap().namespace));
+
+        let log_metadata = result.items.pop().unwrap();
+        assert!(namespaces.contains(&log_metadata.spec.unwrap().namespace));
     }
 }
