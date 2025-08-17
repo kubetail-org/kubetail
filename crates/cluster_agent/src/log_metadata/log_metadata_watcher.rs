@@ -20,7 +20,7 @@ use tokio::{
 use tokio_stream::{StreamExt, wrappers::ReadDirStream};
 use tonic::Status;
 use tracing::{debug, info, warn};
-use types::cluster_agent::{LogMetadata, LogMetadataWatchEvent};
+use types::cluster_agent::{LogMetadata, LogMetadataFileInfo, LogMetadataWatchEvent};
 
 use crate::log_metadata::{LOG_FILE_REGEX, LogMetadataImpl};
 
@@ -35,6 +35,8 @@ pub struct LogMetadataWatcher {
     namespaces: Vec<String>,
     /// Directory to watch for updates.
     directory: PathBuf,
+    /// K8s node name.
+    node_name: String,
 }
 
 impl LogMetadataWatcher {
@@ -43,6 +45,7 @@ impl LogMetadataWatcher {
         directory: PathBuf,
         namespaces: Vec<String>,
         term_tx: BcSender<()>,
+        node_name: String,
     ) -> (Self, Receiver<Result<LogMetadataWatchEvent, Status>>) {
         let (log_metadata_tx, log_metadata_rx) = channel(100);
 
@@ -52,6 +55,7 @@ impl LogMetadataWatcher {
                 term_tx,
                 namespaces,
                 directory,
+                node_name,
             },
             log_metadata_rx,
         )
@@ -87,6 +91,7 @@ impl LogMetadataWatcher {
     ) -> Result<Debouncer<RecommendedWatcher, RecommendedCache>, WatcherError> {
         let runtime_handle = Handle::current();
         let namespaces = self.namespaces.clone();
+        let node_name = self.node_name.clone();
 
         let mut debouncer = new_debouncer(
             Duration::from_secs(2),
@@ -94,7 +99,7 @@ impl LogMetadataWatcher {
             move |result: DebounceEventResult| {
                 runtime_handle.block_on(async {
                     let _ = internal_tx
-                        .send(handle_debounced_events(result, &namespaces))
+                        .send(handle_debounced_events(result, &namespaces, &node_name))
                         .await;
                 });
             },
@@ -233,17 +238,10 @@ async fn find_log_files(
         .filter_map(|file| {
             let filename = file.file_name();
             let filename = filename.to_string_lossy();
-            let captures = LOG_FILE_REGEX.captures(&filename);
+            let captures = LOG_FILE_REGEX.captures(&filename)?;
 
-            if captures.is_some()
-                && namespaces.contains(
-                    &captures
-                        .unwrap()
-                        .name("namespace")
-                        .unwrap()
-                        .as_str()
-                        .to_owned(),
-                )
+            if namespaces.is_empty()
+                || namespaces.contains(&captures.name("namespace").unwrap().as_str().to_owned())
             {
                 let mut absolute_path = directory.to_path_buf();
                 absolute_path.push(file.file_name());
@@ -263,6 +261,7 @@ async fn find_log_files(
 fn handle_debounced_events(
     debounced_event_result: DebounceEventResult,
     namespaces: &[String],
+    node_name: &str,
 ) -> VecDeque<Result<LogMetadataWatchEvent, WatcherError>> {
     if let Err(errors) = debounced_event_result {
         return errors.into_iter().map(|error| Err(error.into())).collect();
@@ -277,7 +276,9 @@ fn handle_debounced_events(
                 EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
             )
         })
-        .filter_map(|debounced_event| transform_notify_event(&debounced_event.event, namespaces))
+        .filter_map(|debounced_event| {
+            transform_notify_event(&debounced_event.event, namespaces, node_name)
+        })
         .collect();
 
     deduplicate_metadata_events(events)
@@ -309,6 +310,7 @@ fn deduplicate_metadata_events(
 fn transform_notify_event(
     event: &Event,
     namespaces: &[String],
+    node_name: &str,
 ) -> Option<Result<LogMetadataWatchEvent, WatcherError>> {
     let mut event_type = match event.kind {
         EventKind::Modify(_) => LogMetadataWatchEventType::Modified,
@@ -319,7 +321,7 @@ fn transform_notify_event(
 
     let path = event.paths.first()?;
 
-    let metadata_spec = LogMetadataImpl::get_log_metadata_spec(path, namespaces)?;
+    let metadata_spec = LogMetadataImpl::get_log_metadata_spec(path, namespaces, node_name)?;
     let file_info = LogMetadataImpl::get_file_info(path);
 
     // In case the file doesn't exist turn the event into a deletion event, otherwise propagete the
@@ -337,7 +339,10 @@ fn transform_notify_event(
         object: Some(LogMetadata {
             id: metadata_spec.container_id.clone(),
             spec: Some(metadata_spec),
-            file_info: file_info.ok(),
+            file_info: Some(file_info.unwrap_or(LogMetadataFileInfo {
+                size: 0,
+                last_modified_at: None,
+            })),
         }),
     }))
 }
@@ -393,8 +398,12 @@ mod test {
         let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = file.path().parent().unwrap().to_owned();
 
-        let (log_metadata_watcher, mut log_metadata_rx) =
-            LogMetadataWatcher::new(logs_dir, namespaces, term_tx.clone());
+        let (log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            logs_dir,
+            namespaces,
+            term_tx.clone(),
+            "The node name".to_owned(),
+        );
 
         // Start the watcher and give it some time to execute before creating events.
         task::spawn(async move { log_metadata_watcher.watch().await });
@@ -445,8 +454,12 @@ mod test {
         let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = PathBuf::from("/a/dir/that/doesnt/exist");
 
-        let (log_metadata_watcher, mut log_metadata_rx) =
-            LogMetadataWatcher::new(logs_dir, namespaces, term_tx.clone());
+        let (log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            logs_dir,
+            namespaces,
+            term_tx.clone(),
+            "The node name".to_owned(),
+        );
 
         task::spawn(async move { log_metadata_watcher.watch().await });
         sleep(Duration::from_millis(100)).await;
@@ -467,8 +480,12 @@ mod test {
         let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = file.path().parent().unwrap().to_owned();
 
-        let (log_metadata_watcher, mut log_metadata_rx) =
-            LogMetadataWatcher::new(logs_dir, namespaces, term_tx.clone());
+        let (log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            logs_dir,
+            namespaces,
+            term_tx.clone(),
+            "The node name".to_owned(),
+        );
 
         // Start the watcher and give it some time to execute before creating events.
         task::spawn(async move { log_metadata_watcher.watch().await });
@@ -499,8 +516,12 @@ mod test {
         let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = file.path().parent().unwrap().to_owned();
 
-        let (log_metadata_watcher, mut log_metadata_rx) =
-            LogMetadataWatcher::new(logs_dir, namespaces, term_tx.clone());
+        let (log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            logs_dir,
+            namespaces,
+            term_tx.clone(),
+            "The node name".to_owned(),
+        );
 
         // Start the watcher and give it some time to execute before creating events.
         task::spawn(async move { log_metadata_watcher.watch().await });
