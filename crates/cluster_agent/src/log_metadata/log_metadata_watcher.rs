@@ -20,7 +20,7 @@ use tokio::{
 use tokio_stream::{StreamExt, wrappers::ReadDirStream};
 use tonic::Status;
 use tracing::{debug, info, warn};
-use types::cluster_agent::{LogMetadata, LogMetadataWatchEvent};
+use types::cluster_agent::{LogMetadata, LogMetadataFileInfo, LogMetadataWatchEvent};
 
 use crate::log_metadata::{LOG_FILE_REGEX, LogMetadataImpl};
 
@@ -339,7 +339,10 @@ fn transform_notify_event(
         object: Some(LogMetadata {
             id: metadata_spec.container_id.clone(),
             spec: Some(metadata_spec),
-            file_info: file_info.ok(),
+            file_info: Some(file_info.unwrap_or(LogMetadataFileInfo {
+                size: 0,
+                last_modified_at: None,
+            })),
         }),
     }))
 }
