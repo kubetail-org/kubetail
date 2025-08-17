@@ -12,55 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Settings as SettingsIcon } from 'lucide-react';
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-
-import Button from '@kubetail/ui/elements/Button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@kubetail/ui/elements/DropdownMenu';
-
-import appConfig from '@/app-config';
-import { ClusterSettingsDialog } from '@/components/widgets/ClusterSettingsDialog';
-
-const SettingsDropdown = () => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button intent="outline" size="sm" className="py-[10px]">
-            <SettingsIcon size={18} strokeWidth={1.5} />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-[150px]">
-          <DropdownMenuGroup>
-            <DropdownMenuItem onSelect={() => setIsDialogOpen(true)}>Cluster Settings</DropdownMenuItem>
-          </DropdownMenuGroup>
-          {appConfig.authMode === 'token' && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Link
-                  to={`/auth/logout?${new URLSearchParams({ callbackUrl: window.location.pathname + window.location.search })}`}
-                >
-                  Sign out
-                </Link>
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <ClusterSettingsDialog isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} />
-    </>
-  );
-};
+const SettingsDropdown = () => <div>SettingsDropdown</div>;
 
 export default SettingsDropdown;

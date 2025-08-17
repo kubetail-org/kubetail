@@ -33,7 +33,7 @@ import { VariableSizeList, areEqual } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
 import { useDebounceCallback } from 'usehooks-ts';
 
-import Spinner from '@kubetail/ui/elements/Spinner';
+import { Spinner } from '@kubetail/ui/elements/spinner';
 
 import {
   ConsoleNodesListItemFragmentFragment,
