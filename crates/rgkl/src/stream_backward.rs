@@ -113,7 +113,7 @@ fn stream_backward_internal(
     let mut printer = JSONBuilder::new().build(writer);
 
     // Remove leading and trailing whitespace
-    let trimmed_grep = grep.map(str::trim).filter(|grep| grep.is_empty());
+    let trimmed_grep = grep.map(str::trim).filter(|grep| !grep.is_empty());
 
     if let Some(grep) = trimmed_grep {
         let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
