@@ -18,7 +18,7 @@ import toastlib, { useToaster, resolveValue } from 'react-hot-toast';
 import type { Toast } from 'react-hot-toast';
 import { Outlet } from 'react-router-dom';
 
-import Button from '@kubetail/ui/elements/Button';
+import { Button } from '@kubetail/ui/elements/button';
 
 import Modal from '@/components/elements/Modal';
 import { joinPaths, getBasename } from '@/lib/util';
@@ -68,7 +68,7 @@ const CustomToaster = () => {
               Query Errors
               {`(${toasts.length})`}
             </span>
-            <Button intent="danger" size="xs" onClick={() => toastlib.remove()}>
+            <Button variant="destructive" size="sm" onClick={() => toastlib.remove()}>
               Dismiss All
             </Button>
           </div>

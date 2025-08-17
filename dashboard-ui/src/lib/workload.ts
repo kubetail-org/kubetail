@@ -20,6 +20,22 @@ import PodIcon from '@/assets/k8s-icons/pod.svg?react';
 import ReplicaSetIcon from '@/assets/k8s-icons/replicaset.svg?react';
 import StatefulSetIcon from '@/assets/k8s-icons/statefulset.svg?react';
 
+import CronJobGlyphIcon from '@/assets/k8s-icons/glyph/cronjob.svg?react';
+import DaemonSetGlyphIcon from '@/assets/k8s-icons/glyph/daemonset.svg?react';
+import DeploymentGlyphIcon from '@/assets/k8s-icons/glyph/deployment.svg?react';
+import JobGlyphIcon from '@/assets/k8s-icons/glyph/job.svg?react';
+import PodGlyphIcon from '@/assets/k8s-icons/glyph/pod.svg?react';
+import ReplicaSetGlyphIcon from '@/assets/k8s-icons/glyph/replicaset.svg?react';
+import StatefulSetGlyphIcon from '@/assets/k8s-icons/glyph/statefulset.svg?react';
+
+import CronJobKnockoutIcon from '@/assets/k8s-icons/knockout/cronjob.svg?react';
+import DaemonSetKnockoutIcon from '@/assets/k8s-icons/knockout/daemonset.svg?react';
+import DeploymentKnockoutIcon from '@/assets/k8s-icons/knockout/deployment.svg?react';
+import JobKnockoutIcon from '@/assets/k8s-icons/knockout/job.svg?react';
+import PodKnockoutIcon from '@/assets/k8s-icons/knockout/pod.svg?react';
+import ReplicaSetKnockoutIcon from '@/assets/k8s-icons/knockout/replicaset.svg?react';
+import StatefulSetKnockoutIcon from '@/assets/k8s-icons/knockout/statefulset.svg?react';
+
 export enum Workload {
   CRONJOBS = 'cronjobs',
   DAEMONSETS = 'daemonsets',
@@ -48,6 +64,26 @@ export const iconMap = {
   [Workload.PODS]: PodIcon,
   [Workload.REPLICASETS]: ReplicaSetIcon,
   [Workload.STATEFULSETS]: StatefulSetIcon,
+};
+
+export const glyphIconMap = {
+  [Workload.CRONJOBS]: CronJobGlyphIcon,
+  [Workload.DAEMONSETS]: DaemonSetGlyphIcon,
+  [Workload.DEPLOYMENTS]: DeploymentGlyphIcon,
+  [Workload.JOBS]: JobGlyphIcon,
+  [Workload.PODS]: PodGlyphIcon,
+  [Workload.REPLICASETS]: ReplicaSetGlyphIcon,
+  [Workload.STATEFULSETS]: StatefulSetGlyphIcon,
+};
+
+export const knockoutIconMap = {
+  [Workload.CRONJOBS]: CronJobKnockoutIcon,
+  [Workload.DAEMONSETS]: DaemonSetKnockoutIcon,
+  [Workload.DEPLOYMENTS]: DeploymentKnockoutIcon,
+  [Workload.JOBS]: JobKnockoutIcon,
+  [Workload.PODS]: PodKnockoutIcon,
+  [Workload.REPLICASETS]: ReplicaSetKnockoutIcon,
+  [Workload.STATEFULSETS]: StatefulSetKnockoutIcon,
 };
 
 export const labelsPMap = {

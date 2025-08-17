@@ -476,7 +476,7 @@ export function useIsClusterAPIEnabled(kubeContext: string | null) {
 type LogMetadataHookOptions = {
   enabled: boolean;
   kubeContext: string;
-  onUpdate?: (containerID: string) => void;
+  onUpdate?: (containerID: string, fileInfo: { size: string; lastModifiedAt: Date }) => void;
 };
 
 export function useLogMetadata(options?: LogMetadataHookOptions) {
@@ -522,7 +522,12 @@ export function useLogMetadata(options?: LogMetadataHookOptions) {
 
         // execute callback
         if (ev.type === 'MODIFIED' || ev.type === 'ADDED') {
-          if (onUpdate) onUpdate(ev.object.spec.containerID);
+          if (onUpdate) {
+            const { size } = ev.object.fileInfo;
+            let { lastModifiedAt } = ev.object.fileInfo;
+            lastModifiedAt = lastModifiedAt ? new Date(lastModifiedAt) : new Date(0);
+            onUpdate(ev.object.spec.containerID, { size, lastModifiedAt });
+          }
         }
 
         // let apollo handle update
