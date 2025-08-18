@@ -53,24 +53,23 @@ import AuthRequired from '@/components/utils/AuthRequired';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import {
   HomeCronJobsListFetchQuery,
-  HomeCronJobsListItemFragmentFragment,
   HomeDaemonSetsListFetchQuery,
-  HomeDaemonSetsListItemFragmentFragment,
   HomeDeploymentsListFetchQuery,
-  HomeDeploymentsListItemFragmentFragment,
   HomeJobsListFetchQuery,
-  HomeJobsListItemFragmentFragment,
   HomePodsListFetchQuery,
-  HomePodsListItemFragmentFragment,
   HomeReplicaSetsListFetchQuery,
-  HomeReplicaSetsListItemFragmentFragment,
   HomeStatefulSetsListFetchQuery,
+  HomeCronJobsListItemFragmentFragment,
+  HomeDaemonSetsListItemFragmentFragment,
+  HomePodsListItemFragmentFragment,
+  HomeJobsListItemFragmentFragment,
+  HomeDeploymentsListItemFragmentFragment,
+  HomeReplicaSetsListItemFragmentFragment,
   HomeStatefulSetsListItemFragmentFragment,
 } from '@/lib/graphql/dashboard/__generated__/graphql';
-import { getContainerIDs } from '@/lib/home';
 import { useIsClusterAPIEnabled, useListQueryWithSubscription, useLogMetadata } from '@/lib/hooks';
 import { joinPaths, getBasename, cn } from '@/lib/util';
-import { Workload, allWorkloads, glyphIconMap, knockoutIconMap, labelsPMap } from '@/lib/workload';
+import { WorkloadKind, ALL_WORKLOAD_KINDS, GLYPH_ICON_MAP, KNOCKOUT_ICON_MAP, PLURAL_LABEL_MAP } from '@/lib/workload';
 
 /**
  * Shared variables and helper methods
@@ -85,8 +84,8 @@ type ContextType = {
   setKubeContext: React.Dispatch<React.SetStateAction<string | null>>;
   namespace: string;
   setNamespace: React.Dispatch<React.SetStateAction<string>>;
-  workloadFilter?: Workload;
-  setWorkloadFilter: React.Dispatch<React.SetStateAction<Workload | undefined>>;
+  workloadKindFilter?: WorkloadKind;
+  setWorkloadKindFilter: React.Dispatch<React.SetStateAction<WorkloadKind | undefined>>;
   sidebarOpen: boolean;
   setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
   search: string;
@@ -95,64 +94,12 @@ type ContextType = {
 
 const Context = createContext({} as ContextType);
 
-const workloadQueryConfig = {
-  [Workload.CRONJOBS]: {
-    query: dashboardOps.HOME_CRONJOBS_LIST_FETCH,
-    subscription: dashboardOps.HOME_CRONJOBS_LIST_WATCH,
-    queryDataKey: 'batchV1CronJobsList',
-    subscriptionDataKey: 'batchV1CronJobsWatch',
-    getItems: (data: HomeCronJobsListFetchQuery) => data?.batchV1CronJobsList?.items,
-  },
-  [Workload.DAEMONSETS]: {
-    query: dashboardOps.HOME_DAEMONSETS_LIST_FETCH,
-    subscription: dashboardOps.HOME_DAEMONSETS_LIST_WATCH,
-    queryDataKey: 'appsV1DaemonSetsList',
-    subscriptionDataKey: 'appsV1DaemonSetsWatch',
-    getItems: (data: HomeDaemonSetsListFetchQuery) => data?.appsV1DaemonSetsList?.items,
-  },
-  [Workload.DEPLOYMENTS]: {
-    query: dashboardOps.HOME_DEPLOYMENTS_LIST_FETCH,
-    subscription: dashboardOps.HOME_DEPLOYMENTS_LIST_WATCH,
-    queryDataKey: 'appsV1DeploymentsList',
-    subscriptionDataKey: 'appsV1DeploymentsWatch',
-    getItems: (data: HomeDeploymentsListFetchQuery) => data?.appsV1DeploymentsList?.items,
-  },
-  [Workload.JOBS]: {
-    query: dashboardOps.HOME_JOBS_LIST_FETCH,
-    subscription: dashboardOps.HOME_JOBS_LIST_WATCH,
-    queryDataKey: 'batchV1JobsList',
-    subscriptionDataKey: 'batchV1JobsWatch',
-    getItems: (data: HomeJobsListFetchQuery) => data?.batchV1JobsList?.items,
-  },
-  [Workload.PODS]: {
-    query: dashboardOps.HOME_PODS_LIST_FETCH,
-    subscription: dashboardOps.HOME_PODS_LIST_WATCH,
-    queryDataKey: 'coreV1PodsList',
-    subscriptionDataKey: 'coreV1PodsWatch',
-    getItems: (data: HomePodsListFetchQuery) => data?.coreV1PodsList?.items,
-  },
-  [Workload.REPLICASETS]: {
-    query: dashboardOps.HOME_REPLICASETS_LIST_FETCH,
-    subscription: dashboardOps.HOME_REPLICASETS_LIST_WATCH,
-    queryDataKey: 'appsV1ReplicaSetsList',
-    subscriptionDataKey: 'appsV1ReplicaSetsWatch',
-    getItems: (data: HomeReplicaSetsListFetchQuery) => data?.appsV1ReplicaSetsList?.items,
-  },
-  [Workload.STATEFULSETS]: {
-    query: dashboardOps.HOME_STATEFULSETS_LIST_FETCH,
-    subscription: dashboardOps.HOME_STATEFULSETS_LIST_WATCH,
-    queryDataKey: 'appsV1StatefulSetsList',
-    subscriptionDataKey: 'appsV1StatefulSetsWatch',
-    getItems: (data: HomeStatefulSetsListFetchQuery) => data?.appsV1StatefulSetsList?.items,
-  },
-};
-
 type WorkloadItem =
   | HomeCronJobsListItemFragmentFragment
-  | HomeDaemonSetsListItemFragmentFragment
-  | HomeDeploymentsListItemFragmentFragment
   | HomeJobsListItemFragmentFragment
+  | HomeDeploymentsListItemFragmentFragment
   | HomePodsListItemFragmentFragment
+  | HomeDaemonSetsListItemFragmentFragment
   | HomeReplicaSetsListItemFragmentFragment
   | HomeStatefulSetsListItemFragmentFragment;
 
@@ -163,7 +110,7 @@ type WorkloadQueryResponse = {
   error: ApolloError | undefined;
 };
 
-function makeAtom() {
+function makeWorkloadQueryAtom() {
   return atom<WorkloadQueryResponse>({
     loading: false,
     fetching: false,
@@ -173,24 +120,30 @@ function makeAtom() {
 }
 
 const workloadQueryAtoms = {
-  [Workload.CRONJOBS]: makeAtom(),
-  [Workload.DAEMONSETS]: makeAtom(),
-  [Workload.DEPLOYMENTS]: makeAtom(),
-  [Workload.JOBS]: makeAtom(),
-  [Workload.PODS]: makeAtom(),
-  [Workload.REPLICASETS]: makeAtom(),
-  [Workload.STATEFULSETS]: makeAtom(),
+  [WorkloadKind.CRONJOBS]: makeWorkloadQueryAtom(),
+  [WorkloadKind.DAEMONSETS]: makeWorkloadQueryAtom(),
+  [WorkloadKind.DEPLOYMENTS]: makeWorkloadQueryAtom(),
+  [WorkloadKind.JOBS]: makeWorkloadQueryAtom(),
+  [WorkloadKind.PODS]: makeWorkloadQueryAtom(),
+  [WorkloadKind.REPLICASETS]: makeWorkloadQueryAtom(),
+  [WorkloadKind.STATEFULSETS]: makeWorkloadQueryAtom(),
 };
 
-const loadingByWorkloadAtom = atomFamily((w: Workload) => selectAtom(workloadQueryAtoms[w], (v) => v.loading));
-const fetchingByWorkloadAtom = atomFamily((w: Workload) => selectAtom(workloadQueryAtoms[w], (v) => v.fetching));
-const numItemsByWorkloadAtom = atomFamily((w: Workload) =>
-  selectAtom(workloadQueryAtoms[w], (v) => v.items?.length ?? 0),
+const loadingByWorkloadAtom = atomFamily((kind: WorkloadKind) =>
+  selectAtom(workloadQueryAtoms[kind], (v) => v.loading),
+);
+const fetchingByWorkloadAtom = atomFamily((kind: WorkloadKind) =>
+  selectAtom(workloadQueryAtoms[kind], (v) => v.fetching),
+);
+const numItemsByWorkloadAtom = atomFamily((kind: WorkloadKind) =>
+  selectAtom(workloadQueryAtoms[kind], (v) => v.items?.length ?? 0),
 );
 
-const isLoadingAtom = atom((get) => allWorkloads.some((w) => get(loadingByWorkloadAtom(w))));
-const isFetchingAtom = atom((get) => allWorkloads.some((w) => get(fetchingByWorkloadAtom(w))));
-const numItemsAtom = atom((get) => allWorkloads.reduce((total, w) => total + get(numItemsByWorkloadAtom(w)), 0));
+const isLoadingAtom = atom((get) => ALL_WORKLOAD_KINDS.some((kind) => get(loadingByWorkloadAtom(kind))));
+const isFetchingAtom = atom((get) => ALL_WORKLOAD_KINDS.some((kind) => get(fetchingByWorkloadAtom(kind))));
+const numItemsAtom = atom((get) =>
+  ALL_WORKLOAD_KINDS.reduce((total, kind) => total + get(numItemsByWorkloadAtom(kind)), 0),
+);
 
 type FileInfo = {
   size: string;
@@ -204,6 +157,15 @@ const ownershipMapAtom = atom(new Map<string, string[]>());
 /**
  * useLogFileInfo hook
  */
+
+function getContainerIDs(parentID: string, ownershipMap: Map<string, string[]>, containerIDs: string[] = []): string[] {
+  ownershipMap.get(parentID)?.forEach((childID) => {
+    if (ownershipMap.has(childID)) getContainerIDs(childID, ownershipMap, containerIDs);
+    else containerIDs.push(childID);
+  });
+
+  return containerIDs;
+}
 
 function useLogFileInfo(uids: string[]) {
   const logMetadataMap = useAtomValue(logMetadataMapAtom);
@@ -252,11 +214,63 @@ function useLogFileInfo(uids: string[]) {
  * WorkloadDataFetcher component
  */
 
-const WorkloadDataFetcher = ({ workload }: { workload: Workload }) => {
-  const { kubeContext, namespace, search } = useContext(Context);
-  const setAtom = useSetAtom(workloadQueryAtoms[workload]);
+const workloadQueryConfig = {
+  [WorkloadKind.CRONJOBS]: {
+    query: dashboardOps.HOME_CRONJOBS_LIST_FETCH,
+    subscription: dashboardOps.HOME_CRONJOBS_LIST_WATCH,
+    queryDataKey: 'batchV1CronJobsList',
+    subscriptionDataKey: 'batchV1CronJobsWatch',
+    getItems: (data: HomeCronJobsListFetchQuery) => data?.batchV1CronJobsList?.items,
+  },
+  [WorkloadKind.DAEMONSETS]: {
+    query: dashboardOps.HOME_DAEMONSETS_LIST_FETCH,
+    subscription: dashboardOps.HOME_DAEMONSETS_LIST_WATCH,
+    queryDataKey: 'appsV1DaemonSetsList',
+    subscriptionDataKey: 'appsV1DaemonSetsWatch',
+    getItems: (data: HomeDaemonSetsListFetchQuery) => data?.appsV1DaemonSetsList?.items,
+  },
+  [WorkloadKind.DEPLOYMENTS]: {
+    query: dashboardOps.HOME_DEPLOYMENTS_LIST_FETCH,
+    subscription: dashboardOps.HOME_DEPLOYMENTS_LIST_WATCH,
+    queryDataKey: 'appsV1DeploymentsList',
+    subscriptionDataKey: 'appsV1DeploymentsWatch',
+    getItems: (data: HomeDeploymentsListFetchQuery) => data?.appsV1DeploymentsList?.items,
+  },
+  [WorkloadKind.JOBS]: {
+    query: dashboardOps.HOME_JOBS_LIST_FETCH,
+    subscription: dashboardOps.HOME_JOBS_LIST_WATCH,
+    queryDataKey: 'batchV1JobsList',
+    subscriptionDataKey: 'batchV1JobsWatch',
+    getItems: (data: HomeJobsListFetchQuery) => data?.batchV1JobsList?.items,
+  },
+  [WorkloadKind.PODS]: {
+    query: dashboardOps.HOME_PODS_LIST_FETCH,
+    subscription: dashboardOps.HOME_PODS_LIST_WATCH,
+    queryDataKey: 'coreV1PodsList',
+    subscriptionDataKey: 'coreV1PodsWatch',
+    getItems: (data: HomePodsListFetchQuery) => data?.coreV1PodsList?.items,
+  },
+  [WorkloadKind.REPLICASETS]: {
+    query: dashboardOps.HOME_REPLICASETS_LIST_FETCH,
+    subscription: dashboardOps.HOME_REPLICASETS_LIST_WATCH,
+    queryDataKey: 'appsV1ReplicaSetsList',
+    subscriptionDataKey: 'appsV1ReplicaSetsWatch',
+    getItems: (data: HomeReplicaSetsListFetchQuery) => data?.appsV1ReplicaSetsList?.items,
+  },
+  [WorkloadKind.STATEFULSETS]: {
+    query: dashboardOps.HOME_STATEFULSETS_LIST_FETCH,
+    subscription: dashboardOps.HOME_STATEFULSETS_LIST_WATCH,
+    queryDataKey: 'appsV1StatefulSetsList',
+    subscriptionDataKey: 'appsV1StatefulSetsWatch',
+    getItems: (data: HomeStatefulSetsListFetchQuery) => data?.appsV1StatefulSetsList?.items,
+  },
+};
 
-  const cfg = workloadQueryConfig[workload];
+const WorkloadDataFetcher = ({ kind }: { kind: WorkloadKind }) => {
+  const { kubeContext, namespace, search } = useContext(Context);
+  const setAtom = useSetAtom(workloadQueryAtoms[kind]);
+
+  const cfg = workloadQueryConfig[kind];
   const { loading, fetching, data, error } = useListQueryWithSubscription({
     query: cfg.query,
     subscription: cfg.subscription,
@@ -297,8 +311,8 @@ const WorkloadDataFetcher = ({ workload }: { workload: Workload }) => {
 
 const WorkloadDataProvider = () => (
   <>
-    {allWorkloads.map((workload) => (
-      <WorkloadDataFetcher key={workload} workload={workload} />
+    {ALL_WORKLOAD_KINDS.map((kind) => (
+      <WorkloadDataFetcher key={kind} kind={kind} />
     ))}
   </>
 );
@@ -319,11 +333,11 @@ function orderedEqual<T>(a?: T[], b?: T[]): boolean {
   return true;
 }
 
-const OwnershipMapUpdater = ({ workload }: { workload: Workload }) => {
+const OwnershipMapUpdater = ({ kind }: { kind: WorkloadKind }) => {
   const setOwnershipMap = useSetAtom(ownershipMapAtom);
 
   // Get data from workload atoms
-  const { items } = useAtomValue(workloadQueryAtoms[workload]);
+  const { items } = useAtomValue(workloadQueryAtoms[kind]);
 
   useEffect(() => {
     const m = new Map<string, string[]>();
@@ -338,7 +352,7 @@ const OwnershipMapUpdater = ({ workload }: { workload: Workload }) => {
     });
 
     // Add container ids from pods
-    if (workload === Workload.PODS) {
+    if (kind === WorkloadKind.PODS) {
       items?.forEach((item) => {
         const pod = item as HomePodsListItemFragmentFragment;
         // strip out prefix (e.g. "containerd://")
@@ -374,8 +388,8 @@ const OwnershipMapUpdater = ({ workload }: { workload: Workload }) => {
 
 const OwnershipMapProvider = () => (
   <>
-    {allWorkloads.map((workload) => (
-      <OwnershipMapUpdater key={workload} workload={workload} />
+    {ALL_WORKLOAD_KINDS.map((kind) => (
+      <OwnershipMapUpdater key={kind} kind={kind} />
     ))}
   </>
 );
@@ -513,8 +527,8 @@ const KubeContextPicker = ({ value, setValue }: KubeContextPickerProps) => {
  * WorkloadCount component
  */
 
-const WorkloadCount = ({ workload }: { workload: Workload }) => {
-  const { items } = useAtomValue(workloadQueryAtoms[workload]);
+const WorkloadCount = ({ kind }: { kind: WorkloadKind }) => {
+  const { items } = useAtomValue(workloadQueryAtoms[kind]);
   return <span>{items?.length}</span>;
 };
 
@@ -523,37 +537,37 @@ const WorkloadCount = ({ workload }: { workload: Workload }) => {
  */
 
 const SidebarContent = () => {
-  const { workloadFilter, setWorkloadFilter } = useContext(Context);
+  const { workloadKindFilter, setWorkloadKindFilter } = useContext(Context);
 
   return (
     <>
-      <button type="button" className="cursor-pointer" onClick={() => setWorkloadFilter(undefined)}>
+      <button type="button" className="cursor-pointer" onClick={() => setWorkloadKindFilter(undefined)}>
         <span className="text-md text-chrome-500">Workloads</span>
       </button>
       <ul className="space-y-1">
-        {allWorkloads.map((workload) => {
-          const Icon = glyphIconMap[workload];
+        {ALL_WORKLOAD_KINDS.map((kind) => {
+          const Icon = GLYPH_ICON_MAP[kind];
           return (
-            <li className="group" key={workload}>
+            <li className="group" key={kind}>
               <button
                 type="button"
                 className={cn(
                   'group flex items-center justify-between py-2 px-1 rounded-sm hover:bg-accent w-full',
-                  workload === workloadFilter && 'bg-blue-100',
+                  kind === workloadKindFilter && 'bg-blue-100',
                 )}
-                onClick={() => setWorkloadFilter((w) => (w === workload ? undefined : workload))}
+                onClick={() => setWorkloadKindFilter((w) => (w === kind ? undefined : kind))}
               >
                 <div className="flex items-center gap-2">
                   <Icon className="w-[20px] h-[20px] text-chrome-950" />
-                  <span className="text-md">{labelsPMap[workload]}</span>
+                  <span className="text-md">{PLURAL_LABEL_MAP[kind]}</span>
                 </div>
                 <div
                   className={cn(
                     'text-xs font-medium border not-dark:group-has-hover:border-chrome-300 min-w-[24px] h-[24px] px-[4px] rounded-sm flex items-center justify-center',
-                    workload === workloadFilter && 'border-chrome-300',
+                    kind === workloadKindFilter && 'border-chrome-300',
                   )}
                 >
-                  <WorkloadCount workload={workload} />
+                  <WorkloadCount kind={kind} />
                 </div>
               </button>
             </li>
@@ -781,11 +795,11 @@ const SortIcon = ({ dir, descFirst }: SortIconProps) => {
   }
 };
 
-const DisplayItems = ({ workload }: { workload: Workload }) => {
-  const { kubeContext, workloadFilter } = useContext(Context);
+const DisplayItems = ({ kind }: { kind: WorkloadKind }) => {
+  const { kubeContext, workloadKindFilter } = useContext(Context);
   const isClusterAPIEnabled = useIsClusterAPIEnabled(kubeContext);
 
-  const { fetching, items } = useAtomValue(workloadQueryAtoms[workload]);
+  const { fetching, items } = useAtomValue(workloadQueryAtoms[kind]);
 
   const ids = useMemo(() => items?.map((item) => item.metadata.uid) || [], [items]);
   const logFileInfo = useLogFileInfo(ids);
@@ -803,7 +817,7 @@ const DisplayItems = ({ workload }: { workload: Workload }) => {
               createdAt: item.metadata.creationTimestamp,
               size: fileInfo?.size,
               lastModifiedAt: fileInfo?.lastModifiedAt,
-              sourceString: `${item.metadata.namespace}:${workload}/${item.metadata.name}/*`,
+              sourceString: `${item.metadata.namespace}:${kind}/${item.metadata.name}/*`,
               containerIDs: fileInfo?.containerIDs || [],
             };
           }),
@@ -811,7 +825,7 @@ const DisplayItems = ({ workload }: { workload: Workload }) => {
   );
 
   const numItems = data.length;
-  const maxDisplayRows = workloadFilter === workload ? numItems : 5;
+  const maxDisplayRows = workloadKindFilter === kind ? numItems : 5;
   const [showAll, setShowAll] = useState(false);
 
   const [sorting, setSorting] = useState<SortingState>([{ id: 'name', desc: false }]);
@@ -888,8 +902,8 @@ const DisplayItems = ({ workload }: { workload: Workload }) => {
   const table = useReactTable(tableCfg as TableOptions<WorkloadTableData>);
 
   // For label
-  const Icon = knockoutIconMap[workload];
-  const label = labelsPMap[workload];
+  const Icon = KNOCKOUT_ICON_MAP[kind];
+  const label = PLURAL_LABEL_MAP[kind];
 
   return (
     <>
@@ -985,7 +999,7 @@ const DisplayItems = ({ workload }: { workload: Workload }) => {
  */
 
 const DisplayWorkloads = () => {
-  const { search, workloadFilter } = useContext(Context);
+  const { search, workloadKindFilter } = useContext(Context);
   const isLoading = useAtomValue(isLoadingAtom);
   const isFetching = useAtomValue(isFetchingAtom);
   const numItems = useAtomValue(numItemsAtom);
@@ -1008,9 +1022,9 @@ const DisplayWorkloads = () => {
   return (
     <div className="rounded-table-wrapper">
       <Table>
-        {allWorkloads.map((workload) => {
-          if (!workloadFilter || workloadFilter === workload) {
-            return <DisplayItems key={workload} workload={workload} />;
+        {ALL_WORKLOAD_KINDS.map((kind) => {
+          if (!workloadKindFilter || workloadKindFilter === kind) {
+            return <DisplayItems key={kind} kind={kind} />;
           }
           return null;
         })}
@@ -1139,7 +1153,7 @@ const InnerLayout = ({ sidebar, content }: InnerLayoutProps) => {
 export default function Page() {
   const [kubeContext, setKubeContext] = useState(defaultKubeContext);
   const [namespace, setNamespace] = useState('');
-  const [workloadFilter, setWorkloadFilter] = useState<Workload>();
+  const [workloadKindFilter, setWorkloadKindFilter] = useState<WorkloadKind>();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [search, setSearch] = useState('');
 
@@ -1149,8 +1163,8 @@ export default function Page() {
       setKubeContext,
       namespace,
       setNamespace,
-      workloadFilter,
-      setWorkloadFilter,
+      workloadKindFilter,
+      setWorkloadKindFilter,
       sidebarOpen,
       setSidebarOpen,
       search,
@@ -1161,8 +1175,8 @@ export default function Page() {
       setKubeContext,
       namespace,
       setNamespace,
-      workloadFilter,
-      setWorkloadFilter,
+      workloadKindFilter,
+      setWorkloadKindFilter,
       sidebarOpen,
       setSidebarOpen,
       search,

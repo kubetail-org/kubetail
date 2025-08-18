@@ -12,14 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CronJobIcon from '@/assets/k8s-icons/cronjob.svg?react';
-import DaemonSetIcon from '@/assets/k8s-icons/daemonset.svg?react';
-import DeploymentIcon from '@/assets/k8s-icons/deployment.svg?react';
-import JobIcon from '@/assets/k8s-icons/job.svg?react';
-import PodIcon from '@/assets/k8s-icons/pod.svg?react';
-import ReplicaSetIcon from '@/assets/k8s-icons/replicaset.svg?react';
-import StatefulSetIcon from '@/assets/k8s-icons/statefulset.svg?react';
-
 import CronJobGlyphIcon from '@/assets/k8s-icons/glyph/cronjob.svg?react';
 import DaemonSetGlyphIcon from '@/assets/k8s-icons/glyph/daemonset.svg?react';
 import DeploymentGlyphIcon from '@/assets/k8s-icons/glyph/deployment.svg?react';
@@ -36,7 +28,7 @@ import PodKnockoutIcon from '@/assets/k8s-icons/knockout/pod.svg?react';
 import ReplicaSetKnockoutIcon from '@/assets/k8s-icons/knockout/replicaset.svg?react';
 import StatefulSetKnockoutIcon from '@/assets/k8s-icons/knockout/statefulset.svg?react';
 
-export enum Workload {
+export enum WorkloadKind {
   CRONJOBS = 'cronjobs',
   DAEMONSETS = 'daemonsets',
   DEPLOYMENTS = 'deployments',
@@ -46,62 +38,52 @@ export enum Workload {
   STATEFULSETS = 'statefulsets',
 }
 
-export const allWorkloads = [
-  Workload.CRONJOBS,
-  Workload.DAEMONSETS,
-  Workload.DEPLOYMENTS,
-  Workload.JOBS,
-  Workload.PODS,
-  Workload.REPLICASETS,
-  Workload.STATEFULSETS,
+export const ALL_WORKLOAD_KINDS = [
+  WorkloadKind.CRONJOBS,
+  WorkloadKind.DAEMONSETS,
+  WorkloadKind.DEPLOYMENTS,
+  WorkloadKind.JOBS,
+  WorkloadKind.PODS,
+  WorkloadKind.REPLICASETS,
+  WorkloadKind.STATEFULSETS,
 ];
 
-export const iconMap = {
-  [Workload.CRONJOBS]: CronJobIcon,
-  [Workload.DAEMONSETS]: DaemonSetIcon,
-  [Workload.DEPLOYMENTS]: DeploymentIcon,
-  [Workload.JOBS]: JobIcon,
-  [Workload.PODS]: PodIcon,
-  [Workload.REPLICASETS]: ReplicaSetIcon,
-  [Workload.STATEFULSETS]: StatefulSetIcon,
+export const GLYPH_ICON_MAP = {
+  [WorkloadKind.CRONJOBS]: CronJobGlyphIcon,
+  [WorkloadKind.DAEMONSETS]: DaemonSetGlyphIcon,
+  [WorkloadKind.DEPLOYMENTS]: DeploymentGlyphIcon,
+  [WorkloadKind.JOBS]: JobGlyphIcon,
+  [WorkloadKind.PODS]: PodGlyphIcon,
+  [WorkloadKind.REPLICASETS]: ReplicaSetGlyphIcon,
+  [WorkloadKind.STATEFULSETS]: StatefulSetGlyphIcon,
 };
 
-export const glyphIconMap = {
-  [Workload.CRONJOBS]: CronJobGlyphIcon,
-  [Workload.DAEMONSETS]: DaemonSetGlyphIcon,
-  [Workload.DEPLOYMENTS]: DeploymentGlyphIcon,
-  [Workload.JOBS]: JobGlyphIcon,
-  [Workload.PODS]: PodGlyphIcon,
-  [Workload.REPLICASETS]: ReplicaSetGlyphIcon,
-  [Workload.STATEFULSETS]: StatefulSetGlyphIcon,
+export const KNOCKOUT_ICON_MAP = {
+  [WorkloadKind.CRONJOBS]: CronJobKnockoutIcon,
+  [WorkloadKind.DAEMONSETS]: DaemonSetKnockoutIcon,
+  [WorkloadKind.DEPLOYMENTS]: DeploymentKnockoutIcon,
+  [WorkloadKind.JOBS]: JobKnockoutIcon,
+  [WorkloadKind.PODS]: PodKnockoutIcon,
+  [WorkloadKind.REPLICASETS]: ReplicaSetKnockoutIcon,
+  [WorkloadKind.STATEFULSETS]: StatefulSetKnockoutIcon,
 };
 
-export const knockoutIconMap = {
-  [Workload.CRONJOBS]: CronJobKnockoutIcon,
-  [Workload.DAEMONSETS]: DaemonSetKnockoutIcon,
-  [Workload.DEPLOYMENTS]: DeploymentKnockoutIcon,
-  [Workload.JOBS]: JobKnockoutIcon,
-  [Workload.PODS]: PodKnockoutIcon,
-  [Workload.REPLICASETS]: ReplicaSetKnockoutIcon,
-  [Workload.STATEFULSETS]: StatefulSetKnockoutIcon,
+export const PLURAL_LABEL_MAP = {
+  [WorkloadKind.CRONJOBS]: 'Cron Jobs',
+  [WorkloadKind.DAEMONSETS]: 'Daemon Sets',
+  [WorkloadKind.DEPLOYMENTS]: 'Deployments',
+  [WorkloadKind.JOBS]: 'Jobs',
+  [WorkloadKind.PODS]: 'Pods',
+  [WorkloadKind.REPLICASETS]: 'Replica Sets',
+  [WorkloadKind.STATEFULSETS]: 'Stateful Sets',
 };
 
-export const labelsPMap = {
-  [Workload.CRONJOBS]: 'Cron Jobs',
-  [Workload.DAEMONSETS]: 'Daemon Sets',
-  [Workload.DEPLOYMENTS]: 'Deployments',
-  [Workload.JOBS]: 'Jobs',
-  [Workload.PODS]: 'Pods',
-  [Workload.REPLICASETS]: 'Replica Sets',
-  [Workload.STATEFULSETS]: 'Stateful Sets',
-};
-
-export const typenameMap: Record<string, Workload> = {
-  AppsV1DaemonSet: Workload.DAEMONSETS,
-  AppsV1Deployment: Workload.DEPLOYMENTS,
-  AppsV1ReplicaSet: Workload.REPLICASETS,
-  AppsV1StatefulSet: Workload.STATEFULSETS,
-  BatchV1CronJob: Workload.CRONJOBS,
-  BatchV1Job: Workload.JOBS,
-  CoreV1Pod: Workload.PODS,
+export const TYPENAME_TO_KIND_MAP: Record<string, WorkloadKind> = {
+  AppsV1DaemonSet: WorkloadKind.DAEMONSETS,
+  AppsV1Deployment: WorkloadKind.DEPLOYMENTS,
+  AppsV1ReplicaSet: WorkloadKind.REPLICASETS,
+  AppsV1StatefulSet: WorkloadKind.STATEFULSETS,
+  BatchV1CronJob: WorkloadKind.CRONJOBS,
+  BatchV1Job: WorkloadKind.JOBS,
+  CoreV1Pod: WorkloadKind.PODS,
 };

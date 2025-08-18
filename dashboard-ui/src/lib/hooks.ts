@@ -23,7 +23,7 @@ import { LOCAL_STORAGE_KEY } from '@/components/widgets/EnvironmentControl';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import * as clusterAPIOps from '@/lib/graphql/cluster-api/ops';
 import { Counter, safeDigest } from './util';
-import { Workload } from './workload';
+import { WorkloadKind } from './workload';
 import { Status, useClusterAPIServerStatus } from './server-status';
 
 type GenericListFragment = {
@@ -654,20 +654,20 @@ export function useWorkloadCounter(kubeContext: string, namespace = '') {
   const loading = reqs.some((req) => req.loading);
   const error = reqs.find((req) => Boolean(req.error));
 
-  const counter = new Counter<Workload>();
+  const counter = new Counter<WorkloadKind>();
 
-  function updateCounter(key: Workload, count: number | undefined) {
+  function updateCounter(key: WorkloadKind, count: number | undefined) {
     if (count !== undefined) counter.set(key, count);
   }
 
   if (!loading && !error) {
-    updateCounter(Workload.CRONJOBS, cronjobs.count);
-    updateCounter(Workload.DAEMONSETS, daemonsets.count);
-    updateCounter(Workload.DEPLOYMENTS, deployments.count);
-    updateCounter(Workload.JOBS, jobs.count);
-    updateCounter(Workload.PODS, pods.count);
-    updateCounter(Workload.REPLICASETS, replicasets.count);
-    updateCounter(Workload.STATEFULSETS, statefulsets.count);
+    updateCounter(WorkloadKind.CRONJOBS, cronjobs.count);
+    updateCounter(WorkloadKind.DAEMONSETS, daemonsets.count);
+    updateCounter(WorkloadKind.DEPLOYMENTS, deployments.count);
+    updateCounter(WorkloadKind.JOBS, jobs.count);
+    updateCounter(WorkloadKind.PODS, pods.count);
+    updateCounter(WorkloadKind.REPLICASETS, replicasets.count);
+    updateCounter(WorkloadKind.STATEFULSETS, statefulsets.count);
   }
 
   return { loading, error, counter };
