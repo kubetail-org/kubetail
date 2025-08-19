@@ -1,4 +1,9 @@
 name: Auto assign/unassign issues
+
+permissions:
+  contents: read
+  issues: write
+
 on:
   issue_comment:
     types: [created]
