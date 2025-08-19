@@ -74,13 +74,14 @@ impl Config {
                 )));
             }
 
-            if let Some(client_auth) = &tls.client_auth {
-                if client_auth == "require-and-verify" && tls.ca_file.is_none() {
-                    return Err(Box::new(io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        "Trusted certificates should be supplied for require-and-verify",
-                    )));
-                }
+            if let Some(client_auth) = &tls.client_auth
+                && client_auth == "require-and-verify"
+                && tls.ca_file.is_none()
+            {
+                return Err(Box::new(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Trusted certificates should be supplied for require-and-verify",
+                )));
             }
         }
 
