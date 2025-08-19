@@ -1,12 +1,18 @@
-use std::{error::Error, io, net::SocketAddr, path::PathBuf};
+use std::{
+    error::Error,
+    io,
+    net::SocketAddr,
+    path::{Path, PathBuf},
+};
 
+use config::builder::DefaultState;
 use regex::Regex;
 use serde::Deserialize;
-use tokio::fs;
 
 #[derive(Debug)]
 pub struct Config {
     pub address: SocketAddr,
+    pub logs_dir: PathBuf,
     pub logging: LoggingConfig,
     pub tls: TlsConfig,
 }
@@ -15,6 +21,8 @@ pub struct Config {
 struct ConfigInternal {
     #[serde(rename(deserialize = "addr"))]
     address: String,
+    #[serde(rename(deserialize = "container-logs-dir"))]
+    logs_dir: PathBuf,
     logging: LoggingConfig,
     tls: TlsConfig,
 }
@@ -37,46 +45,49 @@ pub struct TlsConfig {
     pub enabled: bool,
 
     #[serde(rename(deserialize = "cert-file"))]
-    pub cert_file: PathBuf,
+    pub cert_file: Option<PathBuf>,
 
     #[serde(rename(deserialize = "key-file"))]
-    pub key_file: PathBuf,
+    pub key_file: Option<PathBuf>,
 
     #[serde(rename(deserialize = "ca-file"))]
-    pub ca_file: PathBuf,
+    pub ca_file: Option<PathBuf>,
 
     #[serde(rename(deserialize = "client-auth"))]
-    pub client_auth: PathBuf,
+    pub client_auth: Option<String>,
 }
 
 impl Config {
-    pub async fn parse(path: &PathBuf) -> Result<Self, Box<dyn Error + 'static>> {
-        let config = fs::read_to_string(path).await?;
-        let full_config: FullConfig = serde_yml::from_str(&config)?;
+    pub fn parse(path: &Path) -> Result<Self, Box<dyn Error + 'static>> {
+        let settings = Self::builder_with_defaults()?
+            .add_source(config::File::with_name(&path.to_string_lossy()))
+            .build()?;
 
-        let logging = full_config.cluster_agent.logging;
-
-        if logging.enabled && (logging.level.is_empty() || logging.format.is_empty()) {
-            return Err(Box::new(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Logging level and format should be supplied when logging is enabled",
-            )));
-        }
-
+        let full_config: FullConfig = settings.try_deserialize()?;
         let tls = full_config.cluster_agent.tls;
 
-        if tls.enabled
-            && (tls.cert_file.as_os_str().is_empty() || tls.key_file.as_os_str().is_empty())
-        {
-            return Err(Box::new(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Cert file and key file should be supplied when tls is enabled",
-            )));
+        if tls.enabled {
+            if tls.cert_file.is_none() || tls.key_file.is_none() {
+                return Err(Box::new(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Cert file and key file should be supplied when tls is enabled",
+                )));
+            }
+
+            if let Some(client_auth) = &tls.client_auth {
+                if client_auth == "require-and-verify" && tls.ca_file.is_none() {
+                    return Err(Box::new(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "Trusted certificates should be supplied for require-and-verify",
+                    )));
+                }
+            }
         }
 
         Ok(Self {
             address: Self::parse_address(&full_config.cluster_agent.address)?,
-            logging,
+            logs_dir: full_config.cluster_agent.logs_dir,
+            logging: full_config.cluster_agent.logging,
             tls,
         })
     }
@@ -91,5 +102,15 @@ impl Config {
         }
 
         Ok(address.parse()?)
+    }
+
+    fn builder_with_defaults() -> Result<config::ConfigBuilder<DefaultState>, config::ConfigError> {
+        config::Config::builder()
+            .set_default("cluster-agent.addr", "[::]:50051")?
+            .set_default("cluster-agent.container-logs-dir", "/var/log/containers")?
+            .set_default("cluster-agent.logging.enabled", true)?
+            .set_default("cluster-agent.logging.level", "info")?
+            .set_default("cluster-agent.logging.format", "json")?
+            .set_default("cluster-agent.tls.enabled", false)
     }
 }
