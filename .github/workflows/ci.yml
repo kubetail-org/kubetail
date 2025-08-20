@@ -20,6 +20,7 @@ jobs:
         with:
           setup-rust: "true"
           setup-protoc: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build
         working-directory: ./crates/rgkl
         run: cargo build --release
@@ -59,6 +60,7 @@ jobs:
         with:
           setup-rust: "true"
           setup-protoc: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Run tests
         working-directory: ./crates/rgkl
         run: cargo test
