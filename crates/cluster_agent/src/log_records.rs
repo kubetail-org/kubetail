@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use tokio::sync::broadcast::Sender;
@@ -15,15 +15,15 @@ use tonic::{Request, Response, Status};
 
 #[derive(Debug)]
 pub struct LogRecordsImpl {
-    logs_dir: &'static str,
+    logs_dir: PathBuf,
     term_tx: Sender<()>,
     task_tracker: TaskTracker,
 }
 
 impl LogRecordsImpl {
-    pub const fn new(term_tx: Sender<()>, task_tracker: TaskTracker) -> Self {
+    pub const fn new(logs_dir: PathBuf, term_tx: Sender<()>, task_tracker: TaskTracker) -> Self {
         Self {
-            logs_dir: "/var/log/containers",
+            logs_dir,
             term_tx,
             task_tracker,
         }
@@ -35,7 +35,7 @@ impl LogRecordsImpl {
             None => &request.container_id,
         };
 
-        let path = Path::new(self.logs_dir).join(format!(
+        let path = self.logs_dir.join(format!(
             "{}_{}_{}-{}.log",
             &request.pod_name, &request.namespace, &request.container_name, container_id
         ));

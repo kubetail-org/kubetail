@@ -90,7 +90,7 @@ data:
       addr: :50051
       logging:
         enabled: true
-        level: debug
+        level: info
         format: pretty
       tls:
         enabled: true
