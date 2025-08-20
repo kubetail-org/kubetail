@@ -2,6 +2,10 @@ name: 'Setup Environment'
 description: 'Sets up Node.js, PNPM, Go, and Rust conditionally for building Kubetail'
 
 inputs:
+  github-token:
+    description: 'GitHub token'
+    required: false
+    default: ''
   go-version:
     description: 'Go version to install'
     required: false
@@ -38,6 +42,12 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Set up git authentication for GitHub requests in Rust environment
+      if: inputs.setup-rust == 'true' && inputs.github-token != ''
+      shell: bash
+      run: |
+        git config --global url."https://${{ inputs.github-token }}:@github.com/".insteadOf "https://github.com/"
+
     - name: Set up Protoc
       if: inputs.setup-protoc == 'true'
       uses: arduino/setup-protoc@v3
