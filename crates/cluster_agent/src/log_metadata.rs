@@ -3,7 +3,7 @@ use regex::{Captures, Regex};
 use std::env;
 use std::fs::File;
 use std::os::unix::fs::MetadataExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use tracing::debug;
 
@@ -31,16 +31,16 @@ pub static LOG_FILE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 #[derive(Debug)]
 pub struct LogMetadataImpl {
-    logs_dir: String,
+    logs_dir: PathBuf,
     term_tx: Sender<()>,
     task_tracker: TaskTracker,
     node_name: String,
 }
 
 impl LogMetadataImpl {
-    pub fn new(term_tx: Sender<()>, task_tracker: TaskTracker) -> Self {
+    pub fn new(logs_dir: PathBuf, term_tx: Sender<()>, task_tracker: TaskTracker) -> Self {
         Self {
-            logs_dir: "/var/log/containers".into(),
+            logs_dir,
             term_tx,
             task_tracker,
             node_name: env::var("NODE_NAME").unwrap_or_else(|_| "Env variable not set".to_owned()),
@@ -100,14 +100,13 @@ impl LogMetadataService for LogMetadataImpl {
         request: Request<LogMetadataListRequest>,
     ) -> Result<Response<LogMetadataList>, Status> {
         let request = request.into_inner();
-        let logs_dir_path = Path::new(self.logs_dir.as_str());
 
-        if !logs_dir_path.is_dir() {
+        if !self.logs_dir.is_dir() {
             return Err(Status::new(
                 tonic::Code::NotFound,
                 format!(
                     "Log directory not found: {}",
-                    logs_dir_path.to_string_lossy()
+                    self.logs_dir.to_string_lossy()
                 ),
             ));
         }
@@ -118,7 +117,7 @@ impl LogMetadataService for LogMetadataImpl {
             .filter(|namespace| !namespace.is_empty())
             .collect();
 
-        let mut files = ReadDirStream::new(read_dir(logs_dir_path).await?);
+        let mut files = ReadDirStream::new(read_dir(&self.logs_dir).await?);
 
         let mut metadata_items = Vec::new();
 
@@ -230,7 +229,7 @@ mod test {
     async fn test_single_file_is_returned() {
         let file = create_test_file("pod-name_namespace_container-name-containerid", 4);
         let (term_tx, _term_rx) = broadcast::channel(1);
-        let logs_dir = file.path().parent().unwrap().to_string_lossy().into_owned();
+        let logs_dir = file.path().parent().unwrap().to_path_buf();
 
         let metadata_service = LogMetadataImpl {
             logs_dir,
@@ -277,12 +276,7 @@ mod test {
         let third_file =
             create_test_file("pod-name_secondnamespace_container-name2-containerid2", 4);
         let (term_tx, _term_rx) = broadcast::channel(1);
-        let logs_dir = third_file
-            .path()
-            .parent()
-            .unwrap()
-            .to_string_lossy()
-            .into_owned();
+        let logs_dir = third_file.path().parent().unwrap().to_path_buf();
 
         let metadata_service = LogMetadataImpl {
             logs_dir,
@@ -333,12 +327,7 @@ mod test {
             create_test_file("pod-name_secondnamespace_container-name2-containerid2", 4);
 
         let (term_tx, _term_rx) = broadcast::channel(1);
-        let logs_dir = first_file
-            .path()
-            .parent()
-            .unwrap()
-            .to_string_lossy()
-            .into_owned();
+        let logs_dir = first_file.path().parent().unwrap().to_path_buf();
 
         let metadata_service = LogMetadataImpl {
             logs_dir,

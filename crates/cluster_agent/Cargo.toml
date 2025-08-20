@@ -20,7 +20,7 @@ tonic-reflection = { workspace = true}
 
 tracing = { workspace = true }
 tracing-opentelemetry = { workspace = true, features = ["metrics"] }
-tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "registry", "std"] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "registry", "std", "json"] }
 tracing-test = { workspace = true }
 
 notify = { workspace = true}
@@ -43,6 +43,9 @@ either = "1.15.0"
 kube = { version = "1.1.0" }
 k8s-openapi = { version = "0.25.0", features = ["v1_33"] }
 regex = "1.11.1"
+clap = { version = "4.5.45", features = ["cargo"] }
+config = "0.15.14"
+serde = "1.0"
 
 [dev-dependencies]
 serial_test = "3.2.0"

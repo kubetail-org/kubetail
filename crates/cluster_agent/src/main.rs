@@ -1,6 +1,9 @@
 use std::error::Error;
 use std::fs::read_to_string;
+use std::path::PathBuf;
+use std::str::FromStr;
 
+use clap::{arg, command, value_parser};
 use tokio::signal::ctrl_c;
 use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::broadcast::{self, Sender};
@@ -11,16 +14,19 @@ use types::cluster_agent::FILE_DESCRIPTOR_SET;
 use types::cluster_agent::log_metadata_service_server::LogMetadataServiceServer;
 use types::cluster_agent::log_records_service_server::LogRecordsServiceServer;
 
+mod config;
 mod log_metadata;
 mod log_records;
 use log_metadata::LogMetadataImpl;
 use log_records::LogRecordsImpl;
 
+use crate::config::{Config, LoggingConfig, TlsConfig};
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
-        .init();
+    let config = parse_config()?;
+
+    configure_logging(&config.logging)?;
 
     let (_, agent_health_service) = tonic_health::server::health_reporter();
     let reflection_service = tonic_reflection::server::Builder::configure()
@@ -28,21 +34,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .build_v1()?;
     let (term_tx, _term_rx) = broadcast::channel(1);
     let task_tracker = TaskTracker::new();
-    let tls_config = build_tls_config()?;
 
-    Server::builder()
-        .tls_config(tls_config)?
+    let mut server = enable_tls(Server::builder(), &config.tls)?;
+
+    server
         .add_service(agent_health_service)
         .add_service(reflection_service)
         .add_service(LogMetadataServiceServer::new(LogMetadataImpl::new(
+            config.logs_dir.clone(),
             term_tx.clone(),
             task_tracker.clone(),
         )))
         .add_service(LogRecordsServiceServer::new(LogRecordsImpl::new(
+            config.logs_dir.clone(),
             term_tx.clone(),
             task_tracker.clone(),
         )))
-        .serve_with_shutdown("[::]:50051".parse()?, shutdown(term_tx))
+        .serve_with_shutdown(config.address, shutdown(term_tx))
         .await
         .unwrap();
 
@@ -54,17 +62,62 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn build_tls_config() -> Result<ServerTlsConfig, Box<dyn Error>> {
-    let cert = read_to_string("/etc/kubetail/tls.crt")?;
-    let key = read_to_string("/etc/kubetail/tls.key")?;
+#[allow(clippy::cognitive_complexity)]
+fn parse_config() -> Result<Config, Box<(dyn Error + 'static)>> {
+    let matches = command!()
+        .arg(
+            arg!(
+                -c --config <FILE> "Config file path"
+            )
+            .required(true)
+            .value_parser(value_parser!(PathBuf)),
+        )
+        .get_matches();
+
+    let config_path = matches.get_one::<PathBuf>("config").unwrap();
+    let config = Config::parse(config_path)?;
+
+    Ok(config)
+}
+
+fn enable_tls(server: Server, tls_config: &TlsConfig) -> Result<Server, Box<dyn Error>> {
+    if !tls_config.enabled {
+        return Ok(server);
+    }
+
+    let cert = read_to_string(tls_config.cert_file.as_ref().unwrap())?;
+    let key = read_to_string(tls_config.key_file.as_ref().unwrap())?;
     let server_identity = Identity::from_pem(cert, key);
 
-    let client_ca_cert = read_to_string("/etc/kubetail/ca.crt")?;
-    let client_ca_cert = Certificate::from_pem(client_ca_cert);
+    let mut server_tls_config = ServerTlsConfig::new().identity(server_identity);
 
-    Ok(ServerTlsConfig::new()
-        .identity(server_identity)
-        .client_ca_root(client_ca_cert))
+    if let Some(client_auth) = &tls_config.client_auth
+        && client_auth == "require-and-verify"
+    {
+        let client_ca_cert = read_to_string(tls_config.ca_file.as_ref().unwrap())?;
+        let client_ca_cert = Certificate::from_pem(client_ca_cert);
+
+        server_tls_config = server_tls_config.client_ca_root(client_ca_cert);
+    }
+
+    server.tls_config(server_tls_config).map_err(Into::into)
+}
+
+fn configure_logging(logging_config: &LoggingConfig) -> Result<(), Box<dyn Error>> {
+    if !logging_config.enabled {
+        return Ok(());
+    }
+
+    let sub_builder =
+        tracing_subscriber::fmt().with_max_level(tracing::Level::from_str(&logging_config.level)?);
+
+    if logging_config.format == "pretty" {
+        sub_builder.pretty().init();
+    } else {
+        sub_builder.json().init();
+    }
+
+    Ok(())
 }
 
 async fn shutdown(term_tx: Sender<()>) {
