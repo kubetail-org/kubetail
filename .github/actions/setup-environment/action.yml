@@ -42,10 +42,7 @@ runs:
        if: inputs.setup-rust == 'true' && inputs.github-token != ''
        shell: bash
       run: |
-        git config --global url."https://${{ inputs.GITHUB_TOKEN }}:@github.com/".insteadOf "https://github.com/"
-      shell: bash
-      run: |
-        git config --global url."https://${{ secrets.GITHUB_TOKEN }}:@github.com/".insteadOf "https://github.com/"
+        git config --global url."https://${{ inputs.github-token }}:@github.com/".insteadOf "https://github.com/"
 
     - name: Set up Protoc
       if: inputs.setup-protoc == 'true'
