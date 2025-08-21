@@ -6,6 +6,8 @@ toolchain go1.24.5
 
 replace github.com/kubetail-org/kubetail/modules/shared => ../shared
 
+replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
+
 require (
 	github.com/99designs/gqlgen v0.17.75
 	github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef
