@@ -46,6 +46,7 @@ regex = "1.11.1"
 clap = { version = "4.5.45", features = ["cargo"] }
 config = "0.15.14"
 serde = "1.0"
+subst = "0.3.8"
 
 [dev-dependencies]
 serial_test = "3.2.0"

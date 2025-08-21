@@ -1,13 +1,14 @@
 use std::{
     error::Error,
     io,
-    net::SocketAddr,
+    net::{AddrParseError, SocketAddr},
     path::{Path, PathBuf},
 };
 
-use config::builder::DefaultState;
+use config::{File, FileFormat, builder::DefaultState};
 use regex::Regex;
 use serde::Deserialize;
+use tokio::fs;
 
 #[derive(Debug)]
 pub struct Config {
@@ -58,9 +59,13 @@ pub struct TlsConfig {
 }
 
 impl Config {
-    pub fn parse(path: &Path) -> Result<Self, Box<dyn Error + 'static>> {
+    pub async fn parse(path: &Path) -> Result<Self, Box<dyn Error + 'static>> {
+        let config_content = fs::read_to_string(path).await?;
+        let config_content = subst::substitute(&config_content, &subst::Env)?;
+        let format = Self::get_format(path)?;
+
         let settings = Self::builder_with_defaults()?
-            .add_source(config::File::with_name(&path.to_string_lossy()))
+            .add_source(File::from_str(&config_content, format))
             .build()?;
 
         let full_config: FullConfig = settings.try_deserialize()?;
@@ -93,16 +98,16 @@ impl Config {
         })
     }
 
-    fn parse_address(address: &str) -> Result<SocketAddr, Box<dyn Error + 'static>> {
+    fn parse_address(address: &str) -> Result<SocketAddr, AddrParseError> {
         let shorthand_regex = Regex::new(r"^:(?<socket>\d+)$").unwrap();
 
         if let Some(captures) = shorthand_regex.captures(address) {
             let socket_str = format!("[::]:{}", &captures["socket"]);
 
-            return Ok(socket_str.parse()?);
+            return socket_str.parse();
         }
 
-        Ok(address.parse()?)
+        address.parse()
     }
 
     fn builder_with_defaults() -> Result<config::ConfigBuilder<DefaultState>, config::ConfigError> {
@@ -113,5 +118,27 @@ impl Config {
             .set_default("cluster-agent.logging.level", "info")?
             .set_default("cluster-agent.logging.format", "json")?
             .set_default("cluster-agent.tls.enabled", false)
+    }
+
+    fn get_format(path: &Path) -> Result<FileFormat, Box<io::Error>> {
+        let extension = path
+            .extension()
+            .map(|os_str| os_str.to_string_lossy().to_lowercase());
+
+        match extension.as_deref() {
+            Some("toml") => Ok(FileFormat::Toml),
+            Some("json") => Ok(FileFormat::Json),
+            Some("yaml" | "yml") => Ok(FileFormat::Yaml),
+            Some("ron") => Ok(FileFormat::Ron),
+            Some("ini") => Ok(FileFormat::Ini),
+            Some("json5") => Ok(FileFormat::Json5),
+            _ => Err(Box::new(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!(
+                    "configuration file \"{}\" is not of a registered file format",
+                    path.to_string_lossy()
+                ),
+            ))),
+        }
     }
 }

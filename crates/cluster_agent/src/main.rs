@@ -24,7 +24,7 @@ use crate::config::{Config, LoggingConfig, TlsConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let config = parse_config()?;
+    let config = parse_config().await?;
 
     configure_logging(&config.logging)?;
 
@@ -63,7 +63,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 #[allow(clippy::cognitive_complexity)]
-fn parse_config() -> Result<Config, Box<(dyn Error + 'static)>> {
+async fn parse_config() -> Result<Config, Box<(dyn Error + 'static)>> {
     let matches = command!()
         .arg(
             arg!(
@@ -75,7 +75,7 @@ fn parse_config() -> Result<Config, Box<(dyn Error + 'static)>> {
         .get_matches();
 
     let config_path = matches.get_one::<PathBuf>("config").unwrap();
-    let config = Config::parse(config_path)?;
+    let config = Config::parse(config_path).await?;
 
     Ok(config)
 }
