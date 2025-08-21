@@ -101,14 +101,6 @@ jobs:
         os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-14, macos-13, windows-latest]
         module: [cli, cluster-agent, cluster-api, dashboard, shared]
         exclude:
-          - os: macos-15
-            module: cluster-api
-          - os: macos-15
-            module: cluster-agent
-          - os: macos-14
-            module: cluster-api
-          - os: macos-14
-            module: cluster-agent
           - os: macos-13
             module: cluster-api
           - os: macos-13
