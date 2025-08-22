@@ -3,7 +3,7 @@ use std::fs::read_to_string;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use clap::{arg, command, value_parser};
+use clap::{ArgAction, arg, command, value_parser};
 use tokio::signal::ctrl_c;
 use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::broadcast::{self, Sender};
@@ -67,17 +67,37 @@ async fn parse_config() -> Result<Config, Box<(dyn Error + 'static)>> {
     let matches = command!()
         .arg(
             arg!(
-                -c --config <FILE> "Config file path"
+                -c --config <FILE> "Configuration file path"
             )
             .required(true)
             .value_parser(value_parser!(PathBuf)),
         )
+        .arg(
+            arg!(-p - -param <CONFIG_PAIR> "Configuration overrides")
+                .action(ArgAction::Append)
+                .value_parser(parse_overrides),
+        )
         .get_matches();
 
     let config_path = matches.get_one::<PathBuf>("config").unwrap();
-    let config = Config::parse(config_path).await?;
+    let overrides: Vec<(String, String)> = matches
+        .get_many("param")
+        .map_or_else(Vec::new, |params| params.cloned().collect());
+
+    let config = Config::parse(config_path, overrides).await?;
 
     Ok(config)
+}
+
+fn parse_overrides(param: &str) -> Result<(String, String), String> {
+    if let Some((name, value)) = param.split_once('=') {
+        Ok((name.to_owned(), value.to_owned()))
+    } else {
+        Err(
+            "configuration should have format <config name>=<value>, i.e. logging.level=debug"
+                .to_owned(),
+        )
+    }
 }
 
 fn enable_tls(server: Server, tls_config: &TlsConfig) -> Result<Server, Box<dyn Error>> {
