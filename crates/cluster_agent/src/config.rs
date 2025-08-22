@@ -59,12 +59,22 @@ pub struct TlsConfig {
 }
 
 impl Config {
-    pub async fn parse(path: &Path) -> Result<Self, Box<dyn Error + 'static>> {
+    pub async fn parse(
+        path: &Path,
+        overrides: Vec<(String, String)>,
+    ) -> Result<Self, Box<dyn Error + 'static>> {
         let config_content = fs::read_to_string(path).await?;
         let config_content = subst::substitute(&config_content, &subst::Env)?;
         let format = Self::get_format(path)?;
 
-        let settings = Self::builder_with_defaults()?
+        let mut settings = Self::builder_with_defaults()?;
+
+        for (config_key, config_value) in overrides {
+            settings =
+                settings.set_override("cluster-agent.".to_owned() + &config_key, config_value)?;
+        }
+
+        let settings = settings
             .add_source(File::from_str(&config_content, format))
             .build()?;
 
