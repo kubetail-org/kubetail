@@ -166,12 +166,20 @@ var serveCmd = &cobra.Command{
 			err = browser.OpenURL(fmt.Sprintf("http://%s:%d/", host, port))
 			if err != nil {
 				if runtime.GOOS == "linux" {
-					zlog.Warn().Msgf("Unable to open browser automatically. On Linux systems, you may need to install one of the following packages:")
-					zlog.Warn().Msgf("  - xdg-utils (provides xdg-open)")
-					zlog.Warn().Msgf("  - x-www-browser")
-					zlog.Warn().Msgf("  - www-browser")
-					zlog.Warn().Msgf("Alternatively, you can use the --skip-open flag to skip browser opening.")
-					zlog.Warn().Msgf("Please open the dashboard URL manually.")
+					// zlog.Warn().Msgf("Unable to open browser automatically. On Linux systems, you may need to install one of the following packages:")
+					// zlog.Warn().Msgf("  - xdg-utils (provides xdg-open)")
+					// zlog.Warn().Msgf("  - x-www-browser")
+					// zlog.Warn().Msgf("  - www-browser")
+					// zlog.Warn().Msgf("Alternatively, you can use the --skip-open flag to skip browser opening.")
+					// zlog.Warn().Msgf("Please open the dashboard URL manually.")
+					zlog.Warn().Msg(`Unable to open browser automatically. 
+					On Linux systems, you may need to install one of the following packages:
+					- xdg-utils (provides xdg-open)
+					- x-www-browser
+					- www-browser
+
+					Alternatively, you can use the --skip-open flag to skip browser opening.
+					Please open the dashboard URL manually.`)
 				} else {
 					zlog.Warn().Err(err).Msg("Unable to open browser automatically. Please open the dashboard URL manually.")
 				}
