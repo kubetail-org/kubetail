@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -164,7 +165,16 @@ var serveCmd = &cobra.Command{
 		if !skipOpen {
 			err = browser.OpenURL(fmt.Sprintf("http://%s:%d/", host, port))
 			if err != nil {
-				zlog.Warn().Err(err).Msg("Unable to open browser automatically. Please open the dashboard URL manually.")
+				if runtime.GOOS == "linux" {
+					zlog.Warn().Msgf("Unable to open browser automatically. On Linux systems, you may need to install one of the following packages:")
+					zlog.Warn().Msgf("  - xdg-utils (provides xdg-open)")
+					zlog.Warn().Msgf("  - x-www-browser")
+					zlog.Warn().Msgf("  - www-browser")
+					zlog.Warn().Msgf("Alternatively, you can use the --skip-open flag to skip browser opening.")
+					zlog.Warn().Msgf("Please open the dashboard URL manually.")
+				} else {
+					zlog.Warn().Err(err).Msg("Unable to open browser automatically. Please open the dashboard URL manually.")
+				}
 			}
 		}
 
