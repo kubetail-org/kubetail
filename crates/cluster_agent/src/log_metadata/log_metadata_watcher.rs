@@ -596,7 +596,13 @@ mod test {
         if let Some(file_size) = file_size {
             assert_eq!(event_file_info.as_ref().unwrap().size, file_size as i64);
         } else {
-            assert_eq!(event_file_info, None);
+            assert_eq!(
+                event_file_info,
+                Some(LogMetadataFileInfo {
+                    size: 0,
+                    last_modified_at: None,
+                })
+            );
         }
     }
 }
