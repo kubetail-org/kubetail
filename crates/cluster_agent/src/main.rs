@@ -14,6 +14,7 @@ use types::cluster_agent::FILE_DESCRIPTOR_SET;
 use types::cluster_agent::log_metadata_service_server::LogMetadataServiceServer;
 use types::cluster_agent::log_records_service_server::LogRecordsServiceServer;
 
+mod authorizer;
 mod config;
 mod log_metadata;
 mod log_records;

@@ -13,6 +13,8 @@ use rgkl::{stream_backward, stream_forward};
 
 use tonic::{Request, Response, Status};
 
+use crate::authorizer::Authorizer;
+
 #[derive(Debug)]
 pub struct LogRecordsImpl {
     logs_dir: PathBuf,
@@ -62,10 +64,14 @@ impl LogRecordsService for LogRecordsImpl {
         &self,
         request: Request<LogRecordsStreamRequest>,
     ) -> Result<Response<Self::StreamBackwardStream>, Status> {
+        let authorizer = Authorizer::new(request.metadata()).await?;
         let request = request.into_inner();
         let file_path = self.get_log_filename(&request).map_err(|status| *status)?;
         let (tx, rx) = mpsc::channel(100);
         let term_tx = self.term_tx.clone();
+
+        let namespaces = vec![request.namespace.clone()];
+        authorizer.is_authorized(&namespaces, "list").await?;
 
         self.task_tracker.spawn(async move {
             stream_backward::stream_backward(
@@ -91,8 +97,12 @@ impl LogRecordsService for LogRecordsImpl {
         &self,
         request: Request<LogRecordsStreamRequest>,
     ) -> Result<Response<Self::StreamForwardStream>, Status> {
+        let authorizer = Authorizer::new(request.metadata()).await?;
         let request = request.into_inner();
         let file_path = self.get_log_filename(&request).map_err(|status| *status)?;
+
+        let namespaces = vec![request.namespace.clone()];
+        authorizer.is_authorized(&namespaces, "list").await?;
 
         let (tx, rx) = mpsc::channel(100);
         let term_tx = self.term_tx.clone();
