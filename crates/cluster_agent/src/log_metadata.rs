@@ -19,6 +19,7 @@ use types::cluster_agent::{
     LogMetadataWatchEvent, LogMetadataWatchRequest,
 };
 
+use crate::authorizer::Authorizer;
 use crate::log_metadata::log_metadata_watcher::LogMetadataWatcher;
 
 mod log_metadata_watcher;
@@ -99,6 +100,7 @@ impl LogMetadataService for LogMetadataImpl {
         &self,
         request: Request<LogMetadataListRequest>,
     ) -> Result<Response<LogMetadataList>, Status> {
+        let authorizer = Authorizer::new(request.metadata()).await?;
         let request = request.into_inner();
 
         if !self.logs_dir.is_dir() {
@@ -116,6 +118,8 @@ impl LogMetadataService for LogMetadataImpl {
             .into_iter()
             .filter(|namespace| !namespace.is_empty())
             .collect();
+
+        authorizer.is_authorized(&namespaces, "list").await?;
 
         let mut files = ReadDirStream::new(read_dir(&self.logs_dir).await?);
 
@@ -173,6 +177,7 @@ impl LogMetadataService for LogMetadataImpl {
         &self,
         request: Request<LogMetadataWatchRequest>,
     ) -> Result<Response<Self::WatchStream>, Status> {
+        let authorizer = Authorizer::new(request.metadata()).await?;
         let request = request.into_inner();
         let term_tx = self.term_tx.clone();
 
@@ -181,6 +186,8 @@ impl LogMetadataService for LogMetadataImpl {
             .into_iter()
             .filter(|namespace| !namespace.is_empty())
             .collect();
+
+        authorizer.is_authorized(&namespaces, "watch").await?;
 
         let (log_metadata_watcher, log_metadata_rx) = LogMetadataWatcher::new(
             Path::new(&self.logs_dir).to_path_buf(),
