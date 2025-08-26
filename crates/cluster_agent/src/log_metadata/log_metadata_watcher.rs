@@ -540,30 +540,35 @@ mod test {
             .unwrap();
         let _ = renamed_file.write_all(&vec![1; 5]);
 
-        let event = log_metadata_rx.recv().await.unwrap().unwrap();
-        verify_event(
-            event,
-            "DELETED",
-            "containerid",
-            "The node name",
-            "namespace",
-            "pod-name",
-            "container-name",
-            None,
-        );
+        for _i in 0..2 {
+            let event = log_metadata_rx.recv().await.unwrap().unwrap();
 
-        let event = log_metadata_rx.recv().await.unwrap().unwrap();
-
-        verify_event(
-            event,
-            "MODIFIED",
-            "updatedcontainerid",
-            "The node name",
-            "namespace",
-            "pod-name",
-            "container-name",
-            Some(9),
-        );
+            // Events can appear in different order depending on the platform that the test
+            // is executed.
+            if event.r#type == "DELETED" {
+                verify_event(
+                    event,
+                    "DELETED",
+                    "containerid",
+                    "The node name",
+                    "namespace",
+                    "pod-name",
+                    "container-name",
+                    None,
+                );
+            } else {
+                verify_event(
+                    event,
+                    "MODIFIED",
+                    "updatedcontainerid",
+                    "The node name",
+                    "namespace",
+                    "pod-name",
+                    "container-name",
+                    Some(9),
+                );
+            }
+        }
 
         let result = log_metadata_rx.try_recv();
         assert!(matches!(result, Err(TryRecvError::Empty)));
