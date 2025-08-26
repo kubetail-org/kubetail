@@ -97,7 +97,7 @@ impl Authorizer {
 impl Authorizer {
     pub async fn new(_request_metadata: &MetadataMap) -> Result<Self, Status> {
         Ok(Self {
-            k8s_config: Config::infer().await.unwrap(),
+            k8s_config: Config::new(http::Uri::from_static("http://k8s.url")),
         })
     }
 

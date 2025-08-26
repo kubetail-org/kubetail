@@ -18,7 +18,7 @@ jobs:
           setup-rust: "true"
           setup-protoc: "true"
       - name: Build
-        working-directory: ./crates/rgkl
+        working-directory: ./crates
         run: cargo build --release
 
   crates-lint:
@@ -30,7 +30,7 @@ jobs:
           setup-rust: "true"
           setup-protoc: "true"
       - name: Run format check
-        working-directory: ./crates/rgkl
+        working-directory: ./crates
         run: cargo fmt --all -- --check
 
   crates-vet:
@@ -42,7 +42,7 @@ jobs:
           setup-rust: "true"
           setup-protoc: "true"
       - name: Run clippy
-        working-directory: ./crates/rgkl
+        working-directory: ./crates
         run: cargo clippy --all -- -D warnings
 
   crates-test:
@@ -54,7 +54,7 @@ jobs:
           setup-rust: "true"
           setup-protoc: "true"
       - name: Run tests
-        working-directory: ./crates/rgkl
+        working-directory: ./crates
         run: cargo test
 
   modules-lint:
