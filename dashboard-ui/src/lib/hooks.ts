@@ -12,16 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useApolloClient, useQuery, useSubscription } from '@apollo/client';
+import { useApolloClient, useQuery } from '@apollo/client';
 import type { TypedDocumentNode, OperationVariables, Unmasked, MaybeMasked } from '@apollo/client';
 import distinctColors from 'distinct-colors';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import appConfig from '@/app-config';
-import { getClusterAPIClient } from '@/apollo-client';
 import { LOCAL_STORAGE_KEY } from '@/components/widgets/EnvironmentControl';
-import * as dashboardOps from '@/lib/graphql/dashboard/ops';
-import * as clusterAPIOps from '@/lib/graphql/cluster-api/ops';
+import {
+  SOURCE_PICKER_CRONJOBS_COUNT_FETCH,
+  SOURCE_PICKER_CRONJOBS_COUNT_WATCH,
+  SOURCE_PICKER_DAEMONSETS_COUNT_FETCH,
+  SOURCE_PICKER_DAEMONSETS_COUNT_WATCH,
+  SOURCE_PICKER_DEPLOYMENTS_COUNT_FETCH,
+  SOURCE_PICKER_DEPLOYMENTS_COUNT_WATCH,
+  SOURCE_PICKER_JOBS_COUNT_FETCH,
+  SOURCE_PICKER_JOBS_COUNT_WATCH,
+  SOURCE_PICKER_PODS_COUNT_FETCH,
+  SOURCE_PICKER_PODS_COUNT_WATCH,
+  SOURCE_PICKER_REPLICASETS_COUNT_FETCH,
+  SOURCE_PICKER_REPLICASETS_COUNT_WATCH,
+  SOURCE_PICKER_STATEFULSETS_COUNT_FETCH,
+  SOURCE_PICKER_STATEFULSETS_COUNT_WATCH,
+} from '@/lib/graphql/dashboard/ops';
 import { Counter, safeDigest } from './util';
 import { WorkloadKind } from './workload';
 import { Status, useClusterAPIServerStatus } from './server-status';
@@ -470,96 +483,6 @@ export function useIsClusterAPIEnabled(kubeContext: string | null) {
 }
 
 /**
- * LogMetadata hook
- */
-
-type LogMetadataHookOptions = {
-  enabled: boolean;
-  kubeContext: string;
-  onUpdate?: (containerID: string, fileInfo: { size: string; lastModifiedAt: Date }) => void;
-};
-
-export function useLogMetadata(options?: LogMetadataHookOptions) {
-  const retryOnError = useRetryOnError();
-
-  const connectArgs = {
-    kubeContext: options?.kubeContext || '',
-    namespace: 'kubetail-system',
-    serviceName: 'kubetail-cluster-api',
-  };
-
-  const readyWait = useSubscription(dashboardOps.CLUSTER_API_READY_WAIT, {
-    skip: !options?.enabled,
-    variables: connectArgs,
-  });
-
-  const ready = readyWait.data?.clusterAPIReadyWait;
-
-  // initial query
-  const { loading, error, data, subscribeToMore, refetch } = useQuery(clusterAPIOps.LOG_METADATA_LIST_FETCH, {
-    skip: ready !== true || !options?.enabled,
-    client: getClusterAPIClient(connectArgs),
-    onError: () => {
-      retryOnError(refetch);
-    },
-  });
-
-  const { onUpdate } = options || {};
-
-  // subscribe to changes
-  useEffect(() => {
-    // wait for all data to get fetched
-    if (!ready || loading || error || !options?.enabled) return;
-
-    return subscribeToMore({
-      document: clusterAPIOps.LOG_METADATA_LIST_WATCH,
-      updateQuery: (prev, { subscriptionData }) => {
-        const ev = subscriptionData.data.logMetadataWatch;
-
-        if (!ev?.type || !ev?.object) return prev;
-
-        if (!prev.logMetadataList) return prev;
-
-        // execute callback
-        if (ev.type === 'MODIFIED' || ev.type === 'ADDED') {
-          if (onUpdate) {
-            const { size } = ev.object.fileInfo;
-            let { lastModifiedAt } = ev.object.fileInfo;
-            lastModifiedAt = lastModifiedAt ? new Date(lastModifiedAt) : new Date(0);
-            onUpdate(ev.object.spec.containerID, { size, lastModifiedAt });
-          }
-        }
-
-        // let apollo handle update
-        if (ev.type === 'MODIFIED') {
-          return prev;
-        }
-
-        const merged = { ...prev.logMetadataList };
-        let items = Array.from(merged.items);
-
-        // merge
-        switch (ev.type) {
-          case 'ADDED':
-            items.push(ev.object);
-            break;
-          case 'DELETED':
-            items = items.filter((item) => item.id !== ev.object?.id);
-            break;
-          default:
-            throw new Error('not implemented');
-        }
-
-        merged.items = items;
-        return { logMetadataList: merged };
-      },
-    });
-  }, [subscribeToMore, loading, error]);
-
-  return { loading, error, data };
-}
-
-/**
  * Color picker hook
  */
 
@@ -595,56 +518,56 @@ export function useColors(streams: string[]) {
 
 export function useWorkloadCounter(kubeContext: string, namespace = '') {
   const cronjobs = useCounterQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_CRONJOBS_COUNT_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_CRONJOBS_COUNT_WATCH,
+    query: SOURCE_PICKER_CRONJOBS_COUNT_FETCH,
+    subscription: SOURCE_PICKER_CRONJOBS_COUNT_WATCH,
     queryDataKey: 'batchV1CronJobsList',
     subscriptionDataKey: 'batchV1CronJobsWatch',
     variables: { kubeContext, namespace },
   });
 
   const daemonsets = useCounterQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_DAEMONSETS_COUNT_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_DAEMONSETS_COUNT_WATCH,
+    query: SOURCE_PICKER_DAEMONSETS_COUNT_FETCH,
+    subscription: SOURCE_PICKER_DAEMONSETS_COUNT_WATCH,
     queryDataKey: 'appsV1DaemonSetsList',
     subscriptionDataKey: 'appsV1DaemonSetsWatch',
     variables: { kubeContext, namespace },
   });
 
   const deployments = useCounterQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_DEPLOYMENTS_COUNT_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_DEPLOYMENTS_COUNT_WATCH,
+    query: SOURCE_PICKER_DEPLOYMENTS_COUNT_FETCH,
+    subscription: SOURCE_PICKER_DEPLOYMENTS_COUNT_WATCH,
     queryDataKey: 'appsV1DeploymentsList',
     subscriptionDataKey: 'appsV1DeploymentsWatch',
     variables: { kubeContext, namespace },
   });
 
   const jobs = useCounterQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_JOBS_COUNT_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_JOBS_COUNT_WATCH,
+    query: SOURCE_PICKER_JOBS_COUNT_FETCH,
+    subscription: SOURCE_PICKER_JOBS_COUNT_WATCH,
     queryDataKey: 'batchV1JobsList',
     subscriptionDataKey: 'batchV1JobsWatch',
     variables: { kubeContext, namespace },
   });
 
   const pods = useCounterQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_PODS_COUNT_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_PODS_COUNT_WATCH,
+    query: SOURCE_PICKER_PODS_COUNT_FETCH,
+    subscription: SOURCE_PICKER_PODS_COUNT_WATCH,
     queryDataKey: 'coreV1PodsList',
     subscriptionDataKey: 'coreV1PodsWatch',
     variables: { kubeContext, namespace },
   });
 
   const replicasets = useCounterQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_REPLICASETS_COUNT_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_REPLICASETS_COUNT_WATCH,
+    query: SOURCE_PICKER_REPLICASETS_COUNT_FETCH,
+    subscription: SOURCE_PICKER_REPLICASETS_COUNT_WATCH,
     queryDataKey: 'appsV1ReplicaSetsList',
     subscriptionDataKey: 'appsV1ReplicaSetsWatch',
     variables: { kubeContext, namespace },
   });
 
   const statefulsets = useCounterQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_STATEFULSETS_COUNT_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_STATEFULSETS_COUNT_WATCH,
+    query: SOURCE_PICKER_STATEFULSETS_COUNT_FETCH,
+    subscription: SOURCE_PICKER_STATEFULSETS_COUNT_WATCH,
     queryDataKey: 'appsV1StatefulSetsList',
     subscriptionDataKey: 'appsV1StatefulSetsWatch',
     variables: { kubeContext, namespace },
