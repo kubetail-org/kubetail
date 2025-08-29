@@ -11,89 +11,31 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-FROM rust:1.87.0-slim AS rustbuilder
+FROM rust:1.88-slim AS builder
 
 WORKDIR /work
 
-# System dependencies
 RUN apt-get update && apt-get install -yq protobuf-compiler
 
 # Install Rust dependencies (for cache)
 COPY crates/ ./crates
-RUN cd crates/rgkl && cargo fetch
-
-# Copy code
-COPY . .
+COPY proto/ ./proto
+RUN cd crates && cargo fetch
 
 # Build
-RUN cd crates && cargo build -p rgkl --release
-
-# Cross-platform trickery
-RUN \
-    ARCH="$(uname -m)" && \
-    if [ "$ARCH" = "x86_64" ]; then \
-      mkdir -p /lib/aarch64-linux-gnu; \
-      touch /lib/aarch64-linux-gnu/libgcc_s.so.1; \
-      touch /lib/aarch64-linux-gnu/libpthread.so.0; \
-      touch /lib/aarch64-linux-gnu/libdl.so.2; \
-      touch /lib/aarch64-linux-gnu/libc.so.6; \
-      touch /lib/ld-linux-aarch64.so.1; \
-    elif [ "$ARCH" = "aarch64" ]; then \
-      mkdir -p /lib/x86_64-linux-gnu/; \
-      touch /lib/x86_64-linux-gnu/libgcc_s.so.1; \
-      touch /lib/x86_64-linux-gnu/libc.so.6; \
-      mkdir /lib64; \
-      touch /lib64/ld-linux-x86-64.so.2; \
-    else \
-      echo "Unsupported architecture: $ARCH"; exit 1; \
-    fi
+RUN cd crates && cargo build --release
 
 # -----------------------------------------------------------
 
-FROM golang:1.24.5 AS gobuilder
-
-WORKDIR /work
-
-# install dependencies (for cache)
-COPY modules/shared/go.mod ./shared/go.mod
-COPY modules/shared/go.sum ./shared/go.sum
-COPY modules/cluster-agent/go.mod ./cluster-agent/go.mod
-COPY modules/cluster-agent/go.sum ./cluster-agent/go.sum
-RUN cd cluster-agent && go mod download all
-
-# copy code
-COPY modules/shared ./shared
-COPY modules/cluster-agent ./cluster-agent
-
-# build cluster-agent
-ENV CGO_ENABLED=0
-RUN cd cluster-agent && go build -ldflags="-s -w" -o ../bin/cluster-agent ./cmd/main.go
-
-# -----------------------------------------------------------
-
-FROM scratch AS final
+FROM debian:stable-slim AS final
 
 WORKDIR /cluster-agent
 
 # copy grpc-health-probe
 COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
 
-# copy glibc runtime libraries and dynamic loader (aarch64)
-COPY --from=rustbuilder /lib/aarch64-linux-gnu/libgcc_s.so.1 /lib/aarch64-linux-gnu/
-COPY --from=rustbuilder /lib/aarch64-linux-gnu/libpthread.so.0 /lib/aarch64-linux-gnu/
-COPY --from=rustbuilder /lib/aarch64-linux-gnu/libdl.so.2 /lib/aarch64-linux-gnu/
-COPY --from=rustbuilder /lib/aarch64-linux-gnu/libc.so.6 /lib/aarch64-linux-gnu/
-COPY --from=rustbuilder /lib/ld-linux-aarch64.so.1 /lib/
-
-# copy glibc runtime libraries and dynamic loader (x86_64)
-COPY --from=rustbuilder /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/
-COPY --from=rustbuilder /lib/x86_64-linux-gnu/libc.so.6 /lib/x86_64-linux-gnu/
-COPY --from=rustbuilder /lib64/ld-linux-x86-64.so.2 /lib64/
-
-# copy executables
-COPY --from=rustbuilder /work/crates/target/release/rgkl .
-COPY --from=gobuilder /work/bin/cluster-agent .
+# copy executable
+COPY --from=builder /work/crates/target/release/cluster_agent cluster-agent
 
 ENTRYPOINT ["./cluster-agent"]
 CMD []

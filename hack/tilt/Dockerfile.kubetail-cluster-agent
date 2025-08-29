@@ -1,4 +1,4 @@
-FROM rust:1.88-slim
+FROM rust:1.88-slim AS builder
 
 WORKDIR /work
 
@@ -12,13 +12,17 @@ RUN cd crates && cargo fetch
 # Build
 RUN cd crates && cargo build --release
 
-WORKDIR /cluster-agent
+# -----------------------------------------------------------
 
-RUN mv /work/crates/target/release/cluster_agent cluster-agent
-RUN rm -rf /work
+FROM debian:stable-slim AS final
+
+WORKDIR /cluster-agent
 
 # copy grpc-health-probe
 COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
+
+# copy executable
+COPY --from=builder /work/crates/target/release/cluster_agent cluster-agent
 
 ENTRYPOINT ["./cluster-agent"]
 CMD []
