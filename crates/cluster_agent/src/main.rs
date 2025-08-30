@@ -74,16 +74,21 @@ async fn parse_config() -> Result<Config, Box<(dyn Error + 'static)>> {
             .value_parser(value_parser!(PathBuf)),
         )
         .arg(
-            arg!(-p - -param <CONFIG_PAIR> "Configuration overrides")
+            arg!(-p --param <CONFIG_PAIR> "Configuration overrides")
                 .action(ArgAction::Append)
                 .value_parser(parse_overrides),
         )
+        .arg(arg!(-a --addr <ADDRESS> "Address to listen for connections"))
         .get_matches();
 
     let config_path = matches.get_one::<PathBuf>("config").unwrap();
-    let overrides: Vec<(String, String)> = matches
+    let mut overrides: Vec<(String, String)> = matches
         .get_many("param")
         .map_or_else(Vec::new, |params| params.cloned().collect());
+
+    if let Some(address) = matches.get_one::<String>("addr") {
+        overrides.push(("addr".to_owned(), address.to_owned()));
+    }
 
     let config = Config::parse(config_path, overrides).await?;
 
