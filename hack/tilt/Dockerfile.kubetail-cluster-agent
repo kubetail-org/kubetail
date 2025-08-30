@@ -1,7 +1,8 @@
-FROM rust:1.88-slim
+FROM rust:1.88-slim AS builder
 
 WORKDIR /work
 
+# System dependencies
 RUN apt-get update && apt-get install -yq protobuf-compiler
 
 # Install Rust dependencies (for cache)
@@ -12,13 +13,49 @@ RUN cd crates && cargo fetch
 # Build
 RUN cd crates && cargo build --release
 
-WORKDIR /cluster-agent
+# Cross-platform trickery
+RUN \
+    ARCH="$(uname -m)" && \
+    if [ "$ARCH" = "x86_64" ]; then \
+      mkdir -p /lib/aarch64-linux-gnu; \
+      touch /lib/aarch64-linux-gnu/libgcc_s.so.1; \
+      touch /lib/aarch64-linux-gnu/libpthread.so.0; \
+      touch /lib/aarch64-linux-gnu/libdl.so.2; \
+      touch /lib/aarch64-linux-gnu/libc.so.6; \
+      touch /lib/ld-linux-aarch64.so.1; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+      mkdir -p /lib/x86_64-linux-gnu/; \
+      touch /lib/x86_64-linux-gnu/libgcc_s.so.1; \
+      touch /lib/x86_64-linux-gnu/libc.so.6; \
+      mkdir /lib64; \
+      touch /lib64/ld-linux-x86-64.so.2; \
+    else \
+      echo "Unsupported architecture: $ARCH"; exit 1; \
+    fi
 
-RUN mv /work/crates/target/release/cluster_agent cluster-agent
-RUN rm -rf /work
+# -----------------------------------------------------------
+
+FROM scratch AS final
+
+WORKDIR /cluster-agent
 
 # copy grpc-health-probe
 COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
+
+# copy glibc runtime libraries and dynamic loader (aarch64)
+COPY --from=builder /lib/aarch64-linux-gnu/libgcc_s.so.1 /lib/aarch64-linux-gnu/
+COPY --from=builder /lib/aarch64-linux-gnu/libpthread.so.0 /lib/aarch64-linux-gnu/
+COPY --from=builder /lib/aarch64-linux-gnu/libdl.so.2 /lib/aarch64-linux-gnu/
+COPY --from=builder /lib/aarch64-linux-gnu/libc.so.6 /lib/aarch64-linux-gnu/
+COPY --from=builder /lib/ld-linux-aarch64.so.1 /lib/
+
+# copy glibc runtime libraries and dynamic loader (x86_64)
+COPY --from=builder /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/
+COPY --from=builder /lib/x86_64-linux-gnu/libc.so.6 /lib/x86_64-linux-gnu/
+COPY --from=builder /lib64/ld-linux-x86-64.so.2 /lib64/
+
+# copy executable
+COPY --from=builder /work/crates/target/release/cluster_agent cluster-agent
 
 ENTRYPOINT ["./cluster-agent"]
 CMD []
