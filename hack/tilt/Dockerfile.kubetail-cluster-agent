@@ -22,11 +22,13 @@ RUN \
       touch /lib/aarch64-linux-gnu/libpthread.so.0; \
       touch /lib/aarch64-linux-gnu/libdl.so.2; \
       touch /lib/aarch64-linux-gnu/libc.so.6; \
+      touch /lib/aarch64-linux-gnu/libm.so.6; \
       touch /lib/ld-linux-aarch64.so.1; \
     elif [ "$ARCH" = "aarch64" ]; then \
       mkdir -p /lib/x86_64-linux-gnu/; \
       touch /lib/x86_64-linux-gnu/libgcc_s.so.1; \
       touch /lib/x86_64-linux-gnu/libc.so.6; \
+      touch /lib/x86_64-linux-gnu/libm.so.6; \
       mkdir /lib64; \
       touch /lib64/ld-linux-x86-64.so.2; \
     else \
@@ -35,7 +37,7 @@ RUN \
 
 # -----------------------------------------------------------
 
-FROM scratch AS final
+FROM alpine:3.22.0 AS final
 
 WORKDIR /cluster-agent
 
@@ -47,11 +49,13 @@ COPY --from=builder /lib/aarch64-linux-gnu/libgcc_s.so.1 /lib/aarch64-linux-gnu/
 COPY --from=builder /lib/aarch64-linux-gnu/libpthread.so.0 /lib/aarch64-linux-gnu/
 COPY --from=builder /lib/aarch64-linux-gnu/libdl.so.2 /lib/aarch64-linux-gnu/
 COPY --from=builder /lib/aarch64-linux-gnu/libc.so.6 /lib/aarch64-linux-gnu/
+COPY --from=builder /lib/aarch64-linux-gnu/libm.so.6 /lib/aarch64-linux-gnu/
 COPY --from=builder /lib/ld-linux-aarch64.so.1 /lib/
 
 # copy glibc runtime libraries and dynamic loader (x86_64)
 COPY --from=builder /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/
 COPY --from=builder /lib/x86_64-linux-gnu/libc.so.6 /lib/x86_64-linux-gnu/
+COPY --from=builder /lib/x86_64-linux-gnu/libm.so.6 /lib/x86_64-linux-gnu/
 COPY --from=builder /lib64/ld-linux-x86-64.so.2 /lib64/
 
 # copy executable
