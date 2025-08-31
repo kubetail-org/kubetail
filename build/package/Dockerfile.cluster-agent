@@ -19,7 +19,16 @@ WORKDIR /work
 RUN apt-get update && apt-get install -yq protobuf-compiler
 
 # Install Rust dependencies (for cache)
-COPY crates/ ./crates
+COPY crates/Cargo.toml ./crates/Cargo.toml
+COPY crates/Cargo.lock ./crates/Cargo.lock
+COPY crates/cluster_agent/Cargo.toml ./crates/cluster_agent/Cargo.toml
+COPY crates/rgkl/Cargo.toml ./crates/rgkl/Cargo.toml
+COPY crates/types/Cargo.toml ./crates/types/Cargo.toml
+COPY crates/rust-toolchain.toml ./crates/rust-toolchain.toml
+RUN mkdir -p crates/rgkl/src crates/types/src crates/cluster_agent/src && \
+    echo "// placeholder" > crates/rgkl/src/lib.rs && \
+    echo "// placeholder" > crates/types/src/lib.rs && \
+    echo "fn main() {}" > crates/cluster_agent/src/main.rs
 COPY proto/ ./proto
 RUN cd crates && cargo fetch
 
