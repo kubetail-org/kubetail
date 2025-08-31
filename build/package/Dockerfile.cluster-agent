@@ -44,7 +44,6 @@ RUN \
     if [ "$ARCH" = "x86_64" ]; then \
       mkdir -p /lib/aarch64-linux-gnu; \
       touch /lib/aarch64-linux-gnu/libgcc_s.so.1; \
-      touch /lib/aarch64-linux-gnu/libpthread.so.0; \
       touch /lib/aarch64-linux-gnu/libdl.so.2; \
       touch /lib/aarch64-linux-gnu/libc.so.6; \
       touch /lib/aarch64-linux-gnu/libm.so.6; \
