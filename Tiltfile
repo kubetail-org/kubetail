@@ -147,7 +147,7 @@ if build_rust_locally:
     ],
     ignore=[
       './crates/target',
-      './creates/*/target'
+      './crates/*/target'
     ],
   )
 

@@ -8,5 +8,5 @@
 # kubetail CLI ownership
 /modules/cli/   @rxinui @amorey
 /modules/shared/    @rxinui @amorey
-/modules/cluster-agent/    @rxinui @amorey
 /modules/cluster-api/    @rxinui @amorey
+/crates/    @rxinui @amorey @gikaragia

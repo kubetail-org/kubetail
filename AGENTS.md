@@ -5,10 +5,10 @@ This document provides comprehensive guidance for AI agents working with this co
 ## Monorepo Layout
 
 - `/crates`: Rust crates
+  - `/cluster_agent`: Cluster Agent
 - `/dashboard-ui`: Dashboard frontend (TypeScript/React)
 - `/modules`: Go modules
   - `/cli`: CLI
-  - `/cluster-agent`: Cluster Agent
   - `/cluster-api`: Cluster API
   - `/dashboard`: Dashboard backend
   - `/shared`: Shared Go packages

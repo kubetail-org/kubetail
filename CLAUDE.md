@@ -13,7 +13,7 @@ Kubetail is a real-time logging dashboard for Kubernetes that provides both brow
 - **Dashboard Backend** (`modules/dashboard/`) - Go HTTP server with GraphQL API using Gin framework and gqlgen  
 - **Dashboard Frontend** (`dashboard-ui/`) - React/TypeScript SPA with Apollo Client, Vite, and Tailwind CSS
 - **Cluster API** (`modules/cluster-api/`) - Go-based GraphQL API server for cluster operations
-- **Cluster Agent** (`modules/cluster-agent/`) - Go-based agent that runs in Kubernetes clusters
+- **Cluster Agent** (`crates/cluster_agent/`) - Rust-based agent that runs in Kubernetes clusters
 - **Shared Libraries** (`modules/shared/`) - Common Go packages shared across components
 - **Log Search Engine** (`crates/rgkl/`) - High-performance Rust binary for log searching and streaming
 

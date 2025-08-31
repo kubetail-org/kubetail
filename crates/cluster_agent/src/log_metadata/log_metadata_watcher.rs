@@ -19,7 +19,7 @@ use tokio::{
 };
 use tokio_stream::{StreamExt, wrappers::ReadDirStream};
 use tonic::Status;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 use types::cluster_agent::{LogMetadata, LogMetadataFileInfo, LogMetadataWatchEvent};
 
 use crate::log_metadata::{LOG_FILE_REGEX, LogMetadataImpl};
@@ -140,7 +140,7 @@ impl LogMetadataWatcher {
                             }
 
                             if self.log_metadata_tx.send(metadata_event.map_err(Status::from)).await.is_err() {
-                                    info!("Channel closed from client.");
+                                    debug!("Channel closed from client.");
                                     break 'outer;
                             }
                         }
@@ -156,7 +156,7 @@ impl LogMetadataWatcher {
             }
         }
 
-        info!("Stopping watcher..");
+        debug!("Stopping watcher..");
         debouncer.stop();
     }
 
@@ -168,31 +168,54 @@ impl LogMetadataWatcher {
         watch_event: &LogMetadataWatchEvent,
         watcher: &mut Debouncer<RecommendedWatcher, RecommendedCache>,
     ) {
-        match LogMetadataWatchEventType::from_str(&watch_event.r#type) {
+        let event_type = LogMetadataWatchEventType::from_str(&watch_event.r#type).unwrap();
+
+        if !matches!(
+            event_type,
+            LogMetadataWatchEventType::Added | LogMetadataWatchEventType::Deleted
+        ) {
+            return;
+        }
+
+        let file_path = self.get_file_path(watch_event);
+        let watch_result = match event_type {
             // Methods watch and unwatch can fail on adding an existing path or on removing a
             // non-existing one. There are no specific actions needed in case this happens.
-            Some(LogMetadataWatchEventType::Added) => {
-                let _ = watcher.watch(self.get_file_path(watch_event), RecursiveMode::NonRecursive);
+            LogMetadataWatchEventType::Added => {
+                watcher.watch(&file_path, RecursiveMode::NonRecursive)
             }
-            Some(LogMetadataWatchEventType::Deleted) => {
-                let _ = watcher.unwatch(self.get_file_path(watch_event));
-            }
-            _ => (),
+            LogMetadataWatchEventType::Deleted => watcher.unwatch(&file_path),
+            LogMetadataWatchEventType::Modified => return,
+        };
+
+        if let Err(error) = watch_result {
+            debug!(
+                "Failed to update watcher for event {} file {} with error {}",
+                event_type.as_str(),
+                file_path.to_string_lossy(),
+                error
+            );
+        } else {
+            debug!(
+                "Successfully updated watcher for event {} and file {}",
+                event_type.as_str(),
+                file_path.to_string_lossy()
+            );
         }
     }
 
     // Reconstruct the absolut file path from a LogMetadataWatchEvent.
     fn get_file_path(&self, watch_event: &LogMetadataWatchEvent) -> PathBuf {
         let file_metadata = watch_event.object.as_ref().unwrap().spec.as_ref().unwrap();
-        let mut file_path = self.directory.clone();
-        file_path.set_file_name(format!(
+        let filename = format!(
             "{}_{}_{}-{}.log",
             file_metadata.pod_name,
             file_metadata.namespace,
             file_metadata.container_name,
             file_metadata.container_id
-        ));
-        file_path
+        );
+
+        self.directory.join(filename)
     }
 }
 
@@ -243,10 +266,7 @@ async fn find_log_files(
             if namespaces.is_empty()
                 || namespaces.contains(&captures.name("namespace").unwrap().as_str().to_owned())
             {
-                let mut absolute_path = directory.to_path_buf();
-                absolute_path.push(file.file_name());
-
-                Some(absolute_path)
+                Some(directory.to_path_buf().join(file.file_name()))
             } else {
                 None
             }

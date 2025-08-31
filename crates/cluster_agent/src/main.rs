@@ -38,6 +38,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut server = enable_tls(Server::builder(), &config.tls)?;
 
+    info!("Starting cluster-agent on {}", config.address);
+
     server
         .add_service(agent_health_service)
         .add_service(reflection_service)
@@ -96,11 +98,11 @@ async fn parse_config() -> Result<Config, Box<(dyn Error + 'static)>> {
 }
 
 fn parse_overrides(param: &str) -> Result<(String, String), String> {
-    if let Some((name, value)) = param.split_once('=') {
+    if let Some((name, value)) = param.split_once(':') {
         Ok((name.to_owned(), value.to_owned()))
     } else {
         Err(
-            "configuration should have format <config name>=<value>, i.e. logging.level=debug"
+            "configuration should have format <config name>:<value>, i.e. logging.level:debug"
                 .to_owned(),
         )
     }
@@ -117,13 +119,14 @@ fn enable_tls(server: Server, tls_config: &TlsConfig) -> Result<Server, Box<dyn 
 
     let mut server_tls_config = ServerTlsConfig::new().identity(server_identity);
 
-    if let Some(client_auth) = &tls_config.client_auth
-        && client_auth == "require-and-verify"
-    {
-        let client_ca_cert = read_to_string(tls_config.ca_file.as_ref().unwrap())?;
-        let client_ca_cert = Certificate::from_pem(client_ca_cert);
+    #[allow(clippy::collapsible_if)]
+    if let Some(client_auth) = &tls_config.client_auth {
+        if client_auth == "require-and-verify" {
+            let client_ca_cert = read_to_string(tls_config.ca_file.as_ref().unwrap())?;
+            let client_ca_cert = Certificate::from_pem(client_ca_cert);
 
-        server_tls_config = server_tls_config.client_ca_root(client_ca_cert);
+            server_tls_config = server_tls_config.client_ca_root(client_ca_cert);
+        }
     }
 
     server.tls_config(server_tls_config).map_err(Into::into)

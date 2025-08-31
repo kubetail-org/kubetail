@@ -20,7 +20,6 @@ notify = { workspace = true, features = ["crossbeam-channel"] }
 thiserror = { workspace = true }
 
 tracing = { workspace = true }
-tracing-opentelemetry = { workspace = true, features = ["metrics"] }
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "registry", "std"] }
 tracing-test = { workspace = true }
 

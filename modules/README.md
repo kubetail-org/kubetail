@@ -7,7 +7,6 @@ Workspace that contains the Go modules used by Kubetail
 This workspace contains the following modules:
 
 * [cli](cli) - Kubetail CLI
-* [cluster-agent](cluster-agent) - Kubetail Cluster Agent
 * [cluster-api](cluster-api) - Kubetail Cluster API
 * [dashboard](dashboard) - Kubetail Dashboard
 * [shared](shared) - Shared libraries

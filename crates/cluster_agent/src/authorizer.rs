@@ -1,9 +1,15 @@
+#[cfg(not(test))]
 use k8s_openapi::api::authorization::v1::{
     ResourceAttributes, SelfSubjectAccessReview, SelfSubjectAccessReviewSpec,
 };
-use kube::{Api, Client, Config, api::PostParams, config::AuthInfo};
+
+use kube::Config;
+
+#[cfg(not(test))]
+use kube::{Api, Client, api::PostParams, config::AuthInfo};
 use tonic::{Status, metadata::MetadataMap};
 
+#[allow(dead_code)]
 pub struct Authorizer {
     k8s_config: Config,
 }
