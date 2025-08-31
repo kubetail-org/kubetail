@@ -31,6 +31,10 @@ RUN mkdir -p crates/rgkl/src crates/types/src crates/cluster_agent/src && \
     echo "fn main() {}" > crates/cluster_agent/src/main.rs
 RUN cd crates && cargo fetch
 
+# Copy source code
+COPY crates ./crates
+COPY proto ./proto
+
 # Build
 RUN cd crates && cargo build --release
 
