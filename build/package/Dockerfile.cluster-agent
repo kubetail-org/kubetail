@@ -29,7 +29,6 @@ RUN mkdir -p crates/rgkl/src crates/types/src crates/cluster_agent/src && \
     echo "// placeholder" > crates/rgkl/src/lib.rs && \
     echo "// placeholder" > crates/types/src/lib.rs && \
     echo "fn main() {}" > crates/cluster_agent/src/main.rs
-COPY proto/ ./proto
 RUN cd crates && cargo fetch
 
 # Build
