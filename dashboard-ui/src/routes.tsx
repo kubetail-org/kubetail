@@ -15,11 +15,11 @@
 import { Route } from 'react-router-dom';
 
 import Root from '@/pages/_root';
-import Console from '@/pages/console';
 import ErrorPage from '@/error-page';
-import Home from '@/pages/home';
 import Login from '@/pages/auth/login';
 import Logout from '@/pages/auth/logout';
+import Home from '@/pages/home';
+import Console from '@/pages/console';
 
 export const routes = (
   <Route path="/" element={<Root />} errorElement={<ErrorPage />}>
