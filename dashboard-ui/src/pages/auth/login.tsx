@@ -12,44 +12,58 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { z } from 'zod';
 
-import Button from '@kubetail/ui/elements/Button';
-import Form from '@kubetail/ui/elements/Form';
-import Spinner from '@kubetail/ui/elements/Spinner';
+import { Button } from '@kubetail/ui/elements/button';
+import { Input } from '@kubetail/ui/elements/input';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@kubetail/ui/elements/form';
+import { Spinner } from '@kubetail/ui/elements/spinner';
 
 import ModalLayout from '@/components/layouts/ModalLayout';
 import LoadingPage from '@/components/utils/LoadingPage';
 import { getSession, useSession } from '@/lib/auth';
 
-type LoginFormElement = HTMLFormElement & {
-  token: HTMLInputElement;
-};
+const loginForm = z.object({
+  token: z.string().min(1, 'Please enter a token'),
+});
+
+type LoginForm = z.infer<typeof loginForm>;
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { loading, session } = useSession();
-  const [formErrors, setFormErrors] = useState({} as Record<string, string>);
   const [serverLoading, setServerLoading] = useState(false);
+
+  const form = useForm<LoginForm>({
+    resolver: zodResolver(loginForm),
+    defaultValues: {
+      token: '',
+    },
+  });
 
   // redirect if login status changes
   useEffect(() => {
     if (!loading && session?.user !== null) navigate(searchParams.get('callbackUrl') || '/');
   }, [loading, session?.user]);
 
-  // handle form submit
-  const handleSubmit = async (ev: React.FormEvent<LoginFormElement>) => {
-    ev.preventDefault();
+  if (!session) return <LoadingPage />;
 
-    const formEl = ev.currentTarget;
+  const onSubmit = async (values: LoginForm) => {
+    form.clearErrors();
 
     setServerLoading(true);
     const url = new URL('/api/auth/login', window.location.origin);
     const resp = await fetch(url, {
       method: 'post',
-      body: new FormData(formEl),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(values),
     });
 
     // update session and exit
@@ -62,30 +76,37 @@ export default function LoginPage() {
 
     // update form errors
     try {
-      const { errors } = await resp.json();
-      setFormErrors(errors || {});
+      const { errors }: { errors: LoginForm } = await resp.json();
+      form.setError('token', {
+        message: errors.token,
+      });
     } catch (err) {
       console.log(err);
-      setFormErrors({});
     }
   };
-
-  if (!session) return <LoadingPage />;
 
   return (
     <ModalLayout>
       <h2 className="block mt-6 text-center text-3xl font-extrabold text-chrome-900">Sign into Kubernetes</h2>
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-background py-8 px-4 shadow-sm sm:rounded-lg sm:px-10 relative">
-          <Form onSubmit={handleSubmit}>
-            <Form.Group>
-              <Form.Label>Token</Form.Label>
-              <Form.Control name="token" placeholder="Enter your kubernetes token..." />
-              {formErrors.token && <Form.Control.Feedback>{formErrors.token}</Form.Control.Feedback>}
-            </Form.Group>
-            <Form.Group>
+          <Form {...form}>
+            <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
+              <FormField
+                control={form.control}
+                name="token"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Token</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter your kubernetes token..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <Button type="submit">Sign in</Button>
-            </Form.Group>
+            </form>
           </Form>
           {serverLoading && (
             <div className="absolute top-0 left-0 w-full h-full bg-background bg-opacity-80 flex justify-center items-center">
