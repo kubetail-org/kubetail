@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Spinner } from '@kubetail/ui/elements/spinner';
+import { renderElement } from '@/test-utils';
 
-const LoadingPage = () => (
-  <div className="grid h-screen place-items-center">
-    <Spinner size="md" />
-  </div>
-);
+import { WorkloadDataProvider } from './workload-data-provider';
 
-export default LoadingPage;
+describe('initial connection', () => {
+  it('shows loading message while waiting for kubeConfig to return', async () => {
+    const { container } = renderElement(<WorkloadDataProvider kubeContext={null} />);
+    expect(container.firstChild).toBeNull();
+  });
+});

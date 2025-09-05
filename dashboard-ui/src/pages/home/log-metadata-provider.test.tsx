@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,23 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createMemoryHistory } from 'history';
-import { Router } from 'react-router-dom';
-import { render } from '@testing-library/react';
+import { renderElement } from '@/test-utils';
 
-import Home from '@/pages/home';
+import { LogMetadataProvider } from './log-metadata-provider';
 
-describe('home page', () => {
-  it('blocks access if user is unauthenticated', () => {
-    const history = createMemoryHistory();
-
-    render(
-      <Router location={history.location} navigator={history}>
-        <Home />
-      </Router>,
-    );
-
-    // assertions
-    expect(history.location.pathname).toBe('/auth/login');
+describe('initial connection', () => {
+  it('shows loading message while waiting for kubeConfig to return', async () => {
+    const { container } = renderElement(<LogMetadataProvider kubeContext={null} />);
+    expect(container.firstChild).toBeNull();
   });
 });

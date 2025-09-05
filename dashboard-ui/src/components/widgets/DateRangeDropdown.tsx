@@ -16,11 +16,11 @@ import { parse, isValid } from 'date-fns';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 
-import Button from '@kubetail/ui/elements/Button';
-import { Calendar } from '@kubetail/ui/elements/Calendar';
-import Form from '@kubetail/ui/elements/Form';
-import { Popover, PopoverClose, PopoverTrigger, PopoverContent } from '@kubetail/ui/elements/Popover';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@kubetail/ui/elements/Tabs';
+import { Button } from '@kubetail/ui/elements/button';
+import { Calendar } from '@kubetail/ui/elements/calendar';
+import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@kubetail/ui/elements/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@kubetail/ui/elements/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@kubetail/ui/elements/tabs';
 
 /**
  * Shared types
@@ -31,7 +31,7 @@ export enum DurationUnit {
   Hours = 'hours',
   Days = 'days',
   Weeks = 'weeks',
-  Months = 'moths',
+  Months = 'months',
 }
 
 export class Duration {
@@ -75,8 +75,8 @@ type DurationButtonProps = {
 
 const DurationButton = ({ value, unit, setDurationValue, setDurationUnit }: DurationButtonProps) => (
   <Button
-    intent="outline"
-    size="xs"
+    variant="outline"
+    size="sm"
     onClick={() => {
       setDurationValue(value);
       setDurationUnit(unit);
@@ -141,28 +141,30 @@ const RelativeTimePicker = forwardRef<RelativeTimePickerHandle, unknown>((_, ref
       </div>
       <div className="grid grid-cols-2 w-full gap-5 mt-5">
         <div>
-          <Form.Label>Duration</Form.Label>
-          <Form.Control
-            type="number"
-            min="1"
-            value={durationValue}
-            onChange={(ev) => setDurationValue(ev.target.value)}
-          />
-          {errorMsg && <Form.Control.Feedback>{errorMsg}</Form.Control.Feedback>}
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+          <label>
+            Duration
+            <input type="number" min="1" value={durationValue} onChange={(ev) => setDurationValue(ev.target.value)} />
+          </label>
+          {errorMsg && <div>{errorMsg}</div>}
         </div>
         <div>
-          <Form.Label>Unit</Form.Label>
-          <Form.Select
-            className="mt-0"
-            value={durationUnit}
-            onChange={(ev) => setDurationUnit(ev.target.value as DurationUnit)}
-          >
-            <Form.Option value={DurationUnit.Minutes}>Minutes ago</Form.Option>
-            <Form.Option value={DurationUnit.Hours}>Hours ago</Form.Option>
-            <Form.Option value={DurationUnit.Days}>Days ago</Form.Option>
-            <Form.Option value={DurationUnit.Weeks}>Weeks ago</Form.Option>
-            <Form.Option value={DurationUnit.Months}>Months ago</Form.Option>
-          </Form.Select>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+          <label>
+            Unit
+            <Select value={durationUnit} onValueChange={(value) => setDurationUnit(value as DurationUnit)}>
+              <SelectTrigger className="mt-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={DurationUnit.Minutes}>Minutes ago</SelectItem>
+                <SelectItem value={DurationUnit.Hours}>Hours ago</SelectItem>
+                <SelectItem value={DurationUnit.Days}>Days ago</SelectItem>
+                <SelectItem value={DurationUnit.Weeks}>Weeks ago</SelectItem>
+                <SelectItem value={DurationUnit.Months}>Months ago</SelectItem>
+              </SelectContent>
+            </Select>
+          </label>
         </div>
       </div>
     </>
@@ -241,22 +243,28 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, unknown>((_, ref
       />
       <div className="flex space-x-4 mt-1">
         <div>
-          <Form.Label>Start date</Form.Label>
-          <Form.Control
-            className="w-[110px]"
-            value={manualStartDate}
-            onChange={(ev) => setManualStartDate(ev.target.value)}
-          />
-          {errorMsgs.has('startDate') && <Form.Control.Feedback>{errorMsgs.get('startDate')}</Form.Control.Feedback>}
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+          <label>
+            Start date
+            <input
+              className="w-[110px]"
+              value={manualStartDate}
+              onChange={(ev) => setManualStartDate(ev.target.value)}
+            />
+          </label>
+          {errorMsgs.has('startDate') && <div>{errorMsgs.get('startDate')}</div>}
         </div>
         <div>
-          <Form.Label>Start time</Form.Label>
-          <Form.Control
-            className="w-[110px]"
-            value={manualStartTime}
-            onChange={(ev) => setManualStartTime(ev.target.value)}
-          />
-          {errorMsgs.has('startTime') && <Form.Control.Feedback>{errorMsgs.get('startTime')}</Form.Control.Feedback>}
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+          <label>
+            Start time
+            <input
+              className="w-[110px]"
+              value={manualStartTime}
+              onChange={(ev) => setManualStartTime(ev.target.value)}
+            />
+          </label>
+          {errorMsgs.has('startTime') && <div>{errorMsgs.get('startTime')}</div>}
         </div>
       </div>
     </div>
@@ -264,7 +272,7 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, unknown>((_, ref
 });
 
 /**
- * Date range dropdown component
+ * DateRangeDropdown component
  */
 
 export type DateRangeDropdownOnChangeArgs = {
@@ -272,11 +280,11 @@ export type DateRangeDropdownOnChangeArgs = {
   until: Date | null;
 };
 
-interface DateRangeDropdownProps extends React.PropsWithChildren {
+type DateRangeDropdownProps = {
   onChange: (args: DateRangeDropdownOnChangeArgs) => void;
-}
+};
 
-export const DateRangeDropdown = ({ children, onChange }: DateRangeDropdownProps) => {
+export const DateRangeDropdown = ({ onChange, children }: React.PropsWithChildren<DateRangeDropdownProps>) => {
   const [tabValue, setTabValue] = useState('relative');
 
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
@@ -327,16 +335,16 @@ export const DateRangeDropdown = ({ children, onChange }: DateRangeDropdownProps
           </TabsContent>
         </Tabs>
         <div className="flex justify-between mt-4 p-3 border-t">
-          <Button intent="outline" size="sm" onClick={handleClear}>
+          <Button variant="outline" size="sm" onClick={handleClear}>
             Clear
           </Button>
           <div className="flex space-x-2">
             <PopoverClose asChild>
-              <Button ref={cancelButtonRef} intent="ghost" size="sm">
+              <Button ref={cancelButtonRef} variant="ghost" size="sm">
                 Cancel
               </Button>
             </PopoverClose>
-            <Button intent="primary" size="sm" onClick={handleApply}>
+            <Button size="sm" onClick={handleApply}>
               Apply
             </Button>
           </div>
