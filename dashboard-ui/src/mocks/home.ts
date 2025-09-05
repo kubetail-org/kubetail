@@ -1,4 +1,4 @@
-// Copyright 2024 Andres Morey
+// Copyright 2024-2025 Andres Morey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,11 +26,36 @@ const genericListResponse = (typename: string) => ({
 });
 
 export const mocks: MockedResponse[] = [
+  // kubeConfig
+  {
+    request: {
+      query: dashboardOps.KUBE_CONFIG_WATCH,
+    },
+    result: {
+      data: {
+        kubeConfigWatch: {
+          type: 'ADDED',
+          object: {
+            contexts: [
+              {
+                name: 'test1',
+              },
+              {
+                name: 'test2',
+              },
+            ],
+            currentContext: 'test1',
+          },
+        },
+      },
+    },
+  },
+
   // cronjobs
   {
     request: {
       query: dashboardOps.HOME_CRONJOBS_LIST_FETCH,
-      variables: { namespace: '', continue: '' },
+      variables: { kubeContext: 'test1', namespace: '', continue: '' },
     },
     result: {
       data: {
@@ -41,7 +66,7 @@ export const mocks: MockedResponse[] = [
   {
     request: {
       query: dashboardOps.HOME_CRONJOBS_LIST_WATCH,
-      variables: { namespace: '', resourceVersion: 'v1' },
+      variables: { kubeContext: 'test1', namespace: '', resourceVersion: 'v1' },
     },
     result: {
       data: {
@@ -54,7 +79,7 @@ export const mocks: MockedResponse[] = [
   {
     request: {
       query: dashboardOps.HOME_DAEMONSETS_LIST_FETCH,
-      variables: { namespace: '', continue: '' },
+      variables: { kubeContext: 'test1', namespace: '', continue: '' },
     },
     result: {
       data: {
@@ -65,7 +90,7 @@ export const mocks: MockedResponse[] = [
   {
     request: {
       query: dashboardOps.HOME_DAEMONSETS_LIST_WATCH,
-      variables: { namespace: '', resourceVersion: 'v1' },
+      variables: { kubeContext: 'test1', namespace: '', resourceVersion: 'v1' },
     },
     result: {
       data: {
@@ -78,7 +103,7 @@ export const mocks: MockedResponse[] = [
   {
     request: {
       query: dashboardOps.HOME_DEPLOYMENTS_LIST_FETCH,
-      variables: { namespace: '', continue: '' },
+      variables: { kubeContext: 'test1', namespace: '', continue: '' },
     },
     result: {
       data: {
@@ -89,7 +114,7 @@ export const mocks: MockedResponse[] = [
   {
     request: {
       query: dashboardOps.HOME_DEPLOYMENTS_LIST_WATCH,
-      variables: { namespace: '', resourceVersion: 'v1' },
+      variables: { kubeContext: 'test1', namespace: '', resourceVersion: 'v1' },
     },
     result: {
       data: {
@@ -102,7 +127,7 @@ export const mocks: MockedResponse[] = [
   {
     request: {
       query: dashboardOps.HOME_JOBS_LIST_FETCH,
-      variables: { namespace: '', continue: '' },
+      variables: { kubeContext: 'test1', namespace: '', continue: '' },
     },
     result: {
       data: {
@@ -113,7 +138,7 @@ export const mocks: MockedResponse[] = [
   {
     request: {
       query: dashboardOps.HOME_JOBS_LIST_WATCH,
-      variables: { namespace: '', resourceVersion: 'v1' },
+      variables: { kubeContext: 'test1', namespace: '', resourceVersion: 'v1' },
     },
     result: {
       data: {
@@ -126,7 +151,7 @@ export const mocks: MockedResponse[] = [
   {
     request: {
       query: dashboardOps.HOME_NAMESPACES_LIST_FETCH,
-      variables: { continue: '' },
+      variables: { kubeContext: 'test1', continue: '' },
     },
     result: {
       data: {
@@ -137,7 +162,7 @@ export const mocks: MockedResponse[] = [
   {
     request: {
       query: dashboardOps.HOME_NAMESPACES_LIST_WATCH,
-      variables: { resourceVersion: 'v1' },
+      variables: { kubeContext: 'test1', resourceVersion: 'v1' },
     },
     result: {
       data: {
@@ -150,7 +175,7 @@ export const mocks: MockedResponse[] = [
   {
     request: {
       query: dashboardOps.HOME_PODS_LIST_FETCH,
-      variables: { namespace: '', continue: '' },
+      variables: { kubeContext: 'test1', namespace: '', continue: '' },
     },
     result: {
       data: {
@@ -161,7 +186,7 @@ export const mocks: MockedResponse[] = [
   {
     request: {
       query: dashboardOps.HOME_PODS_LIST_WATCH,
-      variables: { namespace: '', resourceVersion: 'v1' },
+      variables: { kubeContext: 'test1', namespace: '', resourceVersion: 'v1' },
     },
     result: {
       data: {
@@ -174,7 +199,7 @@ export const mocks: MockedResponse[] = [
   {
     request: {
       query: dashboardOps.HOME_REPLICASETS_LIST_FETCH,
-      variables: { namespace: '', continue: '' },
+      variables: { kubeContext: 'test1', namespace: '', continue: '' },
     },
     result: {
       data: {
@@ -185,7 +210,7 @@ export const mocks: MockedResponse[] = [
   {
     request: {
       query: dashboardOps.HOME_REPLICASETS_LIST_WATCH,
-      variables: { namespace: '', resourceVersion: 'v1' },
+      variables: { kubeContext: 'test1', namespace: '', resourceVersion: 'v1' },
     },
     result: {
       data: {
@@ -198,7 +223,7 @@ export const mocks: MockedResponse[] = [
   {
     request: {
       query: dashboardOps.HOME_STATEFULSETS_LIST_FETCH,
-      variables: { namespace: '', continue: '' },
+      variables: { kubeContext: 'test1', namespace: '', continue: '' },
     },
     result: {
       data: {
@@ -209,7 +234,7 @@ export const mocks: MockedResponse[] = [
   {
     request: {
       query: dashboardOps.HOME_STATEFULSETS_LIST_WATCH,
-      variables: { namespace: '', resourceVersion: 'v1' },
+      variables: { kubeContext: 'test1', namespace: '', resourceVersion: 'v1' },
     },
     result: {
       data: {
@@ -218,14 +243,91 @@ export const mocks: MockedResponse[] = [
     },
   },
 
-  // healthz
+  // Kubernetes API readyWait
   {
     request: {
-      query: dashboardOps.SERVER_STATUS_KUBERNETES_API_HEALTHZ_WATCH,
+      query: dashboardOps.KUBERNETES_API_READY_WAIT,
+      variables: { kubeContext: 'test1' },
     },
     result: {
       data: {
-        livezWatch: {
+        kubernetesAPIReadyWait: true,
+      },
+    },
+  },
+
+  // Cluster API readyWait
+  {
+    request: {
+      query: dashboardOps.CLUSTER_API_READY_WAIT,
+      variables: { kubeContext: 'test1', namespace: 'kubetail-system', serviceName: 'kubetail-cluster-api' },
+    },
+    result: {
+      data: {
+        clusterAPIReadyWait: true,
+      },
+    },
+  },
+
+  // Kubernetes API healthz watch subscriptions
+  {
+    request: {
+      query: dashboardOps.SERVER_STATUS_KUBERNETES_API_HEALTHZ_WATCH,
+      variables: { kubeContext: 'test1' },
+    },
+    result: {
+      data: {
+        kubernetesAPIHealthzWatch: {
+          __typename: 'HealthCheckResponse',
+          status: 'SUCCESS',
+          message: null,
+          timestamp: null,
+        },
+      },
+    },
+  },
+  {
+    request: {
+      query: dashboardOps.SERVER_STATUS_KUBERNETES_API_HEALTHZ_WATCH,
+      variables: { kubeContext: 'test2' },
+    },
+    result: {
+      data: {
+        kubernetesAPIHealthzWatch: {
+          __typename: 'HealthCheckResponse',
+          status: 'SUCCESS',
+          message: null,
+          timestamp: null,
+        },
+      },
+    },
+  },
+
+  // Cluster API health checks
+  {
+    request: {
+      query: dashboardOps.SERVER_STATUS_CLUSTER_API_HEALTHZ_WATCH,
+      variables: { kubeContext: 'test1' },
+    },
+    result: {
+      data: {
+        clusterAPIHealthzWatch: {
+          __typename: 'HealthCheckResponse',
+          status: 'SUCCESS',
+          message: null,
+          timestamp: null,
+        },
+      },
+    },
+  },
+  {
+    request: {
+      query: dashboardOps.SERVER_STATUS_CLUSTER_API_HEALTHZ_WATCH,
+      variables: { kubeContext: 'test2' },
+    },
+    result: {
+      data: {
+        clusterAPIHealthzWatch: {
           __typename: 'HealthCheckResponse',
           status: 'SUCCESS',
           message: null,

@@ -14,10 +14,8 @@
 
 import { useQuery, useSubscription } from '@apollo/client';
 import { format, toZonedTime } from 'date-fns-tz';
-import { stripAnsi } from 'fancy-ansi';
-import { AnsiHtml } from 'fancy-ansi/react';
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
-import React, {
+import {
   createContext,
   forwardRef,
   memo,
@@ -34,7 +32,11 @@ import InfiniteLoader from 'react-window-infinite-loader';
 import { useDebounceCallback } from 'usehooks-ts';
 
 import { Spinner } from '@kubetail/ui/elements/spinner';
+import { stripAnsi } from 'fancy-ansi';
+import { AnsiHtml } from 'fancy-ansi/react';
 
+import { getClusterAPIClient } from '@/apollo-client';
+import LoadingPage from '@/components/utils/LoadingPage';
 import {
   ConsoleNodesListItemFragmentFragment,
   LogRecordsFragmentFragment as LogRecord,
@@ -43,11 +45,19 @@ import {
   LogSourceFragmentFragment,
   WatchEventType,
 } from '@/lib/graphql/dashboard/__generated__/graphql';
-import * as dashboardOps from '@/lib/graphql/dashboard/ops';
+import {
+  CONSOLE_NODES_LIST_FETCH,
+  CONSOLE_NODES_LIST_WATCH,
+  LOG_RECORDS_FETCH,
+  LOG_RECORDS_FOLLOW,
+  LOG_SOURCES_WATCH,
+} from '@/lib/graphql/dashboard/ops';
 import { useIsClusterAPIEnabled, useListQueryWithSubscription, useNextTick } from '@/lib/hooks';
 import { Counter, MapSet, cn, cssEncode } from '@/lib/util';
-import { getClusterAPIClient } from '@/apollo-client';
-import LoadingPage from '@/components/utils/LoadingPage';
+
+/**
+ * Shared variables and types
+ */
 
 type ContextType = {
   useClusterAPI: boolean | undefined;
@@ -58,10 +68,6 @@ type ContextType = {
 };
 
 const Context = createContext<ContextType>({} as ContextType);
-
-/**
- * Shared types
- */
 
 export enum ViewerColumn {
   Timestamp = 'Timestamp',
@@ -75,7 +81,7 @@ export enum ViewerColumn {
   Message = 'Message',
 }
 
-export const allViewerColumns = [
+export const ALL_VIEWER_COLUMNS = [
   ViewerColumn.Timestamp,
   ViewerColumn.ColorDot,
   ViewerColumn.PodContainer,
@@ -117,8 +123,8 @@ export function useNodes() {
   const { kubeContext } = useContext(Context);
 
   const { fetching, data } = useListQueryWithSubscription({
-    query: dashboardOps.CONSOLE_NODES_LIST_FETCH,
-    subscription: dashboardOps.CONSOLE_NODES_LIST_WATCH,
+    query: CONSOLE_NODES_LIST_FETCH,
+    subscription: CONSOLE_NODES_LIST_WATCH,
     queryDataKey: 'coreV1NodesList',
     subscriptionDataKey: 'coreV1NodesWatch',
     variables: { kubeContext: kubeContext || '' },
@@ -136,7 +142,7 @@ export const useSources = () => {
   const { kubeContext, sources } = useContext(Context);
   const [sourceMap, setSourceMap] = useState(new Map<string, LogSourceFragmentFragment>());
 
-  const { loading } = useSubscription(dashboardOps.LOG_SOURCES_WATCH, {
+  const { loading } = useSubscription(LOG_SOURCES_WATCH, {
     variables: { kubeContext, sources },
     onData: ({ data }) => {
       const ev = data.data?.logSourcesWatch;
@@ -335,7 +341,7 @@ const Row = memo(({ index, style, data }: RowProps) => {
   const record = items[index - 1];
 
   const els: React.ReactElement[] = [];
-  allViewerColumns.forEach((col) => {
+  ALL_VIEWER_COLUMNS.forEach((col) => {
     if (visibleCols.has(col)) {
       els.push(
         <div
@@ -606,7 +612,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
           className="flex leading-[18px] border-b border-chrome-divider bg-chrome-200 *:border-r [&>*:not(:last-child)]:border-chrome-divider"
           style={{ minWidth: isWrap ? '100%' : `${maxRowWidth}px` }}
         >
-          {allViewerColumns.map((col) => {
+          {ALL_VIEWER_COLUMNS.map((col) => {
             if (visibleCols.has(col)) {
               return (
                 <div
@@ -722,7 +728,7 @@ const LogRecordsFetcherImpl: React.ForwardRefRenderFunction<LogRecordsFetcherHan
   const client = useClusterAPI ? getClusterAPIClient(connectArgs) : undefined;
 
   // Initialize query
-  const query = useQuery(dashboardOps.LOG_RECORDS_FETCH, {
+  const query = useQuery(LOG_RECORDS_FETCH, {
     client,
     skip: true,
     variables: { kubeContext, sources, sourceFilter, grep, limit: batchSize + 1 },
@@ -777,7 +783,7 @@ const LogRecordsFetcherImpl: React.ForwardRefRenderFunction<LogRecordsFetcherHan
     if (!isReachedEnd || !isFollow) return;
 
     return query.subscribeToMore({
-      document: dashboardOps.LOG_RECORDS_FOLLOW,
+      document: LOG_RECORDS_FOLLOW,
       variables: { kubeContext, sources, sourceFilter, grep, after: lastTS.current },
       updateQuery: (_, { subscriptionData }) => {
         const {
@@ -992,23 +998,23 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
 export const Viewer = forwardRef(ViewerImpl);
 
 /**
- * Provider component
+ * ViewerProvider component
  */
 
-type ProviderProps = {
+type ViewerProviderProps = {
   kubeContext: string | null;
   sources: string[];
   sourceFilter: LogSourceFilter;
   grep: string | null;
 };
 
-export const Provider = ({
+export const ViewerProvider = ({
   kubeContext,
   sources,
   sourceFilter,
   grep,
   children,
-}: React.PropsWithChildren<ProviderProps>) => {
+}: React.PropsWithChildren<ViewerProviderProps>) => {
   const useClusterAPI = useIsClusterAPIEnabled(kubeContext);
 
   const context = useMemo(
