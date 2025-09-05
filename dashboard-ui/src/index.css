@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-@import "react-day-picker/style.css";
+@import 'react-day-picker/style.css';
 
 @import '@kubetail/ui';
 @plugin 'fancy-ansi/plugin';
@@ -16,6 +16,7 @@
     0% {
       background-color: #bbf7d0;
     }
+
     100% {
       background-color: transparent;
     }
@@ -31,6 +32,7 @@
   color utility to any element that depends on these defaults.
 */
 @layer base {
+
   *,
   ::after,
   ::before,
@@ -51,42 +53,6 @@
   /* IE and Edge */
   scrollbar-width: none;
   /* Firefox */
-}
-
-@utility rounded-tbody {
-  @apply relative;
-
-  & tr:last-child td {
-    @apply border-chrome-300;
-  }
-
-  & td:first-child {
-    @apply border-chrome-300;
-  }
-
-  & td:last-child {
-    @apply border-chrome-300;
-  }
-
-  & tr:last-child td {
-    @apply border-b;
-  }
-
-  & td:first-child {
-    @apply border-l;
-  }
-
-  & td:last-child {
-    @apply border-r;
-  }
-
-  & tr:last-child td:first-child {
-    @apply rounded-bl;
-  }
-
-  & tr:last-child td:last-child {
-    @apply rounded-br;
-  }
 }
 
 @utility rounded-table-wrapper {
@@ -121,11 +87,47 @@
   }
 
   & tr:first-child th:first-child {
-    @apply rounded-tl;
+    @apply rounded-tl-md;
   }
 
   & tr:first-child th:last-child {
-    @apply rounded-tr;
+    @apply rounded-tr-md;
+  }
+}
+
+@utility rounded-tbody {
+  @apply relative;
+
+  & tr:last-child td {
+    @apply border-chrome-300;
+  }
+
+  & td:first-child {
+    @apply border-chrome-300;
+  }
+
+  & td:last-child {
+    @apply border-chrome-300;
+  }
+
+  & tr:last-child td {
+    @apply border-b;
+  }
+
+  & td:first-child {
+    @apply border-l;
+  }
+
+  & td:last-child {
+    @apply border-r;
+  }
+
+  & tr:last-child td:first-child {
+    @apply rounded-bl-md;
+  }
+
+  & tr:last-child td:last-child {
+    @apply rounded-br-md;
   }
 }
 

@@ -73,7 +73,12 @@ export function useDashboardServerStatus() {
         setStatus(new ServerStatus({ status: Status.Healthy, lastUpdatedAt: new Date() }));
       }),
       dashboardWSClient.on('pong', () => {
-        setStatus(new ServerStatus({ status: Status.Healthy, lastUpdatedAt: new Date() }));
+        setStatus((prevStatus) => {
+          if (prevStatus.status !== Status.Healthy) {
+            return new ServerStatus({ status: Status.Healthy, lastUpdatedAt: new Date() });
+          }
+          return prevStatus;
+        });
       }),
       dashboardWSClient.on('closed', () => {
         const newStatus = new ServerStatus({ status: Status.Unhealthy, lastUpdatedAt: new Date() });
