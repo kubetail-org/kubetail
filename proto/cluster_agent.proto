@@ -20,29 +20,42 @@ option go_package = "shared/clusteragentpb";
 
 import "google/protobuf/timestamp.proto";
 
-// Define LogMetadata service
-
+// LogMetadataService provides metadata for the log files in a directory.
 service LogMetadataService {
+  // List the log files and their metadata.
   rpc List (LogMetadataListRequest) returns (LogMetadataList);
+
+  // Subscribe for changes on a directory and its files (non-recursive).
   rpc Watch (LogMetadataWatchRequest) returns (stream LogMetadataWatchEvent);
 }
 
+// Metadata for a log file.
 message LogMetadata {
+  // Container id.
   string id = 1;
+
   LogMetadataSpec spec = 2;
+
   LogMetadataFileInfo fileInfo = 3;
 }
 
 message LogMetadataFileInfo {
+  // Size of the file in bytes.
   int64 size = 1;
+
   google.protobuf.Timestamp last_modified_at = 2;
 }
 
+// K8s metadata information.
 message LogMetadataSpec {
   string node_name = 1;
+
   string namespace = 2;
+
   string pod_name = 3;
+
   string container_name = 4;
+
   string container_id = 5;
 }
 
@@ -58,36 +71,69 @@ message LogMetadataWatchRequest {
   repeated string namespaces = 1;
 }
 
+// Represents an update of the metadata of the log file.
 message LogMetadataWatchEvent {
+  // Possible values:
+  // ADDED -> A new file was created.
+  // MODIFIED -> File has been modified.
+  // DELETED -> File was deleted.
   string type = 1;
+
   LogMetadata object = 2;
 }
 
-// Define LogRecords service
 
+// LogRecordsService is responsible for returing returning existing and newlog lines from the log files.
 service LogRecordsService {
+  // Streams log lines from old to new ones. It is possible to tail the files
+  // and stream new entries as they happen.
   rpc StreamForward (LogRecordsStreamRequest) returns (stream LogRecord);
+
+  // Streams log lines from new to old ones.
   rpc StreamBackward (LogRecordsStreamRequest) returns (stream LogRecord);
 }
 
+// A request to initiate a log stream.
 message LogRecordsStreamRequest {
+  // K8s namepsace.
   string namespace = 1;
+
+  // K8s pod name.
   string pod_name = 2;
+
   string container_name = 3;
+
   string container_id = 4;
+
+  // Return only the logs that happened after this timestamp.
   string start_time = 5;
+
+
+  // Return only the logs that happened before this timestamp.
   string stop_time = 6;
+
+  // Filter the logs according to this grep.
   string grep = 7;
+
+  // Keep the stream connection open to keep receiving new log lines.
   FollowFrom follow_from = 8;
 }
 
+// A log line
 message LogRecord {
   google.protobuf.Timestamp timestamp = 1;
+
   string message = 2;
 }
 
+// Controls how the stream is going to follow new entries in the logs.
 enum FollowFrom {
+  // No follow, return immediately.
   NOOP = 0;
-  DEFAULT = 1; // Use default behavior for follow
-  END = 2;     // Follow from the end of the log
+
+  // Follow from the start_time argument if present, otherwise from the beginning of the file.
+  DEFAULT = 1;
+  
+  // Follow from the end of the file.
+  END = 2;
 }

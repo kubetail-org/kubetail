@@ -14,7 +14,7 @@
 
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Seek, SeekFrom},
+    io::{BufRead, BufReader, Result as IoResult, Seek, SeekFrom},
 };
 
 use chrono::{DateTime, Utc};
@@ -37,7 +37,7 @@ pub fn find_nearest_offset_since(
     min_offset: u64,
     max_offset: u64,
     format: FileFormat,
-) -> eyre::Result<Option<Offset>> {
+) -> IoResult<Option<Offset>> {
     find_nearest_offset(
         file,
         target_time,
@@ -56,7 +56,7 @@ pub fn find_nearest_offset_until(
     min_offset: u64,
     max_offset: u64,
     format: FileFormat,
-) -> eyre::Result<Option<Offset>> {
+) -> IoResult<Option<Offset>> {
     find_nearest_offset(
         file,
         target_time,
@@ -79,7 +79,7 @@ fn find_nearest_offset(
     max_offset: u64,
     mode: FindMode,
     format: FileFormat,
-) -> eyre::Result<Option<Offset>> {
+) -> IoResult<Option<Offset>> {
     if max_offset == 0 {
         return Ok(None);
     }
@@ -151,7 +151,7 @@ fn scan_timestamp(
     right: i64,
     start_pos: i64,
     format: FileFormat,
-) -> eyre::Result<(i64, Option<ScanResultTuple>)> {
+) -> IoResult<(i64, Option<ScanResultTuple>)> {
     let mut pos = start_pos;
     while pos <= right {
         let mut line = String::new();
@@ -215,7 +215,7 @@ mod common {
 
     /// Helper to create a temporary log file from a slice of log lines.
     /// Returns the file and a vector of the starting byte offset for each line.
-    pub fn create_temp_log(lines: &[&str]) -> eyre::Result<(NamedTempFile, Vec<Offset>)> {
+    pub fn create_temp_log(lines: &[&str]) -> IoResult<(NamedTempFile, Vec<Offset>)> {
         let mut tmpfile = NamedTempFile::new()?;
         let mut offsets = Vec::with_capacity(lines.len());
         let mut byte_offset = 0u64;
@@ -241,7 +241,7 @@ mod tests_find_nearest_offset_since {
     use super::*;
 
     #[test]
-    fn test_normal() -> eyre::Result<()> {
+    fn test_normal() -> IoResult<()> {
         let lines = [
             "2024-10-01T05:40:46.960135302Z stdout F linenum 1",
             "2024-10-01T05:40:48.840712595Z stdout F linenum 2",
@@ -293,7 +293,9 @@ mod tests_find_nearest_offset_since {
         let max_offset = file.metadata()?.len();
 
         for (target_str, expected) in test_cases {
-            let target_time = DateTime::parse_from_rfc3339(target_str)?.with_timezone(&Utc);
+            let target_time = DateTime::parse_from_rfc3339(target_str)
+                .unwrap()
+                .with_timezone(&Utc);
             let offset =
                 find_nearest_offset_since(&file, target_time, 0, max_offset, FileFormat::CRI)?;
             assert_eq!(offset.as_ref(), expected, "target: {}", target_str);
@@ -303,7 +305,7 @@ mod tests_find_nearest_offset_since {
     }
 
     #[test]
-    fn test_normal_json() -> eyre::Result<()> {
+    fn test_normal_json() -> IoResult<()> {
         let lines = [
             "{\"time\":\"2024-10-01T05:40:46.960135302Z\", \"log\":\"linenum 1\"}",
             "{\"time\":\"2024-10-01T05:40:48.840712595Z\", \"log\":\"linenum 2\"}",
@@ -355,7 +357,9 @@ mod tests_find_nearest_offset_since {
         let max_offset = file.metadata()?.len();
 
         for (target_str, expected) in test_cases {
-            let target_time = DateTime::parse_from_rfc3339(target_str)?.with_timezone(&Utc);
+            let target_time = DateTime::parse_from_rfc3339(target_str)
+                .unwrap()
+                .with_timezone(&Utc);
             let offset =
                 find_nearest_offset_since(&file, target_time, 0, max_offset, FileFormat::Docker)?;
             assert_eq!(offset.as_ref(), expected, "target: {}", target_str);
@@ -365,7 +369,7 @@ mod tests_find_nearest_offset_since {
     }
 
     #[test]
-    fn test_one_line() -> eyre::Result<()> {
+    fn test_one_line() -> IoResult<()> {
         let line = "2024-10-01T05:40:23.308676722Z stdout F linenum 1";
         let (tmpfile, offsets) = common::create_temp_log(&[line])?;
 
@@ -388,7 +392,9 @@ mod tests_find_nearest_offset_since {
         let max_offset = file.metadata()?.len();
 
         for (target_str, expected) in test_cases {
-            let target_time = DateTime::parse_from_rfc3339(target_str)?.with_timezone(&Utc);
+            let target_time = DateTime::parse_from_rfc3339(target_str)
+                .unwrap()
+                .with_timezone(&Utc);
             let offset =
                 find_nearest_offset_since(&file, target_time, 0, max_offset, FileFormat::CRI)?;
             assert_eq!(offset.as_ref(), expected, "target: {}", target_str);
@@ -398,14 +404,16 @@ mod tests_find_nearest_offset_since {
     }
 
     #[test]
-    fn test_empty() -> eyre::Result<()> {
+    fn test_empty() -> IoResult<()> {
         let (tmpfile, _offsets) = common::create_temp_log(&[])?;
 
         let file = tmpfile.into_file();
         let max_offset = file.metadata()?.len();
 
         let target_str = "2024-10-01T05:40:23.308676722Z";
-        let target_time = DateTime::parse_from_rfc3339(target_str)?.with_timezone(&Utc);
+        let target_time = DateTime::parse_from_rfc3339(target_str)
+            .unwrap()
+            .with_timezone(&Utc);
         let offset = find_nearest_offset_since(&file, target_time, 0, max_offset, FileFormat::CRI)?;
         assert_eq!(offset, None, "target: {}", target_str);
 
@@ -413,7 +421,7 @@ mod tests_find_nearest_offset_since {
     }
 
     #[test]
-    fn test_malformed_single() -> eyre::Result<()> {
+    fn test_malformed_single() -> IoResult<()> {
         let line = "failed";
         let (tmpfile, _offsets) = common::create_temp_log(&[line])?;
 
@@ -421,7 +429,9 @@ mod tests_find_nearest_offset_since {
         let max_offset = file.metadata()?.len();
 
         let target_str = "2024-10-01T05:40:23.308676722Z";
-        let target_time = DateTime::parse_from_rfc3339(target_str)?.with_timezone(&Utc);
+        let target_time = DateTime::parse_from_rfc3339(target_str)
+            .unwrap()
+            .with_timezone(&Utc);
         let offset = find_nearest_offset_since(&file, target_time, 0, max_offset, FileFormat::CRI)?;
         assert_eq!(offset, None, "target: {}", target_str);
 
@@ -429,7 +439,7 @@ mod tests_find_nearest_offset_since {
     }
 
     #[test]
-    fn test_malformed_mixed() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_malformed_mixed() -> IoResult<()> {
         let lines = [
             "failed",
             "2024-10-01T05:40:25.221410625Z stdout F linenum 2",
@@ -471,7 +481,9 @@ mod tests_find_nearest_offset_since {
         let max_offset = file.metadata()?.len();
 
         for (target_str, expected) in test_cases {
-            let target_time = DateTime::parse_from_rfc3339(target_str)?.with_timezone(&Utc);
+            let target_time = DateTime::parse_from_rfc3339(target_str)
+                .unwrap()
+                .with_timezone(&Utc);
             let offset =
                 find_nearest_offset_since(&file, target_time, 0, max_offset, FileFormat::CRI)?;
             assert_eq!(offset.as_ref(), expected, "target: {}", target_str);
@@ -481,7 +493,7 @@ mod tests_find_nearest_offset_since {
     }
 
     #[test]
-    fn test_multiple_matches() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_multiple_matches() -> IoResult<()> {
         let lines = [
             "2024-10-01T05:40:46.960135302Z stdout F linenum 1",
             "2024-10-01T05:40:48.840712595Z stdout F linenum 2",
@@ -511,7 +523,9 @@ mod tests_find_nearest_offset_since {
         let max_offset = file.metadata()?.len();
 
         for (target_str, expected) in test_cases {
-            let target_time = DateTime::parse_from_rfc3339(target_str)?.with_timezone(&Utc);
+            let target_time = DateTime::parse_from_rfc3339(target_str)
+                .unwrap()
+                .with_timezone(&Utc);
             let offset =
                 find_nearest_offset_since(&file, target_time, 0, max_offset, FileFormat::CRI)?;
             assert_eq!(offset.as_ref(), expected, "target: {}", target_str);
@@ -528,7 +542,7 @@ mod tests_find_nearest_offset_until {
     use super::*;
 
     #[test]
-    fn test_normal() -> eyre::Result<()> {
+    fn test_normal() -> IoResult<()> {
         let lines = [
             "2024-10-01T05:40:46.960135302Z stdout F linenum 1",
             "2024-10-01T05:40:48.840712595Z stdout F linenum 2",
@@ -580,7 +594,9 @@ mod tests_find_nearest_offset_until {
         let max_offset = file.metadata()?.len();
 
         for (target_str, expected) in test_cases {
-            let target_time = DateTime::parse_from_rfc3339(target_str)?.with_timezone(&Utc);
+            let target_time = DateTime::parse_from_rfc3339(target_str)
+                .unwrap()
+                .with_timezone(&Utc);
             let offset =
                 find_nearest_offset_until(&file, target_time, 0, max_offset, FileFormat::CRI)?;
             assert_eq!(offset.as_ref(), expected, "target: {}", target_str);
@@ -590,7 +606,7 @@ mod tests_find_nearest_offset_until {
     }
 
     #[test]
-    fn test_one_line() -> eyre::Result<()> {
+    fn test_one_line() -> IoResult<()> {
         let line = "2024-10-01T05:40:23.308676722Z stdout F linenum 1";
         let (tmpfile, offsets) = common::create_temp_log(&[line])?;
 
@@ -613,7 +629,9 @@ mod tests_find_nearest_offset_until {
         let max_offset = file.metadata()?.len();
 
         for (target_str, expected) in test_cases {
-            let target_time = DateTime::parse_from_rfc3339(target_str)?.with_timezone(&Utc);
+            let target_time = DateTime::parse_from_rfc3339(target_str)
+                .unwrap()
+                .with_timezone(&Utc);
             let offset =
                 find_nearest_offset_until(&file, target_time, 0, max_offset, FileFormat::CRI)?;
             assert_eq!(offset.as_ref(), expected, "target: {}", target_str);
@@ -623,14 +641,16 @@ mod tests_find_nearest_offset_until {
     }
 
     #[test]
-    fn test_empty() -> eyre::Result<()> {
+    fn test_empty() -> IoResult<()> {
         let (tmpfile, _offsets) = common::create_temp_log(&[])?;
 
         let file = tmpfile.into_file();
         let max_offset = file.metadata()?.len();
 
         let target_str = "2024-10-01T05:40:23.308676722Z";
-        let target_time = DateTime::parse_from_rfc3339(target_str)?.with_timezone(&Utc);
+        let target_time = DateTime::parse_from_rfc3339(target_str)
+            .unwrap()
+            .with_timezone(&Utc);
         let offset = find_nearest_offset_until(&file, target_time, 0, max_offset, FileFormat::CRI)?;
         assert_eq!(offset, None, "target: {}", target_str);
 
@@ -638,7 +658,7 @@ mod tests_find_nearest_offset_until {
     }
 
     #[test]
-    fn test_malformed_single() -> eyre::Result<()> {
+    fn test_malformed_single() -> IoResult<()> {
         let line = "failed";
         let (tmpfile, _offsets) = common::create_temp_log(&[line])?;
 
@@ -646,7 +666,9 @@ mod tests_find_nearest_offset_until {
         let max_offset = file.metadata()?.len();
 
         let target_str = "2024-10-01T05:40:23.308676722Z";
-        let target_time = DateTime::parse_from_rfc3339(target_str)?.with_timezone(&Utc);
+        let target_time = DateTime::parse_from_rfc3339(target_str)
+            .unwrap()
+            .with_timezone(&Utc);
         let offset = find_nearest_offset_until(&file, target_time, 0, max_offset, FileFormat::CRI)?;
         assert_eq!(offset, None, "target: {}", target_str);
 
@@ -654,7 +676,7 @@ mod tests_find_nearest_offset_until {
     }
 
     #[test]
-    fn test_malformed_mixed() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_malformed_mixed() -> IoResult<()> {
         let lines = [
             "failed",
             "2024-10-01T05:40:25.221410625Z stdout F linenum 2",
@@ -696,7 +718,9 @@ mod tests_find_nearest_offset_until {
         let max_offset = file.metadata()?.len();
 
         for (target_str, expected) in test_cases {
-            let target_time = DateTime::parse_from_rfc3339(target_str)?.with_timezone(&Utc);
+            let target_time = DateTime::parse_from_rfc3339(target_str)
+                .unwrap()
+                .with_timezone(&Utc);
             let offset =
                 find_nearest_offset_until(&file, target_time, 0, max_offset, FileFormat::CRI)?;
             assert_eq!(offset.as_ref(), expected, "target: {}", target_str);
@@ -706,7 +730,7 @@ mod tests_find_nearest_offset_until {
     }
 
     #[test]
-    fn test_multiple_matches() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_multiple_matches() -> IoResult<()> {
         let lines = [
             "2024-10-01T05:40:46.960135302Z stdout F linenum 1",
             "2024-10-01T05:40:48.840712595Z stdout F linenum 2",
@@ -736,7 +760,9 @@ mod tests_find_nearest_offset_until {
         let max_offset = file.metadata()?.len();
 
         for (target_str, expected) in test_cases {
-            let target_time = DateTime::parse_from_rfc3339(target_str)?.with_timezone(&Utc);
+            let target_time = DateTime::parse_from_rfc3339(target_str)
+                .unwrap()
+                .with_timezone(&Utc);
             let offset =
                 find_nearest_offset_until(&file, target_time, 0, max_offset, FileFormat::CRI)?;
             assert_eq!(offset.as_ref(), expected, "target: {}", target_str);

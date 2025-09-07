@@ -12,44 +12,54 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{
-    fs::{self, File},
-    io::Write,
-    path::Path,
-};
+use std::{fs::File, path::PathBuf};
+
+use tokio::sync::{broadcast::Sender as BcSender, mpsc::Sender};
+use tonic::Status;
+use types::cluster_agent::LogRecord;
 
 use chrono::{DateTime, Utc};
-use crossbeam_channel::Receiver;
 use grep::{
     printer::JSONBuilder,
     searcher::{MmapChoice, SearcherBuilder},
 };
 
-use crate::util::{
-    format::FileFormat,
-    matcher::{LogFileRegexMatcher, PassThroughMatcher},
-    offset::{find_nearest_offset_since, find_nearest_offset_until},
-    reader::{ReverseLineReader, TermReader},
-    writer::{process_output, CallbackWriter},
+use crate::{
+    fs_watcher_error::FsWatcherError,
+    util::{
+        format::FileFormat,
+        matcher::{LogFileRegexMatcher, PassThroughMatcher},
+        offset::{find_nearest_offset_since, find_nearest_offset_until},
+        reader::{ReverseLineReader, TermReader},
+        writer::{process_output, CallbackWriter},
+    },
 };
 
-pub fn run<W: Write>(
-    path: &str,
+pub async fn stream_backward(
+    path: &PathBuf,
     start_time: Option<DateTime<Utc>>,
     stop_time: Option<DateTime<Utc>>,
-    grep: &str,
-    term_rx: Receiver<()>,
-    writer: &mut W,
-) -> eyre::Result<()> {
-    // Path to the symlink file you want to monitor.
-    let symlink_path = Path::new(path);
+    grep: Option<&str>,
+    term_tx: BcSender<()>,
+    sender: Sender<Result<LogRecord, Status>>,
+) {
+    let result = stream_backward_internal(path, start_time, stop_time, grep, &term_tx, &sender);
 
-    // Resolve the symlink to get the actual file's path.
-    let path = fs::canonicalize(symlink_path).expect("Failed to resolve symlink");
+    if let Err(error) = result {
+        let _ = sender.send(Err(error.into())).await;
+    }
+}
 
+fn stream_backward_internal(
+    path: &PathBuf,
+    start_time: Option<DateTime<Utc>>,
+    stop_time: Option<DateTime<Utc>>,
+    grep: Option<&str>,
+    term_tx: &BcSender<()>,
+    sender: &Sender<Result<LogRecord, Status>>,
+) -> Result<(), FsWatcherError> {
     // Open file
-    let file = File::open(&path)?;
-
+    let file = File::open(path)?;
     let max_offset = file.metadata()?.len();
 
     // Determine format based on filename
@@ -84,7 +94,7 @@ pub fn run<W: Write>(
     // Wrap in term reader
     let term_reverse_reader = TermReader::new(
         ReverseLineReader::new(file, start_pos, end_pos).unwrap(),
-        term_rx,
+        term_tx.subscribe(),
     );
 
     // Init searcher
@@ -96,21 +106,21 @@ pub fn run<W: Write>(
         .build();
 
     // Init writer
-    let writer_fn = |chunk: &[u8]| process_output(chunk, writer, format);
+    let writer_fn = |chunk: Vec<u8>| process_output(chunk, sender, format, term_tx.clone());
     let writer = CallbackWriter::new(writer_fn);
 
     // Init printer
     let mut printer = JSONBuilder::new().build(writer);
 
     // Remove leading and trailing whitespace
-    let trimmed_grep = grep.trim();
+    let trimmed_grep = grep.map(str::trim).filter(|grep| !grep.is_empty());
 
-    if trimmed_grep.is_empty() {
-        let matcher = PassThroughMatcher::new();
+    if let Some(grep) = trimmed_grep {
+        let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
         let sink = printer.sink(&matcher);
         let _ = searcher.search_reader(&matcher, term_reverse_reader, sink);
     } else {
-        let matcher = LogFileRegexMatcher::new(trimmed_grep, format).unwrap();
+        let matcher = PassThroughMatcher::new();
         let sink = printer.sink(&matcher);
         let _ = searcher.search_reader(&matcher, term_reverse_reader, sink);
     }
@@ -120,15 +130,14 @@ pub fn run<W: Write>(
 
 #[cfg(test)]
 mod test {
-    use lazy_static::lazy_static;
     use rstest::rstest;
+    use std::{io::Write, sync::LazyLock};
     use tempfile::NamedTempFile;
+    use tokio::sync::{broadcast, mpsc};
 
     use super::*;
 
-    lazy_static! {
-        static ref TEST_FILE: NamedTempFile = create_test_file();
-    }
+    static TEST_FILE: LazyLock<NamedTempFile> = LazyLock::new(|| create_test_file());
 
     fn create_test_file() -> NamedTempFile {
         let lines = [
@@ -151,16 +160,11 @@ mod test {
 
     /// Compare captured binary output with expected lines
     /// Parses the binary output and compares the message fields with expected lines
-    fn compare_lines(output: &[u8], expected_lines: Vec<&'static str>) {
+    fn compare_lines(output: Vec<Result<LogRecord, Status>>, expected_lines: Vec<&'static str>) {
         // Parse the captured output
         let captured_lines: Vec<String> = output
-            .split(|b| *b == b'\n')
-            .filter(|line| !line.is_empty())
-            .map(|line| {
-                // Parse the JSON manually to extract the message field
-                let json: serde_json::Value = serde_json::from_slice(line).unwrap();
-                json["message"].as_str().unwrap().to_string()
-            })
+            .into_iter()
+            .map(|line| line.unwrap().message)
             .collect();
 
         // Compare against expected lines
@@ -169,12 +173,14 @@ mod test {
             expected_lines.len(),
             "Number of lines doesn't match"
         );
+
         for (i, expected) in expected_lines.iter().enumerate() {
             assert_eq!(&captured_lines[i], expected, "Line {} doesn't match", i);
         }
     }
 
     // Test `start_time` arg
+    #[tokio::test(flavor = "multi_thread")]
     #[rstest]
     #[case("", vec!["linenum 10", "linenum 9", "linenum 8", "linenum 7", "linenum 6", "linenum 5", "linenum 4", "linenum 3", "linenum 2", "linenum 1"])]
     #[case("2024-10-01T05:40:58.197779961Z", vec!["linenum 10", "linenum 9", "linenum 8", "linenum 7"])]
@@ -182,8 +188,11 @@ mod test {
     #[case("2024-10-01T05:40:58.197779962Z", vec!["linenum 10", "linenum 9", "linenum 8"])]
     #[case("2024-10-01T05:40:59.103901461Z", vec!["linenum 10"])]
     #[case("2024-10-01T05:40:59.103901462Z", vec![])]
-    fn test_start_time(#[case] start_time_str: String, #[case] expected_lines: Vec<&'static str>) {
-        let path = TEST_FILE.path().to_str().unwrap();
+    async fn test_start_time(
+        #[case] start_time_str: String,
+        #[case] expected_lines: Vec<&'static str>,
+    ) {
+        let path = TEST_FILE.path().to_path_buf();
 
         // Parse start time if provided, otherwise use None
         let start_time = if start_time_str.is_empty() {
@@ -193,27 +202,26 @@ mod test {
         };
 
         // Create a channel for termination signal
-        let (_term_tx, term_rx) = crossbeam_channel::unbounded();
+        let (term_tx, _term_rx) = broadcast::channel(5);
+
+        // Create output channel
+        let (tx, mut rx) = mpsc::channel(100);
+
+        stream_backward(&path, start_time, None, None, term_tx, tx).await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
 
-        // Call run method
-        run(
-            path,
-            start_time,
-            None, // No stop time
-            "",   // No grep filter
-            term_rx,
-            &mut output,
-        )
-        .unwrap();
+        while let Some(record) = rx.recv().await {
+            output.push(record);
+        }
 
         // Compare output with expected lines
-        compare_lines(&output, expected_lines);
+        compare_lines(output, expected_lines);
     }
 
     // Test `stop_time` arg
+    #[tokio::test(flavor = "multi_thread")]
     #[rstest]
     #[case("", vec!["linenum 10", "linenum 9", "linenum 8", "linenum 7", "linenum 6", "linenum 5", "linenum 4", "linenum 3", "linenum 2", "linenum 1"])]
     #[case("2024-10-01T05:40:52.222363431Z", vec!["linenum 4", "linenum 3", "linenum 2", "linenum 1"])]
@@ -221,8 +229,11 @@ mod test {
     #[case("2024-10-01T05:40:52.222363430Z", vec!["linenum 3", "linenum 2", "linenum 1"])]
     #[case("2024-10-01T05:40:46.960135302Z", vec!["linenum 1"])]
     #[case("2024-10-01T05:40:46.960135301Z", vec![])]
-    fn test_stop_time(#[case] stop_time_str: String, #[case] expected_lines: Vec<&'static str>) {
-        let path = TEST_FILE.path().to_str().unwrap();
+    async fn test_stop_time(
+        #[case] stop_time_str: String,
+        #[case] expected_lines: Vec<&'static str>,
+    ) {
+        let path = TEST_FILE.path().to_path_buf();
 
         // Parse start time if provided, otherwise use None
         let stop_time = if stop_time_str.is_empty() {
@@ -232,27 +243,26 @@ mod test {
         };
 
         // Create a channel for termination signal
-        let (_term_tx, term_rx) = crossbeam_channel::unbounded();
+        let (term_tx, _term_rx) = broadcast::channel(5);
+
+        // Create output channel
+        let (tx, mut rx) = mpsc::channel(100);
+
+        stream_backward(&path, None, stop_time, None, term_tx, tx).await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
 
-        // Call run method
-        run(
-            path,
-            None, // No start time
-            stop_time,
-            "", // No grep filter
-            term_rx,
-            &mut output,
-        )
-        .unwrap();
+        while let Some(record) = rx.recv().await {
+            output.push(record);
+        }
 
         // Compare output with expected lines
-        compare_lines(&output, expected_lines);
+        compare_lines(output, expected_lines);
     }
 
     // Test `start_time` and `stop_time` args together
+    #[tokio::test(flavor = "multi_thread")]
     #[rstest]
     #[case("", "", vec!["linenum 10", "linenum 9", "linenum 8", "linenum 7", "linenum 6", "linenum 5", "linenum 4", "linenum 3", "linenum 2", "linenum 1"])]
     #[case("2024-10-01T05:40:50.075182095Z", "2024-10-01T05:40:58.197779961Z", vec!["linenum 7", "linenum 6", "linenum 5", "linenum 4", "linenum 3"])]
@@ -261,12 +271,12 @@ mod test {
     #[case("2024-10-01T05:40:50.075182096Z", "2024-10-01T05:40:58.197779961Z", vec!["linenum 7", "linenum 6", "linenum 5", "linenum 4"])]
     #[case("2024-10-01T05:40:50.075182095Z", "2024-10-01T05:40:58.197779960Z", vec!["linenum 6", "linenum 5", "linenum 4", "linenum 3"])]
     #[case("2024-10-01T05:40:50.075182096Z", "2024-10-01T05:40:58.197779960Z", vec!["linenum 6", "linenum 5", "linenum 4"])]
-    fn test_start_time_and_stop_time(
+    async fn test_start_time_and_stop_time(
         #[case] start_time_str: String,
         #[case] stop_time_str: String,
         #[case] expected_lines: Vec<&'static str>,
     ) {
-        let path = TEST_FILE.path().to_str().unwrap();
+        let path = TEST_FILE.path().to_path_buf();
 
         // Parse start time if provided, otherwise use None
         let start_time = if start_time_str.is_empty() {
@@ -283,23 +293,41 @@ mod test {
         };
 
         // Create a channel for termination signal
-        let (_term_tx, term_rx) = crossbeam_channel::unbounded();
+        let (term_tx, _term_rx) = broadcast::channel(5);
+
+        // Create output channel
+        let (tx, mut rx) = mpsc::channel(100);
+
+        stream_backward(&path, start_time, stop_time, None, term_tx, tx).await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
 
-        // Call run method
-        run(
-            path,
-            start_time,
-            stop_time,
-            "", // No grep filter
-            term_rx,
-            &mut output,
-        )
-        .unwrap();
+        while let Some(record) = rx.recv().await {
+            output.push(record);
+        }
 
         // Compare output with expected lines
-        compare_lines(&output, expected_lines);
+        compare_lines(output, expected_lines);
+    }
+
+    #[tokio::test]
+    async fn test_error_propagates_to_client() {
+        let path = PathBuf::from("/a/dir/that/doesnt/exist");
+
+        // Create a channel for termination signal
+        let (term_tx, _term_rx) = broadcast::channel(5);
+
+        // Create output channel
+        let (tx, mut rx) = mpsc::channel(100);
+
+        stream_backward(&path, None, None, None, term_tx, tx).await;
+
+        let result = rx.recv().await.unwrap();
+        assert!(matches!(result, Err(_)));
+
+        let status = result.unwrap_err();
+        assert_eq!(status.code(), tonic::Code::NotFound);
+        assert!(status.message().contains("No such file or directory"));
     }
 }

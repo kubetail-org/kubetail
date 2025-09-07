@@ -211,7 +211,7 @@ This monorepo contains the following modules:
 
 * Kubetail CLI ([modules/cli](modules/cli))
 * Kubetail Cluster API ([modules/cluster-api](modules/cluster-api))
-* Kubetail Cluster Agent ([modules/cluster-agent](modules/cluster-agent))
+* Kubetail Cluster Agent ([crates/cluster_agent](crates/cluster_agent))
 * Kubetail Dashboard ([modules/dashboard](modules/dashboard))
 
 It also contains the source code for the Kubetail Dashboard's frontend and the Rust binary that powers log search:

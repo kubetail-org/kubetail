@@ -14,17 +14,21 @@
 
 use std::io::{self, Read, Seek, SeekFrom};
 
-use crossbeam_channel::Receiver;
+use tokio::sync::broadcast::{
+    error::TryRecvError::{Closed, Empty, Lagged},
+    Receiver,
+};
 
 const CHUNK_SIZE: usize = 64 * 1024; // 64KB
 
+#[derive(Debug)]
 pub struct TermReader<R> {
     inner: R,
     term_rx: Receiver<()>,
 }
 
 impl<R: Read> TermReader<R> {
-    pub fn new(inner: R, term_rx: Receiver<()>) -> Self {
+    pub const fn new(inner: R, term_rx: Receiver<()>) -> Self {
         Self { inner, term_rx }
     }
 }
@@ -33,10 +37,11 @@ impl<R: Read> Read for TermReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         // check for termination before each read
         match self.term_rx.try_recv() {
-            Ok(_) | Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                return Err(io::Error::new(io::ErrorKind::Interrupted, "terminated"))
+            Ok(()) | Err(Closed | Lagged(_)) => {
+                // Channel is closed or term signal was sent.
+                return Ok(0);
             }
-            Err(crossbeam_channel::TryRecvError::Empty) => {} // Channel is empty but still connected
+            Err(Empty) => {} // Channel is empty but still connected
         }
         self.inner.read(buf)
     }
@@ -193,6 +198,8 @@ mod tests {
 
     use tempfile::NamedTempFile;
 
+    use tokio::sync::broadcast::{self};
+
     use super::*;
 
     #[test]
@@ -229,6 +236,20 @@ mod tests {
             n += 1;
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_term_reader() -> Result<(), Box<dyn Error>> {
+        let (_term_tx, term_rx) = broadcast::channel(1);
+        let data = b"This is a Test";
+        let mut buf = [0u8; 14];
+
+        let mut reader = TermReader::new(&data[0..14], term_rx);
+        let bytes_read = reader.read(&mut buf).expect("Read should succeed");
+
+        assert_eq!(bytes_read, 14, "Should read 14 bytes");
+        assert_eq!(&buf, b"This is a Test", "Buffer should contain 'hello'");
         Ok(())
     }
 }
