@@ -283,11 +283,11 @@ async fn listen_for_changes(
 
 #[cfg(test)]
 mod test {
-    use std::{io::Write, path::Path, sync::LazyLock};
+    use std::{io::Write, path::Path, sync::LazyLock, time::Duration};
 
     use rstest::rstest;
     use tempfile::NamedTempFile;
-    use tokio::sync::broadcast;
+    use tokio::{sync::broadcast, task, time::sleep};
 
     use super::*;
 
@@ -328,7 +328,7 @@ mod test {
         writeln!(file, "{}", additional_lines.join("\n"))?;
 
         // Flush to ensure data is written
-        file.flush()?;
+        file.sync_all()?;
 
         Ok(())
     }
@@ -529,6 +529,9 @@ mod test {
         #[case] follow_from: FollowFrom,
         #[case] expected_lines: Vec<&'static str>,
     ) {
+        use std::sync::Arc;
+        use tokio::sync::Barrier;
+
         let test_file = create_test_file();
         let path = test_file.path().to_path_buf();
 
@@ -548,35 +551,49 @@ mod test {
         // For follow, we need to update the file after starting the follow
         let is_follow = follow_from == FollowFrom::End || follow_from == FollowFrom::Default;
 
+        let barrier = Arc::new(Barrier::new(2));
+
         // For is_follow, we need to spawn a thread to update the file after a short delay
         if is_follow {
             // Clone the termination channel sender for the thread
             let tx = term_tx.clone();
-            std::thread::spawn(move || {
-                // Wait a bit to ensure the follow has started
-                std::thread::sleep(std::time::Duration::from_millis(100));
+            let barrier_clone = barrier.clone();
+
+            task::spawn(async move {
+                // Wait until the file watcher is set up before writing updates to the file
+                barrier_clone.wait().await;
 
                 // Update the file with new lines
                 update_test_file(test_file.path()).expect("Failed to update test file");
-
-                std::thread::sleep(std::time::Duration::from_millis(100));
 
                 // Terminate the stream
                 let _ = tx.send(());
             });
         }
 
-        // Call run method
-        stream_forward(
-            &path,
-            start_time,
-            None, // No stop time
-            None, // No grep filter
-            follow_from,
-            term_tx,
-            tx,
-        )
-        .await;
+        let term_tx_clone = term_tx.clone();
+        task::spawn(async move {
+            // Call run method
+            stream_forward(
+                &path,
+                start_time,
+                None, // No stop time
+                None, // No grep filter
+                follow_from,
+                term_tx_clone,
+                tx,
+            )
+            .await;
+        });
+
+        // Wait until stream_forward goes into the wait loop to signal the writing thread to start.
+        if is_follow {
+            while term_tx.receiver_count() != 2 {
+                sleep(Duration::from_millis(50)).await;
+            }
+
+            barrier.wait().await;
+        }
 
         // Create a buffer to capture output
         let mut output = Vec::new();
