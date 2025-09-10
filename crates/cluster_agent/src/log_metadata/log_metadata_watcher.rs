@@ -5,8 +5,8 @@ use std::{
     time::Duration,
 };
 
-use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode};
-use notify_debouncer_full::{DebounceEventResult, Debouncer, RecommendedCache, new_debouncer};
+use notify::{Event, EventKind, RecursiveMode, Watcher};
+use notify_debouncer_full::{DebounceEventResult, Debouncer, RecommendedCache, new_debouncer_opt};
 use thiserror::Error;
 use tokio::{
     fs::read_dir,
@@ -63,9 +63,10 @@ impl LogMetadataWatcher {
 
     /// Starts watching the log directory for log updates. Blocks until a message is sent in the
     /// termination channel.
-    pub async fn watch(&self) {
+    pub async fn watch<T: Watcher>(&self, watcher_config: Option<notify::Config>) {
         let (internal_tx, internal_rx) = channel(10);
-        let setup_result = self.setup_notify_watcher(internal_tx).await;
+        let setup_result: Result<Debouncer<T, RecommendedCache>, WatcherError> =
+            self.setup_notify_watcher(internal_tx, watcher_config).await;
 
         if let Err(watcher_error) = setup_result {
             let _ = self.log_metadata_tx.send(Err(watcher_error.into())).await;
@@ -85,15 +86,16 @@ impl LogMetadataWatcher {
     /// # Arguments
     ///
     /// * `internal_tx` - The sender to use to propagate filesystem updates.
-    async fn setup_notify_watcher(
+    async fn setup_notify_watcher<T: Watcher>(
         &self,
         internal_tx: Sender<VecDeque<Result<LogMetadataWatchEvent, WatcherError>>>,
-    ) -> Result<Debouncer<RecommendedWatcher, RecommendedCache>, WatcherError> {
+        watcher_config: Option<notify::Config>,
+    ) -> Result<Debouncer<T, RecommendedCache>, WatcherError> {
         let runtime_handle = Handle::current();
         let namespaces = self.namespaces.clone();
         let node_name = self.node_name.clone();
 
-        let mut debouncer = new_debouncer(
+        let mut debouncer = new_debouncer_opt(
             Duration::from_secs(2),
             None,
             move |result: DebounceEventResult| {
@@ -103,6 +105,8 @@ impl LogMetadataWatcher {
                         .await;
                 });
             },
+            RecommendedCache::new(),
+            watcher_config.unwrap_or_default(),
         )?;
 
         let paths_to_add = find_log_files(&self.directory, &self.namespaces).await?;
@@ -124,10 +128,10 @@ impl LogMetadataWatcher {
     /// * `internal_rx` - Receiver of filesystem updates.
     /// * `debouncer` - The notify filesystem watcher.
     /// * `term_rx` - Receiver of the termination channel.
-    async fn listen_for_changes(
+    async fn listen_for_changes<T: Watcher>(
         &self,
         mut internal_rx: Receiver<VecDeque<Result<LogMetadataWatchEvent, WatcherError>>>,
-        mut debouncer: Debouncer<RecommendedWatcher, RecommendedCache>,
+        mut debouncer: Debouncer<T, RecommendedCache>,
         mut term_rx: tokio::sync::broadcast::Receiver<()>,
     ) {
         'outer: loop {
@@ -163,10 +167,10 @@ impl LogMetadataWatcher {
     // In case of a new log file creation, it adds the path to the notify watcher in order to
     // receive updates for the file in the future. On removal, the path is removed from the watcher
     // accordingly.
-    fn update_watcher(
+    fn update_watcher<T: Watcher>(
         &self,
         watch_event: &LogMetadataWatchEvent,
-        watcher: &mut Debouncer<RecommendedWatcher, RecommendedCache>,
+        watcher: &mut Debouncer<T, RecommendedCache>,
     ) {
         let event_type = LogMetadataWatchEventType::from_str(&watch_event.r#type).unwrap();
 
@@ -395,6 +399,7 @@ impl LogMetadataWatchEventType {
 
 #[cfg(test)]
 mod test {
+    #[cfg(not(target_os = "macos"))]
     use std::{
         fs::{File, remove_file, rename},
         io::Write,
@@ -403,7 +408,8 @@ mod test {
     use crate::log_metadata::test::create_test_file;
 
     use super::*;
-    use serial_test::serial;
+    use notify::{PollWatcher, RecommendedWatcher};
+    use serial_test::{parallel, serial};
     use tokio::{
         sync::{broadcast, mpsc::error::TryRecvError},
         task,
@@ -413,8 +419,8 @@ mod test {
     #[tokio::test]
     #[serial]
     async fn test_create_events_are_generated() {
-        let file = create_test_file("pod-name_namespace_container-name-containerid", 4);
-        let namespaces = vec!["namespace".into()];
+        let file = create_test_file("pod-name_create-namespace_container-name-containerid", 4);
+        let namespaces = vec!["create-namespace".into()];
         let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = file.path().parent().unwrap().to_owned();
 
@@ -425,43 +431,64 @@ mod test {
             "The node name".to_owned(),
         );
 
-        // Start the watcher and give it some time to execute before creating events.
-        task::spawn(async move { log_metadata_watcher.watch().await });
-        sleep(Duration::from_millis(100)).await;
+        task::spawn(async move {
+            log_metadata_watcher
+                .watch::<PollWatcher>(Some(
+                    notify::Config::default().with_poll_interval(Duration::from_millis(100)),
+                ))
+                .await
+        });
+
+        // Wait until the watcher has started listening for changes
+        while term_tx.receiver_count() != 2 {
+            sleep(Duration::from_millis(50)).await;
+        }
 
         // Create three files, one with an unrelated namespace.
-        let _first_file =
-            create_test_file("pod-name_namespace_firstContainer-name-firstContainerid", 4);
+        let _first_file = create_test_file(
+            "pod-name_create-namespace_firstContainer-name-firstContainerid",
+            4,
+        );
         let _second_file = create_test_file(
-            "pod-name_namespace_secondContainer-name-secondContainerid",
+            "pod-name_create-namespace_secondContainer-name-secondContainerid",
             4,
         );
         let _third_file = create_test_file("pod-name_wrongNamespace_container-name-containerid", 4);
 
-        // Get the events and verify them.
-        let first_event = log_metadata_rx.recv().await.unwrap().unwrap();
-        verify_event(
-            first_event,
-            "ADDED",
-            "firstContainerid",
-            "The node name",
-            "namespace",
-            "pod-name",
-            "firstContainer-name",
-            Some(4),
-        );
+        // Get the events and verify them. Events can appear in different order when using PollWatcher.
+        for _i in 0..2 {
+            let event = log_metadata_rx.recv().await.unwrap().unwrap();
 
-        let second_event = log_metadata_rx.recv().await.unwrap().unwrap();
-        verify_event(
-            second_event,
-            "ADDED",
-            "secondContainerid",
-            "The node name",
-            "namespace",
-            "pod-name",
-            "secondContainer-name",
-            Some(4),
-        );
+            if event
+                .object
+                .as_ref()
+                .unwrap()
+                .id
+                .starts_with("firstContainerid")
+            {
+                verify_event(
+                    event,
+                    "ADDED",
+                    "firstContainerid",
+                    "The node name",
+                    "create-namespace",
+                    "pod-name",
+                    "firstContainer-name",
+                    Some(4),
+                );
+            } else {
+                verify_event(
+                    event,
+                    "ADDED",
+                    "secondContainerid",
+                    "The node name",
+                    "create-namespace",
+                    "pod-name",
+                    "secondContainer-name",
+                    Some(4),
+                );
+            }
+        }
 
         // Ensure no more events are created.
         let result = log_metadata_rx.try_recv();
@@ -469,6 +496,7 @@ mod test {
     }
 
     #[tokio::test]
+    #[parallel]
     async fn test_error_is_returned_on_unknown_directory() {
         let namespaces = vec!["namespace".into()];
         let (term_tx, _term_rx) = broadcast::channel(1);
@@ -481,8 +509,7 @@ mod test {
             "The node name".to_owned(),
         );
 
-        task::spawn(async move { log_metadata_watcher.watch().await });
-        sleep(Duration::from_millis(100)).await;
+        task::spawn(async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await });
 
         let result = log_metadata_rx.recv().await.unwrap();
         assert!(matches!(result, Err(_)));
@@ -493,10 +520,10 @@ mod test {
     }
 
     #[tokio::test]
-    #[serial]
+    #[parallel]
     async fn test_delete_events_are_generated() {
-        let file = create_test_file("pod-name_namespace_container-name-containerid", 4);
-        let namespaces = vec!["namespace".into()];
+        let file = create_test_file("pod-name_delete-namespace_container-name-containerid", 4);
+        let namespaces = vec!["delete-namespace".into()];
         let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = file.path().parent().unwrap().to_owned();
 
@@ -507,9 +534,13 @@ mod test {
             "The node name".to_owned(),
         );
 
-        // Start the watcher and give it some time to execute before creating events.
-        task::spawn(async move { log_metadata_watcher.watch().await });
-        sleep(Duration::from_millis(100)).await;
+        // File deletions return errors when using PollWatcher so we use RecommendedWatcher
+        task::spawn(async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await });
+
+        // Wait until the watcher has started listening for changes
+        while term_tx.receiver_count() != 2 {
+            sleep(Duration::from_millis(50)).await;
+        }
 
         // Delete the file.
         let _ = file.close();
@@ -521,7 +552,7 @@ mod test {
             "DELETED",
             "containerid",
             "The node name",
-            "namespace",
+            "delete-namespace",
             "pod-name",
             "container-name",
             None,
@@ -529,10 +560,11 @@ mod test {
     }
 
     #[tokio::test]
-    #[serial]
+    #[cfg(not(target_os = "macos"))]
+    #[parallel]
     async fn test_renamed_file_is_being_watched() {
-        let file = create_test_file("pod-name_namespace_container-name-containerid", 4);
-        let namespaces = vec!["namespace".into()];
+        let file = create_test_file("pod-name_rename-namespace_container-name-containerid", 4);
+        let namespaces = vec!["rename-namespace".into()];
         let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = file.path().parent().unwrap().to_owned();
 
@@ -544,12 +576,16 @@ mod test {
         );
 
         // Start the watcher and give it some time to execute before creating events.
-        task::spawn(async move { log_metadata_watcher.watch().await });
-        sleep(Duration::from_millis(100)).await;
+        task::spawn(async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await });
+
+        // Wait until the watcher has started listening for changes
+        while term_tx.receiver_count() != 2 {
+            sleep(Duration::from_millis(50)).await;
+        }
 
         // Rename the file.
         let mut new_path = file.path().to_owned();
-        new_path.set_file_name("pod-name_namespace_container-name-updatedcontainerid.log");
+        new_path.set_file_name("pod-name_rename-namespace_container-name-updatedcontainerid.log");
         let _ = rename(file.path(), &new_path);
 
         // Edit the file.
@@ -560,18 +596,17 @@ mod test {
             .unwrap();
         let _ = renamed_file.write_all(&vec![1; 5]);
 
+        // Get the events and verify them. Events can appear in different order when using PollWatcher.
         for _i in 0..2 {
             let event = log_metadata_rx.recv().await.unwrap().unwrap();
 
-            // Events can appear in different order depending on the platform that the test
-            // is executed.
             if event.r#type == "DELETED" {
                 verify_event(
                     event,
                     "DELETED",
                     "containerid",
                     "The node name",
-                    "namespace",
+                    "rename-namespace",
                     "pod-name",
                     "container-name",
                     None,
@@ -582,7 +617,7 @@ mod test {
                     "MODIFIED",
                     "updatedcontainerid",
                     "The node name",
-                    "namespace",
+                    "rename-namespace",
                     "pod-name",
                     "container-name",
                     Some(9),
