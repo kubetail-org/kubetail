@@ -1,3 +1,4 @@
+use notify::RecommendedWatcher;
 use prost_types::Timestamp;
 use regex::{Captures, Regex};
 use std::env;
@@ -197,7 +198,7 @@ impl LogMetadataService for LogMetadataImpl {
         );
 
         self.task_tracker.spawn(async move {
-            log_metadata_watcher.watch().await;
+            log_metadata_watcher.watch::<RecommendedWatcher>(None).await;
         });
 
         Ok(Response::new(ReceiverStream::new(log_metadata_rx)))
