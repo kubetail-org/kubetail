@@ -208,14 +208,14 @@ impl LogMetadataService for LogMetadataImpl {
 #[cfg(test)]
 mod test {
     use crate::log_metadata::LogMetadataImpl;
-    use serial_test::serial;
+    use serial_test::parallel;
     use std::io::Write;
     use tempfile::{Builder, NamedTempFile};
     use tokio::sync::broadcast;
     use tokio_util::task::TaskTracker;
     use tonic::Request;
     use types::cluster_agent::{
-        LogMetadataListRequest, log_metadata_service_server::LogMetadataService,
+        LogMetadata, LogMetadataListRequest, log_metadata_service_server::LogMetadataService,
     };
 
     pub fn create_test_file(name: &str, num_bytes: usize) -> NamedTempFile {
@@ -233,9 +233,9 @@ mod test {
     }
 
     #[tokio::test]
-    #[serial]
+    #[parallel]
     async fn test_single_file_is_returned() {
-        let file = create_test_file("pod-name_namespace_container-name-containerid", 4);
+        let file = create_test_file("pod-name_single-namespace_container-name-containerid", 4);
         let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = file.path().parent().unwrap().to_path_buf();
 
@@ -248,7 +248,7 @@ mod test {
 
         let mut result = metadata_service
             .list(Request::new(LogMetadataListRequest {
-                namespaces: vec!["namespace".into()],
+                namespaces: vec!["single-namespace".into()],
             }))
             .await
             .unwrap()
@@ -268,21 +268,30 @@ mod test {
                 .container_id
                 .starts_with("containerid")
         );
-        assert_eq!("namespace", log_metadata.spec.as_ref().unwrap().namespace);
+        assert_eq!(
+            "single-namespace",
+            log_metadata.spec.as_ref().unwrap().namespace
+        );
         assert_eq!("pod-name", log_metadata.spec.as_ref().unwrap().pod_name);
         assert_eq!("container-name", log_metadata.spec.unwrap().container_name);
         assert_eq!(4, log_metadata.file_info.unwrap().size);
     }
 
     #[tokio::test]
-    #[serial]
+    #[parallel]
     async fn test_namespaces_are_filtered() {
-        let _first_file =
-            create_test_file("pod-name_firstnamespace_container-name1-containerid1", 4);
-        let _second_file =
-            create_test_file("pod-name_firstnamespace_container-name2-containerid2", 4);
-        let third_file =
-            create_test_file("pod-name_secondnamespace_container-name2-containerid2", 4);
+        let _first_file = create_test_file(
+            "pod-name_filter-firstnamespace_container-name1-containerid1",
+            4,
+        );
+        let _second_file = create_test_file(
+            "pod-name_filter-firstnamespace_container-name2-containerid2",
+            4,
+        );
+        let third_file = create_test_file(
+            "pod-name_filter-secondnamespace_container-name2-containerid2",
+            4,
+        );
         let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = third_file.path().parent().unwrap().to_path_buf();
 
@@ -295,7 +304,7 @@ mod test {
 
         let mut result = metadata_service
             .list(Request::new(LogMetadataListRequest {
-                namespaces: vec!["firstnamespace".into()],
+                namespaces: vec!["filter-firstnamespace".into()],
             }))
             .await
             .unwrap()
@@ -305,15 +314,21 @@ mod test {
 
         let log_metadata = result.items.pop().unwrap();
 
-        assert_eq!("firstnamespace", log_metadata.spec.unwrap().namespace);
+        assert_eq!(
+            "filter-firstnamespace",
+            log_metadata.spec.unwrap().namespace
+        );
 
         let log_metadata = result.items.pop().unwrap();
 
-        assert_eq!("firstnamespace", log_metadata.spec.unwrap().namespace);
+        assert_eq!(
+            "filter-firstnamespace",
+            log_metadata.spec.unwrap().namespace
+        );
 
         let mut result = metadata_service
             .list(Request::new(LogMetadataListRequest {
-                namespaces: vec!["secondnamespace".into()],
+                namespaces: vec!["filter-secondnamespace".into()],
             }))
             .await
             .unwrap()
@@ -323,16 +338,23 @@ mod test {
 
         let log_metadata = result.items.pop().unwrap();
 
-        assert_eq!("secondnamespace", log_metadata.spec.unwrap().namespace);
+        assert_eq!(
+            "filter-secondnamespace",
+            log_metadata.spec.unwrap().namespace
+        );
     }
 
     #[tokio::test]
-    #[serial]
+    #[parallel]
     async fn test_empty_namespaces_returns_everything() {
-        let first_file =
-            create_test_file("pod-name_firstnamespace_container-name1-containerid1", 4);
-        let _second_file =
-            create_test_file("pod-name_secondnamespace_container-name2-containerid2", 4);
+        let first_file = create_test_file(
+            "pod-name_empty-firstnamespace_container-name1-containerid1",
+            4,
+        );
+        let _second_file = create_test_file(
+            "pod-name_empty-secondnamespace_container-name2-containerid2",
+            4,
+        );
 
         let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = first_file.path().parent().unwrap().to_path_buf();
@@ -344,7 +366,7 @@ mod test {
             node_name: "Node name".to_owned(),
         };
 
-        let mut result = metadata_service
+        let result = metadata_service
             .list(Request::new(LogMetadataListRequest {
                 namespaces: Vec::new(),
             }))
@@ -352,16 +374,21 @@ mod test {
             .unwrap()
             .into_inner();
 
-        assert_eq!(2, result.items.len());
         let namespaces = vec![
-            String::from("firstnamespace"),
-            String::from("secondnamespace"),
+            String::from("empty-firstnamespace"),
+            String::from("empty-secondnamespace"),
         ];
 
-        let log_metadata = result.items.pop().unwrap();
-        assert!(namespaces.contains(&log_metadata.spec.unwrap().namespace));
+        // Since files for all namespaces are returned, we filtered the ones that were only created
+        // during this test.
+        let filtered_files: Vec<LogMetadata> = result
+            .items
+            .into_iter()
+            .filter(|log_metadata| {
+                namespaces.contains(&log_metadata.spec.as_ref().unwrap().namespace)
+            })
+            .collect();
 
-        let log_metadata = result.items.pop().unwrap();
-        assert!(namespaces.contains(&log_metadata.spec.unwrap().namespace));
+        assert_eq!(2, filtered_files.len());
     }
 }

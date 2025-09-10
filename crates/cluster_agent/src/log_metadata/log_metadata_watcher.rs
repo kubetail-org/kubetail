@@ -399,6 +399,7 @@ impl LogMetadataWatchEventType {
 
 #[cfg(test)]
 mod test {
+    #[cfg(not(target_os = "macos"))]
     use std::{
         fs::{File, remove_file, rename},
         io::Write,
@@ -408,7 +409,7 @@ mod test {
 
     use super::*;
     use notify::{PollWatcher, RecommendedWatcher};
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
     use tokio::{
         sync::{broadcast, mpsc::error::TryRecvError},
         task,
@@ -495,6 +496,7 @@ mod test {
     }
 
     #[tokio::test]
+    #[parallel]
     async fn test_error_is_returned_on_unknown_directory() {
         let namespaces = vec!["namespace".into()];
         let (term_tx, _term_rx) = broadcast::channel(1);
@@ -518,7 +520,7 @@ mod test {
     }
 
     #[tokio::test]
-    #[serial]
+    #[parallel]
     async fn test_delete_events_are_generated() {
         let file = create_test_file("pod-name_delete-namespace_container-name-containerid", 4);
         let namespaces = vec!["delete-namespace".into()];
@@ -559,7 +561,7 @@ mod test {
 
     #[tokio::test]
     #[cfg(not(target_os = "macos"))]
-    #[serial]
+    #[parallel]
     async fn test_renamed_file_is_being_watched() {
         let file = create_test_file("pod-name_rename-namespace_container-name-containerid", 4);
         let namespaces = vec!["rename-namespace".into()];
