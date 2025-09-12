@@ -275,7 +275,7 @@ async fn listen_for_changes(
                 }
             },
             _ = term_rx.recv() => {
-                    break 'outer;
+                break 'outer;
             },
         }
     }

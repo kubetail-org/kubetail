@@ -154,9 +154,9 @@ impl LogMetadataWatcher {
                     }
                 }
                 _ = term_rx.recv() => {
-                        debug!("Received termination message");
-                        break;
-                    }
+                    debug!("Received termination message");
+                    break;
+                }
             }
         }
 

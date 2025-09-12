@@ -22,6 +22,7 @@ use types::cluster_agent::{
 
 use crate::authorizer::Authorizer;
 use crate::log_metadata::log_metadata_watcher::LogMetadataWatcher;
+use crate::stream_util::wrap_with_shutdown;
 
 mod log_metadata_watcher;
 
@@ -201,7 +202,10 @@ impl LogMetadataService for LogMetadataImpl {
             log_metadata_watcher.watch::<RecommendedWatcher>(None).await;
         });
 
-        Ok(Response::new(ReceiverStream::new(log_metadata_rx)))
+        Ok(Response::new(wrap_with_shutdown(
+            log_metadata_rx,
+            self.term_tx.clone(),
+        )))
     }
 }
 

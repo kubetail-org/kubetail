@@ -18,6 +18,7 @@ mod authorizer;
 mod config;
 mod log_metadata;
 mod log_records;
+mod stream_util;
 use log_metadata::LogMetadataImpl;
 use log_records::LogRecordsImpl;
 

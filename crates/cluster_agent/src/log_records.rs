@@ -14,6 +14,7 @@ use rgkl::{stream_backward, stream_forward};
 use tonic::{Request, Response, Status};
 
 use crate::authorizer::Authorizer;
+use crate::stream_util::wrap_with_shutdown;
 
 #[derive(Debug)]
 pub struct LogRecordsImpl {
@@ -69,6 +70,7 @@ impl LogRecordsService for LogRecordsImpl {
         let file_path = self.get_log_filename(&request).map_err(|status| *status)?;
         let (tx, rx) = mpsc::channel(100);
         let term_tx = self.term_tx.clone();
+        let term_tx_for_wrapper = term_tx.clone();
 
         let namespaces = vec![request.namespace.clone()];
         authorizer.is_authorized(&namespaces, "list").await?;
@@ -89,7 +91,7 @@ impl LogRecordsService for LogRecordsImpl {
             .await;
         });
 
-        Ok(Response::new(ReceiverStream::new(rx)))
+        Ok(Response::new(wrap_with_shutdown(rx, term_tx_for_wrapper)))
     }
 
     #[tracing::instrument]
@@ -106,6 +108,7 @@ impl LogRecordsService for LogRecordsImpl {
 
         let (tx, rx) = mpsc::channel(100);
         let term_tx = self.term_tx.clone();
+        let term_tx_for_wrapper = term_tx.clone();
 
         self.task_tracker.spawn(async move {
             stream_forward::stream_forward(
@@ -124,6 +127,6 @@ impl LogRecordsService for LogRecordsImpl {
             .await;
         });
 
-        Ok(Response::new(ReceiverStream::new(rx)))
+        Ok(Response::new(wrap_with_shutdown(rx, term_tx_for_wrapper)))
     }
 }
