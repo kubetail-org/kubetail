@@ -66,7 +66,10 @@ func mustNewGrpcDispatcher(cfg *config.Config) *grpcdispatcher.Dispatcher {
 
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)))
 	} else {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		dialOpts = append(dialOpts,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithAuthority("kubetail-cluster-agent.kubetail-system.svc"),
+		)
 	}
 
 	// TODO: reuse app clientset
