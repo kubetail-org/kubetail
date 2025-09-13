@@ -275,6 +275,9 @@ async fn listen_for_changes(
                 }
             },
             _ = term_rx.recv() => {
+                    // Send gRPC UNAVAILABLE error to indicate server shutdown
+                    let shutdown_status = Status::new(tonic::Code::Unavailable, "Server is shutting down");
+                    let _ = sender.send(Err(shutdown_status)).await;
                     break 'outer;
             },
         }
@@ -336,10 +339,19 @@ mod test {
     /// Compare captured binary output with expected lines
     /// Parses the binary output and compares the message fields with expected lines
     fn compare_lines(output: Vec<Result<LogRecord, Status>>, expected_lines: Vec<&'static str>) {
-        // Parse the captured output
+        // Parse the captured output, filtering out shutdown errors
         let captured_lines: Vec<String> = output
             .into_iter()
-            .map(|line| line.unwrap().message)
+            .filter_map(|line| match line {
+                Ok(record) => Some(record.message),
+                Err(status)
+                    if status.code() == tonic::Code::Unavailable
+                        && status.message() == "Server is shutting down" =>
+                {
+                    None
+                } // Filter out shutdown errors
+                Err(_) => panic!("Unexpected error in test output"), // Other errors should still cause test failure
+            })
             .collect();
 
         // Compare against expected lines
@@ -633,5 +645,46 @@ mod test {
         let status = result.unwrap_err();
         assert_eq!(status.code(), tonic::Code::NotFound);
         assert!(status.message().contains("No such file or directory"));
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_error_sent_on_termination() {
+        // Prepare a fresh temp file and paths
+        let test_file = create_test_file();
+        let path = test_file.path().to_path_buf();
+
+        // Termination and output channels
+        let (term_tx, _term_rx) = broadcast::channel(5);
+        let (tx, mut rx) = mpsc::channel(100);
+
+        // Start stream_forward in follow mode so it enters the listen loop
+        let term_tx_clone = term_tx.clone();
+        task::spawn(async move {
+            stream_forward(
+                &path,
+                None,            // No start time
+                None,            // No stop time
+                None,            // No grep filter
+                FollowFrom::End, // Enter listen loop immediately
+                term_tx_clone,
+                tx,
+            )
+            .await;
+        });
+
+        // Wait until the stream subscribes to the termination channel
+        while term_tx.receiver_count() != 2 {
+            sleep(Duration::from_millis(50)).await;
+        }
+
+        // Trigger termination and assert the forwarded shutdown error
+        let _ = term_tx.send(());
+        let last = rx.recv().await.expect("should forward shutdown error");
+        let status = last.unwrap_err();
+        assert_eq!(status.code(), tonic::Code::Unavailable);
+        assert_eq!(status.message(), "Server is shutting down");
+
+        // Channel should close after sending the shutdown error
+        assert!(rx.recv().await.is_none());
     }
 }
