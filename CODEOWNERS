@@ -5,8 +5,10 @@
 *.md    @rxinui @amorey
 .github/    @rxinui @amorey
 
-# kubetail CLI ownership
+# kubetail go ownership
 /modules/cli/   @rxinui @amorey
 /modules/shared/    @rxinui @amorey
 /modules/cluster-api/    @rxinui @amorey
-/crates/    @rxinui @amorey @gikaragia
+
+# kubetail rust ownership
+/crates/    @gikaragia @amorey

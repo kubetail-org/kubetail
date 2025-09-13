@@ -155,6 +155,8 @@ impl LogMetadataWatcher {
                 }
                 _ = term_rx.recv() => {
                         debug!("Received termination message");
+                        let shutdown_status = Status::new(tonic::Code::Unavailable, "Server is shutting down");
+                        let _ = self.log_metadata_tx.send(Err(shutdown_status)).await;
                         break;
                     }
             }
@@ -630,6 +632,43 @@ mod test {
 
         // The renamed file won't be delted automatically when it gets out of scope.
         let _ = remove_file(&new_path);
+    }
+
+    #[tokio::test]
+    #[parallel]
+    async fn test_sends_unavailable_on_termination_signal() {
+        // Prepare a valid logs directory using a temp file's parent.
+        let file = create_test_file("pod-name_term-namespace_container-name-containerid", 1);
+        let namespaces = vec!["term-namespace".into()];
+        let (term_tx, _term_rx) = broadcast::channel(1);
+        let logs_dir = file.path().parent().unwrap().to_owned();
+
+        let (log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            logs_dir,
+            namespaces,
+            term_tx.clone(),
+            "The node name".to_owned(),
+        );
+
+        // Start the watcher in the background.
+        task::spawn(async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await });
+
+        // Wait until the watcher has subscribed to the termination channel.
+        while term_tx.receiver_count() != 2 {
+            sleep(Duration::from_millis(50)).await;
+        }
+
+        // Send termination signal and expect an UNAVAILABLE status to be forwarded.
+        let _ = term_tx.send(());
+        let result = log_metadata_rx
+            .recv()
+            .await
+            .expect("channel should yield a value");
+        assert!(matches!(result, Err(_)));
+
+        let status = result.unwrap_err();
+        assert_eq!(status.code(), tonic::Code::Unavailable);
+        assert_eq!(status.message(), "Server is shutting down");
     }
 
     fn verify_event(
