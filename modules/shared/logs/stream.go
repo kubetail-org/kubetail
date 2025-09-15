@@ -447,6 +447,13 @@ func (s *Stream) startFollow_UNSAFE() error {
 						return
 					}
 
+					// Check for errors
+					if record.err != nil {
+						s.setError_SAFE(record.err)
+						s.rootCtxCancel()
+						return
+					}
+
 					// Send record
 					select {
 					case <-ctx.Done():

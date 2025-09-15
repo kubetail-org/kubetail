@@ -17,15 +17,14 @@ package logs
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
-	zlog "github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -334,20 +333,8 @@ func (f *AgentLogFetcher) StreamForward(ctx context.Context, source LogSource, o
 	// Init output channel
 	outCh := make(chan LogRecord)
 
-	var (
-		sub  *grpcdispatcher.Subscription
-		err  error
-		once sync.Once
-	)
-
-	closeOutCh := func() {
-		once.Do(func() {
-			close(outCh)
-		})
-	}
-
-	sub, err = f.grpcDispatcher.UnicastSubscribe(ctx, source.Metadata.Node, func(ctx context.Context, conn *grpc.ClientConn) {
-		defer closeOutCh()
+	err := f.grpcDispatcher.UnicastSubscribeOnce(ctx, source.Metadata.Node, func(ctx context.Context, conn *grpc.ClientConn) {
+		defer close(outCh)
 
 		// init client
 		c := clusteragentpb.NewLogRecordsServiceClient(conn)
@@ -383,7 +370,8 @@ func (f *AgentLogFetcher) StreamForward(ctx context.Context, source LogSource, o
 		// Execute
 		stream, err := c.StreamForward(ctx, req)
 		if err != nil {
-			sub.Unsubscribe()
+			// Send error
+			outCh <- LogRecord{err: err}
 			return
 		}
 
@@ -393,27 +381,14 @@ func (f *AgentLogFetcher) StreamForward(ctx context.Context, source LogSource, o
 			// Handle errors
 			if err != nil {
 				// Ignore normal errors
-				if err == io.EOF {
-					break
-				} else if err == context.Canceled {
-					break
-				}
-
-				// check for grpc status error
-				if s, ok := status.FromError(err); ok {
-					switch s.Code() {
-					case codes.Unavailable:
-						// server down (probably restarting)
-					case codes.Canceled:
-						// connection closed client-side
-					default:
-						zlog.Error().Caller().Err(err).Msgf("unexpected gRPC error: %v\n", s.Message())
-					}
+				if errors.Is(err, io.EOF) ||
+					errors.Is(err, context.Canceled) ||
+					status.Code(err) == codes.Canceled {
 					break
 				}
 
-				zlog.Error().Caller().Err(err).Msg("unexpected error")
-
+				// Send unexpected error
+				outCh <- LogRecord{err: err}
 				break
 			}
 
@@ -424,11 +399,8 @@ func (f *AgentLogFetcher) StreamForward(ctx context.Context, source LogSource, o
 				Source:    source,
 			}
 		}
-
-		sub.Unsubscribe()
 	})
 	if err != nil {
-		closeOutCh()
 		return nil, err
 	}
 
@@ -440,20 +412,8 @@ func (f *AgentLogFetcher) StreamBackward(ctx context.Context, source LogSource, 
 	// Init output channel
 	outCh := make(chan LogRecord)
 
-	var (
-		sub  *grpcdispatcher.Subscription
-		err  error
-		once sync.Once
-	)
-
-	closeOutCh := func() {
-		once.Do(func() {
-			close(outCh)
-		})
-	}
-
-	sub, err = f.grpcDispatcher.UnicastSubscribe(ctx, source.Metadata.Node, func(ctx context.Context, conn *grpc.ClientConn) {
-		defer closeOutCh()
+	err := f.grpcDispatcher.UnicastSubscribeOnce(ctx, source.Metadata.Node, func(ctx context.Context, conn *grpc.ClientConn) {
+		defer close(outCh)
 
 		// init client
 		c := clusteragentpb.NewLogRecordsServiceClient(conn)
@@ -478,7 +438,8 @@ func (f *AgentLogFetcher) StreamBackward(ctx context.Context, source LogSource, 
 		// Execute
 		stream, err := c.StreamBackward(ctx, req)
 		if err != nil {
-			sub.Unsubscribe()
+			// Send error
+			outCh <- LogRecord{err: err}
 			return
 		}
 
@@ -488,27 +449,14 @@ func (f *AgentLogFetcher) StreamBackward(ctx context.Context, source LogSource, 
 			// Handle errors
 			if err != nil {
 				// Ignore normal errors
-				if err == io.EOF {
-					break
-				} else if err == context.Canceled {
-					break
-				}
-
-				// check for grpc status error
-				if s, ok := status.FromError(err); ok {
-					switch s.Code() {
-					case codes.Unavailable:
-						// server down (probably restarting)
-					case codes.Canceled:
-						// connection closed client-side
-					default:
-						zlog.Error().Caller().Err(err).Msgf("unexpected gRPC error: %v\n", s.Message())
-					}
+				if errors.Is(err, io.EOF) ||
+					errors.Is(err, context.Canceled) ||
+					status.Code(err) == codes.Canceled {
 					break
 				}
 
-				zlog.Error().Caller().Err(err).Msg("unexpected error")
-
+				// Send unexpected error
+				outCh <- LogRecord{err: err}
 				break
 			}
 
@@ -519,11 +467,8 @@ func (f *AgentLogFetcher) StreamBackward(ctx context.Context, source LogSource, 
 				Source:    source,
 			}
 		}
-
-		sub.Unsubscribe()
 	})
 	if err != nil {
-		closeOutCh()
 		return nil, err
 	}
 
