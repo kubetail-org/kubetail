@@ -23,6 +23,7 @@ var (
 	ErrUnauthenticated     = NewError("KUBETAIL_UNAUTHENTICATED", "Authentication required")
 	ErrForbidden           = NewError("KUBETAIL_FORBIDDEN", "Forbidden")
 	ErrWatchError          = NewError("KUBETAIL_WATCH_ERROR", "Watch error")
+	ErrServiceUnavailable  = NewError("KUBETAIL_SERVICE_UNAVAILABLE", "Service unavailable")
 	ErrInternalServerError = NewError("INTERNAL_SERVER_ERROR", "Internal server error")
 )
 
