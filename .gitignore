@@ -35,6 +35,9 @@ lerna-debug.log*
 # vite
 .vite
 
+# go
+/modules/go.work.sum
+
 # rust
 *.rs.bk
 *.dll
