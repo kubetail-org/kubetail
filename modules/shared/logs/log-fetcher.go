@@ -46,6 +46,9 @@ const (
 	FollowFromEnd     FollowFrom = "end"
 )
 
+const logScannerInitCapacity = 64 * 1024  // 64KB
+const logScannerMaxCapacity = 1024 * 1024 // 1MB
+
 // FetcherOptions defines options for fetching logs
 type FetcherOptions struct {
 	StartTime     time.Time
@@ -110,6 +113,9 @@ func (f *KubeLogFetcher) StreamForward(ctx context.Context, source LogSource, op
 		defer close(outCh)
 
 		scanner := bufio.NewScanner(podLogs)
+
+		buffer := make([]byte, logScannerInitCapacity)
+		scanner.Buffer(buffer, logScannerMaxCapacity)
 
 		for scanner.Scan() {
 			record, err := newLogRecordFromLogLine(scanner.Text())
@@ -206,6 +212,10 @@ func (f *KubeLogFetcher) StreamBackward(ctx context.Context, source LogSource, o
 
 			// Read logs from this batch
 			scanner := bufio.NewScanner(podLogs)
+
+			buffer := make([]byte, logScannerInitCapacity)
+			scanner.Buffer(buffer, logScannerMaxCapacity)
+
 			batchRecords := []LogRecord{}
 			isEmpty := true
 			isFirst := true
