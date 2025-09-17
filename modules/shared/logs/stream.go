@@ -315,8 +315,8 @@ func (s *Stream) startHead_UNSAFE() error {
 
 	// Process in goroutine
 	go func() {
-		defer cancel()
 		defer s.closePastCh()
+		defer cancel()
 
 		N := int(s.maxNum)
 		var count int
@@ -376,8 +376,8 @@ func (s *Stream) startTail_UNSAFE() error {
 
 	// Process in goroutine
 	go func() {
-		defer cancel()
 		defer s.closePastCh()
+		defer cancel()
 
 		N := int(s.maxNum)
 		var count int
