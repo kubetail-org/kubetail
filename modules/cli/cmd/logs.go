@@ -54,17 +54,17 @@ Examples:
 		# Tail 'web-abc123' pod in 'default' namespace
 		kubetail logs web-abc123
 
-    # Tail 'web' deployment in the 'default' namespace
+		# Tail 'web' deployment in the 'default' namespace
 		kubetail logs deployments/web
 
 		# Tail all the deployments in the 'default' namespace
 		kubetail logs deployments/*
 
 		# Tail the 'container1' container in the 'web' deployment
-		kubetail deployments/web/container1
+		kubetail logs deployments/web/container1
 
 		# Tail all the containers in the 'web' deployment
-		kubtail logs deployments/web/*
+		kubetail logs deployments/web/*
 
 		# Tail 'web-abc123' pod in 'frontend' namespace
 		kubetail logs frontend:web-abc123
@@ -106,20 +106,20 @@ Examples:
 		# Return first 10 records starting from 30 minutes ago
 		kubetail logs nginx --since PT30M
 
-    # Return last 10 records leading up to 30 minutes ago
-    kubetail logs nginx --until PT30M
+		# Return last 10 records leading up to 30 minutes ago
+		kubetail logs nginx --until PT30M
 
 		# Return all records starting from 30 minutes ago
 		kubetail logs nginx --since PT30M --all
 
 		# Return first 10 records between two exact timestamps
-    kubetail logs nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00
+		kubetail logs nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00
 
 		# Return last 10 records between two exact timestamps
-    kubetail logs nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --tail
+		kubetail logs nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --tail
 
 		# Return all records between two exact timestamps
-    kubetail logs nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --all
+		kubetail logs nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --all
 
 	- Grep filter (requires --force)
 
@@ -130,7 +130,7 @@ Examples:
 		kubetail logs nginx --grep "GET /about" --head --force
 
 		# Return last 10 records that match "GET /about" or "GET /contact"
-		kubetail logs ngingx --grep "GET /(about|contact)" --force
+		kubetail logs nginx --grep "GET /(about|contact)" --force
 
 		# Stream new records that match "GET /about"
 		kubetail logs nginx --grep "GET /about" --follow --force
