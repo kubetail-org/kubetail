@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@kubetail/ui/elements/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@kubetail/ui/elements/select';
 
 import appConfig from '@/app-config';
-import Modal from '@/components/elements/Modal';
 import ClusterAPIInstallButton from '@/components/widgets/ClusterAPIInstallButton';
 import KubeContextPicker from '@/components/widgets/KubeContextPicker';
 import { CLUSTER_API_SERVICES_LIST_FETCH, CLUSTER_API_SERVICES_LIST_WATCH } from '@/lib/graphql/dashboard/ops';
@@ -100,44 +100,35 @@ const ClusterAPIPickerCluster = () => (
 );
 
 /**
- *  ClusterSettingsDialog component
+ *  ClusterSettingsDialogContent component
  */
 
-type ClusterSettingsDialogProps = {
-  isOpen?: boolean;
-  onClose: (value?: boolean) => void;
+interface ClusterSettingsDialogProps extends React.ComponentProps<typeof Dialog> {
   defaultKubeContext: string | null;
-};
+}
 
-export const ClusterSettingsDialog = ({ isOpen = false, onClose, defaultKubeContext }: ClusterSettingsDialogProps) => {
+export const ClusterSettingsDialog = ({ defaultKubeContext, ...props }: ClusterSettingsDialogProps) => {
   const [kubeContext, setKubeContext] = useState(defaultKubeContext);
 
   return (
-    <Modal open={isOpen} onClose={onClose} className="max-w-[550px]!">
-      <Modal.Title className="flex items-center space-x-3">
-        <span>Cluster Settings</span>
-        {appConfig.environment === 'desktop' && (
-          <KubeContextPicker className="w-auto" value={kubeContext} setValue={setKubeContext} />
-        )}
-      </Modal.Title>
-      <div className="mt-5 pb-8">
-        <div className="text-heading-sm">Cluster API Endpoint</div>
-        {appConfig.environment === 'desktop' ? (
-          <ClusterAPIPickerDesktop kubeContext={kubeContext} />
-        ) : (
-          <ClusterAPIPickerCluster />
-        )}
-        {/*
-        <Form.Group>
-          <Form.Label>Cluster API Endpoint</Form.Label>
+    <Dialog {...props}>
+      <DialogContent>
+        <DialogTitle className="flex items-center space-x-3">
+          <span>Cluster Settings</span>
+          {appConfig.environment === 'desktop' && (
+            <KubeContextPicker className="w-auto" value={kubeContext} setValue={setKubeContext} />
+          )}
+        </DialogTitle>
+        <DialogDescription />
+        <div className="mt-5 pb-8">
+          <div className="text-heading-sm">Cluster API Endpoint</div>
           {appConfig.environment === 'desktop' ? (
             <ClusterAPIPickerDesktop kubeContext={kubeContext} />
           ) : (
             <ClusterAPIPickerCluster />
           )}
-        </Form.Group>
-        */}
-      </div>
-    </Modal>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };

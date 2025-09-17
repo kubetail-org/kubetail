@@ -16,16 +16,24 @@ import type { CheckedState } from '@radix-ui/react-checkbox';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
 import type { Cell, ColumnDef, Row, SortDirection, SortingState, TableMeta, TableOptions } from '@tanstack/react-table';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { Button } from '@kubetail/ui/elements/button';
 import { Checkbox } from '@kubetail/ui/elements/checkbox';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@kubetail/ui/elements/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@kubetail/ui/elements/select';
 import { Spinner } from '@kubetail/ui/elements/spinner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@kubetail/ui/elements/table';
 
-import Modal from '@/components/elements/Modal';
 import AdaptiveTimeAgo from '@/components/widgets/AdaptiveTimeAgo';
 
 import type {
@@ -514,7 +522,7 @@ const NamespacePicker = () => {
  * SourcePickerModal component
  */
 
-const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void }) => {
+const SourcePickerModal = ({ open, onOpenChange }: React.ComponentProps<typeof Dialog>) => {
   const [searchParams] = useSearchParams();
   const [namespaceFilter, setNamespaceFilter] = useState('');
   const [selectedSources, setSelectedSources] = useState(new Set(searchParams.getAll('source')));
@@ -533,7 +541,7 @@ const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void }) 
     currentUrl.search = new URLSearchParams(searchParams).toString();
     window.location.href = currentUrl.toString();
 
-    onClose();
+    if (onOpenChange) onOpenChange(false);
   };
 
   const context = useMemo(
@@ -549,21 +557,30 @@ const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void }) 
 
   return (
     <Context.Provider value={context}>
-      <Modal open onClose={() => onClose()} className="max-w-[1000px]!">
-        <div className="flex items-center justify-between mb-[15px]">
-          <div className="font-semibold">Choose logging sources</div>
-          <div className="max-w-[200px]">
-            <NamespacePicker />
-          </div>
-        </div>
-        <Explorer />
-        <div className="flex justify-end space-x-2 mt-[15px]">
-          <Button variant="secondary" onClick={() => onClose()}>
-            Cancel
-          </Button>
-          <Button onClick={() => handleUpdate()}>Update</Button>
-        </div>
-      </Modal>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-[1000px]!">
+          <DialogHeader>
+            <DialogTitle>
+              <div className="flex items-center justify-between mb-[15px]">
+                <div className="font-semibold">Choose logging sources</div>
+                <div className="max-w-[200px] mr-4">
+                  <NamespacePicker />
+                </div>
+              </div>
+            </DialogTitle>
+            <DialogDescription />
+          </DialogHeader>
+          <Explorer />
+          <DialogFooter>
+            <div className="flex justify-end space-x-2 mt-[15px]">
+              <DialogClose asChild>
+                <Button variant="secondary">Cancel</Button>
+              </DialogClose>
+              <Button onClick={() => handleUpdate()}>Update</Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Context.Provider>
   );
 };
