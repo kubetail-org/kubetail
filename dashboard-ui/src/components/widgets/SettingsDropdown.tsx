@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { Settings } from 'lucide-react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Button } from '@kubetail/ui/elements/button';
@@ -45,6 +45,13 @@ const SettingsDropdown = ({ defaultKubeContext = null }: SettingsDropdownProps) 
     }
   }, []);
 
+  const handleOpenChange = useCallback(
+    (value: boolean) => {
+      setIsDialogOpen(value);
+    },
+    [setIsDialogOpen],
+  );
+
   return (
     <>
       <DropdownMenu>
@@ -73,9 +80,9 @@ const SettingsDropdown = ({ defaultKubeContext = null }: SettingsDropdownProps) 
         </DropdownMenuContent>
       </DropdownMenu>
       <ClusterSettingsDialog
+        open={isDialogOpen}
+        onOpenChange={handleOpenChange}
         defaultKubeContext={defaultKubeContext}
-        isOpen={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
       />
     </>
   );

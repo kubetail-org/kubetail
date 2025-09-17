@@ -220,9 +220,11 @@ const SidebarWorkloads = () => {
     window.location.href = currentUrl.toString();
   };
 
+  console.log(isPickerOpen);
+
   return (
     <>
-      {isPickerOpen && <SourcePickerModal onClose={() => setIsPickerOpen(false)} />}
+      <SourcePickerModal open={isPickerOpen} onOpenChange={setIsPickerOpen} />
       {kubeContext !== '' && (
         <div
           className="mb-2 font-bold text-primary overflow-hidden text-ellipsis whitespace-nowrap"
