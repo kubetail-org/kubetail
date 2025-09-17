@@ -14,16 +14,14 @@
 
 import { useEffect, useState } from 'react';
 
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@kubetail/ui/elements/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@kubetail/ui/elements/select';
-
-import Modal from '@/components/elements/Modal';
 
 type APIMode = 'auto' | 'true' | 'false';
 
 export const LOCAL_STORAGE_KEY = 'kubetail:dev:clusterAPIEnabledOverride';
 
 const EnvironmentControl = () => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [apiMode, setApiMode] = useState<APIMode>(() => (localStorage.getItem(LOCAL_STORAGE_KEY) || 'auto') as APIMode);
 
   useEffect(() => {
@@ -41,31 +39,32 @@ const EnvironmentControl = () => {
 
   return (
     <div>
-      <button
-        className="text-xs text-chrome-500 hover:text-chrome-700 pr-3"
-        type="button"
-        onClick={() => setIsDialogOpen(true)}
-      >
-        Environment Control
-      </button>
-      <Modal open={isDialogOpen} onClose={() => setIsDialogOpen(false)} className="max-w-[550px]">
-        <Modal.Title>Environment Control</Modal.Title>
-        <div className="mt-5 pb-8">
-          <div className="text-lg">Switch between Kubernetes API and Kubetail API</div>
-          <div className="pt-3">
-            <Select value={apiMode} onValueChange={handleModeChange}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="auto">Auto</SelectItem>
-                <SelectItem value="true">Kubetail API</SelectItem>
-                <SelectItem value="false">Kubernetes API</SelectItem>
-              </SelectContent>
-            </Select>
+      <Dialog>
+        <DialogTrigger asChild>
+          <button className="text-xs text-chrome-500 hover:text-chrome-700 pr-3" type="button">
+            Environment Control
+          </button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogTitle>Environment Control</DialogTitle>
+          <DialogDescription />
+          <div className="mt-5 pb-8">
+            <div className="text-lg">Switch between Kubernetes API and Kubetail API</div>
+            <div className="pt-3">
+              <Select value={apiMode} onValueChange={handleModeChange}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto</SelectItem>
+                  <SelectItem value="true">Kubetail API</SelectItem>
+                  <SelectItem value="false">Kubernetes API</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

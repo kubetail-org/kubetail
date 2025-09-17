@@ -13,13 +13,13 @@
 // limitations under the License.
 
 import { useSubscription } from '@apollo/client';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect } from 'react';
 import { atom, useAtomValue, useSetAtom } from 'jotai';
 
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@kubetail/ui/elements/dialog';
 import { Table, TableBody, TableCell, TableRow } from '@kubetail/ui/elements/table';
 
 import appConfig from '@/app-config';
-import Modal from '@/components/elements/Modal';
 import ClusterAPIInstallButton from '@/components/widgets/ClusterAPIInstallButton';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import {
@@ -219,8 +219,6 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
   const kubernetesAPIServertatusMap = useAtomValue(kubernetesAPIServerStatusMapState);
   const clusterAPIServerStatusMap = useAtomValue(clusterAPIServerStatusMapState);
 
-  const [modalIsOpen, setModalIsOpen] = useState(false);
-
   // Determine overall status
   let overallStatus = Status.Unknown;
   if (dashboardServerStatus.status === Status.Unhealthy) {
@@ -233,32 +231,36 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
 
   return (
     <div className="inline-block">
-      <button
-        type="button"
-        className={cn('px-2 rounded-tl-sm flex items-center space-x-1 cursor-pointer', className)}
-        onClick={() => setModalIsOpen(true)}
-      >
-        <div className="text-sm">status:</div>
-        <HealthDot status={overallStatus} />
-      </button>
-      <Modal className="max-w-[500px] pb-10" open={modalIsOpen} onClose={() => setModalIsOpen(false)}>
-        <Modal.Title>Health Status</Modal.Title>
-        <StatusTable>
-          <TableRow>
-            <TableCell className="w-px">Dashboard Backend</TableCell>
-            <ServerStatusCells serverStatus={dashboardServerStatus} defaultMessage="Connecting..." />
-          </TableRow>
-        </StatusTable>
-        {kubeContexts.map((kubeContext) => (
-          <Fragment key={kubeContext}>
-            <div className="mt-8 ml-3 mb-1">{kubeContext || 'Cluster'}</div>
-            <StatusTable>
-              <KubernetesAPIServerStatusRow kubeContext={kubeContext} dashboardServerStatus={dashboardServerStatus} />
-              <ClusterAPIServerStatusRow kubeContext={kubeContext} dashboardServerStatus={dashboardServerStatus} />
-            </StatusTable>
-          </Fragment>
-        ))}
-      </Modal>
+      <Dialog>
+        <DialogTrigger asChild>
+          <button
+            type="button"
+            className={cn('px-2 rounded-tl-sm flex items-center space-x-1 cursor-pointer', className)}
+          >
+            <div className="text-sm">status:</div>
+            <HealthDot status={overallStatus} />
+          </button>
+        </DialogTrigger>
+        <DialogContent className="max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <DialogTitle>Health Status</DialogTitle>
+          <DialogDescription />
+          <StatusTable>
+            <TableRow>
+              <TableCell className="w-px">Dashboard Backend</TableCell>
+              <ServerStatusCells serverStatus={dashboardServerStatus} defaultMessage="Connecting..." />
+            </TableRow>
+          </StatusTable>
+          {kubeContexts.map((kubeContext) => (
+            <Fragment key={kubeContext}>
+              <div className="mt-8 ml-3 mb-1">{kubeContext || 'Cluster'}</div>
+              <StatusTable>
+                <KubernetesAPIServerStatusRow kubeContext={kubeContext} dashboardServerStatus={dashboardServerStatus} />
+                <ClusterAPIServerStatusRow kubeContext={kubeContext} dashboardServerStatus={dashboardServerStatus} />
+              </StatusTable>
+            </Fragment>
+          ))}
+        </DialogContent>
+      </Dialog>
       {kubeContexts.map((kubeContext) => (
         <Fragment key={kubeContext}>
           <KubernetesAPIServerStatusFetcher kubeContext={kubeContext} />

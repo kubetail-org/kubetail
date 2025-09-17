@@ -19,8 +19,8 @@ import type { Toast } from 'react-hot-toast';
 import { Outlet } from 'react-router-dom';
 
 import { Button } from '@kubetail/ui/elements/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@kubetail/ui/elements/dialog';
 
-import Modal from '@/components/elements/Modal';
 import { joinPaths, getBasename } from '@/lib/util';
 
 const QueryError = ({ toast }: { toast: Toast }) => (
@@ -39,7 +39,7 @@ const QueryError = ({ toast }: { toast: Toast }) => (
 
 const CustomToaster = () => {
   const { toasts } = useToaster();
-  const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [modalIsOpen, setModalIsOpen] = useState(true);
 
   if (!toasts.length) return null;
 
@@ -61,24 +61,29 @@ const CustomToaster = () => {
         Query Errors
         {`(${toasts.length})`}
       </button>
-      <Modal className="max-w-[500px]" open={modalIsOpen} onClose={() => setModalIsOpen(false)}>
-        <Modal.Title>
-          <div className="flex justify-between">
-            <span>
-              Query Errors
-              {`(${toasts.length})`}
-            </span>
-            <Button variant="destructive" size="sm" onClick={() => toastlib.remove()}>
-              Dismiss All
-            </Button>
+      <Dialog open={modalIsOpen} onOpenChange={setModalIsOpen}>
+        <DialogContent className="max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              <div className="flex justify-between">
+                <span>
+                  Query Errors
+                  {`(${toasts.length})`}
+                </span>
+                <Button className="mr-4" variant="destructive" size="sm" onClick={() => toastlib.remove()}>
+                  Dismiss All
+                </Button>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          <DialogDescription />
+          <div className="text-sm space-y-4">
+            {toasts.map((toast) => (
+              <QueryError key={toast.id} toast={toast} />
+            ))}
           </div>
-        </Modal.Title>
-        <div className="text-sm space-y-4">
-          {toasts.map((toast) => (
-            <QueryError key={toast.id} toast={toast} />
-          ))}
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
