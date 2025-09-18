@@ -511,6 +511,28 @@ LOOP:
 		}
 	}
 
+	// Drain any pending future events that were queued before the past stream
+	// finished. This ensures they are included in the sorted buffer below.
+	drainCtx, cancelDrainCtx := context.WithTimeout(s.rootCtx, 50*time.Millisecond)
+	defer cancelDrainCtx()
+
+DrainLoop:
+	for {
+		select {
+		case <-s.rootCtx.Done():
+			return // exit
+		case <-drainCtx.Done():
+			break DrainLoop
+		case r, ok := <-s.futureCh:
+			if !ok {
+				break DrainLoop
+			}
+			buffer = append(buffer, r)
+		default:
+			break DrainLoop
+		}
+	}
+
 	// Exit if not following
 	if !s.follow {
 		return
