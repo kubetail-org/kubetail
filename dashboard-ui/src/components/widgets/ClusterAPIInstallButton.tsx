@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { useMutation } from '@apollo/client';
-import { PlusCircleIcon } from '@heroicons/react/24/outline';
+import { CirclePlus } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 
@@ -49,7 +49,7 @@ const InstallButton = ({ kubeContext }: InstallButtonProps) => {
 
   return (
     <Button variant="outline" size="sm" onClick={handleClick} disabled={clicked}>
-      {clicked ? <Spinner size="xs" /> : <PlusCircleIcon className="h-5 w-5 mr-1" />}
+      {clicked ? <Spinner size="xs" /> : <CirclePlus className="h-5 w-5 mr-1" />}
       {label}
     </Button>
   );

@@ -9,6 +9,10 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme inline {
+  --color-chrome-divider: var(--chrome-300);
+}
+
 @theme {
   --animate-flash-bg-green: flash-bg-green 1s ease-in-out;
 
@@ -145,7 +149,7 @@
     @apply h-full;
   }
 
-  :root {
+  :root, .light {
     --ansi-black: var(--ansi-colors-vscode-black);
     --ansi-red: var(--ansi-colors-vscode-red);
     --ansi-green: var(--ansi-colors-vscode-green);
