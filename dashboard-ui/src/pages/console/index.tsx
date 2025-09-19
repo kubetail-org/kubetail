@@ -34,7 +34,7 @@ import { Input } from '@kubetail/ui/elements/input';
 import { Label } from '@kubetail/ui/elements/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@kubetail/ui/elements/popover';
 
-import logo from '@/assets/logo.svg';
+import KubetailLogo from '@/assets/logo.svg?react';
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
 import { DateRangeDropdown } from '@/components/widgets/DateRangeDropdown';
@@ -130,20 +130,25 @@ const SettingsButton = () => {
   ALL_VIEWER_COLUMNS.forEach((col) => {
     checkboxEls.push(
       <div key={col} className="flex items-center space-x-2">
-        <Checkbox
-          id={`is-${col}`}
-          checked={visibleCols.has(col)}
-          onCheckedChange={(value) => handleOnChange(col, value)}
-        />
-        <Label htmlFor={`is-${col}`}>{col}</Label>
+        <Label>
+          <Checkbox checked={visibleCols.has(col)} onCheckedChange={(value) => handleOnChange(col, value)} />
+          {col}
+        </Label>
       </div>,
     );
   });
 
   return (
     <Popover>
-      <PopoverTrigger>
-        <SettingsIcon size={18} strokeWidth={1.5} />
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30"
+          title="Settings"
+          aria-label="Settings"
+        >
+          <SettingsIcon size={18} strokeWidth={1.5} />
+        </button>
       </PopoverTrigger>
       <PopoverContent
         className="bg-background w-auto mr-1 text-sm"
@@ -154,8 +159,10 @@ const SettingsButton = () => {
         <div className="space-y-2">{checkboxEls}</div>
         <div className="border-b mt-2 mb-1">Options:</div>
         <div className="flex items-center space-x-1">
-          <Checkbox id="is-wrap" checked={isWrap} onCheckedChange={(checked) => setIsWrap(checked === true)} />
-          <Label htmlFor="is-wrap">Wrap</Label>
+          <Label>
+            <Checkbox checked={isWrap} onCheckedChange={(checked) => setIsWrap(checked === true)} />
+            Wrap
+          </Label>
         </div>
       </PopoverContent>
     </Popover>
@@ -219,8 +226,6 @@ const SidebarWorkloads = () => {
     currentUrl.search = new URLSearchParams(searchParams).toString();
     window.location.href = currentUrl.toString();
   };
-
-  console.log(isPickerOpen);
 
   return (
     <>
@@ -316,21 +321,19 @@ const Containers = ({ namespace, podName, containerNames = [] }: ContainersProps
         const urlKey = 'container';
         const urlVal = `${namespace}:${podName}/${containerName}`;
         return (
-          <div key={containerName} className="flex item-center justify-between">
+          <Label key={containerName} className="flex item-center justify-between">
             <div className="flex items-center space-x-1">
               <div className="w-[13px] h-[13px]" style={{ backgroundColor: `var(--${k}-color)` }} />
               <div>{containerName}</div>
             </div>
-            <div className="flex items-center">
-              <Checkbox
-                className="bg-background"
-                checked={searchParams.has(urlKey, urlVal)}
-                name={urlKey}
-                value={urlVal}
-                onCheckedChange={(checked) => handleToggle(urlKey, urlVal, checked)}
-              />
-            </div>
-          </div>
+            <Checkbox
+              className="bg-background"
+              checked={searchParams.has(urlKey, urlVal)}
+              name={urlKey}
+              value={urlVal}
+              onCheckedChange={(checked) => handleToggle(urlKey, urlVal, checked)}
+            />
+          </Label>
         );
       })}
     </>
@@ -443,23 +446,25 @@ const Facets = ({ label, counter }: { label: string; counter: Counter }) => {
   return (
     <>
       <div className="border-t border-chrome-300 mt-[10px] py-[10px] font-bold text-chrome-500">{label}</div>
-      {entries.map(([facet, count]) => (
-        <div key={facet} className="flex items-center space-x-2">
-          <div className="flex items-center">
-            <Checkbox
-              className="bg-background"
-              checked={searchParams.has(urlKey, facet)}
-              name={urlKey}
-              value={facet}
-              onCheckedChange={(checked) => handleToggle(urlKey, facet, checked)}
-            />
+      <div className="space-y-[6px]">
+        {entries.map(([facet, count]) => (
+          <div key={facet}>
+            <Label className="flex items-center">
+              <Checkbox
+                className="bg-background"
+                checked={searchParams.has(urlKey, facet)}
+                name={urlKey}
+                value={facet}
+                onCheckedChange={(checked) => handleToggle(urlKey, facet, checked)}
+              />
+              <div className="grow flex justify-between">
+                <div>{facet}</div>
+                <div>{`(${count})`}</div>
+              </div>
+            </Label>
           </div>
-          <div className="grow flex justify-between">
-            <div>{facet}</div>
-            <div>{`(${count})`}</div>
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </>
   );
 };
@@ -498,7 +503,7 @@ const Sidebar = () => {
   return (
     <div className="text-sm px-[7px] pt-[10px]">
       <a href={joinPaths(getBasename(), '/')}>
-        <img src={joinPaths(getBasename(), logo)} alt="logo" className="display-block h-[45px] mb-[10px]" />
+        <KubetailLogo className="text-primary h-[38px] w-auto mt-[4px] mb-[12px]" />
       </a>
       <SidebarWorkloads />
       <SidebarPodsAndContainers />
@@ -687,7 +692,7 @@ const InnerLayout = ({ sidebar, header, main }: InnerLayoutProps) => {
               type="button"
               onClick={() => setIsSidebarOpen(false)}
               title="Collapse sidebar"
-              className="absolute right-0 top-[30px] transform -translate-y-1/2"
+              className="absolute cursor-pointer right-[7px] top-[30px] transform -translate-y-1/2"
             >
               <PanelLeftCloseIcon size={20} strokeWidth={2} className="text-chrome-500" />
             </button>
