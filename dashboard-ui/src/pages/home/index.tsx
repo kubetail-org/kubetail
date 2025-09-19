@@ -378,7 +378,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
   return (
     <>
       <TableHeader>
-        <TableRow>
+        <TableRow className="hover:bg-transparent">
           <TableHead colSpan={5} className="pb-[5px] text-[0.9rem]">
             <div className="flex items-center space-x-1">
               <Icon className="w-[22px] h-[22px] text-primary" />
@@ -434,7 +434,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
         )}
       </TableBody>
       <TableBody>
-        <TableRow>
+        <TableRow className="hover:bg-transparent">
           <TableCell colSpan={table.getVisibleLeafColumns().length} className="pb-[30px]">
             {numItems > maxDisplayRows && (
               <button
@@ -526,7 +526,7 @@ const Sidebar = () => {
                 type="button"
                 className={cn(
                   'group flex items-center justify-between py-2 px-1 rounded-sm hover:bg-accent w-full',
-                  kind === workloadKindFilter && 'bg-blue-100',
+                  kind === workloadKindFilter && 'bg-blue-100 dark:bg-blue-900',
                 )}
                 onClick={() => setWorkloadKindFilter((w) => (w === kind ? undefined : kind))}
               >
@@ -537,7 +537,7 @@ const Sidebar = () => {
                 <div
                   className={cn(
                     'text-xs font-medium border not-dark:group-has-hover:border-chrome-300 min-w-[24px] h-[24px] px-[4px] rounded-sm flex items-center justify-center',
-                    kind === workloadKindFilter && 'border-chrome-300',
+                    kind === workloadKindFilter && 'border-chrome-300 dark:border-chrome-700',
                   )}
                 >
                   <WorkloadCount kind={kind} />
@@ -679,7 +679,7 @@ const InnerLayout = () => {
               <header className="my-[24px] h-[36px] flex flex-row justify-between items-center gap-2">
                 {sidebarOpen ? (
                   <>
-                    <KubetailLogo className="h-full w-auto" />
+                    <KubetailLogo className="text-primary h-full w-auto" />
                     <PanelLeftClose
                       className="h-[20px] cursor-pointer text-chrome-500 hover:text-primary "
                       onClick={() => setSidebarOpen(false)}
