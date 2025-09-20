@@ -25,7 +25,7 @@ inputs:
   rust-toolchain:
     description: 'Rust toolchain to install'
     required: false
-    default: '1.89.0'
+    default: '1.90.0'
   setup-protoc:
     description: 'Whether to set up Protoc'
     required: false
