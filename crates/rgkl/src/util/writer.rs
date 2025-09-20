@@ -115,9 +115,8 @@ pub fn process_output(
                                     message: log_msg.trim_end().to_string(),
                                 };
 
-                                let sender = sender.clone();
                                 let result =
-                                    task::block_in_place(move || sender.blocking_send(Ok(record)));
+                                    task::block_in_place(|| sender.blocking_send(Ok(record)));
                                 if result.is_err() {
                                     debug!("Channel closed from client.");
                                     let _ = term_tx.send(());
@@ -128,14 +127,17 @@ pub fn process_output(
                     FileFormat::CRI => {
                         // Original logic for CRI format
                         if let Some((first, rest)) = text.split_once(' ') {
+                            // TODO: Should we return an error on parsing issues?
+                            if rest.len() < 9 {
+                                return;
+                            }
+
                             let record = LogRecord {
                                 timestamp: Some(Timestamp::from_str(first).unwrap()),
                                 message: rest[9..].trim_end().to_string(),
                             };
 
-                            let sender = sender.clone();
-                            let result =
-                                task::block_in_place(move || sender.blocking_send(Ok(record)));
+                            let result = task::block_in_place(|| sender.blocking_send(Ok(record)));
                             if result.is_err() {
                                 debug!("Channel closed from client.");
                                 let _ = term_tx.send(());
