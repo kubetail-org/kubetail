@@ -66,7 +66,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 #[allow(clippy::cognitive_complexity)]
-async fn parse_config() -> Result<Config, Box<(dyn Error + 'static)>> {
+async fn parse_config() -> Result<Config, Box<dyn Error + 'static>> {
     let matches = command!()
         .arg(
             arg!(
