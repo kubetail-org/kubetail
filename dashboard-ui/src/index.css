@@ -39,7 +39,7 @@
     }
 
     100% {
-      background-color: transparent;
+      background-color: var(--color-secondary);
     }
   }
 }
