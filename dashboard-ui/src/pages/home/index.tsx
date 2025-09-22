@@ -379,16 +379,16 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
     <>
       <TableHeader>
         <TableRow className="hover:bg-transparent">
-          <TableHead colSpan={5} className="pb-[5px] text-[0.9rem]">
-            <div className="flex items-center space-x-1">
-              <Icon className="w-[22px] h-[22px] text-primary" />
-              <div className="font-medium">{label}</div>
+          <TableHead colSpan={5} className="px-0 pb-[5px] text-[0.9rem]">
+            <div className="flex items-center">
+              <Icon className="w-[24px] h-[24px] mr-[4px] text-primary" />
+              <div className="font-medium mr-[8px] leading-none">{label}</div>
               {isFetching ? (
                 <div>
                   <Spinner size="xs" />
                 </div>
               ) : (
-                <div className="px-[10px] py-[2px] bg-chrome-100 font-semibold rounded-full text-xs text-chrome-foreground">
+                <div className="px-[8px] py-[1px] bg-transparent border border-input font-semibold rounded-full text-xs text-chrome-foreground">
                   {items && `${items?.length}`}
                 </div>
               )}
@@ -415,7 +415,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
           </TableRow>
         ))}
       </TableHeader>
-      <TableBody className="rounded-tbody">
+      <TableBody className="rounded-tbody [&_td]:bg-secondary">
         {numItems === 0 ? (
           <TableRow>
             <TableCell colSpan={table.getVisibleLeafColumns().length}>
@@ -514,10 +514,10 @@ const Sidebar = () => {
 
   return (
     <>
-      <button type="button" className="cursor-pointer" onClick={() => setWorkloadKindFilter(undefined)}>
+      <button type="button" className="cursor-pointer mb-[6px]" onClick={() => setWorkloadKindFilter(undefined)}>
         <span className="text-md text-chrome-500">Workloads</span>
       </button>
-      <ul className="space-y-1">
+      <ul className="space-y-[6px]">
         {ALL_WORKLOAD_KINDS.map((kind) => {
           const Icon = GLYPH_ICON_MAP[kind];
           return (
@@ -525,7 +525,7 @@ const Sidebar = () => {
               <button
                 type="button"
                 className={cn(
-                  'group flex items-center justify-between py-2 px-1 rounded-sm hover:bg-accent w-full',
+                  'group flex items-center justify-between h-[40px] px-[8px] rounded-sm hover:bg-accent w-full',
                   kind === workloadKindFilter && 'bg-blue-100 dark:bg-blue-900',
                 )}
                 onClick={() => setWorkloadKindFilter((w) => (w === kind ? undefined : kind))}
@@ -580,7 +580,7 @@ const NamespacesPicker = () => {
       onValueChange={(v) => setNamespaceFilter(v === ALL_NAMESPACES ? '' : v)}
       disabled={loading}
     >
-      <SelectTrigger className="w-[200px]">
+      <SelectTrigger className="w-[200px] bg-background">
         <SelectValue placeholder="Loading..." />
       </SelectTrigger>
       <SelectContent>
@@ -618,7 +618,7 @@ const Main = () => {
   const debouncedSearch = useDebounceCallback((value: string) => setSearchQuery(value), 100);
 
   return (
-    <div className="inline-block min-w-full px-[20px] py-[10px]">
+    <div className="inline-block min-w-full px-[24px] py-[10px]">
       {readyWait.loading || kubeContext === null ? (
         <div>Connecting...</div>
       ) : (
@@ -628,7 +628,7 @@ const Main = () => {
             <div className="text-heading-2xl">Dashboard</div>
             <div className="flex gap-2">
               <SearchBox
-                className="w-50"
+                className="w-50 bg-background"
                 value={searchInputValue}
                 placeholder="Search workloads..."
                 onChange={(e) => {
@@ -661,7 +661,7 @@ const Main = () => {
 const InnerLayout = () => {
   const { sidebarOpen, setSidebarOpen, kubeContext, setKubeContext } = useContext(Context);
 
-  const sidebarWidth = sidebarOpen ? 210 : 30;
+  const sidebarWidth = sidebarOpen ? 240 : 30;
 
   return (
     <div className="h-full flex flex-col">
@@ -669,7 +669,7 @@ const InnerLayout = () => {
         <div className="flex h-full">
           <aside
             className={cn(
-              'shrink-0 bg-chrome-100 border-r-1 transition-all duration-100 ease-in relative overflow-y-auto',
+              'shrink-0 bg-elevated border-r-1 transition-all duration-100 ease-in relative overflow-y-auto',
               'h-full flex flex-col justify-between',
               sidebarOpen ? 'px-[12px]' : 'px-[2px]',
             )}
@@ -705,7 +705,7 @@ const InnerLayout = () => {
             </div>
             {sidebarOpen && <SettingsDropdown />}
           </aside>
-          <main className="flex-1 overflow-auto">
+          <main className="flex-1 overflow-auto bg-muted">
             <Main />
           </main>
         </div>
