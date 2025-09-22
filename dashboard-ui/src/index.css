@@ -9,9 +9,26 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/**
+ * Custom theme
+ */
+
+:root, .light {
+  --elevated: var(--color-zinc-100);
+}
+
+.dark {
+  --elevated: var(--color-zinc-800);
+}
+
 @theme inline {
   --color-chrome-divider: var(--chrome-300);
+  --color-elevated: var(--elevated);
 }
+
+/**
+ * Flash css
+ */
 
 @theme {
   --animate-flash-bg-green: flash-bg-green 1s ease-in-out;
@@ -71,14 +88,8 @@
 
 @utility rounded-thead {
   & tr:first-child th {
-    @apply bg-chrome-50;
-  }
-
-  & tr:first-child th {
-    @apply border-chrome-300;
-  }
-
-  & tr:first-child th {
+    @apply bg-elevated;
+    @apply border-input;
     @apply border-t;
   }
 
@@ -102,16 +113,21 @@
 @utility rounded-tbody {
   @apply relative;
 
+  & tr:first-child td {
+    @apply border-t;
+    @apply border-t-border;
+  }
+
   & tr:last-child td {
-    @apply border-chrome-300;
+    @apply border-input;
   }
 
   & td:first-child {
-    @apply border-chrome-300;
+    @apply border-input;
   }
 
   & td:last-child {
-    @apply border-chrome-300;
+    @apply border-input;
   }
 
   & tr:last-child td {
