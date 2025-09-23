@@ -54,6 +54,9 @@ winget install Kubetail.Kubetail
 
 # Chocolatey
 choco install kubetail
+
+# Arch Linux (yay)
+yay -S --noconfirm kubetail-bin
 ```
 
 Next, start the web dashboard using the `serve` subcommand:
@@ -166,6 +169,20 @@ glasskube open kubetail
 
 Have fun tailing your logs!
 
+### Option 4: minikube
+
+As of minikube v1.36.0, you can install Kubetail easily as an addon:
+
+```console
+minikube addons enable kubetail
+```
+
+Once the Kubetail pods are running in the cluster you can access it via a service:
+
+```console
+minikube service -n kubetail-system kubetail-dashboard
+```
+
 ## Documentation
 
 Visit the [Kubetail documentation](https://www.kubetail.com/)
@@ -214,10 +231,9 @@ This monorepo contains the following modules:
 * Kubetail Cluster Agent ([crates/cluster_agent](crates/cluster_agent))
 * Kubetail Dashboard ([modules/dashboard](modules/dashboard))
 
-It also contains the source code for the Kubetail Dashboard's frontend and the Rust binary that powers log search:
+It also contains the source code for the Kubetail Dashboard's frontend:
 
 * Dashboard UI ([dashboard-ui](dashboard-ui))
-* rgkl ([crates/rgkl](crates/rgkl))
 
 ### Setting up the Development Environment
 
