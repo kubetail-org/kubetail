@@ -75,7 +75,7 @@ jobs:
           tags: |
             kubetail/kubetail-cluster-agent:${{ steps.tagName.outputs.tag }}-arm64
             ghcr.io/${{ github.repository_owner }}/kubetail-cluster-agent:${{ steps.tagName.outputs.tag }}-arm64
-        
+
   create-and-publish-manifest:
     runs-on: ubuntu-24.04
     needs: [build-and-publish-amd64, build-and-publish-arm64]
@@ -102,10 +102,15 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Create and push manifests
         run: |
-          docker buildx imagetools create -t kubetail/kubetail-cluster-agent:${{ steps.tagName.outputs.tag }} \
+          docker buildx imagetools create \
+            -t kubetail/kubetail-cluster-agent:${{ steps.tagName.outputs.tag }} \
             kubetail/kubetail-cluster-agent:${{ steps.tagName.outputs.tag }}-amd64 \
             kubetail/kubetail-cluster-agent:${{ steps.tagName.outputs.tag }}-arm64
-          docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/kubetail-cluster-agent:${{ steps.tagName.outputs.tag }} \
+          docker buildx imagetools create \
+            --annotation index.org.opencontainers.image.source=https://github.com/${{ github.repository }} \
+            --annotation index.org.opencontainers.image.revision=${{ github.sha }} \
+            --annotation index.org.opencontainers.image.version=${{ steps.tagName.outputs.tag }} \
+            -t ghcr.io/${{ github.repository_owner }}/kubetail-cluster-agent:${{ steps.tagName.outputs.tag }} \
             ghcr.io/${{ github.repository_owner }}/kubetail-cluster-agent:${{ steps.tagName.outputs.tag }}-amd64 \
             ghcr.io/${{ github.repository_owner }}/kubetail-cluster-agent:${{ steps.tagName.outputs.tag }}-arm64
       - name: Fetch docker token
