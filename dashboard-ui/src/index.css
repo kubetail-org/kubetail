@@ -15,14 +15,17 @@
 
 :root, .light {
   --elevated: var(--color-zinc-100);
+  --strong: var(--color-zinc-100);
 }
 
 .dark {
   --elevated: var(--color-zinc-800);
+  --strong: var(--color-zinc-700);
 }
 
 @theme inline {
   --color-chrome-divider: var(--chrome-300);
+  --color-strong: var(--strong);
   --color-elevated: var(--elevated);
 }
 
@@ -39,7 +42,7 @@
     }
 
     100% {
-      background-color: var(--color-secondary);
+      background-color: var(--color-background);
     }
   }
 }
@@ -69,7 +72,7 @@
 
 @utility rounded-thead {
   & tr:first-child th {
-    @apply bg-elevated;
+    @apply bg-strong;
     @apply border-input;
     @apply border-t;
   }

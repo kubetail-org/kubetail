@@ -415,7 +415,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
           </TableRow>
         ))}
       </TableHeader>
-      <TableBody className="rounded-tbody [&_td]:bg-secondary">
+      <TableBody className="rounded-tbody [&_td]:bg-background">
         {numItems === 0 ? (
           <TableRow>
             <TableCell colSpan={table.getVisibleLeafColumns().length}>
