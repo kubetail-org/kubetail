@@ -13,12 +13,12 @@
 // limitations under the License.
 
 import { useMutation } from '@apollo/client';
-import { PlusCircleIcon } from '@heroicons/react/24/outline';
+import { CirclePlus } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 
-import Button from '@kubetail/ui/elements/Button';
-import Spinner from '@kubetail/ui/elements/Spinner';
+import { Button } from '@kubetail/ui/elements/button';
+import { Spinner } from '@kubetail/ui/elements/spinner';
 
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 
@@ -48,8 +48,8 @@ const InstallButton = ({ kubeContext }: InstallButtonProps) => {
   const label = clicked && installMutation.loading === false ? 'Waiting' : 'Install';
 
   return (
-    <Button intent="outline" size="xs" onClick={handleClick} disabled={clicked}>
-      {clicked ? <Spinner size="xs" /> : <PlusCircleIcon className="h-5 w-5 mr-1" />}
+    <Button variant="outline" size="sm" onClick={handleClick} disabled={clicked}>
+      {clicked ? <Spinner size="xs" /> : <CirclePlus className="h-5 w-5 mr-1" />}
       {label}
     </Button>
   );

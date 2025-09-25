@@ -12,74 +12,87 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createContext, useContext, useMemo, useState } from 'react';
+import type { CheckedState } from '@radix-ui/react-checkbox';
+import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
+import type { Cell, ColumnDef, Row, SortDirection, SortingState, TableMeta, TableOptions } from '@tanstack/react-table';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import TimeAgo from 'react-timeago';
 
-import Button from '@kubetail/ui/elements/Button';
-import DataTable from '@kubetail/ui/elements/DataTable';
-import type { SortBy } from '@kubetail/ui/elements/DataTable/Header';
-import Form from '@kubetail/ui/elements/Form';
-import Spinner from '@kubetail/ui/elements/Spinner';
+import { Button } from '@kubetail/ui/elements/button';
+import { Checkbox } from '@kubetail/ui/elements/checkbox';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@kubetail/ui/elements/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@kubetail/ui/elements/select';
+import { Spinner } from '@kubetail/ui/elements/spinner';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@kubetail/ui/elements/table';
 
-import Modal from '@/components/elements/Modal';
-import * as dashboardOps from '@/lib/graphql/dashboard/ops';
+import AdaptiveTimeAgo from '@/components/widgets/AdaptiveTimeAgo';
+
+import type {
+  SourcePickerCronJobsListFetchQuery,
+  SourcePickerDaemonSetsListFetchQuery,
+  SourcePickerDeploymentsListFetchQuery,
+  SourcePickerGenericListItemFragmentFragment,
+  SourcePickerJobsListFetchQuery,
+  SourcePickerPodsListFetchQuery,
+  SourcePickerReplicaSetsListFetchQuery,
+  SourcePickerStatefulSetsListFetchQuery,
+} from '@/lib/graphql/dashboard/__generated__/graphql';
+import {
+  SOURCE_PICKER_CRONJOBS_LIST_FETCH,
+  SOURCE_PICKER_CRONJOBS_LIST_WATCH,
+  SOURCE_PICKER_DAEMONSETS_LIST_FETCH,
+  SOURCE_PICKER_DAEMONSETS_LIST_WATCH,
+  SOURCE_PICKER_DEPLOYMENTS_LIST_FETCH,
+  SOURCE_PICKER_DEPLOYMENTS_LIST_WATCH,
+  SOURCE_PICKER_JOBS_LIST_FETCH,
+  SOURCE_PICKER_JOBS_LIST_WATCH,
+  SOURCE_PICKER_PODS_LIST_FETCH,
+  SOURCE_PICKER_PODS_LIST_WATCH,
+  SOURCE_PICKER_REPLICASETS_LIST_FETCH,
+  SOURCE_PICKER_REPLICASETS_LIST_WATCH,
+  SOURCE_PICKER_STATEFULSETS_LIST_FETCH,
+  SOURCE_PICKER_STATEFULSETS_LIST_WATCH,
+  SOURCE_PICKER_NAMESPACES_LIST_FETCH,
+  SOURCE_PICKER_NAMESPACES_LIST_WATCH,
+} from '@/lib/graphql/dashboard/ops';
 import { useListQueryWithSubscription, useWorkloadCounter } from '@/lib/hooks';
+import { ALL_WORKLOAD_KINDS, KNOCKOUT_ICON_MAP, PLURAL_LABEL_MAP, WorkloadKind } from '@/lib/workload';
 import { cn } from '@/lib/util';
-import { Workload, allWorkloads, iconMap, labelsPMap, typenameMap } from '@/lib/workload';
+
+/**
+ * Shared variables and types
+ */
 
 type ContextType = {
   kubeContext: string;
-  namespace: string;
-  setNamespace: React.Dispatch<string>;
+  namespaceFilter: string;
+  setNamespaceFilter: React.Dispatch<string>;
   selectedSources: Set<string>;
-  setSelectedSources: React.Dispatch<Set<string>>;
+  setSelectedSources: React.Dispatch<React.SetStateAction<Set<string>>>;
 };
 
 const Context = createContext({} as ContextType);
 
 /**
- * Namespaces component
- */
-
-const Namespaces = () => {
-  const { kubeContext, namespace, setNamespace } = useContext(Context);
-
-  const { data } = useListQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_NAMESPACES_LIST_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_NAMESPACES_LIST_WATCH,
-    queryDataKey: 'coreV1NamespacesList',
-    subscriptionDataKey: 'coreV1NamespacesWatch',
-    variables: { kubeContext },
-  });
-
-  return (
-    <Form.Select
-      className="h-[35px] bg-chrome-50 border border-chrome-30 text-sm rounded-lg mt-0!"
-      onChange={(ev) => setNamespace(ev.target.value)}
-      value={namespace}
-    >
-      <Form.Option value="">All namespaces</Form.Option>
-      {data?.coreV1NamespacesList?.items.map((item) => (
-        <Form.Option key={item.id} value={item.metadata.name}>
-          {item.metadata.name}
-        </Form.Option>
-      ))}
-    </Form.Select>
-  );
-};
-
-/**
  * Sidebar component
  */
 
-const Sidebar = ({
-  workloadState,
-}: {
-  workloadState: [Workload | null, React.Dispatch<React.SetStateAction<Workload | null>>];
-}) => {
-  const { kubeContext, namespace } = useContext(Context);
-  const { counter } = useWorkloadCounter(kubeContext, namespace);
+type SidebarProps = {
+  workloadState: [WorkloadKind | null, React.Dispatch<React.SetStateAction<WorkloadKind | null>>];
+};
+
+const Sidebar = ({ workloadState }: SidebarProps) => {
+  const { kubeContext, namespaceFilter } = useContext(Context);
+  const { counter } = useWorkloadCounter(kubeContext, namespaceFilter);
   const [currWorkload, setCurrWorkload] = workloadState;
 
   return (
@@ -88,21 +101,21 @@ const Sidebar = ({
         <div className="font-bold text-chrome-600 mt-[5px] mb-[12px]">Workloads</div>
         <div>
           <ul className="inline-grid space-y-0">
-            {allWorkloads.map((workload) => {
-              const Icon = iconMap[workload];
+            {ALL_WORKLOAD_KINDS.map((kind) => {
+              const Icon = KNOCKOUT_ICON_MAP[kind];
               return (
-                <li key={workload} className="ml-[-8px]">
+                <li key={kind} className="ml-[-8px]">
                   <button
                     type="button"
                     className={cn(
                       'w-full px-[8px] py-[5px] cursor-pointer rounded-xs flex items-center',
-                      currWorkload === workload ? 'bg-chrome-300' : 'hover:bg-chrome-200',
+                      currWorkload === kind ? 'bg-chrome-300' : 'hover:bg-chrome-200',
                     )}
-                    onClick={() => setCurrWorkload(workload)}
+                    onClick={() => setCurrWorkload(kind)}
                   >
-                    <Icon className="h-[18px] w-[18px]" />
+                    <Icon className="h-[18px] w-[18px] text-primary" />
                     <div className="ml-1 text-chrome-700">
-                      {labelsPMap[workload]} {counter.has(workload) && `(${counter.get(workload)})`}
+                      {PLURAL_LABEL_MAP[kind]} {counter.has(kind) && `(${counter.get(kind)})`}
                     </div>
                   </button>
                 </li>
@@ -116,269 +129,337 @@ const Sidebar = ({
 };
 
 /**
- * Workload items display component
+ * CheckboxHeaderCell component
  */
 
-type DisplayItemsProps = {
-  items: {
-    __typename?: string;
-    metadata: {
-      name: string;
-      namespace: string;
-      uid: string;
-      creationTimestamp: any;
-    };
-  }[];
+type CheckboxHeaderCellProps = {
+  sourceStrings: Set<string>;
 };
 
-function isSuperset<T>(set: Set<T>, subset: Set<T>) {
-  return [...subset].every((elem) => set.has(elem));
-}
+const CheckboxHeaderCell = ({ sourceStrings }: CheckboxHeaderCellProps) => {
+  const { selectedSources, setSelectedSources } = useContext(Context);
 
-const DisplayItems = ({ items }: DisplayItemsProps) => {
-  const { namespace, selectedSources, setSelectedSources } = useContext(Context);
-
-  // filter items
-  const filteredItems = items?.filter((item) => namespace === '' || item.metadata.namespace === namespace);
-
-  // handle sorting
-  const [sortBy, setSortBy] = useState<SortBy>({ field: 'name', direction: 'ASC' });
-  const handleSortByChange = (newSortBy: SortBy) => setSortBy(newSortBy);
-
-  if (filteredItems) {
-    filteredItems.sort((a, b) => {
-      let cmp = 0;
-      switch (sortBy.field) {
-        case 'name':
-          cmp = a.metadata.name.localeCompare(b.metadata.name);
-          break;
-        case 'namespace':
-          cmp = a.metadata.namespace.localeCompare(b.metadata.namespace);
-          if (cmp === 0) cmp = a.metadata.name.localeCompare(b.metadata.name);
-          break;
-        case 'created':
-          cmp = a.metadata.creationTimestamp - b.metadata.creationTimestamp;
-          break;
-        default:
-          throw new Error('sort field not implemented');
-      }
-
-      // sort alphabetically if same
-      if (cmp === 0 && sortBy.field !== 'name') return a.metadata.name.localeCompare(b.metadata.name);
-
-      // otherwise use original cmp
-      return sortBy.direction === 'ASC' ? cmp : cmp * -1;
-    });
-  }
-
-  const genSourcePath = (item: any) =>
-    `${item.metadata.namespace}:${typenameMap[item.__typename || '']}/${item.metadata.name}`;
-
-  // source toggler
-  const filteredSourcePaths = new Set(filteredItems.map((item) => genSourcePath(item)));
-
-  const [allSourcesChecked, setAllSourcesChecked] = useState(isSuperset(selectedSources, filteredSourcePaths));
-
-  const handleSourceToggle = (sourcePath: string) => {
-    // update individual checkbox
-    if (selectedSources.has(sourcePath)) selectedSources.delete(sourcePath);
-    else selectedSources.add(sourcePath);
-    setSelectedSources(new Set(selectedSources));
-
-    // update allSources checkbox
-    if (isSuperset(selectedSources, filteredSourcePaths)) setAllSourcesChecked(true);
-    else setAllSourcesChecked(false);
-  };
-
-  const handleAllSourcesToggle = () => {
-    const isChecked = !allSourcesChecked;
-    if (isChecked) filteredSourcePaths.forEach((path) => selectedSources.add(path));
-    else filteredSourcePaths.forEach((path) => selectedSources.delete(path));
-    setSelectedSources(new Set(selectedSources));
-    setAllSourcesChecked(isChecked);
-  };
-
-  return (
-    <DataTable size="sm" className="h-full overflow-y-auto">
-      <DataTable.Header sortBy={sortBy} onSortByChange={handleSortByChange} className="sticky top-0">
-        <DataTable.Row>
-          <DataTable.HeaderCell className="w-8">
-            <Form.Check checked={allSourcesChecked} onChange={handleAllSourcesToggle} />
-          </DataTable.HeaderCell>
-          <DataTable.HeaderCell sortField="name" initialSortDirection="ASC">
-            Name
-          </DataTable.HeaderCell>
-          {namespace === '' && (
-            <DataTable.HeaderCell sortField="namespace" initialSortDirection="ASC">
-              Namespace
-            </DataTable.HeaderCell>
-          )}
-          <DataTable.HeaderCell sortField="created" initialSortDirection="DESC" className="min-w-[140px]">
-            Created
-          </DataTable.HeaderCell>
-        </DataTable.Row>
-      </DataTable.Header>
-      <DataTable.Body>
-        {filteredItems.map((item) => {
-          const sourcePath = genSourcePath(item);
-          return (
-            <DataTable.Row
-              key={item.metadata.uid}
-              onClick={() => handleSourceToggle(sourcePath)}
-              className="cursor-pointer"
-            >
-              <DataTable.DataCell>
-                <Form.Check checked={selectedSources.has(sourcePath)} />
-              </DataTable.DataCell>
-              <DataTable.DataCell>{item.metadata.name}</DataTable.DataCell>
-              {namespace === '' && <DataTable.DataCell>{item.metadata.namespace}</DataTable.DataCell>}
-              <DataTable.DataCell>
-                <TimeAgo date={item.metadata.creationTimestamp} title={item.metadata.creationTimestamp.toUTCString()} />
-              </DataTable.DataCell>
-            </DataTable.Row>
-          );
-        })}
-      </DataTable.Body>
-    </DataTable>
+  const checkedCount = useMemo(
+    () => Array.from(sourceStrings).filter((sourceString) => selectedSources.has(sourceString)).length,
+    [sourceStrings, selectedSources],
   );
-};
 
-/**
- * Workload display components
- */
+  const checkboxState = useMemo(() => {
+    if (sourceStrings.size === 0) return false;
+    if (checkedCount === 0) return false;
+    if (checkedCount === sourceStrings.size) return true;
+    return 'indeterminate';
+  }, [sourceStrings.size, checkedCount]);
 
-const DisplayCronJobs = () => {
-  const { kubeContext } = useContext(Context);
-
-  const { loading, data } = useListQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_CRONJOBS_LIST_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_CRONJOBS_LIST_WATCH,
-    queryDataKey: 'batchV1CronJobsList',
-    subscriptionDataKey: 'batchV1CronJobsWatch',
-    variables: { kubeContext },
-  });
-
-  if (loading) return <Spinner size="sm" />;
-  return <DisplayItems items={data?.batchV1CronJobsList?.items || []} />;
-};
-
-const DisplayDaemonSets = () => {
-  const { kubeContext } = useContext(Context);
-
-  const { loading, data } = useListQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_DAEMONSETS_LIST_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_DAEMONSETS_LIST_WATCH,
-    queryDataKey: 'appsV1DaemonSetsList',
-    subscriptionDataKey: 'appsV1DaemonSetsWatch',
-    variables: { kubeContext },
-  });
-
-  if (loading) return <Spinner size="sm" />;
-  return <DisplayItems items={data?.appsV1DaemonSetsList?.items || []} />;
-};
-
-const DisplayDeployments = () => {
-  const { kubeContext } = useContext(Context);
-
-  const { loading, data } = useListQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_DEPLOYMENTS_LIST_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_DEPLOYMENTS_LIST_WATCH,
-    queryDataKey: 'appsV1DeploymentsList',
-    subscriptionDataKey: 'appsV1DeploymentsWatch',
-    variables: { kubeContext },
-  });
-
-  if (loading) return <Spinner size="sm" />;
-  return <DisplayItems items={data?.appsV1DeploymentsList?.items || []} />;
-};
-
-const DisplayJobs = () => {
-  const { kubeContext } = useContext(Context);
-
-  const { loading, data } = useListQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_JOBS_LIST_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_JOBS_LIST_WATCH,
-    queryDataKey: 'batchV1JobsList',
-    subscriptionDataKey: 'batchV1JobsWatch',
-    variables: { kubeContext },
-  });
-
-  if (loading) return <Spinner size="sm" />;
-  return <DisplayItems items={data?.batchV1JobsList?.items || []} />;
-};
-
-const DisplayPods = () => {
-  const { kubeContext } = useContext(Context);
-
-  const { loading, data } = useListQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_PODS_LIST_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_PODS_LIST_WATCH,
-    queryDataKey: 'coreV1PodsList',
-    subscriptionDataKey: 'coreV1PodsWatch',
-    variables: { kubeContext },
-  });
-
-  if (loading) return <Spinner size="sm" />;
-  return <DisplayItems items={data?.coreV1PodsList?.items || []} />;
-};
-
-const DisplayReplicaSets = () => {
-  const { kubeContext } = useContext(Context);
-
-  const { loading, data } = useListQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_REPLICASETS_LIST_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_REPLICASETS_LIST_WATCH,
-    queryDataKey: 'appsV1ReplicaSetsList',
-    subscriptionDataKey: 'appsV1ReplicaSetsWatch',
-    variables: { kubeContext },
-  });
-
-  if (loading) return <Spinner size="sm" />;
-  return <DisplayItems items={data?.appsV1ReplicaSetsList?.items || []} />;
-};
-
-const DisplayStatefulSets = () => {
-  const { kubeContext } = useContext(Context);
-
-  const { loading, data } = useListQueryWithSubscription({
-    query: dashboardOps.SOURCE_PICKER_STATEFULSETS_LIST_FETCH,
-    subscription: dashboardOps.SOURCE_PICKER_STATEFULSETS_LIST_WATCH,
-    queryDataKey: 'appsV1StatefulSetsList',
-    subscriptionDataKey: 'appsV1StatefulSetsWatch',
-    variables: { kubeContext },
-  });
-
-  if (loading) return <Spinner size="sm" />;
-  return <DisplayItems items={data?.appsV1StatefulSetsList?.items || []} />;
-};
-
-const displayWorkloadComponents = {
-  [Workload.CRONJOBS]: DisplayCronJobs,
-  [Workload.DAEMONSETS]: DisplayDaemonSets,
-  [Workload.DEPLOYMENTS]: DisplayDeployments,
-  [Workload.JOBS]: DisplayJobs,
-  [Workload.PODS]: DisplayPods,
-  [Workload.REPLICASETS]: DisplayReplicaSets,
-  [Workload.STATEFULSETS]: DisplayStatefulSets,
-};
-
-/**
- * Main component
- */
-const Main = ({
-  workloadState,
-}: {
-  workloadState: [Workload | null, React.Dispatch<React.SetStateAction<Workload | null>>];
-}) => {
-  const [currWorkload] = workloadState;
-  if (!currWorkload) return <div className="h-[50vh]" />;
-  const DisplayWorkloadComponent = displayWorkloadComponents[currWorkload];
+  const handleCheckedChange = useCallback(
+    (checked: CheckedState) => {
+      setSelectedSources((sources) => {
+        const newSources = new Set(sources);
+        if (checked) {
+          sourceStrings.forEach((sourceString) => newSources.add(sourceString));
+        } else {
+          sourceStrings.forEach((sourceString) => newSources.delete(sourceString));
+        }
+        return newSources;
+      });
+    },
+    [sourceStrings, setSelectedSources],
+  );
 
   return (
-    <div className="h-[50vh] w-full">
-      <DisplayWorkloadComponent />
+    <div className="flex items-center">
+      <Checkbox checked={checkboxState} onCheckedChange={handleCheckedChange} />
     </div>
   );
+};
+
+/**
+ * CheckboxBodyCell component
+ */
+
+type CheckboxBodyCellProps = {
+  id: string;
+  sourceString: string;
+};
+
+const CheckboxBodyCell = ({ id, sourceString }: CheckboxBodyCellProps) => {
+  const { selectedSources, setSelectedSources } = useContext(Context);
+
+  const handleCheckedChange = useCallback(
+    (checked: CheckedState) => {
+      setSelectedSources((sources) => {
+        const newSources = new Set(sources);
+        if (checked) {
+          newSources.add(sourceString);
+        } else {
+          newSources.delete(sourceString);
+        }
+        return newSources;
+      });
+    },
+    [sourceString, setSelectedSources],
+  );
+
+  return (
+    <div className="flex items-center">
+      <Checkbox data-id={id} checked={selectedSources.has(sourceString)} onCheckedChange={handleCheckedChange} />
+    </div>
+  );
+};
+
+/**
+ * DisplayWorkloadItems component
+ */
+
+type WorkloadTableData = {
+  id: string;
+  name: string;
+  namespace: string;
+  createdAt: Date;
+};
+
+interface WorkloadTableMeta extends TableMeta<WorkloadTableData> {
+  kind: WorkloadKind;
+  sourceStrings: Set<string>;
+}
+
+const WORKLOAD_TABLE_COLUMNS = [
+  {
+    id: 'checkbox',
+    header: ({ table }) => {
+      const meta = table.options.meta as WorkloadTableMeta;
+      return <CheckboxHeaderCell sourceStrings={meta.sourceStrings} />;
+    },
+    cell: ({ row, table }) => {
+      const { id, namespace, name } = row.original;
+      const meta = table.options.meta as WorkloadTableMeta;
+      const sourceString = `${namespace}:${meta.kind}/${name}/*`;
+      return <CheckboxBodyCell id={id} sourceString={sourceString} />;
+    },
+  },
+  {
+    accessorKey: 'name',
+    header: 'Name',
+    enableSorting: true,
+  },
+  {
+    accessorKey: 'namespace',
+    header: 'Namespace',
+    enableSorting: true,
+  },
+  {
+    accessorKey: 'createdAt',
+    enableSorting: true,
+    sortDescFirst: true,
+    header: 'Created',
+    cell: ({ row }) => {
+      const { createdAt } = row.original;
+      return <AdaptiveTimeAgo date={createdAt} />;
+    },
+  },
+] satisfies ColumnDef<WorkloadTableData>[];
+
+type SortIconProps = {
+  dir: SortDirection | false;
+  descFirst: boolean | undefined;
+};
+
+const SortIcon = ({ dir, descFirst }: SortIconProps) => {
+  const iconCN = 'h-5 w-5 ml-2 flex-none text-chrome-400 ';
+
+  switch (dir) {
+    case 'asc':
+      return <ChevronUp className={iconCN} />;
+    case 'desc':
+      return <ChevronDown className={iconCN} />;
+    default: {
+      const Icon = descFirst ? ChevronDown : ChevronUp;
+      return <Icon className={cn(iconCN, 'invisible group-hover:visible group-focus:visible')} />;
+    }
+  }
+};
+
+const DataTableCell = ({ cell }: { cell: Cell<WorkloadTableData, unknown> }) => (
+  <TableCell>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+);
+
+const DataTableRow = ({ row }: { row: Row<WorkloadTableData> }) => (
+  <TableRow>
+    {row.getVisibleCells().map((cell) => (
+      <DataTableCell key={cell.id} cell={cell} />
+    ))}
+  </TableRow>
+);
+
+type WorkloadItem = SourcePickerGenericListItemFragmentFragment;
+
+type DisplayWorkloadItemsProps = {
+  kind: WorkloadKind;
+  items: WorkloadItem[];
+};
+
+const DisplayWorkloadItems = ({ kind, items }: DisplayWorkloadItemsProps) => {
+  const { namespaceFilter } = useContext(Context);
+
+  const filterFn = useCallback(
+    (item: WorkloadItem) => {
+      // Remove deleted items
+      if (item.metadata.deletionTimestamp) return false;
+
+      // Apply namespace filter
+      if (namespaceFilter !== '' && item.metadata.namespace !== namespaceFilter) return false;
+
+      return true;
+    },
+    [namespaceFilter],
+  );
+
+  const data = useMemo(
+    () =>
+      items.filter(filterFn).map((item) => ({
+        id: item.id,
+        name: item.metadata.name,
+        namespace: item.metadata.namespace,
+        createdAt: item.metadata.creationTimestamp,
+      })),
+    [filterFn, JSON.stringify(items)],
+  );
+
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'name', desc: false }]);
+
+  const meta = useMemo(
+    () =>
+      ({
+        kind,
+        sourceStrings: new Set(data.map((item) => `${item.namespace}:${kind}/${item.name}/*`)),
+      }) satisfies WorkloadTableMeta,
+    [kind, data],
+  );
+
+  const tableCfg = useMemo(
+    () => ({
+      data,
+      columns: WORKLOAD_TABLE_COLUMNS,
+      meta,
+      state: { sorting },
+      onSortingChange: setSorting,
+      getCoreRowModel: getCoreRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+    }),
+    [data, meta, sorting, setSorting],
+  );
+
+  const table = useReactTable(tableCfg as TableOptions<WorkloadTableData>);
+
+  return (
+    <Table containerClassName="overflow-x-hidden overflow-y-auto shadow ring ring-black/5 rounded-lg h-full">
+      <TableHeader className="bg-chrome-50 sticky top-0">
+        {table.getHeaderGroups().map((headerGroup) => (
+          <TableRow key={headerGroup.id}>
+            {headerGroup.headers.map((header) => {
+              const canSort = header.column.getCanSort();
+              return (
+                <TableHead key={header.id} onClick={canSort ? header.column.getToggleSortingHandler() : undefined}>
+                  <div className={cn('flex group', canSort && 'cursor-pointer')}>
+                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    {canSort && (
+                      <SortIcon dir={header.column.getIsSorted()} descFirst={header.column.columnDef.sortDescFirst} />
+                    )}
+                  </div>
+                </TableHead>
+              );
+            })}
+          </TableRow>
+        ))}
+      </TableHeader>
+      <TableBody>
+        {table.getRowModel().rows.map((row) => (
+          <DataTableRow key={row.id} row={row} />
+        ))}
+      </TableBody>
+    </Table>
+  );
+};
+
+/**
+ * DisplayWorkload component
+ */
+
+const workloadQueryConfig = {
+  [WorkloadKind.CRONJOBS]: {
+    query: SOURCE_PICKER_CRONJOBS_LIST_FETCH,
+    subscription: SOURCE_PICKER_CRONJOBS_LIST_WATCH,
+    queryDataKey: 'batchV1CronJobsList',
+    subscriptionDataKey: 'batchV1CronJobsWatch',
+    getItems: (data: SourcePickerCronJobsListFetchQuery) => data?.batchV1CronJobsList?.items,
+  },
+  [WorkloadKind.DAEMONSETS]: {
+    query: SOURCE_PICKER_DAEMONSETS_LIST_FETCH,
+    subscription: SOURCE_PICKER_DAEMONSETS_LIST_WATCH,
+    queryDataKey: 'appsV1DaemonSetsList',
+    subscriptionDataKey: 'appsV1DaemonSetsWatch',
+    getItems: (data: SourcePickerDaemonSetsListFetchQuery) => data?.appsV1DaemonSetsList?.items,
+  },
+  [WorkloadKind.DEPLOYMENTS]: {
+    query: SOURCE_PICKER_DEPLOYMENTS_LIST_FETCH,
+    subscription: SOURCE_PICKER_DEPLOYMENTS_LIST_WATCH,
+    queryDataKey: 'appsV1DeploymentsList',
+    subscriptionDataKey: 'appsV1DeploymentsWatch',
+    getItems: (data: SourcePickerDeploymentsListFetchQuery) => data?.appsV1DeploymentsList?.items,
+  },
+  [WorkloadKind.JOBS]: {
+    query: SOURCE_PICKER_JOBS_LIST_FETCH,
+    subscription: SOURCE_PICKER_JOBS_LIST_WATCH,
+    queryDataKey: 'batchV1JobsList',
+    subscriptionDataKey: 'batchV1JobsWatch',
+    getItems: (data: SourcePickerJobsListFetchQuery) => data?.batchV1JobsList?.items,
+  },
+  [WorkloadKind.PODS]: {
+    query: SOURCE_PICKER_PODS_LIST_FETCH,
+    subscription: SOURCE_PICKER_PODS_LIST_WATCH,
+    queryDataKey: 'coreV1PodsList',
+    subscriptionDataKey: 'coreV1PodsWatch',
+    getItems: (data: SourcePickerPodsListFetchQuery) => data?.coreV1PodsList?.items,
+  },
+  [WorkloadKind.REPLICASETS]: {
+    query: SOURCE_PICKER_REPLICASETS_LIST_FETCH,
+    subscription: SOURCE_PICKER_REPLICASETS_LIST_WATCH,
+    queryDataKey: 'appsV1ReplicaSetsList',
+    subscriptionDataKey: 'appsV1ReplicaSetsWatch',
+    getItems: (data: SourcePickerReplicaSetsListFetchQuery) => data?.appsV1ReplicaSetsList?.items,
+  },
+  [WorkloadKind.STATEFULSETS]: {
+    query: SOURCE_PICKER_STATEFULSETS_LIST_FETCH,
+    subscription: SOURCE_PICKER_STATEFULSETS_LIST_WATCH,
+    queryDataKey: 'appsV1StatefulSetsList',
+    subscriptionDataKey: 'appsV1StatefulSetsWatch',
+    getItems: (data: SourcePickerStatefulSetsListFetchQuery) => data?.appsV1StatefulSetsList?.items,
+  },
+};
+
+type DisplayWorkloadProps = {
+  kind: WorkloadKind;
+};
+
+const DisplayWorkload = ({ kind }: DisplayWorkloadProps) => {
+  const { kubeContext } = useContext(Context);
+
+  const cfg = workloadQueryConfig[kind];
+  const { loading, fetching, data } = useListQueryWithSubscription({
+    query: cfg.query,
+    subscription: cfg.subscription,
+    // @ts-expect-error
+    queryDataKey: cfg.queryDataKey,
+    // @ts-expect-error
+    subscriptionDataKey: cfg.subscriptionDataKey,
+    variables: { kubeContext },
+  });
+
+  if (loading || fetching) return <Spinner size="sm" />;
+
+  const items = (data && cfg.getItems(data)) ?? [];
+
+  return <DisplayWorkloadItems kind={kind} items={items} />;
 };
 
 /**
@@ -386,24 +467,64 @@ const Main = ({
  */
 
 const Explorer = () => {
-  const workloadState = useState<Workload | null>(null);
+  const workloadState = useState<WorkloadKind | null>(null);
+  const currWorkload = workloadState[0];
 
   return (
     <div className="flex space-x-2">
       <Sidebar workloadState={workloadState} />
       <div className="grow">
-        <Main workloadState={workloadState} />
+        <div className="h-[50vh] w-full">{currWorkload && <DisplayWorkload kind={currWorkload} />}</div>
       </div>
     </div>
   );
 };
 
 /**
- * Default component
+ * NamespacePicker component
  */
-const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void }) => {
+
+const NamespacePicker = () => {
+  const { kubeContext, namespaceFilter, setNamespaceFilter } = useContext(Context);
+
+  const { loading, data } = useListQueryWithSubscription({
+    query: SOURCE_PICKER_NAMESPACES_LIST_FETCH,
+    subscription: SOURCE_PICKER_NAMESPACES_LIST_WATCH,
+    queryDataKey: 'coreV1NamespacesList',
+    subscriptionDataKey: 'coreV1NamespacesWatch',
+    variables: { kubeContext },
+  });
+
+  const ALL_NAMESPACES = '*';
+
+  return (
+    <Select
+      value={namespaceFilter === '' ? ALL_NAMESPACES : namespaceFilter}
+      onValueChange={(value) => setNamespaceFilter(value === ALL_NAMESPACES ? '' : value)}
+      disabled={loading}
+    >
+      <SelectTrigger className="h-[35px] bg-chrome-50 border border-chrome-30 text-sm rounded-lg mt-0!">
+        <SelectValue placeholder="Loading..." />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={ALL_NAMESPACES}>All namespaces</SelectItem>
+        {data?.coreV1NamespacesList?.items.map((item) => (
+          <SelectItem key={item.id} value={item.metadata.name}>
+            {item.metadata.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+};
+
+/**
+ * SourcePickerModal component
+ */
+
+const SourcePickerModal = ({ open, onOpenChange }: React.ComponentProps<typeof Dialog>) => {
   const [searchParams] = useSearchParams();
-  const [namespace, setNamespace] = useState('');
+  const [namespaceFilter, setNamespaceFilter] = useState('');
   const [selectedSources, setSelectedSources] = useState(new Set(searchParams.getAll('source')));
 
   const kubeContext = searchParams.get('kubeContext') || '';
@@ -420,39 +541,46 @@ const SourcePickerModal = ({ onClose }: { onClose: (value?: boolean) => void }) 
     currentUrl.search = new URLSearchParams(searchParams).toString();
     window.location.href = currentUrl.toString();
 
-    onClose();
+    if (onOpenChange) onOpenChange(false);
   };
 
   const context = useMemo(
     () => ({
       kubeContext,
-      namespace,
-      setNamespace,
+      namespaceFilter,
+      setNamespaceFilter,
       selectedSources,
       setSelectedSources,
     }),
-    [kubeContext, namespace, setNamespace, selectedSources, setSelectedSources],
+    [kubeContext, namespaceFilter, setNamespaceFilter, selectedSources, setSelectedSources],
   );
 
   return (
     <Context.Provider value={context}>
-      <Modal open onClose={() => onClose()} className="max-w-[1000px]!">
-        <div className="flex items-center justify-between mb-[15px]">
-          <div className="font-semibold">Choose logging sources</div>
-          <div className="max-w-[200px]">
-            <Namespaces />
-          </div>
-        </div>
-        <Explorer />
-        <div className="flex justify-end space-x-2 mt-[15px]">
-          <Button intent="secondary" onClick={() => onClose()}>
-            Cancel
-          </Button>
-          <Button intent="primary" onClick={() => handleUpdate()}>
-            Update
-          </Button>
-        </div>
-      </Modal>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-[1000px]!">
+          <DialogHeader>
+            <DialogTitle>
+              <div className="flex items-center justify-between mb-[15px]">
+                <div className="font-semibold">Choose logging sources</div>
+                <div className="max-w-[200px] mr-4">
+                  <NamespacePicker />
+                </div>
+              </div>
+            </DialogTitle>
+            <DialogDescription />
+          </DialogHeader>
+          <Explorer />
+          <DialogFooter>
+            <div className="flex justify-end space-x-2 mt-[15px]">
+              <DialogClose asChild>
+                <Button variant="secondary">Cancel</Button>
+              </DialogClose>
+              <Button onClick={() => handleUpdate()}>Update</Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Context.Provider>
   );
 };

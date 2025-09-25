@@ -12,50 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useSubscription } from '@apollo/client';
-import { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 
-import Form from '@kubetail/ui/elements/Form';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@kubetail/ui/elements/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@kubetail/ui/elements/select';
 
 import appConfig from '@/app-config';
-import Modal from '@/components/elements/Modal';
 import ClusterAPIInstallButton from '@/components/widgets/ClusterAPIInstallButton';
-import * as dashboardOps from '@/lib/graphql/dashboard/ops';
+import KubeContextPicker from '@/components/widgets/KubeContextPicker';
+import { CLUSTER_API_SERVICES_LIST_FETCH, CLUSTER_API_SERVICES_LIST_WATCH } from '@/lib/graphql/dashboard/ops';
 import type { ClusterApiServicesListItemFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { useListQueryWithSubscription } from '@/lib/hooks';
 
-type KubeContextPickerProps = {
-  className?: string;
-  value?: string;
-  setValue: (value: string) => void;
-};
-
-const KubeContextPicker = ({ className, value, setValue }: KubeContextPickerProps) => {
-  const { loading, data } = useSubscription(dashboardOps.KUBE_CONFIG_WATCH);
-  const kubeConfig = data?.kubeConfigWatch?.object;
-
-  // Set default value
-  useEffect(() => {
-    if (value) return;
-    const defaultValue = kubeConfig?.currentContext;
-    if (defaultValue) setValue(defaultValue);
-  }, [loading]);
-
-  return (
-    <Form.Select className={className} value={value} onChange={(ev) => setValue(ev.target.value)} disabled={loading}>
-      {loading ? (
-        <Form.Option>Loading...</Form.Option>
-      ) : (
-        kubeConfig &&
-        kubeConfig.contexts.map((context) => (
-          <Form.Option key={context.name} value={context.name}>
-            {context.name}
-          </Form.Option>
-        ))
-      )}
-    </Form.Select>
-  );
-};
+/**
+ * generateServiceUrl
+ */
 
 const generateServiceUrl = (service: ClusterApiServicesListItemFragmentFragment) => {
   const { ports } = service.spec;
@@ -64,15 +35,19 @@ const generateServiceUrl = (service: ClusterApiServicesListItemFragmentFragment)
   return `${appProtocol}://${service.metadata.name}.${service.metadata.namespace}.svc:${port}`;
 };
 
+/**
+ * ClusterAPIPickerDesktop component
+ */
+
 type ClusterAPIPickerDesktopProps = {
-  kubeContext?: string;
+  kubeContext: string | null;
 };
 
 const ClusterAPIPickerDesktop = ({ kubeContext }: ClusterAPIPickerDesktopProps) => {
   const { loading, data } = useListQueryWithSubscription({
-    skip: kubeContext === undefined,
-    query: dashboardOps.CLUSTER_API_SERVICES_LIST_FETCH,
-    subscription: dashboardOps.CLUSTER_API_SERVICES_LIST_WATCH,
+    skip: kubeContext === null,
+    query: CLUSTER_API_SERVICES_LIST_FETCH,
+    subscription: CLUSTER_API_SERVICES_LIST_WATCH,
     queryDataKey: 'clusterAPIServicesList',
     subscriptionDataKey: 'clusterAPIServicesWatch',
     variables: { kubeContext },
@@ -80,7 +55,7 @@ const ClusterAPIPickerDesktop = ({ kubeContext }: ClusterAPIPickerDesktopProps) 
 
   const services = data?.clusterAPIServicesList?.items;
 
-  if (kubeContext === undefined || loading) {
+  if (kubeContext === null || loading) {
     return <div className="h-10 leading-10">Loading...</div>;
   }
 
@@ -105,43 +80,55 @@ const ClusterAPIPickerDesktop = ({ kubeContext }: ClusterAPIPickerDesktopProps) 
   );
 };
 
+/**
+ * ClusterAPIPickerCluster component
+ */
+
 const ClusterAPIPickerCluster = () => (
-  <Form.Select disabled>
-    {appConfig.clusterAPIEndpoint ? (
-      <Form.Option>{appConfig.clusterAPIEndpoint}</Form.Option>
-    ) : (
-      <Form.Option>Disabled</Form.Option>
-    )}
-  </Form.Select>
+  <Select value={appConfig.clusterAPIEndpoint ? 'enabled' : 'disabled'} disabled>
+    <SelectTrigger>
+      <SelectValue />
+    </SelectTrigger>
+    <SelectContent>
+      {appConfig.clusterAPIEndpoint ? (
+        <SelectItem value="enabled">{appConfig.clusterAPIEndpoint}</SelectItem>
+      ) : (
+        <SelectItem value="disabled">Disabled</SelectItem>
+      )}
+    </SelectContent>
+  </Select>
 );
 
-type ClusterSettingsDialogProps = {
-  isOpen?: boolean;
-  onClose: (value?: boolean) => void;
-  defaultKubeContext?: string;
-};
+/**
+ *  ClusterSettingsDialogContent component
+ */
 
-export const ClusterSettingsDialog = ({ isOpen = false, onClose, defaultKubeContext }: ClusterSettingsDialogProps) => {
+interface ClusterSettingsDialogProps extends React.ComponentProps<typeof Dialog> {
+  defaultKubeContext: string | null;
+}
+
+export const ClusterSettingsDialog = ({ defaultKubeContext, ...props }: ClusterSettingsDialogProps) => {
   const [kubeContext, setKubeContext] = useState(defaultKubeContext);
 
   return (
-    <Modal open={isOpen} onClose={onClose} className="max-w-[550px]!">
-      <Modal.Title className="flex items-center space-x-3">
-        <span>Cluster Settings</span>
-        {appConfig.environment === 'desktop' && (
-          <KubeContextPicker className="w-auto" value={kubeContext} setValue={setKubeContext} />
-        )}
-      </Modal.Title>
-      <div className="mt-5 pb-8">
-        <Form.Group>
-          <Form.Label>Cluster API Endpoint</Form.Label>
+    <Dialog {...props}>
+      <DialogContent>
+        <DialogTitle className="flex items-center space-x-3">
+          <span>Cluster Settings</span>
+          {appConfig.environment === 'desktop' && (
+            <KubeContextPicker className="w-auto" value={kubeContext} setValue={setKubeContext} />
+          )}
+        </DialogTitle>
+        <DialogDescription />
+        <div className="mt-5 pb-8">
+          <div className="text-heading-sm">Cluster API Endpoint</div>
           {appConfig.environment === 'desktop' ? (
             <ClusterAPIPickerDesktop kubeContext={kubeContext} />
           ) : (
             <ClusterAPIPickerCluster />
           )}
-        </Form.Group>
-      </div>
-    </Modal>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };

@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-@import "react-day-picker/style.css";
+@import 'react-day-picker/style.css';
 
 @import '@kubetail/ui';
 @plugin 'fancy-ansi/plugin';
@@ -9,6 +9,27 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/**
+ * Custom theme
+ */
+
+:root, .light {
+  --elevated: var(--color-zinc-100);
+}
+
+.dark {
+  --elevated: var(--color-zinc-800);
+}
+
+@theme inline {
+  --color-chrome-divider: var(--chrome-300);
+  --color-elevated: var(--elevated);
+}
+
+/**
+ * Flash css
+ */
+
 @theme {
   --animate-flash-bg-green: flash-bg-green 1s ease-in-out;
 
@@ -16,27 +37,10 @@
     0% {
       background-color: #bbf7d0;
     }
+
     100% {
-      background-color: transparent;
+      background-color: var(--color-secondary);
     }
-  }
-}
-
-/*
-  The default border color has changed to `currentcolor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
-@layer base {
-  *,
-  ::after,
-  ::before,
-  ::backdrop,
-  ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
   }
 }
 
@@ -53,19 +57,58 @@
   /* Firefox */
 }
 
+@utility rounded-table-wrapper {
+  @apply ring-0!;
+  @apply shadow-none!;
+  @apply inline-block;
+
+  & table {
+    @apply border-separate border-spacing-0;
+  }
+}
+
+@utility rounded-thead {
+  & tr:first-child th {
+    @apply bg-elevated;
+    @apply border-input;
+    @apply border-t;
+  }
+
+  & th:first-child {
+    @apply border-l;
+  }
+
+  & th:last-child {
+    @apply border-r;
+  }
+
+  & tr:first-child th:first-child {
+    @apply rounded-tl-md;
+  }
+
+  & tr:first-child th:last-child {
+    @apply rounded-tr-md;
+  }
+}
+
 @utility rounded-tbody {
   @apply relative;
 
+  & tr:first-child td {
+    @apply border-t;
+    @apply border-t-border;
+  }
+
   & tr:last-child td {
-    @apply border-chrome-300;
+    @apply border-input;
   }
 
   & td:first-child {
-    @apply border-chrome-300;
+    @apply border-input;
   }
 
   & td:last-child {
-    @apply border-chrome-300;
+    @apply border-input;
   }
 
   & tr:last-child td {
@@ -81,51 +124,11 @@
   }
 
   & tr:last-child td:first-child {
-    @apply rounded-bl;
+    @apply rounded-bl-md;
   }
 
   & tr:last-child td:last-child {
-    @apply rounded-br;
-  }
-}
-
-@utility rounded-table-wrapper {
-  @apply ring-0!;
-  @apply shadow-none!;
-  @apply inline-block;
-
-  & table {
-    @apply border-separate border-spacing-0;
-  }
-}
-
-@utility rounded-thead {
-  & tr:first-child th {
-    @apply bg-chrome-50;
-  }
-
-  & tr:first-child th {
-    @apply border-chrome-300;
-  }
-
-  & tr:first-child th {
-    @apply border-t;
-  }
-
-  & th:first-child {
-    @apply border-l;
-  }
-
-  & th:last-child {
-    @apply border-r;
-  }
-
-  & tr:first-child th:first-child {
-    @apply rounded-tl;
-  }
-
-  & tr:first-child th:last-child {
-    @apply rounded-tr;
+    @apply rounded-br-md;
   }
 }
 
@@ -143,7 +146,7 @@
     @apply h-full;
   }
 
-  :root {
+  :root, .light {
     --ansi-black: var(--ansi-colors-vscode-black);
     --ansi-red: var(--ansi-colors-vscode-red);
     --ansi-green: var(--ansi-colors-vscode-green);

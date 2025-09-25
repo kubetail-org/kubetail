@@ -14,60 +14,57 @@
 
 import { useEffect, useState } from 'react';
 
-import Form from '@kubetail/ui/elements/Form';
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@kubetail/ui/elements/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@kubetail/ui/elements/select';
 
-import Modal from '@/components/elements/Modal';
-
-type EnvironmentControlProps = {
-  className?: string;
-};
+type APIMode = 'auto' | 'true' | 'false';
 
 export const LOCAL_STORAGE_KEY = 'kubetail:dev:clusterAPIEnabledOverride';
 
-type APIMode = '' | 'true' | 'false';
-
-const EnvironmentControl = ({ className }: EnvironmentControlProps) => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [apiMode, setApiMode] = useState<APIMode>(() => (localStorage.getItem(LOCAL_STORAGE_KEY) || '') as APIMode);
+const EnvironmentControl = () => {
+  const [apiMode, setApiMode] = useState<APIMode>(() => (localStorage.getItem(LOCAL_STORAGE_KEY) || 'auto') as APIMode);
 
   useEffect(() => {
-    if (apiMode === '') {
+    if (apiMode === 'auto') {
       localStorage.removeItem(LOCAL_STORAGE_KEY);
     } else {
       localStorage.setItem(LOCAL_STORAGE_KEY, apiMode);
     }
   }, [apiMode]);
 
-  const handleModeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newMode = e.target.value as APIMode;
-    setApiMode(newMode);
+  const handleModeChange = (value: APIMode) => {
+    setApiMode(value);
     window.location.reload();
   };
 
   return (
     <div>
-      <button
-        className={`text-xs text-chrome-500 hover:text-chrome-700 pr-3 ${className}`}
-        type="button"
-        onClick={() => setIsDialogOpen(true)}
-      >
-        Environment Control
-      </button>
-      <Modal open={isDialogOpen} onClose={() => setIsDialogOpen(false)} className="max-w-[550px]">
-        <Modal.Title>Environment Control</Modal.Title>
-        <div className="mt-5 pb-8">
-          <Form.Group>
-            <Form.Label>Switch between Kubernetes API and Kubetail API</Form.Label>
+      <Dialog>
+        <DialogTrigger asChild>
+          <button className="text-xs text-chrome-500 hover:text-chrome-700 pr-3" type="button">
+            Environment Control
+          </button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogTitle>Environment Control</DialogTitle>
+          <DialogDescription />
+          <div className="mt-5 pb-8">
+            <div className="text-lg">Switch between Kubernetes API and Kubetail API</div>
             <div className="pt-3">
-              <Form.Select className={className} value={apiMode} onChange={handleModeChange}>
-                <Form.Option value="">Auto</Form.Option>
-                <Form.Option value="true">Kubetail API</Form.Option>
-                <Form.Option value="false">Kubernetes API</Form.Option>
-              </Form.Select>
+              <Select value={apiMode} onValueChange={handleModeChange}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto</SelectItem>
+                  <SelectItem value="true">Kubetail API</SelectItem>
+                  <SelectItem value="false">Kubernetes API</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </Form.Group>
-        </div>
-      </Modal>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

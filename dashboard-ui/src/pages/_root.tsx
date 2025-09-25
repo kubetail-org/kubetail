@@ -12,28 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { XCircleIcon } from '@heroicons/react/24/outline';
+import { CircleX } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import toastlib, { useToaster, resolveValue } from 'react-hot-toast';
 import type { Toast } from 'react-hot-toast';
 import { Outlet } from 'react-router-dom';
 
-import Button from '@kubetail/ui/elements/Button';
+import { Button } from '@kubetail/ui/elements/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@kubetail/ui/elements/dialog';
 
-import Modal from '@/components/elements/Modal';
 import { joinPaths, getBasename } from '@/lib/util';
 
 const QueryError = ({ toast }: { toast: Toast }) => (
-  <div className="relative bg-red-100 border-2 border-red-200 p-1">
+  <div className="relative min-w-0 break-all bg-red-100 border-2 border-red-200 p-1">
     <button
       type="button"
       className="absolute top-[-10px] left-[-10px] bg-red-100 rounded-full cursor-pointer"
       onClick={() => toastlib.remove(toast.id)}
       aria-label="remove"
     >
-      <XCircleIcon className="h-5 w-5 text-red-300 hover:text-red-400" aria-hidden="true" />
+      <CircleX className="h-5 w-5 text-red-300 hover:text-red-400" aria-hidden="true" />
     </button>
-    {resolveValue(toast.message, toast)}
+    <div className="max-w-full overflow-ellipsis">{resolveValue(toast.message, toast)}</div>
   </div>
 );
 
@@ -48,38 +48,43 @@ const CustomToaster = () => {
   };
 
   return (
-    <div className="fixed bottom-[28px] right-[5px] p-2 bg-red-100 border-2 border-red-200 z-10">
-      <button
-        type="button"
-        className="absolute top-[-10px] left-[-10px] bg-red-100 rounded-full cursor-pointer"
-        onClick={handleRemoveAllClick}
-        aria-label="remove all"
-      >
-        <XCircleIcon className="h-5 w-5 text-red-300 hover:text-red-400" aria-hidden="true" />
-      </button>
-      <button type="button" onClick={() => setModalIsOpen(true)}>
-        Query Errors
-        {`(${toasts.length})`}
-      </button>
-      <Modal className="max-w-[500px]" open={modalIsOpen} onClose={() => setModalIsOpen(false)}>
-        <Modal.Title>
-          <div className="flex justify-between">
-            <span>
-              Query Errors
-              {`(${toasts.length})`}
-            </span>
-            <Button intent="danger" size="xs" onClick={() => toastlib.remove()}>
-              Dismiss All
-            </Button>
+    <>
+      <div className="fixed bottom-[28px] right-[5px] p-2 bg-red-100 border-2 border-red-200 z-10">
+        <button
+          type="button"
+          className="absolute top-[-10px] left-[-10px] bg-red-100 rounded-full cursor-pointer"
+          onClick={handleRemoveAllClick}
+          aria-label="remove all"
+        >
+          <CircleX className="h-5 w-5 text-red-300 hover:text-red-400" aria-hidden="true" />
+        </button>
+        <button type="button" onClick={() => setModalIsOpen(true)}>
+          Query Errors
+          {`(${toasts.length})`}
+        </button>
+      </div>
+      <Dialog open={modalIsOpen} onOpenChange={setModalIsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex justify-between items-center">
+              <span>
+                Query Errors
+                {`(${toasts.length})`}
+              </span>
+              <Button className="mr-4" variant="destructive" size="sm" onClick={() => toastlib.remove()}>
+                Dismiss All
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <DialogDescription />
+          <div className="text-sm space-y-4 min-w-0">
+            {toasts.map((toast) => (
+              <QueryError key={toast.id} toast={toast} />
+            ))}
           </div>
-        </Modal.Title>
-        <div className="text-sm space-y-4">
-          {toasts.map((toast) => (
-            <QueryError key={toast.id} toast={toast} />
-          ))}
-        </div>
-      </Modal>
-    </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

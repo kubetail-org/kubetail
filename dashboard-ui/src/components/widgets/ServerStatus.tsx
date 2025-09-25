@@ -13,13 +13,13 @@
 // limitations under the License.
 
 import { useSubscription } from '@apollo/client';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect } from 'react';
 import { atom, useAtomValue, useSetAtom } from 'jotai';
 
-import DataTable from '@kubetail/ui/elements/DataTable';
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@kubetail/ui/elements/dialog';
+import { Table, TableBody, TableCell, TableRow } from '@kubetail/ui/elements/table';
 
 import appConfig from '@/app-config';
-import Modal from '@/components/elements/Modal';
 import ClusterAPIInstallButton from '@/components/widgets/ClusterAPIInstallButton';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import {
@@ -139,12 +139,10 @@ type ServerStatusCellsProps = {
 
 const ServerStatusCells = ({ serverStatus, defaultMessage }: ServerStatusCellsProps) => (
   <>
-    <DataTable.DataCell className="w-px">
+    <TableCell className="w-px">
       <HealthDot status={serverStatus.status} />
-    </DataTable.DataCell>
-    <DataTable.DataCell className="whitespace-normal">
-      {statusMessage(serverStatus, defaultMessage || 'Uknown')}
-    </DataTable.DataCell>
+    </TableCell>
+    <TableCell className="whitespace-normal">{statusMessage(serverStatus, defaultMessage || 'Uknown')}</TableCell>
   </>
 );
 
@@ -158,14 +156,14 @@ const KubernetesAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Se
   const serverStatus = serverStatusMap.get(kubeContext) || new ServerStatus();
 
   return (
-    <DataTable.Row>
-      <DataTable.DataCell className="w-px">Kubernetes API</DataTable.DataCell>
+    <TableRow>
+      <TableCell className="w-px">Kubernetes API</TableCell>
       {dashboardServerStatus.status === Status.Unhealthy ? (
         <ServerStatusCells serverStatus={new ServerStatus()} />
       ) : (
         <ServerStatusCells serverStatus={serverStatus} />
       )}
-    </DataTable.Row>
+    </TableRow>
   );
 };
 
@@ -174,26 +172,34 @@ const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Serve
   const serverStatus = serverStatusMap.get(kubeContext) || new ServerStatus();
 
   return (
-    <DataTable.Row>
-      <DataTable.DataCell className="w-px">Kubetail Cluster API</DataTable.DataCell>
+    <TableRow>
+      <TableCell className="w-px">Kubetail Cluster API</TableCell>
       {dashboardServerStatus.status === Status.Unhealthy ? (
         <ServerStatusCells serverStatus={new ServerStatus()} />
       ) : (
         <>
-          <DataTable.DataCell className="w-px">
+          <TableCell className="w-px">
             <HealthDot status={serverStatus.status} />
-          </DataTable.DataCell>
-          <DataTable.DataCell className="whitespace-normal flex justify-between items-center">
+          </TableCell>
+          <TableCell className="whitespace-normal flex justify-between items-center">
             {statusMessage(serverStatus, 'Uknown')}
             {appConfig.environment === 'desktop' && serverStatus.status === Status.NotFound && (
               <ClusterAPIInstallButton kubeContext={kubeContext} />
             )}
-          </DataTable.DataCell>
+          </TableCell>
         </>
       )}
-    </DataTable.Row>
+    </TableRow>
   );
 };
+
+const StatusTable = ({ children }: React.PropsWithChildren) => (
+  <div className="rounded-md border-1 shadow-xs">
+    <Table>
+      <TableBody>{children}</TableBody>
+    </Table>
+  </div>
+);
 
 type ServerStatusWidgetProps = {
   className?: string;
@@ -213,8 +219,6 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
   const kubernetesAPIServertatusMap = useAtomValue(kubernetesAPIServerStatusMapState);
   const clusterAPIServerStatusMap = useAtomValue(clusterAPIServerStatusMapState);
 
-  const [modalIsOpen, setModalIsOpen] = useState(false);
-
   // Determine overall status
   let overallStatus = Status.Unknown;
   if (dashboardServerStatus.status === Status.Unhealthy) {
@@ -227,36 +231,36 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
 
   return (
     <div className="inline-block">
-      <button
-        type="button"
-        className={cn('px-2 rounded-tl-sm flex items-center space-x-1 cursor-pointer', className)}
-        onClick={() => setModalIsOpen(true)}
-      >
-        <div className="text-sm">status:</div>
-        <HealthDot status={overallStatus} />
-      </button>
-      <Modal className="max-w-[500px] pb-10" open={modalIsOpen} onClose={() => setModalIsOpen(false)}>
-        <Modal.Title>Health Status</Modal.Title>
-        <DataTable>
-          <DataTable.Body>
-            <DataTable.Row>
-              <DataTable.DataCell className="w-px">Dashboard Backend</DataTable.DataCell>
+      <Dialog>
+        <DialogTrigger asChild>
+          <button
+            type="button"
+            className={cn('px-2 rounded-tl-sm flex items-center space-x-1 cursor-pointer', className)}
+          >
+            <div className="text-sm">status:</div>
+            <HealthDot status={overallStatus} />
+          </button>
+        </DialogTrigger>
+        <DialogContent className="max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <DialogTitle>Health Status</DialogTitle>
+          <DialogDescription />
+          <StatusTable>
+            <TableRow>
+              <TableCell className="w-px">Dashboard Backend</TableCell>
               <ServerStatusCells serverStatus={dashboardServerStatus} defaultMessage="Connecting..." />
-            </DataTable.Row>
-          </DataTable.Body>
-        </DataTable>
-        {kubeContexts.map((kubeContext) => (
-          <Fragment key={kubeContext}>
-            <div className="mt-8 ml-3 mb-1">{kubeContext || 'Cluster'}</div>
-            <DataTable>
-              <DataTable.Body>
+            </TableRow>
+          </StatusTable>
+          {kubeContexts.map((kubeContext) => (
+            <Fragment key={kubeContext}>
+              <div className="mt-8 ml-3 mb-1">{kubeContext || 'Cluster'}</div>
+              <StatusTable>
                 <KubernetesAPIServerStatusRow kubeContext={kubeContext} dashboardServerStatus={dashboardServerStatus} />
                 <ClusterAPIServerStatusRow kubeContext={kubeContext} dashboardServerStatus={dashboardServerStatus} />
-              </DataTable.Body>
-            </DataTable>
-          </Fragment>
-        ))}
-      </Modal>
+              </StatusTable>
+            </Fragment>
+          ))}
+        </DialogContent>
+      </Dialog>
       {kubeContexts.map((kubeContext) => (
         <Fragment key={kubeContext}>
           <KubernetesAPIServerStatusFetcher kubeContext={kubeContext} />
