@@ -536,7 +536,7 @@ const Sidebar = () => {
                 </div>
                 <div
                   className={cn(
-                    'text-xs font-medium border not-dark:group-has-hover:border-chrome-300 min-w-[24px] h-[24px] px-[4px] rounded-sm flex items-center justify-center',
+                    'text-xs font-medium border not-dark:group-has-hover:border-chrome-300 dark:group-has-hover:border-gray-600 min-w-[24px] h-[24px] px-[4px] rounded-sm flex items-center justify-center',
                     kind === workloadKindFilter && 'border-chrome-300 dark:border-chrome-700',
                   )}
                 >
