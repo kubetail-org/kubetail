@@ -22,10 +22,6 @@ inputs:
     description: 'Whether to set up Rust'
     required: false
     default: 'false'
-  rust-toolchain:
-    description: 'Rust toolchain to install'
-    required: false
-    default: '1.90.0'
   setup-protoc:
     description: 'Whether to set up Protoc'
     required: false
@@ -56,7 +52,6 @@ runs:
       if: inputs.setup-rust == 'true'
       uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: ${{ inputs.rust-toolchain }}
         components: rustfmt, clippy
 
     - name: Set up Rust cache
