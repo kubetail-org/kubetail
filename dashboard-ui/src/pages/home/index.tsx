@@ -360,6 +360,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
             pageSize: showAll ? numItems : maxDisplayRows,
           },
         },
+        enableSortingRemoval: false,
         onSortingChange: setSorting,
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
