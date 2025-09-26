@@ -20,7 +20,7 @@
 
 .dark {
   --elevated: var(--color-zinc-800);
-  --strong: var(--color-zinc-700);
+  --strong: var(--color-zinc-800);
 }
 
 @theme inline {
