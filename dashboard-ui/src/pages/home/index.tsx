@@ -231,7 +231,7 @@ type SortIconProps = {
 };
 
 const SortIcon = ({ dir, descFirst }: SortIconProps) => {
-  const iconCN = 'h-5 w-5 ml-2 flex-none text-chrome-400 ';
+  const iconCN = 'h-5 w-5 ml-2 flex-none text-[currentColor]/25';
 
   switch (dir) {
     case 'asc':
@@ -389,7 +389,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
                   <Spinner size="xs" />
                 </div>
               ) : (
-                <div className="px-[8px] py-[1px] bg-transparent border border-input font-semibold rounded-full text-xs text-chrome-foreground">
+                <div className="px-[8px] py-[1px] bg-transparent border border-input font-semibold rounded-full text-xs">
                   {items && `${items?.length}`}
                 </div>
               )}
@@ -421,8 +421,8 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
           <TableRow>
             <TableCell colSpan={table.getVisibleLeafColumns().length}>
               <div className="flex flex-col items-center  py-1 ">
-                <Layers3 className="h-5 w-5 text-chrome-400" />
-                <span className="text-chrome-400 italic font-medium">No resources found</span>
+                <Layers3 className="h-5 w-5 text-[currentColor]/25" />
+                <span className="text-[currentColor]/25 italic font-medium">No resources found</span>
               </div>
             </TableCell>
           </TableRow>
@@ -440,7 +440,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
             {numItems > maxDisplayRows && (
               <button
                 type="button"
-                className="text-chrome-600 hover:text-chrome-700 text-sm font-medium cursor-pointer"
+                className="text-[currentColor]/50 hover:text-[currentColor]/70 text-sm font-medium cursor-pointer"
                 onClick={() => setShowAll(!showAll)}
               >
                 {showAll ? 'Show less...' : `Show ${numItems - maxDisplayRows} more...`}
@@ -474,8 +474,8 @@ const DisplayWorkloads = () => {
     return (
       <div className="flex items-center border border-dashed border-secondary rounded-md justify-center h-32">
         <div className="text-center">
-          <Search className="h-8 w-8 text-chrome-400 mx-auto mb-2" />
-          <p className="text-base text-chrome-400">No matching workloads found</p>
+          <Search className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+          <p className="text-base text-muted-foreground">No matching workloads found</p>
         </div>
       </div>
     );
@@ -516,7 +516,7 @@ const Sidebar = () => {
   return (
     <>
       <button type="button" className="cursor-pointer mb-[6px]" onClick={() => setWorkloadKindFilter(undefined)}>
-        <span className="text-md text-chrome-500">Workloads</span>
+        <span className="text-md text-muted-foreground">Workloads</span>
       </button>
       <ul className="space-y-[6px]">
         {ALL_WORKLOAD_KINDS.map((kind) => {
@@ -526,19 +526,19 @@ const Sidebar = () => {
               <button
                 type="button"
                 className={cn(
-                  'group flex items-center justify-between h-[40px] px-[8px] rounded-sm hover:bg-accent w-full',
-                  kind === workloadKindFilter && 'bg-blue-100 dark:bg-blue-900',
+                  'group flex items-center justify-between h-[40px] px-[8px] rounded-sm hover:bg-accent/45 w-full',
+                  kind === workloadKindFilter && 'bg-accent!',
                 )}
                 onClick={() => setWorkloadKindFilter((w) => (w === kind ? undefined : kind))}
               >
                 <div className="flex items-center gap-2">
-                  <Icon className="w-[20px] h-[20px] text-chrome-950" />
+                  <Icon className="w-[20px] h-[20px] text-[currentColor]" />
                   <span className="text-md">{PLURAL_LABEL_MAP[kind]}</span>
                 </div>
                 <div
                   className={cn(
-                    'text-xs font-medium border not-dark:group-has-hover:border-chrome-300 dark:group-has-hover:border-gray-600 min-w-[24px] h-[24px] px-[4px] rounded-sm flex items-center justify-center',
-                    kind === workloadKindFilter && 'border-chrome-300 dark:border-chrome-700',
+                    'text-xs font-medium border border-input not-dark:group-has-hover:border-zinc-400/70 dark:group-has-hover:border-zinc-400 min-w-[24px] h-[24px] px-[4px] rounded-sm flex items-center justify-center',
+                    kind === workloadKindFilter && 'border-zinc-400/70 dark:border-zinc-400',
                   )}
                 >
                   <WorkloadCount kind={kind} />
@@ -670,7 +670,7 @@ const InnerLayout = () => {
         <div className="flex h-full">
           <aside
             className={cn(
-              'shrink-0 bg-elevated border-r-1 transition-all duration-100 ease-in relative overflow-y-auto',
+              'shrink-0 bg-strong border-r-1 transition-all duration-100 ease-in relative overflow-y-auto',
               'h-full flex flex-col justify-between',
               sidebarOpen ? 'px-[12px]' : 'px-[2px]',
             )}
@@ -682,13 +682,13 @@ const InnerLayout = () => {
                   <>
                     <KubetailLogo className="text-primary h-full w-auto" />
                     <PanelLeftClose
-                      className="h-[20px] cursor-pointer text-chrome-500 hover:text-primary "
+                      className="h-[20px] cursor-pointer text-muted-foreground hover:text-primary "
                       onClick={() => setSidebarOpen(false)}
                     />
                   </>
                 ) : (
                   <PanelLeftOpen
-                    className="h-[20px] cursor-pointer text-chrome-500 hover:text-primary "
+                    className="h-[20px] cursor-pointer text-muted-foreground hover:text-primary "
                     onClick={() => setSidebarOpen(true)}
                   />
                 )}

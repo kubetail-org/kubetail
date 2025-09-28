@@ -56,7 +56,7 @@ const SettingsDropdown = ({ defaultKubeContext = null }: SettingsDropdownProps) 
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button ref={triggerRef} size="sm" variant="outline" className="bg-transparent mb-2">
+          <Button ref={triggerRef} size="sm" variant="outline" className="bg-transparent border-input mb-2">
             <Settings size={18} strokeWidth={1.5} />
             Settings
           </Button>

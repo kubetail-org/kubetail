@@ -14,19 +14,21 @@
  */
 
 :root, .light {
-  --elevated: var(--color-zinc-100);
-  --strong: var(--color-zinc-100);
+  --accent: var(--color-blue-200);
+  --elevated: var(--color-zinc-100);   /* color-bg-elevated */
+  --strong: var(--color-zinc-200);     /* color-bg-strong */
 }
 
 .dark {
-  --elevated: var(--color-zinc-800);
-  --strong: var(--color-zinc-800);
+  --accent: var(--color-blue-800);
+  --elevated: var(--color-zinc-800);   /* color-bg-elevated */
+  --strong: var(--color-zinc-950);     /* color-bg-strong */
 }
 
 @theme inline {
-  --color-chrome-divider: var(--chrome-300);
-  --color-strong: var(--strong);
   --color-elevated: var(--elevated);
+  --color-strong: var(--strong);
+  --color-chrome-divider: var(--chrome-300);
 }
 
 /**
@@ -72,8 +74,7 @@
 
 @utility rounded-thead {
   & tr:first-child th {
-    @apply bg-strong;
-    @apply border-input;
+    @apply bg-elevated;
     @apply border-t;
   }
 
@@ -99,19 +100,6 @@
 
   & tr:first-child td {
     @apply border-t;
-    @apply border-t-border;
-  }
-
-  & tr:last-child td {
-    @apply border-input;
-  }
-
-  & td:first-child {
-    @apply border-input;
-  }
-
-  & td:last-child {
-    @apply border-input;
   }
 
   & tr:last-child td {
