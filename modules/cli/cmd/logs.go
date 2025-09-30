@@ -218,9 +218,9 @@ var logsCmd = &cobra.Command{
 		hideTs, _ := flags.GetBool("hide-ts")
 		withTs := true
 		if hideTs {
-    		withTs = false
+			withTs = false
 		}
-		
+
 		withNode, _ := flags.GetBool("with-node")
 		withRegion, _ := flags.GetBool("with-region")
 		withZone, _ := flags.GetBool("with-zone")
@@ -230,20 +230,21 @@ var logsCmd = &cobra.Command{
 		withPod, _ := flags.GetBool("with-pod")
 		withContainer, _ := flags.GetBool("with-container")
 		withCursors, _ := flags.GetBool("with-cursors")
-		
+
 		raw, _ := flags.GetBool("raw")
-		if raw {
-		withTs = false
-		withNode = false
-		withRegion = false
-		withZone = false
-		withOS = false
-		withArch = false
-		withNamespace = false
-		withPod = false
-		withContainer = false
-}
 		hideHeader, _ := flags.GetBool("hide-header")
+		if raw {
+			withTs = false
+			withNode = false
+			withRegion = false
+			withZone = false
+			withOS = false
+			withArch = false
+			withNamespace = false
+			withPod = false
+			withContainer = false
+			hideHeader = true
+		}
 
 		// Stream mode
 		streamMode := logsStreamModeUnknown
@@ -422,10 +423,8 @@ var logsCmd = &cobra.Command{
 // Return table writer headers and col widths
 func getTableWriterHeaders(flags *pflag.FlagSet, sources []logs.LogSource) ([]string, []int) {
 	hideTs, _ := flags.GetBool("hide-ts")
-	withTs := true
-	if hideTs {
-    withTs = false
-	}
+	withTs := !hideTs
+
 	withNode, _ := flags.GetBool("with-node")
 	withRegion, _ := flags.GetBool("with-region")
 	withZone, _ := flags.GetBool("with-zone")
