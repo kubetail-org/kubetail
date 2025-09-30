@@ -49,6 +49,9 @@ First, install the Kubetail CLI tool (`kubetail`) via your favorite package mana
 # Homebrew
 brew install kubetail
 
+# Krew
+kubectl krew install kubetail
+
 # Winget
 winget install Kubetail.Kubetail
 
