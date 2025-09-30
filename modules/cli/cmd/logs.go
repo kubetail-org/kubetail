@@ -215,7 +215,10 @@ var logsCmd = &cobra.Command{
 		archList, _ := flags.GetStringSlice("arch")
 		nodeList, _ := flags.GetStringSlice("node")
 
-		withTs, _ := flags.GetBool("with-ts")
+		hideHeader, _ := flags.GetBool("hide-header")
+		hideTs, _ := flags.GetBool("hide-ts")
+
+		withTs := !hideTs
 		withNode, _ := flags.GetBool("with-node")
 		withRegion, _ := flags.GetBool("with-region")
 		withZone, _ := flags.GetBool("with-zone")
@@ -226,7 +229,19 @@ var logsCmd = &cobra.Command{
 		withContainer, _ := flags.GetBool("with-container")
 		withCursors, _ := flags.GetBool("with-cursors")
 
-		hideHeader, _ := flags.GetBool("hide-header")
+		raw, _ := flags.GetBool("raw")
+		if raw {
+			hideHeader = true
+			withTs = false
+			withNode = false
+			withRegion = false
+			withZone = false
+			withOS = false
+			withArch = false
+			withNamespace = false
+			withPod = false
+			withContainer = false
+		}
 
 		// Stream mode
 		streamMode := logsStreamModeUnknown
@@ -404,7 +419,9 @@ var logsCmd = &cobra.Command{
 
 // Return table writer headers and col widths
 func getTableWriterHeaders(flags *pflag.FlagSet, sources []logs.LogSource) ([]string, []int) {
-	withTs, _ := flags.GetBool("with-ts")
+	hideTs, _ := flags.GetBool("hide-ts")
+
+	withTs := !hideTs
 	withNode, _ := flags.GetBool("with-node")
 	withRegion, _ := flags.GetBool("with-region")
 	withZone, _ := flags.GetBool("with-zone")
@@ -547,7 +564,8 @@ func init() {
 	flagset.StringSlice("arch", []string{}, "Filter source pods by CPU architecture")
 	flagset.StringSlice("node", []string{}, "Filter source pods by node name")
 
-	flagset.Bool("with-ts", false, "Show the timestamp of each record")
+	flagset.Bool("raw", false, "Output only raw log messages without metadata")
+	flagset.Bool("hide-ts", false, "Hide the timestamp of each record")
 	flagset.Bool("with-node", false, "Show the source node of each record")
 	flagset.Bool("with-region", false, "Show the source region of each record")
 	flagset.Bool("with-zone", false, "Show the source zone of each record")
