@@ -215,7 +215,12 @@ var logsCmd = &cobra.Command{
 		archList, _ := flags.GetStringSlice("arch")
 		nodeList, _ := flags.GetStringSlice("node")
 
-		withTs, _ := flags.GetBool("with-ts")
+		hideTs, _ := flags.GetBool("hide-ts")
+		withTs := true
+		if hideTs {
+    		withTs = false
+		}
+		
 		withNode, _ := flags.GetBool("with-node")
 		withRegion, _ := flags.GetBool("with-region")
 		withZone, _ := flags.GetBool("with-zone")
@@ -225,7 +230,19 @@ var logsCmd = &cobra.Command{
 		withPod, _ := flags.GetBool("with-pod")
 		withContainer, _ := flags.GetBool("with-container")
 		withCursors, _ := flags.GetBool("with-cursors")
-
+		
+		raw, _ := flags.GetBool("raw")
+		if raw {
+		withTs = false
+		withNode = false
+		withRegion = false
+		withZone = false
+		withOS = false
+		withArch = false
+		withNamespace = false
+		withPod = false
+		withContainer = false
+}
 		hideHeader, _ := flags.GetBool("hide-header")
 
 		// Stream mode
@@ -404,7 +421,11 @@ var logsCmd = &cobra.Command{
 
 // Return table writer headers and col widths
 func getTableWriterHeaders(flags *pflag.FlagSet, sources []logs.LogSource) ([]string, []int) {
-	withTs, _ := flags.GetBool("with-ts")
+	hideTs, _ := flags.GetBool("hide-ts")
+	withTs := true
+	if hideTs {
+    withTs = false
+	}
 	withNode, _ := flags.GetBool("with-node")
 	withRegion, _ := flags.GetBool("with-region")
 	withZone, _ := flags.GetBool("with-zone")
@@ -547,7 +568,8 @@ func init() {
 	flagset.StringSlice("arch", []string{}, "Filter source pods by CPU architecture")
 	flagset.StringSlice("node", []string{}, "Filter source pods by node name")
 
-	flagset.Bool("with-ts", false, "Show the timestamp of each record")
+	flagset.Bool("raw", false, "Output only raw log messages without metadata")
+	flagset.Bool("hide-ts", false, "Hide the timestamp of each record")
 	flagset.Bool("with-node", false, "Show the source node of each record")
 	flagset.Bool("with-region", false, "Show the source region of each record")
 	flagset.Bool("with-zone", false, "Show the source zone of each record")
