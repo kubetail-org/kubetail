@@ -364,6 +364,14 @@ func TestParseWorkloadType(t *testing.T) {
 		{name: "ReplicaSets", input: "ReplicaSets", expected: WorkloadTypeReplicaSet},
 		{name: "StatefulSets", input: "StatefulSets", expected: WorkloadTypeStatefulSet},
 
+		// Test with kubectl shortcuts
+		{name: "cj", input: "cj", expected: WorkloadTypeCronJob},
+		{name: "ds", input: "ds", expected: WorkloadTypeDaemonSet},
+		{name: "deploy", input: "deploy", expected: WorkloadTypeDeployment},
+		{name: "po", input: "po", expected: WorkloadTypePod},
+		{name: "rs", input: "rs", expected: WorkloadTypeReplicaSet},
+		{name: "sts", input: "sts", expected: WorkloadTypeStatefulSet},
+
 		// Test unknown workload types
 		{name: "unknown", input: "unknown", expected: WorkloadTypeUknown},
 		{name: "empty string", input: "", expected: WorkloadTypeUknown},
