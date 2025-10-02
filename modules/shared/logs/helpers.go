@@ -117,20 +117,20 @@ func (w WorkloadType) Key(args ...string) string {
 
 // Parse string and return corresponding workload
 func parseWorkloadType(workloadStr string) WorkloadType {
-	switch strings.TrimRight(strings.ToLower(workloadStr), "s") {
-	case "cronjob":
+	switch strings.ToLower(workloadStr) {
+	case "cronjobs", "cronjob", "cj":
 		return WorkloadTypeCronJob
-	case "daemonset":
+	case "daemonsets", "daemonset", "ds":
 		return WorkloadTypeDaemonSet
-	case "deployment":
+	case "deployments", "deployment", "deploy":
 		return WorkloadTypeDeployment
-	case "job":
+	case "jobs", "job":
 		return WorkloadTypeJob
-	case "pod":
+	case "pods", "pod", "po":
 		return WorkloadTypePod
-	case "replicaset":
+	case "replicasets", "replicaset", "rs":
 		return WorkloadTypeReplicaSet
-	case "statefulset":
+	case "statefulsets", "statefulset", "sts":
 		return WorkloadTypeStatefulSet
 	default:
 		return WorkloadTypeUknown
