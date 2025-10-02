@@ -218,10 +218,15 @@ func (cm *DesktopConnectionManager) GetDefaultNamespace(kubeContext string) stri
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
+	if kubeContext == "" {
+		kubeContext = cm.kubeConfig.CurrentContext
+	}
+
 	context, exists := cm.kubeConfig.Contexts[kubeContext]
 	if !exists || context.Namespace == "" {
 		return metav1.NamespaceDefault
 	}
+
 	return context.Namespace
 }
 
