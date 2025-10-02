@@ -158,39 +158,6 @@ export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) =
         const ev = subscriptionData.data.logMetadataWatch;
         if (ev) eventBufferRef.current.push(ev);
         return prev;
-        /*
-        if (!ev?.type || !ev?.object) return prev;
-
-        const { containerID } = ev.object.spec;
-
-        if (ev.type === 'MODIFIED' || ev.type === 'ADDED') {
-          const { size } = ev.object.fileInfo;
-          let { lastModifiedAt } = ev.object.fileInfo;
-          lastModifiedAt = lastModifiedAt ? new Date(lastModifiedAt) : new Date(0);
-
-          // Update atom
-          setLogMetadataMap(({ inner }) => {
-            inner.set(containerID, { size, lastModifiedAt });
-            return { inner };
-          });
-
-          // Flash data
-          document.querySelectorAll(`.last_event_${containerID}`).forEach((el) => {
-            const k = 'animate-flash-bg-green';
-            el.classList.remove(k);
-            el.classList.add(k);
-            setTimeout(() => el.classList.remove(k), 1000);
-          });
-        } else if (ev.type === 'DELETED') {
-          // Update atom
-          setLogMetadataMap(({ inner }) => {
-            inner.delete(containerID);
-            return { inner };
-          });
-        }
-
-        return prev;
-        */
       },
     });
   }, [isEnabled, isReady, loading, error, subscribeToMore, setLogMetadataMap]);
