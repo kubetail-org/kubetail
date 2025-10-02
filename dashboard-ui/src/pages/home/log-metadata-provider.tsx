@@ -14,15 +14,18 @@
 
 import { useQuery, useSubscription } from '@apollo/client';
 import { useSetAtom } from 'jotai';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { getClusterAPIClient } from '@/apollo-client';
 import { CLUSTER_API_READY_WAIT } from '@/lib/graphql/dashboard/ops';
 import { LOG_METADATA_LIST_FETCH, LOG_METADATA_LIST_WATCH } from '@/lib/graphql/cluster-api/ops';
+import type { LogMetadataWatchEvent } from '@/lib/graphql/cluster-api/__generated__/graphql';
 import { useIsClusterAPIEnabled, useRetryOnError } from '@/lib/hooks';
 
 import type { FileInfo, KubeContext } from './shared';
 import { logMetadataMapAtomFamily } from './state';
+
+const BATCH_INTERVAL_MS = 5000;
 
 /**
  * LogMetadataProvider component
@@ -79,6 +82,66 @@ export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) =
     setLogMetadataMap({ inner });
   }, [loading, setLogMetadataMap]);
 
+  // Set up batch update mechanism
+  const eventBufferRef = useRef<LogMetadataWatchEvent[]>([]);
+
+  useEffect(() => {
+    console.log('new interval');
+    const id = setInterval(() => {
+      // Exit early if no data in buffer
+      if (!eventBufferRef.current.length) return;
+
+      // Capture current buffer
+      const eventBuffer = eventBufferRef.current;
+      eventBufferRef.current = [];
+
+      // Init selectors array for flashing UI later
+      const selectors = new Array<string>();
+
+      // Update LogMetadataMap
+      setLogMetadataMap(({ inner }) => {
+        // Loop over events in buffer
+        eventBuffer.forEach((ev) => {
+          if (!ev?.type || !ev?.object) return;
+
+          const { containerID } = ev.object.spec;
+
+          if (ev.type === 'MODIFIED' || ev.type === 'ADDED') {
+            const { size } = ev.object.fileInfo;
+            let { lastModifiedAt } = ev.object.fileInfo;
+            lastModifiedAt = lastModifiedAt ? new Date(lastModifiedAt) : new Date(0);
+
+            // Update atom
+            inner.set(containerID, { size, lastModifiedAt });
+
+            // Update selectors
+            selectors.push(`.last_event_${containerID}`);
+
+            // Flash data
+          } else if (ev.type === 'DELETED') {
+            // Update atom
+            inner.delete(containerID);
+          }
+        });
+
+        // Return new instance to trigger update
+        return { inner };
+      });
+
+      // Flash UI
+      if (selectors.length) {
+        document.querySelectorAll(selectors.join(', ')).forEach((el) => {
+          const k = 'animate-flash-bg-green';
+          el.classList.remove(k);
+          el.classList.add(k);
+          setTimeout(() => el.classList.remove(k), 1000);
+        });
+      }
+    }, BATCH_INTERVAL_MS);
+
+    return () => clearInterval(id);
+  }, [eventBufferRef, setLogMetadataMap]);
+
   // Subscribe to changes
   useEffect(() => {
     // Wait for all data to get fetched
@@ -88,7 +151,9 @@ export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) =
       document: LOG_METADATA_LIST_WATCH,
       updateQuery: (prev, { subscriptionData }) => {
         const ev = subscriptionData.data.logMetadataWatch;
-
+        if (ev) eventBufferRef.current.push(ev);
+        return prev;
+        /*
         if (!ev?.type || !ev?.object) return prev;
 
         const { containerID } = ev.object.spec;
@@ -120,6 +185,7 @@ export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) =
         }
 
         return prev;
+        */
       },
     });
   }, [isEnabled, isReady, loading, error, subscribeToMore, setLogMetadataMap]);
