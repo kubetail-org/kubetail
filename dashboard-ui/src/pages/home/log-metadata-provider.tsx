@@ -86,7 +86,6 @@ export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) =
   const eventBufferRef = useRef<LogMetadataWatchEvent[]>([]);
 
   useEffect(() => {
-    console.log('new interval');
     const id = setInterval(() => {
       // Exit early if no data in buffer
       if (!eventBufferRef.current.length) return;
@@ -139,7 +138,13 @@ export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) =
       }
     }, BATCH_INTERVAL_MS);
 
-    return () => clearInterval(id);
+    return () => {
+      // Stop interval timer
+      clearInterval(id);
+
+      // Clear buffer
+      eventBufferRef.current = [];
+    };
   }, [eventBufferRef, setLogMetadataMap]);
 
   // Subscribe to changes
