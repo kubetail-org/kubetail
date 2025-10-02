@@ -64,7 +64,6 @@ import { LogMetadataProvider } from './log-metadata-provider';
 import {
   filteredWorkloadCountAtomFamilies,
   filteredTotalCountAtomFamily,
-  isFetchingAtomFamily,
   isLoadingAtomFamily,
   namespaceFilterAtom,
   searchQueryAtom,
@@ -463,11 +462,9 @@ const DisplayWorkloads = () => {
   const { kubeContext, workloadKindFilter } = useContext(Context);
   const searchQuery = useAtomValue(searchQueryAtom);
   const isLoading = useAtomValue(isLoadingAtomFamily(kubeContext));
-  const isFetching = useAtomValue(isFetchingAtomFamily(kubeContext));
   const totalCount = useAtomValue(filteredTotalCountAtomFamily(kubeContext));
 
   if (isLoading) return <div>Loading...</div>;
-  if (isFetching) return <div>Fetching workloads...</div>;
 
   // If loading & fetching is finished and there are no search results, display "No Results" UI
   if (searchQuery.trim() !== '' && totalCount === 0) {
@@ -612,7 +609,6 @@ const Main = () => {
   });
 
   const isLoading = useAtomValue(isLoadingAtomFamily(kubeContext));
-  const isFetching = useAtomValue(isFetchingAtomFamily(kubeContext));
 
   const [searchInputValue, setSearchInputValue] = useState('');
   const setSearchQuery = useSetAtom(searchQueryAtom);
@@ -637,7 +633,7 @@ const Main = () => {
                   debouncedSearch(e.target.value);
                 }}
                 onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
-                disabled={isLoading || isFetching}
+                disabled={isLoading}
               />
               <div className="block w-[200px]">
                 <NamespacesPicker />

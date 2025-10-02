@@ -93,14 +93,6 @@ export const workloadIsFetchingAtomFamilies = Object.fromEntries(
 ) as Record<WorkloadKind, ReturnType<typeof makeWorkloadIsFetchingAtomFamily>>;
 
 /**
- * Cross-workload query isFetching state
- */
-
-export const isFetchingAtomFamily = atomFamily((kubeContext: KubeContext) =>
-  atom((get) => Object.values(workloadIsFetchingAtomFamilies).some((family) => get(family(kubeContext)))),
-);
-
-/**
  * Stable workload items state
  */
 
