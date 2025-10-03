@@ -16,8 +16,10 @@ package cmd
 
 import (
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -38,9 +40,36 @@ var rootCmd = &cobra.Command{
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	// Ensure all commands/flagsets use the shared normalizer before parsing
+	applyFlagNormalization(rootCmd)
+
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
+	}
+}
+
+// normalizeFlags provides shared normalization across all commands/flagsets.
+// It maps --context to the canonical --kube-context and normalizes underscores to dashes.
+func normalizeFlags(f *pflag.FlagSet, name string) pflag.NormalizedName {
+	if name == "context" {
+		return pflag.NormalizedName(KubeContextFlag)
+	}
+	n := strings.ReplaceAll(name, "_", "-")
+	return pflag.NormalizedName(n)
+}
+
+// applyFlagNormalization recursively applies the shared normalization function
+// to the provided command and all of its sub-commands.
+func applyFlagNormalization(cmd *cobra.Command) {
+	if fs := cmd.Flags(); fs != nil {
+		fs.SetNormalizeFunc(normalizeFlags)
+	}
+	if pfs := cmd.PersistentFlags(); pfs != nil {
+		pfs.SetNormalizeFunc(normalizeFlags)
+	}
+	for _, c := range cmd.Commands() {
+		applyFlagNormalization(c)
 	}
 }
 

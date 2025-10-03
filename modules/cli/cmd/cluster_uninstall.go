@@ -35,8 +35,10 @@ var clusterUninstallCmd = &cobra.Command{
 	Long:  clusterUninstallHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Get flags
-		kubeconfigPath, _ := cmd.Flags().GetString(KubeconfigFlag)
-		kubeContext, _ := cmd.Flags().GetString(KubeContextFlag)
+		flags := cmd.Flags()
+
+		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
+		kubeContext, _ := flags.GetString(KubeContextFlag)
 		//name, _ := cmd.Flags().GetString("name")
 		//namespace, _ := cmd.Flags().GetString("namespace")
 		name := helm.DefaultReleaseName

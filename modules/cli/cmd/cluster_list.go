@@ -37,8 +37,10 @@ var clusterListCmd = &cobra.Command{
 	Long:  clusterListHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Get flags
-		kubeconfigPath, _ := cmd.Flags().GetString(KubeconfigFlag)
-		kubeContext, _ := cmd.Flags().GetString(KubeContextFlag)
+		flags := cmd.Flags()
+
+		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
+		kubeContext, _ := flags.GetString(KubeContextFlag)
 
 		// Init client
 		client := helm.NewClient(helm.WithKubeconfigPath(kubeconfigPath), helm.WithKubeContext(kubeContext))
