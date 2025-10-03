@@ -81,10 +81,6 @@ func init() {
 	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cli.yaml)")
 	rootCmd.PersistentFlags().String(KubeconfigFlag, "", "Path to kubeconfig file")
 
-	// Apply normalization to root flagsets as well
-	rootCmd.PersistentFlags().SetNormalizeFunc(normalizeFlags)
-	rootCmd.Flags().SetNormalizeFunc(normalizeFlags)
-
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
