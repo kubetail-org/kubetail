@@ -16,10 +16,12 @@ package cmd
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -30,11 +32,36 @@ const (
 
 var version = "dev" // default version for local builds
 
+// getCliDisplayName determines the CLI display name based on how it's invoked
+func getCliDisplayName() string {
+	// Get the base name of the executable
+	executable := filepath.Base(os.Args[0])
+
+	// Check if running as a kubectl plugin (via krew or direct kubectl invocation)
+	if executable == "kubectl" || strings.HasPrefix(executable, "kubectl-") {
+		return "kubectl kubetail"
+	}
+
+	// Default to standalone binary name
+	return "kubetail"
+}
+
+func getExamplePrefix(subcommand string) string {
+	cliName := getCliDisplayName()
+	if subcommand != "" {
+		return cliName + " " + subcommand
+	}
+	return cliName
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:     "kubetail",
 	Version: version,
 	Short:   "Kubetail - Kubernetes logging utility",
+	Annotations: map[string]string{
+		cobra.CommandDisplayNameAnnotation: getCliDisplayName(),
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -42,7 +69,6 @@ var rootCmd = &cobra.Command{
 func Execute() {
 	// Ensure all commands/flagsets use the shared normalizer before parsing
 	applyFlagNormalization(rootCmd)
-
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
