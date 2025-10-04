@@ -52,14 +52,18 @@ brew install kubetail
 # Krew
 kubectl krew install kubetail
 
+# asdf
+asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
+asdf install kubetail latest
+
+# Arch Linux (yay)
+yay -S --noconfirm kubetail-bin
+
 # Winget
 winget install Kubetail.Kubetail
 
 # Chocolatey
 choco install kubetail
-
-# Arch Linux (yay)
-yay -S --noconfirm kubetail-bin
 ```
 
 Next, start the web dashboard using the `serve` subcommand:
