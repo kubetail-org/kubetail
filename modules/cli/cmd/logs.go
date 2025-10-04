@@ -44,7 +44,9 @@ const (
 	logsStreamModeAll
 )
 
-const logsHelp = `
+func getLogsHelp() string {
+	prefix := getExamplePrefix("logs")
+	return fmt.Sprintf(`
 Fetch logs for a specific container or a set of workload containers.
 
 Examples:
@@ -52,105 +54,105 @@ Examples:
 	- Sources
 
 		# Tail 'web-abc123' pod in 'default' namespace
-		kubetail logs web-abc123
+		%s web-abc123
 
 		# Tail 'web' deployment in the 'default' namespace
-		kubetail logs deployments/web
+		%s deployments/web
 
 		# Tail all the deployments in the 'default' namespace
-		kubetail logs deployments/*
+		%s deployments/*
 
 		# Tail the 'container1' container in the 'web' deployment
-		kubetail logs deployments/web/container1
+		%s deployments/web/container1
 
 		# Tail all the containers in the 'web' deployment
-		kubetail logs deployments/web/*
+		%s deployments/web/*
 
 		# Tail 'web-abc123' pod in 'frontend' namespace
-		kubetail logs frontend:web-abc123
+		%s frontend:web-abc123
 
 		# Tail 'web' deployment in the 'frontend' namespace
-		kubetail logs frontend:deployments/web
+		%s frontend:deployments/web
 
 		# Tail multiple sources
-		kubetail logs <source1> <source2>
+		%s <source1> <source2>
 
 	- Tail/Head
 
 		# Return last 10 records from the 'nginx' pod (default container)
-		kubetail logs nginx
+		%s nginx
 
 		# Return last 100 records
-		kubetail logs nginx --tail=100 
+		%s nginx --tail=100 
 
 		# Return first 10 records
-		kubetail logs nginx --head
+		%s nginx --head
 
 		# Return first 100 records
-		kubetail logs nginx --head=100 
+		%s nginx --head=100 
 
 		# Stream new records
-		kubetail logs nginx --follow
+		%s nginx --follow
 
 		# Return last 10 records and stream new ones
-		kubetail logs nginx --tail --follow
+		%s nginx --tail --follow
 
 		# Return all records
-		kubetail logs nginx --all
+		%s nginx --all
 
 		# Return all records and stream new ones
-		kubetail logs nginx --all --follow
+		%s nginx --all --follow
 
 	- Time filters
 
 		# Return first 10 records starting from 30 minutes ago
-		kubetail logs nginx --since PT30M
+		%s nginx --since PT30M
 
 		# Return last 10 records leading up to 30 minutes ago
-		kubetail logs nginx --until PT30M
+		%s nginx --until PT30M
 
 		# Return all records starting from 30 minutes ago
-		kubetail logs nginx --since PT30M --all
+		%s nginx --since PT30M --all
 
 		# Return first 10 records between two exact timestamps
-		kubetail logs nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00
+		%s nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00
 
 		# Return last 10 records between two exact timestamps
-		kubetail logs nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --tail
+		%s nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --tail
 
 		# Return all records between two exact timestamps
-		kubetail logs nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --all
+		%s nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --all
 
 	- Grep filter (requires --force)
 
 		# Return last 10 records from the 'nginx' pod that match "GET /about"
-		kubetail logs nginx --grep "GET /about" --force
+		%s nginx --grep "GET /about" --force
 
 		# Return first 10 records
-		kubetail logs nginx --grep "GET /about" --head --force
+		%s nginx --grep "GET /about" --head --force
 
 		# Return last 10 records that match "GET /about" or "GET /contact"
-		kubetail logs nginx --grep "GET /(about|contact)" --force
+		%s nginx --grep "GET /(about|contact)" --force
 
 		# Stream new records that match "GET /about"
-		kubetail logs nginx --grep "GET /about" --follow --force
+		%s nginx --grep "GET /about" --follow --force
 
 	- Source filters
 
 		# Tail 'web' deployment pods in 'us-east-1'
-		kubetail logs deployments/web --region=us-east-1
+		%s deployments/web --region=us-east-1
 
 		# Tail 'web' deployment pods in 'us-east-1' or 'us-east-2'
-		kubetail logs deployments/web --region=us-east-1,us-east-2
+		%s deployments/web --region=us-east-1,us-east-2
 
 		# Tail 'web' deployment pods in 'us-east-1' running on 'arm64'
-		kubetail logs deployments/web --region=us-east-1 --arch=arm64
+		%s deployments/web --region=us-east-1 --arch=arm64
 
 		# Tail 'web' deployment pods in 'us-east-1a' zone
-		kubetail logs deployments/web --zone=us-east-1a
+		%s deployments/web --zone=us-east-1a
 
 		# Tail 'web' deployment pods in 'us-east-1a' or 'us-east-1b' zone
-		kubetail logs deployments/web --zone=us-east-1a,us-east-1b
+		%s deployments/web --zone=us-east-1a,us-east-1b
 
 Notes:
 
@@ -170,12 +172,13 @@ Notes:
 	- Using 'grep' requires 'force' because the command may unexpectedly download
 	  more log records than expected
 
-`
+`, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix)
+}
 
 var logsCmd = &cobra.Command{
 	Use:   "logs [source1] [source2] ...",
 	Short: "Fetch logs for a container or a set of workloads",
-	Long:  strings.ReplaceAll(logsHelp, "\t", "  "),
+	Long:  strings.ReplaceAll(getLogsHelp(), "\t", "  "),
 	Args:  cobra.MinimumNArgs(1),
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		flags := cmd.Flags()
