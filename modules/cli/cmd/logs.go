@@ -16,12 +16,14 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"text/template"
 	"time"
 
 	"github.com/sosodev/duration"
@@ -44,9 +46,7 @@ const (
 	logsStreamModeAll
 )
 
-func getLogsHelp() string {
-	prefix := getExamplePrefix("logs")
-	return fmt.Sprintf(`
+const logsHelpTmpl = `
 Fetch logs for a specific container or a set of workload containers.
 
 Examples:
@@ -54,105 +54,105 @@ Examples:
 	- Sources
 
 		# Tail 'web-abc123' pod in 'default' namespace
-		%s web-abc123
+		{{.CommandDisplayName}} web-abc123
 
 		# Tail 'web' deployment in the 'default' namespace
-		%s deployments/web
+		{{.CommandDisplayName}} deployments/web
 
 		# Tail all the deployments in the 'default' namespace
-		%s deployments/*
+		{{.CommandDisplayName}} deployments/*
 
 		# Tail the 'container1' container in the 'web' deployment
-		%s deployments/web/container1
+		{{.CommandDisplayName}} deployments/web/container1
 
 		# Tail all the containers in the 'web' deployment
-		%s deployments/web/*
+		{{.CommandDisplayName}} deployments/web/*
 
 		# Tail 'web-abc123' pod in 'frontend' namespace
-		%s frontend:web-abc123
+		{{.CommandDisplayName}} frontend:web-abc123
 
 		# Tail 'web' deployment in the 'frontend' namespace
-		%s frontend:deployments/web
+		{{.CommandDisplayName}} frontend:deployments/web
 
 		# Tail multiple sources
-		%s <source1> <source2>
+		{{.CommandDisplayName}} <source1> <source2>
 
 	- Tail/Head
 
 		# Return last 10 records from the 'nginx' pod (default container)
-		%s nginx
+		{{.CommandDisplayName}} nginx
 
 		# Return last 100 records
-		%s nginx --tail=100 
+		{{.CommandDisplayName}} nginx --tail=100 
 
 		# Return first 10 records
-		%s nginx --head
+		{{.CommandDisplayName}} nginx --head
 
 		# Return first 100 records
-		%s nginx --head=100 
+		{{.CommandDisplayName}} nginx --head=100 
 
 		# Stream new records
-		%s nginx --follow
+		{{.CommandDisplayName}} nginx --follow
 
 		# Return last 10 records and stream new ones
-		%s nginx --tail --follow
+		{{.CommandDisplayName}} nginx --tail --follow
 
 		# Return all records
-		%s nginx --all
+		{{.CommandDisplayName}} nginx --all
 
 		# Return all records and stream new ones
-		%s nginx --all --follow
+		{{.CommandDisplayName}} nginx --all --follow
 
 	- Time filters
 
 		# Return first 10 records starting from 30 minutes ago
-		%s nginx --since PT30M
+		{{.CommandDisplayName}} nginx --since PT30M
 
 		# Return last 10 records leading up to 30 minutes ago
-		%s nginx --until PT30M
+		{{.CommandDisplayName}} nginx --until PT30M
 
 		# Return all records starting from 30 minutes ago
-		%s nginx --since PT30M --all
+		{{.CommandDisplayName}} nginx --since PT30M --all
 
 		# Return first 10 records between two exact timestamps
-		%s nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00
+		{{.CommandDisplayName}} nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00
 
 		# Return last 10 records between two exact timestamps
-		%s nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --tail
+		{{.CommandDisplayName}} nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --tail
 
 		# Return all records between two exact timestamps
-		%s nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --all
+		{{.CommandDisplayName}} nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --all
 
 	- Grep filter (requires --force)
 
 		# Return last 10 records from the 'nginx' pod that match "GET /about"
-		%s nginx --grep "GET /about" --force
+		{{.CommandDisplayName}} nginx --grep "GET /about" --force
 
 		# Return first 10 records
-		%s nginx --grep "GET /about" --head --force
+		{{.CommandDisplayName}} nginx --grep "GET /about" --head --force
 
 		# Return last 10 records that match "GET /about" or "GET /contact"
-		%s nginx --grep "GET /(about|contact)" --force
+		{{.CommandDisplayName}} nginx --grep "GET /(about|contact)" --force
 
 		# Stream new records that match "GET /about"
-		%s nginx --grep "GET /about" --follow --force
+		{{.CommandDisplayName}} nginx --grep "GET /about" --follow --force
 
 	- Source filters
 
 		# Tail 'web' deployment pods in 'us-east-1'
-		%s deployments/web --region=us-east-1
+		{{.CommandDisplayName}} deployments/web --region=us-east-1
 
 		# Tail 'web' deployment pods in 'us-east-1' or 'us-east-2'
-		%s deployments/web --region=us-east-1,us-east-2
+		{{.CommandDisplayName}} deployments/web --region=us-east-1,us-east-2
 
 		# Tail 'web' deployment pods in 'us-east-1' running on 'arm64'
-		%s deployments/web --region=us-east-1 --arch=arm64
+		{{.CommandDisplayName}} deployments/web --region=us-east-1 --arch=arm64
 
 		# Tail 'web' deployment pods in 'us-east-1a' zone
-		%s deployments/web --zone=us-east-1a
+		{{.CommandDisplayName}} deployments/web --zone=us-east-1a
 
 		# Tail 'web' deployment pods in 'us-east-1a' or 'us-east-1b' zone
-		%s deployments/web --zone=us-east-1a,us-east-1b
+		{{.CommandDisplayName}} deployments/web --zone=us-east-1a,us-east-1b
 
 Notes:
 
@@ -172,7 +172,24 @@ Notes:
 	- Using 'grep' requires 'force' because the command may unexpectedly download
 	  more log records than expected
 
-`, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix)
+`
+
+func getLogsHelp() string {
+	tmpl := template.Must(template.New("logs").Parse(logsHelpTmpl))
+
+	var buf bytes.Buffer
+	data := struct {
+		CommandDisplayName string
+	}{
+		CommandDisplayName: getCommandDisplayName() + " logs",
+	}
+
+	if err := tmpl.Execute(&buf, data); err != nil {
+		// Fallback in case of template error
+		return "Error generating help text"
+	}
+
+	return buf.String()
 }
 
 var logsCmd = &cobra.Command{

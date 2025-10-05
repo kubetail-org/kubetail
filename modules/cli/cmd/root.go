@@ -32,8 +32,8 @@ const (
 
 var version = "dev" // default version for local builds
 
-// getCliDisplayName determines the CLI display name based on how it's invoked
-func getCliDisplayName() string {
+// getCommandDisplayName determines the CLI display name based on how it's invoked
+func getCommandDisplayName() string {
 	// Get the base name of the executable
 	executable := filepath.Base(os.Args[0])
 
@@ -46,21 +46,13 @@ func getCliDisplayName() string {
 	return "kubetail"
 }
 
-func getExamplePrefix(subcommand string) string {
-	cliName := getCliDisplayName()
-	if subcommand != "" {
-		return cliName + " " + subcommand
-	}
-	return cliName
-}
-
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:     "kubetail",
 	Version: version,
 	Short:   "Kubetail - Kubernetes logging utility",
 	Annotations: map[string]string{
-		cobra.CommandDisplayNameAnnotation: getCliDisplayName(),
+		cobra.CommandDisplayNameAnnotation: getCommandDisplayName(),
 	},
 }
 
