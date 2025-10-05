@@ -37,8 +37,8 @@ jobs:
       - name: Extract tags and sha
         id: meta
         run: |
-          AMD64_SHA=$( tr -d '\r' < './kubetail-windows-amd64.zip.sha256' )
-          ARM64_SHA=$( tr -d '\r' < './kubetail-windows-arm64.zip.sha256' )
+          AMD64_SHA=$( tr -d '\r' < './kubetail-windows-amd64.zip.sha256' | awk '{print $1}' )
+          ARM64_SHA=$( tr -d '\r' < './kubetail-windows-arm64.zip.sha256' | awk '{print $1}' )
           TAG_NAME="${{ steps.release-info.outputs.tag_name }}"
 
           echo "tag=${TAG_NAME#cli/v}" >> $GITHUB_OUTPUT

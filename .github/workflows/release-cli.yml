@@ -13,7 +13,7 @@ jobs:
     name: Build binaries
     strategy:
       matrix:
-        os:
+        runner:
           - ubuntu-24.04
           - ubuntu-24.04-arm
           - macos-latest
@@ -21,27 +21,25 @@ jobs:
           - windows-latest
           - windows-11-arm
         include:
-          - os: ubuntu-24.04
+          - runner: ubuntu-24.04
             GOOS: linux
             GOARCH: amd64
-          - os: ubuntu-24.04-arm
+          - runner: ubuntu-24.04-arm
             GOOS: linux
             GOARCH: arm64
-          - os: macos-latest
+          - runner: macos-latest
             GOOS: darwin
             GOARCH: arm64
-          - os: macos-13
+          - runner: macos-13
             GOOS: darwin
             GOARCH: amd64
-          - os: windows-latest
+          - runner: windows-latest
             GOOS: windows
             GOARCH: amd64
-          - os: windows-11-arm
+          - runner: windows-11-arm
             GOOS: windows
             GOARCH: arm64
-    runs-on: ${{ matrix.os }}
-    outputs:
-      artifacts: ${{ steps.upload.outputs.artifact-names }}
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Get tag name
         uses: olegtarasov/get-tag@v2.1.4
@@ -49,26 +47,48 @@ jobs:
         with:
           tagRegex: 'cli/v(.*)'
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - uses: pnpm/action-setup@v4
+          fetch-depth: 1
+      - uses: ./.github/actions/setup-environment
         with:
-          version: 10
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.5'
-          cache: false
+          setup-node: "true"
+          setup-go: "true"
       - name: Run build script
         run: make build VERSION=${{ steps.tagName.outputs.tag }}
       - name: Append os/arch to binary file name
         run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+          path: bin/*
+
+  sign:
+    name: Create windows zip and sign binaries
+    needs: build
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch:
+          - amd64
+          - arm64
+    steps:
+      - name: Get tag name
+        uses: olegtarasov/get-tag@v2.1.4
+        id: tagName
+        with:
+          tagRegex: 'cli/v(.*)'
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: bin
+          pattern: artifacts-windows-${{ matrix.arch }}
+          merge-multiple: true
       - name: Create zip archive
-        if: matrix.GOOS == 'windows'
         working-directory: ./bin
         shell: pwsh
         run: |
-          $file = "kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}"
+          $file = "kubetail-windows-${{ matrix.arch }}"
           Copy-Item -Path $file -Destination kubetail.exe
           Compress-Archive -Path kubetail.exe -DestinationPath "${file}.zip"
           Remove-Item kubetail.exe
@@ -76,10 +96,10 @@ jobs:
         name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+          name: artifacts-windows-${{ matrix.arch }}
           path: bin/*
+          overwrite: true
       - name: Sign Windows Binaries
-        if: matrix.GOOS == 'windows'
         uses: signpath/github-action-submit-signing-request@v1.1
         with:
           api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
@@ -90,17 +110,61 @@ jobs:
           wait-for-completion: true
           output-artifact-directory: 'bin'
           parameters: |
-            os: ${{ toJSON(matrix.GOOS) }}
-            arch: ${{ toJSON(matrix.GOARCH) }}
+            os: ${{ toJSON('windows') }}
+            arch: ${{ toJSON(matrix.arch) }}
             version: ${{ toJSON(steps.tagName.outputs.tag) }}
-      - id: upload-signed-artifact
-        if: matrix.GOOS == 'windows'
-        name: Upload signed artifacts
+      - name: Upload signed artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+          name: artifacts-windows-${{ matrix.arch }}
           path: bin/*
           overwrite: true
+
+  package-tarball:
+    name: Build gzipped tarballs
+    needs: sign
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        os:
+          - darwin
+          - linux
+          - windows
+        arch:
+          - amd64
+          - arm64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            LICENSE
+          sparse-checkout-cone-mode: false
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: bin
+          pattern: artifacts-${{ matrix.os }}-${{ matrix.arch }}
+          merge-multiple: true
+      - name: Create gzipped tarball
+        run: |
+          TEMP_DIR="$(mktemp -d)"
+          BIN_NAME="kubetail-${{ matrix.os }}-${{ matrix.arch }}"
+          TARGET_NAME="kubetail"
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            TARGET_NAME="kubetail.exe"
+          fi
+          chmod +x "bin/${BIN_NAME}"
+          mv "bin/${BIN_NAME}" "${TEMP_DIR}/${TARGET_NAME}"
+          cp LICENSE "${TEMP_DIR}/LICENSE"
+          tar -C "${TEMP_DIR}" -czf "bin/${BIN_NAME}.tar.gz" "${TARGET_NAME}" LICENSE
+          rm -rf "${TEMP_DIR}"
+      - id: upload-artifact
+        name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.os }}-${{ matrix.arch }}-targz
+          path: bin/*
 
   package-deb:
     name: Build deb package
@@ -199,7 +263,6 @@ jobs:
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "release=$RELEASE" >> $GITHUB_OUTPUT
-
       - name: Create tarball for the binary
         run: |
           CLI_VER='${{steps.rpmBuildInfo.outputs.version}}' 
@@ -231,7 +294,7 @@ jobs:
 
   release:
     name: Create GitHub release
-    needs: [build, package-deb, package-rpm]
+    needs: [package-tarball, package-deb, package-rpm]
     runs-on: ubuntu-24.04
     steps:
       - name: Download artifacts
@@ -242,11 +305,12 @@ jobs:
           merge-multiple: true
       - name: Generate SHA-256 checksums
         shell: bash
+        working-directory: ./bin
         run: |
           shopt -s nullglob
-          for file in bin/*; do
+          for file in *; do
             if [ -f "$file" ]; then
-              sha256sum "$file" | cut -d " " -f 1 > "${file}.sha256"
+              sha256sum "$file" > "${file}.sha256"
             fi
           done
       - name: Create release

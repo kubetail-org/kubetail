@@ -41,8 +41,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          AMD64_SHA256=$( tr -d '\r' < './kubetail-windows-amd64.sha256' )
-          ARM64_SHA256=$( tr -d '\r' < './kubetail-windows-arm64.sha256' )
+          AMD64_SHA256=$( tr -d '\r' < './kubetail-windows-amd64.sha256' | awk '{print $1}' )
+          ARM64_SHA256=$( tr -d '\r' < './kubetail-windows-arm64.sha256' | awk '{print $1}' )
           TAG_NAME="${{ steps.release-info.outputs.tag_name }}"
 
           echo "version=${TAG_NAME#cli/v}" >> $GITHUB_OUTPUT
