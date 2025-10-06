@@ -29,8 +29,8 @@ else
 endif
 
 # Rust toolchain detection
-RUST_VERSION := $(shell rustc --version | cut -d' ' -f2)
-RUST_ARCH := $(shell rustc -vV | grep host | cut -d' ' -f2)
+RUST_VERSION := $(shell command -v rustc >/dev/null 2>&1 && rustc --version | cut -d' ' -f2)
+RUST_ARCH := $(shell command -v rustc >/dev/null 2>&1 && rustc -vV | grep host | cut -d' ' -f2)
 
 # Allow version override via CLI argument (default to "dev")
 VERSION ?= dev
