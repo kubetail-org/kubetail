@@ -16,12 +16,14 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"text/template"
 	"time"
 
 	"github.com/sosodev/duration"
@@ -44,7 +46,7 @@ const (
 	logsStreamModeAll
 )
 
-const logsHelp = `
+const logsHelpTmpl = `
 Fetch logs for a specific container or a set of workload containers.
 
 Examples:
@@ -52,105 +54,105 @@ Examples:
 	- Sources
 
 		# Tail 'web-abc123' pod in 'default' namespace
-		kubetail logs web-abc123
+		{{.CommandDisplayName}} web-abc123
 
 		# Tail 'web' deployment in the 'default' namespace
-		kubetail logs deployments/web
+		{{.CommandDisplayName}} deployments/web
 
 		# Tail all the deployments in the 'default' namespace
-		kubetail logs deployments/*
+		{{.CommandDisplayName}} deployments/*
 
 		# Tail the 'container1' container in the 'web' deployment
-		kubetail logs deployments/web/container1
+		{{.CommandDisplayName}} deployments/web/container1
 
 		# Tail all the containers in the 'web' deployment
-		kubetail logs deployments/web/*
+		{{.CommandDisplayName}} deployments/web/*
 
 		# Tail 'web-abc123' pod in 'frontend' namespace
-		kubetail logs frontend:web-abc123
+		{{.CommandDisplayName}} frontend:web-abc123
 
 		# Tail 'web' deployment in the 'frontend' namespace
-		kubetail logs frontend:deployments/web
+		{{.CommandDisplayName}} frontend:deployments/web
 
 		# Tail multiple sources
-		kubetail logs <source1> <source2>
+		{{.CommandDisplayName}} <source1> <source2>
 
 	- Tail/Head
 
 		# Return last 10 records from the 'nginx' pod (default container)
-		kubetail logs nginx
+		{{.CommandDisplayName}} nginx
 
 		# Return last 100 records
-		kubetail logs nginx --tail=100 
+		{{.CommandDisplayName}} nginx --tail=100 
 
 		# Return first 10 records
-		kubetail logs nginx --head
+		{{.CommandDisplayName}} nginx --head
 
 		# Return first 100 records
-		kubetail logs nginx --head=100 
+		{{.CommandDisplayName}} nginx --head=100 
 
 		# Stream new records
-		kubetail logs nginx --follow
+		{{.CommandDisplayName}} nginx --follow
 
 		# Return last 10 records and stream new ones
-		kubetail logs nginx --tail --follow
+		{{.CommandDisplayName}} nginx --tail --follow
 
 		# Return all records
-		kubetail logs nginx --all
+		{{.CommandDisplayName}} nginx --all
 
 		# Return all records and stream new ones
-		kubetail logs nginx --all --follow
+		{{.CommandDisplayName}} nginx --all --follow
 
 	- Time filters
 
 		# Return first 10 records starting from 30 minutes ago
-		kubetail logs nginx --since PT30M
+		{{.CommandDisplayName}} nginx --since PT30M
 
 		# Return last 10 records leading up to 30 minutes ago
-		kubetail logs nginx --until PT30M
+		{{.CommandDisplayName}} nginx --until PT30M
 
 		# Return all records starting from 30 minutes ago
-		kubetail logs nginx --since PT30M --all
+		{{.CommandDisplayName}} nginx --since PT30M --all
 
 		# Return first 10 records between two exact timestamps
-		kubetail logs nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00
+		{{.CommandDisplayName}} nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00
 
 		# Return last 10 records between two exact timestamps
-		kubetail logs nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --tail
+		{{.CommandDisplayName}} nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --tail
 
 		# Return all records between two exact timestamps
-		kubetail logs nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --all
+		{{.CommandDisplayName}} nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --all
 
 	- Grep filter (requires --force)
 
 		# Return last 10 records from the 'nginx' pod that match "GET /about"
-		kubetail logs nginx --grep "GET /about" --force
+		{{.CommandDisplayName}} nginx --grep "GET /about" --force
 
 		# Return first 10 records
-		kubetail logs nginx --grep "GET /about" --head --force
+		{{.CommandDisplayName}} nginx --grep "GET /about" --head --force
 
 		# Return last 10 records that match "GET /about" or "GET /contact"
-		kubetail logs nginx --grep "GET /(about|contact)" --force
+		{{.CommandDisplayName}} nginx --grep "GET /(about|contact)" --force
 
 		# Stream new records that match "GET /about"
-		kubetail logs nginx --grep "GET /about" --follow --force
+		{{.CommandDisplayName}} nginx --grep "GET /about" --follow --force
 
 	- Source filters
 
 		# Tail 'web' deployment pods in 'us-east-1'
-		kubetail logs deployments/web --region=us-east-1
+		{{.CommandDisplayName}} deployments/web --region=us-east-1
 
 		# Tail 'web' deployment pods in 'us-east-1' or 'us-east-2'
-		kubetail logs deployments/web --region=us-east-1,us-east-2
+		{{.CommandDisplayName}} deployments/web --region=us-east-1,us-east-2
 
 		# Tail 'web' deployment pods in 'us-east-1' running on 'arm64'
-		kubetail logs deployments/web --region=us-east-1 --arch=arm64
+		{{.CommandDisplayName}} deployments/web --region=us-east-1 --arch=arm64
 
 		# Tail 'web' deployment pods in 'us-east-1a' zone
-		kubetail logs deployments/web --zone=us-east-1a
+		{{.CommandDisplayName}} deployments/web --zone=us-east-1a
 
 		# Tail 'web' deployment pods in 'us-east-1a' or 'us-east-1b' zone
-		kubetail logs deployments/web --zone=us-east-1a,us-east-1b
+		{{.CommandDisplayName}} deployments/web --zone=us-east-1a,us-east-1b
 
 Notes:
 
@@ -172,10 +174,28 @@ Notes:
 
 `
 
+func getLogsHelp() string {
+	tmpl := template.Must(template.New("logs").Parse(logsHelpTmpl))
+
+	var buf bytes.Buffer
+	data := struct {
+		CommandDisplayName string
+	}{
+		CommandDisplayName: getCommandDisplayName() + " logs",
+	}
+
+	if err := tmpl.Execute(&buf, data); err != nil {
+		// Fallback in case of template error
+		return "Error generating help text"
+	}
+
+	return buf.String()
+}
+
 var logsCmd = &cobra.Command{
 	Use:   "logs [source1] [source2] ...",
 	Short: "Fetch logs for a container or a set of workloads",
-	Long:  strings.ReplaceAll(logsHelp, "\t", "  "),
+	Long:  strings.ReplaceAll(getLogsHelp(), "\t", "  "),
 	Args:  cobra.MinimumNArgs(1),
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		flags := cmd.Flags()
