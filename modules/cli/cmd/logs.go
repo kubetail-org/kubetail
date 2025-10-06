@@ -237,8 +237,11 @@ var logsCmd = &cobra.Command{
 
 		hideHeader, _ := flags.GetBool("hide-header")
 		hideTs, _ := flags.GetBool("hide-ts")
+		hideDot, _ := flags.GetBool("hide-dot")
 
 		withTs := !hideTs
+		withDot := !hideDot
+
 		withNode, _ := flags.GetBool("with-node")
 		withRegion, _ := flags.GetBool("with-region")
 		withZone, _ := flags.GetBool("with-zone")
@@ -261,6 +264,7 @@ var logsCmd = &cobra.Command{
 			withNamespace = false
 			withPod = false
 			withContainer = false
+			withDot = false
 		}
 
 		// Stream mode
@@ -374,6 +378,12 @@ var logsCmd = &cobra.Command{
 			if withTs {
 				row = append(row, record.Timestamp.Format(time.RFC3339Nano))
 			}
+
+			if withDot {
+				dot := getDotIndicator(record.Source.ContainerID)
+				row = append(row, dot)
+			}
+
 			if withNode {
 				row = append(row, record.Source.Metadata.Node)
 			}
@@ -437,11 +447,50 @@ var logsCmd = &cobra.Command{
 	},
 }
 
+// Return ANSI color coded dot indicator based on container ID
+func getDotIndicator(containerID string) string {
+	colors := []string{
+		"31m", // red
+		"32m", // green
+		"33m", // yellow
+		"34m", // blue
+		"35m", // magenta
+		"36m", // cyan
+		"91m", // bright red
+		"92m", // bright green
+		"93m", // bright yellow
+		"94m", // bright blue
+		"95m", // bright magenta
+		"96m", // bright cyan
+		"37m", // white
+		"90m", // gray
+		"97m", // bright white
+	}
+
+	// simple djb2 hash
+	hash := 5381
+	for _, val := range containerID {
+		hash = int(val) + ((hash << 5) + hash)
+	}
+
+	idx := hash % len(colors)
+
+	if idx < 0 {
+		idx = -idx
+	}
+
+	dot := fmt.Sprintf("\033[%s%s\033[0m", colors[idx], "\u25CF")
+
+	return dot
+}
+
 // Return table writer headers and col widths
 func getTableWriterHeaders(flags *pflag.FlagSet, sources []logs.LogSource) ([]string, []int) {
 	hideTs, _ := flags.GetBool("hide-ts")
+	hideDot, _ := flags.GetBool("hide-dot")
 
 	withTs := !hideTs
+	withDot := !hideDot
 	withNode, _ := flags.GetBool("with-node")
 	withRegion, _ := flags.GetBool("with-region")
 	withZone, _ := flags.GetBool("with-zone")
@@ -480,10 +529,17 @@ func getTableWriterHeaders(flags *pflag.FlagSet, sources []logs.LogSource) ([]st
 		headers = append(headers, "TIMESTAMP")
 		colWidths = append(colWidths, 30) // Fixed width for timestamp
 	}
+
+	if withDot {
+		headers = append(headers, "\u25CB")
+		colWidths = append(colWidths, 1)
+	}
+
 	if withNode {
 		headers = append(headers, "NODE")
 		colWidths = append(colWidths, maxNodeLen)
 	}
+
 	if withRegion {
 		headers = append(headers, "REGION")
 		colWidths = append(colWidths, maxRegionLen)
@@ -597,6 +653,7 @@ func init() {
 	flagset.Bool("with-cursors", false, "Show paging cursors")
 
 	flagset.Bool("hide-header", false, "Hide table header")
+	flagset.Bool("hide-dot", false, "Hide the dot indicator in the records")
 
 	//flagset.BoolP("reverse", "r", false, "List records in reverse order")
 
