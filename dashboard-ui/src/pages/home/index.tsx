@@ -143,7 +143,9 @@ type TableCellProps = {
 
 const SizeTableCell = ({ table, row }: TableCellProps) => {
   const meta = table.options.meta as WorkloadTableMeta;
-  const logFileInfo = useLogFileInfo(meta.kubeContext, [row.original.id]);
+
+  const ids = useMemo(() => [row.original.id], []);
+  const logFileInfo = useLogFileInfo(meta.kubeContext, ids);
 
   const info = logFileInfo.get(row.original.id);
   if (info === undefined) return <span>--</span>;
@@ -153,7 +155,9 @@ const SizeTableCell = ({ table, row }: TableCellProps) => {
 
 const LastModifiedAtTableCell = ({ table, row }: TableCellProps) => {
   const meta = table.options.meta as WorkloadTableMeta;
-  const logFileInfo = useLogFileInfo(meta.kubeContext, [row.original.id]);
+
+  const ids = useMemo(() => [row.original.id], []);
+  const logFileInfo = useLogFileInfo(meta.kubeContext, ids);
 
   const info = logFileInfo.get(row.original.id);
   if (info === undefined) return <span>--</span>;
@@ -269,21 +273,24 @@ const SortIcon = ({ dir, descFirst }: SortIconProps) => {
   }
 };
 
-const MemoizedDataTableRow = memo(({ row }: { row: Row<WorkloadTableData> }) => (
-  <TableRow>
-    {row.getVisibleCells().map((cell) => {
-      let cls = '';
-      if (cell.column.id === 'lastModifiedAt') {
-        cls = row.original.containerIDs.map((id) => `last_event_${id}`).join(' ');
-      }
-      return (
-        <TableCell key={cell.id} className={cls}>
-          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-        </TableCell>
-      );
-    })}
-  </TableRow>
-));
+const MemoizedDataTableRow = memo(
+  ({ row }: { row: Row<WorkloadTableData> }) => (
+    <TableRow>
+      {row.getVisibleCells().map((cell) => {
+        let cls = '';
+        if (cell.column.id === 'lastModifiedAt') {
+          cls = row.original.containerIDs.map((id) => `last_event_${id}`).join(' ');
+        }
+        return (
+          <TableCell key={cell.id} className={cls}>
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </TableCell>
+        );
+      })}
+    </TableRow>
+  ),
+  (prevProps, nextProps) => prevProps.row.original.id === nextProps.row.original.id,
+);
 
 MemoizedDataTableRow.displayName = 'MemoizedDataTableRow';
 

@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import fastDeepEqualES6 from 'fast-deep-equal/es6';
+import fastDeepEqual from 'fast-deep-equal';
 import { useAtomValue } from 'jotai';
+import { selectAtom } from 'jotai/utils';
 import { useEffect, useMemo, useState } from 'react';
 
-import type { FileInfo, KubeContext } from './shared';
+import type { KubeContext } from './shared';
 import { logMetadataMapAtomFamily, ownershipMapAtomFamily } from './state';
 
 /**
- *
+ * getContainerIDs
  */
 
 export function getContainerIDs(
@@ -47,41 +48,47 @@ type FileInfoWithMetadata = {
 };
 
 export function useLogFileInfo(kubeContext: KubeContext, uids: string[]) {
-  const logMetadataMap = useAtomValue(logMetadataMapAtomFamily(kubeContext));
-  const ownershipMap = useAtomValue(ownershipMapAtomFamily(kubeContext));
-
   const [val, setVal] = useState(new Map<string, FileInfoWithMetadata>());
 
-  const ids = useMemo(() => uids, [JSON.stringify(uids)]);
+  // Isolate container id map relevant to hook
+  const workloadContainersMapAtom = useMemo(
+    () =>
+      selectAtom(
+        ownershipMapAtomFamily(kubeContext),
+        (data) => Object.fromEntries(uids.map((uid) => [uid, getContainerIDs(uid, data)])),
+        (a, b) => fastDeepEqual(a, b),
+      ),
+    [uids],
+  );
 
-  // Memoize container IDs for all uids to avoid recalculating unnecessarily
-  const allContainerIDs = useMemo(() => {
-    const containerIDs = new Set<string>();
-    ids.forEach((uid) => {
-      getContainerIDs(uid, ownershipMap).forEach((id) => containerIDs.add(id));
-    });
-    return Array.from(containerIDs);
-  }, [ids, ownershipMap]);
+  const workloadContainersMap = useAtomValue(workloadContainersMapAtom);
 
-  // Create a stable reference to relevant metadata only
-  const relevantMetadata = useMemo(() => {
-    const relevant = new Map<string, FileInfo>();
-    allContainerIDs.forEach((containerID) => {
-      const metadata = logMetadataMap.inner.get(containerID);
-      if (metadata) {
-        relevant.set(containerID, metadata);
-      }
-    });
-    return relevant;
-  }, [logMetadataMap, allContainerIDs]);
+  // Stable reference to all container ids
+  const allContainerIDs = useMemo(
+    () => Array.from(new Set(Object.values(workloadContainersMap).flat())),
+    [workloadContainersMap],
+  );
+
+  // Isolate metadata relevant to hook
+  const metadataAtom = useMemo(
+    () =>
+      selectAtom(
+        logMetadataMapAtomFamily(kubeContext),
+        (data) => Object.fromEntries(allContainerIDs.map((id) => [id, data.inner.get(id)])),
+        (a, b) => fastDeepEqual(a, b),
+      ),
+    [allContainerIDs],
+  );
+
+  const metadata = useAtomValue(metadataAtom);
 
   useEffect(() => {
     const newVal = new Map<string, { size: number; lastModifiedAt: Date; containerIDs: string[] }>();
 
-    ids.forEach((uid) => {
-      const containerIDs = getContainerIDs(uid, ownershipMap);
+    uids.forEach((uid) => {
+      const containerIDs = workloadContainersMap[uid];
 
-      // combine fileInfo
+      // Combine fileInfo
       const fileInfo = {
         size: 0,
         lastModifiedAt: new Date(0),
@@ -89,7 +96,7 @@ export function useLogFileInfo(kubeContext: KubeContext, uids: string[]) {
       } as FileInfoWithMetadata;
 
       containerIDs.forEach((containerID) => {
-        const v = relevantMetadata.get(containerID);
+        const v = metadata[containerID];
 
         if (v?.size) {
           fileInfo.size += parseInt(v.size, 10);
@@ -100,13 +107,12 @@ export function useLogFileInfo(kubeContext: KubeContext, uids: string[]) {
         }
       });
 
-      // update map
+      // Update map
       if (fileInfo.lastModifiedAt.getTime() > 0) newVal.set(uid, fileInfo);
     });
 
-    // Compare newVal against current val and return current val if contents are the same
-    setVal((prevVal) => (fastDeepEqualES6(prevVal, newVal) ? prevVal : newVal));
-  }, [ids, ownershipMap, relevantMetadata]);
+    setVal(newVal);
+  }, [uids, metadata, workloadContainersMap]);
 
   return val;
 }

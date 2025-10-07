@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import type { ApolloError } from '@apollo/client';
-import fastDeepEqualES6 from 'fast-deep-equal/es6';
 import { atom } from 'jotai';
 import { atomFamily, selectAtom } from 'jotai/utils';
 

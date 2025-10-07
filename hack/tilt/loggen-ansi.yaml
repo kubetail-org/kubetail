@@ -12,7 +12,7 @@ spec:
     matchLabels:
       app.kubernetes.io/name: loggen
       app.kubernetes.io/instance: kubetail-dev-2
-  replicas: 3
+  replicas: 100
   revisionHistoryLimit: 10
   template:
     metadata:
