@@ -56,8 +56,11 @@ kubectl krew install kubetail
 asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
 asdf install kubetail latest
 
-# Arch Linux (yay)
+# Arch Linux (AUR)
 yay -S --noconfirm kubetail-bin
+
+# snap
+sudo snap install kubetail
 
 # Winget
 winget install Kubetail.Kubetail
