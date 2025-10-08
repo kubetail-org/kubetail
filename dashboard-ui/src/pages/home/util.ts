@@ -58,7 +58,7 @@ export function useLogFileInfo(kubeContext: KubeContext, uids: string[]) {
         (data) => Object.fromEntries(uids.map((uid) => [uid, getContainerIDs(uid, data)])),
         (a, b) => fastDeepEqual(a, b),
       ),
-    [uids],
+    [kubeContext, uids],
   );
 
   const workloadContainersMap = useAtomValue(workloadContainersMapAtom);
@@ -85,7 +85,7 @@ export function useLogFileInfo(kubeContext: KubeContext, uids: string[]) {
         },
         (a, b) => fastDeepEqual(a, b),
       ),
-    [allContainerIDs],
+    [kubeContext, allContainerIDs],
   );
 
   const metadata = useAtomValue(metadataAtom);
