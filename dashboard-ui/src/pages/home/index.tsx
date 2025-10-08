@@ -273,22 +273,24 @@ const SortIcon = ({ dir, descFirst }: SortIconProps) => {
   }
 };
 
+const DataTableRow = ({ row }: { row: Row<WorkloadTableData> }) => (
+  <TableRow>
+    {row.getVisibleCells().map((cell) => {
+      let cls = '';
+      if (cell.column.id === 'lastModifiedAt') {
+        cls = row.original.containerIDs.map((id) => `last_event_${id}`).join(' ');
+      }
+      return (
+        <TableCell key={cell.id} className={cls}>
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </TableCell>
+      );
+    })}
+  </TableRow>
+);
+
 const MemoizedDataTableRow = memo(
-  ({ row }: { row: Row<WorkloadTableData> }) => (
-    <TableRow>
-      {row.getVisibleCells().map((cell) => {
-        let cls = '';
-        if (cell.column.id === 'lastModifiedAt') {
-          cls = row.original.containerIDs.map((id) => `last_event_${id}`).join(' ');
-        }
-        return (
-          <TableCell key={cell.id} className={cls}>
-            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-          </TableCell>
-        );
-      })}
-    </TableRow>
-  ),
+  DataTableRow,
   (prevProps, nextProps) => prevProps.row.original.id === nextProps.row.original.id,
 );
 
@@ -314,7 +316,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
       items.map((item) => {
         const fileInfo = logFileInfo.get(item.metadata.uid);
         return {
-          id: item.id,
+          id: item.metadata.uid,
           name: item.metadata.name,
           namespace: item.metadata.namespace,
           createdAt: item.metadata.creationTimestamp,
@@ -462,7 +464,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
         ) : (
           <>
             {table.getRowModel().rows.map((row) => (
-              <MemoizedDataTableRow key={row.id} row={row} />
+              <MemoizedDataTableRow key={row.original.id} row={row} />
             ))}
           </>
         )}

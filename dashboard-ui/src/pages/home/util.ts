@@ -17,7 +17,7 @@ import { useAtomValue } from 'jotai';
 import { selectAtom } from 'jotai/utils';
 import { useEffect, useMemo, useState } from 'react';
 
-import type { KubeContext } from './shared';
+import type { KubeContext, FileInfo } from './shared';
 import { logMetadataMapAtomFamily, ownershipMapAtomFamily } from './state';
 
 /**
@@ -74,7 +74,15 @@ export function useLogFileInfo(kubeContext: KubeContext, uids: string[]) {
     () =>
       selectAtom(
         logMetadataMapAtomFamily(kubeContext),
-        (data) => Object.fromEntries(allContainerIDs.map((id) => [id, data.inner.get(id)])),
+        (data) => {
+          const out: Record<string, FileInfo> = {};
+          for (let i = 0; i < allContainerIDs.length; i += 1) {
+            const id = allContainerIDs[i];
+            const v = data.inner.get(id);
+            if (v) out[id] = v;
+          }
+          return out;
+        },
         (a, b) => fastDeepEqual(a, b),
       ),
     [allContainerIDs],
