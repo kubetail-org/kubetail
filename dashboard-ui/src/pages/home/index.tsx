@@ -162,7 +162,7 @@ const LastModifiedAtTableCell = ({ table, row }: TableCellProps) => {
   const info = logFileInfo.get(row.original.id);
 
   return (
-    <TableCell className={row.original.containerIDs.map((id) => `last_event_${id}`).join(' ')}>
+    <TableCell className={info?.containerIDs.map((id) => `last_event_${id}`).join(' ')}>
       {info === undefined ? (
         <span>--</span>
       ) : (
