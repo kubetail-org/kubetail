@@ -160,15 +160,20 @@ const LastModifiedAtTableCell = ({ table, row }: TableCellProps) => {
   const logFileInfo = useLogFileInfo(meta.kubeContext, ids);
 
   const info = logFileInfo.get(row.original.id);
-  if (info === undefined) return <span>--</span>;
 
   return (
-    <TimeAgo
-      date={info.lastModifiedAt}
-      formatter={lastModifiedAtFormatter}
-      minPeriod={60}
-      title={info.lastModifiedAt.toUTCString()}
-    />
+    <TableCell className={row.original.containerIDs.map((id) => `last_event_${id}`).join(' ')}>
+      {info === undefined ? (
+        <span>--</span>
+      ) : (
+        <TimeAgo
+          date={info.lastModifiedAt}
+          formatter={lastModifiedAtFormatter}
+          minPeriod={60}
+          title={info.lastModifiedAt.toUTCString()}
+        />
+      )}
+    </TableCell>
   );
 };
 
@@ -232,7 +237,6 @@ const WORKLOAD_TABLE_COLUMNS = [
     sortDescFirst: true,
     sortUndefined: 'last',
     header: 'Last Event',
-    cell: LastModifiedAtTableCell,
   },
   {
     id: 'viewlink',
@@ -276,15 +280,11 @@ const SortIcon = ({ dir, descFirst }: SortIconProps) => {
 const DataTableRow = ({ row }: { row: Row<WorkloadTableData> }) => (
   <TableRow>
     {row.getVisibleCells().map((cell) => {
-      let cls = '';
       if (cell.column.id === 'lastModifiedAt') {
-        cls = row.original.containerIDs.map((id) => `last_event_${id}`).join(' ');
+        const { table } = cell.getContext();
+        return <LastModifiedAtTableCell key={cell.id} table={table} row={row} />;
       }
-      return (
-        <TableCell key={cell.id} className={cls}>
-          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-        </TableCell>
-      );
+      return <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>;
     })}
   </TableRow>
 );
