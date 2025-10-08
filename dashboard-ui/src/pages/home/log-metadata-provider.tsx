@@ -25,7 +25,7 @@ import { useIsClusterAPIEnabled, useRetryOnError } from '@/lib/hooks';
 import type { FileInfo, KubeContext } from './shared';
 import { logMetadataMapAtomFamily } from './state';
 
-const BATCH_INTERVAL_MS = 5000;
+const BATCH_INTERVAL_MS = 2000;
 
 /**
  * LogMetadataProvider component

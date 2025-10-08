@@ -935,7 +935,6 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
         fetcherRef.current?.reset();
 
         // Fetch
-        console.log(sinceTS);
         const response = await fetcherRef.current?.fetch({
           mode: LogRecordsQueryMode.Head,
           since: sinceTS,
