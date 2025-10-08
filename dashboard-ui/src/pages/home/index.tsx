@@ -277,21 +277,31 @@ const SortIcon = ({ dir, descFirst }: SortIconProps) => {
   }
 };
 
-const DataTableRow = ({ row }: { row: Row<WorkloadTableData> }) => (
-  <TableRow>
-    {row.getVisibleCells().map((cell) => {
-      if (cell.column.id === 'lastModifiedAt') {
-        const { table } = cell.getContext();
-        return <LastModifiedAtTableCell key={cell.id} table={table} row={row} />;
-      }
-      return <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>;
-    })}
-  </TableRow>
-);
+type DataTableRowProps = {
+  row: Row<WorkloadTableData>;
+  // eslint-disable-next-line react/no-unused-prop-types
+  isChecked: boolean;
+};
+
+const DataTableRow = (props: DataTableRowProps) => {
+  const { row } = props;
+  return (
+    <TableRow>
+      {row.getVisibleCells().map((cell) => {
+        if (cell.column.id === 'lastModifiedAt') {
+          const { table } = cell.getContext();
+          return <LastModifiedAtTableCell key={cell.id} table={table} row={row} />;
+        }
+        return <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>;
+      })}
+    </TableRow>
+  );
+};
 
 const MemoizedDataTableRow = memo(
   DataTableRow,
-  (prevProps, nextProps) => prevProps.row.original.id === nextProps.row.original.id,
+  (prevProps, nextProps) =>
+    prevProps.row.original.id === nextProps.row.original.id && prevProps.isChecked === nextProps.isChecked,
 );
 
 MemoizedDataTableRow.displayName = 'MemoizedDataTableRow';
@@ -464,7 +474,11 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
         ) : (
           <>
             {table.getRowModel().rows.map((row) => (
-              <MemoizedDataTableRow key={row.original.id} row={row} />
+              <MemoizedDataTableRow
+                key={row.original.id}
+                row={row}
+                isChecked={isChecked.get(row.original.id) ?? false}
+              />
             ))}
           </>
         )}
