@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import type { ApolloError } from '@apollo/client';
-import fastDeepEqualES6 from 'fast-deep-equal/es6';
 import { atom } from 'jotai';
 import { atomFamily, selectAtom } from 'jotai/utils';
 
@@ -190,51 +189,39 @@ export const filteredTotalCountAtomFamily = atomFamily((kubeContext: KubeContext
  * Ownership map
  */
 
-export const ownershipMapAtomFamily = (() => {
-  // Generate ownership map
-  const innerFamily = atomFamily((kubeContext: KubeContext) =>
-    atom((get) => {
-      const m = new Map<string, string[]>();
+export const ownershipMapAtomFamily = atomFamily((kubeContext: KubeContext) =>
+  atom((get) => {
+    const m = new Map<string, string[]>();
 
-      ALL_WORKLOAD_KINDS.forEach((kind) => {
-        const items = get(stableWorkloadItemsAtomFamilies[kind](kubeContext));
+    ALL_WORKLOAD_KINDS.forEach((kind) => {
+      const items = get(stableWorkloadItemsAtomFamilies[kind](kubeContext));
 
-        items.forEach((item) => {
-          const itemID = item.metadata.uid;
+      items.forEach((item) => {
+        const itemID = item.metadata.uid;
 
-          // Update parent-child relationships
-          item.metadata.ownerReferences.forEach((ref) => {
-            const parentID = ref.uid;
-            const childrenIDs = m.get(parentID) ?? [];
-            childrenIDs.push(itemID);
-            m.set(parentID, childrenIDs);
-          });
-
-          // Add container ids from pods
-          if (kind === WorkloadKind.PODS) {
-            const pod = item as HomePodsListItemFragmentFragment;
-            // strip out prefix (e.g. "containerd://")
-            const containerIDs = pod.status.containerStatuses.map((status) =>
-              status.containerID.replace(/^[^:]+:\/\/(.*)/, '$1'),
-            );
-            m.set(itemID, containerIDs);
-          }
+        // Update parent-child relationships
+        item.metadata.ownerReferences.forEach((ref) => {
+          const parentID = ref.uid;
+          const childrenIDs = m.get(parentID) ?? [];
+          childrenIDs.push(itemID);
+          m.set(parentID, childrenIDs);
         });
+
+        // Add container ids from pods
+        if (kind === WorkloadKind.PODS) {
+          const pod = item as HomePodsListItemFragmentFragment;
+          // strip out prefix (e.g. "containerd://")
+          const containerIDs = pod.status.containerStatuses.map(
+            (status) => status.containerID.split('://')[1] ?? status.containerID,
+          );
+          m.set(itemID, containerIDs);
+        }
       });
+    });
 
-      return m;
-    }),
-  );
-
-  // Return stable ownership map
-  return atomFamily((kubeContext: KubeContext) =>
-    selectAtom(
-      innerFamily(kubeContext),
-      (s) => s,
-      (a, b) => fastDeepEqualES6(a, b),
-    ),
-  );
-})();
+    return m;
+  }),
+);
 
 /**
  * LogMetadataMap state

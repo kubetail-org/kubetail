@@ -20,7 +20,15 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import type { Cell, ColumnDef, Row, SortDirection, SortingState, TableMeta, TableOptions } from '@tanstack/react-table';
+import type {
+  ColumnDef,
+  Row,
+  SortDirection,
+  SortingState,
+  Table as TableType,
+  TableMeta,
+  TableOptions,
+} from '@tanstack/react-table';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { ChevronDown, ChevronUp, ExternalLink, Layers3, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
 import numeral from 'numeral';
@@ -128,6 +136,42 @@ interface WorkloadTableMeta extends TableMeta<WorkloadTableData> {
   handleSingleCheckboxChange: (id: string) => void;
 }
 
+type TableCellProps = {
+  table: TableType<WorkloadTableData>;
+  row: Row<WorkloadTableData>;
+};
+
+const SizeTableCell = ({ table, row }: TableCellProps) => {
+  const meta = table.options.meta as WorkloadTableMeta;
+
+  const ids = useMemo(() => [row.original.id], []);
+  const logFileInfo = useLogFileInfo(meta.kubeContext, ids);
+
+  const info = logFileInfo.get(row.original.id);
+  if (info === undefined) return <span>--</span>;
+
+  return numeral(info.size).format('0.0 b');
+};
+
+const LastModifiedAtTableCell = ({ table, row }: TableCellProps) => {
+  const meta = table.options.meta as WorkloadTableMeta;
+
+  const ids = useMemo(() => [row.original.id], []);
+  const logFileInfo = useLogFileInfo(meta.kubeContext, ids);
+
+  const info = logFileInfo.get(row.original.id);
+  if (info === undefined) return <span>--</span>;
+
+  return (
+    <TimeAgo
+      date={info.lastModifiedAt}
+      formatter={lastModifiedAtFormatter}
+      minPeriod={60}
+      title={info.lastModifiedAt.toUTCString()}
+    />
+  );
+};
+
 const WORKLOAD_TABLE_COLUMNS = [
   {
     id: 'checkbox',
@@ -180,10 +224,7 @@ const WORKLOAD_TABLE_COLUMNS = [
     sortDescFirst: true,
     sortUndefined: 'last',
     header: 'Size',
-    cell: ({ row }) => {
-      const { size } = row.original;
-      return size === undefined ? <span>--</span> : numeral(size).format('0.0 b');
-    },
+    cell: SizeTableCell,
   },
   {
     accessorKey: 'lastModifiedAt',
@@ -191,19 +232,7 @@ const WORKLOAD_TABLE_COLUMNS = [
     sortDescFirst: true,
     sortUndefined: 'last',
     header: 'Last Event',
-    cell: ({ row }) => {
-      const { lastModifiedAt } = row.original;
-      if (lastModifiedAt === undefined) return <span>--</span>;
-
-      return (
-        <TimeAgo
-          date={lastModifiedAt}
-          formatter={lastModifiedAtFormatter}
-          minPeriod={60}
-          title={lastModifiedAt.toUTCString()}
-        />
-      );
-    },
+    cell: LastModifiedAtTableCell,
   },
   {
     id: 'viewlink',
@@ -244,10 +273,6 @@ const SortIcon = ({ dir, descFirst }: SortIconProps) => {
   }
 };
 
-const DataTableCell = ({ cell, className }: { cell: Cell<WorkloadTableData, unknown>; className: string }) => (
-  <TableCell className={className}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-);
-
 const DataTableRow = ({ row }: { row: Row<WorkloadTableData> }) => (
   <TableRow>
     {row.getVisibleCells().map((cell) => {
@@ -255,10 +280,21 @@ const DataTableRow = ({ row }: { row: Row<WorkloadTableData> }) => (
       if (cell.column.id === 'lastModifiedAt') {
         cls = row.original.containerIDs.map((id) => `last_event_${id}`).join(' ');
       }
-      return <DataTableCell key={cell.id} cell={cell} className={cls} />;
+      return (
+        <TableCell key={cell.id} className={cls}>
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </TableCell>
+      );
     })}
   </TableRow>
 );
+
+const MemoizedDataTableRow = memo(
+  DataTableRow,
+  (prevProps, nextProps) => prevProps.row.original.id === nextProps.row.original.id,
+);
+
+MemoizedDataTableRow.displayName = 'MemoizedDataTableRow';
 
 type DisplayWorkloadItemsProps = {
   kind: WorkloadKind;
@@ -280,7 +316,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
       items.map((item) => {
         const fileInfo = logFileInfo.get(item.metadata.uid);
         return {
-          id: item.id,
+          id: item.metadata.uid,
           name: item.metadata.name,
           namespace: item.metadata.namespace,
           createdAt: item.metadata.creationTimestamp,
@@ -428,7 +464,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
         ) : (
           <>
             {table.getRowModel().rows.map((row) => (
-              <DataTableRow key={row.id} row={row} />
+              <MemoizedDataTableRow key={row.original.id} row={row} />
             ))}
           </>
         )}
