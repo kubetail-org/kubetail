@@ -1,0 +1,1 @@
+Kubetail CLI Chocolatey Package

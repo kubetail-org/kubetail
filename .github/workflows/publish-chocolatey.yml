@@ -7,19 +7,134 @@ on:
   release:
     types:
       - published
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to deploy"
+        required: true
+        type: string
+      dry_run:
+        description: "If true, only simulate action"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
-  trigger-choco-packages-publish-workflow:
-    name: Trigger choco-packages publish workflow
+  generate-nuspec:
+    name: Generate nuspec
     runs-on: ubuntu-24.04
     steps:
-      - name: Extract version
-        id: version
-        run: echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
-      - name: Trigger workflow
-        uses: benc-uk/workflow-dispatch@v1.2.4
+      - name: Config
+        id: config
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download sha256 files
+        id: release-info
+        uses: robinraju/release-downloader@v1.12
         with:
-          repo: kubetail-org/choco-packages
-          workflow: publish
-          token: ${{ secrets.PUBLISH_CHOCOLATEY_TOKEN }}
-          inputs: '{ "version": "${{ steps.version.outputs.version }}", "merge_on_push": true }'
+          tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
+          fileName: "kubetail-windows-*.sha256"
+          out-file-path: "downloads"
+
+      - name: Extract tags and shasums
+        id: meta
+        shell: bash
+        working-directory: ./downloads
+        run: |
+          set -euo pipefail
+
+          AMD64_SHA256=$( tr -d '\r' < './kubetail-windows-amd64.sha256' | awk '{print $1}' )
+          ARM64_SHA256=$( tr -d '\r' < './kubetail-windows-arm64.sha256' | awk '{print $1}' )
+          TAG_NAME="${{ steps.release-info.outputs.tag_name }}"
+
+          echo "version=${TAG_NAME#cli/v}" >> $GITHUB_OUTPUT
+          echo "amd64_sha256=$AMD64_SHA256" >> $GITHUB_OUTPUT
+          echo "arm64_sha256=$ARM64_SHA256" >> $GITHUB_OUTPUT
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Execute templates
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          AMD64_SHA256: ${{ steps.meta.outputs.amd64_sha256 }}
+          ARM64_SHA256: ${{ steps.meta.outputs.arm64_sha256 }}
+          SRC_DIR: .github/ci-config/chocolatey
+          DST_DIR: nuspec
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p "${DST_DIR}/tools"
+
+          # kubetail.nuspec
+          envsubst '${VERSION}' \
+            < "${SRC_DIR}/kubetail.nuspec.tmpl" \
+            > "${DST_DIR}/kubetail.nuspec"
+
+          # chocolateyInstall.ps1
+          envsubst '${VERSION} ${AMD64_SHA256} ${ARM64_SHA256}' \
+            < "${SRC_DIR}/tools/chocolateyInstall.ps1.tmpl" \
+            > "${DST_DIR}/tools/chocolateyInstall.ps1"
+
+          cp "${SRC_DIR}/README.md" "${DST_DIR}/"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuspec
+          path: nuspec/*
+
+  push-to-chocolatey:
+    name: Push to chocolatey
+    runs-on: windows-latest
+    needs: generate-nuspec
+    steps:
+      - name: Config
+        id: config
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          else
+            echo "dry_run=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nuspec
+          path: nuspec
+
+      - name: Get version number
+        id: nuspec
+        shell: pwsh
+        run: |
+          [xml]$nuspec = Get-Content ".\nuspec\kubetail.nuspec"
+          $version = $nuspec.package.metadata.version
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Configure API key
+        shell: pwsh
+        env:
+          CHOCOLATEY_API_KEY: ${{ secrets.PUBLISH_CHOCOLATEY_TOKEN }}
+        run: |
+          choco apikey --source https://push.chocolatey.org/ --key $env:CHOCOLATEY_API_KEY
+
+      - name: Pack Chocolatey package
+        shell: pwsh
+        run: |
+          choco pack .\nuspec\kubetail.nuspec --output-directory .\
+
+      - name: Push to Chocolatey
+        if: ${{ steps.config.outputs.dry_run != 'true' }}
+        shell: pwsh
+        run: |
+          choco push .\kubetail.${{ steps.nuspec.outputs.version }}.nupkg --source https://push.chocolatey.org/
