@@ -7,78 +7,19 @@ on:
   release:
     types:
       - published
-  workflow_dispatch:
 
 jobs:
-  update-choco-packages-repo:
-    name: Update choco-packages repo
+  trigger-choco-packages-publish-workflow:
+    name: Trigger choco-packages publish workflow
     runs-on: ubuntu-24.04
     steps:
-      - name: Download sha256 files
-        id: release-info
-        uses: robinraju/release-downloader@v1.12
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+      - name: Trigger workflow
+        uses: benc-uk/workflow-dispatch@v1.2.4
         with:
-          latest: true
-          fileName: "kubetail-windows-*.sha256"
-
-      - name: Sparse checkout only templates
-        uses: actions/checkout@v4
-        with:
-          sparse-checkout: .github/ci-config/**
-          sparse-checkout-cone-mode: false
-          fetch-depth: 1
-          path: choco-templates
-
-      - name: Clone choco-packages repo
-        uses: actions/checkout@v4
-        with:
-          repository: kubetail-org/choco-packages
-          path: choco-packages
-
-      - name: Extract tags and shasums
-        id: meta
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          AMD64_SHA256=$( tr -d '\r' < './kubetail-windows-amd64.sha256' | awk '{print $1}' )
-          ARM64_SHA256=$( tr -d '\r' < './kubetail-windows-arm64.sha256' | awk '{print $1}' )
-          TAG_NAME="${{ steps.release-info.outputs.tag_name }}"
-
-          echo "version=${TAG_NAME#cli/v}" >> $GITHUB_OUTPUT
-          echo "amd64_sha256=$AMD64_SHA256" >> $GITHUB_OUTPUT
-          echo "arm64_sha256=$ARM64_SHA256" >> $GITHUB_OUTPUT
-
-      - name: Execute templates in choco-packages
-        env:
-          VERSION: ${{ steps.meta.outputs.version }}
-          AMD64_SHA256: ${{ steps.meta.outputs.amd64_sha256 }}
-          ARM64_SHA256: ${{ steps.meta.outputs.arm64_sha256 }}
-          SRC_DIR: choco-templates/.github/ci-config/chocolatey
-          DST_DIR: choco-packages/kubetail
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # kubetail.nuspec
-          envsubst '${VERSION}' \
-            < "${SRC_DIR}/kubetail.nuspec.tmpl" \
-            > "${DST_DIR}/kubetail.nuspec"
-
-          # chocolateyInstall.ps1
-          envsubst '${VERSION} ${AMD64_SHA256} ${ARM64_SHA256}' \
-            < "${SRC_DIR}/chocolateyInstall.ps1.tmpl" \
-            > "${DST_DIR}/tools/chocolateyInstall.ps1"
-
-      - name: Commit and raise PR
-        uses: peter-evans/create-pull-request@v7.0.8
-        with:
-          token: ${{ secrets.PUBLISH_CHOCO_PACKAGES_TOKEN }}
-          path: ./choco-packages
-          commit-message: "release: kubetail- ${{ steps.meta.outputs.version }}"
-          branch: release/kubetail-${{ steps.meta.outputs.version }}
-          delete-branch: true
-          base: main
-          sign-commits: true
-          title: "Release: kubetail-${{ steps.meta.outputs.version }}"
-          body: "This PR adds the manifest files for kubetail-${{ steps.meta.outputs.version }}."
+          repo: kubetail-org/choco-packages
+          workflow: publish
+          token: ${{ secrets.PUBLISH_CHOCOLATEY_TOKEN }}
+          inputs: '{ "version": "${{ steps.version.outputs.version }}", "merge_on_push": true }'
