@@ -1,0 +1,63 @@
+name: Build and publish snaps to snapcraft.io
+
+permissions:
+  contents: read
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to deploy"
+        required: true
+        default: "latest"
+      dry_run:
+        description: "If true, only simulate action"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build-and-publish:
+    name: Build and publish
+    strategy:
+      matrix:
+        runner:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Configure
+        id: meta
+        run: |
+          echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/ci-config/snapcraft.yaml.tmpl
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+
+      - name: Execute snapcraft templates
+        env:
+          TMPL_VERSION: ${{ steps.meta.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          envsubst '${TMPL_VERSION}' |
+            < ".github/ci-config/snapcraft.yaml.tmpl" \
+            > "snapcraft.yaml"
+
+      - name: Build
+        uses: actions/upload-artifact@v3
+        with:
+          path: ./
