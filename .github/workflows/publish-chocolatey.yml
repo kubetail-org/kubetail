@@ -50,9 +50,7 @@ jobs:
 
           AMD64_SHA256=$( tr -d '\r' < './kubetail-windows-amd64.sha256' | awk '{print $1}' )
           ARM64_SHA256=$( tr -d '\r' < './kubetail-windows-arm64.sha256' | awk '{print $1}' )
-          TAG_NAME="${{ steps.release-info.outputs.tag_name }}"
 
-          echo "version=${TAG_NAME#cli/v}" >> $GITHUB_OUTPUT
           echo "amd64_sha256=$AMD64_SHA256" >> $GITHUB_OUTPUT
           echo "arm64_sha256=$ARM64_SHA256" >> $GITHUB_OUTPUT
 
@@ -63,7 +61,7 @@ jobs:
 
       - name: Execute templates
         env:
-          VERSION: ${{ steps.meta.outputs.version }}
+          VERSION: ${{ steps.config.outputs.version }}
           AMD64_SHA256: ${{ steps.meta.outputs.amd64_sha256 }}
           ARM64_SHA256: ${{ steps.meta.outputs.arm64_sha256 }}
           SRC_DIR: .github/ci-config/chocolatey
