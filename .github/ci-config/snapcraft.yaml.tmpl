@@ -1,0 +1,35 @@
+name: kubetail
+title: Kubetail
+base: core22
+version: '${TMPL_VERSION}'
+
+grade: stable
+confinement: strict
+
+apps:
+  kubetail:
+    command: kubetail
+    plugs:
+      - home
+      - network
+
+parts:
+  kubetail:
+    plugin: dump
+    source: .
+    override-build: |
+      set -eux
+
+      ARCH="${CRAFT_ARCH_BUILD_ON}"
+      VERSION="${SNAPCRAFT_PROJECT_VERSION}"
+
+      # Download the prebuilt tarball for this architecture
+      curl -L -o kubetail.tar.gz \
+        "https://github.com/kubetail-org/kubetail/releases/download/cli%2Fv${VERSION}/kubetail-linux-${ARCH}.tar.gz"
+
+      # Extract and install the binary
+      tar -xzf kubetail.tar.gz
+      install -Dm755 kubetail "${CRAFT_PART_INSTALL}/kubetail"
+    build-packages:
+      - curl
+      - tar
