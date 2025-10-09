@@ -1,0 +1,134 @@
+name: publish-aur
+
+permissions:
+  contents: read
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to deploy"
+        required: true
+        type: string
+      dry_run:
+        description: "If true, only simulate action"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  update-repo:
+    name: Update AUR kubetail-bin repo
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Config
+        id: config
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+            echo "dry_run=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download sha256 files
+        id: release-info
+        uses: robinraju/release-downloader@v1.12
+        with:
+          repository: kubetail-org/kubetail
+          tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
+          fileName: "kubetail-linux-*.sha256"
+          out-file-path: "downloads"
+
+      - name: Extract tags and shasums
+        id: meta
+        shell: bash
+        working-directory: ./downloads
+        run: |
+          set -euo pipefail
+
+          AMD64_SHA256=$( tr -d '\r' < './kubetail-linux-amd64.sha256' | awk '{print $1}' )
+          ARM64_SHA256=$( tr -d '\r' < './kubetail-linux-arm64.sha256' | awk '{print $1}' )
+
+          echo "amd64_sha256=$AMD64_SHA256" >> $GITHUB_OUTPUT
+          echo "arm64_sha256=$ARM64_SHA256" >> $GITHUB_OUTPUT
+
+      - name: Checkout kubetail repo
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/ci-config/aur
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+          path: kubetail
+
+      - name: Load AUR SSH key
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          
+      - name: Configure SSH
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AUR_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+          # Configure SSH to use the key for AUR
+          cat >> ~/.ssh/config <<EOF
+          Host aur.archlinux.org
+            IdentityFile ~/.ssh/aur
+            User aur
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Checkout kubetail-bin repo
+        run: |
+          git clone ssh://aur@aur.archlinux.org/kubetail-bin.git
+
+      - name: Execute templates
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
+          AMD64_SHA256: ${{ steps.meta.outputs.amd64_sha256 }}
+          ARM64_SHA256: ${{ steps.meta.outputs.arm64_sha256 }}
+          SRC_DIR: kubetail/.github/ci-config/aur
+          DST_DIR: kubetail-bin
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # PKGBUILD
+          envsubst '${VERSION} ${AMD64_SHA256} ${ARM64_SHA256}' \
+            < "${SRC_DIR}/PKGBUILD.tmpl" \
+            > "${DST_DIR}/PKGBUILD"
+
+          # .SRCINFO
+          envsubst '${VERSION} ${AMD64_SHA256} ${ARM64_SHA256}' \
+            < "${SRC_DIR}/SRCINFO.tmpl" \
+            > "${DST_DIR}/.SRCINFO"
+
+      - name: Push changes to AUR repo
+        working-directory: ./kubetail-bin
+        if: ${{ steps.config.outputs.dry_run != 'true' }}
+        run: |
+          set -euo pipefail
+
+          # Set name and email
+          git config user.name "Andres Morey"
+          git config user.email "andres@kubetail.com"
+
+          # Stage changes
+          git add PKGBUILD .SRCINFO
+
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          # Commit and push
+          git commit -m "release: ${{ steps.config.outputs.version }}"
+          git push origin master

@@ -1,0 +1,16 @@
+pkgbase = kubetail-bin
+	pkgdesc = Real-time logging dashboard for Kubernetes
+	pkgver = ${VERSION}
+	pkgrel = 1
+	url = https://github.com/kubetail-org/kubetail
+	arch = x86_64
+	arch = aarch64
+	license = apache
+	provides = kubetail
+	conflicts = kubetail
+	source_x86_64 = https://github.com/kubetail-org/kubetail/releases/download/cli%2Fv${VERSION}/kubetail-linux-amd64
+	sha256sums_x86_64 = ${AMD64_SHA256}
+	source_aarch64 = https://github.com/kubetail-org/kubetail/releases/download/cli%2Fv${VERSION}/kubetail-linux-arm64
+	sha256sums_aarch64 = ${ARM64_SHA256}
+
+pkgname = kubetail-bin
