@@ -2,9 +2,22 @@ name: kubetail
 title: Kubetail
 base: core22
 version: '${TMPL_VERSION}'
+summary: Real-time logging dashboard for Kubernetes
+description: |
+  Kubetail is a general-purpose logging dashboard for Kubernetes, optimized for
+  tailing logs across multi-container workloads in real-time. With Kubetail,
+  you can view logs from all the containers in a workload merged into a single,
+  chronological timeline, delivered to your terminal or browser.
 
 grade: stable
 confinement: strict
+
+license: Apache-2.0
+website: https://www.kubetail.com
+source-code: https://github.com/kubetail-org/kubetail
+issues: https://github.com/kubetail-org/kubetail/issues
+contact: https://github.com/kubetail-org/kubetail/issues
+donation: https://github.com/sponsors/kubetail-org
 
 apps:
   kubetail:

@@ -13,7 +13,11 @@ on:
         description: "Version to deploy"
         required: true
         type: string
-        default: "latest"
+      release:
+        description: "Release channel (e.g. stable, edge)"
+        required: true
+        type: string
+        default: "stable"
       dry_run:
         description: "If true, only simulate action"
         required: false
@@ -40,9 +44,11 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "release=${{ github.event.inputs.release }}" >> $GITHUB_OUTPUT
             echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+            echo "release=stable" >> $GITHUB_OUTPUT
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
 
@@ -75,4 +81,4 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.PUBLISH_SNAPCRAFT_TOKEN }}
         with:
           snap: ${{ steps.build.outputs.snap }}
-          release: stable
+          release: ${{ steps.config.outputs.release }}
