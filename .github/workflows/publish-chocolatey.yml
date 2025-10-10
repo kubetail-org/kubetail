@@ -14,10 +14,10 @@ on:
         required: true
         type: string
       dry_run:
-        description: "If true, only simulate action"
+        description: "Dry run"
         required: false
         type: boolean
-        default: false
+        default: true
 
 jobs:
   generate-nuspec:
@@ -37,6 +37,7 @@ jobs:
         id: release-info
         uses: robinraju/release-downloader@v1.12
         with:
+          repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
           fileName: "kubetail-windows-*.sha256"
           out-file-path: "downloads"

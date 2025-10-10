@@ -19,10 +19,10 @@ on:
         type: string
         default: "stable"
       dry_run:
-        description: "If true, only simulate action"
+        description: "Dry run"
         required: false
         type: boolean
-        default: false
+        default: true
 
 jobs:
   build-and-publish:
