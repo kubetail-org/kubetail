@@ -61,6 +61,9 @@ winget install Kubetail.Kubetail
 # Chocolatey
 choco install kubetail
 
+# Scoop
+scoop install kubetail
+
 # asdf
 asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
 asdf install kubetail latest
