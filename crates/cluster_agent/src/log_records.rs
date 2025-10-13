@@ -31,7 +31,7 @@ impl LogRecordsImpl {
         }
     }
 
-    fn get_log_filename(&self, request: &LogRecordsStreamRequest) -> Result<PathBuf, Box<Status>> {
+    fn get_log_filename(&self, request: &LogRecordsStreamRequest) -> Result<PathBuf, Status> {
         let container_id = match request.container_id.split_once("://") {
             Some((_, second)) => second,
             None => &request.container_id,
@@ -42,15 +42,16 @@ impl LogRecordsImpl {
             &request.pod_name, &request.namespace, &request.container_name, container_id
         ));
 
-        if path.is_file() {
-            Ok(fs::canonicalize(path).unwrap())
-        } else {
-            Err(Status::new(
+        fs::canonicalize(&path).map_err(|e| {
+            Status::new(
                 tonic::Code::NotFound,
-                format!("log file not found: {}", path.to_string_lossy()),
+                format!(
+                    "failed to access log file {}: {}",
+                    path.to_string_lossy(),
+                    e
+                ),
             )
-            .into())
-        }
+        })
     }
 }
 
@@ -66,7 +67,7 @@ impl LogRecordsService for LogRecordsImpl {
     ) -> Result<Response<Self::StreamBackwardStream>, Status> {
         let authorizer = Authorizer::new(request.metadata()).await?;
         let request = request.into_inner();
-        let file_path = self.get_log_filename(&request).map_err(|status| *status)?;
+        let file_path = self.get_log_filename(&request)?;
         let (tx, rx) = mpsc::channel(100);
         let term_tx = self.term_tx.clone();
 
@@ -99,7 +100,7 @@ impl LogRecordsService for LogRecordsImpl {
     ) -> Result<Response<Self::StreamForwardStream>, Status> {
         let authorizer = Authorizer::new(request.metadata()).await?;
         let request = request.into_inner();
-        let file_path = self.get_log_filename(&request).map_err(|status| *status)?;
+        let file_path = self.get_log_filename(&request)?;
 
         let namespaces = vec![request.namespace.clone()];
         authorizer.is_authorized(&namespaces, "list").await?;
