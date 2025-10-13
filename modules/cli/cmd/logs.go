@@ -228,12 +228,15 @@ var logsCmd = &cobra.Command{
 		after, _ := flags.GetString("after")
 		before, _ := flags.GetString("before")
 
+		allNamespaces, _ := flags.GetBool("all-namespaces")
+
 		grep, _ := flags.GetString("grep")
 		regionList, _ := flags.GetStringSlice("region")
 		zoneList, _ := flags.GetStringSlice("zone")
 		osList, _ := flags.GetStringSlice("os")
 		archList, _ := flags.GetStringSlice("arch")
 		nodeList, _ := flags.GetStringSlice("node")
+		namespaceList, _ := flags.GetStringSlice("namespace")
 
 		hideHeader, _ := flags.GetBool("hide-header")
 		hideTs, _ := flags.GetBool("hide-ts")
@@ -311,6 +314,11 @@ var logsCmd = &cobra.Command{
 			untilTime = beforeTime.Add(-1 * time.Nanosecond)
 		}
 
+		// clear namespace list
+		if allNamespaces {
+			namespaceList = namespaceList[:0]
+		}
+
 		// Init connection manager
 		cm, err := k8shelpers.NewDesktopConnectionManager(k8shelpers.WithKubeconfigPath(kubeconfigPath), k8shelpers.WithLazyConnect(true))
 		cli.ExitOnError(err)
@@ -327,6 +335,7 @@ var logsCmd = &cobra.Command{
 			logs.WithOSes(osList),
 			logs.WithArches(archList),
 			logs.WithNodes(nodeList),
+			logs.WithAllowedNamespaces(namespaceList),
 		}
 
 		switch streamMode {
@@ -639,8 +648,10 @@ func init() {
 	flagset.StringSlice("os", []string{}, "Filter source pods by operating system")
 	flagset.StringSlice("arch", []string{}, "Filter source pods by CPU architecture")
 	flagset.StringSlice("node", []string{}, "Filter source pods by node name")
+	flagset.StringSliceP("namespace", "n", []string{}, "Filter source pods by namespace")
 
 	flagset.Bool("raw", false, "Output only raw log messages without metadata")
+	flagset.Bool("all-namespaces", false, "Include records from all namespaces (overrides --namespace)")
 	flagset.Bool("hide-ts", false, "Hide the timestamp of each record")
 	flagset.Bool("with-node", false, "Show the source node of each record")
 	flagset.Bool("with-region", false, "Show the source region of each record")
