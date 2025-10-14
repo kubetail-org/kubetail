@@ -54,8 +54,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             task_tracker.clone(),
         )))
         .serve_with_shutdown(config.address, shutdown(term_tx))
-        .await
-        .unwrap();
+        .await?;
 
     task_tracker.close();
     task_tracker.wait().await;
@@ -83,7 +82,9 @@ async fn parse_config() -> Result<Config, Box<dyn Error + 'static>> {
         .arg(arg!(-a --addr <ADDRESS> "Address to listen for connections"))
         .get_matches();
 
-    let config_path = matches.get_one::<PathBuf>("config").unwrap();
+    let config_path = matches
+        .get_one::<PathBuf>("config")
+        .expect("config argument is required");
     let mut overrides: Vec<(String, String)> = matches
         .get_many("param")
         .map_or_else(Vec::new, |params| params.cloned().collect());
@@ -113,8 +114,17 @@ fn enable_tls(server: Server, tls_config: &TlsConfig) -> Result<Server, Box<dyn 
         return Ok(server);
     }
 
-    let cert = read_to_string(tls_config.cert_file.as_ref().unwrap())?;
-    let key = read_to_string(tls_config.key_file.as_ref().unwrap())?;
+    let cert_file = tls_config
+        .cert_file
+        .as_ref()
+        .ok_or("TLS cert file path is required when TLS is enabled")?;
+    let key_file = tls_config
+        .key_file
+        .as_ref()
+        .ok_or("TLS key file path is required when TLS is enabled")?;
+    let cert = read_to_string(cert_file)?;
+    let key = read_to_string(key_file)?;
+
     let server_identity = Identity::from_pem(cert, key);
 
     let mut server_tls_config = ServerTlsConfig::new().identity(server_identity);
@@ -122,7 +132,12 @@ fn enable_tls(server: Server, tls_config: &TlsConfig) -> Result<Server, Box<dyn 
     #[allow(clippy::collapsible_if)]
     if let Some(client_auth) = &tls_config.client_auth {
         if client_auth == "require-and-verify" {
-            let client_ca_cert = read_to_string(tls_config.ca_file.as_ref().unwrap())?;
+            let ca_file = tls_config
+                .ca_file
+                .as_ref()
+                .ok_or("TLS CA file path is required for client verification")?;
+            let client_ca_cert = read_to_string(ca_file)?;
+
             let client_ca_cert = Certificate::from_pem(client_ca_cert);
 
             server_tls_config = server_tls_config.client_ca_root(client_ca_cert);
@@ -150,7 +165,7 @@ fn configure_logging(logging_config: &LoggingConfig) -> Result<(), Box<dyn Error
 }
 
 async fn shutdown(term_tx: Sender<()>) {
-    let mut term = signal(SignalKind::terminate()).unwrap();
+    let mut term = signal(SignalKind::terminate()).expect("Failed to register SIGTERM handler");
 
     tokio::select! {
         _ = ctrl_c()  => {

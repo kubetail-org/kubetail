@@ -1,6 +1,6 @@
 use notify::RecommendedWatcher;
 use prost_types::Timestamp;
-use regex::{Captures, Regex};
+use regex::Regex;
 use std::env;
 use std::fs::File;
 use std::os::unix::fs::MetadataExt;
@@ -55,14 +55,14 @@ impl LogMetadataImpl {
         node_name: &str,
     ) -> Option<LogMetadataSpec> {
         let filename = filepath.file_name()?.to_string_lossy();
-        let captures = LOG_FILE_REGEX.captures(filename.as_ref());
+        let captures = match LOG_FILE_REGEX.captures(filename.as_ref()) {
+            Some(c) => c,
+            None => {
+                debug!("Filename could not be parsed: {}", filename.as_ref());
+                return None;
+            }
+        };
 
-        if captures.is_none() {
-            debug!("Filename could not be parsed: {}", filename.as_ref());
-            return None;
-        }
-
-        let captures: Captures = captures.unwrap();
         let container_id = captures["container_id"].to_string();
         let container_name = captures["container_name"].to_string();
         let pod_name = captures["pod_name"].to_string();
@@ -86,7 +86,12 @@ impl LogMetadataImpl {
         let metadata = file.metadata()?;
 
         Ok(LogMetadataFileInfo {
-            size: metadata.size().try_into().unwrap(),
+            size: metadata.size().try_into().map_err(|_| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "File size exceeds i64 maximum",
+                )
+            })?,
             last_modified_at: metadata.modified().ok().map(Timestamp::from),
         })
     }
@@ -126,18 +131,17 @@ impl LogMetadataService for LogMetadataImpl {
 
         let mut metadata_items = Vec::new();
 
-        while let Some(file) = files.next().await {
-            if let Err(io_error) = file {
-                match io_error.kind() {
+        while let Some(file_res) = files.next().await {
+            let file = match file_res {
+                Ok(f) => f,
+                Err(io_error) => match io_error.kind() {
                     std::io::ErrorKind::NotFound => {
                         debug!("Could not open file: {}", io_error);
                         continue;
                     }
                     _ => return Err(io_error.into()),
-                }
-            }
-
-            let file = file.unwrap();
+                },
+            };
 
             let Some(metadata_spec) =
                 Self::get_log_metadata_spec(&file.path(), &namespaces, &self.node_name)
@@ -164,7 +168,7 @@ impl LogMetadataService for LogMetadataImpl {
             metadata_items.push(LogMetadata {
                 id: metadata_spec.container_id.clone(),
                 spec: Some(metadata_spec),
-                file_info: Some(file_info.unwrap()),
+                file_info: Some(file_info?),
             });
         }
 

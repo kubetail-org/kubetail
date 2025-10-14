@@ -65,15 +65,15 @@ impl LogMetadataWatcher {
     /// termination channel.
     pub async fn watch<T: Watcher>(&self, watcher_config: Option<notify::Config>) {
         let (internal_tx, internal_rx) = channel(10);
-        let setup_result: Result<Debouncer<T, RecommendedCache>, WatcherError> =
-            self.setup_notify_watcher(internal_tx, watcher_config).await;
+        let debouncer: Debouncer<T, RecommendedCache> =
+            match self.setup_notify_watcher(internal_tx, watcher_config).await {
+                Ok(debouncer) => debouncer,
+                Err(watcher_error) => {
+                    let _ = self.log_metadata_tx.send(Err(watcher_error.into())).await;
+                    return;
+                }
+            };
 
-        if let Err(watcher_error) = setup_result {
-            let _ = self.log_metadata_tx.send(Err(watcher_error.into())).await;
-            return;
-        }
-
-        let debouncer = setup_result.unwrap();
         let term_rx = self.term_tx.subscribe();
 
         self.listen_for_changes(internal_rx, debouncer, term_rx)
@@ -174,7 +174,9 @@ impl LogMetadataWatcher {
         watch_event: &LogMetadataWatchEvent,
         watcher: &mut Debouncer<T, RecommendedCache>,
     ) {
-        let event_type = LogMetadataWatchEventType::from_str(&watch_event.r#type).unwrap();
+        let Some(event_type) = LogMetadataWatchEventType::from_str(&watch_event.r#type) else {
+            return;
+        };
 
         if !matches!(
             event_type,
@@ -183,7 +185,10 @@ impl LogMetadataWatcher {
             return;
         }
 
-        let file_path = self.get_file_path(watch_event);
+        let Some(file_path) = self.get_file_path(watch_event) else {
+            return;
+        };
+
         let watch_result = match event_type {
             // Methods watch and unwatch can fail on adding an existing path or on removing a
             // non-existing one. There are no specific actions needed in case this happens.
@@ -211,8 +216,8 @@ impl LogMetadataWatcher {
     }
 
     // Reconstruct the absolut file path from a LogMetadataWatchEvent.
-    fn get_file_path(&self, watch_event: &LogMetadataWatchEvent) -> PathBuf {
-        let file_metadata = watch_event.object.as_ref().unwrap().spec.as_ref().unwrap();
+    fn get_file_path(&self, watch_event: &LogMetadataWatchEvent) -> Option<PathBuf> {
+        let file_metadata = watch_event.object.as_ref()?.spec.as_ref()?;
         let filename = format!(
             "{}_{}_{}-{}.log",
             file_metadata.pod_name,
@@ -220,8 +225,7 @@ impl LogMetadataWatcher {
             file_metadata.container_name,
             file_metadata.container_id
         );
-
-        self.directory.join(filename)
+        Some(self.directory.join(filename))
     }
 }
 
@@ -289,23 +293,21 @@ fn handle_debounced_events(
     namespaces: &[String],
     node_name: &str,
 ) -> VecDeque<Result<LogMetadataWatchEvent, WatcherError>> {
-    if let Err(errors) = debounced_event_result {
-        return errors.into_iter().map(|error| Err(error.into())).collect();
-    }
-
-    let events = debounced_event_result
-        .unwrap()
-        .into_iter()
-        .filter(|debounced_event| {
-            matches!(
-                debounced_event.kind,
-                EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
-            )
-        })
-        .filter_map(|debounced_event| {
-            transform_notify_event(&debounced_event.event, namespaces, node_name)
-        })
-        .collect();
+    let events = match debounced_event_result {
+        Err(errors) => return errors.into_iter().map(|error| Err(error.into())).collect(),
+        Ok(debounced_events) => debounced_events
+            .into_iter()
+            .filter(|debounced_event| {
+                matches!(
+                    debounced_event.kind,
+                    EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
+                )
+            })
+            .filter_map(|debounced_event| {
+                transform_notify_event(&debounced_event.event, namespaces, node_name)
+            })
+            .collect(),
+    };
 
     deduplicate_metadata_events(events)
 }
