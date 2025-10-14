@@ -71,6 +71,15 @@ asdf install kubetail latest
 # Arch Linux (AUR)
 git clone https://aur.archlinux.org/kubetail-bin.git
 cd kubetail-bin && makepkg -si
+
+# Gentoo (GURU)
+ACCEPT_KEYWORDS="~$(portageq envvar ARCH)" emerge dev-util/kubetail-bin
+
+# Nix (Flake)
+nix profile add github:kubetail-org/kubetail-nix
+
+# Nix (Classic)
+nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
 ```
 
 Next, start the web dashboard using the `serve` subcommand:
