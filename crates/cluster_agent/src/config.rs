@@ -152,3 +152,277 @@ impl Config {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serial_test::serial;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    fn create_config_file(content: &str, extension: &str) -> NamedTempFile {
+        let mut file = tempfile::Builder::new()
+            .suffix(extension)
+            .tempfile()
+            .expect("Failed to create temp file");
+
+        file.write_all(content.as_bytes())
+            .expect("Failed to write to file");
+
+        file.flush().expect("Failed to flush file");
+
+        file
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_parse_basic_yaml_config() {
+        let config_content = r#"cluster-agent:
+  addr: "127.0.0.1:8080"
+  container-logs-dir: "/test/logs"
+  logging:
+    enabled: true
+    level: "debug"
+    format: "json"
+  tls:
+    enabled: false
+"#;
+        let file = create_config_file(config_content, ".yaml");
+
+        let config = Config::parse(file.path(), vec![])
+            .await
+            .expect("Failed to parse config");
+
+        assert_eq!(config.address.to_string(), "127.0.0.1:8080");
+        assert_eq!(config.logs_dir, PathBuf::from("/test/logs"));
+        assert!(config.logging.enabled);
+        assert_eq!(config.logging.level, "debug");
+        assert_eq!(config.logging.format, "json");
+        assert!(!config.tls.enabled);
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_parse_shorthand_address() {
+        let config_content = r#"cluster-agent:
+  addr: ":9090"
+  container-logs-dir: "/logs"
+  logging:
+    enabled: true
+    level: "info"
+    format: "json"
+  tls:
+    enabled: false
+"#;
+        let file = create_config_file(config_content, ".yaml");
+
+        let config = Config::parse(file.path(), vec![])
+            .await
+            .expect("Failed to parse config");
+
+        assert_eq!(config.address.to_string(), "[::]:9090");
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_parse_with_overrides() {
+        let config_content = r#"cluster-agent:
+  addr: "127.0.0.1:8080"
+  container-logs-dir: "/logs"
+  logging:
+    enabled: true
+    level: "info"
+    format: "json"
+  tls:
+    enabled: false
+"#;
+        let file = create_config_file(config_content, ".yaml");
+
+        let overrides = vec![
+            ("addr".to_string(), ":5555".to_string()),
+            ("logging.level".to_string(), "trace".to_string()),
+        ];
+
+        let config = Config::parse(file.path(), overrides)
+            .await
+            .expect("Failed to parse config");
+
+        assert_eq!(config.address.to_string(), "[::]:5555");
+        assert_eq!(config.logging.level, "trace");
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_parse_json_format() {
+        let config_content = r#"{
+  "cluster-agent": {
+    "addr": "0.0.0.0:3000",
+    "container-logs-dir": "/var/logs",
+    "logging": {
+      "enabled": false,
+      "level": "error",
+      "format": "text"
+    },
+    "tls": {
+      "enabled": false
+    }
+  }
+}"#;
+        let file = create_config_file(config_content, ".json");
+
+        let config = Config::parse(file.path(), vec![])
+            .await
+            .expect("Failed to parse config");
+
+        assert_eq!(config.address.to_string(), "0.0.0.0:3000");
+        assert!(!config.logging.enabled);
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_parse_toml_format() {
+        let config_content = r#"[cluster-agent]
+addr = ":7070"
+container-logs-dir = "/toml/logs"
+
+[cluster-agent.logging]
+enabled = true
+level = "info"
+format = "json"
+
+[cluster-agent.tls]
+enabled = false
+"#;
+        let file = create_config_file(config_content, ".toml");
+
+        let config = Config::parse(file.path(), vec![])
+            .await
+            .expect("Failed to parse config");
+
+        assert_eq!(config.address.to_string(), "[::]:7070");
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_tls_enabled_without_cert_files_fails() {
+        let config_content = r#"cluster-agent:
+  addr: ":8080"
+  container-logs-dir: "/logs"
+  logging:
+    enabled: true
+    level: "info"
+    format: "json"
+  tls:
+    enabled: true
+"#;
+        let file = create_config_file(config_content, ".yaml");
+
+        let result = Config::parse(file.path(), vec![]).await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("Cert file and key file")
+                || err.to_string().contains("should be supplied")
+        );
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_tls_require_and_verify_without_ca_fails() {
+        let config_content = r#"cluster-agent:
+  addr: ":8080"
+  container-logs-dir: "/logs"
+  logging:
+    enabled: true
+    level: "info"
+    format: "json"
+  tls:
+    enabled: true
+    cert-file: "/path/to/cert.pem"
+    key-file: "/path/to/key.pem"
+    client-auth: "require-and-verify"
+"#;
+        let file = create_config_file(config_content, ".yaml");
+
+        let result = Config::parse(file.path(), vec![]).await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("Trusted certificates")
+                || err.to_string().contains("should be supplied")
+        );
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_tls_enabled_with_all_files_succeeds() {
+        let config_content = r#"cluster-agent:
+  addr: ":8080"
+  container-logs-dir: "/logs"
+  logging:
+    enabled: true
+    level: "info"
+    format: "json"
+  tls:
+    enabled: true
+    cert-file: "/path/to/cert.pem"
+    key-file: "/path/to/key.pem"
+    ca-file: "/path/to/ca.pem"
+    client-auth: "require-and-verify"
+"#;
+        let file = create_config_file(config_content, ".yaml");
+
+        let config = Config::parse(file.path(), vec![])
+            .await
+            .expect("Failed to parse config");
+
+        assert!(config.tls.enabled);
+        assert_eq!(
+            config.tls.cert_file,
+            Some(PathBuf::from("/path/to/cert.pem"))
+        );
+        assert_eq!(config.tls.key_file, Some(PathBuf::from("/path/to/key.pem")));
+        assert_eq!(config.tls.ca_file, Some(PathBuf::from("/path/to/ca.pem")));
+        assert_eq!(
+            config.tls.client_auth,
+            Some("require-and-verify".to_string())
+        );
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_parse_with_defaults() {
+        let config_content = r#"cluster-agent:
+  tls:
+    enabled: false
+"#;
+        let file = create_config_file(config_content, ".yaml");
+
+        let config = Config::parse(file.path(), vec![])
+            .await
+            .expect("Failed to parse config");
+
+        assert_eq!(config.address.to_string(), "[::]:50051");
+        assert_eq!(config.logs_dir, PathBuf::from("/var/log/containers"));
+        assert!(config.logging.enabled);
+        assert_eq!(config.logging.level, "info");
+        assert_eq!(config.logging.format, "json");
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_invalid_file_format_fails() {
+        let file = tempfile::Builder::new()
+            .suffix(".invalid")
+            .tempfile()
+            .expect("Failed to create temp file");
+
+        let result = Config::parse(file.path(), vec![]).await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("not of a registered file format"));
+    }
+}
