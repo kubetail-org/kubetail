@@ -67,16 +67,19 @@ scoop install kubetail
 # MacPorts
 sudo port install kubetail
 
-# asdf
-asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
-asdf install kubetail latest
+# Ubuntu
+sudo add-apt-repository ppa:kubetail/kubetail
+sudo apt update && sudo apt install kubetail-cli
 
 # Arch Linux (AUR)
-git clone https://aur.archlinux.org/kubetail-bin.git
-cd kubetail-bin && makepkg -si
+yay -S kubetail-cli
 
 # Gentoo (GURU)
 ACCEPT_KEYWORDS="~$(portageq envvar ARCH)" emerge dev-util/kubetail-bin
+
+# asdf
+asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
+asdf install kubetail latest
 
 # Nix (Flake)
 nix profile add github:kubetail-org/kubetail-nix
