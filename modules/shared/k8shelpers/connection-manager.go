@@ -51,6 +51,7 @@ type ConnectionManager interface {
 	GetOrCreateClientset(kubeContext string) (kubernetes.Interface, error)
 	GetOrCreateDynamicClient(kubeContext string) (dynamic.Interface, error)
 	GetDefaultNamespace(kubeContext string) string
+	GetNamespaceList(kubeContext string) ([]string, error)
 	DerefKubeContext(kubeContext *string) string
 	NewInformer(ctx context.Context, kubeContext string, token string, namespace string, gvr schema.GroupVersionResource) (informers.GenericInformer, func(), error)
 	WaitUntilReady(ctx context.Context, kubeContext string) error
@@ -228,6 +229,26 @@ func (cm *DesktopConnectionManager) GetDefaultNamespace(kubeContext string) stri
 	}
 
 	return context.Namespace
+}
+
+// GetNamespaceList returns a list of all namespaces in the cluster
+func (cm *DesktopConnectionManager) GetNamespaceList(kubeContext string) ([]string, error) {
+	clientset, err := cm.GetOrCreateClientset(kubeContext)
+	if err != nil {
+		return nil, err
+	}
+
+	rawNamespaceList, err := clientset.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	namespaceList := make([]string, len(rawNamespaceList.Items))
+	for i, val := range rawNamespaceList.Items {
+		namespaceList[i] = val.Name
+	}
+
+	return namespaceList, nil
 }
 
 // DerefKubeContext
@@ -514,6 +535,26 @@ func (cm *InClusterConnectionManager) NewInformer(ctx context.Context, kubeConte
 // Get default namespace from local filesystem on pod
 func (cm *InClusterConnectionManager) GetDefaultNamespace(kubeContext string) string {
 	return metav1.NamespaceDefault
+}
+
+// GetNamespaceList returns a list of all namespaces in the cluster
+func (cm *InClusterConnectionManager) GetNamespaceList(kubeContext string) ([]string, error) {
+	clientset, err := cm.GetOrCreateClientset(kubeContext)
+	if err != nil {
+		return nil, err
+	}
+
+	rawNamespaceList, err := clientset.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	namespaceList := make([]string, len(rawNamespaceList.Items))
+	for i, val := range rawNamespaceList.Items {
+		namespaceList[i] = val.Name
+	}
+
+	return namespaceList, nil
 }
 
 // DerefKubeContext
