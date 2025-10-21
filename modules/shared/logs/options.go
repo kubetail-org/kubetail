@@ -237,3 +237,25 @@ func WithAllowedNamespaces(allowedNamespaces []string) Option {
 		return nil
 	}
 }
+
+// WithNamespace sets the namespace for source watcher
+func WithNamespace(namespace string) Option {
+	return func(target any) error {
+		switch t := target.(type) {
+		case *sourceWatcher:
+			t.namespace = namespace
+		}
+		return nil
+	}
+}
+
+// WithAllNamespaces sets whether to return logs from all namespaces
+func WithAllNamespaces(allNamespaces bool) Option {
+	return func(target any) error {
+		switch t := target.(type) {
+		case *sourceWatcher:
+			t.allNamespaces = allNamespaces
+		}
+		return nil
+	}
+}

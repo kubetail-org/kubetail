@@ -236,7 +236,7 @@ var logsCmd = &cobra.Command{
 		osList, _ := flags.GetStringSlice("os")
 		archList, _ := flags.GetStringSlice("arch")
 		nodeList, _ := flags.GetStringSlice("node")
-		namespaceList, _ := flags.GetStringSlice("namespace")
+		namespace, _ := flags.GetString("namespace")
 
 		hideHeader, _ := flags.GetBool("hide-header")
 		hideTs, _ := flags.GetBool("hide-ts")
@@ -314,11 +314,6 @@ var logsCmd = &cobra.Command{
 			untilTime = beforeTime.Add(-1 * time.Nanosecond)
 		}
 
-		// clear namespace list
-		if allNamespaces {
-			namespaceList = namespaceList[:0]
-		}
-
 		// Init connection manager
 		cm, err := k8shelpers.NewDesktopConnectionManager(k8shelpers.WithKubeconfigPath(kubeconfigPath), k8shelpers.WithLazyConnect(true))
 		cli.ExitOnError(err)
@@ -335,7 +330,8 @@ var logsCmd = &cobra.Command{
 			logs.WithOSes(osList),
 			logs.WithArches(archList),
 			logs.WithNodes(nodeList),
-			logs.WithAllowedNamespaces(namespaceList),
+			logs.WithNamespace(namespace),
+			logs.WithAllNamespaces(allNamespaces),
 		}
 
 		switch streamMode {
@@ -642,13 +638,13 @@ func init() {
 	logsCmd.MarkFlagsMutuallyExclusive("until", "before")
 
 	flagset.StringP("grep", "g", "", "Filter records by a regular expression")
+	flagset.StringP("namespace", "n", "", "Filter source pods by namespace")
 
 	flagset.StringSlice("region", []string{}, "Filter source pods by region")
 	flagset.StringSlice("zone", []string{}, "Filter source pods by zone")
 	flagset.StringSlice("os", []string{}, "Filter source pods by operating system")
 	flagset.StringSlice("arch", []string{}, "Filter source pods by CPU architecture")
 	flagset.StringSlice("node", []string{}, "Filter source pods by node name")
-	flagset.StringSliceP("namespace", "n", []string{}, "Filter source pods by namespace")
 
 	flagset.Bool("raw", false, "Output only raw log messages without metadata")
 	flagset.Bool("all-namespaces", false, "Include records from all namespaces (overrides --namespace)")
@@ -666,7 +662,7 @@ func init() {
 	flagset.Bool("hide-header", false, "Hide table header")
 	flagset.Bool("hide-dot", false, "Hide the dot indicator in the records")
 
-	//flagset.BoolP("reverse", "r", false, "List records in reverse order")
+	// flagset.BoolP("reverse", "r", false, "List records in reverse order")
 
 	flagset.Bool("force", false, "Force command (if necessary)")
 
