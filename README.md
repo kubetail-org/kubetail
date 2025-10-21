@@ -55,6 +55,9 @@ kubectl krew install kubetail
 # Snap
 sudo snap install kubetail
 
+# MacPorts
+sudo port install kubetail
+
 # Winget
 winget install Kubetail.Kubetail
 
@@ -64,18 +67,24 @@ choco install kubetail
 # Scoop
 scoop install kubetail
 
-# MacPorts
-sudo port install kubetail
+# Ubuntu/Mint
+add-apt-repository ppa:kubetail/kubetail
+apt update && apt install kubetail-cli
 
-# Ubuntu
-sudo add-apt-repository ppa:kubetail/kubetail
-sudo apt update && sudo apt install kubetail-cli
+# Fedora/CentOS/RHEL
+DISTRO="<your_distro>" # Fedora_N | CentOS_N | CentOS_Stream_N | RHEL_N
+dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:/kubetail/${DISTRO}/home:kubetail.repo
+dnf install kubetail-cli
 
 # Arch Linux (AUR)
-yay -S kubetail-cli
+yay -S --noconfirm kubetail-cli
+
+# SUSE
+zypper addrepo 'https://download.opensuse.org/repositories/home:/kubetail/$releasever/' kubetail
+zypper refresh && zypper install kubetail-cli
 
 # Gentoo (GURU)
-ACCEPT_KEYWORDS="~$(portageq envvar ARCH)" emerge dev-util/kubetail-bin
+ACCEPT_KEYWORDS="~$(portageq envvar ARCH)" emerge dev-util/kubetail
 
 # asdf
 asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
