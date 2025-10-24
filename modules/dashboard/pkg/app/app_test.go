@@ -165,3 +165,59 @@ func TestHealthz(t *testing.T) {
 	assert.Equal(t, http.StatusOK, result.StatusCode)
 	assert.Equal(t, "{\"status\":\"ok\"}", w.Body.String())
 }
+
+func TestClusterAPIProxyRouteWithBasePath(t *testing.T) {
+	tests := []struct {
+		name         string
+		basePath     string
+		expectedPath string
+	}{
+		{
+			name:         "EmptyBasePath",
+			basePath:     "",
+			expectedPath: "/cluster-api-proxy/*path",
+		},
+		{
+			name:         "RootBasePath",
+			basePath:     "/",
+			expectedPath: "/cluster-api-proxy/*path",
+		},
+		{
+			name:         "WithBasePath",
+			basePath:     "/my-app",
+			expectedPath: "/my-app/cluster-api-proxy/*path",
+		},
+		{
+			name:         "WithTrailingSlash",
+			basePath:     "/my-app/",
+			expectedPath: "/my-app/cluster-api-proxy/*path",
+		},
+		{
+			name:         "MultiLevelBasePath",
+			basePath:     "/apps/kubetail",
+			expectedPath: "/apps/kubetail/cluster-api-proxy/*path",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := newTestConfig()
+			cfg.Dashboard.BasePath = tt.basePath
+
+			app := newTestApp(cfg)
+
+			// Check if the route is registered with the correct basePath
+			routes := app.Routes()
+			found := false
+			for _, route := range routes {
+				if route.Path == tt.expectedPath {
+					found = true
+					break
+				}
+			}
+
+			assert.True(t, found,
+				"Expected cluster-api-proxy route to be registered at %s", tt.expectedPath)
+		})
+	}
+}
