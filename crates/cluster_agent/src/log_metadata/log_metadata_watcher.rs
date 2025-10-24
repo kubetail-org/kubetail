@@ -706,4 +706,359 @@ mod test {
             );
         }
     }
+
+    #[tokio::test]
+    #[cfg(not(target_os = "macos"))]
+    #[parallel]
+    async fn test_newly_created_file_receives_modify_events() {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let namespaces = vec!["modify-namespace".into()];
+        let (term_tx, _term_rx) = broadcast::channel(1);
+        let logs_dir = temp_dir.path().to_owned();
+
+        let (log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            logs_dir.clone(),
+            namespaces,
+            term_tx.clone(),
+            "The node name".to_owned(),
+        );
+
+        task::spawn(async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await });
+
+        while term_tx.receiver_count() != 2 {
+            sleep(Duration::from_millis(50)).await;
+        }
+
+        sleep(Duration::from_millis(200)).await;
+
+        let file_path =
+            logs_dir.join("pod-name_modify-namespace_container-name-newcontainerid.log");
+        let mut file = File::create(&file_path).expect("Failed to create file");
+        file.write_all(&vec![0; 4])
+            .expect("Failed to write initial data");
+        file.flush().expect("Failed to flush");
+
+        sleep(Duration::from_millis(500)).await;
+
+        file.write_all(&vec![1; 3])
+            .expect("Failed to write additional data");
+        file.flush().expect("Failed to flush");
+        drop(file);
+
+        sleep(Duration::from_millis(500)).await;
+
+        let mut events = Vec::new();
+        let timeout_duration = Duration::from_secs(5);
+        let start = std::time::Instant::now();
+
+        while events.len() < 2 && start.elapsed() < timeout_duration {
+            match tokio::time::timeout(Duration::from_millis(100), log_metadata_rx.recv()).await {
+                Ok(Some(Ok(event))) => events.push(event),
+                Ok(Some(Err(_))) => break, // Error received
+                Ok(None) => break,         // Channel closed
+                Err(_) => continue,        // Timeout, keep trying
+            }
+        }
+
+        assert!(
+            events.len() >= 1,
+            "Expected at least 1 event, got {}",
+            events.len()
+        );
+
+        let added_event = events.iter().find(|e| e.r#type == "ADDED");
+        assert!(added_event.is_some(), "No ADDED event found");
+
+        let added = added_event.unwrap();
+        let added_size = added
+            .object
+            .as_ref()
+            .unwrap()
+            .file_info
+            .as_ref()
+            .unwrap()
+            .size;
+
+        assert!(
+            added_size == 4 || added_size == 7,
+            "ADDED event size should be 4 or 7, got {}",
+            added_size
+        );
+
+        if added_size == 4 {
+            let modified_event = events.iter().find(|e| e.r#type == "MODIFIED");
+            assert!(
+                modified_event.is_some(),
+                "Expected MODIFIED event when ADDED size is 4"
+            );
+
+            let modified_size = modified_event
+                .unwrap()
+                .object
+                .as_ref()
+                .unwrap()
+                .file_info
+                .as_ref()
+                .unwrap()
+                .size;
+            assert_eq!(modified_size, 7, "MODIFIED event should have size 7");
+        }
+
+        let _ = remove_file(&file_path);
+    }
+
+    #[tokio::test]
+    #[cfg(not(target_os = "macos"))]
+    #[parallel]
+    async fn test_multiple_updates_to_newly_created_file() {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let namespaces = vec!["multi-modify-namespace".into()];
+        let (term_tx, _term_rx) = broadcast::channel(1);
+        let logs_dir = temp_dir.path().to_owned();
+
+        let (log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            logs_dir.clone(),
+            namespaces,
+            term_tx.clone(),
+            "The node name".to_owned(),
+        );
+
+        task::spawn(async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await });
+
+        while term_tx.receiver_count() != 2 {
+            sleep(Duration::from_millis(50)).await;
+        }
+
+        sleep(Duration::from_millis(200)).await;
+
+        let file_path = logs_dir.join("pod-name_multi-modify-namespace_container-name-multiid.log");
+        let mut file = File::create(&file_path).expect("Failed to create file");
+        file.write_all(&vec![0; 2])
+            .expect("Failed to write initial data");
+        file.flush().expect("Failed to flush");
+
+        sleep(Duration::from_millis(500)).await;
+
+        for i in 1..=3 {
+            file.write_all(&vec![i; 2]).expect("Failed to write data");
+            file.flush().expect("Failed to flush");
+            sleep(Duration::from_secs(3)).await; // Longer delay to exceed debounce window
+        }
+        drop(file);
+
+        sleep(Duration::from_millis(500)).await;
+
+        let mut events = Vec::new();
+        let timeout_duration = Duration::from_secs(5);
+        let start = std::time::Instant::now();
+
+        while start.elapsed() < timeout_duration {
+            match tokio::time::timeout(Duration::from_millis(100), log_metadata_rx.recv()).await {
+                Ok(Some(Ok(event))) => events.push(event),
+                Ok(Some(Err(_))) => break,
+                Ok(None) => break,
+                Err(_) => {
+                    if events.len() > 0 {
+                        break;
+                    }
+                }
+            }
+        }
+
+        assert!(events.len() >= 1, "Expected at least 1 event");
+
+        let added_events: Vec<_> = events.iter().filter(|e| e.r#type == "ADDED").collect();
+        assert_eq!(added_events.len(), 1, "Should have exactly one ADDED event");
+
+        let modified_events: Vec<_> = events.iter().filter(|e| e.r#type == "MODIFIED").collect();
+        assert!(
+            modified_events.len() > 0,
+            "Should have at least one MODIFIED event"
+        );
+
+        if let Some(last_modified) = modified_events.last() {
+            let file_size = last_modified
+                .object
+                .as_ref()
+                .unwrap()
+                .file_info
+                .as_ref()
+                .unwrap()
+                .size;
+            assert_eq!(
+                file_size, 8,
+                "Final file size should be 2 + (2*3) = 8 bytes"
+            );
+        }
+
+        let _ = remove_file(&file_path);
+    }
+
+    #[tokio::test]
+    #[cfg(not(target_os = "macos"))]
+    #[parallel]
+    async fn test_create_and_immediate_modify_before_watcher_starts() {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let namespaces = vec!["immediate-namespace".into()];
+        let (term_tx, _term_rx) = broadcast::channel(1);
+        let logs_dir = temp_dir.path().to_owned();
+
+        let file_path =
+            logs_dir.join("pod-name_immediate-namespace_container-name-immediateid.log");
+        let mut file = File::create(&file_path).expect("Failed to create file");
+        file.write_all(&vec![0; 5])
+            .expect("Failed to write initial data");
+        file.flush().expect("Failed to flush");
+        drop(file);
+
+        let (log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            logs_dir.clone(),
+            namespaces,
+            term_tx.clone(),
+            "The node name".to_owned(),
+        );
+
+        task::spawn(async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await });
+
+        while term_tx.receiver_count() != 2 {
+            sleep(Duration::from_millis(50)).await;
+        }
+
+        sleep(Duration::from_millis(200)).await;
+
+        let mut file = File::options()
+            .write(true)
+            .append(true)
+            .open(&file_path)
+            .expect("Failed to open file");
+        file.write_all(&vec![1; 3]).expect("Failed to write data");
+        file.flush().expect("Failed to flush");
+        drop(file);
+
+        sleep(Duration::from_millis(500)).await;
+
+        let event = tokio::time::timeout(Duration::from_secs(5), log_metadata_rx.recv())
+            .await
+            .expect("Timeout waiting for event")
+            .expect("Channel closed")
+            .expect("Error receiving event");
+
+        verify_event(
+            event,
+            "MODIFIED",
+            "immediateid",
+            "The node name",
+            "immediate-namespace",
+            "pod-name",
+            "container-name",
+            Some(8),
+        );
+
+        let result = tokio::time::timeout(Duration::from_millis(100), log_metadata_rx.recv()).await;
+        assert!(
+            result.is_err() || matches!(result, Ok(None)),
+            "Should not have more events"
+        );
+
+        let _ = remove_file(&file_path);
+    }
+
+    #[tokio::test]
+    #[parallel]
+    async fn test_created_file_with_wrong_namespace_not_watched() {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let namespaces = vec!["correct-namespace".into()];
+        let (term_tx, _term_rx) = broadcast::channel(1);
+        let logs_dir = temp_dir.path().to_owned();
+
+        let (log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            logs_dir.clone(),
+            namespaces,
+            term_tx.clone(),
+            "The node name".to_owned(),
+        );
+
+        task::spawn(async move {
+            log_metadata_watcher
+                .watch::<PollWatcher>(Some(
+                    notify::Config::default().with_poll_interval(Duration::from_millis(100)),
+                ))
+                .await
+        });
+
+        while term_tx.receiver_count() != 2 {
+            sleep(Duration::from_millis(50)).await;
+        }
+
+        sleep(Duration::from_millis(300)).await;
+
+        let wrong_file_path = logs_dir.join("pod-name_wrong-namespace_container-name-wrongid.log");
+        let mut wrong_file = File::create(&wrong_file_path).expect("Failed to create file");
+        wrong_file
+            .write_all(&vec![0; 4])
+            .expect("Failed to write data");
+        wrong_file.flush().expect("Failed to flush");
+
+        let correct_file_path =
+            logs_dir.join("pod-name_correct-namespace_container-name-correctid.log");
+        let mut correct_file = File::create(&correct_file_path).expect("Failed to create file");
+        correct_file
+            .write_all(&vec![0; 4])
+            .expect("Failed to write data");
+        correct_file.flush().expect("Failed to flush");
+
+        sleep(Duration::from_millis(500)).await;
+
+        wrong_file
+            .write_all(&vec![1; 2])
+            .expect("Failed to write to wrong file");
+        wrong_file.flush().expect("Failed to flush");
+        correct_file
+            .write_all(&vec![1; 2])
+            .expect("Failed to write to correct file");
+        correct_file.flush().expect("Failed to flush");
+
+        drop(wrong_file);
+        drop(correct_file);
+
+        sleep(Duration::from_millis(500)).await;
+
+        let mut events = Vec::new();
+        let timeout_duration = Duration::from_secs(5);
+        let start = std::time::Instant::now();
+
+        while start.elapsed() < timeout_duration && events.len() < 4 {
+            match tokio::time::timeout(Duration::from_millis(100), log_metadata_rx.recv()).await {
+                Ok(Some(Ok(event))) => events.push(event),
+                Ok(Some(Err(_))) => break,
+                Ok(None) => break,
+                Err(_) => {
+                    if events.len() > 0 {
+                        break;
+                    }
+                }
+            }
+        }
+
+        assert!(events.len() > 0, "Should have received at least one event");
+
+        for event in &events {
+            let namespace = &event
+                .object
+                .as_ref()
+                .unwrap()
+                .spec
+                .as_ref()
+                .unwrap()
+                .namespace;
+            assert_eq!(
+                namespace, "correct-namespace",
+                "Got event for unexpected namespace: {}",
+                namespace
+            );
+        }
+
+        let _ = remove_file(&wrong_file_path);
+        let _ = remove_file(&correct_file_path);
+    }
 }
