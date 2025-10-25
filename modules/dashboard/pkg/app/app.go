@@ -79,7 +79,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 		app.cm = cm
 
 		// Init Cluster API proxy
-		clusterAPIProxy, err := newClusterAPIProxy(cfg, app.cm, "/cluster-api-proxy")
+		clusterAPIProxy, err := newClusterAPIProxy(cfg, app.cm, path.Join(cfg.Dashboard.BasePath, "/cluster-api-proxy"))
 		if err != nil {
 			return nil, err
 		}
