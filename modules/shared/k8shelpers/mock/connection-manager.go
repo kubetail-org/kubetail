@@ -84,6 +84,17 @@ func (m *MockConnectionManager) GetDefaultNamespace(kubeContext string) string {
 	return ret.String(0)
 }
 
+func (m *MockConnectionManager) GetNamespaceList(kubeContext string) ([]string, error) {
+	ret := m.Called(kubeContext)
+
+	var r0 []string
+	if ret.Get(0) != nil {
+		r0 = ret.Get(0).([]string)
+	}
+
+	return r0, ret.Error(1)
+}
+
 func (m *MockConnectionManager) DerefKubeContext(kubeContextPtr *string) string {
 	ret := m.Called(kubeContextPtr)
 	return ret.String(0)
