@@ -50,7 +50,7 @@ type Stream struct {
 	sinceTime time.Time
 	untilTime time.Time
 
-	//reverse bool
+	// reverse bool
 	follow    bool
 	grep      string
 	grepRegex *regexp.Regexp
