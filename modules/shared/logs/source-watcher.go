@@ -388,7 +388,7 @@ func (w *sourceWatcher) updateSources_UNSAFE() {
 		for _, workload := range w.index.GetWorkloads(pp.Namespace, pp.WorkloadType, pp.WorkloadName) {
 			for _, pod := range w.index.GetPodsOwnedByWorkload(workload.GetUID()) {
 				wantName := pp.ContainerName
-				for n, status := range pod.Status.ContainerStatuses {
+				for n, status := range slices.Concat(pod.Status.ContainerStatuses, pod.Status.InitContainerStatuses) {
 					// Wait until we have an ID
 					if status.ContainerID == "" {
 						continue

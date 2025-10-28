@@ -12,11 +12,18 @@ spec:
     spec:
       template:
         spec:
+          initContainers:
+            - name: init
+              image: busybox:1.28
+              command:
+                - /bin/sh
+                - -c
+                - date; echo Initializing pod
           containers:
-          - name: hello
-            image: busybox:1.28
-            command:
-            - /bin/sh
-            - -c
-            - date; echo Hello from the Kubernetes cluster
+            - name: hello
+              image: busybox:1.28
+              command:
+                - /bin/sh
+                - -c
+                - date; echo Hello from the Kubernetes cluster
           restartPolicy: OnFailure
