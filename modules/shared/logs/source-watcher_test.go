@@ -60,6 +60,108 @@ func TestNewSourceWatcherWithAllowedNamespaces(t *testing.T) {
 	assert.Equal(t, []parsedPath{{Namespace: "ns1", WorkloadType: WorkloadTypePod, WorkloadName: "pod1", ContainerName: ""}}, w.parsedPaths)
 }
 
+func TestMultipleContainers(t *testing.T) {
+	// Mock data
+	mockNode := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node1",
+		},
+	}
+
+	mockPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod1",
+			Namespace: "default",
+			UID:       "pod1-uid",
+		},
+		Spec: corev1.PodSpec{
+			NodeName: "node1",
+		},
+		Status: corev1.PodStatus{
+			InitContainerStatuses: []corev1.ContainerStatus{
+				{
+					Name:        "init1",
+					ContainerID: "init1-id",
+				},
+			},
+			ContainerStatuses: []corev1.ContainerStatus{
+				{
+					Name:        "container1",
+					ContainerID: "container1-id",
+				},
+			},
+		},
+	}
+
+	mockSource1 := LogSource{
+		Metadata: LogSourceMetadata{
+			Node: "node1",
+		},
+		Namespace:     "default",
+		PodName:       "pod1",
+		ContainerName: "init1",
+		ContainerID:   "init1-id",
+	}
+
+	mockSource2 := LogSource{
+		Metadata: LogSourceMetadata{
+			Node: "node1",
+		},
+		Namespace:     "default",
+		PodName:       "pod1",
+		ContainerName: "container1",
+		ContainerID:   "container1-id",
+	}
+
+	// Table-driven tests
+	tests := []struct {
+		name            string
+		setSourceString string
+		wantSources     []LogSource
+	}{
+		{
+			name:            "sees only main container by default",
+			setSourceString: "default:pods/pod1",
+			wantSources:     []LogSource{mockSource2},
+		},
+		{
+			name:            "sees only init container when requested",
+			setSourceString: "default:pods/pod1/init1",
+			wantSources:     []LogSource{mockSource1},
+		},
+		{
+			name:            "sees all containers with wildcard",
+			setSourceString: "default:pods/pod1/*",
+			wantSources:     []LogSource{mockSource2, mockSource1},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Init connection Manager
+			cm := &k8shelpersmock.MockConnectionManager{}
+			cm.On("GetDefaultNamespace", mock.Anything).Return("default")
+
+			// Initialize source watcher
+			w, err := NewSourceWatcher(cm, []string{tt.setSourceString})
+			assert.NoError(t, err)
+
+			sw := w.(*sourceWatcher)
+			sw.isReady = true
+
+			// Execute add
+			sw.handleNodeAdd(mockNode)
+			sw.handleWorkloadAdd(mockPod)
+
+			// Wait for events
+			sw.eventbus.WaitAsync()
+
+			// Verify results
+			assert.ElementsMatch(t, tt.wantSources, sw.sources.ToSlice())
+		})
+	}
+}
+
 func TestHandleWorkloadAdd(t *testing.T) {
 	// Mock data
 	mockNode := &corev1.Node{
@@ -163,7 +265,7 @@ func TestHandleWorkloadAdd(t *testing.T) {
 			sw.eventbus.WaitAsync()
 
 			// Verify results
-			assert.Equal(t, tt.wantSources, sw.sources.ToSlice())
+			assert.ElementsMatch(t, tt.wantSources, sw.sources.ToSlice())
 			assert.Equal(t, tt.wantEvents, events)
 		})
 	}
@@ -283,7 +385,7 @@ func TestHandleWorkloadDelete(t *testing.T) {
 			sw.eventbus.WaitAsync()
 
 			// Verify results
-			assert.Equal(t, tt.wantSources, sw.sources.ToSlice())
+			assert.ElementsMatch(t, tt.wantSources, sw.sources.ToSlice())
 			assert.Equal(t, tt.wantEvents, events)
 		})
 	}
