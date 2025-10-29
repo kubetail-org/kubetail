@@ -35,13 +35,13 @@ jobs:
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Download sha256 files
+      - name: Download SHA256SUMS
         id: release-info
         uses: robinraju/release-downloader@v1.12
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
-          fileName: "kubetail-linux-*.sha256"
+          fileName: "SHA256SUMS"
           out-file-path: "downloads"
 
       - name: Extract shasums
@@ -51,8 +51,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          AMD64_SHA256=$( tr -d '\r' < './kubetail-linux-amd64.sha256' | awk '{print $1}' )
-          ARM64_SHA256=$( tr -d '\r' < './kubetail-linux-arm64.sha256' | awk '{print $1}' )
+          AMD64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-linux-amd64" {print $1}' )
+          ARM64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-linux-arm64" {print $1}' )
 
           echo "amd64_sha256=$AMD64_SHA256" >> $GITHUB_OUTPUT
           echo "arm64_sha256=$ARM64_SHA256" >> $GITHUB_OUTPUT
@@ -69,7 +69,7 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.1
         with:
           ssh-private-key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          
+
       - name: Configure SSH
         run: |
           set -euo pipefail
@@ -148,13 +148,13 @@ jobs:
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Download sha256 files
+      - name: Download SHA256SUMS
         id: release-info
         uses: robinraju/release-downloader@v1.12
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
-          fileName: "*.orig.tar.xz.sha256"
+          fileName: "SHA256SUMS"
           out-file-path: "downloads"
 
       - name: Extract shasum
@@ -163,7 +163,7 @@ jobs:
         working-directory: ./downloads
         run: |
           set -euo pipefail
-          SHA256=$( tr -d '\r' < './kubetail_${{ steps.config.outputs.version }}.orig.tar.xz.sha256' | awk '{print $1}' )
+          SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-cli.orig.tar.xz" {print $1}' )
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
 
       - name: Checkout kubetail-cli repo
@@ -178,7 +178,7 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.1
         with:
           ssh-private-key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          
+
       - name: Configure SSH
         run: |
           set -euo pipefail
