@@ -46,8 +46,8 @@ jobs:
       - name: Extract shasums
         id: meta
         run: |
-          AMD64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-windows-amd64" {print $1}' )
-          ARM64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-windows-arm64" {print $1}' )
+          AMD64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-windows-amd64.zip" {print $1}' )
+          ARM64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-windows-arm64.zip" {print $1}' )
 
           echo "amd64_sha256=$AMD64_SHA256" >> $GITHUB_OUTPUT
           echo "arm64_sha256=$ARM64_SHA256" >> $GITHUB_OUTPUT
