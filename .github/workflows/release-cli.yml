@@ -13,6 +13,14 @@ on:
         description: "Version to release"
         required: true
         type: string
+      signing_policy:
+        description: "SignPath slug"
+        required: true
+        type: choice
+        default: test-signing
+        options:
+          - test-signing
+          - release-signing
       dry_run:
         description: "Dry run"
         required: false
@@ -25,15 +33,18 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.config.outputs.version }}
+      signing_policy: ${{ steps.config.outputs.signing_policy }}
       dry_run: ${{ steps.config.outputs.dry_run }}
     steps:
       - id: config
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "signing_policy=${{ github.event.inputs.signing_policy }}" >> $GITHUB_OUTPUT
             echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+            echo "signing_policy=release-signing" >> $GITHUB_OUTPUT
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
 
@@ -135,7 +146,64 @@ jobs:
           path: bin/*
           name: assets-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
 
-  sign:
+  sign-darwin:
+    name: Sign darwin binaries
+    needs: [config, build]
+    if: false
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch:
+          - amd64
+          - arm64
+    steps:
+      - name: Install SignPath MacOSCryptoTokenKit
+        run: |
+          curl -o SignPathCryptoTokenKit.dmg https://download.signpath.io/cryptoproviders/macos-cryptotokenkit/2-latest/SignPathCryptoTokenKit.dmg
+          codesign -dv --verbose SignPathCryptoTokenKit.dmg
+          hdiutil attach ./SignPathCryptoTokenKit.dmg -mountroot ./tools
+      - name: Download artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: assets-darwin-${{ matrix.arch }}
+          path: assets
+      - name: Sign binary
+        env:
+          BIN_NAME: kubetail-darwin-${{ matrix.arch }}
+        run: |
+          mkdir assets
+          echo "hello" > assets/${BIN_NAME}
+
+          open "./tools/SignPathCryptoTokenKit/SignPathCryptoTokenKit.app" --args \
+            --api-token ${{ secrets.SIGNPATH_API_TOKEN }} \
+            --organization-id ${{ secrets.SIGNPATH_ORGANIZATION_ID }} \
+            --project-slug kubetail \
+            --signing-policy-slug ${{ needs.config.outputs.signing_policy }}
+
+          sleep 20
+
+          # choose cert hash
+          if [ "${{ needs.config.outputs.signing_policy }}" == "release-signing" ]; then
+            CERT_HASH="TODO"
+          else
+            CERT_HASH="TODO"
+          fi
+
+          # sign
+          codesign -f --timestamp --options=runtime \
+            -s "$CERT_HASH" \
+            ./assets/${BIN_NAME}
+
+          # check signature
+          codesign -dv --verbose ./assets/${BIN_NAME}
+      - name: Upload signed artifact
+        uses: actions/upload-artifact@v5
+        with:
+          path: assets
+          name: assets-darwin-${{ matrix.arch }}
+          overwrite: true
+
+  sign-windows:
     name: Create windows zip and sign binaries
     needs: [config, build]
     runs-on: windows-latest
@@ -167,12 +235,11 @@ jobs:
           overwrite: true
       - name: Sign Windows Binaries
         uses: signpath/github-action-submit-signing-request@v1.1
-        if: ${{ needs.config.outputs.dry_run != 'true' }}
         with:
           api-token: "${{ secrets.SIGNPATH_API_TOKEN }}"
           organization-id: "${{ secrets.SIGNPATH_ORGANIZATION_ID }}"
           project-slug: "kubetail"
-          signing-policy-slug: "release-signing"
+          signing-policy-slug: "${{ needs.config.outputs.signing_policy }}"
           github-artifact-id: "${{ steps.upload-artifact.outputs.artifact-id }}"
           wait-for-completion: true
           output-artifact-directory: assets
@@ -182,7 +249,6 @@ jobs:
             version: ${{ toJSON(needs.config.outputs.version) }}
       - name: Upload signed artifacts
         uses: actions/upload-artifact@v5
-        if: ${{ needs.config.outputs.dry_run != 'true' }}
         with:
           path: assets
           name: assets-windows-${{ matrix.arch }}
@@ -190,7 +256,7 @@ jobs:
 
   package-tarball:
     name: Create gzipped tarballs
-    needs: [config, sign]
+    needs: [config, sign-windows]
     runs-on: ubuntu-24.04
     strategy:
       matrix:
