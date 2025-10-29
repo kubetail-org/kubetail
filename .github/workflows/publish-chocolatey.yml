@@ -33,13 +33,13 @@ jobs:
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Download sha256 files
+      - name: Download SHA256SUMS
         id: release-info
         uses: robinraju/release-downloader@v1.12
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
-          fileName: "kubetail-windows-*.sha256"
+          fileName: "SHA256SUMS"
           out-file-path: "downloads"
 
       - name: Extract tags and shasums
@@ -49,8 +49,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          AMD64_SHA256=$( tr -d '\r' < './kubetail-windows-amd64.sha256' | awk '{print $1}' )
-          ARM64_SHA256=$( tr -d '\r' < './kubetail-windows-arm64.sha256' | awk '{print $1}' )
+          AMD64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-windows-amd64" {print $1}' )
+          ARM64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-windows-arm64" {print $1}' )
 
           echo "amd64_sha256=$AMD64_SHA256" >> $GITHUB_OUTPUT
           echo "arm64_sha256=$ARM64_SHA256" >> $GITHUB_OUTPUT
