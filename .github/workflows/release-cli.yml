@@ -6,11 +6,76 @@ permissions:
 on:
   push:
     tags:
-      - 'cli/v*'
+      - "cli/v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run"
+        required: false
+        type: boolean
+        default: true
 
 jobs:
+  config:
+    name: Configure workflow
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.config.outputs.version }}
+      dry_run: ${{ steps.config.outputs.dry_run }}
+    steps:
+      - id: config
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+            echo "dry_run=false" >> $GITHUB_OUTPUT
+          fi
+
+  prepare:
+    name: Prepare source
+    needs: config
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/tags/cli/v${{ needs.config.outputs.version }}
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-node: "true"
+          setup-go: "true"
+      - name: Build frontend
+        working-directory: dashboard-ui
+        run: |
+          pnpm install
+          pnpm build
+      - name: Vendor backend
+        env:
+          GOWORK: off
+        run: |
+          rm -rf modules/dashboard/website
+          mv dashboard-ui/dist modules/dashboard/website
+          cd modules/cli
+          go mod vendor
+      - name: Clean up source directory
+        run: |
+          git reset --hard
+          rm -rf .git
+          rm -rf dashboard-ui/node_modules
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: source
+          path: .
+
   build:
     name: Build binaries
+    needs: [config, prepare]
     strategy:
       matrix:
         runner:
@@ -41,31 +106,38 @@ jobs:
             GOARCH: arm64
     runs-on: ${{ matrix.runner }}
     steps:
-      - name: Get tag name
-        uses: olegtarasov/get-tag@v2.1.4
-        id: tagName
+      - uses: actions/checkout@v5
         with:
-          tagRegex: 'cli/v(.*)'
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
+          ref: refs/tags/cli/v${{ needs.config.outputs.version }}
+          sparse-checkout: .github/actions/setup-environment
+          sparse-checkout-cone-mode: false
       - uses: ./.github/actions/setup-environment
         with:
-          setup-node: "true"
           setup-go: "true"
-      - name: Run build script
-        run: make build VERSION=${{ steps.tagName.outputs.tag }}
+      - name: Download source
+        uses: actions/download-artifact@v6
+        with:
+          name: source
+          path: .
+      - name: Build binary
+        working-directory: modules/cli
+        env:
+          GOWORK: off
+          CGO_ENABLED: 0
+          LDFLAGS: "-s -w -X 'github.com/kubetail-org/kubetail/modules/cli/cmd.version=${{ needs.config.outputs.version }}'"
+        run: |
+          go build -ldflags="${LDFLAGS}" -o ../../bin/kubetail .
       - name: Append os/arch to binary file name
         run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
         with:
-          name: artifacts-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
           path: bin/*
+          name: assets-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
 
   sign:
     name: Create windows zip and sign binaries
-    needs: build
+    needs: [config, build]
     runs-on: windows-latest
     strategy:
       matrix:
@@ -73,19 +145,13 @@ jobs:
           - amd64
           - arm64
     steps:
-      - name: Get tag name
-        uses: olegtarasov/get-tag@v2.1.4
-        id: tagName
-        with:
-          tagRegex: 'cli/v(.*)'
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
-          path: bin
-          pattern: artifacts-windows-${{ matrix.arch }}
-          merge-multiple: true
+          name: assets-windows-${{ matrix.arch }}
+          path: assets
       - name: Create zip archive
-        working-directory: ./bin
+        working-directory: ./assets
         shell: pwsh
         run: |
           $file = "kubetail-windows-${{ matrix.arch }}"
@@ -94,35 +160,37 @@ jobs:
           Remove-Item kubetail.exe
       - id: upload-artifact
         name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
-          name: artifacts-windows-${{ matrix.arch }}
-          path: bin/*
+          path: assets
+          name: assets-windows-${{ matrix.arch }}
           overwrite: true
       - name: Sign Windows Binaries
         uses: signpath/github-action-submit-signing-request@v1.1
+        if: ${{ needs.config.outputs.dry_run != 'true' }}
         with:
-          api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
-          organization-id: '${{ secrets.SIGNPATH_ORGANIZATION_ID }}'
-          project-slug: 'kubetail'
-          signing-policy-slug: 'release-signing'
-          github-artifact-id: '${{ steps.upload-artifact.outputs.artifact-id }}'
+          api-token: "${{ secrets.SIGNPATH_API_TOKEN }}"
+          organization-id: "${{ secrets.SIGNPATH_ORGANIZATION_ID }}"
+          project-slug: "kubetail"
+          signing-policy-slug: "release-signing"
+          github-artifact-id: "${{ steps.upload-artifact.outputs.artifact-id }}"
           wait-for-completion: true
-          output-artifact-directory: 'bin'
+          output-artifact-directory: assets
           parameters: |
             os: ${{ toJSON('windows') }}
             arch: ${{ toJSON(matrix.arch) }}
-            version: ${{ toJSON(steps.tagName.outputs.tag) }}
+            version: ${{ toJSON(needs.config.outputs.version) }}
       - name: Upload signed artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
+        if: ${{ needs.config.outputs.dry_run != 'true' }}
         with:
-          name: artifacts-windows-${{ matrix.arch }}
-          path: bin/*
+          path: assets
+          name: assets-windows-${{ matrix.arch }}
           overwrite: true
 
   package-tarball:
-    name: Build gzipped tarballs
-    needs: sign
+    name: Create gzipped tarballs
+    needs: [config, sign]
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -134,187 +202,75 @@ jobs:
           - amd64
           - arm64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
-          fetch-depth: 1
+          ref: refs/tags/cli/v${{ needs.config.outputs.version }}
           sparse-checkout: |
             LICENSE
           sparse-checkout-cone-mode: false
+          path: repo
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
-          path: bin
-          pattern: artifacts-${{ matrix.os }}-${{ matrix.arch }}
-          merge-multiple: true
+          name: assets-${{ matrix.os }}-${{ matrix.arch }}
+          path: assets
       - name: Create gzipped tarball
+        env:
+          REPO_DIR: repo
+          ASSETS_DIR: assets
+          OUTPUT_DIR: out
+          BIN_NAME: kubetail-${{ matrix.os }}-${{ matrix.arch }}
         run: |
+          mkdir -p "${OUTPUT_DIR}"
           TEMP_DIR="$(mktemp -d)"
-          BIN_NAME="kubetail-${{ matrix.os }}-${{ matrix.arch }}"
+
           TARGET_NAME="kubetail"
           if [ "${{ matrix.os }}" = "windows" ]; then
             TARGET_NAME="kubetail.exe"
           fi
-          chmod +x "bin/${BIN_NAME}"
-          mv "bin/${BIN_NAME}" "${TEMP_DIR}/${TARGET_NAME}"
-          cp LICENSE "${TEMP_DIR}/LICENSE"
-          tar -C "${TEMP_DIR}" -czf "bin/${BIN_NAME}.tar.gz" "${TARGET_NAME}" LICENSE
+
+          chmod +x "${ASSETS_DIR}/${BIN_NAME}"
+          mv "${ASSETS_DIR}/${BIN_NAME}" "${TEMP_DIR}/${TARGET_NAME}"
+          cp "${REPO_DIR}/LICENSE" "${TEMP_DIR}/LICENSE"
+          tar -C "${TEMP_DIR}" -czf "${OUTPUT_DIR}/${BIN_NAME}.tar.gz" "${TARGET_NAME}" LICENSE
           rm -rf "${TEMP_DIR}"
-      - id: upload-artifact
-        name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v5
         with:
-          name: artifacts-${{ matrix.os }}-${{ matrix.arch }}-targz
-          path: bin/*
-
-  package-deb:
-    name: Build deb package
-    needs: build
-    strategy:
-      matrix:
-        include:
-          - os: linux
-            arch: amd64
-          - os: linux
-            arch: arm64
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Get tag name
-        uses: olegtarasov/get-tag@v2.1.4
-        id: tagName
-        with:
-          tagRegex: 'cli/v(.*)'
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: bin
-          pattern: artifacts-${{ matrix.os }}-${{ matrix.arch }}
-          merge-multiple: true
-      - name: Create dir structure for .deb package
-        run: |
-          mkdir -p .debpkg/usr/bin
-          # when we download from deb, the binary should be named kubetail
-          cp -p 'bin/kubetail-${{ matrix.os }}-${{ matrix.arch }}' .debpkg/usr/bin/kubetail
-      - id: build_deb
-        name: Create a .deb package
-        uses: jiro4989/build-deb-action@v4.2.1
-        with:
-          package: kubetail
-          package_root: .debpkg
-          maintainer: Andres Morey
-          version: ${{ steps.tagName.outputs.tag }}
-          arch: ${{ matrix.arch }}
-          desc: 'Real-time logging dashboard for Kubernetes'
-      - name: Upload .deb artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: artifacts-${{ matrix.arch }}-deb
-          path: ${{ steps.build_deb.outputs.file_name }}
-
-  package-rpm:
-    name: Build rpm package
-    needs: build
-    strategy:
-      matrix:
-        include:
-          - os: linux
-            arch: amd64
-            pkgArch: x86_64
-          - os: linux
-            arch: arm64
-            pkgArch: aarch64
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Get tag name
-        uses: olegtarasov/get-tag@2.1.3
-        id: tagName
-        with:
-          tagRegex: 'cli/v(.*)'
-      - uses: actions/checkout@v4
-      - name: Install the rpm and rpm build
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rpm build-essential
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: bin
-          pattern: artifacts-${{ matrix.os }}-${{ matrix.arch }}
-          merge-multiple: true
-      - name: Rename the build binary to kubetail
-        run: |
-          mv 'bin/kubetail-${{ matrix.os }}-${{ matrix.arch }}' bin/kubetail
-      - name: Copy spec file to SPEC dir
-        run: |
-          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-          cp .github/ci-config/kubetail-rpm.spec ~/rpmbuild/SPECS/kubetail.spec
-      - name: Extract the release and version for rpm
-        id: rpmBuildInfo
-        run: |
-          CLI_VER='${{ steps.tagName.outputs.tag }}'
-          if [[ "$CLI_VER" == *"-"* ]]; then
-            # Handle pre-release versions like "0.7.1-rc1"
-            IFS='-' read -ra parts <<< "${CLI_VER}"
-            VERSION="${parts[0]}" 
-            RELEASE="0.${parts[1]}.1"
-          else
-            # Handle stable versions like "0.7.1" - always set release to "1"
-            VERSION="${CLI_VER}"
-            RELEASE="1"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "release=$RELEASE" >> $GITHUB_OUTPUT
-      - name: Create tarball for the binary
-        run: |
-          CLI_VER='${{steps.rpmBuildInfo.outputs.version}}' 
-          mkdir -p ~/rpmbuild/SOURCES/kubetail-${CLI_VER}
-          mv bin/kubetail ~/rpmbuild/SOURCES/kubetail-${CLI_VER}
-          cd ~/rpmbuild/SOURCES
-          tar czf "kubetail-${CLI_VER}.tar.gz" "kubetail-${CLI_VER}/"
-      - name: Build RPM package
-        run: |
-          VERSION='${{ steps.rpmBuildInfo.outputs.version }}' 
-          RELEASE='${{ steps.rpmBuildInfo.outputs.release }}'
-          ARCH='${{ matrix.pkgArch }}'
-          rpmbuild -ba --target "${ARCH}" ~/rpmbuild/SPECS/kubetail.spec --define "version ${VERSION}" --define "release ${RELEASE}"
-      - name: Rename file
-        run: |
-          VERSION='${{ steps.rpmBuildInfo.outputs.version }}' 
-          RELEASE='${{ steps.rpmBuildInfo.outputs.release }}'
-
-          mkdir -p rpm-output
-          FILE_NAME="kubetail-$VERSION-$RELEASE.${{ matrix.pkgArch }}.rpm"
-          FILE_NEW_NAME="kubetail-$VERSION-$RELEASE.${{ matrix.arch }}.rpm" # renaming arch to arm64 and amd64
-
-          mv ~/rpmbuild/RPMS/'${{ matrix.pkgArch }}'/"${FILE_NAME}" ./rpm-output/"${FILE_NEW_NAME}"
-      - name: Upload rpm artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: artifacts-${{ matrix.arch }}-rpm
-          path: rpm-output/*
+          name: assets-${{ matrix.os }}-${{ matrix.arch }}-tgz
+          path: out
 
   release:
     name: Create GitHub release
-    needs: [package-tarball, package-deb, package-rpm]
+    needs: [config, package-tarball]
     runs-on: ubuntu-24.04
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
+      - name: Download binaries
+        uses: actions/download-artifact@v6
         with:
-          path: bin
-          pattern: artifacts-*
+          pattern: assets-*
+          path: assets
           merge-multiple: true
-      - name: Generate SHA-256 checksums
-        shell: bash
-        working-directory: ./bin
+      - name: Download source
+        uses: actions/download-artifact@v6
+        with:
+          name: source
+          path: kubetail-cli
+      - name: Create source tarball
         run: |
-          shopt -s nullglob
-          for file in *; do
-            if [ -f "$file" ]; then
-              sha256sum "$file" > "${file}.sha256"
-            fi
-          done
+          tar -cJf assets/kubetail-cli.orig.tar.xz kubetail-cli
+      - name: Generate SHA-256 checksums
+        working-directory: ./assets
+        run: |
+          sha256sum * > SHA256SUMS
       - name: Create release
         uses: softprops/action-gh-release@v2.3.2
+        if: ${{ needs.config.outputs.dry_run != 'true' }}
         with:
-          files: bin/*
+          files: assets/*
           draft: true
+      - name: Debug
+        if: ${{ needs.config.outputs.dry_run == 'true' }}
+        run: |
+          ls -lah assets/*
+          cat assets/SHA256SUMS
