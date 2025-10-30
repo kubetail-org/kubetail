@@ -75,7 +75,6 @@ jobs:
           go mod vendor
       - name: Clean up source directory
         run: |
-          git reset --hard
           rm -rf .git
           rm -rf dashboard-ui/node_modules
       - name: Upload artifact
@@ -83,6 +82,7 @@ jobs:
         with:
           name: source
           path: .
+          include-hidden-files: true
 
   build:
     name: Build binaries
@@ -122,16 +122,17 @@ jobs:
           ref: refs/tags/cli/v${{ needs.config.outputs.version }}
           sparse-checkout: .github/actions/setup-environment
           sparse-checkout-cone-mode: false
-      - uses: ./.github/actions/setup-environment
+          path: repo
+      - uses: ./repo/.github/actions/setup-environment
         with:
           setup-go: "true"
       - name: Download source
         uses: actions/download-artifact@v6
         with:
           name: source
-          path: .
+          path: kubetail-cli
       - name: Build binary
-        working-directory: modules/cli
+        working-directory: kubetail-cli/modules/cli
         env:
           GOWORK: off
           CGO_ENABLED: 0
@@ -142,11 +143,12 @@ jobs:
         run: |
           go build -mod=vendor -ldflags="${LDFLAGS}" -o ../../bin/kubetail .
       - name: Append os/arch to binary file name
+        working-directory: kubetail-cli
         run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
-          path: bin/*
+          path: kubetail-cli/bin/*
           name: assets-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
 
   sign-darwin:
