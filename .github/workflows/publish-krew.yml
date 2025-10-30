@@ -8,16 +8,84 @@ on:
     types:
       - published
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to deploy"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run"
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   update-krew-index-repo:
     name: Update krew-index repo
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - name: Config
+        id: config
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+            echo "dry_run=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Download SHA256SUMS
+        id: release-info
+        uses: robinraju/release-downloader@v1.12
         with:
-          fetch-depth: 1
+          repository: kubetail-org/kubetail
+          tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
+          fileName: "SHA256SUMS"
+          out-file-path: "downloads"
+      - name: Extract shasums
+        id: meta
+        working-directory: ./downloads
+        run: |
+          set -euo pipefail
+
+          DARWIN_AMD64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-darwin-amd64.tar.gz" {print $1}' )
+          DARWIN_ARM64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-darwin-arm64.tar.gz" {print $1}' )
+          LINUX_AMD64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-linux-amd64.tar.gz" {print $1}' )
+          LINUX_ARM64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-linux-arm64.tar.gz" {print $1}' )
+          WINDOWS_AMD64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-windows-amd64.tar.gz" {print $1}' )
+          WINDOWS_ARM64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-windows-arm64.tar.gz" {print $1}' )
+
+          echo "darwin_amd64_sha256=$DARWIN_AMD64_SHA256" >> $GITHUB_OUTPUT
+          echo "darwin_arm64_sha256=$DARWIN_ARM64_SHA256" >> $GITHUB_OUTPUT
+          echo "linux_amd64_sha256=$LINUX_AMD64_SHA256" >> $GITHUB_OUTPUT
+          echo "linux_arm64_sha256=$LINUX_ARM64_SHA256" >> $GITHUB_OUTPUT
+          echo "windows_amd64_sha256=$WINDOWS_AMD64_SHA256" >> $GITHUB_OUTPUT
+          echo "windows_arm64_sha256=$WINDOWS_ARM64_SHA256" >> $GITHUB_OUTPUT
+      - name: Get template
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/ci-config/krew.yaml.tmpl
+          sparse-checkout-cone-mode: false
+      - name: Execute template
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
+          DARWIN_AMD64_SHA256: ${{ steps.meta.outputs.darwin_amd64_sha256 }}
+          DARWIN_ARM64_SHA256: ${{ steps.meta.outputs.darwin_arm64_sha256 }}
+          LINUX_AMD64_SHA256: ${{ steps.meta.outputs.linux_amd64_sha256 }}
+          LINUX_ARM64_SHA256: ${{ steps.meta.outputs.linux_arm64_sha256 }}
+          WINDOWS_AMD64_SHA256: ${{ steps.meta.outputs.windows_amd64_sha256 }}
+          WINDOWS_ARM64_SHA256: ${{ steps.meta.outputs.windows_arm64_sha256 }}
+        run: |
+          set -euo pipefail
+
+          envsubst '${VERSION} ${DARWIN_AMD64_SHA256} ${DARWIN_ARM64_SHA256} ${LINUX_AMD64_SHA256} ${LINUX_ARM64_SHA256} ${WINDOWS_AMD64_SHA256} ${WINDOWS_ARM64_SHA256}' \
+            < ".github/ci-config/krew.yaml.tmpl" \
+            > "krew.yaml"
+      - name: Debug
+        if: ${{ steps.config.outputs.dry_run == 'true' }}
+        run: cat krew.yaml
       - name: Update new version in krew-index
+        if: ${{ steps.config.outputs.dry_run != 'true' }}
         uses: rajatjindal/krew-release-bot@v0.0.47
         with:
-          krew_template_file: .github/ci-config/krew.yaml
+          krew_template_file: krew.yaml
