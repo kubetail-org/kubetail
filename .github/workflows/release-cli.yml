@@ -135,9 +135,12 @@ jobs:
         env:
           GOWORK: off
           CGO_ENABLED: 0
+          GOOS: ${{ matrix.GOOS }}
+          GOARCH: ${{ matrix.GOARCH }}
           LDFLAGS: "-s -w -X 'github.com/kubetail-org/kubetail/modules/cli/cmd.version=${{ needs.config.outputs.version }}'"
+        shell: bash
         run: |
-          go build -ldflags="${LDFLAGS}" -o ../../bin/kubetail .
+          go build -mod=vendor -ldflags="${LDFLAGS}" -o ../../bin/kubetail .
       - name: Append os/arch to binary file name
         run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
       - name: Upload artifact
