@@ -3,7 +3,7 @@ kind: Plugin
 metadata:
   name: kubetail
 spec:
-  version: "{{ trimPrefix \"cli/\" .TagName }}"
+  version: "v${VERSION}"
   homepage: https://github.com/kubetail-org/kubetail
   shortDescription: "Logging tool for Kubernetes with real-time web dashboard"
   description: |
@@ -16,35 +16,41 @@ spec:
       matchLabels:
         os: darwin
         arch: amd64
-    {{addURIAndSha "https://github.com/kubetail-org/kubetail/releases/download/{{ urlquery .TagName }}/kubetail-darwin-amd64.tar.gz" .TagName }}
+    uri: https://github.com/kubetail-org/kubetail/releases/download/cli%2Fv${VERSION}/kubetail-darwin-amd64.tar.gz
+    sha256: ${DARWIN_AMD64_SHA256}
     bin: kubetail
   - selector:
       matchLabels:
         os: darwin
         arch: arm64
-    {{addURIAndSha "https://github.com/kubetail-org/kubetail/releases/download/{{ urlquery .TagName }}/kubetail-darwin-arm64.tar.gz" .TagName }}
+    uri: https://github.com/kubetail-org/kubetail/releases/download/cli%2Fv${VERSION}/kubetail-darwin-arm64.tar.gz
+    sha256: ${DARWIN_ARM64_SHA256}
     bin: kubetail
   - selector:
       matchLabels:
         os: linux
         arch: amd64
-    {{addURIAndSha "https://github.com/kubetail-org/kubetail/releases/download/{{ urlquery .TagName }}/kubetail-linux-amd64.tar.gz" .TagName }}
+    uri: https://github.com/kubetail-org/kubetail/releases/download/cli%2Fv${VERSION}/kubetail-linux-amd64.tar.gz
+    sha256: ${LINUX_AMD64_SHA256}
     bin: kubetail
   - selector:
       matchLabels:
         os: linux
         arch: arm64
-    {{addURIAndSha "https://github.com/kubetail-org/kubetail/releases/download/{{ urlquery .TagName }}/kubetail-linux-arm64.tar.gz" .TagName }}
+    uri: https://github.com/kubetail-org/kubetail/releases/download/cli%2Fv${VERSION}/kubetail-linux-arm64.tar.gz
+    sha256: ${LINUX_ARM64_SHA256}
     bin: kubetail
   - selector:
       matchLabels:
         os: windows
         arch: amd64
-    {{addURIAndSha "https://github.com/kubetail-org/kubetail/releases/download/{{ urlquery .TagName }}/kubetail-windows-amd64.tar.gz" .TagName }}
+    uri: https://github.com/kubetail-org/kubetail/releases/download/cli%2Fv${VERSION}/kubetail-windows-amd64.tar.gz
+    sha256: ${WINDOWS_AMD64_SHA256}
     bin: kubetail.exe
   - selector:
       matchLabels:
         os: windows
         arch: arm64
-    {{addURIAndSha "https://github.com/kubetail-org/kubetail/releases/download/{{ urlquery .TagName }}/kubetail-windows-arm64.tar.gz" .TagName }}
+    uri: https://github.com/kubetail-org/kubetail/releases/download/cli%2Fv${VERSION}/kubetail-windows-arm64.tar.gz
+    sha256: ${WINDOWS_ARM64_SHA256}
     bin: kubetail.exe
