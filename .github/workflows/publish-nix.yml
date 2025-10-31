@@ -1,0 +1,25 @@
+name: publish-nix
+
+permissions:
+  contents: read
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  trigger-release-workflow:
+    name: Trigger release workflow in kubetail-org/kubetail-nix repo
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+      - name: Trigger workflow
+        uses: benc-uk/workflow-dispatch@v1.2.4
+        with:
+          repo: kubetail-org/kubetail-nix
+          workflow: release
+          token: ${{ secrets.PUBLISH_NIX_TOKEN }}
+          inputs: '{ "version": "${{ steps.version.outputs.version }}", "dry_run": false }'
