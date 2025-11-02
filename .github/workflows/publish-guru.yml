@@ -93,7 +93,28 @@ jobs:
       - name: Update Manifest
         working-directory: guru/dev-util/kubetail
         run: |
-          echo "DIST kubetail-cli_${{ needs.config.outputs.version }}.orig.tar.xz ${{ steps.meta.outputs.size }} BLAKE2B ${{ steps.meta.outputs.blake2b }} SHA512 ${{ steps.meta.outputs.sha512 }}" >> Manifest
+          prefix="DIST kubetail-cli_${{ needs.config.outputs.version }}.orig.tar.xz"
+          if ! grep -qF "$prefix" Manifest 2>/dev/null; then
+            echo "$prefix ${{ steps.meta.outputs.size }} BLAKE2B ${{ steps.meta.outputs.blake2b }} SHA512 ${{ steps.meta.outputs.sha512 }}" >> Manifest
+          fi
+
+      - name: Configure gpg
+        uses: crazy-max/ghaction-import-gpg@v6.3.0
+        with:
+          gpg_private_key: ${{ secrets.PGP_SIGNING_KEY }}
+          passphrase: ${{ secrets.PGP_PASSWORD }}
+
+      - name: Configure git
+        working-directory: guru
+        run: |
+          # Configure git
+          git config gpg.program gpg
+          git config push.gpgsign true
+          git config commit.gpgsign true
+
+          git config user.name "kubetail-bot"
+          git config user.email "bot@kubetail.com"
+          git config user.signingkey "${{ secrets.PGP_FINGERPRINT }}"
 
       - name: Debug
         if: ${{ needs.config.outputs.dry_run == 'true' }}
@@ -107,15 +128,17 @@ jobs:
         working-directory: guru
         if: ${{ needs.config.outputs.dry_run != 'true' }}
         run: |
-          # Set name and email
-          git config user.name "Andres Morey"
-          git config user.email "andres@kubetail.com"
-
           # Stage changes
           git add . --all
 
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
           # Commit and push
-          git commit -a -s -m "dev-util/kubetail: add ${{ needs.config.outputs.version }}"
+          git commit -a -s -S -m "dev-util/kubetail: add ${{ needs.config.outputs.version }}"
           git push origin
 
   update-kubetail-bin:
@@ -185,8 +208,33 @@ jobs:
         env:
           P: "kubetail-bin-${{ needs.config.outputs.version }}"
         run: |
-          echo "DIST $P-linux-amd64.tar.gz ${{ steps.meta.outputs.amd64_size }} BLAKE2B ${{ steps.meta.outputs.amd64_blake2b }} SHA512 ${{ steps.meta.outputs.amd64_sha512 }}" >> Manifest
-          echo "DIST $P-linux-arm64.tar.gz ${{ steps.meta.outputs.arm64_size }} BLAKE2B ${{ steps.meta.outputs.arm64_blake2b }} SHA512 ${{ steps.meta.outputs.arm64_sha512 }}" >> Manifest
+          prefix_amd64="DIST $P-linux-amd64.tar.gz"
+          if ! grep -qF "$prefix_amd64" Manifest 2>/dev/null; then
+            echo "$prefix_amd64 ${{ steps.meta.outputs.amd64_size }} BLAKE2B ${{ steps.meta.outputs.amd64_blake2b }} SHA512 ${{ steps.meta.outputs.amd64_sha512 }}" >> Manifest
+          fi
+
+          prefix_arm64="DIST $P-linux-arm64.tar.gz"
+          if ! grep -qF "$prefix_arm64" Manifest 2>/dev/null; then
+            echo "$prefix_arm64 ${{ steps.meta.outputs.arm64_size }} BLAKE2B ${{ steps.meta.outputs.arm64_blake2b }} SHA512 ${{ steps.meta.outputs.arm64_sha512 }}" >> Manifest
+          fi
+
+      - name: Configure gpg
+        uses: crazy-max/ghaction-import-gpg@v6.3.0
+        with:
+          gpg_private_key: ${{ secrets.PGP_SIGNING_KEY }}
+          passphrase: ${{ secrets.PGP_PASSWORD }}
+
+      - name: Configure git
+        working-directory: guru
+        run: |
+          # Configure git
+          git config gpg.program gpg
+          git config push.gpgsign true
+          git config commit.gpgsign true
+
+          git config user.name "kubetail-bot"
+          git config user.email "bot@kubetail.com"
+          git config user.signingkey "${{ secrets.PGP_FINGERPRINT }}"
 
       - name: Debug
         if: ${{ needs.config.outputs.dry_run == 'true' }}
@@ -200,12 +248,14 @@ jobs:
         working-directory: guru
         if: ${{ needs.config.outputs.dry_run != 'true' }}
         run: |
-          # Set name and email
-          git config user.name "Andres Morey"
-          git config user.email "andres@kubetail.com"
-
           # Stage changes
           git add . --all
+
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
 
           # Commit and push
           git commit -a -s -m "dev-util/kubetail-bin: add ${{ needs.config.outputs.version }}"
