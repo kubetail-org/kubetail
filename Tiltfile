@@ -189,6 +189,8 @@ k8s_yaml('hack/tilt/loggen-ansi.yaml')
 k8s_yaml('hack/tilt/echoserver.yaml')
 k8s_yaml('hack/tilt/cronjob.yaml')
 k8s_yaml('hack/tilt/chaoskube.yaml')
+k8s_yaml('hack/tilt/multi-containers-pod.yaml')
+k8s_yaml('hack/tilt/daemonset.yaml')
 
 # define resources
 k8s_resource(
@@ -269,3 +271,5 @@ k8s_resource(
   'echoserver',
   port_forwards='4502:8080',
 )
+
+
