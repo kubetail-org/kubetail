@@ -79,14 +79,16 @@ type sourceWatcher struct {
 	cm       k8shelpers.ConnectionManager
 	eventbus evbus.Bus
 
-	kubeContext string
-	bearerToken string
-	regions     []string
-	zones       []string
-	oses        []string
-	arches      []string
-	nodes       []string
-	containers  []string
+	kubeContext   string
+	bearerToken   string
+	namespace     string
+	allNamespaces bool
+	regions       []string
+	zones         []string
+	oses          []string
+	arches        []string
+	nodes         []string
+	containers    []string
 
 	allowedNamespaces []string
 	parsedPaths       []parsedPath
@@ -122,22 +124,29 @@ func NewSourceWatcher(cm k8shelpers.ConnectionManager, sourcePaths []string, opt
 	// Get default namespace
 	defaultNamespace := cm.GetDefaultNamespace(sw.kubeContext)
 
-	// Parse paths
-	parsedPaths := []parsedPath{}
-	for _, p := range sourcePaths {
-		pp, err := parsePath(p, defaultNamespace)
-		if err != nil {
-			return nil, err
-		}
+	// Get list of all namespaces
+	namespaceList, err := cm.GetNamespaceList(sw.kubeContext)
+	if err != nil {
+		return nil, err
+	}
 
-		// Remove paths that do not match allowed namespaces
+	parsedPaths, err := parsePaths(sourcePaths, defaultNamespace, sw.allNamespaces, namespaceList, sw.namespace)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter paths that do not match allowed namespaces
+	filteredPaths := []parsedPath{}
+	for _, pp := range parsedPaths {
+
 		if len(sw.allowedNamespaces) > 0 && !slices.Contains(sw.allowedNamespaces, pp.Namespace) {
 			continue
 		}
 
-		parsedPaths = append(parsedPaths, pp)
+		filteredPaths = append(filteredPaths, pp)
 	}
-	sw.parsedPaths = parsedPaths
+	sw.parsedPaths = filteredPaths
 
 	return sw, nil
 }
@@ -472,6 +481,48 @@ type parsedPath struct {
 	WorkloadType  WorkloadType
 	WorkloadName  string
 	ContainerName string
+}
+
+// Parse multiple source paths with namespace priority logic
+func parsePaths(sourcePaths []string, defaultNamespace string, allNamespaces bool, namespaceList []string, namespace string) ([]parsedPath, error) {
+	var result []parsedPath
+
+	// Check if any source path has explicit namespace (highest priority)
+	sourceHasNamespace := false
+	for _, path := range sourcePaths {
+		if strings.Contains(path, ":") {
+			sourceHasNamespace = true
+			break
+		}
+	}
+
+	if allNamespaces && !sourceHasNamespace {
+		for _, namespace := range namespaceList {
+			for _, path := range sourcePaths {
+				pp, err := parsePath(path, namespace)
+				if err != nil {
+					return nil, err
+				}
+				result = append(result, pp)
+			}
+		}
+	} else {
+		// using namespace flag if it exists and source paths do not have explicit namespace
+		if namespace != "" && !sourceHasNamespace {
+			defaultNamespace = namespace
+		}
+
+		for _, path := range sourcePaths {
+			pp, err := parsePath(path, defaultNamespace)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, pp)
+		}
+
+	}
+
+	return result, nil
 }
 
 // Parse source path

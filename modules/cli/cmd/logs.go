@@ -228,12 +228,15 @@ var logsCmd = &cobra.Command{
 		after, _ := flags.GetString("after")
 		before, _ := flags.GetString("before")
 
+		allNamespaces, _ := flags.GetBool("all-namespaces")
+
 		grep, _ := flags.GetString("grep")
 		regionList, _ := flags.GetStringSlice("region")
 		zoneList, _ := flags.GetStringSlice("zone")
 		osList, _ := flags.GetStringSlice("os")
 		archList, _ := flags.GetStringSlice("arch")
 		nodeList, _ := flags.GetStringSlice("node")
+		namespace, _ := flags.GetString("namespace")
 
 		hideHeader, _ := flags.GetBool("hide-header")
 		hideTs, _ := flags.GetBool("hide-ts")
@@ -327,6 +330,8 @@ var logsCmd = &cobra.Command{
 			logs.WithOSes(osList),
 			logs.WithArches(archList),
 			logs.WithNodes(nodeList),
+			logs.WithNamespace(namespace),
+			logs.WithAllNamespaces(allNamespaces),
 		}
 
 		switch streamMode {
@@ -633,6 +638,7 @@ func init() {
 	logsCmd.MarkFlagsMutuallyExclusive("until", "before")
 
 	flagset.StringP("grep", "g", "", "Filter records by a regular expression")
+	flagset.StringP("namespace", "n", "", "Filter source pods by namespace")
 
 	flagset.StringSlice("region", []string{}, "Filter source pods by region")
 	flagset.StringSlice("zone", []string{}, "Filter source pods by zone")
@@ -641,6 +647,7 @@ func init() {
 	flagset.StringSlice("node", []string{}, "Filter source pods by node name")
 
 	flagset.Bool("raw", false, "Output only raw log messages without metadata")
+	flagset.Bool("all-namespaces", false, "Include records from all namespaces (overrides --namespace)")
 	flagset.Bool("hide-ts", false, "Hide the timestamp of each record")
 	flagset.Bool("with-node", false, "Show the source node of each record")
 	flagset.Bool("with-region", false, "Show the source region of each record")
@@ -655,7 +662,7 @@ func init() {
 	flagset.Bool("hide-header", false, "Hide table header")
 	flagset.Bool("hide-dot", false, "Hide the dot indicator in the records")
 
-	//flagset.BoolP("reverse", "r", false, "List records in reverse order")
+	// flagset.BoolP("reverse", "r", false, "List records in reverse order")
 
 	flagset.Bool("force", false, "Force command (if necessary)")
 
