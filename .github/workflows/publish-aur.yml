@@ -36,7 +36,6 @@ jobs:
           fi
 
       - name: Download SHA256SUMS
-        id: release-info
         uses: robinraju/release-downloader@v1.12
         with:
           repository: kubetail-org/kubetail
@@ -46,11 +45,8 @@ jobs:
 
       - name: Extract shasums
         id: meta
-        shell: bash
         working-directory: ./downloads
         run: |
-          set -euo pipefail
-
           AMD64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-linux-amd64" {print $1}' )
           ARM64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-linux-arm64" {print $1}' )
 
@@ -62,7 +58,6 @@ jobs:
         with:
           sparse-checkout: .github/ci-config/aur/kubetail-bin
           sparse-checkout-cone-mode: false
-          fetch-depth: 1
           path: kubetail
 
       - name: Load AUR SSH key
@@ -70,23 +65,11 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
 
-      - name: Configure SSH
+      - name: Checkout kubetail-bin repo
         run: |
-          set -euo pipefail
-
           mkdir -p ~/.ssh
           echo "${{ secrets.AUR_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
 
-          # Configure SSH to use the key for AUR
-          cat >> ~/.ssh/config <<EOF
-          Host aur.archlinux.org
-            IdentityFile ~/.ssh/aur
-            User aur
-          EOF
-          chmod 600 ~/.ssh/config
-
-      - name: Checkout kubetail-bin repo
-        run: |
           git clone ssh://aur@aur.archlinux.org/kubetail-bin.git
 
       - name: Execute templates
@@ -96,10 +79,7 @@ jobs:
           ARM64_SHA256: ${{ steps.meta.outputs.arm64_sha256 }}
           SRC_DIR: kubetail/.github/ci-config/aur/kubetail-bin
           DST_DIR: kubetail-bin
-        shell: bash
         run: |
-          set -euo pipefail
-
           # PKGBUILD
           envsubst '${VERSION} ${AMD64_SHA256} ${ARM64_SHA256}' \
             < "${SRC_DIR}/PKGBUILD.tmpl" \
@@ -111,11 +91,9 @@ jobs:
             > "${DST_DIR}/.SRCINFO"
 
       - name: Push changes to AUR repo
-        working-directory: ./kubetail-bin
         if: ${{ steps.config.outputs.dry_run != 'true' }}
+        working-directory: ./kubetail-bin
         run: |
-          set -euo pipefail
-
           # Set name and email
           git config user.name "Andres Morey"
           git config user.email "andres@kubetail.com"
@@ -149,7 +127,6 @@ jobs:
           fi
 
       - name: Download SHA256SUMS
-        id: release-info
         uses: robinraju/release-downloader@v1.12
         with:
           repository: kubetail-org/kubetail
@@ -159,10 +136,8 @@ jobs:
 
       - name: Extract shasum
         id: meta
-        shell: bash
         working-directory: ./downloads
         run: |
-          set -euo pipefail
           SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-cli.orig.tar.xz" {print $1}' )
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
 
@@ -179,23 +154,11 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
 
-      - name: Configure SSH
+      - name: Checkout kubetail-cli repo
         run: |
-          set -euo pipefail
-
           mkdir -p ~/.ssh
           echo "${{ secrets.AUR_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
 
-          # Configure SSH to use the key for AUR
-          cat >> ~/.ssh/config <<EOF
-          Host aur.archlinux.org
-            IdentityFile ~/.ssh/aur
-            User aur
-          EOF
-          chmod 600 ~/.ssh/config
-
-      - name: Checkout kubetail-cli repo
-        run: |
           git clone ssh://aur@aur.archlinux.org/kubetail-cli.git
 
       - name: Execute templates
@@ -204,10 +167,7 @@ jobs:
           SHA256: ${{ steps.meta.outputs.sha256 }}
           SRC_DIR: kubetail/.github/ci-config/aur/kubetail-cli
           DST_DIR: kubetail-cli
-        shell: bash
         run: |
-          set -euo pipefail
-
           # PKGBUILD
           envsubst '${VERSION} ${SHA256}' \
             < "${SRC_DIR}/PKGBUILD.tmpl" \
@@ -219,11 +179,9 @@ jobs:
             > "${DST_DIR}/.SRCINFO"
 
       - name: Push changes to AUR repo
-        working-directory: ./kubetail-cli
         if: ${{ steps.config.outputs.dry_run != 'true' }}
+        working-directory: ./kubetail-cli
         run: |
-          set -euo pipefail
-
           # Set name and email
           git config user.name "Andres Morey"
           git config user.email "andres@kubetail.com"
