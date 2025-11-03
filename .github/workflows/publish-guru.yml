@@ -101,8 +101,8 @@ jobs:
       - name: Configure gpg
         uses: crazy-max/ghaction-import-gpg@v6.3.0
         with:
-          gpg_private_key: ${{ secrets.PGP_SIGNING_KEY }}
-          passphrase: ${{ secrets.PGP_PASSWORD }}
+          gpg_private_key: ${{ secrets.KUBETAIL_BOT_PGP_SIGNING_KEY }}
+          passphrase: ${{ secrets.KUBETAIL_BOT_PGP_PASSWORD }}
 
       - name: Configure git
         working-directory: guru
@@ -112,9 +112,9 @@ jobs:
           git config push.gpgsign true
           git config commit.gpgsign true
 
-          git config user.name "kubetail-bot"
-          git config user.email "bot@kubetail.com"
-          git config user.signingkey "${{ secrets.PGP_FINGERPRINT }}"
+          git config user.name "${{ vars.KUBETAIL_BOT_NAME }}"
+          git config user.email "${{ vars.KUBETAIL_BOT_EMAIL }}"
+          git config user.signingkey "${{ vars.KUBETAIL_BOT_PGP_FINGERPRINT }}"
 
       - name: Debug
         if: ${{ needs.config.outputs.dry_run == 'true' }}
@@ -221,8 +221,8 @@ jobs:
       - name: Configure gpg
         uses: crazy-max/ghaction-import-gpg@v6.3.0
         with:
-          gpg_private_key: ${{ secrets.PGP_SIGNING_KEY }}
-          passphrase: ${{ secrets.PGP_PASSWORD }}
+          gpg_private_key: ${{ secrets.KUBETAIL_BOT_PGP_SIGNING_KEY }}
+          passphrase: ${{ secrets.KUBETAIL_BOT_PGP_PASSWORD }}
 
       - name: Configure git
         working-directory: guru
@@ -232,9 +232,9 @@ jobs:
           git config push.gpgsign true
           git config commit.gpgsign true
 
-          git config user.name "kubetail-bot"
-          git config user.email "bot@kubetail.com"
-          git config user.signingkey "${{ secrets.PGP_FINGERPRINT }}"
+          git config user.name "${{ vars.KUBETAIL_BOT_NAME }}"
+          git config user.email "${{ vars.KUBETAIL_BOT_EMAIL }}"
+          git config user.signingkey "${{ vars.KUBETAIL_BOT_PGP_FINGERPRINT }}"
 
       - name: Debug
         if: ${{ needs.config.outputs.dry_run == 'true' }}
