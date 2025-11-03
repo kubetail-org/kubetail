@@ -16,6 +16,7 @@ jobs:
       - name: Extract version
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+
       - name: Trigger workflow
         uses: benc-uk/workflow-dispatch@v1.2.4
         with:
