@@ -14,17 +14,13 @@ spec:
       containers:
       - name: daemonset-example
         image: alpine:3.22.0
+        env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
         # will print the name of the host machine the pod is running on
         command: ["sh", "-c"]
         args: 
-          - while true; do echo "This pod is running on $(cat /etc/hostname)"; sleep 3600; done
-        volumeMounts:
-        - name: hostname
-          mountPath: /etc/hostname
-          readOnly: true
-      volumes:
-      - name: hostname
-        hostPath:
-          path: /etc/hostname
-          type: File
+          - echo "This pod is running on $(NODE_NAME)"; sleep infinity
 
