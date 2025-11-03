@@ -34,7 +34,6 @@ jobs:
           fi
 
       - name: Download SHA256SUMS
-        id: release-info
         uses: robinraju/release-downloader@v1.12
         with:
           repository: kubetail-org/kubetail
@@ -44,11 +43,8 @@ jobs:
 
       - name: Extract tags and shasums
         id: meta
-        shell: bash
         working-directory: ./downloads
         run: |
-          set -euo pipefail
-
           AMD64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-windows-amd64" {print $1}' )
           ARM64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-windows-arm64" {print $1}' )
 
@@ -57,8 +53,6 @@ jobs:
 
       - name: Checkout repo
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
       - name: Execute templates
         env:
@@ -67,10 +61,7 @@ jobs:
           ARM64_SHA256: ${{ steps.meta.outputs.arm64_sha256 }}
           SRC_DIR: .github/ci-config/chocolatey
           DST_DIR: nuspec
-        shell: bash
         run: |
-          set -euo pipefail
-
           mkdir -p "${DST_DIR}/tools"
 
           # kubetail.nuspec
