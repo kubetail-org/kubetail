@@ -3,14 +3,20 @@ kind: Pod
 metadata:
   name: multi-container-pod
 spec:
-  restartPolicy: Never
   containers:
-  - name: container-a
-    image: alpine:3.22.0
-    imagePullPolicy: IfNotPresent
-    command: ["/bin/sh", "-c", "while true; do echo 'Hello from container-a'; sleep 3600; done"]
-  - name: container-b
-    image: alpine:3.22.0
-    imagePullPolicy: IfNotPresent
-    command: ["/bin/sh", "-c", "while true; do echo 'Hello from container-b'; sleep 3600; done"]
-
+    - name: container-a
+      image: alpine:3.22.0
+      command: ["sh", "-c"]
+      args:
+        - |
+          echo "Hello from container-a"
+          trap "echo 'Received SIGTERM, exiting'; exit 0" TERM
+          sleep infinity & wait $!
+    - name: container-b
+      image: alpine:3.22.0
+      command: ["sh", "-c"]
+      args:
+        - |
+          echo "Hello from container-b"
+          trap "echo 'Received SIGTERM, exiting'; exit 0" TERM
+          sleep infinity & wait $!

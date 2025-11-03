@@ -12,15 +12,16 @@ spec:
         app.kubernetes.io/name: daemonset-example
     spec:
       containers:
-      - name: daemonset-example
-        image: alpine:3.22.0
-        env:
-          - name: NODE_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: spec.nodeName
-        # will print the name of the host machine the pod is running on
-        command: ["sh", "-c"]
-        args: 
-          - echo "This pod is running on $(NODE_NAME)"; sleep infinity
-
+        - name: daemonset-example
+          image: alpine:3.22.0
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          command: ["sh", "-c"]
+          args:
+            - |
+              echo "This pod is running on $(NODE_NAME)"
+              trap "echo 'Received SIGTERM, exiting'; exit 0" TERM
+              sleep infinity & wait $!
