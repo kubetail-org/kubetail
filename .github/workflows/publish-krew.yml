@@ -34,14 +34,15 @@ jobs:
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
+
       - name: Download SHA256SUMS
-        id: release-info
         uses: robinraju/release-downloader@v1.12
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
           fileName: "SHA256SUMS"
           out-file-path: "downloads"
+
       - name: Extract shasums
         id: meta
         working-directory: ./downloads
@@ -61,11 +62,13 @@ jobs:
           echo "linux_arm64_sha256=$LINUX_ARM64_SHA256" >> $GITHUB_OUTPUT
           echo "windows_amd64_sha256=$WINDOWS_AMD64_SHA256" >> $GITHUB_OUTPUT
           echo "windows_arm64_sha256=$WINDOWS_ARM64_SHA256" >> $GITHUB_OUTPUT
+
       - name: Get template
         uses: actions/checkout@v5
         with:
           sparse-checkout: .github/ci-config/krew.yaml.tmpl
           sparse-checkout-cone-mode: false
+
       - name: Execute template
         env:
           VERSION: ${{ steps.config.outputs.version }}
@@ -76,14 +79,14 @@ jobs:
           WINDOWS_AMD64_SHA256: ${{ steps.meta.outputs.windows_amd64_sha256 }}
           WINDOWS_ARM64_SHA256: ${{ steps.meta.outputs.windows_arm64_sha256 }}
         run: |
-          set -euo pipefail
-
           envsubst '${VERSION} ${DARWIN_AMD64_SHA256} ${DARWIN_ARM64_SHA256} ${LINUX_AMD64_SHA256} ${LINUX_ARM64_SHA256} ${WINDOWS_AMD64_SHA256} ${WINDOWS_ARM64_SHA256}' \
             < ".github/ci-config/krew.yaml.tmpl" \
             > "krew.yaml"
+
       - name: Debug
         if: ${{ steps.config.outputs.dry_run == 'true' }}
         run: cat krew.yaml
+
       - name: Update new version in krew-index
         if: ${{ steps.config.outputs.dry_run != 'true' }}
         uses: rajatjindal/krew-release-bot@v0.0.47
