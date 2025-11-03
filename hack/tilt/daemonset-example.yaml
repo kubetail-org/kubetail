@@ -16,10 +16,8 @@ spec:
         image: alpine:3.22.0
         # will print the name of the host machine the pod is running on
         command: ["sh", "-c"]
-        args:
-          - |
-            echo "This pod is running on $(cat /etc/hostname)"
-            while true; do sleep 3600; done
+        args: 
+          - while true; do echo "This pod is running on $(cat /etc/hostname)"; sleep 3600; done
         volumeMounts:
         - name: hostname
           mountPath: /etc/hostname
