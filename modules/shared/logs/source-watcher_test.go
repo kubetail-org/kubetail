@@ -397,11 +397,13 @@ func TestParsePath(t *testing.T) {
 	tests := []struct {
 		name           string
 		setPath        string
+		allContainers  bool
 		wantParsedPath parsedPath
 	}{
 		{
 			"<pod-name>",
 			"pod-123",
+			false,
 			parsedPath{
 				Namespace:     defaultNamespace,
 				WorkloadType:  WorkloadTypePod,
@@ -412,6 +414,7 @@ func TestParsePath(t *testing.T) {
 		{
 			"<pod-name>/<container-name>",
 			"pod-123/container-1",
+			false,
 			parsedPath{
 				Namespace:     defaultNamespace,
 				WorkloadType:  WorkloadTypePod,
@@ -422,6 +425,7 @@ func TestParsePath(t *testing.T) {
 		{
 			"<workload-type>/<workload-name>",
 			"deployments/web",
+			false,
 			parsedPath{
 				Namespace:     defaultNamespace,
 				WorkloadType:  WorkloadTypeDeployment,
@@ -432,6 +436,7 @@ func TestParsePath(t *testing.T) {
 		{
 			"<workload-type>/<workload-name>/<container-name>",
 			"deployments/web/container-1",
+			false,
 			parsedPath{
 				Namespace:     defaultNamespace,
 				WorkloadType:  WorkloadTypeDeployment,
@@ -442,6 +447,7 @@ func TestParsePath(t *testing.T) {
 		{
 			"<namespace>:<pod-name>",
 			"frontend:pod-123",
+			false,
 			parsedPath{
 				Namespace:     "frontend",
 				WorkloadType:  WorkloadTypePod,
@@ -452,6 +458,7 @@ func TestParsePath(t *testing.T) {
 		{
 			"<namespace>:<pod-name>/<container-name>",
 			"frontend:pod-123/container-1",
+			false,
 			parsedPath{
 				Namespace:     "frontend",
 				WorkloadType:  WorkloadTypePod,
@@ -462,6 +469,7 @@ func TestParsePath(t *testing.T) {
 		{
 			"<namespace>:<workload-type>/<workload-name>",
 			"frontend:deployments/web",
+			false,
 			parsedPath{
 				Namespace:     "frontend",
 				WorkloadType:  WorkloadTypeDeployment,
@@ -472,8 +480,31 @@ func TestParsePath(t *testing.T) {
 		{
 			"<namespace>:<workload-type>/<workload-name>/<container-name>",
 			"frontend:deployments/web/container-1",
+			false,
 			parsedPath{
 				Namespace:     "frontend",
+				WorkloadType:  WorkloadTypeDeployment,
+				WorkloadName:  "web",
+				ContainerName: "container-1",
+			},
+		},
+		{
+			"<workload-type>/<workload-name>",
+			"deployments/web",
+			true,
+			parsedPath{
+				Namespace:     defaultNamespace,
+				WorkloadType:  WorkloadTypeDeployment,
+				WorkloadName:  "web",
+				ContainerName: "*",
+			},
+		},
+		{
+			"<workload-type>/<workload-name>/<container-name>",
+			"deployments/web/container-1",
+			true,
+			parsedPath{
+				Namespace:     defaultNamespace,
 				WorkloadType:  WorkloadTypeDeployment,
 				WorkloadName:  "web",
 				ContainerName: "container-1",
@@ -483,7 +514,7 @@ func TestParsePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			parsed, err := parsePath(tt.setPath, defaultNamespace)
+			parsed, err := parsePath(tt.setPath, defaultNamespace, tt.allContainers)
 			require.Nil(t, err)
 			assert.Equal(t, tt.wantParsedPath, parsed)
 		})

@@ -241,6 +241,7 @@ var logsCmd = &cobra.Command{
 
 		withTs := !hideTs
 		withDot := !hideDot
+		allContainers, _ := flags.GetBool("all-containers")
 
 		withNode, _ := flags.GetBool("with-node")
 		withRegion, _ := flags.GetBool("with-region")
@@ -265,6 +266,7 @@ var logsCmd = &cobra.Command{
 			withPod = false
 			withContainer = false
 			withDot = false
+			allContainers = false
 		}
 
 		// Stream mode
@@ -327,6 +329,7 @@ var logsCmd = &cobra.Command{
 			logs.WithOSes(osList),
 			logs.WithArches(archList),
 			logs.WithNodes(nodeList),
+			logs.WithAllContainers(allContainers),
 		}
 
 		switch streamMode {
@@ -654,6 +657,7 @@ func init() {
 
 	flagset.Bool("hide-header", false, "Hide table header")
 	flagset.Bool("hide-dot", false, "Hide the dot indicator in the records")
+	flagset.Bool("all-containers", false, "Show logs from all containers in a Pod")
 
 	//flagset.BoolP("reverse", "r", false, "List records in reverse order")
 

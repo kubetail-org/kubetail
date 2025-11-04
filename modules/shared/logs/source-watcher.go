@@ -79,14 +79,15 @@ type sourceWatcher struct {
 	cm       k8shelpers.ConnectionManager
 	eventbus evbus.Bus
 
-	kubeContext string
-	bearerToken string
-	regions     []string
-	zones       []string
-	oses        []string
-	arches      []string
-	nodes       []string
-	containers  []string
+	kubeContext   string
+	bearerToken   string
+	regions       []string
+	zones         []string
+	oses          []string
+	arches        []string
+	nodes         []string
+	containers    []string
+	allContainers bool
 
 	allowedNamespaces []string
 	parsedPaths       []parsedPath
@@ -125,7 +126,7 @@ func NewSourceWatcher(cm k8shelpers.ConnectionManager, sourcePaths []string, opt
 	// Parse paths
 	parsedPaths := []parsedPath{}
 	for _, p := range sourcePaths {
-		pp, err := parsePath(p, defaultNamespace)
+		pp, err := parsePath(p, defaultNamespace, sw.allContainers)
 		if err != nil {
 			return nil, err
 		}
@@ -137,6 +138,7 @@ func NewSourceWatcher(cm k8shelpers.ConnectionManager, sourcePaths []string, opt
 
 		parsedPaths = append(parsedPaths, pp)
 	}
+
 	sw.parsedPaths = parsedPaths
 
 	return sw, nil
@@ -475,7 +477,7 @@ type parsedPath struct {
 }
 
 // Parse source path
-func parsePath(path string, defaultNamespace string) (parsedPath, error) {
+func parsePath(path string, defaultNamespace string, allContainers bool) (parsedPath, error) {
 	// Remove leading and trailing slashes
 	trimmedPath := strings.Trim(path, "/")
 
@@ -531,6 +533,10 @@ func parsePath(path string, defaultNamespace string) (parsedPath, error) {
 	// Ensure we were able to determine the workload type
 	if out.WorkloadType == WorkloadTypeUknown {
 		return parsedPath{}, fmt.Errorf("unable to parse %s", path)
+	}
+
+	if allContainers && out.ContainerName == "" {
+		out.ContainerName = "*"
 	}
 
 	return out, nil
