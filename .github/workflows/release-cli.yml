@@ -2,6 +2,7 @@ name: release-cli
 
 permissions:
   contents: write
+  deployments: write
 
 on:
   push:
@@ -155,6 +156,7 @@ jobs:
     name: Sign darwin binaries
     needs: [config, build]
     if: false
+    environment: production
     runs-on: macos-latest
     strategy:
       matrix:
@@ -211,6 +213,7 @@ jobs:
   sign-windows:
     name: Create windows zip and sign binaries
     needs: [config, build]
+    environment: production
     runs-on: windows-latest
     strategy:
       matrix:

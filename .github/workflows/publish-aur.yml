@@ -2,6 +2,7 @@ name: publish-aur
 
 permissions:
   contents: read
+  deployments: write
 
 on:
   release:
@@ -22,6 +23,7 @@ on:
 jobs:
   update-kubetail-bin:
     name: Update AUR kubetail-bin repo
+    environment: production
     runs-on: ubuntu-24.04
     steps:
       - name: Config
@@ -113,6 +115,7 @@ jobs:
 
   update-kubetail-cli:
     name: Update AUR kubetail-cli repo
+    environment: production
     runs-on: ubuntu-24.04
     steps:
       - name: Config

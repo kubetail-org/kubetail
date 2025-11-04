@@ -2,6 +2,7 @@ name: publish-guru
 
 permissions:
   contents: read
+  deployments: write
 
 on:
   release:
@@ -40,6 +41,7 @@ jobs:
   update-kubetail:
     name: Update `kubetail` package
     needs: [config]
+    environment: production
     runs-on: ubuntu-24.04
     env:
       ARCHIVE_NAME: "kubetail-cli.orig.tar.xz"
@@ -144,6 +146,7 @@ jobs:
   update-kubetail-bin:
     name: Update `kubetail-bin` package
     needs: [config, update-kubetail]
+    environment: production
     runs-on: ubuntu-24.04
     steps:
       - name: Download source bundle

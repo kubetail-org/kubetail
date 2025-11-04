@@ -3,14 +3,16 @@ name: release-cluster-agent
 permissions:
   contents: read
   packages: write
+  deployments: write
 
 on:
   push:
     tags:
-      - 'cluster-agent/v*'
+      - "cluster-agent/v*"
 
 jobs:
   build-and-publish-amd64:
+    environment: production
     runs-on: ubuntu-24.04
     steps:
       - name: Get tag name
@@ -44,6 +46,7 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/kubetail-cluster-agent:${{ steps.tagName.outputs.tag }}-amd64
 
   build-and-publish-arm64:
+    environment: production
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Get tag name
@@ -75,8 +78,9 @@ jobs:
           tags: |
             kubetail/kubetail-cluster-agent:${{ steps.tagName.outputs.tag }}-arm64
             ghcr.io/${{ github.repository_owner }}/kubetail-cluster-agent:${{ steps.tagName.outputs.tag }}-arm64
-        
+
   create-and-publish-manifest:
+    environment: production
     runs-on: ubuntu-24.04
     needs: [build-and-publish-amd64, build-and-publish-arm64]
     steps:
@@ -85,7 +89,7 @@ jobs:
         id: tagName
         with:
           tagRegex: "cluster-agent/v(.*)"
-      - name: 'Setup jq'
+      - name: "Setup jq"
         uses: dcarbone/install-jq-action@v3.2.0
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
