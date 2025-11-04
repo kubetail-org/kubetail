@@ -2,6 +2,7 @@ name: publish-chocolatey
 
 permissions:
   contents: read
+  deployments: write
 
 on:
   release:
@@ -84,8 +85,9 @@ jobs:
 
   push-to-chocolatey:
     name: Push to chocolatey
-    runs-on: windows-latest
     needs: generate-nuspec
+    environment: production
+    runs-on: windows-latest
     steps:
       - name: Config
         id: config
@@ -114,7 +116,7 @@ jobs:
       - name: Configure API key
         shell: pwsh
         env:
-          CHOCOLATEY_API_KEY: ${{ secrets.PUBLISH_CHOCOLATEY_TOKEN }}
+          CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
         run: |
           choco apikey --source https://push.chocolatey.org/ --key $env:CHOCOLATEY_API_KEY
 
