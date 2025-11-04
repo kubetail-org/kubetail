@@ -98,11 +98,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-26, macos-15, macos-14, macos-13, windows-latest]
+        os:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - macos-26
+          - macos-15
+          - macos-15-intel
+          - macos-14
+          - windows-latest
         module: [cli, cluster-api, dashboard, shared]
         exclude:
-          - os: macos-13
-            module: cluster-api
           - os: windows-latest
             module: cluster-api
     steps:
@@ -189,7 +194,7 @@ jobs:
             image: cluster-agent
             target: final
             dockerfile: build/package/Dockerfile.cluster-agent
-        runner: [ ubuntu-24.04, ubuntu-24.04-arm ]
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
         include:
           - runner: ubuntu-24.04
             platform: linux/amd64
@@ -251,10 +256,10 @@ jobs:
             platform: macos-arm64
           - os: macos-15
             platform: macos-arm64
+          - os: macos-15-intel
+            platform: macos-amd64
           - os: macos-14
             platform: macos-arm64
-          - os: macos-13
-            platform: macos-amd64
           - os: windows-latest
             platform: windows-amd64
           - os: windows-11-arm
