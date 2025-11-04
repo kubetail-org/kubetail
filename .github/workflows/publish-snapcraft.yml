@@ -2,6 +2,7 @@ name: publish-snapcraft
 
 permissions:
   contents: read
+  deployments: write
 
 on:
   release:
@@ -27,6 +28,7 @@ on:
 jobs:
   build-and-publish:
     name: Build and publish
+    environment: production
     strategy:
       matrix:
         runner:
@@ -78,7 +80,7 @@ jobs:
         uses: snapcore/action-publish@v1
         if: ${{ steps.config.outputs.dry_run != 'true' }}
         env:
-          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.PUBLISH_SNAPCRAFT_TOKEN }}
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         with:
           snap: ${{ steps.build.outputs.snap }}
           release: ${{ steps.config.outputs.release }}

@@ -2,6 +2,7 @@ name: publish-winget
 
 permissions:
   contents: read
+  deployments: write
 
 on:
   release:
@@ -22,6 +23,7 @@ on:
 jobs:
   winget-release:
     name: Release on winget
+    environment: production
     runs-on: ubuntu-24.04
     steps:
       - name: Configure
@@ -105,7 +107,7 @@ jobs:
         uses: peter-evans/create-pull-request@v7.0.8
         if: ${{ steps.config.outputs.dry_run != 'true' }}
         with:
-          token: ${{ secrets.PUBLISH_WINGET_TOKEN }}
+          token: ${{ secrets.PUBLISH_WINGET_GITHUB_TOKEN }}
           path: ./winget-pkgs
           commit-message: "New version: Kubetail.Kubetail ${{ steps.config.outputs.version }}"
           title: "New version: Kubetail.Kubetail version ${{ steps.config.outputs.version }}"

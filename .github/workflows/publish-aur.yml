@@ -2,6 +2,7 @@ name: publish-aur
 
 permissions:
   contents: read
+  deployments: write
 
 on:
   release:
@@ -22,6 +23,7 @@ on:
 jobs:
   update-kubetail-bin:
     name: Update AUR kubetail-bin repo
+    environment: production
     runs-on: ubuntu-24.04
     steps:
       - name: Config
@@ -68,7 +70,7 @@ jobs:
       - name: Checkout kubetail-bin repo
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.AUR_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          echo "${{ vars.AUR_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
 
           git clone ssh://aur@aur.archlinux.org/kubetail-bin.git
 
@@ -113,6 +115,7 @@ jobs:
 
   update-kubetail-cli:
     name: Update AUR kubetail-cli repo
+    environment: production
     runs-on: ubuntu-24.04
     steps:
       - name: Config
@@ -157,7 +160,7 @@ jobs:
       - name: Checkout kubetail-cli repo
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.AUR_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          echo "${{ vars.AUR_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
 
           git clone ssh://aur@aur.archlinux.org/kubetail-cli.git
 

@@ -3,14 +3,16 @@ name: release-cluster-api
 permissions:
   contents: read
   packages: write
+  deployments: write
 
 on:
   push:
     tags:
-      - 'cluster-api/v*'
+      - "cluster-api/v*"
 
 jobs:
   build-and-publish-amd64:
+    environment: production
     runs-on: ubuntu-24.04
     steps:
       - name: Get tag name
@@ -25,7 +27,7 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -44,6 +46,7 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/kubetail-cluster-api:${{ steps.tagName.outputs.tag }}-amd64
 
   build-and-publish-arm64:
+    environment: production
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Get tag name
@@ -58,7 +61,7 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -75,8 +78,9 @@ jobs:
           tags: |
             kubetail/kubetail-cluster-api:${{ steps.tagName.outputs.tag }}-arm64
             ghcr.io/${{ github.repository_owner }}/kubetail-cluster-api:${{ steps.tagName.outputs.tag }}-arm64
-        
+
   create-and-publish-manifest:
+    environment: production
     runs-on: ubuntu-24.04
     needs: [build-and-publish-amd64, build-and-publish-arm64]
     steps:
@@ -85,14 +89,14 @@ jobs:
         id: tagName
         with:
           tagRegex: "cluster-api/v(.*)"
-      - name: 'Setup jq'
+      - name: "Setup jq"
         uses: dcarbone/install-jq-action@v3.2.0
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -110,7 +114,7 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/kubetail-cluster-api:${{ steps.tagName.outputs.tag }}-arm64
       - name: Fetch docker token
         run: |
-          TOKEN=$(curl -X POST "https://hub.docker.com/v2/users/login" -H "Content-Type: application/json" -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' | jq -r '.token')
+          TOKEN=$(curl -X POST "https://hub.docker.com/v2/users/login" -H "Content-Type: application/json" -d '{"username": "${{ vars.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' | jq -r '.token')
           echo "TOKEN=$TOKEN" >> $GITHUB_ENV
       - name: Delete extra arch manifests
         run: |

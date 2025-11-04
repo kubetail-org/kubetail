@@ -2,6 +2,7 @@ name: release-cli
 
 permissions:
   contents: write
+  deployments: write
 
 on:
   push:
@@ -155,6 +156,7 @@ jobs:
     name: Sign darwin binaries
     needs: [config, build]
     if: false
+    environment: production
     runs-on: macos-latest
     strategy:
       matrix:
@@ -181,7 +183,7 @@ jobs:
 
           open "./tools/SignPathCryptoTokenKit/SignPathCryptoTokenKit.app" --args \
             --api-token ${{ secrets.SIGNPATH_API_TOKEN }} \
-            --organization-id ${{ secrets.SIGNPATH_ORGANIZATION_ID }} \
+            --organization-id ${{ vars.SIGNPATH_ORGANIZATION_ID }} \
             --project-slug kubetail \
             --signing-policy-slug ${{ needs.config.outputs.signing_policy }}
 
@@ -211,6 +213,7 @@ jobs:
   sign-windows:
     name: Create windows zip and sign binaries
     needs: [config, build]
+    environment: production
     runs-on: windows-latest
     strategy:
       matrix:
@@ -242,7 +245,7 @@ jobs:
         uses: signpath/github-action-submit-signing-request@v1.1
         with:
           api-token: "${{ secrets.SIGNPATH_API_TOKEN }}"
-          organization-id: "${{ secrets.SIGNPATH_ORGANIZATION_ID }}"
+          organization-id: "${{ vars.SIGNPATH_ORGANIZATION_ID }}"
           project-slug: "kubetail"
           signing-policy-slug: "${{ needs.config.outputs.signing_policy }}"
           github-artifact-id: "${{ steps.upload-artifact.outputs.artifact-id }}"
