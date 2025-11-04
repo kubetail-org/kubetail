@@ -74,7 +74,7 @@ jobs:
       - name: Checkout GURU repo
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.GENTOO_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          echo "${{ vars.GENTOO_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
 
           git clone --depth 1 --branch dev --single-branch git@git.gentoo.org:repo/proj/guru.git
 
@@ -188,7 +188,7 @@ jobs:
       - name: Checkout GURU repo
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.GENTOO_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          echo "${{ vars.GENTOO_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
 
           git clone --depth 1 --branch dev --single-branch git@git.gentoo.org:repo/proj/guru.git
 

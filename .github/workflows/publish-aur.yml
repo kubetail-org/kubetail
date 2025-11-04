@@ -70,7 +70,7 @@ jobs:
       - name: Checkout kubetail-bin repo
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.AUR_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          echo "${{ vars.AUR_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
 
           git clone ssh://aur@aur.archlinux.org/kubetail-bin.git
 
@@ -160,7 +160,7 @@ jobs:
       - name: Checkout kubetail-cli repo
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.AUR_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          echo "${{ vars.AUR_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
 
           git clone ssh://aur@aur.archlinux.org/kubetail-cli.git
 
