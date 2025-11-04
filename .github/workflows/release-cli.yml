@@ -94,7 +94,7 @@ jobs:
           - ubuntu-24.04
           - ubuntu-24.04-arm
           - macos-latest
-          - macos-13
+          - macos-15-intel
           - windows-latest
           - windows-11-arm
         include:
@@ -107,7 +107,7 @@ jobs:
           - runner: macos-latest
             GOOS: darwin
             GOARCH: arm64
-          - runner: macos-13
+          - runner: macos-15-intel
             GOOS: darwin
             GOARCH: amd64
           - runner: windows-latest
@@ -155,7 +155,6 @@ jobs:
   sign-darwin:
     name: Sign darwin binaries
     needs: [config, build]
-    if: false
     environment: production
     runs-on: macos-latest
     strategy:
@@ -164,45 +163,48 @@ jobs:
           - amd64
           - arm64
     steps:
-      - name: Install SignPath MacOSCryptoTokenKit
-        run: |
-          curl -o SignPathCryptoTokenKit.dmg https://download.signpath.io/cryptoproviders/macos-cryptotokenkit/2-latest/SignPathCryptoTokenKit.dmg
-          codesign -dv --verbose SignPathCryptoTokenKit.dmg
-          hdiutil attach ./SignPathCryptoTokenKit.dmg -mountroot ./tools
       - name: Download artifact
         uses: actions/download-artifact@v6
         with:
           name: assets-darwin-${{ matrix.arch }}
           path: assets
-      - name: Sign binary
+
+      - name: Import certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERT_P12_B64 }}
+          p12-password: ${{ secrets.APPLE_DEVELOPER_CERT_P12_PASSWORD }}
+
+      - name: Sign and notarize
         env:
           BIN_NAME: kubetail-darwin-${{ matrix.arch }}
         run: |
-          mkdir assets
-          echo "hello" > assets/${BIN_NAME}
+          BIN_PATH="assets/${BIN_NAME}"
 
-          open "./tools/SignPathCryptoTokenKit/SignPathCryptoTokenKit.app" --args \
-            --api-token ${{ secrets.SIGNPATH_API_TOKEN }} \
-            --organization-id ${{ vars.SIGNPATH_ORGANIZATION_ID }} \
-            --project-slug kubetail \
-            --signing-policy-slug ${{ needs.config.outputs.signing_policy }}
+          # Sign compiled binary
+          codesign --force --options runtime --timestamp \
+            --sign "${{ vars.APPLE_DEVELOPER_CERT_IDENTITY }}" "${BIN_PATH}"
 
-          sleep 20
+          # Verify signature
+          codesign -dv --verbose "${BIN_PATH}"
 
-          # choose cert hash
-          if [ "${{ needs.config.outputs.signing_policy }}" == "release-signing" ]; then
-            CERT_HASH="TODO"
-          else
-            CERT_HASH="TODO"
-          fi
+          # Create archive for notarization
+          ditto -c -k --keepParent "${BIN_PATH}" kubetail.zip
 
-          # sign
-          codesign -f --timestamp --options=runtime \
-            -s "$CERT_HASH" \
-            ./assets/${BIN_NAME}
+          # Create ASC key file
+          ASC_KEY_FILE="$(mktemp -t asc-key.XXXXXX.p8)"
+          printf '%s' "${{ secrets.APPLE_STORE_CONNECT_KEY_P8 }}" > "$ASC_KEY_FILE"
 
-          # check signature
-          codesign -dv --verbose ./assets/${BIN_NAME}
+          # Notarize using ASC secrets
+          xcrun notarytool submit kubetail.zip \
+            --key "${ASC_KEY_FILE}" \
+            --key-id "${{ vars.APPLE_STORE_CONNECT_KEY_ID }}" \
+            --issuer "${{ vars.APPLE_STORE_CONNECT_ISSUER_ID }}" \
+            --wait
+
+          # Delete keyfile
+          rm -f "${ASC_KEY_FILE}"
+
       - name: Upload signed artifact
         uses: actions/upload-artifact@v5
         with:
@@ -264,7 +266,7 @@ jobs:
 
   package-tarball:
     name: Create gzipped tarballs
-    needs: [config, sign-windows]
+    needs: [config, sign-darwin, sign-windows]
     runs-on: ubuntu-24.04
     strategy:
       matrix:
