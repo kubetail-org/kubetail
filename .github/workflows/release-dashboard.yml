@@ -8,114 +8,121 @@ on:
   push:
     tags:
       - "dashboard/v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run"
+        required: false
+        type: boolean
+        default: true
 
 jobs:
-  build-and-publish-amd64:
-    environment: production
+  config:
+    name: Configure workflow
     runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.config.outputs.version }}
+      dry_run: ${{ steps.config.outputs.dry_run }}
     steps:
-      - name: Get tag name
-        uses: olegtarasov/get-tag@v2.1.4
-        id: tagName
-        with:
-          tagRegex: "dashboard/v(.*)"
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ vars.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: build/package/Dockerfile.dashboard
-          push: true
-          tags: |
-            kubetail/kubetail-dashboard:${{ steps.tagName.outputs.tag }}-amd64
-            ghcr.io/${{ github.repository_owner }}/kubetail-dashboard:${{ steps.tagName.outputs.tag }}-amd64
+      - id: config
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/dashboard/v}" >> $GITHUB_OUTPUT
+            echo "dry_run=false" >> $GITHUB_OUTPUT
+          fi
 
-  build-and-publish-arm64:
+  build-and-publish:
+    needs: [config]
     environment: production
-    runs-on: ubuntu-24.04-arm
+    strategy:
+      matrix:
+        runner:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
     steps:
-      - name: Get tag name
-        uses: olegtarasov/get-tag@v2.1.4
-        id: tagName
-        with:
-          tagRegex: "dashboard/v(.*)"
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           file: build/package/Dockerfile.dashboard
-          push: true
+          push: ${{ needs.config.outputs.dry_run == 'false' }}
           tags: |
-            kubetail/kubetail-dashboard:${{ steps.tagName.outputs.tag }}-arm64
-            ghcr.io/${{ github.repository_owner }}/kubetail-dashboard:${{ steps.tagName.outputs.tag }}-arm64
+            kubetail/kubetail-dashboard:${{ needs.config.outputs.version }}-${{ matrix.arch }}
+            ghcr.io/${{ github.repository_owner }}/kubetail-dashboard:${{ needs.config.outputs.version }}-${{ matrix.arch }}
 
   create-and-publish-manifest:
     environment: production
     runs-on: ubuntu-24.04
-    needs: [build-and-publish-amd64, build-and-publish-arm64]
+    needs: [config, build-and-publish]
     steps:
-      - name: Get tag name
-        uses: olegtarasov/get-tag@v2.1.4
-        id: tagName
-        with:
-          tagRegex: "dashboard/v(.*)"
-      - name: "Setup jq"
+      - name: Setup jq
         uses: dcarbone/install-jq-action@v3.2.0
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create and push manifests
+        if: ${{ needs.config.outputs.dry_run == 'false' }}
         run: |
-          docker buildx imagetools create -t kubetail/kubetail-dashboard:${{ steps.tagName.outputs.tag }} \
-            kubetail/kubetail-dashboard:${{ steps.tagName.outputs.tag }}-amd64 \
-            kubetail/kubetail-dashboard:${{ steps.tagName.outputs.tag }}-arm64
-          docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/kubetail-dashboard:${{ steps.tagName.outputs.tag }} \
-            ghcr.io/${{ github.repository_owner }}/kubetail-dashboard:${{ steps.tagName.outputs.tag }}-amd64 \
-            ghcr.io/${{ github.repository_owner }}/kubetail-dashboard:${{ steps.tagName.outputs.tag }}-arm64
+          docker buildx imagetools create -t kubetail/kubetail-dashboard:${{ needs.config.outputs.version }} \
+            kubetail/kubetail-dashboard:${{ needs.config.outputs.version }}-amd64 \
+            kubetail/kubetail-dashboard:${{ needs.config.outputs.version }}-arm64
+          docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/kubetail-dashboard:${{ needs.config.outputs.version }} \
+            ghcr.io/${{ github.repository_owner }}/kubetail-dashboard:${{ needs.config.outputs.version }}-amd64 \
+            ghcr.io/${{ github.repository_owner }}/kubetail-dashboard:${{ needs.config.outputs.version }}-arm64
+
       - name: Fetch docker token
         run: |
           TOKEN=$(curl -X POST "https://hub.docker.com/v2/users/login" -H "Content-Type: application/json" -d '{"username": "${{ vars.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' | jq -r '.token')
           echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+
       - name: Delete extra arch manifests
+        if: ${{ needs.config.outputs.dry_run == 'false' }}
         run: |
           declare -a archs=("amd64" "arm64")
           for arch in "${archs[@]}"
@@ -123,7 +130,7 @@ jobs:
             RESPONSE=$(curl -s -w "%{http_code}" \
               -X DELETE \
               -H "Authorization: Bearer $TOKEN" \
-              "https://hub.docker.com/v2/repositories/kubetail/kubetail-dashboard/tags/${{ steps.tagName.outputs.tag }}-$arch")
+              "https://hub.docker.com/v2/repositories/kubetail/kubetail-dashboard/tags/${{ needs.config.outputs.version }}-$arch")
             if [ "$RESPONSE" -ne 204 ]; then
               echo "DELETE for $arch failed with status $RESPONSE"
               exit 1
