@@ -12,13 +12,12 @@ concurrency:
   group: package-healthcheck
   cancel-in-progress: true
 
-# Resolve latest upstream version once, and (optionally) discover a PEX asset.
+# Resolve latest upstream version.
 jobs:
   upstream:
     runs-on: ubuntu-24.04
     outputs:
       ver: ${{ steps.get.outputs.ver }}
-      pex_url: ${{ steps.get.outputs.pex_url }}
     steps:
     - uses: actions/github-script@v7
       id: get
@@ -27,14 +26,8 @@ jobs:
           const { data } = await github.rest.repos.getLatestRelease({
             owner: 'kubetail-org', repo: 'kubetail'
           });
-          const tag = (data.tag_name || '').replace(/^v|^cli\//g,'').replace(/^v/,''); // e.g. "cli/v0.10.0" -> "0.10.0"
-          let pex = '';
-          if (Array.isArray(data.assets)) {
-            const hit = data.assets.find(a => /\.pex$/i.test(a.name));
-            if (hit && hit.browser_download_url) pex = hit.browser_download_url;
-          }
+          const tag = (data.tag_name || '').replace(/^cli\/v/, ''); // e.g. "cli/v0.10.0" -> "0.10.0"
           core.setOutput('ver', tag);
-          core.setOutput('pex_url', pex);
 
   # Linux package managers in containers (run as root so $GITHUB_STEP_SUMMARY is writable)
   linux:
@@ -240,11 +233,7 @@ jobs:
               throw "scoop install failed"
             }
             try { scoop bucket add extras | Out-Null } catch { }
-            try {
-              scoop install kubetail
-            } catch {
-              scoop install kubetail-cli
-            }
+            scoop install kubetail
     steps:
     - name: Install ${{ matrix.name }}
       shell: pwsh
