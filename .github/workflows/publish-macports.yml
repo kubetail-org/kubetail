@@ -14,6 +14,11 @@ on:
         description: "Version to deploy"
         required: true
         type: string
+      port_checks:
+        description: "Run port checks"
+        required: true
+        type: boolean
+        default: false
       dry_run:
         description: "Dry run"
         required: false
@@ -21,43 +26,65 @@ on:
         default: true
 
 jobs:
-  config:
-    name: Configure workflow
-    runs-on: ubunut-24.04
-    outputs:
-      version: ${{ steps.config.outputs.version }}
-      dry_run: ${{ steps.config.outputs.dry_run }}
+  publish:
+    name: Publish
+    environment: production
+    runs-on: macos-26
+    env:
+      ORIGIN_REPO: kubetail-org/macports-ports
+      UPSTREAM_REPO: kubetail-org/macports-ports
     steps:
-      - id: config
+      - name: Config
+        id: config
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "port_checks=${{ github.event.inputs.port_checks }}" >> $GITHUB_OUTPUT
             echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+            echo "port_checks=false" >> $GITHUB_OUTPUT
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
 
-  create-portfile:
-    name: Create portfile
-    needs: [config]
-    runs-on: ubuntu-24.04
-    env:
-      ARCHIVE_NAME: kubetail-cli.orig.tar.xz
-    steps:
-      - name: Download source bundle
+      - name: Checkout macports-ports repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.ORIGIN_REPO }}
+          sparse-checkout: devel/kubetail
+          sparse-checkout-cone-mode: false
+          path: macports-ports
+          persist-credentials: false
+
+      - name: Install macports
+        if: ${{ steps.config.outputs.port_checks == 'true' }}
+        run: |
+          curl -LO https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg
+          sudo installer -pkg MacPorts-2.11.6-26-Tahoe.pkg -target /
+          echo "PATH=/opt/local/bin:/opt/local/sbin:$PATH" >> "$GITHUB_ENV"
+
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/ci-config/macports
+          sparse-checkout-cone-mode: false
+          path: kubetail
+
+      - name: Download kubetail-cli source bundle
         uses: robinraju/release-downloader@v1.12
         with:
           repository: kubetail-org/kubetail
-          tag: ${{ format('cli/v{0}', needs.config.outputs.version) }}
-          fileName: ${{ env.ARCHIVE_NAME }}
+          tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
+          fileName: kubetail-cli.orig.tar.xz
           out-file-path: "downloads"
 
       - name: Extract metadata
         id: meta
         working-directory: ./downloads
+        env:
+          ARCHIVE_NAME: kubetail-cli.orig.tar.xz
         run: |
-          SIZE=$(stat --format '%s' "$ARCHIVE_NAME")
+          SIZE=$(stat -f '%z' "$ARCHIVE_NAME")
           RMD160=$(openssl dgst -rmd160 "$ARCHIVE_NAME" | awk '{print $NF}')
           SHA256=$(shasum -a 256 "$ARCHIVE_NAME" | awk '{print $1}')
 
@@ -65,120 +92,129 @@ jobs:
           echo "rmd160=$RMD160" >> "$GITHUB_OUTPUT"
           echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout kubetail repo
-        uses: actions/checkout@v4
-        with:
-          sparse-checkout: .github/ci-config/macports
-          sparse-checkout-cone-mode: false
-          path: kubetail
-
       - name: Execute Portfile template
         env:
-          VERSION: ${{ needs.config.outputs.version }}
+          VERSION: ${{ steps.config.outputs.version }}
           RMD160: ${{ steps.meta.outputs.rmd160 }}
           SHA256: ${{ steps.meta.outputs.sha256 }}
           SIZE: ${{ steps.meta.outputs.size }}
           SRC_DIR: kubetail/.github/ci-config/macports
+          DST_DIR: macports-ports/devel/kubetail
         run: |
           envsubst '${VERSION} ${RMD160} ${SHA256} ${SIZE}' \
             < "${SRC_DIR}/Portfile.tmpl" \
-            > Portfile
+            > "${DST_DIR}/Portfile"
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v5
-        with:
-          name: portfile
-          path: Portfile
+          if [ "${{ steps.config.outputs.dry_run }}" == "true" ]; then
+            cat "${DST_DIR}/Portfile"
+          fi
 
-  check-portfile:
-    name: Check portfile
-    needs: [config, create-portfile]
-    runs-on: macos-26
-    steps:
-      - name: Install macports
+      - name: "Port Check: Lint"
+        if: ${{ steps.config.outputs.port_checks == 'true' }}
+        working-directory: macports-ports/devel/kubetail
         run: |
-          curl -LO https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg
-          sudo installer -pkg MacPorts-2.11.6-26-Tahoe.pkg -target /
-
-      - name: Download portfile
-        uses: actions/download-artifact@v6
-        with:
-          name: portfile
-
-      - name: Lint
-        run: |
-          lint_output="$(port lint 2>&1)"
+          lint_output="$(port lint kubetail 2>&1)"
           lint_status=$?
           printf '%s\n' "$lint_output"
           if [ "$lint_status" -ne 0 ]; then
             exit "$lint_status"
           fi
           if ! printf '%s\n' "$lint_output" | grep -Fq "0 errors and 0 warnings found"; then
-            echo $lint_output
+            echo "::error::port lint did not report \"0 errors and 0 warnings found\"."
             exit 1
           fi
 
-      - name: Test
+      - name: "Port Check: Test"
+        if: ${{ steps.config.outputs.port_checks == 'true' }}
+        working-directory: macports-ports/devel/kubetail
         run: |
-          sudo port test
+          sudo port test -N
 
-      - name: Install
+      - name: "Port Check: Install"
+        if: ${{ steps.config.outputs.port_checks == 'true' }}
         run: |
           sudo port install
 
-      - name: Check binary
+      - name: "Port Check: Test binary"
+        if: ${{ steps.config.outputs.port_checks == 'true' }}
         run: |
           kubetail --version
 
-  create-pull-request:
-    name: Create pull request
-    needs: [config, check-portfile]
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout kubetail repo
-        uses: actions/checkout@v4
-        with:
-          sparse-checkout: .github/ci-config/macports
-          sparse-checkout-cone-mode: false
-          path: kubetail
-
-      - name: Checkout macports-ports repo
-        uses: actions/checkout@v4
-        with:
-          repository: kubetail-org/macports-ports
-          sparse-checkout: devel/kubetail
-          sparse-checkout-cone-mode: false
-          path: macports-ports
-
-      - name: Download portfile
-        uses: actions/download-artifact@v6
-        with:
-          name: portfile
-          path: macports-ports/devel/kubetail
-
       - name: Execute PR body template
+        id: pr_body
         env:
-          VERSION: ${{ needs.config.outputs.version }}
+          VERSION: ${{ steps.config.outputs.version }}
           SRC_DIR: kubetail/.github/ci-config/macports
         run: |
+          FILE="$(mktemp)"
+
+          export TESTED_ON_STRING="$(sh -c 'echo "macOS $(sw_vers -productVersion) $(sw_vers -buildVersion) $(uname -m)"; xcode=$(xcodebuild -version 2>/dev/null); if [ $? == 0 ]; then echo "$(echo "$xcode" | awk '\''NR==1{x=$0}END{print x" "$NF}'\'')"; else echo "Command Line Tools $(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | awk '\''/version:/ {print $2}'\'')"; fi')"
+
           envsubst '${VERSION} ${TESTED_ON_STRING}' \
             < "${SRC_DIR}/pr-body.tmpl" \
-            > pr-body
+            > "$FILE"
 
-      - name: Debug
-        if: ${{ needs.config.outputs.dry_run == 'true' }}
-        run: |
-          cat macports-ports/devel/kubetail/Portfile
-          cat pr-body
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
 
-      - name: Commit and raise PR from forked repo
-        uses: peter-evans/create-pull-request@v7.0.8
-        if: ${{ needs.config.outputs.dry_run == 'false' }}
+      - name: Configure gpg
+        uses: crazy-max/ghaction-import-gpg@v6.3.0
         with:
-          path: ./macports-ports
-          commit-message: "release: update to kubetail-${{ needs.config.outputs.version }}"
-          title: "kubetail: update to ${{ needs.config.outputs.version }}"
-          body-path: ./pr-body
-          branch: release-kubetail-${{ needs.config.outputs.version }}
-          base: master
-          #push-to-fork: kubetail-org/winget-pkgs
+          gpg_private_key: ${{ secrets.KUBETAIL_BOT_PGP_SIGNING_KEY }}
+          passphrase: ${{ secrets.KUBETAIL_BOT_PGP_PASSWORD }}
+
+      - name: Configure git
+        working-directory: macports-ports
+        run: |
+          # Configure git
+          git config --local gpg.program gpg
+          git config --local commit.gpgsign true
+
+          git config --local user.name "${{ vars.KUBETAIL_BOT_NAME }}"
+          git config --local user.email "${{ vars.KUBETAIL_BOT_EMAIL }}"
+          git config --local user.signingkey "${{ vars.KUBETAIL_BOT_PGP_FINGERPRINT }}"
+
+      - name: Commit changes and raise PR
+        working-directory: macports-ports
+        env:
+          GH_TOKEN: ${{ secrets.KUBETAIL_BOT_PAT }}
+        run: |
+          BRANCH_NAME="release-kubetail-${{ steps.config.outputs.version }}"
+
+          # Exit if branch already exists
+          if git ls-remote --exit-code --heads origin "$BRANCH_NAME" >/dev/null 2>&1; then
+            echo "remote branch $BRANCH_NAME already exists"
+            exit 1
+          fi
+
+          # Create new branch
+          git switch -C "$BRANCH_NAME"
+
+          # Stage release updates
+          git add ./devel/kubetail/Portfile
+
+          # Exit if there are no changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          # Commit
+          git commit -s -m "release: update to kubetail-${{ steps.config.outputs.version }}"
+
+          # Exit if dry_run
+          if [ "${{ steps.config.outputs.dry_run }}" == "true" ]; then
+            cat devel/kubetail/Portfile
+            cat "${{ steps.pr_body.outputs.file }}"
+            exit 0
+          fi
+
+          # Push to origin
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ env.ORIGIN_REPO }}.git"
+          git push --set-upstream origin "$BRANCH_NAME"
+
+          # Raise PR
+          gh pr create \
+            --repo "${{ env.UPSTREAM_REPO }}" \
+            --base master \
+            --title "kubetail: update to ${{ steps.config.outputs.version }}" \
+            --body-file "${{ steps.pr_body.outputs.file }}"
