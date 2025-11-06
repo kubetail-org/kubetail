@@ -1,0 +1,184 @@
+name: publish-macports
+
+permissions:
+  contents: read
+  deployments: write
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to deploy"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run"
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  config:
+    name: Configure workflow
+    runs-on: ubunut-24.04
+    outputs:
+      version: ${{ steps.config.outputs.version }}
+      dry_run: ${{ steps.config.outputs.dry_run }}
+    steps:
+      - id: config
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+            echo "dry_run=false" >> $GITHUB_OUTPUT
+          fi
+
+  create-portfile:
+    name: Create portfile
+    needs: [config]
+    runs-on: ubuntu-24.04
+    env:
+      ARCHIVE_NAME: kubetail-cli.orig.tar.xz
+    steps:
+      - name: Download source bundle
+        uses: robinraju/release-downloader@v1.12
+        with:
+          repository: kubetail-org/kubetail
+          tag: ${{ format('cli/v{0}', needs.config.outputs.version) }}
+          fileName: ${{ env.ARCHIVE_NAME }}
+          out-file-path: "downloads"
+
+      - name: Extract metadata
+        id: meta
+        working-directory: ./downloads
+        run: |
+          SIZE=$(stat --format '%s' "$ARCHIVE_NAME")
+          RMD160=$(openssl dgst -rmd160 "$ARCHIVE_NAME" | awk '{print $NF}')
+          SHA256=$(shasum -a 256 "$ARCHIVE_NAME" | awk '{print $1}')
+
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+          echo "rmd160=$RMD160" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout kubetail repo
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/ci-config/macports
+          sparse-checkout-cone-mode: false
+          path: kubetail
+
+      - name: Execute Portfile template
+        env:
+          VERSION: ${{ needs.config.outputs.version }}
+          RMD160: ${{ steps.meta.outputs.rmd160 }}
+          SHA256: ${{ steps.meta.outputs.sha256 }}
+          SIZE: ${{ steps.meta.outputs.size }}
+          SRC_DIR: kubetail/.github/ci-config/macports
+        run: |
+          envsubst '${VERSION} ${RMD160} ${SHA256} ${SIZE}' \
+            < "${SRC_DIR}/Portfile.tmpl" \
+            > Portfile
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: portfile
+          path: Portfile
+
+  check-portfile:
+    name: Check portfile
+    needs: [config, create-portfile]
+    runs-on: macos-26
+    steps:
+      - name: Install macports
+        run: |
+          curl -LO https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg
+          sudo installer -pkg MacPorts-2.11.6-26-Tahoe.pkg -target /
+
+      - name: Download portfile
+        uses: actions/download-artifact@v6
+        with:
+          name: portfile
+
+      - name: Lint
+        run: |
+          lint_output="$(port lint 2>&1)"
+          lint_status=$?
+          printf '%s\n' "$lint_output"
+          if [ "$lint_status" -ne 0 ]; then
+            exit "$lint_status"
+          fi
+          if ! printf '%s\n' "$lint_output" | grep -Fq "0 errors and 0 warnings found"; then
+            echo $lint_output
+            exit 1
+          fi
+
+      - name: Test
+        run: |
+          sudo port test
+
+      - name: Install
+        run: |
+          sudo port install
+
+      - name: Check binary
+        run: |
+          kubetail --version
+
+  create-pull-request:
+    name: Create pull request
+    needs: [config, check-portfile]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout kubetail repo
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/ci-config/macports
+          sparse-checkout-cone-mode: false
+          path: kubetail
+
+      - name: Checkout macports-ports repo
+        uses: actions/checkout@v4
+        with:
+          repository: kubetail-org/macports-ports
+          sparse-checkout: devel/kubetail
+          sparse-checkout-cone-mode: false
+          path: macports-ports
+
+      - name: Download portfile
+        uses: actions/download-artifact@v6
+        with:
+          name: portfile
+          path: macports-ports/devel/kubetail
+
+      - name: Execute PR body template
+        env:
+          VERSION: ${{ needs.config.outputs.version }}
+          SRC_DIR: kubetail/.github/ci-config/macports
+        run: |
+          envsubst '${VERSION} ${TESTED_ON_STRING}' \
+            < "${SRC_DIR}/pr-body.tmpl" \
+            > pr-body
+
+      - name: Debug
+        if: ${{ needs.config.outputs.dry_run == 'true' }}
+        run: |
+          cat macports-ports/devel/kubetail/Portfile
+          cat pr-body
+
+      - name: Commit and raise PR from forked repo
+        uses: peter-evans/create-pull-request@v7.0.8
+        if: ${{ needs.config.outputs.dry_run == 'false' }}
+        with:
+          path: ./macports-ports
+          commit-message: "release: update to kubetail-${{ needs.config.outputs.version }}"
+          title: "kubetail: update to ${{ needs.config.outputs.version }}"
+          body-path: ./pr-body
+          branch: release-kubetail-${{ needs.config.outputs.version }}
+          base: master
+          #push-to-fork: kubetail-org/winget-pkgs
