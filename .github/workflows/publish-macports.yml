@@ -179,15 +179,20 @@ jobs:
           GH_TOKEN: ${{ secrets.KUBETAIL_BOT_PAT_MACPORTS_PORTS }}
         run: |
           BRANCH_NAME="release-kubetail-${{ steps.config.outputs.version }}"
+          ORIGIN_REPO="${{ env.ORIGIN_REPO }}"
+          ORIGIN_OWNER="${ORIGIN_REPO%%/*}"
+
+          # Set origin
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${ORIGIN_REPO}.git"
 
           # Exit if branch already exists
-          if git ls-remote --exit-code --heads origin "$BRANCH_NAME" >/dev/null 2>&1; then
-            echo "remote branch $BRANCH_NAME already exists"
+          if git ls-remote --exit-code --heads origin "${BRANCH_NAME}" >/dev/null 2>&1; then
+            echo "remote branch ${BRANCH_NAME} already exists"
             exit 1
           fi
 
           # Create new branch
-          git switch -C "$BRANCH_NAME"
+          git switch -C "${BRANCH_NAME}"
 
           # Stage release updates
           git add ./devel/kubetail/Portfile
@@ -209,12 +214,12 @@ jobs:
           fi
 
           # Push to origin
-          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ env.ORIGIN_REPO }}.git"
-          git push --set-upstream origin "$BRANCH_NAME"
+          git push --set-upstream origin "${BRANCH_NAME}"
 
           # Raise PR
           gh pr create \
             --repo "${{ env.UPSTREAM_REPO }}" \
+            --head "${ORIGIN_OWNER}:${BRANCH_NAME}" \
             --base master \
             --title "kubetail: update to ${{ steps.config.outputs.version }}" \
             --body-file "${{ steps.pr_body.outputs.file }}"
