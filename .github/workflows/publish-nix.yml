@@ -37,10 +37,6 @@ jobs:
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Extract version
-        id: version
-        run: echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
-
       - name: Get kubetail-actions app token
         id: app-token
         uses: actions/create-github-app-token@v2

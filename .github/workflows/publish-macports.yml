@@ -31,10 +31,8 @@ jobs:
     environment: production
     runs-on: macos-26
     env:
-      ORIGIN_OWNER: kubetail-org
-      ORIGIN_REPO: macports-ports
-      UPSTREAM_OWNER: kubetail-org
-      UPSTREAM_REPO: macports-ports
+      UPSTREAM_REPO: kubetail-org/macports-ports
+      FORK_REPO: kubetail-org/macports-ports
     steps:
       - name: Config
         id: config
@@ -52,18 +50,11 @@ jobs:
       - name: Checkout macports-ports upstream repo
         uses: actions/checkout@v4
         with:
-          repository: "${{ env.UPSTREAM_OWNER }}/${{ env.UPSTREAM_REPO}}"
+          repository: "${{ env.UPSTREAM_REPO }}"
           sparse-checkout: devel/kubetail
           sparse-checkout-cone-mode: false
           path: macports-ports
           persist-credentials: false
-
-      - name: Install macports
-        if: ${{ steps.config.outputs.port_checks == 'true' }}
-        run: |
-          curl -LO https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg
-          sudo installer -pkg MacPorts-2.11.6-26-Tahoe.pkg -target /
-          echo "PATH=/opt/local/bin:/opt/local/sbin:$PATH" >> "$GITHUB_ENV"
 
       - name: Checkout this repo
         uses: actions/checkout@v4
@@ -71,6 +62,7 @@ jobs:
           sparse-checkout: .github/ci-config/macports
           sparse-checkout-cone-mode: false
           path: kubetail
+          persist-credentials: false
 
       - name: Download kubetail-cli source bundle
         uses: robinraju/release-downloader@v1.12
@@ -110,6 +102,13 @@ jobs:
           if [ "${{ steps.config.outputs.dry_run }}" == "true" ]; then
             cat "${DST_DIR}/Portfile"
           fi
+
+      - name: Install macports
+        if: ${{ steps.config.outputs.port_checks == 'true' }}
+        run: |
+          curl -LO https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg
+          sudo installer -pkg MacPorts-2.11.6-26-Tahoe.pkg -target /
+          echo "PATH=/opt/local/bin:/opt/local/sbin:$PATH" >> "$GITHUB_ENV"
 
       - name: "Port Check: Lint"
         if: ${{ steps.config.outputs.port_checks == 'true' }}
@@ -158,6 +157,11 @@ jobs:
 
           echo "file=$FILE" >> "$GITHUB_OUTPUT"
 
+      - name: Load kubetail-bot ssh key
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.KUBETAIL_BOT_SSH_PRIVATE_KEY }}
+
       - name: Configure gpg
         uses: crazy-max/ghaction-import-gpg@v6.3.0
         with:
@@ -175,29 +179,21 @@ jobs:
           git config --local user.email "${{ vars.KUBETAIL_BOT_EMAIL }}"
           git config --local user.signingkey "${{ vars.KUBETAIL_BOT_PGP_FINGERPRINT }}"
 
-      - name: Get kubetail-actions app token
-        id: app-token
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ vars.KUBETAIL_ACTIONS_APP_ID }}
-          private-key: ${{ secrets.KUBETAIL_ACTIONS_APP_PRIVATE_KEY }}
-          owner: ${{ env.ORIGIN_OWNER }}
-          repositories: ${{ env.ORIGIN_REPO }}
-          permission-contents: write
-
       - name: Commit changes and raise PR
         working-directory: macports-ports
         env:
-          APP_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_TOKEN: ${{ secrets.AMOREY_PAT }}
         run: |
           BRANCH_NAME="release-kubetail-${{ steps.config.outputs.version }}"
 
-          # Set origin
-          git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${{ env.ORIGIN_OWNER }}/${{ env.ORIGIN_REPO }}.git"
+          FORK_REPO="${{ env.FORK_REPO }}"
+          FORK_REPO_OWNER=${FORK_REPO%%/*}
+
+          # Add fork
+          git remote add fork "git@github.com:${{ env.FORK_REPO }}.git"
 
           # Exit if branch already exists
-          if git ls-remote --exit-code --heads origin "${BRANCH_NAME}" >/dev/null 2>&1; then
+          if git ls-remote --exit-code --heads fork "${BRANCH_NAME}" >/dev/null 2>&1; then
             echo "remote branch ${BRANCH_NAME} already exists"
             exit 1
           fi
@@ -224,13 +220,13 @@ jobs:
             exit 0
           fi
 
-          # Push to origin
-          git push --set-upstream origin "${BRANCH_NAME}"
+          # Push to fork
+          git push --set-upstream fork "${BRANCH_NAME}"
 
           # Raise PR
           gh pr create \
-            --repo "${{ env.UPSTREAM_OWNER }}/${{ env.UPSTREAM_REPO }}" \
-            --head "${{ env.ORIGIN_OWNER }}:${BRANCH_NAME}" \
+            --repo "${{ env.UPSTREAM_REPO }}" \
+            --head "${FORK_REPO_OWNER}:${BRANCH_NAME}" \
             --base master \
             --title "kubetail: update to ${{ steps.config.outputs.version }}" \
             --body-file "${{ steps.pr_body.outputs.file }}"
