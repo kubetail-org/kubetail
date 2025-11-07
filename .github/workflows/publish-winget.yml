@@ -26,8 +26,10 @@ jobs:
     environment: production
     runs-on: ubuntu-24.04
     env:
-      ORIGIN_REPO: kubetail-org/winget-pkgs
-      UPSTREAM_REPO: microsoft/winget-pkgs
+      ORIGIN_OWNER: kubetail-org
+      ORIGIN_REPO: winget-pkgs
+      UPSTREAM_OWNER: microsoft
+      UPSTREAM_REPO: winget-pkgs
     steps:
       - name: Configure
         id: config
@@ -43,7 +45,7 @@ jobs:
       - name: Checkout winget-pkgs upstream repo
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.UPSTREAM_REPO }}
+          repository: "${{ env.UPSTREAM_OWNER }}/${{ env.UPSTREAM_REPO}}"
           sparse-checkout: manifests/k/Kubetail/Kubetail
           sparse-checkout-cone-mode: false
           path: winget-pkgs
@@ -122,18 +124,27 @@ jobs:
           git config --local user.email "${{ vars.KUBETAIL_BOT_EMAIL }}"
           git config --local user.signingkey "${{ vars.KUBETAIL_BOT_PGP_FINGERPRINT }}"
 
+      - name: Get kubetail-actions app token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.KUBETAIL_ACTIONS_APP_ID }}
+          private-key: ${{ secrets.KUBETAIL_ACTIONS_APP_PRIVATE_KEY }}
+          owner: ${{ env.ORIGIN_OWNER }}
+          repositories: ${{ env.ORIGIN_REPO }}
+          permission-contents: write
+
       - name: Commit changes and raise PR
         working-directory: winget-pkgs
         env:
-          GH_TOKEN: ${{ secrets.KUBETAIL_BOT_PAT_WINGET_PKGS }}
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ secrets.AMOREY_PAT }}
         run: |
           BRANCH_NAME="release-kubetail-${{ steps.config.outputs.version }}"
           MANIFESTS_DIR="manifests/k/Kubetail/Kubetail/${{ steps.config.outputs.version }}"
-          ORIGIN_REPO="${{ env.ORIGIN_REPO }}"
-          ORIGIN_OWNER="${ORIGIN_REPO%%/*}"
 
           # Set origin
-          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${ORIGIN_REPO}.git"
+          git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${{ env.ORIGIN_OWNER }}/${{ env.ORIGIN_REPO }}.git"
 
           # Exit if branch already exists
           if git ls-remote --exit-code --heads origin "${BRANCH_NAME}" >/dev/null 2>&1; then
@@ -168,8 +179,8 @@ jobs:
 
           # Raise PR
           gh pr create \
-            --repo "${{ env.UPSTREAM_REPO }}" \
-            --head "${ORIGIN_OWNER}:${BRANCH_NAME}" \
+            --repo "${{ env.UPSTREAM_OWNER }}/${{ env.UPSTREAM_REPO }}" \
+            --head "${{ env.ORIGIN_OWNER }}:${BRANCH_NAME}" \
             --base master \
             --title "New version: Kubetail.Kubetail version ${{ steps.config.outputs.version }}" \
             --body "This PR adds the manifest for Kubetail.Kubetail version ${{ steps.config.outputs.version }}."

@@ -31,8 +31,10 @@ jobs:
     environment: production
     runs-on: macos-26
     env:
-      ORIGIN_REPO: kubetail-org/macports-ports
-      UPSTREAM_REPO: kubetail-org/macports-ports
+      ORIGIN_OWNER: kubetail-org
+      ORIGIN_REPO: macports-ports
+      UPSTREAM_OWNER: kubetail-org
+      UPSTREAM_REPO: macports-ports
     steps:
       - name: Config
         id: config
@@ -47,10 +49,10 @@ jobs:
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Checkout macports-ports repo
+      - name: Checkout macports-ports upstream repo
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.ORIGIN_REPO }}
+          repository: "${{ env.UPSTREAM_OWNER }}/${{ env.UPSTREAM_REPO}}"
           sparse-checkout: devel/kubetail
           sparse-checkout-cone-mode: false
           path: macports-ports
@@ -173,17 +175,26 @@ jobs:
           git config --local user.email "${{ vars.KUBETAIL_BOT_EMAIL }}"
           git config --local user.signingkey "${{ vars.KUBETAIL_BOT_PGP_FINGERPRINT }}"
 
+      - name: Get kubetail-actions app token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.KUBETAIL_ACTIONS_APP_ID }}
+          private-key: ${{ secrets.KUBETAIL_ACTIONS_APP_PRIVATE_KEY }}
+          owner: ${{ env.ORIGIN_OWNER }}
+          repositories: ${{ env.ORIGIN_REPO }}
+          permission-contents: write
+
       - name: Commit changes and raise PR
         working-directory: macports-ports
         env:
-          GH_TOKEN: ${{ secrets.KUBETAIL_BOT_PAT_MACPORTS_PORTS }}
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ secrets.AMOREY_PAT }}
         run: |
           BRANCH_NAME="release-kubetail-${{ steps.config.outputs.version }}"
-          ORIGIN_REPO="${{ env.ORIGIN_REPO }}"
-          ORIGIN_OWNER="${ORIGIN_REPO%%/*}"
 
           # Set origin
-          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${ORIGIN_REPO}.git"
+          git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${{ env.ORIGIN_OWNER }}/${{ env.ORIGIN_REPO }}.git"
 
           # Exit if branch already exists
           if git ls-remote --exit-code --heads origin "${BRANCH_NAME}" >/dev/null 2>&1; then
@@ -218,8 +229,8 @@ jobs:
 
           # Raise PR
           gh pr create \
-            --repo "${{ env.UPSTREAM_REPO }}" \
-            --head "${ORIGIN_OWNER}:${BRANCH_NAME}" \
+            --repo "${{ env.UPSTREAM_OWNER }}/${{ env.UPSTREAM_REPO }}" \
+            --head "${{ env.ORIGIN_OWNER }}:${BRANCH_NAME}" \
             --base master \
             --title "kubetail: update to ${{ steps.config.outputs.version }}" \
             --body-file "${{ steps.pr_body.outputs.file }}"
