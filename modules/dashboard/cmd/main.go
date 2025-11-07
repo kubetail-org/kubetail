@@ -67,6 +67,14 @@ func main() {
 			v.BindPFlag("dashboard.addr", cmd.Flags().Lookup("addr"))
 			v.BindPFlag("dashboard.gin-mode", cmd.Flags().Lookup("gin-mode"))
 
+			// Override params from cli
+			for _, param := range params {
+				split := strings.SplitN(param, ":", 2)
+				if len(split) == 2 {
+					v.Set(split[0], split[1])
+				}
+			}
+
 			// Init config
 			cfg, err := config.NewConfig(v, cli.Config)
 			if err != nil {
@@ -75,14 +83,6 @@ func main() {
 
 			// set gin mode
 			gin.SetMode(cfg.Dashboard.GinMode)
-
-			// Override params from cli
-			for _, param := range params {
-				split := strings.SplitN(param, ":", 2)
-				if len(split) == 2 {
-					v.Set(split[0], split[1])
-				}
-			}
 
 			// Configure logger
 			config.ConfigureLogger(config.LoggerOptions{
