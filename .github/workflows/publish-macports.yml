@@ -176,7 +176,7 @@ jobs:
       - name: Commit changes and raise PR
         working-directory: macports-ports
         env:
-          GH_TOKEN: ${{ secrets.KUBETAIL_BOT_PAT }}
+          GH_TOKEN: ${{ secrets.KUBETAIL_BOT_PAT_MACPORTS_PORTS }}
         run: |
           BRANCH_NAME="release-kubetail-${{ steps.config.outputs.version }}"
 

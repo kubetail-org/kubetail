@@ -107,7 +107,7 @@ jobs:
         uses: peter-evans/create-pull-request@v7.0.8
         if: ${{ steps.config.outputs.dry_run != 'true' }}
         with:
-          token: ${{ secrets.PUBLISH_WINGET_GITHUB_TOKEN }}
+          token: ${{ secrets.KUBETAIL_BOT_PAT_WINGET_PKGS }}
           path: ./winget-pkgs
           commit-message: "New version: Kubetail.Kubetail ${{ steps.config.outputs.version }}"
           title: "New version: Kubetail.Kubetail version ${{ steps.config.outputs.version }}"
