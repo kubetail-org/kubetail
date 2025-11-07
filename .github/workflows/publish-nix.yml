@@ -24,5 +24,5 @@ jobs:
         with:
           repo: kubetail-org/kubetail-nix
           workflow: release
-          token: ${{ secrets.PUBLISH_NIX_GITHUB_TOKEN }}
+          token: ${{ secrets.KUBETAIL_BOT_PAT_KUBETAIL_NIX }}
           inputs: '{ "version": "${{ steps.version.outputs.version }}", "dry_run": false }'

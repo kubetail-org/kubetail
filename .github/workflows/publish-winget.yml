@@ -25,6 +25,9 @@ jobs:
     name: Release on winget
     environment: production
     runs-on: ubuntu-24.04
+    env:
+      ORIGIN_REPO: kubetail-org/winget-pkgs
+      UPSTREAM_REPO: microsoft/winget-pkgs
     steps:
       - name: Configure
         id: config
@@ -37,6 +40,22 @@ jobs:
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Checkout winget-pkgs upstream repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.UPSTREAM_REPO }}
+          sparse-checkout: manifests/k/Kubetail/Kubetail
+          sparse-checkout-cone-mode: false
+          path: winget-pkgs
+          persist-credentials: false
+
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/ci-config/winget
+          sparse-checkout-cone-mode: false
+          path: kubetail
+
       - name: Download SHA256SUMS
         id: release-info
         uses: robinraju/release-downloader@v1.12
@@ -44,32 +63,17 @@ jobs:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
           fileName: "SHA256SUMS"
+          out-file-path: "downloads"
 
       - name: Extract shasums
         id: meta
+        working-directory: ./downloads
         run: |
           AMD64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-windows-amd64.zip" {print $1}' )
           ARM64_SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-windows-arm64.zip" {print $1}' )
 
           echo "amd64_sha256=$AMD64_SHA256" >> $GITHUB_OUTPUT
           echo "arm64_sha256=$ARM64_SHA256" >> $GITHUB_OUTPUT
-
-      - name: Checkout kubetail repo
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-          sparse-checkout: .github/ci-config/winget
-          sparse-checkout-cone-mode: false
-          path: kubetail
-
-      - name: Checkout winget-pkgs repo
-        uses: actions/checkout@v4
-        with:
-          repository: microsoft/winget-pkgs
-          fetch-depth: 1
-          sparse-checkout: manifests/k/Kubetail/Kubetail
-          sparse-checkout-cone-mode: false
-          path: winget-pkgs
 
       - name: Execute winget manifest templates
         env:
@@ -79,8 +83,6 @@ jobs:
           SRC_DIR: kubetail/.github/ci-config/winget
           DST_DIR: winget-pkgs/manifests/k/Kubetail/Kubetail/${{ steps.config.outputs.version }}
         run: |
-          set -euo pipefail
-
           mkdir -p "${DST_DIR}"
 
           # Kubetail.Kubetail.yaml
@@ -103,15 +105,71 @@ jobs:
             cat "${DST_DIR}"/*
           fi
 
-      - name: Commit and raise PR from forked repo
-        uses: peter-evans/create-pull-request@v7.0.8
-        if: ${{ steps.config.outputs.dry_run != 'true' }}
+      - name: Configure gpg
+        uses: crazy-max/ghaction-import-gpg@v6.3.0
         with:
-          token: ${{ secrets.PUBLISH_WINGET_GITHUB_TOKEN }}
-          path: ./winget-pkgs
-          commit-message: "New version: Kubetail.Kubetail ${{ steps.config.outputs.version }}"
-          title: "New version: Kubetail.Kubetail version ${{ steps.config.outputs.version }}"
-          body: "This PR adds the manifest for Kubetail.Kubetail version ${{ steps.config.outputs.version }}."
-          branch: winget-release-kubetail-${{ steps.config.outputs.version }}
-          base: master
-          push-to-fork: kubetail-org/winget-pkgs
+          gpg_private_key: ${{ secrets.KUBETAIL_BOT_PGP_SIGNING_KEY }}
+          passphrase: ${{ secrets.KUBETAIL_BOT_PGP_PASSWORD }}
+
+      - name: Configure git
+        working-directory: winget-pkgs
+        run: |
+          # Configure git
+          git config --local gpg.program gpg
+          git config --local commit.gpgsign true
+
+          git config --local user.name "${{ vars.KUBETAIL_BOT_NAME }}"
+          git config --local user.email "${{ vars.KUBETAIL_BOT_EMAIL }}"
+          git config --local user.signingkey "${{ vars.KUBETAIL_BOT_PGP_FINGERPRINT }}"
+
+      - name: Commit changes and raise PR
+        working-directory: winget-pkgs
+        env:
+          GH_TOKEN: ${{ secrets.KUBETAIL_BOT_PAT_WINGET_PKGS }}
+        run: |
+          BRANCH_NAME="release-kubetail-${{ steps.config.outputs.version }}"
+          MANIFESTS_DIR="manifests/k/Kubetail/Kubetail/${{ steps.config.outputs.version }}"
+          ORIGIN_REPO="${{ env.ORIGIN_REPO }}"
+          ORIGIN_OWNER="${ORIGIN_REPO%%/*}"
+
+          # Set origin
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${ORIGIN_REPO}.git"
+
+          # Exit if branch already exists
+          if git ls-remote --exit-code --heads origin "${BRANCH_NAME}" >/dev/null 2>&1; then
+            echo "remote branch ${BRANCH_NAME} already exists"
+            exit 1
+          fi
+
+          # Create new branch
+          git switch -C "${BRANCH_NAME}"
+
+          # Stage release updates
+          git add "${MANIFESTS_DIR}"
+
+          # Exit if there are no changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          # Commit
+          git commit -s -m "New version: Kubetail.Kubetail ${{ steps.config.outputs.version }}"
+
+          # Exit if dry_run
+          if [ "${{ steps.config.outputs.dry_run }}" == "true" ]; then
+            ls -lah "${MANIFESTS_DIR}"
+            cat "${MANIFESTS_DIR}"/*
+            exit 0
+          fi
+
+          # Push to origin
+          git push --set-upstream origin "${BRANCH_NAME}"
+
+          # Raise PR
+          gh pr create \
+            --repo "${{ env.UPSTREAM_REPO }}" \
+            --head "${ORIGIN_OWNER}:${BRANCH_NAME}" \
+            --base master \
+            --title "New version: Kubetail.Kubetail version ${{ steps.config.outputs.version }}" \
+            --body "This PR adds the manifest for Kubetail.Kubetail version ${{ steps.config.outputs.version }}."
