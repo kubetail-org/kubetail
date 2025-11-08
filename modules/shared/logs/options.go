@@ -237,3 +237,14 @@ func WithAllowedNamespaces(allowedNamespaces []string) Option {
 		return nil
 	}
 }
+
+func WithAllContainers(allContainers bool) Option {
+	return func(target any) error {
+		switch t := target.(type) {
+		case *sourceWatcher:
+			t.allContainers = allContainers
+		}
+
+		return nil
+	}
+}
