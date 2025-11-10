@@ -1,0 +1,127 @@
+name: publish-launchpad
+
+permissions:
+  contents: read
+  deployments: write
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run"
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - id: config
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+            echo "dry_run=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout this repo
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/ci-config/launchpad
+          sparse-checkout-cone-mode: false
+          path: kubetail
+
+      - name: Install dependencies
+        run: |
+          # Dependencies for .deb package builder
+          sudo apt install -y \
+            build-essential \
+            devscripts \
+            debhelper-compat \
+            dh-golang \
+            pkgconf
+
+          # Go
+          sudo add-apt-repository -y ppa:longsleep/golang-backports
+          sudo apt install -y --no-install-recommends golang-1.24-go
+
+      - name: Download vendored source bundle
+        uses: robinraju/release-downloader@v1.12
+        with:
+          repository: kubetail-org/kubetail
+          tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
+          fileName: "kubetail-cli.orig.tar.xz"
+          out-file-path: "downloads"
+
+      - name: Prepare work directory
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
+        run: |
+          mkdir work && cd work
+
+          # Prepare orig bundle
+          cp downloads/kubetail-cli.orig.tar.xz .
+          tar -xJf kubetail-cli.orig.tar.xz
+          rm -rf kubetail-cli.orig.tar.xz
+          mv kubetail-cli "kubetail-${VERSION}"
+          tar -cJf "kubetail_${VERSION}.orig.tar.xz" "kubetail-${VERSION}"
+
+      - name: Create debian directory
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
+          SRC_DIR: kubetail/.github/ci-config/debian
+          DST_DIR: work/kubetail-${{ steps.config.outputs.version }}/debian
+        run: |
+          mkdir -p "${DST_DIR}/source"
+
+          export TIMESTAMP="$(date -Ru)" 
+
+          # changelog
+          envsubst '${VERSION} ${TIMESTAMP}' \
+            < "${SRC_DIR}/changelog.tmpl" \
+            > "${DST_DIR}/changelog"
+
+          # control
+          cp "${SRC_DIR}/control" "${DST_DIR}/control"
+
+          # copyright
+          cp "${SRC_DIR}/copyright" "${DST_DIR}/copyright"
+
+          # rules
+          envsubst '${VERSION}' \
+            < "${SRC_DIR}/rules.tmpl" \
+            > "${DST_DIR}/rules"
+
+          # source/format
+          cp "${SRC_DIR}/source/format" "${DST_DIR}/source/format"
+
+          # source/options
+          cp "${SRC_DIR}/source/options" "${DST_DIR}/source/options"
+
+      - name: Configure gpg
+        uses: crazy-max/ghaction-import-gpg@v6.3.0
+        with:
+          gpg_private_key: ${{ secrets.KUBETAIL_BOT_PGP_SIGNING_KEY }}
+          passphrase: ${{ secrets.KUBETAIL_BOT_PGP_PASSWORD }}
+
+      - name: Build signed source package
+        working-directory: work/kubetail-${{ steps.config.outputs.version }}/debian
+        run: |
+          debuild -S -sa -k"${{ vars.KUBETAIL_BOT_PGP_FINGERPRINT }}"
+
+      - name: Debug
+        if: ${{ steps.config.outputs.dry_run == 'true' }}
+        working-directory: work
+        run: |
+          ls -lah *
