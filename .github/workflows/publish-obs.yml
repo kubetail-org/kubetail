@@ -1,4 +1,4 @@
-name: publish-launchpad
+name: publish-obs
 
 permissions:
   contents: read
@@ -49,7 +49,7 @@ jobs:
       - name: Execute templates
         env:
           VERSION: ${{ steps.config.outputs.version }}
-          SRC_DIR: kubetail/.github/ci-config/suse-obs
+          SRC_DIR: kubetail/.github/ci-config/obs
         run: |
           export TIMESTAMP=$(LANG=C date '+%a %b %e %Y')
 
