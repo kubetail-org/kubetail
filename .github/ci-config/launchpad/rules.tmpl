@@ -13,7 +13,7 @@ override_dh_auto_build:
 	cd modules/cli && /usr/lib/go-1.24/bin/go build -mod=vendor -buildmode=pie -ldflags="-s -w -X github.com/kubetail-org/kubetail/modules/cli/cmd.version=${VERSION}" -o ../../bin/kubetail main.go
 
 override_dh_auto_install:
-	install -D -m 0755 bin/kubetail debian/kubetail/usr/bin/kubetail
+	install -D -m 0755 bin/kubetail debian/kubetail-cli/usr/bin/kubetail
 
 override_dh_dwz:
 	# Skip dwz compression for Go binaries with compressed debug sections

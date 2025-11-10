@@ -71,14 +71,14 @@ jobs:
         run: |
           tar -xJf kubetail-cli.orig.tar.xz
           rm -rf kubetail-cli.orig.tar.xz
-          mv kubetail-cli "kubetail-${VERSION}"
-          tar -cJf "kubetail_${VERSION}.orig.tar.xz" "kubetail-${VERSION}"
+          mv kubetail-cli "kubetail-cli-${VERSION}"
+          tar -cJf "kubetail-cli_${VERSION}.orig.tar.xz" "kubetail-cli-${VERSION}"
 
       - name: Create debian directory
         env:
           VERSION: ${{ steps.config.outputs.version }}
           SRC_DIR: kubetail/.github/ci-config/launchpad
-          DST_DIR: work/kubetail-${{ steps.config.outputs.version }}/debian
+          DST_DIR: work/kubetail-cli-${{ steps.config.outputs.version }}/debian
         run: |
           mkdir -p "${DST_DIR}/source"
 
@@ -108,7 +108,7 @@ jobs:
           passphrase: ${{ secrets.KUBETAIL_BOT_PGP_PASSWORD }}
 
       - name: Build and push packages
-        working-directory: work/kubetail-${{ steps.config.outputs.version }}
+        working-directory: work/kubetail-cli-${{ steps.config.outputs.version }}
         env:
           VERSION: ${{ steps.config.outputs.version }}
           DEBFULLNAME: ${{ vars.KUBETAIL_BOT_NAME}}
@@ -119,7 +119,7 @@ jobs:
             export PKG_VERSION="${VERSION}-1~${SERIES}1"
 
             if [ "${FIRST_SERIES}" = "true" ]; then 
-              DCH_FLAGS="--create --package kubetail"
+              DCH_FLAGS="--create --package kubetail-cli"
               DEBUILD_FLAGS="-sa"
               FIRST_SERIES=false
             else
@@ -131,9 +131,9 @@ jobs:
             debuild ${DEBUILD_FLAGS} -S -k"${{ vars.KUBETAIL_BOT_PGP_FINGERPRINT }}"
 
             if [ "${{ steps.config.outputs.dry_run }}" = "false" ]; then
-              dput ppa:kubetail/kubetail "../kubetail_${PKG_VERSION}_source.changes"
+              dput ppa:kubetail/kubetail "../kubetail-cli_${PKG_VERSION}_source.changes"
             else
               cat debian/changelog
-              cat "../kubetail_${PKG_VERSION}_source.changes"
+              cat "../kubetail-cli_${PKG_VERSION}_source.changes"
             fi
           done

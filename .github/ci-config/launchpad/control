@@ -1,4 +1,4 @@
-Source: kubetail
+Source: kubetail-cli
 Section: utils
 Priority: optional
 Maintainer: Andres Morey <andres@kubetail.com>
@@ -11,7 +11,7 @@ Standards-Version: 4.6.2
 Homepage: https://github.com/kubetail-org/kubetail
 Rules-Requires-Root: no
 
-Package: kubetail
+Package: kubetail-cli
 Architecture: amd64 arm64
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Real-time logging dashboard for Kubernetes
