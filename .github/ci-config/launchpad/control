@@ -1,0 +1,23 @@
+Source: kubetail
+Section: utils
+Priority: optional
+Maintainer: Andres Morey <andres@kubetail.com>
+Build-Depends:
+  debhelper-compat (= 13),
+  golang-1.24-go,
+  dh-golang,
+  pkgconf
+Standards-Version: 4.6.2
+Homepage: https://github.com/kubetail-org/kubetail
+Rules-Requires-Root: no
+
+Package: kubetail
+Architecture: amd64 arm64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Real-time logging dashboard for Kubernetes
+ Kubetail is a general-purpose logging dashboard for Kubernetes,
+ optimized for tailing logs across multi-container workloads in
+ real-time. With Kubetail, you can view logs from all the
+ containers in a workload (e.g. Deployment or DaemonSet) merged
+ into a single, chronological timeline, delivered to your
+ browser or terminal.
