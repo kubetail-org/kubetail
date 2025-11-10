@@ -44,7 +44,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # Dependencies for .deb package builder
+          # Package builder dependencies
           sudo apt install -y \
             build-essential \
             devscripts \
@@ -62,16 +62,13 @@ jobs:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
           fileName: "kubetail-cli.orig.tar.xz"
-          out-file-path: "downloads"
+          out-file-path: "work"
 
-      - name: Prepare work directory
+      - name: Prepare orig bundle
+        working-directory: work
         env:
           VERSION: ${{ steps.config.outputs.version }}
         run: |
-          mkdir work && cd work
-
-          # Prepare orig bundle
-          cp downloads/kubetail-cli.orig.tar.xz .
           tar -xJf kubetail-cli.orig.tar.xz
           rm -rf kubetail-cli.orig.tar.xz
           mv kubetail-cli "kubetail-${VERSION}"
@@ -80,17 +77,12 @@ jobs:
       - name: Create debian directory
         env:
           VERSION: ${{ steps.config.outputs.version }}
-          SRC_DIR: kubetail/.github/ci-config/debian
+          SRC_DIR: kubetail/.github/ci-config/launchpad
           DST_DIR: work/kubetail-${{ steps.config.outputs.version }}/debian
         run: |
           mkdir -p "${DST_DIR}/source"
 
           export TIMESTAMP="$(date -Ru)" 
-
-          # changelog
-          envsubst '${VERSION} ${TIMESTAMP}' \
-            < "${SRC_DIR}/changelog.tmpl" \
-            > "${DST_DIR}/changelog"
 
           # control
           cp "${SRC_DIR}/control" "${DST_DIR}/control"
@@ -115,13 +107,33 @@ jobs:
           gpg_private_key: ${{ secrets.KUBETAIL_BOT_PGP_SIGNING_KEY }}
           passphrase: ${{ secrets.KUBETAIL_BOT_PGP_PASSWORD }}
 
-      - name: Build signed source package
-        working-directory: work/kubetail-${{ steps.config.outputs.version }}/debian
+      - name: Build and push packages
+        working-directory: work/kubetail-${{ steps.config.outputs.version }}
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
+          DEBFULLNAME: ${{ vars.KUBETAIL_BOT_NAME}}
+          DEBEMAIL: ${{ vars.KUBETAIL_BOT_EMAIL }}
         run: |
-          debuild -S -sa -k"${{ vars.KUBETAIL_BOT_PGP_FINGERPRINT }}"
+          FIRST_SERIES=true
+          for SERIES in jammy noble plucky; do
+            export PKG_VERSION="${VERSION}-1~${SERIES}1"
 
-      - name: Debug
-        if: ${{ steps.config.outputs.dry_run == 'true' }}
-        working-directory: work
-        run: |
-          ls -lah *
+            if [ "${FIRST_SERIES}" = "true" ]; then 
+              DCH_FLAGS="--create --package kubetail"
+              DEBUILD_FLAGS="-sa"
+              FIRST_SERIES=false
+            else
+              DCH_FLAGS=""
+              DEBUILD_FLAGS="-sd"
+            fi
+
+            dch ${DCH_FLAGS} -D "${SERIES}" -v "${PKG_VERSION}" "Initial release for ${SERIES}."
+            debuild ${DEBUILD_FLAGS} -S -k"${{ vars.KUBETAIL_BOT_PGP_FINGERPRINT }}"
+
+            if [ "${{ steps.config.outputs.dry_run }}" = "false" ]; then
+              dput ppa:kubetail/kubetail "../kubetail_${PKG_VERSION}_source.changes"
+            else
+              cat debian/changelog
+              cat "../kubetail_${PKG_VERSION}_source.changes"
+            fi
+          done
