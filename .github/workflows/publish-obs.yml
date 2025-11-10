@@ -1,0 +1,69 @@
+name: publish-launchpad
+
+permissions:
+  contents: read
+  deployments: write
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run"
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - id: config
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+            echo "dry_run=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout this repo
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/ci-config/suse-obs
+          sparse-checkout-cone-mode: false
+          path: kubetail
+
+      - name: Install dependencies
+        run: |
+          sudo apt install -y osc
+
+      - name: Execute templates
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
+          SRC_DIR: kubetail/.github/ci-config/suse-obs
+        run: |
+          export TIMESTAMP=$(LANG=C date '+%a %b %e %Y')
+
+          # .spec
+          envsubst '${VERSION} ${TIMESTAMP}' \
+            < "${SRC_DIR}/spec.tmpl" \
+            > kubetail-cli-${VERSION}.spec"
+
+          # _service
+          envsubst '${VERSION}' \
+            < "${SRC_DIR}/_service.tmpl" \
+            > _service"
+
+      - name: Debug
+        run: |
+          cat *.spec
+          cat _service
