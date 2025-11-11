@@ -1,19 +1,13 @@
 <services>
-  <!-- 1. Download upstream tarball -->
   <service name="download_url">
-    <param name="url">
-      https://github.com/kubetail-org/kubetail/releases/download/cli%2Fv${VERSION}/kubetail-cli.orig.tar.xz</param>
-    <param name="filename">kubetail-cli.orig.tar.xz</param>
+    <param name="host">github.com</param>
+    <param name="protocol">https</param>
+    <param name="path">/kubetail-org/kubetail/releases/download/cli%2Fv${VERSION}/kubetail-cli.orig.tar.xz</param>
+    <param name="filename">kubetail-cli-${VERSION}.tar.xz</param>
   </service>
-
-  <!-- 2. Extract to working dir -->
-  <service name="extract_file">
-    <param name="archive">kubetail-cli.orig.tar.xz</param>
-  </service>
-
-  <!-- 3. Repack into new tarball name and directory -->
-  <service name="tar">
-    <param name="filename">kubetail-cli</param>
-    <param name="version">${VERSION}</param>
+  <service name="verify_file">
+    <param name="file">_service:download_url:kubetail-cli-${VERSION}.tar.xz</param>
+    <param name="verifier">sha256</param>
+    <param name="checksum">${SHA256}</param>
   </service>
 </services>
