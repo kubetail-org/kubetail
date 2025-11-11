@@ -35,35 +35,80 @@ jobs:
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Checkout this repo
-        uses: actions/checkout@v5
-        with:
-          sparse-checkout: .github/ci-config/suse-obs
-          sparse-checkout-cone-mode: false
-          path: kubetail
-
       - name: Install dependencies
         run: |
           sudo apt install -y osc
 
+      - name: Checkout this repo
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/ci-config/obs
+          sparse-checkout-cone-mode: false
+          path: kubetail
+
+      - name: Download SHA256SUMS
+        uses: robinraju/release-downloader@v1.12
+        with:
+          repository: kubetail-org/kubetail
+          tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
+          fileName: "SHA256SUMS"
+          out-file-path: "downloads"
+
+      - name: Extract shasum
+        id: meta
+        working-directory: ./downloads
+        run: |
+          SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-cli.orig.tar.xz" {print $1}' )
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+
+      - name: Configure osc and checkout project
+        run: |
+          cat > ~/.oscrc <<EOF
+          [general]
+          apiurl = https://api.opensuse.org
+
+          [https://api.opensuse.org]
+          user = ${{ vars.OBS_USERNAME }}
+          pass = ${{ secrets.OBS_PASSWORD }}
+          EOF
+
+          osc checkout home:kubetail/kubetail-cli
+
       - name: Execute templates
         env:
           VERSION: ${{ steps.config.outputs.version }}
+          SHA256: ${{ steps.meta.outputs.sha256 }}
           SRC_DIR: kubetail/.github/ci-config/obs
+          DST_DIR: "home:kubetail/kubetail-cli"
         run: |
           export TIMESTAMP=$(LANG=C date '+%a %b %e %Y')
 
           # .spec
           envsubst '${VERSION} ${TIMESTAMP}' \
-            < "${SRC_DIR}/spec.tmpl" \
-            > kubetail-cli-${VERSION}.spec"
+            < "${SRC_DIR}/kubetail-cli.spec.tmpl" \
+            > "${DST_DIR}/kubetail-cli.spec"
 
           # _service
-          envsubst '${VERSION}' \
+          envsubst '${VERSION} ${SHA256}' \
             < "${SRC_DIR}/_service.tmpl" \
-            > _service"
+            > "${DST_DIR}/_service"
 
-      - name: Debug
+      - name: Publish to OBS
+        working-directory: "home:kubetail/kubetail-cli"
         run: |
-          cat *.spec
-          cat _service
+          osc addremove
+
+          osc status
+          osc diff
+
+          if [ "${{ steps.config.outputs.dry_run }}" = "false" ]; then
+            osc ci -m "Update _service and spec for ${{ steps.config.outputs.version }}"
+          else
+            cat kubetail-cli.spec
+            cat _service
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f ~/.oscrc
