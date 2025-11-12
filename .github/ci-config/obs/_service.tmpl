@@ -2,11 +2,11 @@
   <service name="download_url">
     <param name="host">github.com</param>
     <param name="protocol">https</param>
-    <param name="path">/kubetail-org/kubetail/releases/download/cli%2Fv${VERSION}/kubetail-cli.orig.tar.xz</param>
-    <param name="filename">kubetail-cli-${VERSION}.tar.xz</param>
+    <param name="path">/kubetail-org/kubetail/releases/download/cli%2Fv${VERSION}/kubetail-${VERSION}-vendored.tar.gz</param>
+    <param name="filename">kubetail-${VERSION}-vendored.tar.gz</param>
   </service>
   <service name="verify_file">
-    <param name="file">_service:download_url:kubetail-cli-${VERSION}.tar.xz</param>
+    <param name="file">_service:download_url:kubetail-${VERSION}-vendored.tar.gz</param>
     <param name="verifier">sha256</param>
     <param name="checksum">${SHA256}</param>
   </service>

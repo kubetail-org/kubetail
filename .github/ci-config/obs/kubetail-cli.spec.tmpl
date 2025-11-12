@@ -7,7 +7,7 @@ Summary:        Real-time logging tool for Kubernetes
 
 License:        Apache-2.0
 URL:            https://github.com/kubetail-org/kubetail
-Source0:        %{name}-%{version}.tar.xz
+Source0:        kubetail-%{version}-vendored.tar.gz
 
 BuildRequires:  golang >= 1.24
 BuildRequires:  glibc
@@ -20,7 +20,7 @@ Kubetail, you can view logs from all the containers in a workload
 timeline, delivered to a browser or terminal.
 
 %prep
-%setup -q -n kubetail-cli
+%setup -q -n kubetail-%{version}
 
 %build
 cd modules/cli && \
