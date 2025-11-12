@@ -281,6 +281,8 @@ type DataTableRowProps = {
   row: Row<WorkloadTableData>;
   // eslint-disable-next-line react/no-unused-prop-types
   isChecked: boolean;
+  // eslint-disable-next-line react/no-unused-prop-types
+  isClusterAPIEnabled: boolean;
 };
 
 const DataTableRow = (props: DataTableRowProps) => {
@@ -301,7 +303,9 @@ const DataTableRow = (props: DataTableRowProps) => {
 const MemoizedDataTableRow = memo(
   DataTableRow,
   (prevProps, nextProps) =>
-    prevProps.row.original.id === nextProps.row.original.id && prevProps.isChecked === nextProps.isChecked,
+    prevProps.row.original.id === nextProps.row.original.id &&
+    prevProps.isChecked === nextProps.isChecked &&
+    prevProps.isClusterAPIEnabled === nextProps.isClusterAPIEnabled,
 );
 
 MemoizedDataTableRow.displayName = 'MemoizedDataTableRow';
@@ -312,7 +316,7 @@ type DisplayWorkloadItemsProps = {
 
 const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
   const { kubeContext, workloadKindFilter } = useContext(Context);
-  const isClusterAPIEnabled = useIsClusterAPIEnabled(kubeContext);
+  const isClusterAPIEnabled = Boolean(useIsClusterAPIEnabled(kubeContext));
 
   const isFetching = useAtomValue(workloadIsFetchingAtomFamilies[kind](kubeContext));
   const items = useAtomValue(filteredWorkloadItemsAtomFamilies[kind](kubeContext));
@@ -478,6 +482,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
                 key={row.original.id}
                 row={row}
                 isChecked={isChecked.get(row.original.id) ?? false}
+                isClusterAPIEnabled={isClusterAPIEnabled}
               />
             ))}
           </>
