@@ -462,7 +462,7 @@ export function useIsClusterAPIEnabled(kubeContext: string | null) {
 
   if (import.meta.env.MODE === 'development') {
     const overrideValue = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (overrideValue !== null) return JSON.parse(overrideValue);
+    if (overrideValue !== null) return Boolean(JSON.parse(overrideValue));
   }
 
   // Return if running in cluster with ClusterAPI enabled
