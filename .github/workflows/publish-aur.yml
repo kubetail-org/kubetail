@@ -92,8 +92,18 @@ jobs:
             < "${SRC_DIR}/SRCINFO.tmpl" \
             > "${DST_DIR}/.SRCINFO"
 
+      - name: Debug
+        if: ${{ steps.config.outputs.dry_run == 'true' }}
+        working-directory: ./kubetail-bin
+        run: |
+          echo "========= PKGBUILD ========="
+          cat PKGBUILD
+
+          echo "========= .SRCINFO ========="
+          cat .SRCINFO
+
       - name: Push changes to AUR repo
-        if: ${{ steps.config.outputs.dry_run != 'true' }}
+        if: ${{ steps.config.outputs.dry_run == 'false' }}
         working-directory: ./kubetail-bin
         run: |
           # Set name and email
@@ -141,7 +151,7 @@ jobs:
         id: meta
         working-directory: ./downloads
         run: |
-          SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-cli.orig.tar.xz" {print $1}' )
+          SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-${{ steps.config.outputs.version }}-vendored.tar.gz" {print $1}' )
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
 
       - name: Checkout kubetail-cli repo
@@ -181,8 +191,18 @@ jobs:
             < "${SRC_DIR}/SRCINFO.tmpl" \
             > "${DST_DIR}/.SRCINFO"
 
+      - name: Debug
+        if: ${{ steps.config.outputs.dry_run == 'true' }}
+        working-directory: ./kubetail-cli
+        run: |
+          echo "========= PKGBUILD ========="
+          cat PKGBUILD
+
+          echo "========= .SRCINFO ========="
+          cat .SRCINFO
+
       - name: Push changes to AUR repo
-        if: ${{ steps.config.outputs.dry_run != 'true' }}
+        if: ${{ steps.config.outputs.dry_run == 'false' }}
         working-directory: ./kubetail-cli
         run: |
           # Set name and email
