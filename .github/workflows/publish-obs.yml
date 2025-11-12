@@ -58,7 +58,7 @@ jobs:
         id: meta
         working-directory: ./downloads
         run: |
-          SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-cli.orig.tar.xz" {print $1}' )
+          SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-${{ steps.config.outputs.version }}-vendored.tar.gz" {print $1}' )
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
 
       - name: Configure osc and checkout project
