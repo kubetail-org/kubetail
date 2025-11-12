@@ -9,9 +9,9 @@ DESCRIPTION="Real-time logging dashboard for Kubernetes"
 
 HOMEPAGE="https://github.com/kubetail-org/kubetail"
 
-SRC_URI="https://github.com/kubetail-org/kubetail/releases/download/cli%2Fv${PV}/kubetail-cli.orig.tar.xz -> kubetail-cli_${PV}.orig.tar.xz"
+SRC_URI="https://github.com/kubetail-org/kubetail/releases/download/cli%2Fv${PV}/kubetail-${PV}-vendored.tar.gz"
 
-S="${WORKDIR}/kubetail-cli"
+S="${WORKDIR}/kubetail-${PV}"
 
 LICENSE="Apache-2.0"
 

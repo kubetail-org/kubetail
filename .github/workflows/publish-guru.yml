@@ -44,7 +44,7 @@ jobs:
     environment: production
     runs-on: ubuntu-24.04
     env:
-      ARCHIVE_NAME: "kubetail-cli.orig.tar.xz"
+      ARCHIVE_NAME: "kubetail-${{ needs.config.outputs.version }}-vendored.tar.gz"
     steps:
       - name: Download source bundle
         uses: robinraju/release-downloader@v1.12
@@ -95,7 +95,7 @@ jobs:
       - name: Update Manifest
         working-directory: guru/dev-util/kubetail
         run: |
-          prefix="DIST kubetail-cli_${{ needs.config.outputs.version }}.orig.tar.xz"
+          prefix="DIST kubetail-${{ needs.config.outputs.version }}-vendored.tar.gz"
           if ! grep -qF "$prefix" Manifest 2>/dev/null; then
             echo "$prefix ${{ steps.meta.outputs.size }} BLAKE2B ${{ steps.meta.outputs.blake2b }} SHA512 ${{ steps.meta.outputs.sha512 }}" >> Manifest
           fi
