@@ -1,17 +1,13 @@
 # -*- coding: utf-8; mode: tcl; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- vim:fenc=utf-8:ft=tcl:et:sw=4:ts=4:sts=4
 
 PortSystem          1.0
-PortGroup           github 1.0
+PortGroup           golang 1.0
 
-github.setup        kubetail-org kubetail ${VERSION} cli/v
+go.setup            github.com/kubetail-org/kubetail ${VERSION} cli/v
+github.tarball_from releases
 revision            0
 
-master_sites        https://github.com/${github.author}/${github.project}/releases/download/${github.tag_prefix}${github.version}/
-
-distname            kubetail-cli.orig
-worksrcdir          kubetail-cli
-
-use_xz              yes
+distname            kubetail-${version}-vendored
 
 supported_archs     arm64 x86_64
 
@@ -31,13 +27,14 @@ checksums           ${distname}${extract.suffix} \
                     sha256  ${SHA256} \
                     size    ${SIZE}
 
-use_configure       no
-
-depends_build-append port:go
-
-build {
-    system -W ${worksrcpath}/modules/cli "GOWORK=off CGO_ENABLED=0 ${prefix}/bin/go build -mod=vendor -ldflags '-s -w -X github.com/kubetail-org/kubetail/modules/cli/cmd.version=${version}' -o ../../bin/kubetail ."
-}
+build.env-append GO111MODULE=on \
+                 GOWORK=off \
+                 CGO_ENABLED=0
+build.dir ${worksrcpath}/modules/cli
+build.args-append \
+    -mod=vendor \
+    -ldflags \"-s -w -X github.com/kubetail-org/kubetail/modules/cli/cmd.version=${version}\" \
+    -o ../../bin/kubetail
 
 destroot {
     xinstall -m 0755 ${worksrcpath}/bin/kubetail ${destroot}${prefix}/bin/kubetail

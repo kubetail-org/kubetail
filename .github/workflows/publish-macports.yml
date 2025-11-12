@@ -18,7 +18,7 @@ on:
         description: "Run port checks"
         required: true
         type: boolean
-        default: false
+        default: true
       dry_run:
         description: "Dry run"
         required: false
@@ -30,6 +30,7 @@ jobs:
     name: Publish
     environment: production
     runs-on: macos-26
+    timeout-minutes: 20
     env:
       UPSTREAM_REPO: kubetail-org/macports-ports
       FORK_REPO: kubetail-org/macports-ports
@@ -56,6 +57,12 @@ jobs:
           path: macports-ports
           persist-credentials: false
 
+      - name: Move macports-ports to /private/tmp
+        id: temp
+        run: |
+          mv macports-ports /private/tmp
+          echo "dir=/private/tmp" >> $GITHUB_OUTPUT
+
       - name: Checkout this repo
         uses: actions/checkout@v4
         with:
@@ -64,19 +71,19 @@ jobs:
           path: kubetail
           persist-credentials: false
 
-      - name: Download kubetail-cli source bundle
+      - name: Download vendored source bundle
         uses: robinraju/release-downloader@v1.12
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
-          fileName: kubetail-cli.orig.tar.xz
+          fileName: kubetail-${{ steps.config.outputs.version }}-vendored.tar.gz
           out-file-path: "downloads"
 
       - name: Extract metadata
         id: meta
         working-directory: ./downloads
         env:
-          ARCHIVE_NAME: kubetail-cli.orig.tar.xz
+          ARCHIVE_NAME: kubetail-${{ steps.config.outputs.version }}-vendored.tar.gz
         run: |
           SIZE=$(stat -f '%z' "$ARCHIVE_NAME")
           RMD160=$(openssl dgst -rmd160 "$ARCHIVE_NAME" | awk '{print $NF}')
@@ -93,7 +100,7 @@ jobs:
           SHA256: ${{ steps.meta.outputs.sha256 }}
           SIZE: ${{ steps.meta.outputs.size }}
           SRC_DIR: kubetail/.github/ci-config/macports
-          DST_DIR: macports-ports/devel/kubetail
+          DST_DIR: "${{ steps.temp.outputs.dir }}/macports-ports/devel/kubetail"
         run: |
           envsubst '${VERSION} ${RMD160} ${SHA256} ${SIZE}' \
             < "${SRC_DIR}/Portfile.tmpl" \
@@ -106,13 +113,13 @@ jobs:
       - name: Install macports
         if: ${{ steps.config.outputs.port_checks == 'true' }}
         run: |
-          curl -LO https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg
-          sudo installer -pkg MacPorts-2.11.6-26-Tahoe.pkg -target /
+          curl -fL -o MacPorts.pkg https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg
+          printf 'Agree\n' | sudo installer -pkg MacPorts.pkg -target /
           echo "PATH=/opt/local/bin:/opt/local/sbin:$PATH" >> "$GITHUB_ENV"
 
       - name: "Port Check: Lint"
         if: ${{ steps.config.outputs.port_checks == 'true' }}
-        working-directory: macports-ports/devel/kubetail
+        working-directory: "${{ steps.temp.outputs.dir }}/macports-ports/devel/kubetail"
         run: |
           lint_output="$(port lint kubetail 2>&1)"
           lint_status=$?
@@ -127,19 +134,26 @@ jobs:
 
       - name: "Port Check: Test"
         if: ${{ steps.config.outputs.port_checks == 'true' }}
-        working-directory: macports-ports/devel/kubetail
+        working-directory: "${{ steps.temp.outputs.dir }}/macports-ports/devel/kubetail"
         run: |
           sudo port test -N
 
       - name: "Port Check: Install"
         if: ${{ steps.config.outputs.port_checks == 'true' }}
+        working-directory: "${{ steps.temp.outputs.dir }}/macports-ports/devel/kubetail"
         run: |
-          sudo port install
+          sudo port install -N
 
       - name: "Port Check: Test binary"
         if: ${{ steps.config.outputs.port_checks == 'true' }}
         run: |
-          kubetail --version
+          expected="kubetail version ${{ steps.config.outputs.version }}"
+          actual="$(kubetail --version)"
+          echo "$actual"
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::expected \"$expected\" but got \"$actual\""
+            exit 1
+          fi
 
       - name: Execute PR body template
         id: pr_body
@@ -169,7 +183,7 @@ jobs:
           passphrase: ${{ secrets.KUBETAIL_BOT_PGP_PASSWORD }}
 
       - name: Configure git
-        working-directory: macports-ports
+        working-directory: "${{ steps.temp.outputs.dir }}/macports-ports/devel/kubetail"
         run: |
           # Configure git
           git config --local gpg.program gpg
@@ -180,7 +194,7 @@ jobs:
           git config --local user.signingkey "${{ vars.KUBETAIL_BOT_PGP_FINGERPRINT }}"
 
       - name: Commit changes and raise PR
-        working-directory: macports-ports
+        working-directory: "${{ steps.temp.outputs.dir }}/macports-ports"
         env:
           GH_TOKEN: ${{ secrets.AMOREY_PAT }}
         run: |
