@@ -53,7 +53,7 @@ jobs:
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
-          fileName: "kubetail-cli.orig.tar.xz"
+          fileName: "kubetail-${{ steps.config.outputs.version }}-vendored.tar.gz"
           out-file-path: "work"
 
       - name: Prepare orig bundle
@@ -61,9 +61,9 @@ jobs:
         env:
           VERSION: ${{ steps.config.outputs.version }}
         run: |
-          tar -xJf kubetail-cli.orig.tar.xz
-          rm -rf kubetail-cli.orig.tar.xz
-          mv kubetail-cli "kubetail-cli-${VERSION}"
+          tar -xzf "kubetail-${VERSION}-vendored.tar.gz"
+          rm -rf "kubetail-${VERSION}-vendored.tar.gz"
+          mv kubetail-${VERSION} "kubetail-cli-${VERSION}"
           tar -cJf "kubetail-cli_${VERSION}.orig.tar.xz" "kubetail-cli-${VERSION}"
 
       - name: Create debian directory
