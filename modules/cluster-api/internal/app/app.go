@@ -18,6 +18,7 @@ import (
 	"context"
 	"io/fs"
 	"net/http"
+	"strings"
 
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/requestid"
@@ -27,6 +28,7 @@ import (
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
+	"github.com/kubetail-org/kubetail/modules/shared/ginhelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/middleware"
 
@@ -88,7 +90,15 @@ func NewApp(cfg *config.Config) (*App, error) {
 	}
 
 	// Gzip middleware
-	app.Use(gzip.Gzip(gzip.DefaultCompression))
+	app.Use(gzip.Gzip(gzip.DefaultCompression,
+		gzip.WithCustomShouldCompressFn(func(c *gin.Context) bool {
+			ae := c.GetHeader("Accept-Encoding")
+			if !strings.Contains(ae, "gzip") {
+				return false
+			}
+			return !ginhelpers.IsWebSocketRequest(c)
+		}),
+	))
 
 	// Routes
 	root := app.Group(cfg.ClusterAPI.BasePath)

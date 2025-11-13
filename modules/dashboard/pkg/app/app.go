@@ -30,6 +30,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
+	"github.com/kubetail-org/kubetail/modules/shared/ginhelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/middleware"
 
@@ -108,12 +109,23 @@ func NewApp(cfg *config.Config) (*App, error) {
 	}
 
 	// Add gzip middleware
+	clusterAPIProxyPath := path.Join(cfg.Dashboard.BasePath, "/cluster-api-proxy/")
 	app.Use(gzip.Gzip(gzip.DefaultCompression,
-		gzip.WithExcludedPaths([]string{
-			path.Join(cfg.Dashboard.BasePath, "/cluster-api-proxy/"),
-		}),
-		gzip.WithExcludedExtensions([]string{
-			".woff2",
+		gzip.WithCustomShouldCompressFn(func(c *gin.Context) bool {
+			ae := c.GetHeader("Accept-Encoding")
+			if !strings.Contains(ae, "gzip") {
+				return false
+			}
+
+			requestPath := c.Request.URL.Path
+			if strings.HasPrefix(requestPath, clusterAPIProxyPath) {
+				return false
+			}
+			if strings.HasSuffix(requestPath, ".woff2") {
+				return false
+			}
+
+			return !ginhelpers.IsWebSocketRequest(c)
 		}),
 	))
 
