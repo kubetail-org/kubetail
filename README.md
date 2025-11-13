@@ -52,50 +52,56 @@ brew install kubetail
 # Krew
 kubectl krew install kubetail
 
-# Snap
-sudo snap install kubetail
-
-# MacPorts
-sudo port install kubetail
-
 # Winget
 winget install Kubetail.Kubetail
-
-# Chocolatey
-choco install kubetail
-
-# Scoop
-scoop install kubetail
-
-# Ubuntu/Mint
-add-apt-repository ppa:kubetail/kubetail
-apt update && apt install kubetail-cli
-
-# Fedora/CentOS/RHEL
-DISTRO="<your_distro>" # Fedora_N | CentOS_N | CentOS_Stream_N | RHEL_N
-dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:/kubetail/${DISTRO}/home:kubetail.repo
-dnf install kubetail-cli
-
-# Arch Linux (AUR)
-yay -S --noconfirm kubetail-cli
-
-# SUSE
-zypper addrepo 'https://download.opensuse.org/repositories/home:/kubetail/$releasever/' kubetail
-zypper refresh && zypper install kubetail-cli
-
-# Gentoo (GURU)
-ACCEPT_KEYWORDS="~$(portageq envvar ARCH)" emerge dev-util/kubetail
-
-# asdf
-asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
-asdf install kubetail latest
-
-# Nix (Flake)
-nix profile add github:kubetail-org/kubetail-nix
-
-# Nix (Classic)
-nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
 ```
+
+<details>
+  <summary>See 14 more options (e.g. Ubuntu, Fedora, Nix) </summary>
+  
+  ```console
+  # Snap
+  sudo snap install kubetail
+
+  # MacPorts
+  sudo port install kubetail
+
+  # Chocolatey
+  choco install kubetail
+
+  # Scoop
+  scoop install kubetail
+
+  # Ubuntu/Mint
+  add-apt-repository ppa:kubetail/kubetail
+  apt update && apt install kubetail-cli
+
+  # Fedora/CentOS/RHEL
+  DISTRO="<your_distro>" # Fedora_N | CentOS_N | CentOS_Stream_N | RHEL_N
+  dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:/kubetail/${DISTRO}/home:kubetail.repo
+  dnf install kubetail-cli
+
+  # Arch Linux (AUR)
+  yay -S --noconfirm kubetail-cli
+
+  # SUSE
+  zypper addrepo 'https://download.opensuse.org/repositories/home:/kubetail/$releasever/' kubetail
+  zypper refresh && zypper install kubetail-cli
+
+  # Gentoo (GURU)
+  ACCEPT_KEYWORDS="~$(portageq envvar ARCH)" emerge dev-util/kubetail
+
+  # asdf
+  asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
+  asdf install kubetail latest
+
+  # Nix (Flake)
+  nix profile add github:kubetail-org/kubetail-nix
+
+  # Nix (Classic)
+  nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
+  ```
+</details>
 
 Next, start the web dashboard using the `serve` subcommand:
 
