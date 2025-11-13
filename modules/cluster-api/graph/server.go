@@ -89,8 +89,9 @@ func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, grpcDispa
 				// Cross-Site WebSocket Hijacking (CSWSH)
 				return slices.Contains(allowedSecFetchSite, secFetchSite)
 			},
-			ReadBufferSize:  1024,
-			WriteBufferSize: 1024,
+			ReadBufferSize:    1024,
+			WriteBufferSize:   1024,
+			EnableCompression: true,
 		},
 		KeepAlivePingInterval: 10 * time.Second,
 		InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
