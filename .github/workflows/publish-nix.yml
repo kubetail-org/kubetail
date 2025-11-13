@@ -52,5 +52,6 @@ jobs:
         with:
           repo: kubetail-org/kubetail-nix
           workflow: release
+          ref: main
           token: ${{ steps.app-token.outputs.token }}
           inputs: '{ "version": "${{ steps.config.outputs.version }}", "dry_run": ${{ steps.config.outputs.dry_run }} }'
