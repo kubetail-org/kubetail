@@ -52,17 +52,17 @@ brew install kubetail
 # Krew
 kubectl krew install kubetail
 
+# Snap
+sudo snap install kubetail
+
 # Winget
 winget install Kubetail.Kubetail
 ```
 
 <details>
-  <summary>See 14 more options (e.g. Ubuntu, Fedora, Nix) </summary>
+  <summary>See 12 more options (e.g. Ubuntu, Fedora, Nix, asdf, Arch, SUSE, Gentoo, Chocolatey, Scoop) </summary>
   
   ```console
-  # Snap
-  sudo snap install kubetail
-
   # MacPorts
   sudo port install kubetail
 
@@ -74,7 +74,7 @@ winget install Kubetail.Kubetail
 
   # Ubuntu/Mint
   add-apt-repository ppa:kubetail/kubetail
-  apt update && apt install kubetail-cli
+  sudo apt update && sudo apt install kubetail-cli
 
   # Fedora/CentOS/RHEL
   DISTRO="<your_distro>" # Fedora_N | CentOS_N | CentOS_Stream_N | RHEL_N
