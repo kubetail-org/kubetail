@@ -21,7 +21,6 @@ import (
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
-	"os"
 	"path"
 	"regexp"
 	"strings"
@@ -217,13 +216,6 @@ func NewInClusterProxy(clusterAPIEndpoint string, pathPrefix string) (*InCluster
 		return nil, err
 	}
 
-	// Get token
-	tokenPath := "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	token, err := os.ReadFile(tokenPath)
-	if err != nil {
-		return nil, err
-	}
-
 	// Init reverseProxy
 	reverseProxy := &httputil.ReverseProxy{
 		Director: func(r *http.Request) {
@@ -231,9 +223,6 @@ func NewInClusterProxy(clusterAPIEndpoint string, pathPrefix string) (*InCluster
 			targetUrl := endpointUrl
 			targetUrl.Path = path.Join("/", strings.TrimPrefix(r.URL.Path, pathPrefix))
 			r.URL = targetUrl
-
-			// Add token to authentication header
-			r.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 		},
 		ModifyResponse: func(resp *http.Response) error {
 			// Re-write cookie path
@@ -247,6 +236,13 @@ func NewInClusterProxy(clusterAPIEndpoint string, pathPrefix string) (*InCluster
 			return nil
 		},
 	}
+
+	// Init service account token round tripper
+	rt, err := k8shelpers.NewInClusterSATRoundTripper(http.DefaultTransport)
+	if err != nil {
+		return nil, err
+	}
+	reverseProxy.Transport = rt
 
 	return &InClusterProxy{reverseProxy}, nil
 }
