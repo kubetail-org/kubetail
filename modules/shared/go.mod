@@ -15,6 +15,7 @@ require (
 	github.com/gin-contrib/requestid v1.0.5
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-playground/validator/v10 v10.28.0
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
 	github.com/kubetail-org/grpc-dispatcher-go v0.1.4
 	github.com/mitchellh/mapstructure v1.5.0
