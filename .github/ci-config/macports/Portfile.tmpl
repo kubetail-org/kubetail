@@ -33,7 +33,7 @@ build.env-append GO111MODULE=on \
 build.dir ${worksrcpath}/modules/cli
 build.args-append \
     -mod=vendor \
-    -ldflags \"-s -w -X github.com/kubetail-org/kubetail/modules/cli/cmd.version=${version}\" \
+    -ldflags \"-s -w -X ${go.package}/modules/cli/cmd.version=${version}\" \
     -o ../../bin/kubetail
 
 destroot {
