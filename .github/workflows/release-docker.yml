@@ -139,6 +139,12 @@ jobs:
           docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$IMAGE_TAG \
             ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$IMAGE_TAG-amd64 \
             ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$IMAGE_TAG-arm64
+          docker buildx imagetools create -t kubetail/$IMAGE_NAME:latest \
+            kubetail/$IMAGE_NAME:$IMAGE_TAG-amd64 \
+            kubetail/$IMAGE_NAME:$IMAGE_TAG-arm64
+          docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:latest \
+            ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$IMAGE_TAG-amd64 \
+            ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$IMAGE_TAG-arm64
 
       - name: Fetch docker token
         run: |
