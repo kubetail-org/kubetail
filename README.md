@@ -56,7 +56,7 @@ kubectl krew install kubetail
 sudo snap install kubetail
 
 # Winget
-winget install Kubetail.Kubetail
+winget install kubetail
 ```
 
 <details>
@@ -111,7 +111,7 @@ kubetail serve
 
 This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun tailing your logs!
 
-### Option 2: Shell
+### Option 2: Shell script
 
 First, download and run the install script:
 
