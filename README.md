@@ -60,7 +60,7 @@ winget install kubetail
 ```
 
 <details>
-  <summary>See 12 more options (e.g. Ubuntu, Fedora, Nix, asdf, Arch, SUSE, Gentoo, Chocolatey, Scoop) </summary>
+  <summary>See 12 more options (Ubuntu, Fedora, Nix, asdf, Arch, Gentoo, SUSE, RHEL, CentOS, Chocolatey, Scoop, Macports) </summary>
   
   ```console
   # MacPorts
