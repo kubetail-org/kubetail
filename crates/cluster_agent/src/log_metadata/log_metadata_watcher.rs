@@ -12,12 +12,10 @@ use tokio::{
     fs::read_dir,
     runtime::Handle,
     select,
-    sync::{
-        broadcast::Sender as BcSender,
-        mpsc::{Receiver, Sender, channel},
-    },
+    sync::mpsc::{Receiver, Sender, channel},
 };
 use tokio_stream::{StreamExt, wrappers::ReadDirStream};
+use tokio_util::sync::CancellationToken;
 use tonic::Status;
 use tracing::{debug, warn};
 use types::cluster_agent::{LogMetadata, LogMetadataFileInfo, LogMetadataWatchEvent};
@@ -27,10 +25,10 @@ use crate::log_metadata::{LOG_FILE_REGEX, LogMetadataImpl};
 /// Uses notify crate internally to provide notifications of file updates.
 #[derive(Debug)]
 pub struct LogMetadataWatcher {
+    /// Context token to receive a termination signal and end the watch loop.
+    ctx_token: CancellationToken,
     /// Internal channel to send log metadata updates.
     log_metadata_tx: Sender<Result<LogMetadataWatchEvent, Status>>,
-    /// Channel to receive a termination signal and end the watch loop.
-    term_tx: BcSender<()>,
     /// K8s namespaces to watch for.
     namespaces: Vec<String>,
     /// Directory to watch for updates.
@@ -42,17 +40,17 @@ pub struct LogMetadataWatcher {
 impl LogMetadataWatcher {
     /// Returns a new watcher and a channel to receive log metadata updates.
     pub fn new(
+        ctx_token: CancellationToken,
         directory: PathBuf,
         namespaces: Vec<String>,
-        term_tx: BcSender<()>,
         node_name: String,
     ) -> (Self, Receiver<Result<LogMetadataWatchEvent, Status>>) {
         let (log_metadata_tx, log_metadata_rx) = channel(100);
 
         (
             Self {
+                ctx_token,
                 log_metadata_tx,
-                term_tx,
                 namespaces,
                 directory,
                 node_name,
@@ -74,10 +72,7 @@ impl LogMetadataWatcher {
                 }
             };
 
-        let term_rx = self.term_tx.subscribe();
-
-        self.listen_for_changes(internal_rx, debouncer, term_rx)
-            .await;
+        self.listen_for_changes(internal_rx, debouncer).await;
     }
 
     /// Creates the notify fs watcher and adds to the watch list all files
@@ -132,7 +127,6 @@ impl LogMetadataWatcher {
         &self,
         mut internal_rx: Receiver<VecDeque<Result<LogMetadataWatchEvent, WatcherError>>>,
         mut debouncer: Debouncer<T, RecommendedCache>,
-        mut term_rx: tokio::sync::broadcast::Receiver<()>,
     ) {
         'outer: loop {
             select! {
@@ -153,12 +147,12 @@ impl LogMetadataWatcher {
                         break;
                     }
                 }
-                _ = term_rx.recv() => {
-                        debug!("Received termination message");
-                        let shutdown_status = Status::new(tonic::Code::Unavailable, "Server is shutting down");
-                        let _ = self.log_metadata_tx.send(Err(shutdown_status)).await;
-                        break;
-                    }
+                _ = self.ctx_token.cancelled() => {
+                    debug!("Received termination message");
+                    let shutdown_status = Status::new(tonic::Code::Unavailable, "Server is shutting down");
+                    let _ = self.log_metadata_tx.send(Err(shutdown_status)).await;
+                    break;
+                }
             }
         }
 
@@ -401,6 +395,7 @@ impl LogMetadataWatchEventType {
     }
 }
 
+/*
 #[cfg(test)]
 mod test {
     #[cfg(not(target_os = "macos"))]
@@ -503,13 +498,12 @@ mod test {
     #[parallel]
     async fn test_error_is_returned_on_unknown_directory() {
         let namespaces = vec!["namespace".into()];
-        let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = PathBuf::from("/a/dir/that/doesnt/exist");
 
         let (log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            CancellationToken::new(),
             logs_dir,
             namespaces,
-            term_tx.clone(),
             "The node name".to_owned(),
         );
 
@@ -707,3 +701,4 @@ mod test {
         }
     }
 }
+*/

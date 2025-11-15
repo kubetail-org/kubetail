@@ -14,7 +14,8 @@
 
 use std::{fs::File, path::PathBuf};
 
-use tokio::sync::{broadcast::Sender as BcSender, mpsc::Sender};
+use tokio::sync::mpsc::Sender;
+use tokio_util::sync::CancellationToken;
 use tonic::Status;
 use types::cluster_agent::LogRecord;
 
@@ -36,14 +37,14 @@ use crate::{
 };
 
 pub async fn stream_backward(
+    ctx_token: CancellationToken,
     path: &PathBuf,
     start_time: Option<DateTime<Utc>>,
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&str>,
-    term_tx: BcSender<()>,
     sender: Sender<Result<LogRecord, Status>>,
 ) {
-    let result = stream_backward_internal(path, start_time, stop_time, grep, &term_tx, &sender);
+    let result = stream_backward_internal(ctx_token, path, start_time, stop_time, grep, &sender);
 
     if let Err(error) = result {
         let _ = sender.send(Err(error.into())).await;
@@ -51,11 +52,11 @@ pub async fn stream_backward(
 }
 
 fn stream_backward_internal(
+    ctx_token: CancellationToken,
     path: &PathBuf,
     start_time: Option<DateTime<Utc>>,
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&str>,
-    term_tx: &BcSender<()>,
     sender: &Sender<Result<LogRecord, Status>>,
 ) -> Result<(), FsWatcherError> {
     // Open file
@@ -93,8 +94,8 @@ fn stream_backward_internal(
 
     // Wrap in term reader
     let term_reverse_reader = TermReader::new(
+        ctx_token.clone(),
         ReverseLineReader::new(file, start_pos, end_pos).unwrap(),
-        term_tx.subscribe(),
     );
 
     // Init searcher
@@ -106,7 +107,7 @@ fn stream_backward_internal(
         .build();
 
     // Init writer
-    let writer_fn = |chunk: Vec<u8>| process_output(chunk, sender, format, term_tx.clone());
+    let writer_fn = |chunk: Vec<u8>| process_output(ctx_token.clone(), chunk, sender, format);
     let writer = CallbackWriter::new(writer_fn);
 
     // Init printer
@@ -133,7 +134,7 @@ mod test {
     use rstest::rstest;
     use std::{io::Write, sync::LazyLock};
     use tempfile::NamedTempFile;
-    use tokio::sync::{broadcast, mpsc};
+    use tokio::sync::mpsc;
 
     use super::*;
 
@@ -201,13 +202,10 @@ mod test {
             Some(start_time_str.parse::<DateTime<Utc>>().unwrap())
         };
 
-        // Create a channel for termination signal
-        let (term_tx, _term_rx) = broadcast::channel(5);
-
         // Create output channel
         let (tx, mut rx) = mpsc::channel(100);
 
-        stream_backward(&path, start_time, None, None, term_tx, tx).await;
+        stream_backward(CancellationToken::new(), &path, start_time, None, None, tx).await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
@@ -242,13 +240,10 @@ mod test {
             Some(stop_time_str.parse::<DateTime<Utc>>().unwrap())
         };
 
-        // Create a channel for termination signal
-        let (term_tx, _term_rx) = broadcast::channel(5);
-
         // Create output channel
         let (tx, mut rx) = mpsc::channel(100);
 
-        stream_backward(&path, None, stop_time, None, term_tx, tx).await;
+        stream_backward(CancellationToken::new(), &path, None, stop_time, None, tx).await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
@@ -292,13 +287,18 @@ mod test {
             Some(stop_time_str.parse::<DateTime<Utc>>().unwrap())
         };
 
-        // Create a channel for termination signal
-        let (term_tx, _term_rx) = broadcast::channel(5);
-
         // Create output channel
         let (tx, mut rx) = mpsc::channel(100);
 
-        stream_backward(&path, start_time, stop_time, None, term_tx, tx).await;
+        stream_backward(
+            CancellationToken::new(),
+            &path,
+            start_time,
+            stop_time,
+            None,
+            tx,
+        )
+        .await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
@@ -315,13 +315,10 @@ mod test {
     async fn test_error_propagates_to_client() {
         let path = PathBuf::from("/a/dir/that/doesnt/exist");
 
-        // Create a channel for termination signal
-        let (term_tx, _term_rx) = broadcast::channel(5);
-
         // Create output channel
         let (tx, mut rx) = mpsc::channel(100);
 
-        stream_backward(&path, None, None, None, term_tx, tx).await;
+        stream_backward(CancellationToken::new(), &path, None, None, None, tx).await;
 
         let result = rx.recv().await.unwrap();
         assert!(matches!(result, Err(_)));
