@@ -21,6 +21,7 @@ use tokio::{
     sync::mpsc::Sender,
     task::{self},
 };
+use tokio_util::sync::CancellationToken;
 use tonic::Status;
 
 use prost_types::Timestamp;
@@ -87,10 +88,10 @@ where
 
 /// Function that processes the output.
 pub fn process_output(
+    token: CancellationToken,
     chunk: Vec<u8>,
     sender: &Sender<Result<LogRecord, Status>>,
     format: FileFormat,
-    term_tx: tokio::sync::broadcast::Sender<()>,
 ) {
     // For example, convert to string and print.
     let json: serde_json::Value = serde_json::from_slice(&chunk).unwrap();
@@ -119,7 +120,7 @@ pub fn process_output(
                                     task::block_in_place(|| sender.blocking_send(Ok(record)));
                                 if result.is_err() {
                                     debug!("Channel closed from client.");
-                                    let _ = term_tx.send(());
+                                    token.cancel();
                                 }
                             }
                         }
@@ -140,7 +141,7 @@ pub fn process_output(
                             let result = task::block_in_place(|| sender.blocking_send(Ok(record)));
                             if result.is_err() {
                                 debug!("Channel closed from client.");
-                                let _ = term_tx.send(());
+                                token.cancel();
                             }
                         }
                     }
