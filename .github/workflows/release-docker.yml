@@ -34,6 +34,7 @@ jobs:
       image_name: ${{ steps.config.outputs.image_name }}
       image_tag: ${{ steps.config.outputs.image_tag }}
       dry_run: ${{ steps.config.outputs.dry_run }}
+      is_latest: ${{ steps.tag_meta.outputs.is_latest }}
     steps:
       - id: config
         run: |
@@ -53,6 +54,41 @@ jobs:
           echo "image_name=kubetail-$COMPONENT" >> $GITHUB_OUTPUT
           echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "dry_run=$DRY_RUN" >> $GITHUB_OUTPUT
+
+      - id: tag_meta
+        env:
+          COMPONENT: ${{ steps.config.outputs.component }}
+          CURRENT_VERSION: ${{ steps.config.outputs.image_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Check if *current* tag is stable
+          if [[ "$CURRENT_VERSION" == *-* ]]; then
+            echo "Current version ($CURRENT_VERSION) is a pre-release and will not be treated as latest."
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Fetch all tags and filter by component
+          TAGS=$(gh api \
+            --paginate \
+            "repos/${{ github.repository }}/tags?per_page=100" \
+            --jq ".[] | select(.name | startswith(\"$COMPONENT/v\")) | .name")
+
+          # Extract version part (after '<prefix>/v') and drop anything with '-'
+          STABLE_VERSIONS=$(printf '%s\n' "$TAGS" \
+            | sed -n "s|^${COMPONENT}/v||p" \
+            | grep -v -- '-' || true)
+
+          # Sort versions and take the highest (latest)
+          LATEST_VERSION=$(printf '%s\n' "$STABLE_VERSIONS" | sort -V | tail -n 1)
+
+          if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
+            echo "Current version ($CURRENT_VERSION) is latest."
+            echo "is_latest=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "Current version ($CURRENT_VERSION) is not latest."
+            echo "is_latest=false"  >> "$GITHUB_OUTPUT"
+          fi
 
   build-and-publish:
     needs: [config]
@@ -132,6 +168,7 @@ jobs:
         env:
           IMAGE_NAME: ${{ needs.config.outputs.image_name }}
           IMAGE_TAG: ${{ needs.config.outputs.image_tag }}
+          IS_LATEST: ${{ needs.config.outputs.is_latest }}
         run: |
           docker buildx imagetools create -t kubetail/$IMAGE_NAME:$IMAGE_TAG \
             kubetail/$IMAGE_NAME:$IMAGE_TAG-amd64 \
@@ -139,12 +176,13 @@ jobs:
           docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$IMAGE_TAG \
             ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$IMAGE_TAG-amd64 \
             ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$IMAGE_TAG-arm64
-          docker buildx imagetools create -t kubetail/$IMAGE_NAME:latest \
-            kubetail/$IMAGE_NAME:$IMAGE_TAG-amd64 \
-            kubetail/$IMAGE_NAME:$IMAGE_TAG-arm64
-          docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:latest \
-            ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$IMAGE_TAG-amd64 \
-            ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$IMAGE_TAG-arm64
+            
+          if [ "$IS_LATEST" = "true" ]; then
+            docker buildx imagetools create -t kubetail/$IMAGE_NAME:latest \
+              kubetail/$IMAGE_NAME:$IMAGE_TAG
+            docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:latest \
+              ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$IMAGE_TAG
+          fi
 
       - name: Fetch docker token
         run: |
@@ -169,6 +207,7 @@ jobs:
 
       - name: Get image digest
         id: digest
+        if: ${{ needs.config.outputs.dry_run == 'false' }}
         run: |
           # Pull metadata to get digest for this arch
           DIGEST=$(docker buildx imagetools inspect kubetail/${{ needs.config.outputs.image_name }}:${{ needs.config.outputs.image_tag }} \
