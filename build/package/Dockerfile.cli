@@ -1,0 +1,97 @@
+# Copyright 2024-2025 Andres Morey
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# -----------------------------------------------------------
+
+FROM node:22.16.0-alpine3.21 AS frontend-builder
+WORKDIR /dashboard-ui
+
+# enable pnpm
+RUN corepack enable
+RUN corepack prepare pnpm@10.11.0 --activate
+
+# fetch dependencies
+COPY dashboard-ui/package.json ./
+COPY dashboard-ui/pnpm-lock.yaml ./
+RUN pnpm install
+
+# copy code
+COPY dashboard-ui/ .
+
+# build
+RUN pnpm build
+
+ENTRYPOINT []
+CMD []
+
+# -----------------------------------------------------------
+
+FROM golang:1.24.5 AS builder
+
+ARG VERSION=dev
+
+WORKDIR /work
+
+# install dependencies (for cache)
+COPY modules/shared/go.mod ./shared/go.mod
+COPY modules/shared/go.sum ./shared/go.sum
+COPY modules/dashboard/go.mod ./dashboard/go.mod
+COPY modules/dashboard/go.sum ./dashboard/go.sum
+COPY modules/cli/go.mod ./cli/go.mod
+COPY modules/cli/go.sum ./cli/go.sum
+RUN cd cli && go mod download all
+
+# copy code
+COPY modules/shared ./shared
+COPY modules/dashboard ./dashboard
+COPY modules/cli ./cli
+
+# copy frontend
+COPY --from=frontend-builder /dashboard-ui/dist ./dashboard/website
+
+# build cli
+RUN cd cli && CGO_ENABLED=0 go build -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/modules/cli/cmd.version=${VERSION}'" -o ../bin/kubetail .
+
+ENTRYPOINT ["./bin/kubetail"]
+CMD []
+
+# -----------------------------------------------------------
+
+FROM busybox:1.37.0 AS final-busybox
+
+WORKDIR /usr/local/bin
+
+# copy certs for tls verification
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# copy kubetail binary
+COPY --from=builder /work/bin/kubetail /usr/local/bin/kubetail
+
+ENTRYPOINT ["kubetail"]
+CMD []
+
+# -----------------------------------------------------------
+
+FROM alpine:3.22.0 AS final-alpine
+
+WORKDIR /usr/local/bin
+
+# copy certs for tls verification
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# copy kubetail binary
+COPY --from=builder /work/bin/kubetail /usr/local/bin/kubetail
+
+ENTRYPOINT ["kubetail"]
+CMD []
