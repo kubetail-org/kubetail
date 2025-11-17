@@ -186,17 +186,29 @@ jobs:
             image: dashboard
             target: debug
             dockerfile: build/package/Dockerfile.dashboard
+          - name: dashboard-alpine
+            image: dashboard
+            target: final-alpine
+            dockerfile: build/package/Dockerfile.dashboard
           - name: cluster-api-final
             image: cluster-api
             target: final
+            dockerfile: build/package/Dockerfile.cluster-api
+          - name: cluster-api-alpine
+            image: cluster-api
+            target: final-alpine
             dockerfile: build/package/Dockerfile.cluster-api
           - name: cluster-agent-final
             image: cluster-agent
             target: final
             dockerfile: build/package/Dockerfile.cluster-agent
-          - name: cli-busybox
+          - name: cluster-agent-alpine
+            image: cluster-agent
+            target: final-alpine
+            dockerfile: build/package/Dockerfile.cluster-agent
+          - name: cli-final
             image: cli
-            target: final-busybox
+            target: final
             dockerfile: build/package/Dockerfile.cli
           - name: cli-alpine
             image: cli

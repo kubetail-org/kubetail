@@ -90,3 +90,18 @@ COPY --from=dashboard-builder /work/bin/dashboard /dashboard/dashboard
 
 ENTRYPOINT ["./dashboard"]
 CMD []
+
+# -----------------------------------------------------------
+
+FROM alpine:3.22.0 AS final-alpine
+
+WORKDIR /dashboard
+
+# copy certs for tls verification
+COPY --from=dashboard-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# copy dashboard
+COPY --from=dashboard-builder /work/bin/dashboard /dashboard/dashboard
+
+ENTRYPOINT ["./dashboard"]
+CMD []

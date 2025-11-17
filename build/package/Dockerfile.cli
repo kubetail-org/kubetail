@@ -68,7 +68,7 @@ CMD []
 
 # -----------------------------------------------------------
 
-FROM busybox:1.37.0 AS final-busybox
+FROM busybox:1.37.0 AS final
 
 WORKDIR /usr/local/bin
 
