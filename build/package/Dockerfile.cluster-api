@@ -44,3 +44,15 @@ COPY --from=builder /work/bin/cluster-api /cluster-api/cluster-api
 
 ENTRYPOINT ["./cluster-api"]
 CMD []
+
+# -----------------------------------------------------------
+
+FROM alpine:3.22.0 AS final-alpine
+
+WORKDIR /cluster-api
+
+# copy cluster-api
+COPY --from=builder /work/bin/cluster-api /cluster-api/cluster-api
+
+ENTRYPOINT ["./cluster-api"]
+CMD []
