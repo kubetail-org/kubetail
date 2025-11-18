@@ -23,12 +23,12 @@ use chrono::{DateTime, Utc};
 use grep::printer::JSONBuilder;
 use grep::searcher::{MmapChoice, SearcherBuilder};
 
-use crate::fs_watcher_error::FsWatcherError;
-use crate::util::format::FileFormat;
-use crate::util::matcher::{LogFileRegexMatcher, PassThroughMatcher};
-use crate::util::offset::{find_nearest_offset_since, find_nearest_offset_until};
-use crate::util::reader::{ReverseLineReader, TermReader};
-use crate::util::writer::{process_output, CallbackWriter};
+use crate::rgkl::fs_watcher_error::FsWatcherError;
+use crate::rgkl::util::format::FileFormat;
+use crate::rgkl::util::matcher::{LogFileRegexMatcher, PassThroughMatcher};
+use crate::rgkl::util::offset::{find_nearest_offset_since, find_nearest_offset_until};
+use crate::rgkl::util::reader::{ReverseLineReader, TermReader};
+use crate::rgkl::util::writer::{process_output, CallbackWriter};
 
 pub async fn stream_backward(
     ctx: CancellationToken,

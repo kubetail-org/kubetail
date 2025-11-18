@@ -25,7 +25,7 @@ use tracing::debug;
 
 use types::cluster_agent::LogRecord;
 
-use crate::util::format::FileFormat;
+use crate::rgkl::util::format::FileFormat;
 
 /// A custom writer that calls a callback function whenever data is written.
 pub struct CallbackWriter<F>

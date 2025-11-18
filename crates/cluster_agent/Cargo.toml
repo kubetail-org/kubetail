@@ -4,7 +4,6 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
-rgkl = { path = "../rgkl" }
 types = {path="../types/"}
 
 prost = { workspace = true}
@@ -40,6 +39,20 @@ clap = { version = "4.5.45", features = ["cargo"] }
 config = "0.15.14"
 serde = "1.0"
 subst = "0.3.8"
+
+grep = "0.3.2"
+grep-cli = "0.1.11"
+grep-matcher = "0.1.7"
+grep-printer = "0.2.2"
+grep-regex = "0.1.13"
+grep-searcher = "0.1.14"
+memchr = "2.7.5"
+rand = "0.9.2"
+rstest = "0.26.1"
+serde_json = "1.0"
+signal-hook = "0.3.18"
+termcolor = "1.4.1"
+
 
 [dev-dependencies]
 serial_test = "3.2.0"
