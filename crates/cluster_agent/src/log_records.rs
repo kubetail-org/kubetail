@@ -2,9 +2,9 @@ use std::fs;
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
-use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::{self};
 use tokio_stream::wrappers::ReceiverStream;
+use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 use types::cluster_agent::log_records_service_server::LogRecordsService;
 use types::cluster_agent::{LogRecord, LogRecordsStreamRequest};
@@ -17,17 +17,17 @@ use crate::authorizer::Authorizer;
 
 #[derive(Debug)]
 pub struct LogRecordsImpl {
-    logs_dir: PathBuf,
-    term_tx: Sender<()>,
+    ctx: CancellationToken,
     task_tracker: TaskTracker,
+    logs_dir: PathBuf,
 }
 
 impl LogRecordsImpl {
-    pub const fn new(logs_dir: PathBuf, term_tx: Sender<()>, task_tracker: TaskTracker) -> Self {
+    pub const fn new(ctx: CancellationToken, task_tracker: TaskTracker, logs_dir: PathBuf) -> Self {
         Self {
-            logs_dir,
-            term_tx,
+            ctx,
             task_tracker,
+            logs_dir,
         }
     }
 
@@ -69,13 +69,14 @@ impl LogRecordsService for LogRecordsImpl {
         let request = request.into_inner();
         let file_path = self.get_log_filename(&request)?;
         let (tx, rx) = mpsc::channel(100);
-        let term_tx = self.term_tx.clone();
+        let local_ctx = self.ctx.child_token();
 
         let namespaces = vec![request.namespace.clone()];
         authorizer.is_authorized(&namespaces, "list").await?;
 
         self.task_tracker.spawn(async move {
             stream_backward::stream_backward(
+                local_ctx,
                 &file_path,
                 request.start_time.parse::<DateTime<Utc>>().ok(),
                 request.stop_time.parse::<DateTime<Utc>>().ok(),
@@ -84,7 +85,6 @@ impl LogRecordsService for LogRecordsImpl {
                 } else {
                     Some(&request.grep)
                 },
-                term_tx,
                 tx,
             )
             .await;
@@ -106,10 +106,11 @@ impl LogRecordsService for LogRecordsImpl {
         authorizer.is_authorized(&namespaces, "list").await?;
 
         let (tx, rx) = mpsc::channel(100);
-        let term_tx = self.term_tx.clone();
+        let local_ctx = self.ctx.child_token();
 
         self.task_tracker.spawn(async move {
             stream_forward::stream_forward(
+                local_ctx,
                 &file_path,
                 request.start_time.parse::<DateTime<Utc>>().ok(),
                 request.stop_time.parse::<DateTime<Utc>>().ok(),
@@ -119,7 +120,6 @@ impl LogRecordsService for LogRecordsImpl {
                     Some(&request.grep)
                 },
                 request.follow_from(),
-                term_tx,
                 tx,
             )
             .await;

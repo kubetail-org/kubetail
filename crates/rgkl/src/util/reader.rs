@@ -14,34 +14,28 @@
 
 use std::io::{self, Read, Seek, SeekFrom};
 
-use tokio::sync::broadcast::{
-    error::TryRecvError::{Closed, Empty, Lagged},
-    Receiver,
-};
+use tokio_util::sync::CancellationToken;
 
 const CHUNK_SIZE: usize = 64 * 1024; // 64KB
 
 #[derive(Debug)]
 pub struct TermReader<R> {
+    ctx: CancellationToken,
     inner: R,
-    term_rx: Receiver<()>,
 }
 
 impl<R: Read> TermReader<R> {
-    pub const fn new(inner: R, term_rx: Receiver<()>) -> Self {
-        Self { inner, term_rx }
+    pub const fn new(ctx: CancellationToken, inner: R) -> Self {
+        Self { ctx, inner }
     }
 }
 
 impl<R: Read> Read for TermReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         // check for termination before each read
-        match self.term_rx.try_recv() {
-            Ok(()) | Err(Closed | Lagged(_)) => {
-                // Channel is closed or term signal was sent.
-                return Ok(0);
-            }
-            Err(Empty) => {} // Channel is empty but still connected
+        if self.ctx.is_cancelled() {
+            // Channel is closed or term signal was sent.
+            return Ok(0);
         }
         self.inner.read(buf)
     }
@@ -198,8 +192,6 @@ mod tests {
 
     use tempfile::NamedTempFile;
 
-    use tokio::sync::broadcast::{self};
-
     use super::*;
 
     #[test]
@@ -241,11 +233,10 @@ mod tests {
 
     #[test]
     fn test_term_reader() -> Result<(), Box<dyn Error>> {
-        let (_term_tx, term_rx) = broadcast::channel(1);
         let data = b"This is a Test";
         let mut buf = [0u8; 14];
 
-        let mut reader = TermReader::new(&data[0..14], term_rx);
+        let mut reader = TermReader::new(CancellationToken::new(), &data[0..14]);
         let bytes_read = reader.read(&mut buf).expect("Read should succeed");
 
         assert_eq!(bytes_read, 14, "Should read 14 bytes");

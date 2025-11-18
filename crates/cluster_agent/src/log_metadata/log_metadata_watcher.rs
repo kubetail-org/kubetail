@@ -1,61 +1,74 @@
-use std::{
-    collections::{HashSet, VecDeque},
-    io,
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::collections::{HashSet, VecDeque};
+use std::io;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use notify::{Event, EventKind, RecursiveMode, Watcher};
 use notify_debouncer_full::{DebounceEventResult, Debouncer, RecommendedCache, new_debouncer_opt};
 use thiserror::Error;
-use tokio::{
-    fs::read_dir,
-    runtime::Handle,
-    select,
-    sync::{
-        broadcast::Sender as BcSender,
-        mpsc::{Receiver, Sender, channel},
-    },
-};
+use tokio::fs::read_dir;
+use tokio::runtime::Handle;
+use tokio::select;
+use tokio::sync::broadcast;
+use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio_stream::{StreamExt, wrappers::ReadDirStream};
+use tokio_util::sync::CancellationToken;
 use tonic::Status;
 use tracing::{debug, warn};
 use types::cluster_agent::{LogMetadata, LogMetadataFileInfo, LogMetadataWatchEvent};
 
 use crate::log_metadata::{LOG_FILE_REGEX, LogMetadataImpl};
 
+/// Lifecycle events emitted by stream_forward
+#[derive(Debug, Clone)]
+pub enum LifecycleEvent {
+    WatcherStarted,
+}
+
+/// Helper: best-effort lifecycle emission.
+/// If there is no lifecycle sender, or receiver lagged, we ignore the error.
+fn emit_lifecycle(tx: &Option<broadcast::Sender<LifecycleEvent>>, event: LifecycleEvent) {
+    if let Some(tx) = tx {
+        // broadcast::Sender::send is synchronous and non-blocking.
+        let _ = tx.send(event);
+    }
+}
+
 /// Uses notify crate internally to provide notifications of file updates.
 #[derive(Debug)]
 pub struct LogMetadataWatcher {
+    /// Context token to receive a termination signal and end the watch loop.
+    ctx: CancellationToken,
     /// Internal channel to send log metadata updates.
     log_metadata_tx: Sender<Result<LogMetadataWatchEvent, Status>>,
-    /// Channel to receive a termination signal and end the watch loop.
-    term_tx: BcSender<()>,
     /// K8s namespaces to watch for.
     namespaces: Vec<String>,
     /// Directory to watch for updates.
     directory: PathBuf,
     /// K8s node name.
     node_name: String,
+    /// Lifecycle event channel
+    lifecycle_tx: Option<broadcast::Sender<LifecycleEvent>>,
 }
 
 impl LogMetadataWatcher {
     /// Returns a new watcher and a channel to receive log metadata updates.
     pub fn new(
+        ctx: CancellationToken,
         directory: PathBuf,
         namespaces: Vec<String>,
-        term_tx: BcSender<()>,
         node_name: String,
     ) -> (Self, Receiver<Result<LogMetadataWatchEvent, Status>>) {
         let (log_metadata_tx, log_metadata_rx) = channel(100);
 
         (
             Self {
+                ctx,
                 log_metadata_tx,
-                term_tx,
                 namespaces,
                 directory,
                 node_name,
+                lifecycle_tx: None,
             },
             log_metadata_rx,
         )
@@ -74,10 +87,9 @@ impl LogMetadataWatcher {
                 }
             };
 
-        let term_rx = self.term_tx.subscribe();
+        emit_lifecycle(&self.lifecycle_tx, LifecycleEvent::WatcherStarted);
 
-        self.listen_for_changes(internal_rx, debouncer, term_rx)
-            .await;
+        self.listen_for_changes(internal_rx, debouncer).await;
     }
 
     /// Creates the notify fs watcher and adds to the watch list all files
@@ -120,19 +132,17 @@ impl LogMetadataWatcher {
         Ok(debouncer)
     }
 
-    /// Blocks and listens for notify fs changes until either a message is sent to `term_rx` or
+    /// Blocks and listens for notify fs changes until either `ctx` is cancelled or
     /// `log_metadata_tx` is closed.
     ///
     /// # Arguments
     ///
     /// * `internal_rx` - Receiver of filesystem updates.
     /// * `debouncer` - The notify filesystem watcher.
-    /// * `term_rx` - Receiver of the termination channel.
     async fn listen_for_changes<T: Watcher>(
         &self,
         mut internal_rx: Receiver<VecDeque<Result<LogMetadataWatchEvent, WatcherError>>>,
         mut debouncer: Debouncer<T, RecommendedCache>,
-        mut term_rx: tokio::sync::broadcast::Receiver<()>,
     ) {
         'outer: loop {
             select! {
@@ -153,12 +163,12 @@ impl LogMetadataWatcher {
                         break;
                     }
                 }
-                _ = term_rx.recv() => {
-                        debug!("Received termination message");
-                        let shutdown_status = Status::new(tonic::Code::Unavailable, "Server is shutting down");
-                        let _ = self.log_metadata_tx.send(Err(shutdown_status)).await;
-                        break;
-                    }
+                _ = self.ctx.cancelled() => {
+                    debug!("Received termination message");
+                    let shutdown_status = Status::new(tonic::Code::Unavailable, "Server is shutting down");
+                    let _ = self.log_metadata_tx.send(Err(shutdown_status)).await;
+                    break;
+                }
             }
         }
 
@@ -215,7 +225,7 @@ impl LogMetadataWatcher {
         }
     }
 
-    // Reconstruct the absolut file path from a LogMetadataWatchEvent.
+    // Reconstruct the absolute file path from a LogMetadataWatchEvent.
     fn get_file_path(&self, watch_event: &LogMetadataWatchEvent) -> Option<PathBuf> {
         let file_metadata = watch_event.object.as_ref()?.spec.as_ref()?;
         let filename = format!(
@@ -417,7 +427,6 @@ mod test {
     use tokio::{
         sync::{broadcast, mpsc::error::TryRecvError},
         task,
-        time::sleep,
     };
 
     #[tokio::test]
@@ -425,15 +434,19 @@ mod test {
     async fn test_create_events_are_generated() {
         let file = create_test_file("pod-name_create-namespace_container-name-containerid", 4);
         let namespaces = vec!["create-namespace".into()];
-        let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = file.path().parent().unwrap().to_owned();
+        let ctx = CancellationToken::new();
 
-        let (log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+        let (mut log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            ctx.clone(),
             logs_dir,
             namespaces,
-            term_tx.clone(),
             "The node name".to_owned(),
         );
+
+        // Create lifecycle broadcast channel
+        let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
+        log_metadata_watcher.lifecycle_tx = Some(lifecycle_tx);
 
         task::spawn(async move {
             log_metadata_watcher
@@ -443,10 +456,11 @@ mod test {
                 .await
         });
 
-        // Wait until the watcher has started listening for changes
-        while term_tx.receiver_count() != 2 {
-            sleep(Duration::from_millis(50)).await;
-        }
+        // Wait for WatcherStartedEvent
+        while !matches!(
+            lifecycle_rx.recv().await,
+            Ok(LifecycleEvent::WatcherStarted)
+        ) {}
 
         // Create three files, one with an unrelated namespace.
         let _first_file = create_test_file(
@@ -494,6 +508,9 @@ mod test {
             }
         }
 
+        // Kill
+        ctx.cancel();
+
         // Ensure no more events are created.
         let result = log_metadata_rx.try_recv();
         assert!(matches!(result, Err(TryRecvError::Empty)));
@@ -503,13 +520,12 @@ mod test {
     #[parallel]
     async fn test_error_is_returned_on_unknown_directory() {
         let namespaces = vec!["namespace".into()];
-        let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = PathBuf::from("/a/dir/that/doesnt/exist");
 
         let (log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            CancellationToken::new(),
             logs_dir,
             namespaces,
-            term_tx.clone(),
             "The node name".to_owned(),
         );
 
@@ -528,23 +544,28 @@ mod test {
     async fn test_delete_events_are_generated() {
         let file = create_test_file("pod-name_delete-namespace_container-name-containerid", 4);
         let namespaces = vec!["delete-namespace".into()];
-        let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = file.path().parent().unwrap().to_owned();
+        let ctx = CancellationToken::new();
 
-        let (log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+        let (mut log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            ctx.clone(),
             logs_dir,
             namespaces,
-            term_tx.clone(),
             "The node name".to_owned(),
         );
+
+        // Create lifecycle broadcast channel
+        let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
+        log_metadata_watcher.lifecycle_tx = Some(lifecycle_tx);
 
         // File deletions return errors when using PollWatcher so we use RecommendedWatcher
         task::spawn(async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await });
 
-        // Wait until the watcher has started listening for changes
-        while term_tx.receiver_count() != 2 {
-            sleep(Duration::from_millis(50)).await;
-        }
+        // Wait for WatcherStartedEvent
+        while !matches!(
+            lifecycle_rx.recv().await,
+            Ok(LifecycleEvent::WatcherStarted)
+        ) {}
 
         // Delete the file.
         let _ = file.close();
@@ -569,23 +590,28 @@ mod test {
     async fn test_renamed_file_is_being_watched() {
         let file = create_test_file("pod-name_rename-namespace_container-name-containerid", 4);
         let namespaces = vec!["rename-namespace".into()];
-        let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = file.path().parent().unwrap().to_owned();
+        let ctx = CancellationToken::new();
 
-        let (log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+        let (mut log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            ctx.clone(),
             logs_dir,
             namespaces,
-            term_tx.clone(),
             "The node name".to_owned(),
         );
+
+        // Create lifecycle broadcast channel
+        let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
+        log_metadata_watcher.lifecycle_tx = Some(lifecycle_tx);
 
         // Start the watcher and give it some time to execute before creating events.
         task::spawn(async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await });
 
-        // Wait until the watcher has started listening for changes
-        while term_tx.receiver_count() != 2 {
-            sleep(Duration::from_millis(50)).await;
-        }
+        // Wait for WatcherStartedEvent
+        while !matches!(
+            lifecycle_rx.recv().await,
+            Ok(LifecycleEvent::WatcherStarted)
+        ) {}
 
         // Rename the file.
         let mut new_path = file.path().to_owned();
@@ -629,6 +655,9 @@ mod test {
             }
         }
 
+        // Kill
+        ctx.cancel();
+
         let result = log_metadata_rx.try_recv();
         assert!(matches!(result, Err(TryRecvError::Empty)));
 
@@ -642,26 +671,32 @@ mod test {
         // Prepare a valid logs directory using a temp file's parent.
         let file = create_test_file("pod-name_term-namespace_container-name-containerid", 1);
         let namespaces = vec!["term-namespace".into()];
-        let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = file.path().parent().unwrap().to_owned();
+        let ctx = CancellationToken::new();
 
-        let (log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+        let (mut log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            ctx.clone(),
             logs_dir,
             namespaces,
-            term_tx.clone(),
             "The node name".to_owned(),
         );
+
+        // Create lifecycle broadcast channel
+        let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
+        log_metadata_watcher.lifecycle_tx = Some(lifecycle_tx);
 
         // Start the watcher in the background.
         task::spawn(async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await });
 
-        // Wait until the watcher has subscribed to the termination channel.
-        while term_tx.receiver_count() != 2 {
-            sleep(Duration::from_millis(50)).await;
-        }
+        // Wait for WatcherStartedEvent
+        while !matches!(
+            lifecycle_rx.recv().await,
+            Ok(LifecycleEvent::WatcherStarted)
+        ) {}
 
         // Send termination signal and expect an UNAVAILABLE status to be forwarded.
-        let _ = term_tx.send(());
+        ctx.cancel();
+
         let result = log_metadata_rx
             .recv()
             .await

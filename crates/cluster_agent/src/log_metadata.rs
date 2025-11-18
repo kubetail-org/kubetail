@@ -6,10 +6,10 @@ use std::fs::File;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
+use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
 use tokio::fs::read_dir;
-use tokio::sync::broadcast::Sender;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::{ReadDirStream, ReceiverStream};
 use tokio_util::task::TaskTracker;
@@ -33,18 +33,18 @@ pub static LOG_FILE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 #[derive(Debug)]
 pub struct LogMetadataImpl {
-    logs_dir: PathBuf,
-    term_tx: Sender<()>,
+    ctx: CancellationToken,
     task_tracker: TaskTracker,
+    logs_dir: PathBuf,
     node_name: String,
 }
 
 impl LogMetadataImpl {
-    pub fn new(logs_dir: PathBuf, term_tx: Sender<()>, task_tracker: TaskTracker) -> Self {
+    pub fn new(ctx: CancellationToken, task_tracker: TaskTracker, logs_dir: PathBuf) -> Self {
         Self {
-            logs_dir,
-            term_tx,
+            ctx,
             task_tracker,
+            logs_dir,
             node_name: env::var("NODE_NAME").unwrap_or_else(|_| "Env variable not set".to_owned()),
         }
     }
@@ -184,7 +184,6 @@ impl LogMetadataService for LogMetadataImpl {
     ) -> Result<Response<Self::WatchStream>, Status> {
         let authorizer = Authorizer::new(request.metadata()).await?;
         let request = request.into_inner();
-        let term_tx = self.term_tx.clone();
 
         let namespaces: Vec<String> = request
             .namespaces
@@ -195,9 +194,9 @@ impl LogMetadataService for LogMetadataImpl {
         authorizer.is_authorized(&namespaces, "watch").await?;
 
         let (log_metadata_watcher, log_metadata_rx) = LogMetadataWatcher::new(
+            self.ctx.child_token(),
             Path::new(&self.logs_dir).to_path_buf(),
             namespaces,
-            term_tx,
             self.node_name.clone(),
         );
 
@@ -215,8 +214,7 @@ mod test {
     use serial_test::parallel;
     use std::io::Write;
     use tempfile::{Builder, NamedTempFile};
-    use tokio::sync::broadcast;
-    use tokio_util::task::TaskTracker;
+    use tokio_util::{sync::CancellationToken, task::TaskTracker};
     use tonic::Request;
     use types::cluster_agent::{
         LogMetadata, LogMetadataListRequest, log_metadata_service_server::LogMetadataService,
@@ -240,13 +238,12 @@ mod test {
     #[parallel]
     async fn test_single_file_is_returned() {
         let file = create_test_file("pod-name_single-namespace_container-name-containerid", 4);
-        let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = file.path().parent().unwrap().to_path_buf();
 
         let metadata_service = LogMetadataImpl {
-            logs_dir,
-            term_tx,
+            ctx: CancellationToken::new(),
             task_tracker: TaskTracker::new(),
+            logs_dir,
             node_name: "Node name".to_owned(),
         };
 
@@ -296,13 +293,12 @@ mod test {
             "pod-name_filter-secondnamespace_container-name2-containerid2",
             4,
         );
-        let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = third_file.path().parent().unwrap().to_path_buf();
 
         let metadata_service = LogMetadataImpl {
-            logs_dir,
-            term_tx,
+            ctx: CancellationToken::new(),
             task_tracker: TaskTracker::new(),
+            logs_dir,
             node_name: "Node name".to_owned(),
         };
 
@@ -360,13 +356,12 @@ mod test {
             4,
         );
 
-        let (term_tx, _term_rx) = broadcast::channel(1);
         let logs_dir = first_file.path().parent().unwrap().to_path_buf();
 
         let metadata_service = LogMetadataImpl {
-            logs_dir,
-            term_tx,
+            ctx: CancellationToken::new(),
             task_tracker: TaskTracker::new(),
+            logs_dir,
             node_name: "Node name".to_owned(),
         };
 

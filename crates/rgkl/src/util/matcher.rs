@@ -12,10 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use grep::{
-    matcher::{self, Match, Matcher},
-    regex::{self, RegexMatcher, RegexMatcherBuilder},
-};
+use grep::matcher::{self, Match, Matcher};
+use grep::regex::{self, RegexMatcher, RegexMatcherBuilder};
 use memchr::memmem;
 use serde::Deserialize;
 
