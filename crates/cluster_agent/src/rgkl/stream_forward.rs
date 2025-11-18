@@ -27,12 +27,12 @@ use tokio_util::sync::CancellationToken;
 use tonic::Status;
 use types::cluster_agent::{FollowFrom, LogRecord};
 
-use crate::fs_watcher_error::FsWatcherError;
-use crate::util::format::FileFormat;
-use crate::util::matcher::{LogFileRegexMatcher, PassThroughMatcher};
-use crate::util::offset::{find_nearest_offset_since, find_nearest_offset_until};
-use crate::util::reader::TermReader;
-use crate::util::writer::{process_output, CallbackWriter};
+use crate::rgkl::fs_watcher_error::FsWatcherError;
+use crate::rgkl::util::format::FileFormat;
+use crate::rgkl::util::matcher::{LogFileRegexMatcher, PassThroughMatcher};
+use crate::rgkl::util::offset::{find_nearest_offset_since, find_nearest_offset_until};
+use crate::rgkl::util::reader::TermReader;
+use crate::rgkl::util::writer::{process_output, CallbackWriter};
 
 /// Lifecycle events emitted by stream_forward
 #[derive(Debug, Clone)]
@@ -111,9 +111,12 @@ async fn stream_forward_with_lifecyle_events(
 
     match result {
         Err(fs_error) => {
+            println!("FAILED here");
             let _ = sender.send(Err(fs_error.into())).await;
         }
-        Ok(None) => {}
+        Ok(None) => {
+            println!("FAILED here 2");
+        }
         Ok(Some(watcher)) => listen_for_changes(ctx.clone(), watcher, sender.clone()).await,
     }
 }
@@ -286,6 +289,7 @@ async fn listen_for_changes(
                         }
                     },
                     Some(Err(e)) => {
+                        println!("failed reading");
                         let _ = sender.send(Err(Status::from(FsWatcherError::Watch(e)))).await;
                         return;
                     }
@@ -613,6 +617,13 @@ mod test {
 
         while let Some(record) = rx.recv().await {
             output.push(record);
+        }
+
+        for i in &output {
+            match i {
+                Ok(record) => println!("LogRecord: {:?}", record),
+                Err(status) => println!("Error: {:?}", status),
+            }
         }
 
         compare_lines(output, expected_lines);

@@ -9,7 +9,8 @@ use tokio_util::task::TaskTracker;
 use types::cluster_agent::log_records_service_server::LogRecordsService;
 use types::cluster_agent::{LogRecord, LogRecordsStreamRequest};
 
-use rgkl::{stream_backward, stream_forward};
+
+use crate::rgkl::{stream_backward, stream_forward};
 
 use tonic::{Request, Response, Status};
 

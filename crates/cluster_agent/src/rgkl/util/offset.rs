@@ -18,7 +18,7 @@ use std::io::{BufRead, BufReader, Result as IoResult, Seek, SeekFrom};
 use chrono::{DateTime, Utc};
 use serde_json;
 
-use crate::util::format::FileFormat;
+use crate::rgkl::util::format::FileFormat;
 
 /// Represents an offset result from find_nearest_offset()
 #[derive(Debug, PartialEq)]

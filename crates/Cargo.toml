@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = [ "rgkl", "cluster_agent" , "types"]
+members = [ "cluster_agent" , "types"]
 
 [profile.dev]
 incremental = true

@@ -17,7 +17,7 @@ use grep::regex::{self, RegexMatcher, RegexMatcherBuilder};
 use memchr::memmem;
 use serde::Deserialize;
 
-use crate::util::format::FileFormat;
+use crate::rgkl::util::format::FileFormat;
 
 // PassThroughMatcher
 #[derive(Default)]
