@@ -17,6 +17,7 @@ use types::cluster_agent::log_records_service_server::LogRecordsServiceServer;
 mod authorizer;
 mod config;
 mod log_metadata;
+mod rgkl;
 mod log_records;
 use log_metadata::LogMetadataImpl;
 use log_records::LogRecordsImpl;
