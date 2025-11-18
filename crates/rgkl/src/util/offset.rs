@@ -12,10 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{
-    fs::File,
-    io::{BufRead, BufReader, Result as IoResult, Seek, SeekFrom},
-};
+use std::fs::File;
+use std::io::{BufRead, BufReader, Result as IoResult, Seek, SeekFrom};
 
 use chrono::{DateTime, Utc};
 use serde_json;

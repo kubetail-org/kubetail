@@ -6,7 +6,7 @@ use std::str::FromStr;
 use clap::{ArgAction, arg, command, value_parser};
 use tokio::signal::ctrl_c;
 use tokio::signal::unix::{SignalKind, signal};
-use tokio::sync::broadcast::{self, Sender};
+use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 use tonic::transport::{Certificate, Identity, Server, ServerTlsConfig};
 use tracing::info;
@@ -33,8 +33,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let reflection_service = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
         .build_v1()?;
-    let (term_tx, _term_rx) = broadcast::channel(1);
     let task_tracker = TaskTracker::new();
+    let root_ctx = CancellationToken::new();
 
     let mut server = enable_tls(Server::builder(), &config.tls)?;
 
@@ -44,16 +44,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .add_service(agent_health_service)
         .add_service(reflection_service)
         .add_service(LogMetadataServiceServer::new(LogMetadataImpl::new(
-            config.logs_dir.clone(),
-            term_tx.clone(),
+            root_ctx.clone(),
             task_tracker.clone(),
+            config.logs_dir.clone(),
         )))
         .add_service(LogRecordsServiceServer::new(LogRecordsImpl::new(
-            config.logs_dir.clone(),
-            term_tx.clone(),
+            root_ctx.clone(),
             task_tracker.clone(),
+            config.logs_dir.clone(),
         )))
-        .serve_with_shutdown(config.address, shutdown(term_tx))
+        .serve_with_shutdown(config.address, shutdown(root_ctx))
         .await?;
 
     task_tracker.close();
@@ -164,17 +164,17 @@ fn configure_logging(logging_config: &LoggingConfig) -> Result<(), Box<dyn Error
     Ok(())
 }
 
-async fn shutdown(term_tx: Sender<()>) {
+async fn shutdown(ctx_token: CancellationToken) {
     let mut term = signal(SignalKind::terminate()).expect("Failed to register SIGTERM handler");
 
     tokio::select! {
         _ = ctrl_c()  => {
             info!("SIGINT received, initiating shutdown..");
-            let _ = term_tx.send(());
+            ctx_token.cancel();
         },
         _ = term.recv() => {
             info!("SIGTERM received, initiating shutdown..");
-            let _ = term_tx.send(());
+            ctx_token.cancel();
         },
     }
 }

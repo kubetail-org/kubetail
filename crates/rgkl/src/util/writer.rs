@@ -12,23 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{
-    io::{self, Write},
-    str::FromStr,
-};
-
-use tokio::{
-    sync::mpsc::Sender,
-    task::{self},
-};
-use tonic::Status;
+use std::io::{self, Write};
+use std::str::FromStr;
 
 use prost_types::Timestamp;
 use serde_json;
+use tokio::sync::mpsc::Sender;
+use tokio::task;
+use tokio_util::sync::CancellationToken;
+use tonic::Status;
 use tracing::debug;
 
-use crate::util::format::FileFormat;
 use types::cluster_agent::LogRecord;
+
+use crate::util::format::FileFormat;
 
 /// A custom writer that calls a callback function whenever data is written.
 pub struct CallbackWriter<F>
@@ -87,10 +84,10 @@ where
 
 /// Function that processes the output.
 pub fn process_output(
+    ctx: CancellationToken,
     chunk: Vec<u8>,
     sender: &Sender<Result<LogRecord, Status>>,
     format: FileFormat,
-    term_tx: tokio::sync::broadcast::Sender<()>,
 ) {
     // For example, convert to string and print.
     let json: serde_json::Value = serde_json::from_slice(&chunk).unwrap();
@@ -119,7 +116,7 @@ pub fn process_output(
                                     task::block_in_place(|| sender.blocking_send(Ok(record)));
                                 if result.is_err() {
                                     debug!("Channel closed from client.");
-                                    let _ = term_tx.send(());
+                                    ctx.cancel();
                                 }
                             }
                         }
@@ -140,7 +137,7 @@ pub fn process_output(
                             let result = task::block_in_place(|| sender.blocking_send(Ok(record)));
                             if result.is_err() {
                                 debug!("Channel closed from client.");
-                                let _ = term_tx.send(());
+                                ctx.cancel();
                             }
                         }
                     }
