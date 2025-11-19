@@ -741,4 +741,332 @@ mod test {
             );
         }
     }
+
+    #[tokio::test]
+    #[cfg(not(target_os = "macos"))]
+    #[parallel]
+    async fn test_newly_created_file_receives_modify_events() {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let namespaces = vec!["modify-namespace".into()];
+        let logs_dir = temp_dir.path().to_owned();
+        let ctx = CancellationToken::new();
+
+        let (mut log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            ctx.clone(),
+            logs_dir.clone(),
+            namespaces,
+            "The node name".to_owned(),
+        );
+
+        let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
+        log_metadata_watcher.lifecycle_tx = Some(lifecycle_tx);
+
+        task::spawn(async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await });
+
+        while !matches!(
+            lifecycle_rx.recv().await,
+            Ok(LifecycleEvent::WatcherStarted)
+        ) {}
+
+        let file_path =
+            logs_dir.join("pod-name_modify-namespace_container-name-newcontainerid.log");
+        let mut file = File::create(&file_path).expect("Failed to create file");
+        file.write_all(&vec![0; 4])
+            .expect("Failed to write initial data");
+        file.flush().expect("Failed to flush");
+
+        let first_event = tokio::time::timeout(Duration::from_secs(5), log_metadata_rx.recv())
+            .await
+            .expect("Timeout waiting for ADDED event")
+            .expect("Channel closed")
+            .expect("Error receiving event");
+
+        assert_eq!(first_event.r#type, "ADDED");
+        let added_size = first_event
+            .object
+            .as_ref()
+            .unwrap()
+            .file_info
+            .as_ref()
+            .unwrap()
+            .size;
+
+        file.write_all(&vec![1; 3])
+            .expect("Failed to write additional data");
+        file.flush().expect("Failed to flush");
+        drop(file);
+
+        let second_event = tokio::time::timeout(Duration::from_secs(5), log_metadata_rx.recv())
+            .await
+            .expect("Timeout waiting for MODIFIED event")
+            .expect("Channel closed")
+            .expect("Error receiving event");
+
+        assert_eq!(second_event.r#type, "MODIFIED");
+        let modified_size = second_event
+            .object
+            .as_ref()
+            .unwrap()
+            .file_info
+            .as_ref()
+            .unwrap()
+            .size;
+
+        assert_eq!(modified_size, 7, "Final size should be 4 + 3 = 7 bytes");
+        assert!(added_size <= 7, "Added size should be <= 7");
+
+        ctx.cancel();
+        let _ = remove_file(&file_path);
+    }
+
+    #[tokio::test]
+    #[cfg(not(target_os = "macos"))]
+    #[parallel]
+    async fn test_multiple_updates_to_newly_created_file() {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let namespaces = vec!["multi-modify-namespace".into()];
+        let logs_dir = temp_dir.path().to_owned();
+        let ctx = CancellationToken::new();
+
+        let (mut log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            ctx.clone(),
+            logs_dir.clone(),
+            namespaces,
+            "The node name".to_owned(),
+        );
+
+        let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
+        log_metadata_watcher.lifecycle_tx = Some(lifecycle_tx);
+
+        task::spawn(async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await });
+
+        while !matches!(
+            lifecycle_rx.recv().await,
+            Ok(LifecycleEvent::WatcherStarted)
+        ) {}
+
+        let file_path = logs_dir.join("pod-name_multi-modify-namespace_container-name-multiid.log");
+        let mut file = File::create(&file_path).expect("Failed to create file");
+        file.write_all(&vec![0; 2])
+            .expect("Failed to write initial data");
+        file.flush().expect("Failed to flush");
+
+        let added_event = tokio::time::timeout(Duration::from_secs(5), log_metadata_rx.recv())
+            .await
+            .expect("Timeout waiting for ADDED event")
+            .expect("Channel closed")
+            .expect("Error receiving event");
+
+        assert_eq!(added_event.r#type, "ADDED");
+
+        // Perform multiple modifications with delays exceeding debounce window (2 seconds)
+        for i in 1..=3 {
+            file.write_all(&vec![i; 2]).expect("Failed to write data");
+            file.flush().expect("Failed to flush");
+
+            // Wait for the MODIFIED event after each write
+            let modified_event =
+                tokio::time::timeout(Duration::from_secs(5), log_metadata_rx.recv())
+                    .await
+                    .expect("Timeout waiting for MODIFIED event")
+                    .expect("Channel closed")
+                    .expect("Error receiving event");
+
+            assert_eq!(modified_event.r#type, "MODIFIED");
+
+            let expected_size = 2 + (i as i64 * 2);
+            let file_size = modified_event
+                .object
+                .as_ref()
+                .unwrap()
+                .file_info
+                .as_ref()
+                .unwrap()
+                .size;
+            assert_eq!(
+                file_size, expected_size,
+                "File size after modification {} should be {}",
+                i, expected_size
+            );
+        }
+
+        drop(file);
+
+        ctx.cancel();
+        let _ = remove_file(&file_path);
+    }
+
+    #[tokio::test]
+    #[cfg(not(target_os = "macos"))]
+    #[parallel]
+    async fn test_create_and_immediate_modify_before_watcher_starts() {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let namespaces = vec!["immediate-namespace".into()];
+        let logs_dir = temp_dir.path().to_owned();
+
+        let file_path =
+            logs_dir.join("pod-name_immediate-namespace_container-name-immediateid.log");
+        let mut file = File::create(&file_path).expect("Failed to create file");
+        file.write_all(&vec![0; 5])
+            .expect("Failed to write initial data");
+        file.flush().expect("Failed to flush");
+        drop(file);
+
+        let ctx = CancellationToken::new();
+
+        let (mut log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            ctx.clone(),
+            logs_dir.clone(),
+            namespaces,
+            "The node name".to_owned(),
+        );
+
+        let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
+        log_metadata_watcher.lifecycle_tx = Some(lifecycle_tx);
+
+        task::spawn(async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await });
+
+        while !matches!(
+            lifecycle_rx.recv().await,
+            Ok(LifecycleEvent::WatcherStarted)
+        ) {}
+
+        let mut file = File::options()
+            .write(true)
+            .append(true)
+            .open(&file_path)
+            .expect("Failed to open file");
+        file.write_all(&vec![1; 3]).expect("Failed to write data");
+        file.flush().expect("Failed to flush");
+        drop(file);
+
+        let event = tokio::time::timeout(Duration::from_secs(5), log_metadata_rx.recv())
+            .await
+            .expect("Timeout waiting for event")
+            .expect("Channel closed")
+            .expect("Error receiving event");
+
+        verify_event(
+            event,
+            "MODIFIED",
+            "immediateid",
+            "The node name",
+            "immediate-namespace",
+            "pod-name",
+            "container-name",
+            Some(8),
+        );
+
+        let result = tokio::time::timeout(Duration::from_millis(100), log_metadata_rx.recv()).await;
+        assert!(
+            result.is_err() || matches!(result, Ok(None)),
+            "Should not have more events"
+        );
+
+        ctx.cancel();
+        let _ = remove_file(&file_path);
+    }
+
+    #[tokio::test]
+    #[parallel]
+    async fn test_created_file_with_wrong_namespace_not_watched() {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let namespaces = vec!["correct-namespace".into()];
+        let logs_dir = temp_dir.path().to_owned();
+        let ctx = CancellationToken::new();
+
+        let (mut log_metadata_watcher, mut log_metadata_rx) = LogMetadataWatcher::new(
+            ctx.clone(),
+            logs_dir.clone(),
+            namespaces,
+            "The node name".to_owned(),
+        );
+
+        let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
+        log_metadata_watcher.lifecycle_tx = Some(lifecycle_tx);
+
+        task::spawn(async move {
+            log_metadata_watcher
+                .watch::<PollWatcher>(Some(
+                    notify::Config::default().with_poll_interval(Duration::from_millis(100)),
+                ))
+                .await
+        });
+
+        while !matches!(
+            lifecycle_rx.recv().await,
+            Ok(LifecycleEvent::WatcherStarted)
+        ) {}
+
+        let wrong_file_path = logs_dir.join("pod-name_wrong-namespace_container-name-wrongid.log");
+        let mut wrong_file = File::create(&wrong_file_path).expect("Failed to create file");
+        wrong_file
+            .write_all(&vec![0; 4])
+            .expect("Failed to write data");
+        wrong_file.flush().expect("Failed to flush");
+
+        let correct_file_path =
+            logs_dir.join("pod-name_correct-namespace_container-name-correctid.log");
+        let mut correct_file = File::create(&correct_file_path).expect("Failed to create file");
+        correct_file
+            .write_all(&vec![0; 4])
+            .expect("Failed to write data");
+        correct_file.flush().expect("Failed to flush");
+
+        let added_event = tokio::time::timeout(Duration::from_secs(5), log_metadata_rx.recv())
+            .await
+            .expect("Timeout waiting for ADDED event")
+            .expect("Channel closed")
+            .expect("Error receiving event");
+
+        assert_eq!(added_event.r#type, "ADDED");
+        let namespace = &added_event
+            .object
+            .as_ref()
+            .unwrap()
+            .spec
+            .as_ref()
+            .unwrap()
+            .namespace;
+        assert_eq!(namespace, "correct-namespace");
+
+        wrong_file
+            .write_all(&vec![1; 2])
+            .expect("Failed to write to wrong file");
+        wrong_file.flush().expect("Failed to flush");
+        correct_file
+            .write_all(&vec![1; 2])
+            .expect("Failed to write to correct file");
+        correct_file.flush().expect("Failed to flush");
+
+        drop(wrong_file);
+        drop(correct_file);
+
+        let modified_event = tokio::time::timeout(Duration::from_secs(5), log_metadata_rx.recv())
+            .await
+            .expect("Timeout waiting for MODIFIED event")
+            .expect("Channel closed")
+            .expect("Error receiving event");
+
+        assert_eq!(modified_event.r#type, "MODIFIED");
+        let namespace = &modified_event
+            .object
+            .as_ref()
+            .unwrap()
+            .spec
+            .as_ref()
+            .unwrap()
+            .namespace;
+        assert_eq!(namespace, "correct-namespace");
+
+        let result = tokio::time::timeout(Duration::from_millis(100), log_metadata_rx.recv()).await;
+        assert!(
+            result.is_err() || matches!(result, Ok(None)),
+            "Should not have more events"
+        );
+
+        ctx.cancel();
+        let _ = remove_file(&wrong_file_path);
+        let _ = remove_file(&correct_file_path);
+    }
 }
