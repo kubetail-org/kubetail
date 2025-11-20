@@ -413,21 +413,20 @@ impl LogMetadataWatchEventType {
 
 #[cfg(test)]
 mod test {
+    use std::fs::{File, remove_file};
+    use std::io::Write;
+
     #[cfg(not(target_os = "macos"))]
-    use std::{
-        fs::{File, remove_file, rename},
-        io::Write,
-    };
+    use std::fs::rename;
+
+    use notify::{PollWatcher, RecommendedWatcher};
+    use serial_test::{parallel, serial};
+    use tokio::sync::{broadcast, mpsc::error::TryRecvError};
+    use tokio::task;
 
     use crate::log_metadata::test::create_test_file;
 
     use super::*;
-    use notify::{PollWatcher, RecommendedWatcher};
-    use serial_test::{parallel, serial};
-    use tokio::{
-        sync::{broadcast, mpsc::error::TryRecvError},
-        task,
-    };
 
     #[tokio::test]
     #[serial]
