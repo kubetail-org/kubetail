@@ -15,11 +15,14 @@
 package logs
 
 import (
+	"bufio"
+	"bytes"
 	"container/heap"
 	"context"
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -137,24 +140,85 @@ func parseWorkloadType(workloadStr string) WorkloadType {
 	}
 }
 
-// Create new log record
-func newLogRecordFromLogLine(logLine string) (LogRecord, error) {
+var bufferPool = sync.Pool{
+	New: func() any {
+		return new(bytes.Buffer)
+	},
+}
+
+func nextRecordFromReader(reader *bufio.Reader, truncateAtBytes uint64) (LogRecord, error) {
 	var zero LogRecord
 
-	parts := strings.SplitN(logLine, " ", 2)
-	if len(parts) != 2 {
-		return zero, fmt.Errorf("log line timestamp not found")
+	// Fetch timestamp
+	tsBytes, err := reader.ReadSlice(' ')
+	if err != nil {
+		return zero, err
 	}
+	tsBytes = tsBytes[:len(tsBytes)-1]
 
-	ts, err := time.Parse(time.RFC3339Nano, parts[0])
+	// Parse timestamp
+	ts, err := time.Parse(time.RFC3339Nano, string(tsBytes))
 	if err != nil {
 		return zero, err
 	}
 
-	return LogRecord{
-		Timestamp: ts,
-		Message:   parts[1],
-	}, nil
+	// Read the rest of the bytes until '\n' delimiter or truncateAtBytes whichever comes first
+	var isTruncated bool
+	var origSizeBytes uint64
+
+	// Get buffer from pool
+	buf := bufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufferPool.Put(buf)
+
+	// Pre-allocate if we know we need space, but be conservative
+	// If the buffer from the pool already has capacity, we don't need to do anything
+	if buf.Cap() < 128 {
+		buf.Grow(128)
+	}
+
+Loop:
+	for {
+		chunk, isPrefix, err := reader.ReadLine()
+		switch err {
+		case nil, bufio.ErrBufferFull:
+			// Do nothing
+		case io.EOF:
+			// Exit loop
+			break Loop
+		default:
+			// Unexpected error
+			return zero, err
+		}
+
+		origSizeBytes += uint64(len(chunk))
+
+		if truncateAtBytes <= 0 {
+			// Disable truncation
+			buf.Write(chunk)
+		} else if !isTruncated {
+			// Append as much as we can
+			remaining := max(truncateAtBytes-uint64(buf.Len()), 0)
+			buf.Write(chunk[:remaining])
+
+			// Update isTruncated for next loop
+			isTruncated = origSizeBytes > truncateAtBytes
+		}
+
+		// Exit when no longer chunking
+		if !isPrefix {
+			break
+		}
+	}
+
+	// Initialize record
+	record := LogRecord{}
+	record.Timestamp = ts
+	record.Message = buf.String()
+	record.OriginalSizeBytes = origSizeBytes
+	record.IsTruncated = isTruncated
+
+	return record, nil
 }
 
 // mergeLogStreams merges multiple ordered log streams into a single channel

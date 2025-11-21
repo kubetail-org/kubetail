@@ -48,7 +48,11 @@ var allowedSecFetchSite = []string{"same-origin"}
 // Create new Server instance
 func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string) *Server {
 	// Init resolver
-	r := &Resolver{cm, grpcDispatcher, allowedNamespaces}
+	r := &Resolver{
+		cm:                cm,
+		grpcDispatcher:    grpcDispatcher,
+		allowedNamespaces: allowedNamespaces,
+	}
 
 	// Init config
 	cfg := Config{Resolvers: r}

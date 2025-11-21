@@ -26,6 +26,9 @@ use tracing::debug;
 use types::cluster_agent::LogRecord;
 
 use crate::util::format::FileFormat;
+use crate::util::reader::TRUNCATION_SENTINEL;
+
+const TRUNCATION_SUFFIX: &str = "... [TRUNCATED]";
 
 /// A custom writer that calls a callback function whenever data is written.
 pub struct CallbackWriter<F>
@@ -105,11 +108,12 @@ pub fn process_output(
                             if let (Some(time_str), Some(log_msg)) =
                                 (log_json["time"].as_str(), log_json["log"].as_str())
                             {
+                                let message = normalize_message(log_msg);
                                 let record = LogRecord {
                                     timestamp: Some(
                                         Timestamp::from_str(time_str).unwrap_or_default(),
                                     ),
-                                    message: log_msg.trim_end().to_string(),
+                                    message,
                                 };
 
                                 let result =
@@ -129,9 +133,10 @@ pub fn process_output(
                                 return;
                             }
 
+                            let message = normalize_message(&rest[9..]);
                             let record = LogRecord {
                                 timestamp: Some(Timestamp::from_str(first).unwrap()),
-                                message: rest[9..].trim_end().to_string(),
+                                message,
                             };
 
                             let result = task::block_in_place(|| sender.blocking_send(Ok(record)));
@@ -144,5 +149,36 @@ pub fn process_output(
                 }
             }
         }
+    }
+}
+
+fn normalize_message(raw: &str) -> String {
+    if let Some(idx) = raw.find(char::from(TRUNCATION_SENTINEL)) {
+        let mut message = raw[..idx]
+            .trim_end_matches(|c| c == '\n' || c == '\r')
+            .to_string();
+        message.push_str(TRUNCATION_SUFFIX);
+        message
+    } else {
+        raw.trim_end_matches(|c| c == '\n' || c == '\r').to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_message;
+
+    #[test]
+    fn normalize_message_appends_suffix_when_needed() {
+        let raw = format!("hello{}\n", char::from(super::TRUNCATION_SENTINEL));
+        let normalized = normalize_message(&raw);
+        assert!(normalized.ends_with(super::TRUNCATION_SUFFIX));
+        assert!(normalized.starts_with("hello"));
+    }
+
+    #[test]
+    fn normalize_message_trims_newlines() {
+        let raw = "hello\n";
+        assert_eq!(normalize_message(raw), "hello");
     }
 }

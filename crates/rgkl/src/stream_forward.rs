@@ -71,6 +71,7 @@ pub async fn stream_forward(
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&str>,
     follow_from: FollowFrom,
+    max_line_length: i32,
     sender: Sender<Result<LogRecord, Status>>,
 ) {
     stream_forward_with_lifecyle_events(
@@ -80,6 +81,7 @@ pub async fn stream_forward(
         stop_time,
         grep,
         follow_from,
+        max_line_length,
         sender,
         None,
     )
@@ -94,6 +96,7 @@ async fn stream_forward_with_lifecyle_events(
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&str>,
     follow_from: FollowFrom,
+    max_line_length: i32,
     sender: Sender<Result<LogRecord, Status>>,
     lifecycle_tx: Option<broadcast::Sender<LifecycleEvent>>,
 ) {
@@ -104,6 +107,7 @@ async fn stream_forward_with_lifecyle_events(
         stop_time,
         grep,
         follow_from,
+        max_line_length,
         &sender,
     );
 
@@ -127,6 +131,7 @@ fn setup_fs_watcher<'a>(
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&'a str>,
     follow_from: FollowFrom,
+    max_line_length: i32,
     sender: &'a Sender<Result<LogRecord, Status>>,
 ) -> ResultOption<FsWatcher<impl FnMut(&[u8]) + use<'a>>, FsWatcherError> {
     let mut file = File::open(path)?;
@@ -177,8 +182,8 @@ fn setup_fs_watcher<'a>(
         Box::new(file)
     };
 
-    // Wrap in term reader
-    let term_reader = TermReader::new(ctx.clone(), reader);
+    // Wrap in term reader with optional truncation
+    let term_reader = TermReader::new(ctx.clone(), reader, max_line_length, format);
 
     // Init searcher
     let mut searcher = SearcherBuilder::new()
@@ -419,6 +424,7 @@ mod test {
             None,             // No stop time
             None,             // No grep filter
             FollowFrom::Noop, // Don't follow
+            0,                // No truncation
             tx,
         )
         .await;
@@ -467,6 +473,7 @@ mod test {
             stop_time,
             None,             // No grep filter
             FollowFrom::Noop, // Don't follow
+            0,                // No truncation
             tx,
         )
         .await;
@@ -524,6 +531,7 @@ mod test {
             stop_time,
             None,             // No grep filter
             FollowFrom::Noop, // Don't follow
+            0,                // No truncation
             tx,
         )
         .await;
@@ -587,6 +595,7 @@ mod test {
                 None, // No stop time
                 None, // No grep filter
                 follow_from,
+                0, // No truncation
                 tx,
                 Some(lifecycle_tx_clone),
             )
@@ -633,6 +642,7 @@ mod test {
             None,
             None,             // No grep filter
             FollowFrom::Noop, // Don't follow
+            0,                // No truncation
             tx,
         )
         .await;
@@ -672,6 +682,7 @@ mod test {
                 None,            // No stop time
                 None,            // No grep filter
                 FollowFrom::End, // Enter listen loop immediately
+                0,               // No truncation
                 tx,
                 Some(lifecycle_tx_clone),
             )

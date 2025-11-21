@@ -12,33 +12,231 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::VecDeque;
 use std::io::{self, Read, Seek, SeekFrom};
 
+use memchr::memchr;
 use tokio_util::sync::CancellationToken;
 
+use crate::util::format::FileFormat;
+
 const CHUNK_SIZE: usize = 64 * 1024; // 64KB
+pub const TRUNCATION_SENTINEL: u8 = 0x1F;
+const DOCKER_SENTINEL_ESCAPED: &[u8] = br"\u001F";
+const DOCKER_STREAM_MARKER: &[u8] = b"\",\"stream\":\"";
+const DOCKER_TAIL_LIMIT: usize = 64 * 1024;
 
 #[derive(Debug)]
 pub struct TermReader<R> {
     ctx: CancellationToken,
     inner: R,
+    max_line_len: usize,
+    current: usize,
+    discarding: bool,
+    emitted: bool,
+    format: FileFormat,
+    docker_tail: VecDeque<u8>,
 }
 
 impl<R: Read> TermReader<R> {
-    pub const fn new(ctx: CancellationToken, inner: R) -> Self {
-        Self { ctx, inner }
+    pub fn new(ctx: CancellationToken, inner: R, max: i32, format: FileFormat) -> Self {
+        Self {
+            ctx,
+            inner,
+            max_line_len: if max <= 0 { usize::MAX } else { max as usize },
+            current: 0,
+            discarding: false,
+            emitted: false,
+            format,
+            docker_tail: VecDeque::new(),
+        }
     }
 }
 
 impl<R: Read> Read for TermReader<R> {
+    #[inline(always)]
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        // check for termination before each read
         if self.ctx.is_cancelled() {
-            // Channel is closed or term signal was sent.
             return Ok(0);
         }
-        self.inner.read(buf)
+
+        loop {
+            let n = self.inner.read(buf)?;
+            if n == 0 {
+                return Ok(0);
+            }
+            if self.max_line_len == usize::MAX {
+                return Ok(n);
+            }
+
+            if !self.discarding {
+                if !self.fast_scan(buf, n) {
+                    return Ok(n);
+                }
+            }
+
+            let mut temp_buf = Vec::with_capacity(n);
+            self.process_bytes(&buf[..n], &mut temp_buf);
+
+            if !temp_buf.is_empty() {
+                let out_len = temp_buf.len();
+                buf[..out_len].copy_from_slice(&temp_buf);
+                return Ok(out_len);
+            }
+
+            if self.ctx.is_cancelled() {
+                return Ok(0);
+            }
+        }
     }
+}
+
+impl<R: Read> TermReader<R> {
+    fn process_bytes(&mut self, input: &[u8], output: &mut Vec<u8>) {
+        let mut idx = 0;
+        while idx < input.len() {
+            let b = input[idx];
+
+            if self.discarding {
+                self.handle_discarding_byte(b, output);
+                idx += 1;
+                continue;
+            }
+
+            if b == b'\n' {
+                output.push(b);
+                self.reset_line_state();
+                idx += 1;
+                continue;
+            }
+
+            if self.current >= self.max_line_len {
+                self.start_truncation(output);
+                self.handle_discarding_byte(b, output);
+                idx += 1;
+                continue;
+            }
+
+            output.push(b);
+            self.current += 1;
+            idx += 1;
+        }
+    }
+
+    fn handle_discarding_byte(&mut self, byte: u8, output: &mut Vec<u8>) {
+        if self.format == FileFormat::Docker && self.emitted {
+            self.push_docker_tail(byte);
+        }
+
+        if byte == b'\n' {
+            if self.emitted && self.format == FileFormat::Docker {
+                if let Some(suffix) = self.take_docker_suffix() {
+                    output.extend_from_slice(&suffix);
+                }
+            }
+            output.push(b'\n');
+            self.reset_line_state();
+        }
+    }
+
+    fn start_truncation(&mut self, output: &mut Vec<u8>) {
+        if !self.emitted {
+            match self.format {
+                FileFormat::Docker => output.extend_from_slice(DOCKER_SENTINEL_ESCAPED),
+                FileFormat::CRI => output.push(TRUNCATION_SENTINEL),
+            }
+            self.emitted = true;
+            if self.format == FileFormat::Docker {
+                self.docker_tail.clear();
+            }
+        }
+        self.discarding = true;
+    }
+
+    fn push_docker_tail(&mut self, byte: u8) {
+        if byte == b'\n' {
+            return;
+        }
+        self.docker_tail.push_back(byte);
+        if self.docker_tail.len() > DOCKER_TAIL_LIMIT {
+            self.docker_tail.pop_front();
+        }
+    }
+
+    fn take_docker_suffix(&mut self) -> Option<Vec<u8>> {
+        if self.docker_tail.is_empty() {
+            return None;
+        }
+        let mut tail: Vec<u8> = self.docker_tail.iter().copied().collect();
+        self.docker_tail.clear();
+        if let Some(idx) = find_last_subslice(&tail, DOCKER_STREAM_MARKER) {
+            tail.drain(..idx);
+            Some(tail)
+        } else {
+            None
+        }
+    }
+
+    fn reset_line_state(&mut self) {
+        self.current = 0;
+        self.discarding = false;
+        self.emitted = false;
+        self.docker_tail.clear();
+    }
+}
+
+impl<R: Read> TermReader<R> {
+    /// Fast memchr-based scan: returns true if truncation is required.
+    #[inline(always)]
+    fn fast_scan(&mut self, buf: &[u8], n: usize) -> bool {
+        let mut cur = self.current;
+        let limit = self.max_line_len;
+        let mut start = 0;
+
+        while start < n {
+            if let Some(nl) = memchr(b'\n', &buf[start..n]) {
+                let idx = start + nl;
+                let seg = idx - start;
+
+                // past limit?
+                cur += seg;
+                if cur > limit {
+                    return true;
+                }
+
+                // reset on newline
+                cur = 0;
+                start = idx + 1;
+            } else {
+                // last segment
+                cur += n - start;
+                if cur > limit {
+                    return true;
+                }
+                break;
+            }
+        }
+
+        self.current = cur;
+        false
+    }
+}
+
+fn find_last_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() || haystack.len() < needle.len() {
+        return None;
+    }
+    let mut idx = haystack.len() - needle.len();
+    loop {
+        if &haystack[idx..idx + needle.len()] == needle {
+            return Some(idx);
+        }
+        if idx == 0 {
+            break;
+        }
+        idx -= 1;
+    }
+    None
 }
 
 /// A reader that returns file content in reverse line order.
@@ -189,6 +387,7 @@ mod tests {
     use std::{error::Error, io::Write};
 
     use rand::{self, distr::Alphanumeric, Rng};
+    use serde_json::Value;
 
     use tempfile::NamedTempFile;
 
@@ -232,15 +431,243 @@ mod tests {
     }
 
     #[test]
-    fn test_term_reader() -> Result<(), Box<dyn Error>> {
+    fn test_term_reader_passthrough() -> Result<(), Box<dyn Error>> {
+        // When max_line_length = 0, should pass through unchanged
         let data = b"This is a Test";
         let mut buf = [0u8; 14];
 
-        let mut reader = TermReader::new(CancellationToken::new(), &data[0..14]);
+        let mut reader =
+            TermReader::new(CancellationToken::new(), &data[0..14], 0, FileFormat::CRI);
         let bytes_read = reader.read(&mut buf).expect("Read should succeed");
 
         assert_eq!(bytes_read, 14, "Should read 14 bytes");
-        assert_eq!(&buf, b"This is a Test", "Buffer should contain 'hello'");
+        assert_eq!(
+            &buf, b"This is a Test",
+            "Buffer should contain data unchanged"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_term_reader_no_truncation_needed() -> Result<(), Box<dyn Error>> {
+        // Lines shorter than max should pass through
+        let data = b"short\nlines\nhere\n";
+        let mut buf = [0u8; 100];
+
+        let mut reader = TermReader::new(CancellationToken::new(), &data[..], 10, FileFormat::CRI);
+        let n = reader.read(&mut buf)?;
+
+        assert_eq!(n, data.len());
+        assert_eq!(&buf[..n], data);
+        Ok(())
+    }
+
+    #[test]
+    fn test_term_reader_exact_limit() -> Result<(), Box<dyn Error>> {
+        // Line exactly at max_line_length should not be truncated
+        let data = b"exactly10c\n";
+        let mut buf = [0u8; 100];
+
+        let mut reader = TermReader::new(CancellationToken::new(), &data[..], 10, FileFormat::CRI);
+        let n = reader.read(&mut buf)?;
+
+        assert_eq!(
+            &buf[..n],
+            data,
+            "Line at exactly max length should not be truncated"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_term_reader_single_long_line() -> Result<(), Box<dyn Error>> {
+        // Single line exceeding max should be truncated
+        let data = b"this line is way too long for the limit\n";
+        let mut buf = [0u8; 100];
+
+        let mut reader = TermReader::new(CancellationToken::new(), &data[..], 10, FileFormat::CRI);
+        let n = reader.read(&mut buf)?;
+
+        let result = &buf[..n];
+        let mut expected = b"this line ".to_vec();
+        expected.push(TRUNCATION_SENTINEL);
+        expected.push(b'\n');
+        assert_eq!(result, &expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_term_reader_multiple_long_lines() -> Result<(), Box<dyn Error>> {
+        // Multiple long lines should each be truncated
+        let data = b"first very long line here\nsecond also too long\nshort\n";
+        let mut buf = [0u8; 200];
+
+        let mut reader = TermReader::new(CancellationToken::new(), &data[..], 10, FileFormat::CRI);
+        let n = reader.read(&mut buf)?;
+
+        let result = &buf[..n];
+        assert!(
+            result
+                .windows(1)
+                .filter(|w| w[0] == TRUNCATION_SENTINEL)
+                .count()
+                >= 2
+        );
+        assert!(std::str::from_utf8(result)?.contains("short\n"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_term_reader_mixed_lines() -> Result<(), Box<dyn Error>> {
+        // Mix of short, exact, and long lines
+        let data = b"short\nexactly10c\nthis is way too long\nok\n";
+        let mut buf = [0u8; 200];
+
+        let mut reader = TermReader::new(CancellationToken::new(), &data[..], 10, FileFormat::CRI);
+        let n = reader.read(&mut buf)?;
+
+        let result = String::from_utf8_lossy(&buf[..n]);
+
+        assert!(result.contains("short\n"));
+        assert!(result.contains("exactly10c\n"));
+        assert!(result.matches(TRUNCATION_SENTINEL as char).count() >= 1);
+        assert!(result.contains("ok\n"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_term_reader_line_spanning_reads() -> Result<(), Box<dyn Error>> {
+        // Test that state is maintained across multiple read() calls
+        let data = b"this is a very long line that exceeds the limit\n";
+
+        // Use a cursor with small buffer to force multiple reads
+        let mut reader = TermReader::new(
+            CancellationToken::new(),
+            std::io::Cursor::new(data),
+            10,
+            FileFormat::CRI,
+        );
+
+        let mut result = Vec::new();
+        let mut buf = [0u8; 16]; // Small buffer to force chunking
+
+        loop {
+            let n = reader.read(&mut buf)?;
+            if n == 0 {
+                break;
+            }
+            result.extend_from_slice(&buf[..n]);
+        }
+
+        let output = String::from_utf8_lossy(&result);
+        assert!(output.contains(char::from(TRUNCATION_SENTINEL)));
+        assert_eq!(
+            output.matches('\n').count(),
+            1,
+            "Should have exactly one newline"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_term_reader_no_trailing_newline() -> Result<(), Box<dyn Error>> {
+        // Line without trailing newline that exceeds limit
+        let data = b"this is a very long line without newline";
+        let mut buf = [0u8; 100];
+
+        let mut reader = TermReader::new(CancellationToken::new(), &data[..], 10, FileFormat::CRI);
+        let n = reader.read(&mut buf)?;
+
+        let result = &buf[..n];
+        assert!(result.starts_with(b"this is a "));
+        assert_eq!(result[result.len() - 1], TRUNCATION_SENTINEL);
+        Ok(())
+    }
+
+    #[test]
+    fn test_term_reader_cancellation() -> Result<(), Box<dyn Error>> {
+        let data = b"some data here\n";
+        let mut buf = [0u8; 100];
+
+        let token = CancellationToken::new();
+        token.cancel(); // Cancel immediately
+
+        let mut reader = TermReader::new(token, &data[..], 10, FileFormat::CRI);
+        let n = reader.read(&mut buf)?;
+
+        assert_eq!(n, 0, "Should return 0 bytes when cancelled");
+        Ok(())
+    }
+
+    #[test]
+    fn test_term_reader_empty_lines() -> Result<(), Box<dyn Error>> {
+        // Empty lines and lines with just newlines
+        let data = b"\n\nshort\n\n";
+        let mut buf = [0u8; 100];
+
+        let mut reader = TermReader::new(CancellationToken::new(), &data[..], 10, FileFormat::CRI);
+        let n = reader.read(&mut buf)?;
+
+        assert_eq!(&buf[..n], data);
+        Ok(())
+    }
+
+    #[test]
+    fn test_term_reader_very_long_line() -> Result<(), Box<dyn Error>> {
+        // Very long line (much longer than buffer)
+        let long_line = "a".repeat(1000);
+        let data = format!("{}\n", long_line);
+        let mut buf = [0u8; 200];
+
+        let mut reader = TermReader::new(
+            CancellationToken::new(),
+            data.as_bytes(),
+            10,
+            FileFormat::CRI,
+        );
+
+        let mut result = Vec::new();
+        loop {
+            let n = reader.read(&mut buf)?;
+            if n == 0 {
+                break;
+            }
+            result.extend_from_slice(&buf[..n]);
+        }
+
+        let output = String::from_utf8_lossy(&result);
+        assert!(output.starts_with("aaaaaaaaaa"));
+        assert!(output.contains(char::from(TRUNCATION_SENTINEL)));
+        assert!(output.len() < 100, "Should be much shorter than original");
+        Ok(())
+    }
+
+    #[test]
+    fn test_term_reader_docker_truncation_preserves_json() -> Result<(), Box<dyn Error>> {
+        let long_log = "Z".repeat(256);
+        let json_line = format!(
+            "{{\"log\":\"{}\",\"stream\":\"stdout\",\"time\":\"2024-01-01T00:00:00Z\"}}\n",
+            long_log
+        );
+        let mut buf = vec![0u8; json_line.len()];
+
+        let mut reader = TermReader::new(
+            CancellationToken::new(),
+            json_line.as_bytes(),
+            64,
+            FileFormat::Docker,
+        );
+
+        let n = reader.read(&mut buf)?;
+        let truncated = std::str::from_utf8(&buf[..n])?;
+
+        assert!(truncated.contains("\\u001F"));
+
+        let parsed: Value = serde_json::from_str(truncated)?;
+        let log = parsed["log"].as_str().unwrap();
+        assert!(log.contains(char::from(TRUNCATION_SENTINEL)));
+        assert_eq!(parsed["time"].as_str(), Some("2024-01-01T00:00:00Z"));
+
         Ok(())
     }
 }
