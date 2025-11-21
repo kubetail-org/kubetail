@@ -15,6 +15,8 @@
 package k8shelpers
 
 import (
+	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -53,6 +55,9 @@ func NewKubeConfigWatcher(kubeconfigPath string) (*KubeConfigWatcher, error) {
 		err = watcher.Add(pathname)
 		if err != nil {
 			watcher.Close()
+			if os.IsNotExist(err) {
+				return nil, fmt.Errorf("kubeconfig file not found at '%s'.\n\nPlease ensure the file exists or use the '--kubeconfig' flag to specify a custom path.\nIf you are running inside a cluster, use the '--in-cluster' flag", pathname)
+			}
 			return nil, err
 		}
 	}

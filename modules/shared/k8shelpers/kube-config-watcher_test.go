@@ -206,3 +206,24 @@ func TestKubeConfigWatcherSubscribeModified(t *testing.T) {
 
 	assert.Equal(t, cfg1.CurrentContext, cfgActual.CurrentContext)
 }
+
+func TestKubeConfigWatcher_FileNotFound(t *testing.T) {
+	// Create temporary directory
+	tempDir, err := os.MkdirTemp("", "kube-config-watcher-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir) // Clean up after test
+
+	// Define non-existent path
+	nonExistentPath := filepath.Join(tempDir, "non-existent-config")
+
+	// Initialize watcher
+	_, err = NewKubeConfigWatcher(nonExistentPath)
+
+	// Assert error
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), fmt.Sprintf("kubeconfig file not found at '%s'", nonExistentPath))
+	assert.Contains(t, err.Error(), "use the '--kubeconfig' flag")
+	assert.Contains(t, err.Error(), "use the '--in-cluster' flag")
+}
