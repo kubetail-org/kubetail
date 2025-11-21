@@ -66,7 +66,7 @@ type Stream struct {
 	maxNum  int64
 	sources set.Set[LogSource]
 
-	truncatedAtBytes uint64
+	truncateAtBytes uint64
 
 	kubeContext string
 	sw          SourceWatcher
@@ -92,13 +92,13 @@ func NewStream(ctx context.Context, cm k8shelpers.ConnectionManager, sourcePaths
 
 	// Init stream instance
 	stream := &Stream{
-		rootCtx:          rootCtx,
-		rootCtxCancel:    rootCtxCancel,
-		sources:          set.NewSet[LogSource](),
-		truncatedAtBytes: DEFAULT_TRUNCATE_AT_BYTES,
-		pastCh:           make(chan LogRecord),
-		futureCh:         make(chan LogRecord),
-		outCh:            make(chan LogRecord),
+		rootCtx:         rootCtx,
+		rootCtxCancel:   rootCtxCancel,
+		sources:         set.NewSet[LogSource](),
+		truncateAtBytes: DEFAULT_TRUNCATE_AT_BYTES,
+		pastCh:          make(chan LogRecord),
+		futureCh:        make(chan LogRecord),
+		outCh:           make(chan LogRecord),
 	}
 
 	// Apply options
@@ -241,7 +241,7 @@ func (s *Stream) handleSourceAdd(source LogSource) {
 		Grep:            s.grep,
 		GrepRegex:       s.grepRegex,
 		FollowFrom:      FollowFromDefault,
-		TruncateAtBytes: s.truncatedAtBytes,
+		TruncateAtBytes: s.truncateAtBytes,
 	}
 
 	stream, err := s.logFetcher.StreamForward(s.rootCtx, source, opts)
@@ -309,7 +309,7 @@ func (s *Stream) startHead_UNSAFE() error {
 		StopTime:        s.untilTime,
 		Grep:            s.grep,
 		GrepRegex:       s.grepRegex,
-		TruncateAtBytes: s.truncatedAtBytes,
+		TruncateAtBytes: s.truncateAtBytes,
 	}
 
 	streams := make([]<-chan LogRecord, s.sources.Cardinality())
@@ -370,7 +370,7 @@ func (s *Stream) startTail_UNSAFE() error {
 		StopTime:        s.untilTime,
 		Grep:            s.grep,
 		GrepRegex:       s.grepRegex,
-		TruncateAtBytes: s.truncatedAtBytes,
+		TruncateAtBytes: s.truncateAtBytes,
 		BatchSizeHint:   batchSize,
 	}
 
@@ -432,7 +432,7 @@ func (s *Stream) startFollow_UNSAFE() error {
 		Grep:            s.grep,
 		GrepRegex:       s.grepRegex,
 		FollowFrom:      FollowFromEnd,
-		TruncateAtBytes: s.truncatedAtBytes,
+		TruncateAtBytes: s.truncateAtBytes,
 	}
 
 	for _, source := range s.sources.ToSlice() {

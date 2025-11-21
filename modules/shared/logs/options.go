@@ -255,7 +255,7 @@ func WithTruncateAtBytes(n uint64) Option {
 	return func(target any) error {
 		switch t := target.(type) {
 		case *Stream:
-			t.truncatedAtBytes = n
+			t.truncateAtBytes = n
 		}
 		return nil
 	}
