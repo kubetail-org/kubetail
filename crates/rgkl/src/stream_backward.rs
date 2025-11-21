@@ -36,7 +36,7 @@ pub async fn stream_backward(
     start_time: Option<DateTime<Utc>>,
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&str>,
-    max_line_length: i32,
+    truncate_at_bytes: u64,
     sender: Sender<Result<LogRecord, Status>>,
 ) {
     let result = stream_backward_internal(
@@ -45,7 +45,7 @@ pub async fn stream_backward(
         start_time,
         stop_time,
         grep,
-        max_line_length,
+        truncate_at_bytes,
         &sender,
     );
 
@@ -60,7 +60,7 @@ fn stream_backward_internal(
     start_time: Option<DateTime<Utc>>,
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&str>,
-    max_line_length: i32,
+    truncate_at_bytes: u64,
     sender: &Sender<Result<LogRecord, Status>>,
 ) -> Result<(), FsWatcherError> {
     // Open file
@@ -100,7 +100,7 @@ fn stream_backward_internal(
     let term_reverse_reader = TermReader::new(
         ctx.clone(),
         ReverseLineReader::new(file, start_pos, end_pos).unwrap(),
-        max_line_length,
+        truncate_at_bytes,
         format,
     );
 

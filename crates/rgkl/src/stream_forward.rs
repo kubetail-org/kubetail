@@ -71,7 +71,7 @@ pub async fn stream_forward(
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&str>,
     follow_from: FollowFrom,
-    max_line_length: i32,
+    truncate_at_bytes: u64,
     sender: Sender<Result<LogRecord, Status>>,
 ) {
     stream_forward_with_lifecyle_events(
@@ -81,7 +81,7 @@ pub async fn stream_forward(
         stop_time,
         grep,
         follow_from,
-        max_line_length,
+        truncate_at_bytes,
         sender,
         None,
     )
@@ -96,7 +96,7 @@ async fn stream_forward_with_lifecyle_events(
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&str>,
     follow_from: FollowFrom,
-    max_line_length: i32,
+    truncate_at_bytes: u64,
     sender: Sender<Result<LogRecord, Status>>,
     lifecycle_tx: Option<broadcast::Sender<LifecycleEvent>>,
 ) {
@@ -107,7 +107,7 @@ async fn stream_forward_with_lifecyle_events(
         stop_time,
         grep,
         follow_from,
-        max_line_length,
+        truncate_at_bytes,
         &sender,
     );
 
@@ -131,7 +131,7 @@ fn setup_fs_watcher<'a>(
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&'a str>,
     follow_from: FollowFrom,
-    max_line_length: i32,
+    truncate_at_bytes: u64,
     sender: &'a Sender<Result<LogRecord, Status>>,
 ) -> ResultOption<FsWatcher<impl FnMut(&[u8]) + use<'a>>, FsWatcherError> {
     let mut file = File::open(path)?;
@@ -183,7 +183,7 @@ fn setup_fs_watcher<'a>(
     };
 
     // Wrap in term reader with optional truncation
-    let term_reader = TermReader::new(ctx.clone(), reader, max_line_length, format);
+    let term_reader = TermReader::new(ctx.clone(), reader, truncate_at_bytes, format);
 
     // Init searcher
     let mut searcher = SearcherBuilder::new()

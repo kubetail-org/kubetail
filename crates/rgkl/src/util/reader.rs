@@ -30,8 +30,8 @@ const DOCKER_TAIL_LIMIT: usize = 64 * 1024;
 pub struct TermReader<R> {
     ctx: CancellationToken,
     inner: R,
-    max_line_len: usize,
-    current: usize,
+    truncate_at_bytes: u64,
+    current: u64,
     discarding: bool,
     emitted: bool,
     format: FileFormat,
@@ -39,11 +39,16 @@ pub struct TermReader<R> {
 }
 
 impl<R: Read> TermReader<R> {
-    pub fn new(ctx: CancellationToken, inner: R, max: i32, format: FileFormat) -> Self {
+    pub fn new(
+        ctx: CancellationToken,
+        inner: R,
+        truncate_at_bytes: u64,
+        format: FileFormat,
+    ) -> Self {
         Self {
             ctx,
             inner,
-            max_line_len: if max <= 0 { usize::MAX } else { max as usize },
+            truncate_at_bytes,
             current: 0,
             discarding: false,
             emitted: false,
@@ -65,7 +70,8 @@ impl<R: Read> Read for TermReader<R> {
             if n == 0 {
                 return Ok(0);
             }
-            if self.max_line_len == usize::MAX {
+
+            if self.truncate_at_bytes == 0 {
                 return Ok(n);
             }
 
@@ -110,7 +116,7 @@ impl<R: Read> TermReader<R> {
                 continue;
             }
 
-            if self.current >= self.max_line_len {
+            if self.current >= self.truncate_at_bytes {
                 self.start_truncation(output);
                 self.handle_discarding_byte(b, output);
                 idx += 1;
@@ -188,10 +194,10 @@ impl<R: Read> TermReader<R> {
 impl<R: Read> TermReader<R> {
     /// Fast memchr-based scan: returns true if truncation is required.
     #[inline(always)]
-    fn fast_scan(&mut self, buf: &[u8], n: usize) -> bool {
+    fn fast_scan(&mut self, buf: &[u8], n: u64) -> bool {
         let mut cur = self.current;
-        let limit = self.max_line_len;
-        let mut start = 0;
+        let limit = self.truncate_at_bytes;
+        let mut start = 0u64;
 
         while start < n {
             if let Some(nl) = memchr(b'\n', &buf[start..n]) {
