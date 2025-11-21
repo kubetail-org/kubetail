@@ -82,10 +82,15 @@ func normalizeFlags(f *pflag.FlagSet, name string) pflag.NormalizedName {
 // to the provided command and all of its sub-commands.
 func applyFlagNormalization(cmd *cobra.Command) {
 	if fs := cmd.Flags(); fs != nil {
+		fs.SortFlags = false
 		fs.SetNormalizeFunc(normalizeFlags)
 	}
 	if pfs := cmd.PersistentFlags(); pfs != nil {
+		pfs.SortFlags = false
 		pfs.SetNormalizeFunc(normalizeFlags)
+	}
+	if ifs := cmd.InheritedFlags(); ifs != nil {
+		ifs.SortFlags = false
 	}
 	for _, c := range cmd.Commands() {
 		applyFlagNormalization(c)
@@ -98,8 +103,12 @@ func init() {
 	// will be global for your application.
 
 	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cli.yaml)")
-	rootCmd.PersistentFlags().String(KubeconfigFlag, "", "Path to kubeconfig file")
-	rootCmd.PersistentFlags().Bool(InClusterFlag, false, "Use in-cluster Kubernetes configuration")
+
+	rootCmd.Flags().SortFlags = false
+
+	flagset := rootCmd.PersistentFlags()
+	flagset.String(KubeconfigFlag, "", "Path to kubeconfig file")
+	flagset.Bool(InClusterFlag, false, "Use in-cluster Kubernetes configuration")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
