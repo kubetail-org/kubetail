@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
 
@@ -214,6 +215,7 @@ var logsCmd = &cobra.Command{
 
 		kubeContext, _ := flags.GetString(KubeContextFlag)
 		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
+		inCluster, _ := flags.GetBool(InClusterFlag)
 
 		head := flags.Changed("head")
 		headVal, _ := flags.GetInt64("head")
@@ -314,7 +316,11 @@ var logsCmd = &cobra.Command{
 		}
 
 		// Init connection manager
-		cm, err := k8shelpers.NewDesktopConnectionManager(k8shelpers.WithKubeconfigPath(kubeconfigPath), k8shelpers.WithLazyConnect(true))
+		env := config.EnvironmentDesktop
+		if inCluster {
+			env = config.EnvironmentCluster
+		}
+		cm, err := k8shelpers.NewConnectionManager(env, k8shelpers.WithKubeconfigPath(kubeconfigPath), k8shelpers.WithLazyConnect(true))
 		cli.ExitOnError(err)
 
 		// Init stream

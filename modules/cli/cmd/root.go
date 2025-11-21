@@ -28,6 +28,7 @@ import (
 const (
 	KubeconfigFlag  = clientcmd.RecommendedConfigPathFlag
 	KubeContextFlag = "kube-context"
+	InClusterFlag   = "in-cluster"
 )
 
 var version = "dev" // default version for local builds
@@ -98,6 +99,7 @@ func init() {
 
 	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cli.yaml)")
 	rootCmd.PersistentFlags().String(KubeconfigFlag, "", "Path to kubeconfig file")
+	rootCmd.PersistentFlags().Bool(InClusterFlag, false, "Use in-cluster authentication")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
