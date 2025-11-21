@@ -99,7 +99,7 @@ func init() {
 
 	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cli.yaml)")
 	rootCmd.PersistentFlags().String(KubeconfigFlag, "", "Path to kubeconfig file")
-	rootCmd.PersistentFlags().Bool(InClusterFlag, false, "Use in-cluster authentication")
+	rootCmd.PersistentFlags().Bool(InClusterFlag, false, "Use in-cluster Kubernetes configuration")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
