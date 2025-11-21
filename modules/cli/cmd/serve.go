@@ -64,6 +64,7 @@ var serveCmd = &cobra.Command{
 
 		// Get the kubeconfig path (if set)
 		kubeconfigPath, _ := cmd.Flags().GetString(KubeconfigFlag)
+		inCluster, _ := cmd.Flags().GetBool(InClusterFlag)
 
 		// Init viper
 		v := viper.New()
@@ -77,6 +78,9 @@ var serveCmd = &cobra.Command{
 		}
 		cfg.KubeconfigPath = kubeconfigPath
 		cfg.Dashboard.Environment = config.EnvironmentDesktop
+		if inCluster {
+			cfg.Dashboard.Environment = config.EnvironmentCluster
+		}
 		cfg.Dashboard.Logging.AccessLog.Enabled = false
 
 		// Handle remote tunnel
