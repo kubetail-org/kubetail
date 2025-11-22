@@ -120,9 +120,9 @@ fn reverse_line_reader_bench(c: &mut Criterion) {
 
 criterion_group!(
     reader_benches,
-    buf_reader_bench,
-    log_trimmer_reader_cri_bench,
+    //buf_reader_bench,
+    //log_trimmer_reader_cri_bench,
     log_trimmer_reader_docker_bench,
-    reverse_line_reader_bench
+    //reverse_line_reader_bench
 );
 criterion_main!(reader_benches);

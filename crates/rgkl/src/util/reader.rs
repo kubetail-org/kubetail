@@ -50,6 +50,7 @@ pub struct LogTrimmerReader<R> {
     input: BufReader<R>,
     format: FileFormat,
     truncate_at_bytes: usize,
+    truncate_enabled: bool,
     docker_line_buf: Vec<u8>,
     internal_buf: Vec<u8>,
     pos: usize,
@@ -65,6 +66,7 @@ impl<R: Read> LogTrimmerReader<R> {
             input: BufReader::with_capacity(LOG_TRIMMER_READER_BUFFER_SIZE, reader),
             format,
             truncate_at_bytes,
+            truncate_enabled: truncate_at_bytes > 0,
             docker_line_buf: Vec::with_capacity(LOG_TRIMMER_READER_BUFFER_SIZE),
             internal_buf: Vec::with_capacity(Self::buffer_capacity(truncate_at_bytes)),
             pos: 0,
@@ -140,7 +142,7 @@ impl<R: Read> LogTrimmerReader<R> {
                     let bytes_until_newline = newline_rel.unwrap_or(search_slice.len());
 
                     let mut take = bytes_until_newline;
-                    if self.truncate_at_bytes > 0 {
+                    if self.truncate_enabled {
                         let remaining = self.truncate_at_bytes.saturating_sub(current_msg_len);
                         if bytes_until_newline > remaining {
                             take = remaining;
@@ -233,25 +235,32 @@ impl<R: Read> LogTrimmerReader<R> {
             return Ok(true);
         }
 
-        // Find end of the message (next unescaped quote)
-        let mut escaped = false;
+        // Find end of the message (next unescaped quote) by hopping between quotes.
         let mut msg_end = self.docker_line_buf.len();
-        let mut idx = PREFIX.len();
-        while idx < self.docker_line_buf.len() {
-            let byte = self.docker_line_buf[idx];
-            if escaped {
-                escaped = false;
-            } else if byte == b'\\' {
-                escaped = true;
-            } else if byte == b'"' {
-                msg_end = idx;
+        let payload = &self.docker_line_buf[PREFIX.len()..];
+        let mut search_start = 0;
+        while let Some(rel_idx) = memchr(b'"', &payload[search_start..]) {
+            let idx_in_payload = search_start + rel_idx;
+            let abs_idx = PREFIX.len() + idx_in_payload;
+
+            // Count preceding backslashes to determine if this quote is escaped.
+            let mut backslashes = 0;
+            let mut cursor = abs_idx;
+            while cursor > 0 && self.docker_line_buf[cursor - 1] == b'\\' {
+                backslashes += 1;
+                cursor -= 1;
+            }
+
+            if backslashes % 2 == 0 {
+                msg_end = abs_idx;
                 break;
             }
-            idx += 1;
+
+            search_start = idx_in_payload + 1;
         }
 
         let message = &self.docker_line_buf[PREFIX.len()..msg_end];
-        if self.truncate_at_bytes == 0 || message.len() <= self.truncate_at_bytes {
+        if !self.truncate_enabled || message.len() <= self.truncate_at_bytes {
             self.internal_buf.extend_from_slice(&self.docker_line_buf);
             return Ok(true);
         }
