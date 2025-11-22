@@ -179,7 +179,11 @@ fn normalize_message(raw: &str) -> (String, u64, bool) {
 
 #[cfg(test)]
 mod tests {
-    use super::normalize_message;
+    use super::{normalize_message, process_output};
+    use crate::util::{format::FileFormat, reader::LogTrimmerReader};
+    use std::io::{Cursor, Read};
+    use tokio::sync::mpsc;
+    use tokio_util::sync::CancellationToken;
 
     #[test]
     fn normalize_message_returns_truncated_count_and_strips_marker() {
@@ -211,5 +215,32 @@ mod tests {
         );
         assert_eq!(original_size_bytes, 6);
         assert!(!is_truncated);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn process_output_respects_truncate_limit_for_cri() {
+        const LIMIT: u64 = 100;
+        let message = "a".repeat(120);
+        let line = format!("2024-11-20T10:00:00Z stdout F {message}\n");
+
+        // Simulate the log reader trimming a long CRI line.
+        let mut reader = LogTrimmerReader::new(Cursor::new(line.as_bytes()), FileFormat::CRI, LIMIT);
+        let mut buf = Vec::new();
+        reader.read_to_end(&mut buf).unwrap();
+
+        let chunk = serde_json::json!({
+            "type": "match",
+            "data": { "lines": { "text": String::from_utf8(buf).unwrap() } }
+        });
+        let chunk_bytes = serde_json::to_vec(&chunk).unwrap();
+
+        let (tx, mut rx) = mpsc::channel(1);
+        let ctx = CancellationToken::new();
+        process_output(ctx, chunk_bytes, &tx, FileFormat::CRI);
+
+        let record = rx.recv().await.unwrap().unwrap();
+        assert_eq!(record.message.len(), LIMIT as usize);
+        assert_eq!(record.original_size_bytes, message.len() as u64);
+        assert!(record.is_truncated);
     }
 }

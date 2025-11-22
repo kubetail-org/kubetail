@@ -57,7 +57,7 @@ where
     /// Performs the grep search, meant to be used on each new log line.
     search_callback: F,
     /// Reader to get log lines from.
-    log_file_reader: BufReader<File>,
+    log_file_reader: BufReader<LogTrimmerReader<std::fs::File>>,
     /// Receives the events that come from notify.
     output_rx: Receiver<Result<Event, Error>>,
     /// Internal notify watcher.
@@ -253,8 +253,26 @@ fn setup_fs_watcher<'a>(
 
     watcher.watch(path, RecursiveMode::NonRecursive)?;
 
+    // Open file
+    let mut reader = File::open(path)?;
+    reader.seek(SeekFrom::End(0))?;
+
+    // Wrap with truncation reader
+    let reader = LogTrimmerReader::new(reader, format, truncate_at_bytes);
+
+    // Wrap with buffered reader
+    let reader = BufReader::new(reader);
+
+    /*
     let mut reader = BufReader::new(File::open(path)?);
     reader.seek(SeekFrom::End(0))?;
+
+    // Wrap with truncation reader
+    let reader: Box<dyn Read> = match truncate_at_bytes {
+        0 => Box::new(reader),
+        limit => Box::new(LogTrimmerReader::new(reader, format, limit)),
+    };
+    */
 
     Ok(Some(FsWatcher {
         search_callback: search_slice,

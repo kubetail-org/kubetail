@@ -193,13 +193,14 @@ Loop:
 
 		origSizeBytes += uint64(len(chunk))
 
-		if truncateAtBytes <= 0 {
+		if truncateAtBytes == 0 {
 			// Disable truncation
 			buf.Write(chunk)
 		} else if !isTruncated {
 			// Append as much as we can
 			remaining := max(truncateAtBytes-uint64(buf.Len()), 0)
-			buf.Write(chunk[:remaining])
+			writeLen := min(remaining, uint64(len(chunk)))
+			buf.Write(chunk[:writeLen])
 
 			// Update isTruncated for next loop
 			isTruncated = origSizeBytes > truncateAtBytes
