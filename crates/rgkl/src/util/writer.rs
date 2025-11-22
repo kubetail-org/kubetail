@@ -28,8 +28,6 @@ use types::cluster_agent::LogRecord;
 use crate::util::format::FileFormat;
 use crate::util::reader::TRUNCATION_SENTINEL;
 
-const TRUNCATION_SUFFIX: &str = "... [TRUNCATED]";
-
 /// A custom writer that calls a callback function whenever data is written.
 pub struct CallbackWriter<F>
 where
@@ -108,14 +106,18 @@ pub fn process_output(
                             if let (Some(time_str), Some(log_msg)) =
                                 (log_json["time"].as_str(), log_json["log"].as_str())
                             {
-                                let message = normalize_message(log_msg);
+                                let (message, truncated_bytes) = normalize_message(log_msg);
+
+                                let base_len = message.len() as u64;
+                                let is_truncated = truncated_bytes > 0;
+
                                 let record = LogRecord {
                                     timestamp: Some(
                                         Timestamp::from_str(time_str).unwrap_or_default(),
                                     ),
                                     message,
-                                    original_size_bytes: 0,
-                                    is_truncated: false,
+                                    original_size_bytes: base_len.saturating_add(truncated_bytes),
+                                    is_truncated,
                                 };
 
                                 let result =
@@ -135,12 +137,16 @@ pub fn process_output(
                                 return;
                             }
 
-                            let message = normalize_message(&rest[9..]);
+                            let (message, truncated_bytes) = normalize_message(&rest[9..]);
+
+                            let base_len = message.len() as u64;
+                            let is_truncated = truncated_bytes > 0;
+
                             let record = LogRecord {
                                 timestamp: Some(Timestamp::from_str(first).unwrap()),
                                 message,
-                                original_size_bytes: 0,
-                                is_truncated: false,
+                                original_size_bytes: base_len.saturating_add(truncated_bytes),
+                                is_truncated,
                             };
 
                             let result = task::block_in_place(|| sender.blocking_send(Ok(record)));
@@ -156,15 +162,21 @@ pub fn process_output(
     }
 }
 
-fn normalize_message(raw: &str) -> String {
-    if let Some(idx) = raw.find(char::from(TRUNCATION_SENTINEL)) {
-        let mut message = raw[..idx]
-            .trim_end_matches(|c| c == '\n' || c == '\r')
-            .to_string();
-        message.push_str(TRUNCATION_SUFFIX);
-        message
+fn normalize_message(raw: &str) -> (String, u64) {
+    let trimmed = raw.trim_end_matches(|c| c == '\n' || c == '\r');
+    let bytes = trimmed.as_bytes();
+    const MARKER_LEN: usize = std::mem::size_of::<u64>() + 1; // 8-byte count + sentinel
+
+    if bytes.len() >= MARKER_LEN && bytes.last().copied() == Some(TRUNCATION_SENTINEL) {
+        let suffix_start = bytes.len() - MARKER_LEN;
+        let (message_bytes, suffix) = bytes.split_at(suffix_start);
+        let truncated_bytes =
+            u64::from_be_bytes(suffix[..std::mem::size_of::<u64>()].try_into().unwrap());
+
+        let message = String::from_utf8_lossy(message_bytes).to_string();
+        (message, truncated_bytes)
     } else {
-        raw.trim_end_matches(|c| c == '\n' || c == '\r').to_string()
+        (trimmed.to_string(), 0)
     }
 }
 
@@ -173,16 +185,32 @@ mod tests {
     use super::normalize_message;
 
     #[test]
-    fn normalize_message_appends_suffix_when_needed() {
-        let raw = format!("hello{}\n", char::from(super::TRUNCATION_SENTINEL));
-        let normalized = normalize_message(&raw);
-        assert!(normalized.ends_with(super::TRUNCATION_SUFFIX));
-        assert!(normalized.starts_with("hello"));
+    fn normalize_message_returns_truncated_count_and_strips_marker() {
+        let mut raw_bytes = b"hello".to_vec();
+        raw_bytes.extend_from_slice(&3u64.to_be_bytes());
+        raw_bytes.push(super::TRUNCATION_SENTINEL);
+        raw_bytes.push(b'\n');
+        let raw = String::from_utf8(raw_bytes).unwrap();
+
+        let (normalized, truncated) = normalize_message(&raw);
+        assert_eq!(truncated, 3);
+        assert_eq!(normalized, "hello");
     }
 
     #[test]
     fn normalize_message_trims_newlines() {
         let raw = "hello\n";
-        assert_eq!(normalize_message(raw), "hello");
+        assert_eq!(normalize_message(raw), ("hello".to_string(), 0));
+    }
+
+    #[test]
+    fn normalize_message_ignores_embedded_sentinel() {
+        let raw = format!("hel{}lo\n", char::from(super::TRUNCATION_SENTINEL));
+        let (normalized, truncated) = normalize_message(&raw);
+        assert_eq!(truncated, 0);
+        assert_eq!(
+            normalized,
+            format!("hel{}lo", char::from(super::TRUNCATION_SENTINEL))
+        );
     }
 }
