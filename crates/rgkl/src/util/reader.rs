@@ -50,6 +50,7 @@ pub struct LogTrimmerReader<R> {
     input: BufReader<R>,
     format: FileFormat,
     truncate_at_bytes: usize,
+    docker_line_buf: Vec<u8>,
     internal_buf: Vec<u8>,
     pos: usize,
 }
@@ -64,6 +65,7 @@ impl<R: Read> LogTrimmerReader<R> {
             input: BufReader::with_capacity(LOG_TRIMMER_READER_BUFFER_SIZE, reader),
             format,
             truncate_at_bytes,
+            docker_line_buf: Vec::with_capacity(LOG_TRIMMER_READER_BUFFER_SIZE),
             internal_buf: Vec::with_capacity(Self::buffer_capacity(truncate_at_bytes)),
             pos: 0,
         }
@@ -202,23 +204,41 @@ impl<R: Read> LogTrimmerReader<R> {
         self.pos = 0;
 
         const PREFIX: &[u8] = b"{\"log\":\""; // message starts at the 9th byte
-        let mut line = Vec::with_capacity(LOG_TRIMMER_READER_BUFFER_SIZE);
-        let bytes_read = self.input.read_until(b'\n', &mut line)?;
-        if bytes_read == 0 {
-            return Ok(false);
+        self.docker_line_buf.clear();
+
+        // Read a single line using fill_buf + memchr to avoid per-call allocation churn.
+        loop {
+            let available = self.input.fill_buf()?;
+            if available.is_empty() {
+                if self.docker_line_buf.is_empty() {
+                    return Ok(false);
+                }
+                break;
+            }
+
+            if let Some(rel_idx) = memchr(b'\n', available) {
+                let take = rel_idx + 1;
+                self.docker_line_buf.extend_from_slice(&available[..take]);
+                self.input.consume(take);
+                break;
+            } else {
+                self.docker_line_buf.extend_from_slice(available);
+                let len = available.len();
+                self.input.consume(len);
+            }
         }
 
-        if line.len() < PREFIX.len() {
-            self.internal_buf.extend_from_slice(&line);
+        if self.docker_line_buf.len() < PREFIX.len() {
+            self.internal_buf.extend_from_slice(&self.docker_line_buf);
             return Ok(true);
         }
 
         // Find end of the message (next unescaped quote)
         let mut escaped = false;
-        let mut msg_end = line.len();
+        let mut msg_end = self.docker_line_buf.len();
         let mut idx = PREFIX.len();
-        while idx < line.len() {
-            let byte = line[idx];
+        while idx < self.docker_line_buf.len() {
+            let byte = self.docker_line_buf[idx];
             if escaped {
                 escaped = false;
             } else if byte == b'\\' {
@@ -230,19 +250,21 @@ impl<R: Read> LogTrimmerReader<R> {
             idx += 1;
         }
 
-        let message = &line[PREFIX.len()..msg_end];
+        let message = &self.docker_line_buf[PREFIX.len()..msg_end];
         if self.truncate_at_bytes == 0 || message.len() <= self.truncate_at_bytes {
-            self.internal_buf.extend_from_slice(&line);
+            self.internal_buf.extend_from_slice(&self.docker_line_buf);
             return Ok(true);
         }
 
         let truncated_bytes = (message.len() - self.truncate_at_bytes) as u64;
 
-        self.internal_buf.extend_from_slice(&line[..PREFIX.len()]);
+        self.internal_buf
+            .extend_from_slice(&self.docker_line_buf[..PREFIX.len()]);
         self.internal_buf
             .extend_from_slice(&message[..self.truncate_at_bytes]);
         Self::append_truncation_marker_json(&mut self.internal_buf, truncated_bytes);
-        self.internal_buf.extend_from_slice(&line[msg_end..]);
+        self.internal_buf
+            .extend_from_slice(&self.docker_line_buf[msg_end..]);
 
         Ok(true)
     }
