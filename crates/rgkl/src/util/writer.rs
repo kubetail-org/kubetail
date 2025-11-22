@@ -106,17 +106,15 @@ pub fn process_output(
                             if let (Some(time_str), Some(log_msg)) =
                                 (log_json["time"].as_str(), log_json["log"].as_str())
                             {
-                                let (message, truncated_bytes) = normalize_message(log_msg);
-
-                                let base_len = message.len() as u64;
-                                let is_truncated = truncated_bytes > 0;
+                                let (message, original_size_bytes, is_truncated) =
+                                    normalize_message(log_msg);
 
                                 let record = LogRecord {
                                     timestamp: Some(
                                         Timestamp::from_str(time_str).unwrap_or_default(),
                                     ),
                                     message,
-                                    original_size_bytes: base_len.saturating_add(truncated_bytes),
+                                    original_size_bytes,
                                     is_truncated,
                                 };
 
@@ -137,15 +135,13 @@ pub fn process_output(
                                 return;
                             }
 
-                            let (message, truncated_bytes) = normalize_message(&rest[9..]);
-
-                            let base_len = message.len() as u64;
-                            let is_truncated = truncated_bytes > 0;
+                            let (message, original_size_bytes, is_truncated) =
+                                normalize_message(&rest[9..]);
 
                             let record = LogRecord {
                                 timestamp: Some(Timestamp::from_str(first).unwrap()),
                                 message,
-                                original_size_bytes: base_len.saturating_add(truncated_bytes),
+                                original_size_bytes,
                                 is_truncated,
                             };
 
@@ -162,7 +158,8 @@ pub fn process_output(
     }
 }
 
-fn normalize_message(raw: &str) -> (String, u64) {
+// Returns decoded string, original_size_bytes, is_truncated
+fn normalize_message(raw: &str) -> (String, u64, bool) {
     let trimmed = raw.trim_end_matches(|c| c == '\n' || c == '\r');
     let bytes = trimmed.as_bytes();
     const MARKER_LEN: usize = std::mem::size_of::<u64>() + 1; // 8-byte count + sentinel
@@ -174,9 +171,9 @@ fn normalize_message(raw: &str) -> (String, u64) {
             u64::from_be_bytes(suffix[..std::mem::size_of::<u64>()].try_into().unwrap());
 
         let message = String::from_utf8_lossy(message_bytes).to_string();
-        (message, truncated_bytes)
+        (message, message_bytes.len() as u64 + truncated_bytes, true)
     } else {
-        (trimmed.to_string(), 0)
+        (trimmed.to_string(), trimmed.len() as u64, false)
     }
 }
 
@@ -192,25 +189,27 @@ mod tests {
         raw_bytes.push(b'\n');
         let raw = String::from_utf8(raw_bytes).unwrap();
 
-        let (normalized, truncated) = normalize_message(&raw);
-        assert_eq!(truncated, 3);
+        let (normalized, original_size_bytes, is_truncated) = normalize_message(&raw);
         assert_eq!(normalized, "hello");
+        assert_eq!(original_size_bytes, 8);
+        assert!(is_truncated);
     }
 
     #[test]
     fn normalize_message_trims_newlines() {
         let raw = "hello\n";
-        assert_eq!(normalize_message(raw), ("hello".to_string(), 0));
+        assert_eq!(normalize_message(raw), ("hello".to_string(), 5, false));
     }
 
     #[test]
     fn normalize_message_ignores_embedded_sentinel() {
         let raw = format!("hel{}lo\n", char::from(super::TRUNCATION_SENTINEL));
-        let (normalized, truncated) = normalize_message(&raw);
-        assert_eq!(truncated, 0);
+        let (normalized, original_size_bytes, is_truncated) = normalize_message(&raw);
         assert_eq!(
             normalized,
             format!("hel{}lo", char::from(super::TRUNCATION_SENTINEL))
         );
+        assert_eq!(original_size_bytes, 6);
+        assert!(!is_truncated);
     }
 }
