@@ -31,7 +31,7 @@ use crate::fs_watcher_error::FsWatcherError;
 use crate::util::format::FileFormat;
 use crate::util::matcher::{LogFileRegexMatcher, PassThroughMatcher};
 use crate::util::offset::{find_nearest_offset_since, find_nearest_offset_until};
-use crate::util::reader::TermReader;
+use crate::util::reader::{LogTrimmerReader, TermReader};
 use crate::util::writer::{process_output, CallbackWriter};
 
 /// Lifecycle events emitted by stream_forward
@@ -71,6 +71,7 @@ pub async fn stream_forward(
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&str>,
     follow_from: FollowFrom,
+    truncate_at_bytes: u64,
     sender: Sender<Result<LogRecord, Status>>,
 ) {
     stream_forward_with_lifecyle_events(
@@ -80,6 +81,7 @@ pub async fn stream_forward(
         stop_time,
         grep,
         follow_from,
+        truncate_at_bytes,
         sender,
         None,
     )
@@ -94,6 +96,7 @@ async fn stream_forward_with_lifecyle_events(
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&str>,
     follow_from: FollowFrom,
+    truncate_at_bytes: u64,
     sender: Sender<Result<LogRecord, Status>>,
     lifecycle_tx: Option<broadcast::Sender<LifecycleEvent>>,
 ) {
@@ -104,6 +107,7 @@ async fn stream_forward_with_lifecyle_events(
         stop_time,
         grep,
         follow_from,
+        truncate_at_bytes,
         &sender,
     );
 
@@ -127,6 +131,7 @@ fn setup_fs_watcher<'a>(
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&'a str>,
     follow_from: FollowFrom,
+    truncate_at_bytes: u64,
     sender: &'a Sender<Result<LogRecord, Status>>,
 ) -> ResultOption<FsWatcher<impl FnMut(&[u8]) + use<'a>>, FsWatcherError> {
     let mut file = File::open(path)?;
@@ -168,24 +173,28 @@ fn setup_fs_watcher<'a>(
     }
 
     // Seek to starting position
-    let _ = file.seek(SeekFrom::Start(start_pos));
+    file.seek(SeekFrom::Start(start_pos))?;
 
-    // Init reader
-    let reader: Box<dyn Read> = if let Some(len) = take_length {
-        Box::new(file.take(len))
-    } else {
-        Box::new(file)
+    // Init reader with optional tail length restriction
+    let reader: Box<dyn Read> = match take_length {
+        Some(len) => Box::new(file.take(len)),
+        None => Box::new(file),
     };
 
-    // Wrap in term reader
-    let term_reader = TermReader::new(ctx.clone(), reader);
+    // Wrap with truncation reader
+    let reader: Box<dyn Read> = match truncate_at_bytes {
+        0 => reader,
+        limit => Box::new(LogTrimmerReader::new(reader, format, limit)),
+    };
+
+    // Wrap with term reader
+    let reader = TermReader::new(ctx.clone(), reader);
 
     // Init searcher
     let mut searcher = SearcherBuilder::new()
         .line_number(false)
         .memory_map(MmapChoice::never())
         .multi_line(false)
-        .heap_limit(Some(1024 * 1024)) // TODO: Make this configurable
         .build();
 
     let ctx_copy = ctx.clone();
@@ -201,11 +210,11 @@ fn setup_fs_watcher<'a>(
     if let Some(grep) = trimmed_grep {
         let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
         let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, term_reader, sink);
+        let _ = searcher.search_reader(&matcher, reader, sink);
     } else {
         let matcher = PassThroughMatcher::new();
         let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, term_reader, sink);
+        let _ = searcher.search_reader(&matcher, reader, sink);
     }
 
     if ctx.is_cancelled() {
@@ -419,6 +428,7 @@ mod test {
             None,             // No stop time
             None,             // No grep filter
             FollowFrom::Noop, // Don't follow
+            0,                // No truncation
             tx,
         )
         .await;
@@ -467,6 +477,7 @@ mod test {
             stop_time,
             None,             // No grep filter
             FollowFrom::Noop, // Don't follow
+            0,                // No truncation
             tx,
         )
         .await;
@@ -524,6 +535,7 @@ mod test {
             stop_time,
             None,             // No grep filter
             FollowFrom::Noop, // Don't follow
+            0,                // No truncation
             tx,
         )
         .await;
@@ -587,6 +599,7 @@ mod test {
                 None, // No stop time
                 None, // No grep filter
                 follow_from,
+                0, // No truncation
                 tx,
                 Some(lifecycle_tx_clone),
             )
@@ -633,6 +646,7 @@ mod test {
             None,
             None,             // No grep filter
             FollowFrom::Noop, // Don't follow
+            0,                // No truncation
             tx,
         )
         .await;
@@ -672,6 +686,7 @@ mod test {
                 None,            // No stop time
                 None,            // No grep filter
                 FollowFrom::End, // Enter listen loop immediately
+                0,               // No truncation
                 tx,
                 Some(lifecycle_tx_clone),
             )

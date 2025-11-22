@@ -248,3 +248,15 @@ func WithAllContainers(allContainers bool) Option {
 		return nil
 	}
 }
+
+// WithTruncateAtBytes sets the maximum number of bytes
+// to read for log messages
+func WithTruncateAtBytes(n uint64) Option {
+	return func(target any) error {
+		switch t := target.(type) {
+		case *Stream:
+			t.truncateAtBytes = n
+		}
+		return nil
+	}
+}

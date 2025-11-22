@@ -298,9 +298,11 @@ func TestStreamHead(t *testing.T) {
 
 			// Check sinceTime option
 			fetcherOpts := FetcherOptions{
-				StartTime: tt.setSinceTime,
-				StopTime:  tt.setUntilTime,
+				StartTime:       tt.setSinceTime,
+				StopTime:        tt.setUntilTime,
+				TruncateAtBytes: DEFAULT_TRUNCATE_AT_BYTES,
 			}
+
 			m.AssertCalled(t, "StreamForward", mock.Anything, s1, fetcherOpts)
 			m.AssertCalled(t, "StreamForward", mock.Anything, s2, fetcherOpts)
 
@@ -589,8 +591,11 @@ func TestStreamAllWithFollow(t *testing.T) {
 			defer close(ch2New)
 
 			// Init mock logProvider
-			optsOld := FetcherOptions{}
-			optsNew := FetcherOptions{FollowFrom: FollowFromEnd}
+			optsOld := FetcherOptions{TruncateAtBytes: DEFAULT_TRUNCATE_AT_BYTES}
+			optsNew := FetcherOptions{
+				FollowFrom:      FollowFromEnd,
+				TruncateAtBytes: DEFAULT_TRUNCATE_AT_BYTES,
+			}
 
 			m := mockLogFetcher{}
 			m.On("StreamForward", mock.Anything, s1, optsOld).
@@ -656,9 +661,10 @@ func TestStreamAllWithFollow(t *testing.T) {
 
 			// Send future data
 			for _, r := range tt.setFutureStream {
-				if r.Source == s1 {
+				switch r.Source {
+				case s1:
 					ch1New <- r
-				} else if r.Source == s2 {
+				case s2:
 					ch2New <- r
 				}
 			}
@@ -825,7 +831,10 @@ func TestStreamTailWithFollow(t *testing.T) {
 			defer close(ch2New)
 
 			// Init mock logProvider
-			optsNew := FetcherOptions{FollowFrom: FollowFromEnd}
+			optsNew := FetcherOptions{
+				FollowFrom:      FollowFromEnd,
+				TruncateAtBytes: DEFAULT_TRUNCATE_AT_BYTES,
+			}
 
 			m := mockLogFetcher{}
 			m.On("StreamBackward", mock.Anything, s1, mock.Anything, mock.Anything).
@@ -891,9 +900,10 @@ func TestStreamTailWithFollow(t *testing.T) {
 
 			// Send future data
 			for _, r := range tt.setFutureStream {
-				if r.Source == s1 {
+				switch r.Source {
+				case s1:
 					ch1New <- r
-				} else if r.Source == s2 {
+				case s2:
 					ch2New <- r
 				}
 			}

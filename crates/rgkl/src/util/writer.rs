@@ -26,6 +26,7 @@ use tracing::debug;
 use types::cluster_agent::LogRecord;
 
 use crate::util::format::FileFormat;
+use crate::util::reader::TRUNCATION_SENTINEL;
 
 /// A custom writer that calls a callback function whenever data is written.
 pub struct CallbackWriter<F>
@@ -105,11 +106,16 @@ pub fn process_output(
                             if let (Some(time_str), Some(log_msg)) =
                                 (log_json["time"].as_str(), log_json["log"].as_str())
                             {
+                                let (message, original_size_bytes, is_truncated) =
+                                    normalize_message(log_msg);
+
                                 let record = LogRecord {
                                     timestamp: Some(
                                         Timestamp::from_str(time_str).unwrap_or_default(),
                                     ),
-                                    message: log_msg.trim_end().to_string(),
+                                    message,
+                                    original_size_bytes,
+                                    is_truncated,
                                 };
 
                                 let result =
@@ -129,9 +135,14 @@ pub fn process_output(
                                 return;
                             }
 
+                            let (message, original_size_bytes, is_truncated) =
+                                normalize_message(&rest[9..]);
+
                             let record = LogRecord {
                                 timestamp: Some(Timestamp::from_str(first).unwrap()),
-                                message: rest[9..].trim_end().to_string(),
+                                message,
+                                original_size_bytes,
+                                is_truncated,
                             };
 
                             let result = task::block_in_place(|| sender.blocking_send(Ok(record)));
@@ -144,5 +155,61 @@ pub fn process_output(
                 }
             }
         }
+    }
+}
+
+// Returns decoded string, original_size_bytes, is_truncated
+fn normalize_message(raw: &str) -> (String, u64, bool) {
+    let trimmed = raw.trim_end_matches(|c| c == '\n' || c == '\r');
+    let bytes = trimmed.as_bytes();
+    const MARKER_LEN: usize = std::mem::size_of::<u64>() + 1; // 8-byte count + sentinel
+
+    if bytes.len() >= MARKER_LEN && bytes.last().copied() == Some(TRUNCATION_SENTINEL) {
+        let suffix_start = bytes.len() - MARKER_LEN;
+        let (message_bytes, suffix) = bytes.split_at(suffix_start);
+        let truncated_bytes =
+            u64::from_be_bytes(suffix[..std::mem::size_of::<u64>()].try_into().unwrap());
+
+        let message = String::from_utf8_lossy(message_bytes).to_string();
+        (message, message_bytes.len() as u64 + truncated_bytes, true)
+    } else {
+        (trimmed.to_string(), trimmed.len() as u64, false)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_message;
+
+    #[test]
+    fn normalize_message_returns_truncated_count_and_strips_marker() {
+        let mut raw_bytes = b"hello".to_vec();
+        raw_bytes.extend_from_slice(&3u64.to_be_bytes());
+        raw_bytes.push(super::TRUNCATION_SENTINEL);
+        raw_bytes.push(b'\n');
+        let raw = String::from_utf8(raw_bytes).unwrap();
+
+        let (normalized, original_size_bytes, is_truncated) = normalize_message(&raw);
+        assert_eq!(normalized, "hello");
+        assert_eq!(original_size_bytes, 8);
+        assert!(is_truncated);
+    }
+
+    #[test]
+    fn normalize_message_trims_newlines() {
+        let raw = "hello\n";
+        assert_eq!(normalize_message(raw), ("hello".to_string(), 5, false));
+    }
+
+    #[test]
+    fn normalize_message_ignores_embedded_sentinel() {
+        let raw = format!("hel{}lo\n", char::from(super::TRUNCATION_SENTINEL));
+        let (normalized, original_size_bytes, is_truncated) = normalize_message(&raw);
+        assert_eq!(
+            normalized,
+            format!("hel{}lo", char::from(super::TRUNCATION_SENTINEL))
+        );
+        assert_eq!(original_size_bytes, 6);
+        assert!(!is_truncated);
     }
 }

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io::Read;
 use std::{fs::File, path::PathBuf};
 
 use tokio::sync::mpsc::Sender;
@@ -27,7 +28,7 @@ use crate::fs_watcher_error::FsWatcherError;
 use crate::util::format::FileFormat;
 use crate::util::matcher::{LogFileRegexMatcher, PassThroughMatcher};
 use crate::util::offset::{find_nearest_offset_since, find_nearest_offset_until};
-use crate::util::reader::{ReverseLineReader, TermReader};
+use crate::util::reader::{LogTrimmerReader, ReverseLineReader, TermReader};
 use crate::util::writer::{process_output, CallbackWriter};
 
 pub async fn stream_backward(
@@ -36,9 +37,18 @@ pub async fn stream_backward(
     start_time: Option<DateTime<Utc>>,
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&str>,
+    truncate_at_bytes: u64,
     sender: Sender<Result<LogRecord, Status>>,
 ) {
-    let result = stream_backward_internal(ctx, path, start_time, stop_time, grep, &sender);
+    let result = stream_backward_internal(
+        ctx,
+        path,
+        start_time,
+        stop_time,
+        grep,
+        truncate_at_bytes,
+        &sender,
+    );
 
     if let Err(error) = result {
         let _ = sender.send(Err(error.into())).await;
@@ -51,6 +61,7 @@ fn stream_backward_internal(
     start_time: Option<DateTime<Utc>>,
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&str>,
+    truncate_at_bytes: u64,
     sender: &Sender<Result<LogRecord, Status>>,
 ) -> Result<(), FsWatcherError> {
     // Open file
@@ -86,18 +97,25 @@ fn stream_backward_internal(
         max_offset
     };
 
-    // Wrap in term reader
-    let term_reverse_reader = TermReader::new(
-        ctx.clone(),
-        ReverseLineReader::new(file, start_pos, end_pos).unwrap(),
-    );
+    // ---------
+    // Wrap with reverse reader
+    let reader = ReverseLineReader::new(file, start_pos, end_pos).unwrap();
+
+    // Wrap with truncation trimmer
+    let reader: Box<dyn Read> = match truncate_at_bytes {
+        0 => Box::new(reader),
+        limit => Box::new(LogTrimmerReader::new(reader, format, limit)),
+    };
+
+    // Wrap with term reader
+    let reader = TermReader::new(ctx.clone(), reader);
+    // ---------
 
     // Init searcher
     let mut searcher = SearcherBuilder::new()
         .line_number(false)
         .memory_map(MmapChoice::never())
         .multi_line(false)
-        .heap_limit(Some(1024 * 1024)) // TODO: Make this configurable
         .build();
 
     // Init writer
@@ -113,11 +131,11 @@ fn stream_backward_internal(
     if let Some(grep) = trimmed_grep {
         let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
         let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, term_reverse_reader, sink);
+        let _ = searcher.search_reader(&matcher, reader, sink);
     } else {
         let matcher = PassThroughMatcher::new();
         let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, term_reverse_reader, sink);
+        let _ = searcher.search_reader(&matcher, reader, sink);
     }
 
     Ok(())
@@ -199,7 +217,16 @@ mod test {
         // Create output channel
         let (tx, mut rx) = mpsc::channel(100);
 
-        stream_backward(CancellationToken::new(), &path, start_time, None, None, tx).await;
+        stream_backward(
+            CancellationToken::new(),
+            &path,
+            start_time,
+            None,
+            None,
+            0,
+            tx,
+        )
+        .await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
@@ -237,7 +264,16 @@ mod test {
         // Create output channel
         let (tx, mut rx) = mpsc::channel(100);
 
-        stream_backward(CancellationToken::new(), &path, None, stop_time, None, tx).await;
+        stream_backward(
+            CancellationToken::new(),
+            &path,
+            None,
+            stop_time,
+            None,
+            0,
+            tx,
+        )
+        .await;
 
         // Create a buffer to capture output
         let mut output = Vec::new();
@@ -290,6 +326,7 @@ mod test {
             start_time,
             stop_time,
             None,
+            0,
             tx,
         )
         .await;
@@ -312,7 +349,7 @@ mod test {
         // Create output channel
         let (tx, mut rx) = mpsc::channel(100);
 
-        stream_backward(CancellationToken::new(), &path, None, None, None, tx).await;
+        stream_backward(CancellationToken::new(), &path, None, None, None, 0, tx).await;
 
         let result = rx.recv().await.unwrap();
         assert!(matches!(result, Err(_)));

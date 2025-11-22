@@ -108,7 +108,6 @@ message LogRecordsStreamRequest {
   // Return only the logs that happened after this timestamp.
   string start_time = 5;
 
-
   // Return only the logs that happened before this timestamp.
   string stop_time = 6;
 
@@ -117,13 +116,32 @@ message LogRecordsStreamRequest {
 
   // Keep the stream connection open to keep receiving new log lines.
   FollowFrom follow_from = 8;
+
+  // Maximum number of bytes to read per message. Messages longer than
+  // this will be truncated. If 0 or negative, no truncation is applied.
+  uint64 truncate_at_bytes = 9;
+
+  // Return only the logs with original message sizes greater than this
+  // number of bytes
+  uint64 min_original_size_bytes = 10;
+
+  // Return only the logs with original message sizes less than this
+  // number of bytes
+  uint64 max_original_size_bytes = 11;
 }
 
 // A log line
 message LogRecord {
   google.protobuf.Timestamp timestamp = 1;
 
+  // The log message content (possibly truncated)
   string message = 2;
+
+  // The size of the message before truncation (in bytes)
+  uint64 original_size_bytes = 3;
+
+  // Whether or not the message has been truncated
+  bool is_truncated = 4;
 }
 
 // Controls how the stream is going to follow new entries in the logs.

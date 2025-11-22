@@ -46,17 +46,15 @@ const (
 	FollowFromEnd     FollowFrom = "end"
 )
 
-const logScannerInitCapacity = 64 * 1024  // 64KB
-const logScannerMaxCapacity = 1024 * 1024 // 1MB
-
 // FetcherOptions defines options for fetching logs
 type FetcherOptions struct {
-	StartTime     time.Time
-	StopTime      time.Time
-	Grep          string
-	GrepRegex     *regexp.Regexp
-	FollowFrom    FollowFrom
-	BatchSizeHint int64
+	StartTime       time.Time
+	StopTime        time.Time
+	Grep            string
+	GrepRegex       *regexp.Regexp
+	FollowFrom      FollowFrom
+	BatchSizeHint   int64
+	TruncateAtBytes uint64
 }
 
 // LogFetcher defines forward and backward streaming.
@@ -112,15 +110,24 @@ func (f *KubeLogFetcher) StreamForward(ctx context.Context, source LogSource, op
 		defer podLogs.Close()
 		defer close(outCh)
 
-		scanner := bufio.NewScanner(podLogs)
+		reader := bufio.NewReader(podLogs)
 
-		buffer := make([]byte, logScannerInitCapacity)
-		scanner.Buffer(buffer, logScannerMaxCapacity)
+		for {
+			// Check context
+			if ctx.Err() != nil {
+				return
+			}
 
-		for scanner.Scan() {
-			record, err := newLogRecordFromLogLine(scanner.Text())
+			record, err := nextRecordFromReader(reader, opts.TruncateAtBytes)
 			if err != nil {
-				continue
+				if err == io.EOF {
+					break
+				}
+				select {
+				case <-ctx.Done():
+				case outCh <- LogRecord{err: err}:
+				}
+				return
 			}
 
 			// Check start time
@@ -147,16 +154,6 @@ func (f *KubeLogFetcher) StreamForward(ctx context.Context, source LogSource, op
 				return
 			case outCh <- record:
 			}
-		}
-
-		// Handle errors
-		if scanner.Err() != nil {
-			select {
-			case <-ctx.Done():
-			case outCh <- LogRecord{err: scanner.Err()}:
-			default:
-			}
-			return
 		}
 	}()
 
@@ -211,28 +208,32 @@ func (f *KubeLogFetcher) StreamBackward(ctx context.Context, source LogSource, o
 			}
 
 			// Read logs from this batch
-			scanner := bufio.NewScanner(podLogs)
-
-			buffer := make([]byte, logScannerInitCapacity)
-			scanner.Buffer(buffer, logScannerMaxCapacity)
+			reader := bufio.NewReader(podLogs)
 
 			batchRecords := []LogRecord{}
 			isEmpty := true
 			isFirst := true
 			increaseBatchSize := false
 
-			for scanner.Scan() {
-				isEmpty = false
-
-				// Check if context is done
+			for {
+				// Check context
 				if ctx.Err() != nil {
 					break
 				}
 
-				record, err := newLogRecordFromLogLine(scanner.Text())
+				record, err := nextRecordFromReader(reader, opts.TruncateAtBytes)
 				if err != nil {
-					continue
+					if err == io.EOF {
+						break
+					}
+					select {
+					case <-ctx.Done():
+					case outCh <- LogRecord{err: err}:
+					}
+					return
 				}
+
+				isEmpty = false
 
 				// Check if log is getting ahead of us
 				if isFirst {
@@ -257,16 +258,6 @@ func (f *KubeLogFetcher) StreamBackward(ctx context.Context, source LogSource, o
 			// Check if context is done
 			if ctx.Err() != nil {
 				return // exit
-			}
-
-			// Handle errors
-			if scanner.Err() != nil {
-				select {
-				case <-ctx.Done():
-				case outCh <- LogRecord{err: scanner.Err()}:
-				default:
-				}
-				return
 			}
 
 			if increaseBatchSize {
@@ -377,6 +368,9 @@ func (f *AgentLogFetcher) StreamForward(ctx context.Context, source LogSource, o
 			return
 		}
 
+		// Set max message size
+		req.TruncateAtBytes = opts.TruncateAtBytes
+
 		// Execute
 		stream, err := c.StreamForward(ctx, req)
 		if err != nil {
@@ -404,9 +398,11 @@ func (f *AgentLogFetcher) StreamForward(ctx context.Context, source LogSource, o
 
 			// Send event
 			outCh <- LogRecord{
-				Message:   ev.Message,
-				Timestamp: ev.Timestamp.AsTime(),
-				Source:    source,
+				Message:           ev.Message,
+				Timestamp:         ev.Timestamp.AsTime(),
+				Source:            source,
+				OriginalSizeBytes: ev.OriginalSizeBytes,
+				IsTruncated:       ev.IsTruncated,
 			}
 		}
 	})
@@ -445,6 +441,9 @@ func (f *AgentLogFetcher) StreamBackward(ctx context.Context, source LogSource, 
 			req.StopTime = opts.StopTime.Format(time.RFC3339Nano)
 		}
 
+		// Set max line length
+		req.TruncateAtBytes = opts.TruncateAtBytes
+
 		// Execute
 		stream, err := c.StreamBackward(ctx, req)
 		if err != nil {
@@ -472,9 +471,11 @@ func (f *AgentLogFetcher) StreamBackward(ctx context.Context, source LogSource, 
 
 			// Send event
 			outCh <- LogRecord{
-				Message:   ev.Message,
-				Timestamp: ev.Timestamp.AsTime(),
-				Source:    source,
+				Message:           ev.Message,
+				Timestamp:         ev.Timestamp.AsTime(),
+				Source:            source,
+				OriginalSizeBytes: ev.OriginalSizeBytes,
+				IsTruncated:       ev.IsTruncated,
 			}
 		}
 	})

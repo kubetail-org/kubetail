@@ -85,6 +85,7 @@ impl LogRecordsService for LogRecordsImpl {
                 } else {
                     Some(&request.grep)
                 },
+                request.truncate_at_bytes,
                 tx,
             )
             .await;
@@ -120,6 +121,7 @@ impl LogRecordsService for LogRecordsImpl {
                     Some(&request.grep)
                 },
                 request.follow_from(),
+                request.truncate_at_bytes,
                 tx,
             )
             .await;
