@@ -110,7 +110,7 @@ func (f *KubeLogFetcher) StreamForward(ctx context.Context, source LogSource, op
 		defer podLogs.Close()
 		defer close(outCh)
 
-		reader := bufio.NewReaderSize(bufio.NewReader(podLogs), 64*1024) // 64KB buffer
+		reader := bufio.NewReader(podLogs)
 
 		for {
 			// Check context
@@ -118,7 +118,7 @@ func (f *KubeLogFetcher) StreamForward(ctx context.Context, source LogSource, op
 				return
 			}
 
-			record, err := nextRecordFromReader(reader, 100) //opts.MaxMsgBytes)
+			record, err := nextRecordFromReader(reader, opts.TruncateAtBytes)
 			if err != nil {
 				if err == io.EOF {
 					break

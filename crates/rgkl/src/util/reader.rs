@@ -74,13 +74,6 @@ impl<R: Read> LogTrimmerReader<R> {
         self.internal_buf.clear();
         self.pos = 0;
 
-        // Fast Path: If truncation is disabled (0), act as a standard BufReader
-        if self.truncate_at_bytes == 0 {
-            let bytes_read = self.input.read_until(b'\n', &mut self.internal_buf)?;
-            return Ok(bytes_read > 0);
-        }
-
-        // Slow Path: Parse headers and enforce truncation
         let mut found_header = false;
         let mut space_count = 0;
         let mut current_msg_len = 0;

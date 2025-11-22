@@ -173,20 +173,22 @@ fn setup_fs_watcher<'a>(
     }
 
     // Seek to starting position
-    let _ = file.seek(SeekFrom::Start(start_pos));
+    file.seek(SeekFrom::Start(start_pos))?;
 
-    // Init reader
-    let reader: Box<dyn Read> = if let Some(len) = take_length {
-        Box::new(file.take(len))
-    } else {
-        Box::new(file)
+    // Init reader with optional tail length restriction
+    let reader: Box<dyn Read> = match take_length {
+        Some(len) => Box::new(file.take(len)),
+        None => Box::new(file),
     };
 
-    // Wrap in term reader with optional truncation
-    let wrapped_reader = TermReader::new(
-        ctx.clone(),
-        LogTrimmerReader::new(reader, truncate_at_bytes),
-    );
+    // Wrap with truncation reader
+    let reader: Box<dyn Read> = match truncate_at_bytes {
+        0 => reader,
+        limit => Box::new(LogTrimmerReader::new(reader, limit)),
+    };
+
+    // Wrap with term reader
+    let reader = TermReader::new(ctx.clone(), reader);
 
     // Init searcher
     let mut searcher = SearcherBuilder::new()
@@ -208,11 +210,11 @@ fn setup_fs_watcher<'a>(
     if let Some(grep) = trimmed_grep {
         let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
         let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, wrapped_reader, sink);
+        let _ = searcher.search_reader(&matcher, reader, sink);
     } else {
         let matcher = PassThroughMatcher::new();
         let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, wrapped_reader, sink);
+        let _ = searcher.search_reader(&matcher, reader, sink);
     }
 
     if ctx.is_cancelled() {
