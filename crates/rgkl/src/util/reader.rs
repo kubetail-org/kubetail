@@ -20,6 +20,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::util::format::FileFormat;
 
+const LOG_TRIMMER_BUFFER_SIZE: usize = 32 * 1024; // 32 KB
 const CHUNK_SIZE: usize = 64 * 1024; // 64KB
 pub const TRUNCATION_SENTINEL: u8 = 0x1F;
 const DOCKER_SENTINEL_ESCAPED: &[u8] = br"\u001F";
@@ -63,7 +64,7 @@ impl<R: Read> LogTrimmerReader<R> {
     /// If `truncate_at_bytes` is 0, truncation is disabled (pass-through mode).
     pub fn new(reader: R, truncate_at_bytes64: u64) -> Self {
         Self {
-            input: BufReader::new(reader),
+            input: BufReader::with_capacity(LOG_TRIMMER_BUFFER_SIZE, reader),
             truncate_at_bytes: truncate_at_bytes64 as usize,
             internal_buf: Vec::with_capacity(4096),
             pos: 0,

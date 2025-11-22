@@ -37,3 +37,10 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 signal-hook = "0.3.18"
 termcolor = "1.4.1"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "reader_bench"
+harness = false
