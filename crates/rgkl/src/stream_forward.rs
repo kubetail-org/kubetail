@@ -31,7 +31,7 @@ use crate::fs_watcher_error::FsWatcherError;
 use crate::util::format::FileFormat;
 use crate::util::matcher::{LogFileRegexMatcher, PassThroughMatcher};
 use crate::util::offset::{find_nearest_offset_since, find_nearest_offset_until};
-use crate::util::reader::TermReader;
+use crate::util::reader::{LogTrimmerReader, TermReader};
 use crate::util::writer::{process_output, CallbackWriter};
 
 /// Lifecycle events emitted by stream_forward
@@ -183,14 +183,16 @@ fn setup_fs_watcher<'a>(
     };
 
     // Wrap in term reader with optional truncation
-    let term_reader = TermReader::new(ctx.clone(), reader, truncate_at_bytes, format);
+    let wrapped_reader = TermReader::new(
+        ctx.clone(),
+        LogTrimmerReader::new(reader, truncate_at_bytes),
+    );
 
     // Init searcher
     let mut searcher = SearcherBuilder::new()
         .line_number(false)
         .memory_map(MmapChoice::never())
         .multi_line(false)
-        .heap_limit(Some(1024 * 1024)) // TODO: Make this configurable
         .build();
 
     let ctx_copy = ctx.clone();
@@ -206,11 +208,11 @@ fn setup_fs_watcher<'a>(
     if let Some(grep) = trimmed_grep {
         let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
         let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, term_reader, sink);
+        let _ = searcher.search_reader(&matcher, wrapped_reader, sink);
     } else {
         let matcher = PassThroughMatcher::new();
         let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, term_reader, sink);
+        let _ = searcher.search_reader(&matcher, wrapped_reader, sink);
     }
 
     if ctx.is_cancelled() {

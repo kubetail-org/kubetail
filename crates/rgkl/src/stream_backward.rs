@@ -97,11 +97,9 @@ fn stream_backward_internal(
     };
 
     // Wrap in term reader with optional truncation
-    let term_reverse_reader = TermReader::new(
+    let wrapped_reader = TermReader::new(
         ctx.clone(),
         ReverseLineReader::new(file, start_pos, end_pos).unwrap(),
-        truncate_at_bytes,
-        format,
     );
 
     // Init searcher
@@ -109,7 +107,6 @@ fn stream_backward_internal(
         .line_number(false)
         .memory_map(MmapChoice::never())
         .multi_line(false)
-        .heap_limit(Some(1024 * 1024)) // TODO: Make this configurable
         .build();
 
     // Init writer
@@ -125,11 +122,11 @@ fn stream_backward_internal(
     if let Some(grep) = trimmed_grep {
         let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
         let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, term_reverse_reader, sink);
+        let _ = searcher.search_reader(&matcher, wrapped_reader, sink);
     } else {
         let matcher = PassThroughMatcher::new();
         let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, term_reverse_reader, sink);
+        let _ = searcher.search_reader(&matcher, wrapped_reader, sink);
     }
 
     Ok(())
