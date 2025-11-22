@@ -14,6 +14,7 @@
 
 use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom};
 
+use crate::util::format::FileFormat;
 use memchr::{memchr, memchr2};
 use tokio_util::sync::CancellationToken;
 
@@ -47,7 +48,7 @@ impl<R: Read> Read for TermReader<R> {
 #[derive(Debug)]
 pub struct LogTrimmerReader<R> {
     input: BufReader<R>,
-    // Renamed from truncated_at_bytes
+    format: FileFormat,
     truncate_at_bytes: usize,
     internal_buf: Vec<u8>,
     pos: usize,
@@ -55,11 +56,13 @@ pub struct LogTrimmerReader<R> {
 
 impl<R: Read> LogTrimmerReader<R> {
     /// Creates a new LogTrimmerReader.
+    /// The `format` is used to detect where the log message starts.
     /// If `truncate_at_bytes` is 0, truncation is disabled (pass-through mode).
-    pub fn new(reader: R, truncate_at_bytes64: u64) -> Self {
+    pub fn new(reader: R, format: FileFormat, truncate_at_bytes64: u64) -> Self {
         let truncate_at_bytes = truncate_at_bytes64 as usize;
         Self {
             input: BufReader::with_capacity(LOG_TRIMMER_READER_BUFFER_SIZE, reader),
+            format,
             truncate_at_bytes,
             internal_buf: Vec::with_capacity(Self::buffer_capacity(truncate_at_bytes)),
             pos: 0,
@@ -75,6 +78,13 @@ impl<R: Read> LogTrimmerReader<R> {
     }
 
     fn refill_buffer(&mut self) -> io::Result<bool> {
+        match self.format {
+            FileFormat::Docker => self.refill_buffer_docker(),
+            FileFormat::CRI => self.refill_buffer_cri(),
+        }
+    }
+
+    fn refill_buffer_cri(&mut self) -> io::Result<bool> {
         self.internal_buf.clear();
         self.pos = 0;
 
@@ -177,16 +187,82 @@ impl<R: Read> LogTrimmerReader<R> {
                     };
                     truncated_bytes = truncated_bytes.saturating_add(extra as u64);
                 }
-                self.internal_buf
-                    .extend_from_slice(&truncated_bytes.to_be_bytes());
-                self.internal_buf.push(TRUNCATION_SENTINEL);
-                self.internal_buf.push(b'\n');
+                Self::append_truncation_marker_raw(&mut self.internal_buf, truncated_bytes);
                 return Ok(true);
             }
 
             if line_complete {
                 return Ok(true);
             }
+        }
+    }
+
+    fn refill_buffer_docker(&mut self) -> io::Result<bool> {
+        self.internal_buf.clear();
+        self.pos = 0;
+
+        const PREFIX: &[u8] = b"{\"log\":\""; // message starts at the 9th byte
+        let mut line = Vec::with_capacity(LOG_TRIMMER_READER_BUFFER_SIZE);
+        let bytes_read = self.input.read_until(b'\n', &mut line)?;
+        if bytes_read == 0 {
+            return Ok(false);
+        }
+
+        if line.len() < PREFIX.len() {
+            self.internal_buf.extend_from_slice(&line);
+            return Ok(true);
+        }
+
+        // Find end of the message (next unescaped quote)
+        let mut escaped = false;
+        let mut msg_end = line.len();
+        let mut idx = PREFIX.len();
+        while idx < line.len() {
+            let byte = line[idx];
+            if escaped {
+                escaped = false;
+            } else if byte == b'\\' {
+                escaped = true;
+            } else if byte == b'"' {
+                msg_end = idx;
+                break;
+            }
+            idx += 1;
+        }
+
+        let message = &line[PREFIX.len()..msg_end];
+        if self.truncate_at_bytes == 0 || message.len() <= self.truncate_at_bytes {
+            self.internal_buf.extend_from_slice(&line);
+            return Ok(true);
+        }
+
+        let truncated_bytes = (message.len() - self.truncate_at_bytes) as u64;
+
+        self.internal_buf.extend_from_slice(&line[..PREFIX.len()]);
+        self.internal_buf
+            .extend_from_slice(&message[..self.truncate_at_bytes]);
+        Self::append_truncation_marker_json(&mut self.internal_buf, truncated_bytes);
+        self.internal_buf.extend_from_slice(&line[msg_end..]);
+
+        Ok(true)
+    }
+
+    fn append_truncation_marker_raw(buf: &mut Vec<u8>, truncated_bytes: u64) {
+        buf.extend_from_slice(&truncated_bytes.to_be_bytes());
+        buf.push(TRUNCATION_SENTINEL);
+        buf.push(b'\n');
+    }
+
+    fn append_truncation_marker_json(buf: &mut Vec<u8>, truncated_bytes: u64) {
+        const HEX: &[u8; 16] = b"0123456789ABCDEF";
+        for byte in truncated_bytes
+            .to_be_bytes()
+            .into_iter()
+            .chain(std::iter::once(TRUNCATION_SENTINEL))
+        {
+            buf.extend_from_slice(b"\\u00");
+            buf.push(HEX[(byte >> 4) as usize]);
+            buf.push(HEX[(byte & 0x0F) as usize]);
         }
     }
 
@@ -391,6 +467,7 @@ mod tests {
     use tempfile::NamedTempFile;
 
     use super::*;
+    use crate::util::format::FileFormat;
 
     #[test]
     fn test_term_reader_cancellation() -> Result<(), Box<dyn Error>> {
@@ -434,7 +511,8 @@ mod tests {
         #[case] input: &str,
         #[case] expected: Vec<u8>,
     ) -> Result<(), Box<dyn Error>> {
-        let mut reader = LogTrimmerReader::new(Cursor::new(input.as_bytes()), limit);
+        let mut reader =
+            LogTrimmerReader::new(Cursor::new(input.as_bytes()), FileFormat::CRI, limit);
         let mut output = Vec::new();
         reader.read_to_end(&mut output)?;
 
@@ -472,9 +550,27 @@ mod tests {
         #[case] input: &str,
         #[case] expected: Vec<u8>,
     ) -> Result<(), Box<dyn Error>> {
-        let mut reader = LogTrimmerReader::new(Cursor::new(input.as_bytes()), limit);
+        let mut reader =
+            LogTrimmerReader::new(Cursor::new(input.as_bytes()), FileFormat::CRI, limit);
         let mut output = Vec::new();
         reader.read_to_end(&mut output)?;
+
+        assert_eq!(output, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn log_trimmer_reader_truncates_docker_format() -> Result<(), Box<dyn Error>> {
+        let input = r#"{"log":"abcdefghij","stream":"stdout","time":"2024-11-20T10:00:00Z"}"#;
+        let input_with_newline = format!("{input}\n").into_bytes();
+        let mut reader =
+            LogTrimmerReader::new(Cursor::new(input_with_newline), FileFormat::Docker, 5);
+
+        let mut output = Vec::new();
+        reader.read_to_end(&mut output)?;
+
+        let mut expected = br#"{"log":"abcde\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0005\u001F","stream":"stdout","time":"2024-11-20T10:00:00Z"}"#.to_vec();
+        expected.push(b'\n');
 
         assert_eq!(output, expected);
         Ok(())

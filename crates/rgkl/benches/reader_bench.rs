@@ -2,6 +2,7 @@ use std::io::{BufReader, Cursor, Read};
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 
+use rgkl::util::format::FileFormat;
 use rgkl::util::reader::{LogTrimmerReader, ReverseLineReader};
 
 fn buf_reader_bench(c: &mut Criterion) {
@@ -32,7 +33,7 @@ fn buf_reader_bench(c: &mut Criterion) {
     group.finish();
 }
 
-fn log_trimmer_reader_bench(c: &mut Criterion) {
+fn log_trimmer_reader_cri_bench(c: &mut Criterion) {
     let mut base_line = b"2024-11-20T10:00:00Z stdout F ".to_vec();
     base_line.extend_from_slice(&vec![b'a'; 4096]); // message payload
     base_line.push(b'\n');
@@ -42,14 +43,44 @@ fn log_trimmer_reader_bench(c: &mut Criterion) {
         data.extend_from_slice(&base_line);
     }
 
-    let mut group = c.benchmark_group("log_trimmer_reader");
+    let mut group = c.benchmark_group("log_trimmer_reader_cri");
     group.throughput(Throughput::Bytes(data.len() as u64));
 
     for limit in [0u64, 64, 1024, 4096] {
         group.bench_with_input(BenchmarkId::from_parameter(limit), &limit, |b, &limit| {
             b.iter(|| {
                 let cursor = Cursor::new(data.as_slice());
-                let mut reader = LogTrimmerReader::new(cursor, limit);
+                let mut reader = LogTrimmerReader::new(cursor, FileFormat::CRI, limit);
+                let mut sink = Vec::with_capacity(data.len());
+                reader.read_to_end(&mut sink).unwrap();
+            });
+        });
+    }
+
+    group.finish();
+}
+
+fn log_trimmer_reader_docker_bench(c: &mut Criterion) {
+    let mut base_line = b"{\"log\":\"".to_vec();
+    base_line.extend_from_slice(&vec![b'a'; 4096]); // message payload
+    base_line.push(b'"');
+    base_line.extend_from_slice(b",\"stream\":\"stdout\"");
+    base_line.extend_from_slice(b",\"time\":\"2024-11-20T10:00:00Z\"}");
+    base_line.push(b'\n');
+
+    let mut data = Vec::new();
+    for _ in 0..256 {
+        data.extend_from_slice(&base_line);
+    }
+
+    let mut group = c.benchmark_group("log_trimmer_reader_docker");
+    group.throughput(Throughput::Bytes(data.len() as u64));
+
+    for limit in [0u64, 64, 1024, 4096] {
+        group.bench_with_input(BenchmarkId::from_parameter(limit), &limit, |b, &limit| {
+            b.iter(|| {
+                let cursor = Cursor::new(data.as_slice());
+                let mut reader = LogTrimmerReader::new(cursor, FileFormat::Docker, limit);
                 let mut sink = Vec::with_capacity(data.len());
                 reader.read_to_end(&mut sink).unwrap();
             });
@@ -90,7 +121,8 @@ fn reverse_line_reader_bench(c: &mut Criterion) {
 criterion_group!(
     reader_benches,
     buf_reader_bench,
-    log_trimmer_reader_bench,
+    log_trimmer_reader_cri_bench,
+    log_trimmer_reader_docker_bench,
     reverse_line_reader_bench
 );
 criterion_main!(reader_benches);
