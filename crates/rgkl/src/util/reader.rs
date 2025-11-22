@@ -323,10 +323,14 @@ impl<R: Read + Seek> Read for ReverseLineReader<R> {
 
 #[cfg(test)]
 mod tests {
-    use std::{error::Error, io::Write};
+    use std::{
+        error::Error,
+        io::{Cursor, Read, Write},
+    };
 
     use rand::distr::Alphanumeric;
     use rand::{self, Rng};
+    use rstest::rstest;
 
     use tempfile::NamedTempFile;
 
@@ -344,6 +348,59 @@ mod tests {
         let n = reader.read(&mut buf)?;
 
         assert_eq!(n, 0, "Should return 0 bytes when cancelled");
+        Ok(())
+    }
+
+    #[rstest]
+    #[case(
+        5,
+        "2024-11-20T10:00:00Z stdout F 1234567890\n",
+        "2024-11-20T10:00:00Z stdout F 12345\n"
+    )]
+    #[case(
+        10,
+        "2024-11-20T10:00:00Z stdout F 1234567890\n",
+        "2024-11-20T10:00:00Z stdout F 1234567890\n"
+    )]
+    #[case(
+        20,
+        "2024-11-20T10:00:00Z stdout F 1234567890\n",
+        "2024-11-20T10:00:00Z stdout F 1234567890\n"
+    )]
+    fn log_trimmer_reader_truncates_message(
+        #[case] limit: u64,
+        #[case] input: &str,
+        #[case] expected: &str,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut reader = LogTrimmerReader::new(Cursor::new(input.as_bytes()), limit);
+        let mut output = String::new();
+        reader.read_to_string(&mut output)?;
+
+        assert_eq!(output, expected);
+        Ok(())
+    }
+
+    #[rstest]
+    #[case(
+        3,
+        "2024-11-20T10:00:00Z stdout F abcdef\n2024-11-21T10:00:00Z stdout F xyz\n",
+        "2024-11-20T10:00:00Z stdout F abc\n2024-11-21T10:00:00Z stdout F xyz\n"
+    )]
+    #[case(
+        2,
+        "noheader longmessageexceedinglimit\n2024-11-21T10:00:00Z stdout F qwerty\n",
+        "noheader longmessageexceedinglimit\n2024-11-21T10:00:00Z stdout F qw\n"
+    )]
+    fn log_trimmer_reader_handles_lines_independently(
+        #[case] limit: u64,
+        #[case] input: &str,
+        #[case] expected: &str,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut reader = LogTrimmerReader::new(Cursor::new(input.as_bytes()), limit);
+        let mut output = String::new();
+        reader.read_to_string(&mut output)?;
+
+        assert_eq!(output, expected);
         Ok(())
     }
 
