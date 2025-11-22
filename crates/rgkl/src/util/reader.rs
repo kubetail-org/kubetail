@@ -81,6 +81,7 @@ impl<R: Read> LogTrimmerReader<R> {
         let mut found_header = false;
         let mut space_count = 0;
         let mut current_msg_len = 0;
+        let mut truncated_bytes: u64 = 0;
 
         loop {
             let available = self.input.fill_buf()?;
@@ -141,8 +142,7 @@ impl<R: Read> LogTrimmerReader<R> {
                     }
 
                     if truncated {
-                        self.internal_buf.push(TRUNCATION_SENTINEL);
-                        self.internal_buf.push(b'\n');
+                        truncated_bytes = (bytes_until_newline - take) as u64;
                         if newline_rel.is_some() {
                             consumed = start + bytes_until_newline + 1;
                             newline_consumed = true;
@@ -169,8 +169,18 @@ impl<R: Read> LogTrimmerReader<R> {
 
             if truncated {
                 if !newline_consumed {
-                    let _ = self.discard_rest_of_line()?;
+                    let (discarded, saw_newline) = self.discard_rest_of_line()?;
+                    let extra = if saw_newline {
+                        discarded.saturating_sub(1)
+                    } else {
+                        discarded
+                    };
+                    truncated_bytes = truncated_bytes.saturating_add(extra as u64);
                 }
+                self.internal_buf
+                    .extend_from_slice(&truncated_bytes.to_be_bytes());
+                self.internal_buf.push(TRUNCATION_SENTINEL);
+                self.internal_buf.push(b'\n');
                 return Ok(true);
             }
 
@@ -180,21 +190,22 @@ impl<R: Read> LogTrimmerReader<R> {
         }
     }
 
-    /// Helper: Consumes bytes until a newline or EOF, returning the count of bytes discarded.
-    fn discard_rest_of_line(&mut self) -> io::Result<usize> {
+    /// Helper: Consumes bytes until a newline or EOF, returning the count of bytes discarded
+    /// and whether a newline was encountered.
+    fn discard_rest_of_line(&mut self) -> io::Result<(usize, bool)> {
         let mut total_discarded = 0;
 
         loop {
             let available = self.input.fill_buf()?;
             if available.is_empty() {
-                return Ok(total_discarded);
+                return Ok((total_discarded, false));
             }
 
             if let Some(index) = memchr(b'\n', available) {
                 let bytes_to_consume = index + 1;
                 self.input.consume(bytes_to_consume);
                 total_discarded += bytes_to_consume;
-                return Ok(total_discarded);
+                return Ok((total_discarded, true));
             }
 
             let len = available.len();
@@ -400,26 +411,32 @@ mod tests {
     #[case(
         5,
         "2024-11-20T10:00:00Z stdout F 1234567890\n",
-        "2024-11-20T10:00:00Z stdout F 12345\u{001f}\n"
+        {
+            let mut expected = b"2024-11-20T10:00:00Z stdout F 12345".to_vec();
+            expected.extend_from_slice(&5u64.to_be_bytes());
+            expected.push(TRUNCATION_SENTINEL);
+            expected.push(b'\n');
+            expected
+        }
     )]
     #[case(
         10,
         "2024-11-20T10:00:00Z stdout F 1234567890\n",
-        "2024-11-20T10:00:00Z stdout F 1234567890\n"
+        b"2024-11-20T10:00:00Z stdout F 1234567890\n".to_vec()
     )]
     #[case(
         20,
         "2024-11-20T10:00:00Z stdout F 1234567890\n",
-        "2024-11-20T10:00:00Z stdout F 1234567890\n"
+        b"2024-11-20T10:00:00Z stdout F 1234567890\n".to_vec()
     )]
     fn log_trimmer_reader_truncates_message(
         #[case] limit: u64,
         #[case] input: &str,
-        #[case] expected: &str,
+        #[case] expected: Vec<u8>,
     ) -> Result<(), Box<dyn Error>> {
         let mut reader = LogTrimmerReader::new(Cursor::new(input.as_bytes()), limit);
-        let mut output = String::new();
-        reader.read_to_string(&mut output)?;
+        let mut output = Vec::new();
+        reader.read_to_end(&mut output)?;
 
         assert_eq!(output, expected);
         Ok(())
@@ -429,21 +446,35 @@ mod tests {
     #[case(
         3,
         "2024-11-20T10:00:00Z stdout F abcdef\n2024-11-21T10:00:00Z stdout F xyz\n",
-        "2024-11-20T10:00:00Z stdout F abc\u{001f}\n2024-11-21T10:00:00Z stdout F xyz\n"
+        {
+            let mut expected = b"2024-11-20T10:00:00Z stdout F abc".to_vec();
+            expected.extend_from_slice(&3u64.to_be_bytes());
+            expected.push(TRUNCATION_SENTINEL);
+            expected.push(b'\n');
+            expected.extend_from_slice(b"2024-11-21T10:00:00Z stdout F xyz\n");
+            expected
+        }
     )]
     #[case(
         2,
         "noheader longmessageexceedinglimit\n2024-11-21T10:00:00Z stdout F qwerty\n",
-        "noheader longmessageexceedinglimit\n2024-11-21T10:00:00Z stdout F qw\u{001f}\n"
+        {
+            let mut expected =
+                b"noheader longmessageexceedinglimit\n2024-11-21T10:00:00Z stdout F qw".to_vec();
+            expected.extend_from_slice(&4u64.to_be_bytes());
+            expected.push(TRUNCATION_SENTINEL);
+            expected.push(b'\n');
+            expected
+        }
     )]
     fn log_trimmer_reader_handles_lines_independently(
         #[case] limit: u64,
         #[case] input: &str,
-        #[case] expected: &str,
+        #[case] expected: Vec<u8>,
     ) -> Result<(), Box<dyn Error>> {
         let mut reader = LogTrimmerReader::new(Cursor::new(input.as_bytes()), limit);
-        let mut output = String::new();
-        reader.read_to_string(&mut output)?;
+        let mut output = Vec::new();
+        reader.read_to_end(&mut output)?;
 
         assert_eq!(output, expected);
         Ok(())

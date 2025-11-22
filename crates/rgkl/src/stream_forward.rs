@@ -184,7 +184,7 @@ fn setup_fs_watcher<'a>(
     // Wrap with truncation reader
     let reader: Box<dyn Read> = match truncate_at_bytes {
         0 => reader,
-        limit => Box::new(LogTrimmerReader::new(reader, limit)),
+        limit => Box::new(LogTrimmerReader::new(reader, format, limit)),
     };
 
     // Wrap with term reader

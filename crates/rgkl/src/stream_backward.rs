@@ -104,7 +104,7 @@ fn stream_backward_internal(
     // Wrap with truncation trimmer
     let reader: Box<dyn Read> = match truncate_at_bytes {
         0 => Box::new(reader),
-        limit => Box::new(LogTrimmerReader::new(reader, limit)),
+        limit => Box::new(LogTrimmerReader::new(reader, format, limit)),
     };
 
     // Wrap with term reader
