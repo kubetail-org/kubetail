@@ -114,6 +114,8 @@ pub fn process_output(
                                         Timestamp::from_str(time_str).unwrap_or_default(),
                                     ),
                                     message,
+                                    original_size_bytes: 0,
+                                    is_truncated: false,
                                 };
 
                                 let result =
@@ -137,6 +139,8 @@ pub fn process_output(
                             let record = LogRecord {
                                 timestamp: Some(Timestamp::from_str(first).unwrap()),
                                 message,
+                                original_size_bytes: 0,
+                                is_truncated: false,
                             };
 
                             let result = task::block_in_place(|| sender.blocking_send(Ok(record)));

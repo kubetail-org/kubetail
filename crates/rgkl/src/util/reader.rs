@@ -12,20 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::VecDeque;
 use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom};
 
-use memchr::memchr;
+use memchr::{memchr, memchr2};
 use tokio_util::sync::CancellationToken;
 
-use crate::util::format::FileFormat;
-
-const LOG_TRIMMER_BUFFER_SIZE: usize = 32 * 1024; // 32 KB
-const CHUNK_SIZE: usize = 64 * 1024; // 64KB
+const LOG_TRIMMER_READER_BUFFER_SIZE: usize = 32 * 1024; // 32 KB
+const REVERSE_READER_CHUNK_SIZE: usize = 64 * 1024; // 64KB
 pub const TRUNCATION_SENTINEL: u8 = 0x1F;
-const DOCKER_SENTINEL_ESCAPED: &[u8] = br"\u001F";
-const DOCKER_STREAM_MARKER: &[u8] = b"\",\"stream\":\"";
-const DOCKER_TAIL_LIMIT: usize = 64 * 1024;
 
 #[derive(Debug)]
 pub struct TermReader<R> {
@@ -63,12 +57,21 @@ impl<R: Read> LogTrimmerReader<R> {
     /// Creates a new LogTrimmerReader.
     /// If `truncate_at_bytes` is 0, truncation is disabled (pass-through mode).
     pub fn new(reader: R, truncate_at_bytes64: u64) -> Self {
+        let truncate_at_bytes = truncate_at_bytes64 as usize;
         Self {
-            input: BufReader::with_capacity(LOG_TRIMMER_BUFFER_SIZE, reader),
-            truncate_at_bytes: truncate_at_bytes64 as usize,
-            internal_buf: Vec::with_capacity(4096),
+            input: BufReader::with_capacity(LOG_TRIMMER_READER_BUFFER_SIZE, reader),
+            truncate_at_bytes,
+            internal_buf: Vec::with_capacity(Self::buffer_capacity(truncate_at_bytes)),
             pos: 0,
         }
+    }
+
+    #[inline]
+    fn buffer_capacity(truncate_at_bytes: usize) -> usize {
+        // Reserve enough room for header + message up to the truncate limit, but keep
+        // a sensible minimum to avoid frequent reallocations on long lines.
+        let target = truncate_at_bytes.saturating_add(256);
+        std::cmp::max(LOG_TRIMMER_READER_BUFFER_SIZE, target)
     }
 
     fn refill_buffer(&mut self) -> io::Result<bool> {
@@ -87,30 +90,76 @@ impl<R: Read> LogTrimmerReader<R> {
 
             let mut consumed = 0;
             let mut line_complete = false;
-            let mut limit_reached = false;
+            let mut truncated = false;
+            let mut newline_consumed = false;
 
-            for &b in available {
-                consumed += 1;
-                self.internal_buf.push(b);
-
-                if b == b'\n' {
-                    line_complete = true;
-                    break;
-                }
-
+            while consumed < available.len() {
                 if !found_header {
-                    if b == b' ' {
-                        space_count += 1;
-                        // Standard K8s format: <time> <stream> <tag> <message>
-                        if space_count == 3 {
-                            found_header = true;
+                    match memchr2(b'\n', b' ', &available[consumed..]) {
+                        Some(rel_idx) => {
+                            let idx = consumed + rel_idx;
+                            let byte = available[idx];
+                            self.internal_buf
+                                .extend_from_slice(&available[consumed..=idx]);
+                            consumed = idx + 1;
+
+                            if byte == b' ' {
+                                space_count += 1;
+                                // Standard K8s format: <time> <stream> <tag> <message>
+                                if space_count == 3 {
+                                    found_header = true;
+                                }
+                            } else {
+                                line_complete = true;
+                                break;
+                            }
+                        }
+                        None => {
+                            self.internal_buf.extend_from_slice(&available[consumed..]);
+                            consumed = available.len();
+                            break;
                         }
                     }
                 } else {
-                    current_msg_len += 1;
-                    // Only trigger if we exceeded the limit
-                    if current_msg_len > self.truncate_at_bytes {
-                        limit_reached = true;
+                    let start = consumed;
+                    let search_slice = &available[start..];
+                    let newline_rel = memchr(b'\n', search_slice);
+                    let bytes_until_newline = newline_rel.unwrap_or(search_slice.len());
+
+                    let mut take = bytes_until_newline;
+                    if self.truncate_at_bytes > 0 {
+                        let remaining = self.truncate_at_bytes.saturating_sub(current_msg_len);
+                        if bytes_until_newline > remaining {
+                            take = remaining;
+                            truncated = true;
+                        }
+                    }
+
+                    if take > 0 {
+                        self.internal_buf.extend_from_slice(&search_slice[..take]);
+                        current_msg_len = current_msg_len.saturating_add(take);
+                    }
+
+                    if truncated {
+                        self.internal_buf.push(TRUNCATION_SENTINEL);
+                        self.internal_buf.push(b'\n');
+                        if newline_rel.is_some() {
+                            consumed = start + bytes_until_newline + 1;
+                            newline_consumed = true;
+                        } else {
+                            consumed = available.len();
+                        }
+                        line_complete = true;
+                        break;
+                    }
+
+                    if let Some(_) = newline_rel {
+                        self.internal_buf.push(b'\n');
+                        consumed = start + bytes_until_newline + 1;
+                        line_complete = true;
+                        break;
+                    } else {
+                        consumed = available.len();
                         break;
                     }
                 }
@@ -118,15 +167,10 @@ impl<R: Read> LogTrimmerReader<R> {
 
             self.input.consume(consumed);
 
-            if limit_reached {
-                // 1. Remove the overflowing byte
-                self.internal_buf.pop();
-                // 2. Add the newline
-                self.internal_buf.push(b'\n');
-
-                // 3. Discard the rest of the line (ignoring the return value)
-                let _ = self.discard_rest_of_line()?;
-
+            if truncated {
+                if !newline_consumed {
+                    let _ = self.discard_rest_of_line()?;
+                }
                 return Ok(true);
             }
 
@@ -146,7 +190,7 @@ impl<R: Read> LogTrimmerReader<R> {
                 return Ok(total_discarded);
             }
 
-            if let Some(index) = available.iter().position(|&b| b == b'\n') {
+            if let Some(index) = memchr(b'\n', available) {
                 let bytes_to_consume = index + 1;
                 self.input.consume(bytes_to_consume);
                 total_discarded += bytes_to_consume;
@@ -215,7 +259,7 @@ impl<R: Read + Seek> ReverseLineReader<R> {
             return Ok(false);
         }
         let available = self.pos - self.min_pos;
-        let size = std::cmp::min(CHUNK_SIZE as u64, available) as usize;
+        let size = std::cmp::min(REVERSE_READER_CHUNK_SIZE as u64, available) as usize;
         self.pos -= size as u64;
         self.inner.seek(SeekFrom::Start(self.pos))?;
         self.buf.resize(size, 0);
@@ -356,7 +400,7 @@ mod tests {
     #[case(
         5,
         "2024-11-20T10:00:00Z stdout F 1234567890\n",
-        "2024-11-20T10:00:00Z stdout F 12345\n"
+        "2024-11-20T10:00:00Z stdout F 12345\u{001f}\n"
     )]
     #[case(
         10,
@@ -385,12 +429,12 @@ mod tests {
     #[case(
         3,
         "2024-11-20T10:00:00Z stdout F abcdef\n2024-11-21T10:00:00Z stdout F xyz\n",
-        "2024-11-20T10:00:00Z stdout F abc\n2024-11-21T10:00:00Z stdout F xyz\n"
+        "2024-11-20T10:00:00Z stdout F abc\u{001f}\n2024-11-21T10:00:00Z stdout F xyz\n"
     )]
     #[case(
         2,
         "noheader longmessageexceedinglimit\n2024-11-21T10:00:00Z stdout F qwerty\n",
-        "noheader longmessageexceedinglimit\n2024-11-21T10:00:00Z stdout F qw\n"
+        "noheader longmessageexceedinglimit\n2024-11-21T10:00:00Z stdout F qw\u{001f}\n"
     )]
     fn log_trimmer_reader_handles_lines_independently(
         #[case] limit: u64,

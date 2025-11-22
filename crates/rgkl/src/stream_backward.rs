@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io::Read;
 use std::{fs::File, path::PathBuf};
 
 use tokio::sync::mpsc::Sender;
@@ -27,7 +28,7 @@ use crate::fs_watcher_error::FsWatcherError;
 use crate::util::format::FileFormat;
 use crate::util::matcher::{LogFileRegexMatcher, PassThroughMatcher};
 use crate::util::offset::{find_nearest_offset_since, find_nearest_offset_until};
-use crate::util::reader::{ReverseLineReader, TermReader};
+use crate::util::reader::{LogTrimmerReader, ReverseLineReader, TermReader};
 use crate::util::writer::{process_output, CallbackWriter};
 
 pub async fn stream_backward(
@@ -96,11 +97,19 @@ fn stream_backward_internal(
         max_offset
     };
 
-    // Wrap in term reader with optional truncation
-    let wrapped_reader = TermReader::new(
-        ctx.clone(),
-        ReverseLineReader::new(file, start_pos, end_pos).unwrap(),
-    );
+    // ---------
+    // Wrap with reverse reader
+    let reader = ReverseLineReader::new(file, start_pos, end_pos).unwrap();
+
+    // Wrap with truncation trimmer
+    let reader: Box<dyn Read> = match truncate_at_bytes {
+        0 => Box::new(reader),
+        limit => Box::new(LogTrimmerReader::new(reader, limit)),
+    };
+
+    // Wrap with term reader
+    let reader = TermReader::new(ctx.clone(), reader);
+    // ---------
 
     // Init searcher
     let mut searcher = SearcherBuilder::new()
@@ -122,11 +131,11 @@ fn stream_backward_internal(
     if let Some(grep) = trimmed_grep {
         let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
         let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, wrapped_reader, sink);
+        let _ = searcher.search_reader(&matcher, reader, sink);
     } else {
         let matcher = PassThroughMatcher::new();
         let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, wrapped_reader, sink);
+        let _ = searcher.search_reader(&matcher, reader, sink);
     }
 
     Ok(())
