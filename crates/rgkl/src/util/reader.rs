@@ -12,11 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io::{self, Read, Seek, SeekFrom};
+use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom};
 
+use crate::util::format::FileFormat;
+use memchr::{memchr, memchr2};
 use tokio_util::sync::CancellationToken;
 
-const CHUNK_SIZE: usize = 64 * 1024; // 64KB
+const LOG_TRIMMER_READER_BUFFER_SIZE: usize = 32 * 1024; // 32 KB
+const REVERSE_READER_CHUNK_SIZE: usize = 64 * 1024; // 64KB
+pub const TRUNCATION_SENTINEL: u8 = 0x1F;
+pub const TRUNCATION_HEX_LEN: usize = 16;
+const HEX_DIGITS: &[u8; 16] = b"0123456789ABCDEF";
 
 #[derive(Debug)]
 pub struct TermReader<R> {
@@ -38,6 +44,312 @@ impl<R: Read> Read for TermReader<R> {
             return Ok(0);
         }
         self.inner.read(buf)
+    }
+}
+
+#[derive(Debug)]
+pub struct LogTrimmerReader<R> {
+    input: BufReader<R>,
+    format: FileFormat,
+    truncate_at_bytes: usize,
+    truncate_enabled: bool,
+    docker_line_buf: Vec<u8>,
+    internal_buf: Vec<u8>,
+    pos: usize,
+}
+
+impl<R: Read> LogTrimmerReader<R> {
+    /// Creates a new LogTrimmerReader.
+    /// The `format` is used to detect where the log message starts.
+    /// If `truncate_at_bytes` is 0, truncation is disabled (pass-through mode).
+    pub fn new(reader: R, format: FileFormat, truncate_at_bytes64: u64) -> Self {
+        let truncate_at_bytes = truncate_at_bytes64 as usize;
+        Self {
+            input: BufReader::with_capacity(LOG_TRIMMER_READER_BUFFER_SIZE, reader),
+            format,
+            truncate_at_bytes,
+            truncate_enabled: truncate_at_bytes > 0,
+            docker_line_buf: Vec::with_capacity(LOG_TRIMMER_READER_BUFFER_SIZE),
+            internal_buf: Vec::with_capacity(Self::buffer_capacity(truncate_at_bytes)),
+            pos: 0,
+        }
+    }
+
+    #[inline]
+    fn buffer_capacity(truncate_at_bytes: usize) -> usize {
+        // Reserve enough room for header + message up to the truncate limit, but keep
+        // a sensible minimum to avoid frequent reallocations on long lines.
+        let target = truncate_at_bytes.saturating_add(256);
+        std::cmp::max(LOG_TRIMMER_READER_BUFFER_SIZE, target)
+    }
+
+    fn refill_buffer(&mut self) -> io::Result<bool> {
+        match self.format {
+            FileFormat::Docker => self.refill_buffer_docker(),
+            FileFormat::CRI => self.refill_buffer_cri(),
+        }
+    }
+
+    fn refill_buffer_cri(&mut self) -> io::Result<bool> {
+        self.internal_buf.clear();
+        self.pos = 0;
+
+        let mut found_header = false;
+        let mut space_count = 0;
+        let mut current_msg_len = 0;
+        let mut truncated_bytes: u64 = 0;
+
+        loop {
+            let available = self.input.fill_buf()?;
+            if available.is_empty() {
+                return Ok(!self.internal_buf.is_empty());
+            }
+
+            let mut consumed = 0;
+            let mut line_complete = false;
+            let mut truncated = false;
+            let mut newline_consumed = false;
+
+            while consumed < available.len() {
+                if !found_header {
+                    match memchr2(b'\n', b' ', &available[consumed..]) {
+                        Some(rel_idx) => {
+                            let idx = consumed + rel_idx;
+                            let byte = available[idx];
+                            self.internal_buf
+                                .extend_from_slice(&available[consumed..=idx]);
+                            consumed = idx + 1;
+
+                            if byte == b' ' {
+                                space_count += 1;
+                                // Standard K8s format: <time> <stream> <tag> <message>
+                                if space_count == 3 {
+                                    found_header = true;
+                                }
+                            } else {
+                                line_complete = true;
+                                break;
+                            }
+                        }
+                        None => {
+                            self.internal_buf.extend_from_slice(&available[consumed..]);
+                            consumed = available.len();
+                            break;
+                        }
+                    }
+                } else {
+                    let start = consumed;
+                    let search_slice = &available[start..];
+                    let newline_rel = memchr(b'\n', search_slice);
+                    let bytes_until_newline = newline_rel.unwrap_or(search_slice.len());
+
+                    let mut take = bytes_until_newline;
+                    if self.truncate_enabled {
+                        let remaining = self.truncate_at_bytes.saturating_sub(current_msg_len);
+                        if bytes_until_newline > remaining {
+                            take = remaining;
+                            truncated = true;
+                        }
+                    }
+
+                    if take > 0 {
+                        self.internal_buf.extend_from_slice(&search_slice[..take]);
+                        current_msg_len = current_msg_len.saturating_add(take);
+                    }
+
+                    if truncated {
+                        truncated_bytes = (bytes_until_newline - take) as u64;
+                        if newline_rel.is_some() {
+                            consumed = start + bytes_until_newline + 1;
+                            newline_consumed = true;
+                        } else {
+                            consumed = available.len();
+                        }
+                        line_complete = true;
+                        break;
+                    }
+
+                    if let Some(_) = newline_rel {
+                        self.internal_buf.push(b'\n');
+                        consumed = start + bytes_until_newline + 1;
+                        line_complete = true;
+                        break;
+                    } else {
+                        consumed = available.len();
+                        break;
+                    }
+                }
+            }
+
+            self.input.consume(consumed);
+
+            if truncated {
+                if !newline_consumed {
+                    let (discarded, saw_newline) = self.discard_rest_of_line()?;
+                    let extra = if saw_newline {
+                        discarded.saturating_sub(1)
+                    } else {
+                        discarded
+                    };
+                    truncated_bytes = truncated_bytes.saturating_add(extra as u64);
+                }
+                Self::append_truncation_marker_raw(&mut self.internal_buf, truncated_bytes);
+                return Ok(true);
+            }
+
+            if line_complete {
+                return Ok(true);
+            }
+        }
+    }
+
+    fn refill_buffer_docker(&mut self) -> io::Result<bool> {
+        self.internal_buf.clear();
+        self.pos = 0;
+
+        const PREFIX: &[u8] = b"{\"log\":\""; // message starts at the 9th byte
+        self.docker_line_buf.clear();
+
+        // Read a single line using fill_buf + memchr to avoid per-call allocation churn.
+        loop {
+            let available = self.input.fill_buf()?;
+            if available.is_empty() {
+                if self.docker_line_buf.is_empty() {
+                    return Ok(false);
+                }
+                break;
+            }
+
+            if let Some(rel_idx) = memchr(b'\n', available) {
+                let take = rel_idx + 1;
+                self.docker_line_buf.extend_from_slice(&available[..take]);
+                self.input.consume(take);
+                break;
+            } else {
+                self.docker_line_buf.extend_from_slice(available);
+                let len = available.len();
+                self.input.consume(len);
+            }
+        }
+
+        if self.docker_line_buf.len() < PREFIX.len() {
+            self.internal_buf.extend_from_slice(&self.docker_line_buf);
+            return Ok(true);
+        }
+
+        // Find end of the message (next unescaped quote) by hopping between quotes.
+        let mut msg_end = self.docker_line_buf.len();
+        let payload = &self.docker_line_buf[PREFIX.len()..];
+        let mut search_start = 0;
+        while let Some(rel_idx) = memchr(b'"', &payload[search_start..]) {
+            let idx_in_payload = search_start + rel_idx;
+            let abs_idx = PREFIX.len() + idx_in_payload;
+
+            // Count preceding backslashes to determine if this quote is escaped.
+            let mut backslashes = 0;
+            let mut cursor = abs_idx;
+            while cursor > 0 && self.docker_line_buf[cursor - 1] == b'\\' {
+                backslashes += 1;
+                cursor -= 1;
+            }
+
+            if backslashes % 2 == 0 {
+                msg_end = abs_idx;
+                break;
+            }
+
+            search_start = idx_in_payload + 1;
+        }
+
+        let message = &self.docker_line_buf[PREFIX.len()..msg_end];
+        if !self.truncate_enabled || message.len() <= self.truncate_at_bytes {
+            self.internal_buf.extend_from_slice(&self.docker_line_buf);
+            return Ok(true);
+        }
+
+        let truncated_bytes = (message.len() - self.truncate_at_bytes) as u64;
+
+        self.internal_buf
+            .extend_from_slice(&self.docker_line_buf[..PREFIX.len()]);
+        self.internal_buf
+            .extend_from_slice(&message[..self.truncate_at_bytes]);
+        Self::append_truncation_marker_json(&mut self.internal_buf, truncated_bytes);
+        self.internal_buf
+            .extend_from_slice(&self.docker_line_buf[msg_end..]);
+
+        Ok(true)
+    }
+
+    fn append_truncation_marker_raw(buf: &mut Vec<u8>, truncated_bytes: u64) {
+        buf.push(TRUNCATION_SENTINEL);
+        Self::push_hex_digits(buf, truncated_bytes);
+        buf.push(TRUNCATION_SENTINEL);
+        buf.push(b'\n');
+    }
+
+    fn append_truncation_marker_json(buf: &mut Vec<u8>, truncated_bytes: u64) {
+        Self::append_escaped_sentinel(buf);
+        Self::push_hex_digits(buf, truncated_bytes);
+        Self::append_escaped_sentinel(buf);
+    }
+
+    fn append_escaped_sentinel(buf: &mut Vec<u8>) {
+        buf.extend_from_slice(b"\\u00");
+        buf.push(HEX_DIGITS[(TRUNCATION_SENTINEL >> 4) as usize]);
+        buf.push(HEX_DIGITS[(TRUNCATION_SENTINEL & 0x0F) as usize]);
+    }
+
+    fn push_hex_digits(buf: &mut Vec<u8>, value: u64) {
+        let mut digits = [0u8; TRUNCATION_HEX_LEN];
+        for (idx, slot) in digits.iter_mut().enumerate() {
+            let shift = (TRUNCATION_HEX_LEN - 1 - idx) * 4;
+            let nibble = ((value >> shift) & 0x0F) as usize;
+            *slot = HEX_DIGITS[nibble];
+        }
+        buf.extend_from_slice(&digits);
+    }
+
+    /// Helper: Consumes bytes until a newline or EOF, returning the count of bytes discarded
+    /// and whether a newline was encountered.
+    fn discard_rest_of_line(&mut self) -> io::Result<(usize, bool)> {
+        let mut total_discarded = 0;
+
+        loop {
+            let available = self.input.fill_buf()?;
+            if available.is_empty() {
+                return Ok((total_discarded, false));
+            }
+
+            if let Some(index) = memchr(b'\n', available) {
+                let bytes_to_consume = index + 1;
+                self.input.consume(bytes_to_consume);
+                total_discarded += bytes_to_consume;
+                return Ok((total_discarded, true));
+            }
+
+            let len = available.len();
+            self.input.consume(len);
+            total_discarded += len;
+        }
+    }
+}
+
+impl<R: Read> Read for LogTrimmerReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        while self.pos >= self.internal_buf.len() {
+            let has_more = self.refill_buffer()?;
+            if !has_more {
+                return Ok(0);
+            }
+        }
+
+        let available = self.internal_buf.len() - self.pos;
+        let to_copy = std::cmp::min(available, buf.len());
+
+        buf[..to_copy].copy_from_slice(&self.internal_buf[self.pos..self.pos + to_copy]);
+        self.pos += to_copy;
+
+        Ok(to_copy)
     }
 }
 
@@ -77,7 +389,7 @@ impl<R: Read + Seek> ReverseLineReader<R> {
             return Ok(false);
         }
         let available = self.pos - self.min_pos;
-        let size = std::cmp::min(CHUNK_SIZE as u64, available) as usize;
+        let size = std::cmp::min(REVERSE_READER_CHUNK_SIZE as u64, available) as usize;
         self.pos -= size as u64;
         self.inner.seek(SeekFrom::Start(self.pos))?;
         self.buf.resize(size, 0);
@@ -186,13 +498,129 @@ impl<R: Read + Seek> Read for ReverseLineReader<R> {
 
 #[cfg(test)]
 mod tests {
-    use std::{error::Error, io::Write};
+    use std::{
+        error::Error,
+        io::{Cursor, Read, Write},
+    };
 
-    use rand::{self, distr::Alphanumeric, Rng};
+    use rand::distr::Alphanumeric;
+    use rand::{self, Rng};
+    use rstest::rstest;
 
     use tempfile::NamedTempFile;
 
     use super::*;
+    use crate::util::format::FileFormat;
+
+    #[test]
+    fn test_term_reader_cancellation() -> Result<(), Box<dyn Error>> {
+        let data = b"some data here\n";
+        let mut buf = [0u8; 100];
+
+        let token = CancellationToken::new();
+        token.cancel(); // Cancel immediately
+
+        let mut reader = TermReader::new(token, &data[..]);
+        let n = reader.read(&mut buf)?;
+
+        assert_eq!(n, 0, "Should return 0 bytes when cancelled");
+        Ok(())
+    }
+
+    #[rstest]
+    #[case(
+        5,
+        "2024-11-20T10:00:00Z stdout F 1234567890\n",
+        {
+            let mut expected = b"2024-11-20T10:00:00Z stdout F 12345".to_vec();
+            expected.push(TRUNCATION_SENTINEL);
+            expected.extend_from_slice(format!("{:016X}", 5u64).as_bytes());
+            expected.push(TRUNCATION_SENTINEL);
+            expected.push(b'\n');
+            expected
+        }
+    )]
+    #[case(
+        10,
+        "2024-11-20T10:00:00Z stdout F 1234567890\n",
+        b"2024-11-20T10:00:00Z stdout F 1234567890\n".to_vec()
+    )]
+    #[case(
+        20,
+        "2024-11-20T10:00:00Z stdout F 1234567890\n",
+        b"2024-11-20T10:00:00Z stdout F 1234567890\n".to_vec()
+    )]
+    fn log_trimmer_reader_truncates_message(
+        #[case] limit: u64,
+        #[case] input: &str,
+        #[case] expected: Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut reader =
+            LogTrimmerReader::new(Cursor::new(input.as_bytes()), FileFormat::CRI, limit);
+        let mut output = Vec::new();
+        reader.read_to_end(&mut output)?;
+
+        assert_eq!(output, expected);
+        Ok(())
+    }
+
+    #[rstest]
+    #[case(
+        3,
+        "2024-11-20T10:00:00Z stdout F abcdef\n2024-11-21T10:00:00Z stdout F xyz\n",
+        {
+            let mut expected = b"2024-11-20T10:00:00Z stdout F abc".to_vec();
+            expected.push(TRUNCATION_SENTINEL);
+            expected.extend_from_slice(format!("{:016X}", 3u64).as_bytes());
+            expected.push(TRUNCATION_SENTINEL);
+            expected.push(b'\n');
+            expected.extend_from_slice(b"2024-11-21T10:00:00Z stdout F xyz\n");
+            expected
+        }
+    )]
+    #[case(
+        2,
+        "noheader longmessageexceedinglimit\n2024-11-21T10:00:00Z stdout F qwerty\n",
+        {
+            let mut expected =
+                b"noheader longmessageexceedinglimit\n2024-11-21T10:00:00Z stdout F qw".to_vec();
+            expected.push(TRUNCATION_SENTINEL);
+            expected.extend_from_slice(format!("{:016X}", 4u64).as_bytes());
+            expected.push(TRUNCATION_SENTINEL);
+            expected.push(b'\n');
+            expected
+        }
+    )]
+    fn log_trimmer_reader_handles_lines_independently(
+        #[case] limit: u64,
+        #[case] input: &str,
+        #[case] expected: Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut reader =
+            LogTrimmerReader::new(Cursor::new(input.as_bytes()), FileFormat::CRI, limit);
+        let mut output = Vec::new();
+        reader.read_to_end(&mut output)?;
+
+        assert_eq!(output, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn log_trimmer_reader_truncates_docker_format() -> Result<(), Box<dyn Error>> {
+        let input = r#"{"log":"abcdefghij","stream":"stdout","time":"2024-11-20T10:00:00Z"}"#;
+        let input_with_newline = format!("{input}\n").into_bytes();
+        let mut reader =
+            LogTrimmerReader::new(Cursor::new(input_with_newline), FileFormat::Docker, 5);
+
+        let mut output = Vec::new();
+        reader.read_to_end(&mut output)?;
+
+        let mut expected = br#"{"log":"abcde\u001F0000000000000005\u001F","stream":"stdout","time":"2024-11-20T10:00:00Z"}"#.to_vec();
+        expected.push(b'\n');
+
+        assert_eq!(output, expected);
+        Ok(())
+    }
 
     #[test]
     fn test_reverse_line_reader() -> Result<(), Box<dyn Error>> {
@@ -228,19 +656,6 @@ mod tests {
             n += 1;
         }
 
-        Ok(())
-    }
-
-    #[test]
-    fn test_term_reader() -> Result<(), Box<dyn Error>> {
-        let data = b"This is a Test";
-        let mut buf = [0u8; 14];
-
-        let mut reader = TermReader::new(CancellationToken::new(), &data[0..14]);
-        let bytes_read = reader.read(&mut buf).expect("Read should succeed");
-
-        assert_eq!(bytes_read, 14, "Should read 14 bytes");
-        assert_eq!(&buf, b"This is a Test", "Buffer should contain 'hello'");
         Ok(())
     }
 }

@@ -15,12 +15,16 @@
 package logs
 
 import (
+	"bufio"
 	"context"
+	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // RoundTripperFunc type is an adapter to allow the use of ordinary functions as http.RoundTripper.
@@ -29,6 +33,89 @@ type RoundTripperFunc func(*http.Request) (*http.Response, error)
 // RoundTrip calls f(r).
 func (f RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return f(r)
+}
+
+func TestNextRecordFromReader(t *testing.T) {
+	tests := []struct {
+		name               string
+		setLine            string
+		setTruncateAtBytes uint64
+		setBufSize         int
+		wantTimestamp      time.Time
+		wantMessage        string
+		wantOrigSize       uint64
+		wantTruncated      bool
+		wantErr            error
+	}{
+		{
+			name:               "parses valid record",
+			setLine:            "2025-03-13T11:36:09.123456789Z hello world\n",
+			setTruncateAtBytes: 0,
+			wantTimestamp:      time.Date(2025, 3, 13, 11, 36, 9, 123456789, time.UTC),
+			wantMessage:        "hello world",
+			wantOrigSize:       uint64(len("hello world")),
+			wantTruncated:      false,
+			wantErr:            nil,
+		},
+		{
+			name:               "truncates long message",
+			setLine:            "2024-01-01T00:00:00Z 0123456789ABCDEFGHIJ\n",
+			setTruncateAtBytes: 10,
+			wantTimestamp:      time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+			wantMessage:        "0123456789",
+			wantOrigSize:       uint64(len("0123456789ABCDEFGHIJ")),
+			wantTruncated:      true,
+			wantErr:            nil,
+		},
+		{
+			name:               "handles chunked lines",
+			setLine:            "2024-06-15T12:00:00Z " + strings.Repeat("x", 200) + "\n",
+			setTruncateAtBytes: 0,
+			setBufSize:         30, // force multiple ReadLine chunks
+			wantTimestamp:      time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC),
+			wantMessage:        strings.Repeat("x", 200),
+			wantOrigSize:       uint64(200),
+			wantTruncated:      false,
+			wantErr:            nil,
+		},
+		{
+			name:    "returns proper error at EOF",
+			setLine: "",
+			wantErr: io.EOF,
+		},
+		{
+			name:    "invalid timestamp",
+			setLine: "not-a-timestamp message body\n",
+			wantErr: &time.ParseError{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := func() *bufio.Reader {
+				if tt.setBufSize > 0 {
+					return bufio.NewReaderSize(strings.NewReader(tt.setLine), tt.setBufSize)
+				}
+				return bufio.NewReader(strings.NewReader(tt.setLine))
+			}()
+
+			record, err := nextRecordFromReader(reader, tt.setTruncateAtBytes)
+			if tt.wantErr != nil {
+				if tt.wantErr == io.EOF {
+					assert.ErrorIs(t, tt.wantErr, err)
+				} else if tt.wantErr != nil {
+					assert.ErrorAs(t, tt.wantErr, &err)
+				}
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantTimestamp, record.Timestamp)
+			assert.Equal(t, tt.wantMessage, record.Message)
+			assert.Equal(t, tt.wantOrigSize, record.OriginalSizeBytes)
+			assert.Equal(t, tt.wantTruncated, record.IsTruncated)
+		})
+	}
 }
 
 func TestMergeLogStreams(t *testing.T) {
@@ -261,65 +348,6 @@ func TestMergeLogStreamsContextCancellation(t *testing.T) {
 	// Verify channel is closed
 	_, ok := <-merged
 	assert.False(t, ok, "channel should be closed after context cancellation")
-}
-
-func TestNewLogRecordFromLogLine(t *testing.T) {
-	tests := []struct {
-		name        string
-		logLine     string
-		wantTime    time.Time
-		wantMessage string
-		wantErr     bool
-	}{
-		{
-			name:        "valid log line",
-			logLine:     "2025-03-13T11:36:09.123456789Z Hello world",
-			wantTime:    time.Date(2025, 3, 13, 11, 36, 9, 123456789, time.UTC),
-			wantMessage: "Hello world",
-			wantErr:     false,
-		},
-		{
-			name:        "valid log line with multiple spaces in message",
-			logLine:     "2025-03-13T11:36:09.123456789Z   Multiple   spaces   here   ",
-			wantTime:    time.Date(2025, 3, 13, 11, 36, 9, 123456789, time.UTC),
-			wantMessage: "  Multiple   spaces   here   ",
-			wantErr:     false,
-		},
-		{
-			name:    "missing timestamp",
-			logLine: "Hello world",
-			wantErr: true,
-		},
-		{
-			name:    "invalid timestamp format",
-			logLine: "2025-03-13 11:36:09 Hello world",
-			wantErr: true,
-		},
-		{
-			name:    "empty string",
-			logLine: "",
-			wantErr: true,
-		},
-		{
-			name:    "only timestamp",
-			logLine: "2025-03-13T11:36:09.123456789Z",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := newLogRecordFromLogLine(tt.logLine)
-			if tt.wantErr {
-				assert.Error(t, err)
-				return
-			}
-
-			assert.NoError(t, err)
-			assert.Equal(t, tt.wantTime, got.Timestamp, "timestamps should match")
-			assert.Equal(t, tt.wantMessage, got.Message, "messages should match")
-		})
-	}
 }
 
 func TestParseWorkloadType(t *testing.T) {
