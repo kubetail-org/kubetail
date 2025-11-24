@@ -14,10 +14,11 @@
 
 use grep::matcher::{self, Match, Matcher};
 use grep::regex::{self, RegexMatcher, RegexMatcherBuilder};
-use memchr::memmem;
+use memchr::{memchr, memmem};
 use serde::Deserialize;
 
 use crate::util::format::FileFormat;
+use crate::util::reader::TRUNCATION_SENTINEL;
 
 // PassThroughMatcher
 #[derive(Default)]
@@ -101,7 +102,8 @@ impl Matcher for LogFileRegexMatcher {
 
 impl LogFileRegexMatcher {
     fn has_match_docker(&self, haystack: &[u8]) -> Result<bool, matcher::NoError> {
-        if let Some(msg) = extract_message_docker(haystack) {
+        if let Some(mut msg) = extract_message_docker(haystack) {
+            trim_truncation_marker_in_place(&mut msg);
             if self.inner.find(msg.as_slice())?.is_some() {
                 return Ok(true);
             }
@@ -111,7 +113,8 @@ impl LogFileRegexMatcher {
 
     fn has_match_cri(&self, haystack: &[u8]) -> Result<bool, matcher::NoError> {
         if let Some(msg) = extract_message_cri(haystack) {
-            if self.inner.find(msg)?.is_some() {
+            let trimmed = trim_truncation_marker(msg);
+            if self.inner.find(trimmed)?.is_some() {
                 return Ok(true);
             }
         }
@@ -194,5 +197,19 @@ mod tests {
     fn test_extract_message_docker(#[case] line_str: String, #[case] expected_msg: String) {
         let msg_maybe = extract_message_docker(line_str.as_bytes());
         assert_eq!(msg_maybe, Some(expected_msg.into_bytes()));
+    }
+}
+
+fn trim_truncation_marker(bytes: &[u8]) -> &[u8] {
+    if let Some(idx) = memchr(TRUNCATION_SENTINEL, bytes) {
+        &bytes[..idx]
+    } else {
+        bytes
+    }
+}
+
+fn trim_truncation_marker_in_place(data: &mut Vec<u8>) {
+    if let Some(idx) = memchr(TRUNCATION_SENTINEL, data) {
+        data.truncate(idx);
     }
 }

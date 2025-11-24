@@ -26,6 +26,7 @@ use tracing::debug;
 use types::cluster_agent::LogRecord;
 
 use crate::util::format::FileFormat;
+use crate::util::reader::{TRUNCATION_HEX_LEN, TRUNCATION_SENTINEL};
 
 /// A custom writer that calls a callback function whenever data is written.
 pub struct CallbackWriter<F>
@@ -105,11 +106,16 @@ pub fn process_output(
                             if let (Some(time_str), Some(log_msg)) =
                                 (log_json["time"].as_str(), log_json["log"].as_str())
                             {
+                                let (message, original_size_bytes, is_truncated) =
+                                    normalize_message(log_msg);
+
                                 let record = LogRecord {
                                     timestamp: Some(
                                         Timestamp::from_str(time_str).unwrap_or_default(),
                                     ),
-                                    message: log_msg.trim_end().to_string(),
+                                    message,
+                                    original_size_bytes,
+                                    is_truncated,
                                 };
 
                                 let result =
@@ -129,9 +135,14 @@ pub fn process_output(
                                 return;
                             }
 
+                            let (message, original_size_bytes, is_truncated) =
+                                normalize_message(&rest[9..]);
+
                             let record = LogRecord {
                                 timestamp: Some(Timestamp::from_str(first).unwrap()),
-                                message: rest[9..].trim_end().to_string(),
+                                message,
+                                original_size_bytes,
+                                is_truncated,
                             };
 
                             let result = task::block_in_place(|| sender.blocking_send(Ok(record)));
@@ -144,5 +155,105 @@ pub fn process_output(
                 }
             }
         }
+    }
+}
+
+// Returns decoded string, original_size_bytes, is_truncated
+fn normalize_message(raw: &str) -> (String, u64, bool) {
+    let trimmed = raw.trim_end_matches(|c| c == '\n' || c == '\r');
+    let bytes = trimmed.as_bytes();
+    const MARKER_LEN: usize = TRUNCATION_HEX_LEN + 2; // sentinel + 16 hex digits + sentinel
+
+    if bytes.len() >= MARKER_LEN && bytes.last().copied() == Some(TRUNCATION_SENTINEL) {
+        let suffix_start = bytes.len() - MARKER_LEN;
+        let (message_bytes, suffix) = bytes.split_at(suffix_start);
+
+        if suffix.first().copied() == Some(TRUNCATION_SENTINEL) {
+            let hex_bytes = &suffix[1..1 + TRUNCATION_HEX_LEN];
+
+            if hex_bytes
+                .iter()
+                .all(|b| matches!(*b, b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F'))
+            {
+                if let Ok(hex_str) = std::str::from_utf8(hex_bytes) {
+                    if let Ok(truncated_bytes) = u64::from_str_radix(hex_str, 16) {
+                        let message = String::from_utf8_lossy(message_bytes).to_string();
+                        return (message, message_bytes.len() as u64 + truncated_bytes, true);
+                    }
+                }
+            }
+        }
+    }
+
+    (trimmed.to_string(), trimmed.len() as u64, false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{normalize_message, process_output};
+    use crate::util::{format::FileFormat, reader::LogTrimmerReader};
+    use std::io::{Cursor, Read};
+    use tokio::sync::mpsc;
+    use tokio_util::sync::CancellationToken;
+
+    #[test]
+    fn normalize_message_returns_truncated_count_and_strips_marker() {
+        let raw = format!(
+            "hello{}{:016X}{}\n",
+            char::from(super::TRUNCATION_SENTINEL),
+            3u64,
+            char::from(super::TRUNCATION_SENTINEL)
+        );
+
+        let (normalized, original_size_bytes, is_truncated) = normalize_message(&raw);
+        assert_eq!(normalized, "hello");
+        assert_eq!(original_size_bytes, 8);
+        assert!(is_truncated);
+    }
+
+    #[test]
+    fn normalize_message_trims_newlines() {
+        let raw = "hello\n";
+        assert_eq!(normalize_message(raw), ("hello".to_string(), 5, false));
+    }
+
+    #[test]
+    fn normalize_message_ignores_embedded_sentinel() {
+        let raw = format!("hel{}lo\n", char::from(super::TRUNCATION_SENTINEL));
+        let (normalized, original_size_bytes, is_truncated) = normalize_message(&raw);
+        assert_eq!(
+            normalized,
+            format!("hel{}lo", char::from(super::TRUNCATION_SENTINEL))
+        );
+        assert_eq!(original_size_bytes, 6);
+        assert!(!is_truncated);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn process_output_respects_truncate_limit_for_cri() {
+        const LIMIT: u64 = 100;
+        let message = "a".repeat(120);
+        let line = format!("2024-11-20T10:00:00Z stdout F {message}\n");
+
+        // Simulate the log reader trimming a long CRI line.
+        let mut reader =
+            LogTrimmerReader::new(Cursor::new(line.as_bytes()), FileFormat::CRI, LIMIT);
+        let mut buf = Vec::new();
+        reader.read_to_end(&mut buf).unwrap();
+
+        let chunk = serde_json::json!({
+            "type": "match",
+            "data": { "lines": { "text": String::from_utf8(buf).unwrap() } }
+        });
+        let chunk_bytes = serde_json::to_vec(&chunk).unwrap();
+
+        let (tx, mut rx) = mpsc::channel(1);
+        let ctx = CancellationToken::new();
+        process_output(ctx, chunk_bytes, &tx, FileFormat::CRI);
+
+        let record = rx.recv().await.unwrap().unwrap();
+        assert_eq!(record.message.len(), LIMIT as usize);
+        assert_eq!(record.original_size_bytes, message.len() as u64);
+        assert!(record.is_truncated);
     }
 }
