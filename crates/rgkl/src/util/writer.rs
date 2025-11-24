@@ -26,7 +26,7 @@ use tracing::debug;
 use types::cluster_agent::LogRecord;
 
 use crate::util::format::FileFormat;
-use crate::util::reader::TRUNCATION_SENTINEL;
+use crate::util::reader::{TRUNCATION_HEX_LEN, TRUNCATION_SENTINEL};
 
 /// A custom writer that calls a callback function whenever data is written.
 pub struct CallbackWriter<F>
@@ -162,19 +162,30 @@ pub fn process_output(
 fn normalize_message(raw: &str) -> (String, u64, bool) {
     let trimmed = raw.trim_end_matches(|c| c == '\n' || c == '\r');
     let bytes = trimmed.as_bytes();
-    const MARKER_LEN: usize = std::mem::size_of::<u64>() + 1; // 8-byte count + sentinel
+    const MARKER_LEN: usize = TRUNCATION_HEX_LEN + 2; // sentinel + 16 hex digits + sentinel
 
     if bytes.len() >= MARKER_LEN && bytes.last().copied() == Some(TRUNCATION_SENTINEL) {
         let suffix_start = bytes.len() - MARKER_LEN;
         let (message_bytes, suffix) = bytes.split_at(suffix_start);
-        let truncated_bytes =
-            u64::from_be_bytes(suffix[..std::mem::size_of::<u64>()].try_into().unwrap());
 
-        let message = String::from_utf8_lossy(message_bytes).to_string();
-        (message, message_bytes.len() as u64 + truncated_bytes, true)
-    } else {
-        (trimmed.to_string(), trimmed.len() as u64, false)
+        if suffix.first().copied() == Some(TRUNCATION_SENTINEL) {
+            let hex_bytes = &suffix[1..1 + TRUNCATION_HEX_LEN];
+
+            if hex_bytes
+                .iter()
+                .all(|b| matches!(*b, b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F'))
+            {
+                if let Ok(hex_str) = std::str::from_utf8(hex_bytes) {
+                    if let Ok(truncated_bytes) = u64::from_str_radix(hex_str, 16) {
+                        let message = String::from_utf8_lossy(message_bytes).to_string();
+                        return (message, message_bytes.len() as u64 + truncated_bytes, true);
+                    }
+                }
+            }
+        }
     }
+
+    (trimmed.to_string(), trimmed.len() as u64, false)
 }
 
 #[cfg(test)]
@@ -187,11 +198,12 @@ mod tests {
 
     #[test]
     fn normalize_message_returns_truncated_count_and_strips_marker() {
-        let mut raw_bytes = b"hello".to_vec();
-        raw_bytes.extend_from_slice(&3u64.to_be_bytes());
-        raw_bytes.push(super::TRUNCATION_SENTINEL);
-        raw_bytes.push(b'\n');
-        let raw = String::from_utf8(raw_bytes).unwrap();
+        let raw = format!(
+            "hello{}{:016X}{}\n",
+            char::from(super::TRUNCATION_SENTINEL),
+            3u64,
+            char::from(super::TRUNCATION_SENTINEL)
+        );
 
         let (normalized, original_size_bytes, is_truncated) = normalize_message(&raw);
         assert_eq!(normalized, "hello");
@@ -224,7 +236,8 @@ mod tests {
         let line = format!("2024-11-20T10:00:00Z stdout F {message}\n");
 
         // Simulate the log reader trimming a long CRI line.
-        let mut reader = LogTrimmerReader::new(Cursor::new(line.as_bytes()), FileFormat::CRI, LIMIT);
+        let mut reader =
+            LogTrimmerReader::new(Cursor::new(line.as_bytes()), FileFormat::CRI, LIMIT);
         let mut buf = Vec::new();
         reader.read_to_end(&mut buf).unwrap();
 

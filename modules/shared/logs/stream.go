@@ -27,7 +27,8 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
-const DEFAULT_TRUNCATE_AT_BYTES = uint64(100 * 1024) // 100 KB
+// const DEFAULT_TRUNCATE_AT_BYTES = uint64(100 * 1024) // 100 KB
+const DEFAULT_TRUNCATE_AT_BYTES = uint64(100) // 100 KB
 
 // LogRecord represents a log record
 type LogRecord struct {

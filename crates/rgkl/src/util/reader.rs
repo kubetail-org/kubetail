@@ -21,6 +21,8 @@ use tokio_util::sync::CancellationToken;
 const LOG_TRIMMER_READER_BUFFER_SIZE: usize = 32 * 1024; // 32 KB
 const REVERSE_READER_CHUNK_SIZE: usize = 64 * 1024; // 64KB
 pub const TRUNCATION_SENTINEL: u8 = 0x1F;
+pub const TRUNCATION_HEX_LEN: usize = 16;
+const HEX_DIGITS: &[u8; 16] = b"0123456789ABCDEF";
 
 #[derive(Debug)]
 pub struct TermReader<R> {
@@ -279,22 +281,32 @@ impl<R: Read> LogTrimmerReader<R> {
     }
 
     fn append_truncation_marker_raw(buf: &mut Vec<u8>, truncated_bytes: u64) {
-        buf.extend_from_slice(&truncated_bytes.to_be_bytes());
+        buf.push(TRUNCATION_SENTINEL);
+        Self::push_hex_digits(buf, truncated_bytes);
         buf.push(TRUNCATION_SENTINEL);
         buf.push(b'\n');
     }
 
     fn append_truncation_marker_json(buf: &mut Vec<u8>, truncated_bytes: u64) {
-        const HEX: &[u8; 16] = b"0123456789ABCDEF";
-        for byte in truncated_bytes
-            .to_be_bytes()
-            .into_iter()
-            .chain(std::iter::once(TRUNCATION_SENTINEL))
-        {
-            buf.extend_from_slice(b"\\u00");
-            buf.push(HEX[(byte >> 4) as usize]);
-            buf.push(HEX[(byte & 0x0F) as usize]);
+        Self::append_escaped_sentinel(buf);
+        Self::push_hex_digits(buf, truncated_bytes);
+        Self::append_escaped_sentinel(buf);
+    }
+
+    fn append_escaped_sentinel(buf: &mut Vec<u8>) {
+        buf.extend_from_slice(b"\\u00");
+        buf.push(HEX_DIGITS[(TRUNCATION_SENTINEL >> 4) as usize]);
+        buf.push(HEX_DIGITS[(TRUNCATION_SENTINEL & 0x0F) as usize]);
+    }
+
+    fn push_hex_digits(buf: &mut Vec<u8>, value: u64) {
+        let mut digits = [0u8; TRUNCATION_HEX_LEN];
+        for (idx, slot) in digits.iter_mut().enumerate() {
+            let shift = (TRUNCATION_HEX_LEN - 1 - idx) * 4;
+            let nibble = ((value >> shift) & 0x0F) as usize;
+            *slot = HEX_DIGITS[nibble];
         }
+        buf.extend_from_slice(&digits);
     }
 
     /// Helper: Consumes bytes until a newline or EOF, returning the count of bytes discarded
@@ -521,7 +533,8 @@ mod tests {
         "2024-11-20T10:00:00Z stdout F 1234567890\n",
         {
             let mut expected = b"2024-11-20T10:00:00Z stdout F 12345".to_vec();
-            expected.extend_from_slice(&5u64.to_be_bytes());
+            expected.push(TRUNCATION_SENTINEL);
+            expected.extend_from_slice(format!("{:016X}", 5u64).as_bytes());
             expected.push(TRUNCATION_SENTINEL);
             expected.push(b'\n');
             expected
@@ -557,7 +570,8 @@ mod tests {
         "2024-11-20T10:00:00Z stdout F abcdef\n2024-11-21T10:00:00Z stdout F xyz\n",
         {
             let mut expected = b"2024-11-20T10:00:00Z stdout F abc".to_vec();
-            expected.extend_from_slice(&3u64.to_be_bytes());
+            expected.push(TRUNCATION_SENTINEL);
+            expected.extend_from_slice(format!("{:016X}", 3u64).as_bytes());
             expected.push(TRUNCATION_SENTINEL);
             expected.push(b'\n');
             expected.extend_from_slice(b"2024-11-21T10:00:00Z stdout F xyz\n");
@@ -570,7 +584,8 @@ mod tests {
         {
             let mut expected =
                 b"noheader longmessageexceedinglimit\n2024-11-21T10:00:00Z stdout F qw".to_vec();
-            expected.extend_from_slice(&4u64.to_be_bytes());
+            expected.push(TRUNCATION_SENTINEL);
+            expected.extend_from_slice(format!("{:016X}", 4u64).as_bytes());
             expected.push(TRUNCATION_SENTINEL);
             expected.push(b'\n');
             expected
@@ -600,7 +615,7 @@ mod tests {
         let mut output = Vec::new();
         reader.read_to_end(&mut output)?;
 
-        let mut expected = br#"{"log":"abcde\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0005\u001F","stream":"stdout","time":"2024-11-20T10:00:00Z"}"#.to_vec();
+        let mut expected = br#"{"log":"abcde\u001F0000000000000005\u001F","stream":"stdout","time":"2024-11-20T10:00:00Z"}"#.to_vec();
         expected.push(b'\n');
 
         assert_eq!(output, expected);

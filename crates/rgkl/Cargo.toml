@@ -40,7 +40,3 @@ termcolor = "1.4.1"
 
 [dev-dependencies]
 criterion = "0.5"
-
-[[bench]]
-name = "reader_bench"
-harness = false
