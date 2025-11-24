@@ -238,6 +238,7 @@ func WithAllowedNamespaces(allowedNamespaces []string) Option {
 	}
 }
 
+// WithAllContainers adds all containers to stream
 func WithAllContainers(allContainers bool) Option {
 	return func(target any) error {
 		switch t := target.(type) {
@@ -245,6 +246,18 @@ func WithAllContainers(allContainers bool) Option {
 			t.allContainers = allContainers
 		}
 
+		return nil
+	}
+}
+
+// WithTruncateAtBytes sets the maximum number of bytes
+// to read for log messages
+func WithTruncateAtBytes(n int) Option {
+	return func(target any) error {
+		switch t := target.(type) {
+		case *Stream:
+			t.truncateAtBytes = n
+		}
 		return nil
 	}
 }
