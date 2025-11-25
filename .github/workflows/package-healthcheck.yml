@@ -29,14 +29,17 @@ jobs:
             const tag = (data.tag_name || '').replace(/^cli\/v/, ''); // e.g. "cli/v0.10.0" -> "0.10.0"
             core.setOutput('ver', tag);
 
-  # Linux package managers in containers (run as root so $GITHUB_STEP_SUMMARY is writable)
   linux:
     needs: upstream
-    runs-on: ubuntu-24.04
+    env:
+      ARCH: ${{ matrix.arch }}
     strategy:
       fail-fast: false
       matrix:
-        include:
+        runner:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+        config:
           - mgr: apt
             image: ubuntu:24.04
             setup: |
@@ -47,7 +50,6 @@ jobs:
             install: apt-get install -y kubetail-cli
             pkg_ver: dpkg-query --showformat='\${Version}\n' --show kubetail-cli | sed 's/-.*$//'
             cli_try: kubetail --version 2>&1 || true
-
           - mgr: dnf
             image: fedora:42
             setup: |
@@ -56,7 +58,6 @@ jobs:
             install: dnf -y install kubetail-cli
             pkg_ver: rpm -q --qf '%{VERSION}\n' kubetail-cli
             cli_try: kubetail --version 2>&1 || true
-
           - mgr: zypper
             image: opensuse/leap:15.6
             setup: |
@@ -67,35 +68,31 @@ jobs:
             install: zypper install -y kubetail-cli
             pkg_ver: rpm -q --qf '%{VERSION}\n' kubetail-cli
             cli_try: kubetail --version 2>&1 || true
-
           - mgr: brew-linux
             image: homebrew/ubuntu22.04
             setup: apt-get update && apt-get install -y jq sudo
             install: sudo -u linuxbrew env PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/bin:/bin HOMEBREW_NO_AUTO_UPDATE=1 /home/linuxbrew/.linuxbrew/bin/brew install kubetail
             pkg_ver: sudo -u linuxbrew env PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/bin:/bin HOMEBREW_NO_AUTO_UPDATE=1 /home/linuxbrew/.linuxbrew/bin/brew info --json=v2 kubetail | jq -r '.formulae[0].versions.stable'
             cli_try: sudo -u linuxbrew env PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/bin:/bin bash -lc 'kubetail --version 2>&1 || true'
-
           - mgr: krew
             image: bitnami/kubectl:latest
             setup: |
               apt-get update && apt-get install -y curl tar git
               set -eux
-              curl -fsSLO https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz
-              tar zxvf krew-linux_amd64.tar.gz
-              ./krew-linux_amd64 install krew
+              curl -fsSLO https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_${ARCH}.tar.gz
+              tar zxvf krew-linux_${ARCH}.tar.gz
+              ./krew-linux_${ARCH} install krew
               echo "$HOME/.krew/bin" >> $GITHUB_PATH
               export PATH="$HOME/.krew/bin:$PATH"
             install: PATH="$HOME/.krew/bin:$PATH" kubectl krew install kubetail
             pkg_ver: kubectl krew info kubetail 2>/dev/null | sed -n 's/^VERSION:[[:space:]]*v\{0,1\}//p' | head -n1
             cli_try: kubectl krew info kubetail 2>&1 || true
-
           - mgr: nix
             image: nixos/nix:latest
             setup: true
             install: nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
             pkg_ver: bash -lc 'PATH="$HOME/.nix-profile/bin:$PATH"; if command -v kubetail >/dev/null 2>&1; then kubetail --version 2>/dev/null | grep -oE "[0-9]+\.[0-9]+\.[0-9]+" | head -n1; else echo unknown; fi'
             cli_try: bash -lc 'PATH="$HOME/.nix-profile/bin:$PATH"; kubetail --version 2>&1 || true'
-
           - mgr: asdf
             image: debian:12
             setup: |
@@ -112,166 +109,58 @@ jobs:
             pkg_ver: bash -lc '. ~/.asdf/asdf.sh && kubetail --version | sed -n '\''s/[^0-9]*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p'\'''
             cli_try: |
               bash -lc '. ~/.asdf/asdf.sh && kubetail --version 2>&1 || true'
-    container:
-      image: ${{ matrix.image }}
-      options: --user 0
-    steps:
-      - name: Setup
-        shell: bash
-        run: |
-          set -euxo pipefail
-          if [ "${{ matrix.setup }}" != "true" ]; then eval "${{ matrix.setup }}"; fi
-      - name: Install
-        shell: bash
-        run: |
-          set -euxo pipefail
-          eval "${{ matrix.install }}"
-      - name: Compare and append per-distro CLI summary
-        env:
-          UPSTREAM: ${{ needs.upstream.outputs.ver }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          pkg_ver_base="$(eval "${{ matrix.pkg_ver }}")"
-          pkg_ver_base="${pkg_ver_base%%$'\n'*}"
-          if [ -z "$pkg_ver_base" ]; then
-            pkg_ver_base="unknown"
-            echo "::warning::${{ matrix.mgr }} version could not be determined (marked as unknown)"
-          fi
-
-          # Show both for logs
-          echo "Upstream:  $UPSTREAM"
-          echo "Package:   $pkg_ver_base"
-          if [ "$pkg_ver_base" = "unknown" ]; then
-            echo "${{ matrix.mgr }} version unknown; skipping comparison"
-          elif [ "$UPSTREAM" != "$pkg_ver_base" ]; then
-            echo "::warning::${{ matrix.mgr }} version $pkg_ver_base differs from upstream $UPSTREAM"
-          else
-            echo "${{ matrix.mgr }} version matches upstream"
-          fi
-
-          # Capture actual CLI output (kubetail-cli preferred; fall back if needed)
-          out="$(eval "${{ matrix.cli_try }}")"
-          echo "#### ${{ matrix.mgr }}" >> "$GITHUB_STEP_SUMMARY"
-          printf '```text\n%s\n```\n' "$out" >> "$GITHUB_STEP_SUMMARY"
-
-  # Linux ARM64 package managers in containers
-  linux-arm64:
-    needs: upstream
-    runs-on: ubuntu-24.04-arm
-    strategy:
-      fail-fast: false
-      matrix:
         include:
-          - mgr: apt-arm64
-            image: ubuntu:24.04
-            setup: |
-              apt-get update
-              apt-get install -y software-properties-common curl jq
-              add-apt-repository -y ppa:kubetail/kubetail
-              apt-get update
-            install: apt-get install -y kubetail-cli
-            pkg_ver: dpkg-query --showformat='\${Version}\n' --show kubetail-cli | sed 's/-.*$//'
-            cli_try: kubetail --version 2>&1 || true
-
-          - mgr: dnf-arm64
-            image: fedora:42
-            setup: |
-              dnf -y install dnf-plugins-core curl jq
-              dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:/kubetail/Fedora_42/home:kubetail.repo
-            install: dnf -y install kubetail-cli
-            pkg_ver: rpm -q --qf '%{VERSION}\n' kubetail-cli
-            cli_try: kubetail --version 2>&1 || true
-
-          - mgr: zypper-arm64
-            image: opensuse/leap:15.6
-            setup: |
-              zypper -n refresh
-              rpm --import https://download.opensuse.org/repositories/home:/kubetail/15.6/repodata/repomd.xml.key
-              zypper -n addrepo "https://download.opensuse.org/repositories/home:/kubetail/15.6/" kubetail
-              zypper -n refresh
-            install: zypper install -y kubetail-cli
-            pkg_ver: rpm -q --qf '%{VERSION}\n' kubetail-cli
-            cli_try: kubetail --version 2>&1 || true
-
-          - mgr: krew-arm64
-            image: bitnami/kubectl:latest
-            setup: |
-              apt-get update && apt-get install -y curl tar git
-              set -eux
-              curl -fsSLO https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_arm64.tar.gz
-              tar zxvf krew-linux_arm64.tar.gz
-              ./krew-linux_arm64 install krew
-              echo "$HOME/.krew/bin" >> $GITHUB_PATH
-              export PATH="$HOME/.krew/bin:$PATH"
-            install: PATH="$HOME/.krew/bin:$PATH" kubectl krew install kubetail
-            pkg_ver: kubectl krew info kubetail 2>/dev/null | sed -n 's/^VERSION:[[:space:]]*v\{0,1\}//p' | head -n1
-            cli_try: kubectl krew info kubetail 2>&1 || true
-
-          - mgr: nix-arm64
-            image: nixos/nix:latest
-            setup: true
-            install: nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
-            pkg_ver: bash -lc 'PATH="$HOME/.nix-profile/bin:$PATH"; if command -v kubetail >/dev/null 2>&1; then kubetail --version 2>/dev/null | grep -oE "[0-9]+\.[0-9]+\.[0-9]+" | head -n1; else echo unknown; fi'
-            cli_try: bash -lc 'PATH="$HOME/.nix-profile/bin:$PATH"; kubetail --version 2>&1 || true'
-
-          - mgr: asdf-arm64
-            image: debian:12
-            setup: |
-              apt-get update && apt-get install -y git curl
-              git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.1
-              echo '. "$HOME/.asdf/asdf.sh"' >> ~/.bashrc
-              echo '. "$HOME/.asdf/asdf.sh"' >> ~/.bash_profile
-              . ~/.asdf/asdf.sh
-              asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
-              asdf install kubetail latest
-              asdf global kubetail latest
-              asdf reshim kubetail
-            install: bash -lc '. ~/.asdf/asdf.sh && asdf reshim kubetail'
-            pkg_ver: bash -lc '. ~/.asdf/asdf.sh && kubetail --version | sed -n '\''s/[^0-9]*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p'\'''
-            cli_try: |
-              bash -lc '. ~/.asdf/asdf.sh && kubetail --version 2>&1 || true'
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
     container:
-      image: ${{ matrix.image }}
+      image: ${{ matrix.config.image }}
       options: --user 0
     steps:
       - name: Setup
         shell: bash
         run: |
           set -euxo pipefail
-          if [ "${{ matrix.setup }}" != "true" ]; then eval "${{ matrix.setup }}"; fi
+          # Run matrix setup script via heredoc to avoid premature $ expansion under set -u
+          if [ "${{ matrix.config.setup }}" != "true" ]; then
+            eval "${{ matrix.config.setup }}"
+          fi
+
       - name: Install
         shell: bash
         run: |
           set -euxo pipefail
-          eval "${{ matrix.install }}"
+          eval "${{ matrix.config.install }}"
+
       - name: Compare and append per-distro CLI summary
         env:
           UPSTREAM: ${{ needs.upstream.outputs.ver }}
         shell: bash
         run: |
           set -euo pipefail
-          pkg_ver_base="$(eval "${{ matrix.pkg_ver }}")"
+          pkg_ver_base="$(eval "${{ matrix.config.pkg_ver }}")"
           pkg_ver_base="${pkg_ver_base%%$'\n'*}"
           if [ -z "$pkg_ver_base" ]; then
             pkg_ver_base="unknown"
-            echo "::warning::${{ matrix.mgr }} version could not be determined (marked as unknown)"
+            echo "::warning::${{ matrix.config.mgr }} version could not be determined (marked as unknown)"
           fi
 
           # Show both for logs
           echo "Upstream:  $UPSTREAM"
           echo "Package:   $pkg_ver_base"
           if [ "$pkg_ver_base" = "unknown" ]; then
-            echo "${{ matrix.mgr }} version unknown; skipping comparison"
+            echo "${{ matrix.config.mgr }} version unknown; skipping comparison"
           elif [ "$UPSTREAM" != "$pkg_ver_base" ]; then
-            echo "::warning::${{ matrix.mgr }} version $pkg_ver_base differs from upstream $UPSTREAM"
+            echo "::warning::${{ matrix.config.mgr }} version $pkg_ver_base differs from upstream $UPSTREAM"
           else
-            echo "${{ matrix.mgr }} version matches upstream"
+            echo "${{ matrix.config.mgr }} version matches upstream"
           fi
 
           # Capture actual CLI output (kubetail-cli preferred; fall back if needed)
-          out="$(eval "${{ matrix.cli_try }}")"
-          echo "#### ${{ matrix.mgr }}" >> "$GITHUB_STEP_SUMMARY"
+          out="$(eval "${{ matrix.config.cli_try }}")"
+          echo "#### ${{ matrix.config.mgr }} (${{ matrix.arch }})" >> "$GITHUB_STEP_SUMMARY"
           printf '```text\n%s\n```\n' "$out" >> "$GITHUB_STEP_SUMMARY"
 
   # macOS Homebrew install + CLI summary
@@ -334,11 +223,13 @@ jobs:
           curl -fL -o MacPorts.pkg "${{ matrix.macports_url }}"
           printf 'Agree\n' | sudo installer -pkg MacPorts.pkg -target /
           echo "PATH=/opt/local/bin:/opt/local/sbin:$PATH" >> "$GITHUB_ENV"
+
       - name: Install kubetail via MacPorts
         run: |
           set -euxo pipefail
           sudo /opt/local/bin/port -v selfupdate
           sudo /opt/local/bin/port install kubetail
+
       - name: Compare and append CLI summary
         env:
           UPSTREAM: ${{ needs.upstream.outputs.ver }}
@@ -373,8 +264,6 @@ jobs:
         include:
           - runner: windows-2025
             name: windows-x64
-          - runner: windows-11-arm
-            name: windows-arm64
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Install via winget
