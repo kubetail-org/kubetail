@@ -2,7 +2,7 @@ name: package-healthcheck
 
 on:
   schedule:
-  - cron: "23 3 * * *" # daily, UTC
+    - cron: "23 3 * * *" # daily, UTC
   workflow_dispatch: {}
 
 permissions:
@@ -19,334 +19,576 @@ jobs:
     outputs:
       ver: ${{ steps.get.outputs.ver }}
     steps:
-    - uses: actions/github-script@v7
-      id: get
-      with:
-        script: |
-          const { data } = await github.rest.repos.getLatestRelease({
-            owner: 'kubetail-org', repo: 'kubetail'
-          });
-          const tag = (data.tag_name || '').replace(/^cli\/v/, ''); // e.g. "cli/v0.10.0" -> "0.10.0"
-          core.setOutput('ver', tag);
+      - uses: actions/github-script@v7
+        id: get
+        with:
+          script: |
+            const { data } = await github.rest.repos.getLatestRelease({
+              owner: 'kubetail-org', repo: 'kubetail'
+            });
+            const tag = (data.tag_name || '').replace(/^cli\/v/, ''); // e.g. "cli/v0.10.0" -> "0.10.0"
+            core.setOutput('ver', tag);
 
-  # Linux package managers in containers (run as root so $GITHUB_STEP_SUMMARY is writable)
   linux:
     needs: upstream
-    runs-on: ubuntu-24.04
+    env:
+      ARCH: ${{ matrix.arch }}
     strategy:
       fail-fast: false
       matrix:
+        runner:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+        config:
+          - mgr: apt
+            image: ubuntu:24.04
+            setup: |
+              apt-get update
+              apt-get install -y software-properties-common curl jq
+              add-apt-repository -y ppa:kubetail/kubetail
+              apt-get update
+            install: apt-get install -y kubetail-cli
+            pkg_ver: dpkg-query --showformat='\${Version}\n' --show kubetail-cli | sed 's/-.*$//'
+            cli_try: kubetail --version 2>&1 || true
+          - mgr: dnf
+            image: fedora:42
+            setup: |
+              dnf -y install dnf-plugins-core curl jq
+              dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:/kubetail/Fedora_42/home:kubetail.repo
+            install: dnf -y install kubetail-cli
+            pkg_ver: rpm -q --qf '%{VERSION}\n' kubetail-cli
+            cli_try: kubetail --version 2>&1 || true
+          - mgr: zypper
+            image: opensuse/leap:15.6
+            setup: |
+              zypper -n refresh
+              rpm --import https://download.opensuse.org/repositories/home:/kubetail/15.6/repodata/repomd.xml.key
+              zypper -n addrepo "https://download.opensuse.org/repositories/home:/kubetail/15.6/" kubetail
+              zypper -n refresh
+            install: zypper install -y kubetail-cli
+            pkg_ver: rpm -q --qf '%{VERSION}\n' kubetail-cli
+            cli_try: kubetail --version 2>&1 || true
+          - mgr: brew-linux
+            image: homebrew/ubuntu22.04
+            setup: apt-get update && apt-get install -y jq sudo
+            install: sudo -u linuxbrew env PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/bin:/bin HOMEBREW_NO_AUTO_UPDATE=1 /home/linuxbrew/.linuxbrew/bin/brew install kubetail
+            pkg_ver: sudo -u linuxbrew env PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/bin:/bin HOMEBREW_NO_AUTO_UPDATE=1 /home/linuxbrew/.linuxbrew/bin/brew info --json=v2 kubetail | jq -r '.formulae[0].versions.stable'
+            cli_try: sudo -u linuxbrew env PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/bin:/bin bash -lc 'kubetail --version 2>&1 || true'
+          - mgr: krew
+            image: bitnami/kubectl:latest
+            setup: |
+              apt-get update && apt-get install -y curl tar git
+              set -eux
+              curl -fsSLO https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_${ARCH}.tar.gz
+              tar zxvf krew-linux_${ARCH}.tar.gz
+              ./krew-linux_${ARCH} install krew
+              echo "$HOME/.krew/bin" >> $GITHUB_PATH
+              export PATH="$HOME/.krew/bin:$PATH"
+            install: PATH="$HOME/.krew/bin:$PATH" kubectl krew install kubetail
+            pkg_ver: kubectl krew info kubetail 2>/dev/null | sed -n 's/^VERSION:[[:space:]]*v\{0,1\}//p' | head -n1
+            cli_try: kubectl krew info kubetail 2>&1 || true
+          - mgr: nix
+            image: nixos/nix:latest
+            setup: true
+            install: nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
+            pkg_ver: bash -lc 'PATH="$HOME/.nix-profile/bin:$PATH"; if command -v kubetail >/dev/null 2>&1; then kubetail --version 2>/dev/null | grep -oE "[0-9]+\.[0-9]+\.[0-9]+" | head -n1; else echo unknown; fi'
+            cli_try: bash -lc 'PATH="$HOME/.nix-profile/bin:$PATH"; kubetail --version 2>&1 || true'
+          - mgr: asdf
+            image: debian:12
+            setup: |
+              apt-get update && apt-get install -y git curl
+              git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.1
+              echo '. "$HOME/.asdf/asdf.sh"' >> ~/.bashrc
+              echo '. "$HOME/.asdf/asdf.sh"' >> ~/.bash_profile
+              . ~/.asdf/asdf.sh
+              asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
+              asdf install kubetail latest
+              asdf global kubetail latest
+              asdf reshim kubetail
+            install: bash -lc '. ~/.asdf/asdf.sh && asdf reshim kubetail'
+            pkg_ver: bash -lc '. ~/.asdf/asdf.sh && kubetail --version | sed -n '\''s/[^0-9]*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p'\'''
+            cli_try: |
+              bash -lc '. ~/.asdf/asdf.sh && kubetail --version 2>&1 || true'
         include:
-        - mgr: apt
-          image: ubuntu:24.04
-          setup: |
-            apt-get update
-            apt-get install -y software-properties-common curl jq
-            add-apt-repository -y ppa:kubetail/kubetail
-            apt-get update
-          install: apt-get install -y kubetail-cli
-          pkg_ver: dpkg-query --showformat='\${Version}\n' --show kubetail-cli | sed 's/-.*$//'
-          cli_try: kubetail --version 2>&1 || true
-
-        - mgr: dnf
-          image: fedora:42
-          setup: |
-            dnf -y install dnf-plugins-core curl jq
-            dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:/kubetail/Fedora_42/home:kubetail.repo
-          install: dnf -y install kubetail-cli
-          pkg_ver: rpm -q --qf '%{VERSION}\n' kubetail-cli
-          cli_try: kubetail --version 2>&1 || true
-
-        - mgr: zypper
-          image: opensuse/leap:15.6
-          setup: |
-            zypper -n refresh
-            rpm --import https://download.opensuse.org/repositories/home:/kubetail/15.6/repodata/repomd.xml.key
-            zypper -n addrepo "https://download.opensuse.org/repositories/home:/kubetail/15.6/" kubetail
-            zypper -n refresh
-          install: zypper install -y kubetail-cli
-          pkg_ver: rpm -q --qf '%{VERSION}\n' kubetail-cli
-          cli_try: kubetail --version 2>&1 || true
-
-        - mgr: brew-linux
-          image: homebrew/ubuntu22.04
-          setup: apt-get update && apt-get install -y jq sudo
-          install: sudo -u linuxbrew env PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/bin:/bin HOMEBREW_NO_AUTO_UPDATE=1 /home/linuxbrew/.linuxbrew/bin/brew install kubetail
-          pkg_ver: sudo -u linuxbrew env PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/bin:/bin HOMEBREW_NO_AUTO_UPDATE=1 /home/linuxbrew/.linuxbrew/bin/brew info --json=v2 kubetail | jq -r '.formulae[0].versions.stable'
-          cli_try: sudo -u linuxbrew env PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/bin:/bin bash -lc 'kubetail --version 2>&1 || true'
-
-        - mgr: krew
-          image: bitnami/kubectl:latest
-          setup: |
-            apt-get update && apt-get install -y curl tar git
-            set -eux
-            curl -fsSLO https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz
-            tar zxvf krew-linux_amd64.tar.gz
-            ./krew-linux_amd64 install krew
-            echo "$HOME/.krew/bin" >> $GITHUB_PATH
-            export PATH="$HOME/.krew/bin:$PATH"
-          install: PATH="$HOME/.krew/bin:$PATH" kubectl krew install kubetail
-          pkg_ver: kubectl krew info kubetail 2>/dev/null | sed -n 's/^VERSION:[[:space:]]*v\{0,1\}//p' | head -n1
-          cli_try: kubectl krew info kubetail 2>&1 || true
-
-        - mgr: nix
-          image: nixos/nix:latest
-          setup: true
-          install: nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
-          pkg_ver: bash -lc 'PATH="$HOME/.nix-profile/bin:$PATH"; if command -v kubetail >/dev/null 2>&1; then kubetail --version 2>/dev/null | grep -oE "[0-9]+\.[0-9]+\.[0-9]+" | head -n1; else echo unknown; fi'
-          cli_try: bash -lc 'PATH="$HOME/.nix-profile/bin:$PATH"; kubetail --version 2>&1 || true'
-
-        - mgr: asdf
-          image: debian:12
-          setup: |
-            apt-get update && apt-get install -y git curl
-            git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.1
-            echo '. "$HOME/.asdf/asdf.sh"' >> ~/.bashrc
-            echo '. "$HOME/.asdf/asdf.sh"' >> ~/.bash_profile
-            . ~/.asdf/asdf.sh
-            asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
-            asdf install kubetail latest
-            asdf global kubetail latest
-            asdf reshim kubetail
-          install: bash -lc '. ~/.asdf/asdf.sh && asdf reshim kubetail'
-          pkg_ver: bash -lc '. ~/.asdf/asdf.sh && kubetail --version | sed -n '\''s/[^0-9]*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p'\'''
-          cli_try: |
-            bash -lc '. ~/.asdf/asdf.sh && kubetail --version 2>&1 || true'
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
     container:
-      image: ${{ matrix.image }}
+      image: ${{ matrix.config.image }}
       options: --user 0
     steps:
-    - name: Setup
-      shell: bash
-      run: |
-        set -euxo pipefail
-        if [ "${{ matrix.setup }}" != "true" ]; then eval "${{ matrix.setup }}"; fi
-    - name: Install
-      shell: bash
-      run: |
-        set -euxo pipefail
-        eval "${{ matrix.install }}"
-    - name: Compare and append per-distro CLI summary
-      env:
-        UPSTREAM: ${{ needs.upstream.outputs.ver }}
-      shell: bash
-      run: |
-        set -euo pipefail
-        pkg_ver_base="$(eval "${{ matrix.pkg_ver }}")"
-        pkg_ver_base="${pkg_ver_base%%$'\n'*}"
-        if [ -z "$pkg_ver_base" ]; then
-          pkg_ver_base="unknown"
-          echo "::warning::${{ matrix.mgr }} version could not be determined (marked as unknown)"
-        fi
+      - name: Setup
+        shell: bash
+        run: |
+          set -euxo pipefail
+          # Run matrix setup script via heredoc to avoid premature $ expansion under set -u
+          if [ "${{ matrix.config.setup }}" != "true" ]; then
+            eval "${{ matrix.config.setup }}"
+          fi
 
-        # Show both for logs
-        echo "Upstream:  $UPSTREAM"
-        echo "Package:   $pkg_ver_base"
-        if [ "$pkg_ver_base" = "unknown" ]; then
-          echo "${{ matrix.mgr }} version unknown; skipping comparison"
-        elif [ "$UPSTREAM" != "$pkg_ver_base" ]; then
-          echo "::warning::${{ matrix.mgr }} version $pkg_ver_base differs from upstream $UPSTREAM"
-        else
-          echo "${{ matrix.mgr }} version matches upstream"
-        fi
+      - name: Install
+        shell: bash
+        run: |
+          set -euxo pipefail
+          eval "${{ matrix.config.install }}"
 
-        # Capture actual CLI output (kubetail-cli preferred; fall back if needed)
-        out="$(eval "${{ matrix.cli_try }}")"
-        echo "#### ${{ matrix.mgr }}" >> "$GITHUB_STEP_SUMMARY"
-        printf '```text\n%s\n```\n' "$out" >> "$GITHUB_STEP_SUMMARY"
+      - name: Compare and append per-distro CLI summary
+        env:
+          UPSTREAM: ${{ needs.upstream.outputs.ver }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pkg_ver_base="$(eval "${{ matrix.config.pkg_ver }}")"
+          pkg_ver_base="${pkg_ver_base%%$'\n'*}"
+          if [ -z "$pkg_ver_base" ]; then
+            pkg_ver_base="unknown"
+            echo "::warning::${{ matrix.config.mgr }} version could not be determined (marked as unknown)"
+          fi
 
-  # macOS (Homebrew install + CLI summary; MacPorts checks remote index version)
-  macos:
+          # Show both for logs
+          echo "Upstream:  $UPSTREAM"
+          echo "Package:   $pkg_ver_base"
+          if [ "$pkg_ver_base" = "unknown" ]; then
+            echo "${{ matrix.config.mgr }} version unknown; skipping comparison"
+          elif [ "$UPSTREAM" != "$pkg_ver_base" ]; then
+            echo "::warning::${{ matrix.config.mgr }} version $pkg_ver_base differs from upstream $UPSTREAM"
+          else
+            echo "${{ matrix.config.mgr }} version matches upstream"
+          fi
+
+          # Capture actual CLI output (kubetail-cli preferred; fall back if needed)
+          out="$(eval "${{ matrix.config.cli_try }}")"
+          echo "#### ${{ matrix.config.mgr }} (${{ matrix.arch }})" >> "$GITHUB_STEP_SUMMARY"
+          printf '```text\n%s\n```\n' "$out" >> "$GITHUB_STEP_SUMMARY"
+
+  # macOS Homebrew install + CLI summary
+  macos-brew:
     needs: upstream
-    runs-on: macos-15
-    strategy:
-      fail-fast: false
-      matrix:
-        mgr:
-        - brew
-        - macports
-    steps:
-    - name: Brew install and compare + append CLI summary
-      if: matrix.mgr == 'brew'
-      run: |
-        set -euxo pipefail
-        brew update
-        brew install kubetail
-        pkg_ver_base="$(brew info --json=v2 kubetail | jq -r '.formulae[0].versions.stable')"
-        echo "Upstream:  ${{ needs.upstream.outputs.ver }}"
-        echo "Package:   $pkg_ver_base"
-        if [ "${{ needs.upstream.outputs.ver }}" != "$pkg_ver_base" ]; then
-          echo "::warning::macos-${{ matrix.mgr }} version $pkg_ver_base differs from upstream ${{ needs.upstream.outputs.ver }}"
-        else
-          echo "macos-${{ matrix.mgr }} version matches upstream"
-        fi
-
-        out="$( (kubetail --version) 2>&1 || true )"
-        echo "#### macos-${{ matrix.mgr }}" >> "$GITHUB_STEP_SUMMARY"
-        printf '```text\n%s\n```\n' "$out" >> "$GITHUB_STEP_SUMMARY"
-    - name: MacPorts version parity (no install)
-      if: matrix.mgr == 'macports'
-      run: |
-        set -euo pipefail
-        api_ver="$(curl -fsSL https://ports.macports.org/api/v1/ports/kubetail/ | jq -r '.version')"
-        if [ "$api_ver" != "null" ] && [ -n "$api_ver" ]; then
-          echo "MacPorts index version: $api_ver (upstream ${{ needs.upstream.outputs.ver }})"
-        else
-          echo "::warning::kubetail not found in MacPorts API"
-          api_ver=""
-        fi
-
-        if [ -n "$api_ver" ] && [ "$api_ver" != "${{ needs.upstream.outputs.ver }}" ]; then
-          echo "::warning::macos-${{ matrix.mgr }} version $api_ver differs from upstream ${{ needs.upstream.outputs.ver }}"
-        elif [ -n "$api_ver" ]; then
-          echo "macos-${{ matrix.mgr }} version matches upstream"
-        fi
-
-        if [ -n "$api_ver" ]; then
-          {
-            echo "#### macos-${{ matrix.mgr }}"
-            printf '```text\nMacPorts API version: %s\n```\n' "$api_ver"
-          } >> "$GITHUB_STEP_SUMMARY"
-        else
-          echo "#### macos-${{ matrix.mgr }}" >> "$GITHUB_STEP_SUMMARY"
-          printf '```text\nMacPorts API version unavailable\n```\n' >> "$GITHUB_STEP_SUMMARY"
-        fi
-
-  # Windows package managers; handle PATH/shims so the CLI can be executed immediately
-  windows:
-    needs: upstream
-    runs-on: windows-2025
     strategy:
       fail-fast: false
       matrix:
         include:
-        - name: winget
-          install: winget install -e --id Kubetail.Kubetail --accept-source-agreements --accept-package-agreements
-        - name: choco
-          install: choco install kubetail -y --no-progress
-        - name: scoop
-          install: |
-            if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
-              iwr -useb get.scoop.sh | iex
-            }
-            if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
-              throw "scoop install failed"
-            }
-            try { scoop bucket add extras | Out-Null } catch { }
-            scoop install kubetail
+          - runner: macos-15
+            name: macos-15-arm64
+          - runner: macos-15-large
+            name: macos-15-intel
+          - runner: macos-26
+            name: macos-26-arm64
+    runs-on: ${{ matrix.runner }}
     steps:
-    - name: Install ${{ matrix.name }}
-      shell: pwsh
-      run: |
-        $ErrorActionPreference = 'Stop'
-        $ProgressPreference = 'SilentlyContinue'
-        $cmd = @"
-        ${{ matrix.install }}
-        "@
-        Invoke-Expression $cmd
+      - name: Brew install and compare + append CLI summary
+        run: |
+          set -euxo pipefail
+          brew update
+          brew install kubetail
+          pkg_ver_base="$(brew info --json=v2 kubetail | jq -r '.formulae[0].versions.stable')"
+          echo "Upstream:  ${{ needs.upstream.outputs.ver }}"
+          echo "Package:   $pkg_ver_base"
+          if [ "${{ needs.upstream.outputs.ver }}" != "$pkg_ver_base" ]; then
+            echo "::warning::${{ matrix.name }}-brew version $pkg_ver_base differs from upstream ${{ needs.upstream.outputs.ver }}"
+          else
+            echo "${{ matrix.name }}-brew version matches upstream"
+          fi
 
-        # Ensure shims are visible in *this* job after install
-        if ($env:SCOOP) {
-          $shim = "$($env:SCOOP)\shims"
-          if ($shim) {
-            $env:PATH = "$shim;" + $env:PATH
-            $shim | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-          }
-        }
-        if ($env:ChocolateyInstall) {
-          $chocoBin = "$($env:ChocolateyInstall)\bin"
-          if ($chocoBin) {
-            $env:PATH = "$chocoBin;" + $env:PATH
-            $chocoBin | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-          }
-        }
+          out="$( (kubetail --version) 2>&1 || true )"
+          echo "#### ${{ matrix.name }}-brew" >> "$GITHUB_STEP_SUMMARY"
+          printf '```text\n%s\n```\n' "$out" >> "$GITHUB_STEP_SUMMARY"
 
-    - name: Compare and append CLI summary
-      shell: pwsh
-      env:
-        UPSTREAM: ${{ needs.upstream.outputs.ver }}
-      run: |
-        $ErrorActionPreference = 'Stop'
+  # macOS MacPorts real install + CLI summary
+  macos-macports:
+    needs: upstream
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            name: macos-15-arm64
+            macports_pkg: MacPorts-2.10.5-15-Sequoia.pkg
+            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
+          - runner: macos-15-large
+            name: macos-15-intel
+            macports_pkg: MacPorts-2.10.5-15-Sequoia.pkg
+            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
+          - runner: macos-26
+            name: macos-26-arm64
+            macports_pkg: MacPorts-2.11.6-26-Tahoe.pkg
+            macports_url: https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Install MacPorts
+        run: |
+          set -euxo pipefail
+          curl -fL -o MacPorts.pkg "${{ matrix.macports_url }}"
+          printf 'Agree\n' | sudo installer -pkg MacPorts.pkg -target /
+          echo "PATH=/opt/local/bin:/opt/local/sbin:$PATH" >> "$GITHUB_ENV"
 
-        function Resolve-KubetailExe {
-          $candidates = @('kubetail-cli','kubetail')
+      - name: Install kubetail via MacPorts
+        run: |
+          set -euxo pipefail
+          sudo /opt/local/bin/port -v selfupdate
+          sudo /opt/local/bin/port install kubetail
+
+      - name: Compare and append CLI summary
+        env:
+          UPSTREAM: ${{ needs.upstream.outputs.ver }}
+        run: |
+          set -euo pipefail
+
+          # Get installed version
+          pkg_ver_base="$(/opt/local/bin/port info --version kubetail 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || echo 'unknown')"
+
+          echo "Upstream:  $UPSTREAM"
+          echo "Package:   $pkg_ver_base"
+
+          if [ "$pkg_ver_base" = "unknown" ]; then
+            echo "::warning::${{ matrix.name }}-macports version could not be determined"
+          elif [ "$UPSTREAM" != "$pkg_ver_base" ]; then
+            echo "::warning::${{ matrix.name }}-macports version $pkg_ver_base differs from upstream $UPSTREAM"
+          else
+            echo "${{ matrix.name }}-macports version matches upstream"
+          fi
+
+          # Test binary execution
+          out="$( (kubetail --version) 2>&1 || true )"
+          echo "#### ${{ matrix.name }}-macports" >> "$GITHUB_STEP_SUMMARY"
+          printf '```text\n%s\n```\n' "$out" >> "$GITHUB_STEP_SUMMARY"
+
+  # Windows winget package manager
+  windows-winget:
+    needs: upstream
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            name: windows-x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Install via winget
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          winget install -e --id Kubetail.Kubetail --accept-source-agreements --accept-package-agreements
+      - name: Compare and append CLI summary
+        shell: pwsh
+        env:
+          UPSTREAM: ${{ needs.upstream.outputs.ver }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # Find kubetail executable
+          $exe = $null
+          $candidates = @('kubetail-cli', 'kubetail')
           foreach ($c in $candidates) {
             $gc = Get-Command $c -ErrorAction SilentlyContinue
-            if ($gc) { return $gc.Source }
+            if ($gc) {
+              $exe = $gc.Source
+              break
+            }
           }
 
-          if (Get-Command scoop -ErrorAction SilentlyContinue) {
-            foreach ($name in @('kubetail','kubetail-cli')) {
+          # Search in common winget install locations
+          if (-not $exe) {
+            $searchDirs = @(
+              "$env:LOCALAPPDATA\Microsoft\WinGet\Packages",
+              "$env:ProgramFiles\kubetail",
+              "$env:ProgramFiles\kubetail-cli",
+              "${env:ProgramFiles(x86)}\kubetail",
+              "${env:ProgramFiles(x86)}\kubetail-cli"
+            )
+            $names = @('kubetail-cli.exe', 'kubetail.exe')
+
+            foreach ($dir in $searchDirs) {
+              if (-not $dir -or -not (Test-Path $dir)) { continue }
+              foreach ($name in $names) {
+                $candidate = Join-Path -Path $dir -ChildPath $name
+                if (Test-Path $candidate) {
+                  $exe = (Resolve-Path $candidate).Path
+                  break
+                }
+              }
+              if ($exe) { break }
+              # Recursive search
+              $hit = Get-ChildItem -Path $dir -Filter 'kubetail*.exe' -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+              if ($hit) {
+                $exe = $hit.FullName
+                break
+              }
+            }
+          }
+
+          if (-not $exe) {
+            Write-Warning "kubetail executable not found after winget install"
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "#### ${{ matrix.name }}-winget"
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```text'
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value 'kubetail executable not found'
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
+            exit 0
+          }
+          Write-Host "Using: $exe"
+
+          $out = & $exe --version 2>&1
+          $ver = ($out | Select-String -Pattern '\d+\.\d+\.\d+' -AllMatches).Matches.Value | Select-Object -First 1
+          if (-not $ver) {
+            Write-Warning "Could not parse version from: $out"
+            $ver = "unknown"
+          }
+
+          "Upstream:  $env:UPSTREAM"
+          "Package:   $ver"
+          if ($ver -eq "unknown") {
+            Write-Warning "${{ matrix.name }}-winget version could not be determined"
+          } elseif ($env:UPSTREAM -ne $ver) {
+            Write-Warning "${{ matrix.name }}-winget version $ver differs from upstream $env:UPSTREAM"
+          } else {
+            Write-Host "${{ matrix.name }}-winget version matches upstream"
+          }
+
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "#### ${{ matrix.name }}-winget"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```text'
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $out
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
+
+  # Windows Chocolatey package manager
+  windows-chocolatey:
+    needs: upstream
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            name: windows-x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Install via Chocolatey
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          choco install kubetail -y --no-progress
+
+          # Add chocolatey bin to PATH
+          if ($env:ChocolateyInstall) {
+            $chocoBin = "$($env:ChocolateyInstall)\bin"
+            if ($chocoBin) {
+              $env:PATH = "$chocoBin;" + $env:PATH
+              $chocoBin | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+            }
+          }
+      - name: Compare and append CLI summary
+        shell: pwsh
+        env:
+          UPSTREAM: ${{ needs.upstream.outputs.ver }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # Find kubetail executable
+          $exe = $null
+          $candidates = @('kubetail-cli', 'kubetail')
+          foreach ($c in $candidates) {
+            $gc = Get-Command $c -ErrorAction SilentlyContinue
+            if ($gc) {
+              $exe = $gc.Source
+              break
+            }
+          }
+
+          # Search in chocolatey install locations
+          if (-not $exe) {
+            $searchDirs = @()
+            if ($env:ChocolateyInstall) {
+              $searchDirs += @(
+                "$env:ChocolateyInstall\bin",
+                "$env:ChocolateyInstall\lib\kubetail",
+                "$env:ChocolateyInstall\lib\kubetail-cli"
+              )
+            }
+            $names = @('kubetail-cli.exe', 'kubetail.exe', 'kubetail-cli.cmd', 'kubetail.cmd')
+
+            foreach ($dir in $searchDirs) {
+              if (-not $dir -or -not (Test-Path $dir)) { continue }
+              foreach ($name in $names) {
+                $candidate = Join-Path -Path $dir -ChildPath $name
+                if (Test-Path $candidate) {
+                  $exe = (Resolve-Path $candidate).Path
+                  break
+                }
+              }
+              if ($exe) { break }
+              # Recursive search
+              $hit = Get-ChildItem -Path $dir -Filter 'kubetail*.exe' -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+              if ($hit) {
+                $exe = $hit.FullName
+                break
+              }
+            }
+          }
+
+          if (-not $exe) {
+            Write-Warning "kubetail executable not found after chocolatey install"
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "#### ${{ matrix.name }}-choco"
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```text'
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value 'kubetail executable not found'
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
+            exit 0
+          }
+          Write-Host "Using: $exe"
+
+          $out = & $exe --version 2>&1
+          $ver = ($out | Select-String -Pattern '\d+\.\d+\.\d+' -AllMatches).Matches.Value | Select-Object -First 1
+          if (-not $ver) {
+            Write-Warning "Could not parse version from: $out"
+            $ver = "unknown"
+          }
+
+          "Upstream:  $env:UPSTREAM"
+          "Package:   $ver"
+          if ($ver -eq "unknown") {
+            Write-Warning "${{ matrix.name }}-choco version could not be determined"
+          } elseif ($env:UPSTREAM -ne $ver) {
+            Write-Warning "${{ matrix.name }}-choco version $ver differs from upstream $env:UPSTREAM"
+          } else {
+            Write-Host "${{ matrix.name }}-choco version matches upstream"
+          }
+
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "#### ${{ matrix.name }}-choco"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```text'
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $out
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
+
+  # Windows Scoop package manager
+  windows-scoop:
+    needs: upstream
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            name: windows-x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Install via Scoop
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+
+          # Install scoop if not present
+          if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
+            iwr -useb get.scoop.sh | iex
+          }
+          if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
+            throw "scoop install failed"
+          }
+
+          # Add extras bucket and install kubetail
+          try { scoop bucket add extras | Out-Null } catch { }
+          scoop install kubetail
+
+          # Add scoop shims to PATH
+          if ($env:SCOOP) {
+            $shim = "$($env:SCOOP)\shims"
+            if ($shim) {
+              $env:PATH = "$shim;" + $env:PATH
+              $shim | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+            }
+          }
+      - name: Compare and append CLI summary
+        shell: pwsh
+        env:
+          UPSTREAM: ${{ needs.upstream.outputs.ver }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # Find kubetail executable
+          $exe = $null
+          $candidates = @('kubetail-cli', 'kubetail')
+          foreach ($c in $candidates) {
+            $gc = Get-Command $c -ErrorAction SilentlyContinue
+            if ($gc) {
+              $exe = $gc.Source
+              break
+            }
+          }
+
+          # Try scoop which command
+          if (-not $exe -and (Get-Command scoop -ErrorAction SilentlyContinue)) {
+            foreach ($name in @('kubetail', 'kubetail-cli')) {
               try {
                 $output = scoop which $name 2>$null
                 if ($output) {
                   $path = $output.Trim()
-                  if ($path) { return $path }
+                  if ($path -and (Test-Path $path)) {
+                    $exe = $path
+                    break
+                  }
                 }
-              } catch {
-                # ignore
+              } catch { }
+            }
+          }
+
+          # Search in scoop install locations
+          if (-not $exe) {
+            $searchDirs = @()
+            if ($env:SCOOP) {
+              $searchDirs += @(
+                "$env:SCOOP\shims",
+                "$env:SCOOP\apps\kubetail\current",
+                "$env:SCOOP\apps\kubetail-cli\current"
+              )
+            }
+            $names = @('kubetail-cli.exe', 'kubetail.exe', 'kubetail-cli.ps1', 'kubetail.ps1')
+
+            foreach ($dir in $searchDirs) {
+              if (-not $dir -or -not (Test-Path $dir)) { continue }
+              foreach ($name in $names) {
+                $candidate = Join-Path -Path $dir -ChildPath $name
+                if (Test-Path $candidate) {
+                  $exe = (Resolve-Path $candidate).Path
+                  break
+                }
+              }
+              if ($exe) { break }
+              # Recursive search
+              $hit = Get-ChildItem -Path $dir -Filter 'kubetail*.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+              if ($hit) {
+                $exe = $hit.FullName
+                break
               }
             }
           }
 
-          $names = @('kubetail-cli.exe','kubetail.exe','kubetail-cli.cmd','kubetail.cmd','kubetail-cli.ps1','kubetail.ps1')
-          $dirs = @()
-
-          if ($env:SCOOP) {
-            $dirs += @("$env:SCOOP\shims",
-                       "$env:SCOOP\apps\kubetail\current",
-                       "$env:SCOOP\apps\kubetail-cli\current")
+          if (-not $exe) {
+            Write-Warning "kubetail executable not found after scoop install"
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "#### ${{ matrix.name }}-scoop"
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```text'
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value 'kubetail executable not found'
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
+            exit 0
           }
-          if ($env:ChocolateyInstall) {
-            $dirs += @("$env:ChocolateyInstall\bin",
-                       "$env:ChocolateyInstall\lib\kubetail",
-                       "$env:ChocolateyInstall\lib\kubetail-cli")
+          Write-Host "Using: $exe"
+
+          $out = & $exe --version 2>&1
+          $ver = ($out | Select-String -Pattern '\d+\.\d+\.\d+' -AllMatches).Matches.Value | Select-Object -First 1
+          if (-not $ver) {
+            Write-Warning "Could not parse version from: $out"
+            $ver = "unknown"
           }
 
-          $dirs += @("$env:ProgramFiles\kubetail",
-                     "$env:ProgramFiles\kubetail-cli",
-                     "${env:ProgramFiles(x86)}\kubetail",
-                     "${env:ProgramFiles(x86)}\kubetail-cli",
-                     "$env:LOCALAPPDATA\Microsoft\WinGet\Packages")
-
-          foreach ($dir in $dirs) {
-            if (-not $dir) { continue }
-            if (-not (Test-Path $dir)) { continue }
-            foreach ($name in $names) {
-              $candidate = Join-Path -Path $dir -ChildPath $name
-              if (Test-Path $candidate) {
-                return (Resolve-Path $candidate).Path
-              }
-            }
-            $hit = Get-ChildItem -Path $dir -Filter 'kubetail*.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($hit) { return $hit.FullName }
-            $hit = Get-ChildItem -Path $dir -Filter 'kubetail*.exe' -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($hit) { return $hit.FullName }
+          "Upstream:  $env:UPSTREAM"
+          "Package:   $ver"
+          if ($ver -eq "unknown") {
+            Write-Warning "${{ matrix.name }}-scoop version could not be determined"
+          } elseif ($env:UPSTREAM -ne $ver) {
+            Write-Warning "${{ matrix.name }}-scoop version $ver differs from upstream $env:UPSTREAM"
+          } else {
+            Write-Host "${{ matrix.name }}-scoop version matches upstream"
           }
-          return $null
-        }
 
-        $exe = Resolve-KubetailExe
-        if (-not $exe) {
-          Write-Warning "kubetail executable not found after install"
-          return
-        }
-        Write-Host "Using: $exe"
-
-        $out = & $exe --version 2>&1
-        $ver = ($out | Select-String -Pattern '\d+\.\d+\.\d+' -AllMatches).Matches.Value | Select-Object -First 1
-        if (-not $ver) { throw "Could not parse version from: $out" }
-
-        "Upstream:  $env:UPSTREAM"
-        "Package:   $ver"
-        if ($env:UPSTREAM -ne $ver) {
-          Write-Warning "windows-${{ matrix.name }} version $ver differs from upstream $env:UPSTREAM"
-        } else {
-          Write-Host "windows-${{ matrix.name }} version matches upstream"
-        }
-
-        # Append per-runner CLI output into the step summary
-        Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "#### windows-${{ matrix.name }}"
-        Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```text'
-        Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $out
-        Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "#### ${{ matrix.name }}-scoop"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```text'
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $out
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
