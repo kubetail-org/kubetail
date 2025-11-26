@@ -30,8 +30,6 @@ jobs:
 
   linux:
     needs: upstream
-    env:
-      ARCH: ${{ matrix.arch }}
     strategy:
       fail-fast: false
       matrix:
@@ -44,14 +42,31 @@ jobs:
             setup: |
               apt-get update
               apt-get install -y software-properties-common curl jq
+            install: |
               add-apt-repository -y ppa:kubetail/kubetail
               apt-get update
-            install: |
               apt-get install -y kubetail-cli
-            pkg_ver: |
-              dpkg-query --showformat='\${Version}\n' --show kubetail-cli | sed 's/-.*$//'
-            cli_try: |
-              kubetail --version 2>&1 || true
+            version: |
+              kubetail --version
+          #- mgr: asdf
+          #  image: debian:12
+          #  setup: |
+          #    apt-get update && apt-get install -y git curl
+          #    git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.1
+          #    echo "$HOME/.asdf/bin" >> $GITHUB_PATH
+          #    echo "$HOME/.asdf/shims" >> $GITHUB_PATH
+          #  install: |
+          #    asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
+          #    asdf install kubetail latest
+          #  version: |
+          #    kubetail --version
+          - mgr: brew
+            image: homebrew/brew:latest
+            setup: skip
+            install: |
+              brew install kubetail
+            version: |
+              kubetail --version
           - mgr: dnf
             image: fedora:42
             setup: |
@@ -59,33 +74,8 @@ jobs:
               dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:/kubetail/Fedora_42/home:kubetail.repo
             install: |
               dnf -y install kubetail-cli
-            pkg_ver: |
-              rpm -q --qf '%{VERSION}\n' kubetail-cli
-            cli_try: |
-              kubetail --version 2>&1 || true
-          - mgr: zypper
-            image: opensuse/leap:15.6
-            setup: |
-              zypper -n refresh
-              rpm --import https://download.opensuse.org/repositories/home:/kubetail/15.6/repodata/repomd.xml.key
-              zypper -n addrepo "https://download.opensuse.org/repositories/home:/kubetail/15.6/" kubetail
-              zypper -n refresh
-            install: |
-              zypper install -y kubetail-cli
-            pkg_ver: |
-              rpm -q --qf '%{VERSION}\n' kubetail-cli
-            cli_try: |
-              kubetail --version 2>&1 || true
-          - mgr: brew-linux
-            image: homebrew/ubuntu22.04
-            setup: |
-              apt-get update && apt-get install -y jq sudo
-            install: |
-              sudo -u linuxbrew env PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/bin:/bin HOMEBREW_NO_AUTO_UPDATE=1 /home/linuxbrew/.linuxbrew/bin/brew install kubetail
-            pkg_ver: |
-              sudo -u linuxbrew env PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/bin:/bin HOMEBREW_NO_AUTO_UPDATE=1 /home/linuxbrew/.linuxbrew/bin/brew info --json=v2 kubetail | jq -r '.formulae[0].versions.stable'
-            cli_try: |
-              sudo -u linuxbrew env PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/bin:/bin bash -lc 'kubetail --version 2>&1 || true'
+            version: |
+              kubetail --version
           - mgr: krew
             image: bitnami/kubectl:latest
             setup: |
@@ -95,40 +85,28 @@ jobs:
               tar zxvf krew-linux_${ARCH}.tar.gz
               ./krew-linux_${ARCH} install krew
               echo "$HOME/.krew/bin" >> $GITHUB_PATH
-              export PATH="$HOME/.krew/bin:$PATH"
             install: |
               PATH="$HOME/.krew/bin:$PATH" kubectl krew install kubetail
-            pkg_ver: |
-              kubectl krew info kubetail 2>/dev/null | sed -n 's/^VERSION:[[:space:]]*v\{0,1\}//p' | head -n1
-            cli_try: |
-              kubectl krew info kubetail 2>&1 || true
+            version: |
+              kubectl kubetail --version
           - mgr: nix
             image: nixos/nix:latest
             setup: skip
             install: |
               nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
-            pkg_ver: |
-              bash -lc 'PATH="$HOME/.nix-profile/bin:$PATH"; if command -v kubetail >/dev/null 2>&1; then kubetail --version 2>/dev/null | grep -oE "[0-9]+\.[0-9]+\.[0-9]+" | head -n1; else echo unknown; fi'
-            cli_try: |
-              bash -lc 'PATH="$HOME/.nix-profile/bin:$PATH"; kubetail --version 2>&1 || true'
-          - mgr: asdf
-            image: debian:12
+            version: |
+              kubetail --version
+          - mgr: zypper
+            image: opensuse/leap:15.6
             setup: |
-              apt-get update && apt-get install -y git curl
-              git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.1
-              echo '. "$HOME/.asdf/asdf.sh"' >> ~/.bashrc
-              echo '. "$HOME/.asdf/asdf.sh"' >> ~/.bash_profile
-              . ~/.asdf/asdf.sh
-              asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
-              asdf install kubetail latest
-              asdf global kubetail latest
-              asdf reshim kubetail
+              zypper -n refresh
+              rpm --import https://download.opensuse.org/repositories/home:/kubetail/15.6/repodata/repomd.xml.key
+              zypper -n addrepo "https://download.opensuse.org/repositories/home:/kubetail/15.6/" kubetail
+              zypper -n refresh
             install: |
-              bash -lc '. ~/.asdf/asdf.sh && asdf reshim kubetail'
-            pkg_ver: |
-              bash -lc '. ~/.asdf/asdf.sh && kubetail --version | sed -n '\''s/[^0-9]*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p'\'''
-            cli_try: |
-              bash -lc '. ~/.asdf/asdf.sh && kubetail --version 2>&1 || true'
+              zypper install -y kubetail-cli
+            version: |
+              kubetail --version
         include:
           - runner: ubuntu-24.04
             arch: amd64
@@ -138,6 +116,9 @@ jobs:
     container:
       image: ${{ matrix.config.image }}
       options: --user 0
+    env:
+      ARCH: ${{ matrix.arch }}
+      TRIPLET: ${{ matrix.config.mgr }}_linux_${{ matrix.arch }}
     steps:
       - name: Setup
         shell: bash
@@ -154,34 +135,23 @@ jobs:
           set -euxo pipefail
           eval "${{ matrix.config.install }}"
 
-      - name: Compare and append per-distro CLI summary
+      - name: Check version
         shell: bash
-        env:
-          UPSTREAM: ${{ needs.upstream.outputs.ver }}
         run: |
-          set -euo pipefail
-          pkg_ver_base="$(eval "${{ matrix.config.pkg_ver }}")"
-          pkg_ver_base="${pkg_ver_base%%$'\n'*}"
-          if [ -z "$pkg_ver_base" ]; then
-            pkg_ver_base="unknown"
-            echo "::warning::${{ matrix.config.mgr }} version could not be determined (marked as unknown)"
-          fi
+          set -euxo pipefail
+          cli_ver="$(eval "${{ matrix.config.version }}")"
 
-          # Show both for logs
-          echo "Upstream:  $UPSTREAM"
-          echo "Package:   $pkg_ver_base"
-          if [ "$pkg_ver_base" = "unknown" ]; then
-            echo "${{ matrix.config.mgr }} version unknown; skipping comparison"
-          elif [ "$UPSTREAM" != "$pkg_ver_base" ]; then
-            echo "::warning::${{ matrix.config.mgr }} version $pkg_ver_base differs from upstream $UPSTREAM"
-          else
-            echo "${{ matrix.config.mgr }} version matches upstream"
-          fi
+          # Save result for summary table
+          mkdir -p /tmp/results
+          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
 
-          # Capture actual CLI output (kubetail-cli preferred; fall back if needed)
-          out="$(eval "${{ matrix.config.cli_try }}")"
-          echo "#### ${{ matrix.config.mgr }} (${{ matrix.arch }})" >> "$GITHUB_STEP_SUMMARY"
-          printf '```text\n%s\n```\n' "$out" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        if: ${{ matrix.config.mgr != 'nix' }}
+        with:
+          name: version-${{ env.TRIPLET }}
+          path: /tmp/results/*.txt
+          retention-days: 1
 
   macos-brew:
     needs: upstream
@@ -192,45 +162,70 @@ jobs:
           - macos-26
           - macos-15
           - macos-15-intel
+        include:
+          - runner: macos-26
+            os: macos-26
+            arch: arm64
+          - runner: macos-15
+            os: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            os: macos-15
+            arch: amd64
     runs-on: ${{ matrix.runner }}
+    env:
+      TRIPLET: brew_${{ matrix.os }}_${{ matrix.arch }}
     steps:
-      - name: Brew install and compare + append CLI summary
+      - name: Install
         run: |
           set -euxo pipefail
           brew update
           brew install kubetail
-          pkg_ver_base="$(brew info --json=v2 kubetail | jq -r '.formulae[0].versions.stable')"
-          echo "Upstream:  ${{ needs.upstream.outputs.ver }}"
-          echo "Package:   $pkg_ver_base"
-          if [ "${{ needs.upstream.outputs.ver }}" != "$pkg_ver_base" ]; then
-            echo "::warning::${{ matrix.runner }}-brew version $pkg_ver_base differs from upstream ${{ needs.upstream.outputs.ver }}"
-          else
-            echo "${{ matrix.runner }}-brew version matches upstream"
-          fi
 
-          out="$( (kubetail --version) 2>&1 || true )"
-          echo "#### ${{ matrix.runner }}-brew" >> "$GITHUB_STEP_SUMMARY"
-          printf '```text\n%s\n```\n' "$out" >> "$GITHUB_STEP_SUMMARY"
+      - name: Check version
+        run: |
+          set -euxo pipefail
+          cli_ver="$(kubetail --version)"
+
+          # Save result for summary table
+          mkdir -p /tmp/results
+          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: version-${{ env.TRIPLET }}
+          path: /tmp/results/*.txt
+          retention-days: 1
 
   macos-macports:
     needs: upstream
     strategy:
       fail-fast: false
       matrix:
+        runner:
+          - macos-26
+          - macos-15
+          - macos-15-intel
         include:
-          - runner: macos-15
-            name: macos-15-arm64
-            macports_pkg: MacPorts-2.10.5-15-Sequoia.pkg
-            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
-          - runner: macos-15-large
-            name: macos-15-intel
-            macports_pkg: MacPorts-2.10.5-15-Sequoia.pkg
-            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
           - runner: macos-26
-            name: macos-26-arm64
+            os: macos-26
+            arch: arm64
             macports_pkg: MacPorts-2.11.6-26-Tahoe.pkg
             macports_url: https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg
+          - runner: macos-15
+            os: macos-15
+            arch: arm64
+            macports_pkg: MacPorts-2.10.5-15-Sequoia.pkg
+            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
+          - runner: macos-15-intel
+            os: macos-15
+            arch: amd64
+            macports_pkg: MacPorts-2.10.5-15-Sequoia.pkg
+            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
     runs-on: ${{ matrix.runner }}
+    env:
+      TRIPLET: macports_${{ matrix.os }}_${{ matrix.arch }}
     steps:
       - name: Install MacPorts
         run: |
@@ -245,30 +240,21 @@ jobs:
           sudo /opt/local/bin/port -v selfupdate
           sudo /opt/local/bin/port install kubetail
 
-      - name: Compare and append CLI summary
-        env:
-          UPSTREAM: ${{ needs.upstream.outputs.ver }}
+      - name: Check version
         run: |
-          set -euo pipefail
+          set -euxo pipefail
+          cli_ver="$(kubetail --version)"
 
-          # Get installed version
-          pkg_ver_base="$(/opt/local/bin/port info --version kubetail 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || echo 'unknown')"
+          # Save result for summary table
+          mkdir -p /tmp/results
+          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
 
-          echo "Upstream:  $UPSTREAM"
-          echo "Package:   $pkg_ver_base"
-
-          if [ "$pkg_ver_base" = "unknown" ]; then
-            echo "::warning::${{ matrix.name }}-macports version could not be determined"
-          elif [ "$UPSTREAM" != "$pkg_ver_base" ]; then
-            echo "::warning::${{ matrix.name }}-macports version $pkg_ver_base differs from upstream $UPSTREAM"
-          else
-            echo "${{ matrix.name }}-macports version matches upstream"
-          fi
-
-          # Test binary execution
-          out="$( (kubetail --version) 2>&1 || true )"
-          echo "#### ${{ matrix.name }}-macports" >> "$GITHUB_STEP_SUMMARY"
-          printf '```text\n%s\n```\n' "$out" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: version-${{ env.TRIPLET }}
+          path: /tmp/results/*.txt
+          retention-days: 1
 
   windows:
     needs: upstream
@@ -336,6 +322,8 @@ jobs:
               scoop install kubetail
             check_ver: |
               kubetail.exe --version
+    env:
+      TRIPLET: ${{ matrix.mgr }}_windows_amd64
     steps:
       - name: Setup
         run: |
@@ -378,17 +366,85 @@ jobs:
             $ver = "unknown"
           }
 
-          "Upstream:  $env:UPSTREAM"
-          "Package:   $ver"
-          if ($ver -eq "unknown") {
-            Write-Warning "${{ matrix.mgr }} version could not be determined"
-          } elseif ($env:UPSTREAM -ne $ver) {
-            Write-Warning "${{ matrix.mgr }} version $ver differs from upstream $env:UPSTREAM"
-          } else {
-            Write-Host "${{ matrix.mgr }} version matches upstream"
+          # Save result for summary table
+          $resultsDir = Join-Path $env:RUNNER_TEMP "results"
+          New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
+          Set-Content -Path "$resultsDir\${{ env.TRIPLET }}.txt" -Value $ver
+
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: version-${{ env.TRIPLET }}
+          path: ${{ runner.temp }}/results/*.txt
+          retention-days: 1
+
+  summary:
+    needs: [linux, macos-brew, macos-macports, windows]
+    runs-on: ubuntu-24.04
+    if: always()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/artifacts
+          pattern: version-*
+          merge-multiple: true
+
+      - name: Generate summary table
+        run: |
+          set -euo pipefail
+
+          # Define the matrix
+          managers=("apt" "asdf" "chocolatey" "brew" "dnf" "krew" "macports" "nix" "scoop" "winget" "zypper")
+          platforms=("linux/amd64" "linux/arm64" "macos-15/amd64" "macos-15/arm64" "macos-26/arm64" "windows/amd64")
+
+          # Function to get version from file
+          get_version() {
+            local mgr=$1
+            local os=$2
+            local arch=$3
+            local file="/tmp/artifacts/${mgr}_${os}_${arch}.txt"
+
+            if [ -f "$file" ]; then
+              # Extract version number from content (e.g., "kubetail version 1.2.3" -> "1.2.3")
+              local content=$(cat "$file")
+              if [[ "$content" =~ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+                echo "${BASH_REMATCH[1]}"
+              else
+                echo "$content"
+              fi
+            else
+              echo ""
+            fi
           }
 
-          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "#### ${{ matrix.mgr }}"
-          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```text'
-          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $out
-          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
+          # Start building the markdown table
+          {
+            echo "## Package Health Check Summary"
+            echo ""
+            echo "| Package Manager | linux/amd64 | linux/arm64 | macos-15/amd64 | macos-15/arm64 | macos-26/arm64 | windows/amd64 |"
+            echo "|-----------------|-------------|-------------|----------------|----------------|----------------|---------------|"
+
+            for mgr in "${managers[@]}"; do
+              row="| ${mgr}"
+
+              for platform in "${platforms[@]}"; do
+                os="${platform%/*}"
+                arch="${platform#*/}"
+                version=$(get_version "$mgr" "$os" "$arch")
+
+                if [ -z "$version" ]; then
+                  cell=" "
+                elif [ "$version" = "unknown" ]; then
+                  cell="X"
+                else
+                  cell="$version"
+                fi
+
+                row="${row} | ${cell}"
+              done
+
+              row="${row} |"
+              echo "$row"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
