@@ -284,7 +284,7 @@ jobs:
       run: |
         set -euxo pipefail
         brew install kubectl
-        curl -fsSLO https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-darwin_arm64.tar.gz
+        curl -fsSLO https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-darwin_${{ matrix.arch }}.tar.gz
         tar zxvf krew-darwin_arm64.tar.gz
         ./krew-darwin_arm64 install krew
         echo "$HOME/.krew/bin" >> $GITHUB_PATH
