@@ -1,4 +1,5 @@
 name: package-healthcheck
+# Improvements for issue #831: Add brew plugin and nix checks on macOS
 
 on:
   schedule:
