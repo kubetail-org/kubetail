@@ -257,6 +257,101 @@ jobs:
           path: /tmp/results/*.txt
           retention-days: 1
 
+ macos-krew:
+  needs: upstream
+  strategy:
+    fail-fast: false
+    matrix:
+      runner:
+        - macos-26
+        - macos-15
+        - macos-15-intel
+      include:
+        - runner: macos-26
+          os: macos-26
+          arch: arm64
+        - runner: macos-15
+          os: macos-15
+          arch: arm64
+        - runner: macos-15-intel
+          os: macos-15
+          arch: amd64
+  runs-on: ${{ matrix.runner }}
+  env:
+    TRIPLET: krew_${{ matrix.os }}_${{ matrix.arch }}
+  steps:
+    - name: Setup Krew
+      run: |
+        set -euxo pipefail
+        brew install kubectl
+        curl -fsSLO https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-darwin_arm64.tar.gz
+        tar zxvf krew-darwin_arm64.tar.gz
+        ./krew-darwin_arm64 install krew
+        echo "$HOME/.krew/bin" >> $GITHUB_PATH
+    - name: Install kubetail via krew
+      run: |
+        set -euxo pipefail
+        kubectl krew update
+        kubectl krew install kubetail
+    - name: Check version
+      run: |
+        set -euxo pipefail
+        cli_ver="$(kubectl kubetail --version)"
+        # Save result for summary table
+        mkdir -p /tmp/results
+        echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+    - name: Upload result
+      uses: actions/upload-artifact@v4
+      with:
+        name: version-${{ env.TRIPLET }}
+        path: /tmp/results/*.txt
+        retention-days: 1
+ macos-nix:
+  needs: upstream
+  strategy:
+    fail-fast: false
+    matrix:
+      runner:
+        - macos-26
+        - macos-15
+        - macos-15-intel
+      include:
+        - runner: macos-26
+          os: macos-26
+          arch: arm64
+        - runner: macos-15
+          os: macos-15
+          arch: arm64
+        - runner: macos-15-intel
+          os: macos-15
+          arch: amd64
+  runs-on: ${{ matrix.runner }}
+  env:
+    TRIPLET: nix_${{ matrix.os }}_${{ matrix.arch }}
+  steps:
+    - name: Install Nix
+      run: |
+        set -euxo pipefail
+        curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+    - name: Install kubetail via Nix
+      run: |
+        set -euxo pipefail
+        . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+        nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
+    - name: Check version
+      run: |
+        set -euxo pipefail
+        . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+        cli_ver="$(kubetail --version)"
+        # Save result for summary table
+        mkdir -p /tmp/results
+        echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+    - name: Upload result
+      uses: actions/upload-artifact@v4
+      with:
+        name: version-${{ env.TRIPLET }}
+        path: /tmp/results/*.txt
+        retention-days: 1
   windows:
     needs: upstream
     runs-on: windows-2025
@@ -380,7 +475,7 @@ jobs:
           retention-days: 1
 
   summary:
-    needs: [linux, macos-brew, macos-macports, windows]
+    needs: [linux, macos-brew, macos-macports, macos-krew, macos-nix, windows]
     runs-on: ubuntu-24.04
     if: always()
     steps:
