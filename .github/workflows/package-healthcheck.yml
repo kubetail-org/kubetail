@@ -76,7 +76,8 @@ jobs:
           - mgr: nix
             image: ubuntu:24.04
             setup: |
-              curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+              apt-get update && apt-get install -y curl
+              curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install linux --no-confirm --init none
             install: |
               . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
               nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
@@ -134,7 +135,6 @@ jobs:
 
       - name: Upload result
         uses: actions/upload-artifact@v4
-        if: ${{ matrix.config.mgr != 'nix' }}
         with:
           name: version-${{ env.TRIPLET }}
           path: /tmp/results/*.txt
@@ -167,18 +167,11 @@ jobs:
               kubectl krew update
               kubectl krew install kubetail
             version: |
-              kubetail --version
+              kubectl kubetail --version
           - mgr: macports
             setup: |
-              if [ "${TRIPLET}" = "macports_macos-26_arm64" ]; then
-                url="https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg"
-              elif [ "${TRIPLET}" = "macports_macos-15_arm64" ]; then
-                url="https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg"
-              else
-                url="https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg"
-              fi
-
-              curl -fL -o MacPorts.pkg "${url}"
+              # Set MacPorts installer URL based on OS version
+              curl -fL -o MacPorts.pkg "${MACPORTS_URL}"
               printf 'Agree\n' | sudo installer -pkg MacPorts.pkg -target /
               echo "PATH=/opt/local/bin:/opt/local/sbin:$PATH" >> "$GITHUB_ENV"
             install: |
@@ -188,7 +181,7 @@ jobs:
               kubetail --version
           - mgr: nix
             setup: |
-              curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+              curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm
             install: |
               . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
               nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
@@ -199,16 +192,24 @@ jobs:
           - runner: macos-26
             os: macos-26
             arch: arm64
+            macports_url: https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg
           - runner: macos-15
             os: macos-15
             arch: arm64
+            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
           - runner: macos-15-intel
             os: macos-15
             arch: amd64
+            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
+        exclude:
+          - runner: macos-15-intel
+            config:
+              mgr: nix
     runs-on: ${{ matrix.runner }}
     env:
       ARCH: ${{ matrix.arch }}
       TRIPLET: ${{ matrix.config.mgr }}_${{ matrix.os }}_${{ matrix.arch }}
+      MACPORTS_URL: ${{ matrix.macports_url }}
     steps:
       - name: Setup
         run: |
@@ -241,15 +242,13 @@ jobs:
           retention-days: 1
 
   windows:
-    runs-on: windows-2025
     strategy:
       fail-fast: false
       matrix:
-        mgr:
-          - winget
-          - chocolatey
-          - scoop
-        include:
+        runner:
+          - windows-2025
+          - windows-11-arm
+        config:
           - mgr: winget
             install: |
               winget install -e kubetail --accept-source-agreements --accept-package-agreements
@@ -305,8 +304,18 @@ jobs:
               scoop install kubetail
             check_ver: |
               kubetail.exe --version
+        include:
+          - runner: windows-2025
+            arch: amd64
+          - runner: windows-11-arm
+            arch: arm64
+        exclude:
+          - runner: windows-11-arm
+            config:
+              mgr: winget
+    runs-on: ${{ matrix.runner }}
     env:
-      TRIPLET: ${{ matrix.mgr }}_windows_amd64
+      TRIPLET: ${{ matrix.config.mgr }}_windows_${{ matrix.arch }}
     steps:
       - name: Setup
         run: |
@@ -314,7 +323,7 @@ jobs:
           $ProgressPreference = 'SilentlyContinue'
 
           $setup = @'
-          ${{ matrix.setup }}
+          ${{ matrix.config.setup }}
           '@.Trim()
           if ($setup) {
             Invoke-Expression $setup
@@ -326,7 +335,7 @@ jobs:
           $ProgressPreference = 'SilentlyContinue'
 
           $install = @'
-          ${{ matrix.install }}
+          ${{ matrix.config.install }}
           '@.Trim()
           if ($install) {
             Invoke-Expression $install
@@ -338,7 +347,7 @@ jobs:
           $ProgressPreference = 'SilentlyContinue'
 
           $check = @'
-          ${{ matrix.check_ver }}
+          ${{ matrix.config.check_ver }}
           '@.Trim()
           $out = Invoke-Expression $check 2>&1
           $ver = ($out | Select-String -Pattern '\d+\.\d+\.\d+' -AllMatches).Matches.Value | Select-Object -First 1
@@ -377,7 +386,7 @@ jobs:
 
           # Define the matrix
           managers=("apt" "asdf" "chocolatey" "dnf" "homebrew" "krew" "macports" "nix" "scoop" "winget" "zypper")
-          platforms=("linux/amd64" "linux/arm64" "macos-15/amd64" "macos-15/arm64" "macos-26/arm64" "windows/amd64")
+          platforms=("linux/amd64" "linux/arm64" "macos-15/amd64" "macos-15/arm64" "macos-26/arm64" "windows/amd64" "windows/arm64")
 
           # Function to get version from file
           get_version() {
@@ -403,8 +412,8 @@ jobs:
           {
             echo "## Package Health Check Summary"
             echo ""
-            echo "| Package Manager | linux/amd64 | linux/arm64 | macos-15/amd64 | macos-15/arm64 | macos-26/arm64 | windows/amd64 |"
-            echo "|-----------------|-------------|-------------|----------------|----------------|----------------|---------------|"
+            echo "| Package Manager | linux/amd64 | linux/arm64 | macos-15/amd64 | macos-15/arm64 | macos-26/arm64 | windows/amd64 | windows/arm64 |"
+            echo "|-----------------|-------------|-------------|----------------|----------------|----------------|---------------|---------------|"
 
             for mgr in "${managers[@]}"; do
               row="| ${mgr}"
