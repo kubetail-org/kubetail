@@ -474,10 +474,56 @@ func ConfigureLogger(opts LoggerOptions) {
 		zerolog.SetGlobalLevel(level)
 
 		// configure output format
-		if opts.Format == "pretty" {
+		switch opts.Format {
+		case "pretty":
 			zlog.Logger = zlog.Logger.Output(zerolog.ConsoleWriter{
 				Out:        os.Stdout,
 				TimeFormat: time.RFC3339Nano,
+			})
+		case "cli":
+			zlog.Logger = zlog.Logger.Output(zerolog.ConsoleWriter{
+				Out:     os.Stderr,
+				NoColor: false,
+				FormatTimestamp: func(i interface{}) string {
+					return ""
+				},
+				FormatLevel: func(i interface{}) string {
+					if i == nil {
+						return ""
+					}
+					switch i.(string) {
+					case "fatal", "error":
+						return "\033[31mError:\033[0m"
+					case "warn":
+						return "\033[33mWarn:\033[0m"
+					default:
+						return ""
+					}
+				},
+				FormatCaller: func(i interface{}) string {
+					return ""
+				},
+				FormatMessage: func(i interface{}) string {
+					if i == nil {
+						return ""
+					}
+					return fmt.Sprintf(" %s", i)
+				},
+				FormatFieldName: func(i interface{}) string {
+					return ""
+				},
+				FormatFieldValue: func(i interface{}) string {
+					return ""
+				},
+				FormatErrFieldName: func(i interface{}) string {
+					return ""
+				},
+				FormatErrFieldValue: func(i interface{}) string {
+					if i == nil {
+						return ""
+					}
+					return fmt.Sprintf(" %s", i)
+				},
 			})
 		}
 	})
