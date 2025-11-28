@@ -84,3 +84,30 @@ COPY --from=builder /work/crates/target/release/cluster_agent cluster-agent
 
 ENTRYPOINT ["./cluster-agent"]
 CMD []
+
+# -----------------------------------------------------------
+
+FROM alpine:3.22.0 AS final-alpine
+
+WORKDIR /cluster-agent
+
+# copy grpc-health-probe
+COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
+
+# copy glibc runtime libraries and dynamic loader (aarch64)
+COPY --from=builder /lib/aarch64-linux-gnu/libgcc_s.so.1 /lib/aarch64-linux-gnu/
+COPY --from=builder /lib/aarch64-linux-gnu/libc.so.6 /lib/aarch64-linux-gnu/
+COPY --from=builder /lib/aarch64-linux-gnu/libm.so.6 /lib/aarch64-linux-gnu/
+COPY --from=builder /lib/ld-linux-aarch64.so.1 /lib/
+
+# copy glibc runtime libraries and dynamic loader (x86_64)
+COPY --from=builder /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/
+COPY --from=builder /lib/x86_64-linux-gnu/libc.so.6 /lib/x86_64-linux-gnu/
+COPY --from=builder /lib/x86_64-linux-gnu/libm.so.6 /lib/x86_64-linux-gnu/
+COPY --from=builder /lib64/ld-linux-x86-64.so.2 /lib64/
+
+# copy executable
+COPY --from=builder /work/crates/target/release/cluster_agent cluster-agent
+
+ENTRYPOINT ["./cluster-agent"]
+CMD []
