@@ -17,10 +17,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner:
-          - ubuntu-24.04
-          - ubuntu-24.04-arm
-        config:
+        mgr:
+          - apt
+          - homebrew
+          - dnf
+          - krew
+          - nix
+          - zypper
+        arch:
+          - amd64
+          - arm64
+        include:
+          # --- for arches ---
+          - arch: amd64
+            runner: ubuntu-24.04
+
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+
+          # --- for package managers ---
           - mgr: apt
             image: ubuntu:24.04
             setup: |
@@ -32,6 +47,7 @@ jobs:
               apt-get install -y kubetail-cli
             version: |
               kubetail --version
+
           #- mgr: asdf
           #  image: debian:12
           #  setup: |
@@ -44,6 +60,7 @@ jobs:
           #    asdf install kubetail latest
           #  version: |
           #    kubetail --version
+
           - mgr: homebrew
             image: homebrew/brew:latest
             setup: skip
@@ -51,6 +68,7 @@ jobs:
               brew install kubetail
             version: |
               kubetail --version
+
           - mgr: dnf
             image: fedora:42
             setup: |
@@ -60,6 +78,7 @@ jobs:
               dnf -y install kubetail-cli
             version: |
               kubetail --version
+
           - mgr: krew
             image: bitnami/kubectl:latest
             setup: |
@@ -73,6 +92,7 @@ jobs:
               PATH="$HOME/.krew/bin:$PATH" kubectl krew install kubetail
             version: |
               kubectl kubetail --version
+
           - mgr: nix
             image: ubuntu:24.04
             setup: |
@@ -84,6 +104,7 @@ jobs:
             version: |
               . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
               kubetail --version
+
           - mgr: zypper
             image: opensuse/leap:15.6
             setup: |
@@ -95,39 +116,35 @@ jobs:
               zypper install -y kubetail-cli
             version: |
               kubetail --version
-        include:
-          - runner: ubuntu-24.04
-            arch: amd64
-          - runner: ubuntu-24.04-arm
-            arch: arm64
+
     runs-on: ${{ matrix.runner }}
     container:
-      image: ${{ matrix.config.image }}
+      image: ${{ matrix.image }}
       options: --user 0
     env:
       ARCH: ${{ matrix.arch }}
-      TRIPLET: ${{ matrix.config.mgr }}_linux_${{ matrix.arch }}
+      TRIPLET: ${{ matrix.mgr }}_linux_${{ matrix.arch }}
     steps:
       - name: Setup
         shell: bash
         run: |
           set -euxo pipefail
           # Run matrix setup script via heredoc to avoid premature $ expansion under set -u
-          if [ "${{ matrix.config.setup }}" != "skip" ]; then
-            eval "${{ matrix.config.setup }}"
+          if [ "${{ matrix.setup }}" != "skip" ]; then
+            eval "${{ matrix.setup }}"
           fi
 
       - name: Install
         shell: bash
         run: |
           set -euxo pipefail
-          eval "${{ matrix.config.install }}"
+          eval "${{ matrix.install }}"
 
       - name: Check version
         shell: bash
         run: |
           set -euxo pipefail
-          cli_ver="$(eval "${{ matrix.config.version }}")"
+          cli_ver="$(eval "${{ matrix.version }}")"
 
           # Save result for summary table
           mkdir -p /tmp/results
@@ -144,11 +161,33 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        mgr:
+          - homebrew
+          - krew
+          - macports
+          - nix
         runner:
           - macos-26
           - macos-15
           - macos-15-intel
-        config:
+        include:
+          # --- for runners ---
+          - runner: macos-26
+            os: macos-26
+            arch: arm64
+            macports_url: https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg
+
+          - runner: macos-15
+            os: macos-15
+            arch: arm64
+            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
+
+          - runner: macos-15-intel
+            os: macos-15
+            arch: amd64
+            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
+
+          # --- for package managers ---
           - mgr: homebrew
             setup: skip
             install: |
@@ -156,6 +195,7 @@ jobs:
               brew install kubetail
             version: |
               kubetail --version
+
           - mgr: krew
             setup: |
               brew install kubectl
@@ -168,6 +208,7 @@ jobs:
               kubectl krew install kubetail
             version: |
               kubectl kubetail --version
+
           - mgr: macports
             setup: |
               # Set MacPorts installer URL based on OS version
@@ -179,6 +220,7 @@ jobs:
               sudo /opt/local/bin/port install kubetail
             version: |
               kubetail --version
+
           - mgr: nix
             setup: |
               curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm
@@ -188,46 +230,33 @@ jobs:
             version: |
               . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
               kubetail --version
-        include:
-          - runner: macos-26
-            os: macos-26
-            arch: arm64
-            macports_url: https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg
-          - runner: macos-15
-            os: macos-15
-            arch: arm64
-            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
-          - runner: macos-15-intel
-            os: macos-15
-            arch: amd64
-            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
+
         exclude:
-          - runner: macos-15-intel
-            config:
-              mgr: nix
+          - mgr: nix
+            runner: macos-15-intel
     runs-on: ${{ matrix.runner }}
     env:
       ARCH: ${{ matrix.arch }}
-      TRIPLET: ${{ matrix.config.mgr }}_${{ matrix.os }}_${{ matrix.arch }}
+      TRIPLET: ${{ matrix.mgr }}_${{ matrix.os }}_${{ matrix.arch }}
       MACPORTS_URL: ${{ matrix.macports_url }}
     steps:
       - name: Setup
         run: |
           set -euxo pipefail
           # Run matrix setup script via heredoc to avoid premature $ expansion under set -u
-          if [ "${{ matrix.config.setup }}" != "skip" ]; then
-            eval "${{ matrix.config.setup }}"
+          if [ "${{ matrix.setup }}" != "skip" ]; then
+            eval "${{ matrix.setup }}"
           fi
 
       - name: Install
         run: |
           set -euxo pipefail
-          eval "${{ matrix.config.install }}"
+          eval "${{ matrix.install }}"
 
       - name: Check version
         run: |
           set -euxo pipefail
-          cli_ver="$(eval "${{ matrix.config.version }}")"
+          cli_ver="$(eval "${{ matrix.version }}")"
 
           # Save result for summary table
           mkdir -p /tmp/results
@@ -235,7 +264,6 @@ jobs:
 
       - name: Upload result
         uses: actions/upload-artifact@v4
-        if: ${{ matrix.config.mgr != 'nix' }}
         with:
           name: version-${{ env.TRIPLET }}
           path: /tmp/results/*.txt
@@ -245,10 +273,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner:
-          - windows-2025
-          - windows-11-arm
-        config:
+        mgr:
+          - winget
+          - chocolatey
+          - scoop
+        arch:
+          - arm64
+          - amd64
+        include:
+          # --- by arch ---
+          - arch: amd64
+            runner: windows-2025
+
+          - arch: arm64
+            runner: windows-11-arm
+
+          # --- by mgr ---
           - mgr: winget
             install: |
               winget install -e kubetail --accept-source-agreements --accept-package-agreements
@@ -267,6 +307,7 @@ jobs:
               }
 
               kubetail.exe --version
+
           - mgr: chocolatey
             setup: |
               # Add chocolatey bin to PATH
@@ -281,6 +322,7 @@ jobs:
               choco install kubetail -y --no-progress
             check_ver: |
               kubetail.exe --version
+
           - mgr: scoop
             setup: |
               # Install scoop if not present
@@ -304,18 +346,13 @@ jobs:
               scoop install kubetail
             check_ver: |
               kubetail.exe --version
-        include:
-          - runner: windows-2025
-            arch: amd64
-          - runner: windows-11-arm
-            arch: arm64
+
         exclude:
-          - runner: windows-11-arm
-            config:
-              mgr: winget
+          - mgr: winget
+            arch: arm64
     runs-on: ${{ matrix.runner }}
     env:
-      TRIPLET: ${{ matrix.config.mgr }}_windows_${{ matrix.arch }}
+      TRIPLET: ${{ matrix.mgr }}_windows_${{ matrix.arch }}
     steps:
       - name: Setup
         run: |
@@ -323,7 +360,7 @@ jobs:
           $ProgressPreference = 'SilentlyContinue'
 
           $setup = @'
-          ${{ matrix.config.setup }}
+          ${{ matrix.setup }}
           '@.Trim()
           if ($setup) {
             Invoke-Expression $setup
@@ -335,7 +372,7 @@ jobs:
           $ProgressPreference = 'SilentlyContinue'
 
           $install = @'
-          ${{ matrix.config.install }}
+          ${{ matrix.install }}
           '@.Trim()
           if ($install) {
             Invoke-Expression $install
@@ -347,7 +384,7 @@ jobs:
           $ProgressPreference = 'SilentlyContinue'
 
           $check = @'
-          ${{ matrix.config.check_ver }}
+          ${{ matrix.check_ver }}
           '@.Trim()
           $out = Invoke-Expression $check 2>&1
           $ver = ($out | Select-String -Pattern '\d+\.\d+\.\d+' -AllMatches).Matches.Value | Select-Object -First 1
