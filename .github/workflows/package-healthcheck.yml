@@ -20,10 +20,8 @@ jobs:
         mgr:
           - apt
           - homebrew
-          - dnf
           - krew
           - nix
-          - zypper
         arch:
           - amd64
           - arm64
@@ -31,13 +29,12 @@ jobs:
           # --- for arches ---
           - arch: amd64
             runner: ubuntu-24.04
-
           - arch: arm64
             runner: ubuntu-24.04-arm
-
           # --- for package managers ---
           - mgr: apt
             image: ubuntu:24.04
+            os: ubuntu-24.04
             setup: |
               apt-get update
               apt-get install -y software-properties-common curl jq
@@ -47,9 +44,9 @@ jobs:
               apt-get install -y kubetail-cli
             version: |
               kubetail --version
-
           #- mgr: asdf
           #  image: debian:12
+          #  os: debian-12
           #  setup: |
           #    apt-get update && apt-get install -y git curl
           #    git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.1
@@ -60,27 +57,17 @@ jobs:
           #    asdf install kubetail latest
           #  version: |
           #    kubetail --version
-
           - mgr: homebrew
             image: homebrew/brew:latest
+            os: ubuntu-22.04
             setup: skip
             install: |
               brew install kubetail
             version: |
               kubetail --version
-
-          - mgr: dnf
-            image: fedora:42
-            setup: |
-              dnf -y install dnf-plugins-core curl jq
-              dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:/kubetail/Fedora_42/home:kubetail.repo
-            install: |
-              dnf -y install kubetail-cli
-            version: |
-              kubetail --version
-
           - mgr: krew
             image: bitnami/kubectl:latest
+            os: linux
             setup: |
               apt-get update && apt-get install -y curl tar git
               set -eux
@@ -92,9 +79,9 @@ jobs:
               PATH="$HOME/.krew/bin:$PATH" kubectl krew install kubetail
             version: |
               kubectl kubetail --version
-
           - mgr: nix
             image: ubuntu:24.04
+            os: ubuntu-24.04
             setup: |
               apt-get update && apt-get install -y curl
               curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install linux --no-confirm --init none
@@ -104,28 +91,16 @@ jobs:
             version: |
               . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
               kubetail --version
-
-          - mgr: zypper
-            image: opensuse/leap:15.6
-            setup: |
-              zypper -n refresh
-              rpm --import https://download.opensuse.org/repositories/home:/kubetail/15.6/repodata/repomd.xml.key
-              zypper -n addrepo "https://download.opensuse.org/repositories/home:/kubetail/15.6/" kubetail
-              zypper -n refresh
-            install: |
-              zypper install -y kubetail-cli
-            version: |
-              kubetail --version
-
     runs-on: ${{ matrix.runner }}
     container:
       image: ${{ matrix.image }}
       options: --user 0
     env:
       ARCH: ${{ matrix.arch }}
-      TRIPLET: ${{ matrix.mgr }}_linux_${{ matrix.arch }}
+      TRIPLET: ${{ matrix.mgr }}_${{ matrix.os }}_${{ matrix.arch }}
     steps:
-      - name: Setup
+      - &setup_step
+        name: Setup
         shell: bash
         run: |
           set -euxo pipefail
@@ -134,13 +109,15 @@ jobs:
             eval "${{ matrix.setup }}"
           fi
 
-      - name: Install
+      - &install_step
+        name: Install
         shell: bash
         run: |
           set -euxo pipefail
           eval "${{ matrix.install }}"
 
-      - name: Check version
+      - &version_step
+        name: Check version
         shell: bash
         run: |
           set -euxo pipefail
@@ -150,12 +127,154 @@ jobs:
           mkdir -p /tmp/results
           echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
 
-      - name: Upload result
+      - &upload_step
+        name: Upload result
         uses: actions/upload-artifact@v4
         with:
           name: version-${{ env.TRIPLET }}
           path: /tmp/results/*.txt
           retention-days: 1
+
+  linux-dnf:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - fedora-43
+          - fedora-42
+          - fedora-41
+          - fedora-rawhide
+          - centos-stream-10
+          - centos-stream-9
+          - rhel-8
+        arch:
+          - amd64
+          - arm64
+        include:
+          # --- for arches ---
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+          # --- for oses ---
+          - os: fedora-43
+            image: fedora:43
+            distro: Fedora_43
+            setup: |
+              dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:/kubetail/${DISTRO}/home:kubetail.repo
+          - os: fedora-42
+            image: fedora:42
+            distro: Fedora_42
+            setup: |
+              dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:/kubetail/${DISTRO}/home:kubetail.repo
+          - os: fedora-41
+            image: fedora:41
+            distro: Fedora_41
+            setup: |
+              dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:/kubetail/${DISTRO}/home:kubetail.repo
+          - os: fedora-rawhide
+            image: fedora:rawhide
+            distro: Fedora_Rawhide
+            setup: |
+              dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:/kubetail/${DISTRO}/home:kubetail.repo
+          - os: centos-stream-10
+            image: dokken/centos-stream-10:latest
+            distro: CentOS_Stream_10
+            setup: |
+              dnf config-manager addrepo --add-repo https://download.opensuse.org/repositories/home:/kubetail/${DISTRO}/home:kubetail.repo
+          - os: centos-stream-9
+            image: dokken/centos-stream-9:latest
+            distro: CentOS_Stream_9
+            setup: |
+              dnf config-manager addrepo --add-repo https://download.opensuse.org/repositories/home:/kubetail/${DISTRO}/home:kubetail.repo
+          - os: rhel-8
+            image: redhat/ubi8:latest
+            distro: RHEL_8
+            setup: |
+              dnf config-manager addrepo --add-repo https://download.opensuse.org/repositories/home:/kubetail/${DISTRO}/home:kubetail.repo
+        exclude:
+          - os: rhel-8
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ${{ matrix.image }}
+      options: --user 0
+    env:
+      DISTRO: ${{ matrix.distro }}
+      TRIPLET: dnf_${{ matrix.os }}_${{ matrix.arch }}
+    steps:
+      - *setup_step
+
+      - name: Install
+        shell: bash
+        run: |
+          set -euxo pipefail
+          dnf -y install kubetail-cli
+
+      - name: Check version
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cli_ver="$(kubetail --version)"
+
+          # Save result for summary table
+          mkdir -p /tmp/results
+          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+
+      - *upload_step
+
+  linux-zypper:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - opensuse-leap-16.0
+          - opensuse-leap-15.6
+          - opensuse-leap-15.5
+        arch:
+          - amd64
+          - arm64
+        include:
+          # --- for arches ---
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+          # --- for oses ---
+          - os: opensuse-leap-16.0
+            image: opensuse/leap:16.0
+          - os: opensuse-leap-15.6
+            image: opensuse/leap:15.6
+          - os: opensuse-leap-15.5
+            image: opensuse/leap:15.5
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ${{ matrix.image }}
+      options: --user 0
+    env:
+      TRIPLET: zypper_${{ matrix.os }}_${{ matrix.arch }}
+    steps:
+      - name: Install
+        shell: bash
+        run: |
+          set -euxo pipefail
+          zypper -n refresh
+          rpm --import https://download.opensuse.org/repositories/home:/kubetail/15.6/repodata/repomd.xml.key
+          zypper -n addrepo "https://download.opensuse.org/repositories/home:/kubetail/15.6/" kubetail
+          zypper -n refresh
+          zypper install -y kubetail-cli
+
+      - name: Check version
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cli_ver="$(kubetail --version)"
+
+          # Save result for summary table
+          mkdir -p /tmp/results
+          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+
+      - *upload_step
 
   macos:
     strategy:
@@ -176,17 +295,14 @@ jobs:
             os: macos-26
             arch: arm64
             macports_url: https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg
-
           - runner: macos-15
             os: macos-15
             arch: arm64
             macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
-
           - runner: macos-15-intel
             os: macos-15
             arch: amd64
             macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
-
           # --- for package managers ---
           - mgr: homebrew
             setup: skip
@@ -195,7 +311,6 @@ jobs:
               brew install kubetail
             version: |
               kubetail --version
-
           - mgr: krew
             setup: |
               brew install kubectl
@@ -208,7 +323,6 @@ jobs:
               kubectl krew install kubetail
             version: |
               kubectl kubetail --version
-
           - mgr: macports
             setup: |
               # Set MacPorts installer URL based on OS version
@@ -220,7 +334,6 @@ jobs:
               sudo /opt/local/bin/port install kubetail
             version: |
               kubetail --version
-
           - mgr: nix
             setup: |
               curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm
@@ -230,7 +343,6 @@ jobs:
             version: |
               . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
               kubetail --version
-
         exclude:
           - mgr: nix
             runner: macos-15-intel
@@ -240,34 +352,13 @@ jobs:
       TRIPLET: ${{ matrix.mgr }}_${{ matrix.os }}_${{ matrix.arch }}
       MACPORTS_URL: ${{ matrix.macports_url }}
     steps:
-      - name: Setup
-        run: |
-          set -euxo pipefail
-          # Run matrix setup script via heredoc to avoid premature $ expansion under set -u
-          if [ "${{ matrix.setup }}" != "skip" ]; then
-            eval "${{ matrix.setup }}"
-          fi
+      - *setup_step
 
-      - name: Install
-        run: |
-          set -euxo pipefail
-          eval "${{ matrix.install }}"
+      - *install_step
 
-      - name: Check version
-        run: |
-          set -euxo pipefail
-          cli_ver="$(eval "${{ matrix.version }}")"
+      - *version_step
 
-          # Save result for summary table
-          mkdir -p /tmp/results
-          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
-
-      - name: Upload result
-        uses: actions/upload-artifact@v4
-        with:
-          name: version-${{ env.TRIPLET }}
-          path: /tmp/results/*.txt
-          retention-days: 1
+      - *upload_step
 
   windows:
     strategy:
@@ -281,14 +372,12 @@ jobs:
           - arm64
           - amd64
         include:
-          # --- by arch ---
+          # --- for arches ---
           - arch: amd64
             runner: windows-2025
-
           - arch: arm64
             runner: windows-11-arm
-
-          # --- by mgr ---
+          # --- for package managers ---
           - mgr: winget
             install: |
               winget install -e kubetail --accept-source-agreements --accept-package-agreements
@@ -307,7 +396,6 @@ jobs:
               }
 
               kubetail.exe --version
-
           - mgr: chocolatey
             setup: |
               # Add chocolatey bin to PATH
@@ -322,7 +410,6 @@ jobs:
               choco install kubetail -y --no-progress
             check_ver: |
               kubetail.exe --version
-
           - mgr: scoop
             setup: |
               # Install scoop if not present
@@ -346,7 +433,6 @@ jobs:
               scoop install kubetail
             check_ver: |
               kubetail.exe --version
-
         exclude:
           - mgr: winget
             arch: arm64
@@ -406,7 +492,7 @@ jobs:
           retention-days: 1
 
   summary:
-    needs: [linux, macos, windows]
+    needs: [linux, linux-dnf, linux-zypper, macos, windows]
     runs-on: ubuntu-24.04
     if: always()
     steps:
@@ -417,61 +503,94 @@ jobs:
           pattern: version-*
           merge-multiple: true
 
-      - name: Generate summary table
+      - name: Generate summary
         run: |
           set -euo pipefail
 
-          # Define the matrix
-          managers=("apt" "asdf" "chocolatey" "dnf" "homebrew" "krew" "macports" "nix" "scoop" "winget" "zypper")
-          platforms=("linux/amd64" "linux/arm64" "macos-15/amd64" "macos-15/arm64" "macos-26/arm64" "windows/amd64" "windows/arm64")
+          artifacts_dir="/tmp/artifacts"
+          readarray -t files < <(find "$artifacts_dir" -type f -name '*.txt' -print | sort)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No artifacts were downloaded." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
 
-          # Function to get version from file
-          get_version() {
-            local mgr=$1
-            local os=$2
-            local arch=$3
-            local file="/tmp/artifacts/${mgr}_${os}_${arch}.txt"
+          # Pull out the first semver-looking token; fall back to raw content when missing.
+          extract_version() {
+            local file="$1"
+            local content
+            content="$(tr -d '\r' < "$file")"
 
-            if [ -f "$file" ]; then
-              # Extract version number from content (e.g., "kubetail version 1.2.3" -> "1.2.3")
-              local content=$(cat "$file")
-              if [[ "$content" =~ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
-                echo "${BASH_REMATCH[1]}"
-              else
-                echo "$content"
-              fi
+            if [[ "$content" =~ ([0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z]+)*) ]]; then
+              echo "${BASH_REMATCH[1]}"
             else
-              echo ""
+              echo "$content" | head -n 1
             fi
           }
 
-          # Start building the markdown table
+          declare -A versions
+          declare -A managers_seen
+          declare -A platforms_seen
+
+          for file in "${files[@]}"; do
+            base="$(basename "$file" .txt)"
+            IFS='_' read -r mgr os arch <<< "$base"
+
+            # Skip malformed artifact names.
+            if [ -z "${mgr:-}" ] || [ -z "${os:-}" ] || [ -z "${arch:-}" ]; then
+              continue
+            fi
+
+            os_arch="${os}/${arch}"
+            version="$(extract_version "$file")"
+
+            versions["${mgr}|${os_arch}"]="$version"
+            managers_seen["$mgr"]=1
+            platforms_seen["${mgr}|${os_arch}"]=1
+          done
+
+          if [ ${#managers_seen[@]} -eq 0 ]; then
+            echo "No valid artifacts were processed." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          readarray -t managers < <(printf '%s\n' "${!managers_seen[@]}" | sort)
+
           {
             echo "## Package Health Check Summary"
             echo ""
-            echo "| Package Manager | linux/amd64 | linux/arm64 | macos-15/amd64 | macos-15/arm64 | macos-26/arm64 | windows/amd64 | windows/arm64 |"
-            echo "|-----------------|-------------|-------------|----------------|----------------|----------------|---------------|---------------|"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-            for mgr in "${managers[@]}"; do
-              row="| ${mgr}"
+          for mgr in "${managers[@]}"; do
+            readarray -t columns < <(
+              printf '%s\n' "${!platforms_seen[@]}" |
+                awk -F '|' -v target="$mgr" '$1 == target { print $2 }' |
+                sort -u
+            )
 
-              for platform in "${platforms[@]}"; do
-                os="${platform%/*}"
-                arch="${platform#*/}"
-                version=$(get_version "$mgr" "$os" "$arch")
+            {
+              echo "### ${mgr}"
 
-                if [ -z "$version" ]; then
-                  cell=" "
-                elif [ "$version" = "unknown" ]; then
-                  cell="X"
-                else
-                  cell="$version"
-                fi
+              if [ ${#columns[@]} -eq 0 ]; then
+                echo "No results."
+                echo ""
+                continue
+              fi
 
-                row="${row} | ${cell}"
+              header="|"
+              separator="|"
+              row="|"
+
+              for col in "${columns[@]}"; do
+                header+=" ${col} |"
+                separator+=" --- |"
+                value="${versions["${mgr}|${col}"]}"
+                [ -n "${value:-}" ] || value=" "
+                row+=" ${value} |"
               done
 
-              row="${row} |"
+              echo "$header"
+              echo "$separator"
               echo "$row"
-            done
-          } >> "$GITHUB_STEP_SUMMARY"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          done
