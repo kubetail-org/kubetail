@@ -78,6 +78,7 @@ require (
 	github.com/quic-go/quic-go v0.55.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.9.0 // indirect
+	github.com/smallnest/ringbuffer v0.0.0-20250317021400-0da97b586904 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.14.0 // indirect
 	github.com/spf13/cast v1.9.2 // indirect
