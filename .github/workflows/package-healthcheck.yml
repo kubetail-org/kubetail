@@ -1,5 +1,4 @@
 name: package-healthcheck
-# Improvements for issue #831: Add brew plugin and nix checks on macOS
 
 on:
   schedule:
@@ -14,23 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  upstream:
-    runs-on: ubuntu-24.04
-    outputs:
-      ver: ${{ steps.get.outputs.ver }}
-    steps:
-      - uses: actions/github-script@v7
-        id: get
-        with:
-          script: |
-            const { data } = await github.rest.repos.getLatestRelease({
-              owner: 'kubetail-org', repo: 'kubetail'
-            });
-            const tag = (data.tag_name || '').replace(/^cli\/v/, ''); // e.g. "cli/v0.10.0" -> "0.10.0"
-            core.setOutput('ver', tag);
-
   linux:
-    needs: upstream
     strategy:
       fail-fast: false
       matrix:
@@ -61,7 +44,7 @@ jobs:
           #    asdf install kubetail latest
           #  version: |
           #    kubetail --version
-          - mgr: brew
+          - mgr: homebrew
             image: homebrew/brew:latest
             setup: skip
             install: |
@@ -91,11 +74,14 @@ jobs:
             version: |
               kubectl kubetail --version
           - mgr: nix
-            image: nixos/nix:latest
-            setup: skip
+            image: ubuntu:24.04
+            setup: |
+              curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
             install: |
+              . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
               nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
             version: |
+              . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
               kubetail --version
           - mgr: zypper
             image: opensuse/leap:15.6
@@ -154,8 +140,7 @@ jobs:
           path: /tmp/results/*.txt
           retention-days: 1
 
-  macos-brew:
-    needs: upstream
+  macos:
     strategy:
       fail-fast: false
       matrix:
@@ -163,6 +148,53 @@ jobs:
           - macos-26
           - macos-15
           - macos-15-intel
+        config:
+          - mgr: homebrew
+            setup: skip
+            install: |
+              brew update
+              brew install kubetail
+            version: |
+              kubetail --version
+          - mgr: krew
+            setup: |
+              brew install kubectl
+              curl -fsSLO https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-darwin_${ARCH}.tar.gz
+              tar zxvf krew-darwin_${ARCH}.tar.gz
+              ./krew-darwin_${ARCH} install krew
+              echo "$HOME/.krew/bin" >> $GITHUB_PATH
+            install: |
+              kubectl krew update
+              kubectl krew install kubetail
+            version: |
+              kubetail --version
+          - mgr: macports
+            setup: |
+              if [ "${TRIPLET}" = "macports_macos-26_arm64" ]; then
+                url="https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg"
+              elif [ "${TRIPLET}" = "macports_macos-15_arm64" ]; then
+                url="https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg"
+              else
+                url="https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg"
+              fi
+
+              curl -fL -o MacPorts.pkg "${url}"
+              printf 'Agree\n' | sudo installer -pkg MacPorts.pkg -target /
+              echo "PATH=/opt/local/bin:/opt/local/sbin:$PATH" >> "$GITHUB_ENV"
+            install: |
+              sudo /opt/local/bin/port -v selfupdate
+              sudo /opt/local/bin/port install kubetail
+            version: |
+              kubetail --version
+          - mgr: nix
+            setup: |
+              curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+            install: |
+              . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+              nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
+            version: |
+              . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+              kubetail --version
         include:
           - runner: macos-26
             os: macos-26
@@ -175,18 +207,26 @@ jobs:
             arch: amd64
     runs-on: ${{ matrix.runner }}
     env:
-      TRIPLET: brew_${{ matrix.os }}_${{ matrix.arch }}
+      ARCH: ${{ matrix.arch }}
+      TRIPLET: ${{ matrix.config.mgr }}_${{ matrix.os }}_${{ matrix.arch }}
     steps:
+      - name: Setup
+        run: |
+          set -euxo pipefail
+          # Run matrix setup script via heredoc to avoid premature $ expansion under set -u
+          if [ "${{ matrix.config.setup }}" != "skip" ]; then
+            eval "${{ matrix.config.setup }}"
+          fi
+
       - name: Install
         run: |
           set -euxo pipefail
-          brew update
-          brew install kubetail
+          eval "${{ matrix.config.install }}"
 
       - name: Check version
         run: |
           set -euxo pipefail
-          cli_ver="$(kubetail --version)"
+          cli_ver="$(eval "${{ matrix.config.version }}")"
 
           # Save result for summary table
           mkdir -p /tmp/results
@@ -194,166 +234,13 @@ jobs:
 
       - name: Upload result
         uses: actions/upload-artifact@v4
+        if: ${{ matrix.config.mgr != 'nix' }}
         with:
           name: version-${{ env.TRIPLET }}
           path: /tmp/results/*.txt
           retention-days: 1
 
-  macos-macports:
-    needs: upstream
-    strategy:
-      fail-fast: false
-      matrix:
-        runner:
-          - macos-26
-          - macos-15
-          - macos-15-intel
-        include:
-          - runner: macos-26
-            os: macos-26
-            arch: arm64
-            macports_pkg: MacPorts-2.11.6-26-Tahoe.pkg
-            macports_url: https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg
-          - runner: macos-15
-            os: macos-15
-            arch: arm64
-            macports_pkg: MacPorts-2.10.5-15-Sequoia.pkg
-            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
-          - runner: macos-15-intel
-            os: macos-15
-            arch: amd64
-            macports_pkg: MacPorts-2.10.5-15-Sequoia.pkg
-            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
-    runs-on: ${{ matrix.runner }}
-    env:
-      TRIPLET: macports_${{ matrix.os }}_${{ matrix.arch }}
-    steps:
-      - name: Install MacPorts
-        run: |
-          set -euxo pipefail
-          curl -fL -o MacPorts.pkg "${{ matrix.macports_url }}"
-          printf 'Agree\n' | sudo installer -pkg MacPorts.pkg -target /
-          echo "PATH=/opt/local/bin:/opt/local/sbin:$PATH" >> "$GITHUB_ENV"
-
-      - name: Install kubetail via MacPorts
-        run: |
-          set -euxo pipefail
-          sudo /opt/local/bin/port -v selfupdate
-          sudo /opt/local/bin/port install kubetail
-
-      - name: Check version
-        run: |
-          set -euxo pipefail
-          cli_ver="$(kubetail --version)"
-
-          # Save result for summary table
-          mkdir -p /tmp/results
-          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
-
-      - name: Upload result
-        uses: actions/upload-artifact@v4
-        with:
-          name: version-${{ env.TRIPLET }}
-          path: /tmp/results/*.txt
-          retention-days: 1
-
- macos-krew:
-  needs: upstream
-  strategy:
-    fail-fast: false
-    matrix:
-      runner:
-        - macos-26
-        - macos-15
-        - macos-15-intel
-      include:
-        - runner: macos-26
-          os: macos-26
-          arch: arm64
-        - runner: macos-15
-          os: macos-15
-          arch: arm64
-        - runner: macos-15-intel
-          os: macos-15
-          arch: amd64
-  runs-on: ${{ matrix.runner }}
-  env:
-    TRIPLET: krew_${{ matrix.os }}_${{ matrix.arch }}
-  steps:
-    - name: Setup Krew
-      run: |
-        set -euxo pipefail
-        brew install kubectl
-        curl -fsSLO https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-darwin_${{ matrix.arch }}.tar.gz
-        tar zxvf krew-darwin_arm64.tar.gz
-        ./krew-darwin_arm64 install krew
-        echo "$HOME/.krew/bin" >> $GITHUB_PATH
-    - name: Install kubetail via krew
-      run: |
-        set -euxo pipefail
-        kubectl krew update
-        kubectl krew install kubetail
-    - name: Check version
-      run: |
-        set -euxo pipefail
-        cli_ver="$(kubectl kubetail --version)"
-        # Save result for summary table
-        mkdir -p /tmp/results
-        echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
-    - name: Upload result
-      uses: actions/upload-artifact@v4
-      with:
-        name: version-${{ env.TRIPLET }}
-        path: /tmp/results/*.txt
-        retention-days: 1
- macos-nix:
-  needs: upstream
-  strategy:
-    fail-fast: false
-    matrix:
-      runner:
-        - macos-26
-        - macos-15
-        - macos-15-intel
-      include:
-        - runner: macos-26
-          os: macos-26
-          arch: arm64
-        - runner: macos-15
-          os: macos-15
-          arch: arm64
-        - runner: macos-15-intel
-          os: macos-15
-          arch: amd64
-  runs-on: ${{ matrix.runner }}
-  env:
-    TRIPLET: nix_${{ matrix.os }}_${{ matrix.arch }}
-  steps:
-    - name: Install Nix
-      run: |
-        set -euxo pipefail
-        curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
-    - name: Install kubetail via Nix
-      run: |
-        set -euxo pipefail
-        . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
-        nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
-    - name: Check version
-      run: |
-        set -euxo pipefail
-        . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
-        cli_ver="$(kubetail --version)"
-        # Save result for summary table
-        mkdir -p /tmp/results
-        echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
-    - name: Upload result
-      uses: actions/upload-artifact@v4
-      with:
-        name: version-${{ env.TRIPLET }}
-        path: /tmp/results/*.txt
-        retention-days: 1
   windows:
-    needs: upstream
     runs-on: windows-2025
     strategy:
       fail-fast: false
@@ -446,8 +333,6 @@ jobs:
           }
 
       - name: Check version
-        env:
-          UPSTREAM: ${{ needs.upstream.outputs.ver }}
         run: |
           $ErrorActionPreference = 'Stop'
           $ProgressPreference = 'SilentlyContinue'
@@ -475,7 +360,7 @@ jobs:
           retention-days: 1
 
   summary:
-    needs: [linux, macos-brew, macos-macports, macos-krew, macos-nix, windows]
+    needs: [linux, macos, windows]
     runs-on: ubuntu-24.04
     if: always()
     steps:
@@ -491,7 +376,7 @@ jobs:
           set -euo pipefail
 
           # Define the matrix
-          managers=("apt" "asdf" "chocolatey" "brew" "dnf" "krew" "macports" "nix" "scoop" "winget" "zypper")
+          managers=("apt" "asdf" "chocolatey" "dnf" "homebrew" "krew" "macports" "nix" "scoop" "winget" "zypper")
           platforms=("linux/amd64" "linux/arm64" "macos-15/amd64" "macos-15/arm64" "macos-26/arm64" "windows/amd64")
 
           # Function to get version from file
