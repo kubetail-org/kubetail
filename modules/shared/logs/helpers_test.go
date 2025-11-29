@@ -276,7 +276,7 @@ func TestExtractTimestampFromRingFailure(t *testing.T) {
 
 		parsedTS, err := extractTimestampFromRing(ring, make([]byte, 10))
 		assert.Zero(t, parsedTS)
-		require.EqualError(t, err, "peek buffer capacity too low")
+		require.ErrorIs(t, err, ErrBufCapacity)
 
 		assert.Equal(t, len(input), ring.Length())
 	})
