@@ -95,32 +95,32 @@ jobs:
     needs: [config, prepare]
     strategy:
       matrix:
-        runner:
-          - ubuntu-24.04
-          - ubuntu-24.04-arm
-          - macos-latest
-          - macos-15-intel
-          - windows-latest
-          - windows-11-arm
+        os:
+          - darwin
+          - linux
+          - windows
+        arch:
+          - amd64
+          - arm64
         include:
-          - runner: ubuntu-24.04
-            GOOS: linux
-            GOARCH: amd64
-          - runner: ubuntu-24.04-arm
-            GOOS: linux
-            GOARCH: arm64
-          - runner: macos-latest
-            GOOS: darwin
-            GOARCH: arm64
-          - runner: macos-15-intel
-            GOOS: darwin
-            GOARCH: amd64
-          - runner: windows-latest
-            GOOS: windows
-            GOARCH: amd64
-          - runner: windows-11-arm
-            GOOS: windows
-            GOARCH: arm64
+          - os: darwin
+            arch: amd64
+            runner: macos-15-intel
+          - os: darwin
+            arch: arm64
+            runner: macos-26
+          - os: linux
+            arch: amd64
+            runner: ubuntu-24.04
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - os: windows
+            arch: amd64
+            runner: windows-2025
+          - os: windows
+            arch: arm64
+            runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
@@ -145,8 +145,8 @@ jobs:
         env:
           GOWORK: off
           CGO_ENABLED: 0
-          GOOS: ${{ matrix.GOOS }}
-          GOARCH: ${{ matrix.GOARCH }}
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
           LDFLAGS: "-s -w -X 'github.com/kubetail-org/kubetail/modules/cli/cmd.version=${{ needs.config.outputs.version }}'"
         shell: bash
         run: |
@@ -154,13 +154,13 @@ jobs:
 
       - name: Append os/arch to binary file name
         working-directory: kubetail-cli
-        run: mv bin/kubetail bin/kubetail-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+        run: mv bin/kubetail bin/kubetail-${{ matrix.os }}-${{ matrix.arch }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
           path: kubetail-cli/bin/*
-          name: assets-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+          name: assets-${{ matrix.os }}-${{ matrix.arch }}
 
   sign-darwin:
     name: Sign darwin binaries

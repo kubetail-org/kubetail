@@ -36,7 +36,7 @@ ENTRYPOINT []
 CMD []
 
 # -----------------------------------------------------------
-  
+
 FROM golang:1.24.5 AS dashboard-builder
 
 WORKDIR /work
@@ -59,21 +59,6 @@ COPY --from=frontend-builder /dashboard-ui/dist ./dashboard/website
 RUN cd dashboard && CGO_ENABLED=0 go build -ldflags="-s -w" -o ../bin/dashboard ./cmd/main.go
 
 ENTRYPOINT ["./bin/dashboard"]
-CMD []
-
-# -----------------------------------------------------------
-
-FROM alpine:3.22.0 AS debug
-
-WORKDIR /dashboard
-
-# copy certs for tls verification
-COPY --from=dashboard-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-
-# copy dashboard
-COPY --from=dashboard-builder /work/bin/dashboard /dashboard/dashboard
-
-ENTRYPOINT ["./dashboard"]
 CMD []
 
 # -----------------------------------------------------------
