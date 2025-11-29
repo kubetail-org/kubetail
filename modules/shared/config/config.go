@@ -493,9 +493,9 @@ func ConfigureLogger(opts LoggerOptions) {
 					}
 					switch i.(string) {
 					case "fatal", "error":
-						return "\033[31mError:\033[0m"
+						return "\033[31mError:\033[0m "
 					case "warn":
-						return "\033[33mWarn:\033[0m"
+						return "\033[33mWarn:\033[0m "
 					default:
 						return ""
 					}
@@ -507,7 +507,7 @@ func ConfigureLogger(opts LoggerOptions) {
 					if i == nil {
 						return ""
 					}
-					return fmt.Sprintf(" %s", i)
+					return fmt.Sprintf("%s", i)
 				},
 				FormatFieldName: func(i interface{}) string {
 					return ""
@@ -522,7 +522,7 @@ func ConfigureLogger(opts LoggerOptions) {
 					if i == nil {
 						return ""
 					}
-					return fmt.Sprintf(" %s", i)
+					return fmt.Sprintf("%s", i)
 				},
 			})
 		}
