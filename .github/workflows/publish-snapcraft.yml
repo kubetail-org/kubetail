@@ -31,14 +31,14 @@ jobs:
     environment: production
     strategy:
       matrix:
-        runner:
-          - ubuntu-24.04
-          - ubuntu-24.04-arm
+        arch:
+          - amd64
+          - arm64
         include:
-          - runner: ubuntu-24.04
-            arch: amd64
-          - runner: ubuntu-24.04-arm
-            arch: arm64
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Configure

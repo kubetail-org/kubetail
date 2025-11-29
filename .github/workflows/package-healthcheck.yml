@@ -285,23 +285,25 @@ jobs:
           - krew
           - macports
           - nix
-        runner:
+        os:
           - macos-26
           - macos-15
-          - macos-15-intel
+        arch:
+          - amd64
+          - arm64
         include:
-          # --- for runners ---
-          - runner: macos-26
-            os: macos-26
+          # --- for os/arch ---
+          - os: macos-26
             arch: arm64
+            runner: macos-26
             macports_url: https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-26-Tahoe.pkg
-          - runner: macos-15
-            os: macos-15
-            arch: arm64
-            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
-          - runner: macos-15-intel
-            os: macos-15
+          - os: macos-15
             arch: amd64
+            runner: macos-15-intel
+            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
+          - os: macos-15
+            arch: arm64
+            runner: macos-15
             macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
           # --- for package managers ---
           - mgr: homebrew
@@ -344,8 +346,10 @@ jobs:
               . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
               kubetail --version
         exclude:
+          - os: macos-26
+            arch: amd64
           - mgr: nix
-            runner: macos-15-intel
+            arch: amd64
     runs-on: ${{ matrix.runner }}
     env:
       ARCH: ${{ matrix.arch }}
