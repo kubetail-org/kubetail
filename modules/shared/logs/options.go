@@ -250,13 +250,13 @@ func WithAllContainers(allContainers bool) Option {
 	}
 }
 
-// WithTruncateAtBytes sets the maximum number of bytes
-// to read for log messages
-func WithTruncateAtBytes(n int) Option {
+// WithMaxChunkSize sets the maximum number of bytes
+// to include in each message chunk
+func WithMaxChunkSize(n int) Option {
 	return func(target any) error {
 		switch t := target.(type) {
 		case *Stream:
-			t.truncateAtBytes = n
+			t.maxChunkSize = n
 		}
 		return nil
 	}

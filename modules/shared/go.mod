@@ -20,6 +20,7 @@ require (
 	github.com/kubetail-org/grpc-dispatcher-go v0.1.4
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/rs/zerolog v1.34.0
+	github.com/smallnest/ringbuffer v0.0.0-20250317021400-0da97b586904
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.11.1
 	github.com/vektah/gqlparser/v2 v2.5.28

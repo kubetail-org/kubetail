@@ -15,14 +15,15 @@
 package logs
 
 import (
-	"bufio"
 	"context"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
+	"github.com/smallnest/ringbuffer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,85 +36,309 @@ func (f RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return f(r)
 }
 
-func TestNextRecordFromReader(t *testing.T) {
+func TestPodLogsReaderSuccess(t *testing.T) {
+	baseTS := time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	type expectedRecord struct {
+		message string
+		isFinal bool
+	}
+
 	tests := []struct {
-		name               string
-		setLine            string
-		setTruncateAtBytes int
-		setBufSize         int
-		wantTimestamp      time.Time
-		wantMessage        string
-		wantOrigSize       int
-		wantTruncated      bool
-		wantErr            error
+		name     string
+		body     string
+		maxChunk int
+		expected []expectedRecord
 	}{
 		{
-			name:               "parses valid record",
-			setLine:            "2025-03-13T11:36:09.123456789Z hello world\n",
-			setTruncateAtBytes: 0,
-			wantTimestamp:      time.Date(2025, 3, 13, 11, 36, 9, 123456789, time.UTC),
-			wantMessage:        "hello world",
-			wantOrigSize:       len("hello world"),
-			wantTruncated:      false,
-			wantErr:            nil,
+			name:     "single complete line",
+			body:     "hello world\n",
+			maxChunk: 64,
+			expected: []expectedRecord{
+				{message: "hello world", isFinal: true},
+			},
 		},
 		{
-			name:               "truncates long message",
-			setLine:            "2024-01-01T00:00:00Z 0123456789ABCDEFGHIJ\n",
-			setTruncateAtBytes: 10,
-			wantTimestamp:      time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
-			wantMessage:        "0123456789",
-			wantOrigSize:       len("0123456789ABCDEFGHIJ"),
-			wantTruncated:      true,
-			wantErr:            nil,
+			name:     "chunks long message and keeps timestamp",
+			body:     strings.Repeat("a", 12) + "\n",
+			maxChunk: 5,
+			expected: []expectedRecord{
+				{message: strings.Repeat("a", 5), isFinal: false},
+				{message: strings.Repeat("a", 5), isFinal: false},
+				{message: strings.Repeat("a", 2), isFinal: true},
+			},
 		},
 		{
-			name:               "handles chunked lines",
-			setLine:            "2024-06-15T12:00:00Z " + strings.Repeat("x", 200) + "\n",
-			setTruncateAtBytes: 0,
-			setBufSize:         30, // force multiple ReadLine chunks
-			wantTimestamp:      time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC),
-			wantMessage:        strings.Repeat("x", 200),
-			wantOrigSize:       200,
-			wantTruncated:      false,
-			wantErr:            nil,
+			name:     "final newline left in pending buffer",
+			body:     "hello\n",
+			maxChunk: 5,
+			expected: []expectedRecord{
+				{message: "hello", isFinal: true},
+			},
 		},
 		{
-			name:    "returns proper error at EOF",
-			setLine: "",
-			wantErr: io.EOF,
+			name:     "marks final chunk when EOF without trailing newline",
+			body:     "trailing data without newline",
+			maxChunk: 64,
+			expected: []expectedRecord{
+				{message: "trailing data without newline", isFinal: true},
+			},
 		},
 		{
-			name:    "invalid timestamp",
-			setLine: "not-a-timestamp message body\n",
-			wantErr: &time.ParseError{},
+			name:     "does not split utf8 runes when chunking",
+			body:     "abc💡def\n",
+			maxChunk: 6,
+			expected: []expectedRecord{
+				{message: "abc", isFinal: false},
+				{message: "💡de", isFinal: false},
+				{message: "f", isFinal: true},
+			},
+		},
+		{
+			name:     "line exceeds bufio buffer size (4 KiB)",
+			body:     strings.Repeat("x", 5*1024),
+			maxChunk: 4 * 1024,
+			expected: []expectedRecord{
+				{message: strings.Repeat("x", 4*1024), isFinal: false},
+				{message: strings.Repeat("x", 1*1024), isFinal: true},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reader := func() *bufio.Reader {
-				if tt.setBufSize > 0 {
-					return bufio.NewReaderSize(strings.NewReader(tt.setLine), tt.setBufSize)
-				}
-				return bufio.NewReader(strings.NewReader(tt.setLine))
-			}()
+			logLine := baseTS.Format(time.RFC3339Nano) + " " + tt.body
 
-			record, err := nextRecordFromReader(reader, tt.setTruncateAtBytes)
-			if tt.wantErr != nil {
-				if tt.wantErr == io.EOF {
-					assert.ErrorIs(t, tt.wantErr, err)
-				} else if tt.wantErr != nil {
-					assert.ErrorAs(t, tt.wantErr, &err)
-				}
-				return
+			rc := io.NopCloser(strings.NewReader(logLine))
+			defer rc.Close()
+
+			next := podLogsReader(rc, tt.maxChunk)
+
+			for i, expected := range tt.expected {
+				record, err := next()
+				require.NoError(t, err, "record %d", i)
+				assert.Equal(t, baseTS, record.Timestamp, "record %d", i)
+				assert.Equal(t, expected.message, record.Message, "record %d", i)
+				assert.Equal(t, expected.isFinal, record.IsFinal, "record %d", i)
 			}
 
+			_, err := next()
+			assert.Equal(t, io.EOF, err)
+		})
+	}
+}
+
+func TestPodLogsReaderErrors(t *testing.T) {
+	t.Run("eof", func(t *testing.T) {
+		rc := io.NopCloser(strings.NewReader(""))
+		defer rc.Close()
+
+		next := podLogsReader(rc, 64)
+
+		_, err := next()
+		assert.Equal(t, io.EOF, err)
+	})
+
+	t.Run("invalid timestamp", func(t *testing.T) {
+		rc := io.NopCloser(strings.NewReader("not-a-timestamp message\n"))
+		defer rc.Close()
+
+		next := podLogsReader(rc, 64)
+
+		_, err := next()
+		var parseErr *time.ParseError
+		require.ErrorAs(t, err, &parseErr)
+	})
+
+	t.Run("missing log payload", func(t *testing.T) {
+		ts := time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC)
+		rc := io.NopCloser(strings.NewReader(ts.Format(time.RFC3339Nano) + " "))
+		defer rc.Close()
+
+		next := podLogsReader(rc, 64)
+
+		_, err := next()
+		require.ErrorIs(t, err, ErrExpectedData)
+	})
+}
+
+func TestPodLogsReaderErrBufferFullChunking(t *testing.T) {
+	baseTS := time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC)
+	maxChunk := 2048
+
+	// Use a long line (no early newline) so bufio.ReadSlice hits ErrBufferFull and we still chunk correctly.
+	longBody := strings.Repeat("y", 5*1024) // 5120 bytes > default bufio.Reader buffer size
+
+	rc := io.NopCloser(strings.NewReader(baseTS.Format(time.RFC3339Nano) + " " + longBody + "\n"))
+	defer rc.Close()
+
+	next := podLogsReader(rc, maxChunk)
+
+	expected := []struct {
+		message string
+		isFinal bool
+	}{
+		{message: longBody[:maxChunk], isFinal: false},
+		{message: longBody[maxChunk : 2*maxChunk], isFinal: false},
+		{message: longBody[2*maxChunk:], isFinal: true},
+	}
+
+	for i, exp := range expected {
+		record, err := next()
+		require.NoError(t, err, "record %d", i)
+		assert.Equal(t, baseTS, record.Timestamp, "record %d", i)
+		assert.Equal(t, exp.message, record.Message, "record %d", i)
+		assert.Equal(t, exp.isFinal, record.IsFinal, "record %d", i)
+	}
+
+	_, err := next()
+	assert.Equal(t, io.EOF, err)
+}
+
+func TestExtractTimestampFromRingSuccess(t *testing.T) {
+	ts := time.Date(2025, 1, 2, 3, 4, 5, 123456789, time.UTC)
+	timestamp := ts.Format(time.RFC3339Nano)
+	payload := "hello world\n"
+
+	ring := ringbuffer.New(128)
+	_, err := ring.Write([]byte(timestamp + " " + payload))
+	require.NoError(t, err)
+
+	parsedTS, err := extractTimestampFromRing(ring, make([]byte, len(payload)+36))
+	require.NoError(t, err)
+	assert.Equal(t, ts, parsedTS)
+
+	remainingLen := ring.Length()
+	assert.Equal(t, len(payload), remainingLen)
+
+	remaining := make([]byte, remainingLen)
+	n, err := ring.Peek(remaining)
+	require.NoError(t, err)
+	assert.Equal(t, payload, string(remaining[:n]))
+}
+
+func TestExtractTimestampFromRingFailure(t *testing.T) {
+	ts := time.Date(2025, 1, 2, 3, 4, 5, 123456789, time.UTC)
+	timestamp := ts.Format(time.RFC3339Nano)
+
+	t.Run("errors when buffer is empty", func(t *testing.T) {
+		ring := ringbuffer.New(64)
+
+		parsedTS, err := extractTimestampFromRing(ring, make([]byte, 64))
+
+		assert.Zero(t, parsedTS)
+		require.ErrorIs(t, err, ringbuffer.ErrIsEmpty)
+		assert.Equal(t, 0, ring.Length())
+	})
+
+	t.Run("errors when delimiter is missing", func(t *testing.T) {
+		ring := ringbuffer.New(128)
+		input := timestamp + "payload-without-space"
+
+		_, err := ring.Write([]byte(input))
+		require.NoError(t, err)
+
+		parsedTS, err := extractTimestampFromRing(ring, make([]byte, 64))
+		assert.Zero(t, parsedTS)
+		require.EqualError(t, err, "delimiter not found")
+
+		remainingLen := ring.Length()
+		assert.Equal(t, len(input), remainingLen)
+
+		remaining := make([]byte, remainingLen)
+		n, peekErr := ring.Peek(remaining)
+		require.NoError(t, peekErr)
+		assert.Equal(t, input, string(remaining[:n]))
+	})
+
+	t.Run("errors on invalid timestamp", func(t *testing.T) {
+		ring := ringbuffer.New(128)
+		input := "not-a-timestamp payload"
+
+		_, err := ring.Write([]byte(input))
+		require.NoError(t, err)
+
+		parsedTS, err := extractTimestampFromRing(ring, make([]byte, 64))
+		assert.Zero(t, parsedTS)
+
+		var parseErr *time.ParseError
+		require.ErrorAs(t, err, &parseErr)
+
+		assert.Equal(t, len(input), ring.Length())
+	})
+
+	t.Run("errors when peek buffer is too small", func(t *testing.T) {
+		ring := ringbuffer.New(128)
+		input := timestamp + " message"
+
+		_, err := ring.Write([]byte(input))
+		require.NoError(t, err)
+
+		parsedTS, err := extractTimestampFromRing(ring, make([]byte, 10))
+		assert.Zero(t, parsedTS)
+		require.ErrorIs(t, err, ErrBufCapacity)
+
+		assert.Equal(t, len(input), ring.Length())
+	})
+}
+
+func TestRuneSafeChunkLenFromRing(t *testing.T) {
+	tests := []struct {
+		name         string
+		data         string
+		maxChunkSize int
+		peekBufSize  int
+		wantChunkLen int
+		wantErr      error
+	}{
+		{
+			name:         "empty ring returns zero",
+			data:         "",
+			maxChunkSize: 5,
+			wantChunkLen: 0,
+		},
+		{
+			name:         "returns full length when max chunk not limiting",
+			data:         "abc",
+			maxChunkSize: 0,
+			wantChunkLen: 3,
+		},
+		{
+			name:         "returns full length when max chunk exceeds ring size",
+			data:         "abc",
+			maxChunkSize: 10,
+			wantChunkLen: 3,
+		},
+		{
+			name:         "does not split multibyte rune at boundary",
+			data:         "abc\u00e9",
+			maxChunkSize: 4,
+			wantChunkLen: 3,
+		},
+		{
+			name:         "returns rune length when max chunk smaller than first rune",
+			data:         "\U0001f916abc",
+			maxChunkSize: 2,
+			wantChunkLen: 4,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ring := ringbuffer.New(len([]byte(tt.data)) + 8)
+
+			if tt.data != "" {
+				_, err := ring.Write([]byte(tt.data))
+				require.NoError(t, err)
+			}
+
+			buf := make([]byte, tt.maxChunkSize+utf8.UTFMax)
+
+			gotChunkLen, err := runeSafeChunkLenFromRing(ring, tt.maxChunkSize, buf)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantTimestamp, record.Timestamp)
-			assert.Equal(t, tt.wantMessage, record.Message)
-			assert.Equal(t, tt.wantOrigSize, record.OriginalSizeBytes)
-			assert.Equal(t, tt.wantTruncated, record.IsTruncated)
+
+			assert.Equal(t, tt.wantChunkLen, gotChunkLen)
+			assert.Equal(t, len([]byte(tt.data)), ring.Length())
 		})
 	}
 }

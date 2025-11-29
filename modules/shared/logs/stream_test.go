@@ -298,9 +298,9 @@ func TestStreamHead(t *testing.T) {
 
 			// Check sinceTime option
 			fetcherOpts := FetcherOptions{
-				StartTime:       tt.setSinceTime,
-				StopTime:        tt.setUntilTime,
-				TruncateAtBytes: DEFAULT_TRUNCATE_AT_BYTES,
+				StartTime:    tt.setSinceTime,
+				StopTime:     tt.setUntilTime,
+				MaxChunkSize: DEFAULT_MAX_CHUNK_SIZE,
 			}
 			m.AssertCalled(t, "StreamForward", mock.Anything, s1, fetcherOpts)
 			m.AssertCalled(t, "StreamForward", mock.Anything, s2, fetcherOpts)
@@ -590,10 +590,10 @@ func TestStreamAllWithFollow(t *testing.T) {
 			defer close(ch2New)
 
 			// Init mock logProvider
-			optsOld := FetcherOptions{TruncateAtBytes: DEFAULT_TRUNCATE_AT_BYTES}
+			optsOld := FetcherOptions{MaxChunkSize: DEFAULT_MAX_CHUNK_SIZE}
 			optsNew := FetcherOptions{
-				FollowFrom:      FollowFromEnd,
-				TruncateAtBytes: DEFAULT_TRUNCATE_AT_BYTES,
+				FollowFrom:   FollowFromEnd,
+				MaxChunkSize: DEFAULT_MAX_CHUNK_SIZE,
 			}
 
 			m := mockLogFetcher{}
@@ -828,8 +828,8 @@ func TestStreamTailWithFollow(t *testing.T) {
 
 			// Init mock logProvider
 			optsNew := FetcherOptions{
-				FollowFrom:      FollowFromEnd,
-				TruncateAtBytes: DEFAULT_TRUNCATE_AT_BYTES,
+				FollowFrom:   FollowFromEnd,
+				MaxChunkSize: DEFAULT_MAX_CHUNK_SIZE,
 			}
 
 			m := mockLogFetcher{}

@@ -108,7 +108,6 @@ message LogRecordsStreamRequest {
   // Return only the logs that happened after this timestamp.
   string start_time = 5;
 
-
   // Return only the logs that happened before this timestamp.
   string stop_time = 6;
 
@@ -119,11 +118,13 @@ message LogRecordsStreamRequest {
   FollowFrom follow_from = 8;
 }
 
-// A log line
+// A log record
 message LogRecord {
   google.protobuf.Timestamp timestamp = 1;
 
   string message = 2;
+
+  bool is_final = 3;
 }
 
 // Controls how the stream is going to follow new entries in the logs.

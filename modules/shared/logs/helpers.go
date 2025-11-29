@@ -19,17 +19,27 @@ import (
 	"bytes"
 	"container/heap"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
-	"sync"
 	"time"
+	"unicode/utf8"
 
+	"github.com/smallnest/ringbuffer"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
+)
+
+const EXTRACT_TIMESTAMP_BUFFER_SIZE_MIN = 36
+
+var (
+	ErrExpectedData      = errors.New("expected data")
+	ErrBufCapacity       = errors.New("buffer capacity too low")
+	ErrDelimiterNotFound = errors.New("delimiter not found")
 )
 
 // Workload enum type
@@ -140,86 +150,181 @@ func parseWorkloadType(workloadStr string) WorkloadType {
 	}
 }
 
-var bufferPool = sync.Pool{
-	New: func() any {
-		return new(bytes.Buffer)
-	},
+// podLogsReader reads from podLogs and splits messages into chunks of max length maxChunkSize
+func podLogsReader(podLogs io.ReadCloser, maxChunkSize int) func() (LogRecord, error) {
+	reader := bufio.NewReader(podLogs)
+	ring := ringbuffer.New(maxChunkSize + bufio.MaxScanTokenSize)
+
+	var err error
+	var zero LogRecord
+	var chunkTS time.Time
+	var hasChunkTS bool
+	var hasNewLine bool
+	var isEOF bool
+
+	// Reusable buffer to avoid allocations in the hot path
+	buf := make([]byte, max(maxChunkSize+utf8.UTFMax, EXTRACT_TIMESTAMP_BUFFER_SIZE_MIN))
+
+	// Generator function
+	return func() (LogRecord, error) {
+		for {
+			if ring.Length() > 0 {
+				// Parse timestamp if we don't have one yet
+				if !hasChunkTS {
+					chunkTS, err = extractTimestampFromRing(ring, buf)
+					if err != nil {
+						return zero, err
+					} else if ring.Length() == 0 {
+						return zero, ErrExpectedData
+					}
+					hasChunkTS = true
+				}
+
+				// Send record (if possible)
+				if isEOF || hasNewLine || ring.Length() >= maxChunkSize {
+					chunkLen, err := runeSafeChunkLenFromRing(ring, maxChunkSize, buf)
+					if err != nil {
+						return zero, err
+					}
+
+					// Read the chunk from ring buffer
+					n, err := ring.Read(buf[:chunkLen])
+					if err != nil {
+						return zero, err
+					}
+
+					// Handle newlines
+					var isFinal bool
+					if buf[n-1] == '\n' {
+						isFinal = true
+						n -= 1
+					} else if ring.Length() == 1 && hasNewLine {
+						isFinal = true
+						ring.Reset()
+					} else if isEOF && ring.Length() == 0 {
+						isFinal = true
+					}
+
+					if isFinal {
+						hasChunkTS = false
+						hasNewLine = false
+					}
+
+					return LogRecord{
+						Timestamp: chunkTS,
+						Message:   string(buf[:n]),
+						IsFinal:   isFinal,
+					}, nil
+				}
+
+			}
+
+			// Read more data from source
+			part, err := reader.ReadSlice('\n')
+
+			if err != nil && err != io.EOF && err != bufio.ErrBufferFull {
+				return zero, err
+			}
+
+			if len(part) > 0 {
+				ring.Write(part)
+
+				if part[len(part)-1] == '\n' {
+					hasNewLine = true
+				}
+			}
+
+			if err == io.EOF {
+				if ring.Length() == 0 {
+					return zero, io.EOF
+				}
+				isEOF = true
+			}
+		}
+	}
 }
 
-func nextRecordFromReader(reader *bufio.Reader, truncateAtBytes int) (LogRecord, error) {
-	var zero LogRecord
+// extractTimestampFromRing reads and parses the timestamp prefix from the ring buffer
+func extractTimestampFromRing(ring *ringbuffer.RingBuffer, buf []byte) (time.Time, error) {
+	var zero time.Time
 
-	// Fetch timestamp
-	tsBytes, err := reader.ReadSlice(' ')
+	// RFC3339Nano is ~35 chars max plus space
+	if cap(buf) < EXTRACT_TIMESTAMP_BUFFER_SIZE_MIN {
+		return zero, ErrBufCapacity
+	}
+
+	// Peek to find the space delimiter
+	n, err := ring.Peek(buf[:EXTRACT_TIMESTAMP_BUFFER_SIZE_MIN])
+	if err != nil {
+		return zero, err
+	} else if n == 0 {
+		return zero, ErrExpectedData
+	}
+
+	i := bytes.IndexByte(buf[:n], ' ')
+	if i < 0 {
+		return zero, ErrDelimiterNotFound
+	}
+
+	ts, err := time.Parse(time.RFC3339Nano, string(buf[:i]))
 	if err != nil {
 		return zero, err
 	}
-	tsBytes = tsBytes[:len(tsBytes)-1]
 
-	// Parse timestamp
-	ts, err := time.Parse(time.RFC3339Nano, string(tsBytes))
-	if err != nil {
+	// Now actually consume the timestamp + space
+	if _, err = ring.Read(buf[:i+1]); err != nil {
 		return zero, err
 	}
 
-	// Read the rest of the bytes until '\n' delimiter or truncateAtBytes whichever comes first
-	var isTruncated bool
-	var origSizeBytes int
+	return ts, nil
+}
 
-	// Get buffer from pool
-	buf := bufferPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	defer bufferPool.Put(buf)
-
-	// Pre-allocate if we know we need space, but be conservative
-	// If the buffer from the pool already has capacity, we don't need to do anything
-	if buf.Cap() < 128 {
-		buf.Grow(128)
+// runeSafeChunkLenFromRing determines safe chunk length from ring buffer
+func runeSafeChunkLenFromRing(ring *ringbuffer.RingBuffer, maxChunkSize int, buf []byte) (int, error) {
+	length := ring.Length()
+	if length == 0 {
+		return 0, nil
 	}
 
-Loop:
-	for {
-		chunk, isPrefix, err := reader.ReadLine()
-		switch err {
-		case nil, bufio.ErrBufferFull:
-			// Do nothing
-		case io.EOF:
-			// Exit loop
-			break Loop
-		default:
-			// Unexpected error
-			return zero, err
-		}
+	if maxChunkSize <= 0 || maxChunkSize >= length {
+		return length, nil
+	}
 
-		origSizeBytes += len(chunk)
+	// Check buffer
+	wantLen := min(length, maxChunkSize+utf8.UTFMax)
+	if cap(buf) < wantLen {
+		return 0, ErrBufCapacity
+	}
 
-		if truncateAtBytes == 0 {
-			// Disable truncation
-			buf.Write(chunk)
-		} else if !isTruncated {
-			// Append as much as we can
-			remaining := max(truncateAtBytes-buf.Len(), 0)
-			writeLen := min(remaining, len(chunk))
-			buf.Write(chunk[:writeLen])
+	n, err := ring.Peek(buf[:wantLen])
+	if err != nil {
+		return 0, err
+	}
 
-			// Update isTruncated for next loop
-			isTruncated = origSizeBytes > truncateAtBytes
-		}
+	chunkLen := min(maxChunkSize, n)
 
-		// Exit when no longer chunking
-		if !isPrefix {
+	// Fast path: trim from the end until last rune is complete
+	for chunkLen > 0 {
+		r, size := utf8.DecodeLastRune(buf[:chunkLen])
+
+		// size == 0 shouldn't happen here; but guard anyway.
+		if size == 0 {
 			break
 		}
+
+		// Invalid encoding at the end => trim one byte and try again.
+		if r == utf8.RuneError && size == 1 {
+			chunkLen--
+			continue
+		}
+
+		// Got a complete rune at the end -> everything up to here is fine
+		return chunkLen, nil
 	}
 
-	// Initialize record
-	record := LogRecord{}
-	record.Timestamp = ts
-	record.Message = buf.String()
-	record.OriginalSizeBytes = origSizeBytes
-	record.IsTruncated = isTruncated
-
-	return record, nil
+	// No rune fits inside maxChunkSize; return the first rune in full.
+	_, size := utf8.DecodeRune(buf[:n])
+	return size, nil
 }
 
 // mergeLogStreams merges multiple ordered log streams into a single channel

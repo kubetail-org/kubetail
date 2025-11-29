@@ -15,7 +15,6 @@
 package logs
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -48,13 +47,13 @@ const (
 
 // FetcherOptions defines options for fetching logs
 type FetcherOptions struct {
-	StartTime       time.Time
-	StopTime        time.Time
-	Grep            string
-	GrepRegex       *regexp.Regexp
-	FollowFrom      FollowFrom
-	BatchSizeHint   int64
-	TruncateAtBytes int
+	StartTime     time.Time
+	StopTime      time.Time
+	Grep          string
+	GrepRegex     *regexp.Regexp
+	FollowFrom    FollowFrom
+	BatchSizeHint int64
+	MaxChunkSize  int
 }
 
 // LogFetcher defines forward and backward streaming.
@@ -110,15 +109,10 @@ func (f *KubeLogFetcher) StreamForward(ctx context.Context, source LogSource, op
 		defer podLogs.Close()
 		defer close(outCh)
 
-		reader := bufio.NewReader(podLogs)
+		next := podLogsReader(podLogs, opts.MaxChunkSize)
 
 		for {
-			// Check context
-			if ctx.Err() != nil {
-				return
-			}
-
-			record, err := nextRecordFromReader(reader, opts.TruncateAtBytes)
+			record, err := next()
 			if err != nil {
 				if err == io.EOF {
 					break
@@ -157,6 +151,56 @@ func (f *KubeLogFetcher) StreamForward(ctx context.Context, source LogSource, op
 			case outCh <- record:
 			}
 		}
+
+		/*
+			reader := bufio.NewReader(podLogs)
+
+			for {
+				// Check context
+				if ctx.Err() != nil {
+					return
+				}
+
+				record, err := nextRecordFromReader(reader, opts.MaxChunkSize)
+				if err != nil {
+					if err == io.EOF {
+						break
+					}
+
+					// Write to channel and exit
+					select {
+					case <-ctx.Done():
+					case outCh <- LogRecord{err: err}:
+					}
+					return
+				}
+
+				// Check start time
+				if !opts.StartTime.IsZero() && record.Timestamp.Before(opts.StartTime) {
+					continue
+				}
+
+				// Check stop time
+				if !opts.StopTime.IsZero() && record.Timestamp.After(opts.StopTime) {
+					break
+				}
+
+				// Check grep
+				if opts.GrepRegex != nil && !opts.GrepRegex.MatchString(record.Message) {
+					continue
+				}
+
+				// Set source
+				record.Source = source
+
+				// Write to output channel
+				select {
+				case <-ctx.Done():
+					return
+				case outCh <- record:
+				}
+			}
+		*/
 	}()
 
 	return outCh, nil
@@ -210,7 +254,7 @@ func (f *KubeLogFetcher) StreamBackward(ctx context.Context, source LogSource, o
 			}
 
 			// Read logs from this batch
-			reader := bufio.NewReader(podLogs)
+			next := podLogsReader(podLogs, opts.MaxChunkSize)
 
 			batchRecords := []LogRecord{}
 			isEmpty := true
@@ -218,18 +262,13 @@ func (f *KubeLogFetcher) StreamBackward(ctx context.Context, source LogSource, o
 			increaseBatchSize := false
 
 			for {
-				// Check if context is done
-				if ctx.Err() != nil {
-					break
-				}
-
-				record, err := nextRecordFromReader(reader, opts.TruncateAtBytes)
+				record, err := next()
 				if err != nil {
 					if err == io.EOF {
 						break
 					}
 
-					// Write error to channel and exit
+					// Write to channel and exit
 					select {
 					case <-ctx.Done():
 					case outCh <- LogRecord{err: err}:
@@ -399,11 +438,10 @@ func (f *AgentLogFetcher) StreamForward(ctx context.Context, source LogSource, o
 
 			// Send event
 			outCh <- LogRecord{
-				Message:           ev.Message,
-				Timestamp:         ev.Timestamp.AsTime(),
-				Source:            source,
-				OriginalSizeBytes: len(ev.Message),
-				IsTruncated:       false,
+				Message:   ev.Message,
+				Timestamp: ev.Timestamp.AsTime(),
+				Source:    source,
+				IsFinal:   ev.IsFinal,
 			}
 		}
 	})
@@ -469,11 +507,10 @@ func (f *AgentLogFetcher) StreamBackward(ctx context.Context, source LogSource, 
 
 			// Send event
 			outCh <- LogRecord{
-				Message:           ev.Message,
-				Timestamp:         ev.Timestamp.AsTime(),
-				Source:            source,
-				OriginalSizeBytes: len(ev.Message),
-				IsTruncated:       false,
+				Message:   ev.Message,
+				Timestamp: ev.Timestamp.AsTime(),
+				Source:    source,
+				IsFinal:   ev.IsFinal,
 			}
 		}
 	})

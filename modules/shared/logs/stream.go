@@ -27,16 +27,15 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
-const DEFAULT_TRUNCATE_AT_BYTES = 16 * 1024 // 16 KB
+const DEFAULT_MAX_CHUNK_SIZE = 16 * 1024 // 16 KB
 
 // LogRecord represents a log record
 type LogRecord struct {
-	Timestamp         time.Time
-	Message           string
-	Source            LogSource
-	OriginalSizeBytes int
-	IsTruncated       bool
-	err               error // for use internally
+	Timestamp time.Time
+	Message   string
+	Source    LogSource
+	IsFinal   bool
+	err       error // for use internally
 }
 
 // streamMode enum type
@@ -66,7 +65,7 @@ type Stream struct {
 	maxNum  int64
 	sources set.Set[LogSource]
 
-	truncateAtBytes int
+	maxChunkSize int
 
 	kubeContext string
 	sw          SourceWatcher
@@ -92,13 +91,13 @@ func NewStream(ctx context.Context, cm k8shelpers.ConnectionManager, sourcePaths
 
 	// Init stream instance
 	stream := &Stream{
-		rootCtx:         rootCtx,
-		rootCtxCancel:   rootCtxCancel,
-		sources:         set.NewSet[LogSource](),
-		truncateAtBytes: DEFAULT_TRUNCATE_AT_BYTES,
-		pastCh:          make(chan LogRecord),
-		futureCh:        make(chan LogRecord),
-		outCh:           make(chan LogRecord),
+		rootCtx:       rootCtx,
+		rootCtxCancel: rootCtxCancel,
+		sources:       set.NewSet[LogSource](),
+		maxChunkSize:  DEFAULT_MAX_CHUNK_SIZE,
+		pastCh:        make(chan LogRecord),
+		futureCh:      make(chan LogRecord),
+		outCh:         make(chan LogRecord),
 	}
 
 	// Apply options
@@ -238,10 +237,10 @@ func (s *Stream) handleSourceAdd(source LogSource) {
 
 	// Stream from beginning and keep following
 	opts := FetcherOptions{
-		Grep:            s.grep,
-		GrepRegex:       s.grepRegex,
-		FollowFrom:      FollowFromDefault,
-		TruncateAtBytes: s.truncateAtBytes,
+		Grep:         s.grep,
+		GrepRegex:    s.grepRegex,
+		FollowFrom:   FollowFromDefault,
+		MaxChunkSize: s.maxChunkSize,
 	}
 
 	stream, err := s.logFetcher.StreamForward(s.rootCtx, source, opts)
@@ -305,11 +304,11 @@ func (s *Stream) startHead_UNSAFE() error {
 	ctx, cancel := context.WithCancel(s.rootCtx)
 
 	opts := FetcherOptions{
-		StartTime:       s.sinceTime,
-		StopTime:        s.untilTime,
-		Grep:            s.grep,
-		GrepRegex:       s.grepRegex,
-		TruncateAtBytes: s.truncateAtBytes,
+		StartTime:    s.sinceTime,
+		StopTime:     s.untilTime,
+		Grep:         s.grep,
+		GrepRegex:    s.grepRegex,
+		MaxChunkSize: s.maxChunkSize,
 	}
 
 	streams := make([]<-chan LogRecord, s.sources.Cardinality())
@@ -366,12 +365,12 @@ func (s *Stream) startTail_UNSAFE() error {
 	}
 
 	opts := FetcherOptions{
-		StartTime:       s.sinceTime,
-		StopTime:        s.untilTime,
-		Grep:            s.grep,
-		GrepRegex:       s.grepRegex,
-		BatchSizeHint:   batchSize,
-		TruncateAtBytes: s.truncateAtBytes,
+		StartTime:     s.sinceTime,
+		StopTime:      s.untilTime,
+		Grep:          s.grep,
+		GrepRegex:     s.grepRegex,
+		BatchSizeHint: batchSize,
+		MaxChunkSize:  s.maxChunkSize,
 	}
 
 	streams := make([]<-chan LogRecord, s.sources.Cardinality())
@@ -428,11 +427,11 @@ func (s *Stream) startFollow_UNSAFE() error {
 	var wg sync.WaitGroup
 
 	opts := FetcherOptions{
-		StopTime:        s.untilTime,
-		Grep:            s.grep,
-		GrepRegex:       s.grepRegex,
-		FollowFrom:      FollowFromEnd,
-		TruncateAtBytes: s.truncateAtBytes,
+		StopTime:     s.untilTime,
+		Grep:         s.grep,
+		GrepRegex:    s.grepRegex,
+		FollowFrom:   FollowFromEnd,
+		MaxChunkSize: s.maxChunkSize,
 	}
 
 	for _, source := range s.sources.ToSlice() {
