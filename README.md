@@ -60,7 +60,7 @@ winget install kubetail
 ```
 
 <details>
-  <summary>See 12 more options (Ubuntu, Nix, asdf, Arch, Gentoo, Fedora, RHEL, CentOS, SUSE, Chocolatey, Scoop, Macports) </summary>
+  <summary>See 12 more options (Ubuntu, Nix, asdf, Arch, Gentoo, Fedora, RHEL, CentOS, SUSE, Chocolatey, Scoop, MacPorts) </summary>
   
   ```console
   # Ubuntu/Mint
