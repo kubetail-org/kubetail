@@ -101,7 +101,7 @@ var serveCmd = &cobra.Command{
 		config.ConfigureLogger(config.LoggerOptions{
 			Enabled: true,
 			Level:   cfg.Dashboard.Logging.Level,
-			Format:  "pretty",
+			Format:  "cli",
 		})
 
 		// Capture unhandled kubernetes client errors
