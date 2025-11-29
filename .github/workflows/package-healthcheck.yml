@@ -19,6 +19,9 @@ jobs:
       matrix:
         mgr:
           - apt
+          - arch-aur
+          - asdf
+          - gentoo-guru
           - homebrew
           - krew
           - nix
@@ -44,22 +47,45 @@ jobs:
               apt-get install -y kubetail-cli
             version: |
               kubetail --version
-          #- mgr: asdf
-          #  image: debian:12
-          #  os: debian-12
-          #  setup: |
-          #    apt-get update && apt-get install -y git curl
-          #    git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.1
-          #    echo "$HOME/.asdf/bin" >> $GITHUB_PATH
-          #    echo "$HOME/.asdf/shims" >> $GITHUB_PATH
-          #  install: |
-          #    asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
-          #    asdf install kubetail latest
-          #  version: |
-          #    kubetail --version
+          - mgr: arch-aur
+            image: archlinux:latest
+            os: arch
+            setup: |
+              pacman -Syu --noconfirm
+              pacman -S --noconfirm base-devel git
+
+              useradd -m builder
+              passwd -d builder
+              echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+            install: |
+              su - builder -c 'git clone https://aur.archlinux.org/kubetail-cli.git && cd kubetail-cli && makepkg -si --noconfirm'
+            version: |
+              kubetail --version
+          - mgr: asdf
+            image: homebrew/brew:latest
+            os: linux
+            setup: |
+              brew install asdf
+            install: |
+              asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
+              asdf install kubetail latest
+            version: |
+              asdf latest kubetail
+          - mgr: gentoo-guru
+            image: gentoo/stage3:latest
+            os: gentoo
+            setup: |
+              emaint sync -a > /dev/null
+              emerge app-eselect/eselect-repository > /dev/null
+              eselect repository enable guru
+              emaint sync -r guru > /dev/null
+            install: |
+              ACCEPT_KEYWORDS="~$(portageq envvar ARCH)" emerge dev-util/kubetail
+            version: |
+              kubetail --version
           - mgr: homebrew
             image: homebrew/brew:latest
-            os: ubuntu-22.04
+            os: linux
             setup: skip
             install: |
               brew install kubetail
@@ -91,10 +117,13 @@ jobs:
             version: |
               . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
               kubetail --version
+        exclude:
+          - mgr: arch-aur
+            arch: arm64
     runs-on: ${{ matrix.runner }}
     container:
       image: ${{ matrix.image }}
-      options: --user 0
+      options: --user 0 --platform linux/${{ matrix.arch }}
     env:
       ARCH: ${{ matrix.arch }}
       TRIPLET: ${{ matrix.mgr }}_${{ matrix.os }}_${{ matrix.arch }}
@@ -198,7 +227,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     container:
       image: ${{ matrix.image }}
-      options: --user 0
+      options: --user 0 --platform linux/${{ matrix.arch }}
     env:
       DISTRO: ${{ matrix.distro }}
       TRIPLET: dnf_${{ matrix.os }}_${{ matrix.arch }}
@@ -213,6 +242,44 @@ jobs:
 
       - name: Check version
         shell: bash
+        run: |
+          set -euxo pipefail
+          cli_ver="$(kubetail --version)"
+
+          # Save result for summary table
+          mkdir -p /tmp/results
+          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+
+      - *upload_step
+
+  linux-snap:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      TRIPLET: snap_ubuntu-24.04_${{ matrix.arch }}
+    steps:
+      - name: Setup
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y snapd
+          sudo systemctl enable --now snapd
+          sudo systemctl status snapd --no-pager
+
+      - name: Install
+        run: |
+          sudo snap install kubetail
+
+      - name: Check version
         run: |
           set -euxo pipefail
           cli_ver="$(kubetail --version)"
@@ -250,7 +317,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     container:
       image: ${{ matrix.image }}
-      options: --user 0
+      options: --user 0 --platform linux/${{ matrix.arch }}
     env:
       TRIPLET: zypper_${{ matrix.os }}_${{ matrix.arch }}
     steps:
@@ -281,6 +348,7 @@ jobs:
       fail-fast: false
       matrix:
         mgr:
+          - asdf
           - homebrew
           - krew
           - macports
@@ -306,6 +374,14 @@ jobs:
             runner: macos-15
             macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
           # --- for package managers ---
+          - mgr: asdf
+            setup: |
+              brew install asdf
+            install: |
+              asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
+              asdf install kubetail latest
+            version: |
+              asdf latest kubetail
           - mgr: homebrew
             setup: skip
             install: |
@@ -496,7 +572,7 @@ jobs:
           retention-days: 1
 
   summary:
-    needs: [linux, linux-dnf, linux-zypper, macos, windows]
+    needs: [linux, linux-dnf, linux-snap, linux-zypper, macos, windows]
     runs-on: ubuntu-24.04
     if: always()
     steps:
