@@ -18,7 +18,6 @@ jobs:
       fail-fast: false
       matrix:
         mgr:
-          - apt
           - arch-aur
           - asdf
           - gentoo-guru
@@ -35,18 +34,6 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
           # --- for package managers ---
-          - mgr: apt
-            image: ubuntu:24.04
-            os: ubuntu-24.04
-            setup: |
-              apt-get update
-              apt-get install -y software-properties-common curl jq
-            install: |
-              add-apt-repository -y ppa:kubetail/kubetail
-              apt-get update
-              apt-get install -y kubetail-cli
-            version: |
-              kubetail --version
           - mgr: arch-aur
             image: archlinux:latest
             os: arch
@@ -163,6 +150,62 @@ jobs:
           name: version-${{ env.TRIPLET }}
           path: /tmp/results/*.txt
           retention-days: 1
+
+  linux-apt:
+    strategy:
+      fail-fast: false
+      matrix:
+        series:
+          - jammy
+          - noble
+          - plucky
+        arch:
+          - amd64
+          - arm64
+        include:
+          # --- for arches ---
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+          # --- for series ---
+          - series: jammy
+            image: ubuntu:22.04
+          - series: noble
+            image: ubuntu:24.04
+          - series: plucky
+            image: ubuntu:25.04
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ${{ matrix.image }}
+      options: --user 0 --platform linux/${{ matrix.arch }}
+    env:
+      TRIPLET: apt_${{ matrix.series }}_${{ matrix.arch }}
+    steps:
+      - name: Setup
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y software-properties-common curl jq
+
+      - name: Install
+        shell: bash
+        run: |
+          add-apt-repository -y ppa:kubetail/kubetail
+          apt-get update
+          apt-get install -y kubetail-cli
+
+      - name: Check version
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cli_ver="$(kubetail --version)"
+
+          # Save result for summary table
+          mkdir -p /tmp/results
+          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+
+      - *upload_step
 
   linux-dnf:
     strategy:
@@ -572,7 +615,14 @@ jobs:
           retention-days: 1
 
   summary:
-    needs: [linux, linux-dnf, linux-snap, linux-zypper, macos, windows]
+    needs:
+      - linux
+      - linux-apt
+      - linux-dnf
+      - linux-snap
+      - linux-zypper
+      - macos
+      - windows
     runs-on: ubuntu-24.04
     if: always()
     steps:
