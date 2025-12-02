@@ -212,7 +212,6 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - amazonlinux-2023
           - centos-stream-9
           - centos-stream-10
           - fedora-41
@@ -220,9 +219,6 @@ jobs:
           - fedora-43
           - fedora-rawhide
           - mageia-9
-          - mageia-cauldron
-          - opensuse-leap-15.6
-          - opensuse-tumbleweed
           - rhel-8
           - rhel-9
           - rhel-10
@@ -236,8 +232,6 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
           # --- for oses ---
-          - os: amazonlinux-2023
-            image: amazonlinux:2023
           - os: centos-stream-9
             image: dokken/centos-stream-9:latest
           - os: centos-stream-10
@@ -252,12 +246,6 @@ jobs:
             image: fedora:rawhide
           - os: mageia-9
             image: mageia:9
-          - os: mageia-cauldron
-            image: mageia:cauldron
-          - os: opensuse-leap-15.6
-            image: opensuse/leap:15.6
-          - os: opensuse-tumbleweed
-            image: opensuse/tumbleweed:latest
           - os: rhel-8
             image: redhat/ubi8:latest
           - os: rhel-9
@@ -269,7 +257,7 @@ jobs:
       image: ${{ matrix.image }}
       options: --user 0 --platform linux/${{ matrix.arch }}
     env:
-      TRIPLET: dnf_${{ matrix.os }}_${{ matrix.arch }}
+      TRIPLET: copr_${{ matrix.os }}_${{ matrix.arch }}
     steps:
       - name: Setup
         run: |
