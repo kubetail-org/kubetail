@@ -273,12 +273,12 @@ jobs:
     steps:
       - name: Setup
         run: |
-          dnf install dnf-plugins-core
+          dnf -y install dnf-plugins-core
 
       - name: Install
         run: |
-          dnf copr enable kubetail/kubetail
-          dnf install kubetail
+          dnf -y copr enable kubetail/kubetail
+          dnf -y install kubetail
 
       - name: Check version
         shell: bash
