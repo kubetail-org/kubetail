@@ -271,6 +271,8 @@ var logsCmd = &cobra.Command{
 			allContainers = false
 		}
 
+		test, _ := cmd.Flags().GetBool("test")
+
 		// Stream mode
 		streamMode := logsStreamModeUnknown
 		if head {
@@ -356,6 +358,11 @@ var logsCmd = &cobra.Command{
 		stream, err := logs.NewStream(rootCtx, cm, args, streamOpts...)
 		cli.ExitOnError(err)
 		defer stream.Close()
+
+		if test {
+			cmd.Println("ok")
+			return
+		}
 
 		// Start stream
 		err = stream.Start(rootCtx)
@@ -668,6 +675,9 @@ func init() {
 	//flagset.BoolP("reverse", "r", false, "List records in reverse order")
 
 	flagset.Bool("force", false, "Force command (if necessary)")
+
+	// Flag for testing config
+	flagset.Bool("test", false, "Run internal tests and exit")
 
 	// Define help here to avoid re-defining 'h' shorthand
 	flagset.Bool("help", false, "help for logs")
