@@ -207,6 +207,79 @@ jobs:
 
       - *upload_step
 
+  linux-copr:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - centos-stream-9
+          - centos-stream-10
+          - fedora-41
+          - fedora-42
+          - fedora-43
+          - fedora-rawhide
+          - mageia-9
+          - rhel-8
+          - rhel-9
+          - rhel-10
+        arch:
+          - amd64
+          - arm64
+        include:
+          # --- for arches ---
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+          # --- for oses ---
+          - os: centos-stream-9
+            image: dokken/centos-stream-9:latest
+          - os: centos-stream-10
+            image: dokken/centos-stream-10:latest
+          - os: fedora-41
+            image: fedora:41
+          - os: fedora-42
+            image: fedora:42
+          - os: fedora-43
+            image: fedora:43
+          - os: fedora-rawhide
+            image: fedora:rawhide
+          - os: mageia-9
+            image: mageia:9
+          - os: rhel-8
+            image: redhat/ubi8:latest
+          - os: rhel-9
+            image: redhat/ubi9:latest
+          - os: rhel-10
+            image: redhat/ubi10:latest
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ${{ matrix.image }}
+      options: --user 0 --platform linux/${{ matrix.arch }}
+    env:
+      TRIPLET: copr_${{ matrix.os }}_${{ matrix.arch }}
+    steps:
+      - name: Setup
+        run: |
+          dnf -y install dnf-plugins-core
+
+      - name: Install
+        run: |
+          dnf -y copr enable kubetail/kubetail
+          dnf -y install kubetail
+
+      - name: Check version
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cli_ver="$(kubetail --version)"
+
+          # Save result for summary table
+          mkdir -p /tmp/results
+          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+
+      - *upload_step
+
   linux-dnf:
     strategy:
       fail-fast: false
@@ -618,6 +691,7 @@ jobs:
     needs:
       - linux
       - linux-apt
+      - linux-copr
       - linux-dnf
       - linux-snap
       - linux-zypper

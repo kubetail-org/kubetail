@@ -1,0 +1,83 @@
+name: publish-copr
+
+permissions:
+  contents: read
+  deployments: write
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run"
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - id: config
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+            echo "dry_run=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install dependencies
+        run: |
+          pip3 install --user copr-cli
+
+      - name: Checkout this repo
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/ci-config/copr
+          sparse-checkout-cone-mode: false
+          path: kubetail
+
+      - name: Configure copr-cli
+        run: |
+          mkdir -p ~/.config
+          cat > ~/.config/copr <<EOF
+          [copr-cli]
+          login = ${{ vars.COPR_LOGIN }}
+          username = kubetail
+          token = ${{ secrets.COPR_TOKEN }}
+          copr_url = https://copr.fedorainfracloud.org
+          EOF
+
+      - name: Execute templates
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
+          SRC_DIR: kubetail/.github/ci-config/copr
+        run: |
+          export TIMESTAMP=$(LANG=C date '+%a %b %e %Y')
+
+          # .spec
+          envsubst '${VERSION} ${TIMESTAMP}' \
+            < "${SRC_DIR}/kubetail.spec.tmpl" \
+            > "kubetail.spec"
+
+      - name: Publish to copr
+        run: |
+          if [ "${{ steps.config.outputs.dry_run }}" = "false" ]; then
+            copr-cli build kubetail ./kubetail.spec
+          else
+            cat kubetail.spec
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f ~/.config/copr
