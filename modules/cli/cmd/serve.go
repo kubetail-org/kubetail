@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"log"
 	"net"
@@ -252,19 +251,6 @@ func serveRemote(kubeconfigPath string, localPort int, skipOpen bool) {
 	if err := tunnel.Shutdown(ctx); err != nil {
 		zlog.Error().Err(err).Send()
 	}
-}
-
-func generateRandomString(n int) (string, error) {
-	// Create a byte slice of length n
-	bytes := make([]byte, n)
-
-	// Read random bytes into the slice
-	_, err := rand.Read(bytes)
-	if err != nil {
-		return "", err
-	}
-	// Convert the byte slice to a hexadecimal string
-	return string(bytes), nil
 }
 
 func init() {
