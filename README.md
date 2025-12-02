@@ -60,7 +60,7 @@ winget install kubetail
 ```
 
 <details>
-  <summary>See 12 more options (Ubuntu, Nix, asdf, Arch, Gentoo, Fedora, RHEL, CentOS, SUSE, Chocolatey, Scoop, MacPorts) </summary>
+  <summary>See 11 more options (Ubuntu, Nix, asdf, copr, dnf, Arch, Gentoo, SUSE, Chocolatey, Scoop, MacPorts) </summary>
   
   ```console
   # Ubuntu/Mint
@@ -77,16 +77,20 @@ winget install kubetail
   asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
   asdf install kubetail latest
 
+  # copr (Fedora/CentOS-Stream/RHEL/Amazonlinux/Mageia)
+  dnf copr enable kubetail/kubetail
+  dnf install kubetail
+
+  # dnf (Fedora/CentOS/RHEL)
+  DISTRO="<your_distro>" # Fedora_N | CentOS_N | CentOS_Stream_N | RHEL_N
+  dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:/kubetail/${DISTRO}/home:kubetail.repo
+  dnf install kubetail-cli
+
   # Arch Linux (AUR)
   yay -S --noconfirm kubetail-cli
 
   # Gentoo (GURU)
   ACCEPT_KEYWORDS="~$(portageq envvar ARCH)" emerge dev-util/kubetail
-
-  # Fedora/CentOS/RHEL
-  DISTRO="<your_distro>" # Fedora_N | CentOS_N | CentOS_Stream_N | RHEL_N
-  dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:/kubetail/${DISTRO}/home:kubetail.repo
-  dnf install kubetail-cli
 
   # SUSE
   zypper addrepo 'https://download.opensuse.org/repositories/home:/kubetail/$releasever/' kubetail
