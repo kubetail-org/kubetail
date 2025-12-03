@@ -36,13 +36,13 @@
     "jotai": "^2.12.5",
     "lucide-react": "^0.516.0",
     "numeral": "^2.0.6",
-    "react": "^19.1.0",
+    "react": "^19.2.1",
     "react-day-picker": "^9.8.0",
-    "react-dom": "^19.1.0",
+    "react-dom": "^19.2.1",
     "react-error-boundary": "^6.0.0",
     "react-hook-form": "^7.61.1",
     "react-hot-toast": "^2.5.2",
-    "react-router-dom": "7.6.2",
+    "react-router-dom": "7.10.0",
     "react-timeago": "^8.3.0",
     "react-virtualized-auto-sizer": "^1.0.26",
     "react-window": "^1.8.11",
@@ -92,7 +92,7 @@
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.4"
   },
-  "packageManager": "pnpm@10.17.1+sha512.17c560fca4867ae9473a3899ad84a88334914f379be46d455cbf92e5cf4b39d34985d452d2583baf19967fa76cb5c17bc9e245529d0b98745721aa7200ecaf7a",
+  "packageManager": "pnpm@10.24.0+sha512.01ff8ae71b4419903b65c60fb2dc9d34cf8bb6e06d03bde112ef38f7a34d6904c424ba66bea5cdcf12890230bf39f9580473140ed9c946fef328b6e5238a345a",
   "pnpm": {
     "minimumReleaseAge": 14400,
     "onlyBuiltDependencies": [
