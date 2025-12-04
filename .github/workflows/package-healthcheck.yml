@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   linux:
+    if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
       matrix:
@@ -152,6 +153,7 @@ jobs:
           retention-days: 1
 
   linux-apt:
+    if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
       matrix:
@@ -208,6 +210,7 @@ jobs:
       - *upload_step
 
   linux-copr:
+    if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
       matrix:
@@ -281,6 +284,7 @@ jobs:
       - *upload_step
 
   linux-dnf:
+    if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
       matrix:
@@ -369,6 +373,7 @@ jobs:
       - *upload_step
 
   linux-snap:
+    if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
       matrix:
@@ -407,6 +412,7 @@ jobs:
       - *upload_step
 
   linux-zypper:
+    if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
       matrix:
@@ -460,6 +466,7 @@ jobs:
       - *upload_step
 
   macos:
+    if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
       matrix:
@@ -557,6 +564,7 @@ jobs:
       - *upload_step
 
   windows:
+    if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
       matrix:
@@ -698,7 +706,7 @@ jobs:
       - macos
       - windows
     runs-on: ubuntu-24.04
-    if: always()
+    if: always() && github.repository == 'kubetail-org/kubetail'
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
