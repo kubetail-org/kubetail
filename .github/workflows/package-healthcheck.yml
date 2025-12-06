@@ -491,11 +491,11 @@ jobs:
           - os: macos-15
             arch: amd64
             runner: macos-15-intel
-            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
+            macports_url: https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-15-Sequoia.pkg
           - os: macos-15
             arch: arm64
             runner: macos-15
-            macports_url: https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-15-Sequoia.pkg
+            macports_url: https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-15-Sequoia.pkg
           # --- for package managers ---
           - mgr: asdf
             setup: |
