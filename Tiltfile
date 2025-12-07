@@ -191,6 +191,7 @@ k8s_yaml('hack/tilt/cronjob.yaml')
 k8s_yaml('hack/tilt/chaoskube.yaml')
 k8s_yaml('hack/tilt/multi-container-pod.yaml')
 k8s_yaml('hack/tilt/daemonset-example.yaml')
+k8s_yaml('hack/tilt/longlines-example.yaml')
 
 # define resources
 k8s_resource(

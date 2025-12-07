@@ -109,9 +109,10 @@ func (f *KubeLogFetcher) StreamForward(ctx context.Context, source LogSource, op
 		defer podLogs.Close()
 		defer close(outCh)
 
-		next := podLogsReader(podLogs, opts.MaxChunkSize)
+		next := podLogsReader(podLogs)
 
 		for {
+			// Get next record
 			record, err := next()
 			if err != nil {
 				if err == io.EOF {
@@ -133,7 +134,7 @@ func (f *KubeLogFetcher) StreamForward(ctx context.Context, source LogSource, op
 
 			// Check stop time
 			if !opts.StopTime.IsZero() && record.Timestamp.After(opts.StopTime) {
-				break
+				return
 			}
 
 			// Check grep
@@ -151,56 +152,6 @@ func (f *KubeLogFetcher) StreamForward(ctx context.Context, source LogSource, op
 			case outCh <- record:
 			}
 		}
-
-		/*
-			reader := bufio.NewReader(podLogs)
-
-			for {
-				// Check context
-				if ctx.Err() != nil {
-					return
-				}
-
-				record, err := nextRecordFromReader(reader, opts.MaxChunkSize)
-				if err != nil {
-					if err == io.EOF {
-						break
-					}
-
-					// Write to channel and exit
-					select {
-					case <-ctx.Done():
-					case outCh <- LogRecord{err: err}:
-					}
-					return
-				}
-
-				// Check start time
-				if !opts.StartTime.IsZero() && record.Timestamp.Before(opts.StartTime) {
-					continue
-				}
-
-				// Check stop time
-				if !opts.StopTime.IsZero() && record.Timestamp.After(opts.StopTime) {
-					break
-				}
-
-				// Check grep
-				if opts.GrepRegex != nil && !opts.GrepRegex.MatchString(record.Message) {
-					continue
-				}
-
-				// Set source
-				record.Source = source
-
-				// Write to output channel
-				select {
-				case <-ctx.Done():
-					return
-				case outCh <- record:
-				}
-			}
-		*/
 	}()
 
 	return outCh, nil
@@ -254,14 +205,15 @@ func (f *KubeLogFetcher) StreamBackward(ctx context.Context, source LogSource, o
 			}
 
 			// Read logs from this batch
-			next := podLogsReader(podLogs, opts.MaxChunkSize)
+			next := podLogsReader(podLogs)
 
-			batchRecords := []LogRecord{}
+			batchRecords := make([]LogRecord, 0, batchSize)
 			isEmpty := true
 			isFirst := true
 			increaseBatchSize := false
 
 			for {
+				// Get next record
 				record, err := next()
 				if err != nil {
 					if err == io.EOF {
@@ -441,7 +393,6 @@ func (f *AgentLogFetcher) StreamForward(ctx context.Context, source LogSource, o
 				Message:   ev.Message,
 				Timestamp: ev.Timestamp.AsTime(),
 				Source:    source,
-				IsFinal:   ev.IsFinal,
 			}
 		}
 	})
@@ -510,7 +461,6 @@ func (f *AgentLogFetcher) StreamBackward(ctx context.Context, source LogSource, 
 				Message:   ev.Message,
 				Timestamp: ev.Timestamp.AsTime(),
 				Source:    source,
-				IsFinal:   ev.IsFinal,
 			}
 		}
 	})
