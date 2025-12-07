@@ -84,7 +84,7 @@ spec:
         image: ghcr.io/linki/chaoskube:v0.31.0
         args:
         - --interval=2m
-        - --labels=app.kubernetes.io/name=loggen
+        - --labels=app.kubernetes.io/name in (loggen,longlines-example)
         - --namespaces=default
         - --minimum-age=4m
         - --no-dry-run

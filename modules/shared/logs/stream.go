@@ -34,7 +34,6 @@ type LogRecord struct {
 	Timestamp time.Time
 	Message   string
 	Source    LogSource
-	IsFinal   bool
 	err       error // for use internally
 }
 

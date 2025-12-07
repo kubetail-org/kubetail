@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: longlines-example
+  namespace: default
+  labels:
+    app.kubernetes.io/name: longlines-example
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: longlines-example
+  replicas: 3
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: longlines-example
+    spec:
+      containers:
+        - name: alpine
+          image: alpine:3.22.0
+          command: ["sh", "-c"]
+          args:
+            - |
+              echo "Starting random message generator"
+              trap "echo 'Received SIGTERM, exiting'; exit 0" TERM
+
+              while true; do
+                # Generate a random message > 16 KB (16384 bytes)
+                # Each iteration prints ~20KB of random data
+                for i in $(seq 1 2); do
+                  echo -n "--- Start iteration $i ($(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")) ---"
+                  head -c 20000 /dev/urandom | base64 -w 0
+                  echo -n "--- End iteration $i ($(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")) ---"
+                  sleep 2 & wait $!
+                done
+                echo
+                sleep 5 & wait $!
+              done
