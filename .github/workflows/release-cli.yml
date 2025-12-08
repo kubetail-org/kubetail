@@ -336,6 +336,7 @@ jobs:
   release:
     name: Create GitHub release
     needs: [config, package-tarball]
+    environment: production
     runs-on: ubuntu-24.04
     steps:
       - name: Download binaries
@@ -362,11 +363,23 @@ jobs:
         run: |
           sha256sum * > SHA256SUMS
 
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v6.3.0
+        with:
+          gpg_private_key: ${{ secrets.KUBETAIL_BOT_PGP_SIGNING_KEY }}
+          passphrase: ${{ secrets.KUBETAIL_BOT_PGP_PASSWORD }}
+
+      - name: Sign SHA256SUMS with GPG
+        working-directory: ./assets
+        run: |
+          gpg --armor --detach-sign SHA256SUMS
+
       - name: Debug
         if: ${{ needs.config.outputs.dry_run == 'true' }}
         run: |
           ls -lah assets/*
           cat assets/SHA256SUMS
+          cat assets/SHA256SUMS.asc
 
       - name: Create release
         uses: softprops/action-gh-release@v2.3.2
