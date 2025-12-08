@@ -1,7 +1,7 @@
 /* eslint-disable */
 import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core';
 export type Maybe<T> = T | null;
-export type InputMaybe<T> = Maybe<T>;
+export type InputMaybe<T> = T | null | undefined;
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
 export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
@@ -1106,7 +1106,18 @@ type ConsoleLoggingResourcesGenericObjectFragment_CoreV1Pod_Fragment = { __typen
 
 type ConsoleLoggingResourcesGenericObjectFragment_CoreV1Service_Fragment = { __typename?: 'CoreV1Service', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
 
-export type ConsoleLoggingResourcesGenericObjectFragmentFragment = ConsoleLoggingResourcesGenericObjectFragment_AppsV1DaemonSet_Fragment | ConsoleLoggingResourcesGenericObjectFragment_AppsV1Deployment_Fragment | ConsoleLoggingResourcesGenericObjectFragment_AppsV1ReplicaSet_Fragment | ConsoleLoggingResourcesGenericObjectFragment_AppsV1StatefulSet_Fragment | ConsoleLoggingResourcesGenericObjectFragment_BatchV1CronJob_Fragment | ConsoleLoggingResourcesGenericObjectFragment_BatchV1Job_Fragment | ConsoleLoggingResourcesGenericObjectFragment_CoreV1Namespace_Fragment | ConsoleLoggingResourcesGenericObjectFragment_CoreV1Node_Fragment | ConsoleLoggingResourcesGenericObjectFragment_CoreV1Pod_Fragment | ConsoleLoggingResourcesGenericObjectFragment_CoreV1Service_Fragment;
+export type ConsoleLoggingResourcesGenericObjectFragmentFragment =
+  | ConsoleLoggingResourcesGenericObjectFragment_AppsV1DaemonSet_Fragment
+  | ConsoleLoggingResourcesGenericObjectFragment_AppsV1Deployment_Fragment
+  | ConsoleLoggingResourcesGenericObjectFragment_AppsV1ReplicaSet_Fragment
+  | ConsoleLoggingResourcesGenericObjectFragment_AppsV1StatefulSet_Fragment
+  | ConsoleLoggingResourcesGenericObjectFragment_BatchV1CronJob_Fragment
+  | ConsoleLoggingResourcesGenericObjectFragment_BatchV1Job_Fragment
+  | ConsoleLoggingResourcesGenericObjectFragment_CoreV1Namespace_Fragment
+  | ConsoleLoggingResourcesGenericObjectFragment_CoreV1Node_Fragment
+  | ConsoleLoggingResourcesGenericObjectFragment_CoreV1Pod_Fragment
+  | ConsoleLoggingResourcesGenericObjectFragment_CoreV1Service_Fragment
+;
 
 export type ConsoleLoggingResourcesCronJobFragmentFragment = { __typename?: 'BatchV1CronJob', id: string, spec: { __typename?: 'BatchV1CronJobSpec', jobTemplate: { __typename?: 'BatchV1JobTemplateSpec', spec: { __typename?: 'BatchV1JobSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null } } }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
 
@@ -1158,7 +1169,18 @@ type HomeGenericListFragment_CoreV1PodList_Fragment = { __typename?: 'CoreV1PodL
 
 type HomeGenericListFragment_CoreV1ServiceList_Fragment = { __typename?: 'CoreV1ServiceList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-export type HomeGenericListFragmentFragment = HomeGenericListFragment_AppsV1DaemonSetList_Fragment | HomeGenericListFragment_AppsV1DeploymentList_Fragment | HomeGenericListFragment_AppsV1ReplicaSetList_Fragment | HomeGenericListFragment_AppsV1StatefulSetList_Fragment | HomeGenericListFragment_BatchV1CronJobList_Fragment | HomeGenericListFragment_BatchV1JobList_Fragment | HomeGenericListFragment_CoreV1NamespaceList_Fragment | HomeGenericListFragment_CoreV1NodeList_Fragment | HomeGenericListFragment_CoreV1PodList_Fragment | HomeGenericListFragment_CoreV1ServiceList_Fragment;
+export type HomeGenericListFragmentFragment =
+  | HomeGenericListFragment_AppsV1DaemonSetList_Fragment
+  | HomeGenericListFragment_AppsV1DeploymentList_Fragment
+  | HomeGenericListFragment_AppsV1ReplicaSetList_Fragment
+  | HomeGenericListFragment_AppsV1StatefulSetList_Fragment
+  | HomeGenericListFragment_BatchV1CronJobList_Fragment
+  | HomeGenericListFragment_BatchV1JobList_Fragment
+  | HomeGenericListFragment_CoreV1NamespaceList_Fragment
+  | HomeGenericListFragment_CoreV1NodeList_Fragment
+  | HomeGenericListFragment_CoreV1PodList_Fragment
+  | HomeGenericListFragment_CoreV1ServiceList_Fragment
+;
 
 type HomeGenericListItemFragment_AppsV1DaemonSet_Fragment = { __typename?: 'AppsV1DaemonSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
 
@@ -1180,7 +1202,18 @@ type HomeGenericListItemFragment_CoreV1Pod_Fragment = { __typename?: 'CoreV1Pod'
 
 type HomeGenericListItemFragment_CoreV1Service_Fragment = { __typename?: 'CoreV1Service', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
 
-export type HomeGenericListItemFragmentFragment = HomeGenericListItemFragment_AppsV1DaemonSet_Fragment | HomeGenericListItemFragment_AppsV1Deployment_Fragment | HomeGenericListItemFragment_AppsV1ReplicaSet_Fragment | HomeGenericListItemFragment_AppsV1StatefulSet_Fragment | HomeGenericListItemFragment_BatchV1CronJob_Fragment | HomeGenericListItemFragment_BatchV1Job_Fragment | HomeGenericListItemFragment_CoreV1Namespace_Fragment | HomeGenericListItemFragment_CoreV1Node_Fragment | HomeGenericListItemFragment_CoreV1Pod_Fragment | HomeGenericListItemFragment_CoreV1Service_Fragment;
+export type HomeGenericListItemFragmentFragment =
+  | HomeGenericListItemFragment_AppsV1DaemonSet_Fragment
+  | HomeGenericListItemFragment_AppsV1Deployment_Fragment
+  | HomeGenericListItemFragment_AppsV1ReplicaSet_Fragment
+  | HomeGenericListItemFragment_AppsV1StatefulSet_Fragment
+  | HomeGenericListItemFragment_BatchV1CronJob_Fragment
+  | HomeGenericListItemFragment_BatchV1Job_Fragment
+  | HomeGenericListItemFragment_CoreV1Namespace_Fragment
+  | HomeGenericListItemFragment_CoreV1Node_Fragment
+  | HomeGenericListItemFragment_CoreV1Pod_Fragment
+  | HomeGenericListItemFragment_CoreV1Service_Fragment
+;
 
 export type HomeNamespacesListItemFragmentFragment = { __typename?: 'CoreV1Namespace', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
 
@@ -1218,7 +1251,18 @@ type SourcePickerGenericCounterFragment_CoreV1PodList_Fragment = { __typename?: 
 
 type SourcePickerGenericCounterFragment_CoreV1ServiceList_Fragment = { __typename?: 'CoreV1ServiceList', metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string }, items: Array<{ __typename?: 'CoreV1Service', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }> };
 
-export type SourcePickerGenericCounterFragmentFragment = SourcePickerGenericCounterFragment_AppsV1DaemonSetList_Fragment | SourcePickerGenericCounterFragment_AppsV1DeploymentList_Fragment | SourcePickerGenericCounterFragment_AppsV1ReplicaSetList_Fragment | SourcePickerGenericCounterFragment_AppsV1StatefulSetList_Fragment | SourcePickerGenericCounterFragment_BatchV1CronJobList_Fragment | SourcePickerGenericCounterFragment_BatchV1JobList_Fragment | SourcePickerGenericCounterFragment_CoreV1NamespaceList_Fragment | SourcePickerGenericCounterFragment_CoreV1NodeList_Fragment | SourcePickerGenericCounterFragment_CoreV1PodList_Fragment | SourcePickerGenericCounterFragment_CoreV1ServiceList_Fragment;
+export type SourcePickerGenericCounterFragmentFragment =
+  | SourcePickerGenericCounterFragment_AppsV1DaemonSetList_Fragment
+  | SourcePickerGenericCounterFragment_AppsV1DeploymentList_Fragment
+  | SourcePickerGenericCounterFragment_AppsV1ReplicaSetList_Fragment
+  | SourcePickerGenericCounterFragment_AppsV1StatefulSetList_Fragment
+  | SourcePickerGenericCounterFragment_BatchV1CronJobList_Fragment
+  | SourcePickerGenericCounterFragment_BatchV1JobList_Fragment
+  | SourcePickerGenericCounterFragment_CoreV1NamespaceList_Fragment
+  | SourcePickerGenericCounterFragment_CoreV1NodeList_Fragment
+  | SourcePickerGenericCounterFragment_CoreV1PodList_Fragment
+  | SourcePickerGenericCounterFragment_CoreV1ServiceList_Fragment
+;
 
 type SourcePickerGenericCounterItemFragment_AppsV1DaemonSet_Fragment = { __typename?: 'AppsV1DaemonSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } };
 
@@ -1240,7 +1284,18 @@ type SourcePickerGenericCounterItemFragment_CoreV1Pod_Fragment = { __typename?: 
 
 type SourcePickerGenericCounterItemFragment_CoreV1Service_Fragment = { __typename?: 'CoreV1Service', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } };
 
-export type SourcePickerGenericCounterItemFragmentFragment = SourcePickerGenericCounterItemFragment_AppsV1DaemonSet_Fragment | SourcePickerGenericCounterItemFragment_AppsV1Deployment_Fragment | SourcePickerGenericCounterItemFragment_AppsV1ReplicaSet_Fragment | SourcePickerGenericCounterItemFragment_AppsV1StatefulSet_Fragment | SourcePickerGenericCounterItemFragment_BatchV1CronJob_Fragment | SourcePickerGenericCounterItemFragment_BatchV1Job_Fragment | SourcePickerGenericCounterItemFragment_CoreV1Namespace_Fragment | SourcePickerGenericCounterItemFragment_CoreV1Node_Fragment | SourcePickerGenericCounterItemFragment_CoreV1Pod_Fragment | SourcePickerGenericCounterItemFragment_CoreV1Service_Fragment;
+export type SourcePickerGenericCounterItemFragmentFragment =
+  | SourcePickerGenericCounterItemFragment_AppsV1DaemonSet_Fragment
+  | SourcePickerGenericCounterItemFragment_AppsV1Deployment_Fragment
+  | SourcePickerGenericCounterItemFragment_AppsV1ReplicaSet_Fragment
+  | SourcePickerGenericCounterItemFragment_AppsV1StatefulSet_Fragment
+  | SourcePickerGenericCounterItemFragment_BatchV1CronJob_Fragment
+  | SourcePickerGenericCounterItemFragment_BatchV1Job_Fragment
+  | SourcePickerGenericCounterItemFragment_CoreV1Namespace_Fragment
+  | SourcePickerGenericCounterItemFragment_CoreV1Node_Fragment
+  | SourcePickerGenericCounterItemFragment_CoreV1Pod_Fragment
+  | SourcePickerGenericCounterItemFragment_CoreV1Service_Fragment
+;
 
 type SourcePickerGenericListFragment_AppsV1DaemonSetList_Fragment = { __typename?: 'AppsV1DaemonSetList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
@@ -1262,7 +1317,18 @@ type SourcePickerGenericListFragment_CoreV1PodList_Fragment = { __typename?: 'Co
 
 type SourcePickerGenericListFragment_CoreV1ServiceList_Fragment = { __typename?: 'CoreV1ServiceList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-export type SourcePickerGenericListFragmentFragment = SourcePickerGenericListFragment_AppsV1DaemonSetList_Fragment | SourcePickerGenericListFragment_AppsV1DeploymentList_Fragment | SourcePickerGenericListFragment_AppsV1ReplicaSetList_Fragment | SourcePickerGenericListFragment_AppsV1StatefulSetList_Fragment | SourcePickerGenericListFragment_BatchV1CronJobList_Fragment | SourcePickerGenericListFragment_BatchV1JobList_Fragment | SourcePickerGenericListFragment_CoreV1NamespaceList_Fragment | SourcePickerGenericListFragment_CoreV1NodeList_Fragment | SourcePickerGenericListFragment_CoreV1PodList_Fragment | SourcePickerGenericListFragment_CoreV1ServiceList_Fragment;
+export type SourcePickerGenericListFragmentFragment =
+  | SourcePickerGenericListFragment_AppsV1DaemonSetList_Fragment
+  | SourcePickerGenericListFragment_AppsV1DeploymentList_Fragment
+  | SourcePickerGenericListFragment_AppsV1ReplicaSetList_Fragment
+  | SourcePickerGenericListFragment_AppsV1StatefulSetList_Fragment
+  | SourcePickerGenericListFragment_BatchV1CronJobList_Fragment
+  | SourcePickerGenericListFragment_BatchV1JobList_Fragment
+  | SourcePickerGenericListFragment_CoreV1NamespaceList_Fragment
+  | SourcePickerGenericListFragment_CoreV1NodeList_Fragment
+  | SourcePickerGenericListFragment_CoreV1PodList_Fragment
+  | SourcePickerGenericListFragment_CoreV1ServiceList_Fragment
+;
 
 type SourcePickerGenericListItemFragment_AppsV1DaemonSet_Fragment = { __typename?: 'AppsV1DaemonSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } };
 
@@ -1284,7 +1350,18 @@ type SourcePickerGenericListItemFragment_CoreV1Pod_Fragment = { __typename?: 'Co
 
 type SourcePickerGenericListItemFragment_CoreV1Service_Fragment = { __typename?: 'CoreV1Service', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } };
 
-export type SourcePickerGenericListItemFragmentFragment = SourcePickerGenericListItemFragment_AppsV1DaemonSet_Fragment | SourcePickerGenericListItemFragment_AppsV1Deployment_Fragment | SourcePickerGenericListItemFragment_AppsV1ReplicaSet_Fragment | SourcePickerGenericListItemFragment_AppsV1StatefulSet_Fragment | SourcePickerGenericListItemFragment_BatchV1CronJob_Fragment | SourcePickerGenericListItemFragment_BatchV1Job_Fragment | SourcePickerGenericListItemFragment_CoreV1Namespace_Fragment | SourcePickerGenericListItemFragment_CoreV1Node_Fragment | SourcePickerGenericListItemFragment_CoreV1Pod_Fragment | SourcePickerGenericListItemFragment_CoreV1Service_Fragment;
+export type SourcePickerGenericListItemFragmentFragment =
+  | SourcePickerGenericListItemFragment_AppsV1DaemonSet_Fragment
+  | SourcePickerGenericListItemFragment_AppsV1Deployment_Fragment
+  | SourcePickerGenericListItemFragment_AppsV1ReplicaSet_Fragment
+  | SourcePickerGenericListItemFragment_AppsV1StatefulSet_Fragment
+  | SourcePickerGenericListItemFragment_BatchV1CronJob_Fragment
+  | SourcePickerGenericListItemFragment_BatchV1Job_Fragment
+  | SourcePickerGenericListItemFragment_CoreV1Namespace_Fragment
+  | SourcePickerGenericListItemFragment_CoreV1Node_Fragment
+  | SourcePickerGenericListItemFragment_CoreV1Pod_Fragment
+  | SourcePickerGenericListItemFragment_CoreV1Service_Fragment
+;
 
 export type ConsoleLoggingResourcesCronJobGetQueryVariables = Exact<{
   kubeContext: Scalars['String']['input'];
