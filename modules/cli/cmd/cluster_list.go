@@ -41,15 +41,9 @@ var clusterListCmd = &cobra.Command{
 
 		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
 		kubeContext, _ := flags.GetString(KubeContextFlag)
-		test, _ := flags.GetBool("test")
 
 		// Init client
 		client := helm.NewClient(helm.WithKubeconfigPath(kubeconfigPath), helm.WithKubeContext(kubeContext))
-
-		if test {
-			cmd.Println("ok")
-			return
-		}
 
 		// Get releases
 		releases, err := client.ListReleases()
@@ -81,5 +75,4 @@ func init() {
 	flagset := clusterListCmd.Flags()
 	flagset.SortFlags = false
 	flagset.String(KubeContextFlag, "", "Name of the kubeconfig context to use")
-	flagset.Bool("test", false, "Run internal tests and exit")
 }
