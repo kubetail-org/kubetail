@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"log"
 	"net"
@@ -44,6 +43,14 @@ import (
 	"github.com/kubetail-org/kubetail/modules/cli/internal/tunnel"
 )
 
+type serveOptions struct {
+	port     int
+	host     string
+	skipOpen bool
+	remote   bool
+	test     bool
+}
+
 const serveHelp = `
 This command starts the dashboard server and opens the UI in your default browser.
 `
@@ -54,38 +61,14 @@ var serveCmd = &cobra.Command{
 	Short: "Start dashboard server and open web UI",
 	Long:  serveHelp,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Get flags
-		port, _ := cmd.Flags().GetInt("port")
-		host, _ := cmd.Flags().GetString("host")
-		skipOpen, _ := cmd.Flags().GetBool("skip-open")
-		// remote, _ := cmd.Flags().GetBool("remote")
-		remote := false
-		test, _ := cmd.Flags().GetBool("test")
-
-		// Get the kubeconfig path (if set)
-		kubeconfigPath, _ := cmd.Flags().GetString(KubeconfigFlag)
-		inCluster, _ := cmd.Flags().GetBool(InClusterFlag)
-
-		// Init viper
-		v := viper.New()
-		v.BindPFlag("dashboard.logging.level", cmd.Flags().Lookup("log-level"))
-		v.Set("dashboard.addr", fmt.Sprintf("%s:%d", host, port))
-
-		// init config
-		cfg, err := config.NewConfig(v, "")
+		cfg, opts, err := loadServerConfig(cmd)
 		if err != nil {
 			zlog.Fatal().Caller().Err(err).Send()
 		}
-		cfg.KubeconfigPath = kubeconfigPath
-		cfg.Dashboard.Environment = config.EnvironmentDesktop
-		if inCluster {
-			cfg.Dashboard.Environment = config.EnvironmentCluster
-		}
-		cfg.Dashboard.Logging.AccessLog.Enabled = false
 
 		// Handle remote tunnel
-		if remote {
-			serveRemote(cfg.KubeconfigPath, port, skipOpen)
+		if opts.remote {
+			serveRemote(cfg.KubeconfigPath, opts.port, opts.skipOpen)
 			return
 		}
 
@@ -116,7 +99,7 @@ var serveCmd = &cobra.Command{
 		log.SetOutput(k8shelpers.NewZlogWriter(zlog.Logger))
 
 		// TODO: add more tests than config, basic setup
-		if test {
+		if opts.test {
 			fmt.Println("ok")
 			return
 		}
@@ -140,7 +123,7 @@ var serveCmd = &cobra.Command{
 		listener, err := net.Listen("tcp", server.Addr)
 		if err != nil {
 			// let system pick port
-			listener, err = net.Listen("tcp", fmt.Sprintf("%s:0", host))
+			listener, err = net.Listen("tcp", fmt.Sprintf("%s:0", opts.host))
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
@@ -148,7 +131,7 @@ var serveCmd = &cobra.Command{
 		defer listener.Close()
 
 		// get actual port
-		port = listener.Addr().(*net.TCPAddr).Port
+		opts.port = listener.Addr().(*net.TCPAddr).Port
 
 		serverReady := make(chan struct{})
 
@@ -163,11 +146,11 @@ var serveCmd = &cobra.Command{
 
 		<-serverReady
 
-		zlog.Info().Msgf("Started kubetail dashboard on http://%s:%d/", host, port)
+		zlog.Info().Msgf("Started kubetail dashboard on http://%s:%d/", opts.host, opts.port)
 
 		// open in browser
-		if !skipOpen {
-			err = browser.OpenURL(fmt.Sprintf("http://%s:%d/", host, port))
+		if !opts.skipOpen {
+			err = browser.OpenURL(fmt.Sprintf("http://%s:%d/", opts.host, opts.port))
 			if err != nil {
 				if runtime.GOOS == "linux" {
 					zlog.Warn().Msg(`Unable to open browser automatically. 
@@ -222,6 +205,48 @@ var serveCmd = &cobra.Command{
 	},
 }
 
+func loadServerConfig(cmd *cobra.Command) (*config.Config, *serveOptions, error) {
+	// Get flags
+	port, _ := cmd.Flags().GetInt("port")
+	host, _ := cmd.Flags().GetString("host")
+	skipOpen, _ := cmd.Flags().GetBool("skip-open")
+	test, _ := cmd.Flags().GetBool("test")
+	// remote, _ := cmd.Flags().GetBool("remote")
+	remote := false
+
+	// Get the kubeconfig path (if set)
+	kubeconfigPath, _ := cmd.Flags().GetString(KubeconfigFlag)
+	inCluster, _ := cmd.Flags().GetBool(InClusterFlag)
+
+	// Init viper
+	v := viper.New()
+	v.BindPFlag("dashboard.logging.level", cmd.Flags().Lookup("log-level"))
+	v.Set("dashboard.addr", fmt.Sprintf("%s:%d", host, port))
+
+	// init config
+	cfg, err := config.NewConfig(v, "")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cfg.KubeconfigPath = kubeconfigPath
+	cfg.Dashboard.Environment = config.EnvironmentDesktop
+	if inCluster {
+		cfg.Dashboard.Environment = config.EnvironmentCluster
+	}
+	cfg.Dashboard.Logging.AccessLog.Enabled = false
+
+	serveOptions := &serveOptions{
+		port:     port,
+		host:     host,
+		skipOpen: skipOpen,
+		remote:   remote,
+		test:     test,
+	}
+
+	return cfg, serveOptions, nil
+}
+
 func serveRemote(kubeconfigPath string, localPort int, skipOpen bool) {
 	// Initalize context that stops on SIGTERM
 	rootCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -254,17 +279,15 @@ func serveRemote(kubeconfigPath string, localPort int, skipOpen bool) {
 	}
 }
 
-func generateRandomString(n int) (string, error) {
-	// Create a byte slice of length n
-	bytes := make([]byte, n)
-
-	// Read random bytes into the slice
-	_, err := rand.Read(bytes)
-	if err != nil {
-		return "", err
-	}
-	// Convert the byte slice to a hexadecimal string
-	return string(bytes), nil
+func addServerCmdFlags(cmd *cobra.Command) {
+	flagset := cmd.Flags()
+	flagset.SortFlags = false
+	flagset.IntP("port", "p", 7500, "Port number to listen on")
+	flagset.String("host", "localhost", "Host address to bind to")
+	flagset.StringP("log-level", "l", "info", "Log level (debug, info, warn, error, disabled)")
+	flagset.Bool("skip-open", false, "Skip opening the browser")
+	// flagset.Bool("remote", false, "Open tunnel to remote dashboard")
+	flagset.Bool("test", false, "Run internal tests and exit")
 }
 
 func init() {
@@ -279,12 +302,5 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	flagset := serveCmd.Flags()
-	flagset.SortFlags = false
-	flagset.IntP("port", "p", 7500, "Port number to listen on")
-	flagset.String("host", "localhost", "Host address to bind to")
-	flagset.StringP("log-level", "l", "info", "Log level (debug, info, warn, error, disabled)")
-	flagset.Bool("skip-open", false, "Skip opening the browser")
-	// flagset.Bool("remote", false, "Open tunnel to remote dashboard")
-	flagset.Bool("test", false, "Run internal tests and exit")
+	addServerCmdFlags(serveCmd)
 }
