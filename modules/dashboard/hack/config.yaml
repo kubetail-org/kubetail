@@ -3,6 +3,7 @@ dashboard:
   addr: :4000
   base-path: /
   gin-mode: debug
+  environment: desktop
   logging:
     format: pretty
   session:

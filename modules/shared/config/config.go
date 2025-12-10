@@ -240,7 +240,7 @@ func DefaultConfig() *Config {
 	cfg.Dashboard.AuthMode = AuthModeAuto
 	cfg.Dashboard.BasePath = "/"
 	cfg.Dashboard.ClusterAPIEndpoint = ""
-	cfg.Dashboard.Environment = EnvironmentDesktop
+	cfg.Dashboard.Environment = EnvironmentCluster
 	cfg.Dashboard.GinMode = "release"
 	cfg.Dashboard.CSRF.Enabled = true
 	cfg.Dashboard.Logging.Enabled = true
