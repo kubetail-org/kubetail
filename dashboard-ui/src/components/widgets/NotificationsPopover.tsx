@@ -12,13 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Footer from '@/components/widgets/Footer';
+import { useState } from 'react';
 
-export default function AppLayout({ children }: React.PropsWithChildren) {
+import { Popover, PopoverTrigger, PopoverContent } from '@kubetail/ui/elements/popover';
+
+export const NotificationsPopover = ({ children }: React.PropsWithChildren) => {
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
-    <>
-      <div className="h-[calc(100vh-25px)] overflow-hidden">{children}</div>
-      <Footer />
-    </>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      {isOpen && (
+        <PopoverContent side="top" className="w-80 mr-1">
+          Notifications
+        </PopoverContent>
+      )}
+    </Popover>
   );
-}
+};
