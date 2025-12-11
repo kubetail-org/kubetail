@@ -21,17 +21,21 @@ import { Outlet } from 'react-router-dom';
 import { Button } from '@kubetail/ui/elements/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@kubetail/ui/elements/dialog';
 
-import { joinPaths, getBasename } from '@/lib/util';
+import { cn, joinPaths, getBasename } from '@/lib/util';
+
+const closeIconCommonClasses = 'text-red-300 hover:text-red-400 dark:text-red-700 dark:hover:text-red-600';
+const closeBtnCommonClasses = 'bg-red-100 dark:bg-red-900';
+const containerCommonClasses = 'bg-red-100 dark:bg-red-900 border-2 border-red-200 dark:border-red-800';
 
 const QueryError = ({ toast }: { toast: Toast }) => (
-  <div className="relative min-w-0 break-all bg-red-100 border-2 border-red-200 p-1">
+  <div className={cn('relative min-w-0 break-all p-1', containerCommonClasses)}>
     <button
       type="button"
-      className="absolute top-[-10px] left-[-10px] bg-red-100 rounded-full cursor-pointer"
+      className={cn('absolute top-[-10px] left-[-10px] rounded-full', closeBtnCommonClasses)}
       onClick={() => toastlib.remove(toast.id)}
       aria-label="remove"
     >
-      <CircleX className="h-5 w-5 text-red-300 hover:text-red-400" aria-hidden="true" />
+      <CircleX className={cn('h-5 w-5', closeIconCommonClasses)} aria-hidden="true" />
     </button>
     <div className="max-w-full overflow-ellipsis">{resolveValue(toast.message, toast)}</div>
   </div>
@@ -49,14 +53,14 @@ const CustomToaster = () => {
 
   return (
     <>
-      <div className="fixed bottom-[28px] right-[5px] p-2 bg-red-100 border-2 border-red-200 z-10">
+      <div className={cn('fixed bottom-[28px] right-[5px] p-2 z-10', containerCommonClasses)}>
         <button
           type="button"
-          className="absolute top-[-10px] left-[-10px] bg-red-100 rounded-full cursor-pointer"
+          className={cn('absolute top-[-10px] left-[-10px] rounded-full', closeBtnCommonClasses)}
           onClick={handleRemoveAllClick}
           aria-label="remove all"
         >
-          <CircleX className="h-5 w-5 text-red-300 hover:text-red-400" aria-hidden="true" />
+          <CircleX className={cn('h-5 w-5', closeIconCommonClasses)} aria-hidden="true" />
         </button>
         <button type="button" onClick={() => setModalIsOpen(true)}>
           Query Errors
