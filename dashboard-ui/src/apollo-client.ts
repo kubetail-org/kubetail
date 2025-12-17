@@ -34,6 +34,7 @@ const basename = getBasename();
 
 const wsClientOptions: ClientOptions = {
   url: '',
+  lazy: true,
   connectionAckWaitTimeout: 3000,
   keepAlive: 3000,
   retryAttempts: Infinity,
@@ -199,6 +200,7 @@ const { link: dashboardLink, wsClient: dashboardWSClient } = createLink(basename
 export const dashboardClient = new ApolloClient({
   cache: new DashboardCustomCache(),
   link: dashboardLink,
+  queryDeduplication: false,
 });
 
 export { dashboardWSClient };
@@ -253,6 +255,7 @@ export const getClusterAPIClient = (context: ClusterAPIContext) => {
     client = new ApolloClient({
       cache: new ClusterAPICustomCache(),
       link,
+      queryDeduplication: false,
     });
 
     // Add to cache
