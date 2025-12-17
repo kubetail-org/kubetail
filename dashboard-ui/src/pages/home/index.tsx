@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useSubscription } from '@apollo/client';
+import { useSubscription } from '@apollo/client/react';
 import {
   flexRender,
   getCoreRowModel,
@@ -640,7 +640,7 @@ const NamespacesPicker = () => {
         <SelectGroup>
           <SelectLabel>Namespaces</SelectLabel>
           <SelectItem value={ALL_NAMESPACES}>All namespaces</SelectItem>
-          {data?.coreV1NamespacesList?.items.map((item) => (
+          {data?.coreV1NamespacesList?.items?.map((item) => (
             <SelectItem key={item.id} value={item.metadata.name}>
               {item.metadata.name}
             </SelectItem>

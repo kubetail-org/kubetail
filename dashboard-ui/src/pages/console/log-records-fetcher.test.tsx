@@ -25,7 +25,7 @@ import { isFollowAtom } from './state';
 const mockRefetch = vi.fn();
 const mockSubscribeToMore = vi.fn();
 
-vi.mock('@apollo/client', () => ({
+vi.mock('@apollo/client/react', () => ({
   useQuery: vi.fn(() => ({
     refetch: mockRefetch,
     subscribeToMore: mockSubscribeToMore,

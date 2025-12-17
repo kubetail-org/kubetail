@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useSubscription } from '@apollo/client';
+import { useSubscription } from '@apollo/client/react';
 import { format, toZonedTime } from 'date-fns-tz';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
@@ -134,7 +134,12 @@ export const useViewerMetadata = () => {
   const { kubeContext } = useContext(Context);
   const isUseClusterAPIEnabled = useIsClusterAPIEnabled(kubeContext);
 
-  return { isReady, isLoading, isFollow, isSearchEnabled: isUseClusterAPIEnabled };
+  return {
+    isReady,
+    isLoading,
+    isFollow,
+    isSearchEnabled: isUseClusterAPIEnabled,
+  };
 };
 
 export const useViewerFacets = () => {
@@ -655,7 +660,13 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
                     outerRef={listOuterRef}
                     innerRef={listInnerRef}
                     overscanCount={20}
-                    itemData={{ items, hasMoreBefore, hasMoreAfter, visibleCols, isWrap }}
+                    itemData={{
+                      items,
+                      hasMoreBefore,
+                      hasMoreAfter,
+                      visibleCols,
+                      isWrap,
+                    }}
                   >
                     {Row}
                   </VariableSizeList>

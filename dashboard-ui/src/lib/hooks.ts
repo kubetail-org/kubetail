@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useApolloClient, useQuery } from '@apollo/client';
-import type { TypedDocumentNode, OperationVariables, Unmasked, MaybeMasked } from '@apollo/client';
+import { useApolloClient, useQuery } from '@apollo/client/react';
+import type { TypedDocumentNode, OperationVariables } from '@apollo/client';
 import { useCallback, useEffect, useRef } from 'react';
 
 import appConfig from '@/app-config';
@@ -194,7 +194,7 @@ interface GetQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>
   query: TypedDocumentNode<TQData, TQVariables>;
   subscription: TypedDocumentNode<TSData, TSVariables>;
   queryDataKey: keyof TQData;
-  subscriptionDataKey: keyof Unmasked<TSData>;
+  subscriptionDataKey: keyof TSData;
   skip?: boolean;
   variables: TQVariables;
 }
@@ -213,21 +213,29 @@ export function useGetQueryWithSubscription<
   const { loading, error, data, subscribeToMore, refetch } = useQuery(args.query, {
     skip: args.skip,
     variables: args.variables,
-    onError: () => {
-      retryOnError(refetch);
-    },
   });
+
+  // Handle errors with retry
+  useEffect(() => {
+    if (error) {
+      retryOnError(refetch);
+    }
+  }, [error, retryOnError, refetch]);
 
   // subscribe to changes
   useEffect(
     () =>
       subscribeToMore({
         document: args.subscription,
-        variables: { kubeContext, namespace, fieldSelector: `metadata.name=${name}` } as any,
-        updateQuery: (prev, { subscriptionData }) => {
+        variables: {
+          kubeContext,
+          namespace,
+          fieldSelector: `metadata.name=${name}`,
+        } as TSVariables,
+        updateQuery: (prev, { subscriptionData }): TQData => {
           const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
-          if (ev?.type === 'ADDED' && ev.object) return { [args.queryDataKey]: ev.object } as Unmasked<TQData>;
-          return prev;
+          if (ev?.type === 'ADDED' && ev.object) return { [args.queryDataKey]: ev.object } as TQData;
+          return prev as TQData;
         },
         onError: (err) => {
           if (isWatchExpiredError(err)) refetch();
@@ -246,8 +254,8 @@ export function useGetQueryWithSubscription<
 interface ListQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables> {
   query: TypedDocumentNode<TQData, TQVariables>;
   subscription: TypedDocumentNode<TSData, TSVariables>;
-  queryDataKey: keyof Unmasked<TQData>;
-  subscriptionDataKey: keyof Unmasked<TSData>;
+  queryDataKey: keyof TQData;
+  subscriptionDataKey: keyof TSData;
   skip?: boolean;
   variables?: TQVariables;
 }
@@ -264,14 +272,18 @@ export function useListQueryWithSubscription<
   // initial query
   const { loading, error, data, fetchMore, subscribeToMore, refetch } = useQuery(args.query, {
     skip: args.skip,
-    variables: args.variables,
-    onError: () => {
-      retryOnError(refetch);
-    },
+    variables: args.variables as TQVariables,
   });
 
+  // Handle errors with retry
+  useEffect(() => {
+    if (error) {
+      retryOnError(refetch);
+    }
+  }, [error, retryOnError, refetch]);
+
   // TODO: tighten `any`
-  const respData = data ? (data[args.queryDataKey as keyof MaybeMasked<TQData>] as GenericListFragment) : null;
+  const respData = data ? (data[args.queryDataKey] as GenericListFragment) : null;
 
   // fetch rest
   const fetchMoreRef = useRef(new Set<string>([]));
@@ -279,7 +291,12 @@ export function useListQueryWithSubscription<
   useEffect(() => {
     if (continueVal && !fetchMoreRef.current.has(continueVal)) {
       fetchMoreRef.current.add(continueVal);
-      fetchMore({ variables: { ...args.variables, continue: continueVal } });
+      fetchMore({
+        variables: {
+          ...args.variables,
+          continue: continueVal,
+        } as unknown as Partial<TQVariables>,
+      });
     }
   }, [continueVal]);
 
@@ -291,23 +308,29 @@ export function useListQueryWithSubscription<
     const resourceVersion = respData?.metadata.resourceVersion || '';
 
     // add `resourceVersion`
-    const variables = { ...args.variables, resourceVersion } as any;
+    const variables = {
+      ...args.variables,
+      resourceVersion,
+    } as unknown as TSVariables;
 
     return subscribeToMore({
       document: args.subscription,
       variables,
-      updateQuery: (prev, { subscriptionData }) => {
+      updateQuery: (prev, { subscriptionData }): TQData => {
         const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
 
-        if (!ev?.type || !ev?.object) return prev;
-        if (!prev[args.queryDataKey]) return prev;
+        if (!ev?.type || !ev?.object) return prev as TQData;
+        if (!(prev as TQData)[args.queryDataKey]) return prev as TQData;
 
-        const oldResult = prev[args.queryDataKey] as GenericListFragment;
+        const oldResult = (prev as TQData)[args.queryDataKey] as GenericListFragment;
 
         // initialize new result and update resourceVersion
         const newResult = {
           ...oldResult,
-          metadata: { ...oldResult.metadata, resourceVersion: ev.object.metadata.resourceVersion },
+          metadata: {
+            ...oldResult.metadata,
+            resourceVersion: ev.object.metadata.resourceVersion,
+          },
         };
 
         switch (ev.type) {
@@ -344,10 +367,10 @@ export function useListQueryWithSubscription<
             newResult.items = oldResult.items.filter((item) => item.metadata.uid !== ev.object.metadata.uid);
             break;
           default:
-            return prev;
+            return prev as TQData;
         }
 
-        return { [args.queryDataKey]: newResult } as Unmasked<TQData>;
+        return { [args.queryDataKey]: newResult } as TQData;
       },
       onError: (err) => {
         if (isWatchExpiredError(err)) refetch();
@@ -372,8 +395,8 @@ export function useListQueryWithSubscription<
 interface CounterQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables> {
   query: TypedDocumentNode<TQData, TQVariables>;
   subscription: TypedDocumentNode<TSData, TSVariables>;
-  queryDataKey: keyof Unmasked<TQData>;
-  subscriptionDataKey: keyof Unmasked<TSData>;
+  queryDataKey: keyof TQData;
+  subscriptionDataKey: keyof TSData;
   skip?: boolean;
   variables?: TQVariables;
 }
@@ -389,14 +412,18 @@ export function useCounterQueryWithSubscription<
   // initial query
   const { loading, error, data, subscribeToMore, refetch } = useQuery(args.query, {
     skip: args.skip,
-    variables: args.variables,
-    onError: () => {
-      retryOnError(refetch);
-    },
+    variables: args.variables as TQVariables,
   });
 
+  // Handle errors with retry
+  useEffect(() => {
+    if (error) {
+      retryOnError(refetch);
+    }
+  }, [error, retryOnError, refetch]);
+
   // TODO: tighten `any`
-  const respData = data ? (data[args.queryDataKey as keyof MaybeMasked<TQData>] as GenericCounterFragment) : null;
+  const respData = data ? (data[args.queryDataKey] as GenericCounterFragment) : null;
 
   // subscribe to changes
   useEffect(() => {
@@ -406,21 +433,24 @@ export function useCounterQueryWithSubscription<
     const resourceVersion = respData?.metadata.resourceVersion || '';
 
     // add `resourceVersion`
-    const variables = { ...args.variables, resourceVersion } as any;
+    const variables = {
+      ...args.variables,
+      resourceVersion,
+    } as unknown as TSVariables;
 
     return subscribeToMore({
       document: args.subscription,
       variables,
-      updateQuery: (prev, { subscriptionData }) => {
+      updateQuery: (prev, { subscriptionData }): TQData => {
         const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
 
-        if (!ev?.type || !ev?.object) return prev;
-        if (!prev[args.queryDataKey]) return prev;
+        if (!ev?.type || !ev?.object) return prev as TQData;
+        if (!(prev as TQData)[args.queryDataKey]) return prev as TQData;
 
         // Only handle additions and deletions
-        if (!['ADDED', 'DELETED'].includes(ev.type)) return prev;
+        if (!['ADDED', 'DELETED'].includes(ev.type)) return prev as TQData;
 
-        const oldResult = prev[args.queryDataKey] as GenericCounterFragment;
+        const oldResult = (prev as TQData)[args.queryDataKey] as GenericCounterFragment;
 
         const oldCount = oldResult.metadata.remainingItemCount;
         const newCount = oldCount + (ev.type === 'ADDED' ? BigInt(1) : BigInt(-1));
@@ -435,7 +465,7 @@ export function useCounterQueryWithSubscription<
           },
         };
 
-        return { [args.queryDataKey]: newResult } as Unmasked<TQData>;
+        return { [args.queryDataKey]: newResult } as TQData;
       },
       onError: (err) => {
         if (isWatchExpiredError(err)) refetch();

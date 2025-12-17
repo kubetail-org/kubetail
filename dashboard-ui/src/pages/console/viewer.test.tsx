@@ -26,7 +26,7 @@ const mockUseQuery = vi.fn();
 const mockUseListQueryWithSubscription = vi.fn();
 const mockUseIsClusterAPIEnabled = vi.fn();
 
-vi.mock('@apollo/client', () => ({
+vi.mock('@apollo/client/react', () => ({
   useSubscription: (query: any, options: any) => mockUseSubscription(query, options),
   useQuery: (...args: any[]) => mockUseQuery(...args),
 }));

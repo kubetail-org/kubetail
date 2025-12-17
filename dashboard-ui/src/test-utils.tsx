@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { MockedProvider, MockedResponse } from '@apollo/client/testing';
+import { MockedProvider } from '@apollo/client/testing/react';
+import type { MockedResponse } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -23,7 +24,6 @@ export const renderElement = (component: React.ReactElement, mocks?: MockedRespo
   render(
     <MockedProvider
       mocks={mocks}
-      addTypename
       cache={new DashboardCustomCache()}
       defaultOptions={{
         watchQuery: { fetchPolicy: 'cache-first' },
