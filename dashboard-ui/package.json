@@ -12,7 +12,7 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@apollo/client": "^3.13.8",
+    "@apollo/client": "^4.0.10",
     "@fontsource-variable/roboto-flex": "^5.2.8",
     "@hookform/resolvers": "^5.2.2",
     "@kubetail/ui": "2.0.4",

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useQuery } from '@apollo/client';
+import { useQuery } from '@apollo/client/react';
 import { useAtomValue } from 'jotai';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 
@@ -82,10 +82,15 @@ const LogRecordsFetcherImpl: React.ForwardRefRenderFunction<LogRecordsFetcherHan
     () => ({
       fetch: async (opts: LogRecordsFetchOptions) => {
         // Reset previous refetch() args
-        const newOpts = { after: undefined, before: undefined, since: undefined, ...opts };
+        const newOpts = {
+          after: undefined,
+          before: undefined,
+          since: undefined,
+          ...opts,
+        };
 
         // Execute query
-        const response = (await query.refetch(newOpts)).data.logRecordsFetch;
+        const response = (await query.refetch(newOpts)).data?.logRecordsFetch;
         if (!response) throw new Error('query response is null');
 
         let records: LogRecord[] = [];
@@ -126,7 +131,13 @@ const LogRecordsFetcherImpl: React.ForwardRefRenderFunction<LogRecordsFetcherHan
 
     return query.subscribeToMore({
       document: LOG_RECORDS_FOLLOW,
-      variables: { kubeContext, sources, sourceFilter, grep, after: lastTS.current },
+      variables: {
+        kubeContext,
+        sources,
+        sourceFilter,
+        grep,
+        after: lastTS.current,
+      },
       updateQuery: (_, { subscriptionData }) => {
         const {
           data: { logRecordsFollow: record },

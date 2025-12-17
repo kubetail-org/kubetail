@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useMutation } from '@apollo/client';
+import { useMutation } from '@apollo/client/react';
 import { CirclePlus } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';

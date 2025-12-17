@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { ApolloError } from '@apollo/client';
 import { atom } from 'jotai';
 import { atomFamily, selectAtom } from 'jotai/utils';
 
@@ -37,7 +36,7 @@ type WorkloadQueryResponse = {
   loading: boolean;
   fetching: boolean;
   items: WorkloadItem[] | undefined;
-  error: ApolloError | undefined;
+  error: Error | undefined;
 };
 
 function makeWorkloadQueryAtomFamily() {

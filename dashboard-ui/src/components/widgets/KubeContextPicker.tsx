@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useSubscription } from '@apollo/client';
+import { useSubscription } from '@apollo/client/react';
 import { useEffect } from 'react';
 
 import {
