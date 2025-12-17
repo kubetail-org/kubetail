@@ -97,39 +97,6 @@ function isWatchExpiredError(err: Error): boolean {
 }
 
 /**
- * Retries query until hook is unmounted
- */
-
-export function useRetryOnError() {
-  const isMountedRef = useRef(true);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  return (retryFn: () => Promise<any>) => {
-    const timeout = setInterval(async () => {
-      // check isMounted
-      if (!isMountedRef.current) {
-        clearInterval(timeout);
-        return;
-      }
-
-      // execute query
-      try {
-        await retryFn();
-        clearInterval(timeout);
-      } catch {
-        // do nothing
-      }
-    }, RETRY_TIMEOUT);
-  };
-}
-
-/**
  * Runs queued callbacks on the next reactive cycle
  * (commit → paint), then clears the queue.
  *
@@ -236,20 +203,17 @@ export function useGetQueryWithSubscription<
 >(args: GetQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
   const { kubeContext, name, namespace } = args.variables;
 
-  const retryOnError = useRetryOnError();
-
   // get workload object
-  const { loading, error, data, subscribeToMore, refetch } = useQuery(args.query, {
+  const { loading, error, data, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(args.query, {
     skip: args.skip,
     variables: args.variables,
   });
 
-  // Handle errors with retry
+  // Retry on errors
   useEffect(() => {
-    if (error) {
-      retryOnError(refetch);
-    }
-  }, [error, retryOnError, refetch]);
+    if (error) startPolling(RETRY_TIMEOUT);
+    else stopPolling();
+  }, [error, startPolling, stopPolling]);
 
   // subscribe to changes
   useEffect(
@@ -296,20 +260,21 @@ export function useListQueryWithSubscription<
   TSVariables extends OperationVariables = OperationVariables,
 >(args: ListQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
   const client = useApolloClient();
-  const retryOnError = useRetryOnError();
 
   // initial query
-  const { loading, error, data, fetchMore, subscribeToMore, refetch } = useQuery(args.query, {
-    skip: args.skip,
-    variables: args.variables as TQVariables,
-  });
+  const { loading, error, data, fetchMore, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(
+    args.query,
+    {
+      skip: args.skip,
+      variables: args.variables as TQVariables,
+    },
+  );
 
-  // Handle errors with retry
+  // Retry on errors
   useEffect(() => {
-    if (error) {
-      retryOnError(refetch);
-    }
-  }, [error, retryOnError, refetch]);
+    if (error) startPolling(RETRY_TIMEOUT);
+    else stopPolling();
+  }, [error, startPolling, stopPolling]);
 
   // TODO: tighten `any`
   const respData = data ? (data[args.queryDataKey] as GenericListFragment) : null;
@@ -436,22 +401,18 @@ export function useCounterQueryWithSubscription<
   TSData = any,
   TSVariables extends OperationVariables = OperationVariables,
 >(args: CounterQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
-  const retryOnError = useRetryOnError();
-
   // initial query
-  const { loading, error, data, subscribeToMore, refetch } = useQuery(args.query, {
+  const { loading, error, data, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(args.query, {
     skip: args.skip,
     variables: args.variables as TQVariables,
   });
 
-  // Handle errors with retry
+  // Retry on error
   useEffect(() => {
-    if (error) {
-      retryOnError(refetch);
-    }
-  }, [error, retryOnError, refetch]);
+    if (error) startPolling(RETRY_TIMEOUT);
+    else stopPolling();
+  }, [error, startPolling, stopPolling]);
 
-  // TODO: tighten `any`
   const respData = data ? (data[args.queryDataKey] as GenericCounterFragment) : null;
 
   // subscribe to changes

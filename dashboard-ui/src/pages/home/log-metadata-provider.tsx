@@ -20,7 +20,7 @@ import { getClusterAPIClient } from '@/apollo-client';
 import { CLUSTER_API_READY_WAIT } from '@/lib/graphql/dashboard/ops';
 import { LOG_METADATA_LIST_FETCH, LOG_METADATA_LIST_WATCH } from '@/lib/graphql/cluster-api/ops';
 import type { LogMetadataListFetchQuery, LogMetadataWatchEvent } from '@/lib/graphql/cluster-api/__generated__/graphql';
-import { useIsClusterAPIEnabled, useRetryOnError } from '@/lib/hooks';
+import { useIsClusterAPIEnabled } from '@/lib/hooks';
 
 import type { FileInfo, KubeContext } from './shared';
 import { logMetadataMapAtomFamily } from './state';
@@ -36,7 +36,6 @@ type LogMetadataProviderProps = {
 };
 
 export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) => {
-  const retryOnError = useRetryOnError();
   const setLogMetadataMap = useSetAtom(logMetadataMapAtomFamily(kubeContext));
 
   const isClusterAPIEnabled = useIsClusterAPIEnabled(kubeContext);
@@ -61,17 +60,16 @@ export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) =
   const client = useMemo(() => getClusterAPIClient(connectArgs), [connectArgs]);
 
   // Initial query
-  const { loading, error, data, subscribeToMore, refetch } = useQuery(LOG_METADATA_LIST_FETCH, {
+  const { loading, error, data, subscribeToMore, startPolling, stopPolling } = useQuery(LOG_METADATA_LIST_FETCH, {
     skip: !isEnabled || !isReady,
     client,
   });
 
-  // Handle errors with retry
+  // Retry on errors
   useEffect(() => {
-    if (error) {
-      retryOnError(refetch);
-    }
-  }, [error, retryOnError, refetch]);
+    if (error) startPolling(5000);
+    else stopPolling();
+  }, [error, startPolling, stopPolling]);
 
   // Initialize data map
   useEffect(() => {

@@ -100,37 +100,37 @@ export function useDashboardServerStatus() {
 }
 
 export function useKubernetesAPIServerStatus(kubeContext: string) {
-  const [status, setStatus] = useState<ServerStatus>(new ServerStatus());
-
-  useSubscription(dashboardOps.SERVER_STATUS_KUBERNETES_API_HEALTHZ_WATCH, {
+  const { data } = useSubscription(dashboardOps.SERVER_STATUS_KUBERNETES_API_HEALTHZ_WATCH, {
     variables: { kubeContext },
-    onData: ({ data }) => setStatus(ServerStatus.fromHealthCheckResponse(data.data?.kubernetesAPIHealthzWatch)),
   });
 
-  return status;
+  // Return unknown status until we have data
+  if (!data?.kubernetesAPIHealthzWatch) {
+    return new ServerStatus();
+  }
+
+  return ServerStatus.fromHealthCheckResponse(data.kubernetesAPIHealthzWatch);
 }
 
 export function useClusterAPIServerStatus(kubeContext: string) {
-  const [status, setStatus] = useState<ServerStatus>(new ServerStatus());
-
-  useSubscription(dashboardOps.SERVER_STATUS_CLUSTER_API_HEALTHZ_WATCH, {
+  const { data, error } = useSubscription(dashboardOps.SERVER_STATUS_CLUSTER_API_HEALTHZ_WATCH, {
     skip: !appConfig.clusterAPIEnabled,
     variables: { kubeContext },
-    onData: ({ data }) => {
-      setStatus(ServerStatus.fromHealthCheckResponse(data.data?.clusterAPIHealthzWatch));
-    },
-    onError: (err) => {
-      if (err.message === 'not available') {
-        setStatus(
-          new ServerStatus({
-            status: Status.NotFound,
-            message: 'Not available',
-            lastUpdatedAt: new Date(),
-          }),
-        );
-      }
-    },
   });
 
-  return status;
+  // Handle error state
+  if (error?.message === 'not available') {
+    return new ServerStatus({
+      status: Status.NotFound,
+      message: 'Not available',
+      lastUpdatedAt: new Date(),
+    });
+  }
+
+  // Return unknown status until we have data
+  if (!data?.clusterAPIHealthzWatch) {
+    return new ServerStatus();
+  }
+
+  return ServerStatus.fromHealthCheckResponse(data.clusterAPIHealthzWatch);
 }
