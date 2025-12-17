@@ -45,7 +45,7 @@ import {
   WatchEventType,
 } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { CONSOLE_NODES_LIST_FETCH, CONSOLE_NODES_LIST_WATCH, LOG_SOURCES_WATCH } from '@/lib/graphql/dashboard/ops';
-import { useIsClusterAPIEnabled, useListQueryWithSubscription, useNextTick } from '@/lib/hooks';
+import { useIsClusterAPIEnabled, useListQueryWithSubscription, useNextTick, useRafThrottle } from '@/lib/hooks';
 import { Counter, cn, cssEncode } from '@/lib/util';
 
 import { LogRecordsFetcher } from './log-records-fetcher';
@@ -62,6 +62,16 @@ import {
   colWidthsAtom,
   maxRowWidthAtom,
 } from './state';
+
+/**
+ * Constants
+ */
+
+const ROW_HEIGHT = 24;
+const OVERSCAN_COUNT = 20;
+const SCROLL_TOLERANCE = 10;
+const LOAD_MORE_THRESHOLD = 20;
+const DEBOUNCE_DELAY_MS = 20;
 
 /**
  * Shared variables and types
@@ -123,7 +133,9 @@ export const useSources = () => {
     },
   });
 
-  return { loading, sources: Array.from(sourceMap.values()) };
+  const sourceValues = useMemo(() => Array.from(sourceMap.values()), [sourceMap]);
+
+  return { loading, sources: sourceValues };
 };
 
 export const useViewerMetadata = () => {
@@ -146,34 +158,36 @@ export const useViewerFacets = () => {
   const { sources } = useSources();
   const { nodes } = useNodes();
 
-  // Calculate facets
-  const regionCounts = new Counter();
-  const zoneCounts = new Counter();
-  const archCounts = new Counter();
-  const osCounts = new Counter();
-  const nodeCounts = new Counter();
+  return useMemo(() => {
+    // Calculate facets
+    const regionCounts = new Counter();
+    const zoneCounts = new Counter();
+    const archCounts = new Counter();
+    const osCounts = new Counter();
+    const nodeCounts = new Counter();
 
-  // Update nodes facet
-  nodes.forEach((node) => {
-    nodeCounts.set(node.metadata.name, 0);
-  });
+    // Update nodes facet
+    nodes.forEach((node) => {
+      nodeCounts.set(node.metadata.name, 0);
+    });
 
-  // Update facets
-  sources.forEach((source) => {
-    regionCounts.update(source.metadata.region);
-    zoneCounts.update(source.metadata.zone);
-    archCounts.update(source.metadata.arch);
-    osCounts.update(source.metadata.os);
-    nodeCounts.update(source.metadata.node);
-  });
+    // Update facets
+    sources.forEach((source) => {
+      regionCounts.update(source.metadata.region);
+      zoneCounts.update(source.metadata.zone);
+      archCounts.update(source.metadata.arch);
+      osCounts.update(source.metadata.os);
+      nodeCounts.update(source.metadata.node);
+    });
 
-  return {
-    region: regionCounts,
-    zone: zoneCounts,
-    os: osCounts,
-    arch: archCounts,
-    node: nodeCounts,
-  };
+    return {
+      region: regionCounts,
+      zone: zoneCounts,
+      os: osCounts,
+      arch: archCounts,
+      node: nodeCounts,
+    };
+  }, [sources, nodes]);
 };
 
 /**
@@ -448,10 +462,10 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
 
   const handleItemSize = (index: number) => {
     const sizerEl = sizerElRef.current;
-    if (!isWrap || !sizerEl) return 24;
+    if (!isWrap || !sizerEl) return ROW_HEIGHT;
 
     // placeholder rows
-    if (index === 0 || index === items.length + 1) return 24;
+    if (index === 0 || index === items.length + 1) return ROW_HEIGHT;
 
     const record = items[index - 1];
     sizerEl.textContent = stripAnsi(record.message); // strip out ansi
@@ -480,7 +494,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
 
     if (isWrap) setMsgColWidth(msgHeaderColEl.clientWidth);
     else listInnerEl.style.width = `${Math.max(listOuterEl.clientWidth, maxRowWidth)}px`;
-  }, 20);
+  }, DEBOUNCE_DELAY_MS);
 
   // listen to content window dimension changes
   useEffect(() => {
@@ -514,19 +528,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
     listOuterEl.scrollTo({ left: headerOuterEl.scrollLeft, behavior: 'instant' });
   }, []);
 
-  const rafIdRefHeaderX = useRef<number | null>(null);
-
-  const handleHeaderScrollXThrottled = useCallback(
-    (ev: React.UIEvent<HTMLDivElement>) => {
-      if (!rafIdRefHeaderX.current) {
-        rafIdRefHeaderX.current = requestAnimationFrame(() => {
-          handleHeaderScrollX(ev);
-          rafIdRefHeaderX.current = null;
-        });
-      }
-    },
-    [handleHeaderScrollX],
-  );
+  const handleHeaderScrollXThrottled = useRafThrottle(handleHeaderScrollX);
 
   // handle horizontal scroll on content
   const handleContentScrollX = useCallback((ev: React.UIEvent<HTMLDivElement>) => {
@@ -536,19 +538,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
     headerOuterEl.scrollTo({ left: listOuterEl.scrollLeft, behavior: 'instant' });
   }, []);
 
-  const rafIdRefContentX = useRef<number | null>(null);
-
-  const handleContentScrollXThrottled = useCallback(
-    (ev: React.UIEvent<HTMLDivElement>) => {
-      if (!rafIdRefContentX.current) {
-        rafIdRefContentX.current = requestAnimationFrame(() => {
-          handleContentScrollX(ev);
-          rafIdRefContentX.current = null;
-        });
-      }
-    },
-    [handleContentScrollX],
-  );
+  const handleContentScrollXThrottled = useRafThrottle(handleContentScrollX);
 
   // handle vertical scroll on content
   const handleContentScrollY = useCallback(() => {
@@ -568,21 +558,11 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
     }
 
     // If scrolled to bottom, turn on auto-scroll
-    const tolerance = 10;
-    if (!isAutoScrollEnabledRef.current && Math.abs(scrollTop + clientHeight - scrollHeight) <= tolerance)
+    if (!isAutoScrollEnabledRef.current && Math.abs(scrollTop + clientHeight - scrollHeight) <= SCROLL_TOLERANCE)
       isAutoScrollEnabledRef.current = true;
   }, []);
 
-  const rafIdRefY = useRef<number | null>(null);
-
-  const handleContentScrollYThrottled = useCallback(() => {
-    if (!rafIdRefY.current) {
-      rafIdRefY.current = requestAnimationFrame(() => {
-        handleContentScrollY();
-        rafIdRefY.current = null;
-      });
-    }
-  }, [handleContentScrollY]);
+  const handleContentScrollYThrottled = useRafThrottle(handleContentScrollY);
 
   // attach scroll event listeners
   useEffect(() => {
@@ -636,7 +616,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
                 isItemLoaded={isItemLoaded}
                 itemCount={itemCount}
                 loadMoreItems={loadMoreItems}
-                threshold={20}
+                threshold={LOAD_MORE_THRESHOLD}
               >
                 {({ onItemsRendered, ref: thisRef }) => (
                   <VariableSizeList
@@ -655,18 +635,12 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
                     height={height}
                     width={width}
                     itemCount={itemCount}
-                    estimatedItemSize={24}
+                    estimatedItemSize={ROW_HEIGHT}
                     itemSize={handleItemSize}
                     outerRef={listOuterRef}
                     innerRef={listInnerRef}
-                    overscanCount={20}
-                    itemData={{
-                      items,
-                      hasMoreBefore,
-                      hasMoreAfter,
-                      visibleCols,
-                      isWrap,
-                    }}
+                    overscanCount={OVERSCAN_COUNT}
+                    itemData={{ items, hasMoreBefore, hasMoreAfter, visibleCols, isWrap }}
                   >
                     {Row}
                   </VariableSizeList>
@@ -719,12 +693,15 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
 
   const nextTick = useNextTick();
 
-  const handleOnFollowData = (record: LogRecord) => {
-    setItems((currItems) => [...currItems, record]);
-    nextTick(() => contentRef.current?.autoScroll());
-  };
+  const handleOnFollowData = useCallback(
+    (record: LogRecord) => {
+      setItems((currItems) => [...currItems, record]);
+      nextTick(() => contentRef.current?.autoScroll());
+    },
+    [setItems],
+  );
 
-  const handleLoadMoreBefore = async () => {
+  const handleLoadMoreBefore = useCallback(async () => {
     // Fetch
     const response = await fetcherRef.current?.fetch({
       mode: LogRecordsQueryMode.Tail,
@@ -736,9 +713,9 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
     nextCursorRef.current = response.nextCursor;
     setItems((currItems) => [...response.records, ...currItems]);
     setHasMoreBefore(Boolean(response.nextCursor));
-  };
+  }, [setItems, setHasMoreBefore]);
 
-  const handleLoadMoreAfter = async () => {
+  const handleLoadMoreAfter = useCallback(async () => {
     // Fetch
     const response = await fetcherRef.current?.fetch({
       mode: LogRecordsQueryMode.Head,
@@ -750,14 +727,14 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
     nextCursorRef.current = response.nextCursor;
     setItems((currItems) => [...currItems, ...response.records]);
     setHasMoreAfter(Boolean(response.nextCursor));
-  };
+  }, [setItems, setHasMoreAfter]);
 
-  const reset = () => {
+  const reset = useCallback(() => {
     setItems([]);
     setHasMoreBefore(false);
     setHasMoreAfter(false);
     nextCursorRef.current = null;
-  };
+  }, [setItems, setHasMoreBefore, setHasMoreAfter]);
 
   // Handler
   const handle = useMemo(
