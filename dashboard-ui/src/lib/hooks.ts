@@ -175,6 +175,35 @@ export function useNextTick(): (fn: () => void) => void {
 }
 
 /**
+ * Throttles a callback so it runs at most once per animation frame.
+ * Cancels any pending frame on unmount to avoid orphan callbacks.
+ */
+
+export function useRafThrottle<T extends (...args: any[]) => void>(fn: T) {
+  const frameRef = useRef<number | null>(null);
+
+  const throttled = useCallback(
+    (...args: Parameters<T>) => {
+      if (frameRef.current) return;
+      frameRef.current = requestAnimationFrame(() => {
+        fn(...args);
+        frameRef.current = null;
+      });
+    },
+    [fn],
+  );
+
+  useEffect(
+    () => () => {
+      if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    },
+    [],
+  );
+
+  return throttled;
+}
+
+/**
  * Get-style query with subscription hook
  */
 
