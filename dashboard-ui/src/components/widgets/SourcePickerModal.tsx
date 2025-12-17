@@ -508,7 +508,7 @@ const NamespacePicker = () => {
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={ALL_NAMESPACES}>All namespaces</SelectItem>
-        {data?.coreV1NamespacesList?.items?.map((item) => (
+        {data?.coreV1NamespacesList?.items.map((item) => (
           <SelectItem key={item.id} value={item.metadata.name}>
             {item.metadata.name}
           </SelectItem>

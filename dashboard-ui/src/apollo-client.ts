@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ApolloClient, InMemoryCache, createHttpLink, split, from } from '@apollo/client';
-import { CombinedGraphQLErrors } from '@apollo/client/errors';
+import { ApolloClient, ApolloLink, HttpLink, InMemoryCache } from '@apollo/client';
+import { CombinedGraphQLErrors, CombinedProtocolErrors } from '@apollo/client/errors';
 import { ErrorLink } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
@@ -50,6 +50,9 @@ const errorLink = new ErrorLink(({ error }) => {
       const msg = `[GraphQL Error] ${gqlError.message}`;
       toast(msg, { id: `${gqlError.path?.join('.')}` });
     });
+  } else if (CombinedProtocolErrors.is(error)) {
+    const msg = `[Protocol Error] ${error.message}`;
+    console.error(msg);
   } else {
     const msg = `[Network Error] ${error.message}`;
     console.error(msg);
@@ -76,7 +79,7 @@ const createLink = (basepath: string) => {
   const uri = new URL(joinPaths(basepath, 'graphql'), window.location.origin).toString();
 
   // Create http link
-  const httpLink = createHttpLink({ uri });
+  const httpLink = new HttpLink({ uri });
 
   // Create wsClient
   const wsClient = createClient({
@@ -88,13 +91,13 @@ const createLink = (basepath: string) => {
   const wsLink = new GraphQLWsLink(wsClient);
 
   // Combine using split link
-  const link = split(
+  const link = ApolloLink.split(
     ({ query }) => {
       const op = getOperationAST(query);
       return op?.operation === OperationTypeNode.SUBSCRIPTION;
     },
     wsLink,
-    from([errorLink, retryLink, httpLink]),
+    ApolloLink.from([errorLink, retryLink, httpLink]),
   );
 
   return { link, wsClient };

@@ -233,7 +233,7 @@ export function useGetQueryWithSubscription<
           fieldSelector: `metadata.name=${name}`,
         } as TSVariables,
         updateQuery: (prev, { subscriptionData }): TQData => {
-          const ev = (subscriptionData.data as any)[args.subscriptionDataKey] as GenericWatchEventFragment;
+          const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
           if (ev?.type === 'ADDED' && ev.object) return { [args.queryDataKey]: ev.object } as TQData;
           return prev as TQData;
         },
