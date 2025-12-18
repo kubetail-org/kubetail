@@ -196,23 +196,7 @@ kubectl port-forward -n kubetail-system svc/kubetail-dashboard 8080:8080
 
 Visit [http://localhost:8080](http://localhost:8080). Have fun tailing your logs!
 
-### Option 3: Glasskube
-
-To install Kubetail using [Glasskube](https://glasskube.dev/), you can select "Kubetail" from the "ClusterPackages" tab in the Glasskube GUI then click "install" or you can run the following command:
-
-```console
-glasskube install kubetail
-```
-
-Once Kubetail is installed you can use it by clicking "open" in the Glasskube GUI or by using the `open` command:
-
-```console
-glasskube open kubetail
-```
-
-Have fun tailing your logs!
-
-### Option 4: minikube
+### Option 3: minikube
 
 As of minikube v1.36.0, you can install Kubetail easily as an addon:
 
