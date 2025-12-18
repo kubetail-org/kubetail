@@ -1,10 +1,10 @@
 import tailwindcss from '@tailwindcss/vite';
-import react from '@vitejs/plugin-react-swc';
+import react from '@vitejs/plugin-react';
 import Unfonts from 'unplugin-fonts/vite';
 import { defineConfig, loadEnv, mergeConfig } from 'vite';
 import svgr from 'vite-plugin-svgr';
-import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig as defineVitestConfig } from 'vitest/config';
+import path from 'path';
 
 export default ({ mode }: { mode: string }) => {
   const env = loadEnv(mode, process.cwd());
@@ -12,8 +12,12 @@ export default ({ mode }: { mode: string }) => {
   const backendTarget = `http://localhost:${env.VITE_DASHBOARD_PROXY_PORT}`;
 
   const viteConfig = defineConfig({
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+      },
+    },
     plugins: [
-      tsconfigPaths(),
       svgr(),
       react(),
       tailwindcss(),
