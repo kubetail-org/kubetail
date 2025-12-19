@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useApolloClient, useQuery } from '@apollo/client/react';
-import type { TypedDocumentNode, OperationVariables } from '@apollo/client';
+import { useApolloClient, useQuery } from '@apollo/client';
+import type { TypedDocumentNode, OperationVariables, Unmasked, MaybeMasked } from '@apollo/client';
 import { useCallback, useEffect, useRef } from 'react';
 
 import appConfig from '@/app-config';
@@ -97,6 +97,39 @@ function isWatchExpiredError(err: Error): boolean {
 }
 
 /**
+ * Retries query until hook is unmounted
+ */
+
+export function useRetryOnError() {
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  return (retryFn: () => Promise<any>) => {
+    const timeout = setInterval(async () => {
+      // check isMounted
+      if (!isMountedRef.current) {
+        clearInterval(timeout);
+        return;
+      }
+
+      // execute query
+      try {
+        await retryFn();
+        clearInterval(timeout);
+      } catch {
+        // do nothing
+      }
+    }, RETRY_TIMEOUT);
+  };
+}
+
+/**
  * Runs queued callbacks on the next reactive cycle
  * (commit → paint), then clears the queue.
  *
@@ -142,35 +175,6 @@ export function useNextTick(): (fn: () => void) => void {
 }
 
 /**
- * Throttles a callback so it runs at most once per animation frame.
- * Cancels any pending frame on unmount to avoid orphan callbacks.
- */
-
-export function useRafThrottle<T extends (...args: any[]) => void>(fn: T) {
-  const frameRef = useRef<number | null>(null);
-
-  const throttled = useCallback(
-    (...args: Parameters<T>) => {
-      if (frameRef.current) return;
-      frameRef.current = requestAnimationFrame(() => {
-        fn(...args);
-        frameRef.current = null;
-      });
-    },
-    [fn],
-  );
-
-  useEffect(
-    () => () => {
-      if (frameRef.current) cancelAnimationFrame(frameRef.current);
-    },
-    [],
-  );
-
-  return throttled;
-}
-
-/**
  * Get-style query with subscription hook
  */
 
@@ -190,7 +194,7 @@ interface GetQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>
   query: TypedDocumentNode<TQData, TQVariables>;
   subscription: TypedDocumentNode<TSData, TSVariables>;
   queryDataKey: keyof TQData;
-  subscriptionDataKey: keyof TSData;
+  subscriptionDataKey: keyof Unmasked<TSData>;
   skip?: boolean;
   variables: TQVariables;
 }
@@ -203,32 +207,27 @@ export function useGetQueryWithSubscription<
 >(args: GetQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
   const { kubeContext, name, namespace } = args.variables;
 
+  const retryOnError = useRetryOnError();
+
   // get workload object
-  const { loading, error, data, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(args.query, {
+  const { loading, error, data, subscribeToMore, refetch } = useQuery(args.query, {
     skip: args.skip,
     variables: args.variables,
+    onError: () => {
+      retryOnError(refetch);
+    },
   });
-
-  // Retry on errors
-  useEffect(() => {
-    if (error) startPolling(RETRY_TIMEOUT);
-    else stopPolling();
-  }, [error, startPolling, stopPolling]);
 
   // subscribe to changes
   useEffect(
     () =>
       subscribeToMore({
         document: args.subscription,
-        variables: {
-          kubeContext,
-          namespace,
-          fieldSelector: `metadata.name=${name}`,
-        } as TSVariables,
-        updateQuery: (prev, { subscriptionData }): TQData => {
+        variables: { kubeContext, namespace, fieldSelector: `metadata.name=${name}` } as any,
+        updateQuery: (prev, { subscriptionData }) => {
           const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
-          if (ev?.type === 'ADDED' && ev.object) return { [args.queryDataKey]: ev.object } as TQData;
-          return prev as TQData;
+          if (ev?.type === 'ADDED' && ev.object) return { [args.queryDataKey]: ev.object } as Unmasked<TQData>;
+          return prev;
         },
         onError: (err) => {
           if (isWatchExpiredError(err)) refetch();
@@ -247,8 +246,8 @@ export function useGetQueryWithSubscription<
 interface ListQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables> {
   query: TypedDocumentNode<TQData, TQVariables>;
   subscription: TypedDocumentNode<TSData, TSVariables>;
-  queryDataKey: keyof TQData;
-  subscriptionDataKey: keyof TSData;
+  queryDataKey: keyof Unmasked<TQData>;
+  subscriptionDataKey: keyof Unmasked<TSData>;
   skip?: boolean;
   variables?: TQVariables;
 }
@@ -260,24 +259,19 @@ export function useListQueryWithSubscription<
   TSVariables extends OperationVariables = OperationVariables,
 >(args: ListQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
   const client = useApolloClient();
+  const retryOnError = useRetryOnError();
 
   // initial query
-  const { loading, error, data, fetchMore, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(
-    args.query,
-    {
-      skip: args.skip,
-      variables: args.variables as TQVariables,
+  const { loading, error, data, fetchMore, subscribeToMore, refetch } = useQuery(args.query, {
+    skip: args.skip,
+    variables: args.variables,
+    onError: () => {
+      retryOnError(refetch);
     },
-  );
-
-  // Retry on errors
-  useEffect(() => {
-    if (error) startPolling(RETRY_TIMEOUT);
-    else stopPolling();
-  }, [error, startPolling, stopPolling]);
+  });
 
   // TODO: tighten `any`
-  const respData = data ? (data[args.queryDataKey] as GenericListFragment) : null;
+  const respData = data ? (data[args.queryDataKey as keyof MaybeMasked<TQData>] as GenericListFragment) : null;
 
   // fetch rest
   const fetchMoreRef = useRef(new Set<string>([]));
@@ -285,12 +279,7 @@ export function useListQueryWithSubscription<
   useEffect(() => {
     if (continueVal && !fetchMoreRef.current.has(continueVal)) {
       fetchMoreRef.current.add(continueVal);
-      fetchMore({
-        variables: {
-          ...args.variables,
-          continue: continueVal,
-        } as unknown as Partial<TQVariables>,
-      });
+      fetchMore({ variables: { ...args.variables, continue: continueVal } });
     }
   }, [continueVal]);
 
@@ -302,29 +291,23 @@ export function useListQueryWithSubscription<
     const resourceVersion = respData?.metadata.resourceVersion || '';
 
     // add `resourceVersion`
-    const variables = {
-      ...args.variables,
-      resourceVersion,
-    } as unknown as TSVariables;
+    const variables = { ...args.variables, resourceVersion } as any;
 
     return subscribeToMore({
       document: args.subscription,
       variables,
-      updateQuery: (prev, { subscriptionData }): TQData => {
+      updateQuery: (prev, { subscriptionData }) => {
         const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
 
-        if (!ev?.type || !ev?.object) return prev as TQData;
-        if (!(prev as TQData)[args.queryDataKey]) return prev as TQData;
+        if (!ev?.type || !ev?.object) return prev;
+        if (!prev[args.queryDataKey]) return prev;
 
-        const oldResult = (prev as TQData)[args.queryDataKey] as GenericListFragment;
+        const oldResult = prev[args.queryDataKey] as GenericListFragment;
 
         // initialize new result and update resourceVersion
         const newResult = {
           ...oldResult,
-          metadata: {
-            ...oldResult.metadata,
-            resourceVersion: ev.object.metadata.resourceVersion,
-          },
+          metadata: { ...oldResult.metadata, resourceVersion: ev.object.metadata.resourceVersion },
         };
 
         switch (ev.type) {
@@ -361,10 +344,10 @@ export function useListQueryWithSubscription<
             newResult.items = oldResult.items.filter((item) => item.metadata.uid !== ev.object.metadata.uid);
             break;
           default:
-            return prev as TQData;
+            return prev;
         }
 
-        return { [args.queryDataKey]: newResult } as TQData;
+        return { [args.queryDataKey]: newResult } as Unmasked<TQData>;
       },
       onError: (err) => {
         if (isWatchExpiredError(err)) refetch();
@@ -389,8 +372,8 @@ export function useListQueryWithSubscription<
 interface CounterQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables> {
   query: TypedDocumentNode<TQData, TQVariables>;
   subscription: TypedDocumentNode<TSData, TSVariables>;
-  queryDataKey: keyof TQData;
-  subscriptionDataKey: keyof TSData;
+  queryDataKey: keyof Unmasked<TQData>;
+  subscriptionDataKey: keyof Unmasked<TSData>;
   skip?: boolean;
   variables?: TQVariables;
 }
@@ -401,19 +384,19 @@ export function useCounterQueryWithSubscription<
   TSData = any,
   TSVariables extends OperationVariables = OperationVariables,
 >(args: CounterQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
+  const retryOnError = useRetryOnError();
+
   // initial query
-  const { loading, error, data, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(args.query, {
+  const { loading, error, data, subscribeToMore, refetch } = useQuery(args.query, {
     skip: args.skip,
-    variables: args.variables as TQVariables,
+    variables: args.variables,
+    onError: () => {
+      retryOnError(refetch);
+    },
   });
 
-  // Retry on error
-  useEffect(() => {
-    if (error) startPolling(RETRY_TIMEOUT);
-    else stopPolling();
-  }, [error, startPolling, stopPolling]);
-
-  const respData = data ? (data[args.queryDataKey] as GenericCounterFragment) : null;
+  // TODO: tighten `any`
+  const respData = data ? (data[args.queryDataKey as keyof MaybeMasked<TQData>] as GenericCounterFragment) : null;
 
   // subscribe to changes
   useEffect(() => {
@@ -423,24 +406,21 @@ export function useCounterQueryWithSubscription<
     const resourceVersion = respData?.metadata.resourceVersion || '';
 
     // add `resourceVersion`
-    const variables = {
-      ...args.variables,
-      resourceVersion,
-    } as unknown as TSVariables;
+    const variables = { ...args.variables, resourceVersion } as any;
 
     return subscribeToMore({
       document: args.subscription,
       variables,
-      updateQuery: (prev, { subscriptionData }): TQData => {
+      updateQuery: (prev, { subscriptionData }) => {
         const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
 
-        if (!ev?.type || !ev?.object) return prev as TQData;
-        if (!(prev as TQData)[args.queryDataKey]) return prev as TQData;
+        if (!ev?.type || !ev?.object) return prev;
+        if (!prev[args.queryDataKey]) return prev;
 
         // Only handle additions and deletions
-        if (!['ADDED', 'DELETED'].includes(ev.type)) return prev as TQData;
+        if (!['ADDED', 'DELETED'].includes(ev.type)) return prev;
 
-        const oldResult = (prev as TQData)[args.queryDataKey] as GenericCounterFragment;
+        const oldResult = prev[args.queryDataKey] as GenericCounterFragment;
 
         const oldCount = oldResult.metadata.remainingItemCount;
         const newCount = oldCount + (ev.type === 'ADDED' ? BigInt(1) : BigInt(-1));
@@ -455,7 +435,7 @@ export function useCounterQueryWithSubscription<
           },
         };
 
-        return { [args.queryDataKey]: newResult } as TQData;
+        return { [args.queryDataKey]: newResult } as Unmasked<TQData>;
       },
       onError: (err) => {
         if (isWatchExpiredError(err)) refetch();

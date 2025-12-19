@@ -15,12 +15,14 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -32,6 +34,7 @@ const (
 )
 
 var version = "dev" // default version for local builds
+var cfgFile string
 
 // getCommandDisplayName determines the CLI display name based on how it's invoked
 func getCommandDisplayName() string {
@@ -62,6 +65,7 @@ var rootCmd = &cobra.Command{
 func Execute() {
 	// Ensure all commands/flagsets use the shared normalizer before parsing
 	applyFlagNormalization(rootCmd)
+	cobra.OnInitialize(initConfig)
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
@@ -97,6 +101,26 @@ func applyFlagNormalization(cmd *cobra.Command) {
 	}
 }
 
+func initConfig() {
+	viper.SetConfigType("yaml")
+
+	if cfgFile != "" {
+		viper.SetConfigFile(cfgFile)
+	} else {
+		// Set default config
+		viper.SetConfigName("config")
+		viper.AddConfigPath("$HOME/.config/kubetail")
+	}
+
+	// Attempt to read configuration
+	if err := viper.ReadInConfig(); err != nil {
+		// Ignore "file not found" errors, as having a config file is optional
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			fmt.Fprintf(os.Stderr, "Warning: could not read config file: %v\n", err)
+		}
+	}
+}
+
 func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
@@ -109,6 +133,7 @@ func init() {
 	flagset := rootCmd.PersistentFlags()
 	flagset.String(KubeconfigFlag, "", "Path to kubeconfig file")
 	flagset.Bool(InClusterFlag, false, "Use in-cluster Kubernetes configuration")
+	flagset.StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.config/kubetail/config)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

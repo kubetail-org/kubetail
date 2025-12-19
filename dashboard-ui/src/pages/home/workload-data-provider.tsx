@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useSubscription } from '@apollo/client/react';
+import { useSubscription } from '@apollo/client';
 import { useSetAtom } from 'jotai';
 import { useEffect } from 'react';
 
@@ -133,12 +133,7 @@ const WorkloadDataFetcher = ({ kind, kubeContext }: WorkloadDataFetcherProps) =>
 
   // Update data atom
   useEffect(() => {
-    setAtom({
-      loading,
-      fetching,
-      error,
-      items: (data && cfg.getItems(data)) ?? [],
-    });
+    setAtom({ loading, fetching, error, items: (data && cfg.getItems(data)) ?? [] });
   }, [loading, fetching, error, data, setAtom]);
 
   return null;

@@ -125,6 +125,47 @@ type Config struct {
 		}
 	}
 
+	// Global settings
+	General struct {
+		Kubeconfig string `mapstructure:"kubeconfig"`
+	} `mapstructure:"general"`
+
+	// Settings specific to sub-commands
+	Commands struct {
+		// Default behavior for the 'logs' command
+		Logs struct {
+			KubeContext   string   `mapstructure:"kube-context"`
+			Head          int64    `mapstructure:"head"`
+			Tail          int64    `mapstructure:"tail"`
+			All           bool     `mapstructure:"all"`
+			Follow        bool     `mapstructure:"follow"`
+			Since         string   `mapstructure:"since"`
+			Until         string   `mapstructure:"until"`
+			After         string   `mapstructure:"after"`
+			Before        string   `mapstructure:"before"`
+			Grep          string   `mapstructure:"grep"`
+			Region        []string `mapstructure:"region"`
+			Zone          []string `mapstructure:"zone"`
+			Os            []string `mapstructure:"os"`
+			Arch          []string `mapstructure:"arch"`
+			Node          []string `mapstructure:"node"`
+			Raw           bool     `mapstructure:"raw"`
+			Columns       []string `mapstructure:"columns"`
+			Cursors       bool     `mapstructure:"cursors"`
+			HideHeader    bool     `mapstructure:"hide-header"`
+			AllContainers bool     `mapstructure:"all-containers"`
+			Force         bool     `mapstructure:"force"`
+		} `mapstructure:"logs"`
+
+		// Default behavior for the 'serve' command
+		Serve struct {
+			Port     int    `mapstructure:"port"`
+			Host     string `mapstructure:"host"`
+			LogLevel string `mapstructure:"log-level"`
+			SkipOpen bool   `mapstructure:"skip-open"`
+		} `mapstructure:"serve"`
+	} `mapstructure:"commands"`
+
 	// Cluster API options
 	ClusterAPI struct {
 		Addr     string `validate:"omitempty,hostname_port"`
@@ -234,6 +275,35 @@ func (cfg *Config) validate() error {
 
 func DefaultConfig() *Config {
 	cfg := &Config{}
+
+	cfg.Commands.Logs.KubeContext = ""
+	cfg.Commands.Logs.Head = 10
+	cfg.Commands.Logs.Tail = 10
+	cfg.Commands.Logs.All = false
+	cfg.Commands.Logs.Follow = false
+	cfg.Commands.Logs.Since = ""
+	cfg.Commands.Logs.Until = ""
+	cfg.Commands.Logs.After = ""
+	cfg.Commands.Logs.Before = ""
+	cfg.Commands.Logs.Grep = ""
+	cfg.Commands.Logs.Region = []string{}
+	cfg.Commands.Logs.Zone = []string{}
+	cfg.Commands.Logs.Os = []string{}
+	cfg.Commands.Logs.Arch = []string{}
+	cfg.Commands.Logs.Node = []string{}
+	cfg.Commands.Logs.Raw = false
+	cfg.Commands.Logs.Columns = []string{"ts", "dot"}
+	cfg.Commands.Logs.Cursors = false
+	cfg.Commands.Logs.HideHeader = false
+	cfg.Commands.Logs.AllContainers = false
+	cfg.Commands.Logs.Force = false
+
+	cfg.Commands.Serve.Port = 7500
+	cfg.Commands.Serve.Host = "localhost"
+	cfg.Commands.Serve.LogLevel = "info"
+	cfg.Commands.Serve.SkipOpen = false
+
+	cfg.General.Kubeconfig = ""
 
 	cfg.AllowedNamespaces = []string{}
 	cfg.Dashboard.Addr = ":8080"

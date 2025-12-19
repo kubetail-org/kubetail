@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useSubscription } from '@apollo/client/react';
+import { useSubscription } from '@apollo/client';
 import { useEffect, useState } from 'react';
 
 import { dashboardWSClient } from '@/apollo-client';
@@ -100,37 +100,37 @@ export function useDashboardServerStatus() {
 }
 
 export function useKubernetesAPIServerStatus(kubeContext: string) {
-  const { data } = useSubscription(dashboardOps.SERVER_STATUS_KUBERNETES_API_HEALTHZ_WATCH, {
+  const [status, setStatus] = useState<ServerStatus>(new ServerStatus());
+
+  useSubscription(dashboardOps.SERVER_STATUS_KUBERNETES_API_HEALTHZ_WATCH, {
     variables: { kubeContext },
+    onData: ({ data }) => setStatus(ServerStatus.fromHealthCheckResponse(data.data?.kubernetesAPIHealthzWatch)),
   });
 
-  // Return unknown status until we have data
-  if (!data?.kubernetesAPIHealthzWatch) {
-    return new ServerStatus();
-  }
-
-  return ServerStatus.fromHealthCheckResponse(data.kubernetesAPIHealthzWatch);
+  return status;
 }
 
 export function useClusterAPIServerStatus(kubeContext: string) {
-  const { data, error } = useSubscription(dashboardOps.SERVER_STATUS_CLUSTER_API_HEALTHZ_WATCH, {
+  const [status, setStatus] = useState<ServerStatus>(new ServerStatus());
+
+  useSubscription(dashboardOps.SERVER_STATUS_CLUSTER_API_HEALTHZ_WATCH, {
     skip: !appConfig.clusterAPIEnabled,
     variables: { kubeContext },
+    onData: ({ data }) => {
+      setStatus(ServerStatus.fromHealthCheckResponse(data.data?.clusterAPIHealthzWatch));
+    },
+    onError: (err) => {
+      if (err.message === 'not available') {
+        setStatus(
+          new ServerStatus({
+            status: Status.NotFound,
+            message: 'Not available',
+            lastUpdatedAt: new Date(),
+          }),
+        );
+      }
+    },
   });
 
-  // Handle error state
-  if (error?.message === 'not available') {
-    return new ServerStatus({
-      status: Status.NotFound,
-      message: 'Not available',
-      lastUpdatedAt: new Date(),
-    });
-  }
-
-  // Return unknown status until we have data
-  if (!data?.clusterAPIHealthzWatch) {
-    return new ServerStatus();
-  }
-
-  return ServerStatus.fromHealthCheckResponse(data.clusterAPIHealthzWatch);
+  return status;
 }
