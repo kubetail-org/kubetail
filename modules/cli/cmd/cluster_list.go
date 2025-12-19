@@ -20,7 +20,9 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
+	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/helm"
 
 	"github.com/kubetail-org/kubetail/modules/cli/internal/cli"
@@ -36,10 +38,18 @@ var clusterListCmd = &cobra.Command{
 	Short: "List current releases",
 	Long:  clusterListHelp,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Load default configuration
+		cfg := config.DefaultConfig()
+		viper.Unmarshal(cfg)
+
 		// Get flags
 		flags := cmd.Flags()
 
 		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
+		if kubeconfigPath == "" {
+			kubeconfigPath = cfg.General.Kubeconfig
+		}
+
 		kubeContext, _ := flags.GetString(KubeContextFlag)
 
 		// Init client

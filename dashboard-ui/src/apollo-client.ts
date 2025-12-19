@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ApolloClient, ApolloLink, HttpLink, InMemoryCache } from '@apollo/client';
-import { CombinedGraphQLErrors, CombinedProtocolErrors } from '@apollo/client/errors';
-import { ErrorLink } from '@apollo/client/link/error';
+import { ApolloClient, InMemoryCache, NormalizedCacheObject, createHttpLink, split, from } from '@apollo/client';
+import type { Operation } from '@apollo/client/link/core';
+import { onError } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { ClientOptions, createClient } from 'graphql-ws';
@@ -34,7 +34,6 @@ const basename = getBasename();
 
 const wsClientOptions: ClientOptions = {
   url: '',
-  lazy: true,
   connectionAckWaitTimeout: 3000,
   keepAlive: 3000,
   retryAttempts: Infinity,
@@ -45,18 +44,18 @@ const wsClientOptions: ClientOptions = {
     }),
 };
 
-const errorLink = new ErrorLink(({ error }) => {
-  if (CombinedGraphQLErrors.is(error)) {
-    error.errors.forEach((gqlError) => {
-      const msg = `[GraphQL Error] ${gqlError.message}`;
-      toast(msg, { id: `${gqlError.path?.join('.')}` });
+const errorLink = onError(({ graphQLErrors, networkError }) => {
+  if (networkError) {
+    const msg = `[Network Error] ${networkError.message}`;
+    console.error(msg);
+    return;
+  }
+
+  if (graphQLErrors) {
+    graphQLErrors.forEach(({ message, path }) => {
+      const msg = `[GraphQL Error] ${message}`;
+      toast(msg, { id: `${path}` });
     });
-  } else if (CombinedProtocolErrors.is(error)) {
-    const msg = `[Protocol Error] ${error.message}`;
-    console.error(msg);
-  } else {
-    const msg = `[Network Error] ${error.message}`;
-    console.error(msg);
   }
 });
 
@@ -68,7 +67,7 @@ const retryLink = new RetryLink({
   },
   attempts: {
     max: Infinity,
-    retryIf: (error, operation) => {
+    retryIf: (error: any, operation: Operation) => {
       const msg = `[NetworkError] ${error.message} (${operation.operationName})`;
       toast(msg, { id: `${error.name}|${operation.operationName}` });
       return true;
@@ -80,7 +79,7 @@ const createLink = (basepath: string) => {
   const uri = new URL(joinPaths(basepath, 'graphql'), window.location.origin).toString();
 
   // Create http link
-  const httpLink = new HttpLink({ uri });
+  const httpLink = createHttpLink({ uri });
 
   // Create wsClient
   const wsClient = createClient({
@@ -92,13 +91,13 @@ const createLink = (basepath: string) => {
   const wsLink = new GraphQLWsLink(wsClient);
 
   // Combine using split link
-  const link = ApolloLink.split(
+  const link = split(
     ({ query }) => {
       const op = getOperationAST(query);
       return op?.operation === OperationTypeNode.SUBSCRIPTION;
     },
     wsLink,
-    ApolloLink.from([errorLink, retryLink, httpLink]),
+    from([errorLink, retryLink, httpLink]),
   );
 
   return { link, wsClient };
@@ -200,7 +199,8 @@ const { link: dashboardLink, wsClient: dashboardWSClient } = createLink(basename
 export const dashboardClient = new ApolloClient({
   cache: new DashboardCustomCache(),
   link: dashboardLink,
-  queryDeduplication: false,
+  name: 'kubetail/dashboard',
+  version: '0.1.0',
 });
 
 export { dashboardWSClient };
@@ -215,7 +215,7 @@ type ClusterAPIContext = {
   serviceName: string;
 };
 
-const clusterAPIClientCache = new Map<string, ApolloClient>();
+const clusterAPIClientCache = new Map<string, ApolloClient<NormalizedCacheObject>>();
 
 export class ClusterAPICustomCache extends InMemoryCache {
   constructor() {
@@ -255,7 +255,8 @@ export const getClusterAPIClient = (context: ClusterAPIContext) => {
     client = new ApolloClient({
       cache: new ClusterAPICustomCache(),
       link,
-      queryDeduplication: false,
+      name: 'kubetail/dashboard',
+      version: '0.1.0',
     });
 
     // Add to cache

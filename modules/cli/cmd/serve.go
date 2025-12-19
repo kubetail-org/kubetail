@@ -206,21 +206,41 @@ var serveCmd = &cobra.Command{
 }
 
 func loadServerConfig(cmd *cobra.Command) (*config.Config, *serveOptions, error) {
+	// Load default configuration
+	cfg := config.DefaultConfig()
+	viper.Unmarshal(cfg)
+
 	// Get flags
 	port, _ := cmd.Flags().GetInt("port")
+	if port == -1 {
+		port = cfg.Commands.Serve.Port
+	}
 	host, _ := cmd.Flags().GetString("host")
-	skipOpen, _ := cmd.Flags().GetBool("skip-open")
+	if host == "" {
+		host = cfg.Commands.Serve.Host
+	}
+	logLevel, _ := cmd.Flags().GetString("log-level")
+	if logLevel == "" {
+		logLevel = cfg.Commands.Serve.LogLevel
+	}
+	skipOpen := cfg.Commands.Serve.SkipOpen
+	if cmd.Flags().Changed("skip-open") {
+		skipOpen, _ = cmd.Flags().GetBool("skip-open")
+	}
 	test, _ := cmd.Flags().GetBool("test")
 	// remote, _ := cmd.Flags().GetBool("remote")
 	remote := false
 
 	// Get the kubeconfig path (if set)
 	kubeconfigPath, _ := cmd.Flags().GetString(KubeconfigFlag)
+	if kubeconfigPath == "" {
+		kubeconfigPath = cfg.General.Kubeconfig
+	}
+
 	inCluster, _ := cmd.Flags().GetBool(InClusterFlag)
 
 	// Init viper
 	v := viper.New()
-	v.BindPFlag("dashboard.logging.level", cmd.Flags().Lookup("log-level"))
 	v.Set("dashboard.addr", fmt.Sprintf("%s:%d", host, port))
 
 	// init config
@@ -235,6 +255,7 @@ func loadServerConfig(cmd *cobra.Command) (*config.Config, *serveOptions, error)
 		cfg.Dashboard.Environment = config.EnvironmentCluster
 	}
 	cfg.Dashboard.Logging.AccessLog.Enabled = false
+	cfg.Dashboard.Logging.Level = logLevel
 
 	serveOptions := &serveOptions{
 		port:     port,
@@ -282,9 +303,9 @@ func serveRemote(kubeconfigPath string, localPort int, skipOpen bool) {
 func addServerCmdFlags(cmd *cobra.Command) {
 	flagset := cmd.Flags()
 	flagset.SortFlags = false
-	flagset.IntP("port", "p", 7500, "Port number to listen on")
-	flagset.String("host", "localhost", "Host address to bind to")
-	flagset.StringP("log-level", "l", "info", "Log level (debug, info, warn, error, disabled)")
+	flagset.IntP("port", "p", -1, "Port number to listen on")
+	flagset.String("host", "", "Host address to bind to")
+	flagset.StringP("log-level", "l", "", "Log level (debug, info, warn, error, disabled)")
 	flagset.Bool("skip-open", false, "Skip opening the browser")
 	// flagset.Bool("remote", false, "Open tunnel to remote dashboard")
 	flagset.Bool("test", false, "Run internal tests and exit")

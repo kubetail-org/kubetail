@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useSubscription } from '@apollo/client/react';
+import { useQuery, useSubscription } from '@apollo/client';
 import { format, toZonedTime } from 'date-fns-tz';
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   createContext,
   forwardRef,
   memo,
-  useCallback,
   useContext,
   useEffect,
   useImperativeHandle,
@@ -36,42 +35,25 @@ import { Spinner } from '@kubetail/ui/elements/spinner';
 import { stripAnsi } from 'fancy-ansi';
 import { AnsiHtml } from 'fancy-ansi/react';
 
+import { getClusterAPIClient } from '@/apollo-client';
 import LoadingPage from '@/components/utils/LoadingPage';
 import {
   ConsoleNodesListItemFragmentFragment,
+  LogRecordsFragmentFragment as LogRecord,
   LogRecordsQueryMode,
   LogSourceFilter,
   LogSourceFragmentFragment,
   WatchEventType,
 } from '@/lib/graphql/dashboard/__generated__/graphql';
-import { CONSOLE_NODES_LIST_FETCH, CONSOLE_NODES_LIST_WATCH, LOG_SOURCES_WATCH } from '@/lib/graphql/dashboard/ops';
-import { useIsClusterAPIEnabled, useListQueryWithSubscription, useNextTick, useRafThrottle } from '@/lib/hooks';
-import { Counter, cn, cssEncode } from '@/lib/util';
-
-import { LogRecordsFetcher } from './log-records-fetcher';
-import type { LogRecordsFetcherHandle } from './log-records-fetcher';
-import { ALL_VIEWER_COLUMNS, ViewerColumn } from './shared';
-import type { LogRecord } from './shared';
 import {
-  logRecordsAtom,
-  isReadyAtom,
-  isLoadingAtom,
-  isFollowAtom,
-  visibleColsAtom,
-  isWrapAtom,
-  colWidthsAtom,
-  maxRowWidthAtom,
-} from './state';
-
-/**
- * Constants
- */
-
-const ROW_HEIGHT = 24;
-const OVERSCAN_COUNT = 20;
-const SCROLL_TOLERANCE = 10;
-const LOAD_MORE_THRESHOLD = 20;
-const DEBOUNCE_DELAY_MS = 20;
+  CONSOLE_NODES_LIST_FETCH,
+  CONSOLE_NODES_LIST_WATCH,
+  LOG_RECORDS_FETCH,
+  LOG_RECORDS_FOLLOW,
+  LOG_SOURCES_WATCH,
+} from '@/lib/graphql/dashboard/ops';
+import { useIsClusterAPIEnabled, useListQueryWithSubscription, useNextTick } from '@/lib/hooks';
+import { Counter, MapSet, cn, cssEncode } from '@/lib/util';
 
 /**
  * Shared variables and types
@@ -86,6 +68,52 @@ type ContextType = {
 };
 
 const Context = createContext<ContextType>({} as ContextType);
+
+export enum ViewerColumn {
+  Timestamp = 'Timestamp',
+  ColorDot = 'Color Dot',
+  PodContainer = 'Pod/Container',
+  Region = 'Region',
+  Zone = 'Zone',
+  OS = 'OS',
+  Arch = 'Arch',
+  Node = 'Node',
+  Message = 'Message',
+}
+
+export const ALL_VIEWER_COLUMNS = [
+  ViewerColumn.Timestamp,
+  ViewerColumn.ColorDot,
+  ViewerColumn.PodContainer,
+  ViewerColumn.Region,
+  ViewerColumn.Zone,
+  ViewerColumn.OS,
+  ViewerColumn.Arch,
+  ViewerColumn.Node,
+  ViewerColumn.Message,
+];
+
+/**
+ * State
+ */
+
+const logRecordsState = atom(new Array<LogRecord>());
+
+const isReadyState = atom(false);
+
+const isLoadingState = atom(true);
+
+const isFollowState = atom(true);
+
+const visibleColsState = atom(new Set([ViewerColumn.Timestamp, ViewerColumn.ColorDot, ViewerColumn.Message]));
+
+const isWrapState = atom(false);
+
+const colWidthsState = atom(new Map<ViewerColumn, number>());
+
+const maxRowWidthState = atom(0);
+
+const filtersState = atom(new MapSet<string, string>());
 
 /**
  * Hooks
@@ -133,62 +161,59 @@ export const useSources = () => {
     },
   });
 
-  const sourceValues = useMemo(() => Array.from(sourceMap.values()), [sourceMap]);
-
-  return { loading, sources: sourceValues };
+  return { loading, sources: Array.from(sourceMap.values()) };
 };
 
+export const useViewerIsWrap = () => useAtom(isWrapState);
+
 export const useViewerMetadata = () => {
-  const isReady = useAtomValue(isReadyAtom);
-  const isLoading = useAtomValue(isLoadingAtom);
-  const isFollow = useAtomValue(isFollowAtom);
+  const isReady = useAtomValue(isReadyState);
+  const isLoading = useAtomValue(isLoadingState);
+  const isFollow = useAtomValue(isFollowState);
 
   const { kubeContext } = useContext(Context);
   const isUseClusterAPIEnabled = useIsClusterAPIEnabled(kubeContext);
 
-  return {
-    isReady,
-    isLoading,
-    isFollow,
-    isSearchEnabled: isUseClusterAPIEnabled,
-  };
+  return { isReady, isLoading, isFollow, isSearchEnabled: isUseClusterAPIEnabled };
 };
+
+export const useViewerVisibleCols = () => useAtom(visibleColsState);
 
 export const useViewerFacets = () => {
   const { sources } = useSources();
   const { nodes } = useNodes();
 
-  return useMemo(() => {
-    // Calculate facets
-    const regionCounts = new Counter();
-    const zoneCounts = new Counter();
-    const archCounts = new Counter();
-    const osCounts = new Counter();
-    const nodeCounts = new Counter();
+  // Calculate facets
+  const regionCounts = new Counter();
+  const zoneCounts = new Counter();
+  const archCounts = new Counter();
+  const osCounts = new Counter();
+  const nodeCounts = new Counter();
 
-    // Update nodes facet
-    nodes.forEach((node) => {
-      nodeCounts.set(node.metadata.name, 0);
-    });
+  // Update nodes facet
+  nodes.forEach((node) => {
+    nodeCounts.set(node.metadata.name, 0);
+  });
 
-    // Update facets
-    sources.forEach((source) => {
-      regionCounts.update(source.metadata.region);
-      zoneCounts.update(source.metadata.zone);
-      archCounts.update(source.metadata.arch);
-      osCounts.update(source.metadata.os);
-      nodeCounts.update(source.metadata.node);
-    });
+  // Update facets
+  sources.forEach((source) => {
+    regionCounts.update(source.metadata.region);
+    zoneCounts.update(source.metadata.zone);
+    archCounts.update(source.metadata.arch);
+    osCounts.update(source.metadata.os);
+    nodeCounts.update(source.metadata.node);
+  });
 
-    return {
-      region: regionCounts,
-      zone: zoneCounts,
-      os: osCounts,
-      arch: archCounts,
-      node: nodeCounts,
-    };
-  }, [sources, nodes]);
+  return {
+    region: regionCounts,
+    zone: zoneCounts,
+    os: osCounts,
+    arch: archCounts,
+    node: nodeCounts,
+  };
 };
+
+export const useViewerFilters = () => useAtom(filtersState);
 
 /**
  * Loading overlay
@@ -220,7 +245,9 @@ const getAttribute = (record: LogRecord, col: ViewerColumn) => {
     }
     case ViewerColumn.ColorDot: {
       const k = cssEncode(`${record.source.namespace}/${record.source.podName}/${record.source.containerName}`);
-      const el = <div className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: `var(--${k}-color)` }} />;
+      const el = (
+        <div className="inline-block w-[8px] h-[8px] rounded-full" style={{ backgroundColor: `var(--${k}-color)` }} />
+      );
       return el;
     }
     case ViewerColumn.PodContainer:
@@ -260,8 +287,8 @@ const Row = memo(({ index, style, data }: RowProps) => {
   const { items, hasMoreBefore, visibleCols, isWrap } = data;
 
   const rowElRef = useRef<HTMLDivElement>(null);
-  const [colWidths, setColWidths] = useAtom(colWidthsAtom);
-  const setMaxRowWidth = useSetAtom(maxRowWidthAtom);
+  const [colWidths, setColWidths] = useAtom(colWidthsState);
+  const setMaxRowWidth = useSetAtom(maxRowWidthState);
 
   // update global colWidths
   useEffect(() => {
@@ -290,13 +317,13 @@ const Row = memo(({ index, style, data }: RowProps) => {
 
     // update maxRowWidth state
     setMaxRowWidth((currVal) => Math.max(currVal, rowEl.scrollWidth));
-  }, [visibleCols, setColWidths, setMaxRowWidth]);
+  }, [visibleCols]);
 
   // first row
   if (index === 0) {
     const msg = hasMoreBefore ? 'Loading...' : 'Beginning of feed';
     return (
-      <div className="px-2 leading-6" style={style}>
+      <div className="px-[8px] leading-[24px]" style={style}>
         {msg}
       </div>
     );
@@ -305,7 +332,7 @@ const Row = memo(({ index, style, data }: RowProps) => {
   // last row (only present when hasMoreAter === true)
   if (index === items.length + 1) {
     return (
-      <div className="px-2 leading-6" style={style}>
+      <div className="px-[8px] leading-[24px]" style={style}>
         Loading...
       </div>
     );
@@ -321,7 +348,7 @@ const Row = memo(({ index, style, data }: RowProps) => {
           key={col}
           className={cn(
             index % 2 !== 0 && 'bg-chrome-100',
-            'px-2',
+            'px-[8px]',
             isWrap ? '' : 'whitespace-nowrap',
             col === ViewerColumn.Timestamp ? 'bg-chrome-200' : '',
             col === ViewerColumn.Message ? 'grow' : 'shrink-0',
@@ -337,7 +364,7 @@ const Row = memo(({ index, style, data }: RowProps) => {
 
   const { width, ...otherStyles } = style;
   return (
-    <div ref={rowElRef} className="flex leading-6" style={{ width: 'inherit', ...otherStyles }}>
+    <div ref={rowElRef} className="flex leading-[24px]" style={{ width: 'inherit', ...otherStyles }}>
       {els}
     </div>
   );
@@ -367,11 +394,11 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
   const { hasMoreBefore, hasMoreAfter, loadMoreBefore, loadMoreAfter } = props;
   const { items } = props;
 
-  const [isLoading, setIsLoading] = useAtom(isLoadingAtom);
-  const visibleCols = useAtomValue(visibleColsAtom);
-  const colWidths = useAtomValue(colWidthsAtom);
-  const maxRowWidth = useAtomValue(maxRowWidthAtom);
-  const isWrap = useAtomValue(isWrapAtom);
+  const [isLoading, setIsLoading] = useAtom(isLoadingState);
+  const visibleCols = useAtomValue(visibleColsState);
+  const colWidths = useAtomValue(colWidthsState);
+  const maxRowWidth = useAtomValue(maxRowWidthState);
+  const isWrap = useAtomValue(isWrapState);
 
   const headerOuterElRef = useRef<HTMLDivElement>(null);
   const headerInnerElRef = useRef<HTMLDivElement>(null);
@@ -462,10 +489,10 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
 
   const handleItemSize = (index: number) => {
     const sizerEl = sizerElRef.current;
-    if (!isWrap || !sizerEl) return ROW_HEIGHT;
+    if (!isWrap || !sizerEl) return 24;
 
     // placeholder rows
-    if (index === 0 || index === items.length + 1) return ROW_HEIGHT;
+    if (index === 0 || index === items.length + 1) return 24;
 
     const record = items[index - 1];
     sizerEl.textContent = stripAnsi(record.message); // strip out ansi
@@ -494,7 +521,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
 
     if (isWrap) setMsgColWidth(msgHeaderColEl.clientWidth);
     else listInnerEl.style.width = `${Math.max(listOuterEl.clientWidth, maxRowWidth)}px`;
-  }, DEBOUNCE_DELAY_MS);
+  }, 20);
 
   // listen to content window dimension changes
   useEffect(() => {
@@ -503,10 +530,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
 
     const resizeObserver = new ResizeObserver(debouncedHandleResize);
     resizeObserver.observe(listOuterEl);
-    return () => {
-      resizeObserver.unobserve(listOuterEl);
-      resizeObserver.disconnect();
-    };
+    return () => resizeObserver.unobserve(listOuterEl);
   }, [isWrap, maxRowWidth]);
 
   // update width of inner wrapper element when `maxRowWidth` changes
@@ -521,27 +545,23 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
   // -------------------------------------------------------------------------------------
 
   // handle horizontal scroll on header
-  const handleHeaderScrollX = useCallback((ev: React.UIEvent<HTMLDivElement>) => {
+  const handleHeaderScrollX = (ev: React.UIEvent<HTMLDivElement>) => {
     const headerOuterEl = ev.target as HTMLDivElement;
     const listOuterEl = listOuterRef.current;
     if (!listOuterEl) return;
     listOuterEl.scrollTo({ left: headerOuterEl.scrollLeft, behavior: 'instant' });
-  }, []);
-
-  const handleHeaderScrollXThrottled = useRafThrottle(handleHeaderScrollX);
+  };
 
   // handle horizontal scroll on content
-  const handleContentScrollX = useCallback((ev: React.UIEvent<HTMLDivElement>) => {
+  const handleContentScrollX = (ev: React.UIEvent<HTMLDivElement>) => {
     const listOuterEl = ev.target as HTMLDivElement;
     const headerOuterEl = headerOuterElRef.current;
     if (!headerOuterEl) return;
     headerOuterEl.scrollTo({ left: listOuterEl.scrollLeft, behavior: 'instant' });
-  }, []);
-
-  const handleContentScrollXThrottled = useRafThrottle(handleContentScrollX);
+  };
 
   // handle vertical scroll on content
-  const handleContentScrollY = useCallback(() => {
+  const handleContentScrollY = () => {
     const lastScrollTop = lastScrollTopRef.current;
 
     // Update scroll position tracker
@@ -558,18 +578,17 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
     }
 
     // If scrolled to bottom, turn on auto-scroll
-    if (!isAutoScrollEnabledRef.current && Math.abs(scrollTop + clientHeight - scrollHeight) <= SCROLL_TOLERANCE)
+    const tolerance = 10;
+    if (!isAutoScrollEnabledRef.current && Math.abs(scrollTop + clientHeight - scrollHeight) <= tolerance)
       isAutoScrollEnabledRef.current = true;
-  }, []);
-
-  const handleContentScrollYThrottled = useRafThrottle(handleContentScrollY);
+  };
 
   // attach scroll event listeners
   useEffect(() => {
     const listOuterEl = listOuterRef.current;
     if (!listOuterEl) return;
-    listOuterEl.addEventListener('scroll', handleContentScrollXThrottled as any);
-    return () => listOuterEl.removeEventListener('scroll', handleContentScrollXThrottled as any);
+    listOuterEl.addEventListener('scroll', handleContentScrollX as any);
+    return () => listOuterEl.removeEventListener('scroll', handleContentScrollX as any);
   }, [isListReady]);
 
   // ------------------------------------------------------------------------------------
@@ -578,11 +597,15 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
 
   return (
     <div className="h-full flex flex-col text-xs">
-      <div ref={sizerElRef} className="absolute invisible font-mono leading-6 px-2" style={{ width: msgColWidth }} />
+      <div
+        ref={sizerElRef}
+        className="absolute invisible font-mono leading-[24px] px-[8px]"
+        style={{ width: msgColWidth }}
+      />
       <div
         ref={headerOuterElRef}
         className="overflow-x-scroll no-scrollbar cursor-default"
-        onScroll={handleHeaderScrollXThrottled}
+        onScroll={handleHeaderScrollX}
       >
         <div
           ref={headerInnerElRef}
@@ -595,7 +618,10 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
                 <div
                   key={col}
                   ref={col === ViewerColumn.Message ? msgHeaderColElRef : null}
-                  className={cn('whitespace-nowrap uppercase px-2', col === ViewerColumn.Message ? 'grow' : 'shrink-0')}
+                  className={cn(
+                    'whitespace-nowrap uppercase px-[8px]',
+                    col === ViewerColumn.Message ? 'grow' : 'shrink-0',
+                  )}
                   style={col !== ViewerColumn.Message ? { minWidth: `${colWidths.get(col) || 0}px` } : {}}
                   data-col-id={col}
                 >
@@ -616,7 +642,7 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
                 isItemLoaded={isItemLoaded}
                 itemCount={itemCount}
                 loadMoreItems={loadMoreItems}
-                threshold={LOAD_MORE_THRESHOLD}
+                threshold={20}
               >
                 {({ onItemsRendered, ref: thisRef }) => (
                   <VariableSizeList
@@ -631,15 +657,15 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
                       if (!isListReady) setIsListReady(true);
                       if (isWrap) setTimeout(() => listRef.current?.resetAfterIndex(0), 0);
                     }}
-                    onScroll={handleContentScrollYThrottled}
+                    onScroll={handleContentScrollY}
                     height={height}
                     width={width}
                     itemCount={itemCount}
-                    estimatedItemSize={ROW_HEIGHT}
+                    estimatedItemSize={24}
                     itemSize={handleItemSize}
                     outerRef={listOuterRef}
                     innerRef={listInnerRef}
-                    overscanCount={OVERSCAN_COUNT}
+                    overscanCount={20}
                     itemData={{ items, hasMoreBefore, hasMoreAfter, visibleCols, isWrap }}
                   >
                     {Row}
@@ -656,6 +682,129 @@ const ContentImpl: React.ForwardRefRenderFunction<ContentHandle, ContentProps> =
 };
 
 const Content = forwardRef(ContentImpl);
+
+/**
+ * LogRecordsFetcher component
+ */
+
+type LogRecordsFetchOptions = {
+  mode: LogRecordsQueryMode;
+  since?: string;
+  after?: string | null;
+  before?: string | null;
+};
+
+type LogRecordsFetchResponse = {
+  records: LogRecord[];
+  nextCursor: string | null;
+};
+
+type LogRecordsFetcherHandle = {
+  fetch: (opts: LogRecordsFetchOptions) => Promise<LogRecordsFetchResponse>;
+  reset: () => void;
+};
+
+type LogRecordsFetcherProps = {
+  onFollowData: (record: LogRecord) => void;
+};
+
+const LogRecordsFetcherImpl: React.ForwardRefRenderFunction<LogRecordsFetcherHandle, LogRecordsFetcherProps> = (
+  { onFollowData }: LogRecordsFetcherProps,
+  ref: React.ForwardedRef<LogRecordsFetcherHandle>,
+) => {
+  const { useClusterAPI, kubeContext, sources, sourceFilter, grep } = useContext(Context);
+  const isFollow = useAtomValue(isFollowState);
+
+  const [isReachedEnd, setIsReachedEnd] = useState(false);
+  const lastTS = useRef<string>(undefined);
+
+  const batchSize = 300;
+
+  const connectArgs = {
+    kubeContext: kubeContext || '',
+    namespace: 'kubetail-system',
+    serviceName: 'kubetail-cluster-api',
+  };
+  const client = useClusterAPI ? getClusterAPIClient(connectArgs) : undefined;
+
+  // Initialize query
+  const query = useQuery(LOG_RECORDS_FETCH, {
+    client,
+    skip: true,
+    variables: { kubeContext, sources, sourceFilter, grep, limit: batchSize + 1 },
+  });
+
+  // Expose handler
+  useImperativeHandle(
+    ref,
+    () => ({
+      fetch: async (opts: LogRecordsFetchOptions) => {
+        // Reset previous refetch() args
+        const newOpts = { after: undefined, before: undefined, since: undefined, ...opts };
+
+        // Execute query
+        const response = (await query.refetch(newOpts)).data.logRecordsFetch;
+        if (!response) throw new Error('query response is null');
+
+        let records: LogRecord[] = [];
+        let nextCursor: string | null = null;
+
+        // Handle response
+        switch (opts.mode) {
+          case LogRecordsQueryMode.Head:
+            records = response.records.slice(0, batchSize);
+            if (response.records.length > batchSize) nextCursor = records[records.length - 1].timestamp;
+            setIsReachedEnd(!nextCursor);
+            break;
+          case LogRecordsQueryMode.Tail:
+            records = response.records.slice(Math.max(response.records.length - batchSize, 0));
+            if (response.records.length > batchSize) nextCursor = records[0].timestamp;
+            setIsReachedEnd(true);
+            break;
+          default:
+            throw new Error('not implemented');
+        }
+
+        // Update last TS
+        if (records.length) lastTS.current = records[records.length - 1].timestamp;
+
+        return { records, nextCursor };
+      },
+      reset: () => {
+        lastTS.current = undefined;
+        setIsReachedEnd(false);
+      },
+    }),
+    [kubeContext, JSON.stringify(sources), JSON.stringify(sourceFilter), grep],
+  );
+
+  // Follow
+  useEffect(() => {
+    if (!isReachedEnd || !isFollow) return;
+
+    return query.subscribeToMore({
+      document: LOG_RECORDS_FOLLOW,
+      variables: { kubeContext, sources, sourceFilter, grep, after: lastTS.current },
+      updateQuery: (_, { subscriptionData }) => {
+        const {
+          data: { logRecordsFollow: record },
+        } = subscriptionData;
+        if (record) {
+          // Update last TS
+          lastTS.current = record.timestamp;
+
+          // Execute callback
+          onFollowData(record);
+        }
+        return { logRecordsFetch: null };
+      },
+    });
+  }, [kubeContext, JSON.stringify(sources), isReachedEnd, isFollow, query.subscribeToMore]);
+
+  return null;
+};
+
+const LogRecordsFetcher = forwardRef(LogRecordsFetcherImpl);
 
 /**
  * Viewer component
@@ -678,14 +827,14 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
   { defaultMode, defaultSince }: ViewerProps,
   ref: React.ForwardedRef<ViewerHandle>,
 ) => {
-  const { useClusterAPI, kubeContext, grep, sources, sourceFilter } = useContext(Context);
+  const { kubeContext, grep, sources, sourceFilter } = useContext(Context);
 
-  const [items, setItems] = useAtom(logRecordsAtom);
+  const [items, setItems] = useAtom(logRecordsState);
   const [hasMoreBefore, setHasMoreBefore] = useState(false);
   const [hasMoreAfter, setHasMoreAfter] = useState(false);
 
-  const setIsLoading = useSetAtom(isLoadingAtom);
-  const setIsFollow = useSetAtom(isFollowAtom);
+  const setIsLoading = useSetAtom(isLoadingState);
+  const setIsFollow = useSetAtom(isFollowState);
   const nextCursorRef = useRef<any>(null);
 
   const fetcherRef = useRef<LogRecordsFetcherHandle>(null);
@@ -693,15 +842,12 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
 
   const nextTick = useNextTick();
 
-  const handleOnFollowData = useCallback(
-    (record: LogRecord) => {
-      setItems((currItems) => [...currItems, record]);
-      nextTick(() => contentRef.current?.autoScroll());
-    },
-    [setItems],
-  );
+  const handleOnFollowData = (record: LogRecord) => {
+    setItems((currItems) => [...currItems, record]);
+    nextTick(() => contentRef.current?.autoScroll());
+  };
 
-  const handleLoadMoreBefore = useCallback(async () => {
+  const handleLoadMoreBefore = async () => {
     // Fetch
     const response = await fetcherRef.current?.fetch({
       mode: LogRecordsQueryMode.Tail,
@@ -713,9 +859,9 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
     nextCursorRef.current = response.nextCursor;
     setItems((currItems) => [...response.records, ...currItems]);
     setHasMoreBefore(Boolean(response.nextCursor));
-  }, [setItems, setHasMoreBefore]);
+  };
 
-  const handleLoadMoreAfter = useCallback(async () => {
+  const handleLoadMoreAfter = async () => {
     // Fetch
     const response = await fetcherRef.current?.fetch({
       mode: LogRecordsQueryMode.Head,
@@ -727,14 +873,14 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
     nextCursorRef.current = response.nextCursor;
     setItems((currItems) => [...currItems, ...response.records]);
     setHasMoreAfter(Boolean(response.nextCursor));
-  }, [setItems, setHasMoreAfter]);
+  };
 
-  const reset = useCallback(() => {
+  const reset = () => {
     setItems([]);
     setHasMoreBefore(false);
     setHasMoreAfter(false);
     nextCursorRef.current = null;
-  }, [setItems, setHasMoreBefore, setHasMoreAfter]);
+  };
 
   // Handler
   const handle = useMemo(
@@ -831,19 +977,11 @@ const ViewerImpl: React.ForwardRefRenderFunction<ViewerHandle, ViewerProps> = (
         handle.seekTail();
         break;
     }
-  }, [kubeContext, grep, sources, sourceFilter]);
+  }, [kubeContext, grep, JSON.stringify(sources), JSON.stringify(sourceFilter)]);
 
   return (
     <>
-      <LogRecordsFetcher
-        ref={fetcherRef}
-        useClusterAPI={useClusterAPI}
-        kubeContext={kubeContext}
-        sources={sources}
-        sourceFilter={sourceFilter}
-        grep={grep}
-        onFollowData={handleOnFollowData}
-      />
+      <LogRecordsFetcher ref={fetcherRef} onFollowData={handleOnFollowData} />
       <Content
         ref={contentRef}
         items={items}
@@ -886,7 +1024,7 @@ export const ViewerProvider = ({
       sourceFilter,
       grep,
     }),
-    [useClusterAPI, kubeContext, grep, sources, sourceFilter],
+    [useClusterAPI, kubeContext, grep, JSON.stringify(sources), JSON.stringify(sourceFilter)],
   );
 
   if (useClusterAPI === undefined) return <LoadingPage />;

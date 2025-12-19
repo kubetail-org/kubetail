@@ -28,7 +28,7 @@ import (
 
 	"github.com/sosodev/duration"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
@@ -175,6 +175,8 @@ Notes:
 
 `
 
+var cfg *config.Config
+
 func getLogsHelp() string {
 	tmpl := template.Must(template.New("logs").Parse(logsHelpTmpl))
 
@@ -199,10 +201,19 @@ var logsCmd = &cobra.Command{
 	Long:  strings.ReplaceAll(getLogsHelp(), "\t", "  "),
 	Args:  cobra.MinimumNArgs(1),
 	PreRunE: func(cmd *cobra.Command, args []string) error {
+		// Load default configuration
+		cfg = config.DefaultConfig()
+		viper.Unmarshal(cfg)
+
 		flags := cmd.Flags()
 		grep, _ := flags.GetString("grep")
-		force, _ := flags.GetBool("force")
-
+		if grep == "" {
+			grep = cfg.Commands.Logs.Grep
+		}
+		force := cfg.Commands.Logs.Force
+		if flags.Changed("force") {
+			force, _ = flags.GetBool("force")
+		}
 		if grep != "" && !force {
 			return fmt.Errorf("--force is required when using --grep")
 		}
@@ -214,60 +225,144 @@ var logsCmd = &cobra.Command{
 		flags := cmd.Flags()
 
 		kubeContext, _ := flags.GetString(KubeContextFlag)
+		if kubeContext == "" {
+			kubeContext = cfg.Commands.Logs.KubeContext
+		}
 		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
+		if kubeconfigPath == "" {
+			kubeconfigPath = cfg.General.Kubeconfig
+		}
 		inCluster, _ := flags.GetBool(InClusterFlag)
 
 		head := flags.Changed("head")
 		headVal, _ := flags.GetInt64("head")
+		if headVal == 0 {
+			headVal = cfg.Commands.Logs.Head
+		}
 
 		tail := flags.Changed("tail")
 		tailVal, _ := flags.GetInt64("tail")
-		all, _ := flags.GetBool("all")
-		follow, _ := flags.GetBool("follow")
+		if tailVal == 0 {
+			tailVal = cfg.Commands.Logs.Tail
+		}
+
+		all := cfg.Commands.Logs.All
+		if flags.Changed("all") {
+			all, _ = flags.GetBool("all")
+		}
+		follow := cfg.Commands.Logs.Follow
+		if flags.Changed("follow") {
+			follow, _ = flags.GetBool("follow")
+		}
 
 		since, _ := flags.GetString("since")
+		if since == "" {
+			since = cfg.Commands.Logs.Since
+		}
 		until, _ := flags.GetString("until")
+		if until == "" {
+			until = cfg.Commands.Logs.Until
+		}
 		after, _ := flags.GetString("after")
+		if since != "" && after != "" {
+			since = ""
+		}
+		if since == "" && after == "" {
+			after = cfg.Commands.Logs.After
+		}
 		before, _ := flags.GetString("before")
+		if until != "" && before != "" {
+			until = ""
+		}
+		if until == "" && before == "" {
+			before = cfg.Commands.Logs.Before
+		}
 
 		grep, _ := flags.GetString("grep")
-		regionList, _ := flags.GetStringSlice("region")
-		zoneList, _ := flags.GetStringSlice("zone")
-		osList, _ := flags.GetStringSlice("os")
-		archList, _ := flags.GetStringSlice("arch")
-		nodeList, _ := flags.GetStringSlice("node")
+		if grep == "" {
+			grep = cfg.Commands.Logs.Grep
+		}
+		regionList := cfg.Commands.Logs.Region
+		if flags.Changed("region") {
+			regionList, _ = flags.GetStringSlice("region")
+		}
+		zoneList := cfg.Commands.Logs.Zone
+		if flags.Changed("zone") {
+			zoneList, _ = flags.GetStringSlice("zone")
+		}
+		osList := cfg.Commands.Logs.Os
+		if flags.Changed("os") {
+			osList, _ = flags.GetStringSlice("os")
+		}
+		archList := cfg.Commands.Logs.Arch
+		if flags.Changed("arch") {
+			archList, _ = flags.GetStringSlice("arch")
+		}
+		nodeList := cfg.Commands.Logs.Node
+		if flags.Changed("node") {
+			nodeList, _ = flags.GetStringSlice("node")
+		}
 
-		hideHeader, _ := flags.GetBool("hide-header")
-		hideTs, _ := flags.GetBool("hide-ts")
-		hideDot, _ := flags.GetBool("hide-dot")
+		hideHeader := cfg.Commands.Logs.HideHeader
+		if flags.Changed("hide-header") {
+			hideHeader, _ = flags.GetBool("hide-header")
+		}
 
-		withTs := !hideTs
-		withDot := !hideDot
-		allContainers, _ := flags.GetBool("all-containers")
+		allContainers := cfg.Commands.Logs.AllContainers
+		if flags.Changed("all-containers") {
+			allContainers, _ = flags.GetBool("all-containers")
 
-		withNode, _ := flags.GetBool("with-node")
-		withRegion, _ := flags.GetBool("with-region")
-		withZone, _ := flags.GetBool("with-zone")
-		withOS, _ := flags.GetBool("with-os")
-		withArch, _ := flags.GetBool("with-arch")
-		withNamespace, _ := flags.GetBool("with-namespace")
-		withPod, _ := flags.GetBool("with-pod")
-		withContainer, _ := flags.GetBool("with-container")
-		withCursors, _ := flags.GetBool("with-cursors")
+		}
+		withCursors := cfg.Commands.Logs.Cursors
+		if flags.Changed("with-cursors") {
+			withCursors, _ = flags.GetBool("with-cursors")
+		}
 
-		raw, _ := flags.GetBool("raw")
+		columns := []string{
+			"ts", "dot", "node", "region", "zone", "os",
+			"arch", "namespace", "pod", "container",
+		}
+
+		enabledCols := make(map[string]bool)
+
+		for _, col := range columns {
+			// Start with the config file value
+			enabled := columnEnabled(cfg.Commands.Logs.Columns, col)
+
+			// 'ts' and 'dot' use "hide-", others use "with-"
+			var flagName string
+			if col == "ts" || col == "dot" {
+				flagName = "hide-" + col
+				if flags.Changed(flagName) {
+					hide, _ := flags.GetBool(flagName)
+					enabled = !hide
+				}
+			} else {
+				flagName = "with-" + col
+				if flags.Changed(flagName) {
+					enabled, _ = flags.GetBool(flagName)
+				}
+			}
+
+			enabledCols[col] = enabled
+		}
+
+		raw := cfg.Commands.Logs.Raw
+		if flags.Changed("raw") {
+			raw, _ = flags.GetBool("raw")
+		}
 		if raw {
 			hideHeader = true
-			withTs = false
-			withNode = false
-			withRegion = false
-			withZone = false
-			withOS = false
-			withArch = false
-			withNamespace = false
-			withPod = false
-			withContainer = false
-			withDot = false
+			enabledCols["ts"] = false
+			enabledCols["node"] = false
+			enabledCols["region"] = false
+			enabledCols["zone"] = false
+			enabledCols["os"] = false
+			enabledCols["arch"] = false
+			enabledCols["namespace"] = false
+			enabledCols["pod"] = false
+			enabledCols["container"] = false
+			enabledCols["dot"] = false
 			allContainers = false
 		}
 
@@ -364,11 +459,22 @@ var logsCmd = &cobra.Command{
 		// Write records to stdout
 		writer := bufio.NewWriter(cmd.OutOrStdout())
 
-		headers, colWidths := getTableWriterHeaders(flags, stream.Sources())
+		headers, colWidths := getTableWriterHeaders(enabledCols, stream.Sources())
 		tw := tablewriter.NewTableWriter(writer, colWidths)
 
 		// Print header
-		showHeader := withTs || withNode || withRegion || withZone || withOS || withArch || withNamespace || withPod || withContainer
+		showHeader := false
+		for col, active := range enabledCols {
+			// dot does not trigger the header visibility
+			if col == "dot" {
+				continue
+			}
+
+			if active {
+				showHeader = true
+				break
+			}
+		}
 		if showHeader && !hideHeader {
 			tw.PrintHeader(headers)
 			writer.Flush()
@@ -384,37 +490,37 @@ var logsCmd = &cobra.Command{
 
 			// Prepare row data
 			row := []string{}
-			if withTs {
+			if enabledCols["ts"] {
 				row = append(row, record.Timestamp.Format(time.RFC3339Nano))
 			}
 
-			if withDot {
+			if enabledCols["dot"] {
 				dot := getDotIndicator(record.Source.ContainerID)
 				row = append(row, dot)
 			}
 
-			if withNode {
+			if enabledCols["node"] {
 				row = append(row, record.Source.Metadata.Node)
 			}
-			if withRegion {
+			if enabledCols["region"] {
 				row = append(row, orDefault(record.Source.Metadata.Region, "-"))
 			}
-			if withZone {
+			if enabledCols["zone"] {
 				row = append(row, orDefault(record.Source.Metadata.Zone, "-"))
 			}
-			if withOS {
+			if enabledCols["os"] {
 				row = append(row, orDefault(record.Source.Metadata.OS, "-"))
 			}
-			if withArch {
+			if enabledCols["arch"] {
 				row = append(row, orDefault(record.Source.Metadata.Arch, "-"))
 			}
-			if withNamespace {
+			if enabledCols["namespace"] {
 				row = append(row, orDefault(record.Source.Namespace, "-"))
 			}
-			if withPod {
+			if enabledCols["pod"] {
 				row = append(row, orDefault(record.Source.PodName, "-"))
 			}
-			if withContainer {
+			if enabledCols["container"] {
 				row = append(row, orDefault(record.Source.ContainerName, "-"))
 			}
 			row = append(row, record.Message)
@@ -494,20 +600,17 @@ func getDotIndicator(containerID string) string {
 }
 
 // Return table writer headers and col widths
-func getTableWriterHeaders(flags *pflag.FlagSet, sources []logs.LogSource) ([]string, []int) {
-	hideTs, _ := flags.GetBool("hide-ts")
-	hideDot, _ := flags.GetBool("hide-dot")
-
-	withTs := !hideTs
-	withDot := !hideDot
-	withNode, _ := flags.GetBool("with-node")
-	withRegion, _ := flags.GetBool("with-region")
-	withZone, _ := flags.GetBool("with-zone")
-	withOS, _ := flags.GetBool("with-os")
-	withArch, _ := flags.GetBool("with-arch")
-	withNamespace, _ := flags.GetBool("with-namespace")
-	withPod, _ := flags.GetBool("with-pod")
-	withContainer, _ := flags.GetBool("with-container")
+func getTableWriterHeaders(enabledCols map[string]bool, sources []logs.LogSource) ([]string, []int) {
+	withTs := enabledCols["ts"]
+	withDot := enabledCols["dot"]
+	withNode, _ := enabledCols["node"]
+	withRegion, _ := enabledCols["region"]
+	withZone, _ := enabledCols["zone"]
+	withOS, _ := enabledCols["os"]
+	withArch, _ := enabledCols["arch"]
+	withNamespace, _ := enabledCols["namespace"]
+	withPod, _ := enabledCols["pod"]
+	withContainer, _ := enabledCols["container"]
 
 	headers := []string{}
 	colWidths := []int{}
@@ -609,6 +712,16 @@ func orDefault[T comparable](val T, defaultVal T) T {
 	return val
 }
 
+// Check if a column is present in a list of strings
+func columnEnabled(cols []string, col string) bool {
+	for _, c := range cols {
+		if c == col {
+			return true
+		}
+	}
+	return false
+}
+
 func init() {
 	rootCmd.AddCommand(logsCmd)
 
@@ -625,10 +738,10 @@ func init() {
 	flagset.SortFlags = false
 
 	flagset.String(KubeContextFlag, "", "Specify the kubeconfig context to use")
-	flagset.Int64P("head", "h", 10, "Return first N records")
-	flagset.Lookup("head").NoOptDefVal = "10"
-	flagset.Int64P("tail", "t", 10, "Return last N records")
-	flagset.Lookup("tail").NoOptDefVal = "10"
+	flagset.Int64P("head", "h", 0, "Return first N records")
+	flagset.Lookup("head").NoOptDefVal = "0"
+	flagset.Int64P("tail", "t", 0, "Return last N records")
+	flagset.Lookup("tail").NoOptDefVal = "0"
 	flagset.Bool("all", false, "Return all records")
 	logsCmd.MarkFlagsMutuallyExclusive("head", "tail", "all")
 
