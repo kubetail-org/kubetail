@@ -147,7 +147,7 @@ Examples:
 		{{.CommandDisplayName}} deployments/web --region=us-east-1,us-east-2
 
 		# Tail 'web' deployment pods in 'us-east-1' running on 'arm64'
-		{{.CommandDisplayName}} deployments/web --region=us-east-1 --arch=arm64
+		 {{.CommandDisplayName}} deployments/web --region=us-east-1 --arch=arm64
 
 		# Tail 'web' deployment pods in 'us-east-1a' zone
 		{{.CommandDisplayName}} deployments/web --zone=us-east-1a
@@ -175,6 +175,12 @@ Notes:
 
 `
 
+type StreamFactory func(ctx context.Context, cm k8shelpers.ConnectionManager, args []string, streamOpts []logs.Option) (logs.LogStream, error)
+
+func createStream(ctx context.Context, cm k8shelpers.ConnectionManager, args []string, streamOpts []logs.Option) (logs.LogStream, error) {
+	return logs.NewStream(ctx, cm, args, streamOpts...)
+}
+
 func getLogsHelp() string {
 	tmpl := template.Must(template.New("logs").Parse(logsHelpTmpl))
 
@@ -191,6 +197,246 @@ func getLogsHelp() string {
 	}
 
 	return buf.String()
+}
+
+func RunLogs(cmd *cobra.Command, args []string, createStream StreamFactory, cm k8shelpers.ConnectionManager) {
+	// Get flags
+	flags := cmd.Flags()
+
+	kubeContext, _ := flags.GetString(KubeContextFlag)
+	// kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
+	// inCluster, _ := flags.GetBool(InClusterFlag)
+
+	head := flags.Changed("head")
+	headVal, _ := flags.GetInt64("head")
+
+	tail := flags.Changed("tail")
+	tailVal, _ := flags.GetInt64("tail")
+	all, _ := flags.GetBool("all")
+	follow, _ := flags.GetBool("follow")
+
+	since, _ := flags.GetString("since")
+	until, _ := flags.GetString("until")
+	after, _ := flags.GetString("after")
+	before, _ := flags.GetString("before")
+
+	grep, _ := flags.GetString("grep")
+	regionList, _ := flags.GetStringSlice("region")
+	zoneList, _ := flags.GetStringSlice("zone")
+	osList, _ := flags.GetStringSlice("os")
+	archList, _ := flags.GetStringSlice("arch")
+	nodeList, _ := flags.GetStringSlice("node")
+
+	hideHeader, _ := flags.GetBool("hide-header")
+	hideTs, _ := flags.GetBool("hide-ts")
+	hideDot, _ := flags.GetBool("hide-dot")
+
+	withTs := !hideTs
+	withDot := !hideDot
+	allContainers, _ := flags.GetBool("all-containers")
+
+	withNode, _ := flags.GetBool("with-node")
+	withRegion, _ := flags.GetBool("with-region")
+	withZone, _ := flags.GetBool("with-zone")
+	withOS, _ := flags.GetBool("with-os")
+	withArch, _ := flags.GetBool("with-arch")
+	withNamespace, _ := flags.GetBool("with-namespace")
+	withPod, _ := flags.GetBool("with-pod")
+	withContainer, _ := flags.GetBool("with-container")
+	withCursors, _ := flags.GetBool("with-cursors")
+
+	raw, _ := flags.GetBool("raw")
+	if raw {
+		hideHeader = true
+		withTs = false
+		withNode = false
+		withRegion = false
+		withZone = false
+		withOS = false
+		withArch = false
+		withNamespace = false
+		withPod = false
+		withContainer = false
+		withDot = false
+		allContainers = false
+	}
+
+	// Stream mode
+	streamMode := logsStreamModeUnknown
+	if head {
+		streamMode = logsStreamModeHead
+	} else if tail {
+		streamMode = logsStreamModeTail
+	} else if all {
+		streamMode = logsStreamModeAll
+	} else if since != "" {
+		streamMode = logsStreamModeHead
+	} else {
+		streamMode = logsStreamModeTail
+	}
+
+	// Default tail num to 0 if follow is true
+	if follow && !tail {
+		tailVal = 0
+	}
+
+	// Parse `since`
+	sinceTime, err := parseTimeArg(since)
+	cli.ExitOnError(err)
+
+	// Parse `until`
+	untilTime, err := parseTimeArg(until)
+	cli.ExitOnError(err)
+
+	// Parse `after`
+	afterTime, err := parseTimeArg(after)
+	cli.ExitOnError(err)
+
+	// Parse `before`
+	beforeTime, err := parseTimeArg(before)
+	cli.ExitOnError(err)
+
+	// Handle after/before
+	if !afterTime.IsZero() {
+		sinceTime = afterTime.Add(1 * time.Nanosecond)
+	}
+
+	if !beforeTime.IsZero() {
+		untilTime = beforeTime.Add(-1 * time.Nanosecond)
+	}
+
+	// Init stream
+	streamOpts := []logs.Option{
+		logs.WithKubeContext(kubeContext),
+		logs.WithSince(sinceTime),
+		logs.WithUntil(untilTime),
+		logs.WithFollow(follow),
+		logs.WithGrep(grep),
+		logs.WithRegions(regionList),
+		logs.WithZones(zoneList),
+		logs.WithOSes(osList),
+		logs.WithArches(archList),
+		logs.WithNodes(nodeList),
+		logs.WithAllContainers(allContainers),
+	}
+
+	switch streamMode {
+	case logsStreamModeHead:
+		streamOpts = append(streamOpts, logs.WithHead(headVal))
+	case logsStreamModeTail:
+		streamOpts = append(streamOpts, logs.WithTail(tailVal))
+	case logsStreamModeAll:
+		streamOpts = append(streamOpts, logs.WithAll())
+	default:
+		cli.ExitOnError(fmt.Errorf("invalid stream mode: %d", streamMode))
+	}
+
+	// Initalize context that stops on SIGTERM
+	rootCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop() // clean up resources
+
+	stream, err := createStream(rootCtx, cm, args, streamOpts)
+	cli.ExitOnError(err)
+	defer stream.Close()
+
+	// Start stream
+	err = stream.Start(rootCtx)
+	cli.ExitOnError(err)
+
+	// Write records to stdout
+	writer := bufio.NewWriter(cmd.OutOrStdout())
+
+	headers, colWidths := getTableWriterHeaders(flags, stream.Sources())
+	tw := tablewriter.NewTableWriter(writer, colWidths)
+
+	// Print header
+	showHeader := withTs || withNode || withRegion || withZone || withOS || withArch || withNamespace || withPod || withContainer
+	if showHeader && !hideHeader {
+		tw.PrintHeader(headers)
+		writer.Flush()
+	}
+
+	// Write rows
+	var firstRecord, lastRecord *logs.LogRecord
+	for record := range stream.Records() {
+		if firstRecord == nil {
+			firstRecord = &record
+		}
+		lastRecord = &record
+
+		// Prepare row data
+		row := []string{}
+		if withTs {
+			row = append(row, record.Timestamp.Format(time.RFC3339Nano))
+		}
+
+		if withDot {
+			dot := getDotIndicator(record.Source.ContainerID)
+			row = append(row, dot)
+		}
+
+		if withNode {
+			row = append(row, record.Source.Metadata.Node)
+		}
+		if withRegion {
+			row = append(row, orDefault(record.Source.Metadata.Region, "-"))
+		}
+		if withZone {
+			row = append(row, orDefault(record.Source.Metadata.Zone, "-"))
+		}
+		if withOS {
+			row = append(row, orDefault(record.Source.Metadata.OS, "-"))
+		}
+		if withArch {
+			row = append(row, orDefault(record.Source.Metadata.Arch, "-"))
+		}
+		if withNamespace {
+			row = append(row, orDefault(record.Source.Namespace, "-"))
+		}
+		if withPod {
+			row = append(row, orDefault(record.Source.PodName, "-"))
+		}
+		if withContainer {
+			row = append(row, orDefault(record.Source.ContainerName, "-"))
+		}
+		row = append(row, record.Message)
+
+		// Add row to table
+		tw.WriteRow(row)
+		writer.Flush()
+
+	}
+
+	// Exit early if user issued SIGTERM
+	if rootCtx.Err() != nil {
+		return
+	}
+
+	// Exit if stream encountered error
+	cli.ExitOnError(stream.Err())
+
+	// Check if any errors occurred during streaming
+	if err := stream.Err(); err != nil {
+		fmt.Fprintf(cmd.OutOrStderr(), "\nError: %v\n", err)
+	}
+
+	// Output paging cursors if requested
+	if withCursors && !follow && !all {
+		if head && lastRecord != nil {
+			// For head mode, the last record's timestamp is used as the "after" cursor for the next page
+			fmt.Fprintf(cmd.OutOrStderr(), "\n--- Next page: --after %s ---\n", lastRecord.Timestamp.Format(time.RFC3339Nano))
+		} else if firstRecord != nil {
+			// For tail mode, the first record's timestamp would be used as the "before" cursor
+			fmt.Fprintf(cmd.OutOrStderr(), "\n--- Prev page: --before %s ---\n", firstRecord.Timestamp.Format(time.RFC3339Nano))
+		}
+	}
+
+	// Graceful close
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	err = cm.Shutdown(ctx)
+	cli.ExitOnError(err)
+
 }
 
 var logsCmd = &cobra.Command{
@@ -210,249 +456,20 @@ var logsCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		// Get flags
 		flags := cmd.Flags()
-
-		kubeContext, _ := flags.GetString(KubeContextFlag)
-		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
 		inCluster, _ := flags.GetBool(InClusterFlag)
-
-		head := flags.Changed("head")
-		headVal, _ := flags.GetInt64("head")
-
-		tail := flags.Changed("tail")
-		tailVal, _ := flags.GetInt64("tail")
-		all, _ := flags.GetBool("all")
-		follow, _ := flags.GetBool("follow")
-
-		since, _ := flags.GetString("since")
-		until, _ := flags.GetString("until")
-		after, _ := flags.GetString("after")
-		before, _ := flags.GetString("before")
-
-		grep, _ := flags.GetString("grep")
-		regionList, _ := flags.GetStringSlice("region")
-		zoneList, _ := flags.GetStringSlice("zone")
-		osList, _ := flags.GetStringSlice("os")
-		archList, _ := flags.GetStringSlice("arch")
-		nodeList, _ := flags.GetStringSlice("node")
-
-		hideHeader, _ := flags.GetBool("hide-header")
-		hideTs, _ := flags.GetBool("hide-ts")
-		hideDot, _ := flags.GetBool("hide-dot")
-
-		withTs := !hideTs
-		withDot := !hideDot
-		allContainers, _ := flags.GetBool("all-containers")
-
-		withNode, _ := flags.GetBool("with-node")
-		withRegion, _ := flags.GetBool("with-region")
-		withZone, _ := flags.GetBool("with-zone")
-		withOS, _ := flags.GetBool("with-os")
-		withArch, _ := flags.GetBool("with-arch")
-		withNamespace, _ := flags.GetBool("with-namespace")
-		withPod, _ := flags.GetBool("with-pod")
-		withContainer, _ := flags.GetBool("with-container")
-		withCursors, _ := flags.GetBool("with-cursors")
-
-		raw, _ := flags.GetBool("raw")
-		if raw {
-			hideHeader = true
-			withTs = false
-			withNode = false
-			withRegion = false
-			withZone = false
-			withOS = false
-			withArch = false
-			withNamespace = false
-			withPod = false
-			withContainer = false
-			withDot = false
-			allContainers = false
-		}
-
-		// Stream mode
-		streamMode := logsStreamModeUnknown
-		if head {
-			streamMode = logsStreamModeHead
-		} else if tail {
-			streamMode = logsStreamModeTail
-		} else if all {
-			streamMode = logsStreamModeAll
-		} else if since != "" {
-			streamMode = logsStreamModeHead
-		} else {
-			streamMode = logsStreamModeTail
-		}
-
-		// Default tail num to 0 if follow is true
-		if follow && !tail {
-			tailVal = 0
-		}
-
-		// Parse `since`
-		sinceTime, err := parseTimeArg(since)
-		cli.ExitOnError(err)
-
-		// Parse `until`
-		untilTime, err := parseTimeArg(until)
-		cli.ExitOnError(err)
-
-		// Parse `after`
-		afterTime, err := parseTimeArg(after)
-		cli.ExitOnError(err)
-
-		// Parse `before`
-		beforeTime, err := parseTimeArg(before)
-		cli.ExitOnError(err)
-
-		// Handle after/before
-		if !afterTime.IsZero() {
-			sinceTime = afterTime.Add(1 * time.Nanosecond)
-		}
-
-		if !beforeTime.IsZero() {
-			untilTime = beforeTime.Add(-1 * time.Nanosecond)
-		}
+		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
 
 		// Init connection manager
 		env := config.EnvironmentDesktop
 		if inCluster {
 			env = config.EnvironmentCluster
 		}
+
 		cm, err := k8shelpers.NewConnectionManager(env, k8shelpers.WithKubeconfigPath(kubeconfigPath), k8shelpers.WithLazyConnect(true))
 		cli.ExitOnError(err)
 
-		// Init stream
-		streamOpts := []logs.Option{
-			logs.WithKubeContext(kubeContext),
-			logs.WithSince(sinceTime),
-			logs.WithUntil(untilTime),
-			logs.WithFollow(follow),
-			logs.WithGrep(grep),
-			logs.WithRegions(regionList),
-			logs.WithZones(zoneList),
-			logs.WithOSes(osList),
-			logs.WithArches(archList),
-			logs.WithNodes(nodeList),
-			logs.WithAllContainers(allContainers),
-		}
-
-		switch streamMode {
-		case logsStreamModeHead:
-			streamOpts = append(streamOpts, logs.WithHead(headVal))
-		case logsStreamModeTail:
-			streamOpts = append(streamOpts, logs.WithTail(tailVal))
-		case logsStreamModeAll:
-			streamOpts = append(streamOpts, logs.WithAll())
-		default:
-			cli.ExitOnError(fmt.Errorf("invalid stream mode: %d", streamMode))
-		}
-
-		// Initalize context that stops on SIGTERM
-		rootCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-		defer stop() // clean up resources
-
-		stream, err := logs.NewStream(rootCtx, cm, args, streamOpts...)
-		cli.ExitOnError(err)
-		defer stream.Close()
-
-		// Start stream
-		err = stream.Start(rootCtx)
-		cli.ExitOnError(err)
-
-		// Write records to stdout
-		writer := bufio.NewWriter(cmd.OutOrStdout())
-
-		headers, colWidths := getTableWriterHeaders(flags, stream.Sources())
-		tw := tablewriter.NewTableWriter(writer, colWidths)
-
-		// Print header
-		showHeader := withTs || withNode || withRegion || withZone || withOS || withArch || withNamespace || withPod || withContainer
-		if showHeader && !hideHeader {
-			tw.PrintHeader(headers)
-			writer.Flush()
-		}
-
-		// Write rows
-		var firstRecord, lastRecord *logs.LogRecord
-		for record := range stream.Records() {
-			if firstRecord == nil {
-				firstRecord = &record
-			}
-			lastRecord = &record
-
-			// Prepare row data
-			row := []string{}
-			if withTs {
-				row = append(row, record.Timestamp.Format(time.RFC3339Nano))
-			}
-
-			if withDot {
-				dot := getDotIndicator(record.Source.ContainerID)
-				row = append(row, dot)
-			}
-
-			if withNode {
-				row = append(row, record.Source.Metadata.Node)
-			}
-			if withRegion {
-				row = append(row, orDefault(record.Source.Metadata.Region, "-"))
-			}
-			if withZone {
-				row = append(row, orDefault(record.Source.Metadata.Zone, "-"))
-			}
-			if withOS {
-				row = append(row, orDefault(record.Source.Metadata.OS, "-"))
-			}
-			if withArch {
-				row = append(row, orDefault(record.Source.Metadata.Arch, "-"))
-			}
-			if withNamespace {
-				row = append(row, orDefault(record.Source.Namespace, "-"))
-			}
-			if withPod {
-				row = append(row, orDefault(record.Source.PodName, "-"))
-			}
-			if withContainer {
-				row = append(row, orDefault(record.Source.ContainerName, "-"))
-			}
-			row = append(row, record.Message)
-
-			// Add row to table
-			tw.WriteRow(row)
-			writer.Flush()
-		}
-
-		// Exit early if user issued SIGTERM
-		if rootCtx.Err() != nil {
-			return
-		}
-
-		// Exit if stream encountered error
-		cli.ExitOnError(stream.Err())
-
-		// Check if any errors occurred during streaming
-		if err := stream.Err(); err != nil {
-			fmt.Fprintf(cmd.OutOrStderr(), "\nError: %v\n", err)
-		}
-
-		// Output paging cursors if requested
-		if withCursors && !follow && !all {
-			if head && lastRecord != nil {
-				// For head mode, the last record's timestamp is used as the "after" cursor for the next page
-				fmt.Fprintf(cmd.OutOrStderr(), "\n--- Next page: --after %s ---\n", lastRecord.Timestamp.Format(time.RFC3339Nano))
-			} else if firstRecord != nil {
-				// For tail mode, the first record's timestamp would be used as the "before" cursor
-				fmt.Fprintf(cmd.OutOrStderr(), "\n--- Prev page: --before %s ---\n", firstRecord.Timestamp.Format(time.RFC3339Nano))
-			}
-		}
-
-		// Graceful close
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		err = cm.Shutdown(ctx)
-		cli.ExitOnError(err)
+		RunLogs(cmd, args, createStream, cm)
 	},
 }
 

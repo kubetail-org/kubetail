@@ -47,6 +47,15 @@ const (
 	streamModeAll
 )
 
+// LogStream defines the interface for a log stream
+type LogStream interface {
+	Start(ctx context.Context) error
+	Records() <-chan LogRecord
+	Err() error
+	Close()
+	Sources() []LogSource
+}
+
 // Stream represents a stream of log records
 type Stream struct {
 	sinceTime time.Time
