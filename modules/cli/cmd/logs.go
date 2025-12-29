@@ -204,9 +204,6 @@ func RunLogs(cmd *cobra.Command, args []string, createStream StreamFactory, cm k
 	flags := cmd.Flags()
 
 	kubeContext, _ := flags.GetString(KubeContextFlag)
-	// kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
-	// inCluster, _ := flags.GetBool(InClusterFlag)
-
 	head := flags.Changed("head")
 	headVal, _ := flags.GetInt64("head")
 
@@ -626,19 +623,8 @@ func orDefault[T comparable](val T, defaultVal T) T {
 	return val
 }
 
-func init() {
-	rootCmd.AddCommand(logsCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// serveCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	flagset := logsCmd.Flags()
+func AddLogsCmdFlags(cmd *cobra.Command) {
+	flagset := cmd.Flags()
 	flagset.SortFlags = false
 
 	flagset.String(KubeContextFlag, "", "Specify the kubeconfig context to use")
@@ -688,4 +674,20 @@ func init() {
 
 	// Define help here to avoid re-defining 'h' shorthand
 	flagset.Bool("help", false, "help for logs")
+
+}
+
+func init() {
+	rootCmd.AddCommand(logsCmd)
+
+	// Here you will define your flags and configuration settings.
+
+	// Cobra supports Persistent Flags which will work for this command
+	// and all subcommands, e.g.:
+	// serveCmd.PersistentFlags().String("foo", "", "A help for foo")
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	AddLogsCmdFlags(logsCmd)
 }
