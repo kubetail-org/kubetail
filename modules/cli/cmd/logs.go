@@ -21,14 +21,18 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"text/template"
 	"time"
 
+	"github.com/go-playground/validator/v10"
+	zlog "github.com/rs/zerolog/log"
 	"github.com/sosodev/duration"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 
 	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
@@ -207,21 +211,42 @@ var logsCmd = &cobra.Command{
 			return fmt.Errorf("--force is required when using --grep")
 		}
 
+		var cli config.CLI
+		cli.Config, _ = flags.GetString("config")
+
+		if cli.Config != "" {
+			return validator.New().Struct(cli)
+		}
+
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		// Get flags
 		flags := cmd.Flags()
 
-		kubeContext, _ := flags.GetString(KubeContextFlag)
-		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
+		configPath, _ := cmd.Flags().GetString("config")
 		inCluster, _ := flags.GetBool(InClusterFlag)
 
+		v := viper.New()
+
+		v.BindPFlag("general.kubeconfig", cmd.Flags().Lookup(KubeconfigFlag))
+		v.BindPFlag("commands.logs.kube-context", cmd.Flags().Lookup(KubeContextFlag))
+		v.BindPFlag("commands.logs.head", cmd.Flags().Lookup("head"))
+		v.BindPFlag("commands.logs.tail", cmd.Flags().Lookup("tail"))
+
+		cliCfg, err := config.NewCLIConfigFromViper(v, configPath)
+		if err != nil {
+			zlog.Fatal().Caller().Err(err).Send()
+		}
+		kubeContext := cliCfg.Commands.Logs.KubeContext
+		kubeconfigPath := cliCfg.General.KubeconfigPath
+
 		head := flags.Changed("head")
-		headVal, _ := flags.GetInt64("head")
+		headVal := cliCfg.Commands.Logs.Head
 
 		tail := flags.Changed("tail")
-		tailVal, _ := flags.GetInt64("tail")
+		tailVal := cliCfg.Commands.Logs.Tail
+
 		all, _ := flags.GetBool("all")
 		follow, _ := flags.GetBool("follow")
 
@@ -621,14 +646,17 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	defaultConfigPath, _ := config.DefaultConfigPath()
+	cliCfg := config.NewCLIConfigFromFile(defaultConfigPath)
+
 	flagset := logsCmd.Flags()
 	flagset.SortFlags = false
 
 	flagset.String(KubeContextFlag, "", "Specify the kubeconfig context to use")
-	flagset.Int64P("head", "h", 10, "Return first N records")
-	flagset.Lookup("head").NoOptDefVal = "10"
-	flagset.Int64P("tail", "t", 10, "Return last N records")
-	flagset.Lookup("tail").NoOptDefVal = "10"
+	flagset.Int64P("head", "h", cliCfg.Commands.Logs.Head, "Return last N records")
+	flagset.Lookup("head").NoOptDefVal = strconv.Itoa(int(cliCfg.Commands.Logs.Head))
+	flagset.Int64P("tail", "t", cliCfg.Commands.Logs.Tail, "Return last N records")
+	flagset.Lookup("tail").NoOptDefVal = strconv.Itoa(int(cliCfg.Commands.Logs.Tail))
 	flagset.Bool("all", false, "Return all records")
 	logsCmd.MarkFlagsMutuallyExclusive("head", "tail", "all")
 

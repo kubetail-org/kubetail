@@ -29,6 +29,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-logr/logr"
+	"github.com/go-playground/validator/v10"
 	"github.com/pkg/browser"
 	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -60,6 +61,16 @@ var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Start dashboard server and open web UI",
 	Long:  serveHelp,
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		var cli config.CLI
+		cli.Config, _ = cmd.Flags().GetString("config")
+
+		if cli.Config != "" {
+			return validator.New().Struct(cli)
+		}
+
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, opts, err := loadServerConfig(cmd)
 		if err != nil {
@@ -207,39 +218,41 @@ var serveCmd = &cobra.Command{
 
 func loadServerConfig(cmd *cobra.Command) (*config.Config, *serveOptions, error) {
 	// Get flags
-	port, _ := cmd.Flags().GetInt("port")
-	host, _ := cmd.Flags().GetString("host")
-	skipOpen, _ := cmd.Flags().GetBool("skip-open")
+	configPath, _ := cmd.Flags().GetString("config")
 	test, _ := cmd.Flags().GetBool("test")
+	logLevel, _ := cmd.Flags().GetString("log-level")
 	// remote, _ := cmd.Flags().GetBool("remote")
 	remote := false
-
-	// Get the kubeconfig path (if set)
-	kubeconfigPath, _ := cmd.Flags().GetString(KubeconfigFlag)
 	inCluster, _ := cmd.Flags().GetBool(InClusterFlag)
 
 	// Init viper
 	v := viper.New()
-	v.BindPFlag("dashboard.logging.level", cmd.Flags().Lookup("log-level"))
-	v.Set("dashboard.addr", fmt.Sprintf("%s:%d", host, port))
 
+	v.BindPFlag("general.kubeconfig", cmd.Flags().Lookup(KubeconfigFlag))
+	v.BindPFlag("commands.serve.port", cmd.Flags().Lookup("port"))
+	v.BindPFlag("commands.serve.host", cmd.Flags().Lookup("host"))
+	v.BindPFlag("commands.serve.skip-open", cmd.Flags().Lookup("skip-open"))
 	// init config
-	cfg, err := config.NewConfig(v, "")
+	cliCfg, err := config.NewCLIConfigFromViper(v, configPath)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	cfg.KubeconfigPath = kubeconfigPath
+	cfg := config.DefaultConfig()
+
+	cfg.KubeconfigPath = cliCfg.General.KubeconfigPath
+	cfg.Dashboard.Addr = fmt.Sprintf("%s:%d", cliCfg.Commands.Serve.Host, cliCfg.Commands.Serve.Port)
 	cfg.Dashboard.Environment = config.EnvironmentDesktop
+	cfg.Dashboard.Logging.Level = logLevel
 	if inCluster {
 		cfg.Dashboard.Environment = config.EnvironmentCluster
 	}
 	cfg.Dashboard.Logging.AccessLog.Enabled = false
 
 	serveOptions := &serveOptions{
-		port:     port,
-		host:     host,
-		skipOpen: skipOpen,
+		port:     cliCfg.Commands.Serve.Port,
+		host:     cliCfg.Commands.Serve.Host,
+		skipOpen: cliCfg.Commands.Serve.SkipOpen,
 		remote:   remote,
 		test:     test,
 	}
