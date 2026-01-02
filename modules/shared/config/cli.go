@@ -70,10 +70,10 @@ func DefaultConfigPath() (string, error) {
 	return filepath.Join(home, ".kubetail", "config.yaml"), nil
 }
 
-func NewCLIConfigFromFile(configPath string) *CLIConfig {
+func NewCLIConfigFromFile(configPath string) (*CLIConfig, error) {
 	if configPath == "" {
 		if f, err := DefaultConfigPath(); err != nil {
-			return nil
+			return nil, err
 		} else {
 			configPath = f
 		}
@@ -84,20 +84,18 @@ func NewCLIConfigFromFile(configPath string) *CLIConfig {
 	// read contents
 	configBytes, err := os.ReadFile(configPath)
 	if err == nil {
-		//		return nil, err
-
 		// expand env vars
 		configBytes = []byte(os.ExpandEnv(string(configBytes)))
 
 		// check extension
 		if len(filepath.Ext(configPath)) <= 1 {
-			return nil
+			return nil, fmt.Errorf("file %q must have a valid extension (e.g., .yaml, .json)", configPath)
 		}
 
 		// load into viper
 		v.SetConfigType(filepath.Ext(configPath)[1:])
 		if err := v.ReadConfig(bytes.NewBuffer(configBytes)); err != nil {
-			return nil
+			return nil, err
 		}
 	}
 
@@ -105,16 +103,15 @@ func NewCLIConfigFromFile(configPath string) *CLIConfig {
 
 	// unmarshal
 	if err := v.Unmarshal(cfg); err != nil {
-		return nil
+		return nil, err
 	}
 
 	// validate config
 	if err := cfg.validate(); err != nil {
-		return nil
+		return nil, err
 	}
 
-	return cfg
-
+	return cfg, nil
 }
 
 func NewCLIConfigFromViper(v *viper.Viper, configPath string) (*CLIConfig, error) {

@@ -647,7 +647,10 @@ func init() {
 	// is called directly, e.g.:
 	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	defaultConfigPath, _ := config.DefaultConfigPath()
-	cliCfg := config.NewCLIConfigFromFile(defaultConfigPath)
+	cliCfg, err := config.NewCLIConfigFromFile(defaultConfigPath)
+	if err != nil {
+		cliCfg = config.DefaultCLIConfig()
+	}
 
 	flagset := logsCmd.Flags()
 	flagset.SortFlags = false
