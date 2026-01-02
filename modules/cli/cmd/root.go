@@ -109,6 +109,7 @@ func init() {
 	flagset := rootCmd.PersistentFlags()
 	flagset.String(KubeconfigFlag, "", "Path to kubeconfig file")
 	flagset.Bool(InClusterFlag, false, "Use in-cluster Kubernetes configuration")
+	flagset.StringP("config", "c", "", "Path to config file (default is $HOME/.kubetail/config.yaml)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
