@@ -91,13 +91,6 @@ var serveCmd = &cobra.Command{
 		// set gin mode
 		gin.SetMode("release")
 
-		// configure logger
-		config.ConfigureLogger(config.LoggerOptions{
-			Enabled: true,
-			Level:   cfg.Dashboard.Logging.Level,
-			Format:  "cli",
-		})
-
 		// Capture unhandled kubernetes client errors
 		k8sruntime.ErrorHandlers = []k8sruntime.ErrorHandler{func(ctx context.Context, err error, msg string, keysAndValues ...any) {
 			// Suppress for now
@@ -224,6 +217,12 @@ func loadServerConfig(cmd *cobra.Command) (*config.Config, *serveOptions, error)
 	// remote, _ := cmd.Flags().GetBool("remote")
 	remote := false
 	inCluster, _ := cmd.Flags().GetBool(InClusterFlag)
+
+	config.ConfigureLogger(config.LoggerOptions{
+		Enabled: true,
+		Level:   logLevel,
+		Format:  "cli",
+	})
 
 	// Init viper
 	v := viper.New()
