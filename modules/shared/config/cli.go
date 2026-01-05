@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-playground/validator/v10"
+	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
@@ -89,13 +90,18 @@ func NewCLIConfigFromFile(configPath string) (*CLIConfig, error) {
 
 		// check extension
 		if len(filepath.Ext(configPath)) <= 1 {
-			return nil, fmt.Errorf("file %q must have a valid extension (e.g., .yaml, .json)", configPath)
+			zlog.Warn().Msgf("Config file %q must have a valid extension (e.g., .yaml, .json), using default configuration", configPath)
+		} else {
+			// load into viper
+			v.SetConfigType(filepath.Ext(configPath)[1:])
+			if err := v.ReadConfig(bytes.NewBuffer(configBytes)); err != nil {
+				zlog.Warn().Err(err).Msgf("Failed to parse config file %q, using default configuration", configPath)
+			}
 		}
-
-		// load into viper
-		v.SetConfigType(filepath.Ext(configPath)[1:])
-		if err := v.ReadConfig(bytes.NewBuffer(configBytes)); err != nil {
-			return nil, err
+	} else if configPath != "" {
+		// Only warn if a config path was explicitly provided
+		if defaultPath, _ := DefaultConfigPath(); configPath != defaultPath {
+			zlog.Warn().Err(err).Msgf("Failed to read config file %q, using default configuration", configPath)
 		}
 	}
 
@@ -126,20 +132,23 @@ func NewCLIConfigFromViper(v *viper.Viper, configPath string) (*CLIConfig, error
 	// read contents
 	configBytes, err := os.ReadFile(configPath)
 	if err == nil {
-		//		return nil, err
-
 		// expand env vars
 		configBytes = []byte(os.ExpandEnv(string(configBytes)))
 
 		// check extension
 		if len(filepath.Ext(configPath)) <= 1 {
-			return nil, fmt.Errorf("file %q must have a valid extension (e.g., .yaml, .json)", configPath)
+			zlog.Warn().Msgf("Config file %q must have a valid extension (e.g., .yaml, .json), using default configuration", configPath)
+		} else {
+			// load into viper
+			v.SetConfigType(filepath.Ext(configPath)[1:])
+			if err := v.ReadConfig(bytes.NewBuffer(configBytes)); err != nil {
+				zlog.Warn().Err(err).Msgf("Failed to parse config file %q, using default configuration", configPath)
+			}
 		}
-
-		// load into viper
-		v.SetConfigType(filepath.Ext(configPath)[1:])
-		if err := v.ReadConfig(bytes.NewBuffer(configBytes)); err != nil {
-			return nil, err
+	} else if configPath != "" {
+		// Only warn if a config path was explicitly provided
+		if defaultPath, _ := DefaultConfigPath(); configPath != defaultPath {
+			zlog.Warn().Err(err).Msgf("Failed to read config file %q, using default configuration", configPath)
 		}
 	}
 
