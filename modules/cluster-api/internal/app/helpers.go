@@ -26,20 +26,20 @@ import (
 
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	capicfg "github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/grpchelpers"
 )
 
-func mustNewGrpcDispatcher(cfg *config.Config) *grpcdispatcher.Dispatcher {
+func mustNewGrpcDispatcher(cfg *capicfg.Config) *grpcdispatcher.Dispatcher {
 	dialOpts := []grpc.DialOption{
 		grpc.WithUnaryInterceptor(grpchelpers.AuthUnaryClientInterceptor),
 		grpc.WithStreamInterceptor(grpchelpers.AuthStreamClientInterceptor),
 	}
 
 	// configure tls
-	if cfg.ClusterAPI.ClusterAgent.TLS.Enabled {
+	if cfg.ClusterAgent.TLS.Enabled {
 		// Client cert for mTLS
-		clientCert, err := tls.LoadX509KeyPair(cfg.ClusterAPI.ClusterAgent.TLS.CertFile, cfg.ClusterAPI.ClusterAgent.TLS.KeyFile)
+		clientCert, err := tls.LoadX509KeyPair(cfg.ClusterAgent.TLS.CertFile, cfg.ClusterAgent.TLS.KeyFile)
 		if err != nil {
 			zlog.Fatal().Err(err).Send()
 		}
@@ -47,12 +47,12 @@ func mustNewGrpcDispatcher(cfg *config.Config) *grpcdispatcher.Dispatcher {
 		// Init tls config
 		tlsCfg := &tls.Config{
 			Certificates: []tls.Certificate{clientCert},
-			ServerName:   cfg.ClusterAPI.ClusterAgent.TLS.ServerName,
+			ServerName:   cfg.ClusterAgent.TLS.ServerName,
 		}
 
-		if cfg.ClusterAPI.ClusterAgent.TLS.CAFile != "" {
+		if cfg.ClusterAgent.TLS.CAFile != "" {
 			// Root CA for server verification
-			caPem, err := os.ReadFile(cfg.ClusterAPI.ClusterAgent.TLS.CAFile)
+			caPem, err := os.ReadFile(cfg.ClusterAgent.TLS.CAFile)
 			if err != nil {
 				zlog.Fatal().Err(err).Send()
 			}
@@ -74,7 +74,7 @@ func mustNewGrpcDispatcher(cfg *config.Config) *grpcdispatcher.Dispatcher {
 
 	// TODO: reuse app clientset
 	d, err := grpcdispatcher.NewDispatcher(
-		cfg.ClusterAPI.ClusterAgent.DispatchUrl,
+		cfg.ClusterAgent.DispatchUrl,
 		grpcdispatcher.WithDialOptions(dialOpts...),
 	)
 	if err != nil {

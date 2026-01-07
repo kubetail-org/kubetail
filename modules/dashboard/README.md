@@ -23,7 +23,7 @@ The Kubetail backend server executable supports the following command line confi
 
 ### Config file
 
-The Kubetail Dashboard server can be configured using a configuration file written in YAML, JSON, TOML, HCL or envfile format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [hack/config.yaml](../../hack/config.yaml)):
+The Kubetail Dashboard server can be configured using a configuration file written in YAML, JSON, TOML, HCL or envfile format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [config/default/dashboard.yaml](../../config/default/dashboard.yaml)):
 
 | Name                                            | Datatype | Description                                          | Default      | Status       |
 | ----------------------------------------------- | -------- | ---------------------------------------------------- | ------------ | ------------ |

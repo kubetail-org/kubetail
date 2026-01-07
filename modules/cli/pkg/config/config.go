@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-
 	"path/filepath"
 
 	"github.com/go-playground/validator/v10"
@@ -15,23 +14,19 @@ type CLI struct {
 	Config string `validate:"omitempty,file"`
 }
 
-// Application configuration
 type CLIConfig struct {
 	// Global settings
 	General struct {
 		KubeconfigPath string `mapstructure:"kubeconfig"`
 	} `mapstructure:"general"`
 
-	// Settings specific to sub-commands
 	Commands struct {
-		// Default behavior for the 'logs' command
 		Logs struct {
 			KubeContext string `mapstructure:"kube-context"`
 			Head        int64  `mapstructure:"head"`
 			Tail        int64  `mapstructure:"tail"`
 		} `mapstructure:"logs"`
 
-		// Default behavior for the 'serve' command
 		Serve struct {
 			Port     int    `mapstructure:"port"`
 			Host     string `mapstructure:"host"`
@@ -40,7 +35,6 @@ type CLIConfig struct {
 	} `mapstructure:"commands"`
 }
 
-// Validate config
 func (cfg *CLIConfig) validate() error {
 	return validator.New().Struct(cfg)
 }
@@ -72,27 +66,23 @@ func DefaultConfigPath() (string, error) {
 
 func NewCLIConfigFromFile(configPath string) (*CLIConfig, error) {
 	if configPath == "" {
-		if f, err := DefaultConfigPath(); err != nil {
+		f, err := DefaultConfigPath()
+		if err != nil {
 			return nil, err
-		} else {
-			configPath = f
 		}
+		configPath = f
 	}
 
 	v := viper.New()
 
-	// read contents
 	configBytes, err := os.ReadFile(configPath)
 	if err == nil {
-		// expand env vars
 		configBytes = []byte(os.ExpandEnv(string(configBytes)))
 
-		// check extension
 		if len(filepath.Ext(configPath)) <= 1 {
 			return nil, fmt.Errorf("file %q must have a valid extension (e.g., .yaml, .json)", configPath)
 		}
 
-		// load into viper
 		v.SetConfigType(filepath.Ext(configPath)[1:])
 		if err := v.ReadConfig(bytes.NewBuffer(configBytes)); err != nil {
 			return nil, err
@@ -115,23 +105,21 @@ func NewCLIConfigFromFile(configPath string) (*CLIConfig, error) {
 }
 
 func NewCLIConfigFromViper(v *viper.Viper, configPath string) (*CLIConfig, error) {
+	if v == nil {
+		v = viper.New()
+	}
 	if configPath == "" {
-		if f, err := DefaultConfigPath(); err != nil {
+		f, err := DefaultConfigPath()
+		if err != nil {
 			return nil, err
-		} else {
-			configPath = f
 		}
+		configPath = f
 	}
 
-	// read contents
 	configBytes, err := os.ReadFile(configPath)
 	if err == nil {
-		//		return nil, err
-
-		// expand env vars
 		configBytes = []byte(os.ExpandEnv(string(configBytes)))
 
-		// check extension
 		if len(filepath.Ext(configPath)) <= 1 {
 			return nil, fmt.Errorf("file %q must have a valid extension (e.g., .yaml, .json)", configPath)
 		}

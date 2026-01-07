@@ -21,7 +21,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/internal/formerrors"
 )
@@ -94,7 +94,7 @@ func (app *authHandlers) LogoutPOST(c *gin.Context) {
 
 // Session endpoint
 func (app *authHandlers) SessionGET(c *gin.Context) {
-	authMode := app.config.Dashboard.AuthMode
+	authMode := app.config.AuthMode
 
 	response := gin.H{
 		"auth_mode": authMode,
@@ -104,9 +104,9 @@ func (app *authHandlers) SessionGET(c *gin.Context) {
 	}
 
 	switch authMode {
-	case config.AuthModeAuto:
+	case dashcfg.AuthModeAuto:
 		response["user"] = string(authMode)
-	case config.AuthModeToken:
+	case dashcfg.AuthModeToken:
 		token := c.GetString(k8sTokenGinKey)
 
 		// Handle no token found

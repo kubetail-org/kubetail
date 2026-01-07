@@ -12,7 +12,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	gqlerrors "github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
 	"github.com/kubetail-org/kubetail/modules/shared/helm"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"

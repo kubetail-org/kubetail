@@ -297,7 +297,7 @@ tilt up
 
 ```console
 cd modules/dashboard
-go run cmd/main.go -c hack/config.yaml
+go run cmd/main.go -c ../../config/default/dashboard.yaml
 ```
 
 4. Run the Dashboard UI locally:

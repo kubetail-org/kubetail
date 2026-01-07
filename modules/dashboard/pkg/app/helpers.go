@@ -21,7 +21,7 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
@@ -32,15 +32,15 @@ const k8sTokenSessionKey = "k8sToken"
 const k8sTokenGinKey = "k8sToken"
 
 // newClusterAPIProxy
-func newClusterAPIProxy(cfg *config.Config, cm k8shelpers.ConnectionManager, pathPrefix string) (clusterapi.Proxy, error) {
+func newClusterAPIProxy(cfg *dashcfg.Config, cm k8shelpers.ConnectionManager, pathPrefix string) (clusterapi.Proxy, error) {
 	// Initialize new ClusterAPI proxy depending on environment
-	switch cfg.Dashboard.Environment {
-	case config.EnvironmentDesktop:
+	switch cfg.Environment {
+	case dashcfg.EnvironmentDesktop:
 		return clusterapi.NewDesktopProxy(cm, pathPrefix)
-	case config.EnvironmentCluster:
-		return clusterapi.NewInClusterProxy(cfg.Dashboard.ClusterAPIEndpoint, pathPrefix)
+	case dashcfg.EnvironmentCluster:
+		return clusterapi.NewInClusterProxy(cfg.ClusterAPIEndpoint, pathPrefix)
 	default:
-		return nil, fmt.Errorf("env not supported: %s", cfg.Dashboard.Environment)
+		return nil, fmt.Errorf("env not supported: %s", cfg.Environment)
 	}
 }
 
