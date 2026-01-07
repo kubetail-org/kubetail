@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	k8shelpersmock "github.com/kubetail-org/kubetail/modules/shared/k8shelpers/mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -80,25 +80,25 @@ func createMockStatusChannelWithContext(ctx context.Context, initialStatus Healt
 func TestNewHealthMonitor(t *testing.T) {
 	tests := []struct {
 		name        string
-		environment config.Environment
+		environment dashcfg.Environment
 		endpoint    string
 		want        interface{}
 	}{
 		{
 			name:        "Desktop environment",
-			environment: config.EnvironmentDesktop,
+			environment: dashcfg.EnvironmentDesktop,
 			endpoint:    "",
 			want:        &DesktopHealthMonitor{},
 		},
 		{
 			name:        "Cluster environment",
-			environment: config.EnvironmentCluster,
+			environment: dashcfg.EnvironmentCluster,
 			endpoint:    "",
 			want:        &InClusterHealthMonitor{},
 		},
 		{
 			name:        "Cluster environment with endpoint",
-			environment: config.EnvironmentCluster,
+			environment: dashcfg.EnvironmentCluster,
 			endpoint:    "kubetail-cluster-api.kubetail-system.svc.cluster.local:50051",
 			want:        &InClusterHealthMonitor{},
 		},
@@ -109,10 +109,10 @@ func TestNewHealthMonitor(t *testing.T) {
 			cm := &k8shelpersmock.MockConnectionManager{}
 
 			// create config
-			cfg := config.DefaultConfig()
-			cfg.Dashboard.Environment = tt.environment
+			cfg := dashcfg.DefaultConfig()
+			cfg.Environment = tt.environment
 			if tt.endpoint != "" {
-				cfg.Dashboard.ClusterAPIEndpoint = tt.endpoint
+				cfg.ClusterAPIEndpoint = tt.endpoint
 			}
 
 			// create health monitor
@@ -134,8 +134,8 @@ func TestNewHealthMonitor_InvalidEnvironment(t *testing.T) {
 	cm := &k8shelpersmock.MockConnectionManager{}
 
 	// create config
-	cfg := config.DefaultConfig()
-	cfg.Dashboard.Environment = "invalid"
+	cfg := dashcfg.DefaultConfig()
+	cfg.Environment = "invalid"
 
 	// Assert panic
 	assert.Panics(t, func() {

@@ -29,7 +29,7 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/ginhelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/middleware"
@@ -41,7 +41,7 @@ import (
 
 type App struct {
 	*gin.Engine
-	config          *config.Config
+	config          *dashcfg.Config
 	cm              k8shelpers.ConnectionManager
 	graphqlServer   *graph.Server
 	clusterAPIProxy clusterapi.Proxy
@@ -64,7 +64,7 @@ func (a *App) Shutdown(ctx context.Context) error {
 }
 
 // Create new gin app
-func NewApp(cfg *config.Config) (*App, error) {
+func NewApp(cfg *dashcfg.Config) (*App, error) {
 	// Init app
 	app := &App{Engine: gin.New(), config: cfg}
 
@@ -73,14 +73,14 @@ func NewApp(cfg *config.Config) (*App, error) {
 		app.Use(gin.Recovery())
 
 		// Init connection manager
-		cm, err := k8shelpers.NewConnectionManager(cfg.Dashboard.Environment, k8shelpers.WithKubeconfigPath(cfg.KubeconfigPath))
+		cm, err := k8shelpers.NewConnectionManager(cfg.Environment, k8shelpers.WithKubeconfigPath(cfg.KubeconfigPath))
 		if err != nil {
 			return nil, err
 		}
 		app.cm = cm
 
 		// Init Cluster API proxy
-		clusterAPIProxy, err := newClusterAPIProxy(cfg, app.cm, path.Join(cfg.Dashboard.BasePath, "/cluster-api-proxy"))
+		clusterAPIProxy, err := newClusterAPIProxy(cfg, app.cm, path.Join(cfg.BasePath, "/cluster-api-proxy"))
 		if err != nil {
 			return nil, err
 		}
@@ -104,12 +104,12 @@ func NewApp(cfg *config.Config) (*App, error) {
 	app.Use(requestid.New())
 
 	// Add logging middleware
-	if cfg.Dashboard.Logging.AccessLog.Enabled {
-		app.Use(middleware.LoggingMiddleware(cfg.Dashboard.Logging.AccessLog.HideHealthChecks))
+	if cfg.Logging.AccessLog.Enabled {
+		app.Use(middleware.LoggingMiddleware(cfg.Logging.AccessLog.HideHealthChecks))
 	}
 
 	// Add gzip middleware
-	clusterAPIProxyPath := path.Join(cfg.Dashboard.BasePath, "/cluster-api-proxy/")
+	clusterAPIProxyPath := path.Join(cfg.BasePath, "/cluster-api-proxy/")
 	app.Use(gzip.Gzip(gzip.DefaultCompression,
 		gzip.WithCustomShouldCompressFn(func(c *gin.Context) bool {
 			ae := c.GetHeader("Accept-Encoding")
@@ -130,22 +130,22 @@ func NewApp(cfg *config.Config) (*App, error) {
 	))
 
 	// Root route
-	root := app.Group(cfg.Dashboard.BasePath)
+	root := app.Group(cfg.BasePath)
 
 	// Dynamic routes
 	dynamicRoutes := root.Group("/")
 	{
 		// Add session middleware
-		sessionStore := cookie.NewStore([]byte(cfg.Dashboard.Session.Secret))
+		sessionStore := cookie.NewStore([]byte(cfg.Session.Secret))
 		sessionStore.Options(sessions.Options{
-			Path:     cfg.Dashboard.Session.Cookie.Path,
-			Domain:   cfg.Dashboard.Session.Cookie.Domain,
-			MaxAge:   cfg.Dashboard.Session.Cookie.MaxAge,
-			Secure:   cfg.Dashboard.Session.Cookie.Secure,
-			HttpOnly: cfg.Dashboard.Session.Cookie.HttpOnly,
-			SameSite: cfg.Dashboard.Session.Cookie.SameSite,
+			Path:     cfg.Session.Cookie.Path,
+			Domain:   cfg.Session.Cookie.Domain,
+			MaxAge:   cfg.Session.Cookie.MaxAge,
+			Secure:   cfg.Session.Cookie.Secure,
+			HttpOnly: cfg.Session.Cookie.HttpOnly,
+			SameSite: cfg.Session.Cookie.SameSite,
 		})
-		dynamicRoutes.Use(sessions.Sessions(cfg.Dashboard.Session.Cookie.Name, sessionStore))
+		dynamicRoutes.Use(sessions.Sessions(cfg.Session.Cookie.Name, sessionStore))
 
 		// https://security.stackexchange.com/questions/147554/security-headers-for-a-web-api
 		// https://observatory.mozilla.org/faq/
@@ -157,7 +157,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 		}))
 
 		// Add authentication middleware
-		dynamicRoutes.Use(authenticationMiddleware(cfg.Dashboard.AuthMode))
+		dynamicRoutes.Use(authenticationMiddleware(cfg.AuthMode))
 
 		// Auth routes
 		auth := dynamicRoutes.Group("/api/auth")
@@ -172,7 +172,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 		protectedRoutes := dynamicRoutes.Group("")
 		{
 			// Add K8S auth middleware
-			protectedRoutes.Use(k8sAuthenticationMiddleware(cfg.Dashboard.AuthMode))
+			protectedRoutes.Use(k8sAuthenticationMiddleware(cfg.AuthMode))
 
 			// GraphQL endpoint
 			app.graphqlServer = graph.NewServer(cfg, app.cm)

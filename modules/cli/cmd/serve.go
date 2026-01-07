@@ -37,9 +37,11 @@ import (
 	k8sruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 
+	"github.com/kubetail-org/kubetail/modules/cli/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/app"
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/logging"
 
 	"github.com/kubetail-org/kubetail/modules/cli/internal/tunnel"
 )
@@ -116,7 +118,7 @@ var serveCmd = &cobra.Command{
 
 		// create server
 		server := http.Server{
-			Addr:         cfg.Dashboard.Addr,
+			Addr:         cfg.Addr,
 			Handler:      app,
 			IdleTimeout:  1 * time.Minute,
 			ReadTimeout:  5 * time.Second,
@@ -209,7 +211,7 @@ var serveCmd = &cobra.Command{
 	},
 }
 
-func loadServerConfig(cmd *cobra.Command) (*config.Config, *serveOptions, error) {
+func loadServerConfig(cmd *cobra.Command) (*dashcfg.Config, *serveOptions, error) {
 	// Get flags
 	configPath, _ := cmd.Flags().GetString("config")
 	test, _ := cmd.Flags().GetBool("test")
@@ -218,7 +220,7 @@ func loadServerConfig(cmd *cobra.Command) (*config.Config, *serveOptions, error)
 	remote := false
 	inCluster, _ := cmd.Flags().GetBool(InClusterFlag)
 
-	config.ConfigureLogger(config.LoggerOptions{
+	logging.ConfigureLogger(logging.LoggerOptions{
 		Enabled: true,
 		Level:   logLevel,
 		Format:  "cli",
@@ -238,16 +240,16 @@ func loadServerConfig(cmd *cobra.Command) (*config.Config, *serveOptions, error)
 		return nil, nil, err
 	}
 
-	cfg := config.DefaultConfig()
+	cfg := dashcfg.DefaultConfig()
 
 	cfg.KubeconfigPath = cliCfg.General.KubeconfigPath
-	cfg.Dashboard.Addr = fmt.Sprintf("%s:%d", cliCfg.Commands.Serve.Host, cliCfg.Commands.Serve.Port)
-	cfg.Dashboard.Environment = config.EnvironmentDesktop
-	cfg.Dashboard.Logging.Level = logLevel
+	cfg.Addr = fmt.Sprintf("%s:%d", cliCfg.Commands.Serve.Host, cliCfg.Commands.Serve.Port)
+	cfg.Environment = dashcfg.EnvironmentDesktop
+	cfg.Logging.Level = logLevel
 	if inCluster {
-		cfg.Dashboard.Environment = config.EnvironmentCluster
+		cfg.Environment = dashcfg.EnvironmentCluster
 	}
-	cfg.Dashboard.Logging.AccessLog.Enabled = false
+	cfg.Logging.AccessLog.Enabled = false
 
 	serveOptions := &serveOptions{
 		port:     cliCfg.Commands.Serve.Port,

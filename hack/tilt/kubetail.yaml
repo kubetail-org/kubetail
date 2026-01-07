@@ -8,36 +8,37 @@ metadata:
     app.kubernetes.io/component: dashboard
 data:
   config.yaml: |
-    dashboard:
-      addr: :8080
-      auth-mode: auto
-      base-path: /
-      cluster-api-endpoint: http://kubetail-cluster-api.kubetail-system.svc:8080
-      gin-mode: debug
-      ui:
-        cluster-api-enabled: true
-      session:
-        secret: REPLACEME
-        cookie:
-          name: kubetail_dashboard_session
-          path: /
-          max-age: 2592000
-          secure: false
-          http-only: true
-          same-site: lax
-      csrf:
+    allowed-namespaces: []
+    kubeconfig: ""
+    addr: :8080
+    auth-mode: auto
+    base-path: /
+    cluster-api-endpoint: http://kubetail-cluster-api.kubetail-system.svc:8080
+    gin-mode: debug
+    ui:
+      cluster-api-enabled: true
+    session:
+      secret: REPLACEME
+      cookie:
+        name: kubetail_dashboard_session
+        path: /
+        max-age: 2592000
+        secure: false
+        http-only: true
+        same-site: lax
+    csrf:
+      enabled: true
+    logging:
+      enabled: true
+      level: debug
+      format: pretty
+      access-log:
         enabled: true
-      logging:
-        enabled: true
-        level: debug
-        format: pretty
-        access-log:
-          enabled: true
-          hide-health-checks: true
-      tls: 
-        enabled: false
-        cert-file:
-        key-file:
+        hide-health-checks: true
+    tls:
+      enabled: false
+      cert-file:
+      key-file:
 ---
 kind: ConfigMap
 apiVersion: v1
@@ -49,31 +50,31 @@ metadata:
     app.kubernetes.io/component: cluster-api
 data:
   config.yaml: |
-    cluster-api:
-      addr: :8080
-      base-path: /
-      gin-mode: debug
-      cluster-agent:
-        dispatch-url: kubernetes://kubetail-cluster-agent:50051
-        tls:
-          enabled: true
-          cert-file: /etc/kubetail/tls.crt
-          key-file: /etc/kubetail/tls.key
-          ca-file: /etc/kubetail/ca.crt
-          server-name: kubetail-cluster-agent.kubetail-system.svc
-      csrf:
+    allowed-namespaces: []
+    addr: :8080
+    base-path: /
+    gin-mode: debug
+    cluster-agent:
+      dispatch-url: kubernetes://kubetail-cluster-agent:50051
+      tls:
         enabled: true
-      logging:
+        cert-file: /etc/kubetail/tls.crt
+        key-file: /etc/kubetail/tls.key
+        ca-file: /etc/kubetail/ca.crt
+        server-name: kubetail-cluster-agent.kubetail-system.svc
+    csrf:
+      enabled: true
+    logging:
+      enabled: true
+      level: debug
+      format: pretty
+      access-log:
         enabled: true
-        level: debug
-        format: pretty
-        access-log:
-          enabled: true
-          hide-health-checks: true
-      tls: 
-        enabled: false
-        cert-file:
-        key-file:
+        hide-health-checks: true
+    tls:
+      enabled: false
+      cert-file:
+      key-file:
 ---
 kind: ConfigMap
 apiVersion: v1
@@ -85,18 +86,18 @@ metadata:
     app.kubernetes.io/component: cluster-agent
 data:
   config.yaml: |
-    cluster-agent:
-      addr: :50051
-      logging:
-        enabled: true
-        level: info
-        format: pretty
-      tls:
-        enabled: true
-        cert-file: /etc/kubetail/tls.crt
-        key-file: /etc/kubetail/tls.key
-        ca-file: /etc/kubetail/ca.crt
-        client-auth: require-and-verify
+    addr: :50051
+    container-logs-dir: /var/log/containers
+    logging:
+      enabled: true
+      level: info
+      format: pretty
+    tls:
+      enabled: true
+      cert-file: /etc/kubetail/tls.crt
+      key-file: /etc/kubetail/tls.key
+      ca-file: /etc/kubetail/ca.crt
+      client-auth: require-and-verify
 ---
 kind: ServiceAccount
 apiVersion: v1

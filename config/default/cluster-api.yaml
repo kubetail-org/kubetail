@@ -1,0 +1,31 @@
+allowed-namespaces: []
+
+addr: :8080
+base-path: /
+gin-mode: release
+
+cluster-agent:
+  dispatch-url: kubernetes://kubetail-cluster-agent:50051
+  tls:
+    enabled: false
+    cert-file: ""
+    key-file: ""
+    ca-file: ""
+    server-name: ""
+
+csrf:
+  enabled: true
+
+logging:
+  enabled: true
+  level: info
+  format: json
+  access-log:
+    enabled: true
+    hide-health-checks: false
+
+tls:
+  enabled: false
+  cert-file: ""
+  key-file: ""
+

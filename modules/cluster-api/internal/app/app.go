@@ -27,7 +27,8 @@ import (
 
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	capicfg "github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/shared/configtypes"
 	"github.com/kubetail-org/kubetail/modules/shared/ginhelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/middleware"
@@ -62,7 +63,7 @@ func (a *App) Shutdown(ctx context.Context) error {
 }
 
 // Create new gin app
-func NewApp(cfg *config.Config) (*App, error) {
+func NewApp(cfg *capicfg.Config) (*App, error) {
 	// Init app
 	app := &App{Engine: gin.New()}
 
@@ -71,7 +72,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 		app.Use(gin.Recovery())
 
 		// Init connection manager
-		cm, err := k8shelpers.NewConnectionManager(config.EnvironmentCluster)
+		cm, err := k8shelpers.NewConnectionManager(configtypes.EnvironmentCluster)
 		if err != nil {
 			return nil, err
 		}
@@ -85,8 +86,8 @@ func NewApp(cfg *config.Config) (*App, error) {
 	app.Use(requestid.New())
 
 	// Add logging middleware
-	if cfg.ClusterAPI.Logging.AccessLog.Enabled {
-		app.Use(middleware.LoggingMiddleware(cfg.ClusterAPI.Logging.AccessLog.HideHealthChecks))
+	if cfg.Logging.AccessLog.Enabled {
+		app.Use(middleware.LoggingMiddleware(cfg.Logging.AccessLog.HideHealthChecks))
 	}
 
 	// Gzip middleware
@@ -101,7 +102,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 	))
 
 	// Routes
-	root := app.Group(cfg.ClusterAPI.BasePath)
+	root := app.Group(cfg.BasePath)
 
 	// Dynamic routes
 	dynamicRoutes := root.Group("/")

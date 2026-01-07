@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"k8s.io/utils/ptr"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
 	k8shelpersmock "github.com/kubetail-org/kubetail/modules/shared/k8shelpers/mock"
 )
@@ -142,7 +142,7 @@ func TestDesktopOnlyRequests(t *testing.T) {
 	cm.On("DerefKubeContext", mock.Anything).Return("")
 
 	resolver := &Resolver{
-		environment: config.EnvironmentCluster,
+		environment: dashcfg.EnvironmentCluster,
 		cm:          cm,
 	}
 

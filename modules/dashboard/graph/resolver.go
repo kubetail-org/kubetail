@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/utils/ptr"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
@@ -40,10 +40,10 @@ import (
 //go:generate go run github.com/99designs/gqlgen generate
 
 type Resolver struct {
-	config            *config.Config
+	config            *dashcfg.Config
 	cm                k8shelpers.ConnectionManager
 	hm                clusterapi.HealthMonitor
-	environment       config.Environment
+	environment       dashcfg.Environment
 	allowedNamespaces []string
 }
 

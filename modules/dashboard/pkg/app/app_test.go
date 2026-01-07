@@ -24,7 +24,7 @@ import (
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -83,32 +83,32 @@ func TestGzip(t *testing.T) {
 
 func TestSessionCookieOptions(t *testing.T) {
 	cfg1 := newTestConfig()
-	cfg1.Dashboard.Session.Cookie.Path = "/xxx"
+	cfg1.Session.Cookie.Path = "/xxx"
 
 	cfg2 := newTestConfig()
-	cfg2.Dashboard.Session.Cookie.Domain = "x.example.com"
+	cfg2.Session.Cookie.Domain = "x.example.com"
 
 	cfg3 := newTestConfig()
-	cfg3.Dashboard.Session.Cookie.MaxAge = 1
+	cfg3.Session.Cookie.MaxAge = 1
 
 	cfg4 := newTestConfig()
-	cfg4.Dashboard.Session.Cookie.Secure = false
+	cfg4.Session.Cookie.Secure = false
 
 	cfg5 := newTestConfig()
-	cfg5.Dashboard.Session.Cookie.Secure = true
+	cfg5.Session.Cookie.Secure = true
 
 	cfg6 := newTestConfig()
-	cfg6.Dashboard.Session.Cookie.HttpOnly = false
+	cfg6.Session.Cookie.HttpOnly = false
 
 	cfg7 := newTestConfig()
-	cfg7.Dashboard.Session.Cookie.HttpOnly = true
+	cfg7.Session.Cookie.HttpOnly = true
 
 	cfg8 := newTestConfig()
-	cfg8.Dashboard.Session.Cookie.SameSite = http.SameSiteNoneMode
+	cfg8.Session.Cookie.SameSite = http.SameSiteNoneMode
 
 	tests := []struct {
 		name   string
-		setCfg *config.Config
+		setCfg *dashcfg.Config
 	}{
 		{"Path", cfg1},
 		{"Domain", cfg2},
@@ -142,12 +142,12 @@ func TestSessionCookieOptions(t *testing.T) {
 			// check session cookie
 			cookie := getCookie(w.Result().Cookies(), "session")
 			assert.NotNil(t, cookie)
-			assert.Equal(t, tt.setCfg.Dashboard.Session.Cookie.Path, cookie.Path)
-			assert.Equal(t, tt.setCfg.Dashboard.Session.Cookie.Domain, cookie.Domain)
-			assert.Equal(t, tt.setCfg.Dashboard.Session.Cookie.MaxAge, cookie.MaxAge)
-			assert.Equal(t, tt.setCfg.Dashboard.Session.Cookie.Secure, cookie.Secure)
-			assert.Equal(t, tt.setCfg.Dashboard.Session.Cookie.HttpOnly, cookie.HttpOnly)
-			assert.Equal(t, tt.setCfg.Dashboard.Session.Cookie.SameSite, cookie.SameSite)
+			assert.Equal(t, tt.setCfg.Session.Cookie.Path, cookie.Path)
+			assert.Equal(t, tt.setCfg.Session.Cookie.Domain, cookie.Domain)
+			assert.Equal(t, tt.setCfg.Session.Cookie.MaxAge, cookie.MaxAge)
+			assert.Equal(t, tt.setCfg.Session.Cookie.Secure, cookie.Secure)
+			assert.Equal(t, tt.setCfg.Session.Cookie.HttpOnly, cookie.HttpOnly)
+			assert.Equal(t, tt.setCfg.Session.Cookie.SameSite, cookie.SameSite)
 		})
 	}
 }
@@ -202,7 +202,7 @@ func TestClusterAPIProxyRouteWithBasePath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := newTestConfig()
-			cfg.Dashboard.BasePath = tt.basePath
+			cfg.BasePath = tt.basePath
 
 			app := newTestApp(cfg)
 

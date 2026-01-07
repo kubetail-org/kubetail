@@ -5,10 +5,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kubetail-org/kubetail/modules/cli/assets"
-	"github.com/kubetail-org/kubetail/modules/shared/config"
 	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+
+	"github.com/kubetail-org/kubetail/modules/cli/assets"
+	"github.com/kubetail-org/kubetail/modules/cli/pkg/config"
 )
 
 const configInitHelp = `

@@ -1,0 +1,15 @@
+addr: :50051
+container-logs-dir: /var/log/containers
+
+logging:
+  enabled: true
+  level: info
+  format: json
+
+tls:
+  enabled: false
+  cert-file: ""
+  key-file: ""
+  ca-file: ""
+  client-auth: none
+

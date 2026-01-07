@@ -19,11 +19,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
 	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/kubetail-org/kubetail/modules/shared/logging"
 )
 
 const (
@@ -100,7 +100,7 @@ func applyFlagNormalization(cmd *cobra.Command) {
 
 func init() {
 	// Configure logger
-	config.ConfigureLogger(config.LoggerOptions{
+	logging.ConfigureLogger(logging.LoggerOptions{
 		Enabled: true,
 		Level:   "info",
 		Format:  "cli",

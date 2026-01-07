@@ -1,0 +1,40 @@
+allowed-namespaces: []
+kubeconfig: ""
+
+addr: :80
+auth-mode: auto
+base-path: /
+cluster-api-endpoint: http://kubetail-cluster-api
+environment: desktop
+gin-mode: release
+
+csrf:
+  enabled: true
+
+logging:
+  enabled: true
+  level: info
+  format: json
+  access-log:
+    enabled: true
+    hide-health-checks: false
+
+session:
+  secret: ""
+  cookie:
+    name: session
+    path: /
+    domain: ""
+    max-age: 1092000
+    secure: false
+    http-only: true
+    same-site: lax
+
+tls:
+  enabled: false
+  cert-file: ""
+  key-file: ""
+
+ui:
+  cluster-api-enabled: true
+

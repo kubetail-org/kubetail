@@ -134,7 +134,7 @@ func (suite *websiteTestSuite) TestTemplate() {
 		})
 
 		cfg := newTestConfig()
-		cfg.Dashboard.BasePath = "/my-base-path"
+		cfg.BasePath = "/my-base-path"
 		app := newTestApp(cfg)
 
 		h := &websiteHandlers{app, websiteFS}
@@ -157,7 +157,7 @@ func (suite *websiteTestSuite) TestTemplate() {
 		})
 
 		cfg := newTestConfig()
-		cfg.Dashboard.BasePath = "/my-base-path"
+		cfg.BasePath = "/my-base-path"
 		app := newTestApp(cfg)
 
 		h := &websiteHandlers{app, websiteFS}
