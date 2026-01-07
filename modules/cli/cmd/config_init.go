@@ -6,16 +6,13 @@ import (
 
 	"github.com/kubetail-org/kubetail/modules/cli/assets"
 	"github.com/kubetail-org/kubetail/modules/shared/config"
-	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
 const configInitHelp = `
-	This command creates a default configuration file
-	`
-
-//go:generate cp ../../../config/default/cli.yaml ../assets/config.yaml
+This command creates a default configuration file.
+`
 
 var configInitCmd = &cobra.Command{
 	Use:   "init",
@@ -23,19 +20,20 @@ var configInitCmd = &cobra.Command{
 	Long:  configInitHelp,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		// Configure logger
-		zlog.Logger = zlog.Output(zerolog.ConsoleWriter{
-			Out:        os.Stderr,
-			NoColor:    true,
-			PartsOrder: []string{zerolog.MessageFieldName},
-			FormatMessage: func(i interface{}) string {
-				return i.(string)
-			},
+		config.ConfigureLogger(config.LoggerOptions{
+			Enabled: true,
+			Level:   "info",
+			Format:  "cli",
 		})
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		targetPath, err := config.DefaultConfigPath()
 		if err != nil {
 			zlog.Fatal().Err(err).Msg("Failed to determine config path")
+		}
+
+		if _, err := os.Stat(targetPath); err == nil {
+			zlog.Fatal().Msgf("Configuration file already exists: %s", targetPath)
 		}
 
 		configDir := filepath.Dir(targetPath)
@@ -53,7 +51,7 @@ var configInitCmd = &cobra.Command{
 			zlog.Fatal().Err(err).Msg("Failed to write configuration file")
 		}
 
-		zlog.Info().Msgf("Configuration initialized successfully at: %s", targetPath)
+		zlog.Info().Msgf("Configuration initialized: %s", targetPath)
 	},
 }
 
