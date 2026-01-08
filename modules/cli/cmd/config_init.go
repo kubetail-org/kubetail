@@ -27,9 +27,13 @@ var configInitCmd = &cobra.Command{
 		})
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		targetPath, err := config.DefaultConfigPath()
-		if err != nil {
-			zlog.Fatal().Err(err).Msg("Failed to determine config path")
+		targetPath, _ := cmd.Flags().GetString("path")
+		if targetPath == "" {
+			tmp, err := config.DefaultConfigPath()
+			if err != nil {
+				zlog.Fatal().Err(err).Msg("Unable to determine config path")
+			}
+			targetPath = tmp
 		}
 
 		if _, err := os.Stat(targetPath); err == nil {
@@ -46,8 +50,7 @@ var configInitCmd = &cobra.Command{
 			zlog.Fatal().Err(err).Msg("Failed to read configuration file")
 		}
 
-		err = os.WriteFile(targetPath, content, 0644)
-		if err != nil {
+		if err := os.WriteFile(targetPath, content, 0644); err != nil {
 			zlog.Fatal().Err(err).Msg("Failed to write configuration file")
 		}
 
@@ -57,4 +60,8 @@ var configInitCmd = &cobra.Command{
 
 func init() {
 	configCmd.AddCommand(configInitCmd)
+
+	flagset := configInitCmd.Flags()
+	flagset.SortFlags = false
+	flagset.String("path", "", "Target path for configuration file (default is $HOME/.kubetail/config.yaml)")
 }
