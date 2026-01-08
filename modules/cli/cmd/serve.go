@@ -40,6 +40,7 @@ import (
 	"github.com/kubetail-org/kubetail/modules/cli/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/app"
 	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logging"
 
@@ -244,10 +245,10 @@ func loadServerConfig(cmd *cobra.Command) (*dashcfg.Config, *serveOptions, error
 
 	cfg.KubeconfigPath = cliCfg.General.KubeconfigPath
 	cfg.Addr = fmt.Sprintf("%s:%d", cliCfg.Commands.Serve.Host, cliCfg.Commands.Serve.Port)
-	cfg.Environment = dashcfg.EnvironmentDesktop
+	cfg.Environment = sharedcfg.EnvironmentDesktop
 	cfg.Logging.Level = logLevel
 	if inCluster {
-		cfg.Environment = dashcfg.EnvironmentCluster
+		cfg.Environment = sharedcfg.EnvironmentCluster
 	}
 	cfg.Logging.AccessLog.Enabled = false
 

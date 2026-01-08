@@ -28,7 +28,7 @@ import (
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 
 	capicfg "github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
-	"github.com/kubetail-org/kubetail/modules/shared/configtypes"
+	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/ginhelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/middleware"
@@ -72,7 +72,7 @@ func NewApp(cfg *capicfg.Config) (*App, error) {
 		app.Use(gin.Recovery())
 
 		// Init connection manager
-		cm, err := k8shelpers.NewConnectionManager(configtypes.EnvironmentCluster)
+		cm, err := k8shelpers.NewConnectionManager(sharedcfg.EnvironmentCluster)
 		if err != nil {
 			return nil, err
 		}

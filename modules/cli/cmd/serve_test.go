@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
-	"github.com/kubetail-org/kubetail/modules/shared/configtypes"
+	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 )
@@ -20,7 +19,7 @@ func TestLoadServerConfig_Defaults(t *testing.T) {
 	// validate config
 	assert.Equal(t, "localhost:7500", cfg.Addr)
 	assert.Equal(t, "info", cfg.Logging.Level)
-	assert.Equal(t, configtypes.EnvironmentDesktop, cfg.Environment)
+	assert.Equal(t, sharedcfg.EnvironmentDesktop, cfg.Environment)
 	assert.Equal(t, "", cfg.KubeconfigPath)
 	assert.Equal(t, false, cfg.Logging.AccessLog.Enabled)
 
@@ -71,9 +70,9 @@ func TestLoadServerConfig(t *testing.T) {
 		assert.Equal(t, cfg.Logging.AccessLog.Enabled, false)
 
 		if val.inCluster {
-			assert.Equal(t, cfg.Environment, dashcfg.EnvironmentCluster)
+			assert.Equal(t, cfg.Environment, sharedcfg.EnvironmentCluster)
 		} else {
-			assert.Equal(t, cfg.Environment, dashcfg.EnvironmentDesktop)
+			assert.Equal(t, cfg.Environment, sharedcfg.EnvironmentDesktop)
 		}
 
 		// validate serveOptions

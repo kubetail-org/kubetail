@@ -21,6 +21,7 @@ import (
 	"time"
 
 	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	k8shelpersmock "github.com/kubetail-org/kubetail/modules/shared/k8shelpers/mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -80,25 +81,25 @@ func createMockStatusChannelWithContext(ctx context.Context, initialStatus Healt
 func TestNewHealthMonitor(t *testing.T) {
 	tests := []struct {
 		name        string
-		environment dashcfg.Environment
+		environment sharedcfg.Environment
 		endpoint    string
 		want        interface{}
 	}{
 		{
 			name:        "Desktop environment",
-			environment: dashcfg.EnvironmentDesktop,
+			environment: sharedcfg.EnvironmentDesktop,
 			endpoint:    "",
 			want:        &DesktopHealthMonitor{},
 		},
 		{
 			name:        "Cluster environment",
-			environment: dashcfg.EnvironmentCluster,
+			environment: sharedcfg.EnvironmentCluster,
 			endpoint:    "",
 			want:        &InClusterHealthMonitor{},
 		},
 		{
 			name:        "Cluster environment with endpoint",
-			environment: dashcfg.EnvironmentCluster,
+			environment: sharedcfg.EnvironmentCluster,
 			endpoint:    "kubetail-cluster-api.kubetail-system.svc.cluster.local:50051",
 			want:        &InClusterHealthMonitor{},
 		},

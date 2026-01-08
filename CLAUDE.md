@@ -64,7 +64,7 @@ pnpm graphql-codegen
 ```bash
 # Start dashboard server (requires config)
 cd modules/dashboard
-go run cmd/main.go -c ../../config/default/dashboard.yaml
+go run cmd/main.go -c hack/config.yaml
 
 # Run Go tests across all modules
 cd modules

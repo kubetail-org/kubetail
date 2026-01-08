@@ -27,23 +27,15 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
 
-	"github.com/kubetail-org/kubetail/modules/shared/configtypes"
+	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 )
 
-// Auth-mode
-type AuthMode = configtypes.AuthMode
+// AuthMode represents the authentication mode for the dashboard.
+type AuthMode string
 
 const (
-	AuthModeAuto  = configtypes.AuthModeAuto
-	AuthModeToken = configtypes.AuthModeToken
-)
-
-// Environment
-type Environment = configtypes.Environment
-
-const (
-	EnvironmentCluster = configtypes.EnvironmentCluster
-	EnvironmentDesktop = configtypes.EnvironmentDesktop
+	AuthModeAuto  AuthMode = "auto"
+	AuthModeToken AuthMode = "token"
 )
 
 // Config is the Dashboard-specific application configuration.
@@ -61,7 +53,7 @@ type Config struct {
 	BasePath           string   `mapstructure:"base-path"`
 	ClusterAPIEndpoint string   `mapstructure:"cluster-api-endpoint"`
 	GinMode            string   `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
-	Environment        Environment
+	Environment        sharedcfg.Environment
 
 	// csrf options
 	CSRF struct {
@@ -124,7 +116,7 @@ func DefaultConfig() *Config {
 	cfg.AuthMode = AuthModeAuto
 	cfg.BasePath = "/"
 	cfg.ClusterAPIEndpoint = ""
-	cfg.Environment = EnvironmentCluster
+	cfg.Environment = sharedcfg.EnvironmentCluster
 	cfg.GinMode = "release"
 	cfg.CSRF.Enabled = true
 	cfg.Logging.Enabled = true
@@ -153,7 +145,7 @@ func authModeDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (inter
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
-	if t != reflect.TypeOf(configtypes.AuthMode("")) {
+	if t != reflect.TypeOf(AuthMode("")) {
 		return data, nil
 	}
 
@@ -173,16 +165,16 @@ func environmentDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (in
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
-	if t != reflect.TypeOf(configtypes.Environment("")) {
+	if t != reflect.TypeOf(sharedcfg.Environment("")) {
 		return data, nil
 	}
 
 	envStr := strings.ToLower(data.(string))
 	switch envStr {
 	case "cluster":
-		return EnvironmentCluster, nil
+		return sharedcfg.EnvironmentCluster, nil
 	case "desktop":
-		return EnvironmentDesktop, nil
+		return sharedcfg.EnvironmentDesktop, nil
 	default:
 		return nil, fmt.Errorf("invalid Environment value: %s", envStr)
 	}

@@ -12,16 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package configtypes contains shared config-related types used across Go components.
-package configtypes
-
-// Auth-mode
-type AuthMode string
-
-const (
-	AuthModeAuto  AuthMode = "auto"
-	AuthModeToken AuthMode = "token"
-)
+// Package config contains shared config-related types used across Go components.
+package config
 
 // Environment
 type Environment string
