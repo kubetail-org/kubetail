@@ -28,7 +28,6 @@ var configInitCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		targetPath, _ := cmd.Flags().GetString("path")
-
 		if targetPath == "" {
 			tmp, err := config.DefaultConfigPath()
 			if err != nil {
@@ -64,9 +63,5 @@ func init() {
 
 	flagset := configInitCmd.Flags()
 	flagset.SortFlags = false
-	flagset.String(
-		"path",
-		"",
-		"Target path for configuration file (default is $HOME/.kubetail/config.yaml)",
-	)
+	flagset.String("path", "", "Target path for configuration file (default is $HOME/.kubetail/config.yaml)")
 }
