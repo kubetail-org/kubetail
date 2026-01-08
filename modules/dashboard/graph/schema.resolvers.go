@@ -931,26 +931,34 @@ func (r *subscriptionResolver) KubeConfigWatch(ctx context.Context) (<-chan *mod
 	// Init output channel
 	outCh := make(chan *model.KubeConfigWatchEvent)
 
-	// Define callback handler
-	handler := func(newConfig *api.Config) {
-		if ctx.Err() == nil {
+	go func() {
+		// Define callback handler
+		handler := func(newConfig *api.Config) {
 			// Send MODIFIED event
-			outCh <- &model.KubeConfigWatchEvent{
+			ev := &model.KubeConfigWatchEvent{
 				Type:   watch.Modified,
 				Object: &model.KubeConfig{Config: newConfig},
 			}
+			select {
+			case <-ctx.Done():
+			case outCh <- ev:
+			}
 		}
-	}
 
-	go func() {
 		// Close channel and unregister handlers on client close
-		defer cm.KubeConfigWatcher.Unsubscribe(handler)
-		defer close(outCh)
+		defer func() {
+			cm.KubeConfigWatcher.Unsubscribe(handler)
+			close(outCh)
+		}()
 
 		// Send initial config
-		outCh <- &model.KubeConfigWatchEvent{
+		ev := &model.KubeConfigWatchEvent{
 			Type:   watch.Added,
 			Object: &model.KubeConfig{Config: cm.GetKubeConfig()},
+		}
+		select {
+		case <-ctx.Done():
+		case outCh <- ev:
 		}
 
 		// Register handlers
@@ -1089,19 +1097,19 @@ func (r *subscriptionResolver) LogSourcesWatch(ctx context.Context, kubeContext 
 		sw.Subscribe(logs.SourceWatcherEventAdded, handleSourceAdd)
 		sw.Subscribe(logs.SourceWatcherEventDeleted, handleSourceDelete)
 
+		// Close channel and unregister handlers on client close
+		defer func() {
+			sw.Unsubscribe(logs.SourceWatcherEventAdded, handleSourceAdd)
+			sw.Unsubscribe(logs.SourceWatcherEventDeleted, handleSourceDelete)
+			sw.Close()
+			close(outCh)
+		}()
+
 		// Start source watcher
 		if err := sw.Start(ctx); err != nil {
 			transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
-			close(outCh)
-			sw.Close()
 			return
 		}
-
-		// Close channel and unregister handlers on client close
-		defer sw.Close()
-		defer sw.Unsubscribe(logs.SourceWatcherEventAdded, handleSourceAdd)
-		defer sw.Unsubscribe(logs.SourceWatcherEventDeleted, handleSourceDelete)
-		defer close(outCh)
 
 		// Wait for client close
 		<-ctx.Done()

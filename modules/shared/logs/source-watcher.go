@@ -165,6 +165,7 @@ func (w *sourceWatcher) Unsubscribe(event SourceWatcherEvent, fn any) {
 func (w *sourceWatcher) Close() {
 	w.closeOnce.Do(func() {
 		close(w.stopCh)
+		w.eventbus.WaitAsync()
 	})
 }
 

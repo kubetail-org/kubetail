@@ -92,7 +92,7 @@ func (w *KubeConfigWatcher) Get() *api.Config {
 
 // Subscribe
 func (w *KubeConfigWatcher) Subscribe(fn any) {
-	w.eventbus.SubscribeAsync("MODIFIED", fn, true)
+	w.eventbus.Subscribe("MODIFIED", fn)
 }
 
 // Unsubscribe
