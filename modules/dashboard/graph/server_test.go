@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/testutils"
 )
 
@@ -74,7 +75,7 @@ func TestServer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := dashcfg.DefaultConfig()
-			cfg.Environment = dashcfg.EnvironmentCluster
+			cfg.Environment = sharedcfg.EnvironmentCluster
 			cfg.CSRF.Enabled = tt.setCsrfEnabled
 
 			graphqlServer := NewServer(cfg, nil)

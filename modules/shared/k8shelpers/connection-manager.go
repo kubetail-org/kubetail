@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/utils/ptr"
 
-	"github.com/kubetail-org/kubetail/modules/shared/configtypes"
+	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/util"
 )
 
@@ -606,13 +606,13 @@ func (cm *InClusterConnectionManager) getOrCreateSharedInformerFactory_UNSAFE(na
 }
 
 // Initialize new ConnectionManager depending on environment
-func NewConnectionManager(env configtypes.Environment, options ...ConnectionManagerOption) (ConnectionManager, error) {
+func NewConnectionManager(env config.Environment, options ...ConnectionManagerOption) (ConnectionManager, error) {
 	var cm ConnectionManager
 	var err error
 	switch env {
-	case configtypes.EnvironmentDesktop:
+	case config.EnvironmentDesktop:
 		cm, err = NewDesktopConnectionManager(options...)
-	case configtypes.EnvironmentCluster:
+	case config.EnvironmentCluster:
 		cm, err = NewInClusterConnectionManager(options...)
 	default:
 		panic("not supported")

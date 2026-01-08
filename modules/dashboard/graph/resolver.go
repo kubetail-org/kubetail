@@ -27,6 +27,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
@@ -43,7 +44,7 @@ type Resolver struct {
 	config            *dashcfg.Config
 	cm                k8shelpers.ConnectionManager
 	hm                clusterapi.HealthMonitor
-	environment       dashcfg.Environment
+	environment       sharedcfg.Environment
 	allowedNamespaces []string
 }
 

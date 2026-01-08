@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
@@ -35,9 +36,9 @@ const k8sTokenGinKey = "k8sToken"
 func newClusterAPIProxy(cfg *dashcfg.Config, cm k8shelpers.ConnectionManager, pathPrefix string) (clusterapi.Proxy, error) {
 	// Initialize new ClusterAPI proxy depending on environment
 	switch cfg.Environment {
-	case dashcfg.EnvironmentDesktop:
+	case sharedcfg.EnvironmentDesktop:
 		return clusterapi.NewDesktopProxy(cm, pathPrefix)
-	case dashcfg.EnvironmentCluster:
+	case sharedcfg.EnvironmentCluster:
 		return clusterapi.NewInClusterProxy(cfg.ClusterAPIEndpoint, pathPrefix)
 	default:
 		return nil, fmt.Errorf("env not supported: %s", cfg.Environment)

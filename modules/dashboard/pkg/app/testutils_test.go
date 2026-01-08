@@ -23,6 +23,7 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 
 	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 )
 
 func init() {
@@ -33,7 +34,7 @@ func init() {
 func newTestConfig() *dashcfg.Config {
 	cfg := dashcfg.DefaultConfig()
 	cfg.BasePath = "/"
-	cfg.Environment = dashcfg.EnvironmentCluster
+	cfg.Environment = sharedcfg.EnvironmentCluster
 	cfg.Logging.AccessLog.Enabled = false
 	cfg.Session.Secret = "TESTSESSIONSECRET"
 	cfg.Session.Cookie.Name = "session"
