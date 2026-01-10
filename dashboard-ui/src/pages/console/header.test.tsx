@@ -14,18 +14,24 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createStore, Provider } from 'jotai';
-import { createRef, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react';
+import type { ReactNode } from 'react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { createMockLogViewerHandle } from '@/components/widgets/log-viewer/mock';
 
 import { Header } from './header';
 import { PageContext } from './shared';
-import type { ViewerHandle } from './viewer';
 
-const mockUseViewerMetadata = vi.fn();
+vi.mock('@/components/widgets/log-viewer', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/widgets/log-viewer')>();
+  return {
+    ...actual,
+    useLogViewerState: () => ({ isLoading: false }),
+  };
+});
 
 vi.mock('@/components/widgets/DateRangeDropdown', () => ({
-  DateRangeDropdown: ({ onChange, children }: { onChange: (args: any) => void; children: ReactNode }) => (
+  DateRangeDropdown: ({ onChange, children }: { onChange: (args: unknown) => void; children: ReactNode }) => (
     <div
       role="button"
       tabIndex={0}
@@ -43,37 +49,30 @@ vi.mock('@/components/widgets/DateRangeDropdown', () => ({
   ),
 }));
 
-vi.mock('./viewer', () => ({
-  useViewerMetadata: () => mockUseViewerMetadata(),
-}));
-
-const defaultViewerMetadata = { isReady: true, isLoading: false, isFollow: true, isSearchEnabled: true };
-
-const buildViewerRef = () => {
-  const ref = createRef<ViewerHandle>();
-  ref.current = {
-    seekHead: vi.fn(() => Promise.resolve()),
-    seekTail: vi.fn(() => Promise.resolve()),
-    seekTime: vi.fn(() => Promise.resolve()),
-    play: vi.fn(),
-    pause: vi.fn(),
-  };
-  return ref;
-};
-
-type RenderOptions = {
-  search?: string;
+// Helper to render Header with router (needed for URL assertions)
+const renderHeader = ({
+  initialEntries = ['/'],
+  shouldUseClusterAPI,
+  isSidebarOpen = true,
+  setIsSidebarOpen = vi.fn(),
+}: {
+  initialEntries?: string[];
+  shouldUseClusterAPI?: boolean;
   isSidebarOpen?: boolean;
-  setIsSidebarOpen?: Dispatch<SetStateAction<boolean>>;
-  viewerRef?: RefObject<ViewerHandle>;
-};
-
-const renderHeader = ({ search = '', isSidebarOpen = true, setIsSidebarOpen, viewerRef }: RenderOptions = {}) => {
+  setIsSidebarOpen?: React.Dispatch<React.SetStateAction<boolean>>;
+} = {}) => {
   const store = createStore();
-  const ref = viewerRef ?? buildViewerRef();
-  const setSidebarOpen: Dispatch<SetStateAction<boolean>> =
-    setIsSidebarOpen ?? (vi.fn() as Dispatch<SetStateAction<boolean>>);
-  const contextValue = { isSidebarOpen, setIsSidebarOpen: setSidebarOpen };
+  const logViewerRef = { current: createMockLogViewerHandle() };
+
+  const contextValue = {
+    kubeContext: null,
+    shouldUseClusterAPI,
+    logServerClient: undefined,
+    grep: null,
+    logViewerRef,
+    isSidebarOpen,
+    setIsSidebarOpen,
+  };
 
   const router = createMemoryRouter(
     [
@@ -82,28 +81,19 @@ const renderHeader = ({ search = '', isSidebarOpen = true, setIsSidebarOpen, vie
         element: (
           <Provider store={store}>
             <PageContext.Provider value={contextValue}>
-              <Header viewerRef={ref} />
+              <Header />
             </PageContext.Provider>
           </Provider>
         ),
       },
     ],
-    {
-      initialEntries: [`/${search}`],
-    },
+    { initialEntries },
   );
 
-  return {
-    router,
-    viewerRef: ref,
-    setIsSidebarOpen: contextValue.setIsSidebarOpen,
-    ...render(<RouterProvider router={router} />),
-  };
-};
+  render(<RouterProvider router={router} />);
 
-beforeEach(() => {
-  mockUseViewerMetadata.mockReturnValue(defaultViewerMetadata);
-});
+  return { router, logViewerRef, setIsSidebarOpen };
+};
 
 describe('Header', () => {
   it('renders sidebar toggle when sidebar is closed', () => {
@@ -117,86 +107,85 @@ describe('Header', () => {
     expect(setIsSidebarOpen).toHaveBeenCalledWith(true);
   });
 
-  it('renders search input when search is enabled and pre-fills from query', () => {
-    renderHeader({ search: '?grep=warning' });
-
-    const input = screen.getByPlaceholderText('Match string or /regex/...');
-    if (!(input instanceof HTMLInputElement)) {
-      throw new Error('Input element not found');
-    }
-    expect(input.value).toBe('warning');
-  });
-
   it('does not render search input when search is disabled', () => {
-    mockUseViewerMetadata.mockReturnValue({ ...defaultViewerMetadata, isSearchEnabled: false });
     renderHeader();
 
     expect(screen.queryByPlaceholderText('Match string or /regex/...')).toBeNull();
   });
 
+  it('renders search input when search is enabled and pre-fills from query', () => {
+    renderHeader({ initialEntries: ['/?grep=warning'], shouldUseClusterAPI: true });
+
+    const input = screen.getByPlaceholderText('Match string or /regex/...');
+    expect(input).toBeInstanceOf(HTMLInputElement);
+    expect((input as HTMLInputElement).value).toBe('warning');
+  });
+
   it('updates search params and seeks time when date range is selected', async () => {
-    const { router, viewerRef } = renderHeader();
+    const { router, logViewerRef } = renderHeader();
 
     fireEvent.click(screen.getByRole('button', { name: 'Jump to time' }));
 
     await waitFor(() => {
-      expect(viewerRef.current?.seekTime).toHaveBeenCalledWith('2024-01-01T00:00:00.000Z');
+      expect(logViewerRef.current?.jumpToCursor).toHaveBeenCalledWith('2024-01-01T00:00:00.000Z');
     });
 
     const params = new URLSearchParams(router.state.location.search);
-    expect(params.get('mode')).toBe('time');
-    expect(params.get('since')).toBe('2024-01-01T00:00:00.000Z');
+    expect(params.get('mode')).toBe('cursor');
+    expect(params.get('cursor')).toBe('2024-01-01T00:00:00.000Z');
   });
 
-  it('jumps to the beginning and clears since filter', async () => {
-    const { router, viewerRef } = renderHeader({ search: '?mode=tail&since=old' });
+  it('jumps to the beginning and clears cursor', async () => {
+    const { router, logViewerRef } = renderHeader({ initialEntries: ['/?mode=tail&cursor=old'] });
 
     fireEvent.click(screen.getByRole('button', { name: 'Jump to beginning' }));
 
-    await waitFor(() => expect(viewerRef.current?.seekHead).toHaveBeenCalled());
+    await waitFor(() => expect(logViewerRef.current?.jumpToBeginning).toHaveBeenCalled());
 
     const params = new URLSearchParams(router.state.location.search);
     expect(params.get('mode')).toBe('head');
-    expect(params.get('since')).toBeNull();
+    expect(params.get('cursor')).toBeNull();
   });
 
   it('jumps to the end and clears since filter', async () => {
-    const { router, viewerRef } = renderHeader({ search: '?mode=head&since=old' });
+    const { router, logViewerRef } = renderHeader({ initialEntries: ['/?mode=head&cursor=old'] });
 
     fireEvent.click(screen.getByRole('button', { name: 'Jump to end' }));
 
-    await waitFor(() => expect(viewerRef.current?.seekTail).toHaveBeenCalled());
+    await waitFor(() => expect(logViewerRef.current?.jumpToEnd).toHaveBeenCalled());
 
     const params = new URLSearchParams(router.state.location.search);
     expect(params.get('mode')).toBe('tail');
-    expect(params.get('since')).toBeNull();
+    expect(params.get('cursor')).toBeNull();
   });
 
-  it('shows pause when following and calls pause on click', () => {
-    const { viewerRef } = renderHeader();
+  it('shows pause when following and toggles to play on click', () => {
+    renderHeader();
 
     const pauseButton = screen.getByRole('button', { name: 'Pause' });
     expect(pauseButton).toBeInTheDocument();
 
     fireEvent.click(pauseButton);
-    expect(viewerRef.current?.pause).toHaveBeenCalled();
-    expect(screen.queryByRole('button', { name: 'Play' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Pause' })).toBeNull();
   });
 
-  it('shows play when paused and calls play on click', () => {
-    mockUseViewerMetadata.mockReturnValue({ ...defaultViewerMetadata, isFollow: false });
-    const { viewerRef } = renderHeader();
+  it('shows play when paused and toggles to pause on click', () => {
+    renderHeader();
+
+    // First pause to get into paused state
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
 
     const playButton = screen.getByRole('button', { name: 'Play' });
     expect(playButton).toBeInTheDocument();
 
     fireEvent.click(playButton);
-    expect(viewerRef.current?.play).toHaveBeenCalled();
-    expect(screen.queryByRole('button', { name: 'Pause' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Play' })).toBeNull();
   });
 
   it('submits grep query and trims whitespace', async () => {
-    const { router } = renderHeader();
+    const { router } = renderHeader({ shouldUseClusterAPI: true });
 
     const input = screen.getByPlaceholderText('Match string or /regex/...');
     fireEvent.change(input, { target: { value: ' error ' } });

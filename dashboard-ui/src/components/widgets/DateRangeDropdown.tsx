@@ -187,7 +187,7 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, unknown>((_, ref
   const [calendarDate, setCalendarDate] = useState<Date | undefined>();
 
   const [manualStartDate, setManualStartDate] = useState(formatInTimeZone(today, 'UTC', dateFmt));
-  const [manualStartTime, setManualStartTime] = useState('00:00:00');
+  const [manualStartTime, setManualStartTime] = useState('00:00:00.000');
 
   const [errorMsgs, setErrorMsgs] = useState(new Map<string, string>());
 
@@ -195,7 +195,7 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, unknown>((_, ref
     if (!isValid(parse(manualStartDate, dateFmt, new Date()))) errorMsgs.set('startDate', dateFmt);
     else errorMsgs.delete('startDate');
 
-    if (!isValid(parse(manualStartTime, 'HH:mm:ss', new Date()))) errorMsgs.set('startTime', 'HH:mm:ss');
+    if (!isValid(parse(manualStartTime, 'HH:mm:ss.SSS', new Date()))) errorMsgs.set('startTime', 'HH:mm:ss.SSS');
     else errorMsgs.delete('startTime');
 
     setErrorMsgs(new Map(errorMsgs));
@@ -204,7 +204,7 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, unknown>((_, ref
     if (errorMsgs.size) return undefined;
 
     // parse
-    const localDate = parse(`${manualStartDate} ${manualStartTime}`, `${dateFmt} HH:mm:ss`, new Date());
+    const localDate = parse(`${manualStartDate} ${manualStartTime}`, `${dateFmt} HH:mm:ss.SSS`, new Date());
 
     // return as UTC time
     return fromZonedTime(localDate, 'UTC');
@@ -215,7 +215,7 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, unknown>((_, ref
     reset: () => {
       setCalendarDate(today);
       setManualStartDate(formatInTimeZone(today, 'UTC', dateFmt));
-      setManualStartTime('00:00:00');
+      setManualStartTime('00:00:00.000');
       setErrorMsgs(new Map<string, string>());
     },
     getValue: validate,
@@ -225,7 +225,7 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, unknown>((_, ref
     if (!value) return;
     setCalendarDate(value);
     setManualStartDate(formatInTimeZone(value, 'UTC', dateFmt));
-    setManualStartTime('00:00:00');
+    setManualStartTime('00:00:00.000');
     setErrorMsgs(new Map<string, string>());
   };
 
@@ -241,13 +241,13 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, unknown>((_, ref
         numberOfMonths={1}
         timeZone="UTC"
       />
-      <div className="flex space-x-4 mt-1">
+      <div className="mt-1 space-y-2">
         <div>
           {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label>
             Start date
             <input
-              className="w-[110px]"
+              className="ml-1 w-[110px] border border-input"
               value={manualStartDate}
               onChange={(ev) => setManualStartDate(ev.target.value)}
             />
@@ -259,7 +259,7 @@ const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, unknown>((_, ref
           <label>
             Start time
             <input
-              className="w-[110px]"
+              className="ml-1 w-[110px] border border-input"
               value={manualStartTime}
               onChange={(ev) => setManualStartTime(ev.target.value)}
             />
