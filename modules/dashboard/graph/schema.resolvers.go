@@ -638,12 +638,19 @@ func (r *queryResolver) LogRecordsFetch(ctx context.Context, kubeContext *string
 		logs.WithContainers(sourceFilterVal.Container),
 	}
 
+	modeVal := ptr.Deref(mode, model.LogRecordsQueryModeTail)
 	limitVal := int64(ptr.Deref(limit, 100))
-	switch ptr.Deref(mode, model.LogRecordsQueryModeTail) {
+	effectiveLimit := limitVal
+	if limitVal > 0 {
+		// Fetch one extra record so we can compute nextCursor for the next page.
+		effectiveLimit = limitVal + 1
+	}
+
+	switch modeVal {
 	case model.LogRecordsQueryModeHead:
-		streamOpts = append(streamOpts, logs.WithHead(limitVal))
+		streamOpts = append(streamOpts, logs.WithHead(effectiveLimit))
 	case model.LogRecordsQueryModeTail:
-		streamOpts = append(streamOpts, logs.WithTail(limitVal))
+		streamOpts = append(streamOpts, logs.WithTail(effectiveLimit))
 	default:
 		return nil, fmt.Errorf("not implemented %s", mode)
 	}
@@ -660,10 +667,28 @@ func (r *queryResolver) LogRecordsFetch(ctx context.Context, kubeContext *string
 	}
 
 	// Write out records
-	out := &model.LogRecordsQueryResponse{Records: []*logs.LogRecord{}}
+	records := make([]logs.LogRecord, 0, int(effectiveLimit))
 	for record := range stream.Records() {
-		out.Records = append(out.Records, &record)
-		out.NextCursor = ptr.To(record.Timestamp.Format(time.RFC3339Nano))
+		records = append(records, record)
+	}
+
+	// Apply pagination
+	var paginationMode logs.PaginationMode
+	if modeVal == model.LogRecordsQueryModeHead {
+		paginationMode = logs.PaginationModeHead
+	} else {
+		paginationMode = logs.PaginationModeTail
+	}
+	records, nextCursor := logs.PaginateLogRecords(records, limitVal, paginationMode)
+
+	outRecords := make([]*logs.LogRecord, 0, len(records))
+	for i := range records {
+		outRecords = append(outRecords, &records[i])
+	}
+
+	out := &model.LogRecordsQueryResponse{
+		Records:    outRecords,
+		NextCursor: nextCursor,
 	}
 
 	if ctx.Err() != nil {

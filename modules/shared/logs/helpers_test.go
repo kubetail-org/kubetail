@@ -516,3 +516,120 @@ func TestParseWorkloadType(t *testing.T) {
 		})
 	}
 }
+
+func TestPaginateLogRecords(t *testing.T) {
+	// Helper to create log records with specific timestamps
+	makeRecords := func(timestamps ...time.Time) []LogRecord {
+		records := make([]LogRecord, len(timestamps))
+		for i, ts := range timestamps {
+			records[i] = LogRecord{Timestamp: ts, Message: "msg"}
+		}
+		return records
+	}
+
+	now := time.Now()
+	ts1 := now.Add(-4 * time.Second)
+	ts2 := now.Add(-3 * time.Second)
+	ts3 := now.Add(-2 * time.Second)
+	ts4 := now.Add(-1 * time.Second)
+	ts5 := now
+
+	t.Run("empty records returns nil cursor", func(t *testing.T) {
+		records, cursor := PaginateLogRecords([]LogRecord{}, 10, PaginationModeTail)
+		assert.Empty(t, records)
+		assert.Nil(t, cursor)
+	})
+
+	t.Run("zero limit returns all records with nil cursor", func(t *testing.T) {
+		input := makeRecords(ts1, ts2, ts3)
+		records, cursor := PaginateLogRecords(input, 0, PaginationModeTail)
+		assert.Len(t, records, 3)
+		assert.Nil(t, cursor)
+	})
+
+	t.Run("negative limit returns all records with nil cursor", func(t *testing.T) {
+		input := makeRecords(ts1, ts2, ts3)
+		records, cursor := PaginateLogRecords(input, -1, PaginationModeTail)
+		assert.Len(t, records, 3)
+		assert.Nil(t, cursor)
+	})
+
+	t.Run("records count equals limit returns nil cursor", func(t *testing.T) {
+		input := makeRecords(ts1, ts2, ts3)
+		records, cursor := PaginateLogRecords(input, 3, PaginationModeTail)
+		assert.Len(t, records, 3)
+		assert.Nil(t, cursor)
+	})
+
+	t.Run("records count less than limit returns nil cursor", func(t *testing.T) {
+		input := makeRecords(ts1, ts2)
+		records, cursor := PaginateLogRecords(input, 5, PaginationModeTail)
+		assert.Len(t, records, 2)
+		assert.Nil(t, cursor)
+	})
+
+	t.Run("TAIL mode trims first record and uses it as cursor", func(t *testing.T) {
+		// Simulating what happens when we fetch limit+1 records in TAIL mode
+		// Records come back in chronological order after being reversed from the tail fetch
+		input := makeRecords(ts1, ts2, ts3, ts4, ts5)
+		records, cursor := PaginateLogRecords(input, 4, PaginationModeTail)
+
+		// Should have 4 records (ts2, ts3, ts4, ts5)
+		assert.Len(t, records, 4)
+		assert.Equal(t, ts2, records[0].Timestamp)
+		assert.Equal(t, ts5, records[3].Timestamp)
+
+		// Cursor should be the first record's timestamp (ts1)
+		assert.NotNil(t, cursor)
+		assert.Equal(t, ts1.Format(time.RFC3339Nano), *cursor)
+	})
+
+	t.Run("HEAD mode trims last record and uses it as cursor", func(t *testing.T) {
+		// Simulating what happens when we fetch limit+1 records in HEAD mode
+		// Records come back in chronological order from the head
+		input := makeRecords(ts1, ts2, ts3, ts4, ts5)
+		records, cursor := PaginateLogRecords(input, 4, PaginationModeHead)
+
+		// Should have 4 records (ts1, ts2, ts3, ts4)
+		assert.Len(t, records, 4)
+		assert.Equal(t, ts1, records[0].Timestamp)
+		assert.Equal(t, ts4, records[3].Timestamp)
+
+		// Cursor should be the last record's timestamp (ts5)
+		assert.NotNil(t, cursor)
+		assert.Equal(t, ts5.Format(time.RFC3339Nano), *cursor)
+	})
+
+	t.Run("single extra record TAIL mode", func(t *testing.T) {
+		input := makeRecords(ts1, ts2)
+		records, cursor := PaginateLogRecords(input, 1, PaginationModeTail)
+
+		assert.Len(t, records, 1)
+		assert.Equal(t, ts2, records[0].Timestamp)
+		assert.NotNil(t, cursor)
+		assert.Equal(t, ts1.Format(time.RFC3339Nano), *cursor)
+	})
+
+	t.Run("single extra record HEAD mode", func(t *testing.T) {
+		input := makeRecords(ts1, ts2)
+		records, cursor := PaginateLogRecords(input, 1, PaginationModeHead)
+
+		assert.Len(t, records, 1)
+		assert.Equal(t, ts1, records[0].Timestamp)
+		assert.NotNil(t, cursor)
+		assert.Equal(t, ts2.Format(time.RFC3339Nano), *cursor)
+	})
+
+	t.Run("preserves nanosecond precision in cursor", func(t *testing.T) {
+		// Create timestamp with nanosecond precision
+		preciseTS := time.Date(2024, 1, 15, 10, 30, 45, 123456789, time.UTC)
+		input := makeRecords(preciseTS, preciseTS.Add(time.Second))
+		_, cursor := PaginateLogRecords(input, 1, PaginationModeTail)
+
+		assert.NotNil(t, cursor)
+		// Verify nanoseconds are preserved
+		parsedTime, err := time.Parse(time.RFC3339Nano, *cursor)
+		assert.NoError(t, err)
+		assert.Equal(t, preciseTS.Nanosecond(), parsedTime.Nanosecond())
+	})
+}
