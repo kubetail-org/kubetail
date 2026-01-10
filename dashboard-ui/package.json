@@ -33,6 +33,7 @@
     "graphql": "^16.12.0",
     "graphql-ws": "^6.0.5",
     "jotai": "^2.16.0",
+    "jotai-family": "^1.0.1",
     "lucide-react": "^0.561.0",
     "numeral": "^2.0.6",
     "react": "^19.2.3",
