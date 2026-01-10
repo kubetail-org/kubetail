@@ -13,7 +13,8 @@
 // limitations under the License.
 
 import { atom } from 'jotai';
-import { atomFamily, selectAtom } from 'jotai/utils';
+import { selectAtom } from 'jotai/utils';
+import { atomFamily } from 'jotai-family';
 
 import { HomePodsListItemFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { WorkloadKind, ALL_WORKLOAD_KINDS } from '@/lib/workload';
