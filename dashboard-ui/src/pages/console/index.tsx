@@ -12,68 +12,65 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import type { ApolloClient } from '@apollo/client';
+import deepEqual from 'fast-deep-equal';
 import { PanelLeftClose as PanelLeftCloseIcon } from 'lucide-react';
-import { useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import { dashboardClient, getClusterAPIClient } from '@/apollo-client';
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
-import { safeDigest } from '@/lib/util';
+// import { FakeClient } from '@/components/widgets/log-viewer';
+import type { Client, LogViewerHandle } from '@/components/widgets/log-viewer';
+import type { LogSourceFilter } from '@/lib/graphql/dashboard/__generated__/graphql';
+import { useIsClusterAPIEnabled } from '@/lib/hooks';
 
 import { Header } from './header';
+import { LogServerClient } from './log-server-client';
+import { Main } from './main';
 import { PageContext } from './shared';
 import { Sidebar } from './sidebar';
-import { cssID } from './util';
-import { Viewer, ViewerProvider, useSources } from './viewer';
-import type { ViewerHandle } from './viewer';
+import { ConfigureContainerColors, SourcesFetcher } from './helpers';
 
 /**
- * Configure container colors component
+ * useStableSourceStrings - Custom hook that returns a stable reference to page source strings
  */
 
-const palette = [
-  '#3B6EDC', // Muted Blue
-  '#2F9E5F', // Muted Green
-  '#D14343', // Muted Red
-  '#D38B2A', // Muted Amber
-  '#8456D8', // Muted Purple
-  '#2C9CB3', // Muted Cyan
-  '#7A6BD1', // Muted Violet
-  '#D14D8A', // Muted Pink
-  '#7FA83A', // Muted Lime
-  '#E06C3A', // Muted Orange
-  '#2F9A8A', // Muted Teal
-  '#5C63D6', // Muted Indigo
-  '#A46A3D', // Muted Brown
-  '#C24A77', // Muted Rose
-  '#6B8F3A', // Muted Forest Green
-  '#4B4FCF', // Muted Deep Blue
-  '#9A4EB3', // Muted Magenta
-  '#BFA23A', // Muted Gold
-  '#4A84C8', // Muted Sky Blue
-  '#247A8A', // Muted Blue-Green
-];
+function useStableSourceStrings(searchParams: URLSearchParams) {
+  const sourceStringsRef = useRef<string[]>(null);
 
-const ConfigureContainerColors = () => {
-  const { sources } = useSources();
-  const containerKeysRef = useRef(new Set<string>());
+  const next = searchParams.getAll('source');
 
-  sources.forEach((source) => {
-    const k = cssID(source.namespace, source.podName, source.containerName);
+  if (!deepEqual(next, sourceStringsRef.current)) {
+    sourceStringsRef.current = next;
+  }
 
-    // skip if previously defined
-    if (containerKeysRef.current.has(k)) return;
-    containerKeysRef.current.add(k);
+  return sourceStringsRef.current as string[];
+}
 
-    (async () => {
-      // set css var
-      const colorIDX = (await safeDigest(k)).getUint32(0) % palette.length;
-      document.documentElement.style.setProperty(`--${k}-color`, palette[colorIDX]);
-    })();
-  });
+/**
+ * useStableSourceFilter - Custom hook that returns a stable reference to page source filter
+ */
 
-  return null;
-};
+function useStableSourceFilter(searchParams: URLSearchParams) {
+  const sourceFilterRef = useRef<LogSourceFilter>(null);
+
+  const next = {
+    region: searchParams.getAll('region'),
+    zone: searchParams.getAll('zone'),
+    os: searchParams.getAll('os'),
+    arch: searchParams.getAll('arch'),
+    node: searchParams.getAll('node'),
+    container: searchParams.getAll('container'),
+  } satisfies LogSourceFilter;
+
+  if (!deepEqual(next, sourceFilterRef.current)) {
+    sourceFilterRef.current = next;
+  }
+
+  return sourceFilterRef.current as LogSourceFilter;
+}
 
 /**
  * InnerLayout component
@@ -128,7 +125,7 @@ const InnerLayout = ({ sidebar, header, main }: InnerLayoutProps) => {
               type="button"
               onClick={handleCloseSidebar}
               title="Collapse sidebar"
-              className="absolute cursor-pointer right-[7px] top-[30px] transform -translate-y-1/2"
+              className="absolute cursor-pointer right-1.75 top-7.5 transform -translate-y-1/2"
             >
               <PanelLeftCloseIcon size={20} strokeWidth={2} className="text-chrome-500" />
             </button>
@@ -146,7 +143,7 @@ const InnerLayout = ({ sidebar, header, main }: InnerLayoutProps) => {
         style={{ marginLeft: `${isSidebarOpen ? sidebarWidth + 4 : 0}px` }}
       >
         <div className="bg-chrome-100 border-b border-chrome-divider">{header}</div>
-        <div className="grow">{main}</div>
+        <div className="grow min-h-0">{main}</div>
       </main>
     </div>
   );
@@ -157,38 +154,21 @@ const InnerLayout = ({ sidebar, header, main }: InnerLayoutProps) => {
  */
 
 export default function Page() {
-  const [searchParams] = useSearchParams();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const viewerRef = useRef<ViewerHandle>(null);
+  const logViewerRef = useRef<LogViewerHandle>(null);
 
-  // Memoize list args
-  const [sources, sourceFilter] = useMemo(
-    () => [
-      searchParams.getAll('source'),
-      {
-        region: searchParams.getAll('region'),
-        zone: searchParams.getAll('zone'),
-        os: searchParams.getAll('os'),
-        arch: searchParams.getAll('arch'),
-        node: searchParams.getAll('node'),
-        container: searchParams.getAll('container'),
-      },
-    ],
-    [searchParams],
-  );
+  const [searchParams] = useSearchParams();
+  const kubeContext = searchParams.get('kubeContext');
 
-  const context = useMemo(
-    () => ({
-      isSidebarOpen,
-      setIsSidebarOpen,
-    }),
-    [isSidebarOpen, setIsSidebarOpen],
-  );
+  const shouldUseClusterAPI = useIsClusterAPIEnabled(kubeContext);
+  const [logServerClient, setLogServerClient] = useState<Client>();
 
-  const grepVal = searchParams.get('grep');
+  const sourceStrings = useStableSourceStrings(searchParams);
+  const sourceFilter = useStableSourceFilter(searchParams);
 
   // Process the grep parameter
-  const processedGrep = useMemo(() => {
+  const grepVal = searchParams.get('grep');
+  const grep = useMemo(() => {
     if (!grepVal) return null;
 
     // If the input is in the format /regex/, extract the regex pattern
@@ -202,30 +182,53 @@ export default function Page() {
     return grepVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }, [grepVal]);
 
+  // Configure log server client
+  useEffect(() => {
+    if (shouldUseClusterAPI === undefined) return;
+
+    let apolloClient: ApolloClient;
+    if (shouldUseClusterAPI) {
+      apolloClient = getClusterAPIClient({
+        kubeContext: kubeContext ?? '',
+        namespace: 'kubetail-system',
+        serviceName: 'kubetail-cluster-api',
+      });
+    } else {
+      apolloClient = dashboardClient;
+    }
+
+    setLogServerClient(
+      new LogServerClient({
+        apolloClient,
+        kubeContext: kubeContext ?? '',
+        sources: sourceStrings,
+        sourceFilter,
+        grep: grep ?? undefined,
+      }),
+    );
+  }, [shouldUseClusterAPI, kubeContext, sourceStrings, sourceFilter, grep]);
+
+  const context = useMemo(
+    () => ({
+      kubeContext,
+      shouldUseClusterAPI,
+      logServerClient,
+      grep,
+      logViewerRef,
+      isSidebarOpen,
+      setIsSidebarOpen,
+    }),
+    [kubeContext, shouldUseClusterAPI, logServerClient, grep, isSidebarOpen],
+  );
+
   return (
     <AuthRequired>
       <PageContext.Provider value={context}>
-        <ViewerProvider
-          kubeContext={searchParams.get('kubeContext')}
-          sources={sources}
-          sourceFilter={sourceFilter}
-          grep={processedGrep}
-        >
-          <ConfigureContainerColors />
-          <AppLayout>
-            <InnerLayout
-              sidebar={<Sidebar />}
-              header={<Header viewerRef={viewerRef} />}
-              main={
-                <Viewer
-                  ref={viewerRef}
-                  defaultMode={searchParams.get('mode')}
-                  defaultSince={searchParams.get('since')}
-                />
-              }
-            />
-          </AppLayout>
-        </ViewerProvider>
+        <AppLayout>
+          <InnerLayout sidebar={<Sidebar />} header={<Header />} main={<Main />} />
+        </AppLayout>
+        <SourcesFetcher />
+        <ConfigureContainerColors />
       </PageContext.Provider>
     </AuthRequired>
   );

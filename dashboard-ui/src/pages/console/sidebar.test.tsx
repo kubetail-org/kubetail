@@ -13,18 +13,23 @@
 // limitations under the License.
 
 import { render, screen } from '@testing-library/react';
-import { createMemoryRouter, RouterProvider } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createStore, Provider } from 'jotai';
+import { MemoryRouter } from 'react-router-dom';
 
+import type { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { Counter } from '@/lib/util';
 
 import { Sidebar, generateMapKey, parseSourceArg } from './sidebar';
+import { PageContext } from './shared';
+import { sourceMapAtom } from './state';
 
-// Create mock functions
-const mockUseSources = vi.fn();
-const mockUseViewerFacets = vi.fn();
+// Mock useFacets hook from helpers
+const mockUseFacets = vi.fn();
 
-// Mock dependencies
+vi.mock('./helpers', () => ({
+  useFacets: () => mockUseFacets(),
+}));
+
 vi.mock('@/components/widgets/SourcePickerModal', () => ({
   default: ({ open }: { open: boolean }) => (
     <div data-testid="source-picker-modal" data-open={open}>
@@ -33,114 +38,204 @@ vi.mock('@/components/widgets/SourcePickerModal', () => ({
   ),
 }));
 
-vi.mock('./viewer', () => ({
-  useSources: () => mockUseSources(),
-  useViewerFacets: () => mockUseViewerFacets(),
-}));
+// Helper to create a mock LogSourceFragmentFragment
+const createMockSource = (
+  namespace: string,
+  podName: string,
+  containerName: string,
+  metadata: Partial<LogSourceFragmentFragment['metadata']> = {},
+): LogSourceFragmentFragment => ({
+  __typename: 'LogSource',
+  namespace,
+  podName,
+  containerName,
+  containerID: `${namespace}-${podName}-${containerName}`,
+  metadata: {
+    __typename: 'LogSourceMetadata',
+    region: metadata.region ?? '',
+    zone: metadata.zone ?? '',
+    os: metadata.os ?? '',
+    arch: metadata.arch ?? '',
+    node: metadata.node ?? '',
+  },
+});
 
-// Helper to render sidebar with router
-const renderSidebar = (searchParams = '') => {
-  const router = createMemoryRouter(
-    [
-      {
-        path: '/',
-        element: <Sidebar />,
-      },
-    ],
-    {
-      initialEntries: [`/${searchParams}`],
-    },
-  );
-
-  return render(<RouterProvider router={router} />);
+// Default page context value
+const defaultPageContextValue = {
+  kubeContext: null,
+  shouldUseClusterAPI: undefined,
+  logServerClient: undefined,
+  grep: null,
+  logViewerRef: { current: null },
+  isSidebarOpen: true,
+  setIsSidebarOpen: vi.fn(),
 };
 
-describe('Sidebar', () => {
-  beforeEach(() => {
-    // Reset mocks before each test
-    mockUseSources.mockReturnValue({ sources: [] });
-    mockUseViewerFacets.mockReturnValue({
-      region: new Counter(),
-      zone: new Counter(),
-      os: new Counter(),
-      arch: new Counter(),
-      node: new Counter(),
-    });
-  });
+// Test wrapper that provides required providers
+const TestWrapper = ({
+  children,
+  store,
+  initialEntries = ['/'],
+}: {
+  children: React.ReactNode;
+  store?: ReturnType<typeof createStore>;
+  initialEntries?: string[];
+}) => {
+  const content = (
+    <MemoryRouter initialEntries={initialEntries}>
+      <PageContext.Provider value={defaultPageContextValue}>{children}</PageContext.Provider>
+    </MemoryRouter>
+  );
 
+  if (store) {
+    return <Provider store={store}>{content}</Provider>;
+  }
+
+  return content;
+};
+
+// Helper to create store with sources
+const createStoreWithSources = (sources: LogSourceFragmentFragment[]) => {
+  const store = createStore();
+  const sourceMap = new Map<string, LogSourceFragmentFragment>();
+  sources.forEach((source) => {
+    const key = `${source.namespace}/${source.podName}/${source.containerName}`;
+    sourceMap.set(key, source);
+  });
+  store.set(sourceMapAtom, sourceMap);
+  return store;
+};
+
+// Default empty facets
+const emptyFacets = () => ({
+  region: new Counter(),
+  zone: new Counter(),
+  os: new Counter(),
+  arch: new Counter(),
+  node: new Counter(),
+});
+
+beforeEach(() => {
+  mockUseFacets.mockReturnValue(emptyFacets());
+});
+
+describe('Sidebar', () => {
   it('renders the Kubetail logo', () => {
-    renderSidebar();
+    render(
+      <TestWrapper>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     expect(screen.getByRole('link')).toBeInTheDocument();
   });
 
   it('displays cluster context when present in URL', () => {
-    renderSidebar('?kubeContext=production-cluster');
+    render(
+      <TestWrapper initialEntries={['/?kubeContext=production-cluster']}>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     expect(screen.getByText(/Cluster:/)).toBeInTheDocument();
-    // The cluster name and "Cluster:" are in the same element
     expect(screen.getByText(/production-cluster/)).toBeInTheDocument();
   });
 
   it('does not display cluster context when not in URL', () => {
-    renderSidebar();
+    render(
+      <TestWrapper>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     expect(screen.queryByText(/Cluster:/)).not.toBeInTheDocument();
   });
 
   it('renders the source picker button', () => {
-    renderSidebar();
-    const button = screen.getByRole('button', { name: /open source picker/i });
-    expect(button).toBeInTheDocument();
+    render(
+      <TestWrapper>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
+    expect(screen.getByRole('button', { name: /open source picker/i })).toBeInTheDocument();
   });
 
   it('renders Pods/Containers section', () => {
-    renderSidebar();
+    render(
+      <TestWrapper>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     expect(screen.getByText('Pods/Containers')).toBeInTheDocument();
   });
 });
 
 describe('SidebarWorkloads', () => {
-  beforeEach(() => {
-    mockUseSources.mockReturnValue({ sources: [] });
-    mockUseViewerFacets.mockReturnValue({
-      region: new Counter(),
-      zone: new Counter(),
-      os: new Counter(),
-      arch: new Counter(),
-      node: new Counter(),
-    });
-  });
-
   it('displays workloads from URL sources', () => {
-    renderSidebar('?source=default:deployments/nginx&source=default:deployments/app');
+    render(
+      <TestWrapper initialEntries={['/?source=default:deployments/nginx&source=default:deployments/app']}>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     expect(screen.getByText('nginx')).toBeInTheDocument();
     expect(screen.getByText('app')).toBeInTheDocument();
   });
 
   it('groups workloads by kind', () => {
-    renderSidebar('?source=default:deployments/nginx&source=kube-system:daemonsets/kube-proxy');
+    render(
+      <TestWrapper initialEntries={['/?source=default:deployments/nginx&source=kube-system:daemonsets/kube-proxy']}>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     expect(screen.getByText('Deployments')).toBeInTheDocument();
     expect(screen.getByText('Daemon Sets')).toBeInTheDocument();
   });
 
   it('renders delete button for each workload', () => {
-    renderSidebar('?source=default:deployments/nginx');
-    const deleteButtons = screen.getAllByRole('button', { name: /delete source/i });
-    expect(deleteButtons.length).toBeGreaterThan(0);
+    render(
+      <TestWrapper initialEntries={['/?source=default:deployments/nginx']}>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
+    expect(screen.getAllByRole('button', { name: /delete source/i }).length).toBeGreaterThan(0);
   });
 
   it('sorts workloads alphabetically within each kind', () => {
-    renderSidebar('?source=default:deployments/zebra&source=default:deployments/alpha');
+    render(
+      <TestWrapper initialEntries={['/?source=default:deployments/zebra&source=default:deployments/alpha']}>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     const deploymentItems = screen.getAllByText(/alpha|zebra/);
     expect(deploymentItems[0]).toHaveTextContent('alpha');
     expect(deploymentItems[1]).toHaveTextContent('zebra');
   });
 
   it('handles workload names with wildcards', () => {
-    renderSidebar('?source=default:deployments/nginx/*');
+    render(
+      <TestWrapper initialEntries={['/?source=default:deployments/nginx/*']}>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     expect(screen.getByText('nginx')).toBeInTheDocument();
   });
 
   it('handles multiple workload types', () => {
-    renderSidebar('?source=default:deployments/app1&source=default:statefulsets/db&source=default:jobs/task');
+    render(
+      <TestWrapper
+        initialEntries={['/?source=default:deployments/app1&source=default:statefulsets/db&source=default:jobs/task']}
+      >
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     expect(screen.getByText('Deployments')).toBeInTheDocument();
     expect(screen.getByText('Stateful Sets')).toBeInTheDocument();
     expect(screen.getByText('Jobs')).toBeInTheDocument();
@@ -148,40 +243,36 @@ describe('SidebarWorkloads', () => {
 });
 
 describe('SidebarPodsAndContainers', () => {
-  beforeEach(() => {
-    mockUseViewerFacets.mockReturnValue({
-      region: new Counter(),
-      zone: new Counter(),
-      os: new Counter(),
-      arch: new Counter(),
-      node: new Counter(),
-    });
-  });
-
   it('displays pod and container checkboxes', () => {
-    mockUseSources.mockReturnValue({
-      sources: [
-        { namespace: 'default', podName: 'nginx-pod', containerName: 'nginx' },
-        { namespace: 'default', podName: 'nginx-pod', containerName: 'sidecar' },
-      ],
-    });
+    const store = createStoreWithSources([
+      createMockSource('default', 'nginx-pod', 'nginx'),
+      createMockSource('default', 'nginx-pod', 'sidecar'),
+    ]);
 
-    renderSidebar();
+    render(
+      <TestWrapper store={store}>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     expect(screen.getByText('nginx-pod')).toBeInTheDocument();
     expect(screen.getByText('nginx')).toBeInTheDocument();
     expect(screen.getByText('sidecar')).toBeInTheDocument();
   });
 
   it('groups containers by pod', () => {
-    mockUseSources.mockReturnValue({
-      sources: [
-        { namespace: 'default', podName: 'pod1', containerName: 'container1' },
-        { namespace: 'default', podName: 'pod1', containerName: 'container2' },
-        { namespace: 'default', podName: 'pod2', containerName: 'container3' },
-      ],
-    });
+    const store = createStoreWithSources([
+      createMockSource('default', 'pod1', 'container1'),
+      createMockSource('default', 'pod1', 'container2'),
+      createMockSource('default', 'pod2', 'container3'),
+    ]);
 
-    renderSidebar();
+    render(
+      <TestWrapper store={store}>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     expect(screen.getByText('pod1')).toBeInTheDocument();
     expect(screen.getByText('pod2')).toBeInTheDocument();
     expect(screen.getByText('container1')).toBeInTheDocument();
@@ -190,33 +281,41 @@ describe('SidebarPodsAndContainers', () => {
   });
 
   it('creates synthetic sources from container URL params', () => {
-    mockUseSources.mockReturnValue({ sources: [] });
+    render(
+      <TestWrapper initialEntries={['/?container=default:synthetic-pod/synthetic-container']}>
+        <Sidebar />
+      </TestWrapper>,
+    );
 
-    renderSidebar('?container=default:synthetic-pod/synthetic-container');
     expect(screen.getByText('synthetic-pod')).toBeInTheDocument();
     expect(screen.getByText('synthetic-container')).toBeInTheDocument();
   });
 
   it('sorts containers alphabetically within each pod', () => {
-    mockUseSources.mockReturnValue({
-      sources: [
-        { namespace: 'default', podName: 'pod1', containerName: 'zebra' },
-        { namespace: 'default', podName: 'pod1', containerName: 'alpha' },
-      ],
-    });
+    const store = createStoreWithSources([
+      createMockSource('default', 'pod1', 'zebra'),
+      createMockSource('default', 'pod1', 'alpha'),
+    ]);
 
-    renderSidebar();
+    render(
+      <TestWrapper store={store}>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     const containerElements = screen.getAllByText(/alpha|zebra/);
     expect(containerElements[0]).toHaveTextContent('alpha');
     expect(containerElements[1]).toHaveTextContent('zebra');
   });
 
   it('renders container checkbox when present in URL', () => {
-    mockUseSources.mockReturnValue({
-      sources: [{ namespace: 'default', podName: 'pod1', containerName: 'container1' }],
-    });
+    const store = createStoreWithSources([createMockSource('default', 'pod1', 'container1')]);
 
-    renderSidebar('?container=default:pod1/container1');
+    render(
+      <TestWrapper store={store} initialEntries={['/?container=default:pod1/container1']}>
+        <Sidebar />
+      </TestWrapper>,
+    );
 
     const containerCheckbox = screen.getByRole('checkbox', { name: /container1/i });
     expect(containerCheckbox).toBeInTheDocument();
@@ -224,40 +323,37 @@ describe('SidebarPodsAndContainers', () => {
   });
 
   it('handles pods from different namespaces', () => {
-    mockUseSources.mockReturnValue({
-      sources: [
-        { namespace: 'default', podName: 'pod1', containerName: 'container1' },
-        { namespace: 'kube-system', podName: 'pod1', containerName: 'container1' },
-      ],
-    });
+    const store = createStoreWithSources([
+      createMockSource('default', 'pod1', 'container1'),
+      createMockSource('kube-system', 'pod1', 'container1'),
+    ]);
 
-    renderSidebar();
-    // Should render both pods even though they have the same name
+    render(
+      <TestWrapper store={store}>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     const podElements = screen.getAllByText('pod1');
     expect(podElements).toHaveLength(2);
   });
 });
 
 describe('SidebarFacets', () => {
-  beforeEach(() => {
-    mockUseSources.mockReturnValue({ sources: [] });
-  });
-
   it('renders facets with counts', () => {
     const regionCounter = new Counter<string>();
     regionCounter.update('us-west-1');
     regionCounter.update('us-west-1');
     regionCounter.update('us-east-1');
 
-    mockUseViewerFacets.mockReturnValue({
-      region: regionCounter,
-      zone: new Counter(),
-      os: new Counter(),
-      arch: new Counter(),
-      node: new Counter(),
-    });
+    mockUseFacets.mockReturnValue({ ...emptyFacets(), region: regionCounter });
 
-    renderSidebar();
+    render(
+      <TestWrapper>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     expect(screen.getByText('Region')).toBeInTheDocument();
     expect(screen.getByText('us-west-1')).toBeInTheDocument();
     expect(screen.getByText('(2)')).toBeInTheDocument();
@@ -266,15 +362,12 @@ describe('SidebarFacets', () => {
   });
 
   it('does not render facets with no entries', () => {
-    mockUseViewerFacets.mockReturnValue({
-      region: new Counter(),
-      zone: new Counter(),
-      os: new Counter(),
-      arch: new Counter(),
-      node: new Counter(),
-    });
+    render(
+      <TestWrapper>
+        <Sidebar />
+      </TestWrapper>,
+    );
 
-    renderSidebar();
     expect(screen.queryByText('Region')).not.toBeInTheDocument();
     expect(screen.queryByText('Zone')).not.toBeInTheDocument();
   });
@@ -283,15 +376,14 @@ describe('SidebarFacets', () => {
     const emptyCounter = new Counter<string>();
     emptyCounter.update('');
 
-    mockUseViewerFacets.mockReturnValue({
-      region: emptyCounter,
-      zone: new Counter(),
-      os: new Counter(),
-      arch: new Counter(),
-      node: new Counter(),
-    });
+    mockUseFacets.mockReturnValue({ ...emptyFacets(), region: emptyCounter });
 
-    renderSidebar();
+    render(
+      <TestWrapper>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     expect(screen.queryByText('Region')).not.toBeInTheDocument();
   });
 
@@ -299,15 +391,13 @@ describe('SidebarFacets', () => {
     const regionCounter = new Counter<string>();
     regionCounter.update('us-west-1');
 
-    mockUseViewerFacets.mockReturnValue({
-      region: regionCounter,
-      zone: new Counter(),
-      os: new Counter(),
-      arch: new Counter(),
-      node: new Counter(),
-    });
+    mockUseFacets.mockReturnValue({ ...emptyFacets(), region: regionCounter });
 
-    renderSidebar('?region=us-west-1');
+    render(
+      <TestWrapper initialEntries={['/?region=us-west-1']}>
+        <Sidebar />
+      </TestWrapper>,
+    );
 
     const regionCheckbox = screen.getByRole('checkbox', { name: /us-west-1/i });
     expect(regionCheckbox).toBeInTheDocument();
@@ -318,7 +408,7 @@ describe('SidebarFacets', () => {
     const counter = new Counter<string>();
     counter.update('value1');
 
-    mockUseViewerFacets.mockReturnValue({
+    mockUseFacets.mockReturnValue({
       region: counter,
       zone: counter,
       os: counter,
@@ -326,7 +416,12 @@ describe('SidebarFacets', () => {
       node: counter,
     });
 
-    renderSidebar();
+    render(
+      <TestWrapper>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     expect(screen.getByText('Region')).toBeInTheDocument();
     expect(screen.getByText('Zone')).toBeInTheDocument();
     expect(screen.getByText('OS')).toBeInTheDocument();
@@ -341,17 +436,15 @@ describe('SidebarFacets', () => {
     regionCounter.update('us-east-1');
     regionCounter.update('us-east-1');
 
-    mockUseViewerFacets.mockReturnValue({
-      region: regionCounter,
-      zone: new Counter(),
-      os: new Counter(),
-      arch: new Counter(),
-      node: new Counter(),
-    });
+    mockUseFacets.mockReturnValue({ ...emptyFacets(), region: regionCounter });
 
-    renderSidebar();
+    render(
+      <TestWrapper>
+        <Sidebar />
+      </TestWrapper>,
+    );
+
     const facetLabels = screen.getAllByText(/us-(west|east)-1/);
-    // us-east-1 has 3 counts, should appear first
     expect(facetLabels[0]).toHaveTextContent('us-east-1');
     expect(facetLabels[1]).toHaveTextContent('us-west-1');
   });

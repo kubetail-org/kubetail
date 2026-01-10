@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { useAtomValue } from 'jotai';
 import type { CheckedState } from '@radix-ui/react-checkbox';
-import { useSetAtom } from 'jotai';
 import { CirclePlus as CirclePlusIcon, Trash2 as TrashIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { Checkbox } from '@kubetail/ui/elements/checkbox';
@@ -24,13 +24,12 @@ import { Label } from '@kubetail/ui/elements/label';
 import KubetailLogo from '@/assets/logo.svg?react';
 import SourcePickerModal from '@/components/widgets/SourcePickerModal';
 import type { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
-import { MapSet, getBasename, joinPaths } from '@/lib/util';
-import type { Counter } from '@/lib/util';
+import { Counter, MapSet, getBasename, joinPaths } from '@/lib/util';
 import { ALL_WORKLOAD_KINDS, GLYPH_ICON_MAP, PLURAL_LABEL_MAP, WorkloadKind } from '@/lib/workload';
 
-import { filtersAtom } from './state';
+import { useFacets } from './helpers';
+import { sourcesAtom } from './state';
 import { cssID } from './util';
-import { useSources, useViewerFacets } from './viewer';
 
 /**
  * Helper functions
@@ -39,7 +38,7 @@ import { useSources, useViewerFacets } from './viewer';
 export const generateMapKey = (namespace: string, podName: string) => `${namespace}/${podName}`;
 
 /**
- * Sidebar workloads component
+ * SidebarWorkloads component
  */
 
 const workloadTypestrMap: Record<string, WorkloadKind> = {
@@ -110,8 +109,7 @@ const SidebarWorkloads = () => {
           className="mb-2 font-bold text-primary overflow-hidden text-ellipsis whitespace-nowrap"
           title={kubeContext}
         >
-          Cluster:
-          {kubeContext}
+          Cluster: {kubeContext}
         </div>
       )}
       <div className="flex items-center justify-between mb-1">
@@ -140,11 +138,11 @@ const SidebarWorkloads = () => {
             <div key={kind}>
               <div className="flex items-center space-x-1">
                 <div>
-                  <Icon className="h-[18px] w-[18px]" />
+                  <Icon className="h-4.5 w-4.5" />
                 </div>
                 <div className="font-semibold text-chrome-500">{PLURAL_LABEL_MAP[kind]}</div>
               </div>
-              <ul className="pl-[23px]">
+              <ul className="pl-5.75">
                 {vals.map((val) => (
                   <li key={val.name} className="flex items-center justify-between">
                     <span className="whitespace-nowrap overflow-hidden text-ellipsis">
@@ -155,7 +153,7 @@ const SidebarWorkloads = () => {
                       onClick={() => deleteSource(`${val.namespace}:${kind}/${val.name}`)}
                       aria-label="Delete source"
                     >
-                      <TrashIcon className="h-[18px] w-[18px] text-chrome-300 hover:text-chrome-500 cursor-pointer" />
+                      <TrashIcon className="h-4.5 w-4.5 text-chrome-300 hover:text-chrome-500 cursor-pointer" />
                     </button>
                   </li>
                 ))}
@@ -201,7 +199,7 @@ const Containers = ({ namespace, podName, containerNames = [] }: ContainersProps
         return (
           <Label key={containerName} className="flex item-center justify-between">
             <div className="flex items-center space-x-1">
-              <div className="w-[13px] h-[13px]" style={{ backgroundColor: `var(--${k}-color)` }} />
+              <div className="w-3.25 h-3.25" style={{ backgroundColor: `var(--${k}-color)` }} />
               <div>{containerName}</div>
             </div>
             <Checkbox
@@ -239,10 +237,12 @@ class ContainerGroup {
 }
 
 const SidebarPodsAndContainers = () => {
-  const { sources } = useSources();
+  const origSources = useAtomValue(sourcesAtom);
   const [searchParams] = useSearchParams();
 
   const containerGroups = useMemo(() => {
+    const sources = Array.from(origSources);
+
     // Create synthetic sources from search params
     searchParams.getAll('container').forEach((key) => {
       const match = key.match(/^([^:]+):([^/]+)\/(.+)$/);
@@ -280,7 +280,7 @@ const SidebarPodsAndContainers = () => {
       const keyB = `${b.namespace}/${b.podName}`;
       return keyA.localeCompare(keyB);
     });
-  }, [sources, searchParams]);
+  }, [origSources, searchParams]);
 
   return (
     <>
@@ -301,7 +301,7 @@ const SidebarPodsAndContainers = () => {
 };
 
 /**
- * Sidebar facets component
+ * SidebarFacets component
  */
 
 const Facets = ({ label, counter }: { label: string; counter: Counter }) => {
@@ -351,7 +351,7 @@ const Facets = ({ label, counter }: { label: string; counter: Counter }) => {
 };
 
 const SidebarFacets = () => {
-  const facets = useViewerFacets();
+  const facets = useFacets();
 
   return (
     <div>
@@ -365,30 +365,18 @@ const SidebarFacets = () => {
 };
 
 /**
- * Sidebar
+ * Sidebar component
  */
 
-export const Sidebar = () => {
-  const [searchParams] = useSearchParams();
-  const setFilters = useSetAtom(filtersAtom);
-
-  // sync filters with search params
-  useEffect(() => {
-    const filters = new MapSet<string, string>();
-    ['region', 'zone', 'os', 'arch', 'node', 'container'].forEach((key) => {
-      if (searchParams.has(key)) filters.set(key, new Set(searchParams.getAll(key)));
-    });
-    setFilters(filters);
-  }, [searchParams]);
-
+export function Sidebar() {
   return (
-    <div className="text-sm px-[7px] pt-2.5">
+    <div className="text-sm px-1.75 pt-2.5">
       <a href={joinPaths(getBasename(), '/')}>
-        <KubetailLogo className="text-primary h-[38px] w-auto mt-1 mb-3" />
+        <KubetailLogo className="text-primary h-9.5 w-auto mt-1 mb-3" />
       </a>
       <SidebarWorkloads />
       <SidebarPodsAndContainers />
       <SidebarFacets />
     </div>
   );
-};
+}

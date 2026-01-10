@@ -12,14 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen } from '@testing-library/react';
-import { createMemoryRouter, RouterProvider } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 
 import Page from '.';
-import { Viewer, ViewerProvider } from './viewer';
 
-// Mock dependencies
+vi.mock('@/apollo-client', () => ({
+  dashboardClient: {},
+  getClusterAPIClient: vi.fn(() => ({})),
+}));
+
+vi.mock('@/lib/hooks', () => ({
+  useIsClusterAPIEnabled: vi.fn(() => true),
+}));
+
 vi.mock('@/components/layouts/AppLayout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div data-testid="app-layout">{children}</div>,
 }));
@@ -36,165 +42,50 @@ vi.mock('./sidebar', () => ({
   Sidebar: () => <div data-testid="sidebar">Sidebar</div>,
 }));
 
-vi.mock('./viewer', () => ({
-  Viewer: vi.fn(() => <div data-testid="viewer">Viewer</div>),
-  ViewerProvider: vi.fn(({ children }: { children: React.ReactNode }) => (
-    <div data-testid="viewer-provider">{children}</div>
-  )),
-  useSources: () => ({ sources: [] }),
+vi.mock('./main', () => ({
+  Main: () => <div data-testid="main">Main</div>,
 }));
 
-vi.mock('@/lib/util', () => ({
-  safeDigest: vi.fn(() =>
-    Promise.resolve({
-      getUint32: () => 0,
-    }),
-  ),
+vi.mock('./helpers', () => ({
+  SourcesFetcher: () => <div data-testid="sources-fetcher">SourcesFetcher</div>,
+  ConfigureContainerColors: () => <div data-testid="configure-container-colors">ConfigureContainerColors</div>,
 }));
 
-// Helper to render page with router
-const renderPage = (searchParams = '') => {
-  const router = createMemoryRouter(
-    [
-      {
-        path: '/',
-        element: <Page />,
-      },
-    ],
-    {
-      initialEntries: [`/${searchParams}`],
-    },
-  );
+vi.mock('./log-server-client', () => ({
+  LogServerClient: class MockLogServerClient {
+    constructor(opts: Record<string, unknown>) {
+      Object.assign(this, opts);
+    }
+  },
+}));
 
-  return render(<RouterProvider router={router} />);
-};
+// Test wrapper
+const TestWrapper = ({
+  children,
+  initialEntries = ['/'],
+}: {
+  children: React.ReactNode;
+  initialEntries?: string[];
+}) => <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>;
 
 describe('Console Page', () => {
-  it('renders the page with all main components', () => {
-    renderPage();
+  it('renders the page with all main components', async () => {
+    render(
+      <TestWrapper>
+        <Page />
+      </TestWrapper>,
+    );
 
     expect(screen.getByTestId('auth-required')).toBeInTheDocument();
     expect(screen.getByTestId('app-layout')).toBeInTheDocument();
-    expect(screen.getByTestId('viewer-provider')).toBeInTheDocument();
     expect(screen.getByTestId('header')).toBeInTheDocument();
-    expect(screen.getByTestId('sidebar')).toBeInTheDocument();
-    expect(screen.getByTestId('viewer')).toBeInTheDocument();
-  });
+    expect(screen.getByTestId('main')).toBeInTheDocument();
+    expect(screen.getByTestId('sources-fetcher')).toBeInTheDocument();
+    expect(screen.getByTestId('configure-container-colors')).toBeInTheDocument();
 
-  it('passes kubeContext from URL to ViewerProvider', () => {
-    renderPage('?kubeContext=my-cluster');
-
-    // The ViewerProvider should be called with the correct kubeContext
-    expect(ViewerProvider).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kubeContext: 'my-cluster',
-      }),
-      undefined, // Legacy context argument (unused in modern React)
-    );
-  });
-
-  it('passes single source from URL to ViewerProvider as array', () => {
-    renderPage('?source=s1');
-
-    // The ViewerProvider should be called with the correct kubeContext
-    expect(ViewerProvider).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sources: ['s1'],
-      }),
-      undefined, // Legacy context argument (unused in modern React)
-    );
-  });
-
-  it('passes multiple sources from URL to ViewerProvider', () => {
-    renderPage('?source=s1&source=s2');
-
-    // The ViewerProvider should be called with the correct kubeContext
-    expect(ViewerProvider).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sources: ['s1', 's2'],
-      }),
-      undefined, // Legacy context argument (unused in modern React)
-    );
-  });
-
-  it('passes sourceFilter query parameters from URL to ViewerProvider', () => {
-    renderPage('?region=us-west&zone=zone-a&os=linux&arch=amd64&node=node1&container=app');
-
-    // The ViewerProvider should be called with the correct kubeContext
-    expect(ViewerProvider).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sourceFilter: expect.objectContaining({
-          region: ['us-west'],
-          zone: ['zone-a'],
-          os: ['linux'],
-          arch: ['amd64'],
-          node: ['node1'],
-          container: ['app'],
-        }),
-      }),
-      undefined, // Legacy context argument (unused in modern React)
-    );
-  });
-
-  it('processes grep parameter as literal string', () => {
-    renderPage('?grep=error.*');
-
-    expect(ViewerProvider).toHaveBeenCalledWith(
-      expect.objectContaining({
-        grep: 'error\\.\\*',
-      }),
-      undefined, // Legacy context argument (unused in modern React)
-    );
-  });
-
-  it('processes grep parameter with regex format', () => {
-    renderPage('?grep=/error.*/');
-
-    expect(ViewerProvider).toHaveBeenCalledWith(
-      expect.objectContaining({
-        grep: 'error.*',
-      }),
-      undefined, // Legacy context argument (unused in modern React)
-    );
-  });
-
-  it('passes null grep when not provided', () => {
-    renderPage();
-
-    expect(ViewerProvider).toHaveBeenCalledWith(
-      expect.objectContaining({
-        grep: null,
-      }),
-      undefined, // Legacy context argument (unused in modern React)
-    );
-  });
-
-  it('passes mode to Viewer component', () => {
-    vi.mocked(Viewer).mockClear();
-
-    renderPage('?mode=tail');
-
-    expect(Viewer).toHaveBeenCalledWith(
-      expect.objectContaining({
-        defaultMode: 'tail',
-        defaultSince: null,
-      }),
-      undefined, // Legacy context argument (unused in modern React)
-    );
-  });
-
-  it('passes since to Viewer component', () => {
-    vi.mocked(Viewer).mockClear();
-
-    renderPage('?since=1h');
-
-    expect(Viewer).toHaveBeenCalledWith(
-      expect.objectContaining({
-        defaultMode: null,
-        defaultSince: '1h',
-      }),
-      undefined, // Legacy context argument (unused in modern React)
-    );
+    await waitFor(() => {
+      expect(screen.getByTestId('sidebar')).toBeInTheDocument();
+    });
   });
 });
 
@@ -203,7 +94,6 @@ describe('processedGrep logic', () => {
     const input = 'error.*[test]';
     const expected = 'error\\.\\*\\[test\\]';
 
-    // Test the regex escaping logic
     const result = input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     expect(result).toBe(expected);
   });
@@ -225,15 +115,25 @@ describe('processedGrep logic', () => {
 });
 
 describe('InnerLayout', () => {
-  it('renders sidebar when isSidebarOpen is true', () => {
-    renderPage();
+  it('renders sidebar when isSidebarOpen is true (default state)', async () => {
+    render(
+      <TestWrapper>
+        <Page />
+      </TestWrapper>,
+    );
 
-    expect(screen.getByTestId('sidebar')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('sidebar')).toBeInTheDocument();
+    });
   });
 
   it('renders main content area', () => {
-    renderPage();
+    render(
+      <TestWrapper>
+        <Page />
+      </TestWrapper>,
+    );
 
-    expect(screen.getByTestId('viewer')).toBeInTheDocument();
+    expect(screen.getByTestId('main')).toBeInTheDocument();
   });
 });

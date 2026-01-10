@@ -15,32 +15,22 @@
 import { atom } from 'jotai';
 
 import { MapSet } from '@/lib/util';
+import type { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 
 import { ViewerColumn } from './shared';
-import type { LogRecord } from './shared';
 
 /**
  * UI state
  */
 
-export const isReadyAtom = atom(false);
-
-export const isLoadingAtom = atom(true);
-
 export const isFollowAtom = atom(true);
-
-export const visibleColsAtom = atom(new Set([ViewerColumn.Timestamp, ViewerColumn.ColorDot, ViewerColumn.Message]));
 
 export const isWrapAtom = atom(false);
 
-export const colWidthsAtom = atom(new Map<ViewerColumn, number>());
-
-export const maxRowWidthAtom = atom(0);
+export const visibleColsAtom = atom(new Set([ViewerColumn.Timestamp, ViewerColumn.ColorDot, ViewerColumn.Message]));
 
 export const filtersAtom = atom(new MapSet<string, string>());
 
-/**
- * Data state
- */
+export const sourceMapAtom = atom(new Map<string, LogSourceFragmentFragment>());
 
-export const logRecordsAtom = atom(new Array<LogRecord>());
+export const sourcesAtom = atom((get) => Array.from(get(sourceMapAtom).values()));

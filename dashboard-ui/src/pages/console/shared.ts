@@ -14,13 +14,18 @@
 
 import { createContext } from 'react';
 
-export type { LogRecordsFragmentFragment as LogRecord } from '@/lib/graphql/dashboard/__generated__/graphql';
+import type { Client, LogViewerHandle } from '@/components/widgets/log-viewer';
 
 /**
  * Page context
  */
 
 type PageContextType = {
+  kubeContext: string | null;
+  shouldUseClusterAPI: boolean | undefined;
+  logServerClient: Client | undefined;
+  grep: string | null;
+  logViewerRef: React.RefObject<LogViewerHandle | null>;
   isSidebarOpen: boolean;
   setIsSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
 };

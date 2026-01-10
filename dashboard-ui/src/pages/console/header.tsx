@@ -33,13 +33,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@kubetail/ui/elements/p
 
 import { DateRangeDropdown } from '@/components/widgets/DateRangeDropdown';
 import type { DateRangeDropdownOnChangeArgs } from '@/components/widgets/DateRangeDropdown';
+import { useLogViewerState } from '@/components/widgets/log-viewer';
 import { cn } from '@/lib/util';
 
 import { ALL_VIEWER_COLUMNS, PageContext } from './shared';
 import type { ViewerColumn } from './shared';
-import { isWrapAtom, visibleColsAtom } from './state';
-import { useViewerMetadata } from './viewer';
-import type { ViewerHandle } from './viewer';
+import { isFollowAtom, isWrapAtom, visibleColsAtom } from './state';
 
 /**
  * Settings button
@@ -107,10 +106,13 @@ const SettingsButton = () => {
  * Header component
  */
 
-export const Header = ({ viewerRef }: { viewerRef: React.RefObject<ViewerHandle | null> }) => {
+export function Header() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isSidebarOpen, setIsSidebarOpen } = useContext(PageContext);
-  const feed = useViewerMetadata();
+  const { logServerClient, shouldUseClusterAPI, isSidebarOpen, setIsSidebarOpen, logViewerRef } =
+    useContext(PageContext);
+
+  const { isLoading } = useLogViewerState(logViewerRef, [logServerClient]);
+  const [isFollow, setIsFollow] = useAtom(isFollowAtom);
 
   const buttonCN =
     'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30';
@@ -119,37 +121,45 @@ export const Header = ({ viewerRef }: { viewerRef: React.RefObject<ViewerHandle 
     (args: DateRangeDropdownOnChangeArgs) => {
       if (args.since) {
         // Update location
-        const since = args.since.toISOString();
-        searchParams.set('mode', 'time');
-        searchParams.set('since', since);
+        const cursor = args.since.toISOString();
+        searchParams.set('mode', 'cursor');
+        searchParams.set('cursor', cursor);
         setSearchParams(new URLSearchParams(searchParams), { replace: true });
 
         // Execute command
-        viewerRef.current?.seekTime(since);
+        logViewerRef.current?.jumpToCursor(cursor);
       }
     },
-    [searchParams, setSearchParams],
+    [searchParams],
   );
 
-  const handleJumpToBeginningPress = useCallback(() => {
+  const handleJumpToBeginningPress = useCallback(async () => {
     // Update location
     searchParams.set('mode', 'head');
-    searchParams.delete('since');
+    searchParams.delete('cursor');
     setSearchParams(searchParams, { replace: true });
 
     // Execute command
-    viewerRef.current?.seekHead();
-  }, [searchParams, setSearchParams]);
+    await logViewerRef.current?.jumpToBeginning();
+  }, []);
 
-  const handleJumpToEndPress = useCallback(() => {
+  const handleJumpToEndPress = useCallback(async () => {
     // Update location
     searchParams.set('mode', 'tail');
-    searchParams.delete('since');
+    searchParams.delete('cursor');
     setSearchParams(new URLSearchParams(searchParams), { replace: true });
 
     // Execute command
-    viewerRef.current?.seekTail();
-  }, [searchParams, setSearchParams]);
+    await logViewerRef.current?.jumpToEnd();
+  }, []);
+
+  const handlePlayPress = useCallback(() => {
+    setIsFollow(true);
+  }, []);
+
+  const handlePausePress = useCallback(() => {
+    setIsFollow(false);
+  }, []);
 
   const handleSubmit = useCallback(
     (ev: React.FormEvent<HTMLFormElement>) => {
@@ -174,7 +184,13 @@ export const Header = ({ viewerRef }: { viewerRef: React.RefObject<ViewerHandle 
         )}
         <div className={cn('flex', isSidebarOpen ? 'px-4' : 'px-2')}>
           <DateRangeDropdown onChange={handleDateRangeDropdownChange}>
-            <button type="button" className={buttonCN} title="Jump to time" aria-label="Jump to time">
+            <button
+              type="button"
+              className={buttonCN}
+              title="Jump to time"
+              aria-label="Jump to time"
+              disabled={isLoading}
+            >
               <HistoryIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
             </button>
           </DateRangeDropdown>
@@ -184,16 +200,18 @@ export const Header = ({ viewerRef }: { viewerRef: React.RefObject<ViewerHandle 
             title="Jump to beginning"
             aria-label="Jump to beginning"
             onClick={handleJumpToBeginningPress}
+            disabled={isLoading}
           >
             <SkipBackIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
-          {feed.isFollow ? (
+          {isFollow ? (
             <button
               type="button"
               className={buttonCN}
               title="Pause"
               aria-label="Pause"
-              onClick={() => viewerRef.current?.pause()}
+              onClick={handlePausePress}
+              disabled={isLoading}
             >
               <PauseIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
             </button>
@@ -203,7 +221,8 @@ export const Header = ({ viewerRef }: { viewerRef: React.RefObject<ViewerHandle 
               className={buttonCN}
               title="Play"
               aria-label="Play"
-              onClick={() => viewerRef.current?.play()}
+              onClick={handlePlayPress}
+              disabled={isLoading}
             >
               <PlayIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
             </button>
@@ -214,18 +233,20 @@ export const Header = ({ viewerRef }: { viewerRef: React.RefObject<ViewerHandle 
             title="Jump to end"
             aria-label="Jump to end"
             onClick={handleJumpToEndPress}
+            disabled={isLoading}
           >
             <SkipForwardIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
           </button>
         </div>
         <div>
-          {feed.isSearchEnabled && (
+          {shouldUseClusterAPI && (
             <form onSubmit={handleSubmit}>
               <Input
                 name="grep"
-                className="w-[400px] bg-background"
+                className="w-100 bg-background"
                 placeholder="Match string or /regex/..."
                 defaultValue={searchParams.get('grep') || ''}
+                disabled={isLoading}
               />
             </form>
           )}
@@ -236,4 +257,4 @@ export const Header = ({ viewerRef }: { viewerRef: React.RefObject<ViewerHandle 
       </div>
     </div>
   );
-};
+}
