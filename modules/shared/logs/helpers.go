@@ -36,6 +36,14 @@ import (
 // We add 1 for the space delimiter
 const TIMESTAMP_MAX_SEARCH_LEN = 36
 
+// PaginationMode determines the direction of pagination
+type PaginationMode int
+
+const (
+	PaginationModeHead PaginationMode = iota
+	PaginationModeTail
+)
+
 var (
 	ErrExpectedData      = errors.New("expected data")
 	ErrBufCapacity       = errors.New("buffer capacity too low")
@@ -304,4 +312,31 @@ func getFirstTimestamp(ctx context.Context, clientset kubernetes.Interface, sour
 	}
 
 	return time.Parse(time.RFC3339Nano, strings.Fields(string(buf[:n]))[0])
+}
+
+// PaginateLogRecords applies cursor-based pagination to a slice of log records.
+// It handles both HEAD and TAIL modes:
+//   - HEAD mode: if there are more records than limit, uses the last record's timestamp as nextCursor
+//     and removes the last record
+//   - TAIL mode: if there are more records than limit, uses the first record's timestamp as nextCursor
+//     and removes the first record
+//
+// Returns the paginated records and the nextCursor (nil if no more pages).
+func PaginateLogRecords(records []LogRecord, limit int64, mode PaginationMode) ([]LogRecord, *string) {
+	if limit <= 0 || int64(len(records)) <= limit {
+		return records, nil
+	}
+
+	var nextCursor *string
+	if mode == PaginationModeHead {
+		peek := records[len(records)-1]
+		nextCursor = ptr.To(peek.Timestamp.Format(time.RFC3339Nano))
+		records = records[:len(records)-1]
+	} else {
+		peek := records[0]
+		nextCursor = ptr.To(peek.Timestamp.Format(time.RFC3339Nano))
+		records = records[1:]
+	}
+
+	return records, nextCursor
 }
