@@ -36,8 +36,12 @@ var configInitCmd = &cobra.Command{
 			targetPath = tmp
 		}
 
+		force, _ := cmd.Flags().GetBool("force")
 		if _, err := os.Stat(targetPath); err == nil {
-			zlog.Fatal().Msgf("Configuration file already exists: %s", targetPath)
+			if !force {
+				zlog.Fatal().Msgf("Configuration file already exists: %s", targetPath)
+			}
+			zlog.Info().Msgf("Overwriting existing configuration file: %s", targetPath)
 		}
 
 		configDir := filepath.Dir(targetPath)
@@ -64,4 +68,5 @@ func init() {
 	flagset := configInitCmd.Flags()
 	flagset.SortFlags = false
 	flagset.String("path", "", "Target path for configuration file (default is $HOME/.kubetail/config.yaml)")
+	flagset.Bool("force", false, "Overwrite existing configuration file")
 }
