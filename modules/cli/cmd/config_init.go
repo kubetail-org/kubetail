@@ -37,11 +37,10 @@ var configInitCmd = &cobra.Command{
 		}
 
 		force, _ := cmd.Flags().GetBool("force")
-		if _, err := os.Stat(targetPath); err == nil {
-			if !force {
+		if !force {
+			if _, err := os.Stat(targetPath); err == nil {
 				zlog.Fatal().Msgf("Configuration file already exists: %s", targetPath)
 			}
-			zlog.Info().Msgf("Overwriting existing configuration file: %s", targetPath)
 		}
 
 		configDir := filepath.Dir(targetPath)
