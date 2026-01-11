@@ -27,7 +27,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/vektah/gqlparser/v2/ast"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 
@@ -47,26 +47,26 @@ type Server struct {
 var allowedSecFetchSite = []string{"same-origin"}
 
 // Create new Server instance
-func NewServer(config *config.Config, cm k8shelpers.ConnectionManager) *Server {
+func NewServer(appConfig *dashcfg.Config, cm k8shelpers.ConnectionManager) *Server {
 	// Init health monitor
-	hm := clusterapi.NewHealthMonitor(config, cm)
+	hm := clusterapi.NewHealthMonitor(appConfig, cm)
 
 	// Init resolver
 	r := &Resolver{
-		config:            config,
+		config:            appConfig,
 		cm:                cm,
 		hm:                hm,
-		environment:       config.Dashboard.Environment,
-		allowedNamespaces: config.AllowedNamespaces,
+		environment:       appConfig.Environment,
+		allowedNamespaces: appConfig.AllowedNamespaces,
 	}
 
 	// Init config
-	cfg := Config{Resolvers: r}
-	cfg.Directives.Validate = directives.ValidateDirective
-	cfg.Directives.NullIfValidationFailed = directives.NullIfValidationFailedDirective
+	gqlCfg := Config{Resolvers: r}
+	gqlCfg.Directives.Validate = directives.ValidateDirective
+	gqlCfg.Directives.NullIfValidationFailed = directives.NullIfValidationFailedDirective
 
 	// Init schema
-	schema := NewExecutableSchema(cfg)
+	schema := NewExecutableSchema(gqlCfg)
 
 	// Init handler
 	h := handler.New(schema)
@@ -84,7 +84,7 @@ func NewServer(config *config.Config, cm k8shelpers.ConnectionManager) *Server {
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				// Allow all if CSRF protection is disabled
-				if !config.Dashboard.CSRF.Enabled {
+				if !appConfig.CSRF.Enabled {
 					return true
 				}
 

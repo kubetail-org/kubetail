@@ -20,7 +20,7 @@ The Kubetail Cluster Agent executable supports the following command line config
 
 ### Config params
 
-The Kubetail Cluster Agent can be configured using a configuration file written in YAML, JSON, TOML, INI, RON or JSON5 format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [hack/config.yaml](../../hack/config.yaml)):
+The Kubetail Cluster Agent can be configured using a configuration file written in YAML, JSON, TOML, INI, RON or JSON5 format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [config/default/cluster-agent.yaml](../../config/default/cluster-agent.yaml)):
 
 | Name                         | Datatype | Description                              | Default  | Status |
 | ---------------------------- | -------- | ---------------------------------------- | -------- | ------ |

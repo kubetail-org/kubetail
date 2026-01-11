@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 )
@@ -17,11 +17,11 @@ func TestLoadServerConfig_Defaults(t *testing.T) {
 	assert.NoError(t, err)
 
 	// validate config
-	assert.Equal(t, "localhost:7500", cfg.Dashboard.Addr)
-	assert.Equal(t, "info", cfg.Dashboard.Logging.Level)
-	assert.Equal(t, config.EnvironmentDesktop, cfg.Dashboard.Environment)
+	assert.Equal(t, "localhost:7500", cfg.Addr)
+	assert.Equal(t, "info", cfg.Logging.Level)
+	assert.Equal(t, sharedcfg.EnvironmentDesktop, cfg.Environment)
 	assert.Equal(t, "", cfg.KubeconfigPath)
-	assert.Equal(t, false, cfg.Dashboard.Logging.AccessLog.Enabled)
+	assert.Equal(t, false, cfg.Logging.AccessLog.Enabled)
 
 	// validate serveOptions
 	assert.Equal(t, 7500, opts.port)
@@ -64,15 +64,15 @@ func TestLoadServerConfig(t *testing.T) {
 		assert.NoError(t, err)
 
 		// validate config
-		assert.Equal(t, cfg.Dashboard.Addr, fmt.Sprintf("%s:%d", val.host, val.port))
-		assert.Equal(t, cfg.Dashboard.Logging.Level, val.logLevel)
+		assert.Equal(t, cfg.Addr, fmt.Sprintf("%s:%d", val.host, val.port))
+		assert.Equal(t, cfg.Logging.Level, val.logLevel)
 		assert.Equal(t, cfg.KubeconfigPath, val.kubeconfig)
-		assert.Equal(t, cfg.Dashboard.Logging.AccessLog.Enabled, false)
+		assert.Equal(t, cfg.Logging.AccessLog.Enabled, false)
 
 		if val.inCluster {
-			assert.Equal(t, cfg.Dashboard.Environment, config.EnvironmentCluster)
+			assert.Equal(t, cfg.Environment, sharedcfg.EnvironmentCluster)
 		} else {
-			assert.Equal(t, cfg.Dashboard.Environment, config.EnvironmentDesktop)
+			assert.Equal(t, cfg.Environment, sharedcfg.EnvironmentDesktop)
 		}
 
 		// validate serveOptions

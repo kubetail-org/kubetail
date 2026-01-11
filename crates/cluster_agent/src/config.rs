@@ -43,12 +43,6 @@ struct ConfigInternal {
 }
 
 #[derive(Deserialize, Debug)]
-struct FullConfig {
-    #[serde(rename(deserialize = "cluster-agent"))]
-    cluster_agent: ConfigInternal,
-}
-
-#[derive(Deserialize, Debug)]
 pub struct LoggingConfig {
     pub enabled: bool,
     pub level: String,
@@ -84,16 +78,15 @@ impl Config {
         let mut settings = Self::builder_with_defaults()?;
 
         for (config_key, config_value) in overrides {
-            settings =
-                settings.set_override("cluster-agent.".to_owned() + &config_key, config_value)?;
+            settings = settings.set_override(config_key, config_value)?;
         }
 
         let settings = settings
             .add_source(File::from_str(&config_content, format))
             .build()?;
 
-        let full_config: FullConfig = settings.try_deserialize()?;
-        let tls = full_config.cluster_agent.tls;
+        let cfg: ConfigInternal = settings.try_deserialize()?;
+        let tls = cfg.tls;
 
         if tls.enabled {
             if tls.cert_file.is_none() || tls.key_file.is_none() {
@@ -115,9 +108,9 @@ impl Config {
         }
 
         Ok(Self {
-            address: Self::parse_address(&full_config.cluster_agent.address)?,
-            logs_dir: full_config.cluster_agent.logs_dir,
-            logging: full_config.cluster_agent.logging,
+            address: Self::parse_address(&cfg.address)?,
+            logs_dir: cfg.logs_dir,
+            logging: cfg.logging,
             tls,
         })
     }
@@ -136,12 +129,12 @@ impl Config {
 
     fn builder_with_defaults() -> Result<config::ConfigBuilder<DefaultState>, config::ConfigError> {
         config::Config::builder()
-            .set_default("cluster-agent.addr", "[::]:50051")?
-            .set_default("cluster-agent.container-logs-dir", "/var/log/containers")?
-            .set_default("cluster-agent.logging.enabled", true)?
-            .set_default("cluster-agent.logging.level", "info")?
-            .set_default("cluster-agent.logging.format", "json")?
-            .set_default("cluster-agent.tls.enabled", false)
+            .set_default("addr", "[::]:50051")?
+            .set_default("container-logs-dir", "/var/log/containers")?
+            .set_default("logging.enabled", true)?
+            .set_default("logging.level", "info")?
+            .set_default("logging.format", "json")?
+            .set_default("tls.enabled", false)
     }
 
     fn get_format(path: &Path) -> Result<FileFormat, Box<io::Error>> {
@@ -191,15 +184,14 @@ mod tests {
     #[tokio::test]
     #[serial]
     async fn test_parse_basic_yaml_config() {
-        let config_content = r#"cluster-agent:
-  addr: "127.0.0.1:8080"
-  container-logs-dir: "/test/logs"
-  logging:
-    enabled: true
-    level: "debug"
-    format: "json"
-  tls:
-    enabled: false
+        let config_content = r#"addr: "127.0.0.1:8080"
+container-logs-dir: "/test/logs"
+logging:
+  enabled: true
+  level: "debug"
+  format: "json"
+tls:
+  enabled: false
 "#;
         let file = create_config_file(config_content, ".yaml");
 
@@ -218,15 +210,14 @@ mod tests {
     #[tokio::test]
     #[serial]
     async fn test_parse_shorthand_address() {
-        let config_content = r#"cluster-agent:
-  addr: ":9090"
-  container-logs-dir: "/logs"
-  logging:
-    enabled: true
-    level: "info"
-    format: "json"
-  tls:
-    enabled: false
+        let config_content = r#"addr: ":9090"
+container-logs-dir: "/logs"
+logging:
+  enabled: true
+  level: "info"
+  format: "json"
+tls:
+  enabled: false
 "#;
         let file = create_config_file(config_content, ".yaml");
 
@@ -240,15 +231,14 @@ mod tests {
     #[tokio::test]
     #[serial]
     async fn test_parse_with_overrides() {
-        let config_content = r#"cluster-agent:
-  addr: "127.0.0.1:8080"
-  container-logs-dir: "/logs"
-  logging:
-    enabled: true
-    level: "info"
-    format: "json"
-  tls:
-    enabled: false
+        let config_content = r#"addr: "127.0.0.1:8080"
+container-logs-dir: "/logs"
+logging:
+  enabled: true
+  level: "info"
+  format: "json"
+tls:
+  enabled: false
 "#;
         let file = create_config_file(config_content, ".yaml");
 
@@ -269,17 +259,15 @@ mod tests {
     #[serial]
     async fn test_parse_json_format() {
         let config_content = r#"{
-  "cluster-agent": {
-    "addr": "0.0.0.0:3000",
-    "container-logs-dir": "/var/logs",
-    "logging": {
-      "enabled": false,
-      "level": "error",
-      "format": "text"
-    },
-    "tls": {
-      "enabled": false
-    }
+  "addr": "0.0.0.0:3000",
+  "container-logs-dir": "/var/logs",
+  "logging": {
+    "enabled": false,
+    "level": "error",
+    "format": "text"
+  },
+  "tls": {
+    "enabled": false
   }
 }"#;
         let file = create_config_file(config_content, ".json");
@@ -295,16 +283,15 @@ mod tests {
     #[tokio::test]
     #[serial]
     async fn test_parse_toml_format() {
-        let config_content = r#"[cluster-agent]
-addr = ":7070"
+        let config_content = r#"addr = ":7070"
 container-logs-dir = "/toml/logs"
 
-[cluster-agent.logging]
+[logging]
 enabled = true
 level = "info"
 format = "json"
 
-[cluster-agent.tls]
+[tls]
 enabled = false
 "#;
         let file = create_config_file(config_content, ".toml");
@@ -319,15 +306,14 @@ enabled = false
     #[tokio::test]
     #[serial]
     async fn test_tls_enabled_without_cert_files_fails() {
-        let config_content = r#"cluster-agent:
-  addr: ":8080"
-  container-logs-dir: "/logs"
-  logging:
-    enabled: true
-    level: "info"
-    format: "json"
-  tls:
-    enabled: true
+        let config_content = r#"addr: ":8080"
+container-logs-dir: "/logs"
+logging:
+  enabled: true
+  level: "info"
+  format: "json"
+tls:
+  enabled: true
 "#;
         let file = create_config_file(config_content, ".yaml");
 
@@ -344,18 +330,17 @@ enabled = false
     #[tokio::test]
     #[serial]
     async fn test_tls_require_and_verify_without_ca_fails() {
-        let config_content = r#"cluster-agent:
-  addr: ":8080"
-  container-logs-dir: "/logs"
-  logging:
-    enabled: true
-    level: "info"
-    format: "json"
-  tls:
-    enabled: true
-    cert-file: "/path/to/cert.pem"
-    key-file: "/path/to/key.pem"
-    client-auth: "require-and-verify"
+        let config_content = r#"addr: ":8080"
+container-logs-dir: "/logs"
+logging:
+  enabled: true
+  level: "info"
+  format: "json"
+tls:
+  enabled: true
+  cert-file: "/path/to/cert.pem"
+  key-file: "/path/to/key.pem"
+  client-auth: "require-and-verify"
 "#;
         let file = create_config_file(config_content, ".yaml");
 
@@ -372,19 +357,18 @@ enabled = false
     #[tokio::test]
     #[serial]
     async fn test_tls_enabled_with_all_files_succeeds() {
-        let config_content = r#"cluster-agent:
-  addr: ":8080"
-  container-logs-dir: "/logs"
-  logging:
-    enabled: true
-    level: "info"
-    format: "json"
-  tls:
-    enabled: true
-    cert-file: "/path/to/cert.pem"
-    key-file: "/path/to/key.pem"
-    ca-file: "/path/to/ca.pem"
-    client-auth: "require-and-verify"
+        let config_content = r#"addr: ":8080"
+container-logs-dir: "/logs"
+logging:
+  enabled: true
+  level: "info"
+  format: "json"
+tls:
+  enabled: true
+  cert-file: "/path/to/cert.pem"
+  key-file: "/path/to/key.pem"
+  ca-file: "/path/to/ca.pem"
+  client-auth: "require-and-verify"
 "#;
         let file = create_config_file(config_content, ".yaml");
 
@@ -408,9 +392,8 @@ enabled = false
     #[tokio::test]
     #[serial]
     async fn test_parse_with_defaults() {
-        let config_content = r#"cluster-agent:
-  tls:
-    enabled: false
+        let config_content = r#"tls:
+  enabled: false
 "#;
         let file = create_config_file(config_content, ".yaml");
 

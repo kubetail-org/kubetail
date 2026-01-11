@@ -19,7 +19,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	capicfg "github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
 )
 
 func init() {
@@ -27,16 +27,16 @@ func init() {
 }
 
 // Create new base config for testing
-func NewTestConfig() *config.Config {
-	cfg := config.Config{}
-	cfg.ClusterAPI.BasePath = "/"
-	cfg.ClusterAPI.Logging.AccessLog.Enabled = false
-	cfg.ClusterAPI.CSRF.Enabled = false
-	return &cfg
+func NewTestConfig() *capicfg.Config {
+	cfg := capicfg.DefaultConfig()
+	cfg.BasePath = "/"
+	cfg.Logging.AccessLog.Enabled = false
+	cfg.CSRF.Enabled = false
+	return cfg
 }
 
 // Create new app for testing
-func NewTestApp(cfg *config.Config) *App {
+func NewTestApp(cfg *capicfg.Config) *App {
 	if cfg == nil {
 		cfg = NewTestConfig()
 	}

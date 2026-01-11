@@ -34,8 +34,9 @@ import (
 	k8sruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/logging"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/app"
 )
@@ -76,19 +77,19 @@ func main() {
 			}
 
 			// Init config
-			cfg, err := config.NewConfig(v, cli.Config)
+			cfg, err := dashcfg.NewConfig(v, cli.Config)
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
 
 			// set gin mode
-			gin.SetMode(cfg.Dashboard.GinMode)
+			gin.SetMode(cfg.GinMode)
 
 			// Configure logger
-			config.ConfigureLogger(config.LoggerOptions{
-				Enabled: cfg.Dashboard.Logging.Enabled,
-				Level:   cfg.Dashboard.Logging.Level,
-				Format:  cfg.Dashboard.Logging.Format,
+			logging.ConfigureLogger(logging.LoggerOptions{
+				Enabled: cfg.Logging.Enabled,
+				Level:   cfg.Logging.Level,
+				Format:  cfg.Logging.Format,
 			})
 
 			// Capture unhandled kubernetes client errors
@@ -110,7 +111,7 @@ func main() {
 
 			// Create server
 			server := &http.Server{
-				Addr:         cfg.Dashboard.Addr,
+				Addr:         cfg.Addr,
 				Handler:      app,
 				IdleTimeout:  1 * time.Minute,
 				ReadTimeout:  5 * time.Second,
@@ -120,10 +121,10 @@ func main() {
 			// Run server in goroutine
 			go func() {
 				var serverErr error
-				zlog.Info().Msg("Starting server on " + cfg.Dashboard.Addr)
+				zlog.Info().Msg("Starting server on " + cfg.Addr)
 
-				if cfg.Dashboard.TLS.Enabled {
-					serverErr = server.ListenAndServeTLS(cfg.Dashboard.TLS.CertFile, cfg.Dashboard.TLS.KeyFile)
+				if cfg.TLS.Enabled {
+					serverErr = server.ListenAndServeTLS(cfg.TLS.CertFile, cfg.TLS.KeyFile)
 				} else {
 					serverErr = server.ListenAndServe()
 				}

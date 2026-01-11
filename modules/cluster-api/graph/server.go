@@ -29,7 +29,7 @@ import (
 
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	capicfg "github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
@@ -46,17 +46,17 @@ type Server struct {
 var allowedSecFetchSite = []string{"same-origin"}
 
 // Create new Server instance
-func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string) *Server {
+func NewServer(appConfig *capicfg.Config, cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string) *Server {
 	// Init resolver
 	r := &Resolver{cm, grpcDispatcher, allowedNamespaces}
 
 	// Init config
-	cfg := Config{Resolvers: r}
-	cfg.Directives.Validate = directives.ValidateDirective
-	cfg.Directives.NullIfValidationFailed = directives.NullIfValidationFailedDirective
+	gqlCfg := Config{Resolvers: r}
+	gqlCfg.Directives.Validate = directives.ValidateDirective
+	gqlCfg.Directives.NullIfValidationFailed = directives.NullIfValidationFailedDirective
 
 	// Init schema
-	schema := NewExecutableSchema(cfg)
+	schema := NewExecutableSchema(gqlCfg)
 
 	// Init handler
 	h := handler.New(schema)
@@ -74,7 +74,7 @@ func NewServer(config *config.Config, cm k8shelpers.ConnectionManager, grpcDispa
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				// Allow all if CSRF protection is disabled
-				if !config.ClusterAPI.CSRF.Enabled {
+				if !appConfig.CSRF.Enabled {
 					return true
 				}
 

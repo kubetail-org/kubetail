@@ -22,7 +22,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	capicfg "github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/testutils"
 )
 
@@ -73,8 +73,8 @@ func TestServer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := &config.Config{}
-			cfg.ClusterAPI.CSRF.Enabled = tt.setCsrfEnabled
+			cfg := capicfg.DefaultConfig()
+			cfg.CSRF.Enabled = tt.setCsrfEnabled
 
 			graphqlServer := NewServer(cfg, nil, nil, []string{})
 

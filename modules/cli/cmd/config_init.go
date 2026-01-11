@@ -5,7 +5,8 @@ import (
 	"path/filepath"
 
 	"github.com/kubetail-org/kubetail/modules/cli/assets"
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	"github.com/kubetail-org/kubetail/modules/cli/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/shared/logging"
 	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
@@ -20,7 +21,7 @@ var configInitCmd = &cobra.Command{
 	Long:  configInitHelp,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		// Configure logger
-		config.ConfigureLogger(config.LoggerOptions{
+		logging.ConfigureLogger(logging.LoggerOptions{
 			Enabled: true,
 			Level:   "info",
 			Format:  "cli",

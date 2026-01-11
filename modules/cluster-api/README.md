@@ -17,7 +17,7 @@ The Kubetail Cluster API executable supports the following command line configur
 
 ### Config file
 
-The Kubetail Cluster API executable can be configured using a configuration file written in YAML, JSON, TOML, HCL or envfile format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [hack/config.yaml](../../hack/config.yaml)):
+The Kubetail Cluster API executable can be configured using a configuration file written in YAML, JSON, TOML, HCL or envfile format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [config/default/cluster-api.yaml](../../config/default/cluster-api.yaml)):
 
 | Name                                              | Datatype | Description                                        | Default                                     | Status |
 | ------------------------------------------------- | -------- | -------------------------------------------------- | ------------------------------------------- | ------ |
