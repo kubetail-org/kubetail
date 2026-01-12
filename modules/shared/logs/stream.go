@@ -209,8 +209,7 @@ func (s *Stream) Err() error {
 // Close stops internal data fetchers and closes the output channel
 func (s *Stream) Close() {
 	// Remove source watcher event handlers
-	s.sw.Unsubscribe(SourceWatcherEventAdded, s.handleSourceAdd)
-	s.sw.Unsubscribe(SourceWatcherEventDeleted, s.handleSourceDelete)
+	s.sw.Close()
 
 	// Stop background processes
 	s.rootCtxCancel()

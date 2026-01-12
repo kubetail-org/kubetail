@@ -154,7 +154,7 @@ func TestMultipleContainers(t *testing.T) {
 			sw.handleWorkloadAdd(mockPod)
 
 			// Wait for events
-			sw.eventbus.WaitAsync()
+			sw.mp.Drain()
 
 			// Verify results
 			assert.ElementsMatch(t, tt.wantSources, sw.sources.ToSlice())
@@ -262,7 +262,7 @@ func TestHandleWorkloadAdd(t *testing.T) {
 			sw.handleWorkloadAdd(tt.addObj)
 
 			// Wait for events
-			sw.eventbus.WaitAsync()
+			sw.mp.Drain()
 
 			// Verify results
 			assert.ElementsMatch(t, tt.wantSources, sw.sources.ToSlice())
@@ -382,7 +382,7 @@ func TestHandleWorkloadDelete(t *testing.T) {
 			sw.handleWorkloadDelete(tt.deleteObj)
 
 			// Wait for events
-			sw.eventbus.WaitAsync()
+			sw.mp.Drain()
 
 			// Verify results
 			assert.ElementsMatch(t, tt.wantSources, sw.sources.ToSlice())

@@ -104,6 +104,15 @@ type mockSourceWatcher struct {
 	mock.Mock
 }
 
+func (m *mockSourceWatcher) hasExpectedCall(name string) bool {
+	for _, call := range m.ExpectedCalls {
+		if call.Method == name {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *mockSourceWatcher) Start(ctx context.Context) error {
 	ret := m.Called(ctx)
 	return ret.Error(0)
@@ -120,15 +129,30 @@ func (m *mockSourceWatcher) Set() set.Set[LogSource] {
 	return r0
 }
 
-func (m *mockSourceWatcher) Subscribe(event SourceWatcherEvent, fn any) {
-	m.Called(event, fn)
-}
+func (m *mockSourceWatcher) Subscribe(event SourceWatcherEvent, fn func(LogSource)) (Subscription, error) {
+	if !m.hasExpectedCall("Subscribe") {
+		return nil, nil
+	}
 
-func (m *mockSourceWatcher) Unsubscribe(event SourceWatcherEvent, fn any) {
-	m.Called(event, fn)
+	ret := m.Called(event, fn)
+
+	var r0 Subscription
+	if len(ret) > 0 && ret.Get(0) != nil {
+		r0 = ret.Get(0).(Subscription)
+	}
+
+	if len(ret) < 2 {
+		return r0, nil
+	}
+
+	return r0, ret.Error(1)
 }
 
 func (m *mockSourceWatcher) Close() {
+	if !m.hasExpectedCall("Close") {
+		return
+	}
+
 	m.Called()
 }
 

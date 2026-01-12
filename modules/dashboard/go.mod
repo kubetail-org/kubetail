@@ -10,7 +10,6 @@ replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
 
 require (
 	github.com/99designs/gqlgen v0.17.75
-	github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef
 	github.com/gin-contrib/gzip v1.2.5
 	github.com/gin-contrib/requestid v1.0.5
 	github.com/gin-contrib/secure v1.1.2
@@ -20,6 +19,7 @@ require (
 	github.com/go-playground/validator/v10 v10.28.0
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/kubetail-org/kubetail/modules/shared v0.0.0-00010101000000-000000000000
+	github.com/kubetail-org/megaphone v0.0.1
 	github.com/rs/zerolog v1.34.0
 	github.com/sosodev/duration v1.3.1
 	github.com/spf13/cobra v1.9.1
@@ -46,6 +46,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/Masterminds/squirrel v1.5.4 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
+	github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
