@@ -29,6 +29,14 @@ import (
 
 const DEFAULT_MAX_CHUNK_SIZE = 16 * 1024 // 16 KB
 
+// Streamer interface defines the methods for consuming a stream
+type Streamer interface {
+	Sources() []LogSource
+	Records() <-chan LogRecord
+	Err() error
+	Close()
+}
+
 // LogRecord represents a log record
 type LogRecord struct {
 	Timestamp time.Time
