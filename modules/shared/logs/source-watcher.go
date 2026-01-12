@@ -21,7 +21,6 @@ import (
 	"strings"
 	"sync"
 
-	evbus "github.com/asaskevich/EventBus"
 	set "github.com/deckarep/golang-set/v2"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -30,8 +29,16 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/kubetail-org/megaphone"
+
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
+
+// Subscription represents an active subscription that can be cancelled
+type Subscription interface {
+	Unsubscribe()
+	Drain()
+}
 
 // Event enum
 type SourceWatcherEvent string
@@ -69,15 +76,14 @@ type LogSourceMetadata struct {
 type SourceWatcher interface {
 	Start(ctx context.Context) error
 	Set() set.Set[LogSource]
-	Subscribe(event SourceWatcherEvent, fn any)
-	Unsubscribe(event SourceWatcherEvent, fn any)
+	Subscribe(event SourceWatcherEvent, fn func(LogSource)) (Subscription, error)
 	Close()
 }
 
 // Represents SourceWatcher
 type sourceWatcher struct {
-	cm       k8shelpers.ConnectionManager
-	eventbus evbus.Bus
+	cm k8shelpers.ConnectionManager
+	mp megaphone.Megaphone[LogSource]
 
 	kubeContext   string
 	bearerToken   string
@@ -105,12 +111,12 @@ type sourceWatcher struct {
 func NewSourceWatcher(cm k8shelpers.ConnectionManager, sourcePaths []string, opts ...Option) (SourceWatcher, error) {
 	// Init source watcher instance
 	sw := &sourceWatcher{
-		cm:       cm,
-		sources:  set.NewSet[LogSource](),
-		index:    newWorkloadIndex(),
-		nodeMap:  make(map[string]*corev1.Node),
-		eventbus: evbus.New(),
-		stopCh:   make(chan struct{}),
+		cm:      cm,
+		sources: set.NewSet[LogSource](),
+		index:   newWorkloadIndex(),
+		nodeMap: make(map[string]*corev1.Node),
+		mp:      megaphone.New[LogSource](),
+		stopCh:  make(chan struct{}),
 	}
 
 	// Apply options
@@ -152,20 +158,15 @@ func (w *sourceWatcher) Set() set.Set[LogSource] {
 }
 
 // Subscribe to events
-func (w *sourceWatcher) Subscribe(event SourceWatcherEvent, fn any) {
-	w.eventbus.SubscribeAsync(string(event), fn, true)
-}
-
-// Unsubscribe from events
-func (w *sourceWatcher) Unsubscribe(event SourceWatcherEvent, fn any) {
-	w.eventbus.Unsubscribe(string(event), fn)
+func (w *sourceWatcher) Subscribe(event SourceWatcherEvent, fn func(LogSource)) (Subscription, error) {
+	return w.mp.Subscribe(string(event), fn)
 }
 
 // Close background processes
 func (w *sourceWatcher) Close() {
 	w.closeOnce.Do(func() {
 		close(w.stopCh)
-		w.eventbus.WaitAsync()
+		w.mp.Drain()
 	})
 }
 
@@ -456,13 +457,13 @@ func (w *sourceWatcher) updateSources_UNSAFE() {
 
 	// Publish ADDED events
 	wantSources.Difference(w.sources).Each(func(source LogSource) bool {
-		w.eventbus.Publish("ADDED", source)
+		w.mp.Publish("ADDED", source)
 		return false // continue
 	})
 
 	// Publish DELETED events
 	w.sources.Difference(wantSources).Each(func(source LogSource) bool {
-		w.eventbus.Publish("DELETED", source)
+		w.mp.Publish("DELETED", source)
 		return false // continue
 	})
 

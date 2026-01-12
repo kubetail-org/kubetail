@@ -20,21 +20,28 @@ import (
 	"sync"
 	"time"
 
-	evbus "github.com/asaskevich/EventBus"
 	"github.com/fsnotify/fsnotify"
 	zlog "github.com/rs/zerolog/log"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/kubetail-org/megaphone"
 )
 
 const HOMEPATH_TILDE = "~"
+
+// Subscription represents an active subscription that can be cancelled
+type Subscription interface {
+	Unsubscribe()
+	Drain()
+}
 
 // Represents KubeConfigWatcher
 type KubeConfigWatcher struct {
 	kubeConfig   *api.Config
 	loadingRules *clientcmd.ClientConfigLoadingRules
 	watcher      *fsnotify.Watcher
-	eventbus     evbus.Bus
+	mp           megaphone.Megaphone[*api.Config]
 	mu           sync.RWMutex
 }
 
@@ -66,7 +73,7 @@ func NewKubeConfigWatcher(kubeconfigPath string) (*KubeConfigWatcher, error) {
 	w := &KubeConfigWatcher{
 		loadingRules: loadingRules,
 		watcher:      watcher,
-		eventbus:     evbus.New(),
+		mp:           megaphone.New[*api.Config](),
 	}
 
 	// Initialize config
@@ -91,18 +98,14 @@ func (w *KubeConfigWatcher) Get() *api.Config {
 }
 
 // Subscribe
-func (w *KubeConfigWatcher) Subscribe(fn any) {
-	w.eventbus.Subscribe("MODIFIED", fn)
-}
-
-// Unsubscribe
-func (w *KubeConfigWatcher) Unsubscribe(fn any) {
-	w.eventbus.Unsubscribe("MODIFIED", fn)
+func (w *KubeConfigWatcher) Subscribe(fn func(*api.Config)) (Subscription, error) {
+	return w.mp.Subscribe("MODIFIED", fn)
 }
 
 // Close
 func (w *KubeConfigWatcher) Close() {
 	w.watcher.Close()
+	w.mp.Drain()
 }
 
 // Start
@@ -143,7 +146,7 @@ func (w *KubeConfigWatcher) start() {
 					}
 
 					// Publish event
-					w.eventbus.Publish("MODIFIED", w.kubeConfig)
+					w.mp.Publish("MODIFIED", w.kubeConfig)
 				})
 			}
 		}

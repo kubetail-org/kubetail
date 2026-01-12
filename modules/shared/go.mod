@@ -9,7 +9,6 @@ replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
 require (
 	github.com/99designs/gqlgen v0.17.75
 	github.com/Masterminds/semver/v3 v3.3.1
-	github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef
 	github.com/deckarep/golang-set/v2 v2.8.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-contrib/requestid v1.0.5
@@ -18,6 +17,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
 	github.com/kubetail-org/grpc-dispatcher-go v0.1.5
+	github.com/kubetail-org/megaphone v0.0.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/viper v1.20.1
@@ -47,6 +47,7 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/Masterminds/squirrel v1.5.4 // indirect
+	github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect

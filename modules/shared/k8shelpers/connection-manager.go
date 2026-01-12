@@ -128,7 +128,6 @@ func (cm *DesktopConnectionManager) Shutdown(ctx context.Context) error {
 	})
 
 	// Unsubscribe from config watcher events and close
-	cm.KubeConfigWatcher.Unsubscribe(cm.kubeConfigModified)
 	cm.KubeConfigWatcher.Close()
 
 	// Wait for shutdown to complete or context to close

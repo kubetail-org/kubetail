@@ -20,8 +20,6 @@ import (
 	"sync"
 	"time"
 
-	evbus "github.com/asaskevich/EventBus"
-	zlog "github.com/rs/zerolog/log"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -33,6 +31,7 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/util"
+	"github.com/kubetail-org/megaphone"
 )
 
 // Represents HealthStatus enum
@@ -291,7 +290,7 @@ type endpointSlicesHealthMonitorWorker struct {
 	factory    informers.SharedInformerFactory
 	informer   cache.SharedIndexInformer
 	esCache    map[string]*discoveryv1.EndpointSlice
-	eventbus   evbus.Bus
+	mp         megaphone.Megaphone[HealthStatus]
 	shutdownCh chan struct{}
 	mu         sync.RWMutex
 }
@@ -316,7 +315,7 @@ func newEndpointSlicesHealthMonitorWorker(clientset kubernetes.Interface, namesp
 		factory:    factory,
 		informer:   informer,
 		esCache:    make(map[string]*discoveryv1.EndpointSlice),
-		eventbus:   evbus.New(),
+		mp:         megaphone.New[HealthStatus](),
 		shutdownCh: make(chan struct{}),
 	}
 
@@ -393,7 +392,7 @@ func (w *endpointSlicesHealthMonitorWorker) WatchHealthStatus(ctx context.Contex
 	}
 
 	// Subscribe to updates
-	err := w.eventbus.SubscribeAsync("UPDATE", sendStatus, true)
+	sub, err := w.mp.Subscribe("UPDATE", sendStatus)
 	if err != nil {
 		return nil, err
 	}
@@ -405,12 +404,10 @@ func (w *endpointSlicesHealthMonitorWorker) WatchHealthStatus(ctx context.Contex
 		// Wait for client to close
 		<-ctx.Done()
 
-		// Unsubscribe and close output channel
-		err := w.eventbus.Unsubscribe("UPDATE", sendStatus)
-		if err != nil {
-			zlog.Error().Err(err).Caller().Send()
-		}
+		// Unsubscribe
+		sub.Drain()
 
+		// Close output channel
 		close(outCh)
 	}()
 
@@ -494,7 +491,7 @@ func (w *endpointSlicesHealthMonitorWorker) updateHealthStatus_UNSAFE() {
 
 	if newStatus != w.lastStatus {
 		w.lastStatus = newStatus
-		w.eventbus.Publish("UPDATE", newStatus)
+		w.mp.Publish("UPDATE", newStatus)
 	}
 }
 

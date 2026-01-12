@@ -957,8 +957,21 @@ func (r *subscriptionResolver) KubeConfigWatch(ctx context.Context) (<-chan *mod
 	outCh := make(chan *model.KubeConfigWatchEvent)
 
 	go func() {
-		// Define callback handler
-		handler := func(newConfig *api.Config) {
+		defer close(outCh)
+
+		// Send initial config
+		ev := &model.KubeConfigWatchEvent{
+			Type:   watch.Added,
+			Object: &model.KubeConfig{Config: cm.GetKubeConfig()},
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case outCh <- ev:
+		}
+
+		// Register callback handler
+		sub, err := cm.KubeConfigWatcher.Subscribe(func(newConfig *api.Config) {
 			// Send MODIFIED event
 			ev := &model.KubeConfigWatchEvent{
 				Type:   watch.Modified,
@@ -968,26 +981,12 @@ func (r *subscriptionResolver) KubeConfigWatch(ctx context.Context) (<-chan *mod
 			case <-ctx.Done():
 			case outCh <- ev:
 			}
+		})
+		if err != nil {
+			return
 		}
 
-		// Close channel and unregister handlers on client close
-		defer func() {
-			cm.KubeConfigWatcher.Unsubscribe(handler)
-			close(outCh)
-		}()
-
-		// Send initial config
-		ev := &model.KubeConfigWatchEvent{
-			Type:   watch.Added,
-			Object: &model.KubeConfig{Config: cm.GetKubeConfig()},
-		}
-		select {
-		case <-ctx.Done():
-		case outCh <- ev:
-		}
-
-		// Register handlers
-		cm.KubeConfigWatcher.Subscribe(handler)
+		defer sub.Drain()
 
 		// Wait for client close
 		<-ctx.Done()
@@ -1094,7 +1093,10 @@ func (r *subscriptionResolver) LogSourcesWatch(ctx context.Context, kubeContext 
 
 	// Start source watcher
 	go func() {
-		handleSourceAdd := func(source logs.LogSource) {
+		defer close(outCh)
+
+		// Handle ADD events
+		_, err := sw.Subscribe(logs.SourceWatcherEventAdded, func(source logs.LogSource) {
 			ev := &model.LogSourceWatchEvent{
 				Type:   watch.Added,
 				Object: &source,
@@ -1104,9 +1106,13 @@ func (r *subscriptionResolver) LogSourcesWatch(ctx context.Context, kubeContext 
 			case <-ctx.Done():
 			case outCh <- ev:
 			}
+		})
+		if err != nil {
+			return
 		}
 
-		handleSourceDelete := func(source logs.LogSource) {
+		// Handle DELETE events
+		_, err = sw.Subscribe(logs.SourceWatcherEventDeleted, func(source logs.LogSource) {
 			ev := &model.LogSourceWatchEvent{
 				Type:   watch.Deleted,
 				Object: &source,
@@ -1114,27 +1120,22 @@ func (r *subscriptionResolver) LogSourcesWatch(ctx context.Context, kubeContext 
 
 			select {
 			case <-ctx.Done():
+				return
 			case outCh <- ev:
 			}
+		})
+		if err != nil {
+			return
 		}
-
-		// Add source watcher event handlers
-		sw.Subscribe(logs.SourceWatcherEventAdded, handleSourceAdd)
-		sw.Subscribe(logs.SourceWatcherEventDeleted, handleSourceDelete)
-
-		// Close channel and unregister handlers on client close
-		defer func() {
-			sw.Unsubscribe(logs.SourceWatcherEventAdded, handleSourceAdd)
-			sw.Unsubscribe(logs.SourceWatcherEventDeleted, handleSourceDelete)
-			sw.Close()
-			close(outCh)
-		}()
 
 		// Start source watcher
 		if err := sw.Start(ctx); err != nil {
 			transport.AddSubscriptionError(ctx, gqlerrors.ErrInternalServerError)
 			return
 		}
+
+		// Close source watcher on client close
+		defer sw.Close()
 
 		// Wait for client close
 		<-ctx.Done()
