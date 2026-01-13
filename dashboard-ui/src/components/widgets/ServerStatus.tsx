@@ -35,7 +35,7 @@ const kubernetesAPIServerStatusMapState = atom(new Map<string, ServerStatus>());
 
 const clusterAPIServerStatusMapState = atom(new Map<string, ServerStatus>());
 
-const HealthDot = ({ status }: { status: Status }) => {
+const HealthDot = ({ className, status }: { className?: string; status: Status }) => {
   let color;
   switch (status) {
     case Status.Healthy:
@@ -62,7 +62,7 @@ const HealthDot = ({ status }: { status: Status }) => {
 
   return (
     <div
-      className={cn('inline-block w-[8px] h-[8px] rounded-full', {
+      className={cn('w-3 h-3 rounded-full', className, {
         'bg-chrome-300': color === 'chrome',
         'bg-red-500': color === 'red',
         'bg-green-500': color === 'green',
@@ -194,7 +194,7 @@ const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Serve
 };
 
 const StatusTable = ({ children }: React.PropsWithChildren) => (
-  <div className="rounded-md border-1 shadow-xs">
+  <div className="rounded-md border shadow-xs">
     <Table>
       <TableBody>{children}</TableBody>
     </Table>
@@ -203,9 +203,10 @@ const StatusTable = ({ children }: React.PropsWithChildren) => (
 
 type ServerStatusWidgetProps = {
   className?: string;
+  healthDotClassName?: string;
 };
 
-const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
+const ServerStatusWidget = ({ className, healthDotClassName }: ServerStatusWidgetProps) => {
   const { data } = useSubscription(dashboardOps.KUBE_CONFIG_WATCH, { skip: appConfig.environment === 'cluster' });
 
   const kubeContexts = new Array<string>();
@@ -230,15 +231,11 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
   }
 
   return (
-    <div className="inline-block">
+    <>
       <Dialog>
         <DialogTrigger asChild>
-          <button
-            type="button"
-            className={cn('px-2 rounded-tl-sm flex items-center space-x-1 cursor-pointer', className)}
-          >
-            <div className="text-sm">status:</div>
-            <HealthDot status={overallStatus} />
+          <button type="button" className={className}>
+            <HealthDot status={overallStatus} className={healthDotClassName} />
           </button>
         </DialogTrigger>
         <DialogContent className="max-h-[calc(100vh-4rem)] overflow-y-auto">
@@ -267,7 +264,7 @@ const ServerStatusWidget = ({ className }: ServerStatusWidgetProps) => {
           <ClusterAPIServerStatusFetcher kubeContext={kubeContext} />
         </Fragment>
       ))}
-    </div>
+    </>
   );
 };
 

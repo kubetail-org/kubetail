@@ -58,7 +58,6 @@ import AdaptiveTimeAgo from '@/components/widgets/AdaptiveTimeAgo';
 import KubeContextPicker from '@/components/widgets/KubeContextPicker';
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
-import SettingsDropdown from '@/components/widgets/SettingsDropdown';
 import {
   HOME_NAMESPACES_LIST_FETCH,
   HOME_NAMESPACES_LIST_WATCH,
@@ -431,14 +430,14 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
         <TableRow className="hover:bg-transparent">
           <TableHead colSpan={5} className="px-0 pb-[5px] text-[0.9rem]">
             <div className="flex items-center">
-              <Icon className="w-[24px] h-[24px] mr-[4px] text-primary" />
-              <div className="font-medium mr-[8px] leading-none">{label}</div>
+              <Icon className="w-6 h-6 mr-1 text-primary" />
+              <div className="font-medium mr-2 leading-none">{label}</div>
               {isFetching ? (
                 <div>
                   <Spinner size="xs" />
                 </div>
               ) : (
-                <div className="px-[8px] py-[1px] bg-transparent border border-input font-semibold rounded-full text-xs">
+                <div className="px-2 py-px bg-transparent border border-input font-semibold rounded-full text-xs">
                   {items && `${items?.length}`}
                 </div>
               )}
@@ -567,10 +566,10 @@ const Sidebar = () => {
 
   return (
     <>
-      <button type="button" className="cursor-pointer mb-[6px]" onClick={() => setWorkloadKindFilter(undefined)}>
+      <button type="button" className="cursor-pointer mb-1.5" onClick={() => setWorkloadKindFilter(undefined)}>
         <span className="text-md text-muted-foreground">Workloads</span>
       </button>
-      <ul className="space-y-[6px]">
+      <ul className="space-y-1.5">
         {ALL_WORKLOAD_KINDS.map((kind) => {
           const Icon = GLYPH_ICON_MAP[kind];
           return (
@@ -578,18 +577,18 @@ const Sidebar = () => {
               <button
                 type="button"
                 className={cn(
-                  'group flex items-center justify-between h-[40px] px-[8px] rounded-sm hover:bg-accent/45 w-full',
-                  kind === workloadKindFilter && 'bg-accent!',
+                  'group flex items-center justify-between h-10 px-2 rounded-sm hover:bg-sidebar-accent/45 w-full',
+                  kind === workloadKindFilter && 'bg-sidebar-accent!',
                 )}
                 onClick={() => setWorkloadKindFilter((w) => (w === kind ? undefined : kind))}
               >
                 <div className="flex items-center gap-2">
-                  <Icon className="w-[20px] h-[20px] text-[currentColor]" />
+                  <Icon className="w-5 h-5 text-[currentColor]" />
                   <span className="text-md">{PLURAL_LABEL_MAP[kind]}</span>
                 </div>
                 <div
                   className={cn(
-                    'text-xs font-medium border border-input not-dark:group-has-hover:border-zinc-400/70 dark:group-has-hover:border-zinc-400 min-w-[24px] h-[24px] px-[4px] rounded-sm flex items-center justify-center',
+                    'text-xs font-medium border border-sidebar-border not-dark:group-has-hover:border-zinc-400/70 dark:group-has-hover:border-zinc-400 min-w-6 h-6 px-1 rounded-sm flex items-center justify-center',
                     kind === workloadKindFilter && 'border-zinc-400/70 dark:border-zinc-400',
                   )}
                 >
@@ -670,13 +669,13 @@ const Main = () => {
   const debouncedSearch = useDebounceCallback((value: string) => setSearchQuery(value), 100);
 
   return (
-    <div className="inline-block min-w-full px-[24px] py-[10px]">
+    <div className="inline-block min-w-full px-6 py-2.5">
       {readyWait.loading || kubeContext === null ? (
         <div>Connecting...</div>
       ) : (
         <form method="get" target="_blank" action={joinPaths(basename, '/console')}>
           <input type="hidden" name="kubeContext" value={kubeContext} />
-          <div className="flex gap-4 pt-[14px] pb-[24px] justify-between flex-row">
+          <div className="flex gap-4 pt-3.5 pb-6 justify-between flex-row">
             <div className="text-heading-2xl">Dashboard</div>
             <div className="flex gap-2">
               <SearchBox
@@ -721,41 +720,40 @@ const InnerLayout = () => {
         <div className="flex h-full">
           <aside
             className={cn(
-              'shrink-0 bg-strong border-r-1 transition-all duration-100 ease-in relative overflow-y-auto',
+              'shrink-0 bg-sidebar border-r border-sidebar-border transition-all duration-100 ease-in relative overflow-y-auto',
               'h-full flex flex-col justify-between',
-              sidebarOpen ? 'px-[12px]' : 'px-[2px]',
+              sidebarOpen ? 'px-3' : 'px-0.5',
             )}
             style={{ width: `${sidebarWidth}px` }}
           >
             <div>
-              <header className="my-[24px] h-[36px] flex flex-row justify-between items-center gap-2">
+              <header className="my-6 h-9 flex flex-row justify-between items-center gap-2">
                 {sidebarOpen ? (
                   <>
-                    <KubetailLogo className="text-primary h-full w-auto" />
+                    <KubetailLogo className="text-sidebar-primary h-full w-auto" />
                     <PanelLeftClose
-                      className="h-[20px] cursor-pointer text-muted-foreground hover:text-primary "
+                      className="h-5 cursor-pointer text-muted-foreground hover:text-primary "
                       onClick={() => setSidebarOpen(false)}
                     />
                   </>
                 ) : (
                   <PanelLeftOpen
-                    className="h-[20px] cursor-pointer text-muted-foreground hover:text-primary "
+                    className="h-5 cursor-pointer text-muted-foreground hover:text-primary "
                     onClick={() => setSidebarOpen(true)}
                   />
                 )}
               </header>
               {sidebarOpen && (
                 <>
-                  <div className="my-[12px]">
+                  <div className="my-3">
                     {appConfig.environment === 'desktop' && (
-                      <KubeContextPicker className="my-[24px] w-full" value={kubeContext} setValue={setKubeContext} />
+                      <KubeContextPicker className="my-6 w-full" value={kubeContext} setValue={setKubeContext} />
                     )}
                   </div>
                   <Sidebar />
                 </>
               )}
             </div>
-            {sidebarOpen && <SettingsDropdown />}
           </aside>
           <main className="flex-1 overflow-auto bg-muted">
             <Main />
