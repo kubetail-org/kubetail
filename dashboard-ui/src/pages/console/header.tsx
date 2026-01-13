@@ -135,23 +135,25 @@ export function Header() {
 
   const handleJumpToBeginningPress = useCallback(async () => {
     // Update location
-    searchParams.set('mode', 'head');
-    searchParams.delete('cursor');
-    setSearchParams(searchParams, { replace: true });
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.set('mode', 'head');
+    nextSearchParams.delete('cursor');
+    setSearchParams(nextSearchParams, { replace: true });
 
     // Execute command
     await logViewerRef.current?.jumpToBeginning();
-  }, []);
+  }, [logViewerRef, searchParams, setSearchParams]);
 
   const handleJumpToEndPress = useCallback(async () => {
     // Update location
-    searchParams.set('mode', 'tail');
-    searchParams.delete('cursor');
-    setSearchParams(new URLSearchParams(searchParams), { replace: true });
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.set('mode', 'tail');
+    nextSearchParams.delete('cursor');
+    setSearchParams(nextSearchParams, { replace: true });
 
     // Execute command
     await logViewerRef.current?.jumpToEnd();
-  }, []);
+  }, [logViewerRef, searchParams, setSearchParams]);
 
   const handlePlayPress = useCallback(() => {
     setIsFollow(true);
