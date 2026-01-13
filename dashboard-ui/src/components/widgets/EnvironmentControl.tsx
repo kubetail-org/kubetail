@@ -38,34 +38,32 @@ const EnvironmentControl = () => {
   };
 
   return (
-    <div>
-      <Dialog>
-        <DialogTrigger asChild>
-          <button className="text-xs text-chrome-500 hover:text-chrome-700 pr-3" type="button">
-            Environment Control
-          </button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogTitle>Environment Control</DialogTitle>
-          <DialogDescription />
-          <div className="mt-5 pb-8">
-            <div className="text-lg">Switch between Kubernetes API and Kubetail API</div>
-            <div className="pt-3">
-              <Select value={apiMode} onValueChange={handleModeChange}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto">Auto</SelectItem>
-                  <SelectItem value="true">Kubetail API</SelectItem>
-                  <SelectItem value="false">Kubernetes API</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+    <Dialog>
+      <DialogTrigger asChild>
+        <button type="button" className="h-full text-xs text-chrome-500 px-1 hover:bg-secondary">
+          Environment Control
+        </button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogTitle>Environment Control</DialogTitle>
+        <DialogDescription />
+        <div className="mt-5 pb-8">
+          <div className="text-lg">Switch between Kubernetes API and Kubetail API</div>
+          <div className="pt-3">
+            <Select value={apiMode} onValueChange={handleModeChange}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Auto</SelectItem>
+                <SelectItem value="true">Kubetail API</SelectItem>
+                <SelectItem value="false">Kubernetes API</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

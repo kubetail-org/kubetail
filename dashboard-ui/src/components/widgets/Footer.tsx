@@ -12,51 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ChevronDownIcon } from 'lucide-react';
-
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '@kubetail/ui/elements/select';
+// import { Bell } from 'lucide-react';
 
 import ServerStatus from '@/components/widgets/ServerStatus';
-import { useTheme, UserPreference } from '@/lib/theme';
+import { SettingsPopover } from '@/components/widgets/SettingsPopover';
+// import { NotificationsPopover } from '@/components/widgets/NotificationsPopover';
 import EnvironmentControl from './EnvironmentControl';
 
 export default function Footer() {
-  const { userPreference, setUserPreference } = useTheme();
-
-  const handleChange = (value: UserPreference) => {
-    setUserPreference(value);
-  };
-
   return (
-    <div className="h-[22px] bg-chrome-100 border-t border-chrome-divider text-sm flex justify-between items-center pl-[10px]">
-      <Select value={userPreference} onValueChange={handleChange}>
-        <SelectTrigger asChild>
-          <div className="cursor-pointer flex items-center gap-1">
-            <SelectValue />
-            <ChevronDownIcon className="size-4" />
-          </div>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            <SelectLabel>Theme</SelectLabel>
-            <SelectItem value={UserPreference.System}>system</SelectItem>
-            <SelectItem value={UserPreference.Dark}>dark</SelectItem>
-            <SelectItem value={UserPreference.Light}>light</SelectItem>
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-      <div className="flex">
-        {import.meta.env.MODE === 'development' && <EnvironmentControl />}
-        <ServerStatus />
-      </div>
+    <div className="h-[23px] bg-sidebar border-t border-sidebar-border flex justify-end items-center px-2 space-x-2">
+      {import.meta.env.MODE === 'development' && <EnvironmentControl />}
+      <SettingsPopover>
+        <button type="button" className="h-full hover:bg-secondary px-1 text-xs">
+          Settings
+        </button>
+      </SettingsPopover>
+      {/*
+      <NotificationsPopover>
+        <button type="button" className="h-full hover:bg-secondary px-1">
+          <Bell className="h-4 w-4" />
+        </button>
+      </NotificationsPopover>
+      */}
+      <ServerStatus className="h-full hover:bg-secondary px-1" healthDotClassName="h-3.25 w-3.25" />
     </div>
   );
 }
