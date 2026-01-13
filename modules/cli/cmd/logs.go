@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"text/template"
@@ -50,6 +49,8 @@ const (
 	logsStreamModeTail
 	logsStreamModeAll
 )
+
+const defaultLines int64 = 10
 
 const logsHelpTmpl = `
 Fetch logs for a specific container or a set of workload containers.
@@ -224,28 +225,34 @@ var logsCmd = &cobra.Command{
 		// Get flags
 		flags := cmd.Flags()
 
-		configPath, _ := cmd.Flags().GetString("config")
+		configPath, _ := flags.GetString("config")
 		inCluster, _ := flags.GetBool(InClusterFlag)
 
 		v := viper.New()
 
-		v.BindPFlag("general.kubeconfig", cmd.Flags().Lookup(KubeconfigFlag))
-		v.BindPFlag("commands.logs.kube-context", cmd.Flags().Lookup(KubeContextFlag))
-		v.BindPFlag("commands.logs.head", cmd.Flags().Lookup("head"))
-		v.BindPFlag("commands.logs.tail", cmd.Flags().Lookup("tail"))
+		v.BindPFlag("general.kubeconfig", flags.Lookup(KubeconfigFlag))
+		v.BindPFlag("commands.logs.kube-context", flags.Lookup(KubeContextFlag))
 
+		// Parse the config using overrides from flags
 		cliCfg, err := config.NewCLIConfigFromViper(v, configPath)
 		if err != nil {
 			zlog.Fatal().Caller().Err(err).Send()
 		}
+
 		kubeContext := cliCfg.Commands.Logs.KubeContext
 		kubeconfigPath := cliCfg.General.KubeconfigPath
 
 		head := flags.Changed("head")
 		headVal := cliCfg.Commands.Logs.Head
+		if hasExplicitEquals("head", "h", os.Args[1:]) {
+			headVal, _ = flags.GetInt64("head")
+		}
 
 		tail := flags.Changed("tail")
 		tailVal := cliCfg.Commands.Logs.Tail
+		if hasExplicitEquals("tail", "t", os.Args[1:]) {
+			tailVal, _ = flags.GetInt64("tail")
+		}
 
 		all, _ := flags.GetBool("all")
 		follow, _ := flags.GetBool("follow")
@@ -634,6 +641,18 @@ func orDefault[T comparable](val T, defaultVal T) T {
 	return val
 }
 
+// Check args for overrides
+func hasExplicitEquals(long string, short string, args []string) bool {
+	p1 := fmt.Sprintf("-%s=", short)
+	p2 := fmt.Sprintf("--%s=", long)
+	for _, arg := range args {
+		if strings.HasPrefix(arg, p1) || strings.HasPrefix(arg, p2) {
+			return true
+		}
+	}
+	return false
+}
+
 func init() {
 	rootCmd.AddCommand(logsCmd)
 
@@ -646,20 +665,16 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	defaultConfigPath, _ := config.DefaultConfigPath()
-	cliCfg, err := config.NewCLIConfigFromFile(defaultConfigPath)
-	if err != nil {
-		cliCfg = config.DefaultCLIConfig()
-	}
 
 	flagset := logsCmd.Flags()
 	flagset.SortFlags = false
 
 	flagset.String(KubeContextFlag, "", "Specify the kubeconfig context to use")
-	flagset.Int64P("head", "h", cliCfg.Commands.Logs.Head, "Return last N records")
-	flagset.Lookup("head").NoOptDefVal = strconv.Itoa(int(cliCfg.Commands.Logs.Head))
-	flagset.Int64P("tail", "t", cliCfg.Commands.Logs.Tail, "Return last N records")
-	flagset.Lookup("tail").NoOptDefVal = strconv.Itoa(int(cliCfg.Commands.Logs.Tail))
+
+	flagset.Int64P("head", "h", defaultLines, "Return first N records")
+	flagset.Lookup("head").NoOptDefVal = fmt.Sprintf("%d", defaultLines)
+	flagset.Int64P("tail", "t", defaultLines, "Return last N records")
+	flagset.Lookup("tail").NoOptDefVal = fmt.Sprintf("%d", defaultLines)
 	flagset.Bool("all", false, "Return all records")
 	logsCmd.MarkFlagsMutuallyExclusive("head", "tail", "all")
 
