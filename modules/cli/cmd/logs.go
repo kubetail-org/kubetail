@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"text/template"
@@ -41,6 +40,9 @@ import (
 	"github.com/kubetail-org/kubetail/modules/cli/internal/cli"
 	"github.com/kubetail-org/kubetail/modules/cli/internal/tablewriter"
 )
+
+var headFlag config.OptionalInt64
+var tailFlag config.OptionalInt64
 
 type logsStreamMode int
 
@@ -231,8 +233,12 @@ var logsCmd = &cobra.Command{
 
 		v.BindPFlag("general.kubeconfig", cmd.Flags().Lookup(KubeconfigFlag))
 		v.BindPFlag("commands.logs.kube-context", cmd.Flags().Lookup(KubeContextFlag))
-		v.BindPFlag("commands.logs.head", cmd.Flags().Lookup("head"))
-		v.BindPFlag("commands.logs.tail", cmd.Flags().Lookup("tail"))
+		if headFlag.IsValueProvided {
+			v.Set("commands.logs.head", headFlag.Value)
+		}
+		if tailFlag.IsValueProvided {
+			v.Set("commands.logs.tail", tailFlag.Value)
+		}
 
 		cliCfg, err := config.NewCLIConfigFromViper(v, configPath)
 		if err != nil {
@@ -646,20 +652,14 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	defaultConfigPath, _ := config.DefaultConfigPath()
-	cliCfg, err := config.NewCLIConfigFromFile(defaultConfigPath)
-	if err != nil {
-		cliCfg = config.DefaultCLIConfig()
-	}
-
 	flagset := logsCmd.Flags()
 	flagset.SortFlags = false
 
 	flagset.String(KubeContextFlag, "", "Specify the kubeconfig context to use")
-	flagset.Int64P("head", "h", cliCfg.Commands.Logs.Head, "Return last N records")
-	flagset.Lookup("head").NoOptDefVal = strconv.Itoa(int(cliCfg.Commands.Logs.Head))
-	flagset.Int64P("tail", "t", cliCfg.Commands.Logs.Tail, "Return last N records")
-	flagset.Lookup("tail").NoOptDefVal = strconv.Itoa(int(cliCfg.Commands.Logs.Tail))
+	flagset.VarP(&headFlag, "head", "h", "Return last N records (default 10)")
+	flagset.Lookup("head").NoOptDefVal = "N"
+	flagset.VarP(&tailFlag, "tail", "t", "Return last N records (default 10)")
+	flagset.Lookup("tail").NoOptDefVal = "N"
 	flagset.Bool("all", false, "Return all records")
 	logsCmd.MarkFlagsMutuallyExclusive("head", "tail", "all")
 
