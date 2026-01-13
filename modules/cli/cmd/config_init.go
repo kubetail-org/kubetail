@@ -29,7 +29,7 @@ var configInitCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		targetPath, _ := cmd.Flags().GetString("path")
 		if targetPath == "" {
-			tmp, err := config.DefaultConfigPath()
+			tmp, err := config.DefaultConfigPath("yaml")
 			if err != nil {
 				zlog.Fatal().Err(err).Msg("Unable to determine config path")
 			}
