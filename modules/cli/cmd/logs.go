@@ -656,9 +656,9 @@ func init() {
 	flagset.SortFlags = false
 
 	flagset.String(KubeContextFlag, "", "Specify the kubeconfig context to use")
-	flagset.VarP(&headFlag, "head", "h", "Return last N records")
+	flagset.VarP(&headFlag, "head", "h", "Return last N records (default 10)")
 	flagset.Lookup("head").NoOptDefVal = "N"
-	flagset.VarP(&tailFlag, "tail", "t", "Return last N records")
+	flagset.VarP(&tailFlag, "tail", "t", "Return last N records (default 10)")
 	flagset.Lookup("tail").NoOptDefVal = "N"
 	flagset.Bool("all", false, "Return all records")
 	logsCmd.MarkFlagsMutuallyExclusive("head", "tail", "all")
