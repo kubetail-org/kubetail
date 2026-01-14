@@ -225,7 +225,7 @@ jobs:
           fi
 
           # Commit
-          git commit -s -m "release: update to kubetail-${{ steps.config.outputs.version }}"
+          git commit -s -m "kubetail: upgrade to ${{ steps.config.outputs.version }}"
 
           # Exit if dry_run
           if [ "${{ steps.config.outputs.dry_run }}" == "true" ]; then
