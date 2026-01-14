@@ -100,11 +100,22 @@ jobs:
             echo "$prefix ${{ steps.meta.outputs.size }} BLAKE2B ${{ steps.meta.outputs.blake2b }} SHA512 ${{ steps.meta.outputs.sha512 }}" >> Manifest
           fi
 
+      - name: Start gpg-agent
+        run: |
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+          if ! grep -q "allow-preset-passphrase" ~/.gnupg/gpg-agent.conf 2>/dev/null; then
+            echo "allow-preset-passphrase" >> ~/.gnupg/gpg-agent.conf
+          fi
+          gpgconf --kill gpg-agent || true
+          gpgconf --launch gpg-agent
+
       - name: Configure gpg
         uses: crazy-max/ghaction-import-gpg@v6.3.0
         with:
           gpg_private_key: ${{ secrets.ANDRES_PGP_SIGNING_KEY }}
           passphrase: ${{ secrets.ANDRES_PGP_PASSWORD }}
+          fingerprint: ${{ vars.ANDRES_PGP_SIGNING_KEY_FINGERPRINT }}
 
       - name: Configure git
         working-directory: guru
@@ -116,7 +127,7 @@ jobs:
 
           git config user.name "Andres Morey"
           git config user.email "andres@kubetail.com"
-          git config user.signingkey "${{ vars.ANDRES_PGP_FINGERPRINT }}"
+          git config user.signingkey "${{ vars.ANDRES_PGP_SIGNING_KEY_FINGERPRINT }}"
 
       - name: Debug
         if: ${{ needs.config.outputs.dry_run == 'true' }}
@@ -221,11 +232,22 @@ jobs:
             echo "$prefix_arm64 ${{ steps.meta.outputs.arm64_size }} BLAKE2B ${{ steps.meta.outputs.arm64_blake2b }} SHA512 ${{ steps.meta.outputs.arm64_sha512 }}" >> Manifest
           fi
 
+      - name: Start gpg-agent
+        run: |
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+          if ! grep -q "allow-preset-passphrase" ~/.gnupg/gpg-agent.conf 2>/dev/null; then
+            echo "allow-preset-passphrase" >> ~/.gnupg/gpg-agent.conf
+          fi
+          gpgconf --kill gpg-agent || true
+          gpgconf --launch gpg-agent
+
       - name: Configure gpg
         uses: crazy-max/ghaction-import-gpg@v6.3.0
         with:
           gpg_private_key: ${{ secrets.ANDRES_PGP_SIGNING_KEY }}
           passphrase: ${{ secrets.ANDRES_PGP_PASSWORD }}
+          fingerprint: ${{ vars.ANDRES_PGP_SIGNING_KEY_FINGERPRINT }}
 
       - name: Configure git
         working-directory: guru
@@ -237,7 +259,7 @@ jobs:
 
           git config user.name "Andres Morey"
           git config user.email "andres@kubetail.com"
-          git config user.signingkey "${{ vars.ANDRES_PGP_FINGERPRINT }}"
+          git config user.signingkey "${{ vars.ANDRES_PGP_SIGNING_KEY_FINGERPRINT }}"
 
       - name: Debug
         if: ${{ needs.config.outputs.dry_run == 'true' }}
