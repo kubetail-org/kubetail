@@ -366,8 +366,9 @@ jobs:
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@v6.3.0
         with:
-          gpg_private_key: ${{ secrets.KUBETAIL_BOT_PGP_SIGNING_KEY }}
-          passphrase: ${{ secrets.KUBETAIL_BOT_PGP_PASSWORD }}
+          gpg_private_key: ${{ secrets.KUBETAIL_BOT_GPG_SIGNING_KEY }}
+          passphrase: ${{ secrets.KUBETAIL_BOT_GPG_PASSWORD }}
+          fingerprint: ${{ vars.KUBETAIL_BOT_GPG_SIGNING_KEY_FINGERPRINT }}
 
       - name: Sign SHA256SUMS with GPG
         working-directory: ./assets
@@ -387,3 +388,7 @@ jobs:
         with:
           files: assets/*
           draft: true
+
+      - name: Cleanup GPG
+        if: always()
+        run: rm -rf ~/.gnupg

@@ -96,8 +96,9 @@ jobs:
       - name: Configure gpg
         uses: crazy-max/ghaction-import-gpg@v6.3.0
         with:
-          gpg_private_key: ${{ secrets.KUBETAIL_BOT_PGP_SIGNING_KEY }}
-          passphrase: ${{ secrets.KUBETAIL_BOT_PGP_PASSWORD }}
+          gpg_private_key: ${{ secrets.KUBETAIL_BOT_GPG_SIGNING_KEY }}
+          passphrase: ${{ secrets.KUBETAIL_BOT_GPG_PASSWORD }}
+          fingerprint: ${{ vars.KUBETAIL_BOT_GPG_SIGNING_KEY_FINGERPRINT }}
 
       - name: Build and push packages
         working-directory: work/kubetail-cli-${{ steps.config.outputs.version }}
@@ -120,7 +121,7 @@ jobs:
             fi
 
             dch ${DCH_FLAGS} -D "${SERIES}" -v "${PKG_VERSION}" "Initial release for ${SERIES}."
-            debuild ${DEBUILD_FLAGS} -S -d -k"${{ vars.KUBETAIL_BOT_PGP_FINGERPRINT }}"
+            debuild ${DEBUILD_FLAGS} -S -d -k"${{ vars.KUBETAIL_BOT_GPG_SIGNING_KEY_FINGERPRINT }}"
 
             if [ "${{ steps.config.outputs.dry_run }}" = "false" ]; then
               dput ppa:kubetail/kubetail "../kubetail-cli_${PKG_VERSION}_source.changes"
@@ -129,3 +130,7 @@ jobs:
               cat "../kubetail-cli_${PKG_VERSION}_source.changes"
             fi
           done
+
+      - name: Cleanup GPG
+        if: always()
+        run: rm -rf ~/.gnupg

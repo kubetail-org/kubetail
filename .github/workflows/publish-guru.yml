@@ -113,9 +113,9 @@ jobs:
       - name: Configure gpg
         uses: crazy-max/ghaction-import-gpg@v6.3.0
         with:
-          gpg_private_key: ${{ secrets.ANDRES_PGP_SIGNING_KEY }}
-          passphrase: ${{ secrets.ANDRES_PGP_PASSWORD }}
-          fingerprint: ${{ vars.ANDRES_PGP_SIGNING_KEY_FINGERPRINT }}
+          gpg_private_key: ${{ secrets.ANDRES_GPG_SIGNING_KEY }}
+          passphrase: ${{ secrets.ANDRES_GPG_PASSWORD }}
+          fingerprint: ${{ vars.ANDRES_GPG_SIGNING_KEY_FINGERPRINT }}
 
       - name: Configure git
         working-directory: guru
@@ -127,7 +127,7 @@ jobs:
 
           git config user.name "Andres Morey"
           git config user.email "andres@kubetail.com"
-          git config user.signingkey "${{ vars.ANDRES_PGP_SIGNING_KEY_FINGERPRINT }}"
+          git config user.signingkey "${{ vars.ANDRES_GPG_SIGNING_KEY_FINGERPRINT }}"
 
       - name: Debug
         if: ${{ needs.config.outputs.dry_run == 'true' }}
@@ -153,6 +153,10 @@ jobs:
           # Commit and push
           git commit -a -s -S -m "dev-util/kubetail: add ${{ needs.config.outputs.version }}"
           git push origin
+
+      - name: Cleanup GPG
+        if: always()
+        run: rm -rf ~/.gnupg
 
   update-kubetail-bin:
     name: Update `kubetail-bin` package
@@ -245,9 +249,9 @@ jobs:
       - name: Configure gpg
         uses: crazy-max/ghaction-import-gpg@v6.3.0
         with:
-          gpg_private_key: ${{ secrets.ANDRES_PGP_SIGNING_KEY }}
-          passphrase: ${{ secrets.ANDRES_PGP_PASSWORD }}
-          fingerprint: ${{ vars.ANDRES_PGP_SIGNING_KEY_FINGERPRINT }}
+          gpg_private_key: ${{ secrets.ANDRES_GPG_SIGNING_KEY }}
+          passphrase: ${{ secrets.ANDRES_GPG_PASSWORD }}
+          fingerprint: ${{ vars.ANDRES_GPG_SIGNING_KEY_FINGERPRINT }}
 
       - name: Configure git
         working-directory: guru
@@ -259,7 +263,7 @@ jobs:
 
           git config user.name "Andres Morey"
           git config user.email "andres@kubetail.com"
-          git config user.signingkey "${{ vars.ANDRES_PGP_SIGNING_KEY_FINGERPRINT }}"
+          git config user.signingkey "${{ vars.ANDRES_GPG_SIGNING_KEY_FINGERPRINT }}"
 
       - name: Debug
         if: ${{ needs.config.outputs.dry_run == 'true' }}
@@ -285,3 +289,7 @@ jobs:
           # Commit and push
           git commit -a -s -m "dev-util/kubetail-bin: add ${{ needs.config.outputs.version }}"
           git push origin
+
+      - name: Cleanup GPG
+        if: always()
+        run: rm -rf ~/.gnupg
