@@ -1,7 +1,7 @@
-## Kubetail Configuration
+## Kubetail CLI Configuration File
 # 
-# This file defines the behavior for the kubetail CLI, 
-# including logging defaults and web server settings.
+# This file defines the behavior for the kubetail CLI tool,  
+# including logs command defaults and dashboard server settings.
 #
 
 ## version ##
@@ -60,7 +60,7 @@ commands:
 
   ## serve ##
   #
-  # Settings for the dashboard/web server
+  # Settings for the dashboard server
   #
   serve:
 
