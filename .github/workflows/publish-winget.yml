@@ -113,8 +113,9 @@ jobs:
       - name: Configure gpg
         uses: crazy-max/ghaction-import-gpg@v6.3.0
         with:
-          gpg_private_key: ${{ secrets.KUBETAIL_BOT_PGP_SIGNING_KEY }}
-          passphrase: ${{ secrets.KUBETAIL_BOT_PGP_PASSWORD }}
+          gpg_private_key: ${{ secrets.KUBETAIL_BOT_GPG_SIGNING_KEY }}
+          passphrase: ${{ secrets.KUBETAIL_BOT_GPG_PASSWORD }}
+          fingerprint: ${{ vars.KUBETAIL_BOT_GPG_SIGNING_KEY_FINGERPRINT }}
 
       - name: Configure git
         working-directory: winget-pkgs
@@ -125,7 +126,7 @@ jobs:
 
           git config --local user.name "${{ vars.KUBETAIL_BOT_NAME }}"
           git config --local user.email "${{ vars.KUBETAIL_BOT_EMAIL }}"
-          git config --local user.signingkey "${{ vars.KUBETAIL_BOT_PGP_FINGERPRINT }}"
+          git config --local user.signingkey "${{ vars.KUBETAIL_BOT_GPG_SIGNING_KEY_FINGERPRINT }}"
 
       - name: Commit changes and raise PR
         working-directory: winget-pkgs
@@ -179,3 +180,7 @@ jobs:
             --base master \
             --title "New version: Kubetail.Kubetail version ${{ steps.config.outputs.version }}" \
             --body "This PR adds the manifest for Kubetail.Kubetail version ${{ steps.config.outputs.version }}."
+
+      - name: Cleanup GPG
+        if: always()
+        run: rm -rf ~/.gnupg
