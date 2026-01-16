@@ -24,10 +24,12 @@ var configInitCmd = &cobra.Command{
 
 		format, _ := cmd.Flags().GetString("format")
 
-		if format == "yml" || format == "" {
+		switch format {
+		case "", "yml":
 			format = "yaml"
-		}
-		if format != "yaml" && format != "json" && format != "toml" {
+		case "yaml", "json", "toml":
+			// valid
+		default:
 			zlog.Fatal().Msgf("Format '%s' is not supported", format)
 		}
 
@@ -70,6 +72,6 @@ func init() {
 	flagset := configInitCmd.Flags()
 	flagset.SortFlags = false
 	flagset.String("path", "", "Target path for configuration file (default is $HOME/.kubetail/config.yaml)")
-	flagset.String("format", "", "Format of configuration file: yaml, toml or json (default: yaml)")
+	flagset.String("format", "yaml", "Configuration file format (yaml|json|toml)")
 	flagset.Bool("force", false, "Overwrite existing configuration file")
 }
