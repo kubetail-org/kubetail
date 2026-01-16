@@ -115,12 +115,13 @@ func NewCLIConfig(configPath string, v *viper.Viper) (*CLIConfig, error) {
 		configBytes = []byte(os.ExpandEnv(string(configBytes)))
 
 		// Check extension
-		if len(filepath.Ext(configPath)) <= 1 {
-			return nil, fmt.Errorf("file %q must have a valid extension (e.g., .yaml, .json)", configPath)
+		ext := filepath.Ext(configPath)
+		if len(ext) <= 1 {
+			return nil, fmt.Errorf("config file %q must have a valid extension (e.g. .yaml, .toml, .json)", configPath)
 		}
 
 		// Load into viper
-		v.SetConfigType(filepath.Ext(configPath)[1:])
+		v.SetConfigType(ext[1:])
 		if err := v.ReadConfig(bytes.NewBuffer(configBytes)); err != nil {
 			return nil, err
 		}
