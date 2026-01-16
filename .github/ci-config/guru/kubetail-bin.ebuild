@@ -1,7 +1,9 @@
-# Copyright 2021-2025 Gentoo Authors
+# Copyright 2021-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
+
+MY_PN="${PN%-bin}"
 
 inherit shell-completion
 
@@ -24,20 +26,20 @@ SLOT="0"
 
 KEYWORDS="~amd64 ~arm64"
 
-QA_PREBUILT="usr/bin/kubetail"
+QA_PREBUILT="usr/bin/${MY_PN}"
 
 src_compile() {
-	chmod +x kubetail
+	chmod +x "${MY_PN}"
 
-	./kubetail completion bash > "kubetail.bash" || die
-	./kubetail completion zsh > "kubetail.zsh" || die
-	./kubetail completion fish > "kubetail.fish" || die
+	"./${MY_PN}" completion bash > "${MY_PN}.bash" || die
+	"./${MY_PN}" completion zsh > "${MY_PN}.zsh" || die
+	"./${MY_PN}" completion fish > "${MY_PN}.fish" || die
 }
 
 src_install() {
-	dobin kubetail || die
+	dobin "${MY_PN}"
 
-	newbashcomp "kubetail.bash" kubetail
-	newzshcomp "kubetail.zsh" "_kubetail"
-	dofishcomp "kubetail.fish"
+	newbashcomp "${MY_PN}.bash" "${MY_PN}"
+	newzshcomp "${MY_PN}.zsh" "_${MY_PN}"
+	dofishcomp "${MY_PN}.fish"
 }
