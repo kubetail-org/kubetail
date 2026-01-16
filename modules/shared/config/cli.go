@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 
 	"github.com/go-playground/validator/v10"
-	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
@@ -116,18 +115,13 @@ func NewCLIConfig(configPath string, v *viper.Viper) (*CLIConfig, error) {
 		configBytes = []byte(os.ExpandEnv(string(configBytes)))
 
 		// Check extension
-		if len(filepath.Ext(configPath)) <= 1 {
-			zlog.Warn().Msgf("Config file %q must have a valid extension (e.g., .yaml, .json), using default configuration", configPath)
-		} else {
-			// load into viper
-			v.SetConfigType(filepath.Ext(configPath)[1:])
-			if err := v.ReadConfig(bytes.NewBuffer(configBytes)); err != nil {
-				zlog.Warn().Err(err).Msgf("Failed to parse config file %q, using default configuration", configPath)
-			}
+		ext := filepath.Ext(configPath)
+		if len(ext) <= 1 {
+			return nil, fmt.Errorf("config file %q must have a valid extension (e.g. .yaml, .toml, .json)", configPath)
 		}
 
 		// Load into viper
-		v.SetConfigType(filepath.Ext(configPath)[1:])
+		v.SetConfigType(ext[1:])
 		if err := v.ReadConfig(bytes.NewBuffer(configBytes)); err != nil {
 			return nil, err
 		}
