@@ -1,0 +1,31 @@
+# Kubetail CLI Configuration File
+#
+# Defines behavior for the kubetail CLI tool, including
+# logs command defaults and dashboard server settings.
+
+# Schema version for the configuration file
+version = 1
+
+[general]
+# Path to kubeconfig. If empty, uses ~/.kube/config or KUBECONFIG env var.
+kubeconfig = ""
+
+[commands.logs]
+# Number of lines to show from the beginning of the log buffer
+head = 10
+
+# Number of lines to show from the end of the log buffer
+tail = 10
+
+# Specific Kubernetes context to use. If empty, uses active context.
+kube-context = ""
+
+[commands.serve]
+# Network interface the server binds to
+host = "localhost"
+
+# TCP port the server listens on
+port = 7500
+
+# If true, don't automatically open browser when server starts
+skip-open = false

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -20,8 +21,20 @@ var configInitCmd = &cobra.Command{
 	Long:  configInitHelp,
 	Run: func(cmd *cobra.Command, args []string) {
 		targetPath, _ := cmd.Flags().GetString("path")
+
+		format, _ := cmd.Flags().GetString("format")
+
+		switch format {
+		case "", "yml":
+			format = "yaml"
+		case "yaml", "json", "toml":
+			// valid
+		default:
+			zlog.Fatal().Msgf("Format '%s' is not supported", format)
+		}
+
 		if targetPath == "" {
-			tmp, err := config.DefaultConfigPath("yaml")
+			tmp, err := config.DefaultConfigPath(format)
 			if err != nil {
 				zlog.Fatal().Err(err).Msg("Unable to determine config path")
 			}
@@ -40,7 +53,7 @@ var configInitCmd = &cobra.Command{
 			zlog.Fatal().Err(err).Msg("Failed to create configuration directory")
 		}
 
-		content, err := assets.FS.ReadFile("config.yaml")
+		content, err := assets.FS.ReadFile(fmt.Sprintf("config.%s", format))
 		if err != nil {
 			zlog.Fatal().Err(err).Msg("Failed to read configuration file")
 		}
@@ -59,5 +72,6 @@ func init() {
 	flagset := configInitCmd.Flags()
 	flagset.SortFlags = false
 	flagset.String("path", "", "Target path for configuration file (default is $HOME/.kubetail/config.yaml)")
+	flagset.String("format", "yaml", "Configuration file format (yaml|json|toml)")
 	flagset.Bool("force", false, "Overwrite existing configuration file")
 }
