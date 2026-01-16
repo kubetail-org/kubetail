@@ -232,8 +232,9 @@ func loadServerConfig(cmd *cobra.Command) (*config.Config, *serveOptions, error)
 	v.BindPFlag("commands.serve.port", cmd.Flags().Lookup("port"))
 	v.BindPFlag("commands.serve.host", cmd.Flags().Lookup("host"))
 	v.BindPFlag("commands.serve.skip-open", cmd.Flags().Lookup("skip-open"))
-	// init config
-	cliCfg, err := config.NewCLIConfigFromViper(v, configPath)
+
+	// Init config
+	cliCfg, err := config.NewCLIConfig(configPath, v)
 	if err != nil {
 		return nil, nil, err
 	}

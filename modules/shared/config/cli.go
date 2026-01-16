@@ -1,3 +1,17 @@
+// Copyright 2024 The Kubetail Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package config
 
 import (
@@ -71,7 +85,16 @@ func DefaultConfigPath(format string) (string, error) {
 	return filepath.Join(home, ".kubetail", fmt.Sprintf("config.%s", format)), nil
 }
 
-func NewCLIConfigFromViper(v *viper.Viper, configPath string) (*CLIConfig, error) {
+func NewCLIConfig(configPath string, v *viper.Viper) (*CLIConfig, error) {
+	// Use viper instance from user or create a new one
+	if v == nil {
+		v = viper.New()
+	}
+
+	// Set custom flag
+	hasCustomPath := configPath != ""
+
+	// Use default path if custom path not given
 	if configPath == "" {
 		if f, err := DefaultConfigPath("yaml"); err != nil {
 			return nil, err
@@ -80,32 +103,38 @@ func NewCLIConfigFromViper(v *viper.Viper, configPath string) (*CLIConfig, error
 		}
 	}
 
-	// read contents
-	configBytes, err := os.ReadFile(configPath)
-	if err == nil {
-		// expand env vars
+	// Read contents
+	if configBytes, err := os.ReadFile(configPath); err != nil && (hasCustomPath || !os.IsNotExist(err)) {
+		// If custom path was specified, always return error
+		// If default path was used, return error only if not file-missing error
+		return nil, err
+	} else if len(configBytes) == 0 {
+		// Do nothing
+	} else {
+		// Expand env vars
 		configBytes = []byte(os.ExpandEnv(string(configBytes)))
 
-		// check extension
+		// Check extension
 		if len(filepath.Ext(configPath)) <= 1 {
 			return nil, fmt.Errorf("file %q must have a valid extension (e.g., .yaml, .json)", configPath)
 		}
 
-		// load into viper
+		// Load into viper
 		v.SetConfigType(filepath.Ext(configPath)[1:])
 		if err := v.ReadConfig(bytes.NewBuffer(configBytes)); err != nil {
 			return nil, err
 		}
 	}
 
+	// Initialize config
 	cfg := DefaultCLIConfig()
 
-	// unmarshal
+	// Unmarshal
 	if err := v.Unmarshal(cfg); err != nil {
 		return nil, err
 	}
 
-	// validate config
+	// Validate config
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}

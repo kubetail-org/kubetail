@@ -18,14 +18,6 @@ var configInitCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize a default configuration file",
 	Long:  configInitHelp,
-	PreRun: func(cmd *cobra.Command, args []string) {
-		// Configure logger
-		config.ConfigureLogger(config.LoggerOptions{
-			Enabled: true,
-			Level:   "info",
-			Format:  "cli",
-		})
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 		targetPath, _ := cmd.Flags().GetString("path")
 		if targetPath == "" {

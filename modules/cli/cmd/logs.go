@@ -240,7 +240,7 @@ var logsCmd = &cobra.Command{
 			v.Set("commands.logs.tail", tailFlag.Value)
 		}
 
-		cliCfg, err := config.NewCLIConfigFromViper(v, configPath)
+		cliCfg, err := config.NewCLIConfig(configPath, v)
 		if err != nil {
 			zlog.Fatal().Caller().Err(err).Send()
 		}
