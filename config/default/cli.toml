@@ -1,89 +1,31 @@
-# Kubetail Configuration
+# Kubetail CLI Configuration File
 #
-# This file defines the behavior for the kubetail CLI,
-# including logging defaults and web server settings.
-#
+# Defines behavior for the kubetail CLI tool, including
+# logs command defaults and dashboard server settings.
 
-## version ##
-#
 # Schema version for the configuration file
-#
 version = 1
 
-
-## general ##
-#
 [general]
-
-## kubeconfig ##
-#
-# Path to the kubeconfig file to use for CLI requests.
-# If empty, the default path (~/.kube/config) or KUBECONFIG env var is used.
-#
-# Default value: ""
-#
+# Path to kubeconfig. If empty, uses ~/.kube/config or KUBECONFIG env var.
 kubeconfig = ""
 
-
-## commands ##
-#
-[commands]
-
-## logs ##
-#
 [commands.logs]
-
-## head ##
-#
-# The number of lines to show from the beginning of the log buffer
-#
-# Default value: 10
-#
+# Number of lines to show from the beginning of the log buffer
 head = 10
 
-## tail ##
-#
-# The number of lines to show from the end of the log buffer
-#
-# Default value: 10
-#
+# Number of lines to show from the end of the log buffer
 tail = 10
 
-## kube-context ##
-#
-# The specific Kubernetes context to use.
-# If empty, the current active context is used.
-#
-# Default value: ""
-#
+# Specific Kubernetes context to use. If empty, uses active context.
 kube-context = ""
 
-
-## serve ##
-#
 [commands.serve]
-
-## host ##
-#
-# The network interface the server should bind to.
-#
-# Default value: localhost
-#
+# Network interface the server binds to
 host = "localhost"
 
-## port ##
-#
-# The TCP port the server will listen on.
-#
-# Default value: 7500
-#
+# TCP port the server listens on
 port = 7500
 
-## skip-open ##
-#
-# If true, the CLI will not automatically open the browser
-# when the server starts.
-#
-# Default value: false
-#
+# If true, don't automatically open browser when server starts
 skip-open = false

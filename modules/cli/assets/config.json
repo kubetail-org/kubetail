@@ -1,19 +1,18 @@
 {
-    "version": 1,
-    "general": {
-      "kubeconfig": ""
+  "version": 1,
+  "general": {
+    "kubeconfig": ""
+  },
+  "commands": {
+    "logs": {
+      "head": 10,
+      "tail": 10,
+      "kube-context": ""
     },
-    "commands": {
-      "logs": {
-        "head": 10,
-        "tail": 10,
-        "kube-context": ""
-      },
-      "serve": {
-        "host": "localhost",
-        "port": 7500,
-        "skip-open": false
-      }
+    "serve": {
+      "host": "localhost",
+      "port": 7500,
+      "skip-open": false
     }
   }
-  
+}
