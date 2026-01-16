@@ -24,7 +24,7 @@ import (
 	"github.com/gin-gonic/gin"
 	zlog "github.com/rs/zerolog/log"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/middleware"
 )
 
@@ -47,7 +47,7 @@ func (app *websiteHandlers) InitStaticHandlers(root *gin.RouterGroup) {
 	}
 }
 
-func (app *websiteHandlers) EndpointHandler(cfg *config.Config) gin.HandlerFunc {
+func (app *websiteHandlers) EndpointHandler(cfg *dashcfg.Config) gin.HandlerFunc {
 	// read manifest file
 	manifestFile, err := app.websiteFS.Open(".vite/manifest.json")
 	if err != nil {
@@ -69,11 +69,11 @@ func (app *websiteHandlers) EndpointHandler(cfg *config.Config) gin.HandlerFunc 
 
 	// define runtime config for react app
 	runtimeConfig := map[string]interface{}{
-		"authMode":           cfg.Dashboard.AuthMode,
-		"basePath":           cfg.Dashboard.BasePath,
-		"environment":        cfg.Dashboard.Environment,
-		"clusterAPIEnabled":  cfg.Dashboard.UI.ClusterAPIEnabled,
-		"clusterAPIEndpoint": cfg.Dashboard.ClusterAPIEndpoint,
+		"authMode":           cfg.AuthMode,
+		"basePath":           cfg.BasePath,
+		"environment":        cfg.Environment,
+		"clusterAPIEnabled":  cfg.UI.ClusterAPIEnabled,
+		"clusterAPIEndpoint": cfg.ClusterAPIEndpoint,
 	}
 
 	runtimeConfigBytes, err := json.Marshal(runtimeConfig)

@@ -28,7 +28,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/util"
 	"github.com/kubetail-org/megaphone"
@@ -54,12 +55,12 @@ type HealthMonitor interface {
 }
 
 // Create new HealthMonitor instance
-func NewHealthMonitor(cfg *config.Config, cm k8shelpers.ConnectionManager) HealthMonitor {
-	switch cfg.Dashboard.Environment {
-	case config.EnvironmentDesktop:
+func NewHealthMonitor(cfg *dashcfg.Config, cm k8shelpers.ConnectionManager) HealthMonitor {
+	switch cfg.Environment {
+	case sharedcfg.EnvironmentDesktop:
 		return NewDesktopHealthMonitor(cm)
-	case config.EnvironmentCluster:
-		return NewInClusterHealthMonitor(cm, cfg.Dashboard.ClusterAPIEndpoint)
+	case sharedcfg.EnvironmentCluster:
+		return NewInClusterHealthMonitor(cm, cfg.ClusterAPIEndpoint)
 	default:
 		panic("not implemented")
 	}

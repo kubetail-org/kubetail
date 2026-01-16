@@ -12,7 +12,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	gqlerrors "github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
 	"github.com/kubetail-org/kubetail/modules/shared/helm"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
@@ -126,7 +126,7 @@ func (r *mutationResolver) HelmInstallLatest(ctx context.Context, kubeContext *s
 	kubeContextVal := r.cm.DerefKubeContext(kubeContext)
 
 	// Reject requests not in desktop environment
-	if r.environment != config.EnvironmentDesktop {
+	if r.environment != sharedcfg.EnvironmentDesktop {
 		return nil, gqlerrors.ErrForbidden
 	}
 
@@ -506,7 +506,7 @@ func (r *queryResolver) ClusterAPIServicesList(ctx context.Context, kubeContext 
 	kubeContextVal := r.cm.DerefKubeContext(kubeContext)
 
 	// Reject requests not in desktop environment
-	if r.environment != config.EnvironmentDesktop {
+	if r.environment != sharedcfg.EnvironmentDesktop {
 		return nil, gqlerrors.ErrForbidden
 	}
 
@@ -525,7 +525,7 @@ func (r *queryResolver) ClusterAPIServicesList(ctx context.Context, kubeContext 
 // HelmListReleases is the resolver for the helmListReleases field.
 func (r *queryResolver) HelmListReleases(ctx context.Context, kubeContext *string) ([]*release.Release, error) {
 	// Reject requests not in desktop environment
-	if r.environment != config.EnvironmentDesktop {
+	if r.environment != sharedcfg.EnvironmentDesktop {
 		return nil, gqlerrors.ErrForbidden
 	}
 
@@ -546,7 +546,7 @@ func (r *queryResolver) HelmListReleases(ctx context.Context, kubeContext *strin
 // KubeConfigGet is the resolver for the kubeConfigGet field.
 func (r *queryResolver) KubeConfigGet(ctx context.Context) (*model.KubeConfig, error) {
 	// Reject requests not in desktop environment
-	if r.environment != config.EnvironmentDesktop {
+	if r.environment != sharedcfg.EnvironmentDesktop {
 		return nil, gqlerrors.ErrForbidden
 	}
 
@@ -929,7 +929,7 @@ func (r *subscriptionResolver) ClusterAPIServicesWatch(ctx context.Context, kube
 	kubeContextVal := r.cm.DerefKubeContext(kubeContext)
 
 	// Reject requests not in desktop environment
-	if r.environment != config.EnvironmentDesktop {
+	if r.environment != sharedcfg.EnvironmentDesktop {
 		return nil, gqlerrors.ErrForbidden
 	}
 
@@ -944,7 +944,7 @@ func (r *subscriptionResolver) ClusterAPIServicesWatch(ctx context.Context, kube
 // KubeConfigWatch is the resolver for the kubeConfigWatch field.
 func (r *subscriptionResolver) KubeConfigWatch(ctx context.Context) (<-chan *model.KubeConfigWatchEvent, error) {
 	// Reject requests not in desktop environment
-	if r.environment != config.EnvironmentDesktop {
+	if r.environment != sharedcfg.EnvironmentDesktop {
 		return nil, gqlerrors.ErrForbidden
 	}
 

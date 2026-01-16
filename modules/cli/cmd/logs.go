@@ -33,7 +33,8 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	"github.com/kubetail-org/kubetail/modules/cli/pkg/config"
+	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
 
@@ -347,9 +348,9 @@ var logsCmd = &cobra.Command{
 		}
 
 		// Init connection manager
-		env := config.EnvironmentDesktop
+		env := sharedcfg.EnvironmentDesktop
 		if inCluster {
-			env = config.EnvironmentCluster
+			env = sharedcfg.EnvironmentCluster
 		}
 		cm, err := k8shelpers.NewConnectionManager(env, k8shelpers.WithKubeconfigPath(kubeconfigPath), k8shelpers.WithLazyConnect(true))
 		cli.ExitOnError(err)

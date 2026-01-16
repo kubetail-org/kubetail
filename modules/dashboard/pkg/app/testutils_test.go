@@ -22,7 +22,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	authv1 "k8s.io/api/authentication/v1"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 )
 
 func init() {
@@ -30,19 +31,19 @@ func init() {
 }
 
 // Create new base config for testing
-func newTestConfig() *config.Config {
-	cfg := config.Config{}
-	cfg.Dashboard.BasePath = "/"
-	cfg.Dashboard.Environment = config.EnvironmentCluster
-	cfg.Dashboard.Logging.AccessLog.Enabled = false
-	cfg.Dashboard.Session.Secret = "TESTSESSIONSECRET"
-	cfg.Dashboard.Session.Cookie.Name = "session"
-	cfg.Dashboard.CSRF.Enabled = false
-	return &cfg
+func newTestConfig() *dashcfg.Config {
+	cfg := dashcfg.DefaultConfig()
+	cfg.BasePath = "/"
+	cfg.Environment = sharedcfg.EnvironmentCluster
+	cfg.Logging.AccessLog.Enabled = false
+	cfg.Session.Secret = "TESTSESSIONSECRET"
+	cfg.Session.Cookie.Name = "session"
+	cfg.CSRF.Enabled = false
+	return cfg
 }
 
 // Create new app for testing
-func newTestApp(cfg *config.Config) *App {
+func newTestApp(cfg *dashcfg.Config) *App {
 	if cfg == nil {
 		cfg = newTestConfig()
 	}

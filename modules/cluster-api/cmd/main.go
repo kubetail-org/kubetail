@@ -30,7 +30,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/kubetail-org/kubetail/modules/shared/config"
+	capicfg "github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/shared/logging"
 
 	"github.com/kubetail-org/kubetail/modules/cluster-api/internal/app"
 )
@@ -63,13 +64,13 @@ func main() {
 			v.BindPFlag("cluster-api.gin-mode", cmd.Flags().Lookup("gin-mode"))
 
 			// Init config
-			cfg, err := config.NewConfig(v, cli.Config)
+			cfg, err := capicfg.NewConfig(v, cli.Config)
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
 
 			// set gin mode
-			gin.SetMode(cfg.ClusterAPI.GinMode)
+			gin.SetMode(cfg.GinMode)
 
 			// Override params from cli
 			for _, param := range params {
@@ -80,10 +81,10 @@ func main() {
 			}
 
 			// Configure logger
-			config.ConfigureLogger(config.LoggerOptions{
-				Enabled: cfg.ClusterAPI.Logging.Enabled,
-				Level:   cfg.ClusterAPI.Logging.Level,
-				Format:  cfg.ClusterAPI.Logging.Format,
+			logging.ConfigureLogger(logging.LoggerOptions{
+				Enabled: cfg.Logging.Enabled,
+				Level:   cfg.Logging.Level,
+				Format:  cfg.Logging.Format,
 			})
 
 			// Create app
@@ -94,7 +95,7 @@ func main() {
 
 			// Create sserver
 			server := &http.Server{
-				Addr:         cfg.ClusterAPI.Addr,
+				Addr:         cfg.Addr,
 				Handler:      app,
 				IdleTimeout:  1 * time.Minute,
 				ReadTimeout:  5 * time.Second,
@@ -104,10 +105,10 @@ func main() {
 			// Run server in goroutine
 			go func() {
 				var serverErr error
-				zlog.Info().Msg("Starting server on " + cfg.ClusterAPI.Addr)
+				zlog.Info().Msg("Starting server on " + cfg.Addr)
 
-				if cfg.ClusterAPI.TLS.Enabled {
-					serverErr = server.ListenAndServeTLS(cfg.ClusterAPI.TLS.CertFile, cfg.ClusterAPI.TLS.KeyFile)
+				if cfg.TLS.Enabled {
+					serverErr = server.ListenAndServeTLS(cfg.TLS.CertFile, cfg.TLS.KeyFile)
 				} else {
 					serverErr = server.ListenAndServe()
 				}
