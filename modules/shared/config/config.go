@@ -299,7 +299,7 @@ func DefaultConfig() *Config {
 }
 
 // Custom unmarshaler for AuthMode
-func authModeDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+func authModeDecodeHook(f reflect.Type, t reflect.Type, data any) (any, error) {
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
@@ -323,7 +323,7 @@ func authModeDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (inter
 }
 
 // Custom unmarshaler for Environment
-func environmentDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+func environmentDecodeHook(f reflect.Type, t reflect.Type, data any) (any, error) {
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
@@ -347,7 +347,7 @@ func environmentDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (in
 }
 
 // Custom unmarshaler for http.SameSite
-func httpSameSiteDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+func httpSameSiteDecodeHook(f reflect.Type, t reflect.Type, data any) (any, error) {
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
@@ -484,41 +484,41 @@ func ConfigureLogger(opts LoggerOptions) {
 			zlog.Logger = zlog.Logger.Output(zerolog.ConsoleWriter{
 				Out:     os.Stderr,
 				NoColor: false,
-				FormatTimestamp: func(i interface{}) string {
+				FormatTimestamp: func(i any) string {
 					return ""
 				},
-				FormatLevel: func(i interface{}) string {
+				FormatLevel: func(i any) string {
 					if i == nil {
 						return ""
 					}
 					switch i.(string) {
 					case "fatal", "error":
-						return "\033[31mError:\033[0m "
+						return "\033[31mError:\033[0m"
 					case "warn":
-						return "\033[33mWarn:\033[0m "
+						return "\033[33mWarn:\033[0m"
 					default:
 						return ""
 					}
 				},
-				FormatCaller: func(i interface{}) string {
+				FormatCaller: func(i any) string {
 					return ""
 				},
-				FormatMessage: func(i interface{}) string {
+				FormatMessage: func(i any) string {
 					if i == nil {
 						return ""
 					}
 					return fmt.Sprintf("%s", i)
 				},
-				FormatFieldName: func(i interface{}) string {
+				FormatFieldName: func(i any) string {
 					return ""
 				},
-				FormatFieldValue: func(i interface{}) string {
+				FormatFieldValue: func(i any) string {
 					return ""
 				},
-				FormatErrFieldName: func(i interface{}) string {
+				FormatErrFieldName: func(i any) string {
 					return ""
 				},
-				FormatErrFieldValue: func(i interface{}) string {
+				FormatErrFieldValue: func(i any) string {
 					if i == nil {
 						return ""
 					}
