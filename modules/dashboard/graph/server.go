@@ -27,11 +27,11 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/vektah/gqlparser/v2/ast"
 
-	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 )
 
 // Represents Server
@@ -47,17 +47,17 @@ type Server struct {
 var allowedSecFetchSite = []string{"same-origin"}
 
 // Create new Server instance
-func NewServer(appConfig *dashcfg.Config, cm k8shelpers.ConnectionManager) *Server {
+func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 	// Init health monitor
-	hm := clusterapi.NewHealthMonitor(appConfig, cm)
+	hm := clusterapi.NewHealthMonitor(cfg, cm)
 
 	// Init resolver
 	r := &Resolver{
-		config:            appConfig,
+		cfg:               cfg,
 		cm:                cm,
 		hm:                hm,
-		environment:       appConfig.Environment,
-		allowedNamespaces: appConfig.AllowedNamespaces,
+		environment:       cfg.Environment,
+		allowedNamespaces: cfg.AllowedNamespaces,
 	}
 
 	// Init config
@@ -84,7 +84,7 @@ func NewServer(appConfig *dashcfg.Config, cm k8shelpers.ConnectionManager) *Serv
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				// Allow all if CSRF protection is disabled
-				if !appConfig.CSRF.Enabled {
+				if !cfg.CSRF.Enabled {
 					return true
 				}
 

@@ -26,7 +26,7 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 	"k8s.io/utils/ptr"
 
-	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/testutils"
 )
 
@@ -154,12 +154,12 @@ func (suite *authTestSuite) TestSessionGET() {
 
 	tests := []struct {
 		name              string
-		setAuthMode       dashcfg.AuthMode
+		setAuthMode       config.AuthMode
 		wantLoggedOutUser *string
 		wantLoggedInUser  *string
 	}{
-		{"auto", dashcfg.AuthModeAuto, ptr.To("auto"), ptr.To("auto")},
-		{"token", dashcfg.AuthModeToken, nil, ptr.To("user-xxx")},
+		{"auto", config.AuthModeAuto, ptr.To("auto"), ptr.To("auto")},
+		{"token", config.AuthModeToken, nil, ptr.To("user-xxx")},
 	}
 
 	for _, tt := range tests {

@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"testing"
 
-	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+
+	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 )
 
 func TestLoadServerConfig_Defaults(t *testing.T) {

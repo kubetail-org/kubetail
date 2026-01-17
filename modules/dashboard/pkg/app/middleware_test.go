@@ -24,25 +24,25 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
-	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 )
 
 func TestAuthenticationMiddleware(t *testing.T) {
 	tests := []struct {
 		name                string
-		mode                dashcfg.AuthMode
+		mode                config.AuthMode
 		hasSessionToken     bool
 		hasBearerToken      bool
 		wantContextHasToken bool
 	}{
-		{"auto-mode without tokens", dashcfg.AuthModeAuto, false, false, false},
-		{"auto-mode with session token", dashcfg.AuthModeAuto, true, false, false},
-		{"auto-mode with bearer token", dashcfg.AuthModeAuto, false, true, true},
-		{"auto-mode with both tokens", dashcfg.AuthModeAuto, true, true, true},
-		{"token-mode without tokens", dashcfg.AuthModeToken, false, false, false},
-		{"token-mode with session token", dashcfg.AuthModeToken, true, false, true},
-		{"token-mode with bearer token", dashcfg.AuthModeToken, false, true, true},
-		{"token-mode with both tokens", dashcfg.AuthModeToken, false, true, true},
+		{"auto-mode without tokens", config.AuthModeAuto, false, false, false},
+		{"auto-mode with session token", config.AuthModeAuto, true, false, false},
+		{"auto-mode with bearer token", config.AuthModeAuto, false, true, true},
+		{"auto-mode with both tokens", config.AuthModeAuto, true, true, true},
+		{"token-mode without tokens", config.AuthModeToken, false, false, false},
+		{"token-mode with session token", config.AuthModeToken, true, false, true},
+		{"token-mode with bearer token", config.AuthModeToken, false, true, true},
+		{"token-mode with both tokens", config.AuthModeToken, false, true, true},
 	}
 
 	for _, tt := range tests {
@@ -105,14 +105,14 @@ func TestAuthenticationMiddleware(t *testing.T) {
 func TestK8sTokenRequiredMiddleware(t *testing.T) {
 	tests := []struct {
 		name           string
-		setMode        dashcfg.AuthMode
+		setMode        config.AuthMode
 		setHasToken    bool
 		wantStatusCode int
 	}{
-		{"auto-mode with session token", dashcfg.AuthModeAuto, true, http.StatusOK},
-		{"auto-mode without session token", dashcfg.AuthModeAuto, false, http.StatusOK},
-		{"token-mode with session token", dashcfg.AuthModeToken, true, http.StatusOK},
-		{"token-mode without session token", dashcfg.AuthModeToken, false, http.StatusUnauthorized},
+		{"auto-mode with session token", config.AuthModeAuto, true, http.StatusOK},
+		{"auto-mode without session token", config.AuthModeAuto, false, http.StatusOK},
+		{"token-mode with session token", config.AuthModeToken, true, http.StatusOK},
+		{"token-mode without session token", config.AuthModeToken, false, http.StatusUnauthorized},
 	}
 
 	for _, tt := range tests {

@@ -38,11 +38,7 @@ const (
 	AuthModeToken AuthMode = "token"
 )
 
-// Config is the Dashboard-specific application configuration.
-//
-// Note: the loader supports BOTH layouts:
-// - Monolithic: dashboard.* keys live under a "dashboard" parent.
-// - Component-specific: dashboard.* keys are at the root of the file.
+// Represents the Dashboard configuration
 type Config struct {
 	// Shared/common options (currently used by multiple components)
 	AllowedNamespaces []string `mapstructure:"allowed-namespaces"`
@@ -233,19 +229,12 @@ func NewConfig(v *viper.Viper, configPath string) (*Config, error) {
 	)
 	decodeOpt := viper.DecodeHook(hookFunc)
 
-	// unmarshal common/root options (e.g., allowed-namespaces, kubeconfig)
+	// Unmarshal
 	if err := v.Unmarshal(cfg, decodeOpt); err != nil {
 		return nil, err
 	}
 
-	// unmarshal dashboard section if present (monolithic config layout)
-	if vd := v.Sub("dashboard"); vd != nil {
-		if err := vd.Unmarshal(cfg, decodeOpt); err != nil {
-			return nil, err
-		}
-	}
-
-	// validate config
+	// Validate config
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}

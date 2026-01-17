@@ -29,9 +29,10 @@ import (
 
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 
-	capicfg "github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
+
+	"github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
 )
 
 // Represents Server
@@ -46,7 +47,7 @@ type Server struct {
 var allowedSecFetchSite = []string{"same-origin"}
 
 // Create new Server instance
-func NewServer(appConfig *capicfg.Config, cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string) *Server {
+func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string) *Server {
 	// Init resolver
 	r := &Resolver{cm, grpcDispatcher, allowedNamespaces}
 
@@ -74,7 +75,7 @@ func NewServer(appConfig *capicfg.Config, cm k8shelpers.ConnectionManager, grpcD
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				// Allow all if CSRF protection is disabled
-				if !appConfig.CSRF.Enabled {
+				if !cfg.CSRF.Enabled {
 					return true
 				}
 

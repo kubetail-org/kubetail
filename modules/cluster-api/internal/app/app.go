@@ -27,7 +27,6 @@ import (
 
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 
-	capicfg "github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/ginhelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
@@ -35,6 +34,7 @@ import (
 
 	clusterapi "github.com/kubetail-org/kubetail/modules/cluster-api"
 	"github.com/kubetail-org/kubetail/modules/cluster-api/graph"
+	"github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
 )
 
 type App struct {
@@ -63,7 +63,7 @@ func (a *App) Shutdown(ctx context.Context) error {
 }
 
 // Create new gin app
-func NewApp(cfg *capicfg.Config) (*App, error) {
+func NewApp(cfg *config.Config) (*App, error) {
 	// Init app
 	app := &App{Engine: gin.New()}
 

@@ -26,12 +26,12 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/utils/ptr"
 
-	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 )
 
 // This file will not be regenerated automatically.
@@ -41,7 +41,7 @@ import (
 //go:generate go run github.com/99designs/gqlgen generate
 
 type Resolver struct {
-	config            *dashcfg.Config
+	cfg               *config.Config
 	cm                k8shelpers.ConnectionManager
 	hm                clusterapi.HealthMonitor
 	environment       sharedcfg.Environment

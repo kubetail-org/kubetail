@@ -21,7 +21,7 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 
@@ -33,7 +33,7 @@ const k8sTokenSessionKey = "k8sToken"
 const k8sTokenGinKey = "k8sToken"
 
 // newClusterAPIProxy
-func newClusterAPIProxy(cfg *dashcfg.Config, cm k8shelpers.ConnectionManager, pathPrefix string) (clusterapi.Proxy, error) {
+func newClusterAPIProxy(cfg *config.Config, cm k8shelpers.ConnectionManager, pathPrefix string) (clusterapi.Proxy, error) {
 	// Initialize new ClusterAPI proxy depending on environment
 	switch cfg.Environment {
 	case sharedcfg.EnvironmentDesktop:

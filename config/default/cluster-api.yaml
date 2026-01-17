@@ -1,31 +1,199 @@
+## Kubetail Cluster API Configuration File
+#
+# This file defines the behavior for the kubetail cluster API server,
+# which provides the GraphQL API for cluster operations.
+#
+
+## allowed-namespaces ##
+#
+# List of namespaces the API is allowed to access.
+# If empty, all namespaces are accessible.
+#
+# Default value: []
+#
 allowed-namespaces: []
 
+## addr ##
+#
+# The network address and port the HTTP server should bind to.
+#
+# Default value: :8080
+#
 addr: :8080
+
+## base-path ##
+#
+# The base URL path for all API endpoints.
+#
+# Default value: /
+#
 base-path: /
+
+## gin-mode ##
+#
+# The Gin framework mode.
+# Valid values: debug, release, test
+#
+# Default value: release
+#
 gin-mode: release
 
+## cluster-agent ##
+#
+# Configuration for connecting to the cluster agent
+#
 cluster-agent:
+
+  ## dispatch-url ##
+  #
+  # The URL used to connect to the cluster agent.
+  # Supports kubernetes:// scheme for in-cluster service discovery.
+  #
+  # Default value: kubernetes://kubetail-cluster-agent:50051
+  #
   dispatch-url: kubernetes://kubetail-cluster-agent:50051
+
+  ## tls ##
+  #
+  # TLS configuration for cluster agent connections
+  #
   tls:
+
+    ## enabled ##
+    #
+    # Whether TLS is enabled for cluster agent connections.
+    #
+    # Default value: false
+    #
     enabled: false
+
+    ## cert-file ##
+    #
+    # Path to the TLS certificate file.
+    #
+    # Default value: ""
+    #
     cert-file: ""
+
+    ## key-file ##
+    #
+    # Path to the TLS private key file.
+    #
+    # Default value: ""
+    #
     key-file: ""
+
+    ## ca-file ##
+    #
+    # Path to the CA certificate file for server verification.
+    #
+    # Default value: ""
+    #
     ca-file: ""
+
+    ## server-name ##
+    #
+    # The server name to use for TLS verification.
+    # If empty, the hostname from dispatch-url is used.
+    #
+    # Default value: ""
+    #
     server-name: ""
 
+## csrf ##
+#
+# CSRF protection settings
+#
 csrf:
+
+  ## enabled ##
+  #
+  # Whether CSRF protection is enabled.
+  #
+  # Default value: true
+  #
   enabled: true
 
+## logging ##
+#
+# Configuration for the API server's logging output
+#
 logging:
+
+  ## enabled ##
+  #
+  # Whether logging is enabled for the server.
+  #
+  # Default value: true
+  #
   enabled: true
+
+  ## level ##
+  #
+  # The minimum log level to output.
+  # Valid values: debug, info, warn, error
+  #
+  # Default value: info
+  #
   level: info
+
+  ## format ##
+  #
+  # The format of log output.
+  # Valid values: json, text
+  #
+  # Default value: json
+  #
   format: json
+
+  ## access-log ##
+  #
+  # Configuration for HTTP access logging
+  #
   access-log:
+
+    ## enabled ##
+    #
+    # Whether access logging is enabled.
+    #
+    # Default value: true
+    #
     enabled: true
+
+    ## hide-health-checks ##
+    #
+    # Whether to hide health check requests from access logs.
+    #
+    # Default value: false
+    #
     hide-health-checks: false
 
+## tls ##
+#
+# TLS configuration for the HTTP server
+#
 tls:
-  enabled: false
-  cert-file: ""
-  key-file: ""
 
+  ## enabled ##
+  #
+  # Whether TLS is enabled for HTTP connections.
+  #
+  # Default value: false
+  #
+  enabled: false
+
+  ## cert-file ##
+  #
+  # Path to the TLS certificate file.
+  #
+  # Default value: ""
+  #
+  cert-file: ""
+
+  ## key-file ##
+  #
+  # Path to the TLS private key file.
+  #
+  # Default value: ""
+  #
+  key-file: ""

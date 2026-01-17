@@ -30,8 +30,8 @@ type CLI struct {
 	Config string `validate:"omitempty,file"`
 }
 
-// Application configuration
-type CLIConfig struct {
+// CLI configuration
+type Config struct {
 	// Global settings
 	General struct {
 		KubeconfigPath string `mapstructure:"kubeconfig"`
@@ -56,12 +56,12 @@ type CLIConfig struct {
 }
 
 // Validate config
-func (cfg *CLIConfig) validate() error {
+func (cfg *Config) validate() error {
 	return validator.New().Struct(cfg)
 }
 
-func DefaultCLIConfig() *CLIConfig {
-	cfg := &CLIConfig{}
+func DefaultCLIConfig() *Config {
+	cfg := &Config{}
 
 	cfg.Commands.Logs.KubeContext = ""
 	cfg.Commands.Logs.Head = 10
@@ -85,7 +85,7 @@ func DefaultConfigPath(format string) (string, error) {
 	return filepath.Join(home, ".kubetail", fmt.Sprintf("config.%s", format)), nil
 }
 
-func NewCLIConfig(configPath string, v *viper.Viper) (*CLIConfig, error) {
+func NewConfig(configPath string, v *viper.Viper) (*Config, error) {
 	// Use viper instance from user or create a new one
 	if v == nil {
 		v = viper.New()

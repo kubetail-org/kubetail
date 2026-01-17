@@ -68,7 +68,7 @@ func TestNewCLIConfigSuccess(t *testing.T) {
 		err := os.WriteFile(filePath, []byte(validCLIConfig), 0644)
 		require.NoError(t, err)
 
-		cfg, err := NewCLIConfig(filePath, nil)
+		cfg, err := NewConfig(filePath, nil)
 		require.Nil(t, err)
 		assert.Equal(t, "/path/to/kubeconfig", cfg.General.KubeconfigPath)
 		assert.Equal(t, "my-context", cfg.Commands.Logs.KubeContext)
@@ -92,7 +92,7 @@ func TestNewCLIConfigSuccess(t *testing.T) {
 		v := viper.New()
 		v.Set("commands.logs.head", headVal)
 
-		cfg, err := NewCLIConfig(filePath, v)
+		cfg, err := NewConfig(filePath, v)
 		require.Nil(t, err)
 		assert.Equal(t, headVal, cfg.Commands.Logs.Head)
 	})
@@ -106,13 +106,13 @@ func TestNewCLIConfigError(t *testing.T) {
 		err := os.WriteFile(filePath, []byte(invalidCLIConfig), 0644)
 		require.NoError(t, err)
 
-		cfg, err := NewCLIConfig(filePath, nil)
+		cfg, err := NewConfig(filePath, nil)
 		require.NotNil(t, err)
 		require.Nil(t, cfg)
 	})
 
 	t.Run("missing file", func(t *testing.T) {
-		cfg, err := NewCLIConfig("/does/not/exist.yaml", nil)
+		cfg, err := NewConfig("/does/not/exist.yaml", nil)
 		require.NotNil(t, err)
 		require.Nil(t, cfg)
 	})
@@ -124,7 +124,7 @@ func TestNewCLIConfigError(t *testing.T) {
 		err := os.WriteFile(filePath, []byte(validCLIConfig), 0644)
 		require.NoError(t, err)
 
-		cfg, err := NewCLIConfig(filePath, nil)
+		cfg, err := NewConfig(filePath, nil)
 		require.NotNil(t, err)
 		require.Nil(t, cfg)
 	})

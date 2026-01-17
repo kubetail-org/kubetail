@@ -22,16 +22,16 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 
-	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
-func authenticationMiddleware(mode dashcfg.AuthMode) gin.HandlerFunc {
+func authenticationMiddleware(mode config.AuthMode) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var token string
 
 		// Use cookie session in "token" mode
-		if mode == dashcfg.AuthModeToken {
+		if mode == config.AuthModeToken {
 			session := sessions.Default(c)
 			if val, ok := session.Get(k8sTokenSessionKey).(string); ok {
 				token = val
@@ -55,7 +55,7 @@ func authenticationMiddleware(mode dashcfg.AuthMode) gin.HandlerFunc {
 	}
 }
 
-func k8sAuthenticationMiddleware(mode dashcfg.AuthMode) gin.HandlerFunc {
+func k8sAuthenticationMiddleware(mode config.AuthMode) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// set "Cache-Control: no-store" so that pages aren't stored in the users browser cache
 		c.Header("Cache-Control", "no-store")
@@ -64,7 +64,7 @@ func k8sAuthenticationMiddleware(mode dashcfg.AuthMode) gin.HandlerFunc {
 		token := c.GetString(k8sTokenGinKey)
 
 		// Reject unauthenticated requests if auth-mode: token
-		if mode == dashcfg.AuthModeToken && token == "" {
+		if mode == config.AuthModeToken && token == "" {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}

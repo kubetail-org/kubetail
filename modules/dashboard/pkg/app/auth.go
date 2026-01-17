@@ -21,9 +21,8 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 
-	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
-
 	"github.com/kubetail-org/kubetail/modules/dashboard/internal/formerrors"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 )
 
 // Represents login form
@@ -104,9 +103,9 @@ func (app *authHandlers) SessionGET(c *gin.Context) {
 	}
 
 	switch authMode {
-	case dashcfg.AuthModeAuto:
+	case config.AuthModeAuto:
 		response["user"] = string(authMode)
-	case dashcfg.AuthModeToken:
+	case config.AuthModeToken:
 		token := c.GetString(k8sTokenGinKey)
 
 		// Handle no token found

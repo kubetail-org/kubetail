@@ -24,7 +24,7 @@ import (
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -108,7 +108,7 @@ func TestSessionCookieOptions(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		setCfg *dashcfg.Config
+		setCfg *config.Config
 	}{
 		{"Path", cfg1},
 		{"Domain", cfg2},

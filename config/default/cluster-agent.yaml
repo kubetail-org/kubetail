@@ -1,15 +1,101 @@
+## Kubetail Cluster Agent Configuration File
+#
+# This file defines the behavior for the kubetail cluster agent,
+# which runs in Kubernetes clusters to stream and process container logs.
+#
+
+## addr ##
+#
+# The network address and port the gRPC server should bind to.
+#
+# Default value: :50051
+#
 addr: :50051
+
+## container-logs-dir ##
+#
+# The directory path where Kubernetes stores container log files.
+# This is typically a mount from the host node's filesystem.
+#
+# Default value: /var/log/containers
+#
 container-logs-dir: /var/log/containers
 
+## logging ##
+#
+# Configuration for the agent's logging output
+#
 logging:
+
+  ## enabled ##
+  #
+  # Whether logging is enabled for the agent.
+  #
+  # Default value: true
+  #
   enabled: true
+
+  ## level ##
+  #
+  # The minimum log level to output.
+  # Valid values: debug, info, warn, error
+  #
+  # Default value: info
+  #
   level: info
+
+  ## format ##
+  #
+  # The format of log output.
+  # Valid values: json, text
+  #
+  # Default value: json
+  #
   format: json
 
+## tls ##
+#
+# TLS configuration for secure gRPC connections
+#
 tls:
-  enabled: false
-  cert-file: ""
-  key-file: ""
-  ca-file: ""
-  client-auth: none
 
+  ## enabled ##
+  #
+  # Whether TLS is enabled for gRPC connections.
+  #
+  # Default value: false
+  #
+  enabled: false
+
+  ## cert-file ##
+  #
+  # Path to the TLS certificate file.
+  #
+  # Default value: ""
+  #
+  cert-file: ""
+
+  ## key-file ##
+  #
+  # Path to the TLS private key file.
+  #
+  # Default value: ""
+  #
+  key-file: ""
+
+  ## ca-file ##
+  #
+  # Path to the CA certificate file for client verification.
+  #
+  # Default value: ""
+  #
+  ca-file: ""
+
+  ## client-auth ##
+  #
+  # The client authentication policy for TLS connections.
+  # Valid values: none, request, require, verify, require-and-verify
+  #
+  # Default value: none
+  #
+  client-auth: none

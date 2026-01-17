@@ -23,11 +23,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Config is the Cluster API specific application configuration.
-//
-// Note: the loader supports BOTH layouts:
-// - Monolithic: cluster-api.* keys live under a "cluster-api" parent.
-// - Component-specific: cluster-api.* keys are at the root of the file.
+// Represents the Cluster API configuration
 type Config struct {
 	// Shared/common options (currently used by multiple components)
 	AllowedNamespaces []string `mapstructure:"allowed-namespaces"`
@@ -104,22 +100,22 @@ func DefaultConfig() *Config {
 	return cfg
 }
 
-func NewConfig(v *viper.Viper, configPath string) (*Config, error) {
+func NewConfig(configPath string, v *viper.Viper) (*Config, error) {
 	if v == nil {
 		v = viper.New()
 	}
 
 	if configPath != "" {
-		// read contents
+		// Read contents
 		configBytes, err := os.ReadFile(configPath)
 		if err != nil {
 			return nil, err
 		}
 
-		// expand env vars
+		// Expand env vars
 		configBytes = []byte(os.ExpandEnv(string(configBytes)))
 
-		// load into viper
+		// Load into viper
 		v.SetConfigType(filepath.Ext(configPath)[1:])
 		if err := v.ReadConfig(bytes.NewBuffer(configBytes)); err != nil {
 			return nil, err
@@ -128,19 +124,12 @@ func NewConfig(v *viper.Viper, configPath string) (*Config, error) {
 
 	cfg := DefaultConfig()
 
-	// unmarshal common/root options (e.g., allowed-namespaces)
+	// Unmarshal common/root options (e.g., allowed-namespaces)
 	if err := v.Unmarshal(cfg); err != nil {
 		return nil, err
 	}
 
-	// unmarshal cluster-api section if present (monolithic config layout)
-	if vc := v.Sub("cluster-api"); vc != nil {
-		if err := vc.Unmarshal(cfg); err != nil {
-			return nil, err
-		}
-	}
-
-	// validate config
+	// Validate config
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
