@@ -22,9 +22,10 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 
-	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/testutils"
+
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 )
 
 func TestServer(t *testing.T) {
@@ -74,7 +75,7 @@ func TestServer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := dashcfg.DefaultConfig()
+			cfg := config.DefaultConfig()
 			cfg.Environment = sharedcfg.EnvironmentCluster
 			cfg.CSRF.Enabled = tt.setCsrfEnabled
 

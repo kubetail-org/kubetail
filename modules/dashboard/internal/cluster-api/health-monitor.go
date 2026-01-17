@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 
-	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/util"
@@ -55,7 +55,7 @@ type HealthMonitor interface {
 }
 
 // Create new HealthMonitor instance
-func NewHealthMonitor(cfg *dashcfg.Config, cm k8shelpers.ConnectionManager) HealthMonitor {
+func NewHealthMonitor(cfg *config.Config, cm k8shelpers.ConnectionManager) HealthMonitor {
 	switch cfg.Environment {
 	case sharedcfg.EnvironmentDesktop:
 		return NewDesktopHealthMonitor(cm)

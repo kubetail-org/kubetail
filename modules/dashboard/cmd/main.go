@@ -34,11 +34,11 @@ import (
 	k8sruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 
-	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logging"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/app"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 )
 
 type CLI struct {
@@ -77,7 +77,7 @@ func main() {
 			}
 
 			// Init config
-			cfg, err := dashcfg.NewConfig(v, cli.Config)
+			cfg, err := config.NewConfig(v, cli.Config)
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}

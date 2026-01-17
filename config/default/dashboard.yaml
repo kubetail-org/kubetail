@@ -1,40 +1,265 @@
+## Kubetail Dashboard Configuration File
+#
+# This file defines the behavior for the kubetail dashboard server,
+# which serves the web UI and provides the backend API for the dashboard.
+#
+
+## allowed-namespaces ##
+#
+# List of namespaces the dashboard is allowed to access.
+# If empty, all namespaces are accessible.
+#
+# Default value: []
+#
 allowed-namespaces: []
+
+## kubeconfig ##
+#
+# Path to the kubeconfig file to use for Kubernetes API requests.
+# If empty, the default path (~/.kube/config) or KUBECONFIG env var is used.
+#
+# Default value: ""
+#
 kubeconfig: ""
 
+## addr ##
+#
+# The network address and port the HTTP server should bind to.
+#
+# Default value: :80
+#
 addr: :80
+
+## auth-mode ##
+#
+# The authentication mode for the dashboard.
+# Valid values: auto, cluster, local
+#
+# Default value: auto
+#
 auth-mode: auto
+
+## base-path ##
+#
+# The base URL path for all dashboard endpoints.
+#
+# Default value: /
+#
 base-path: /
+
+## cluster-api-endpoint ##
+#
+# The URL of the cluster API server.
+#
+# Default value: http://kubetail-cluster-api
+#
 cluster-api-endpoint: http://kubetail-cluster-api
+
+## environment ##
+#
+# The environment the dashboard is running in.
+# Valid values: desktop, cluster
+#
+# Default value: desktop
+#
 environment: desktop
+
+## gin-mode ##
+#
+# The Gin framework mode.
+# Valid values: debug, release, test
+#
+# Default value: release
+#
 gin-mode: release
 
+## csrf ##
+#
+# CSRF protection settings
+#
 csrf:
+
+  ## enabled ##
+  #
+  # Whether CSRF protection is enabled.
+  #
+  # Default value: true
+  #
   enabled: true
 
+## logging ##
+#
+# Configuration for the dashboard server's logging output
+#
 logging:
+
+  ## enabled ##
+  #
+  # Whether logging is enabled for the server.
+  #
+  # Default value: true
+  #
   enabled: true
+
+  ## level ##
+  #
+  # The minimum log level to output.
+  # Valid values: debug, info, warn, error
+  #
+  # Default value: info
+  #
   level: info
+
+  ## format ##
+  #
+  # The format of log output.
+  # Valid values: json, text
+  #
+  # Default value: json
+  #
   format: json
+
+  ## access-log ##
+  #
+  # Configuration for HTTP access logging
+  #
   access-log:
+
+    ## enabled ##
+    #
+    # Whether access logging is enabled.
+    #
+    # Default value: true
+    #
     enabled: true
+
+    ## hide-health-checks ##
+    #
+    # Whether to hide health check requests from access logs.
+    #
+    # Default value: false
+    #
     hide-health-checks: false
 
+## session ##
+#
+# Session management settings
+#
 session:
+
+  ## secret ##
+  #
+  # The secret key used to sign session tokens.
+  # If empty, a random secret is generated on startup.
+  #
+  # Default value: ""
+  #
   secret: ""
+
+  ## cookie ##
+  #
+  # Session cookie configuration
+  #
   cookie:
+
+    ## name ##
+    #
+    # The name of the session cookie.
+    #
+    # Default value: session
+    #
     name: session
+
+    ## path ##
+    #
+    # The URL path for which the cookie is valid.
+    #
+    # Default value: /
+    #
     path: /
+
+    ## domain ##
+    #
+    # The domain for which the cookie is valid.
+    # If empty, the cookie is valid for the current domain only.
+    #
+    # Default value: ""
+    #
     domain: ""
+
+    ## max-age ##
+    #
+    # The maximum age of the cookie in seconds.
+    #
+    # Default value: 1092000
+    #
     max-age: 1092000
+
+    ## secure ##
+    #
+    # Whether the cookie should only be sent over HTTPS.
+    #
+    # Default value: false
+    #
     secure: false
+
+    ## http-only ##
+    #
+    # Whether the cookie is inaccessible to JavaScript.
+    #
+    # Default value: true
+    #
     http-only: true
+
+    ## same-site ##
+    #
+    # The SameSite attribute for the cookie.
+    # Valid values: strict, lax, none
+    #
+    # Default value: lax
+    #
     same-site: lax
 
+## tls ##
+#
+# TLS configuration for the HTTP server
+#
 tls:
+
+  ## enabled ##
+  #
+  # Whether TLS is enabled for HTTP connections.
+  #
+  # Default value: false
+  #
   enabled: false
+
+  ## cert-file ##
+  #
+  # Path to the TLS certificate file.
+  #
+  # Default value: ""
+  #
   cert-file: ""
+
+  ## key-file ##
+  #
+  # Path to the TLS private key file.
+  #
+  # Default value: ""
+  #
   key-file: ""
 
+## ui ##
+#
+# UI-specific configuration options
+#
 ui:
-  cluster-api-enabled: true
 
+  ## cluster-api-enabled ##
+  #
+  # Whether the cluster API integration is enabled in the UI.
+  #
+  # Default value: true
+  #
+  cluster-api-enabled: true

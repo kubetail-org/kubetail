@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	authv1 "k8s.io/api/authentication/v1"
 
-	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 )
 
@@ -31,8 +31,8 @@ func init() {
 }
 
 // Create new base config for testing
-func newTestConfig() *dashcfg.Config {
-	cfg := dashcfg.DefaultConfig()
+func newTestConfig() *config.Config {
+	cfg := config.DefaultConfig()
 	cfg.BasePath = "/"
 	cfg.Environment = sharedcfg.EnvironmentCluster
 	cfg.Logging.AccessLog.Enabled = false
@@ -43,7 +43,7 @@ func newTestConfig() *dashcfg.Config {
 }
 
 // Create new app for testing
-func newTestApp(cfg *dashcfg.Config) *App {
+func newTestApp(cfg *config.Config) *App {
 	if cfg == nil {
 		cfg = newTestConfig()
 	}

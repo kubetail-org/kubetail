@@ -30,10 +30,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	capicfg "github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/logging"
 
 	"github.com/kubetail-org/kubetail/modules/cluster-api/internal/app"
+	"github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
 )
 
 type CLI struct {
@@ -64,7 +64,7 @@ func main() {
 			v.BindPFlag("cluster-api.gin-mode", cmd.Flags().Lookup("gin-mode"))
 
 			// Init config
-			cfg, err := capicfg.NewConfig(v, cli.Config)
+			cfg, err := config.NewConfig(cli.Config, v)
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}

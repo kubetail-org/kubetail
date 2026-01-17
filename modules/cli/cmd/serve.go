@@ -37,7 +37,6 @@ import (
 	k8sruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 
-	"github.com/kubetail-org/kubetail/modules/cli/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/app"
 	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
@@ -45,6 +44,7 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/logging"
 
 	"github.com/kubetail-org/kubetail/modules/cli/internal/tunnel"
+	"github.com/kubetail-org/kubetail/modules/cli/pkg/config"
 )
 
 type serveOptions struct {
@@ -236,31 +236,31 @@ func loadServerConfig(cmd *cobra.Command) (*dashcfg.Config, *serveOptions, error
 	v.BindPFlag("commands.serve.skip-open", cmd.Flags().Lookup("skip-open"))
 
 	// Init config
-	cliCfg, err := config.NewCLIConfig(configPath, v)
+	cfg, err := config.NewConfig(configPath, v)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	cfg := dashcfg.DefaultConfig()
+	dashCfg := dashcfg.DefaultConfig()
 
-	cfg.KubeconfigPath = cliCfg.General.KubeconfigPath
-	cfg.Addr = fmt.Sprintf("%s:%d", cliCfg.Commands.Serve.Host, cliCfg.Commands.Serve.Port)
-	cfg.Environment = sharedcfg.EnvironmentDesktop
-	cfg.Logging.Level = logLevel
+	dashCfg.KubeconfigPath = cfg.General.KubeconfigPath
+	dashCfg.Addr = fmt.Sprintf("%s:%d", cfg.Commands.Serve.Host, cfg.Commands.Serve.Port)
+	dashCfg.Environment = sharedcfg.EnvironmentDesktop
+	dashCfg.Logging.Level = logLevel
 	if inCluster {
-		cfg.Environment = sharedcfg.EnvironmentCluster
+		dashCfg.Environment = sharedcfg.EnvironmentCluster
 	}
-	cfg.Logging.AccessLog.Enabled = false
+	dashCfg.Logging.AccessLog.Enabled = false
 
 	serveOptions := &serveOptions{
-		port:     cliCfg.Commands.Serve.Port,
-		host:     cliCfg.Commands.Serve.Host,
-		skipOpen: cliCfg.Commands.Serve.SkipOpen,
+		port:     cfg.Commands.Serve.Port,
+		host:     cfg.Commands.Serve.Host,
+		skipOpen: cfg.Commands.Serve.SkipOpen,
 		remote:   remote,
 		test:     test,
 	}
 
-	return cfg, serveOptions, nil
+	return dashCfg, serveOptions, nil
 }
 
 func serveRemote(kubeconfigPath string, localPort int, skipOpen bool) {

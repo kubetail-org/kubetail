@@ -29,7 +29,7 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 
-	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/ginhelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/middleware"
@@ -41,7 +41,7 @@ import (
 
 type App struct {
 	*gin.Engine
-	config          *dashcfg.Config
+	config          *config.Config
 	cm              k8shelpers.ConnectionManager
 	graphqlServer   *graph.Server
 	clusterAPIProxy clusterapi.Proxy
@@ -64,7 +64,7 @@ func (a *App) Shutdown(ctx context.Context) error {
 }
 
 // Create new gin app
-func NewApp(cfg *dashcfg.Config) (*App, error) {
+func NewApp(cfg *config.Config) (*App, error) {
 	// Init app
 	app := &App{Engine: gin.New(), config: cfg}
 

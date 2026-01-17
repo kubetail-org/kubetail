@@ -24,7 +24,7 @@ import (
 	"github.com/gin-gonic/gin"
 	zlog "github.com/rs/zerolog/log"
 
-	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/middleware"
 )
 
@@ -47,7 +47,7 @@ func (app *websiteHandlers) InitStaticHandlers(root *gin.RouterGroup) {
 	}
 }
 
-func (app *websiteHandlers) EndpointHandler(cfg *dashcfg.Config) gin.HandlerFunc {
+func (app *websiteHandlers) EndpointHandler(cfg *config.Config) gin.HandlerFunc {
 	// read manifest file
 	manifestFile, err := app.websiteFS.Open(".vite/manifest.json")
 	if err != nil {

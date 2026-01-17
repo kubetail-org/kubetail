@@ -33,13 +33,13 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/kubetail-org/kubetail/modules/cli/pkg/config"
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
 
 	"github.com/kubetail-org/kubetail/modules/cli/internal/cli"
 	"github.com/kubetail-org/kubetail/modules/cli/internal/tablewriter"
+	"github.com/kubetail-org/kubetail/modules/cli/pkg/config"
 )
 
 var headFlag config.OptionalInt64
@@ -227,13 +227,13 @@ var logsCmd = &cobra.Command{
 		// Get flags
 		flags := cmd.Flags()
 
-		configPath, _ := cmd.Flags().GetString("config")
+		configPath, _ := flags.GetString("config")
 		inCluster, _ := flags.GetBool(InClusterFlag)
 
 		v := viper.New()
 
-		v.BindPFlag("general.kubeconfig", cmd.Flags().Lookup(KubeconfigFlag))
-		v.BindPFlag("commands.logs.kube-context", cmd.Flags().Lookup(KubeContextFlag))
+		v.BindPFlag("general.kubeconfig", flags.Lookup(KubeconfigFlag))
+		v.BindPFlag("commands.logs.kube-context", flags.Lookup(KubeContextFlag))
 		if headFlag.IsValueProvided {
 			v.Set("commands.logs.head", headFlag.Value)
 		}
@@ -241,18 +241,18 @@ var logsCmd = &cobra.Command{
 			v.Set("commands.logs.tail", tailFlag.Value)
 		}
 
-		cliCfg, err := config.NewCLIConfig(configPath, v)
+		cfg, err := config.NewConfig(configPath, v)
 		if err != nil {
 			zlog.Fatal().Caller().Err(err).Send()
 		}
-		kubeContext := cliCfg.Commands.Logs.KubeContext
-		kubeconfigPath := cliCfg.General.KubeconfigPath
+		kubeContext := cfg.Commands.Logs.KubeContext
+		kubeconfigPath := cfg.General.KubeconfigPath
 
 		head := flags.Changed("head")
-		headVal := cliCfg.Commands.Logs.Head
+		headVal := cfg.Commands.Logs.Head
 
 		tail := flags.Changed("tail")
-		tailVal := cliCfg.Commands.Logs.Tail
+		tailVal := cfg.Commands.Logs.Tail
 
 		all, _ := flags.GetBool("all")
 		follow, _ := flags.GetBool("follow")

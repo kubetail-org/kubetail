@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	dashcfg "github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	k8shelpersmock "github.com/kubetail-org/kubetail/modules/shared/k8shelpers/mock"
 	"github.com/stretchr/testify/assert"
@@ -110,7 +110,7 @@ func TestNewHealthMonitor(t *testing.T) {
 			cm := &k8shelpersmock.MockConnectionManager{}
 
 			// create config
-			cfg := dashcfg.DefaultConfig()
+			cfg := config.DefaultConfig()
 			cfg.Environment = tt.environment
 			if tt.endpoint != "" {
 				cfg.ClusterAPIEndpoint = tt.endpoint
@@ -135,7 +135,7 @@ func TestNewHealthMonitor_InvalidEnvironment(t *testing.T) {
 	cm := &k8shelpersmock.MockConnectionManager{}
 
 	// create config
-	cfg := dashcfg.DefaultConfig()
+	cfg := config.DefaultConfig()
 	cfg.Environment = "invalid"
 
 	// Assert panic

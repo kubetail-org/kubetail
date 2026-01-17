@@ -26,11 +26,12 @@ import (
 
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 
-	capicfg "github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/grpchelpers"
+
+	"github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
 )
 
-func mustNewGrpcDispatcher(cfg *capicfg.Config) *grpcdispatcher.Dispatcher {
+func mustNewGrpcDispatcher(cfg *config.Config) *grpcdispatcher.Dispatcher {
 	dialOpts := []grpc.DialOption{
 		grpc.WithUnaryInterceptor(grpchelpers.AuthUnaryClientInterceptor),
 		grpc.WithStreamInterceptor(grpchelpers.AuthStreamClientInterceptor),
