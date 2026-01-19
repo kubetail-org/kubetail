@@ -212,28 +212,55 @@ minikube service -n kubetail-system kubetail-dashboard
 
 ## Quickstart (Docker)
 
-You can run the Kubetail CLI tool inside a docker container using the [`kubetail/kubetail-cli`](https://hub.docker.com/r/kubetail/kubetail-cli) image.
+To run the Kubetail CLI tool (`kubetail`) inside a container you can use the [`kubetail-cli`](https://hub.docker.com/r/kubetail/kubetail-cli) docker image. The image is available on these container registries:
 
-### Option 1: Docker Compose
+```
+* Docker Hub - docker.io/kubetail/kubetail-cli
+* GitHub - ghcr.io/kubetail-org/kubetail-cli
+```
 
-To use the CLI tool locally with docker-compose you can use this [docker-compose.yml](config/examples/docker-compose.yml) to get started:
+### Option 1: Docker Run
+
+To use the CLI tool locally with `docker run` you need to mount your local `.kube/config` file into a `kubetail-cli` container then use normal CLI [commands](https://www.kubetail.com/docs/cli#subcommands): 
+
+```console
+docker run --rm -it \
+  -v ~/.kube/config:/root/.kube/config:ro \
+  kubetail/kubetail-cli logs \
+  --kubeconfig /root/.kube/config \
+  -f \
+  deployments/my-app
+```
+
+You can also use the `sh` entrypoint to start an interactive session:
+
+```console
+docker run --rm -it \
+  -v ~/.kube/config:/root/.kube/config:ro \
+  --entrypoint sh \
+  kubetail/kubetail-cli
+```
+
+### Option 2: Docker Compose
+
+To use the CLI tool locally with `docker-compose` you can use this [docker-compose.yml](https://raw.githubusercontent.com/kubetail-org/kubetail/refs/heads/main/config/examples/docker-compose.yml) config file to get started:
 
 ```console
 curl -LO https://raw.githubusercontent.com/kubetail-org/kubetail/refs/heads/main/config/examples/docker-compose.yml
 docker-compose up
 ```
 
-This will mount your .kube/config file into a kubetail-cli container and start the dashboard server at [http://localhost:7500](http://localhost:7500).
+This will mount your local `.kube/config` file into a `kubetail-cli` container and start the dashboard server at [http://localhost:7500](http://localhost:7500).
 
-### Option 2: Kubernetes Pod
+### Option 3: Kubernetes Pod
 
-To use the CLI tool inside a cluster you can use this [kubetail-cli-pod.yaml](config/examples/kubetail-cli-pod.yaml) manifest file to get started:
+To use the CLI tool inside a cluster you can use this [`kubetail-cli-pod.yaml`](https://raw.githubusercontent.com/kubetail-org/kubetail/refs/heads/main/config/examples/kubetail-cli-pod.yaml) manifest file to get started:
 
 ```console
 kubectl add -f https://raw.githubusercontent.com/kubetail-org/kubetail/refs/heads/main/config/examples/kubetail-cli-pod.yaml
 ```
 
-This will start a kubetail-cli container inside the `default` namespace with access to pod logs in the same namespace. Once the pod is running you can exec into it and run CLI commands using the `--in-cluster` flag:
+This will start a `kubetail-cli` container inside the `default` namespace with access to pod logs in the same namespace. Once the pod is running you can `exec` into it and run CLI commands using the `--in-cluster` flag:
 
 ```console
 kubectl exec -it kubetail-cli -- sh
