@@ -1,0 +1,10 @@
+services:
+  kubetail-dashboard:
+    image: kubetail/kubetail-cli
+    container_name: kubetail-dashboard
+    restart: unless-stopped
+    command: serve --host 0.0.0.0 --skip-open
+    ports:
+      - 7500:7500
+    volumes:
+      - ~/.kube/config:/root/.kube/config:ro
