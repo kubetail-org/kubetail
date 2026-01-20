@@ -110,44 +110,48 @@ kubetail serve
 
 This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun tailing your logs!
 
-### Option 2: Shell script
+<details>
+  <summary><h3>Option 2: Shell script</h3></summary>
+  
+  First, download and run the install script:
 
-First, download and run the install script:
+  ```console
+  curl -sS https://www.kubetail.com/install.sh | bash
+  ```
 
-```console
-curl -sS https://www.kubetail.com/install.sh | bash
-```
+  Next, start the web dashboard using the `serve` subcommand:
 
-Next, start the web dashboard using the `serve` subcommand:
+  ```console
+  kubetail serve
+  ```
 
-```console
-kubetail serve
-```
+  This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun tailing your logs!
+</details>
 
-This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun tailing your logs!
+<details>
+  <summary><h3>Option 3: Download binary</h3></summary>
+  
+  Download the binary for your OS/Arch (from the latest [release binaries](https://github.com/kubetail-org/kubetail/releases/latest)):
 
-### Option 3: Binaries
+  * Darwin ([amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-darwin-amd64), [arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-darwin-arm64))
+  * Linux ([amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-amd64), [arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-arm64))
+  * Windows ([amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-amd64), [arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-arm64))
 
-Download the binary for your OS/Arch (from the latest [release binaries](https://github.com/kubetail-org/kubetail/releases/latest)):
+  Rename the file and make it executable:
 
-* Darwin ([amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-darwin-amd64), [arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-darwin-arm64))
-* Linux ([amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-amd64), [arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-arm64))
-* Windows ([amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-amd64), [arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-arm64))
+  ```console
+  mv <filename> kubetail
+  chmod a+x kubetail
+  ```
 
-Rename the file and make it executable:
+  Next, start the web dashboard using the `serve` subcommand:
 
-```console
-mv <filename> kubetail
-chmod a+x kubetail
-```
+  ```console
+  kubetail serve
+  ```
 
-Next, start the web dashboard using the `serve` subcommand:
-
-```console
-kubetail serve
-```
-
-This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun tailing your logs!
+  This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun tailing your logs!
+</details>
 
 ## Quickstart (Cluster)
 
@@ -170,58 +174,55 @@ kubectl port-forward -n kubetail-system svc/kubetail-dashboard 8080:8080
 
 Visit [http://localhost:8080](http://localhost:8080). Have fun tailing your logs!
 
-### Option 2: YAML Manifest
+<details>
+  <summary><h3>Option 2: YAML Manifest</h3></summary>
 
-First, create a namespace for the Kubetail resources:
+  First, create a namespace for the Kubetail resources:
 
-```console
-kubectl create namespace kubetail-system
-```
+  ```console
+  kubectl create namespace kubetail-system
+  ```
 
-Next, choose your authentication mode (`cluster` or `token`) and apply the latest manifest file:
+  Next, choose your authentication mode (`cluster` or `token`) and apply the latest manifest file:
 
-```console
-# For cluster-based authentication use kubetail-clusterauth.yaml:
-kubectl apply -f https://github.com/kubetail-org/helm-charts/releases/latest/download/kubetail-clusterauth.yaml
+  ```console
+  # For cluster-based authentication use kubetail-clusterauth.yaml:
+  kubectl apply -f https://github.com/kubetail-org/helm-charts/releases/latest/download/kubetail-clusterauth.yaml
 
-# For token-based authentication use kubetail-tokenauth.yaml:
-kubectl apply -f https://github.com/kubetail-org/helm-charts/releases/latest/download/kubetail-tokenauth.yaml
-```
+  # For token-based authentication use kubetail-tokenauth.yaml:
+  kubectl apply -f https://github.com/kubetail-org/helm-charts/releases/latest/download/kubetail-tokenauth.yaml
+  ```
 
-To access the web dashboard you can use your usual access methods such as `kubectl port-forward`:
+  To access the web dashboard you can use your usual access methods such as `kubectl port-forward`:
 
-```console
-kubectl port-forward -n kubetail-system svc/kubetail-dashboard 8080:8080
-```
+  ```console
+  kubectl port-forward -n kubetail-system svc/kubetail-dashboard 8080:8080
+  ```
 
-Visit [http://localhost:8080](http://localhost:8080). Have fun tailing your logs!
+  Visit [http://localhost:8080](http://localhost:8080). Have fun tailing your logs!
+</details>
 
-### Option 3: minikube
+<details>
+  <summary><h3>Option 3: minikube</h3></summary>
 
-As of minikube v1.36.0, you can install Kubetail easily as an addon:
+  As of minikube v1.36.0, you can install Kubetail easily as an addon:
 
-```console
-minikube addons enable kubetail
-```
+  ```console
+  minikube addons enable kubetail
+  ```
 
-Once the Kubetail pods are running in the cluster you can access it via a service:
+  Once the Kubetail pods are running in the cluster you can access it via a service:
 
-```console
-minikube service -n kubetail-system kubetail-dashboard
-```
+  ```console
+  minikube service -n kubetail-system kubetail-dashboard
+  ```
+</details>
 
 ## Quickstart (Docker)
 
-To run the Kubetail CLI tool (`kubetail`) inside a container you can use the [`kubetail-cli`](https://hub.docker.com/r/kubetail/kubetail-cli) docker image. The image is available on these container registries:
-
-```
-* Docker Hub - docker.io/kubetail/kubetail-cli
-* GitHub - ghcr.io/kubetail-org/kubetail-cli
-```
-
 ### Option 1: Docker Run
 
-To use the CLI tool locally with `docker run` you need to mount your local `.kube/config` file into a `kubetail-cli` container then use normal CLI [commands](https://www.kubetail.com/docs/cli#subcommands): 
+To run the Kubetail CLI tool (`kubetail`) inside a container you can use the [`kubetail-cli`](https://hub.docker.com/r/kubetail/kubetail-cli) docker image. To use the image locally with `docker run` you need to mount your local `.kube/config` file into a `kubetail-cli` container then use normal CLI [commands](https://www.kubetail.com/docs/cli#subcommands): 
 
 ```console
 docker run --rm -it \
@@ -241,35 +242,48 @@ docker run --rm -it \
   kubetail/kubetail-cli
 ```
 
-### Option 2: Docker Compose
+<details>
+  <summary><h3>Option 2: Docker Compose</h3></summary>
 
-To use the CLI tool locally with `docker-compose` you can use this [docker-compose.yml](https://raw.githubusercontent.com/kubetail-org/kubetail/refs/heads/main/config/examples/docker-compose.yml) config file to get started:
+  To run the Kubetail CLI tool (`kubetail`) inside a container you can use the [`kubetail-cli`](https://hub.docker.com/r/kubetail/kubetail-cli) docker image. To use the image locally with `docker-compose` you can use this [docker-compose.yml](https://raw.githubusercontent.com/kubetail-org/kubetail/refs/heads/main/config/examples/docker-compose.yml) config file to get started:
 
-```console
-curl -LO https://raw.githubusercontent.com/kubetail-org/kubetail/refs/heads/main/config/examples/docker-compose.yml
-docker-compose up
-```
+  ```console
+  curl -LO https://raw.githubusercontent.com/kubetail-org/kubetail/refs/heads/main/config/examples/docker-compose.yml
+  docker-compose up
+  ```
 
-This will mount your local `.kube/config` file into a `kubetail-cli` container and start the dashboard server at [http://localhost:7500](http://localhost:7500).
+  This will mount your local `.kube/config` file into a `kubetail-cli` container and start the dashboard server at [http://localhost:7500](http://localhost:7500).
+</details>
 
-### Option 3: Kubernetes Pod
+<details>
+  <summary><h3>Option 3: Kubernetes Pod</h3></summary>
 
-To use the CLI tool inside a cluster you can use this [`kubetail-cli-pod.yaml`](https://raw.githubusercontent.com/kubetail-org/kubetail/refs/heads/main/config/examples/kubetail-cli-pod.yaml) manifest file to get started:
+  To run the Kubetail CLI tool (`kubetail`) inside a container you can use the [`kubetail-cli`](https://hub.docker.com/r/kubetail/kubetail-cli) docker image. To use the image inside a cluster you can use this [`kubetail-cli-pod.yaml`](https://raw.githubusercontent.com/kubetail-org/kubetail/refs/heads/main/config/examples/kubetail-cli-pod.yaml) manifest file to get started:
 
-```console
-kubectl add -f https://raw.githubusercontent.com/kubetail-org/kubetail/refs/heads/main/config/examples/kubetail-cli-pod.yaml
-```
+  ```console
+  kubectl add -f https://raw.githubusercontent.com/kubetail-org/kubetail/refs/heads/main/config/examples/kubetail-cli-pod.yaml
+  ```
 
-This will start a `kubetail-cli` container inside the `default` namespace with access to pod logs in the same namespace. Once the pod is running you can `exec` into it and run CLI commands using the `--in-cluster` flag:
+  This will start a `kubetail-cli` container inside the `default` namespace with access to pod logs in the same namespace. Once the pod is running you can `exec` into it and run CLI commands using the `--in-cluster` flag:
 
-```console
-kubectl exec -it kubetail-cli -- sh
-# ./kubetail logs --in-cluster -f deployments/my-app
-```
+  ```console
+  kubectl exec -it kubetail-cli -- sh
+  # ./kubetail logs --in-cluster -f deployments/my-app
+  ```
+</details>
 
 ## Documentation
 
 Visit the [Kubetail documentation](https://www.kubetail.com/)
+
+## Docker Registries
+
+Our docker images are available on these container registries:
+
+```
+* Docker Hub - docker.io/kubetail/kubetail-{cli, dashboard, cluster-api, cluster-agent}
+* GitHub - ghcr.io/kubetail-org/kubetail-{cli, dashboard, cluster-api, cluser-agent}
+```
 
 ## Roadmap and Status
 
@@ -367,52 +381,54 @@ pnpm dev
 
 Now access the dashboard at [http://localhost:5173](http://localhost:5173).
 
-### Optimize Development Environment for Rust (Optional)
+<details>
+  <summary><h3>Optimize Development Environment for Rust (Optional)</h3></summary>
+  
+  By default, the dev environment compiles "release" builds of the Rust components when you run run `tilt up`. If you want to iterate more quickly, you can have Tilt compile the rust code locally using "debug" builds instead.
 
-By default, the dev environment compiles "release" builds of the Rust components when you run run `tilt up`. If you want to iterate more quickly, you can have Tilt compile the rust code locally using "debug" builds instead.
+  #### Dependencies
 
-#### Dependencies
+  * [rustup](https://rustup.rs)
+  * [protobuf](https://protobuf.dev/installation/)
 
-* [rustup](https://rustup.rs)
-* [protobuf](https://protobuf.dev/installation/)
+  #### Next steps
 
-#### Next steps
+  First, install the Rust target required for your architecture:
 
-First, install the Rust target required for your architecture:
+  ```console
+  # x86_64
+  rustup target add x86_64-unknown-linux-musl
 
-```console
-# x86_64
-rustup target add x86_64-unknown-linux-musl
+  # aarch64
+  rustup target add aarch64-unknown-linux-musl
+  ```
 
-# aarch64
-rustup target add aarch64-unknown-linux-musl
-```
+  Next, install the tools required by Rust cross compiler:
 
-Next, install the tools required by Rust cross compiler:
+  ```console
+  # macOS (Homebrew)
+  brew install FiloSottile/musl-cross/musl-cross
 
-```console
-# macOS (Homebrew)
-brew install FiloSottile/musl-cross/musl-cross
+  # Linux (Ubuntu)
+  apt-get install musl-tools
+  ```
 
-# Linux (Ubuntu)
-apt-get install musl-tools
-```
+  On macOS, add this to your `~/.cargo/config.toml` file:
 
-On macOS, add this to your `~/.cargo/config.toml` file:
+  ```
+  [target.x86_64-unknown-linux-musl]
+  linker = "x86_64-linux-musl-gcc"
 
-```
-[target.x86_64-unknown-linux-musl]
-linker = "x86_64-linux-musl-gcc"
+  [target.aarch64-unknown-linux-musl]
+  linker = "aarch64-linux-musl-gcc"
+  ```
 
-[target.aarch64-unknown-linux-musl]
-linker = "aarch64-linux-musl-gcc"
-```
+  Finally, to use the local compiler, just run Tilt using using the `KUBETAIL_DEV_RUST_LOCAL` env flag:
 
-Finally, to use the local compiler, just run Tilt using using the `KUBETAIL_DEV_RUST_LOCAL` env flag:
-
-```console
-KUBETAIL_DEV_RUST_LOCAL=true tilt up
-```
+  ```console
+  KUBETAIL_DEV_RUST_LOCAL=true tilt up
+  ```
+</details>
 
 ## Build
 
