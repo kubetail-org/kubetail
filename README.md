@@ -114,7 +114,7 @@ Start the web dashboard using the `serve` command:
 kubetail serve
 ```
 
-Or view logs in your terminal using the `logs` command:
+This will open the dashboard at [http://localhost:7500](http://localhost:7500). You can also view logs in your terminal using the `logs` command:
 
 ```console
 kubetail logs -f deployments/my-app
@@ -135,10 +135,12 @@ helm install kubetail kubetail/kubetail --namespace kubetail-system --create-nam
 
 For more information on how to configure the helm chart, see the chart's [values.yaml](https://github.com/kubetail-org/helm-charts/blob/main/charts/kubetail/values.yaml) file.
 
-If you prefer, you can also install Kubetail in your cluster using these options:
+If you prefer, you can also install Kubetail in your cluster by applying the latest manifest file:
 
-* [YAML Manifest](https://www.kubetail.com/docs/getting-started/cluster/install#yaml-manifest)
-* [Minikube addon](https://www.kubetail.com/docs/getting-started/cluster/install#minikube)
+```console
+kubectl create namespace kubetail-system
+kubectl apply -f https://github.com/kubetail-org/helm-charts/releases/latest/download/kubetail-clusterauth.yaml
+```
 
 ### Usage
 
@@ -188,11 +190,25 @@ COPY --from=kubetail/kubetail-cli /usr/local/bin/kubetail /usr/local/bin/kubetai
 
 ## Docker Registries
 
-Our docker images are available on these container registries:
+Our docker images are available at these registry endpoints:
 
 ```
-* Docker Hub - docker.io/kubetail/kubetail-{cli, dashboard, cluster-api, cluster-agent}
-* GitHub - ghcr.io/kubetail-org/kubetail-{cli, dashboard, cluster-api, cluser-agent}
+* Docker Hub - docker.io/kubetail/kubetail-*
+* GitHub - ghcr.io/kubetail-org/kubetail-*
+```
+
+## Minikube
+
+As of [minikube](https://minikube.sigs.k8s.io/) v1.36.0, you can install Kubetail as an addon:
+
+```console
+minikube addons enable kubetail
+```
+
+Once the Kubetail pods are running in the cluster you can access the dashboard via a service:
+
+```console
+minikube service -n kubetail-system kubetail-dashboard
 ```
 
 ## Roadmap and Status
