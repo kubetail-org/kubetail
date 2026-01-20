@@ -126,7 +126,7 @@ See the documentation for a full list of [commands](https://www.kubetail.com/doc
 
 ### Install
 
-First, add the Kubetail org's chart repository, then install the "kubetail" chart:
+To install Kubetail in your cluster using Helm, first add our [chart repository](https://github.com/kubetail-org/helm-charts), then install the "kubetail" chart:
 
 ```console
 helm repo add kubetail https://kubetail-org.github.io/helm-charts/
@@ -152,7 +152,9 @@ Visit [http://localhost:8080](http://localhost:8080). Have fun tailing your logs
 
 ## Quickstart [Docker]
 
-To run the Kubetail CLI tool (`kubetail`) inside a docker container you can use the [`kubetail-cli`](https://hub.docker.com/r/kubetail/kubetail-cli) docker image. To use the image locally with `docker run` you need to mount your local `.kube/config` file into a `kubetail-cli` container then use normal CLI [commands](https://www.kubetail.com/docs/cli#subcommands): 
+To run the Kubetail CLI tool (`kubetail`) inside a docker container you can use the [`kubetail-cli`](https://hub.docker.com/r/kubetail/kubetail-cli) docker image.
+
+To use the image with `docker run` you need to mount your local `.kube/config` file into a `kubetail-cli` container then use normal CLI [commands](https://www.kubetail.com/docs/cli#subcommands): 
 
 ```console
 docker run --rm -it -v ~/.kube/config:/root/.kube/config:ro kubetail/kubetail-cli logs \
@@ -171,6 +173,18 @@ If you prefer, you can also run `kubetail` in a container using these options:
 
 * [Docker Compose](https://www.kubetail.com/docs/getting-started/docker#docker-compose)
 * [Kubernetes Pod](https://www.kubetail.com/docs/getting-started/docker#kubernetes-pod)
+
+You can also embed the binary in your custom docker builds like this:
+
+```Dockerfile
+FROM ubuntu:24.04
+
+# Copy kubetail binary from the kubetail-cli image
+COPY --from=kubetail/kubetail-cli /usr/local/bin/kubetail /usr/local/bin/kubetail
+
+# Your application code and setup here
+# ...
+```
 
 ## Docker Registries
 
