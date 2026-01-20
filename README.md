@@ -39,10 +39,6 @@ Our goal is to build the most powerful, user-friendly logging platform for Kuber
 * Web dashboard can be installed on desktop or in cluster
 * Switch between multiple clusters (Desktop-only)
 
-## Documentation
-
-Visit our full documentation at [https://www.kubetail.com](https://www.kubetail.com/)
-
 ## Quickstart [Desktop]
 
 ### Install
@@ -210,6 +206,10 @@ Once the Kubetail pods are running in the cluster you can access the dashboard v
 ```console
 minikube service -n kubetail-system kubetail-dashboard
 ```
+
+## Documentation
+
+Visit our full documentation at [https://www.kubetail.com](https://www.kubetail.com/)
 
 ## Roadmap and Status
 
