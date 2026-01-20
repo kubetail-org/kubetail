@@ -155,7 +155,9 @@ To run the Kubetail CLI tool (`kubetail`) inside a docker container you can use 
 To use the image with `docker run` you need to mount your local `.kube/config` file into a `kubetail-cli` container then use normal CLI [commands](https://www.kubetail.com/docs/cli#subcommands): 
 
 ```console
-docker run --rm -it -v ~/.kube/config:/root/.kube/config:ro kubetail/kubetail-cli logs \
+docker run --rm -it \
+  -v ~/.kube/config:/root/.kube/config:ro \
+  kubetail/kubetail-cli logs \
   --kubeconfig /root/.kube/config \
   -f \
   deployments/my-app
@@ -164,7 +166,10 @@ docker run --rm -it -v ~/.kube/config:/root/.kube/config:ro kubetail/kubetail-cl
 You can also use the `sh` entrypoint to start an interactive session:
 
 ```console
-docker run --rm -it -v ~/.kube/config:/root/.kube/config:ro --entrypoint sh kubetail/kubetail-cli
+docker run --rm -it \
+  -v ~/.kube/config:/root/.kube/config:ro \
+  --entrypoint sh \
+  kubetail/kubetail-cli
 ```
 
 If you prefer, you can also run `kubetail` in a container using these options:
