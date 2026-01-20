@@ -39,7 +39,11 @@ Our goal is to build the most powerful, user-friendly logging platform for Kuber
 * Web dashboard can be installed on desktop or in cluster
 * Switch between multiple clusters (Desktop-only)
 
-## Quickstart (Desktop)
+## Documentation
+
+Visit our full documentation at [https://www.kubetail.com](https://www.kubetail.com/)
+
+## Quickstart [Desktop]
 
 ### Option 1: Package Managers
 
@@ -153,7 +157,7 @@ This command will open [http://localhost:7500/](http://localhost:7500/) in your 
   This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun tailing your logs!
 </details>
 
-## Quickstart (Cluster)
+## Quickstart [Cluster]
 
 ### Option 1: Helm
 
@@ -218,7 +222,7 @@ Visit [http://localhost:8080](http://localhost:8080). Have fun tailing your logs
   ```
 </details>
 
-## Quickstart (Docker)
+## Quickstart [Docker]
 
 ### Option 1: Docker Run
 
@@ -271,10 +275,6 @@ docker run --rm -it \
   # ./kubetail logs --in-cluster -f deployments/my-app
   ```
 </details>
-
-## Documentation
-
-Visit the [Kubetail documentation](https://www.kubetail.com/)
 
 ## Docker Registries
 
