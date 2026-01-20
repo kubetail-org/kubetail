@@ -61,50 +61,44 @@ sudo snap install kubetail
 
 # Winget
 winget install kubetail
+
+# Chocolatey
+choco install kubetail
+
+# Scoop
+scoop install kubetail
+
+# MacPorts
+sudo port install kubetail
+
+# Ubuntu/Mint (apt)
+sudo add-apt-repository ppa:kubetail/kubetail
+sudo apt update && sudo apt install kubetail-cli
+
+# Arch Linux (AUR)
+yay -S --noconfirm kubetail-cli
+
+# Fedora/CentOS/RHEL/Amazonlinux/Mageia (copr)
+dnf copr enable kubetail/kubetail
+dnf install kubetail
+
+# SUSE (zypper)
+zypper addrepo 'https://download.opensuse.org/repositories/home:/kubetail/$releasever/' kubetail
+zypper refresh && zypper install kubetail-cli
+
+# Gentoo (GURU)
+ACCEPT_KEYWORDS="~$(portageq envvar ARCH)" emerge dev-util/kubetail
+
+# Nix (Flake)
+nix profile add github:kubetail-org/kubetail-nix
+
+# Nix (Classic)
+nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
+
+# asdf
+asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
+asdf install kubetail latest
 ```
-
-<details>
-  <summary>See 10 more options (Ubuntu/Mint, Arch, Fedora/CentOS/RHEL, SUSE, Gentoo, Chocolatey, Scoop, MacPorts, Nix, asdf)</summary>
-  
-  ```console
-  # Ubuntu/Mint (apt)
-  sudo add-apt-repository ppa:kubetail/kubetail
-  sudo apt update && sudo apt install kubetail-cli
-
-  # Arch Linux (AUR)
-  yay -S --noconfirm kubetail-cli
-
-  # Fedora/CentOS/RHEL/Amazonlinux/Mageia (copr)
-  dnf copr enable kubetail/kubetail
-  dnf install kubetail
-
-  # SUSE (zypper)
-  zypper addrepo 'https://download.opensuse.org/repositories/home:/kubetail/$releasever/' kubetail
-  zypper refresh && zypper install kubetail-cli
-
-  # Gentoo (GURU)
-  ACCEPT_KEYWORDS="~$(portageq envvar ARCH)" emerge dev-util/kubetail
-
-  # Chocolatey
-  choco install kubetail
-
-  # Scoop
-  scoop install kubetail
-
-  # MacPorts
-  sudo port install kubetail
-
-  # Nix (Flake)
-  nix profile add github:kubetail-org/kubetail-nix
-
-  # Nix (Classic)
-  nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
-
-  # asdf
-  asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
-  asdf install kubetail latest
-  ```
-</details>
 
 Next, start the web dashboard using the `serve` subcommand:
 
