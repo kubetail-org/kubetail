@@ -45,9 +45,9 @@ Visit our full documentation at [https://www.kubetail.com](https://www.kubetail.
 
 ## Quickstart [Desktop]
 
-### Option 1: Package Managers
+### Install
 
-First, install the Kubetail CLI tool (`kubetail`) via your favorite package manager:
+You can install the Kubetail CLI tool (`kubetail`) by downloading the latest [release binary](https://github.com/kubetail-org/kubetail/releases/latest) or by using a package manager:
 
 ```console
 # Homebrew
@@ -100,60 +100,31 @@ asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
 asdf install kubetail latest
 ```
 
-Next, start the web dashboard using the `serve` subcommand:
+You can also use our install script:
+
+```console
+curl -sS https://www.kubetail.com/install.sh | bash
+```
+
+### Usage
+
+Start the web dashboard using the `serve` command:
 
 ```console
 kubetail serve
 ```
 
-This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun tailing your logs!
+Or view logs in your terminal using the `logs` command:
 
-<details>
-  <summary><h3>Option 2: Shell script</h3></summary>
-  
-  First, download and run the install script:
+```console
+kubetail logs -f deployments/my-app
+```
 
-  ```console
-  curl -sS https://www.kubetail.com/install.sh | bash
-  ```
-
-  Next, start the web dashboard using the `serve` subcommand:
-
-  ```console
-  kubetail serve
-  ```
-
-  This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun tailing your logs!
-</details>
-
-<details>
-  <summary><h3>Option 3: Download binary</h3></summary>
-  
-  Download the binary for your OS/Arch (from the latest [release binaries](https://github.com/kubetail-org/kubetail/releases/latest)):
-
-  * Darwin ([amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-darwin-amd64), [arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-darwin-arm64))
-  * Linux ([amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-amd64), [arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-linux-arm64))
-  * Windows ([amd64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-amd64), [arm64](https://github.com/kubetail-org/kubetail/releases/latest/download/kubetail-windows-arm64))
-
-  Rename the file and make it executable:
-
-  ```console
-  mv <filename> kubetail
-  chmod a+x kubetail
-  ```
-
-  Next, start the web dashboard using the `serve` subcommand:
-
-  ```console
-  kubetail serve
-  ```
-
-  This command will open [http://localhost:7500/](http://localhost:7500/) in your default browser. Have fun tailing your logs!
-</details>
+See the documentation for a full list of [commands](https://www.kubetail.com/docs/cli#subcommands). Have fun tailing your logs! 
 
 ## Quickstart [Cluster]
 
-### Option 1: Helm
+### Install
 
 First, add the Kubetail org's chart repository, then install the "kubetail" chart:
 
@@ -164,6 +135,13 @@ helm install kubetail kubetail/kubetail --namespace kubetail-system --create-nam
 
 For more information on how to configure the helm chart, see the chart's [values.yaml](https://github.com/kubetail-org/helm-charts/blob/main/charts/kubetail/values.yaml) file.
 
+If you prefer, you can also install Kubetail in your cluster using these options:
+
+* [YAML Manifest](https://www.kubetail.com/docs/getting-started/cluster/install#yaml-manifest)
+* [Minikube addon](https://www.kubetail.com/docs/getting-started/cluster/install#minikube)
+
+### Usage
+
 To access the web dashboard you can expose it as an ingress using the chart or you can use your usual access methods such as `kubectl port-forward`:
 
 ```console
@@ -172,60 +150,12 @@ kubectl port-forward -n kubetail-system svc/kubetail-dashboard 8080:8080
 
 Visit [http://localhost:8080](http://localhost:8080). Have fun tailing your logs!
 
-<details>
-  <summary><h3>Option 2: YAML Manifest</h3></summary>
-
-  First, create a namespace for the Kubetail resources:
-
-  ```console
-  kubectl create namespace kubetail-system
-  ```
-
-  Next, choose your authentication mode (`cluster` or `token`) and apply the latest manifest file:
-
-  ```console
-  # For cluster-based authentication use kubetail-clusterauth.yaml:
-  kubectl apply -f https://github.com/kubetail-org/helm-charts/releases/latest/download/kubetail-clusterauth.yaml
-
-  # For token-based authentication use kubetail-tokenauth.yaml:
-  kubectl apply -f https://github.com/kubetail-org/helm-charts/releases/latest/download/kubetail-tokenauth.yaml
-  ```
-
-  To access the web dashboard you can use your usual access methods such as `kubectl port-forward`:
-
-  ```console
-  kubectl port-forward -n kubetail-system svc/kubetail-dashboard 8080:8080
-  ```
-
-  Visit [http://localhost:8080](http://localhost:8080). Have fun tailing your logs!
-</details>
-
-<details>
-  <summary><h3>Option 3: minikube</h3></summary>
-
-  As of minikube v1.36.0, you can install Kubetail easily as an addon:
-
-  ```console
-  minikube addons enable kubetail
-  ```
-
-  Once the Kubetail pods are running in the cluster you can access it via a service:
-
-  ```console
-  minikube service -n kubetail-system kubetail-dashboard
-  ```
-</details>
-
 ## Quickstart [Docker]
 
-### Option 1: Docker Run
-
-To run the Kubetail CLI tool (`kubetail`) inside a container you can use the [`kubetail-cli`](https://hub.docker.com/r/kubetail/kubetail-cli) docker image. To use the image locally with `docker run` you need to mount your local `.kube/config` file into a `kubetail-cli` container then use normal CLI [commands](https://www.kubetail.com/docs/cli#subcommands): 
+To run the Kubetail CLI tool (`kubetail`) inside a docker container you can use the [`kubetail-cli`](https://hub.docker.com/r/kubetail/kubetail-cli) docker image. To use the image locally with `docker run` you need to mount your local `.kube/config` file into a `kubetail-cli` container then use normal CLI [commands](https://www.kubetail.com/docs/cli#subcommands): 
 
 ```console
-docker run --rm -it \
-  -v ~/.kube/config:/root/.kube/config:ro \
-  kubetail/kubetail-cli logs \
+docker run --rm -it -v ~/.kube/config:/root/.kube/config:ro kubetail/kubetail-cli logs \
   --kubeconfig /root/.kube/config \
   -f \
   deployments/my-app
@@ -234,41 +164,13 @@ docker run --rm -it \
 You can also use the `sh` entrypoint to start an interactive session:
 
 ```console
-docker run --rm -it \
-  -v ~/.kube/config:/root/.kube/config:ro \
-  --entrypoint sh \
-  kubetail/kubetail-cli
+docker run --rm -it -v ~/.kube/config:/root/.kube/config:ro --entrypoint sh kubetail/kubetail-cli
 ```
 
-<details>
-  <summary><h3>Option 2: Docker Compose</h3></summary>
+If you prefer, you can also run `kubetail` in a container using these options:
 
-  To run the Kubetail CLI tool (`kubetail`) inside a container you can use the [`kubetail-cli`](https://hub.docker.com/r/kubetail/kubetail-cli) docker image. To use the image locally with `docker-compose` you can use this [docker-compose.yml](https://raw.githubusercontent.com/kubetail-org/kubetail/refs/heads/main/config/examples/docker-compose.yml) config file to get started:
-
-  ```console
-  curl -LO https://raw.githubusercontent.com/kubetail-org/kubetail/refs/heads/main/config/examples/docker-compose.yml
-  docker-compose up
-  ```
-
-  This will mount your local `.kube/config` file into a `kubetail-cli` container and start the dashboard server at [http://localhost:7500](http://localhost:7500).
-</details>
-
-<details>
-  <summary><h3>Option 3: Kubernetes Pod</h3></summary>
-
-  To run the Kubetail CLI tool (`kubetail`) inside a container you can use the [`kubetail-cli`](https://hub.docker.com/r/kubetail/kubetail-cli) docker image. To use the image inside a cluster you can use this [`kubetail-cli-pod.yaml`](https://raw.githubusercontent.com/kubetail-org/kubetail/refs/heads/main/config/examples/kubetail-cli-pod.yaml) manifest file to get started:
-
-  ```console
-  kubectl add -f https://raw.githubusercontent.com/kubetail-org/kubetail/refs/heads/main/config/examples/kubetail-cli-pod.yaml
-  ```
-
-  This will start a `kubetail-cli` container inside the `default` namespace with access to pod logs in the same namespace. Once the pod is running you can `exec` into it and run CLI commands using the `--in-cluster` flag:
-
-  ```console
-  kubectl exec -it kubetail-cli -- sh
-  # ./kubetail logs --in-cluster -f deployments/my-app
-  ```
-</details>
+* [Docker Compose](https://www.kubetail.com/docs/getting-started/docker#docker-compose)
+* [Kubernetes Pod](https://www.kubetail.com/docs/getting-started/docker#kubernetes-pod)
 
 ## Docker Registries
 
