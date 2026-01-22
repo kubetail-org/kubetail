@@ -79,7 +79,7 @@ dnf install kubetail
 zypper addrepo 'https://download.opensuse.org/repositories/home:/kubetail/$releasever/' kubetail
 zypper refresh && zypper install kubetail-cli
 
-# Alpine
+# Alpine (apk)
 apk add kubetail --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing
 
 # Arch Linux (AUR)
