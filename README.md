@@ -71,9 +71,6 @@ sudo port install kubetail
 sudo add-apt-repository ppa:kubetail/kubetail
 sudo apt update && sudo apt install kubetail-cli
 
-# Arch Linux (AUR)
-yay -S --noconfirm kubetail-cli
-
 # Fedora/CentOS/RHEL/Amazonlinux/Mageia (copr)
 dnf copr enable kubetail/kubetail
 dnf install kubetail
@@ -81,6 +78,12 @@ dnf install kubetail
 # SUSE (zypper)
 zypper addrepo 'https://download.opensuse.org/repositories/home:/kubetail/$releasever/' kubetail
 zypper refresh && zypper install kubetail-cli
+
+# Alpine
+apk add kubetail --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing
+
+# Arch Linux (AUR)
+yay -S --noconfirm kubetail-cli
 
 # Gentoo (GURU)
 ACCEPT_KEYWORDS="~$(portageq envvar ARCH)" emerge dev-util/kubetail
