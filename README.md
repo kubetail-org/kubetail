@@ -201,6 +201,8 @@ Our docker images are available at these registry endpoints:
 * GitHub - ghcr.io/kubetail-org/kubetail-*
 ```
 
+The Helm chart defaults to pulling images from `ghcr.io` to avoid Docker Hub rate limits.
+
 ## Minikube
 
 As of [minikube](https://minikube.sigs.k8s.io/) v1.36.0, you can install Kubetail as an addon:
