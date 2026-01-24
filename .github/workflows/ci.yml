@@ -27,7 +27,7 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-rust: "true"
@@ -40,7 +40,7 @@ jobs:
   crates-lint:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-rust: "true"
@@ -52,7 +52,7 @@ jobs:
   crates-vet:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-rust: "true"
@@ -78,7 +78,7 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-rust: "true"
@@ -98,7 +98,7 @@ jobs:
           - dashboard
           - shared
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -116,7 +116,7 @@ jobs:
           - dashboard
           - shared
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -168,7 +168,7 @@ jobs:
             arch: amd64
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -183,7 +183,7 @@ jobs:
   dashboard-ui-lint:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
@@ -197,7 +197,7 @@ jobs:
   dashboard-ui-test:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
@@ -211,7 +211,7 @@ jobs:
   dashboard-ui-build:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
@@ -266,7 +266,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Build
@@ -335,7 +335,7 @@ jobs:
             arch: amd64
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
@@ -361,48 +361,58 @@ jobs:
       fail-fast: false
       matrix:
         arch:
-          - x86_64
           - x86
-          - aarch64
           - armhf
           - armv7
           - loongarch64
           - ppc64le
           - riscv64
           - s390x
+        include:
+          - arch: x86
+            goarch: "386"
+          - arch: armhf
+            goarch: arm
+            goarm: "6"
+          - arch: armv7
+            goarch: arm
+            goarm: "7"
+          - arch: loongarch64
+            goarch: loong64
+          - arch: ppc64le
+            goarch: ppc64le
+          - arch: riscv64
+            goarch: riscv64
+          - arch: s390x
+            goarch: s390x
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
       - name: Setup Alpine
         uses: jirutka/setup-alpine@v1
         with:
           arch: ${{ matrix.arch }}
           branch: edge
-      - name: Setup
-        shell: alpine.sh --root {0}
-        run: |
-          apk add --no-cache go
       - name: Build
-        shell: alpine.sh {0}
         working-directory: ./modules/cli
+        env:
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
         run: |
-          set -ex
-          ldflags="
-          -s
-          -w
-          -X github.com/kubetail-org/kubetail/modules/cli/cmd.version=dev
-          "
-          go build -ldflags "$ldflags" -o ../../bin/kubetail
+          go build -o ../../bin/kubetail .
       - name: Verify
         shell: alpine.sh {0}
         run: |
           set -ex
-          ./bin/kubetail --version
+          ./bin/kubetail serve --test
 
   test-e2e:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
