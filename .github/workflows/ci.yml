@@ -222,49 +222,6 @@ jobs:
         working-directory: ./dashboard-ui
         run: pnpm build
 
-  alpine-builds:
-    strategy:
-      fail-fast: false
-      matrix:
-        arch:
-          - x86_64
-          - x86
-          - aarch64
-          - armhf
-          - armv7
-          - loongarch64
-          - ppc64le
-          - riscv64
-          - s390x
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Alpine
-        uses: jirutka/setup-alpine@v1
-        with:
-          arch: ${{ matrix.arch }}
-          branch: edge
-      - name: Setup
-        shell: alpine.sh --root {0}
-        run: |
-          apk add --no-cache go
-      - name: Build
-        shell: alpine.sh {0}
-        working-directory: ./modules/cli
-        run: |
-          set -ex
-          ldflags="
-          -s
-          -w
-          -X github.com/kubetail-org/kubetail/modules/cli/cmd.version=dev
-          "
-          go build -ldflags "$ldflags" -o ../../bin/kubetail
-      - name: Verify
-        shell: alpine.sh {0}
-        run: |
-          set -ex
-          ./bin/kubetail --version
-
   docker-builds:
     needs:
       - crates-build
@@ -277,7 +234,6 @@ jobs:
       - dashboard-ui-lint
       - dashboard-ui-test
       - dashboard-ui-build
-      - alpine-builds
     timeout-minutes: 20
     strategy:
       matrix:
@@ -335,7 +291,6 @@ jobs:
       - dashboard-ui-lint
       - dashboard-ui-test
       - dashboard-ui-build
-      - alpine-builds
     strategy:
       matrix:
         os:
@@ -389,6 +344,60 @@ jobs:
         run: make build
         env:
           PLATFORM: ${{ matrix.platform }}
+
+  alpine-builds:
+    needs:
+      - crates-build
+      - crates-lint
+      - crates-vet
+      - crates-test
+      - modules-lint
+      - modules-vet
+      - modules-test
+      - dashboard-ui-lint
+      - dashboard-ui-test
+      - dashboard-ui-build
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - x86_64
+          - x86
+          - aarch64
+          - armhf
+          - armv7
+          - loongarch64
+          - ppc64le
+          - riscv64
+          - s390x
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Alpine
+        uses: jirutka/setup-alpine@v1
+        with:
+          arch: ${{ matrix.arch }}
+          branch: edge
+      - name: Setup
+        shell: alpine.sh --root {0}
+        run: |
+          apk add --no-cache go
+      - name: Build
+        shell: alpine.sh {0}
+        working-directory: ./modules/cli
+        run: |
+          set -ex
+          ldflags="
+          -s
+          -w
+          -X github.com/kubetail-org/kubetail/modules/cli/cmd.version=dev
+          "
+          go build -ldflags "$ldflags" -o ../../bin/kubetail
+      - name: Verify
+        shell: alpine.sh {0}
+        run: |
+          set -ex
+          ./bin/kubetail --version
 
   test-e2e:
     runs-on: ubuntu-24.04
