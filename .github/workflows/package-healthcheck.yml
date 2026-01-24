@@ -152,6 +152,49 @@ jobs:
           path: /tmp/results/*.txt
           retention-days: 1
 
+  linux-apk:
+    if: github.repository == 'kubetail-org/kubetail'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - x86_64
+          - x86
+          - aarch64
+          - armhf
+          - armv7
+          - loongarch64
+          - ppc64le
+          - riscv64
+          - s390x
+    runs-on: ubuntu-24.04
+    env:
+      TRIPLET: apk_alpine-edge_${{ matrix.arch }}
+    steps:
+      - name: Setup Alpine
+        uses: jirutka/setup-alpine@v1
+        with:
+          arch: ${{ matrix.arch }}
+          branch: edge
+          extra-repositories: |
+            https://dl-cdn.alpinelinux.org/alpine/edge/testing
+
+      - name: Install
+        shell: alpine.sh --root {0}
+        run: |
+          apk add kubetail
+
+      - name: Check version
+        shell: alpine.sh {0}
+        run: |
+          set -euxo pipefail
+          cli_ver="$(kubetail --version)"
+
+          mkdir -p /tmp/results
+          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+
+      - *upload_step
+
   linux-apt:
     if: github.repository == 'kubetail-org/kubetail'
     strategy:
