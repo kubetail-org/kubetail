@@ -65,7 +65,7 @@ jobs:
       - name: Load Alpine SSH key
         uses: webfactory/ssh-agent@v0.9.1
         with:
-          ssh-private-key: ${{ secrets.ALPINE_SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.ANDRES_ALPINE_SSH_PRIVATE_KEY }}
 
       - name: Checkout aports repo
         run: |
@@ -166,7 +166,7 @@ jobs:
       - name: Create merge request
         if: ${{ needs.config.outputs.dry_run != 'true' }}
         env:
-          GITLAB_TOKEN: ${{ secrets.ALPINE_GITLAB_TOKEN }}
+          GITLAB_TOKEN: ${{ secrets.ANDRES_ALPINE_GITLAB_TOKEN }}
           GITLAB_HOST: gitlab.alpinelinux.org
           BRANCH_NAME: "upgrade/kubetail-${{ needs.config.outputs.version }}"
         run: |
