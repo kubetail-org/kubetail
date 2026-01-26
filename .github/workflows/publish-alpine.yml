@@ -67,12 +67,12 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.ALPINE_SSH_PRIVATE_KEY }}
 
-      - name: Checkout aports fork
+      - name: Checkout aports repo
         run: |
           mkdir -p ~/.ssh
           echo "${{ vars.ALPINE_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
 
-          git clone --depth 1 git@gitlab.alpinelinux.org:amorey/aports.git
+          git clone --depth 1 git@gitlab.alpinelinux.org:alpine/aports.git
 
       - name: Checkout kubetail repo
         uses: actions/checkout@v5
@@ -85,11 +85,11 @@ jobs:
         env:
           SRC_DIR: kubetail/.github/ci-config/alpine
           DST_DIR: aports/testing/kubetail
+          SHA512: ${{ steps.meta.outputs.sha512 }}
         run: |
-          # Replace version and checksum placeholders in template
-          sed -e "s/{{VERSION}}/$VERSION/g" \
-              -e "s/{{SHA512SUM}}/${{ steps.meta.outputs.sha512 }}/g" \
-              "$SRC_DIR/APKBUILD" > "$DST_DIR/APKBUILD"
+          envsubst '${VERSION} ${SHA512}' \
+            < "$SRC_DIR/APKBUILD" \
+            > "$DST_DIR/APKBUILD"
 
       - name: Start gpg-agent
         run: |
@@ -145,10 +145,9 @@ jobs:
 
           # Commit and push
           git commit -s -S -m "testing/kubetail: upgrade to $VERSION"
-          git push origin "$BRANCH_NAME"
+          git push --set-upstream origin "$BRANCH_NAME"
 
       - name: Install glab CLI
-        if: ${{ needs.config.outputs.dry_run != 'true' }}
         run: |
           set -euo pipefail
 
@@ -171,14 +170,11 @@ jobs:
           GITLAB_HOST: gitlab.alpinelinux.org
           BRANCH_NAME: "upgrade/kubetail-${{ needs.config.outputs.version }}"
         run: |
-          set -euo pipefail
-
           glab mr create \
             --repo alpine/aports \
             --source-branch "$BRANCH_NAME" \
             --target-branch master \
             --title "testing/kubetail: upgrade to $VERSION" \
-            --description "Automated version upgrade for kubetail CLI to $VERSION" \
             --remove-source-branch \
             --yes
 

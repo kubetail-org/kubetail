@@ -1,7 +1,7 @@
 # Contributor: Andres Morey <andres@kubetail.com>
 # Maintainer: Andres Morey <andres@kubetail.com>
 pkgname=kubetail
-pkgver={{VERSION}}
+pkgver=${VERSION}
 pkgrel=0
 pkgdesc="Real-time logging dashboard for Kubernetes"
 url="https://github.com/kubetail-org/kubetail"
@@ -30,5 +30,5 @@ package() {
 }
 
 sha512sums="
-{{SHA512SUM}}  kubetail-$pkgver-vendored.tar.gz
+${SHA512}  kubetail-${VERSION}-vendored.tar.gz
 "
