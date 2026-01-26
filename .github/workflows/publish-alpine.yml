@@ -1,0 +1,171 @@
+name: publish-alpine
+
+permissions:
+  contents: read
+  deployments: write
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to deploy"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run"
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  config:
+    name: Configure workflow
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.config.outputs.version }}
+      dry_run: ${{ steps.config.outputs.dry_run }}
+    steps:
+      - id: config
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+            echo "dry_run=false" >> $GITHUB_OUTPUT
+          fi
+
+  update-kubetail:
+    name: Update `kubetail` package
+    needs: [config]
+    environment: production
+    runs-on: ubuntu-24.04
+    env:
+      ARCHIVE_NAME: "kubetail-${{ needs.config.outputs.version }}-vendored.tar.gz"
+      VERSION: ${{ needs.config.outputs.version }}
+    steps:
+      - name: Download source bundle
+        uses: robinraju/release-downloader@v1.12
+        with:
+          repository: kubetail-org/kubetail
+          tag: ${{ format('cli/v{0}', needs.config.outputs.version) }}
+          fileName: ${{ env.ARCHIVE_NAME }}
+          out-file-path: "downloads"
+
+      - name: Extract metadata
+        id: meta
+        working-directory: ./downloads
+        run: |
+          SHA512=$(sha512sum "$ARCHIVE_NAME" | awk '{print $1}')
+          echo "sha512=$SHA512" >> "$GITHUB_OUTPUT"
+
+      - name: Load Alpine SSH key
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.ANDRES_ALPINE_SSH_PRIVATE_KEY }}
+
+      - name: Checkout aports repo
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ vars.ALPINE_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+          git clone --depth 1 git@gitlab.alpinelinux.org:alpine/aports.git
+
+      - name: Checkout kubetail repo
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/ci-config/alpine
+          sparse-checkout-cone-mode: false
+          path: kubetail
+
+      - name: Update APKBUILD
+        env:
+          SRC_DIR: kubetail/.github/ci-config/alpine
+          DST_DIR: aports/testing/kubetail
+          SHA512: ${{ steps.meta.outputs.sha512 }}
+        run: |
+          envsubst '${VERSION} ${SHA512}' \
+            < "$SRC_DIR/APKBUILD" \
+            > "$DST_DIR/APKBUILD"
+
+      - name: Start gpg-agent
+        run: |
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+          if ! grep -q "allow-preset-passphrase" ~/.gnupg/gpg-agent.conf 2>/dev/null; then
+            echo "allow-preset-passphrase" >> ~/.gnupg/gpg-agent.conf
+          fi
+          gpgconf --kill gpg-agent || true
+          gpgconf --launch gpg-agent
+
+      - name: Configure gpg
+        uses: crazy-max/ghaction-import-gpg@v6.3.0
+        with:
+          gpg_private_key: ${{ secrets.ANDRES_GPG_SIGNING_KEY }}
+          passphrase: ${{ secrets.ANDRES_GPG_PASSWORD }}
+          fingerprint: ${{ vars.ANDRES_GPG_SIGNING_KEY_FINGERPRINT }}
+
+      - name: Configure git
+        working-directory: aports
+        run: |
+          git config gpg.program gpg
+          git config commit.gpgsign true
+
+          git config user.name "Andres Morey"
+          git config user.email "andres@kubetail.com"
+          git config user.signingkey "${{ vars.ANDRES_GPG_SIGNING_KEY_FINGERPRINT }}"
+
+      - name: Debug
+        if: ${{ needs.config.outputs.dry_run == 'true' }}
+        working-directory: aports/testing/kubetail
+        run: |
+          echo "=== APKBUILD ==="
+          cat APKBUILD
+
+      - name: Push changes to aports fork
+        working-directory: aports
+        if: ${{ needs.config.outputs.dry_run != 'true' }}
+        env:
+          BRANCH_NAME: "upgrade/kubetail-${{ needs.config.outputs.version }}"
+        run: |
+          # Create and checkout feature branch
+          git checkout -b "$BRANCH_NAME"
+
+          # Stage changes
+          git add testing/kubetail/APKBUILD
+
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          # Commit and push
+          git commit -s -S -m "testing/kubetail: upgrade to $VERSION"
+          git push --set-upstream origin "$BRANCH_NAME"
+
+      - name: Install GitLab CLI
+        run: |
+          brew install glab
+
+      - name: Create merge request
+        if: ${{ needs.config.outputs.dry_run != 'true' }}
+        env:
+          GITLAB_TOKEN: ${{ secrets.ANDRES_ALPINE_GITLAB_TOKEN }}
+          GITLAB_HOST: gitlab.alpinelinux.org
+          BRANCH_NAME: "upgrade/kubetail-${{ needs.config.outputs.version }}"
+        run: |
+          glab mr create \
+            --repo alpine/aports \
+            --source-branch "$BRANCH_NAME" \
+            --target-branch master \
+            --title "testing/kubetail: upgrade to $VERSION" \
+            --remove-source-branch \
+            --yes
+
+      - name: Cleanup GPG
+        if: always()
+        run: rm -rf ~/.gnupg
