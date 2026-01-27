@@ -14,8 +14,10 @@
 
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
+use moka::future::Cache;
 use tokio::sync::mpsc::{self};
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::sync::CancellationToken;
@@ -34,14 +36,21 @@ pub struct LogRecordsImpl {
     ctx: CancellationToken,
     task_tracker: TaskTracker,
     logs_dir: PathBuf,
+    auth_cache: Arc<Cache<crate::authorizer::CacheKey, crate::authorizer::CacheValue>>,
 }
 
 impl LogRecordsImpl {
-    pub const fn new(ctx: CancellationToken, task_tracker: TaskTracker, logs_dir: PathBuf) -> Self {
+    pub const fn new(
+        ctx: CancellationToken,
+        task_tracker: TaskTracker,
+        logs_dir: PathBuf,
+        auth_cache: Arc<Cache<crate::authorizer::CacheKey, crate::authorizer::CacheValue>>,
+    ) -> Self {
         Self {
             ctx,
             task_tracker,
             logs_dir,
+            auth_cache,
         }
     }
 
@@ -79,14 +88,14 @@ impl LogRecordsService for LogRecordsImpl {
         &self,
         request: Request<LogRecordsStreamRequest>,
     ) -> Result<Response<Self::StreamBackwardStream>, Status> {
-        let authorizer = Authorizer::new(request.metadata()).await?;
+        let authorizer = Authorizer::new(request.metadata(), self.auth_cache.clone()).await?;
         let request = request.into_inner();
         let file_path = self.get_log_filename(&request)?;
         let (tx, rx) = mpsc::channel(100);
         let local_ctx = self.ctx.child_token();
 
         let namespaces = vec![request.namespace.clone()];
-        authorizer.is_authorized(&namespaces, "list").await?;
+        authorizer.is_authorized(&namespaces, "get").await?;
 
         self.task_tracker.spawn(async move {
             stream_backward::stream_backward(
@@ -112,12 +121,12 @@ impl LogRecordsService for LogRecordsImpl {
         &self,
         request: Request<LogRecordsStreamRequest>,
     ) -> Result<Response<Self::StreamForwardStream>, Status> {
-        let authorizer = Authorizer::new(request.metadata()).await?;
+        let authorizer = Authorizer::new(request.metadata(), self.auth_cache.clone()).await?;
         let request = request.into_inner();
         let file_path = self.get_log_filename(&request)?;
 
         let namespaces = vec![request.namespace.clone()];
-        authorizer.is_authorized(&namespaces, "list").await?;
+        authorizer.is_authorized(&namespaces, "get").await?;
 
         let (tx, rx) = mpsc::channel(100);
         let local_ctx = self.ctx.child_token();

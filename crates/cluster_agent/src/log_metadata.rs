@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use moka::future::Cache;
 use notify::RecommendedWatcher;
 use prost_types::Timestamp;
 use regex::Regex;
@@ -19,7 +20,7 @@ use std::env;
 use std::fs::File;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
@@ -51,15 +52,22 @@ pub struct LogMetadataImpl {
     task_tracker: TaskTracker,
     logs_dir: PathBuf,
     node_name: String,
+    auth_cache: Arc<Cache<crate::authorizer::CacheKey, crate::authorizer::CacheValue>>,
 }
 
 impl LogMetadataImpl {
-    pub fn new(ctx: CancellationToken, task_tracker: TaskTracker, logs_dir: PathBuf) -> Self {
+    pub fn new(
+        ctx: CancellationToken,
+        task_tracker: TaskTracker,
+        logs_dir: PathBuf,
+        auth_cache: Arc<Cache<crate::authorizer::CacheKey, crate::authorizer::CacheValue>>,
+    ) -> Self {
         Self {
             ctx,
             task_tracker,
             logs_dir,
             node_name: env::var("NODE_NAME").unwrap_or_else(|_| "Env variable not set".to_owned()),
+            auth_cache,
         }
     }
 
@@ -120,7 +128,7 @@ impl LogMetadataService for LogMetadataImpl {
         &self,
         request: Request<LogMetadataListRequest>,
     ) -> Result<Response<LogMetadataList>, Status> {
-        let authorizer = Authorizer::new(request.metadata()).await?;
+        let authorizer = Authorizer::new(request.metadata(), self.auth_cache.clone()).await?;
         let request = request.into_inner();
 
         if !self.logs_dir.is_dir() {
@@ -196,7 +204,7 @@ impl LogMetadataService for LogMetadataImpl {
         &self,
         request: Request<LogMetadataWatchRequest>,
     ) -> Result<Response<Self::WatchStream>, Status> {
-        let authorizer = Authorizer::new(request.metadata()).await?;
+        let authorizer = Authorizer::new(request.metadata(), self.auth_cache.clone()).await?;
         let request = request.into_inner();
 
         let namespaces: Vec<String> = request
@@ -259,6 +267,7 @@ mod test {
             task_tracker: TaskTracker::new(),
             logs_dir,
             node_name: "Node name".to_owned(),
+            auth_cache: crate::authorizer::create_auth_cache(),
         };
 
         let mut result = metadata_service
@@ -314,6 +323,7 @@ mod test {
             task_tracker: TaskTracker::new(),
             logs_dir,
             node_name: "Node name".to_owned(),
+            auth_cache: crate::authorizer::create_auth_cache(),
         };
 
         let mut result = metadata_service
@@ -377,6 +387,7 @@ mod test {
             task_tracker: TaskTracker::new(),
             logs_dir,
             node_name: "Node name".to_owned(),
+            auth_cache: crate::authorizer::create_auth_cache(),
         };
 
         let result = metadata_service

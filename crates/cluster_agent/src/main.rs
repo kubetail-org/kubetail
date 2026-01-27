@@ -32,6 +32,7 @@ mod authorizer;
 mod config;
 mod log_metadata;
 mod log_records;
+use authorizer::create_auth_cache;
 use log_metadata::LogMetadataImpl;
 use log_records::LogRecordsImpl;
 
@@ -42,6 +43,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let config = parse_config().await?;
 
     configure_logging(&config.logging)?;
+
+    let auth_cache = create_auth_cache();
 
     let (_, agent_health_service) = tonic_health::server::health_reporter();
     let reflection_service = tonic_reflection::server::Builder::configure()
@@ -61,11 +64,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
             root_ctx.clone(),
             task_tracker.clone(),
             config.logs_dir.clone(),
+            auth_cache.clone(),
         )))
         .add_service(LogRecordsServiceServer::new(LogRecordsImpl::new(
             root_ctx.clone(),
             task_tracker.clone(),
             config.logs_dir.clone(),
+            auth_cache.clone(),
         )))
         .serve_with_shutdown(config.address, shutdown(root_ctx))
         .await?;
