@@ -147,6 +147,11 @@ jobs:
           git commit -s -S -m "testing/kubetail: upgrade to $VERSION"
           git push --set-upstream origin "$BRANCH_NAME"
 
+      - name: Set up Homebrew
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          echo "/home/linuxbrew/.linuxbrew/bin" >> $GITHUB_PATH
+
       - name: Install GitLab CLI
         run: |
           brew install glab
