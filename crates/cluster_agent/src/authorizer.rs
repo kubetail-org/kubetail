@@ -23,14 +23,42 @@ use kube::Config;
 use kube::{Api, Client, api::PostParams, config::AuthInfo};
 use tonic::{Status, metadata::MetadataMap};
 
+#[cfg(not(test))]
+use secrecy::ExposeSecret;
+
+#[cfg(not(test))]
+use moka::future::Cache;
+#[cfg(not(test))]
+use sha2::{Digest, Sha256};
+#[cfg(not(test))]
+use std::sync::Arc;
+#[cfg(not(test))]
+use std::time::Duration;
+
+// Cache key: (token_hash, namespace, verb)
+#[cfg(not(test))]
+type CacheKey = (String, String, String);
+
+// Cache value: authorization result (allowed)
+#[cfg(not(test))]
+type CacheValue = bool;
+
 #[allow(dead_code)]
 pub struct Authorizer {
     k8s_config: Config,
+    #[cfg(not(test))]
+    auth_cache: Arc<Cache<CacheKey, CacheValue>>,
 }
 
 /// Checks that the the k8s doing the request has proper rights to access the log files.
 #[cfg(not(test))]
 impl Authorizer {
+    /// Default cache TTL in seconds (5 minutes)
+    const DEFAULT_CACHE_TTL_SECS: u64 = 300;
+
+    /// Default maximum cache size
+    const DEFAULT_CACHE_MAX_CAPACITY: u64 = 10_000;
+
     /// Creates a new Authorizer, using the k8s authorization token to construct the proper
     /// client set during authorization.
     pub async fn new(request_metadata: &MetadataMap) -> Result<Self, Status> {
@@ -57,10 +85,28 @@ impl Authorizer {
             ..Default::default()
         };
 
-        Ok(Self { k8s_config })
+        let auth_cache = Arc::new(
+            Cache::builder()
+                .max_capacity(Self::DEFAULT_CACHE_MAX_CAPACITY)
+                .time_to_live(Duration::from_secs(Self::DEFAULT_CACHE_TTL_SECS))
+                .build(),
+        );
+
+        Ok(Self {
+            k8s_config,
+            auth_cache,
+        })
+    }
+
+    /// Hashes a token for use as a cache key
+    fn hash_token(token: &str) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(token.as_bytes());
+        format!("{:x}", hasher.finalize())
     }
 
     /// Checks if the request is authorized by calling the k8s API.
+    /// Results are cached to reduce API calls.
     pub async fn is_authorized(
         &self,
         mut namespaces: &Vec<String>,
@@ -68,6 +114,15 @@ impl Authorizer {
     ) -> Result<(), Status> {
         let client = Client::try_from(self.k8s_config.clone())
             .map_err(|error| Status::new(tonic::Code::Unauthenticated, error.to_string()))?;
+
+        // Extract and hash the token for cache key
+        let token_hash = self
+            .k8s_config
+            .auth_info
+            .token
+            .as_ref()
+            .map(|t| Self::hash_token(t.expose_secret()))
+            .unwrap_or_default();
 
         // Default to all namespaces if no namespace is provided.
         let empty_namespace = vec![String::new()];
@@ -77,6 +132,20 @@ impl Authorizer {
 
         let access_reviews: Api<SelfSubjectAccessReview> = Api::all(client);
         for namespace in namespaces {
+            let cache_key = (token_hash.clone(), namespace.clone(), verb.to_string());
+
+            // Check cache first
+            if let Some(allowed) = self.auth_cache.get(&cache_key).await {
+                if !allowed {
+                    return Err(Status::new(
+                        tonic::Code::Unauthenticated,
+                        format!("permission denied: `{verb} pods/log` in namespace `{namespace}`"),
+                    ));
+                }
+                continue;
+            }
+
+            // Cache miss - check with k8s API
             let access_review = SelfSubjectAccessReview {
                 spec: SelfSubjectAccessReviewSpec {
                     resource_attributes: Some(ResourceAttributes {
@@ -101,7 +170,12 @@ impl Authorizer {
                     )
                 })?;
 
-            if response.status.is_none() || !response.status.unwrap().allowed {
+            let allowed = response.status.is_some() && response.status.unwrap().allowed;
+
+            // Store result in cache
+            self.auth_cache.insert(cache_key, allowed).await;
+
+            if !allowed {
                 return Err(Status::new(
                     tonic::Code::Unauthenticated,
                     format!("permission denied: `{verb} pods/log` in namespace `{namespace}`"),
@@ -123,5 +197,80 @@ impl Authorizer {
 
     pub async fn is_authorized(self, _namespaces: &Vec<String>, _verb: &str) -> Result<(), Status> {
         Ok(())
+    }
+}
+
+#[cfg(all(test, not(test)))]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn test_hash_token_produces_consistent_hash() {
+        let token1 = "my-secret-token";
+        let token2 = "my-secret-token";
+        let token3 = "different-token";
+
+        let hash1 = Authorizer::hash_token(token1);
+        let hash2 = Authorizer::hash_token(token2);
+        let hash3 = Authorizer::hash_token(token3);
+
+        assert_eq!(hash1, hash2);
+        assert_ne!(hash1, hash3);
+    }
+
+    #[tokio::test]
+    async fn test_cache_respects_ttl() {
+        let cache = Cache::builder()
+            .max_capacity(100)
+            .time_to_live(Duration::from_millis(100))
+            .build();
+
+        let key = (
+            "token_hash".to_string(),
+            "namespace".to_string(),
+            "get".to_string(),
+        );
+        cache.insert(key.clone(), true).await;
+
+        assert_eq!(cache.get(&key).await, Some(true));
+
+        tokio::time::sleep(Duration::from_millis(150)).await;
+
+        assert_eq!(cache.get(&key).await, None);
+    }
+
+    #[tokio::test]
+    async fn test_cache_respects_max_capacity() {
+        let cache = Cache::builder()
+            .max_capacity(2)
+            .time_to_live(Duration::from_secs(60))
+            .build();
+
+        cache
+            .insert(
+                ("hash1".to_string(), "ns1".to_string(), "get".to_string()),
+                true,
+            )
+            .await;
+        cache
+            .insert(
+                ("hash2".to_string(), "ns2".to_string(), "get".to_string()),
+                true,
+            )
+            .await;
+
+        cache.run_pending_tasks().await;
+
+        cache
+            .insert(
+                ("hash3".to_string(), "ns3".to_string(), "get".to_string()),
+                true,
+            )
+            .await;
+
+        cache.run_pending_tasks().await;
+
+        assert_eq!(cache.entry_count(), 2);
     }
 }
