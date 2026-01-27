@@ -20,8 +20,8 @@ use k8s_openapi::api::authorization::v1::{
 use kube::Config;
 
 #[cfg(not(test))]
-use kube::{api::PostParams, config::AuthInfo, Api, Client};
-use tonic::{metadata::MetadataMap, Status};
+use kube::{Api, Client, api::PostParams, config::AuthInfo};
+use tonic::{Status, metadata::MetadataMap};
 
 use moka::future::Cache;
 #[cfg(not(test))]
@@ -202,11 +202,7 @@ impl Authorizer {
         })
     }
 
-    pub async fn is_authorized(
-        &self,
-        _namespaces: &[String],
-        _verb: &str,
-    ) -> Result<(), Status> {
+    pub async fn is_authorized(&self, _namespaces: &[String], _verb: &str) -> Result<(), Status> {
         Ok(())
     }
 }
