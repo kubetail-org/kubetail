@@ -14,10 +14,8 @@
 
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use moka::future::Cache;
 use tokio::sync::mpsc::{self};
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::sync::CancellationToken;
@@ -29,14 +27,14 @@ use rgkl::{stream_backward, stream_forward};
 
 use tonic::{Request, Response, Status};
 
-use crate::authorizer::Authorizer;
+use crate::authorizer::{AuthCache, Authorizer};
 
 #[derive(Debug)]
 pub struct LogRecordsImpl {
     ctx: CancellationToken,
     task_tracker: TaskTracker,
     logs_dir: PathBuf,
-    auth_cache: Arc<Cache<crate::authorizer::CacheKey, crate::authorizer::CacheValue>>,
+    auth_cache: AuthCache,
 }
 
 impl LogRecordsImpl {
@@ -44,7 +42,7 @@ impl LogRecordsImpl {
         ctx: CancellationToken,
         task_tracker: TaskTracker,
         logs_dir: PathBuf,
-        auth_cache: Arc<Cache<crate::authorizer::CacheKey, crate::authorizer::CacheValue>>,
+        auth_cache: AuthCache,
     ) -> Self {
         Self {
             ctx,

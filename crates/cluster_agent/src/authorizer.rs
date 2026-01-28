@@ -28,7 +28,6 @@ use moka::future::Cache;
 use secrecy::ExposeSecret;
 #[cfg(not(test))]
 use sha2::{Digest, Sha256};
-use std::sync::Arc;
 use std::time::Duration;
 
 /// Key for the authorization cache: (token_hash, namespace, verb)
@@ -42,20 +41,21 @@ pub struct CacheKey {
 /// Value for the authorization cache: allowed (true/false)
 pub type CacheValue = bool;
 
+/// Type alias for the authorization cache
+pub type AuthCache = Cache<CacheKey, CacheValue>;
+
 /// Creates a process-scoped authorization cache
-pub fn create_auth_cache() -> Arc<Cache<CacheKey, CacheValue>> {
-    Arc::new(
-        Cache::builder()
-            .max_capacity(10_000)
-            .time_to_live(Duration::from_secs(300))
-            .build(),
-    )
+pub fn create_auth_cache() -> AuthCache {
+    Cache::builder()
+        .max_capacity(10_000)
+        .time_to_live(Duration::from_secs(300))
+        .build()
 }
 
 #[allow(dead_code)]
 pub struct Authorizer {
     k8s_config: Config,
-    auth_cache: Arc<Cache<CacheKey, CacheValue>>,
+    auth_cache: AuthCache,
 }
 
 /// Checks that the the k8s doing the request has proper rights to access the log files.
@@ -65,7 +65,7 @@ impl Authorizer {
     /// client set during authorization.
     pub async fn new(
         request_metadata: &MetadataMap,
-        auth_cache: Arc<Cache<CacheKey, CacheValue>>,
+        auth_cache: AuthCache,
     ) -> Result<Self, Status> {
         let token = request_metadata
             .get("authorization")
@@ -194,7 +194,7 @@ impl Authorizer {
 impl Authorizer {
     pub async fn new(
         _request_metadata: &MetadataMap,
-        auth_cache: Arc<Cache<CacheKey, CacheValue>>,
+        auth_cache: AuthCache,
     ) -> Result<Self, Status> {
         Ok(Self {
             k8s_config: Config::new(http::Uri::from_static("http://k8s.url")),

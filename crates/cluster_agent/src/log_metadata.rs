@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use moka::future::Cache;
 use notify::RecommendedWatcher;
 use prost_types::Timestamp;
 use regex::Regex;
@@ -20,7 +19,7 @@ use std::env;
 use std::fs::File;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, LazyLock};
+use std::sync::LazyLock;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
@@ -35,7 +34,7 @@ use types::cluster_agent::{
     LogMetadataWatchEvent, LogMetadataWatchRequest,
 };
 
-use crate::authorizer::Authorizer;
+use crate::authorizer::{AuthCache, Authorizer};
 use crate::log_metadata::log_metadata_watcher::LogMetadataWatcher;
 
 mod log_metadata_watcher;
@@ -52,7 +51,7 @@ pub struct LogMetadataImpl {
     task_tracker: TaskTracker,
     logs_dir: PathBuf,
     node_name: String,
-    auth_cache: Arc<Cache<crate::authorizer::CacheKey, crate::authorizer::CacheValue>>,
+    auth_cache: AuthCache,
 }
 
 impl LogMetadataImpl {
@@ -60,7 +59,7 @@ impl LogMetadataImpl {
         ctx: CancellationToken,
         task_tracker: TaskTracker,
         logs_dir: PathBuf,
-        auth_cache: Arc<Cache<crate::authorizer::CacheKey, crate::authorizer::CacheValue>>,
+        auth_cache: AuthCache,
     ) -> Self {
         Self {
             ctx,
