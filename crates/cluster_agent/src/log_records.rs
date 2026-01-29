@@ -86,7 +86,7 @@ impl LogRecordsService for LogRecordsImpl {
         let local_ctx = self.ctx.child_token();
 
         let namespaces = vec![request.namespace.clone()];
-        authorizer.is_authorized(&namespaces, "list").await?;
+        authorizer.is_authorized(&namespaces, "get").await?;
 
         self.task_tracker.spawn(async move {
             stream_backward::stream_backward(
@@ -117,7 +117,7 @@ impl LogRecordsService for LogRecordsImpl {
         let file_path = self.get_log_filename(&request)?;
 
         let namespaces = vec![request.namespace.clone()];
-        authorizer.is_authorized(&namespaces, "list").await?;
+        authorizer.is_authorized(&namespaces, "get").await?;
 
         let (tx, rx) = mpsc::channel(100);
         let local_ctx = self.ctx.child_token();
