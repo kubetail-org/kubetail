@@ -16,6 +16,7 @@ use std::error::Error;
 use std::fs::read_to_string;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use clap::{ArgAction, arg, command, value_parser};
 use tokio::signal::ctrl_c;
@@ -32,7 +33,7 @@ mod authorizer;
 mod config;
 mod log_metadata;
 mod log_records;
-use authorizer::create_auth_cache;
+use authorizer::{Authorizer, create_auth_cache};
 use log_metadata::LogMetadataImpl;
 use log_records::LogRecordsImpl;
 
@@ -45,6 +46,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     configure_logging(&config.logging)?;
 
     let auth_cache = create_auth_cache();
+    let authorizer = Arc::new(Authorizer::new(auth_cache).await?);
 
     let (_, agent_health_service) = tonic_health::server::health_reporter();
     let reflection_service = tonic_reflection::server::Builder::configure()
@@ -64,13 +66,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
             root_ctx.clone(),
             task_tracker.clone(),
             config.logs_dir.clone(),
-            auth_cache.clone(),
+            authorizer.clone(),
         )))
         .add_service(LogRecordsServiceServer::new(LogRecordsImpl::new(
             root_ctx.clone(),
             task_tracker.clone(),
             config.logs_dir.clone(),
-            auth_cache.clone(),
+            authorizer.clone(),
         )))
         .serve_with_shutdown(config.address, shutdown(root_ctx))
         .await?;

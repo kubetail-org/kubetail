@@ -19,7 +19,7 @@ use std::env;
 use std::fs::File;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
@@ -34,7 +34,7 @@ use types::cluster_agent::{
     LogMetadataWatchEvent, LogMetadataWatchRequest,
 };
 
-use crate::authorizer::{AuthCache, Authorizer};
+use crate::authorizer::Authorizer;
 use crate::log_metadata::log_metadata_watcher::LogMetadataWatcher;
 
 mod log_metadata_watcher;
@@ -51,7 +51,7 @@ pub struct LogMetadataImpl {
     task_tracker: TaskTracker,
     logs_dir: PathBuf,
     node_name: String,
-    auth_cache: AuthCache,
+    authorizer: Arc<Authorizer>,
 }
 
 impl LogMetadataImpl {
@@ -59,14 +59,14 @@ impl LogMetadataImpl {
         ctx: CancellationToken,
         task_tracker: TaskTracker,
         logs_dir: PathBuf,
-        auth_cache: AuthCache,
+        authorizer: Arc<Authorizer>,
     ) -> Self {
         Self {
             ctx,
             task_tracker,
             logs_dir,
             node_name: env::var("NODE_NAME").unwrap_or_else(|_| "Env variable not set".to_owned()),
-            auth_cache,
+            authorizer,
         }
     }
 
@@ -127,7 +127,7 @@ impl LogMetadataService for LogMetadataImpl {
         &self,
         request: Request<LogMetadataListRequest>,
     ) -> Result<Response<LogMetadataList>, Status> {
-        let authorizer = Authorizer::new(request.metadata(), self.auth_cache.clone()).await?;
+        let request_metadata = request.metadata().clone();
         let request = request.into_inner();
 
         if !self.logs_dir.is_dir() {
@@ -146,7 +146,9 @@ impl LogMetadataService for LogMetadataImpl {
             .filter(|namespace| !namespace.is_empty())
             .collect();
 
-        authorizer.is_authorized(&namespaces, "list").await?;
+        self.authorizer
+            .is_authorized(&request_metadata, &namespaces, "list")
+            .await?;
 
         let mut files = ReadDirStream::new(read_dir(&self.logs_dir).await?);
 
@@ -203,7 +205,7 @@ impl LogMetadataService for LogMetadataImpl {
         &self,
         request: Request<LogMetadataWatchRequest>,
     ) -> Result<Response<Self::WatchStream>, Status> {
-        let authorizer = Authorizer::new(request.metadata(), self.auth_cache.clone()).await?;
+        let request_metadata = request.metadata().clone();
         let request = request.into_inner();
 
         let namespaces: Vec<String> = request
@@ -212,7 +214,9 @@ impl LogMetadataService for LogMetadataImpl {
             .filter(|namespace| !namespace.is_empty())
             .collect();
 
-        authorizer.is_authorized(&namespaces, "watch").await?;
+        self.authorizer
+            .is_authorized(&request_metadata, &namespaces, "watch")
+            .await?;
 
         let (log_metadata_watcher, log_metadata_rx) = LogMetadataWatcher::new(
             self.ctx.child_token(),
@@ -231,9 +235,11 @@ impl LogMetadataService for LogMetadataImpl {
 
 #[cfg(test)]
 mod test {
+    use crate::authorizer::{Authorizer, create_auth_cache};
     use crate::log_metadata::LogMetadataImpl;
     use serial_test::parallel;
     use std::io::Write;
+    use std::sync::Arc;
     use tempfile::{Builder, NamedTempFile};
     use tokio_util::{sync::CancellationToken, task::TaskTracker};
     use tonic::Request;
@@ -260,14 +266,14 @@ mod test {
     async fn test_single_file_is_returned() {
         let file = create_test_file("pod-name_single-namespace_container-name-containerid", 4);
         let logs_dir = file.path().parent().unwrap().to_path_buf();
+        let authorizer = Arc::new(Authorizer::new(create_auth_cache()).await.unwrap());
 
-        let metadata_service = LogMetadataImpl {
-            ctx: CancellationToken::new(),
-            task_tracker: TaskTracker::new(),
+        let metadata_service = LogMetadataImpl::new(
+            CancellationToken::new(),
+            TaskTracker::new(),
             logs_dir,
-            node_name: "Node name".to_owned(),
-            auth_cache: crate::authorizer::create_auth_cache(),
-        };
+            authorizer,
+        );
 
         let mut result = metadata_service
             .list(Request::new(LogMetadataListRequest {
@@ -316,14 +322,14 @@ mod test {
             4,
         );
         let logs_dir = third_file.path().parent().unwrap().to_path_buf();
+        let authorizer = Arc::new(Authorizer::new(create_auth_cache()).await.unwrap());
 
-        let metadata_service = LogMetadataImpl {
-            ctx: CancellationToken::new(),
-            task_tracker: TaskTracker::new(),
+        let metadata_service = LogMetadataImpl::new(
+            CancellationToken::new(),
+            TaskTracker::new(),
             logs_dir,
-            node_name: "Node name".to_owned(),
-            auth_cache: crate::authorizer::create_auth_cache(),
-        };
+            authorizer,
+        );
 
         let mut result = metadata_service
             .list(Request::new(LogMetadataListRequest {
@@ -380,14 +386,14 @@ mod test {
         );
 
         let logs_dir = first_file.path().parent().unwrap().to_path_buf();
+        let authorizer = Arc::new(Authorizer::new(create_auth_cache()).await.unwrap());
 
-        let metadata_service = LogMetadataImpl {
-            ctx: CancellationToken::new(),
-            task_tracker: TaskTracker::new(),
+        let metadata_service = LogMetadataImpl::new(
+            CancellationToken::new(),
+            TaskTracker::new(),
             logs_dir,
-            node_name: "Node name".to_owned(),
-            auth_cache: crate::authorizer::create_auth_cache(),
-        };
+            authorizer,
+        );
 
         let result = metadata_service
             .list(Request::new(LogMetadataListRequest {
