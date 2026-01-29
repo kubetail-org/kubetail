@@ -61,29 +61,29 @@ impl Authorizer {
     }
 
     /// Checks if the request is authorized by calling the k8s API.
-    pub async fn is_authorized(
-        &self,
-        mut namespaces: &Vec<String>,
-        verb: &str,
-    ) -> Result<(), Status> {
+    pub async fn is_authorized(&self, namespaces: &[String], verb: &str) -> Result<(), Status> {
         let client = Client::try_from(self.k8s_config.clone())
             .map_err(|error| Status::new(tonic::Code::Unauthenticated, error.to_string()))?;
 
-        // Default to all namespaces if no namespace is provided.
-        let empty_namespace = vec![String::new()];
-        if namespaces.is_empty() {
-            namespaces = &empty_namespace;
-        }
-
         let access_reviews: Api<SelfSubjectAccessReview> = Api::all(client);
-        for namespace in namespaces {
+        let namespaces_to_check: Vec<Option<String>> = if namespaces.is_empty() {
+            vec![None]
+        } else {
+            namespaces
+                .iter()
+                .map(|namespace| Some(namespace.clone()))
+                .collect()
+        };
+
+        for namespace_opt in namespaces_to_check {
             let access_review = SelfSubjectAccessReview {
                 spec: SelfSubjectAccessReviewSpec {
                     resource_attributes: Some(ResourceAttributes {
-                        namespace: Some(namespace.to_owned()),
+                        namespace: namespace_opt.clone(),
                         group: None,
                         verb: Some(verb.to_owned()),
-                        resource: Some("pods/log".to_owned()),
+                        resource: Some("pods".to_owned()),
+                        subresource: Some("log".to_owned()),
                         ..ResourceAttributes::default()
                     }),
                     non_resource_attributes: None,
@@ -103,8 +103,11 @@ impl Authorizer {
 
             if response.status.is_none() || !response.status.unwrap().allowed {
                 return Err(Status::new(
-                    tonic::Code::Unauthenticated,
-                    format!("permission denied: `{verb} pods/log` in namespace `{namespace}`"),
+                    tonic::Code::PermissionDenied,
+                    format!(
+                        "permission denied: `{verb} pods/log` in namespace `{}`",
+                        namespace_opt.as_deref().unwrap_or("all")
+                    ),
                 ));
             }
         }
@@ -121,7 +124,7 @@ impl Authorizer {
         })
     }
 
-    pub async fn is_authorized(self, _namespaces: &Vec<String>, _verb: &str) -> Result<(), Status> {
+    pub async fn is_authorized(&self, _namespaces: &[String], _verb: &str) -> Result<(), Status> {
         Ok(())
     }
 }
