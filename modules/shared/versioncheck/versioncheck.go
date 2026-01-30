@@ -61,7 +61,7 @@ type cacheEntry struct {
 
 type checker struct {
 	githubClient *githubClient
-	cache        util.SyncMap[Component, cacheEntry]
+	cache        util.SyncGroup[Component, cacheEntry]
 	cacheTTL     time.Duration
 }
 
@@ -73,7 +73,7 @@ func NewChecker() Checker {
 			},
 			userAgent: "kubetail-version-checker",
 		},
-		cache:    util.SyncMap[Component, cacheEntry]{},
+		cache:    util.SyncGroup[Component, cacheEntry]{},
 		cacheTTL: DefaultCacheTTL,
 	}
 }
@@ -121,25 +121,30 @@ func (c *checker) getLatestVersion(component Component, fetchFunc func(context.C
 		if time.Now().Before(entry.expiration) {
 			return entry.version, entry.lastChecked, nil
 		}
+		// expired, delete to allow re-computation
 		c.cache.Delete(component)
 	}
 
-	// fetch from GitHub
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
+	entry, _, err := c.cache.LoadOrCompute(component, func() (cacheEntry, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+		defer cancel()
 
-	version, err := fetchFunc(ctx)
+		version, err := fetchFunc(ctx)
+		if err != nil {
+			return cacheEntry{}, err
+		}
+
+		now := time.Now()
+		return cacheEntry{
+			version:     version,
+			lastChecked: now,
+			expiration:  now.Add(c.cacheTTL),
+		}, nil
+	})
+
 	if err != nil {
 		return "", time.Time{}, err
 	}
 
-	// store in cache
-	now := time.Now()
-	c.cache.Store(component, cacheEntry{
-		version:     version,
-		lastChecked: now,
-		expiration:  now.Add(c.cacheTTL),
-	})
-
-	return version, now, nil
+	return entry.version, entry.lastChecked, nil
 }
