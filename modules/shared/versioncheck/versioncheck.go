@@ -54,8 +54,9 @@ type Checker interface {
 }
 
 type cacheEntry struct {
-	version    string
-	expiration time.Time
+	version     string
+	lastChecked time.Time
+	expiration  time.Time
 }
 
 type checker struct {
@@ -78,11 +79,10 @@ func NewChecker() Checker {
 }
 
 func (c *checker) GetLatestCLIVersion() *VersionInfo {
-	info := &VersionInfo{
-		LastChecked: time.Now(),
-	}
+	info := &VersionInfo{}
 
-	version, err := c.getLatestVersion(ComponentCLI, c.githubClient.fetchLatestCLIVersion)
+	version, lastChecked, err := c.getLatestVersion(ComponentCLI, c.githubClient.fetchLatestCLIVersion)
+	info.LastChecked = lastChecked
 	if err != nil {
 		zlog.Debug().Err(err).Msg("Failed to get latest CLI version")
 		info.Error = err
@@ -94,11 +94,10 @@ func (c *checker) GetLatestCLIVersion() *VersionInfo {
 }
 
 func (c *checker) GetLatestHelmChartVersion() *VersionInfo {
-	info := &VersionInfo{
-		LastChecked: time.Now(),
-	}
+	info := &VersionInfo{}
 
-	version, err := c.getLatestVersion(ComponentHelmChart, c.githubClient.fetchLatestHelmChartVersion)
+	version, lastChecked, err := c.getLatestVersion(ComponentHelmChart, c.githubClient.fetchLatestHelmChartVersion)
+	info.LastChecked = lastChecked
 	if err != nil {
 		zlog.Debug().Err(err).Msg("Failed to get latest Helm chart version")
 		info.Error = err
@@ -116,11 +115,11 @@ func (c *checker) GetLatestVersions() *LatestVersions {
 	}
 }
 
-func (c *checker) getLatestVersion(component Component, fetchFunc func(context.Context) (string, error)) (string, error) {
+func (c *checker) getLatestVersion(component Component, fetchFunc func(context.Context) (string, error)) (string, time.Time, error) {
 	// check cache first
 	if entry, ok := c.cache.Load(component); ok {
 		if time.Now().Before(entry.expiration) {
-			return entry.version, nil
+			return entry.version, entry.lastChecked, nil
 		}
 		c.cache.Delete(component)
 	}
@@ -131,14 +130,16 @@ func (c *checker) getLatestVersion(component Component, fetchFunc func(context.C
 
 	version, err := fetchFunc(ctx)
 	if err != nil {
-		return "", err
+		return "", time.Time{}, err
 	}
 
 	// store in cache
+	now := time.Now()
 	c.cache.Store(component, cacheEntry{
-		version:    version,
-		expiration: time.Now().Add(c.cacheTTL),
+		version:     version,
+		lastChecked: now,
+		expiration:  now.Add(c.cacheTTL),
 	})
 
-	return version, nil
+	return version, now, nil
 }
