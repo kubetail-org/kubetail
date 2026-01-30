@@ -27,6 +27,16 @@ type SyncGroup[K comparable, V any] struct {
 	muMap SyncMap[K, *sync.Mutex]
 }
 
+// Load returns the value stored in the group for a key, if present.
+func (g *SyncGroup[K, V]) Load(key K) (V, bool) {
+	return g.m.Load(key)
+}
+
+// Delete removes the value for a key but preserves the mutex for coordination.
+func (g *SyncGroup[K, V]) Delete(key K) {
+	g.m.Delete(key)
+}
+
 // Expose SyncMap Range function
 func (g *SyncGroup[K, V]) Range(f func(key K, value V) bool) {
 	g.m.Range(f)
