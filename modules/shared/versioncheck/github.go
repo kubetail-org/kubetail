@@ -28,7 +28,7 @@ const (
 	helmChartsReleasesURL = "https://api.github.com/repos/kubetail-org/helm-charts/releases"
 )
 
-type GitHubRelease struct {
+type githubRelease struct {
 	TagName     string `json:"tag_name"`
 	Name        string `json:"name"`
 	Draft       bool   `json:"draft"`
@@ -78,7 +78,7 @@ func (g *githubClient) fetchLatestCLIVersion(ctx context.Context) (string, error
 		return "", fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
 	}
 
-	var release GitHubRelease
+	var release githubRelease
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
 		return "", err
 	}
@@ -107,12 +107,12 @@ func (g *githubClient) fetchLatestHelmChartVersion(ctx context.Context) (string,
 		return "", fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
 	}
 
-	var releases []GitHubRelease
+	var releases []githubRelease
 	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
 		return "", err
 	}
 
-	var latestRelease *GitHubRelease
+	var latestRelease *githubRelease
 	var latestPublishedTime time.Time
 
 	for _, r := range releases {
