@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -115,6 +116,10 @@ func (g *githubClient) fetchLatestHelmChartVersion(ctx context.Context) (string,
 	var latestPublishedTime time.Time
 
 	for _, r := range releases {
+		if !strings.HasPrefix(r.TagName, "kubetail-") {
+			continue
+		}
+
 		if r.Draft || r.Prerelease {
 			continue
 		}
