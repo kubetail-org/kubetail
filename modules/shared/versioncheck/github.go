@@ -83,6 +83,10 @@ func (g *githubClient) fetchLatestCLIVersion(ctx context.Context) (string, error
 		return "", err
 	}
 
+	if release.TagName == "" {
+		return "", fmt.Errorf("release tag_name is empty")
+	}
+
 	return release.TagName, nil
 }
 
@@ -116,6 +120,10 @@ func (g *githubClient) fetchLatestHelmChartVersion(ctx context.Context) (string,
 	var latestPublishedTime time.Time
 
 	for _, r := range releases {
+		if r.TagName == "" {
+			continue
+		}
+
 		if !strings.HasPrefix(r.TagName, "kubetail-") {
 			continue
 		}
