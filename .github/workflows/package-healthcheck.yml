@@ -53,6 +53,8 @@ jobs:
             image: homebrew/brew:latest
             os: linux
             setup: |
+              HOMEBREW_NO_AUTO_UPDATE=1 \
+              HOMEBREW_NO_ANALYTICS=1 \
               brew install asdf
             install: |
               asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
@@ -76,6 +78,8 @@ jobs:
             os: linux
             setup: skip
             install: |
+              HOMEBREW_NO_AUTO_UPDATE=1 \
+              HOMEBREW_NO_ANALYTICS=1 \
               brew install kubetail
             version: |
               kubetail --version
@@ -741,6 +745,7 @@ jobs:
   summary:
     needs:
       - linux
+      - linux-apk
       - linux-apt
       - linux-copr
       - linux-dnf
