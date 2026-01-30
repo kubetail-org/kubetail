@@ -37,8 +37,8 @@ type githubRelease struct {
 }
 
 type githubClient struct {
-	httpClient *http.Client
-	userAgent  string
+	httpClient            *http.Client
+	userAgent             string
 	cliReleasesURL        string
 	helmChartsReleasesURL string
 }

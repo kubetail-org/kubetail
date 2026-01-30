@@ -26,7 +26,7 @@ import (
 
 const (
 	DefaultCacheTTL = 12 * time.Hour
-	defaultTimeout = 10 * time.Second
+	defaultTimeout  = 10 * time.Second
 )
 
 type Component string
