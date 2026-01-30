@@ -190,10 +190,15 @@ jobs:
           set -euxo pipefail
           cli_ver="$(kubetail --version)"
 
-          mkdir -p /tmp/results
-          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+          mkdir -p "$GITHUB_WORKSPACE/results"
+          echo "${cli_ver}" > "$GITHUB_WORKSPACE/results/${{ env.TRIPLET }}.txt"
 
-      - *upload_step
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: version-${{ env.TRIPLET }}
+          path: results/*.txt
+          retention-days: 1
 
   linux-apt:
     if: github.repository == 'kubetail-org/kubetail'
@@ -741,6 +746,7 @@ jobs:
   summary:
     needs:
       - linux
+      - linux-apk
       - linux-apt
       - linux-copr
       - linux-dnf
