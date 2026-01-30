@@ -293,6 +293,7 @@ rules:
       - deployments
       - jobs
       - pods
+      - pods/log
       - replicasets
       - statefulsets
     verbs: [get, list, watch]
