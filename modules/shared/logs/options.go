@@ -27,7 +27,7 @@ type Option func(target any) error
 func WithKubeContext(kubeContext string) Option {
 	return func(target any) error {
 		switch t := target.(type) {
-		case *Stream:
+		case *stream:
 			t.kubeContext = kubeContext
 		case *sourceWatcher:
 			t.kubeContext = kubeContext
@@ -51,7 +51,7 @@ func WithBearerToken(token string) Option {
 func WithSince(ts time.Time) Option {
 	return func(target any) error {
 		switch t := target.(type) {
-		case *Stream:
+		case *stream:
 			t.sinceTime = ts
 		}
 		return nil
@@ -62,7 +62,7 @@ func WithSince(ts time.Time) Option {
 func WithUntil(ts time.Time) Option {
 	return func(target any) error {
 		switch t := target.(type) {
-		case *Stream:
+		case *stream:
 			t.untilTime = ts
 		}
 		return nil
@@ -73,7 +73,7 @@ func WithUntil(ts time.Time) Option {
 func WithFollow(follow bool) Option {
 	return func(target any) error {
 		switch t := target.(type) {
-		case *Stream:
+		case *stream:
 			t.follow = follow
 		}
 		return nil
@@ -84,7 +84,7 @@ func WithFollow(follow bool) Option {
 func WithHead(n int64) Option {
 	return func(target any) error {
 		switch t := target.(type) {
-		case *Stream:
+		case *stream:
 			if n < 0 {
 				return fmt.Errorf("head must be >= 0")
 			}
@@ -99,7 +99,7 @@ func WithHead(n int64) Option {
 func WithTail(n int64) Option {
 	return func(target any) error {
 		switch t := target.(type) {
-		case *Stream:
+		case *stream:
 			if n < 0 {
 				return fmt.Errorf("tail must be >= 0")
 			}
@@ -114,7 +114,7 @@ func WithTail(n int64) Option {
 func WithAll() Option {
 	return func(target any) error {
 		switch t := target.(type) {
-		case *Stream:
+		case *stream:
 			t.mode = streamModeAll
 		}
 		return nil
@@ -125,7 +125,7 @@ func WithAll() Option {
 func WithGrep(pattern string) Option {
 	return func(target any) error {
 		switch t := target.(type) {
-		case *Stream:
+		case *stream:
 			pattern = strings.TrimSpace(pattern)
 			if pattern == "" {
 				return nil
@@ -220,7 +220,7 @@ func WithContainers(containers []string) Option {
 func WithLogFetcher(logFetcher LogFetcher) Option {
 	return func(target any) error {
 		switch t := target.(type) {
-		case *Stream:
+		case *stream:
 			t.logFetcher = logFetcher
 		}
 		return nil
@@ -255,7 +255,7 @@ func WithAllContainers(allContainers bool) Option {
 func WithMaxChunkSize(n int) Option {
 	return func(target any) error {
 		switch t := target.(type) {
-		case *Stream:
+		case *stream:
 			t.maxChunkSize = n
 		}
 		return nil

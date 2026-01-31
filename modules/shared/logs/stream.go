@@ -29,6 +29,14 @@ import (
 
 const DEFAULT_MAX_CHUNK_SIZE = 16 * 1024 // 16 KB
 
+// Streamer interface defines the methods for consuming a stream
+type Stream interface {
+	Sources() []LogSource
+	Records() <-chan LogRecord
+	Err() error
+	Close()
+}
+
 // LogRecord represents a log record
 type LogRecord struct {
 	Timestamp time.Time
@@ -47,8 +55,8 @@ const (
 	streamModeAll
 )
 
-// Stream represents a stream of log records
-type Stream struct {
+// stream represents a stream of log records
+type stream struct {
 	sinceTime time.Time
 	untilTime time.Time
 
@@ -85,11 +93,11 @@ type Stream struct {
 }
 
 // Initialize new stream
-func NewStream(ctx context.Context, cm k8shelpers.ConnectionManager, sourcePaths []string, opts ...Option) (*Stream, error) {
+func NewStream(ctx context.Context, cm k8shelpers.ConnectionManager, sourcePaths []string, opts ...Option) (*stream, error) {
 	rootCtx, rootCtxCancel := context.WithCancel(ctx)
 
 	// Init stream instance
-	stream := &Stream{
+	stream := &stream{
 		rootCtx:       rootCtx,
 		rootCtxCancel: rootCtxCancel,
 		sources:       set.NewSet[LogSource](),
@@ -136,7 +144,7 @@ func NewStream(ctx context.Context, cm k8shelpers.ConnectionManager, sourcePaths
 
 // Start log fetchers and other background processes
 // TODO: make this idempodent
-func (s *Stream) Start(ctx context.Context) error {
+func (s *stream) Start(ctx context.Context) error {
 	// Add source watcher event handlers
 	s.sw.Subscribe(SourceWatcherEventAdded, s.handleSourceAdd)
 	s.sw.Subscribe(SourceWatcherEventDeleted, s.handleSourceDelete)
@@ -188,26 +196,26 @@ func (s *Stream) Start(ctx context.Context) error {
 }
 
 // Sources returns the stream's sources
-func (s *Stream) Sources() []LogSource {
+func (s *stream) Sources() []LogSource {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.sources.ToSlice()
 }
 
 // Records returns the stream's output channel
-func (s *Stream) Records() <-chan LogRecord {
+func (s *stream) Records() <-chan LogRecord {
 	return s.outCh
 }
 
 // Err returns any error that occurred during stream processing
-func (s *Stream) Err() error {
+func (s *stream) Err() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.err
 }
 
 // Close stops internal data fetchers and closes the output channel
-func (s *Stream) Close() {
+func (s *stream) Close() {
 	// Remove source watcher event handlers
 	s.sw.Close()
 
@@ -219,7 +227,7 @@ func (s *Stream) Close() {
 }
 
 // Handle source ADDED event
-func (s *Stream) handleSourceAdd(source LogSource) {
+func (s *stream) handleSourceAdd(source LogSource) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -284,7 +292,7 @@ func (s *Stream) handleSourceAdd(source LogSource) {
 }
 
 // Handle source DELETED event
-func (s *Stream) handleSourceDelete(source LogSource) {
+func (s *stream) handleSourceDelete(source LogSource) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -298,7 +306,7 @@ func (s *Stream) handleSourceDelete(source LogSource) {
 }
 
 // Start fetching log records in `head` mode
-func (s *Stream) startHead_UNSAFE() error {
+func (s *stream) startHead_UNSAFE() error {
 	ctx, cancel := context.WithCancel(s.rootCtx)
 
 	opts := FetcherOptions{
@@ -353,7 +361,7 @@ func (s *Stream) startHead_UNSAFE() error {
 }
 
 // Start fetching log records in `tail` mode
-func (s *Stream) startTail_UNSAFE() error {
+func (s *stream) startTail_UNSAFE() error {
 	ctx, cancel := context.WithCancel(s.rootCtx)
 
 	// Set batch size
@@ -419,7 +427,7 @@ func (s *Stream) startTail_UNSAFE() error {
 }
 
 // Start following log records
-func (s *Stream) startFollow_UNSAFE() error {
+func (s *stream) startFollow_UNSAFE() error {
 	ctx, cancel := context.WithCancel(s.rootCtx)
 
 	var wg sync.WaitGroup
@@ -483,7 +491,7 @@ func (s *Stream) startFollow_UNSAFE() error {
 	return nil
 }
 
-func (s *Stream) runForwarder() {
+func (s *stream) runForwarder() {
 	defer s.closeOutCh()
 
 	// Close output channel
@@ -589,35 +597,35 @@ DrainLoop:
 }
 
 // Set error and close channels if needed
-func (s *Stream) setError_SAFE(err error) {
+func (s *stream) setError_SAFE(err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.setError_UNSAFE(err)
 }
 
 // Set error and close channels if needed
-func (s *Stream) setError_UNSAFE(err error) {
+func (s *stream) setError_UNSAFE(err error) {
 	s.setErrorOnce.Do(func() {
 		s.err = err
 	})
 }
 
 // Close past channel safely
-func (s *Stream) closePastCh() {
+func (s *stream) closePastCh() {
 	s.closePastChOnce.Do(func() {
 		close(s.pastCh)
 	})
 }
 
 // Close future channel safely
-func (s *Stream) closeFutureCh() {
+func (s *stream) closeFutureCh() {
 	s.closeFutureChOnce.Do(func() {
 		close(s.futureCh)
 	})
 }
 
 // Close output channel safely
-func (s *Stream) closeOutCh() {
+func (s *stream) closeOutCh() {
 	s.closeOutChOnce.Do(func() {
 		close(s.outCh)
 	})
