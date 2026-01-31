@@ -44,7 +44,7 @@ func TestOptions(t *testing.T) {
 func TestWithGrep(t *testing.T) {
 	// Test Case 1: Basic case-insensitive matching
 	t.Run("BasicCaseInsensitiveMatch", func(t *testing.T) {
-		stream := &Stream{} // Create a new Stream instance for the test
+		stream := &stream{} // Create a new Stream instance for the test
 		err := WithGrep("hello world")(stream)
 		if err != nil {
 			t.Fatalf("WithGrep returned an unexpected error: %v", err)
@@ -71,7 +71,7 @@ func TestWithGrep(t *testing.T) {
 
 	// Test Case 2: Pattern with leading/trailing spaces (should be trimmed)
 	t.Run("PatternWithLeadingTrailingSpaces", func(t *testing.T) {
-		stream := &Stream{}
+		stream := &stream{}
 		err := WithGrep("  trim me  ")(stream) // Pattern with spaces
 		if err != nil {
 			t.Fatalf("WithGrep returned an unexpected error: %v", err)
@@ -91,7 +91,7 @@ func TestWithGrep(t *testing.T) {
 
 	// Test Case 3: Pattern with special regex characters (e.g., '.', which matches any character)
 	t.Run("SpecialRegexCharacters", func(t *testing.T) {
-		stream := &Stream{}
+		stream := &stream{}
 		// The pattern "foo.bar" means "foo" followed by any character, followed by "bar".
 		// Our function doesn't escape user input, so '.' is treated as a regex wildcard.
 		err := WithGrep("foo.bar")(stream)
