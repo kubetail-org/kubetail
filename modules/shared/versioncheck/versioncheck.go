@@ -65,8 +65,22 @@ type checker struct {
 	cacheTTL     time.Duration
 }
 
-func NewChecker() Checker {
-	return &checker{
+type CheckerOption func(*checker)
+
+func WithCacheTTL(ttl time.Duration) CheckerOption {
+	return func(c *checker) {
+		c.cacheTTL = ttl
+	}
+}
+
+func WithHTTPClient(client *http.Client) CheckerOption {
+	return func(c *checker) {
+		c.githubClient.httpClient = client
+	}
+}
+
+func NewChecker(options ...CheckerOption) Checker {
+	c := &checker{
 		githubClient: &githubClient{
 			httpClient: &http.Client{
 				Timeout: defaultTimeout,
@@ -76,6 +90,12 @@ func NewChecker() Checker {
 		cache:    util.SyncGroup[Component, cacheEntry]{},
 		cacheTTL: DefaultCacheTTL,
 	}
+
+	for _, opt := range options {
+		opt(c)
+	}
+
+	return c
 }
 
 func (c *checker) GetLatestCLIVersion() *VersionInfo {
