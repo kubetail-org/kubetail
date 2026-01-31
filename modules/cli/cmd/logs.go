@@ -27,10 +27,8 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
-	zlog "github.com/rs/zerolog/log"
 	"github.com/sosodev/duration"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
@@ -53,6 +51,51 @@ const (
 	logsStreamModeTail
 	logsStreamModeAll
 )
+
+type logsConfig struct {
+	streamOpts []logs.Option
+
+	kubecontext    string
+	inCluster      bool
+	kubeconfigPath string
+
+	sinceTime time.Time
+	untilTime time.Time
+
+	head    bool
+	headVal int64
+	tail    bool
+	tailVal int64
+	all     bool
+	follow  bool
+
+	grep       string
+	regionList []string
+	zoneList   []string
+	osList     []string
+	archList   []string
+	nodeList   []string
+
+	hideHeader bool
+	hideTs     bool
+	hideDot    bool
+
+	withTs        bool
+	withDot       bool
+	allContainers bool
+
+	withNode      bool
+	withRegion    bool
+	withZone      bool
+	withOS        bool
+	withArch      bool
+	withNamespace bool
+	withPod       bool
+	withContainer bool
+	withCursors   bool
+
+	raw bool
+}
 
 const logsHelpTmpl = `
 Fetch logs for a specific container or a set of workload containers.
@@ -200,6 +243,303 @@ func getLogsHelp() string {
 	return buf.String()
 }
 
+func loadLogsConfig(cmd *cobra.Command) (*logsConfig, error) {
+	// Get flags
+	flags := cmd.Flags()
+
+	configPath, _ := flags.GetString("config")
+	inCluster, _ := flags.GetBool(InClusterFlag)
+
+	v := viper.New()
+
+	v.BindPFlag("general.kubeconfig", flags.Lookup(KubeconfigFlag))
+	v.BindPFlag("commands.logs.kube-context", flags.Lookup(KubeContextFlag))
+
+	if headFlag.IsValueProvided {
+		v.Set("commands.logs.head", headFlag.Value)
+	}
+	if tailFlag.IsValueProvided {
+		v.Set("commands.logs.tail", tailFlag.Value)
+	}
+
+	cfg, err := config.NewConfig(configPath, v)
+	if err != nil {
+		return nil, err
+	}
+
+	kubeContext := cfg.Commands.Logs.KubeContext
+	kubeconfigPath := cfg.General.KubeconfigPath
+
+	head := flags.Changed("head")
+	headVal := cfg.Commands.Logs.Head
+
+	tail := flags.Changed("tail")
+	tailVal := cfg.Commands.Logs.Tail
+
+	all, _ := flags.GetBool("all")
+	follow, _ := flags.GetBool("follow")
+
+	since, _ := flags.GetString("since")
+	until, _ := flags.GetString("until")
+	after, _ := flags.GetString("after")
+	before, _ := flags.GetString("before")
+
+	grep, _ := flags.GetString("grep")
+	regionList, _ := flags.GetStringSlice("region")
+	zoneList, _ := flags.GetStringSlice("zone")
+	osList, _ := flags.GetStringSlice("os")
+	archList, _ := flags.GetStringSlice("arch")
+	nodeList, _ := flags.GetStringSlice("node")
+
+	hideHeader, _ := flags.GetBool("hide-header")
+	hideTs, _ := flags.GetBool("hide-ts")
+	hideDot, _ := flags.GetBool("hide-dot")
+
+	withTs := !hideTs
+	withDot := !hideDot
+	allContainers, _ := flags.GetBool("all-containers")
+
+	withNode, _ := flags.GetBool("with-node")
+	withRegion, _ := flags.GetBool("with-region")
+	withZone, _ := flags.GetBool("with-zone")
+	withOS, _ := flags.GetBool("with-os")
+	withArch, _ := flags.GetBool("with-arch")
+	withNamespace, _ := flags.GetBool("with-namespace")
+	withPod, _ := flags.GetBool("with-pod")
+	withContainer, _ := flags.GetBool("with-container")
+	withCursors, _ := flags.GetBool("with-cursors")
+
+	raw, _ := flags.GetBool("raw")
+	if raw {
+		hideHeader = true
+		withTs = false
+		withNode = false
+		withRegion = false
+		withZone = false
+		withOS = false
+		withArch = false
+		withNamespace = false
+		withPod = false
+		withContainer = false
+		withDot = false
+		allContainers = false
+	}
+
+	// Stream mode
+	streamMode := logsStreamModeUnknown
+	if head {
+		streamMode = logsStreamModeHead
+	} else if tail {
+		streamMode = logsStreamModeTail
+	} else if all {
+		streamMode = logsStreamModeAll
+	} else if since != "" {
+		streamMode = logsStreamModeHead
+	} else {
+		streamMode = logsStreamModeTail
+	}
+
+	// Default tail num to 0 if follow is true
+	if follow && !tail {
+		tailVal = 0
+	}
+
+	// Parse `since`
+	sinceTime, err := parseTimeArg(since)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse `until`
+	untilTime, err := parseTimeArg(until)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse `after`
+	afterTime, err := parseTimeArg(after)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse `before`
+	beforeTime, err := parseTimeArg(before)
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle after/before
+	if !afterTime.IsZero() {
+		sinceTime = afterTime.Add(1 * time.Nanosecond)
+	}
+
+	if !beforeTime.IsZero() {
+		untilTime = beforeTime.Add(-1 * time.Nanosecond)
+	}
+
+	// Init stream
+	streamOpts := []logs.Option{
+		logs.WithKubeContext(kubeContext),
+		logs.WithSince(sinceTime),
+		logs.WithUntil(untilTime),
+		logs.WithFollow(follow),
+		logs.WithGrep(grep),
+		logs.WithRegions(regionList),
+		logs.WithZones(zoneList),
+		logs.WithOSes(osList),
+		logs.WithArches(archList),
+		logs.WithNodes(nodeList),
+		logs.WithAllContainers(allContainers),
+	}
+
+	switch streamMode {
+	case logsStreamModeHead:
+		streamOpts = append(streamOpts, logs.WithHead(headVal))
+	case logsStreamModeTail:
+		streamOpts = append(streamOpts, logs.WithTail(tailVal))
+	case logsStreamModeAll:
+		streamOpts = append(streamOpts, logs.WithAll())
+	default:
+		return nil, fmt.Errorf("invalid stream mode: %d", streamMode)
+	}
+
+	logsConfig := &logsConfig{
+		streamOpts:     streamOpts,
+		kubecontext:    kubeContext,
+		inCluster:      inCluster,
+		kubeconfigPath: kubeconfigPath,
+
+		sinceTime: sinceTime,
+		untilTime: untilTime,
+
+		head:    head,
+		headVal: headVal,
+		tail:    tail,
+		tailVal: tailVal,
+		all:     all,
+		follow:  follow,
+
+		grep:       grep,
+		regionList: regionList,
+		zoneList:   zoneList,
+		osList:     osList,
+		archList:   archList,
+		nodeList:   nodeList,
+
+		hideHeader: hideHeader,
+		hideTs:     hideTs,
+		hideDot:    hideDot,
+
+		withTs:        withTs,
+		withDot:       withDot,
+		allContainers: allContainers,
+
+		withNode:      withNode,
+		withRegion:    withRegion,
+		withZone:      withZone,
+		withOS:        withOS,
+		withArch:      withArch,
+		withNamespace: withNamespace,
+		withPod:       withPod,
+		withContainer: withContainer,
+		withCursors:   withCursors,
+
+		raw: raw,
+	}
+
+	return logsConfig, nil
+}
+
+func printLogs(rootCtx context.Context, cmd *cobra.Command, logsCfg *logsConfig, stream logs.Stream) {
+	// Write records to stdout
+	writer := bufio.NewWriter(cmd.OutOrStdout())
+
+	headers, colWidths := getTableWriterHeaders(logsCfg, stream.Sources())
+	tw := tablewriter.NewTableWriter(writer, colWidths)
+
+	// Print header
+	showHeader := logsCfg.withTs || logsCfg.withNode || logsCfg.withRegion || logsCfg.withZone || logsCfg.withOS || logsCfg.withArch || logsCfg.withNamespace || logsCfg.withPod || logsCfg.withContainer
+
+	if showHeader && !logsCfg.hideHeader {
+		tw.PrintHeader(headers)
+		writer.Flush()
+	}
+
+	// Write rows
+	var firstRecord, lastRecord *logs.LogRecord
+	for record := range stream.Records() {
+		if firstRecord == nil {
+			firstRecord = &record
+		}
+		lastRecord = &record
+
+		// Prepare row data
+		row := []string{}
+		if logsCfg.withTs {
+			row = append(row, record.Timestamp.Format(time.RFC3339Nano))
+		}
+
+		if logsCfg.withDot {
+			dot := getDotIndicator(record.Source.ContainerID)
+			row = append(row, dot)
+		}
+
+		if logsCfg.withNode {
+			row = append(row, record.Source.Metadata.Node)
+		}
+		if logsCfg.withRegion {
+			row = append(row, orDefault(record.Source.Metadata.Region, "-"))
+		}
+		if logsCfg.withZone {
+			row = append(row, orDefault(record.Source.Metadata.Zone, "-"))
+		}
+		if logsCfg.withOS {
+			row = append(row, orDefault(record.Source.Metadata.OS, "-"))
+		}
+		if logsCfg.withArch {
+			row = append(row, orDefault(record.Source.Metadata.Arch, "-"))
+		}
+		if logsCfg.withNamespace {
+			row = append(row, orDefault(record.Source.Namespace, "-"))
+		}
+		if logsCfg.withPod {
+			row = append(row, orDefault(record.Source.PodName, "-"))
+		}
+		if logsCfg.withContainer {
+			row = append(row, orDefault(record.Source.ContainerName, "-"))
+		}
+		row = append(row, record.Message)
+
+		// Add row to table
+		tw.WriteRow(row)
+		writer.Flush()
+	}
+
+	// Exit early if user issued SIGTERM
+	if rootCtx.Err() != nil {
+		return
+	}
+
+	// Exit if stream encountered error
+	cli.ExitOnError(stream.Err())
+
+	// Check if any errors occurred during streaming
+	if err := stream.Err(); err != nil {
+		fmt.Fprintf(cmd.OutOrStderr(), "\nError: %v\n", err)
+	}
+
+	// Output paging cursors if requested
+	if logsCfg.withCursors && !logsCfg.follow && !logsCfg.all {
+		if logsCfg.head && lastRecord != nil {
+			// For head mode, the last record's timestamp is used as the "after" cursor for the next page
+			fmt.Fprintf(cmd.OutOrStderr(), "\n--- Next page: --after %s ---\n", lastRecord.Timestamp.Format(time.RFC3339Nano))
+		} else if firstRecord != nil {
+			// For tail mode, the first record's timestamp would be used as the "before" cursor
+			fmt.Fprintf(cmd.OutOrStderr(), "\n--- Prev page: --before %s ---\n", firstRecord.Timestamp.Format(time.RFC3339Nano))
+		}
+	}
+}
+
 var logsCmd = &cobra.Command{
 	Use:   "logs [source1] [source2] ...",
 	Short: "Fetch logs for a container or a set of workloads",
@@ -224,168 +564,23 @@ var logsCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		// Get flags
-		flags := cmd.Flags()
+		logsCfg, err := loadLogsConfig(cmd)
 
-		configPath, _ := flags.GetString("config")
-		inCluster, _ := flags.GetBool(InClusterFlag)
-
-		v := viper.New()
-
-		v.BindPFlag("general.kubeconfig", flags.Lookup(KubeconfigFlag))
-		v.BindPFlag("commands.logs.kube-context", flags.Lookup(KubeContextFlag))
-		if headFlag.IsValueProvided {
-			v.Set("commands.logs.head", headFlag.Value)
-		}
-		if tailFlag.IsValueProvided {
-			v.Set("commands.logs.tail", tailFlag.Value)
-		}
-
-		cfg, err := config.NewConfig(configPath, v)
-		if err != nil {
-			zlog.Fatal().Caller().Err(err).Send()
-		}
-		kubeContext := cfg.Commands.Logs.KubeContext
-		kubeconfigPath := cfg.General.KubeconfigPath
-
-		head := flags.Changed("head")
-		headVal := cfg.Commands.Logs.Head
-
-		tail := flags.Changed("tail")
-		tailVal := cfg.Commands.Logs.Tail
-
-		all, _ := flags.GetBool("all")
-		follow, _ := flags.GetBool("follow")
-
-		since, _ := flags.GetString("since")
-		until, _ := flags.GetString("until")
-		after, _ := flags.GetString("after")
-		before, _ := flags.GetString("before")
-
-		grep, _ := flags.GetString("grep")
-		regionList, _ := flags.GetStringSlice("region")
-		zoneList, _ := flags.GetStringSlice("zone")
-		osList, _ := flags.GetStringSlice("os")
-		archList, _ := flags.GetStringSlice("arch")
-		nodeList, _ := flags.GetStringSlice("node")
-
-		hideHeader, _ := flags.GetBool("hide-header")
-		hideTs, _ := flags.GetBool("hide-ts")
-		hideDot, _ := flags.GetBool("hide-dot")
-
-		withTs := !hideTs
-		withDot := !hideDot
-		allContainers, _ := flags.GetBool("all-containers")
-
-		withNode, _ := flags.GetBool("with-node")
-		withRegion, _ := flags.GetBool("with-region")
-		withZone, _ := flags.GetBool("with-zone")
-		withOS, _ := flags.GetBool("with-os")
-		withArch, _ := flags.GetBool("with-arch")
-		withNamespace, _ := flags.GetBool("with-namespace")
-		withPod, _ := flags.GetBool("with-pod")
-		withContainer, _ := flags.GetBool("with-container")
-		withCursors, _ := flags.GetBool("with-cursors")
-
-		raw, _ := flags.GetBool("raw")
-		if raw {
-			hideHeader = true
-			withTs = false
-			withNode = false
-			withRegion = false
-			withZone = false
-			withOS = false
-			withArch = false
-			withNamespace = false
-			withPod = false
-			withContainer = false
-			withDot = false
-			allContainers = false
-		}
-
-		// Stream mode
-		streamMode := logsStreamModeUnknown
-		if head {
-			streamMode = logsStreamModeHead
-		} else if tail {
-			streamMode = logsStreamModeTail
-		} else if all {
-			streamMode = logsStreamModeAll
-		} else if since != "" {
-			streamMode = logsStreamModeHead
-		} else {
-			streamMode = logsStreamModeTail
-		}
-
-		// Default tail num to 0 if follow is true
-		if follow && !tail {
-			tailVal = 0
-		}
-
-		// Parse `since`
-		sinceTime, err := parseTimeArg(since)
 		cli.ExitOnError(err)
-
-		// Parse `until`
-		untilTime, err := parseTimeArg(until)
-		cli.ExitOnError(err)
-
-		// Parse `after`
-		afterTime, err := parseTimeArg(after)
-		cli.ExitOnError(err)
-
-		// Parse `before`
-		beforeTime, err := parseTimeArg(before)
-		cli.ExitOnError(err)
-
-		// Handle after/before
-		if !afterTime.IsZero() {
-			sinceTime = afterTime.Add(1 * time.Nanosecond)
-		}
-
-		if !beforeTime.IsZero() {
-			untilTime = beforeTime.Add(-1 * time.Nanosecond)
-		}
-
-		// Init connection manager
-		env := sharedcfg.EnvironmentDesktop
-		if inCluster {
-			env = sharedcfg.EnvironmentCluster
-		}
-		cm, err := k8shelpers.NewConnectionManager(env, k8shelpers.WithKubeconfigPath(kubeconfigPath), k8shelpers.WithLazyConnect(true))
-		cli.ExitOnError(err)
-
-		// Init stream
-		streamOpts := []logs.Option{
-			logs.WithKubeContext(kubeContext),
-			logs.WithSince(sinceTime),
-			logs.WithUntil(untilTime),
-			logs.WithFollow(follow),
-			logs.WithGrep(grep),
-			logs.WithRegions(regionList),
-			logs.WithZones(zoneList),
-			logs.WithOSes(osList),
-			logs.WithArches(archList),
-			logs.WithNodes(nodeList),
-			logs.WithAllContainers(allContainers),
-		}
-
-		switch streamMode {
-		case logsStreamModeHead:
-			streamOpts = append(streamOpts, logs.WithHead(headVal))
-		case logsStreamModeTail:
-			streamOpts = append(streamOpts, logs.WithTail(tailVal))
-		case logsStreamModeAll:
-			streamOpts = append(streamOpts, logs.WithAll())
-		default:
-			cli.ExitOnError(fmt.Errorf("invalid stream mode: %d", streamMode))
-		}
 
 		// Initalize context that stops on SIGTERM
 		rootCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop() // clean up resources
 
-		stream, err := logs.NewStream(rootCtx, cm, args, streamOpts...)
+		// Init connection manager
+		env := sharedcfg.EnvironmentDesktop
+		if logsCfg.inCluster {
+			env = sharedcfg.EnvironmentCluster
+		}
+		cm, err := k8shelpers.NewConnectionManager(env, k8shelpers.WithKubeconfigPath(logsCfg.kubeconfigPath), k8shelpers.WithLazyConnect(true))
+		cli.ExitOnError(err)
+
+		stream, err := logs.NewStream(rootCtx, cm, args, logsCfg.streamOpts...)
 		cli.ExitOnError(err)
 		defer stream.Close()
 
@@ -393,92 +588,8 @@ var logsCmd = &cobra.Command{
 		err = stream.Start(rootCtx)
 		cli.ExitOnError(err)
 
-		// Write records to stdout
-		writer := bufio.NewWriter(cmd.OutOrStdout())
-
-		headers, colWidths := getTableWriterHeaders(flags, stream.Sources())
-		tw := tablewriter.NewTableWriter(writer, colWidths)
-
-		// Print header
-		showHeader := withTs || withNode || withRegion || withZone || withOS || withArch || withNamespace || withPod || withContainer
-		if showHeader && !hideHeader {
-			tw.PrintHeader(headers)
-			writer.Flush()
-		}
-
-		// Write rows
-		var firstRecord, lastRecord *logs.LogRecord
-		for record := range stream.Records() {
-			if firstRecord == nil {
-				firstRecord = &record
-			}
-			lastRecord = &record
-
-			// Prepare row data
-			row := []string{}
-			if withTs {
-				row = append(row, record.Timestamp.Format(time.RFC3339Nano))
-			}
-
-			if withDot {
-				dot := getDotIndicator(record.Source.ContainerID)
-				row = append(row, dot)
-			}
-
-			if withNode {
-				row = append(row, record.Source.Metadata.Node)
-			}
-			if withRegion {
-				row = append(row, orDefault(record.Source.Metadata.Region, "-"))
-			}
-			if withZone {
-				row = append(row, orDefault(record.Source.Metadata.Zone, "-"))
-			}
-			if withOS {
-				row = append(row, orDefault(record.Source.Metadata.OS, "-"))
-			}
-			if withArch {
-				row = append(row, orDefault(record.Source.Metadata.Arch, "-"))
-			}
-			if withNamespace {
-				row = append(row, orDefault(record.Source.Namespace, "-"))
-			}
-			if withPod {
-				row = append(row, orDefault(record.Source.PodName, "-"))
-			}
-			if withContainer {
-				row = append(row, orDefault(record.Source.ContainerName, "-"))
-			}
-			row = append(row, record.Message)
-
-			// Add row to table
-			tw.WriteRow(row)
-			writer.Flush()
-		}
-
-		// Exit early if user issued SIGTERM
-		if rootCtx.Err() != nil {
-			return
-		}
-
-		// Exit if stream encountered error
-		cli.ExitOnError(stream.Err())
-
-		// Check if any errors occurred during streaming
-		if err := stream.Err(); err != nil {
-			fmt.Fprintf(cmd.OutOrStderr(), "\nError: %v\n", err)
-		}
-
-		// Output paging cursors if requested
-		if withCursors && !follow && !all {
-			if head && lastRecord != nil {
-				// For head mode, the last record's timestamp is used as the "after" cursor for the next page
-				fmt.Fprintf(cmd.OutOrStderr(), "\n--- Next page: --after %s ---\n", lastRecord.Timestamp.Format(time.RFC3339Nano))
-			} else if firstRecord != nil {
-				// For tail mode, the first record's timestamp would be used as the "before" cursor
-				fmt.Fprintf(cmd.OutOrStderr(), "\n--- Prev page: --before %s ---\n", firstRecord.Timestamp.Format(time.RFC3339Nano))
-			}
-		}
+		// output the logs
+		printLogs(rootCtx, cmd, logsCfg, stream)
 
 		// Graceful close
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -526,21 +637,7 @@ func getDotIndicator(containerID string) string {
 }
 
 // Return table writer headers and col widths
-func getTableWriterHeaders(flags *pflag.FlagSet, sources []logs.LogSource) ([]string, []int) {
-	hideTs, _ := flags.GetBool("hide-ts")
-	hideDot, _ := flags.GetBool("hide-dot")
-
-	withTs := !hideTs
-	withDot := !hideDot
-	withNode, _ := flags.GetBool("with-node")
-	withRegion, _ := flags.GetBool("with-region")
-	withZone, _ := flags.GetBool("with-zone")
-	withOS, _ := flags.GetBool("with-os")
-	withArch, _ := flags.GetBool("with-arch")
-	withNamespace, _ := flags.GetBool("with-namespace")
-	withPod, _ := flags.GetBool("with-pod")
-	withContainer, _ := flags.GetBool("with-container")
-
+func getTableWriterHeaders(logsConfig *logsConfig, sources []logs.LogSource) ([]string, []int) {
 	headers := []string{}
 	colWidths := []int{}
 
@@ -566,46 +663,46 @@ func getTableWriterHeaders(flags *pflag.FlagSet, sources []logs.LogSource) ([]st
 		maxContainerLen = max(maxArchLen, len(source.ContainerName))
 	}
 
-	if withTs {
+	if logsConfig.withTs {
 		headers = append(headers, "TIMESTAMP")
 		colWidths = append(colWidths, 30) // Fixed width for timestamp
 	}
 
-	if withDot {
+	if logsConfig.withDot {
 		headers = append(headers, "\u25CB")
 		colWidths = append(colWidths, 1)
 	}
 
-	if withNode {
+	if logsConfig.withNode {
 		headers = append(headers, "NODE")
 		colWidths = append(colWidths, maxNodeLen)
 	}
 
-	if withRegion {
+	if logsConfig.withRegion {
 		headers = append(headers, "REGION")
 		colWidths = append(colWidths, maxRegionLen)
 	}
-	if withZone {
+	if logsConfig.withZone {
 		headers = append(headers, "ZONE")
 		colWidths = append(colWidths, maxZoneLen)
 	}
-	if withOS {
+	if logsConfig.withOS {
 		headers = append(headers, "OS")
 		colWidths = append(colWidths, maxOSLen)
 	}
-	if withArch {
+	if logsConfig.withArch {
 		headers = append(headers, "ARCH")
 		colWidths = append(colWidths, maxArchLen)
 	}
-	if withNamespace {
+	if logsConfig.withNamespace {
 		headers = append(headers, "NAMESPACE")
 		colWidths = append(colWidths, maxNamespaceLen)
 	}
-	if withPod {
+	if logsConfig.withPod {
 		headers = append(headers, "POD")
 		colWidths = append(colWidths, maxPodLen)
 	}
-	if withContainer {
+	if logsConfig.withContainer {
 		headers = append(headers, "CONTAINER")
 		colWidths = append(colWidths, maxContainerLen)
 	}
@@ -641,19 +738,8 @@ func orDefault[T comparable](val T, defaultVal T) T {
 	return val
 }
 
-func init() {
-	rootCmd.AddCommand(logsCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// serveCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	flagset := logsCmd.Flags()
+func addLogsCmdFlags(cmd *cobra.Command) {
+	flagset := cmd.Flags()
 	flagset.SortFlags = false
 
 	flagset.String(KubeContextFlag, "", "Specify the kubeconfig context to use")
@@ -703,4 +789,20 @@ func init() {
 
 	// Define help here to avoid re-defining 'h' shorthand
 	flagset.Bool("help", false, "help for logs")
+
+}
+
+func init() {
+	rootCmd.AddCommand(logsCmd)
+
+	// Here you will define your flags and configuration settings.
+
+	// Cobra supports Persistent Flags which will work for this command
+	// and all subcommands, e.g.:
+	// serveCmd.PersistentFlags().String("foo", "", "A help for foo")
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	addLogsCmdFlags(logsCmd)
 }
