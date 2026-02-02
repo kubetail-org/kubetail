@@ -37,7 +37,7 @@ Our goal is to build the most powerful, user-friendly logging platform for Kuber
   * Grep 
 * Uses your Kubernetes API to retrieve log messages so data never leaves your possession (private by default)
 * Switch between multiple clusters (Desktop-only)
-* Run on [desktop](#quickstart-desktop), [cluster](#quickstart-cluster) or [docker](#quickstart-docker)
+* Run anywhere: [Desktop](#quickstart-desktop), [Cluster](#quickstart-cluster), [Docker](#quickstart-docker)
 
 ## Quickstart [Desktop]
 
