@@ -36,14 +36,14 @@ Our goal is to build the most powerful, user-friendly logging platform for Kuber
   * Node properties (e.g. availability zone, CPU architecture, node ID)
   * Grep 
 * Uses your Kubernetes API to retrieve log messages so data never leaves your possession (private by default)
-* Web dashboard can be installed on desktop or in cluster
 * Switch between multiple clusters (Desktop-only)
+* Run on [desktop](#quickstart-desktop), [cluster](#quickstart-cluster) or [docker](#quickstart-docker)
 
 ## Quickstart [Desktop]
 
 ### Install
 
-You can install the Kubetail CLI tool (`kubetail`) by downloading the latest [release binary](https://github.com/kubetail-org/kubetail/releases/latest) or by using a package manager:
+To run Kubetail on your desktop, you can use the `kubetail` CLI tool which can be installed using the latest [release binary](https://github.com/kubetail-org/kubetail/releases/latest) or by using a package manager:
 
 ```console
 # Homebrew
@@ -57,47 +57,53 @@ sudo snap install kubetail
 
 # Winget
 winget install kubetail
-
-# Chocolatey
-choco install kubetail
-
-# Scoop
-scoop install kubetail
-
-# MacPorts
-sudo port install kubetail
-
-# Ubuntu/Mint (apt)
-sudo add-apt-repository ppa:kubetail/kubetail
-sudo apt update && sudo apt install kubetail-cli
-
-# Fedora/CentOS/RHEL/Amazonlinux/Mageia (copr)
-dnf copr enable kubetail/kubetail
-dnf install kubetail
-
-# SUSE (zypper)
-zypper addrepo 'https://download.opensuse.org/repositories/home:/kubetail/$releasever/' kubetail
-zypper refresh && zypper install kubetail-cli
-
-# Alpine (apk)
-apk add kubetail --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing
-
-# Arch Linux (AUR)
-yay -S --noconfirm kubetail-cli
-
-# Gentoo (GURU)
-ACCEPT_KEYWORDS="~$(portageq envvar ARCH)" emerge dev-util/kubetail
-
-# Nix (Flake)
-nix profile add github:kubetail-org/kubetail-nix
-
-# Nix (Classic)
-nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
-
-# asdf
-asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
-asdf install kubetail latest
 ```
+
+<details>
+  <summary>See 12 other options (e.g. Ubuntu, Fedora, SUSE, Alpine, Arch, Gentoo, Nix, asdf, Chocolatey, Scoop, MacPorts)</summary>
+  
+  ```console
+  # Chocolatey
+  choco install kubetail
+
+  # Scoop
+  scoop install kubetail
+
+  # MacPorts
+  sudo port install kubetail
+
+  # Ubuntu/Mint (apt)
+  sudo add-apt-repository ppa:kubetail/kubetail
+  sudo apt update && sudo apt install kubetail-cli
+
+  # Fedora/CentOS/RHEL/Amazonlinux/Mageia (copr)
+  dnf copr enable kubetail/kubetail
+  dnf install kubetail
+
+  # SUSE (zypper)
+  zypper addrepo 'https://download.opensuse.org/repositories/home:/kubetail/$releasever/' kubetail
+  zypper refresh && zypper install kubetail-cli
+
+  # Alpine (apk)
+  apk add kubetail --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing
+
+  # Arch Linux (AUR)
+  yay -S --noconfirm kubetail-cli
+
+  # Gentoo (GURU)
+  ACCEPT_KEYWORDS="~$(portageq envvar ARCH)" emerge dev-util/kubetail
+
+  # Nix (Flake)
+  nix profile add github:kubetail-org/kubetail-nix
+
+  # Nix (Classic)
+  nix-env -i -f https://github.com/kubetail-org/kubetail-nix/archive/refs/heads/main.tar.gz
+
+  # asdf
+  asdf plugin add kubetail https://github.com/kubetail-org/asdf-kubetail.git
+  asdf install kubetail latest
+  ```
+</details>
 
 You can also use our install script:
 
@@ -153,7 +159,7 @@ Visit [http://localhost:8080](http://localhost:8080). Have fun tailing your logs
 
 ## Quickstart [Docker]
 
-To run the Kubetail CLI tool (`kubetail`) inside a docker container you can use the [`kubetail-cli`](https://hub.docker.com/r/kubetail/kubetail-cli) docker image.
+To run the `kubetail` CLI tool inside a docker container you can use the [`kubetail-cli`](https://hub.docker.com/r/kubetail/kubetail-cli) docker image.
 
 To use the image with `docker run` you need to mount your local `.kube/config` file into a `kubetail-cli` container then use normal CLI [commands](https://www.kubetail.com/docs/cli#subcommands): 
 
