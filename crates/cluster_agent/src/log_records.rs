@@ -14,6 +14,7 @@
 
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use tokio::sync::mpsc::{self};
@@ -34,14 +35,21 @@ pub struct LogRecordsImpl {
     ctx: CancellationToken,
     task_tracker: TaskTracker,
     logs_dir: PathBuf,
+    authorizer: Authorizer,
 }
 
 impl LogRecordsImpl {
-    pub const fn new(ctx: CancellationToken, task_tracker: TaskTracker, logs_dir: PathBuf) -> Self {
+    pub fn new(
+        ctx: CancellationToken,
+        task_tracker: TaskTracker,
+        logs_dir: PathBuf,
+        authorizer: Authorizer,
+    ) -> Self {
         Self {
             ctx,
             task_tracker,
             logs_dir,
+            authorizer,
         }
     }
 
@@ -79,14 +87,16 @@ impl LogRecordsService for LogRecordsImpl {
         &self,
         request: Request<LogRecordsStreamRequest>,
     ) -> Result<Response<Self::StreamBackwardStream>, Status> {
-        let authorizer = Authorizer::new(request.metadata()).await?;
+        let request_metadata = request.metadata().clone();
         let request = request.into_inner();
         let file_path = self.get_log_filename(&request)?;
         let (tx, rx) = mpsc::channel(100);
         let local_ctx = self.ctx.child_token();
 
         let namespaces = vec![request.namespace.clone()];
-        authorizer.is_authorized(&namespaces, "list").await?;
+        self.authorizer
+            .is_authorized(&request_metadata, &namespaces, "list")
+            .await?;
 
         self.task_tracker.spawn(async move {
             stream_backward::stream_backward(
@@ -112,12 +122,14 @@ impl LogRecordsService for LogRecordsImpl {
         &self,
         request: Request<LogRecordsStreamRequest>,
     ) -> Result<Response<Self::StreamForwardStream>, Status> {
-        let authorizer = Authorizer::new(request.metadata()).await?;
+        let request_metadata = request.metadata().clone();
         let request = request.into_inner();
         let file_path = self.get_log_filename(&request)?;
 
         let namespaces = vec![request.namespace.clone()];
-        authorizer.is_authorized(&namespaces, "list").await?;
+        self.authorizer
+            .is_authorized(&request_metadata, &namespaces, "list")
+            .await?;
 
         let (tx, rx) = mpsc::channel(100);
         let local_ctx = self.ctx.child_token();
