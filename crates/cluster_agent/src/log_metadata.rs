@@ -19,7 +19,7 @@ use std::env;
 use std::fs::File;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, LazyLock};
+use std::sync::LazyLock;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 

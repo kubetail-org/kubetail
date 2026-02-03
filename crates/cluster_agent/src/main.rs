@@ -16,7 +16,6 @@ use std::error::Error;
 use std::fs::read_to_string;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Arc;
 
 use clap::{ArgAction, arg, command, value_parser};
 use tokio::signal::ctrl_c;
