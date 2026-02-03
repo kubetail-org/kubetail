@@ -52,7 +52,7 @@ const (
 	logsStreamModeAll
 )
 
-type logsConfig struct {
+type logsCmdConfig struct {
 	streamOpts []logs.Option
 
 	kubecontext    string
@@ -243,7 +243,7 @@ func getLogsHelp() string {
 	return buf.String()
 }
 
-func loadLogsConfig(cmd *cobra.Command) (*logsConfig, error) {
+func loadLogsCmdConfig(cmd *cobra.Command) (*logsCmdConfig, error) {
 	// Get flags
 	flags := cmd.Flags()
 
@@ -403,7 +403,7 @@ func loadLogsConfig(cmd *cobra.Command) (*logsConfig, error) {
 		return nil, fmt.Errorf("invalid stream mode: %d", streamMode)
 	}
 
-	logsConfig := &logsConfig{
+	cmdCfg := &logsCmdConfig{
 		streamOpts:     streamOpts,
 		kubecontext:    kubeContext,
 		inCluster:      inCluster,
@@ -447,20 +447,20 @@ func loadLogsConfig(cmd *cobra.Command) (*logsConfig, error) {
 		raw: raw,
 	}
 
-	return logsConfig, nil
+	return cmdCfg, nil
 }
 
-func printLogs(rootCtx context.Context, cmd *cobra.Command, logsCfg *logsConfig, stream logs.Stream) {
+func printLogs(rootCtx context.Context, cmd *cobra.Command, cmdCfg *logsCmdConfig, stream logs.Stream) {
 	// Write records to stdout
 	writer := bufio.NewWriter(cmd.OutOrStdout())
 
-	headers, colWidths := getTableWriterHeaders(logsCfg, stream.Sources())
+	headers, colWidths := getTableWriterHeaders(cmdCfg, stream.Sources())
 	tw := tablewriter.NewTableWriter(writer, colWidths)
 
 	// Print header
-	showHeader := logsCfg.withTs || logsCfg.withNode || logsCfg.withRegion || logsCfg.withZone || logsCfg.withOS || logsCfg.withArch || logsCfg.withNamespace || logsCfg.withPod || logsCfg.withContainer
+	showHeader := cmdCfg.withTs || cmdCfg.withNode || cmdCfg.withRegion || cmdCfg.withZone || cmdCfg.withOS || cmdCfg.withArch || cmdCfg.withNamespace || cmdCfg.withPod || cmdCfg.withContainer
 
-	if showHeader && !logsCfg.hideHeader {
+	if showHeader && !cmdCfg.hideHeader {
 		tw.PrintHeader(headers)
 		writer.Flush()
 	}
@@ -475,37 +475,37 @@ func printLogs(rootCtx context.Context, cmd *cobra.Command, logsCfg *logsConfig,
 
 		// Prepare row data
 		row := []string{}
-		if logsCfg.withTs {
+		if cmdCfg.withTs {
 			row = append(row, record.Timestamp.Format(time.RFC3339Nano))
 		}
 
-		if logsCfg.withDot {
+		if cmdCfg.withDot {
 			dot := getDotIndicator(record.Source.ContainerID)
 			row = append(row, dot)
 		}
 
-		if logsCfg.withNode {
+		if cmdCfg.withNode {
 			row = append(row, record.Source.Metadata.Node)
 		}
-		if logsCfg.withRegion {
+		if cmdCfg.withRegion {
 			row = append(row, orDefault(record.Source.Metadata.Region, "-"))
 		}
-		if logsCfg.withZone {
+		if cmdCfg.withZone {
 			row = append(row, orDefault(record.Source.Metadata.Zone, "-"))
 		}
-		if logsCfg.withOS {
+		if cmdCfg.withOS {
 			row = append(row, orDefault(record.Source.Metadata.OS, "-"))
 		}
-		if logsCfg.withArch {
+		if cmdCfg.withArch {
 			row = append(row, orDefault(record.Source.Metadata.Arch, "-"))
 		}
-		if logsCfg.withNamespace {
+		if cmdCfg.withNamespace {
 			row = append(row, orDefault(record.Source.Namespace, "-"))
 		}
-		if logsCfg.withPod {
+		if cmdCfg.withPod {
 			row = append(row, orDefault(record.Source.PodName, "-"))
 		}
-		if logsCfg.withContainer {
+		if cmdCfg.withContainer {
 			row = append(row, orDefault(record.Source.ContainerName, "-"))
 		}
 		row = append(row, record.Message)
@@ -529,8 +529,8 @@ func printLogs(rootCtx context.Context, cmd *cobra.Command, logsCfg *logsConfig,
 	}
 
 	// Output paging cursors if requested
-	if logsCfg.withCursors && !logsCfg.follow && !logsCfg.all {
-		if logsCfg.head && lastRecord != nil {
+	if cmdCfg.withCursors && !cmdCfg.follow && !cmdCfg.all {
+		if cmdCfg.head && lastRecord != nil {
 			// For head mode, the last record's timestamp is used as the "after" cursor for the next page
 			fmt.Fprintf(cmd.OutOrStderr(), "\n--- Next page: --after %s ---\n", lastRecord.Timestamp.Format(time.RFC3339Nano))
 		} else if firstRecord != nil {
@@ -564,7 +564,7 @@ var logsCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		logsCfg, err := loadLogsConfig(cmd)
+		cmdCfg, err := loadLogsCmdConfig(cmd)
 
 		cli.ExitOnError(err)
 
@@ -574,13 +574,13 @@ var logsCmd = &cobra.Command{
 
 		// Init connection manager
 		env := sharedcfg.EnvironmentDesktop
-		if logsCfg.inCluster {
+		if cmdCfg.inCluster {
 			env = sharedcfg.EnvironmentCluster
 		}
-		cm, err := k8shelpers.NewConnectionManager(env, k8shelpers.WithKubeconfigPath(logsCfg.kubeconfigPath), k8shelpers.WithLazyConnect(true))
+		cm, err := k8shelpers.NewConnectionManager(env, k8shelpers.WithKubeconfigPath(cmdCfg.kubeconfigPath), k8shelpers.WithLazyConnect(true))
 		cli.ExitOnError(err)
 
-		stream, err := logs.NewStream(rootCtx, cm, args, logsCfg.streamOpts...)
+		stream, err := logs.NewStream(rootCtx, cm, args, cmdCfg.streamOpts...)
 		cli.ExitOnError(err)
 		defer stream.Close()
 
@@ -589,7 +589,7 @@ var logsCmd = &cobra.Command{
 		cli.ExitOnError(err)
 
 		// output the logs
-		printLogs(rootCtx, cmd, logsCfg, stream)
+		printLogs(rootCtx, cmd, cmdCfg, stream)
 
 		// Graceful close
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -637,7 +637,7 @@ func getDotIndicator(containerID string) string {
 }
 
 // Return table writer headers and col widths
-func getTableWriterHeaders(logsConfig *logsConfig, sources []logs.LogSource) ([]string, []int) {
+func getTableWriterHeaders(cmdCfg *logsCmdConfig, sources []logs.LogSource) ([]string, []int) {
 	headers := []string{}
 	colWidths := []int{}
 
@@ -663,46 +663,46 @@ func getTableWriterHeaders(logsConfig *logsConfig, sources []logs.LogSource) ([]
 		maxContainerLen = max(maxArchLen, len(source.ContainerName))
 	}
 
-	if logsConfig.withTs {
+	if cmdCfg.withTs {
 		headers = append(headers, "TIMESTAMP")
 		colWidths = append(colWidths, 30) // Fixed width for timestamp
 	}
 
-	if logsConfig.withDot {
+	if cmdCfg.withDot {
 		headers = append(headers, "\u25CB")
 		colWidths = append(colWidths, 1)
 	}
 
-	if logsConfig.withNode {
+	if cmdCfg.withNode {
 		headers = append(headers, "NODE")
 		colWidths = append(colWidths, maxNodeLen)
 	}
 
-	if logsConfig.withRegion {
+	if cmdCfg.withRegion {
 		headers = append(headers, "REGION")
 		colWidths = append(colWidths, maxRegionLen)
 	}
-	if logsConfig.withZone {
+	if cmdCfg.withZone {
 		headers = append(headers, "ZONE")
 		colWidths = append(colWidths, maxZoneLen)
 	}
-	if logsConfig.withOS {
+	if cmdCfg.withOS {
 		headers = append(headers, "OS")
 		colWidths = append(colWidths, maxOSLen)
 	}
-	if logsConfig.withArch {
+	if cmdCfg.withArch {
 		headers = append(headers, "ARCH")
 		colWidths = append(colWidths, maxArchLen)
 	}
-	if logsConfig.withNamespace {
+	if cmdCfg.withNamespace {
 		headers = append(headers, "NAMESPACE")
 		colWidths = append(colWidths, maxNamespaceLen)
 	}
-	if logsConfig.withPod {
+	if cmdCfg.withPod {
 		headers = append(headers, "POD")
 		colWidths = append(colWidths, maxPodLen)
 	}
-	if logsConfig.withContainer {
+	if cmdCfg.withContainer {
 		headers = append(headers, "CONTAINER")
 		colWidths = append(colWidths, maxContainerLen)
 	}

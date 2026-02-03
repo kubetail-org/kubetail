@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 	"testing"
 	"time"
 
@@ -17,30 +14,29 @@ import (
 )
 
 func TestLoadLogConfig(t *testing.T) {
-
 	t.Run("raw flag overrides display flags", func(t *testing.T) {
 		cmd := &cobra.Command{}
 		addLogsCmdFlags(cmd)
 
-		cmd.Flags().Set("raw", fmt.Sprintf("%t", true))
-		cmd.Flags().Set("hideHeader", fmt.Sprintf("%t", false))
-		cmd.Flags().Set("withRegion", fmt.Sprintf("%t", true))
+		flags := cmd.Flags()
+		flags.Set("raw", fmt.Sprintf("%t", true))
+		flags.Set("hideHeader", fmt.Sprintf("%t", false))
+		flags.Set("withRegion", fmt.Sprintf("%t", true))
 
-		logsCfg, err := loadLogsConfig(cmd)
+		cmdCfg, err := loadLogsCmdConfig(cmd)
 		assert.NoError(t, err)
 
-		assert.Equal(t, logsCfg.hideHeader, true)
-		assert.Equal(t, logsCfg.withTs, false)
-		assert.Equal(t, logsCfg.withNode, false)
-		assert.Equal(t, logsCfg.withRegion, false)
-		assert.Equal(t, logsCfg.withOS, false)
-		assert.Equal(t, logsCfg.withArch, false)
-		assert.Equal(t, logsCfg.withNamespace, false)
-		assert.Equal(t, logsCfg.withPod, false)
-		assert.Equal(t, logsCfg.withContainer, false)
-		assert.Equal(t, logsCfg.withDot, false)
-		assert.Equal(t, logsCfg.allContainers, false)
-
+		assert.Equal(t, cmdCfg.hideHeader, true)
+		assert.Equal(t, cmdCfg.withTs, false)
+		assert.Equal(t, cmdCfg.withNode, false)
+		assert.Equal(t, cmdCfg.withRegion, false)
+		assert.Equal(t, cmdCfg.withOS, false)
+		assert.Equal(t, cmdCfg.withArch, false)
+		assert.Equal(t, cmdCfg.withNamespace, false)
+		assert.Equal(t, cmdCfg.withPod, false)
+		assert.Equal(t, cmdCfg.withContainer, false)
+		assert.Equal(t, cmdCfg.withDot, false)
+		assert.Equal(t, cmdCfg.allContainers, false)
 	})
 
 	t.Run("tail is zero in follow mode", func(t *testing.T) {
@@ -49,11 +45,10 @@ func TestLoadLogConfig(t *testing.T) {
 		addLogsCmdFlags(cmd)
 		cmd.Flags().Set("follow", fmt.Sprintf("%t", true))
 
-		logsCfg, err := loadLogsConfig(cmd)
+		cmdCfg, err := loadLogsCmdConfig(cmd)
 		assert.NoError(t, err)
 
-		assert.Equal(t, logsCfg.tailVal, int64(0))
-
+		assert.Equal(t, cmdCfg.tailVal, int64(0))
 	})
 
 	t.Run("wrong timestamp returns an error", func(t *testing.T) {
@@ -61,10 +56,9 @@ func TestLoadLogConfig(t *testing.T) {
 		addLogsCmdFlags(cmd)
 
 		cmd.Flags().Set("since", "wrong-timestamp")
-		_, err := loadLogsConfig(cmd)
+		_, err := loadLogsCmdConfig(cmd)
 
 		assert.Error(t, err)
-
 	})
 
 	t.Run("add and remove nanosecond when --after and --before are used", func(t *testing.T) {
@@ -78,18 +72,15 @@ func TestLoadLogConfig(t *testing.T) {
 		cmd.Flags().Set("after", t1.Format(time.RFC3339Nano))
 		cmd.Flags().Set("before", t1.Format(time.RFC3339Nano))
 
-		logsCfg, err := loadLogsConfig(cmd)
+		cmdCfg, err := loadLogsCmdConfig(cmd)
 		assert.NoError(t, err)
 
-		assert.Equal(t, logsCfg.sinceTime, expectedSinceTime)
-		assert.Equal(t, logsCfg.untilTime, expectedUntilTime)
-
+		assert.Equal(t, cmdCfg.sinceTime, expectedSinceTime)
+		assert.Equal(t, cmdCfg.untilTime, expectedUntilTime)
 	})
-
 }
 
 func TestPrintLogs(t *testing.T) {
-
 	s1 := logs.LogSource{
 		PodName:       "pod1",
 		Namespace:     "ns1",
@@ -114,12 +105,12 @@ func TestPrintLogs(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		config          logsConfig
+		cmdCfg          logsCmdConfig
 		wantContains    []string
 		wantNotContains []string
 	}{{
 		name: "logs with header, timestamp, message and dot indicator",
-		config: logsConfig{
+		cmdCfg: logsCmdConfig{
 			withTs:  true,
 			withDot: true,
 		},
@@ -127,7 +118,7 @@ func TestPrintLogs(t *testing.T) {
 		wantNotContains: []string{},
 	}, {
 		name: "logs with hideHeader",
-		config: logsConfig{
+		cmdCfg: logsCmdConfig{
 			hideHeader: true,
 			withTs:     true,
 			withDot:    true,
@@ -136,7 +127,7 @@ func TestPrintLogs(t *testing.T) {
 		wantNotContains: []string{"TIMESTAMP", "MESSAGE", "\u25CB"},
 	}, {
 		name: "test show logs without timestamp",
-		config: logsConfig{
+		cmdCfg: logsCmdConfig{
 			withTs:  false,
 			withDot: true,
 		},
@@ -144,7 +135,7 @@ func TestPrintLogs(t *testing.T) {
 		wantNotContains: []string{"TIMESTAMP", "2025-03-13T11:42:01.123456789Z"},
 	}, {
 		name: "show logs with region, zone, os, arch, node",
-		config: logsConfig{
+		cmdCfg: logsCmdConfig{
 			withTs:     true,
 			withDot:    true,
 			withRegion: true,
@@ -157,7 +148,7 @@ func TestPrintLogs(t *testing.T) {
 		wantNotContains: []string{},
 	}, {
 		name: "show logs with pod, namespace",
-		config: logsConfig{
+		cmdCfg: logsCmdConfig{
 			withTs:        true,
 			withDot:       true,
 			withPod:       true,
@@ -167,7 +158,7 @@ func TestPrintLogs(t *testing.T) {
 		wantContains: []string{"POD", "pod1", "CONTAINER", "container1", "NAMESPACE", "ns1", "hello message 1"},
 	}, {
 		name: "cursors with tail mode",
-		config: logsConfig{
+		cmdCfg: logsCmdConfig{
 			withTs:      true,
 			withDot:     true,
 			withCursors: true,
@@ -175,7 +166,7 @@ func TestPrintLogs(t *testing.T) {
 		wantContains: []string{"--- Prev page: --before 2025-03-13T11:42:01.123456789Z ---", "hello message 1"},
 	}, {
 		name: "cursors with head mode",
-		config: logsConfig{
+		cmdCfg: logsCmdConfig{
 			withTs:      true,
 			withDot:     true,
 			withCursors: true,
@@ -202,10 +193,7 @@ func TestPrintLogs(t *testing.T) {
 		mockStream.On("Sources").Return([]logs.LogSource{s1})
 		mockStream.On("Err").Return(nil)
 
-		rootCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-		defer stop()
-
-		printLogs(rootCtx, cmd, &test.config, mockStream)
+		printLogs(context.Background(), cmd, &test.cmdCfg, mockStream)
 
 		for _, want := range test.wantContains {
 			assert.Contains(t, stdout.String(), want)
@@ -217,7 +205,5 @@ func TestPrintLogs(t *testing.T) {
 
 		// checking if all the mock calls ran properly
 		mockStream.AssertExpectations(t)
-
 	}
-
 }
