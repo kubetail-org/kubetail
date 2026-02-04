@@ -44,7 +44,7 @@ jobs:
             echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
-            echo "port_checks=false" >> $GITHUB_OUTPUT
+            echo "port_checks=true" >> $GITHUB_OUTPUT
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
 

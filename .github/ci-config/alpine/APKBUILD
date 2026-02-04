@@ -14,10 +14,10 @@ build() {
 	cd modules/cli
 
 	local ldflags="
-		-s
-		-w
-		-X github.com/kubetail-org/kubetail/modules/cli/cmd.version=$pkgver
-		"
+	-s
+	-w
+	-X github.com/kubetail-org/kubetail/modules/cli/cmd.version=$pkgver
+	"
 	GOWORK=off go build -mod=vendor -ldflags "$ldflags" -o ../../bin/kubetail
 }
 

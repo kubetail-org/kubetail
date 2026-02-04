@@ -72,7 +72,7 @@ jobs:
       - name: Publish to copr
         run: |
           if [ "${{ steps.config.outputs.dry_run }}" = "false" ]; then
-            copr-cli build kubetail ./kubetail.spec
+            copr-cli build --nowait kubetail ./kubetail.spec
           else
             cat kubetail.spec
           fi

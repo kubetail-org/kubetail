@@ -47,6 +47,15 @@ jobs:
       ARCHIVE_NAME: "kubetail-${{ needs.config.outputs.version }}-vendored.tar.gz"
       VERSION: ${{ needs.config.outputs.version }}
     steps:
+      - name: Set up Homebrew
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          echo "/home/linuxbrew/.linuxbrew/bin" >> $GITHUB_PATH
+
+      - name: Install GitLab CLI
+        run: |
+          brew install glab
+
       - name: Download source bundle
         uses: robinraju/release-downloader@v1.12
         with:
@@ -81,7 +90,7 @@ jobs:
           sparse-checkout-cone-mode: false
           path: kubetail
 
-      - name: Update APKBUILD
+      - name: Generate APKBUILD
         env:
           SRC_DIR: kubetail/.github/ci-config/alpine
           DST_DIR: aports/testing/kubetail
@@ -126,8 +135,8 @@ jobs:
           cat APKBUILD
 
       - name: Push changes to aports fork
-        working-directory: aports
         if: ${{ needs.config.outputs.dry_run != 'true' }}
+        working-directory: aports
         env:
           BRANCH_NAME: "upgrade/kubetail-${{ needs.config.outputs.version }}"
         run: |
@@ -143,21 +152,19 @@ jobs:
             exit 0
           fi
 
+          # Add fork
+          git remote add fork git@gitlab.alpinelinux.org:amorey/aports.git
+
+          # Unshallow clone so push is accepted by GitLab
+          git fetch --unshallow origin
+
           # Commit and push
           git commit -s -S -m "testing/kubetail: upgrade to $VERSION"
-          git push --set-upstream origin "$BRANCH_NAME"
-
-      - name: Set up Homebrew
-        run: |
-          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-          echo "/home/linuxbrew/.linuxbrew/bin" >> $GITHUB_PATH
-
-      - name: Install GitLab CLI
-        run: |
-          brew install glab
+          git push --set-upstream fork "$BRANCH_NAME"
 
       - name: Create merge request
         if: ${{ needs.config.outputs.dry_run != 'true' }}
+        working-directory: aports
         env:
           GITLAB_TOKEN: ${{ secrets.ANDRES_ALPINE_GITLAB_TOKEN }}
           GITLAB_HOST: gitlab.alpinelinux.org
@@ -165,9 +172,9 @@ jobs:
         run: |
           glab mr create \
             --repo alpine/aports \
-            --source-branch "$BRANCH_NAME" \
             --target-branch master \
             --title "testing/kubetail: upgrade to $VERSION" \
+            --description "https://github.com/kubetail-org/kubetail Real-time logging dashboard for Kubernetes" \
             --remove-source-branch \
             --yes
 
