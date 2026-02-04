@@ -293,6 +293,7 @@ rules:
       - deployments
       - jobs
       - pods
+      - pods/log
       - replicasets
       - statefulsets
     verbs: [get, list, watch]
@@ -594,7 +595,7 @@ rules:
     verbs: [get, list, watch]
   - apiGroups: [""]
     resources: [pods/log]
-    verbs: [list, watch]
+    verbs: [get, list, watch]
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
