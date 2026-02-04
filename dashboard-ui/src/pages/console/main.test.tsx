@@ -27,7 +27,7 @@ import { visibleColsAtom } from './state';
 const mockUseLogViewerState = vi.fn();
 
 vi.mock('@/components/widgets/log-viewer', () => ({
-  LogViewer: ({ children }: { children: React.ReactNode }) => <div data-testid="log-viewer">{children}</div>,
+  LogViewer: () => <div data-testid="log-viewer" />,
   useLogViewerState: (...args: unknown[]) => mockUseLogViewerState(...args),
 }));
 
