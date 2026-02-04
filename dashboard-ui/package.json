@@ -42,6 +42,7 @@
     "react-error-boundary": "^6.0.0",
     "react-hook-form": "^7.68.0",
     "react-hot-toast": "^2.6.0",
+    "react-router": "^7.13.0",
     "react-router-dom": "7.11.0",
     "react-timeago": "^8.3.0",
     "react-virtualized-auto-sizer": "^1.0.26",
@@ -54,8 +55,8 @@
   "devDependencies": {
     "@eslint/compat": "^2.0.0",
     "@eslint/js": "^9.39.2",
-    "@graphql-codegen/cli": "^6.1.0",
-    "@graphql-codegen/client-preset": "^5.2.1",
+    "@graphql-codegen/cli": "^6.1.1",
+    "@graphql-codegen/client-preset": "^5.2.2",
     "@graphql-codegen/fragment-matcher": "^6.0.0",
     "@graphql-typed-document-node/core": "^3.2.0",
     "@stylistic/eslint-plugin": "^3.1.0",
@@ -72,7 +73,7 @@
     "@types/react-window-infinite-loader": "^1.0.9",
     "@vitejs/plugin-react": "^5.1.2",
     "eslint": "^9.39.2",
-    "eslint-config-airbnb-extended": "^2.3.3",
+    "eslint-config-airbnb-extended": "^3.0.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import-x": "^4.16.1",
@@ -92,7 +93,7 @@
     "vite-plugin-svgr": "^4.5.0",
     "vitest": "^4.0.16"
   },
-  "packageManager": "pnpm@10.26.0+sha512.3b3f6c725ebe712506c0ab1ad4133cf86b1f4b687effce62a9b38b4d72e3954242e643190fc51fa1642949c735f403debd44f5cb0edd657abe63a8b6a7e1e402",
+  "packageManager": "pnpm@10.28.2+sha512.41872f037ad22f7348e3b1debbaf7e867cfd448f2726d9cf74c08f19507c31d2c8e7a11525b983febc2df640b5438dee6023ebb1f84ed43cc2d654d2bc326264",
   "pnpm": {
     "minimumReleaseAge": 14400,
     "onlyBuiltDependencies": [
@@ -103,6 +104,8 @@
     ],
     "overrides": {
       "@eslint/plugin-kit": "^0.3.5",
+      "@isaacs/brace-expansion": "^5.0.1",
+      "lodash": "^4.17.23",
       "napi-postinstall": "^0.3.2",
       "synckit": "^0.11.11",
       "tmp": "^0.2.5",
