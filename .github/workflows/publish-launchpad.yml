@@ -14,6 +14,11 @@ on:
         description: "Version to release"
         required: true
         type: string
+      series:
+        description: "Ubuntu series to publish"
+        required: false
+        type: string
+        default: "jammy noble questing resolute"
       dry_run:
         description: "Dry run"
         required: false
@@ -30,9 +35,11 @@ jobs:
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
             echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+            echo "series=${{ github.event.inputs.series }}" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
             echo "dry_run=false" >> $GITHUB_OUTPUT
+            echo "series=jammy noble questing resolute" >> $GITHUB_OUTPUT
           fi
 
       - name: Checkout this repo
@@ -108,7 +115,7 @@ jobs:
           DEBEMAIL: ${{ vars.KUBETAIL_BOT_EMAIL }}
         run: |
           FIRST_SERIES=true
-          for SERIES in jammy noble plucky; do
+          for SERIES in ${{ steps.config.outputs.series }}; do
             export PKG_VERSION="${VERSION}-1~${SERIES}1"
 
             if [ "${FIRST_SERIES}" = "true" ]; then 
