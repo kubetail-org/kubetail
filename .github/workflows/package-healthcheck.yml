@@ -209,6 +209,8 @@ jobs:
           - jammy
           - noble
           - plucky
+          - questing
+          - resolute
         arch:
           - amd64
           - arm64
@@ -225,6 +227,10 @@ jobs:
             image: ubuntu:24.04
           - series: plucky
             image: ubuntu:25.04
+          - series: questing
+            image: ubuntu:25.10
+          - series: resolute
+            image: ubuntu:26.04
     runs-on: ${{ matrix.runner }}
     container:
       image: ${{ matrix.image }}
