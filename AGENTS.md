@@ -6,6 +6,7 @@ This document provides comprehensive guidance for AI agents working with this co
 
 - `/crates`: Rust crates
   - `/cluster_agent`: Cluster Agent
+  - `/rgkl`: Grep tool for Kubernetes log files
 - `/dashboard-ui`: Dashboard frontend (TypeScript/React)
 - `/modules`: Go modules
   - `/cli`: CLI
@@ -16,37 +17,26 @@ This document provides comprehensive guidance for AI agents working with this co
 
 ### General Conventions
 
-- Agent should follow the existing code style in each file
-- Agent should add comments for complex logic
-- Agent must use meaningful variable and function names in output
+- Follow the existing code style in each file/package
+- Prefer small, reviewable changes with targeted tests
+- Use meaningful variable and function names
 
-## Running TypeScript Checks
+## Common Build / CI Commands
 
-### Lint
-
-To run linter for the Dashboard frontend:
+Prefer Make targets when possible (they match CI expectations):
 
 ```bash
-cd dashboard-ui
-pnpm lint
+make build
+make ci-checks
 ```
 
-### Test
-
-To run tests for the Dashboard frontend:
+Useful subsets:
 
 ```bash
-cd dashboard-ui
-pnpm test run
-```
-
-## Build
-
-To build the Dashboard frontend:
-
-```bash
-cd dashboard-ui
-pnpm build
+make dashboard-ui-lint
+make dashboard-ui-test
+make modules-all
+make crates-all
 ```
 
 ## Running Go Checks
