@@ -6,6 +6,7 @@ This document provides comprehensive guidance for AI agents working with this co
 
 - `/crates`: Rust crates
   - `/cluster_agent`: Cluster Agent
+  - `/rgkl`: Grep tool for Kubernetes log files
 - `/dashboard-ui`: Dashboard frontend (TypeScript/React)
 - `/modules`: Go modules
   - `/cli`: CLI
@@ -16,9 +17,9 @@ This document provides comprehensive guidance for AI agents working with this co
 
 ### General Conventions
 
-- Agent should follow the existing code style in each file
-- Agent should add comments for complex logic
-- Agent must use meaningful variable and function names in output
+- Follow the existing code style in each file/package
+- Prefer small, reviewable changes with targeted tests
+- Use meaningful variable and function names
 
 ## Running TypeScript Checks
 

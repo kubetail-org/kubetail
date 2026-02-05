@@ -50,8 +50,8 @@ pnpm dev
 # Build for production
 pnpm build
 
-# Run tests
-pnpm test
+# Run tests (single pass)
+pnpm test run
 
 # Lint code
 pnpm lint
@@ -122,7 +122,7 @@ Several components use code generation:
 - **GraphQL API design**: User-facing APIs use GraphQL with code generation
 - **gRPC API design**: Inter-service APIs use gRPC with code generation
 - **Shared libraries**: Common Go functionality in `modules/shared/`
-- **Component-based React**: Hooks-based architecture with Recoil for performance-sensitive state management
+- **Component-based React**: Hooks-based architecture with Jotai for state management
 
 ## Key Files
 
