@@ -21,22 +21,33 @@ This document provides comprehensive guidance for AI agents working with this co
 - Prefer small, reviewable changes with targeted tests
 - Use meaningful variable and function names
 
-## Common Build / CI Commands
+## Running TypeScript Checks
 
-Prefer Make targets when possible (they match CI expectations):
+### Lint
+
+To run linter for the Dashboard frontend:
 
 ```bash
-make build
-make ci-checks
+cd dashboard-ui
+pnpm lint
 ```
 
-Useful subsets:
+### Test
+
+To run tests for the Dashboard frontend:
 
 ```bash
-make dashboard-ui-lint
-make dashboard-ui-test
-make modules-all
-make crates-all
+cd dashboard-ui
+pnpm test run
+```
+
+## Build
+
+To build the Dashboard frontend:
+
+```bash
+cd dashboard-ui
+pnpm build
 ```
 
 ## Running Go Checks
