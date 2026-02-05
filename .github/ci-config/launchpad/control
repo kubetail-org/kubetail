@@ -12,7 +12,7 @@ Homepage: https://github.com/kubetail-org/kubetail
 Rules-Requires-Root: no
 
 Package: kubetail-cli
-Architecture: amd64 arm64
+Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Real-time logging dashboard for Kubernetes
  Kubetail is a general-purpose logging dashboard for Kubernetes,
