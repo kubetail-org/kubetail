@@ -25,14 +25,12 @@ const (
 )
 
 type VersionInfo struct {
-	Version     string
-	LastChecked time.Time
-	Error       error
+	Version string
 }
 
 type Checker interface {
-	GetLatestCLIVersion() *VersionInfo
-	GetLatestHelmChartVersion() *VersionInfo
+	GetLatestCLIVersion() (*VersionInfo, error)
+	GetLatestHelmChartVersion() (*VersionInfo, error)
 }
 
 type checker struct {
@@ -64,34 +62,26 @@ func NewChecker(options ...CheckerOption) Checker {
 	return c
 }
 
-func (c *checker) GetLatestCLIVersion() *VersionInfo {
-	info := &VersionInfo{}
-
+func (c *checker) GetLatestCLIVersion() (*VersionInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 
 	version, err := c.githubClient.fetchLatestCLIVersion(ctx)
 	if err != nil {
-		info.Error = err
-		return info
+		return nil, err
 	}
 
-	info.Version = version
-	return info
+	return &VersionInfo{Version: version}, nil
 }
 
-func (c *checker) GetLatestHelmChartVersion() *VersionInfo {
-	info := &VersionInfo{}
-
+func (c *checker) GetLatestHelmChartVersion() (*VersionInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 
 	version, err := c.githubClient.fetchLatestHelmChartVersion(ctx)
 	if err != nil {
-		info.Error = err
-		return info
+		return nil, err
 	}
 
-	info.Version = version
-	return info
+	return &VersionInfo{Version: version}, nil
 }
