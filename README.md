@@ -22,9 +22,9 @@ Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 
 **Kubetail** is a general-purpose logging dashboard for Kubernetes, optimized for tailing logs across multi-container workloads in real-time. With Kubetail, you can view logs from all the containers in a workload (e.g. Deployment or DaemonSet) merged into a single, chronological timeline, delivered to your browser or terminal.
 
-The primary entry point for Kubetail is the `kubetail` CLI tool, which can launch a local web dashboard on your desktop or stream raw logs directly to your terminal. Behind the scenes, Kubetail uses your cluster's Kubernetes API to fetch logs directly from your cluster, so it works out of the box without needing to forward your logs to an external service first. Kubetail also uses your Kubernetes API to track container lifecycle events in order to keep your log timeline in sync as containers start, stop or get replaced. This makes it easy to follow logs seamlessly as user requests move from one ephemeral container to another across services.
+The primary entry point for Kubetail is the `kubetail` CLI tool, which can launch a local web dashboard on your desktop or stream raw logs directly to your terminal. Behind the scenes, Kubetail uses your cluster's Kubernetes API to fetch logs directly from your cluster, so it works out of the box without needing to forward your logs to an external service. Kubetail also uses your Kubernetes API to track container lifecycle events in order to keep your log timeline in sync as containers start, stop or get replaced. This makes it easy to follow logs seamlessly as user requests move from one ephemeral container to another across services.
 
-Our goal is to build the most powerful, user-friendly logging platform for Kubernetes and we'd love your input. If you notice a bug or have a suggestion please create a GitHub Issue or send us an email (hello@kubetail.com)!
+Our goal is to build the most powerful, user-friendly logging platform for Kubernetes and we'd love your help. If you notice a bug or have a suggestion please create a GitHub Issue or send us an email (hello@kubetail.com)!
 
 ## Features
 
@@ -37,32 +37,31 @@ Our goal is to build the most powerful, user-friendly logging platform for Kuber
   * Grep 
 * Uses your Kubernetes API to retrieve log messages so data never leaves your possession (private by default)
 * Switch between multiple clusters (Desktop-only)
-* Run anywhere: [Desktop](#quickstart-desktop), [Cluster](#quickstart-cluster), [Docker](#quickstart-docker)
+* Run anywhere: Desktop, Cluster, Docker
 
-## Quickstart [Desktop]
+## Quickstart
 
 ### Install
 
-To run Kubetail on your desktop, you can use the `kubetail` CLI tool which can be installed using the latest [release binary](https://github.com/kubetail-org/kubetail/releases/latest) or by using a package manager:
+First, download the `kubetail` CLI tool from the [release binaries](https://github.com/kubetail-org/kubetail/releases/latest) or install it from Homebrew:
 
 ```console
-# Homebrew
 brew install kubetail
-
-# Krew
-kubectl krew install kubetail
-
-# Snap
-sudo snap install kubetail
-
-# Winget
-winget install kubetail
 ```
 
 <details>
-  <summary>See 12 other options (e.g. Ubuntu, Fedora, SUSE, Alpine, Arch, Gentoo, Nix, asdf, Chocolatey, Scoop, MacPorts)</summary>
+  <summary>See 15 other options (e.g. Krew, Snap, Winget, Ubuntu, Fedora, SUSE, Alpine, Arch, Gentoo, Nix, asdf, Chocolatey, Scoop, MacPorts)</summary>
   
   ```console
+  # Krew
+  kubectl krew install kubetail
+
+  # Snap
+  sudo snap install kubetail
+
+  # Winget
+  winget install kubetail
+  
   # Chocolatey
   choco install kubetail
 
@@ -105,7 +104,7 @@ winget install kubetail
   ```
 </details>
 
-You can also use our install script:
+If you prefer, you can also use our install script:
 
 ```console
 curl -sS https://www.kubetail.com/install.sh | bash
@@ -113,115 +112,29 @@ curl -sS https://www.kubetail.com/install.sh | bash
 
 ### Usage
 
-Start the web dashboard using the `serve` command:
+To start the web dashboard, use the `serve` command:
 
 ```console
 kubetail serve
 ```
 
-This will open the dashboard at [http://localhost:7500](http://localhost:7500). You can also view logs in your terminal using the `logs` command:
+This will open the dashboard at [http://localhost:7500](http://localhost:7500).
+
+You can also view logs in your terminal using the [`logs`](https://www.kubetail.com/docs/cli/commands/logs) command:
 
 ```console
 kubetail logs -f deployments/my-app
 ```
 
-See the documentation for a full list of [commands](https://www.kubetail.com/docs/cli#subcommands). Have fun tailing your logs! 
+See the documentation for a full list of [commands](https://www.kubetail.com/docs/cli#subcommands). Have fun tailing your logs!
 
-## Quickstart [Cluster]
+## Run Anywhere
 
-### Install
+In addition to running Kubetail on your desktop you can also run it these environments:
 
-To install Kubetail in your cluster using Helm, first add our [chart repository](https://github.com/kubetail-org/helm-charts), then install the "kubetail" chart:
-
-```console
-helm repo add kubetail https://kubetail-org.github.io/helm-charts/
-helm install kubetail kubetail/kubetail --namespace kubetail-system --create-namespace
-```
-
-For more information on how to configure the helm chart, see the chart's [values.yaml](https://github.com/kubetail-org/helm-charts/blob/main/charts/kubetail/values.yaml) file.
-
-If you prefer, you can also install Kubetail in your cluster by applying the latest manifest file:
-
-```console
-kubectl create namespace kubetail-system
-kubectl apply -f https://github.com/kubetail-org/helm-charts/releases/latest/download/kubetail-clusterauth.yaml
-```
-
-### Usage
-
-To access the web dashboard you can expose it as an ingress using the chart or you can use your usual access methods such as `kubectl port-forward`:
-
-```console
-kubectl port-forward -n kubetail-system svc/kubetail-dashboard 8080:8080
-```
-
-Visit [http://localhost:8080](http://localhost:8080). Have fun tailing your logs!
-
-## Quickstart [Docker]
-
-To run the `kubetail` CLI tool inside a docker container you can use the [`kubetail-cli`](https://hub.docker.com/r/kubetail/kubetail-cli) docker image.
-
-To use the image with `docker run` you need to mount your local `.kube/config` file into a `kubetail-cli` container then use normal CLI [commands](https://www.kubetail.com/docs/cli#subcommands): 
-
-```console
-docker run --rm -it \
-  -v ~/.kube/config:/root/.kube/config:ro \
-  kubetail/kubetail-cli logs \
-  --kubeconfig /root/.kube/config \
-  -f \
-  deployments/my-app
-```
-
-You can also use the `sh` entrypoint to start an interactive session:
-
-```console
-docker run --rm -it \
-  -v ~/.kube/config:/root/.kube/config:ro \
-  --entrypoint sh \
-  kubetail/kubetail-cli
-```
-
-If you prefer, you can also run `kubetail` in a container using these options:
-
-* [Docker Compose](https://www.kubetail.com/docs/getting-started/docker#docker-compose)
-* [Kubernetes Pod](https://www.kubetail.com/docs/getting-started/docker#kubernetes-pod)
-
-You can also embed the binary in your custom docker builds like this:
-
-```Dockerfile
-FROM ubuntu:24.04
-
-# Copy kubetail binary from the kubetail-cli image
-COPY --from=kubetail/kubetail-cli /usr/local/bin/kubetail /usr/local/bin/kubetail
-
-# Your application code and setup here
-# ...
-```
-
-## Docker Registries
-
-Our docker images are available at these registry endpoints:
-
-```
-* Docker Hub - docker.io/kubetail/kubetail-*
-* GitHub - ghcr.io/kubetail-org/kubetail-*
-```
-
-The Helm chart defaults to pulling images from `ghcr.io` to avoid Docker Hub rate limits.
-
-## Minikube
-
-As of [minikube](https://minikube.sigs.k8s.io/) v1.36.0, you can install Kubetail as an addon:
-
-```console
-minikube addons enable kubetail
-```
-
-Once the Kubetail pods are running in the cluster you can access the dashboard via a service:
-
-```console
-minikube service -n kubetail-system kubetail-dashboard
-```
+* [Cluster](https://www.kubetail.com/docs/getting-started/cluster/install)
+* [Docker](https://www.kubetail.com/docs/getting-started/docker)
+* [Minikube](https://www.kubetail.com/docs/getting-started/cluster/install#minikube)
 
 ## Documentation
 
