@@ -18,8 +18,6 @@ import (
 	"context"
 	"net/http"
 	"time"
-
-	zlog "github.com/rs/zerolog/log"
 )
 
 const (
@@ -32,15 +30,9 @@ type VersionInfo struct {
 	Error       error
 }
 
-type LatestVersions struct {
-	CLI       *VersionInfo
-	HelmChart *VersionInfo
-}
-
 type Checker interface {
 	GetLatestCLIVersion() *VersionInfo
 	GetLatestHelmChartVersion() *VersionInfo
-	GetLatestVersions() *LatestVersions
 }
 
 type checker struct {
@@ -80,7 +72,6 @@ func (c *checker) GetLatestCLIVersion() *VersionInfo {
 
 	version, err := c.githubClient.fetchLatestCLIVersion(ctx)
 	if err != nil {
-		zlog.Debug().Err(err).Msg("Failed to get latest CLI version")
 		info.Error = err
 		return info
 	}
@@ -97,18 +88,10 @@ func (c *checker) GetLatestHelmChartVersion() *VersionInfo {
 
 	version, err := c.githubClient.fetchLatestHelmChartVersion(ctx)
 	if err != nil {
-		zlog.Debug().Err(err).Msg("Failed to get latest Helm chart version")
 		info.Error = err
 		return info
 	}
 
 	info.Version = version
 	return info
-}
-
-func (c *checker) GetLatestVersions() *LatestVersions {
-	return &LatestVersions{
-		CLI:       c.GetLatestCLIVersion(),
-		HelmChart: c.GetLatestHelmChartVersion(),
-	}
 }
