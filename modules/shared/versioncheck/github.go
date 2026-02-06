@@ -19,9 +19,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
+
+var helmChartTagRegex = regexp.MustCompile(`^kubetail-(\d+\.\d+\.\d+)$`)
 
 const (
 	cliReleasesURL        = "https://api.github.com/repos/kubetail-org/kubetail/releases/latest"
@@ -87,7 +90,22 @@ func (g *githubClient) fetchLatestCLIVersion(ctx context.Context) (string, error
 		return "", fmt.Errorf("release tag_name is empty")
 	}
 
-	return release.TagName, nil
+	version, err := parseCLITag(release.TagName)
+	if err != nil {
+		return "", err
+	}
+
+	return version, nil
+}
+
+// parseCLITag extracts a semantic version from a CLI tag name.
+// Expected format: "cli/vX.Y.Z"
+func parseCLITag(tag string) (string, error) {
+	if !strings.HasPrefix(tag, "cli/v") {
+		return "", fmt.Errorf("unexpected tag_name format: %s", tag)
+	}
+	version := strings.TrimPrefix(tag, "cli/v")
+	return version, nil
 }
 
 func (g *githubClient) fetchLatestHelmChartVersion(ctx context.Context) (string, error) {
@@ -116,19 +134,20 @@ func (g *githubClient) fetchLatestHelmChartVersion(ctx context.Context) (string,
 		return "", err
 	}
 
-	var latestRelease *githubRelease
-	var latestPublishedTime time.Time
+	var latestVersion string
+	var latestTime time.Time
 
 	for _, r := range releases {
+		if r.Draft || r.Prerelease {
+			continue
+		}
+
 		if r.TagName == "" {
 			continue
 		}
 
-		if !strings.HasPrefix(r.TagName, "kubetail-") {
-			continue
-		}
-
-		if r.Draft || r.Prerelease {
+		version := parseHelmChartTag(r.TagName)
+		if version == "" {
 			continue
 		}
 
@@ -137,15 +156,25 @@ func (g *githubClient) fetchLatestHelmChartVersion(ctx context.Context) (string,
 			continue
 		}
 
-		if latestRelease == nil || publishedAt.After(latestPublishedTime) {
-			latestRelease = &r
-			latestPublishedTime = publishedAt
+		if latestVersion == "" || publishedAt.After(latestTime) {
+			latestVersion = version
+			latestTime = publishedAt
 		}
 	}
 
-	if latestRelease == nil {
-		return "", fmt.Errorf("no valid releases found")
+	if latestVersion == "" {
+		return "", fmt.Errorf("no valid helm chart release found")
 	}
 
-	return latestRelease.TagName, nil
+	return latestVersion, nil
+}
+
+// parseHelmChartTag extracts a semantic version from a Helm chart tag name.
+// Expected format: "kubetail-X.Y.Z" (returns "" if not matched).
+func parseHelmChartTag(tag string) string {
+	matches := helmChartTagRegex.FindStringSubmatch(tag)
+	if len(matches) != 2 {
+		return ""
+	}
+	return matches[1]
 }
