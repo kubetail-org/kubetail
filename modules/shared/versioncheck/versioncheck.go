@@ -20,20 +20,10 @@ import (
 	"time"
 
 	zlog "github.com/rs/zerolog/log"
-
-	"github.com/kubetail-org/kubetail/modules/shared/util"
 )
 
 const (
-	DefaultCacheTTL = 12 * time.Hour
-	defaultTimeout  = 10 * time.Second
-)
-
-type Component string
-
-const (
-	ComponentCLI       Component = "cli"
-	ComponentHelmChart Component = "helm-chart"
+	defaultTimeout = 10 * time.Second
 )
 
 type VersionInfo struct {
@@ -53,25 +43,11 @@ type Checker interface {
 	GetLatestVersions() *LatestVersions
 }
 
-type cacheEntry struct {
-	version     string
-	lastChecked time.Time
-	expiration  time.Time
-}
-
 type checker struct {
 	githubClient *githubClient
-	cache        util.SyncGroup[Component, cacheEntry]
-	cacheTTL     time.Duration
 }
 
 type CheckerOption func(*checker)
-
-func WithCacheTTL(ttl time.Duration) CheckerOption {
-	return func(c *checker) {
-		c.cacheTTL = ttl
-	}
-}
 
 func WithHTTPClient(client *http.Client) CheckerOption {
 	return func(c *checker) {
@@ -87,8 +63,6 @@ func NewChecker(options ...CheckerOption) Checker {
 			},
 			userAgent: "kubetail-version-checker",
 		},
-		cache:    util.SyncGroup[Component, cacheEntry]{},
-		cacheTTL: DefaultCacheTTL,
 	}
 
 	for _, opt := range options {
@@ -101,8 +75,10 @@ func NewChecker(options ...CheckerOption) Checker {
 func (c *checker) GetLatestCLIVersion() *VersionInfo {
 	info := &VersionInfo{}
 
-	version, lastChecked, err := c.getLatestVersion(ComponentCLI, c.githubClient.fetchLatestCLIVersion)
-	info.LastChecked = lastChecked
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+
+	version, err := c.githubClient.fetchLatestCLIVersion(ctx)
 	if err != nil {
 		zlog.Debug().Err(err).Msg("Failed to get latest CLI version")
 		info.Error = err
@@ -116,8 +92,10 @@ func (c *checker) GetLatestCLIVersion() *VersionInfo {
 func (c *checker) GetLatestHelmChartVersion() *VersionInfo {
 	info := &VersionInfo{}
 
-	version, lastChecked, err := c.getLatestVersion(ComponentHelmChart, c.githubClient.fetchLatestHelmChartVersion)
-	info.LastChecked = lastChecked
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+
+	version, err := c.githubClient.fetchLatestHelmChartVersion(ctx)
 	if err != nil {
 		zlog.Debug().Err(err).Msg("Failed to get latest Helm chart version")
 		info.Error = err
@@ -133,38 +111,4 @@ func (c *checker) GetLatestVersions() *LatestVersions {
 		CLI:       c.GetLatestCLIVersion(),
 		HelmChart: c.GetLatestHelmChartVersion(),
 	}
-}
-
-func (c *checker) getLatestVersion(component Component, fetchFunc func(context.Context) (string, error)) (string, time.Time, error) {
-	// check cache first
-	if entry, ok := c.cache.Load(component); ok {
-		if time.Now().Before(entry.expiration) {
-			return entry.version, entry.lastChecked, nil
-		}
-		// expired, delete to allow re-computation
-		c.cache.Delete(component)
-	}
-
-	entry, _, err := c.cache.LoadOrCompute(component, func() (cacheEntry, error) {
-		ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-		defer cancel()
-
-		version, err := fetchFunc(ctx)
-		if err != nil {
-			return cacheEntry{}, err
-		}
-
-		now := time.Now()
-		return cacheEntry{
-			version:     version,
-			lastChecked: now,
-			expiration:  now.Add(c.cacheTTL),
-		}, nil
-	})
-
-	if err != nil {
-		return "", time.Time{}, err
-	}
-
-	return entry.version, entry.lastChecked, nil
 }
