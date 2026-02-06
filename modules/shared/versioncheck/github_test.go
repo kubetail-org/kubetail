@@ -33,11 +33,11 @@ func TestGithubClient_FetchLatestCLIVersion_EmptyTagName(t *testing.T) {
 	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.cliReleasesURL = server.URL
 
-	info := c.GetLatestCLIVersion()
+	info, err := c.GetLatestCLIVersion()
 
-	assert.Empty(t, info.Version)
-	assert.NotNil(t, info.Error)
-	assert.Contains(t, info.Error.Error(), "tag_name is empty")
+	assert.Nil(t, info)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "tag_name is empty")
 }
 
 func TestGithubClient_FetchLatestCLIVersion_InvalidJSON(t *testing.T) {
@@ -49,10 +49,10 @@ func TestGithubClient_FetchLatestCLIVersion_InvalidJSON(t *testing.T) {
 	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.cliReleasesURL = server.URL
 
-	info := c.GetLatestCLIVersion()
+	info, err := c.GetLatestCLIVersion()
 
-	assert.Empty(t, info.Version)
-	assert.NotNil(t, info.Error)
+	assert.Nil(t, info)
+	assert.Error(t, err)
 }
 
 func TestGithubClient_FetchLatestHelmChartVersion_FiltersDraftAndPrerelease(t *testing.T) {
@@ -69,10 +69,10 @@ func TestGithubClient_FetchLatestHelmChartVersion_FiltersDraftAndPrerelease(t *t
 	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.helmChartsReleasesURL = server.URL
 
-	info := c.GetLatestHelmChartVersion()
+	info, err := c.GetLatestHelmChartVersion()
 
-	assert.Equal(t, "kubetail-0.17.0", info.Version)
-	assert.Nil(t, info.Error)
+	assert.NoError(t, err)
+	assert.Equal(t, "0.17.0", info.Version)
 }
 
 func TestGithubClient_FetchLatestHelmChartVersion_FiltersNonKubetailPrefix(t *testing.T) {
@@ -89,10 +89,10 @@ func TestGithubClient_FetchLatestHelmChartVersion_FiltersNonKubetailPrefix(t *te
 	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.helmChartsReleasesURL = server.URL
 
-	info := c.GetLatestHelmChartVersion()
+	info, err := c.GetLatestHelmChartVersion()
 
-	assert.Equal(t, "kubetail-0.17.0", info.Version)
-	assert.Nil(t, info.Error)
+	assert.NoError(t, err)
+	assert.Equal(t, "0.17.0", info.Version)
 }
 
 func TestGithubClient_FetchLatestHelmChartVersion_PicksLatestByPublishedAt(t *testing.T) {
@@ -109,10 +109,10 @@ func TestGithubClient_FetchLatestHelmChartVersion_PicksLatestByPublishedAt(t *te
 	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.helmChartsReleasesURL = server.URL
 
-	info := c.GetLatestHelmChartVersion()
+	info, err := c.GetLatestHelmChartVersion()
 
-	assert.Equal(t, "kubetail-0.17.0", info.Version)
-	assert.Nil(t, info.Error)
+	assert.NoError(t, err)
+	assert.Equal(t, "0.17.0", info.Version)
 }
 
 func TestGithubClient_FetchLatestHelmChartVersion_NoValidReleases(t *testing.T) {
@@ -130,11 +130,11 @@ func TestGithubClient_FetchLatestHelmChartVersion_NoValidReleases(t *testing.T) 
 	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.helmChartsReleasesURL = server.URL
 
-	info := c.GetLatestHelmChartVersion()
+	info, err := c.GetLatestHelmChartVersion()
 
-	assert.Empty(t, info.Version)
-	assert.NotNil(t, info.Error)
-	assert.Contains(t, info.Error.Error(), "no valid releases found")
+	assert.Nil(t, info)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no valid helm chart release found")
 }
 
 func TestGithubClient_FetchLatestHelmChartVersion_EmptyList(t *testing.T) {
@@ -146,10 +146,10 @@ func TestGithubClient_FetchLatestHelmChartVersion_EmptyList(t *testing.T) {
 	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.helmChartsReleasesURL = server.URL
 
-	info := c.GetLatestHelmChartVersion()
+	info, err := c.GetLatestHelmChartVersion()
 
-	assert.Empty(t, info.Version)
-	assert.NotNil(t, info.Error)
+	assert.Nil(t, info)
+	assert.Error(t, err)
 }
 
 func TestGithubClient_FetchLatestHelmChartVersion_InvalidPublishedAt(t *testing.T) {
@@ -165,8 +165,55 @@ func TestGithubClient_FetchLatestHelmChartVersion_InvalidPublishedAt(t *testing.
 	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.helmChartsReleasesURL = server.URL
 
-	info := c.GetLatestHelmChartVersion()
+	info, err := c.GetLatestHelmChartVersion()
 
-	assert.Equal(t, "kubetail-0.17.0", info.Version)
-	assert.Nil(t, info.Error)
+	assert.NoError(t, err)
+	assert.Equal(t, "0.17.0", info.Version)
+}
+
+func TestParseCLITag(t *testing.T) {
+	tests := []struct {
+		name    string
+		tag     string
+		want    string
+		wantErr bool
+	}{
+		{"valid tag", "cli/v0.11.1", "0.11.1", false},
+		{"missing cli prefix", "v0.11.1", "", true},
+		{"no prefix at all", "0.11.1", "", true},
+		{"empty string", "", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseCLITag(tt.tag)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func TestParseHelmChartTag(t *testing.T) {
+	tests := []struct {
+		name string
+		tag  string
+		want string
+	}{
+		{"valid tag", "kubetail-0.17.0", "0.17.0"},
+		{"pre-release suffix", "kubetail-0.17.0-rc1", ""},
+		{"other chart", "other-chart-1.0.0", ""},
+		{"missing version", "kubetail-", ""},
+		{"empty string", "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseHelmChartTag(tt.tag)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
