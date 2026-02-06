@@ -41,7 +41,7 @@ Our goal is to build the most powerful, user-friendly logging platform for Kuber
 
 ## Quickstart
 
-### Install
+### Installation
 
 First, download the `kubetail` CLI tool from the [release binaries](https://github.com/kubetail-org/kubetail/releases/latest) or install it from Homebrew:
 
