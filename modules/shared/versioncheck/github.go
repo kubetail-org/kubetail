@@ -20,11 +20,13 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"strings"
 	"time"
 )
 
-var helmChartTagRegex = regexp.MustCompile(`^kubetail-(\d+\.\d+\.\d+)$`)
+var (
+	cliTagRegex       = regexp.MustCompile(`^cli/v(\d+\.\d+\.\d+)$`)
+	helmChartTagRegex = regexp.MustCompile(`^kubetail-(\d+\.\d+\.\d+)$`)
+)
 
 const (
 	cliReleasesURL        = "https://api.github.com/repos/kubetail-org/kubetail/releases/latest"
@@ -100,11 +102,11 @@ func (g *githubClient) fetchLatestCLIVersion(ctx context.Context) (string, error
 // parseCLITag extracts a semantic version from a CLI tag name.
 // Expected format: "cli/vX.Y.Z"
 func parseCLITag(tag string) (string, error) {
-	if !strings.HasPrefix(tag, "cli/v") {
+	matches := cliTagRegex.FindStringSubmatch(tag)
+	if len(matches) != 2 {
 		return "", fmt.Errorf("unexpected tag_name format: %s", tag)
 	}
-	version := strings.TrimPrefix(tag, "cli/v")
-	return version, nil
+	return matches[1], nil
 }
 
 func (g *githubClient) fetchLatestHelmChartVersion(ctx context.Context) (string, error) {

@@ -179,6 +179,7 @@ func TestParseCLITag(t *testing.T) {
 		wantErr bool
 	}{
 		{"valid tag", "cli/v0.11.1", "0.11.1", false},
+		{"invalid tag", "cli/v", "", true},
 		{"missing cli prefix", "v0.11.1", "", true},
 		{"no prefix at all", "0.11.1", "", true},
 		{"empty string", "", "", true},
