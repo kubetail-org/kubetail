@@ -6,7 +6,7 @@ This document provides comprehensive guidance for AI agents working with this co
 
 - `/crates`: Rust crates
   - `/cluster_agent`: Cluster Agent
-  - `/rgkl`: Log search engine
+  - `/rgkl`: Log search engine for Kubernetes log files
 - `/dashboard-ui`: Dashboard frontend (TypeScript/React)
 - `/modules`: Go modules
   - `/cli`: CLI

@@ -24,6 +24,7 @@ Kubetail is a real-time logging dashboard for Kubernetes that provides both brow
 - **GraphQL**: User-facing API layer uses gqlgen for Go backends with code generation
 - **gRPC**: Inter-service API layer uses gRPC with code generation
 - **Protocol Buffers**: Inter-service communication
+- **pnpm**: Frontend package management
 
 ### TypeScript/React Coding Style
 
@@ -139,7 +140,7 @@ Several components use code generation:
 
 ## Dependencies
 
-- Avoid introducing new external dependencies unless absolutely necessary
+- Avoid introducing new external dependencies unless it will have a material impact on code readability or performance
 - If a new dependency is required, state the reason clearly
 - For Go: Use standard library when possible
 - For Rust: Prefer well-maintained, audited crates
