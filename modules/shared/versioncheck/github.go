@@ -33,7 +33,6 @@ const (
 
 type githubRelease struct {
 	TagName     string `json:"tag_name"`
-	Name        string `json:"name"`
 	Draft       bool   `json:"draft"`
 	Prerelease  bool   `json:"prerelease"`
 	PublishedAt string `json:"published_at"`
