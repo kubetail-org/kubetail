@@ -26,6 +26,28 @@ Kubetail is a real-time logging dashboard for Kubernetes that provides both brow
 - **Protocol Buffers**: Inter-service communication
 - **pnpm**: Frontend package management
 
+### TypeScript/React Coding Style
+
+- Use 2 spaces for indentation
+- Use functional components with hooks
+- Prefer TypeScript strict mode
+- Use Apollo Client for GraphQL queries
+- Follow existing patterns in `dashboard-ui/src/`
+
+### Go Coding Style
+
+- Follow standard Go formatting (`gofmt`)
+- Use Go 1.24+ features appropriately
+- Use Go workspaces (`modules/go.work`)
+- Keep shared functionality in `modules/shared/`
+
+### Rust Coding Style
+
+- Follow Rust formatting (`cargo fmt`)
+- Use Rust 2021 edition
+- Focus on performance and safety
+- Keep crates modular and well-documented
+
 ## Development Commands
 
 ### CLI Build Commands
@@ -116,6 +138,14 @@ Several components use code generation:
 - **Frontend GraphQL types**: Use `pnpm graphql-codegen` in `dashboard-ui/`
 - **Backend types**: Use `go generate github.com/kubetail-org/kubetail/modules/...` in `modules/`
 
+## Dependencies
+
+- Avoid introducing new external dependencies unless it will have a material impact on code readability or performance
+- If a new dependency is required, state the reason clearly
+- For Go: Use standard library when possible
+- For Rust: Prefer well-maintained, audited crates
+- For TypeScript: Consider bundle size impact
+
 ## Development Patterns
 
 - **Monorepo structure**: Each module has clear boundaries and responsibilities
@@ -130,3 +160,26 @@ Several components use code generation:
 - `modules/go.work` - Go workspace configuration
 - `dashboard-ui/package.json` - Frontend scripts and dependencies
 - `crates/rgkl/Cargo.toml` - Rust project configuration
+- `Tiltfile` - Local Kubernetes development setup
+- `hack/config.yaml` - Example configuration
+- `hack/manifests/` - Test manifests
+- `hack/test-configs/` - Test configurations
+
+## Pull Request Guidelines
+
+When creating a pull request:
+
+1. Reference any related issues at the top (e.g., "Fixes #123")
+2. Include a clear summary of the changes
+3. List specific changes made
+4. Ensure all tests pass (TypeScript, Go, and Rust)
+5. Verify linting passes for all modified components
+6. Keep changes minimal and focused for quick review
+
+## Important Context
+
+- The project uses GraphQL for user-facing APIs and gRPC for inter-service communication
+- The CLI tool embeds the dashboard UI for desktop usage
+- Logs are fetched from Kubernetes API by default or from the Kubetail API (Cluster API + Cluster Agent) if the Kubetail cluster resources are installed
+- The application tracks container lifecycle events to maintain log timeline accuracy
+- Data never leaves the user's possession (private by default)
