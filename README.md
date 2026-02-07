@@ -43,7 +43,7 @@ Our goal is to build the most powerful, user-friendly logging platform for Kuber
 
 ### Installation
 
-To install the `kubetail` CLI tool you can download it from the [release binaries](https://github.com/kubetail-org/kubetail/releases/latest) or install it from Homebrew:
+To use the `kubetail` CLI tool you can install it with [Homebrew](https://brew.sh/):
 
 ```console
 brew install kubetail
@@ -104,7 +104,7 @@ brew install kubetail
   ```
 </details>
 
-If you prefer, you can also use our install script:
+If you prefer, you can also download it from the [release binaries](https://github.com/kubetail-org/kubetail/releases/latest) or use our install script:
 
 ```console
 curl -sS https://www.kubetail.com/install.sh | bash
