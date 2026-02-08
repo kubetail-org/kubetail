@@ -30,7 +30,7 @@ func TestGithubClient_FetchLatestCLIVersion_EmptyTagName(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
+	c := NewChecker("0.1.0", "test", "test", WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.cliReleasesURL = server.URL
 
 	info, err := c.GetLatestCLIVersion()
@@ -46,7 +46,7 @@ func TestGithubClient_FetchLatestCLIVersion_InvalidJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
+	c := NewChecker("0.1.0", "test", "test", WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.cliReleasesURL = server.URL
 
 	info, err := c.GetLatestCLIVersion()
@@ -66,7 +66,7 @@ func TestGithubClient_FetchLatestHelmChartVersion_FiltersDraftAndPrerelease(t *t
 	}))
 	defer server.Close()
 
-	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
+	c := NewChecker("0.1.0", "test", "test", WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.helmChartsReleasesURL = server.URL
 
 	info, err := c.GetLatestHelmChartVersion()
@@ -86,7 +86,7 @@ func TestGithubClient_FetchLatestHelmChartVersion_FiltersNonKubetailPrefix(t *te
 	}))
 	defer server.Close()
 
-	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
+	c := NewChecker("0.1.0", "test", "test", WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.helmChartsReleasesURL = server.URL
 
 	info, err := c.GetLatestHelmChartVersion()
@@ -106,7 +106,7 @@ func TestGithubClient_FetchLatestHelmChartVersion_PicksLatestByPublishedAt(t *te
 	}))
 	defer server.Close()
 
-	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
+	c := NewChecker("0.1.0", "test", "test", WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.helmChartsReleasesURL = server.URL
 
 	info, err := c.GetLatestHelmChartVersion()
@@ -127,7 +127,7 @@ func TestGithubClient_FetchLatestHelmChartVersion_NoValidReleases(t *testing.T) 
 	}))
 	defer server.Close()
 
-	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
+	c := NewChecker("0.1.0", "test", "test", WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.helmChartsReleasesURL = server.URL
 
 	info, err := c.GetLatestHelmChartVersion()
@@ -143,7 +143,7 @@ func TestGithubClient_FetchLatestHelmChartVersion_EmptyList(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
+	c := NewChecker("0.1.0", "test", "test", WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.helmChartsReleasesURL = server.URL
 
 	info, err := c.GetLatestHelmChartVersion()
@@ -162,7 +162,7 @@ func TestGithubClient_FetchLatestHelmChartVersion_InvalidPublishedAt(t *testing.
 	}))
 	defer server.Close()
 
-	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
+	c := NewChecker("0.1.0", "test", "test", WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.helmChartsReleasesURL = server.URL
 
 	info, err := c.GetLatestHelmChartVersion()
