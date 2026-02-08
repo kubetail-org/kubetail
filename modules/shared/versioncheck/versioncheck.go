@@ -18,6 +18,8 @@ import (
 	"context"
 	"net/http"
 	"time"
+
+	"github.com/kubetail-org/kubetail/modules/shared/util"
 )
 
 const (
@@ -45,13 +47,19 @@ func WithHTTPClient(client *http.Client) CheckerOption {
 	}
 }
 
-func NewChecker(options ...CheckerOption) Checker {
+func WithUserAgent(userAgent string) CheckerOption {
+	return func(c *checker) {
+		c.githubClient.userAgent = userAgent
+	}
+}
+
+func NewChecker(version, component, env string, options ...CheckerOption) Checker {
 	c := &checker{
 		githubClient: &githubClient{
 			httpClient: &http.Client{
 				Timeout: defaultTimeout,
 			},
-			userAgent: "kubetail-version-checker",
+			userAgent: util.UserAgent(version, component, env),
 		},
 	}
 

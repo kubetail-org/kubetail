@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,7 +35,7 @@ func TestChecker_GetLatestCLIVersion_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
+	c := NewChecker("0.11.0", "test", "test", WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.cliReleasesURL = server.URL
 
 	info, err := c.GetLatestCLIVersion()
@@ -48,7 +50,7 @@ func TestChecker_GetLatestCLIVersion_NetworkError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
+	c := NewChecker("0.11.0", "test", "test", WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.cliReleasesURL = server.URL
 
 	info, err := c.GetLatestCLIVersion()
@@ -68,7 +70,7 @@ func TestChecker_GetLatestHelmChartVersion_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := NewChecker(WithHTTPClient(server.Client())).(*checker)
+	c := NewChecker("0.17.0", "test", "test", WithHTTPClient(server.Client())).(*checker)
 	c.githubClient.helmChartsReleasesURL = server.URL
 
 	info, err := c.GetLatestHelmChartVersion()
@@ -80,12 +82,29 @@ func TestChecker_GetLatestHelmChartVersion_Success(t *testing.T) {
 func TestWithOptions(t *testing.T) {
 	t.Run("WithHTTPClient", func(t *testing.T) {
 		customClient := &http.Client{Timeout: 30 * time.Second}
-		c := NewChecker(WithHTTPClient(customClient)).(*checker)
+		c := NewChecker("1.0.0", "test", "test", WithHTTPClient(customClient)).(*checker)
 		assert.Equal(t, customClient, c.githubClient.httpClient)
 	})
 
+	t.Run("WithUserAgent", func(t *testing.T) {
+		customUA := "custom-agent/1.0"
+		c := NewChecker("1.0.0", "test", "test", WithUserAgent(customUA)).(*checker)
+		assert.Equal(t, customUA, c.githubClient.userAgent)
+	})
+
 	t.Run("DefaultValues", func(t *testing.T) {
-		c := NewChecker().(*checker)
+		c := NewChecker("1.0.0", "dashboard", "desktop").(*checker)
 		assert.NotNil(t, c.githubClient.httpClient)
+
+		// Verify user-agent follows expected format
+		ua := c.githubClient.userAgent
+		assert.Contains(t, ua, "kubetail/1.0.0")
+		assert.Contains(t, ua, "dashboard")
+		assert.Contains(t, ua, "env=desktop")
+
+		osName := strings.ToUpper(runtime.GOOS[:1]) + runtime.GOOS[1:]
+		assert.Contains(t, ua, osName)
+		assert.Contains(t, ua, runtime.GOARCH)
+		assert.Contains(t, ua, "Go/")
 	})
 }
