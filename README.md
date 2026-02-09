@@ -1,6 +1,6 @@
 # Kubetail
 
-_Kubetail is a real-time logging dashboard for Kubernetes (browser/terminal)_ 
+_Kubetail is a real-time logging dashboard for Kubernetes_ 
 
 <a href="https://youtu.be/q9rV9gHQb4Q">
   <img width="350" alt="demo-thumbnail" src="https://github.com/user-attachments/assets/3b528e7e-5f8a-4bfd-86a1-0b70691b8a4c">
@@ -112,25 +112,35 @@ curl -sS https://www.kubetail.com/install.sh | bash
 
 ### Usage
 
-To start the web dashboard, use the `serve` command:
+1. Start the web dashboard using the [`serve`](https://www.kubetail.com/docs/cli/commands/serve) command (will open at [http://localhost:7500](http://localhost:7500)):
 
-```console
-kubetail serve
-```
+    ```console
+    kubetail serve
+    ```
 
-This will open the dashboard at [http://localhost:7500](http://localhost:7500).
+2. View logs in your terminal using the [`logs`](https://www.kubetail.com/docs/cli/commands/logs) command:
 
-You can also view logs in your terminal using the [`logs`](https://www.kubetail.com/docs/cli/commands/logs) command:
+    ```console
+    kubetail logs -f deployments/my-app
+    ```
 
-```console
-kubetail logs -f deployments/my-app
-```
+3. Install cluster resources using the [`cluster`](https://www.kubetail.com/docs/cli/commands/cluster) command (e.g. to enable search)
+
+    ```console
+    kubetail cluster install
+    ```
+
+4. Initialize a local config file using the [`config`](https://www.kubetail.com/docs/cli/commands/config) command (at `~/.kubetail/config.yaml`)
+
+    ```console
+    kubetail config init
+    ```
 
 See the documentation for a full list of [commands](https://www.kubetail.com/docs/cli#subcommands). Have fun tailing your logs!
 
 ## Run Anywhere
 
-In addition to running Kubetail on your desktop you can also run it these environments:
+In addition to running Kubetail on your desktop you can also run it in these environments:
 
 * [Cluster](https://www.kubetail.com/docs/getting-started/cluster/install)
 * [Docker](https://www.kubetail.com/docs/getting-started/docker)
