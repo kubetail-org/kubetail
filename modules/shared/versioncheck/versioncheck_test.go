@@ -84,8 +84,15 @@ func TestWithOptions(t *testing.T) {
 		assert.Equal(t, customClient, c.githubClient.httpClient)
 	})
 
+	t.Run("WithUserAgent", func(t *testing.T) {
+		customUA := "custom-agent/1.0"
+		c := NewChecker(WithUserAgent(customUA)).(*checker)
+		assert.Equal(t, customUA, c.githubClient.userAgent)
+	})
+
 	t.Run("DefaultValues", func(t *testing.T) {
 		c := NewChecker().(*checker)
 		assert.NotNil(t, c.githubClient.httpClient)
+		assert.Equal(t, "kubetail-version-checker", c.githubClient.userAgent)
 	})
 }
