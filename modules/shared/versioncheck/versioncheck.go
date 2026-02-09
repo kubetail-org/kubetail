@@ -45,6 +45,12 @@ func WithHTTPClient(client *http.Client) CheckerOption {
 	}
 }
 
+func WithUserAgent(userAgent string) CheckerOption {
+	return func(c *checker) {
+		c.githubClient.userAgent = userAgent
+	}
+}
+
 func NewChecker(options ...CheckerOption) Checker {
 	c := &checker{
 		githubClient: &githubClient{
