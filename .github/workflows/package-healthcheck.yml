@@ -208,7 +208,6 @@ jobs:
         series:
           - jammy
           - noble
-          - plucky
           - questing
           - resolute
         arch:
@@ -225,8 +224,6 @@ jobs:
             image: ubuntu:22.04
           - series: noble
             image: ubuntu:24.04
-          - series: plucky
-            image: ubuntu:25.04
           - series: questing
             image: ubuntu:25.10
           - series: resolute
@@ -261,9 +258,86 @@ jobs:
           mkdir -p /tmp/results
           echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
 
-      - *upload_step
+       - *upload_step
 
-  linux-copr:
+   linux-apt-emulated:
+     if: github.repository == 'kubetail-org/kubetail'
+     strategy:
+       fail-fast: false
+       matrix:
+         include:
+           # --- jammy (22.04) ---
+           - series: jammy
+             distro: ubuntu22.04
+             arch: armv7
+             ubuntu_arch: armhf
+           # --- noble (24.04) ---
+           - series: noble
+             distro: ubuntu24.04
+             arch: armv7
+             ubuntu_arch: armhf
+           # --- questing (25.10) ---
+           - series: questing
+             distro: ubuntu24.04
+             arch: armv7
+             ubuntu_arch: armhf
+           - series: questing
+             distro: ubuntu24.04
+             arch: ppc64le
+             ubuntu_arch: ppc64el
+           - series: questing
+             distro: ubuntu24.04
+             arch: riscv64
+             ubuntu_arch: riscv64
+           - series: questing
+             distro: ubuntu24.04
+             arch: s390x
+             ubuntu_arch: s390x
+           # --- resolute (26.04) ---
+           - series: resolute
+             distro: ubuntu24.04
+             arch: armv7
+             ubuntu_arch: armhf
+           - series: resolute
+             distro: ubuntu24.04
+             arch: ppc64le
+             ubuntu_arch: ppc64el
+           - series: resolute
+             distro: ubuntu24.04
+             arch: riscv64
+             ubuntu_arch: riscv64
+           - series: resolute
+             distro: ubuntu24.04
+             arch: s390x
+             ubuntu_arch: s390x
+     runs-on: ubuntu-24.04
+     env:
+       TRIPLET: apt_${{ matrix.series }}_${{ matrix.ubuntu_arch }}
+     steps:
+       - name: Test on ${{ matrix.arch }}
+         uses: uraimo/run-on-arch-action@v3
+         with:
+           arch: ${{ matrix.arch }}
+           distro: ${{ matrix.distro }}
+           githubToken: ${{ github.token }}
+           install: |
+             apt-get update
+             apt-get install -y software-properties-common curl jq
+           run: |
+             set -euxo pipefail
+             add-apt-repository -y ppa:kubetail/kubetail
+             apt-get update
+             apt-get install -y kubetail-cli
+
+             cli_ver="$(kubetail --version)"
+
+             # Save result for summary table
+             mkdir -p /tmp/results
+             echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+
+       - *upload_step
+
+   linux-copr:
     if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
@@ -753,8 +827,9 @@ jobs:
     needs:
       - linux
       - linux-apk
-      - linux-apt
-      - linux-copr
+       - linux-apt
+       - linux-apt-emulated
+       - linux-copr
       - linux-dnf
       - linux-snap
       - linux-zypper
