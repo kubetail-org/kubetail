@@ -39,7 +39,9 @@ Our goal is to build the most powerful, user-friendly logging platform for Kuber
 * Switch between multiple clusters (Desktop-only)
 * Run anywhere: Desktop, Cluster, Docker
 
-## Installation
+## Quickstart
+
+### Installation
 
 To install `kubetail` you can use [Homebrew](https://brew.sh/):
 
@@ -108,7 +110,9 @@ If you prefer, you can also download it from the [release binaries](https://gith
 curl -sS https://www.kubetail.com/install.sh | bash
 ```
 
-## Quickstart
+### Usage
+
+Here are some ways to use `kubetail`:
 
 1. Start the web dashboard using the [`serve`](https://www.kubetail.com/docs/cli/commands/serve) command (will open at [http://localhost:7500](http://localhost:7500)):
 
