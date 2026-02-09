@@ -161,7 +161,7 @@ Several components use code generation:
 - `dashboard-ui/package.json` - Frontend scripts and dependencies
 - `crates/rgkl/Cargo.toml` - Rust project configuration
 - `Tiltfile` - Local Kubernetes development setup
-- `hack/config.yaml` - Example configuration
+- `modules/dashboard/hack/config.yaml` - Example configuration
 - `hack/manifests/` - Test manifests
 - `hack/test-configs/` - Test configurations
 
