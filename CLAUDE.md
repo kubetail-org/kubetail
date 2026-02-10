@@ -161,7 +161,10 @@ Several components use code generation:
 - `dashboard-ui/package.json` - Frontend scripts and dependencies
 - `crates/rgkl/Cargo.toml` - Rust project configuration
 - `Tiltfile` - Local Kubernetes development setup
-- `hack/config.yaml` - Example configuration
+- `config/default/cli.yaml` - Default CLI configuration
+- `config/default/dashboard.yaml` - Default Dashboard configuration
+- `config/default/cluster-api.yaml` - Default ClusterAPI configuration
+- `config/default/cluster-agent.yaml` - Default ClusterAgent configuration
 - `hack/manifests/` - Test manifests
 - `hack/test-configs/` - Test configurations
 
