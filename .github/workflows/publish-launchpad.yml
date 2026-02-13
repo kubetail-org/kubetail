@@ -90,9 +90,6 @@ jobs:
 
           export TIMESTAMP="$(date -Ru)" 
 
-          # control
-          cp "${SRC_DIR}/control" "${DST_DIR}/control"
-
           # copyright
           cp "${SRC_DIR}/copyright" "${DST_DIR}/copyright"
 
@@ -118,6 +115,7 @@ jobs:
         working-directory: work/kubetail-cli-${{ steps.config.outputs.version }}
         env:
           VERSION: ${{ steps.config.outputs.version }}
+          SRC_DIR: ../../kubetail/.github/ci-config/launchpad
           DEBFULLNAME: ${{ vars.KUBETAIL_BOT_NAME}}
           DEBEMAIL: ${{ vars.KUBETAIL_BOT_EMAIL }}
         run: |
@@ -125,7 +123,17 @@ jobs:
           for SERIES in ${{ steps.config.outputs.series }}; do
             export PKG_VERSION="${VERSION}-${{ steps.config.outputs.debian_revision }}~${SERIES}1"
 
-            if [ "${FIRST_SERIES}" = "true" ]; then 
+            # Restrict architectures for noble and jammy
+            case "${SERIES}" in
+              noble|jammy) export ARCHITECTURES="amd64 arm64 armhf" ;;
+              *)           export ARCHITECTURES="any" ;;
+            esac
+
+            envsubst '${ARCHITECTURES}' \
+              < "${SRC_DIR}/control.tmpl" \
+              > debian/control
+
+            if [ "${FIRST_SERIES}" = "true" ]; then
               DCH_FLAGS="--create --package kubetail-cli"
               DEBUILD_FLAGS="-sa"
               FIRST_SERIES=false
@@ -140,6 +148,7 @@ jobs:
             if [ "${{ steps.config.outputs.dry_run }}" = "false" ]; then
               dput ppa:kubetail/kubetail "../kubetail-cli_${PKG_VERSION}_source.changes"
             else
+              cat debian/control
               cat debian/changelog
               cat "../kubetail-cli_${PKG_VERSION}_source.changes"
             fi
