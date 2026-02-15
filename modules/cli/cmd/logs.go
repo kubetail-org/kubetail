@@ -465,6 +465,21 @@ func printLogs(rootCtx context.Context, cmd *cobra.Command, cmdCfg *logsCmdConfi
 		writer.Flush()
 	}
 
+	var dotAssigner *dotColorAssigner
+	if cmdCfg.withDot {
+		assigner, err := newDotColorAssigner()
+		if err != nil {
+			fmt.Fprintf(cmd.OutOrStderr(), "warning: dot color persistence disabled: %v\n", err)
+		} else {
+			dotAssigner = assigner
+			defer func() {
+				if err := dotAssigner.Close(); err != nil {
+					fmt.Fprintf(cmd.OutOrStderr(), "warning: dot color persistence disabled: %v\n", err)
+				}
+			}()
+		}
+	}
+
 	// Write rows
 	var firstRecord, lastRecord *logs.LogRecord
 	for record := range stream.Records() {
@@ -480,7 +495,10 @@ func printLogs(rootCtx context.Context, cmd *cobra.Command, cmdCfg *logsCmdConfi
 		}
 
 		if cmdCfg.withDot {
-			dot := getDotIndicator(record.Source.ContainerID)
+			dot := ansiDot(dotColorFromHash(record.Source.ContainerID))
+			if dotAssigner != nil {
+				dot = dotAssigner.Dot(record.Source)
+			}
 			row = append(row, dot)
 		}
 
@@ -597,43 +615,6 @@ var logsCmd = &cobra.Command{
 		err = cm.Shutdown(ctx)
 		cli.ExitOnError(err)
 	},
-}
-
-// Return ANSI color coded dot indicator based on container ID
-func getDotIndicator(containerID string) string {
-	colors := []string{
-		"31m", // red
-		"32m", // green
-		"33m", // yellow
-		"34m", // blue
-		"35m", // magenta
-		"36m", // cyan
-		"91m", // bright red
-		"92m", // bright green
-		"93m", // bright yellow
-		"94m", // bright blue
-		"95m", // bright magenta
-		"96m", // bright cyan
-		"37m", // white
-		"90m", // gray
-		"97m", // bright white
-	}
-
-	// simple djb2 hash
-	hash := 5381
-	for _, val := range containerID {
-		hash = int(val) + ((hash << 5) + hash)
-	}
-
-	idx := hash % len(colors)
-
-	if idx < 0 {
-		idx = -idx
-	}
-
-	dot := fmt.Sprintf("\033[%s%s\033[0m", colors[idx], "\u25CF")
-
-	return dot
 }
 
 // Return table writer headers and col widths
