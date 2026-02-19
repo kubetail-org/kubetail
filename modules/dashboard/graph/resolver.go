@@ -28,6 +28,7 @@ import (
 
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/versioncheck"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
@@ -46,6 +47,8 @@ type Resolver struct {
 	hm                clusterapi.HealthMonitor
 	environment       sharedcfg.Environment
 	allowedNamespaces []string
+	versionChecker    versioncheck.Checker
+	cliVersion        string
 }
 
 // Teardown

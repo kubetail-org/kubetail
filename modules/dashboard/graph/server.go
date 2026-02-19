@@ -29,6 +29,7 @@ import (
 
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/versioncheck"
 
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
@@ -51,11 +52,16 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 	// Init health monitor
 	hm := clusterapi.NewHealthMonitor(cfg, cm)
 
+	// Init version checker
+	vc := versioncheck.NewChecker()
+
 	// Init resolver
 	r := &Resolver{
 		cfg:               cfg,
 		cm:                cm,
 		hm:                hm,
+		versionChecker:    vc,
+		cliVersion:        cfg.CLIVersion,
 		environment:       cfg.Environment,
 		allowedNamespaces: cfg.AllowedNamespaces,
 	}

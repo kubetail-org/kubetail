@@ -246,6 +246,7 @@ func loadServerConfig(cmd *cobra.Command) (*dashcfg.Config, *serveOptions, error
 	dashCfg.KubeconfigPath = cfg.General.KubeconfigPath
 	dashCfg.Addr = fmt.Sprintf("%s:%d", cfg.Commands.Serve.Host, cfg.Commands.Serve.Port)
 	dashCfg.Environment = sharedcfg.EnvironmentDesktop
+	dashCfg.CLIVersion = version
 	dashCfg.Logging.Level = logLevel
 	if inCluster {
 		dashCfg.Environment = sharedcfg.EnvironmentCluster
