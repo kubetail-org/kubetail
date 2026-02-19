@@ -22,8 +22,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/tools/clientcmd"
-
-	"github.com/kubetail-org/kubetail/modules/shared/logging"
 )
 
 const (
@@ -99,13 +97,6 @@ func applyFlagNormalization(cmd *cobra.Command) {
 }
 
 func init() {
-	// Configure logger
-	logging.ConfigureLogger(logging.LoggerOptions{
-		Enabled: true,
-		Level:   "info",
-		Format:  "cli",
-	})
-
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
