@@ -60,6 +60,12 @@ type PageInfo struct {
 type Subscription struct {
 }
 
+type VersionStatus struct {
+	CurrentVersion  string `json:"currentVersion"`
+	LatestVersion   string `json:"latestVersion"`
+	UpdateAvailable bool   `json:"updateAvailable"`
+}
+
 type HealthCheckStatus string
 
 const (
