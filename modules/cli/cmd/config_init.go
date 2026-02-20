@@ -10,7 +10,6 @@ import (
 
 	"github.com/kubetail-org/kubetail/modules/cli/assets"
 	"github.com/kubetail-org/kubetail/modules/cli/pkg/config"
-	"github.com/kubetail-org/kubetail/modules/shared/logging"
 )
 
 const configInitHelp = `
@@ -22,12 +21,6 @@ var configInitCmd = &cobra.Command{
 	Short: "Initialize a default configuration file",
 	Long:  configInitHelp,
 	Run: func(cmd *cobra.Command, args []string) {
-		logging.ConfigureLogger(logging.LoggerOptions{
-			Enabled: true,
-			Level:   "info",
-			Format:  "cli",
-		})
-
 		targetPath, _ := cmd.Flags().GetString("path")
 
 		format, _ := cmd.Flags().GetString("format")

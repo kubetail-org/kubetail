@@ -19,7 +19,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -33,83 +32,78 @@ type LoggerOptions struct {
 	Format  string
 }
 
-var configureLoggerOnce sync.Once
-
 func ConfigureLogger(opts LoggerOptions) {
-	// ensure this will only be called once
-	configureLoggerOnce.Do(func() {
-		if !opts.Enabled {
-			zlog.Logger = zerolog.Nop()
-			log.SetOutput(io.Discard)
-			return
-		}
+	if !opts.Enabled {
+		zlog.Logger = zerolog.Nop()
+		log.SetOutput(io.Discard)
+		return
+	}
 
-		// global settings
-		zerolog.TimestampFunc = func() time.Time {
-			return time.Now().UTC()
-		}
-		zerolog.TimeFieldFormat = time.RFC3339Nano
-		zerolog.DurationFieldUnit = time.Millisecond
+	// global settings
+	zerolog.TimestampFunc = func() time.Time {
+		return time.Now().UTC()
+	}
+	zerolog.TimeFieldFormat = time.RFC3339Nano
+	zerolog.DurationFieldUnit = time.Millisecond
 
-		// set log level
-		level, err := zerolog.ParseLevel(opts.Level)
-		if err != nil {
-			panic(err)
-		}
-		zerolog.SetGlobalLevel(level)
+	// set log level
+	level, err := zerolog.ParseLevel(opts.Level)
+	if err != nil {
+		panic(err)
+	}
+	zerolog.SetGlobalLevel(level)
 
-		// configure output format
-		switch opts.Format {
-		case "pretty":
-			zlog.Logger = zlog.Logger.Output(zerolog.ConsoleWriter{
-				Out:        os.Stdout,
-				TimeFormat: time.RFC3339Nano,
-			})
-		case "cli":
-			zlog.Logger = zlog.Logger.Output(zerolog.ConsoleWriter{
-				Out:     os.Stderr,
-				NoColor: false,
-				FormatTimestamp: func(i interface{}) string {
+	// configure output format
+	switch opts.Format {
+	case "pretty":
+		zlog.Logger = zlog.Logger.Output(zerolog.ConsoleWriter{
+			Out:        os.Stdout,
+			TimeFormat: time.RFC3339Nano,
+		})
+	case "cli":
+		zlog.Logger = zlog.Logger.Output(zerolog.ConsoleWriter{
+			Out:     os.Stderr,
+			NoColor: false,
+			FormatTimestamp: func(i interface{}) string {
+				return ""
+			},
+			FormatLevel: func(i interface{}) string {
+				if i == nil {
 					return ""
-				},
-				FormatLevel: func(i interface{}) string {
-					if i == nil {
-						return ""
-					}
-					switch i.(string) {
-					case "fatal", "error":
-						return "\033[31mError:\033[0m "
-					case "warn":
-						return "\033[33mWarn:\033[0m "
-					default:
-						return ""
-					}
-				},
-				FormatCaller: func(i interface{}) string {
+				}
+				switch i.(string) {
+				case "fatal", "error":
+					return "\033[31mError:\033[0m "
+				case "warn":
+					return "\033[33mWarn:\033[0m "
+				default:
 					return ""
-				},
-				FormatMessage: func(i interface{}) string {
-					if i == nil {
-						return ""
-					}
-					return fmt.Sprintf("%s", i)
-				},
-				FormatFieldName: func(i interface{}) string {
+				}
+			},
+			FormatCaller: func(i interface{}) string {
+				return ""
+			},
+			FormatMessage: func(i interface{}) string {
+				if i == nil {
 					return ""
-				},
-				FormatFieldValue: func(i interface{}) string {
+				}
+				return fmt.Sprintf("%s", i)
+			},
+			FormatFieldName: func(i interface{}) string {
+				return ""
+			},
+			FormatFieldValue: func(i interface{}) string {
+				return ""
+			},
+			FormatErrFieldName: func(i interface{}) string {
+				return ""
+			},
+			FormatErrFieldValue: func(i interface{}) string {
+				if i == nil {
 					return ""
-				},
-				FormatErrFieldName: func(i interface{}) string {
-					return ""
-				},
-				FormatErrFieldValue: func(i interface{}) string {
-					if i == nil {
-						return ""
-					}
-					return fmt.Sprintf("%s", i)
-				},
-			})
-		}
-	})
+				}
+				return fmt.Sprintf("%s", i)
+			},
+		})
+	}
 }
