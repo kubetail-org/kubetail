@@ -19,6 +19,7 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/helm"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
+	"github.com/kubetail-org/kubetail/modules/shared/versioncheck"
 	zlog "github.com/rs/zerolog/log"
 	"helm.sh/helm/v3/pkg/release"
 	appsv1 "k8s.io/api/apps/v1"
@@ -30,6 +31,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/utils/ptr"
 )
+
+var newVersionChecker = func() versioncheck.Checker {
+	return versioncheck.NewChecker()
+}
 
 // Object is the resolver for the object field.
 func (r *appsV1DaemonSetsWatchEventResolver) Object(ctx context.Context, obj *watch.Event) (*appsv1.DaemonSet, error) {
@@ -553,17 +558,18 @@ func (r *queryResolver) CliVersionStatus(ctx context.Context) (*model.VersionSta
 	}
 
 	// Skip if CLI version is unknown
-	if r.cliVersion == "" || r.cliVersion == "dev" {
+	if r.cfg.CLIVersion == "" || r.cfg.CLIVersion == "dev" {
 		return nil, nil
 	}
 
-	latestInfo, err := r.versionChecker.GetLatestCLIVersion()
+	vc := newVersionChecker()
+	latestInfo, err := vc.GetLatestCLIVersion()
 	if err != nil {
 		zlog.Warn().Err(err).Msg("Failed to check latest CLI version")
 		return nil, nil
 	}
 
-	currentSemver, err := semver.NewVersion(r.cliVersion)
+	currentSemver, err := semver.NewVersion(r.cfg.CLIVersion)
 	if err != nil {
 		return nil, nil
 	}
@@ -574,7 +580,7 @@ func (r *queryResolver) CliVersionStatus(ctx context.Context) (*model.VersionSta
 	}
 
 	return &model.VersionStatus{
-		CurrentVersion:  r.cliVersion,
+		CurrentVersion:  r.cfg.CLIVersion,
 		LatestVersion:   latestInfo.Version,
 		UpdateAvailable: latestSemver.GreaterThan(currentSemver),
 	}, nil
@@ -623,7 +629,8 @@ func (r *queryResolver) ClusterVersionStatus(ctx context.Context, kubeContext *s
 		return nil, nil
 	}
 
-	latestInfo, err := r.versionChecker.GetLatestHelmChartVersion()
+	vc := newVersionChecker()
+	latestInfo, err := vc.GetLatestHelmChartVersion()
 	if err != nil {
 		zlog.Warn().Err(err).Msg("Failed to check latest Helm chart version")
 		return nil, nil
