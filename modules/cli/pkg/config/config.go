@@ -41,9 +41,10 @@ type Config struct {
 	Commands struct {
 		// Default behavior for the 'logs' command
 		Logs struct {
-			KubeContext string `mapstructure:"kube-context"`
-			Head        int64  `mapstructure:"head"`
-			Tail        int64  `mapstructure:"tail"`
+			KubeContext string   `mapstructure:"kube-context"`
+			Head        int64    `mapstructure:"head"`
+			Tail        int64    `mapstructure:"tail"`
+			Columns     []string `mapstructure:"columns"`
 		} `mapstructure:"logs"`
 
 		// Default behavior for the 'serve' command
@@ -66,6 +67,7 @@ func DefaultCLIConfig() *Config {
 	cfg.Commands.Logs.KubeContext = ""
 	cfg.Commands.Logs.Head = 10
 	cfg.Commands.Logs.Tail = 10
+	cfg.Commands.Logs.Columns = []string{"timestamp", "dot"}
 
 	cfg.Commands.Serve.Port = 7500
 	cfg.Commands.Serve.Host = "localhost"
