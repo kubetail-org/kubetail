@@ -58,6 +58,17 @@ commands:
     #
     kube-context: ""
 
+    ## columns ##
+    #
+    # Full set of output columns for 'logs' records.
+    # Allowed values: timestamp,dot,node,region,zone,os,arch,namespace,pod,container
+    #
+    # Default value: ["timestamp", "dot"]
+    #
+    columns:
+      - timestamp
+      - dot
+
   ## serve ##
   #
   # Settings for the dashboard server

@@ -20,22 +20,12 @@ func TestLoadLogConfig(t *testing.T) {
 
 		flags := cmd.Flags()
 		flags.Set("raw", fmt.Sprintf("%t", true))
-		flags.Set("hideHeader", fmt.Sprintf("%t", false))
-		flags.Set("withRegion", fmt.Sprintf("%t", true))
 
 		cmdCfg, err := loadLogsCmdConfig(cmd)
 		assert.NoError(t, err)
 
 		assert.Equal(t, cmdCfg.hideHeader, true)
-		assert.Equal(t, cmdCfg.withTs, false)
-		assert.Equal(t, cmdCfg.withNode, false)
-		assert.Equal(t, cmdCfg.withRegion, false)
-		assert.Equal(t, cmdCfg.withOS, false)
-		assert.Equal(t, cmdCfg.withArch, false)
-		assert.Equal(t, cmdCfg.withNamespace, false)
-		assert.Equal(t, cmdCfg.withPod, false)
-		assert.Equal(t, cmdCfg.withContainer, false)
-		assert.Equal(t, cmdCfg.withDot, false)
+		assert.Empty(t, cmdCfg.columns)
 		assert.Equal(t, cmdCfg.allContainers, false)
 	})
 
@@ -78,6 +68,51 @@ func TestLoadLogConfig(t *testing.T) {
 		assert.Equal(t, cmdCfg.sinceTime, expectedSinceTime)
 		assert.Equal(t, cmdCfg.untilTime, expectedUntilTime)
 	})
+
+	t.Run("--columns replaces default columns", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		addLogsCmdFlags(cmd)
+		err := cmd.Flags().Set("columns", "pod,container")
+		assert.NoError(t, err)
+
+		cmdCfg, err := loadLogsCmdConfig(cmd)
+		assert.NoError(t, err)
+
+		assert.Equal(t, []string{"pod", "container"}, cmdCfg.columns)
+	})
+
+	t.Run("--add-columns and --remove-columns update current set", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		addLogsCmdFlags(cmd)
+		assert.NoError(t, cmd.Flags().Set("add-columns", "pod,namespace"))
+		assert.NoError(t, cmd.Flags().Set("remove-columns", "dot"))
+
+		cmdCfg, err := loadLogsCmdConfig(cmd)
+		assert.NoError(t, err)
+
+		assert.Equal(t, []string{"timestamp", "pod", "namespace"}, cmdCfg.columns)
+	})
+
+	t.Run("remove-columns removes from explicit columns", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		addLogsCmdFlags(cmd)
+		assert.NoError(t, cmd.Flags().Set("columns", "pod,node,timestamp"))
+		assert.NoError(t, cmd.Flags().Set("remove-columns", "node"))
+
+		cmdCfg, err := loadLogsCmdConfig(cmd)
+		assert.NoError(t, err)
+
+		assert.Equal(t, []string{"pod", "timestamp"}, cmdCfg.columns)
+	})
+
+	t.Run("unknown column values are accepted", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		addLogsCmdFlags(cmd)
+		assert.NoError(t, cmd.Flags().Set("columns", "pod,invalid"))
+		cmdCfg, err := loadLogsCmdConfig(cmd)
+		assert.NoError(t, err)
+		assert.Equal(t, []string{"pod", "invalid"}, cmdCfg.columns)
+	})
 }
 
 func TestPrintLogs(t *testing.T) {
@@ -111,8 +146,7 @@ func TestPrintLogs(t *testing.T) {
 	}{{
 		name: "logs with header, timestamp, message and dot indicator",
 		cmdCfg: logsCmdConfig{
-			withTs:  true,
-			withDot: true,
+			columns: []string{"timestamp", "dot"},
 		},
 		wantContains:    []string{"TIMESTAMP", "MESSAGE", "\u25CB", "2025-03-13T11:42:01.123456789Z", "hello message 1"},
 		wantNotContains: []string{},
@@ -120,55 +154,41 @@ func TestPrintLogs(t *testing.T) {
 		name: "logs with hideHeader",
 		cmdCfg: logsCmdConfig{
 			hideHeader: true,
-			withTs:     true,
-			withDot:    true,
+			columns:    []string{"timestamp", "dot"},
 		},
 		wantContains:    []string{"hello message 1"},
 		wantNotContains: []string{"TIMESTAMP", "MESSAGE", "\u25CB"},
 	}, {
 		name: "test show logs without timestamp",
 		cmdCfg: logsCmdConfig{
-			withTs:  false,
-			withDot: true,
+			columns: []string{"dot"},
 		},
 		wantContains:    []string{"hello message 1"},
 		wantNotContains: []string{"TIMESTAMP", "2025-03-13T11:42:01.123456789Z"},
 	}, {
 		name: "show logs with region, zone, os, arch, node",
 		cmdCfg: logsCmdConfig{
-			withTs:     true,
-			withDot:    true,
-			withRegion: true,
-			withZone:   true,
-			withOS:     true,
-			withArch:   true,
-			withNode:   true,
+			columns: []string{"timestamp", "dot", "region", "zone", "os", "arch", "node"},
 		},
 		wantContains:    []string{"NODE", "node1", "REGION", "us-east", "OS", "linux", "ARCH", "x64", "ZONE", "us-east-a1"},
 		wantNotContains: []string{},
 	}, {
 		name: "show logs with pod, namespace",
 		cmdCfg: logsCmdConfig{
-			withTs:        true,
-			withDot:       true,
-			withPod:       true,
-			withContainer: true,
-			withNamespace: true,
+			columns: []string{"timestamp", "dot", "pod", "container", "namespace"},
 		},
 		wantContains: []string{"POD", "pod1", "CONTAINER", "container1", "NAMESPACE", "ns1", "hello message 1"},
 	}, {
 		name: "cursors with tail mode",
 		cmdCfg: logsCmdConfig{
-			withTs:      true,
-			withDot:     true,
+			columns:     []string{"timestamp", "dot"},
 			withCursors: true,
 		},
 		wantContains: []string{"--- Prev page: --before 2025-03-13T11:42:01.123456789Z ---", "hello message 1"},
 	}, {
 		name: "cursors with head mode",
 		cmdCfg: logsCmdConfig{
-			withTs:      true,
-			withDot:     true,
+			columns:     []string{"timestamp", "dot"},
 			withCursors: true,
 			head:        true,
 		},

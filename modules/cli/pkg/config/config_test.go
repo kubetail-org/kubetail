@@ -32,6 +32,7 @@ commands:
     kube-context: "my-context"
     head: 20
     tail: 30
+    columns: ["timestamp", "dot", "pod"]
   serve:
     port: 8080
     host: "0.0.0.0"
@@ -54,6 +55,7 @@ func TestDefaultCLIConfig(t *testing.T) {
 	assert.Equal(t, "", cfg.Commands.Logs.KubeContext)
 	assert.Equal(t, int64(10), cfg.Commands.Logs.Head)
 	assert.Equal(t, int64(10), cfg.Commands.Logs.Tail)
+	assert.Equal(t, []string{"timestamp", "dot"}, cfg.Commands.Logs.Columns)
 	assert.Equal(t, 7500, cfg.Commands.Serve.Port)
 	assert.Equal(t, "localhost", cfg.Commands.Serve.Host)
 	assert.Equal(t, false, cfg.Commands.Serve.SkipOpen)
@@ -74,6 +76,7 @@ func TestNewCLIConfigSuccess(t *testing.T) {
 		assert.Equal(t, "my-context", cfg.Commands.Logs.KubeContext)
 		assert.Equal(t, int64(20), cfg.Commands.Logs.Head)
 		assert.Equal(t, int64(30), cfg.Commands.Logs.Tail)
+		assert.Equal(t, []string{"timestamp", "dot", "pod"}, cfg.Commands.Logs.Columns)
 		assert.Equal(t, 8080, cfg.Commands.Serve.Port)
 		assert.Equal(t, "0.0.0.0", cfg.Commands.Serve.Host)
 		assert.Equal(t, true, cfg.Commands.Serve.SkipOpen)

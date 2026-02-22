@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 	"text/template"
@@ -75,23 +76,10 @@ type logsCmdConfig struct {
 	osList     []string
 	archList   []string
 	nodeList   []string
+	columns    []string
 
-	hideHeader bool
-	hideTs     bool
-	hideDot    bool
-
-	withTs        bool
-	withDot       bool
+	hideHeader    bool
 	allContainers bool
-
-	withNode      bool
-	withRegion    bool
-	withZone      bool
-	withOS        bool
-	withArch      bool
-	withNamespace bool
-	withPod       bool
-	withContainer bool
 	withCursors   bool
 
 	raw bool
@@ -254,6 +242,10 @@ func loadLogsCmdConfig(cmd *cobra.Command) (*logsCmdConfig, error) {
 
 	v.BindPFlag("general.kubeconfig", flags.Lookup(KubeconfigFlag))
 	v.BindPFlag("commands.logs.kube-context", flags.Lookup(KubeContextFlag))
+	if flags.Changed("columns") {
+		columns, _ := flags.GetStringSlice("columns")
+		v.Set("commands.logs.columns", columns)
+	}
 
 	if headFlag.IsValueProvided {
 		v.Set("commands.logs.head", headFlag.Value)
@@ -292,36 +284,19 @@ func loadLogsCmdConfig(cmd *cobra.Command) (*logsCmdConfig, error) {
 	nodeList, _ := flags.GetStringSlice("node")
 
 	hideHeader, _ := flags.GetBool("hide-header")
-	hideTs, _ := flags.GetBool("hide-ts")
-	hideDot, _ := flags.GetBool("hide-dot")
-
-	withTs := !hideTs
-	withDot := !hideDot
 	allContainers, _ := flags.GetBool("all-containers")
 
-	withNode, _ := flags.GetBool("with-node")
-	withRegion, _ := flags.GetBool("with-region")
-	withZone, _ := flags.GetBool("with-zone")
-	withOS, _ := flags.GetBool("with-os")
-	withArch, _ := flags.GetBool("with-arch")
-	withNamespace, _ := flags.GetBool("with-namespace")
-	withPod, _ := flags.GetBool("with-pod")
-	withContainer, _ := flags.GetBool("with-container")
 	withCursors, _ := flags.GetBool("with-cursors")
+
+	columns := resolveLogsColumns(cfg)
+	addColumns, _ := flags.GetStringSlice("add-columns")
+	removeColumns, _ := flags.GetStringSlice("remove-columns")
+	columns = applyColumnAddRemove(columns, addColumns, removeColumns)
 
 	raw, _ := flags.GetBool("raw")
 	if raw {
 		hideHeader = true
-		withTs = false
-		withNode = false
-		withRegion = false
-		withZone = false
-		withOS = false
-		withArch = false
-		withNamespace = false
-		withPod = false
-		withContainer = false
-		withDot = false
+		columns = []string{}
 		allContainers = false
 	}
 
@@ -425,29 +400,57 @@ func loadLogsCmdConfig(cmd *cobra.Command) (*logsCmdConfig, error) {
 		osList:     osList,
 		archList:   archList,
 		nodeList:   nodeList,
+		columns:    columns,
 
-		hideHeader: hideHeader,
-		hideTs:     hideTs,
-		hideDot:    hideDot,
-
-		withTs:        withTs,
-		withDot:       withDot,
+		hideHeader:    hideHeader,
 		allContainers: allContainers,
-
-		withNode:      withNode,
-		withRegion:    withRegion,
-		withZone:      withZone,
-		withOS:        withOS,
-		withArch:      withArch,
-		withNamespace: withNamespace,
-		withPod:       withPod,
-		withContainer: withContainer,
 		withCursors:   withCursors,
 
 		raw: raw,
 	}
 
 	return cmdCfg, nil
+}
+
+func resolveLogsColumns(cfg *config.Config) []string {
+	return normalizeColumns(cfg.Commands.Logs.Columns)
+}
+
+func applyColumnAddRemove(current []string, addColumns []string, removeColumns []string) []string {
+	addList := normalizeColumns(addColumns)
+	removeList := normalizeColumns(removeColumns)
+	updated := append([]string{}, current...)
+	for _, col := range addList {
+		if !slices.Contains(updated, col) {
+			updated = append(updated, col)
+		}
+	}
+	for _, col := range removeList {
+		updated = slices.DeleteFunc(updated, func(item string) bool {
+			return item == col
+		})
+	}
+
+	return updated
+}
+
+func normalizeColumns(columns []string) []string {
+	out := []string{}
+	seen := map[string]struct{}{}
+
+	for _, col := range columns {
+		item := strings.TrimSpace(strings.ToLower(col))
+		if item == "" {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		out = append(out, item)
+	}
+
+	return out
 }
 
 func printLogs(rootCtx context.Context, cmd *cobra.Command, cmdCfg *logsCmdConfig, stream logs.Stream) {
@@ -458,7 +461,7 @@ func printLogs(rootCtx context.Context, cmd *cobra.Command, cmdCfg *logsCmdConfi
 	tw := tablewriter.NewTableWriter(writer, colWidths)
 
 	// Print header
-	showHeader := cmdCfg.withTs || cmdCfg.withNode || cmdCfg.withRegion || cmdCfg.withZone || cmdCfg.withOS || cmdCfg.withArch || cmdCfg.withNamespace || cmdCfg.withPod || cmdCfg.withContainer
+	showHeader := len(cmdCfg.columns) > 0
 
 	if showHeader && !cmdCfg.hideHeader {
 		tw.PrintHeader(headers)
@@ -475,38 +478,29 @@ func printLogs(rootCtx context.Context, cmd *cobra.Command, cmdCfg *logsCmdConfi
 
 		// Prepare row data
 		row := []string{}
-		if cmdCfg.withTs {
-			row = append(row, record.Timestamp.Format(time.RFC3339Nano))
-		}
-
-		if cmdCfg.withDot {
-			dot := getDotIndicator(record.Source.ContainerID)
-			row = append(row, dot)
-		}
-
-		if cmdCfg.withNode {
-			row = append(row, record.Source.Metadata.Node)
-		}
-		if cmdCfg.withRegion {
-			row = append(row, orDefault(record.Source.Metadata.Region, "-"))
-		}
-		if cmdCfg.withZone {
-			row = append(row, orDefault(record.Source.Metadata.Zone, "-"))
-		}
-		if cmdCfg.withOS {
-			row = append(row, orDefault(record.Source.Metadata.OS, "-"))
-		}
-		if cmdCfg.withArch {
-			row = append(row, orDefault(record.Source.Metadata.Arch, "-"))
-		}
-		if cmdCfg.withNamespace {
-			row = append(row, orDefault(record.Source.Namespace, "-"))
-		}
-		if cmdCfg.withPod {
-			row = append(row, orDefault(record.Source.PodName, "-"))
-		}
-		if cmdCfg.withContainer {
-			row = append(row, orDefault(record.Source.ContainerName, "-"))
+		for _, col := range cmdCfg.columns {
+			switch col {
+			case "timestamp":
+				row = append(row, record.Timestamp.Format(time.RFC3339Nano))
+			case "dot":
+				row = append(row, getDotIndicator(record.Source.ContainerID))
+			case "node":
+				row = append(row, record.Source.Metadata.Node)
+			case "region":
+				row = append(row, orDefault(record.Source.Metadata.Region, "-"))
+			case "zone":
+				row = append(row, orDefault(record.Source.Metadata.Zone, "-"))
+			case "os":
+				row = append(row, orDefault(record.Source.Metadata.OS, "-"))
+			case "arch":
+				row = append(row, orDefault(record.Source.Metadata.Arch, "-"))
+			case "namespace":
+				row = append(row, orDefault(record.Source.Namespace, "-"))
+			case "pod":
+				row = append(row, orDefault(record.Source.PodName, "-"))
+			case "container":
+				row = append(row, orDefault(record.Source.ContainerName, "-"))
+			}
 		}
 		row = append(row, record.Message)
 
@@ -663,48 +657,39 @@ func getTableWriterHeaders(cmdCfg *logsCmdConfig, sources []logs.LogSource) ([]s
 		maxContainerLen = max(maxArchLen, len(source.ContainerName))
 	}
 
-	if cmdCfg.withTs {
-		headers = append(headers, "TIMESTAMP")
-		colWidths = append(colWidths, 30) // Fixed width for timestamp
-	}
-
-	if cmdCfg.withDot {
-		headers = append(headers, "\u25CB")
-		colWidths = append(colWidths, 1)
-	}
-
-	if cmdCfg.withNode {
-		headers = append(headers, "NODE")
-		colWidths = append(colWidths, maxNodeLen)
-	}
-
-	if cmdCfg.withRegion {
-		headers = append(headers, "REGION")
-		colWidths = append(colWidths, maxRegionLen)
-	}
-	if cmdCfg.withZone {
-		headers = append(headers, "ZONE")
-		colWidths = append(colWidths, maxZoneLen)
-	}
-	if cmdCfg.withOS {
-		headers = append(headers, "OS")
-		colWidths = append(colWidths, maxOSLen)
-	}
-	if cmdCfg.withArch {
-		headers = append(headers, "ARCH")
-		colWidths = append(colWidths, maxArchLen)
-	}
-	if cmdCfg.withNamespace {
-		headers = append(headers, "NAMESPACE")
-		colWidths = append(colWidths, maxNamespaceLen)
-	}
-	if cmdCfg.withPod {
-		headers = append(headers, "POD")
-		colWidths = append(colWidths, maxPodLen)
-	}
-	if cmdCfg.withContainer {
-		headers = append(headers, "CONTAINER")
-		colWidths = append(colWidths, maxContainerLen)
+	for _, col := range cmdCfg.columns {
+		switch col {
+		case "timestamp":
+			headers = append(headers, "TIMESTAMP")
+			colWidths = append(colWidths, 30)
+		case "dot":
+			headers = append(headers, "\u25CB")
+			colWidths = append(colWidths, 1)
+		case "node":
+			headers = append(headers, "NODE")
+			colWidths = append(colWidths, maxNodeLen)
+		case "region":
+			headers = append(headers, "REGION")
+			colWidths = append(colWidths, maxRegionLen)
+		case "zone":
+			headers = append(headers, "ZONE")
+			colWidths = append(colWidths, maxZoneLen)
+		case "os":
+			headers = append(headers, "OS")
+			colWidths = append(colWidths, maxOSLen)
+		case "arch":
+			headers = append(headers, "ARCH")
+			colWidths = append(colWidths, maxArchLen)
+		case "namespace":
+			headers = append(headers, "NAMESPACE")
+			colWidths = append(colWidths, maxNamespaceLen)
+		case "pod":
+			headers = append(headers, "POD")
+			colWidths = append(colWidths, maxPodLen)
+		case "container":
+			headers = append(headers, "CONTAINER")
+			colWidths = append(colWidths, maxContainerLen)
+		}
 	}
 	headers = append(headers, "MESSAGE")
 
@@ -768,19 +753,12 @@ func addLogsCmdFlags(cmd *cobra.Command) {
 	flagset.StringSlice("node", []string{}, "Filter source pods by node name")
 
 	flagset.Bool("raw", false, "Output only raw log messages without metadata")
-	flagset.Bool("hide-ts", false, "Hide the timestamp of each record")
-	flagset.Bool("with-node", false, "Show the source node of each record")
-	flagset.Bool("with-region", false, "Show the source region of each record")
-	flagset.Bool("with-zone", false, "Show the source zone of each record")
-	flagset.Bool("with-os", false, "Show the source operating system of each record")
-	flagset.Bool("with-arch", false, "Show the source architecture of each record")
-	flagset.Bool("with-namespace", false, "Show the source namespace of each record")
-	flagset.Bool("with-pod", false, "Show the source pod of each record")
-	flagset.Bool("with-container", false, "Show the source container of each record")
+	flagset.StringSlice("columns", []string{}, "Set output columns (timestamp,dot,node,region,zone,os,arch,namespace,pod,container)")
+	flagset.StringSlice("add-columns", []string{}, "Add output columns (timestamp,dot,node,region,zone,os,arch,namespace,pod,container)")
+	flagset.StringSlice("remove-columns", []string{}, "Remove output columns (timestamp,dot,node,region,zone,os,arch,namespace,pod,container)")
 	flagset.Bool("with-cursors", false, "Show paging cursors")
 
 	flagset.Bool("hide-header", false, "Hide table header")
-	flagset.Bool("hide-dot", false, "Hide the dot indicator in the records")
 	flagset.Bool("all-containers", false, "Show logs from all containers in a Pod")
 
 	//flagset.BoolP("reverse", "r", false, "List records in reverse order")
