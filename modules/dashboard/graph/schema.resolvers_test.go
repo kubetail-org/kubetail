@@ -446,7 +446,7 @@ func TestClusterVersionStatus_DesktopMode(t *testing.T) {
 			},
 			checkerErr:  fmt.Errorf("network error"),
 			expectedNil: true,
-		}
+		},
 	}
 
 	for _, tt := range tests {
