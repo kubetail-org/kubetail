@@ -36,6 +36,14 @@ var newVersionChecker = func() versioncheck.Checker {
 	return versioncheck.NewChecker()
 }
 
+type helmListClient interface {
+	ListReleases() ([]*release.Release, error)
+}
+
+var newHelmListClient = func(opts ...helm.ClientOption) helmListClient {
+	return helm.NewClient(opts...)
+}
+
 // Object is the resolver for the object field.
 func (r *appsV1DaemonSetsWatchEventResolver) Object(ctx context.Context, obj *watch.Event) (*appsv1.DaemonSet, error) {
 	return typeassertRuntimeObject[*appsv1.DaemonSet](obj.Object)
@@ -594,7 +602,7 @@ func (r *queryResolver) ClusterVersionStatus(ctx context.Context, kubeContext *s
 		// Desktop mode: read chart version from Helm release in the cluster
 		kubeContextVal := r.cm.DerefKubeContext(kubeContext)
 
-		client := helm.NewClient(
+		client := newHelmListClient(
 			helm.WithKubeconfigPath(r.cfg.KubeconfigPath),
 			helm.WithKubeContext(kubeContextVal),
 		)
