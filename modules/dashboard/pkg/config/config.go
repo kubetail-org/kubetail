@@ -47,8 +47,9 @@ type Config struct {
 	Addr               string   `mapstructure:"addr" validate:"omitempty,hostname_port"`
 	AuthMode           AuthMode `mapstructure:"auth-mode"`
 	BasePath           string   `mapstructure:"base-path"`
-	ClusterAPIEndpoint string   `mapstructure:"cluster-api-endpoint"`
-	GinMode            string   `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
+	CLIVersion         string
+	ClusterAPIEndpoint string `mapstructure:"cluster-api-endpoint"`
+	GinMode            string `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
 	Environment        sharedcfg.Environment
 
 	// csrf options

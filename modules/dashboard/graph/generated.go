@@ -606,9 +606,11 @@ type ComplexityRoot struct {
 		BatchV1CronJobsList     func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
 		BatchV1JobsGet          func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
 		BatchV1JobsList         func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
+		CliVersionStatus        func(childComplexity int) int
 		ClusterAPIHealthzGet    func(childComplexity int, kubeContext *string, namespace *string, serviceName *string) int
 		ClusterAPIReadyWait     func(childComplexity int, kubeContext *string, namespace *string, serviceName *string) int
 		ClusterAPIServicesList  func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
+		ClusterVersionStatus    func(childComplexity int, kubeContext *string) int
 		CoreV1NamespacesList    func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
 		CoreV1NodesList         func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
 		CoreV1PodsGet           func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
@@ -641,6 +643,12 @@ type ComplexityRoot struct {
 		KubernetesAPIReadyWait    func(childComplexity int, kubeContext *string) int
 		LogRecordsFollow          func(childComplexity int, kubeContext *string, sources []string, since *string, after *string, grep *string, sourceFilter *model.LogSourceFilter) int
 		LogSourcesWatch           func(childComplexity int, kubeContext *string, sources []string) int
+	}
+
+	VersionStatus struct {
+		CurrentVersion  func(childComplexity int) int
+		LatestVersion   func(childComplexity int) int
+		UpdateAvailable func(childComplexity int) int
 	}
 }
 
@@ -705,6 +713,8 @@ type QueryResolver interface {
 	ClusterAPIHealthzGet(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (*model.HealthCheckResponse, error)
 	ClusterAPIServicesList(ctx context.Context, kubeContext *string, options *v1.ListOptions) (*v13.ServiceList, error)
 	HelmListReleases(ctx context.Context, kubeContext *string) ([]*release.Release, error)
+	CliVersionStatus(ctx context.Context) (*model.VersionStatus, error)
+	ClusterVersionStatus(ctx context.Context, kubeContext *string) (*model.VersionStatus, error)
 	KubeConfigGet(ctx context.Context) (*model.KubeConfig, error)
 	KubernetesAPIReadyWait(ctx context.Context, kubeContext *string) (bool, error)
 	KubernetesAPIHealthzGet(ctx context.Context, kubeContext *string) (*model.HealthCheckResponse, error)
@@ -2936,6 +2946,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Query.BatchV1JobsList(childComplexity, args["kubeContext"].(*string), args["namespace"].(*string), args["options"].(*v1.ListOptions)), true
 
+	case "Query.cliVersionStatus":
+		if e.complexity.Query.CliVersionStatus == nil {
+			break
+		}
+
+		return e.complexity.Query.CliVersionStatus(childComplexity), true
+
 	case "Query.clusterAPIHealthzGet":
 		if e.complexity.Query.ClusterAPIHealthzGet == nil {
 			break
@@ -2971,6 +2988,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.ClusterAPIServicesList(childComplexity, args["kubeContext"].(*string), args["options"].(*v1.ListOptions)), true
+
+	case "Query.clusterVersionStatus":
+		if e.complexity.Query.ClusterVersionStatus == nil {
+			break
+		}
+
+		args, err := ec.field_Query_clusterVersionStatus_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.ClusterVersionStatus(childComplexity, args["kubeContext"].(*string)), true
 
 	case "Query.coreV1NamespacesList":
 		if e.complexity.Query.CoreV1NamespacesList == nil {
@@ -3309,6 +3338,27 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Subscription.LogSourcesWatch(childComplexity, args["kubeContext"].(*string), args["sources"].([]string)), true
+
+	case "VersionStatus.currentVersion":
+		if e.complexity.VersionStatus.CurrentVersion == nil {
+			break
+		}
+
+		return e.complexity.VersionStatus.CurrentVersion(childComplexity), true
+
+	case "VersionStatus.latestVersion":
+		if e.complexity.VersionStatus.LatestVersion == nil {
+			break
+		}
+
+		return e.complexity.VersionStatus.LatestVersion(childComplexity), true
+
+	case "VersionStatus.updateAvailable":
+		if e.complexity.VersionStatus.UpdateAvailable == nil {
+			break
+		}
+
+		return e.complexity.VersionStatus.UpdateAvailable(childComplexity), true
 
 	}
 	return 0, false
@@ -4523,6 +4573,29 @@ func (ec *executionContext) field_Query_clusterAPIServicesList_argsOptions(
 	}
 
 	var zeroVal *v1.ListOptions
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_clusterVersionStatus_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Query_clusterVersionStatus_argsKubeContext(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["kubeContext"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Query_clusterVersionStatus_argsKubeContext(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("kubeContext"))
+	if tmp, ok := rawArgs["kubeContext"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
 	return zeroVal, nil
 }
 
@@ -21197,6 +21270,115 @@ func (ec *executionContext) fieldContext_Query_helmListReleases(ctx context.Cont
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_cliVersionStatus(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_cliVersionStatus(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().CliVersionStatus(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.VersionStatus)
+	fc.Result = res
+	return ec.marshalOVersionStatus2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐVersionStatus(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_cliVersionStatus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "currentVersion":
+				return ec.fieldContext_VersionStatus_currentVersion(ctx, field)
+			case "latestVersion":
+				return ec.fieldContext_VersionStatus_latestVersion(ctx, field)
+			case "updateAvailable":
+				return ec.fieldContext_VersionStatus_updateAvailable(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type VersionStatus", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_clusterVersionStatus(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_clusterVersionStatus(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().ClusterVersionStatus(rctx, fc.Args["kubeContext"].(*string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.VersionStatus)
+	fc.Result = res
+	return ec.marshalOVersionStatus2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐVersionStatus(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_clusterVersionStatus(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "currentVersion":
+				return ec.fieldContext_VersionStatus_currentVersion(ctx, field)
+			case "latestVersion":
+				return ec.fieldContext_VersionStatus_latestVersion(ctx, field)
+			case "updateAvailable":
+				return ec.fieldContext_VersionStatus_updateAvailable(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type VersionStatus", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_clusterVersionStatus_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_kubeConfigGet(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Query_kubeConfigGet(ctx, field)
 	if err != nil {
@@ -22888,6 +23070,138 @@ func (ec *executionContext) fieldContext_Subscription_logSourcesWatch(ctx contex
 	if fc.Args, err = ec.field_Subscription_logSourcesWatch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _VersionStatus_currentVersion(ctx context.Context, field graphql.CollectedField, obj *model.VersionStatus) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_VersionStatus_currentVersion(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.CurrentVersion, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_VersionStatus_currentVersion(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "VersionStatus",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _VersionStatus_latestVersion(ctx context.Context, field graphql.CollectedField, obj *model.VersionStatus) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_VersionStatus_latestVersion(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.LatestVersion, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_VersionStatus_latestVersion(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "VersionStatus",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _VersionStatus_updateAvailable(ctx context.Context, field graphql.CollectedField, obj *model.VersionStatus) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_VersionStatus_updateAvailable(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.UpdateAvailable, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_VersionStatus_updateAvailable(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "VersionStatus",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
 	}
 	return fc, nil
 }
@@ -29889,6 +30203,44 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "cliVersionStatus":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_cliVersionStatus(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "clusterVersionStatus":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_clusterVersionStatus(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "kubeConfigGet":
 			field := field
 
@@ -30054,6 +30406,55 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}
+}
+
+var versionStatusImplementors = []string{"VersionStatus"}
+
+func (ec *executionContext) _VersionStatus(ctx context.Context, sel ast.SelectionSet, obj *model.VersionStatus) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, versionStatusImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("VersionStatus")
+		case "currentVersion":
+			out.Values[i] = ec._VersionStatus_currentVersion(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "latestVersion":
+			out.Values[i] = ec._VersionStatus_latestVersion(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updateAvailable":
+			out.Values[i] = ec._VersionStatus_updateAvailable(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
 }
 
 var __DirectiveImplementors = []string{"__Directive"}
@@ -32729,6 +33130,13 @@ func (ec *executionContext) marshalOStringMap2map(ctx context.Context, sel ast.S
 	_ = ctx
 	res := model.MarshalStringMap(v)
 	return res
+}
+
+func (ec *executionContext) marshalOVersionStatus2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐVersionStatus(ctx context.Context, sel ast.SelectionSet, v *model.VersionStatus) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._VersionStatus(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {
