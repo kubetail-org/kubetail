@@ -16,16 +16,56 @@ package graph
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/release"
 	"k8s.io/utils/ptr"
 
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
+	"github.com/kubetail-org/kubetail/modules/shared/helm"
 	k8shelpersmock "github.com/kubetail-org/kubetail/modules/shared/k8shelpers/mock"
+	"github.com/kubetail-org/kubetail/modules/shared/versioncheck"
+	vcmock "github.com/kubetail-org/kubetail/modules/shared/versioncheck/mock"
+
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 )
+
+func mockVersionChecker(t *testing.T, vc versioncheck.Checker) {
+	orig := newVersionChecker
+	newVersionChecker = func() versioncheck.Checker { return vc }
+	t.Cleanup(func() { newVersionChecker = orig })
+}
+
+type mockHelmListClientImpl struct {
+	releases []*release.Release
+	err      error
+}
+
+func (m *mockHelmListClientImpl) ListReleases() ([]*release.Release, error) {
+	return m.releases, m.err
+}
+
+func mockHelmListClientFn(t *testing.T, client helmListClient) {
+	orig := newHelmListClient
+	newHelmListClient = func(opts ...helm.ClientOption) helmListClient { return client }
+	t.Cleanup(func() { newHelmListClient = orig })
+}
+
+func makeRelease(name, version string) *release.Release {
+	return &release.Release{
+		Name: name,
+		Chart: &chart.Chart{
+			Metadata: &chart.Metadata{
+				Version: version,
+			},
+		},
+	}
+}
 
 func TestAllowedNamespacesGetQueries(t *testing.T) {
 	// Init connection manager
@@ -173,4 +213,277 @@ func TestDesktopOnlyRequests(t *testing.T) {
 		assert.NotNil(t, err)
 		assert.Equal(t, err, errors.ErrForbidden)
 	})
+}
+
+func TestCliVersionStatus(t *testing.T) {
+	tests := []struct {
+		name                string
+		environment         sharedcfg.Environment
+		cliVersion          string
+		latestVersion       string
+		checkerErr          error
+		expectedNil         bool
+		expectedCurrent     string
+		expectedLatest      string
+		expectedUpdateAvail bool
+	}{
+		{
+			name:                "upgrade available",
+			environment:         sharedcfg.EnvironmentDesktop,
+			cliVersion:          "0.11.0",
+			latestVersion:       "0.12.0",
+			expectedNil:         false,
+			expectedCurrent:     "0.11.0",
+			expectedLatest:      "0.12.0",
+			expectedUpdateAvail: true,
+		},
+		{
+			name:                "up to date",
+			environment:         sharedcfg.EnvironmentDesktop,
+			cliVersion:          "0.12.0",
+			latestVersion:       "0.12.0",
+			expectedNil:         false,
+			expectedCurrent:     "0.12.0",
+			expectedLatest:      "0.12.0",
+			expectedUpdateAvail: false,
+		},
+		{
+			name:        "cluster mode returns nil",
+			environment: sharedcfg.EnvironmentCluster,
+			cliVersion:  "0.11.0",
+			expectedNil: true,
+		},
+		{
+			name:        "dev version returns nil",
+			environment: sharedcfg.EnvironmentDesktop,
+			cliVersion:  "dev",
+			expectedNil: true,
+		},
+		{
+			name:        "empty version returns nil",
+			environment: sharedcfg.EnvironmentDesktop,
+			cliVersion:  "",
+			expectedNil: true,
+		},
+		{
+			name:        "version checker error returns nil",
+			environment: sharedcfg.EnvironmentDesktop,
+			cliVersion:  "0.11.0",
+			checkerErr:  fmt.Errorf("network error"),
+			expectedNil: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vc := &vcmock.MockChecker{}
+			if tt.checkerErr != nil {
+				vc.On("GetLatestCLIVersion").Return(nil, tt.checkerErr)
+			} else if tt.latestVersion != "" {
+				vc.On("GetLatestCLIVersion").Return(&versioncheck.VersionInfo{Version: tt.latestVersion}, nil)
+			}
+			mockVersionChecker(t, vc)
+
+			r := &queryResolver{&Resolver{
+				cfg:         &config.Config{CLIVersion: tt.cliVersion},
+				environment: tt.environment,
+			}}
+
+			result, err := r.CliVersionStatus(context.Background())
+			assert.Nil(t, err)
+
+			if tt.expectedNil {
+				assert.Nil(t, result)
+			} else {
+				assert.NotNil(t, result)
+				assert.Equal(t, tt.expectedCurrent, result.CurrentVersion)
+				assert.Equal(t, tt.expectedLatest, result.LatestVersion)
+				assert.Equal(t, tt.expectedUpdateAvail, result.UpdateAvailable)
+			}
+		})
+	}
+}
+
+func TestClusterVersionStatus_ClusterMode(t *testing.T) {
+	tests := []struct {
+		name                string
+		envValue            string
+		latestVersion       string
+		checkerErr          error
+		expectedNil         bool
+		expectedCurrent     string
+		expectedLatest      string
+		expectedUpdateAvail bool
+	}{
+		{
+			name:                "update available",
+			envValue:            "0.9.0",
+			latestVersion:       "0.10.0",
+			expectedNil:         false,
+			expectedCurrent:     "0.9.0",
+			expectedLatest:      "0.10.0",
+			expectedUpdateAvail: true,
+		},
+		{
+			name:                "up to date",
+			envValue:            "0.10.0",
+			latestVersion:       "0.10.0",
+			expectedNil:         false,
+			expectedCurrent:     "0.10.0",
+			expectedLatest:      "0.10.0",
+			expectedUpdateAvail: false,
+		},
+		{
+			name:        "env var not set returns nil",
+			expectedNil: true,
+		},
+		{
+			name:        "version checker error returns nil",
+			envValue:    "0.9.0",
+			checkerErr:  fmt.Errorf("network error"),
+			expectedNil: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envValue != "" {
+				t.Setenv("KUBETAIL_CHART_VERSION", tt.envValue)
+			}
+
+			vc := &vcmock.MockChecker{}
+			if tt.checkerErr != nil {
+				vc.On("GetLatestHelmChartVersion").Return(nil, tt.checkerErr)
+			} else if tt.latestVersion != "" {
+				vc.On("GetLatestHelmChartVersion").Return(&versioncheck.VersionInfo{Version: tt.latestVersion}, nil)
+			}
+			mockVersionChecker(t, vc)
+
+			r := &queryResolver{&Resolver{
+				cfg:         &config.Config{},
+				environment: sharedcfg.EnvironmentCluster,
+			}}
+
+			result, err := r.ClusterVersionStatus(context.Background(), nil)
+			assert.Nil(t, err)
+
+			if tt.expectedNil {
+				assert.Nil(t, result)
+			} else {
+				assert.NotNil(t, result)
+				assert.Equal(t, tt.expectedCurrent, result.CurrentVersion)
+				assert.Equal(t, tt.expectedLatest, result.LatestVersion)
+				assert.Equal(t, tt.expectedUpdateAvail, result.UpdateAvailable)
+			}
+		})
+	}
+}
+
+func TestClusterVersionStatus_DesktopMode(t *testing.T) {
+	tests := []struct {
+		name                string
+		releases            []*release.Release
+		listErr             error
+		latestVersion       string
+		checkerErr          error
+		expectedNil         bool
+		expectedCurrent     string
+		expectedLatest      string
+		expectedUpdateAvail bool
+	}{
+		{
+			name: "single release update available",
+			releases: []*release.Release{
+				makeRelease("kubetail", "0.9.0"),
+			},
+			latestVersion:       "0.10.0",
+			expectedCurrent:     "0.9.0",
+			expectedLatest:      "0.10.0",
+			expectedUpdateAvail: true,
+		},
+		{
+			name: "single release up to date",
+			releases: []*release.Release{
+				makeRelease("kubetail", "0.10.0"),
+			},
+			latestVersion:       "0.10.0",
+			expectedCurrent:     "0.10.0",
+			expectedLatest:      "0.10.0",
+			expectedUpdateAvail: false,
+		},
+		{
+			name: "multiple releases picks highest version",
+			releases: []*release.Release{
+				makeRelease("kubetail", "0.9.0"),
+				makeRelease("kubetail-staging", "0.11.0"),
+				makeRelease("kubetail-old", "0.8.0"),
+			},
+			latestVersion:       "0.12.0",
+			expectedCurrent:     "0.11.0",
+			expectedLatest:      "0.12.0",
+			expectedUpdateAvail: true,
+		},
+		{
+			name: "multiple releases highest is up to date",
+			releases: []*release.Release{
+				makeRelease("kubetail", "0.9.0"),
+				makeRelease("kubetail-other", "0.12.0"),
+			},
+			latestVersion:       "0.12.0",
+			expectedCurrent:     "0.12.0",
+			expectedLatest:      "0.12.0",
+			expectedUpdateAvail: false,
+		},
+		{
+			name:        "list releases error returns nil",
+			listErr:     fmt.Errorf("connection refused"),
+			expectedNil: true,
+		},
+		{
+			name: "version checker error returns nil",
+			releases: []*release.Release{
+				makeRelease("kubetail", "0.9.0"),
+			},
+			checkerErr:  fmt.Errorf("network error"),
+			expectedNil: true,
+		}
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cm := &k8shelpersmock.MockConnectionManager{}
+			cm.On("DerefKubeContext", mock.Anything).Return("")
+
+			mockHelmListClientFn(t, &mockHelmListClientImpl{
+				releases: tt.releases,
+				err:      tt.listErr,
+			})
+
+			vc := &vcmock.MockChecker{}
+			if tt.checkerErr != nil {
+				vc.On("GetLatestHelmChartVersion").Return(nil, tt.checkerErr)
+			} else if tt.latestVersion != "" {
+				vc.On("GetLatestHelmChartVersion").Return(&versioncheck.VersionInfo{Version: tt.latestVersion}, nil)
+			}
+			mockVersionChecker(t, vc)
+
+			r := &queryResolver{&Resolver{
+				cfg:         &config.Config{},
+				cm:          cm,
+				environment: sharedcfg.EnvironmentDesktop,
+			}}
+
+			result, err := r.ClusterVersionStatus(context.Background(), nil)
+			assert.Nil(t, err)
+
+			if tt.expectedNil {
+				assert.Nil(t, result)
+			} else {
+				assert.NotNil(t, result)
+				assert.Equal(t, tt.expectedCurrent, result.CurrentVersion)
+				assert.Equal(t, tt.expectedLatest, result.LatestVersion)
+				assert.Equal(t, tt.expectedUpdateAvail, result.UpdateAvailable)
+			}
+		})
+	}
 }
