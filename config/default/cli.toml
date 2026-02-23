@@ -11,14 +11,18 @@ version = 1
 kubeconfig = ""
 
 [commands.logs]
+# Specific Kubernetes context to use. If empty, uses active context.
+kube-context = ""
+
 # Number of lines to show from the beginning of the log buffer
 head = 10
 
 # Number of lines to show from the end of the log buffer
 tail = 10
 
-# Specific Kubernetes context to use. If empty, uses active context.
-kube-context = ""
+# Full set of output columns for 'logs' records.
+# Allowed values: timestamp,dot,node,region,zone,os,arch,namespace,pod,container
+columns = ["timestamp", "dot"]
 
 [commands.serve]
 # Network interface the server binds to

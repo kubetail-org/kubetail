@@ -33,6 +33,15 @@ commands:
   #
   logs:
 
+    ## kube-context ##
+    #
+    # The specific Kubernetes context to use. 
+    # If empty, the current active context is used.
+    #
+    # Default value: ""
+    #
+    kube-context: ""
+
     ## head ##
     #
     # The number of lines to show from the beginning of the log buffer
@@ -49,14 +58,16 @@ commands:
     #
     tail: 10
 
-    ## kube-context ##
+    ## columns ##
     #
-    # The specific Kubernetes context to use. 
-    # If empty, the current active context is used.
+    # Full set of output columns for 'logs' records.
+    # Allowed values: timestamp,dot,node,region,zone,os,arch,namespace,pod,container
     #
-    # Default value: ""
+    # Default value: ["timestamp", "dot"]
     #
-    kube-context: ""
+    columns:
+      - timestamp
+      - dot
 
   ## serve ##
   #

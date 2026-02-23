@@ -5,9 +5,10 @@
   },
   "commands": {
     "logs": {
+      "kube-context": "",
       "head": 10,
       "tail": 10,
-      "kube-context": ""
+      "columns": ["timestamp", "dot"]
     },
     "serve": {
       "host": "localhost",

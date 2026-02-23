@@ -33,6 +33,15 @@ commands:
   #
   logs:
 
+    ## kube-context ##
+    #
+    # The specific Kubernetes context to use. 
+    # If empty, the current active context is used.
+    #
+    # Default value: ""
+    #
+    kube-context: ""
+
     ## head ##
     #
     # The number of lines to show from the beginning of the log buffer
@@ -48,15 +57,6 @@ commands:
     # Default value: 10
     #
     tail: 10
-
-    ## kube-context ##
-    #
-    # The specific Kubernetes context to use. 
-    # If empty, the current active context is used.
-    #
-    # Default value: ""
-    #
-    kube-context: ""
 
     ## columns ##
     #
