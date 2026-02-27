@@ -24,7 +24,6 @@ BDEPEND=">=dev-lang/go-1.24.7"
 src_compile() {
 	(
 		GOWORK=off \
-		CGO_ENABLED=0 \
 		ego build \
 			-mod=vendor \
 			-ldflags "-X github.com/kubetail-org/kubetail/modules/cli/cmd.version=${PV}" \

@@ -28,8 +28,7 @@ checksums           ${distname}${extract.suffix} \
                     size    ${SIZE}
 
 build.env-append GO111MODULE=on \
-                 GOWORK=off \
-                 CGO_ENABLED=0
+                 GOWORK=off
 build.dir ${worksrcpath}/modules/cli
 build.args-append \
     -mod=vendor \

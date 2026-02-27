@@ -25,7 +25,6 @@ timeline, delivered to a browser or terminal.
 %build
 cd modules/cli && \
   GOWORK=off \
-  CGO_ENABLED=0 \
   go build \
     -mod=vendor \
     -ldflags="-s -w -X github.com/kubetail-org/kubetail/modules/cli/cmd.version=%{version}" \
