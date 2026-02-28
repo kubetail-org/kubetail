@@ -17,6 +17,10 @@ data:
     gin-mode: debug
     ui:
       cluster-api-enabled: true
+      columns:
+        - timestamp
+        - container
+        - dot
     session:
       secret: REPLACEME
       cookie:

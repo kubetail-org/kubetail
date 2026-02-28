@@ -2,15 +2,20 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 )
 
 func TestLoadServerConfig_Defaults(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
 	cmd := &cobra.Command{}
 	addServerCmdFlags(cmd)
 
@@ -23,6 +28,7 @@ func TestLoadServerConfig_Defaults(t *testing.T) {
 	assert.Equal(t, sharedcfg.EnvironmentDesktop, cfg.Environment)
 	assert.Equal(t, "", cfg.KubeconfigPath)
 	assert.Equal(t, false, cfg.Logging.AccessLog.Enabled)
+	assert.Equal(t, []string{"timestamp", "dot"}, cfg.UI.Columns)
 
 	// validate serveOptions
 	assert.Equal(t, 7500, opts.port)
@@ -35,8 +41,7 @@ func TestLoadServerConfig(t *testing.T) {
 	addServerCmdFlags(cmd)
 
 	// adding this to test the flags added in the root command
-	cmd.Flags().String(KubeconfigFlag, "", "Path to kubeconfig file")
-	cmd.Flags().Bool(InClusterFlag, false, "Use in-cluster Kubernetes configuration")
+	addRootCmdFlagsTo(cmd.Flags())
 
 	mockFlags := []struct {
 		port       int
@@ -81,4 +86,27 @@ func TestLoadServerConfig(t *testing.T) {
 		assert.Equal(t, opts.host, val.host)
 		assert.Equal(t, opts.skipOpen, val.skipOpen)
 	}
+}
+
+func TestLoadServerConfig_DashboardColumns(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	configYAML := `
+dashboard:
+  columns: ["timestamp", "dot", "pod", "container"]
+`
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "config.yaml")
+	err := os.WriteFile(filePath, []byte(configYAML), 0644)
+	require.NoError(t, err)
+
+	cmd := &cobra.Command{}
+	addServerCmdFlags(cmd)
+	addRootCmdFlagsTo(cmd.Flags())
+	cmd.Flags().Set("config", filePath)
+
+	cfg, _, err := loadServerConfig(cmd)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"timestamp", "dot", "pod", "container"}, cfg.UI.Columns)
 }
