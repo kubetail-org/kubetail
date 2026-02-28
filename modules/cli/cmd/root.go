@@ -98,6 +98,16 @@ func applyFlagNormalization(cmd *cobra.Command) {
 	}
 }
 
+func addRootCmdFlags(cmd *cobra.Command) {
+	addRootCmdFlagsTo(cmd.PersistentFlags())
+}
+
+func addRootCmdFlagsTo(flagset *pflag.FlagSet) {
+	flagset.String(KubeconfigFlag, "", "Path to kubeconfig file")
+	flagset.Bool(InClusterFlag, false, "Use in-cluster Kubernetes configuration")
+	flagset.StringP("config", "c", "", "Path to config file (default is $HOME/.kubetail/config.yaml)")
+}
+
 func init() {
 	// Configure logger
 	logging.ConfigureLogger(logging.LoggerOptions{
@@ -114,10 +124,7 @@ func init() {
 
 	rootCmd.Flags().SortFlags = false
 
-	flagset := rootCmd.PersistentFlags()
-	flagset.String(KubeconfigFlag, "", "Path to kubeconfig file")
-	flagset.Bool(InClusterFlag, false, "Use in-cluster Kubernetes configuration")
-	flagset.StringP("config", "c", "", "Path to config file (default is $HOME/.kubetail/config.yaml)")
+	addRootCmdFlags(rootCmd)
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
