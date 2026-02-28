@@ -37,6 +37,8 @@ commands:
     port: 8080
     host: "0.0.0.0"
     skip-open: true
+dashboard:
+  columns: ["timestamp", "dot", "pod"]
 `
 
 var invalidCLIConfig = `
@@ -60,6 +62,7 @@ func TestDefaultCLIConfig(t *testing.T) {
 	assert.Equal(t, "localhost", cfg.Commands.Serve.Host)
 	assert.Equal(t, false, cfg.Commands.Serve.SkipOpen)
 	assert.Equal(t, "", cfg.General.KubeconfigPath)
+	assert.Equal(t, []string{"timestamp", "dot"}, cfg.Dashboard.Columns)
 }
 
 func TestNewCLIConfigSuccess(t *testing.T) {
@@ -80,6 +83,7 @@ func TestNewCLIConfigSuccess(t *testing.T) {
 		assert.Equal(t, 8080, cfg.Commands.Serve.Port)
 		assert.Equal(t, "0.0.0.0", cfg.Commands.Serve.Host)
 		assert.Equal(t, true, cfg.Commands.Serve.SkipOpen)
+		assert.Equal(t, []string{"timestamp", "dot", "pod"}, cfg.Dashboard.Columns)
 	})
 
 	t.Run("with viper override", func(t *testing.T) {

@@ -15,5 +15,8 @@
       "port": 7500,
       "skip-open": false
     }
+  },
+  "dashboard": {
+    "columns": ["timestamp", "dot"]
   }
 }

@@ -54,6 +54,11 @@ type Config struct {
 			SkipOpen bool   `mapstructure:"skip-open"`
 		} `mapstructure:"serve"`
 	} `mapstructure:"commands"`
+
+	// Dashboard settings for the web UI
+	Dashboard struct {
+		Columns []string `mapstructure:"columns"`
+	} `mapstructure:"dashboard"`
 }
 
 // Validate config
@@ -74,6 +79,8 @@ func DefaultCLIConfig() *Config {
 	cfg.Commands.Serve.SkipOpen = false
 
 	cfg.General.KubeconfigPath = ""
+
+	cfg.Dashboard.Columns = []string{"timestamp", "dot"}
 
 	return cfg
 }

@@ -99,3 +99,19 @@ commands:
     # Default value: false
     #
     skip-open: false
+
+## dashboard ##
+#
+# Settings for the web dashboard UI
+#
+dashboard:
+
+  ## columns ##
+  #
+  # The default columns to show when displaying log records.
+  #
+  # Default value: ["timestamp", "dot"]
+  #
+  columns:
+    - timestamp
+    - dot

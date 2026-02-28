@@ -33,3 +33,7 @@ port = 7500
 
 # If true, don't automatically open browser when server starts
 skip-open = false
+
+[dashboard]
+# The default columns to show when displaying log records.
+columns = ["timestamp", "dot"]
