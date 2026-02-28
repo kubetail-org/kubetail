@@ -14,10 +14,11 @@
 
 import { atom } from 'jotai';
 
+import appConfig from '@/app-config';
 import { MapSet } from '@/lib/util';
 import type { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 
-import { ViewerColumn } from './shared';
+import { ViewerColumn, configColumnsToViewerColumns } from './shared';
 
 /**
  * UI state
@@ -27,7 +28,9 @@ export const isFollowAtom = atom(true);
 
 export const isWrapAtom = atom(false);
 
-export const visibleColsAtom = atom(new Set([ViewerColumn.Timestamp, ViewerColumn.ColorDot, ViewerColumn.Message]));
+export const visibleColsAtom = atom(
+  new Set([...configColumnsToViewerColumns(appConfig.columns), ViewerColumn.Message]),
+);
 
 export const filtersAtom = atom(new MapSet<string, string>());
 

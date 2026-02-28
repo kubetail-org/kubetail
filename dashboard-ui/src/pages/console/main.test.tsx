@@ -125,7 +125,8 @@ describe('Main', () => {
         </TestWrapper>,
       );
 
-      expect(screen.queryByText('Pod/Container')).not.toBeInTheDocument();
+      expect(screen.queryByText('Pod')).not.toBeInTheDocument();
+      expect(screen.queryByText('Container')).not.toBeInTheDocument();
       expect(screen.queryByText('Region')).not.toBeInTheDocument();
       expect(screen.queryByText('Node')).not.toBeInTheDocument();
     });
@@ -141,7 +142,8 @@ describe('Main', () => {
       );
 
       expect(screen.getByText('Timestamp')).toBeInTheDocument();
-      expect(screen.getByText('Pod/Container')).toBeInTheDocument();
+      expect(screen.getByText('Pod')).toBeInTheDocument();
+      expect(screen.getByText('Container')).toBeInTheDocument();
       expect(screen.getByText('Region')).toBeInTheDocument();
       expect(screen.getByText('Zone')).toBeInTheDocument();
       expect(screen.getByText('OS')).toBeInTheDocument();

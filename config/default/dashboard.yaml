@@ -267,7 +267,7 @@ ui:
   ## columns ##
   #
   # The default columns to display in the log viewer.
-  # Valid values: timestamp, dot, pod-container, region, zone, os, arch, node
+  # Valid values: timestamp, dot, pod, container, region, zone, os, arch, node
   # Note: The "message" column is always included automatically.
   #
   # Default value: ["timestamp", "dot"]
