@@ -39,7 +39,8 @@ export const PageContext = createContext({} as PageContextType);
 export enum ViewerColumn {
   Timestamp = 'Timestamp',
   ColorDot = 'Color Dot',
-  PodContainer = 'Pod/Container',
+  Pod = 'Pod',
+  Container = 'Container',
   Region = 'Region',
   Zone = 'Zone',
   OS = 'OS',
@@ -51,7 +52,8 @@ export enum ViewerColumn {
 export const ALL_VIEWER_COLUMNS = [
   ViewerColumn.Timestamp,
   ViewerColumn.ColorDot,
-  ViewerColumn.PodContainer,
+  ViewerColumn.Pod,
+  ViewerColumn.Container,
   ViewerColumn.Region,
   ViewerColumn.Zone,
   ViewerColumn.OS,
@@ -59,3 +61,23 @@ export const ALL_VIEWER_COLUMNS = [
   ViewerColumn.Node,
   ViewerColumn.Message,
 ];
+
+const CONFIG_KEY_TO_VIEWER_COLUMN: Record<string, ViewerColumn> = {
+  timestamp: ViewerColumn.Timestamp,
+  dot: ViewerColumn.ColorDot,
+  pod: ViewerColumn.Pod,
+  container: ViewerColumn.Container,
+  region: ViewerColumn.Region,
+  zone: ViewerColumn.Zone,
+  os: ViewerColumn.OS,
+  arch: ViewerColumn.Arch,
+  node: ViewerColumn.Node,
+};
+
+export function configColumnsToViewerColumns(configColumns: string[]): ViewerColumn[] {
+  return configColumns.reduce<ViewerColumn[]>((cols, key) => {
+    const col = CONFIG_KEY_TO_VIEWER_COLUMN[key];
+    if (col) cols.push(col);
+    return cols;
+  }, []);
+}

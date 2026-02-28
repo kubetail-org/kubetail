@@ -351,8 +351,10 @@ const getAttribute = (record: LogRecord, col: ViewerColumn) => {
       const el = <div className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: `var(--${k}-color)` }} />;
       return el;
     }
-    case ViewerColumn.PodContainer:
-      return `${record.source.podName}/${record.source.containerName}`;
+    case ViewerColumn.Pod:
+      return record.source.podName;
+    case ViewerColumn.Container:
+      return record.source.containerName;
     case ViewerColumn.Region:
       return record.source.metadata.region;
     case ViewerColumn.Zone:

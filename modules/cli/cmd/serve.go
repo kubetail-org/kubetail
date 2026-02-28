@@ -252,6 +252,9 @@ func loadServerConfig(cmd *cobra.Command) (*dashcfg.Config, *serveOptions, error
 		dashCfg.Environment = sharedcfg.EnvironmentCluster
 	}
 	dashCfg.Logging.AccessLog.Enabled = false
+	if len(cfg.Dashboard.Columns) > 0 {
+		dashCfg.UI.Columns = cfg.Dashboard.Columns
+	}
 
 	serveOptions := &serveOptions{
 		port:     cfg.Commands.Serve.Port,
