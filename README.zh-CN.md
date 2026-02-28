@@ -116,29 +116,29 @@ curl -sS https://www.kubetail.com/install.sh | bash
 
 下面是一些使用 `kubetail` 的方式:
 
-1. 使用 [`serve`](https://www.kubetail.com/docs/cli/commands/serve) 命令启动 Web 仪表板（将会在 [http://localhost:7500](http://localhost:7500) 打开）:
+**1. 启动 Web 仪表板（GUI）**
 
-    ```console
-    kubetail serve
-    ```
+```console
+kubetail serve
+```
 
-2. 使用 [`logs`](https://www.kubetail.com/docs/cli/commands/logs) 命令在终端中查看日志:
+**2. 在终端中查看日志**
 
-    ```console
-    kubetail logs -f deployments/my-app
-    ```
+```console
+kubetail logs -f deployments/my-app
+```
 
-3. 使用 [`cluster`](https://www.kubetail.com/docs/cli/commands/cluster) 命令安装集群资源（例如启用搜索）:
+**3. 启用高级功能（安装 Kubetail API）**
 
-    ```console
-    kubetail cluster install
-    ```
+```console
+kubetail cluster install
+```
 
-4. 使用 [`config`](https://www.kubetail.com/docs/cli/commands/config) 命令初始化本地配置文件（位于 `~/.kubetail/config.yaml`）:
+**4. 初始化本地配置文件**
 
-    ```console
-    kubetail config init
-    ```
+```console
+kubetail config init
+```
 
 完整的[命令列表](https://www.kubetail.com/docs/cli#subcommands)请参阅文档。祝你 tail 日志愉快。
 
