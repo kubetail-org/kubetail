@@ -95,7 +95,8 @@ type Config struct {
 
 	// UI options
 	UI struct {
-		ClusterAPIEnabled bool `mapstructure:"cluster-api-enabled"`
+		ClusterAPIEnabled bool     `mapstructure:"cluster-api-enabled"`
+		Columns           []string `mapstructure:"columns"`
 	}
 }
 
@@ -133,6 +134,7 @@ func DefaultConfig() *Config {
 	cfg.TLS.CertFile = ""
 	cfg.TLS.KeyFile = ""
 	cfg.UI.ClusterAPIEnabled = true
+	cfg.UI.Columns = []string{"timestamp", "dot"}
 
 	return cfg
 }
