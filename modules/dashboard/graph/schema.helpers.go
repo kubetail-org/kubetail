@@ -27,6 +27,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/sosodev/duration"
+	"helm.sh/helm/v3/pkg/release"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -44,6 +45,11 @@ import (
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
 )
+
+// helmReleaseGetter is an interface for getting a Helm release by name and namespace.
+type helmReleaseGetter interface {
+	GetRelease(namespace, releaseName string) (*release.Release, error)
+}
 
 // Represents response from fetchListResource()
 type FetchResponse struct {

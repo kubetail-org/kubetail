@@ -519,6 +519,14 @@ enum HealthCheckStatus {
   NOTFOUND
 }
 
+# --- Version Status ---
+
+type VersionStatus {
+  currentVersion: String!
+  latestVersion: String!
+  updateAvailable: Boolean!
+}
+
 # --- Helm ---
 
 type HelmChart {
@@ -788,6 +796,12 @@ type Query {
   Helm
   """
   helmListReleases(kubeContext: String): [HelmRelease!]!
+
+  """
+  Version status
+  """
+  cliVersionStatus: VersionStatus
+  clusterVersionStatus(kubeContext: String): VersionStatus
 
   """
   KubeConfig queries

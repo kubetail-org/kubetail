@@ -7,10 +7,12 @@ package graph
 import (
 	"context"
 	"fmt"
+	"os"
 	"slices"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
+	"github.com/Masterminds/semver/v3"
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	gqlerrors "github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
@@ -541,6 +543,87 @@ func (r *queryResolver) HelmListReleases(ctx context.Context, kubeContext *strin
 	}
 
 	return releases, nil
+}
+
+// CliVersionStatus is the resolver for the cliVersionStatus field.
+func (r *queryResolver) CliVersionStatus(ctx context.Context) (*model.VersionStatus, error) {
+	// Skip if not in desktop environment
+	if r.environment != sharedcfg.EnvironmentDesktop {
+		return nil, nil
+	}
+
+	// Skip if CLI version is unknown
+	if r.cfg.CLIVersion == "" || r.cfg.CLIVersion == "dev" {
+		return nil, nil
+	}
+
+	latestInfo, err := r.versionChecker.GetLatestCLIVersion()
+	if err != nil {
+		zlog.Warn().Err(err).Msg("Failed to check latest CLI version")
+		return nil, nil
+	}
+
+	currentSemver, err := semver.NewVersion(r.cfg.CLIVersion)
+	if err != nil {
+		return nil, nil
+	}
+
+	latestSemver, err := semver.NewVersion(latestInfo.Version)
+	if err != nil {
+		return nil, nil
+	}
+
+	return &model.VersionStatus{
+		CurrentVersion:  r.cfg.CLIVersion,
+		LatestVersion:   latestInfo.Version,
+		UpdateAvailable: latestSemver.GreaterThan(currentSemver),
+	}, nil
+}
+
+// ClusterVersionStatus is the resolver for the clusterVersionStatus field.
+func (r *queryResolver) ClusterVersionStatus(ctx context.Context, kubeContext *string) (*model.VersionStatus, error) {
+	var currentVersion string
+
+	if r.environment == sharedcfg.EnvironmentDesktop {
+		// Desktop mode: get the kubetail release from kubetail-system namespace
+		rel, err := r.helmReleaseGetter.GetRelease(helm.DefaultNamespace, helm.DefaultReleaseName)
+		if err != nil || rel == nil {
+			return nil, nil
+		}
+
+		if rel.Chart != nil && rel.Chart.Metadata != nil {
+			currentVersion = rel.Chart.Metadata.Version
+		}
+	} else {
+		// Cluster mode: read chart version from environment variable
+		currentVersion = os.Getenv("KUBETAIL_CHART_VERSION")
+	}
+
+	if currentVersion == "" {
+		return nil, nil
+	}
+
+	latestInfo, err := r.versionChecker.GetLatestHelmChartVersion()
+	if err != nil {
+		zlog.Warn().Err(err).Msg("Failed to check latest Helm chart version")
+		return nil, nil
+	}
+
+	currentSemver, err := semver.NewVersion(currentVersion)
+	if err != nil {
+		return nil, nil
+	}
+
+	latestSemver, err := semver.NewVersion(latestInfo.Version)
+	if err != nil {
+		return nil, nil
+	}
+
+	return &model.VersionStatus{
+		CurrentVersion:  currentVersion,
+		LatestVersion:   latestInfo.Version,
+		UpdateAvailable: latestSemver.GreaterThan(currentSemver),
+	}, nil
 }
 
 // KubeConfigGet is the resolver for the kubeConfigGet field.

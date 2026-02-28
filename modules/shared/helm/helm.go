@@ -166,6 +166,22 @@ func (c *Client) UninstallRelease(namespace, releaseName string) (*release.Unins
 	return response, nil
 }
 
+// GetRelease gets a specific release by name in the given namespace.
+func (c *Client) GetRelease(namespace, releaseName string) (*release.Release, error) {
+	actionConfig, err := c.newActionConfig(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	get := action.NewGet(actionConfig)
+	rel, err := get.Run(releaseName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get release '%s' in namespace '%s': %w", releaseName, namespace, err)
+	}
+
+	return rel, nil
+}
+
 // ListReleases lists all releases across all namespaces.
 func (c *Client) ListReleases() ([]*release.Release, error) {
 	// Init action config
