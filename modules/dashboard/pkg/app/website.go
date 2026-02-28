@@ -74,6 +74,7 @@ func (app *websiteHandlers) EndpointHandler(cfg *config.Config) gin.HandlerFunc 
 		"environment":        cfg.Environment,
 		"clusterAPIEnabled":  cfg.UI.ClusterAPIEnabled,
 		"clusterAPIEndpoint": cfg.ClusterAPIEndpoint,
+		"columns":            cfg.UI.Columns,
 	}
 
 	runtimeConfigBytes, err := json.Marshal(runtimeConfig)
