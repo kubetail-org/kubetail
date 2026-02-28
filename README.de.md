@@ -116,29 +116,29 @@ curl -sS https://www.kubetail.com/install.sh | bash
 
 Hier sind einige Möglichkeiten, `kubetail` zu verwenden:
 
-1. Starte das Web-Dashboard mit dem Befehl [`serve`](https://www.kubetail.com/docs/cli/commands/serve) (wird unter [http://localhost:7500](http://localhost:7500) geöffnet):
+**1. Starte das Web-Dashboard (GUI)**
 
-    ```console
-    kubetail serve
-    ```
+```console
+kubetail serve
+```
 
-2. Zeige Logs im Terminal mit dem Befehl [`logs`](https://www.kubetail.com/docs/cli/commands/logs) an:
+**2. Zeige Logs im Terminal an**
 
-    ```console
-    kubetail logs -f deployments/my-app
-    ```
+```console
+kubetail logs -f deployments/my-app
+```
 
-3. Installiere Cluster-Ressourcen mit dem Befehl [`cluster`](https://www.kubetail.com/docs/cli/commands/cluster) (z. B. um die Suche zu aktivieren):
+**3. Aktiviere erweiterte Funktionen (durch Installation der Kubetail API)**
 
-    ```console
-    kubetail cluster install
-    ```
+```console
+kubetail cluster install
+```
 
-4. Initialisiere eine lokale Konfigurationsdatei mit dem Befehl [`config`](https://www.kubetail.com/docs/cli/commands/config) (unter `~/.kubetail/config.yaml`):
+**4. Initialisiere eine lokale Konfigurationsdatei**
 
-    ```console
-    kubetail config init
-    ```
+```console
+kubetail config init
+```
 
 In der Dokumentation findest du die vollständige Liste der [commands](https://www.kubetail.com/docs/cli#subcommands). Viel Spaß beim Tailing deiner Logs.
 

@@ -116,29 +116,29 @@ curl -sS https://www.kubetail.com/install.sh | bash
 
 `kubetail` の利用例をいくつか紹介します:
 
-1. [`serve`](https://www.kubetail.com/docs/cli/commands/serve) コマンドで Web ダッシュボードを起動する（[http://localhost:7500](http://localhost:7500) で開きます）:
+**1. Web ダッシュボードを起動する（GUI）**
 
-    ```console
-    kubetail serve
-    ```
+```console
+kubetail serve
+```
 
-2. [`logs`](https://www.kubetail.com/docs/cli/commands/logs) コマンドでターミナルにログを表示する:
+**2. ターミナルでログを表示する**
 
-    ```console
-    kubetail logs -f deployments/my-app
-    ```
+```console
+kubetail logs -f deployments/my-app
+```
 
-3. [`cluster`](https://www.kubetail.com/docs/cli/commands/cluster) コマンドでクラスターリソースをインストールする（例: 検索機能を有効化）:
+**3. 高度な機能を有効にする（Kubetail API をインストール）**
 
-    ```console
-    kubetail cluster install
-    ```
+```console
+kubetail cluster install
+```
 
-4. [`config`](https://www.kubetail.com/docs/cli/commands/config) コマンドでローカル設定ファイルを初期化する（`~/.kubetail/config.yaml` に作成されます）:
+**4. ローカル設定ファイルを初期化する**
 
-    ```console
-    kubetail config init
-    ```
+```console
+kubetail config init
+```
 
 [commands](https://www.kubetail.com/docs/cli#subcommands) の一覧はドキュメントを参照してください。ログの tail を楽しんでください。
 

@@ -116,29 +116,29 @@ curl -sS https://www.kubetail.com/install.sh | bash
 
 `kubetail`을 사용하는 몇 가지 방법은 다음과 같습니다:
 
-1. [`serve`](https://www.kubetail.com/docs/cli/commands/serve) 명령으로 웹 대시보드를 시작합니다([http://localhost:7500](http://localhost:7500) 에서 열림):
+**1. 웹 대시보드 시작하기 (GUI)**
 
-    ```console
-    kubetail serve
-    ```
+```console
+kubetail serve
+```
 
-2. [`logs`](https://www.kubetail.com/docs/cli/commands/logs) 명령으로 터미널에서 로그를 봅니다:
+**2. 터미널에서 로그 보기**
 
-    ```console
-    kubetail logs -f deployments/my-app
-    ```
+```console
+kubetail logs -f deployments/my-app
+```
 
-3. [`cluster`](https://www.kubetail.com/docs/cli/commands/cluster) 명령으로 클러스터 리소스를 설치합니다(예: 검색 활성화):
+**3. 고급 기능 활성화하기 (Kubetail API 설치)**
 
-    ```console
-    kubetail cluster install
-    ```
+```console
+kubetail cluster install
+```
 
-4. [`config`](https://www.kubetail.com/docs/cli/commands/config) 명령으로 로컬 설정 파일을 초기화합니다(`~/.kubetail/config.yaml`):
+**4. 로컬 설정 파일 초기화하기**
 
-    ```console
-    kubetail config init
-    ```
+```console
+kubetail config init
+```
 
 전체 [commands](https://www.kubetail.com/docs/cli#subcommands) 목록은 문서를 확인하세요. 즐겁게 로그를 tail 하세요.
 

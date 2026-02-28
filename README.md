@@ -116,29 +116,29 @@ curl -sS https://www.kubetail.com/install.sh | bash
 
 Here are some ways to use `kubetail`:
 
-1. Start the web dashboard using the [`serve`](https://www.kubetail.com/docs/cli/commands/serve) command (will open at [http://localhost:7500](http://localhost:7500)):
+**1. Start the web dashboard (GUI)**
 
-    ```console
-    kubetail serve
-    ```
+```console
+kubetail serve
+```
 
-2. View logs in your terminal using the [`logs`](https://www.kubetail.com/docs/cli/commands/logs) command:
+**2. View logs in your terminal**
 
-    ```console
-    kubetail logs -f deployments/my-app
-    ```
+```console
+kubetail logs -f deployments/my-app
+```
 
-3. Install cluster resources using the [`cluster`](https://www.kubetail.com/docs/cli/commands/cluster) command (e.g. to enable search)
+**3. Enable advanced features (by installing Kubetail API)**
 
-    ```console
-    kubetail cluster install
-    ```
+```console
+kubetail cluster install
+```
 
-4. Initialize a local config file using the [`config`](https://www.kubetail.com/docs/cli/commands/config) command (at `~/.kubetail/config.yaml`)
+**4. Initialize a local config file**
 
-    ```console
-    kubetail config init
-    ```
+```console
+kubetail config init
+```
 
 See the documentation for a full list of [commands](https://www.kubetail.com/docs/cli#subcommands). Have fun tailing your logs!
 
