@@ -19,7 +19,6 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/helm"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
-	"github.com/kubetail-org/kubetail/modules/shared/versioncheck"
 	zlog "github.com/rs/zerolog/log"
 	"helm.sh/helm/v3/pkg/release"
 	appsv1 "k8s.io/api/apps/v1"
@@ -31,18 +30,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/utils/ptr"
 )
-
-var newVersionChecker = func() versioncheck.Checker {
-	return versioncheck.NewChecker()
-}
-
-type helmListClient interface {
-	ListReleases() ([]*release.Release, error)
-}
-
-var newHelmListClient = func(opts ...helm.ClientOption) helmListClient {
-	return helm.NewClient(opts...)
-}
 
 // Object is the resolver for the object field.
 func (r *appsV1DaemonSetsWatchEventResolver) Object(ctx context.Context, obj *watch.Event) (*appsv1.DaemonSet, error) {
@@ -570,8 +557,7 @@ func (r *queryResolver) CliVersionStatus(ctx context.Context) (*model.VersionSta
 		return nil, nil
 	}
 
-	vc := newVersionChecker()
-	latestInfo, err := vc.GetLatestCLIVersion()
+	latestInfo, err := r.versionChecker.GetLatestCLIVersion()
 	if err != nil {
 		zlog.Warn().Err(err).Msg("Failed to check latest CLI version")
 		return nil, nil
@@ -599,34 +585,14 @@ func (r *queryResolver) ClusterVersionStatus(ctx context.Context, kubeContext *s
 	var currentVersion string
 
 	if r.environment == sharedcfg.EnvironmentDesktop {
-		// Desktop mode: read chart version from Helm release in the cluster
-		kubeContextVal := r.cm.DerefKubeContext(kubeContext)
-
-		client := newHelmListClient(
-			helm.WithKubeconfigPath(r.cfg.KubeconfigPath),
-			helm.WithKubeContext(kubeContextVal),
-		)
-
-		releases, err := client.ListReleases()
-		if err != nil || len(releases) == 0 {
-			// Helm not installed in this context — skip version check
+		// Desktop mode: get the kubetail release from kubetail-system namespace
+		rel, err := r.helmReleaseGetter.GetRelease(helm.DefaultNamespace, helm.DefaultReleaseName)
+		if err != nil || rel == nil {
 			return nil, nil
 		}
 
-		// Pick the release with the highest chart version
-		var highestSemver *semver.Version
-		for _, rel := range releases {
-			if rel.Chart == nil || rel.Chart.Metadata == nil {
-				continue
-			}
-			v, err := semver.NewVersion(rel.Chart.Metadata.Version)
-			if err != nil {
-				continue
-			}
-			if highestSemver == nil || v.GreaterThan(highestSemver) {
-				highestSemver = v
-				currentVersion = rel.Chart.Metadata.Version
-			}
+		if rel.Chart != nil && rel.Chart.Metadata != nil {
+			currentVersion = rel.Chart.Metadata.Version
 		}
 	} else {
 		// Cluster mode: read chart version from environment variable
@@ -637,8 +603,7 @@ func (r *queryResolver) ClusterVersionStatus(ctx context.Context, kubeContext *s
 		return nil, nil
 	}
 
-	vc := newVersionChecker()
-	latestInfo, err := vc.GetLatestHelmChartVersion()
+	latestInfo, err := r.versionChecker.GetLatestHelmChartVersion()
 	if err != nil {
 		zlog.Warn().Err(err).Msg("Failed to check latest Helm chart version")
 		return nil, nil

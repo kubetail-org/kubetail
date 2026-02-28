@@ -27,7 +27,6 @@ import (
 
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
-	"github.com/kubetail-org/kubetail/modules/shared/helm"
 	k8shelpersmock "github.com/kubetail-org/kubetail/modules/shared/k8shelpers/mock"
 	"github.com/kubetail-org/kubetail/modules/shared/versioncheck"
 	vcmock "github.com/kubetail-org/kubetail/modules/shared/versioncheck/mock"
@@ -35,25 +34,14 @@ import (
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 )
 
-func mockVersionChecker(t *testing.T, vc versioncheck.Checker) {
-	orig := newVersionChecker
-	newVersionChecker = func() versioncheck.Checker { return vc }
-	t.Cleanup(func() { newVersionChecker = orig })
+// mockHelmReleaseGetter implements helmReleaseGetter for testing.
+type mockHelmReleaseGetter struct {
+	release *release.Release
+	err     error
 }
 
-type mockHelmListClientImpl struct {
-	releases []*release.Release
-	err      error
-}
-
-func (m *mockHelmListClientImpl) ListReleases() ([]*release.Release, error) {
-	return m.releases, m.err
-}
-
-func mockHelmListClientFn(t *testing.T, client helmListClient) {
-	orig := newHelmListClient
-	newHelmListClient = func(opts ...helm.ClientOption) helmListClient { return client }
-	t.Cleanup(func() { newHelmListClient = orig })
+func (m *mockHelmReleaseGetter) GetRelease(namespace, releaseName string) (*release.Release, error) {
+	return m.release, m.err
 }
 
 func makeRelease(name, version string) *release.Release {
@@ -282,11 +270,11 @@ func TestCliVersionStatus(t *testing.T) {
 			} else if tt.latestVersion != "" {
 				vc.On("GetLatestCLIVersion").Return(&versioncheck.VersionInfo{Version: tt.latestVersion}, nil)
 			}
-			mockVersionChecker(t, vc)
 
 			r := &queryResolver{&Resolver{
-				cfg:         &config.Config{CLIVersion: tt.cliVersion},
-				environment: tt.environment,
+				cfg:            &config.Config{CLIVersion: tt.cliVersion},
+				environment:    tt.environment,
+				versionChecker: vc,
 			}}
 
 			result, err := r.CliVersionStatus(context.Background())
@@ -357,11 +345,11 @@ func TestClusterVersionStatus_ClusterMode(t *testing.T) {
 			} else if tt.latestVersion != "" {
 				vc.On("GetLatestHelmChartVersion").Return(&versioncheck.VersionInfo{Version: tt.latestVersion}, nil)
 			}
-			mockVersionChecker(t, vc)
 
 			r := &queryResolver{&Resolver{
-				cfg:         &config.Config{},
-				environment: sharedcfg.EnvironmentCluster,
+				cfg:            &config.Config{},
+				environment:    sharedcfg.EnvironmentCluster,
+				versionChecker: vc,
 			}}
 
 			result, err := r.ClusterVersionStatus(context.Background(), nil)
@@ -382,8 +370,8 @@ func TestClusterVersionStatus_ClusterMode(t *testing.T) {
 func TestClusterVersionStatus_DesktopMode(t *testing.T) {
 	tests := []struct {
 		name                string
-		releases            []*release.Release
-		listErr             error
+		release             *release.Release
+		getErr              error
 		latestVersion       string
 		checkerErr          error
 		expectedNil         bool
@@ -392,58 +380,33 @@ func TestClusterVersionStatus_DesktopMode(t *testing.T) {
 		expectedUpdateAvail bool
 	}{
 		{
-			name: "single release update available",
-			releases: []*release.Release{
-				makeRelease("kubetail", "0.9.0"),
-			},
+			name:                "update available",
+			release:             makeRelease("kubetail", "0.9.0"),
 			latestVersion:       "0.10.0",
 			expectedCurrent:     "0.9.0",
 			expectedLatest:      "0.10.0",
 			expectedUpdateAvail: true,
 		},
 		{
-			name: "single release up to date",
-			releases: []*release.Release{
-				makeRelease("kubetail", "0.10.0"),
-			},
+			name:                "up to date",
+			release:             makeRelease("kubetail", "0.10.0"),
 			latestVersion:       "0.10.0",
 			expectedCurrent:     "0.10.0",
 			expectedLatest:      "0.10.0",
 			expectedUpdateAvail: false,
 		},
 		{
-			name: "multiple releases picks highest version",
-			releases: []*release.Release{
-				makeRelease("kubetail", "0.9.0"),
-				makeRelease("kubetail-staging", "0.11.0"),
-				makeRelease("kubetail-old", "0.8.0"),
-			},
-			latestVersion:       "0.12.0",
-			expectedCurrent:     "0.11.0",
-			expectedLatest:      "0.12.0",
-			expectedUpdateAvail: true,
-		},
-		{
-			name: "multiple releases highest is up to date",
-			releases: []*release.Release{
-				makeRelease("kubetail", "0.9.0"),
-				makeRelease("kubetail-other", "0.12.0"),
-			},
-			latestVersion:       "0.12.0",
-			expectedCurrent:     "0.12.0",
-			expectedLatest:      "0.12.0",
-			expectedUpdateAvail: false,
-		},
-		{
-			name:        "list releases error returns nil",
-			listErr:     fmt.Errorf("connection refused"),
+			name:        "release not found returns nil",
+			getErr:      fmt.Errorf("release not found"),
 			expectedNil: true,
 		},
 		{
-			name: "version checker error returns nil",
-			releases: []*release.Release{
-				makeRelease("kubetail", "0.9.0"),
-			},
+			name:        "nil release returns nil",
+			expectedNil: true,
+		},
+		{
+			name:        "version checker error returns nil",
+			release:     makeRelease("kubetail", "0.9.0"),
 			checkerErr:  fmt.Errorf("network error"),
 			expectedNil: true,
 		},
@@ -451,26 +414,21 @@ func TestClusterVersionStatus_DesktopMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cm := &k8shelpersmock.MockConnectionManager{}
-			cm.On("DerefKubeContext", mock.Anything).Return("")
-
-			mockHelmListClientFn(t, &mockHelmListClientImpl{
-				releases: tt.releases,
-				err:      tt.listErr,
-			})
-
 			vc := &vcmock.MockChecker{}
 			if tt.checkerErr != nil {
 				vc.On("GetLatestHelmChartVersion").Return(nil, tt.checkerErr)
 			} else if tt.latestVersion != "" {
 				vc.On("GetLatestHelmChartVersion").Return(&versioncheck.VersionInfo{Version: tt.latestVersion}, nil)
 			}
-			mockVersionChecker(t, vc)
 
 			r := &queryResolver{&Resolver{
-				cfg:         &config.Config{},
-				cm:          cm,
-				environment: sharedcfg.EnvironmentDesktop,
+				cfg:            &config.Config{},
+				environment:    sharedcfg.EnvironmentDesktop,
+				versionChecker: vc,
+				helmReleaseGetter: &mockHelmReleaseGetter{
+					release: tt.release,
+					err:     tt.getErr,
+				},
 			}}
 
 			result, err := r.ClusterVersionStatus(context.Background(), nil)
