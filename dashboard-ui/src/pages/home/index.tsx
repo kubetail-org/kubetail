@@ -363,20 +363,20 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
 
   const handleSingleCheckboxChange = useCallback(
     (id: string) => {
-      // update individual
-      const newValue = !isChecked.get(id);
-      const newIsChecked = new Map(isChecked);
-      newIsChecked.set(id, newValue);
-      setIsChecked(newIsChecked);
+      setIsChecked((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(id, !prev.get(id));
 
-      // update selectAll based on all current items
-      const allItemsChecked = itemIDs.every((itemID) => newIsChecked.get(itemID) || false);
-      const someItemsUnchecked = itemIDs.some((itemID) => !newIsChecked.get(itemID));
+        // update selectAll based on all current items
+        const allItemsChecked = itemIDs.every((itemID) => newMap.get(itemID) || false);
+        const someItemsUnchecked = itemIDs.some((itemID) => !newMap.get(itemID));
+        if (allItemsChecked) setSelectAll(true);
+        if (someItemsUnchecked) setSelectAll(false);
 
-      if (allItemsChecked) setSelectAll(true);
-      if (someItemsUnchecked) setSelectAll(false);
+        return newMap;
+      });
     },
-    [itemIDs, isChecked, setSelectAll, setIsChecked],
+    [itemIDs, setSelectAll, setIsChecked],
   );
 
   const meta = useMemo(
