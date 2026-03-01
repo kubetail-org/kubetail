@@ -151,6 +151,21 @@ describe('Main', () => {
       expect(screen.getByText('Node')).toBeInTheDocument();
       expect(screen.getByText('Message')).toBeInTheDocument();
     });
+
+    it('renders columns in the order they appear in visibleColsAtom', () => {
+      const store = createStore();
+      // Pod before Timestamp — reversed from ALL_VIEWER_COLUMNS order
+      store.set(visibleColsAtom, new Set([ViewerColumn.Pod, ViewerColumn.Timestamp, ViewerColumn.Message]));
+
+      render(
+        <TestWrapper store={store}>
+          <Main />
+        </TestWrapper>,
+      );
+
+      const colIds = [...document.querySelectorAll('[data-col-id]')].map((el) => el.getAttribute('data-col-id'));
+      expect(colIds).toEqual([ViewerColumn.Pod, ViewerColumn.Timestamp, ViewerColumn.Message]);
+    });
   });
 
   describe('LogViewer integration', () => {
