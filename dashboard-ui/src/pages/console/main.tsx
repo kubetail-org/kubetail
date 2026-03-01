@@ -93,6 +93,7 @@ function newDefaultWidths() {
 
 function useMeasureWidths() {
   const [widths, setWidths] = useState(newDefaultWidths);
+  const [triggerID, setTriggerID] = useState(0);
 
   const pendingRef = useRef(null) as unknown as React.RefObject<typeof widths>;
   if (!pendingRef.current) pendingRef.current = newDefaultWidths();
@@ -134,7 +135,7 @@ function useMeasureWidths() {
         flush();
       }
     },
-    [flush],
+    [flush, triggerID],
   );
 
   const measureCellElement = useCallback(
@@ -151,7 +152,7 @@ function useMeasureWidths() {
         flush();
       }
     },
-    [flush],
+    [flush, triggerID],
   );
 
   const resetWidths = useCallback(() => {
@@ -162,6 +163,7 @@ function useMeasureWidths() {
     pendingRef.current = newDefaultWidths();
     measuredRef.current = new WeakSet();
     setWidths(newDefaultWidths);
+    setTriggerID((id) => id + 1);
   }, []);
 
   return { widths, measureRowElement, measureCellElement, resetWidths };
