@@ -20,7 +20,8 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { createMockLogViewerHandle } from '@/components/widgets/log-viewer/mock';
 
 import { Header } from './header';
-import { PageContext } from './shared';
+import { PageContext, ViewerColumn } from './shared';
+import { visibleColsAtom } from './state';
 
 vi.mock('@/components/widgets/log-viewer', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/components/widgets/log-viewer')>();
@@ -92,7 +93,7 @@ const renderHeader = ({
 
   render(<RouterProvider router={router} />);
 
-  return { router, logViewerRef, setIsSidebarOpen };
+  return { router, store, logViewerRef, setIsSidebarOpen };
 };
 
 describe('Header', () => {
@@ -195,5 +196,41 @@ describe('Header', () => {
       const params = new URLSearchParams(router.state.location.search);
       expect(params.get('grep')).toBe('error');
     });
+  });
+
+  it('adds a column before Message when enabled via settings', async () => {
+    const { store } = renderHeader();
+
+    // Open settings popover
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+
+    // Enable the Pod column (not visible by default)
+    const podCheckbox = await screen.findByRole('checkbox', { name: ViewerColumn.Pod });
+    fireEvent.click(podCheckbox);
+
+    // Message must be last in the visible columns set
+    const cols = [...store.get(visibleColsAtom)];
+    expect(cols[cols.length - 1]).toBe(ViewerColumn.Message);
+  });
+
+  it('keeps columns in ALL_VIEWER_COLUMNS order regardless of click order', async () => {
+    const { store } = renderHeader();
+
+    // Open settings popover
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+
+    // Enable Node first, then Pod (reverse of ALL_VIEWER_COLUMNS order)
+    fireEvent.click(await screen.findByRole('checkbox', { name: ViewerColumn.Node }));
+    fireEvent.click(screen.getByRole('checkbox', { name: ViewerColumn.Pod }));
+
+    // Columns must follow ALL_VIEWER_COLUMNS order: Timestamp, ColorDot, Pod, Node, Message
+    const cols = [...store.get(visibleColsAtom)];
+    expect(cols).toEqual([
+      ViewerColumn.Timestamp,
+      ViewerColumn.ColorDot,
+      ViewerColumn.Pod,
+      ViewerColumn.Node,
+      ViewerColumn.Message,
+    ]);
   });
 });

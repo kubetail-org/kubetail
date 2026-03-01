@@ -36,8 +36,7 @@ import type { DateRangeDropdownOnChangeArgs } from '@/components/widgets/DateRan
 import { useLogViewerState } from '@/components/widgets/log-viewer';
 import { cn } from '@/lib/util';
 
-import { ALL_VIEWER_COLUMNS, PageContext } from './shared';
-import type { ViewerColumn } from './shared';
+import { ALL_VIEWER_COLUMNS, PageContext, ViewerColumn } from './shared';
 import { isFollowAtom, isWrapAtom, visibleColsAtom } from './state';
 
 /**
@@ -53,7 +52,8 @@ const SettingsButton = () => {
       const newSet = new Set(visibleCols);
       if (checked) newSet.add(col);
       else newSet.delete(col);
-      setVisibleCols(newSet);
+      // Re-sort to match ALL_VIEWER_COLUMNS order (Message always last)
+      setVisibleCols(new Set(ALL_VIEWER_COLUMNS.filter((c) => newSet.has(c))));
     },
     [visibleCols, setVisibleCols],
   );
