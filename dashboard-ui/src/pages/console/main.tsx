@@ -25,7 +25,7 @@ import { cn, cssEncode } from '@/lib/util';
 import { LogViewer, useLogViewerState } from '@/components/widgets/log-viewer';
 import type { LogRecord, LogViewerInitialPosition, LogViewerVirtualRow } from '@/components/widgets/log-viewer';
 
-import { ALL_VIEWER_COLUMNS, PageContext, ViewerColumn } from './shared';
+import { PageContext, ViewerColumn } from './shared';
 import { isFollowAtom, isWrapAtom, visibleColsAtom } from './state';
 
 const DEFAULT_INITIAL_POSITION = { type: 'tail' } satisfies LogViewerInitialPosition;
@@ -314,22 +314,19 @@ const HeaderRow = ({
           minWidth: isWrap ? '100%' : maxRowWidth || '100%',
         }}
       >
-        {ALL_VIEWER_COLUMNS.map((col) => {
-          if (visibleCols.has(col)) {
-            const minWidth = isWrap && col === ViewerColumn.Message ? undefined : colWidths.get(col);
-            return (
-              <div
-                key={col}
-                ref={measureCellElement}
-                data-col-id={col}
-                className="whitespace-nowrap uppercase px-2 flex items-center text-xs"
-                style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
-              >
-                {col !== ViewerColumn.ColorDot && col}
-              </div>
-            );
-          }
-          return null;
+        {[...visibleCols].map((col) => {
+          const minWidth = isWrap && col === ViewerColumn.Message ? undefined : colWidths.get(col);
+          return (
+            <div
+              key={col}
+              ref={measureCellElement}
+              data-col-id={col}
+              className="whitespace-nowrap uppercase px-2 flex items-center text-xs"
+              style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
+            >
+              {col !== ViewerColumn.ColorDot && col}
+            </div>
+          );
         })}
       </div>
     </div>
@@ -397,27 +394,25 @@ const RecordRow = memo(
     measureCellElement,
   }: RecordRowProps) => {
     const els: React.ReactElement[] = [];
-    ALL_VIEWER_COLUMNS.forEach((col) => {
-      if (visibleCols.has(col)) {
-        const minWidth = isWrap && col === ViewerColumn.Message ? undefined : colWidths.get(col);
-        const shouldWrap = isWrap && col === ViewerColumn.Message;
-        els.push(
-          <div
-            key={col}
-            ref={measureCellElement}
-            data-col-id={col}
-            className={cn(
-              row.index % 2 !== 0 && 'bg-chrome-100',
-              'px-2',
-              shouldWrap ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-nowrap',
-              col === ViewerColumn.Timestamp ? 'bg-chrome-200' : '',
-            )}
-            style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
-          >
-            {getAttribute(row.record, col)}
-          </div>,
-        );
-      }
+    visibleCols.forEach((col) => {
+      const minWidth = isWrap && col === ViewerColumn.Message ? undefined : colWidths.get(col);
+      const shouldWrap = isWrap && col === ViewerColumn.Message;
+      els.push(
+        <div
+          key={col}
+          ref={measureCellElement}
+          data-col-id={col}
+          className={cn(
+            row.index % 2 !== 0 && 'bg-chrome-100',
+            'px-2',
+            shouldWrap ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-nowrap',
+            col === ViewerColumn.Timestamp ? 'bg-chrome-200' : '',
+          )}
+          style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
+        >
+          {getAttribute(row.record, col)}
+        </div>,
+      );
     });
 
     return (
@@ -476,11 +471,12 @@ export const Main = () => {
   const visibleCols = useAtomValue(visibleColsAtom);
 
   // Generate grid template
-  const gridTemplate = useMemo(() => {
-    const visibleColumns = ALL_VIEWER_COLUMNS.filter((col) => visibleCols.has(col));
-    // Keep natural sizing - let cells determine column width
-    return visibleColumns.map((col) => (col === ViewerColumn.Message ? '1fr' : 'auto')).join(' ');
-  }, [visibleCols]);
+  const gridTemplate = useMemo(
+    () =>
+      // Keep natural sizing - let cells determine column width
+      [...visibleCols].map((col) => (col === ViewerColumn.Message ? '1fr' : 'auto')).join(' '),
+    [visibleCols],
+  );
 
   // Reset column widths when loading new data
   useEffect(() => {
