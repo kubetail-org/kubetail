@@ -12,19 +12,54 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { ArrowUpCircle } from 'lucide-react';
 import { useState } from 'react';
 
 import { Popover, PopoverTrigger, PopoverContent } from '@kubetail/ui/elements/popover';
 
+import appConfig from '@/app-config';
+import { useUpgradeNotification } from '@/lib/upgrade-notifications';
+
 export const NotificationsPopover = ({ children }: React.PropsWithChildren) => {
   const [isOpen, setIsOpen] = useState(false);
+  const { cliStatus, clusterStatus } = useUpgradeNotification(null);
+
+  const hasCliUpdate = appConfig.environment === 'desktop' && cliStatus?.updateAvailable;
+  const hasClusterUpdate = clusterStatus?.updateAvailable;
+  const hasNotifications = hasCliUpdate || hasClusterUpdate;
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverTrigger asChild>
+        <div className="relative">
+          {children}
+          {hasNotifications && <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-blue-500" />}
+        </div>
+      </PopoverTrigger>
       {isOpen && (
         <PopoverContent side="top" className="w-80 mr-1">
-          Notifications
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Notifications</p>
+            {hasNotifications ? (
+              <div className="flex items-start gap-2 rounded border border-blue-200 bg-blue-50 p-2 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100">
+                <ArrowUpCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  {hasCliUpdate && cliStatus && (
+                    <p>
+                      CLI update: {cliStatus.currentVersion} → {cliStatus.latestVersion}
+                    </p>
+                  )}
+                  {hasClusterUpdate && clusterStatus && (
+                    <p>
+                      Helm chart update: {clusterStatus.currentVersion} → {clusterStatus.latestVersion}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No new notifications</p>
+            )}
+          </div>
         </PopoverContent>
       )}
     </Popover>
