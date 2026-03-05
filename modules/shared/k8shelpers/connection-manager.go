@@ -309,7 +309,7 @@ func (cm *DesktopConnectionManager) getOrCreateDynamicClient(kubeContext string)
 
 // Get or create shared informer factory (thread safe)
 func (cm *DesktopConnectionManager) getOrCreateSharedInformerFactory(kubeContext string, namespace string) (informers.SharedInformerFactory, error) {
-	k := factoryCacheKey{kubeContext, namespace}
+	k := factoryCacheKey{kubeContext: kubeContext, namespace: namespace}
 
 	v, _, err := cm.factoryCache.LoadOrCompute(k, func() (informers.SharedInformerFactory, error) {
 		// Get or create clientset

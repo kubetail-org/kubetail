@@ -11,7 +11,7 @@ data:
     allowed-namespaces: []
     kubeconfig: ""
     addr: :8080
-    auth-mode: auto
+    auth-mode: token
     base-path: /
     cluster-api-endpoint: http://kubetail-cluster-api.kubetail-system.svc:8080
     gin-mode: debug
@@ -126,7 +126,6 @@ rules:
       - deployments
       - jobs
       - pods
-      - pods/log
       - replicasets
       - statefulsets
     verbs: [get, list, watch]
@@ -612,3 +611,44 @@ subjects:
   - kind: ServiceAccount
     name: kubetail-cli
     namespace: kubetail-system
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: kubetail-testuser
+  namespace: default
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-testuser
+rules:
+  - apiGroups: [""]
+    resources: [namespaces, nodes]
+    verbs: [get, list, watch]
+  - apiGroups: ["", apps, batch]
+    resources:
+      - cronjobs
+      - daemonsets
+      - deployments
+      - jobs
+      - namespaces
+      - nodes
+      - pods
+      - pods/log
+      - replicasets
+      - statefulsets
+    verbs: [get, list, watch]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubetail-testuser
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubetail-testuser
+subjects:
+  - kind: ServiceAccount
+    name: kubetail-testuser
+    namespace: default

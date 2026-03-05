@@ -1167,7 +1167,12 @@ func (r *subscriptionResolver) LogRecordsFollow(ctx context.Context, kubeContext
 func (r *subscriptionResolver) LogSourcesWatch(ctx context.Context, kubeContext *string, sources []string) (<-chan *model.LogSourceWatchEvent, error) {
 	kubeContextVal := r.cm.DerefKubeContext(kubeContext)
 
-	sw, err := logs.NewSourceWatcher(r.cm, sources, logs.WithKubeContext(kubeContextVal))
+	var token string
+	if tokenValue, ok := ctx.Value(k8shelpers.K8STokenCtxKey).(string); ok {
+		token = tokenValue
+	}
+
+	sw, err := logs.NewSourceWatcher(r.cm, sources, logs.WithKubeContext(kubeContextVal), logs.WithBearerToken(token))
 	if err != nil {
 		return nil, err
 	}
