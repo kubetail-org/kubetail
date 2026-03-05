@@ -731,10 +731,13 @@ export type Query = {
   batchV1CronJobsList?: Maybe<BatchV1CronJobList>;
   batchV1JobsGet?: Maybe<BatchV1Job>;
   batchV1JobsList?: Maybe<BatchV1JobList>;
+  /** Version status */
+  cliVersionStatus?: Maybe<VersionStatus>;
   clusterAPIHealthzGet: HealthCheckResponse;
   /** Cluster API */
   clusterAPIReadyWait: Scalars['Boolean']['output'];
   clusterAPIServicesList?: Maybe<CoreV1ServiceList>;
+  clusterVersionStatus?: Maybe<VersionStatus>;
   /** CoreV1 queries */
   coreV1NamespacesList?: Maybe<CoreV1NamespaceList>;
   coreV1NodesList?: Maybe<CoreV1NodeList>;
@@ -861,6 +864,11 @@ export type QueryClusterApiReadyWaitArgs = {
 export type QueryClusterApiServicesListArgs = {
   kubeContext?: InputMaybe<Scalars['String']['input']>;
   options?: InputMaybe<MetaV1ListOptions>;
+};
+
+
+export type QueryClusterVersionStatusArgs = {
+  kubeContext?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -1076,6 +1084,13 @@ export type SubscriptionLogRecordsFollowArgs = {
 export type SubscriptionLogSourcesWatchArgs = {
   kubeContext?: InputMaybe<Scalars['String']['input']>;
   sources: Array<Scalars['String']['input']>;
+};
+
+export type VersionStatus = {
+  __typename?: 'VersionStatus';
+  currentVersion: Scalars['String']['output'];
+  latestVersion: Scalars['String']['output'];
+  updateAvailable: Scalars['Boolean']['output'];
 };
 
 export enum WatchEventType {
