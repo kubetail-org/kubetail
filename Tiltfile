@@ -198,11 +198,6 @@ k8s_resource(
   objects=[
     'kubetail-system:namespace',
     'kubetail-ca:secret',
-    'kubetail-testuser:serviceaccount',
-    'kubetail-testuser:role',
-    'kubetail-testuser:clusterrole',
-    'kubetail-testuser:rolebinding',
-    'kubetail-testuser:clusterrolebinding',
   ],
   new_name='kubetail-shared',
 )

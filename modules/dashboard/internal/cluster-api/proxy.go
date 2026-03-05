@@ -208,8 +208,8 @@ type InClusterProxy struct {
 func (p *InClusterProxy) Shutdown() {
 }
 
-// Create new InClusterProxy
-func NewInClusterProxy(clusterAPIEndpoint string, pathPrefix string) (*InClusterProxy, error) {
+// Create new InClusterProxy with injectable transport (used in tests)
+func newInClusterProxy(clusterAPIEndpoint string, pathPrefix string, transport http.RoundTripper) (*InClusterProxy, error) {
 	// Parse endpoint url
 	endpointUrl, err := url.Parse(clusterAPIEndpoint)
 	if err != nil {
@@ -223,6 +223,11 @@ func NewInClusterProxy(clusterAPIEndpoint string, pathPrefix string) (*InCluster
 			targetUrl := endpointUrl
 			targetUrl.Path = path.Join("/", strings.TrimPrefix(r.URL.Path, pathPrefix))
 			r.URL = targetUrl
+
+			// Forward user token if present
+			if token, ok := r.Context().Value(k8shelpers.K8STokenCtxKey).(string); ok {
+				r.Header.Set("X-Forwarded-Authorization", fmt.Sprintf("Bearer %s", token))
+			}
 		},
 		ModifyResponse: func(resp *http.Response) error {
 			// Re-write cookie path
@@ -235,14 +240,17 @@ func NewInClusterProxy(clusterAPIEndpoint string, pathPrefix string) (*InCluster
 
 			return nil
 		},
+		Transport: transport,
 	}
 
-	// Init service account token round tripper
+	return &InClusterProxy{reverseProxy}, nil
+}
+
+// Create new InClusterProxy
+func NewInClusterProxy(clusterAPIEndpoint string, pathPrefix string) (*InClusterProxy, error) {
 	rt, err := k8shelpers.NewInClusterSATRoundTripper(http.DefaultTransport)
 	if err != nil {
 		return nil, err
 	}
-	reverseProxy.Transport = rt
-
-	return &InClusterProxy{reverseProxy}, nil
+	return newInClusterProxy(clusterAPIEndpoint, pathPrefix, rt)
 }

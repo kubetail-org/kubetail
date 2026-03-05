@@ -147,7 +147,7 @@ impl LogMetadataService for LogMetadataImpl {
             .collect();
 
         self.authorizer
-            .is_authorized(&request_metadata, &namespaces, "list")
+            .is_authorized(&request_metadata, &namespaces, "get")
             .await?;
 
         let mut files = ReadDirStream::new(read_dir(&self.logs_dir).await?);
@@ -215,7 +215,7 @@ impl LogMetadataService for LogMetadataImpl {
             .collect();
 
         self.authorizer
-            .is_authorized(&request_metadata, &namespaces, "watch")
+            .is_authorized(&request_metadata, &namespaces, "get")
             .await?;
 
         let (log_metadata_watcher, log_metadata_rx) = LogMetadataWatcher::new(
