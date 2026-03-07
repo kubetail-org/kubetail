@@ -155,15 +155,15 @@ export function useUpgradeNotification(kubeContext: string | null): UpgradeNotif
     ? (cachedData?.cluster ?? null)
     : (clusterData?.clusterVersionStatus ?? null);
 
-  // Cache fresh results from the network
+  // Cache only after all non-skipped queries have resolved
   useEffect(() => {
     if (cacheFresh) return;
-    const hasCli = cliData !== undefined;
-    const hasCluster = clusterData !== undefined;
-    if (hasCli || hasCluster) {
+    const cliResolved = !isDesktop || cliData !== undefined;
+    const clusterResolved = clusterData !== undefined;
+    if (cliResolved && clusterResolved) {
       setCachedData(cliData?.cliVersionStatus ?? null, clusterData?.clusterVersionStatus ?? null);
     }
-  }, [cacheFresh, cliData, clusterData]);
+  }, [cacheFresh, isDesktop, cliData, clusterData]);
 
   const hasUpdate =
     (cliStatus?.updateAvailable && !ignored.includes(cliStatus.latestVersion)) ||
