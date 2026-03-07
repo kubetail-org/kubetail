@@ -13,12 +13,13 @@
 // limitations under the License.
 
 import { useQuery } from '@apollo/client/react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import appConfig from '@/app-config';
 import { CLI_VERSION_STATUS, CLUSTER_VERSION_STATUS } from '@/lib/graphql/dashboard/ops';
 
-const CACHE_KEY = 'kubetail:versionCheck:cache';
+const CLI_CACHE_KEY = 'kubetail:versionCheck:cli';
+const CLUSTER_CACHE_KEY_PREFIX = 'kubetail:versionCheck:cluster:';
 const DISMISSED_KEY = 'kubetail:versionCheck:dismissed';
 const IGNORED_VERSIONS_KEY = 'kubetail:versionCheck:ignoredVersions';
 
@@ -26,48 +27,44 @@ const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const DISMISS_TTL_MS = 24 * 60 * 60 * 1000;
 const SHOW_DELAY_MS = 4000;
 
-interface VersionStatusData {
+export interface VersionStatusData {
   currentVersion: string;
   latestVersion: string;
   updateAvailable: boolean;
 }
 
-interface CachedVersionData {
+interface CachedEntry {
   timestamp: number;
-  cli: VersionStatusData | null;
-  cluster: VersionStatusData | null;
+  data: VersionStatusData | null;
 }
 
-function isCacheFresh(): boolean {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    if (!raw) return false;
-    const cached: CachedVersionData = JSON.parse(raw);
-    if (Date.now() - cached.timestamp >= CACHE_TTL_MS) return false;
-    // Re-verify with backend when an update was pending (user may have upgraded since)
-    if (cached.cli?.updateAvailable || cached.cluster?.updateAvailable) return false;
-    return true;
-  } catch {
-    return false;
-  }
+function clusterCacheKey(kubeContext: string | null): string {
+  return CLUSTER_CACHE_KEY_PREFIX + (kubeContext ?? '__default__');
 }
 
-function getCachedData(): CachedVersionData | null {
+function readCachedEntry(key: string): CachedEntry | null {
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
-    const cached: CachedVersionData = JSON.parse(raw);
-    if (Date.now() - cached.timestamp < CACHE_TTL_MS) return cached;
-    return null;
+    const entry: CachedEntry = JSON.parse(raw);
+    if (Date.now() - entry.timestamp >= CACHE_TTL_MS) return null;
+    return entry;
   } catch {
     return null;
   }
 }
 
-function setCachedData(cli: VersionStatusData | null, cluster: VersionStatusData | null) {
+function isCacheEntryFresh(key: string): boolean {
+  const entry = readCachedEntry(key);
+  if (!entry) return false;
+  if (entry.data?.updateAvailable) return false;
+  return true;
+}
+
+function writeCachedEntry(key: string, data: VersionStatusData | null) {
   try {
-    const data: CachedVersionData = { timestamp: Date.now(), cli, cluster };
-    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+    const entry: CachedEntry = { timestamp: Date.now(), data };
+    localStorage.setItem(key, JSON.stringify(entry));
   } catch {
     // fail silently
   }
@@ -119,51 +116,70 @@ export interface UpgradeNotificationState {
   clusterStatus: VersionStatusData | null;
   dismiss: () => void;
   dontRemindMe: () => void;
+  setKubeContext: (ctx: string | null) => void;
 }
 
-export function useUpgradeNotification(kubeContext: string | null): UpgradeNotificationState {
+const defaultState: UpgradeNotificationState = {
+  showBanner: false,
+  cliStatus: null,
+  clusterStatus: null,
+  dismiss: () => {},
+  dontRemindMe: () => {},
+  setKubeContext: () => {},
+};
+
+const UpgradeNotificationContext = createContext<UpgradeNotificationState>(defaultState);
+
+export function UpgradeNotificationProvider({ children }: React.PropsWithChildren) {
   const isDesktop = appConfig.environment === 'desktop';
   const [ready, setReady] = useState(false);
   const [dismissed, setDismissedState] = useState(() => isDismissed());
   const [ignored, setIgnored] = useState(() => getIgnoredVersions());
+  const [kubeContext, setKubeContext] = useState<string | null>(null);
 
-  const cacheFresh = useMemo(() => isCacheFresh(), []);
-  const cachedData = useMemo(() => getCachedData(), []);
+  const cliCacheFresh = useMemo(() => isCacheEntryFresh(CLI_CACHE_KEY), []);
+  const clusterCacheFresh = useMemo(() => isCacheEntryFresh(clusterCacheKey(kubeContext)), [kubeContext]);
 
-  // Delay showing the banner by SHOW_DELAY_MS after mount
   useEffect(() => {
     const timer = setTimeout(() => setReady(true), SHOW_DELAY_MS);
     return () => clearTimeout(timer);
   }, []);
 
   const { data: cliData } = useQuery(CLI_VERSION_STATUS, {
-    skip: !isDesktop || cacheFresh,
+    skip: !isDesktop || cliCacheFresh,
     fetchPolicy: 'network-only',
   });
 
-  const { data: clusterData } = useQuery(CLUSTER_VERSION_STATUS, {
-    skip: cacheFresh,
+  const { data: clusterData, loading: clusterLoading } = useQuery(CLUSTER_VERSION_STATUS, {
+    skip: clusterCacheFresh,
     variables: kubeContext ? { kubeContext } : {},
     fetchPolicy: 'network-only',
   });
 
-  const cliStatus: VersionStatusData | null = cacheFresh
-    ? (cachedData?.cli ?? null)
+  const cliStatus: VersionStatusData | null = cliCacheFresh
+    ? (readCachedEntry(CLI_CACHE_KEY)?.data ?? null)
     : (cliData?.cliVersionStatus ?? null);
 
-  const clusterStatus: VersionStatusData | null = cacheFresh
-    ? (cachedData?.cluster ?? null)
-    : (clusterData?.clusterVersionStatus ?? null);
+  let clusterStatus: VersionStatusData | null = null;
+  if (clusterCacheFresh) {
+    clusterStatus = readCachedEntry(clusterCacheKey(kubeContext))?.data ?? null;
+  } else if (!clusterLoading) {
+    clusterStatus = clusterData?.clusterVersionStatus ?? null;
+  }
 
-  // Cache only after all non-skipped queries have resolved
   useEffect(() => {
-    if (cacheFresh) return;
-    const cliResolved = !isDesktop || cliData !== undefined;
-    const clusterResolved = clusterData !== undefined;
-    if (cliResolved && clusterResolved) {
-      setCachedData(cliData?.cliVersionStatus ?? null, clusterData?.clusterVersionStatus ?? null);
+    if (cliCacheFresh || !isDesktop) return;
+    if (cliData !== undefined) {
+      writeCachedEntry(CLI_CACHE_KEY, cliData?.cliVersionStatus ?? null);
     }
-  }, [cacheFresh, isDesktop, cliData, clusterData]);
+  }, [cliCacheFresh, isDesktop, cliData]);
+
+  useEffect(() => {
+    if (clusterCacheFresh) return;
+    if (clusterData !== undefined) {
+      writeCachedEntry(clusterCacheKey(kubeContext), clusterData?.clusterVersionStatus ?? null);
+    }
+  }, [clusterCacheFresh, kubeContext, clusterData]);
 
   const hasUpdate =
     (cliStatus?.updateAvailable && !ignored.includes(cliStatus.latestVersion)) ||
@@ -184,5 +200,14 @@ export function useUpgradeNotification(kubeContext: string | null): UpgradeNotif
     setDismissedState(true);
   }, [cliStatus, clusterStatus]);
 
-  return { showBanner, cliStatus, clusterStatus, dismiss, dontRemindMe };
+  const value = useMemo(
+    () => ({ showBanner, cliStatus, clusterStatus, dismiss, dontRemindMe, setKubeContext }),
+    [showBanner, cliStatus, clusterStatus, dismiss, dontRemindMe],
+  );
+
+  return <UpgradeNotificationContext.Provider value={value}>{children}</UpgradeNotificationContext.Provider>;
+}
+
+export function useUpgradeNotification(): UpgradeNotificationState {
+  return useContext(UpgradeNotificationContext);
 }

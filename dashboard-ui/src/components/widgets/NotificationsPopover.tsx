@@ -22,7 +22,7 @@ import { useUpgradeNotification } from '@/lib/upgrade-notifications';
 
 export const NotificationsPopover = ({ children }: React.PropsWithChildren) => {
   const [isOpen, setIsOpen] = useState(false);
-  const { cliStatus, clusterStatus } = useUpgradeNotification(null);
+  const { cliStatus, clusterStatus } = useUpgradeNotification();
 
   const hasCliUpdate = appConfig.environment === 'desktop' && cliStatus?.updateAvailable;
   const hasClusterUpdate = clusterStatus?.updateAvailable;
@@ -31,7 +31,7 @@ export const NotificationsPopover = ({ children }: React.PropsWithChildren) => {
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <div className="relative">
+        <div className="relative h-full">
           {children}
           {hasNotifications && <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-blue-500" />}
         </div>

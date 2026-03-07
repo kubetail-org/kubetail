@@ -12,36 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useCallback, useState } from 'react';
-
 import Footer from '@/components/widgets/Footer';
 import UpgradeBanner from '@/components/widgets/UpgradeBanner';
+import { useUpgradeNotification } from '@/lib/upgrade-notifications';
 
 export default function AppLayout({ children }: React.PropsWithChildren) {
-  const [bannerHeight, setBannerHeight] = useState(0);
-
-  const bannerRef = useCallback((node: HTMLDivElement | null) => {
-    if (!node) {
-      setBannerHeight(0);
-      return;
-    }
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) setBannerHeight(entry.contentRect.height);
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
+  const { showBanner, cliStatus, clusterStatus, dismiss, dontRemindMe } = useUpgradeNotification();
 
   return (
-    <>
-      <div ref={bannerRef}>
-        <UpgradeBanner />
-      </div>
-      <div className="overflow-hidden" style={{ height: `calc(100vh - 23px - ${bannerHeight}px)` }}>
-        {children}
-      </div>
+    <div className="flex h-screen flex-col overflow-hidden">
+      {showBanner && (
+        <UpgradeBanner
+          cliStatus={cliStatus}
+          clusterStatus={clusterStatus}
+          dismiss={dismiss}
+          dontRemindMe={dontRemindMe}
+        />
+      )}
+      <div className="flex-1 overflow-hidden">{children}</div>
       <Footer />
-    </>
+    </div>
   );
 }

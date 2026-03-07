@@ -30,7 +30,7 @@ export default function Footer() {
       </SettingsPopover>
       <NotificationsPopover>
         <button type="button" className="h-full hover:bg-secondary px-1">
-          <Bell className="h-4 w-4" />
+          <Bell className="h-3.5 w-3.5" />
         </button>
       </NotificationsPopover>
       <ServerStatus className="h-full hover:bg-secondary px-1" healthDotClassName="h-3.25 w-3.25" />

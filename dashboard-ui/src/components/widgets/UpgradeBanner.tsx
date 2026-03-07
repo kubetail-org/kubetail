@@ -15,13 +15,16 @@
 import { ArrowUpCircle, X } from 'lucide-react';
 
 import appConfig from '@/app-config';
-import { useUpgradeNotification } from '@/lib/upgrade-notifications';
+import type { VersionStatusData } from '@/lib/upgrade-notifications';
 
-export default function UpgradeBanner() {
-  const { showBanner, cliStatus, clusterStatus, dismiss, dontRemindMe } = useUpgradeNotification(null);
+interface UpgradeBannerProps {
+  cliStatus: VersionStatusData | null;
+  clusterStatus: VersionStatusData | null;
+  dismiss: () => void;
+  dontRemindMe: () => void;
+}
 
-  if (!showBanner) return null;
-
+export default function UpgradeBanner({ cliStatus, clusterStatus, dismiss, dontRemindMe }: UpgradeBannerProps) {
   const messages: string[] = [];
 
   if (appConfig.environment === 'desktop' && cliStatus?.updateAvailable) {

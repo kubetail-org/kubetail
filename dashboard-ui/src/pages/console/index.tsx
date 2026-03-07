@@ -25,6 +25,7 @@ import AuthRequired from '@/components/utils/AuthRequired';
 import type { Client, LogViewerHandle } from '@/components/widgets/log-viewer';
 import type { LogSourceFilter } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { useIsClusterAPIEnabled } from '@/lib/hooks';
+import { useUpgradeNotification } from '@/lib/upgrade-notifications';
 
 import { Header } from './header';
 import { LogServerClient } from './log-server-client';
@@ -159,6 +160,11 @@ export default function Page() {
 
   const [searchParams] = useSearchParams();
   const kubeContext = searchParams.get('kubeContext');
+
+  const { setKubeContext: setUpgradeKubeContext } = useUpgradeNotification();
+  useEffect(() => {
+    setUpgradeKubeContext(kubeContext);
+  }, [kubeContext, setUpgradeKubeContext]);
 
   const shouldUseClusterAPI = useIsClusterAPIEnabled(kubeContext);
   const [logServerClient, setLogServerClient] = useState<Client>();
