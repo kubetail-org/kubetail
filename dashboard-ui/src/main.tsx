@@ -19,8 +19,9 @@ import { createBrowserRouter, createRoutesFromElements, RouterProvider } from 'r
 
 import { dashboardClient } from '@/apollo-client';
 import { SessionProvider } from '@/lib/auth';
-import { getBasename } from '@/lib/util';
 import { ThemeProvider } from '@/lib/theme';
+import { UpgradeNotificationProvider } from '@/lib/upgrade-notifications';
+import { getBasename } from '@/lib/util';
 import { routes } from './routes';
 
 import './index.css';
@@ -33,7 +34,9 @@ createRoot(document.getElementById('root')!).render(
     <ApolloProvider client={dashboardClient}>
       <SessionProvider>
         <ThemeProvider>
-          <RouterProvider router={router} />
+          <UpgradeNotificationProvider>
+            <RouterProvider router={router} />
+          </UpgradeNotificationProvider>
         </ThemeProvider>
       </SessionProvider>
     </ApolloProvider>

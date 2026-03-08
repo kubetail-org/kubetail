@@ -13,12 +13,24 @@
 // limitations under the License.
 
 import Footer from '@/components/widgets/Footer';
+import UpgradeBanner from '@/components/widgets/UpgradeBanner';
+import { useUpgradeNotification } from '@/lib/upgrade-notifications';
 
 export default function AppLayout({ children }: React.PropsWithChildren) {
+  const { showBanner, cliStatus, clusterStatus, dismiss, dontRemindMe } = useUpgradeNotification();
+
   return (
-    <>
-      <div className="h-[calc(100vh-23px)] overflow-hidden">{children}</div>
+    <div className="flex h-screen flex-col overflow-hidden">
+      {showBanner && (
+        <UpgradeBanner
+          cliStatus={cliStatus}
+          clusterStatus={clusterStatus}
+          dismiss={dismiss}
+          dontRemindMe={dontRemindMe}
+        />
+      )}
+      <div className="flex-1 overflow-hidden">{children}</div>
       <Footer />
-    </>
+    </div>
   );
 }

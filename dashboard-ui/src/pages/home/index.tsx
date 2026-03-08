@@ -64,6 +64,7 @@ import {
   KUBERNETES_API_READY_WAIT,
 } from '@/lib/graphql/dashboard/ops';
 import { useIsClusterAPIEnabled, useListQueryWithSubscription } from '@/lib/hooks';
+import { useUpgradeNotification } from '@/lib/upgrade-notifications';
 import { joinPaths, getBasename, cn } from '@/lib/util';
 import { WorkloadKind, ALL_WORKLOAD_KINDS, GLYPH_ICON_MAP, KNOCKOUT_ICON_MAP, PLURAL_LABEL_MAP } from '@/lib/workload';
 
@@ -77,6 +78,7 @@ import {
   workloadIsFetchingAtomFamilies,
   filteredWorkloadItemsAtomFamilies,
 } from './state';
+import type { WorkloadItem } from './shared';
 import { useLogFileInfo } from './util';
 import { WorkloadDataProvider } from './workload-data-provider';
 
@@ -320,13 +322,13 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
   const isFetching = useAtomValue(workloadIsFetchingAtomFamilies[kind](kubeContext));
   const items = useAtomValue(filteredWorkloadItemsAtomFamilies[kind](kubeContext));
 
-  const itemIDs = useMemo(() => items.map((item) => item.metadata.uid), [items]);
+  const itemIDs: string[] = useMemo(() => items.map((item: WorkloadItem) => item.metadata.uid), [items]);
 
   const logFileInfo = useLogFileInfo(kubeContext, itemIDs);
 
   const data = useMemo(
     () =>
-      items.map((item) => {
+      items.map((item: WorkloadItem) => {
         const fileInfo = logFileInfo.get(item.metadata.uid);
         return {
           id: item.metadata.uid,
@@ -772,6 +774,11 @@ export default function Page() {
   const [kubeContext, setKubeContext] = useState(defaultKubeContext);
   const [workloadKindFilter, setWorkloadKindFilter] = useState<WorkloadKind>();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const { setKubeContext: setUpgradeKubeContext } = useUpgradeNotification();
+  useEffect(() => {
+    setUpgradeKubeContext(kubeContext);
+  }, [kubeContext, setUpgradeKubeContext]);
 
   const context = useMemo(
     () => ({
