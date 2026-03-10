@@ -77,6 +77,7 @@ import {
   workloadIsFetchingAtomFamilies,
   filteredWorkloadItemsAtomFamilies,
 } from './state';
+import type { WorkloadItem } from './shared';
 import { useLogFileInfo } from './util';
 import { WorkloadDataProvider } from './workload-data-provider';
 
@@ -320,13 +321,13 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
   const isFetching = useAtomValue(workloadIsFetchingAtomFamilies[kind](kubeContext));
   const items = useAtomValue(filteredWorkloadItemsAtomFamilies[kind](kubeContext));
 
-  const itemIDs = useMemo(() => items.map((item) => item.metadata.uid), [items]);
+  const itemIDs: string[] = useMemo(() => items.map((item: WorkloadItem) => item.metadata.uid), [items]);
 
   const logFileInfo = useLogFileInfo(kubeContext, itemIDs);
 
   const data = useMemo(
     () =>
-      items.map((item) => {
+      items.map((item: WorkloadItem) => {
         const fileInfo = logFileInfo.get(item.metadata.uid);
         return {
           id: item.metadata.uid,
