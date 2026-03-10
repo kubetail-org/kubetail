@@ -369,9 +369,6 @@ export const useLoadMoreBefore = ({ client, config, refs, actions, services }: R
 
       const { scrollTop: prevScrollTop, scrollHeight: prevScrollHeight } = scrollElement;
 
-      // Hack to get around https://github.com/TanStack/virtual/issues/1094
-      services.virtualizer.isScrolling = false;
-
       const beforePaintPromise = services.beforePaint(() => {
         const nextScrollHeight = scrollElement.scrollHeight;
         scrollElement.scrollTop = prevScrollTop + (nextScrollHeight - prevScrollHeight);
@@ -400,9 +397,6 @@ export const useLoadMoreAfter = ({ client, config, actions, services }: Runtime)
 
     // Update UI
     if (result.records.length) {
-      // Hack to get around https://github.com/TanStack/virtual/issues/1094
-      services.virtualizer.isScrolling = false;
-
       services.recordStore.append(result.records);
     }
   }, [client, config.batchSizeRegular]);
@@ -487,9 +481,6 @@ export const useFollowFromEnd = ({ client, config, state, refs, services }: Runt
 
       const records = pendingRecords;
       pendingRecords = [];
-
-      // Hack to get around https://github.com/TanStack/virtual/issues/1094
-      services.virtualizer.isScrolling = false;
 
       // Scroll to bottom if auto-scroll enabled
       if (refs.isAutoScrollEnabled.current) {
@@ -700,6 +691,7 @@ export const LogViewerInner = ({
     overscan: config.overscan,
     scrollMargin: hasMoreBefore ? config.hasMoreBeforeRowHeight : 0,
     useScrollendEvent: true,
+    useFlushSync: false,
   });
 
   // Store virtualizer in ref for parent access
