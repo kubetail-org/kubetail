@@ -71,6 +71,7 @@ func (app *websiteHandlers) EndpointHandler(cfg *config.Config) gin.HandlerFunc 
 	runtimeConfig := map[string]interface{}{
 		"authMode":           cfg.AuthMode,
 		"basePath":           cfg.BasePath,
+		"cliVersion":         cfg.CLIVersion,
 		"environment":        cfg.Environment,
 		"clusterAPIEnabled":  cfg.UI.ClusterAPIEnabled,
 		"clusterAPIEndpoint": cfg.ClusterAPIEndpoint,

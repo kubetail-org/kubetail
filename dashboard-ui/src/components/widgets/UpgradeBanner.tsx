@@ -14,17 +14,14 @@
 
 import { ArrowUpCircle, X } from 'lucide-react';
 
-import type { VersionStatusData } from '@/lib/upgrade-notifications';
-
 interface UpgradeBannerProps {
-  cliStatus: VersionStatusData | null;
+  currentVersion: string;
+  latestVersion: string;
   dismiss: () => void;
   dontRemindMe: () => void;
 }
 
-export default function UpgradeBanner({ cliStatus, dismiss, dontRemindMe }: UpgradeBannerProps) {
-  if (!cliStatus?.updateAvailable) return null;
-
+export default function UpgradeBanner({ currentVersion, latestVersion, dismiss, dontRemindMe }: UpgradeBannerProps) {
   return (
     <div
       role="status"
@@ -33,8 +30,8 @@ export default function UpgradeBanner({ cliStatus, dismiss, dontRemindMe }: Upgr
       <div className="flex items-center gap-2">
         <ArrowUpCircle className="h-4 w-4 shrink-0" />
         <span>
-          <strong>Update available:</strong> CLI {cliStatus.currentVersion} → {cliStatus.latestVersion}. Use your
-          package manager to upgrade.
+          <strong>Update available:</strong> CLI {currentVersion} → {latestVersion}. Use your package manager to
+          upgrade.
         </span>
       </div>
       <div className="flex items-center gap-2 shrink-0">

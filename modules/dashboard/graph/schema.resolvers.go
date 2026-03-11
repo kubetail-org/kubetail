@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
-	"github.com/Masterminds/semver/v3"
+	semver "github.com/Masterminds/semver/v3"
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	gqlerrors "github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
@@ -545,15 +545,9 @@ func (r *queryResolver) HelmListReleases(ctx context.Context, kubeContext *strin
 	return releases, nil
 }
 
-// CliVersionStatus is the resolver for the cliVersionStatus field.
-func (r *queryResolver) CliVersionStatus(ctx context.Context) (*model.VersionStatus, error) {
-	// Skip if not in desktop environment
+// CliLatestVersion is the resolver for the cliLatestVersion field.
+func (r *queryResolver) CliLatestVersion(ctx context.Context) (*string, error) {
 	if r.environment != sharedcfg.EnvironmentDesktop {
-		return nil, nil
-	}
-
-	// Skip if CLI version is unknown
-	if r.cfg.CLIVersion == "" || r.cfg.CLIVersion == "dev" {
 		return nil, nil
 	}
 
@@ -563,21 +557,7 @@ func (r *queryResolver) CliVersionStatus(ctx context.Context) (*model.VersionSta
 		return nil, nil
 	}
 
-	currentSemver, err := semver.NewVersion(r.cfg.CLIVersion)
-	if err != nil {
-		return nil, nil
-	}
-
-	latestSemver, err := semver.NewVersion(latestInfo.Version)
-	if err != nil {
-		return nil, nil
-	}
-
-	return &model.VersionStatus{
-		CurrentVersion:  r.cfg.CLIVersion,
-		LatestVersion:   latestInfo.Version,
-		UpdateAvailable: latestSemver.GreaterThan(currentSemver),
-	}, nil
+	return &latestInfo.Version, nil
 }
 
 // ClusterVersionStatus is the resolver for the clusterVersionStatus field.

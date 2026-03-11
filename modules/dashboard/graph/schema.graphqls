@@ -800,7 +800,7 @@ type Query {
   """
   Version status
   """
-  cliVersionStatus: VersionStatus
+  cliLatestVersion: String
   clusterVersionStatus(kubeContext: String): VersionStatus
 
   """

@@ -17,11 +17,18 @@ import UpgradeBanner from '@/components/widgets/UpgradeBanner';
 import { useUpgradeNotification } from '@/lib/upgrade-notifications';
 
 export default function AppLayout({ children }: React.PropsWithChildren) {
-  const { showBanner, cliStatus, dismiss, dontRemindMe } = useUpgradeNotification();
+  const { showBanner, currentVersion, latestVersion, dismiss, dontRemindMe } = useUpgradeNotification();
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      {showBanner && <UpgradeBanner cliStatus={cliStatus} dismiss={dismiss} dontRemindMe={dontRemindMe} />}
+      {showBanner && latestVersion && (
+        <UpgradeBanner
+          currentVersion={currentVersion}
+          latestVersion={latestVersion}
+          dismiss={dismiss}
+          dontRemindMe={dontRemindMe}
+        />
+      )}
       <div className="flex-1 overflow-hidden">{children}</div>
       <Footer />
     </div>

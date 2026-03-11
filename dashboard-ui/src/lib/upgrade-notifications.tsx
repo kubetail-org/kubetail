@@ -16,9 +16,9 @@ import { useQuery } from '@apollo/client/react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import appConfig from '@/app-config';
-import { CLI_VERSION_STATUS } from '@/lib/graphql/dashboard/ops';
+import { CLI_LATEST_VERSION } from '@/lib/graphql/dashboard/ops';
 
-const CLI_CACHE_KEY = 'kubetail:versionCheck:cli';
+const LATEST_VERSION_CACHE_KEY = 'kubetail:versionCheck:cliLatest';
 const DISMISSED_KEY = 'kubetail:versionCheck:dismissed';
 const IGNORED_VERSIONS_KEY = 'kubetail:versionCheck:ignoredVersions';
 
@@ -26,40 +26,38 @@ const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const DISMISS_TTL_MS = 24 * 60 * 60 * 1000;
 const SHOW_DELAY_MS = 4000;
 
-export interface VersionStatusData {
-  currentVersion: string;
-  latestVersion: string;
-  updateAvailable: boolean;
-}
-
-interface CachedEntry {
+interface CachedLatestVersion {
   timestamp: number;
-  data: VersionStatusData | null;
+  version: string;
 }
 
-function readCachedEntry(key: string): CachedEntry | null {
+export function compareSemver(a: string, b: string): number {
+  const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number);
+  const pa = parse(a);
+  const pb = parse(b);
+  for (let i = 0; i < 3; i += 1) {
+    const diff = (pa[i] || 0) - (pb[i] || 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+function readCachedLatestVersion(): string | null {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = localStorage.getItem(LATEST_VERSION_CACHE_KEY);
     if (!raw) return null;
-    const entry: CachedEntry = JSON.parse(raw);
+    const entry: CachedLatestVersion = JSON.parse(raw);
     if (Date.now() - entry.timestamp >= CACHE_TTL_MS) return null;
-    return entry;
+    return entry.version;
   } catch {
     return null;
   }
 }
 
-function isCacheEntryFresh(key: string): boolean {
-  const entry = readCachedEntry(key);
-  if (!entry) return false;
-  if (entry.data?.updateAvailable) return false;
-  return true;
-}
-
-function writeCachedEntry(key: string, data: VersionStatusData | null) {
+function writeCachedLatestVersion(version: string) {
   try {
-    const entry: CachedEntry = { timestamp: Date.now(), data };
-    localStorage.setItem(key, JSON.stringify(entry));
+    const entry: CachedLatestVersion = { timestamp: Date.now(), version };
+    localStorage.setItem(LATEST_VERSION_CACHE_KEY, JSON.stringify(entry));
   } catch {
     // fail silently
   }
@@ -107,14 +105,18 @@ function addIgnoredVersion(version: string) {
 
 export interface UpgradeNotificationState {
   showBanner: boolean;
-  cliStatus: VersionStatusData | null;
+  currentVersion: string;
+  latestVersion: string | null;
+  updateAvailable: boolean;
   dismiss: () => void;
   dontRemindMe: () => void;
 }
 
 const defaultState: UpgradeNotificationState = {
   showBanner: false,
-  cliStatus: null,
+  currentVersion: '',
+  latestVersion: null,
+  updateAvailable: false,
   dismiss: () => {},
   dontRemindMe: () => {},
 };
@@ -123,36 +125,40 @@ const UpgradeNotificationContext = createContext<UpgradeNotificationState>(defau
 
 export function UpgradeNotificationProvider({ children }: React.PropsWithChildren) {
   const isDesktop = appConfig.environment === 'desktop';
+  const currentVersion = appConfig.cliVersion;
   const [ready, setReady] = useState(false);
   const [dismissed, setDismissedState] = useState(() => isDismissed());
   const [ignored, setIgnored] = useState(() => getIgnoredVersions());
 
-  const cliCacheFresh = useMemo(() => isCacheEntryFresh(CLI_CACHE_KEY), []);
+  const cachedLatest = useMemo(() => readCachedLatestVersion(), []);
+  const skipQuery = !isDesktop || !currentVersion || cachedLatest !== null;
 
   useEffect(() => {
     const timer = setTimeout(() => setReady(true), SHOW_DELAY_MS);
     return () => clearTimeout(timer);
   }, []);
 
-  const { data: cliData } = useQuery(CLI_VERSION_STATUS, {
-    skip: !isDesktop || cliCacheFresh,
+  const { data } = useQuery(CLI_LATEST_VERSION, {
+    skip: skipQuery,
     fetchPolicy: 'network-only',
   });
 
-  const cliStatus: VersionStatusData | null = cliCacheFresh
-    ? (readCachedEntry(CLI_CACHE_KEY)?.data ?? null)
-    : (cliData?.cliVersionStatus ?? null);
+  const latestVersion: string | null = cachedLatest ?? data?.cliLatestVersion ?? null;
 
   useEffect(() => {
-    if (cliCacheFresh || !isDesktop) return;
-    if (cliData !== undefined) {
-      writeCachedEntry(CLI_CACHE_KEY, cliData?.cliVersionStatus ?? null);
+    if (cachedLatest !== null || !isDesktop) return;
+    const version = data?.cliLatestVersion;
+    if (version) {
+      writeCachedLatestVersion(version);
     }
-  }, [cliCacheFresh, isDesktop, cliData]);
+  }, [cachedLatest, isDesktop, data]);
 
-  const hasUpdate = cliStatus?.updateAvailable && !ignored.includes(cliStatus.latestVersion);
+  const updateAvailable =
+    currentVersion !== '' && latestVersion !== null && compareSemver(latestVersion, currentVersion) > 0;
 
-  const showBanner = ready && !dismissed && Boolean(hasUpdate);
+  const hasUpdate = updateAvailable && !ignored.includes(latestVersion);
+
+  const showBanner = ready && !dismissed && hasUpdate;
 
   const dismiss = useCallback(() => {
     setDismissed();
@@ -160,15 +166,15 @@ export function UpgradeNotificationProvider({ children }: React.PropsWithChildre
   }, []);
 
   const dontRemindMe = useCallback(() => {
-    if (cliStatus?.updateAvailable) addIgnoredVersion(cliStatus.latestVersion);
+    if (updateAvailable && latestVersion) addIgnoredVersion(latestVersion);
     setIgnored(getIgnoredVersions());
     setDismissed();
     setDismissedState(true);
-  }, [cliStatus]);
+  }, [updateAvailable, latestVersion]);
 
   const value = useMemo(
-    () => ({ showBanner, cliStatus, dismiss, dontRemindMe }),
-    [showBanner, cliStatus, dismiss, dontRemindMe],
+    () => ({ showBanner, currentVersion, latestVersion, updateAvailable, dismiss, dontRemindMe }),
+    [showBanner, currentVersion, latestVersion, updateAvailable, dismiss, dontRemindMe],
   );
 
   return <UpgradeNotificationContext.Provider value={value}>{children}</UpgradeNotificationContext.Provider>;

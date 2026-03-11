@@ -87,7 +87,7 @@ type Documents = {
     "\n  subscription ClusterAPIServicesListWatch($kubeContext: String, $resourceVersion: String = \"\") {\n    clusterAPIServicesWatch(kubeContext: $kubeContext, options: { resourceVersion: $resourceVersion }) {\n      type\n      object {\n        ...ClusterAPIServicesListItemFragment\n      }\n    }    \n  }\n": typeof types.ClusterApiServicesListWatchDocument,
     "\n  mutation HelmInstallLatest($kubeContext: String) {\n    helmInstallLatest(kubeContext: $kubeContext) {\n      ...HelmReleaseFragment\n    }\n  }\n": typeof types.HelmInstallLatestDocument,
     "\n  query HelmListReleases($kubeContext: String) {\n    helmListReleases(kubeContext: $kubeContext) {\n      ...HelmReleaseFragment\n    }\n  }\n": typeof types.HelmListReleasesDocument,
-    "\n  query CliVersionStatus {\n    cliVersionStatus {\n      currentVersion\n      latestVersion\n      updateAvailable\n    }\n  }\n": typeof types.CliVersionStatusDocument,
+    "\n  query CliLatestVersion {\n    cliLatestVersion\n  }\n": typeof types.CliLatestVersionDocument,
     "\n  query ClusterVersionStatus($kubeContext: String) {\n    clusterVersionStatus(kubeContext: $kubeContext) {\n      currentVersion\n      latestVersion\n      updateAvailable\n    }\n  }\n": typeof types.ClusterVersionStatusDocument,
     "\n  query KubeConfigGet {\n    kubeConfigGet {\n      ...KubeConfigFragment\n    }\n  }\n": typeof types.KubeConfigGetDocument,
     "\n  subscription KubeConfigWatch {\n    kubeConfigWatch {\n      type\n      object {\n        ...KubeConfigFragment\n      }\n    }\n  }\n": typeof types.KubeConfigWatchDocument,
@@ -204,7 +204,7 @@ const documents: Documents = {
     "\n  subscription ClusterAPIServicesListWatch($kubeContext: String, $resourceVersion: String = \"\") {\n    clusterAPIServicesWatch(kubeContext: $kubeContext, options: { resourceVersion: $resourceVersion }) {\n      type\n      object {\n        ...ClusterAPIServicesListItemFragment\n      }\n    }    \n  }\n": types.ClusterApiServicesListWatchDocument,
     "\n  mutation HelmInstallLatest($kubeContext: String) {\n    helmInstallLatest(kubeContext: $kubeContext) {\n      ...HelmReleaseFragment\n    }\n  }\n": types.HelmInstallLatestDocument,
     "\n  query HelmListReleases($kubeContext: String) {\n    helmListReleases(kubeContext: $kubeContext) {\n      ...HelmReleaseFragment\n    }\n  }\n": types.HelmListReleasesDocument,
-    "\n  query CliVersionStatus {\n    cliVersionStatus {\n      currentVersion\n      latestVersion\n      updateAvailable\n    }\n  }\n": types.CliVersionStatusDocument,
+    "\n  query CliLatestVersion {\n    cliLatestVersion\n  }\n": types.CliLatestVersionDocument,
     "\n  query ClusterVersionStatus($kubeContext: String) {\n    clusterVersionStatus(kubeContext: $kubeContext) {\n      currentVersion\n      latestVersion\n      updateAvailable\n    }\n  }\n": types.ClusterVersionStatusDocument,
     "\n  query KubeConfigGet {\n    kubeConfigGet {\n      ...KubeConfigFragment\n    }\n  }\n": types.KubeConfigGetDocument,
     "\n  subscription KubeConfigWatch {\n    kubeConfigWatch {\n      type\n      object {\n        ...KubeConfigFragment\n      }\n    }\n  }\n": types.KubeConfigWatchDocument,
@@ -557,7 +557,7 @@ export function gql(source: "\n  query HelmListReleases($kubeContext: String) {\
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function gql(source: "\n  query CliVersionStatus {\n    cliVersionStatus {\n      currentVersion\n      latestVersion\n      updateAvailable\n    }\n  }\n"): (typeof documents)["\n  query CliVersionStatus {\n    cliVersionStatus {\n      currentVersion\n      latestVersion\n      updateAvailable\n    }\n  }\n"];
+export function gql(source: "\n  query CliLatestVersion {\n    cliLatestVersion\n  }\n"): (typeof documents)["\n  query CliLatestVersion {\n    cliLatestVersion\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

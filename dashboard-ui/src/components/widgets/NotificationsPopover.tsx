@@ -21,27 +21,25 @@ import { useUpgradeNotification } from '@/lib/upgrade-notifications';
 
 export const NotificationsPopover = ({ children }: React.PropsWithChildren) => {
   const [isOpen, setIsOpen] = useState(false);
-  const { cliStatus } = useUpgradeNotification();
-
-  const hasNotifications = cliStatus?.updateAvailable;
+  const { updateAvailable, currentVersion, latestVersion } = useUpgradeNotification();
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <div className="relative h-full">
           {children}
-          {hasNotifications && <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-blue-500" />}
+          {updateAvailable && <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-blue-500" />}
         </div>
       </PopoverTrigger>
       {isOpen && (
         <PopoverContent side="top" className="w-80 mr-1">
           <div className="space-y-2">
             <p className="text-sm font-medium">Notifications</p>
-            {hasNotifications && cliStatus ? (
+            {updateAvailable && latestVersion ? (
               <div className="flex items-start gap-2 rounded border border-blue-200 bg-blue-50 p-2 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100">
                 <ArrowUpCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <p>
-                  CLI update: {cliStatus.currentVersion} → {cliStatus.latestVersion}
+                  CLI update: {currentVersion} → {latestVersion}
                 </p>
               </div>
             ) : (
