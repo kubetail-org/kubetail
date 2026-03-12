@@ -19,14 +19,12 @@ import appConfig from '@/app-config';
 import { CLI_LATEST_VERSION } from '@/lib/graphql/dashboard/ops';
 import { renderElement } from '@/test-utils';
 
-import { UpgradeNotificationProvider, useUpgradeNotification, compareSemver } from './upgrade-notifications';
+import { UpdateNotificationProvider, useUpdateNotification, compareSemver } from './update-notifications';
 
-const LATEST_VERSION_CACHE_KEY = 'kubetail:versionCheck:cliLatest';
-const DISMISSED_KEY = 'kubetail:versionCheck:dismissed';
-const IGNORED_VERSIONS_KEY = 'kubetail:versionCheck:ignoredVersions';
+const STORAGE_KEY = 'kubetail:updates:cli';
 
 function TestConsumer() {
-  const { showBanner, updateAvailable, latestVersion } = useUpgradeNotification();
+  const { showBanner, updateAvailable, latestVersion } = useUpdateNotification();
   return (
     <div>
       {showBanner && <span data-testid="banner-visible">visible</span>}
@@ -37,9 +35,9 @@ function TestConsumer() {
 
 function renderWithProvider(mocks: MockedResponse[]) {
   return renderElement(
-    <UpgradeNotificationProvider>
+    <UpdateNotificationProvider>
       <TestConsumer />
-    </UpgradeNotificationProvider>,
+    </UpdateNotificationProvider>,
     mocks,
   );
 }
@@ -83,7 +81,7 @@ describe('compareSemver', () => {
   });
 });
 
-describe('useUpgradeNotification', () => {
+describe('useUpdateNotification', () => {
   it('does not show banner immediately (respects delay)', () => {
     renderWithProvider([latestVersionMock]);
     expect(screen.queryByTestId('banner-visible')).not.toBeInTheDocument();
@@ -102,7 +100,7 @@ describe('useUpgradeNotification', () => {
   });
 
   it('does not show banner if dismissed less than 24h ago', async () => {
-    localStorage.setItem(DISMISSED_KEY, String(Date.now()));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ dismissedAt: Date.now() }));
     renderWithProvider([latestVersionMock]);
 
     await act(async () => {
@@ -114,8 +112,8 @@ describe('useUpgradeNotification', () => {
     });
   });
 
-  it('does not show banner if version is in ignored list', async () => {
-    localStorage.setItem(IGNORED_VERSIONS_KEY, JSON.stringify(['1.0.0']));
+  it('does not show banner if version is in skipped list', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ skippedVersions: ['1.0.0'] }));
     renderWithProvider([latestVersionMock]);
 
     await act(async () => {
@@ -140,8 +138,7 @@ describe('useUpgradeNotification', () => {
   });
 
   it('uses cached latestVersion when cache is fresh', async () => {
-    const entry = { timestamp: Date.now(), version: '0.9.0' };
-    localStorage.setItem(LATEST_VERSION_CACHE_KEY, JSON.stringify(entry));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ latestVersion: '0.9.0', fetchedAt: Date.now() }));
 
     renderWithProvider([]);
 

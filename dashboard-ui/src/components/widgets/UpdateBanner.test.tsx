@@ -14,11 +14,11 @@
 
 import { fireEvent, render, screen } from '@testing-library/react';
 
-import UpgradeBanner from './UpgradeBanner';
+import UpdateBanner from './UpdateBanner';
 
-describe('UpgradeBanner', () => {
+describe('UpdateBanner', () => {
   it('renders CLI update message', () => {
-    render(<UpgradeBanner currentVersion="0.9.0" latestVersion="1.0.0" dismiss={vi.fn()} dontRemindMe={vi.fn()} />);
+    render(<UpdateBanner currentVersion="0.9.0" latestVersion="1.0.0" dismiss={vi.fn()} dontRemindMe={vi.fn()} />);
 
     expect(screen.getByRole('status')).toBeInTheDocument();
     expect(screen.getByText(/CLI 0\.9\.0/)).toBeInTheDocument();
@@ -28,7 +28,7 @@ describe('UpgradeBanner', () => {
   it('calls dismiss when dismiss button is clicked', () => {
     const dismiss = vi.fn();
 
-    render(<UpgradeBanner currentVersion="0.9.0" latestVersion="1.0.0" dismiss={dismiss} dontRemindMe={vi.fn()} />);
+    render(<UpdateBanner currentVersion="0.9.0" latestVersion="1.0.0" dismiss={dismiss} dontRemindMe={vi.fn()} />);
 
     fireEvent.click(screen.getByLabelText('Dismiss'));
     expect(dismiss).toHaveBeenCalledOnce();
@@ -37,9 +37,7 @@ describe('UpgradeBanner', () => {
   it('calls dontRemindMe when "Don\'t remind me" is clicked', () => {
     const dontRemindMe = vi.fn();
 
-    render(
-      <UpgradeBanner currentVersion="0.9.0" latestVersion="1.0.0" dismiss={vi.fn()} dontRemindMe={dontRemindMe} />,
-    );
+    render(<UpdateBanner currentVersion="0.9.0" latestVersion="1.0.0" dismiss={vi.fn()} dontRemindMe={dontRemindMe} />);
 
     fireEvent.click(screen.getByText("Don't remind me"));
     expect(dontRemindMe).toHaveBeenCalledOnce();

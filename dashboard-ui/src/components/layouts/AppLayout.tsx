@@ -13,16 +13,16 @@
 // limitations under the License.
 
 import Footer from '@/components/widgets/Footer';
-import UpgradeBanner from '@/components/widgets/UpgradeBanner';
-import { useUpgradeNotification } from '@/lib/upgrade-notifications';
+import UpdateBanner from '@/components/widgets/UpdateBanner';
+import { useUpdateNotification } from '@/lib/update-notifications';
 
 export default function AppLayout({ children }: React.PropsWithChildren) {
-  const { showBanner, currentVersion, latestVersion, dismiss, dontRemindMe } = useUpgradeNotification();
+  const { showBanner, currentVersion, latestVersion, dismiss, dontRemindMe } = useUpdateNotification();
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       {showBanner && latestVersion && (
-        <UpgradeBanner
+        <UpdateBanner
           currentVersion={currentVersion}
           latestVersion={latestVersion}
           dismiss={dismiss}

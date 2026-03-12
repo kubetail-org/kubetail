@@ -18,17 +18,17 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import appConfig from '@/app-config';
 import { CLI_LATEST_VERSION } from '@/lib/graphql/dashboard/ops';
 
-const LATEST_VERSION_CACHE_KEY = 'kubetail:versionCheck:cliLatest';
-const DISMISSED_KEY = 'kubetail:versionCheck:dismissed';
-const IGNORED_VERSIONS_KEY = 'kubetail:versionCheck:ignoredVersions';
+const STORAGE_KEY = 'kubetail:updates:cli';
 
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const DISMISS_TTL_MS = 24 * 60 * 60 * 1000;
 const SHOW_DELAY_MS = 4000;
 
-interface CachedLatestVersion {
-  timestamp: number;
-  version: string;
+interface UpdateState {
+  latestVersion?: string;
+  fetchedAt?: number;
+  dismissedAt?: number;
+  skippedVersions?: string[];
 }
 
 export function compareSemver(a: string, b: string): number {
@@ -42,68 +42,29 @@ export function compareSemver(a: string, b: string): number {
   return 0;
 }
 
-function readCachedLatestVersion(): string | null {
+function readState(): UpdateState {
   try {
-    const raw = localStorage.getItem(LATEST_VERSION_CACHE_KEY);
-    if (!raw) return null;
-    const entry: CachedLatestVersion = JSON.parse(raw);
-    if (Date.now() - entry.timestamp >= CACHE_TTL_MS) return null;
-    return entry.version;
-  } catch {
-    return null;
-  }
-}
-
-function writeCachedLatestVersion(version: string) {
-  try {
-    const entry: CachedLatestVersion = { timestamp: Date.now(), version };
-    localStorage.setItem(LATEST_VERSION_CACHE_KEY, JSON.stringify(entry));
-  } catch {
-    // fail silently
-  }
-}
-
-function isDismissed(): boolean {
-  try {
-    const raw = localStorage.getItem(DISMISSED_KEY);
-    if (!raw) return false;
-    return Date.now() - Number(raw) < DISMISS_TTL_MS;
-  } catch {
-    return false;
-  }
-}
-
-function setDismissed() {
-  try {
-    localStorage.setItem(DISMISSED_KEY, String(Date.now()));
-  } catch {
-    // fail silently
-  }
-}
-
-function getIgnoredVersions(): string[] {
-  try {
-    const raw = localStorage.getItem(IGNORED_VERSIONS_KEY);
-    if (!raw) return [];
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
     return JSON.parse(raw);
   } catch {
-    return [];
+    return {};
   }
 }
 
-function addIgnoredVersion(version: string) {
+function writeState(state: UpdateState) {
   try {
-    const versions = getIgnoredVersions();
-    if (!versions.includes(version)) {
-      versions.push(version);
-      localStorage.setItem(IGNORED_VERSIONS_KEY, JSON.stringify(versions));
-    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
     // fail silently
   }
 }
 
-export interface UpgradeNotificationState {
+function patchState(patch: Partial<UpdateState>) {
+  writeState({ ...readState(), ...patch });
+}
+
+export interface UpdateNotificationState {
   showBanner: boolean;
   currentVersion: string;
   latestVersion: string | null;
@@ -112,7 +73,7 @@ export interface UpgradeNotificationState {
   dontRemindMe: () => void;
 }
 
-const defaultState: UpgradeNotificationState = {
+const defaultState: UpdateNotificationState = {
   showBanner: false,
   currentVersion: '',
   latestVersion: null,
@@ -121,16 +82,20 @@ const defaultState: UpgradeNotificationState = {
   dontRemindMe: () => {},
 };
 
-const UpgradeNotificationContext = createContext<UpgradeNotificationState>(defaultState);
+const UpdateNotificationContext = createContext<UpdateNotificationState>(defaultState);
 
-export function UpgradeNotificationProvider({ children }: React.PropsWithChildren) {
+export function UpdateNotificationProvider({ children }: React.PropsWithChildren) {
   const isDesktop = appConfig.environment === 'desktop';
   const currentVersion = appConfig.cliVersion;
   const [ready, setReady] = useState(false);
-  const [dismissed, setDismissedState] = useState(() => isDismissed());
-  const [ignored, setIgnored] = useState(() => getIgnoredVersions());
+  const [state, setState] = useState(() => readState());
 
-  const cachedLatest = useMemo(() => readCachedLatestVersion(), []);
+  const cachedLatest = useMemo(() => {
+    if (!state.latestVersion || !state.fetchedAt) return null;
+    if (Date.now() - state.fetchedAt >= CACHE_TTL_MS) return null;
+    return state.latestVersion;
+  }, []);
+
   const skipQuery = !isDesktop || !currentVersion || cachedLatest !== null;
 
   useEffect(() => {
@@ -149,37 +114,42 @@ export function UpgradeNotificationProvider({ children }: React.PropsWithChildre
     if (cachedLatest !== null || !isDesktop) return;
     const version = data?.cliLatestVersion;
     if (version) {
-      writeCachedLatestVersion(version);
+      patchState({ latestVersion: version, fetchedAt: Date.now() });
     }
   }, [cachedLatest, isDesktop, data]);
 
   const updateAvailable =
     currentVersion !== '' && latestVersion !== null && compareSemver(latestVersion, currentVersion) > 0;
 
-  const hasUpdate = updateAvailable && !ignored.includes(latestVersion);
+  const dismissed = state.dismissedAt !== undefined && Date.now() - state.dismissedAt < DISMISS_TTL_MS;
+  const skipped = latestVersion !== null && (state.skippedVersions ?? []).includes(latestVersion);
+  const hasUpdate = updateAvailable && !skipped;
 
   const showBanner = ready && !dismissed && hasUpdate;
 
   const dismiss = useCallback(() => {
-    setDismissed();
-    setDismissedState(true);
+    patchState({ dismissedAt: Date.now() });
+    setState(readState());
   }, []);
 
   const dontRemindMe = useCallback(() => {
-    if (updateAvailable && latestVersion) addIgnoredVersion(latestVersion);
-    setIgnored(getIgnoredVersions());
-    setDismissed();
-    setDismissedState(true);
-  }, [updateAvailable, latestVersion]);
+    const current = readState();
+    const versions = current.skippedVersions ?? [];
+    if (latestVersion && !versions.includes(latestVersion)) {
+      versions.push(latestVersion);
+    }
+    writeState({ ...current, skippedVersions: versions, dismissedAt: Date.now() });
+    setState(readState());
+  }, [latestVersion]);
 
   const value = useMemo(
     () => ({ showBanner, currentVersion, latestVersion, updateAvailable, dismiss, dontRemindMe }),
     [showBanner, currentVersion, latestVersion, updateAvailable, dismiss, dontRemindMe],
   );
 
-  return <UpgradeNotificationContext.Provider value={value}>{children}</UpgradeNotificationContext.Provider>;
+  return <UpdateNotificationContext.Provider value={value}>{children}</UpdateNotificationContext.Provider>;
 }
 
-export function useUpgradeNotification(): UpgradeNotificationState {
-  return useContext(UpgradeNotificationContext);
+export function useUpdateNotification(): UpdateNotificationState {
+  return useContext(UpdateNotificationContext);
 }

@@ -14,14 +14,14 @@
 
 import { ArrowUpCircle, X } from 'lucide-react';
 
-interface UpgradeBannerProps {
+interface UpdateBannerProps {
   currentVersion: string;
   latestVersion: string;
   dismiss: () => void;
   dontRemindMe: () => void;
 }
 
-export default function UpgradeBanner({ currentVersion, latestVersion, dismiss, dontRemindMe }: UpgradeBannerProps) {
+export default function UpdateBanner({ currentVersion, latestVersion, dismiss, dontRemindMe }: UpdateBannerProps) {
   return (
     <div
       role="status"

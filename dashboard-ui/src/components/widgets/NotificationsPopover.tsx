@@ -17,11 +17,11 @@ import { useState } from 'react';
 
 import { Popover, PopoverTrigger, PopoverContent } from '@kubetail/ui/elements/popover';
 
-import { useUpgradeNotification } from '@/lib/upgrade-notifications';
+import { useUpdateNotification } from '@/lib/update-notifications';
 
 export const NotificationsPopover = ({ children }: React.PropsWithChildren) => {
   const [isOpen, setIsOpen] = useState(false);
-  const { updateAvailable, currentVersion, latestVersion } = useUpgradeNotification();
+  const { updateAvailable, currentVersion, latestVersion } = useUpdateNotification();
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
