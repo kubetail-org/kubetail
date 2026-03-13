@@ -487,6 +487,26 @@ export const HELM_LIST_RELEASES = gql(`
 `);
 
 /**
+ * Version status queries
+ */
+
+export const CLI_LATEST_VERSION = gql(`
+  query CliLatestVersion {
+    cliLatestVersion
+  }
+`);
+
+export const CLUSTER_VERSION_STATUS = gql(`
+  query ClusterVersionStatus($kubeContext: String) {
+    clusterVersionStatus(kubeContext: $kubeContext) {
+      currentVersion
+      latestVersion
+      updateAvailable
+    }
+  }
+`);
+
+/**
  * KubeConfig queries
  */
 

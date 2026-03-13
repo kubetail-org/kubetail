@@ -29,6 +29,8 @@ class Config {
 
   basePath = '/';
 
+  cliVersion = '';
+
   clusterAPIEnabled = true;
 
   clusterAPIEndpoint = '';

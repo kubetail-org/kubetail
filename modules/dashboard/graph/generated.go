@@ -606,7 +606,7 @@ type ComplexityRoot struct {
 		BatchV1CronJobsList     func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
 		BatchV1JobsGet          func(childComplexity int, kubeContext *string, namespace *string, name string, options *v1.GetOptions) int
 		BatchV1JobsList         func(childComplexity int, kubeContext *string, namespace *string, options *v1.ListOptions) int
-		CliVersionStatus        func(childComplexity int) int
+		CliLatestVersion        func(childComplexity int) int
 		ClusterAPIHealthzGet    func(childComplexity int, kubeContext *string, namespace *string, serviceName *string) int
 		ClusterAPIReadyWait     func(childComplexity int, kubeContext *string, namespace *string, serviceName *string) int
 		ClusterAPIServicesList  func(childComplexity int, kubeContext *string, options *v1.ListOptions) int
@@ -713,7 +713,7 @@ type QueryResolver interface {
 	ClusterAPIHealthzGet(ctx context.Context, kubeContext *string, namespace *string, serviceName *string) (*model.HealthCheckResponse, error)
 	ClusterAPIServicesList(ctx context.Context, kubeContext *string, options *v1.ListOptions) (*v13.ServiceList, error)
 	HelmListReleases(ctx context.Context, kubeContext *string) ([]*release.Release, error)
-	CliVersionStatus(ctx context.Context) (*model.VersionStatus, error)
+	CliLatestVersion(ctx context.Context) (*string, error)
 	ClusterVersionStatus(ctx context.Context, kubeContext *string) (*model.VersionStatus, error)
 	KubeConfigGet(ctx context.Context) (*model.KubeConfig, error)
 	KubernetesAPIReadyWait(ctx context.Context, kubeContext *string) (bool, error)
@@ -2946,12 +2946,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Query.BatchV1JobsList(childComplexity, args["kubeContext"].(*string), args["namespace"].(*string), args["options"].(*v1.ListOptions)), true
 
-	case "Query.cliVersionStatus":
-		if e.complexity.Query.CliVersionStatus == nil {
+	case "Query.cliLatestVersion":
+		if e.complexity.Query.CliLatestVersion == nil {
 			break
 		}
 
-		return e.complexity.Query.CliVersionStatus(childComplexity), true
+		return e.complexity.Query.CliLatestVersion(childComplexity), true
 
 	case "Query.clusterAPIHealthzGet":
 		if e.complexity.Query.ClusterAPIHealthzGet == nil {
@@ -21270,8 +21270,8 @@ func (ec *executionContext) fieldContext_Query_helmListReleases(ctx context.Cont
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_cliVersionStatus(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_cliVersionStatus(ctx, field)
+func (ec *executionContext) _Query_cliLatestVersion(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_cliLatestVersion(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -21284,7 +21284,7 @@ func (ec *executionContext) _Query_cliVersionStatus(ctx context.Context, field g
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().CliVersionStatus(rctx)
+		return ec.resolvers.Query().CliLatestVersion(rctx)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -21293,27 +21293,19 @@ func (ec *executionContext) _Query_cliVersionStatus(ctx context.Context, field g
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(*model.VersionStatus)
+	res := resTmp.(*string)
 	fc.Result = res
-	return ec.marshalOVersionStatus2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐVersionStatus(ctx, field.Selections, res)
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Query_cliVersionStatus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_cliLatestVersion(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
 		IsMethod:   true,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "currentVersion":
-				return ec.fieldContext_VersionStatus_currentVersion(ctx, field)
-			case "latestVersion":
-				return ec.fieldContext_VersionStatus_latestVersion(ctx, field)
-			case "updateAvailable":
-				return ec.fieldContext_VersionStatus_updateAvailable(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type VersionStatus", field.Name)
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -30203,7 +30195,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "cliVersionStatus":
+		case "cliLatestVersion":
 			field := field
 
 			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
@@ -30212,7 +30204,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_cliVersionStatus(ctx, field)
+				res = ec._Query_cliLatestVersion(ctx, field)
 				return res
 			}
 

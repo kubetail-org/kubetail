@@ -203,60 +203,30 @@ func TestDesktopOnlyRequests(t *testing.T) {
 	})
 }
 
-func TestCliVersionStatus(t *testing.T) {
+func TestCliLatestVersion(t *testing.T) {
 	tests := []struct {
-		name                string
-		environment         sharedcfg.Environment
-		cliVersion          string
-		latestVersion       string
-		checkerErr          error
-		expectedNil         bool
-		expectedCurrent     string
-		expectedLatest      string
-		expectedUpdateAvail bool
+		name            string
+		environment     sharedcfg.Environment
+		latestVersion   string
+		checkerErr      error
+		expectedNil     bool
+		expectedVersion string
 	}{
 		{
-			name:                "upgrade available",
-			environment:         sharedcfg.EnvironmentDesktop,
-			cliVersion:          "0.11.0",
-			latestVersion:       "0.12.0",
-			expectedNil:         false,
-			expectedCurrent:     "0.11.0",
-			expectedLatest:      "0.12.0",
-			expectedUpdateAvail: true,
-		},
-		{
-			name:                "up to date",
-			environment:         sharedcfg.EnvironmentDesktop,
-			cliVersion:          "0.12.0",
-			latestVersion:       "0.12.0",
-			expectedNil:         false,
-			expectedCurrent:     "0.12.0",
-			expectedLatest:      "0.12.0",
-			expectedUpdateAvail: false,
+			name:            "returns latest version",
+			environment:     sharedcfg.EnvironmentDesktop,
+			latestVersion:   "0.12.0",
+			expectedNil:     false,
+			expectedVersion: "0.12.0",
 		},
 		{
 			name:        "cluster mode returns nil",
 			environment: sharedcfg.EnvironmentCluster,
-			cliVersion:  "0.11.0",
-			expectedNil: true,
-		},
-		{
-			name:        "dev version returns nil",
-			environment: sharedcfg.EnvironmentDesktop,
-			cliVersion:  "dev",
-			expectedNil: true,
-		},
-		{
-			name:        "empty version returns nil",
-			environment: sharedcfg.EnvironmentDesktop,
-			cliVersion:  "",
 			expectedNil: true,
 		},
 		{
 			name:        "version checker error returns nil",
 			environment: sharedcfg.EnvironmentDesktop,
-			cliVersion:  "0.11.0",
 			checkerErr:  fmt.Errorf("network error"),
 			expectedNil: true,
 		},
@@ -272,21 +242,19 @@ func TestCliVersionStatus(t *testing.T) {
 			}
 
 			r := &queryResolver{&Resolver{
-				cfg:            &config.Config{CLIVersion: tt.cliVersion},
+				cfg:            &config.Config{},
 				environment:    tt.environment,
 				versionChecker: vc,
 			}}
 
-			result, err := r.CliVersionStatus(context.Background())
+			result, err := r.CliLatestVersion(context.Background())
 			assert.Nil(t, err)
 
 			if tt.expectedNil {
 				assert.Nil(t, result)
 			} else {
 				assert.NotNil(t, result)
-				assert.Equal(t, tt.expectedCurrent, result.CurrentVersion)
-				assert.Equal(t, tt.expectedLatest, result.LatestVersion)
-				assert.Equal(t, tt.expectedUpdateAvail, result.UpdateAvailable)
+				assert.Equal(t, tt.expectedVersion, *result)
 			}
 		})
 	}
