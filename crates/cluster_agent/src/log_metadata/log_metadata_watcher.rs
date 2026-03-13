@@ -524,9 +524,19 @@ mod test {
         // Kill
         ctx.cancel();
 
-        // Ensure no more events are created.
-        let result = log_metadata_rx.try_recv();
-        assert!(matches!(result, Err(TryRecvError::Empty)));
+        // On shutdown, the watcher may enqueue the expected UNAVAILABLE status
+        // before this non-blocking receive runs.
+        match log_metadata_rx.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            Ok(Err(status)) => {
+                assert_eq!(status.code(), tonic::Code::Unavailable);
+                assert_eq!(status.message(), "Server is shutting down");
+            }
+            Ok(Ok(event)) => panic!("unexpected extra metadata event on shutdown: {event:?}"),
+            Err(TryRecvError::Disconnected) => {
+                panic!("receiver disconnected before shutdown status was observed")
+            }
+        }
     }
 
     #[tokio::test]
@@ -671,8 +681,17 @@ mod test {
         // Kill
         ctx.cancel();
 
-        let result = log_metadata_rx.try_recv();
-        assert!(matches!(result, Err(TryRecvError::Empty)));
+        match log_metadata_rx.try_recv() {
+            Err(TryRecvError::Empty) => {}
+            Ok(Err(status)) => {
+                assert_eq!(status.code(), tonic::Code::Unavailable);
+                assert_eq!(status.message(), "Server is shutting down");
+            }
+            Ok(Ok(event)) => panic!("unexpected extra metadata event on shutdown: {event:?}"),
+            Err(TryRecvError::Disconnected) => {
+                panic!("receiver disconnected before shutdown status was observed")
+            }
+        }
 
         // The renamed file won't be delted automatically when it gets out of scope.
         let _ = remove_file(&new_path);
