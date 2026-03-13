@@ -64,6 +64,10 @@ function patchState(patch: Partial<UpdateState>) {
   writeState({ ...readState(), ...patch });
 }
 
+function isCacheValid(state: UpdateState): boolean {
+  return !!state.latestVersion && !!state.fetchedAt && Date.now() - state.fetchedAt < CACHE_TTL_MS;
+}
+
 export interface UpdateNotificationState {
   showBanner: boolean;
   currentVersion: string;
@@ -73,16 +77,7 @@ export interface UpdateNotificationState {
   dontRemindMe: () => void;
 }
 
-const defaultState: UpdateNotificationState = {
-  showBanner: false,
-  currentVersion: '',
-  latestVersion: null,
-  updateAvailable: false,
-  dismiss: () => {},
-  dontRemindMe: () => {},
-};
-
-const UpdateNotificationContext = createContext<UpdateNotificationState>(defaultState);
+const UpdateNotificationContext = createContext({} as UpdateNotificationState);
 
 export function UpdateNotificationProvider({ children }: React.PropsWithChildren) {
   const isDesktop = appConfig.environment === 'desktop';
@@ -90,13 +85,7 @@ export function UpdateNotificationProvider({ children }: React.PropsWithChildren
   const [ready, setReady] = useState(false);
   const [state, setState] = useState(() => readState());
 
-  const cachedLatest = useMemo(() => {
-    if (!state.latestVersion || !state.fetchedAt) return null;
-    if (Date.now() - state.fetchedAt >= CACHE_TTL_MS) return null;
-    return state.latestVersion;
-  }, []);
-
-  const skipQuery = !isDesktop || !currentVersion || cachedLatest !== null;
+  const cacheValid = isCacheValid(state);
 
   useEffect(() => {
     const timer = setTimeout(() => setReady(true), SHOW_DELAY_MS);
@@ -104,19 +93,16 @@ export function UpdateNotificationProvider({ children }: React.PropsWithChildren
   }, []);
 
   const { data } = useQuery(CLI_LATEST_VERSION, {
-    skip: skipQuery,
+    skip: !isDesktop || !currentVersion || cacheValid,
     fetchPolicy: 'network-only',
   });
 
-  const latestVersion: string | null = cachedLatest ?? data?.cliLatestVersion ?? null;
-
   useEffect(() => {
-    if (cachedLatest !== null || !isDesktop) return;
     const version = data?.cliLatestVersion;
-    if (version) {
-      patchState({ latestVersion: version, fetchedAt: Date.now() });
-    }
-  }, [cachedLatest, isDesktop, data]);
+    if (version) patchState({ latestVersion: version, fetchedAt: Date.now() });
+  }, [data]);
+
+  const latestVersion = cacheValid ? state.latestVersion! : (data?.cliLatestVersion ?? null);
 
   const updateAvailable =
     currentVersion !== '' && latestVersion !== null && compareSemver(latestVersion, currentVersion) > 0;
@@ -133,12 +119,11 @@ export function UpdateNotificationProvider({ children }: React.PropsWithChildren
   }, []);
 
   const dontRemindMe = useCallback(() => {
-    const current = readState();
-    const versions = current.skippedVersions ?? [];
-    if (latestVersion && !versions.includes(latestVersion)) {
-      versions.push(latestVersion);
+    const { skippedVersions = [] } = readState();
+    if (latestVersion && !skippedVersions.includes(latestVersion)) {
+      skippedVersions.push(latestVersion);
     }
-    writeState({ ...current, skippedVersions: versions, dismissedAt: Date.now() });
+    patchState({ skippedVersions, dismissedAt: Date.now() });
     setState(readState());
   }, [latestVersion]);
 
