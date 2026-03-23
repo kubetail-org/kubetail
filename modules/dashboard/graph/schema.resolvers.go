@@ -1051,6 +1051,7 @@ func (r *subscriptionResolver) KubeConfigWatch(ctx context.Context) (<-chan *mod
 		}
 
 		defer sub.Drain()
+		defer sub.Unsubscribe()
 
 		// Wait for client close
 		<-ctx.Done()

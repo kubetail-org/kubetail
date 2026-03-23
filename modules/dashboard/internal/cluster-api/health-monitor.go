@@ -405,7 +405,8 @@ func (w *endpointSlicesHealthMonitorWorker) WatchHealthStatus(ctx context.Contex
 		// Wait for client to close
 		<-ctx.Done()
 
-		// Unsubscribe
+		// Stop receiving new messages, then drain pending ones
+		sub.Unsubscribe()
 		sub.Drain()
 
 		// Close output channel
