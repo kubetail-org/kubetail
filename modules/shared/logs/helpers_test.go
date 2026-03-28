@@ -448,9 +448,20 @@ func TestMergeLogStreamsContextCancellation(t *testing.T) {
 	// Cancel context
 	cancel()
 
+	// Wait for the channel to be closed
+	timeout := time.After(1 * time.Second)
+
 	// Verify channel is closed
-	_, ok := <-merged
-	assert.False(t, ok, "channel should be closed after context cancellation")
+	for {
+		select {
+		case _, ok := <-merged:
+			if !ok {
+				return
+			}
+		case <-timeout:
+			t.Fatal("channel should be closed after context cancellation")
+		}
+	}
 }
 
 func TestParseWorkloadType(t *testing.T) {
