@@ -19,7 +19,7 @@ SLOT="0"
 
 KEYWORDS="~amd64 ~arm64"
 
-BDEPEND=">=dev-lang/go-1.24.7"
+BDEPEND=">=dev-lang/go-1.25.0"
 
 src_compile() {
 	(

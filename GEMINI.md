@@ -29,7 +29,7 @@ This project is organized as a monorepo with the following components:
 ## Technology Stack
 
 - **Frontend**: TypeScript, React, Vite, Tailwind CSS, Apollo Client, Jotai
-- **Backend**: Go 1.24+, Gin framework, gqlgen (GraphQL)
+- **Backend**: Go 1.25+, Gin framework, gqlgen (GraphQL)
 - **High-Performance Components**: Rust with Cargo
 - **API Layers**: GraphQL (user-facing), gRPC (inter-service)
 - **Package Management**: pnpm (frontend), Go modules, Cargo
@@ -48,7 +48,7 @@ This project is organized as a monorepo with the following components:
 ## Go Coding Style
 
 - Follow standard Go formatting (`gofmt`)
-- Use Go 1.24+ features appropriately
+- Use Go 1.25+ features appropriately
 - Organize code in modules under `modules/` directory
 - Use Go workspaces (`modules/go.work`)
 - Run `go vet` to catch potential issues

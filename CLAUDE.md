@@ -19,7 +19,7 @@ Kubetail is a real-time logging dashboard for Kubernetes that provides both brow
 
 ### Technology Stack
 - **TypeScript/React**: Frontend with Vite, Tailwind CSS, Apollo Client, and Jotai state management
-- **Go 1.24+**: Backend services using Go workspaces (`modules/go.work`)
+- **Go 1.25+**: Backend services using Go workspaces (`modules/go.work`)
 - **Rust**: High-performance log processing in `crates/rgkl/`
 - **GraphQL**: User-facing API layer uses gqlgen for Go backends with code generation
 - **gRPC**: Inter-service API layer uses gRPC with code generation
@@ -37,7 +37,7 @@ Kubetail is a real-time logging dashboard for Kubernetes that provides both brow
 ### Go Coding Style
 
 - Follow standard Go formatting (`gofmt`)
-- Use Go 1.24+ features appropriately
+- Use Go 1.25+ features appropriately
 - Use Go workspaces (`modules/go.work`)
 - Keep shared functionality in `modules/shared/`
 
