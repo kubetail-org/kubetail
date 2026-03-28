@@ -9,7 +9,7 @@ inputs:
   go-version:
     description: 'Go version to install'
     required: false
-    default: '1.24.5'
+    default: '1.25.8'
   node-version:
     description: 'Node.js version to install'
     required: false
@@ -76,7 +76,7 @@ runs:
 
     - name: Set up Go
       if: inputs.setup-go == 'true'
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version: ${{ inputs.go-version }}
         cache-dependency-path: |
