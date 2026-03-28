@@ -20,7 +20,7 @@ require (
 	github.com/go-playground/validator/v10 v10.28.0
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/kubetail-org/kubetail/modules/shared v0.0.0-00010101000000-000000000000
-	github.com/kubetail-org/megaphone v0.0.1
+	github.com/kubetail-org/megaphone v0.0.2
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/rs/zerolog v1.34.0
 	github.com/sosodev/duration v1.3.1

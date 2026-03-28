@@ -17,7 +17,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
 	github.com/kubetail-org/grpc-dispatcher-go v0.1.5
-	github.com/kubetail-org/megaphone v0.0.1
+	github.com/kubetail-org/megaphone v0.0.2
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.11.1
 	github.com/vektah/gqlparser/v2 v2.5.28
