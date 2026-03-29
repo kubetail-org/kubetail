@@ -146,7 +146,7 @@ jobs:
 
       - &upload_step
         name: Upload result
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: version-${{ env.TRIPLET }}
           path: /tmp/results/*.txt
@@ -172,7 +172,7 @@ jobs:
       TRIPLET: apk_alpine-edge_${{ matrix.arch }}
     steps:
       - name: Setup Alpine
-        uses: jirutka/setup-alpine@v1
+        uses: jirutka/setup-alpine@v1.4.1
         with:
           arch: ${{ matrix.arch }}
           branch: edge
@@ -194,7 +194,7 @@ jobs:
           echo "${cli_ver}" > "$GITHUB_WORKSPACE/results/${{ env.TRIPLET }}.txt"
 
       - name: Upload result
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: version-${{ env.TRIPLET }}
           path: results/*.txt
@@ -302,7 +302,7 @@ jobs:
       TRIPLET: apt_${{ matrix.series }}_${{ matrix.arch }}
     steps:
       - name: Test on ${{ matrix.arch }}
-        uses: uraimo/run-on-arch-action@v3
+        uses: uraimo/run-on-arch-action@v3.0.1
         with:
           arch: ${{ matrix.arch }}
           distro: ${{ matrix.distro }}
@@ -323,7 +323,7 @@ jobs:
             echo "${cli_ver}" > "${GITHUB_WORKSPACE}/results/${{ env.TRIPLET }}.txt"
 
       - name: Upload result
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: version-${{ env.TRIPLET }}
           path: results/*.txt
@@ -567,9 +567,11 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
+          IMAGE="${{ matrix.image }}"
+          OS_VERSION="${IMAGE##*:}"
           zypper -n refresh
-          rpm --import https://download.opensuse.org/repositories/home:/kubetail/15.6/repodata/repomd.xml.key
-          zypper -n addrepo "https://download.opensuse.org/repositories/home:/kubetail/15.6/" kubetail
+          rpm --import "https://download.opensuse.org/repositories/home:/kubetail/${OS_VERSION}/repodata/repomd.xml.key"
+          zypper -n addrepo "https://download.opensuse.org/repositories/home:/kubetail/${OS_VERSION}/" kubetail
           zypper -n refresh
           zypper install -y kubetail-cli
 
@@ -809,7 +811,7 @@ jobs:
           Set-Content -Path "$resultsDir\${{ env.TRIPLET }}.txt" -Value $ver
 
       - name: Upload result
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: version-${{ env.TRIPLET }}
           path: ${{ runner.temp }}/results/*.txt
@@ -831,7 +833,7 @@ jobs:
     if: always() && github.repository == 'kubetail-org/kubetail'
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: /tmp/artifacts
           pattern: version-*
