@@ -106,31 +106,33 @@ cargo build --release
 
 ## Commit Guidelines
 
-All commits must be squashed into a single, signed commit before merging.
+All commits should be squashed into a single, signed commit before merging.
 
 ### Format
 
-We follow a specific commit format. See the [Pull Request Commit Format](https://github.com/kubetail-org/.github/blob/main/pull-request-commit-format.md) for detailed guidelines.
 
-Quick reference:
+We follow the [Conventional Commits](https://www.conventionalcommits.org) format:
 
 ```
-<type>: commit title goes here (all lowercase)
+<type>[optional scope]: commit title goes here (all lowercase)
 
-* <type>: Main change 1
-* <type>: Main change 2
+[optional body]
 
 Signed-off-by: Your Name <you@example.com>
 ```
 
 **Types:**
-- `new` - New features or capabilities
-- `fix` - Bug fixes
-- `doc` - Documentation changes
-- `test` - Test additions or modifications
-- `ref` - Code refactoring (no functional changes)
-- `chore` - Maintenance tasks, dependency updates
-- `wip` - Work in progress (use sparingly)
+
+- `build` - Changes that affect the build system or external dependencies (example scopes: gulp, broccoli, npm)
+- `ci` - Changes to our CI configuration files and scripts
+- `docs` - Documentation only changes
+- `feat` - A new feature
+- `fix` - A bug fix
+- `perf` - A code change that improves performance
+- `refactor` - A code change that neither fixes a bug nor adds a feature
+- `style` - Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+- `test` - Adding missing tests or correcting existing tests
+
 
 ## Pull Request Guidelines
 
@@ -140,7 +142,7 @@ Signed-off-by: Your Name <you@example.com>
 2. **Run tests**: Execute all relevant tests for your changes and ensure they pass
 3. **Format code**: Run formatters for the languages you modified
 4. **Update branch**: Rebase your branch to the latest `main`
-5. **Squash commits**: Combine all commits into a single, signed commit following our [commit format](https://github.com/kubetail-org/.github/blob/main/pull-request-commit-format.md)
+5. **Squash commits**: Combine all commits into a single, signed commit following our [commit format](https://www.conventionalcommits.org)
 
 ### PR Title Format
 
@@ -157,7 +159,7 @@ Your PR should include:
 
 - Link to related issue: `Fixes #123`
 - **Summary**: Explain the goal of your PR
-- **Changes**: List the specific changes made
+- **Key Changes**: List the specific key changes made (if relevant)
 
 ### PR Checklist
 
@@ -165,7 +167,7 @@ Your PR should include:
 - [ ] Link the issue number with `Fixes #`
 - [ ] Add summary and explain changes
 - [ ] Rebase branch to HEAD
-- [ ] Squash changes into one signed commit
+- [ ] Squash changes into one signed, single commit
 
 ## Branch Naming Guidelines
 
@@ -174,15 +176,6 @@ Use descriptive branch names with this pattern:
 ```
 <type>/<short-description>
 ```
-
-### Types
-
-- **feat/** - New features
-- **fix/** - Bug fixes
-- **docs/** - Documentation changes
-- **refactor/** - Code refactoring
-- **test/** - Test additions or changes
-- **chore/** - Maintenance tasks
 
 ## Editor Configuration
 
@@ -241,5 +234,3 @@ Please read and follow our [Code of Conduct](https://github.com/kubetail-org/.gi
 ---
 
 Thank you for contributing to Kubetail! 🚀
-
-

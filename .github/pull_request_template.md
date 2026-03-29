@@ -12,9 +12,9 @@ Fixes #
 
 <-- Explain the goal of your PR  -->
 
-## Changes
+## Key Changes
 
-<-- Explain the changes in your PR -->
+<-- Explain the key changes in your PR -->
 
 ## Submitter checklist
 
@@ -24,4 +24,4 @@ Fixes #
 - [ ] Rebase branch to HEAD
 - [ ] Squash changes into one signed, single commit [^1]
 
-[^1]: See suggested [commit format](https://github.com/kubetail-org/.github/blob/main/pull-request-commit-format.md)
+[^1]: Please use [conventional commits format](https://www.conventionalcommits.org)
