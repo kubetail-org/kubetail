@@ -58,7 +58,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt install -y \
+          sudo apt-get update
+          sudo apt-get install -y \
             devscripts \
             debhelper-compat
 
