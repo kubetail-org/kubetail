@@ -48,9 +48,6 @@ lerna-debug.log*
 # tilt (custom)
 .tilt
 
-# misc
-/dashboard-ui/stats.html
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -61,4 +58,18 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# AI tools
+.aider/
+.cache/
+.claude/
+.cody/
+.continue/
+.cursor/
+.embeddings/
+.memory/
+.sweep/
+
+# Misc
+/dashboard-ui/stats.html
 .worktrees
