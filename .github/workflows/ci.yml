@@ -141,6 +141,7 @@ jobs:
         arch:
           - amd64
           - arm64
+          - riscv64
         include:
           - os: linux
             arch: amd64
@@ -148,6 +149,9 @@ jobs:
           - os: linux
             arch: arm64
             runner: ubuntu-24.04-arm
+          - os: linux
+            arch: riscv64
+            runner: ubuntu-24.04-riscv
           - os: macos-15
             arch: amd64
             runner: macos-15-intel
@@ -166,6 +170,12 @@ jobs:
         exclude:
           - os: macos-26
             arch: amd64
+          - os: macos-15
+            arch: riscv64
+          - os: macos-26
+            arch: riscv64
+          - os: windows
+            arch: riscv64
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
@@ -301,6 +311,7 @@ jobs:
         arch:
           - amd64
           - arm64
+          - riscv64
         include:
           - os: linux
             arch: amd64
@@ -310,6 +321,10 @@ jobs:
             arch: arm64
             runner: ubuntu-24.04-arm
             platform: linux-arm64
+          - os: linux
+            arch: riscv64
+            runner: ubuntu-24.04-riscv
+            platform: linux-riscv64
           - os: macos-15
             arch: amd64
             runner: macos-15-intel
@@ -333,6 +348,12 @@ jobs:
         exclude:
           - os: macos-26
             arch: amd64
+          - os: macos-15
+            arch: riscv64
+          - os: macos-26
+            arch: riscv64
+          - os: windows
+            arch: riscv64
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
