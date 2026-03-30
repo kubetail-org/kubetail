@@ -42,7 +42,7 @@ jobs:
     name: Update `kubetail` package
     needs: [config]
     environment: production
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-24.04
     env:
       ARCHIVE_NAME: "kubetail-${{ needs.config.outputs.version }}-vendored.tar.gz"
       VERSION: ${{ needs.config.outputs.version }}
