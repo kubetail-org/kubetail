@@ -31,7 +31,7 @@ on:
 jobs:
   config:
     name: Configure workflow
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-slim
     outputs:
       version: ${{ steps.config.outputs.version }}
       signing_policy: ${{ steps.config.outputs.signing_policy }}

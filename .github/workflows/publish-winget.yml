@@ -24,7 +24,7 @@ jobs:
   winget-release:
     name: Release on winget
     environment: production
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-slim
     env:
       UPSTREAM_REPO: microsoft/winget-pkgs
       FORK_REPO: kubetail-org/winget-pkgs

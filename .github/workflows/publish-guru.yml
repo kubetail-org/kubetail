@@ -23,7 +23,7 @@ on:
 jobs:
   config:
     name: Configure workflow
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-slim
     outputs:
       version: ${{ steps.config.outputs.version }}
       dry_run: ${{ steps.config.outputs.dry_run }}
@@ -42,7 +42,7 @@ jobs:
     name: Update `kubetail` package
     needs: [config]
     environment: production
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-slim
     env:
       ARCHIVE_NAME: "kubetail-${{ needs.config.outputs.version }}-vendored.tar.gz"
     steps:
@@ -162,7 +162,7 @@ jobs:
     name: Update `kubetail-bin` package
     needs: [config, update-kubetail]
     environment: production
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-slim
     steps:
       - name: Download source bundle
         uses: robinraju/release-downloader@v1.12

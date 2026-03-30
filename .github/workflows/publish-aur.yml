@@ -24,7 +24,7 @@ jobs:
   update-kubetail-bin:
     name: Update AUR kubetail-bin repo
     environment: production
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-slim
     steps:
       - name: Config
         id: config
@@ -126,7 +126,7 @@ jobs:
   update-kubetail-cli:
     name: Update AUR kubetail-cli repo
     environment: production
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-slim
     steps:
       - name: Config
         id: config

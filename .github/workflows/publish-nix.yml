@@ -24,7 +24,7 @@ jobs:
   trigger-release-workflow:
     name: Trigger release workflow in kubetail-org/kubetail-nix repo
     environment: production
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-slim
     steps:
       - name: Config
         id: config

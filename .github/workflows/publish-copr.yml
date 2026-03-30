@@ -22,7 +22,7 @@ on:
 
 jobs:
   publish:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-slim
     environment: production
     steps:
       - id: config
