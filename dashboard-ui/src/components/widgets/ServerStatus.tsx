@@ -221,7 +221,7 @@ const ServerStatusWidget = ({ className, healthDotClassName }: ServerStatusWidge
   const clusterAPIServerStatusMap = useAtomValue(clusterAPIServerStatusMapState);
 
   // Determine overall status
-  let overallStatus = Status.Unknown;
+  let overallStatus: Status;
   if (dashboardServerStatus.status === Status.Unhealthy) {
     overallStatus = Status.Unhealthy;
   } else {
