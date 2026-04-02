@@ -88,6 +88,24 @@ jobs:
         working-directory: ./crates
         run: cargo test
 
+  modules-vendor:
+    name: Prepare Go vendor bundle
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Create vendor bundle
+        working-directory: ./modules
+        run: go work vendor
+      - name: Upload vendor artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: go-vendor
+          path: modules/vendor
+          retention-days: 1
+
   modules-lint:
     runs-on: ubuntu-24.04
     strategy:
@@ -107,6 +125,7 @@ jobs:
         run: test -z "$(gofmt -l .)"
 
   modules-vet:
+    needs: modules-vendor
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -120,11 +139,17 @@ jobs:
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
+      - name: Download vendor artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: go-vendor
+          path: modules/vendor
       - name: Vet ${{ matrix.module }}
         working-directory: ./modules/${{ matrix.module }}
         run: go vet ./...
 
   modules-test:
+    needs: modules-vendor
     timeout-minutes: 20
     strategy:
       matrix:
@@ -172,13 +197,18 @@ jobs:
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
+      - name: Download vendor artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: go-vendor
+          path: modules/vendor
       - name: Run tests
-        working-directory: ./modules/${{ matrix.module }}
-        run: go test ./...
+        working-directory: ./modules
+        run: go test -mod=vendor ./${{ matrix.module }}/...
       - name: Run race tests
         if: ${{ !(matrix.os == 'windows' && matrix.arch == 'arm64') }}
-        working-directory: ./modules/${{ matrix.module }}
-        run: go test -race ./...
+        working-directory: ./modules
+        run: go test -race -mod=vendor ./${{ matrix.module }}/...
 
   modules-test-riscv64:
     timeout-minutes: 60
