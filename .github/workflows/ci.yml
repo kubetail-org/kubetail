@@ -196,12 +196,12 @@ jobs:
           name: modules-vendor-bundle
           path: modules/vendor
       - name: Run tests
-        working-directory: ./modules
-        run: go test -mod=vendor ./${{ matrix.module }}/...
+        working-directory: ./modules/${{ matrix.module }}
+        run: go test -mod=vendor ./...
       - name: Run race tests
         if: ${{ !(matrix.os == 'windows' && matrix.arch == 'arm64') }}
-        working-directory: ./modules
-        run: go test -race -mod=vendor ./${{ matrix.module }}/...
+        working-directory: ./modules/${{ matrix.module }}
+        run: go test -race -mod=vendor ./...
 
   modules-test-riscv64:
     needs: modules-vendor
