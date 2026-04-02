@@ -251,9 +251,9 @@ pnpm dev
 Now access the dashboard at [http://localhost:5173](http://localhost:5173).
 
 <details>
-  <summary><h3>Optimize Development Environment for Rust (Optional)</h3></summary>
+  <summary><h3>Local Rust Development (Optional)</h3></summary>
   
-  By default, the dev environment compiles "release" builds of the Rust components when you run run `tilt up`. If you want to iterate more quickly, you can have Tilt compile the rust code locally using "debug" builds instead.
+  By default, the dev environment uses a pre-built image for the Rust-based cluster-agent. If you're working on the Rust code and want to iterate locally, you can have Tilt compile the Rust code on your machine using "debug" builds instead.
 
   #### Dependencies
 

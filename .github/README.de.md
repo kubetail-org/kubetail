@@ -251,9 +251,9 @@ pnpm dev
 Anschließend kannst du das Dashboard unter [http://localhost:5173](http://localhost:5173) aufrufen.
 
 <details>
-  <summary><h3>Entwicklungsumgebung für Rust optimieren (optional)</h3></summary>
+  <summary><h3>Lokale Rust-Entwicklung (optional)</h3></summary>
   
-  Standardmäßig kompiliert die Entwicklungsumgebung beim Ausführen von `tilt up` die Rust-Komponenten als "release"-Builds. Wenn du schneller iterieren möchtest, kannst du Tilt stattdessen so konfigurieren, dass der Rust-Code lokal als "debug"-Build kompiliert wird.
+  Standardmäßig verwendet die Entwicklungsumgebung ein vorgefertigtes Image für den Rust-basierten Cluster-Agent. Wenn du am Rust-Code arbeitest und lokal iterieren möchtest, kannst du Tilt stattdessen so konfigurieren, dass der Rust-Code auf deinem Rechner als "debug"-Build kompiliert wird.
 
   #### Abhängigkeiten
 

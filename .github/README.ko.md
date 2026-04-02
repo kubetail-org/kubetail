@@ -251,9 +251,9 @@ pnpm dev
 이제 [http://localhost:5173](http://localhost:5173) 에서 대시보드에 접속할 수 있습니다.
 
 <details>
-  <summary><h3>Rust용 개발 환경 최적화(선택 사항)</h3></summary>
+  <summary><h3>로컬 Rust 개발(선택 사항)</h3></summary>
   
-  기본적으로 `tilt up`을 실행하면 개발 환경은 Rust 컴포넌트를 "release" 빌드로 컴파일합니다. 더 빠르게 반복 작업하고 싶다면 대신 Tilt가 "debug" 빌드로 Rust 코드를 로컬에서 컴파일하도록 할 수 있습니다.
+  기본적으로 개발 환경은 Rust 기반 cluster-agent에 사전 빌드된 이미지를 사용합니다. Rust 코드를 개발하면서 로컬에서 반복 작업하고 싶다면 Tilt가 "debug" 빌드로 Rust 코드를 로컬에서 컴파일하도록 할 수 있습니다.
 
   #### 의존성
 

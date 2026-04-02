@@ -251,9 +251,9 @@ pnpm dev
 现在可以通过 [http://localhost:5173](http://localhost:5173) 访问仪表板。
 
 <details>
-  <summary><h3>为 Rust 优化开发环境（可选）</h3></summary>
+  <summary><h3>本地 Rust 开发（可选）</h3></summary>
   
-  默认情况下，当你运行 `tilt up` 时，开发环境会以 "release" 构建来编译 Rust 组件。如果你想更快地迭代，可以让 Tilt 改为在本地使用 "debug" 构建来编译 Rust 代码。
+  默认情况下，开发环境使用预构建的镜像来运行基于 Rust 的 cluster-agent。如果你正在开发 Rust 代码并希望在本地迭代，可以让 Tilt 改为在你的机器上使用 "debug" 构建来编译 Rust 代码。
 
   #### 依赖
 

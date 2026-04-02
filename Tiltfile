@@ -152,7 +152,7 @@ if build_rust_locally:
   )
 
   docker_build_with_restart(
-    'kubetail-cluster-agent',
+    'ghcr.io/kubetail-org/kubetail-cluster-agent',
     dockerfile='hack/tilt/Dockerfile.kubetail-cluster-agent-local',
     context='.',
     entrypoint="/cluster-agent/cluster-agent -c /etc/kubetail/config.yaml",
@@ -161,24 +161,6 @@ if build_rust_locally:
     ],
     live_update=[
       sync('./.tilt/cluster-agent', '/cluster-agent/cluster-agent')
-    ]
-  )
-else:
-  docker_build_with_restart(
-    'kubetail-cluster-agent',
-    dockerfile='hack/tilt/Dockerfile.kubetail-cluster-agent',
-    context='.',
-    entrypoint="/cluster-agent/cluster-agent -c /etc/kubetail/config.yaml",
-    only=[
-      './crates',
-      './proto',
-    ],
-    ignore=[
-      './crates/target',
-      './crates/*/target'
-    ],
-    live_update=[
-      sync('./.tilt/cluster-agent', '/cluster-agent/cluster-agent'),
     ]
   )
 

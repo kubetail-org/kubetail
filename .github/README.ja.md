@@ -251,9 +251,9 @@ pnpm dev
 次に、[http://localhost:5173](http://localhost:5173) でダッシュボードへアクセスできます。
 
 <details>
-  <summary><h3>Rust 向けに開発環境を最適化する（任意）</h3></summary>
+  <summary><h3>ローカル Rust 開発（任意）</h3></summary>
   
-  デフォルトでは、`tilt up` を実行すると、開発環境は Rust コンポーネントを "release" ビルドでコンパイルします。より素早く反復したい場合は、代わりに Tilt に "debug" ビルドでローカルコンパイルさせることができます。
+  デフォルトでは、開発環境は Rust ベースの cluster-agent にビルド済みイメージを使用します。Rust コードを開発していてローカルで反復したい場合は、代わりに Tilt にマシン上で "debug" ビルドとしてコンパイルさせることができます。
 
   #### 依存関係
 

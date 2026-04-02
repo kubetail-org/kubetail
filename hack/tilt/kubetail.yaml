@@ -461,7 +461,8 @@ spec:
       serviceAccountName: kubetail-cluster-agent
       containers:
         - name: kubetail-cluster-agent
-          image: kubetail-cluster-agent
+          image: ghcr.io/kubetail-org/kubetail-cluster-agent:latest-alpine
+          imagePullPolicy: Always
           ports:
             - name: grpc
               protocol: TCP
