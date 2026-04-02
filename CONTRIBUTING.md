@@ -124,15 +124,16 @@ Signed-off-by: Your Name <you@example.com>
 **Types:**
 
 - `build` - Changes that affect the build system or external dependencies (example scopes: gulp, broccoli, npm)
+- `chore` - Routine maintenance or housekeeping changes (e.g., updating configs, dependencies, or scripts)
 - `ci` - Changes to our CI configuration files and scripts
 - `docs` - Documentation only changes
 - `feat` - A new feature
 - `fix` - A bug fix
 - `perf` - A code change that improves performance
 - `refactor` - A code change that neither fixes a bug nor adds a feature
+- `revert` - Changes that restore old code or behavior
 - `style` - Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
 - `test` - Adding missing tests or correcting existing tests
-
 
 ## Pull Request Guidelines
 
@@ -171,7 +172,7 @@ Your PR should include:
 
 ## Branch Naming Guidelines
 
-Use descriptive branch names with this pattern:
+Use descriptive branch names. As a suggestion, you can use this pattern:
 
 ```
 <type>/<short-description>
@@ -233,4 +234,4 @@ Please read and follow our [Code of Conduct](https://github.com/kubetail-org/.gi
 
 ---
 
-Thank you for contributing to Kubetail! 🚀
+Thanks for contributing to Kubetail! 🐋
