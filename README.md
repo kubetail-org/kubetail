@@ -251,16 +251,33 @@ pnpm dev
 Now access the dashboard at [http://localhost:5173](http://localhost:5173).
 
 <details>
-  <summary><h3>Local Rust Development (Optional)</h3></summary>
+  <summary><h3>Rust Development (Optional)</h3></summary>
   
-  By default, the dev environment uses a pre-built image for the Rust-based cluster-agent. If you're working on the Rust code and want to iterate locally, you can have Tilt compile the Rust code on your machine using "debug" builds instead.
+  By default, the dev environment uses a pre-built image for the Rust-based cluster-agent. If you're working on the Rust code, you can use the `KUBETAIL_RUST_DEV_MODE` environment variable to enable a development mode that compiles the Rust code and syncs the binary into the cluster. There are two modes available:
 
-  #### Dependencies
+  | Mode     | Description                                                                                               |
+  | -------- | --------------------------------------------------------------------------------------------------------- |
+  | `docker` | Compiles the Rust code inside a Docker container. No local Rust toolchain required.                       |
+  | `local`  | Compiles the Rust code on your machine using cross-compilation. Faster rebuilds but requires local setup. |
+
+  #### Docker mode
+
+  To use Docker mode, run Tilt with the `KUBETAIL_RUST_DEV_MODE` env variable set to `docker`:
+
+  ```console
+  KUBETAIL_RUST_DEV_MODE=docker tilt up
+  ```
+
+  #### Local mode
+
+  Local mode requires additional dependencies and setup but offers faster rebuild times.
+
+  ##### Dependencies
 
   * [rustup](https://rustup.rs)
   * [protobuf](https://protobuf.dev/installation/)
 
-  #### Next steps
+  ##### Setup
 
   First, install the Rust target required for your architecture:
 
@@ -292,10 +309,10 @@ Now access the dashboard at [http://localhost:5173](http://localhost:5173).
   linker = "aarch64-linux-musl-gcc"
   ```
 
-  Finally, to use the local compiler, just run Tilt using using the `KUBETAIL_DEV_RUST_LOCAL` env flag:
+  Finally, run Tilt with the `KUBETAIL_RUST_DEV_MODE` env variable set to `local`:
 
   ```console
-  KUBETAIL_DEV_RUST_LOCAL=true tilt up
+  KUBETAIL_RUST_DEV_MODE=local tilt up
   ```
 </details>
 

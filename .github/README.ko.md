@@ -251,16 +251,33 @@ pnpm dev
 이제 [http://localhost:5173](http://localhost:5173) 에서 대시보드에 접속할 수 있습니다.
 
 <details>
-  <summary><h3>로컬 Rust 개발(선택 사항)</h3></summary>
+  <summary><h3>Rust 개발(선택 사항)</h3></summary>
   
-  기본적으로 개발 환경은 Rust 기반 cluster-agent에 사전 빌드된 이미지를 사용합니다. Rust 코드를 개발하면서 로컬에서 반복 작업하고 싶다면 Tilt가 "debug" 빌드로 Rust 코드를 로컬에서 컴파일하도록 할 수 있습니다.
+  기본적으로 개발 환경은 Rust 기반 cluster-agent에 사전 빌드된 이미지를 사용합니다. Rust 코드를 개발하는 경우, `KUBETAIL_RUST_DEV_MODE` 환경 변수를 사용하여 Rust 코드를 컴파일하고 바이너리를 클러스터에 동기화하는 개발 모드를 활성화할 수 있습니다. 두 가지 모드를 사용할 수 있습니다:
 
-  #### 의존성
+  | 모드     | 설명                                                                                                     |
+  | -------- | -------------------------------------------------------------------------------------------------------- |
+  | `docker` | Docker 컨테이너 내에서 Rust 코드를 컴파일합니다. 로컬 Rust 툴체인이 필요 없습니다.                       |
+  | `local`  | 크로스 컴파일을 사용하여 로컬 머신에서 Rust 코드를 컴파일합니다. 리빌드가 빠르지만 로컬 설정이 필요합니다. |
+
+  #### Docker 모드
+
+  Docker 모드를 사용하려면 `KUBETAIL_RUST_DEV_MODE` 환경 변수를 `docker`로 설정하여 Tilt를 실행합니다:
+
+  ```console
+  KUBETAIL_RUST_DEV_MODE=docker tilt up
+  ```
+
+  #### 로컬 모드
+
+  로컬 모드는 추가 의존성과 설정이 필요하지만 더 빠른 리빌드를 제공합니다.
+
+  ##### 의존성
 
   * [rustup](https://rustup.rs)
   * [protobuf](https://protobuf.dev/installation/)
 
-  #### 다음 단계
+  ##### 설정
 
   먼저 아키텍처에 필요한 Rust 타깃을 설치합니다:
 
@@ -292,10 +309,10 @@ pnpm dev
   linker = "aarch64-linux-musl-gcc"
   ```
 
-  마지막으로 로컬 컴파일러를 사용하려면 `KUBETAIL_DEV_RUST_LOCAL` 환경 변수를 붙여 Tilt를 실행합니다:
+  `KUBETAIL_RUST_DEV_MODE` 환경 변수를 `local`로 설정하여 Tilt를 실행합니다:
 
   ```console
-  KUBETAIL_DEV_RUST_LOCAL=true tilt up
+  KUBETAIL_RUST_DEV_MODE=local tilt up
   ```
 </details>
 

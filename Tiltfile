@@ -115,8 +115,26 @@ secret_create_tls(
     key='./hack/tilt/tls/cluster-agent.key',
 )
 
-build_rust_locally = os.getenv("KUBETAIL_DEV_RUST_LOCAL", default='false').lower() == 'true'
-if build_rust_locally:
+rust_dev_mode = os.getenv("KUBETAIL_RUST_DEV_MODE", default='default').lower()
+if rust_dev_mode == "docker":
+  docker_build_with_restart(
+    'ghcr.io/kubetail-org/kubetail-cluster-agent',
+    dockerfile='hack/tilt/Dockerfile.kubetail-cluster-agent',
+    context='.',
+    entrypoint="/cluster-agent/cluster-agent -c /etc/kubetail/config.yaml",
+    only=[
+      './crates',
+      './proto',
+    ],
+    ignore=[
+      './crates/target',
+      './crates/*/target'
+    ],
+    live_update=[
+      sync('./.tilt/cluster-agent', '/cluster-agent/cluster-agent'),
+    ]
+  )
+elif rust_dev_mode == "local":
   local_resource(
     "kubetail-cluster-agent-compile",
     '''

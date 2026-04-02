@@ -251,16 +251,33 @@ pnpm dev
 Ahora puedes acceder al dashboard en [http://localhost:5173](http://localhost:5173).
 
 <details>
-  <summary><h3>Desarrollo local de Rust (opcional)</h3></summary>
+  <summary><h3>Desarrollo Rust (opcional)</h3></summary>
   
-  De forma predeterminada, el entorno de desarrollo usa una imagen pre-construida para el cluster-agent basado en Rust. Si estás trabajando en el código Rust y quieres iterar localmente, puedes hacer que Tilt compile el código Rust en tu máquina con versiones "debug".
+  De forma predeterminada, el entorno de desarrollo usa una imagen pre-construida para el cluster-agent basado en Rust. Si estás trabajando en el código Rust, puedes usar la variable de entorno `KUBETAIL_RUST_DEV_MODE` para activar un modo de desarrollo que compila el código Rust y sincroniza el binario en el clúster. Hay dos modos disponibles:
 
-  #### Dependencias
+  | Modo     | Descripción                                                                                                          |
+  | -------- | -------------------------------------------------------------------------------------------------------------------- |
+  | `docker` | Compila el código Rust dentro de un contenedor Docker. No requiere toolchain Rust local.                             |
+  | `local`  | Compila el código Rust en tu máquina usando compilación cruzada. Recompilaciones más rápidas pero requiere configuración local. |
+
+  #### Modo Docker
+
+  Para usar el modo Docker, ejecuta Tilt con la variable de entorno `KUBETAIL_RUST_DEV_MODE` establecida en `docker`:
+
+  ```console
+  KUBETAIL_RUST_DEV_MODE=docker tilt up
+  ```
+
+  #### Modo local
+
+  El modo local requiere dependencias y configuración adicionales pero ofrece recompilaciones más rápidas.
+
+  ##### Dependencias
 
   * [rustup](https://rustup.rs)
   * [protobuf](https://protobuf.dev/installation/)
 
-  #### Siguientes pasos
+  ##### Configuración
 
   Primero, instala el target de Rust necesario para tu arquitectura:
 
@@ -292,10 +309,10 @@ Ahora puedes acceder al dashboard en [http://localhost:5173](http://localhost:51
   linker = "aarch64-linux-musl-gcc"
   ```
 
-  Por último, para usar el compilador local, ejecuta Tilt con la variable de entorno `KUBETAIL_DEV_RUST_LOCAL`:
+  Por último, ejecuta Tilt con la variable de entorno `KUBETAIL_RUST_DEV_MODE` establecida en `local`:
 
   ```console
-  KUBETAIL_DEV_RUST_LOCAL=true tilt up
+  KUBETAIL_RUST_DEV_MODE=local tilt up
   ```
 </details>
 

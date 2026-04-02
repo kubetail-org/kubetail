@@ -251,16 +251,33 @@ pnpm dev
 现在可以通过 [http://localhost:5173](http://localhost:5173) 访问仪表板。
 
 <details>
-  <summary><h3>本地 Rust 开发（可选）</h3></summary>
+  <summary><h3>Rust 开发（可选）</h3></summary>
   
-  默认情况下，开发环境使用预构建的镜像来运行基于 Rust 的 cluster-agent。如果你正在开发 Rust 代码并希望在本地迭代，可以让 Tilt 改为在你的机器上使用 "debug" 构建来编译 Rust 代码。
+  默认情况下，开发环境使用预构建的镜像来运行基于 Rust 的 cluster-agent。如果你正在开发 Rust 代码，可以使用 `KUBETAIL_RUST_DEV_MODE` 环境变量启用开发模式，该模式会编译 Rust 代码并将二进制文件同步到集群中。有两种模式可用:
 
-  #### 依赖
+  | 模式     | 说明                                                                                          |
+  | -------- | --------------------------------------------------------------------------------------------- |
+  | `docker` | 在 Docker 容器内编译 Rust 代码。无需本地 Rust 工具链。                                        |
+  | `local`  | 使用交叉编译在本地机器上编译 Rust 代码。重新构建更快，但需要本地配置。                        |
+
+  #### Docker 模式
+
+  要使用 Docker 模式，将 `KUBETAIL_RUST_DEV_MODE` 环境变量设为 `docker` 来运行 Tilt:
+
+  ```console
+  KUBETAIL_RUST_DEV_MODE=docker tilt up
+  ```
+
+  #### 本地模式
+
+  本地模式需要额外的依赖和配置，但提供更快的重新构建速度。
+
+  ##### 依赖
 
   * [rustup](https://rustup.rs)
   * [protobuf](https://protobuf.dev/installation/)
 
-  #### 下一步
+  ##### 配置
 
   首先，安装你的架构所需的 Rust target:
 
@@ -292,10 +309,10 @@ pnpm dev
   linker = "aarch64-linux-musl-gcc"
   ```
 
-  最后，如需使用本地编译器，只需在运行 Tilt 时加上 `KUBETAIL_DEV_RUST_LOCAL` 环境变量:
+  将 `KUBETAIL_RUST_DEV_MODE` 环境变量设为 `local` 来运行 Tilt:
 
   ```console
-  KUBETAIL_DEV_RUST_LOCAL=true tilt up
+  KUBETAIL_RUST_DEV_MODE=local tilt up
   ```
 </details>
 

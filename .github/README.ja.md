@@ -251,16 +251,33 @@ pnpm dev
 次に、[http://localhost:5173](http://localhost:5173) でダッシュボードへアクセスできます。
 
 <details>
-  <summary><h3>ローカル Rust 開発（任意）</h3></summary>
+  <summary><h3>Rust 開発（任意）</h3></summary>
   
-  デフォルトでは、開発環境は Rust ベースの cluster-agent にビルド済みイメージを使用します。Rust コードを開発していてローカルで反復したい場合は、代わりに Tilt にマシン上で "debug" ビルドとしてコンパイルさせることができます。
+  デフォルトでは、開発環境は Rust ベースの cluster-agent にビルド済みイメージを使用します。Rust コードを開発している場合は、環境変数 `KUBETAIL_RUST_DEV_MODE` を使用して、Rust コードをコンパイルしバイナリをクラスタに同期する開発モードを有効にできます。2つのモードがあります:
 
-  #### 依存関係
+  | モード   | 説明                                                                                                      |
+  | -------- | --------------------------------------------------------------------------------------------------------- |
+  | `docker` | Docker コンテナ内で Rust コードをコンパイルします。ローカルの Rust ツールチェーンは不要です。              |
+  | `local`  | クロスコンパイルを使用してマシン上で Rust コードをコンパイルします。リビルドが高速ですがローカル設定が必要です。 |
+
+  #### Docker モード
+
+  Docker モードを使用するには、環境変数 `KUBETAIL_RUST_DEV_MODE` を `docker` に設定して Tilt を起動します:
+
+  ```console
+  KUBETAIL_RUST_DEV_MODE=docker tilt up
+  ```
+
+  #### ローカルモード
+
+  ローカルモードは追加の依存関係と設定が必要ですが、より高速なリビルドが可能です。
+
+  ##### 依存関係
 
   * [rustup](https://rustup.rs)
   * [protobuf](https://protobuf.dev/installation/)
 
-  #### 次の手順
+  ##### セットアップ
 
   まず、使用しているアーキテクチャに必要な Rust ターゲットをインストールします:
 
@@ -292,10 +309,10 @@ pnpm dev
   linker = "aarch64-linux-musl-gcc"
   ```
 
-  最後に、ローカルコンパイラを使うには `KUBETAIL_DEV_RUST_LOCAL` 環境変数を付けて Tilt を起動します:
+  環境変数 `KUBETAIL_RUST_DEV_MODE` を `local` に設定して Tilt を起動します:
 
   ```console
-  KUBETAIL_DEV_RUST_LOCAL=true tilt up
+  KUBETAIL_RUST_DEV_MODE=local tilt up
   ```
 </details>
 
