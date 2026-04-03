@@ -83,7 +83,7 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.56.1",
     "unplugin-fonts": "^1.4.0",
-    "vite": "npm:rolldown-vite@^7.3.1",
+    "vite": "^8.0.0",
     "vite-plugin-svgr": "^4.5.0",
     "vitest": "^4.1.2"
   },
@@ -109,7 +109,7 @@
       "rollup": "^4.59.0",
       "synckit": "^0.11.11",
       "tmp": "^0.2.5",
-      "vite": "npm:rolldown-vite@^7.3.1",
+      "vite": "^8.0.0",
       "yaml": "^2.8.3"
     }
   }
