@@ -16,7 +16,7 @@ Ref #
 
 ## Key Changes
 
-<!-- Explain the key changes in this PR (WHAT) -->
+<!-- List the key changes in this PR (WHAT) -->
 
 ## Checklist
 
