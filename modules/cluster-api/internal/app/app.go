@@ -62,7 +62,7 @@ func (a *App) Close() {
 	if a.grpcDispatcher != nil {
 		a.grpcDispatcher.Shutdown()
 	}
-	a.cm.Shutdown(context.Background())
+	a.cm.Close()
 }
 
 // Create new gin app

@@ -94,7 +94,6 @@ func (m *MockConnectionManager) WaitUntilReady(ctx context.Context, kubeContext 
 	return ret.Error(0)
 }
 
-func (m *MockConnectionManager) Shutdown(ctx context.Context) error {
-	ret := m.Called(ctx)
-	return ret.Error(0)
+func (m *MockConnectionManager) Close() {
+	m.Called()
 }

@@ -585,11 +585,8 @@ var logsCmd = &cobra.Command{
 		// output the logs
 		printLogs(rootCtx, cmd, cmdCfg, stream)
 
-		// Graceful close
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		err = cm.Shutdown(ctx)
-		cli.ExitOnError(err)
+		// Close connection manager
+		cm.Close()
 	},
 }
 

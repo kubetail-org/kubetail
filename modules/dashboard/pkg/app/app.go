@@ -80,7 +80,7 @@ func (a *App) DrainWithContext(ctx context.Context) error {
 // Close releases app-level resources.
 func (a *App) Close() {
 	if a.cm != nil {
-		a.cm.Shutdown(context.Background())
+		a.cm.Close()
 	}
 }
 

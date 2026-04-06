@@ -54,7 +54,7 @@ type ConnectionManager interface {
 	DerefKubeContext(kubeContext *string) string
 	NewInformer(ctx context.Context, kubeContext string, token string, namespace string, gvr schema.GroupVersionResource) (informers.GenericInformer, func(), error)
 	WaitUntilReady(ctx context.Context, kubeContext string) error
-	Shutdown(ctx context.Context) error
+	Close()
 }
 
 // Represents DesktopConnectionManager
@@ -111,12 +111,12 @@ func NewDesktopConnectionManager(options ...ConnectionManagerOption) (*DesktopCo
 	return cm, nil
 }
 
-// Stop bacgkround listeners and close underlying connections
-func (cm *DesktopConnectionManager) Shutdown(ctx context.Context) error {
+// Close stops background listeners and closes underlying connections.
+func (cm *DesktopConnectionManager) Close() {
 	cm.rootCtxCancel()
 	close(cm.stopCh)
 
-	// Initialize shutdown of shared informer factory managers
+	// Shutdown shared informer factory managers
 	var wg sync.WaitGroup
 	cm.factoryCache.Range(func(key factoryCacheKey, factory informers.SharedInformerFactory) bool {
 		wg.Add(1)
@@ -130,22 +130,8 @@ func (cm *DesktopConnectionManager) Shutdown(ctx context.Context) error {
 	// Unsubscribe from config watcher events and close
 	cm.KubeConfigWatcher.Close()
 
-	// Wait for shutdown to complete or context to close
-	stopCh := make(chan struct{})
-
-	go func() {
-		wg.Wait()
-		close(stopCh)
-	}()
-
-	select {
-	case <-ctx.Done():
-		// Aborted
-		return ctx.Err()
-	case <-stopCh:
-		// Finished gracefully
-		return nil
-	}
+	// Wait for all informer factories to stop
+	wg.Wait()
 }
 
 // Get cached REST config or create a new one
@@ -383,36 +369,22 @@ func NewInClusterConnectionManager(options ...ConnectionManagerOption) (*InClust
 	return cm, nil
 }
 
-// Stop bacgkround listeners and close underlying connections
-func (cm *InClusterConnectionManager) Shutdown(ctx context.Context) error {
+// Close stops background listeners and closes underlying connections.
+func (cm *InClusterConnectionManager) Close() {
 	close(cm.stopCh)
 
-	// Initialize shutdown of shared informer factory managers
+	// Shutdown shared informer factory managers
 	var wg sync.WaitGroup
 	for _, factory := range cm.factoryCache {
 		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			defer wg.Done()
 			factory.Shutdown()
-		}()
+		})
 	}
 
-	// Wait for shutdown to complete or context to close
-	stopCh := make(chan struct{})
-
-	go func() {
-		wg.Wait()
-		close(stopCh)
-	}()
-
-	select {
-	case <-ctx.Done():
-		// Aborted
-		return ctx.Err()
-	case <-stopCh:
-		// Finished gracefully
-		return nil
-	}
+	// Wait for all informer factories to stop
+	wg.Wait()
 }
 
 // Get cached Clientset or create a new one
