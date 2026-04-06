@@ -18,6 +18,7 @@ import (
 	"context"
 	"net/http"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler"
@@ -40,6 +41,7 @@ type Server struct {
 	r          *Resolver
 	h          http.Handler
 	shutdownCh chan struct{}
+	wg         sync.WaitGroup
 }
 
 // allowedSecFetchSite defines the secure values for the Sec-Fetch-Site header.
@@ -68,9 +70,10 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager, grpcDispatch
 
 	h.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
-	// Configure WebSocket (without CORS)
-	shutdownCh := make(chan struct{})
+	// Init server early so InitFunc closure can reference it
+	s := &Server{r: r, shutdownCh: make(chan struct{})}
 
+	// Configure WebSocket (without CORS)
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
@@ -95,14 +98,19 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager, grpcDispatch
 			EnableCompression: true,
 		},
 		KeepAlivePingInterval: 10 * time.Second,
-		InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
-			// Close websockets on shutdown signal
-			ctx, cancel := context.WithCancel(ctx)
+		InitFunc: func(baseCtx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
+			s.wg.Add(1)
+			ctx, cancel := context.WithCancel(baseCtx)
 			go func() {
+				defer s.wg.Done()
 				defer cancel()
 				select {
-				case <-ctx.Done():
-				case <-shutdownCh:
+				case <-baseCtx.Done():
+					// connection closed naturally
+				case <-s.shutdownCh:
+					// signal gqlgen to close the connection, then wait for actual teardown
+					cancel()
+					<-baseCtx.Done()
 				}
 			}()
 
@@ -115,12 +123,33 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager, grpcDispatch
 		Cache: lru.New[string](100),
 	})
 
-	return &Server{r, h, shutdownCh}
+	s.h = h
+	return s
 }
 
-// Shutdown
-func (s *Server) Shutdown() {
+// NotifyShutdown signals active WebSocket connections to begin closing.
+func (s *Server) NotifyShutdown() {
 	close(s.shutdownCh)
+}
+
+// DrainWithContext waits for all active WebSocket connections to finish, respecting ctx.
+func (s *Server) DrainWithContext(ctx context.Context) error {
+	doneCh := make(chan struct{})
+	go func() {
+		s.wg.Wait()
+		close(doneCh)
+	}()
+	select {
+	case <-doneCh:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// Close releases any server-level resources.
+func (s *Server) Close() error {
+	return nil
 }
 
 // ServeHTTP

@@ -15,9 +15,11 @@
 package graph
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
@@ -90,4 +92,71 @@ func TestServer(t *testing.T) {
 			require.Equal(t, tt.wantStatus, resp.StatusCode)
 		})
 	}
+}
+
+func TestServerDrainWithContext_NoConnections(t *testing.T) {
+	cfg := config.DefaultConfig()
+	s := NewServer(cfg, nil, nil, []string{})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	err := s.DrainWithContext(ctx)
+	require.NoError(t, err)
+}
+
+func TestServerDrainWithContext_CancelledContext(t *testing.T) {
+	cfg := config.DefaultConfig()
+	s := NewServer(cfg, nil, nil, []string{})
+
+	// Simulate an open connection that never finishes
+	s.wg.Add(1)
+	defer s.wg.Done()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := s.DrainWithContext(ctx)
+	require.ErrorIs(t, err, context.Canceled)
+}
+
+func TestServerNotifyShutdown_ClosesConnections(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.CSRF.Enabled = true
+
+	s := NewServer(cfg, nil, nil, []string{})
+
+	client := testutils.NewWebTestClient(t, s)
+	defer client.Teardown()
+
+	// Dial WebSocket with graphql-transport-ws subprotocol
+	wsURL := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
+	dialer := websocket.Dialer{Subprotocols: []string{"graphql-transport-ws"}}
+	conn, _, err := dialer.Dial(wsURL, nil)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	// Send connection_init to trigger InitFunc
+	err = conn.WriteJSON(map[string]any{"type": "connection_init"})
+	require.NoError(t, err)
+
+	// Read connection_ack — confirms InitFunc ran and wg incremented
+	var msg map[string]any
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	err = conn.ReadJSON(&msg)
+	require.NoError(t, err)
+	require.Equal(t, "connection_ack", msg["type"])
+
+	// Signal shutdown
+	s.NotifyShutdown()
+
+	// Connection should be closed by the server
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_, _, readErr := conn.ReadMessage()
+	require.Error(t, readErr)
+
+	// All connections should be drained
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	require.NoError(t, s.DrainWithContext(ctx))
 }

@@ -47,19 +47,22 @@ type App struct {
 	dynamicRoutes *gin.RouterGroup
 }
 
-// Shutdown
-func (a *App) Shutdown(ctx context.Context) error {
-	// Stop grpc dispatcher
+// NotifyShutdown signals active connections to begin closing.
+func (a *App) NotifyShutdown() {
+	a.graphqlServer.NotifyShutdown()
+}
+
+// DrainWithContext waits for all active connections to finish, respecting ctx.
+func (a *App) DrainWithContext(ctx context.Context) error {
+	return a.graphqlServer.DrainWithContext(ctx)
+}
+
+// Close releases app-level resources.
+func (a *App) Close() {
 	if a.grpcDispatcher != nil {
-		// TODO: log dispatcher shutdown errors
 		a.grpcDispatcher.Shutdown()
 	}
-
-	// Shutdown GraphQL server
-	a.graphqlServer.Shutdown()
-
-	// Shutdown connection manager
-	return a.cm.Shutdown(ctx)
+	a.cm.Shutdown(context.Background())
 }
 
 // Create new gin app
