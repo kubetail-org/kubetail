@@ -70,6 +70,8 @@ cd crates/rgkl && cargo test
 
 Always use `pnpm` (not `npx`) to run frontend tests.
 
+Never use `time.Sleep` (Go) or `setTimeout`/manual delays (TypeScript) in tests to wait for asynchronous state. Use channels, synchronization primitives, or condition-based polling instead.
+
 ## Import Order (JavaScript/TypeScript)
 
 Organize imports into three groups separated by blank lines, sorted alphabetically by path within each group:

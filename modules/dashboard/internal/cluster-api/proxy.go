@@ -15,8 +15,10 @@
 package clusterapi
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -31,6 +33,38 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
+// hijackTrackingResponseWriter wraps an http.ResponseWriter to intercept
+// Hijack() and capture the underlying net.Conn so it can be closed on shutdown.
+type hijackTrackingResponseWriter struct {
+	http.ResponseWriter
+	mu   sync.Mutex
+	conn net.Conn
+}
+
+func (w *hijackTrackingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	conn, rw, err := w.ResponseWriter.(http.Hijacker).Hijack()
+	if err == nil {
+		w.mu.Lock()
+		w.conn = conn
+		w.mu.Unlock()
+	}
+	return conn, rw, err
+}
+
+func (w *hijackTrackingResponseWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (w *hijackTrackingResponseWriter) closeConn() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.conn != nil {
+		w.conn.Close()
+	}
+}
+
 // For parsing paths of the form /:kubeContext/:namespace/:serviceName/*relPath
 var desktopProxyPathRegex = regexp.MustCompile(`^/([^/]+)/([^/]+)/([^/]+)/(.*)$`)
 
@@ -40,7 +74,8 @@ var cookiepathRegex = regexp.MustCompile(`Path=[^;]*`)
 // Proxy interface
 type Proxy interface {
 	ServeHTTP(w http.ResponseWriter, r *http.Request)
-	Shutdown()
+	NotifyShutdown()
+	DrainWithContext(ctx context.Context) error
 }
 
 // Represents DesktopProxy
@@ -51,10 +86,15 @@ type DesktopProxy struct {
 	satCache   map[string]*k8shelpers.ServiceAccountToken
 	mu         sync.Mutex
 	shutdownCh chan struct{}
+	wg         sync.WaitGroup
 }
 
 // ServeHTTP
 func (p *DesktopProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Track connections for graceful shutdown
+	p.wg.Add(1)
+	defer p.wg.Done()
+
 	origPath := r.URL.Path
 
 	// Trim prefix
@@ -99,9 +139,19 @@ func (p *DesktopProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Header.Add("X-Forwarded-Authorization", fmt.Sprintf("Bearer %s", token))
 
-	// Passthrough if upgrade request
+	// Passthrough upgrade requests, closing the hijacked connection on shutdown
 	if r.Header.Get("Upgrade") != "" {
-		h.ServeHTTP(w, r)
+		hw := &hijackTrackingResponseWriter{ResponseWriter: w}
+		doneCh := make(chan struct{})
+		defer close(doneCh)
+		go func() {
+			select {
+			case <-doneCh:
+			case <-p.shutdownCh:
+				hw.closeConn()
+			}
+		}()
+		h.ServeHTTP(hw, r)
 		return
 	}
 
@@ -127,9 +177,24 @@ func (p *DesktopProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write(rec.Body.Bytes())
 }
 
-// Shutdown
-func (p *DesktopProxy) Shutdown() {
+// NotifyShutdown signals active connections to begin closing.
+func (p *DesktopProxy) NotifyShutdown() {
 	close(p.shutdownCh)
+}
+
+// DrainWithContext waits for all active WebSocket connections to finish, respecting ctx.
+func (p *DesktopProxy) DrainWithContext(ctx context.Context) error {
+	doneCh := make(chan struct{})
+	go func() {
+		p.wg.Wait()
+		close(doneCh)
+	}()
+	select {
+	case <-doneCh:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // Get or create Kubernetes proxy handler
@@ -202,10 +267,52 @@ func NewDesktopProxy(cm k8shelpers.ConnectionManager, pathPrefix string) (*Deskt
 // Represents InClusterProxy
 type InClusterProxy struct {
 	*httputil.ReverseProxy
+	shutdownCh chan struct{}
+	wg         sync.WaitGroup
 }
 
-// Shutdown
-func (p *InClusterProxy) Shutdown() {
+// ServeHTTP wraps the reverse proxy to track active requests for graceful
+// shutdown. For upgrade requests the hijacked connection is closed on shutdown.
+func (p *InClusterProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	p.wg.Add(1)
+	defer p.wg.Done()
+
+	if r.Header.Get("Upgrade") != "" {
+		hw := &hijackTrackingResponseWriter{ResponseWriter: w}
+		doneCh := make(chan struct{})
+		defer close(doneCh)
+		go func() {
+			select {
+			case <-doneCh:
+			case <-p.shutdownCh:
+				hw.closeConn()
+			}
+		}()
+		p.ReverseProxy.ServeHTTP(hw, r)
+		return
+	}
+
+	p.ReverseProxy.ServeHTTP(w, r)
+}
+
+// NotifyShutdown signals active connections to begin closing.
+func (p *InClusterProxy) NotifyShutdown() {
+	close(p.shutdownCh)
+}
+
+// DrainWithContext waits for all active WebSocket connections to finish, respecting ctx.
+func (p *InClusterProxy) DrainWithContext(ctx context.Context) error {
+	doneCh := make(chan struct{})
+	go func() {
+		p.wg.Wait()
+		close(doneCh)
+	}()
+	select {
+	case <-doneCh:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // Create new InClusterProxy with injectable transport (used in tests)
@@ -241,9 +348,18 @@ func newInClusterProxy(clusterAPIEndpoint string, pathPrefix string, transport h
 			return nil
 		},
 		Transport: transport,
+		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			if r.Context().Err() != nil {
+				return
+			}
+			w.WriteHeader(http.StatusBadGateway)
+		},
 	}
 
-	return &InClusterProxy{reverseProxy}, nil
+	return &InClusterProxy{
+		ReverseProxy: reverseProxy,
+		shutdownCh:   make(chan struct{}),
+	}, nil
 }
 
 // Create new InClusterProxy

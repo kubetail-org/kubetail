@@ -23,7 +23,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"sync"
 	"syscall"
 	"time"
 
@@ -126,6 +125,10 @@ var serveCmd = &cobra.Command{
 			WriteTimeout: 10 * time.Second,
 		}
 
+		// Register shutdown hook so long-lived connections are notified before
+		// server.Shutdown() waits for regular requests to drain
+		server.RegisterOnShutdown(app.NotifyShutdown)
+
 		// create listener
 		listener, err := net.Listen("tcp", server.Addr)
 		if err != nil {
@@ -184,31 +187,18 @@ var serveCmd = &cobra.Command{
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		var wg sync.WaitGroup
-		wg.Add(2)
+		// Stop accepting new connections; triggers RegisterOnShutdown callbacks
+		server.Shutdown(ctx)
 
-		// attempt graceful shutdown
-		go func() {
-			defer wg.Done()
-			if err := server.Shutdown(ctx); err != nil {
-				zlog.Error().Err(err).Send()
-			}
-		}()
-
-		// shutdown app
-		// TODO: handle long-lived requests shutdown (e.g. websockets)
-		go func() {
-			defer wg.Done()
-			if err := app.Shutdown(ctx); err != nil {
-				zlog.Error().Err(err).Send()
-			}
-		}()
-
-		wg.Wait()
-
-		if ctx.Err() == nil {
-			zlog.Info().Msg("Completed graceful shutdown")
+		// Wait for open WebSocket connections to drain
+		if err := app.DrainWithContext(ctx); err != nil {
+			zlog.Error().Err(err).Send()
 		}
+
+		// Release resources
+		app.Close()
+
+		zlog.Info().Msg("Completed shutdown")
 	},
 }
 

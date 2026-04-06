@@ -18,6 +18,7 @@ import (
 	"context"
 	"net/http"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler"
@@ -41,6 +42,7 @@ type Server struct {
 	h          http.Handler
 	hm         clusterapi.HealthMonitor
 	shutdownCh chan struct{}
+	wg         sync.WaitGroup
 }
 
 // allowedSecFetchSite defines the secure values for the Sec-Fetch-Site header.
@@ -81,8 +83,6 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 	h.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
 	// Configure WebSocket (without CORS)
-	shutdownCh := make(chan struct{})
-
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
@@ -107,19 +107,6 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 			EnableCompression: true,
 		},
 		KeepAlivePingInterval: 10 * time.Second,
-		InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
-			// Close websockets on shutdown signal
-			ctx, cancel := context.WithCancel(ctx)
-			go func() {
-				defer cancel()
-				select {
-				case <-ctx.Done():
-				case <-shutdownCh:
-				}
-			}()
-
-			return ctx, &initPayload, nil
-		},
 	})
 
 	h.Use(extension.Introspection{})
@@ -127,18 +114,57 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 		Cache: lru.New[string](100),
 	})
 
-	return &Server{r, h, hm, shutdownCh}
+	return &Server{r: r, h: h, hm: hm, shutdownCh: make(chan struct{})}
 }
 
-// Shutdown
-func (s *Server) Shutdown() {
+// NotifyShutdown signals active WebSocket connections to begin closing.
+func (s *Server) NotifyShutdown() {
 	close(s.shutdownCh)
-	if s.hm != nil {
-		s.hm.Shutdown()
+}
+
+// DrainWithContext waits for all active WebSocket connections to finish, respecting ctx.
+func (s *Server) DrainWithContext(ctx context.Context) error {
+	doneCh := make(chan struct{})
+	go func() {
+		s.wg.Wait()
+		close(doneCh)
+	}()
+	select {
+	case <-doneCh:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 
-// ServeHTTP
+// Close releases any server-level resources.
+func (s *Server) Close() error {
+	if s.hm != nil {
+		s.hm.Shutdown()
+	}
+	return nil
+}
+
+// ServeHTTP delegates to the underlying handler, tracking all active
+// requests so DrainWithContext can wait for them to finish. For WebSocket
+// upgrades the request context is also cancelled on shutdown, which
+// triggers gqlgen's closeOnCancel to cleanly close the connection.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.wg.Add(1)
+	defer s.wg.Done()
+
+	if r.Header.Get("Upgrade") != "" {
+		ctx, cancel := context.WithCancel(r.Context())
+		defer cancel()
+		go func() {
+			select {
+			case <-ctx.Done():
+			case <-s.shutdownCh:
+				cancel()
+			}
+		}()
+		r = r.WithContext(ctx)
+	}
+
 	s.h.ServeHTTP(w, r)
 }

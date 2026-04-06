@@ -19,10 +19,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
-	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
 func TestInClusterProxy_XForwardedAuthorization(t *testing.T) {
@@ -66,4 +69,252 @@ func TestInClusterProxy_XForwardedAuthorization(t *testing.T) {
 			assert.Equal(t, tt.wantHeader, capturedHeader)
 		})
 	}
+}
+
+// --- InClusterProxy drain/shutdown tests ---
+
+func TestInClusterProxy_DrainWithContext_NoConnections(t *testing.T) {
+	proxy, err := newInClusterProxy("http://localhost", "/prefix", http.DefaultTransport)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	require.NoError(t, proxy.DrainWithContext(ctx))
+}
+
+func TestInClusterProxy_DrainWithContext_CancelledContext(t *testing.T) {
+	proxy, err := newInClusterProxy("http://localhost", "/prefix", http.DefaultTransport)
+	require.NoError(t, err)
+
+	// Simulate an open connection that never finishes
+	proxy.wg.Add(1)
+	defer proxy.wg.Done()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err = proxy.DrainWithContext(ctx)
+	require.ErrorIs(t, err, context.Canceled)
+}
+
+func TestInClusterProxy_DrainWithContext_DeadlineExceeded(t *testing.T) {
+	proxy, err := newInClusterProxy("http://localhost", "/prefix", http.DefaultTransport)
+	require.NoError(t, err)
+
+	// Simulate an open connection that never finishes
+	proxy.wg.Add(1)
+	defer proxy.wg.Done()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	err = proxy.DrainWithContext(ctx)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
+// newWSBackend creates a test HTTP server that upgrades to WebSocket and signals
+// on the returned channel once the connection is accepted. The backend holds the
+// connection open until the client disconnects.
+func newWSBackend(t *testing.T) (*httptest.Server, <-chan struct{}) {
+	t.Helper()
+	connected := make(chan struct{}, 1)
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		connected <- struct{}{}
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}))
+	t.Cleanup(backend.Close)
+	return backend, connected
+}
+
+// waitConnected waits for the backend to accept a connection or fails the test.
+func waitConnected(t *testing.T, connected <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-connected:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for backend WebSocket connection")
+	}
+}
+
+func TestInClusterProxy_NotifyShutdown_ClosesConnections(t *testing.T) {
+	backend, connected := newWSBackend(t)
+
+	proxy, err := newInClusterProxy(backend.URL, "/prefix", http.DefaultTransport)
+	require.NoError(t, err)
+
+	proxyServer := httptest.NewServer(proxy)
+	defer proxyServer.Close()
+
+	// Dial WebSocket through the proxy
+	wsURL := "ws" + proxyServer.URL[4:] + "/prefix/ws"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	waitConnected(t, connected)
+
+	// Signal shutdown — should close the hijacked connection
+	proxy.NotifyShutdown()
+
+	// The connection should be closed by the proxy
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_, _, readErr := conn.ReadMessage()
+	require.Error(t, readErr)
+
+	// All connections should be drained
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	require.NoError(t, proxy.DrainWithContext(ctx))
+}
+
+func TestInClusterProxy_NotifyShutdown_ClosesMultipleConnections(t *testing.T) {
+	backend, connected := newWSBackend(t)
+
+	proxy, err := newInClusterProxy(backend.URL, "/prefix", http.DefaultTransport)
+	require.NoError(t, err)
+
+	proxyServer := httptest.NewServer(proxy)
+	defer proxyServer.Close()
+
+	wsURL := "ws" + proxyServer.URL[4:] + "/prefix/ws"
+
+	const numConns = 3
+	conns := make([]*websocket.Conn, numConns)
+
+	for i := range numConns {
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		require.NoError(t, err)
+		defer conn.Close()
+		waitConnected(t, connected)
+		conns[i] = conn
+	}
+
+	// Signal shutdown
+	proxy.NotifyShutdown()
+
+	// All connections should be closed by the proxy
+	for i, conn := range conns {
+		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		_, _, readErr := conn.ReadMessage()
+		require.Error(t, readErr, "connection %d should be closed", i)
+	}
+
+	// All connections should be drained
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	require.NoError(t, proxy.DrainWithContext(ctx))
+}
+
+// --- DesktopProxy drain/shutdown tests ---
+
+func TestDesktopProxy_DrainWithContext_NoConnections(t *testing.T) {
+	proxy, err := NewDesktopProxy(nil, "/prefix")
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	require.NoError(t, proxy.DrainWithContext(ctx))
+}
+
+func TestDesktopProxy_DrainWithContext_CancelledContext(t *testing.T) {
+	proxy, err := NewDesktopProxy(nil, "/prefix")
+	require.NoError(t, err)
+
+	// Simulate an open connection that never finishes
+	proxy.wg.Add(1)
+	defer proxy.wg.Done()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err = proxy.DrainWithContext(ctx)
+	require.ErrorIs(t, err, context.Canceled)
+}
+
+func TestDesktopProxy_DrainWithContext_DeadlineExceeded(t *testing.T) {
+	proxy, err := NewDesktopProxy(nil, "/prefix")
+	require.NoError(t, err)
+
+	// Simulate an open connection that never finishes
+	proxy.wg.Add(1)
+	defer proxy.wg.Done()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	err = proxy.DrainWithContext(ctx)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
+func TestDesktopProxy_NotifyShutdown_ClosesConnections(t *testing.T) {
+	backend, connected := newWSBackend(t)
+
+	// Use InClusterProxy as backend transport to avoid needing a real k8s ConnectionManager.
+	// The DesktopProxy delegates to a k8s proxy handler, so we build a custom DesktopProxy
+	// that routes directly to our test backend instead.
+	proxy, err := NewDesktopProxy(nil, "/prefix")
+	require.NoError(t, err)
+
+	// Replace the handler: wrap in a server that upgrades through the backend
+	// We test the shutdown plumbing by going through InClusterProxy's hijack path
+	// since DesktopProxy uses the same hijackTrackingResponseWriter mechanism.
+	inProxy, err := newInClusterProxy(backend.URL, "/prefix", http.DefaultTransport)
+	require.NoError(t, err)
+
+	// Wire the DesktopProxy's shutdownCh into the InClusterProxy
+	proxyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Track on the DesktopProxy's WaitGroup
+		proxy.wg.Add(1)
+		defer proxy.wg.Done()
+
+		if r.Header.Get("Upgrade") != "" {
+			hw := &hijackTrackingResponseWriter{ResponseWriter: w}
+			doneCh := make(chan struct{})
+			defer close(doneCh)
+			go func() {
+				select {
+				case <-doneCh:
+				case <-proxy.shutdownCh:
+					hw.closeConn()
+				}
+			}()
+			inProxy.ReverseProxy.ServeHTTP(hw, r)
+			return
+		}
+		inProxy.ReverseProxy.ServeHTTP(w, r)
+	}))
+	defer proxyServer.Close()
+
+	// Dial WebSocket through the proxy
+	wsURL := "ws" + proxyServer.URL[4:] + "/prefix/ws"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	waitConnected(t, connected)
+
+	// Signal shutdown
+	proxy.NotifyShutdown()
+
+	// The connection should be closed
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_, _, readErr := conn.ReadMessage()
+	require.Error(t, readErr)
+
+	// All connections should be drained
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	require.NoError(t, proxy.DrainWithContext(ctx))
 }

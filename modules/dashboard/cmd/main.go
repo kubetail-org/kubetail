@@ -21,7 +21,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -118,6 +117,10 @@ func main() {
 				WriteTimeout: 10 * time.Second,
 			}
 
+			// Register shutdown hook so long-lived connections are notified before
+			// server.Shutdown() waits for regular requests to drain
+			server.RegisterOnShutdown(app.NotifyShutdown)
+
 			// Run server in goroutine
 			go func() {
 				var serverErr error
@@ -131,7 +134,7 @@ func main() {
 
 				// log non-normal errors
 				if serverErr != nil && serverErr != http.ErrServerClosed {
-					zlog.Fatal().Caller().Err(err).Send()
+					zlog.Fatal().Caller().Err(serverErr).Send()
 				}
 			}()
 
@@ -145,32 +148,18 @@ func main() {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			var wg sync.WaitGroup
+			// Stop accepting new connections; triggers RegisterOnShutdown callbacks
+			server.Shutdown(ctx)
 
-			// attempt graceful shutdown
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				if err := server.Shutdown(ctx); err != nil {
-					zlog.Error().Err(err).Send()
-				}
-			}()
-
-			// shutdown app
-			// TODO: handle long-lived requests shutdown (e.g. websockets)
-			wg.Add(1) // for app shutdown
-			go func() {
-				defer wg.Done()
-				if err := app.Shutdown(ctx); err != nil {
-					zlog.Error().Err(err).Send()
-				}
-			}()
-
-			wg.Wait()
-
-			if ctx.Err() == nil {
-				zlog.Info().Msg("Completed graceful shutdown")
+			// Wait for open WebSocket connections to drain
+			if err := app.DrainWithContext(ctx); err != nil {
+				zlog.Error().Err(err).Send()
 			}
+
+			// Release resources
+			app.Close()
+
+			zlog.Info().Msg("Completed shutdown")
 		},
 	}
 

@@ -28,6 +28,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/ginhelpers"
@@ -51,16 +52,36 @@ type App struct {
 	dynamicRoutes *gin.RouterGroup
 }
 
-// Shutdown
-func (a *App) Shutdown(ctx context.Context) error {
-	// Shutdown GraphQL server
-	a.graphqlServer.Shutdown()
+// NotifyShutdown signals active connections to begin closing.
+func (a *App) NotifyShutdown() {
+	a.graphqlServer.NotifyShutdown()
+	if a.clusterAPIProxy != nil {
+		a.clusterAPIProxy.NotifyShutdown()
+	}
+}
 
-	// Shudown Cluster API proxy
-	a.clusterAPIProxy.Shutdown()
+// DrainWithContext waits for all active connections to finish, respecting ctx.
+func (a *App) DrainWithContext(ctx context.Context) error {
+	g, ctx := errgroup.WithContext(ctx)
 
-	// Shutdown connection manager
-	return a.cm.Shutdown(ctx)
+	g.Go(func() error {
+		return a.graphqlServer.DrainWithContext(ctx)
+	})
+
+	if a.clusterAPIProxy != nil {
+		g.Go(func() error {
+			return a.clusterAPIProxy.DrainWithContext(ctx)
+		})
+	}
+
+	return g.Wait()
+}
+
+// Close releases app-level resources.
+func (a *App) Close() {
+	if a.cm != nil {
+		a.cm.Shutdown(context.Background())
+	}
 }
 
 // Create new gin app

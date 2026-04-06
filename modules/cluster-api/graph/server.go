@@ -70,9 +70,6 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager, grpcDispatch
 
 	h.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
-	// Init server early so InitFunc closure can reference it
-	s := &Server{r: r, shutdownCh: make(chan struct{})}
-
 	// Configure WebSocket (without CORS)
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
@@ -98,24 +95,6 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager, grpcDispatch
 			EnableCompression: true,
 		},
 		KeepAlivePingInterval: 10 * time.Second,
-		InitFunc: func(baseCtx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
-			s.wg.Add(1)
-			ctx, cancel := context.WithCancel(baseCtx)
-			go func() {
-				defer s.wg.Done()
-				defer cancel()
-				select {
-				case <-baseCtx.Done():
-					// connection closed naturally
-				case <-s.shutdownCh:
-					// signal gqlgen to close the connection, then wait for actual teardown
-					cancel()
-					<-baseCtx.Done()
-				}
-			}()
-
-			return ctx, &initPayload, nil
-		},
 	})
 
 	h.Use(extension.Introspection{})
@@ -123,8 +102,7 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager, grpcDispatch
 		Cache: lru.New[string](100),
 	})
 
-	s.h = h
-	return s
+	return &Server{r: r, h: h, shutdownCh: make(chan struct{})}
 }
 
 // NotifyShutdown signals active WebSocket connections to begin closing.
@@ -152,7 +130,26 @@ func (s *Server) Close() error {
 	return nil
 }
 
-// ServeHTTP
+// ServeHTTP delegates to the underlying handler, tracking all active
+// requests so DrainWithContext can wait for them to finish. For WebSocket
+// upgrades the request context is also cancelled on shutdown, which
+// triggers gqlgen's closeOnCancel to cleanly close the connection.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.wg.Add(1)
+	defer s.wg.Done()
+
+	if r.Header.Get("Upgrade") != "" {
+		ctx, cancel := context.WithCancel(r.Context())
+		defer cancel()
+		go func() {
+			select {
+			case <-ctx.Done():
+			case <-s.shutdownCh:
+				cancel()
+			}
+		}()
+		r = r.WithContext(ctx)
+	}
+
 	s.h.ServeHTTP(w, r)
 }
