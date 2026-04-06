@@ -106,7 +106,7 @@ cargo build --release
 
 ## Commit Guidelines
 
-All commits should be squashed into a single, signed commit before merging.
+Keep commits minimal and focused. Multiple commits in a PR are fine if they represent logical, well-separated steps that make the change easier to review.
 
 ### Format
 
@@ -142,8 +142,7 @@ Signed-off-by: Your Name <you@example.com>
 1. **Check for duplicates**: Review existing [issues](https://github.com/kubetail-org/kubetail/issues) and [pull requests](https://github.com/kubetail-org/kubetail/pulls)
 2. **Run tests**: Execute all relevant tests for your changes and ensure they pass
 3. **Format code**: Run formatters for the languages you modified
-4. **Update branch**: Rebase your branch to the latest `main`
-5. **Squash commits**: Combine all commits into a single, signed commit following our [commit format](https://www.conventionalcommits.org)
+4. **Clean commits**: Ensure each commit is minimal, focused, and follows our [commit format](https://www.conventionalcommits.org)
 
 ### PR Title Format
 
@@ -160,15 +159,14 @@ Your PR should include:
 
 - Link to related issue: `Fixes #123`
 - **Summary**: Explain the goal of your PR
-- **Key Changes**: List the specific key changes made (if relevant)
+- **Key Changes**: List the specific key changes made
 
 ### PR Checklist
 
 - [ ] Add the correct emoji to the PR title
-- [ ] Link the issue number with `Fixes #`
-- [ ] Add summary and explain changes
-- [ ] Rebase branch to HEAD
-- [ ] Squash changes into one signed, single commit
+- [ ] Related issue linked above, if any
+- [ ] Commit messages use [conventional commit](https://www.conventionalcommits.org) format
+- [ ] Changes are minimal and focused
 
 ## Branch Naming Guidelines
 
@@ -182,7 +180,7 @@ Use descriptive branch names. As a suggestion, you can use this pattern:
 
 ### AI-Assisted Editors
 
-For AI-assisted editors like Cursor or GitHub Copilot, refer to the [`AGENTS.md`](./AGENTS.md) file for comprehensive guidance on working with this codebase.
+For AI-assisted editors like Claude Code, Codex, Cursor or GitHub Copilot, refer to the [`AGENTS.md`](./AGENTS.md) file for comprehensive guidance on working with this codebase.
 
 ### Visual Studio Code
 

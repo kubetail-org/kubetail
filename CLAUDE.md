@@ -1,142 +1,117 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Project Overview
-
-Kubetail is a real-time logging dashboard for Kubernetes that provides both browser and terminal interfaces for tailing logs across multi-container workloads. The source code is organized in a monorepo structure. The user-facing component of the application uses TypeScript+React for the frontend and Go for the backend. In addition, the application has in-cluster components that are written in Go and Rust.
+# Kubetail
 
 ## Architecture
 
-### Core Components
-- **CLI Tool** (`modules/cli/`) - Go-based command-line interface that embeds the dashboard UI
-- **Dashboard Backend** (`modules/dashboard/`) - Go HTTP server with GraphQL API using Gin framework and gqlgen  
-- **Dashboard Frontend** (`dashboard-ui/`) - React/TypeScript SPA with Apollo Client, Vite, and Tailwind CSS
-- **Cluster API** (`modules/cluster-api/`) - Go-based GraphQL API server for cluster operations
-- **Cluster Agent** (`crates/cluster_agent/`) - Rust-based agent that runs in Kubernetes clusters
-- **Shared Libraries** (`modules/shared/`) - Common Go packages shared across components
-- **Log Search Engine** (`crates/rgkl/`) - High-performance Rust binary for log searching and streaming
+Monorepo with a TypeScript+React frontend, Go backends, and Rust in-cluster components:
 
-### Technology Stack
-- **TypeScript/React**: Frontend with Vite, Tailwind CSS, Apollo Client, and Jotai state management
-- **Go 1.25+**: Backend services using Go workspaces (`modules/go.work`)
-- **Rust**: High-performance log processing in `crates/rgkl/`
-- **GraphQL**: User-facing API layer uses gqlgen for Go backends with code generation
-- **gRPC**: Inter-service API layer uses gRPC with code generation
-- **Protocol Buffers**: Inter-service communication
-- **pnpm**: Frontend package management
+- **CLI** (`modules/cli/`) — Go CLI that embeds the dashboard UI
+- **Dashboard Backend** (`modules/dashboard/`) — Go/Gin HTTP server with GraphQL API (gqlgen)
+- **Dashboard Frontend** (`dashboard-ui/`) — React/Vite SPA with Apollo Client, Tailwind CSS, Jotai
+- **Cluster API** (`modules/cluster-api/`) — Go GraphQL API server for cluster operations
+- **Cluster Agent** (`crates/cluster_agent/`) — Rust agent running in Kubernetes clusters
+- **Log Search Engine** (`crates/rgkl/`) — High-performance Rust binary for log searching/streaming
+- **Shared Libraries** (`modules/shared/`) — Common Go packages shared across services
 
-### TypeScript/React Coding Style
+GraphQL for user-facing APIs, gRPC + Protocol Buffers for inter-service communication.
 
-- Use 2 spaces for indentation
-- Use functional components with hooks
-- Prefer TypeScript strict mode
-- Use Apollo Client for GraphQL queries
-- Follow existing patterns in `dashboard-ui/src/`
+## Project Structure
 
-### Go Coding Style
+```
+dashboard-ui/         — React/Vite frontend (pnpm)
+modules/cli/          — CLI Go module
+modules/dashboard/    — Dashboard Go backend
+modules/cluster-api/  — Cluster API Go backend
+modules/shared/       — Shared Go libraries
+modules/go.work       — Go workspace config
+crates/cluster_agent/ — Rust cluster agent
+crates/rgkl/          — Rust log search engine
+proto/                — Protocol Buffer definitions
+config/default/       — Default config files (cli, dashboard, cluster-api, cluster-agent)
+hack/manifests/       — Test manifests
+hack/test-configs/    — Test configurations
+hack/tilt             - Tilt configurations
+Makefile              — Build orchestration
+Tiltfile              — Local Kubernetes dev setup
+```
 
-- Follow standard Go formatting (`gofmt`)
-- Use Go 1.25+ features appropriately
-- Use Go workspaces (`modules/go.work`)
-- Keep shared functionality in `modules/shared/`
+Frontend builds are embedded into Go binaries via `embed.go`.
 
-### Rust Coding Style
+## Local Development
 
-- Follow Rust formatting (`cargo fmt`)
-- Use Rust 2021 edition
-- Focus on performance and safety
-- Keep crates modular and well-documented
+```sh
+# Tilt (all infra + services)
+tilt up
 
-## Development Commands
+# Frontend dev server
+cd dashboard-ui && pnpm install && pnpm dev
 
-### CLI Build Commands
-```bash
-# Full build (CLI with embedded dashboard UI)
+# Dashboard backend
+cd modules/dashboard && go run cmd/main.go -c hack/config.yaml
+
+# Full CLI build (with embedded dashboard UI)
 make
-
-# Clean build artifacts
-make clean
 ```
 
-### Frontend Development
-```bash
-cd dashboard-ui
+## Testing
 
-# Install dependencies
-pnpm install
+```sh
+# Frontend tests (single pass):
+cd dashboard-ui && pnpm test run
 
-# Start dev server
-pnpm dev
+# Go tests (all modules):
+cd modules && go test -race github.com/kubetail-org/kubetail/modules/...
 
-# Build for production
-pnpm build
+# Go tests (single module):
+cd modules/<module-name> && go test ./...
 
-# Run tests (single pass)
-pnpm test run
-
-# Lint code
-pnpm lint
-
-# Generate GraphQL types
-pnpm graphql-codegen
+# Rust tests:
+cd crates/rgkl && cargo test
 ```
 
-### Go Development
-```bash
-# Start dashboard server (requires config)
-cd modules/dashboard
-go run cmd/main.go -c hack/config.yaml
+Always use `pnpm` (not `npx`) to run frontend tests.
 
-# Run Go tests across all modules
-cd modules
-go test -race github.com/kubetail-org/kubetail/modules/...
+## Import Order (JavaScript/TypeScript)
 
-# Test specific module
-cd modules/<module-name>
-go test ./...
+Organize imports into three groups separated by blank lines, sorted alphabetically by path within each group:
 
-# Lint code
-cd modules
-test -z $(gofmt -l .)
+1. **Third-party** — packages from `node_modules` (e.g. `react`, `@apollo/client`, `jotai`)
+2. **First-party packages** — self-authored packages from `node_modules` (e.g. `@kubetail/*`)
+3. **Local** — relative imports (e.g. `@/*`, `./*`)
 
-# Vet code
-cd modules
-go vet github.com/kubetail-org/kubetail/modules/...
+## JavaScript/TypeScript Linting
+
+After every set of changes to JavaScript/TypeScript files, run `pnpm lint --fix` inside the affected package directory:
+
+```sh
+cd dashboard-ui && pnpm lint --fix
 ```
 
-### Rust Development
-```bash
-# Lint code
-cd crates/rgkl
-cargo fmt --all -- --check
+## Go Formatting
 
-# Vet code
-cd crates/rgkl
-cargo clippy --all -- -D warnings
+After every set of changes to Go files, run `go fmt ./...` inside each affected module directory:
 
-# Run tests
-cd crates/rgkl
-cargo test
-
-# Build for production
-cd crates/rgkl
-cargo build --release
+```sh
+cd modules/dashboard && go fmt ./...
+cd modules/cluster-api && go fmt ./...
+cd modules/shared && go fmt ./...
+cd modules/cli && go fmt ./...
 ```
 
-## Testing Strategy
+## Rust Formatting
 
-- **Frontend**: Vitest with jsdom, React Testing Library, mocked Apollo Client
-- **Go**: Standard Go testing with race detection (`go test -race`)
-- **Rust**: Cargo test with unit and integration tests
+After every set of changes to Rust files:
+
+```sh
+cd crates/rgkl && cargo fmt --all
+cd crates/rgkl && cargo clippy --all -- -D warnings
+```
 
 ## Code Generation
 
-Several components use code generation:
-- **GraphQL schemas**: Use `gqlgen.yml` and `schema.graphqls` files in relevant modules
-- **Protocol Buffers**: Defined in `proto/` directory
-- **Frontend GraphQL types**: Use `pnpm graphql-codegen` in `dashboard-ui/`
-- **Backend types**: Use `go generate github.com/kubetail-org/kubetail/modules/...` in `modules/`
+- **GraphQL schemas**: `gqlgen.yml` and `schema.graphqls` in relevant modules
+- **Protocol Buffers**: Defined in `proto/`
+- **Frontend GraphQL types**: `cd dashboard-ui && pnpm graphql-codegen`
+- **Backend types**: `cd modules && go generate github.com/kubetail-org/kubetail/modules/...`
 
 ## Dependencies
 
@@ -146,43 +121,12 @@ Several components use code generation:
 - For Rust: Prefer well-maintained, audited crates
 - For TypeScript: Consider bundle size impact
 
-## Development Patterns
+## Commits
 
-- **Monorepo structure**: Each module has clear boundaries and responsibilities
-- **GraphQL API design**: User-facing APIs use GraphQL with code generation
-- **gRPC API design**: Inter-service APIs use gRPC with code generation
-- **Shared libraries**: Common Go functionality in `modules/shared/`
-- **Component-based React**: Hooks-based architecture with Jotai for state management
+Keep commits minimal and focused. Multiple commits to accomplish a task are fine if they represent logical, well-separated steps that make the change easier to review.
 
-## Key Files
+Use [conventional commit](https://www.conventionalcommits.org/) format: `<type>(<scope>): <description>`. Types: `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`, `test`. Description in imperative mood, lowercase, no period, under 72 chars. Add body only if the "why" isn't obvious. Always sign-off on commits (`-s`). Only add a "Co-authored-by" trailer if a human was not in the loop or if the user requested it.
 
-- `Makefile` - Main build orchestration
-- `modules/go.work` - Go workspace configuration
-- `dashboard-ui/package.json` - Frontend scripts and dependencies
-- `crates/rgkl/Cargo.toml` - Rust project configuration
-- `Tiltfile` - Local Kubernetes development setup
-- `config/default/cli.yaml` - Default CLI configuration
-- `config/default/dashboard.yaml` - Default Dashboard configuration
-- `config/default/cluster-api.yaml` - Default ClusterAPI configuration
-- `config/default/cluster-agent.yaml` - Default ClusterAgent configuration
-- `hack/manifests/` - Test manifests
-- `hack/test-configs/` - Test configurations
+## Pull Requests
 
-## Pull Request Guidelines
-
-When creating a pull request:
-
-1. Reference any related issues at the top (e.g., "Fixes #123")
-2. Include a clear summary of the changes
-3. List specific changes made
-4. Ensure all tests pass (TypeScript, Go, and Rust)
-5. Verify linting passes for all modified components
-6. Keep changes minimal and focused for quick review
-
-## Important Context
-
-- The project uses GraphQL for user-facing APIs and gRPC for inter-service communication
-- The CLI tool embeds the dashboard UI for desktop usage
-- Logs are fetched from Kubernetes API by default or from the Kubetail API (Cluster API + Cluster Agent) if the Kubetail cluster resources are installed
-- The application tracks container lifecycle events to maintain log timeline accuracy
-- Data never leaves the user's possession (private by default)
+PR titles should be capitalized, imperative mood, no conventional commit prefixes (e.g. "Add login page" not "feat: add login page"). Always use the repo's `.github/pull_request_template.md` — fill in each section from the commits/diff, replace HTML comment placeholders with actual content. Use prose in summaries. Reference related issues (e.g. "Fixes #123"). Keep changes minimal and focused for quick review.

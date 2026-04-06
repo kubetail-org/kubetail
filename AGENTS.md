@@ -1,141 +1,132 @@
-# Agents
+# Kubetail
 
-This document provides comprehensive guidance for AI agents working with this codebase.
+## Architecture
 
-## Monorepo Layout
+Monorepo with a TypeScript+React frontend, Go backends, and Rust in-cluster components:
 
-- `/crates`: Rust crates
-  - `/cluster_agent`: Cluster Agent
-  - `/rgkl`: Log search engine for Kubernetes log files
-- `/dashboard-ui`: Dashboard frontend (TypeScript/React)
-- `/modules`: Go modules
-  - `/cli`: CLI
-  - `/cluster-api`: Cluster API
-  - `/dashboard`: Dashboard backend
-  - `/shared`: Shared Go packages
-- `/proto`: ProtoBuffer definitions
+- **CLI** (`modules/cli/`) — Go CLI that embeds the dashboard UI
+- **Dashboard Backend** (`modules/dashboard/`) — Go/Gin HTTP server with GraphQL API (gqlgen)
+- **Dashboard Frontend** (`dashboard-ui/`) — React/Vite SPA with Apollo Client, Tailwind CSS, Jotai
+- **Cluster API** (`modules/cluster-api/`) — Go GraphQL API server for cluster operations
+- **Cluster Agent** (`crates/cluster_agent/`) — Rust agent running in Kubernetes clusters
+- **Log Search Engine** (`crates/rgkl/`) — High-performance Rust binary for log searching/streaming
+- **Shared Libraries** (`modules/shared/`) — Common Go packages shared across services
 
-### General Conventions
+GraphQL for user-facing APIs, gRPC + Protocol Buffers for inter-service communication.
 
-- Follow the existing code style in each file/package
-- Prefer small, reviewable changes with targeted tests
-- Use meaningful variable and function names
+## Project Structure
 
-## Running TypeScript Checks
-
-### Lint
-
-To run linter for the Dashboard frontend:
-
-```bash
-cd dashboard-ui
-pnpm lint
+```
+dashboard-ui/         — React/Vite frontend (pnpm)
+modules/cli/          — CLI Go module
+modules/dashboard/    — Dashboard Go backend
+modules/cluster-api/  — Cluster API Go backend
+modules/shared/       — Shared Go libraries
+modules/go.work       — Go workspace config
+crates/cluster_agent/ — Rust cluster agent
+crates/rgkl/          — Rust log search engine
+proto/                — Protocol Buffer definitions
+config/default/       — Default config files (cli, dashboard, cluster-api, cluster-agent)
+hack/manifests/       — Test manifests
+hack/test-configs/    — Test configurations
+hack/tilt             - Tilt configurations
+Makefile              — Build orchestration
+Tiltfile              — Local Kubernetes dev setup
 ```
 
-### Test
+Frontend builds are embedded into Go binaries via `embed.go`.
 
-To run tests for the Dashboard frontend:
+## Local Development
 
-```bash
-cd dashboard-ui
-pnpm test run
+```sh
+# Tilt (all infra + services)
+tilt up
+
+# Frontend dev server
+cd dashboard-ui && pnpm install && pnpm dev
+
+# Dashboard backend
+cd modules/dashboard && go run cmd/main.go -c hack/config.yaml
+
+# Full CLI build (with embedded dashboard UI)
+make
 ```
 
-## Build
+## Testing
 
-To build the Dashboard frontend:
+```sh
+# Frontend tests (single pass):
+cd dashboard-ui && pnpm test run
 
-```bash
-cd dashboard-ui
-pnpm build
+# Go tests (all modules):
+cd modules && go test -race github.com/kubetail-org/kubetail/modules/...
+
+# Go tests (single module):
+cd modules/<module-name> && go test ./...
+
+# Rust tests:
+cd crates/rgkl && cargo test
 ```
 
-## Running Go Checks
+Always use `pnpm` (not `npx`) to run frontend tests.
 
-### Lint
+## Import Order (JavaScript/TypeScript)
 
-To run format checker for all modules:
+Organize imports into three groups separated by blank lines, sorted alphabetically by path within each group:
 
-```bash
-cd modules
-test -z $(gofmt -l .)
+1. **Third-party** — packages from `node_modules` (e.g. `react`, `@apollo/client`, `jotai`)
+2. **First-party packages** — self-authored packages from `node_modules` (e.g. `@kubetail/*`)
+3. **Local** — relative imports (e.g. `@/*`, `./*`)
+
+## JavaScript/TypeScript Linting
+
+After every set of changes to JavaScript/TypeScript files, run `pnpm lint --fix` inside the affected package directory:
+
+```sh
+cd dashboard-ui && pnpm lint --fix
 ```
 
-### Vet
+## Go Formatting
 
-To vet a specific module:
+After every set of changes to Go files, run `go fmt ./...` inside each affected module directory:
 
-```bash
-cd modules/<module-name>
-go vet ./...
+```sh
+cd modules/dashboard && go fmt ./...
+cd modules/cluster-api && go fmt ./...
+cd modules/shared && go fmt ./...
+cd modules/cli && go fmt ./...
 ```
 
-To vet all modules:
+## Rust Formatting
 
-```bash
-cd modules
-go vet github.com/kubetail-org/kubetail/modules/...
+After every set of changes to Rust files:
+
+```sh
+cd crates/rgkl && cargo fmt --all
+cd crates/rgkl && cargo clippy --all -- -D warnings
 ```
 
-### Test
+## Code Generation
 
-To run tests for a specific module:
+- **GraphQL schemas**: `gqlgen.yml` and `schema.graphqls` in relevant modules
+- **Protocol Buffers**: Defined in `proto/`
+- **Frontend GraphQL types**: `cd dashboard-ui && pnpm graphql-codegen`
+- **Backend types**: `cd modules && go generate github.com/kubetail-org/kubetail/modules/...`
 
-```bash
-cd modules/<module-name>
-go test -race ./...
-```
+## Dependencies
 
-To run all tests:
+- Avoid introducing new external dependencies unless it will have a material impact on code readability or performance
+- If a new dependency is required, state the reason clearly
+- For Go: Use standard library when possible
+- For Rust: Prefer well-maintained, audited crates
+- For TypeScript: Consider bundle size impact
 
-```bash
-cd modules
-go test -race github.com/kubetail-org/kubetail/modules/...
-```
+## Commits
 
-## Running Rust Checks
+Keep commits minimal and focused. Multiple commits to accomplish a task are fine if they represent logical, well-separated steps that make the change easier to review.
 
-### Lint
+Use [conventional commit](https://www.conventionalcommits.org/) format: `<type>(<scope>): <description>`. Types: `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`, `test`. Description in imperative mood, lowercase, no period, under 72 chars. Add body only if the "why" isn't obvious. Always sign-off on commits (`-s`). Only add a "Co-authored-by" trailer if a human was not in the loop or if the user requested it.
 
-To lint a specific crate:
+## Pull Requests
 
-```bash
-cd crates/<crate-name>
-cargo fmt --all -- --check
-```
-
-### Vet
-
-To vet a specific crate:
-
-```bash
-cd crates/<crate-name>
-cargo clippy --all -- -D warnings
-```
-
-### Test
-
-To run tests for a specific crate:
-
-```bash
-cd crates/<crate-name>
-cargo test
-```
-
-### Build
-
-To build a specific crate:
-
-```bash
-cd crates/<crate-name>
-cargo build --release
-```
-
-## Pull Request Guidelines
-
-When the agent helps create a PR, please ensure it:
-
-1. References any related issues at the top of the PR comment
-2. Includes a summary of the PR
-3. Includes a list of the changes made
-4. Ensures all tests pass
+PR titles should be capitalized, imperative mood, no conventional commit prefixes (e.g. "Add login page" not "feat: add login page"). Always use the repo's `.github/pull_request_template.md` — fill in each section from the commits/diff, replace HTML comment placeholders with actual content. Use prose in summaries. Reference related issues (e.g. "Fixes #123"). Keep changes minimal and focused for quick review.

@@ -62,13 +62,16 @@ lerna-debug.log*
 # AI tools
 .aider/
 .cache/
-.claude/
+.claude/*
 .cody/
 .continue/
 .cursor/
 .embeddings/
 .memory/
 .sweep/
+
+# Allow Claude Skills
+!.claude/skills/
 
 # Misc
 /dashboard-ui/stats.html
