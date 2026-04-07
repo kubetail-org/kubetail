@@ -918,15 +918,13 @@ export const LogViewer = forwardRef<LogViewerHandle, LogViewerProps>(
       [],
     );
 
-    // Reset completely when client changes
-    const prevClientRef = useRef<Client>(null);
-    useEffect(() => {
-      if (prevClientRef.current && prevClientRef.current !== client) {
-        setIsLoading(true);
-        incrementKeyID();
-      }
-      prevClientRef.current = client;
-    }, [client]);
+    // Reset completely when client changes (adjust state during render)
+    const [prevClient, setPrevClient] = useState(client);
+    if (prevClient !== client) {
+      setPrevClient(client);
+      setIsLoading(true);
+      incrementKeyID();
+    }
 
     const config = useMemo(
       () => ({
