@@ -229,7 +229,7 @@ export function useRecordStore({ recordsRef, setCount }: RecordStoreOptions): Re
       },
       length: () => recordsRef.current?.length ?? 0,
     }),
-    [],
+    [addKeys, recordsRef, setCount],
   );
 }
 
