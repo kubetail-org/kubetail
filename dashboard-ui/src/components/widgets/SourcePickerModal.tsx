@@ -301,28 +301,25 @@ type DisplayWorkloadItemsProps = {
 const DisplayWorkloadItems = ({ kind, items }: DisplayWorkloadItemsProps) => {
   const { namespaceFilter } = useContext(Context);
 
-  const filterFn = useCallback(
-    (item: WorkloadItem) => {
-      // Remove deleted items
-      if (item.metadata.deletionTimestamp) return false;
-
-      // Apply namespace filter
-      if (namespaceFilter !== '' && item.metadata.namespace !== namespaceFilter) return false;
-
-      return true;
-    },
-    [namespaceFilter],
-  );
-
   const data = useMemo(
     () =>
-      items.filter(filterFn).map((item) => ({
-        id: item.id,
-        name: item.metadata.name,
-        namespace: item.metadata.namespace,
-        createdAt: item.metadata.creationTimestamp,
-      })),
-    [filterFn, JSON.stringify(items)],
+      items
+        .filter((item) => {
+          // Remove deleted items
+          if (item.metadata.deletionTimestamp) return false;
+
+          // Apply namespace filter
+          if (namespaceFilter !== '' && item.metadata.namespace !== namespaceFilter) return false;
+
+          return true;
+        })
+        .map((item) => ({
+          id: item.id,
+          name: item.metadata.name,
+          namespace: item.metadata.namespace,
+          createdAt: item.metadata.creationTimestamp,
+        })),
+    [items, namespaceFilter],
   );
 
   const [sorting, setSorting] = useState<SortingState>([{ id: 'name', desc: false }]);
@@ -455,9 +452,9 @@ const DisplayWorkload = ({ kind }: DisplayWorkloadProps) => {
     variables: { kubeContext },
   });
 
-  if (loading || fetching) return <Spinner size="sm" />;
+  const items = useMemo(() => (data && cfg.getItems(data)) ?? [], [data, cfg]);
 
-  const items = (data && cfg.getItems(data)) ?? [];
+  if (loading || fetching) return <Spinner size="sm" />;
 
   return <DisplayWorkloadItems kind={kind} items={items} />;
 };
