@@ -18,6 +18,7 @@ import {
   forwardRef,
   useCallback,
   useEffect,
+  useEffectEvent,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -416,8 +417,7 @@ export const useLoadMore = (runtime: Runtime) => {
   const isLoadingBeforeRef = useRef(false);
   const isLoadingAfterRef = useRef(false);
 
-  const countRef = useRef(state.count);
-  countRef.current = state.count;
+  const getCount = useEffectEvent(() => state.count);
 
   useEffect(() => {
     if (!virtualizerRange || state.isLoading || state.isRemeasuring) return;
@@ -439,7 +439,7 @@ export const useLoadMore = (runtime: Runtime) => {
     }
 
     if (state.hasMoreAfter && !isLoadingAfterRef.current) {
-      if (virtualizerRange.endIndex >= countRef.current - 1 - config.loadMoreThreshold + config.overscan) {
+      if (virtualizerRange.endIndex >= getCount() - 1 - config.loadMoreThreshold + config.overscan) {
         isLoadingAfterRef.current = true;
         loadMoreAfter()
           .catch((error) => {
@@ -994,7 +994,7 @@ export function useLogViewerState(
   dependencies: any[],
 ): LogViewerState {
   // Initialize store
-  const [store, setStore] = useState(() => createLogViewerStore(logViewerRef.current));
+  const [store, setStore] = useState(() => createLogViewerStore(null));
 
   // Update based on user-provided dependencies
   useEffect(() => {

@@ -14,7 +14,7 @@
 
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useSubscription } from '@apollo/client/react';
-import { useContext, useMemo, useRef } from 'react';
+import { useContext, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { CONSOLE_NODES_LIST_FETCH, CONSOLE_NODES_LIST_WATCH, LOG_SOURCES_WATCH } from '@/lib/graphql/dashboard/ops';
@@ -155,19 +155,21 @@ export const ConfigureContainerColors = () => {
   const sources = useAtomValue(sourcesAtom);
   const containerKeysRef = useRef(new Set<string>());
 
-  sources.forEach((source) => {
-    const k = cssID(source.namespace, source.podName, source.containerName);
+  useEffect(() => {
+    sources.forEach((source) => {
+      const k = cssID(source.namespace, source.podName, source.containerName);
 
-    // skip if previously defined
-    if (containerKeysRef.current.has(k)) return;
-    containerKeysRef.current.add(k);
+      // skip if previously defined
+      if (containerKeysRef.current.has(k)) return;
+      containerKeysRef.current.add(k);
 
-    (async () => {
-      // set css var
-      const colorIDX = (await safeDigest(k)).getUint32(0) % palette.length;
-      document.documentElement.style.setProperty(`--${k}-color`, palette[colorIDX]);
-    })();
-  });
+      (async () => {
+        // set css var
+        const colorIDX = (await safeDigest(k)).getUint32(0) % palette.length;
+        document.documentElement.style.setProperty(`--${k}-color`, palette[colorIDX]);
+      })();
+    });
+  }, [sources]);
 
   return null;
 };

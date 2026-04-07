@@ -38,15 +38,14 @@ import { ConfigureContainerColors, SourcesFetcher } from './helpers';
  */
 
 function useStableSourceStrings(searchParams: URLSearchParams) {
-  const sourceStringsRef = useRef<string[]>(null);
-
   const next = searchParams.getAll('source');
+  const [value, setValue] = useState(next);
 
-  if (!deepEqual(next, sourceStringsRef.current)) {
-    sourceStringsRef.current = next;
+  if (!deepEqual(next, value)) {
+    setValue(next);
   }
 
-  return sourceStringsRef.current as string[];
+  return value;
 }
 
 /**
@@ -54,8 +53,6 @@ function useStableSourceStrings(searchParams: URLSearchParams) {
  */
 
 function useStableSourceFilter(searchParams: URLSearchParams) {
-  const sourceFilterRef = useRef<LogSourceFilter>(null);
-
   const next = {
     region: searchParams.getAll('region'),
     zone: searchParams.getAll('zone'),
@@ -65,11 +62,13 @@ function useStableSourceFilter(searchParams: URLSearchParams) {
     container: searchParams.getAll('container'),
   } satisfies LogSourceFilter;
 
-  if (!deepEqual(next, sourceFilterRef.current)) {
-    sourceFilterRef.current = next;
+  const [value, setValue] = useState(next);
+
+  if (!deepEqual(next, value)) {
+    setValue(next);
   }
 
-  return sourceFilterRef.current as LogSourceFilter;
+  return value;
 }
 
 /**
