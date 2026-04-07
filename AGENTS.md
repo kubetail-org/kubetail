@@ -131,4 +131,4 @@ Use [conventional commit](https://www.conventionalcommits.org/) format: `<type>(
 
 ## Pull Requests
 
-PR titles should be capitalized, imperative mood, no conventional commit prefixes (e.g. "Add login page" not "feat: add login page"). Always use the repo's `.github/pull_request_template.md` — fill in each section from the commits/diff, replace HTML comment placeholders with actual content. Use prose in summaries. Reference related issues (e.g. "Fixes #123"). Keep changes minimal and focused for quick review.
+PR titles should be capitalized, imperative mood, no conventional commit prefixes (e.g. "Add login page" not "feat: add login page"). Prefix PR titles with the correct emoji based on the change type: 🎣 Bug fix, 🐋 New feature, 📜 Documentation, ✨ General improvement. Always use the repo's `.github/pull_request_template.md` — fill in each section from the commits/diff, replace HTML comment placeholders with actual content. For checklist items that can be resolved automatically (like emoji prefixes), mark them as complete. Use prose in summaries. Reference related issues (e.g. "Fixes #123"). Keep changes minimal and focused for quick review.
