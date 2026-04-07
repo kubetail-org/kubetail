@@ -193,11 +193,8 @@ export function useRecordStore({ recordsRef, setCount }: RecordStoreOptions): Re
     }
   }, []);
 
-  return useMemo(() => {
-    // Initialize
-    recordsRef.current = new DoubleTailedArray();
-
-    return {
+  return useMemo(
+    () => ({
       new: (records: LogRecord[], skipSetCount = false) => {
         addKeys(records);
         recordsRef.current = new DoubleTailedArray(records as LogRecordInternal[]);
@@ -230,8 +227,9 @@ export function useRecordStore({ recordsRef, setCount }: RecordStoreOptions): Re
         }
       },
       length: () => recordsRef.current?.length ?? 0,
-    };
-  }, []);
+    }),
+    [],
+  );
 }
 
 /**
@@ -256,6 +254,7 @@ export const useInit = ({ client, config, refs, actions, services }: Runtime) =>
             services.recordStore.new(result.records);
           }
 
+          // eslint-disable-next-line react-hooks/immutability -- refs are shared via Runtime, not truly immutable args
           refs.isAutoScrollEnabled.current = false;
 
           break;
@@ -413,15 +412,19 @@ export const useLoadMore = (runtime: Runtime) => {
 
   const virtualizerRange = services.virtualizer.range;
 
+  // Use local refs to avoid mutating hook arguments (react-hooks/immutability)
+  const isLoadingBeforeRef = useRef(false);
+  const isLoadingAfterRef = useRef(false);
+
   const countRef = useRef(state.count);
   countRef.current = state.count;
 
   useEffect(() => {
     if (!virtualizerRange || state.isLoading || state.isRemeasuring) return;
 
-    if (state.hasMoreBefore && !refs.isLoadingBefore.current) {
+    if (state.hasMoreBefore && !isLoadingBeforeRef.current) {
       if (virtualizerRange.startIndex <= config.loadMoreThreshold - config.overscan) {
-        refs.isLoadingBefore.current = true;
+        isLoadingBeforeRef.current = true;
         loadMoreBefore()
           .catch((error) => {
             // Log error but don't throw - allow the UI to continue functioning
@@ -429,15 +432,15 @@ export const useLoadMore = (runtime: Runtime) => {
           })
           .finally(() => {
             requestAnimationFrame(() => {
-              refs.isLoadingBefore.current = false;
+              isLoadingBeforeRef.current = false;
             });
           });
       }
     }
 
-    if (state.hasMoreAfter && !refs.isLoadingAfter.current) {
+    if (state.hasMoreAfter && !isLoadingAfterRef.current) {
       if (virtualizerRange.endIndex >= countRef.current - 1 - config.loadMoreThreshold + config.overscan) {
-        refs.isLoadingAfter.current = true;
+        isLoadingAfterRef.current = true;
         loadMoreAfter()
           .catch((error) => {
             // Log error and allow the UI to continue functioning
@@ -445,7 +448,7 @@ export const useLoadMore = (runtime: Runtime) => {
           })
           .finally(() => {
             requestAnimationFrame(() => {
-              refs.isLoadingAfter.current = false;
+              isLoadingAfterRef.current = false;
             });
           });
       }
@@ -459,7 +462,6 @@ export const useLoadMore = (runtime: Runtime) => {
     state.isRemeasuring,
     config.overscan,
     config.loadMoreThreshold,
-    refs,
     loadMoreBefore,
     loadMoreAfter,
   ]);
@@ -663,7 +665,7 @@ export const LogViewerInner = ({
   const [count, setCount] = useState(0);
 
   // RecordsRef will never be null so this assertion is safe
-  const recordsRef = useRef(null) as unknown as React.RefObject<DoubleTailedArray<LogRecordInternal>>;
+  const recordsRef = useRef(new DoubleTailedArray<LogRecordInternal>());
 
   const [hasMoreBefore, setHasMoreBefore] = useState(false);
   const [hasMoreAfter, setHasMoreAfter] = useState(false);
@@ -841,8 +843,7 @@ export const LogViewer = forwardRef<LogViewerHandle, LogViewerProps>(
 
     // Support structures for subscribe() and getSnapshot()
     const stateRef = useRef<LogViewerState>(LOG_VIEWER_INITIAL_STATE);
-    const listenerQueueRef = useRef(null) as unknown as React.RefObject<Set<() => void>>;
-    if (!listenerQueueRef.current) listenerQueueRef.current = new Set<() => void>();
+    const listenerQueueRef = useRef(new Set<() => void>());
     useEffect(() => {
       stateRef.current = { isLoading };
       listenerQueueRef.current.forEach((callback) => callback());

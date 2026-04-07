@@ -95,11 +95,8 @@ function useMeasureWidths() {
   const [widths, setWidths] = useState(newDefaultWidths);
   const [triggerID, setTriggerID] = useState(0);
 
-  const pendingRef = useRef(null) as unknown as React.RefObject<typeof widths>;
-  if (!pendingRef.current) pendingRef.current = newDefaultWidths();
-
-  const measuredRef = useRef(null) as unknown as React.RefObject<WeakSet<Element>>;
-  if (!measuredRef.current) measuredRef.current = new WeakSet<Element>();
+  const pendingRef = useRef(newDefaultWidths());
+  const measuredRef = useRef(new WeakSet<Element>());
 
   const rafIDRef = useRef<number | null>(null);
 

@@ -635,7 +635,7 @@ describe('internal helpers', () => {
 
     it('calls loadMoreBefore() when virtualizer range startIndex is within threshold', async () => {
       const runtime = createMockRuntime();
-      const { client, services, refs } = runtime;
+      const { client, services } = runtime;
 
       act(() => {
         services.recordStore.new(createMockRecords(2));
@@ -660,12 +660,11 @@ describe('internal helpers', () => {
       renderHook(() => useLoadMore(runtime));
       await waitFor(() => expect(client.fetchBefore).toHaveBeenCalledTimes(1));
       expect(client.fetchAfter).toHaveBeenCalledTimes(0);
-      expect(refs.isLoadingBefore.current).toEqual(true);
     });
 
     it('calls loadMoreAfter() when virtualizer range endIndex is within threshold', async () => {
       const runtime = createMockRuntime();
-      const { client, services, refs } = runtime;
+      const { client, services } = runtime;
 
       act(() => {
         services.recordStore.new(createMockRecords(2));
@@ -690,7 +689,6 @@ describe('internal helpers', () => {
       renderHook(() => useLoadMore(runtime));
       await waitFor(() => expect(client.fetchAfter).toHaveBeenCalledTimes(1));
       expect(client.fetchBefore).toHaveBeenCalledTimes(0);
-      expect(refs.isLoadingAfter.current).toEqual(true);
     });
 
     it('noop when isLoading is true', async () => {
