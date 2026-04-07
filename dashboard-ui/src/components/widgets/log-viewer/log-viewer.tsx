@@ -378,7 +378,7 @@ export const useLoadMoreBefore = ({ client, config, refs, actions, services }: R
 
       await beforePaintPromise;
     }
-  }, [client, config.batchSizeRegular]);
+  }, [client, config.batchSizeRegular, refs, actions, services]);
 
 /**
  * useLoadMoreAfter - Returns stable loadMoreAfter function
@@ -399,7 +399,7 @@ export const useLoadMoreAfter = ({ client, config, actions, services }: Runtime)
     if (result.records.length) {
       services.recordStore.append(result.records);
     }
-  }, [client, config.batchSizeRegular]);
+  }, [client, config.batchSizeRegular, actions, services]);
 
 /**
  * useLoadMore - Load more hook
@@ -459,6 +459,9 @@ export const useLoadMore = (runtime: Runtime) => {
     state.isRemeasuring,
     config.overscan,
     config.loadMoreThreshold,
+    refs,
+    loadMoreBefore,
+    loadMoreAfter,
   ]);
 };
 

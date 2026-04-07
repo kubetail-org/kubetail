@@ -68,7 +68,7 @@ const SettingsButton = () => {
           </Label>
         </div>
       )),
-    [visibleCols],
+    [visibleCols, handleOnChange],
   );
 
   return (
@@ -130,7 +130,7 @@ export function Header() {
         logViewerRef.current?.jumpToCursor(cursor);
       }
     },
-    [searchParams],
+    [searchParams, setSearchParams, logViewerRef],
   );
 
   const handleJumpToBeginningPress = useCallback(async () => {
@@ -157,11 +157,11 @@ export function Header() {
 
   const handlePlayPress = useCallback(() => {
     setIsFollow(true);
-  }, []);
+  }, [setIsFollow]);
 
   const handlePausePress = useCallback(() => {
     setIsFollow(false);
-  }, []);
+  }, [setIsFollow]);
 
   const handleSubmit = useCallback(
     (ev: React.FormEvent<HTMLFormElement>) => {

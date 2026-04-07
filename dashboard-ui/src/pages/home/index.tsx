@@ -143,7 +143,7 @@ type TableCellProps = {
 const SizeTableCell = ({ table, row }: TableCellProps) => {
   const meta = table.options.meta as WorkloadTableMeta;
 
-  const ids = useMemo(() => [row.original.id], []);
+  const ids = useMemo(() => [row.original.id], [row.original.id]);
   const logFileInfo = useLogFileInfo(meta.kubeContext, ids);
 
   const info = logFileInfo.get(row.original.id);
@@ -155,7 +155,7 @@ const SizeTableCell = ({ table, row }: TableCellProps) => {
 const LastModifiedAtTableCell = ({ table, row }: TableCellProps) => {
   const meta = table.options.meta as WorkloadTableMeta;
 
-  const ids = useMemo(() => [row.original.id], []);
+  const ids = useMemo(() => [row.original.id], [row.original.id]);
   const logFileInfo = useLogFileInfo(meta.kubeContext, ids);
 
   const info = logFileInfo.get(row.original.id);
