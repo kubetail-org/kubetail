@@ -127,9 +127,9 @@ export type Runtime = {
  * External constants
  */
 
-export const LOG_VIEWER_INITIAL_STATE = {
+export const LOG_VIEWER_INITIAL_STATE: LogViewerState = {
   isLoading: true,
-} satisfies LogViewerState;
+};
 
 /**
  * External types
@@ -154,7 +154,7 @@ export type LogViewerVirtualizer = {
   readonly range: { startIndex: number; endIndex: number } | null;
   getTotalSize: () => number;
   getVirtualRows: () => LogViewerVirtualRow[];
-  measureElement: (node: Element | null | undefined) => void;
+  measureElement: (node: Element | null) => void;
 };
 
 export type LogViewerState = {
@@ -842,7 +842,7 @@ export const LogViewer = forwardRef<LogViewerHandle, LogViewerProps>(
     const virtualizerRef = useRef<Virtualizer<HTMLDivElement, Element> | null>(null);
 
     // Support structures for subscribe() and getSnapshot()
-    const stateRef = useRef<LogViewerState>(LOG_VIEWER_INITIAL_STATE);
+    const stateRef = useRef(LOG_VIEWER_INITIAL_STATE);
     const listenerQueueRef = useRef(new Set<() => void>());
     useEffect(() => {
       stateRef.current = { isLoading };

@@ -371,7 +371,7 @@ type RecordRowProps = {
   isWrap: boolean;
   maxRowWidth: number;
   colWidths: Map<ViewerColumn, number>;
-  measureElement: (node: Element | null | undefined) => void;
+  measureElement: (node: Element | null) => void;
   measureRowElement: (el: HTMLDivElement | null) => void;
   measureCellElement: (el: HTMLDivElement | null) => void;
 };
