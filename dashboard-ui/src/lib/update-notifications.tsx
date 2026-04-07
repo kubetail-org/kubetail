@@ -84,6 +84,7 @@ export function UpdateNotificationProvider({ children }: React.PropsWithChildren
   const currentVersion = appConfig.cliVersion;
   const [ready, setReady] = useState(false);
   const [state, setState] = useState(() => readState());
+  const [now] = useState(() => Date.now());
 
   const cacheValid = isCacheValid(state);
 
@@ -107,7 +108,7 @@ export function UpdateNotificationProvider({ children }: React.PropsWithChildren
   const updateAvailable =
     currentVersion !== '' && latestVersion !== null && compareSemver(latestVersion, currentVersion) > 0;
 
-  const dismissed = state.dismissedAt !== undefined && Date.now() - state.dismissedAt < DISMISS_TTL_MS;
+  const dismissed = state.dismissedAt !== undefined && now - state.dismissedAt < DISMISS_TTL_MS;
   const skipped = latestVersion !== null && (state.skippedVersions ?? []).includes(latestVersion);
   const hasUpdate = updateAvailable && !skipped;
 
