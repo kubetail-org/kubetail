@@ -15,7 +15,7 @@
 import type { ApolloClient } from '@apollo/client';
 import deepEqual from 'fast-deep-equal';
 import { PanelLeftClose as PanelLeftCloseIcon } from 'lucide-react';
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { dashboardClient, getClusterAPIClient } from '@/apollo-client';
@@ -161,7 +161,6 @@ export default function Page() {
   const kubeContext = searchParams.get('kubeContext');
 
   const shouldUseClusterAPI = useIsClusterAPIEnabled(kubeContext);
-  const [logServerClient, setLogServerClient] = useState<Client>();
 
   const sourceStrings = useStableSourceStrings(searchParams);
   const sourceFilter = useStableSourceFilter(searchParams);
@@ -183,8 +182,8 @@ export default function Page() {
   }, [grepVal]);
 
   // Configure log server client
-  useEffect(() => {
-    if (shouldUseClusterAPI === undefined) return;
+  const logServerClient = useMemo(() => {
+    if (shouldUseClusterAPI === undefined) return undefined;
 
     let apolloClient: ApolloClient;
     if (shouldUseClusterAPI) {
@@ -197,15 +196,13 @@ export default function Page() {
       apolloClient = dashboardClient;
     }
 
-    setLogServerClient(
-      new LogServerClient({
-        apolloClient,
-        kubeContext: kubeContext ?? '',
-        sources: sourceStrings,
-        sourceFilter,
-        grep: grep ?? undefined,
-      }),
-    );
+    return new LogServerClient({
+      apolloClient,
+      kubeContext: kubeContext ?? '',
+      sources: sourceStrings,
+      sourceFilter,
+      grep: grep ?? undefined,
+    });
   }, [shouldUseClusterAPI, kubeContext, sourceStrings, sourceFilter, grep]);
 
   const context = useMemo(

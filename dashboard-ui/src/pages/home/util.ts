@@ -15,7 +15,7 @@
 import fastDeepEqual from 'fast-deep-equal';
 import { useAtomValue } from 'jotai';
 import { selectAtom } from 'jotai/utils';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import type { KubeContext, FileInfo } from './shared';
 import { logMetadataMapAtomFamily, ownershipMapAtomFamily } from './state';
@@ -48,8 +48,6 @@ type FileInfoWithMetadata = {
 };
 
 export function useLogFileInfo(kubeContext: KubeContext, uids: string[]) {
-  const [val, setVal] = useState(new Map<string, FileInfoWithMetadata>());
-
   // Isolate container id map relevant to hook
   const workloadContainersMapAtom = useMemo(
     () =>
@@ -90,8 +88,8 @@ export function useLogFileInfo(kubeContext: KubeContext, uids: string[]) {
 
   const metadata = useAtomValue(metadataAtom);
 
-  useEffect(() => {
-    const newVal = new Map<string, { size: number; lastModifiedAt: Date; containerIDs: string[] }>();
+  const val = useMemo(() => {
+    const newVal = new Map<string, FileInfoWithMetadata>();
 
     uids.forEach((uid) => {
       const containerIDs = workloadContainersMap[uid];
@@ -119,7 +117,7 @@ export function useLogFileInfo(kubeContext: KubeContext, uids: string[]) {
       if (fileInfo.lastModifiedAt.getTime() > 0) newVal.set(uid, fileInfo);
     });
 
-    setVal(newVal);
+    return newVal;
   }, [uids, metadata, workloadContainersMap]);
 
   return val;
