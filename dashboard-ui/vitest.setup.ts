@@ -33,6 +33,8 @@ class ResizeObserverMock {
 }
 
 vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => window.setTimeout(callback, 0));
+vi.stubGlobal('cancelAnimationFrame', (id: number) => window.clearTimeout(id));
 
 // Display apollo error messages in console
 loadDevMessages();

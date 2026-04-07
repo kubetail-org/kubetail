@@ -604,12 +604,7 @@ describe('internal helpers', () => {
   });
 
   describe('useLoadMore', () => {
-    beforeEach(() => {
-      vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => window.setTimeout(callback, 0));
-    });
-
     afterEach(() => {
-      vi.unstubAllGlobals();
       vi.restoreAllMocks();
     });
 
@@ -764,12 +759,10 @@ describe('internal helpers', () => {
   describe('useFollowFromEnd', () => {
     beforeEach(() => {
       vi.useFakeTimers();
-      vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => window.setTimeout(callback, 0));
     });
 
     afterEach(() => {
       vi.useRealTimers();
-      vi.unstubAllGlobals();
       vi.restoreAllMocks();
     });
 
@@ -890,12 +883,10 @@ describe('internal helpers', () => {
   describe('usePullToRefresh', () => {
     beforeEach(() => {
       vi.useFakeTimers();
-      vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => window.setTimeout(callback, 0));
     });
 
     afterEach(() => {
       vi.useRealTimers();
-      vi.unstubAllGlobals();
       vi.restoreAllMocks();
     });
 
@@ -939,14 +930,11 @@ describe('internal helpers', () => {
 
 describe('LogViewerInner', () => {
   beforeEach(() => {
-    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => window.setTimeout(callback, 0));
-    vi.stubGlobal('cancelAnimationFrame', (id: number) => window.clearTimeout(id));
     mockVirtualizer.getTotalSize.mockReturnValue(0);
     mockVirtualizer.getVirtualItems.mockReturnValue([]);
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
 
@@ -1038,13 +1026,7 @@ describe('LogViewerInner', () => {
 });
 
 describe('LogViewer', () => {
-  beforeEach(() => {
-    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => window.setTimeout(callback, 0));
-    vi.stubGlobal('cancelAnimationFrame', (id: number) => window.clearTimeout(id));
-  });
-
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
 
