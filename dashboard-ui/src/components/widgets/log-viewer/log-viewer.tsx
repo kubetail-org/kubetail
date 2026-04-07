@@ -409,7 +409,7 @@ export const useLoadMore = (runtime: Runtime) => {
   const loadMoreBefore = useLoadMoreBefore(runtime);
   const loadMoreAfter = useLoadMoreAfter(runtime);
 
-  const { config, refs, state, services } = runtime;
+  const { config, state, services } = runtime;
 
   const virtualizerRange = services.virtualizer.range;
 
