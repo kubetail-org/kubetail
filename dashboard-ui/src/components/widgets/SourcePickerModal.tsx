@@ -346,6 +346,7 @@ const DisplayWorkloadItems = ({ kind, items }: DisplayWorkloadItemsProps) => {
     [data, meta, sorting, setSorting],
   );
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- useReactTable returns unmemoizable values (TanStack limitation)
   const table = useReactTable(tableCfg as TableOptions<WorkloadTableData>);
 
   return (

@@ -692,6 +692,7 @@ export const LogViewerInner = ({
     });
   }, []);
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer returns unmemoizable values (TanStack limitation)
   const virtualizer = useVirtualizer({
     count,
     getScrollElement: () => scrollElRef.current,

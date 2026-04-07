@@ -418,6 +418,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
     [data, meta, sorting, isClusterAPIEnabled, showAll, numItems, maxDisplayRows, setSorting],
   );
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- useReactTable returns unmemoizable values (TanStack limitation)
   const table = useReactTable(tableCfg as TableOptions<WorkloadTableData>);
 
   // For label
