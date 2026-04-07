@@ -341,7 +341,7 @@ describe('SidebarPodsAndContainers', () => {
 
 describe('SidebarFacets', () => {
   it('renders facets with counts', () => {
-    const regionCounter = new Counter<string>();
+    const regionCounter = new Counter();
     regionCounter.update('us-west-1');
     regionCounter.update('us-west-1');
     regionCounter.update('us-east-1');
@@ -373,7 +373,7 @@ describe('SidebarFacets', () => {
   });
 
   it('does not render facets with only empty entry', () => {
-    const emptyCounter = new Counter<string>();
+    const emptyCounter = new Counter();
     emptyCounter.update('');
 
     mockUseFacets.mockReturnValue({ ...emptyFacets(), region: emptyCounter });
@@ -388,7 +388,7 @@ describe('SidebarFacets', () => {
   });
 
   it('renders facet checkbox when present in URL', () => {
-    const regionCounter = new Counter<string>();
+    const regionCounter = new Counter();
     regionCounter.update('us-west-1');
 
     mockUseFacets.mockReturnValue({ ...emptyFacets(), region: regionCounter });
@@ -405,7 +405,7 @@ describe('SidebarFacets', () => {
   });
 
   it('renders all facet categories when they have values', () => {
-    const counter = new Counter<string>();
+    const counter = new Counter();
     counter.update('value1');
 
     mockUseFacets.mockReturnValue({
@@ -430,7 +430,7 @@ describe('SidebarFacets', () => {
   });
 
   it('orders facets by count descending', () => {
-    const regionCounter = new Counter<string>();
+    const regionCounter = new Counter();
     regionCounter.update('us-west-1');
     regionCounter.update('us-east-1');
     regionCounter.update('us-east-1');

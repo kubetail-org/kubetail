@@ -826,8 +826,8 @@ export const LogViewer = forwardRef<LogViewerHandle, LogViewerProps>(
     const [keyID, setKeyID] = useState(0);
     const incrementKeyID = useCallback(() => setKeyID((id) => id + 1), []);
 
-    const [initialPosition, setInitialPosition] = useState<LogViewerInitialPosition>(defaultInitialPosition);
-    const [isLoading, setIsLoading] = useState<boolean>(LOG_VIEWER_INITIAL_STATE.isLoading);
+    const [initialPosition, setInitialPosition] = useState(defaultInitialPosition);
+    const [isLoading, setIsLoading] = useState(LOG_VIEWER_INITIAL_STATE.isLoading);
 
     const [isRemeasuring, setIsRemeasuring] = useState(false);
     const isRemeasuringRef = useRef(false);

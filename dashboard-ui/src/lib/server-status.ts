@@ -65,7 +65,7 @@ export class ServerStatus {
 }
 
 export function useDashboardServerStatus() {
-  const [status, setStatus] = useState<ServerStatus>(new ServerStatus());
+  const [status, setStatus] = useState(new ServerStatus());
 
   useEffect(() => {
     const fns = [

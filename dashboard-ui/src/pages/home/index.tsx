@@ -349,7 +349,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'name', desc: false }]);
 
   const [selectAll, setSelectAll] = useState(false);
-  const [isChecked, setIsChecked] = useState<Map<string, boolean>>(new Map());
+  const [isChecked, setIsChecked] = useState(new Map<string, boolean>());
 
   const handleSelectAllChange = useCallback(() => {
     const newValue = !selectAll;

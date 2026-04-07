@@ -32,7 +32,7 @@ export const visibleColsAtom = atom(
   new Set([...configColumnsToViewerColumns(appConfig.columns), ViewerColumn.Message]),
 );
 
-export const filtersAtom = atom(new MapSet<string, string>());
+export const filtersAtom = atom(new MapSet());
 
 export const sourceMapAtom = atom(new Map<string, LogSourceFragmentFragment>());
 
