@@ -551,8 +551,19 @@ export const useAutoScroll = ({ config, state, refs }: Runtime) => {
 
     scrollElement.addEventListener('scroll', handleScroll);
 
+    // When the scroll container resizes (e.g. the OS switches between classic and
+    // overlay scrollbars, changing clientHeight), re-pin to the bottom if auto-scroll
+    // is enabled so the last row is never hidden behind a newly-appeared scrollbar.
+    const resizeObserver = new ResizeObserver(() => {
+      if (config.follow && refs.isAutoScrollEnabled.current) {
+        scrollElement.scrollTop = scrollElement.scrollHeight;
+      }
+    });
+    resizeObserver.observe(scrollElement);
+
     return () => {
       scrollElement.removeEventListener('scroll', handleScroll);
+      resizeObserver.disconnect();
     };
   }, [config.pinToBottomTolerance, config.follow, state.isLoading, state.hasMoreAfter]);
 };
