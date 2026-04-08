@@ -30,6 +30,7 @@ import type {
   LogViewerVirtualizer,
 } from '@/components/widgets/log-viewer';
 
+import { CellContextMenu } from './context-menu';
 import { useSelection } from './selection';
 import { PageContext, ViewerColumn } from './shared';
 import { isFollowAtom, isWrapAtom, visibleColsAtom } from './state';
@@ -430,36 +431,38 @@ export const RecordRow = memo(
 
       if (isTimestamp) {
         els.push(
-          <div
-            key={col}
-            ref={measureCellElement}
-            data-col-id={col}
-            role="button"
-            tabIndex={0}
-            className={cn(cellClassName, 'cursor-pointer select-none outline-none')}
-            style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
-            onClick={(e) => onRowClick(row.key, e)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onRowClick(row.key, e as unknown as React.MouseEvent);
-              }
-            }}
-          >
-            {getAttribute(row.record, col)}
-          </div>,
+          <CellContextMenu key={col} col={col} record={row.record}>
+            <div
+              ref={measureCellElement}
+              data-col-id={col}
+              role="button"
+              tabIndex={0}
+              className={cn(cellClassName, 'cursor-pointer select-none outline-none')}
+              style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
+              onClick={(e) => onRowClick(row.key, e)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onRowClick(row.key, e as unknown as React.MouseEvent);
+                }
+              }}
+            >
+              {getAttribute(row.record, col)}
+            </div>
+          </CellContextMenu>,
         );
       } else {
         els.push(
-          <div
-            key={col}
-            ref={measureCellElement}
-            data-col-id={col}
-            className={cellClassName}
-            style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
-          >
-            {getAttribute(row.record, col)}
-          </div>,
+          <CellContextMenu key={col} col={col} record={row.record}>
+            <div
+              ref={measureCellElement}
+              data-col-id={col}
+              className={cellClassName}
+              style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
+            >
+              {getAttribute(row.record, col)}
+            </div>
+          </CellContextMenu>,
         );
       }
     });
