@@ -14,10 +14,10 @@
 
 import Footer from '@/components/widgets/Footer';
 import UpdateBanner from '@/components/widgets/UpdateBanner';
-import { useUpdateNotification } from '@/lib/update-notifications';
+import { useCLIUpdateNotification } from '@/lib/update-notifications';
 
 export default function AppLayout({ children }: React.PropsWithChildren) {
-  const { showBanner, currentVersion, latestVersion, dismiss, dontRemindMe } = useUpdateNotification();
+  const { showBanner, currentVersion, latestVersion, dismiss, dontRemindMe } = useCLIUpdateNotification();
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">

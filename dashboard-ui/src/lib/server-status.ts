@@ -27,6 +27,7 @@ export const enum Status {
   Degraded = 'DEGRADED',
   Unknown = 'UNKNOWN',
   NotFound = 'NOTFOUND',
+  UpdateAvailable = 'UPDATE_AVAILABLE',
 }
 
 export class ServerStatus {

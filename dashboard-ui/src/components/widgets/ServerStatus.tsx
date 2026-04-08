@@ -20,7 +20,6 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } 
 import { Table, TableBody, TableCell, TableRow } from '@kubetail/ui/elements/table';
 
 import appConfig from '@/app-config';
-import ClusterAPIInstallButton from '@/components/widgets/ClusterAPIInstallButton';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import {
   ServerStatus,
@@ -29,6 +28,7 @@ import {
   useKubernetesAPIServerStatus,
   useClusterAPIServerStatus,
 } from '@/lib/server-status';
+import { useClusterUpdateNotification } from '@/lib/update-notifications';
 import { cn } from '@/lib/util';
 
 const kubernetesAPIServerStatusMapState = atom(new Map<string, ServerStatus>());
@@ -56,6 +56,9 @@ const HealthDot = ({ className, status }: { className?: string; status: Status }
     case Status.Unknown:
       color = 'chrome';
       break;
+    case Status.UpdateAvailable:
+      color = 'blue';
+      break;
     default:
       throw new Error('not implemented');
   }
@@ -67,6 +70,7 @@ const HealthDot = ({ className, status }: { className?: string; status: Status }
         'bg-red-500': color === 'red',
         'bg-green-500': color === 'green',
         'bg-yellow-500': color === 'yellow',
+        'bg-blue-500': color === 'blue',
       })}
     />
   );
@@ -170,6 +174,9 @@ const KubernetesAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Se
 const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: ServerStatusRowProps) => {
   const serverStatusMap = useAtomValue(clusterAPIServerStatusMapState);
   const serverStatus = serverStatusMap.get(kubeContext) || new ServerStatus();
+  const { updateAvailable } = useClusterUpdateNotification(appConfig.environment === 'desktop' ? kubeContext : '');
+
+  const showClusterUpdate = appConfig.environment === 'desktop' && updateAvailable;
 
   return (
     <TableRow>
@@ -179,13 +186,10 @@ const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Serve
       ) : (
         <>
           <TableCell className="w-px">
-            <HealthDot status={serverStatus.status} />
+            <HealthDot status={showClusterUpdate ? Status.UpdateAvailable : serverStatus.status} />
           </TableCell>
-          <TableCell className="whitespace-normal flex justify-between items-center">
-            {statusMessage(serverStatus, 'Uknown')}
-            {appConfig.environment === 'desktop' && serverStatus.status === Status.NotFound && (
-              <ClusterAPIInstallButton kubeContext={kubeContext} />
-            )}
+          <TableCell className="whitespace-normal">
+            {showClusterUpdate ? 'Update available' : statusMessage(serverStatus, 'Uknown')}
           </TableCell>
         </>
       )}
