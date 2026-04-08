@@ -23,8 +23,14 @@ import { AnsiHtml } from 'fancy-ansi/react';
 
 import { cn, cssEncode } from '@/lib/util';
 import { LogViewer, useLogViewerState } from '@/components/widgets/log-viewer';
-import type { LogRecord, LogViewerInitialPosition, LogViewerVirtualRow } from '@/components/widgets/log-viewer';
+import type {
+  LogRecord,
+  LogViewerInitialPosition,
+  LogViewerVirtualRow,
+  LogViewerVirtualizer,
+} from '@/components/widgets/log-viewer';
 
+import { useSelection } from './selection';
 import { PageContext, ViewerColumn } from './shared';
 import { isFollowAtom, isWrapAtom, visibleColsAtom } from './state';
 
@@ -139,7 +145,7 @@ function useMeasureWidths() {
       const pendingColWidths = pendingRef.current.colWidths;
       const col = el.dataset.colId as ViewerColumn;
       const prev = pendingColWidths.get(col);
-      const next = Math.max(el.scrollWidth, prev ?? 0);
+      const next = Math.max(Math.ceil(el.getBoundingClientRect().width), prev ?? 0);
       if (next !== prev) {
         pendingColWidths.set(col, next);
         flush();
@@ -364,50 +370,98 @@ const getAttribute = (record: LogRecord, col: ViewerColumn) => {
   }
 };
 
+function selectionBoxShadow(isTop: boolean, isBottom: boolean): string | undefined {
+  if (isTop && isBottom) return 'inset 0 1px 0 0 var(--color-blue-500), inset 0 -1px 0 0 var(--color-blue-500)';
+  if (isTop) return 'inset 0 1px 0 0 var(--color-blue-500)';
+  if (isBottom) return 'inset 0 -1px 0 0 var(--color-blue-500)';
+  return undefined;
+}
+
 type RecordRowProps = {
   row: LogViewerVirtualRow;
   gridTemplate: string;
   visibleCols: Set<ViewerColumn>;
   isWrap: boolean;
+  isSelected: boolean;
+  isSelectionTop: boolean;
+  isSelectionBottom: boolean;
   maxRowWidth: number;
   colWidths: Map<ViewerColumn, number>;
   measureElement: (node: Element | null) => void;
   measureRowElement: (el: HTMLDivElement | null) => void;
   measureCellElement: (el: HTMLDivElement | null) => void;
+  onRowClick: (key: number, event: React.MouseEvent) => void;
 };
 
-const RecordRow = memo(
+export const RecordRow = memo(
   ({
     row,
     gridTemplate,
     visibleCols,
     isWrap,
+    isSelected,
+    isSelectionTop,
+    isSelectionBottom,
     maxRowWidth,
     colWidths,
     measureElement,
     measureRowElement,
     measureCellElement,
+    onRowClick,
   }: RecordRowProps) => {
     const els: React.ReactElement[] = [];
     visibleCols.forEach((col) => {
       const minWidth = isWrap && col === ViewerColumn.Message ? undefined : colWidths.get(col);
       const shouldWrap = isWrap && col === ViewerColumn.Message;
-      els.push(
-        <div
-          key={col}
-          ref={measureCellElement}
-          data-col-id={col}
-          className={cn(
-            row.index % 2 !== 0 && 'bg-chrome-100',
-            'px-2',
-            shouldWrap ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-nowrap',
-            col === ViewerColumn.Timestamp ? 'bg-chrome-200' : '',
-          )}
-          style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
-        >
-          {getAttribute(row.record, col)}
-        </div>,
+      const isTimestamp = col === ViewerColumn.Timestamp;
+
+      let cellBg: string | false;
+      if (isSelected) {
+        cellBg = isTimestamp ? 'bg-blue-500/35 dark:bg-blue-500/35' : 'bg-blue-500/10 dark:bg-blue-500/15';
+      } else {
+        cellBg = isTimestamp ? 'bg-chrome-200' : row.index % 2 !== 0 && 'bg-chrome-100';
+      }
+
+      const cellClassName = cn(
+        cellBg,
+        'px-2',
+        shouldWrap ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-nowrap',
       );
+
+      if (isTimestamp) {
+        els.push(
+          <div
+            key={col}
+            ref={measureCellElement}
+            data-col-id={col}
+            role="button"
+            tabIndex={0}
+            className={cn(cellClassName, 'cursor-pointer select-none outline-none')}
+            style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
+            onClick={(e) => onRowClick(row.key, e)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onRowClick(row.key, e as unknown as React.MouseEvent);
+              }
+            }}
+          >
+            {getAttribute(row.record, col)}
+          </div>,
+        );
+      } else {
+        els.push(
+          <div
+            key={col}
+            ref={measureCellElement}
+            data-col-id={col}
+            className={cellClassName}
+            style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
+          >
+            {getAttribute(row.record, col)}
+          </div>,
+        );
+      }
     });
 
     return (
@@ -417,13 +471,17 @@ const RecordRow = memo(
           measureRowElement(el);
         }}
         data-index={row.index}
-        className="absolute top-0 left-0 grid leading-6"
+        data-row-key={row.key}
+        role="row"
+        aria-selected={isSelected}
+        className="absolute top-0 left-0 grid leading-6 group"
         style={{
           gridTemplateColumns: gridTemplate,
           minWidth: isWrap ? '100%' : maxRowWidth || '100%',
           height: isWrap ? undefined : LOG_RECORD_ROW_HEIGHT,
           lineHeight: `${LOG_RECORD_ROW_HEIGHT}px`,
           transform: `translateY(${row.start}px)`,
+          boxShadow: selectionBoxShadow(isSelectionTop, isSelectionBottom),
         }}
       >
         {els}
@@ -436,6 +494,9 @@ const RecordRow = memo(
     if (prev.gridTemplate !== next.gridTemplate) return false;
     if (prev.visibleCols !== next.visibleCols) return false;
     if (prev.isWrap !== next.isWrap) return false;
+    if (prev.isSelected !== next.isSelected) return false;
+    if (prev.isSelectionTop !== next.isSelectionTop) return false;
+    if (prev.isSelectionBottom !== next.isSelectionBottom) return false;
     if (prev.maxRowWidth !== next.maxRowWidth) return false;
     if (prev.colWidths !== next.colWidths) return false;
     return true;
@@ -464,6 +525,10 @@ export const Main = () => {
   const messageContainerWidth = useMessageContainerWidth(wrapperRef, colWidths);
 
   const visibleCols = useAtomValue(visibleColsAtom);
+  const virtualizerRef = useRef<LogViewerVirtualizer | null>(null);
+
+  const { selectedKeys, selectionTopKeys, selectionBottomKeys, handleRowClick, resetSelection } =
+    useSelection(virtualizerRef);
 
   // Generate grid template
   const gridTemplate = useMemo(
@@ -473,10 +538,11 @@ export const Main = () => {
     [visibleCols],
   );
 
-  // Reset column widths when loading new data
+  // Reset column widths and selection when loading new data
   useEffect(() => {
     if (isLoading) {
       resetWidths();
+      resetSelection();
     }
   }, [isLoading]);
 
@@ -537,60 +603,68 @@ export const Main = () => {
           batchSizeRegular={BATCH_SIZE_REGULAR}
           measureElement={measureElement}
         >
-          {(virtualizer) => (
-            <div
-              className="relative"
-              style={{ height: virtualizer.getTotalSize(), minWidth: wrap ? undefined : maxRowWidth || '100%' }}
-            >
-              {virtualizer.hasMoreBefore && (
-                <div
-                  className="absolute top-0 left-0 text-gray-500"
-                  style={{
-                    height: `${virtualizer.hasMoreBeforeRowHeight}px`,
-                    lineHeight: `${virtualizer.hasMoreBeforeRowHeight}px`,
-                  }}
-                >
-                  Loading...
-                </div>
-              )}
-              {virtualizer.getVirtualRows().map((virtualRow) => (
-                <RecordRow
-                  key={virtualRow.key}
-                  row={virtualRow}
-                  measureElement={virtualizer.measureElement}
-                  gridTemplate={gridTemplate}
-                  visibleCols={visibleCols}
-                  isWrap={wrap}
-                  maxRowWidth={maxRowWidth}
-                  colWidths={colWidths}
-                  measureRowElement={measureRowElement}
-                  measureCellElement={measureCellElement}
-                />
-              ))}
-              {virtualizer.hasMoreAfter && (
-                <div
-                  className="absolute bottom-0 left-0 text-gray-500"
-                  style={{
-                    height: `${virtualizer.hasMoreAfterRowHeight}px`,
-                    lineHeight: `${virtualizer.hasMoreAfterRowHeight}px`,
-                  }}
-                >
-                  Loading...
-                </div>
-              )}
-              {virtualizer.isRefreshing && (
-                <div
-                  className="absolute bottom-0 left-0 text-gray-500"
-                  style={{
-                    height: `${virtualizer.isRefreshingRowHeight}px`,
-                    lineHeight: `${virtualizer.isRefreshingRowHeight}px`,
-                  }}
-                >
-                  Refreshing...
-                </div>
-              )}
-            </div>
-          )}
+          {(virtualizer) => {
+            virtualizerRef.current = virtualizer;
+
+            return (
+              <div
+                className="relative"
+                style={{ height: virtualizer.getTotalSize(), minWidth: wrap ? undefined : maxRowWidth || '100%' }}
+              >
+                {virtualizer.hasMoreBefore && (
+                  <div
+                    className="absolute top-0 left-0 text-gray-500"
+                    style={{
+                      height: `${virtualizer.hasMoreBeforeRowHeight}px`,
+                      lineHeight: `${virtualizer.hasMoreBeforeRowHeight}px`,
+                    }}
+                  >
+                    Loading...
+                  </div>
+                )}
+                {virtualizer.getVirtualRows().map((virtualRow) => (
+                  <RecordRow
+                    key={virtualRow.key}
+                    row={virtualRow}
+                    measureElement={virtualizer.measureElement}
+                    gridTemplate={gridTemplate}
+                    visibleCols={visibleCols}
+                    isWrap={wrap}
+                    isSelected={selectedKeys.has(virtualRow.key)}
+                    isSelectionTop={selectionTopKeys.has(virtualRow.key)}
+                    isSelectionBottom={selectionBottomKeys.has(virtualRow.key)}
+                    maxRowWidth={maxRowWidth}
+                    colWidths={colWidths}
+                    measureRowElement={measureRowElement}
+                    measureCellElement={measureCellElement}
+                    onRowClick={handleRowClick}
+                  />
+                ))}
+                {virtualizer.hasMoreAfter && (
+                  <div
+                    className="absolute bottom-0 left-0 text-gray-500"
+                    style={{
+                      height: `${virtualizer.hasMoreAfterRowHeight}px`,
+                      lineHeight: `${virtualizer.hasMoreAfterRowHeight}px`,
+                    }}
+                  >
+                    Loading...
+                  </div>
+                )}
+                {virtualizer.isRefreshing && (
+                  <div
+                    className="absolute bottom-0 left-0 text-gray-500"
+                    style={{
+                      height: `${virtualizer.isRefreshingRowHeight}px`,
+                      lineHeight: `${virtualizer.isRefreshingRowHeight}px`,
+                    }}
+                  >
+                    Refreshing...
+                  </div>
+                )}
+              </div>
+            );
+          }}
         </LogViewer>
       )}
     </div>

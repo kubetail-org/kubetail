@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { createStore, Provider } from 'jotai';
 import { createRef } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
-import type { LogViewerHandle } from '@/components/widgets/log-viewer';
+import type { LogViewerHandle, LogViewerVirtualRow } from '@/components/widgets/log-viewer';
 
-import { Main } from './main';
+import { Main, RecordRow } from './main';
 import { ALL_VIEWER_COLUMNS, PageContext, ViewerColumn } from './shared';
 import { visibleColsAtom } from './state';
 
@@ -165,6 +165,66 @@ describe('Main', () => {
 
       const colIds = [...document.querySelectorAll('[data-col-id]')].map((el) => el.getAttribute('data-col-id'));
       expect(colIds).toEqual([ViewerColumn.Pod, ViewerColumn.Timestamp, ViewerColumn.Message]);
+    });
+  });
+
+  describe('RecordRow click behavior', () => {
+    const mockRow: LogViewerVirtualRow = {
+      index: 0,
+      key: 0,
+      size: 20,
+      start: 0,
+      record: {
+        timestamp: '2024-06-15T10:30:01.123Z',
+        message: 'test message',
+        cursor: 'cursor-1',
+        source: {
+          metadata: { region: 'us-east-1', zone: 'us-east-1a', os: 'linux', arch: 'amd64', node: 'node-1' },
+          namespace: 'default',
+          podName: 'my-pod',
+          containerName: 'my-container',
+        },
+      },
+    };
+
+    const defaultProps = {
+      row: mockRow,
+      gridTemplate: 'auto 1fr',
+      visibleCols: new Set([ViewerColumn.Timestamp, ViewerColumn.Message]),
+      isWrap: false,
+      isSelected: false,
+      isSelectionTop: false,
+      isSelectionBottom: false,
+      maxRowWidth: 500,
+      colWidths: new Map<ViewerColumn, number>(),
+      measureElement: vi.fn(),
+      measureRowElement: vi.fn(),
+      measureCellElement: vi.fn(),
+      onRowClick: vi.fn(),
+    };
+
+    it('calls onRowClick when clicking the timestamp cell', () => {
+      render(<RecordRow {...defaultProps} />);
+      const timestampCell = screen.getByText(/Jun 15, 2024/);
+      fireEvent.click(timestampCell);
+      expect(defaultProps.onRowClick).toHaveBeenCalledTimes(1);
+      expect(defaultProps.onRowClick).toHaveBeenCalledWith(0, expect.any(Object));
+    });
+
+    it('does not call onRowClick when clicking the message cell', () => {
+      const onRowClick = vi.fn();
+      render(<RecordRow {...defaultProps} onRowClick={onRowClick} />);
+      const messageCell = screen.getByText('test message');
+      fireEvent.click(messageCell);
+      expect(onRowClick).not.toHaveBeenCalled();
+    });
+
+    it('does not call onRowClick when clicking the row background', () => {
+      const onRowClick = vi.fn();
+      render(<RecordRow {...defaultProps} onRowClick={onRowClick} />);
+      const row = screen.getByRole('row');
+      fireEvent.click(row);
+      expect(onRowClick).not.toHaveBeenCalled();
     });
   });
 

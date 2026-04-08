@@ -26,6 +26,10 @@ import { ViewerColumn, configColumnsToViewerColumns } from './shared';
 
 export const isFollowAtom = atom(true);
 
+export const selectedKeysAtom = atom(new Set<number>());
+
+export const lastClickedKeyAtom = atom<number | null>(null);
+
 export const isWrapAtom = atom(false);
 
 export const visibleColsAtom = atom(

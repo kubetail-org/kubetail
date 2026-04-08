@@ -34,10 +34,36 @@ export class DoubleTailedArray<T> {
 
   private after: T[] = [];
 
+  private _firstKey = 0;
+
   constructor(items?: T[]) {
     if (items) {
       this.after = [...items];
     }
+  }
+
+  /**
+   * The key of the first element. Decrements when items are prepended,
+   * stays stable when items are appended. Keys are always sequential
+   * in display order: firstKey, firstKey+1, ..., firstKey+length-1.
+   */
+  get firstKey(): number {
+    return this._firstKey;
+  }
+
+  /**
+   * Returns the key at a given index: firstKey + index. O(1).
+   */
+  keyAt(index: number): number {
+    return this._firstKey + index;
+  }
+
+  /**
+   * Returns the index for a given key: key - firstKey. O(1).
+   * Does not bounds-check — caller should verify the result is in range.
+   */
+  indexOfKey(key: number): number {
+    return key - this._firstKey;
   }
 
   /**
@@ -95,6 +121,7 @@ export class DoubleTailedArray<T> {
    * Elements are added in order, so prepend(1, 2, 3) will add [1, 2, 3] at the start
    */
   prepend(values: T[]): void {
+    this._firstKey -= values.length;
     // Push in reverse order so they appear in correct order at the beginning
     for (let i = values.length - 1; i >= 0; i -= 1) {
       this.before.push(values[i]);

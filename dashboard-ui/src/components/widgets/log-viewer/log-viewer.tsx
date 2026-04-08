@@ -26,7 +26,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { useVirtualizer, elementScroll } from '@tanstack/react-virtual';
-import type { Virtualizer, VirtualItem } from '@tanstack/react-virtual';
+import type { Virtualizer } from '@tanstack/react-virtual';
 
 import { cn } from '@/lib/util';
 
@@ -53,16 +53,12 @@ const DEFAULT_IS_REFRESHING_ROW_HEIGHT = 0;
  * Internal types
  */
 
-export type LogRecordInternal = LogRecord & {
-  key: number;
-};
-
 export type RecordStore = {
   new: (records: LogRecord[], skipSetCount?: boolean) => void;
   append: (records: LogRecord[]) => void;
   prepend: (records: LogRecord[]) => void;
-  first: () => LogRecordInternal | undefined;
-  last: () => LogRecordInternal | undefined;
+  first: () => LogRecord | undefined;
+  last: () => LogRecord | undefined;
   length: () => number;
 };
 
@@ -135,7 +131,8 @@ export const LOG_VIEWER_INITIAL_STATE: LogViewerState = {
  * External types
  */
 
-export type LogViewerVirtualRow = Pick<VirtualItem, 'key'> & {
+export type LogViewerVirtualRow = {
+  key: number;
   index: number;
   size: number;
   start: number;
@@ -154,6 +151,10 @@ export type LogViewerVirtualizer = {
   readonly range: { startIndex: number; endIndex: number } | null;
   getTotalSize: () => number;
   getVirtualRows: () => LogViewerVirtualRow[];
+  getCount: () => number;
+  getIndexOfKey: (key: number) => number;
+  getKeyAtIndex: (index: number) => number | undefined;
+  getRecord: (key: number) => LogRecord | undefined;
   measureElement: (node: Element | null) => void;
 };
 
@@ -180,35 +181,23 @@ function isAtBottom(scrollEl: Element, tolerance: number) {
  */
 
 type RecordStoreOptions = {
-  recordsRef: React.RefObject<DoubleTailedArray<LogRecordInternal>>;
+  recordsRef: React.RefObject<DoubleTailedArray<LogRecord>>;
   setCount: React.Dispatch<React.SetStateAction<number>>;
 };
 
 export function useRecordStore({ recordsRef, setCount }: RecordStoreOptions): RecordStore {
-  const keyRef = useRef(0);
-
-  const addKeys = useCallback((records: LogRecord[]) => {
-    for (let i = 0; i < records.length; i += 1) {
-      (records[i] as LogRecordInternal).key = keyRef.current;
-      keyRef.current += 1;
-    }
-  }, []);
-
   return useMemo(
     () => ({
       new: (records: LogRecord[], skipSetCount = false) => {
-        addKeys(records);
-        recordsRef.current = new DoubleTailedArray(records as LogRecordInternal[]);
+        recordsRef.current = new DoubleTailedArray(records);
         if (!skipSetCount) setCount(recordsRef.current.length);
       },
       append: (records: LogRecord[]) => {
-        addKeys(records);
-        recordsRef.current.append(records as LogRecordInternal[]);
+        recordsRef.current.append(records);
         setCount(recordsRef.current.length);
       },
       prepend: (records: LogRecord[]) => {
-        addKeys(records);
-        recordsRef.current.prepend(records as LogRecordInternal[]);
+        recordsRef.current.prepend(records);
         setCount(recordsRef.current.length);
       },
       first: () => {
@@ -229,7 +218,7 @@ export function useRecordStore({ recordsRef, setCount }: RecordStoreOptions): Re
       },
       length: () => recordsRef.current?.length ?? 0,
     }),
-    [addKeys, recordsRef, setCount],
+    [recordsRef, setCount],
   );
 }
 
@@ -665,7 +654,7 @@ export const LogViewerInner = ({
   const [count, setCount] = useState(0);
 
   // RecordsRef will never be null so this assertion is safe
-  const recordsRef = useRef(new DoubleTailedArray<LogRecordInternal>());
+  const recordsRef = useRef(new DoubleTailedArray<LogRecord>());
 
   const [hasMoreBefore, setHasMoreBefore] = useState(false);
   const [hasMoreAfter, setHasMoreAfter] = useState(false);
@@ -684,7 +673,7 @@ export const LogViewerInner = ({
     [config.estimateRowHeight],
   );
 
-  const getItemKey = useCallback((index: number) => recordsRef.current.at(index).key, [count]);
+  const getItemKey = useCallback((index: number) => recordsRef.current.keyAt(index), [count]);
 
   const scrollToRafID = useRef<number>(null);
   const scrollToFn = useCallback<typeof elementScroll>((offset, options, instance) => {
@@ -757,13 +746,28 @@ export const LogViewerInner = ({
       return virtualizer.getVirtualItems().map((item) => {
         const { key, index, size, start } = item;
         return {
-          key,
+          key: key as number,
           index,
           size,
           start,
           record: recordsRef.current.at(index),
         };
       });
+    },
+    getCount: () => recordsRef.current.length,
+    getIndexOfKey: (key: number) => {
+      const index = recordsRef.current.indexOfKey(key);
+      if (index < 0 || index >= recordsRef.current.length) return -1;
+      return index;
+    },
+    getKeyAtIndex: (index: number) => {
+      if (index < 0 || index >= recordsRef.current.length) return undefined;
+      return recordsRef.current.keyAt(index);
+    },
+    getRecord: (key: number) => {
+      const index = recordsRef.current.indexOfKey(key);
+      if (index < 0 || index >= recordsRef.current.length) return undefined;
+      return recordsRef.current.at(index);
     },
     measureElement: virtualizer.measureElement,
   } satisfies LogViewerVirtualizer;

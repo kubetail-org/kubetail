@@ -33,7 +33,7 @@ import {
   LogViewerInner,
   LogViewer,
 } from './log-viewer';
-import type { LogRecordInternal, Runtime, LogViewerHandle, LogViewerVirtualizer } from './log-viewer';
+import type { Runtime, LogViewerHandle, LogViewerVirtualizer } from './log-viewer';
 
 const mockVirtualizer = {
   range: null,
@@ -72,7 +72,7 @@ function createMockRecords(count: number, startTimestamp = 0): LogRecord[] {
 }
 
 function createMockRuntime(): Runtime {
-  const recordsRef = { current: new DoubleTailedArray<LogRecordInternal>() };
+  const recordsRef = { current: new DoubleTailedArray<LogRecord>() };
   const setCount = vi.fn();
 
   const { result } = renderHook(() => useRecordStore({ recordsRef, setCount }));
@@ -125,7 +125,7 @@ function createMockRuntime(): Runtime {
 describe('internal helpers', () => {
   describe('useRecordStore', () => {
     function createMockRecordStore() {
-      const recordsRef = { current: new DoubleTailedArray<LogRecordInternal>() };
+      const recordsRef = { current: new DoubleTailedArray<LogRecord>() };
       const setCount = vi.fn();
       const { result } = renderHook(() => useRecordStore({ recordsRef, setCount }));
 
@@ -146,8 +146,8 @@ describe('internal helpers', () => {
 
         expect(setCount).toHaveBeenCalledTimes(1);
         expect(setCount).toHaveBeenCalledWith(2);
-        expect(recordsRef.current.at(0).key).toBe(0);
-        expect(recordsRef.current.at(1).key).toBe(1);
+        expect(recordsRef.current.keyAt(0)).toBe(0);
+        expect(recordsRef.current.keyAt(1)).toBe(1);
       });
 
       it('resets array and count when called again', () => {
@@ -163,8 +163,8 @@ describe('internal helpers', () => {
         expect(setCount).toHaveBeenCalledTimes(2);
         expect(setCount).toHaveBeenCalledWith(2);
         expect(recordsRef.current.length).toBe(2);
-        expect(recordsRef.current.at(0).key).toBe(2);
-        expect(recordsRef.current.at(1).key).toBe(3);
+        expect(recordsRef.current.keyAt(0)).toBe(0);
+        expect(recordsRef.current.keyAt(1)).toBe(1);
       });
 
       it('handles skipSetCount option', () => {
@@ -189,11 +189,11 @@ describe('internal helpers', () => {
       expect(setCount).toHaveBeenCalledTimes(1);
       expect(setCount).toHaveBeenCalledWith(2);
       expect(recordsRef.current.length).toBe(2);
-      expect(recordsRef.current.at(0).key).toBe(0);
-      expect(recordsRef.current.at(1).key).toBe(1);
+      expect(recordsRef.current.keyAt(0)).toBe(0);
+      expect(recordsRef.current.keyAt(1)).toBe(1);
     });
 
-    it('prepend() adds keys and updates count properly', () => {
+    it('prepend() adjusts keys and updates count properly', () => {
       const { recordsRef, setCount, recordStore } = createMockRecordStore();
 
       act(() => {
@@ -203,8 +203,8 @@ describe('internal helpers', () => {
       expect(setCount).toHaveBeenCalledTimes(1);
       expect(setCount).toHaveBeenCalledWith(2);
       expect(recordsRef.current.length).toBe(2);
-      expect(recordsRef.current.at(0).key).toBe(0);
-      expect(recordsRef.current.at(1).key).toBe(1);
+      expect(recordsRef.current.keyAt(0)).toBe(-2);
+      expect(recordsRef.current.keyAt(1)).toBe(-1);
     });
   });
 

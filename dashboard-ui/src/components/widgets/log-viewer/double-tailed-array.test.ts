@@ -441,6 +441,70 @@ describe('DoubleTailedArray', () => {
     });
   });
 
+  describe('key tracking', () => {
+    it('should start with firstKey 0', () => {
+      const arr = new DoubleTailedArray<number>([10, 20, 30]);
+      expect(arr.firstKey).toBe(0);
+    });
+
+    it('keyAt should return firstKey + index', () => {
+      const arr = new DoubleTailedArray<number>([10, 20, 30]);
+      expect(arr.keyAt(0)).toBe(0);
+      expect(arr.keyAt(1)).toBe(1);
+      expect(arr.keyAt(2)).toBe(2);
+    });
+
+    it('indexOfKey should return key - firstKey', () => {
+      const arr = new DoubleTailedArray<number>([10, 20, 30]);
+      expect(arr.indexOfKey(0)).toBe(0);
+      expect(arr.indexOfKey(1)).toBe(1);
+      expect(arr.indexOfKey(2)).toBe(2);
+    });
+
+    it('should decrement firstKey on prepend', () => {
+      const arr = new DoubleTailedArray<number>([10, 20]);
+      arr.prepend([5, 6, 7]);
+      expect(arr.firstKey).toBe(-3);
+      expect(arr.keyAt(0)).toBe(-3); // element 5
+      expect(arr.keyAt(1)).toBe(-2); // element 6
+      expect(arr.keyAt(2)).toBe(-1); // element 7
+      expect(arr.keyAt(3)).toBe(0); // element 10
+      expect(arr.keyAt(4)).toBe(1); // element 20
+    });
+
+    it('should not change firstKey on append', () => {
+      const arr = new DoubleTailedArray<number>([10, 20]);
+      arr.append([30, 40]);
+      expect(arr.firstKey).toBe(0);
+      expect(arr.keyAt(2)).toBe(2);
+      expect(arr.keyAt(3)).toBe(3);
+    });
+
+    it('should maintain stable keys across mixed operations', () => {
+      const arr = new DoubleTailedArray<number>([10, 20]);
+      // keys: 0=10, 1=20
+      arr.append([30]);
+      // keys: 0=10, 1=20, 2=30
+      arr.prepend([5]);
+      // keys: -1=5, 0=10, 1=20, 2=30
+      arr.prepend([1, 2]);
+      // keys: -3=1, -2=2, -1=5, 0=10, 1=20, 2=30
+      expect(arr.firstKey).toBe(-3);
+      expect(arr.indexOfKey(-3)).toBe(0);
+      expect(arr.indexOfKey(0)).toBe(3);
+      expect(arr.indexOfKey(2)).toBe(5);
+    });
+
+    it('indexOfKey should be inverse of keyAt', () => {
+      const arr = new DoubleTailedArray<number>([10, 20, 30]);
+      arr.prepend([5, 6]);
+      arr.append([40]);
+      for (let i = 0; i < arr.length; i += 1) {
+        expect(arr.indexOfKey(arr.keyAt(i))).toBe(i);
+      }
+    });
+  });
+
   describe('complex scenarios', () => {
     it('should handle alternating prepend and append', () => {
       const arr = new DoubleTailedArray<number>();
