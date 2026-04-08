@@ -89,6 +89,7 @@ jobs:
 
       - name: Update new version in krew-index
         if: ${{ steps.config.outputs.dry_run != 'true' }}
-        uses: rajatjindal/krew-release-bot@v0.0.47
+        uses: rajatjindal/krew-release-bot@v0.0.51
         with:
           krew_template_file: krew.yaml
+          krew_plugin_release_tag: cli/v${{ steps.config.outputs.version }}
