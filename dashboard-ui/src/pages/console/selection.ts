@@ -21,7 +21,7 @@ import { stripAnsi } from 'fancy-ansi';
 import type { LogRecord, LogViewerVirtualizer } from '@/components/widgets/log-viewer';
 
 import { ViewerColumn } from './shared';
-import { lastClickedKeyAtom, selectedKeysAtom, visibleColsAtom } from './state';
+import { isTextSelectModeAtom, lastClickedKeyAtom, selectedCellAtom, selectedKeysAtom, visibleColsAtom } from './state';
 
 /**
  * getPlainAttribute - Returns a plain text string for a given log record column.
@@ -116,25 +116,26 @@ export function computeSelection({
 }
 
 /**
- * useSelection - Hook that manages row selection state, click handling, boundary
- * computation, and keyboard shortcuts (Escape to clear, Cmd/Ctrl+C to copy).
+ * useSelection - Hook that manages row selection, cell selection, text-select mode,
+ * click handling, boundary computation, and keyboard shortcuts.
  */
 export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualizer | null>) {
   const visibleCols = useAtomValue(visibleColsAtom);
   const [selectedKeys, setSelectedKeys] = useAtom(selectedKeysAtom);
   const [lastClickedKey, setLastClickedKey] = useAtom(lastClickedKeyAtom);
+  const [selectedCell, setSelectedCell] = useAtom(selectedCellAtom);
+  const [isTextSelectMode, setIsTextSelectMode] = useAtom(isTextSelectModeAtom);
 
   // Refs to avoid stale closures in callbacks
   const selectedKeysRef = useRef(selectedKeys);
   const lastClickedKeyRef = useRef(lastClickedKey);
+  const selectedCellRef = useRef(selectedCell);
 
   useEffect(() => {
     selectedKeysRef.current = selectedKeys;
-  }, [selectedKeys]);
-
-  useEffect(() => {
     lastClickedKeyRef.current = lastClickedKey;
-  }, [lastClickedKey]);
+    selectedCellRef.current = selectedCell;
+  }, [selectedKeys, lastClickedKey, selectedCell]);
 
   // Pre-compute selection boundary sets (keys are sequential integers)
   const { selectionTopKeys, selectionBottomKeys } = useMemo(() => {
@@ -148,7 +149,15 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
     return { selectionTopKeys: top, selectionBottomKeys: bottom };
   }, [selectedKeys]);
 
-  // Row click handler
+  // Clear all selection state
+  const clearSelection = useCallback(() => {
+    setSelectedKeys(new Set());
+    setLastClickedKey(null);
+    setSelectedCell(null);
+    setIsTextSelectMode(false);
+  }, [setSelectedKeys, setLastClickedKey, setSelectedCell, setIsTextSelectMode]);
+
+  // Row click handler (Pos column)
   const handleRowClick = useCallback(
     (key: number, event: React.MouseEvent) => {
       const next = computeSelection({
@@ -160,47 +169,79 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
       });
       setSelectedKeys(next);
       setLastClickedKey(key);
+      setSelectedCell(null);
+      setIsTextSelectMode(false);
     },
-    [setSelectedKeys, setLastClickedKey],
+    [setSelectedKeys, setLastClickedKey, setSelectedCell, setIsTextSelectMode],
   );
 
-  // Reset selection
-  const resetSelection = useCallback(() => {
-    setSelectedKeys(new Set());
-    setLastClickedKey(null);
-  }, [setSelectedKeys, setLastClickedKey]);
+  // Cell click handler (data cells)
+  const handleCellClick = useCallback(
+    (rowKey: number, col: ViewerColumn, event: React.MouseEvent) => {
+      if (col === ViewerColumn.ColorDot) return;
+      event.stopPropagation();
+      const hasTextSelection = !window.getSelection()?.isCollapsed;
+      setSelectedCell({ rowKey, col });
+      setSelectedKeys(new Set());
+      setLastClickedKey(null);
+      setIsTextSelectMode(hasTextSelection);
+    },
+    [setSelectedCell, setSelectedKeys, setLastClickedKey, setIsTextSelectMode],
+  );
 
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const isMod = e.metaKey || e.ctrlKey;
-
       if (e.key === 'Escape') {
-        setSelectedKeys(new Set());
+        clearSelection();
+        window.getSelection()?.removeAllRanges();
         return;
       }
 
-      if (isMod && e.key === 'c' && selectedKeysRef.current.size > 0) {
-        e.preventDefault();
-        const v = virtualizerRef.current;
-        if (!v) return;
-        // Keys are sequential so numeric sort gives display order
-        const sorted = [...selectedKeysRef.current].sort((a, b) => a - b);
-        const records = sorted.map((k) => v.getRecord(k)).filter((r): r is LogRecord => r !== undefined);
-        const text = formatRowsForCopy(records, visibleCols);
-        navigator.clipboard.writeText(text);
+      const isMod = e.metaKey || e.ctrlKey;
+      if (isMod && e.key === 'c') {
+        // If user has native text selection (from text-select mode), let browser handle it
+        const nativeSel = window.getSelection();
+        if (nativeSel && !nativeSel.isCollapsed) return;
+
+        // Copy selected cell text
+        const cell = selectedCellRef.current;
+        if (cell) {
+          e.preventDefault();
+          const v = virtualizerRef.current;
+          if (!v) return;
+          const record = v.getRecord(cell.rowKey);
+          if (record) {
+            navigator.clipboard.writeText(getPlainAttribute(record, cell.col));
+          }
+          return;
+        }
+
+        // Copy selected rows as TSV
+        if (selectedKeysRef.current.size > 0) {
+          e.preventDefault();
+          const v = virtualizerRef.current;
+          if (!v) return;
+          const sorted = [...selectedKeysRef.current].sort((a, b) => a - b);
+          const records = sorted.map((k) => v.getRecord(k)).filter((r): r is LogRecord => r !== undefined);
+          const text = formatRowsForCopy(records, visibleCols);
+          navigator.clipboard.writeText(text);
+        }
       }
     };
 
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [visibleCols, setSelectedKeys]);
+  }, [visibleCols, clearSelection]);
 
   return {
     selectedKeys,
     selectionTopKeys,
     selectionBottomKeys,
+    selectedCell,
+    isTextSelectMode,
     handleRowClick,
-    resetSelection,
+    handleCellClick,
+    resetSelection: clearSelection,
   };
 }

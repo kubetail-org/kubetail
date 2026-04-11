@@ -389,10 +389,13 @@ type RecordRowProps = {
   isSelectionBottom: boolean;
   maxRowWidth: number;
   colWidths: Map<ViewerColumn, number>;
+  selectedCellCol: ViewerColumn | null;
+  isCellTextSelectable: boolean;
   measureElement: (node: Element | null) => void;
   measureRowElement: (el: HTMLDivElement | null) => void;
   measureCellElement: (el: HTMLDivElement | null) => void;
   onRowClick: (key: number, event: React.MouseEvent) => void;
+  onCellClick: (rowKey: number, col: ViewerColumn, event: React.MouseEvent) => void;
 };
 
 export const RecordRow = memo(
@@ -406,10 +409,13 @@ export const RecordRow = memo(
     isSelectionBottom,
     maxRowWidth,
     colWidths,
+    selectedCellCol,
+    isCellTextSelectable,
     measureElement,
     measureRowElement,
     measureCellElement,
     onRowClick,
+    onCellClick,
   }: RecordRowProps) => {
     const els: React.ReactElement[] = [];
 
@@ -421,9 +427,9 @@ export const RecordRow = memo(
         role="button"
         tabIndex={0}
         className={cn(
-          isSelected && 'bg-blue-500/10 dark:bg-blue-500/15',
+          isSelected && 'bg-blue-500/20 dark:bg-blue-500/25',
           !isSelected && row.index % 2 !== 0 && 'bg-chrome-100',
-          row.key === 0 && 'border-l-2 border-green-500 font-extrabold',
+          row.key === 0 && 'border-l-2 border-green-500 font-extrabold pl-[7px]',
           row.key !== 0 && 'text-chrome-800',
           'whitespace-nowrap tabular-nums text-[0.65rem] text-center pr-1.5 cursor-pointer select-none outline-none',
         )}
@@ -444,10 +450,12 @@ export const RecordRow = memo(
       const minWidth = isWrap && col === ViewerColumn.Message ? undefined : colWidths.get(col);
       const shouldWrap = isWrap && col === ViewerColumn.Message;
       const isTimestamp = col === ViewerColumn.Timestamp;
+      const isCellSelected = selectedCellCol === col;
+      const isColorDot = col === ViewerColumn.ColorDot;
 
       let cellBg: string | false;
       if (isSelected) {
-        cellBg = isTimestamp ? 'bg-blue-500/35 dark:bg-blue-500/35' : 'bg-blue-500/10 dark:bg-blue-500/15';
+        cellBg = isTimestamp ? 'bg-blue-500/25 dark:bg-blue-500/25' : 'bg-blue-500/15 dark:bg-blue-500/20';
       } else {
         cellBg = isTimestamp ? 'bg-chrome-200' : row.index % 2 !== 0 && 'bg-chrome-100';
       }
@@ -456,15 +464,44 @@ export const RecordRow = memo(
         cellBg,
         'px-2',
         shouldWrap ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-nowrap',
+        !isColorDot && (isCellSelected ? 'cursor-text' : 'cursor-default'),
+        'select-none',
+        isCellSelected && 'ring-2 ring-blue-500 ring-inset',
       );
+
+      const cellStyle: React.CSSProperties = {
+        ...(minWidth && { minWidth: `${minWidth}px` }),
+        ...(isCellSelected && isCellTextSelectable && { userSelect: 'auto' as const }),
+      };
 
       els.push(
         <CellContextMenu key={col} col={col} record={row.record}>
           <div
             ref={measureCellElement}
             data-col-id={col}
+            role={isColorDot ? undefined : 'gridcell'}
+            tabIndex={isColorDot ? undefined : 0}
             className={cellClassName}
-            style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
+            style={cellStyle}
+            onClick={isColorDot ? undefined : (e) => onCellClick(row.key, col, e)}
+            onMouseDown={
+              isColorDot || !isCellSelected
+                ? undefined
+                : (e) => {
+                    // Enable text selection before drag starts
+                    e.currentTarget.style.userSelect = 'auto';
+                  }
+            }
+            onKeyDown={
+              isColorDot
+                ? undefined
+                : (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onCellClick(row.key, col, e as unknown as React.MouseEvent);
+                    }
+                  }
+            }
           >
             {getAttribute(row.record, col)}
           </div>
@@ -482,7 +519,7 @@ export const RecordRow = memo(
         data-row-key={row.key}
         role="row"
         aria-selected={isSelected}
-        className="absolute top-0 left-0 grid leading-6 group"
+        className={cn('absolute top-0 left-0 grid leading-6 group', selectedCellCol && 'z-10')}
         style={{
           gridTemplateColumns: gridTemplate,
           minWidth: isWrap ? '100%' : maxRowWidth || '100%',
@@ -507,6 +544,8 @@ export const RecordRow = memo(
     if (prev.isSelectionBottom !== next.isSelectionBottom) return false;
     if (prev.maxRowWidth !== next.maxRowWidth) return false;
     if (prev.colWidths !== next.colWidths) return false;
+    if (prev.selectedCellCol !== next.selectedCellCol) return false;
+    if (prev.isCellTextSelectable !== next.isCellTextSelectable) return false;
     return true;
   },
 );
@@ -535,8 +574,16 @@ export const Main = () => {
   const visibleCols = useAtomValue(visibleColsAtom);
   const virtualizerRef = useRef<LogViewerVirtualizer | null>(null);
 
-  const { selectedKeys, selectionTopKeys, selectionBottomKeys, handleRowClick, resetSelection } =
-    useSelection(virtualizerRef);
+  const {
+    selectedKeys,
+    selectionTopKeys,
+    selectionBottomKeys,
+    selectedCell,
+    isTextSelectMode,
+    handleRowClick,
+    handleCellClick,
+    resetSelection,
+  } = useSelection(virtualizerRef);
 
   // Generate grid template
   const gridTemplate = useMemo(
@@ -643,9 +690,12 @@ export const Main = () => {
                     isSelectionBottom={selectionBottomKeys.has(virtualRow.key)}
                     maxRowWidth={maxRowWidth}
                     colWidths={colWidths}
+                    selectedCellCol={selectedCell?.rowKey === virtualRow.key ? selectedCell.col : null}
+                    isCellTextSelectable={selectedCell?.rowKey === virtualRow.key && isTextSelectMode}
                     measureRowElement={measureRowElement}
                     measureCellElement={measureCellElement}
                     onRowClick={handleRowClick}
+                    onCellClick={handleCellClick}
                   />
                 ))}
                 {virtualizer.hasMoreAfter && (

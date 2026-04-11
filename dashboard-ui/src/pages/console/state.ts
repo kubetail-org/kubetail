@@ -30,6 +30,10 @@ export const selectedKeysAtom = atom(new Set<number>());
 
 export const lastClickedKeyAtom = atom<number | null>(null);
 
+export const selectedCellAtom = atom<{ rowKey: number; col: ViewerColumn } | null>(null);
+
+export const isTextSelectModeAtom = atom(false);
+
 export const isWrapAtom = atom(false);
 
 export const visibleColsAtom = atom(
