@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  crates-build:
+  rust-build:
     strategy:
       matrix:
         os:
@@ -37,7 +37,7 @@ jobs:
         working-directory: ./crates
         run: cargo build --release
 
-  crates-lint:
+  rust-lint:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -49,7 +49,7 @@ jobs:
         working-directory: ./crates
         run: cargo fmt --all -- --check
 
-  crates-vet:
+  rust-vet:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -61,7 +61,7 @@ jobs:
         working-directory: ./crates
         run: cargo clippy --all -- -D warnings
 
-  crates-test:
+  rust-test:
     strategy:
       matrix:
         os:
@@ -88,7 +88,7 @@ jobs:
         working-directory: ./crates
         run: cargo test
 
-  modules-vendor:
+  go-vendor:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -101,11 +101,11 @@ jobs:
       - name: Upload vendor bundle artifact
         uses: actions/upload-artifact@v5
         with:
-          name: modules-vendor-bundle
+          name: go-vendor-bundle
           path: modules/vendor
           retention-days: 1
 
-  modules-lint:
+  go-lint:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -123,7 +123,7 @@ jobs:
         working-directory: ./modules/${{ matrix.module }}
         run: test -z "$(gofmt -l .)"
 
-  modules-vet:
+  go-vet:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -141,8 +141,8 @@ jobs:
         working-directory: ./modules/${{ matrix.module }}
         run: go vet ./...
 
-  modules-test:
-    needs: modules-vendor
+  go-test:
+    needs: go-vendor
     timeout-minutes: 20
     strategy:
       matrix:
@@ -193,7 +193,7 @@ jobs:
       - name: Download vendor bundle artifact
         uses: actions/download-artifact@v5
         with:
-          name: modules-vendor-bundle
+          name: go-vendor-bundle
           path: modules/vendor
       - name: Run tests
         working-directory: ./modules/${{ matrix.module }}
@@ -247,13 +247,13 @@ jobs:
 
   docker-builds:
     needs:
-      - crates-build
-      - crates-lint
-      - crates-vet
-      - crates-test
-      - modules-lint
-      - modules-vet
-      - modules-test
+      - rust-build
+      - rust-lint
+      - rust-vet
+      - rust-test
+      - go-lint
+      - go-vet
+      - go-test
       - dashboard-ui-lint
       - dashboard-ui-test
       - dashboard-ui-build
@@ -304,13 +304,13 @@ jobs:
 
   cli-builds:
     needs:
-      - crates-build
-      - crates-lint
-      - crates-vet
-      - crates-test
-      - modules-lint
-      - modules-vet
-      - modules-test
+      - rust-build
+      - rust-lint
+      - rust-vet
+      - rust-test
+      - go-lint
+      - go-vet
+      - go-test
       - dashboard-ui-lint
       - dashboard-ui-test
       - dashboard-ui-build
@@ -370,14 +370,14 @@ jobs:
 
   alpine-builds:
     needs:
-      - crates-build
-      - crates-lint
-      - crates-vet
-      - crates-test
-      - modules-vendor
-      - modules-lint
-      - modules-vet
-      - modules-test
+      - rust-build
+      - rust-lint
+      - rust-vet
+      - rust-test
+      - go-vendor
+      - go-lint
+      - go-vet
+      - go-test
       - dashboard-ui-lint
       - dashboard-ui-test
       - dashboard-ui-build
@@ -418,7 +418,7 @@ jobs:
       - name: Download vendor bundle artifact
         uses: actions/download-artifact@v5
         with:
-          name: modules-vendor-bundle
+          name: go-vendor-bundle
           path: modules/vendor
       - name: Setup Alpine
         uses: jirutka/setup-alpine@v1
