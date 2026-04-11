@@ -164,7 +164,7 @@ describe('Main', () => {
       );
 
       const colIds = [...document.querySelectorAll('[data-col-id]')].map((el) => el.getAttribute('data-col-id'));
-      expect(colIds).toEqual([ViewerColumn.Pod, ViewerColumn.Timestamp, ViewerColumn.Message]);
+      expect(colIds).toEqual(['Pos', ViewerColumn.Pod, ViewerColumn.Timestamp, ViewerColumn.Message]);
     });
   });
 
@@ -225,6 +225,59 @@ describe('Main', () => {
       const row = screen.getByRole('row');
       fireEvent.click(row);
       expect(onRowClick).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('RecordRow Key column', () => {
+    const mockRow: LogViewerVirtualRow = {
+      index: 0,
+      key: 0,
+      size: 20,
+      start: 0,
+      record: {
+        timestamp: '2024-06-15T10:30:01.123Z',
+        message: 'test message',
+        cursor: 'cursor-1',
+        source: {
+          metadata: { region: 'us-east-1', zone: 'us-east-1a', os: 'linux', arch: 'amd64', node: 'node-1' },
+          namespace: 'default',
+          podName: 'my-pod',
+          containerName: 'my-container',
+        },
+      },
+    };
+
+    const defaultProps = {
+      row: mockRow,
+      gridTemplate: 'auto auto 1fr',
+      visibleCols: new Set([ViewerColumn.Timestamp, ViewerColumn.Message]),
+      isWrap: false,
+      isSelected: false,
+      isSelectionTop: false,
+      isSelectionBottom: false,
+      maxRowWidth: 500,
+      colWidths: new Map<ViewerColumn, number>(),
+      measureElement: vi.fn(),
+      measureRowElement: vi.fn(),
+      measureCellElement: vi.fn(),
+      onRowClick: vi.fn(),
+    };
+
+    it('renders "0" when row key is 0', () => {
+      render(<RecordRow {...defaultProps} row={{ ...mockRow, key: 0 }} />);
+      expect(screen.getByText('0')).toBeInTheDocument();
+    });
+
+    it('renders "+2" when row key is positive', () => {
+      render(<RecordRow {...defaultProps} row={{ ...mockRow, key: 2 }} />);
+      expect(screen.getByText('+')).toBeInTheDocument();
+      expect(screen.getByText('2')).toBeInTheDocument();
+    });
+
+    it('renders "-3" when row key is negative', () => {
+      render(<RecordRow {...defaultProps} row={{ ...mockRow, key: -3 }} />);
+      expect(screen.getByText('-')).toBeInTheDocument();
+      expect(screen.getByText('3')).toBeInTheDocument();
     });
   });
 

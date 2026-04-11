@@ -34,36 +34,38 @@ export class DoubleTailedArray<T> {
 
   private after: T[] = [];
 
-  private _firstKey = 0;
+  private _keyOffset = 0;
 
-  constructor(items?: T[]) {
+  constructor(items?: T[], keyOffset = 0) {
     if (items) {
       this.after = [...items];
     }
+    this._keyOffset = keyOffset;
   }
 
   /**
-   * The key of the first element. Decrements when items are prepended,
-   * stays stable when items are appended. Keys are always sequential
-   * in display order: firstKey, firstKey+1, ..., firstKey+length-1.
+   * The offset used to convert between indices and keys.
+   * Decrements when items are prepended, stays stable when items
+   * are appended. Keys are sequential: keyOffset, keyOffset+1, ...,
+   * keyOffset+length-1.
    */
-  get firstKey(): number {
-    return this._firstKey;
+  get keyOffset(): number {
+    return this._keyOffset;
   }
 
   /**
-   * Returns the key at a given index: firstKey + index. O(1).
+   * Returns the key at a given index: keyOffset + index. O(1).
    */
   keyAt(index: number): number {
-    return this._firstKey + index;
+    return this._keyOffset + index;
   }
 
   /**
-   * Returns the index for a given key: key - firstKey. O(1).
+   * Returns the index for a given key: key - keyOffset. O(1).
    * Does not bounds-check — caller should verify the result is in range.
    */
   indexOfKey(key: number): number {
-    return key - this._firstKey;
+    return key - this._keyOffset;
   }
 
   /**
@@ -121,7 +123,7 @@ export class DoubleTailedArray<T> {
    * Elements are added in order, so prepend(1, 2, 3) will add [1, 2, 3] at the start
    */
   prepend(values: T[]): void {
-    this._firstKey -= values.length;
+    this._keyOffset -= values.length;
     // Push in reverse order so they appear in correct order at the beginning
     for (let i = values.length - 1; i >= 0; i -= 1) {
       this.before.push(values[i]);

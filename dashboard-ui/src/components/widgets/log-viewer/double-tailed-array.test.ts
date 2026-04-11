@@ -33,6 +33,19 @@ describe('DoubleTailedArray', () => {
       expect(arr.length).toBe(0);
       expect(arr.toArray()).toEqual([]);
     });
+
+    it('should accept a custom keyOffset', () => {
+      const arr = new DoubleTailedArray<number>([10, 20, 30], -2);
+      expect(arr.keyOffset).toBe(-2);
+      expect(arr.keyAt(0)).toBe(-2);
+      expect(arr.keyAt(1)).toBe(-1);
+      expect(arr.keyAt(2)).toBe(0);
+    });
+
+    it('should default keyOffset to 0 when not provided', () => {
+      const arr = new DoubleTailedArray<number>([10, 20, 30]);
+      expect(arr.keyOffset).toBe(0);
+    });
   });
 
   describe('length', () => {
@@ -442,29 +455,29 @@ describe('DoubleTailedArray', () => {
   });
 
   describe('key tracking', () => {
-    it('should start with firstKey 0', () => {
+    it('should start with keyOffset 0', () => {
       const arr = new DoubleTailedArray<number>([10, 20, 30]);
-      expect(arr.firstKey).toBe(0);
+      expect(arr.keyOffset).toBe(0);
     });
 
-    it('keyAt should return firstKey + index', () => {
+    it('keyAt should return keyOffset + index', () => {
       const arr = new DoubleTailedArray<number>([10, 20, 30]);
       expect(arr.keyAt(0)).toBe(0);
       expect(arr.keyAt(1)).toBe(1);
       expect(arr.keyAt(2)).toBe(2);
     });
 
-    it('indexOfKey should return key - firstKey', () => {
+    it('indexOfKey should return key - keyOffset', () => {
       const arr = new DoubleTailedArray<number>([10, 20, 30]);
       expect(arr.indexOfKey(0)).toBe(0);
       expect(arr.indexOfKey(1)).toBe(1);
       expect(arr.indexOfKey(2)).toBe(2);
     });
 
-    it('should decrement firstKey on prepend', () => {
+    it('should decrement keyOffset on prepend', () => {
       const arr = new DoubleTailedArray<number>([10, 20]);
       arr.prepend([5, 6, 7]);
-      expect(arr.firstKey).toBe(-3);
+      expect(arr.keyOffset).toBe(-3);
       expect(arr.keyAt(0)).toBe(-3); // element 5
       expect(arr.keyAt(1)).toBe(-2); // element 6
       expect(arr.keyAt(2)).toBe(-1); // element 7
@@ -472,10 +485,10 @@ describe('DoubleTailedArray', () => {
       expect(arr.keyAt(4)).toBe(1); // element 20
     });
 
-    it('should not change firstKey on append', () => {
+    it('should not change keyOffset on append', () => {
       const arr = new DoubleTailedArray<number>([10, 20]);
       arr.append([30, 40]);
-      expect(arr.firstKey).toBe(0);
+      expect(arr.keyOffset).toBe(0);
       expect(arr.keyAt(2)).toBe(2);
       expect(arr.keyAt(3)).toBe(3);
     });
@@ -489,7 +502,7 @@ describe('DoubleTailedArray', () => {
       // keys: -1=5, 0=10, 1=20, 2=30
       arr.prepend([1, 2]);
       // keys: -3=1, -2=2, -1=5, 0=10, 1=20, 2=30
-      expect(arr.firstKey).toBe(-3);
+      expect(arr.keyOffset).toBe(-3);
       expect(arr.indexOfKey(-3)).toBe(0);
       expect(arr.indexOfKey(0)).toBe(3);
       expect(arr.indexOfKey(2)).toBe(5);

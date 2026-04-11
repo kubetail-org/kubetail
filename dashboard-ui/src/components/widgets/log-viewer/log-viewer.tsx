@@ -54,7 +54,7 @@ const DEFAULT_IS_REFRESHING_ROW_HEIGHT = 0;
  */
 
 export type RecordStore = {
-  new: (records: LogRecord[], skipSetCount?: boolean) => void;
+  new: (records: LogRecord[], options?: { skipSetCount?: boolean; zeroAt?: 'first' | 'last' }) => void;
   append: (records: LogRecord[]) => void;
   prepend: (records: LogRecord[]) => void;
   first: () => LogRecord | undefined;
@@ -188,8 +188,10 @@ type RecordStoreOptions = {
 export function useRecordStore({ recordsRef, setCount }: RecordStoreOptions): RecordStore {
   return useMemo(
     () => ({
-      new: (records: LogRecord[], skipSetCount = false) => {
-        recordsRef.current = new DoubleTailedArray(records);
+      new: (records: LogRecord[], options?: { skipSetCount?: boolean; zeroAt?: 'first' | 'last' }) => {
+        const { skipSetCount = false, zeroAt = 'last' } = options ?? {};
+        const keyOffset = zeroAt === 'first' ? 0 : -(records.length - 1);
+        recordsRef.current = new DoubleTailedArray(records, keyOffset);
         if (!skipSetCount) setCount(recordsRef.current.length);
       },
       append: (records: LogRecord[]) => {
@@ -241,7 +243,7 @@ export const useInit = ({ client, config, refs, actions, services }: Runtime) =>
           // Update UI
           if (result.records.length) {
             if (result.nextCursor !== null) actions.setHasMoreAfter(true);
-            services.recordStore.new(result.records);
+            services.recordStore.new(result.records, { zeroAt: 'first' });
           }
 
           // eslint-disable-next-line react-hooks/immutability -- refs are shared via Runtime, not truly immutable args
@@ -297,7 +299,7 @@ export const useInit = ({ client, config, refs, actions, services }: Runtime) =>
             });
 
             // Combine results
-            services.recordStore.new(afterResult.records, true);
+            services.recordStore.new(afterResult.records, { skipSetCount: true });
             services.recordStore.prepend(beforeResult.records);
 
             await beforePaintPromise;

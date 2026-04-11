@@ -137,17 +137,32 @@ describe('internal helpers', () => {
     }
 
     describe('new()', () => {
-      it('initializes new array on first call', () => {
+      it('initializes new array with last record at key 0 by default', () => {
         const { recordsRef, setCount, recordStore } = createMockRecordStore();
 
         act(() => {
-          recordStore.new(createMockRecords(2));
+          recordStore.new(createMockRecords(3));
         });
 
         expect(setCount).toHaveBeenCalledTimes(1);
-        expect(setCount).toHaveBeenCalledWith(2);
+        expect(setCount).toHaveBeenCalledWith(3);
+        expect(recordsRef.current.keyAt(0)).toBe(-2);
+        expect(recordsRef.current.keyAt(1)).toBe(-1);
+        expect(recordsRef.current.keyAt(2)).toBe(0);
+      });
+
+      it('initializes new array with first record at key 0 when zeroAt is first', () => {
+        const { recordsRef, setCount, recordStore } = createMockRecordStore();
+
+        act(() => {
+          recordStore.new(createMockRecords(3), { zeroAt: 'first' });
+        });
+
+        expect(setCount).toHaveBeenCalledTimes(1);
+        expect(setCount).toHaveBeenCalledWith(3);
         expect(recordsRef.current.keyAt(0)).toBe(0);
         expect(recordsRef.current.keyAt(1)).toBe(1);
+        expect(recordsRef.current.keyAt(2)).toBe(2);
       });
 
       it('resets array and count when called again', () => {
@@ -163,15 +178,15 @@ describe('internal helpers', () => {
         expect(setCount).toHaveBeenCalledTimes(2);
         expect(setCount).toHaveBeenCalledWith(2);
         expect(recordsRef.current.length).toBe(2);
-        expect(recordsRef.current.keyAt(0)).toBe(0);
-        expect(recordsRef.current.keyAt(1)).toBe(1);
+        expect(recordsRef.current.keyAt(0)).toBe(-1);
+        expect(recordsRef.current.keyAt(1)).toBe(0);
       });
 
       it('handles skipSetCount option', () => {
         const { recordsRef, setCount, recordStore } = createMockRecordStore();
 
         act(() => {
-          recordStore.new(createMockRecords(2), true);
+          recordStore.new(createMockRecords(2), { skipSetCount: true });
         });
 
         expect(setCount).toHaveBeenCalledTimes(0);
@@ -179,7 +194,7 @@ describe('internal helpers', () => {
       });
     });
 
-    it('append() adds keys and updates count properly', () => {
+    it('append() adds records and updates count properly', () => {
       const { recordsRef, setCount, recordStore } = createMockRecordStore();
 
       act(() => {
@@ -189,8 +204,6 @@ describe('internal helpers', () => {
       expect(setCount).toHaveBeenCalledTimes(1);
       expect(setCount).toHaveBeenCalledWith(2);
       expect(recordsRef.current.length).toBe(2);
-      expect(recordsRef.current.keyAt(0)).toBe(0);
-      expect(recordsRef.current.keyAt(1)).toBe(1);
     });
 
     it('prepend() adjusts keys and updates count properly', () => {
