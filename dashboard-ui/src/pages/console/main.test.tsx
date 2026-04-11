@@ -203,12 +203,20 @@ describe('Main', () => {
       onRowClick: vi.fn(),
     };
 
-    it('calls onRowClick when clicking the timestamp cell', () => {
+    it('calls onRowClick when clicking the pos cell', () => {
       render(<RecordRow {...defaultProps} />);
-      const timestampCell = screen.getByText(/Jun 15, 2024/);
-      fireEvent.click(timestampCell);
+      const posCell = screen.getByRole('button');
+      fireEvent.click(posCell);
       expect(defaultProps.onRowClick).toHaveBeenCalledTimes(1);
       expect(defaultProps.onRowClick).toHaveBeenCalledWith(0, expect.any(Object));
+    });
+
+    it('does not call onRowClick when clicking the timestamp cell', () => {
+      const onRowClick = vi.fn();
+      render(<RecordRow {...defaultProps} onRowClick={onRowClick} />);
+      const timestampCell = screen.getByText(/Jun 15, 2024/);
+      fireEvent.click(timestampCell);
+      expect(onRowClick).not.toHaveBeenCalled();
     });
 
     it('does not call onRowClick when clicking the message cell', () => {
