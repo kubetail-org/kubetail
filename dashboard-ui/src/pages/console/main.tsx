@@ -411,7 +411,7 @@ type RecordRowProps = {
   measureRowElement: (el: HTMLDivElement | null) => void;
   measureCellElement: (el: HTMLDivElement | null) => void;
   onRowMouseDown: (key: number, event: React.MouseEvent) => void;
-  onCellClick: (rowKey: number, col: ViewerColumn, event: React.MouseEvent) => void;
+  onCellMouseDown: (rowKey: number, col: ViewerColumn, event: React.MouseEvent) => void;
 };
 
 export const RecordRow = memo(
@@ -433,7 +433,7 @@ export const RecordRow = memo(
     measureRowElement,
     measureCellElement,
     onRowMouseDown,
-    onCellClick,
+    onCellMouseDown,
   }: RecordRowProps) => {
     const els: React.ReactElement[] = [];
 
@@ -512,22 +512,14 @@ export const RecordRow = memo(
             tabIndex={isColorDot ? undefined : 0}
             className={cellClassName}
             style={cellStyle}
-            onClick={isColorDot ? undefined : (e) => onCellClick(row.key, col, e)}
-            onMouseDown={
-              isColorDot || !isCellSelected
-                ? undefined
-                : (e) => {
-                    // Enable text selection before drag starts
-                    e.currentTarget.style.userSelect = 'auto';
-                  }
-            }
+            onMouseDown={isColorDot ? undefined : (e) => onCellMouseDown(row.key, col, e)}
             onKeyDown={
               isColorDot
                 ? undefined
                 : (e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      onCellClick(row.key, col, e as unknown as React.MouseEvent);
+                      onCellMouseDown(row.key, col, e as unknown as React.MouseEvent);
                     }
                   }
             }
@@ -612,7 +604,7 @@ export const Main = () => {
     selectedCells,
     isTextSelectMode,
     handleRowMouseDown,
-    handleCellClick,
+    handleCellMouseDown,
     resetSelection,
   } = useSelection(virtualizerRef);
 
@@ -730,7 +722,7 @@ export const Main = () => {
                     measureRowElement={measureRowElement}
                     measureCellElement={measureCellElement}
                     onRowMouseDown={handleRowMouseDown}
-                    onCellClick={handleCellClick}
+                    onCellMouseDown={handleCellMouseDown}
                   />
                 ))}
                 {virtualizer.hasMoreAfter && (

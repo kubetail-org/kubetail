@@ -205,7 +205,7 @@ describe('Main', () => {
       measureRowElement: vi.fn(),
       measureCellElement: vi.fn(),
       onRowMouseDown: vi.fn(),
-      onCellClick: vi.fn(),
+      onCellMouseDown: vi.fn(),
     };
 
     it('calls onRowMouseDown when mousedown on the pos cell', () => {
@@ -216,20 +216,20 @@ describe('Main', () => {
       expect(defaultProps.onRowMouseDown).toHaveBeenCalledWith(0, expect.any(Object));
     });
 
-    it('calls onCellClick when clicking the timestamp cell', () => {
-      const onCellClick = vi.fn();
-      render(<RecordRow {...defaultProps} onCellClick={onCellClick} />);
+    it('calls onCellMouseDown when mousedown on the timestamp cell', () => {
+      const onCellMouseDown = vi.fn();
+      render(<RecordRow {...defaultProps} onCellMouseDown={onCellMouseDown} />);
       const timestampCell = screen.getByText(/Jun 15, 2024/);
-      fireEvent.click(timestampCell);
-      expect(onCellClick).toHaveBeenCalledWith(0, ViewerColumn.Timestamp, expect.any(Object));
+      fireEvent.mouseDown(timestampCell);
+      expect(onCellMouseDown).toHaveBeenCalledWith(0, ViewerColumn.Timestamp, expect.any(Object));
     });
 
-    it('calls onCellClick when clicking the message cell', () => {
-      const onCellClick = vi.fn();
-      render(<RecordRow {...defaultProps} onCellClick={onCellClick} />);
+    it('calls onCellMouseDown when mousedown on the message cell', () => {
+      const onCellMouseDown = vi.fn();
+      render(<RecordRow {...defaultProps} onCellMouseDown={onCellMouseDown} />);
       const messageCell = screen.getByText('test message');
-      fireEvent.click(messageCell);
-      expect(onCellClick).toHaveBeenCalledWith(0, ViewerColumn.Message, expect.any(Object));
+      fireEvent.mouseDown(messageCell);
+      expect(onCellMouseDown).toHaveBeenCalledWith(0, ViewerColumn.Message, expect.any(Object));
     });
 
     it('does not call onRowMouseDown when clicking the row background', () => {
@@ -278,35 +278,21 @@ describe('Main', () => {
       measureRowElement: vi.fn(),
       measureCellElement: vi.fn(),
       onRowMouseDown: vi.fn(),
-      onCellClick: vi.fn(),
+      onCellMouseDown: vi.fn(),
     };
 
-    it('sets userSelect to auto on mousedown of selected cell', () => {
-      render(<RecordRow {...defaultProps} selectedCellCols={new Set([ViewerColumn.Message])} />);
-      const messageCell = document.querySelector('[data-col-id="Message"]') as HTMLElement;
-      fireEvent.mouseDown(messageCell);
-      expect(messageCell.style.userSelect).toBe('auto');
-    });
-
-    it('does not set userSelect on mousedown of unselected cell', () => {
-      render(<RecordRow {...defaultProps} />);
-      const messageCell = document.querySelector('[data-col-id="Message"]') as HTMLElement;
-      fireEvent.mouseDown(messageCell);
-      expect(messageCell.style.userSelect).toBe('');
-    });
-
-    it('does not call onCellClick on ColorDot column', () => {
-      const onCellClick = vi.fn();
+    it('does not call onCellMouseDown on ColorDot column', () => {
+      const onCellMouseDown = vi.fn();
       render(
         <RecordRow
           {...defaultProps}
           visibleCols={new Set([ViewerColumn.ColorDot, ViewerColumn.Message])}
-          onCellClick={onCellClick}
+          onCellMouseDown={onCellMouseDown}
         />,
       );
       const colorDotCell = document.querySelector('[data-col-id="Color Dot"]') as HTMLElement;
-      fireEvent.click(colorDotCell);
-      expect(onCellClick).not.toHaveBeenCalled();
+      fireEvent.mouseDown(colorDotCell);
+      expect(onCellMouseDown).not.toHaveBeenCalled();
     });
 
     it('data cells have gridcell role', () => {
@@ -439,7 +425,7 @@ describe('Main', () => {
       measureRowElement: vi.fn(),
       measureCellElement: vi.fn(),
       onRowMouseDown: vi.fn(),
-      onCellClick: vi.fn(),
+      onCellMouseDown: vi.fn(),
     };
 
     it('renders "0" when row key is 0', () => {

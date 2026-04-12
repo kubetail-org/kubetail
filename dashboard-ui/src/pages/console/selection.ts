@@ -183,6 +183,23 @@ export function computeSelection({
 }
 
 /**
+ * Keep the default cursor on a cell until the next mousemove,
+ * then let the CSS cursor-text class take over.
+ */
+/* eslint-disable no-param-reassign */
+function delayCursorText(el: HTMLElement) {
+  el.style.cursor = 'default';
+  document.addEventListener(
+    'mousemove',
+    () => {
+      el.style.cursor = '';
+    },
+    { once: true },
+  );
+}
+/* eslint-enable no-param-reassign */
+
+/**
  * useSelection - Hook that manages row selection, cell selection, text-select mode,
  * click handling, boundary computation, and keyboard shortcuts.
  */
@@ -200,10 +217,14 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
   const selectedCellsRef = useRef(selectedCells);
   const lastClickedCellRef = useRef(lastClickedCell);
 
-  // Drag state refs (dragStartKeyRef !== null means a drag is active)
+  // Row drag state refs (dragStartKeyRef !== null means a row drag is active)
   const dragStartKeyRef = useRef<number | null>(null);
   const dragEndKeyRef = useRef<number | null>(null);
   const dragAbortRef = useRef<AbortController | null>(null);
+
+  // Cell drag state refs
+  const cellDragStartRef = useRef<{ rowKey: number; col: ViewerColumn } | null>(null);
+  const cellDragEndRef = useRef<{ rowKey: number; col: ViewerColumn } | null>(null);
 
   useEffect(() => {
     selectedKeysRef.current = selectedKeys;
@@ -315,25 +336,24 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
     [setSelectedKeys, setLastClickedKey, setSelectedCells, setLastClickedCell, setIsTextSelectMode],
   );
 
-  // Cell click handler (data cells) — supports Shift+click range, Cmd/Ctrl+click toggle
-  const handleCellClick = useCallback(
+  // Cell mousedown handler — supports click, drag, Shift+click range, Cmd/Ctrl+click toggle
+  const handleCellMouseDown = useCallback(
     (rowKey: number, col: ViewerColumn, event: React.MouseEvent) => {
       if (col === ViewerColumn.ColorDot) return;
       event.stopPropagation();
       const hasTextSelection = !window.getSelection()?.isCollapsed;
+      const clickedEl = event.currentTarget as HTMLElement;
 
-      if (event.shiftKey && lastClickedCellRef.current !== null) {
-        // Range select from anchor to target, merged with existing selection
-        const range = computeCellRange(lastClickedCellRef.current, { rowKey, col }, visibleCols);
-        const merged = new Map(selectedCellsRef.current);
-        range.forEach((cols, rk) => {
-          const existing = merged.get(rk);
-          merged.set(rk, existing ? new Set([...existing, ...cols]) : cols);
-        });
-        setSelectedCells(merged);
-      } else {
-        if (event.metaKey || event.ctrlKey) {
-          // Toggle cell in/out of selection
+      if (event.shiftKey || event.metaKey || event.ctrlKey) {
+        if (event.shiftKey && lastClickedCellRef.current !== null) {
+          const range = computeCellRange(lastClickedCellRef.current, { rowKey, col }, visibleCols);
+          const merged = new Map(selectedCellsRef.current);
+          range.forEach((cols, rk) => {
+            const existing = merged.get(rk);
+            merged.set(rk, existing ? new Set([...existing, ...cols]) : cols);
+          });
+          setSelectedCells(merged);
+        } else if (event.metaKey || event.ctrlKey) {
           const next = new Map(selectedCellsRef.current);
           const newCols = new Set(next.get(rowKey) ?? []);
           if (newCols.has(col)) {
@@ -347,28 +367,84 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
             next.set(rowKey, newCols);
           }
           setSelectedCells(next);
+          if (lastClickedCellRef.current?.rowKey !== rowKey || lastClickedCellRef.current?.col !== col) {
+            setLastClickedCell({ rowKey, col });
+          }
         } else {
           setSelectedCells(new Map([[rowKey, new Set([col])]]));
-        }
-        if (lastClickedCellRef.current?.rowKey !== rowKey || lastClickedCellRef.current?.col !== col) {
           setLastClickedCell({ rowKey, col });
         }
+
+        if (selectedKeysRef.current.size > 0) setSelectedKeys(new Set());
+        setLastClickedKey(null);
+        setIsTextSelectMode(hasTextSelection);
+        delayCursorText(clickedEl);
+        return;
       }
 
+      // Start cell drag
+      const start = { rowKey, col };
+      cellDragStartRef.current = start;
+      cellDragEndRef.current = start;
+      setSelectedCells(new Map([[rowKey, new Set([col])]]));
       if (selectedKeysRef.current.size > 0) setSelectedKeys(new Set());
       setLastClickedKey(null);
-      setIsTextSelectMode(hasTextSelection);
+      setIsTextSelectMode(false);
 
-      // Keep default cursor until mouse moves, then let the cursor-text class take over
-      const el = event.currentTarget as HTMLElement;
-      el.style.cursor = 'default';
-      document.addEventListener(
-        'mousemove',
-        () => {
-          el.style.cursor = '';
-        },
-        { once: true },
-      );
+      let rafId: number | null = null;
+      let pendingX = 0;
+      let pendingY = 0;
+
+      const processMove = () => {
+        rafId = null;
+        if (cellDragStartRef.current === null) return;
+        const el = document.elementFromPoint(pendingX, pendingY);
+        const cellEl = el?.closest('[data-col-id]') as HTMLElement | null;
+        const rowEl = el?.closest('[data-row-key]') as HTMLElement | null;
+        if (!cellEl || !rowEl) return;
+        const endRowKey = Number(rowEl.dataset.rowKey);
+        const endCol = cellEl.dataset.colId;
+        if (Number.isNaN(endRowKey) || !endCol) return;
+        const end = { rowKey: endRowKey, col: endCol as ViewerColumn };
+        if (end.rowKey === cellDragEndRef.current?.rowKey && end.col === cellDragEndRef.current?.col) return;
+        cellDragEndRef.current = end;
+        setSelectedCells(computeCellRange(cellDragStartRef.current, end, visibleCols));
+      };
+
+      const onMouseMove = (e: MouseEvent) => {
+        if (cellDragStartRef.current === null) return;
+        e.preventDefault();
+        pendingX = e.clientX;
+        pendingY = e.clientY;
+        if (rafId !== null) return;
+        rafId = requestAnimationFrame(processMove);
+      };
+
+      const onMouseUp = (e: MouseEvent) => {
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+          pendingX = e.clientX;
+          pendingY = e.clientY;
+          processMove();
+        }
+        const end = cellDragEndRef.current;
+        if (end) {
+          setLastClickedCell(end);
+        }
+        cellDragStartRef.current = null;
+        cellDragEndRef.current = null;
+        dragAbortRef.current?.abort();
+        dragAbortRef.current = null;
+        delayCursorText(clickedEl);
+      };
+
+      dragAbortRef.current?.abort();
+      dragAbortRef.current = new AbortController();
+      const { signal } = dragAbortRef.current;
+
+      document.addEventListener('mousemove', onMouseMove, { signal });
+      document.addEventListener('mouseup', onMouseUp, { signal });
     },
     [visibleCols, setSelectedCells, setLastClickedCell, setSelectedKeys, setLastClickedKey, setIsTextSelectMode],
   );
@@ -431,7 +507,7 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
     selectedCells,
     isTextSelectMode,
     handleRowMouseDown,
-    handleCellClick,
+    handleCellMouseDown,
     resetSelection: clearSelection,
   };
 }
