@@ -545,7 +545,12 @@ export const useAutoScroll = ({ config, state, refs }: Runtime) => {
       }
     };
 
+    const handleMouseDown = () => {
+      refs.isAutoScrollEnabled.current = false;
+    };
+
     scrollElement.addEventListener('scroll', handleScroll);
+    scrollElement.addEventListener('mousedown', handleMouseDown);
 
     // When the scroll container resizes (e.g. the OS switches between classic and
     // overlay scrollbars, changing clientHeight), re-pin to the bottom if auto-scroll
@@ -559,6 +564,7 @@ export const useAutoScroll = ({ config, state, refs }: Runtime) => {
 
     return () => {
       scrollElement.removeEventListener('scroll', handleScroll);
+      scrollElement.removeEventListener('mousedown', handleMouseDown);
       resizeObserver.disconnect();
     };
   }, [config.pinToBottomTolerance, config.follow, state.isLoading, state.hasMoreAfter]);

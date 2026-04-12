@@ -889,6 +889,42 @@ describe('internal helpers', () => {
 
       expect(refs.isAutoScrollEnabled.current).toBe(true);
     });
+
+    it('disables on mousedown', () => {
+      const runtime = createMockRuntime();
+      const { refs } = runtime;
+
+      (runtime as any).state = {
+        ...runtime.state,
+        isLoading: false,
+        hasMoreAfter: false,
+      };
+
+      refs.isAutoScrollEnabled.current = true;
+      renderHook(() => useAutoScroll(runtime));
+
+      refs.scrollEl.current?.dispatchEvent(new Event('mousedown'));
+
+      expect(refs.isAutoScrollEnabled.current).toBe(false);
+    });
+
+    it('mousedown is noop when autoscroll already disabled', () => {
+      const runtime = createMockRuntime();
+      const { refs } = runtime;
+
+      (runtime as any).state = {
+        ...runtime.state,
+        isLoading: false,
+        hasMoreAfter: false,
+      };
+
+      refs.isAutoScrollEnabled.current = false;
+      renderHook(() => useAutoScroll(runtime));
+
+      refs.scrollEl.current?.dispatchEvent(new Event('mousedown'));
+
+      expect(refs.isAutoScrollEnabled.current).toBe(false);
+    });
   });
 
   describe('usePullToRefresh', () => {
