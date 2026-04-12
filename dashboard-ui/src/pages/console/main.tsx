@@ -518,7 +518,8 @@ export const RecordRow = memo(
         cellBg,
         'px-2',
         shouldWrap ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-nowrap',
-        !isColorDot && (isCellSelected && isCursorText ? 'cursor-text' : 'cursor-default'),
+        !isColorDot &&
+          (isCellSelected && isCursorText ? 'cursor-text group-data-[mod-key]:cursor-default' : 'cursor-default'),
         'select-none',
       );
 
@@ -685,8 +686,23 @@ export const Main = () => {
     logViewerRef.current?.measure();
   }, [wrap]);
 
+  // Track Ctrl/Cmd held state via data attribute (no re-renders)
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => {
+      el.toggleAttribute('data-mod-key', e.metaKey || e.ctrlKey);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('keyup', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('keyup', onKey);
+    };
+  }, []);
+
   return (
-    <div ref={wrapperRef} className="relative h-full w-full flex flex-col">
+    <div ref={wrapperRef} className="group relative h-full w-full flex flex-col">
       {isLoading && <LoadingOverlay />}
       <HeaderRow
         scrollElRef={scrollElRef}

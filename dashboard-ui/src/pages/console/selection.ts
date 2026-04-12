@@ -402,6 +402,19 @@ export function useCellDrag(state: ReturnType<typeof useSelectionState>) {
     (rowKey: number, col: ViewerColumn, event: React.MouseEvent) => {
       if (col === ViewerColumn.ColorDot) return;
       event.stopPropagation();
+
+      // Right-click (or macOS Ctrl+click): preserve selection if cell is selected, otherwise select just this cell
+      const isContextClick =
+        event.button === 2 || (event.button === 0 && event.ctrlKey && !event.metaKey && !event.shiftKey);
+      if (isContextClick) {
+        if (selectedCellsRef.current.get(rowKey)?.has(col)) return;
+        setSelectedCells(new Map([[rowKey, new Set([col])]]));
+        if (selectedKeysRef.current.size > 0) setSelectedKeys(new Set());
+        setLastClickedKey(null);
+        setLastClickedCell({ rowKey, col });
+        return;
+      }
+
       if (event.shiftKey || event.metaKey || event.ctrlKey) {
         if (event.shiftKey && lastClickedCellRef.current !== null) {
           const range = computeCellRange(lastClickedCellRef.current, { rowKey, col }, visibleCols);

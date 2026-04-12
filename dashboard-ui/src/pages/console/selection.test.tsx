@@ -1858,6 +1858,76 @@ describe('useCellDrag', () => {
 
     expect(store.get(isTextSelectModeAtom)).toBe(true);
   });
+
+  it('right-click (button=2) on a selected cell preserves multi-cell selection', () => {
+    const { result, store } = renderWithState(
+      (state) => useCellDrag(state),
+      (s) => {
+        s.set(visibleColsAtom, new Set([ViewerColumn.Timestamp, ViewerColumn.Message]));
+      },
+    );
+
+    const multiSelection = new Map([
+      [0, new Set([ViewerColumn.Timestamp, ViewerColumn.Message])],
+      [1, new Set([ViewerColumn.Timestamp, ViewerColumn.Message])],
+    ]);
+
+    act(() => {
+      store.set(selectedCellsAtom, multiSelection);
+    });
+
+    act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent({ button: 2 })));
+
+    expect(store.get(selectedCellsAtom)).toEqual(multiSelection);
+  });
+
+  it('Ctrl+click (macOS right-click) on a selected cell preserves multi-cell selection', () => {
+    const { result, store } = renderWithState(
+      (state) => useCellDrag(state),
+      (s) => {
+        s.set(visibleColsAtom, new Set([ViewerColumn.Timestamp, ViewerColumn.Message]));
+      },
+    );
+
+    const multiSelection = new Map([
+      [0, new Set([ViewerColumn.Timestamp, ViewerColumn.Message])],
+      [1, new Set([ViewerColumn.Timestamp, ViewerColumn.Message])],
+    ]);
+
+    act(() => {
+      store.set(selectedCellsAtom, multiSelection);
+    });
+
+    // macOS Ctrl+click: button=0, ctrlKey=true
+    act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent({ button: 0, ctrlKey: true })));
+
+    expect(store.get(selectedCellsAtom)).toEqual(multiSelection);
+  });
+
+  it('right-click on a non-selected cell selects it', () => {
+    const { result, store } = renderWithState((state) => useCellDrag(state));
+
+    act(() => {
+      store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Message])]]));
+    });
+
+    act(() => result.current.handleCellMouseDown(1, ViewerColumn.Message, clickEvent({ button: 2 })));
+
+    expect(store.get(selectedCellsAtom)).toEqual(new Map([[1, new Set([ViewerColumn.Message])]]));
+  });
+
+  it('Ctrl+click (macOS right-click) on a non-selected cell selects it', () => {
+    const { result, store } = renderWithState((state) => useCellDrag(state));
+
+    act(() => {
+      store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Message])]]));
+    });
+
+    // macOS Ctrl+click on a different cell
+    act(() => result.current.handleCellMouseDown(1, ViewerColumn.Message, clickEvent({ button: 0, ctrlKey: true })));
+
+    expect(store.get(selectedCellsAtom)).toEqual(new Map([[1, new Set([ViewerColumn.Message])]]));
+  });
 });
 
 describe('useSelectionKeyboard', () => {
