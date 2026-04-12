@@ -134,6 +134,7 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
   // Drag state refs (dragStartKeyRef !== null means a drag is active)
   const dragStartKeyRef = useRef<number | null>(null);
   const dragEndKeyRef = useRef<number | null>(null);
+  const dragAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     selectedKeysRef.current = selectedKeys;
@@ -187,15 +188,18 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
       setSelectedCell(null);
       setIsTextSelectMode(false);
 
-      const onMouseMove = (e: MouseEvent) => {
+      let rafId: number | null = null;
+      let pendingX = 0;
+      let pendingY = 0;
+
+      const processMove = () => {
+        rafId = null;
         if (dragStartKeyRef.current === null) return;
-        e.preventDefault();
-        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const el = document.elementFromPoint(pendingX, pendingY);
         const rowEl = el?.closest('[data-row-key]') as HTMLElement | null;
         if (!rowEl) return;
         const endKey = Number(rowEl.dataset.rowKey);
-        if (Number.isNaN(endKey)) return;
-
+        if (Number.isNaN(endKey) || endKey === dragEndKeyRef.current) return;
         dragEndKeyRef.current = endKey;
         const minKey = Math.min(dragStartKeyRef.current, endKey);
         const maxKey = Math.max(dragStartKeyRef.current, endKey);
@@ -204,16 +208,36 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
         setSelectedKeys(next);
       };
 
-      const onMouseUp = () => {
+      const onMouseMove = (e: MouseEvent) => {
+        if (dragStartKeyRef.current === null) return;
+        e.preventDefault();
+        pendingX = e.clientX;
+        pendingY = e.clientY;
+        if (rafId !== null) return;
+        rafId = requestAnimationFrame(processMove);
+      };
+
+      const onMouseUp = (e: MouseEvent) => {
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+          pendingX = e.clientX;
+          pendingY = e.clientY;
+          processMove();
+        }
         setLastClickedKey(dragEndKeyRef.current);
         dragStartKeyRef.current = null;
         dragEndKeyRef.current = null;
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
+        dragAbortRef.current?.abort();
+        dragAbortRef.current = null;
       };
 
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
+      dragAbortRef.current?.abort();
+      dragAbortRef.current = new AbortController();
+      const { signal } = dragAbortRef.current;
+
+      document.addEventListener('mousemove', onMouseMove, { signal });
+      document.addEventListener('mouseup', onMouseUp, { signal });
     },
     [setSelectedKeys, setLastClickedKey, setSelectedCell, setIsTextSelectMode],
   );
@@ -276,6 +300,14 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [visibleCols, clearSelection]);
+
+  // Clean up drag listeners on unmount
+  useEffect(
+    () => () => {
+      dragAbortRef.current?.abort();
+    },
+    [],
+  );
 
   return {
     selectedKeys,

@@ -433,11 +433,13 @@ describe('useSelection', () => {
     let mockElementFromPoint: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
+      vi.useFakeTimers();
       mockElementFromPoint = vi.fn().mockReturnValue(null);
       document.elementFromPoint = mockElementFromPoint as typeof document.elementFromPoint;
     });
 
     afterEach(() => {
+      vi.useRealTimers();
       delete (document as Partial<Document>).elementFromPoint;
     });
 
@@ -449,6 +451,7 @@ describe('useSelection', () => {
       mockElementFromPoint.mockReturnValue(makeRowEl(3));
       act(() => {
         fireEvent.mouseMove(document, { clientX: 10, clientY: 30 });
+        vi.advanceTimersByTime(16);
       });
 
       expect(result.current.selectedKeys).toEqual(new Set([1, 2, 3]));
@@ -467,6 +470,7 @@ describe('useSelection', () => {
       mockElementFromPoint.mockReturnValue(makeRowEl(4));
       act(() => {
         fireEvent.mouseMove(document, { clientX: 10, clientY: 40 });
+        vi.advanceTimersByTime(16);
       });
       expect(result.current.selectedKeys).toEqual(new Set([1, 2, 3, 4]));
 
@@ -474,6 +478,7 @@ describe('useSelection', () => {
       mockElementFromPoint.mockReturnValue(makeRowEl(2));
       act(() => {
         fireEvent.mouseMove(document, { clientX: 10, clientY: 20 });
+        vi.advanceTimersByTime(16);
       });
       expect(result.current.selectedKeys).toEqual(new Set([1, 2]));
 
@@ -490,6 +495,7 @@ describe('useSelection', () => {
       mockElementFromPoint.mockReturnValue(makeRowEl(0));
       act(() => {
         fireEvent.mouseMove(document, { clientX: 10, clientY: 5 });
+        vi.advanceTimersByTime(16);
       });
 
       expect(result.current.selectedKeys).toEqual(new Set([0, 1, 2]));
@@ -507,6 +513,7 @@ describe('useSelection', () => {
       mockElementFromPoint.mockReturnValue(makeRowEl(2));
       act(() => {
         fireEvent.mouseMove(document, { clientX: 10, clientY: 20 });
+        vi.advanceTimersByTime(16);
       });
       expect(result.current.selectedKeys).toEqual(new Set([1, 2]));
 
@@ -518,6 +525,7 @@ describe('useSelection', () => {
       mockElementFromPoint.mockReturnValue(makeRowEl(4));
       act(() => {
         fireEvent.mouseMove(document, { clientX: 10, clientY: 40 });
+        vi.advanceTimersByTime(16);
       });
       expect(result.current.selectedKeys).toEqual(new Set([1, 2]));
     });
@@ -614,6 +622,78 @@ describe('useSelection', () => {
       act(() => {
         fireEvent.mouseUp(document);
       });
+    });
+
+    it('skips state update when mouse stays on same row', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleRowMouseDown(1, clickEvent()));
+
+      // Drag to row 3
+      mockElementFromPoint.mockReturnValue(makeRowEl(3));
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 30 });
+        vi.advanceTimersByTime(16);
+      });
+      expect(result.current.selectedKeys).toEqual(new Set([1, 2, 3]));
+
+      // Capture reference to verify it doesn't change
+      const prevKeys = result.current.selectedKeys;
+
+      // Move mouse within same row 3 (different coordinates, same row)
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 15, clientY: 35 });
+        vi.advanceTimersByTime(16);
+      });
+
+      // selectedKeys reference should be unchanged (no unnecessary state update)
+      expect(result.current.selectedKeys).toBe(prevKeys);
+
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+    });
+
+    it('throttles mousemove via requestAnimationFrame', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleRowMouseDown(1, clickEvent()));
+
+      mockElementFromPoint.mockReturnValue(makeRowEl(3));
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 30 });
+      });
+
+      // State should NOT be updated yet (deferred to rAF)
+      expect(result.current.selectedKeys).toEqual(new Set([1]));
+
+      // Flush the rAF
+      act(() => {
+        vi.advanceTimersByTime(16);
+      });
+
+      // Now state should be updated
+      expect(result.current.selectedKeys).toEqual(new Set([1, 2, 3]));
+
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+    });
+
+    it('cleans up document listeners on unmount during active drag', () => {
+      const { result, unmount } = renderUseSelection();
+
+      act(() => result.current.handleRowMouseDown(1, clickEvent()));
+
+      // Unmount without mouseup
+      unmount();
+
+      // Reset mock to track new calls after unmount
+      mockElementFromPoint.mockClear();
+
+      // Subsequent mousemove should NOT trigger elementFromPoint (listener was removed)
+      fireEvent.mouseMove(document, { clientX: 10, clientY: 50 });
+      expect(mockElementFromPoint).not.toHaveBeenCalled();
     });
   });
 
