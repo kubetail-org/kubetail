@@ -571,7 +571,8 @@ export const RecordRow = memo(
     if (prev.selectedCellColsAbove !== next.selectedCellColsAbove) return false;
     if (prev.selectedCellColsBelow !== next.selectedCellColsBelow) return false;
     if (prev.isCursorText !== next.isCursorText && (prev.selectedCellCols || next.selectedCellCols)) return false;
-    if (prev.isCellTextSelectable !== next.isCellTextSelectable) return false;
+    if (prev.isCellTextSelectable !== next.isCellTextSelectable && (prev.selectedCellCols || next.selectedCellCols))
+      return false;
     return true;
   },
 );
@@ -721,9 +722,7 @@ export const Main = () => {
                     selectedCellColsAbove={selectedCells.get(virtualRow.key - 1)}
                     selectedCellColsBelow={selectedCells.get(virtualRow.key + 1)}
                     isCursorText={isCursorText}
-                    isCellTextSelectable={
-                      isTextSelectMode && selectedCells.size === 1 && selectedCells.has(virtualRow.key)
-                    }
+                    isCellTextSelectable={isTextSelectMode && selectedCells.has(virtualRow.key)}
                     measureRowElement={measureRowElement}
                     measureCellElement={measureCellElement}
                     onRowMouseDown={handleRowMouseDown}

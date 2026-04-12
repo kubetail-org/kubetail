@@ -346,8 +346,6 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
     (rowKey: number, col: ViewerColumn, event: React.MouseEvent) => {
       if (col === ViewerColumn.ColorDot) return;
       event.stopPropagation();
-      const hasTextSelection = !window.getSelection()?.isCollapsed;
-
       if (event.shiftKey || event.metaKey || event.ctrlKey) {
         if (event.shiftKey && lastClickedCellRef.current !== null) {
           const range = computeCellRange(lastClickedCellRef.current, { rowKey, col }, visibleCols);
@@ -381,18 +379,16 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
 
         if (selectedKeysRef.current.size > 0) setSelectedKeys(new Set());
         setLastClickedKey(null);
-        setIsTextSelectMode(hasTextSelection);
+        setIsTextSelectMode(true);
         setIsCursorText(false);
         scheduleCursorText();
+        window.getSelection()?.removeAllRanges();
         return;
       }
 
-      // In text-select mode on the only selected cell, let the browser handle it
-      if (isTextSelectModeRef.current) {
-        const prevRowCols = selectedCellsRef.current.get(rowKey);
-        if (selectedCellsRef.current.size === 1 && prevRowCols?.size === 1 && prevRowCols.has(col)) {
-          return;
-        }
+      // In text-select mode on a selected cell, let the browser handle it
+      if (isTextSelectModeRef.current && selectedCellsRef.current.get(rowKey)?.has(col)) {
+        return;
       }
 
       // Start cell drag
@@ -445,10 +441,7 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
         const end = cellDragEndRef.current;
         if (end) {
           setLastClickedCell(end);
-          // Click without drag — enable text selection for the next click
-          if (end.rowKey === cellDragStartRef.current?.rowKey && end.col === cellDragStartRef.current?.col) {
-            setIsTextSelectMode(true);
-          }
+          setIsTextSelectMode(true);
         }
         cellDragStartRef.current = null;
         cellDragEndRef.current = null;

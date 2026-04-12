@@ -583,10 +583,9 @@ describe('useSelection', () => {
       expect(result.current.selectedCells).toEqual(new Map([[0, new Set([ViewerColumn.Message])]]));
     });
 
-    it('clears text-select mode when clicking without a native selection', () => {
+    it('clears text-select mode when clicking a new cell', () => {
       const { result } = renderUseSelection();
 
-      // Simulate entering text-select mode via a prior drag
       act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent()));
 
       act(() => result.current.handleCellMouseDown(1, ViewerColumn.Message, clickEvent()));
@@ -633,6 +632,25 @@ describe('useSelection', () => {
       });
 
       expect(store.get(isCursorTextAtom)).toBe(true);
+    });
+
+    it('clears native text selection on modifier click', () => {
+      const removeAllRanges = vi.fn();
+      vi.spyOn(window, 'getSelection').mockReturnValue({ removeAllRanges, isCollapsed: false } as unknown as Selection);
+
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+
+      removeAllRanges.mockClear();
+      act(() => result.current.handleCellMouseDown(1, ViewerColumn.Message, clickEvent({ metaKey: true })));
+
+      expect(removeAllRanges).toHaveBeenCalled();
+
+      vi.restoreAllMocks();
     });
 
     it('isCursorText resets on clearSelection', () => {
@@ -878,19 +896,20 @@ describe('useSelection', () => {
       });
       act(() => result.current.handleCellMouseDown(2, ViewerColumn.Message, clickEvent({ shiftKey: true })));
 
-      // Plain click sets new anchor
-      act(() => result.current.handleCellMouseDown(1, ViewerColumn.Message, clickEvent()));
+      // Plain click on unselected cell sets new anchor
+      act(() => result.current.handleCellMouseDown(5, ViewerColumn.Message, clickEvent()));
       act(() => {
         fireEvent.mouseUp(document);
       });
 
-      // Now shift+click from new anchor (row 1)
-      act(() => result.current.handleCellMouseDown(2, ViewerColumn.Message, clickEvent({ shiftKey: true })));
+      // Now shift+click from new anchor (row 5)
+      act(() => result.current.handleCellMouseDown(7, ViewerColumn.Message, clickEvent({ shiftKey: true })));
 
       expect(result.current.selectedCells).toEqual(
         new Map([
-          [1, new Set([ViewerColumn.Message])],
-          [2, new Set([ViewerColumn.Message])],
+          [5, new Set([ViewerColumn.Message])],
+          [6, new Set([ViewerColumn.Message])],
+          [7, new Set([ViewerColumn.Message])],
         ]),
       );
     });
@@ -1383,6 +1402,75 @@ describe('useSelection', () => {
       });
 
       expect(store.get(isCursorTextAtom)).toBe(true);
+    });
+
+    it('enters text-select mode after multi-cell drag mouseup', () => {
+      const { result } = renderUseSelection();
+
+      // Start drag on row 0
+      act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent()));
+
+      // Drag to row 2
+      mockElementFromPoint.mockReturnValue(makeCellEl(2, ViewerColumn.Message));
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 40 });
+        vi.advanceTimersByTime(16);
+      });
+
+      // mouseup completes the drag
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+
+      expect(result.current.isTextSelectMode).toBe(true);
+    });
+
+    it('enters text-select mode after modifier click', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+      act(() => result.current.handleCellMouseDown(1, ViewerColumn.Message, clickEvent({ metaKey: true })));
+
+      expect(result.current.isTextSelectMode).toBe(true);
+    });
+
+    it('defers to browser on re-click of any selected cell in text-select mode', () => {
+      const { result } = renderUseSelection();
+
+      // Select multiple cells via Cmd+click (sets isTextSelectMode to true)
+      act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+      act(() => result.current.handleCellMouseDown(1, ViewerColumn.Message, clickEvent({ metaKey: true })));
+
+      const selectionBefore = result.current.selectedCells;
+
+      // Click on one of the selected cells — should NOT start a new drag
+      act(() => result.current.handleCellMouseDown(1, ViewerColumn.Message, clickEvent()));
+
+      // Selection should be unchanged (early return, browser handles text selection)
+      expect(result.current.selectedCells).toBe(selectionBefore);
+    });
+
+    it('exits text-select mode when clicking unselected cell from multi-cell selection', () => {
+      const { result } = renderUseSelection();
+
+      // Select multiple cells via Cmd+click (sets isTextSelectMode to true)
+      act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+      act(() => result.current.handleCellMouseDown(1, ViewerColumn.Message, clickEvent({ metaKey: true })));
+
+      // Click on an unselected cell — should start new selection
+      act(() => result.current.handleCellMouseDown(2, ViewerColumn.Message, clickEvent()));
+
+      expect(result.current.selectedCells).toEqual(new Map([[2, new Set([ViewerColumn.Message])]]));
+      expect(result.current.isTextSelectMode).toBe(false);
     });
   });
 
