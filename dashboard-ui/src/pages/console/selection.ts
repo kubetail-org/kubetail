@@ -323,9 +323,14 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
       const hasTextSelection = !window.getSelection()?.isCollapsed;
 
       if (event.shiftKey && lastClickedCellRef.current !== null) {
-        // Range select from anchor to target; keep anchor unchanged for subsequent shift+clicks
+        // Range select from anchor to target, merged with existing selection
         const range = computeCellRange(lastClickedCellRef.current, { rowKey, col }, visibleCols);
-        setSelectedCells(range);
+        const merged = new Map(selectedCellsRef.current);
+        range.forEach((cols, rk) => {
+          const existing = merged.get(rk);
+          merged.set(rk, existing ? new Set([...existing, ...cols]) : cols);
+        });
+        setSelectedCells(merged);
       } else {
         if (event.metaKey || event.ctrlKey) {
           // Toggle cell in/out of selection

@@ -735,6 +735,48 @@ describe('useSelection', () => {
       );
     });
 
+    it('shift+click after cmd+click is additive to existing selection', () => {
+      const { result } = renderUseSelection((store) => {
+        store.set(visibleColsAtom, new Set([ViewerColumn.Pod, ViewerColumn.Container, ViewerColumn.Message]));
+      });
+
+      // Select a cell, then Cmd+click another
+      act(() => result.current.handleCellClick(0, ViewerColumn.Pod, clickEvent()));
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent({ metaKey: true })));
+
+      // Shift+click should add the range to existing selection, not replace it
+      act(() => result.current.handleCellClick(2, ViewerColumn.Message, clickEvent({ shiftKey: true })));
+
+      expect(result.current.selectedCells).toEqual(
+        new Map([
+          [0, new Set([ViewerColumn.Pod, ViewerColumn.Message])],
+          [1, new Set([ViewerColumn.Message])],
+          [2, new Set([ViewerColumn.Message])],
+        ]),
+      );
+    });
+
+    it('shift+click merges range columns with existing columns in same row', () => {
+      const { result } = renderUseSelection((store) => {
+        store.set(visibleColsAtom, new Set([ViewerColumn.Pod, ViewerColumn.Container, ViewerColumn.Message]));
+      });
+
+      // Select Pod in row 0
+      act(() => result.current.handleCellClick(0, ViewerColumn.Pod, clickEvent()));
+      // Cmd+click Container in row 1 (sets new anchor to row 1, Container)
+      act(() => result.current.handleCellClick(1, ViewerColumn.Container, clickEvent({ metaKey: true })));
+      // Shift+click Message in row 2 — range is Container+Message in rows 1-2, merged with existing
+      act(() => result.current.handleCellClick(2, ViewerColumn.Message, clickEvent({ shiftKey: true })));
+
+      expect(result.current.selectedCells).toEqual(
+        new Map([
+          [0, new Set([ViewerColumn.Pod])],
+          [1, new Set([ViewerColumn.Container, ViewerColumn.Message])],
+          [2, new Set([ViewerColumn.Container, ViewerColumn.Message])],
+        ]),
+      );
+    });
+
     it('plain click after shift-range resets anchor', () => {
       const { result } = renderUseSelection();
 
