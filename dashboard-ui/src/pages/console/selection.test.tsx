@@ -25,6 +25,10 @@ import {
   computeSelection,
   computeCellRange,
   useSelection,
+  useSelectionState,
+  useRowDrag,
+  useCellDrag,
+  useSelectionKeyboard,
 } from './selection';
 import { ViewerColumn } from './shared';
 import {
@@ -33,6 +37,7 @@ import {
   lastClickedCellAtom,
   lastClickedKeyAtom,
   selectedCellsAtom,
+  selectedKeysAtom,
   visibleColsAtom,
 } from './state';
 
@@ -404,6 +409,35 @@ describe('computeCellRange', () => {
   });
 });
 
+const clickEvent = (overrides: Partial<React.MouseEvent> = {}) =>
+  ({
+    shiftKey: false,
+    metaKey: false,
+    ctrlKey: false,
+    stopPropagation: vi.fn(),
+    currentTarget: document.createElement('div'),
+    ...overrides,
+  }) as unknown as React.MouseEvent;
+
+function renderWithState<T>(
+  hookFn: (state: ReturnType<typeof useSelectionState>) => T,
+  storeOverrides?: (store: ReturnType<typeof createStore>) => void,
+) {
+  const store = createStore();
+  store.set(visibleColsAtom, new Set([ViewerColumn.Message]));
+  storeOverrides?.(store);
+
+  const result = renderHook(
+    () => {
+      const state = useSelectionState();
+      return hookFn(state);
+    },
+    { wrapper: ({ children }) => <Provider store={store}>{children}</Provider> },
+  );
+
+  return { ...result, store };
+}
+
 describe('useSelection', () => {
   const records = [
     makeRecord({ message: 'log message 0', timestamp: '2024-06-15T10:30:00.000Z' }),
@@ -430,16 +464,6 @@ describe('useSelection', () => {
 
     return { ...result, store, virtualizerRef };
   }
-
-  const clickEvent = (overrides: Partial<React.MouseEvent> = {}) =>
-    ({
-      shiftKey: false,
-      metaKey: false,
-      ctrlKey: false,
-      stopPropagation: vi.fn(),
-      currentTarget: document.createElement('div'),
-      ...overrides,
-    }) as unknown as React.MouseEvent;
 
   beforeEach(() => {
     Object.assign(navigator, {
@@ -1743,5 +1767,161 @@ describe('useSelection', () => {
       expect(copied).not.toMatch(/\t\t/);
       expect(copied).toContain('log message 0');
     });
+  });
+});
+
+describe('useSelectionState', () => {
+  it('returns atom values and setters', () => {
+    const { result } = renderWithState((state) => state);
+
+    expect(result.current.selectedKeys).toEqual(new Set());
+    expect(result.current.selectedCells).toEqual(new Map());
+    expect(result.current.visibleCols).toEqual(new Set([ViewerColumn.Message]));
+    expect(result.current.isTextSelectMode).toBe(false);
+    expect(result.current.isCursorText).toBe(false);
+    expect(typeof result.current.setSelectedKeys).toBe('function');
+    expect(typeof result.current.setSelectedCells).toBe('function');
+  });
+
+  it('clearSelection resets all state', () => {
+    const { result, store } = renderWithState((state) => state);
+
+    act(() => {
+      store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Message])]]));
+      store.set(isTextSelectModeAtom, true);
+      store.set(isCursorTextAtom, true);
+    });
+
+    act(() => result.current.clearSelection());
+
+    expect(result.current.selectedKeys).toEqual(new Set());
+    expect(result.current.selectedCells).toEqual(new Map());
+    expect(result.current.isTextSelectMode).toBe(false);
+    expect(result.current.isCursorText).toBe(false);
+  });
+
+  it('scheduleCursorText sets isCursorText on mousemove', () => {
+    const { result, store } = renderWithState((state) => state);
+
+    act(() => result.current.scheduleCursorText());
+    act(() => {
+      fireEvent.mouseMove(document);
+    });
+
+    expect(store.get(isCursorTextAtom)).toBe(true);
+  });
+});
+
+describe('useRowDrag', () => {
+  it('selects a single row on plain mousedown', () => {
+    const { result } = renderWithState((state) => useRowDrag(state));
+
+    act(() => result.current.handleRowMouseDown(1, clickEvent()));
+    act(() => {
+      fireEvent.mouseUp(document);
+    });
+
+    expect(result.current.selectionTopKeys).toEqual(new Set([1]));
+    expect(result.current.selectionBottomKeys).toEqual(new Set([1]));
+  });
+
+  it('computes selection boundaries for contiguous range', () => {
+    const { result } = renderWithState((state) => useRowDrag(state));
+
+    act(() => result.current.handleRowMouseDown(0, clickEvent()));
+    act(() => {
+      fireEvent.mouseUp(document);
+    });
+    act(() => result.current.handleRowMouseDown(2, clickEvent({ shiftKey: true })));
+
+    expect(result.current.selectionTopKeys).toEqual(new Set([0]));
+    expect(result.current.selectionBottomKeys).toEqual(new Set([2]));
+  });
+});
+
+describe('useCellDrag', () => {
+  it('selects a cell on click', () => {
+    const { result, store } = renderWithState((state) => useCellDrag(state));
+
+    act(() => result.current.handleCellMouseDown(1, ViewerColumn.Message, clickEvent()));
+
+    expect(store.get(selectedCellsAtom)).toEqual(new Map([[1, new Set([ViewerColumn.Message])]]));
+  });
+
+  it('enters text-select mode after mouseup', () => {
+    const { result, store } = renderWithState((state) => useCellDrag(state));
+
+    act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent()));
+    act(() => {
+      fireEvent.mouseUp(document);
+    });
+
+    expect(store.get(isTextSelectModeAtom)).toBe(true);
+  });
+});
+
+describe('useSelectionKeyboard', () => {
+  const records = [
+    makeRecord({ message: 'log message 0', timestamp: '2024-06-15T10:30:00.000Z' }),
+    makeRecord({ message: 'log message 1', timestamp: '2024-06-15T10:30:01.000Z' }),
+  ];
+
+  const fakeVirtualizer = {
+    getRecord: (key: number) => records[key],
+  } as LogViewerVirtualizer;
+
+  function renderKeyboard(storeOverrides?: (store: ReturnType<typeof createStore>) => void) {
+    const store = createStore();
+    store.set(visibleColsAtom, new Set([ViewerColumn.Message]));
+    storeOverrides?.(store);
+
+    const virtualizerRef =
+      createRef<LogViewerVirtualizer | null>() as React.MutableRefObject<LogViewerVirtualizer | null>;
+    virtualizerRef.current = fakeVirtualizer;
+
+    const result = renderHook(
+      () => {
+        const state = useSelectionState();
+        useSelectionKeyboard(state, virtualizerRef);
+        return state;
+      },
+      { wrapper: ({ children }) => <Provider store={store}>{children}</Provider> },
+    );
+
+    return { ...result, store };
+  }
+
+  beforeEach(() => {
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+  });
+
+  it('clears selection on Escape', () => {
+    const { result, store } = renderKeyboard();
+
+    act(() => {
+      store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Message])]]));
+    });
+
+    act(() => {
+      fireEvent.keyDown(document, { key: 'Escape' });
+    });
+
+    expect(result.current.selectedCells.size).toBe(0);
+  });
+
+  it('copies selected rows on Cmd+C', () => {
+    const { store } = renderKeyboard();
+
+    act(() => {
+      store.set(selectedKeysAtom, new Set([0, 1]));
+    });
+
+    act(() => {
+      fireEvent.keyDown(document, { key: 'c', metaKey: true });
+    });
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('log message 0\nlog message 1');
   });
 });
