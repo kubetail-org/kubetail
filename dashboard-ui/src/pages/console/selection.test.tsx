@@ -1982,6 +1982,40 @@ describe('useSelectionKeyboard', () => {
     expect(result.current.selectedCells.size).toBe(0);
   });
 
+  it('does not clear selection on Escape when a context menu is open', () => {
+    const { result, store } = renderKeyboard();
+
+    act(() => {
+      store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Message])]]));
+    });
+
+    // Simulate Radix behavior: when a context menu is open and Escape is pressed,
+    // Radix's useEscapeKeydown calls event.preventDefault() before our handler runs.
+    // We use capture phase to ensure preventDefault() is called first.
+    document.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key === 'Escape') e.preventDefault();
+      },
+      { capture: true, once: true },
+    );
+
+    act(() => {
+      fireEvent.keyDown(document, { key: 'Escape' });
+    });
+
+    // Selection should be preserved — Escape only closes the menu
+    expect(result.current.selectedCells.size).toBe(1);
+
+    // Press Escape again — no context menu this time, no preventDefault
+    act(() => {
+      fireEvent.keyDown(document, { key: 'Escape' });
+    });
+
+    // Now selection should be cleared
+    expect(result.current.selectedCells.size).toBe(0);
+  });
+
   it('copies selected rows on Cmd+C', () => {
     const { store } = renderKeyboard();
 

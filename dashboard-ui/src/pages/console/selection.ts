@@ -198,7 +198,6 @@ export function useSelectionState() {
   const lastClickedCellRef = useRef(lastClickedCell);
   const isTextSelectModeRef = useRef(isTextSelectMode);
   const dragAbortRef = useRef<AbortController | null>(null);
-
   const cursorTextPendingRef = useRef(false);
   const scheduleCursorText = useCallback(() => {
     if (cursorTextPendingRef.current) return;
@@ -547,6 +546,8 @@ export function useSelectionKeyboard(
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // If Radix already handled Escape (e.g. closing a context menu), skip
+        if (e.defaultPrevented) return;
         clearSelection();
         window.getSelection()?.removeAllRanges();
         return;
