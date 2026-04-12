@@ -20,7 +20,7 @@ import type { LogRecord, LogViewerVirtualizer } from '@/components/widgets/log-v
 
 import { getPlainAttribute, formatRowsForCopy, computeSelection, useSelection } from './selection';
 import { ViewerColumn } from './shared';
-import { isTextSelectModeAtom, selectedCellAtom, visibleColsAtom } from './state';
+import { isTextSelectModeAtom, lastClickedKeyAtom, selectedCellAtom, visibleColsAtom } from './state';
 
 const makeRecord = (overrides: Partial<LogRecord> = {}): LogRecord => ({
   timestamp: '2024-06-15T10:30:01.123Z',
@@ -257,48 +257,66 @@ describe('useSelection', () => {
     });
   });
 
-  describe('handleRowClick', () => {
-    it('selects a single row on plain click', () => {
+  describe('handleRowMouseDown', () => {
+    it('selects a single row on plain mousedown', () => {
       const { result } = renderUseSelection();
 
-      act(() => result.current.handleRowClick(1, clickEvent()));
+      act(() => result.current.handleRowMouseDown(1, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
 
       expect(result.current.selectedKeys).toEqual(new Set([1]));
     });
 
-    it('replaces selection on plain click', () => {
+    it('replaces selection on plain mousedown', () => {
       const { result } = renderUseSelection();
 
-      act(() => result.current.handleRowClick(0, clickEvent()));
-      act(() => result.current.handleRowClick(1, clickEvent()));
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+      act(() => result.current.handleRowMouseDown(1, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
 
       expect(result.current.selectedKeys).toEqual(new Set([1]));
     });
 
-    it('toggles individual rows with meta+click', () => {
+    it('toggles individual rows with meta+mousedown', () => {
       const { result } = renderUseSelection();
 
-      act(() => result.current.handleRowClick(0, clickEvent()));
-      act(() => result.current.handleRowClick(1, clickEvent({ metaKey: true })));
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+      act(() => result.current.handleRowMouseDown(1, clickEvent({ metaKey: true })));
 
       expect(result.current.selectedKeys).toEqual(new Set([0, 1]));
     });
 
-    it('deselects a row with meta+click when already selected', () => {
+    it('deselects a row with meta+mousedown when already selected', () => {
       const { result } = renderUseSelection();
 
-      act(() => result.current.handleRowClick(0, clickEvent()));
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
       expect(result.current.selectedKeys).toEqual(new Set([0]));
 
-      act(() => result.current.handleRowClick(0, clickEvent({ metaKey: true })));
+      act(() => result.current.handleRowMouseDown(0, clickEvent({ metaKey: true })));
       expect(result.current.selectedKeys).toEqual(new Set());
     });
 
-    it('selects range with shift+click', () => {
+    it('selects range with shift+mousedown', () => {
       const { result } = renderUseSelection();
 
-      act(() => result.current.handleRowClick(0, clickEvent()));
-      act(() => result.current.handleRowClick(2, clickEvent({ shiftKey: true })));
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+      act(() => result.current.handleRowMouseDown(2, clickEvent({ shiftKey: true })));
 
       expect(result.current.selectedKeys).toEqual(new Set([0, 1, 2]));
     });
@@ -308,7 +326,10 @@ describe('useSelection', () => {
     it('single selected row is both top and bottom', () => {
       const { result } = renderUseSelection();
 
-      act(() => result.current.handleRowClick(1, clickEvent()));
+      act(() => result.current.handleRowMouseDown(1, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
 
       expect(result.current.selectionTopKeys).toEqual(new Set([1]));
       expect(result.current.selectionBottomKeys).toEqual(new Set([1]));
@@ -317,8 +338,11 @@ describe('useSelection', () => {
     it('contiguous block has top on first and bottom on last', () => {
       const { result } = renderUseSelection();
 
-      act(() => result.current.handleRowClick(0, clickEvent()));
-      act(() => result.current.handleRowClick(2, clickEvent({ shiftKey: true })));
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+      act(() => result.current.handleRowMouseDown(2, clickEvent({ shiftKey: true })));
 
       expect(result.current.selectionTopKeys).toEqual(new Set([0]));
       expect(result.current.selectionBottomKeys).toEqual(new Set([2]));
@@ -327,8 +351,11 @@ describe('useSelection', () => {
     it('non-contiguous selection creates separate boundary groups', () => {
       const { result } = renderUseSelection();
 
-      act(() => result.current.handleRowClick(0, clickEvent()));
-      act(() => result.current.handleRowClick(2, clickEvent({ metaKey: true })));
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+      act(() => result.current.handleRowMouseDown(2, clickEvent({ metaKey: true })));
 
       expect(result.current.selectionTopKeys).toEqual(new Set([0, 2]));
       expect(result.current.selectionBottomKeys).toEqual(new Set([0, 2]));
@@ -354,7 +381,10 @@ describe('useSelection', () => {
     it('clears row selection when clicking a cell', () => {
       const { result } = renderUseSelection();
 
-      act(() => result.current.handleRowClick(0, clickEvent()));
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
       expect(result.current.selectedKeys.size).toBe(1);
 
       act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
@@ -392,25 +422,226 @@ describe('useSelection', () => {
     });
   });
 
-  describe('handleRowClick clears cell state', () => {
-    it('clears cell selection when clicking Pos column', () => {
+  describe('drag selection', () => {
+    function makeRowEl(key: number) {
+      const el = document.createElement('div');
+      el.dataset.rowKey = String(key);
+      el.closest = (selector: string) => (selector === '[data-row-key]' ? el : null);
+      return el;
+    }
+
+    let mockElementFromPoint: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      mockElementFromPoint = vi.fn().mockReturnValue(null);
+      document.elementFromPoint = mockElementFromPoint as typeof document.elementFromPoint;
+    });
+
+    afterEach(() => {
+      delete (document as Partial<Document>).elementFromPoint;
+    });
+
+    it('selects range when dragging from one row to another', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleRowMouseDown(1, clickEvent()));
+
+      mockElementFromPoint.mockReturnValue(makeRowEl(3));
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 30 });
+      });
+
+      expect(result.current.selectedKeys).toEqual(new Set([1, 2, 3]));
+
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+    });
+
+    it('updates range dynamically as mouse moves', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleRowMouseDown(1, clickEvent()));
+
+      // Drag to row 4
+      mockElementFromPoint.mockReturnValue(makeRowEl(4));
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 40 });
+      });
+      expect(result.current.selectedKeys).toEqual(new Set([1, 2, 3, 4]));
+
+      // Move back to row 2 — range shrinks
+      mockElementFromPoint.mockReturnValue(makeRowEl(2));
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 20 });
+      });
+      expect(result.current.selectedKeys).toEqual(new Set([1, 2]));
+
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+    });
+
+    it('supports dragging upward (to lower keys)', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleRowMouseDown(2, clickEvent()));
+
+      mockElementFromPoint.mockReturnValue(makeRowEl(0));
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 5 });
+      });
+
+      expect(result.current.selectedKeys).toEqual(new Set([0, 1, 2]));
+
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+    });
+
+    it('ends drag on mouseup — subsequent mousemove has no effect', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleRowMouseDown(1, clickEvent()));
+
+      mockElementFromPoint.mockReturnValue(makeRowEl(2));
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 20 });
+      });
+      expect(result.current.selectedKeys).toEqual(new Set([1, 2]));
+
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+
+      // Move to row 4 after mouseup — selection should NOT change
+      mockElementFromPoint.mockReturnValue(makeRowEl(4));
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 40 });
+      });
+      expect(result.current.selectedKeys).toEqual(new Set([1, 2]));
+    });
+
+    it('does not start drag on shift+mousedown', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleRowMouseDown(1, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+      act(() => result.current.handleRowMouseDown(3, clickEvent({ shiftKey: true })));
+
+      // Should be a range select from shift, not a drag
+      expect(result.current.selectedKeys).toEqual(new Set([1, 2, 3]));
+
+      // mousemove should NOT extend the selection
+      mockElementFromPoint.mockReturnValue(makeRowEl(5));
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 50 });
+      });
+      expect(result.current.selectedKeys).toEqual(new Set([1, 2, 3]));
+    });
+
+    it('does not start drag on meta+mousedown', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleRowMouseDown(1, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+      act(() => result.current.handleRowMouseDown(3, clickEvent({ metaKey: true })));
+
+      expect(result.current.selectedKeys).toEqual(new Set([1, 3]));
+
+      // mousemove should NOT change selection
+      mockElementFromPoint.mockReturnValue(makeRowEl(5));
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 50 });
+      });
+      expect(result.current.selectedKeys).toEqual(new Set([1, 3]));
+    });
+
+    it('clears cell selection when drag starts', () => {
       const { result } = renderUseSelection();
 
       act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
       expect(result.current.selectedCell).not.toBeNull();
 
-      act(() => result.current.handleRowClick(0, clickEvent()));
+      act(() => result.current.handleRowMouseDown(1, clickEvent()));
+
+      expect(result.current.selectedCell).toBeNull();
+      expect(result.current.isTextSelectMode).toBe(false);
+
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+    });
+
+    it('sets lastClickedKey on mouseup so shift-click extends from drag endpoint', () => {
+      const { result, store } = renderUseSelection();
+
+      act(() => result.current.handleRowMouseDown(1, clickEvent()));
+
+      mockElementFromPoint.mockReturnValue(makeRowEl(3));
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 30 });
+      });
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+
+      // lastClickedKey should be set to the drag endpoint
+      expect(store.get(lastClickedKeyAtom)).toBe(3);
+
+      // shift+mousedown from there should extend
+      act(() => result.current.handleRowMouseDown(5, clickEvent({ shiftKey: true })));
+      expect(result.current.selectedKeys).toEqual(new Set([1, 2, 3, 4, 5]));
+    });
+
+    it('ignores mousemove when elementFromPoint returns null', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleRowMouseDown(1, clickEvent()));
+
+      mockElementFromPoint.mockReturnValue(null);
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 999 });
+      });
+
+      // Should still just have the initial selection
+      expect(result.current.selectedKeys).toEqual(new Set([1]));
+
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+    });
+  });
+
+  describe('handleRowMouseDown clears cell state', () => {
+    it('clears cell selection when mousedown on Pos column', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
+      expect(result.current.selectedCell).not.toBeNull();
+
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
 
       expect(result.current.selectedCell).toBeNull();
     });
 
-    it('clears text-select mode when clicking Pos column', () => {
+    it('clears text-select mode when mousedown on Pos column', () => {
       const { result, store } = renderUseSelection();
 
       store.set(selectedCellAtom, { rowKey: 0, col: ViewerColumn.Message });
       store.set(isTextSelectModeAtom, true);
 
-      act(() => result.current.handleRowClick(0, clickEvent()));
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
 
       expect(result.current.isTextSelectMode).toBe(false);
     });
@@ -420,7 +651,10 @@ describe('useSelection', () => {
     it('clears selection state', () => {
       const { result } = renderUseSelection();
 
-      act(() => result.current.handleRowClick(0, clickEvent()));
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
       expect(result.current.selectedKeys.size).toBe(1);
 
       act(() => result.current.resetSelection());
@@ -444,7 +678,10 @@ describe('useSelection', () => {
     it('clears selection on Escape', () => {
       const { result } = renderUseSelection();
 
-      act(() => result.current.handleRowClick(0, clickEvent()));
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
       expect(result.current.selectedKeys.size).toBe(1);
 
       act(() => {
@@ -457,8 +694,11 @@ describe('useSelection', () => {
     it('copies selected rows to clipboard on Cmd+C', () => {
       const { result } = renderUseSelection();
 
-      act(() => result.current.handleRowClick(0, clickEvent()));
-      act(() => result.current.handleRowClick(1, clickEvent({ metaKey: true })));
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+      act(() => result.current.handleRowMouseDown(1, clickEvent({ metaKey: true })));
 
       act(() => {
         fireEvent.keyDown(document, { key: 'c', metaKey: true });
@@ -482,7 +722,10 @@ describe('useSelection', () => {
         store.set(visibleColsAtom, new Set([ViewerColumn.ColorDot, ViewerColumn.Pod, ViewerColumn.Message]));
       });
 
-      act(() => result.current.handleRowClick(0, clickEvent()));
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
 
       act(() => {
         fireEvent.keyDown(document, { key: 'c', metaKey: true });
@@ -521,7 +764,10 @@ describe('useSelection', () => {
       const { result } = renderUseSelection();
 
       // Select a row, then select a cell (which clears row selection)
-      act(() => result.current.handleRowClick(0, clickEvent()));
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
       act(() => result.current.handleCellClick(1, ViewerColumn.Message, clickEvent()));
 
       act(() => {
@@ -562,7 +808,10 @@ describe('useSelection', () => {
         store.set(visibleColsAtom, new Set([ViewerColumn.Timestamp, ViewerColumn.ColorDot, ViewerColumn.Message]));
       });
 
-      act(() => result.current.handleRowClick(0, clickEvent()));
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
 
       act(() => {
         fireEvent.keyDown(document, { key: 'c', metaKey: true });

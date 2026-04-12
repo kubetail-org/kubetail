@@ -202,16 +202,16 @@ describe('Main', () => {
       measureElement: vi.fn(),
       measureRowElement: vi.fn(),
       measureCellElement: vi.fn(),
-      onRowClick: vi.fn(),
+      onRowMouseDown: vi.fn(),
       onCellClick: vi.fn(),
     };
 
-    it('calls onRowClick when clicking the pos cell', () => {
+    it('calls onRowMouseDown when mousedown on the pos cell', () => {
       render(<RecordRow {...defaultProps} />);
       const posCell = screen.getByRole('button');
-      fireEvent.click(posCell);
-      expect(defaultProps.onRowClick).toHaveBeenCalledTimes(1);
-      expect(defaultProps.onRowClick).toHaveBeenCalledWith(0, expect.any(Object));
+      fireEvent.mouseDown(posCell);
+      expect(defaultProps.onRowMouseDown).toHaveBeenCalledTimes(1);
+      expect(defaultProps.onRowMouseDown).toHaveBeenCalledWith(0, expect.any(Object));
     });
 
     it('calls onCellClick when clicking the timestamp cell', () => {
@@ -230,12 +230,12 @@ describe('Main', () => {
       expect(onCellClick).toHaveBeenCalledWith(0, ViewerColumn.Message, expect.any(Object));
     });
 
-    it('does not call onRowClick when clicking the row background', () => {
-      const onRowClick = vi.fn();
-      render(<RecordRow {...defaultProps} onRowClick={onRowClick} />);
+    it('does not call onRowMouseDown when clicking the row background', () => {
+      const onRowMouseDown = vi.fn();
+      render(<RecordRow {...defaultProps} onRowMouseDown={onRowMouseDown} />);
       const row = screen.getByRole('row');
-      fireEvent.click(row);
-      expect(onRowClick).not.toHaveBeenCalled();
+      fireEvent.mouseDown(row);
+      expect(onRowMouseDown).not.toHaveBeenCalled();
     });
   });
 
@@ -273,7 +273,7 @@ describe('Main', () => {
       measureElement: vi.fn(),
       measureRowElement: vi.fn(),
       measureCellElement: vi.fn(),
-      onRowClick: vi.fn(),
+      onRowMouseDown: vi.fn(),
       onCellClick: vi.fn(),
     };
 
@@ -389,7 +389,7 @@ describe('Main', () => {
       measureElement: vi.fn(),
       measureRowElement: vi.fn(),
       measureCellElement: vi.fn(),
-      onRowClick: vi.fn(),
+      onRowMouseDown: vi.fn(),
       onCellClick: vi.fn(),
     };
 

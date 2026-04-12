@@ -394,7 +394,7 @@ type RecordRowProps = {
   measureElement: (node: Element | null) => void;
   measureRowElement: (el: HTMLDivElement | null) => void;
   measureCellElement: (el: HTMLDivElement | null) => void;
-  onRowClick: (key: number, event: React.MouseEvent) => void;
+  onRowMouseDown: (key: number, event: React.MouseEvent) => void;
   onCellClick: (rowKey: number, col: ViewerColumn, event: React.MouseEvent) => void;
 };
 
@@ -414,7 +414,7 @@ export const RecordRow = memo(
     measureElement,
     measureRowElement,
     measureCellElement,
-    onRowClick,
+    onRowMouseDown,
     onCellClick,
   }: RecordRowProps) => {
     const els: React.ReactElement[] = [];
@@ -431,13 +431,13 @@ export const RecordRow = memo(
           !isSelected && row.index % 2 !== 0 && 'bg-chrome-100',
           row.key === 0 && 'border-l-2 border-green-500 font-extrabold pl-[7px]',
           row.key !== 0 && 'text-chrome-800',
-          'whitespace-nowrap tabular-nums text-[0.65rem] text-center pr-1.5 cursor-pointer select-none outline-none',
+          'whitespace-nowrap tabular-nums text-[0.65rem] text-center pr-1.5 cursor-default select-none outline-none',
         )}
-        onClick={(e) => onRowClick(row.key, e)}
+        onMouseDown={(e) => onRowMouseDown(row.key, e)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            onRowClick(row.key, e as unknown as React.MouseEvent);
+            onRowMouseDown(row.key, e as unknown as React.MouseEvent);
           }
         }}
       >
@@ -580,7 +580,7 @@ export const Main = () => {
     selectionBottomKeys,
     selectedCell,
     isTextSelectMode,
-    handleRowClick,
+    handleRowMouseDown,
     handleCellClick,
     resetSelection,
   } = useSelection(virtualizerRef);
@@ -694,7 +694,7 @@ export const Main = () => {
                     isCellTextSelectable={selectedCell?.rowKey === virtualRow.key && isTextSelectMode}
                     measureRowElement={measureRowElement}
                     measureCellElement={measureCellElement}
-                    onRowClick={handleRowClick}
+                    onRowMouseDown={handleRowMouseDown}
                     onCellClick={handleCellClick}
                   />
                 ))}

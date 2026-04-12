@@ -131,6 +131,10 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
   const lastClickedKeyRef = useRef(lastClickedKey);
   const selectedCellRef = useRef(selectedCell);
 
+  // Drag state refs (dragStartKeyRef !== null means a drag is active)
+  const dragStartKeyRef = useRef<number | null>(null);
+  const dragEndKeyRef = useRef<number | null>(null);
+
   useEffect(() => {
     selectedKeysRef.current = selectedKeys;
     lastClickedKeyRef.current = lastClickedKey;
@@ -157,20 +161,59 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
     setIsTextSelectMode(false);
   }, [setSelectedKeys, setLastClickedKey, setSelectedCell, setIsTextSelectMode]);
 
-  // Row click handler (Pos column)
-  const handleRowClick = useCallback(
+  // Row mousedown handler (Pos column) — supports click and drag-to-select
+  const handleRowMouseDown = useCallback(
     (key: number, event: React.MouseEvent) => {
-      const next = computeSelection({
-        prev: selectedKeysRef.current,
-        clickedKey: key,
-        shiftKey: event.shiftKey,
-        metaOrCtrlKey: event.metaKey || event.ctrlKey,
-        lastClickedKey: lastClickedKeyRef.current,
-      });
-      setSelectedKeys(next);
-      setLastClickedKey(key);
+      // Modifier clicks don't start a drag
+      if (event.shiftKey || event.metaKey || event.ctrlKey) {
+        const next = computeSelection({
+          prev: selectedKeysRef.current,
+          clickedKey: key,
+          shiftKey: event.shiftKey,
+          metaOrCtrlKey: event.metaKey || event.ctrlKey,
+          lastClickedKey: lastClickedKeyRef.current,
+        });
+        setSelectedKeys(next);
+        setLastClickedKey(key);
+        setSelectedCell(null);
+        setIsTextSelectMode(false);
+        return;
+      }
+
+      // Start drag
+      dragStartKeyRef.current = key;
+      dragEndKeyRef.current = key;
+      setSelectedKeys(new Set([key]));
       setSelectedCell(null);
       setIsTextSelectMode(false);
+
+      const onMouseMove = (e: MouseEvent) => {
+        if (dragStartKeyRef.current === null) return;
+        e.preventDefault();
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const rowEl = el?.closest('[data-row-key]') as HTMLElement | null;
+        if (!rowEl) return;
+        const endKey = Number(rowEl.dataset.rowKey);
+        if (Number.isNaN(endKey)) return;
+
+        dragEndKeyRef.current = endKey;
+        const minKey = Math.min(dragStartKeyRef.current, endKey);
+        const maxKey = Math.max(dragStartKeyRef.current, endKey);
+        const next = new Set<number>();
+        for (let k = minKey; k <= maxKey; k += 1) next.add(k);
+        setSelectedKeys(next);
+      };
+
+      const onMouseUp = () => {
+        setLastClickedKey(dragEndKeyRef.current);
+        dragStartKeyRef.current = null;
+        dragEndKeyRef.current = null;
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      };
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
     },
     [setSelectedKeys, setLastClickedKey, setSelectedCell, setIsTextSelectMode],
   );
@@ -240,7 +283,7 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
     selectionBottomKeys,
     selectedCell,
     isTextSelectMode,
-    handleRowClick,
+    handleRowMouseDown,
     handleCellClick,
     resetSelection: clearSelection,
   };
