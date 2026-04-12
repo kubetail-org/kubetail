@@ -18,9 +18,9 @@ import { createRef } from 'react';
 
 import type { LogRecord, LogViewerVirtualizer } from '@/components/widgets/log-viewer';
 
-import { getPlainAttribute, formatRowsForCopy, computeSelection, useSelection } from './selection';
+import { getPlainAttribute, formatRowsForCopy, formatCellsForCopy, computeSelection, useSelection } from './selection';
 import { ViewerColumn } from './shared';
-import { isTextSelectModeAtom, lastClickedKeyAtom, selectedCellAtom, visibleColsAtom } from './state';
+import { isTextSelectModeAtom, lastClickedKeyAtom, selectedCellsAtom, visibleColsAtom } from './state';
 
 const makeRecord = (overrides: Partial<LogRecord> = {}): LogRecord => ({
   timestamp: '2024-06-15T10:30:01.123Z',
@@ -120,6 +120,81 @@ describe('formatRowsForCopy', () => {
   it('returns empty string for empty records array', () => {
     const visibleCols = new Set([ViewerColumn.Message]);
     expect(formatRowsForCopy([], visibleCols)).toBe('');
+  });
+});
+
+describe('formatCellsForCopy', () => {
+  const records = [
+    makeRecord({ message: 'line one', timestamp: '2024-06-15T10:30:01.000Z' }),
+    makeRecord({ message: 'line two', timestamp: '2024-06-15T10:30:02.000Z' }),
+    makeRecord({ message: 'line three', timestamp: '2024-06-15T10:30:03.000Z' }),
+  ];
+
+  const getRecord = (key: number) => records[key];
+
+  it('formats a single selected cell', () => {
+    const selectedCells = new Map([[0, new Set([ViewerColumn.Message])]]);
+    const visibleCols = new Set([ViewerColumn.Timestamp, ViewerColumn.Message]);
+    const result = formatCellsForCopy(selectedCells, visibleCols, getRecord);
+    expect(result).toBe('line one');
+  });
+
+  it('formats multiple cells in the same row tab-separated', () => {
+    const selectedCells = new Map([[0, new Set([ViewerColumn.Timestamp, ViewerColumn.Message])]]);
+    const visibleCols = new Set([ViewerColumn.Timestamp, ViewerColumn.Message]);
+    const result = formatCellsForCopy(selectedCells, visibleCols, getRecord);
+    expect(result).toBe('Jun 15, 2024 10:30:01.000\tline one');
+  });
+
+  it('formats cells from different rows newline-separated', () => {
+    const selectedCells = new Map([
+      [0, new Set([ViewerColumn.Message])],
+      [1, new Set([ViewerColumn.Message])],
+    ]);
+    const visibleCols = new Set([ViewerColumn.Message]);
+    const result = formatCellsForCopy(selectedCells, visibleCols, getRecord);
+    expect(result).toBe('line one\nline two');
+  });
+
+  it('respects visibleCols order and skips unselected columns', () => {
+    const selectedCells = new Map([[0, new Set([ViewerColumn.Pod])]]);
+    const visibleCols = new Set([ViewerColumn.Timestamp, ViewerColumn.Pod, ViewerColumn.Message]);
+    const result = formatCellsForCopy(selectedCells, visibleCols, getRecord);
+    expect(result).toBe('my-pod-abc');
+  });
+
+  it('skips ColorDot column', () => {
+    const selectedCells = new Map([[0, new Set([ViewerColumn.ColorDot, ViewerColumn.Message])]]);
+    const visibleCols = new Set([ViewerColumn.ColorDot, ViewerColumn.Message]);
+    const result = formatCellsForCopy(selectedCells, visibleCols, getRecord);
+    expect(result).toBe('line one');
+  });
+
+  it('skips rows where getRecord returns undefined', () => {
+    const selectedCells = new Map([
+      [0, new Set([ViewerColumn.Message])],
+      [99, new Set([ViewerColumn.Message])],
+    ]);
+    const visibleCols = new Set([ViewerColumn.Message]);
+    const result = formatCellsForCopy(selectedCells, visibleCols, getRecord);
+    expect(result).toBe('line one');
+  });
+
+  it('sorts rows by key ascending', () => {
+    const selectedCells = new Map([
+      [2, new Set([ViewerColumn.Message])],
+      [0, new Set([ViewerColumn.Message])],
+    ]);
+    const visibleCols = new Set([ViewerColumn.Message]);
+    const result = formatCellsForCopy(selectedCells, visibleCols, getRecord);
+    expect(result).toBe('line one\nline three');
+  });
+
+  it('returns empty string for empty selection', () => {
+    const selectedCells = new Map<number, Set<ViewerColumn>>();
+    const visibleCols = new Set([ViewerColumn.Message]);
+    const result = formatCellsForCopy(selectedCells, visibleCols, getRecord);
+    expect(result).toBe('');
   });
 });
 
@@ -375,7 +450,7 @@ describe('useSelection', () => {
 
       act(() => result.current.handleCellClick(1, ViewerColumn.Message, clickEvent()));
 
-      expect(result.current.selectedCell).toEqual({ rowKey: 1, col: ViewerColumn.Message });
+      expect(result.current.selectedCells).toEqual(new Map([[1, new Set([ViewerColumn.Message])]]));
     });
 
     it('clears row selection when clicking a cell', () => {
@@ -390,7 +465,7 @@ describe('useSelection', () => {
       act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
 
       expect(result.current.selectedKeys.size).toBe(0);
-      expect(result.current.selectedCell).toEqual({ rowKey: 0, col: ViewerColumn.Message });
+      expect(result.current.selectedCells).toEqual(new Map([[0, new Set([ViewerColumn.Message])]]));
     });
 
     it('clears text-select mode when clicking without a native selection', () => {
@@ -409,16 +484,75 @@ describe('useSelection', () => {
 
       act(() => result.current.handleCellClick(0, ViewerColumn.ColorDot, clickEvent()));
 
-      expect(result.current.selectedCell).toBeNull();
+      expect(result.current.selectedCells).toEqual(new Map());
     });
 
-    it('replaces previously selected cell', () => {
+    it('replaces previously selected cell on plain click', () => {
       const { result } = renderUseSelection();
 
       act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
       act(() => result.current.handleCellClick(1, ViewerColumn.Pod, clickEvent()));
 
-      expect(result.current.selectedCell).toEqual({ rowKey: 1, col: ViewerColumn.Pod });
+      expect(result.current.selectedCells).toEqual(new Map([[1, new Set([ViewerColumn.Pod])]]));
+    });
+
+    it('adds cell to selection with meta+click', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
+      act(() => result.current.handleCellClick(1, ViewerColumn.Pod, clickEvent({ metaKey: true })));
+
+      expect(result.current.selectedCells).toEqual(
+        new Map([
+          [0, new Set([ViewerColumn.Message])],
+          [1, new Set([ViewerColumn.Pod])],
+        ]),
+      );
+    });
+
+    it('adds another column in same row with meta+click', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
+      act(() => result.current.handleCellClick(0, ViewerColumn.Timestamp, clickEvent({ metaKey: true })));
+
+      expect(result.current.selectedCells).toEqual(
+        new Map([[0, new Set([ViewerColumn.Message, ViewerColumn.Timestamp])]]),
+      );
+    });
+
+    it('removes cell from selection with meta+click when already selected', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent({ metaKey: true })));
+
+      expect(result.current.selectedCells).toEqual(new Map());
+    });
+
+    it('removes cell and cleans up empty row entry', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
+      act(() => result.current.handleCellClick(1, ViewerColumn.Pod, clickEvent({ metaKey: true })));
+      // Now remove the only cell in row 0
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent({ metaKey: true })));
+
+      expect(result.current.selectedCells).toEqual(new Map([[1, new Set([ViewerColumn.Pod])]]));
+    });
+
+    it('adds cell with ctrl+click', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
+      act(() => result.current.handleCellClick(1, ViewerColumn.Message, clickEvent({ ctrlKey: true })));
+
+      expect(result.current.selectedCells).toEqual(
+        new Map([
+          [0, new Set([ViewerColumn.Message])],
+          [1, new Set([ViewerColumn.Message])],
+        ]),
+      );
     });
   });
 
@@ -573,11 +707,11 @@ describe('useSelection', () => {
       const { result } = renderUseSelection();
 
       act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
-      expect(result.current.selectedCell).not.toBeNull();
+      expect(result.current.selectedCells.size).toBeGreaterThan(0);
 
       act(() => result.current.handleRowMouseDown(1, clickEvent()));
 
-      expect(result.current.selectedCell).toBeNull();
+      expect(result.current.selectedCells.size).toBe(0);
       expect(result.current.isTextSelectMode).toBe(false);
 
       act(() => {
@@ -702,21 +836,21 @@ describe('useSelection', () => {
       const { result } = renderUseSelection();
 
       act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
-      expect(result.current.selectedCell).not.toBeNull();
+      expect(result.current.selectedCells.size).toBeGreaterThan(0);
 
       act(() => result.current.handleRowMouseDown(0, clickEvent()));
       act(() => {
         fireEvent.mouseUp(document);
       });
 
-      expect(result.current.selectedCell).toBeNull();
+      expect(result.current.selectedCells.size).toBe(0);
     });
 
     it('clears text-select mode when mousedown on Pos column', () => {
       const { result, store } = renderUseSelection();
 
       act(() => {
-        store.set(selectedCellAtom, { rowKey: 0, col: ViewerColumn.Message });
+        store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Message])]]));
         store.set(isTextSelectModeAtom, true);
       });
 
@@ -747,13 +881,13 @@ describe('useSelection', () => {
       const { result, store } = renderUseSelection();
 
       act(() => {
-        store.set(selectedCellAtom, { rowKey: 0, col: ViewerColumn.Message });
+        store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Message])]]));
         store.set(isTextSelectModeAtom, true);
       });
 
       act(() => result.current.resetSelection());
 
-      expect(result.current.selectedCell).toBeNull();
+      expect(result.current.selectedCells.size).toBe(0);
       expect(result.current.isTextSelectMode).toBe(false);
     });
   });
@@ -861,24 +995,54 @@ describe('useSelection', () => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith('log message 1');
     });
 
+    it('copies multiple selected cells on Cmd+C', () => {
+      const { result } = renderUseSelection((store) => {
+        store.set(visibleColsAtom, new Set([ViewerColumn.Pod, ViewerColumn.Message]));
+      });
+
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
+      act(() => result.current.handleCellClick(1, ViewerColumn.Message, clickEvent({ metaKey: true })));
+
+      act(() => {
+        fireEvent.keyDown(document, { key: 'c', metaKey: true });
+      });
+
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('log message 0\nlog message 1');
+    });
+
+    it('copies multiple cells in same row tab-separated on Cmd+C', () => {
+      const { result } = renderUseSelection((store) => {
+        store.set(visibleColsAtom, new Set([ViewerColumn.Pod, ViewerColumn.Message]));
+      });
+
+      act(() => result.current.handleCellClick(0, ViewerColumn.Pod, clickEvent()));
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent({ metaKey: true })));
+
+      act(() => {
+        fireEvent.keyDown(document, { key: 'c', metaKey: true });
+      });
+
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('my-pod-abc\tlog message 0');
+    });
+
     it('clears cell selection on Escape', () => {
       const { result } = renderUseSelection();
 
       act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
-      expect(result.current.selectedCell).not.toBeNull();
+      expect(result.current.selectedCells.size).toBeGreaterThan(0);
 
       act(() => {
         fireEvent.keyDown(document, { key: 'Escape' });
       });
 
-      expect(result.current.selectedCell).toBeNull();
+      expect(result.current.selectedCells.size).toBe(0);
     });
 
     it('clears text-select mode on Escape', () => {
       const { result, store } = renderUseSelection();
 
       act(() => {
-        store.set(selectedCellAtom, { rowKey: 0, col: ViewerColumn.Message });
+        store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Message])]]));
         store.set(isTextSelectModeAtom, true);
       });
 

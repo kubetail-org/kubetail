@@ -389,7 +389,7 @@ type RecordRowProps = {
   isSelectionBottom: boolean;
   maxRowWidth: number;
   colWidths: Map<ViewerColumn, number>;
-  selectedCellCol: ViewerColumn | null;
+  selectedCellCols: Set<ViewerColumn> | undefined;
   isCellTextSelectable: boolean;
   measureElement: (node: Element | null) => void;
   measureRowElement: (el: HTMLDivElement | null) => void;
@@ -409,7 +409,7 @@ export const RecordRow = memo(
     isSelectionBottom,
     maxRowWidth,
     colWidths,
-    selectedCellCol,
+    selectedCellCols,
     isCellTextSelectable,
     measureElement,
     measureRowElement,
@@ -450,7 +450,7 @@ export const RecordRow = memo(
       const minWidth = isWrap && col === ViewerColumn.Message ? undefined : colWidths.get(col);
       const shouldWrap = isWrap && col === ViewerColumn.Message;
       const isTimestamp = col === ViewerColumn.Timestamp;
-      const isCellSelected = selectedCellCol === col;
+      const isCellSelected = selectedCellCols?.has(col) ?? false;
       const isColorDot = col === ViewerColumn.ColorDot;
 
       let cellBg: string | false;
@@ -519,7 +519,7 @@ export const RecordRow = memo(
         data-row-key={row.key}
         role="row"
         aria-selected={isSelected}
-        className={cn('absolute top-0 left-0 grid leading-6 group', selectedCellCol && 'z-10')}
+        className={cn('absolute top-0 left-0 grid leading-6 group', selectedCellCols && 'z-10')}
         style={{
           gridTemplateColumns: gridTemplate,
           minWidth: isWrap ? '100%' : maxRowWidth || '100%',
@@ -544,7 +544,7 @@ export const RecordRow = memo(
     if (prev.isSelectionBottom !== next.isSelectionBottom) return false;
     if (prev.maxRowWidth !== next.maxRowWidth) return false;
     if (prev.colWidths !== next.colWidths) return false;
-    if (prev.selectedCellCol !== next.selectedCellCol) return false;
+    if (prev.selectedCellCols !== next.selectedCellCols) return false;
     if (prev.isCellTextSelectable !== next.isCellTextSelectable) return false;
     return true;
   },
@@ -578,7 +578,7 @@ export const Main = () => {
     selectedKeys,
     selectionTopKeys,
     selectionBottomKeys,
-    selectedCell,
+    selectedCells,
     isTextSelectMode,
     handleRowMouseDown,
     handleCellClick,
@@ -690,8 +690,10 @@ export const Main = () => {
                     isSelectionBottom={selectionBottomKeys.has(virtualRow.key)}
                     maxRowWidth={maxRowWidth}
                     colWidths={colWidths}
-                    selectedCellCol={selectedCell?.rowKey === virtualRow.key ? selectedCell.col : null}
-                    isCellTextSelectable={selectedCell?.rowKey === virtualRow.key && isTextSelectMode}
+                    selectedCellCols={selectedCells.get(virtualRow.key)}
+                    isCellTextSelectable={
+                      isTextSelectMode && selectedCells.size === 1 && selectedCells.has(virtualRow.key)
+                    }
                     measureRowElement={measureRowElement}
                     measureCellElement={measureCellElement}
                     onRowMouseDown={handleRowMouseDown}

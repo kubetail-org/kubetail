@@ -21,7 +21,13 @@ import { stripAnsi } from 'fancy-ansi';
 import type { LogRecord, LogViewerVirtualizer } from '@/components/widgets/log-viewer';
 
 import { ViewerColumn } from './shared';
-import { isTextSelectModeAtom, lastClickedKeyAtom, selectedCellAtom, selectedKeysAtom, visibleColsAtom } from './state';
+import {
+  isTextSelectModeAtom,
+  lastClickedKeyAtom,
+  selectedCellsAtom,
+  selectedKeysAtom,
+  visibleColsAtom,
+} from './state';
 
 /**
  * getPlainAttribute - Returns a plain text string for a given log record column.
@@ -57,19 +63,46 @@ export function getPlainAttribute(record: LogRecord, col: ViewerColumn): string 
 }
 
 /**
+ * formatRow - Formats a single record as tab-separated column values.
+ * ColorDot is skipped. When filter is provided, only matching columns are included.
+ */
+function formatRow(record: LogRecord, visibleCols: Set<ViewerColumn>, filter?: Set<ViewerColumn>): string {
+  const parts: string[] = [];
+  visibleCols.forEach((col) => {
+    if (col === ViewerColumn.ColorDot) return;
+    if (filter && !filter.has(col)) return;
+    parts.push(getPlainAttribute(record, col));
+  });
+  return parts.join('\t');
+}
+
+/**
  * formatRowsForCopy - Formats an array of log records as copyable text.
  * Columns are tab-separated, rows are newline-separated. ColorDot is skipped.
  */
 export function formatRowsForCopy(records: LogRecord[], visibleCols: Set<ViewerColumn>): string {
-  return records
-    .map((record) => {
-      const parts: string[] = [];
-      visibleCols.forEach((col) => {
-        if (col === ViewerColumn.ColorDot) return;
-        parts.push(getPlainAttribute(record, col));
-      });
-      return parts.join('\t');
+  return records.map((record) => formatRow(record, visibleCols)).join('\n');
+}
+
+/**
+ * formatCellsForCopy - Formats selected cells as copyable text.
+ * Columns are tab-separated within a row, rows are newline-separated. ColorDot is skipped.
+ * Rows are sorted by key ascending; only selected columns (in visibleCols order) are included.
+ */
+export function formatCellsForCopy(
+  selectedCells: Map<number, Set<ViewerColumn>>,
+  visibleCols: Set<ViewerColumn>,
+  getRecord: (key: number) => LogRecord | undefined,
+): string {
+  return [...selectedCells.keys()]
+    .sort((a, b) => a - b)
+    .map((rowKey) => {
+      const record = getRecord(rowKey);
+      if (!record) return null;
+      const text = formatRow(record, visibleCols, selectedCells.get(rowKey));
+      return text || null;
     })
+    .filter((line): line is string => line !== null)
     .join('\n');
 }
 
@@ -123,13 +156,13 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
   const visibleCols = useAtomValue(visibleColsAtom);
   const [selectedKeys, setSelectedKeys] = useAtom(selectedKeysAtom);
   const [lastClickedKey, setLastClickedKey] = useAtom(lastClickedKeyAtom);
-  const [selectedCell, setSelectedCell] = useAtom(selectedCellAtom);
+  const [selectedCells, setSelectedCells] = useAtom(selectedCellsAtom);
   const [isTextSelectMode, setIsTextSelectMode] = useAtom(isTextSelectModeAtom);
 
   // Refs to avoid stale closures in callbacks
   const selectedKeysRef = useRef(selectedKeys);
   const lastClickedKeyRef = useRef(lastClickedKey);
-  const selectedCellRef = useRef(selectedCell);
+  const selectedCellsRef = useRef(selectedCells);
 
   // Drag state refs (dragStartKeyRef !== null means a drag is active)
   const dragStartKeyRef = useRef<number | null>(null);
@@ -139,8 +172,8 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
   useEffect(() => {
     selectedKeysRef.current = selectedKeys;
     lastClickedKeyRef.current = lastClickedKey;
-    selectedCellRef.current = selectedCell;
-  }, [selectedKeys, lastClickedKey, selectedCell]);
+    selectedCellsRef.current = selectedCells;
+  }, [selectedKeys, lastClickedKey, selectedCells]);
 
   // Pre-compute selection boundary sets (keys are sequential integers)
   const { selectionTopKeys, selectionBottomKeys } = useMemo(() => {
@@ -158,9 +191,9 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
   const clearSelection = useCallback(() => {
     setSelectedKeys(new Set());
     setLastClickedKey(null);
-    setSelectedCell(null);
+    setSelectedCells(new Map());
     setIsTextSelectMode(false);
-  }, [setSelectedKeys, setLastClickedKey, setSelectedCell, setIsTextSelectMode]);
+  }, [setSelectedKeys, setLastClickedKey, setSelectedCells, setIsTextSelectMode]);
 
   // Row mousedown handler (Pos column) — supports click and drag-to-select
   const handleRowMouseDown = useCallback(
@@ -176,7 +209,7 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
         });
         setSelectedKeys(next);
         setLastClickedKey(key);
-        setSelectedCell(null);
+        if (selectedCellsRef.current.size > 0) setSelectedCells(new Map());
         setIsTextSelectMode(false);
         return;
       }
@@ -185,7 +218,7 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
       dragStartKeyRef.current = key;
       dragEndKeyRef.current = key;
       setSelectedKeys(new Set([key]));
-      setSelectedCell(null);
+      if (selectedCellsRef.current.size > 0) setSelectedCells(new Map());
       setIsTextSelectMode(false);
 
       let rafId: number | null = null;
@@ -239,21 +272,40 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
       document.addEventListener('mousemove', onMouseMove, { signal });
       document.addEventListener('mouseup', onMouseUp, { signal });
     },
-    [setSelectedKeys, setLastClickedKey, setSelectedCell, setIsTextSelectMode],
+    [setSelectedKeys, setLastClickedKey, setSelectedCells, setIsTextSelectMode],
   );
 
-  // Cell click handler (data cells)
+  // Cell click handler (data cells) — supports Cmd/Ctrl+click for multi-cell selection
   const handleCellClick = useCallback(
     (rowKey: number, col: ViewerColumn, event: React.MouseEvent) => {
       if (col === ViewerColumn.ColorDot) return;
       event.stopPropagation();
       const hasTextSelection = !window.getSelection()?.isCollapsed;
-      setSelectedCell({ rowKey, col });
-      setSelectedKeys(new Set());
+
+      if (event.metaKey || event.ctrlKey) {
+        // Toggle cell in/out of selection
+        const next = new Map(selectedCellsRef.current);
+        const newCols = new Set(next.get(rowKey) ?? []);
+        if (newCols.has(col)) {
+          newCols.delete(col);
+        } else {
+          newCols.add(col);
+        }
+        if (newCols.size === 0) {
+          next.delete(rowKey);
+        } else {
+          next.set(rowKey, newCols);
+        }
+        setSelectedCells(next);
+      } else {
+        setSelectedCells(new Map([[rowKey, new Set([col])]]));
+      }
+
+      if (selectedKeysRef.current.size > 0) setSelectedKeys(new Set());
       setLastClickedKey(null);
       setIsTextSelectMode(hasTextSelection);
     },
-    [setSelectedCell, setSelectedKeys, setLastClickedKey, setIsTextSelectMode],
+    [setSelectedCells, setSelectedKeys, setLastClickedKey, setIsTextSelectMode],
   );
 
   // Keyboard shortcuts
@@ -271,16 +323,14 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
         const nativeSel = window.getSelection();
         if (nativeSel && !nativeSel.isCollapsed) return;
 
-        // Copy selected cell text
-        const cell = selectedCellRef.current;
-        if (cell) {
+        // Copy selected cells
+        const cells = selectedCellsRef.current;
+        if (cells.size > 0) {
           e.preventDefault();
           const v = virtualizerRef.current;
           if (!v) return;
-          const record = v.getRecord(cell.rowKey);
-          if (record) {
-            navigator.clipboard.writeText(getPlainAttribute(record, cell.col));
-          }
+          const text = formatCellsForCopy(cells, visibleCols, (k) => v.getRecord(k));
+          navigator.clipboard.writeText(text);
           return;
         }
 
@@ -313,7 +363,7 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
     selectedKeys,
     selectionTopKeys,
     selectionBottomKeys,
-    selectedCell,
+    selectedCells,
     isTextSelectMode,
     handleRowMouseDown,
     handleCellClick,

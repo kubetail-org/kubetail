@@ -197,7 +197,7 @@ describe('Main', () => {
       isSelectionBottom: false,
       maxRowWidth: 500,
       colWidths: new Map<ViewerColumn, number>(),
-      selectedCellCol: null as ViewerColumn | null,
+      selectedCellCols: undefined as Set<ViewerColumn> | undefined,
       isCellTextSelectable: false,
       measureElement: vi.fn(),
       measureRowElement: vi.fn(),
@@ -268,7 +268,7 @@ describe('Main', () => {
       isSelectionBottom: false,
       maxRowWidth: 500,
       colWidths: new Map<ViewerColumn, number>(),
-      selectedCellCol: null as ViewerColumn | null,
+      selectedCellCols: undefined as Set<ViewerColumn> | undefined,
       isCellTextSelectable: false,
       measureElement: vi.fn(),
       measureRowElement: vi.fn(),
@@ -278,7 +278,7 @@ describe('Main', () => {
     };
 
     it('sets userSelect to auto on mousedown of selected cell', () => {
-      render(<RecordRow {...defaultProps} selectedCellCol={ViewerColumn.Message} />);
+      render(<RecordRow {...defaultProps} selectedCellCols={new Set([ViewerColumn.Message])} />);
       const messageCell = document.querySelector('[data-col-id="Message"]') as HTMLElement;
       fireEvent.mouseDown(messageCell);
       expect(messageCell.style.userSelect).toBe('auto');
@@ -318,26 +318,38 @@ describe('Main', () => {
     });
 
     it('selected cell shows ring highlight', () => {
-      render(<RecordRow {...defaultProps} selectedCellCol={ViewerColumn.Message} />);
+      render(<RecordRow {...defaultProps} selectedCellCols={new Set([ViewerColumn.Message])} />);
       const messageCell = document.querySelector('[data-col-id="Message"]') as HTMLElement;
       expect(messageCell.classList.contains('ring-2')).toBe(true);
       expect(messageCell.classList.contains('ring-blue-500')).toBe(true);
     });
 
     it('non-selected cells do not show ring highlight', () => {
-      render(<RecordRow {...defaultProps} selectedCellCol={ViewerColumn.Message} />);
+      render(<RecordRow {...defaultProps} selectedCellCols={new Set([ViewerColumn.Message])} />);
       const timestampCell = document.querySelector('[data-col-id="Timestamp"]') as HTMLElement;
       expect(timestampCell.classList.contains('ring-2')).toBe(false);
     });
 
+    it('multiple selected cells in same row show ring highlight on each', () => {
+      render(
+        <RecordRow {...defaultProps} selectedCellCols={new Set([ViewerColumn.Timestamp, ViewerColumn.Message])} />,
+      );
+      const timestampCell = document.querySelector('[data-col-id="Timestamp"]') as HTMLElement;
+      const messageCell = document.querySelector('[data-col-id="Message"]') as HTMLElement;
+      expect(timestampCell.classList.contains('ring-2')).toBe(true);
+      expect(timestampCell.classList.contains('ring-blue-500')).toBe(true);
+      expect(messageCell.classList.contains('ring-2')).toBe(true);
+      expect(messageCell.classList.contains('ring-blue-500')).toBe(true);
+    });
+
     it('selected cell in text-select mode has userSelect auto style', () => {
-      render(<RecordRow {...defaultProps} selectedCellCol={ViewerColumn.Message} isCellTextSelectable />);
+      render(<RecordRow {...defaultProps} selectedCellCols={new Set([ViewerColumn.Message])} isCellTextSelectable />);
       const messageCell = document.querySelector('[data-col-id="Message"]') as HTMLElement;
       expect(messageCell.style.userSelect).toBe('auto');
     });
 
     it('non-selected cells do not have userSelect auto when another cell is text-selectable', () => {
-      render(<RecordRow {...defaultProps} selectedCellCol={ViewerColumn.Message} isCellTextSelectable />);
+      render(<RecordRow {...defaultProps} selectedCellCols={new Set([ViewerColumn.Message])} isCellTextSelectable />);
       const timestampCell = document.querySelector('[data-col-id="Timestamp"]') as HTMLElement;
       expect(timestampCell.style.userSelect).toBe('');
     });
@@ -349,7 +361,7 @@ describe('Main', () => {
     });
 
     it('selected cell has cursor-text class', () => {
-      render(<RecordRow {...defaultProps} selectedCellCol={ViewerColumn.Message} />);
+      render(<RecordRow {...defaultProps} selectedCellCols={new Set([ViewerColumn.Message])} />);
       const messageCell = document.querySelector('[data-col-id="Message"]') as HTMLElement;
       expect(messageCell.classList.contains('cursor-text')).toBe(true);
     });
@@ -384,7 +396,7 @@ describe('Main', () => {
       isSelectionBottom: false,
       maxRowWidth: 500,
       colWidths: new Map<ViewerColumn, number>(),
-      selectedCellCol: null as ViewerColumn | null,
+      selectedCellCols: undefined as Set<ViewerColumn> | undefined,
       isCellTextSelectable: false,
       measureElement: vi.fn(),
       measureRowElement: vi.fn(),
