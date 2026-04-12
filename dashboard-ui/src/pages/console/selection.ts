@@ -116,7 +116,7 @@ export function computeCellRange(
   target: { rowKey: number; col: ViewerColumn },
   visibleCols: Set<ViewerColumn>,
 ): Map<number, Set<ViewerColumn>> {
-  const cols = [...visibleCols].filter((c) => c !== ViewerColumn.ColorDot);
+  const cols: ViewerColumn[] = [...visibleCols].filter((c) => c !== ViewerColumn.ColorDot);
   const anchorIdx = cols.indexOf(anchor.col);
   const targetIdx = cols.indexOf(target.col);
 
@@ -358,6 +358,17 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
       if (selectedKeysRef.current.size > 0) setSelectedKeys(new Set());
       setLastClickedKey(null);
       setIsTextSelectMode(hasTextSelection);
+
+      // Keep default cursor until mouse moves, then let the cursor-text class take over
+      const el = event.currentTarget as HTMLElement;
+      el.style.cursor = 'default';
+      document.addEventListener(
+        'mousemove',
+        () => {
+          el.style.cursor = '';
+        },
+        { once: true },
+      );
     },
     [visibleCols, setSelectedCells, setLastClickedCell, setSelectedKeys, setLastClickedKey, setIsTextSelectMode],
   );

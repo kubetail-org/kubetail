@@ -430,6 +430,7 @@ describe('useSelection', () => {
       metaKey: false,
       ctrlKey: false,
       stopPropagation: vi.fn(),
+      currentTarget: document.createElement('div'),
       ...overrides,
     }) as unknown as React.MouseEvent;
 
@@ -584,6 +585,44 @@ describe('useSelection', () => {
       act(() => result.current.handleCellClick(1, ViewerColumn.Message, clickEvent()));
 
       expect(result.current.isTextSelectMode).toBe(false);
+    });
+
+    it('sets cursor to default on clicked cell element', () => {
+      const { result } = renderUseSelection();
+      const el = document.createElement('div');
+
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent({ currentTarget: el })));
+
+      expect(el.style.cursor).toBe('default');
+    });
+
+    it('restores cursor on mousemove after cell click', () => {
+      const { result } = renderUseSelection();
+      const el = document.createElement('div');
+
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent({ currentTarget: el })));
+
+      act(() => {
+        fireEvent.mouseMove(document);
+      });
+
+      expect(el.style.cursor).toBe('');
+    });
+
+    it('sets cursor to default on new cell click element', () => {
+      const { result } = renderUseSelection();
+      const elA = document.createElement('div');
+      const elB = document.createElement('div');
+
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent({ currentTarget: elA })));
+      act(() => {
+        fireEvent.mouseMove(document);
+      });
+      expect(elA.style.cursor).toBe('');
+
+      act(() => result.current.handleCellClick(1, ViewerColumn.Pod, clickEvent({ currentTarget: elB })));
+
+      expect(elB.style.cursor).toBe('default');
     });
 
     it('ignores ColorDot column clicks', () => {
