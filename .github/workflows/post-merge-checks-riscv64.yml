@@ -1,4 +1,4 @@
-name: riscv64-post-merge-checks
+name: post-merge-checks-riscv64
 
 permissions:
   contents: read
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  go-test-riscv64:
+  go-test:
     strategy:
       matrix:
         module:
