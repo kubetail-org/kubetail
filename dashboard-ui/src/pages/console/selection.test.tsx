@@ -1904,29 +1904,30 @@ describe('useCellDrag', () => {
     expect(store.get(selectedCellsAtom)).toEqual(multiSelection);
   });
 
-  it('right-click on a non-selected cell selects it', () => {
+  it('right-click on a non-selected cell preserves existing selection', () => {
     const { result, store } = renderWithState((state) => useCellDrag(state));
 
+    const original = new Map([[0, new Set([ViewerColumn.Message])]]);
     act(() => {
-      store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Message])]]));
+      store.set(selectedCellsAtom, original);
     });
 
     act(() => result.current.handleCellMouseDown(1, ViewerColumn.Message, clickEvent({ button: 2 })));
 
-    expect(store.get(selectedCellsAtom)).toEqual(new Map([[1, new Set([ViewerColumn.Message])]]));
+    expect(store.get(selectedCellsAtom)).toEqual(original);
   });
 
-  it('Ctrl+click (macOS right-click) on a non-selected cell selects it', () => {
+  it('Ctrl+click (macOS right-click) on a non-selected cell preserves existing selection', () => {
     const { result, store } = renderWithState((state) => useCellDrag(state));
 
+    const original = new Map([[0, new Set([ViewerColumn.Message])]]);
     act(() => {
-      store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Message])]]));
+      store.set(selectedCellsAtom, original);
     });
 
-    // macOS Ctrl+click on a different cell
     act(() => result.current.handleCellMouseDown(1, ViewerColumn.Message, clickEvent({ button: 0, ctrlKey: true })));
 
-    expect(store.get(selectedCellsAtom)).toEqual(new Map([[1, new Set([ViewerColumn.Message])]]));
+    expect(store.get(selectedCellsAtom)).toEqual(original);
   });
 });
 
