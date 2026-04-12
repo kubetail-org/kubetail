@@ -379,6 +379,20 @@ function selectionBoxShadow(isTop: boolean, isBottom: boolean): string | undefin
   return undefined;
 }
 
+function cellSelectionBoxShadow(
+  isTop: boolean,
+  isBottom: boolean,
+  isLeft: boolean,
+  isRight: boolean,
+): string | undefined {
+  const shadows: string[] = [];
+  if (isTop) shadows.push('inset 0 2px 0 0 var(--color-blue-500)');
+  if (isBottom) shadows.push('inset 0 -2px 0 0 var(--color-blue-500)');
+  if (isLeft) shadows.push('inset 2px 0 0 0 var(--color-blue-500)');
+  if (isRight) shadows.push('inset -2px 0 0 0 var(--color-blue-500)');
+  return shadows.length > 0 ? shadows.join(', ') : undefined;
+}
+
 type RecordRowProps = {
   row: LogViewerVirtualRow;
   gridTemplate: string;
@@ -390,6 +404,8 @@ type RecordRowProps = {
   maxRowWidth: number;
   colWidths: Map<ViewerColumn, number>;
   selectedCellCols: Set<ViewerColumn> | undefined;
+  selectedCellColsAbove: Set<ViewerColumn> | undefined;
+  selectedCellColsBelow: Set<ViewerColumn> | undefined;
   isCellTextSelectable: boolean;
   measureElement: (node: Element | null) => void;
   measureRowElement: (el: HTMLDivElement | null) => void;
@@ -410,6 +426,8 @@ export const RecordRow = memo(
     maxRowWidth,
     colWidths,
     selectedCellCols,
+    selectedCellColsAbove,
+    selectedCellColsBelow,
     isCellTextSelectable,
     measureElement,
     measureRowElement,
@@ -446,7 +464,9 @@ export const RecordRow = memo(
       </div>,
     );
 
-    visibleCols.forEach((col) => {
+    const colsArray = [...visibleCols];
+    for (let i = 0; i < colsArray.length; i += 1) {
+      const col = colsArray[i];
       const minWidth = isWrap && col === ViewerColumn.Message ? undefined : colWidths.get(col);
       const shouldWrap = isWrap && col === ViewerColumn.Message;
       const isTimestamp = col === ViewerColumn.Timestamp;
@@ -460,18 +480,27 @@ export const RecordRow = memo(
         cellBg = isTimestamp ? 'bg-chrome-200' : row.index % 2 !== 0 && 'bg-chrome-100';
       }
 
+      let cellShadow: string | undefined;
+      if (isCellSelected) {
+        const isEdgeTop = !selectedCellColsAbove?.has(col);
+        const isEdgeBottom = !selectedCellColsBelow?.has(col);
+        const isEdgeLeft = i === 0 || !selectedCellCols!.has(colsArray[i - 1]);
+        const isEdgeRight = i === colsArray.length - 1 || !selectedCellCols!.has(colsArray[i + 1]);
+        cellShadow = cellSelectionBoxShadow(isEdgeTop, isEdgeBottom, isEdgeLeft, isEdgeRight);
+      }
+
       const cellClassName = cn(
         cellBg,
         'px-2',
         shouldWrap ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-nowrap',
         !isColorDot && (isCellSelected ? 'cursor-text' : 'cursor-default'),
         'select-none',
-        isCellSelected && 'ring-2 ring-blue-500 ring-inset',
       );
 
       const cellStyle: React.CSSProperties = {
         ...(minWidth && { minWidth: `${minWidth}px` }),
         ...(isCellSelected && isCellTextSelectable && { userSelect: 'auto' as const }),
+        ...(cellShadow && { boxShadow: cellShadow }),
       };
 
       els.push(
@@ -507,7 +536,7 @@ export const RecordRow = memo(
           </div>
         </CellContextMenu>,
       );
-    });
+    }
 
     return (
       <div
@@ -545,6 +574,8 @@ export const RecordRow = memo(
     if (prev.maxRowWidth !== next.maxRowWidth) return false;
     if (prev.colWidths !== next.colWidths) return false;
     if (prev.selectedCellCols !== next.selectedCellCols) return false;
+    if (prev.selectedCellColsAbove !== next.selectedCellColsAbove) return false;
+    if (prev.selectedCellColsBelow !== next.selectedCellColsBelow) return false;
     if (prev.isCellTextSelectable !== next.isCellTextSelectable) return false;
     return true;
   },
@@ -691,6 +722,8 @@ export const Main = () => {
                     maxRowWidth={maxRowWidth}
                     colWidths={colWidths}
                     selectedCellCols={selectedCells.get(virtualRow.key)}
+                    selectedCellColsAbove={selectedCells.get(virtualRow.key - 1)}
+                    selectedCellColsBelow={selectedCells.get(virtualRow.key + 1)}
                     isCellTextSelectable={
                       isTextSelectMode && selectedCells.size === 1 && selectedCells.has(virtualRow.key)
                     }

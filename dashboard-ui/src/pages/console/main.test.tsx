@@ -198,6 +198,8 @@ describe('Main', () => {
       maxRowWidth: 500,
       colWidths: new Map<ViewerColumn, number>(),
       selectedCellCols: undefined as Set<ViewerColumn> | undefined,
+      selectedCellColsAbove: undefined as Set<ViewerColumn> | undefined,
+      selectedCellColsBelow: undefined as Set<ViewerColumn> | undefined,
       isCellTextSelectable: false,
       measureElement: vi.fn(),
       measureRowElement: vi.fn(),
@@ -269,6 +271,8 @@ describe('Main', () => {
       maxRowWidth: 500,
       colWidths: new Map<ViewerColumn, number>(),
       selectedCellCols: undefined as Set<ViewerColumn> | undefined,
+      selectedCellColsAbove: undefined as Set<ViewerColumn> | undefined,
+      selectedCellColsBelow: undefined as Set<ViewerColumn> | undefined,
       isCellTextSelectable: false,
       measureElement: vi.fn(),
       measureRowElement: vi.fn(),
@@ -317,29 +321,60 @@ describe('Main', () => {
       expect(messageCell.classList.contains('select-none')).toBe(true);
     });
 
-    it('selected cell shows ring highlight', () => {
+    it('single selected cell has all 4 edge shadows', () => {
       render(<RecordRow {...defaultProps} selectedCellCols={new Set([ViewerColumn.Message])} />);
       const messageCell = document.querySelector('[data-col-id="Message"]') as HTMLElement;
-      expect(messageCell.classList.contains('ring-2')).toBe(true);
-      expect(messageCell.classList.contains('ring-blue-500')).toBe(true);
+      const shadow = messageCell.style.boxShadow;
+      expect(shadow).toContain('inset 0 2px 0 0'); // top
+      expect(shadow).toContain('inset 0 -2px 0 0'); // bottom
+      expect(shadow).toContain('inset 2px 0 0 0'); // left
+      expect(shadow).toContain('inset -2px 0 0 0'); // right
     });
 
-    it('non-selected cells do not show ring highlight', () => {
+    it('non-selected cells have no boxShadow', () => {
       render(<RecordRow {...defaultProps} selectedCellCols={new Set([ViewerColumn.Message])} />);
       const timestampCell = document.querySelector('[data-col-id="Timestamp"]') as HTMLElement;
-      expect(timestampCell.classList.contains('ring-2')).toBe(false);
+      expect(timestampCell.style.boxShadow).toBe('');
     });
 
-    it('multiple selected cells in same row show ring highlight on each', () => {
+    it('adjacent selected cells share edges (no inner border)', () => {
       render(
         <RecordRow {...defaultProps} selectedCellCols={new Set([ViewerColumn.Timestamp, ViewerColumn.Message])} />,
       );
       const timestampCell = document.querySelector('[data-col-id="Timestamp"]') as HTMLElement;
       const messageCell = document.querySelector('[data-col-id="Message"]') as HTMLElement;
-      expect(timestampCell.classList.contains('ring-2')).toBe(true);
-      expect(timestampCell.classList.contains('ring-blue-500')).toBe(true);
-      expect(messageCell.classList.contains('ring-2')).toBe(true);
-      expect(messageCell.classList.contains('ring-blue-500')).toBe(true);
+      // Timestamp: has left edge, no right edge (Message is adjacent)
+      expect(timestampCell.style.boxShadow).toContain('inset 2px 0 0 0'); // left
+      expect(timestampCell.style.boxShadow).not.toContain('inset -2px 0 0 0'); // no right
+      // Message: no left edge (Timestamp is adjacent), has right edge
+      expect(messageCell.style.boxShadow).not.toContain('inset 2px 0 0 0'); // no left
+      expect(messageCell.style.boxShadow).toContain('inset -2px 0 0 0'); // right
+    });
+
+    it('cell with selectedCellColsAbove has no top border', () => {
+      render(
+        <RecordRow
+          {...defaultProps}
+          selectedCellCols={new Set([ViewerColumn.Message])}
+          selectedCellColsAbove={new Set([ViewerColumn.Message])}
+        />,
+      );
+      const messageCell = document.querySelector('[data-col-id="Message"]') as HTMLElement;
+      expect(messageCell.style.boxShadow).not.toContain('inset 0 2px 0 0'); // no top
+      expect(messageCell.style.boxShadow).toContain('inset 0 -2px 0 0'); // bottom
+    });
+
+    it('cell with selectedCellColsBelow has no bottom border', () => {
+      render(
+        <RecordRow
+          {...defaultProps}
+          selectedCellCols={new Set([ViewerColumn.Message])}
+          selectedCellColsBelow={new Set([ViewerColumn.Message])}
+        />,
+      );
+      const messageCell = document.querySelector('[data-col-id="Message"]') as HTMLElement;
+      expect(messageCell.style.boxShadow).toContain('inset 0 2px 0 0'); // top
+      expect(messageCell.style.boxShadow).not.toContain('inset 0 -2px 0 0'); // no bottom
     });
 
     it('selected cell in text-select mode has userSelect auto style', () => {
@@ -397,6 +432,8 @@ describe('Main', () => {
       maxRowWidth: 500,
       colWidths: new Map<ViewerColumn, number>(),
       selectedCellCols: undefined as Set<ViewerColumn> | undefined,
+      selectedCellColsAbove: undefined as Set<ViewerColumn> | undefined,
+      selectedCellColsBelow: undefined as Set<ViewerColumn> | undefined,
       isCellTextSelectable: false,
       measureElement: vi.fn(),
       measureRowElement: vi.fn(),

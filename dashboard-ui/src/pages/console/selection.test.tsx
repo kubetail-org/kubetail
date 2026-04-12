@@ -18,7 +18,14 @@ import { createRef } from 'react';
 
 import type { LogRecord, LogViewerVirtualizer } from '@/components/widgets/log-viewer';
 
-import { getPlainAttribute, formatRowsForCopy, formatCellsForCopy, computeSelection, useSelection } from './selection';
+import {
+  getPlainAttribute,
+  formatRowsForCopy,
+  formatCellsForCopy,
+  computeSelection,
+  computeCellRange,
+  useSelection,
+} from './selection';
 import { ViewerColumn } from './shared';
 import { isTextSelectModeAtom, lastClickedKeyAtom, selectedCellsAtom, visibleColsAtom } from './state';
 
@@ -290,6 +297,106 @@ describe('computeSelection', () => {
   });
 });
 
+describe('computeCellRange', () => {
+  const visibleCols = new Set([
+    ViewerColumn.Timestamp,
+    ViewerColumn.ColorDot,
+    ViewerColumn.Pod,
+    ViewerColumn.Container,
+    ViewerColumn.Message,
+  ]);
+
+  it('selects all columns between anchor and target in the same row', () => {
+    const result = computeCellRange(
+      { rowKey: 0, col: ViewerColumn.Timestamp },
+      { rowKey: 0, col: ViewerColumn.Container },
+      visibleCols,
+    );
+    expect(result).toEqual(new Map([[0, new Set([ViewerColumn.Timestamp, ViewerColumn.Pod, ViewerColumn.Container])]]));
+  });
+
+  it('selects a single column across multiple rows', () => {
+    const result = computeCellRange(
+      { rowKey: 1, col: ViewerColumn.Pod },
+      { rowKey: 3, col: ViewerColumn.Pod },
+      visibleCols,
+    );
+    expect(result).toEqual(
+      new Map([
+        [1, new Set([ViewerColumn.Pod])],
+        [2, new Set([ViewerColumn.Pod])],
+        [3, new Set([ViewerColumn.Pod])],
+      ]),
+    );
+  });
+
+  it('selects a full rectangle across rows and columns', () => {
+    const result = computeCellRange(
+      { rowKey: 0, col: ViewerColumn.Pod },
+      { rowKey: 2, col: ViewerColumn.Container },
+      visibleCols,
+    );
+    expect(result).toEqual(
+      new Map([
+        [0, new Set([ViewerColumn.Pod, ViewerColumn.Container])],
+        [1, new Set([ViewerColumn.Pod, ViewerColumn.Container])],
+        [2, new Set([ViewerColumn.Pod, ViewerColumn.Container])],
+      ]),
+    );
+  });
+
+  it('produces the same result regardless of direction', () => {
+    const forward = computeCellRange(
+      { rowKey: 0, col: ViewerColumn.Pod },
+      { rowKey: 2, col: ViewerColumn.Message },
+      visibleCols,
+    );
+    const backward = computeCellRange(
+      { rowKey: 2, col: ViewerColumn.Message },
+      { rowKey: 0, col: ViewerColumn.Pod },
+      visibleCols,
+    );
+    expect(forward).toEqual(backward);
+  });
+
+  it('returns a single cell when anchor equals target', () => {
+    const result = computeCellRange(
+      { rowKey: 1, col: ViewerColumn.Message },
+      { rowKey: 1, col: ViewerColumn.Message },
+      visibleCols,
+    );
+    expect(result).toEqual(new Map([[1, new Set([ViewerColumn.Message])]]));
+  });
+
+  it('skips ColorDot column in the range', () => {
+    // Timestamp -> Pod spans across ColorDot, which should be excluded
+    const result = computeCellRange(
+      { rowKey: 0, col: ViewerColumn.Timestamp },
+      { rowKey: 0, col: ViewerColumn.Pod },
+      visibleCols,
+    );
+    expect(result).toEqual(new Map([[0, new Set([ViewerColumn.Timestamp, ViewerColumn.Pod])]]));
+  });
+
+  it('returns single target cell when anchor column is ColorDot', () => {
+    const result = computeCellRange(
+      { rowKey: 0, col: ViewerColumn.ColorDot },
+      { rowKey: 1, col: ViewerColumn.Message },
+      visibleCols,
+    );
+    expect(result).toEqual(new Map([[1, new Set([ViewerColumn.Message])]]));
+  });
+
+  it('returns single target cell when target column is ColorDot', () => {
+    const result = computeCellRange(
+      { rowKey: 0, col: ViewerColumn.Message },
+      { rowKey: 1, col: ViewerColumn.ColorDot },
+      visibleCols,
+    );
+    expect(result).toEqual(new Map([[1, new Set([ViewerColumn.ColorDot])]]));
+  });
+});
+
 describe('useSelection', () => {
   const records = [
     makeRecord({ message: 'log message 0', timestamp: '2024-06-15T10:30:00.000Z' }),
@@ -551,6 +658,99 @@ describe('useSelection', () => {
         new Map([
           [0, new Set([ViewerColumn.Message])],
           [1, new Set([ViewerColumn.Message])],
+        ]),
+      );
+    });
+
+    it('selects range with shift+click from anchor to target', () => {
+      const { result } = renderUseSelection((store) => {
+        store.set(visibleColsAtom, new Set([ViewerColumn.Pod, ViewerColumn.Container, ViewerColumn.Message]));
+      });
+
+      act(() => result.current.handleCellClick(0, ViewerColumn.Pod, clickEvent()));
+      act(() => result.current.handleCellClick(2, ViewerColumn.Container, clickEvent({ shiftKey: true })));
+
+      expect(result.current.selectedCells).toEqual(
+        new Map([
+          [0, new Set([ViewerColumn.Pod, ViewerColumn.Container])],
+          [1, new Set([ViewerColumn.Pod, ViewerColumn.Container])],
+          [2, new Set([ViewerColumn.Pod, ViewerColumn.Container])],
+        ]),
+      );
+    });
+
+    it('shift+click with no prior anchor behaves like plain click', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleCellClick(1, ViewerColumn.Message, clickEvent({ shiftKey: true })));
+
+      expect(result.current.selectedCells).toEqual(new Map([[1, new Set([ViewerColumn.Message])]]));
+    });
+
+    it('shift+click within same column selects column range', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
+      act(() => result.current.handleCellClick(2, ViewerColumn.Message, clickEvent({ shiftKey: true })));
+
+      expect(result.current.selectedCells).toEqual(
+        new Map([
+          [0, new Set([ViewerColumn.Message])],
+          [1, new Set([ViewerColumn.Message])],
+          [2, new Set([ViewerColumn.Message])],
+        ]),
+      );
+    });
+
+    it('shift+click clears row selection', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+      expect(result.current.selectedKeys.size).toBe(1);
+
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
+      act(() => result.current.handleCellClick(1, ViewerColumn.Message, clickEvent({ shiftKey: true })));
+
+      expect(result.current.selectedKeys.size).toBe(0);
+    });
+
+    it('anchor stays on shift+click so subsequent shift+click extends from original', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
+      act(() => result.current.handleCellClick(1, ViewerColumn.Message, clickEvent({ shiftKey: true })));
+
+      // Extend further from the same anchor (row 0)
+      act(() => result.current.handleCellClick(2, ViewerColumn.Message, clickEvent({ shiftKey: true })));
+
+      expect(result.current.selectedCells).toEqual(
+        new Map([
+          [0, new Set([ViewerColumn.Message])],
+          [1, new Set([ViewerColumn.Message])],
+          [2, new Set([ViewerColumn.Message])],
+        ]),
+      );
+    });
+
+    it('plain click after shift-range resets anchor', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleCellClick(0, ViewerColumn.Message, clickEvent()));
+      act(() => result.current.handleCellClick(2, ViewerColumn.Message, clickEvent({ shiftKey: true })));
+
+      // Plain click sets new anchor
+      act(() => result.current.handleCellClick(1, ViewerColumn.Message, clickEvent()));
+
+      // Now shift+click from new anchor (row 1)
+      act(() => result.current.handleCellClick(2, ViewerColumn.Message, clickEvent({ shiftKey: true })));
+
+      expect(result.current.selectedCells).toEqual(
+        new Map([
+          [1, new Set([ViewerColumn.Message])],
+          [2, new Set([ViewerColumn.Message])],
         ]),
       );
     });

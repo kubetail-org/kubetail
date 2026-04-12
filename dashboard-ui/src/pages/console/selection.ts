@@ -23,6 +23,7 @@ import type { LogRecord, LogViewerVirtualizer } from '@/components/widgets/log-v
 import { ViewerColumn } from './shared';
 import {
   isTextSelectModeAtom,
+  lastClickedCellAtom,
   lastClickedKeyAtom,
   selectedCellsAtom,
   selectedKeysAtom,
@@ -107,6 +108,39 @@ export function formatCellsForCopy(
 }
 
 /**
+ * computeCellRange - Pure function that computes a rectangular cell selection between two cells.
+ * If either anchor or target is ColorDot, returns just the target cell.
+ */
+export function computeCellRange(
+  anchor: { rowKey: number; col: ViewerColumn },
+  target: { rowKey: number; col: ViewerColumn },
+  visibleCols: Set<ViewerColumn>,
+): Map<number, Set<ViewerColumn>> {
+  const cols = [...visibleCols].filter((c) => c !== ViewerColumn.ColorDot);
+  const anchorIdx = cols.indexOf(anchor.col);
+  const targetIdx = cols.indexOf(target.col);
+
+  if (anchorIdx === -1 || targetIdx === -1) {
+    return new Map([[target.rowKey, new Set([target.col])]]);
+  }
+
+  const minRow = Math.min(anchor.rowKey, target.rowKey);
+  const maxRow = Math.max(anchor.rowKey, target.rowKey);
+  const minCol = Math.min(anchorIdx, targetIdx);
+  const maxCol = Math.max(anchorIdx, targetIdx);
+
+  const result = new Map<number, Set<ViewerColumn>>();
+  for (let r = minRow; r <= maxRow; r += 1) {
+    const colSet = new Set<ViewerColumn>();
+    for (let c = minCol; c <= maxCol; c += 1) {
+      colSet.add(cols[c]);
+    }
+    result.set(r, colSet);
+  }
+  return result;
+}
+
+/**
  * computeSelection - Pure function that computes the next selection state based on a click event.
  */
 export function computeSelection({
@@ -157,12 +191,14 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
   const [selectedKeys, setSelectedKeys] = useAtom(selectedKeysAtom);
   const [lastClickedKey, setLastClickedKey] = useAtom(lastClickedKeyAtom);
   const [selectedCells, setSelectedCells] = useAtom(selectedCellsAtom);
+  const [lastClickedCell, setLastClickedCell] = useAtom(lastClickedCellAtom);
   const [isTextSelectMode, setIsTextSelectMode] = useAtom(isTextSelectModeAtom);
 
   // Refs to avoid stale closures in callbacks
   const selectedKeysRef = useRef(selectedKeys);
   const lastClickedKeyRef = useRef(lastClickedKey);
   const selectedCellsRef = useRef(selectedCells);
+  const lastClickedCellRef = useRef(lastClickedCell);
 
   // Drag state refs (dragStartKeyRef !== null means a drag is active)
   const dragStartKeyRef = useRef<number | null>(null);
@@ -173,7 +209,8 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
     selectedKeysRef.current = selectedKeys;
     lastClickedKeyRef.current = lastClickedKey;
     selectedCellsRef.current = selectedCells;
-  }, [selectedKeys, lastClickedKey, selectedCells]);
+    lastClickedCellRef.current = lastClickedCell;
+  }, [selectedKeys, lastClickedKey, selectedCells, lastClickedCell]);
 
   // Pre-compute selection boundary sets (keys are sequential integers)
   const { selectionTopKeys, selectionBottomKeys } = useMemo(() => {
@@ -192,8 +229,9 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
     setSelectedKeys(new Set());
     setLastClickedKey(null);
     setSelectedCells(new Map());
+    setLastClickedCell(null);
     setIsTextSelectMode(false);
-  }, [setSelectedKeys, setLastClickedKey, setSelectedCells, setIsTextSelectMode]);
+  }, [setSelectedKeys, setLastClickedKey, setSelectedCells, setLastClickedCell, setIsTextSelectMode]);
 
   // Row mousedown handler (Pos column) — supports click and drag-to-select
   const handleRowMouseDown = useCallback(
@@ -210,6 +248,7 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
         setSelectedKeys(next);
         setLastClickedKey(key);
         if (selectedCellsRef.current.size > 0) setSelectedCells(new Map());
+        setLastClickedCell(null);
         setIsTextSelectMode(false);
         return;
       }
@@ -219,6 +258,7 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
       dragEndKeyRef.current = key;
       setSelectedKeys(new Set([key]));
       if (selectedCellsRef.current.size > 0) setSelectedCells(new Map());
+      setLastClickedCell(null);
       setIsTextSelectMode(false);
 
       let rafId: number | null = null;
@@ -272,40 +312,49 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
       document.addEventListener('mousemove', onMouseMove, { signal });
       document.addEventListener('mouseup', onMouseUp, { signal });
     },
-    [setSelectedKeys, setLastClickedKey, setSelectedCells, setIsTextSelectMode],
+    [setSelectedKeys, setLastClickedKey, setSelectedCells, setLastClickedCell, setIsTextSelectMode],
   );
 
-  // Cell click handler (data cells) — supports Cmd/Ctrl+click for multi-cell selection
+  // Cell click handler (data cells) — supports Shift+click range, Cmd/Ctrl+click toggle
   const handleCellClick = useCallback(
     (rowKey: number, col: ViewerColumn, event: React.MouseEvent) => {
       if (col === ViewerColumn.ColorDot) return;
       event.stopPropagation();
       const hasTextSelection = !window.getSelection()?.isCollapsed;
 
-      if (event.metaKey || event.ctrlKey) {
-        // Toggle cell in/out of selection
-        const next = new Map(selectedCellsRef.current);
-        const newCols = new Set(next.get(rowKey) ?? []);
-        if (newCols.has(col)) {
-          newCols.delete(col);
-        } else {
-          newCols.add(col);
-        }
-        if (newCols.size === 0) {
-          next.delete(rowKey);
-        } else {
-          next.set(rowKey, newCols);
-        }
-        setSelectedCells(next);
+      if (event.shiftKey && lastClickedCellRef.current !== null) {
+        // Range select from anchor to target; keep anchor unchanged for subsequent shift+clicks
+        const range = computeCellRange(lastClickedCellRef.current, { rowKey, col }, visibleCols);
+        setSelectedCells(range);
       } else {
-        setSelectedCells(new Map([[rowKey, new Set([col])]]));
+        if (event.metaKey || event.ctrlKey) {
+          // Toggle cell in/out of selection
+          const next = new Map(selectedCellsRef.current);
+          const newCols = new Set(next.get(rowKey) ?? []);
+          if (newCols.has(col)) {
+            newCols.delete(col);
+          } else {
+            newCols.add(col);
+          }
+          if (newCols.size === 0) {
+            next.delete(rowKey);
+          } else {
+            next.set(rowKey, newCols);
+          }
+          setSelectedCells(next);
+        } else {
+          setSelectedCells(new Map([[rowKey, new Set([col])]]));
+        }
+        if (lastClickedCellRef.current?.rowKey !== rowKey || lastClickedCellRef.current?.col !== col) {
+          setLastClickedCell({ rowKey, col });
+        }
       }
 
       if (selectedKeysRef.current.size > 0) setSelectedKeys(new Set());
       setLastClickedKey(null);
       setIsTextSelectMode(hasTextSelection);
     },
-    [setSelectedCells, setSelectedKeys, setLastClickedKey, setIsTextSelectMode],
+    [visibleCols, setSelectedCells, setLastClickedCell, setSelectedKeys, setLastClickedKey, setIsTextSelectMode],
   );
 
   // Keyboard shortcuts
