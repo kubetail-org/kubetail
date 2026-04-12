@@ -200,6 +200,7 @@ describe('Main', () => {
       selectedCellCols: undefined as Set<ViewerColumn> | undefined,
       selectedCellColsAbove: undefined as Set<ViewerColumn> | undefined,
       selectedCellColsBelow: undefined as Set<ViewerColumn> | undefined,
+      isCursorText: true,
       isCellTextSelectable: false,
       measureElement: vi.fn(),
       measureRowElement: vi.fn(),
@@ -273,6 +274,7 @@ describe('Main', () => {
       selectedCellCols: undefined as Set<ViewerColumn> | undefined,
       selectedCellColsAbove: undefined as Set<ViewerColumn> | undefined,
       selectedCellColsBelow: undefined as Set<ViewerColumn> | undefined,
+      isCursorText: true,
       isCellTextSelectable: false,
       measureElement: vi.fn(),
       measureRowElement: vi.fn(),
@@ -381,10 +383,16 @@ describe('Main', () => {
       expect(messageCell.classList.contains('cursor-default')).toBe(true);
     });
 
-    it('selected cell has cursor-text class', () => {
-      render(<RecordRow {...defaultProps} selectedCellCols={new Set([ViewerColumn.Message])} />);
+    it('selected cell with isCursorText has cursor-text class', () => {
+      render(<RecordRow {...defaultProps} selectedCellCols={new Set([ViewerColumn.Message])} isCursorText />);
       const messageCell = document.querySelector('[data-col-id="Message"]') as HTMLElement;
       expect(messageCell.classList.contains('cursor-text')).toBe(true);
+    });
+
+    it('selected cell without isCursorText has cursor-default class', () => {
+      render(<RecordRow {...defaultProps} selectedCellCols={new Set([ViewerColumn.Message])} isCursorText={false} />);
+      const messageCell = document.querySelector('[data-col-id="Message"]') as HTMLElement;
+      expect(messageCell.classList.contains('cursor-default')).toBe(true);
     });
   });
 
@@ -420,6 +428,7 @@ describe('Main', () => {
       selectedCellCols: undefined as Set<ViewerColumn> | undefined,
       selectedCellColsAbove: undefined as Set<ViewerColumn> | undefined,
       selectedCellColsBelow: undefined as Set<ViewerColumn> | undefined,
+      isCursorText: true,
       isCellTextSelectable: false,
       measureElement: vi.fn(),
       measureRowElement: vi.fn(),

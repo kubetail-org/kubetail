@@ -406,6 +406,7 @@ type RecordRowProps = {
   selectedCellCols: Set<ViewerColumn> | undefined;
   selectedCellColsAbove: Set<ViewerColumn> | undefined;
   selectedCellColsBelow: Set<ViewerColumn> | undefined;
+  isCursorText: boolean;
   isCellTextSelectable: boolean;
   measureElement: (node: Element | null) => void;
   measureRowElement: (el: HTMLDivElement | null) => void;
@@ -428,6 +429,7 @@ export const RecordRow = memo(
     selectedCellCols,
     selectedCellColsAbove,
     selectedCellColsBelow,
+    isCursorText,
     isCellTextSelectable,
     measureElement,
     measureRowElement,
@@ -493,7 +495,7 @@ export const RecordRow = memo(
         cellBg,
         'px-2',
         shouldWrap ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-nowrap',
-        !isColorDot && (isCellSelected ? 'cursor-text' : 'cursor-default'),
+        !isColorDot && (isCellSelected && isCursorText ? 'cursor-text' : 'cursor-default'),
         'select-none',
       );
 
@@ -568,6 +570,7 @@ export const RecordRow = memo(
     if (prev.selectedCellCols !== next.selectedCellCols) return false;
     if (prev.selectedCellColsAbove !== next.selectedCellColsAbove) return false;
     if (prev.selectedCellColsBelow !== next.selectedCellColsBelow) return false;
+    if (prev.isCursorText !== next.isCursorText && (prev.selectedCellCols || next.selectedCellCols)) return false;
     if (prev.isCellTextSelectable !== next.isCellTextSelectable) return false;
     return true;
   },
@@ -603,6 +606,7 @@ export const Main = () => {
     selectionBottomKeys,
     selectedCells,
     isTextSelectMode,
+    isCursorText,
     handleRowMouseDown,
     handleCellMouseDown,
     resetSelection,
@@ -716,6 +720,7 @@ export const Main = () => {
                     selectedCellCols={selectedCells.get(virtualRow.key)}
                     selectedCellColsAbove={selectedCells.get(virtualRow.key - 1)}
                     selectedCellColsBelow={selectedCells.get(virtualRow.key + 1)}
+                    isCursorText={isCursorText}
                     isCellTextSelectable={
                       isTextSelectMode && selectedCells.size === 1 && selectedCells.has(virtualRow.key)
                     }

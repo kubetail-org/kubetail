@@ -36,6 +36,8 @@ export const lastClickedCellAtom = atom<{ rowKey: number; col: ViewerColumn } | 
 
 export const isTextSelectModeAtom = atom(false);
 
+export const isCursorTextAtom = atom(false);
+
 export const isWrapAtom = atom(false);
 
 export const visibleColsAtom = atom(

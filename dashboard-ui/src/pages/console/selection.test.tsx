@@ -28,6 +28,7 @@ import {
 } from './selection';
 import { ViewerColumn } from './shared';
 import {
+  isCursorTextAtom,
   isTextSelectModeAtom,
   lastClickedCellAtom,
   lastClickedKeyAtom,
@@ -593,43 +594,70 @@ describe('useSelection', () => {
       expect(result.current.isTextSelectMode).toBe(false);
     });
 
-    it('sets cursor to default on clicked cell element after mouseup', () => {
-      const { result } = renderUseSelection();
-      const el = document.createElement('div');
+    it('isCursorText is false after cell mousedown', () => {
+      const { result, store } = renderUseSelection();
 
-      act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent({ currentTarget: el })));
-      act(() => {
-        fireEvent.mouseUp(document);
-      });
+      act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent()));
 
-      expect(el.style.cursor).toBe('default');
+      expect(store.get(isCursorTextAtom)).toBe(false);
     });
 
-    it('restores cursor on mousemove after cell click', () => {
-      const { result } = renderUseSelection();
-      const el = document.createElement('div');
+    it('isCursorText becomes true after mousemove following mouseup', () => {
+      const { result, store } = renderUseSelection();
 
-      act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent({ currentTarget: el })));
+      act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent()));
       act(() => {
         fireEvent.mouseUp(document);
       });
-
       act(() => {
         fireEvent.mouseMove(document);
       });
 
-      expect(el.style.cursor).toBe('');
+      expect(store.get(isCursorTextAtom)).toBe(true);
     });
 
-    it('sets cursor to default on modifier click element', () => {
-      const { result } = renderUseSelection();
-      const el = document.createElement('div');
+    it('isCursorText is false after modifier click', () => {
+      const { result, store } = renderUseSelection();
 
-      act(() =>
-        result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent({ currentTarget: el, metaKey: true })),
-      );
+      act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent({ metaKey: true })));
 
-      expect(el.style.cursor).toBe('default');
+      expect(store.get(isCursorTextAtom)).toBe(false);
+    });
+
+    it('isCursorText becomes true after mousemove following modifier click', () => {
+      const { result, store } = renderUseSelection();
+
+      act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent({ metaKey: true })));
+      act(() => {
+        fireEvent.mouseMove(document);
+      });
+
+      expect(store.get(isCursorTextAtom)).toBe(true);
+    });
+
+    it('isCursorText resets on clearSelection', () => {
+      const { result, store } = renderUseSelection();
+
+      act(() => {
+        store.set(isCursorTextAtom, true);
+      });
+      act(() => result.current.resetSelection());
+
+      expect(store.get(isCursorTextAtom)).toBe(false);
+    });
+
+    it('isCursorText resets on row mousedown', () => {
+      const { result, store } = renderUseSelection();
+
+      act(() => {
+        store.set(isCursorTextAtom, true);
+      });
+      act(() => result.current.handleRowMouseDown(0, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+
+      expect(store.get(isCursorTextAtom)).toBe(false);
     });
 
     it('ignores ColorDot column clicks', () => {
@@ -1314,6 +1342,47 @@ describe('useSelection', () => {
           [2, new Set([ViewerColumn.Message])],
         ]),
       );
+    });
+
+    it('isCursorText is false during drag', () => {
+      const { result, store } = renderUseSelection();
+
+      act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent()));
+
+      mockElementFromPoint.mockReturnValue(makeCellEl(2, ViewerColumn.Message));
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 40 });
+        vi.advanceTimersByTime(16);
+      });
+
+      expect(store.get(isCursorTextAtom)).toBe(false);
+
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+    });
+
+    it('isCursorText becomes true after mousemove following drag mouseup', () => {
+      const { result, store } = renderUseSelection();
+
+      act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent()));
+
+      mockElementFromPoint.mockReturnValue(makeCellEl(2, ViewerColumn.Message));
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 40 });
+        vi.advanceTimersByTime(16);
+      });
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+
+      expect(store.get(isCursorTextAtom)).toBe(false);
+
+      act(() => {
+        fireEvent.mouseMove(document);
+      });
+
+      expect(store.get(isCursorTextAtom)).toBe(true);
     });
   });
 
