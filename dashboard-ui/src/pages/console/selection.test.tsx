@@ -1290,6 +1290,33 @@ describe('useSelection', () => {
       });
     });
 
+    it('dragging over ColorDot cell does not change selection', () => {
+      const { result } = renderUseSelection();
+
+      act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent()));
+
+      mockElementFromPoint.mockReturnValue(makeCellEl(2, ViewerColumn.Message));
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 40 });
+        vi.advanceTimersByTime(16);
+      });
+
+      const selectionBefore = result.current.selectedCells;
+
+      // Mouse moves over a ColorDot cell — selection should not change
+      mockElementFromPoint.mockReturnValue(makeCellEl(1, ViewerColumn.ColorDot));
+      act(() => {
+        fireEvent.mouseMove(document, { clientX: 10, clientY: 25 });
+        vi.advanceTimersByTime(16);
+      });
+
+      expect(result.current.selectedCells).toBe(selectionBefore);
+
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+    });
+
     it('drag clears row selection', () => {
       const { result } = renderUseSelection();
 

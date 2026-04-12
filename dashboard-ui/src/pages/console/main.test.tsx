@@ -394,6 +394,56 @@ describe('Main', () => {
       const messageCell = document.querySelector('[data-col-id="Message"]') as HTMLElement;
       expect(messageCell.classList.contains('cursor-default')).toBe(true);
     });
+
+    it('ColorDot cell has selection box-shadow when both neighbors are selected', () => {
+      render(
+        <RecordRow
+          {...defaultProps}
+          visibleCols={new Set([ViewerColumn.Timestamp, ViewerColumn.ColorDot, ViewerColumn.Message])}
+          selectedCellCols={new Set([ViewerColumn.Timestamp, ViewerColumn.Message])}
+        />,
+      );
+      const colorDotCell = document.querySelector('[data-col-id="Color Dot"]') as HTMLElement;
+      expect(colorDotCell.style.boxShadow).not.toBe('');
+    });
+
+    it('ColorDot cell has no selection box-shadow when only one neighbor is selected', () => {
+      render(
+        <RecordRow
+          {...defaultProps}
+          visibleCols={new Set([ViewerColumn.Timestamp, ViewerColumn.ColorDot, ViewerColumn.Message])}
+          selectedCellCols={new Set([ViewerColumn.Message])}
+        />,
+      );
+      const colorDotCell = document.querySelector('[data-col-id="Color Dot"]') as HTMLElement;
+      expect(colorDotCell.style.boxShadow).toBe('');
+    });
+
+    it('selected cell adjacent to ColorDot has no inner border when other side also selected', () => {
+      render(
+        <RecordRow
+          {...defaultProps}
+          visibleCols={new Set([ViewerColumn.Timestamp, ViewerColumn.ColorDot, ViewerColumn.Message])}
+          selectedCellCols={new Set([ViewerColumn.Timestamp, ViewerColumn.Message])}
+        />,
+      );
+      const timestampCell = document.querySelector('[data-col-id="Timestamp"]') as HTMLElement;
+      // Timestamp should NOT have a right border since Message (across ColorDot) is also selected
+      expect(timestampCell.style.boxShadow).not.toContain('inset -2px 0 0 0');
+    });
+
+    it('selected cell adjacent to ColorDot has border when other side is not selected', () => {
+      render(
+        <RecordRow
+          {...defaultProps}
+          visibleCols={new Set([ViewerColumn.Timestamp, ViewerColumn.ColorDot, ViewerColumn.Message])}
+          selectedCellCols={new Set([ViewerColumn.Timestamp])}
+        />,
+      );
+      const timestampCell = document.querySelector('[data-col-id="Timestamp"]') as HTMLElement;
+      // Timestamp SHOULD have a right border since Message is not selected
+      expect(timestampCell.style.boxShadow).toContain('inset -2px 0 0 0');
+    });
   });
 
   describe('RecordRow Key column', () => {

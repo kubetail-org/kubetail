@@ -413,9 +413,9 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
         const rowEl = el?.closest('[data-row-key]') as HTMLElement | null;
         if (!cellEl || !rowEl) return;
         const endRowKey = Number(rowEl.dataset.rowKey);
-        const endCol = cellEl.dataset.colId;
-        if (Number.isNaN(endRowKey) || !endCol) return;
-        const end = { rowKey: endRowKey, col: endCol as ViewerColumn };
+        const endCol = cellEl.dataset.colId as ViewerColumn | undefined;
+        if (Number.isNaN(endRowKey) || !endCol || endCol === ViewerColumn.ColorDot) return;
+        const end = { rowKey: endRowKey, col: endCol };
         if (end.rowKey === cellDragEndRef.current?.rowKey && end.col === cellDragEndRef.current?.col) return;
         cellDragEndRef.current = end;
         setSelectedCells(computeCellRange(cellDragStartRef.current, end, visibleCols));

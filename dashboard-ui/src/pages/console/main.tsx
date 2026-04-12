@@ -482,13 +482,34 @@ export const RecordRow = memo(
         cellBg = isTimestamp ? 'bg-chrome-200' : row.index % 2 !== 0 && 'bg-chrome-100';
       }
 
+      // ColorDot is visually selected when both adjacent columns are selected
+      const isColorDotVisuallySelected =
+        isColorDot &&
+        i > 0 &&
+        i < colsArray.length - 1 &&
+        (selectedCellCols?.has(colsArray[i - 1]) ?? false) &&
+        (selectedCellCols?.has(colsArray[i + 1]) ?? false);
+
       let cellShadow: string | undefined;
       if (isCellSelected) {
         const isEdgeTop = !selectedCellColsAbove?.has(col);
         const isEdgeBottom = !selectedCellColsBelow?.has(col);
-        const isEdgeLeft = i === 0 || !selectedCellCols!.has(colsArray[i - 1]);
-        const isEdgeRight = i === colsArray.length - 1 || !selectedCellCols!.has(colsArray[i + 1]);
+        // Skip over ColorDot when checking adjacent selected cells
+        let prevIdx = i - 1;
+        if (prevIdx >= 0 && colsArray[prevIdx] === ViewerColumn.ColorDot) prevIdx -= 1;
+        let nextIdx = i + 1;
+        if (nextIdx < colsArray.length && colsArray[nextIdx] === ViewerColumn.ColorDot) nextIdx += 1;
+        const isEdgeLeft = prevIdx < 0 || !selectedCellCols!.has(colsArray[prevIdx]);
+        const isEdgeRight = nextIdx >= colsArray.length || !selectedCellCols!.has(colsArray[nextIdx]);
         cellShadow = cellSelectionBoxShadow(isEdgeTop, isEdgeBottom, isEdgeLeft, isEdgeRight);
+      } else if (isColorDotVisuallySelected) {
+        const aboveAlsoVisual =
+          (selectedCellColsAbove?.has(colsArray[i - 1]) ?? false) &&
+          (selectedCellColsAbove?.has(colsArray[i + 1]) ?? false);
+        const belowAlsoVisual =
+          (selectedCellColsBelow?.has(colsArray[i - 1]) ?? false) &&
+          (selectedCellColsBelow?.has(colsArray[i + 1]) ?? false);
+        cellShadow = cellSelectionBoxShadow(!aboveAlsoVisual, !belowAlsoVisual, false, false);
       }
 
       const cellClassName = cn(
