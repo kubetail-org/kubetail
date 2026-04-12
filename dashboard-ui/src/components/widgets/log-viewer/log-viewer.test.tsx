@@ -264,7 +264,7 @@ describe('internal helpers', () => {
         expect(actions.setIsLoading).toHaveBeenCalledWith(true);
         expect(client.fetchSince).toHaveBeenCalledTimes(1);
 
-        await vi.runAllTimersAsync();
+        await act(() => vi.runAllTimersAsync());
 
         expect(actions.setIsLoading).toHaveBeenCalledTimes(2);
         expect(actions.setIsLoading).toHaveBeenLastCalledWith(false);
@@ -283,7 +283,7 @@ describe('internal helpers', () => {
 
         renderHook(() => useInit(runtime));
 
-        await vi.runAllTimersAsync();
+        await act(() => vi.runAllTimersAsync());
 
         expect(actions.setHasMoreAfter).toHaveBeenCalledTimes(0);
       });
@@ -301,7 +301,7 @@ describe('internal helpers', () => {
 
         renderHook(() => useInit(runtime));
 
-        await vi.runAllTimersAsync();
+        await act(() => vi.runAllTimersAsync());
 
         expect(actions.setHasMoreAfter).toHaveBeenCalledTimes(1);
         expect(actions.setHasMoreAfter).toHaveBeenLastCalledWith(true);
@@ -338,7 +338,7 @@ describe('internal helpers', () => {
         expect(actions.setIsLoading).toHaveBeenCalledWith(true);
         expect(client.fetchUntil).toHaveBeenCalledTimes(1);
 
-        await vi.runAllTimersAsync();
+        await act(() => vi.runAllTimersAsync());
 
         expect(actions.setIsLoading).toHaveBeenCalledTimes(2);
         expect(actions.setIsLoading).toHaveBeenLastCalledWith(false);
@@ -357,7 +357,7 @@ describe('internal helpers', () => {
 
         renderHook(() => useInit(runtime));
 
-        await vi.runAllTimersAsync();
+        await act(() => vi.runAllTimersAsync());
 
         expect(actions.setHasMoreBefore).toHaveBeenCalledTimes(0);
       });
@@ -375,7 +375,7 @@ describe('internal helpers', () => {
 
         renderHook(() => useInit(runtime));
 
-        await vi.runAllTimersAsync();
+        await act(() => vi.runAllTimersAsync());
 
         expect(actions.setHasMoreBefore).toHaveBeenCalledTimes(1);
         expect(actions.setHasMoreBefore).toHaveBeenLastCalledWith(true);
@@ -422,7 +422,7 @@ describe('internal helpers', () => {
         expect(client.fetchBefore).toHaveBeenCalledTimes(1);
         expect(client.fetchSince).toHaveBeenCalledTimes(1);
 
-        await vi.runAllTimersAsync();
+        await act(() => vi.runAllTimersAsync());
 
         expect(actions.setIsLoading).toHaveBeenCalledTimes(2);
         expect(actions.setIsLoading).toHaveBeenLastCalledWith(false);
@@ -446,7 +446,7 @@ describe('internal helpers', () => {
 
         renderHook(() => useInit(runtime));
 
-        await vi.runAllTimersAsync();
+        await act(() => vi.runAllTimersAsync());
 
         expect(actions.setHasMoreBefore).toHaveBeenCalledTimes(0);
         expect(actions.setHasMoreAfter).toHaveBeenCalledTimes(0);
@@ -470,7 +470,7 @@ describe('internal helpers', () => {
 
         renderHook(() => useInit(runtime));
 
-        await vi.runAllTimersAsync();
+        await act(() => vi.runAllTimersAsync());
 
         expect(actions.setHasMoreBefore).toHaveBeenCalledTimes(1);
         expect(actions.setHasMoreBefore).toHaveBeenLastCalledWith(true);
@@ -496,8 +496,10 @@ describe('internal helpers', () => {
 
       const { result } = renderHook(() => useLoadMoreBefore(runtime));
 
-      await result.current();
-      await vi.runAllTimersAsync();
+      await act(async () => {
+        await result.current();
+        await vi.runAllTimersAsync();
+      });
 
       expect(client.fetchBefore).toHaveBeenCalledTimes(1);
       const callArgs = (client as MockClient).fetchBefore.mock.calls[0]?.[0];
@@ -519,8 +521,10 @@ describe('internal helpers', () => {
 
       const { result } = renderHook(() => useLoadMoreBefore(runtime));
 
-      await result.current();
-      await vi.runAllTimersAsync();
+      await act(async () => {
+        await result.current();
+        await vi.runAllTimersAsync();
+      });
 
       expect(actions.setHasMoreBefore).toHaveBeenCalledTimes(0);
     });
@@ -540,8 +544,10 @@ describe('internal helpers', () => {
 
       const { result } = renderHook(() => useLoadMoreBefore(runtime));
 
-      await result.current();
-      await vi.runAllTimersAsync();
+      await act(async () => {
+        await result.current();
+        await vi.runAllTimersAsync();
+      });
 
       expect(actions.setHasMoreBefore).toHaveBeenCalledTimes(1);
       expect(actions.setHasMoreBefore).toHaveBeenCalledWith(false);
@@ -564,8 +570,10 @@ describe('internal helpers', () => {
 
       const { result } = renderHook(() => useLoadMoreAfter(runtime));
 
-      await result.current();
-      await vi.runAllTimersAsync();
+      await act(async () => {
+        await result.current();
+        await vi.runAllTimersAsync();
+      });
 
       expect(client.fetchAfter).toHaveBeenCalledTimes(1);
       const callArgs = (client as MockClient).fetchAfter.mock.calls[0]?.[0];
@@ -587,8 +595,10 @@ describe('internal helpers', () => {
 
       const { result } = renderHook(() => useLoadMoreAfter(runtime));
 
-      await result.current();
-      await vi.runAllTimersAsync();
+      await act(async () => {
+        await result.current();
+        await vi.runAllTimersAsync();
+      });
 
       expect(actions.setHasMoreAfter).toHaveBeenCalledTimes(0);
     });
@@ -608,8 +618,10 @@ describe('internal helpers', () => {
 
       const { result } = renderHook(() => useLoadMoreAfter(runtime));
 
-      await result.current();
-      await vi.runAllTimersAsync();
+      await act(async () => {
+        await result.current();
+        await vi.runAllTimersAsync();
+      });
 
       expect(actions.setHasMoreAfter).toHaveBeenCalledTimes(1);
       expect(actions.setHasMoreAfter).toHaveBeenCalledWith(false);
@@ -817,7 +829,7 @@ describe('internal helpers', () => {
       expect(callArgs?.[1]).toEqual({ after: records[0].cursor });
 
       callArgs?.[0]?.(createMockRecords(1, 1000)[0]);
-      await vi.runAllTimersAsync();
+      await act(() => vi.runAllTimersAsync());
 
       expect(services.recordStore.length()).toBe(2);
       expect(refs.scrollEl.current?.scrollTop).toBe(100);
@@ -967,7 +979,7 @@ describe('internal helpers', () => {
       renderHook(() => usePullToRefresh(runtime));
 
       refs.scrollEl.current?.dispatchEvent(new WheelEvent('wheel', { deltaY: 20 }));
-      await vi.runAllTimersAsync();
+      await act(() => vi.runAllTimersAsync());
 
       expect(actions.setIsRefreshing).toHaveBeenCalledWith(true);
       expect(client.fetchAfter).toHaveBeenCalledTimes(1);

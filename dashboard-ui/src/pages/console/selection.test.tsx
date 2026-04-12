@@ -635,8 +635,10 @@ describe('useSelection', () => {
     it('clears text-select mode when mousedown on Pos column', () => {
       const { result, store } = renderUseSelection();
 
-      store.set(selectedCellAtom, { rowKey: 0, col: ViewerColumn.Message });
-      store.set(isTextSelectModeAtom, true);
+      act(() => {
+        store.set(selectedCellAtom, { rowKey: 0, col: ViewerColumn.Message });
+        store.set(isTextSelectModeAtom, true);
+      });
 
       act(() => result.current.handleRowMouseDown(0, clickEvent()));
       act(() => {
@@ -664,8 +666,10 @@ describe('useSelection', () => {
     it('clears cell selection and text-select mode', () => {
       const { result, store } = renderUseSelection();
 
-      store.set(selectedCellAtom, { rowKey: 0, col: ViewerColumn.Message });
-      store.set(isTextSelectModeAtom, true);
+      act(() => {
+        store.set(selectedCellAtom, { rowKey: 0, col: ViewerColumn.Message });
+        store.set(isTextSelectModeAtom, true);
+      });
 
       act(() => result.current.resetSelection());
 
@@ -793,8 +797,10 @@ describe('useSelection', () => {
     it('clears text-select mode on Escape', () => {
       const { result, store } = renderUseSelection();
 
-      store.set(selectedCellAtom, { rowKey: 0, col: ViewerColumn.Message });
-      store.set(isTextSelectModeAtom, true);
+      act(() => {
+        store.set(selectedCellAtom, { rowKey: 0, col: ViewerColumn.Message });
+        store.set(isTextSelectModeAtom, true);
+      });
 
       act(() => {
         fireEvent.keyDown(document, { key: 'Escape' });
