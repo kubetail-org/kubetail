@@ -38,4 +38,4 @@ jobs:
       - name: Build
         working-directory: ./modules/cli
         run: |
-          CGO_ENABLED=0 go build -ldflags="-s -w" ./cmd/main.go
+          CGO_ENABLED=0 go build -ldflags="-s -w" ./main.go
