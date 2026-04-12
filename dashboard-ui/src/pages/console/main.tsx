@@ -512,6 +512,8 @@ export const RecordRow = memo(
         cellShadow = cellSelectionBoxShadow(!aboveAlsoVisual, !belowAlsoVisual, false, false);
       }
 
+      const isNativeTextSelectable = isCellSelected && isCellTextSelectable;
+
       const cellClassName = cn(
         cellBg,
         'px-2',
@@ -522,7 +524,10 @@ export const RecordRow = memo(
 
       const cellStyle: React.CSSProperties = {
         ...(minWidth && { minWidth: `${minWidth}px` }),
-        ...(isCellSelected && isCellTextSelectable && { userSelect: 'auto' as const }),
+        ...(isNativeTextSelectable && {
+          userSelect: 'text' as const,
+          WebkitUserSelect: 'text' as const,
+        }),
         ...(cellShadow && { boxShadow: cellShadow }),
       };
 

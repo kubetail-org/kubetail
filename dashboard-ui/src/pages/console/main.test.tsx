@@ -365,13 +365,13 @@ describe('Main', () => {
       expect(messageCell.style.boxShadow).not.toContain('inset 0 -2px 0 0'); // no bottom
     });
 
-    it('selected cell in text-select mode has userSelect auto style', () => {
+    it('selected cell in text-select mode has userSelect text style', () => {
       render(<RecordRow {...defaultProps} selectedCellCols={new Set([ViewerColumn.Message])} isCellTextSelectable />);
       const messageCell = document.querySelector('[data-col-id="Message"]') as HTMLElement;
-      expect(messageCell.style.userSelect).toBe('auto');
+      expect(messageCell.style.userSelect).toBe('text');
     });
 
-    it('non-selected cells do not have userSelect auto when another cell is text-selectable', () => {
+    it('non-selected cells do not have userSelect when another cell is text-selectable', () => {
       render(<RecordRow {...defaultProps} selectedCellCols={new Set([ViewerColumn.Message])} isCellTextSelectable />);
       const timestampCell = document.querySelector('[data-col-id="Timestamp"]') as HTMLElement;
       expect(timestampCell.style.userSelect).toBe('');
