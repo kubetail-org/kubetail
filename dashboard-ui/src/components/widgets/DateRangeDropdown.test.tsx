@@ -27,6 +27,13 @@ describe('parseTimestamp', () => {
     });
   });
 
+  describe('JS timestamps', () => {
+    it('should parse default JS timestamps without UTF offset', () => {
+      const d = parseTimestamp('Jan 2, 2006 15:04:05');
+      expect(d).toEqual(new Date('2006-01-02T15:04:05Z'));
+    });
+  });
+
   describe('ISO 8601', () => {
     it('should parse full ISO 8601 with UTC offset', () => {
       const d = parseTimestamp('2006-01-02T15:04:05Z');
@@ -91,6 +98,16 @@ describe('parseTimestamp', () => {
       const d = parseTimestamp('02/Jan/2006:15:04:05');
       expect(d).toEqual(new Date('2006-01-02T15:04:05Z'));
     });
+
+    it('should parse CLF with numeric month', () => {
+      const d = parseTimestamp('02/01/2006:15:04:05');
+      expect(d).toEqual(new Date('2006-01-02T15:04:05Z'));
+    });
+  });
+
+  it('should parse Nginx ELF with timezone', () => {
+    const d = parseTimestamp('2006/01/02 15:04:05');
+    expect(d).toEqual(new Date('2006-01-02T15:04:05Z'));
   });
 
   describe('Unix timestamp (milliseconds)', () => {

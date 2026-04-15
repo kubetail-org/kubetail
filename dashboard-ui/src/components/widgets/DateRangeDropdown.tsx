@@ -191,26 +191,26 @@ export function parseTimestamp(input: string): Date | undefined {
 
   // Try native Date parser (handles ISO 8601, RFC 2822, and common formats).
   // If the input has no explicit timezone, use fromZonedTime to interpret as UTC.
-  const hasTZ = TZ_RE.test(trimmed);
-  if (hasTZ) {
-    const nativeDate = new Date(trimmed);
-    if (isValidDate(nativeDate)) return nativeDate;
-  } else {
-    const nativeDate = fromZonedTime(trimmed, 'UTC');
-    if (isValidDate(nativeDate)) return nativeDate;
-  }
+  let nativeDate = new Date(trimmed);
+  if (!TZ_RE.test(trimmed)) nativeDate = fromZonedTime(nativeDate, 'UTC');
+  if (isValidDate(nativeDate)) return nativeDate;
 
   // RFC 2822 fallback (e.g. "Mon, 02 Jan 2006 15:04:05 -0700")
   const rfc2822Date = parseDate(trimmed, 'EEE, dd MMM yyyy HH:mm:ss xx', new Date());
   if (isValidDate(rfc2822Date)) return rfc2822Date;
 
-  // Apache CLF with timezone (e.g. "02/Jan/2006:15:04:05 -0700")
-  const clfTzDate = parseDate(trimmed, 'dd/MMM/yyyy:HH:mm:ss xx', new Date());
-  if (isValidDate(clfTzDate)) return clfTzDate;
-
-  // Apache CLF without timezone — assume UTC (e.g. "02/Jan/2006:15:04:05")
-  const clfDate = parseDate(`${trimmed} +0000`, 'dd/MMM/yyyy:HH:mm:ss xx', new Date());
-  if (isValidDate(clfDate)) return clfDate;
+  // Apache CLF — numeric month (dd/MM/…) and abbreviated month (dd/MMM/…)
+  const clfInput = TZ_RE.test(trimmed) ? trimmed : `${trimmed} +0000`;
+  let clfDate: Date | undefined;
+  ['dd/MM/yyyy:HH:mm:ss xx', 'dd/MMM/yyyy:HH:mm:ss xx'].some((fmt) => {
+    const d = parseDate(clfInput, fmt, new Date());
+    if (isValidDate(d)) {
+      clfDate = d;
+      return true;
+    }
+    return false;
+  });
+  if (clfDate) return clfDate;
 
   return undefined;
 }
