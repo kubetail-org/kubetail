@@ -299,7 +299,7 @@ export const useInit = ({ client, config, refs, actions, services }: Runtime) =>
             });
 
             // Combine results
-            services.recordStore.new(afterResult.records, { skipSetCount: true });
+            services.recordStore.new(afterResult.records, { skipSetCount: true, zeroAt: 'first' });
             services.recordStore.prepend(beforeResult.records);
 
             await beforePaintPromise;

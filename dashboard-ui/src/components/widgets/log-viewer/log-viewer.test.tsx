@@ -71,13 +71,14 @@ function createMockRecords(count: number, startTimestamp = 0): LogRecord[] {
   });
 }
 
-function createMockRuntime(): Runtime {
+function createMockRuntime(): Runtime & { recordsRef: { current: DoubleTailedArray<LogRecord> } } {
   const recordsRef = { current: new DoubleTailedArray<LogRecord>() };
   const setCount = vi.fn();
 
   const { result } = renderHook(() => useRecordStore({ recordsRef, setCount }));
 
   return {
+    recordsRef,
     client: createMockClient(),
     config: {
       initialPosition: { type: 'head' },
@@ -476,6 +477,40 @@ describe('internal helpers', () => {
         expect(actions.setHasMoreBefore).toHaveBeenLastCalledWith(true);
         expect(actions.setHasMoreAfter).toHaveBeenCalledTimes(1);
         expect(actions.setHasMoreAfter).toHaveBeenLastCalledWith(true);
+      });
+
+      it('assigns key 0 to the first record after the cursor', async () => {
+        const runtime = createMockRuntime();
+        const { client, config, recordsRef } = runtime;
+
+        (config as any).initialPosition = { type: 'cursor', cursor: 'c0' };
+
+        const beforeRecords = createMockRecords(3);
+        const afterRecords = createMockRecords(2);
+
+        (client as MockClient).fetchBefore.mockResolvedValue({
+          records: beforeRecords,
+          nextCursor: null,
+        });
+
+        (client as MockClient).fetchSince.mockResolvedValue({
+          records: afterRecords,
+          nextCursor: null,
+        });
+
+        renderHook(() => useInit(runtime));
+
+        await act(() => vi.runAllTimersAsync());
+
+        // First "since" record should be the anchor (key 0)
+        const firstSinceIndex = beforeRecords.length;
+        expect(recordsRef.current.keyAt(firstSinceIndex)).toBe(0);
+
+        // "Before" records should have negative keys
+        expect(recordsRef.current.keyAt(0)).toBe(-beforeRecords.length);
+
+        // Second "since" record should be key 1
+        expect(recordsRef.current.keyAt(firstSinceIndex + 1)).toBe(1);
       });
     });
   });

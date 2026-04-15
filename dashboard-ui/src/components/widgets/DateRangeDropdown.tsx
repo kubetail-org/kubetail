@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { parse, isValid } from 'date-fns';
-import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { parse as parseDate } from 'date-fns';
+import { fromZonedTime } from 'date-fns-tz';
+import { Clock } from 'lucide-react';
+import { Fragment, useRef, useState } from 'react';
 
+import { Alert, AlertDescription, AlertTitle } from '@kubetail/ui/elements/alert';
 import { Button } from '@kubetail/ui/elements/button';
-import { Calendar } from '@kubetail/ui/elements/calendar';
+import { Input } from '@kubetail/ui/elements/input';
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@kubetail/ui/elements/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@kubetail/ui/elements/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@kubetail/ui/elements/tabs';
 
 /**
  * Shared types
@@ -44,6 +45,30 @@ export class Duration {
     this.unit = unit;
   }
 
+  toDate(from?: Date) {
+    const d = new Date(from ?? Date.now());
+    switch (this.unit) {
+      case DurationUnit.Minutes:
+        d.setMinutes(d.getMinutes() - this.value);
+        break;
+      case DurationUnit.Hours:
+        d.setHours(d.getHours() - this.value);
+        break;
+      case DurationUnit.Days:
+        d.setDate(d.getDate() - this.value);
+        break;
+      case DurationUnit.Weeks:
+        d.setDate(d.getDate() - this.value * 7);
+        break;
+      case DurationUnit.Months:
+        d.setMonth(d.getMonth() - this.value);
+        break;
+      default:
+        throw new Error('not implemented');
+    }
+    return d;
+  }
+
   toISOString() {
     switch (this.unit) {
       case DurationUnit.Minutes:
@@ -62,221 +87,192 @@ export class Duration {
   }
 }
 
-/*
- * Duration button component
- */
-
-type DurationButtonProps = {
-  value: string;
-  unit: DurationUnit;
-  setDurationValue: React.Dispatch<string>;
-  setDurationUnit: React.Dispatch<DurationUnit>;
-};
-
-const DurationButton = ({ value, unit, setDurationValue, setDurationUnit }: DurationButtonProps) => (
-  <Button
-    variant="outline"
-    size="sm"
-    onClick={() => {
-      setDurationValue(value);
-      setDurationUnit(unit);
-    }}
-  >
-    {value}
-  </Button>
-);
-
 /**
- * Relative time picker component
+ * Relative time form
  */
 
-type RelativeTimePickerHandle = {
-  reset: () => void;
-  getValue: () => Duration | undefined;
-};
+const presetGroups: { label: string; unit: DurationUnit; values: number[] }[] = [
+  { label: 'Minutes', unit: DurationUnit.Minutes, values: [5, 15, 30] },
+  { label: 'Hours', unit: DurationUnit.Hours, values: [1, 2, 6] },
+  { label: 'Days', unit: DurationUnit.Days, values: [1, 3, 7] },
+];
 
-const RelativeTimePicker = forwardRef<RelativeTimePickerHandle, unknown>((_, ref) => {
-  const [durationValue, setDurationValue] = useState('5');
-  const [durationUnit, setDurationUnit] = useState(DurationUnit.Minutes);
-  const [errorMsg, setErrorMsg] = useState('');
+const RelativeTimeForm = ({ onApply }: { onApply: (duration: Duration) => void }) => {
+  const [customValue, setCustomValue] = useState('');
+  const [customUnit, setCustomUnit] = useState(DurationUnit.Minutes);
+  const [error, setError] = useState('');
 
-  const validate = () => {
-    if (durationValue.trim() === '') {
-      setErrorMsg('Please choose a number');
-      return undefined;
+  const handleApply = () => {
+    const num = Number(customValue);
+    if (Number.isNaN(num) || num <= 0) {
+      setError('Enter a positive number');
+      return;
     }
-    return new Duration(Number(durationValue), durationUnit);
-  };
-
-  // define handler api
-  useImperativeHandle(ref, () => ({
-    reset: () => {
-      setDurationValue('5');
-      setDurationUnit(DurationUnit.Minutes);
-    },
-    getValue: validate,
-  }));
-
-  const buttonArgs = { setDurationValue, setDurationUnit };
-
-  return (
-    <>
-      <div className="grid grid-cols-6 gap-2 text-sm pt-3 pl-3 pr-3">
-        <div className="flex items-center">Minutes</div>
-        {[5, 10, 15, 30, 45].map((val) => (
-          <DurationButton key={val} value={val.toString()} unit={DurationUnit.Minutes} {...buttonArgs} />
-        ))}
-        <div className="flex items-center">Hours</div>
-        {[1, 2, 3, 6, 12].map((val) => (
-          <DurationButton key={val} value={val.toString()} unit={DurationUnit.Hours} {...buttonArgs} />
-        ))}
-        <div className="flex items-center">Days</div>
-        {[1, 2, 3, 4, 5].map((val) => (
-          <DurationButton key={val} value={val.toString()} unit={DurationUnit.Days} {...buttonArgs} />
-        ))}
-        <div className="flex items-center">Weeks</div>
-        {[1, 2, 3, 4, 5].map((val) => (
-          <DurationButton key={val} value={val.toString()} unit={DurationUnit.Weeks} {...buttonArgs} />
-        ))}
-      </div>
-      <div className="grid grid-cols-2 w-full gap-5 mt-5">
-        <div>
-          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-          <label>
-            Duration
-            <input type="number" min="1" value={durationValue} onChange={(ev) => setDurationValue(ev.target.value)} />
-          </label>
-          {errorMsg && <div>{errorMsg}</div>}
-        </div>
-        <div>
-          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-          <label>
-            Unit
-            <Select value={durationUnit} onValueChange={(value) => setDurationUnit(value as DurationUnit)}>
-              <SelectTrigger className="mt-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={DurationUnit.Minutes}>Minutes ago</SelectItem>
-                <SelectItem value={DurationUnit.Hours}>Hours ago</SelectItem>
-                <SelectItem value={DurationUnit.Days}>Days ago</SelectItem>
-                <SelectItem value={DurationUnit.Weeks}>Weeks ago</SelectItem>
-                <SelectItem value={DurationUnit.Months}>Months ago</SelectItem>
-              </SelectContent>
-            </Select>
-          </label>
-        </div>
-      </div>
-    </>
-  );
-});
-
-/**
- * Absolute time picker component
- */
-
-type AbsoluteTimePickerHandle = {
-  reset: () => void;
-  getValue: () => Date | undefined;
-};
-
-const AbsoluteTimePicker = forwardRef<AbsoluteTimePickerHandle, unknown>((_, ref) => {
-  const today = new Date();
-  const dateFmt = Intl.DateTimeFormat().resolvedOptions().locale === 'en-US' ? 'MM/dd/yyyy' : 'dd/MM/yyyy';
-
-  const [calendarDate, setCalendarDate] = useState<Date | undefined>();
-
-  const [manualStartDate, setManualStartDate] = useState(formatInTimeZone(today, 'UTC', dateFmt));
-  const [manualStartTime, setManualStartTime] = useState('00:00:00.000');
-
-  const [errorMsgs, setErrorMsgs] = useState(new Map<string, string>());
-
-  const validate = () => {
-    if (!isValid(parse(manualStartDate, dateFmt, new Date()))) errorMsgs.set('startDate', dateFmt);
-    else errorMsgs.delete('startDate');
-
-    if (!isValid(parse(manualStartTime, 'HH:mm:ss.SSS', new Date()))) errorMsgs.set('startTime', 'HH:mm:ss.SSS');
-    else errorMsgs.delete('startTime');
-
-    setErrorMsgs(new Map(errorMsgs));
-
-    // return undefined if validation failed
-    if (errorMsgs.size) return undefined;
-
-    // parse
-    const localDate = parse(`${manualStartDate} ${manualStartTime}`, `${dateFmt} HH:mm:ss.SSS`, new Date());
-
-    // return as UTC time
-    return fromZonedTime(localDate, 'UTC');
-  };
-
-  // define handler api
-  useImperativeHandle(ref, () => ({
-    reset: () => {
-      setCalendarDate(today);
-      setManualStartDate(formatInTimeZone(today, 'UTC', dateFmt));
-      setManualStartTime('00:00:00.000');
-      setErrorMsgs(new Map<string, string>());
-    },
-    getValue: validate,
-  }));
-
-  const handleCalendarSelect = (value: Date | undefined) => {
-    if (!value) return;
-    setCalendarDate(value);
-    setManualStartDate(formatInTimeZone(value, 'UTC', dateFmt));
-    setManualStartTime('00:00:00.000');
-    setErrorMsgs(new Map<string, string>());
+    setError('');
+    onApply(new Duration(num, customUnit));
   };
 
   return (
-    <div className="flex flex-col items-center">
-      <Calendar
-        autoFocus
-        mode="single"
-        disabled={{ after: today }}
-        defaultMonth={today}
-        selected={calendarDate}
-        onSelect={handleCalendarSelect}
-        numberOfMonths={1}
-        timeZone="UTC"
-      />
-      <div className="mt-1 space-y-2">
-        <div>
-          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-          <label>
-            Start date
-            <input
-              className="ml-1 w-[110px] border border-input"
-              value={manualStartDate}
-              onChange={(ev) => setManualStartDate(ev.target.value)}
-            />
-          </label>
-          {errorMsgs.has('startDate') && <div>{errorMsgs.get('startDate')}</div>}
+    <div className="flex flex-col flex-1">
+      <div className="border border-border rounded-md p-3 bg-muted flex-1 flex flex-col">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Relative Time</h3>
+        <div className="grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-x-2 gap-y-1 my-auto">
+          {presetGroups.map((group) => (
+            <Fragment key={group.label}>
+              <span className="text-xs text-muted-foreground pl-3">{group.label}</span>
+              {group.values.map((v) => (
+                <Button
+                  key={v}
+                  variant="ghost"
+                  size="sm"
+                  className="text-right"
+                  onClick={() => onApply(new Duration(v, group.unit))}
+                >
+                  {v}
+                </Button>
+              ))}
+            </Fragment>
+          ))}
         </div>
-        <div>
-          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-          <label>
-            Start time
-            <input
-              className="ml-1 w-[110px] border border-input"
-              value={manualStartTime}
-              onChange={(ev) => setManualStartTime(ev.target.value)}
-            />
-          </label>
-          {errorMsgs.has('startTime') && <div>{errorMsgs.get('startTime')}</div>}
+        <div className="flex gap-2 mt-auto" title={error || undefined}>
+          <Input
+            type="number"
+            min="1"
+            value={customValue}
+            placeholder="Value"
+            onChange={(ev) => {
+              setCustomValue(ev.target.value);
+              setError('');
+            }}
+            onKeyDown={(ev) => ev.key === 'Enter' && handleApply()}
+            className={`w-25 shrink-0 ${error ? 'border-destructive' : ''}`}
+          />
+          <Select value={customUnit} onValueChange={(value) => setCustomUnit(value as DurationUnit)}>
+            <SelectTrigger className="flex-1 w-30 px-2 gap-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={DurationUnit.Minutes}>Minutes ago</SelectItem>
+              <SelectItem value={DurationUnit.Hours}>Hours ago</SelectItem>
+              <SelectItem value={DurationUnit.Days}>Days ago</SelectItem>
+              <SelectItem value={DurationUnit.Weeks}>Weeks ago</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
+      <Button className="mt-3 w-full" onClick={handleApply}>
+        Apply
+      </Button>
     </div>
   );
-});
+};
+
+/**
+ * Absolute time form
+ */
+
+function isValidDate(d: Date): boolean {
+  return !Number.isNaN(d.getTime());
+}
+
+// Matches Z, ±HH:MM, ±HHMM, or ±HH at the end of a string
+const TZ_RE = /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i;
+
+export function parseTimestamp(input: string): Date | undefined {
+  const trimmed = input.trim();
+  if (!trimmed) return undefined;
+
+  // Unix timestamp (milliseconds)
+  if (/^\d+$/.test(trimmed)) {
+    const ms = Number(trimmed);
+    const d = new Date(ms);
+    if (isValidDate(d)) return d;
+  }
+
+  // Try native Date parser (handles ISO 8601, RFC 2822, and common formats).
+  // If the input has no explicit timezone, use fromZonedTime to interpret as UTC.
+  const hasTZ = TZ_RE.test(trimmed);
+  if (hasTZ) {
+    const nativeDate = new Date(trimmed);
+    if (isValidDate(nativeDate)) return nativeDate;
+  } else {
+    const nativeDate = fromZonedTime(trimmed, 'UTC');
+    if (isValidDate(nativeDate)) return nativeDate;
+  }
+
+  // RFC 2822 fallback (e.g. "Mon, 02 Jan 2006 15:04:05 -0700")
+  const rfc2822Date = parseDate(trimmed, 'EEE, dd MMM yyyy HH:mm:ss xx', new Date());
+  if (isValidDate(rfc2822Date)) return rfc2822Date;
+
+  // Apache CLF with timezone (e.g. "02/Jan/2006:15:04:05 -0700")
+  const clfTzDate = parseDate(trimmed, 'dd/MMM/yyyy:HH:mm:ss xx', new Date());
+  if (isValidDate(clfTzDate)) return clfTzDate;
+
+  // Apache CLF without timezone — assume UTC (e.g. "02/Jan/2006:15:04:05")
+  const clfDate = parseDate(`${trimmed} +0000`, 'dd/MMM/yyyy:HH:mm:ss xx', new Date());
+  if (isValidDate(clfDate)) return clfDate;
+
+  return undefined;
+}
+
+const AbsoluteTimeForm = ({ onApply }: { onApply: (date: Date) => void }) => {
+  const [input, setInput] = useState('');
+  const [error, setError] = useState('');
+
+  const handleApply = () => {
+    const date = parseTimestamp(input);
+    if (!date) {
+      setError('Unable to parse timestamp');
+      return;
+    }
+    setError('');
+    onApply(date);
+  };
+
+  return (
+    <div className="flex flex-col flex-1">
+      <div className="border border-border rounded-md p-3 bg-muted flex-1 flex flex-col">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Absolute Time</h3>
+        <Alert className="mb-3 text-xs">
+          <AlertTitle className="flex items-center">Supported Formats</AlertTitle>
+          <AlertDescription className="font-mono text-xs mt-1">
+            <ul className="space-y-1 whitespace-nowrap">
+              <li title="ISO 8601">&gt; 2006-01-02T15:04:05+07:00</li>
+              <li title="RFC 2822">&gt; Mon, 02 Jan 2006 15:04:05 -0700</li>
+              <li title="Apache CLF">&gt; 02/Jan/2006:15:04:05 -0700</li>
+              <li title="Unix timestamp (milliseconds)">&gt; 1776393600000</li>
+            </ul>
+          </AlertDescription>
+        </Alert>
+        <div className="relative mt-auto" title={error || undefined}>
+          <Input
+            placeholder="Timestamp"
+            value={input}
+            onChange={(ev) => {
+              setInput(ev.target.value);
+              setError('');
+            }}
+            onKeyDown={(ev) => ev.key === 'Enter' && handleApply()}
+            className={`pl-8 ${error ? 'border-destructive' : ''}`}
+          />
+          <Clock
+            className={`absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 ${error ? 'text-destructive' : 'text-muted-foreground'}`}
+          />
+        </div>
+      </div>
+      <Button className="mt-3 w-full" onClick={handleApply}>
+        Apply
+      </Button>
+    </div>
+  );
+};
 
 /**
  * DateRangeDropdown component
  */
 
 export type DateRangeDropdownOnChangeArgs = {
-  since: Date | Duration | null;
+  since: Date | null;
   until: Date | null;
 };
 
@@ -285,70 +281,26 @@ type DateRangeDropdownProps = {
 };
 
 export const DateRangeDropdown = ({ onChange, children }: React.PropsWithChildren<DateRangeDropdownProps>) => {
-  const [tabValue, setTabValue] = useState('relative');
+  const closeRef = useRef<HTMLButtonElement>(null);
 
-  const cancelButtonRef = useRef<HTMLButtonElement>(null);
-  const relativePickerRef = useRef<RelativeTimePickerHandle>(null);
-  const absolutePickerRef = useRef<AbsoluteTimePickerHandle>(null);
-
-  const closePopover = () => {
-    cancelButtonRef.current?.click();
+  const handleApply = (date: Date) => {
+    closeRef.current?.click();
+    onChange({ since: date, until: null });
   };
 
-  const handleClear = () => {
-    if (tabValue === 'relative') relativePickerRef.current?.reset();
-    else if (tabValue === 'absolute') absolutePickerRef.current?.reset();
-  };
-
-  const handleApply = () => {
-    const args: DateRangeDropdownOnChangeArgs = { since: null, until: null };
-
-    if (tabValue === 'relative') {
-      const val = relativePickerRef.current?.getValue();
-      if (!val) return;
-      args.since = val;
-    } else {
-      const val = absolutePickerRef.current?.getValue();
-      if (!val) return;
-      args.since = val;
-    }
-
-    // close popover and call onChange handler
-    closePopover();
-    onChange(args);
+  const handleRelativeApply = (duration: Duration) => {
+    handleApply(duration.toDate());
   };
 
   return (
     <Popover>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-auto p-0 bg-background" align="start">
-        <Tabs className="w-[400px] p-3" defaultValue={tabValue} onValueChange={(value) => setTabValue(value)}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="relative">Relative</TabsTrigger>
-            <TabsTrigger value="absolute">Absolute</TabsTrigger>
-          </TabsList>
-          <TabsContent value="relative">
-            <RelativeTimePicker ref={relativePickerRef} />
-          </TabsContent>
-          <TabsContent value="absolute">
-            <AbsoluteTimePicker ref={absolutePickerRef} />
-          </TabsContent>
-        </Tabs>
-        <div className="flex justify-between mt-4 p-3 border-t">
-          <Button variant="outline" size="sm" onClick={handleClear}>
-            Clear
-          </Button>
-          <div className="flex space-x-2">
-            <PopoverClose asChild>
-              <Button ref={cancelButtonRef} variant="ghost" size="sm">
-                Cancel
-              </Button>
-            </PopoverClose>
-            <Button size="sm" onClick={handleApply}>
-              Apply
-            </Button>
-          </div>
+      <PopoverContent className="w-auto p-3" align="start">
+        <div className="flex items-stretch gap-3">
+          <RelativeTimeForm onApply={handleRelativeApply} />
+          <AbsoluteTimeForm onApply={handleApply} />
         </div>
+        <PopoverClose ref={closeRef} className="hidden" />
       </PopoverContent>
     </Popover>
   );

@@ -683,11 +683,11 @@ const Main = () => {
                 className="w-50 bg-background"
                 value={searchInputValue}
                 placeholder="Search workloads..."
-                onChange={(e) => {
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                   setSearchInputValue(e.target.value);
                   debouncedSearch(e.target.value);
                 }}
-                onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && e.preventDefault()}
                 disabled={isLoading}
               />
               <div className="block w-[200px]">

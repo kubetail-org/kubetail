@@ -33,8 +33,8 @@ importers:
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.72.1(react@19.2.5))
       '@kubetail/ui':
-        specifier: 2.5.0
-        version: 2.5.0(c564283f2d6f5581087f44dd22f53b44)
+        specifier: 2.7.1
+        version: 2.7.1(c564283f2d6f5581087f44dd22f53b44)
       '@radix-ui/react-checkbox':
         specifier: ^1.3.3
         version: 1.3.3(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -1108,8 +1108,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@kubetail/ui@2.5.0':
-    resolution: {integrity: sha512-K6oAHejPJhnOjAT5/GzZ5QFCC9GJiXSC0jFBYBtSMpkPKjcyfOpnpiugvJo9TvUbskkVr6eA9ZDuWg418D/yWQ==}
+  '@kubetail/ui@2.7.1':
+    resolution: {integrity: sha512-Hz0C7+Olmo6MtVUQ63NLkcUwdjNaCayQikx25rhh3RfYA3KhVFrb3pv3oWKFaaM1ESX9ncvopSusq5ADZhnNvQ==}
     peerDependencies:
       '@radix-ui/react-avatar': ^1
       '@radix-ui/react-checkbox': ^1
@@ -5579,7 +5579,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@kubetail/ui@2.5.0(c564283f2d6f5581087f44dd22f53b44)':
+  '@kubetail/ui@2.7.1(c564283f2d6f5581087f44dd22f53b44)':
     dependencies:
       class-variance-authority: 0.7.1
       clsx: 2.1.1
