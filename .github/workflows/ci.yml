@@ -11,7 +11,7 @@ on:
 
 jobs:
   rust-build:
-    name: rust/build
+    name: Rust · Build
     strategy:
       matrix:
         os:
@@ -39,7 +39,7 @@ jobs:
         run: cargo build --release
 
   rust-lint:
-    name: rust/lint
+    name: Rust · Lint
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -52,7 +52,7 @@ jobs:
         run: cargo fmt --all -- --check
 
   rust-vet:
-    name: rust/vet
+    name: Rust · Vet
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -65,7 +65,7 @@ jobs:
         run: cargo clippy --all -- -D warnings
 
   rust-test:
-    name: rust/test
+    name: Rust · Test
     strategy:
       matrix:
         os:
@@ -93,7 +93,7 @@ jobs:
         run: cargo test
 
   go-vendor:
-    name: go/vendor
+    name: Go · Vendor
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -111,7 +111,7 @@ jobs:
           retention-days: 1
 
   go-lint:
-    name: go/lint
+    name: Go · Lint
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -130,7 +130,7 @@ jobs:
         run: test -z "$(gofmt -l .)"
 
   go-vet:
-    name: go/vet
+    name: Go · Vet
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -149,7 +149,7 @@ jobs:
         run: go vet ./...
 
   go-test:
-    name: go/test
+    name: Go · Test
     needs: go-vendor
     timeout-minutes: 20
     strategy:
@@ -212,7 +212,7 @@ jobs:
         run: go test -race -mod=vendor ./...
 
   typescript-lint:
-    name: typescript/lint
+    name: TypeScript · Lint
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -227,7 +227,7 @@ jobs:
         run: pnpm lint
 
   typescript-test:
-    name: typescript/test
+    name: TypeScript · Test
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -242,7 +242,7 @@ jobs:
         run: pnpm test run
 
   typescript-build:
-    name: typescript/build
+    name: TypeScript · Build
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -257,7 +257,7 @@ jobs:
         run: pnpm build
 
   docker-builds:
-    name: docker/build
+    name: Docker · Build
     needs:
       - rust-build
       - rust-lint
@@ -315,7 +315,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.component }}-${{ matrix.target }}-${{ matrix.arch }}
 
   cli-builds:
-    name: cli/build
+    name: CLI · Build
     needs:
       - rust-build
       - rust-lint
@@ -382,7 +382,7 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
 
   alpine-builds:
-    name: alpine/build
+    name: Alpine · Build
     needs:
       - rust-build
       - rust-lint
@@ -453,6 +453,7 @@ jobs:
           ./bin/kubetail serve --test
 
   test-e2e:
+    name: E2E
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
