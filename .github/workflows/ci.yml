@@ -11,6 +11,7 @@ on:
 
 jobs:
   rust-build:
+    name: rust/build
     strategy:
       matrix:
         os:
@@ -38,6 +39,7 @@ jobs:
         run: cargo build --release
 
   rust-lint:
+    name: rust/lint
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -50,6 +52,7 @@ jobs:
         run: cargo fmt --all -- --check
 
   rust-vet:
+    name: rust/vet
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -62,6 +65,7 @@ jobs:
         run: cargo clippy --all -- -D warnings
 
   rust-test:
+    name: rust/test
     strategy:
       matrix:
         os:
@@ -89,6 +93,7 @@ jobs:
         run: cargo test
 
   go-vendor:
+    name: go/vendor
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -106,6 +111,7 @@ jobs:
           retention-days: 1
 
   go-lint:
+    name: go/lint
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -124,6 +130,7 @@ jobs:
         run: test -z "$(gofmt -l .)"
 
   go-vet:
+    name: go/vet
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -142,6 +149,7 @@ jobs:
         run: go vet ./...
 
   go-test:
+    name: go/test
     needs: go-vendor
     timeout-minutes: 20
     strategy:
@@ -203,7 +211,8 @@ jobs:
         working-directory: ./modules/${{ matrix.module }}
         run: go test -race -mod=vendor ./...
 
-  dashboard-ui-lint:
+  typescript-lint:
+    name: typescript/lint
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -217,7 +226,8 @@ jobs:
         working-directory: ./dashboard-ui
         run: pnpm lint
 
-  dashboard-ui-test:
+  typescript-test:
+    name: typescript/test
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -231,7 +241,8 @@ jobs:
         working-directory: ./dashboard-ui
         run: pnpm test run
 
-  dashboard-ui-build:
+  typescript-build:
+    name: typescript/build
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -246,6 +257,7 @@ jobs:
         run: pnpm build
 
   docker-builds:
+    name: docker/build
     needs:
       - rust-build
       - rust-lint
@@ -254,9 +266,9 @@ jobs:
       - go-lint
       - go-vet
       - go-test
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
+      - typescript-lint
+      - typescript-test
+      - typescript-build
     timeout-minutes: 20
     strategy:
       matrix:
@@ -303,6 +315,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.component }}-${{ matrix.target }}-${{ matrix.arch }}
 
   cli-builds:
+    name: cli/build
     needs:
       - rust-build
       - rust-lint
@@ -311,9 +324,9 @@ jobs:
       - go-lint
       - go-vet
       - go-test
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
+      - typescript-lint
+      - typescript-test
+      - typescript-build
     strategy:
       matrix:
         os:
@@ -369,6 +382,7 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
 
   alpine-builds:
+    name: alpine/build
     needs:
       - rust-build
       - rust-lint
@@ -378,9 +392,9 @@ jobs:
       - go-lint
       - go-vet
       - go-test
-      - dashboard-ui-lint
-      - dashboard-ui-test
-      - dashboard-ui-build
+      - typescript-lint
+      - typescript-test
+      - typescript-build
     strategy:
       fail-fast: false
       matrix:
