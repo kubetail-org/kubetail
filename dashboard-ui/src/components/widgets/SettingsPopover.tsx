@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useState } from 'react';
+import * as SelectPrimitive from '@radix-ui/react-select';
+import { CheckIcon } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 import { Popover, PopoverTrigger, PopoverContent } from '@kubetail/ui/elements/popover';
 import {
@@ -25,30 +27,67 @@ import {
 } from '@kubetail/ui/elements/select';
 
 import { useTheme, UserPreference } from '@/lib/theme';
+import { formatTimezoneOffset, TIMEZONES, useTimezone } from '@/lib/timezone';
 
 const SettingsPopoverContent = () => {
   const { userPreference, setUserPreference } = useTheme();
+  const [timezone, setTimezone] = useTimezone();
 
-  const handleChange = (value: UserPreference) => {
+  const handleThemeChange = (value: UserPreference) => {
     setUserPreference(value);
   };
 
+  const handleTimezoneChange = (value: string) => {
+    setTimezone(value);
+  };
+
+  const offsets = useMemo(() => new Map(TIMEZONES.map((tz) => [tz, formatTimezoneOffset(tz)])), []);
+
   return (
     <PopoverContent side="top" className="mr-1 min-h-30">
-      <table className="w-full text-sm">
+      <table className="w-full border-separate border-spacing-y-2 text-sm">
         <tbody>
           <tr>
             <td>Theme</td>
             <td align="right">
-              <Select value={userPreference} onValueChange={handleChange}>
+              <Select value={userPreference} onValueChange={handleThemeChange}>
                 <SelectTrigger className="bg-secondary border-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-secondary">
                   <SelectGroup>
-                    <SelectItem value={UserPreference.System}>system</SelectItem>
-                    <SelectItem value={UserPreference.Dark}>dark</SelectItem>
-                    <SelectItem value={UserPreference.Light}>light</SelectItem>
+                    <SelectItem value={UserPreference.System}>System</SelectItem>
+                    <SelectItem value={UserPreference.Dark}>Dark</SelectItem>
+                    <SelectItem value={UserPreference.Light}>Light</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </td>
+          </tr>
+          <tr>
+            <td>Timezone</td>
+            <td align="right">
+              <Select value={timezone} onValueChange={handleTimezoneChange}>
+                <SelectTrigger className="bg-secondary border-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-secondary max-h-60">
+                  <SelectGroup>
+                    {TIMEZONES.map((tz) => (
+                      <SelectPrimitive.Item
+                        key={tz}
+                        value={tz}
+                        className="focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                      >
+                        <span className="absolute right-2 flex size-3.5 items-center justify-center">
+                          <SelectPrimitive.ItemIndicator>
+                            <CheckIcon className="size-4" />
+                          </SelectPrimitive.ItemIndicator>
+                        </span>
+                        <SelectPrimitive.ItemText>{tz}</SelectPrimitive.ItemText>
+                        <span className="text-muted-foreground ml-auto">{offsets.get(tz)}</span>
+                      </SelectPrimitive.Item>
+                    ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>

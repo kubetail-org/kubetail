@@ -17,6 +17,8 @@ import { fromZonedTime } from 'date-fns-tz';
 import { Clock } from 'lucide-react';
 import { Fragment, useRef, useState } from 'react';
 
+import { useTimezone } from '@/lib/timezone';
+
 import { Alert, AlertDescription, AlertTitle } from '@kubetail/ui/elements/alert';
 import { Button } from '@kubetail/ui/elements/button';
 import { Input } from '@kubetail/ui/elements/input';
@@ -178,7 +180,7 @@ function isValidDate(d: Date): boolean {
 // Matches Z, ±HH:MM, ±HHMM, or ±HH at the end of a string
 const TZ_RE = /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i;
 
-export function parseTimestamp(input: string): Date | undefined {
+export function parseTimestamp(input: string, timezone = 'UTC'): Date | undefined {
   const trimmed = input.trim();
   if (!trimmed) return undefined;
 
@@ -190,9 +192,9 @@ export function parseTimestamp(input: string): Date | undefined {
   }
 
   // Try native Date parser (handles ISO 8601, RFC 2822, and common formats).
-  // If the input has no explicit timezone, use fromZonedTime to interpret as UTC.
+  // If the input has no explicit timezone, use fromZonedTime to interpret in the selected timezone.
   let nativeDate = new Date(trimmed);
-  if (!TZ_RE.test(trimmed)) nativeDate = fromZonedTime(nativeDate, 'UTC');
+  if (!TZ_RE.test(trimmed)) nativeDate = fromZonedTime(nativeDate, timezone);
   if (isValidDate(nativeDate)) return nativeDate;
 
   // RFC 2822 fallback (e.g. "Mon, 02 Jan 2006 15:04:05 -0700")
@@ -218,9 +220,10 @@ export function parseTimestamp(input: string): Date | undefined {
 const AbsoluteTimeForm = ({ onApply }: { onApply: (date: Date) => void }) => {
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
+  const [timezone] = useTimezone();
 
   const handleApply = () => {
-    const date = parseTimestamp(input);
+    const date = parseTimestamp(input, timezone);
     if (!date) {
       setError('Unable to parse timestamp');
       return;
