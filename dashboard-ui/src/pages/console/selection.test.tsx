@@ -17,6 +17,7 @@ import { createStore, Provider } from 'jotai';
 import { createRef } from 'react';
 
 import type { LogRecord, LogViewerVirtualizer } from '@/components/widgets/log-viewer';
+import { timezoneAtom } from '@/lib/timezone';
 
 import {
   getPlainAttribute,
@@ -57,9 +58,15 @@ const makeRecord = (overrides: Partial<LogRecord> = {}): LogRecord => ({
 describe('getPlainAttribute', () => {
   const record = makeRecord();
 
-  it('returns formatted timestamp', () => {
-    const result = getPlainAttribute(record, ViewerColumn.Timestamp);
+  it('returns formatted timestamp in UTC by default', () => {
+    const result = getPlainAttribute(record, ViewerColumn.Timestamp, 'UTC');
     expect(result).toBe('Jun 15, 2024 10:30:01.123');
+  });
+
+  it('returns formatted timestamp in the given timezone', () => {
+    const result = getPlainAttribute(record, ViewerColumn.Timestamp, 'America/New_York');
+    // 10:30 UTC = 06:30 EDT (June is DST)
+    expect(result).toBe('Jun 15, 2024 06:30:01.123');
   });
 
   it('returns empty string for ColorDot', () => {
@@ -2028,5 +2035,23 @@ describe('useSelectionKeyboard', () => {
     });
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('log message 0\nlog message 1');
+  });
+
+  it('copies timestamps in the selected timezone on Cmd+C', () => {
+    const { store } = renderKeyboard((s) => {
+      s.set(visibleColsAtom, new Set([ViewerColumn.Timestamp, ViewerColumn.Message]));
+      s.set(timezoneAtom, 'America/New_York');
+    });
+
+    act(() => {
+      store.set(selectedKeysAtom, new Set([0]));
+    });
+
+    act(() => {
+      fireEvent.keyDown(document, { key: 'c', metaKey: true });
+    });
+
+    // 10:30 UTC = 06:30 EDT (June is DST)
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Jun 15, 2024 06:30:00.000\tlog message 0');
   });
 });

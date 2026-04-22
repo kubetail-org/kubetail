@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { format, toZonedTime } from 'date-fns-tz';
 import { useAtomValue } from 'jotai';
 import React, { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -21,6 +20,7 @@ import { Spinner } from '@kubetail/ui/elements/spinner';
 import { stripAnsi } from 'fancy-ansi';
 import { AnsiHtml } from 'fancy-ansi/react';
 
+import { formatTimestamp, useTimezone } from '@/lib/timezone';
 import { cn, cssEncode } from '@/lib/util';
 import { LogViewer, useLogViewerState } from '@/components/widgets/log-viewer';
 import type {
@@ -340,12 +340,10 @@ const HeaderRow = ({
  * RecordRow component
  */
 
-const getAttribute = (record: LogRecord, col: ViewerColumn) => {
+const getAttribute = (record: LogRecord, col: ViewerColumn, timezone: string) => {
   switch (col) {
-    case ViewerColumn.Timestamp: {
-      const tsWithTZ = toZonedTime(record.timestamp, 'UTC');
-      return format(tsWithTZ, 'LLL dd, y HH:mm:ss.SSS', { timeZone: 'UTC' });
-    }
+    case ViewerColumn.Timestamp:
+      return formatTimestamp(record.timestamp, timezone);
     case ViewerColumn.ColorDot: {
       const k = cssEncode(`${record.source.namespace}/${record.source.podName}/${record.source.containerName}`);
       const el = <div className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: `var(--${k}-color)` }} />;
@@ -397,6 +395,7 @@ type RecordRowProps = {
   row: LogViewerVirtualRow;
   gridTemplate: string;
   visibleCols: Set<ViewerColumn>;
+  timezone: string;
   isWrap: boolean;
   isSelected: boolean;
   isSelectionTop: boolean;
@@ -420,6 +419,7 @@ export const RecordRow = memo(
     row,
     gridTemplate,
     visibleCols,
+    timezone,
     isWrap,
     isSelected,
     isSelectionTop,
@@ -533,7 +533,7 @@ export const RecordRow = memo(
       };
 
       els.push(
-        <CellContextMenu key={col} col={col} record={row.record}>
+        <CellContextMenu key={col} col={col} record={row.record} timezone={timezone}>
           <div
             ref={measureCellElement}
             data-col-id={col}
@@ -553,7 +553,7 @@ export const RecordRow = memo(
                   }
             }
           >
-            {getAttribute(row.record, col)}
+            {getAttribute(row.record, col, timezone)}
           </div>
         </CellContextMenu>,
       );
@@ -588,6 +588,7 @@ export const RecordRow = memo(
     if (prev.row.start !== next.row.start) return false;
     if (prev.gridTemplate !== next.gridTemplate) return false;
     if (prev.visibleCols !== next.visibleCols) return false;
+    if (prev.timezone !== next.timezone) return false;
     if (prev.isWrap !== next.isWrap) return false;
     if (prev.isSelected !== next.isSelected) return false;
     if (prev.isSelectionTop !== next.isSelectionTop) return false;
@@ -616,6 +617,7 @@ export const Main = () => {
 
   const follow = useAtomValue(isFollowAtom);
   const wrap = useAtomValue(isWrapAtom);
+  const [timezone] = useTimezone();
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const scrollElRef = useRef<HTMLDivElement>(null);
@@ -754,6 +756,7 @@ export const Main = () => {
                     measureElement={virtualizer.measureElement}
                     gridTemplate={gridTemplate}
                     visibleCols={visibleCols}
+                    timezone={timezone}
                     isWrap={wrap}
                     isSelected={selectedKeys.has(virtualRow.key)}
                     isSelectionTop={selectionTopKeys.has(virtualRow.key)}

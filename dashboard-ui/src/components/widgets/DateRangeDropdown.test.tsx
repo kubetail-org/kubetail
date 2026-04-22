@@ -32,6 +32,12 @@ describe('parseTimestamp', () => {
       const d = parseTimestamp('Jan 2, 2006 15:04:05');
       expect(d).toEqual(new Date('2006-01-02T15:04:05Z'));
     });
+
+    it('should interpret timezone-less input in the given timezone', () => {
+      const d = parseTimestamp('Jan 2, 2006 15:04:05', 'America/New_York');
+      // 15:04:05 EST = 20:04:05 UTC (January is EST, not EDT)
+      expect(d).toEqual(new Date('2006-01-02T20:04:05Z'));
+    });
   });
 
   describe('ISO 8601', () => {
