@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { format, toZonedTime } from 'date-fns-tz';
 import React from 'react';
 
 import {
@@ -27,6 +26,7 @@ import {
 import { stripAnsi } from 'fancy-ansi';
 
 import type { LogRecord } from '@/components/widgets/log-viewer';
+import { formatTimestamp } from '@/lib/timezone';
 
 import { getPlainAttribute } from './selection';
 import { ViewerColumn } from './shared';
@@ -35,9 +35,8 @@ function copyToClipboard(text: string) {
   navigator.clipboard.writeText(text);
 }
 
-function TimestampMenuContent({ record }: { record: LogRecord }) {
-  const tsWithTZ = toZonedTime(record.timestamp, 'UTC');
-  const displayed = format(tsWithTZ, 'LLL dd, y HH:mm:ss.SSS', { timeZone: 'UTC' });
+function TimestampMenuContent({ record, timezone }: { record: LogRecord; timezone: string }) {
+  const displayed = formatTimestamp(record.timestamp, timezone);
 
   return (
     <>
@@ -72,28 +71,31 @@ function MessageMenuContent({ record }: { record: LogRecord }) {
   );
 }
 
-function DefaultMenuContent({ record, col }: { record: LogRecord; col: ViewerColumn }) {
-  return <ContextMenuItem onSelect={() => copyToClipboard(getPlainAttribute(record, col))}>Copy</ContextMenuItem>;
+function DefaultMenuContent({ record, col, timezone }: { record: LogRecord; col: ViewerColumn; timezone: string }) {
+  return (
+    <ContextMenuItem onSelect={() => copyToClipboard(getPlainAttribute(record, col, timezone))}>Copy</ContextMenuItem>
+  );
 }
 
 type CellContextMenuProps = {
   col: ViewerColumn;
   record: LogRecord;
+  timezone: string;
   children: React.ReactElement;
 };
 
-export function CellContextMenu({ col, record, children }: CellContextMenuProps) {
+export function CellContextMenu({ col, record, timezone, children }: CellContextMenuProps) {
   if (col === ViewerColumn.ColorDot) {
     return children;
   }
 
   let content: React.ReactNode;
   if (col === ViewerColumn.Timestamp) {
-    content = <TimestampMenuContent record={record} />;
+    content = <TimestampMenuContent record={record} timezone={timezone} />;
   } else if (col === ViewerColumn.Message) {
     content = <MessageMenuContent record={record} />;
   } else {
-    content = <DefaultMenuContent record={record} col={col} />;
+    content = <DefaultMenuContent record={record} col={col} timezone={timezone} />;
   }
 
   return (

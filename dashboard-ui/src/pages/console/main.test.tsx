@@ -168,6 +168,60 @@ describe('Main', () => {
     });
   });
 
+  describe('RecordRow timestamp timezone', () => {
+    const mockRow: LogViewerVirtualRow = {
+      index: 0,
+      key: 0,
+      size: 20,
+      start: 0,
+      record: {
+        timestamp: '2024-06-15T10:30:01.123Z',
+        message: 'test message',
+        cursor: 'cursor-1',
+        source: {
+          metadata: { region: 'us-east-1', zone: 'us-east-1a', os: 'linux', arch: 'amd64', node: 'node-1' },
+          namespace: 'default',
+          podName: 'my-pod',
+          containerName: 'my-container',
+        },
+      },
+    };
+
+    const defaultProps = {
+      row: mockRow,
+      gridTemplate: 'auto 1fr',
+      visibleCols: new Set([ViewerColumn.Timestamp, ViewerColumn.Message]),
+      timezone: 'UTC',
+      isWrap: false,
+      isSelected: false,
+      isSelectionTop: false,
+      isSelectionBottom: false,
+      maxRowWidth: 500,
+      colWidths: new Map<ViewerColumn, number>(),
+      selectedCellCols: undefined as Set<ViewerColumn> | undefined,
+      selectedCellColsAbove: undefined as Set<ViewerColumn> | undefined,
+      selectedCellColsBelow: undefined as Set<ViewerColumn> | undefined,
+      isCursorText: true,
+      isCellTextSelectable: false,
+      measureElement: vi.fn(),
+      measureRowElement: vi.fn(),
+      measureCellElement: vi.fn(),
+      onRowMouseDown: vi.fn(),
+      onCellMouseDown: vi.fn(),
+    };
+
+    it('formats timestamps in UTC by default', () => {
+      render(<RecordRow {...defaultProps} />);
+      expect(screen.getByText('Jun 15, 2024 10:30:01.123')).toBeInTheDocument();
+    });
+
+    it('formats timestamps in the selected timezone', () => {
+      render(<RecordRow {...defaultProps} timezone="America/New_York" />);
+      // 10:30 UTC = 06:30 EDT (June is DST)
+      expect(screen.getByText('Jun 15, 2024 06:30:01.123')).toBeInTheDocument();
+    });
+  });
+
   describe('RecordRow click behavior', () => {
     const mockRow: LogViewerVirtualRow = {
       index: 0,
@@ -191,6 +245,7 @@ describe('Main', () => {
       row: mockRow,
       gridTemplate: 'auto 1fr',
       visibleCols: new Set([ViewerColumn.Timestamp, ViewerColumn.Message]),
+      timezone: 'UTC',
       isWrap: false,
       isSelected: false,
       isSelectionTop: false,
@@ -265,6 +320,7 @@ describe('Main', () => {
       row: mockRow,
       gridTemplate: 'auto 1fr',
       visibleCols: new Set([ViewerColumn.Timestamp, ViewerColumn.Message]),
+      timezone: 'UTC',
       isWrap: false,
       isSelected: false,
       isSelectionTop: false,
@@ -469,6 +525,7 @@ describe('Main', () => {
       row: mockRow,
       gridTemplate: 'auto auto 1fr',
       visibleCols: new Set([ViewerColumn.Timestamp, ViewerColumn.Message]),
+      timezone: 'UTC',
       isWrap: false,
       isSelected: false,
       isSelectionTop: false,

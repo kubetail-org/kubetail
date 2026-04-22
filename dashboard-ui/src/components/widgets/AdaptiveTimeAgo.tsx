@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useEffect, useState } from 'react';
+import { format, toZonedTime } from 'date-fns-tz';
+import { useEffect, useMemo, useState } from 'react';
 
 import TimeAgo from 'react-timeago';
+
+import { useTimezone } from '@/lib/timezone';
 
 const useAdaptiveMinPeriod = (date: Date) => {
   const [minPeriod, setMinPeriod] = useState(10);
@@ -53,7 +56,12 @@ const useAdaptiveMinPeriod = (date: Date) => {
 
 const AdaptiveTimeAgo = ({ date }: { date: Date }) => {
   const minPeriod = useAdaptiveMinPeriod(date);
-  return <TimeAgo date={date} minPeriod={minPeriod} title={date.toUTCString()} />;
+  const [timezone] = useTimezone();
+  const title = useMemo(() => {
+    const zoned = toZonedTime(date, timezone);
+    return format(zoned, 'LLL dd, y HH:mm:ss (zzz)', { timeZone: timezone });
+  }, [date, timezone]);
+  return <TimeAgo date={date} minPeriod={minPeriod} title={title} />;
 };
 
 export default AdaptiveTimeAgo;
