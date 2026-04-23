@@ -956,6 +956,7 @@ export const PREFERENCES_GET = gql(`
     preferencesGet {
       version
       theme
+      timezone
     }
   }
 `);
@@ -965,6 +966,7 @@ export const PREFERENCES_UPDATE = gql(`
     preferencesUpdate(input: $input) {
       version
       theme
+      timezone
     }
   }
 `);

@@ -13,29 +13,37 @@
 // limitations under the License.
 
 import { render, screen } from '@testing-library/react';
-import { createStore, Provider } from 'jotai';
 
-import { timezoneAtom } from '@/lib/timezone';
+import { PreferencesProvider } from '@/lib/preferences';
 
 import AdaptiveTimeAgo from './AdaptiveTimeAgo';
 
+const STORAGE_KEY = 'kubetail:preferences';
+
 describe('AdaptiveTimeAgo', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it('shows UTC-formatted tooltip by default', () => {
     const date = new Date('2024-06-15T10:30:00Z');
-    render(<AdaptiveTimeAgo date={date} />);
+    render(
+      <PreferencesProvider>
+        <AdaptiveTimeAgo date={date} />
+      </PreferencesProvider>,
+    );
     const el = screen.getByTitle(/Jun 15, 2024/);
     expect(el.getAttribute('title')).toBe('Jun 15, 2024 10:30:00 (UTC)');
   });
 
   it('shows tooltip formatted in the selected timezone', () => {
-    const store = createStore();
-    store.set(timezoneAtom, 'America/New_York');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, timezone: 'America/New_York' }));
 
     const date = new Date('2024-06-15T10:30:00Z');
     render(
-      <Provider store={store}>
+      <PreferencesProvider>
         <AdaptiveTimeAgo date={date} />
-      </Provider>,
+      </PreferencesProvider>,
     );
     const el = screen.getByTitle(/Jun 15, 2024/);
     expect(el.getAttribute('title')).toBe('Jun 15, 2024 06:30:00 (EDT)');

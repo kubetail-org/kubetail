@@ -13,27 +13,20 @@
 // limitations under the License.
 
 import { format, toZonedTime } from 'date-fns-tz';
-import { atom, getDefaultStore, useAtomValue } from 'jotai';
 import { useCallback } from 'react';
 
-const channelName = 'kubetail:timezone';
-const bcIn = new BroadcastChannel(channelName);
-const bcOut = new BroadcastChannel(channelName);
-
-export const timezoneAtom = atom<string>('UTC');
-
-// Listen for changes from other tabs (single global listener)
-bcIn.onmessage = (ev: MessageEvent<string>) => {
-  getDefaultStore().set(timezoneAtom, ev.data);
-};
+import { usePreferences } from '@/lib/preferences';
 
 export function useTimezone(): [string, (tz: string) => void] {
-  const timezone = useAtomValue(timezoneAtom);
+  const { preferences, updatePreferences } = usePreferences();
+  const timezone = preferences.timezone ?? 'UTC';
 
-  const setTimezone = useCallback((tz: string) => {
-    getDefaultStore().set(timezoneAtom, tz);
-    bcOut.postMessage(tz);
-  }, []);
+  const setTimezone = useCallback(
+    (tz: string) => {
+      updatePreferences({ timezone: tz });
+    },
+    [updatePreferences],
+  );
 
   return [timezone, setTimezone];
 }
