@@ -14,6 +14,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	semver "github.com/Masterminds/semver/v3"
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/preferences"
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	gqlerrors "github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
 	"github.com/kubetail-org/kubetail/modules/shared/helm"
@@ -142,6 +143,15 @@ func (r *mutationResolver) HelmInstallLatest(ctx context.Context, kubeContext *s
 	}
 
 	return release, nil
+}
+
+// PreferencesUpdate is the resolver for the preferencesUpdate field.
+func (r *mutationResolver) PreferencesUpdate(ctx context.Context, input model.PreferencesInput) (*preferences.Preferences, error) {
+	if r.preferencesStore == nil {
+		return nil, gqlerrors.ErrForbidden
+	}
+	patch := &preferences.Preferences{Theme: input.Theme}
+	return r.preferencesStore.Update(patch)
 }
 
 // AppsV1DaemonSetsGet is the resolver for the appsV1DaemonSetsGet field.
@@ -642,6 +652,14 @@ func (r *queryResolver) KubernetesAPIHealthzGet(ctx context.Context, kubeContext
 	kubeContextVal := r.cm.DerefKubeContext(kubeContext)
 
 	return r.kubernetesAPIHealthzGet(ctx, kubeContextVal), nil
+}
+
+// PreferencesGet is the resolver for the preferencesGet field.
+func (r *queryResolver) PreferencesGet(ctx context.Context) (*preferences.Preferences, error) {
+	if r.preferencesStore == nil {
+		return nil, gqlerrors.ErrForbidden
+	}
+	return r.preferencesStore.Get()
 }
 
 // LogRecordsFetch is the resolver for the logRecordsFetch field.

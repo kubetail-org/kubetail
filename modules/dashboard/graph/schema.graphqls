@@ -752,6 +752,17 @@ enum WatchEventType {
   ERROR
 }
 
+# --- Preferences ---
+
+type Preferences {
+  version: Int!
+  theme: String
+}
+
+input PreferencesInput {
+  theme: String
+}
+
 # --- Root operations ---
 
 type Query {
@@ -815,6 +826,11 @@ type Query {
   kubernetesAPIHealthzGet(kubeContext: String): HealthCheckResponse!
 
   """
+  Preferences
+  """
+  preferencesGet: Preferences!
+
+  """
   Log records API
   """
   logRecordsFetch(
@@ -836,6 +852,11 @@ type Mutation {
   Helm mutations
   """
   helmInstallLatest(kubeContext: String): HelmRelease
+
+  """
+  Preferences
+  """
+  preferencesUpdate(input: PreferencesInput!): Preferences!
 }
 
 type Subscription {

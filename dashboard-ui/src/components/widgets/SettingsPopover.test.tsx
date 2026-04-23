@@ -14,17 +14,17 @@
 
 import { fireEvent, render, screen } from '@testing-library/react';
 
-import { ThemeProvider } from '@/lib/theme';
+import { PreferencesProvider } from '@/lib/preferences';
 
 import { SettingsPopover } from './SettingsPopover';
 
 function renderSettingsPopover() {
   return render(
-    <ThemeProvider>
+    <PreferencesProvider>
       <SettingsPopover>
         <button type="button">Settings</button>
       </SettingsPopover>
-    </ThemeProvider>,
+    </PreferencesProvider>,
   );
 }
 

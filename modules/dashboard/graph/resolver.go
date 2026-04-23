@@ -33,6 +33,7 @@ import (
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/preferences"
 )
 
 // This file will not be regenerated automatically.
@@ -49,6 +50,7 @@ type Resolver struct {
 	allowedNamespaces []string
 	versionChecker    versioncheck.Checker
 	helmReleaseGetter helmReleaseGetter
+	preferencesStore  *preferences.Store
 }
 
 // Teardown

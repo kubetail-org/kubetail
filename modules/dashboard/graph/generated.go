@@ -17,6 +17,7 @@ import (
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/preferences"
 	model1 "github.com/kubetail-org/kubetail/modules/shared/graphql/model"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
 	gqlparser "github.com/vektah/gqlparser/v2"
@@ -584,6 +585,7 @@ type ComplexityRoot struct {
 
 	Mutation struct {
 		HelmInstallLatest func(childComplexity int, kubeContext *string) int
+		PreferencesUpdate func(childComplexity int, input model.PreferencesInput) int
 	}
 
 	PageInfo struct {
@@ -591,6 +593,11 @@ type ComplexityRoot struct {
 		HasNextPage     func(childComplexity int) int
 		HasPreviousPage func(childComplexity int) int
 		StartCursor     func(childComplexity int) int
+	}
+
+	Preferences struct {
+		Theme   func(childComplexity int) int
+		Version func(childComplexity int) int
 	}
 
 	Query struct {
@@ -622,6 +629,7 @@ type ComplexityRoot struct {
 		KubernetesAPIHealthzGet func(childComplexity int, kubeContext *string) int
 		KubernetesAPIReadyWait  func(childComplexity int, kubeContext *string) int
 		LogRecordsFetch         func(childComplexity int, kubeContext *string, sources []string, mode *model.LogRecordsQueryMode, since *string, until *string, after *string, before *string, grep *string, sourceFilter *model.LogSourceFilter, limit *int) int
+		PreferencesGet          func(childComplexity int) int
 	}
 
 	Subscription struct {
@@ -689,6 +697,7 @@ type KubeConfigResolver interface {
 }
 type MutationResolver interface {
 	HelmInstallLatest(ctx context.Context, kubeContext *string) (*release.Release, error)
+	PreferencesUpdate(ctx context.Context, input model.PreferencesInput) (*preferences.Preferences, error)
 }
 type QueryResolver interface {
 	AppsV1DaemonSetsGet(ctx context.Context, kubeContext *string, namespace *string, name string, options *v1.GetOptions) (*v11.DaemonSet, error)
@@ -718,6 +727,7 @@ type QueryResolver interface {
 	KubeConfigGet(ctx context.Context) (*model.KubeConfig, error)
 	KubernetesAPIReadyWait(ctx context.Context, kubeContext *string) (bool, error)
 	KubernetesAPIHealthzGet(ctx context.Context, kubeContext *string) (*model.HealthCheckResponse, error)
+	PreferencesGet(ctx context.Context) (*preferences.Preferences, error)
 	LogRecordsFetch(ctx context.Context, kubeContext *string, sources []string, mode *model.LogRecordsQueryMode, since *string, until *string, after *string, before *string, grep *string, sourceFilter *model.LogSourceFilter, limit *int) (*model.LogRecordsQueryResponse, error)
 }
 type SubscriptionResolver interface {
@@ -2774,6 +2784,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Mutation.HelmInstallLatest(childComplexity, args["kubeContext"].(*string)), true
 
+	case "Mutation.preferencesUpdate":
+		if e.complexity.Mutation.PreferencesUpdate == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_preferencesUpdate_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.PreferencesUpdate(childComplexity, args["input"].(model.PreferencesInput)), true
+
 	case "PageInfo.endCursor":
 		if e.complexity.PageInfo.EndCursor == nil {
 			break
@@ -2801,6 +2823,20 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.PageInfo.StartCursor(childComplexity), true
+
+	case "Preferences.theme":
+		if e.complexity.Preferences.Theme == nil {
+			break
+		}
+
+		return e.complexity.Preferences.Theme(childComplexity), true
+
+	case "Preferences.version":
+		if e.complexity.Preferences.Version == nil {
+			break
+		}
+
+		return e.complexity.Preferences.Version(childComplexity), true
 
 	case "Query.appsV1DaemonSetsGet":
 		if e.complexity.Query.AppsV1DaemonSetsGet == nil {
@@ -3128,6 +3164,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Query.LogRecordsFetch(childComplexity, args["kubeContext"].(*string), args["sources"].([]string), args["mode"].(*model.LogRecordsQueryMode), args["since"].(*string), args["until"].(*string), args["after"].(*string), args["before"].(*string), args["grep"].(*string), args["sourceFilter"].(*model.LogSourceFilter), args["limit"].(*int)), true
 
+	case "Query.preferencesGet":
+		if e.complexity.Query.PreferencesGet == nil {
+			break
+		}
+
+		return e.complexity.Query.PreferencesGet(childComplexity), true
+
 	case "Subscription.appsV1DaemonSetsWatch":
 		if e.complexity.Subscription.AppsV1DaemonSetsWatch == nil {
 			break
@@ -3371,6 +3414,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputLogSourceFilter,
 		ec.unmarshalInputMetaV1GetOptions,
 		ec.unmarshalInputMetaV1ListOptions,
+		ec.unmarshalInputPreferencesInput,
 	)
 	first := true
 
@@ -3575,6 +3619,29 @@ func (ec *executionContext) field_Mutation_helmInstallLatest_argsKubeContext(
 	}
 
 	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_preferencesUpdate_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Mutation_preferencesUpdate_argsInput(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_preferencesUpdate_argsInput(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (model.PreferencesInput, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+	if tmp, ok := rawArgs["input"]; ok {
+		return ec.unmarshalNPreferencesInput2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐPreferencesInput(ctx, tmp)
+	}
+
+	var zeroVal model.PreferencesInput
 	return zeroVal, nil
 }
 
@@ -19711,6 +19778,67 @@ func (ec *executionContext) fieldContext_Mutation_helmInstallLatest(ctx context.
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_preferencesUpdate(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_preferencesUpdate(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().PreferencesUpdate(rctx, fc.Args["input"].(model.PreferencesInput))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*preferences.Preferences)
+	fc.Result = res
+	return ec.marshalNPreferences2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋpkgᚋpreferencesᚐPreferences(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_preferencesUpdate(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "version":
+				return ec.fieldContext_Preferences_version(ctx, field)
+			case "theme":
+				return ec.fieldContext_Preferences_theme(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Preferences", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_preferencesUpdate_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _PageInfo_endCursor(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_PageInfo_endCursor(ctx, field)
 	if err != nil {
@@ -19876,6 +20004,91 @@ func (ec *executionContext) fieldContext_PageInfo_startCursor(_ context.Context,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Preferences_version(ctx context.Context, field graphql.CollectedField, obj *preferences.Preferences) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Preferences_version(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Version, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Preferences_version(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Preferences",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Preferences_theme(ctx context.Context, field graphql.CollectedField, obj *preferences.Preferences) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Preferences_theme(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Theme, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Preferences_theme(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Preferences",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -21538,6 +21751,56 @@ func (ec *executionContext) fieldContext_Query_kubernetesAPIHealthzGet(ctx conte
 	if fc.Args, err = ec.field_Query_kubernetesAPIHealthzGet_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_preferencesGet(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_preferencesGet(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().PreferencesGet(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*preferences.Preferences)
+	fc.Result = res
+	return ec.marshalNPreferences2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋpkgᚋpreferencesᚐPreferences(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_preferencesGet(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "version":
+				return ec.fieldContext_Preferences_version(ctx, field)
+			case "theme":
+				return ec.fieldContext_Preferences_theme(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Preferences", field.Name)
+		},
 	}
 	return fc, nil
 }
@@ -25308,6 +25571,33 @@ func (ec *executionContext) unmarshalInputMetaV1ListOptions(ctx context.Context,
 				return it, err
 			}
 			it.SendInitialEvents = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputPreferencesInput(ctx context.Context, obj any) (model.PreferencesInput, error) {
+	var it model.PreferencesInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"theme"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "theme":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("theme"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Theme = data
 		}
 	}
 
@@ -29678,6 +29968,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_helmInstallLatest(ctx, field)
 			})
+		case "preferencesUpdate":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_preferencesUpdate(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -29726,6 +30023,47 @@ func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "startCursor":
 			out.Values[i] = ec._PageInfo_startCursor(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var preferencesImplementors = []string{"Preferences"}
+
+func (ec *executionContext) _Preferences(ctx context.Context, sel ast.SelectionSet, obj *preferences.Preferences) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, preferencesImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Preferences")
+		case "version":
+			out.Values[i] = ec._Preferences_version(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "theme":
+			out.Values[i] = ec._Preferences_theme(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -30284,6 +30622,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_kubernetesAPIHealthzGet(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "preferencesGet":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_preferencesGet(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -32202,6 +32562,25 @@ func (ec *executionContext) marshalNMetaV1Time2k8sᚗioᚋapimachineryᚋpkgᚋa
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNPreferences2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋpkgᚋpreferencesᚐPreferences(ctx context.Context, sel ast.SelectionSet, v preferences.Preferences) graphql.Marshaler {
+	return ec._Preferences(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNPreferences2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋpkgᚋpreferencesᚐPreferences(ctx context.Context, sel ast.SelectionSet, v *preferences.Preferences) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Preferences(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNPreferencesInput2githubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋdashboardᚋgraphᚋmodelᚐPreferencesInput(ctx context.Context, v any) (model.PreferencesInput, error) {
+	res, err := ec.unmarshalInputPreferencesInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {

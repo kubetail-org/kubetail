@@ -9,8 +9,10 @@
   <body>
     <div id="root"></div>
     <script>
-      // set theme as early as possible
-      if (localStorage['kubetail:theme'] === 'dark' || (!('kubetail:theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      // set theme as early as possible to prevent flash of wrong theme
+      var theme;
+      try { theme = JSON.parse(localStorage['kubetail:preferences']).theme; } catch(e) {}
+      if (theme === 'dark' || (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
       }
     </script>

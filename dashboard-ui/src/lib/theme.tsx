@@ -12,28 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 
-const storageKey = 'kubetail:theme';
+import { usePreferences } from '@/lib/preferences';
 
-export const enum Theme {
+export const enum ResolvedTheme {
   Light = 'Light',
   Dark = 'Dark',
 }
 
-export const enum UserPreference {
+export const enum Theme {
   System = 'System',
   Light = 'Light',
   Dark = 'Dark',
 }
-
-type ContextType = {
-  theme: Theme;
-  userPreference: UserPreference;
-  setUserPreference: React.Dispatch<UserPreference>;
-};
-
-const Context = createContext({} as ContextType);
 
 /**
  * Media query helper
@@ -44,112 +36,88 @@ function getMediaQuery() {
 }
 
 /**
- * Non-reactive helper methods
+ * Derive theme values from preferences
  */
 
-function getUserPreference() {
-  if (!(storageKey in localStorage)) return UserPreference.System;
-  return localStorage[storageKey] === 'dark' ? UserPreference.Dark : UserPreference.Light;
-}
-
-function getSystemTheme(ev?: MediaQueryListEvent) {
-  return (ev || getMediaQuery()).matches ? Theme.Dark : Theme.Light;
-}
-
-function getTheme() {
-  switch (getUserPreference()) {
-    case UserPreference.System:
-      return getSystemTheme();
-    case UserPreference.Dark:
+function toTheme(theme?: string): Theme {
+  switch (theme) {
+    case 'dark':
       return Theme.Dark;
-    case UserPreference.Light:
+    case 'light':
       return Theme.Light;
     default:
-      throw new Error('not implemented');
+      return Theme.System;
+  }
+}
+
+function toThemeString(pref: Theme): string {
+  switch (pref) {
+    case Theme.Dark:
+      return 'dark';
+    case Theme.Light:
+      return 'light';
+    default:
+      return 'system';
+  }
+}
+
+function resolveTheme(pref: Theme): ResolvedTheme {
+  switch (pref) {
+    case Theme.Dark:
+      return ResolvedTheme.Dark;
+    case Theme.Light:
+      return ResolvedTheme.Light;
+    default:
+      return getMediaQuery().matches ? ResolvedTheme.Dark : ResolvedTheme.Light;
   }
 }
 
 /**
- * Theme hook
+ * useTheme hook — derives theme from preferences (pure derivation, no side effects)
  */
 
 export function useTheme() {
-  const { theme, userPreference, setUserPreference } = useContext(Context);
+  const { preferences, updatePreferences } = usePreferences();
+  const theme = toTheme(preferences.theme);
+  const resolvedTheme = resolveTheme(theme);
 
-  return {
-    theme,
-    userPreference,
-    setUserPreference,
-  };
+  const setTheme = useCallback(
+    (value: Theme) => {
+      updatePreferences({ theme: toThemeString(value) });
+    },
+    [updatePreferences],
+  );
+
+  return { resolvedTheme, theme, setTheme };
 }
 
 /**
- * Theme provider
+ * ThemeEffect — always-mounted component that keeps the DOM in sync with the
+ * current theme (dark class on <html>, OS preference listener).
  */
 
-export function ThemeProvider({ children }: React.PropsWithChildren) {
-  const [userPreference, setUserPreference] = useState(getUserPreference);
-  const [theme, setTheme] = useState(getTheme);
+export function ThemeEffect() {
+  const { preferences, updatePreferences } = usePreferences();
+  const theme = toTheme(preferences.theme);
+  const resolvedTheme = resolveTheme(theme);
 
-  // apply theme to dom
+  // apply dark class to <html>
   useEffect(() => {
-    if (theme === Theme.Dark) document.documentElement.classList.add('dark');
+    if (resolvedTheme === ResolvedTheme.Dark) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
-  }, [theme]);
+  }, [resolvedTheme]);
 
-  // listen for os/browser preference changes
+  // listen for OS/browser preference changes when in system mode
   useEffect(() => {
     const mediaQuery = getMediaQuery();
-    const fn = (ev: MediaQueryListEvent) => {
-      if (getUserPreference() === UserPreference.System) setTheme(getSystemTheme(ev));
+    const fn = (_ev: MediaQueryListEvent) => {
+      if (toTheme(preferences.theme) === Theme.System) {
+        updatePreferences({ theme: 'system' });
+      }
     };
     mediaQuery.addEventListener('change', fn);
-
-    // cleanup
     return () => mediaQuery.removeEventListener('change', fn);
-  }, []);
+  }, [preferences.theme, updatePreferences]);
 
-  // listen for theme changes from other tabs
-  useEffect(() => {
-    const fn = (ev: StorageEvent) => {
-      if (ev.key !== storageKey) return;
-
-      setUserPreference(getUserPreference());
-      setTheme(getTheme());
-    };
-
-    window.addEventListener('storage', fn);
-
-    return () => window.removeEventListener('storage', fn);
-  }, []);
-
-  const context = useMemo(
-    () => ({
-      theme,
-      userPreference,
-      setUserPreference: (value: UserPreference) => {
-        // update localStorage
-        switch (value) {
-          case UserPreference.System:
-            localStorage.removeItem(storageKey);
-            break;
-          case UserPreference.Dark:
-            localStorage.setItem(storageKey, 'dark');
-            break;
-          case UserPreference.Light:
-            localStorage.setItem(storageKey, 'light');
-            break;
-          default:
-            throw new Error('not implemented');
-        }
-
-        // update react states
-        setUserPreference(getUserPreference());
-        setTheme(getTheme());
-      },
-    }),
-    [theme, userPreference, setUserPreference, setTheme],
-  );
-
-  return <Context.Provider value={context}>{children}</Context.Provider>;
+  return null;
 }
