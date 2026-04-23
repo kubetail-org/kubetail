@@ -87,6 +87,10 @@ autobind:
 # modelgen, the others will be allowed when binding to fields. Configure them to
 # your liking
 models:
+  # --- Preferences ---
+  Preferences:
+    model: github.com/kubetail-org/kubetail/modules/dashboard/pkg/preferences.Preferences
+
   # --- Interfaces ---
   List:
     model: github.com/kubetail-org/kubetail/modules/dashboard/graph/model.List
