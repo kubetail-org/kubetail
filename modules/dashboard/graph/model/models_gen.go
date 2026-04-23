@@ -57,6 +57,10 @@ type PageInfo struct {
 	StartCursor *string `json:"startCursor,omitempty"`
 }
 
+type PreferencesInput struct {
+	Theme *string `json:"theme,omitempty"`
+}
+
 type Subscription struct {
 }
 

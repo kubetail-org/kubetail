@@ -26,15 +26,15 @@ import {
   SelectValue,
 } from '@kubetail/ui/elements/select';
 
-import { useTheme, UserPreference } from '@/lib/theme';
+import { useTheme, Theme } from '@/lib/theme';
 import { formatTimezoneOffset, TIMEZONES, useTimezone } from '@/lib/timezone';
 
 const SettingsPopoverContent = () => {
-  const { userPreference, setUserPreference } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [timezone, setTimezone] = useTimezone();
 
-  const handleThemeChange = (value: UserPreference) => {
-    setUserPreference(value);
+  const handleThemeChange = (value: Theme) => {
+    setTheme(value);
   };
 
   const handleTimezoneChange = (value: string) => {
@@ -50,15 +50,15 @@ const SettingsPopoverContent = () => {
           <tr>
             <td>Theme</td>
             <td align="right">
-              <Select value={userPreference} onValueChange={handleThemeChange}>
+              <Select value={theme} onValueChange={handleThemeChange}>
                 <SelectTrigger className="bg-secondary border-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-secondary">
                   <SelectGroup>
-                    <SelectItem value={UserPreference.System}>System</SelectItem>
-                    <SelectItem value={UserPreference.Dark}>Dark</SelectItem>
-                    <SelectItem value={UserPreference.Light}>Light</SelectItem>
+                    <SelectItem value={Theme.System}>System</SelectItem>
+                    <SelectItem value={Theme.Dark}>Dark</SelectItem>
+                    <SelectItem value={Theme.Light}>Light</SelectItem>
                   </SelectGroup>
                 </SelectContent>
               </Select>

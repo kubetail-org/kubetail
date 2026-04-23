@@ -52,6 +52,10 @@ type Config struct {
 	GinMode            string `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
 	Environment        sharedcfg.Environment
 
+	// Parent directory for local files (preferences, future cache/state).
+	// When empty, features that require local storage are disabled.
+	LocalStorageDir string `mapstructure:"local-storage-dir"`
+
 	// csrf options
 	CSRF struct {
 		Enabled bool
@@ -102,6 +106,19 @@ type Config struct {
 
 func (cfg *Config) validate() error {
 	return validator.New().Struct(cfg)
+}
+
+// Filenames for files stored under LocalStorageDir. Kept unexported so
+// callers configure only the parent directory, not individual filenames.
+const preferencesFilename = "preferences.json"
+
+// PreferencesPath returns the full path to the preferences file, or an
+// empty string when local storage is not configured.
+func (cfg *Config) PreferencesPath() string {
+	if cfg.LocalStorageDir == "" {
+		return ""
+	}
+	return filepath.Join(cfg.LocalStorageDir, preferencesFilename)
 }
 
 func DefaultConfig() *Config {
@@ -235,6 +252,15 @@ func NewConfig(v *viper.Viper, configPath string) (*Config, error) {
 	// Unmarshal
 	if err := v.Unmarshal(cfg, decodeOpt); err != nil {
 		return nil, err
+	}
+
+	// Default LocalStorageDir for desktop mode
+	if cfg.LocalStorageDir == "" && cfg.Environment == sharedcfg.EnvironmentDesktop {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("get home dir: %w", err)
+		}
+		cfg.LocalStorageDir = filepath.Join(home, ".kubetail")
 	}
 
 	// Validate config

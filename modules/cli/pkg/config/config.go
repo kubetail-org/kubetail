@@ -85,13 +85,26 @@ func DefaultCLIConfig() *Config {
 	return cfg
 }
 
-func DefaultConfigPath(format string) (string, error) {
+// DefaultLocalStorageDir returns the directory where kubetail stores
+// local files (config, preferences, future cache/state). Files inside
+// follow a lowercase, purpose-named convention: config.yaml,
+// preferences.json, etc.
+func DefaultLocalStorageDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("get home dir: %w", err)
 	}
 
-	return filepath.Join(home, ".kubetail", fmt.Sprintf("config.%s", format)), nil
+	return filepath.Join(home, ".kubetail"), nil
+}
+
+func DefaultConfigPath(format string) (string, error) {
+	dir, err := DefaultLocalStorageDir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(dir, fmt.Sprintf("config.%s", format)), nil
 }
 
 func NewConfig(configPath string, v *viper.Viper) (*Config, error) {

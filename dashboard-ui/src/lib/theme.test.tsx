@@ -14,7 +14,9 @@
 
 import { act, render, screen } from '@testing-library/react';
 
-import { ThemeProvider, UserPreference, useTheme } from './theme';
+import { PreferencesProvider } from '@/lib/preferences';
+
+import { Theme, ThemeEffect, useTheme } from './theme';
 
 type MatchMediaListener = (event: MediaQueryListEvent) => void;
 
@@ -48,19 +50,19 @@ function createMatchMediaController(initialMatches = false) {
 }
 
 function ThemeConsumer() {
-  const { theme, userPreference, setUserPreference } = useTheme();
+  const { resolvedTheme, theme, setTheme } = useTheme();
 
   return (
     <div>
+      <span data-testid="resolved-theme">{resolvedTheme}</span>
       <span data-testid="theme">{theme}</span>
-      <span data-testid="preference">{userPreference}</span>
-      <button type="button" onClick={() => setUserPreference(UserPreference.System)}>
+      <button type="button" onClick={() => setTheme(Theme.System)}>
         system
       </button>
-      <button type="button" onClick={() => setUserPreference(UserPreference.Light)}>
+      <button type="button" onClick={() => setTheme(Theme.Light)}>
         light
       </button>
-      <button type="button" onClick={() => setUserPreference(UserPreference.Dark)}>
+      <button type="button" onClick={() => setTheme(Theme.Dark)}>
         dark
       </button>
     </div>
@@ -69,13 +71,14 @@ function ThemeConsumer() {
 
 function renderWithProvider() {
   return render(
-    <ThemeProvider>
+    <PreferencesProvider>
+      <ThemeEffect />
       <ThemeConsumer />
-    </ThemeProvider>,
+    </PreferencesProvider>,
   );
 }
 
-describe('ThemeProvider', () => {
+describe('useTheme', () => {
   const originalMatchMedia = window.matchMedia;
 
   beforeEach(() => {
@@ -91,18 +94,18 @@ describe('ThemeProvider', () => {
     });
   });
 
-  it('uses the system theme when there is no stored preference', () => {
+  it('resolves to system theme when no preference is set', () => {
     const matchMediaController = createMatchMediaController(true);
     vi.stubGlobal('matchMedia', matchMediaController.matchMedia);
 
     renderWithProvider();
 
-    expect(screen.getByTestId('preference')).toHaveTextContent(UserPreference.System);
-    expect(screen.getByTestId('theme')).toHaveTextContent('Dark');
+    expect(screen.getByTestId('theme')).toHaveTextContent(Theme.System);
+    expect(screen.getByTestId('resolved-theme')).toHaveTextContent('Dark');
     expect(document.documentElement).toHaveClass('dark');
   });
 
-  it('updates the theme when the system preference changes while using system mode', () => {
+  it('updates resolved theme when system preference changes in system mode', () => {
     const matchMediaController = createMatchMediaController(false);
     vi.stubGlobal('matchMedia', matchMediaController.matchMedia);
 
@@ -112,12 +115,12 @@ describe('ThemeProvider', () => {
       matchMediaController.setMatches(true);
     });
 
-    expect(screen.getByTestId('preference')).toHaveTextContent(UserPreference.System);
-    expect(screen.getByTestId('theme')).toHaveTextContent('Dark');
+    expect(screen.getByTestId('theme')).toHaveTextContent(Theme.System);
+    expect(screen.getByTestId('resolved-theme')).toHaveTextContent('Dark');
     expect(document.documentElement).toHaveClass('dark');
   });
 
-  it('ignores system preference changes after the user selects an explicit theme', () => {
+  it('ignores system preference changes when an explicit theme is selected', () => {
     const matchMediaController = createMatchMediaController(false);
     vi.stubGlobal('matchMedia', matchMediaController.matchMedia);
 
@@ -125,33 +128,32 @@ describe('ThemeProvider', () => {
 
     act(() => {
       screen.getByRole('button', { name: 'dark' }).click();
+    });
+
+    act(() => {
       matchMediaController.setMatches(false);
     });
 
-    expect(screen.getByTestId('preference')).toHaveTextContent(UserPreference.Dark);
-    expect(screen.getByTestId('theme')).toHaveTextContent('Dark');
-    expect(localStorage.getItem('kubetail:theme')).toBe('dark');
+    expect(screen.getByTestId('theme')).toHaveTextContent(Theme.Dark);
+    expect(screen.getByTestId('resolved-theme')).toHaveTextContent('Dark');
     expect(document.documentElement).toHaveClass('dark');
   });
 
-  it('syncs the theme from storage events fired by another tab', () => {
+  it('applies dark class to document element for dark theme', () => {
+    const matchMediaController = createMatchMediaController(true);
+    vi.stubGlobal('matchMedia', matchMediaController.matchMedia);
+
+    renderWithProvider();
+
+    expect(document.documentElement).toHaveClass('dark');
+  });
+
+  it('removes dark class from document element for light theme', () => {
     const matchMediaController = createMatchMediaController(false);
     vi.stubGlobal('matchMedia', matchMediaController.matchMedia);
 
     renderWithProvider();
 
-    act(() => {
-      localStorage.setItem('kubetail:theme', 'dark');
-      window.dispatchEvent(
-        new StorageEvent('storage', {
-          key: 'kubetail:theme',
-          newValue: 'dark',
-        }),
-      );
-    });
-
-    expect(screen.getByTestId('preference')).toHaveTextContent(UserPreference.Dark);
-    expect(screen.getByTestId('theme')).toHaveTextContent('Dark');
-    expect(document.documentElement).toHaveClass('dark');
+    expect(document.documentElement).not.toHaveClass('dark');
   });
 });

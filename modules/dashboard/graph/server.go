@@ -34,6 +34,7 @@ import (
 
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/preferences"
 )
 
 // Represents Server
@@ -63,6 +64,10 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 		allowedNamespaces: cfg.AllowedNamespaces,
 		versionChecker:    versioncheck.NewChecker(),
 		helmReleaseGetter: &defaultHelmReleaseGetter{kubeconfigPath: cfg.KubeconfigPath},
+	}
+
+	if path := cfg.PreferencesPath(); path != "" {
+		r.preferencesStore = preferences.NewStore(path)
 	}
 
 	// Init config

@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
@@ -240,6 +241,17 @@ func loadServerConfig(cmd *cobra.Command) (*dashcfg.Config, *serveOptions, error
 	dashCfg.Logging.Level = logLevel
 	if inCluster {
 		dashCfg.Environment = sharedcfg.EnvironmentCluster
+	}
+	if dashCfg.Environment == sharedcfg.EnvironmentDesktop {
+		if configPath != "" {
+			dashCfg.LocalStorageDir = filepath.Dir(configPath)
+		} else {
+			dir, err := config.DefaultLocalStorageDir()
+			if err != nil {
+				return nil, nil, err
+			}
+			dashCfg.LocalStorageDir = dir
+		}
 	}
 	dashCfg.Logging.AccessLog.Enabled = false
 	if len(cfg.Dashboard.Columns) > 0 {
