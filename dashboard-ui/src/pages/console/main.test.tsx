@@ -18,6 +18,7 @@ import { createRef } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
 import type { LogViewerHandle, LogViewerVirtualRow } from '@/components/widgets/log-viewer';
+import { PreferencesProvider } from '@/lib/preferences';
 
 import { Main, RecordRow } from './main';
 import { ALL_VIEWER_COLUMNS, PageContext, ViewerColumn } from './shared';
@@ -57,15 +58,13 @@ const TestWrapper = ({
 }) => {
   const content = (
     <MemoryRouter initialEntries={initialEntries}>
-      <PageContext.Provider value={contextValue}>{children}</PageContext.Provider>
+      <PreferencesProvider>
+        <PageContext.Provider value={contextValue}>{children}</PageContext.Provider>
+      </PreferencesProvider>
     </MemoryRouter>
   );
 
-  if (store) {
-    return <Provider store={store}>{content}</Provider>;
-  }
-
-  return content;
+  return store ? <Provider store={store}>{content}</Provider> : content;
 };
 
 beforeEach(() => {

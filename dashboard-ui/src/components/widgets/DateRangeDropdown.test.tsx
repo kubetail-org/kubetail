@@ -14,6 +14,8 @@
 
 import { fireEvent, render, screen } from '@testing-library/react';
 
+import { PreferencesProvider } from '@/lib/preferences';
+
 import { DateRangeDropdown, Duration, DurationUnit, parseTimestamp } from './DateRangeDropdown';
 
 describe('parseTimestamp', () => {
@@ -209,9 +211,11 @@ describe('DateRangeDropdown', () => {
   const renderDropdown = () => {
     const onChange = vi.fn();
     render(
-      <DateRangeDropdown onChange={onChange}>
-        <button type="button">Open</button>
-      </DateRangeDropdown>,
+      <PreferencesProvider>
+        <DateRangeDropdown onChange={onChange}>
+          <button type="button">Open</button>
+        </DateRangeDropdown>
+      </PreferencesProvider>,
     );
     fireEvent.click(screen.getByText('Open'));
     return onChange;

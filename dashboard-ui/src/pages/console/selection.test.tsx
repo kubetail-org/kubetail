@@ -17,7 +17,7 @@ import { createStore, Provider } from 'jotai';
 import { createRef } from 'react';
 
 import type { LogRecord, LogViewerVirtualizer } from '@/components/widgets/log-viewer';
-import { timezoneAtom } from '@/lib/timezone';
+import { PreferencesProvider } from '@/lib/preferences';
 
 import {
   getPlainAttribute,
@@ -439,7 +439,13 @@ function renderWithState<T>(
       const state = useSelectionState();
       return hookFn(state);
     },
-    { wrapper: ({ children }) => <Provider store={store}>{children}</Provider> },
+    {
+      wrapper: ({ children }) => (
+        <PreferencesProvider>
+          <Provider store={store}>{children}</Provider>
+        </PreferencesProvider>
+      ),
+    },
   );
 
   return { ...result, store };
@@ -466,7 +472,11 @@ describe('useSelection', () => {
     virtualizerRef.current = fakeVirtualizer;
 
     const result = renderHook(() => useSelection(virtualizerRef), {
-      wrapper: ({ children }) => <Provider store={store}>{children}</Provider>,
+      wrapper: ({ children }) => (
+        <PreferencesProvider>
+          <Provider store={store}>{children}</Provider>
+        </PreferencesProvider>
+      ),
     });
 
     return { ...result, store, virtualizerRef };
@@ -1963,7 +1973,13 @@ describe('useSelectionKeyboard', () => {
         useSelectionKeyboard(state, virtualizerRef);
         return state;
       },
-      { wrapper: ({ children }) => <Provider store={store}>{children}</Provider> },
+      {
+        wrapper: ({ children }) => (
+          <PreferencesProvider>
+            <Provider store={store}>{children}</Provider>
+          </PreferencesProvider>
+        ),
+      },
     );
 
     return { ...result, store };
@@ -2038,9 +2054,9 @@ describe('useSelectionKeyboard', () => {
   });
 
   it('copies timestamps in the selected timezone on Cmd+C', () => {
+    localStorage.setItem('kubetail:preferences', JSON.stringify({ version: 1, timezone: 'America/New_York' }));
     const { store } = renderKeyboard((s) => {
       s.set(visibleColsAtom, new Set([ViewerColumn.Timestamp, ViewerColumn.Message]));
-      s.set(timezoneAtom, 'America/New_York');
     });
 
     act(() => {

@@ -24,6 +24,7 @@ const STORAGE_KEY = 'kubetail:preferences';
 export interface Preferences {
   version: number;
   theme?: string;
+  timezone?: string;
 }
 
 type PreferencesListener = (prefs: Preferences) => void;
@@ -36,13 +37,14 @@ export interface PreferencesBackend {
 }
 
 function defaultPreferences(): Preferences {
-  return { version: CURRENT_VERSION, theme: 'system' };
+  return { version: CURRENT_VERSION, theme: 'system', timezone: 'UTC' };
 }
 
 function merge(base: Preferences, patch: Partial<Preferences>): Preferences {
   return {
     version: CURRENT_VERSION,
     theme: patch.theme !== undefined ? patch.theme : base.theme,
+    timezone: patch.timezone !== undefined ? patch.timezone : base.timezone,
   };
 }
 
@@ -109,6 +111,7 @@ function createGraphQLBackend(): PreferencesBackend {
       const prefs: Preferences = {
         version: data.preferencesGet.version,
         theme: data.preferencesGet.theme ?? undefined,
+        timezone: data.preferencesGet.timezone ?? undefined,
       };
       writeCache(prefs);
       return prefs;
@@ -125,13 +128,14 @@ function createGraphQLBackend(): PreferencesBackend {
 
       const { data } = await dashboardClient.mutate({
         mutation: PREFERENCES_UPDATE,
-        variables: { input: { theme: patch.theme } },
+        variables: { input: { theme: patch.theme, timezone: patch.timezone } },
       });
       if (!data) throw new Error('no data returned from preferencesUpdate');
       const result = data.preferencesUpdate;
       const prefs: Preferences = {
         version: result.version,
         theme: result.theme ?? undefined,
+        timezone: result.timezone ?? undefined,
       };
       writeCache(prefs);
       return prefs;

@@ -14,17 +14,26 @@
 
 import { act, renderHook } from '@testing-library/react';
 
+import { PreferencesProvider } from './preferences';
 import { formatTimezoneOffset, TIMEZONES, useTimezone } from './timezone';
 
+function wrapper({ children }: React.PropsWithChildren) {
+  return <PreferencesProvider>{children}</PreferencesProvider>;
+}
+
 describe('useTimezone', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it('defaults to UTC', () => {
-    const { result } = renderHook(() => useTimezone());
+    const { result } = renderHook(() => useTimezone(), { wrapper });
     const [timezone] = result.current;
     expect(timezone).toBe('UTC');
   });
 
   it('updates the timezone when setter is called', () => {
-    const { result } = renderHook(() => useTimezone());
+    const { result } = renderHook(() => useTimezone(), { wrapper });
 
     act(() => {
       const [, setTimezone] = result.current;
@@ -33,23 +42,6 @@ describe('useTimezone', () => {
 
     const [timezone] = result.current;
     expect(timezone).toBe('America/New_York');
-  });
-});
-
-describe('cross-tab sync', () => {
-  it('syncs timezone changes across hook instances via BroadcastChannel', () => {
-    const hook1 = renderHook(() => useTimezone());
-    const hook2 = renderHook(() => useTimezone());
-
-    act(() => {
-      const [, setTimezone] = hook1.result.current;
-      setTimezone('America/New_York');
-    });
-
-    const [tz1] = hook1.result.current;
-    const [tz2] = hook2.result.current;
-    expect(tz1).toBe('America/New_York');
-    expect(tz2).toBe('America/New_York');
   });
 });
 

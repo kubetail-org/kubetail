@@ -26,6 +26,8 @@ func TestDefaultPreferences(t *testing.T) {
 	assert.Equal(t, CurrentVersion, p.Version)
 	require.NotNil(t, p.Theme)
 	assert.Equal(t, "system", *p.Theme)
+	require.NotNil(t, p.Timezone)
+	assert.Equal(t, "UTC", *p.Timezone)
 }
 
 func TestMerge_OverridesNonNilFields(t *testing.T) {
@@ -45,6 +47,25 @@ func TestMerge_PreservesBaseWhenPatchNil(t *testing.T) {
 	result := Merge(base, patch)
 	require.NotNil(t, result.Theme)
 	assert.Equal(t, "system", *result.Theme)
+}
+
+func TestMerge_OverridesTimezone(t *testing.T) {
+	base := DefaultPreferences()
+	tz := "America/New_York"
+	patch := &Preferences{Timezone: &tz}
+
+	result := Merge(base, patch)
+	require.NotNil(t, result.Timezone)
+	assert.Equal(t, "America/New_York", *result.Timezone)
+}
+
+func TestMerge_PreservesTimezoneWhenPatchNil(t *testing.T) {
+	base := DefaultPreferences()
+	patch := &Preferences{}
+
+	result := Merge(base, patch)
+	require.NotNil(t, result.Timezone)
+	assert.Equal(t, "UTC", *result.Timezone)
 }
 
 func TestMerge_SetsVersionToCurrentVersion(t *testing.T) {
