@@ -129,8 +129,8 @@ type Documents = {
     "\n  subscription SourcePickerReplicaSetsListWatch($kubeContext: String!, $namespace: String = \"\", $resourceVersion: String = \"\") {\n    appsV1ReplicaSetsWatch(kubeContext: $kubeContext, namespace: $namespace, options: { resourceVersion: $resourceVersion }) {\n      type\n      object {\n        ...SourcePickerGenericListItemFragment\n      }\n    }\n  }\n": typeof types.SourcePickerReplicaSetsListWatchDocument,
     "\n  query SourcePickerStatefulSetsListFetch($kubeContext: String!, $namespace: String = \"\", $continue: String = \"\") {\n    appsV1StatefulSetsList(kubeContext: $kubeContext, namespace: $namespace, options: { limit: \"50\", continue: $continue }) @connection(key: \"SourcePickerStatefulSetsListFetch\") {\n      ...SourcePickerGenericListFragment\n      items {\n        ...SourcePickerGenericListItemFragment\n      }\n    }\n  }\n": typeof types.SourcePickerStatefulSetsListFetchDocument,
     "\n  subscription SourcePickerStatefulSetsListWatch($kubeContext: String!, $namespace: String = \"\", $resourceVersion: String = \"\") {\n    appsV1StatefulSetsWatch(kubeContext: $kubeContext, namespace: $namespace, options: { resourceVersion: $resourceVersion }) {\n      type\n      object {\n        ...HomeStatefulSetsListItemFragment\n      }\n    }\n  }\n": typeof types.SourcePickerStatefulSetsListWatchDocument,
-    "\n  query PreferencesGet {\n    preferencesGet {\n      version\n      theme\n    }\n  }\n": typeof types.PreferencesGetDocument,
-    "\n  mutation PreferencesUpdate($input: PreferencesInput!) {\n    preferencesUpdate(input: $input) {\n      version\n      theme\n    }\n  }\n": typeof types.PreferencesUpdateDocument,
+    "\n  query PreferencesGet {\n    preferencesGet {\n      version\n      theme\n      timezone\n    }\n  }\n": typeof types.PreferencesGetDocument,
+    "\n  mutation PreferencesUpdate($input: PreferencesInput!) {\n    preferencesUpdate(input: $input) {\n      version\n      theme\n      timezone\n    }\n  }\n": typeof types.PreferencesUpdateDocument,
 };
 const documents: Documents = {
     "\n  fragment ConsoleLoggingResourcesGenericObjectFragment on Object {\n    id\n    metadata {\n      namespace\n      name\n      uid\n      creationTimestamp\n      deletionTimestamp\n      resourceVersion\n      ownerReferences {\n        name\n        uid\n        controller\n      }\n    }\n  }\n": types.ConsoleLoggingResourcesGenericObjectFragmentFragmentDoc,
@@ -248,8 +248,8 @@ const documents: Documents = {
     "\n  subscription SourcePickerReplicaSetsListWatch($kubeContext: String!, $namespace: String = \"\", $resourceVersion: String = \"\") {\n    appsV1ReplicaSetsWatch(kubeContext: $kubeContext, namespace: $namespace, options: { resourceVersion: $resourceVersion }) {\n      type\n      object {\n        ...SourcePickerGenericListItemFragment\n      }\n    }\n  }\n": types.SourcePickerReplicaSetsListWatchDocument,
     "\n  query SourcePickerStatefulSetsListFetch($kubeContext: String!, $namespace: String = \"\", $continue: String = \"\") {\n    appsV1StatefulSetsList(kubeContext: $kubeContext, namespace: $namespace, options: { limit: \"50\", continue: $continue }) @connection(key: \"SourcePickerStatefulSetsListFetch\") {\n      ...SourcePickerGenericListFragment\n      items {\n        ...SourcePickerGenericListItemFragment\n      }\n    }\n  }\n": types.SourcePickerStatefulSetsListFetchDocument,
     "\n  subscription SourcePickerStatefulSetsListWatch($kubeContext: String!, $namespace: String = \"\", $resourceVersion: String = \"\") {\n    appsV1StatefulSetsWatch(kubeContext: $kubeContext, namespace: $namespace, options: { resourceVersion: $resourceVersion }) {\n      type\n      object {\n        ...HomeStatefulSetsListItemFragment\n      }\n    }\n  }\n": types.SourcePickerStatefulSetsListWatchDocument,
-    "\n  query PreferencesGet {\n    preferencesGet {\n      version\n      theme\n    }\n  }\n": types.PreferencesGetDocument,
-    "\n  mutation PreferencesUpdate($input: PreferencesInput!) {\n    preferencesUpdate(input: $input) {\n      version\n      theme\n    }\n  }\n": types.PreferencesUpdateDocument,
+    "\n  query PreferencesGet {\n    preferencesGet {\n      version\n      theme\n      timezone\n    }\n  }\n": types.PreferencesGetDocument,
+    "\n  mutation PreferencesUpdate($input: PreferencesInput!) {\n    preferencesUpdate(input: $input) {\n      version\n      theme\n      timezone\n    }\n  }\n": types.PreferencesUpdateDocument,
 };
 
 /**
@@ -729,11 +729,11 @@ export function gql(source: "\n  subscription SourcePickerStatefulSetsListWatch(
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function gql(source: "\n  query PreferencesGet {\n    preferencesGet {\n      version\n      theme\n    }\n  }\n"): (typeof documents)["\n  query PreferencesGet {\n    preferencesGet {\n      version\n      theme\n    }\n  }\n"];
+export function gql(source: "\n  query PreferencesGet {\n    preferencesGet {\n      version\n      theme\n      timezone\n    }\n  }\n"): (typeof documents)["\n  query PreferencesGet {\n    preferencesGet {\n      version\n      theme\n      timezone\n    }\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function gql(source: "\n  mutation PreferencesUpdate($input: PreferencesInput!) {\n    preferencesUpdate(input: $input) {\n      version\n      theme\n    }\n  }\n"): (typeof documents)["\n  mutation PreferencesUpdate($input: PreferencesInput!) {\n    preferencesUpdate(input: $input) {\n      version\n      theme\n    }\n  }\n"];
+export function gql(source: "\n  mutation PreferencesUpdate($input: PreferencesInput!) {\n    preferencesUpdate(input: $input) {\n      version\n      theme\n      timezone\n    }\n  }\n"): (typeof documents)["\n  mutation PreferencesUpdate($input: PreferencesInput!) {\n    preferencesUpdate(input: $input) {\n      version\n      theme\n      timezone\n    }\n  }\n"];
 
 export function gql(source: string) {
   return (documents as any)[source] ?? {};

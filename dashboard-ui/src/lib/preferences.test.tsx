@@ -28,49 +28,55 @@ describe('LocalStoragePreferencesBackend', () => {
 
   it('load returns defaults when localStorage is empty', async () => {
     const prefs = await backend.load();
-    expect(prefs).toEqual({ version: 1, theme: 'system' });
+    expect(prefs).toEqual({ version: 1, theme: 'system', timezone: 'UTC' });
   });
 
   it('load reads existing preferences from localStorage', async () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, theme: 'dark' }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, theme: 'dark', timezone: 'America/New_York' }));
     const prefs = await backend.load();
-    expect(prefs).toEqual({ version: 1, theme: 'dark' });
+    expect(prefs).toEqual({ version: 1, theme: 'dark', timezone: 'America/New_York' });
   });
 
   it('load returns defaults for malformed JSON', async () => {
     localStorage.setItem(STORAGE_KEY, '{bad json');
     const prefs = await backend.load();
-    expect(prefs).toEqual({ version: 1, theme: 'system' });
+    expect(prefs).toEqual({ version: 1, theme: 'system', timezone: 'UTC' });
   });
 
   it('save merges patch into existing preferences', async () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, theme: 'dark' }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, theme: 'dark', timezone: 'UTC' }));
     const result = await backend.save({ theme: 'light' });
-    expect(result).toEqual({ version: 1, theme: 'light' });
+    expect(result).toEqual({ version: 1, theme: 'light', timezone: 'UTC' });
+  });
+
+  it('save merges timezone patch into existing preferences', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, theme: 'dark', timezone: 'UTC' }));
+    const result = await backend.save({ timezone: 'Europe/London' });
+    expect(result).toEqual({ version: 1, theme: 'dark', timezone: 'Europe/London' });
   });
 
   it('save writes result back to localStorage', async () => {
     await backend.save({ theme: 'dark' });
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-    expect(stored).toEqual({ version: 1, theme: 'dark' });
+    expect(stored).toEqual({ version: 1, theme: 'dark', timezone: 'UTC' });
   });
 
   it('loadCached returns defaults when localStorage is empty', () => {
     const prefs = backend.loadCached();
-    expect(prefs).toEqual({ version: 1, theme: 'system' });
+    expect(prefs).toEqual({ version: 1, theme: 'system', timezone: 'UTC' });
   });
 
   it('loadCached returns cached preferences synchronously', () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, theme: 'dark' }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, theme: 'dark', timezone: 'Asia/Tokyo' }));
     const prefs = backend.loadCached();
-    expect(prefs).toEqual({ version: 1, theme: 'dark' });
+    expect(prefs).toEqual({ version: 1, theme: 'dark', timezone: 'Asia/Tokyo' });
   });
 
   it('subscribe notifies on cross-tab storage changes', () => {
     const callback = vi.fn();
     const unsubscribe = backend.subscribe(callback);
 
-    const updatedPrefs = { version: 1, theme: 'dark' };
+    const updatedPrefs = { version: 1, theme: 'dark', timezone: 'UTC' };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedPrefs));
     window.dispatchEvent(
       new StorageEvent('storage', {

@@ -757,10 +757,12 @@ enum WatchEventType {
 type Preferences {
   version: Int!
   theme: String
+  timezone: String
 }
 
 input PreferencesInput {
   theme: String
+  timezone: String
 }
 
 # --- Root operations ---

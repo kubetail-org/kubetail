@@ -596,8 +596,9 @@ type ComplexityRoot struct {
 	}
 
 	Preferences struct {
-		Theme   func(childComplexity int) int
-		Version func(childComplexity int) int
+		Theme    func(childComplexity int) int
+		Timezone func(childComplexity int) int
+		Version  func(childComplexity int) int
 	}
 
 	Query struct {
@@ -2830,6 +2831,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Preferences.Theme(childComplexity), true
+
+	case "Preferences.timezone":
+		if e.complexity.Preferences.Timezone == nil {
+			break
+		}
+
+		return e.complexity.Preferences.Timezone(childComplexity), true
 
 	case "Preferences.version":
 		if e.complexity.Preferences.Version == nil {
@@ -19821,6 +19829,8 @@ func (ec *executionContext) fieldContext_Mutation_preferencesUpdate(ctx context.
 				return ec.fieldContext_Preferences_version(ctx, field)
 			case "theme":
 				return ec.fieldContext_Preferences_theme(ctx, field)
+			case "timezone":
+				return ec.fieldContext_Preferences_timezone(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Preferences", field.Name)
 		},
@@ -20082,6 +20092,47 @@ func (ec *executionContext) _Preferences_theme(ctx context.Context, field graphq
 }
 
 func (ec *executionContext) fieldContext_Preferences_theme(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Preferences",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Preferences_timezone(ctx context.Context, field graphql.CollectedField, obj *preferences.Preferences) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Preferences_timezone(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Timezone, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Preferences_timezone(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Preferences",
 		Field:      field,
@@ -21798,6 +21849,8 @@ func (ec *executionContext) fieldContext_Query_preferencesGet(_ context.Context,
 				return ec.fieldContext_Preferences_version(ctx, field)
 			case "theme":
 				return ec.fieldContext_Preferences_theme(ctx, field)
+			case "timezone":
+				return ec.fieldContext_Preferences_timezone(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Preferences", field.Name)
 		},
@@ -25584,7 +25637,7 @@ func (ec *executionContext) unmarshalInputPreferencesInput(ctx context.Context, 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"theme"}
+	fieldsInOrder := [...]string{"theme", "timezone"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -25598,6 +25651,13 @@ func (ec *executionContext) unmarshalInputPreferencesInput(ctx context.Context, 
 				return it, err
 			}
 			it.Theme = data
+		case "timezone":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("timezone"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Timezone = data
 		}
 	}
 
@@ -30064,6 +30124,8 @@ func (ec *executionContext) _Preferences(ctx context.Context, sel ast.SelectionS
 			}
 		case "theme":
 			out.Values[i] = ec._Preferences_theme(ctx, field, obj)
+		case "timezone":
+			out.Values[i] = ec._Preferences_timezone(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

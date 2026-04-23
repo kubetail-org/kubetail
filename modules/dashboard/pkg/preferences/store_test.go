@@ -34,12 +34,14 @@ func TestStore_Load_NoFile(t *testing.T) {
 	assert.Equal(t, CurrentVersion, p.Version)
 	require.NotNil(t, p.Theme)
 	assert.Equal(t, "system", *p.Theme)
+	require.NotNil(t, p.Timezone)
+	assert.Equal(t, "UTC", *p.Timezone)
 }
 
 func TestStore_Load_ValidFile(t *testing.T) {
 	dir := t.TempDir()
 	fp := filepath.Join(dir, "prefs.json")
-	err := os.WriteFile(fp, []byte(`{"version":1,"theme":"dark"}`), 0644)
+	err := os.WriteFile(fp, []byte(`{"version":1,"theme":"dark","timezone":"America/New_York"}`), 0644)
 	require.NoError(t, err)
 
 	s := NewStore(fp)
@@ -48,6 +50,8 @@ func TestStore_Load_ValidFile(t *testing.T) {
 	assert.Equal(t, 1, p.Version)
 	require.NotNil(t, p.Theme)
 	assert.Equal(t, "dark", *p.Theme)
+	require.NotNil(t, p.Timezone)
+	assert.Equal(t, "America/New_York", *p.Timezone)
 }
 
 func TestStore_Load_MalformedJSON(t *testing.T) {
@@ -110,15 +114,18 @@ func TestStore_Get_CachesResult(t *testing.T) {
 func TestStore_Update_MergesAndWritesAtomically(t *testing.T) {
 	dir := t.TempDir()
 	fp := filepath.Join(dir, "prefs.json")
-	err := os.WriteFile(fp, []byte(`{"version":1,"theme":"dark"}`), 0644)
+	err := os.WriteFile(fp, []byte(`{"version":1,"theme":"dark","timezone":"UTC"}`), 0644)
 	require.NoError(t, err)
 
 	s := NewStore(fp)
 	light := "light"
-	result, err := s.Update(&Preferences{Theme: &light})
+	tz := "Europe/London"
+	result, err := s.Update(&Preferences{Theme: &light, Timezone: &tz})
 	require.NoError(t, err)
 	require.NotNil(t, result.Theme)
 	assert.Equal(t, "light", *result.Theme)
+	require.NotNil(t, result.Timezone)
+	assert.Equal(t, "Europe/London", *result.Timezone)
 	assert.Equal(t, CurrentVersion, result.Version)
 
 	// verify file on disk
@@ -129,6 +136,8 @@ func TestStore_Update_MergesAndWritesAtomically(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ondisk.Theme)
 	assert.Equal(t, "light", *ondisk.Theme)
+	require.NotNil(t, ondisk.Timezone)
+	assert.Equal(t, "Europe/London", *ondisk.Timezone)
 	assert.Equal(t, CurrentVersion, ondisk.Version)
 }
 
