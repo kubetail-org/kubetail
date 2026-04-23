@@ -946,3 +946,25 @@ export const SOURCE_PICKER_STATEFULSETS_LIST_WATCH = gql(`
     }
   }
 `);
+
+/**
+ * Preferences queries
+ */
+
+export const PREFERENCES_GET = gql(`
+  query PreferencesGet {
+    preferencesGet {
+      version
+      theme
+    }
+  }
+`);
+
+export const PREFERENCES_UPDATE = gql(`
+  mutation PreferencesUpdate($input: PreferencesInput!) {
+    preferencesUpdate(input: $input) {
+      version
+      theme
+    }
+  }
+`);
