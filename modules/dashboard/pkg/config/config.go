@@ -254,6 +254,15 @@ func NewConfig(v *viper.Viper, configPath string) (*Config, error) {
 		return nil, err
 	}
 
+	// Default LocalStorageDir for desktop mode
+	if cfg.LocalStorageDir == "" && cfg.Environment == sharedcfg.EnvironmentDesktop {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("get home dir: %w", err)
+		}
+		cfg.LocalStorageDir = filepath.Join(home, ".kubetail")
+	}
+
 	// Validate config
 	if err := cfg.validate(); err != nil {
 		return nil, err

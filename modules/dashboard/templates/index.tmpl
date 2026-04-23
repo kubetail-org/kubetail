@@ -12,7 +12,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Kubetail | Log Viewer</title>
     <script>
-      if (localStorage['kubetail:theme'] === 'dark' || (!('kubetail:theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      var theme;
+      try { theme = JSON.parse(localStorage['kubetail:preferences']).theme; } catch(e) {}
+      if (theme === 'dark' || (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
       }
       window.runtimeConfig = {{ .runtimeConfig }};

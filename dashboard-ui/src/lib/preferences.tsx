@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+
 import { dashboardClient } from '@/apollo-client';
 import appConfig from '@/app-config';
 import { PREFERENCES_GET, PREFERENCES_UPDATE } from '@/lib/graphql/dashboard/ops';
@@ -24,9 +26,13 @@ export interface Preferences {
   theme?: string;
 }
 
+type PreferencesListener = (prefs: Preferences) => void;
+
 export interface PreferencesBackend {
   load(): Promise<Preferences>;
+  loadCached(): Preferences;
   save(patch: Partial<Preferences>): Promise<Preferences>;
+  subscribe(listener: PreferencesListener): () => void;
 }
 
 function defaultPreferences(): Preferences {
@@ -40,30 +46,51 @@ function merge(base: Preferences, patch: Partial<Preferences>): Preferences {
   };
 }
 
+function readCache(): Preferences {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return defaultPreferences();
+  try {
+    const parsed = JSON.parse(raw) as Partial<Preferences>;
+    return merge(defaultPreferences(), parsed);
+  } catch {
+    return defaultPreferences();
+  }
+}
+
+function writeCache(prefs: Preferences): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+}
+
+function subscribeToStorageEvents(listener: PreferencesListener): () => void {
+  const handler = (ev: StorageEvent) => {
+    if (ev.key !== STORAGE_KEY) return;
+    listener(readCache());
+  };
+  window.addEventListener('storage', handler);
+  return () => window.removeEventListener('storage', handler);
+}
+
 /**
  * LocalStorage backend (used in cluster mode)
  */
 
 function createLocalStorageBackend(): PreferencesBackend {
-  function load(): Promise<Preferences> {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return Promise.resolve(defaultPreferences());
-    try {
-      const parsed = JSON.parse(raw) as Partial<Preferences>;
-      return Promise.resolve(merge(defaultPreferences(), parsed));
-    } catch {
-      return Promise.resolve(defaultPreferences());
-    }
-  }
-
   return {
-    load,
+    load(): Promise<Preferences> {
+      return Promise.resolve(readCache());
+    },
+
+    loadCached(): Preferences {
+      return readCache();
+    },
+
     async save(patch: Partial<Preferences>): Promise<Preferences> {
-      const current = await load();
-      const merged = merge(current, patch);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      const merged = merge(readCache(), patch);
+      writeCache(merged);
       return merged;
     },
+
+    subscribe: subscribeToStorageEvents,
   };
 }
 
@@ -79,24 +106,38 @@ function createGraphQLBackend(): PreferencesBackend {
         fetchPolicy: 'no-cache',
       });
       if (!data) throw new Error('no data returned from preferencesGet');
-      return {
+      const prefs: Preferences = {
         version: data.preferencesGet.version,
         theme: data.preferencesGet.theme ?? undefined,
       };
+      writeCache(prefs);
+      return prefs;
+    },
+
+    loadCached(): Preferences {
+      return readCache();
     },
 
     async save(patch: Partial<Preferences>): Promise<Preferences> {
+      // write cache immediately for instant UI
+      const optimistic = merge(readCache(), patch);
+      writeCache(optimistic);
+
       const { data } = await dashboardClient.mutate({
         mutation: PREFERENCES_UPDATE,
         variables: { input: { theme: patch.theme } },
       });
       if (!data) throw new Error('no data returned from preferencesUpdate');
       const result = data.preferencesUpdate;
-      return {
+      const prefs: Preferences = {
         version: result.version,
         theme: result.theme ?? undefined,
       };
+      writeCache(prefs);
+      return prefs;
     },
+
+    subscribe: subscribeToStorageEvents,
   };
 }
 
@@ -112,3 +153,43 @@ export function createPreferencesBackend(environment: string): PreferencesBacken
 }
 
 export const preferencesBackend = createPreferencesBackend(appConfig.environment);
+
+/**
+ * PreferencesProvider
+ */
+
+type PreferencesContextType = {
+  preferences: Preferences;
+  updatePreferences: (patch: Partial<Preferences>) => void;
+};
+
+const PreferencesContext = createContext({} as PreferencesContextType);
+
+export function PreferencesProvider({ children }: React.PropsWithChildren) {
+  const [preferences, setPreferences] = useState(() => preferencesBackend.loadCached());
+
+  // load from backend on mount (reconcile with server)
+  useEffect(() => {
+    preferencesBackend.load().then(setPreferences);
+  }, []);
+
+  // subscribe to cross-tab changes
+  useEffect(() => preferencesBackend.subscribe(setPreferences), []);
+
+  const updatePreferences = useCallback((patch: Partial<Preferences>) => {
+    setPreferences((prev) => ({ ...prev, ...patch }));
+    preferencesBackend.save(patch);
+  }, []);
+
+  const context = useMemo(() => ({ preferences, updatePreferences }), [preferences, updatePreferences]);
+
+  return <PreferencesContext.Provider value={context}>{children}</PreferencesContext.Provider>;
+}
+
+/**
+ * usePreferences hook
+ */
+
+export function usePreferences() {
+  return useContext(PreferencesContext);
+}
