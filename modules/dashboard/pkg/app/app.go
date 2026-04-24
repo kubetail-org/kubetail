@@ -177,6 +177,9 @@ func NewApp(cfg *config.Config) (*App, error) {
 			ContentTypeNosniff:    true,
 		}))
 
+		// Add CSRF protection middleware
+		dynamicRoutes.Use(csrfProtectionMiddleware())
+
 		// Add authentication middleware
 		dynamicRoutes.Use(authenticationMiddleware(cfg.AuthMode))
 

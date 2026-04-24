@@ -19,13 +19,18 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/shared/testutils"
 )
 
 func TestRequestID(t *testing.T) {
@@ -137,6 +142,7 @@ func TestSessionCookieOptions(t *testing.T) {
 			// request
 			w := httptest.NewRecorder()
 			r := httptest.NewRequest("GET", "/test", nil)
+			r.Header.Set("Sec-Fetch-Site", "same-origin")
 			app.ServeHTTP(w, r)
 
 			// check session cookie
@@ -164,6 +170,76 @@ func TestHealthz(t *testing.T) {
 	result := w.Result()
 	assert.Equal(t, http.StatusOK, result.StatusCode)
 	assert.Equal(t, "{\"status\":\"ok\"}", w.Body.String())
+}
+
+func TestCSRFProtectionOnDynamicRoutes(t *testing.T) {
+	tests := []struct {
+		name            string
+		method          string
+		path            string
+		setSecFetchSite string
+		wantForbidden   bool
+	}{
+		{"graphql blocks cross-site", "GET", "/graphql", "cross-site", true},
+		{"graphql allows same-origin", "GET", "/graphql", "same-origin", false},
+		{"graphql blocks non-browser", "GET", "/graphql", "", true},
+		{"login blocks cross-site", "POST", "/api/auth/login", "cross-site", true},
+		{"login allows same-origin", "POST", "/api/auth/login", "same-origin", false},
+		{"logout blocks cross-site", "POST", "/api/auth/logout", "cross-site", true},
+		{"session blocks cross-site", "GET", "/api/auth/session", "cross-site", true},
+		{"session allows same-origin", "GET", "/api/auth/session", "same-origin", false},
+		{"healthz ignores header (outside dynamic routes)", "GET", "/healthz", "cross-site", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := newTestApp(nil)
+
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest(tt.method, tt.path, nil)
+			if tt.setSecFetchSite != "" {
+				r.Header.Set("Sec-Fetch-Site", tt.setSecFetchSite)
+			}
+			app.ServeHTTP(w, r)
+
+			if tt.wantForbidden {
+				assert.Equal(t, http.StatusForbidden, w.Result().StatusCode)
+			} else {
+				assert.NotEqual(t, http.StatusForbidden, w.Result().StatusCode)
+			}
+		})
+	}
+}
+
+func TestCSRFProtectionOnWebSocketUpgrade(t *testing.T) {
+	tests := []struct {
+		name            string
+		setSecFetchSite string
+		wantStatusCode  int
+	}{
+		{"blocks cross-site upgrade", "cross-site", http.StatusForbidden},
+		{"blocks empty upgrade", "", http.StatusForbidden},
+		{"allows same-origin upgrade", "same-origin", http.StatusSwitchingProtocols},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := newTestApp(nil)
+
+			client := testutils.NewWebTestClient(t, app)
+			defer client.Teardown()
+
+			header := http.Header{}
+			if tt.setSecFetchSite != "" {
+				header.Set("Sec-Fetch-Site", tt.setSecFetchSite)
+			}
+
+			u := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
+			_, resp, _ := websocket.DefaultDialer.Dial(u, header)
+			require.NotNil(t, resp)
+			require.Equal(t, tt.wantStatusCode, resp.StatusCode)
+		})
+	}
 }
 
 func TestClusterAPIProxyRouteWithBasePath(t *testing.T) {

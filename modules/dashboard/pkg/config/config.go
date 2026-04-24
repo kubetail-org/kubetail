@@ -56,11 +56,6 @@ type Config struct {
 	// When empty, features that require local storage are disabled.
 	LocalStorageDir string `mapstructure:"local-storage-dir"`
 
-	// csrf options
-	CSRF struct {
-		Enabled bool
-	}
-
 	// logging options
 	Logging struct {
 		Enabled bool
@@ -133,7 +128,6 @@ func DefaultConfig() *Config {
 	cfg.ClusterAPIEndpoint = ""
 	cfg.Environment = sharedcfg.EnvironmentCluster
 	cfg.GinMode = "release"
-	cfg.CSRF.Enabled = true
 	cfg.Logging.Enabled = true
 	cfg.Logging.Level = "info"
 	cfg.Logging.Format = "json"

@@ -26,8 +26,6 @@ data:
         secure: false
         http-only: true
         same-site: lax
-    csrf:
-      enabled: true
     logging:
       enabled: true
       level: debug
