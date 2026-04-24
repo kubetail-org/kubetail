@@ -27,12 +27,12 @@ export const TimestampFormat = {
 
 export type TimestampFormatValue = (typeof TimestampFormat)[keyof typeof TimestampFormat];
 
-export const TIMESTAMP_FORMAT_OPTIONS: { value: TimestampFormatValue; label: string }[] = [
-  { value: TimestampFormat.ISO_8601, label: 'ISO 8601' },
-  { value: TimestampFormat.RFC_3339, label: 'RFC 3339' },
-  { value: TimestampFormat.RFC_1123, label: 'RFC 1123' },
-  { value: TimestampFormat.UNIX, label: 'Unix seconds' },
-  { value: TimestampFormat.UNIX_MS, label: 'Unix milliseconds' },
+export const TIMESTAMP_FORMAT_OPTIONS: { value: TimestampFormatValue; label: string; hint: string }[] = [
+  { value: TimestampFormat.ISO_8601, label: 'ISO 8601', hint: '2006-01-02T15:04:05.000+00:00' },
+  { value: TimestampFormat.RFC_3339, label: 'RFC 3339', hint: '2006-01-02 15:04:05.000+00:00' },
+  { value: TimestampFormat.RFC_1123, label: 'RFC 1123', hint: 'Mon, 02 Jan 2006 15:04:05 +0000' },
+  { value: TimestampFormat.UNIX, label: 'Unix seconds', hint: '1136214245' },
+  { value: TimestampFormat.UNIX_MS, label: 'Unix milliseconds', hint: '1136214245000' },
 ];
 
 const PATTERNS: Record<TimestampFormatValue, string> = {

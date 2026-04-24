@@ -111,9 +111,22 @@ describe('CellContextMenu', () => {
       fireEvent.click(screen.getByText('Copy as...'));
       await waitFor(() => {
         expect(screen.getByText('ISO 8601')).toBeInTheDocument();
-        expect(screen.getByText('Unix (seconds)')).toBeInTheDocument();
-        expect(screen.getByText('Unix (milliseconds)')).toBeInTheDocument();
-        expect(screen.getByText('Local time')).toBeInTheDocument();
+        expect(screen.getByText('RFC 3339')).toBeInTheDocument();
+        expect(screen.getByText('RFC 1123')).toBeInTheDocument();
+        expect(screen.getByText('Unix seconds')).toBeInTheDocument();
+        expect(screen.getByText('Unix milliseconds')).toBeInTheDocument();
+        expect(screen.queryByText('Local time')).not.toBeInTheDocument();
+      });
+    });
+
+    it('shows a hint next to each format option', async () => {
+      renderWithContextMenu(ViewerColumn.Timestamp);
+      await openContextMenu();
+      fireEvent.click(screen.getByText('Copy as...'));
+      await waitFor(() => {
+        expect(screen.getByText(/^2006-01-02T/)).toBeInTheDocument();
+        expect(screen.getByText(/^2006-01-02 /)).toBeInTheDocument();
+        expect(screen.getByText(/^Mon, 02 Jan/)).toBeInTheDocument();
       });
     });
 
@@ -123,15 +136,33 @@ describe('CellContextMenu', () => {
       fireEvent.click(screen.getByText('Copy as...'));
       await waitFor(() => expect(screen.getByText('ISO 8601')).toBeInTheDocument());
       fireEvent.click(screen.getByText('ISO 8601'));
-      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('2024-06-15T10:30:01.123Z');
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('2024-06-15T10:30:01.123+00:00');
+    });
+
+    it('copies RFC 3339 format', async () => {
+      renderWithContextMenu(ViewerColumn.Timestamp);
+      await openContextMenu();
+      fireEvent.click(screen.getByText('Copy as...'));
+      await waitFor(() => expect(screen.getByText('RFC 3339')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('RFC 3339'));
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('2024-06-15 10:30:01.123+00:00');
+    });
+
+    it('copies RFC 1123 format', async () => {
+      renderWithContextMenu(ViewerColumn.Timestamp);
+      await openContextMenu();
+      fireEvent.click(screen.getByText('Copy as...'));
+      await waitFor(() => expect(screen.getByText('RFC 1123')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('RFC 1123'));
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Sat, 15 Jun 2024 10:30:01 +0000');
     });
 
     it('copies Unix seconds', async () => {
       renderWithContextMenu(ViewerColumn.Timestamp);
       await openContextMenu();
       fireEvent.click(screen.getByText('Copy as...'));
-      await waitFor(() => expect(screen.getByText('Unix (seconds)')).toBeInTheDocument());
-      fireEvent.click(screen.getByText('Unix (seconds)'));
+      await waitFor(() => expect(screen.getByText('Unix seconds')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('Unix seconds'));
       const expected = String(Math.floor(new Date('2024-06-15T10:30:01.123Z').getTime() / 1000));
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expected);
     });
@@ -140,8 +171,8 @@ describe('CellContextMenu', () => {
       renderWithContextMenu(ViewerColumn.Timestamp);
       await openContextMenu();
       fireEvent.click(screen.getByText('Copy as...'));
-      await waitFor(() => expect(screen.getByText('Unix (milliseconds)')).toBeInTheDocument());
-      fireEvent.click(screen.getByText('Unix (milliseconds)'));
+      await waitFor(() => expect(screen.getByText('Unix milliseconds')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('Unix milliseconds'));
       const expected = String(new Date('2024-06-15T10:30:01.123Z').getTime());
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expected);
     });
