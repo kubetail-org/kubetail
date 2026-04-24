@@ -21,12 +21,10 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
-	"github.com/sosodev/duration"
 	"helm.sh/helm/v3/pkg/release"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -437,24 +435,6 @@ func typeassertRuntimeObject[T any](object runtime.Object) (T, error) {
 	default:
 		return zeroVal, fmt.Errorf("not expecting type %T", o)
 	}
-}
-
-// Parse an input either as an ISO timestamp or an ISO duration string
-func parseTimeArg(arg string) (time.Time, error) {
-	var zero time.Time
-
-	arg = strings.TrimSpace(arg)
-	if arg == "" {
-		return zero, nil
-	} else if timeAgo, err := duration.Parse(arg); err == nil {
-		// Parsed as ISO duration
-		return time.Now().Add(-1 * timeAgo.ToTimeDuration()), nil
-	} else if ts, err := time.Parse(time.RFC3339Nano, arg); err == nil {
-		// Parsed as ISO timestamp
-		return ts, nil
-	}
-
-	return zero, fmt.Errorf("unable to parse arg %s", arg)
 }
 
 func healthCheckStatusFromClusterAPIHealthStatus(statusIn clusterapi.HealthStatus) model.HealthCheckStatus {

@@ -15,6 +15,7 @@
 import type { CheckedState } from '@radix-ui/react-checkbox';
 import { useAtom } from 'jotai';
 import {
+  Download as DownloadIcon,
   History as HistoryIcon,
   PanelLeftOpen as PanelLeftOpenIcon,
   Pause as PauseIcon,
@@ -23,7 +24,7 @@ import {
   SkipBack as SkipBackIcon,
   SkipForward as SkipForwardIcon,
 } from 'lucide-react';
-import { useCallback, useContext, useMemo } from 'react';
+import { useCallback, useContext, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { Checkbox } from '@kubetail/ui/elements/checkbox';
@@ -36,6 +37,7 @@ import type { DateRangeDropdownOnChangeArgs } from '@/components/widgets/DateRan
 import { useLogViewerState } from '@/components/widgets/log-viewer';
 import { cn } from '@/lib/util';
 
+import { DownloadDialog } from './download';
 import { ALL_VIEWER_COLUMNS, PageContext, ViewerColumn } from './shared';
 import { isFollowAtom, isWrapAtom, visibleColsAtom } from './state';
 
@@ -113,6 +115,7 @@ export function Header() {
 
   const { isLoading } = useLogViewerState(logViewerRef, [logServerClient]);
   const [isFollow, setIsFollow] = useAtom(isFollowAtom);
+  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
 
   const buttonCN =
     'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30';
@@ -154,6 +157,10 @@ export function Header() {
     // Execute command
     await logViewerRef.current?.jumpToEnd();
   }, [logViewerRef, searchParams, setSearchParams]);
+
+  const handleDownloadPress = useCallback(() => {
+    setIsDownloadOpen(true);
+  }, []);
 
   const handlePlayPress = useCallback(() => {
     setIsFollow(true);
@@ -254,9 +261,20 @@ export function Header() {
           )}
         </div>
       </div>
-      <div className="h-full flex flex-col justify-end items-end">
+      <div className="h-full flex items-end">
+        <button
+          type="button"
+          className={buttonCN}
+          title="Download"
+          aria-label="Download"
+          onClick={handleDownloadPress}
+          disabled={isLoading}
+        >
+          <DownloadIcon size={18} strokeWidth={1.5} />
+        </button>
         <SettingsButton />
       </div>
+      <DownloadDialog open={isDownloadOpen} onOpenChange={setIsDownloadOpen} />
     </div>
   );
 }

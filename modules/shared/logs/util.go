@@ -15,10 +15,32 @@
 package logs
 
 import (
+	"fmt"
+	"strings"
 	"sync"
+	"time"
 
 	set "github.com/deckarep/golang-set/v2"
+	"github.com/sosodev/duration"
 )
+
+// ParseTimeArg accepts an RFC 3339 timestamp, an ISO-8601 duration (e.g.
+// "PT1M"), or an empty string. Empty returns the zero time with no error so
+// callers can distinguish "unconstrained" from a parse failure.
+func ParseTimeArg(arg string) (time.Time, error) {
+	var zero time.Time
+	arg = strings.TrimSpace(arg)
+	if arg == "" {
+		return zero, nil
+	}
+	if d, err := duration.Parse(arg); err == nil {
+		return time.Now().Add(-1 * d.ToTimeDuration()), nil
+	}
+	if ts, err := time.Parse(time.RFC3339Nano, arg); err == nil {
+		return ts, nil
+	}
+	return zero, fmt.Errorf("unable to parse arg %s", arg)
+}
 
 // MapSet is a generic structure that maps keys to sets of values
 type MapSet[K comparable, T comparable] struct {

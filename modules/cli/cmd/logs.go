@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/sosodev/duration"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -320,25 +319,25 @@ func loadLogsCmdConfig(cmd *cobra.Command) (*logsCmdConfig, error) {
 	}
 
 	// Parse `since`
-	sinceTime, err := parseTimeArg(since)
+	sinceTime, err := logs.ParseTimeArg(since)
 	if err != nil {
 		return nil, err
 	}
 
 	// Parse `until`
-	untilTime, err := parseTimeArg(until)
+	untilTime, err := logs.ParseTimeArg(until)
 	if err != nil {
 		return nil, err
 	}
 
 	// Parse `after`
-	afterTime, err := parseTimeArg(after)
+	afterTime, err := logs.ParseTimeArg(after)
 	if err != nil {
 		return nil, err
 	}
 
 	// Parse `before`
-	beforeTime, err := parseTimeArg(before)
+	beforeTime, err := logs.ParseTimeArg(before)
 	if err != nil {
 		return nil, err
 	}
@@ -691,24 +690,6 @@ func getTableWriterHeaders(cmdCfg *logsCmdConfig, sources []logs.LogSource) ([]s
 	headers = append(headers, "MESSAGE")
 
 	return headers, colWidths
-}
-
-// Parse an input either as an ISO timestamp or an ISO duration string
-func parseTimeArg(arg string) (time.Time, error) {
-	var zero time.Time
-
-	arg = strings.TrimSpace(arg)
-	if arg == "" {
-		return zero, nil
-	} else if timeAgo, err := duration.Parse(arg); err == nil {
-		// Parsed as ISO duration
-		return time.Now().Add(-1 * timeAgo.ToTimeDuration()), nil
-	} else if ts, err := time.Parse(time.RFC3339Nano, arg); err == nil {
-		// Parsed as ISO timestamp
-		return ts, nil
-	}
-
-	return zero, fmt.Errorf("unable to parse arg %s", arg)
 }
 
 // Return value or default
