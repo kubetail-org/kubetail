@@ -102,6 +102,37 @@ func TestAuthenticationMiddleware(t *testing.T) {
 	}
 }
 
+func TestCSRFProtectionMiddleware(t *testing.T) {
+	tests := []struct {
+		name           string
+		setHeader      http.Header
+		wantStatusCode int
+	}{
+		{"non-browser client", http.Header{}, http.StatusForbidden},
+		{"same-origin request", http.Header{"Sec-Fetch-Site": []string{"same-origin"}}, http.StatusOK},
+		{"cross-site request", http.Header{"Sec-Fetch-Site": []string{"cross-site"}}, http.StatusForbidden},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := gin.New()
+			router.Use(csrfProtectionMiddleware())
+			router.GET("/", func(c *gin.Context) {
+				c.String(http.StatusOK, "ok")
+			})
+
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest("GET", "/", nil)
+			for k, v := range tt.setHeader {
+				r.Header[k] = v
+			}
+			router.ServeHTTP(w, r)
+
+			assert.Equal(t, tt.wantStatusCode, w.Result().StatusCode)
+		})
+	}
+}
+
 func TestK8sTokenRequiredMiddleware(t *testing.T) {
 	tests := []struct {
 		name           string

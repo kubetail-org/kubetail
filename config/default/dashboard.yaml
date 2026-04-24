@@ -73,20 +73,6 @@ environment: desktop
 #
 gin-mode: release
 
-## csrf ##
-#
-# CSRF protection settings
-#
-csrf:
-
-  ## enabled ##
-  #
-  # Whether CSRF protection is enabled.
-  #
-  # Default value: true
-  #
-  enabled: true
-
 ## logging ##
 #
 # Configuration for the dashboard server's logging output

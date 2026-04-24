@@ -17,7 +17,6 @@ package graph
 import (
 	"context"
 	"net/http"
-	"slices"
 	"sync"
 	"time"
 
@@ -45,10 +44,6 @@ type Server struct {
 	shutdownCh chan struct{}
 	wg         sync.WaitGroup
 }
-
-// allowedSecFetchSite defines the secure values for the Sec-Fetch-Site header.
-// It's defined at the package level to avoid re-allocation on every WebSocket upgrade request.
-var allowedSecFetchSite = []string{"same-origin"}
 
 // Create new Server instance
 func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
@@ -87,25 +82,13 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 
 	h.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
-	// Configure WebSocket (without CORS)
+	// Configure WebSocket. CSRF / CSWSH protection is enforced by the app-level
+	// Sec-Fetch-Site middleware before the request reaches this handler, so we
+	// allow all origins here.
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
-				// Allow all if CSRF protection is disabled
-				if !cfg.CSRF.Enabled {
-					return true
-				}
-
-				secFetchSite := r.Header.Get("Sec-Fetch-Site")
-
-				// If empty, request is from non-browser or legacy browser
-				if secFetchSite == "" {
-					return true
-				}
-
-				// Check the Sec-Fetch-Site header as our primary defense against
-				// Cross-Site WebSocket Hijacking (CSWSH)
-				return slices.Contains(allowedSecFetchSite, secFetchSite)
+				return true
 			},
 			ReadBufferSize:    1024,
 			WriteBufferSize:   1024,

@@ -17,6 +17,7 @@ package app
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/gin-contrib/sessions"
@@ -25,6 +26,20 @@ import (
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
+
+// allowedSecFetchSite defines the secure values for the Sec-Fetch-Site header.
+var allowedSecFetchSite = []string{"same-origin"}
+
+func csrfProtectionMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !slices.Contains(allowedSecFetchSite, c.GetHeader("Sec-Fetch-Site")) {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+
+		c.Next()
+	}
+}
 
 func authenticationMiddleware(mode config.AuthMode) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -40,8 +55,8 @@ func authenticationMiddleware(mode config.AuthMode) gin.HandlerFunc {
 
 		// check Authorization header
 		header := c.GetHeader("Authorization")
-		if strings.HasPrefix(header, "Bearer ") {
-			token = strings.TrimPrefix(header, "Bearer ")
+		if after, ok := strings.CutPrefix(header, "Bearer "); ok {
+			token = after
 		}
 
 		// if present, add token to gin context

@@ -73,6 +73,12 @@ func (c *WebTestClient) PostForm(url string, form url.Values) WebTestResponse {
 
 // Execute request
 func (c *WebTestClient) Do(req *http.Request) WebTestResponse {
+	// Default to same-origin so CSRF middleware treats this as a legitimate
+	// browser request. Tests exercising CSRF set this explicitly.
+	if req.Header.Get("Sec-Fetch-Site") == "" {
+		req.Header.Set("Sec-Fetch-Site", "same-origin")
+	}
+
 	// execute request
 	resp, err := c.httpclient.Do(req)
 	if err != nil {
