@@ -24,77 +24,10 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 
-	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/testutils"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 )
-
-func TestServer(t *testing.T) {
-	tests := []struct {
-		name           string
-		setCsrfEnabled bool
-		setHeader      http.Header
-		wantStatus     int
-	}{
-		{
-			"csrf disabled, non-browser client",
-			false,
-			http.Header{},
-			http.StatusSwitchingProtocols,
-		},
-		{
-			"csrf disabled, same-origin request",
-			false,
-			http.Header{"Sec-Fetch-Site": []string{"same-origin"}},
-			http.StatusSwitchingProtocols,
-		},
-		{
-			"csrf disabled, cross-site request",
-			false,
-			http.Header{"Sec-Fetch-Site": []string{"cross-site"}},
-			http.StatusSwitchingProtocols,
-		},
-		{
-			"csrf enabled, non-browser client",
-			true,
-			http.Header{},
-			http.StatusSwitchingProtocols,
-		},
-		{
-			"csrf enabled, same-origin request",
-			true,
-			http.Header{"Sec-Fetch-Site": []string{"same-origin"}},
-			http.StatusSwitchingProtocols,
-		},
-		{
-			"csrf enabled, cross-site request",
-			true,
-			http.Header{"Sec-Fetch-Site": []string{"cross-site"}},
-			http.StatusForbidden,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := config.DefaultConfig()
-			cfg.Environment = sharedcfg.EnvironmentCluster
-			cfg.CSRF.Enabled = tt.setCsrfEnabled
-
-			graphqlServer := NewServer(cfg, nil)
-
-			client := testutils.NewWebTestClient(t, graphqlServer)
-			defer client.Teardown()
-
-			// init websocket connection
-			u := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
-			_, resp, _ := websocket.DefaultDialer.Dial(u, tt.setHeader)
-
-			// check status code
-			require.Equal(t, tt.wantStatus, resp.StatusCode)
-		})
-	}
-}
 
 func TestServerDrainWithContext_NoConnections(t *testing.T) {
 	cfg := config.DefaultConfig()
@@ -158,7 +91,6 @@ func TestServerDrainWithContext_WaitsForHTTPRequests(t *testing.T) {
 
 func TestServerNotifyShutdown_ClosesConnections(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.CSRF.Enabled = true
 
 	s := NewServer(cfg, nil)
 
@@ -199,7 +131,6 @@ func TestServerNotifyShutdown_ClosesConnections(t *testing.T) {
 
 func TestServerNotifyShutdown_ClosesMultipleConnections(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.CSRF.Enabled = true
 
 	s := NewServer(cfg, nil)
 

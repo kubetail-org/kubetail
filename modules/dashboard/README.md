@@ -34,7 +34,6 @@ The Kubetail Dashboard server can be configured using a configuration file writt
 | dashboard.cluster-api-endpoint                  | string   | Service url for Cluster API                          | ""           | experimental |
 | dashboard.environment                           | string   | Environment (desktop, cluster)                       | "desktop"    | experimental |
 | dashboard.gin-mode                              | string   | Gin mode (release, debug)                            | "release"    | stable       |
-| dashboard.csrf.enabled                          | bool     | Enable CSRF protection                               | true         | stable       |
 | dashboard.logging.enabled                       | bool     | Enable logging                                       | true         | stable       |
 | dashboard.logging.level                         | string   | Log level                                            | "info"       | stable       |
 | dashboard.logging.format                        | string   | Log format (json, pretty)                            | "json"       | stable       |
