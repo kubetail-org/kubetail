@@ -15,10 +15,10 @@
 import { useSubscription } from '@apollo/client/react';
 import { useEffect, useState } from 'react';
 
-import { dashboardWSClient } from '@/apollo-client';
 import appConfig from '@/app-config';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { HealthCheckStatus, type HealthCheckResponse } from '@/lib/graphql/dashboard/__generated__/graphql';
+import { getBasename, joinPaths } from '@/lib/util';
 
 export const enum Status {
   Healthy = 'HEALTHY',
@@ -68,32 +68,37 @@ export function useDashboardServerStatus() {
   const [status, setStatus] = useState(new ServerStatus());
 
   useEffect(() => {
-    const fns = [
-      dashboardWSClient.on('connected', () => {
-        setStatus(new ServerStatus({ status: Status.Healthy, lastUpdatedAt: new Date() }));
-      }),
-      dashboardWSClient.on('pong', () => {
-        setStatus((prevStatus) => {
-          if (prevStatus.status !== Status.Healthy) {
-            return new ServerStatus({ status: Status.Healthy, lastUpdatedAt: new Date() });
-          }
-          return prevStatus;
-        });
-      }),
-      dashboardWSClient.on('closed', () => {
-        const newStatus = new ServerStatus({ status: Status.Unhealthy, lastUpdatedAt: new Date() });
-        newStatus.message = 'Unable to connect';
-        setStatus(newStatus);
-      }),
-      dashboardWSClient.on('error', () => {
-        const newStatus = new ServerStatus({ status: Status.Unhealthy, lastUpdatedAt: new Date() });
-        newStatus.message = 'Error while establishing connection';
-        setStatus(newStatus);
-      }),
-    ];
+    let isMounted = true;
 
-    // cleanup
-    return () => fns.forEach((fn) => fn());
+    const checkHealth = async () => {
+      try {
+        const response = await fetch(joinPaths(getBasename(), 'healthz'));
+        if (response.ok && isMounted) {
+          setStatus(new ServerStatus({ status: Status.Healthy, lastUpdatedAt: new Date() }));
+        } else if (isMounted) {
+          const newStatus = new ServerStatus({ status: Status.Unhealthy, lastUpdatedAt: new Date() });
+          newStatus.message = 'Server returned non-OK status';
+          setStatus(newStatus);
+        }
+      } catch {
+        if (isMounted) {
+          const newStatus = new ServerStatus({ status: Status.Unhealthy, lastUpdatedAt: new Date() });
+          newStatus.message = 'Unable to connect';
+          setStatus(newStatus);
+        }
+      }
+    };
+
+    // Initial check
+    checkHealth();
+
+    // Poll every 3 seconds
+    const intervalId = setInterval(checkHealth, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
   }, []);
 
   return status;

@@ -195,15 +195,13 @@ export class DashboardCustomCache extends InMemoryCache {
   }
 }
 
-const { link: dashboardLink, wsClient: dashboardWSClient } = createLink(basename);
+const { link: dashboardLink } = createLink(basename);
 
 export const dashboardClient = new ApolloClient({
   cache: new DashboardCustomCache(),
   link: dashboardLink,
   queryDeduplication: false,
 });
-
-export { dashboardWSClient };
 
 /**
  * Cluster API client
