@@ -191,6 +191,7 @@ describe('Main', () => {
       gridTemplate: 'auto 1fr',
       visibleCols: new Set([ViewerColumn.Timestamp, ViewerColumn.Message]),
       timezone: 'UTC',
+      timestampFormat: 'iso8601',
       isWrap: false,
       isSelected: false,
       isSelectionTop: false,
@@ -209,15 +210,20 @@ describe('Main', () => {
       onCellMouseDown: vi.fn(),
     };
 
-    it('formats timestamps in UTC by default', () => {
+    it('formats timestamps in ISO 8601 / UTC by default', () => {
       render(<RecordRow {...defaultProps} />);
-      expect(screen.getByText('Jun 15, 2024 10:30:01.123')).toBeInTheDocument();
+      expect(screen.getByText('2024-06-15T10:30:01.123+00:00')).toBeInTheDocument();
     });
 
     it('formats timestamps in the selected timezone', () => {
       render(<RecordRow {...defaultProps} timezone="America/New_York" />);
       // 10:30 UTC = 06:30 EDT (June is DST)
-      expect(screen.getByText('Jun 15, 2024 06:30:01.123')).toBeInTheDocument();
+      expect(screen.getByText('2024-06-15T06:30:01.123-04:00')).toBeInTheDocument();
+    });
+
+    it('formats timestamps using the selected timestamp format', () => {
+      render(<RecordRow {...defaultProps} timestampFormat="rfc1123" />);
+      expect(screen.getByText('Sat, 15 Jun 2024 10:30:01 +0000')).toBeInTheDocument();
     });
   });
 
@@ -245,6 +251,7 @@ describe('Main', () => {
       gridTemplate: 'auto 1fr',
       visibleCols: new Set([ViewerColumn.Timestamp, ViewerColumn.Message]),
       timezone: 'UTC',
+      timestampFormat: 'iso8601',
       isWrap: false,
       isSelected: false,
       isSelectionTop: false,
@@ -274,7 +281,7 @@ describe('Main', () => {
     it('calls onCellMouseDown when mousedown on the timestamp cell', () => {
       const onCellMouseDown = vi.fn();
       render(<RecordRow {...defaultProps} onCellMouseDown={onCellMouseDown} />);
-      const timestampCell = screen.getByText(/Jun 15, 2024/);
+      const timestampCell = screen.getByText(/2024-06-15T/);
       fireEvent.mouseDown(timestampCell);
       expect(onCellMouseDown).toHaveBeenCalledWith(0, ViewerColumn.Timestamp, expect.any(Object));
     });
@@ -320,6 +327,7 @@ describe('Main', () => {
       gridTemplate: 'auto 1fr',
       visibleCols: new Set([ViewerColumn.Timestamp, ViewerColumn.Message]),
       timezone: 'UTC',
+      timestampFormat: 'iso8601',
       isWrap: false,
       isSelected: false,
       isSelectionTop: false,
@@ -525,6 +533,7 @@ describe('Main', () => {
       gridTemplate: 'auto auto 1fr',
       visibleCols: new Set([ViewerColumn.Timestamp, ViewerColumn.Message]),
       timezone: 'UTC',
+      timestampFormat: 'iso8601',
       isWrap: false,
       isSelected: false,
       isSelectionTop: false,

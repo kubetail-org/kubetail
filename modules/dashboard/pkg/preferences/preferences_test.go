@@ -28,6 +28,8 @@ func TestDefaultPreferences(t *testing.T) {
 	assert.Equal(t, "system", *p.Theme)
 	require.NotNil(t, p.Timezone)
 	assert.Equal(t, "UTC", *p.Timezone)
+	require.NotNil(t, p.TimestampFormat)
+	assert.Equal(t, "iso8601", *p.TimestampFormat)
 }
 
 func TestMerge_OverridesNonNilFields(t *testing.T) {
@@ -74,4 +76,23 @@ func TestMerge_SetsVersionToCurrentVersion(t *testing.T) {
 
 	result := Merge(base, patch)
 	assert.Equal(t, CurrentVersion, result.Version)
+}
+
+func TestMerge_OverridesTimestampFormat(t *testing.T) {
+	base := DefaultPreferences()
+	fmt := "rfc1123"
+	patch := &Preferences{TimestampFormat: &fmt}
+
+	result := Merge(base, patch)
+	require.NotNil(t, result.TimestampFormat)
+	assert.Equal(t, "rfc1123", *result.TimestampFormat)
+}
+
+func TestMerge_PreservesTimestampFormatWhenPatchNil(t *testing.T) {
+	base := DefaultPreferences()
+	patch := &Preferences{}
+
+	result := Merge(base, patch)
+	require.NotNil(t, result.TimestampFormat)
+	assert.Equal(t, "iso8601", *result.TimestampFormat)
 }

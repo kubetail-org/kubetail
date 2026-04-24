@@ -58,8 +58,9 @@ type PageInfo struct {
 }
 
 type PreferencesInput struct {
-	Theme    *string `json:"theme,omitempty"`
-	Timezone *string `json:"timezone,omitempty"`
+	Theme           *string `json:"theme,omitempty"`
+	Timezone        *string `json:"timezone,omitempty"`
+	TimestampFormat *string `json:"timestampFormat,omitempty"`
 }
 
 type Subscription struct {

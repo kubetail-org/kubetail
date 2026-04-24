@@ -25,6 +25,7 @@ export interface Preferences {
   version: number;
   theme?: string;
   timezone?: string;
+  timestampFormat?: string;
 }
 
 type PreferencesListener = (prefs: Preferences) => void;
@@ -37,7 +38,7 @@ export interface PreferencesBackend {
 }
 
 function defaultPreferences(): Preferences {
-  return { version: CURRENT_VERSION, theme: 'system', timezone: 'UTC' };
+  return { version: CURRENT_VERSION, theme: 'system', timezone: 'UTC', timestampFormat: 'iso8601' };
 }
 
 function merge(base: Preferences, patch: Partial<Preferences>): Preferences {
@@ -45,6 +46,7 @@ function merge(base: Preferences, patch: Partial<Preferences>): Preferences {
     version: CURRENT_VERSION,
     theme: patch.theme !== undefined ? patch.theme : base.theme,
     timezone: patch.timezone !== undefined ? patch.timezone : base.timezone,
+    timestampFormat: patch.timestampFormat !== undefined ? patch.timestampFormat : base.timestampFormat,
   };
 }
 
@@ -112,6 +114,7 @@ function createGraphQLBackend(): PreferencesBackend {
         version: data.preferencesGet.version,
         theme: data.preferencesGet.theme ?? undefined,
         timezone: data.preferencesGet.timezone ?? undefined,
+        timestampFormat: data.preferencesGet.timestampFormat ?? undefined,
       };
       writeCache(prefs);
       return prefs;
@@ -128,7 +131,9 @@ function createGraphQLBackend(): PreferencesBackend {
 
       const { data } = await dashboardClient.mutate({
         mutation: PREFERENCES_UPDATE,
-        variables: { input: { theme: patch.theme, timezone: patch.timezone } },
+        variables: {
+          input: { theme: patch.theme, timezone: patch.timezone, timestampFormat: patch.timestampFormat },
+        },
       });
       if (!data) throw new Error('no data returned from preferencesUpdate');
       const result = data.preferencesUpdate;
@@ -136,6 +141,7 @@ function createGraphQLBackend(): PreferencesBackend {
         version: result.version,
         theme: result.theme ?? undefined,
         timezone: result.timezone ?? undefined,
+        timestampFormat: result.timestampFormat ?? undefined,
       };
       writeCache(prefs);
       return prefs;

@@ -957,6 +957,7 @@ export const PREFERENCES_GET = gql(`
       version
       theme
       timezone
+      timestampFormat
     }
   }
 `);
@@ -967,6 +968,7 @@ export const PREFERENCES_UPDATE = gql(`
       version
       theme
       timezone
+      timestampFormat
     }
   }
 `);

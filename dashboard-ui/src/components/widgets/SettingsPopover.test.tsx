@@ -58,4 +58,20 @@ describe('SettingsPopover', () => {
 
     expect(screen.getByText('UTC')).toBeInTheDocument();
   });
+
+  it('renders a Timestamps row when open', () => {
+    renderSettingsPopover();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+
+    expect(screen.getByText('Timestamps')).toBeInTheDocument();
+  });
+
+  it('shows ISO 8601 as the default timestamp format value', () => {
+    renderSettingsPopover();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+
+    expect(screen.getByText('ISO 8601')).toBeInTheDocument();
+  });
 });

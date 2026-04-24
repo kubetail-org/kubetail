@@ -19,19 +19,22 @@ const CurrentVersion = 1
 
 // Preferences represents user preferences.
 type Preferences struct {
-	Version  int     `json:"version"`
-	Theme    *string `json:"theme,omitempty"`
-	Timezone *string `json:"timezone,omitempty"`
+	Version         int     `json:"version"`
+	Theme           *string `json:"theme,omitempty"`
+	Timezone        *string `json:"timezone,omitempty"`
+	TimestampFormat *string `json:"timestampFormat,omitempty"`
 }
 
 // DefaultPreferences returns preferences with default values.
 func DefaultPreferences() *Preferences {
 	theme := "system"
 	timezone := "UTC"
+	timestampFormat := "iso8601"
 	return &Preferences{
-		Version:  CurrentVersion,
-		Theme:    &theme,
-		Timezone: &timezone,
+		Version:         CurrentVersion,
+		Theme:           &theme,
+		Timezone:        &timezone,
+		TimestampFormat: &timestampFormat,
 	}
 }
 
@@ -40,15 +43,19 @@ func DefaultPreferences() *Preferences {
 // Version set to CurrentVersion.
 func Merge(base, patch *Preferences) *Preferences {
 	result := &Preferences{
-		Version:  CurrentVersion,
-		Theme:    base.Theme,
-		Timezone: base.Timezone,
+		Version:         CurrentVersion,
+		Theme:           base.Theme,
+		Timezone:        base.Timezone,
+		TimestampFormat: base.TimestampFormat,
 	}
 	if patch.Theme != nil {
 		result.Theme = patch.Theme
 	}
 	if patch.Timezone != nil {
 		result.Timezone = patch.Timezone
+	}
+	if patch.TimestampFormat != nil {
+		result.TimestampFormat = patch.TimestampFormat
 	}
 	return result
 }
