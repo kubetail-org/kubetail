@@ -15,7 +15,7 @@
 import { act, renderHook } from '@testing-library/react';
 
 import { PreferencesProvider } from './preferences';
-import { TimestampFormat, formatTimestamp, useTimestampFormat } from './timestamp-format';
+import { TIMESTAMP_FORMAT_OPTIONS, TimestampFormat, formatTimestamp, useTimestampFormat } from './timestamp-format';
 
 function wrapper({ children }: React.PropsWithChildren) {
   return <PreferencesProvider>{children}</PreferencesProvider>;
@@ -32,6 +32,25 @@ describe('TimestampFormat', () => {
     expect(TimestampFormat.RFC_1123).toBe('rfc1123');
     expect(TimestampFormat.UNIX).toBe('unix');
     expect(TimestampFormat.UNIX_MS).toBe('unix_ms');
+  });
+});
+
+describe('TIMESTAMP_FORMAT_OPTIONS', () => {
+  it('has a hint field for every option', () => {
+    TIMESTAMP_FORMAT_OPTIONS.forEach((opt) => {
+      expect(typeof opt.hint).toBe('string');
+      expect(opt.hint.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('contains exactly the five supported formats in order', () => {
+    expect(TIMESTAMP_FORMAT_OPTIONS.map((o: { value: string }) => o.value)).toEqual([
+      'iso8601',
+      'rfc3339',
+      'rfc1123',
+      'unix',
+      'unix_ms',
+    ]);
   });
 });
 
