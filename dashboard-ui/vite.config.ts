@@ -49,6 +49,9 @@ export default ({ mode }: { mode: string }) => {
           target: backendTarget,
           ws: true,
         },
+        '^/healthz': {
+          target: backendTarget,
+        },
       },
     },
     build: {

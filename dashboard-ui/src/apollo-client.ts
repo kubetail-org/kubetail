@@ -32,6 +32,40 @@ import { getBasename, joinPaths } from '@/lib/util';
 
 const basename = getBasename();
 
+/**
+ * Helper function to poll healthz endpoint until server is available.
+ * Uses recursion instead of a while loop to satisfy ESLint no-await-in-loop rule.
+ */
+const waitForHealthyServer = (basepath: string): Promise<void> => {
+  const healthzUrl = new URL(joinPaths(basepath, 'healthz'), window.location.origin).toString();
+
+  const poll = (): Promise<void> =>
+    fetch(healthzUrl)
+      .then((response) => {
+        if (response.ok) {
+          // Server is up, allow WebSocket reconnection
+          return;
+        }
+        // Server returned non-OK, wait and retry
+        return new Promise<void>((resolve) => {
+          setTimeout(() => {
+            resolve(poll());
+          }, 3000);
+        });
+      })
+      .catch(
+        () =>
+          // Server is down, wait and retry
+          new Promise<void>((resolve) => {
+            setTimeout(() => {
+              resolve(poll());
+            }, 3000);
+          }),
+      );
+
+  return poll();
+};
+
 const wsClientOptions: ClientOptions = {
   url: '',
   lazy: true,
@@ -39,10 +73,7 @@ const wsClientOptions: ClientOptions = {
   keepAlive: 3000,
   retryAttempts: Infinity,
   shouldRetry: () => true,
-  retryWait: () =>
-    new Promise((resolve) => {
-      setTimeout(resolve, 3000);
-    }),
+  retryWait: () => waitForHealthyServer(basename),
 };
 
 const errorLink = new ErrorLink(({ error }) => {
@@ -197,13 +228,13 @@ export class DashboardCustomCache extends InMemoryCache {
 
 const { link: dashboardLink, wsClient: dashboardWSClient } = createLink(basename);
 
+export { dashboardWSClient };
+
 export const dashboardClient = new ApolloClient({
   cache: new DashboardCustomCache(),
   link: dashboardLink,
   queryDeduplication: false,
 });
-
-export { dashboardWSClient };
 
 /**
  * Cluster API client
