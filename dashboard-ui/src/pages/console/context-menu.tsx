@@ -26,7 +26,7 @@ import {
 import { stripAnsi } from 'fancy-ansi';
 
 import type { LogRecord } from '@/components/widgets/log-viewer';
-import { formatTimestamp } from '@/lib/timestamp-format';
+import { TIMESTAMP_FORMAT_OPTIONS, formatTimestamp } from '@/lib/timestamp-format';
 
 import { getPlainAttribute } from './selection';
 import { ViewerColumn } from './shared';
@@ -52,18 +52,15 @@ function TimestampMenuContent({
       <ContextMenuSub>
         <ContextMenuSubTrigger>Copy as...</ContextMenuSubTrigger>
         <ContextMenuSubContent>
-          <ContextMenuItem onSelect={() => copyToClipboard(record.timestamp)}>ISO 8601</ContextMenuItem>
-          <ContextMenuItem
-            onSelect={() => copyToClipboard(String(Math.floor(new Date(record.timestamp).getTime() / 1000)))}
-          >
-            Unix (seconds)
-          </ContextMenuItem>
-          <ContextMenuItem onSelect={() => copyToClipboard(String(new Date(record.timestamp).getTime()))}>
-            Unix (milliseconds)
-          </ContextMenuItem>
-          <ContextMenuItem onSelect={() => copyToClipboard(new Date(record.timestamp).toLocaleString())}>
-            Local time
-          </ContextMenuItem>
+          {TIMESTAMP_FORMAT_OPTIONS.map(({ value, label, hint }) => (
+            <ContextMenuItem
+              key={value}
+              onSelect={() => copyToClipboard(formatTimestamp(record.timestamp, timezone, value))}
+            >
+              <span>{label}</span>
+              <span className="text-muted-foreground ml-auto pl-4 text-xs">{hint}</span>
+            </ContextMenuItem>
+          ))}
         </ContextMenuSubContent>
       </ContextMenuSub>
     </>
