@@ -79,7 +79,7 @@ describe('parseTimestamp', () => {
     });
   });
 
-  describe('RFC 2822', () => {
+  describe('RFC 2822 / RFC 1123', () => {
     it('should parse standard RFC 2822 format', () => {
       const d = parseTimestamp('Mon, 02 Jan 2006 15:04:05 -0700');
       expect(d).toEqual(new Date('2006-01-02T15:04:05-07:00'));
@@ -88,6 +88,23 @@ describe('parseTimestamp', () => {
     it('should parse RFC 2822 with positive offset', () => {
       const d = parseTimestamp('Tue, 03 Jan 2006 08:00:00 +0000');
       expect(d).toEqual(new Date('2006-01-03T08:00:00Z'));
+    });
+
+    it('should parse RFC 1123 weekday/offset layout emitted by the timestamp formatter', () => {
+      const d = parseTimestamp('Thu, 23 Apr 2026 14:35:22 +0000');
+      expect(d).toEqual(new Date('2026-04-23T14:35:22Z'));
+    });
+  });
+
+  describe('RFC 3339 (space separator)', () => {
+    it('should parse RFC 3339 with space separator and colon offset', () => {
+      const d = parseTimestamp('2026-04-23 14:35:22.123+00:00');
+      expect(d).toEqual(new Date('2026-04-23T14:35:22.123Z'));
+    });
+
+    it('should parse RFC 3339 with space separator and negative offset', () => {
+      const d = parseTimestamp('2026-04-23 10:35:22.123-04:00');
+      expect(d).toEqual(new Date('2026-04-23T14:35:22.123Z'));
     });
   });
 
@@ -129,9 +146,22 @@ describe('parseTimestamp', () => {
       expect(d).toEqual(new Date(0));
     });
 
-    it('should parse a recent timestamp', () => {
+    it('should parse a recent timestamp in milliseconds', () => {
       const ms = new Date('2025-06-15T12:00:00Z').getTime();
       const d = parseTimestamp(String(ms));
+      expect(d).toEqual(new Date('2025-06-15T12:00:00Z'));
+    });
+  });
+
+  describe('Unix timestamp (seconds)', () => {
+    it('should parse a 10-digit Unix timestamp as seconds', () => {
+      const d = parseTimestamp('1136214245');
+      expect(d).toEqual(new Date('2006-01-02T15:04:05Z'));
+    });
+
+    it('should parse a recent timestamp in seconds', () => {
+      const seconds = Math.floor(new Date('2025-06-15T12:00:00Z').getTime() / 1000);
+      const d = parseTimestamp(String(seconds));
       expect(d).toEqual(new Date('2025-06-15T12:00:00Z'));
     });
   });

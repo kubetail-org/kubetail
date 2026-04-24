@@ -27,11 +27,13 @@ import {
 } from '@kubetail/ui/elements/select';
 
 import { useTheme, Theme } from '@/lib/theme';
+import { TIMESTAMP_FORMAT_OPTIONS, useTimestampFormat } from '@/lib/timestamp-format';
 import { formatTimezoneOffset, TIMEZONES, useTimezone } from '@/lib/timezone';
 
 const SettingsPopoverContent = () => {
   const { theme, setTheme } = useTheme();
   const [timezone, setTimezone] = useTimezone();
+  const [timestampFormat, setTimestampFormat] = useTimestampFormat();
 
   const handleThemeChange = (value: Theme) => {
     setTheme(value);
@@ -39,6 +41,10 @@ const SettingsPopoverContent = () => {
 
   const handleTimezoneChange = (value: string) => {
     setTimezone(value);
+  };
+
+  const handleTimestampFormatChange = (value: string) => {
+    setTimestampFormat(value);
   };
 
   const offsets = useMemo(() => new Map(TIMEZONES.map((tz) => [tz, formatTimezoneOffset(tz)])), []);
@@ -87,6 +93,25 @@ const SettingsPopoverContent = () => {
                         <SelectPrimitive.ItemText>{tz}</SelectPrimitive.ItemText>
                         <span className="text-muted-foreground ml-auto">{offsets.get(tz)}</span>
                       </SelectPrimitive.Item>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </td>
+          </tr>
+          <tr>
+            <td>Timestamps</td>
+            <td align="right">
+              <Select value={timestampFormat} onValueChange={handleTimestampFormatChange}>
+                <SelectTrigger className="bg-secondary border-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-secondary">
+                  <SelectGroup>
+                    {TIMESTAMP_FORMAT_OPTIONS.map(({ value, label }) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>

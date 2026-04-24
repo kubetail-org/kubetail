@@ -38,9 +38,14 @@ beforeEach(() => {
   });
 });
 
-function renderWithContextMenu(col: ViewerColumn, record: LogRecord = makeRecord(), timezone = 'UTC') {
+function renderWithContextMenu(
+  col: ViewerColumn,
+  record: LogRecord = makeRecord(),
+  timezone = 'UTC',
+  timestampFormat = 'iso8601',
+) {
   render(
-    <CellContextMenu col={col} record={record} timezone={timezone}>
+    <CellContextMenu col={col} record={record} timezone={timezone} timestampFormat={timestampFormat}>
       <div>cell content</div>
     </CellContextMenu>,
   );
@@ -82,7 +87,7 @@ describe('CellContextMenu', () => {
       renderWithContextMenu(ViewerColumn.Timestamp);
       await openContextMenu();
       fireEvent.click(screen.getByText('Copy timestamp'));
-      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Jun 15, 2024 10:30:01.123');
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('2024-06-15T10:30:01.123+00:00');
     });
 
     it('copies timestamp in the selected timezone', async () => {
@@ -90,7 +95,14 @@ describe('CellContextMenu', () => {
       await openContextMenu();
       fireEvent.click(screen.getByText('Copy timestamp'));
       // 10:30 UTC = 06:30 EDT (June is DST)
-      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Jun 15, 2024 06:30:01.123');
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('2024-06-15T06:30:01.123-04:00');
+    });
+
+    it('copies timestamp in the selected format', async () => {
+      renderWithContextMenu(ViewerColumn.Timestamp, makeRecord(), 'UTC', 'rfc1123');
+      await openContextMenu();
+      fireEvent.click(screen.getByText('Copy timestamp'));
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Sat, 15 Jun 2024 10:30:01 +0000');
     });
 
     it('shows timestamp format options in submenu', async () => {

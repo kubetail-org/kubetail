@@ -26,7 +26,7 @@ import {
 import { stripAnsi } from 'fancy-ansi';
 
 import type { LogRecord } from '@/components/widgets/log-viewer';
-import { formatTimestamp } from '@/lib/timezone';
+import { formatTimestamp } from '@/lib/timestamp-format';
 
 import { getPlainAttribute } from './selection';
 import { ViewerColumn } from './shared';
@@ -35,8 +35,16 @@ function copyToClipboard(text: string) {
   navigator.clipboard.writeText(text);
 }
 
-function TimestampMenuContent({ record, timezone }: { record: LogRecord; timezone: string }) {
-  const displayed = formatTimestamp(record.timestamp, timezone);
+function TimestampMenuContent({
+  record,
+  timezone,
+  timestampFormat,
+}: {
+  record: LogRecord;
+  timezone: string;
+  timestampFormat: string;
+}) {
+  const displayed = formatTimestamp(record.timestamp, timezone, timestampFormat);
 
   return (
     <>
@@ -71,9 +79,21 @@ function MessageMenuContent({ record }: { record: LogRecord }) {
   );
 }
 
-function DefaultMenuContent({ record, col, timezone }: { record: LogRecord; col: ViewerColumn; timezone: string }) {
+function DefaultMenuContent({
+  record,
+  col,
+  timezone,
+  timestampFormat,
+}: {
+  record: LogRecord;
+  col: ViewerColumn;
+  timezone: string;
+  timestampFormat: string;
+}) {
   return (
-    <ContextMenuItem onSelect={() => copyToClipboard(getPlainAttribute(record, col, timezone))}>Copy</ContextMenuItem>
+    <ContextMenuItem onSelect={() => copyToClipboard(getPlainAttribute(record, col, timezone, timestampFormat))}>
+      Copy
+    </ContextMenuItem>
   );
 }
 
@@ -81,21 +101,22 @@ type CellContextMenuProps = {
   col: ViewerColumn;
   record: LogRecord;
   timezone: string;
+  timestampFormat: string;
   children: React.ReactElement;
 };
 
-export function CellContextMenu({ col, record, timezone, children }: CellContextMenuProps) {
+export function CellContextMenu({ col, record, timezone, timestampFormat, children }: CellContextMenuProps) {
   if (col === ViewerColumn.ColorDot) {
     return children;
   }
 
   let content: React.ReactNode;
   if (col === ViewerColumn.Timestamp) {
-    content = <TimestampMenuContent record={record} timezone={timezone} />;
+    content = <TimestampMenuContent record={record} timezone={timezone} timestampFormat={timestampFormat} />;
   } else if (col === ViewerColumn.Message) {
     content = <MessageMenuContent record={record} />;
   } else {
-    content = <DefaultMenuContent record={record} col={col} timezone={timezone} />;
+    content = <DefaultMenuContent record={record} col={col} timezone={timezone} timestampFormat={timestampFormat} />;
   }
 
   return (

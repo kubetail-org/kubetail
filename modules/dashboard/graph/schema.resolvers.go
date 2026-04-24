@@ -150,7 +150,7 @@ func (r *mutationResolver) PreferencesUpdate(ctx context.Context, input model.Pr
 	if r.preferencesStore == nil {
 		return nil, gqlerrors.ErrForbidden
 	}
-	patch := &preferences.Preferences{Theme: input.Theme, Timezone: input.Timezone}
+	patch := &preferences.Preferences{Theme: input.Theme, Timezone: input.Timezone, TimestampFormat: input.TimestampFormat}
 	return r.preferencesStore.Update(patch)
 }
 

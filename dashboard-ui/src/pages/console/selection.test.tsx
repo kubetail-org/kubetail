@@ -58,15 +58,20 @@ const makeRecord = (overrides: Partial<LogRecord> = {}): LogRecord => ({
 describe('getPlainAttribute', () => {
   const record = makeRecord();
 
-  it('returns formatted timestamp in UTC by default', () => {
+  it('returns formatted timestamp in ISO 8601 / UTC by default', () => {
     const result = getPlainAttribute(record, ViewerColumn.Timestamp, 'UTC');
-    expect(result).toBe('Jun 15, 2024 10:30:01.123');
+    expect(result).toBe('2024-06-15T10:30:01.123+00:00');
   });
 
   it('returns formatted timestamp in the given timezone', () => {
     const result = getPlainAttribute(record, ViewerColumn.Timestamp, 'America/New_York');
     // 10:30 UTC = 06:30 EDT (June is DST)
-    expect(result).toBe('Jun 15, 2024 06:30:01.123');
+    expect(result).toBe('2024-06-15T06:30:01.123-04:00');
+  });
+
+  it('returns formatted timestamp in the given format', () => {
+    const result = getPlainAttribute(record, ViewerColumn.Timestamp, 'UTC', 'rfc1123');
+    expect(result).toBe('Sat, 15 Jun 2024 10:30:01 +0000');
   });
 
   it('returns empty string for ColorDot', () => {
@@ -121,7 +126,7 @@ describe('formatRowsForCopy', () => {
   it('formats single row with visible columns tab-separated', () => {
     const visibleCols = new Set([ViewerColumn.Timestamp, ViewerColumn.Pod, ViewerColumn.Message]);
     const result = formatRowsForCopy([records[0]], visibleCols);
-    expect(result).toBe('Jun 15, 2024 10:30:01.000\tmy-pod-abc\tline one');
+    expect(result).toBe('2024-06-15T10:30:01.000+00:00\tmy-pod-abc\tline one');
   });
 
   it('formats multiple rows separated by newlines', () => {
@@ -169,7 +174,7 @@ describe('formatCellsForCopy', () => {
     const selectedCells = new Map([[0, new Set([ViewerColumn.Timestamp, ViewerColumn.Message])]]);
     const visibleCols = new Set([ViewerColumn.Timestamp, ViewerColumn.Message]);
     const result = formatCellsForCopy(selectedCells, visibleCols, getRecord);
-    expect(result).toBe('Jun 15, 2024 10:30:01.000\tline one');
+    expect(result).toBe('2024-06-15T10:30:01.000+00:00\tline one');
   });
 
   it('formats cells from different rows newline-separated', () => {
@@ -2068,6 +2073,6 @@ describe('useSelectionKeyboard', () => {
     });
 
     // 10:30 UTC = 06:30 EDT (June is DST)
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Jun 15, 2024 06:30:00.000\tlog message 0');
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('2024-06-15T06:30:00.000-04:00\tlog message 0');
   });
 });

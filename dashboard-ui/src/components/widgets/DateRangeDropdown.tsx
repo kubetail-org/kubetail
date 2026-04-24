@@ -184,9 +184,11 @@ export function parseTimestamp(input: string, timezone = 'UTC'): Date | undefine
   const trimmed = input.trim();
   if (!trimmed) return undefined;
 
-  // Unix timestamp (milliseconds)
+  // Unix timestamp — ≥13 digits treated as milliseconds (covers 2001+ in ms);
+  // anything shorter is treated as seconds (covers 1970–2286 in s).
   if (/^\d+$/.test(trimmed)) {
-    const ms = Number(trimmed);
+    const n = Number(trimmed);
+    const ms = trimmed.length >= 13 ? n : n * 1000;
     const d = new Date(ms);
     if (isValidDate(d)) return d;
   }
@@ -238,11 +240,12 @@ const AbsoluteTimeForm = ({ onApply }: { onApply: (date: Date) => void }) => {
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Absolute Time</h3>
         <Alert className="mb-3 text-xs">
           <AlertTitle className="flex items-center">Supported Formats</AlertTitle>
-          <AlertDescription className="font-mono text-xs mt-1">
+          <AlertDescription className="font-mono text-xs mt-1 max-h-20 overflow-y-auto">
             <ul className="space-y-1 whitespace-nowrap">
-              <li title="ISO 8601">&gt; 2006-01-02T15:04:05+07:00</li>
-              <li title="RFC 2822">&gt; Mon, 02 Jan 2006 15:04:05 -0700</li>
+              <li title="ISO 8601 / RFC 3339">&gt; 2006-01-02T15:04:05+07:00</li>
+              <li title="RFC 1123 / RFC 2822">&gt; Mon, 02 Jan 2006 15:04:05 -0700</li>
               <li title="Apache CLF">&gt; 02/Jan/2006:15:04:05 -0700</li>
+              <li title="Unix timestamp (seconds)">&gt; 1136214245</li>
               <li title="Unix timestamp (milliseconds)">&gt; 1776393600000</li>
             </ul>
           </AlertDescription>
