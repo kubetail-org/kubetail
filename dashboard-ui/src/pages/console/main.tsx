@@ -20,7 +20,8 @@ import { Spinner } from '@kubetail/ui/elements/spinner';
 import { stripAnsi } from 'fancy-ansi';
 import { AnsiHtml } from 'fancy-ansi/react';
 
-import { formatTimestamp, useTimezone } from '@/lib/timezone';
+import { formatTimestamp, useTimestampFormat } from '@/lib/timestamp-format';
+import { useTimezone } from '@/lib/timezone';
 import { cn, cssEncode } from '@/lib/util';
 import { LogViewer, useLogViewerState } from '@/components/widgets/log-viewer';
 import type {
@@ -340,10 +341,10 @@ const HeaderRow = ({
  * RecordRow component
  */
 
-const getAttribute = (record: LogRecord, col: ViewerColumn, timezone: string) => {
+const getAttribute = (record: LogRecord, col: ViewerColumn, timezone: string, timestampFormat: string) => {
   switch (col) {
     case ViewerColumn.Timestamp:
-      return formatTimestamp(record.timestamp, timezone);
+      return formatTimestamp(record.timestamp, timezone, timestampFormat);
     case ViewerColumn.ColorDot: {
       const k = cssEncode(`${record.source.namespace}/${record.source.podName}/${record.source.containerName}`);
       const el = <div className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: `var(--${k}-color)` }} />;
@@ -396,6 +397,7 @@ type RecordRowProps = {
   gridTemplate: string;
   visibleCols: Set<ViewerColumn>;
   timezone: string;
+  timestampFormat: string;
   isWrap: boolean;
   isSelected: boolean;
   isSelectionTop: boolean;
@@ -420,6 +422,7 @@ export const RecordRow = memo(
     gridTemplate,
     visibleCols,
     timezone,
+    timestampFormat,
     isWrap,
     isSelected,
     isSelectionTop,
@@ -533,7 +536,7 @@ export const RecordRow = memo(
       };
 
       els.push(
-        <CellContextMenu key={col} col={col} record={row.record} timezone={timezone}>
+        <CellContextMenu key={col} col={col} record={row.record} timezone={timezone} timestampFormat={timestampFormat}>
           <div
             ref={measureCellElement}
             data-col-id={col}
@@ -553,7 +556,7 @@ export const RecordRow = memo(
                   }
             }
           >
-            {getAttribute(row.record, col, timezone)}
+            {getAttribute(row.record, col, timezone, timestampFormat)}
           </div>
         </CellContextMenu>,
       );
@@ -589,6 +592,7 @@ export const RecordRow = memo(
     if (prev.gridTemplate !== next.gridTemplate) return false;
     if (prev.visibleCols !== next.visibleCols) return false;
     if (prev.timezone !== next.timezone) return false;
+    if (prev.timestampFormat !== next.timestampFormat) return false;
     if (prev.isWrap !== next.isWrap) return false;
     if (prev.isSelected !== next.isSelected) return false;
     if (prev.isSelectionTop !== next.isSelectionTop) return false;
@@ -618,6 +622,7 @@ export const Main = () => {
   const follow = useAtomValue(isFollowAtom);
   const wrap = useAtomValue(isWrapAtom);
   const [timezone] = useTimezone();
+  const [timestampFormat] = useTimestampFormat();
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const scrollElRef = useRef<HTMLDivElement>(null);
@@ -657,6 +662,18 @@ export const Main = () => {
       resetSelection();
     }
   }, [isLoading]);
+
+  // Re-measure columns when the timestamp format changes — the new string
+  // length is usually different, so cached widths would leave the column
+  // truncated or over-wide.
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    resetWidths();
+  }, [timestampFormat]);
 
   const estimateRowHeight = useCallback(
     (record: LogRecord) => {
@@ -757,6 +774,7 @@ export const Main = () => {
                     gridTemplate={gridTemplate}
                     visibleCols={visibleCols}
                     timezone={timezone}
+                    timestampFormat={timestampFormat}
                     isWrap={wrap}
                     isSelected={selectedKeys.has(virtualRow.key)}
                     isSelectionTop={selectionTopKeys.has(virtualRow.key)}

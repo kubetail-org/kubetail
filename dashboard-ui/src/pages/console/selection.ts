@@ -17,7 +17,8 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { stripAnsi } from 'fancy-ansi';
 
-import { formatTimestamp, useTimezone } from '@/lib/timezone';
+import { TimestampFormat, formatTimestamp, useTimestampFormat } from '@/lib/timestamp-format';
+import { useTimezone } from '@/lib/timezone';
 
 import type { LogRecord, LogViewerVirtualizer } from '@/components/widgets/log-viewer';
 
@@ -36,10 +37,15 @@ import {
  * getPlainAttribute - Returns a plain text string for a given log record column.
  * This is the plain-text counterpart of getAttribute() in main.tsx (which returns JSX).
  */
-export function getPlainAttribute(record: LogRecord, col: ViewerColumn, timezone = 'UTC'): string {
+export function getPlainAttribute(
+  record: LogRecord,
+  col: ViewerColumn,
+  timezone = 'UTC',
+  timestampFormat: string = TimestampFormat.ISO_8601,
+): string {
   switch (col) {
     case ViewerColumn.Timestamp:
-      return formatTimestamp(record.timestamp, timezone);
+      return formatTimestamp(record.timestamp, timezone, timestampFormat);
     case ViewerColumn.ColorDot:
       return '';
     case ViewerColumn.Pod:
@@ -71,13 +77,14 @@ function formatRow(
   record: LogRecord,
   visibleCols: Set<ViewerColumn>,
   timezone: string,
+  timestampFormat: string,
   filter?: Set<ViewerColumn>,
 ): string {
   const parts: string[] = [];
   visibleCols.forEach((col) => {
     if (col === ViewerColumn.ColorDot) return;
     if (filter && !filter.has(col)) return;
-    parts.push(getPlainAttribute(record, col, timezone));
+    parts.push(getPlainAttribute(record, col, timezone, timestampFormat));
   });
   return parts.join('\t');
 }
@@ -86,8 +93,13 @@ function formatRow(
  * formatRowsForCopy - Formats an array of log records as copyable text.
  * Columns are tab-separated, rows are newline-separated. ColorDot is skipped.
  */
-export function formatRowsForCopy(records: LogRecord[], visibleCols: Set<ViewerColumn>, timezone = 'UTC'): string {
-  return records.map((record) => formatRow(record, visibleCols, timezone)).join('\n');
+export function formatRowsForCopy(
+  records: LogRecord[],
+  visibleCols: Set<ViewerColumn>,
+  timezone = 'UTC',
+  timestampFormat: string = TimestampFormat.ISO_8601,
+): string {
+  return records.map((record) => formatRow(record, visibleCols, timezone, timestampFormat)).join('\n');
 }
 
 /**
@@ -100,13 +112,14 @@ export function formatCellsForCopy(
   visibleCols: Set<ViewerColumn>,
   getRecord: (key: number) => LogRecord | undefined,
   timezone = 'UTC',
+  timestampFormat: string = TimestampFormat.ISO_8601,
 ): string {
   return [...selectedCells.keys()]
     .sort((a, b) => a - b)
     .map((rowKey) => {
       const record = getRecord(rowKey);
       if (!record) return null;
-      const text = formatRow(record, visibleCols, timezone, selectedCells.get(rowKey));
+      const text = formatRow(record, visibleCols, timezone, timestampFormat, selectedCells.get(rowKey));
       return text || null;
     })
     .filter((line): line is string => line !== null)
@@ -548,6 +561,7 @@ export function useSelectionKeyboard(
 ) {
   const { visibleCols, selectedKeysRef, selectedCellsRef, clearSelection } = state;
   const [timezone] = useTimezone();
+  const [timestampFormat] = useTimestampFormat();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -569,7 +583,7 @@ export function useSelectionKeyboard(
           e.preventDefault();
           const v = virtualizerRef.current;
           if (!v) return;
-          const text = formatCellsForCopy(cells, visibleCols, (k) => v.getRecord(k), timezone);
+          const text = formatCellsForCopy(cells, visibleCols, (k) => v.getRecord(k), timezone, timestampFormat);
           navigator.clipboard.writeText(text);
           return;
         }
@@ -581,7 +595,7 @@ export function useSelectionKeyboard(
           if (!v) return;
           const sorted = [...selectedKeysRef.current].sort((a, b) => a - b);
           const records = sorted.map((k) => v.getRecord(k)).filter((r): r is LogRecord => r !== undefined);
-          const text = formatRowsForCopy(records, visibleCols, timezone);
+          const text = formatRowsForCopy(records, visibleCols, timezone, timestampFormat);
           navigator.clipboard.writeText(text);
         }
       }
@@ -589,7 +603,7 @@ export function useSelectionKeyboard(
 
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [visibleCols, timezone, clearSelection, selectedKeysRef, selectedCellsRef, virtualizerRef]);
+  }, [visibleCols, timezone, timestampFormat, clearSelection, selectedKeysRef, selectedCellsRef, virtualizerRef]);
 }
 
 export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualizer | null>) {

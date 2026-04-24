@@ -28,55 +28,70 @@ describe('LocalStoragePreferencesBackend', () => {
 
   it('load returns defaults when localStorage is empty', async () => {
     const prefs = await backend.load();
-    expect(prefs).toEqual({ version: 1, theme: 'system', timezone: 'UTC' });
+    expect(prefs).toEqual({ version: 1, theme: 'system', timezone: 'UTC', timestampFormat: 'iso8601' });
   });
 
   it('load reads existing preferences from localStorage', async () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, theme: 'dark', timezone: 'America/New_York' }));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ version: 1, theme: 'dark', timezone: 'America/New_York', timestampFormat: 'rfc1123' }),
+    );
     const prefs = await backend.load();
-    expect(prefs).toEqual({ version: 1, theme: 'dark', timezone: 'America/New_York' });
+    expect(prefs).toEqual({ version: 1, theme: 'dark', timezone: 'America/New_York', timestampFormat: 'rfc1123' });
   });
 
   it('load returns defaults for malformed JSON', async () => {
     localStorage.setItem(STORAGE_KEY, '{bad json');
     const prefs = await backend.load();
-    expect(prefs).toEqual({ version: 1, theme: 'system', timezone: 'UTC' });
+    expect(prefs).toEqual({ version: 1, theme: 'system', timezone: 'UTC', timestampFormat: 'iso8601' });
   });
 
   it('save merges patch into existing preferences', async () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, theme: 'dark', timezone: 'UTC' }));
     const result = await backend.save({ theme: 'light' });
-    expect(result).toEqual({ version: 1, theme: 'light', timezone: 'UTC' });
+    expect(result).toEqual({ version: 1, theme: 'light', timezone: 'UTC', timestampFormat: 'iso8601' });
   });
 
   it('save merges timezone patch into existing preferences', async () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, theme: 'dark', timezone: 'UTC' }));
     const result = await backend.save({ timezone: 'Europe/London' });
-    expect(result).toEqual({ version: 1, theme: 'dark', timezone: 'Europe/London' });
+    expect(result).toEqual({ version: 1, theme: 'dark', timezone: 'Europe/London', timestampFormat: 'iso8601' });
+  });
+
+  it('save merges timestampFormat patch into existing preferences', async () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ version: 1, theme: 'dark', timezone: 'UTC', timestampFormat: 'iso8601' }),
+    );
+    const result = await backend.save({ timestampFormat: 'unix_ms' });
+    expect(result).toEqual({ version: 1, theme: 'dark', timezone: 'UTC', timestampFormat: 'unix_ms' });
   });
 
   it('save writes result back to localStorage', async () => {
     await backend.save({ theme: 'dark' });
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-    expect(stored).toEqual({ version: 1, theme: 'dark', timezone: 'UTC' });
+    expect(stored).toEqual({ version: 1, theme: 'dark', timezone: 'UTC', timestampFormat: 'iso8601' });
   });
 
   it('loadCached returns defaults when localStorage is empty', () => {
     const prefs = backend.loadCached();
-    expect(prefs).toEqual({ version: 1, theme: 'system', timezone: 'UTC' });
+    expect(prefs).toEqual({ version: 1, theme: 'system', timezone: 'UTC', timestampFormat: 'iso8601' });
   });
 
   it('loadCached returns cached preferences synchronously', () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, theme: 'dark', timezone: 'Asia/Tokyo' }));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ version: 1, theme: 'dark', timezone: 'Asia/Tokyo', timestampFormat: 'rfc3339' }),
+    );
     const prefs = backend.loadCached();
-    expect(prefs).toEqual({ version: 1, theme: 'dark', timezone: 'Asia/Tokyo' });
+    expect(prefs).toEqual({ version: 1, theme: 'dark', timezone: 'Asia/Tokyo', timestampFormat: 'rfc3339' });
   });
 
   it('subscribe notifies on cross-tab storage changes', () => {
     const callback = vi.fn();
     const unsubscribe = backend.subscribe(callback);
 
-    const updatedPrefs = { version: 1, theme: 'dark', timezone: 'UTC' };
+    const updatedPrefs = { version: 1, theme: 'dark', timezone: 'UTC', timestampFormat: 'iso8601' };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedPrefs));
     window.dispatchEvent(
       new StorageEvent('storage', {

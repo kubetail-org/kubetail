@@ -31,11 +31,6 @@ export function useTimezone(): [string, (tz: string) => void] {
   return [timezone, setTimezone];
 }
 
-export function formatTimestamp(date: Date | string, timezone: string): string {
-  const zoned = toZonedTime(date, timezone);
-  return format(zoned, 'LLL dd, y HH:mm:ss.SSS', { timeZone: timezone });
-}
-
 export function formatTimezoneOffset(tz: string): string {
   const now = new Date();
   return format(toZonedTime(now, tz), 'xxx', { timeZone: tz });
