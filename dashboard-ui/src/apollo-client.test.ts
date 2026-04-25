@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import { k8sPagination } from './apollo-client';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { k8sPagination, waitUntilOnline, waitUntilVisible } from './apollo-client';
 
 describe('k8sPagination merge logic', () => {
   let mergeFunction: ReturnType<typeof k8sPagination>['merge'];
@@ -79,5 +79,64 @@ describe('k8sPagination merge logic', () => {
     const result = mergeFunction(existing, incoming, { args: { options: { continue: 'differentToken' } } });
 
     expect(result).toEqual(existing);
+  });
+});
+
+describe('waitUntilVisible', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('resolves immediately when the document is already visible', async () => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+
+    await expect(waitUntilVisible()).resolves.toBeUndefined();
+  });
+
+  it('resolves when visibility transitions to visible', async () => {
+    const stateSpy = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+
+    const pending = waitUntilVisible();
+
+    stateSpy.mockReturnValue('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    await expect(pending).resolves.toBeUndefined();
+  });
+
+  it('does not resolve while the document remains hidden', async () => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+
+    let resolved = false;
+    waitUntilVisible().then(() => {
+      resolved = true;
+    });
+
+    document.dispatchEvent(new Event('visibilitychange'));
+    await Promise.resolve();
+
+    expect(resolved).toBe(false);
+  });
+});
+
+describe('waitUntilOnline', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('resolves immediately when navigator is online', async () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true);
+
+    await expect(waitUntilOnline()).resolves.toBeUndefined();
+  });
+
+  it('resolves when an online event fires', async () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+
+    const pending = waitUntilOnline();
+
+    window.dispatchEvent(new Event('online'));
+
+    await expect(pending).resolves.toBeUndefined();
   });
 });

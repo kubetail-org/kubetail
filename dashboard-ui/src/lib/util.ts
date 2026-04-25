@@ -18,6 +18,15 @@ import { twMerge } from 'tailwind-merge';
 import { config } from '@/app-config';
 
 /**
+ * Sleep method
+ */
+
+export const sleep = async (timeoutMs: number) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, timeoutMs);
+  });
+
+/**
  * Python-like counter class
  */
 

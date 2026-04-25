@@ -24,7 +24,69 @@ import toast from 'react-hot-toast';
 import appConfig from '@/app-config';
 import clusterAPI from '@/lib/graphql/cluster-api/__generated__/introspection-result.json';
 import dashboard from '@/lib/graphql/dashboard/__generated__/introspection-result.json';
-import { getBasename, joinPaths } from '@/lib/util';
+import { getBasename, joinPaths, sleep } from '@/lib/util';
+
+const HEALTHZ_RETRY_DELAY_MS = 3000;
+const HEALTHZ_TIMEOUT_MS = 2000;
+const WS_RETRY_BACKOFF_MS = 1000;
+const WS_RETRY_BACKOFF_JITTER_MS = 1000;
+
+/**
+ * Helper methods
+ */
+
+export const waitUntilVisible = (): Promise<void> => {
+  if (document.visibilityState === 'visible') return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const handler = () => {
+      if (document.visibilityState === 'visible') {
+        document.removeEventListener('visibilitychange', handler);
+        resolve();
+      }
+    };
+    document.addEventListener('visibilitychange', handler);
+  });
+};
+
+export const waitUntilOnline = (): Promise<void> => {
+  if (navigator.onLine) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    window.addEventListener('online', () => resolve(), { once: true });
+  });
+};
+
+const createRetryWait = (basepath: string) => {
+  const healthzUrl = new URL(joinPaths(basepath, 'healthz'), window.location.origin).toString();
+
+  // Retry HTTP health endpoint every three seconds until healthy
+  return async () => {
+    let healthy = false;
+    while (!healthy) {
+      // eslint-disable-next-line no-await-in-loop
+      await waitUntilVisible();
+
+      // eslint-disable-next-line no-await-in-loop
+      await waitUntilOnline();
+
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const response = await fetch(healthzUrl, { signal: AbortSignal.timeout(HEALTHZ_TIMEOUT_MS) });
+        if (response.ok) healthy = true;
+      } catch {
+        // ignore
+      }
+
+      if (!healthy) {
+        // eslint-disable-next-line no-await-in-loop
+        await sleep(HEALTHZ_RETRY_DELAY_MS);
+      }
+    }
+
+    // Always back off before reconnecting, even when healthy
+    const backoff = WS_RETRY_BACKOFF_MS + Math.random() * WS_RETRY_BACKOFF_JITTER_MS; // 3–5s jitter
+    await sleep(backoff);
+  };
+};
 
 /**
  * Shared items
@@ -32,49 +94,15 @@ import { getBasename, joinPaths } from '@/lib/util';
 
 const basename = getBasename();
 
-/**
- * Helper function to poll healthz endpoint until server is available.
- * Uses recursion instead of a while loop to satisfy ESLint no-await-in-loop rule.
- */
-const waitForHealthyServer = (basepath: string): Promise<void> => {
-  const healthzUrl = new URL(joinPaths(basepath, 'healthz'), window.location.origin).toString();
-
-  const poll = (): Promise<void> =>
-    fetch(healthzUrl)
-      .then((response) => {
-        if (response.ok) {
-          // Server is up, allow WebSocket reconnection
-          return;
-        }
-        // Server returned non-OK, wait and retry
-        return new Promise<void>((resolve) => {
-          setTimeout(() => {
-            resolve(poll());
-          }, 3000);
-        });
-      })
-      .catch(
-        () =>
-          // Server is down, wait and retry
-          new Promise<void>((resolve) => {
-            setTimeout(() => {
-              resolve(poll());
-            }, 3000);
-          }),
-      );
-
-  return poll();
-};
-
-const wsClientOptions: ClientOptions = {
+const wsClientOptions = (basepath: string): ClientOptions => ({
   url: '',
   lazy: true,
   connectionAckWaitTimeout: 3000,
   keepAlive: 3000,
   retryAttempts: Infinity,
   shouldRetry: () => true,
-  retryWait: () => waitForHealthyServer(basename),
-};
+  retryWait: createRetryWait(basepath),
+});
 
 const errorLink = new ErrorLink(({ error }) => {
   if (CombinedGraphQLErrors.is(error)) {
@@ -115,7 +143,7 @@ const createLink = (basepath: string) => {
 
   // Create wsClient
   const wsClient = createClient({
-    ...wsClientOptions,
+    ...wsClientOptions(basepath),
     url: uri.replace(/^(http)/, 'ws'),
   });
 
