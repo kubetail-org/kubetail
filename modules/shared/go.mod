@@ -17,6 +17,7 @@ require (
 	github.com/kubetail-org/grpc-dispatcher-go v0.1.5
 	github.com/kubetail-org/megaphone v0.0.2
 	github.com/rs/zerolog v1.34.0
+	github.com/sosodev/duration v1.3.1
 	github.com/stretchr/testify v1.11.1
 	github.com/vektah/gqlparser/v2 v2.5.28
 	go.opentelemetry.io/otel v1.43.0
@@ -135,7 +136,6 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/sosodev/duration v1.3.1 // indirect
 	github.com/spf13/cast v1.9.2 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect

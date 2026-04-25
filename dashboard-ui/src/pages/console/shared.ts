@@ -14,7 +14,9 @@
 
 import { createContext } from 'react';
 
-import type { Client, LogViewerHandle } from '@/components/widgets/log-viewer';
+import type { LogViewerHandle } from '@/components/widgets/log-viewer';
+
+import type { LogServerClient } from './log-server-client';
 
 /**
  * Page context
@@ -23,7 +25,7 @@ import type { Client, LogViewerHandle } from '@/components/widgets/log-viewer';
 type PageContextType = {
   kubeContext: string | null;
   shouldUseClusterAPI: boolean | undefined;
-  logServerClient: Client | undefined;
+  logServerClient: LogServerClient | undefined;
   grep: string | null;
   logViewerRef: React.RefObject<LogViewerHandle | null>;
   isSidebarOpen: boolean;
@@ -80,4 +82,22 @@ export function configColumnsToViewerColumns(configColumns: string[]): ViewerCol
     if (col) cols.push(col);
     return cols;
   }, []);
+}
+
+// Maps a viewer column to the backend's column name. Omits ColorDot (UI-only,
+// no backing data) so callers can filter it out via `undefined`.
+const VIEWER_COLUMN_TO_BACKEND: Partial<Record<ViewerColumn, string>> = {
+  [ViewerColumn.Timestamp]: 'timestamp',
+  [ViewerColumn.Pod]: 'pod',
+  [ViewerColumn.Container]: 'container',
+  [ViewerColumn.Region]: 'region',
+  [ViewerColumn.Zone]: 'zone',
+  [ViewerColumn.OS]: 'os',
+  [ViewerColumn.Arch]: 'arch',
+  [ViewerColumn.Node]: 'node',
+  [ViewerColumn.Message]: 'message',
+};
+
+export function viewerColumnToBackend(col: ViewerColumn): string | undefined {
+  return VIEWER_COLUMN_TO_BACKEND[col];
 }
