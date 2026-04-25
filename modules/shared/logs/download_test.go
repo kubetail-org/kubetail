@@ -17,6 +17,7 @@ package logs
 import (
 	"bytes"
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -397,6 +398,29 @@ func TestWriteDownloadStream_TSVEscapesTabsAndNewlines(t *testing.T) {
 	want := "timestamp\tpod\tcontainer\tmessage\n" +
 		"2026-04-01T00:00:00Z\tp 1\tc1\ta b c\n"
 	assert.Equal(t, want, body)
+}
+
+func TestWriteDownloadStream_PropagatesStreamErr(t *testing.T) {
+	req := baseDownloadRequest()
+	req.Raw.OutputFormat = DownloadOutputText
+	req.Raw.IncludeMetadata = false
+	req.Raw.Columns = nil
+
+	wantErr := errors.New("agent disconnected mid-stream")
+	stream := &fakeDownloadStreamer{
+		records: []LogRecord{{Message: "partial"}},
+		ch:      make(chan LogRecord, 1),
+		err:     wantErr,
+	}
+	if err := stream.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	var buf bytes.Buffer
+	err := WriteDownloadStream(context.Background(), &buf, req, stream)
+	assert.ErrorIs(t, err, wantErr)
+	// Records emitted before the error should still have been written.
+	assert.Equal(t, "partial\n", buf.String())
 }
 
 func TestStripAnsi(t *testing.T) {

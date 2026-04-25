@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	zlog "github.com/rs/zerolog/log"
 
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
 )
@@ -81,5 +82,10 @@ func (h *downloadHandlers) DownloadPOST(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, logs.DownloadFilename(req.Raw.OutputFormat, time.Now())))
 	c.Status(http.StatusOK)
 
-	_ = logs.WriteDownloadStream(ctx, c.Writer, req, stream)
+	if err := logs.WriteDownloadStream(ctx, c.Writer, req, stream); err != nil && ctx.Err() == nil {
+		// Status + headers were already sent so we can't change the response
+		// code; clients will see a truncated file. Log so operators can
+		// investigate. Skip when ctx is already cancelled (client-side abort).
+		zlog.Error().Err(err).Msg("download stream ended with error")
+	}
 }

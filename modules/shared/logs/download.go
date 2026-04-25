@@ -393,8 +393,13 @@ func NewDownloadRecordWriter(w io.Writer, req *DownloadRequest) DownloadRecordWr
 
 // WriteDownloadStream writes the column header (if any) and each stream record
 // to w. If w implements an interface with `Flush()`, it flushes after the
-// header and after each record so the response streams to the client. Returns
-// the first encountered write or context error.
+// header and after each record so the response streams to the client.
+//
+// After the records channel closes the stream's terminal error is returned so
+// callers can distinguish a truncated download (e.g. an upstream agent
+// disconnect mid-stream) from a clean finish. The HTTP status has already been
+// sent by then, so handlers can't change the response code, but they should
+// log the failure rather than treat it as success.
 func WriteDownloadStream(ctx context.Context, w io.Writer, req *DownloadRequest, stream DownloadStreamer) error {
 	rw := NewDownloadRecordWriter(w, req)
 	if err := rw.WriteHeader(); err != nil {
@@ -416,5 +421,5 @@ func WriteDownloadStream(ctx context.Context, w io.Writer, req *DownloadRequest,
 			flusher.Flush()
 		}
 	}
-	return nil
+	return stream.Err()
 }
