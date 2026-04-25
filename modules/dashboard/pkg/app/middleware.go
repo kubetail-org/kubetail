@@ -59,6 +59,12 @@ func authenticationMiddleware(mode config.AuthMode) gin.HandlerFunc {
 			token = after
 		}
 
+		// Trim before deciding presence — without this, a whitespace-only
+		// bearer header (e.g. "Authorization: Bearer    ") would bypass the
+		// AuthModeToken gate downstream, since k8sAuthenticationMiddleware
+		// only checks `token == ""`.
+		token = strings.TrimSpace(token)
+
 		// if present, add token to gin context
 		if token != "" {
 			// Add to gin context

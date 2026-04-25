@@ -239,21 +239,21 @@ func TestCSRFProtectionOnDynamicRoutes(t *testing.T) {
 		{
 			"download blocks cross-site",
 			"POST",
-			"/api/logs/download",
+			"/api/v1/download",
 			"cross-site",
 			true,
 		},
 		{
 			"download blocks non-browser",
 			"POST",
-			"/api/logs/download",
+			"/api/v1/download",
 			"",
 			true,
 		},
 		{
 			"download allows same-origin",
 			"POST",
-			"/api/logs/download",
+			"/api/v1/download",
 			"same-origin",
 			false,
 		},
@@ -323,7 +323,7 @@ func TestDownloadRequiresAuthInTokenMode(t *testing.T) {
 	app := newTestApp(cfg)
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "/api/logs/download", nil)
+	r := httptest.NewRequest("POST", "/api/v1/download", nil)
 	r.Header.Set("Sec-Fetch-Site", "same-origin")
 	app.ServeHTTP(w, r)
 

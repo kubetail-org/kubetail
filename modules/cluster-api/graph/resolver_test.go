@@ -37,7 +37,7 @@ func TestGetBearerTokenRequired(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("rejects empty token", func(t *testing.T) {
+	t.Run("rejects whitespace-only token", func(t *testing.T) {
 		ctx := context.WithValue(context.Background(), k8shelpers.K8STokenCtxKey, " ")
 		_, err := r.getBearerTokenRequired(ctx)
 		assert.Error(t, err)

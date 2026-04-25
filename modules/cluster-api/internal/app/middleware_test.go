@@ -67,6 +67,13 @@ func TestAuthenticationMiddleware(t *testing.T) {
 			},
 			nil,
 		},
+		{
+			"whitespace-only bearer is treated as absent",
+			map[string]string{
+				"Authorization": "Bearer    ",
+			},
+			nil,
+		},
 	}
 
 	for _, tt := range tests {

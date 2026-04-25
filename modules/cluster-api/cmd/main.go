@@ -98,7 +98,7 @@ func main() {
 				Handler:      app,
 				IdleTimeout:  1 * time.Minute,
 				ReadTimeout:  5 * time.Second,
-				WriteTimeout: 10 * time.Second,
+				WriteTimeout: 1 * time.Minute,
 			}
 
 			// Register shutdown hook so long-lived connections are notified before

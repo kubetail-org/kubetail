@@ -102,6 +102,24 @@ func TestAuthenticationMiddleware(t *testing.T) {
 	}
 }
 
+// A whitespace-only bearer header must not pass the AuthModeToken gate.
+// k8sAuthenticationMiddleware only checks `token == ""`, so the upstream
+// authenticationMiddleware has to normalize before storing in the gin context.
+func TestAuthenticationMiddlewareRejectsWhitespaceToken(t *testing.T) {
+	router := gin.New()
+	router.Use(sessions.Sessions("session", cookie.NewStore([]byte("xx"))))
+	router.Use(authenticationMiddleware(config.AuthModeToken))
+	router.Use(k8sAuthenticationMiddleware(config.AuthModeToken))
+	router.GET("/", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Set("Authorization", "Bearer    ")
+	router.ServeHTTP(w, r)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Result().StatusCode)
+}
+
 func TestCSRFProtectionMiddleware(t *testing.T) {
 	tests := []struct {
 		name           string

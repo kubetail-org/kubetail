@@ -207,7 +207,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 
 			// Log download endpoint
 			dl := newDownloadHandlers(app)
-			protectedRoutes.POST("/api/logs/download", dl.DownloadPOST)
+			protectedRoutes.POST("/api/v1/download", dl.DownloadPOST)
 		}
 	}
 	app.dynamicRoutes = dynamicRoutes
