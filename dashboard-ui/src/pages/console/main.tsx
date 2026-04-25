@@ -45,6 +45,7 @@ const HAS_MORE_BEFORE_ROW_HEIGHT = 24;
 const HAS_MORE_AFTER_ROW_HEIGHT = 24;
 const IS_REFRESHING_ROW_HEIGHT = 24;
 const HEADER_ROW_HEIGHT = 19;
+const CELL_HORIZONTAL_PADDING_PX = 16;
 
 /**
  * LoadingOverlay component
@@ -144,10 +145,19 @@ function useMeasureWidths() {
       if (!el || measuredRef.current.has(el)) return;
       measuredRef.current.add(el);
 
+      // Measure the inner content wrapper (an inline-block span), not the cell
+      // itself. The cell's width is constrained by its grid track and our own
+      // minWidth, so measuring it would either under-report (track clamps it)
+      // or compound on each render (minWidth becomes the new measurement).
+      // The inner span sizes to its content, independent of the cell's layout.
+      const contentEl = el.firstElementChild as HTMLElement | null;
+      if (!contentEl) return;
+
       const pendingColWidths = pendingRef.current.colWidths;
       const col = el.dataset.colId as ViewerColumn;
       const prev = pendingColWidths.get(col);
-      const next = Math.max(Math.ceil(el.getBoundingClientRect().width), prev ?? 0);
+      const contentWidth = Math.ceil(contentEl.getBoundingClientRect().width);
+      const next = Math.max(contentWidth + CELL_HORIZONTAL_PADDING_PX, prev ?? 0);
       if (next !== prev) {
         pendingColWidths.set(col, next);
         flush();
@@ -328,7 +338,7 @@ const HeaderRow = ({
               className="whitespace-nowrap uppercase px-2 flex items-center text-xs"
               style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
             >
-              {col !== ViewerColumn.ColorDot && col}
+              {col !== ViewerColumn.ColorDot && <span className="inline-block">{col}</span>}
             </div>
           );
         })}
@@ -538,7 +548,7 @@ export const RecordRow = memo(
       els.push(
         <CellContextMenu key={col} col={col} record={row.record} timezone={timezone} timestampFormat={timestampFormat}>
           <div
-            ref={measureCellElement}
+            ref={shouldWrap ? undefined : measureCellElement}
             data-col-id={col}
             role={isColorDot ? undefined : 'gridcell'}
             tabIndex={isColorDot ? undefined : 0}
@@ -556,7 +566,11 @@ export const RecordRow = memo(
                   }
             }
           >
-            {getAttribute(row.record, col, timezone, timestampFormat)}
+            {shouldWrap ? (
+              getAttribute(row.record, col, timezone, timestampFormat)
+            ) : (
+              <span className="inline-block">{getAttribute(row.record, col, timezone, timestampFormat)}</span>
+            )}
           </div>
         </CellContextMenu>,
       );
