@@ -67,32 +67,31 @@ export type LogServerClientOptions = {
 export class LogServerClient implements Client {
   private apolloClient: ApolloClient;
 
-  private queryArgs: {
-    kubeContext: string;
-    sources: string[];
-    sourceFilter?: LogSourceFilter;
-    grep?: string;
-  };
+  readonly kubeContext: string;
 
-  /**
-   * Constructor
-   * @param apolloClient - Apollo client instance
-   */
+  readonly sources: string[];
+
+  readonly sourceFilter?: LogSourceFilter;
+
+  readonly grep?: string;
+
   constructor({ apolloClient, kubeContext, sources, sourceFilter, grep }: LogServerClientOptions) {
     this.apolloClient = apolloClient;
-    this.queryArgs = {
-      kubeContext,
-      sources,
-      sourceFilter,
-      grep,
+    this.kubeContext = kubeContext;
+    this.sources = sources;
+    this.sourceFilter = sourceFilter;
+    this.grep = grep;
+  }
+
+  private get queryArgs() {
+    return {
+      kubeContext: this.kubeContext,
+      sources: this.sources,
+      sourceFilter: this.sourceFilter,
+      grep: this.grep,
     };
   }
 
-  /**
-   * fetchSince - Get the first `limit` log entries starting with `cursor`
-   * @param options - Fetch options
-   * @returns A promise that resolves to the fetch result
-   */
   async fetchSince(options: FetchOptions) {
     const result = await this.apolloClient.query({
       query: LOG_RECORDS_FETCH,
@@ -111,11 +110,6 @@ export class LogServerClient implements Client {
     return { records: upgradeRecords(records), nextCursor } as FetchResult;
   }
 
-  /**
-   * fetchUntil - Get the last `limit` log entries ending with the `cursor`
-   * @param options - Fetch options
-   * @returns A promise that resolves to the fetch result
-   */
   async fetchUntil(options: FetchOptions) {
     const result = await this.apolloClient.query({
       query: LOG_RECORDS_FETCH,
@@ -134,11 +128,6 @@ export class LogServerClient implements Client {
     return { records: upgradeRecords(records), nextCursor } as FetchResult;
   }
 
-  /**
-   * fetchAfter - Get the first `limit` log entries after `curosor`
-   * @param options - Fetch options
-   * @returns A promise that resolves to the fetch result
-   */
   async fetchAfter(options: FetchOptions) {
     const result = await this.apolloClient.query({
       query: LOG_RECORDS_FETCH,
@@ -157,11 +146,6 @@ export class LogServerClient implements Client {
     return { records: upgradeRecords(records), nextCursor } as FetchResult;
   }
 
-  /**
-   * fetchBefore - Get the last `limit` log entries before `cursor`
-   * @param options - Fetch options
-   * @returns A promise that resolves to the fetch result
-   */
   async fetchBefore(options: FetchOptions) {
     const result = await this.apolloClient.query({
       query: LOG_RECORDS_FETCH,
@@ -180,12 +164,6 @@ export class LogServerClient implements Client {
     return { records: upgradeRecords(records), nextCursor } as FetchResult;
   }
 
-  /**
-   * subscribe - Subscribe to new lines
-   * @param callback - The function to call with every record
-   * @param options - Subscription options
-   * @returns cancel - The cancellation function
-   */
   subscribe(callback: SubscriptionCallback, options?: SubscriptionOptions): SubscriptionCancelFunction {
     const observable = this.apolloClient.subscribe({
       query: LOG_RECORDS_FOLLOW,

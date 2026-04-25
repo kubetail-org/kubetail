@@ -31,6 +31,10 @@ vi.mock('@/components/widgets/log-viewer', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/timezone', () => ({
+  useTimezone: () => ['UTC', vi.fn()],
+}));
+
 vi.mock('@/components/widgets/DateRangeDropdown', () => ({
   DateRangeDropdown: ({ onChange, children }: { onChange: (args: unknown) => void; children: ReactNode }) => (
     <div
@@ -196,6 +200,12 @@ describe('Header', () => {
       const params = new URLSearchParams(router.state.location.search);
       expect(params.get('grep')).toBe('error');
     });
+  });
+
+  it('renders a Download button', () => {
+    renderHeader();
+
+    expect(screen.getByRole('button', { name: 'Download' })).toBeInTheDocument();
   });
 
   it('adds a column before Message when enabled via settings', async () => {

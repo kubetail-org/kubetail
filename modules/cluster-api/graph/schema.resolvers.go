@@ -78,22 +78,22 @@ func (r *queryResolver) LogRecordsFetch(ctx context.Context, kubeContext *string
 	}
 
 	// Parse time args
-	sinceTime, err := parseTimeArg(ptr.Deref(since, ""))
+	sinceTime, err := logs.ParseTimeArg(ptr.Deref(since, ""))
 	if err != nil {
 		return nil, err
 	}
 
-	untilTime, err := parseTimeArg(ptr.Deref(until, ""))
+	untilTime, err := logs.ParseTimeArg(ptr.Deref(until, ""))
 	if err != nil {
 		return nil, err
 	}
 
-	afterTime, err := parseTimeArg(ptr.Deref(after, ""))
+	afterTime, err := logs.ParseTimeArg(ptr.Deref(after, ""))
 	if err != nil {
 		return nil, err
 	}
 
-	beforeTime, err := parseTimeArg(ptr.Deref(before, ""))
+	beforeTime, err := logs.ParseTimeArg(ptr.Deref(before, ""))
 	if err != nil {
 		return nil, err
 	}
@@ -268,12 +268,12 @@ func (r *subscriptionResolver) LogRecordsFollow(ctx context.Context, kubeContext
 	}
 
 	// Parse time args
-	sinceTime, err := parseTimeArg(ptr.Deref(since, ""))
+	sinceTime, err := logs.ParseTimeArg(ptr.Deref(since, ""))
 	if err != nil {
 		return nil, err
 	}
 
-	afterTime, err := parseTimeArg(ptr.Deref(after, ""))
+	afterTime, err := logs.ParseTimeArg(ptr.Deref(after, ""))
 	if err != nil {
 		return nil, err
 	}

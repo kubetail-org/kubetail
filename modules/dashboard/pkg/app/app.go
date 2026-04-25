@@ -204,6 +204,10 @@ func NewApp(cfg *config.Config) (*App, error) {
 
 			// Cluster API proxy routes
 			protectedRoutes.Any("/cluster-api-proxy/*path", gin.WrapH(app.clusterAPIProxy))
+
+			// Log download endpoint
+			dl := newDownloadHandlers(app)
+			protectedRoutes.POST("/api/logs/download", dl.DownloadPOST)
 		}
 	}
 	app.dynamicRoutes = dynamicRoutes
