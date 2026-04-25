@@ -189,4 +189,3 @@ func TestDownloadAppliesAllowedNamespaces(t *testing.T) {
 	// allowedNamespaces adds exactly one option (WithAllowedNamespaces).
 	assert.Equal(t, withoutCount+1, withCount)
 }
-
