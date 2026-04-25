@@ -20,7 +20,13 @@ import type { ApolloClient } from '@apollo/client';
 import { createMockLogViewerHandle } from '@/components/widgets/log-viewer/mock';
 import { LogRecordsQueryMode } from '@/lib/graphql/dashboard/__generated__/graphql';
 
-import { DownloadDialog, buildDownloadArgs, normalizeTimeArg, submitLogDownload } from './download';
+import {
+  DownloadDialog,
+  buildDownloadArgs,
+  getDownloadActionURL,
+  normalizeTimeArg,
+  submitLogDownload,
+} from './download';
 import { LogServerClient } from './log-server-client';
 import { PageContext, ViewerColumn, viewerColumnToBackend } from './shared';
 
@@ -50,6 +56,52 @@ describe('normalizeTimeArg', () => {
 
   it('returns undefined on unparseable input', () => {
     expect(normalizeTimeArg('not-a-time', 'UTC')).toBeUndefined();
+  });
+});
+
+describe('getDownloadActionURL', () => {
+  it('routes to the dashboard endpoint when shouldUseClusterAPI is false', () => {
+    expect(
+      getDownloadActionURL({
+        basename: '/',
+        environment: 'desktop',
+        shouldUseClusterAPI: false,
+        kubeContext: 'ctx-1',
+      }),
+    ).toBe('/api/v1/download');
+  });
+
+  it('routes through the cluster-api proxy without context segments in cluster mode', () => {
+    expect(
+      getDownloadActionURL({
+        basename: '/',
+        environment: 'cluster',
+        shouldUseClusterAPI: true,
+        kubeContext: 'ctx-1',
+      }),
+    ).toBe('/cluster-api-proxy/api/v1/download');
+  });
+
+  it('appends kubeContext/namespace/service segments in desktop mode', () => {
+    expect(
+      getDownloadActionURL({
+        basename: '/',
+        environment: 'desktop',
+        shouldUseClusterAPI: true,
+        kubeContext: 'ctx-1',
+      }),
+    ).toBe('/cluster-api-proxy/ctx-1/kubetail-system/kubetail-cluster-api/api/v1/download');
+  });
+
+  it('honors a non-root basename', () => {
+    expect(
+      getDownloadActionURL({
+        basename: '/kubetail',
+        environment: 'cluster',
+        shouldUseClusterAPI: true,
+        kubeContext: 'ctx-1',
+      }),
+    ).toBe('/kubetail/cluster-api-proxy/api/v1/download');
   });
 });
 
@@ -223,8 +275,9 @@ describe('submitLogDownload', () => {
     document.body.innerHTML = '';
   });
 
-  it('POSTs to /api/logs/download targeting a distinct hidden iframe', () => {
+  it('POSTs to the given action URL targeting a distinct hidden iframe', () => {
     submitLogDownload(
+      '/x/api/v1/download',
       { kubeContext: 'ctx-1', sources: ['ns/pod/c'] },
       {
         mode: LogRecordsQueryMode.Head,
@@ -238,7 +291,7 @@ describe('submitLogDownload', () => {
 
     expect(submitSpy).toHaveBeenCalledTimes(1);
     expect(submittedForm!.method.toLowerCase()).toBe('post');
-    expect(submittedForm!.action).toMatch(/\/api\/logs\/download$/);
+    expect(submittedForm!.action).toMatch(/\/x\/api\/v1\/download$/);
     const iframe = document.querySelector<HTMLIFrameElement>(`iframe[name="${submittedForm!.target}"]`);
     expect(iframe).not.toBeNull();
     expect(iframe!.style.display).toBe('none');
@@ -246,6 +299,7 @@ describe('submitLogDownload', () => {
 
   it('emits filters + args as hidden fields with arrays repeated', () => {
     submitLogDownload(
+      '/api/v1/download',
       {
         kubeContext: 'ctx-1',
         sources: ['ns/pod-a/c1', 'ns/pod-b/c2'],
@@ -288,6 +342,7 @@ describe('submitLogDownload', () => {
 
   it('omits limit and columns when absent', () => {
     submitLogDownload(
+      '/api/v1/download',
       { kubeContext: '', sources: ['ns/pod/c'] },
       {
         mode: LogRecordsQueryMode.Head,
@@ -306,6 +361,7 @@ describe('submitLogDownload', () => {
   it('creates a distinct iframe per call so concurrent downloads do not cancel', () => {
     const call = () =>
       submitLogDownload(
+        '/api/v1/download',
         { kubeContext: 'ctx', sources: ['ns/pod/c'] },
         {
           mode: LogRecordsQueryMode.Head,
@@ -330,7 +386,7 @@ describe('submitLogDownload', () => {
  * Dialog component tests
  */
 
-const renderDialog = () => {
+const renderDialog = (overrides: { shouldUseClusterAPI?: boolean } = {}) => {
   const client = new LogServerClient({
     apolloClient: {} as ApolloClient,
     kubeContext: 'ctx-1',
@@ -341,7 +397,7 @@ const renderDialog = () => {
   const onOpenChange = vi.fn();
   const contextValue = {
     kubeContext: 'ctx-1',
-    shouldUseClusterAPI: undefined,
+    shouldUseClusterAPI: overrides.shouldUseClusterAPI,
     logServerClient: client,
     grep: 'ERROR',
     logViewerRef: { current: createMockLogViewerHandle() },
@@ -385,6 +441,8 @@ describe('DownloadDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Download$/ }));
 
     await waitFor(() => expect(submitSpy).toHaveBeenCalledTimes(1));
+    expect(submittedForm!.action).toMatch(/\/api\/v1\/download$/);
+    expect(submittedForm!.action).not.toMatch(/cluster-api-proxy/);
     const fields = readFormFields(submittedForm!);
     expect(fields).toEqual(
       expect.arrayContaining([
@@ -399,6 +457,15 @@ describe('DownloadDialog', () => {
       ]),
     );
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+  });
+
+  it('routes through the cluster-api proxy when shouldUseClusterAPI is true', async () => {
+    renderDialog({ shouldUseClusterAPI: true });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Download$/ }));
+
+    await waitFor(() => expect(submitSpy).toHaveBeenCalledTimes(1));
+    expect(submittedForm!.action).toMatch(/\/cluster-api-proxy\/.*\/api\/v1\/download$/);
   });
 
   it('raw mode submits TEXT outputFormat and includeMetadata false', async () => {

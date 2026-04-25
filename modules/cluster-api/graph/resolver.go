@@ -36,6 +36,10 @@ type Resolver struct {
 	allowedNamespaces []string
 }
 
+// getBearerTokenRequired returns the request-context bearer token, or an
+// error if none is set. Auth is enforced per-resolver (rather than via gin
+// middleware on the whole /graphql route) so graphiql can still issue
+// schema-introspection requests without authenticating.
 func (r *Resolver) getBearerTokenRequired(ctx context.Context) (string, error) {
 	var token string
 	if tokenValue, ok := ctx.Value(k8shelpers.K8STokenCtxKey).(string); ok {

@@ -23,28 +23,34 @@ import (
 	"github.com/gin-gonic/gin"
 	zlog "github.com/rs/zerolog/log"
 
+	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
+
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
 )
 
-// downloadHandlers wires the production log stream factory against the app's
-// connection manager and threads allowedNamespaces through from config.
+// downloadHandlers wires the download endpoint against the cluster-api log
+// stream factory. The stream is opened with the agent log fetcher so records
+// flow over gRPC from the cluster agents.
 type downloadHandlers struct {
-	*App
-	newLogStream      logs.NewDownloadStreamFn
+	cm                k8shelpers.ConnectionManager
+	grpcDispatcher    *grpcdispatcher.Dispatcher
 	allowedNamespaces []string
+	newLogStream      logs.NewDownloadStreamFn
 }
 
-func newDownloadHandlers(app *App) *downloadHandlers {
+func newDownloadHandlers(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string) *downloadHandlers {
 	return &downloadHandlers{
-		App: app,
+		cm:                cm,
+		grpcDispatcher:    grpcDispatcher,
+		allowedNamespaces: allowedNamespaces,
 		newLogStream: func(ctx context.Context, sources []string, opts ...logs.Option) (logs.DownloadStreamer, error) {
-			return logs.NewStream(ctx, app.cm, sources, opts...)
+			return logs.NewStream(ctx, cm, sources, opts...)
 		},
-		allowedNamespaces: app.config.AllowedNamespaces,
 	}
 }
 
-// Log download endpoint
+// DownloadPOST handles POST /api/v1/download for the cluster-api server.
 func (h *downloadHandlers) DownloadPOST(c *gin.Context) {
 	var form logs.DownloadForm
 	if err := c.ShouldBind(&form); err != nil {
@@ -63,7 +69,15 @@ func (h *downloadHandlers) DownloadPOST(c *gin.Context) {
 		return
 	}
 
-	opts := logs.BuildDownloadStreamOptions(req, c.GetString(k8sTokenGinKey), h.allowedNamespaces)
+	token, _ := c.Request.Context().Value(k8shelpers.K8STokenCtxKey).(string)
+
+	// The cluster-api operates on its in-cluster config; per-request
+	// kubeContext is a dashboard concept that InClusterConnectionManager
+	// rejects outright. Ignore whatever the form carried.
+	req.Raw.KubeContext = ""
+
+	opts := logs.BuildDownloadStreamOptions(req, token, h.allowedNamespaces)
+	opts = append(opts, logs.WithLogFetcher(logs.NewAgentLogFetcher(h.grpcDispatcher)))
 
 	ctx := c.Request.Context()
 	stream, err := h.newLogStream(ctx, req.Raw.Sources, opts...)

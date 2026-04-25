@@ -119,12 +119,19 @@ func NewApp(cfg *config.Config) (*App, error) {
 			ContentTypeNosniff:    true,
 		}))
 
-		// authentication middleware
+		// authentication middleware (extracts the bearer token if present);
+		// individual routes decide whether absence is a 401 (e.g. /api/v1/download)
+		// or only a per-resolver concern (e.g. /graphql, where introspection
+		// must remain reachable for graphiql)
 		dynamicRoutes.Use(authenticationMiddleware)
 
 		// GraphQL endpoint
 		app.graphqlServer = graph.NewServer(cfg, app.cm, app.grpcDispatcher, cfg.AllowedNamespaces)
 		dynamicRoutes.Any("/graphql", gin.WrapH(app.graphqlServer))
+
+		// Log download endpoint
+		dl := newDownloadHandlers(app.cm, app.grpcDispatcher, cfg.AllowedNamespaces)
+		dynamicRoutes.POST("/api/v1/download", requireTokenMiddleware, dl.DownloadPOST)
 	}
 	app.dynamicRoutes = dynamicRoutes // for unit tests
 

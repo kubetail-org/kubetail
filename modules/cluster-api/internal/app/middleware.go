@@ -16,6 +16,7 @@ package app
 
 import (
 	"context"
+	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -37,6 +38,11 @@ func authenticationMiddleware(c *gin.Context) {
 		token = strings.TrimPrefix(header, "Bearer ")
 	}
 
+	// Trim at the trust boundary so consumers can rely on a simple `token == ""`
+	// presence check; otherwise a whitespace-only bearer header would slip past
+	// any gate that doesn't itself trim.
+	token = strings.TrimSpace(token)
+
 	// Add to context for kubernetes requests
 	if token != "" {
 		ctx := context.WithValue(c.Request.Context(), k8shelpers.K8STokenCtxKey, token)
@@ -50,5 +56,17 @@ func authenticationMiddleware(c *gin.Context) {
 	}
 
 	// Continue
+	c.Next()
+}
+
+// requireTokenMiddleware aborts with 401 when no bearer token reached the
+// request context. Pair with authenticationMiddleware (which extracts the
+// token from headers) so all dynamic routes share a single auth check.
+func requireTokenMiddleware(c *gin.Context) {
+	token, _ := c.Request.Context().Value(k8shelpers.K8STokenCtxKey).(string)
+	if strings.TrimSpace(token) == "" {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
 	c.Next()
 }

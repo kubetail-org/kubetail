@@ -21,6 +21,7 @@ import { CLUSTER_API_READY_WAIT } from '@/lib/graphql/dashboard/ops';
 import { LOG_METADATA_LIST_FETCH, LOG_METADATA_LIST_WATCH } from '@/lib/graphql/cluster-api/ops';
 import type { LogMetadataListFetchQuery, LogMetadataWatchEvent } from '@/lib/graphql/cluster-api/__generated__/graphql';
 import { useIsClusterAPIEnabled } from '@/lib/hooks';
+import { CLUSTER_API_PROXY_NAMESPACE, CLUSTER_API_PROXY_SERVICE } from '@/lib/util';
 
 import type { FileInfo, KubeContext } from './shared';
 import { logMetadataMapAtomFamily } from './state';
@@ -44,8 +45,8 @@ export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) =
   const connectArgs = useMemo(
     () => ({
       kubeContext: kubeContext || '',
-      namespace: 'kubetail-system',
-      serviceName: 'kubetail-cluster-api',
+      namespace: CLUSTER_API_PROXY_NAMESPACE,
+      serviceName: CLUSTER_API_PROXY_SERVICE,
     }),
     [kubeContext],
   );

@@ -178,6 +178,30 @@ export function getBasename() {
 }
 
 /**
+ * Cluster-API proxy URL helper. Mirrors the path layout the dashboard's
+ * cluster-api-proxy expects: in cluster mode requests pass through unchanged,
+ * in desktop mode they're keyed by kubeContext + namespace + service so the
+ * proxy can route to the right kubeconfig.
+ */
+
+export const CLUSTER_API_PROXY_NAMESPACE = 'kubetail-system';
+export const CLUSTER_API_PROXY_SERVICE = 'kubetail-cluster-api';
+
+export type ClusterAPIProxyPathInput = {
+  basename: string;
+  environment: string;
+  kubeContext: string;
+};
+
+export function clusterAPIProxyPath(input: ClusterAPIProxyPathInput, ...rest: string[]) {
+  let basepath = joinPaths(input.basename, 'cluster-api-proxy');
+  if (input.environment === 'desktop') {
+    basepath = joinPaths(basepath, input.kubeContext, CLUSTER_API_PROXY_NAMESPACE, CLUSTER_API_PROXY_SERVICE);
+  }
+  return joinPaths(basepath, ...rest);
+}
+
+/**
  * Find intersection of multiple sets
  */
 

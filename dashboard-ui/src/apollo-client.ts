@@ -24,7 +24,7 @@ import toast from 'react-hot-toast';
 import appConfig from '@/app-config';
 import clusterAPI from '@/lib/graphql/cluster-api/__generated__/introspection-result.json';
 import dashboard from '@/lib/graphql/dashboard/__generated__/introspection-result.json';
-import { getBasename, joinPaths, sleep } from '@/lib/util';
+import { clusterAPIProxyPath, getBasename, joinPaths, sleep } from '@/lib/util';
 
 const HEALTHZ_RETRY_DELAY_MS = 3000;
 const HEALTHZ_TIMEOUT_MS = 2000;
@@ -302,11 +302,11 @@ export const getClusterAPIClient = (context: ClusterAPIContext) => {
   let client = clusterAPIClientCache.get(k);
 
   if (!client) {
-    // Build basepath
-    let basepath = joinPaths(basename, 'cluster-api-proxy');
-    if (appConfig.environment === 'desktop') {
-      basepath = joinPaths(basepath, context.kubeContext, context.namespace, context.serviceName);
-    }
+    const basepath = clusterAPIProxyPath({
+      basename,
+      environment: appConfig.environment,
+      kubeContext: context.kubeContext,
+    });
 
     const { link } = createLink(basepath);
 

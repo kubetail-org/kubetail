@@ -30,13 +30,16 @@ import { Input } from '@kubetail/ui/elements/input';
 import { Label } from '@kubetail/ui/elements/label';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@kubetail/ui/elements/tooltip';
 
+import appConfig from '@/app-config';
 import { parseTimestamp } from '@/components/widgets/DateRangeDropdown';
 import { LogRecordsQueryMode, LogSourceFilter } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { useTimezone } from '@/lib/timezone';
-import { getBasename, joinPaths } from '@/lib/util';
+import { ClusterAPIProxyPathInput, clusterAPIProxyPath, getBasename, joinPaths } from '@/lib/util';
 
 import { PageContext, ViewerColumn, viewerColumnToBackend } from './shared';
 import { visibleColsAtom } from './state';
+
+const DOWNLOAD_PATH = 'api/v1/download';
 
 /**
  * Types
@@ -141,6 +144,19 @@ export function buildDownloadArgs(state: DialogState, visibleCols: Set<ViewerCol
 }
 
 /**
+ * getDownloadActionURL - Resolve the POST target for the download form.
+ */
+
+export type DownloadEndpointInput = ClusterAPIProxyPathInput & {
+  shouldUseClusterAPI: boolean;
+};
+
+export function getDownloadActionURL(input: DownloadEndpointInput): string {
+  if (input.shouldUseClusterAPI) return clusterAPIProxyPath(input, DOWNLOAD_PATH);
+  return joinPaths(input.basename, DOWNLOAD_PATH);
+}
+
+/**
  * submitLogDownload - POST an HTML form to the dashboard download endpoint,
  * targeting a fresh hidden iframe so the browser streams the response to disk
  * without navigating the current tab. A new iframe per submission prevents
@@ -163,12 +179,12 @@ function createDownloadIframe(): HTMLIFrameElement {
   return iframe;
 }
 
-export function submitLogDownload(filters: DownloadFilters, args: DownloadArgs): void {
+export function submitLogDownload(action: string, filters: DownloadFilters, args: DownloadArgs): void {
   const iframe = createDownloadIframe();
 
   const form = document.createElement('form');
   form.method = 'POST';
-  form.action = joinPaths(getBasename(), 'api/logs/download');
+  form.action = action;
   form.target = iframe.name;
   form.style.display = 'none';
 
@@ -223,7 +239,7 @@ type DownloadDialogProps = React.ComponentProps<typeof Dialog> & {
 
 export const DownloadDialog = (props: DownloadDialogProps) => {
   const { onOpenChange } = props;
-  const { logServerClient } = useContext(PageContext);
+  const { logServerClient, shouldUseClusterAPI, kubeContext } = useContext(PageContext);
   const visibleCols = useAtomValue(visibleColsAtom);
   const [timezone] = useTimezone();
 
@@ -245,13 +261,21 @@ export const DownloadDialog = (props: DownloadDialogProps) => {
       timezone,
     );
 
-    const { kubeContext, sources, sourceFilter, grep } = logServerClient;
-    const downloadSource = { kubeContext, sources, sourceFilter, grep };
-    submitLogDownload(downloadSource, args);
+    const { kubeContext: clientKubeContext, sources, sourceFilter, grep } = logServerClient;
+    const downloadSource = { kubeContext: clientKubeContext, sources, sourceFilter, grep };
+    const action = getDownloadActionURL({
+      basename: getBasename(),
+      environment: appConfig.environment,
+      shouldUseClusterAPI: !!shouldUseClusterAPI,
+      kubeContext: kubeContext ?? '',
+    });
+    submitLogDownload(action, downloadSource, args);
 
     onOpenChange(false);
   }, [
     logServerClient,
+    shouldUseClusterAPI,
+    kubeContext,
     rangeMode,
     firstN,
     lastN,
