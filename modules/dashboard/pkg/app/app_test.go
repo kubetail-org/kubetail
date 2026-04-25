@@ -180,15 +180,90 @@ func TestCSRFProtectionOnDynamicRoutes(t *testing.T) {
 		setSecFetchSite string
 		wantForbidden   bool
 	}{
-		{"graphql blocks cross-site", "GET", "/graphql", "cross-site", true},
-		{"graphql allows same-origin", "GET", "/graphql", "same-origin", false},
-		{"graphql blocks non-browser", "GET", "/graphql", "", true},
-		{"login blocks cross-site", "POST", "/api/auth/login", "cross-site", true},
-		{"login allows same-origin", "POST", "/api/auth/login", "same-origin", false},
-		{"logout blocks cross-site", "POST", "/api/auth/logout", "cross-site", true},
-		{"session blocks cross-site", "GET", "/api/auth/session", "cross-site", true},
-		{"session allows same-origin", "GET", "/api/auth/session", "same-origin", false},
-		{"healthz ignores header (outside dynamic routes)", "GET", "/healthz", "cross-site", false},
+		{
+			"graphql blocks cross-site",
+			"GET",
+			"/graphql",
+			"cross-site",
+			true,
+		},
+		{
+			"graphql allows same-origin",
+			"GET",
+			"/graphql",
+			"same-origin",
+			false,
+		},
+		{
+			"graphql blocks non-browser",
+			"GET",
+			"/graphql",
+			"",
+			true,
+		},
+		{
+			"login blocks cross-site",
+			"POST",
+			"/api/auth/login",
+			"cross-site",
+			true,
+		},
+		{
+			"login allows same-origin",
+			"POST",
+			"/api/auth/login",
+			"same-origin",
+			false,
+		},
+		{
+			"logout blocks cross-site",
+			"POST",
+			"/api/auth/logout",
+			"cross-site",
+			true,
+		},
+		{
+			"session blocks cross-site",
+			"GET",
+			"/api/auth/session",
+			"cross-site",
+			true,
+		},
+		{
+			"session allows same-origin",
+			"GET",
+			"/api/auth/session",
+			"same-origin",
+			false,
+		},
+		{
+			"download blocks cross-site",
+			"POST",
+			"/api/logs/download",
+			"cross-site",
+			true,
+		},
+		{
+			"download blocks non-browser",
+			"POST",
+			"/api/logs/download",
+			"",
+			true,
+		},
+		{
+			"download allows same-origin",
+			"POST",
+			"/api/logs/download",
+			"same-origin",
+			false,
+		},
+		{
+			"healthz ignores header (outside dynamic routes)",
+			"GET",
+			"/healthz",
+			"cross-site",
+			false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -240,6 +315,19 @@ func TestCSRFProtectionOnWebSocketUpgrade(t *testing.T) {
 			require.Equal(t, tt.wantStatusCode, resp.StatusCode)
 		})
 	}
+}
+
+func TestDownloadRequiresAuthInTokenMode(t *testing.T) {
+	cfg := newTestConfig()
+	cfg.AuthMode = config.AuthModeToken
+	app := newTestApp(cfg)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/api/logs/download", nil)
+	r.Header.Set("Sec-Fetch-Site", "same-origin")
+	app.ServeHTTP(w, r)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 func TestClusterAPIProxyRouteWithBasePath(t *testing.T) {

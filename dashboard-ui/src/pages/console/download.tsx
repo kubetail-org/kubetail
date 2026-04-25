@@ -145,6 +145,11 @@ export function buildDownloadArgs(state: DialogState, visibleCols: Set<ViewerCol
  * targeting a fresh hidden iframe so the browser streams the response to disk
  * without navigating the current tab. A new iframe per submission prevents
  * concurrent downloads from cancelling each other.
+ *
+ * The iframe is left in the DOM after submission: attachment responses abort
+ * iframe navigation so no `load` event is guaranteed, and removing early on
+ * the initial `about:blank` load resolves the form's target to the current
+ * window and causes a white flash during the aborted navigation.
  */
 
 let downloadCounter = 0;
@@ -154,7 +159,6 @@ function createDownloadIframe(): HTMLIFrameElement {
   const iframe = document.createElement('iframe');
   iframe.name = `kubetail-download-${Date.now()}-${downloadCounter}`;
   iframe.style.display = 'none';
-  iframe.addEventListener('load', () => iframe.remove(), { once: true });
   document.body.appendChild(iframe);
   return iframe;
 }
