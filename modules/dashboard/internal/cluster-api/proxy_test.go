@@ -24,9 +24,36 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	authv1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
+
+func TestInClusterProxy_StripsOriginHeader(t *testing.T) {
+	var capturedOrigin string
+	var captured bool
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedOrigin = r.Header.Get("Origin")
+		captured = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer backend.Close()
+
+	proxy, err := newInClusterProxy(backend.URL, "/prefix", http.DefaultTransport)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/prefix/somepath", nil)
+	req.Header.Set("Origin", "https://browser.example.com")
+
+	proxy.ServeHTTP(httptest.NewRecorder(), req)
+
+	require.True(t, captured, "backend was not called")
+	assert.Empty(t, capturedOrigin, "Origin header must be stripped before forwarding")
+}
 
 func TestInClusterProxy_XForwardedAuthorization(t *testing.T) {
 	tests := []struct {
@@ -217,6 +244,44 @@ func TestInClusterProxy_NotifyShutdown_ClosesMultipleConnections(t *testing.T) {
 }
 
 // --- DesktopProxy drain/shutdown tests ---
+
+func TestDesktopProxy_StripsOriginHeader(t *testing.T) {
+	var capturedOrigin string
+	var captured bool
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedOrigin = r.Header.Get("Origin")
+		captured = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	clientset := fake.NewSimpleClientset()
+	clientset.Fake.PrependReactor("create", "serviceaccounts", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, &authv1.TokenRequest{
+			Status: authv1.TokenRequestStatus{
+				Token:               "fake-sat",
+				ExpirationTimestamp: metav1.NewTime(time.Now().Add(time.Hour)),
+			},
+		}, nil
+	})
+
+	shutdownCh := make(chan struct{})
+	defer close(shutdownCh)
+	sat, err := k8shelpers.NewServiceAccountToken(context.Background(), clientset, "ns", "sa", shutdownCh)
+	require.NoError(t, err)
+
+	proxy, err := NewDesktopProxy(nil, "/prefix")
+	require.NoError(t, err)
+	proxy.phCache["ctx"] = handler
+	proxy.satCache["ctx/ns"] = sat
+
+	req := httptest.NewRequest(http.MethodGet, "/prefix/ctx/ns/svc/relpath", nil)
+	req.Header.Set("Origin", "https://browser.example.com")
+
+	proxy.ServeHTTP(httptest.NewRecorder(), req)
+
+	require.True(t, captured, "backend handler was not called")
+	assert.Empty(t, capturedOrigin, "Origin header must be stripped before forwarding")
+}
 
 func TestDesktopProxy_DrainWithContext_NoConnections(t *testing.T) {
 	proxy, err := NewDesktopProxy(nil, "/prefix")

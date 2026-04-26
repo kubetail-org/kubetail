@@ -17,7 +17,7 @@ package graph
 import (
 	"context"
 	"net/http"
-	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,8 +32,6 @@ import (
 
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
-
-	"github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
 )
 
 // Represents Server
@@ -44,12 +42,8 @@ type Server struct {
 	wg         sync.WaitGroup
 }
 
-// allowedSecFetchSite defines the secure values for the Sec-Fetch-Site header.
-// It's defined at the package level to avoid re-allocation on every WebSocket upgrade request.
-var allowedSecFetchSite = []string{"same-origin"}
-
 // Create new Server instance
-func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string) *Server {
+func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string) *Server {
 	// Init resolver
 	r := &Resolver{cm, grpcDispatcher, allowedNamespaces}
 
@@ -64,31 +58,31 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager, grpcDispatch
 	// Init handler
 	h := handler.New(schema)
 
+	// SSE transport for browser-side subscriptions. Auth rides on the POST
+	// like any other GraphQL request (browsers can't set headers on a WS
+	// upgrade), so authenticationMiddleware-injected tokens reach resolvers
+	// the same way as for queries/mutations. Registered before POST so that
+	// requests with `Accept: text/event-stream` aren't claimed by the POST
+	// transport's broader media-type match.
+	h.AddTransport(transport.SSE{
+		KeepAlivePingInterval: 10 * time.Second,
+	})
+
 	// Add transports from NewDefaultServer()
 	h.AddTransport(transport.GET{})
 	h.AddTransport(transport.POST{})
 
 	h.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
-	// Configure WebSocket (without CORS)
+	// Configure WebSocket. The cluster-api is intended for bot/programmatic
+	// clients, not browsers. Bots don't send Origin; browsers always do on a
+	// WebSocket upgrade. The dashboard's reverse proxy strips Origin before
+	// forwarding (after enforcing its own CSRF check), so its presence here
+	// indicates a direct browser connection — reject as CSWSH defense.
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
-				// Allow all if CSRF protection is disabled
-				if !cfg.CSRF.Enabled {
-					return true
-				}
-
-				secFetchSite := r.Header.Get("Sec-Fetch-Site")
-
-				// If empty, request is from non-browser or legacy browser
-				if secFetchSite == "" {
-					return true
-				}
-
-				// Check the Sec-Fetch-Site header as our primary defense against
-				// Cross-Site WebSocket Hijacking (CSWSH)
-				return slices.Contains(allowedSecFetchSite, secFetchSite)
+				return r.Header.Get("Origin") == ""
 			},
 			ReadBufferSize:    1024,
 			WriteBufferSize:   1024,
@@ -131,14 +125,17 @@ func (s *Server) Close() error {
 }
 
 // ServeHTTP delegates to the underlying handler, tracking all active
-// requests so DrainWithContext can wait for them to finish. For WebSocket
-// upgrades the request context is also cancelled on shutdown, which
-// triggers gqlgen's closeOnCancel to cleanly close the connection.
+// requests so DrainWithContext can wait for them to finish. Long-lived
+// connections (WebSocket upgrades and SSE streams) also get their request
+// context cancelled on shutdown so gqlgen can close them cleanly.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.wg.Add(1)
 	defer s.wg.Done()
 
-	if r.Header.Get("Upgrade") != "" {
+	isLongLived := r.Header.Get("Upgrade") != "" ||
+		strings.Contains(r.Header.Get("Accept"), "text/event-stream")
+
+	if isLongLived {
 		ctx, cancel := context.WithCancel(r.Context())
 		defer cancel()
 		go func() {

@@ -100,20 +100,6 @@ cluster-agent:
     #
     server-name: ""
 
-## csrf ##
-#
-# CSRF protection settings
-#
-csrf:
-
-  ## enabled ##
-  #
-  # Whether CSRF protection is enabled.
-  #
-  # Default value: true
-  #
-  enabled: true
-
 ## logging ##
 #
 # Configuration for the API server's logging output

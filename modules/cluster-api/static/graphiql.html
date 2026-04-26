@@ -1,19 +1,23 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <meta charset="utf-8">
+    <meta charset="utf-8" />
     <title>Kubetail API Playground</title>
     <style>
-      body {
-        height: 100%;
-        margin: 0;
-        width: 100%;
-      }
-
-      #graphiql {
-        height: 100vh;
-      }
+      html, body { height: 100%; margin: 0; }
+      #graphiql { height: 100vh; }
     </style>
+
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/graphiql@3.0.6/graphiql.min.css"
+      integrity="sha256-wTzfn13a+pLMB5rMeysPPR1hO7x0SwSeQI+cnw7VdbE="
+      crossorigin="anonymous"
+    />
+  </head>
+  <body>
+    <div id="graphiql">Loading...</div>
+
     <script
       src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"
       integrity="sha256-S0lp+k7zWUMk2ixteM6HZvu8L9Eh//OVrt+ZfbCpmgY="
@@ -24,47 +28,88 @@
       integrity="sha256-IXWO0ITNDjfnNXIu5POVfqlgYoop36bDzhodR6LW5Pc="
       crossorigin="anonymous"
     ></script>
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/graphiql@3.0.6/graphiql.min.css"
-      integrity="sha256-wTzfn13a+pLMB5rMeysPPR1hO7x0SwSeQI+cnw7VdbE="
-      crossorigin="anonymous"
-    />
-  </head>
-  <body>
-    <div id="graphiql">Loading...</div>
-    <script 
+    <script
       src="https://cdn.jsdelivr.net/npm/graphiql@3.0.6/graphiql.min.js"
       integrity="sha256-eNxH+Ah7Z9up9aJYTQycgyNuy953zYZwE9Rqf5rH+r4="
       crossorigin="anonymous"
     ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/graphql-sse@2.6.0/umd/graphql-sse.min.js"
+      integrity="sha256-a+2EpA5Vqk6slVhDOndlnAW/kOEyOdRRho3jC/80c3U="
+      crossorigin="anonymous"
+    ></script>
+
     <script>
-      (async () => {
-        let basePath;
+      // Resolve the base path so this page works behind a `/proxy/` prefix.
+      function getBasePath() {
+        const match = window.location.pathname.match(/^.*?\/proxy\//);
+        return match ? match[0] : '/';
+      }
 
-        // get basePath
-        const pathname = window.location.pathname;
-        if (pathname.includes('/proxy/')) {
-          const m = pathname.match(/^(.*?)\/proxy\//);
-          if (m) basePath = m[0];
-        } else {
-          basePath = '/';
+      // Detect whether a GraphQL request is a subscription operation.
+      function isSubscription({ query, operationName }) {
+        try {
+          const doc = GraphiQL.GraphQL.parse(query);
+          const op = doc.definitions.find(
+            (d) => d.kind === 'OperationDefinition'
+              && (!operationName || d.name?.value === operationName),
+          );
+          return op?.operation === 'subscription';
+        } catch {
+          return false;
         }
+      }
 
-        // get graphql endpoint
-        const graphqlEndpoint = (new URL(basePath + 'graphql', window.location.origin)).toString();
-
-        // init fetcher
-        const fetcher = GraphiQL.createFetcher({
-          url: graphqlEndpoint,
-          subscriptionUrl: graphqlEndpoint.replace(/^(http)/, 'ws'),
+      // SSE fetcher — a fresh client is created per subscription so the latest
+      // headers from GraphiQL's editor are picked up each time.
+      function createSseFetcher(url) {
+        return (graphQLParams, opts) => ({
+          subscribe(sink) {
+            const client = graphqlSse.createClient({
+              url,
+              headers: opts?.headers ?? {},
+              singleConnection: false,
+              lazy: true,
+            });
+            const dispose = client.subscribe(graphQLParams, {
+              next: (val) => sink.next(val),
+              error: (err) => sink.error(err),
+              complete: () => sink.complete(),
+            });
+            return {
+              unsubscribe() {
+                dispose();
+                client.dispose();
+              },
+            };
+          },
         });
+      }
 
-        ReactDOM.render(
-          React.createElement(GraphiQL, { fetcher }),
-          document.getElementById('graphiql'),
-        );
-      })();
+      // Route queries/mutations over HTTP and subscriptions over SSE.
+      function createFetcher(url) {
+        const httpFetcher = GraphiQL.createFetcher({ url });
+        const sseFetcher = createSseFetcher(url);
+        return (graphQLParams, opts) =>
+          (isSubscription(graphQLParams) ? sseFetcher : httpFetcher)(graphQLParams, opts);
+      }
+
+      const graphqlEndpoint = new URL(
+        `${getBasePath()}graphql`,
+        window.location.origin,
+      ).toString();
+
+      ReactDOM.createRoot(document.getElementById('graphiql')).render(
+        React.createElement(GraphiQL, {
+          fetcher: createFetcher(graphqlEndpoint),
+          defaultHeaders: JSON.stringify(
+            { Authorization: 'Bearer <paste-token>' },
+            null,
+            2,
+          ),
+          defaultEditorToolsVisibility: true,
+        }),
+      );
     </script>
   </body>
 </html>

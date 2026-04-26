@@ -139,6 +139,11 @@ func (p *DesktopProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Header.Add("X-Forwarded-Authorization", fmt.Sprintf("Bearer %s", token))
 
+	// Strip the browser-supplied Origin so the cluster-api can treat its
+	// presence as a CSWSH signal. Cross-site browser requests are already
+	// rejected by csrfProtectionMiddleware before reaching this proxy.
+	r.Header.Del("Origin")
+
 	// Passthrough upgrade requests, closing the hijacked connection on shutdown
 	if r.Header.Get("Upgrade") != "" {
 		hw := &hijackTrackingResponseWriter{ResponseWriter: w}
@@ -335,6 +340,11 @@ func newInClusterProxy(clusterAPIEndpoint string, pathPrefix string, transport h
 			if token, ok := r.Context().Value(k8shelpers.K8STokenCtxKey).(string); ok {
 				r.Header.Set("X-Forwarded-Authorization", fmt.Sprintf("Bearer %s", token))
 			}
+
+			// Strip the browser-supplied Origin so the cluster-api can treat its
+			// presence as a CSWSH signal. Cross-site browser requests are already
+			// rejected by csrfProtectionMiddleware before reaching this proxy.
+			r.Header.Del("Origin")
 		},
 		ModifyResponse: func(resp *http.Response) error {
 			// Re-write cookie path
