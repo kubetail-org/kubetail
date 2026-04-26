@@ -22,10 +22,32 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kubetail-org/kubetail/modules/shared/testutils"
 )
+
+func TestServerSSETransportServesQueries(t *testing.T) {
+	s := NewServer(nil, nil, []string{})
+
+	client := testutils.NewWebTestClient(t, s)
+	defer client.Teardown()
+
+	req := client.NewRequest("POST", "/graphql", strings.NewReader(`{"query":"{ __typename }"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "text/event-stream")
+
+	resp := client.Do(req)
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Contains(t, resp.Header.Get("Content-Type"), "text/event-stream")
+
+	body := string(resp.Body)
+	assert.Contains(t, body, "event: next", "expected SSE next event")
+	assert.Contains(t, body, `"__typename":"Query"`, "expected query result in next event payload")
+	assert.Contains(t, body, "event: complete", "expected SSE complete event")
+}
 
 func TestServerWebSocketCheckOrigin(t *testing.T) {
 	tests := []struct {

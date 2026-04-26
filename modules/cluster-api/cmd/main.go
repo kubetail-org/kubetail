@@ -94,11 +94,10 @@ func main() {
 
 			// Create server
 			server := &http.Server{
-				Addr:         cfg.Addr,
-				Handler:      app,
-				IdleTimeout:  1 * time.Minute,
-				ReadTimeout:  5 * time.Second,
-				WriteTimeout: 1 * time.Minute,
+				Addr:        cfg.Addr,
+				Handler:     app,
+				IdleTimeout: 1 * time.Minute,
+				ReadTimeout: 5 * time.Second,
 			}
 
 			// Register shutdown hook so long-lived connections are notified before

@@ -17,6 +17,7 @@ package graph
 import (
 	"context"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -56,6 +57,16 @@ func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.D
 
 	// Init handler
 	h := handler.New(schema)
+
+	// SSE transport for browser-side subscriptions. Auth rides on the POST
+	// like any other GraphQL request (browsers can't set headers on a WS
+	// upgrade), so authenticationMiddleware-injected tokens reach resolvers
+	// the same way as for queries/mutations. Registered before POST so that
+	// requests with `Accept: text/event-stream` aren't claimed by the POST
+	// transport's broader media-type match.
+	h.AddTransport(transport.SSE{
+		KeepAlivePingInterval: 10 * time.Second,
+	})
 
 	// Add transports from NewDefaultServer()
 	h.AddTransport(transport.GET{})
@@ -114,14 +125,17 @@ func (s *Server) Close() error {
 }
 
 // ServeHTTP delegates to the underlying handler, tracking all active
-// requests so DrainWithContext can wait for them to finish. For WebSocket
-// upgrades the request context is also cancelled on shutdown, which
-// triggers gqlgen's closeOnCancel to cleanly close the connection.
+// requests so DrainWithContext can wait for them to finish. Long-lived
+// connections (WebSocket upgrades and SSE streams) also get their request
+// context cancelled on shutdown so gqlgen can close them cleanly.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.wg.Add(1)
 	defer s.wg.Done()
 
-	if r.Header.Get("Upgrade") != "" {
+	isLongLived := r.Header.Get("Upgrade") != "" ||
+		strings.Contains(r.Header.Get("Accept"), "text/event-stream")
+
+	if isLongLived {
 		ctx, cancel := context.WithCancel(r.Context())
 		defer cancel()
 		go func() {
