@@ -43,6 +43,16 @@ func TestIsSameOrigin(t *testing.T) {
 		{"different port is rejected", "example.com:8080", "http://example.com:9090", false, "", false},
 		{"malformed Origin is rejected", "example.com", "://not a url", false, "", false},
 		{"X-Forwarded-Proto list takes first value", "example.com", "https://example.com", false, "https, http", true},
+		{"https default port in Host matches Origin without port", "example.com:443", "https://example.com", true, "", true},
+		{"http default port in Host matches Origin without port", "example.com:80", "http://example.com", false, "", true},
+		{"https default port in Origin matches Host without port", "example.com", "https://example.com:443", true, "", true},
+		{"http default port in Origin matches Host without port", "example.com", "http://example.com:80", false, "", true},
+		{"default port via X-Forwarded-Proto matches", "example.com:443", "https://example.com", false, "https", true},
+		{"non-default port mismatch is rejected even with default normalization", "example.com:8443", "https://example.com", true, "", false},
+		{"host comparison is case-insensitive", "Example.COM", "http://example.com", false, "", true},
+		{"Origin without host is rejected", "example.com", "http://", false, "", false},
+		{"IPv6 same host matches", "[::1]:8080", "http://[::1]:8080", false, "", true},
+		{"IPv6 default port matches", "[::1]:80", "http://[::1]", false, "", true},
 	}
 
 	for _, tt := range tests {

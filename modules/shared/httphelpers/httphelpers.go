@@ -16,6 +16,7 @@
 package httphelpers
 
 import (
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -24,6 +25,12 @@ import (
 // IsSameOrigin reports whether r's Origin header is present and matches
 // the request's scheme and host (per the WebSocket spec's same-origin
 // rule). A missing Origin returns false.
+//
+// Host comparison is case-insensitive and normalizes the effective port,
+// so https://example.com matches a request Host of example.com:443 (and
+// likewise http://example.com matches example.com:80). This avoids
+// false rejections from ingress/reverse proxies that forward an explicit
+// default port in Host.
 //
 // Intended for use on WebSocket upgrade requests, where browsers always
 // send Origin (so its absence indicates a non-browser client, which has
@@ -35,10 +42,41 @@ func IsSameOrigin(r *http.Request) bool {
 		return false
 	}
 	u, err := url.Parse(origin)
-	if err != nil {
+	if err != nil || u.Host == "" {
 		return false
 	}
-	return u.Host == r.Host && u.Scheme == requestScheme(r)
+	scheme := requestScheme(r)
+	if !strings.EqualFold(u.Scheme, scheme) {
+		return false
+	}
+	originHost, originPort := splitHostPort(u.Host, u.Scheme)
+	reqHost, reqPort := splitHostPort(r.Host, scheme)
+	return strings.EqualFold(originHost, reqHost) && originPort == reqPort
+}
+
+// splitHostPort returns the host and effective port for a host[:port]
+// string, falling back to scheme's default port when no port is present.
+// IPv6 brackets are stripped so bracketed and unbracketed literals compare
+// equal.
+func splitHostPort(host, scheme string) (string, string) {
+	if h, p, err := net.SplitHostPort(host); err == nil {
+		return h, p
+	}
+	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+		host = host[1 : len(host)-1]
+	}
+	return host, defaultPort(scheme)
+}
+
+// defaultPort returns the well-known port for an HTTP-family scheme.
+func defaultPort(scheme string) string {
+	switch strings.ToLower(scheme) {
+	case "https":
+		return "443"
+	case "http":
+		return "80"
+	}
+	return ""
 }
 
 // requestScheme returns the scheme the client used to reach r, accounting
