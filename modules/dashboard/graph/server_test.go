@@ -40,6 +40,50 @@ func TestServerDrainWithContext_NoConnections(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestServerWebSocketCheckOrigin(t *testing.T) {
+	cfg := config.DefaultConfig()
+	s := NewServer(cfg, nil)
+
+	client := testutils.NewWebTestClient(t, s)
+	defer client.Teardown()
+
+	wsURL := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
+	httpHost := strings.TrimPrefix(client.Server.URL, "http://")
+
+	tests := []struct {
+		name       string
+		setOrigin  string
+		wantStatus int
+	}{
+		{
+			"no Origin is rejected",
+			"",
+			http.StatusForbidden,
+		},
+		{
+			"same-origin Origin is accepted",
+			"http://" + httpHost,
+			http.StatusSwitchingProtocols,
+		},
+		{
+			"cross-origin Origin is rejected",
+			"https://evil.example.com",
+			http.StatusForbidden,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			header := http.Header{}
+			if tt.setOrigin != "" {
+				header.Set("Origin", tt.setOrigin)
+			}
+			_, resp, _ := websocket.DefaultDialer.Dial(wsURL, header)
+			require.Equal(t, tt.wantStatus, resp.StatusCode)
+		})
+	}
+}
+
 func TestServerDrainWithContext_CancelledContext(t *testing.T) {
 	cfg := config.DefaultConfig()
 	s := NewServer(cfg, nil)
@@ -100,7 +144,7 @@ func TestServerNotifyShutdown_ClosesConnections(t *testing.T) {
 	// Dial WebSocket with graphql-transport-ws subprotocol
 	wsURL := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
 	dialer := websocket.Dialer{Subprotocols: []string{"graphql-transport-ws"}}
-	conn, _, err := dialer.Dial(wsURL, nil)
+	conn, _, err := dialer.Dial(wsURL, http.Header{"Origin": []string{client.Server.URL}})
 	require.NoError(t, err)
 	defer conn.Close()
 
@@ -145,7 +189,7 @@ func TestServerNotifyShutdown_ClosesMultipleConnections(t *testing.T) {
 
 	// Open multiple WebSocket connections
 	for i := range numConns {
-		conn, _, err := dialer.Dial(wsURL, nil)
+		conn, _, err := dialer.Dial(wsURL, http.Header{"Origin": []string{client.Server.URL}})
 		require.NoError(t, err)
 		defer conn.Close()
 

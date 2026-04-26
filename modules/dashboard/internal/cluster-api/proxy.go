@@ -30,6 +30,7 @@ import (
 
 	"k8s.io/kubectl/pkg/proxy"
 
+	"github.com/kubetail-org/kubetail/modules/shared/httphelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
@@ -94,6 +95,14 @@ func (p *DesktopProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Track connections for graceful shutdown
 	p.wg.Add(1)
 	defer p.wg.Done()
+
+	// CSWSH defense for WebSocket upgrades. Chrome does not send
+	// Sec-Fetch-Site on upgrade requests, so the app-level CSRF middleware
+	// can't gate them; check Origin directly here instead.
+	if r.Header.Get("Upgrade") != "" && !httphelpers.IsSameOrigin(r) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
 
 	origPath := r.URL.Path
 
@@ -281,6 +290,14 @@ type InClusterProxy struct {
 func (p *InClusterProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.wg.Add(1)
 	defer p.wg.Done()
+
+	// CSWSH defense for WebSocket upgrades. Chrome does not send
+	// Sec-Fetch-Site on upgrade requests, so the app-level CSRF middleware
+	// can't gate them; check Origin directly here instead.
+	if r.Header.Get("Upgrade") != "" && !httphelpers.IsSameOrigin(r) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
 
 	if r.Header.Get("Upgrade") != "" {
 		hw := &hijackTrackingResponseWriter{ResponseWriter: w}

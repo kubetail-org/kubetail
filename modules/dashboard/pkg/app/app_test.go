@@ -308,6 +308,9 @@ func TestCSRFProtectionOnWebSocketUpgrade(t *testing.T) {
 			if tt.setSecFetchSite != "" {
 				header.Set("Sec-Fetch-Site", tt.setSecFetchSite)
 			}
+			// Set a same-origin Origin so the WebSocket same-origin gate
+			// (which sits below CSRF) doesn't reject before this test runs.
+			header.Set("Origin", client.Server.URL)
 
 			u := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
 			_, resp, _ := websocket.DefaultDialer.Dial(u, header)
