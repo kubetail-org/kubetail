@@ -28,6 +28,10 @@ import (
 
 // LogMetadataList is the resolver for the logMetadataList field.
 func (r *queryResolver) LogMetadataList(ctx context.Context, namespace *string) (*clusteragentpb.LogMetadataList, error) {
+	if _, err := r.getBearerTokenRequired(ctx); err != nil {
+		return nil, gqlerrors.ErrUnauthenticated
+	}
+
 	// Deref namespace
 	nsList, err := k8shelpers.DerefNamespaceToList(r.allowedNamespaces, namespace, metav1.NamespaceDefault)
 	if err != nil {
@@ -190,6 +194,10 @@ func (r *queryResolver) LogRecordsFetch(ctx context.Context, kubeContext *string
 
 // LogMetadataWatch is the resolver for the logMetadataWatch field.
 func (r *subscriptionResolver) LogMetadataWatch(ctx context.Context, namespace *string) (<-chan *clusteragentpb.LogMetadataWatchEvent, error) {
+	if _, err := r.getBearerTokenRequired(ctx); err != nil {
+		return nil, gqlerrors.ErrUnauthenticated
+	}
+
 	// Deref namespaces
 	nsList, err := k8shelpers.DerefNamespaceToList(r.allowedNamespaces, namespace, metav1.NamespaceDefault)
 	if err != nil {

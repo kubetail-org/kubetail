@@ -17,7 +17,6 @@ package graph
 import (
 	"context"
 	"net/http"
-	"slices"
 	"sync"
 	"time"
 
@@ -32,8 +31,6 @@ import (
 
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
-
-	"github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
 )
 
 // Represents Server
@@ -44,12 +41,8 @@ type Server struct {
 	wg         sync.WaitGroup
 }
 
-// allowedSecFetchSite defines the secure values for the Sec-Fetch-Site header.
-// It's defined at the package level to avoid re-allocation on every WebSocket upgrade request.
-var allowedSecFetchSite = []string{"same-origin"}
-
 // Create new Server instance
-func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string) *Server {
+func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.Dispatcher, allowedNamespaces []string) *Server {
 	// Init resolver
 	r := &Resolver{cm, grpcDispatcher, allowedNamespaces}
 
@@ -70,25 +63,15 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager, grpcDispatch
 
 	h.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
-	// Configure WebSocket (without CORS)
+	// Configure WebSocket. The cluster-api is intended for bot/programmatic
+	// clients, not browsers. Bots don't send Origin; browsers always do on a
+	// WebSocket upgrade. The dashboard's reverse proxy strips Origin before
+	// forwarding (after enforcing its own CSRF check), so its presence here
+	// indicates a direct browser connection — reject as CSWSH defense.
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
-				// Allow all if CSRF protection is disabled
-				if !cfg.CSRF.Enabled {
-					return true
-				}
-
-				secFetchSite := r.Header.Get("Sec-Fetch-Site")
-
-				// If empty, request is from non-browser or legacy browser
-				if secFetchSite == "" {
-					return true
-				}
-
-				// Check the Sec-Fetch-Site header as our primary defense against
-				// Cross-Site WebSocket Hijacking (CSWSH)
-				return slices.Contains(allowedSecFetchSite, secFetchSite)
+				return r.Header.Get("Origin") == ""
 			},
 			ReadBufferSize:    1024,
 			WriteBufferSize:   1024,

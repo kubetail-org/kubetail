@@ -32,10 +32,6 @@ type Config struct {
 	GinMode  string `mapstructure:"gin-mode" validate:"omitempty,oneof=debug release"`
 	BasePath string `mapstructure:"base-path"`
 
-	CSRF struct {
-		Enabled bool
-	}
-
 	ClusterAgent struct {
 		DispatchUrl string `mapstructure:"dispatch-url"`
 		TLS         struct {
@@ -77,8 +73,6 @@ func DefaultConfig() *Config {
 	cfg.Addr = ":8080"
 	cfg.BasePath = "/"
 	cfg.GinMode = "release"
-
-	cfg.CSRF.Enabled = true
 
 	cfg.ClusterAgent.DispatchUrl = "kubernetes://kubetail-cluster-agent:50051"
 	cfg.ClusterAgent.TLS.Enabled = false

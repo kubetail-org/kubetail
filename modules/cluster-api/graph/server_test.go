@@ -25,78 +25,43 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kubetail-org/kubetail/modules/shared/testutils"
-
-	"github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
 )
 
-func TestServer(t *testing.T) {
+func TestServerWebSocketCheckOrigin(t *testing.T) {
 	tests := []struct {
-		name           string
-		setCsrfEnabled bool
-		setHeader      http.Header
-		wantStatus     int
+		name       string
+		setHeader  http.Header
+		wantStatus int
 	}{
 		{
-			"csrf disabled, non-browser client",
-			false,
+			"bot client (no Origin) is accepted",
 			http.Header{},
 			http.StatusSwitchingProtocols,
 		},
 		{
-			"csrf disabled, same-origin request",
-			false,
-			http.Header{"Sec-Fetch-Site": []string{"same-origin"}},
-			http.StatusSwitchingProtocols,
-		},
-		{
-			"csrf disabled, cross-site request",
-			false,
-			http.Header{"Sec-Fetch-Site": []string{"cross-site"}},
-			http.StatusSwitchingProtocols,
-		},
-		{
-			"csrf enabled, non-browser client",
-			true,
-			http.Header{},
-			http.StatusSwitchingProtocols,
-		},
-		{
-			"csrf enabled, same-origin request",
-			true,
-			http.Header{"Sec-Fetch-Site": []string{"same-origin"}},
-			http.StatusSwitchingProtocols,
-		},
-		{
-			"csrf enabled, cross-site request",
-			true,
-			http.Header{"Sec-Fetch-Site": []string{"cross-site"}},
+			"browser client (Origin set) is rejected",
+			http.Header{"Origin": []string{"https://evil.example.com"}},
 			http.StatusForbidden,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := config.DefaultConfig()
-			cfg.CSRF.Enabled = tt.setCsrfEnabled
-
-			graphqlServer := NewServer(cfg, nil, nil, []string{})
+			graphqlServer := NewServer(nil, nil, []string{})
 
 			client := testutils.NewWebTestClient(t, graphqlServer)
 			defer client.Teardown()
 
-			// init websocket connection
 			u := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
 			_, resp, _ := websocket.DefaultDialer.Dial(u, tt.setHeader)
 
-			// check status code
 			require.Equal(t, tt.wantStatus, resp.StatusCode)
 		})
 	}
 }
 
 func TestServerDrainWithContext_NoConnections(t *testing.T) {
-	cfg := config.DefaultConfig()
-	s := NewServer(cfg, nil, nil, []string{})
+	s := NewServer(nil, nil, []string{})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -106,8 +71,7 @@ func TestServerDrainWithContext_NoConnections(t *testing.T) {
 }
 
 func TestServerDrainWithContext_CancelledContext(t *testing.T) {
-	cfg := config.DefaultConfig()
-	s := NewServer(cfg, nil, nil, []string{})
+	s := NewServer(nil, nil, []string{})
 
 	// Simulate an open connection that never finishes
 	s.wg.Add(1)
@@ -121,8 +85,7 @@ func TestServerDrainWithContext_CancelledContext(t *testing.T) {
 }
 
 func TestServerDrainWithContext_DeadlineExceeded(t *testing.T) {
-	cfg := config.DefaultConfig()
-	s := NewServer(cfg, nil, nil, []string{})
+	s := NewServer(nil, nil, []string{})
 
 	// Simulate an open connection that never finishes
 	s.wg.Add(1)
@@ -136,8 +99,7 @@ func TestServerDrainWithContext_DeadlineExceeded(t *testing.T) {
 }
 
 func TestServerDrainWithContext_WaitsForHTTPRequests(t *testing.T) {
-	cfg := config.DefaultConfig()
-	s := NewServer(cfg, nil, nil, []string{})
+	s := NewServer(nil, nil, []string{})
 
 	client := testutils.NewWebTestClient(t, s)
 	defer client.Teardown()
@@ -155,10 +117,7 @@ func TestServerDrainWithContext_WaitsForHTTPRequests(t *testing.T) {
 }
 
 func TestServerNotifyShutdown_ClosesConnections(t *testing.T) {
-	cfg := config.DefaultConfig()
-	cfg.CSRF.Enabled = true
-
-	s := NewServer(cfg, nil, nil, []string{})
+	s := NewServer(nil, nil, []string{})
 
 	client := testutils.NewWebTestClient(t, s)
 	defer client.Teardown()
@@ -196,10 +155,7 @@ func TestServerNotifyShutdown_ClosesConnections(t *testing.T) {
 }
 
 func TestServerNotifyShutdown_ClosesMultipleConnections(t *testing.T) {
-	cfg := config.DefaultConfig()
-	cfg.CSRF.Enabled = true
-
-	s := NewServer(cfg, nil, nil, []string{})
+	s := NewServer(nil, nil, []string{})
 
 	client := testutils.NewWebTestClient(t, s)
 	defer client.Teardown()

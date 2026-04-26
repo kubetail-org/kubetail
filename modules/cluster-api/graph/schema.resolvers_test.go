@@ -34,3 +34,15 @@ func TestLogRecordsFollowRequiresToken(t *testing.T) {
 	_, err := r.LogRecordsFollow(context.Background(), nil, nil, nil, nil, nil, nil)
 	assert.ErrorIs(t, gqlerrors.ErrUnauthenticated, err)
 }
+
+func TestLogMetadataListRequiresToken(t *testing.T) {
+	r := &queryResolver{}
+	_, err := r.LogMetadataList(context.Background(), nil)
+	assert.ErrorIs(t, gqlerrors.ErrUnauthenticated, err)
+}
+
+func TestLogMetadataWatchRequiresToken(t *testing.T) {
+	r := &subscriptionResolver{}
+	_, err := r.LogMetadataWatch(context.Background(), nil)
+	assert.ErrorIs(t, gqlerrors.ErrUnauthenticated, err)
+}

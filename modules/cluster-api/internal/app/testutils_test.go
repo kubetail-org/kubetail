@@ -31,7 +31,6 @@ func NewTestConfig() *config.Config {
 	cfg := config.DefaultConfig()
 	cfg.BasePath = "/"
 	cfg.Logging.AccessLog.Enabled = false
-	cfg.CSRF.Enabled = false
 	return cfg
 }
 
