@@ -100,6 +100,26 @@ jobs:
             echo "$prefix ${{ steps.meta.outputs.size }} BLAKE2B ${{ steps.meta.outputs.blake2b }} SHA512 ${{ steps.meta.outputs.sha512 }}" >> Manifest
           fi
 
+      - name: Trim old ebuilds
+        working-directory: guru/dev-util/kubetail
+        run: |
+          set -euo pipefail
+          mapfile -t ebuilds < <(ls -1 kubetail-*.ebuild 2>/dev/null | sort -V)
+          total=${#ebuilds[@]}
+          if [ "$total" -le 3 ]; then
+            echo "Only $total ebuilds present; nothing to trim"
+            exit 0
+          fi
+          to_remove=("${ebuilds[@]:0:$((total - 3))}")
+          for ebuild in "${to_remove[@]}"; do
+            version="${ebuild#kubetail-}"
+            version="${version%.ebuild}"
+            echo "Removing $ebuild and its Manifest entry"
+            rm -f "$ebuild"
+            escaped="${version//./\\.}"
+            sed -i "/^DIST kubetail-${escaped}-vendored\.tar\.gz /d" Manifest
+          done
+
       - name: Start gpg-agent
         run: |
           mkdir -p ~/.gnupg
@@ -152,142 +172,6 @@ jobs:
 
           # Commit and push
           git commit -a -s -S -m "dev-util/kubetail: add ${{ needs.config.outputs.version }}"
-          git push origin
-
-      - name: Cleanup GPG
-        if: always()
-        run: rm -rf ~/.gnupg
-
-  update-kubetail-bin:
-    name: Update `kubetail-bin` package
-    needs: [config, update-kubetail]
-    environment: production
-    runs-on: ubuntu-slim
-    steps:
-      - name: Download source bundle
-        uses: robinraju/release-downloader@v1.12
-        with:
-          repository: kubetail-org/kubetail
-          tag: ${{ format('cli/v{0}', needs.config.outputs.version) }}
-          fileName: "kubetail-linux-*.tar.gz"
-          out-file-path: "downloads"
-
-      - name: Extract metadata
-        id: meta
-        working-directory: ./downloads
-        run: |
-          AMD64_NAME="kubetail-linux-amd64.tar.gz"
-          ARM64_NAME="kubetail-linux-arm64.tar.gz"
-
-          AMD64_SIZE=$(stat --format '%s' "$AMD64_NAME")
-          AMD64_BLAKE2B=$(b2sum "$AMD64_NAME" | awk '{print $1}')
-          AMD64_SHA512=$(sha512sum "$AMD64_NAME" | awk '{print $1}')
-
-          ARM64_SIZE=$(stat --format '%s' "$ARM64_NAME")
-          ARM64_BLAKE2B=$(b2sum "$ARM64_NAME" | awk '{print $1}')
-          ARM64_SHA512=$(sha512sum "$ARM64_NAME" | awk '{print $1}')
-
-          echo "amd64_size=$AMD64_SIZE" >> "$GITHUB_OUTPUT"
-          echo "amd64_blake2b=$AMD64_BLAKE2B" >> "$GITHUB_OUTPUT"
-          echo "amd64_sha512=$AMD64_SHA512" >> "$GITHUB_OUTPUT"
-
-          echo "arm64_size=$ARM64_SIZE" >> "$GITHUB_OUTPUT"
-          echo "arm64_blake2b=$ARM64_BLAKE2B" >> "$GITHUB_OUTPUT"
-          echo "arm64_sha512=$ARM64_SHA512" >> "$GITHUB_OUTPUT"
-
-      - name: Load GURU SSH key
-        uses: webfactory/ssh-agent@v0.9.1
-        with:
-          ssh-private-key: ${{ secrets.GENTOO_SSH_PRIVATE_KEY }}
-
-      - name: Checkout GURU repo
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ vars.GENTOO_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-
-          git clone --depth 1 --branch dev --single-branch git@git.gentoo.org:repo/proj/guru.git
-
-      - name: Checkout kubetail repo
-        uses: actions/checkout@v5
-        with:
-          sparse-checkout: .github/ci-config/guru
-          sparse-checkout-cone-mode: false
-          path: kubetail
-
-      - name: Create ebuild file
-        env:
-          SRC_DIR: kubetail/.github/ci-config/guru
-          DST_DIR: guru/dev-util/kubetail-bin
-        run: |
-          cp "$SRC_DIR/kubetail-bin.ebuild" "$DST_DIR/kubetail-bin-${{ needs.config.outputs.version}}.ebuild"
-
-      - name: Update Manifest
-        working-directory: guru/dev-util/kubetail-bin
-        env:
-          P: "kubetail-bin-${{ needs.config.outputs.version }}"
-        run: |
-          prefix_amd64="DIST $P-linux-amd64.tar.gz"
-          if ! grep -qF "$prefix_amd64" Manifest 2>/dev/null; then
-            echo "$prefix_amd64 ${{ steps.meta.outputs.amd64_size }} BLAKE2B ${{ steps.meta.outputs.amd64_blake2b }} SHA512 ${{ steps.meta.outputs.amd64_sha512 }}" >> Manifest
-          fi
-
-          prefix_arm64="DIST $P-linux-arm64.tar.gz"
-          if ! grep -qF "$prefix_arm64" Manifest 2>/dev/null; then
-            echo "$prefix_arm64 ${{ steps.meta.outputs.arm64_size }} BLAKE2B ${{ steps.meta.outputs.arm64_blake2b }} SHA512 ${{ steps.meta.outputs.arm64_sha512 }}" >> Manifest
-          fi
-
-      - name: Start gpg-agent
-        run: |
-          mkdir -p ~/.gnupg
-          chmod 700 ~/.gnupg
-          if ! grep -q "allow-preset-passphrase" ~/.gnupg/gpg-agent.conf 2>/dev/null; then
-            echo "allow-preset-passphrase" >> ~/.gnupg/gpg-agent.conf
-          fi
-          gpgconf --kill gpg-agent || true
-          gpgconf --launch gpg-agent
-
-      - name: Configure gpg
-        uses: crazy-max/ghaction-import-gpg@v6.3.0
-        with:
-          gpg_private_key: ${{ secrets.ANDRES_GPG_SIGNING_KEY }}
-          passphrase: ${{ secrets.ANDRES_GPG_PASSWORD }}
-          fingerprint: ${{ vars.ANDRES_GPG_SIGNING_KEY_FINGERPRINT }}
-
-      - name: Configure git
-        working-directory: guru
-        run: |
-          # Configure git
-          git config gpg.program gpg
-          git config push.gpgsign true
-          git config commit.gpgsign true
-
-          git config user.name "Andres Morey"
-          git config user.email "andres@kubetail.com"
-          git config user.signingkey "${{ vars.ANDRES_GPG_SIGNING_KEY_FINGERPRINT }}"
-
-      - name: Debug
-        if: ${{ needs.config.outputs.dry_run == 'true' }}
-        working-directory: guru/dev-util/kubetail-bin
-        run: |
-          ls -lah *
-          cat kubetail-bin-${{ needs.config.outputs.version }}.ebuild
-          cat Manifest
-
-      - name: Push changes to GURU repo
-        working-directory: guru
-        if: ${{ needs.config.outputs.dry_run != 'true' }}
-        run: |
-          # Stage changes
-          git add . --all
-
-          # Check if there are changes to commit
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-            exit 0
-          fi
-
-          # Commit and push
-          git commit -a -s -m "dev-util/kubetail-bin: add ${{ needs.config.outputs.version }}"
           git push origin
 
       - name: Cleanup GPG
