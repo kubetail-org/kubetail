@@ -87,29 +87,26 @@ describe('LocalStoragePreferencesBackend', () => {
     expect(prefs).toEqual({ version: 1, theme: 'dark', timezone: 'Asia/Tokyo', timestampFormat: 'rfc3339' });
   });
 
+  function makeStorageEvent(key: string, newValue: string): StorageEvent {
+    const evt = new Event('storage') as StorageEvent;
+    Object.defineProperty(evt, 'key', { value: key });
+    Object.defineProperty(evt, 'newValue', { value: newValue });
+    return evt;
+  }
+
   it('subscribe notifies on cross-tab storage changes', () => {
     const callback = vi.fn();
     const unsubscribe = backend.subscribe(callback);
 
     const updatedPrefs = { version: 1, theme: 'dark', timezone: 'UTC', timestampFormat: 'iso8601' };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedPrefs));
-    window.dispatchEvent(
-      new StorageEvent('storage', {
-        key: STORAGE_KEY,
-        newValue: JSON.stringify(updatedPrefs),
-      }),
-    );
+    window.dispatchEvent(makeStorageEvent(STORAGE_KEY, JSON.stringify(updatedPrefs)));
 
     expect(callback).toHaveBeenCalledWith(updatedPrefs);
 
     unsubscribe();
 
-    window.dispatchEvent(
-      new StorageEvent('storage', {
-        key: STORAGE_KEY,
-        newValue: JSON.stringify({ version: 1, theme: 'light' }),
-      }),
-    );
+    window.dispatchEvent(makeStorageEvent(STORAGE_KEY, JSON.stringify({ version: 1, theme: 'light' })));
     expect(callback).toHaveBeenCalledTimes(1);
   });
 
@@ -117,12 +114,7 @@ describe('LocalStoragePreferencesBackend', () => {
     const callback = vi.fn();
     backend.subscribe(callback);
 
-    window.dispatchEvent(
-      new StorageEvent('storage', {
-        key: 'some-other-key',
-        newValue: 'value',
-      }),
-    );
+    window.dispatchEvent(makeStorageEvent('some-other-key', 'value'));
 
     expect(callback).not.toHaveBeenCalled();
   });
