@@ -123,24 +123,32 @@ func TestAuthenticationMiddlewareRejectsWhitespaceToken(t *testing.T) {
 func TestCSRFProtectionMiddleware(t *testing.T) {
 	tests := []struct {
 		name           string
+		method         string
 		setHeader      http.Header
 		wantStatusCode int
 	}{
-		{"non-browser client", http.Header{}, http.StatusForbidden},
-		{"same-origin request", http.Header{"Sec-Fetch-Site": []string{"same-origin"}}, http.StatusOK},
-		{"cross-site request", http.Header{"Sec-Fetch-Site": []string{"cross-site"}}, http.StatusForbidden},
+		// Safe methods bypass the check (no state change to protect).
+		{"GET without Sec-Fetch-Site is allowed", "GET", http.Header{}, http.StatusOK},
+		{"GET cross-site is allowed", "GET", http.Header{"Sec-Fetch-Site": []string{"cross-site"}}, http.StatusOK},
+		{"HEAD without Sec-Fetch-Site is allowed", "HEAD", http.Header{}, http.StatusOK},
+		{"OPTIONS without Sec-Fetch-Site is allowed", "OPTIONS", http.Header{}, http.StatusOK},
+		// Unsafe methods enforce same-origin Sec-Fetch-Site.
+		{"POST without Sec-Fetch-Site is blocked", "POST", http.Header{}, http.StatusForbidden},
+		{"POST same-origin is allowed", "POST", http.Header{"Sec-Fetch-Site": []string{"same-origin"}}, http.StatusOK},
+		{"POST cross-site is blocked", "POST", http.Header{"Sec-Fetch-Site": []string{"cross-site"}}, http.StatusForbidden},
+		{"DELETE cross-site is blocked", "DELETE", http.Header{"Sec-Fetch-Site": []string{"cross-site"}}, http.StatusForbidden},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := gin.New()
 			router.Use(csrfProtectionMiddleware())
-			router.GET("/", func(c *gin.Context) {
+			router.Any("/", func(c *gin.Context) {
 				c.String(http.StatusOK, "ok")
 			})
 
 			w := httptest.NewRecorder()
-			r := httptest.NewRequest("GET", "/", nil)
+			r := httptest.NewRequest(tt.method, "/", nil)
 			for k, v := range tt.setHeader {
 				r.Header[k] = v
 			}

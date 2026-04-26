@@ -149,8 +149,9 @@ func (p *DesktopProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.Header.Add("X-Forwarded-Authorization", fmt.Sprintf("Bearer %s", token))
 
 	// Strip the browser-supplied Origin so the cluster-api can treat its
-	// presence as a CSWSH signal. Cross-site browser requests are already
-	// rejected by csrfProtectionMiddleware before reaching this proxy.
+	// presence as a CSWSH signal. Cross-origin browser upgrades are already
+	// rejected by the same-origin gate above; cross-site non-upgrade browser
+	// requests are rejected by csrfProtectionMiddleware before reaching here.
 	r.Header.Del("Origin")
 
 	// Passthrough upgrade requests, closing the hijacked connection on shutdown
@@ -359,8 +360,10 @@ func newInClusterProxy(clusterAPIEndpoint string, pathPrefix string, transport h
 			}
 
 			// Strip the browser-supplied Origin so the cluster-api can treat its
-			// presence as a CSWSH signal. Cross-site browser requests are already
-			// rejected by csrfProtectionMiddleware before reaching this proxy.
+			// presence as a CSWSH signal. Cross-origin browser upgrades are
+			// already rejected by the same-origin gate; cross-site non-upgrade
+			// browser requests are rejected by csrfProtectionMiddleware before
+			// reaching here.
 			r.Header.Del("Origin")
 		},
 		ModifyResponse: func(resp *http.Response) error {

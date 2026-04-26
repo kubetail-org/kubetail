@@ -83,9 +83,10 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 
 	h.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
-	// Configure WebSocket. The app-level Sec-Fetch-Site middleware also gates
-	// this route, but Chrome does not send Sec-Fetch-Site on WebSocket upgrade
-	// requests, so we additionally enforce a same-origin Origin check here.
+	// Configure WebSocket. The app-level Sec-Fetch-Site CSRF middleware does
+	// not gate WebSocket upgrades (safe methods are skipped, since Chrome
+	// does not send Sec-Fetch-Site on upgrade requests), so CSWSH defense
+	// happens here via a same-origin Origin check.
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin:       httphelpers.IsSameOrigin,
