@@ -47,12 +47,50 @@ func TestInClusterProxy_StripsOriginHeader(t *testing.T) {
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/prefix/somepath", nil)
-	req.Header.Set("Origin", "https://browser.example.com")
+	// httptest.NewRequest uses example.com as the request Host
+	req.Header.Set("Origin", "https://example.com")
 
 	proxy.ServeHTTP(httptest.NewRecorder(), req)
 
 	require.True(t, captured, "backend was not called")
 	assert.Empty(t, capturedOrigin, "Origin header must be stripped before forwarding")
+}
+
+func TestInClusterProxy_RejectsCrossOriginUpgradeRequest(t *testing.T) {
+	tests := []struct {
+		name   string
+		origin string
+	}{
+		{"cross-origin Origin", "https://evil.example.com"},
+		{"missing Origin", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var captured bool
+			backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				captured = true
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer backend.Close()
+
+			proxy, err := newInClusterProxy(backend.URL, "/prefix", http.DefaultTransport)
+			require.NoError(t, err)
+
+			req := httptest.NewRequest(http.MethodGet, "/prefix/somepath", nil)
+			req.Header.Set("Upgrade", "websocket")
+			req.Header.Set("Connection", "Upgrade")
+			if tt.origin != "" {
+				req.Header.Set("Origin", tt.origin)
+			}
+
+			rec := httptest.NewRecorder()
+			proxy.ServeHTTP(rec, req)
+
+			assert.Equal(t, http.StatusForbidden, rec.Code)
+			assert.False(t, captured, "backend must not be reached on cross-origin upgrade")
+		})
+	}
 }
 
 func TestInClusterProxy_XForwardedAuthorization(t *testing.T) {
@@ -164,6 +202,12 @@ func newWSBackend(t *testing.T) (*httptest.Server, <-chan struct{}) {
 	return backend, connected
 }
 
+// wsOriginHeader returns an Origin header matching the given server URL, so
+// a WebSocket dial passes the proxy's same-origin gate.
+func wsOriginHeader(serverURL string) http.Header {
+	return http.Header{"Origin": []string{serverURL}}
+}
+
 // waitConnected waits for the backend to accept a connection or fails the test.
 func waitConnected(t *testing.T, connected <-chan struct{}) {
 	t.Helper()
@@ -185,7 +229,7 @@ func TestInClusterProxy_NotifyShutdown_ClosesConnections(t *testing.T) {
 
 	// Dial WebSocket through the proxy
 	wsURL := "ws" + proxyServer.URL[4:] + "/prefix/ws"
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, wsOriginHeader(proxyServer.URL))
 	require.NoError(t, err)
 	defer conn.Close()
 
@@ -220,7 +264,7 @@ func TestInClusterProxy_NotifyShutdown_ClosesMultipleConnections(t *testing.T) {
 	conns := make([]*websocket.Conn, numConns)
 
 	for i := range numConns {
-		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL, wsOriginHeader(proxyServer.URL))
 		require.NoError(t, err)
 		defer conn.Close()
 		waitConnected(t, connected)
@@ -275,12 +319,50 @@ func TestDesktopProxy_StripsOriginHeader(t *testing.T) {
 	proxy.satCache["ctx/ns"] = sat
 
 	req := httptest.NewRequest(http.MethodGet, "/prefix/ctx/ns/svc/relpath", nil)
-	req.Header.Set("Origin", "https://browser.example.com")
+	// httptest.NewRequest uses example.com as the request Host
+	req.Header.Set("Origin", "https://example.com")
 
 	proxy.ServeHTTP(httptest.NewRecorder(), req)
 
 	require.True(t, captured, "backend handler was not called")
 	assert.Empty(t, capturedOrigin, "Origin header must be stripped before forwarding")
+}
+
+func TestDesktopProxy_RejectsCrossOriginUpgradeRequest(t *testing.T) {
+	tests := []struct {
+		name   string
+		origin string
+	}{
+		{"cross-origin Origin", "https://evil.example.com"},
+		{"missing Origin", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var captured bool
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				captured = true
+				w.WriteHeader(http.StatusOK)
+			})
+
+			proxy, err := NewDesktopProxy(nil, "/prefix")
+			require.NoError(t, err)
+			proxy.phCache["ctx"] = handler
+
+			req := httptest.NewRequest(http.MethodGet, "/prefix/ctx/ns/svc/relpath", nil)
+			req.Header.Set("Upgrade", "websocket")
+			req.Header.Set("Connection", "Upgrade")
+			if tt.origin != "" {
+				req.Header.Set("Origin", tt.origin)
+			}
+
+			rec := httptest.NewRecorder()
+			proxy.ServeHTTP(rec, req)
+
+			assert.Equal(t, http.StatusForbidden, rec.Code)
+			assert.False(t, captured, "backend handler must not be reached on cross-origin upgrade")
+		})
+	}
 }
 
 func TestDesktopProxy_DrainWithContext_NoConnections(t *testing.T) {

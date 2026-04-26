@@ -30,8 +30,20 @@ import (
 // allowedSecFetchSite defines the secure values for the Sec-Fetch-Site header.
 var allowedSecFetchSite = []string{"same-origin"}
 
+// safeMethods are HTTP methods that don't change state, so they don't need
+// CSRF protection. Cross-origin reads are blocked by the Same-Origin Policy,
+// and skipping them lets WebSocket upgrades through (Chrome does not send
+// Sec-Fetch-Site on upgrade requests, which the WebSocket same-origin gate
+// handles instead).
+var safeMethods = []string{http.MethodGet, http.MethodHead, http.MethodOptions}
+
 func csrfProtectionMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if slices.Contains(safeMethods, c.Request.Method) {
+			c.Next()
+			return
+		}
+
 		if !slices.Contains(allowedSecFetchSite, c.GetHeader("Sec-Fetch-Site")) {
 			c.AbortWithStatus(http.StatusForbidden)
 			return

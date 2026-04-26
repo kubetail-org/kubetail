@@ -180,26 +180,29 @@ func TestCSRFProtectionOnDynamicRoutes(t *testing.T) {
 		setSecFetchSite string
 		wantForbidden   bool
 	}{
+		// CSRF only applies to unsafe methods. Safe-method routes
+		// (GraphQL queries via GET, /api/auth/session) bypass the check;
+		// SOP and same-origin WS gating cover those paths.
 		{
-			"graphql blocks cross-site",
+			"graphql GET cross-site is allowed",
 			"GET",
 			"/graphql",
 			"cross-site",
-			true,
+			false,
 		},
 		{
-			"graphql allows same-origin",
+			"graphql GET allows same-origin",
 			"GET",
 			"/graphql",
 			"same-origin",
 			false,
 		},
 		{
-			"graphql blocks non-browser",
+			"graphql GET non-browser is allowed",
 			"GET",
 			"/graphql",
 			"",
-			true,
+			false,
 		},
 		{
 			"login blocks cross-site",
@@ -223,11 +226,11 @@ func TestCSRFProtectionOnDynamicRoutes(t *testing.T) {
 			true,
 		},
 		{
-			"session blocks cross-site",
+			"session GET cross-site is allowed",
 			"GET",
 			"/api/auth/session",
 			"cross-site",
-			true,
+			false,
 		},
 		{
 			"session allows same-origin",
@@ -286,15 +289,17 @@ func TestCSRFProtectionOnDynamicRoutes(t *testing.T) {
 	}
 }
 
-func TestCSRFProtectionOnWebSocketUpgrade(t *testing.T) {
+func TestWebSocketUpgradeBypassesCSRF(t *testing.T) {
+	// CSRF middleware skips safe methods, so a WebSocket upgrade (GET) is
+	// not subject to Sec-Fetch-Site — Chrome doesn't send it on upgrades.
+	// Authorization is handled by the WebSocket same-origin gate instead.
 	tests := []struct {
 		name            string
 		setSecFetchSite string
-		wantStatusCode  int
 	}{
-		{"blocks cross-site upgrade", "cross-site", http.StatusForbidden},
-		{"blocks empty upgrade", "", http.StatusForbidden},
-		{"allows same-origin upgrade", "same-origin", http.StatusSwitchingProtocols},
+		{"missing Sec-Fetch-Site upgrades", ""},
+		{"cross-site Sec-Fetch-Site upgrades", "cross-site"},
+		{"same-origin Sec-Fetch-Site upgrades", "same-origin"},
 	}
 
 	for _, tt := range tests {
@@ -308,11 +313,13 @@ func TestCSRFProtectionOnWebSocketUpgrade(t *testing.T) {
 			if tt.setSecFetchSite != "" {
 				header.Set("Sec-Fetch-Site", tt.setSecFetchSite)
 			}
+			// Same-origin Origin to satisfy the WebSocket same-origin gate.
+			header.Set("Origin", client.Server.URL)
 
 			u := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
 			_, resp, _ := websocket.DefaultDialer.Dial(u, header)
 			require.NotNil(t, resp)
-			require.Equal(t, tt.wantStatusCode, resp.StatusCode)
+			require.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
 		})
 	}
 }

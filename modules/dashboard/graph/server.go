@@ -28,6 +28,7 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
+	"github.com/kubetail-org/kubetail/modules/shared/httphelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/versioncheck"
 
@@ -82,14 +83,13 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 
 	h.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
-	// Configure WebSocket. CSRF / CSWSH protection is enforced by the app-level
-	// Sec-Fetch-Site middleware before the request reaches this handler, so we
-	// allow all origins here.
+	// Configure WebSocket. The app-level Sec-Fetch-Site CSRF middleware does
+	// not gate WebSocket upgrades (safe methods are skipped, since Chrome
+	// does not send Sec-Fetch-Site on upgrade requests), so CSWSH defense
+	// happens here via a same-origin Origin check.
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				return true
-			},
+			CheckOrigin:       httphelpers.IsSameOrigin,
 			ReadBufferSize:    1024,
 			WriteBufferSize:   1024,
 			EnableCompression: true,

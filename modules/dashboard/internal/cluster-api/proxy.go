@@ -30,6 +30,7 @@ import (
 
 	"k8s.io/kubectl/pkg/proxy"
 
+	"github.com/kubetail-org/kubetail/modules/shared/httphelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
@@ -95,6 +96,14 @@ func (p *DesktopProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.wg.Add(1)
 	defer p.wg.Done()
 
+	// CSWSH defense for WebSocket upgrades. Chrome does not send
+	// Sec-Fetch-Site on upgrade requests, so the app-level CSRF middleware
+	// can't gate them; check Origin directly here instead.
+	if r.Header.Get("Upgrade") != "" && !httphelpers.IsSameOrigin(r) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
 	origPath := r.URL.Path
 
 	// Trim prefix
@@ -140,8 +149,9 @@ func (p *DesktopProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.Header.Add("X-Forwarded-Authorization", fmt.Sprintf("Bearer %s", token))
 
 	// Strip the browser-supplied Origin so the cluster-api can treat its
-	// presence as a CSWSH signal. Cross-site browser requests are already
-	// rejected by csrfProtectionMiddleware before reaching this proxy.
+	// presence as a CSWSH signal. Cross-origin browser upgrades are already
+	// rejected by the same-origin gate above; cross-site non-upgrade browser
+	// requests are rejected by csrfProtectionMiddleware before reaching here.
 	r.Header.Del("Origin")
 
 	// Passthrough upgrade requests, closing the hijacked connection on shutdown
@@ -282,6 +292,14 @@ func (p *InClusterProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.wg.Add(1)
 	defer p.wg.Done()
 
+	// CSWSH defense for WebSocket upgrades. Chrome does not send
+	// Sec-Fetch-Site on upgrade requests, so the app-level CSRF middleware
+	// can't gate them; check Origin directly here instead.
+	if r.Header.Get("Upgrade") != "" && !httphelpers.IsSameOrigin(r) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
 	if r.Header.Get("Upgrade") != "" {
 		hw := &hijackTrackingResponseWriter{ResponseWriter: w}
 		doneCh := make(chan struct{})
@@ -342,8 +360,10 @@ func newInClusterProxy(clusterAPIEndpoint string, pathPrefix string, transport h
 			}
 
 			// Strip the browser-supplied Origin so the cluster-api can treat its
-			// presence as a CSWSH signal. Cross-site browser requests are already
-			// rejected by csrfProtectionMiddleware before reaching this proxy.
+			// presence as a CSWSH signal. Cross-origin browser upgrades are
+			// already rejected by the same-origin gate; cross-site non-upgrade
+			// browser requests are rejected by csrfProtectionMiddleware before
+			// reaching here.
 			r.Header.Del("Origin")
 		},
 		ModifyResponse: func(resp *http.Response) error {
