@@ -15,6 +15,7 @@
 package app
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"os"
@@ -169,28 +170,65 @@ func TestResolveSessionKeyPairs(t *testing.T) {
 		assert.Len(t, result[1], 32)
 	})
 
-	t.Run("errors on non-hex signing key", func(t *testing.T) {
+	t.Run("derives signing key when not hex", func(t *testing.T) {
 		cfg := newTestConfig()
-		cfg.Session.KeyPairs = []config.KeyPair{{SigningKey: "not-hex!", EncryptionKey: validEK}}
+		cfg.Session.KeyPairs = []config.KeyPair{{SigningKey: "my passphrase", EncryptionKey: validEK}}
 
-		_, err := resolveSessionKeyPairs(cfg)
-		assert.ErrorContains(t, err, "signing-key")
+		result, err := resolveSessionKeyPairs(cfg)
+		require.NoError(t, err)
+		require.Len(t, result, 2)
+		assert.Len(t, result[0], 32)
+
+		expected := sha256.Sum256([]byte("my passphrase"))
+		assert.Equal(t, expected[:], result[0])
 	})
 
-	t.Run("errors on non-hex encryption key", func(t *testing.T) {
+	t.Run("derives encryption key when not hex", func(t *testing.T) {
 		cfg := newTestConfig()
-		cfg.Session.KeyPairs = []config.KeyPair{{SigningKey: validSK, EncryptionKey: "not-hex!"}}
+		cfg.Session.KeyPairs = []config.KeyPair{{SigningKey: validSK, EncryptionKey: "another passphrase"}}
 
-		_, err := resolveSessionKeyPairs(cfg)
-		assert.ErrorContains(t, err, "encryption-key")
+		result, err := resolveSessionKeyPairs(cfg)
+		require.NoError(t, err)
+		require.Len(t, result, 2)
+		assert.Len(t, result[1], 32)
+
+		expected := sha256.Sum256([]byte("another passphrase"))
+		assert.Equal(t, expected[:], result[1])
 	})
 
-	t.Run("errors on invalid encryption key length", func(t *testing.T) {
+	t.Run("derives encryption key when hex but wrong length", func(t *testing.T) {
 		cfg := newTestConfig()
-		cfg.Session.KeyPairs = []config.KeyPair{{SigningKey: validSK, EncryptionKey: hex.EncodeToString(make([]byte, 10))}}
+		shortHex := hex.EncodeToString(make([]byte, 10))
+		cfg.Session.KeyPairs = []config.KeyPair{{SigningKey: validSK, EncryptionKey: shortHex}}
 
-		_, err := resolveSessionKeyPairs(cfg)
-		assert.ErrorContains(t, err, "encryption-key")
+		result, err := resolveSessionKeyPairs(cfg)
+		require.NoError(t, err)
+		require.Len(t, result, 2)
+		assert.Len(t, result[1], 32)
+
+		expected := sha256.Sum256([]byte(shortHex))
+		assert.Equal(t, expected[:], result[1])
+	})
+
+	t.Run("derivation is deterministic", func(t *testing.T) {
+		cfg := newTestConfig()
+		cfg.Session.KeyPairs = []config.KeyPair{{SigningKey: "passphrase-a", EncryptionKey: "passphrase-b"}}
+
+		r1, err := resolveSessionKeyPairs(cfg)
+		require.NoError(t, err)
+		r2, err := resolveSessionKeyPairs(cfg)
+		require.NoError(t, err)
+		assert.Equal(t, r1, r2)
+	})
+
+	t.Run("empty encryption key stays nil", func(t *testing.T) {
+		cfg := newTestConfig()
+		cfg.Session.KeyPairs = []config.KeyPair{{SigningKey: validSK, EncryptionKey: ""}}
+
+		result, err := resolveSessionKeyPairs(cfg)
+		require.NoError(t, err)
+		require.Len(t, result, 2)
+		assert.Nil(t, result[1])
 	})
 
 	t.Run("generates random pair for cluster env when no keys configured", func(t *testing.T) {

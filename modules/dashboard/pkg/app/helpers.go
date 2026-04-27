@@ -17,6 +17,7 @@ package app
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -24,6 +25,7 @@ import (
 	"path/filepath"
 	"time"
 
+	zlog "github.com/rs/zerolog/log"
 	authv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -109,17 +111,12 @@ func resolveSessionKeyPairs(cfg *config.Config) ([][]byte, error) {
 	}
 
 	result := make([][]byte, 0, len(pairs)*2)
-	for _, kp := range pairs {
-		sk, err := hex.DecodeString(kp.SigningKey)
-		if err != nil {
-			return nil, fmt.Errorf("session key-pair signing-key must be hex-encoded: %w", err)
-		}
-		ek, err := hex.DecodeString(kp.EncryptionKey)
-		if err != nil {
-			return nil, fmt.Errorf("session key-pair encryption-key must be hex-encoded: %w", err)
-		}
-		if !validAESKeySize(len(ek)) {
-			return nil, fmt.Errorf("session key-pair encryption-key must decode to 16, 24, or 32 bytes (got %d)", len(ek))
+	for i, kp := range pairs {
+		sk := decodeOrDeriveKey(kp.SigningKey, "signing-key", i, true)
+
+		var ek []byte
+		if kp.EncryptionKey != "" {
+			ek = decodeOrDeriveKey(kp.EncryptionKey, "encryption-key", i, false)
 		}
 		// gorilla/securecookie treats a non-nil block key as AES input, so an
 		// empty (but non-nil) slice would be rejected as an invalid AES key.
@@ -129,6 +126,25 @@ func resolveSessionKeyPairs(cfg *config.Config) ([][]byte, error) {
 		result = append(result, sk, ek)
 	}
 	return result, nil
+}
+
+// decodeOrDeriveKey returns hex-decoded bytes when input is valid hex of an
+// acceptable length; otherwise it derives a deterministic 32-byte key via
+// SHA-256 and logs a warning recommending the user switch to hex.
+// allowAnyLen controls whether non-AES lengths are accepted from hex input
+// (true for signing keys, false for encryption keys which must be 16/24/32).
+func decodeOrDeriveKey(input, label string, pairIndex int, allowAnyLen bool) []byte {
+	if decoded, err := hex.DecodeString(input); err == nil {
+		if allowAnyLen || validAESKeySize(len(decoded)) {
+			return decoded
+		}
+	}
+	sum := sha256.Sum256([]byte(input))
+	zlog.Warn().
+		Int("pairIndex", pairIndex).
+		Str("field", label).
+		Msgf("session key-pair %s is not valid hex; deriving 32-byte key via SHA-256. For best results, configure a hex-encoded key.", label)
+	return sum[:]
 }
 
 // persistedKeyPair is the on-disk representation of a key pair. It extends
