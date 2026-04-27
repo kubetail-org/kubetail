@@ -16,6 +16,7 @@ package graph
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"sync"
@@ -32,6 +33,15 @@ import (
 
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
+)
+
+type ctxKey int
+
+const (
+	// SessionCSRFTokenCtxKey is the request-context key for the dashboard
+	// session's CSRF token, forwarded by the dashboard reverse proxy and
+	// validated by the WebSocket InitFunc.
+	SessionCSRFTokenCtxKey ctxKey = iota
 )
 
 // Represents Server
@@ -83,6 +93,15 @@ func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.D
 			ReadBufferSize:    1024,
 			WriteBufferSize:   1024,
 			EnableCompression: false,
+		},
+		// No expected token means a bot/programmatic client (no proxy header);
+		// the upgrade-time Origin gate is the only check in that path.
+		InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
+			expected, _ := ctx.Value(SessionCSRFTokenCtxKey).(string)
+			if expected != "" && initPayload.GetString("csrfToken") != expected {
+				return ctx, nil, errors.New("invalid CSRF token")
+			}
+			return ctx, nil, nil
 		},
 		KeepAlivePingInterval: 10 * time.Second,
 	})

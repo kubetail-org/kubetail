@@ -20,9 +20,12 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/kubetail-org/kubetail/modules/shared/grpchelpers"
-	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/kubetail-org/kubetail/modules/cluster-api/graph"
+	"github.com/kubetail-org/kubetail/modules/shared/grpchelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/httphelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
 func TestAuthenticationMiddleware(t *testing.T) {
@@ -112,6 +115,43 @@ func TestAuthenticationMiddleware(t *testing.T) {
 			router.ServeHTTP(w, r)
 
 			// Check response
+			assert.Equal(t, http.StatusOK, w.Result().StatusCode)
+		})
+	}
+}
+
+func TestForwardedCSRFTokenMiddleware(t *testing.T) {
+	tests := []struct {
+		name      string
+		setHeader string
+		isUpgrade bool
+		wantValue any
+	}{
+		{"upgrade with header", "abc123", true, "abc123"},
+		{"upgrade without header", "", true, nil},
+		{"non-upgrade ignores header", "abc123", false, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := gin.New()
+			router.Use(forwardedCSRFTokenMiddleware)
+			router.GET("/", func(c *gin.Context) {
+				val := c.Request.Context().Value(graph.SessionCSRFTokenCtxKey)
+				assert.Equal(t, tt.wantValue, val)
+				c.String(http.StatusOK, "ok")
+			})
+
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest("GET", "/", nil)
+			if tt.isUpgrade {
+				r.Header.Set("Connection", "Upgrade")
+				r.Header.Set("Upgrade", "websocket")
+			}
+			if tt.setHeader != "" {
+				r.Header.Set(httphelpers.HeaderForwardedCSRFToken, tt.setHeader)
+			}
+			router.ServeHTTP(w, r)
 			assert.Equal(t, http.StatusOK, w.Result().StatusCode)
 		})
 	}

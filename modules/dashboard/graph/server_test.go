@@ -29,6 +29,17 @@ import (
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 )
 
+const testCSRFToken = "expected-csrf-token"
+
+// withSessionCSRFToken stands in for the gin middleware that injects the
+// session's expected CSRF token into the request context.
+func withSessionCSRFToken(h http.Handler, token string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), SessionCSRFTokenCtxKey, token)
+		h.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 func TestServerDrainWithContext_NoConnections(t *testing.T) {
 	cfg := config.DefaultConfig()
 	s := NewServer(cfg, nil)
@@ -80,6 +91,63 @@ func TestServerWebSocketCheckOrigin(t *testing.T) {
 			}
 			_, resp, _ := websocket.DefaultDialer.Dial(wsURL, header)
 			require.Equal(t, tt.wantStatus, resp.StatusCode)
+		})
+	}
+}
+
+func TestServerWebSocketCSRFInit(t *testing.T) {
+	cfg := config.DefaultConfig()
+	s := NewServer(cfg, nil)
+
+	client := testutils.NewWebTestClient(t, withSessionCSRFToken(s, testCSRFToken))
+	defer client.Teardown()
+
+	wsURL := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
+	dialer := websocket.Dialer{Subprotocols: []string{"graphql-transport-ws"}}
+
+	tests := []struct {
+		name    string
+		payload map[string]any
+		wantAck bool
+	}{
+		{
+			name:    "missing csrfToken is rejected",
+			payload: map[string]any{"type": "connection_init"},
+		},
+		{
+			name:    "wrong csrfToken is rejected",
+			payload: map[string]any{"type": "connection_init", "payload": map[string]any{"csrfToken": "bad"}},
+		},
+		{
+			name:    "matching csrfToken is accepted",
+			payload: map[string]any{"type": "connection_init", "payload": map[string]any{"csrfToken": testCSRFToken}},
+			wantAck: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conn, _, err := dialer.Dial(wsURL, http.Header{"Origin": []string{client.Server.URL}})
+			require.NoError(t, err)
+			defer conn.Close()
+
+			require.NoError(t, conn.WriteJSON(tt.payload))
+
+			conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+			var msg map[string]any
+			err = conn.ReadJSON(&msg)
+			if tt.wantAck {
+				require.NoError(t, err)
+				require.Equal(t, "connection_ack", msg["type"])
+				return
+			}
+			// Reject path: server may emit connection_error then close, or close directly — either way no ack.
+			if err == nil {
+				require.NotEqual(t, "connection_ack", msg["type"])
+				conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+				_, _, err = conn.ReadMessage()
+			}
+			require.Error(t, err)
 		})
 	}
 }
@@ -154,7 +222,7 @@ func TestServerNotifyShutdown_ClosesConnections(t *testing.T) {
 
 	s := NewServer(cfg, nil)
 
-	client := testutils.NewWebTestClient(t, s)
+	client := testutils.NewWebTestClient(t, withSessionCSRFToken(s, testCSRFToken))
 	defer client.Teardown()
 
 	// Dial WebSocket with graphql-transport-ws subprotocol
@@ -165,7 +233,7 @@ func TestServerNotifyShutdown_ClosesConnections(t *testing.T) {
 	defer conn.Close()
 
 	// Complete the graphql-transport-ws handshake
-	err = conn.WriteJSON(map[string]any{"type": "connection_init"})
+	err = conn.WriteJSON(map[string]any{"type": "connection_init", "payload": map[string]any{"csrfToken": testCSRFToken}})
 	require.NoError(t, err)
 
 	// Read connection_ack — confirms the WebSocket is fully established
@@ -194,7 +262,7 @@ func TestServerNotifyShutdown_ClosesMultipleConnections(t *testing.T) {
 
 	s := NewServer(cfg, nil)
 
-	client := testutils.NewWebTestClient(t, s)
+	client := testutils.NewWebTestClient(t, withSessionCSRFToken(s, testCSRFToken))
 	defer client.Teardown()
 
 	wsURL := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
@@ -209,7 +277,7 @@ func TestServerNotifyShutdown_ClosesMultipleConnections(t *testing.T) {
 		require.NoError(t, err)
 		defer conn.Close()
 
-		err = conn.WriteJSON(map[string]any{"type": "connection_init"})
+		err = conn.WriteJSON(map[string]any{"type": "connection_init", "payload": map[string]any{"csrfToken": testCSRFToken}})
 		require.NoError(t, err)
 
 		var msg map[string]any

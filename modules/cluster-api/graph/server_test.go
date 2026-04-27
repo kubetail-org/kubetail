@@ -82,6 +82,89 @@ func TestServerWebSocketCheckOrigin(t *testing.T) {
 	}
 }
 
+// withSessionCSRFToken stands in for the cluster-api middleware that copies
+// X-Forwarded-CSRF-Token from the upgrade request into the request context.
+func withSessionCSRFToken(h http.Handler, token string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), SessionCSRFTokenCtxKey, token)
+		h.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func TestServerWebSocketCSRFInit(t *testing.T) {
+	const expected = "expected-csrf-token"
+
+	tests := []struct {
+		name    string
+		ctxTok  string         // "" = bot path, no token in ctx
+		payload map[string]any // connection_init payload
+		wantAck bool
+	}{
+		{
+			name:    "bot path (no header) accepts empty payload",
+			payload: map[string]any{"type": "connection_init"},
+			wantAck: true,
+		},
+		{
+			name:    "bot path (no header) accepts any csrfToken",
+			payload: map[string]any{"type": "connection_init", "payload": map[string]any{"csrfToken": "anything"}},
+			wantAck: true,
+		},
+		{
+			name:    "browser path with matching csrfToken is accepted",
+			ctxTok:  expected,
+			payload: map[string]any{"type": "connection_init", "payload": map[string]any{"csrfToken": expected}},
+			wantAck: true,
+		},
+		{
+			name:    "browser path with wrong csrfToken is rejected",
+			ctxTok:  expected,
+			payload: map[string]any{"type": "connection_init", "payload": map[string]any{"csrfToken": "bad"}},
+		},
+		{
+			name:    "browser path with missing csrfToken is rejected",
+			ctxTok:  expected,
+			payload: map[string]any{"type": "connection_init"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewServer(nil, nil, []string{})
+			var handler http.Handler = s
+			if tt.ctxTok != "" {
+				handler = withSessionCSRFToken(s, tt.ctxTok)
+			}
+
+			client := testutils.NewWebTestClient(t, handler)
+			defer client.Teardown()
+
+			wsURL := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
+			dialer := websocket.Dialer{Subprotocols: []string{"graphql-transport-ws"}}
+			conn, _, err := dialer.Dial(wsURL, nil)
+			require.NoError(t, err)
+			defer conn.Close()
+
+			require.NoError(t, conn.WriteJSON(tt.payload))
+
+			conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+			var msg map[string]any
+			err = conn.ReadJSON(&msg)
+			if tt.wantAck {
+				require.NoError(t, err)
+				require.Equal(t, "connection_ack", msg["type"])
+				return
+			}
+			if err == nil {
+				require.NotEqual(t, "connection_ack", msg["type"])
+				conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+				_, _, err = conn.ReadMessage()
+			}
+			require.Error(t, err)
+		})
+	}
+}
+
 func TestServerWebSocketCompressionDisabled(t *testing.T) {
 	graphqlServer := NewServer(nil, nil, []string{})
 

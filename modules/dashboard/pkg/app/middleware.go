@@ -25,7 +25,10 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 
+	"github.com/kubetail-org/kubetail/modules/dashboard/graph"
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/shared/ginhelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/httphelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
@@ -76,6 +79,29 @@ func csrfProtectionMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		c.Next()
+	}
+}
+
+// websocketCSRFContextMiddleware places the session's CSRF token into the
+// request context (for the dashboard's WebSocket InitFunc) and stamps it as
+// X-Forwarded-CSRF-Token (for the cluster-api proxy to forward upstream).
+// Always strips any client-supplied X-Forwarded-CSRF-Token to prevent
+// header smuggling.
+func websocketCSRFContextMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Request.Header.Del(httphelpers.HeaderForwardedCSRFToken)
+
+		if !ginhelpers.IsWebSocketRequest(c) {
+			c.Next()
+			return
+		}
+		session := sessions.Default(c)
+		if tok, ok := session.Get(csrfTokenSessionKey).(string); ok && tok != "" {
+			ctx := context.WithValue(c.Request.Context(), graph.SessionCSRFTokenCtxKey, tok)
+			c.Request = c.Request.WithContext(ctx)
+			c.Request.Header.Set(httphelpers.HeaderForwardedCSRFToken, tok)
+		}
 		c.Next()
 	}
 }

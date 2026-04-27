@@ -22,6 +22,11 @@ import (
 	"strings"
 )
 
+// HeaderForwardedCSRFToken is the request header used to forward a
+// dashboard-session-bound CSRF token from the dashboard reverse proxy to
+// the cluster-api server, where it gates the GraphQL WebSocket InitFunc.
+const HeaderForwardedCSRFToken = "X-Forwarded-CSRF-Token"
+
 // IsSameOrigin reports whether r's Origin header is present and matches
 // the request's scheme and host (per the WebSocket spec's same-origin
 // rule). A missing Origin returns false.

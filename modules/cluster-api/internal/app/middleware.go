@@ -21,7 +21,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/kubetail-org/kubetail/modules/cluster-api/graph"
+	"github.com/kubetail-org/kubetail/modules/shared/ginhelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/grpchelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/httphelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
@@ -56,6 +59,21 @@ func authenticationMiddleware(c *gin.Context) {
 	}
 
 	// Continue
+	c.Next()
+}
+
+// forwardedCSRFTokenMiddleware copies X-Forwarded-CSRF-Token (set by the
+// dashboard reverse proxy when forwarding browser upgrades) into the request
+// context so the GraphQL WebSocket InitFunc can validate connection_init.
+func forwardedCSRFTokenMiddleware(c *gin.Context) {
+	if !ginhelpers.IsWebSocketRequest(c) {
+		c.Next()
+		return
+	}
+	if tok := c.GetHeader(httphelpers.HeaderForwardedCSRFToken); tok != "" {
+		ctx := context.WithValue(c.Request.Context(), graph.SessionCSRFTokenCtxKey, tok)
+		c.Request = c.Request.WithContext(ctx)
+	}
 	c.Next()
 }
 

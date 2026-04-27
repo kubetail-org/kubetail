@@ -103,6 +103,10 @@ const wsClientOptions = (basepath: string): ClientOptions => ({
   retryAttempts: Infinity,
   shouldRetry: () => true,
   retryWait: createRetryWait(basepath),
+  connectionParams: async () => {
+    await waitForCsrfToken();
+    return { csrfToken: getCsrfToken() };
+  },
 });
 
 const errorLink = new ErrorLink(({ error }) => {

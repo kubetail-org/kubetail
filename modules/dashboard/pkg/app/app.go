@@ -203,6 +203,8 @@ func NewApp(cfg *config.Config) (*App, error) {
 			// Add K8S auth middleware
 			protectedRoutes.Use(k8sAuthenticationMiddleware(cfg.AuthMode))
 
+			protectedRoutes.Use(websocketCSRFContextMiddleware())
+
 			// GraphQL endpoint
 			app.graphqlServer = graph.NewServer(cfg, app.cm)
 			protectedRoutes.Any("/graphql", gin.WrapH(app.graphqlServer))

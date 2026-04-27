@@ -16,6 +16,7 @@ package graph
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"sync"
 	"time"
@@ -35,6 +36,15 @@ import (
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/preferences"
+)
+
+// ctxKey is a private type for keys defined in this package.
+type ctxKey int
+
+const (
+	// SessionCSRFTokenCtxKey is the request-context key for the session's
+	// expected CSRF token, validated by the WebSocket InitFunc.
+	SessionCSRFTokenCtxKey ctxKey = iota
 )
 
 // Represents Server
@@ -82,13 +92,21 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 	// Configure WebSocket. The app-level Sec-Fetch-Site CSRF middleware does
 	// not gate WebSocket upgrades (safe methods are skipped, since Chrome
 	// does not send Sec-Fetch-Site on upgrade requests), so CSWSH defense
-	// happens here via a same-origin Origin check.
+	// happens here in two layers: a same-origin Origin check at upgrade time,
+	// and a CSRF-token check in the connection_init payload.
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin:       httphelpers.IsSameOrigin,
 			ReadBufferSize:    1024,
 			WriteBufferSize:   1024,
 			EnableCompression: false,
+		},
+		InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
+			expected, _ := ctx.Value(SessionCSRFTokenCtxKey).(string)
+			if expected == "" || initPayload.GetString("csrfToken") != expected {
+				return ctx, nil, errors.New("invalid CSRF token")
+			}
+			return ctx, nil, nil
 		},
 		KeepAlivePingInterval: 10 * time.Second,
 	})

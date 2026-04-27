@@ -127,7 +127,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 
 		// GraphQL endpoint
 		app.graphqlServer = graph.NewServer(app.cm, app.grpcDispatcher, cfg.AllowedNamespaces)
-		dynamicRoutes.Any("/graphql", gin.WrapH(app.graphqlServer))
+		dynamicRoutes.Any("/graphql", forwardedCSRFTokenMiddleware, gin.WrapH(app.graphqlServer))
 
 		// Log download endpoint
 		dl := newDownloadHandlers(app.cm, app.grpcDispatcher, cfg.AllowedNamespaces)

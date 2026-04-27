@@ -24,7 +24,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/kubetail-org/kubetail/modules/dashboard/graph"
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/shared/httphelpers"
 )
 
 func TestAuthenticationMiddleware(t *testing.T) {
@@ -301,6 +303,98 @@ func TestK8sTokenRequiredMiddleware(t *testing.T) {
 			resp := w.Result()
 			assert.Equal(t, "no-store", resp.Header["Cache-Control"][0])
 			assert.Equal(t, tt.wantStatusCode, resp.StatusCode)
+		})
+	}
+}
+
+func TestWebSocketCSRFContextMiddleware(t *testing.T) {
+	const sessTok = "session-csrf-token"
+
+	tests := []struct {
+		name          string
+		hasSession    bool
+		isUpgrade     bool
+		clientHeader  string // value sent by client; "" = absent
+		wantCtxValue  any
+		wantOutHeader string
+	}{
+		{
+			name:          "WS upgrade with session: ctx and header set from session",
+			hasSession:    true,
+			isUpgrade:     true,
+			wantCtxValue:  sessTok,
+			wantOutHeader: sessTok,
+		},
+		{
+			name:         "non-WS request leaves ctx and header unset even with session",
+			hasSession:   true,
+			isUpgrade:    false,
+			wantCtxValue: nil,
+		},
+		{
+			name:         "WS upgrade without session leaves ctx and header unset",
+			isUpgrade:    true,
+			wantCtxValue: nil,
+		},
+		{
+			name:         "client-supplied X-Forwarded-CSRF-Token is stripped (no session)",
+			isUpgrade:    true,
+			clientHeader: "spoofed",
+			wantCtxValue: nil,
+		},
+		{
+			name:          "client-supplied X-Forwarded-CSRF-Token is overwritten (with session)",
+			hasSession:    true,
+			isUpgrade:     true,
+			clientHeader:  "spoofed",
+			wantCtxValue:  sessTok,
+			wantOutHeader: sessTok,
+		},
+		{
+			name:         "non-WS request strips client-supplied X-Forwarded-CSRF-Token",
+			isUpgrade:    false,
+			clientHeader: "spoofed",
+			wantCtxValue: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := gin.New()
+			router.Use(sessions.Sessions("session", cookie.NewStore([]byte("xx"))))
+			router.Use(func(c *gin.Context) {
+				if tt.hasSession {
+					session := sessions.Default(c)
+					session.Set(csrfTokenSessionKey, sessTok)
+					session.Save()
+				}
+				c.Next()
+			})
+			router.Use(websocketCSRFContextMiddleware())
+
+			var (
+				gotCtxValue  any
+				gotOutHeader string
+			)
+			router.GET("/", func(c *gin.Context) {
+				gotCtxValue = c.Request.Context().Value(graph.SessionCSRFTokenCtxKey)
+				gotOutHeader = c.Request.Header.Get(httphelpers.HeaderForwardedCSRFToken)
+				c.String(http.StatusOK, "ok")
+			})
+
+			r := httptest.NewRequest("GET", "/", nil)
+			if tt.isUpgrade {
+				r.Header.Set("Connection", "Upgrade")
+				r.Header.Set("Upgrade", "websocket")
+			}
+			if tt.clientHeader != "" {
+				r.Header.Set(httphelpers.HeaderForwardedCSRFToken, tt.clientHeader)
+			}
+
+			router.ServeHTTP(httptest.NewRecorder(), r)
+
+			assert.Equal(t, tt.wantCtxValue, gotCtxValue)
+			assert.Equal(t, tt.wantOutHeader, gotOutHeader)
 		})
 	}
 }
