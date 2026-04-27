@@ -19,18 +19,17 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
-	"github.com/kubetail-org/kubetail/modules/shared/testutils"
 )
 
 func TestRequestID(t *testing.T) {
@@ -172,169 +171,35 @@ func TestHealthz(t *testing.T) {
 	assert.Equal(t, "{\"status\":\"ok\"}", w.Body.String())
 }
 
-func TestCSRFProtectionOnDynamicRoutes(t *testing.T) {
-	tests := []struct {
-		name            string
-		method          string
-		path            string
-		setSecFetchSite string
-		wantForbidden   bool
-	}{
-		// CSRF only applies to unsafe methods. Safe-method routes
-		// (GraphQL queries via GET, /api/auth/session) bypass the check;
-		// SOP and same-origin WS gating cover those paths.
-		{
-			"graphql GET cross-site is allowed",
-			"GET",
-			"/graphql",
-			"cross-site",
-			false,
-		},
-		{
-			"graphql GET allows same-origin",
-			"GET",
-			"/graphql",
-			"same-origin",
-			false,
-		},
-		{
-			"graphql GET non-browser is allowed",
-			"GET",
-			"/graphql",
-			"",
-			false,
-		},
-		{
-			"login blocks cross-site",
-			"POST",
-			"/api/auth/login",
-			"cross-site",
-			true,
-		},
-		{
-			"login allows same-origin",
-			"POST",
-			"/api/auth/login",
-			"same-origin",
-			false,
-		},
-		{
-			"logout blocks cross-site",
-			"POST",
-			"/api/auth/logout",
-			"cross-site",
-			true,
-		},
-		{
-			"session GET cross-site is allowed",
-			"GET",
-			"/api/auth/session",
-			"cross-site",
-			false,
-		},
-		{
-			"session allows same-origin",
-			"GET",
-			"/api/auth/session",
-			"same-origin",
-			false,
-		},
-		{
-			"download blocks cross-site",
-			"POST",
-			"/api/v1/download",
-			"cross-site",
-			true,
-		},
-		{
-			"download blocks non-browser",
-			"POST",
-			"/api/v1/download",
-			"",
-			true,
-		},
-		{
-			"download allows same-origin",
-			"POST",
-			"/api/v1/download",
-			"same-origin",
-			false,
-		},
-		{
-			"healthz ignores header (outside dynamic routes)",
-			"GET",
-			"/healthz",
-			"cross-site",
-			false,
-		},
+func handlerChainContains(chain gin.HandlersChain, fnName string) bool {
+	for _, h := range chain {
+		name := runtime.FuncForPC(reflect.ValueOf(h).Pointer()).Name()
+		if strings.Contains(name, fnName) {
+			return true
+		}
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			app := newTestApp(nil)
-
-			w := httptest.NewRecorder()
-			r := httptest.NewRequest(tt.method, tt.path, nil)
-			if tt.setSecFetchSite != "" {
-				r.Header.Set("Sec-Fetch-Site", tt.setSecFetchSite)
-			}
-			app.ServeHTTP(w, r)
-
-			if tt.wantForbidden {
-				assert.Equal(t, http.StatusForbidden, w.Result().StatusCode)
-			} else {
-				assert.NotEqual(t, http.StatusForbidden, w.Result().StatusCode)
-			}
-		})
-	}
+	return false
 }
 
-func TestWebSocketUpgradeBypassesCSRF(t *testing.T) {
-	// CSRF middleware skips safe methods, so a WebSocket upgrade (GET) is
-	// not subject to Sec-Fetch-Site — Chrome doesn't send it on upgrades.
-	// Authorization is handled by the WebSocket same-origin gate instead.
-	tests := []struct {
-		name            string
-		setSecFetchSite string
-	}{
-		{"missing Sec-Fetch-Site upgrades", ""},
-		{"cross-site Sec-Fetch-Site upgrades", "cross-site"},
-		{"same-origin Sec-Fetch-Site upgrades", "same-origin"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			app := newTestApp(nil)
-
-			client := testutils.NewWebTestClient(t, app)
-			defer client.Teardown()
-
-			header := http.Header{}
-			if tt.setSecFetchSite != "" {
-				header.Set("Sec-Fetch-Site", tt.setSecFetchSite)
-			}
-			// Same-origin Origin to satisfy the WebSocket same-origin gate.
-			header.Set("Origin", client.Server.URL)
-
-			u := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
-			_, resp, _ := websocket.DefaultDialer.Dial(u, header)
-			require.NotNil(t, resp)
-			require.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
-		})
-	}
+func TestCSRFProtectionAppliedToDynamicRoutes(t *testing.T) {
+	app := newTestApp(nil)
+	assert.True(t,
+		handlerChainContains(app.dynamicRoutes.Handlers, "csrfProtectionMiddleware"),
+		"csrfProtectionMiddleware not found in dynamic-route handler chain")
 }
 
-func TestDownloadRequiresAuthInTokenMode(t *testing.T) {
-	cfg := newTestConfig()
-	cfg.AuthMode = config.AuthModeToken
-	app := newTestApp(cfg)
+func TestAuthenticationMiddlewareAppliedToDynamicRoutes(t *testing.T) {
+	app := newTestApp(nil)
+	assert.True(t,
+		handlerChainContains(app.dynamicRoutes.Handlers, "authenticationMiddleware"),
+		"authenticationMiddleware not found in dynamic-route handler chain")
+}
 
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "/api/v1/download", nil)
-	r.Header.Set("Sec-Fetch-Site", "same-origin")
-	app.ServeHTTP(w, r)
-
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
+func TestK8sAuthenticationAppliedToProtectedRoutes(t *testing.T) {
+	app := newTestApp(nil)
+	assert.True(t,
+		handlerChainContains(app.protectedRoutes.Handlers, "k8sAuthenticationMiddleware"),
+		"k8sAuthenticationMiddleware not found in protected-route handler chain")
 }
 
 func TestClusterAPIProxyRouteWithBasePath(t *testing.T) {

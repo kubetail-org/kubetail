@@ -25,7 +25,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
+	"github.com/kubetail-org/kubetail/modules/shared/testutils"
 )
 
 // fakeStreamer emits a pre-populated slice of LogRecords through the Records
@@ -189,4 +191,35 @@ func TestDownloadResponseHeaders(t *testing.T) {
 	cd := w.Header().Get("Content-Disposition")
 	assert.True(t, strings.HasPrefix(cd, `attachment; filename="logs-`), "Content-Disposition: %q", cd)
 	assert.True(t, strings.HasSuffix(cd, `.tsv"`), "Content-Disposition: %q", cd)
+}
+
+// Behavioral check: the download endpoint is mounted under protectedRoutes,
+// so requests without a CSRF token are blocked at the dynamic-route gate.
+func TestDownloadPOSTRequiresCSRFToken(t *testing.T) {
+	app := newTestApp(nil)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/api/v1/download", nil)
+	r.Header.Set("Sec-Fetch-Site", "same-origin")
+	app.ServeHTTP(w, r)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+// Behavioral check: in token mode, a request without a session token is
+// rejected by k8sAuthenticationMiddleware on the protected-route group.
+func TestDownloadPOSTRequiresAuthInTokenMode(t *testing.T) {
+	cfg := newTestConfig()
+	cfg.AuthMode = config.AuthModeToken
+	app := newTestApp(cfg)
+	client := testutils.NewWebTestClient(t, app)
+	defer client.Teardown()
+
+	// Prime the CSRF token so the POST reaches the auth check.
+	client.Get("/api/auth/session")
+
+	req := client.NewRequest("POST", "/api/v1/download", nil)
+	resp := client.Do(req)
+
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }

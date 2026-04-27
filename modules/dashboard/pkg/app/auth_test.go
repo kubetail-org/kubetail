@@ -17,11 +17,14 @@ package app
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	authv1 "k8s.io/api/authentication/v1"
 	"k8s.io/utils/ptr"
@@ -49,6 +52,9 @@ func (suite *authTestSuite) SetupTest() {
 	// Init client
 	client := testutils.NewWebTestClient(suite.T(), app)
 
+	// Prime the CSRF token so that subsequent unsafe-method requests include it.
+	client.Get("/api/auth/session")
+
 	// Save
 	suite.app = app
 	suite.client = client
@@ -72,6 +78,19 @@ func (suite *authTestSuite) TestLoginPOSTFormErrors() {
 	// check result
 	suite.Equal(http.StatusUnprocessableEntity, resp.StatusCode)
 	suite.Contains(string(resp.Body), "Please enter your token")
+}
+
+// Behavioral check: an unsafe-method auth route is gated by the CSRF
+// middleware. Mirrors the protected-route behavioral coverage in download_test.go.
+func TestLoginPOSTRequiresCSRFToken(t *testing.T) {
+	app := newTestApp(nil)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/api/auth/login", nil)
+	r.Header.Set("Sec-Fetch-Site", "same-origin")
+	app.ServeHTTP(w, r)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
 func (suite *authTestSuite) TestLoginPOSTSuccess() {
@@ -230,4 +249,25 @@ func (suite *authTestSuite) TestSessionGET() {
 			client.Teardown()
 		})
 	}
+}
+
+func TestSessionGETCSRFToken(t *testing.T) {
+	app := newTestApp(nil)
+
+	t.Run("GET /api/auth/session returns non-empty X-CSRF-Token header", func(t *testing.T) {
+		client := testutils.NewWebTestClient(t, app)
+		defer client.Teardown()
+		resp := client.Get("/api/auth/session")
+		assert.NotEmpty(t, resp.Header.Get("X-CSRF-Token"))
+	})
+
+	t.Run("repeated GET /api/auth/session returns the same token", func(t *testing.T) {
+		client := testutils.NewWebTestClient(t, app)
+		defer client.Teardown()
+		resp1 := client.Get("/api/auth/session")
+		resp2 := client.Get("/api/auth/session")
+		token1 := resp1.Header.Get("X-CSRF-Token")
+		require.NotEmpty(t, token1)
+		assert.Equal(t, token1, resp2.Header.Get("X-CSRF-Token"))
+	})
 }

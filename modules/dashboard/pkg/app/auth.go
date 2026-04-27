@@ -95,6 +95,16 @@ func (app *authHandlers) LogoutPOST(c *gin.Context) {
 func (app *authHandlers) SessionGET(c *gin.Context) {
 	authMode := app.config.AuthMode
 
+	session := sessions.Default(c)
+	token, isNew := getOrCreateCSRFToken(session)
+	if isNew {
+		if err := session.Save(); err != nil {
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	c.Header("X-CSRF-Token", token)
+
 	response := gin.H{
 		"auth_mode": authMode,
 		"user":      nil,

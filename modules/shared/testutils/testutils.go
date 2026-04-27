@@ -20,6 +20,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -44,6 +45,7 @@ type WebTestClient struct {
 	httpclient *http.Client
 	baseURL    string
 	t          *testing.T
+	csrfToken  string
 }
 
 // Execute GET request
@@ -71,6 +73,8 @@ func (c *WebTestClient) PostForm(url string, form url.Values) WebTestResponse {
 	return c.Do(req)
 }
 
+var csrfSafeMethods = []string{http.MethodGet, http.MethodHead, http.MethodOptions}
+
 // Execute request
 func (c *WebTestClient) Do(req *http.Request) WebTestResponse {
 	// Default to same-origin so CSRF middleware treats this as a legitimate
@@ -79,10 +83,19 @@ func (c *WebTestClient) Do(req *http.Request) WebTestResponse {
 		req.Header.Set("Sec-Fetch-Site", "same-origin")
 	}
 
+	// Auto-inject the CSRF token on unsafe methods so callers don't manage it.
+	if !slices.Contains(csrfSafeMethods, req.Method) && c.csrfToken != "" && req.Header.Get("X-CSRF-Token") == "" {
+		req.Header.Set("X-CSRF-Token", c.csrfToken)
+	}
+
 	// execute request
 	resp, err := c.httpclient.Do(req)
 	if err != nil {
 		c.t.Fatal(err)
+	}
+
+	if tok := resp.Header.Get("X-CSRF-Token"); tok != "" {
+		c.csrfToken = tok
 	}
 
 	// read body

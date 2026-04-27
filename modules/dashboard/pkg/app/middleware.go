@@ -16,6 +16,8 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"net/http"
 	"slices"
 	"strings"
@@ -37,6 +39,22 @@ var allowedSecFetchSite = []string{"same-origin"}
 // handles instead).
 var safeMethods = []string{http.MethodGet, http.MethodHead, http.MethodOptions}
 
+// getOrCreateCSRFToken returns the session's CSRF token, generating and
+// persisting a new one if none exists yet.
+func getOrCreateCSRFToken(session sessions.Session) (token string, isNew bool) {
+	if val, ok := session.Get(csrfTokenSessionKey).(string); ok && val != "" {
+		return val, false
+	}
+
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	token = hex.EncodeToString(b)
+	session.Set(csrfTokenSessionKey, token)
+	return token, true
+}
+
 func csrfProtectionMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if slices.Contains(safeMethods, c.Request.Method) {
@@ -44,7 +62,16 @@ func csrfProtectionMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// Layer 1: Sec-Fetch-Site check
 		if !slices.Contains(allowedSecFetchSite, c.GetHeader("Sec-Fetch-Site")) {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+
+		// Layer 2: CSRF token check
+		session := sessions.Default(c)
+		token, _ := session.Get(csrfTokenSessionKey).(string)
+		if token == "" || c.GetHeader("X-CSRF-Token") != token {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}

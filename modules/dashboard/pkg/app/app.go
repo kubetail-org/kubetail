@@ -49,7 +49,8 @@ type App struct {
 	queryHelpers    queryHelpers
 
 	// for testing
-	dynamicRoutes *gin.RouterGroup
+	dynamicRoutes   *gin.RouterGroup
+	protectedRoutes *gin.RouterGroup
 }
 
 // NotifyShutdown signals active connections to begin closing.
@@ -209,6 +210,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 			dl := newDownloadHandlers(app)
 			protectedRoutes.POST("/api/v1/download", dl.DownloadPOST)
 		}
+		app.protectedRoutes = protectedRoutes
 	}
 	app.dynamicRoutes = dynamicRoutes
 

@@ -32,6 +32,8 @@ const k8sTokenSessionKey = "k8sToken"
 
 const k8sTokenGinKey = "k8sToken"
 
+const csrfTokenSessionKey = "csrfToken"
+
 // newClusterAPIProxy
 func newClusterAPIProxy(cfg *config.Config, cm k8shelpers.ConnectionManager, pathPrefix string) (clusterapi.Proxy, error) {
 	// Initialize new ClusterAPI proxy depending on environment

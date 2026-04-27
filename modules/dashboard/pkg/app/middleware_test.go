@@ -120,41 +120,139 @@ func TestAuthenticationMiddlewareRejectsWhitespaceToken(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Result().StatusCode)
 }
 
-func TestCSRFProtectionMiddleware(t *testing.T) {
+const csrfPreseededToken = "testtokenvalue1234"
+
+// runCSRFCase executes one CSRF middleware test case and returns the response.
+func runCSRFCase(t *testing.T, method string, header http.Header, seedToken bool) *http.Response {
+	t.Helper()
+
+	store := cookie.NewStore([]byte("secret"))
+	store.Options(sessions.Options{Path: "/", Secure: false})
+
+	router := gin.New()
+	router.Use(sessions.Sessions("session", store))
+	if seedToken {
+		router.Use(func(c *gin.Context) {
+			session := sessions.Default(c)
+			session.Set(csrfTokenSessionKey, csrfPreseededToken)
+			session.Save()
+			c.Next()
+		})
+	}
+	router.Use(csrfProtectionMiddleware())
+	router.Any("/", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(method, "/", nil)
+	for k, v := range header {
+		r.Header[k] = v
+	}
+	router.ServeHTTP(w, r)
+	return w.Result()
+}
+
+func TestCSRFProtectionMiddlewareAllows(t *testing.T) {
 	tests := []struct {
-		name           string
-		method         string
-		setHeader      http.Header
-		wantStatusCode int
+		name      string
+		method    string
+		setHeader http.Header
+		seedToken bool
 	}{
 		// Safe methods bypass the check (no state change to protect).
-		{"GET without Sec-Fetch-Site is allowed", "GET", http.Header{}, http.StatusOK},
-		{"GET cross-site is allowed", "GET", http.Header{"Sec-Fetch-Site": []string{"cross-site"}}, http.StatusOK},
-		{"HEAD without Sec-Fetch-Site is allowed", "HEAD", http.Header{}, http.StatusOK},
-		{"OPTIONS without Sec-Fetch-Site is allowed", "OPTIONS", http.Header{}, http.StatusOK},
-		// Unsafe methods enforce same-origin Sec-Fetch-Site.
-		{"POST without Sec-Fetch-Site is blocked", "POST", http.Header{}, http.StatusForbidden},
-		{"POST same-origin is allowed", "POST", http.Header{"Sec-Fetch-Site": []string{"same-origin"}}, http.StatusOK},
-		{"POST cross-site is blocked", "POST", http.Header{"Sec-Fetch-Site": []string{"cross-site"}}, http.StatusForbidden},
-		{"DELETE cross-site is blocked", "DELETE", http.Header{"Sec-Fetch-Site": []string{"cross-site"}}, http.StatusForbidden},
+		{
+			name:      "GET without Sec-Fetch-Site",
+			method:    "GET",
+			setHeader: http.Header{},
+			seedToken: false,
+		},
+		{
+			name:      "GET cross-site",
+			method:    "GET",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"cross-site"}},
+			seedToken: false,
+		},
+		{
+			name:      "HEAD without Sec-Fetch-Site",
+			method:    "HEAD",
+			setHeader: http.Header{},
+			seedToken: false,
+		},
+		{
+			name:      "OPTIONS without Sec-Fetch-Site",
+			method:    "OPTIONS",
+			setHeader: http.Header{},
+			seedToken: false,
+		},
+		// Unsafe same-origin requests with a valid CSRF token are allowed.
+		{
+			name:      "POST same-origin with correct X-CSRF-Token",
+			method:    "POST",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"same-origin"}, "X-Csrf-Token": []string{csrfPreseededToken}},
+			seedToken: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := gin.New()
-			router.Use(csrfProtectionMiddleware())
-			router.Any("/", func(c *gin.Context) {
-				c.String(http.StatusOK, "ok")
-			})
+			resp := runCSRFCase(t, tt.method, tt.setHeader, tt.seedToken)
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+		})
+	}
+}
 
-			w := httptest.NewRecorder()
-			r := httptest.NewRequest(tt.method, "/", nil)
-			for k, v := range tt.setHeader {
-				r.Header[k] = v
-			}
-			router.ServeHTTP(w, r)
+func TestCSRFProtectionMiddlewareForbids(t *testing.T) {
+	tests := []struct {
+		name      string
+		method    string
+		setHeader http.Header
+		seedToken bool
+	}{
+		// Unsafe methods require same-origin Sec-Fetch-Site.
+		{
+			name:      "POST without Sec-Fetch-Site",
+			method:    "POST",
+			setHeader: http.Header{},
+			seedToken: false,
+		},
+		{
+			name:      "POST cross-site",
+			method:    "POST",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"cross-site"}},
+			seedToken: false,
+		},
+		{
+			name:      "DELETE cross-site",
+			method:    "DELETE",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"cross-site"}},
+			seedToken: false,
+		},
+		// Unsafe same-origin requests still require a valid CSRF token.
+		{
+			name:      "POST same-origin without session token",
+			method:    "POST",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"same-origin"}},
+			seedToken: false,
+		},
+		{
+			name:      "POST same-origin with no X-CSRF-Token header",
+			method:    "POST",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"same-origin"}},
+			seedToken: true,
+		},
+		{
+			name:      "POST same-origin with wrong X-CSRF-Token",
+			method:    "POST",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"same-origin"}, "X-Csrf-Token": []string{"wrongtoken"}},
+			seedToken: true,
+		},
+	}
 
-			assert.Equal(t, tt.wantStatusCode, w.Result().StatusCode)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := runCSRFCase(t, tt.method, tt.setHeader, tt.seedToken)
+			assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 		})
 	}
 }
