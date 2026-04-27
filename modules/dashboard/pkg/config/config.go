@@ -90,7 +90,7 @@ type Config struct {
 			SameSite http.SameSite `mapstructure:"same-site"`
 		}
 
-		KeyPairs []KeyPair `mapstructure:"key-pairs" validate:"required,min=1,dive"`
+		KeyPairs []KeyPair `mapstructure:"key-pairs" validate:"dive"`
 	}
 
 	// TLS options

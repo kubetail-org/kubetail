@@ -31,10 +31,6 @@ export type Session = {
  * Get CSRF token
  */
 let csrfToken = '';
-let resolveTokenReady: (() => void) | null = null;
-let tokenReadyPromise = new Promise<void>((r) => {
-  resolveTokenReady = r;
-});
 let pendingTokenRefresh: Promise<void> | null = null;
 
 export function getCsrfToken(): string {
@@ -56,11 +52,7 @@ export async function getSession(): Promise<Session> {
   const resp = await fetch(url, { cache: 'no-store' });
 
   const tok = resp.headers.get('X-CSRF-Token');
-  if (tok) {
-    csrfToken = tok;
-    resolveTokenReady?.();
-    resolveTokenReady = null;
-  }
+  if (tok) csrfToken = tok;
 
   const sess = await resp.json();
 
@@ -74,25 +66,21 @@ export async function getSession(): Promise<Session> {
 }
 
 export function resetCsrfToken(): void {
-  if (csrfToken) {
-    csrfToken = '';
-    tokenReadyPromise = new Promise<void>((r) => {
-      resolveTokenReady = r;
-    });
-  }
-  if (!pendingTokenRefresh) {
-    pendingTokenRefresh = getSession()
-      .then(() => {})
-      .catch(() => {})
-      .finally(() => {
-        pendingTokenRefresh = null;
-      });
-  }
+  csrfToken = '';
 }
 
 export function waitForCsrfToken(): Promise<void> {
   if (csrfToken) return Promise.resolve();
-  return tokenReadyPromise;
+  if (!pendingTokenRefresh) {
+    pendingTokenRefresh = getSession()
+      .then(() => {
+        if (!csrfToken) throw new Error('CSRF token missing from session response');
+      })
+      .finally(() => {
+        pendingTokenRefresh = null;
+      });
+  }
+  return pendingTokenRefresh;
 }
 
 /**

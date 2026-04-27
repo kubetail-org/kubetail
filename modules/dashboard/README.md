@@ -39,7 +39,7 @@ The Kubetail Dashboard server can be configured using a configuration file writt
 | dashboard.logging.format                        | string   | Log format (json, pretty)                            | "json"       | stable       |
 | dashboard.logging.access-log.enabled            | bool     | Enable access log                                    | true         | stable       |
 | dashboard.logging.access-log.hide-health-checks | bool     | Hide requests to /healthz from access log            | false        | stable       |
-| dashboard.session.secret                        | string   | Session hash key                                     | ""           | stable       |
+| dashboard.session.key-pairs                     | []object | Session cookie signing/encryption key pairs (hex)    | []           | stable       |
 | dashboard.session.cookie.name                   | string   | Session cookie name                                  | "session"    | stable       |
 | dashboard.session.cookie.path                   | string   | Session cookie path                                  | "/"          | stable       |
 | dashboard.session.cookie.domain                 | string   | Session cookie domain                                | ""           | stable       |

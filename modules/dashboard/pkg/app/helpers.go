@@ -121,6 +121,11 @@ func resolveSessionKeyPairs(cfg *config.Config) ([][]byte, error) {
 		if !validAESKeySize(len(ek)) {
 			return nil, fmt.Errorf("session key-pair encryption-key must decode to 16, 24, or 32 bytes (got %d)", len(ek))
 		}
+		// gorilla/securecookie treats a non-nil block key as AES input, so an
+		// empty (but non-nil) slice would be rejected as an invalid AES key.
+		if len(ek) == 0 {
+			ek = nil
+		}
 		result = append(result, sk, ek)
 	}
 	return result, nil
