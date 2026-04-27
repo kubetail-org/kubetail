@@ -50,7 +50,7 @@ func IsSameOrigin(r *http.Request) bool {
 		return false
 	}
 	originHost, originPort := splitHostPort(u.Host, u.Scheme)
-	reqHost, reqPort := splitHostPort(r.Host, scheme)
+	reqHost, reqPort := splitHostPort(requestHost(r), scheme)
 	return strings.EqualFold(originHost, reqHost) && originPort == reqPort
 }
 
@@ -79,6 +79,44 @@ func defaultPort(scheme string) string {
 	return ""
 }
 
+// requestHost returns the effective host for r. X-Forwarded-Host is checked
+// first (most widely deployed), then the RFC 7239 Forwarded header's host
+// directive, then r.Host.
+func requestHost(r *http.Request) string {
+	if xfh := r.Header.Get("X-Forwarded-Host"); xfh != "" {
+		return firstCommaValue(xfh)
+	}
+	if fwd := r.Header.Get("Forwarded"); fwd != "" {
+		if host := parseForwardedHost(firstCommaValue(fwd)); host != "" {
+			return host
+		}
+	}
+	return r.Host
+}
+
+// parseForwardedHost extracts the host directive from a single RFC 7239
+// forwarded-element (semicolon-separated key=value pairs).
+func parseForwardedHost(elem string) string {
+	for elem != "" {
+		var part string
+		if before, after, ok := strings.Cut(elem, ";"); ok {
+			part, elem = before, after
+		} else {
+			part, elem = elem, ""
+		}
+		k, v, ok := strings.Cut(strings.TrimSpace(part), "=")
+		if !ok || !strings.EqualFold(k, "host") {
+			continue
+		}
+		v = strings.TrimSpace(v)
+		if len(v) >= 2 && v[0] == '"' && v[len(v)-1] == '"' {
+			v = v[1 : len(v)-1]
+		}
+		return v
+	}
+	return ""
+}
+
 // requestScheme returns the scheme the client used to reach r, accounting
 // for TLS terminated at this process (r.TLS) or upstream (X-Forwarded-Proto
 // set by a trusted reverse proxy). Defaults to "http". Browsers cannot
@@ -89,10 +127,16 @@ func requestScheme(r *http.Request) string {
 		return "https"
 	}
 	if p := r.Header.Get("X-Forwarded-Proto"); p != "" {
-		if i := strings.IndexByte(p, ','); i >= 0 {
-			p = p[:i]
-		}
-		return strings.ToLower(strings.TrimSpace(p))
+		return strings.ToLower(firstCommaValue(p))
 	}
 	return "http"
+}
+
+// firstCommaValue returns the first comma-separated element of s, trimmed.
+// Handles the common proxy convention of comma-joining repeated header values.
+func firstCommaValue(s string) string {
+	if i := strings.IndexByte(s, ','); i >= 0 {
+		return strings.TrimSpace(s[:i])
+	}
+	return strings.TrimSpace(s)
 }

@@ -24,51 +24,309 @@ import (
 
 func TestIsSameOrigin(t *testing.T) {
 	tests := []struct {
-		name   string
-		host   string
-		origin string
-		tls    bool
-		xfp    string
-		want   bool
+		name    string
+		host    string
+		headers http.Header
+		tls     bool
+		want    bool
 	}{
-		{"missing Origin is rejected", "example.com", "", false, "", false},
-		{"http same-origin matches", "example.com", "http://example.com", false, "", true},
-		{"https same-origin via TLS termination", "example.com", "https://example.com", true, "", true},
-		{"https same-origin via X-Forwarded-Proto", "example.com", "https://example.com", false, "https", true},
-		{"https Origin on plain http request is rejected", "example.com", "https://example.com", false, "", false},
-		{"http Origin on https request is rejected", "example.com", "http://example.com", true, "", false},
-		{"http Origin on https-by-proxy request is rejected", "example.com", "http://example.com", false, "https", false},
-		{"same-host same-port matches", "example.com:8080", "http://example.com:8080", false, "", true},
-		{"different host is rejected", "example.com", "http://evil.example.com", false, "", false},
-		{"different port is rejected", "example.com:8080", "http://example.com:9090", false, "", false},
-		{"malformed Origin is rejected", "example.com", "://not a url", false, "", false},
-		{"X-Forwarded-Proto list takes first value", "example.com", "https://example.com", false, "https, http", true},
-		{"https default port in Host matches Origin without port", "example.com:443", "https://example.com", true, "", true},
-		{"http default port in Host matches Origin without port", "example.com:80", "http://example.com", false, "", true},
-		{"https default port in Origin matches Host without port", "example.com", "https://example.com:443", true, "", true},
-		{"http default port in Origin matches Host without port", "example.com", "http://example.com:80", false, "", true},
-		{"default port via X-Forwarded-Proto matches", "example.com:443", "https://example.com", false, "https", true},
-		{"non-default port mismatch is rejected even with default normalization", "example.com:8443", "https://example.com", true, "", false},
-		{"host comparison is case-insensitive", "Example.COM", "http://example.com", false, "", true},
-		{"Origin without host is rejected", "example.com", "http://", false, "", false},
-		{"IPv6 same host matches", "[::1]:8080", "http://[::1]:8080", false, "", true},
-		{"IPv6 default port matches", "[::1]:80", "http://[::1]", false, "", true},
+		{
+			name:    "missing Origin is rejected",
+			host:    "example.com",
+			headers: http.Header{},
+			want:    false,
+		},
+		{
+			name: "http same-origin matches",
+			host: "example.com",
+			headers: http.Header{
+				"Origin": {"http://example.com"},
+			},
+			want: true,
+		},
+		{
+			name: "https same-origin via TLS termination",
+			host: "example.com",
+			headers: http.Header{
+				"Origin": {"https://example.com"},
+			},
+			tls:  true,
+			want: true,
+		},
+		{
+			name: "https same-origin via X-Forwarded-Proto",
+			host: "example.com",
+			headers: http.Header{
+				"Origin":            {"https://example.com"},
+				"X-Forwarded-Proto": {"https"},
+			},
+			want: true,
+		},
+		{
+			name: "https Origin on plain http request is rejected",
+			host: "example.com",
+			headers: http.Header{
+				"Origin": {"https://example.com"},
+			},
+			want: false,
+		},
+		{
+			name: "http Origin on https request is rejected",
+			host: "example.com",
+			headers: http.Header{
+				"Origin": {"http://example.com"},
+			},
+			tls:  true,
+			want: false,
+		},
+		{
+			name: "http Origin on https-by-proxy request is rejected",
+			host: "example.com",
+			headers: http.Header{
+				"Origin":            {"http://example.com"},
+				"X-Forwarded-Proto": {"https"},
+			},
+			want: false,
+		},
+		{
+			name: "same-host same-port matches",
+			host: "example.com:8080",
+			headers: http.Header{
+				"Origin": {"http://example.com:8080"},
+			},
+			want: true,
+		},
+		{
+			name: "different host is rejected",
+			host: "example.com",
+			headers: http.Header{
+				"Origin": {"http://evil.example.com"},
+			},
+			want: false,
+		},
+		{
+			name: "different port is rejected",
+			host: "example.com:8080",
+			headers: http.Header{
+				"Origin": {"http://example.com:9090"},
+			},
+			want: false,
+		},
+		{
+			name: "malformed Origin is rejected",
+			host: "example.com",
+			headers: http.Header{
+				"Origin": {"://not a url"},
+			},
+			want: false,
+		},
+		{
+			name: "X-Forwarded-Proto list takes first value",
+			host: "example.com",
+			headers: http.Header{
+				"Origin":            {"https://example.com"},
+				"X-Forwarded-Proto": {"https, http"},
+			},
+			want: true,
+		},
+		{
+			name: "https default port in Host matches Origin without port",
+			host: "example.com:443",
+			headers: http.Header{
+				"Origin": {"https://example.com"},
+			},
+			tls:  true,
+			want: true,
+		},
+		{
+			name: "http default port in Host matches Origin without port",
+			host: "example.com:80",
+			headers: http.Header{
+				"Origin": {"http://example.com"},
+			},
+			want: true,
+		},
+		{
+			name: "https default port in Origin matches Host without port",
+			host: "example.com",
+			headers: http.Header{
+				"Origin": {"https://example.com:443"},
+			},
+			tls:  true,
+			want: true,
+		},
+		{
+			name: "http default port in Origin matches Host without port",
+			host: "example.com",
+			headers: http.Header{
+				"Origin": {"http://example.com:80"},
+			},
+			want: true,
+		},
+		{
+			name: "default port via X-Forwarded-Proto matches",
+			host: "example.com:443",
+			headers: http.Header{
+				"Origin":            {"https://example.com"},
+				"X-Forwarded-Proto": {"https"},
+			},
+			want: true,
+		},
+		{
+			name: "non-default port mismatch is rejected even with default normalization",
+			host: "example.com:8443",
+			headers: http.Header{
+				"Origin": {"https://example.com"},
+			},
+			tls:  true,
+			want: false,
+		},
+		{
+			name: "host comparison is case-insensitive",
+			host: "Example.COM",
+			headers: http.Header{
+				"Origin": {"http://example.com"},
+			},
+			want: true,
+		},
+		{
+			name: "Origin without host is rejected",
+			host: "example.com",
+			headers: http.Header{
+				"Origin": {"http://"},
+			},
+			want: false,
+		},
+		{
+			name: "IPv6 same host matches",
+			host: "[::1]:8080",
+			headers: http.Header{
+				"Origin": {"http://[::1]:8080"},
+			},
+			want: true,
+		},
+		{
+			name: "IPv6 default port matches",
+			host: "[::1]:80",
+			headers: http.Header{
+				"Origin": {"http://[::1]"},
+			},
+			want: true,
+		},
+		// X-Forwarded-Host: proxy sets the public host, internal r.Host differs
+		{
+			name: "X-Forwarded-Host same-origin matches",
+			host: "internal:8080",
+			headers: http.Header{
+				"Origin":           {"http://example.com"},
+				"X-Forwarded-Host": {"example.com"},
+			},
+			want: true,
+		},
+		{
+			name: "X-Forwarded-Host different host is rejected",
+			host: "internal:8080",
+			headers: http.Header{
+				"Origin":           {"http://evil.com"},
+				"X-Forwarded-Host": {"example.com"},
+			},
+			want: false,
+		},
+		{
+			name: "X-Forwarded-Host with port matches",
+			host: "internal:8080",
+			headers: http.Header{
+				"Origin":           {"http://example.com:9090"},
+				"X-Forwarded-Host": {"example.com:9090"},
+			},
+			want: true,
+		},
+		{
+			name: "X-Forwarded-Host list takes first value",
+			host: "internal:8080",
+			headers: http.Header{
+				"Origin":           {"http://example.com"},
+				"X-Forwarded-Host": {"example.com, other.com"},
+			},
+			want: true,
+		},
+		{
+			name: "X-Forwarded-Host with X-Forwarded-Proto matches https",
+			host: "internal:8080",
+			headers: http.Header{
+				"Origin":            {"https://example.com"},
+				"X-Forwarded-Proto": {"https"},
+				"X-Forwarded-Host":  {"example.com"},
+			},
+			want: true,
+		},
+		// Forwarded (RFC 7239)
+		{
+			name: "Forwarded host matches",
+			host: "internal:8080",
+			headers: http.Header{
+				"Origin":    {"http://example.com"},
+				"Forwarded": {"host=example.com"},
+			},
+			want: true,
+		},
+		{
+			name: "Forwarded host different is rejected",
+			host: "internal:8080",
+			headers: http.Header{
+				"Origin":    {"http://evil.com"},
+				"Forwarded": {"host=example.com"},
+			},
+			want: false,
+		},
+		{
+			name: "Forwarded host with other directives",
+			host: "internal:8080",
+			headers: http.Header{
+				"Origin":    {"http://example.com"},
+				"Forwarded": {"for=1.2.3.4;host=example.com;proto=http"},
+			},
+			want: true,
+		},
+		{
+			name: "Forwarded host takes first element",
+			host: "internal:8080",
+			headers: http.Header{
+				"Origin":    {"http://example.com"},
+				"Forwarded": {"host=example.com, host=other.com"},
+			},
+			want: true,
+		},
+		{
+			name: "Forwarded quoted host matches",
+			host: "internal:8080",
+			headers: http.Header{
+				"Origin":    {"http://example.com"},
+				"Forwarded": {`host="example.com"`},
+			},
+			want: true,
+		},
+		// X-Forwarded-Host takes precedence over Forwarded
+		{
+			name: "X-Forwarded-Host takes precedence over Forwarded",
+			host: "internal:8080",
+			headers: http.Header{
+				"Origin":           {"http://example.com"},
+				"X-Forwarded-Host": {"example.com"},
+				"Forwarded":        {"host=other.com"},
+			},
+			want: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &http.Request{
 				Host:   tt.host,
-				Header: http.Header{},
-			}
-			if tt.origin != "" {
-				r.Header.Set("Origin", tt.origin)
+				Header: tt.headers,
 			}
 			if tt.tls {
 				r.TLS = &tls.ConnectionState{}
-			}
-			if tt.xfp != "" {
-				r.Header.Set("X-Forwarded-Proto", tt.xfp)
 			}
 			assert.Equal(t, tt.want, IsSameOrigin(r))
 		})
