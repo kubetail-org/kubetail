@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ApolloClient, ApolloLink, HttpLink, InMemoryCache } from '@apollo/client';
+import { ApolloClient, ApolloLink, HttpLink, InMemoryCache, Observable } from '@apollo/client';
 import { CombinedGraphQLErrors, CombinedProtocolErrors } from '@apollo/client/errors';
 import { ErrorLink } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
@@ -22,6 +22,7 @@ import { getOperationAST, OperationTypeNode } from 'graphql';
 import toast from 'react-hot-toast';
 
 import appConfig from '@/app-config';
+import { waitForCsrfToken, getCsrfToken, resetCsrfToken } from '@/lib/auth';
 import clusterAPI from '@/lib/graphql/cluster-api/__generated__/introspection-result.json';
 import dashboard from '@/lib/graphql/dashboard/__generated__/introspection-result.json';
 import { clusterAPIProxyPath, getBasename, joinPaths, sleep } from '@/lib/util';
@@ -119,6 +120,43 @@ const errorLink = new ErrorLink(({ error }) => {
   }
 });
 
+const csrfLink = new ApolloLink((operation, forward) => {
+  const setHeader = (tok: string) => {
+    operation.setContext(({ headers = {} }: { headers?: Record<string, string> }) => ({
+      headers: { ...headers, 'X-CSRF-Token': tok },
+    }));
+  };
+
+  const token = getCsrfToken();
+  if (token) {
+    setHeader(token);
+    return forward(operation);
+  }
+
+  // No token yet — wait for the session fetch before sending the request so
+  // the first GraphQL POST reaches the server with the CSRF header already set.
+  return new Observable((subscriber) => {
+    let cancelled = false;
+    let innerSub: { unsubscribe(): void } | null = null;
+
+    waitForCsrfToken()
+      .then(() => {
+        if (cancelled) return;
+        const tok = getCsrfToken();
+        if (tok) setHeader(tok);
+        innerSub = forward(operation).subscribe(subscriber);
+      })
+      .catch((err) => {
+        if (!cancelled) subscriber.error(err);
+      });
+
+    return () => {
+      cancelled = true;
+      innerSub?.unsubscribe();
+    };
+  });
+});
+
 const retryLink = new RetryLink({
   delay: {
     initial: 1000,
@@ -128,6 +166,12 @@ const retryLink = new RetryLink({
   attempts: {
     max: Infinity,
     retryIf: (error, operation) => {
+      if ((error as { statusCode?: number })?.statusCode === 403) {
+        // Session key changed (e.g. server restart) — wipe the cached token so
+        // csrfLink fetches a fresh one before the next attempt.
+        resetCsrfToken();
+        return true;
+      }
       const msg = `[NetworkError] ${error.message} (${operation.operationName})`;
       toast(msg, { id: `${error.name}|${operation.operationName}` });
       return true;
@@ -157,7 +201,7 @@ const createLink = (basepath: string) => {
       return op?.operation === OperationTypeNode.SUBSCRIPTION;
     },
     wsLink,
-    ApolloLink.from([errorLink, retryLink, httpLink]),
+    ApolloLink.from([errorLink, retryLink, csrfLink, httpLink]),
   );
 
   return { link, wsClient };

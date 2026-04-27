@@ -158,7 +158,11 @@ func NewApp(cfg *config.Config) (*App, error) {
 	dynamicRoutes := root.Group("/")
 	{
 		// Add session middleware
-		sessionStore := cookie.NewStore([]byte(cfg.Session.Secret))
+		keyPairs, err := resolveSessionKeyPairs(cfg)
+		if err != nil {
+			return nil, err
+		}
+		sessionStore := cookie.NewStore(keyPairs...)
 		sessionStore.Options(sessions.Options{
 			Path:     cfg.Session.Cookie.Path,
 			Domain:   cfg.Session.Cookie.Domain,

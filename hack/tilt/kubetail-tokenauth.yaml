@@ -18,7 +18,9 @@ data:
     ui:
       cluster-api-enabled: true
     session:
-      secret: REPLACEME
+      key-pairs:
+        - signing-key: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+          encryption-key: cafebabecafebabecafebabecafebabecafebabecafebabecafebabecafebabe
       cookie:
         name: kubetail_dashboard_session
         path: /

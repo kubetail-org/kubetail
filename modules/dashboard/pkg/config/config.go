@@ -30,6 +30,14 @@ import (
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 )
 
+// KeyPair holds a signing key and an optional encryption key for session cookies.
+// The first pair in Session.KeyPairs is used for new cookies; additional pairs
+// are accepted for reading only, enabling key rotation.
+type KeyPair struct {
+	SigningKey    string `mapstructure:"signing-key" json:"signing-key" validate:"required"`
+	EncryptionKey string `mapstructure:"encryption-key" json:"encryption-key"`
+}
+
 // AuthMode represents the authentication mode for the dashboard.
 type AuthMode string
 
@@ -71,9 +79,7 @@ type Config struct {
 
 	// session options
 	Session struct {
-		Secret string
-
-		// cookie options
+		// Cookie options
 		Cookie struct {
 			Name     string
 			Path     string
@@ -83,6 +89,8 @@ type Config struct {
 			HttpOnly bool          `mapstructure:"http-only"`
 			SameSite http.SameSite `mapstructure:"same-site"`
 		}
+
+		KeyPairs []KeyPair `mapstructure:"key-pairs" validate:"required,min=1,dive"`
 	}
 
 	// TLS options
@@ -106,6 +114,7 @@ func (cfg *Config) validate() error {
 // Filenames for files stored under LocalStorageDir. Kept unexported so
 // callers configure only the parent directory, not individual filenames.
 const preferencesFilename = "preferences.json"
+const sessionKeysFilename = "session-keys.json"
 
 // PreferencesPath returns the full path to the preferences file, or an
 // empty string when local storage is not configured.
@@ -114,6 +123,15 @@ func (cfg *Config) PreferencesPath() string {
 		return ""
 	}
 	return filepath.Join(cfg.LocalStorageDir, preferencesFilename)
+}
+
+// SessionKeysPath returns the full path to the persisted session keys file, or
+// an empty string when local storage is not configured.
+func (cfg *Config) SessionKeysPath() string {
+	if cfg.LocalStorageDir == "" {
+		return ""
+	}
+	return filepath.Join(cfg.LocalStorageDir, sessionKeysFilename)
 }
 
 func DefaultConfig() *Config {
@@ -133,7 +151,6 @@ func DefaultConfig() *Config {
 	cfg.Logging.Format = "json"
 	cfg.Logging.AccessLog.Enabled = true
 	cfg.Logging.AccessLog.HideHealthChecks = false
-	cfg.Session.Secret = ""
 	cfg.Session.Cookie.Name = "kubetail_dashboard_session"
 	cfg.Session.Cookie.Path = "/"
 	cfg.Session.Cookie.Domain = ""

@@ -68,10 +68,6 @@ func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.D
 		KeepAlivePingInterval: 10 * time.Second,
 	})
 
-	// Add transports from NewDefaultServer()
-	h.AddTransport(transport.GET{})
-	h.AddTransport(transport.POST{})
-
 	h.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
 	// Configure WebSocket. The cluster-api is intended for bot/programmatic
@@ -90,6 +86,8 @@ func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.D
 		},
 		KeepAlivePingInterval: 10 * time.Second,
 	})
+
+	h.AddTransport(transport.POST{})
 
 	h.Use(extension.Introspection{})
 	h.Use(extension.AutomaticPersistedQuery{

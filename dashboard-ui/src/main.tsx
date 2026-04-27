@@ -32,15 +32,15 @@ const router = createBrowserRouter(createRoutesFromElements(routes), { basename:
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ApolloProvider client={dashboardClient}>
-      <SessionProvider>
+    <SessionProvider>
+      <ApolloProvider client={dashboardClient}>
         <PreferencesProvider>
           <ThemeEffect />
           <UpdateNotificationProvider>
             <RouterProvider router={router} />
           </UpdateNotificationProvider>
         </PreferencesProvider>
-      </SessionProvider>
-    </ApolloProvider>
+      </ApolloProvider>
+    </SessionProvider>
   </StrictMode>,
 );

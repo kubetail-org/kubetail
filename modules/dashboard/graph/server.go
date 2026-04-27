@@ -77,10 +77,6 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 	// Init handler
 	h := handler.New(schema)
 
-	// Add transports from NewDefaultServer()
-	h.AddTransport(transport.GET{})
-	h.AddTransport(transport.POST{})
-
 	h.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
 	// Configure WebSocket. The app-level Sec-Fetch-Site CSRF middleware does
@@ -96,6 +92,8 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 		},
 		KeepAlivePingInterval: 10 * time.Second,
 	})
+
+	h.AddTransport(transport.POST{})
 
 	h.Use(extension.Introspection{})
 	h.Use(extension.AutomaticPersistedQuery{

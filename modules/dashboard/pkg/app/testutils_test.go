@@ -16,6 +16,7 @@ package app
 
 import (
 	"context"
+	"encoding/hex"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -36,7 +37,10 @@ func newTestConfig() *config.Config {
 	cfg.BasePath = "/"
 	cfg.Environment = sharedcfg.EnvironmentCluster
 	cfg.Logging.AccessLog.Enabled = false
-	cfg.Session.Secret = "TESTSESSIONSECRET"
+	cfg.Session.KeyPairs = []config.KeyPair{{
+		SigningKey:    hex.EncodeToString([]byte("TESTSESSIONSIGNINGKEY16byteslong")),
+		EncryptionKey: hex.EncodeToString([]byte("TESTSESSIONENCKEY16byteslong123!")),
+	}}
 	cfg.Session.Cookie.Name = "session"
 	return cfg
 }

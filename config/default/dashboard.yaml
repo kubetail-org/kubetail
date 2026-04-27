@@ -133,14 +133,20 @@ logging:
 #
 session:
 
-  ## secret ##
+  ## key-pairs ##
   #
-  # The secret key used to sign session tokens.
-  # If empty, a random secret is generated on startup.
+  # One or more signing/encryption key pairs for session cookies. The first
+  # pair is used for new cookies; additional pairs are accepted for reading
+  # only, enabling zero-downtime key rotation.
   #
-  # Default value: ""
+  # Each pair has:
+  #   signing-key    (required) — hex-encoded HMAC signing key; 32 or 64 raw bytes recommended
+  #   encryption-key (optional) — hex-encoded AES encryption key; 16, 24, or 32 raw bytes
   #
-  secret: ""
+  # When empty and a local-storage-dir is configured, a random pair is
+  # generated and persisted to disk on first startup.
+  #
+  key-pairs: []
 
   ## cookie ##
   #
