@@ -87,16 +87,16 @@ func requestHost(r *http.Request) string {
 		return firstCommaValue(xfh)
 	}
 	if fwd := r.Header.Get("Forwarded"); fwd != "" {
-		if host := parseForwardedHost(firstCommaValue(fwd)); host != "" {
+		if host := parseForwardedValue(firstCommaValue(fwd), "host"); host != "" {
 			return host
 		}
 	}
 	return r.Host
 }
 
-// parseForwardedHost extracts the host directive from a single RFC 7239
+// parseForwardedValue extracts a directive from a single RFC 7239
 // forwarded-element (semicolon-separated key=value pairs).
-func parseForwardedHost(elem string) string {
+func parseForwardedValue(elem, key string) string {
 	for elem != "" {
 		var part string
 		if before, after, ok := strings.Cut(elem, ";"); ok {
@@ -105,7 +105,7 @@ func parseForwardedHost(elem string) string {
 			part, elem = elem, ""
 		}
 		k, v, ok := strings.Cut(strings.TrimSpace(part), "=")
-		if !ok || !strings.EqualFold(k, "host") {
+		if !ok || !strings.EqualFold(k, key) {
 			continue
 		}
 		v = strings.TrimSpace(v)
@@ -119,15 +119,20 @@ func parseForwardedHost(elem string) string {
 
 // requestScheme returns the scheme the client used to reach r, accounting
 // for TLS terminated at this process (r.TLS) or upstream (X-Forwarded-Proto
-// set by a trusted reverse proxy). Defaults to "http". Browsers cannot
-// override X-Forwarded-Proto on a WebSocket upgrade, so trusting it here
-// is safe for this gate.
+// or RFC 7239 Forwarded proto set by a trusted reverse proxy). Defaults to
+// "http". Browsers cannot override these headers on a WebSocket upgrade, so
+// trusting them here is safe for this gate.
 func requestScheme(r *http.Request) string {
 	if r.TLS != nil {
 		return "https"
 	}
 	if p := r.Header.Get("X-Forwarded-Proto"); p != "" {
 		return strings.ToLower(firstCommaValue(p))
+	}
+	if fwd := r.Header.Get("Forwarded"); fwd != "" {
+		if proto := parseForwardedValue(firstCommaValue(fwd), "proto"); proto != "" {
+			return strings.ToLower(proto)
+		}
 	}
 	return "http"
 }

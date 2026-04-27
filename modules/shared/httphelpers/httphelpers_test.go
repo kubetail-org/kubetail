@@ -289,6 +289,42 @@ func TestIsSameOrigin(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "Forwarded proto matches https",
+			host: "example.com",
+			headers: http.Header{
+				"Origin":    {"https://example.com"},
+				"Forwarded": {"proto=https"},
+			},
+			want: true,
+		},
+		{
+			name: "Forwarded quoted proto matches https",
+			host: "example.com",
+			headers: http.Header{
+				"Origin":    {"https://example.com"},
+				"Forwarded": {`proto="https"`},
+			},
+			want: true,
+		},
+		{
+			name: "Forwarded proto and host match https behind proxy",
+			host: "internal:8080",
+			headers: http.Header{
+				"Origin":    {"https://example.com"},
+				"Forwarded": {"for=1.2.3.4;host=example.com;proto=https"},
+			},
+			want: true,
+		},
+		{
+			name: "Forwarded proto takes first element",
+			host: "example.com",
+			headers: http.Header{
+				"Origin":    {"https://example.com"},
+				"Forwarded": {"proto=https, proto=http"},
+			},
+			want: true,
+		},
+		{
 			name: "Forwarded host takes first element",
 			host: "internal:8080",
 			headers: http.Header{
@@ -314,6 +350,16 @@ func TestIsSameOrigin(t *testing.T) {
 				"Origin":           {"http://example.com"},
 				"X-Forwarded-Host": {"example.com"},
 				"Forwarded":        {"host=other.com"},
+			},
+			want: true,
+		},
+		{
+			name: "X-Forwarded-Proto takes precedence over Forwarded proto",
+			host: "example.com",
+			headers: http.Header{
+				"Origin":            {"https://example.com"},
+				"X-Forwarded-Proto": {"https"},
+				"Forwarded":         {"proto=http"},
 			},
 			want: true,
 		},
