@@ -86,7 +86,7 @@ func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.D
 			},
 			ReadBufferSize:    1024,
 			WriteBufferSize:   1024,
-			EnableCompression: true,
+			EnableCompression: false,
 		},
 		KeepAlivePingInterval: 10 * time.Second,
 	})

@@ -82,6 +82,21 @@ func TestServerWebSocketCheckOrigin(t *testing.T) {
 	}
 }
 
+func TestServerWebSocketCompressionDisabled(t *testing.T) {
+	graphqlServer := NewServer(nil, nil, []string{})
+
+	client := testutils.NewWebTestClient(t, graphqlServer)
+	defer client.Teardown()
+
+	wsURL := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
+	dialer := websocket.Dialer{EnableCompression: true}
+	conn, resp, err := dialer.Dial(wsURL, nil)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	require.Empty(t, resp.Header.Get("Sec-WebSocket-Extensions"))
+}
+
 func TestServerDrainWithContext_NoConnections(t *testing.T) {
 	s := NewServer(nil, nil, []string{})
 

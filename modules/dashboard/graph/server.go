@@ -92,7 +92,7 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 			CheckOrigin:       httphelpers.IsSameOrigin,
 			ReadBufferSize:    1024,
 			WriteBufferSize:   1024,
-			EnableCompression: true,
+			EnableCompression: false,
 		},
 		KeepAlivePingInterval: 10 * time.Second,
 	})
