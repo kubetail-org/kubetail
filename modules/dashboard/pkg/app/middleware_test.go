@@ -423,13 +423,16 @@ func TestK8sTokenRequiredMiddleware(t *testing.T) {
 func TestWebSocketCSRFContextMiddleware(t *testing.T) {
 	const sessTok = "session-csrf-token"
 
+	emptyTok := ""
 	tests := []struct {
-		name          string
-		hasSession    bool
-		isUpgrade     bool
-		clientHeader  string // value sent by client; "" = absent
-		wantCtxValue  any
-		wantOutHeader string
+		name            string
+		hasSession      bool
+		sessionTokVal   *string // override stored value; nil = use sessTok
+		isUpgrade       bool
+		clientHeaderSet bool
+		clientHeaderVal string
+		wantCtxValue    any
+		wantOutHeader   string
 	}{
 		{
 			name:          "WS upgrade with session: ctx and header set from session",
@@ -450,24 +453,50 @@ func TestWebSocketCSRFContextMiddleware(t *testing.T) {
 			wantCtxValue: nil,
 		},
 		{
-			name:         "client-supplied X-Forwarded-CSRF-Token is stripped (no session)",
-			isUpgrade:    true,
-			clientHeader: "spoofed",
-			wantCtxValue: nil,
+			name:            "client-supplied X-Forwarded-CSRF-Token is stripped (no session)",
+			isUpgrade:       true,
+			clientHeaderSet: true,
+			clientHeaderVal: "spoofed",
+			wantCtxValue:    nil,
 		},
 		{
-			name:          "client-supplied X-Forwarded-CSRF-Token is overwritten (with session)",
+			name:            "client-supplied X-Forwarded-CSRF-Token is overwritten (with session)",
+			hasSession:      true,
+			isUpgrade:       true,
+			clientHeaderSet: true,
+			clientHeaderVal: "spoofed",
+			wantCtxValue:    sessTok,
+			wantOutHeader:   sessTok,
+		},
+		{
+			name:            "non-WS request strips client-supplied X-Forwarded-CSRF-Token",
+			isUpgrade:       false,
+			clientHeaderSet: true,
+			clientHeaderVal: "spoofed",
+			wantCtxValue:    nil,
+		},
+		{
+			name:          "WS upgrade with empty session token leaves ctx and header unset",
 			hasSession:    true,
+			sessionTokVal: &emptyTok,
 			isUpgrade:     true,
-			clientHeader:  "spoofed",
-			wantCtxValue:  sessTok,
-			wantOutHeader: sessTok,
+			wantCtxValue:  nil,
 		},
 		{
-			name:         "non-WS request strips client-supplied X-Forwarded-CSRF-Token",
-			isUpgrade:    false,
-			clientHeader: "spoofed",
-			wantCtxValue: nil,
+			name:            "WS upgrade with empty session token strips empty client-supplied header",
+			hasSession:      true,
+			sessionTokVal:   &emptyTok,
+			isUpgrade:       true,
+			clientHeaderSet: true,
+			clientHeaderVal: "",
+			wantCtxValue:    nil,
+		},
+		{
+			name:            "WS upgrade with empty client-supplied header (no session) leaves ctx unset",
+			isUpgrade:       true,
+			clientHeaderSet: true,
+			clientHeaderVal: "",
+			wantCtxValue:    nil,
 		},
 	}
 
@@ -477,8 +506,12 @@ func TestWebSocketCSRFContextMiddleware(t *testing.T) {
 			router.Use(sessions.Sessions("session", cookie.NewStore([]byte("xx"))))
 			router.Use(func(c *gin.Context) {
 				if tt.hasSession {
+					tok := sessTok
+					if tt.sessionTokVal != nil {
+						tok = *tt.sessionTokVal
+					}
 					session := sessions.Default(c)
-					session.Set(csrfTokenSessionKey, sessTok)
+					session.Set(csrfTokenSessionKey, tok)
 					session.Save()
 				}
 				c.Next()
@@ -500,8 +533,8 @@ func TestWebSocketCSRFContextMiddleware(t *testing.T) {
 				r.Header.Set("Connection", "Upgrade")
 				r.Header.Set("Upgrade", "websocket")
 			}
-			if tt.clientHeader != "" {
-				r.Header.Set(httphelpers.HeaderForwardedCSRFToken, tt.clientHeader)
+			if tt.clientHeaderSet {
+				r.Header.Set(httphelpers.HeaderForwardedCSRFToken, tt.clientHeaderVal)
 			}
 
 			router.ServeHTTP(httptest.NewRecorder(), r)

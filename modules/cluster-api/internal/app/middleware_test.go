@@ -122,14 +122,16 @@ func TestAuthenticationMiddleware(t *testing.T) {
 
 func TestForwardedCSRFTokenMiddleware(t *testing.T) {
 	tests := []struct {
-		name      string
-		setHeader string
-		isUpgrade bool
-		wantValue any
+		name        string
+		headerSet   bool
+		headerValue string
+		isUpgrade   bool
+		wantValue   any
 	}{
-		{"upgrade with header", "abc123", true, "abc123"},
-		{"upgrade without header", "", true, nil},
-		{"non-upgrade ignores header", "abc123", false, nil},
+		{"upgrade with header", true, "abc123", true, "abc123"},
+		{"upgrade without header", false, "", true, nil},
+		{"upgrade with empty header is not propagated", true, "", true, nil},
+		{"non-upgrade ignores header", true, "abc123", false, nil},
 	}
 
 	for _, tt := range tests {
@@ -148,8 +150,8 @@ func TestForwardedCSRFTokenMiddleware(t *testing.T) {
 				r.Header.Set("Connection", "Upgrade")
 				r.Header.Set("Upgrade", "websocket")
 			}
-			if tt.setHeader != "" {
-				r.Header.Set(httphelpers.HeaderForwardedCSRFToken, tt.setHeader)
+			if tt.headerSet {
+				r.Header.Set(httphelpers.HeaderForwardedCSRFToken, tt.headerValue)
 			}
 			router.ServeHTTP(w, r)
 			assert.Equal(t, http.StatusOK, w.Result().StatusCode)
