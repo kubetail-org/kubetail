@@ -146,7 +146,8 @@ func (p *DesktopProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	r.Header.Add("X-Forwarded-Authorization", fmt.Sprintf("Bearer %s", token))
+	r.Header.Del("X-Forwarded-Authorization")
+	r.Header.Set("X-Forwarded-Authorization", fmt.Sprintf("Bearer %s", token))
 
 	// Strip the browser-supplied Origin so the cluster-api can treat its
 	// presence as a CSWSH signal. Cross-origin browser upgrades are already
