@@ -64,6 +64,16 @@ func (suite *authTestSuite) TearDownTest() {
 	suite.client.Teardown()
 }
 
+// mockHasAccess registers a HasAccess expectation for token "xxx" returning
+// the given authentication result. Returns the mock for further assertions.
+func (suite *authTestSuite) mockHasAccess(authenticated bool) *mockQueryHelpers {
+	m := suite.app.queryHelpers.(*mockQueryHelpers)
+	m.On("HasAccess", mock.Anything, "xxx").Return(&authv1.TokenReview{
+		Status: authv1.TokenReviewStatus{Authenticated: authenticated},
+	}, nil)
+	return m
+}
+
 func (suite *authTestSuite) TestLoginPOSTFormErrors() {
 	// Init empty form
 	form := url.Values{}
@@ -94,57 +104,31 @@ func TestLoginPOSTRequiresCSRFToken(t *testing.T) {
 }
 
 func (suite *authTestSuite) TestLoginPOSTSuccess() {
-	// Configure mock
-	m := suite.app.queryHelpers.(*mockQueryHelpers)
-	m.On("HasAccess", mock.Anything, "xxx").Return(&authv1.TokenReview{
-		Status: authv1.TokenReviewStatus{
-			Authenticated: true,
-		},
-	}, nil)
+	m := suite.mockHasAccess(true)
 
-	// Init form
-	form := url.Values{}
-	form.Add("token", "xxx")
-
-	// Execute
+	form := url.Values{"token": {"xxx"}}
 	resp := suite.client.PostForm("/api/auth/login", form)
 
-	// Assertions
 	m.AssertNumberOfCalls(suite.T(), "HasAccess", 1)
 	m.AssertCalled(suite.T(), "HasAccess", mock.Anything, "xxx")
 	suite.Equal(http.StatusNoContent, resp.StatusCode)
 }
 
 func (suite *authTestSuite) TestLoginPOSTFailure() {
-	// Configure mock
-	m := suite.app.queryHelpers.(*mockQueryHelpers)
-	m.On("HasAccess", mock.Anything, "xxx").Return(&authv1.TokenReview{
-		Status: authv1.TokenReviewStatus{
-			Authenticated: false,
-		},
-	}, nil)
+	m := suite.mockHasAccess(false)
 
-	// Init form
-	form := url.Values{}
-	form.Add("token", "xxx")
-
-	// Execute
+	form := url.Values{"token": {"xxx"}}
 	resp := suite.client.PostForm("/api/auth/login", form)
 
-	// Assertions
 	m.AssertNumberOfCalls(suite.T(), "HasAccess", 1)
 	m.AssertCalled(suite.T(), "HasAccess", mock.Anything, "xxx")
 	suite.Equal(http.StatusUnprocessableEntity, resp.StatusCode)
 }
 
 func (suite *authTestSuite) TestAuthRotatesCSRFToken() {
-	m := suite.app.queryHelpers.(*mockQueryHelpers)
-	m.On("HasAccess", mock.Anything, "xxx").Return(&authv1.TokenReview{
-		Status: authv1.TokenReviewStatus{Authenticated: true},
-	}, nil)
+	suite.mockHasAccess(true)
 
-	loginForm := url.Values{}
-	loginForm.Add("token", "xxx")
+	loginForm := url.Values{"token": {"xxx"}}
 
 	tests := []struct {
 		name   string
@@ -179,16 +163,9 @@ func (suite *authTestSuite) TestAuthRotatesCSRFToken() {
 }
 
 func (suite *authTestSuite) TestLogoutPOSTSuccess() {
-	m := suite.app.queryHelpers.(*mockQueryHelpers)
-	m.On("HasAccess", mock.Anything, "xxx").Return(&authv1.TokenReview{
-		Status: authv1.TokenReviewStatus{
-			Authenticated: true,
-		},
-	}, nil)
+	suite.mockHasAccess(true)
 
-	// Init form
-	form := url.Values{}
-	form.Add("token", "xxx")
+	form := url.Values{"token": {"xxx"}}
 
 	// Log in
 	resp1 := suite.client.PostForm("/api/auth/login", form)
