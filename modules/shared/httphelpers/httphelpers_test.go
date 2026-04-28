@@ -54,15 +54,6 @@ func TestIsSameOrigin(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "https same-origin via X-Forwarded-Proto",
-			host: "example.com",
-			headers: http.Header{
-				"Origin":            {"https://example.com"},
-				"X-Forwarded-Proto": {"https"},
-			},
-			want: true,
-		},
-		{
 			name: "https Origin on plain http request is rejected",
 			host: "example.com",
 			headers: http.Header{
@@ -77,15 +68,6 @@ func TestIsSameOrigin(t *testing.T) {
 				"Origin": {"http://example.com"},
 			},
 			tls:  true,
-			want: false,
-		},
-		{
-			name: "http Origin on https-by-proxy request is rejected",
-			host: "example.com",
-			headers: http.Header{
-				"Origin":            {"http://example.com"},
-				"X-Forwarded-Proto": {"https"},
-			},
 			want: false,
 		},
 		{
@@ -121,15 +103,6 @@ func TestIsSameOrigin(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "X-Forwarded-Proto list takes first value",
-			host: "example.com",
-			headers: http.Header{
-				"Origin":            {"https://example.com"},
-				"X-Forwarded-Proto": {"https, http"},
-			},
-			want: true,
-		},
-		{
 			name: "https default port in Host matches Origin without port",
 			host: "example.com:443",
 			headers: http.Header{
@@ -160,15 +133,6 @@ func TestIsSameOrigin(t *testing.T) {
 			host: "example.com",
 			headers: http.Header{
 				"Origin": {"http://example.com:80"},
-			},
-			want: true,
-		},
-		{
-			name: "default port via X-Forwarded-Proto matches",
-			host: "example.com:443",
-			headers: http.Header{
-				"Origin":            {"https://example.com"},
-				"X-Forwarded-Proto": {"https"},
 			},
 			want: true,
 		},
@@ -213,153 +177,42 @@ func TestIsSameOrigin(t *testing.T) {
 			},
 			want: true,
 		},
-		// X-Forwarded-Host: proxy sets the public host, internal r.Host differs
+		// Forwarded headers must NOT be honored: they're attacker-controllable
+		// in direct-access deployments and through non-sanitizing proxies.
 		{
-			name: "X-Forwarded-Host same-origin matches",
-			host: "internal:8080",
+			name: "forged X-Forwarded-Host with matching Origin is rejected",
+			host: "kubetail.local",
 			headers: http.Header{
-				"Origin":           {"http://example.com"},
-				"X-Forwarded-Host": {"example.com"},
-			},
-			want: true,
-		},
-		{
-			name: "X-Forwarded-Host different host is rejected",
-			host: "internal:8080",
-			headers: http.Header{
-				"Origin":           {"http://evil.com"},
-				"X-Forwarded-Host": {"example.com"},
+				"Origin":            {"https://attacker.com"},
+				"X-Forwarded-Host":  {"attacker.com"},
+				"X-Forwarded-Proto": {"https"},
 			},
 			want: false,
 		},
 		{
-			name: "X-Forwarded-Host with port matches",
-			host: "internal:8080",
+			name: "forged Forwarded header with matching Origin is rejected",
+			host: "kubetail.local",
 			headers: http.Header{
-				"Origin":           {"http://example.com:9090"},
-				"X-Forwarded-Host": {"example.com:9090"},
-			},
-			want: true,
-		},
-		{
-			name: "X-Forwarded-Host list takes first value",
-			host: "internal:8080",
-			headers: http.Header{
-				"Origin":           {"http://example.com"},
-				"X-Forwarded-Host": {"example.com, other.com"},
-			},
-			want: true,
-		},
-		{
-			name: "X-Forwarded-Host with X-Forwarded-Proto matches https",
-			host: "internal:8080",
-			headers: http.Header{
-				"Origin":            {"https://example.com"},
-				"X-Forwarded-Proto": {"https"},
-				"X-Forwarded-Host":  {"example.com"},
-			},
-			want: true,
-		},
-		// Forwarded (RFC 7239)
-		{
-			name: "Forwarded host matches",
-			host: "internal:8080",
-			headers: http.Header{
-				"Origin":    {"http://example.com"},
-				"Forwarded": {"host=example.com"},
-			},
-			want: true,
-		},
-		{
-			name: "Forwarded host different is rejected",
-			host: "internal:8080",
-			headers: http.Header{
-				"Origin":    {"http://evil.com"},
-				"Forwarded": {"host=example.com"},
+				"Origin":    {"https://attacker.com"},
+				"Forwarded": {"host=attacker.com;proto=https"},
 			},
 			want: false,
 		},
 		{
-			name: "Forwarded host with other directives",
-			host: "internal:8080",
+			name: "X-Forwarded-Proto cannot upgrade scheme on plaintext request",
+			host: "kubetail.local",
 			headers: http.Header{
-				"Origin":    {"http://example.com"},
-				"Forwarded": {"for=1.2.3.4;host=example.com;proto=http"},
-			},
-			want: true,
-		},
-		{
-			name: "Forwarded proto matches https",
-			host: "example.com",
-			headers: http.Header{
-				"Origin":    {"https://example.com"},
-				"Forwarded": {"proto=https"},
-			},
-			want: true,
-		},
-		{
-			name: "Forwarded quoted proto matches https",
-			host: "example.com",
-			headers: http.Header{
-				"Origin":    {"https://example.com"},
-				"Forwarded": {`proto="https"`},
-			},
-			want: true,
-		},
-		{
-			name: "Forwarded proto and host match https behind proxy",
-			host: "internal:8080",
-			headers: http.Header{
-				"Origin":    {"https://example.com"},
-				"Forwarded": {"for=1.2.3.4;host=example.com;proto=https"},
-			},
-			want: true,
-		},
-		{
-			name: "Forwarded proto takes first element",
-			host: "example.com",
-			headers: http.Header{
-				"Origin":    {"https://example.com"},
-				"Forwarded": {"proto=https, proto=http"},
-			},
-			want: true,
-		},
-		{
-			name: "Forwarded host takes first element",
-			host: "internal:8080",
-			headers: http.Header{
-				"Origin":    {"http://example.com"},
-				"Forwarded": {"host=example.com, host=other.com"},
-			},
-			want: true,
-		},
-		{
-			name: "Forwarded quoted host matches",
-			host: "internal:8080",
-			headers: http.Header{
-				"Origin":    {"http://example.com"},
-				"Forwarded": {`host="example.com"`},
-			},
-			want: true,
-		},
-		// X-Forwarded-Host takes precedence over Forwarded
-		{
-			name: "X-Forwarded-Host takes precedence over Forwarded",
-			host: "internal:8080",
-			headers: http.Header{
-				"Origin":           {"http://example.com"},
-				"X-Forwarded-Host": {"example.com"},
-				"Forwarded":        {"host=other.com"},
-			},
-			want: true,
-		},
-		{
-			name: "X-Forwarded-Proto takes precedence over Forwarded proto",
-			host: "example.com",
-			headers: http.Header{
-				"Origin":            {"https://example.com"},
+				"Origin":            {"https://kubetail.local"},
 				"X-Forwarded-Proto": {"https"},
-				"Forwarded":         {"proto=http"},
+			},
+			want: false,
+		},
+		{
+			name: "X-Forwarded-Host is ignored when Origin matches r.Host",
+			host: "kubetail.local",
+			headers: http.Header{
+				"Origin":           {"http://kubetail.local"},
+				"X-Forwarded-Host": {"attacker.com"},
 			},
 			want: true,
 		},

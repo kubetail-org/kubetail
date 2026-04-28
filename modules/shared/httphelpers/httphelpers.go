@@ -28,14 +28,20 @@ import (
 const HeaderForwardedCSRFToken = "X-Forwarded-CSRF-Token"
 
 // IsSameOrigin reports whether r's Origin header is present and matches
-// the request's scheme and host (per the WebSocket spec's same-origin
-// rule). A missing Origin returns false.
+// the request's scheme and host. A missing Origin returns false.
+//
+// The comparison uses r.Host and r.TLS only. X-Forwarded-Host,
+// X-Forwarded-Proto, and the RFC 7239 Forwarded header are deliberately
+// ignored: they are attacker-controllable in direct-access deployments
+// and can be smuggled through proxies that append rather than overwrite
+// client-supplied values. Deployments behind a reverse proxy that rewrites
+// Host or terminates TLS without preserving scheme will need explicit
+// origin allowlisting (see the upcoming allowed-origins config).
 //
 // Host comparison is case-insensitive and normalizes the effective port,
 // so https://example.com matches a request Host of example.com:443 (and
 // likewise http://example.com matches example.com:80). This avoids
-// false rejections from ingress/reverse proxies that forward an explicit
-// default port in Host.
+// false rejections from clients/servers that emit an explicit default port.
 //
 // Intended for use on WebSocket upgrade requests, where browsers always
 // send Origin (so its absence indicates a non-browser client, which has
@@ -50,12 +56,15 @@ func IsSameOrigin(r *http.Request) bool {
 	if err != nil || u.Host == "" {
 		return false
 	}
-	scheme := requestScheme(r)
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
 	if !strings.EqualFold(u.Scheme, scheme) {
 		return false
 	}
 	originHost, originPort := splitHostPort(u.Host, u.Scheme)
-	reqHost, reqPort := splitHostPort(requestHost(r), scheme)
+	reqHost, reqPort := splitHostPort(r.Host, scheme)
 	return strings.EqualFold(originHost, reqHost) && originPort == reqPort
 }
 
@@ -82,71 +91,4 @@ func defaultPort(scheme string) string {
 		return "80"
 	}
 	return ""
-}
-
-// requestHost returns the effective host for r. X-Forwarded-Host is checked
-// first (most widely deployed), then the RFC 7239 Forwarded header's host
-// directive, then r.Host.
-func requestHost(r *http.Request) string {
-	if xfh := r.Header.Get("X-Forwarded-Host"); xfh != "" {
-		return firstCommaValue(xfh)
-	}
-	if fwd := r.Header.Get("Forwarded"); fwd != "" {
-		if host := parseForwardedValue(firstCommaValue(fwd), "host"); host != "" {
-			return host
-		}
-	}
-	return r.Host
-}
-
-// parseForwardedValue extracts a directive from a single RFC 7239
-// forwarded-element (semicolon-separated key=value pairs).
-func parseForwardedValue(elem, key string) string {
-	for elem != "" {
-		var part string
-		if before, after, ok := strings.Cut(elem, ";"); ok {
-			part, elem = before, after
-		} else {
-			part, elem = elem, ""
-		}
-		k, v, ok := strings.Cut(strings.TrimSpace(part), "=")
-		if !ok || !strings.EqualFold(k, key) {
-			continue
-		}
-		v = strings.TrimSpace(v)
-		if len(v) >= 2 && v[0] == '"' && v[len(v)-1] == '"' {
-			v = v[1 : len(v)-1]
-		}
-		return v
-	}
-	return ""
-}
-
-// requestScheme returns the scheme the client used to reach r, accounting
-// for TLS terminated at this process (r.TLS) or upstream (X-Forwarded-Proto
-// or RFC 7239 Forwarded proto set by a trusted reverse proxy). Defaults to
-// "http". Browsers cannot override these headers on a WebSocket upgrade, so
-// trusting them here is safe for this gate.
-func requestScheme(r *http.Request) string {
-	if r.TLS != nil {
-		return "https"
-	}
-	if p := r.Header.Get("X-Forwarded-Proto"); p != "" {
-		return strings.ToLower(firstCommaValue(p))
-	}
-	if fwd := r.Header.Get("Forwarded"); fwd != "" {
-		if proto := parseForwardedValue(firstCommaValue(fwd), "proto"); proto != "" {
-			return strings.ToLower(proto)
-		}
-	}
-	return "http"
-}
-
-// firstCommaValue returns the first comma-separated element of s, trimmed.
-// Handles the common proxy convention of comma-joining repeated header values.
-func firstCommaValue(s string) string {
-	if i := strings.IndexByte(s, ','); i >= 0 {
-		return strings.TrimSpace(s[:i])
-	}
-	return strings.TrimSpace(s)
 }
