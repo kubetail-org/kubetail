@@ -41,10 +41,17 @@
       // get graphql endpoint
       const graphqlEndpoint = (new URL(basePath + 'graphql', window.location.origin)).toString();
 
+      // fetch CSRF token from session endpoint
+      const sessionEndpoint = (new URL(basePath + 'api/auth/session', window.location.origin)).toString();
+      const sessionResp = await fetch(sessionEndpoint, { credentials: 'same-origin' });
+      const csrfToken = sessionResp.headers.get('X-CSRF-Token') || '';
+
       // init fetcher
       const fetcher = GraphiQL.createFetcher({
         url: graphqlEndpoint,
         subscriptionUrl: graphqlEndpoint.replace(/^(http)/, 'ws'),
+        headers: { 'X-CSRF-Token': csrfToken },
+        wsConnectionParams: { csrfToken },
       });
 
       ReactDOM.render(
