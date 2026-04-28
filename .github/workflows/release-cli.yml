@@ -388,6 +388,7 @@ jobs:
         with:
           files: assets/*
           draft: true
+          prerelease: ${{ contains(needs.config.outputs.version, '-') }}
 
       - name: Cleanup GPG
         if: always()

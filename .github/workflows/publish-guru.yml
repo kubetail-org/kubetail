@@ -7,7 +7,7 @@ permissions:
 on:
   release:
     types:
-      - published
+      - released
   workflow_dispatch:
     inputs:
       version:
