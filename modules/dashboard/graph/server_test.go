@@ -95,6 +95,42 @@ func TestServerWebSocketCheckOrigin(t *testing.T) {
 	}
 }
 
+func TestServerWebSocketCheckOrigin_AllowedOrigins(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.AllowedOrigins = []string{"https://allowed.example.com"}
+	s := NewServer(cfg, nil)
+
+	client := testutils.NewWebTestClient(t, s)
+	defer client.Teardown()
+
+	wsURL := "ws" + strings.TrimPrefix(client.Server.URL, "http") + "/graphql"
+
+	tests := []struct {
+		name       string
+		setOrigin  string
+		wantStatus int
+	}{
+		{
+			"allowlisted Origin is accepted across host rewrite",
+			"https://allowed.example.com",
+			http.StatusSwitchingProtocols,
+		},
+		{
+			"non-allowlisted cross-origin is still rejected",
+			"https://attacker.example.com",
+			http.StatusForbidden,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			header := http.Header{"Origin": []string{tt.setOrigin}}
+			_, resp, _ := websocket.DefaultDialer.Dial(wsURL, header)
+			require.Equal(t, tt.wantStatus, resp.StatusCode)
+		})
+	}
+}
+
 func TestServerWebSocketCSRFInit(t *testing.T) {
 	cfg := config.DefaultConfig()
 	s := NewServer(cfg, nil)

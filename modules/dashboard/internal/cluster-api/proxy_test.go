@@ -43,7 +43,7 @@ func TestInClusterProxy_StripsOriginHeader(t *testing.T) {
 	}))
 	defer backend.Close()
 
-	proxy, err := newInClusterProxy(backend.URL, "/prefix", http.DefaultTransport)
+	proxy, err := newInClusterProxy(backend.URL, "/prefix", nil, http.DefaultTransport)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/prefix/somepath", nil)
@@ -74,7 +74,7 @@ func TestInClusterProxy_RejectsCrossOriginUpgradeRequest(t *testing.T) {
 			}))
 			defer backend.Close()
 
-			proxy, err := newInClusterProxy(backend.URL, "/prefix", http.DefaultTransport)
+			proxy, err := newInClusterProxy(backend.URL, "/prefix", nil, http.DefaultTransport)
 			require.NoError(t, err)
 
 			req := httptest.NewRequest(http.MethodGet, "/prefix/somepath", nil)
@@ -91,6 +91,31 @@ func TestInClusterProxy_RejectsCrossOriginUpgradeRequest(t *testing.T) {
 			assert.False(t, captured, "backend must not be reached on cross-origin upgrade")
 		})
 	}
+}
+
+func TestInClusterProxy_AllowedOriginsAcceptsCrossHostUpgrade(t *testing.T) {
+	var captured bool
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		captured = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer backend.Close()
+
+	proxy, err := newInClusterProxy(backend.URL, "/prefix", []string{"https://allowed.example.com"}, http.DefaultTransport)
+	require.NoError(t, err)
+
+	// Request Host is example.com (httptest default) but Origin matches the
+	// allowlist — emulates a Host-rewriting reverse proxy in front.
+	req := httptest.NewRequest(http.MethodGet, "/prefix/somepath", nil)
+	req.Header.Set("Upgrade", "websocket")
+	req.Header.Set("Connection", "Upgrade")
+	req.Header.Set("Origin", "https://allowed.example.com")
+
+	rec := httptest.NewRecorder()
+	proxy.ServeHTTP(rec, req)
+
+	assert.NotEqual(t, http.StatusForbidden, rec.Code)
+	assert.True(t, captured, "allowlisted upgrade must reach the backend")
 }
 
 func TestInClusterProxy_XForwardedAuthorization(t *testing.T) {
@@ -120,7 +145,7 @@ func TestInClusterProxy_XForwardedAuthorization(t *testing.T) {
 			}))
 			defer backend.Close()
 
-			proxy, err := newInClusterProxy(backend.URL, "/prefix", http.DefaultTransport)
+			proxy, err := newInClusterProxy(backend.URL, "/prefix", nil, http.DefaultTransport)
 			require.NoError(t, err)
 
 			req := httptest.NewRequest(http.MethodGet, "/prefix/somepath", nil)
@@ -139,7 +164,7 @@ func TestInClusterProxy_XForwardedAuthorization(t *testing.T) {
 // --- InClusterProxy drain/shutdown tests ---
 
 func TestInClusterProxy_DrainWithContext_NoConnections(t *testing.T) {
-	proxy, err := newInClusterProxy("http://localhost", "/prefix", http.DefaultTransport)
+	proxy, err := newInClusterProxy("http://localhost", "/prefix", nil, http.DefaultTransport)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -149,7 +174,7 @@ func TestInClusterProxy_DrainWithContext_NoConnections(t *testing.T) {
 }
 
 func TestInClusterProxy_DrainWithContext_CancelledContext(t *testing.T) {
-	proxy, err := newInClusterProxy("http://localhost", "/prefix", http.DefaultTransport)
+	proxy, err := newInClusterProxy("http://localhost", "/prefix", nil, http.DefaultTransport)
 	require.NoError(t, err)
 
 	// Simulate an open connection that never finishes
@@ -164,7 +189,7 @@ func TestInClusterProxy_DrainWithContext_CancelledContext(t *testing.T) {
 }
 
 func TestInClusterProxy_DrainWithContext_DeadlineExceeded(t *testing.T) {
-	proxy, err := newInClusterProxy("http://localhost", "/prefix", http.DefaultTransport)
+	proxy, err := newInClusterProxy("http://localhost", "/prefix", nil, http.DefaultTransport)
 	require.NoError(t, err)
 
 	// Simulate an open connection that never finishes
@@ -221,7 +246,7 @@ func waitConnected(t *testing.T, connected <-chan struct{}) {
 func TestInClusterProxy_NotifyShutdown_ClosesConnections(t *testing.T) {
 	backend, connected := newWSBackend(t)
 
-	proxy, err := newInClusterProxy(backend.URL, "/prefix", http.DefaultTransport)
+	proxy, err := newInClusterProxy(backend.URL, "/prefix", nil, http.DefaultTransport)
 	require.NoError(t, err)
 
 	proxyServer := httptest.NewServer(proxy)
@@ -252,7 +277,7 @@ func TestInClusterProxy_NotifyShutdown_ClosesConnections(t *testing.T) {
 func TestInClusterProxy_NotifyShutdown_ClosesMultipleConnections(t *testing.T) {
 	backend, connected := newWSBackend(t)
 
-	proxy, err := newInClusterProxy(backend.URL, "/prefix", http.DefaultTransport)
+	proxy, err := newInClusterProxy(backend.URL, "/prefix", nil, http.DefaultTransport)
 	require.NoError(t, err)
 
 	proxyServer := httptest.NewServer(proxy)
@@ -313,7 +338,7 @@ func TestDesktopProxy_StripsOriginHeader(t *testing.T) {
 	sat, err := k8shelpers.NewServiceAccountToken(context.Background(), clientset, "ns", "sa", shutdownCh)
 	require.NoError(t, err)
 
-	proxy, err := NewDesktopProxy(nil, "/prefix")
+	proxy, err := NewDesktopProxy(nil, "/prefix", nil)
 	require.NoError(t, err)
 	proxy.phCache["ctx"] = handler
 	proxy.satCache["ctx/ns"] = sat
@@ -350,7 +375,7 @@ func TestDesktopProxy_OverwritesClientSuppliedXForwardedAuthorization(t *testing
 	sat, err := k8shelpers.NewServiceAccountToken(context.Background(), clientset, "ns", "sa", shutdownCh)
 	require.NoError(t, err)
 
-	proxy, err := NewDesktopProxy(nil, "/prefix")
+	proxy, err := NewDesktopProxy(nil, "/prefix", nil)
 	require.NoError(t, err)
 	proxy.phCache["ctx"] = handler
 	proxy.satCache["ctx/ns"] = sat
@@ -385,7 +410,7 @@ func TestDesktopProxy_RejectsCrossOriginUpgradeRequest(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			proxy, err := NewDesktopProxy(nil, "/prefix")
+			proxy, err := NewDesktopProxy(nil, "/prefix", nil)
 			require.NoError(t, err)
 			proxy.phCache["ctx"] = handler
 
@@ -405,8 +430,47 @@ func TestDesktopProxy_RejectsCrossOriginUpgradeRequest(t *testing.T) {
 	}
 }
 
+func TestDesktopProxy_AllowedOriginsAcceptsCrossHostUpgrade(t *testing.T) {
+	var captured bool
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		captured = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	clientset := fake.NewSimpleClientset()
+	clientset.Fake.PrependReactor("create", "serviceaccounts", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, &authv1.TokenRequest{
+			Status: authv1.TokenRequestStatus{
+				Token:               "fake-sat",
+				ExpirationTimestamp: metav1.NewTime(time.Now().Add(time.Hour)),
+			},
+		}, nil
+	})
+
+	shutdownCh := make(chan struct{})
+	defer close(shutdownCh)
+	sat, err := k8shelpers.NewServiceAccountToken(context.Background(), clientset, "ns", "sa", shutdownCh)
+	require.NoError(t, err)
+
+	proxy, err := NewDesktopProxy(nil, "/prefix", []string{"https://allowed.example.com"})
+	require.NoError(t, err)
+	proxy.phCache["ctx"] = handler
+	proxy.satCache["ctx/ns"] = sat
+
+	req := httptest.NewRequest(http.MethodGet, "/prefix/ctx/ns/svc/relpath", nil)
+	req.Header.Set("Upgrade", "websocket")
+	req.Header.Set("Connection", "Upgrade")
+	req.Header.Set("Origin", "https://allowed.example.com")
+
+	rec := httptest.NewRecorder()
+	proxy.ServeHTTP(rec, req)
+
+	assert.NotEqual(t, http.StatusForbidden, rec.Code)
+	assert.True(t, captured, "allowlisted upgrade must reach the backend handler")
+}
+
 func TestDesktopProxy_DrainWithContext_NoConnections(t *testing.T) {
-	proxy, err := NewDesktopProxy(nil, "/prefix")
+	proxy, err := NewDesktopProxy(nil, "/prefix", nil)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -416,7 +480,7 @@ func TestDesktopProxy_DrainWithContext_NoConnections(t *testing.T) {
 }
 
 func TestDesktopProxy_DrainWithContext_CancelledContext(t *testing.T) {
-	proxy, err := NewDesktopProxy(nil, "/prefix")
+	proxy, err := NewDesktopProxy(nil, "/prefix", nil)
 	require.NoError(t, err)
 
 	// Simulate an open connection that never finishes
@@ -431,7 +495,7 @@ func TestDesktopProxy_DrainWithContext_CancelledContext(t *testing.T) {
 }
 
 func TestDesktopProxy_DrainWithContext_DeadlineExceeded(t *testing.T) {
-	proxy, err := NewDesktopProxy(nil, "/prefix")
+	proxy, err := NewDesktopProxy(nil, "/prefix", nil)
 	require.NoError(t, err)
 
 	// Simulate an open connection that never finishes
@@ -451,13 +515,13 @@ func TestDesktopProxy_NotifyShutdown_ClosesConnections(t *testing.T) {
 	// Use InClusterProxy as backend transport to avoid needing a real k8s ConnectionManager.
 	// The DesktopProxy delegates to a k8s proxy handler, so we build a custom DesktopProxy
 	// that routes directly to our test backend instead.
-	proxy, err := NewDesktopProxy(nil, "/prefix")
+	proxy, err := NewDesktopProxy(nil, "/prefix", nil)
 	require.NoError(t, err)
 
 	// Replace the handler: wrap in a server that upgrades through the backend
 	// We test the shutdown plumbing by going through InClusterProxy's hijack path
 	// since DesktopProxy uses the same hijackTrackingResponseWriter mechanism.
-	inProxy, err := newInClusterProxy(backend.URL, "/prefix", http.DefaultTransport)
+	inProxy, err := newInClusterProxy(backend.URL, "/prefix", nil, http.DefaultTransport)
 	require.NoError(t, err)
 
 	// Wire the DesktopProxy's shutdownCh into the InClusterProxy

@@ -53,6 +53,7 @@ type Config struct {
 	KubeconfigPath    string   `mapstructure:"kubeconfig"`
 
 	Addr               string   `mapstructure:"addr" validate:"omitempty,hostname_port"`
+	AllowedOrigins     []string `mapstructure:"allowed-origins" validate:"dive,url"`
 	AuthMode           AuthMode `mapstructure:"auth-mode"`
 	BasePath           string   `mapstructure:"base-path"`
 	CLIVersion         string
@@ -141,6 +142,7 @@ func DefaultConfig() *Config {
 	cfg.KubeconfigPath = ""
 
 	cfg.Addr = ":8080"
+	cfg.AllowedOrigins = []string{}
 	cfg.AuthMode = AuthModeAuto
 	cfg.BasePath = "/"
 	cfg.ClusterAPIEndpoint = ""

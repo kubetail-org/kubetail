@@ -81,13 +81,14 @@ type Proxy interface {
 
 // Represents DesktopProxy
 type DesktopProxy struct {
-	cm         k8shelpers.ConnectionManager
-	pathPrefix string
-	phCache    map[string]http.Handler
-	satCache   map[string]*k8shelpers.ServiceAccountToken
-	mu         sync.Mutex
-	shutdownCh chan struct{}
-	wg         sync.WaitGroup
+	cm             k8shelpers.ConnectionManager
+	pathPrefix     string
+	allowedOrigins []string
+	phCache        map[string]http.Handler
+	satCache       map[string]*k8shelpers.ServiceAccountToken
+	mu             sync.Mutex
+	shutdownCh     chan struct{}
+	wg             sync.WaitGroup
 }
 
 // ServeHTTP
@@ -99,7 +100,7 @@ func (p *DesktopProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// CSWSH defense for WebSocket upgrades. Chrome does not send
 	// Sec-Fetch-Site on upgrade requests, so the app-level CSRF middleware
 	// can't gate them; check Origin directly here instead.
-	if r.Header.Get("Upgrade") != "" && !httphelpers.IsSameOrigin(r) {
+	if r.Header.Get("Upgrade") != "" && !httphelpers.IsAllowedOrigin(r, p.allowedOrigins) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -269,22 +270,25 @@ func (p *DesktopProxy) getOrCreateServiceAccountToken(ctx context.Context, kubeC
 	return sat, nil
 }
 
-// Create new DesktopProxy
-func NewDesktopProxy(cm k8shelpers.ConnectionManager, pathPrefix string) (*DesktopProxy, error) {
+// Create new DesktopProxy. allowedOrigins is forwarded to the WebSocket
+// upgrade origin check (see httphelpers.IsAllowedOrigin).
+func NewDesktopProxy(cm k8shelpers.ConnectionManager, pathPrefix string, allowedOrigins []string) (*DesktopProxy, error) {
 	return &DesktopProxy{
-		cm:         cm,
-		pathPrefix: pathPrefix,
-		phCache:    make(map[string]http.Handler),
-		satCache:   make(map[string]*k8shelpers.ServiceAccountToken),
-		shutdownCh: make(chan struct{}),
+		cm:             cm,
+		pathPrefix:     pathPrefix,
+		allowedOrigins: allowedOrigins,
+		phCache:        make(map[string]http.Handler),
+		satCache:       make(map[string]*k8shelpers.ServiceAccountToken),
+		shutdownCh:     make(chan struct{}),
 	}, nil
 }
 
 // Represents InClusterProxy
 type InClusterProxy struct {
 	*httputil.ReverseProxy
-	shutdownCh chan struct{}
-	wg         sync.WaitGroup
+	allowedOrigins []string
+	shutdownCh     chan struct{}
+	wg             sync.WaitGroup
 }
 
 // ServeHTTP wraps the reverse proxy to track active requests for graceful
@@ -296,7 +300,7 @@ func (p *InClusterProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// CSWSH defense for WebSocket upgrades. Chrome does not send
 	// Sec-Fetch-Site on upgrade requests, so the app-level CSRF middleware
 	// can't gate them; check Origin directly here instead.
-	if r.Header.Get("Upgrade") != "" && !httphelpers.IsSameOrigin(r) {
+	if r.Header.Get("Upgrade") != "" && !httphelpers.IsAllowedOrigin(r, p.allowedOrigins) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -340,7 +344,7 @@ func (p *InClusterProxy) DrainWithContext(ctx context.Context) error {
 }
 
 // Create new InClusterProxy with injectable transport (used in tests)
-func newInClusterProxy(clusterAPIEndpoint string, pathPrefix string, transport http.RoundTripper) (*InClusterProxy, error) {
+func newInClusterProxy(clusterAPIEndpoint string, pathPrefix string, allowedOrigins []string, transport http.RoundTripper) (*InClusterProxy, error) {
 	// Parse endpoint url
 	endpointUrl, err := url.Parse(clusterAPIEndpoint)
 	if err != nil {
@@ -388,16 +392,18 @@ func newInClusterProxy(clusterAPIEndpoint string, pathPrefix string, transport h
 	}
 
 	return &InClusterProxy{
-		ReverseProxy: reverseProxy,
-		shutdownCh:   make(chan struct{}),
+		ReverseProxy:   reverseProxy,
+		allowedOrigins: allowedOrigins,
+		shutdownCh:     make(chan struct{}),
 	}, nil
 }
 
-// Create new InClusterProxy
-func NewInClusterProxy(clusterAPIEndpoint string, pathPrefix string) (*InClusterProxy, error) {
+// Create new InClusterProxy. allowedOrigins is forwarded to the WebSocket
+// upgrade origin check (see httphelpers.IsAllowedOrigin).
+func NewInClusterProxy(clusterAPIEndpoint string, pathPrefix string, allowedOrigins []string) (*InClusterProxy, error) {
 	rt, err := k8shelpers.NewInClusterSATRoundTripper(http.DefaultTransport)
 	if err != nil {
 		return nil, err
 	}
-	return newInClusterProxy(clusterAPIEndpoint, pathPrefix, rt)
+	return newInClusterProxy(clusterAPIEndpoint, pathPrefix, allowedOrigins, rt)
 }

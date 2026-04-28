@@ -47,9 +47,9 @@ func newClusterAPIProxy(cfg *config.Config, cm k8shelpers.ConnectionManager, pat
 	// Initialize new ClusterAPI proxy depending on environment
 	switch cfg.Environment {
 	case sharedcfg.EnvironmentDesktop:
-		return clusterapi.NewDesktopProxy(cm, pathPrefix)
+		return clusterapi.NewDesktopProxy(cm, pathPrefix, cfg.AllowedOrigins)
 	case sharedcfg.EnvironmentCluster:
-		return clusterapi.NewInClusterProxy(cfg.ClusterAPIEndpoint, pathPrefix)
+		return clusterapi.NewInClusterProxy(cfg.ClusterAPIEndpoint, pathPrefix, cfg.AllowedOrigins)
 	default:
 		return nil, fmt.Errorf("env not supported: %s", cfg.Environment)
 	}

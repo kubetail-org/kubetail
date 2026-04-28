@@ -30,6 +30,28 @@ kubeconfig: ""
 #
 addr: :80
 
+## allowed-origins ##
+#
+# Additional origins (in addition to same-origin) accepted on WebSocket
+# upgrade requests. Each entry must be a fully-qualified origin —
+# scheme://host[:port] with no path. Comparison is case-insensitive on
+# host and normalizes default ports (so https://example.com matches
+# https://example.com:443).
+#
+# Use this when running the dashboard behind a reverse proxy that
+# rewrites Host or terminates TLS without preserving scheme — direct
+# same-origin matching against r.Host/r.TLS would otherwise reject
+# legitimate browser requests. List the public-facing origin(s) the
+# dashboard is served at.
+#
+# Examples:
+#   - https://kubetail.example.com
+#   - https://kubetail.example.com:8443
+#
+# Default value: []
+#
+allowed-origins: []
+
 ## auth-mode ##
 #
 # The authentication mode for the dashboard.

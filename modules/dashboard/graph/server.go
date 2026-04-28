@@ -97,7 +97,9 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 	// and a CSRF-token check in the connection_init payload.
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
-			CheckOrigin:       httphelpers.IsSameOrigin,
+			CheckOrigin: func(r *http.Request) bool {
+				return httphelpers.IsAllowedOrigin(r, cfg.AllowedOrigins)
+			},
 			ReadBufferSize:    1024,
 			WriteBufferSize:   1024,
 			EnableCompression: false,

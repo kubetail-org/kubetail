@@ -68,6 +68,50 @@ func IsSameOrigin(r *http.Request) bool {
 	return strings.EqualFold(originHost, reqHost) && originPort == reqPort
 }
 
+// IsAllowedOrigin reports whether r passes IsSameOrigin OR its Origin
+// matches one of allowedOrigins. Each allowedOrigins entry is a fully-
+// qualified origin (scheme://host[:port]); comparison normalizes case
+// and default ports the same way as IsSameOrigin.
+//
+// Use this for deployments where a reverse proxy rewrites Host or
+// terminates TLS without preserving the scheme — situations in which
+// IsSameOrigin alone would reject legitimate requests because r.Host
+// and r.TLS no longer reflect what the browser sent. Operators
+// enumerate the public-facing origin(s) the dashboard is served at.
+//
+// An empty allowedOrigins slice is equivalent to IsSameOrigin.
+func IsAllowedOrigin(r *http.Request, allowedOrigins []string) bool {
+	if IsSameOrigin(r) {
+		return true
+	}
+	if len(allowedOrigins) == 0 {
+		return false
+	}
+	raw := r.Header.Get("Origin")
+	if raw == "" {
+		return false
+	}
+	got, err := url.Parse(raw)
+	if err != nil || got.Host == "" {
+		return false
+	}
+	gotHost, gotPort := splitHostPort(got.Host, got.Scheme)
+	for _, allowed := range allowedOrigins {
+		u, err := url.Parse(allowed)
+		if err != nil || u.Host == "" {
+			continue
+		}
+		if !strings.EqualFold(u.Scheme, got.Scheme) {
+			continue
+		}
+		aHost, aPort := splitHostPort(u.Host, u.Scheme)
+		if strings.EqualFold(aHost, gotHost) && aPort == gotPort {
+			return true
+		}
+	}
+	return false
+}
+
 // splitHostPort returns the host and effective port for a host[:port]
 // string, falling back to scheme's default port when no port is present.
 // IPv6 brackets are stripped so bracketed and unbracketed literals compare

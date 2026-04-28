@@ -231,3 +231,152 @@ func TestIsSameOrigin(t *testing.T) {
 		})
 	}
 }
+
+func TestIsAllowedOrigin(t *testing.T) {
+	tests := []struct {
+		name           string
+		host           string
+		headers        http.Header
+		tls            bool
+		allowedOrigins []string
+		want           bool
+	}{
+		{
+			name: "empty allowlist + same-origin request is allowed",
+			host: "example.com",
+			headers: http.Header{
+				"Origin": {"http://example.com"},
+			},
+			allowedOrigins: nil,
+			want:           true,
+		},
+		{
+			name: "empty allowlist + cross-origin request is rejected",
+			host: "example.com",
+			headers: http.Header{
+				"Origin": {"https://attacker.com"},
+			},
+			allowedOrigins: nil,
+			want:           false,
+		},
+		{
+			name: "allowlist match across hostname rewrite",
+			host: "kubetail.svc.cluster.local",
+			headers: http.Header{
+				"Origin": {"https://kubetail.example.com"},
+			},
+			allowedOrigins: []string{"https://kubetail.example.com"},
+			want:           true,
+		},
+		{
+			name: "allowlist scheme-mismatch is rejected",
+			host: "kubetail.svc.cluster.local",
+			headers: http.Header{
+				"Origin": {"http://kubetail.example.com"},
+			},
+			allowedOrigins: []string{"https://kubetail.example.com"},
+			want:           false,
+		},
+		{
+			name: "allowlist host-mismatch is rejected",
+			host: "kubetail.svc.cluster.local",
+			headers: http.Header{
+				"Origin": {"https://attacker.example.com"},
+			},
+			allowedOrigins: []string{"https://kubetail.example.com"},
+			want:           false,
+		},
+		{
+			name: "allowlist port-mismatch is rejected",
+			host: "kubetail.svc.cluster.local",
+			headers: http.Header{
+				"Origin": {"https://kubetail.example.com:9090"},
+			},
+			allowedOrigins: []string{"https://kubetail.example.com:8443"},
+			want:           false,
+		},
+		{
+			name: "allowlist host compare is case-insensitive",
+			host: "kubetail.svc.cluster.local",
+			headers: http.Header{
+				"Origin": {"https://KubeTail.Example.COM"},
+			},
+			allowedOrigins: []string{"https://kubetail.example.com"},
+			want:           true,
+		},
+		{
+			name: "allowlist default-port: entry without port matches Origin with default port",
+			host: "kubetail.svc.cluster.local",
+			headers: http.Header{
+				"Origin": {"https://kubetail.example.com:443"},
+			},
+			allowedOrigins: []string{"https://kubetail.example.com"},
+			want:           true,
+		},
+		{
+			name: "allowlist default-port: entry with default port matches Origin without port",
+			host: "kubetail.svc.cluster.local",
+			headers: http.Header{
+				"Origin": {"https://kubetail.example.com"},
+			},
+			allowedOrigins: []string{"https://kubetail.example.com:443"},
+			want:           true,
+		},
+		{
+			name: "allowlist IPv6 brackets normalize",
+			host: "kubetail.svc.cluster.local",
+			headers: http.Header{
+				"Origin": {"http://[::1]:8080"},
+			},
+			allowedOrigins: []string{"http://[::1]:8080"},
+			want:           true,
+		},
+		{
+			name: "malformed allowlist entry is skipped, later entry still matches",
+			host: "kubetail.svc.cluster.local",
+			headers: http.Header{
+				"Origin": {"https://kubetail.example.com"},
+			},
+			allowedOrigins: []string{"::not a url", "https://kubetail.example.com"},
+			want:           true,
+		},
+		{
+			name:           "missing Origin with non-empty allowlist is rejected",
+			host:           "kubetail.svc.cluster.local",
+			headers:        http.Header{},
+			allowedOrigins: []string{"https://kubetail.example.com"},
+			want:           false,
+		},
+		{
+			name: "malformed Origin with non-empty allowlist is rejected",
+			host: "kubetail.svc.cluster.local",
+			headers: http.Header{
+				"Origin": {"://not a url"},
+			},
+			allowedOrigins: []string{"https://kubetail.example.com"},
+			want:           false,
+		},
+		{
+			name: "same-origin still wins when allowlist is non-empty and unrelated",
+			host: "example.com",
+			headers: http.Header{
+				"Origin": {"http://example.com"},
+			},
+			allowedOrigins: []string{"https://kubetail.example.com"},
+			want:           true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &http.Request{
+				Host:   tt.host,
+				Header: tt.headers,
+			}
+			if tt.tls {
+				r.TLS = &tls.ConnectionState{}
+			}
+			assert.Equal(t, tt.want, IsAllowedOrigin(r, tt.allowedOrigins))
+		})
+	}
+}
