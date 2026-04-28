@@ -137,6 +137,47 @@ func (suite *authTestSuite) TestLoginPOSTFailure() {
 	suite.Equal(http.StatusUnprocessableEntity, resp.StatusCode)
 }
 
+func (suite *authTestSuite) TestAuthRotatesCSRFToken() {
+	m := suite.app.queryHelpers.(*mockQueryHelpers)
+	m.On("HasAccess", mock.Anything, "xxx").Return(&authv1.TokenReview{
+		Status: authv1.TokenReviewStatus{Authenticated: true},
+	}, nil)
+
+	loginForm := url.Values{}
+	loginForm.Add("token", "xxx")
+
+	tests := []struct {
+		name   string
+		setup  func()
+		action func()
+	}{
+		{
+			name:   "login",
+			setup:  func() {},
+			action: func() { suite.client.PostForm("/api/auth/login", loginForm) },
+		},
+		{
+			name:   "logout",
+			setup:  func() { suite.client.PostForm("/api/auth/login", loginForm) },
+			action: func() { suite.client.PostForm("/api/auth/logout", nil) },
+		},
+	}
+
+	for _, tc := range tests {
+		suite.Run(tc.name, func() {
+			tc.setup()
+			before := suite.client.Get("/api/auth/session").Header.Get("X-CSRF-Token")
+			suite.NotEmpty(before)
+
+			tc.action()
+
+			after := suite.client.Get("/api/auth/session").Header.Get("X-CSRF-Token")
+			suite.NotEmpty(after)
+			suite.NotEqual(before, after)
+		})
+	}
+}
+
 func (suite *authTestSuite) TestLogoutPOSTSuccess() {
 	m := suite.app.queryHelpers.(*mockQueryHelpers)
 	m.On("HasAccess", mock.Anything, "xxx").Return(&authv1.TokenReview{
@@ -155,6 +196,9 @@ func (suite *authTestSuite) TestLogoutPOSTSuccess() {
 	// Verify that session cookie was added
 	cookie1 := getCookie(resp1.Cookies, "session")
 	suite.NotNil(cookie1)
+
+	// Login rotates the CSRF token; refresh before the next unsafe request.
+	suite.client.Get("/api/auth/session")
 
 	// Log out
 	resp2 := suite.client.PostForm("/api/auth/logout", nil)

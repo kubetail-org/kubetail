@@ -72,6 +72,9 @@ func (app *authHandlers) LoginPOST(c *gin.Context) {
 	session := sessions.Default(c)
 	session.Set(k8sTokenSessionKey, form.Token)
 
+	// Rotate CSRF token on auth state change to prevent fixation.
+	session.Delete(csrfTokenSessionKey)
+
 	// Save
 	err = session.Save()
 	if err != nil {
@@ -85,6 +88,7 @@ func (app *authHandlers) LoginPOST(c *gin.Context) {
 // Logout endpoint
 func (app *authHandlers) LogoutPOST(c *gin.Context) {
 	session := sessions.Default(c)
+	// Clear() also drops csrfTokenSessionKey, rotating the CSRF token.
 	session.Clear()
 	session.Save()
 
