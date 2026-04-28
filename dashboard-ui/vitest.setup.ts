@@ -3,7 +3,7 @@ import '@testing-library/jest-dom'; // adds .toBeInTheDocument() to global `expe
 import { cleanup } from '@testing-library/react';
 import type { Mock } from 'vitest';
 
-import { getSession, useSession } from '@/lib/auth';
+import { getCsrfToken, getSession, useSession, waitForCsrfToken } from '@/lib/auth';
 import { useIsClusterAPIEnabled } from '@/lib/hooks';
 
 vi.mock('@/lib/auth', async (importOriginal) => {
@@ -12,6 +12,8 @@ vi.mock('@/lib/auth', async (importOriginal) => {
     ...mod,
     getSession: vi.fn(),
     useSession: vi.fn(),
+    getCsrfToken: vi.fn(),
+    waitForCsrfToken: vi.fn(),
   };
 });
 
@@ -79,6 +81,9 @@ beforeEach(() => {
   });
 
   (useIsClusterAPIEnabled as Mock).mockReturnValue(true);
+
+  (getCsrfToken as Mock).mockReturnValue('test-csrf-token');
+  (waitForCsrfToken as Mock).mockResolvedValue(undefined);
 });
 
 afterEach(() => {

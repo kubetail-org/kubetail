@@ -16,7 +16,7 @@ import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import LoadingPage from '@/components/utils/LoadingPage';
-import { getSession, useSession } from '@/lib/auth';
+import { getCsrfToken, getSession, useSession, waitForCsrfToken } from '@/lib/auth';
 
 export default function Logout() {
   const navigate = useNavigate();
@@ -31,8 +31,12 @@ export default function Logout() {
   useEffect(() => {
     (async () => {
       const url = new URL('/api/auth/logout', window.location.origin);
+      await waitForCsrfToken();
       const resp = await fetch(url, {
         method: 'post',
+        headers: {
+          'X-CSRF-Token': getCsrfToken(),
+        },
       });
 
       // update session

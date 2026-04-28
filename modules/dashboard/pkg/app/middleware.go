@@ -15,10 +15,13 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"io"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 
@@ -71,10 +74,27 @@ func csrfProtectionMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Layer 2: CSRF token check
+		// Layer 2: CSRF token check. Header is the primary path; HTML form
+		// submissions (which can't set headers) fall back to a `csrfToken`
+		// urlencoded field. We parse the body manually and restore it
+		// because gin's c.PostForm drains r.Body, which breaks downstream
+		// consumers like the cluster-api reverse proxy that forward it.
 		session := sessions.Default(c)
 		token, _ := session.Get(csrfTokenSessionKey).(string)
-		if token == "" || c.GetHeader("X-CSRF-Token") != token {
+		got := c.GetHeader("X-CSRF-Token")
+		if got == "" && c.ContentType() == "application/x-www-form-urlencoded" && c.Request.Body != nil {
+			bodyBytes, err := io.ReadAll(c.Request.Body)
+			c.Request.Body.Close()
+			if err != nil {
+				c.AbortWithStatus(http.StatusBadRequest)
+				return
+			}
+			c.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+			if vals, err := url.ParseQuery(string(bodyBytes)); err == nil {
+				got = vals.Get("csrfToken")
+			}
+		}
+		if token == "" || got != token {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}

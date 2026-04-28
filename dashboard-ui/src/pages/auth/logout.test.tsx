@@ -14,7 +14,7 @@
 
 import { createMemoryHistory } from 'history';
 import { Router } from 'react-router-dom';
-import { render } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 import type { Mock } from 'vitest';
 
 import { useSession } from '@/lib/auth';
@@ -38,6 +38,18 @@ describe('Logout Page', () => {
 
     // assertions
     expect(getByText('Loading...')).toBeInTheDocument();
+  });
+
+  it('sends X-CSRF-Token header on logout POST', async () => {
+    fetchMock.mockResolvedValue({ ok: true });
+
+    renderElement(<LogoutPage />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    const headers = init.headers as Record<string, string>;
+    expect(headers['X-CSRF-Token']).toBe('test-csrf-token');
   });
 
   it('navigates to callbackUrl when user is logged out', () => {

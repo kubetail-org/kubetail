@@ -15,8 +15,12 @@
 package app
 
 import (
+	"bytes"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-contrib/sessions"
@@ -127,6 +131,13 @@ const csrfPreseededToken = "testtokenvalue1234"
 // runCSRFCase executes one CSRF middleware test case and returns the response.
 func runCSRFCase(t *testing.T, method string, header http.Header, seedToken bool) *http.Response {
 	t.Helper()
+	return runCSRFCaseWithBody(t, method, header, seedToken, "", nil)
+}
+
+// runCSRFCaseWithBody is like runCSRFCase but allows a content-type and body
+// (for form-encoded / multipart cases).
+func runCSRFCaseWithBody(t *testing.T, method string, header http.Header, seedToken bool, contentType string, body io.Reader) *http.Response {
+	t.Helper()
 
 	store := cookie.NewStore([]byte("secret"))
 	store.Options(sessions.Options{Path: "/", Secure: false})
@@ -147,7 +158,10 @@ func runCSRFCase(t *testing.T, method string, header http.Header, seedToken bool
 	})
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(method, "/", nil)
+	r := httptest.NewRequest(method, "/", body)
+	if contentType != "" {
+		r.Header.Set("Content-Type", contentType)
+	}
 	for k, v := range header {
 		r.Header[k] = v
 	}
@@ -202,6 +216,105 @@ func TestCSRFProtectionMiddlewareAllows(t *testing.T) {
 			assert.Equal(t, http.StatusOK, resp.StatusCode)
 		})
 	}
+}
+
+func TestCSRFProtectionMiddlewareFormFieldFallback(t *testing.T) {
+	const sameOrigin = "same-origin"
+
+	t.Run("form-encoded POST with valid csrfToken field allowed", func(t *testing.T) {
+		body := strings.NewReader("csrfToken=" + csrfPreseededToken + "&foo=bar")
+		resp := runCSRFCaseWithBody(t, "POST",
+			http.Header{"Sec-Fetch-Site": []string{sameOrigin}},
+			true,
+			"application/x-www-form-urlencoded",
+			body,
+		)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("form-encoded POST with mismatched csrfToken field forbidden", func(t *testing.T) {
+		body := strings.NewReader("csrfToken=wrongtoken&foo=bar")
+		resp := runCSRFCaseWithBody(t, "POST",
+			http.Header{"Sec-Fetch-Site": []string{sameOrigin}},
+			true,
+			"application/x-www-form-urlencoded",
+			body,
+		)
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+	})
+
+	t.Run("multipart POST with valid csrfToken field forbidden (fallback only covers urlencoded)", func(t *testing.T) {
+		var buf bytes.Buffer
+		mw := multipart.NewWriter(&buf)
+		_ = mw.WriteField("csrfToken", csrfPreseededToken)
+		_ = mw.WriteField("foo", "bar")
+		_ = mw.Close()
+
+		resp := runCSRFCaseWithBody(t, "POST",
+			http.Header{"Sec-Fetch-Site": []string{sameOrigin}},
+			true,
+			mw.FormDataContentType(),
+			&buf,
+		)
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+	})
+
+	t.Run("body is restored after form-field check so downstream handlers can read it", func(t *testing.T) {
+		store := cookie.NewStore([]byte("secret"))
+		store.Options(sessions.Options{Path: "/", Secure: false})
+
+		router := gin.New()
+		router.Use(sessions.Sessions("session", store))
+		router.Use(func(c *gin.Context) {
+			session := sessions.Default(c)
+			session.Set(csrfTokenSessionKey, csrfPreseededToken)
+			session.Save()
+			c.Next()
+		})
+		router.Use(csrfProtectionMiddleware())
+
+		var seenBody string
+		router.POST("/", func(c *gin.Context) {
+			b, _ := io.ReadAll(c.Request.Body)
+			seenBody = string(b)
+			c.String(http.StatusOK, "ok")
+		})
+
+		body := "csrfToken=" + csrfPreseededToken + "&foo=bar&baz=qux"
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest("POST", "/", strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		r.Header.Set("Sec-Fetch-Site", sameOrigin)
+		router.ServeHTTP(w, r)
+
+		assert.Equal(t, http.StatusOK, w.Result().StatusCode)
+		assert.Equal(t, body, seenBody)
+	})
+
+	t.Run("JSON POST with csrfToken in body forbidden", func(t *testing.T) {
+		body := strings.NewReader(`{"csrfToken":"` + csrfPreseededToken + `"}`)
+		resp := runCSRFCaseWithBody(t, "POST",
+			http.Header{"Sec-Fetch-Site": []string{sameOrigin}},
+			true,
+			"application/json",
+			body,
+		)
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+	})
+
+	t.Run("header takes precedence over form field", func(t *testing.T) {
+		body := strings.NewReader("csrfToken=wrongtoken")
+		resp := runCSRFCaseWithBody(t, "POST",
+			http.Header{
+				"Sec-Fetch-Site": []string{sameOrigin},
+				"X-Csrf-Token":   []string{csrfPreseededToken},
+			},
+			true,
+			"application/x-www-form-urlencoded",
+			body,
+		)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
 }
 
 func TestCSRFProtectionMiddlewareForbids(t *testing.T) {

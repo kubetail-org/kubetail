@@ -17,6 +17,7 @@ package app
 import (
 	"context"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -191,6 +192,82 @@ func TestDownloadResponseHeaders(t *testing.T) {
 	cd := w.Header().Get("Content-Disposition")
 	assert.True(t, strings.HasPrefix(cd, `attachment; filename="logs-`), "Content-Disposition: %q", cd)
 	assert.True(t, strings.HasSuffix(cd, `.tsv"`), "Content-Disposition: %q", cd)
+}
+
+// Behavioral check: the download endpoint accepts the CSRF token via a
+// `csrfToken` form field when no X-CSRF-Token header is present (HTML form
+// submission via a hidden iframe can't set headers).
+//
+// Uses token auth mode so the request passes the CSRF gate and is rejected
+// later by k8sAuthenticationMiddleware (401) — we assert specifically that
+// the CSRF gate did not return 403.
+func TestDownloadPOSTAcceptsCSRFTokenInFormField(t *testing.T) {
+	cfg := newTestConfig()
+	cfg.AuthMode = config.AuthModeToken
+	app := newTestApp(cfg)
+
+	srv := httptest.NewServer(app)
+	defer srv.Close()
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{Jar: jar}
+
+	// Prime the CSRF token + session cookie.
+	primeReq, _ := http.NewRequest("GET", srv.URL+"/api/auth/session", nil)
+	primeResp, err := client.Do(primeReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	primeResp.Body.Close()
+	csrfTok := primeResp.Header.Get("X-CSRF-Token")
+	assert.NotEmpty(t, csrfTok)
+
+	// POST with csrfToken in the form, no X-CSRF-Token header.
+	form := baseDownloadForm()
+	form.Set("csrfToken", csrfTok)
+	req, _ := http.NewRequest("POST", srv.URL+"/api/v1/download", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	// CSRF gate must allow the request through. Token-mode auth then
+	// rejects it with 401 because there's no bearer/session k8s token.
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode,
+		"expected request to pass CSRF gate (form-field token) and be rejected later by auth")
+}
+
+// Same setup as the form-field test, but without the csrfToken field —
+// expect a 403 from the CSRF gate (the form fallback doesn't trip without
+// the field).
+func TestDownloadPOSTRejectsMissingCSRFTokenFormField(t *testing.T) {
+	cfg := newTestConfig()
+	cfg.AuthMode = config.AuthModeToken
+	app := newTestApp(cfg)
+
+	srv := httptest.NewServer(app)
+	defer srv.Close()
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{Jar: jar}
+
+	// Prime so the session has a token; we just don't send it.
+	primeReq, _ := http.NewRequest("GET", srv.URL+"/api/auth/session", nil)
+	primeResp, _ := client.Do(primeReq)
+	primeResp.Body.Close()
+
+	form := baseDownloadForm()
+	req, _ := http.NewRequest("POST", srv.URL+"/api/v1/download", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 }
 
 // Behavioral check: the download endpoint is mounted under protectedRoutes,

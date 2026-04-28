@@ -32,6 +32,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@kubetail/ui/elements/t
 
 import appConfig from '@/app-config';
 import { parseTimestamp } from '@/components/widgets/DateRangeDropdown';
+import { getCsrfToken, waitForCsrfToken } from '@/lib/auth';
 import { LogRecordsQueryMode, LogSourceFilter } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { useTimezone } from '@/lib/timezone';
 import { ClusterAPIProxyPathInput, clusterAPIProxyPath, getBasename, joinPaths } from '@/lib/util';
@@ -218,6 +219,11 @@ export function submitLogDownload(action: string, filters: DownloadFilters, args
   append('includeMetadata', String(args.includeMetadata));
   (args.columns ?? []).forEach((c) => append('columns', c));
 
+  // HTML form submission can't set headers, so deliver the CSRF token via a
+  // hidden form field. The server middleware accepts this fallback for
+  // form-encoded POSTs.
+  append('csrfToken', getCsrfToken());
+
   document.body.appendChild(form);
   try {
     form.submit();
@@ -253,7 +259,7 @@ export const DownloadDialog = (props: DownloadDialogProps) => {
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('tsv');
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (!logServerClient) return;
     const args = buildDownloadArgs(
       { rangeMode, firstN, lastN, since, until, messageFormat, contentMode, outputFormat },
@@ -269,6 +275,7 @@ export const DownloadDialog = (props: DownloadDialogProps) => {
       shouldUseClusterAPI: !!shouldUseClusterAPI,
       kubeContext: kubeContext ?? '',
     });
+    await waitForCsrfToken();
     submitLogDownload(action, downloadSource, args);
 
     onOpenChange(false);
