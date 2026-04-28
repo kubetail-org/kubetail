@@ -16,6 +16,7 @@ package graph
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"net/http"
 	"strings"
@@ -98,7 +99,8 @@ func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.D
 		// the upgrade-time Origin gate is the only check in that path.
 		InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
 			expected, _ := ctx.Value(SessionCSRFTokenCtxKey).(string)
-			if expected != "" && initPayload.GetString("csrfToken") != expected {
+			got := initPayload.GetString("csrfToken")
+			if expected != "" && subtle.ConstantTimeCompare([]byte(got), []byte(expected)) != 1 {
 				return ctx, nil, errors.New("invalid CSRF token")
 			}
 			return ctx, nil, nil

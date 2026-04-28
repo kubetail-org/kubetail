@@ -16,6 +16,7 @@ package graph
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"net/http"
 	"sync"
@@ -103,7 +104,8 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 		},
 		InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
 			expected, _ := ctx.Value(SessionCSRFTokenCtxKey).(string)
-			if expected == "" || initPayload.GetString("csrfToken") != expected {
+			got := initPayload.GetString("csrfToken")
+			if expected == "" || subtle.ConstantTimeCompare([]byte(got), []byte(expected)) != 1 {
 				return ctx, nil, errors.New("invalid CSRF token")
 			}
 			return ctx, nil, nil

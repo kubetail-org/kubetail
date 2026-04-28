@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"io"
 	"net/http"
@@ -94,7 +95,7 @@ func csrfProtectionMiddleware() gin.HandlerFunc {
 				got = vals.Get("csrfToken")
 			}
 		}
-		if token == "" || got != token {
+		if token == "" || subtle.ConstantTimeCompare([]byte(got), []byte(token)) != 1 {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
