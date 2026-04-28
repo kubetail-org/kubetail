@@ -188,6 +188,13 @@ func TestCSRFProtectionAppliedToDynamicRoutes(t *testing.T) {
 		"csrfProtectionMiddleware not found in dynamic-route handler chain")
 }
 
+func TestStripForwardedCSRFTokenAppliedToDynamicRoutes(t *testing.T) {
+	app := newTestApp(nil)
+	assert.True(t,
+		handlerChainContains(app.dynamicRoutes.Handlers, "stripForwardedCSRFTokenMiddleware"),
+		"stripForwardedCSRFTokenMiddleware not found in dynamic-route handler chain")
+}
+
 func TestAuthenticationMiddlewareAppliedToDynamicRoutes(t *testing.T) {
 	app := newTestApp(nil)
 	assert.True(t,

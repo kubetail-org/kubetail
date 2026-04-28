@@ -516,6 +516,7 @@ func TestWebSocketCSRFContextMiddleware(t *testing.T) {
 				}
 				c.Next()
 			})
+			router.Use(stripForwardedCSRFTokenMiddleware())
 			router.Use(websocketCSRFContextMiddleware())
 
 			var (

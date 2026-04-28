@@ -182,6 +182,10 @@ func NewApp(cfg *config.Config) (*App, error) {
 			ContentTypeNosniff:    true,
 		}))
 
+		// Strip any client-supplied X-Forwarded-CSRF-Token on entry to
+		// prevent header smuggling into upstream proxies.
+		dynamicRoutes.Use(stripForwardedCSRFTokenMiddleware())
+
 		// Add CSRF protection middleware
 		dynamicRoutes.Use(csrfProtectionMiddleware())
 
