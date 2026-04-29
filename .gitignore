@@ -76,3 +76,4 @@ lerna-debug.log*
 # Misc
 /dashboard-ui/stats.html
 .worktrees
+.sbx

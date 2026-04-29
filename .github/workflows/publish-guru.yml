@@ -21,42 +21,36 @@ on:
         default: true
 
 jobs:
-  config:
-    name: Configure workflow
-    runs-on: ubuntu-slim
-    outputs:
-      version: ${{ steps.config.outputs.version }}
-      dry_run: ${{ steps.config.outputs.dry_run }}
+  publish:
+    environment: production
+    runs-on: ubuntu-24.04
     steps:
-      - id: config
+      - name: Configure workflow
+        id: config
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            VERSION="${{ github.event.inputs.version }}"
             echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
           else
-            echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
+            VERSION="${GITHUB_REF#refs/tags/cli/v}"
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "archive_name=kubetail-${VERSION}-vendored.tar.gz" >> $GITHUB_OUTPUT
 
-  update-kubetail:
-    name: Update `kubetail` package
-    needs: [config]
-    environment: production
-    runs-on: ubuntu-slim
-    env:
-      ARCHIVE_NAME: "kubetail-${{ needs.config.outputs.version }}-vendored.tar.gz"
-    steps:
       - name: Download source bundle
         uses: robinraju/release-downloader@v1.12
         with:
           repository: kubetail-org/kubetail
-          tag: ${{ format('cli/v{0}', needs.config.outputs.version) }}
-          fileName: ${{ env.ARCHIVE_NAME }}
+          tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
+          fileName: ${{ steps.config.outputs.archive_name }}
           out-file-path: "downloads"
 
       - name: Extract metadata
         id: meta
         working-directory: ./downloads
+        env:
+          ARCHIVE_NAME: ${{ steps.config.outputs.archive_name }}
         run: |
           SIZE=$(stat --format '%s' "$ARCHIVE_NAME")
           BLAKE2B=$(b2sum "$ARCHIVE_NAME" | awk '{print $1}')
@@ -90,12 +84,12 @@ jobs:
           SRC_DIR: kubetail/.github/ci-config/guru
           DST_DIR: guru/dev-util/kubetail
         run: |
-          cp "$SRC_DIR/kubetail.ebuild" "$DST_DIR/kubetail-${{ needs.config.outputs.version}}.ebuild"
+          cp "$SRC_DIR/kubetail.ebuild" "$DST_DIR/kubetail-${{ steps.config.outputs.version}}.ebuild"
 
       - name: Update Manifest
         working-directory: guru/dev-util/kubetail
         run: |
-          prefix="DIST kubetail-${{ needs.config.outputs.version }}-vendored.tar.gz"
+          prefix="DIST kubetail-${{ steps.config.outputs.version }}-vendored.tar.gz"
           if ! grep -qF "$prefix" Manifest 2>/dev/null; then
             echo "$prefix ${{ steps.meta.outputs.size }} BLAKE2B ${{ steps.meta.outputs.blake2b }} SHA512 ${{ steps.meta.outputs.sha512 }}" >> Manifest
           fi
@@ -119,6 +113,19 @@ jobs:
             escaped="${version//./\\.}"
             sed -i "/^DIST kubetail-${escaped}-vendored\.tar\.gz /d" Manifest
           done
+
+      - name: Run pkgcheck
+        run: |
+          docker run --rm \
+            -v "$PWD/guru:/guru" \
+            -w /guru/dev-util/kubetail \
+            gentoo/stage3 \
+            bash -c '
+              set -euo pipefail
+              emerge-webrsync >/dev/null 2>&1 || true
+              emerge -1q dev-util/pkgcheck
+              pkgcheck scan -v --exit warning
+            '
 
       - name: Start gpg-agent
         run: |
@@ -150,16 +157,16 @@ jobs:
           git config user.signingkey "${{ vars.ANDRES_GPG_SIGNING_KEY_FINGERPRINT }}"
 
       - name: Debug
-        if: ${{ needs.config.outputs.dry_run == 'true' }}
+        if: ${{ steps.config.outputs.dry_run == 'true' }}
         working-directory: guru/dev-util/kubetail
         run: |
           ls -lah *
-          cat kubetail-${{ needs.config.outputs.version }}.ebuild
+          cat kubetail-${{ steps.config.outputs.version }}.ebuild
           cat Manifest
 
       - name: Push changes to GURU repo
         working-directory: guru
-        if: ${{ needs.config.outputs.dry_run != 'true' }}
+        if: ${{ steps.config.outputs.dry_run != 'true' }}
         run: |
           # Stage changes
           git add . --all
@@ -171,7 +178,7 @@ jobs:
           fi
 
           # Commit and push
-          git commit -a -s -S -m "dev-util/kubetail: add ${{ needs.config.outputs.version }}"
+          git commit -a -s -S -m "dev-util/kubetail: add ${{ steps.config.outputs.version }}"
           git push origin
 
       - name: Cleanup GPG
