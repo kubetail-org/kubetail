@@ -2,7 +2,6 @@ name: publish-guru
 
 permissions:
   contents: read
-  deployments: write
 
 on:
   release:
@@ -60,17 +59,10 @@ jobs:
           echo "blake2b=$BLAKE2B" >> "$GITHUB_OUTPUT"
           echo "sha512=$SHA512" >> "$GITHUB_OUTPUT"
 
-      - name: Load GURU SSH key
-        uses: webfactory/ssh-agent@v0.9.1
-        with:
-          ssh-private-key: ${{ secrets.GENTOO_SSH_PRIVATE_KEY }}
-
       - name: Checkout GURU repo
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ vars.GENTOO_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-
-          git clone --depth 1 --branch dev --single-branch git@git.gentoo.org:repo/proj/guru.git
+          git clone --depth 1 --branch dev --single-branch https://github.com/gentoo/guru.git
+          git -C guru remote add fork https://x-access-token:${{ secrets.PUBLISH_GURU_GITHUB_TOKEN }}@github.com/amorey/guru.git
 
       - name: Checkout kubetail repo
         uses: actions/checkout@v5
@@ -149,7 +141,6 @@ jobs:
         run: |
           # Configure git
           git config gpg.program gpg
-          git config push.gpgsign true
           git config commit.gpgsign true
 
           git config user.name "Andres Morey"
@@ -164,9 +155,12 @@ jobs:
           cat kubetail-${{ steps.config.outputs.version }}.ebuild
           cat Manifest
 
-      - name: Push changes to GURU repo
+      - name: Push changes and open PR
         working-directory: guru
         if: ${{ steps.config.outputs.dry_run != 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.PUBLISH_GURU_GITHUB_TOKEN }}
+          VERSION: ${{ steps.config.outputs.version }}
         run: |
           # Stage changes
           git add . --all
@@ -177,9 +171,20 @@ jobs:
             exit 0
           fi
 
-          # Commit and push
-          git commit -a -s -S -m "dev-util/kubetail: add ${{ steps.config.outputs.version }}"
-          git push origin
+          # Create branch, commit, and push to fork
+          BRANCH="kubetail-${VERSION}"
+          git checkout -b "$BRANCH"
+          git commit -a -s -S -m "dev-util/kubetail: add ${VERSION}"
+          git push --force fork "$BRANCH"
+
+          # Open PR against gentoo/guru:dev
+          gh pr create \
+            --repo gentoo/guru \
+            --base dev \
+            --head "amorey:${BRANCH}" \
+            --draft \
+            --title "dev-util/kubetail: add ${VERSION}" \
+            --body "Adds dev-util/kubetail-${VERSION}"
 
       - name: Cleanup GPG
         if: always()
