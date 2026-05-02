@@ -33,6 +33,12 @@ import {
   visibleColsAtom,
 } from './state';
 
+type SelectableViewerColumn = Exclude<ViewerColumn, ViewerColumn.ColorDot>;
+
+function isSelectableViewerColumn(col: ViewerColumn): col is SelectableViewerColumn {
+  return col !== ViewerColumn.ColorDot;
+}
+
 /**
  * getPlainAttribute - Returns a plain text string for a given log record column.
  * This is the plain-text counterpart of getAttribute() in main.tsx (which returns JSX).
@@ -157,6 +163,50 @@ export function computeCellRange(
     result.set(r, colSet);
   }
   return result;
+}
+
+function getActiveSelectedCell(
+  selectedCells: Map<number, Set<ViewerColumn>>,
+  lastClickedCell: { rowKey: number; col: ViewerColumn } | null,
+  visibleCols: Set<ViewerColumn>,
+): { rowKey: number; col: ViewerColumn } | null {
+  if (lastClickedCell && selectedCells.get(lastClickedCell.rowKey)?.has(lastClickedCell.col)) {
+    return lastClickedCell;
+  }
+
+  const cols = [...visibleCols].filter(isSelectableViewerColumn);
+  const rowKey = [...selectedCells.keys()].sort((a, b) => a - b)[0];
+  if (rowKey === undefined) return null;
+
+  const selectedCols = selectedCells.get(rowKey);
+  const col = cols.find((c) => selectedCols?.has(c));
+  return col ? { rowKey, col } : null;
+}
+
+function getAdjacentSelectedCell(
+  activeCell: { rowKey: number; col: ViewerColumn },
+  key: string,
+  visibleCols: Set<ViewerColumn>,
+  virtualizer: LogViewerVirtualizer,
+): { rowKey: number; col: ViewerColumn } | null {
+  if (!isSelectableViewerColumn(activeCell.col)) return null;
+
+  const cols = [...visibleCols].filter(isSelectableViewerColumn);
+  const colIndex = cols.indexOf(activeCell.col);
+  if (colIndex === -1) return null;
+
+  if (key === 'ArrowLeft' || key === 'ArrowRight') {
+    const nextColIndex = colIndex + (key === 'ArrowRight' ? 1 : -1);
+    const col = cols[nextColIndex];
+    return col ? { rowKey: activeCell.rowKey, col } : null;
+  }
+
+  const rowIndex = virtualizer.getIndexOfKey(activeCell.rowKey);
+  if (rowIndex < 0) return null;
+
+  const nextRowIndex = rowIndex + (key === 'ArrowDown' ? 1 : -1);
+  const rowKey = virtualizer.getKeyAtIndex(nextRowIndex);
+  return rowKey === undefined ? null : { rowKey, col: activeCell.col };
 }
 
 /**
@@ -559,7 +609,17 @@ export function useSelectionKeyboard(
   state: ReturnType<typeof useSelectionState>,
   virtualizerRef: React.RefObject<LogViewerVirtualizer | null>,
 ) {
-  const { visibleCols, selectedKeysRef, selectedCellsRef, clearSelection } = state;
+  const {
+    visibleCols,
+    selectedKeysRef,
+    selectedCellsRef,
+    lastClickedCellRef,
+    setSelectedCells,
+    setLastClickedCell,
+    setIsTextSelectMode,
+    setIsCursorText,
+    clearSelection,
+  } = state;
   const [timezone] = useTimezone();
   const [timestampFormat] = useTimestampFormat();
 
@@ -599,11 +659,50 @@ export function useSelectionKeyboard(
           navigator.clipboard.writeText(text);
         }
       }
+
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+        const cells = selectedCellsRef.current;
+        if (cells.size === 0) return;
+
+        const v = virtualizerRef.current;
+        if (!v) return;
+
+        const activeCell = getActiveSelectedCell(cells, lastClickedCellRef.current, visibleCols);
+        if (!activeCell) return;
+
+        const nextCell = getAdjacentSelectedCell(activeCell, e.key, visibleCols, v);
+        if (!nextCell) return;
+
+        e.preventDefault();
+        window.getSelection()?.removeAllRanges();
+        const nextCells = new Map([[nextCell.rowKey, new Set([nextCell.col])]]);
+        selectedCellsRef.current = nextCells;
+        lastClickedCellRef.current = nextCell;
+        setSelectedCells(nextCells);
+        setLastClickedCell(nextCell);
+        setIsTextSelectMode(true);
+        setIsCursorText(false);
+      }
     };
 
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [visibleCols, timezone, timestampFormat, clearSelection, selectedKeysRef, selectedCellsRef, virtualizerRef]);
+  }, [
+    visibleCols,
+    timezone,
+    timestampFormat,
+    clearSelection,
+    selectedKeysRef,
+    selectedCellsRef,
+    lastClickedCellRef,
+    setSelectedCells,
+    setLastClickedCell,
+    setIsTextSelectMode,
+    setIsCursorText,
+    virtualizerRef,
+  ]);
 }
 
 export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualizer | null>) {

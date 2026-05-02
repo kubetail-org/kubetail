@@ -465,6 +465,8 @@ describe('useSelection', () => {
 
   const fakeVirtualizer = {
     getRecord: (key: number) => records[key],
+    getIndexOfKey: (key: number) => key,
+    getKeyAtIndex: (index: number) => (index >= 0 && index < records.length ? index : undefined),
   } as LogViewerVirtualizer;
 
   function renderUseSelection(storeOverrides?: (store: ReturnType<typeof createStore>) => void) {
@@ -1961,6 +1963,8 @@ describe('useSelectionKeyboard', () => {
 
   const fakeVirtualizer = {
     getRecord: (key: number) => records[key],
+    getIndexOfKey: (key: number) => key,
+    getKeyAtIndex: (index: number) => (index >= 0 && index < records.length ? index : undefined),
   } as LogViewerVirtualizer;
 
   function renderKeyboard(storeOverrides?: (store: ReturnType<typeof createStore>) => void) {
@@ -2074,5 +2078,73 @@ describe('useSelectionKeyboard', () => {
 
     // 10:30 UTC = 06:30 EDT (June is DST)
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('2024-06-15T06:30:00.000-04:00\tlog message 0');
+  });
+
+  it('moves selected cell right to the next selectable column', () => {
+    const { result, store } = renderKeyboard((s) => {
+      s.set(visibleColsAtom, new Set([ViewerColumn.Pod, ViewerColumn.ColorDot, ViewerColumn.Message]));
+    });
+
+    act(() => {
+      store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Pod])]]));
+      store.set(lastClickedCellAtom, { rowKey: 0, col: ViewerColumn.Pod });
+    });
+
+    act(() => {
+      fireEvent.keyDown(document, { key: 'ArrowRight' });
+    });
+
+    expect(result.current.selectedCells).toEqual(new Map([[0, new Set([ViewerColumn.Message])]]));
+    expect(store.get(lastClickedCellAtom)).toEqual({ rowKey: 0, col: ViewerColumn.Message });
+  });
+
+  it('moves selected cell left to the previous selectable column', () => {
+    const { result, store } = renderKeyboard((s) => {
+      s.set(visibleColsAtom, new Set([ViewerColumn.Pod, ViewerColumn.ColorDot, ViewerColumn.Message]));
+    });
+
+    act(() => {
+      store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Message])]]));
+      store.set(lastClickedCellAtom, { rowKey: 0, col: ViewerColumn.Message });
+    });
+
+    act(() => {
+      fireEvent.keyDown(document, { key: 'ArrowLeft' });
+    });
+
+    expect(result.current.selectedCells).toEqual(new Map([[0, new Set([ViewerColumn.Pod])]]));
+    expect(store.get(lastClickedCellAtom)).toEqual({ rowKey: 0, col: ViewerColumn.Pod });
+  });
+
+  it('moves selected cell down to the same column on the next row', () => {
+    const { result, store } = renderKeyboard();
+
+    act(() => {
+      store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Message])]]));
+      store.set(lastClickedCellAtom, { rowKey: 0, col: ViewerColumn.Message });
+    });
+
+    act(() => {
+      fireEvent.keyDown(document, { key: 'ArrowDown' });
+    });
+
+    expect(result.current.selectedCells).toEqual(new Map([[1, new Set([ViewerColumn.Message])]]));
+    expect(store.get(lastClickedCellAtom)).toEqual({ rowKey: 1, col: ViewerColumn.Message });
+  });
+
+  it('keeps selected cell unchanged when arrow key has no target cell', () => {
+    const { result, store } = renderKeyboard();
+
+    act(() => {
+      store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Message])]]));
+      store.set(lastClickedCellAtom, { rowKey: 0, col: ViewerColumn.Message });
+    });
+
+    act(() => {
+      fireEvent.keyDown(document, { key: 'ArrowUp' });
+    });
+
+    expect(result.current.selectedCells).toEqual(new Map([[0, new Set([ViewerColumn.Message])]]));
+    expect(store.get(lastClickedCellAtom)).toEqual({ rowKey: 0, col: ViewerColumn.Message });
   });
 });
