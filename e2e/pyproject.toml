@@ -1,0 +1,18 @@
+[project]
+name = "kubetail-e2e"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "pytest>=8.0",
+    "python-dotenv>=1.0",
+    "requests>=2.31",
+    "websockets>=13.0",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "cluster: mark test as belonging to the cluster env",
+    "cli: mark test as belonging to the cli env",
+    "kubernetes_api: mark test as specific to the kubernetes-api backend",
+    "kubetail_api: mark test as specific to the kubetail-api backend",
+]

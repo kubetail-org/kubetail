@@ -144,33 +144,11 @@ vet-all: crates-vet modules-vet
 ci-checks: lint-all test-all vet-all
 	@echo "All CI checks completed successfully."
 
-# checking if the test dependencies are installed
-e2e-test-check-deps:
-	@command -v k3d >/dev/null 2>&1 || { echo "❌ 'k3d' is not installed, Please install it from https://k3d.io/stable/#releases to run the tests"; exit 1; }
-	@command -v kubectl >/dev/null 2>&1 || { echo "❌ 'kubectl' is not installed, Please install it from https://kubernetes.io/docs/tasks/tools to run the tests"; exit 1; }
-	@echo "✅ All dependencies are installed"
-
-# Testing if we can read the expected logs with kubetail 
-test-e2e: e2e-test-check-deps build
-	@if ! k3d cluster list | grep -q 'kubetail-test-cluster'; then \
-		echo "🛠️ Cluster not found. Creating..."; \
-		k3d cluster create kubetail-test-cluster; \
-	else \
-		echo "✅ Cluster already exists. Skipping creation."; \
-	fi
-	
-	@kubectl config use-context k3d-kubetail-test-cluster
-	@kubectl wait --for=condition=Ready nodes --all --timeout=60s
-	@kubectl apply -f hack/test-configs/test-deployment.yaml
-	@kubectl wait --for=condition=available deployment/log-demo --timeout=60s
-	
-	@OUTPUT=$$($(OUTPUT_DIR)/$(CLI_BINARY) logs deployments/log-demo); \
-	echo "$$OUTPUT"; \
-	echo "$$OUTPUT" | grep -q "Kubetail test logs from deployment log-demo" && echo "✅ Test Passed" || (echo "❌ Test Failed" && exit 1) 
-	
-	# cleanup cluster and deployments
-	@echo "🧹 Deleting the k3s cluster..."
-	@k3d cluster delete 'kubetail-test-cluster' 
+## Build e2e images and CLI, then run the full e2e suite
+test-e2e: build
+	@echo "Building e2e images..."
+	@cd e2e && docker buildx bake --allow=fs.read=.. --load --file docker-bake.hcl
+	@cd e2e && uv run pytest -v
 
 ## Clean the build output
 clean:
@@ -201,4 +179,5 @@ help:
 	@echo "  test-all              - Run all tests"
 	@echo "  vet-all               - Run all vetting"
 	@echo "  ci-checks             - Run all CI checks (lint, test, vet)"
+	@echo "  e2e                   - Build images + CLI and run the e2e test suite"
 	@echo "  help                  - Show this help message"

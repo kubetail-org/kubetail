@@ -73,6 +73,11 @@ lerna-debug.log*
 # Allow Claude Skills
 !.claude/skills/
 
+# e2e
+/e2e/.venv
+**/__pycache__
+**/.pytest_cache
+
 # Misc
 /dashboard-ui/stats.html
 .worktrees
