@@ -11,10 +11,10 @@ import websockets
 # of backend, so we only run against kubetail-api.
 pytestmark = [pytest.mark.kubetail_api]
 
-# k3d names the kubeconfig context "k3d-<cluster>". Used by the DesktopProxy
+# kind names the kubeconfig context "kind-<cluster>". Used by the DesktopProxy
 # in CLI mode, which requires /cluster-api-proxy/<kubeContext>/<relPath>;
 # in cluster mode the InClusterProxy ignores the path tail.
-_E2E_KUBE_CONTEXT = "k3d-kubetail-e2e"
+_E2E_KUBE_CONTEXT = "kind-kubetail-e2e"
 
 _PROXY_HTTP_PATH = f"/cluster-api-proxy/{_E2E_KUBE_CONTEXT}/healthz"
 _PROXY_WS_PATHS = {

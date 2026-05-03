@@ -72,6 +72,28 @@ cd crates/rgkl && cargo test
 
 Always use `pnpm` (not `npx`) to run frontend tests.
 
+### E2E tests
+
+E2E tests live in `e2e/` and require [kind](https://kind.sigs.k8s.io), Docker, kubectl, and uv.
+
+```sh
+# Full suite (builds images + CLI, then runs pytest):
+make test-e2e
+
+# Target a specific Kubernetes version:
+KIND_IMAGE=kindest/node:v1.21.14 make test-e2e
+KIND_IMAGE=kindest/node:v1.25.16 make test-e2e
+
+# Re-run pytest without rebuilding (cluster must already be up):
+cd e2e && uv run pytest -v
+
+# Bring up / tear down the cluster manually:
+./e2e/scripts/up.sh --backend=kubetail-api   # or --backend=kubernetes-api
+./e2e/scripts/down.sh
+```
+
+`down.sh` stops port-forwards, deletes the kind cluster, and removes `/tmp/kubetail-e2e.kubeconfig`. Run it to clean up after an interrupted test run.
+
 Never use `time.Sleep` (Go) or `setTimeout`/manual delays (TypeScript) in tests to wait for asynchronous state. Use channels, synchronization primitives, or condition-based polling instead.
 
 ## Import Order (JavaScript/TypeScript)

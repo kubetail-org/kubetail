@@ -11,7 +11,7 @@ in sequence:
 
 - [uv](https://docs.astral.sh/uv/)
 - [Docker](https://docs.docker.com/get-docker/)
-- [k3d](https://k3d.io)
+- [kind](https://kind.sigs.k8s.io)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
 
 ## Configuration
@@ -34,7 +34,18 @@ make e2e
 ```
 
 This builds the CLI and Docker images, then runs all three environments in sequence,
-creating and tearing down the k3d cluster around each cluster suite.
+creating and tearing down the kind cluster around each cluster suite.
+
+## Test against a specific Kubernetes version
+
+Pass `KIND_IMAGE` to target a specific Kubernetes version:
+
+```sh
+KIND_IMAGE=kindest/node:v1.21.14 make test-e2e
+KIND_IMAGE=kindest/node:v1.25.16 make test-e2e
+```
+
+Omit `KIND_IMAGE` to use kind's default (latest supported) node image.
 
 ## Iterate on tests
 
@@ -43,6 +54,16 @@ Once images and the CLI are built, you can re-run pytest directly without rebuil
 ```sh
 cd e2e && uv run pytest -v
 ```
+
+## Clean up
+
+The test suite tears down the cluster automatically after each run. If a run is interrupted or you want to clean up manually:
+
+```sh
+./e2e/scripts/down.sh
+```
+
+This stops any active port-forwards, deletes the kind cluster, and removes the temporary kubeconfig at `/tmp/kubetail-e2e.kubeconfig`.
 
 ## Manual cluster management
 

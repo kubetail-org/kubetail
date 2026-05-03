@@ -146,10 +146,10 @@ ci-checks: lint-all test-all vet-all
 
 ## Build e2e images and CLI, then run the full e2e suite.
 ## Pass ONLY_BUILD=1 to skip pytest and just rebuild artifacts (useful when
-## iterating on cluster-api / cluster-agent code while a k3d cluster is up).
+## iterating on cluster-api / cluster-agent code while a kind cluster is up).
 test-e2e: build
 	@echo "Building e2e images..."
-	@cd e2e && docker buildx bake --allow=fs.read=.. --load --file docker-bake.hcl
+	@cd e2e && docker buildx bake --allow=fs.read=.. --load --file docker-bake.hcl --progress=plain
 ifndef ONLY_BUILD
 	@cd e2e && uv run pytest -v
 endif
