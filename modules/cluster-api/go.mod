@@ -14,7 +14,7 @@ require (
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-playground/validator/v10 v10.28.0
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
-	github.com/kubetail-org/grpc-dispatcher-go v0.1.5
+	github.com/kubetail-org/grpc-dispatcher-go v0.1.6
 	github.com/kubetail-org/kubetail/modules/shared v0.0.0-00010101000000-000000000000
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.10.2
