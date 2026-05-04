@@ -29,7 +29,7 @@ MANIFEST="$SCRIPT_DIR/../manifests/${BACKEND}.yaml.tmpl"
 PID_FILE="/tmp/kubetail-e2e-pf.pid"
 
 # Create cluster if it doesn't exist
-KIND_CREATE_ARGS=(--name "$CLUSTER_NAME")
+KIND_CREATE_ARGS=(--name "$CLUSTER_NAME" --config "$SCRIPT_DIR/../kind-config.yaml")
 if [ -n "${KIND_IMAGE:-}" ]; then
   KIND_CREATE_ARGS+=(--image "$KIND_IMAGE")
 fi
@@ -87,6 +87,9 @@ if [ "$BACKEND" = "kubetail-api" ]; then
     --namespace=kubetail-system --timeout=90s
   kubectl rollout status daemonset/kubetail-cluster-agent \
     --namespace=kubetail-system --timeout=90s
+  # Wait for the aggregation layer to be available — kube-apiserver registers
+  # the APIService asynchronously after the pod is Ready.
+  kubectl wait --for=condition=Available apiservice/v1.api.kubetail.com --timeout=60s
 fi
 
 # Kill any existing port-forwards

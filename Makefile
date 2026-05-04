@@ -149,7 +149,7 @@ ci-checks: lint-all test-all vet-all
 ## iterating on cluster-api / cluster-agent code while a kind cluster is up).
 test-e2e: build
 	@echo "Building e2e images..."
-	@cd e2e && docker buildx bake --allow=fs.read=.. --load --file docker-bake.hcl --progress=plain
+	@cd e2e && docker buildx bake --allow=fs.read=.. --load --file docker-bake.hcl --progress=quiet
 ifndef ONLY_BUILD
 	@cd e2e && uv run pytest -v
 endif

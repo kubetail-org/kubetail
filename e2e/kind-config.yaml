@@ -1,0 +1,8 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  # kind nodes do not fully support the nftables kube-proxy mode introduced
+  # as default in Kubernetes 1.31+. Force iptables so ClusterIP routing works
+  # correctly from the control-plane container (where kube-apiserver runs and
+  # needs to reach the cluster-api service via the aggregation layer).
+  kubeProxyMode: iptables
