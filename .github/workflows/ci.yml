@@ -499,6 +499,8 @@ jobs:
         uses: azure/setup-kubectl@v4
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+      - name: Expose GitHub Actions runtime
+        uses: crazy-max/ghaction-github-runtime@v3
       - name: Run e2e tests
         env:
           KIND_NODE_IMAGE: ${{ matrix.kind-node-image }}
