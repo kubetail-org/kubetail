@@ -462,11 +462,11 @@ jobs:
       matrix:
         include:
           - k8s-version: "1.21"
-            k3s-image: "rancher/k3s:v1.21.14-k3s1"
+            kind-node-image: "kindest/node:v1.21.14"
           - k8s-version: "1.25"
-            k3s-image: "rancher/k3s:v1.25.16-k3s4"
+            kind-node-image: "kindest/node:v1.25.16"
           - k8s-version: "latest"
-            k3s-image: ""
+            kind-node-image: ""
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-environment
@@ -475,13 +475,15 @@ jobs:
           setup-go: "true"
       - name: Install uv
         uses: astral-sh/setup-uv@v6
-      - name: Install k3d
-        run: curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+      - name: Install kind
+        uses: helm/kind-action@v1
+        with:
+          install_only: true
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Run e2e tests
         env:
-          K3S_IMAGE: ${{ matrix.k3s-image }}
+          KIND_NODE_IMAGE: ${{ matrix.kind-node-image }}
         run: make test-e2e

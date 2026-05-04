@@ -54,10 +54,10 @@ _CLUSTER_API_LOG_METADATA = (
     "{items{id}}}"
 )
 
-# k3d names the kubeconfig context "k3d-<cluster>". The CLI's DesktopProxy
+# kind names the kubeconfig context "kind-<cluster>". The CLI's DesktopProxy
 # requires /cluster-api-proxy/<kubeContext>/<relPath>; in cluster mode the
 # InClusterProxy ignores the path tail.
-_E2E_KUBE_CONTEXT = "k3d-kubetail-e2e"
+_E2E_KUBE_CONTEXT = "kind-kubetail-e2e"
 
 
 _NAMESPACE_CASES = pytest.mark.parametrize(

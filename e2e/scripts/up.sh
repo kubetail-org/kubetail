@@ -26,29 +26,27 @@ BASE_MANIFEST="$MANIFESTS_DIR/base.yaml.tmpl"
 PID_FILE="/tmp/kubetail-e2e-pf.pid"
 
 # Create cluster if it doesn't exist
-K3D_CREATE_ARGS=()
-if [ -n "${K3S_IMAGE:-}" ]; then
-  K3D_CREATE_ARGS+=(--image "$K3S_IMAGE")
+KIND_CREATE_ARGS=()
+if [ -n "${KIND_NODE_IMAGE:-}" ]; then
+  KIND_CREATE_ARGS+=(--image "$KIND_NODE_IMAGE")
 fi
 
-if ! k3d cluster list 2>/dev/null | grep -q "^$CLUSTER_NAME"; then
-  echo "Creating k3d cluster: $CLUSTER_NAME${K3S_IMAGE:+ (image: $K3S_IMAGE)}"
-  k3d cluster create "$CLUSTER_NAME" "${K3D_CREATE_ARGS[@]}"
+if ! kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"; then
+  echo "Creating kind cluster: $CLUSTER_NAME${KIND_NODE_IMAGE:+ (image: $KIND_NODE_IMAGE)}"
+  kind create cluster --name "$CLUSTER_NAME" --kubeconfig "$KUBECONFIG" "${KIND_CREATE_ARGS[@]}"
 else
   echo "Cluster $CLUSTER_NAME already exists, reusing."
+  kind export kubeconfig --name "$CLUSTER_NAME" --kubeconfig "$KUBECONFIG"
 fi
-
-# Always write kubeconfig — k3d only writes it on create, not on reuse
-k3d kubeconfig get "$CLUSTER_NAME" > "$KUBECONFIG"
 
 kubectl wait --for=condition=Ready nodes --all --timeout=60s
 
 echo "Loading images into cluster..."
-k3d image import \
+kind load docker-image \
   "$KUBETAIL_DASHBOARD_IMAGE" \
   "$KUBETAIL_CLUSTER_API_IMAGE" \
   "$KUBETAIL_CLUSTER_AGENT_IMAGE" \
-  --cluster "$CLUSTER_NAME"
+  --name "$CLUSTER_NAME"
 
 # Apply base manifest (namespace + Dashboard + cluster-api + cluster-agent + APIService).
 envsubst < "$BASE_MANIFEST" | kubectl apply -f -

@@ -158,6 +158,55 @@ def _wait_for_healthz(url, *, verify=False, timeout=30):
     raise RuntimeError(f"healthz never became ready at {url}: {last_err}")
 
 
+def _wait_for_apiservice_available(name="v1.api.kubetail.com", timeout=60):
+    """Wait until the kube-apiserver's APIService aggregation handler can
+    actually dial the cluster-api Service. After a rollout-restart, the
+    Service Endpoints flip to the new pod and kube-proxy iptables update;
+    on some CNIs (notably kind's default) this can lag the deployment's
+    Ready signal by a few seconds, so the proxy path returns
+    `connection refused` even though `kubectl rollout status` returned."""
+    deadline = time.monotonic() + timeout
+    last_status = None
+    while time.monotonic() < deadline:
+        out = kubectl(
+            "get", "apiservice", name,
+            "-o", "jsonpath={.status.conditions[?(@.type=='Available')].status}",
+        ).stdout.strip()
+        last_status = out
+        if out == "True":
+            return
+        time.sleep(0.3)
+    raise RuntimeError(
+        f"APIService {name} never became Available (last status={last_status!r})"
+    )
+
+
+def _wait_for_proxy_path(dashboard_url, timeout=60):
+    """Poll the dashboard's /cluster-api-proxy until it actually round-trips
+    to the cluster-api. After a cluster-api rollout, the kube-apiserver's
+    aggregation dialer can still hold a connection to the terminated pod's
+    IP — kube-proxy iptables and the apiserver's own connection cache both
+    take a few seconds to converge. Symptom: `connection refused` on the
+    Service ClusterIP even though APIService.Available is True."""
+    deadline = time.monotonic() + timeout
+    last_err = None
+    while time.monotonic() < deadline:
+        try:
+            body = post_graphql(
+                dashboard_url,
+                "/cluster-api-proxy/graphql",
+                "query Q{__typename}",
+                {},
+            )
+            if isinstance(body, dict) and body.get("data", {}).get("__typename"):
+                return
+            last_err = repr(body)
+        except (AssertionError, requests.RequestException) as e:
+            last_err = repr(e)
+        time.sleep(0.3)
+    raise RuntimeError(f"cluster-api proxy never warmed up: {last_err}")
+
+
 def _reconfigure(allowed, *, dashboard_url, cluster_api_url):
     """Apply `allowed-namespaces=allowed` to the live deployments and
     re-establish port-forwards on the original local ports. Used for
@@ -189,6 +238,8 @@ def _reconfigure(allowed, *, dashboard_url, cluster_api_url):
 
     _wait_for_healthz(dashboard_url)
     _wait_for_healthz(cluster_api_url, verify=False)
+    _wait_for_apiservice_available()
+    _wait_for_proxy_path(dashboard_url)
     return procs
 
 

@@ -54,32 +54,33 @@ _AGENT_TARGET_NAME = "kubetail-cluster-agent.kubetail-system.svc"
 _LIST_METHOD = "/cluster_agent.LogMetadataService/List"
 
 
-# k3s stores the front-proxy client cert+key under this path inside the
-# server container. k3d names the server container "k3d-<cluster>-server-0".
-_K3D_SERVER = "k3d-kubetail-e2e-server-0"
-_K3S_FRONT_PROXY_CRT = "/var/lib/rancher/k3s/server/tls/client-auth-proxy.crt"
-_K3S_FRONT_PROXY_KEY = "/var/lib/rancher/k3s/server/tls/client-auth-proxy.key"
+# kind/kubeadm stores the front-proxy client cert+key under this path inside
+# the control-plane container. kind names the control-plane container
+# "<cluster>-control-plane".
+_KIND_SERVER = "kubetail-e2e-control-plane"
+_FRONT_PROXY_CRT = "/etc/kubernetes/pki/front-proxy-client.crt"
+_FRONT_PROXY_KEY = "/etc/kubernetes/pki/front-proxy-client.key"
 
 
 @pytest.fixture(scope="session")
 def front_proxy_client_cert(tmp_path_factory):
     """Extract the kube-apiserver's front-proxy client cert+key from the
-    k3d server container. This is the cert kube-apiserver presents when it
-    forwards aggregated requests to cluster-api — anything signed by it
-    (and matching the requestheader-allowed-names CN) is trusted by
+    kind control-plane container. This is the cert kube-apiserver presents
+    when it forwards aggregated requests to cluster-api — anything signed
+    by it (and matching the requestheader-allowed-names CN) is trusted by
     aggregationAuthMiddleware to *carry* an identity in headers, but the
     headers themselves still have to be present."""
     def _docker_cat(path):
         return subprocess.run(
-            ["docker", "exec", _K3D_SERVER, "cat", path],
+            ["docker", "exec", _KIND_SERVER, "cat", path],
             check=True, capture_output=True,
         ).stdout
 
     try:
-        crt_bytes = _docker_cat(_K3S_FRONT_PROXY_CRT)
-        key_bytes = _docker_cat(_K3S_FRONT_PROXY_KEY)
+        crt_bytes = _docker_cat(_FRONT_PROXY_CRT)
+        key_bytes = _docker_cat(_FRONT_PROXY_KEY)
     except (FileNotFoundError, subprocess.CalledProcessError) as e:
-        pytest.skip(f"front-proxy material unavailable (not a k3d cluster?): {e}")
+        pytest.skip(f"front-proxy material unavailable (not a kind cluster?): {e}")
 
     d = tmp_path_factory.mktemp("front-proxy-cert")
     crt = d / "fp.crt"
@@ -93,7 +94,7 @@ def front_proxy_client_cert(tmp_path_factory):
 def admin_client_cert(tmp_path_factory):
     """Extract the e2e admin's client cert+key from the kubeconfig.
 
-    The k3d admin cert is signed by the same CA the cluster-api loads
+    The kind admin cert is signed by the same CA the cluster-api loads
     into its ClientCAs pool (extension-apiserver-authentication's
     client-ca-file), so a request bearing it takes the middleware's
     direct-cert path."""

@@ -11,7 +11,7 @@ in sequence:
 
 - [uv](https://docs.astral.sh/uv/)
 - [Docker](https://docs.docker.com/get-docker/)
-- [k3d](https://k3d.io)
+- [kind](https://kind.sigs.k8s.io/)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
 
 ## Configuration
@@ -33,7 +33,7 @@ From the repo root:
 make e2e
 ```
 
-This builds the CLI and Docker images, brings up the k3d cluster (reusing
+This builds the CLI and Docker images, brings up the kind cluster (reusing
 it if already running), and runs all three environments in sequence. The
 cluster persists after the run — tear it down with `e2e/scripts/down.sh`
 when you're done.

@@ -146,8 +146,8 @@ ci-checks: lint-all test-all vet-all
 
 ## Build e2e images and CLI, then run the full e2e suite.
 ## Pass ONLY_BUILD=1 to skip pytest and just rebuild artifacts (useful when
-## iterating on cluster-api / cluster-agent code while a k3d cluster is up).
-## The k3d cluster persists across runs; run e2e/scripts/down.sh to tear it down.
+## iterating on cluster-api / cluster-agent code while a kind cluster is up).
+## The kind cluster persists across runs; run e2e/scripts/down.sh to tear it down.
 test-e2e:
 	@bash e2e/scripts/build.sh
 ifndef ONLY_BUILD

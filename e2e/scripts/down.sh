@@ -17,9 +17,9 @@ if [ -f "$PID_FILE" ]; then
 fi
 
 # Delete cluster
-if k3d cluster list 2>/dev/null | grep -q "^$CLUSTER_NAME"; then
-  echo "Deleting k3d cluster: $CLUSTER_NAME"
-  KUBECONFIG="$KUBECONFIG" k3d cluster delete "$CLUSTER_NAME"
+if kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"; then
+  echo "Deleting kind cluster: $CLUSTER_NAME"
+  KUBECONFIG="$KUBECONFIG" kind delete cluster --name "$CLUSTER_NAME"
 else
   echo "Cluster $CLUSTER_NAME not found, nothing to delete."
 fi
