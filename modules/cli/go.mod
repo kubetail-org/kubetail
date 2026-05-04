@@ -12,6 +12,7 @@ require (
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-logr/logr v1.4.3
 	github.com/go-playground/validator/v10 v10.28.0
+	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/kubetail-org/kubetail/modules/dashboard v0.0.0-00010101000000-000000000000
 	github.com/kubetail-org/kubetail/modules/shared v0.0.0-00010101000000-000000000000
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
@@ -23,6 +24,7 @@ require (
 	k8s.io/apimachinery v0.35.1
 	k8s.io/client-go v0.35.1
 	k8s.io/klog/v2 v2.130.1
+	k8s.io/kube-aggregator v0.35.1
 )
 
 require (
@@ -96,7 +98,6 @@ require (
 	github.com/gorilla/context v1.1.2 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/gorilla/sessions v1.4.0 // indirect
-	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -189,7 +190,6 @@ require (
 	k8s.io/apiserver v0.35.1 // indirect
 	k8s.io/cli-runtime v0.35.1 // indirect
 	k8s.io/component-base v0.35.1 // indirect
-	k8s.io/kube-aggregator v0.35.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20251125145642-4e65d59e963e // indirect
 	k8s.io/kubectl v0.35.1 // indirect
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4 // indirect

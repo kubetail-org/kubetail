@@ -135,6 +135,36 @@ def assert_healthz(url):
 
 
 @pytest.fixture(scope="session")
+def log_producer(_cluster_ready):
+    """Apply the log-producer manifest and yield its identity.
+
+    A single-replica busybox deployment that emits a stable line every
+    200ms; tests use it as a deterministic log source for both backends.
+    Session-scoped so the manifest-apply + rollout cost is paid once.
+    """
+    from _log_producer import (
+        LP_NAME,
+        LP_NS,
+        LP_LINE_PREFIX,
+        LogProducer,
+        rendered_manifest,
+    )
+    from _namespace_rbac import kubectl
+
+    kubectl("apply", "-f", "-", input=rendered_manifest())
+    try:
+        kubectl(
+            "rollout", "status",
+            "deployment", LP_NAME,
+            "-n", LP_NS,
+            "--timeout=60s",
+        )
+        yield LogProducer(namespace=LP_NS, name=LP_NAME, line_prefix=LP_LINE_PREFIX)
+    finally:
+        kubectl("delete", "namespace", LP_NS, "--wait=false", check=False)
+
+
+@pytest.fixture(scope="session")
 def restricted_sa_tokens(_cluster_ready):
     """Apply the namespace-scoped RBAC manifest and yield SA bearer tokens.
 

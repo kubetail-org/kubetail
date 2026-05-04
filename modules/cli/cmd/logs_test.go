@@ -29,7 +29,7 @@ func TestLoadLogConfig(t *testing.T) {
 		assert.Equal(t, cmdCfg.allContainers, false)
 	})
 
-	t.Run("tail is zero in follow mode", func(t *testing.T) {
+	t.Run("tail defaults to 10 in follow mode (tail -f semantics)", func(t *testing.T) {
 		cmd := &cobra.Command{}
 
 		addLogsCmdFlags(cmd)
@@ -38,7 +38,18 @@ func TestLoadLogConfig(t *testing.T) {
 		cmdCfg, err := loadLogsCmdConfig(cmd)
 		assert.NoError(t, err)
 
-		assert.Equal(t, cmdCfg.tailVal, int64(0))
+		assert.Equal(t, int64(10), cmdCfg.tailVal)
+	})
+
+	t.Run("--tail=0 propagates as tailVal=0", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		addLogsCmdFlags(cmd)
+		cmd.Flags().Set("tail", "0")
+
+		cmdCfg, err := loadLogsCmdConfig(cmd)
+		assert.NoError(t, err)
+
+		assert.Equal(t, int64(0), cmdCfg.tailVal)
 	})
 
 	t.Run("wrong timestamp returns an error", func(t *testing.T) {

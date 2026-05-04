@@ -30,15 +30,63 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"k8s.io/client-go/rest"
 
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
 
 	"github.com/kubetail-org/kubetail/modules/cli/internal/cli"
+	"github.com/kubetail-org/kubetail/modules/cli/internal/clusterapi"
 	"github.com/kubetail-org/kubetail/modules/cli/internal/tablewriter"
 	"github.com/kubetail-org/kubetail/modules/cli/pkg/config"
 )
+
+// backendChoice represents which logs backend the CLI should use.
+type backendChoice int
+
+const (
+	backendKubernetes backendChoice = iota
+	backendKubetail
+)
+
+// BackendFlag is the name of the --backend CLI flag.
+const BackendFlag = "backend"
+
+const grepKubernetesBackendWarning = `Warning: --grep on the Kubernetes API backend downloads all matching records to the client and filters locally, which can be slow and high-volume.
+For node-local server-side filtering, install the Kubetail API:
+
+    kubetail cluster install
+`
+
+// selectBackend resolves the user's --backend choice into a concrete
+// backendChoice. With "auto", the probe decides; probe errors fall back to
+// the Kubernetes backend so the CLI still works on degraded clusters. With
+// "kubetail", probe errors and unavailability are surfaced loudly so the
+// user knows their explicit request can't be honored.
+func selectBackend(ctx context.Context, flag string, probe func(context.Context) (bool, error)) (backendChoice, error) {
+	switch flag {
+	case "kubernetes":
+		return backendKubernetes, nil
+	case "kubetail":
+		ok, err := probe(ctx)
+		if err != nil {
+			return 0, fmt.Errorf("--backend=kubetail: probe failed: %w", err)
+		}
+		if !ok {
+			return 0, fmt.Errorf("--backend=kubetail requested but APIService %q is not Available on this cluster", clusterapi.APIServiceName)
+		}
+		return backendKubetail, nil
+	case "auto", "":
+		ok, err := probe(ctx)
+		if err != nil || !ok {
+			return backendKubernetes, nil
+		}
+		return backendKubetail, nil
+	default:
+		return 0, fmt.Errorf("--backend: invalid value %q (expected auto, kubernetes, or kubetail)", flag)
+	}
+}
 
 var headFlag config.OptionalInt64
 var tailFlag config.OptionalInt64
@@ -82,6 +130,8 @@ type logsCmdConfig struct {
 	withCursors   bool
 
 	raw bool
+
+	backend string
 }
 
 const logsHelpTmpl = `
@@ -161,19 +211,19 @@ Examples:
 		# Return all records between two exact timestamps
 		{{.CommandDisplayName}} nginx --since 2006-01-02T15:04:05Z07:00 --until 2007-01-02T15:04:05Z07:00 --all
 
-	- Grep filter (requires --force)
+	- Grep filter
 
 		# Return last 10 records from the 'nginx' pod that match "GET /about"
-		{{.CommandDisplayName}} nginx --grep "GET /about" --force
+		{{.CommandDisplayName}} nginx --grep "GET /about"
 
 		# Return first 10 records
-		{{.CommandDisplayName}} nginx --grep "GET /about" --head --force
+		{{.CommandDisplayName}} nginx --grep "GET /about" --head
 
 		# Return last 10 records that match "GET /about" or "GET /contact"
-		{{.CommandDisplayName}} nginx --grep "GET /(about|contact)" --force
+		{{.CommandDisplayName}} nginx --grep "GET /(about|contact)"
 
 		# Stream new records that match "GET /about"
-		{{.CommandDisplayName}} nginx --grep "GET /about" --follow --force
+		{{.CommandDisplayName}} nginx --grep "GET /about" --follow
 
 	- Source filters
 
@@ -207,8 +257,9 @@ Notes:
 
 	- Default behavior is "tail" unless 'since' is specified
 
-	- Using 'grep' requires 'force' because the command may unexpectedly download
-	  more log records than expected
+	- 'grep' is most efficient with the Kubetail API backend, which filters
+	  on each node. Without it the CLI must download all matching records
+	  client-side. Install the Kubetail API with: 'kubetail cluster install'
 
 `
 
@@ -292,6 +343,8 @@ func loadLogsCmdConfig(cmd *cobra.Command) (*logsCmdConfig, error) {
 	removeColumns, _ := flags.GetStringSlice("remove-columns")
 	columns = applyColumnAddRemove(columns, addColumns, removeColumns)
 
+	backend, _ := flags.GetString(BackendFlag)
+
 	raw, _ := flags.GetBool("raw")
 	if raw {
 		hideHeader = true
@@ -311,11 +364,6 @@ func loadLogsCmdConfig(cmd *cobra.Command) (*logsCmdConfig, error) {
 		streamMode = logsStreamModeHead
 	} else {
 		streamMode = logsStreamModeTail
-	}
-
-	// Default tail num to 0 if follow is true
-	if follow && !tail {
-		tailVal = 0
 	}
 
 	// Parse `since`
@@ -406,6 +454,8 @@ func loadLogsCmdConfig(cmd *cobra.Command) (*logsCmdConfig, error) {
 		withCursors:   withCursors,
 
 		raw: raw,
+
+		backend: backend,
 	}
 
 	return cmdCfg, nil
@@ -450,6 +500,38 @@ func normalizeColumns(columns []string) []string {
 	}
 
 	return out
+}
+
+// buildClusterAPIStreamConfig translates resolved CLI flags into the
+// StreamConfig expected by the Kubetail-API-backed Stream.
+func buildClusterAPIStreamConfig(cmdCfg *logsCmdConfig, sources []string) clusterapi.StreamConfig {
+	cfg := clusterapi.StreamConfig{
+		KubeContext: cmdCfg.kubecontext,
+		Sources:     sources,
+		Grep:        cmdCfg.grep,
+		Follow:      cmdCfg.follow,
+	}
+	if !cmdCfg.sinceTime.IsZero() {
+		cfg.Since = cmdCfg.sinceTime.Format(time.RFC3339Nano)
+	}
+	if !cmdCfg.untilTime.IsZero() {
+		cfg.Until = cmdCfg.untilTime.Format(time.RFC3339Nano)
+	}
+	switch {
+	case cmdCfg.head:
+		cfg.Mode = "HEAD"
+		cfg.Limit = int(cmdCfg.headVal)
+	case cmdCfg.all:
+		// Express "all" as HEAD pagination with no limit cap; the server
+		// will apply its own batch size and we'll iterate via NextCursor.
+		cfg.Mode = "HEAD"
+	case cmdCfg.tailVal == 0:
+		// `--tail=0` means no backlog; empty Mode skips bootstrap fetch.
+	default:
+		cfg.Mode = "TAIL"
+		cfg.Limit = int(cmdCfg.tailVal)
+	}
+	return cfg
 }
 
 func printLogs(rootCtx context.Context, cmd *cobra.Command, cmdCfg *logsCmdConfig, stream logs.Stream) {
@@ -540,12 +622,6 @@ var logsCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		flags := cmd.Flags()
-		grep, _ := flags.GetString("grep")
-		force, _ := flags.GetBool("force")
-
-		if grep != "" && !force {
-			return fmt.Errorf("--force is required when using --grep")
-		}
 
 		var cli config.CLI
 		cli.Config, _ = flags.GetString("config")
@@ -573,13 +649,37 @@ var logsCmd = &cobra.Command{
 		cm, err := k8shelpers.NewConnectionManager(env, k8shelpers.WithKubeconfigPath(cmdCfg.kubeconfigPath), k8shelpers.WithLazyConnect(true))
 		cli.ExitOnError(err)
 
-		stream, err := logs.NewStream(rootCtx, cm, args, cmdCfg.streamOpts...)
+		var restCfg *rest.Config
+		probe := func(ctx context.Context) (bool, error) {
+			c, err := cm.GetOrCreateRestConfig(cmdCfg.kubecontext)
+			if err != nil {
+				return false, err
+			}
+			restCfg = c
+			return clusterapi.IsKubetailAPIAvailable(ctx, restCfg)
+		}
+		choice, err := selectBackend(rootCtx, cmdCfg.backend, probe)
 		cli.ExitOnError(err)
-		defer stream.Close()
 
-		// Start stream
-		err = stream.Start(rootCtx)
-		cli.ExitOnError(err)
+		var stream logs.Stream
+		switch choice {
+		case backendKubetail:
+			client, err := clusterapi.NewClient(restCfg)
+			cli.ExitOnError(err)
+			s := clusterapi.NewStream(client, buildClusterAPIStreamConfig(cmdCfg, args))
+			cli.ExitOnError(s.Start(rootCtx))
+			defer s.Close()
+			stream = s
+		default:
+			if cmdCfg.grep != "" {
+				fmt.Fprint(cmd.OutOrStderr(), grepKubernetesBackendWarning)
+			}
+			s, err := logs.NewStream(rootCtx, cm, args, cmdCfg.streamOpts...)
+			cli.ExitOnError(err)
+			defer s.Close()
+			cli.ExitOnError(s.Start(rootCtx))
+			stream = s
+		}
 
 		// output the logs
 		printLogs(rootCtx, cmd, cmdCfg, stream)
@@ -741,7 +841,7 @@ func addLogsCmdFlags(cmd *cobra.Command) {
 
 	//flagset.BoolP("reverse", "r", false, "List records in reverse order")
 
-	flagset.Bool("force", false, "Force command (if necessary)")
+	flagset.String(BackendFlag, "auto", "Logs backend: auto, kubetail, or kubernetes")
 
 	// Define help here to avoid re-defining 'h' shorthand
 	flagset.Bool("help", false, "help for logs")

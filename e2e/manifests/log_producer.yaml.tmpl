@@ -1,0 +1,27 @@
+# Test fixture for test_logs_backends.py and test_cluster_api_websocket_auth.py.
+#
+# A single-replica deployment in a dedicated namespace whose container emits a
+# stable, predictable line every 200ms ("$LP_LINE_PREFIX-N"). Tests grep for
+# that prefix so output assertions don't depend on log volume from other pods.
+apiVersion: v1
+kind: Namespace
+metadata: {name: $LP_NS}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: $LP_NAME
+  namespace: $LP_NS
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: $LP_NAME}}
+  template:
+    metadata: {labels: {app: $LP_NAME}}
+    spec:
+      containers:
+        - name: emitter
+          image: $POD_IMAGE
+          command:
+            - sh
+            - -c
+            - 'i=0; while true; do echo "$LP_LINE_PREFIX-$$i"; i=$$((i+1)); sleep 0.2; done'
