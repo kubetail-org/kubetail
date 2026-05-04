@@ -276,7 +276,6 @@ jobs:
           cosign sign \
             --yes \
             -r \
-            --upload=${{needs.config.outputs.dry_run == 'false'}} \
             kubetail/$IMAGE_NAME@${{ steps.digest.outputs.digest }}
 
           if [ "$IS_LATEST" = "true" ]; then
@@ -284,7 +283,6 @@ jobs:
             cosign sign \
               --yes \
               -r \
-              --upload=${{needs.config.outputs.dry_run == 'false'}} \
               kubetail/$IMAGE_NAME@${{ steps.digest.outputs.digest_latest }}
           fi
 
@@ -298,7 +296,6 @@ jobs:
           cosign sign \
             --yes \
             -r \
-            --upload=${{needs.config.outputs.dry_run == 'false'}} \
             ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME@${{ steps.digest.outputs.digest }}
 
           if [ "$IS_LATEST" = "true" ]; then
@@ -306,6 +303,5 @@ jobs:
             cosign sign \
               --yes \
               -r \
-              --upload=${{needs.config.outputs.dry_run == 'false'}} \
               ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME@${{ steps.digest.outputs.digest_latest }}
           fi
