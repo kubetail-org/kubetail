@@ -10,105 +10,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  rust-build:
-    name: Rust · Build
-    strategy:
-      matrix:
-        os:
-          - linux
-        arch:
-          - amd64
-          - arm64
-        include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-24.04
-          - os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-environment
-        with:
-          setup-rust: "true"
-          setup-protoc: "true"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build
-        working-directory: ./crates
-        run: cargo build --release
-
-  rust-lint:
-    name: Rust · Lint
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-environment
-        with:
-          setup-rust: "true"
-          setup-protoc: "true"
-      - name: Run format check
-        working-directory: ./crates
-        run: cargo fmt --all -- --check
-
-  rust-vet:
-    name: Rust · Vet
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-environment
-        with:
-          setup-rust: "true"
-          setup-protoc: "true"
-      - name: Run clippy
-        working-directory: ./crates
-        run: cargo clippy --all -- -D warnings
-
-  rust-test:
-    name: Rust · Test
-    strategy:
-      matrix:
-        os:
-          - linux
-        arch:
-          - amd64
-          - arm64
-        include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-24.04
-          - os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-environment
-        with:
-          setup-rust: "true"
-          setup-protoc: "true"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Run tests
-        working-directory: ./crates
-        run: cargo test
-
-  go-vendor:
-    name: Go · Vendor
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-environment
-        with:
-          setup-go: "true"
-      - name: Create vendor bundle
-        working-directory: ./modules
-        run: go work vendor
-      - name: Upload vendor bundle artifact
-        uses: actions/upload-artifact@v5
-        with:
-          name: go-vendor-bundle
-          path: modules/vendor
-          retention-days: 1
+  ##############################
+  # Pre-flight jobs
+  ##############################
 
   go-lint:
     name: Go · Lint
@@ -148,9 +52,75 @@ jobs:
         working-directory: ./modules/${{ matrix.module }}
         run: go vet ./...
 
+  go-vendor:
+    name: Go · Vendor
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Create vendor bundle
+        working-directory: ./modules
+        run: go work vendor
+      - name: Upload vendor bundle artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: go-vendor-bundle
+          path: modules/vendor
+          retention-days: 1
+
+  rust-lint:
+    name: Rust · Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          setup-protoc: "true"
+      - name: Run format check
+        working-directory: ./crates
+        run: cargo fmt --all -- --check
+
+  rust-vet:
+    name: Rust · Vet
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          setup-protoc: "true"
+      - name: Run clippy
+        working-directory: ./crates
+        run: cargo clippy --all -- -D warnings
+
+  typescript-lint:
+    name: TypeScript · Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-node: "true"
+      - name: Install dependencies
+        working-directory: ./dashboard-ui
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        working-directory: ./dashboard-ui
+        run: pnpm lint
+
+  ###########################
+  # Test jobs
+  ###########################
+
   go-test:
     name: Go · Test
-    needs: go-vendor
+    needs:
+      - go-lint
+      - go-vet
+      - go-vendor
     timeout-minutes: 20
     strategy:
       matrix:
@@ -211,23 +181,41 @@ jobs:
         working-directory: ./modules/${{ matrix.module }}
         run: go test -race -mod=vendor ./...
 
-  typescript-lint:
-    name: TypeScript · Lint
-    runs-on: ubuntu-24.04
+  rust-test:
+    name: Rust · Test
+    needs:
+      - rust-lint
+      - rust-vet
+    strategy:
+      matrix:
+        os:
+          - linux
+        arch:
+          - amd64
+          - arm64
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-24.04
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-environment
         with:
-          setup-node: "true"
-      - name: Install dependencies
-        working-directory: ./dashboard-ui
-        run: pnpm install --frozen-lockfile
-      - name: Lint
-        working-directory: ./dashboard-ui
-        run: pnpm lint
+          setup-rust: "true"
+          setup-protoc: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run tests
+        working-directory: ./crates
+        run: cargo test
 
   typescript-test:
     name: TypeScript · Test
+    needs:
+      - typescript-lint
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -241,8 +229,45 @@ jobs:
         working-directory: ./dashboard-ui
         run: pnpm test run
 
+  ###########################
+  # Build jobs
+  ###########################
+
+  rust-build:
+    name: Rust · Build
+    needs:
+      - rust-lint
+      - rust-vet
+    strategy:
+      matrix:
+        os:
+          - linux
+        arch:
+          - amd64
+          - arm64
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-24.04
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          setup-protoc: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build
+        working-directory: ./crates
+        run: cargo build --release
+
   typescript-build:
     name: TypeScript · Build
+    needs:
+      - typescript-lint
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -256,19 +281,18 @@ jobs:
         working-directory: ./dashboard-ui
         run: pnpm build
 
+  ###########################
+  # Downstream jobs
+  ###########################
+
   docker-builds:
     name: Docker · Build
     needs:
-      - rust-build
       - rust-lint
       - rust-vet
-      - rust-test
       - go-lint
       - go-vet
-      - go-test
       - typescript-lint
-      - typescript-test
-      - typescript-build
     timeout-minutes: 20
     strategy:
       matrix:
@@ -311,24 +335,19 @@ jobs:
           file: ${{ matrix.dockerfile }}
           target: ${{ matrix.target }}
           push: false
-          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.target }}-${{
-            matrix.arch }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.component }}-${{ matrix.target
-            }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.target
+            }}-${{matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}-${{
+            matrix.target}}-${{ matrix.arch }}
 
   cli-builds:
     name: CLI · Build
     needs:
-      - rust-build
       - rust-lint
       - rust-vet
-      - rust-test
       - go-lint
       - go-vet
-      - go-test
       - typescript-lint
-      - typescript-test
-      - typescript-build
     strategy:
       matrix:
         os:
@@ -386,17 +405,12 @@ jobs:
   alpine-builds:
     name: Alpine · Build
     needs:
-      - rust-build
       - rust-lint
       - rust-vet
-      - rust-test
-      - go-vendor
       - go-lint
       - go-vet
-      - go-test
+      - go-vendor
       - typescript-lint
-      - typescript-test
-      - typescript-build
     strategy:
       fail-fast: false
       matrix:
@@ -456,6 +470,8 @@ jobs:
 
   e2e:
     name: E2E (k8s ${{ matrix.k8s-version }})
+    needs:
+      - docker-builds
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
