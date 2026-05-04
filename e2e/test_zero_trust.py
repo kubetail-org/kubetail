@@ -17,7 +17,6 @@ import requests
 import websockets
 import websockets.exceptions
 
-pytestmark = [pytest.mark.cluster, pytest.mark.kubetail_api]
 
 _KUBECONFIG = "/tmp/kubetail-e2e.kubeconfig"
 _NS = "kubetail-system"

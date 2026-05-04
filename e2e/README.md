@@ -33,8 +33,10 @@ From the repo root:
 make e2e
 ```
 
-This builds the CLI and Docker images, then runs all three environments in sequence,
-creating and tearing down the k3d cluster around each cluster suite.
+This builds the CLI and Docker images, brings up the k3d cluster (reusing
+it if already running), and runs all three environments in sequence. The
+cluster persists after the run — tear it down with `e2e/scripts/down.sh`
+when you're done.
 
 ## Iterate on tests
 
@@ -50,11 +52,10 @@ To bring up and tear down the cluster manually (e.g. for debugging):
 
 ```sh
 # Build images and CLI first
-docker buildx bake --allow=fs.read=.. --load --file e2e/docker-bake.hcl
-make build
+./e2e/scripts/build.sh
 
 # Bring up
-./e2e/scripts/up.sh --backend=kubernetes-api   # or --backend=kubetail-api
+./e2e/scripts/up.sh
 
 # Run a single suite
 cd e2e && uv run pytest -v

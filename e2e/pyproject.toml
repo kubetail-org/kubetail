@@ -14,9 +14,3 @@ dependencies = [
 filterwarnings = [
     "ignore::urllib3.exceptions.InsecureRequestWarning",
 ]
-markers = [
-    "cluster: mark test as belonging to the cluster env",
-    "cli: mark test as belonging to the cli env",
-    "kubernetes_api: mark test as specific to the kubernetes-api backend",
-    "kubetail_api: mark test as specific to the kubetail-api backend",
-]

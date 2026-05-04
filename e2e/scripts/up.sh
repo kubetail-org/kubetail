@@ -9,23 +9,20 @@ export KUBECONFIG="/tmp/kubetail-e2e.kubeconfig"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+MANIFESTS_DIR="$SCRIPT_DIR/../manifests"
 
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/../.env"
 
-# Allow flags to override .env defaults
-while [ $# -gt 0 ]; do
-  case $1 in
-    --backend=*) BACKEND="${1#--backend=}"; shift ;;
-    --backend) BACKEND="$2"; shift 2 ;;
-    *) echo "Unknown argument: $1" >&2; exit 1 ;;
-  esac
-done
+if [ $# -gt 0 ]; then
+  echo "Unknown argument: $1" >&2
+  exit 1
+fi
 
 DASHBOARD_PORT=$(echo "$DASHBOARD_URL" | grep -oE '[0-9]+$')
 CLUSTER_API_PORT=$(echo "$CLUSTER_API_URL" | grep -oE '[0-9]+$')
 TLS_DIR="$REPO_ROOT/hack/tilt/tls"
-MANIFEST="$SCRIPT_DIR/../manifests/${BACKEND}.yaml.tmpl"
+BASE_MANIFEST="$MANIFESTS_DIR/base.yaml.tmpl"
 PID_FILE="/tmp/kubetail-e2e-pf.pid"
 
 # Create cluster if it doesn't exist
@@ -46,50 +43,41 @@ k3d kubeconfig get "$CLUSTER_NAME" > "$KUBECONFIG"
 
 kubectl wait --for=condition=Ready nodes --all --timeout=60s
 
-# Load images into cluster
 echo "Loading images into cluster..."
-if [ "$BACKEND" = "kubernetes-api" ]; then
-  k3d image import "$KUBETAIL_DASHBOARD_IMAGE" --cluster "$CLUSTER_NAME"
-else
-  k3d image import \
-    "$KUBETAIL_DASHBOARD_IMAGE" \
-    "$KUBETAIL_CLUSTER_API_IMAGE" \
-    "$KUBETAIL_CLUSTER_AGENT_IMAGE" \
-    --cluster "$CLUSTER_NAME"
-fi
+k3d image import \
+  "$KUBETAIL_DASHBOARD_IMAGE" \
+  "$KUBETAIL_CLUSTER_API_IMAGE" \
+  "$KUBETAIL_CLUSTER_AGENT_IMAGE" \
+  --cluster "$CLUSTER_NAME"
 
-# Apply manifest (namespace is included)
-envsubst < "$MANIFEST" | kubectl apply -f -
+# Apply base manifest (namespace + Dashboard + cluster-api + cluster-agent + APIService).
+envsubst < "$BASE_MANIFEST" | kubectl apply -f -
 
-# Create TLS secrets for kubetail-api backend (idempotent via --dry-run + apply)
-if [ "$BACKEND" = "kubetail-api" ]; then
-  kubectl create secret generic kubetail-ca \
-    --from-file=ca.crt="$TLS_DIR/ca.crt" \
-    --namespace=kubetail-system \
-    --dry-run=client -o yaml | kubectl apply -f -
+# TLS secrets for cluster-api / cluster-agent (idempotent via --dry-run + apply).
+kubectl create secret generic kubetail-ca \
+  --from-file=ca.crt="$TLS_DIR/ca.crt" \
+  --namespace=kubetail-system \
+  --dry-run=client -o yaml | kubectl apply -f -
 
-  kubectl create secret tls kubetail-cluster-api-tls \
-    --cert="$TLS_DIR/cluster-api.crt" \
-    --key="$TLS_DIR/cluster-api.key" \
-    --namespace=kubetail-system \
-    --dry-run=client -o yaml | kubectl apply -f -
+kubectl create secret tls kubetail-cluster-api-tls \
+  --cert="$TLS_DIR/cluster-api.crt" \
+  --key="$TLS_DIR/cluster-api.key" \
+  --namespace=kubetail-system \
+  --dry-run=client -o yaml | kubectl apply -f -
 
-  kubectl create secret tls kubetail-cluster-agent-tls \
-    --cert="$TLS_DIR/cluster-agent.crt" \
-    --key="$TLS_DIR/cluster-agent.key" \
-    --namespace=kubetail-system \
-    --dry-run=client -o yaml | kubectl apply -f -
-fi
+kubectl create secret tls kubetail-cluster-agent-tls \
+  --cert="$TLS_DIR/cluster-agent.crt" \
+  --key="$TLS_DIR/cluster-agent.key" \
+  --namespace=kubetail-system \
+  --dry-run=client -o yaml | kubectl apply -f -
 
 # Wait for workloads to be ready
 kubectl rollout status deployment/kubetail-dashboard \
   --namespace=kubetail-system --timeout=90s
-if [ "$BACKEND" = "kubetail-api" ]; then
-  kubectl rollout status deployment/kubetail-cluster-api \
-    --namespace=kubetail-system --timeout=90s
-  kubectl rollout status daemonset/kubetail-cluster-agent \
-    --namespace=kubetail-system --timeout=90s
-fi
+kubectl rollout status deployment/kubetail-cluster-api \
+  --namespace=kubetail-system --timeout=90s
+kubectl rollout status daemonset/kubetail-cluster-agent \
+  --namespace=kubetail-system --timeout=90s
 
 # Kill any existing port-forwards
 if [ -f "$PID_FILE" ]; then
@@ -106,13 +94,11 @@ kubectl port-forward \
   "${DASHBOARD_PORT}:8080" >/dev/null 2>&1 &
 echo $! >> "$PID_FILE"
 
-if [ "$BACKEND" = "kubetail-api" ]; then
-  kubectl port-forward \
-    --namespace=kubetail-system \
-    service/kubetail-cluster-api \
-    "${CLUSTER_API_PORT}:443" >/dev/null 2>&1 &
-  echo $! >> "$PID_FILE"
-fi
+kubectl port-forward \
+  --namespace=kubetail-system \
+  service/kubetail-cluster-api \
+  "${CLUSTER_API_PORT}:443" >/dev/null 2>&1 &
+echo $! >> "$PID_FILE"
 
 # Wait for port-forwards to be ready
 wait_for_port() {
@@ -131,16 +117,11 @@ wait_for_port() {
 }
 
 wait_for_port "$DASHBOARD_PORT"
-if [ "$BACKEND" = "kubetail-api" ]; then
-  wait_for_port "$CLUSTER_API_PORT" https
-fi
+wait_for_port "$CLUSTER_API_PORT" https
 
 echo ""
-echo "Dashboard: http://localhost:${DASHBOARD_PORT}"
-if [ "$BACKEND" = "kubetail-api" ]; then
-  echo "Cluster API: https://localhost:${CLUSTER_API_PORT}"
-fi
-echo "Backend: $BACKEND"
+echo "Kubetail Dashboard:   http://localhost:${DASHBOARD_PORT}"
+echo "Kubetail Cluster API: https://localhost:${CLUSTER_API_PORT}"
 echo ""
 echo "Run tests:"
 echo "  cd e2e && uv run pytest -v"

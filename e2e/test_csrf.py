@@ -7,10 +7,6 @@ import pytest
 import requests
 import websockets
 
-# All gates exercised here are dashboard-side and behave the same regardless
-# of backend, so we only run against kubetail-api.
-pytestmark = [pytest.mark.kubetail_api]
-
 # k3d names the kubeconfig context "k3d-<cluster>". Used by the DesktopProxy
 # in CLI mode, which requires /cluster-api-proxy/<kubeContext>/<relPath>;
 # in cluster mode the InClusterProxy ignores the path tail.
@@ -29,14 +25,32 @@ def _to_ws(url):
     return url.replace("http://", "ws://").replace("https://", "wss://")
 
 
-@pytest.fixture(scope="session")
+# CSRF behavior is identical at the dashboard layer regardless of how the
+# dashboard is being served, but the proxy WS path differs: cluster mode uses
+# /cluster-api-proxy/graphql while the desktop CLI uses
+# /cluster-api-proxy/<kubeContext>/graphql. Parametrizing here (rather than
+# at the conftest level) keeps the env axis local to the only suite that
+# actually exercises both.
+@pytest.fixture(params=["cluster", "cli"])
+def env(request):
+    return request.param
+
+
+@pytest.fixture
+def target_url(env, request):
+    return request.getfixturevalue(
+        "dashboard_url" if env == "cluster" else "serve_url"
+    )
+
+
+@pytest.fixture
 def dashboard_ws_url(target_url):
     return _to_ws(target_url) + "/graphql"
 
 
-@pytest.fixture(scope="session")
-def proxy_ws_url(target_url, _env):
-    return _to_ws(target_url) + _PROXY_WS_PATHS[_env]
+@pytest.fixture
+def proxy_ws_url(target_url, env):
+    return _to_ws(target_url) + _PROXY_WS_PATHS[env]
 
 
 def _session(target_url):
@@ -141,7 +155,6 @@ _WS_ORIGIN_CASES = pytest.mark.parametrize(
 
 
 class TestDashboardHTTPCSRF:
-    pytestmark = [pytest.mark.cluster]
 
     @_SEC_FETCH_SITE_CASES
     def test_sec_fetch_site_rejected(self, target_url, sec_fetch_site):
@@ -217,7 +230,6 @@ class TestDashboardHTTPCSRF:
 
 
 class TestDashboardWSCSWSH:
-    pytestmark = [pytest.mark.cluster]
 
     @_WS_ORIGIN_CASES
     def test_ws_cross_origin_upgrade_rejected(self, dashboard_ws_url, origin):
@@ -357,7 +369,6 @@ class TestProxyWSCSWSH:
 class TestProxyWSAccepted:
     # Cluster-only for now: the CLI's DesktopProxy WS path through
     # kubectl-proxy → kube-apiserver aggregation isn't validated end-to-end.
-    pytestmark = [pytest.mark.cluster]
 
     def test_valid_connection_accepted(self, target_url, proxy_ws_url):
         s, tok = _session(target_url)

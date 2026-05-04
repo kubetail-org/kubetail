@@ -1,7 +1,7 @@
 """End-to-end tests for the `allowed-namespaces` config option.
 
-Patches the in-cluster dashboard (and, for the kubetail-api backend, the
-cluster-api) to set `allowed-namespaces: [<SA1_NS>]`, then asserts:
+Patches the in-cluster dashboard and cluster-api to set
+`allowed-namespaces: [<SA1_NS>]`, then asserts:
 
 * Even a cluster-admin caller cannot reach `<SA2_NS>` — the config gate
   fires before the kube-apiserver is consulted, so broad RBAC does not
@@ -37,11 +37,6 @@ from _namespace_rbac import (
     kubectl,
     post_graphql,
 )
-
-# Apply allowed-namespaces tests only in cluster mode. The CLI's `kubetail
-# serve` does not surface the option, so there is no desktop equivalent
-# to exercise.
-pytestmark = [pytest.mark.cluster]
 
 _KUBE_NS = "kubetail-system"
 _PF_PID_FILE = "/tmp/kubetail-e2e-pf.pid"
@@ -163,17 +158,15 @@ def _wait_for_healthz(url, *, verify=False, timeout=30):
     raise RuntimeError(f"healthz never became ready at {url}: {last_err}")
 
 
-def _reconfigure(allowed, *, dashboard_url, cluster_api_url, _backend):
+def _reconfigure(allowed, *, dashboard_url, cluster_api_url):
     """Apply `allowed-namespaces=allowed` to the live deployments and
     re-establish port-forwards on the original local ports. Used for
     both the setup and teardown legs of the fixture."""
     _kill_existing_port_forwards()
 
-    deployments = ["kubetail-dashboard"]
-    _patch_allowed_namespaces("kubetail-dashboard", allowed)
-    if _backend == "kubetail-api":
-        _patch_allowed_namespaces("kubetail-cluster-api", allowed)
-        deployments.append("kubetail-cluster-api")
+    deployments = ["kubetail-dashboard", "kubetail-cluster-api"]
+    for d in deployments:
+        _patch_allowed_namespaces(d, allowed)
 
     # Kick off both rollouts concurrently — independent and ~30s each.
     for d in deployments:
@@ -184,23 +177,23 @@ def _reconfigure(allowed, *, dashboard_url, cluster_api_url, _backend):
         ):
             fut.result()
 
-    procs = [_start_port_forward(
-        "kubetail-dashboard", _port_from_url(dashboard_url), 8080,
-    )]
-    if _backend == "kubetail-api":
-        procs.append(_start_port_forward(
+    procs = [
+        _start_port_forward(
+            "kubetail-dashboard", _port_from_url(dashboard_url), 8080,
+        ),
+        _start_port_forward(
             "kubetail-cluster-api", _port_from_url(cluster_api_url), 443,
-        ))
+        ),
+    ]
     Path(_PF_PID_FILE).write_text("\n".join(str(p.pid) for p in procs) + "\n")
 
     _wait_for_healthz(dashboard_url)
-    if _backend == "kubetail-api":
-        _wait_for_healthz(cluster_api_url, verify=False)
+    _wait_for_healthz(cluster_api_url, verify=False)
     return procs
 
 
 @pytest.fixture(scope="module")
-def restricted_deployments(dashboard_url, _backend, restricted_sa_tokens, request):
+def restricted_deployments(dashboard_url, cluster_api_url, restricted_sa_tokens):
     """Patch the in-cluster components to allow only `SA1_NS`, then revert.
 
     Depends on `restricted_sa_tokens` so the user-side namespaces, pods,
@@ -208,17 +201,10 @@ def restricted_deployments(dashboard_url, _backend, restricted_sa_tokens, reques
     reuse the original local ports (those returned by `dashboard_url` /
     `cluster_api_url`) so other session-scoped fixtures keep working.
     """
-    cluster_api_url = None
-    if _backend == "kubetail-api":
-        cluster_api_url = (
-            request.config.getoption("--cluster-api-url").rstrip("/")
-        )
-
     procs = _reconfigure(
         [_ALLOWED_NS],
         dashboard_url=dashboard_url,
         cluster_api_url=cluster_api_url,
-        _backend=_backend,
     )
 
     try:
@@ -239,12 +225,11 @@ def restricted_deployments(dashboard_url, _backend, restricted_sa_tokens, reques
             [],
             dashboard_url=dashboard_url,
             cluster_api_url=cluster_api_url,
-            _backend=_backend,
         )
 
 
 # ---------------------------------------------------------------------------
-# Dashboard /graphql — applies in both kubernetes-api and kubetail-api.
+# Dashboard /graphql.
 # ---------------------------------------------------------------------------
 
 
@@ -297,7 +282,6 @@ class TestDashboardAllowedNamespaces:
         names = sorted(i["metadata"]["name"] for i in items)
         assert names == [_ALLOWED_NS], body
 
-    @pytest.mark.kubetail_api
     def test_user_without_rbac_denied_for_logs_in_allowed(
         self, restricted_deployments, restricted_sa_tokens,
     ):
@@ -322,7 +306,7 @@ class TestDashboardAllowedNamespaces:
 
 
 # ---------------------------------------------------------------------------
-# Cluster-api /graphql via /cluster-api-proxy — kubetail-api backend only.
+# Cluster-api /graphql via /cluster-api-proxy.
 # ---------------------------------------------------------------------------
 
 
@@ -330,8 +314,6 @@ class TestClusterAPIAllowedNamespaces:
     """The cluster-api enforces its own allowed-namespaces independently
     of the dashboard's. Even if the dashboard somehow forwarded a request
     for a disallowed namespace, the cluster-api gate must still fire."""
-
-    pytestmark = [pytest.mark.kubetail_api]
 
     def test_admin_outside_allowed_denied(self, restricted_deployments):
         body = post_graphql(

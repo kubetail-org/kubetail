@@ -26,7 +26,6 @@ from _namespace_rbac import (
     session,
 )
 
-pytestmark = [pytest.mark.cluster, pytest.mark.kubetail_api]
 
 _NS = "kubetail-system"
 _NAME = "kubetail-dashboard-token"

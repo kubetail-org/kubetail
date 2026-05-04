@@ -42,11 +42,6 @@ from _namespace_rbac import (
     post_graphql,
 )
 
-# Both env tracks need the kubetail-api backend (cluster mode needs it for
-# the cluster-api-proxy; cli is collapsed to canonical backend anyway).
-pytestmark = [pytest.mark.kubetail_api]
-
-
 _DASHBOARD_LOG_FETCH = (
     "query Q($sources:[String!]!){"
     "logRecordsFetch(sources:$sources, mode:TAIL, limit:1)"
@@ -150,8 +145,6 @@ def restricted_serve_url(restricted_sa_tokens, cli):
 
 
 class TestCliDashboard:
-    pytestmark = [pytest.mark.cli]
-
     @_NAMESPACE_CASES
     def test_log_records_fetch(self, restricted_serve_url, namespace, expect_denial):
         body = post_graphql(
@@ -164,8 +157,6 @@ class TestCliDashboard:
 
 
 class TestCliApiProxy:
-    pytestmark = [pytest.mark.cli]
-
     @_NAMESPACE_CASES
     def test_log_metadata_list(self, restricted_serve_url, namespace, expect_denial):
         body = post_graphql(
@@ -182,14 +173,12 @@ class TestCliApiProxy:
 
 
 class TestClusterDashboard:
-    pytestmark = [pytest.mark.cluster]
-
     @_NAMESPACE_CASES
     def test_log_records_fetch(
-        self, target_url, restricted_sa_tokens, namespace, expect_denial
+        self, dashboard_url, restricted_sa_tokens, namespace, expect_denial
     ):
         body = post_graphql(
-            target_url, "/graphql",
+            dashboard_url, "/graphql",
             _DASHBOARD_LOG_FETCH, {"sources": [f"{namespace}:pods/chatter"]},
             bearer=restricted_sa_tokens[SA1_NS],
         )
@@ -199,14 +188,12 @@ class TestClusterDashboard:
 
 
 class TestClusterApiProxy:
-    pytestmark = [pytest.mark.cluster]
-
     @_NAMESPACE_CASES
     def test_log_metadata_list(
-        self, target_url, restricted_sa_tokens, namespace, expect_denial
+        self, dashboard_url, restricted_sa_tokens, namespace, expect_denial
     ):
         body = post_graphql(
-            target_url, "/cluster-api-proxy/graphql",
+            dashboard_url, "/cluster-api-proxy/graphql",
             _CLUSTER_API_LOG_METADATA, {"namespace": namespace},
             bearer=restricted_sa_tokens[SA1_NS],
         )
@@ -214,10 +201,10 @@ class TestClusterApiProxy:
 
     @_NAMESPACE_CASES
     def test_log_records_fetch(
-        self, target_url, restricted_sa_tokens, namespace, expect_denial
+        self, dashboard_url, restricted_sa_tokens, namespace, expect_denial
     ):
         body = post_graphql(
-            target_url, "/cluster-api-proxy/graphql",
+            dashboard_url, "/cluster-api-proxy/graphql",
             _DASHBOARD_LOG_FETCH, {"sources": [f"{namespace}:pods/chatter"]},
             bearer=restricted_sa_tokens[SA1_NS],
         )
@@ -236,7 +223,7 @@ class TestClusterApiProxy:
         ids=["sa1-on-own", "sa1-on-other", "sa2-on-own", "sa2-on-other"],
     )
     def test_identity_keyed_authorization(
-        self, target_url, restricted_sa_tokens,
+        self, dashboard_url, restricted_sa_tokens,
         token_ns, query_ns, expect_denial,
     ):
         """Two SAs scoped to different namespaces (sa1 -> SA1_NS,
@@ -245,14 +232,14 @@ class TestClusterApiProxy:
         aggregation -> cluster-api -> cluster-agent and the cluster-agent's
         identity-keyed SAR cache."""
         body = post_graphql(
-            target_url, "/cluster-api-proxy/graphql",
+            dashboard_url, "/cluster-api-proxy/graphql",
             _CLUSTER_API_LOG_METADATA, {"namespace": query_ns},
             bearer=restricted_sa_tokens[token_ns],
         )
         assert has_authz_denial(body) == expect_denial, body
 
     def test_agent_permission_denied_yields_no_data(
-        self, target_url, restricted_sa_tokens,
+        self, dashboard_url, restricted_sa_tokens,
     ):
         """When the cluster-agent answers PermissionDenied for a fan-out
         shard, cluster-api must surface that as a GraphQL error and leave
@@ -260,7 +247,7 @@ class TestClusterApiProxy:
         alongside the error would slip past `has_authz_denial` alone — this
         test pins the no-leak side of the contract explicitly."""
         body = post_graphql(
-            target_url, "/cluster-api-proxy/graphql",
+            dashboard_url, "/cluster-api-proxy/graphql",
             _CLUSTER_API_LOG_METADATA, {"namespace": SA2_NS},
             bearer=restricted_sa_tokens[SA1_NS],
         )
@@ -273,7 +260,7 @@ class TestClusterApiProxy:
         ids=["group-sa-allowed", "non-member-sa-denied"],
     )
     def test_group_bound_access(
-        self, target_url, restricted_sa_tokens, token_ns, expect_denial,
+        self, dashboard_url, restricted_sa_tokens, token_ns, expect_denial,
     ):
         """pods/log in GROUP_NS is bound to Group `system:serviceaccounts:
         GROUP_NS`. The group-bound SA (lives in GROUP_NS, no other RBAC) is a
@@ -282,7 +269,7 @@ class TestClusterApiProxy:
         front-proxy headers -> cluster-agent SAR and is honored, not silently
         dropped."""
         body = post_graphql(
-            target_url, "/cluster-api-proxy/graphql",
+            dashboard_url, "/cluster-api-proxy/graphql",
             _CLUSTER_API_LOG_METADATA, {"namespace": GROUP_NS},
             bearer=restricted_sa_tokens[token_ns],
         )

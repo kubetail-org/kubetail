@@ -14,10 +14,6 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 load_dotenv(Path(__file__).parent / ".env")
 
-# In cli env the backend axis is meaningless; collapse to a single canonical
-# value so tests parametrized over _backend don't run twice in cli mode.
-_CLI_CANONICAL_BACKEND = "kubetail-api"
-
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -37,45 +33,37 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture(scope="session", params=["cluster", "cli"])
-def _env(request):
-    return request.param
+@pytest.fixture(scope="session")
+def _cluster_ready(request):
+    """Precondition: e2e cluster is up and the Dashboard answers /healthz.
 
-
-@pytest.fixture(scope="session", params=["kubernetes-api", "kubetail-api"])
-def _backend(_env, request):
-    backend = request.param
-    scripts_dir = Path(__file__).parent / "scripts"
-    subprocess.run(
-        ["bash", str(scripts_dir / "up.sh"), f"--backend={backend}"],
-        check=True,
-    )
+    pytest no longer owns cluster lifecycle — run e2e/scripts/up.sh first
+    (the Makefile test-e2e target does this automatically).
+    """
+    if not Path(_E2E_KUBECONFIG).exists():
+        pytest.fail(
+            f"e2e cluster not running — run e2e/scripts/up.sh first "
+            f"(missing kubeconfig {_E2E_KUBECONFIG})"
+        )
+    url = request.config.getoption("--dashboard-url").rstrip("/")
     try:
-        yield backend
-    finally:
-        subprocess.run(["bash", str(scripts_dir / "down.sh")], check=True)
+        resp = requests.get(f"{url}/healthz", timeout=2, verify=False)
+        resp.raise_for_status()
+    except Exception as e:
+        pytest.fail(
+            f"e2e dashboard not reachable at {url} — run e2e/scripts/up.sh "
+            f"first ({e})"
+        )
 
 
 @pytest.fixture(scope="session")
-def dashboard_url(_env, _backend, request):
-    if _env != "cluster":
-        pytest.skip("not in cluster env")
+def dashboard_url(_cluster_ready, request):
     return request.config.getoption("--dashboard-url").rstrip("/")
 
 
 @pytest.fixture(scope="session")
-def cluster_api_url(_env, _backend, request):
-    if _env != "cluster" or _backend != "kubetail-api":
-        pytest.skip("not in kubetail-api cluster env")
+def cluster_api_url(_cluster_ready, request):
     return request.config.getoption("--cluster-api-url").rstrip("/")
-
-
-@pytest.fixture(scope="session")
-def target_url(_env, _backend, request):
-    """Dashboard URL for the active env — cluster dashboard or kubetail serve."""
-    if _env == "cluster":
-        return request.config.getoption("--dashboard-url").rstrip("/")
-    return request.getfixturevalue("serve_url")
 
 
 @pytest.fixture(scope="session")
@@ -110,7 +98,7 @@ _E2E_KUBECONFIG = "/tmp/kubetail-e2e.kubeconfig"
 
 
 @pytest.fixture(scope="session")
-def serve_url(cli, request):
+def serve_url(cli):
     port = int(os.environ.get("SERVE_PORT", 9898))
     env = os.environ.copy()
     if Path(_E2E_KUBECONFIG).exists():
@@ -147,13 +135,13 @@ def assert_healthz(url):
 
 
 @pytest.fixture(scope="session")
-def restricted_sa_tokens(_backend):
+def restricted_sa_tokens(_cluster_ready):
     """Apply the namespace-scoped RBAC manifest and yield SA bearer tokens.
 
     Returns a dict mapping namespace -> token, where each SA's RBAC grants
     pod/log access in that namespace only. Shared by the cli and cluster
     namespace-rbac tests so the cluster only pays the manifest-apply cost
-    once per backend.
+    once.
     """
     from _namespace_rbac import (
         BASELINE_CLUSTER_ROLE,
@@ -166,9 +154,6 @@ def restricted_sa_tokens(_backend):
         kubectl,
         rendered_manifest,
     )
-
-    if not Path(_E2E_KUBECONFIG).exists():
-        pytest.skip(f"e2e kubeconfig {_E2E_KUBECONFIG} not found")
 
     kubectl("apply", "-f", "-", input=rendered_manifest())
     try:
@@ -196,26 +181,3 @@ def restricted_sa_tokens(_backend):
             "delete", "clusterrole", BASELINE_CLUSTER_ROLE,
             "--ignore-not-found", check=False,
         )
-
-
-def pytest_collection_modifyitems(config, items):
-    selected, deselected = [], []
-    for item in items:
-        callspec = getattr(item, "callspec", None)
-        params = callspec.params if callspec else {}
-        env = params.get("_env")
-        backend = params.get("_backend")
-
-        drop = (
-            (item.get_closest_marker("cluster") and env is not None and env != "cluster")
-            or (item.get_closest_marker("cli") and env is not None and env != "cli")
-            or (item.get_closest_marker("kubernetes_api") and backend is not None and backend != "kubernetes-api")
-            or (item.get_closest_marker("kubetail_api") and backend is not None and backend != "kubetail-api")
-            # In cli env, _backend is meaningless — keep only the canonical backend.
-            or (env == "cli" and backend is not None and backend != _CLI_CANONICAL_BACKEND)
-        )
-        (deselected if drop else selected).append(item)
-
-    if deselected:
-        config.hook.pytest_deselected(items=deselected)
-        items[:] = selected
