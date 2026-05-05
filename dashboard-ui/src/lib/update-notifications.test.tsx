@@ -17,7 +17,7 @@ import { act, screen, waitFor } from '@testing-library/react';
 
 import appConfig from '@/app-config';
 import { CLI_LATEST_VERSION, CLUSTER_VERSION_STATUS, KUBE_CONFIG_WATCH } from '@/lib/graphql/dashboard/ops';
-import { renderElement } from '@/test-utils';
+import { renderElement, withAppConfig } from '@/test-utils';
 
 import {
   compareSemver,
@@ -356,15 +356,16 @@ describe('useClusterUpdateNotification', () => {
   });
 
   it('skips query when environment is not desktop', async () => {
-    Object.defineProperty(appConfig, 'environment', { value: 'cluster', writable: true });
-    renderClusterWithMocks([clusterUpdateAvailableMock]);
+    await withAppConfig({ environment: 'cluster' }, async () => {
+      renderClusterWithMocks([clusterUpdateAvailableMock]);
 
-    await act(async () => {
-      vi.advanceTimersByTime(1000);
-    });
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
 
-    await waitFor(() => {
-      expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
+      });
     });
   });
 

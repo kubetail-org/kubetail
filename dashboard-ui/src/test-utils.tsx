@@ -19,6 +19,7 @@ import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
 import { DashboardCustomCache } from '@/apollo-client';
+import appConfig from '@/app-config';
 
 export const renderElement = (component: React.ReactElement, mocks?: MockedResponse[]) =>
   render(
@@ -32,3 +33,24 @@ export const renderElement = (component: React.ReactElement, mocks?: MockedRespo
       <MemoryRouter>{component}</MemoryRouter>
     </MockedProvider>,
   );
+
+/**
+ * Run `fn` with the given appConfig overrides applied, then restore the previous values — even if
+ * `fn` throws. Lets tests exercise non-default config (e.g. `environment: 'cluster'`) without
+ * leaving the global `appConfig` mutated for any later test or test file.
+ */
+export async function withAppConfig<T>(overrides: Partial<typeof appConfig>, fn: () => Promise<T> | T): Promise<T> {
+  const original: Partial<typeof appConfig> = {};
+  const keys = Object.keys(overrides) as (keyof typeof appConfig)[];
+  keys.forEach((key) => {
+    original[key] = appConfig[key] as never;
+    Object.defineProperty(appConfig, key, { value: overrides[key], writable: true, configurable: true });
+  });
+  try {
+    return await fn();
+  } finally {
+    keys.forEach((key) => {
+      Object.defineProperty(appConfig, key, { value: original[key], writable: true, configurable: true });
+    });
+  }
+}
