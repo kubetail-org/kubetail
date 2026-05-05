@@ -32,17 +32,9 @@ type fakeClient struct {
 	fetchErrs  []error
 	fetchCalls int
 
-	pingErr   error
-	pingCalls int
-
 	followRecords <-chan logs.LogRecord
 	followErrs    <-chan error
 	followVars    LogRecordsFollowVars
-}
-
-func (f *fakeClient) Ping(ctx context.Context) error {
-	f.pingCalls++
-	return f.pingErr
 }
 
 func (f *fakeClient) LogRecordsFetch(ctx context.Context, _ LogRecordsFetchVars) (*LogRecordsQueryResponse, error) {
@@ -171,7 +163,6 @@ func TestStream_FollowOnlyMode_SkipsBootstrapFetch(t *testing.T) {
 	require.Len(t, got, 1)
 	assert.Equal(t, "live", got[0].Message)
 	assert.Equal(t, 0, fc.fetchCalls, "follow-only mode must not call Fetch")
-	assert.Equal(t, 1, fc.pingCalls, "follow-only mode must Ping so Start can surface ErrAPINotInstalled")
 	// Without an anchor the cluster-api logRecordsFollow subscription replays
 	// full history. Stream must default After to "now" when bootstrap is
 	// skipped.
@@ -209,19 +200,6 @@ func TestStream_StartReturnsFirstFetchError(t *testing.T) {
 	err := s.Start(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "rbac denied")
-}
-
-func TestStream_StartSurfacesAPINotInstalled_FollowOnly(t *testing.T) {
-	// Follow-only flows skip Fetch but must still detect a missing
-	// APIService so `--backend=auto` can fall back to Kubernetes.
-	fc := &fakeClient{pingErr: ErrAPINotInstalled}
-	s := newStreamForTest(fc, StreamConfig{Sources: []string{"x"}, Follow: true /* Mode left empty */})
-
-	err := s.Start(context.Background())
-	require.Error(t, err)
-	assert.True(t, errors.Is(err, ErrAPINotInstalled))
-	assert.Equal(t, 0, fc.fetchCalls)
-	assert.Equal(t, 1, fc.pingCalls)
 }
 
 func TestStream_StartSurfacesAPINotInstalled(t *testing.T) {

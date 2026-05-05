@@ -23,7 +23,6 @@ import (
 )
 
 type clientIface interface {
-	Ping(ctx context.Context) error
 	LogRecordsFetch(ctx context.Context, v LogRecordsFetchVars) (*LogRecordsQueryResponse, error)
 	LogRecordsFollow(ctx context.Context, v LogRecordsFollowVars) (<-chan logs.LogRecord, <-chan error)
 }
@@ -78,36 +77,28 @@ func newStreamForTest(client clientIface, cfg StreamConfig) *Stream {
 	}
 }
 
-// Start performs the first cluster-api request synchronously so callers see
-// connectivity errors (notably ErrAPINotInstalled) before any records reach
-// the consumer. On success it kicks off a goroutine that emits the seeded
-// response and continues with pagination and/or the follow subscription.
+// Start performs the bootstrap LogRecordsFetch synchronously (when Mode is
+// set) so callers see connectivity errors before any records reach the
+// consumer, then kicks off a goroutine that emits the seeded response and
+// continues with pagination and/or the follow subscription. Follow-only
+// flows (Mode == "") issue no synchronous round-trip — callers that need to
+// probe API availability must do so before calling Start (see clusterapi
+// Client.Ping); doing it here would either duplicate the caller's probe or
+// re-introduce an unbounded round-trip on rootCtx.
 func (s *Stream) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	s.cancel = cancel
-
-	fail := func(err error) error {
-		cancel()
-		close(s.out)
-		close(s.doneCh)
-		return err
-	}
 
 	var first *LogRecordsQueryResponse
 	if s.cfg.Mode != "" {
 		resp, err := s.client.LogRecordsFetch(ctx, s.fetchVars(""))
 		if err != nil {
-			return fail(err)
+			cancel()
+			close(s.out)
+			close(s.doneCh)
+			return err
 		}
 		first = resp
-	} else {
-		// Follow-only flows (`-f --tail=0`) skip the bootstrap fetch but
-		// still need a synchronous round-trip so Start surfaces
-		// ErrAPINotInstalled to the auto-select fallback before the
-		// caller commits to this backend.
-		if err := s.client.Ping(ctx); err != nil {
-			return fail(err)
-		}
 	}
 
 	go s.run(ctx, first)
