@@ -675,9 +675,12 @@ var logsCmd = &cobra.Command{
 		cli.ExitOnError(err)
 
 		// tryKubetail attempts to start a Kubetail-API-backed stream by
-		// issuing the actual logs request. The first response tells us
-		// whether the cluster-api APIService is installed (HTTP 404 ->
-		// ErrAPINotInstalled) without a separate availability probe.
+		// first probing the cluster-api endpoint with a short timeout, then
+		// (on success) starting the stream against rootCtx. The probe is
+		// bounded so a blackholed aggregated APIService (stale Endpoints,
+		// dropped SYNs, hung TLS handshake) can't stall backend
+		// auto-selection — without this cap, kubetail logs could block
+		// indefinitely before falling back.
 		var kubetailStream *clusterapi.Stream
 		tryKubetail := func() error {
 			restCfg, err := cm.GetOrCreateRestConfig(cmdCfg.kubecontext)
@@ -686,6 +689,11 @@ var logsCmd = &cobra.Command{
 			}
 			client, err := clusterapi.NewClient(restCfg)
 			if err != nil {
+				return err
+			}
+			probeCtx, cancel := context.WithTimeout(rootCtx, 2*time.Second)
+			defer cancel()
+			if err := client.Ping(probeCtx); err != nil {
 				return err
 			}
 			s := clusterapi.NewStream(client, buildClusterAPIStreamConfig(cmdCfg, args))
