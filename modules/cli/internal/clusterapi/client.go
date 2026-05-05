@@ -147,6 +147,20 @@ func newClientGoWSDialer(restConfig *rest.Config) wsDialFunc {
 	}
 }
 
+// Ping issues a trivial GraphQL request whose only purpose is to confirm the
+// cluster-api endpoint is reachable. It returns ErrAPINotInstalled when the
+// kube-apiserver responds with 404 (APIService not registered). Used by
+// callers that need to probe availability without fetching records — e.g.
+// `kubetail logs -f --tail=0`, where no bootstrap fetch is otherwise issued
+// and backend auto-selection would otherwise commit to Kubetail before any
+// network round-trip.
+func (c *Client) Ping(ctx context.Context) error {
+	var out struct {
+		Typename string `json:"__typename"`
+	}
+	return c.do(ctx, `query { __typename }`, map[string]any{}, &out)
+}
+
 // LogRecordsFetchVars carries the variables for a logRecordsFetch query.
 // Empty/zero values are omitted from the request.
 type LogRecordsFetchVars struct {
