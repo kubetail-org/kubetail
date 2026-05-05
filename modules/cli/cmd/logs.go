@@ -129,12 +129,14 @@ type logsCmdConfig struct {
 	sinceTime time.Time
 	untilTime time.Time
 
-	head    bool
 	headVal int64
-	tail    bool
 	tailVal int64
-	all     bool
 	follow  bool
+
+	// resolvedMode is the logical stream mode after applying --head, --tail,
+	// --all, and --since precedence. It is the single source of truth for
+	// downstream backend wiring.
+	resolvedMode logsStreamMode
 
 	grep       string
 	regionList []string
@@ -372,17 +374,17 @@ func loadLogsCmdConfig(cmd *cobra.Command) (*logsCmdConfig, error) {
 	}
 
 	// Stream mode
-	streamMode := logsStreamModeUnknown
+	resolvedMode := logsStreamModeUnknown
 	if head {
-		streamMode = logsStreamModeHead
+		resolvedMode = logsStreamModeHead
 	} else if tail {
-		streamMode = logsStreamModeTail
+		resolvedMode = logsStreamModeTail
 	} else if all {
-		streamMode = logsStreamModeAll
+		resolvedMode = logsStreamModeAll
 	} else if since != "" {
-		streamMode = logsStreamModeHead
+		resolvedMode = logsStreamModeHead
 	} else {
-		streamMode = logsStreamModeTail
+		resolvedMode = logsStreamModeTail
 	}
 
 	// Parse `since`
@@ -433,7 +435,7 @@ func loadLogsCmdConfig(cmd *cobra.Command) (*logsCmdConfig, error) {
 		logs.WithAllContainers(allContainers),
 	}
 
-	switch streamMode {
+	switch resolvedMode {
 	case logsStreamModeHead:
 		streamOpts = append(streamOpts, logs.WithHead(headVal))
 	case logsStreamModeTail:
@@ -441,7 +443,7 @@ func loadLogsCmdConfig(cmd *cobra.Command) (*logsCmdConfig, error) {
 	case logsStreamModeAll:
 		streamOpts = append(streamOpts, logs.WithAll())
 	default:
-		return nil, fmt.Errorf("invalid stream mode: %d", streamMode)
+		return nil, fmt.Errorf("invalid stream mode: %d", resolvedMode)
 	}
 
 	cmdCfg := &logsCmdConfig{
@@ -453,12 +455,10 @@ func loadLogsCmdConfig(cmd *cobra.Command) (*logsCmdConfig, error) {
 		sinceTime: sinceTime,
 		untilTime: untilTime,
 
-		head:    head,
-		headVal: headVal,
-		tail:    tail,
-		tailVal: tailVal,
-		all:     all,
-		follow:  follow,
+		headVal:      headVal,
+		tailVal:      tailVal,
+		follow:       follow,
+		resolvedMode: resolvedMode,
 
 		grep:       grep,
 		regionList: regionList,
@@ -541,17 +541,20 @@ func buildClusterAPIStreamConfig(cmdCfg *logsCmdConfig, sources []string) cluste
 	if !cmdCfg.untilTime.IsZero() {
 		cfg.Until = cmdCfg.untilTime.Format(time.RFC3339Nano)
 	}
-	switch {
-	case cmdCfg.head:
+	switch cmdCfg.resolvedMode {
+	case logsStreamModeHead:
 		cfg.Mode = "HEAD"
 		cfg.Limit = int(cmdCfg.headVal)
-	case cmdCfg.all:
+	case logsStreamModeAll:
 		// Express "all" as HEAD pagination with no limit cap; the server
-		// will apply its own batch size and we'll iterate via NextCursor.
+		// applies its own batch size and Stream walks NextCursor.
 		cfg.Mode = "HEAD"
-	case cmdCfg.tailVal == 0:
-		// `--tail=0` means no backlog; empty Mode skips bootstrap fetch.
-	default:
+		cfg.Paginate = true
+	case logsStreamModeTail:
+		if cmdCfg.tailVal == 0 {
+			// `--tail=0` means no backlog; empty Mode skips bootstrap fetch.
+			break
+		}
 		cfg.Mode = "TAIL"
 		cfg.Limit = int(cmdCfg.tailVal)
 	}
@@ -628,12 +631,10 @@ func printLogs(rootCtx context.Context, cmd *cobra.Command, cmdCfg *logsCmdConfi
 	}
 
 	// Output paging cursors if requested
-	if cmdCfg.withCursors && !cmdCfg.follow && !cmdCfg.all {
-		if cmdCfg.head && lastRecord != nil {
-			// For head mode, the last record's timestamp is used as the "after" cursor for the next page
+	if cmdCfg.withCursors && !cmdCfg.follow && cmdCfg.resolvedMode != logsStreamModeAll {
+		if cmdCfg.resolvedMode == logsStreamModeHead && lastRecord != nil {
 			fmt.Fprintf(cmd.OutOrStderr(), "\n--- Next page: --after %s ---\n", lastRecord.Timestamp.Format(time.RFC3339Nano))
 		} else if firstRecord != nil {
-			// For tail mode, the first record's timestamp would be used as the "before" cursor
 			fmt.Fprintf(cmd.OutOrStderr(), "\n--- Prev page: --before %s ---\n", firstRecord.Timestamp.Format(time.RFC3339Nano))
 		}
 	}

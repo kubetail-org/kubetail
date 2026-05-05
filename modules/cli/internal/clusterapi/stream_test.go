@@ -62,7 +62,29 @@ func TestStream_ImplementsLogStream(t *testing.T) {
 	var _ logs.Stream = (*Stream)(nil)
 }
 
-func TestStream_HeadModePaginatesUntilCursorNil(t *testing.T) {
+func TestStream_PaginateWalksNextCursorUntilNil(t *testing.T) {
+	cur := "cursor-1"
+	fc := &fakeClient{
+		fetchPages: []*LogRecordsQueryResponse{
+			{Records: []logs.LogRecord{mkRecord("a"), mkRecord("b")}, NextCursor: &cur},
+			{Records: []logs.LogRecord{mkRecord("c")}, NextCursor: nil},
+		},
+	}
+	s := newStreamForTest(fc, StreamConfig{Mode: "HEAD", Sources: []string{"x"}, Paginate: true})
+
+	require.NoError(t, s.Start(context.Background()))
+	got := drainAll(t, s, 2*time.Second)
+	require.NoError(t, s.Err())
+	require.Len(t, got, 3)
+	assert.Equal(t, "a", got[0].Message)
+	assert.Equal(t, "c", got[2].Message)
+	assert.Equal(t, 2, fc.fetchCalls)
+}
+
+func TestStream_NoPaginateStopsAfterFirstPage(t *testing.T) {
+	// Without Paginate the bootstrap fetch returns whatever the first page
+	// holds, even if NextCursor is set — useful for `--head=N` where the
+	// caller wants exactly one page.
 	cur := "cursor-1"
 	fc := &fakeClient{
 		fetchPages: []*LogRecordsQueryResponse{
@@ -75,10 +97,10 @@ func TestStream_HeadModePaginatesUntilCursorNil(t *testing.T) {
 	require.NoError(t, s.Start(context.Background()))
 	got := drainAll(t, s, 2*time.Second)
 	require.NoError(t, s.Err())
-	require.Len(t, got, 3)
+	require.Len(t, got, 2, "explicit Limit must cap output to a single page")
 	assert.Equal(t, "a", got[0].Message)
-	assert.Equal(t, "c", got[2].Message)
-	assert.Equal(t, 2, fc.fetchCalls)
+	assert.Equal(t, "b", got[1].Message)
+	assert.Equal(t, 1, fc.fetchCalls, "explicit Limit must not paginate")
 }
 
 func TestStream_TailModeSingleFetch(t *testing.T) {

@@ -37,6 +37,10 @@ type StreamConfig struct {
 	Limit       int
 	Follow      bool
 
+	// Paginate, when true and Mode is HEAD, makes the bootstrap loop walk
+	// every page of NextCursor until the server stops returning one.
+	Paginate bool
+
 	// Source filters mapped 1:1 to the cluster-api LogSourceFilter input.
 	Regions []string
 	Zones   []string
@@ -161,7 +165,7 @@ func (s *Stream) run(ctx context.Context, first *LogRecordsQueryResponse) {
 			}
 			lastTimestamp = r.Timestamp.Format(time.RFC3339Nano)
 		}
-		if s.cfg.Mode != "HEAD" || resp.NextCursor == nil || *resp.NextCursor == "" {
+		if !s.cfg.Paginate || resp.NextCursor == nil || *resp.NextCursor == "" {
 			break
 		}
 		next, err := s.client.LogRecordsFetch(ctx, s.fetchVars(*resp.NextCursor))
