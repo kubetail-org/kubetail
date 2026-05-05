@@ -38,8 +38,12 @@ type KubeContextPickerProps = {
 
 const KubeContextPicker = ({ className, value, setValue }: KubeContextPickerProps) => {
   const { data, loading } = useKubeConfig();
-  const names = data?.contexts?.map((c) => c.name) ?? [];
   const currentContext = data?.currentContext ?? null;
+  const names = (() => {
+    const all = data?.contexts?.map((c) => c.name) ?? [];
+    if (!currentContext || !all.includes(currentContext)) return all;
+    return [currentContext, ...all.filter((n) => n !== currentContext)];
+  })();
 
   // Default to the kubeconfig's currentContext (falling back to the first name) once data arrives.
   useEffect(() => {
