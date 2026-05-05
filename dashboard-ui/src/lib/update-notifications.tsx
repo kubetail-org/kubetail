@@ -257,10 +257,7 @@ export function UpdateNotificationProvider({ children }: React.PropsWithChildren
   const isDesktop = appConfig.environment === 'desktop';
   const currentVersionCLI = appConfig.cliVersion;
   const [ready, setReady] = useState(false);
-  const [cliPersisted, setCLIPersisted] = useState(() => readCLIState());
   const [mountedAt] = useState(() => Date.now());
-
-  const cliCacheValid = isCLICacheValid(cliPersisted);
 
   // Desktop: watch kubeconfig so we know which contexts exist (cluster mode uses a single synthetic context).
   const { data: kubeData } = useSubscription(KUBE_CONFIG_WATCH, {
@@ -304,14 +301,37 @@ export function UpdateNotificationProvider({ children }: React.PropsWithChildren
     return () => clearTimeout(timer);
   }, []);
 
+  // Cross-tab sync: when another tab fetches a fresh CLI/cluster version or the user dismisses
+  // a notification, the storage event lets this tab pick up the change without refetching.
+  // The event only fires in *other* tabs, so there's no self-write loop.
+  useEffect(() => {
+    const handler = (ev: StorageEvent) => {
+      // ev.key === null fires when another tab calls localStorage.clear(); refresh either way
+      // since we cannot tell which key (if any) was relevant.
+      if (ev.key === null || ev.key === STORAGE_KEY_CLI || ev.key.startsWith(CLUSTER_STORAGE_PREFIX)) {
+        invalidateLocalStorage();
+      }
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, [invalidateLocalStorage]);
+
+  // Derive CLI persisted state during render (re-reads on every localStorageVersion bump).
+  const cliPersisted = readCLIState();
+  const cliCacheValid = isCLICacheValid(cliPersisted);
+
   const { data: cliQueryData } = useQuery(CLI_LATEST_VERSION, {
     skip: !isDesktop || !currentVersionCLI || cliCacheValid,
     fetchPolicy: 'network-only',
   });
 
+  // `cliQueryData` arriving triggers a re-render, which re-reads localStorage during render and
+  // flips `cliCacheValid` to true on the next render. No invalidate() is needed (and calling it
+  // inside an effect would be a setState-in-effect lint violation).
   useEffect(() => {
     const version = cliQueryData?.cliLatestVersion;
-    if (version) patchCLIState({ latestVersion: version, fetchedAt: Date.now() });
+    if (!version) return;
+    patchCLIState({ latestVersion: version, fetchedAt: Date.now() });
   }, [cliQueryData]);
 
   const latestVersionCLI = cliCacheValid ? cliPersisted.latestVersion! : (cliQueryData?.cliLatestVersion ?? null);
@@ -328,8 +348,8 @@ export function UpdateNotificationProvider({ children }: React.PropsWithChildren
 
   const dismissCLI = useCallback(() => {
     patchCLIState({ dismissedAt: Date.now() });
-    setCLIPersisted(readCLIState());
-  }, []);
+    invalidateLocalStorage();
+  }, [invalidateLocalStorage]);
 
   const dontRemindCLI = useCallback(() => {
     const { skippedVersions = [] } = readCLIState();
@@ -337,8 +357,8 @@ export function UpdateNotificationProvider({ children }: React.PropsWithChildren
       skippedVersions.push(latestVersionCLI);
     }
     patchCLIState({ skippedVersions, dismissedAt: Date.now() });
-    setCLIPersisted(readCLIState());
-  }, [latestVersionCLI]);
+    invalidateLocalStorage();
+  }, [latestVersionCLI, invalidateLocalStorage]);
 
   const cliValue = useMemo(
     () => ({
