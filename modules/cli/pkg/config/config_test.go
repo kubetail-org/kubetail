@@ -51,6 +51,14 @@ commands:
     tail: 30
 `
 
+func TestDefaultCacheDir(t *testing.T) {
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	dir, err := DefaultCacheDir()
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(home, ".kubetail", "cache"), dir)
+}
+
 func TestDefaultCLIConfig(t *testing.T) {
 	cfg := DefaultCLIConfig()
 	assert.NotNil(t, cfg)

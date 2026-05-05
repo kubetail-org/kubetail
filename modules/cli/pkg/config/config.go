@@ -98,6 +98,14 @@ func DefaultLocalStorageDir() (string, error) {
 	return filepath.Join(home, ".kubetail"), nil
 }
 
+func DefaultCacheDir() (string, error) {
+	dir, err := DefaultLocalStorageDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "cache"), nil
+}
+
 func DefaultConfigPath(format string) (string, error) {
 	dir, err := DefaultLocalStorageDir()
 	if err != nil {

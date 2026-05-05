@@ -15,15 +15,20 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kubetail-org/kubetail/modules/shared/logging"
+
+	"github.com/kubetail-org/kubetail/modules/cli/internal/updatecheck"
+	"github.com/kubetail-org/kubetail/modules/cli/pkg/config"
 )
 
 const (
@@ -33,6 +38,11 @@ const (
 )
 
 var version = "dev" // default version for local builds
+
+// waitForRefresh and cachedUpdateOpts are set by PersistentPreRunE and consumed by
+// PersistentPostRunE so resolveUpdateCheckOptions runs only once per command invocation.
+var waitForRefresh func() = func() {}
+var cachedUpdateOpts *updatecheck.Options
 
 // getCommandDisplayName determines the CLI display name based on how it's invoked
 func getCommandDisplayName() string {
@@ -48,6 +58,35 @@ func getCommandDisplayName() string {
 	return "kubetail"
 }
 
+func resolveUpdateCheckOptions(cmd *cobra.Command) (updatecheck.Options, bool) {
+	rootFlags := cmd.Root().PersistentFlags()
+	configPath, _ := rootFlags.GetString("config")
+	v := viper.New()
+	v.BindPFlag("general.kubeconfig", rootFlags.Lookup(KubeconfigFlag))
+	var kubeconfigPath string
+	if cfg, err := config.NewConfig(configPath, v); err == nil && cfg != nil {
+		kubeconfigPath = cfg.General.KubeconfigPath
+	}
+	// --kube-context is a local flag on each subcommand, not a root persistent flag.
+	kubeContext, _ := cmd.Flags().GetString(KubeContextFlag)
+	cliCacheFile, err := updatecheck.DefaultCLICacheFile()
+	if err != nil {
+		return updatecheck.Options{}, false
+	}
+	helmCacheFile, err := updatecheck.DefaultHelmCacheFile()
+	if err != nil {
+		return updatecheck.Options{}, false
+	}
+	return updatecheck.Options{
+		CLICacheFile:      cliCacheFile,
+		HelmCacheFile:     helmCacheFile,
+		CurrentCLIVersion: version,
+		KubeconfigPath:    kubeconfigPath,
+		KubeContext:       kubeContext,
+		CacheTTL:          updatecheck.DefaultCacheTTL,
+	}, true
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:     "kubetail",
@@ -55,6 +94,22 @@ var rootCmd = &cobra.Command{
 	Short:   "Kubetail - Kubernetes logging utility",
 	Annotations: map[string]string{
 		cobra.CommandDisplayNameAnnotation: getCommandDisplayName(),
+	},
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if opts, ok := resolveUpdateCheckOptions(cmd); ok {
+			cachedUpdateOpts = &opts
+			waitForRefresh = updatecheck.TriggerRefreshIfStale(opts)
+		}
+		return nil
+	},
+	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+		waitForRefresh()
+		if cachedUpdateOpts != nil {
+			for _, n := range updatecheck.Notify(*cachedUpdateOpts) {
+				fmt.Fprint(os.Stderr, colorizeWarning(os.Stderr, n.Message))
+			}
+		}
+		return nil
 	},
 }
 
