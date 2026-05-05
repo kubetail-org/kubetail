@@ -19,6 +19,7 @@ import { createBrowserRouter, createRoutesFromElements, RouterProvider } from 'r
 
 import { dashboardClient } from '@/apollo-client';
 import { SessionProvider } from '@/lib/auth';
+import { KubeConfigEffect } from '@/lib/kubeconfig';
 import { PreferencesProvider } from '@/lib/preferences';
 import { ThemeEffect } from '@/lib/theme';
 import { UpdateNotificationProvider } from '@/lib/update-notifications';
@@ -36,6 +37,7 @@ createRoot(document.getElementById('root')!).render(
       <ApolloProvider client={dashboardClient}>
         <PreferencesProvider>
           <ThemeEffect />
+          <KubeConfigEffect />
           <UpdateNotificationProvider>
             <RouterProvider router={router} />
           </UpdateNotificationProvider>

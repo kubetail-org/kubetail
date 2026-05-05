@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useSubscription } from '@apollo/client/react';
 import { useEffect } from 'react';
 
 import {
@@ -25,7 +24,7 @@ import {
   SelectValue,
 } from '@kubetail/ui/elements/select';
 
-import { KUBE_CONFIG_WATCH } from '@/lib/graphql/dashboard/ops';
+import { useKubeConfig } from '@/lib/kubeconfig';
 
 /**
  * KubeContextPicker component
@@ -38,14 +37,16 @@ type KubeContextPickerProps = {
 };
 
 const KubeContextPicker = ({ className, value, setValue }: KubeContextPickerProps) => {
-  const { loading, data } = useSubscription(KUBE_CONFIG_WATCH);
-  const kubeConfig = data?.kubeConfigWatch?.object;
+  const { data, loading } = useKubeConfig();
+  const names = data?.contexts?.map((c) => c.name) ?? [];
+  const currentContext = data?.currentContext ?? null;
 
-  // Set default value
+  // Default to the kubeconfig's currentContext (falling back to the first name) once data arrives.
   useEffect(() => {
-    const kubeContext = kubeConfig?.currentContext;
-    if (kubeContext !== undefined) setValue(kubeContext);
-  }, [kubeConfig !== undefined]);
+    if (value !== null) return;
+    if (currentContext) setValue(currentContext);
+    else if (names.length > 0) setValue(names[0]);
+  }, [value, currentContext, names, setValue]);
 
   return (
     <Select value={value || ''} onValueChange={(v) => setValue(v)} disabled={loading}>
@@ -55,12 +56,11 @@ const KubeContextPicker = ({ className, value, setValue }: KubeContextPickerProp
       <SelectContent>
         <SelectGroup>
           <SelectLabel>Clusters</SelectLabel>
-          {kubeConfig &&
-            kubeConfig.contexts.map((context) => (
-              <SelectItem key={context.name} value={context.name}>
-                {context.name}
-              </SelectItem>
-            ))}
+          {names.map((name) => (
+            <SelectItem key={name} value={name}>
+              {name}
+            </SelectItem>
+          ))}
         </SelectGroup>
       </SelectContent>
     </Select>

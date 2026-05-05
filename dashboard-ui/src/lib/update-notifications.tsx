@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useQuery, useSubscription } from '@apollo/client/react';
+import { useQuery } from '@apollo/client/react';
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 import { atomFamily } from 'jotai-family';
 import { useEffect, useMemo } from 'react';
 
 import appConfig from '@/app-config';
-import { CLI_LATEST_VERSION, CLUSTER_VERSION_STATUS, KUBE_CONFIG_WATCH } from '@/lib/graphql/dashboard/ops';
+import { CLI_LATEST_VERSION, CLUSTER_VERSION_STATUS } from '@/lib/graphql/dashboard/ops';
+import { kubeConfigAtom, useKubeConfig } from '@/lib/kubeconfig';
 
 const STORAGE_KEY_CLI = 'kubetail:updates:cli';
 const CLUSTER_STORAGE_PREFIX = 'kubetail:updates:cluster:';
@@ -84,7 +85,6 @@ const clusterPersistedAtomFamily = atomFamily((kubeContext: string) =>
   atomWithStorage<ClusterUpdateState>(`${CLUSTER_STORAGE_PREFIX}${kubeContext}`, {}),
 );
 
-const kubeContextsAtom = atom<string[]>([]);
 const readyAtom = atom(false);
 
 // --- Derived view atoms
@@ -131,12 +131,11 @@ const clusterViewAtomFamily = atomFamily((kubeContext: string) =>
   }),
 );
 
-const allClusterViewsAtom = atom((get) =>
-  get(kubeContextsAtom).map((kubeContext) => ({
-    kubeContext,
-    view: get(clusterViewAtomFamily(kubeContext)),
-  })),
-);
+const allClusterViewsAtom = atom((get) => {
+  const cfg = get(kubeConfigAtom);
+  const names = appConfig.environment !== 'desktop' ? [''] : (cfg.data?.contexts?.map((c) => c.name) ?? []);
+  return names.map((kubeContext) => ({ kubeContext, view: get(clusterViewAtomFamily(kubeContext)) }));
+});
 
 const hasAnyClusterUpdateAtom = atom((get) => get(allClusterViewsAtom).some(({ view }) => view.updateAvailable));
 
@@ -188,28 +187,14 @@ function ClusterVersionFetcher({ kubeContext }: { kubeContext: string }) {
 }
 
 /**
- * Wires CLI + per-kubeContext fetchers, mirrors kubeconfig contexts into `kubeContextsAtom`, and
- * schedules the show-delay timer. All state lives in atoms; this component only runs side effects.
+ * Mounts the kubeconfig subscriber, the CLI fetcher, and one cluster fetcher per kubeContext.
+ * All shared state lives in atoms; this component only runs side effects.
  */
 export function UpdateNotificationProvider({ children }: React.PropsWithChildren) {
   const isDesktop = appConfig.environment === 'desktop';
-  const setKubeContexts = useSetAtom(kubeContextsAtom);
   const setReady = useSetAtom(readyAtom);
-  const kubeContexts = useAtomValue(kubeContextsAtom);
-
-  const { data: kubeData } = useSubscription(KUBE_CONFIG_WATCH, { skip: !isDesktop });
-
-  const nextKubeContexts = useMemo(() => {
-    if (!isDesktop) return [''];
-    return kubeData?.kubeConfigWatch?.object?.contexts?.map((c) => c.name) ?? [];
-  }, [kubeData, isDesktop]);
-
-  useEffect(() => {
-    setKubeContexts((prev) => {
-      if (prev.length === nextKubeContexts.length && prev.every((v, i) => v === nextKubeContexts[i])) return prev;
-      return nextKubeContexts;
-    });
-  }, [nextKubeContexts, setKubeContexts]);
+  const { data } = useKubeConfig();
+  const kubeContexts = isDesktop ? (data?.contexts?.map((c) => c.name) ?? []) : [''];
 
   // Delay showing the CLI banner so it does not flash on cold load.
   useEffect(() => {
@@ -255,10 +240,6 @@ export function useClusterUpdateNotification(kubeContext: string): ClusterUpdate
   const view = useAtomValue(clusterViewAtomFamily(kubeContext));
   const setPersisted = useSetAtom(clusterPersistedAtomFamily(kubeContext));
   return useMemo(() => ({ ...view, ...buildDismissHandlers(setPersisted, view.latestVersion) }), [view, setPersisted]);
-}
-
-export function useKubeContexts(): string[] {
-  return useAtomValue(kubeContextsAtom);
 }
 
 export function useHasAnyClusterUpdate(): boolean {

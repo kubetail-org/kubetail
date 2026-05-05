@@ -15,23 +15,30 @@
 import { MockedProvider } from '@apollo/client/testing/react';
 import type { MockedResponse } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
+import { createStore, Provider as JotaiProvider } from 'jotai';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
 import { DashboardCustomCache } from '@/apollo-client';
 import appConfig from '@/app-config';
+import { KubeConfigEffect } from '@/lib/kubeconfig';
 
 export const renderElement = (component: React.ReactElement, mocks?: MockedResponse[]) =>
   render(
-    <MockedProvider
-      mocks={mocks}
-      cache={new DashboardCustomCache()}
-      defaultOptions={{
-        watchQuery: { fetchPolicy: 'cache-first' },
-      }}
-    >
-      <MemoryRouter>{component}</MemoryRouter>
-    </MockedProvider>,
+    <JotaiProvider store={createStore()}>
+      <MockedProvider
+        mocks={mocks}
+        cache={new DashboardCustomCache()}
+        defaultOptions={{
+          watchQuery: { fetchPolicy: 'cache-first' },
+        }}
+      >
+        <MemoryRouter>
+          <KubeConfigEffect />
+          {component}
+        </MemoryRouter>
+      </MockedProvider>
+    </JotaiProvider>,
   );
 
 /**

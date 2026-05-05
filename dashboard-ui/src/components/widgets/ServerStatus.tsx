@@ -26,7 +26,8 @@ import {
   useKubernetesAPIServerStatus,
   useClusterAPIServerStatus,
 } from '@/lib/server-status';
-import { useClusterUpdateNotification, useKubeContexts } from '@/lib/update-notifications';
+import { useKubeConfig } from '@/lib/kubeconfig';
+import { useClusterUpdateNotification } from '@/lib/update-notifications';
 import { cn } from '@/lib/util';
 
 const kubernetesAPIServerStatusMapState = atom(new Map<string, ServerStatus>());
@@ -223,7 +224,8 @@ type ServerStatusWidgetProps = {
 };
 
 const ServerStatusWidget = ({ className, healthDotClassName }: ServerStatusWidgetProps) => {
-  const kubeContexts = useKubeContexts();
+  const { data } = useKubeConfig();
+  const kubeContexts = appConfig.environment !== 'desktop' ? [''] : (data?.contexts?.map((c) => c.name) ?? []);
 
   const dashboardServerStatus = useDashboardServerStatus();
   const kubernetesAPIServertatusMap = useAtomValue(kubernetesAPIServerStatusMapState);
