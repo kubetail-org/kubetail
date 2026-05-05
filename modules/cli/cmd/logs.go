@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -54,13 +55,56 @@ const (
 const BackendFlag = "backend"
 
 // ansiYellow / ansiReset wrap warning messages in the conventional terminal
-// warning color so they stand out against normal output on stderr.
+// warning color when the destination is an interactive terminal. Applied via
+// colorizeWarning so redirected/CI output stays free of escape sequences.
 const ansiYellow = "\033[33m"
 const ansiReset = "\033[0m"
 
-const grepKubernetesBackendWarning = ansiYellow + "Warning: Kubernetes API backend filters records locally. Use Kubetail API backend for remote grep." + ansiReset + "\n"
+const grepKubernetesBackendWarning = "Warning: Kubernetes API backend filters records locally. Use Kubetail API backend for remote grep.\n"
 
-const kubetailFallbackWarning = ansiYellow + "Warning: Kubetail API not found, falling back to Kubernetes API backend (run `kubetail cluster install`)" + ansiReset + "\n"
+const kubetailFallbackWarning = "Warning: Kubetail API not found, falling back to Kubernetes API backend (run `kubetail cluster install`)\n"
+
+// useColor reports whether ANSI color escapes are appropriate for w. True
+// only when w is an interactive terminal (i.e. an *os.File whose fd is a
+// TTY) and the NO_COLOR convention (https://no-color.org) is not active.
+// Used to keep redirected stdout/stderr, pipes, and CI logs free of raw
+// \033[...] sequences while preserving color on real terminals.
+func useColor(w any) bool {
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+	f, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+	return isatty.IsTerminal(f.Fd())
+}
+
+// colorizeWarning wraps msg in yellow ANSI escapes only when w is an
+// interactive terminal and NO_COLOR is unset.
+func colorizeWarning(w any, msg string) string {
+	if !useColor(w) {
+		return msg
+	}
+	return ansiYellow + strings.TrimSuffix(msg, "\n") + ansiReset + "\n"
+}
+
+// stripUncoloredDot removes the "dot" column when color rendering is off.
+// The dot indicator carries its meaning through color (one shade per
+// container ID), so a monochrome bullet is just visual noise.
+func stripUncoloredDot(cols []string, color bool) []string {
+	if color {
+		return cols
+	}
+	out := make([]string, 0, len(cols))
+	for _, c := range cols {
+		if c == "dot" {
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
+}
 
 // selectBackend resolves the user's --backend choice into a concrete
 // backendChoice by attempting the kubetail backend when relevant. The
@@ -363,6 +407,7 @@ func loadLogsCmdConfig(cmd *cobra.Command) (*logsCmdConfig, error) {
 	addColumns, _ := flags.GetStringSlice("add-columns")
 	removeColumns, _ := flags.GetStringSlice("remove-columns")
 	columns = applyColumnAddRemove(columns, addColumns, removeColumns)
+	columns = stripUncoloredDot(columns, useColor(cmd.OutOrStdout()))
 
 	backend, _ := flags.GetString(BackendFlag)
 
@@ -563,7 +608,9 @@ func buildClusterAPIStreamConfig(cmdCfg *logsCmdConfig, sources []string) cluste
 
 func printLogs(rootCtx context.Context, cmd *cobra.Command, cmdCfg *logsCmdConfig, stream logs.Stream) {
 	// Write records to stdout
-	writer := bufio.NewWriter(cmd.OutOrStdout())
+	stdout := cmd.OutOrStdout()
+	color := useColor(stdout)
+	writer := bufio.NewWriter(stdout)
 
 	headers, colWidths := getTableWriterHeaders(cmdCfg, stream.Sources())
 	tw := tablewriter.NewTableWriter(writer, colWidths)
@@ -591,7 +638,7 @@ func printLogs(rootCtx context.Context, cmd *cobra.Command, cmdCfg *logsCmdConfi
 			case "timestamp":
 				row = append(row, record.Timestamp.Format(time.RFC3339Nano))
 			case "dot":
-				row = append(row, getDotIndicator(record.Source.ContainerID))
+				row = append(row, getDotIndicator(record.Source.ContainerID, color))
 			case "node":
 				row = append(row, record.Source.Metadata.Node)
 			case "region":
@@ -713,11 +760,12 @@ var logsCmd = &cobra.Command{
 			defer kubetailStream.Close()
 			stream = kubetailStream
 		default:
+			stderr := cmd.OutOrStderr()
 			if shouldWarnFallback(cmdCfg.backend, choice) {
-				fmt.Fprint(cmd.OutOrStderr(), kubetailFallbackWarning)
+				fmt.Fprint(stderr, colorizeWarning(stderr, kubetailFallbackWarning))
 			}
 			if cmdCfg.grep != "" {
-				fmt.Fprint(cmd.OutOrStderr(), grepKubernetesBackendWarning)
+				fmt.Fprint(stderr, colorizeWarning(stderr, grepKubernetesBackendWarning))
 			}
 			s, err := logs.NewStream(rootCtx, cm, args, cmdCfg.streamOpts...)
 			cli.ExitOnError(err)
@@ -734,8 +782,14 @@ var logsCmd = &cobra.Command{
 	},
 }
 
-// Return ANSI color coded dot indicator based on container ID
-func getDotIndicator(containerID string) string {
+// Return ANSI color coded dot indicator based on container ID. When color
+// is false (e.g. stdout is not a TTY) the bullet is returned uncolored so
+// redirected output / CI logs don't get raw escape sequences.
+func getDotIndicator(containerID string, color bool) string {
+	const bullet = "●"
+	if !color {
+		return bullet
+	}
 	colors := []string{
 		"31m", // red
 		"32m", // green
@@ -766,9 +820,7 @@ func getDotIndicator(containerID string) string {
 		idx = -idx
 	}
 
-	dot := fmt.Sprintf("\033[%s%s\033[0m", colors[idx], "\u25CF")
-
-	return dot
+	return fmt.Sprintf("\033[%s%s\033[0m", colors[idx], bullet)
 }
 
 // Return table writer headers and col widths

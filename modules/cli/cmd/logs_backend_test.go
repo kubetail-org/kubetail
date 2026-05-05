@@ -15,8 +15,10 @@
 package cmd
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -104,4 +106,24 @@ func TestShouldWarnFallback(t *testing.T) {
 			assert.Equal(t, tt.want, shouldWarnFallback(tt.flag, tt.choice))
 		})
 	}
+}
+
+func TestColorizeWarning_NonTTYWriterReturnsPlainText(t *testing.T) {
+	// bytes.Buffer is not an *os.File, so colorizeWarning must not inject
+	// ANSI escapes — redirected stderr / CI logs see clean text.
+	var buf bytes.Buffer
+	got := colorizeWarning(&buf, kubetailFallbackWarning)
+	assert.Equal(t, kubetailFallbackWarning, got)
+	assert.NotContains(t, got, "\033[")
+}
+
+func TestColorizeWarning_NoColorEnvDisablesEscapes(t *testing.T) {
+	// Even on a real TTY, NO_COLOR (https://no-color.org) must suppress
+	// escapes. Use a *os.File to exercise the TTY branch's short-circuit.
+	t.Setenv("NO_COLOR", "1")
+	f, err := os.CreateTemp(t.TempDir(), "tty")
+	require.NoError(t, err)
+	defer f.Close()
+	got := colorizeWarning(f, kubetailFallbackWarning)
+	assert.Equal(t, kubetailFallbackWarning, got)
 }
