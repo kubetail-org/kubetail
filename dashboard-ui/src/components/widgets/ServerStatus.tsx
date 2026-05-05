@@ -56,9 +56,6 @@ const HealthDot = ({ className, status }: { className?: string; status: Status }
     case Status.Unknown:
       color = 'chrome';
       break;
-    case Status.UpdateAvailable:
-      color = 'blue';
-      break;
     default:
       throw new Error('not implemented');
   }
@@ -70,7 +67,6 @@ const HealthDot = ({ className, status }: { className?: string; status: Status }
         'bg-red-500': color === 'red',
         'bg-green-500': color === 'green',
         'bg-yellow-500': color === 'yellow',
-        'bg-blue-500': color === 'blue',
       })}
     />
   );
@@ -176,7 +172,8 @@ const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Serve
   const serverStatus = serverStatusMap.get(kubeContext) || new ServerStatus();
   const { updateAvailable } = useClusterUpdateNotification(appConfig.environment === 'desktop' ? kubeContext : '');
 
-  const showClusterUpdate = appConfig.environment === 'desktop' && updateAvailable;
+  const isInstalled = serverStatus.status !== Status.NotFound && serverStatus.status !== Status.Unknown;
+  const showClusterUpdate = appConfig.environment === 'desktop' && updateAvailable && isInstalled;
 
   return (
     <TableRow>
@@ -186,10 +183,27 @@ const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Serve
       ) : (
         <>
           <TableCell className="w-px">
-            <HealthDot status={showClusterUpdate ? Status.UpdateAvailable : serverStatus.status} />
+            <HealthDot status={serverStatus.status} />
           </TableCell>
           <TableCell className="whitespace-normal">
-            {showClusterUpdate ? 'Update available' : statusMessage(serverStatus, 'Uknown')}
+            <div className="flex flex-wrap items-center gap-2">
+              <span>{statusMessage(serverStatus, 'Uknown')}</span>
+              {appConfig.environment === 'desktop' && serverStatus.status === Status.NotFound && (
+                <a
+                  href="https://docs.kubetail.com/guides/cluster/installation"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs text-blue-900 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100 dark:hover:bg-blue-900"
+                >
+                  Install
+                </a>
+              )}
+              {showClusterUpdate && (
+                <span className="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100">
+                  Update available
+                </span>
+              )}
+            </div>
           </TableCell>
         </>
       )}
