@@ -169,16 +169,26 @@ func TestStream_FollowAfterFetch_AnchorsAtBootstrapTimestamp(t *testing.T) {
 		"follow must resume after the last bootstrap record's timestamp")
 }
 
-func TestStream_FetchErrorIsRecorded(t *testing.T) {
+func TestStream_StartReturnsFirstFetchError(t *testing.T) {
 	fc := &fakeClient{
 		fetchErrs: []error{errors.New("rbac denied")},
 	}
 	s := newStreamForTest(fc, StreamConfig{Mode: "TAIL", Sources: []string{"x"}, Limit: 10})
 
-	require.NoError(t, s.Start(context.Background()))
-	_ = drainAll(t, s, 2*time.Second)
-	require.Error(t, s.Err())
-	assert.Contains(t, s.Err().Error(), "rbac denied")
+	err := s.Start(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "rbac denied")
+}
+
+func TestStream_StartSurfacesAPINotInstalled(t *testing.T) {
+	fc := &fakeClient{
+		fetchErrs: []error{ErrAPINotInstalled},
+	}
+	s := newStreamForTest(fc, StreamConfig{Mode: "TAIL", Sources: []string{"x"}, Limit: 10})
+
+	err := s.Start(context.Background())
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrAPINotInstalled), "Start must propagate ErrAPINotInstalled so callers can fall back")
 }
 
 func drainAll(t *testing.T, s *Stream, timeout time.Duration) []logs.LogRecord {

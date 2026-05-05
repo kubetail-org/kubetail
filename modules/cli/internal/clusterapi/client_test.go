@@ -17,6 +17,7 @@ package clusterapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -106,6 +107,31 @@ func TestClient_LogRecordsFetch_SendsCorrectRequest(t *testing.T) {
 	assert.Nil(t, resp.NextCursor)
 }
 
+func TestClient_LogRecordsFetch_Returns404AsAPINotInstalled(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`the server could not find the requested resource`))
+	}))
+	defer srv.Close()
+
+	c := newClientForTest(http.DefaultClient, srv.URL+APIServicePath+"/graphql")
+	_, err := c.LogRecordsFetch(context.Background(), LogRecordsFetchVars{Sources: []string{"x"}})
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrAPINotInstalled)
+}
+
+func TestClient_LogRecordsFetch_NotANotInstalledOnOtherStatuses(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+
+	c := newClientForTest(http.DefaultClient, srv.URL+APIServicePath+"/graphql")
+	_, err := c.LogRecordsFetch(context.Background(), LogRecordsFetchVars{Sources: []string{"x"}})
+	require.Error(t, err)
+	assert.False(t, errors.Is(err, ErrAPINotInstalled), "503 must not be conflated with not-installed")
+}
+
 func TestClient_LogRecordsFetch_PropagatesGraphQLErrors(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -156,6 +182,92 @@ func TestClient_LogRecordsFollow_NegotiatesGraphQLTransportWS(t *testing.T) {
 	for e := range errs {
 		require.NoError(t, e)
 	}
+}
+
+func TestClient_LogRecordsFetch_SendsSourceFilter(t *testing.T) {
+	var gotBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &gotBody)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"logRecordsFetch":{"records":[],"nextCursor":null}}}`))
+	}))
+	defer srv.Close()
+
+	c := newClientForTest(http.DefaultClient, srv.URL+APIServicePath+"/graphql")
+	_, err := c.LogRecordsFetch(context.Background(), LogRecordsFetchVars{
+		Sources: []string{"x"},
+		Regions: []string{"us-east-1"},
+		Zones:   []string{"us-east-1a"},
+		OSes:    []string{"linux"},
+		Arches:  []string{"arm64"},
+		Nodes:   []string{"node-1"},
+	})
+	require.NoError(t, err)
+
+	require.NotNil(t, gotBody)
+	vars := gotBody["variables"].(map[string]any)
+	require.Contains(t, vars, "sourceFilter")
+	filter := vars["sourceFilter"].(map[string]any)
+	assert.Equal(t, []any{"us-east-1"}, filter["region"])
+	assert.Equal(t, []any{"us-east-1a"}, filter["zone"])
+	assert.Equal(t, []any{"linux"}, filter["os"])
+	assert.Equal(t, []any{"arm64"}, filter["arch"])
+	assert.Equal(t, []any{"node-1"}, filter["node"])
+}
+
+func TestClient_LogRecordsFetch_OmitsSourceFilterWhenAllEmpty(t *testing.T) {
+	var gotBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &gotBody)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"logRecordsFetch":{"records":[],"nextCursor":null}}}`))
+	}))
+	defer srv.Close()
+
+	c := newClientForTest(http.DefaultClient, srv.URL+APIServicePath+"/graphql")
+	_, err := c.LogRecordsFetch(context.Background(), LogRecordsFetchVars{
+		Sources: []string{"x"},
+	})
+	require.NoError(t, err)
+
+	vars := gotBody["variables"].(map[string]any)
+	assert.NotContains(t, vars, "sourceFilter", "no filter fields set => sourceFilter must be omitted")
+}
+
+func TestClient_LogRecordsFollow_SendsSourceFilter(t *testing.T) {
+	gotVars := make(chan map[string]any, 1)
+	srv := newWSTestServer(t, func(conn *gwebsocket.Conn) {
+		expectInit(t, conn)
+		writeAck(t, conn)
+		var sub gqlWSMessage
+		require.NoError(t, conn.ReadJSON(&sub))
+		var payload map[string]any
+		require.NoError(t, json.Unmarshal(sub.Payload, &payload))
+		gotVars <- payload["variables"].(map[string]any)
+		writeComplete(t, conn, sub.ID)
+	})
+	defer srv.Close()
+
+	c := newClientForTest(http.DefaultClient, srv.URL+APIServicePath+"/graphql")
+	records, errs := c.LogRecordsFollow(context.Background(), LogRecordsFollowVars{
+		Sources: []string{"x"},
+		Regions: []string{"us-east-1"},
+		Nodes:   []string{"node-1"},
+	})
+	for range records {
+	}
+	for e := range errs {
+		require.NoError(t, e)
+	}
+
+	vars := <-gotVars
+	require.Contains(t, vars, "sourceFilter")
+	filter := vars["sourceFilter"].(map[string]any)
+	assert.Equal(t, []any{"us-east-1"}, filter["region"])
+	assert.Equal(t, []any{"node-1"}, filter["node"])
+	assert.NotContains(t, filter, "zone", "empty filter dimensions must be omitted")
 }
 
 func TestClient_LogRecordsFollow_PassesVariables(t *testing.T) {

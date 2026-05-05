@@ -126,6 +126,127 @@ func TestLoadLogConfig(t *testing.T) {
 	})
 }
 
+func TestBuildClusterAPIStreamConfig(t *testing.T) {
+	t.Run("passes through base fields", func(t *testing.T) {
+		cmdCfg := &logsCmdConfig{
+			kubecontext: "ctx-1",
+			grep:        "GET /about",
+			follow:      true,
+			tail:        true,
+			tailVal:     10,
+		}
+		got := buildClusterAPIStreamConfig(cmdCfg, []string{"deployments/web", "deployments/api"})
+
+		assert.Equal(t, "ctx-1", got.KubeContext)
+		assert.Equal(t, []string{"deployments/web", "deployments/api"}, got.Sources)
+		assert.Equal(t, "GET /about", got.Grep)
+		assert.True(t, got.Follow)
+	})
+
+	t.Run("formats since/until as RFC3339Nano", func(t *testing.T) {
+		since := time.Date(2024, 1, 2, 15, 4, 5, 123456789, time.UTC)
+		until := time.Date(2024, 1, 2, 16, 0, 0, 0, time.UTC)
+		cmdCfg := &logsCmdConfig{
+			sinceTime: since,
+			untilTime: until,
+			tail:      true,
+			tailVal:   10,
+		}
+		got := buildClusterAPIStreamConfig(cmdCfg, []string{"x"})
+
+		assert.Equal(t, since.Format(time.RFC3339Nano), got.Since)
+		assert.Equal(t, until.Format(time.RFC3339Nano), got.Until)
+	})
+
+	t.Run("omits since/until when zero", func(t *testing.T) {
+		cmdCfg := &logsCmdConfig{tail: true, tailVal: 10}
+		got := buildClusterAPIStreamConfig(cmdCfg, []string{"x"})
+
+		assert.Empty(t, got.Since)
+		assert.Empty(t, got.Until)
+	})
+
+	t.Run("head mode sets limit", func(t *testing.T) {
+		cmdCfg := &logsCmdConfig{head: true, headVal: 25}
+		got := buildClusterAPIStreamConfig(cmdCfg, []string{"x"})
+
+		assert.Equal(t, "HEAD", got.Mode)
+		assert.Equal(t, 25, got.Limit)
+	})
+
+	t.Run("all mode is uncapped head", func(t *testing.T) {
+		cmdCfg := &logsCmdConfig{all: true}
+		got := buildClusterAPIStreamConfig(cmdCfg, []string{"x"})
+
+		assert.Equal(t, "HEAD", got.Mode, "--all is paginated as HEAD with no limit")
+		assert.Zero(t, got.Limit, "--all must not impose a client-side limit cap")
+	})
+
+	t.Run("tail mode sets limit", func(t *testing.T) {
+		cmdCfg := &logsCmdConfig{tail: true, tailVal: 50}
+		got := buildClusterAPIStreamConfig(cmdCfg, []string{"x"})
+
+		assert.Equal(t, "TAIL", got.Mode)
+		assert.Equal(t, 50, got.Limit)
+	})
+
+	t.Run("tail=0 skips bootstrap", func(t *testing.T) {
+		// --tail=0 is the "follow only, no backlog" path — leaving Mode empty
+		// tells Stream.Start to skip the bootstrap fetch entirely.
+		cmdCfg := &logsCmdConfig{tailVal: 0, follow: true}
+		got := buildClusterAPIStreamConfig(cmdCfg, []string{"x"})
+
+		assert.Empty(t, got.Mode, "tail=0 must leave Mode empty to skip bootstrap")
+		assert.Zero(t, got.Limit)
+		assert.True(t, got.Follow)
+	})
+
+	t.Run("head takes precedence over all and tail", func(t *testing.T) {
+		cmdCfg := &logsCmdConfig{
+			head:    true,
+			headVal: 7,
+			all:     true,
+			tail:    true,
+			tailVal: 99,
+		}
+		got := buildClusterAPIStreamConfig(cmdCfg, []string{"x"})
+
+		assert.Equal(t, "HEAD", got.Mode)
+		assert.Equal(t, 7, got.Limit, "head wins over all/tail when multiple are set")
+	})
+
+	t.Run("all takes precedence over tail", func(t *testing.T) {
+		cmdCfg := &logsCmdConfig{
+			all:     true,
+			tail:    true,
+			tailVal: 99,
+		}
+		got := buildClusterAPIStreamConfig(cmdCfg, []string{"x"})
+
+		assert.Equal(t, "HEAD", got.Mode)
+		assert.Zero(t, got.Limit)
+	})
+
+	t.Run("passes through source filters", func(t *testing.T) {
+		cmdCfg := &logsCmdConfig{
+			tail:       true,
+			tailVal:    10,
+			regionList: []string{"us-east-1", "us-east-2"},
+			zoneList:   []string{"us-east-1a"},
+			osList:     []string{"linux"},
+			archList:   []string{"amd64", "arm64"},
+			nodeList:   []string{"node-1"},
+		}
+		got := buildClusterAPIStreamConfig(cmdCfg, []string{"x"})
+
+		assert.Equal(t, []string{"us-east-1", "us-east-2"}, got.Regions)
+		assert.Equal(t, []string{"us-east-1a"}, got.Zones)
+		assert.Equal(t, []string{"linux"}, got.OSes)
+		assert.Equal(t, []string{"amd64", "arm64"}, got.Arches)
+		assert.Equal(t, []string{"node-1"}, got.Nodes)
+	})
+}
+
 func TestPrintLogs(t *testing.T) {
 	s1 := logs.LogSource{
 		PodName:       "pod1",

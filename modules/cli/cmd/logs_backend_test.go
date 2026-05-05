@@ -15,70 +15,93 @@
 package cmd
 
 import (
-	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kubetail-org/kubetail/modules/cli/internal/clusterapi"
 )
 
 func TestSelectBackend_ExplicitKubernetes(t *testing.T) {
-	probeCalled := false
-	probe := func(ctx context.Context) (bool, error) {
-		probeCalled = true
-		return true, nil
+	tryCalled := false
+	tryKubetail := func() error {
+		tryCalled = true
+		return nil
 	}
-	got, err := selectBackend(context.Background(), "kubernetes", probe)
+	got, err := selectBackend("kubernetes", tryKubetail)
 	require.NoError(t, err)
 	assert.Equal(t, backendKubernetes, got)
-	assert.False(t, probeCalled, "probe must not be invoked when backend is explicit")
+	assert.False(t, tryCalled, "tryKubetail must not be invoked when backend is explicit kubernetes")
 }
 
-func TestSelectBackend_ExplicitKubetail_ErrorsWhenUnavailable(t *testing.T) {
-	probe := func(ctx context.Context) (bool, error) { return false, nil }
-	_, err := selectBackend(context.Background(), "kubetail", probe)
+func TestSelectBackend_ExplicitKubetail_ErrorsWhenNotInstalled(t *testing.T) {
+	tryKubetail := func() error { return clusterapi.ErrAPINotInstalled }
+	_, err := selectBackend("kubetail", tryKubetail)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "v1.api.kubetail.com")
+	assert.Contains(t, err.Error(), clusterapi.APIServiceName)
 }
 
-func TestSelectBackend_ExplicitKubetail_ErrorsWhenProbeFails(t *testing.T) {
-	probe := func(ctx context.Context) (bool, error) { return false, errors.New("rbac") }
-	_, err := selectBackend(context.Background(), "kubetail", probe)
+func TestSelectBackend_ExplicitKubetail_ErrorsOnOtherFailure(t *testing.T) {
+	tryKubetail := func() error { return errors.New("rbac") }
+	_, err := selectBackend("kubetail", tryKubetail)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "rbac")
 }
 
 func TestSelectBackend_ExplicitKubetail_OkWhenAvailable(t *testing.T) {
-	probe := func(ctx context.Context) (bool, error) { return true, nil }
-	got, err := selectBackend(context.Background(), "kubetail", probe)
+	tryKubetail := func() error { return nil }
+	got, err := selectBackend("kubetail", tryKubetail)
 	require.NoError(t, err)
 	assert.Equal(t, backendKubetail, got)
 }
 
 func TestSelectBackend_AutoPicksKubetailWhenAvailable(t *testing.T) {
-	probe := func(ctx context.Context) (bool, error) { return true, nil }
-	got, err := selectBackend(context.Background(), "auto", probe)
+	tryKubetail := func() error { return nil }
+	got, err := selectBackend("auto", tryKubetail)
 	require.NoError(t, err)
 	assert.Equal(t, backendKubetail, got)
 }
 
-func TestSelectBackend_AutoFallsBackOnUnavailable(t *testing.T) {
-	probe := func(ctx context.Context) (bool, error) { return false, nil }
-	got, err := selectBackend(context.Background(), "auto", probe)
-	require.NoError(t, err)
+func TestSelectBackend_AutoFallsBackOnNotInstalled(t *testing.T) {
+	tryKubetail := func() error {
+		return fmt.Errorf("wrapped: %w", clusterapi.ErrAPINotInstalled)
+	}
+	got, err := selectBackend("auto", tryKubetail)
+	require.NoError(t, err, "auto must silently fall back on not-installed")
 	assert.Equal(t, backendKubernetes, got)
 }
 
-func TestSelectBackend_AutoFallsBackOnProbeError(t *testing.T) {
-	probe := func(ctx context.Context) (bool, error) { return false, errors.New("network") }
-	got, err := selectBackend(context.Background(), "auto", probe)
-	require.NoError(t, err, "auto must not fail loudly when probe errors")
-	assert.Equal(t, backendKubernetes, got)
+func TestSelectBackend_AutoPropagatesOtherErrors(t *testing.T) {
+	tryKubetail := func() error { return errors.New("network blew up") }
+	_, err := selectBackend("auto", tryKubetail)
+	require.Error(t, err, "auto must surface non-not-installed errors")
+	assert.Contains(t, err.Error(), "network blew up")
 }
 
 func TestSelectBackend_RejectsUnknownValue(t *testing.T) {
-	probe := func(ctx context.Context) (bool, error) { return false, nil }
-	_, err := selectBackend(context.Background(), "weird", probe)
+	tryKubetail := func() error { return nil }
+	_, err := selectBackend("weird", tryKubetail)
 	require.Error(t, err)
+}
+
+func TestShouldWarnFallback(t *testing.T) {
+	tests := []struct {
+		flag   string
+		choice backendChoice
+		want   bool
+	}{
+		{"auto", backendKubernetes, true},
+		{"", backendKubernetes, true},
+		{"auto", backendKubetail, false},
+		{"kubernetes", backendKubernetes, false},
+		{"kubetail", backendKubetail, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.flag+"_"+fmt.Sprint(tt.choice), func(t *testing.T) {
+			assert.Equal(t, tt.want, shouldWarnFallback(tt.flag, tt.choice))
+		})
+	}
 }

@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,6 +31,21 @@ import (
 
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
 )
+
+// APIServiceName is the metadata.name of the Kubetail cluster-api APIService
+// registered with the kube-apiserver aggregation layer.
+const APIServiceName = "v1.api.kubetail.com"
+
+// APIServicePath is the path under which the cluster-api is exposed by the
+// kube-apiserver via the APIServiceName APIService.
+const APIServicePath = "/apis/api.kubetail.com/v1"
+
+// ErrAPINotInstalled is returned when a request to the cluster-api endpoint
+// receives an HTTP 404 from the kube-apiserver, indicating the APIService for
+// the Kubetail cluster-api is not registered on this cluster (i.e., the
+// kubetail-api is not installed). Callers can use errors.Is to detect this
+// and decide whether to fall back to a different backend.
+var ErrAPINotInstalled = errors.New("kubetail cluster-api is not installed on this cluster")
 
 // graphqlTransportWSSubprotocol is the WebSocket subprotocol the cluster-api
 // (gqlgen Websocket transport) speaks for GraphQL subscriptions.
@@ -142,6 +158,13 @@ type LogRecordsFetchVars struct {
 	Grep        string
 	Limit       int
 	Cursor      string // forward-pagination cursor; sent as the `after` arg
+
+	// Source filters mapped 1:1 to the cluster-api LogSourceFilter input.
+	Regions []string
+	Zones   []string
+	OSes    []string
+	Arches  []string
+	Nodes   []string
 }
 
 // LogRecordsQueryResponse mirrors the GraphQL `LogRecordsQueryResponse`.
@@ -159,7 +182,8 @@ query CLILogRecordsFetch(
 	$until: String,
 	$after: String,
 	$grep: String,
-	$limit: Int
+	$limit: Int,
+	$sourceFilter: LogSourceFilter
 ) {
 	logRecordsFetch(
 		kubeContext: $kubeContext,
@@ -169,7 +193,8 @@ query CLILogRecordsFetch(
 		until: $until,
 		after: $after,
 		grep: $grep,
-		limit: $limit
+		limit: $limit,
+		sourceFilter: $sourceFilter
 	) {
 		records {
 			timestamp
@@ -233,7 +258,36 @@ func buildFetchVariables(v LogRecordsFetchVars) map[string]any {
 	if v.Limit > 0 {
 		m["limit"] = v.Limit
 	}
+	if filter := buildSourceFilter(v.Regions, v.Zones, v.OSes, v.Arches, v.Nodes); filter != nil {
+		m["sourceFilter"] = filter
+	}
 	return m
+}
+
+// buildSourceFilter assembles a LogSourceFilter input map from non-empty
+// dimensions. Returns nil if every dimension is empty so the caller can omit
+// the variable entirely.
+func buildSourceFilter(regions, zones, oses, arches, nodes []string) map[string]any {
+	filter := map[string]any{}
+	if len(regions) > 0 {
+		filter["region"] = regions
+	}
+	if len(zones) > 0 {
+		filter["zone"] = zones
+	}
+	if len(oses) > 0 {
+		filter["os"] = oses
+	}
+	if len(arches) > 0 {
+		filter["arch"] = arches
+	}
+	if len(nodes) > 0 {
+		filter["node"] = nodes
+	}
+	if len(filter) == 0 {
+		return nil
+	}
+	return filter
 }
 
 // do performs a single GraphQL POST and decodes data into out. Any
@@ -257,6 +311,9 @@ func (c *Client) do(ctx context.Context, query string, vars map[string]any, out 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("%w: HTTP 404: %s", ErrAPINotInstalled, truncate(string(respBytes), 256))
 	}
 	if resp.StatusCode/100 != 2 {
 		return fmt.Errorf("kubetail-api: HTTP %d: %s", resp.StatusCode, truncate(string(respBytes), 256))
@@ -340,6 +397,13 @@ type LogRecordsFollowVars struct {
 	Since       string
 	After       string
 	Grep        string
+
+	// Source filters mapped 1:1 to the cluster-api LogSourceFilter input.
+	Regions []string
+	Zones   []string
+	OSes    []string
+	Arches  []string
+	Nodes   []string
 }
 
 const logRecordsFollowQuery = `
@@ -348,14 +412,16 @@ subscription CLILogRecordsFollow(
 	$sources: [String!]!,
 	$since: String,
 	$after: String,
-	$grep: String
+	$grep: String,
+	$sourceFilter: LogSourceFilter
 ) {
 	logRecordsFollow(
 		kubeContext: $kubeContext,
 		sources: $sources,
 		since: $since,
 		after: $after,
-		grep: $grep
+		grep: $grep,
+		sourceFilter: $sourceFilter
 	) {
 		timestamp
 		message
@@ -428,6 +494,9 @@ func buildFollowVariables(v LogRecordsFollowVars) map[string]any {
 	}
 	if v.Grep != "" {
 		m["grep"] = v.Grep
+	}
+	if filter := buildSourceFilter(v.Regions, v.Zones, v.OSes, v.Arches, v.Nodes); filter != nil {
+		m["sourceFilter"] = filter
 	}
 	return m
 }
