@@ -18,16 +18,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import appConfig from '@/app-config';
 import { CLI_LATEST_VERSION, CLUSTER_VERSION_STATUS, KUBE_CONFIG_WATCH } from '@/lib/graphql/dashboard/ops';
 
-/**
- * CLI vs cluster update hints: localStorage + Apollo, exposed via separate React contexts.
- *
- * Layout:
- * - Persistence + cache helpers (this file, top)
- * - `ClusterVersionSubscriber`: one `CLUSTER_VERSION_STATUS` query per kubeContext on desktop
- * - `UpdateNotificationProvider`: wires CLI + cluster subscribers and context providers
- * - `useCLIUpdateNotification` / `useClusterUpdateNotification`: read-only hooks for UI
- */
-
 const STORAGE_KEY_CLI = 'kubetail:updates:cli';
 const CLUSTER_STORAGE_PREFIX = 'kubetail:updates:cluster:';
 
@@ -46,7 +36,6 @@ interface ClusterUpdateState extends UpdateState {
   currentVersion?: string;
 }
 
-// --- localStorage (CLI key + one blob per kubeContext)
 function clusterStorageKey(kubeContext: string): string {
   return `${CLUSTER_STORAGE_PREFIX}${kubeContext}`;
 }
@@ -89,7 +78,6 @@ function patchClusterState(kubeContext: string, patch: Partial<ClusterUpdateStat
   patchPersisted(clusterStorageKey(kubeContext), patch);
 }
 
-// Cache TTL (avoid hammering the network; still respect dismiss/skip in the view builders)
 function isCLICacheValid(state: UpdateState): boolean {
   return !!state.latestVersion && !!state.fetchedAt && Date.now() - state.fetchedAt < CACHE_TTL_MS;
 }
@@ -109,7 +97,6 @@ export function compareSemver(a: string, b: string): number {
   return 0;
 }
 
-// Public shapes for hooks
 interface BaseUpdateNotificationState {
   latestVersion: string | null;
   dismiss: () => void;

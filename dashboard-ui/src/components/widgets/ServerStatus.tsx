@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useSubscription } from '@apollo/client/react';
 import { Fragment, useEffect } from 'react';
 import { atom, useAtomValue, useSetAtom } from 'jotai';
 
@@ -20,7 +19,6 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } 
 import { Table, TableBody, TableCell, TableRow } from '@kubetail/ui/elements/table';
 
 import appConfig from '@/app-config';
-import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import {
   ServerStatus,
   Status,
@@ -28,7 +26,7 @@ import {
   useKubernetesAPIServerStatus,
   useClusterAPIServerStatus,
 } from '@/lib/server-status';
-import { useClusterUpdateNotification } from '@/lib/update-notifications';
+import { useClusterUpdateNotification, useKubeContexts } from '@/lib/update-notifications';
 import { cn } from '@/lib/util';
 
 const kubernetesAPIServerStatusMapState = atom(new Map<string, ServerStatus>());
@@ -225,14 +223,7 @@ type ServerStatusWidgetProps = {
 };
 
 const ServerStatusWidget = ({ className, healthDotClassName }: ServerStatusWidgetProps) => {
-  const { data } = useSubscription(dashboardOps.KUBE_CONFIG_WATCH, { skip: appConfig.environment === 'cluster' });
-
-  const kubeContexts = new Array<string>();
-  if (appConfig.environment === 'cluster') {
-    kubeContexts.push('');
-  } else {
-    data?.kubeConfigWatch?.object?.contexts.map((context) => kubeContexts.push(context.name));
-  }
+  const kubeContexts = useKubeContexts();
 
   const dashboardServerStatus = useDashboardServerStatus();
   const kubernetesAPIServertatusMap = useAtomValue(kubernetesAPIServerStatusMapState);

@@ -26,9 +26,16 @@ type ClusterUpdateInfo = {
   latestVersion: string | null;
 };
 
+const UpdateNotice = ({ children }: React.PropsWithChildren) => (
+  <div className="flex items-start gap-2 rounded border border-blue-200 bg-blue-50 p-2 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100">
+    <ArrowUpCircle className="mt-0.5 h-4 w-4 shrink-0" />
+    <p>{children}</p>
+  </div>
+);
+
 type ClusterUpdateSubscriberProps = {
   kubeContext: string;
-  onChange: (kubeContext: string, info: ClusterUpdateInfo) => void;
+  onChange: (kubeContext: string, info: ClusterUpdateInfo | null) => void;
 };
 
 /**
@@ -42,7 +49,7 @@ const ClusterUpdateSubscriber = ({ kubeContext, onChange }: ClusterUpdateSubscri
 
   useEffect(() => {
     onChange(kubeContext, { hasUpdate, currentVersion, latestVersion });
-    return () => onChange(kubeContext, { hasUpdate: false, currentVersion: null, latestVersion: null });
+    return () => onChange(kubeContext, null);
   }, [kubeContext, hasUpdate, currentVersion, latestVersion, onChange]);
 
   return null;
@@ -55,8 +62,14 @@ export const NotificationsPopover = ({ children }: React.PropsWithChildren) => {
 
   // Aggregated cluster update state by kubeContext, populated by long-lived subscribers below.
   const [clusterUpdates, setClusterUpdates] = useState<Record<string, ClusterUpdateInfo>>({});
-  const handleClusterUpdateChange = useCallback((kubeContext: string, info: ClusterUpdateInfo) => {
+  const handleClusterUpdateChange = useCallback((kubeContext: string, info: ClusterUpdateInfo | null) => {
     setClusterUpdates((prev) => {
+      if (info === null) {
+        if (!(kubeContext in prev)) return prev;
+        const next = { ...prev };
+        delete next[kubeContext];
+        return next;
+      }
       const cur = prev[kubeContext];
       if (
         cur &&
@@ -94,25 +107,16 @@ export const NotificationsPopover = ({ children }: React.PropsWithChildren) => {
           <div className="space-y-2">
             <p className="text-sm font-medium">Notifications</p>
             {hasCliUpdate && (
-              <div className="flex items-start gap-2 rounded border border-blue-200 bg-blue-50 p-2 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100">
-                <ArrowUpCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <p>
-                  CLI update: {currentVersion} → {latestVersion}
-                </p>
-              </div>
+              <UpdateNotice>
+                CLI update: {currentVersion} → {latestVersion}
+              </UpdateNotice>
             )}
             {clustersWithUpdates.map((ctx) => {
               const info = clusterUpdates[ctx];
               return (
-                <div
-                  key={ctx}
-                  className="flex items-start gap-2 rounded border border-blue-200 bg-blue-50 p-2 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100"
-                >
-                  <ArrowUpCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <p>
-                    Cluster update ({ctx}): {info.currentVersion} → {info.latestVersion}
-                  </p>
-                </div>
+                <UpdateNotice key={ctx}>
+                  Cluster update ({ctx}): {info.currentVersion} → {info.latestVersion}
+                </UpdateNotice>
               );
             })}
             {!hasNotifications && <p className="text-sm text-muted-foreground">No new notifications</p>}
