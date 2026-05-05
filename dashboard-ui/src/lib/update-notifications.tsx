@@ -144,12 +144,12 @@ type ClusterNotificationsRegistry = {
   // Bumped when localStorage changes (dismiss/skip) without an accompanying snapshot update.
   // Snapshot changes alone don't bump it — they already invalidate via querySnapshots identity.
   localStorageVersion: number;
+  invalidate: () => void;
 };
 
 // CLI value vs cluster registry are split so CLI-only UI does not subscribe to cluster updates.
 const CLIUpdateNotificationContext = createContext({} as UpdateNotificationState);
 const ClusterNotificationsContext = createContext<ClusterNotificationsRegistry | null>(null);
-const ClusterNotificationsInvalidateContext = createContext<(() => void) | null>(null);
 
 // Exposed so consumers (e.g. NotificationsPopover) can iterate kubeContexts without opening a
 // second KUBE_CONFIG_WATCH subscription. `null` distinguishes "outside the provider" from "no
@@ -199,17 +199,17 @@ function buildClusterNotificationView(
 function ClusterVersionSubscriber({
   kubeContext,
   setSnapshot,
+  invalidate,
 }: {
   kubeContext: string;
   setSnapshot: (ctx: string, snap: ClusterVersionQuerySnapshot) => void;
+  invalidate: () => void;
 }) {
   const isDesktop = appConfig.environment === 'desktop';
-  const [persisted, setPersisted] = useState(() => readClusterState(kubeContext));
-
-  useEffect(() => {
-    setPersisted(readClusterState(kubeContext));
-  }, [kubeContext]);
-
+  // Derive persisted state during render rather than mirroring it into useState — the only writer
+  // is this component's own effect (and the dismiss/skip handlers via `invalidate`), and both
+  // bump the provider's localStorageVersion which re-renders us.
+  const persisted = readClusterState(kubeContext);
   const cacheValid = isClusterCacheValid(persisted);
 
   // Skip while we already have a fresh persisted row (see patch effect below).
@@ -223,8 +223,9 @@ function ClusterVersionSubscriber({
     setSnapshot(kubeContext, { data, error, loading });
   }, [kubeContext, data, error, loading, setSnapshot]);
 
-  // After load: persist versions (or mark fetch time on failure). Consumers re-derive automatically
-  // because `setSnapshot` (called in the effect above) changes the registry's `querySnapshots` identity.
+  // After load: persist versions (or mark fetch time on failure), then bump the provider's
+  // localStorageVersion so we (and any consumer) re-render and pick up the fresh persisted row.
+  // `setSnapshot` already drives consumer re-derivation for the snapshot half of the registry.
   useEffect(() => {
     if (!isDesktop || !kubeContext || cacheValid) return;
     if (loading) return;
@@ -235,7 +236,7 @@ function ClusterVersionSubscriber({
         currentVersion: undefined,
         latestVersion: undefined,
       });
-      setPersisted(readClusterState(kubeContext));
+      invalidate();
       return;
     }
 
@@ -255,8 +256,8 @@ function ClusterVersionSubscriber({
         latestVersion: undefined,
       });
     }
-    setPersisted(readClusterState(kubeContext));
-  }, [data, error, loading, isDesktop, kubeContext, cacheValid]);
+    invalidate();
+  }, [data, error, loading, isDesktop, kubeContext, cacheValid, invalidate]);
 
   return null;
 }
@@ -305,9 +306,9 @@ export function UpdateNotificationProvider({ children }: React.PropsWithChildren
     });
   }, []);
 
-  const clusterRegistry = useMemo(
-    () => ({ querySnapshots, localStorageVersion }),
-    [querySnapshots, localStorageVersion],
+  const clusterRegistry = useMemo<ClusterNotificationsRegistry>(
+    () => ({ querySnapshots, localStorageVersion, invalidate: invalidateLocalStorage }),
+    [querySnapshots, localStorageVersion, invalidateLocalStorage],
   );
 
   // Delay showing the CLI banner so it does not flash on cold load.
@@ -366,17 +367,19 @@ export function UpdateNotificationProvider({ children }: React.PropsWithChildren
 
   return (
     <CLIUpdateNotificationContext.Provider value={cliValue}>
-      {/* Invalidate is separate from registry data: dismiss/remind only needs the callback. */}
-      <ClusterNotificationsInvalidateContext.Provider value={invalidateLocalStorage}>
-        <ClusterNotificationsContext.Provider value={clusterRegistry}>
-          <KubeContextsContext.Provider value={kubeContexts}>
-            {kubeContexts.map((ctx) => (
-              <ClusterVersionSubscriber key={ctx || '__default__'} kubeContext={ctx} setSnapshot={setSnapshot} />
-            ))}
-            {children}
-          </KubeContextsContext.Provider>
-        </ClusterNotificationsContext.Provider>
-      </ClusterNotificationsInvalidateContext.Provider>
+      <ClusterNotificationsContext.Provider value={clusterRegistry}>
+        <KubeContextsContext.Provider value={kubeContexts}>
+          {kubeContexts.map((ctx) => (
+            <ClusterVersionSubscriber
+              key={ctx || '__default__'}
+              kubeContext={ctx}
+              setSnapshot={setSnapshot}
+              invalidate={invalidateLocalStorage}
+            />
+          ))}
+          {children}
+        </KubeContextsContext.Provider>
+      </ClusterNotificationsContext.Provider>
     </CLIUpdateNotificationContext.Provider>
   );
 }
@@ -398,16 +401,15 @@ export function useKubeContexts(): string[] {
 /** Per-kubeContext cluster update row; reads shared registry + bumps via invalidate after mutations. */
 export function useClusterUpdateNotification(kubeContext: string): ClusterUpdateNotificationState {
   const clusterRegistry = useContext(ClusterNotificationsContext);
-  const invalidateClusterNotifications = useContext(ClusterNotificationsInvalidateContext);
 
   const dismissCluster = useCallback(() => {
-    if (!clusterRegistry || !invalidateClusterNotifications) return;
+    if (!clusterRegistry) return;
     patchClusterState(kubeContext, { dismissedAt: Date.now() });
-    invalidateClusterNotifications();
-  }, [kubeContext, clusterRegistry, invalidateClusterNotifications]);
+    clusterRegistry.invalidate();
+  }, [kubeContext, clusterRegistry]);
 
   const dontRemindCluster = useCallback(() => {
-    if (!clusterRegistry || !invalidateClusterNotifications) return;
+    if (!clusterRegistry) return;
     const persisted = readClusterState(kubeContext);
     const valid = isClusterCacheValid(persisted);
     const snap = clusterRegistry.querySnapshots[kubeContext];
@@ -417,8 +419,8 @@ export function useClusterUpdateNotification(kubeContext: string): ClusterUpdate
       skippedVersions.push(lv);
     }
     patchClusterState(kubeContext, { skippedVersions, dismissedAt: Date.now() });
-    invalidateClusterNotifications();
-  }, [kubeContext, clusterRegistry, invalidateClusterNotifications]);
+    clusterRegistry.invalidate();
+  }, [kubeContext, clusterRegistry]);
 
   const clusterView = useMemo(() => {
     if (!clusterRegistry) {
