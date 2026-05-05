@@ -141,6 +141,9 @@ type ClusterVersionQuerySnapshot = {
 
 type ClusterNotificationsRegistry = {
   querySnapshots: Record<string, ClusterVersionQuerySnapshot>;
+  // Bumped when localStorage changes (dismiss/skip) without an accompanying snapshot update.
+  // Snapshot changes alone don't bump it — they already invalidate via querySnapshots identity.
+  localStorageVersion: number;
 };
 
 // CLI value vs cluster registry are split so CLI-only UI does not subscribe to cluster updates.
@@ -190,11 +193,9 @@ function buildClusterNotificationView(
  */
 function ClusterVersionSubscriber({
   kubeContext,
-  bumpCluster,
   setSnapshot,
 }: {
   kubeContext: string;
-  bumpCluster: () => void;
   setSnapshot: (ctx: string, snap: ClusterVersionQuerySnapshot) => void;
 }) {
   const isDesktop = appConfig.environment === 'desktop';
@@ -217,7 +218,8 @@ function ClusterVersionSubscriber({
     setSnapshot(kubeContext, { data, error, loading });
   }, [kubeContext, data, error, loading, setSnapshot]);
 
-  // After load: persist versions (or mark fetch time on failure), then refresh registry (see bumpCluster).
+  // After load: persist versions (or mark fetch time on failure). Consumers re-derive automatically
+  // because `setSnapshot` (called in the effect above) changes the registry's `querySnapshots` identity.
   useEffect(() => {
     if (!isDesktop || !kubeContext || cacheValid) return;
     if (loading) return;
@@ -229,7 +231,6 @@ function ClusterVersionSubscriber({
         latestVersion: undefined,
       });
       setPersisted(readClusterState(kubeContext));
-      bumpCluster();
       return;
     }
 
@@ -250,8 +251,7 @@ function ClusterVersionSubscriber({
       });
     }
     setPersisted(readClusterState(kubeContext));
-    bumpCluster();
-  }, [data, error, loading, isDesktop, kubeContext, cacheValid, bumpCluster]);
+  }, [data, error, loading, isDesktop, kubeContext, cacheValid]);
 
   return null;
 }
@@ -280,12 +280,14 @@ export function UpdateNotificationProvider({ children }: React.PropsWithChildren
     return contexts?.map((c) => c.name) ?? [];
   }, [kubeData]);
 
-  // Cluster registry: Apollo snapshots per kubeContext; `bumpCluster` shallow-copies the map to invalidate
-  // consumers when only localStorage changed (dismiss/skip) or after persist without a new Apollo payload.
+  // Cluster registry: Apollo snapshots per kubeContext (changes drive consumer re-renders directly)
+  // plus a separate version counter that consumers also subscribe to, bumped only by localStorage
+  // mutations (dismiss / dontRemindMe) where no snapshot change occurs.
   const [querySnapshots, setQuerySnapshots] = useState<Record<string, ClusterVersionQuerySnapshot>>({});
+  const [localStorageVersion, setLocalStorageVersion] = useState(0);
 
-  const bumpCluster = useCallback(() => {
-    setQuerySnapshots((prev) => ({ ...prev }));
+  const invalidateLocalStorage = useCallback(() => {
+    setLocalStorageVersion((v) => v + 1);
   }, []);
 
   const setSnapshot = useCallback((kubeContext: string, snap: ClusterVersionQuerySnapshot) => {
@@ -298,7 +300,10 @@ export function UpdateNotificationProvider({ children }: React.PropsWithChildren
     });
   }, []);
 
-  const clusterRegistry = useMemo(() => ({ querySnapshots }), [querySnapshots]);
+  const clusterRegistry = useMemo(
+    () => ({ querySnapshots, localStorageVersion }),
+    [querySnapshots, localStorageVersion],
+  );
 
   // Delay showing the CLI banner so it does not flash on cold load.
   useEffect(() => {
@@ -356,16 +361,11 @@ export function UpdateNotificationProvider({ children }: React.PropsWithChildren
 
   return (
     <CLIUpdateNotificationContext.Provider value={cliValue}>
-      {/* Invalidate is separate from registry data: dismiss/remind only needs the callback, not the snapshot map. */}
-      <ClusterNotificationsInvalidateContext.Provider value={bumpCluster}>
+      {/* Invalidate is separate from registry data: dismiss/remind only needs the callback. */}
+      <ClusterNotificationsInvalidateContext.Provider value={invalidateLocalStorage}>
         <ClusterNotificationsContext.Provider value={clusterRegistry}>
           {kubeContexts.map((ctx) => (
-            <ClusterVersionSubscriber
-              key={ctx || '__default__'}
-              kubeContext={ctx}
-              bumpCluster={bumpCluster}
-              setSnapshot={setSnapshot}
-            />
+            <ClusterVersionSubscriber key={ctx || '__default__'} kubeContext={ctx} setSnapshot={setSnapshot} />
           ))}
           {children}
         </ClusterNotificationsContext.Provider>
