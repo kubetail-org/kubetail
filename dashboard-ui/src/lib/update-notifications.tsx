@@ -13,7 +13,10 @@
 // limitations under the License.
 
 import { useQuery, useSubscription } from '@apollo/client/react';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { atomWithStorage } from 'jotai/utils';
+import { atomFamily } from 'jotai-family';
+import { useEffect, useMemo } from 'react';
 
 import appConfig from '@/app-config';
 import { CLI_LATEST_VERSION, CLUSTER_VERSION_STATUS, KUBE_CONFIG_WATCH } from '@/lib/graphql/dashboard/ops';
@@ -34,48 +37,6 @@ interface UpdateState {
 
 interface ClusterUpdateState extends UpdateState {
   currentVersion?: string;
-}
-
-function clusterStorageKey(kubeContext: string): string {
-  return `${CLUSTER_STORAGE_PREFIX}${kubeContext}`;
-}
-
-function readPersisted<T extends object>(storageKey: string): T {
-  try {
-    const raw = localStorage.getItem(storageKey);
-    if (!raw) return {} as T;
-    return JSON.parse(raw) as T;
-  } catch {
-    return {} as T;
-  }
-}
-
-function writePersisted(storageKey: string, state: object) {
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(state));
-  } catch {
-    // fail silently
-  }
-}
-
-function patchPersisted<T extends object>(storageKey: string, patch: Partial<T>) {
-  writePersisted(storageKey, { ...readPersisted<T>(storageKey), ...patch });
-}
-
-function readCLIState(): UpdateState {
-  return readPersisted<UpdateState>(STORAGE_KEY_CLI);
-}
-
-function readClusterState(kubeContext: string): ClusterUpdateState {
-  return readPersisted<ClusterUpdateState>(clusterStorageKey(kubeContext));
-}
-
-function patchCLIState(patch: Partial<UpdateState>) {
-  patchPersisted(STORAGE_KEY_CLI, patch);
-}
-
-function patchClusterState(kubeContext: string, patch: Partial<ClusterUpdateState>) {
-  patchPersisted(clusterStorageKey(kubeContext), patch);
 }
 
 function isCLICacheValid(state: UpdateState): boolean {
@@ -114,337 +75,196 @@ export interface ClusterUpdateNotificationState extends BaseUpdateNotificationSt
   currentVersion: string | null;
 }
 
-type ClusterVersionQuerySnapshot = {
-  data?: {
-    clusterVersionStatus?: {
-      currentVersion?: string | null;
-      latestVersion?: string | null;
-      updateAvailable: boolean;
-    } | null;
-  } | null;
-  error?: Error;
-  loading: boolean;
-};
+// --- Atoms (single source of truth)
 
-type ClusterNotificationsRegistry = {
-  querySnapshots: Record<string, ClusterVersionQuerySnapshot>;
-  // Bumped when localStorage changes (dismiss/skip) without an accompanying snapshot update.
-  // Snapshot changes alone don't bump it — they already invalidate via querySnapshots identity.
-  localStorageVersion: number;
-  invalidate: () => void;
-};
+// atomWithStorage handles localStorage read/write AND cross-tab sync via the storage event.
+const cliPersistedAtom = atomWithStorage<UpdateState>(STORAGE_KEY_CLI, {});
 
-// CLI value vs cluster registry are split so CLI-only UI does not subscribe to cluster updates.
-const CLIUpdateNotificationContext = createContext({} as UpdateNotificationState);
-const ClusterNotificationsContext = createContext<ClusterNotificationsRegistry | null>(null);
+const clusterPersistedAtomFamily = atomFamily((kubeContext: string) =>
+  atomWithStorage<ClusterUpdateState>(`${CLUSTER_STORAGE_PREFIX}${kubeContext}`, {}),
+);
 
-// Exposed so consumers (e.g. NotificationsPopover) can iterate kubeContexts without opening a
-// second KUBE_CONFIG_WATCH subscription. `null` distinguishes "outside the provider" from "no
-// contexts yet"; an empty array is a valid in-provider state.
-const KubeContextsContext = createContext<string[] | null>(null);
+const kubeContextsAtom = atom<string[]>([]);
+const readyAtom = atom(false);
 
-/** Derive what to show for one kubeContext from persisted state + latest Apollo snapshot. */
-function buildClusterNotificationView(
-  kubeContext: string,
-  snapshot: ClusterVersionQuerySnapshot | undefined,
-  dismiss: () => void,
-  dontRemindMe: () => void,
-): ClusterUpdateNotificationState {
-  const persisted = readClusterState(kubeContext);
-  const cacheValid = isClusterCacheValid(persisted);
-  const data = snapshot?.data;
+// --- Derived view atoms
 
-  const currentVersion = cacheValid
-    ? (persisted.currentVersion ?? null)
-    : (data?.clusterVersionStatus?.currentVersion ?? null);
+const cliViewAtom = atom<Omit<UpdateNotificationState, 'dismiss' | 'dontRemindMe'>>((get) => {
+  const persisted = get(cliPersistedAtom);
+  const ready = get(readyAtom);
+  const currentVersion = appConfig.cliVersion;
 
-  const latestVersion = cacheValid
-    ? (persisted.latestVersion ?? null)
-    : (data?.clusterVersionStatus?.latestVersion ?? null);
+  const cacheValid = isCLICacheValid(persisted);
+  const latestVersion = cacheValid ? persisted.latestVersion! : null;
 
-  const queryUpdateAvailable = cacheValid
-    ? currentVersion !== null && latestVersion !== null && currentVersion !== latestVersion
-    : (data?.clusterVersionStatus?.updateAvailable ?? false);
-
+  const updateAvailable =
+    currentVersion !== '' && latestVersion !== null && compareSemver(latestVersion, currentVersion) > 0;
   const dismissed = persisted.dismissedAt !== undefined && Date.now() - persisted.dismissedAt < DISMISS_TTL_MS;
   const skipped = latestVersion !== null && (persisted.skippedVersions ?? []).includes(latestVersion);
-  const updateAvailable = queryUpdateAvailable && !dismissed && !skipped;
 
   return {
-    updateAvailable,
+    showBanner: ready && !dismissed && updateAvailable && !skipped,
     currentVersion,
     latestVersion,
-    dismiss,
-    dontRemindMe,
+    updateAvailable,
   };
+});
+
+type ClusterView = Omit<ClusterUpdateNotificationState, 'dismiss' | 'dontRemindMe'>;
+
+const clusterViewAtomFamily = atomFamily((kubeContext: string) =>
+  atom<ClusterView>((get) => {
+    const persisted = get(clusterPersistedAtomFamily(kubeContext));
+    const currentVersion = persisted.currentVersion ?? null;
+    const latestVersion = persisted.latestVersion ?? null;
+
+    const updateAvailable =
+      currentVersion !== null && latestVersion !== null && compareSemver(latestVersion, currentVersion) > 0;
+    const dismissed = persisted.dismissedAt !== undefined && Date.now() - persisted.dismissedAt < DISMISS_TTL_MS;
+    const skipped = latestVersion !== null && (persisted.skippedVersions ?? []).includes(latestVersion);
+
+    return {
+      updateAvailable: updateAvailable && !dismissed && !skipped,
+      currentVersion,
+      latestVersion,
+    };
+  }),
+);
+
+const allClusterViewsAtom = atom((get) =>
+  get(kubeContextsAtom).map((kubeContext) => ({
+    kubeContext,
+    view: get(clusterViewAtomFamily(kubeContext)),
+  })),
+);
+
+const hasAnyClusterUpdateAtom = atom((get) => get(allClusterViewsAtom).some(({ view }) => view.updateAvailable));
+
+// --- Side-effect components mounted by the provider
+
+function CLIFetcher() {
+  const [persisted, setPersisted] = useAtom(cliPersistedAtom);
+  const cacheValid = isCLICacheValid(persisted);
+
+  const { data } = useQuery(CLI_LATEST_VERSION, {
+    skip: !appConfig.cliVersion || cacheValid,
+    fetchPolicy: 'network-only',
+  });
+
+  useEffect(() => {
+    const version = data?.cliLatestVersion;
+    if (!version) return;
+    setPersisted((prev) => ({ ...prev, latestVersion: version, fetchedAt: Date.now() }));
+  }, [data, setPersisted]);
+
+  return null;
 }
 
-/**
- * Invisible per-context worker: runs `CLUSTER_VERSION_STATUS`, mirrors results into `querySnapshots`,
- * and refreshes localStorage after a successful fetch (or error) so the cache stays coherent.
- */
-function ClusterVersionSubscriber({
-  kubeContext,
-  setSnapshot,
-  invalidate,
-}: {
-  kubeContext: string;
-  setSnapshot: (ctx: string, snap: ClusterVersionQuerySnapshot) => void;
-  invalidate: () => void;
-}) {
-  const isDesktop = appConfig.environment === 'desktop';
-  // Derive persisted state during render rather than mirroring it into useState — the only writer
-  // is this component's own effect (and the dismiss/skip handlers via `invalidate`), and both
-  // bump the provider's localStorageVersion which re-renders us.
-  const persisted = readClusterState(kubeContext);
+function ClusterVersionFetcher({ kubeContext }: { kubeContext: string }) {
+  const [persisted, setPersisted] = useAtom(clusterPersistedAtomFamily(kubeContext));
   const cacheValid = isClusterCacheValid(persisted);
 
-  // Skip while we already have a fresh persisted row (see patch effect below).
   const { data, error, loading } = useQuery(CLUSTER_VERSION_STATUS, {
-    skip: !isDesktop || !kubeContext || cacheValid,
+    skip: !kubeContext || cacheValid,
     variables: { kubeContext },
     fetchPolicy: 'network-only',
   });
 
   useEffect(() => {
-    setSnapshot(kubeContext, { data, error, loading });
-  }, [kubeContext, data, error, loading, setSnapshot]);
-
-  // After load: persist versions (or mark fetch time on failure), then bump the provider's
-  // localStorageVersion so we (and any consumer) re-render and pick up the fresh persisted row.
-  // `setSnapshot` already drives consumer re-derivation for the snapshot half of the registry.
-  useEffect(() => {
-    if (!isDesktop || !kubeContext || cacheValid) return;
-    if (loading) return;
-
-    if (error) {
-      patchClusterState(kubeContext, {
-        fetchedAt: Date.now(),
-        currentVersion: undefined,
-        latestVersion: undefined,
-      });
-      invalidate();
-      return;
-    }
-
+    if (!kubeContext || cacheValid) return;
+    if (loading || error) return;
     if (data === undefined) return;
 
     const result = data.clusterVersionStatus;
-    if (result) {
-      patchClusterState(kubeContext, {
-        currentVersion: result.currentVersion,
-        latestVersion: result.latestVersion,
-        fetchedAt: Date.now(),
-      });
-    } else {
-      patchClusterState(kubeContext, {
-        fetchedAt: Date.now(),
-        currentVersion: undefined,
-        latestVersion: undefined,
-      });
-    }
-    invalidate();
-  }, [data, error, loading, isDesktop, kubeContext, cacheValid, invalidate]);
+    setPersisted((prev) => ({
+      ...prev,
+      currentVersion: result?.currentVersion ?? undefined,
+      latestVersion: result?.latestVersion ?? undefined,
+      fetchedAt: Date.now(),
+    }));
+  }, [data, error, loading, kubeContext, cacheValid, setPersisted]);
 
   return null;
 }
 
 /**
- * Root provider: CLI banner state + one `ClusterVersionSubscriber` per kubeContext (desktop).
- * Children render after subscribers so snapshots exist before hooks in descendants run.
+ * Wires CLI + per-kubeContext fetchers, mirrors kubeconfig contexts into `kubeContextsAtom`, and
+ * schedules the show-delay timer. All state lives in atoms; this component only runs side effects.
  */
 export function UpdateNotificationProvider({ children }: React.PropsWithChildren) {
   const isDesktop = appConfig.environment === 'desktop';
-  const currentVersionCLI = appConfig.cliVersion;
-  const [ready, setReady] = useState(false);
-  const [mountedAt] = useState(() => Date.now());
+  const setKubeContexts = useSetAtom(kubeContextsAtom);
+  const setReady = useSetAtom(readyAtom);
+  const kubeContexts = useAtomValue(kubeContextsAtom);
 
-  // Desktop: watch kubeconfig so we know which contexts exist (cluster mode uses a single synthetic context).
-  const { data: kubeData } = useSubscription(KUBE_CONFIG_WATCH, {
-    skip: appConfig.environment !== 'desktop',
-  });
+  const { data: kubeData } = useSubscription(KUBE_CONFIG_WATCH, { skip: !isDesktop });
 
-  const kubeContexts = useMemo(() => {
-    if (appConfig.environment === 'cluster') return [''];
-    const contexts = kubeData?.kubeConfigWatch?.object?.contexts;
-    return contexts?.map((c) => c.name) ?? [];
-  }, [kubeData]);
+  const nextKubeContexts = useMemo(() => {
+    if (!isDesktop) return [''];
+    return kubeData?.kubeConfigWatch?.object?.contexts?.map((c) => c.name) ?? [];
+  }, [kubeData, isDesktop]);
 
-  // Cluster registry: Apollo snapshots per kubeContext (changes drive consumer re-renders directly)
-  // plus a separate version counter that consumers also subscribe to, bumped only by localStorage
-  // mutations (dismiss / dontRemindMe) where no snapshot change occurs.
-  const [querySnapshots, setQuerySnapshots] = useState<Record<string, ClusterVersionQuerySnapshot>>({});
-  const [localStorageVersion, setLocalStorageVersion] = useState(0);
-
-  const invalidateLocalStorage = useCallback(() => {
-    setLocalStorageVersion((v) => v + 1);
-  }, []);
-
-  const setSnapshot = useCallback((kubeContext: string, snap: ClusterVersionQuerySnapshot) => {
-    setQuerySnapshots((prev) => {
-      const cur = prev[kubeContext];
-      if (cur && cur.data === snap.data && cur.error === snap.error && cur.loading === snap.loading) {
-        return prev;
-      }
-      return { ...prev, [kubeContext]: snap };
+  useEffect(() => {
+    setKubeContexts((prev) => {
+      if (prev.length === nextKubeContexts.length && prev.every((v, i) => v === nextKubeContexts[i])) return prev;
+      return nextKubeContexts;
     });
-  }, []);
-
-  const clusterRegistry = useMemo<ClusterNotificationsRegistry>(
-    () => ({ querySnapshots, localStorageVersion, invalidate: invalidateLocalStorage }),
-    [querySnapshots, localStorageVersion, invalidateLocalStorage],
-  );
+  }, [nextKubeContexts, setKubeContexts]);
 
   // Delay showing the CLI banner so it does not flash on cold load.
   useEffect(() => {
     const timer = setTimeout(() => setReady(true), SHOW_DELAY_MS);
     return () => clearTimeout(timer);
-  }, []);
-
-  // Cross-tab sync: when another tab fetches a fresh CLI/cluster version or the user dismisses
-  // a notification, the storage event lets this tab pick up the change without refetching.
-  // The event only fires in *other* tabs, so there's no self-write loop.
-  useEffect(() => {
-    const handler = (ev: StorageEvent) => {
-      // ev.key === null fires when another tab calls localStorage.clear(); refresh either way
-      // since we cannot tell which key (if any) was relevant.
-      if (ev.key === null || ev.key === STORAGE_KEY_CLI || ev.key.startsWith(CLUSTER_STORAGE_PREFIX)) {
-        invalidateLocalStorage();
-      }
-    };
-    window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
-  }, [invalidateLocalStorage]);
-
-  // Derive CLI persisted state during render (re-reads on every localStorageVersion bump).
-  const cliPersisted = readCLIState();
-  const cliCacheValid = isCLICacheValid(cliPersisted);
-
-  const { data: cliQueryData } = useQuery(CLI_LATEST_VERSION, {
-    skip: !isDesktop || !currentVersionCLI || cliCacheValid,
-    fetchPolicy: 'network-only',
-  });
-
-  // `cliQueryData` arriving triggers a re-render, which re-reads localStorage during render and
-  // flips `cliCacheValid` to true on the next render. No invalidate() is needed (and calling it
-  // inside an effect would be a setState-in-effect lint violation).
-  useEffect(() => {
-    const version = cliQueryData?.cliLatestVersion;
-    if (!version) return;
-    patchCLIState({ latestVersion: version, fetchedAt: Date.now() });
-  }, [cliQueryData]);
-
-  const latestVersionCLI = cliCacheValid ? cliPersisted.latestVersion! : (cliQueryData?.cliLatestVersion ?? null);
-
-  const cliUpdateAvailable =
-    currentVersionCLI !== '' && latestVersionCLI !== null && compareSemver(latestVersionCLI, currentVersionCLI) > 0;
-
-  // `mountedAt` is fixed at provider mount so dismiss TTL is stable for this session (matches prior behavior).
-  const cliDismissed = cliPersisted.dismissedAt !== undefined && mountedAt - cliPersisted.dismissedAt < DISMISS_TTL_MS;
-  const cliSkipped = latestVersionCLI !== null && (cliPersisted.skippedVersions ?? []).includes(latestVersionCLI);
-  const cliHasUpdate = cliUpdateAvailable && !cliSkipped;
-
-  const showBanner = ready && !cliDismissed && cliHasUpdate;
-
-  const dismissCLI = useCallback(() => {
-    patchCLIState({ dismissedAt: Date.now() });
-    invalidateLocalStorage();
-  }, [invalidateLocalStorage]);
-
-  const dontRemindCLI = useCallback(() => {
-    const { skippedVersions = [] } = readCLIState();
-    if (latestVersionCLI && !skippedVersions.includes(latestVersionCLI)) {
-      skippedVersions.push(latestVersionCLI);
-    }
-    patchCLIState({ skippedVersions, dismissedAt: Date.now() });
-    invalidateLocalStorage();
-  }, [latestVersionCLI, invalidateLocalStorage]);
-
-  const cliValue = useMemo(
-    () => ({
-      showBanner,
-      currentVersion: currentVersionCLI,
-      latestVersion: latestVersionCLI,
-      updateAvailable: cliUpdateAvailable,
-      dismiss: dismissCLI,
-      dontRemindMe: dontRemindCLI,
-    }),
-    [showBanner, currentVersionCLI, latestVersionCLI, cliUpdateAvailable, dismissCLI, dontRemindCLI],
-  );
+  }, [setReady]);
 
   return (
-    <CLIUpdateNotificationContext.Provider value={cliValue}>
-      <ClusterNotificationsContext.Provider value={clusterRegistry}>
-        <KubeContextsContext.Provider value={kubeContexts}>
-          {kubeContexts.map((ctx) => (
-            <ClusterVersionSubscriber
-              key={ctx || '__default__'}
-              kubeContext={ctx}
-              setSnapshot={setSnapshot}
-              invalidate={invalidateLocalStorage}
-            />
-          ))}
-          {children}
-        </KubeContextsContext.Provider>
-      </ClusterNotificationsContext.Provider>
-    </CLIUpdateNotificationContext.Provider>
+    <>
+      {isDesktop && <CLIFetcher />}
+      {kubeContexts.map((ctx) => (
+        <ClusterVersionFetcher key={ctx || '__default__'} kubeContext={ctx} />
+      ))}
+      {children}
+    </>
   );
 }
 
-/** Latest CLI update banner state (no cluster context subscription). */
+// --- Public hooks
+
+function buildDismissHandlers<T extends UpdateState>(
+  setPersisted: (updater: (prev: T) => T) => void,
+  latestVersion: string | null,
+): { dismiss: () => void; dontRemindMe: () => void } {
+  return {
+    dismiss: () => setPersisted((prev) => ({ ...prev, dismissedAt: Date.now() })),
+    dontRemindMe: () =>
+      setPersisted((prev) => {
+        const skipped = prev.skippedVersions ?? [];
+        const next = latestVersion && !skipped.includes(latestVersion) ? [...skipped, latestVersion] : skipped;
+        return { ...prev, skippedVersions: next, dismissedAt: Date.now() };
+      }),
+  };
+}
+
 export function useCLIUpdateNotification(): UpdateNotificationState {
-  return useContext(CLIUpdateNotificationContext);
+  const view = useAtomValue(cliViewAtom);
+  const setPersisted = useSetAtom(cliPersistedAtom);
+  return useMemo(() => ({ ...view, ...buildDismissHandlers(setPersisted, view.latestVersion) }), [view, setPersisted]);
 }
 
-/**
- * List of kubeContexts visible to the provider. Returns `[]` when used outside the provider or
- * before the kubeconfig subscription has produced data. On non-desktop environments this is the
- * synthetic `['']` context the provider uses to drive a single cluster subscriber.
- */
-export function useKubeContexts(): string[] {
-  return useContext(KubeContextsContext) ?? [];
-}
-
-/** Per-kubeContext cluster update row; reads shared registry + bumps via invalidate after mutations. */
 export function useClusterUpdateNotification(kubeContext: string): ClusterUpdateNotificationState {
-  const clusterRegistry = useContext(ClusterNotificationsContext);
+  const view = useAtomValue(clusterViewAtomFamily(kubeContext));
+  const setPersisted = useSetAtom(clusterPersistedAtomFamily(kubeContext));
+  return useMemo(() => ({ ...view, ...buildDismissHandlers(setPersisted, view.latestVersion) }), [view, setPersisted]);
+}
 
-  const dismissCluster = useCallback(() => {
-    if (!clusterRegistry) return;
-    patchClusterState(kubeContext, { dismissedAt: Date.now() });
-    clusterRegistry.invalidate();
-  }, [kubeContext, clusterRegistry]);
+export function useKubeContexts(): string[] {
+  return useAtomValue(kubeContextsAtom);
+}
 
-  const dontRemindCluster = useCallback(() => {
-    if (!clusterRegistry) return;
-    const persisted = readClusterState(kubeContext);
-    const valid = isClusterCacheValid(persisted);
-    const snap = clusterRegistry.querySnapshots[kubeContext];
-    const lv = valid ? (persisted.latestVersion ?? null) : (snap?.data?.clusterVersionStatus?.latestVersion ?? null);
-    const { skippedVersions = [] } = persisted;
-    if (lv && !skippedVersions.includes(lv)) {
-      skippedVersions.push(lv);
-    }
-    patchClusterState(kubeContext, { skippedVersions, dismissedAt: Date.now() });
-    clusterRegistry.invalidate();
-  }, [kubeContext, clusterRegistry]);
+export function useHasAnyClusterUpdate(): boolean {
+  return useAtomValue(hasAnyClusterUpdateAtom);
+}
 
-  const clusterView = useMemo(() => {
-    if (!clusterRegistry) {
-      return {
-        updateAvailable: false,
-        currentVersion: null,
-        latestVersion: null,
-        dismiss: dismissCluster,
-        dontRemindMe: dontRemindCluster,
-      } as ClusterUpdateNotificationState;
-    }
-    return buildClusterNotificationView(
-      kubeContext,
-      clusterRegistry.querySnapshots[kubeContext],
-      dismissCluster,
-      dontRemindCluster,
-    );
-  }, [kubeContext, clusterRegistry, dismissCluster, dontRemindCluster]);
-  return clusterView;
+export function useAllClusterUpdateViews(): { kubeContext: string; view: ClusterView }[] {
+  return useAtomValue(allClusterViewsAtom);
 }

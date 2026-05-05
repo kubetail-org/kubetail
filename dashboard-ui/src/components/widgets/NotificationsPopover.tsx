@@ -13,18 +13,12 @@
 // limitations under the License.
 
 import { ArrowUpCircle } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { Popover, PopoverTrigger, PopoverContent } from '@kubetail/ui/elements/popover';
 
 import appConfig from '@/app-config';
-import { useCLIUpdateNotification, useClusterUpdateNotification, useKubeContexts } from '@/lib/update-notifications';
-
-type ClusterUpdateInfo = {
-  hasUpdate: boolean;
-  currentVersion: string | null;
-  latestVersion: string | null;
-};
+import { useAllClusterUpdateViews, useCLIUpdateNotification, useHasAnyClusterUpdate } from '@/lib/update-notifications';
 
 const UpdateNotice = ({ children }: React.PropsWithChildren) => (
   <div className="flex items-start gap-2 rounded border border-blue-200 bg-blue-50 p-2 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100">
@@ -33,60 +27,14 @@ const UpdateNotice = ({ children }: React.PropsWithChildren) => (
   </div>
 );
 
-type ClusterUpdateSubscriberProps = {
-  kubeContext: string;
-  onChange: (kubeContext: string, info: ClusterUpdateInfo | null) => void;
-};
-
-/**
- * Invisible: reads cluster update state for one kubeContext and lifts it to the parent. Mounted
- * outside `PopoverContent` so the subscription survives the popover opening/closing — otherwise
- * the trigger dot would only reflect contexts evaluated since the last open.
- */
-const ClusterUpdateSubscriber = ({ kubeContext, onChange }: ClusterUpdateSubscriberProps) => {
-  const { updateAvailable, currentVersion, latestVersion } = useClusterUpdateNotification(kubeContext);
-  const hasUpdate = updateAvailable && !!latestVersion;
-
-  useEffect(() => {
-    onChange(kubeContext, { hasUpdate, currentVersion, latestVersion });
-    return () => onChange(kubeContext, null);
-  }, [kubeContext, hasUpdate, currentVersion, latestVersion, onChange]);
-
-  return null;
-};
-
 export const NotificationsPopover = ({ children }: React.PropsWithChildren) => {
   const [isOpen, setIsOpen] = useState(false);
   const { updateAvailable, currentVersion, latestVersion } = useCLIUpdateNotification();
-  const kubeContexts = useKubeContexts();
-
-  // Aggregated cluster update state by kubeContext, populated by long-lived subscribers below.
-  const [clusterUpdates, setClusterUpdates] = useState<Record<string, ClusterUpdateInfo>>({});
-  const handleClusterUpdateChange = useCallback((kubeContext: string, info: ClusterUpdateInfo | null) => {
-    setClusterUpdates((prev) => {
-      if (info === null) {
-        if (!(kubeContext in prev)) return prev;
-        const next = { ...prev };
-        delete next[kubeContext];
-        return next;
-      }
-      const cur = prev[kubeContext];
-      if (
-        cur &&
-        cur.hasUpdate === info.hasUpdate &&
-        cur.currentVersion === info.currentVersion &&
-        cur.latestVersion === info.latestVersion
-      ) {
-        return prev;
-      }
-      return { ...prev, [kubeContext]: info };
-    });
-  }, []);
+  const hasClusterUpdate = useHasAnyClusterUpdate();
+  const clusterViews = useAllClusterUpdateViews();
 
   const hasCliUpdate = updateAvailable && !!latestVersion;
-  const clustersWithUpdates =
-    appConfig.environment === 'desktop' ? kubeContexts.filter((ctx) => clusterUpdates[ctx]?.hasUpdate) : [];
-  const hasNotifications = hasCliUpdate || clustersWithUpdates.length > 0;
+  const hasNotifications = hasCliUpdate || (appConfig.environment === 'desktop' && hasClusterUpdate);
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -96,12 +44,6 @@ export const NotificationsPopover = ({ children }: React.PropsWithChildren) => {
           {hasNotifications && <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-blue-500" />}
         </div>
       </PopoverTrigger>
-      {/* Subscribers live outside PopoverContent so they stay mounted when the popover is closed,
-          keeping the trigger dot accurate across all kubeContexts at all times. */}
-      {appConfig.environment === 'desktop' &&
-        kubeContexts.map((ctx) => (
-          <ClusterUpdateSubscriber key={ctx} kubeContext={ctx} onChange={handleClusterUpdateChange} />
-        ))}
       {isOpen && (
         <PopoverContent side="top" className="w-80 mr-1">
           <div className="space-y-2">
@@ -111,14 +53,14 @@ export const NotificationsPopover = ({ children }: React.PropsWithChildren) => {
                 CLI update: {currentVersion} → {latestVersion}
               </UpdateNotice>
             )}
-            {clustersWithUpdates.map((ctx) => {
-              const info = clusterUpdates[ctx];
-              return (
-                <UpdateNotice key={ctx}>
-                  Cluster update ({ctx}): {info.currentVersion} → {info.latestVersion}
-                </UpdateNotice>
-              );
-            })}
+            {appConfig.environment === 'desktop' &&
+              clusterViews
+                .filter(({ view }) => view.updateAvailable && view.latestVersion)
+                .map(({ kubeContext, view }) => (
+                  <UpdateNotice key={kubeContext}>
+                    Cluster update ({kubeContext}): {view.currentVersion} → {view.latestVersion}
+                  </UpdateNotice>
+                ))}
             {!hasNotifications && <p className="text-sm text-muted-foreground">No new notifications</p>}
           </div>
         </PopoverContent>
