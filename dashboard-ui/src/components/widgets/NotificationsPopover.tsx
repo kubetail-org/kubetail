@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useSubscription } from '@apollo/client/react';
 import { ArrowUpCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { Popover, PopoverTrigger, PopoverContent } from '@kubetail/ui/elements/popover';
 
 import appConfig from '@/app-config';
-import * as dashboardOps from '@/lib/graphql/dashboard/ops';
-import { useCLIUpdateNotification, useClusterUpdateNotification } from '@/lib/update-notifications';
+import { useCLIUpdateNotification, useClusterUpdateNotification, useKubeContexts } from '@/lib/update-notifications';
 
 type ClusterUpdateInfo = {
   hasUpdate: boolean;
@@ -48,13 +46,6 @@ const ClusterUpdateSubscriber = ({ kubeContext, onChange }: ClusterUpdateSubscri
   }, [kubeContext, hasUpdate, currentVersion, latestVersion, onChange]);
 
   return null;
-};
-
-const useKubeContexts = (): string[] => {
-  const { data } = useSubscription(dashboardOps.KUBE_CONFIG_WATCH, {
-    skip: appConfig.environment !== 'desktop',
-  });
-  return data?.kubeConfigWatch?.object?.contexts?.map((c) => c.name) ?? [];
 };
 
 export const NotificationsPopover = ({ children }: React.PropsWithChildren) => {

@@ -151,6 +151,11 @@ const CLIUpdateNotificationContext = createContext({} as UpdateNotificationState
 const ClusterNotificationsContext = createContext<ClusterNotificationsRegistry | null>(null);
 const ClusterNotificationsInvalidateContext = createContext<(() => void) | null>(null);
 
+// Exposed so consumers (e.g. NotificationsPopover) can iterate kubeContexts without opening a
+// second KUBE_CONFIG_WATCH subscription. `null` distinguishes "outside the provider" from "no
+// contexts yet"; an empty array is a valid in-provider state.
+const KubeContextsContext = createContext<string[] | null>(null);
+
 /** Derive what to show for one kubeContext from persisted state + latest Apollo snapshot. */
 function buildClusterNotificationView(
   kubeContext: string,
@@ -364,10 +369,12 @@ export function UpdateNotificationProvider({ children }: React.PropsWithChildren
       {/* Invalidate is separate from registry data: dismiss/remind only needs the callback. */}
       <ClusterNotificationsInvalidateContext.Provider value={invalidateLocalStorage}>
         <ClusterNotificationsContext.Provider value={clusterRegistry}>
-          {kubeContexts.map((ctx) => (
-            <ClusterVersionSubscriber key={ctx || '__default__'} kubeContext={ctx} setSnapshot={setSnapshot} />
-          ))}
-          {children}
+          <KubeContextsContext.Provider value={kubeContexts}>
+            {kubeContexts.map((ctx) => (
+              <ClusterVersionSubscriber key={ctx || '__default__'} kubeContext={ctx} setSnapshot={setSnapshot} />
+            ))}
+            {children}
+          </KubeContextsContext.Provider>
         </ClusterNotificationsContext.Provider>
       </ClusterNotificationsInvalidateContext.Provider>
     </CLIUpdateNotificationContext.Provider>
@@ -377,6 +384,15 @@ export function UpdateNotificationProvider({ children }: React.PropsWithChildren
 /** Latest CLI update banner state (no cluster context subscription). */
 export function useCLIUpdateNotification(): UpdateNotificationState {
   return useContext(CLIUpdateNotificationContext);
+}
+
+/**
+ * List of kubeContexts visible to the provider. Returns `[]` when used outside the provider or
+ * before the kubeconfig subscription has produced data. On non-desktop environments this is the
+ * synthetic `['']` context the provider uses to drive a single cluster subscriber.
+ */
+export function useKubeContexts(): string[] {
+  return useContext(KubeContextsContext) ?? [];
 }
 
 /** Per-kubeContext cluster update row; reads shared registry + bumps via invalidate after mutations. */
