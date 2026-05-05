@@ -77,7 +77,8 @@ func useColor(w any) bool {
 	if !ok {
 		return false
 	}
-	return isatty.IsTerminal(f.Fd())
+	fd := f.Fd()
+	return isatty.IsTerminal(fd) || isatty.IsCygwinTerminal(fd)
 }
 
 // colorizeWarning wraps msg in yellow ANSI escapes only when w is an
