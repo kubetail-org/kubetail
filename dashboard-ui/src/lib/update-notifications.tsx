@@ -115,8 +115,9 @@ type ClusterView = Omit<ClusterUpdateNotificationState, 'dismiss' | 'dontRemindM
 const clusterViewAtomFamily = atomFamily((kubeContext: string) =>
   atom<ClusterView>((get) => {
     const persisted = get(clusterPersistedAtomFamily(kubeContext));
-    const currentVersion = persisted.currentVersion ?? null;
-    const latestVersion = persisted.latestVersion ?? null;
+    const cacheValid = isClusterCacheValid(persisted);
+    const currentVersion = cacheValid ? (persisted.currentVersion ?? null) : null;
+    const latestVersion = cacheValid ? (persisted.latestVersion ?? null) : null;
 
     const updateAvailable =
       currentVersion !== null && latestVersion !== null && compareSemver(latestVersion, currentVersion) > 0;
