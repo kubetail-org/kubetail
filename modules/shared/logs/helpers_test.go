@@ -595,36 +595,36 @@ func TestPaginateLogRecords(t *testing.T) {
 		assert.Nil(t, cursor)
 	})
 
-	t.Run("TAIL mode trims first record and uses it as cursor", func(t *testing.T) {
-		// Simulating what happens when we fetch limit+1 records in TAIL mode
-		// Records come back in chronological order after being reversed from the tail fetch
+	t.Run("TAIL mode trims first record and cursor points to first returned record", func(t *testing.T) {
+		// TAIL fetches limit+1 records to detect if there's a previous page;
+		// the extra (oldest) record is trimmed off and the cursor points to
+		// the first record we actually returned. The resolver's exclusive
+		// `before` filter then resumes the previous page immediately before.
 		input := makeRecords(ts1, ts2, ts3, ts4, ts5)
 		records, cursor := PaginateLogRecords(input, 4, PaginationModeTail)
 
-		// Should have 4 records (ts2, ts3, ts4, ts5)
 		assert.Len(t, records, 4)
 		assert.Equal(t, ts2, records[0].Timestamp)
 		assert.Equal(t, ts5, records[3].Timestamp)
 
-		// Cursor should be the first record's timestamp (ts1)
 		assert.NotNil(t, cursor)
-		assert.Equal(t, ts1.Format(time.RFC3339Nano), *cursor)
+		assert.Equal(t, ts2.Format(time.RFC3339Nano), *cursor)
 	})
 
-	t.Run("HEAD mode trims last record and uses it as cursor", func(t *testing.T) {
-		// Simulating what happens when we fetch limit+1 records in HEAD mode
-		// Records come back in chronological order from the head
+	t.Run("HEAD mode trims last record and cursor points to last returned record", func(t *testing.T) {
+		// HEAD fetches limit+1 records to detect if there's a next page; the
+		// extra (newest) record is trimmed off and the cursor points to the
+		// last record we actually returned. The resolver's exclusive `after`
+		// filter then resumes the next page immediately after.
 		input := makeRecords(ts1, ts2, ts3, ts4, ts5)
 		records, cursor := PaginateLogRecords(input, 4, PaginationModeHead)
 
-		// Should have 4 records (ts1, ts2, ts3, ts4)
 		assert.Len(t, records, 4)
 		assert.Equal(t, ts1, records[0].Timestamp)
 		assert.Equal(t, ts4, records[3].Timestamp)
 
-		// Cursor should be the last record's timestamp (ts5)
 		assert.NotNil(t, cursor)
-		assert.Equal(t, ts5.Format(time.RFC3339Nano), *cursor)
+		assert.Equal(t, ts4.Format(time.RFC3339Nano), *cursor)
 	})
 
 	t.Run("single extra record TAIL mode", func(t *testing.T) {
@@ -634,7 +634,7 @@ func TestPaginateLogRecords(t *testing.T) {
 		assert.Len(t, records, 1)
 		assert.Equal(t, ts2, records[0].Timestamp)
 		assert.NotNil(t, cursor)
-		assert.Equal(t, ts1.Format(time.RFC3339Nano), *cursor)
+		assert.Equal(t, ts2.Format(time.RFC3339Nano), *cursor)
 	})
 
 	t.Run("single extra record HEAD mode", func(t *testing.T) {
@@ -644,7 +644,69 @@ func TestPaginateLogRecords(t *testing.T) {
 		assert.Len(t, records, 1)
 		assert.Equal(t, ts1, records[0].Timestamp)
 		assert.NotNil(t, cursor)
-		assert.Equal(t, ts2.Format(time.RFC3339Nano), *cursor)
+		assert.Equal(t, ts1.Format(time.RFC3339Nano), *cursor)
+	})
+
+	t.Run("HEAD two-page simulation has no gap with exclusive after", func(t *testing.T) {
+		// Mirrors the resolver: it fetches limit+1, paginates, and resumes
+		// the next page with sinceTime = cursor + 1ns. With the cursor
+		// pointing to the last *returned* record, the boundary record is
+		// preserved across pages.
+		all := makeRecords(ts1, ts2, ts3, ts4, ts5)
+
+		page1, cursor := PaginateLogRecords(all[:3], 2, PaginationModeHead)
+		require.NotNil(t, cursor)
+		require.Len(t, page1, 2)
+
+		afterTime, err := time.Parse(time.RFC3339Nano, *cursor)
+		require.NoError(t, err)
+		sinceTime := afterTime.Add(1 * time.Nanosecond)
+		var remaining []LogRecord
+		for _, r := range all {
+			if !r.Timestamp.Before(sinceTime) {
+				remaining = append(remaining, r)
+			}
+		}
+
+		page2, cursor2 := PaginateLogRecords(remaining[:min(3, len(remaining))], 2, PaginationModeHead)
+
+		got := append([]LogRecord{}, page1...)
+		got = append(got, page2...)
+		assert.Equal(t, []time.Time{ts1, ts2, ts3, ts4}, []time.Time{got[0].Timestamp, got[1].Timestamp, got[2].Timestamp, got[3].Timestamp},
+			"page1+page2 must equal the original set with no gaps")
+		assert.NotNil(t, cursor2, "ts5 still lies past page2")
+	})
+
+	t.Run("TAIL two-page simulation has no gap with exclusive before", func(t *testing.T) {
+		// Symmetric to HEAD: untilTime = cursor - 1ns.
+		all := makeRecords(ts1, ts2, ts3, ts4, ts5)
+
+		page1, cursor := PaginateLogRecords(all[2:], 2, PaginationModeTail)
+		require.NotNil(t, cursor)
+		require.Len(t, page1, 2)
+
+		beforeTime, err := time.Parse(time.RFC3339Nano, *cursor)
+		require.NoError(t, err)
+		untilTime := beforeTime.Add(-1 * time.Nanosecond)
+		var remaining []LogRecord
+		for _, r := range all {
+			if !r.Timestamp.After(untilTime) {
+				remaining = append(remaining, r)
+			}
+		}
+
+		start := 0
+		if len(remaining) > 3 {
+			start = len(remaining) - 3
+		}
+		page2, cursor2 := PaginateLogRecords(remaining[start:], 2, PaginationModeTail)
+
+		// Older page first to recover chronological order.
+		got := append([]LogRecord{}, page2...)
+		got = append(got, page1...)
+		assert.Equal(t, []time.Time{ts2, ts3, ts4, ts5}, []time.Time{got[0].Timestamp, got[1].Timestamp, got[2].Timestamp, got[3].Timestamp},
+			"page2+page1 must equal the original set with no gaps")
+		assert.NotNil(t, cursor2, "ts1 still lies before page2")
 	})
 
 	t.Run("preserves nanosecond precision in cursor", func(t *testing.T) {

@@ -323,11 +323,14 @@ func getFirstTimestamp(ctx context.Context, clientset kubernetes.Interface, sour
 }
 
 // PaginateLogRecords applies cursor-based pagination to a slice of log records.
-// It handles both HEAD and TAIL modes:
-//   - HEAD mode: if there are more records than limit, uses the last record's timestamp as nextCursor
-//     and removes the last record
-//   - TAIL mode: if there are more records than limit, uses the first record's timestamp as nextCursor
-//     and removes the first record
+// Callers are expected to have fetched limit+1 records so we can detect a
+// neighbouring page; the extra record is dropped here. The cursor points to
+// the boundary record we *return*, not the one we drop, so the resolver's
+// exclusive `after` (HEAD) / `before` (TAIL) filter resumes the next page
+// immediately past the cursor without skipping a record.
+//
+//   - HEAD: cursor = last returned record's timestamp; trims trailing extra.
+//   - TAIL: cursor = first returned record's timestamp; trims leading extra.
 //
 // Returns the paginated records and the nextCursor (nil if no more pages).
 func PaginateLogRecords(records []LogRecord, limit int64, mode PaginationMode) ([]LogRecord, *string) {
@@ -337,13 +340,12 @@ func PaginateLogRecords(records []LogRecord, limit int64, mode PaginationMode) (
 
 	var nextCursor *string
 	if mode == PaginationModeHead {
-		peek := records[len(records)-1]
-		nextCursor = ptr.To(peek.Timestamp.Format(time.RFC3339Nano))
-		records = records[:len(records)-1]
+		records = records[:limit]
+		nextCursor = ptr.To(records[limit-1].Timestamp.Format(time.RFC3339Nano))
 	} else {
-		peek := records[0]
-		nextCursor = ptr.To(peek.Timestamp.Format(time.RFC3339Nano))
-		records = records[1:]
+		start := int64(len(records)) - limit
+		records = records[start:]
+		nextCursor = ptr.To(records[0].Timestamp.Format(time.RFC3339Nano))
 	}
 
 	return records, nextCursor
