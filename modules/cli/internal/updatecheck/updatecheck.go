@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	DefaultCacheTTL   = 12 * time.Hour
+	DefaultCacheTTL  = 12 * time.Hour
 	cliCacheVersion  = 1
 	helmCacheVersion = 1
 )
@@ -157,7 +157,6 @@ func Notify(opts Options) []Notification {
 	kubeContext := resolveKubeContext(opts.KubeconfigPath, opts.KubeContext)
 	return buildNotifications(cliCache, helmCache, opts.CurrentCLIVersion, kubeContext)
 }
-
 
 // RefreshCLICache fetches the latest CLI version and writes it to the CLI cache file.
 func RefreshCLICache(opts Options) error {

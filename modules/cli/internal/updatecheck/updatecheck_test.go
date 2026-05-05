@@ -437,9 +437,9 @@ func TestGetInstalledHelmChartVersion(t *testing.T) {
 			want:     "",
 		},
 		{
-			name:     "list error",
-			err:      errors.New("connection refused"),
-			want:     "",
+			name: "list error",
+			err:  errors.New("connection refused"),
+			want: "",
 		},
 		{
 			name:     "single release",
