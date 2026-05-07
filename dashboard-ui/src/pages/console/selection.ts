@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useAtom, useAtomValue } from 'jotai';
+import { useAtomValue, useStore } from 'jotai';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { stripAnsi } from 'fancy-ansi';
@@ -287,20 +287,40 @@ export function computeSelection({
   return new Set([clickedKey]);
 }
 
-export function useSelectionState() {
-  const visibleCols = useAtomValue(visibleColsAtom);
-  const [selectedKeys, setSelectedKeys] = useAtom(selectedKeysAtom);
-  const [lastClickedKey, setLastClickedKey] = useAtom(lastClickedKeyAtom);
-  const [selectedCells, setSelectedCells] = useAtom(selectedCellsAtom);
-  const [anchorCell, setAnchorCell] = useAtom(anchorCellAtom);
-  const [isTextSelectMode, setIsTextSelectMode] = useAtom(isTextSelectModeAtom);
-  const [isCursorText, setIsCursorText] = useAtom(isCursorTextAtom);
+type Store = ReturnType<typeof useStore>;
 
-  const selectedKeysRef = useRef(selectedKeys);
-  const lastClickedKeyRef = useRef(lastClickedKey);
-  const selectedCellsRef = useRef(selectedCells);
-  const anchorCellRef = useRef(anchorCell);
-  const isTextSelectModeRef = useRef(isTextSelectMode);
+/** Reset row-selection state. No-op write on selectedKeysAtom is skipped. */
+function clearRowSelection(store: Store) {
+  if (store.get(selectedKeysAtom).size > 0) store.set(selectedKeysAtom, new Set());
+  store.set(lastClickedKeyAtom, null);
+}
+
+/**
+ * Reset cell-selection state, including the text-select / cursor-text flags
+ * (those modes only exist while a cell selection is active).
+ */
+function clearCellSelection(store: Store) {
+  if (store.get(selectedCellsAtom).size > 0) store.set(selectedCellsAtom, new Map());
+  store.set(anchorCellAtom, null);
+  store.set(isTextSelectModeAtom, false);
+  store.set(isCursorTextAtom, false);
+}
+
+/** Replace the cell selection with a single cell and move the anchor to it. */
+function selectSingleCell(store: Store, cell: { rowKey: number; col: ViewerColumn }) {
+  store.set(selectedCellsAtom, new Map([[cell.rowKey, new Set([cell.col])]]));
+  store.set(anchorCellAtom, cell);
+}
+
+export function useSelectionState() {
+  const store = useStore();
+  const visibleCols = useAtomValue(visibleColsAtom);
+  const selectedKeys = useAtomValue(selectedKeysAtom);
+  const selectedCells = useAtomValue(selectedCellsAtom);
+  const anchorCell = useAtomValue(anchorCellAtom);
+  const isTextSelectMode = useAtomValue(isTextSelectModeAtom);
+  const isCursorText = useAtomValue(isCursorTextAtom);
+
   const dragAbortRef = useRef<AbortController | null>(null);
   const cursorTextPendingRef = useRef(false);
   // Long-lived controller for the cursor-text one-shot mousemove listener.
@@ -315,48 +335,26 @@ export function useSelectionState() {
       'mousemove',
       () => {
         cursorTextPendingRef.current = false;
-        setIsCursorText(true);
+        store.set(isCursorTextAtom, true);
       },
       { once: true, signal: cursorTextAbortRef.current.signal },
     );
-  }, [setIsCursorText]);
+  }, [store]);
   useEffect(() => () => cursorTextAbortRef.current?.abort(), []);
 
-  useEffect(() => {
-    selectedKeysRef.current = selectedKeys;
-    lastClickedKeyRef.current = lastClickedKey;
-    selectedCellsRef.current = selectedCells;
-    anchorCellRef.current = anchorCell;
-    isTextSelectModeRef.current = isTextSelectMode;
-  }, [selectedKeys, lastClickedKey, selectedCells, anchorCell, isTextSelectMode]);
-
   const clearSelection = useCallback(() => {
-    setSelectedKeys(new Set());
-    setLastClickedKey(null);
-    setSelectedCells(new Map());
-    setAnchorCell(null);
-    setIsTextSelectMode(false);
-    setIsCursorText(false);
-  }, [setSelectedKeys, setLastClickedKey, setSelectedCells, setAnchorCell, setIsTextSelectMode, setIsCursorText]);
+    clearRowSelection(store);
+    clearCellSelection(store);
+  }, [store]);
 
   return {
+    store,
     visibleCols,
     selectedKeys,
-    setSelectedKeys,
-    setLastClickedKey,
     selectedCells,
-    setSelectedCells,
     anchorCell,
-    setAnchorCell,
     isTextSelectMode,
-    setIsTextSelectMode,
     isCursorText,
-    setIsCursorText,
-    selectedKeysRef,
-    lastClickedKeyRef,
-    selectedCellsRef,
-    anchorCellRef,
-    isTextSelectModeRef,
     dragAbortRef,
     clearSelection,
     scheduleCursorText,
@@ -364,18 +362,7 @@ export function useSelectionState() {
 }
 
 export function useRowDrag(state: ReturnType<typeof useSelectionState>) {
-  const {
-    setSelectedKeys,
-    setLastClickedKey,
-    setSelectedCells,
-    setAnchorCell,
-    setIsTextSelectMode,
-    setIsCursorText,
-    selectedKeysRef,
-    lastClickedKeyRef,
-    selectedCellsRef,
-    dragAbortRef,
-  } = state;
+  const { store, dragAbortRef } = state;
 
   const dragStartKeyRef = useRef<number | null>(null);
   const dragEndKeyRef = useRef<number | null>(null);
@@ -385,28 +372,22 @@ export function useRowDrag(state: ReturnType<typeof useSelectionState>) {
       // Modifier clicks don't start a drag
       if (event.shiftKey || event.metaKey || event.ctrlKey) {
         const next = computeSelection({
-          prev: selectedKeysRef.current,
+          prev: store.get(selectedKeysAtom),
           clickedKey: key,
           shiftKey: event.shiftKey,
           metaOrCtrlKey: event.metaKey || event.ctrlKey,
-          lastClickedKey: lastClickedKeyRef.current,
+          lastClickedKey: store.get(lastClickedKeyAtom),
         });
-        setSelectedKeys(next);
-        setLastClickedKey(key);
-        if (selectedCellsRef.current.size > 0) setSelectedCells(new Map());
-        setAnchorCell(null);
-        setIsTextSelectMode(false);
-        setIsCursorText(false);
+        store.set(selectedKeysAtom, next);
+        store.set(lastClickedKeyAtom, key);
+        clearCellSelection(store);
         return;
       }
 
       dragStartKeyRef.current = key;
       dragEndKeyRef.current = key;
-      setSelectedKeys(new Set([key]));
-      if (selectedCellsRef.current.size > 0) setSelectedCells(new Map());
-      setAnchorCell(null);
-      setIsTextSelectMode(false);
-      setIsCursorText(false);
+      store.set(selectedKeysAtom, new Set([key]));
+      clearCellSelection(store);
 
       let rafId: number | null = null;
       let pendingX = 0;
@@ -425,7 +406,7 @@ export function useRowDrag(state: ReturnType<typeof useSelectionState>) {
         const maxKey = Math.max(dragStartKeyRef.current, endKey);
         const next = new Set<number>();
         for (let k = minKey; k <= maxKey; k += 1) next.add(k);
-        setSelectedKeys(next);
+        store.set(selectedKeysAtom, next);
       };
 
       const onMouseMove = (e: MouseEvent) => {
@@ -445,7 +426,7 @@ export function useRowDrag(state: ReturnType<typeof useSelectionState>) {
           pendingY = e.clientY;
           processMove();
         }
-        setLastClickedKey(dragEndKeyRef.current);
+        store.set(lastClickedKeyAtom, dragEndKeyRef.current);
         dragStartKeyRef.current = null;
         dragEndKeyRef.current = null;
         dragAbortRef.current?.abort();
@@ -459,18 +440,7 @@ export function useRowDrag(state: ReturnType<typeof useSelectionState>) {
       document.addEventListener('mousemove', onMouseMove, { signal });
       document.addEventListener('mouseup', onMouseUp, { signal });
     },
-    [
-      setSelectedKeys,
-      setLastClickedKey,
-      setSelectedCells,
-      setAnchorCell,
-      setIsTextSelectMode,
-      setIsCursorText,
-      selectedKeysRef,
-      lastClickedKeyRef,
-      selectedCellsRef,
-      dragAbortRef,
-    ],
+    [store, dragAbortRef],
   );
 
   return { handleRowMouseDown };
@@ -495,21 +465,7 @@ function useSelectionEdges(selectedKeys: Set<number>) {
 }
 
 export function useCellDrag(state: ReturnType<typeof useSelectionState>) {
-  const {
-    visibleCols,
-    setSelectedKeys,
-    setLastClickedKey,
-    setSelectedCells,
-    setAnchorCell,
-    setIsTextSelectMode,
-    setIsCursorText,
-    selectedKeysRef,
-    selectedCellsRef,
-    anchorCellRef,
-    isTextSelectModeRef,
-    dragAbortRef,
-    scheduleCursorText,
-  } = state;
+  const { store, visibleCols, dragAbortRef, scheduleCursorText } = state;
 
   const cellDragStartRef = useRef<{ rowKey: number; col: ViewerColumn } | null>(null);
   const cellDragEndRef = useRef<{ rowKey: number; col: ViewerColumn } | null>(null);
@@ -525,14 +481,14 @@ export function useCellDrag(state: ReturnType<typeof useSelectionState>) {
       if (isContextClick) return;
 
       if (event.shiftKey || event.metaKey || event.ctrlKey) {
-        if (event.shiftKey && anchorCellRef.current !== null) {
+        const anchor = store.get(anchorCellAtom);
+        if (event.shiftKey && anchor !== null) {
           // Spreadsheet behavior: Shift+click replaces the selection with a
           // rectangle from the anchor to the click target. Prior selection
           // (including disjoint cells from Cmd+click) is discarded.
-          const range = computeCellRange(anchorCellRef.current, { rowKey, col }, visibleCols);
-          setSelectedCells(range);
+          store.set(selectedCellsAtom, computeCellRange(anchor, { rowKey, col }, visibleCols));
         } else if (event.metaKey || event.ctrlKey) {
-          const next = new Map(selectedCellsRef.current);
+          const next = new Map(store.get(selectedCellsAtom));
           const newCols = new Set(next.get(rowKey) ?? []);
           const wasSelected = newCols.has(col);
           if (wasSelected) {
@@ -545,48 +501,41 @@ export function useCellDrag(state: ReturnType<typeof useSelectionState>) {
           } else {
             next.set(rowKey, newCols);
           }
-          setSelectedCells(next);
+          store.set(selectedCellsAtom, next);
 
           // Spreadsheet anchor invariant: anchor must point to a selected cell
           // (or be null when the selection is empty).
           if (!wasSelected) {
-            setAnchorCell({ rowKey, col });
-          } else {
-            const isAnchor = anchorCellRef.current?.rowKey === rowKey && anchorCellRef.current?.col === col;
-            if (isAnchor) {
-              setAnchorCell(nextSelectedCellInReadingOrder(next, { rowKey, col }, visibleCols));
-            }
+            store.set(anchorCellAtom, { rowKey, col });
+          } else if (anchor?.rowKey === rowKey && anchor?.col === col) {
+            store.set(anchorCellAtom, nextSelectedCellInReadingOrder(next, { rowKey, col }, visibleCols));
           }
         } else {
-          setSelectedCells(new Map([[rowKey, new Set([col])]]));
-          setAnchorCell({ rowKey, col });
+          selectSingleCell(store, { rowKey, col });
         }
 
-        if (selectedKeysRef.current.size > 0) setSelectedKeys(new Set());
-        setLastClickedKey(null);
-        setIsTextSelectMode(true);
-        setIsCursorText(false);
+        clearRowSelection(store);
+        store.set(isTextSelectModeAtom, true);
+        store.set(isCursorTextAtom, false);
         scheduleCursorText();
         window.getSelection()?.removeAllRanges();
         return;
       }
 
       // In text-select mode on a selected cell, let the browser handle it
-      if (isTextSelectModeRef.current && selectedCellsRef.current.get(rowKey)?.has(col)) {
+      if (store.get(isTextSelectModeAtom) && store.get(selectedCellsAtom).get(rowKey)?.has(col)) {
         return;
       }
 
       const start = { rowKey, col };
       cellDragStartRef.current = start;
       cellDragEndRef.current = start;
-      setSelectedCells(new Map([[rowKey, new Set([col])]]));
       // Set anchor at drag-start (not drag-end) so a later Shift+click extends
       // from where the user began the selection.
-      setAnchorCell(start);
-      if (selectedKeysRef.current.size > 0) setSelectedKeys(new Set());
-      setLastClickedKey(null);
-      setIsTextSelectMode(false);
-      setIsCursorText(false);
+      selectSingleCell(store, start);
+      clearRowSelection(store);
+      store.set(isTextSelectModeAtom, false);
+      store.set(isCursorTextAtom, false);
 
       let rafId: number | null = null;
       let pendingX = 0;
@@ -605,7 +554,7 @@ export function useCellDrag(state: ReturnType<typeof useSelectionState>) {
         const end = { rowKey: endRowKey, col: endCol };
         if (end.rowKey === cellDragEndRef.current?.rowKey && end.col === cellDragEndRef.current?.col) return;
         cellDragEndRef.current = end;
-        setSelectedCells(computeCellRange(cellDragStartRef.current, end, visibleCols));
+        store.set(selectedCellsAtom, computeCellRange(cellDragStartRef.current, end, visibleCols));
       };
 
       const onMouseMove = (e: MouseEvent) => {
@@ -625,7 +574,7 @@ export function useCellDrag(state: ReturnType<typeof useSelectionState>) {
           pendingY = e.clientY;
           processMove();
         }
-        if (cellDragEndRef.current) setIsTextSelectMode(true);
+        if (cellDragEndRef.current) store.set(isTextSelectModeAtom, true);
         cellDragStartRef.current = null;
         cellDragEndRef.current = null;
         dragAbortRef.current?.abort();
@@ -640,21 +589,7 @@ export function useCellDrag(state: ReturnType<typeof useSelectionState>) {
       document.addEventListener('mousemove', onMouseMove, { signal });
       document.addEventListener('mouseup', onMouseUp, { signal });
     },
-    [
-      visibleCols,
-      setSelectedCells,
-      setAnchorCell,
-      setSelectedKeys,
-      setLastClickedKey,
-      setIsTextSelectMode,
-      setIsCursorText,
-      selectedKeysRef,
-      selectedCellsRef,
-      anchorCellRef,
-      isTextSelectModeRef,
-      dragAbortRef,
-      scheduleCursorText,
-    ],
+    [store, visibleCols, dragAbortRef, scheduleCursorText],
   );
 
   return { handleCellMouseDown };
@@ -664,17 +599,7 @@ export function useSelectionKeyboard(
   state: ReturnType<typeof useSelectionState>,
   virtualizerRef: React.RefObject<LogViewerVirtualizer | null>,
 ) {
-  const {
-    visibleCols,
-    selectedKeysRef,
-    selectedCellsRef,
-    anchorCellRef,
-    setSelectedCells,
-    setAnchorCell,
-    setIsTextSelectMode,
-    setIsCursorText,
-    clearSelection,
-  } = state;
+  const { store, visibleCols, clearSelection } = state;
   const [timezone] = useTimezone();
   const [timestampFormat] = useTimestampFormat();
 
@@ -693,7 +618,7 @@ export function useSelectionKeyboard(
         const nativeSel = window.getSelection();
         if (nativeSel && !nativeSel.isCollapsed) return;
 
-        const cells = selectedCellsRef.current;
+        const cells = store.get(selectedCellsAtom);
         if (cells.size > 0) {
           e.preventDefault();
           const v = virtualizerRef.current;
@@ -704,11 +629,12 @@ export function useSelectionKeyboard(
         }
 
         // Copy selected rows as TSV
-        if (selectedKeysRef.current.size > 0) {
+        const keys = store.get(selectedKeysAtom);
+        if (keys.size > 0) {
           e.preventDefault();
           const v = virtualizerRef.current;
           if (!v) return;
-          const sorted = [...selectedKeysRef.current].sort((a, b) => a - b);
+          const sorted = [...keys].sort((a, b) => a - b);
           const records = sorted.map((k) => v.getRecord(k)).filter((r): r is LogRecord => r !== undefined);
           const text = formatRowsForCopy(records, visibleCols, timezone, timestampFormat);
           navigator.clipboard.writeText(text);
@@ -720,7 +646,7 @@ export function useSelectionKeyboard(
 
         // Anchor is always a selected cell or null (the cmd+click branch
         // maintains this invariant), so it doubles as the keyboard cursor.
-        const activeCell = anchorCellRef.current;
+        const activeCell = store.get(anchorCellAtom);
         if (!activeCell) return;
 
         const v = virtualizerRef.current;
@@ -731,32 +657,15 @@ export function useSelectionKeyboard(
 
         e.preventDefault();
         window.getSelection()?.removeAllRanges();
-        const nextCells = new Map([[nextCell.rowKey, new Set([nextCell.col])]]);
-        selectedCellsRef.current = nextCells;
-        anchorCellRef.current = nextCell;
-        setSelectedCells(nextCells);
-        setAnchorCell(nextCell);
-        setIsTextSelectMode(true);
-        setIsCursorText(false);
+        selectSingleCell(store, nextCell);
+        store.set(isTextSelectModeAtom, true);
+        store.set(isCursorTextAtom, false);
       }
     };
 
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [
-    visibleCols,
-    timezone,
-    timestampFormat,
-    clearSelection,
-    selectedKeysRef,
-    selectedCellsRef,
-    anchorCellRef,
-    setSelectedCells,
-    setAnchorCell,
-    setIsTextSelectMode,
-    setIsCursorText,
-    virtualizerRef,
-  ]);
+  }, [store, visibleCols, timezone, timestampFormat, clearSelection, virtualizerRef]);
 }
 
 export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualizer | null>) {

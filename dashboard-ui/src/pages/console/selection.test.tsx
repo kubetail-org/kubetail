@@ -1886,7 +1886,7 @@ describe('useSelection', () => {
 });
 
 describe('useSelectionState', () => {
-  it('returns atom values and setters', () => {
+  it('returns atom values and a store handle', () => {
     const { result } = renderWithState((state) => state);
 
     expect(result.current.selectedKeys).toEqual(new Set());
@@ -1894,8 +1894,8 @@ describe('useSelectionState', () => {
     expect(result.current.visibleCols).toEqual(new Set([ViewerColumn.Message]));
     expect(result.current.isTextSelectMode).toBe(false);
     expect(result.current.isCursorText).toBe(false);
-    expect(typeof result.current.setSelectedKeys).toBe('function');
-    expect(typeof result.current.setSelectedCells).toBe('function');
+    expect(typeof result.current.store.get).toBe('function');
+    expect(typeof result.current.store.set).toBe('function');
   });
 
   it('clearSelection resets all state', () => {
