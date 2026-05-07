@@ -154,8 +154,8 @@ export function computeCellRange(
   visibleCols: Set<ViewerColumn>,
 ): Map<number, Set<ViewerColumn>> {
   const cols = [...visibleCols].filter(isSelectableViewerColumn);
-  const anchorIdx = cols.indexOf(anchor.col);
-  const targetIdx = cols.indexOf(target.col);
+  const anchorIdx = isSelectableViewerColumn(anchor.col) ? cols.indexOf(anchor.col) : -1;
+  const targetIdx = isSelectableViewerColumn(target.col) ? cols.indexOf(target.col) : -1;
 
   if (anchorIdx === -1 || targetIdx === -1) {
     return new Map([[target.rowKey, new Set([target.col])]]);
@@ -206,7 +206,7 @@ function nextSelectedCellInReadingOrder(
   });
   if (ordered.length === 0) return null;
 
-  const afterColIdx = cols.indexOf(after.col);
+  const afterColIdx = isSelectableViewerColumn(after.col) ? cols.indexOf(after.col) : -1;
   const next = ordered.find((cell) => {
     const cellColIdx = cols.indexOf(cell.col);
     return cell.rowKey > after.rowKey || (cell.rowKey === after.rowKey && cellColIdx > afterColIdx);
@@ -312,6 +312,68 @@ function selectSingleCell(store: Store, cell: { rowKey: number; col: ViewerColum
   store.set(anchorCellAtom, cell);
 }
 
+/**
+ * Run a document-level drag: register mousemove/mouseup, coalesce moves into
+ * one rAF, and tear down via an AbortController. The caller plugs in:
+ *
+ * - `resolveTarget` — mouse coords → drag target (or null if not over one).
+ * - `isSameTarget` — skip redundant `onMove` calls for the same target.
+ * - `onMove` — runs once per distinct target, rAF-throttled.
+ * - `onCommit` — runs at mouseup with the most recent target. If the user
+ *   never moved, it receives `initialTarget` (so a click-without-drag still
+ *   commits the press location).
+ */
+function startDocumentDrag<T>(args: {
+  initialTarget: T;
+  resolveTarget: (x: number, y: number) => T | null;
+  isSameTarget: (a: T, b: T) => boolean;
+  onMove: (target: T) => void;
+  onCommit: (lastTarget: T) => void;
+  abortRef: React.RefObject<AbortController | null>;
+}) {
+  const { initialTarget, resolveTarget, isSameTarget, onMove, onCommit, abortRef } = args;
+
+  let rafId: number | null = null;
+  let pendingX = 0;
+  let pendingY = 0;
+  let lastTarget: T = initialTarget;
+
+  const processMove = () => {
+    rafId = null;
+    const target = resolveTarget(pendingX, pendingY);
+    if (target === null) return;
+    if (isSameTarget(target, lastTarget)) return;
+    lastTarget = target;
+    onMove(target);
+  };
+
+  const onMouseMove = (e: MouseEvent) => {
+    e.preventDefault();
+    pendingX = e.clientX;
+    pendingY = e.clientY;
+    if (rafId === null) rafId = requestAnimationFrame(processMove);
+  };
+
+  const onMouseUp = (e: MouseEvent) => {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+      pendingX = e.clientX;
+      pendingY = e.clientY;
+      processMove();
+    }
+    onCommit(lastTarget);
+    abortRef.current?.abort();
+    abortRef.current = null;
+  };
+
+  abortRef.current?.abort();
+  abortRef.current = new AbortController();
+  const { signal } = abortRef.current;
+  document.addEventListener('mousemove', onMouseMove, { signal });
+  document.addEventListener('mouseup', onMouseUp, { signal });
+}
+
 export function useSelectionState() {
   const store = useStore();
   const visibleCols = useAtomValue(visibleColsAtom);
@@ -364,9 +426,6 @@ export function useSelectionState() {
 export function useRowDrag(state: ReturnType<typeof useSelectionState>) {
   const { store, dragAbortRef } = state;
 
-  const dragStartKeyRef = useRef<number | null>(null);
-  const dragEndKeyRef = useRef<number | null>(null);
-
   const handleRowMouseDown = useCallback(
     (key: number, event: React.MouseEvent) => {
       // Modifier clicks don't start a drag
@@ -384,61 +443,29 @@ export function useRowDrag(state: ReturnType<typeof useSelectionState>) {
         return;
       }
 
-      dragStartKeyRef.current = key;
-      dragEndKeyRef.current = key;
       store.set(selectedKeysAtom, new Set([key]));
       clearCellSelection(store);
 
-      let rafId: number | null = null;
-      let pendingX = 0;
-      let pendingY = 0;
-
-      const processMove = () => {
-        rafId = null;
-        if (dragStartKeyRef.current === null) return;
-        const el = document.elementFromPoint(pendingX, pendingY);
-        const rowEl = el?.closest('[data-row-key]') as HTMLElement | null;
-        if (!rowEl) return;
-        const endKey = Number(rowEl.dataset.rowKey);
-        if (Number.isNaN(endKey) || endKey === dragEndKeyRef.current) return;
-        dragEndKeyRef.current = endKey;
-        const minKey = Math.min(dragStartKeyRef.current, endKey);
-        const maxKey = Math.max(dragStartKeyRef.current, endKey);
-        const next = new Set<number>();
-        for (let k = minKey; k <= maxKey; k += 1) next.add(k);
-        store.set(selectedKeysAtom, next);
-      };
-
-      const onMouseMove = (e: MouseEvent) => {
-        if (dragStartKeyRef.current === null) return;
-        e.preventDefault();
-        pendingX = e.clientX;
-        pendingY = e.clientY;
-        if (rafId !== null) return;
-        rafId = requestAnimationFrame(processMove);
-      };
-
-      const onMouseUp = (e: MouseEvent) => {
-        if (rafId !== null) {
-          cancelAnimationFrame(rafId);
-          rafId = null;
-          pendingX = e.clientX;
-          pendingY = e.clientY;
-          processMove();
-        }
-        store.set(lastClickedKeyAtom, dragEndKeyRef.current);
-        dragStartKeyRef.current = null;
-        dragEndKeyRef.current = null;
-        dragAbortRef.current?.abort();
-        dragAbortRef.current = null;
-      };
-
-      dragAbortRef.current?.abort();
-      dragAbortRef.current = new AbortController();
-      const { signal } = dragAbortRef.current;
-
-      document.addEventListener('mousemove', onMouseMove, { signal });
-      document.addEventListener('mouseup', onMouseUp, { signal });
+      startDocumentDrag<number>({
+        initialTarget: key,
+        resolveTarget: (x, y) => {
+          const el = document.elementFromPoint(x, y);
+          const rowEl = el?.closest('[data-row-key]') as HTMLElement | null;
+          if (!rowEl) return null;
+          const k = Number(rowEl.dataset.rowKey);
+          return Number.isNaN(k) ? null : k;
+        },
+        isSameTarget: (a, b) => a === b,
+        onMove: (endKey) => {
+          const minKey = Math.min(key, endKey);
+          const maxKey = Math.max(key, endKey);
+          const next = new Set<number>();
+          for (let k = minKey; k <= maxKey; k += 1) next.add(k);
+          store.set(selectedKeysAtom, next);
+        },
+        onCommit: (endKey) => store.set(lastClickedKeyAtom, endKey),
+        abortRef: dragAbortRef,
+      });
     },
     [store, dragAbortRef],
   );
@@ -466,9 +493,6 @@ function useSelectionEdges(selectedKeys: Set<number>) {
 
 export function useCellDrag(state: ReturnType<typeof useSelectionState>) {
   const { store, visibleCols, dragAbortRef, scheduleCursorText } = state;
-
-  const cellDragStartRef = useRef<{ rowKey: number; col: ViewerColumn } | null>(null);
-  const cellDragEndRef = useRef<{ rowKey: number; col: ViewerColumn } | null>(null);
 
   const handleCellMouseDown = useCallback(
     (rowKey: number, col: ViewerColumn, event: React.MouseEvent) => {
@@ -528,8 +552,6 @@ export function useCellDrag(state: ReturnType<typeof useSelectionState>) {
       }
 
       const start = { rowKey, col };
-      cellDragStartRef.current = start;
-      cellDragEndRef.current = start;
       // Set anchor at drag-start (not drag-end) so a later Shift+click extends
       // from where the user began the selection.
       selectSingleCell(store, start);
@@ -537,57 +559,26 @@ export function useCellDrag(state: ReturnType<typeof useSelectionState>) {
       store.set(isTextSelectModeAtom, false);
       store.set(isCursorTextAtom, false);
 
-      let rafId: number | null = null;
-      let pendingX = 0;
-      let pendingY = 0;
-
-      const processMove = () => {
-        rafId = null;
-        if (cellDragStartRef.current === null) return;
-        const el = document.elementFromPoint(pendingX, pendingY);
-        const cellEl = el?.closest('[data-col-id]') as HTMLElement | null;
-        const rowEl = el?.closest('[data-row-key]') as HTMLElement | null;
-        if (!cellEl || !rowEl) return;
-        const endRowKey = Number(rowEl.dataset.rowKey);
-        const endCol = cellEl.dataset.colId as ViewerColumn | undefined;
-        if (Number.isNaN(endRowKey) || !endCol || endCol === ViewerColumn.ColorDot) return;
-        const end = { rowKey: endRowKey, col: endCol };
-        if (end.rowKey === cellDragEndRef.current?.rowKey && end.col === cellDragEndRef.current?.col) return;
-        cellDragEndRef.current = end;
-        store.set(selectedCellsAtom, computeCellRange(cellDragStartRef.current, end, visibleCols));
-      };
-
-      const onMouseMove = (e: MouseEvent) => {
-        if (cellDragStartRef.current === null) return;
-        e.preventDefault();
-        pendingX = e.clientX;
-        pendingY = e.clientY;
-        if (rafId !== null) return;
-        rafId = requestAnimationFrame(processMove);
-      };
-
-      const onMouseUp = (e: MouseEvent) => {
-        if (rafId !== null) {
-          cancelAnimationFrame(rafId);
-          rafId = null;
-          pendingX = e.clientX;
-          pendingY = e.clientY;
-          processMove();
-        }
-        if (cellDragEndRef.current) store.set(isTextSelectModeAtom, true);
-        cellDragStartRef.current = null;
-        cellDragEndRef.current = null;
-        dragAbortRef.current?.abort();
-        dragAbortRef.current = null;
-        scheduleCursorText();
-      };
-
-      dragAbortRef.current?.abort();
-      dragAbortRef.current = new AbortController();
-      const { signal } = dragAbortRef.current;
-
-      document.addEventListener('mousemove', onMouseMove, { signal });
-      document.addEventListener('mouseup', onMouseUp, { signal });
+      startDocumentDrag<{ rowKey: number; col: ViewerColumn }>({
+        initialTarget: start,
+        resolveTarget: (x, y) => {
+          const el = document.elementFromPoint(x, y);
+          const cellEl = el?.closest('[data-col-id]') as HTMLElement | null;
+          const rowEl = el?.closest('[data-row-key]') as HTMLElement | null;
+          if (!cellEl || !rowEl) return null;
+          const endRowKey = Number(rowEl.dataset.rowKey);
+          const endCol = cellEl.dataset.colId as ViewerColumn | undefined;
+          if (Number.isNaN(endRowKey) || !endCol || endCol === ViewerColumn.ColorDot) return null;
+          return { rowKey: endRowKey, col: endCol };
+        },
+        isSameTarget: (a, b) => a.rowKey === b.rowKey && a.col === b.col,
+        onMove: (end) => store.set(selectedCellsAtom, computeCellRange(start, end, visibleCols)),
+        onCommit: () => {
+          store.set(isTextSelectModeAtom, true);
+          scheduleCursorText();
+        },
+        abortRef: dragAbortRef,
+      });
     },
     [store, visibleCols, dragAbortRef, scheduleCursorText],
   );
