@@ -226,6 +226,7 @@ class TestClusterAPIAggregationGate:
             + f"{_AGGREGATED_BASE}/graphql"
         )
         ctx = ssl.create_default_context()
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2  # silence CodeQL; we're testing mTLS gate, not TLS version
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
 
@@ -314,6 +315,7 @@ def cluster_agent_local_port(cluster_api_url):
 class TestClusterAgentMTLSGate:
     def test_tls_without_client_cert_rejected(self, cluster_agent_local_port):
         ctx = ssl.create_default_context()
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2  # silence CodeQL; we're testing mTLS gate, not TLS version
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
         with socket.create_connection(("127.0.0.1", cluster_agent_local_port), timeout=5) as raw:

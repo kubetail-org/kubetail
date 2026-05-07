@@ -30,7 +30,7 @@ grep-printer = "0.2.2"
 grep-regex = "0.1.13"
 grep-searcher = "0.1.14"
 memchr = "2.7.5"
-rand = "0.9.2"
+rand = "0.9.4"
 regex = "1.11.1"
 rstest = "0.26.1"
 serde = { version = "1.0", features = ["derive"] }
