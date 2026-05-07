@@ -75,10 +75,6 @@ export function getPlainAttribute(
   }
 }
 
-/**
- * formatRow - Formats a single record as tab-separated column values.
- * ColorDot is skipped. When filter is provided, only matching columns are included.
- */
 function formatRow(
   record: LogRecord,
   visibleCols: Set<ViewerColumn>,
@@ -95,10 +91,6 @@ function formatRow(
   return parts.join('\t');
 }
 
-/**
- * formatRowsForCopy - Formats an array of log records as copyable text.
- * Columns are tab-separated, rows are newline-separated. ColorDot is skipped.
- */
 export function formatRowsForCopy(
   records: LogRecord[],
   visibleCols: Set<ViewerColumn>,
@@ -108,11 +100,6 @@ export function formatRowsForCopy(
   return records.map((record) => formatRow(record, visibleCols, timezone, timestampFormat)).join('\n');
 }
 
-/**
- * formatCellsForCopy - Formats selected cells as copyable text.
- * Columns are tab-separated within a row, rows are newline-separated. ColorDot is skipped.
- * Rows are sorted by key ascending; only selected columns (in visibleCols order) are included.
- */
 export function formatCellsForCopy(
   selectedCells: Map<number, Set<ViewerColumn>>,
   visibleCols: Set<ViewerColumn>,
