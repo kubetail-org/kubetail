@@ -32,7 +32,8 @@ import type {
 } from '@/components/widgets/log-viewer';
 
 import { CellContextMenu } from './context-menu';
-import { useSelection } from './selection';
+import { SelectionOverlay } from './selection-overlay';
+import { hasMultipleSelectedCells, useSelection } from './selection';
 import { PageContext, ViewerColumn } from './shared';
 import { isFollowAtom, isWrapAtom, visibleColsAtom } from './state';
 
@@ -41,6 +42,9 @@ const DEFAULT_INITIAL_POSITION = { type: 'tail' } satisfies LogViewerInitialPosi
 const BATCH_SIZE_INITIAL = 300;
 const BATCH_SIZE_REGULAR = 250;
 const LOG_RECORD_ROW_HEIGHT = 24;
+// Width of the leading Pos column. Used both to build the row's grid template
+// and by SelectionOverlay to position cell rects — the two must match.
+const POS_COL_WIDTH = 48;
 const HAS_MORE_BEFORE_ROW_HEIGHT = 24;
 const HAS_MORE_AFTER_ROW_HEIGHT = 24;
 const IS_REFRESHING_ROW_HEIGHT = 24;
@@ -102,6 +106,11 @@ function useMeasureWidths() {
 
   const pendingRef = useRef(newDefaultWidths());
   const measuredRef = useRef(new WeakSet<Element>());
+  // Tracks which fields changed since the last flush so we only swap the
+  // affected reference. A new colWidths Map reference busts RecordRow's memo
+  // for every row, so reusing it when only maxRowWidth changed avoids a
+  // cascade of unrelated re-renders during scroll-driven measurement.
+  const dirtyRef = useRef({ maxRowWidth: false, colWidths: false });
 
   const rafIDRef = useRef<number | null>(null);
 
@@ -118,10 +127,14 @@ function useMeasureWidths() {
     rafIDRef.current = requestAnimationFrame(() => {
       rafIDRef.current = null;
       const pending = pendingRef.current;
-      setWidths({
-        maxRowWidth: pending.maxRowWidth,
-        colWidths: new Map(pending.colWidths),
-      });
+      const dirty = dirtyRef.current;
+      if (!dirty.maxRowWidth && !dirty.colWidths) return;
+      setWidths((prev) => ({
+        maxRowWidth: dirty.maxRowWidth ? pending.maxRowWidth : prev.maxRowWidth,
+        colWidths: dirty.colWidths ? new Map(pending.colWidths) : prev.colWidths,
+      }));
+      dirty.maxRowWidth = false;
+      dirty.colWidths = false;
     });
   }, []);
 
@@ -134,6 +147,7 @@ function useMeasureWidths() {
       const next = Math.max(el.scrollWidth, prev);
       if (next !== prev) {
         pendingRef.current.maxRowWidth = next;
+        dirtyRef.current.maxRowWidth = true;
         flush();
       }
     },
@@ -160,6 +174,7 @@ function useMeasureWidths() {
       const next = Math.max(contentWidth + CELL_HORIZONTAL_PADDING_PX, prev ?? 0);
       if (next !== prev) {
         pendingColWidths.set(col, next);
+        dirtyRef.current.colWidths = true;
         flush();
       }
     },
@@ -173,6 +188,7 @@ function useMeasureWidths() {
     }
     pendingRef.current = newDefaultWidths();
     measuredRef.current = new WeakSet();
+    dirtyRef.current = { maxRowWidth: false, colWidths: false };
     setWidths(newDefaultWidths);
     setTriggerID((id) => id + 1);
   }, []);
@@ -382,24 +398,10 @@ const getAttribute = (record: LogRecord, col: ViewerColumn, timezone: string, ti
 };
 
 function selectionBoxShadow(isTop: boolean, isBottom: boolean): string | undefined {
-  if (isTop && isBottom) return 'inset 0 1px 0 0 var(--color-blue-500), inset 0 -1px 0 0 var(--color-blue-500)';
-  if (isTop) return 'inset 0 1px 0 0 var(--color-blue-500)';
-  if (isBottom) return 'inset 0 -1px 0 0 var(--color-blue-500)';
+  if (isTop && isBottom) return 'inset 0 2px 0 0 var(--color-blue-500), inset 0 -2px 0 0 var(--color-blue-500)';
+  if (isTop) return 'inset 0 2px 0 0 var(--color-blue-500)';
+  if (isBottom) return 'inset 0 -2px 0 0 var(--color-blue-500)';
   return undefined;
-}
-
-function cellSelectionBoxShadow(
-  isTop: boolean,
-  isBottom: boolean,
-  isLeft: boolean,
-  isRight: boolean,
-): string | undefined {
-  const shadows: string[] = [];
-  if (isTop) shadows.push('inset 0 2px 0 0 var(--color-blue-500)');
-  if (isBottom) shadows.push('inset 0 -2px 0 0 var(--color-blue-500)');
-  if (isLeft) shadows.push('inset 2px 0 0 0 var(--color-blue-500)');
-  if (isRight) shadows.push('inset -2px 0 0 0 var(--color-blue-500)');
-  return shadows.length > 0 ? shadows.join(', ') : undefined;
 }
 
 type RecordRowProps = {
@@ -417,6 +419,7 @@ type RecordRowProps = {
   selectedCellCols: Set<ViewerColumn> | undefined;
   selectedCellColsAbove: Set<ViewerColumn> | undefined;
   selectedCellColsBelow: Set<ViewerColumn> | undefined;
+  anchorCol: ViewerColumn | undefined;
   isCursorText: boolean;
   isCellTextSelectable: boolean;
   measureElement: (node: Element | null) => void;
@@ -442,6 +445,7 @@ export const RecordRow = memo(
     selectedCellCols,
     selectedCellColsAbove,
     selectedCellColsBelow,
+    anchorCol,
     isCursorText,
     isCellTextSelectable,
     measureElement,
@@ -495,36 +499,6 @@ export const RecordRow = memo(
         cellBg = isTimestamp ? 'bg-chrome-200' : row.index % 2 !== 0 && 'bg-chrome-100';
       }
 
-      // ColorDot is visually selected when both adjacent columns are selected
-      const isColorDotVisuallySelected =
-        isColorDot &&
-        i > 0 &&
-        i < colsArray.length - 1 &&
-        (selectedCellCols?.has(colsArray[i - 1]) ?? false) &&
-        (selectedCellCols?.has(colsArray[i + 1]) ?? false);
-
-      let cellShadow: string | undefined;
-      if (isCellSelected) {
-        const isEdgeTop = !selectedCellColsAbove?.has(col);
-        const isEdgeBottom = !selectedCellColsBelow?.has(col);
-        // Skip over ColorDot when checking adjacent selected cells
-        let prevIdx = i - 1;
-        if (prevIdx >= 0 && colsArray[prevIdx] === ViewerColumn.ColorDot) prevIdx -= 1;
-        let nextIdx = i + 1;
-        if (nextIdx < colsArray.length && colsArray[nextIdx] === ViewerColumn.ColorDot) nextIdx += 1;
-        const isEdgeLeft = prevIdx < 0 || !selectedCellCols!.has(colsArray[prevIdx]);
-        const isEdgeRight = nextIdx >= colsArray.length || !selectedCellCols!.has(colsArray[nextIdx]);
-        cellShadow = cellSelectionBoxShadow(isEdgeTop, isEdgeBottom, isEdgeLeft, isEdgeRight);
-      } else if (isColorDotVisuallySelected) {
-        const aboveAlsoVisual =
-          (selectedCellColsAbove?.has(colsArray[i - 1]) ?? false) &&
-          (selectedCellColsAbove?.has(colsArray[i + 1]) ?? false);
-        const belowAlsoVisual =
-          (selectedCellColsBelow?.has(colsArray[i - 1]) ?? false) &&
-          (selectedCellColsBelow?.has(colsArray[i + 1]) ?? false);
-        cellShadow = cellSelectionBoxShadow(!aboveAlsoVisual, !belowAlsoVisual, false, false);
-      }
-
       const isNativeTextSelectable = isCellSelected && isCellTextSelectable;
 
       const cellClassName = cn(
@@ -542,7 +516,6 @@ export const RecordRow = memo(
           userSelect: 'text' as const,
           WebkitUserSelect: 'text' as const,
         }),
-        ...(cellShadow && { boxShadow: cellShadow }),
       };
 
       els.push(
@@ -586,7 +559,7 @@ export const RecordRow = memo(
         data-row-key={row.key}
         role="row"
         aria-selected={isSelected}
-        className={cn('absolute top-0 left-0 grid leading-6 group', selectedCellCols && 'z-10')}
+        className="absolute top-0 left-0 grid leading-6 group"
         style={{
           gridTemplateColumns: gridTemplate,
           minWidth: isWrap ? '100%' : maxRowWidth || '100%',
@@ -597,6 +570,18 @@ export const RecordRow = memo(
         }}
       >
         {els}
+        {selectedCellCols && (
+          <SelectionOverlay
+            selectedCols={selectedCellCols}
+            selectedColsAbove={selectedCellColsAbove}
+            selectedColsBelow={selectedCellColsBelow}
+            anchorCol={anchorCol}
+            visibleCols={visibleCols}
+            colWidths={colWidths}
+            posColWidth={POS_COL_WIDTH}
+            rowWidth={maxRowWidth}
+          />
+        )}
       </div>
     );
   },
@@ -616,6 +601,7 @@ export const RecordRow = memo(
     if (prev.selectedCellCols !== next.selectedCellCols) return false;
     if (prev.selectedCellColsAbove !== next.selectedCellColsAbove) return false;
     if (prev.selectedCellColsBelow !== next.selectedCellColsBelow) return false;
+    if (prev.anchorCol !== next.anchorCol) return false;
     if (prev.isCursorText !== next.isCursorText && (prev.selectedCellCols || next.selectedCellCols)) return false;
     if (prev.isCellTextSelectable !== next.isCellTextSelectable && (prev.selectedCellCols || next.selectedCellCols))
       return false;
@@ -654,6 +640,7 @@ export const Main = () => {
     selectionTopKeys,
     selectionBottomKeys,
     selectedCells,
+    anchorCell,
     isTextSelectMode,
     isCursorText,
     handleRowMouseDown,
@@ -664,10 +651,14 @@ export const Main = () => {
   // Generate grid template
   const gridTemplate = useMemo(
     () =>
-      // Key column (auto) + visible columns
-      `3rem ${[...visibleCols].map((col) => (col === ViewerColumn.Message ? '1fr' : 'auto')).join(' ')}`,
+      // Pos column + visible columns. Message uses `1fr` to fill remaining
+      // width; the rest are content-sized. Pos width must match POS_COL_WIDTH
+      // because SelectionOverlay uses it to position cell rects.
+      `${POS_COL_WIDTH}px ${[...visibleCols].map((col) => (col === ViewerColumn.Message ? '1fr' : 'auto')).join(' ')}`,
     [visibleCols],
   );
+
+  const isMultiCellSelection = hasMultipleSelectedCells(selectedCells);
 
   // Reset column widths and selection when loading new data
   useEffect(() => {
@@ -798,6 +789,9 @@ export const Main = () => {
                     selectedCellCols={selectedCells.get(virtualRow.key)}
                     selectedCellColsAbove={selectedCells.get(virtualRow.key - 1)}
                     selectedCellColsBelow={selectedCells.get(virtualRow.key + 1)}
+                    anchorCol={
+                      isMultiCellSelection && anchorCell?.rowKey === virtualRow.key ? anchorCell.col : undefined
+                    }
                     isCursorText={isCursorText}
                     isCellTextSelectable={isTextSelectMode && selectedCells.has(virtualRow.key)}
                     measureRowElement={measureRowElement}

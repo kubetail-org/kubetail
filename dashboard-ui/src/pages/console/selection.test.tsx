@@ -27,15 +27,14 @@ import {
   computeCellRange,
   useSelection,
   useSelectionState,
-  useRowDrag,
   useCellDrag,
   useSelectionKeyboard,
 } from './selection';
 import { ViewerColumn } from './shared';
 import {
+  anchorCellAtom,
   isCursorTextAtom,
   isTextSelectModeAtom,
-  lastClickedCellAtom,
   lastClickedKeyAtom,
   selectedCellsAtom,
   selectedKeysAtom,
@@ -768,24 +767,79 @@ describe('useSelection', () => {
       );
     });
 
-    it('removes cell from selection with meta+click when already selected', () => {
-      const { result } = renderUseSelection();
+    it('cmd+click on the only selected cell clears selection and anchor', () => {
+      const { result, store } = renderUseSelection();
 
       act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent()));
       act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent({ metaKey: true })));
 
       expect(result.current.selectedCells).toEqual(new Map());
+      expect(store.get(anchorCellAtom)).toBeNull();
     });
 
-    it('removes cell and cleans up empty row entry', () => {
-      const { result } = renderUseSelection();
+    it('cmd+click on a non-anchor cell removes it and leaves the anchor unchanged', () => {
+      const { result, store } = renderUseSelection();
 
+      // Click (0, Message) → anchor=(0, Message). Cmd+click (1, Pod) → anchor moves to (1, Pod).
       act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent()));
       act(() => result.current.handleCellMouseDown(1, ViewerColumn.Pod, clickEvent({ metaKey: true })));
-      // Now remove the only cell in row 0
+      // Cmd+click (0, Message) — toggling off a non-anchor cell. Anchor stays at (1, Pod).
       act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent({ metaKey: true })));
 
       expect(result.current.selectedCells).toEqual(new Map([[1, new Set([ViewerColumn.Pod])]]));
+      expect(store.get(anchorCellAtom)).toEqual({ rowKey: 1, col: ViewerColumn.Pod });
+    });
+
+    it('cmd+click on the anchor moves the anchor to the next selected cell on the right', () => {
+      const { result, store } = renderUseSelection((s) => {
+        s.set(visibleColsAtom, new Set([ViewerColumn.Pod, ViewerColumn.Container, ViewerColumn.Message]));
+      });
+
+      // Build selection {(5, Pod), (5, Message)} with anchor at (5, Pod).
+      // Container is intentionally unselected so the next-right search must skip it.
+      act(() => result.current.handleCellMouseDown(5, ViewerColumn.Message, clickEvent()));
+      act(() => result.current.handleCellMouseDown(5, ViewerColumn.Pod, clickEvent({ metaKey: true })));
+      expect(store.get(anchorCellAtom)).toEqual({ rowKey: 5, col: ViewerColumn.Pod });
+
+      // Cmd+click on anchor (5, Pod) — anchor jumps right past the unselected Container to Message.
+      act(() => result.current.handleCellMouseDown(5, ViewerColumn.Pod, clickEvent({ metaKey: true })));
+
+      expect(result.current.selectedCells).toEqual(new Map([[5, new Set([ViewerColumn.Message])]]));
+      expect(store.get(anchorCellAtom)).toEqual({ rowKey: 5, col: ViewerColumn.Message });
+    });
+
+    it('cmd+click on the anchor wraps to the next row when no selected cell remains to the right', () => {
+      const { result, store } = renderUseSelection((s) => {
+        s.set(visibleColsAtom, new Set([ViewerColumn.Pod, ViewerColumn.Container, ViewerColumn.Message]));
+      });
+
+      // Selection {(5, Pod), (6, Pod)}, anchor at (5, Pod).
+      act(() => result.current.handleCellMouseDown(6, ViewerColumn.Pod, clickEvent()));
+      act(() => result.current.handleCellMouseDown(5, ViewerColumn.Pod, clickEvent({ metaKey: true })));
+      expect(store.get(anchorCellAtom)).toEqual({ rowKey: 5, col: ViewerColumn.Pod });
+
+      // Cmd+click anchor (5, Pod) — no selected cell to the right in row 5, so wrap to row 6.
+      act(() => result.current.handleCellMouseDown(5, ViewerColumn.Pod, clickEvent({ metaKey: true })));
+
+      expect(result.current.selectedCells).toEqual(new Map([[6, new Set([ViewerColumn.Pod])]]));
+      expect(store.get(anchorCellAtom)).toEqual({ rowKey: 6, col: ViewerColumn.Pod });
+    });
+
+    it('cmd+click on the anchor wraps around to the first selected cell when at the end', () => {
+      const { result, store } = renderUseSelection((s) => {
+        s.set(visibleColsAtom, new Set([ViewerColumn.Pod, ViewerColumn.Container, ViewerColumn.Message]));
+      });
+
+      // Selection {(4, Pod), (5, Message)}, anchor at (5, Message) (the last cell in reading order).
+      act(() => result.current.handleCellMouseDown(4, ViewerColumn.Pod, clickEvent()));
+      act(() => result.current.handleCellMouseDown(5, ViewerColumn.Message, clickEvent({ metaKey: true })));
+      expect(store.get(anchorCellAtom)).toEqual({ rowKey: 5, col: ViewerColumn.Message });
+
+      // Cmd+click anchor (5, Message) — nothing later, wrap to first selected cell.
+      act(() => result.current.handleCellMouseDown(5, ViewerColumn.Message, clickEvent({ metaKey: true })));
+
+      expect(result.current.selectedCells).toEqual(new Map([[4, new Set([ViewerColumn.Pod])]]));
+      expect(store.get(anchorCellAtom)).toEqual({ rowKey: 4, col: ViewerColumn.Pod });
     });
 
     it('adds cell with ctrl+click', () => {
@@ -887,48 +941,47 @@ describe('useSelection', () => {
       );
     });
 
-    it('shift+click after cmd+click is additive to existing selection', () => {
+    it('shift+click after cmd+click replaces selection with rectangle from new anchor', () => {
       const { result } = renderUseSelection((store) => {
         store.set(visibleColsAtom, new Set([ViewerColumn.Pod, ViewerColumn.Container, ViewerColumn.Message]));
       });
 
-      // Select a cell, then Cmd+click another
+      // Click (0, Pod), then Cmd+click (0, Message) — anchor moves to (0, Message)
       act(() => result.current.handleCellMouseDown(0, ViewerColumn.Pod, clickEvent()));
       act(() => {
         fireEvent.mouseUp(document);
       });
       act(() => result.current.handleCellMouseDown(0, ViewerColumn.Message, clickEvent({ metaKey: true })));
 
-      // Shift+click should add the range to existing selection, not replace it
+      // Shift+click replaces with rectangle from anchor (0, Message) to (2, Message).
+      // The previously-selected (0, Pod) cell is dropped — this is spreadsheet behavior.
       act(() => result.current.handleCellMouseDown(2, ViewerColumn.Message, clickEvent({ shiftKey: true })));
 
       expect(result.current.selectedCells).toEqual(
         new Map([
-          [0, new Set([ViewerColumn.Pod, ViewerColumn.Message])],
+          [0, new Set([ViewerColumn.Message])],
           [1, new Set([ViewerColumn.Message])],
           [2, new Set([ViewerColumn.Message])],
         ]),
       );
     });
 
-    it('shift+click merges range columns with existing columns in same row', () => {
+    it('shift+click replaces selection — does not merge with prior columns on the same row', () => {
       const { result } = renderUseSelection((store) => {
         store.set(visibleColsAtom, new Set([ViewerColumn.Pod, ViewerColumn.Container, ViewerColumn.Message]));
       });
 
-      // Select Pod in row 0
+      // Click (0, Pod), then Cmd+click (1, Container) — anchor moves to (1, Container)
       act(() => result.current.handleCellMouseDown(0, ViewerColumn.Pod, clickEvent()));
       act(() => {
         fireEvent.mouseUp(document);
       });
-      // Cmd+click Container in row 1 (sets new anchor to row 1, Container)
       act(() => result.current.handleCellMouseDown(1, ViewerColumn.Container, clickEvent({ metaKey: true })));
-      // Shift+click Message in row 2 — range is Container+Message in rows 1-2, merged with existing
+      // Shift+click (2, Message) — replaces with rectangle (1,Container)↔(2,Message)
       act(() => result.current.handleCellMouseDown(2, ViewerColumn.Message, clickEvent({ shiftKey: true })));
 
       expect(result.current.selectedCells).toEqual(
         new Map([
-          [0, new Set([ViewerColumn.Pod])],
           [1, new Set([ViewerColumn.Container, ViewerColumn.Message])],
           [2, new Set([ViewerColumn.Container, ViewerColumn.Message])],
         ]),
@@ -1383,12 +1436,15 @@ describe('useSelection', () => {
       });
     });
 
-    it('sets lastClickedCell on mouseup', () => {
+    it('sets anchor cell on mousedown (drag start), not on mouseup', () => {
       const { result, store } = renderUseSelection((s) => {
         s.set(visibleColsAtom, new Set([ViewerColumn.Pod, ViewerColumn.Container, ViewerColumn.Message]));
       });
 
       act(() => result.current.handleCellMouseDown(0, ViewerColumn.Pod, clickEvent()));
+
+      // Anchor is set immediately on mousedown — the start of the drag.
+      expect(store.get(anchorCellAtom)).toEqual({ rowKey: 0, col: ViewerColumn.Pod });
 
       mockElementFromPoint.mockReturnValue(makeCellEl(2, ViewerColumn.Message));
       act(() => {
@@ -1400,7 +1456,42 @@ describe('useSelection', () => {
         fireEvent.mouseUp(document);
       });
 
-      expect(store.get(lastClickedCellAtom)).toEqual({ rowKey: 2, col: ViewerColumn.Message });
+      // Anchor stays at the drag-start cell (A), not the drag-end cell (B).
+      expect(store.get(anchorCellAtom)).toEqual({ rowKey: 0, col: ViewerColumn.Pod });
+    });
+
+    it('shift+click does not move the anchor', () => {
+      const { result, store } = renderUseSelection((s) => {
+        s.set(visibleColsAtom, new Set([ViewerColumn.Pod, ViewerColumn.Container, ViewerColumn.Message]));
+      });
+
+      // Plain click on (0, Pod) — anchor becomes (0, Pod).
+      act(() => result.current.handleCellMouseDown(0, ViewerColumn.Pod, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+      expect(store.get(anchorCellAtom)).toEqual({ rowKey: 0, col: ViewerColumn.Pod });
+
+      // Shift+click on (2, Message) — extends range, but anchor must stay at (0, Pod).
+      act(() => result.current.handleCellMouseDown(2, ViewerColumn.Message, clickEvent({ shiftKey: true })));
+
+      expect(store.get(anchorCellAtom)).toEqual({ rowKey: 0, col: ViewerColumn.Pod });
+    });
+
+    it('ctrl/cmd+click moves the anchor to the toggled cell', () => {
+      const { result, store } = renderUseSelection((s) => {
+        s.set(visibleColsAtom, new Set([ViewerColumn.Pod, ViewerColumn.Container, ViewerColumn.Message]));
+      });
+
+      act(() => result.current.handleCellMouseDown(0, ViewerColumn.Pod, clickEvent()));
+      act(() => {
+        fireEvent.mouseUp(document);
+      });
+      expect(store.get(anchorCellAtom)).toEqual({ rowKey: 0, col: ViewerColumn.Pod });
+
+      act(() => result.current.handleCellMouseDown(1, ViewerColumn.Message, clickEvent({ metaKey: true })));
+
+      expect(store.get(anchorCellAtom)).toEqual({ rowKey: 1, col: ViewerColumn.Message });
     });
 
     it('modifier mousedown does not start drag', () => {
@@ -1836,33 +1927,6 @@ describe('useSelectionState', () => {
   });
 });
 
-describe('useRowDrag', () => {
-  it('selects a single row on plain mousedown', () => {
-    const { result } = renderWithState((state) => useRowDrag(state));
-
-    act(() => result.current.handleRowMouseDown(1, clickEvent()));
-    act(() => {
-      fireEvent.mouseUp(document);
-    });
-
-    expect(result.current.selectionTopKeys).toEqual(new Set([1]));
-    expect(result.current.selectionBottomKeys).toEqual(new Set([1]));
-  });
-
-  it('computes selection boundaries for contiguous range', () => {
-    const { result } = renderWithState((state) => useRowDrag(state));
-
-    act(() => result.current.handleRowMouseDown(0, clickEvent()));
-    act(() => {
-      fireEvent.mouseUp(document);
-    });
-    act(() => result.current.handleRowMouseDown(2, clickEvent({ shiftKey: true })));
-
-    expect(result.current.selectionTopKeys).toEqual(new Set([0]));
-    expect(result.current.selectionBottomKeys).toEqual(new Set([2]));
-  });
-});
-
 describe('useCellDrag', () => {
   it('selects a cell on click', () => {
     const { result, store } = renderWithState((state) => useCellDrag(state));
@@ -2087,7 +2151,7 @@ describe('useSelectionKeyboard', () => {
 
     act(() => {
       store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Pod])]]));
-      store.set(lastClickedCellAtom, { rowKey: 0, col: ViewerColumn.Pod });
+      store.set(anchorCellAtom, { rowKey: 0, col: ViewerColumn.Pod });
     });
 
     act(() => {
@@ -2095,7 +2159,7 @@ describe('useSelectionKeyboard', () => {
     });
 
     expect(result.current.selectedCells).toEqual(new Map([[0, new Set([ViewerColumn.Message])]]));
-    expect(store.get(lastClickedCellAtom)).toEqual({ rowKey: 0, col: ViewerColumn.Message });
+    expect(store.get(anchorCellAtom)).toEqual({ rowKey: 0, col: ViewerColumn.Message });
   });
 
   it('moves selected cell left to the previous selectable column', () => {
@@ -2105,7 +2169,7 @@ describe('useSelectionKeyboard', () => {
 
     act(() => {
       store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Message])]]));
-      store.set(lastClickedCellAtom, { rowKey: 0, col: ViewerColumn.Message });
+      store.set(anchorCellAtom, { rowKey: 0, col: ViewerColumn.Message });
     });
 
     act(() => {
@@ -2113,7 +2177,7 @@ describe('useSelectionKeyboard', () => {
     });
 
     expect(result.current.selectedCells).toEqual(new Map([[0, new Set([ViewerColumn.Pod])]]));
-    expect(store.get(lastClickedCellAtom)).toEqual({ rowKey: 0, col: ViewerColumn.Pod });
+    expect(store.get(anchorCellAtom)).toEqual({ rowKey: 0, col: ViewerColumn.Pod });
   });
 
   it('moves selected cell down to the same column on the next row', () => {
@@ -2121,7 +2185,7 @@ describe('useSelectionKeyboard', () => {
 
     act(() => {
       store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Message])]]));
-      store.set(lastClickedCellAtom, { rowKey: 0, col: ViewerColumn.Message });
+      store.set(anchorCellAtom, { rowKey: 0, col: ViewerColumn.Message });
     });
 
     act(() => {
@@ -2129,7 +2193,7 @@ describe('useSelectionKeyboard', () => {
     });
 
     expect(result.current.selectedCells).toEqual(new Map([[1, new Set([ViewerColumn.Message])]]));
-    expect(store.get(lastClickedCellAtom)).toEqual({ rowKey: 1, col: ViewerColumn.Message });
+    expect(store.get(anchorCellAtom)).toEqual({ rowKey: 1, col: ViewerColumn.Message });
   });
 
   it('keeps selected cell unchanged when arrow key has no target cell', () => {
@@ -2137,7 +2201,7 @@ describe('useSelectionKeyboard', () => {
 
     act(() => {
       store.set(selectedCellsAtom, new Map([[0, new Set([ViewerColumn.Message])]]));
-      store.set(lastClickedCellAtom, { rowKey: 0, col: ViewerColumn.Message });
+      store.set(anchorCellAtom, { rowKey: 0, col: ViewerColumn.Message });
     });
 
     act(() => {
@@ -2145,6 +2209,6 @@ describe('useSelectionKeyboard', () => {
     });
 
     expect(result.current.selectedCells).toEqual(new Map([[0, new Set([ViewerColumn.Message])]]));
-    expect(store.get(lastClickedCellAtom)).toEqual({ rowKey: 0, col: ViewerColumn.Message });
+    expect(store.get(anchorCellAtom)).toEqual({ rowKey: 0, col: ViewerColumn.Message });
   });
 });
