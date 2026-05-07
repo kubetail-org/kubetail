@@ -32,7 +32,7 @@ export const lastClickedKeyAtom = atom<number | null>(null);
 
 export const selectedCellsAtom = atom<Map<number, Set<ViewerColumn>>>(new Map());
 
-export const lastClickedCellAtom = atom<{ rowKey: number; col: ViewerColumn } | null>(null);
+export const anchorCellAtom = atom<{ rowKey: number; col: ViewerColumn } | null>(null);
 
 export const isTextSelectModeAtom = atom(false);
 
