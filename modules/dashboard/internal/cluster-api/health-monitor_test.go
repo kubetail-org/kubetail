@@ -321,7 +321,7 @@ func TestDesktopHealthMonitor_GetHealthStatus(t *testing.T) {
 func TestInClusterHealthMonitor_GetHealthStatus(t *testing.T) {
 	tests := []struct {
 		name           string
-		endpoint       string
+		enabled        bool
 		mockStatus     HealthStatus
 		setupMockError bool
 		expectedStatus HealthStatus
@@ -329,15 +329,15 @@ func TestInClusterHealthMonitor_GetHealthStatus(t *testing.T) {
 	}{
 		{
 			name:           "Successful status retrieval - SUCCESS",
-			endpoint:       "kubetail-cluster-api.kubetail-system.svc.cluster.local:50051",
+			enabled:        true,
 			mockStatus:     HealthStatusSuccess,
 			setupMockError: false,
 			expectedStatus: HealthStatusSuccess,
 			expectError:    false,
 		},
 		{
-			name:           "No endpoint - should use noop worker",
-			endpoint:       "",
+			name:           "Disabled - should use noop worker",
+			enabled:        false,
 			mockStatus:     HealthStatusUknown,
 			setupMockError: false,
 			expectedStatus: HealthStatusUknown,
@@ -345,7 +345,7 @@ func TestInClusterHealthMonitor_GetHealthStatus(t *testing.T) {
 		},
 		{
 			name:           "Worker creation error",
-			endpoint:       "kubetail-cluster-api.kubetail-system.svc.cluster.local:50051",
+			enabled:        true,
 			mockStatus:     HealthStatusUknown,
 			setupMockError: true,
 			expectedStatus: HealthStatusUknown,
@@ -362,7 +362,7 @@ func TestInClusterHealthMonitor_GetHealthStatus(t *testing.T) {
 				cm.On("GetOrCreateRestConfig", "").Return(nil, fmt.Errorf("connection error"))
 			}
 
-			hm := NewInClusterHealthMonitor(cm, tt.endpoint != "")
+			hm := NewInClusterHealthMonitor(cm, tt.enabled)
 
 			if !tt.setupMockError {
 				mockWorker := new(MockHealthMonitorWorker)
@@ -525,7 +525,7 @@ func TestDesktopHealthMonitor_WatchHealthStatus_ContextCancellation(t *testing.T
 func TestInClusterHealthMonitor_WatchHealthStatus(t *testing.T) {
 	tests := []struct {
 		name           string
-		endpoint       string
+		enabled        bool
 		mockStatus     HealthStatus
 		setupMockError bool
 		expectedStatus HealthStatus
@@ -533,14 +533,14 @@ func TestInClusterHealthMonitor_WatchHealthStatus(t *testing.T) {
 	}{
 		{
 			name:           "Successful status retrieval - SUCCESS",
-			endpoint:       "kubetail-cluster-api.kubetail-system.svc.cluster.local:50051",
+			enabled:        true,
 			mockStatus:     HealthStatusSuccess,
 			expectedStatus: HealthStatusSuccess,
 			expectError:    false,
 		},
 		{
-			name:           "Successful status retrieval - Ungrouped",
-			endpoint:       "",
+			name:           "Disabled - should use noop worker",
+			enabled:        false,
 			mockStatus:     HealthStatusUknown,
 			expectedStatus: HealthStatusUknown,
 			expectError:    false,
@@ -556,7 +556,7 @@ func TestInClusterHealthMonitor_WatchHealthStatus(t *testing.T) {
 				cm.On("GetOrCreateRestConfig", "").Return(nil, fmt.Errorf("connection error"))
 			}
 
-			hm := NewInClusterHealthMonitor(cm, tt.endpoint != "")
+			hm := NewInClusterHealthMonitor(cm, tt.enabled)
 			mockWorker := new(MockHealthMonitorWorker)
 			hm.worker = mockWorker
 
