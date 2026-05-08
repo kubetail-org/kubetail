@@ -43,7 +43,6 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logging"
 
-	"github.com/kubetail-org/kubetail/modules/cli/internal/tunnel"
 	"github.com/kubetail-org/kubetail/modules/cli/pkg/config"
 )
 
@@ -51,7 +50,6 @@ type serveOptions struct {
 	port     int
 	host     string
 	skipOpen bool
-	remote   bool
 	test     bool
 }
 
@@ -78,12 +76,6 @@ var serveCmd = &cobra.Command{
 		cfg, opts, err := loadServerConfig(cmd)
 		if err != nil {
 			zlog.Fatal().Caller().Err(err).Send()
-		}
-
-		// Handle remote tunnel
-		if opts.remote {
-			serveRemote(cfg.KubeconfigPath, opts.port, opts.skipOpen)
-			return
 		}
 
 		// listen for termination signals
@@ -208,8 +200,6 @@ func loadServerConfig(cmd *cobra.Command) (*dashcfg.Config, *serveOptions, error
 	configPath, _ := cmd.Flags().GetString("config")
 	test, _ := cmd.Flags().GetBool("test")
 	logLevel, _ := cmd.Flags().GetString("log-level")
-	// remote, _ := cmd.Flags().GetBool("remote")
-	remote := false
 	inCluster, _ := cmd.Flags().GetBool(InClusterFlag)
 
 	logging.ConfigureLogger(logging.LoggerOptions{
@@ -262,43 +252,10 @@ func loadServerConfig(cmd *cobra.Command) (*dashcfg.Config, *serveOptions, error
 		port:     cfg.Commands.Serve.Port,
 		host:     cfg.Commands.Serve.Host,
 		skipOpen: cfg.Commands.Serve.SkipOpen,
-		remote:   remote,
 		test:     test,
 	}
 
 	return dashCfg, serveOptions, nil
-}
-
-func serveRemote(kubeconfigPath string, localPort int, skipOpen bool) {
-	// Initalize context that stops on SIGTERM
-	rootCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop() // clean up resources
-
-	tunnel, err := tunnel.NewTunnel(rootCtx, kubeconfigPath, "kubetail-system", "kubetail-dashboard", 80, localPort)
-	if err != nil {
-		zlog.Fatal().Err(err).Send()
-	}
-
-	tunnel.Start()
-
-	// open in browser
-	if !skipOpen {
-		err = browser.OpenURL(fmt.Sprintf("http://localhost:%d/", localPort))
-		if err != nil {
-			zlog.Fatal().Err(err).Send()
-		}
-	}
-
-	// wait for termination signal
-	<-rootCtx.Done()
-
-	// graceful shutdown with 30 second deadline
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	if err := tunnel.Shutdown(ctx); err != nil {
-		zlog.Error().Err(err).Send()
-	}
 }
 
 func addServerCmdFlags(cmd *cobra.Command) {
@@ -308,7 +265,6 @@ func addServerCmdFlags(cmd *cobra.Command) {
 	flagset.String("host", "localhost", "Host address to bind to")
 	flagset.StringP("log-level", "l", "info", "Log level (debug, info, warn, error, disabled)")
 	flagset.Bool("skip-open", false, "Skip opening the browser")
-	// flagset.Bool("remote", false, "Open tunnel to remote dashboard")
 	flagset.Bool("test", false, "Run internal tests and exit")
 }
 
