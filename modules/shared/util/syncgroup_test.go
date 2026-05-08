@@ -132,8 +132,10 @@ func TestSyncGroupLoadOrComputeWithContext(t *testing.T) {
 		// Cancel context immediately
 		cancel()
 
+		release := make(chan struct{})
+		defer close(release)
 		result, loaded, err := g.LoadOrComputeWithContext(ctx, "key2", func() (int, error) {
-			time.Sleep(100 * time.Millisecond)
+			<-release
 			return 99, nil
 		})
 
@@ -146,8 +148,10 @@ func TestSyncGroupLoadOrComputeWithContext(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 		defer cancel()
 
+		release := make(chan struct{})
+		defer close(release)
 		result, loaded, err := g.LoadOrComputeWithContext(ctx, "key3", func() (int, error) {
-			time.Sleep(50 * time.Millisecond)
+			<-release
 			return 99, nil
 		})
 
