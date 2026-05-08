@@ -1,0 +1,20 @@
+[ req ]
+prompt             = no
+default_bits       = 4096
+default_md         = sha256
+distinguished_name = dn
+x509_extensions    = v3_ca
+
+[ dn ]
+C  = US
+ST = New York
+L  = New York
+O  = Kubetail
+OU = E2E
+CN = kubetail-e2e-ca
+
+[ v3_ca ]
+basicConstraints       = critical, CA:TRUE
+keyUsage               = critical, keyCertSign, cRLSign
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid:always,issuer

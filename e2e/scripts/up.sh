@@ -2,13 +2,13 @@
 set -euo pipefail
 
 CLUSTER_NAME="kubetail-e2e"
+export KUBETAIL_NAMESPACE="kubetail-e2e"
 export KUBETAIL_DASHBOARD_IMAGE="kubetail-dashboard:e2e"
 export KUBETAIL_CLUSTER_API_IMAGE="kubetail-cluster-api:e2e"
 export KUBETAIL_CLUSTER_AGENT_IMAGE="kubetail-cluster-agent:e2e"
 export KUBECONFIG="/tmp/kubetail-e2e.kubeconfig"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 MANIFESTS_DIR="$SCRIPT_DIR/../manifests"
 
 # shellcheck disable=SC1091
@@ -21,7 +21,7 @@ fi
 
 DASHBOARD_PORT=$(echo "$DASHBOARD_URL" | grep -oE '[0-9]+$')
 CLUSTER_API_PORT=$(echo "$CLUSTER_API_URL" | grep -oE '[0-9]+$')
-TLS_DIR="$REPO_ROOT/hack/tilt/tls"
+TLS_DIR="$SCRIPT_DIR/../tls"
 BASE_MANIFEST="$MANIFESTS_DIR/base.yaml.tmpl"
 PID_FILE="/tmp/kubetail-e2e-pf.pid"
 
@@ -54,28 +54,28 @@ envsubst < "$BASE_MANIFEST" | kubectl apply -f -
 # TLS secrets for cluster-api / cluster-agent (idempotent via --dry-run + apply).
 kubectl create secret generic kubetail-ca \
   --from-file=ca.crt="$TLS_DIR/ca.crt" \
-  --namespace=kubetail-system \
+  --namespace="$KUBETAIL_NAMESPACE" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl create secret tls kubetail-cluster-api-tls \
   --cert="$TLS_DIR/cluster-api.crt" \
   --key="$TLS_DIR/cluster-api.key" \
-  --namespace=kubetail-system \
+  --namespace="$KUBETAIL_NAMESPACE" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl create secret tls kubetail-cluster-agent-tls \
   --cert="$TLS_DIR/cluster-agent.crt" \
   --key="$TLS_DIR/cluster-agent.key" \
-  --namespace=kubetail-system \
+  --namespace="$KUBETAIL_NAMESPACE" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Wait for workloads to be ready
 kubectl rollout status deployment/kubetail-dashboard \
-  --namespace=kubetail-system --timeout=90s
+  --namespace="$KUBETAIL_NAMESPACE" --timeout=90s
 kubectl rollout status deployment/kubetail-cluster-api \
-  --namespace=kubetail-system --timeout=90s
+  --namespace="$KUBETAIL_NAMESPACE" --timeout=90s
 kubectl rollout status daemonset/kubetail-cluster-agent \
-  --namespace=kubetail-system --timeout=90s
+  --namespace="$KUBETAIL_NAMESPACE" --timeout=90s
 
 # Kill any existing port-forwards
 if [ -f "$PID_FILE" ]; then
@@ -87,13 +87,13 @@ fi
 
 # Start port-forwards in background
 kubectl port-forward \
-  --namespace=kubetail-system \
+  --namespace="$KUBETAIL_NAMESPACE" \
   service/kubetail-dashboard \
   "${DASHBOARD_PORT}:8080" >/dev/null 2>&1 &
 echo $! >> "$PID_FILE"
 
 kubectl port-forward \
-  --namespace=kubetail-system \
+  --namespace="$KUBETAIL_NAMESPACE" \
   service/kubetail-cluster-api \
   "${CLUSTER_API_PORT}:443" >/dev/null 2>&1 &
 echo $! >> "$PID_FILE"

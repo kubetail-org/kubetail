@@ -38,7 +38,7 @@ from _namespace_rbac import (
     post_graphql,
 )
 
-_KUBE_NS = "kubetail-system"
+_KUBE_NS = "kubetail-e2e"
 _PF_PID_FILE = "/tmp/kubetail-e2e-pf.pid"
 
 _ALLOWED_NS = SA1_NS

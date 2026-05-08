@@ -19,7 +19,7 @@ import websockets.exceptions
 
 
 _KUBECONFIG = "/tmp/kubetail-e2e.kubeconfig"
-_NS = "kubetail-system"
+_NS = "kubetail-e2e"
 _AGGREGATED_BASE = "/apis/api.kubetail.com/v1"
 
 # Self-signed cert that chains to neither the cluster-api's client-CA pool
@@ -36,7 +36,7 @@ _UNTRUSTED_CLIENT_CERT = (
 # only client identity the agent allows past its trust-chain interceptor.
 # `cluster-agent.{crt,key}` is signed by the same CA but has the agent's CN,
 # so it lets us exercise the "valid CA but disallowed CN" branch.
-_KUBETAIL_TLS_DIR = Path(__file__).parent.parent / "hack" / "tilt" / "tls"
+_KUBETAIL_TLS_DIR = Path(__file__).parent / "tls"
 _KUBETAIL_CA = _KUBETAIL_TLS_DIR / "ca.crt"
 _CLUSTER_API_CLIENT_CERT = _KUBETAIL_TLS_DIR / "cluster-api.crt"
 _CLUSTER_API_CLIENT_KEY = _KUBETAIL_TLS_DIR / "cluster-api.key"
@@ -45,7 +45,7 @@ _CLUSTER_AGENT_KEY = _KUBETAIL_TLS_DIR / "cluster-agent.key"
 
 # Override SNI/SAN verification for the local port-forward. The agent's serving
 # cert is signed for the in-cluster service DNS name, not 127.0.0.1.
-_AGENT_TARGET_NAME = "kubetail-cluster-agent.kubetail-system.svc"
+_AGENT_TARGET_NAME = "kubetail-cluster-agent.kubetail-e2e.svc"
 
 # Fully-qualified gRPC method on the cluster-agent. Picked because its request
 # message (`LogMetadataListRequest`) has all-optional fields, so an empty body
@@ -178,7 +178,7 @@ class TestClusterAPIAggregationGate:
         pool (the only trust anchor we honor)."""
         r = requests.post(
             f"{cluster_api_url}{_AGGREGATED_BASE}/graphql",
-            json={"query": '{ logMetadataList(namespace: "kubetail-system") { items { id } } }'},
+            json={"query": '{ logMetadataList(namespace: "kubetail-e2e") { items { id } } }'},
             headers={
                 "X-Remote-User": "spoofed-attacker",
                 "X-Remote-Group": "system:masters",
@@ -320,7 +320,7 @@ class TestClusterAgentMTLSGate:
         ctx.verify_mode = ssl.CERT_NONE
         with socket.create_connection(("127.0.0.1", cluster_agent_local_port), timeout=5) as raw:
             with pytest.raises(OSError):
-                with ctx.wrap_socket(raw, server_hostname="kubetail-cluster-agent.kubetail-system.svc") as tls:
+                with ctx.wrap_socket(raw, server_hostname="kubetail-cluster-agent.kubetail-e2e.svc") as tls:
                     # Some servers defer the cert demand to the first record.
                     tls.send(b"\x00")
                     tls.recv(1)
