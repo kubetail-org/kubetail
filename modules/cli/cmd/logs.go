@@ -739,7 +739,7 @@ var logsCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
-			probeCtx, cancel := context.WithTimeout(rootCtx, 2*time.Second)
+			probeCtx, cancel := context.WithTimeout(rootCtx, 5*time.Second)
 			defer cancel()
 			if err := client.Ping(probeCtx); err != nil {
 				return err
