@@ -2,13 +2,13 @@ load('ext://restart_process', 'docker_build_with_restart')
 load('ext://namespace', 'namespace_create')
 load('ext://secret', 'secret_create_generic', 'secret_create_tls')
 
-namespace_create('kubetail-system')
+namespace_create('kubetail')
 
 # kubetail shared
 
 secret_create_generic(
     name='kubetail-ca',
-    namespace='kubetail-system',
+    namespace='kubetail',
     from_file=[
         'ca.crt=./hack/tilt/tls/ca.crt'
     ],
@@ -18,7 +18,7 @@ secret_create_generic(
 
 secret_create_tls(
     name='kubetail-dashboard-tls',
-    namespace='kubetail-system',
+    namespace='kubetail',
     cert='./hack/tilt/tls/dashboard.crt',
     key='./hack/tilt/tls/dashboard.key',
 )
@@ -72,7 +72,7 @@ docker_build_with_restart(
 
 secret_create_tls(
     name='kubetail-cluster-api-tls',
-    namespace='kubetail-system',
+    namespace='kubetail',
     cert='./hack/tilt/tls/cluster-api.crt',
     key='./hack/tilt/tls/cluster-api.key',
 )
@@ -110,7 +110,7 @@ docker_build_with_restart(
 
 secret_create_tls(
     name='kubetail-cluster-agent-tls',
-    namespace='kubetail-system',
+    namespace='kubetail',
     cert='./hack/tilt/tls/cluster-agent.crt',
     key='./hack/tilt/tls/cluster-agent.key',
 )
@@ -196,7 +196,7 @@ k8s_yaml('hack/tilt/longlines-example.yaml')
 # define resources
 k8s_resource(
   objects=[
-    'kubetail-system:namespace',
+    'kubetail:namespace',
     'kubetail-ca:secret',
   ],
   new_name='kubetail-shared',

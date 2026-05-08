@@ -21,5 +21,5 @@ authorityKeyIdentifier = keyid:always,issuer
 subjectAltName         = @alt_names
 
 [ alt_names ]
-DNS.1 = kubetail-cluster-ca.kubetail-system.svc
-DNS.2 = kubetail-cluster-ca.kubetail-system.svc.cluster.local
+DNS.1 = kubetail-cluster-ca.kubetail.svc
+DNS.2 = kubetail-cluster-ca.kubetail.svc.cluster.local

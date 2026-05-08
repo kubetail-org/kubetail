@@ -2,7 +2,7 @@ kind: ConfigMap
 apiVersion: v1
 metadata:
   name: kubetail-dashboard
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: dashboard
@@ -42,7 +42,7 @@ kind: ConfigMap
 apiVersion: v1
 metadata:
   name: kubetail-cluster-api
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cluster-api
@@ -58,7 +58,7 @@ data:
         cert-file: /etc/kubetail/tls.crt
         key-file: /etc/kubetail/tls.key
         ca-file: /etc/kubetail/ca.crt
-        server-name: kubetail-cluster-agent.kubetail-system.svc
+        server-name: kubetail-cluster-agent.kubetail.svc
     csrf:
       enabled: true
     logging:
@@ -77,7 +77,7 @@ kind: ConfigMap
 apiVersion: v1
 metadata:
   name: kubetail-cluster-agent
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cluster-agent
@@ -98,7 +98,7 @@ kind: ServiceAccount
 apiVersion: v1
 metadata:
   name: kubetail-dashboard
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: dashboard
@@ -145,13 +145,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubetail-dashboard
-    namespace: kubetail-system
+    namespace: kubetail
 ---
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kubetail-dashboard
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: dashboard
@@ -164,7 +164,7 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kubetail-dashboard
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: dashboard
@@ -175,13 +175,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubetail-dashboard
-    namespace: kubetail-system
+    namespace: kubetail
 ---
 kind: Deployment
 apiVersion: apps/v1
 metadata:
   name: kubetail-dashboard
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: dashboard
@@ -248,7 +248,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: kubetail-dashboard
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: dashboard
@@ -267,7 +267,7 @@ kind: ServiceAccount
 apiVersion: v1
 metadata:
   name: kubetail-cluster-api
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cluster-api
@@ -309,13 +309,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubetail-cluster-api
-    namespace: kubetail-system
+    namespace: kubetail
 ---
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kubetail-cluster-api
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cluster-api
@@ -328,7 +328,7 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kubetail-cluster-api
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cluster-api
@@ -339,13 +339,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubetail-cluster-api
-    namespace: kubetail-system
+    namespace: kubetail
 ---
 kind: Deployment
 apiVersion: apps/v1
 metadata:
   name: kubetail-cluster-api
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cluster-api
@@ -412,7 +412,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: kubetail-cluster-api
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cluster-api
@@ -431,7 +431,7 @@ kind: ServiceAccount
 apiVersion: v1
 metadata:
   name: kubetail-cluster-agent
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cluster-agent
@@ -440,7 +440,7 @@ kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: kubetail-cluster-agent
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cluster-agent
@@ -487,7 +487,7 @@ spec:
                 - -addr=:50051
                 - -tls
                 - -tls-ca-cert=/etc/kubetail/ca.crt
-                - -tls-server-name=kubetail-cluster-agent.kubetail-system.svc
+                - -tls-server-name=kubetail-cluster-agent.kubetail.svc
                 - -tls-client-cert=/etc/kubetail/tls.crt
                 - -tls-client-key=/etc/kubetail/tls.key
             initialDelaySeconds: 10
@@ -501,7 +501,7 @@ spec:
                 - -addr=:50051
                 - -tls
                 - -tls-ca-cert=/etc/kubetail/ca.crt
-                - -tls-server-name=kubetail-cluster-agent.kubetail-system.svc
+                - -tls-server-name=kubetail-cluster-agent.kubetail.svc
                 - -tls-client-cert=/etc/kubetail/tls.crt
                 - -tls-client-key=/etc/kubetail/tls.key
             initialDelaySeconds: 10
@@ -530,7 +530,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: kubetail-cluster-agent
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cluster-agent
@@ -544,7 +544,7 @@ kind: NetworkPolicy
 apiVersion: networking.k8s.io/v1
 metadata:
   name: kubetail-cluster-agent
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cluster-agent
@@ -564,7 +564,7 @@ kind: ServiceAccount
 apiVersion: v1
 metadata:
   name: kubetail-cli
-  namespace: kubetail-system
+  namespace: kubetail
   labels:
     app.kubernetes.io/name: kubetail
     app.kubernetes.io/component: cli
@@ -608,7 +608,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubetail-cli
-    namespace: kubetail-system
+    namespace: kubetail
 ---
 kind: ServiceAccount
 apiVersion: v1

@@ -12,7 +12,7 @@ L  = New York
 O  = Kubetail
 OU = Cluster Components
 # This should match the Service DNS name pods use:
-CN = kubetail-dashboard.kubetail-system.svc
+CN = kubetail-dashboard.kubetail.svc
 
 [ v3_req ]
 basicConstraints       = critical, CA:FALSE
@@ -22,5 +22,5 @@ subjectKeyIdentifier   = hash
 subjectAltName         = @alt_names
 
 [ alt_names ]
-DNS.1 = kubetail-dashboard.kubetail-system.svc
-DNS.2 = kubetail-dashboard.kubetail-system.svc.cluster.local
+DNS.1 = kubetail-dashboard.kubetail.svc
+DNS.2 = kubetail-dashboard.kubetail.svc.cluster.local
