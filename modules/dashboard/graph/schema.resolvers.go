@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
-	semver "github.com/Masterminds/semver/v3"
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/preferences"
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
@@ -554,16 +553,15 @@ func (r *queryResolver) ClusterVersionStatus(ctx context.Context, kubeContext *s
 	var currentVersion string
 
 	if r.environment == sharedcfg.EnvironmentDesktop {
-		// Desktop mode: get the kubetail release from kubetail-system namespace for the active kubeContext
+		// Desktop mode: list kubetail releases across all namespaces for the
+		// active kubeContext and pick the oldest version so the upgrade prompt
+		// reflects the install most in need of upgrading.
 		kubeContextVal := r.cm.DerefKubeContext(kubeContext)
-		rel, err := r.helmReleaseGetter.GetReleaseForContext(kubeContextVal, helm.DefaultNamespace, helm.DefaultReleaseName)
-		if err != nil || rel == nil {
+		releases, err := r.helmReleaseLister.ListReleasesForContext(kubeContextVal)
+		if err != nil {
 			return nil, nil
 		}
-
-		if rel.Chart != nil && rel.Chart.Metadata != nil {
-			currentVersion = rel.Chart.Metadata.Version
-		}
+		currentVersion = helm.OldestChartVersion(releases)
 	} else {
 		// Cluster mode: read chart version from environment variable
 		currentVersion = os.Getenv("KUBETAIL_CHART_VERSION")
@@ -579,20 +577,10 @@ func (r *queryResolver) ClusterVersionStatus(ctx context.Context, kubeContext *s
 		return nil, nil
 	}
 
-	currentSemver, err := semver.NewVersion(currentVersion)
-	if err != nil {
-		return nil, nil
-	}
-
-	latestSemver, err := semver.NewVersion(latestInfo.Version)
-	if err != nil {
-		return nil, nil
-	}
-
 	return &model.VersionStatus{
 		CurrentVersion:  currentVersion,
 		LatestVersion:   latestInfo.Version,
-		UpdateAvailable: latestSemver.GreaterThan(currentSemver),
+		UpdateAvailable: helm.IsUpdateAvailable(currentVersion, latestInfo.Version),
 	}, nil
 }
 

@@ -9,7 +9,6 @@ replace github.com/kubetail-org/kubetail/modules/shared => ../shared
 replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
 
 require (
-	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-logr/logr v1.4.3
 	github.com/go-playground/validator/v10 v10.28.0
@@ -36,6 +35,7 @@ require (
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
+	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/Masterminds/squirrel v1.5.4 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect

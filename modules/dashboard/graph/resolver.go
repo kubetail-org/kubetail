@@ -49,7 +49,7 @@ type Resolver struct {
 	environment       sharedcfg.Environment
 	allowedNamespaces []string
 	versionChecker    versioncheck.Checker
-	helmReleaseGetter helmReleaseGetter
+	helmReleaseLister helmReleaseLister
 	preferencesStore  *preferences.Store
 }
 

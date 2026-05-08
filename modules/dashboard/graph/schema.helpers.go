@@ -45,20 +45,21 @@ import (
 	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
 )
 
-// helmReleaseGetter is an interface for getting a Helm release by name and namespace.
-type helmReleaseGetter interface {
-	GetReleaseForContext(kubeContext, namespace, releaseName string) (*release.Release, error)
+// helmReleaseLister is an interface for listing kubetail Helm releases across
+// all namespaces in a given kubeContext.
+type helmReleaseLister interface {
+	ListReleasesForContext(kubeContext string) ([]*release.Release, error)
 }
 
-// defaultHelmReleaseGetter implements helmReleaseGetter by creating a new
+// defaultHelmReleaseLister implements helmReleaseLister by creating a new
 // helm client per request, scoped to the given kubeContext.
-type defaultHelmReleaseGetter struct {
+type defaultHelmReleaseLister struct {
 	kubeconfigPath string
 }
 
-func (g *defaultHelmReleaseGetter) GetReleaseForContext(kubeContext, namespace, releaseName string) (*release.Release, error) {
+func (g *defaultHelmReleaseLister) ListReleasesForContext(kubeContext string) ([]*release.Release, error) {
 	client := helm.NewClient(helm.WithKubeconfigPath(g.kubeconfigPath), helm.WithKubeContext(kubeContext))
-	return client.GetRelease(namespace, releaseName)
+	return client.ListReleases()
 }
 
 // Represents response from fetchListResource()

@@ -182,6 +182,54 @@ func (c *Client) GetRelease(namespace, releaseName string) (*release.Release, er
 	return rel, nil
 }
 
+// ReleaseLister is the read-only subset of Client used to enumerate
+// kubetail releases across all namespaces.
+type ReleaseLister interface {
+	ListReleases() ([]*release.Release, error)
+}
+
+// IsUpdateAvailable reports whether latest is a strictly greater semver than
+// current. Returns false when either version is empty or unparseable, so
+// callers don't need to guard inputs separately.
+func IsUpdateAvailable(current, latest string) bool {
+	if current == "" || latest == "" {
+		return false
+	}
+	c, err := semver.NewVersion(current)
+	if err != nil {
+		return false
+	}
+	l, err := semver.NewVersion(latest)
+	if err != nil {
+		return false
+	}
+	return l.GreaterThan(c)
+}
+
+// OldestChartVersion returns the oldest semver-parsable chart version among
+// the supplied releases, or "" when none qualify. Oldest is used so upgrade
+// prompts reflect the install most in need of upgrading when multiple
+// kubetail releases exist in a cluster.
+func OldestChartVersion(releases []*release.Release) string {
+	var oldest *semver.Version
+	for _, rel := range releases {
+		if rel.Chart == nil || rel.Chart.Metadata == nil || rel.Chart.Metadata.Version == "" {
+			continue
+		}
+		v, err := semver.NewVersion(rel.Chart.Metadata.Version)
+		if err != nil {
+			continue
+		}
+		if oldest == nil || v.LessThan(oldest) {
+			oldest = v
+		}
+	}
+	if oldest == nil {
+		return ""
+	}
+	return oldest.Original()
+}
+
 // ListReleases lists all releases across all namespaces.
 func (c *Client) ListReleases() ([]*release.Release, error) {
 	// Init action config
