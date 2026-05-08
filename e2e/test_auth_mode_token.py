@@ -27,7 +27,7 @@ from _namespace_rbac import (
 )
 
 
-_NS = "kubetail-system"
+_NS = "kubetail-e2e"
 _NAME = "kubetail-dashboard-token"
 _WS_SUBPROTOCOL = "graphql-transport-ws"
 

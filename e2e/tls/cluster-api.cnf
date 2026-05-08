@@ -1,0 +1,25 @@
+[ req ]
+prompt             = no
+default_bits       = 4096
+default_md         = sha256
+distinguished_name = dn
+req_extensions     = v3_req
+
+[ dn ]
+C  = US
+ST = New York
+L  = New York
+O  = Kubetail
+OU = E2E
+CN = kubetail-cluster-api.kubetail-e2e.svc
+
+[ v3_req ]
+basicConstraints       = critical, CA:FALSE
+keyUsage               = critical, digitalSignature, keyEncipherment
+extendedKeyUsage       = serverAuth, clientAuth
+subjectKeyIdentifier   = hash
+subjectAltName         = @alt_names
+
+[ alt_names ]
+DNS.1 = kubetail-cluster-api.kubetail-e2e.svc
+DNS.2 = kubetail-cluster-api.kubetail-e2e.svc.cluster.local
