@@ -40,7 +40,7 @@ const (
 // Default values
 const (
 	DefaultReleaseName = "kubetail"
-	DefaultNamespace   = "kubetail-system"
+	DefaultNamespace   = "kubetail"
 )
 
 // Chart version constraint
