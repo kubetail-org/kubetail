@@ -515,7 +515,8 @@ func TestStreamAllWithFollow(t *testing.T) {
 		setPastStreamAfter1  []LogRecord
 		setPastStreamAfter2  []LogRecord
 		setFutureStream      []LogRecord
-		wantLines            []string
+		wantPastLines        []string
+		wantFutureLines      []string
 	}{
 		{
 			"no follow data, past data arrives before",
@@ -525,6 +526,7 @@ func TestStreamAllWithFollow(t *testing.T) {
 			[]LogRecord{},
 			[]LogRecord{},
 			[]string{"s1-a", "s2-a"},
+			[]string{},
 		},
 		{
 			"no follow data, past data arrives after",
@@ -534,6 +536,7 @@ func TestStreamAllWithFollow(t *testing.T) {
 			[]LogRecord{logs2[0]},
 			[]LogRecord{},
 			[]string{"s1-a", "s2-a"},
+			[]string{},
 		},
 		{
 			"no follow data, past data arrives before and after",
@@ -543,6 +546,7 @@ func TestStreamAllWithFollow(t *testing.T) {
 			[]LogRecord{logs2[1]},
 			[]LogRecord{},
 			[]string{"s1-a", "s2-a", "s1-b", "s2-b"},
+			[]string{},
 		},
 		{
 			"with follow data, past data arrives before",
@@ -551,7 +555,8 @@ func TestStreamAllWithFollow(t *testing.T) {
 			[]LogRecord{},
 			[]LogRecord{},
 			[]LogRecord{logs1[1]},
-			[]string{"s1-a", "s2-a", "s1-b"},
+			[]string{"s1-a", "s2-a"},
+			[]string{"s1-b"},
 		},
 		{
 			"with follow data, past data arrives after",
@@ -560,7 +565,8 @@ func TestStreamAllWithFollow(t *testing.T) {
 			[]LogRecord{logs1[0]},
 			[]LogRecord{logs2[0]},
 			[]LogRecord{logs1[1], logs2[1]},
-			[]string{"s1-a", "s2-a", "s1-b", "s2-b"},
+			[]string{"s1-a", "s2-a"},
+			[]string{"s1-b", "s2-b"},
 		},
 		{
 			"with follow data, past data arrives before and after",
@@ -569,7 +575,8 @@ func TestStreamAllWithFollow(t *testing.T) {
 			[]LogRecord{logs1[1]},
 			[]LogRecord{logs2[1]},
 			[]LogRecord{logs1[2], logs2[2]},
-			[]string{"s1-a", "s2-a", "s1-b", "s2-b", "s1-c", "s2-c"},
+			[]string{"s1-a", "s2-a", "s1-b", "s2-b"},
+			[]string{"s1-c", "s2-c"},
 		},
 		{
 			"with follow data, no past data",
@@ -578,6 +585,7 @@ func TestStreamAllWithFollow(t *testing.T) {
 			[]LogRecord{},
 			[]LogRecord{},
 			[]LogRecord{logs1[0], logs1[1]},
+			[]string{},
 			[]string{"s1-a", "s1-b"},
 		},
 	}
@@ -664,6 +672,7 @@ func TestStreamAllWithFollow(t *testing.T) {
 
 			// Get log records in goroutine
 			messages := []string{}
+			expectedTotal := len(tt.wantPastLines) + len(tt.wantFutureLines)
 
 			doneCh := make(chan struct{})
 			go func() {
@@ -673,7 +682,7 @@ func TestStreamAllWithFollow(t *testing.T) {
 					messages = append(messages, r.Message)
 
 					// Exit after expected number of messages arrives
-					if len(messages) == len(tt.wantLines) {
+					if len(messages) == expectedTotal {
 						break
 					}
 				}
@@ -708,8 +717,14 @@ func TestStreamAllWithFollow(t *testing.T) {
 			// Wait for all messages to arrive
 			<-doneCh
 
-			// Check result
-			assert.Equal(t, tt.wantLines, messages)
+			// Check result: past data should be in strict order, future data can be in any order
+			numPast := len(tt.wantPastLines)
+			if numPast > 0 {
+				assert.Equal(t, tt.wantPastLines, messages[:numPast], "past data should be in strict order")
+			}
+			if len(tt.wantFutureLines) > 0 {
+				assert.ElementsMatch(t, tt.wantFutureLines, messages[numPast:], "future data should contain all expected records (order doesn't matter)")
+			}
 		})
 	}
 }
@@ -745,7 +760,8 @@ func TestStreamTailWithFollow(t *testing.T) {
 		setPastStreamAfter1  []LogRecord
 		setPastStreamAfter2  []LogRecord
 		setFutureStream      []LogRecord
-		wantLines            []string
+		wantPastLines        []string
+		wantFutureLines      []string
 	}{
 		{
 			"no follow data, past data arrives before",
@@ -756,6 +772,7 @@ func TestStreamTailWithFollow(t *testing.T) {
 			[]LogRecord{},
 			[]LogRecord{},
 			[]string{"s1-b", "s2-b"},
+			[]string{},
 		},
 		{
 			"no follow data, past data arrives after",
@@ -766,6 +783,7 @@ func TestStreamTailWithFollow(t *testing.T) {
 			[]LogRecord{logs2[0], logs2[1]},
 			[]LogRecord{},
 			[]string{"s1-b", "s2-b"},
+			[]string{},
 		},
 		{
 			"no follow data, past data arrives before and after",
@@ -776,6 +794,7 @@ func TestStreamTailWithFollow(t *testing.T) {
 			[]LogRecord{logs2[0]},
 			[]LogRecord{},
 			[]string{"s1-b", "s2-b"},
+			[]string{},
 		},
 		{
 			"with follow data, past data arrives before",
@@ -785,7 +804,8 @@ func TestStreamTailWithFollow(t *testing.T) {
 			[]LogRecord{},
 			[]LogRecord{},
 			[]LogRecord{logs1[1]},
-			[]string{"s1-a", "s2-a", "s1-b"},
+			[]string{"s1-a", "s2-a"},
+			[]string{"s1-b"},
 		},
 		{
 			"with follow data, past data arrives after",
@@ -795,7 +815,8 @@ func TestStreamTailWithFollow(t *testing.T) {
 			[]LogRecord{logs1[0]},
 			[]LogRecord{logs2[0]},
 			[]LogRecord{logs1[1], logs2[1]},
-			[]string{"s1-a", "s2-a", "s1-b", "s2-b"},
+			[]string{"s1-a", "s2-a"},
+			[]string{"s1-b", "s2-b"},
 		},
 		{
 			"with follow data, past data arrives before and after",
@@ -805,7 +826,8 @@ func TestStreamTailWithFollow(t *testing.T) {
 			[]LogRecord{logs1[0]},
 			[]LogRecord{logs2[0]},
 			[]LogRecord{logs1[2], logs2[2]},
-			[]string{"s1-b", "s2-b", "s1-c", "s2-c"},
+			[]string{"s1-b", "s2-b"},
+			[]string{"s1-c", "s2-c"},
 		},
 		{
 			"with follow data, no past data",
@@ -815,6 +837,7 @@ func TestStreamTailWithFollow(t *testing.T) {
 			[]LogRecord{},
 			[]LogRecord{},
 			[]LogRecord{logs1[0], logs1[1]},
+			[]string{},
 			[]string{"s1-a", "s1-b"},
 		},
 	}
@@ -900,6 +923,7 @@ func TestStreamTailWithFollow(t *testing.T) {
 
 			// Get log records in goroutine
 			messages := []string{}
+			expectedTotal := len(tt.wantPastLines) + len(tt.wantFutureLines)
 
 			doneCh := make(chan struct{})
 			go func() {
@@ -909,7 +933,7 @@ func TestStreamTailWithFollow(t *testing.T) {
 					messages = append(messages, r.Message)
 
 					// Exit after expected number of messages arrives
-					if len(messages) == len(tt.wantLines) {
+					if len(messages) == expectedTotal {
 						break
 					}
 				}
@@ -944,8 +968,14 @@ func TestStreamTailWithFollow(t *testing.T) {
 			// Wait for all messages to arrive
 			<-doneCh
 
-			// Check result
-			assert.Equal(t, tt.wantLines, messages)
+			// Check result: past data should be in strict order, future data can be in any order
+			numPast := len(tt.wantPastLines)
+			if numPast > 0 {
+				assert.Equal(t, tt.wantPastLines, messages[:numPast], "past data should be in strict order")
+			}
+			if len(tt.wantFutureLines) > 0 {
+				assert.ElementsMatch(t, tt.wantFutureLines, messages[numPast:], "future data should contain all expected records (order doesn't matter)")
+			}
 		})
 	}
 }
