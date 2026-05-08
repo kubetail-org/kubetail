@@ -107,28 +107,6 @@ func TestReadHelmCache_MissingFile(t *testing.T) {
 	assert.Nil(t, got)
 }
 
-func TestCompareVersions(t *testing.T) {
-	cases := []struct {
-		current string
-		latest  string
-		want    bool
-	}{
-		{"1.0.0", "1.2.3", true},
-		{"1.9.0", "1.10.0", true}, // important: 10 > 9
-		{"1.2.3", "1.2.3", false}, // equal
-		{"1.2.3", "1.0.0", false}, // current is newer
-		{"", "1.0.0", false},      // empty current
-		{"1.0.0", "", false},      // empty latest
-		{"bad", "1.0.0", false},   // invalid current
-		{"1.0.0", "bad", false},   // invalid latest
-	}
-
-	for _, tc := range cases {
-		got := compareVersions(tc.current, tc.latest)
-		assert.Equal(t, tc.want, got, "compareVersions(%q, %q)", tc.current, tc.latest)
-	}
-}
-
 func TestIsStale(t *testing.T) {
 	ttl := time.Hour
 
@@ -414,103 +392,22 @@ func (m *mockHelmLister) ListReleases() ([]*helmrelease.Release, error) {
 	return m.releases, m.err
 }
 
-func makeRelease(name, namespace, version string) *helmrelease.Release {
-	return &helmrelease.Release{
-		Name:      name,
-		Namespace: namespace,
-		Chart: &helmchart.Chart{
-			Metadata: &helmchart.Metadata{Version: version},
-		},
-	}
-}
-
+// TestGetInstalledHelmChartVersion covers the wrapper's lister-error path and
+// a happy-path smoke check. Selection semantics across releases are exercised
+// in modules/shared/helm where helm.OldestChartVersion lives.
 func TestGetInstalledHelmChartVersion(t *testing.T) {
-	cases := []struct {
-		name     string
-		releases []*helmrelease.Release
-		err      error
-		want     string
-	}{
-		{
-			name:     "no releases",
-			releases: nil,
-			want:     "",
-		},
-		{
-			name: "list error",
-			err:  errors.New("connection refused"),
-			want: "",
-		},
-		{
-			name:     "single release",
-			releases: []*helmrelease.Release{makeRelease("kubetail", "kubetail-system", "0.22.0")},
-			want:     "0.22.0",
-		},
-		{
-			name: "multiple releases same namespace",
-			releases: []*helmrelease.Release{
-				makeRelease("kubetail", "kubetail-system", "0.22.0"),
-				makeRelease("kubetail-2", "kubetail-system", "0.21.0"),
-			},
-			want: "0.21.0",
-		},
-		{
-			name: "multiple releases different namespaces",
-			releases: []*helmrelease.Release{
-				makeRelease("kubetail", "kubetail-system", "0.23.0"),
-				makeRelease("kubetail", "monitoring", "0.20.0"),
-			},
-			want: "0.20.0",
-		},
-		{
-			name: "multiple releases different names and namespaces",
-			releases: []*helmrelease.Release{
-				makeRelease("my-kubetail", "team-a", "0.22.0"),
-				makeRelease("kubetail-prod", "team-b", "0.19.0"),
-				makeRelease("kubetail", "kubetail-system", "0.23.0"),
-			},
-			want: "0.19.0",
-		},
-		{
-			name: "release with empty version is skipped",
-			releases: []*helmrelease.Release{
-				makeRelease("kubetail", "kubetail-system", ""),
-				makeRelease("kubetail-2", "kubetail-system", "0.22.0"),
-			},
-			want: "0.22.0",
-		},
-		{
-			name: "release with invalid version is skipped",
-			releases: []*helmrelease.Release{
-				makeRelease("kubetail", "kubetail-system", "not-a-version"),
-				makeRelease("kubetail-2", "kubetail-system", "0.22.0"),
-			},
-			want: "0.22.0",
-		},
-		{
-			name: "release with nil chart is skipped",
-			releases: []*helmrelease.Release{
-				{Name: "kubetail", Namespace: "kubetail-system", Chart: nil},
-				makeRelease("kubetail-2", "kubetail-system", "0.22.0"),
-			},
-			want: "0.22.0",
-		},
-		{
-			name: "all releases invalid",
-			releases: []*helmrelease.Release{
-				makeRelease("kubetail", "kubetail-system", ""),
-				makeRelease("kubetail-2", "kubetail-system", "bad"),
-			},
-			want: "",
-		},
-	}
+	t.Run("lister error returns empty", func(t *testing.T) {
+		lister := &mockHelmLister{err: errors.New("connection refused")}
+		assert.Equal(t, "", getInstalledHelmChartVersion(lister))
+	})
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			lister := &mockHelmLister{releases: tc.releases, err: tc.err}
-			assert.Equal(t, tc.want, getInstalledHelmChartVersion(lister))
-		})
-	}
+	t.Run("returns oldest version", func(t *testing.T) {
+		lister := &mockHelmLister{releases: []*helmrelease.Release{
+			{Chart: &helmchart.Chart{Metadata: &helmchart.Metadata{Version: "0.22.0"}}},
+			{Chart: &helmchart.Chart{Metadata: &helmchart.Metadata{Version: "0.21.0"}}},
+		}}
+		assert.Equal(t, "0.21.0", getInstalledHelmChartVersion(lister))
+	})
 }
 
 func TestDefaultCLICacheFile(t *testing.T) {

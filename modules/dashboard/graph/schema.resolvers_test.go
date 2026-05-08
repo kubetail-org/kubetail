@@ -34,25 +34,26 @@ import (
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 )
 
-// MockHelmReleaseGetter implements helmReleaseGetter for testing.
-type MockHelmReleaseGetter struct {
+// MockHelmReleaseLister implements helmReleaseLister for testing.
+type MockHelmReleaseLister struct {
 	mock.Mock
 }
 
-func (m *MockHelmReleaseGetter) GetReleaseForContext(kubeContext, namespace, releaseName string) (*release.Release, error) {
-	ret := m.Called(kubeContext, namespace, releaseName)
+func (m *MockHelmReleaseLister) ListReleasesForContext(kubeContext string) ([]*release.Release, error) {
+	ret := m.Called(kubeContext)
 
-	var r0 *release.Release
+	var r0 []*release.Release
 	if ret.Get(0) != nil {
-		r0 = ret.Get(0).(*release.Release)
+		r0 = ret.Get(0).([]*release.Release)
 	}
 
 	return r0, ret.Error(1)
 }
 
-func makeRelease(name, version string) *release.Release {
+func makeRelease(name, namespace, version string) *release.Release {
 	return &release.Release{
-		Name: name,
+		Name:      name,
+		Namespace: namespace,
 		Chart: &chart.Chart{
 			Metadata: &chart.Metadata{
 				Version: version,
@@ -344,8 +345,8 @@ func TestClusterVersionStatus_ClusterMode(t *testing.T) {
 func TestClusterVersionStatus_DesktopMode(t *testing.T) {
 	tests := []struct {
 		name                string
-		release             *release.Release
-		getErr              error
+		releases            []*release.Release
+		listErr             error
 		latestVersion       string
 		checkerErr          error
 		expectedNil         bool
@@ -354,8 +355,8 @@ func TestClusterVersionStatus_DesktopMode(t *testing.T) {
 		expectedUpdateAvail bool
 	}{
 		{
-			name:                "update available",
-			release:             makeRelease("kubetail", "0.9.0"),
+			name:                "update available — single release in arbitrary namespace",
+			releases:            []*release.Release{makeRelease("kubetail", "kubetail", "0.9.0")},
 			latestVersion:       "0.10.0",
 			expectedCurrent:     "0.9.0",
 			expectedLatest:      "0.10.0",
@@ -363,26 +364,70 @@ func TestClusterVersionStatus_DesktopMode(t *testing.T) {
 		},
 		{
 			name:                "up to date",
-			release:             makeRelease("kubetail", "0.10.0"),
+			releases:            []*release.Release{makeRelease("kubetail", "kubetail", "0.10.0")},
 			latestVersion:       "0.10.0",
 			expectedCurrent:     "0.10.0",
 			expectedLatest:      "0.10.0",
 			expectedUpdateAvail: false,
 		},
 		{
-			name:        "release not found returns nil",
-			getErr:      fmt.Errorf("release not found"),
+			name: "oldest across namespaces wins",
+			releases: []*release.Release{
+				makeRelease("kubetail", "kubetail-prod", "0.10.0"),
+				makeRelease("kubetail", "kubetail-dev", "0.9.0"),
+			},
+			latestVersion:       "0.10.0",
+			expectedCurrent:     "0.9.0",
+			expectedLatest:      "0.10.0",
+			expectedUpdateAvail: true,
+		},
+		{
+			name: "oldest across mixed release names",
+			releases: []*release.Release{
+				makeRelease("my-kubetail", "team-a", "0.11.0"),
+				makeRelease("kubetail", "kubetail", "0.10.0"),
+			},
+			latestVersion:       "0.11.0",
+			expectedCurrent:     "0.10.0",
+			expectedLatest:      "0.11.0",
+			expectedUpdateAvail: true,
+		},
+		{
+			name: "releases with empty/invalid versions are skipped",
+			releases: []*release.Release{
+				makeRelease("kubetail", "kubetail", ""),
+				makeRelease("kubetail-2", "kubetail", "not-a-version"),
+				makeRelease("kubetail-3", "kubetail", "0.10.0"),
+			},
+			latestVersion:       "0.10.0",
+			expectedCurrent:     "0.10.0",
+			expectedLatest:      "0.10.0",
+			expectedUpdateAvail: false,
+		},
+		{
+			name:        "no releases found returns nil",
+			releases:    nil,
 			expectedNil: true,
 		},
 		{
-			name:        "nil release returns nil",
+			name:        "lister error returns nil",
+			listErr:     fmt.Errorf("helm error"),
 			expectedNil: true,
 		},
 		{
 			name:        "version checker error returns nil",
-			release:     makeRelease("kubetail", "0.9.0"),
+			releases:    []*release.Release{makeRelease("kubetail", "kubetail", "0.9.0")},
 			checkerErr:  fmt.Errorf("network error"),
 			expectedNil: true,
+		},
+		{
+			// Users on a release-candidate get nudged to the matching stable.
+			name:                "prerelease current with newer stable latest reports update available",
+			releases:            []*release.Release{makeRelease("kubetail", "kubetail", "0.10.0-rc.1")},
+			latestVersion:       "0.10.0",
+			expectedCurrent:     "0.10.0-rc.1",
+			expectedLatest:      "0.10.0",
+			expectedUpdateAvail: true,
 		},
 	}
 
@@ -398,15 +443,15 @@ func TestClusterVersionStatus_DesktopMode(t *testing.T) {
 			cm := &k8shelpersmock.MockConnectionManager{}
 			cm.On("DerefKubeContext", mock.Anything).Return("")
 
-			hg := &MockHelmReleaseGetter{}
-			hg.On("GetReleaseForContext", mock.Anything, mock.Anything, mock.Anything).Return(tt.release, tt.getErr)
+			hl := &MockHelmReleaseLister{}
+			hl.On("ListReleasesForContext", mock.Anything).Return(tt.releases, tt.listErr)
 
 			r := &queryResolver{&Resolver{
 				cfg:               &config.Config{},
 				cm:                cm,
 				environment:       sharedcfg.EnvironmentDesktop,
 				versionChecker:    vc,
-				helmReleaseGetter: hg,
+				helmReleaseLister: hl,
 			}}
 
 			result, err := r.ClusterVersionStatus(context.Background(), nil)

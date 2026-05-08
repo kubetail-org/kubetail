@@ -23,8 +23,6 @@ import (
 	"sync"
 	"time"
 
-	semver "github.com/Masterminds/semver/v3"
-	helmrelease "helm.sh/helm/v3/pkg/release"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kubetail-org/kubetail/modules/cli/pkg/config"
@@ -68,10 +66,6 @@ type Notification struct {
 	Message string
 }
 
-type helmLister interface {
-	ListReleases() ([]*helmrelease.Release, error)
-}
-
 type Options struct {
 	CLICacheFile      string
 	HelmCacheFile     string
@@ -80,7 +74,7 @@ type Options struct {
 	KubeContext       string
 	CacheTTL          time.Duration
 	Checker           versioncheck.Checker
-	HelmLister        helmLister
+	HelmLister        helm.ReleaseLister
 	// Runner executes background refresh tasks. Defaults to a goroutine.
 	// Tests can inject a synchronous runner to control execution.
 	Runner func(func())
@@ -305,25 +299,10 @@ func isStale(fetchedAt *int64, ttl time.Duration) bool {
 	return fetchedAt == nil || time.Since(time.UnixMilli(*fetchedAt)) > ttl
 }
 
-func compareVersions(current, latest string) bool {
-	if current == "" || latest == "" {
-		return false
-	}
-	c, err := semver.NewVersion(current)
-	if err != nil {
-		return false
-	}
-	l, err := semver.NewVersion(latest)
-	if err != nil {
-		return false
-	}
-	return l.GreaterThan(c)
-}
-
 func buildNotifications(cliCache *CLICache, helmCache *HelmCache, currentCLIVersion, kubeContext string) []Notification {
 	var notes []Notification
 
-	if cliCache != nil && compareVersions(currentCLIVersion, cliCache.LatestVersion) {
+	if cliCache != nil && helm.IsUpdateAvailable(currentCLIVersion, cliCache.LatestVersion) {
 		notes = append(notes, Notification{
 			Message: fmt.Sprintf(
 				"Warning: A new version of the kubetail CLI is available (%s > %s). See https://kubetail.com/docs/install to upgrade.\n",
@@ -335,7 +314,7 @@ func buildNotifications(cliCache *CLICache, helmCache *HelmCache, currentCLIVers
 	if helmCache == nil {
 		return notes
 	}
-	if entry, ok := helmCache.Clusters[kubeContext]; ok && entry.CurrentVersion != "" && compareVersions(entry.CurrentVersion, helmCache.LatestVersion) {
+	if entry, ok := helmCache.Clusters[kubeContext]; ok && entry.CurrentVersion != "" && helm.IsUpdateAvailable(entry.CurrentVersion, helmCache.LatestVersion) {
 		notes = append(notes, Notification{
 			Message: fmt.Sprintf(
 				"Warning: A new version of the Kubetail API is available (%s > %s). To upgrade, run: kubetail cluster upgrade\n",
@@ -367,26 +346,10 @@ func resolveKubeContext(kubeconfigPath, kubeContext string) string {
 // getInstalledHelmChartVersion returns the oldest installed kubetail chart version
 // across all namespaces. Oldest is used so the notification reflects the release
 // most in need of upgrading when multiple installations exist.
-func getInstalledHelmChartVersion(lister helmLister) string {
+func getInstalledHelmChartVersion(lister helm.ReleaseLister) string {
 	releases, err := lister.ListReleases()
 	if err != nil {
 		return ""
 	}
-	var oldest *semver.Version
-	for _, rel := range releases {
-		if rel.Chart == nil || rel.Chart.Metadata == nil || rel.Chart.Metadata.Version == "" {
-			continue
-		}
-		v, err := semver.NewVersion(rel.Chart.Metadata.Version)
-		if err != nil {
-			continue
-		}
-		if oldest == nil || v.LessThan(oldest) {
-			oldest = v
-		}
-	}
-	if oldest == nil {
-		return ""
-	}
-	return oldest.Original()
+	return helm.OldestChartVersion(releases)
 }

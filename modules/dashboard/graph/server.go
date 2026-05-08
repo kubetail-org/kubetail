@@ -70,7 +70,7 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 		environment:       cfg.Environment,
 		allowedNamespaces: cfg.AllowedNamespaces,
 		versionChecker:    versioncheck.NewChecker(),
-		helmReleaseGetter: &defaultHelmReleaseGetter{kubeconfigPath: cfg.KubeconfigPath},
+		helmReleaseLister: &defaultHelmReleaseLister{kubeconfigPath: cfg.KubeconfigPath},
 	}
 
 	if path := cfg.PreferencesPath(); path != "" {
