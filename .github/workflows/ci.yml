@@ -111,8 +111,8 @@ jobs:
         working-directory: ./dashboard-ui
         run: pnpm lint
 
-  install-script-shellcheck:
-    name: Install script · shellcheck
+  shell-lint:
+    name: Shell · Lint
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -126,65 +126,6 @@ jobs:
   ###########################
   # Test jobs
   ###########################
-
-  install-script-bats:
-    name: Install script · bats
-    needs:
-      - install-script-shellcheck
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - linux
-          - macos-15
-          - macos-26
-          - windows
-        arch:
-          - amd64
-          - arm64
-        include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-24.04
-          - os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-          - os: macos-15
-            arch: amd64
-            runner: macos-15-intel
-          - os: macos-15
-            arch: arm64
-            runner: macos-15
-          - os: macos-26
-            arch: arm64
-            runner: macos-26
-          - os: windows
-            arch: amd64
-            runner: windows-2025
-          - os: windows
-            arch: arm64
-            runner: windows-11-arm
-        exclude:
-          - os: macos-26
-            arch: amd64
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v6
-      - name: Install bats (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bats
-      - name: Install bats (macOS)
-        if: runner.os == 'macOS'
-        run: brew install bats-core
-      - name: Install bats (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: npm install -g bats
-      - name: Run bats
-        run: bats scripts/
-        shell: bash
 
   go-test:
     name: Go · Test
@@ -299,6 +240,65 @@ jobs:
       - name: Test
         working-directory: ./dashboard-ui
         run: pnpm test run
+
+  shell-test:
+    name: Shell · Test
+    needs:
+      - shell-lint
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - linux
+          - macos-15
+          - macos-26
+          - windows
+        arch:
+          - amd64
+          - arm64
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-24.04
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - os: macos-15
+            arch: amd64
+            runner: macos-15-intel
+          - os: macos-15
+            arch: arm64
+            runner: macos-15
+          - os: macos-26
+            arch: arm64
+            runner: macos-26
+          - os: windows
+            arch: amd64
+            runner: windows-2025
+          - os: windows
+            arch: arm64
+            runner: windows-11-arm
+        exclude:
+          - os: macos-26
+            arch: amd64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install bats (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats
+      - name: Install bats (macOS)
+        if: runner.os == 'macOS'
+        run: brew install bats-core
+      - name: Install bats (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: npm install -g bats
+      - name: Run bats
+        shell: bash
+        run: bats scripts/
 
   ###########################
   # Build jobs
