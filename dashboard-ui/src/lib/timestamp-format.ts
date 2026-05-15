@@ -23,6 +23,7 @@ export const TimestampFormat = {
   RFC_1123: 'rfc1123',
   UNIX: 'unix',
   UNIX_MS: 'unix_ms',
+  LOCALE: 'locale',
 } as const;
 
 export type TimestampFormatValue = (typeof TimestampFormat)[keyof typeof TimestampFormat];
@@ -33,6 +34,19 @@ export const TIMESTAMP_FORMAT_OPTIONS: { value: TimestampFormatValue; label: str
   { value: TimestampFormat.RFC_1123, label: 'RFC 1123', hint: 'Mon, 02 Jan 2006 15:04:05 +0000' },
   { value: TimestampFormat.UNIX, label: 'Unix seconds', hint: '1136214245' },
   { value: TimestampFormat.UNIX_MS, label: 'Unix milliseconds', hint: '1136214245000' },
+  {
+    value: TimestampFormat.LOCALE,
+    label: 'Browser locale',
+    hint: new Intl.DateTimeFormat(undefined, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      fractionalSecondDigits: 3,
+    }).format(new Date('2006-01-02T15:04:05.000Z')),
+  },
 ];
 
 const PATTERNS: Record<TimestampFormatValue, string> = {
@@ -41,6 +55,7 @@ const PATTERNS: Record<TimestampFormatValue, string> = {
   [TimestampFormat.RFC_1123]: 'EEE, dd MMM yyyy HH:mm:ss xx',
   [TimestampFormat.UNIX]: '',
   [TimestampFormat.UNIX_MS]: '',
+  [TimestampFormat.LOCALE]: '',
 };
 
 function coerceDate(date: Date | string): Date {
@@ -55,6 +70,18 @@ export function formatTimestamp(date: Date | string, timezone: string, format: s
   }
   if (format === TimestampFormat.UNIX_MS) {
     return String(d.getTime());
+  }
+  if (format === TimestampFormat.LOCALE) {
+    return new Intl.DateTimeFormat(undefined, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      fractionalSecondDigits: 3,
+      timeZone: timezone,
+    }).format(d);
   }
 
   const pattern = PATTERNS[format as TimestampFormatValue] ?? PATTERNS[TimestampFormat.ISO_8601];
