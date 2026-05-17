@@ -32,6 +32,7 @@ describe('TimestampFormat', () => {
     expect(TimestampFormat.RFC_1123).toBe('rfc1123');
     expect(TimestampFormat.UNIX).toBe('unix');
     expect(TimestampFormat.UNIX_MS).toBe('unix_ms');
+    expect(TimestampFormat.LOCALE).toBe('locale');
   });
 });
 
@@ -43,13 +44,14 @@ describe('TIMESTAMP_FORMAT_OPTIONS', () => {
     });
   });
 
-  it('contains exactly the five supported formats in order', () => {
+  it('contains exactly the six supported formats in order', () => {
     expect(TIMESTAMP_FORMAT_OPTIONS.map((o: { value: string }) => o.value)).toEqual([
       'iso8601',
       'rfc3339',
       'rfc1123',
       'unix',
       'unix_ms',
+      'locale',
     ]);
   });
 });
@@ -75,6 +77,10 @@ describe('formatTimestamp', () => {
     expect(formatTimestamp(FIXED_DATE, 'UTC', TimestampFormat.UNIX_MS)).toBe(String(FIXED_EPOCH_MS));
   });
 
+  it('formats Locale using Intl.DateTimeFormat', () => {
+    expect(formatTimestamp(FIXED_DATE, 'UTC', TimestampFormat.LOCALE).length).toBeGreaterThan(0);
+  });
+
   it('honours timezone for ISO 8601 (non-UTC offset)', () => {
     const formatted = formatTimestamp(FIXED_DATE, 'America/New_York', TimestampFormat.ISO_8601);
     expect(formatted).toMatch(/^2026-04-23T\d{2}:35:22\.123-04:00$/);
@@ -83,6 +89,12 @@ describe('formatTimestamp', () => {
   it('honours timezone for RFC 1123 (non-UTC offset)', () => {
     const formatted = formatTimestamp(FIXED_DATE, 'America/New_York', TimestampFormat.RFC_1123);
     expect(formatted).toMatch(/^Thu, 23 Apr 2026 \d{2}:35:22 -0400$/);
+  });
+
+  it('honours timezone for LOCALE (non-UTC offset)', () => {
+    const formattedUTC = formatTimestamp(FIXED_DATE, 'UTC', TimestampFormat.LOCALE);
+    const formattedNY = formatTimestamp(FIXED_DATE, 'America/New_York', TimestampFormat.LOCALE);
+    expect(formattedUTC).not.toBe(formattedNY);
   });
 
   it('accepts an ISO date string', () => {
