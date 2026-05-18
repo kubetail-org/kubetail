@@ -34,7 +34,7 @@ const SettingsPopoverContent = () => {
   const [timestampFormat, setTimestampFormat] = useTimestampFormat();
 
   const handleThemeChange = (value: Theme | null) => {
-    setTheme(value as Theme);
+    if (value !== null) setTheme(value);
   };
 
   const handleTimezoneChange = (value: string | null) => {

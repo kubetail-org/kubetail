@@ -143,12 +143,8 @@ const CheckboxHeaderCell = ({ sourceStrings }: CheckboxHeaderCellProps) => {
     [sourceStrings, selectedSources],
   );
 
-  const checkboxState = useMemo(() => {
-    if (sourceStrings.size === 0) return { checked: false, indeterminate: false };
-    if (checkedCount === 0) return { checked: false, indeterminate: false };
-    if (checkedCount === sourceStrings.size) return { checked: true, indeterminate: false };
-    return { checked: false, indeterminate: true };
-  }, [sourceStrings.size, checkedCount]);
+  const allChecked = sourceStrings.size > 0 && checkedCount === sourceStrings.size;
+  const isIndeterminate = checkedCount > 0 && checkedCount < sourceStrings.size;
 
   const handleCheckedChange = useCallback(
     (checked: boolean) => {
@@ -167,11 +163,7 @@ const CheckboxHeaderCell = ({ sourceStrings }: CheckboxHeaderCellProps) => {
 
   return (
     <div className="flex items-center">
-      <Checkbox
-        checked={checkboxState.checked}
-        indeterminate={checkboxState.indeterminate}
-        onCheckedChange={handleCheckedChange}
-      />
+      <Checkbox checked={allChecked} indeterminate={isIndeterminate} onCheckedChange={handleCheckedChange} />
     </div>
   );
 };
@@ -525,7 +517,12 @@ const NamespacePicker = () => {
  * SourcePickerModal component
  */
 
-const SourcePickerModal = ({ open, onOpenChange }: React.ComponentProps<typeof Dialog>) => {
+type SourcePickerModalProps = {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+};
+
+const SourcePickerModal = ({ open, onOpenChange }: SourcePickerModalProps) => {
   const [searchParams] = useSearchParams();
   const [namespaceFilter, setNamespaceFilter] = useState('');
   const [selectedSources, setSelectedSources] = useState(new Set(searchParams.getAll('source')));
@@ -544,9 +541,7 @@ const SourcePickerModal = ({ open, onOpenChange }: React.ComponentProps<typeof D
     currentUrl.search = new URLSearchParams(searchParams).toString();
     window.location.href = currentUrl.toString();
 
-    // Programmatic close (no originating Base UI event); parent handler is a
-    // state setter that ignores eventDetails.
-    if (onOpenChange) onOpenChange(false, undefined as unknown as Parameters<NonNullable<typeof onOpenChange>>[1]);
+    onOpenChange?.(false);
   };
 
   const context = useMemo(
