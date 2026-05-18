@@ -53,7 +53,7 @@ const HealthDot = ({ className, status }: { className?: string; status: Status }
       color = 'yellow';
       break;
     case Status.Unknown:
-      color = 'chrome';
+      color = 'gray';
       break;
     default:
       throw new Error('not implemented');
@@ -62,7 +62,7 @@ const HealthDot = ({ className, status }: { className?: string; status: Status }
   return (
     <div
       className={cn('w-3 h-3 rounded-full', className, {
-        'bg-chrome-300': color === 'chrome',
+        'bg-gray-300 dark:bg-gray-600': color === 'gray',
         'bg-red-500': color === 'red',
         'bg-green-500': color === 'green',
         'bg-yellow-500': color === 'yellow',

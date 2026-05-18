@@ -97,7 +97,7 @@ const Sidebar = ({ workloadState }: SidebarProps) => {
   return (
     <ul className="text-[.85rem]">
       <li>
-        <div className="font-bold text-chrome-600 mt-[5px] mb-[12px]">Workloads</div>
+        <div className="font-bold mt-[5px] mb-[12px]">Workloads</div>
         <div>
           <ul className="inline-grid space-y-0">
             {ALL_WORKLOAD_KINDS.map((kind) => {
@@ -108,12 +108,12 @@ const Sidebar = ({ workloadState }: SidebarProps) => {
                     type="button"
                     className={cn(
                       'w-full px-[8px] py-[5px] cursor-pointer rounded-xs flex items-center',
-                      currWorkload === kind ? 'bg-chrome-300' : 'hover:bg-chrome-200',
+                      currWorkload === kind ? 'bg-sidebar-accent' : 'hover:bg-sidebar-accent/50',
                     )}
                     onClick={() => setCurrWorkload(kind)}
                   >
                     <Icon className="h-[18px] w-[18px] text-primary" />
-                    <div className="ml-1 text-chrome-700">
+                    <div className="ml-1">
                       {PLURAL_LABEL_MAP[kind]} {counter.has(kind) && `(${counter.get(kind)})`}
                     </div>
                   </button>
@@ -260,7 +260,7 @@ type SortIconProps = {
 };
 
 const SortIcon = ({ dir, descFirst }: SortIconProps) => {
-  const iconCN = 'h-5 w-5 ml-2 flex-none text-chrome-400 ';
+  const iconCN = 'h-5 w-5 ml-2 flex-none';
 
   switch (dir) {
     case 'asc':
@@ -346,7 +346,7 @@ const DisplayWorkloadItems = ({ kind, items }: DisplayWorkloadItemsProps) => {
 
   return (
     <Table containerClassName="overflow-x-hidden overflow-y-auto shadow ring ring-black/5 rounded-lg h-full">
-      <TableHeader className="bg-chrome-50 sticky top-0">
+      <TableHeader className="bg-muted sticky top-0">
         {table.getHeaderGroups().map((headerGroup) => (
           <TableRow key={headerGroup.id}>
             {headerGroup.headers.map((header) => {
@@ -496,7 +496,7 @@ const NamespacePicker = () => {
       onValueChange={(value) => setNamespaceFilter(value === ALL_NAMESPACES || value == null ? '' : value)}
       disabled={loading}
     >
-      <SelectTrigger className="h-[35px] bg-chrome-50 border border-chrome-30 text-sm rounded-lg mt-0!">
+      <SelectTrigger className="h-[35px] border text-sm rounded-lg mt-0!">
         <SelectValue placeholder="Loading...">
           {(value) => (value === ALL_NAMESPACES ? 'All namespaces' : value)}
         </SelectValue>

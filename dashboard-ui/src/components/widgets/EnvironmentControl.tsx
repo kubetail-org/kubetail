@@ -48,7 +48,7 @@ const EnvironmentControl = () => {
     <Dialog>
       <DialogTrigger
         render={
-          <button type="button" className="h-full text-xs text-chrome-500 px-1 hover:bg-secondary">
+          <button type="button" className="h-full text-xs text-muted-foreground px-1 hover:bg-secondary">
             Environment Control
           </button>
         }
