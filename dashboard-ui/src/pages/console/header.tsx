@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { CheckedState } from '@radix-ui/react-checkbox';
 import { useAtom } from 'jotai';
 import {
   Download as DownloadIcon,
@@ -50,7 +49,7 @@ const SettingsButton = () => {
   const [isWrap, setIsWrap] = useAtom(isWrapAtom);
 
   const handleOnChange = useCallback(
-    (col: ViewerColumn, checked: CheckedState) => {
+    (col: ViewerColumn, checked: boolean) => {
       const newSet = new Set(visibleCols);
       if (checked) newSet.add(col);
       else newSet.delete(col);
@@ -75,21 +74,19 @@ const SettingsButton = () => {
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="rounded-lg h-10 w-10 flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30"
-          title="Settings"
-          aria-label="Settings"
-        >
-          <SettingsIcon size={18} strokeWidth={1.5} />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="bg-background w-auto mr-1 text-sm"
-        onOpenAutoFocus={(ev) => ev.preventDefault()}
-        sideOffset={-1}
-      >
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className="rounded-lg h-10 w-10 flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30"
+            title="Settings"
+            aria-label="Settings"
+          >
+            <SettingsIcon size={18} strokeWidth={1.5} />
+          </button>
+        }
+      />
+      <PopoverContent className="bg-background w-auto mr-1 text-sm" initialFocus={false} sideOffset={-1}>
         <div className="border-b mb-1">Columns:</div>
         <div className="space-y-2">{checkboxEls}</div>
         <div className="border-b mt-2 mb-1">Options:</div>
@@ -251,6 +248,7 @@ export function Header() {
           {shouldUseClusterAPI && (
             <form onSubmit={handleSubmit}>
               <Input
+                key={searchParams.get('grep') || ''}
                 name="grep"
                 className="w-100 bg-background"
                 placeholder="Match string or /regex/..."

@@ -37,6 +37,14 @@ export enum DurationUnit {
   Months = 'months',
 }
 
+const DURATION_UNIT_LABELS: Record<DurationUnit, string> = {
+  [DurationUnit.Minutes]: 'Minutes ago',
+  [DurationUnit.Hours]: 'Hours ago',
+  [DurationUnit.Days]: 'Days ago',
+  [DurationUnit.Weeks]: 'Weeks ago',
+  [DurationUnit.Months]: 'Months ago',
+};
+
 export class Duration {
   value: number;
 
@@ -151,13 +159,13 @@ const RelativeTimeForm = ({ onApply }: { onApply: (duration: Duration) => void }
           />
           <Select value={customUnit} onValueChange={(value) => setCustomUnit(value as DurationUnit)}>
             <SelectTrigger className="flex-1 w-30 px-2 gap-1">
-              <SelectValue />
+              <SelectValue>{(value) => DURATION_UNIT_LABELS[value as DurationUnit]}</SelectValue>
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={DurationUnit.Minutes}>Minutes ago</SelectItem>
-              <SelectItem value={DurationUnit.Hours}>Hours ago</SelectItem>
-              <SelectItem value={DurationUnit.Days}>Days ago</SelectItem>
-              <SelectItem value={DurationUnit.Weeks}>Weeks ago</SelectItem>
+            <SelectContent alignItemWithTrigger={false}>
+              <SelectItem value={DurationUnit.Minutes}>{DURATION_UNIT_LABELS[DurationUnit.Minutes]}</SelectItem>
+              <SelectItem value={DurationUnit.Hours}>{DURATION_UNIT_LABELS[DurationUnit.Hours]}</SelectItem>
+              <SelectItem value={DurationUnit.Days}>{DURATION_UNIT_LABELS[DurationUnit.Days]}</SelectItem>
+              <SelectItem value={DurationUnit.Weeks}>{DURATION_UNIT_LABELS[DurationUnit.Weeks]}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -300,7 +308,7 @@ export const DateRangeDropdown = ({ onChange, children }: React.PropsWithChildre
 
   return (
     <Popover>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverTrigger render={children as React.ReactElement} />
       <PopoverContent className="w-auto p-3" align="start">
         <div className="flex items-stretch gap-3">
           <RelativeTimeForm onApply={handleRelativeApply} />

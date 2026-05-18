@@ -244,11 +244,13 @@ const ServerStatusWidget = ({ className, healthDotClassName }: ServerStatusWidge
   return (
     <>
       <Dialog>
-        <DialogTrigger asChild>
-          <button type="button" className={className}>
-            <HealthDot status={overallStatus} className={healthDotClassName} />
-          </button>
-        </DialogTrigger>
+        <DialogTrigger
+          render={
+            <button type="button" className={className}>
+              <HealthDot status={overallStatus} className={healthDotClassName} />
+            </button>
+          }
+        />
         <DialogContent className="max-h-[calc(100vh-4rem)] overflow-y-auto">
           <DialogTitle>Health Status</DialogTitle>
           <DialogDescription />

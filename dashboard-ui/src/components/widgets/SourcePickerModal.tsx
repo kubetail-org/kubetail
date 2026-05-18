@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { CheckedState } from '@radix-ui/react-checkbox';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
 import type { Cell, ColumnDef, Row, SortDirection, SortingState, TableMeta, TableOptions } from '@tanstack/react-table';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -145,14 +144,14 @@ const CheckboxHeaderCell = ({ sourceStrings }: CheckboxHeaderCellProps) => {
   );
 
   const checkboxState = useMemo(() => {
-    if (sourceStrings.size === 0) return false;
-    if (checkedCount === 0) return false;
-    if (checkedCount === sourceStrings.size) return true;
-    return 'indeterminate';
+    if (sourceStrings.size === 0) return { checked: false, indeterminate: false };
+    if (checkedCount === 0) return { checked: false, indeterminate: false };
+    if (checkedCount === sourceStrings.size) return { checked: true, indeterminate: false };
+    return { checked: false, indeterminate: true };
   }, [sourceStrings.size, checkedCount]);
 
   const handleCheckedChange = useCallback(
-    (checked: CheckedState) => {
+    (checked: boolean) => {
       setSelectedSources((sources) => {
         const newSources = new Set(sources);
         if (checked) {
@@ -168,7 +167,11 @@ const CheckboxHeaderCell = ({ sourceStrings }: CheckboxHeaderCellProps) => {
 
   return (
     <div className="flex items-center">
-      <Checkbox checked={checkboxState} onCheckedChange={handleCheckedChange} />
+      <Checkbox
+        checked={checkboxState.checked}
+        indeterminate={checkboxState.indeterminate}
+        onCheckedChange={handleCheckedChange}
+      />
     </div>
   );
 };
@@ -186,7 +189,7 @@ const CheckboxBodyCell = ({ id, sourceString }: CheckboxBodyCellProps) => {
   const { selectedSources, setSelectedSources } = useContext(Context);
 
   const handleCheckedChange = useCallback(
-    (checked: CheckedState) => {
+    (checked: boolean) => {
       setSelectedSources((sources) => {
         const newSources = new Set(sources);
         if (checked) {
@@ -498,13 +501,15 @@ const NamespacePicker = () => {
   return (
     <Select
       value={namespaceFilter === '' ? ALL_NAMESPACES : namespaceFilter}
-      onValueChange={(value) => setNamespaceFilter(value === ALL_NAMESPACES ? '' : value)}
+      onValueChange={(value) => setNamespaceFilter(value === ALL_NAMESPACES || value == null ? '' : value)}
       disabled={loading}
     >
       <SelectTrigger className="h-[35px] bg-chrome-50 border border-chrome-30 text-sm rounded-lg mt-0!">
-        <SelectValue placeholder="Loading..." />
+        <SelectValue placeholder="Loading...">
+          {(value) => (value === ALL_NAMESPACES ? 'All namespaces' : value)}
+        </SelectValue>
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent alignItemWithTrigger={false}>
         <SelectItem value={ALL_NAMESPACES}>All namespaces</SelectItem>
         {data?.coreV1NamespacesList?.items.map((item) => (
           <SelectItem key={item.id} value={item.metadata.name}>
@@ -539,7 +544,9 @@ const SourcePickerModal = ({ open, onOpenChange }: React.ComponentProps<typeof D
     currentUrl.search = new URLSearchParams(searchParams).toString();
     window.location.href = currentUrl.toString();
 
-    if (onOpenChange) onOpenChange(false);
+    // Programmatic close (no originating Base UI event); parent handler is a
+    // state setter that ignores eventDetails.
+    if (onOpenChange) onOpenChange(false, undefined as unknown as Parameters<NonNullable<typeof onOpenChange>>[1]);
   };
 
   const context = useMemo(
@@ -571,9 +578,7 @@ const SourcePickerModal = ({ open, onOpenChange }: React.ComponentProps<typeof D
           <Explorer />
           <DialogFooter>
             <div className="flex justify-end space-x-2 mt-[15px]">
-              <DialogClose asChild>
-                <Button variant="secondary">Cancel</Button>
-              </DialogClose>
+              <DialogClose render={<Button variant="secondary">Cancel</Button>} />
               <Button onClick={() => handleUpdate()}>Update</Button>
             </div>
           </DialogFooter>

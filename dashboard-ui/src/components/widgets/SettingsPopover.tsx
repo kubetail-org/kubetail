@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as SelectPrimitive from '@radix-ui/react-select';
-import { CheckIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { Popover, PopoverTrigger, PopoverContent } from '@kubetail/ui/elements/popover';
@@ -35,16 +33,16 @@ const SettingsPopoverContent = () => {
   const [timezone, setTimezone] = useTimezone();
   const [timestampFormat, setTimestampFormat] = useTimestampFormat();
 
-  const handleThemeChange = (value: Theme) => {
-    setTheme(value);
+  const handleThemeChange = (value: Theme | null) => {
+    setTheme(value as Theme);
   };
 
-  const handleTimezoneChange = (value: string) => {
-    setTimezone(value);
+  const handleTimezoneChange = (value: string | null) => {
+    if (value !== null) setTimezone(value);
   };
 
-  const handleTimestampFormatChange = (value: string) => {
-    setTimestampFormat(value);
+  const handleTimestampFormatChange = (value: string | null) => {
+    if (value !== null) setTimestampFormat(value);
   };
 
   const offsets = useMemo(() => new Map(TIMEZONES.map((tz) => [tz, formatTimezoneOffset(tz)])), []);
@@ -60,7 +58,7 @@ const SettingsPopoverContent = () => {
                 <SelectTrigger className="bg-secondary border-0">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-secondary">
+                <SelectContent alignItemWithTrigger={false} className="bg-secondary">
                   <SelectGroup>
                     <SelectItem value={Theme.System}>System</SelectItem>
                     <SelectItem value={Theme.Dark}>Dark</SelectItem>
@@ -75,24 +73,18 @@ const SettingsPopoverContent = () => {
             <td align="right">
               <Select value={timezone} onValueChange={handleTimezoneChange}>
                 <SelectTrigger className="bg-secondary border-0">
-                  <SelectValue />
+                  <SelectValue>{(value) => value}</SelectValue>
                 </SelectTrigger>
-                <SelectContent className="bg-secondary max-h-60">
+                <SelectContent
+                  alignItemWithTrigger={false}
+                  className="bg-secondary max-h-60 w-auto min-w-(--anchor-width)"
+                >
                   <SelectGroup>
                     {TIMEZONES.map((tz) => (
-                      <SelectPrimitive.Item
-                        key={tz}
-                        value={tz}
-                        className="focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                      >
-                        <span className="absolute right-2 flex size-3.5 items-center justify-center">
-                          <SelectPrimitive.ItemIndicator>
-                            <CheckIcon className="size-4" />
-                          </SelectPrimitive.ItemIndicator>
-                        </span>
-                        <SelectPrimitive.ItemText>{tz}</SelectPrimitive.ItemText>
+                      <SelectItem key={tz} value={tz}>
+                        {tz}
                         <span className="text-muted-foreground ml-auto">{offsets.get(tz)}</span>
-                      </SelectPrimitive.Item>
+                      </SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>
@@ -104,9 +96,11 @@ const SettingsPopoverContent = () => {
             <td align="right">
               <Select value={timestampFormat} onValueChange={handleTimestampFormatChange}>
                 <SelectTrigger className="bg-secondary border-0">
-                  <SelectValue />
+                  <SelectValue>
+                    {(value) => TIMESTAMP_FORMAT_OPTIONS.find((opt) => opt.value === value)?.label}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="bg-secondary">
+                <SelectContent alignItemWithTrigger={false} className="bg-secondary">
                   <SelectGroup>
                     {TIMESTAMP_FORMAT_OPTIONS.map(({ value, label }) => (
                       <SelectItem key={value} value={value}>
@@ -129,7 +123,7 @@ export const SettingsPopover = ({ children }: React.PropsWithChildren) => {
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverTrigger render={children as React.ReactElement} />
       {isOpen && <SettingsPopoverContent />}
     </Popover>
   );

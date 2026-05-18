@@ -630,13 +630,13 @@ const NamespacesPicker = () => {
   return (
     <Select
       value={namespaceFilter === '' ? ALL_NAMESPACES : namespaceFilter}
-      onValueChange={(v) => setNamespaceFilter(v === ALL_NAMESPACES ? '' : v)}
+      onValueChange={(v) => setNamespaceFilter(v === null || v === ALL_NAMESPACES ? '' : v)}
       disabled={loading}
     >
-      <SelectTrigger className="w-[200px] bg-background">
-        <SelectValue placeholder="Loading..." />
+      <SelectTrigger className="w-50 bg-background">
+        <SelectValue placeholder="Loading...">{(v) => (v === ALL_NAMESPACES ? 'All namespaces' : v)}</SelectValue>
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent alignItemWithTrigger={false}>
         <SelectGroup>
           <SelectLabel>Namespaces</SelectLabel>
           <SelectItem value={ALL_NAMESPACES}>All namespaces</SelectItem>

@@ -83,7 +83,12 @@ beforeEach(() => {
   Object.defineProperty(appConfig, 'cliVersion', { value: '0.9.0', writable: true });
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // Flush pending Apollo mock responses / fetcher effects while still mounted so a late
+  // setState doesn't leak into the next test (not-wrapped-in-act + "no more mocked responses").
+  await act(async () => {
+    await Promise.resolve();
+  });
   vi.useRealTimers();
 });
 
@@ -164,7 +169,9 @@ describe('useCLIUpdateNotification', () => {
   it('uses cached latestVersion when cache is fresh', async () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ latestVersion: '0.9.0', fetchedAt: Date.now() }));
 
-    renderWithProvider([]);
+    // Never-resolving mock: a fresh cache should skip the query entirely, but absorb any
+    // pre-hydration render without letting the network satisfy the cache-only assertion.
+    renderWithProvider([{ request: { query: CLI_LATEST_VERSION }, delay: Infinity }]);
 
     await act(async () => {
       vi.advanceTimersByTime(5000);
@@ -301,8 +308,11 @@ describe('useClusterUpdateNotification', () => {
     localStorage.setItem(`${CLUSTER_STORAGE_PREFIX}${KUBE_CONTEXT}`, JSON.stringify({ skippedVersions: ['1.0.0'] }));
     renderClusterWithMocks([clusterUpdateAvailableMock]);
 
+    // The cache is invalid, so the fetcher runs the query and persists the result. The negative
+    // assertion below passes immediately, so flush the full timer/microtask chain (kubeconfig
+    // watch -> fetcher mount -> query -> setPersisted) inside act so no late state update leaks.
     await act(async () => {
-      vi.advanceTimersByTime(1000);
+      await vi.runAllTimersAsync();
     });
 
     await waitFor(() => {
@@ -378,9 +388,23 @@ describe('useClusterUpdateNotification', () => {
       },
     };
 
-    localStorage.setItem(`${CLUSTER_STORAGE_PREFIX}${KUBE_CONTEXT}`, JSON.stringify({ dismissedAt: Date.now() }));
+    // Fresh cache for KUBE_CONTEXT so its fetcher skips the network (no late, un-awaited
+    // setPersisted); dismissedAt stays to verify dismiss state is keyed per kubeContext.
+    localStorage.setItem(
+      `${CLUSTER_STORAGE_PREFIX}${KUBE_CONTEXT}`,
+      JSON.stringify({ dismissedAt: Date.now(), latestVersion: '1.0.0', fetchedAt: Date.now() }),
+    );
 
-    renderClusterWithMocks([clusterUpdateAvailableMock, mock2], context2, [KUBE_CONTEXT, context2]);
+    // The KUBE_CONTEXT fetcher's first render happens before atomWithStorage's onMount
+    // re-reads the fresh cache, so it issues one pre-hydration query. Absorb it with a
+    // never-resolving mock (same pattern as the CLI cached-version test) so the cache-only
+    // path is exercised without a "no more mocked responses" error.
+    const absorbKubeContextMock: MockedResponse = {
+      request: { query: CLUSTER_VERSION_STATUS, variables: { kubeContext: KUBE_CONTEXT } },
+      delay: Infinity,
+    };
+
+    renderClusterWithMocks([absorbKubeContextMock, mock2], context2, [KUBE_CONTEXT, context2]);
 
     await waitFor(() => {
       expect(screen.getByTestId('cluster-update')).toHaveTextContent('1.0.0');

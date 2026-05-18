@@ -28,7 +28,6 @@
 @theme inline {
   --color-elevated: var(--elevated);
   --color-strong: var(--strong);
-  --color-chrome-divider: var(--chrome-300);
 }
 
 /**
@@ -131,10 +130,12 @@
 
   body {
     @apply h-full;
+    position: relative;
   }
 
   #root {
     @apply h-full;
+    isolation: isolate;
   }
 
   :root, .light {

@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import { useAtomValue } from 'jotai';
-import type { CheckedState } from '@radix-ui/react-checkbox';
 import { CirclePlus as CirclePlusIcon, Trash2 as TrashIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -182,7 +181,7 @@ const Containers = ({ namespace, podName, containerNames = [] }: ContainersProps
   const sortedContainerNames = useMemo(() => containerNames.sort(), [containerNames]);
 
   const handleToggle = useCallback(
-    (name: string, value: string, checked: CheckedState) => {
+    (name: string, value: string, checked: boolean) => {
       if (checked) searchParams.append(name, value);
       else searchParams.delete(name, value);
       setSearchParams(new URLSearchParams(searchParams));
@@ -311,7 +310,7 @@ const Facets = ({ label, counter }: { label: string; counter: Counter }) => {
   const entries = counter.orderedEntries();
 
   const handleToggle = useCallback(
-    (name: string, value: string, checked: CheckedState) => {
+    (name: string, value: string, checked: boolean) => {
       if (checked) searchParams.append(name, value);
       else searchParams.delete(name, value);
       setSearchParams(new URLSearchParams(searchParams));

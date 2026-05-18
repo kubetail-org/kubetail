@@ -21,13 +21,27 @@ import { MemoryRouter } from 'react-router-dom';
 
 import { DashboardCustomCache } from '@/apollo-client';
 import appConfig from '@/app-config';
+import { KUBE_CONFIG_WATCH } from '@/lib/graphql/dashboard/ops';
 import { KubeConfigEffect } from '@/lib/kubeconfig';
+
+/**
+ * `renderElement` always mounts `<KubeConfigEffect />`, which opens the `KUBE_CONFIG_WATCH`
+ * subscription in desktop mode. When a test doesn't supply its own mock for it, MockedProvider
+ * delivers a "no more mocked responses" error asynchronously, producing an unhandled
+ * not-wrapped-in-act state update. Default to a never-resolving mock so the subscription stays
+ * pending unless the test explicitly provides one.
+ */
+const withDefaultKubeConfigMock = (mocks?: MockedResponse[]): MockedResponse[] => {
+  const provided = mocks ?? [];
+  const hasKubeConfigMock = provided.some((m) => m.request.query === KUBE_CONFIG_WATCH);
+  return hasKubeConfigMock ? provided : [...provided, { request: { query: KUBE_CONFIG_WATCH }, delay: Infinity }];
+};
 
 export const renderElement = (component: React.ReactElement, mocks?: MockedResponse[]) =>
   render(
     <JotaiProvider store={createStore()}>
       <MockedProvider
-        mocks={mocks}
+        mocks={withDefaultKubeConfigMock(mocks)}
         cache={new DashboardCustomCache()}
         defaultOptions={{
           watchQuery: { fetchPolicy: 'cache-first' },

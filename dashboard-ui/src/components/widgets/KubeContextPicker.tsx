@@ -53,11 +53,11 @@ const KubeContextPicker = ({ className, value, setValue }: KubeContextPickerProp
   }, [value, currentContext, names, setValue]);
 
   return (
-    <Select value={value || ''} onValueChange={(v) => setValue(v)} disabled={loading}>
+    <Select value={value || ''} onValueChange={(v) => v !== null && setValue(v)} disabled={loading}>
       <SelectTrigger className={className}>
         <SelectValue placeholder="Loading..." />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent alignItemWithTrigger={false} className="w-auto min-w-(--anchor-width)">
         <SelectGroup>
           <SelectLabel>Clusters</SelectLabel>
           {names.map((name) => (
