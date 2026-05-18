@@ -56,8 +56,8 @@ const CELL_HORIZONTAL_PADDING_PX = 16;
  */
 
 const LoadingOverlay = () => (
-  <div className="absolute inset-0 bg-chrome-100 opacity-85 flex items-center justify-center z-50">
-    <div className="bg-background flex items-center space-x-4 p-3 border border-chrome-200 rounded-md">
+  <div className="absolute inset-0 bg-muted opacity-85 flex items-center justify-center z-50">
+    <div className="bg-background flex items-center space-x-4 p-3 border rounded-md">
       <div>Loading</div>
       <Spinner size="xs" />
     </div>
@@ -336,7 +336,7 @@ const HeaderRow = ({
   return (
     <div ref={headerScrollRef} className="w-full overflow-x-scroll no-scrollbar shrink-0 cursor-default">
       <div
-        className="grid border-b border-chrome-divider bg-chrome-200 *:border-r [&>*:not(:last-child)]:border-chrome-divider"
+        className="grid border-b border bg-muted *:border-r [&>*:not(:last-child)]:border"
         style={{
           height: HEADER_ROW_HEIGHT,
           gridTemplateColumns: gridTemplate,
@@ -465,9 +465,9 @@ export const RecordRow = memo(
         tabIndex={0}
         className={cn(
           isSelected && 'bg-blue-500/20 dark:bg-blue-500/25',
-          !isSelected && row.index % 2 !== 0 && 'bg-chrome-100',
+          !isSelected && row.index % 2 !== 0 && 'bg-muted',
           row.key === 0 && 'border-l-2 border-green-500 font-extrabold pl-[7px]',
-          row.key !== 0 && 'text-chrome-800',
+          row.key !== 0 && 'text-muted-foreground',
           'whitespace-nowrap tabular-nums text-[0.65rem] text-center pr-1.5 cursor-default select-none outline-none',
         )}
         onMouseDown={(e) => onRowMouseDown(row.key, e)}
@@ -478,7 +478,7 @@ export const RecordRow = memo(
           }
         }}
       >
-        {row.key !== 0 && <span className="text-chrome-300 text-[0.9rem]">{row.key > 0 ? '+' : '-'}</span>}
+        {row.key !== 0 && <span className="text-muted-foreground text-[0.9rem]">{row.key > 0 ? '+' : '-'}</span>}
         {Math.abs(row.key)}
       </div>,
     );
@@ -496,7 +496,7 @@ export const RecordRow = memo(
       if (isSelected) {
         cellBg = isTimestamp ? 'bg-blue-500/25 dark:bg-blue-500/25' : 'bg-blue-500/15 dark:bg-blue-500/20';
       } else {
-        cellBg = isTimestamp ? 'bg-chrome-200' : row.index % 2 !== 0 && 'bg-chrome-100';
+        cellBg = isTimestamp ? 'bg-muted' : row.index % 2 !== 0 && 'bg-muted/20';
       }
 
       const isNativeTextSelectable = isCellSelected && isCellTextSelectable;

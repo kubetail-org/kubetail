@@ -118,7 +118,7 @@ const InnerLayout = ({ sidebar, header, main }: InnerLayoutProps) => {
     <div className="relative h-full">
       {isSidebarOpen && (
         <>
-          <div className="absolute h-full bg-chrome-100 overflow-x-hidden" style={{ width: `${sidebarWidth}px` }}>
+          <div className="absolute h-full bg-sidebar overflow-x-hidden" style={{ width: `${sidebarWidth}px` }}>
             {sidebar}
             <button
               type="button"
@@ -126,12 +126,12 @@ const InnerLayout = ({ sidebar, header, main }: InnerLayoutProps) => {
               title="Collapse sidebar"
               className="absolute cursor-pointer right-1.75 top-7.5 transform -translate-y-1/2"
             >
-              <PanelLeftCloseIcon size={20} strokeWidth={2} className="text-chrome-500" />
+              <PanelLeftCloseIcon size={20} strokeWidth={2} />
             </button>
           </div>
           {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
           <div
-            className="absolute bg-chrome-divider w-1 h-full border-l-2 border-chrome-100 cursor-ew-resize"
+            className="absolute bg-border w-1 h-full border-l border cursor-ew-resize"
             style={{ left: `${sidebarWidth}px` }}
             onMouseDown={handleDrag}
           />
@@ -141,7 +141,7 @@ const InnerLayout = ({ sidebar, header, main }: InnerLayoutProps) => {
         className="h-full flex flex-col overflow-hidden"
         style={{ marginLeft: `${isSidebarOpen ? sidebarWidth + 4 : 0}px` }}
       >
-        <div className="bg-chrome-100 border-b border-chrome-divider">{header}</div>
+        <div className="border-b">{header}</div>
         <div className="grow min-h-0">{main}</div>
       </main>
     </div>

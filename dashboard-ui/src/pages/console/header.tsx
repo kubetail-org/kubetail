@@ -78,7 +78,7 @@ const SettingsButton = () => {
         render={
           <button
             type="button"
-            className="rounded-lg h-10 w-10 flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30"
+            className="rounded-lg h-10 w-10 flex items-center justify-center enabled:hover:bg-muted disabled:opacity-30"
             title="Settings"
             aria-label="Settings"
           >
@@ -115,7 +115,7 @@ export function Header() {
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
 
   const buttonCN =
-    'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30';
+    'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-muted disabled:opacity-30';
 
   const handleDateRangeDropdownChange = useCallback(
     (args: DateRangeDropdownOnChangeArgs) => {
@@ -185,7 +185,7 @@ export function Header() {
       <div className="flex items-center">
         {!isSidebarOpen && (
           <button type="button" onClick={() => setIsSidebarOpen(true)} title="Collapse sidebar" className="pr-2">
-            <PanelLeftOpenIcon size={20} strokeWidth={2} className="text-chrome-500" />
+            <PanelLeftOpenIcon size={20} strokeWidth={2} />
           </button>
         )}
         <div className={cn('flex', isSidebarOpen ? 'px-4' : 'px-2')}>
@@ -197,7 +197,7 @@ export function Header() {
               aria-label="Jump to time"
               disabled={isLoading}
             >
-              <HistoryIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+              <HistoryIcon size={24} strokeWidth={1.5} />
             </button>
           </DateRangeDropdown>
           <button
@@ -208,7 +208,7 @@ export function Header() {
             onClick={handleJumpToBeginningPress}
             disabled={isLoading}
           >
-            <SkipBackIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+            <SkipBackIcon size={24} strokeWidth={1.5} />
           </button>
           {isFollow ? (
             <button
@@ -219,7 +219,7 @@ export function Header() {
               onClick={handlePausePress}
               disabled={isLoading}
             >
-              <PauseIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+              <PauseIcon size={24} strokeWidth={1.5} />
             </button>
           ) : (
             <button
@@ -230,7 +230,7 @@ export function Header() {
               onClick={handlePlayPress}
               disabled={isLoading}
             >
-              <PlayIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+              <PlayIcon size={24} strokeWidth={1.5} />
             </button>
           )}
           <button
@@ -241,7 +241,7 @@ export function Header() {
             onClick={handleJumpToEndPress}
             disabled={isLoading}
           >
-            <SkipForwardIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+            <SkipForwardIcon size={24} strokeWidth={1.5} />
           </button>
         </div>
         <div>

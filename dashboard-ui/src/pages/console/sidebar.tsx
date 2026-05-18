@@ -113,7 +113,7 @@ const SidebarWorkloads = () => {
       )}
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center space-x-1">
-          <span className="font-bold text-chrome-500">Sources</span>
+          <span className="font-bold">Sources</span>
         </div>
         <button
           type="button"
@@ -139,7 +139,7 @@ const SidebarWorkloads = () => {
                 <div>
                   <Icon className="h-4.5 w-4.5" />
                 </div>
-                <div className="font-semibold text-chrome-500">{PLURAL_LABEL_MAP[kind]}</div>
+                <div className="font-semibold">{PLURAL_LABEL_MAP[kind]}</div>
               </div>
               <ul className="pl-5.75">
                 {vals.map((val) => (
@@ -152,7 +152,7 @@ const SidebarWorkloads = () => {
                       onClick={() => deleteSource(`${val.namespace}:${kind}/${val.name}`)}
                       aria-label="Delete source"
                     >
-                      <TrashIcon className="h-4.5 w-4.5 text-chrome-300 hover:text-chrome-500 cursor-pointer" />
+                      <TrashIcon className="h-4.5 w-4.5 text-muted-foreground cursor-pointer" />
                     </button>
                   </li>
                 ))}
@@ -283,8 +283,8 @@ const SidebarPodsAndContainers = () => {
 
   return (
     <>
-      <div className="border-t border-chrome-divider mt-2.5" />
-      <div className="py-2.5 font-bold text-chrome-500">Pods/Containers</div>
+      <div className="border-t border-divider mt-2.5" />
+      <div className="py-2.5 font-bold">Pods/Containers</div>
       <div className="space-y-3">
         {containerGroups.map((group) => (
           <div key={`${group.namespace}/${group.podName}`}>
@@ -325,7 +325,7 @@ const Facets = ({ label, counter }: { label: string; counter: Counter }) => {
 
   return (
     <>
-      <div className="border-t border-chrome-300 mt-2.5 py-2.5 font-bold text-chrome-500">{label}</div>
+      <div className="border-t border-divider mt-2.5 py-2.5 font-bold">{label}</div>
       <div className="space-y-1.5">
         {entries.map(([facet, count]) => (
           <div key={facet}>
