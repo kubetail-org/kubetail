@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { CheckedState } from '@radix-ui/react-checkbox';
 import { useAtom } from 'jotai';
 import {
   Download as DownloadIcon,
@@ -50,7 +49,7 @@ const SettingsButton = () => {
   const [isWrap, setIsWrap] = useAtom(isWrapAtom);
 
   const handleOnChange = useCallback(
-    (col: ViewerColumn, checked: CheckedState) => {
+    (col: ViewerColumn, checked: boolean) => {
       const newSet = new Set(visibleCols);
       if (checked) newSet.add(col);
       else newSet.delete(col);
@@ -75,21 +74,19 @@ const SettingsButton = () => {
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="rounded-lg h-10 w-10 flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30"
-          title="Settings"
-          aria-label="Settings"
-        >
-          <SettingsIcon size={18} strokeWidth={1.5} />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="bg-background w-auto mr-1 text-sm"
-        onOpenAutoFocus={(ev) => ev.preventDefault()}
-        sideOffset={-1}
-      >
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className="rounded-lg h-10 w-10 flex items-center justify-center enabled:hover:bg-secondary disabled:opacity-30"
+            title="Settings"
+            aria-label="Settings"
+          >
+            <SettingsIcon size={18} strokeWidth={1.5} />
+          </button>
+        }
+      />
+      <PopoverContent className="bg-background w-auto mr-1 text-sm" initialFocus={false} sideOffset={-1}>
         <div className="border-b mb-1">Columns:</div>
         <div className="space-y-2">{checkboxEls}</div>
         <div className="border-b mt-2 mb-1">Options:</div>
@@ -118,7 +115,7 @@ export function Header() {
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
 
   const buttonCN =
-    'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-chrome-200 disabled:opacity-30';
+    'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-secondary disabled:opacity-30';
 
   const handleDateRangeDropdownChange = useCallback(
     (args: DateRangeDropdownOnChangeArgs) => {
@@ -171,7 +168,7 @@ export function Header() {
   }, [setIsFollow]);
 
   const handleSubmit = useCallback(
-    (ev: React.FormEvent<HTMLFormElement>) => {
+    (ev: React.SubmitEvent<HTMLFormElement>) => {
       ev.preventDefault();
       const grep = new FormData(ev.currentTarget).get('grep')?.toString().trim() || '';
 
@@ -184,11 +181,11 @@ export function Header() {
   );
 
   return (
-    <div className="flex justify-between items-end p-1">
+    <div className="flex justify-between items-end p-1 bg-sidebar">
       <div className="flex items-center">
         {!isSidebarOpen && (
           <button type="button" onClick={() => setIsSidebarOpen(true)} title="Collapse sidebar" className="pr-2">
-            <PanelLeftOpenIcon size={20} strokeWidth={2} className="text-chrome-500" />
+            <PanelLeftOpenIcon size={20} strokeWidth={2} />
           </button>
         )}
         <div className={cn('flex', isSidebarOpen ? 'px-4' : 'px-2')}>
@@ -200,7 +197,7 @@ export function Header() {
               aria-label="Jump to time"
               disabled={isLoading}
             >
-              <HistoryIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+              <HistoryIcon size={24} strokeWidth={1.5} />
             </button>
           </DateRangeDropdown>
           <button
@@ -211,7 +208,7 @@ export function Header() {
             onClick={handleJumpToBeginningPress}
             disabled={isLoading}
           >
-            <SkipBackIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+            <SkipBackIcon size={24} strokeWidth={1.5} />
           </button>
           {isFollow ? (
             <button
@@ -222,7 +219,7 @@ export function Header() {
               onClick={handlePausePress}
               disabled={isLoading}
             >
-              <PauseIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+              <PauseIcon size={24} strokeWidth={1.5} />
             </button>
           ) : (
             <button
@@ -233,7 +230,7 @@ export function Header() {
               onClick={handlePlayPress}
               disabled={isLoading}
             >
-              <PlayIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+              <PlayIcon size={24} strokeWidth={1.5} />
             </button>
           )}
           <button
@@ -244,13 +241,14 @@ export function Header() {
             onClick={handleJumpToEndPress}
             disabled={isLoading}
           >
-            <SkipForwardIcon size={24} strokeWidth={1.5} className="text-chrome-foreground" />
+            <SkipForwardIcon size={24} strokeWidth={1.5} />
           </button>
         </div>
         <div>
           {shouldUseClusterAPI && (
             <form onSubmit={handleSubmit}>
               <Input
+                key={searchParams.get('grep') || ''}
                 name="grep"
                 className="w-100 bg-background"
                 placeholder="Match string or /regex/..."

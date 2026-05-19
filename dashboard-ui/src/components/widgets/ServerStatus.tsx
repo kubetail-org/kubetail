@@ -53,7 +53,7 @@ const HealthDot = ({ className, status }: { className?: string; status: Status }
       color = 'yellow';
       break;
     case Status.Unknown:
-      color = 'chrome';
+      color = 'gray';
       break;
     default:
       throw new Error('not implemented');
@@ -62,7 +62,7 @@ const HealthDot = ({ className, status }: { className?: string; status: Status }
   return (
     <div
       className={cn('w-3 h-3 rounded-full', className, {
-        'bg-chrome-300': color === 'chrome',
+        'bg-gray-300 dark:bg-gray-600': color === 'gray',
         'bg-red-500': color === 'red',
         'bg-green-500': color === 'green',
         'bg-yellow-500': color === 'yellow',
@@ -244,11 +244,13 @@ const ServerStatusWidget = ({ className, healthDotClassName }: ServerStatusWidge
   return (
     <>
       <Dialog>
-        <DialogTrigger asChild>
-          <button type="button" className={className}>
-            <HealthDot status={overallStatus} className={healthDotClassName} />
-          </button>
-        </DialogTrigger>
+        <DialogTrigger
+          render={
+            <button type="button" className={className}>
+              <HealthDot status={overallStatus} className={healthDotClassName} />
+            </button>
+          }
+        />
         <DialogContent className="max-h-[calc(100vh-4rem)] overflow-y-auto">
           <DialogTitle>Health Status</DialogTitle>
           <DialogDescription />

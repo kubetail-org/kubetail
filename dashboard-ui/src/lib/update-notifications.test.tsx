@@ -83,7 +83,12 @@ beforeEach(() => {
   Object.defineProperty(appConfig, 'cliVersion', { value: '0.9.0', writable: true });
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // Flush pending Apollo mock responses / fetcher effects while still mounted so a late
+  // setState doesn't leak into the next test (not-wrapped-in-act + "no more mocked responses").
+  await act(async () => {
+    await Promise.resolve();
+  });
   vi.useRealTimers();
 });
 
@@ -164,7 +169,9 @@ describe('useCLIUpdateNotification', () => {
   it('uses cached latestVersion when cache is fresh', async () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ latestVersion: '0.9.0', fetchedAt: Date.now() }));
 
-    renderWithProvider([]);
+    // Never-resolving mock: a fresh cache should skip the query entirely, but absorb any
+    // pre-hydration render without letting the network satisfy the cache-only assertion.
+    renderWithProvider([{ request: { query: CLI_LATEST_VERSION }, delay: Infinity }]);
 
     await act(async () => {
       vi.advanceTimersByTime(5000);
@@ -275,63 +282,61 @@ describe('useClusterUpdateNotification', () => {
   it('does not show update notification when updateAvailable is false', async () => {
     renderClusterWithMocks([clusterNoUpdateMock]);
 
-    await act(async () => {
-      vi.advanceTimersByTime(1000);
-    });
-
+    // Wait for the query→persist chain to settle (currentVersion is the post-persist signal),
+    // then assert no banner — proving equal versions, not an unsettled state, suppress it.
     await waitFor(() => {
-      expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
+      expect(screen.getByTestId('current-version')).toHaveTextContent('1.0.0');
     });
+    expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
   });
 
   it('does not show notification when dismissed less than 24h ago', async () => {
     localStorage.setItem(`${CLUSTER_STORAGE_PREFIX}${KUBE_CONTEXT}`, JSON.stringify({ dismissedAt: Date.now() }));
     renderClusterWithMocks([clusterUpdateAvailableMock]);
 
-    await act(async () => {
-      vi.advanceTimersByTime(1000);
-    });
-
+    // Wait for the query→persist chain to settle, then assert the recent dismissal (not an
+    // unsettled state) suppresses the banner.
     await waitFor(() => {
-      expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
+      expect(screen.getByTestId('current-version')).toHaveTextContent('0.9.0');
     });
+    expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
   });
 
   it('does not show notification when version is in skipped list', async () => {
     localStorage.setItem(`${CLUSTER_STORAGE_PREFIX}${KUBE_CONTEXT}`, JSON.stringify({ skippedVersions: ['1.0.0'] }));
     renderClusterWithMocks([clusterUpdateAvailableMock]);
 
-    await act(async () => {
-      vi.advanceTimersByTime(1000);
-    });
-
+    // The negative assertion would pass before the query→persist chain lands, leaking a late
+    // setPersisted outside act. Wait for currentVersion (a deterministic post-persist signal)
+    // so suppression is asserted against settled state.
     await waitFor(() => {
-      expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
+      expect(screen.getByTestId('current-version')).toHaveTextContent('0.9.0');
     });
+    expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
   });
 
   it('fails silently when query returns null', async () => {
     renderClusterWithMocks([clusterNullResultMock]);
 
-    await act(async () => {
-      vi.advanceTimersByTime(1000);
-    });
-
+    // A null result persists { fetchedAt } with no version, so there is no DOM signal —
+    // wait for the persisted write instead, then assert it produced no banner.
     await waitFor(() => {
-      expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
+      const raw = localStorage.getItem(`${CLUSTER_STORAGE_PREFIX}${KUBE_CONTEXT}`);
+      expect(raw && JSON.parse(raw).fetchedAt).toBeTruthy();
     });
+    expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
   });
 
   it('fails silently when query errors', async () => {
     renderClusterWithMocks([clusterErrorMock]);
 
+    // The error path early-returns without persisting, so there is no post-update DOM or
+    // storage signal to await. Fully drain timers+microtasks inside act so Apollo's error
+    // state settles wrapped; with no data-driven setPersisted, nothing can land late here.
     await act(async () => {
-      vi.advanceTimersByTime(1000);
+      await vi.runAllTimersAsync();
     });
-
-    await waitFor(() => {
-      expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
-    });
+    expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
   });
 
   it('uses cached data when cache is fresh', async () => {
@@ -346,26 +351,25 @@ describe('useClusterUpdateNotification', () => {
 
     renderClusterWithMocks([]);
 
-    await act(async () => {
-      vi.advanceTimersByTime(1000);
-    });
-
+    // currentVersion comes straight from the fresh cache (no query). Asserting it is shown
+    // proves the cache was used, then the equal latestVersion means no banner.
     await waitFor(() => {
-      expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
+      expect(screen.getByTestId('current-version')).toHaveTextContent('0.9.0');
     });
+    expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
   });
 
   it('skips query when environment is not desktop', async () => {
     await withAppConfig({ environment: 'cluster' }, async () => {
+      // clusterUpdateAvailableMock is intentionally never consumed: non-desktop must not
+      // issue the query, so there is no persist/DOM signal — draining inside act settles
+      // the kubeconfig subscription, then the banner must be absent.
       renderClusterWithMocks([clusterUpdateAvailableMock]);
 
       await act(async () => {
-        vi.advanceTimersByTime(1000);
+        await vi.runAllTimersAsync();
       });
-
-      await waitFor(() => {
-        expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
-      });
+      expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
     });
   });
 
@@ -378,9 +382,22 @@ describe('useClusterUpdateNotification', () => {
       },
     };
 
-    localStorage.setItem(`${CLUSTER_STORAGE_PREFIX}${KUBE_CONTEXT}`, JSON.stringify({ dismissedAt: Date.now() }));
+    // Fresh cache for KUBE_CONTEXT so its fetcher skips the network (no late, un-awaited
+    // setPersisted); dismissedAt stays to verify dismiss state is keyed per kubeContext.
+    localStorage.setItem(
+      `${CLUSTER_STORAGE_PREFIX}${KUBE_CONTEXT}`,
+      JSON.stringify({ dismissedAt: Date.now(), latestVersion: '1.0.0', fetchedAt: Date.now() }),
+    );
 
-    renderClusterWithMocks([clusterUpdateAvailableMock, mock2], context2, [KUBE_CONTEXT, context2]);
+    // The KUBE_CONTEXT fetcher's first render happens before atomWithStorage's onMount
+    // re-reads the fresh cache, so it issues one pre-hydration query. A never-resolving
+    // mock absorbs it so the cache-only path is exercised without a network response.
+    const absorbKubeContextMock: MockedResponse = {
+      request: { query: CLUSTER_VERSION_STATUS, variables: { kubeContext: KUBE_CONTEXT } },
+      delay: Infinity,
+    };
+
+    renderClusterWithMocks([absorbKubeContextMock, mock2], context2, [KUBE_CONTEXT, context2]);
 
     await waitFor(() => {
       expect(screen.getByTestId('cluster-update')).toHaveTextContent('1.0.0');

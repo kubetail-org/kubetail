@@ -15,7 +15,7 @@
 import type { ApolloClient } from '@apollo/client';
 import deepEqual from 'fast-deep-equal';
 import { PanelLeftClose as PanelLeftCloseIcon } from 'lucide-react';
-import { useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { dashboardClient, getClusterAPIClient } from '@/apollo-client';
@@ -25,6 +25,7 @@ import AuthRequired from '@/components/utils/AuthRequired';
 import type { LogViewerHandle } from '@/components/widgets/log-viewer';
 import type { LogSourceFilter } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { useIsClusterAPIEnabled } from '@/lib/hooks';
+import { cn } from '@/lib/util';
 
 import { Header } from './header';
 import { LogServerClient } from './log-server-client';
@@ -81,14 +82,38 @@ type InnerLayoutProps = {
   main: React.ReactElement;
 };
 
+// Starting width auto-fits the sidebar content (longest source/container name)
+// between a floor that keeps the "Pods/Containers" header from overflowing and
+// a ceiling that keeps it from getting too wide.
+const SIDEBAR_MIN_WIDTH = 220;
+const SIDEBAR_MAX_WIDTH = 300;
+
 const InnerLayout = ({ sidebar, header, main }: InnerLayoutProps) => {
   const { isSidebarOpen, setIsSidebarOpen } = useContext(PageContext);
-  const [sidebarWidth, setSidebarWidth] = useState(300);
+  // null until the user resizes: the panel auto-fits its content via CSS while
+  // we mirror the resulting width here so <main> and the drag handle stay aligned.
+  const [sidebarWidth, setSidebarWidth] = useState<number | null>(null);
+  const [autoWidth, setAutoWidth] = useState(SIDEBAR_MAX_WIDTH);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!isSidebarOpen || sidebarWidth !== null) return undefined;
+    const el = sidebarRef.current;
+    if (!el) return undefined;
+
+    const update = () => setAutoWidth(el.offsetWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isSidebarOpen, sidebarWidth]);
+
+  const width = sidebarWidth ?? autoWidth;
 
   const handleDrag = useCallback(() => {
     // change width when mouse moves
     const fn = (ev: MouseEvent) => {
-      const newWidth = Math.max(ev.clientX, 180);
+      const newWidth = Math.max(ev.clientX, SIDEBAR_MIN_WIDTH);
       setSidebarWidth(newWidth);
     };
     document.addEventListener('mousemove', fn);
@@ -118,7 +143,15 @@ const InnerLayout = ({ sidebar, header, main }: InnerLayoutProps) => {
     <div className="relative h-full">
       {isSidebarOpen && (
         <>
-          <div className="absolute h-full bg-chrome-100 overflow-x-hidden" style={{ width: `${sidebarWidth}px` }}>
+          <div
+            ref={sidebarRef}
+            className="absolute h-full bg-sidebar overflow-x-hidden"
+            style={
+              sidebarWidth === null
+                ? { width: 'max-content', minWidth: SIDEBAR_MIN_WIDTH, maxWidth: SIDEBAR_MAX_WIDTH }
+                : { width: `${sidebarWidth}px` }
+            }
+          >
             {sidebar}
             <button
               type="button"
@@ -126,22 +159,27 @@ const InnerLayout = ({ sidebar, header, main }: InnerLayoutProps) => {
               title="Collapse sidebar"
               className="absolute cursor-pointer right-1.75 top-7.5 transform -translate-y-1/2"
             >
-              <PanelLeftCloseIcon size={20} strokeWidth={2} className="text-chrome-500" />
+              <PanelLeftCloseIcon size={20} strokeWidth={2} />
             </button>
           </div>
+          {/*
+            Wide, transparent drag affordance centered on the 1px divider
+            (which is <main>'s border-l). Widening the hit area here keeps the
+            grab target easy without thickening the visible edge.
+          */}
           {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
           <div
-            className="absolute bg-chrome-divider w-1 h-full border-l-2 border-chrome-100 cursor-ew-resize"
-            style={{ left: `${sidebarWidth}px` }}
+            className="absolute top-0 z-10 h-full w-2 -translate-x-1/2 cursor-ew-resize"
+            style={{ left: `${width}px` }}
             onMouseDown={handleDrag}
           />
         </>
       )}
       <main
-        className="h-full flex flex-col overflow-hidden"
-        style={{ marginLeft: `${isSidebarOpen ? sidebarWidth + 4 : 0}px` }}
+        className={cn('h-full flex flex-col overflow-hidden', isSidebarOpen && 'border-l border-sidebar-border')}
+        style={{ marginLeft: `${isSidebarOpen ? width : 0}px` }}
       >
-        <div className="bg-chrome-100 border-b border-chrome-divider">{header}</div>
+        <div>{header}</div>
         <div className="grow min-h-0">{main}</div>
       </main>
     </div>

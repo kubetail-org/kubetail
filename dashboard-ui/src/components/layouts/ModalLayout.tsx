@@ -15,7 +15,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
-import logo from '@/assets/logo.svg';
+import Logo from '@/assets/logo.svg?react';
 import { cn } from '@/lib/util';
 
 interface ModalLayoutProps extends React.PropsWithChildren {
@@ -28,11 +28,11 @@ export default function ModalLayout({ children, innerClassName }: ModalLayoutPro
     const bodyEl = document.body;
 
     htmlEl.classList.add('h-full');
-    bodyEl.classList.add('h-full', 'bg-chrome-50');
+    bodyEl.classList.add('h-full', 'bg-muted');
 
     return function cleanup() {
       htmlEl.classList.remove('h-full');
-      bodyEl.classList.remove('h-full', 'bg-chrome-50');
+      bodyEl.classList.remove('h-full', 'bg-muted');
     };
   });
 
@@ -41,7 +41,7 @@ export default function ModalLayout({ children, innerClassName }: ModalLayoutPro
       <div className={cn('sm:mx-auto', innerClassName !== undefined ? innerClassName : 'sm:w-full sm:max-w-md')}>
         <div className="flex justify-center">
           <Link to="/">
-            <img className="mx-auto h-12 w-auto" src={logo} width={70} height={70} alt="KubeTail" />
+            <Logo className="mx-auto h-12 w-auto text-primary" />
           </Link>
         </div>
         <div>{children}</div>

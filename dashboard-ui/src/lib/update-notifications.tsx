@@ -79,10 +79,12 @@ export interface ClusterUpdateNotificationState extends BaseUpdateNotificationSt
 // --- Atoms (single source of truth)
 
 // atomWithStorage handles localStorage read/write AND cross-tab sync via the storage event.
-const cliPersistedAtom = atomWithStorage<UpdateState>(STORAGE_KEY_CLI, {});
+// getOnInit reads localStorage synchronously on first render so a fresh cache is honored
+// immediately — otherwise the fetchers issue a redundant query (and flash) before hydration.
+const cliPersistedAtom = atomWithStorage<UpdateState>(STORAGE_KEY_CLI, {}, undefined, { getOnInit: true });
 
 const clusterPersistedAtomFamily = atomFamily((kubeContext: string) =>
-  atomWithStorage<ClusterUpdateState>(`${CLUSTER_STORAGE_PREFIX}${kubeContext}`, {}),
+  atomWithStorage<ClusterUpdateState>(`${CLUSTER_STORAGE_PREFIX}${kubeContext}`, {}, undefined, { getOnInit: true }),
 );
 
 const readyAtom = atom(false);
