@@ -25,6 +25,7 @@ import AuthRequired from '@/components/utils/AuthRequired';
 import type { LogViewerHandle } from '@/components/widgets/log-viewer';
 import type { LogSourceFilter } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { useIsClusterAPIEnabled } from '@/lib/hooks';
+import { cn } from '@/lib/util';
 
 import { Header } from './header';
 import { LogServerClient } from './log-server-client';
@@ -129,19 +130,24 @@ const InnerLayout = ({ sidebar, header, main }: InnerLayoutProps) => {
               <PanelLeftCloseIcon size={20} strokeWidth={2} />
             </button>
           </div>
+          {/*
+            Wide, transparent drag affordance centered on the 1px divider
+            (which is <main>'s border-l). Widening the hit area here keeps the
+            grab target easy without thickening the visible edge.
+          */}
           {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
           <div
-            className="absolute bg-border w-1 h-full border-l border cursor-ew-resize"
+            className="absolute top-0 z-10 h-full w-2 -translate-x-1/2 cursor-ew-resize"
             style={{ left: `${sidebarWidth}px` }}
             onMouseDown={handleDrag}
           />
         </>
       )}
       <main
-        className="h-full flex flex-col overflow-hidden"
-        style={{ marginLeft: `${isSidebarOpen ? sidebarWidth + 4 : 0}px` }}
+        className={cn('h-full flex flex-col overflow-hidden', isSidebarOpen && 'border-l border-sidebar-border')}
+        style={{ marginLeft: `${isSidebarOpen ? sidebarWidth : 0}px` }}
       >
-        <div className="border-b">{header}</div>
+        <div>{header}</div>
         <div className="grow min-h-0">{main}</div>
       </main>
     </div>

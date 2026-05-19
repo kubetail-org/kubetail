@@ -276,6 +276,26 @@ const HeaderRow = ({
   const isWrap = useAtomValue(isWrapAtom);
   const headerScrollRef = useRef<HTMLDivElement>(null);
 
+  // The body scroll area (overflow-auto) has a vertical scrollbar; this header
+  // wrapper does not. That makes the body's client width narrower by the
+  // scrollbar width, so it scrolls further right than the header. Reserve the
+  // same gutter here so the two scroll in lockstep (and the muted spacer covers
+  // the area above the body's scrollbar at the right extreme).
+  const [scrollbarWidth, setScrollbarWidth] = useState(0);
+  useEffect(() => {
+    const el = scrollElRef.current;
+    if (!el) return undefined;
+    const measure = () =>
+      setScrollbarWidth((prev) => {
+        const next = el.offsetWidth - el.clientWidth;
+        return prev !== next ? next : prev;
+      });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isLoading]);
+
   // Sync horizontal scroll bidirectionally
   // Re-setup when isLoading becomes false to ensure listeners are attached after content loads
   useEffect(() => {
@@ -335,29 +355,38 @@ const HeaderRow = ({
 
   return (
     <div ref={headerScrollRef} className="w-full overflow-x-scroll no-scrollbar shrink-0 cursor-default">
-      <div
-        className="grid border-b border bg-muted *:border-r [&>*:not(:last-child)]:border"
-        style={{
-          height: HEADER_ROW_HEIGHT,
-          gridTemplateColumns: gridTemplate,
-          minWidth: isWrap ? '100%' : maxRowWidth || '100%',
-        }}
-      >
-        <div data-col-id="Pos" />
-        {[...visibleCols].map((col) => {
-          const minWidth = isWrap && col === ViewerColumn.Message ? undefined : colWidths.get(col);
-          return (
-            <div
-              key={col}
-              ref={measureCellElement}
-              data-col-id={col}
-              className="whitespace-nowrap uppercase px-2 flex items-center text-xs"
-              style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
-            >
-              {col !== ViewerColumn.ColorDot && <span className="inline-block">{col}</span>}
-            </div>
-          );
-        })}
+      <div className="flex">
+        <div
+          className="grid shrink-0 border-y bg-muted [&>*:not(:last-child)]:border-r"
+          style={{
+            height: HEADER_ROW_HEIGHT,
+            gridTemplateColumns: gridTemplate,
+            minWidth: isWrap ? '100%' : maxRowWidth || '100%',
+          }}
+        >
+          <div data-col-id="Pos" />
+          {[...visibleCols].map((col) => {
+            const minWidth = isWrap && col === ViewerColumn.Message ? undefined : colWidths.get(col);
+            return (
+              <div
+                key={col}
+                ref={measureCellElement}
+                data-col-id={col}
+                className="whitespace-nowrap uppercase px-2 flex items-center text-xs"
+                style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
+              >
+                {col !== ViewerColumn.ColorDot && <span className="inline-block">{col}</span>}
+              </div>
+            );
+          })}
+        </div>
+        {scrollbarWidth > 0 && (
+          <div
+            aria-hidden
+            className="shrink-0 border-y bg-muted"
+            style={{ width: scrollbarWidth, height: HEADER_ROW_HEIGHT }}
+          />
+        )}
       </div>
     </div>
   );
@@ -398,10 +427,45 @@ const getAttribute = (record: LogRecord, col: ViewerColumn, timezone: string, ti
 };
 
 function selectionBoxShadow(isTop: boolean, isBottom: boolean): string | undefined {
-  if (isTop && isBottom) return 'inset 0 2px 0 0 var(--color-blue-500), inset 0 -2px 0 0 var(--color-blue-500)';
-  if (isTop) return 'inset 0 2px 0 0 var(--color-blue-500)';
-  if (isBottom) return 'inset 0 -2px 0 0 var(--color-blue-500)';
+  if (isTop && isBottom) return 'inset 0 1px 0 0 var(--ring), inset 0 -1px 0 0 var(--ring)';
+  if (isTop) return 'inset 0 1px 0 0 var(--ring)';
+  if (isBottom) return 'inset 0 -1px 0 0 var(--ring)';
   return undefined;
+}
+
+type SelectionBand = { top: number; height: number };
+
+/**
+ * computeSelectionBands — Groups the selected virtual rows into contiguous
+ * pixel runs. The row-selection fill is painted as one continuous band per run
+ * (rather than a translucent background on every row's cells) so adjacent rows
+ * never leave a sub-pixel seam between their fills.
+ */
+function computeSelectionBands(rows: LogViewerVirtualRow[], selectedKeys: Set<number>): SelectionBand[] {
+  const bands: SelectionBand[] = [];
+  let start: LogViewerVirtualRow | null = null;
+  let end: LogViewerVirtualRow | null = null;
+  const flush = () => {
+    if (start && end) bands.push({ top: start.start, height: end.start + end.size - start.start });
+    start = null;
+    end = null;
+  };
+  rows.forEach((row) => {
+    if (!selectedKeys.has(row.key)) {
+      flush();
+      return;
+    }
+    const adjacent = end !== null && row.key === end.key + 1 && Math.abs(row.start - (end.start + end.size)) < 0.5;
+    if (adjacent) {
+      end = row;
+    } else {
+      flush();
+      start = row;
+      end = row;
+    }
+  });
+  flush();
+  return bands;
 }
 
 type RecordRowProps = {
@@ -464,9 +528,8 @@ export const RecordRow = memo(
         role="button"
         tabIndex={0}
         className={cn(
-          isSelected && 'bg-blue-500/20 dark:bg-blue-500/25',
           !isSelected && row.index % 2 !== 0 && 'bg-muted',
-          row.key === 0 && 'border-l-2 border-green-500 font-extrabold pl-[7px]',
+          row.key === 0 && 'border-l-2 border-success font-extrabold pl-[7px]',
           row.key !== 0 && 'text-muted-foreground',
           'whitespace-nowrap tabular-nums text-[0.65rem] text-center pr-1.5 cursor-default select-none outline-none',
         )}
@@ -492,11 +555,13 @@ export const RecordRow = memo(
       const isCellSelected = selectedCellCols?.has(col) ?? false;
       const isColorDot = col === ViewerColumn.ColorDot;
 
+      // Selected rows are filled by a continuous band behind the rows (see
+      // computeSelectionBands), so cells paint no background of their own.
       let cellBg: string | false;
       if (isSelected) {
-        cellBg = isTimestamp ? 'bg-blue-500/25 dark:bg-blue-500/25' : 'bg-blue-500/15 dark:bg-blue-500/20';
+        cellBg = false;
       } else {
-        cellBg = isTimestamp ? 'bg-muted' : row.index % 2 !== 0 && 'bg-muted/20';
+        cellBg = isTimestamp ? 'bg-input/80' : row.index % 2 !== 0 && 'bg-secondary';
       }
 
       const isNativeTextSelectable = isCellSelected && isCellTextSelectable;
@@ -754,6 +819,7 @@ export const Main = () => {
         >
           {(virtualizer) => {
             virtualizerRef.current = virtualizer;
+            const virtualRows = virtualizer.getVirtualRows();
 
             return (
               <div
@@ -771,7 +837,15 @@ export const Main = () => {
                     Loading...
                   </div>
                 )}
-                {virtualizer.getVirtualRows().map((virtualRow) => (
+                {computeSelectionBands(virtualRows, selectedKeys).map((band) => (
+                  <div
+                    key={band.top}
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-0"
+                    style={{ top: band.top, height: band.height, backgroundColor: 'var(--selection-band)' }}
+                  />
+                ))}
+                {virtualRows.map((virtualRow) => (
                   <RecordRow
                     key={virtualRow.key}
                     row={virtualRow}

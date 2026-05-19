@@ -78,7 +78,7 @@ const SettingsButton = () => {
         render={
           <button
             type="button"
-            className="rounded-lg h-10 w-10 flex items-center justify-center enabled:hover:bg-muted disabled:opacity-30"
+            className="rounded-lg h-10 w-10 flex items-center justify-center enabled:hover:bg-secondary disabled:opacity-30"
             title="Settings"
             aria-label="Settings"
           >
@@ -115,7 +115,7 @@ export function Header() {
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
 
   const buttonCN =
-    'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-muted disabled:opacity-30';
+    'rounded-lg h-[40px] w-[40px] flex items-center justify-center enabled:hover:bg-secondary disabled:opacity-30';
 
   const handleDateRangeDropdownChange = useCallback(
     (args: DateRangeDropdownOnChangeArgs) => {
@@ -168,7 +168,7 @@ export function Header() {
   }, [setIsFollow]);
 
   const handleSubmit = useCallback(
-    (ev: React.FormEvent<HTMLFormElement>) => {
+    (ev: React.SubmitEvent<HTMLFormElement>) => {
       ev.preventDefault();
       const grep = new FormData(ev.currentTarget).get('grep')?.toString().trim() || '';
 
@@ -181,7 +181,7 @@ export function Header() {
   );
 
   return (
-    <div className="flex justify-between items-end p-1">
+    <div className="flex justify-between items-end p-1 bg-sidebar">
       <div className="flex items-center">
         {!isSidebarOpen && (
           <button type="button" onClick={() => setIsSidebarOpen(true)} title="Collapse sidebar" className="pr-2">
