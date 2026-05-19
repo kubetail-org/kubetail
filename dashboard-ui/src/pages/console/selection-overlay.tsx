@@ -17,8 +17,8 @@ import { memo, useMemo } from 'react';
 import { isSelectableViewerColumn } from './selection';
 import { ViewerColumn } from './shared';
 
-const BORDER_WIDTH = '2px';
-const BORDER_COLOR = 'var(--color-blue-500)';
+const BORDER_WIDTH = '1px';
+const BORDER_COLOR = 'var(--ring)';
 
 type Edges = { top: boolean; bottom: boolean; left: boolean; right: boolean };
 
@@ -34,7 +34,8 @@ type Props = {
   selectedColsAbove: Set<ViewerColumn> | undefined;
   selectedColsBelow: Set<ViewerColumn> | undefined;
   // The anchor's column when the anchor is in this row, otherwise undefined.
-  // The anchor's rect is drawn with all four borders + a corner-dot indicator.
+  // The anchor's rect is drawn with all four borders + a corner-dot indicator
+  // so it stays visually distinct even inside a larger multi-cell selection.
   anchorCol: ViewerColumn | undefined;
   visibleCols: Set<ViewerColumn>;
   colWidths: Map<ViewerColumn, number>;

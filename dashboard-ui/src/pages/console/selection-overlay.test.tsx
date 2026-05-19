@@ -46,20 +46,20 @@ describe('SelectionOverlay', () => {
     render(<SelectionOverlay {...defaults} selectedCols={new Set([ViewerColumn.Message])} />);
     const r = rectFor(ViewerColumn.Message);
     expect(r).not.toBeNull();
-    expect(r!.style.borderTopWidth).toBe('2px');
-    expect(r!.style.borderBottomWidth).toBe('2px');
-    expect(r!.style.borderLeftWidth).toBe('2px');
-    expect(r!.style.borderRightWidth).toBe('2px');
+    expect(r!.style.borderTopWidth).toBe('1px');
+    expect(r!.style.borderBottomWidth).toBe('1px');
+    expect(r!.style.borderLeftWidth).toBe('1px');
+    expect(r!.style.borderRightWidth).toBe('1px');
   });
 
   it('horizontally adjacent selected cells share an edge (no inner border)', () => {
     render(<SelectionOverlay {...defaults} selectedCols={new Set([ViewerColumn.Timestamp, ViewerColumn.Message])} />);
     const ts = rectFor(ViewerColumn.Timestamp);
     const msg = rectFor(ViewerColumn.Message);
-    expect(ts!.style.borderLeftWidth).toBe('2px');
+    expect(ts!.style.borderLeftWidth).toBe('1px');
     expect(ts!.style.borderRightWidth).toBe('0px');
     expect(msg!.style.borderLeftWidth).toBe('0px');
-    expect(msg!.style.borderRightWidth).toBe('2px');
+    expect(msg!.style.borderRightWidth).toBe('1px');
   });
 
   it('cell with same column selected above has no top border', () => {
@@ -72,7 +72,7 @@ describe('SelectionOverlay', () => {
     );
     const r = rectFor(ViewerColumn.Message);
     expect(r!.style.borderTopWidth).toBe('0px');
-    expect(r!.style.borderBottomWidth).toBe('2px');
+    expect(r!.style.borderBottomWidth).toBe('1px');
   });
 
   it('cell with same column selected below has no bottom border', () => {
@@ -84,7 +84,7 @@ describe('SelectionOverlay', () => {
       />,
     );
     const r = rectFor(ViewerColumn.Message);
-    expect(r!.style.borderTopWidth).toBe('2px');
+    expect(r!.style.borderTopWidth).toBe('1px');
     expect(r!.style.borderBottomWidth).toBe('0px');
   });
 
@@ -92,8 +92,8 @@ describe('SelectionOverlay', () => {
     render(<SelectionOverlay {...defaults} selectedCols={new Set([ViewerColumn.Timestamp, ViewerColumn.Message])} />);
     const dot = rectFor(ViewerColumn.ColorDot);
     expect(dot).not.toBeNull();
-    expect(dot!.style.borderTopWidth).toBe('2px');
-    expect(dot!.style.borderBottomWidth).toBe('2px');
+    expect(dot!.style.borderTopWidth).toBe('1px');
+    expect(dot!.style.borderBottomWidth).toBe('1px');
     expect(dot!.style.borderLeftWidth).toBe('0px');
     expect(dot!.style.borderRightWidth).toBe('0px');
   });
@@ -113,7 +113,7 @@ describe('SelectionOverlay', () => {
     );
     const dot = rectFor(ViewerColumn.ColorDot);
     expect(dot!.style.borderTopWidth).toBe('0px');
-    expect(dot!.style.borderBottomWidth).toBe('2px');
+    expect(dot!.style.borderBottomWidth).toBe('1px');
   });
 
   it('skips ColorDot when computing left/right adjacency', () => {
@@ -148,10 +148,28 @@ describe('SelectionOverlay', () => {
     );
     const a = anchorRect();
     expect(a).not.toBeNull();
-    expect(a!.style.borderTopWidth).toBe('2px');
-    expect(a!.style.borderBottomWidth).toBe('2px');
-    expect(a!.style.borderLeftWidth).toBe('2px');
-    expect(a!.style.borderRightWidth).toBe('2px');
+    expect(a!.style.borderTopWidth).toBe('1px');
+    expect(a!.style.borderBottomWidth).toBe('1px');
+    expect(a!.style.borderLeftWidth).toBe('1px');
+    expect(a!.style.borderRightWidth).toBe('1px');
+  });
+
+  it('anchor keeps all 4 borders even when adjacent to other selected cells', () => {
+    render(
+      <SelectionOverlay
+        {...defaults}
+        selectedCols={new Set([ViewerColumn.Timestamp, ViewerColumn.Message])}
+        selectedColsBelow={new Set([ViewerColumn.Timestamp, ViewerColumn.Message])}
+        anchorCol={ViewerColumn.Timestamp}
+      />,
+    );
+    const a = anchorRect();
+    expect(a).not.toBeNull();
+    expect(a!.getAttribute('data-overlay-col')).toBe(ViewerColumn.Timestamp);
+    expect(a!.style.borderTopWidth).toBe('1px');
+    expect(a!.style.borderBottomWidth).toBe('1px');
+    expect(a!.style.borderLeftWidth).toBe('1px');
+    expect(a!.style.borderRightWidth).toBe('1px');
   });
 
   it('anchor includes a corner-dot indicator', () => {

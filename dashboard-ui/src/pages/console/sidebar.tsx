@@ -13,18 +13,29 @@
 // limitations under the License.
 
 import { useAtomValue } from 'jotai';
-import type { CheckedState } from '@radix-ui/react-checkbox';
-import { CirclePlus as CirclePlusIcon, Trash2 as TrashIcon } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import {
+  ChevronDown as ChevronDownIcon,
+  CirclePlus as CirclePlusIcon,
+  Cpu as CpuIcon,
+  Globe as GlobeIcon,
+  LandPlot as LandPlotIcon,
+  type LucideIcon,
+  MonitorCog as MonitorCogIcon,
+  Plug as PlugIcon,
+  Server as ServerIcon,
+  Trash2 as TrashIcon,
+} from 'lucide-react';
+import { type ComponentType, type ReactNode, useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { Checkbox } from '@kubetail/ui/elements/checkbox';
 import { Label } from '@kubetail/ui/elements/label';
 
+import PodGlyphIcon from '@/assets/k8s-icons/glyph/pod.svg?react';
 import KubetailLogo from '@/assets/logo.svg?react';
 import SourcePickerModal from '@/components/widgets/SourcePickerModal';
 import type { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
-import { Counter, MapSet, getBasename, joinPaths } from '@/lib/util';
+import { Counter, MapSet, cn, getBasename, joinPaths } from '@/lib/util';
 import { ALL_WORKLOAD_KINDS, GLYPH_ICON_MAP, PLURAL_LABEL_MAP, WorkloadKind } from '@/lib/workload';
 
 import { useFacets } from './helpers';
@@ -36,6 +47,52 @@ import { cssID } from './util';
  */
 
 export const generateMapKey = (namespace: string, podName: string) => `${namespace}/${podName}`;
+
+const FACET_ICON_MAP: Record<string, LucideIcon> = {
+  Region: GlobeIcon,
+  Zone: LandPlotIcon,
+  OS: MonitorCogIcon,
+  Arch: CpuIcon,
+  Node: ServerIcon,
+};
+
+/**
+ * CollapsibleSection component
+ */
+
+type CollapsibleSectionProps = {
+  icon?: ComponentType<{ className?: string }>;
+  label: string;
+  count: number;
+  children: ReactNode;
+};
+
+const CollapsibleSection = ({ icon: Icon, label, count, children }: CollapsibleSectionProps) => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setIsCollapsed((c) => !c)}
+        aria-expanded={!isCollapsed}
+        className="w-full border-t border-divider mt-2.5 py-2.5 font-bold flex items-center justify-between cursor-pointer"
+      >
+        <div className="flex items-center space-x-1 min-w-0">
+          {Icon && <Icon className="size-4 shrink-0" />}
+          <span className="whitespace-nowrap overflow-hidden text-ellipsis">{label}</span>
+        </div>
+        <div className="flex items-center space-x-1 shrink-0">
+          <span className="text-xs font-medium border border-sidebar-border min-w-6 h-6 px-1 rounded-sm flex items-center justify-center">
+            {count}
+          </span>
+          <ChevronDownIcon className={cn('size-4 shrink-0 transition-transform', isCollapsed && '-rotate-90')} />
+        </div>
+      </button>
+      {!isCollapsed && children}
+    </>
+  );
+};
 
 /**
  * SidebarWorkloads component
@@ -114,7 +171,8 @@ const SidebarWorkloads = () => {
       )}
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center space-x-1">
-          <span className="font-bold text-chrome-500">Sources</span>
+          <PlugIcon className="size-4 shrink-0" />
+          <span className="font-bold">Sources</span>
         </div>
         <button
           type="button"
@@ -140,7 +198,7 @@ const SidebarWorkloads = () => {
                 <div>
                   <Icon className="h-4.5 w-4.5" />
                 </div>
-                <div className="font-semibold text-chrome-500">{PLURAL_LABEL_MAP[kind]}</div>
+                <div className="font-semibold">{PLURAL_LABEL_MAP[kind]}</div>
               </div>
               <ul className="pl-5.75">
                 {vals.map((val) => (
@@ -153,7 +211,7 @@ const SidebarWorkloads = () => {
                       onClick={() => deleteSource(`${val.namespace}:${kind}/${val.name}`)}
                       aria-label="Delete source"
                     >
-                      <TrashIcon className="h-4.5 w-4.5 text-chrome-300 hover:text-chrome-500 cursor-pointer" />
+                      <TrashIcon className="h-4.5 w-4.5 text-muted-foreground cursor-pointer" />
                     </button>
                   </li>
                 ))}
@@ -182,7 +240,7 @@ const Containers = ({ namespace, podName, containerNames = [] }: ContainersProps
   const sortedContainerNames = useMemo(() => containerNames.sort(), [containerNames]);
 
   const handleToggle = useCallback(
-    (name: string, value: string, checked: CheckedState) => {
+    (name: string, value: string, checked: boolean) => {
       if (checked) searchParams.append(name, value);
       else searchParams.delete(name, value);
       setSearchParams(new URLSearchParams(searchParams));
@@ -282,10 +340,10 @@ const SidebarPodsAndContainers = () => {
     });
   }, [origSources, searchParams]);
 
+  const containerCount = containerGroups.reduce((sum, group) => sum + group.containers.length, 0);
+
   return (
-    <>
-      <div className="border-t border-chrome-divider mt-2.5" />
-      <div className="py-2.5 font-bold text-chrome-500">Pods/Containers</div>
+    <CollapsibleSection icon={PodGlyphIcon} label="Pods/Containers" count={containerCount}>
       <div className="space-y-3">
         {containerGroups.map((group) => (
           <div key={`${group.namespace}/${group.podName}`}>
@@ -296,7 +354,7 @@ const SidebarPodsAndContainers = () => {
           </div>
         ))}
       </div>
-    </>
+    </CollapsibleSection>
   );
 };
 
@@ -307,11 +365,12 @@ const SidebarPodsAndContainers = () => {
 const Facets = ({ label, counter }: { label: string; counter: Counter }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlKey = label.toLocaleLowerCase();
+  const FacetIcon = FACET_ICON_MAP[label];
 
   const entries = counter.orderedEntries();
 
   const handleToggle = useCallback(
-    (name: string, value: string, checked: CheckedState) => {
+    (name: string, value: string, checked: boolean) => {
       if (checked) searchParams.append(name, value);
       else searchParams.delete(name, value);
       setSearchParams(new URLSearchParams(searchParams));
@@ -325,8 +384,7 @@ const Facets = ({ label, counter }: { label: string; counter: Counter }) => {
   }
 
   return (
-    <>
-      <div className="border-t border-chrome-300 mt-2.5 py-2.5 font-bold text-chrome-500">{label}</div>
+    <CollapsibleSection icon={FacetIcon} label={label} count={entries.length}>
       <div className="space-y-1.5">
         {entries.map(([facet, count]) => (
           <div key={facet}>
@@ -346,7 +404,7 @@ const Facets = ({ label, counter }: { label: string; counter: Counter }) => {
           </div>
         ))}
       </div>
-    </>
+    </CollapsibleSection>
   );
 };
 

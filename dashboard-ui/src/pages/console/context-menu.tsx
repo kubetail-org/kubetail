@@ -48,14 +48,14 @@ function TimestampMenuContent({
 
   return (
     <>
-      <ContextMenuItem onSelect={() => copyToClipboard(displayed)}>Copy timestamp</ContextMenuItem>
+      <ContextMenuItem onClick={() => copyToClipboard(displayed)}>Copy timestamp</ContextMenuItem>
       <ContextMenuSub>
         <ContextMenuSubTrigger>Copy as...</ContextMenuSubTrigger>
         <ContextMenuSubContent>
           {TIMESTAMP_FORMAT_OPTIONS.map(({ value, label, hint }) => (
             <ContextMenuItem
               key={value}
-              onSelect={() => copyToClipboard(formatTimestamp(record.timestamp, timezone, value))}
+              onClick={() => copyToClipboard(formatTimestamp(record.timestamp, timezone, value))}
             >
               <span>{label}</span>
               <span className="text-muted-foreground ml-auto pl-4 text-xs">{hint}</span>
@@ -70,8 +70,8 @@ function TimestampMenuContent({
 function MessageMenuContent({ record }: { record: LogRecord }) {
   return (
     <>
-      <ContextMenuItem onSelect={() => copyToClipboard(stripAnsi(record.message))}>Copy message</ContextMenuItem>
-      <ContextMenuItem onSelect={() => copyToClipboard(record.message)}>Copy message (ANSI)</ContextMenuItem>
+      <ContextMenuItem onClick={() => copyToClipboard(stripAnsi(record.message))}>Copy message</ContextMenuItem>
+      <ContextMenuItem onClick={() => copyToClipboard(record.message)}>Copy message (ANSI)</ContextMenuItem>
     </>
   );
 }
@@ -88,7 +88,7 @@ function DefaultMenuContent({
   timestampFormat: string;
 }) {
   return (
-    <ContextMenuItem onSelect={() => copyToClipboard(getPlainAttribute(record, col, timezone, timestampFormat))}>
+    <ContextMenuItem onClick={() => copyToClipboard(getPlainAttribute(record, col, timezone, timestampFormat))}>
       Copy
     </ContextMenuItem>
   );
@@ -118,7 +118,7 @@ export function CellContextMenu({ col, record, timezone, timestampFormat, childr
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+      <ContextMenuTrigger render={children} />
       <ContextMenuContent>{content}</ContextMenuContent>
     </ContextMenu>
   );

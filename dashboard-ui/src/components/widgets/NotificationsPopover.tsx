@@ -38,12 +38,15 @@ export const NotificationsPopover = ({ children }: React.PropsWithChildren) => {
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <div className="relative h-full">
-          {children}
-          {hasNotifications && <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-blue-500" />}
-        </div>
-      </PopoverTrigger>
+      <PopoverTrigger
+        nativeButton={false}
+        render={
+          <div className="relative h-full">
+            {children}
+            {hasNotifications && <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-blue-500" />}
+          </div>
+        }
+      />
       {isOpen && (
         <PopoverContent side="top" className="w-80 mr-1">
           <div className="space-y-2">

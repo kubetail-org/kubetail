@@ -19,6 +19,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 type APIMode = 'auto' | 'true' | 'false';
 
+const API_MODE_LABELS: Record<APIMode, string> = {
+  auto: 'Auto',
+  true: 'Kubetail API',
+  false: 'Kubernetes API',
+};
+
 export const LOCAL_STORAGE_KEY = 'kubetail:dev:clusterAPIEnabledOverride';
 
 const EnvironmentControl = () => {
@@ -32,18 +38,21 @@ const EnvironmentControl = () => {
     }
   }, [apiMode]);
 
-  const handleModeChange = (value: APIMode) => {
+  const handleModeChange = (value: APIMode | null) => {
+    if (value === null) return;
     setApiMode(value);
     window.location.reload();
   };
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <button type="button" className="h-full text-xs text-chrome-500 px-1 hover:bg-secondary">
-          Environment Control
-        </button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <button type="button" className="h-full text-xs text-muted-foreground px-1 hover:bg-secondary">
+            Environment Control
+          </button>
+        }
+      />
       <DialogContent>
         <DialogTitle>Environment Control</DialogTitle>
         <DialogDescription />
@@ -52,12 +61,12 @@ const EnvironmentControl = () => {
           <div className="pt-3">
             <Select value={apiMode} onValueChange={handleModeChange}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue>{(value) => API_MODE_LABELS[value as APIMode]}</SelectValue>
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="auto">Auto</SelectItem>
-                <SelectItem value="true">Kubetail API</SelectItem>
-                <SelectItem value="false">Kubernetes API</SelectItem>
+              <SelectContent alignItemWithTrigger={false}>
+                <SelectItem value="auto">{API_MODE_LABELS.auto}</SelectItem>
+                <SelectItem value="true">{API_MODE_LABELS.true}</SelectItem>
+                <SelectItem value="false">{API_MODE_LABELS.false}</SelectItem>
               </SelectContent>
             </Select>
           </div>
