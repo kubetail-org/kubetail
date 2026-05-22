@@ -89,7 +89,7 @@ fn stream_backward_internal(
     // Wrap in term reader
     let term_reverse_reader = TermReader::new(
         ctx.clone(),
-        ReverseLineReader::new(file, start_pos, end_pos).unwrap(),
+        ReverseLineReader::new(file, start_pos, end_pos)?,
     );
 
     // Init searcher
@@ -111,7 +111,9 @@ fn stream_backward_internal(
     let trimmed_grep = grep.map(str::trim).filter(|grep| !grep.is_empty());
 
     if let Some(grep) = trimmed_grep {
-        let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
+        let matcher = LogFileRegexMatcher::new(grep, format)
+            .map_err(|e| FsWatcherError::InvalidGrep(e.to_string()))?;
+
         let sink = printer.sink(&matcher);
         let _ = searcher.search_reader(&matcher, term_reverse_reader, sink);
     } else {
@@ -125,6 +127,8 @@ fn stream_backward_internal(
 
 #[cfg(test)]
 mod test {
+    #![allow(clippy::unwrap_used)]
+
     use rstest::rstest;
     use std::{io::Write, sync::LazyLock};
     use tempfile::NamedTempFile;

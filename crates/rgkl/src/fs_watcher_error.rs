@@ -27,6 +27,9 @@ pub enum FsWatcherError {
 
     #[error("Log directory not found: {0}")]
     DirNotFound(String),
+
+    #[error("Invalid grep pattern: {0}")]
+    InvalidGrep(String),
 }
 
 impl From<FsWatcherError> for Status {
@@ -36,6 +39,9 @@ impl From<FsWatcherError> for Status {
             FsWatcherError::Watch(notify_error) => Self::from_error(Box::new(notify_error)),
             FsWatcherError::DirNotFound(_) => {
                 Self::new(tonic::Code::NotFound, watcher_error.to_string())
+            }
+            FsWatcherError::InvalidGrep(_) => {
+                Self::new(tonic::Code::InvalidArgument, watcher_error.to_string())
             }
         }
     }

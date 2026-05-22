@@ -298,7 +298,9 @@ async fn find_log_files(
             let captures = LOG_FILE_REGEX.captures(&filename)?;
 
             if namespaces.is_empty()
-                || namespaces.contains(&captures.name("namespace").unwrap().as_str().to_owned())
+                || captures
+                    .name("namespace")
+                    .is_some_and(|m| namespaces.contains(&m.as_str().to_owned()))
             {
                 Some(directory.to_path_buf().join(file.file_name()))
             } else {
@@ -374,17 +376,16 @@ fn transform_notify_event(
     let path = event.paths.first()?;
 
     let metadata_spec = LogMetadataImpl::get_log_metadata_spec(path, namespaces, node_name)?;
-    let file_info = LogMetadataImpl::get_file_info(path);
-
-    // In case the file doesn't exist turn the event into a deletion event, otherwise propagete the
+    // In case the file doesn't exist turn the event into a deletion event, otherwise propagate the
     // error.
-    if let Err(ref io_error) = file_info {
-        if io_error.kind() == std::io::ErrorKind::NotFound {
+    let file_info: Option<LogMetadataFileInfo> = match LogMetadataImpl::get_file_info(path) {
+        Ok(info) => Some(info),
+        Err(io_error) if io_error.kind() == std::io::ErrorKind::NotFound => {
             event_type = LogMetadataWatchEventType::Deleted;
-        } else {
-            return Some(Err(file_info.unwrap_err().into()));
+            None
         }
-    }
+        Err(io_error) => return Some(Err(io_error.into())),
+    };
 
     Some(Ok(LogMetadataWatchEvent {
         r#type: event_type.as_str().to_owned(),
@@ -427,6 +428,8 @@ impl LogMetadataWatchEventType {
 
 #[cfg(test)]
 mod test {
+    #![allow(clippy::unwrap_used)]
+
     use std::fs::{File, remove_file};
     use std::io::Write;
 

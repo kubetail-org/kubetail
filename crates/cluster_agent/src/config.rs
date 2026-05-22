@@ -94,7 +94,8 @@ impl Config {
     }
 
     fn parse_address(address: &str) -> Result<SocketAddr, AddrParseError> {
-        let shorthand_regex = Regex::new(r"^:(?<socket>\d+)$").unwrap();
+        let shorthand_regex = Regex::new(r"^:(?<socket>\d+)$")
+            .expect("Invalid shorthand regex pattern - this is a developer error");
 
         if let Some(captures) = shorthand_regex.captures(address) {
             let socket_str = format!("[::]:{}", &captures["socket"]);
@@ -177,7 +178,9 @@ mod tests {
             "addr: \"127.0.0.1:8080\"\ncontainer-logs-dir: \"/test/logs\"\nlogging:\n  enabled: true\n  level: \"debug\"\n  format: \"json\"\ntls:\n{VALID_TLS_BLOCK}"
         );
         let file = create_config_file(&content, ".yaml");
-        let config = Config::parse(file.path(), vec![]).await.unwrap();
+        let config = Config::parse(file.path(), vec![])
+            .await
+            .expect("parse config");
         assert_eq!(config.address.to_string(), "127.0.0.1:8080");
         assert_eq!(config.logs_dir, PathBuf::from("/test/logs"));
         assert!(config.logging.enabled);
@@ -192,7 +195,9 @@ mod tests {
             "addr: \":9090\"\ncontainer-logs-dir: \"/logs\"\nlogging:\n  enabled: true\n  level: \"info\"\n  format: \"json\"\ntls:\n{VALID_TLS_BLOCK}"
         );
         let file = create_config_file(&content, ".yaml");
-        let config = Config::parse(file.path(), vec![]).await.unwrap();
+        let config = Config::parse(file.path(), vec![])
+            .await
+            .expect("parse config");
         assert_eq!(config.address.to_string(), "[::]:9090");
     }
 
@@ -204,7 +209,9 @@ mod tests {
             ("addr".to_string(), ":5555".to_string()),
             ("logging.level".to_string(), "trace".to_string()),
         ];
-        let config = Config::parse(file.path(), overrides).await.unwrap();
+        let config = Config::parse(file.path(), overrides)
+            .await
+            .expect("parse config");
         assert_eq!(config.address.to_string(), "[::]:5555");
         assert_eq!(config.logging.level, "trace");
     }
@@ -223,7 +230,9 @@ mod tests {
   }
 }"#;
         let file = create_config_file(content, ".json");
-        let config = Config::parse(file.path(), vec![]).await.unwrap();
+        let config = Config::parse(file.path(), vec![])
+            .await
+            .expect("parse config");
         assert_eq!(config.address.to_string(), "0.0.0.0:3000");
         assert!(!config.logging.enabled);
     }
@@ -245,7 +254,9 @@ key-file = "/path/to/key.pem"
 ca-file = "/path/to/ca.pem"
 "#;
         let file = create_config_file(content, ".toml");
-        let config = Config::parse(file.path(), vec![]).await.unwrap();
+        let config = Config::parse(file.path(), vec![])
+            .await
+            .expect("parse config");
         assert_eq!(config.address.to_string(), "[::]:7070");
     }
 
@@ -253,7 +264,9 @@ ca-file = "/path/to/ca.pem"
     #[serial]
     async fn test_loaded_tls_files() {
         let file = create_config_file(&full_yaml(), ".yaml");
-        let config = Config::parse(file.path(), vec![]).await.unwrap();
+        let config = Config::parse(file.path(), vec![])
+            .await
+            .expect("parse config");
         assert_eq!(config.tls.cert_file, PathBuf::from("/path/to/cert.pem"));
         assert_eq!(config.tls.key_file, PathBuf::from("/path/to/key.pem"));
         assert_eq!(config.tls.ca_file, PathBuf::from("/path/to/ca.pem"));
@@ -287,7 +300,9 @@ ca-file = "/path/to/ca.pem"
     async fn test_parse_with_defaults() {
         let content = format!("tls:\n{VALID_TLS_BLOCK}");
         let file = create_config_file(&content, ".yaml");
-        let config = Config::parse(file.path(), vec![]).await.unwrap();
+        let config = Config::parse(file.path(), vec![])
+            .await
+            .expect("parse config");
         assert_eq!(config.address.to_string(), "[::]:50051");
         assert_eq!(config.logs_dir, PathBuf::from("/var/log/containers"));
         assert!(config.logging.enabled);
@@ -299,7 +314,9 @@ ca-file = "/path/to/ca.pem"
     #[serial]
     async fn test_allowed_names_defaults_to_empty() {
         let file = create_config_file(&full_yaml(), ".yaml");
-        let config = Config::parse(file.path(), vec![]).await.unwrap();
+        let config = Config::parse(file.path(), vec![])
+            .await
+            .expect("parse config");
         assert!(config.tls.allowed_names.is_empty());
     }
 
@@ -310,7 +327,9 @@ ca-file = "/path/to/ca.pem"
             "tls:\n{VALID_TLS_BLOCK}  allowed-names:\n    - \"kubetail-cluster-api\"\n    - \"other-trusted-proxy\"\n"
         );
         let file = create_config_file(&content, ".yaml");
-        let config = Config::parse(file.path(), vec![]).await.unwrap();
+        let config = Config::parse(file.path(), vec![])
+            .await
+            .expect("parse config");
         assert_eq!(
             config.tls.allowed_names,
             vec![
@@ -325,7 +344,9 @@ ca-file = "/path/to/ca.pem"
     async fn test_allowed_names_empty_list_when_explicitly_set() {
         let content = format!("tls:\n{VALID_TLS_BLOCK}  allowed-names: []\n");
         let file = create_config_file(&content, ".yaml");
-        let config = Config::parse(file.path(), vec![]).await.unwrap();
+        let config = Config::parse(file.path(), vec![])
+            .await
+            .expect("parse config");
         assert!(config.tls.allowed_names.is_empty());
     }
 
@@ -338,7 +359,7 @@ ca-file = "/path/to/ca.pem"
             .expect("Failed to create temp file");
         let result = Config::parse(file.path(), vec![]).await;
         assert!(result.is_err());
-        let err = result.unwrap_err();
+        let err = result.expect_err("config parse should fail for unknown extension");
         assert!(err.to_string().contains("not of a registered file format"));
     }
 }

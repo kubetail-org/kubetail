@@ -15,7 +15,7 @@
 use std::path::PathBuf;
 
 fn main() {
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR must be set by Cargo"));
     tonic_prost_build::configure()
         .extern_path(".google.protobuf", "::prost_types")
         .compile_well_known_types(true)
@@ -26,5 +26,5 @@ fn main() {
             // Include path(s) for proto file imports
             &["../../proto"],
         )
-        .unwrap();
+        .expect("Failed to compile protobuf files");
 }

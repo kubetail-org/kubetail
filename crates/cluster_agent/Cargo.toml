@@ -3,6 +3,9 @@ name = "cluster_agent"
 version = "0.0.0"
 edition = "2024"
 
+[lints]
+workspace = true
+
 [dependencies]
 rgkl = { path = "../rgkl" }
 types = {path="../types/"}

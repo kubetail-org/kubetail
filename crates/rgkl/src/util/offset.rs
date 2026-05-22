@@ -240,6 +240,8 @@ mod common {
 
 #[cfg(test)]
 mod tests_find_nearest_offset_since {
+    #![allow(clippy::unwrap_used)]
+
     use chrono::DateTime;
 
     use super::*;
@@ -564,6 +566,8 @@ mod tests_find_nearest_offset_since {
 
 #[cfg(test)]
 mod tests_find_nearest_offset_until {
+    #![allow(clippy::unwrap_used)]
+
     use chrono::DateTime;
 
     use super::*;

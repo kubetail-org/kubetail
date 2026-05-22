@@ -156,6 +156,8 @@ impl LogRecordsService for LogRecordsImpl {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+
     use super::*;
     use crate::auth::Identity;
     use crate::authorizer::{AccessReviewer, Authorizer};
