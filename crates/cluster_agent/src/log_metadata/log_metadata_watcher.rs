@@ -300,7 +300,7 @@ async fn find_log_files(
             if namespaces.is_empty()
                 || captures
                     .name("namespace")
-                    .is_some_and(|m| namespaces.contains(&m.as_str().to_owned()))
+                    .is_some_and(|m| namespaces.iter().any(|ns| ns == m.as_str()))
             {
                 Some(directory.to_path_buf().join(file.file_name()))
             } else {

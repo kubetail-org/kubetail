@@ -199,8 +199,7 @@ fn setup_fs_watcher<'a>(
     let trimmed_grep = grep.map(str::trim).filter(|grep| !grep.is_empty());
 
     if let Some(grep) = trimmed_grep {
-        let matcher = LogFileRegexMatcher::new(grep, format)
-            .map_err(|e| FsWatcherError::InvalidGrep(e.to_string()))?;
+        let matcher = LogFileRegexMatcher::new(grep, format)?;
         let sink = printer.sink(&matcher);
         let _ = searcher.search_reader(&matcher, term_reader, sink);
     } else {

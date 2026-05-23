@@ -29,7 +29,7 @@ pub enum FsWatcherError {
     DirNotFound(String),
 
     #[error("Invalid grep pattern: {0}")]
-    InvalidGrep(String),
+    InvalidGrep(#[from] grep::regex::Error),
 }
 
 impl From<FsWatcherError> for Status {
