@@ -42,7 +42,7 @@ mod log_metadata_watcher;
 pub static LOG_FILE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
             r"^(?P<pod_name>[^_]+)_(?P<namespace>[^_]+)_(?P<container_name>.+)-(?P<container_id>[^-]+)\.log$",
-        ).unwrap()
+        ).expect("Failed to compile LOG_FILE_REGEX")
 });
 
 #[derive(Debug)]
@@ -319,7 +319,13 @@ mod test {
         );
         assert_eq!("pod-name", log_metadata.spec.as_ref().unwrap().pod_name);
         assert_eq!("container-name", log_metadata.spec.unwrap().container_name);
-        assert_eq!(4, log_metadata.file_info.unwrap().size);
+        assert_eq!(
+            4,
+            log_metadata
+                .file_info
+                .expect("file_info should be set")
+                .size
+        );
     }
 
     #[tokio::test]

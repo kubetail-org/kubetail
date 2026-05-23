@@ -90,7 +90,13 @@ pub fn process_output(
     format: FileFormat,
 ) {
     // For example, convert to string and print.
-    let json: serde_json::Value = serde_json::from_slice(&chunk).unwrap();
+    let json: serde_json::Value = match serde_json::from_slice(&chunk) {
+        Ok(v) => v,
+        Err(_) => {
+            return;
+        }
+    };
+
     if let (Some(t), Some(data)) = (json["type"].as_str(), json["data"].as_object()) {
         if t != "match" {
             return;
@@ -130,8 +136,13 @@ pub fn process_output(
                                 return;
                             }
 
+                            let timestamp = match Timestamp::from_str(first) {
+                                Ok(ts) => Some(ts),
+                                Err(_) => return, // malformed timestamp
+                            };
+
                             let record = LogRecord {
-                                timestamp: Some(Timestamp::from_str(first).unwrap()),
+                                timestamp,
                                 message: rest[9..].trim_end().to_string(),
                                 is_final: rest.as_bytes()[8] == b'F',
                             };

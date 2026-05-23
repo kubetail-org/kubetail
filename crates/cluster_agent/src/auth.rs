@@ -172,6 +172,8 @@ pub fn identity_from<T>(req: &Request<T>) -> Result<Arc<Identity>, Status> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+
     use super::*;
     use tonic::metadata::{MetadataKey, MetadataValue};
 
@@ -267,6 +269,7 @@ mod tests {
             &[],
         )
         .unwrap();
+
         assert_eq!(
             id.extras.get("scopes").unwrap(),
             &BTreeSet::from(["read".to_string(), "write".to_string()])

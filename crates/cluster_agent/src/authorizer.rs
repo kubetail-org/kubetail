@@ -126,11 +126,13 @@ pub fn build_sar(identity: &Identity, namespace: Option<&str>, verb: &str) -> Su
 }
 
 fn permission_denied(verb: &str, namespace: Option<&str>) -> Status {
+    let target_ns = namespace.unwrap_or("all");
+
     Status::new(
         tonic::Code::PermissionDenied,
         format!(
             "permission denied: `{verb} pods/log` in namespace `{}`",
-            namespace.unwrap_or("all")
+            target_ns
         ),
     )
 }
@@ -197,6 +199,8 @@ impl Authorizer {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+
     use super::*;
     use std::collections::{BTreeMap, BTreeSet};
 

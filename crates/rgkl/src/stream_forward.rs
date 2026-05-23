@@ -199,7 +199,7 @@ fn setup_fs_watcher<'a>(
     let trimmed_grep = grep.map(str::trim).filter(|grep| !grep.is_empty());
 
     if let Some(grep) = trimmed_grep {
-        let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
+        let matcher = LogFileRegexMatcher::new(grep, format)?;
         let sink = printer.sink(&matcher);
         let _ = searcher.search_reader(&matcher, term_reader, sink);
     } else {
@@ -222,7 +222,9 @@ fn setup_fs_watcher<'a>(
 
     let search_slice = move |input_str: &[u8]| {
         if let Some(grep) = trimmed_grep {
-            let matcher = LogFileRegexMatcher::new(grep, format).unwrap();
+            let Ok(matcher) = LogFileRegexMatcher::new(grep, format) else {
+                return;
+            };
             let sink = printer.sink(&matcher);
             let _ = searcher.search_slice(&matcher, input_str, sink);
         } else {
@@ -307,6 +309,8 @@ async fn listen_for_changes(
 
 #[cfg(test)]
 mod test {
+    #![allow(clippy::unwrap_used)]
+
     use std::{io::Write, path::Path, sync::LazyLock};
 
     use rstest::rstest;
