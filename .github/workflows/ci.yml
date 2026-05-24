@@ -8,6 +8,12 @@ on:
     branches:
       - "**"
   workflow_dispatch:
+    inputs:
+      run_all:
+        description: "Run full suite"
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   ##############################
@@ -18,13 +24,10 @@ jobs:
     name: Detect Changes
     runs-on: ubuntu-24.04
     outputs:
-      go: ${{ steps.filter.outputs.go }}
-      rust: ${{ steps.filter.outputs.rust }}
-      typescript: ${{ steps.filter.outputs.typescript }}
-      shell: ${{ steps.filter.outputs.shell }}
-      python: ${{ steps.filter.outputs.python }}
-      docker: ${{ steps.filter.outputs.docker }}
-      workflow: ${{ steps.filter.outputs.workflow }}
+      go: ${{ steps.override.outputs.go }}
+      rust: ${{ steps.override.outputs.rust }}
+      typescript: ${{ steps.override.outputs.typescript }}
+      any: ${{ steps.override.outputs.any }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v3
@@ -33,26 +36,27 @@ jobs:
           filters: |
             go:
               - 'modules/**'
-              - 'go.work'
-              - 'go.work.sum'
-              - 'Makefile'
             rust:
               - 'crates/**'
-              - 'Cargo.toml'
-              - 'Cargo.lock'
-              - 'Makefile'
             typescript:
               - 'dashboard-ui/**'
-              - 'Makefile'
-            shell:
-              - 'scripts/**'
-            python:
-              - 'e2e/**'
-            docker:
-              - 'build/package/**'
-            workflow:
-              - '.github/workflows/ci.yml'
-              - '.github/actions/**'
+      - id: override
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ inputs.run_all }}" == "true" ]; then
+            echo "go=true" >> $GITHUB_OUTPUT
+            echo "rust=true" >> $GITHUB_OUTPUT
+            echo "typescript=true" >> $GITHUB_OUTPUT
+            echo "any=true" >> $GITHUB_OUTPUT
+          else
+            echo "go=${{ steps.filter.outputs.go }}" >> $GITHUB_OUTPUT
+            echo "rust=${{ steps.filter.outputs.rust }}" >> $GITHUB_OUTPUT
+            echo "typescript=${{ steps.filter.outputs.typescript }}" >> $GITHUB_OUTPUT
+            if [ "${{ steps.filter.outputs.go }}" == "true" ] || [ "${{ steps.filter.outputs.rust }}" == "true" ] || [ "${{ steps.filter.outputs.typescript }}" == "true" ]; then
+              echo "any=true" >> $GITHUB_OUTPUT
+            else
+              echo "any=false" >> $GITHUB_OUTPUT
+            fi
+          fi
 
   ##############################
   # Pre-flight jobs
@@ -61,7 +65,7 @@ jobs:
   go-lint:
     name: Go · Lint
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.go == 'true' || needs.changes.outputs.workflow == 'true'
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -83,7 +87,7 @@ jobs:
   go-vet:
     name: Go · Vet
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.go == 'true' || needs.changes.outputs.workflow == 'true'
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -105,7 +109,7 @@ jobs:
   go-vendor:
     name: Go · Vendor
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.go == 'true' || needs.changes.outputs.workflow == 'true'
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -125,7 +129,7 @@ jobs:
   rust-lint:
     name: Rust · Lint
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.rust == 'true' || needs.changes.outputs.workflow == 'true'
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -140,7 +144,7 @@ jobs:
   rust-vet:
     name: Rust · Vet
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.rust == 'true' || needs.changes.outputs.workflow == 'true'
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -155,7 +159,7 @@ jobs:
   typescript-lint:
     name: TypeScript · Lint
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.typescript == 'true' || needs.changes.outputs.workflow == 'true'
+    if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -172,7 +176,7 @@ jobs:
   shell-lint:
     name: Shell · Lint
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.shell == 'true' || needs.changes.outputs.workflow == 'true'
+    if: github.event_name == 'workflow_dispatch' && inputs.run_all == true
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -186,7 +190,7 @@ jobs:
   python-lint:
     name: Python · Lint
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
+    if: github.event_name == 'workflow_dispatch' && inputs.run_all == true
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -209,7 +213,7 @@ jobs:
       - go-lint
       - go-vet
       - go-vendor
-    if: always() && !failure() && !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.go == 'true' || needs.changes.outputs.workflow == 'true')
+    if: needs.changes.outputs.go == 'true'
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -277,7 +281,7 @@ jobs:
       - changes
       - rust-lint
       - rust-vet
-    if: always() && !failure() && !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.rust == 'true' || needs.changes.outputs.workflow == 'true')
+    if: needs.changes.outputs.rust == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -310,7 +314,7 @@ jobs:
     needs:
       - changes
       - typescript-lint
-    if: always() && !failure() && !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.typescript == 'true' || needs.changes.outputs.workflow == 'true')
+    if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -329,7 +333,7 @@ jobs:
     needs:
       - changes
       - shell-lint
-    if: always() && !failure() && !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.shell == 'true' || needs.changes.outputs.workflow == 'true')
+    if: github.event_name == 'workflow_dispatch' && inputs.run_all == true
     strategy:
       fail-fast: false
       matrix:
@@ -395,7 +399,7 @@ jobs:
       - changes
       - rust-lint
       - rust-vet
-    if: always() && !failure() && !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.rust == 'true' || needs.changes.outputs.workflow == 'true')
+    if: needs.changes.outputs.rust == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -428,7 +432,7 @@ jobs:
     needs:
       - changes
       - typescript-lint
-    if: always() && !failure() && !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.typescript == 'true' || needs.changes.outputs.workflow == 'true')
+    if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -455,7 +459,7 @@ jobs:
       - go-lint
       - go-vet
       - typescript-lint
-    if: always() && !failure() && !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.go == 'true' || needs.changes.outputs.rust == 'true' || needs.changes.outputs.typescript == 'true' || needs.changes.outputs.docker == 'true' || needs.changes.outputs.workflow == 'true')
+    if: needs.changes.outputs.any == 'true'
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -513,7 +517,7 @@ jobs:
       - go-lint
       - go-vet
       - typescript-lint
-    if: always() && !failure() && !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.go == 'true' || needs.changes.outputs.rust == 'true' || needs.changes.outputs.typescript == 'true' || needs.changes.outputs.workflow == 'true')
+    if: needs.changes.outputs.any == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -579,7 +583,7 @@ jobs:
       - go-vet
       - go-vendor
       - typescript-lint
-    if: always() && !failure() && !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.go == 'true' || needs.changes.outputs.workflow == 'true')
+    if: needs.changes.outputs.go == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -643,7 +647,7 @@ jobs:
       - changes
       - docker-builds
       - python-lint
-    if: always() && !failure() && !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.go == 'true' || needs.changes.outputs.rust == 'true' || needs.changes.outputs.typescript == 'true' || needs.changes.outputs.docker == 'true' || needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true')
+    if: needs.changes.outputs.any == 'true'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
