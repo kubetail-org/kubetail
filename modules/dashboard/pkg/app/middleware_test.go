@@ -208,6 +208,22 @@ func TestCSRFProtectionMiddlewareAllows(t *testing.T) {
 			setHeader: http.Header{"Sec-Fetch-Site": []string{"same-origin"}, "X-Csrf-Token": []string{csrfPreseededToken}},
 			seedToken: true,
 		},
+		// Browsers omit Sec-Fetch-* on non-secure, non-localhost origins (plain
+		// HTTP on a custom hostname like an internal ingress). An absent header
+		// must not block an otherwise-valid request — the CSRF token is the
+		// primary defense.
+		{
+			name:      "POST without Sec-Fetch-Site with valid X-CSRF-Token",
+			method:    "POST",
+			setHeader: http.Header{"X-Csrf-Token": []string{csrfPreseededToken}},
+			seedToken: true,
+		},
+		{
+			name:      "POST same-site with valid X-CSRF-Token",
+			method:    "POST",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"same-site"}, "X-Csrf-Token": []string{csrfPreseededToken}},
+			seedToken: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -324,24 +340,25 @@ func TestCSRFProtectionMiddlewareForbids(t *testing.T) {
 		setHeader http.Header
 		seedToken bool
 	}{
-		// Unsafe methods require same-origin Sec-Fetch-Site.
-		{
-			name:      "POST without Sec-Fetch-Site",
-			method:    "POST",
-			setHeader: http.Header{},
-			seedToken: false,
-		},
+		// Unsafe methods with an explicitly cross-origin Sec-Fetch-Site are
+		// rejected outright, even if a valid token were also present.
 		{
 			name:      "POST cross-site",
 			method:    "POST",
-			setHeader: http.Header{"Sec-Fetch-Site": []string{"cross-site"}},
-			seedToken: false,
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"cross-site"}, "X-Csrf-Token": []string{csrfPreseededToken}},
+			seedToken: true,
+		},
+		{
+			name:      "POST cross-origin",
+			method:    "POST",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"cross-origin"}, "X-Csrf-Token": []string{csrfPreseededToken}},
+			seedToken: true,
 		},
 		{
 			name:      "DELETE cross-site",
 			method:    "DELETE",
-			setHeader: http.Header{"Sec-Fetch-Site": []string{"cross-site"}},
-			seedToken: false,
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"cross-site"}, "X-Csrf-Token": []string{csrfPreseededToken}},
+			seedToken: true,
 		},
 		// Unsafe same-origin requests still require a valid CSRF token.
 		{
