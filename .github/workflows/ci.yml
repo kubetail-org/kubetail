@@ -18,6 +18,7 @@ jobs:
     name: Go · Lint
     runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         module:
           - cli
@@ -37,6 +38,7 @@ jobs:
     name: Go · Vet
     runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         module:
           - cli
@@ -148,6 +150,7 @@ jobs:
       - go-vendor
     timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
         module:
           - cli
@@ -212,6 +215,7 @@ jobs:
       - rust-lint
       - rust-vet
     strategy:
+      fail-fast: false
       matrix:
         os:
           - linux
@@ -323,6 +327,7 @@ jobs:
       - rust-lint
       - rust-vet
     strategy:
+      fail-fast: false
       matrix:
         os:
           - linux
@@ -379,6 +384,7 @@ jobs:
       - typescript-lint
     timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
         component:
           - cli
@@ -433,6 +439,7 @@ jobs:
       - go-vet
       - typescript-lint
     strategy:
+      fail-fast: false
       matrix:
         os:
           - linux
