@@ -138,22 +138,23 @@ async def _ws_send_init(
         return None
 
 
-# Explicitly cross-origin values that the CSRF gate must reject outright,
-# regardless of any accompanying token.
+# Cross-origin Sec-Fetch-Site values that the CSRF gate must reject outright,
+# regardless of any accompanying token. "same-site" covers sibling subdomains
+# on the same eTLD+1, which are still cross-origin in CSRF terms.
 _SEC_FETCH_SITE_REJECTED_CASES = pytest.mark.parametrize(
     "sec_fetch_site",
-    ["cross-site", "cross-origin"],
-    ids=["cross-site", "cross-origin"],
+    ["cross-site", "same-site"],
+    ids=["cross-site", "same-site"],
 )
 
 # Values that must be allowed through to the token check. "missing" covers
 # browsers that omit Sec-Fetch-* on non-secure, non-localhost origins (e.g.
 # plain-HTTP internal ingresses); "none" is sent on user-initiated top-level
-# navigations; "same-site" covers sibling subdomains on the same eTLD+1.
+# navigations.
 _SEC_FETCH_SITE_ALLOWED_CASES = pytest.mark.parametrize(
     "sec_fetch_site",
-    [None, "none", "same-site", "same-origin"],
-    ids=["missing", "none", "same-site", "same-origin"],
+    [None, "none", "same-origin"],
+    ids=["missing", "none", "same-origin"],
 )
 
 _TOKEN_CASES = pytest.mark.parametrize(

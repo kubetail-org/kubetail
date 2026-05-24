@@ -219,9 +219,9 @@ func TestCSRFProtectionMiddlewareAllows(t *testing.T) {
 			seedToken: true,
 		},
 		{
-			name:      "POST same-site with valid X-CSRF-Token",
+			name:      "POST none with valid X-CSRF-Token",
 			method:    "POST",
-			setHeader: http.Header{"Sec-Fetch-Site": []string{"same-site"}, "X-Csrf-Token": []string{csrfPreseededToken}},
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"none"}, "X-Csrf-Token": []string{csrfPreseededToken}},
 			seedToken: true,
 		},
 	}
@@ -340,8 +340,9 @@ func TestCSRFProtectionMiddlewareForbids(t *testing.T) {
 		setHeader http.Header
 		seedToken bool
 	}{
-		// Unsafe methods with an explicitly cross-origin Sec-Fetch-Site are
-		// rejected outright, even if a valid token were also present.
+		// Unsafe methods with a cross-origin Sec-Fetch-Site are rejected
+		// outright, even if a valid token were also present. "same-site"
+		// counts as cross-origin (sibling subdomains on the same eTLD+1).
 		{
 			name:      "POST cross-site",
 			method:    "POST",
@@ -349,9 +350,9 @@ func TestCSRFProtectionMiddlewareForbids(t *testing.T) {
 			seedToken: true,
 		},
 		{
-			name:      "POST cross-origin",
+			name:      "POST same-site",
 			method:    "POST",
-			setHeader: http.Header{"Sec-Fetch-Site": []string{"cross-origin"}, "X-Csrf-Token": []string{csrfPreseededToken}},
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"same-site"}, "X-Csrf-Token": []string{csrfPreseededToken}},
 			seedToken: true,
 		},
 		{
