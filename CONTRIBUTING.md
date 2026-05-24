@@ -104,6 +104,19 @@ cargo test
 cargo build --release
 ```
 
+### Python (E2E Tests)
+
+```bash
+cd e2e
+
+# Install dependencies (including dev tools)
+uv sync --group dev
+
+# Lint
+uv run ruff check .
+uv run ruff format --check .
+```
+
 ## Commit Guidelines
 
 Keep commits minimal and focused. Multiple commits in a PR are fine if they represent logical, well-separated steps that make the change easier to review.
