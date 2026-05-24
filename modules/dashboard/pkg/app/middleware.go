@@ -36,8 +36,12 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
-// allowedSecFetchSite defines the secure values for the Sec-Fetch-Site header.
-var allowedSecFetchSite = []string{"same-origin"}
+// rejectedSecFetchSite lists Sec-Fetch-Site values that are unambiguously a
+// cross-origin request and so must be rejected outright. An absent header is
+// not rejected here: browsers omit Sec-Fetch-* on non-secure, non-localhost
+// contexts (e.g. plain-HTTP internal ingresses), and the CSRF token check
+// below is the primary defense.
+var rejectedSecFetchSite = []string{"cross-site", "cross-origin"}
 
 // safeMethods are HTTP methods that don't change state, so they don't need
 // CSRF protection. Cross-origin reads are blocked by the Same-Origin Policy,
@@ -70,7 +74,7 @@ func csrfProtectionMiddleware() gin.HandlerFunc {
 		}
 
 		// Layer 1: Sec-Fetch-Site check
-		if !slices.Contains(allowedSecFetchSite, c.GetHeader("Sec-Fetch-Site")) {
+		if slices.Contains(rejectedSecFetchSite, c.GetHeader("Sec-Fetch-Site")) {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
