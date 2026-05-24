@@ -123,6 +123,19 @@ jobs:
       - name: Run shellcheck
         run: shellcheck scripts/install.sh
 
+  python-lint:
+    name: Python · Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v6
+      - name: Lint
+        working-directory: ./e2e
+        run: |
+          uv sync --group dev
+          uv run ruff check .
+          uv run ruff format --check .
+
   ###########################
   # Test jobs
   ###########################
@@ -543,6 +556,7 @@ jobs:
     name: E2E (k8s ${{ matrix.k8s-version }})
     needs:
       - docker-builds
+      - python-lint
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false

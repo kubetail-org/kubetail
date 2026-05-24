@@ -10,6 +10,14 @@ dependencies = [
     "websockets>=13.0",
 ]
 
+[dependency-groups]
+dev = [
+    "ruff>=0.9",
+]
+
+[tool.ruff]
+target-version = "py311"
+
 [tool.pytest.ini_options]
 filterwarnings = [
     "ignore::urllib3.exceptions.InsecureRequestWarning",
