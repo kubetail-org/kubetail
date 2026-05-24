@@ -8,14 +8,64 @@ on:
     branches:
       - "**"
   workflow_dispatch:
+    inputs:
+      run_all:
+        description: "Run full suite"
+        required: false
+        type: boolean
+        default: true
 
 jobs:
+  ##############################
+  # Changes detection
+  ##############################
+
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-24.04
+    outputs:
+      go: ${{ steps.override.outputs.go }}
+      rust: ${{ steps.override.outputs.rust }}
+      typescript: ${{ steps.override.outputs.typescript }}
+      any: ${{ steps.override.outputs.any }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            go:
+              - 'modules/**'
+            rust:
+              - 'crates/**'
+            typescript:
+              - 'dashboard-ui/**'
+      - id: override
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ inputs.run_all }}" == "true" ]; then
+            echo "go=true" >> $GITHUB_OUTPUT
+            echo "rust=true" >> $GITHUB_OUTPUT
+            echo "typescript=true" >> $GITHUB_OUTPUT
+            echo "any=true" >> $GITHUB_OUTPUT
+          else
+            echo "go=${{ steps.filter.outputs.go }}" >> $GITHUB_OUTPUT
+            echo "rust=${{ steps.filter.outputs.rust }}" >> $GITHUB_OUTPUT
+            echo "typescript=${{ steps.filter.outputs.typescript }}" >> $GITHUB_OUTPUT
+            if [ "${{ steps.filter.outputs.go }}" == "true" ] || [ "${{ steps.filter.outputs.rust }}" == "true" ] || [ "${{ steps.filter.outputs.typescript }}" == "true" ]; then
+              echo "any=true" >> $GITHUB_OUTPUT
+            else
+              echo "any=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
   ##############################
   # Pre-flight jobs
   ##############################
 
   go-lint:
     name: Go · Lint
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -36,6 +86,8 @@ jobs:
 
   go-vet:
     name: Go · Vet
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -56,6 +108,8 @@ jobs:
 
   go-vendor:
     name: Go · Vendor
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -74,6 +128,8 @@ jobs:
 
   rust-lint:
     name: Rust · Lint
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -87,6 +143,8 @@ jobs:
 
   rust-vet:
     name: Rust · Vet
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -100,6 +158,8 @@ jobs:
 
   typescript-lint:
     name: TypeScript · Lint
+    needs: changes
+    if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -115,6 +175,7 @@ jobs:
 
   shell-lint:
     name: Shell · Lint
+    needs: changes
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -127,6 +188,7 @@ jobs:
 
   python-lint:
     name: Python · Lint
+    needs: changes
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -145,9 +207,11 @@ jobs:
   go-test:
     name: Go · Test
     needs:
+      - changes
       - go-lint
       - go-vet
       - go-vendor
+    if: needs.changes.outputs.go == 'true'
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -212,8 +276,10 @@ jobs:
   rust-test:
     name: Rust · Test
     needs:
+      - changes
       - rust-lint
       - rust-vet
+    if: needs.changes.outputs.rust == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -244,7 +310,9 @@ jobs:
   typescript-test:
     name: TypeScript · Test
     needs:
+      - changes
       - typescript-lint
+    if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -261,6 +329,7 @@ jobs:
   shell-test:
     name: Shell · Test
     needs:
+      - changes
       - shell-lint
     strategy:
       fail-fast: false
@@ -324,8 +393,10 @@ jobs:
   rust-build:
     name: Rust · Build
     needs:
+      - changes
       - rust-lint
       - rust-vet
+    if: needs.changes.outputs.rust == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -356,7 +427,9 @@ jobs:
   typescript-build:
     name: TypeScript · Build
     needs:
+      - changes
       - typescript-lint
+    if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -377,11 +450,13 @@ jobs:
   docker-builds:
     name: Docker · Build
     needs:
+      - changes
       - rust-lint
       - rust-vet
       - go-lint
       - go-vet
       - typescript-lint
+    if: needs.changes.outputs.any == 'true'
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -433,11 +508,13 @@ jobs:
   cli-builds:
     name: CLI · Build
     needs:
+      - changes
       - rust-lint
       - rust-vet
       - go-lint
       - go-vet
       - typescript-lint
+    if: needs.changes.outputs.any == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -496,12 +573,14 @@ jobs:
   alpine-builds:
     name: Alpine · Build
     needs:
+      - changes
       - rust-lint
       - rust-vet
       - go-lint
       - go-vet
       - go-vendor
       - typescript-lint
+    if: needs.changes.outputs.go == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -562,8 +641,10 @@ jobs:
   e2e:
     name: E2E (k8s ${{ matrix.k8s-version }})
     needs:
+      - changes
       - docker-builds
       - python-lint
+    if: needs.changes.outputs.any == 'true'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
