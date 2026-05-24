@@ -36,12 +36,13 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
-// rejectedSecFetchSite lists Sec-Fetch-Site values that are unambiguously a
-// cross-origin request and so must be rejected outright. An absent header is
-// not rejected here: browsers omit Sec-Fetch-* on non-secure, non-localhost
+// rejectedSecFetchSite lists Sec-Fetch-Site values that are cross-origin and
+// so must be rejected outright. "same-site" covers sibling subdomains on the
+// same eTLD+1, which are still cross-origin in CSRF terms. An absent header
+// is not rejected here: browsers omit Sec-Fetch-* on non-secure, non-localhost
 // contexts (e.g. plain-HTTP internal ingresses), and the CSRF token check
 // below is the primary defense.
-var rejectedSecFetchSite = []string{"cross-site", "cross-origin"}
+var rejectedSecFetchSite = []string{"cross-site", "same-site"}
 
 // safeMethods are HTTP methods that don't change state, so they don't need
 // CSRF protection. Cross-origin reads are blocked by the Same-Origin Policy,
