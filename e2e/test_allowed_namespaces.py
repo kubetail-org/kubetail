@@ -49,9 +49,7 @@ _PODS_LIST_QUERY = (
     "coreV1PodsList(namespace:$namespace){items{metadata{name namespace}}}}"
 )
 
-_NAMESPACES_LIST_QUERY = (
-    "query Q{coreV1NamespacesList{items{metadata{name}}}}"
-)
+_NAMESPACES_LIST_QUERY = "query Q{coreV1NamespacesList{items{metadata{name}}}}"
 
 _LOG_METADATA_QUERY = (
     "query Q($namespace:String){"
@@ -89,9 +87,7 @@ def _patch_allowed_namespaces(configmap, allowed):
         count=1,
         flags=re.MULTILINE,
     )
-    assert count == 1, (
-        f"allowed-namespaces line not found in ConfigMap {configmap}"
-    )
+    assert count == 1, f"allowed-namespaces line not found in ConfigMap {configmap}"
     cm["data"]["config.yaml"] = new_blob
     kubectl("apply", "-f", "-", input=json.dumps(cm))
 
@@ -102,8 +98,12 @@ def _rollout_restart(deployment):
 
 def _rollout_wait(deployment):
     kubectl(
-        "rollout", "status", f"deployment/{deployment}",
-        "-n", _KUBE_NS, "--timeout=120s",
+        "rollout",
+        "status",
+        f"deployment/{deployment}",
+        "-n",
+        _KUBE_NS,
+        "--timeout=120s",
     )
 
 
@@ -134,9 +134,13 @@ def _kill_existing_port_forwards():
 def _start_port_forward(service, local_port, remote_port):
     return subprocess.Popen(
         [
-            "kubectl", f"--kubeconfig={KUBECONFIG}",
-            "port-forward", "-n", _KUBE_NS,
-            f"service/{service}", f"{local_port}:{remote_port}",
+            "kubectl",
+            f"--kubeconfig={KUBECONFIG}",
+            "port-forward",
+            "-n",
+            _KUBE_NS,
+            f"service/{service}",
+            f"{local_port}:{remote_port}",
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -169,8 +173,11 @@ def _wait_for_apiservice_available(name="v1.api.kubetail.com", timeout=60):
     last_status = None
     while time.monotonic() < deadline:
         out = kubectl(
-            "get", "apiservice", name,
-            "-o", "jsonpath={.status.conditions[?(@.type=='Available')].status}",
+            "get",
+            "apiservice",
+            name,
+            "-o",
+            "jsonpath={.status.conditions[?(@.type=='Available')].status}",
         ).stdout.strip()
         last_status = out
         if out == "True":
@@ -228,10 +235,14 @@ def _reconfigure(allowed, *, dashboard_url, cluster_api_url):
 
     procs = [
         _start_port_forward(
-            "kubetail-dashboard", _port_from_url(dashboard_url), 8080,
+            "kubetail-dashboard",
+            _port_from_url(dashboard_url),
+            8080,
         ),
         _start_port_forward(
-            "kubetail-cluster-api", _port_from_url(cluster_api_url), 443,
+            "kubetail-cluster-api",
+            _port_from_url(cluster_api_url),
+            443,
         ),
     ]
     Path(_PF_PID_FILE).write_text("\n".join(str(p.pid) for p in procs) + "\n")
@@ -334,7 +345,9 @@ class TestDashboardAllowedNamespaces:
         assert names == [_ALLOWED_NS], body
 
     def test_user_without_rbac_denied_for_logs_in_allowed(
-        self, restricted_deployments, restricted_sa_tokens,
+        self,
+        restricted_deployments,
+        restricted_sa_tokens,
     ):
         """The user-RBAC enforcement that allowed-namespaces must not
         override is exercised by log streaming: the bearer token rides
@@ -390,7 +403,9 @@ class TestClusterAPIAllowedNamespaces:
         assert graphql_field(body, "logMetadataList") is not None, body
 
     def test_user_without_rbac_denied_in_allowed(
-        self, restricted_deployments, restricted_sa_tokens,
+        self,
+        restricted_deployments,
+        restricted_sa_tokens,
     ):
         """Mirror of the dashboard test, but exercising the cluster-agent's
         identity-keyed SAR. SA2's token rides the aggregation chain to the

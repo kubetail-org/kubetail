@@ -37,13 +37,12 @@ _DASHBOARD_LOG_FETCH = (
     "{records{message}}}"
 )
 _CLUSTER_API_LOG_METADATA = (
-    "query Q($namespace:String){"
-    "logMetadataList(namespace:$namespace)"
-    "{items{id}}}"
+    "query Q($namespace:String){logMetadataList(namespace:$namespace){items{id}}}"
 )
 
 _PROTECTED_PATHS = pytest.mark.parametrize(
-    "path", ["/graphql", "/cluster-api-proxy/graphql"],
+    "path",
+    ["/graphql", "/cluster-api-proxy/graphql"],
 )
 
 _FORWARDING_CASES = pytest.mark.parametrize(
@@ -135,9 +134,13 @@ spec:
 
 def _dashboard_image() -> str:
     out = kubectl(
-        "-n", _NS,
-        "get", "deployment", "kubetail-dashboard",
-        "-o", "jsonpath={.spec.template.spec.containers[0].image}",
+        "-n",
+        _NS,
+        "get",
+        "deployment",
+        "kubetail-dashboard",
+        "-o",
+        "jsonpath={.spec.template.spec.containers[0].image}",
     ).stdout.strip()
     assert out, "could not resolve dashboard image"
     return out
@@ -151,18 +154,27 @@ def token_dashboard_url(cluster_api_url):
     kubectl("apply", "-f", "-", input=_manifest(_dashboard_image()))
     try:
         kubectl(
-            "-n", _NS, "rollout", "status", f"deployment/{_NAME}",
+            "-n",
+            _NS,
+            "rollout",
+            "status",
+            f"deployment/{_NAME}",
             "--timeout=120s",
         )
 
         local_port = free_port()
         pf = subprocess.Popen(
             [
-                "kubectl", f"--kubeconfig={KUBECONFIG}",
-                "-n", _NS, "port-forward",
-                f"service/{_NAME}", f"{local_port}:8080",
+                "kubectl",
+                f"--kubeconfig={KUBECONFIG}",
+                "-n",
+                _NS,
+                "port-forward",
+                f"service/{_NAME}",
+                f"{local_port}:8080",
             ],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
         try:
             base = f"http://localhost:{local_port}"
@@ -189,8 +201,14 @@ def token_dashboard_url(cluster_api_url):
     finally:
         for kind in ("service", "deployment", "configmap"):
             kubectl(
-                "-n", _NS, "delete", kind, _NAME,
-                "--ignore-not-found", "--wait=false", check=False,
+                "-n",
+                _NS,
+                "delete",
+                kind,
+                _NAME,
+                "--ignore-not-found",
+                "--wait=false",
+                check=False,
             )
 
 
@@ -200,8 +218,13 @@ def dashboard_sa_token():
     everything the dashboard itself can do, so happy-path requests through
     token mode succeed end-to-end."""
     out = kubectl(
-        "create", "token", "kubetail-dashboard",
-        "-n", _NS, "--duration", "1h",
+        "create",
+        "token",
+        "kubetail-dashboard",
+        "-n",
+        _NS,
+        "--duration",
+        "1h",
     ).stdout.strip()
     assert out, "empty SA token"
     return out
@@ -271,7 +294,9 @@ class TestHTTPRequiresBearer:
     @_PROTECTED_PATHS
     def test_bearer_passes(self, token_dashboard_url, dashboard_sa_token, path):
         r = _post_graphql(
-            token_dashboard_url, path, "{__typename}",
+            token_dashboard_url,
+            path,
+            "{__typename}",
             bearer=dashboard_sa_token,
         )
         assert r.status_code == 200, r.text
@@ -282,25 +307,35 @@ class TestWebSocketRequiresBearer:
     @_PROTECTED_PATHS
     def test_no_bearer_rejected(self, token_dashboard_url, path):
         s, _ = session(token_dashboard_url)
-        status = asyncio.run(_ws_upgrade(
-            _ws_url(token_dashboard_url, path),
-            origin=token_dashboard_url, cookies=s.cookies, bearer=None,
-        ))
+        status = asyncio.run(
+            _ws_upgrade(
+                _ws_url(token_dashboard_url, path),
+                origin=token_dashboard_url,
+                cookies=s.cookies,
+                bearer=None,
+            )
+        )
         assert status == 401, f"expected 401 on upgrade, got {status}"
 
     @_PROTECTED_PATHS
     def test_bearer_passes_upgrade(
-        self, token_dashboard_url, dashboard_sa_token, path,
+        self,
+        token_dashboard_url,
+        dashboard_sa_token,
+        path,
     ):
         # Pins only that the auth gate lets the upgrade through. We don't
         # complete the GraphQL handshake — InitFunc still requires the
         # session's CSRF token, and that gate is covered by test_csrf.py.
         s, _ = session(token_dashboard_url)
-        status = asyncio.run(_ws_upgrade(
-            _ws_url(token_dashboard_url, path),
-            origin=token_dashboard_url, cookies=s.cookies,
-            bearer=dashboard_sa_token,
-        ))
+        status = asyncio.run(
+            _ws_upgrade(
+                _ws_url(token_dashboard_url, path),
+                origin=token_dashboard_url,
+                cookies=s.cookies,
+                bearer=dashboard_sa_token,
+            )
+        )
         assert status is None, f"expected upgrade to succeed, got status {status}"
 
 
@@ -328,11 +363,20 @@ class TestBearerForwarded:
     )
     @_FORWARDING_CASES
     def test_identity_threading(
-        self, token_dashboard_url, restricted_sa_tokens,
-        path, query, variables_for, namespace, expect_denial,
+        self,
+        token_dashboard_url,
+        restricted_sa_tokens,
+        path,
+        query,
+        variables_for,
+        namespace,
+        expect_denial,
     ):
         r = _post_graphql(
-            token_dashboard_url, path, query, variables_for(namespace),
+            token_dashboard_url,
+            path,
+            query,
+            variables_for(namespace),
             bearer=restricted_sa_tokens[SA1_NS],
         )
         assert r.status_code == 200, r.text

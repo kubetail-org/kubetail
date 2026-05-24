@@ -39,9 +39,7 @@ def env(request):
 
 @pytest.fixture
 def target_url(env, request):
-    return request.getfixturevalue(
-        "dashboard_url" if env == "cluster" else "serve_url"
-    )
+    return request.getfixturevalue("dashboard_url" if env == "cluster" else "serve_url")
 
 
 @pytest.fixture
@@ -106,7 +104,8 @@ async def _ws_upgrade(ws_url, *, origin=None, cookies=None, extra_headers=None):
             ws_url,
             subprotocols=[_WS_SUBPROTOCOL],
             additional_headers=_ws_headers(
-                origin=origin, cookies=cookies, extra=extra_headers),
+                origin=origin, cookies=cookies, extra=extra_headers
+            ),
             open_timeout=5,
         ):
             return True
@@ -114,7 +113,9 @@ async def _ws_upgrade(ws_url, *, origin=None, cookies=None, extra_headers=None):
         return False
 
 
-async def _ws_send_init(ws_url, *, origin, cookies=None, csrf_token=None, url_suffix=""):
+async def _ws_send_init(
+    ws_url, *, origin, cookies=None, csrf_token=None, url_suffix=""
+):
     """Complete the upgrade, send connection_init, return the first message.
 
     Returns {"type": "connection_error"} if the server closes cleanly on
@@ -174,92 +175,138 @@ _WS_ORIGIN_CASES = pytest.mark.parametrize(
 
 
 class TestDashboardHTTPCSRF:
-
     @_SEC_FETCH_SITE_REJECTED_CASES
     def test_sec_fetch_site_rejected(self, target_url, sec_fetch_site):
         s, tok = _session(target_url)
-        r = _post(s, f"{target_url}/graphql", sec_fetch_site=sec_fetch_site,
-                  csrf_token=tok, json={"query": "{__typename}"})
+        r = _post(
+            s,
+            f"{target_url}/graphql",
+            sec_fetch_site=sec_fetch_site,
+            csrf_token=tok,
+            json={"query": "{__typename}"},
+        )
         assert r.status_code == 403
 
     @_SEC_FETCH_SITE_ALLOWED_CASES
     def test_sec_fetch_site_allowed_with_valid_token(self, target_url, sec_fetch_site):
         s, tok = _session(target_url)
-        r = _post(s, f"{target_url}/graphql", sec_fetch_site=sec_fetch_site,
-                  csrf_token=tok, json={"query": "{__typename}"})
+        r = _post(
+            s,
+            f"{target_url}/graphql",
+            sec_fetch_site=sec_fetch_site,
+            csrf_token=tok,
+            json={"query": "{__typename}"},
+        )
         assert r.status_code == 200
 
     @_TOKEN_CASES
     def test_csrf_token_rejected(self, target_url, bad_token):
         s, _ = _session(target_url)
-        r = _post(s, f"{target_url}/graphql", sec_fetch_site="same-origin",
-                  csrf_token=bad_token, json={"query": "{__typename}"})
+        r = _post(
+            s,
+            f"{target_url}/graphql",
+            sec_fetch_site="same-origin",
+            csrf_token=bad_token,
+            json={"query": "{__typename}"},
+        )
         assert r.status_code == 403
 
     def test_cross_session_token_rejected(self, target_url):
         _, tok_other = _session(target_url)
         s, _ = _session(target_url)
-        r = _post(s, f"{target_url}/graphql", sec_fetch_site="same-origin",
-                  csrf_token=tok_other, json={"query": "{__typename}"})
+        r = _post(
+            s,
+            f"{target_url}/graphql",
+            sec_fetch_site="same-origin",
+            csrf_token=tok_other,
+            json={"query": "{__typename}"},
+        )
         assert r.status_code == 403
 
     def test_form_without_csrf_field_rejected(self, target_url):
         s, _ = _session(target_url)
-        r = _post(s, f"{target_url}/graphql",
-                  sec_fetch_site="same-origin", data={"query": "{__typename}"})
+        r = _post(
+            s,
+            f"{target_url}/graphql",
+            sec_fetch_site="same-origin",
+            data={"query": "{__typename}"},
+        )
         assert r.status_code == 403
 
     def test_forwarded_csrf_token_smuggling_rejected(self, target_url):
         s, _ = _session(target_url)
-        headers = {"Sec-Fetch-Site": "same-origin",
-                   "X-Forwarded-CSRF-Token": "attacker-token"}
-        r = s.post(f"{target_url}/graphql", headers=headers,
-                   json={"query": "{__typename}"})
+        headers = {
+            "Sec-Fetch-Site": "same-origin",
+            "X-Forwarded-CSRF-Token": "attacker-token",
+        }
+        r = s.post(
+            f"{target_url}/graphql", headers=headers, json={"query": "{__typename}"}
+        )
         assert r.status_code == 403
 
     def test_valid_csrf_passes(self, target_url):
         s, tok = _session(target_url)
-        r = _post(s, f"{target_url}/graphql", sec_fetch_site="same-origin",
-                  csrf_token=tok, json={"query": "{__typename}"})
+        r = _post(
+            s,
+            f"{target_url}/graphql",
+            sec_fetch_site="same-origin",
+            csrf_token=tok,
+            json={"query": "{__typename}"},
+        )
         assert r.status_code != 403
 
     def test_text_plain_content_type_rejected(self, target_url):
         """text/plain with a JSON body is a CORS-simple request — must still be CSRF-rejected."""
         s, _ = _session(target_url)
-        headers = {"Sec-Fetch-Site": "same-origin",
-                   "Content-Type": "text/plain"}
-        r = s.post(f"{target_url}/graphql", headers=headers,
-                   data=json.dumps({"query": "{__typename}"}))
+        headers = {"Sec-Fetch-Site": "same-origin", "Content-Type": "text/plain"}
+        r = s.post(
+            f"{target_url}/graphql",
+            headers=headers,
+            data=json.dumps({"query": "{__typename}"}),
+        )
         assert r.status_code == 403
 
     def test_get_mutation_rejected(self, target_url):
         """Mutations via GET (CORS-simple, browser-fireable cross-origin) must not succeed."""
         s, tok = _session(target_url)
         headers = {"Sec-Fetch-Site": "same-origin", "X-CSRF-Token": tok}
-        r = s.get(f"{target_url}/graphql",
-                  params={"query": "mutation { __typename }"}, headers=headers)
+        r = s.get(
+            f"{target_url}/graphql",
+            params={"query": "mutation { __typename }"},
+            headers=headers,
+        )
         assert r.status_code >= 400 or "errors" in r.json()
 
     def test_token_without_session_rejected(self, target_url):
         """A fabricated token with no session cookie must not pass."""
         s = requests.Session()
-        r = _post(s, f"{target_url}/graphql", sec_fetch_site="same-origin",
-                  csrf_token="deadbeef", json={"query": "{__typename}"})
+        r = _post(
+            s,
+            f"{target_url}/graphql",
+            sec_fetch_site="same-origin",
+            csrf_token="deadbeef",
+            json={"query": "{__typename}"},
+        )
         assert r.status_code == 403
 
     def test_query_string_token_rejected(self, target_url):
         """Token must come from header or form body, not URL query (avoids leak via Referer/logs)."""
         s, tok = _session(target_url)
         headers = {"Sec-Fetch-Site": "same-origin"}
-        r = s.post(f"{target_url}/graphql", params={"csrfToken": tok},
-                   headers=headers, json={"query": "{__typename}"})
+        r = s.post(
+            f"{target_url}/graphql",
+            params={"csrfToken": tok},
+            headers=headers,
+            json={"query": "{__typename}"},
+        )
         assert r.status_code == 403
 
     def test_logout_endpoint_csrf_rejected(self, target_url):
         """Other mutation endpoints (e.g. /api/auth/logout) must enforce CSRF too."""
         s, _ = _session(target_url)
-        r = s.post(f"{target_url}/api/auth/logout",
-                   headers={"Sec-Fetch-Site": "same-origin"})
+        r = s.post(
+            f"{target_url}/api/auth/logout", headers={"Sec-Fetch-Site": "same-origin"}
+        )
         assert r.status_code == 403
 
 
@@ -269,7 +316,6 @@ class TestDashboardHTTPCSRF:
 
 
 class TestDashboardWSCSWSH:
-
     @_WS_ORIGIN_CASES
     def test_ws_cross_origin_upgrade_rejected(self, dashboard_ws_url, origin):
         assert not asyncio.run(_ws_upgrade(dashboard_ws_url, origin=origin)), (
@@ -283,39 +329,57 @@ class TestDashboardWSCSWSH:
 
     def test_ws_missing_csrf_token_rejected(self, target_url, dashboard_ws_url):
         s, _ = _session(target_url)
-        msg = asyncio.run(_ws_send_init(dashboard_ws_url,
-                          origin=target_url, cookies=s.cookies))
+        msg = asyncio.run(
+            _ws_send_init(dashboard_ws_url, origin=target_url, cookies=s.cookies)
+        )
         _assert_ws_rejected(msg, "missing csrfToken")
 
     def test_ws_wrong_csrf_token_rejected(self, target_url, dashboard_ws_url):
         s, _ = _session(target_url)
-        msg = asyncio.run(_ws_send_init(
-            dashboard_ws_url, origin=target_url, cookies=s.cookies, csrf_token="deadbeef"))
+        msg = asyncio.run(
+            _ws_send_init(
+                dashboard_ws_url,
+                origin=target_url,
+                cookies=s.cookies,
+                csrf_token="deadbeef",
+            )
+        )
         _assert_ws_rejected(msg, "wrong csrfToken")
 
     def test_ws_cross_session_csrf_token_rejected(self, target_url, dashboard_ws_url):
         _, tok_other = _session(target_url)
         s, _ = _session(target_url)
-        msg = asyncio.run(_ws_send_init(
-            dashboard_ws_url, origin=target_url, cookies=s.cookies, csrf_token=tok_other))
+        msg = asyncio.run(
+            _ws_send_init(
+                dashboard_ws_url,
+                origin=target_url,
+                cookies=s.cookies,
+                csrf_token=tok_other,
+            )
+        )
         _assert_ws_rejected(msg, "cross-session csrfToken")
 
     def test_ws_no_cookie_rejected(self, target_url, dashboard_ws_url):
         """WS connect with valid Origin and a fabricated token but no session cookie must fail."""
-        msg = asyncio.run(_ws_send_init(
-            dashboard_ws_url, origin=target_url, cookies=None, csrf_token="deadbeef"))
+        msg = asyncio.run(
+            _ws_send_init(
+                dashboard_ws_url, origin=target_url, cookies=None, csrf_token="deadbeef"
+            )
+        )
         _assert_ws_rejected(msg, "no-cookie WS connect")
 
     def test_ws_query_string_token_rejected(self, target_url, dashboard_ws_url):
         """CSRF token must come from connection_init payload, not URL query."""
         s, tok = _session(target_url)
-        msg = asyncio.run(_ws_send_init(
-            dashboard_ws_url,
-            origin=target_url,
-            cookies=s.cookies,
-            csrf_token=None,
-            url_suffix=f"?csrfToken={tok}",
-        ))
+        msg = asyncio.run(
+            _ws_send_init(
+                dashboard_ws_url,
+                origin=target_url,
+                cookies=s.cookies,
+                csrf_token=None,
+                url_suffix=f"?csrfToken={tok}",
+            )
+        )
         _assert_ws_rejected(msg, "query-string WS token")
 
 
@@ -328,8 +392,11 @@ class TestDashboardWSCSWSH:
 class TestDashboardWSAccepted:
     def test_valid_connection_accepted(self, target_url, dashboard_ws_url):
         s, tok = _session(target_url)
-        msg = asyncio.run(_ws_send_init(
-            dashboard_ws_url, origin=target_url, cookies=s.cookies, csrf_token=tok))
+        msg = asyncio.run(
+            _ws_send_init(
+                dashboard_ws_url, origin=target_url, cookies=s.cookies, csrf_token=tok
+            )
+        )
         assert msg is not None and msg.get("type") == "connection_ack", (
             f"expected connection_ack from dashboard /graphql, got {msg}"
         )
@@ -348,8 +415,7 @@ class TestProxyHTTPCSRF:
 
     def test_post_wrong_csrf_rejected(self, target_url, proxy_url):
         s, _ = _session(target_url)
-        r = _post(s, proxy_url, sec_fetch_site="same-origin",
-                  csrf_token="deadbeef")
+        r = _post(s, proxy_url, sec_fetch_site="same-origin", csrf_token="deadbeef")
         assert r.status_code == 403
 
     @_SEC_FETCH_SITE_REJECTED_CASES
@@ -359,23 +425,28 @@ class TestProxyHTTPCSRF:
         assert r.status_code == 403
 
     @_SEC_FETCH_SITE_ALLOWED_CASES
-    def test_post_sec_fetch_site_allowed_with_valid_token(self, target_url, proxy_url, sec_fetch_site):
+    def test_post_sec_fetch_site_allowed_with_valid_token(
+        self, target_url, proxy_url, sec_fetch_site
+    ):
         s, tok = _session(target_url)
-        r = _post(s, proxy_url, sec_fetch_site=sec_fetch_site,
-                  csrf_token=tok, json={"query": "{__typename}"})
+        r = _post(
+            s,
+            proxy_url,
+            sec_fetch_site=sec_fetch_site,
+            csrf_token=tok,
+            json={"query": "{__typename}"},
+        )
         assert r.status_code < 400
 
     def test_post_cross_session_token_rejected(self, target_url, proxy_url):
         _, tok_other = _session(target_url)
         s, _ = _session(target_url)
-        r = _post(s, proxy_url, sec_fetch_site="same-origin",
-                  csrf_token=tok_other)
+        r = _post(s, proxy_url, sec_fetch_site="same-origin", csrf_token=tok_other)
         assert r.status_code == 403
 
     def test_post_token_without_session_rejected(self, proxy_url):
         s = requests.Session()
-        r = _post(s, proxy_url, sec_fetch_site="same-origin",
-                  csrf_token="deadbeef")
+        r = _post(s, proxy_url, sec_fetch_site="same-origin", csrf_token="deadbeef")
         assert r.status_code == 403
 
 
@@ -390,9 +461,9 @@ class TestProxyWSCSWSH:
     @_WS_ORIGIN_CASES
     def test_cross_origin_upgrade_rejected(self, target_url, proxy_ws_url, origin):
         s, _ = _session(target_url)
-        assert not asyncio.run(_ws_upgrade(proxy_ws_url, origin=origin, cookies=s.cookies)), (
-            f"expected upgrade rejection for Origin: {origin}"
-        )
+        assert not asyncio.run(
+            _ws_upgrade(proxy_ws_url, origin=origin, cookies=s.cookies)
+        ), f"expected upgrade rejection for Origin: {origin}"
 
     def test_no_origin_upgrade_rejected(self, target_url, proxy_ws_url):
         s, _ = _session(target_url)
@@ -402,18 +473,20 @@ class TestProxyWSCSWSH:
 
     def test_no_session_upgrade_rejected(self, target_url, proxy_ws_url):
         """Same-origin upgrade with no session cookie has no X-Forwarded-CSRF-Token stamped — must be rejected."""
-        assert not asyncio.run(_ws_upgrade(proxy_ws_url, origin=target_url, cookies=None)), (
-            "expected upgrade rejection without a CSRF-bearing session"
-        )
+        assert not asyncio.run(
+            _ws_upgrade(proxy_ws_url, origin=target_url, cookies=None)
+        ), "expected upgrade rejection without a CSRF-bearing session"
 
     def test_forwarded_csrf_smuggling_rejected(self, target_url, proxy_ws_url):
         """A client-supplied X-Forwarded-CSRF-Token without a session must be stripped and the upgrade rejected."""
-        assert not asyncio.run(_ws_upgrade(
-            proxy_ws_url,
-            origin=target_url,
-            cookies=None,
-            extra_headers={"X-Forwarded-CSRF-Token": "attacker-token"},
-        )), "client-supplied X-Forwarded-CSRF-Token must not bypass CSWSH gate"
+        assert not asyncio.run(
+            _ws_upgrade(
+                proxy_ws_url,
+                origin=target_url,
+                cookies=None,
+                extra_headers={"X-Forwarded-CSRF-Token": "attacker-token"},
+            )
+        ), "client-supplied X-Forwarded-CSRF-Token must not bypass CSWSH gate"
 
 
 # ---------------------------------------------------------------------------
@@ -428,8 +501,11 @@ class TestProxyWSAccepted:
 
     def test_valid_connection_accepted(self, target_url, proxy_ws_url):
         s, tok = _session(target_url)
-        msg = asyncio.run(_ws_send_init(
-            proxy_ws_url, origin=target_url, cookies=s.cookies, csrf_token=tok))
+        msg = asyncio.run(
+            _ws_send_init(
+                proxy_ws_url, origin=target_url, cookies=s.cookies, csrf_token=tok
+            )
+        )
         assert msg is not None and msg.get("type") == "connection_ack", (
             f"expected connection_ack from cluster-api-proxy graphql, got {msg}"
         )

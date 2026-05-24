@@ -125,6 +125,7 @@ def test_cluster_api_rejects_direct_ws_upgrade_without_front_proxy_cert(
     # production is the apiserver layer above; this layer's job is the
     # 401 once a TLS handshake completes.)
     import ssl as _ssl
+
     ctx = _ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = _ssl.CERT_NONE
