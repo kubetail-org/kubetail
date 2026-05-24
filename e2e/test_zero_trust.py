@@ -70,10 +70,12 @@ def front_proxy_client_cert(tmp_path_factory):
     by it (and matching the requestheader-allowed-names CN) is trusted by
     aggregationAuthMiddleware to *carry* an identity in headers, but the
     headers themselves still have to be present."""
+
     def _docker_cat(path):
         return subprocess.run(
             ["docker", "exec", _KIND_SERVER, "cat", path],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         ).stdout
 
     try:
@@ -98,11 +100,24 @@ def admin_client_cert(tmp_path_factory):
     into its ClientCAs pool (extension-apiserver-authentication's
     client-ca-file), so a request bearing it takes the middleware's
     direct-cert path."""
-    cfg = json.loads(subprocess.run(
-        ["kubectl", f"--kubeconfig={_KUBECONFIG}", "config", "view",
-         "--raw", "--minify", "--flatten", "-o", "json"],
-        check=True, capture_output=True, text=True,
-    ).stdout)
+    cfg = json.loads(
+        subprocess.run(
+            [
+                "kubectl",
+                f"--kubeconfig={_KUBECONFIG}",
+                "config",
+                "view",
+                "--raw",
+                "--minify",
+                "--flatten",
+                "-o",
+                "json",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    )
     user = cfg["users"][0]["user"]
     d = tmp_path_factory.mktemp("admin-cert")
     crt = d / "client.crt"
@@ -168,7 +183,9 @@ class TestClusterAPIAggregationGate:
         assert r.status_code == 401
 
     def test_legitimate_cluster_cert_not_front_proxy_rejected(
-        self, cluster_api_url, admin_client_cert,
+        self,
+        cluster_api_url,
+        admin_client_cert,
     ):
         """A holder of a legitimate cluster cert (kubectl admin, controller,
         system:node, etc.) is NOT kube-apiserver — they must be rejected at
@@ -178,7 +195,9 @@ class TestClusterAPIAggregationGate:
         pool (the only trust anchor we honor)."""
         r = requests.post(
             f"{cluster_api_url}{_AGGREGATED_BASE}/graphql",
-            json={"query": '{ logMetadataList(namespace: "kubetail-e2e") { items { id } } }'},
+            json={
+                "query": '{ logMetadataList(namespace: "kubetail-e2e") { items { id } } }'
+            },
             headers={
                 "X-Remote-User": "spoofed-attacker",
                 "X-Remote-Group": "system:masters",
@@ -190,7 +209,9 @@ class TestClusterAPIAggregationGate:
         assert r.status_code == 401, r.text
 
     def test_front_proxy_cert_without_user_header_rejected(
-        self, cluster_api_url, front_proxy_client_cert,
+        self,
+        cluster_api_url,
+        front_proxy_client_cert,
     ):
         """Holding a valid front-proxy cert authorizes you to *forward* an
         identity — it doesn't make you one. Without an X-Remote-User header
@@ -204,7 +225,9 @@ class TestClusterAPIAggregationGate:
         assert r.status_code == 401, r.text
 
     def test_front_proxy_cert_with_user_header_authorized(
-        self, cluster_api_url, front_proxy_client_cert,
+        self,
+        cluster_api_url,
+        front_proxy_client_cert,
     ):
         """Sanity check that the 401 above isn't cert-rejection in disguise:
         the same cert with X-Remote-User present passes the gate."""
@@ -226,7 +249,9 @@ class TestClusterAPIAggregationGate:
             + f"{_AGGREGATED_BASE}/graphql"
         )
         ctx = ssl.create_default_context()
-        ctx.minimum_version = ssl.TLSVersion.TLSv1_2  # silence CodeQL; we're testing mTLS gate, not TLS version
+        ctx.minimum_version = (
+            ssl.TLSVersion.TLSv1_2
+        )  # silence CodeQL; we're testing mTLS gate, not TLS version
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
 
@@ -246,7 +271,13 @@ class TestClusterAPIAggregationGate:
     @pytest.mark.usefixtures("cluster_api_url")
     def test_through_kube_apiserver_authorized(self):
         out = subprocess.run(
-            ["kubectl", f"--kubeconfig={_KUBECONFIG}", "get", "--raw", f"{_AGGREGATED_BASE}/healthz"],
+            [
+                "kubectl",
+                f"--kubeconfig={_KUBECONFIG}",
+                "get",
+                "--raw",
+                f"{_AGGREGATED_BASE}/healthz",
+            ],
             check=True,
             capture_output=True,
             text=True,
@@ -257,10 +288,16 @@ class TestClusterAPIAggregationGate:
 def _cluster_agent_pod():
     out = subprocess.run(
         [
-            "kubectl", f"--kubeconfig={_KUBECONFIG}", "-n", _NS,
-            "get", "pods",
-            "-l", "app.kubernetes.io/component=cluster-agent",
-            "-o", "jsonpath={.items[0].metadata.name}",
+            "kubectl",
+            f"--kubeconfig={_KUBECONFIG}",
+            "-n",
+            _NS,
+            "get",
+            "pods",
+            "-l",
+            "app.kubernetes.io/component=cluster-agent",
+            "-o",
+            "jsonpath={.items[0].metadata.name}",
         ],
         check=True,
         capture_output=True,
@@ -280,8 +317,13 @@ def _port_forward(pod, remote_port):
         local_port = s.getsockname()[1]
     proc = subprocess.Popen(
         [
-            "kubectl", f"--kubeconfig={_KUBECONFIG}", "-n", _NS,
-            "port-forward", f"pod/{pod}", f"{local_port}:{remote_port}",
+            "kubectl",
+            f"--kubeconfig={_KUBECONFIG}",
+            "-n",
+            _NS,
+            "port-forward",
+            f"pod/{pod}",
+            f"{local_port}:{remote_port}",
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -315,12 +357,18 @@ def cluster_agent_local_port(cluster_api_url):
 class TestClusterAgentMTLSGate:
     def test_tls_without_client_cert_rejected(self, cluster_agent_local_port):
         ctx = ssl.create_default_context()
-        ctx.minimum_version = ssl.TLSVersion.TLSv1_2  # silence CodeQL; we're testing mTLS gate, not TLS version
+        ctx.minimum_version = (
+            ssl.TLSVersion.TLSv1_2
+        )  # silence CodeQL; we're testing mTLS gate, not TLS version
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
-        with socket.create_connection(("127.0.0.1", cluster_agent_local_port), timeout=5) as raw:
+        with socket.create_connection(
+            ("127.0.0.1", cluster_agent_local_port), timeout=5
+        ) as raw:
             with pytest.raises(OSError):
-                with ctx.wrap_socket(raw, server_hostname="kubetail-cluster-agent.kubetail-e2e.svc") as tls:
+                with ctx.wrap_socket(
+                    raw, server_hostname="kubetail-cluster-agent.kubetail-e2e.svc"
+                ) as tls:
                     # Some servers defer the cert demand to the first record.
                     tls.send(b"\x00")
                     tls.recv(1)
@@ -366,14 +414,16 @@ class TestClusterAgentAuthGate:
             # under the cluster-api SA's privileges.
             (
                 "missing_user_metadata",
-                _CLUSTER_API_CLIENT_CERT, _CLUSTER_API_CLIENT_KEY,
+                _CLUSTER_API_CLIENT_CERT,
+                _CLUSTER_API_CLIENT_KEY,
                 (),
                 grpc.StatusCode.UNAUTHENTICATED,
             ),
             # Empty value must not be treated as anonymous-but-trusted.
             (
                 "empty_user_metadata",
-                _CLUSTER_API_CLIENT_CERT, _CLUSTER_API_CLIENT_KEY,
+                _CLUSTER_API_CLIENT_CERT,
+                _CLUSTER_API_CLIENT_KEY,
                 (("x-remote-user", ""),),
                 grpc.StatusCode.UNAUTHENTICATED,
             ),
@@ -382,14 +432,20 @@ class TestClusterAgentAuthGate:
             # the allowlist.
             (
                 "valid_ca_but_disallowed_cn",
-                _CLUSTER_AGENT_CERT, _CLUSTER_AGENT_KEY,
-                (("x-remote-user", "spoofed-attacker"), ("x-remote-group", "system:masters")),
+                _CLUSTER_AGENT_CERT,
+                _CLUSTER_AGENT_KEY,
+                (
+                    ("x-remote-user", "spoofed-attacker"),
+                    ("x-remote-group", "system:masters"),
+                ),
                 grpc.StatusCode.PERMISSION_DENIED,
             ),
         ],
         ids=lambda v: v if isinstance(v, str) else None,
     )
-    def test_rejected(self, cluster_agent_local_port, case, cert, key, metadata, expected):
+    def test_rejected(
+        self, cluster_agent_local_port, case, cert, key, metadata, expected
+    ):
         del case  # used as the parametrize id
         with _grpc_channel(cert, key, cluster_agent_local_port) as channel:
             err = _call_list(channel, metadata=metadata)

@@ -51,8 +51,7 @@ def _cluster_ready(request):
         resp.raise_for_status()
     except Exception as e:
         pytest.fail(
-            f"e2e dashboard not reachable at {url} — run e2e/scripts/up.sh "
-            f"first ({e})"
+            f"e2e dashboard not reachable at {url} — run e2e/scripts/up.sh first ({e})"
         )
 
 
@@ -104,9 +103,7 @@ def serve_url(cli):
     if Path(_E2E_KUBECONFIG).exists():
         env["KUBECONFIG"] = _E2E_KUBECONFIG
     elif not Path(env.get("KUBECONFIG", Path.home() / ".kube" / "config")).exists():
-        tmp = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".kubeconfig", delete=False
-        )
+        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".kubeconfig", delete=False)
         tmp.write(_DUMMY_KUBECONFIG)
         tmp.flush()
         env["KUBECONFIG"] = tmp.name
@@ -154,9 +151,12 @@ def log_producer(_cluster_ready):
     kubectl("apply", "-f", "-", input=rendered_manifest())
     try:
         kubectl(
-            "rollout", "status",
-            "deployment", LP_NAME,
-            "-n", LP_NS,
+            "rollout",
+            "status",
+            "deployment",
+            LP_NAME,
+            "-n",
+            LP_NS,
             "--timeout=60s",
         )
         yield LogProducer(namespace=LP_NS, name=LP_NAME, line_prefix=LP_LINE_PREFIX)
@@ -204,10 +204,16 @@ def restricted_sa_tokens(_cluster_ready):
         for ns in (SA1_NS, SA2_NS, GROUP_NS):
             kubectl("delete", "namespace", ns, "--wait=false", check=False)
         kubectl(
-            "delete", "clusterrolebinding", BASELINE_CLUSTER_ROLE,
-            "--ignore-not-found", check=False,
+            "delete",
+            "clusterrolebinding",
+            BASELINE_CLUSTER_ROLE,
+            "--ignore-not-found",
+            check=False,
         )
         kubectl(
-            "delete", "clusterrole", BASELINE_CLUSTER_ROLE,
-            "--ignore-not-found", check=False,
+            "delete",
+            "clusterrole",
+            BASELINE_CLUSTER_ROLE,
+            "--ignore-not-found",
+            check=False,
         )

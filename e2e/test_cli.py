@@ -58,9 +58,13 @@ def backend(request):
 def test_logs_tail(cli, log_producer, backend):
     result = subprocess.run(
         [
-            cli, "logs", log_producer.source,
-            "--backend", backend,
-            "--tail", "5",
+            cli,
+            "logs",
+            log_producer.source,
+            "--backend",
+            backend,
+            "--tail",
+            "5",
             "--raw",
         ],
         capture_output=True,
@@ -82,8 +86,11 @@ def test_logs_tail(cli, log_producer, backend):
 def test_logs_follow(cli, log_producer, backend):
     proc = subprocess.Popen(
         [
-            cli, "logs", log_producer.source,
-            "--backend", backend,
+            cli,
+            "logs",
+            log_producer.source,
+            "--backend",
+            backend,
             "--follow",
             "--raw",
         ],

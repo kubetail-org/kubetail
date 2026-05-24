@@ -22,6 +22,7 @@ class ApiserverAccess:
     `cert_path` / `key_path` are paths to PEM files written to a private
     temp dir; callers can pass them to `ssl.SSLContext.load_cert_chain`.
     """
+
     server: str
     ca_path: str
     cert_path: str
