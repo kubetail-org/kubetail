@@ -176,7 +176,6 @@ jobs:
   shell-lint:
     name: Shell · Lint
     needs: changes
-    if: github.event_name == 'workflow_dispatch' && inputs.run_all == true
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -190,7 +189,6 @@ jobs:
   python-lint:
     name: Python · Lint
     needs: changes
-    if: github.event_name == 'workflow_dispatch' && inputs.run_all == true
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -333,7 +331,6 @@ jobs:
     needs:
       - changes
       - shell-lint
-    if: github.event_name == 'workflow_dispatch' && inputs.run_all == true
     strategy:
       fail-fast: false
       matrix:
