@@ -802,6 +802,112 @@ jobs:
           path: ${{ runner.temp }}/results/*.txt
           retention-days: 1
 
+  install-sh:
+    if: github.repository == 'kubetail-org/kubetail'
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - linux
+          - macos
+          - windows
+        arch:
+          - amd64
+          - arm64
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-24.04
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - os: macos
+            arch: amd64
+            runner: macos-26-intel
+          - os: macos
+            arch: arm64
+            runner: macos-26
+          - os: windows
+            arch: amd64
+            runner: windows-2025-vs2026
+          - os: windows
+            arch: arm64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      TRIPLET: install-sh_${{ matrix.os }}_${{ matrix.arch }}
+    steps:
+      - name: Install
+        if: matrix.os != 'windows'
+        shell: bash
+        env:
+          KUBETAIL_INSTALL_DIR: /tmp/kubetail-bin
+        run: |
+          set -euxo pipefail
+          curl -sS https://www.kubetail.com/install.sh | bash
+
+      - name: Install
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          & curl.exe -sS https://www.kubetail.com/install.sh | & "C:\Program Files\Git\bin\bash.exe"
+
+      - name: Add HOME/bin to PATH
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $homeBin = Join-Path $env:USERPROFILE "bin"
+          $homeBin | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+      - name: Check version
+        if: matrix.os != 'windows'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cli_ver="$(/tmp/kubetail-bin/kubetail --version)"
+
+          # Save result for summary table
+          mkdir -p /tmp/results
+          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+
+      - name: Check version
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $out = & kubetail.exe --version 2>&1
+          $ver = ($out | Select-String -Pattern '\d+\.\d+\.\d+' -AllMatches).Matches.Value | Select-Object -First 1
+          if (-not $ver) {
+            Write-Warning "Could not parse version from output: $out"
+            $ver = "unknown"
+          }
+
+          # Save result for summary table
+          $resultsDir = Join-Path $env:RUNNER_TEMP "results"
+          New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
+          Set-Content -Path "$resultsDir\${{ env.TRIPLET }}.txt" -Value $ver
+
+      - name: Upload result
+        if: matrix.os != 'windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: version-${{ env.TRIPLET }}
+          path: /tmp/results/*.txt
+          retention-days: 1
+
+      - name: Upload result
+        if: matrix.os == 'windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: version-${{ env.TRIPLET }}
+          path: ${{ runner.temp }}/results/*.txt
+          retention-days: 1
+
   summary:
     needs:
       - linux
@@ -814,6 +920,7 @@ jobs:
       - linux-zypper
       - macos
       - windows
+      - install-sh
     runs-on: ubuntu-24.04
     if: always() && github.repository == 'kubetail-org/kubetail'
     steps:
