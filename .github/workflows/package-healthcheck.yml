@@ -838,70 +838,22 @@ jobs:
       TRIPLET: install-sh_${{ matrix.os }}_${{ matrix.arch }}
     steps:
       - name: Install
-        if: matrix.os != 'windows'
         shell: bash
-        env:
-          KUBETAIL_INSTALL_DIR: /tmp/kubetail-bin
         run: |
           set -euxo pipefail
           curl -sS https://www.kubetail.com/install.sh | bash
 
-      - name: Install
-        if: matrix.os == 'windows'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $ProgressPreference = 'SilentlyContinue'
-          & curl.exe -sS https://www.kubetail.com/install.sh | & "C:\Program Files\Git\bin\bash.exe"
-
-      - name: Add HOME/bin to PATH
-        if: matrix.os == 'windows'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $ProgressPreference = 'SilentlyContinue'
-          $homeBin = Join-Path $env:USERPROFILE "bin"
-          $homeBin | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-
       - name: Check version
-        if: matrix.os != 'windows'
         shell: bash
         run: |
           set -euxo pipefail
-          cli_ver="$(/tmp/kubetail-bin/kubetail --version)"
+          cli_ver="$(kubetail --version)"
 
           # Save result for summary table
-          mkdir -p /tmp/results
-          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
-
-      - name: Check version
-        if: matrix.os == 'windows'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $ProgressPreference = 'SilentlyContinue'
-          $out = & kubetail.exe --version 2>&1
-          $ver = ($out | Select-String -Pattern '\d+\.\d+\.\d+' -AllMatches).Matches.Value | Select-Object -First 1
-          if (-not $ver) {
-            Write-Warning "Could not parse version from output: $out"
-            $ver = "unknown"
-          }
-
-          # Save result for summary table
-          $resultsDir = Join-Path $env:RUNNER_TEMP "results"
-          New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
-          Set-Content -Path "$resultsDir\${{ env.TRIPLET }}.txt" -Value $ver
+          mkdir -p "${RUNNER_TEMP}/results"
+          echo "${cli_ver}" > "${RUNNER_TEMP}/results/${{ env.TRIPLET }}.txt"
 
       - name: Upload result
-        if: matrix.os != 'windows'
-        uses: actions/upload-artifact@v7
-        with:
-          name: version-${{ env.TRIPLET }}
-          path: /tmp/results/*.txt
-          retention-days: 1
-
-      - name: Upload result
-        if: matrix.os == 'windows'
         uses: actions/upload-artifact@v7
         with:
           name: version-${{ env.TRIPLET }}
@@ -910,6 +862,7 @@ jobs:
 
   summary:
     needs:
+      - install-sh
       - linux
       - linux-apk
       - linux-apt
@@ -920,7 +873,6 @@ jobs:
       - linux-zypper
       - macos
       - windows
-      - install-sh
     runs-on: ubuntu-24.04
     if: always() && github.repository == 'kubetail-org/kubetail'
     steps:
