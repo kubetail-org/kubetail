@@ -16,7 +16,7 @@
     "@base-ui/react": "^1.4.1",
     "@fontsource-variable/roboto-flex": "^5.2.8",
     "@hookform/resolvers": "^5.2.2",
-    "@kubetail/ui": "3.0.0-rc8-mm",
+    "@kubetail/ui": "3.0.0-rc12-mm",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.13.23",
     "clsx": "^2.1.1",

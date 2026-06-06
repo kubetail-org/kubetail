@@ -9,37 +9,27 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+
 /**
  * Custom theme
  */
 
 :root, .light {
-  --accent: var(--color-blue-200);
-  --elevated: var(--color-zinc-100);   /* color-bg-elevated */
-  --strong: var(--color-zinc-200);     /* color-bg-strong */
-  --success: #047857;  
-
-  --sidebar: #F9FAFB;
+  --elevated: var(--color-zinc-100);
+  --success: #047857;
   --chart-4: #8FC6FF;
   --selection-band: color-mix(in srgb, var(--chart-4) 30%, transparent);
 }
 
 .dark {
-  --accent: var(--color-blue-800);
-  --elevated: var(--color-zinc-800);   /* color-bg-elevated */
-  --strong: var(--color-zinc-950);     /* color-bg-strong */
+  --elevated: var(--color-zinc-800);
   --success: #6EE7B7;
-
-  --sidebar: #171717;
   --chart-4: #1447E6;
   --selection-band: color-mix(in srgb, var(--chart-4) 50%, transparent);
 }
 
 @theme inline {
   --color-elevated: var(--elevated);
-  --color-strong: var(--strong);
-  --color-focus: var(--focus);
-
   --color-success: var(--success);
 }
 
