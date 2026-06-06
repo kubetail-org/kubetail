@@ -85,8 +85,8 @@ type InnerLayoutProps = {
 // Starting width auto-fits the sidebar content (longest source/container name)
 // between a floor that keeps the "Pods/Containers" header from overflowing and
 // a ceiling that keeps it from getting too wide.
-const SIDEBAR_MIN_WIDTH = 220;
-const SIDEBAR_MAX_WIDTH = 300;
+const SIDEBAR_MIN_WIDTH = 240;
+const SIDEBAR_MAX_WIDTH = 320;
 
 const InnerLayout = ({ sidebar, header, main }: InnerLayoutProps) => {
   const { isSidebarOpen, setIsSidebarOpen } = useContext(PageContext);

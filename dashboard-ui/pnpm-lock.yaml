@@ -38,8 +38,8 @@ importers:
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.72.1(react@19.2.5))
       '@kubetail/ui':
-        specifier: 3.0.0-rc8-mm
-        version: 3.0.0-rc8-mm(@base-ui/react@1.4.1(@date-fns/tz@1.4.1)(@types/react@19.2.14)(date-fns@4.1.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(lucide-react@1.8.0(react@19.2.5))(react-day-picker@9.14.0(react@19.2.5))(react-dom@19.2.5(react@19.2.5))(react-hook-form@7.72.1(react@19.2.5))(react@19.2.5)(tailwindcss@4.2.2)
+        specifier: 3.0.0-rc12-mm
+        version: 3.0.0-rc12-mm(@base-ui/react@1.4.1(@date-fns/tz@1.4.1)(@types/react@19.2.14)(date-fns@4.1.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(lucide-react@1.8.0(react@19.2.5))(react-day-picker@9.14.0(react@19.2.5))(react-dom@19.2.5(react@19.2.5))(react-hook-form@7.72.1(react@19.2.5))(react@19.2.5)(tailwindcss@4.2.2)
       '@tanstack/react-table':
         specifier: ^8.21.3
         version: 8.21.3(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -1113,8 +1113,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@kubetail/ui@3.0.0-rc8-mm':
-    resolution: {integrity: sha512-mOV3U/A8+9G1//JQLLONltJb82oTh1voPrhO4rDLuB28nZUT5QJAy1KCWweUvzyIomTSyq0j852lcvUtTFwy/Q==}
+  '@kubetail/ui@3.0.0-rc12-mm':
+    resolution: {integrity: sha512-Pwl1Cn0DPvFiszJU+St6zWJRN06qI/QBFf2HiVI1dMl7w3Nhxx1Pp72mU1ycUCJJwbTx10VgBLVFmCfRNSeY7g==}
     peerDependencies:
       '@base-ui/react': ^1
       lucide-react: '*'
@@ -5111,7 +5111,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@kubetail/ui@3.0.0-rc8-mm(@base-ui/react@1.4.1(@date-fns/tz@1.4.1)(@types/react@19.2.14)(date-fns@4.1.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(lucide-react@1.8.0(react@19.2.5))(react-day-picker@9.14.0(react@19.2.5))(react-dom@19.2.5(react@19.2.5))(react-hook-form@7.72.1(react@19.2.5))(react@19.2.5)(tailwindcss@4.2.2)':
+  '@kubetail/ui@3.0.0-rc12-mm(@base-ui/react@1.4.1(@date-fns/tz@1.4.1)(@types/react@19.2.14)(date-fns@4.1.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(lucide-react@1.8.0(react@19.2.5))(react-day-picker@9.14.0(react@19.2.5))(react-dom@19.2.5(react@19.2.5))(react-hook-form@7.72.1(react@19.2.5))(react@19.2.5)(tailwindcss@4.2.2)':
     dependencies:
       '@base-ui/react': 1.4.1(@date-fns/tz@1.4.1)(@types/react@19.2.14)(date-fns@4.1.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       class-variance-authority: 0.7.1
