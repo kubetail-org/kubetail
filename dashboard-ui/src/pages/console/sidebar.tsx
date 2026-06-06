@@ -56,7 +56,7 @@ const CollapsibleSection = ({ icon: Icon, label, count, children }: CollapsibleS
         type="button"
         onClick={() => setIsCollapsed((c) => !c)}
         aria-expanded={!isCollapsed}
-        className="w-full border-t border-divider mt-2.5 py-2.5 font-bold flex items-center justify-between cursor-pointer"
+        className="w-full border-t border-divider mt-2.5 py-2.5 font-medium flex items-center justify-between cursor-pointer"
       >
         <div className="flex items-center space-x-1 min-w-0">
           <ChevronDownIcon
@@ -152,7 +152,7 @@ const SidebarWorkloads = () => {
         </div>
       )}
       <div className="flex items-center justify-between mb-1">
-        <span className="font-bold">Sources</span>
+        <span className="font-medium">Sources</span>
         <button
           type="button"
           onClick={() => setIsPickerOpen(true)}
@@ -177,7 +177,7 @@ const SidebarWorkloads = () => {
                 <div>
                   <Icon className="h-4.5 w-4.5" />
                 </div>
-                <div className="font-semibold">{PLURAL_LABEL_MAP[kind]}</div>
+                <div className="font-medium">{PLURAL_LABEL_MAP[kind]}</div>
               </div>
               <ul className="pl-5.75">
                 {vals.map((val) => (
@@ -376,7 +376,7 @@ const Facets = ({ label, counter }: { label: string; counter: Counter }) => {
               />
               <div className="grow flex justify-between">
                 <div>{facet}</div>
-                <div>{`(${count})`}</div>
+                <div className="min-w-6 text-center">{`(${count})`}</div>
               </div>
             </Label>
           </div>
