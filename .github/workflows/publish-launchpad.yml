@@ -105,9 +105,6 @@ jobs:
           # source/options
           cp "${SRC_DIR}/source/options" "${DST_DIR}/source/options"
 
-          # source/lintian-overrides
-          cp "${SRC_DIR}/source/lintian-overrides" "${DST_DIR}/source/lintian-overrides"
-
       - name: Configure gpg
         uses: crazy-max/ghaction-import-gpg@v6.3.0
         with:
