@@ -221,7 +221,7 @@ export function useListQueryWithSubscription<
     args.query,
     {
       skip: args.skip,
-      variables: args.variables as TQVariables,
+      variables: args.variables,
     },
   );
 
@@ -359,7 +359,7 @@ export function useCounterQueryWithSubscription<
   // initial query
   const { loading, error, data, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(args.query, {
     skip: args.skip,
-    variables: args.variables as TQVariables,
+    variables: args.variables,
   });
 
   // Retry on error
