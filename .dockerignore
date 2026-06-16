@@ -1,4 +1,4 @@
-node_modules
+**/node_modules
 .git
 /modules/dashboard/website
 /dashboard-ui/.env*.local

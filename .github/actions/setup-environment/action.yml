@@ -14,10 +14,6 @@ inputs:
     description: 'Node.js version to install'
     required: false
     default: '22'
-  pnpm-version:
-    description: 'PNPM version to install'
-    required: false
-    default: '10'
   setup-rust:
     description: 'Whether to set up Rust'
     required: false
@@ -63,8 +59,6 @@ runs:
     - name: Set up PNPM
       if: inputs.setup-node == 'true'
       uses: pnpm/action-setup@v4
-      with:
-        version: ${{ inputs.pnpm-version }}
 
     - name: Set up Node.js
       if: inputs.setup-node == 'true'
