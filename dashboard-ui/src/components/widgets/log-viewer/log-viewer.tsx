@@ -231,6 +231,7 @@ export function useRecordStore({ recordsRef, setCount }: RecordStoreOptions): Re
 export const useInit = ({ client, config, refs, actions, services }: Runtime) => {
   const isInitializedRef = useRef(false);
 
+  // eslint-disable-next-line react-hooks/immutability -- refs are shared via Runtime, not truly immutable args
   useEffect(() => {
     if (isInitializedRef.current) return;
     isInitializedRef.current = true;
