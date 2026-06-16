@@ -106,7 +106,7 @@ describe('useNodes', () => {
       return (
         <div>
           <div data-testid="loading">{loading ? 'true' : 'false'}</div>
-          <div data-testid="nodes">{nodes.map((n) => n.metadata.name).join(',')}</div>
+          <div data-testid="nodes">{nodes.map((n) => n.metadata?.name).join(',')}</div>
         </div>
       );
     };
@@ -177,7 +177,14 @@ describe('useFacets', () => {
       podName: 'app',
       containerName: 'main',
       containerID: 'cid-1',
-      metadata: { region: 'us-west', zone: 'zone-a', os: 'linux', arch: 'amd64', node: 'node-1' },
+      metadata: {
+        __typename: 'LogSourceMetadata',
+        region: 'us-west',
+        zone: 'zone-a',
+        os: 'linux',
+        arch: 'amd64',
+        node: 'node-1',
+      },
     };
 
     const sourceEast: LogSourceFragmentFragment = {
@@ -186,7 +193,14 @@ describe('useFacets', () => {
       podName: 'agent',
       containerName: 'sidecar',
       containerID: 'cid-2',
-      metadata: { region: 'us-east', zone: 'zone-b', os: 'linux', arch: 'arm64', node: 'node-2' },
+      metadata: {
+        __typename: 'LogSourceMetadata',
+        region: 'us-east',
+        zone: 'zone-b',
+        os: 'linux',
+        arch: 'arm64',
+        node: 'node-2',
+      },
     };
 
     // Set up Jotai store with sources
@@ -332,7 +346,14 @@ describe('SourcesFetcher', () => {
       podName: 'my-pod',
       containerName: 'my-container',
       containerID: 'cid-123',
-      metadata: { region: 'us-west', zone: 'zone-a', os: 'linux', arch: 'amd64', node: 'node-1' },
+      metadata: {
+        __typename: 'LogSourceMetadata',
+        region: 'us-west',
+        zone: 'zone-a',
+        os: 'linux',
+        arch: 'amd64',
+        node: 'node-1',
+      },
     };
 
     act(() => {
@@ -364,7 +385,14 @@ describe('SourcesFetcher', () => {
       podName: 'my-pod',
       containerName: 'my-container',
       containerID: 'cid-123',
-      metadata: { region: 'us-west', zone: 'zone-a', os: 'linux', arch: 'amd64', node: 'node-1' },
+      metadata: {
+        __typename: 'LogSourceMetadata',
+        region: 'us-west',
+        zone: 'zone-a',
+        os: 'linux',
+        arch: 'amd64',
+        node: 'node-1',
+      },
     };
     const initialMap = new Map<string, LogSourceFragmentFragment>();
     initialMap.set('default/my-pod/my-container', existingSource);

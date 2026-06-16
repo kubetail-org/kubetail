@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import type { TypedDocumentNode } from '@apollo/client';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
 import type { Cell, ColumnDef, Row, SortDirection, SortingState, TableMeta, TableOptions } from '@tanstack/react-table';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -378,7 +379,18 @@ const DisplayWorkloadItems = ({ kind, items }: DisplayWorkloadItemsProps) => {
  * DisplayWorkload component
  */
 
-const workloadQueryConfig = {
+// Each workload kind selects a different top-level field, so the per-kind query
+// result types are mutually incompatible. This shared entry type lets a single
+// dynamic dispatch site consume any of them without a union over documents.
+type WorkloadQueryConfigEntry = {
+  query: TypedDocumentNode<any, any>;
+  subscription: TypedDocumentNode<any, any>;
+  queryDataKey: string;
+  subscriptionDataKey: string;
+  getItems: (data: any) => WorkloadItem[] | undefined;
+};
+
+const workloadQueryConfig: Record<WorkloadKind, WorkloadQueryConfigEntry> = {
   [WorkloadKind.CRONJOBS]: {
     query: SOURCE_PICKER_CRONJOBS_LIST_FETCH,
     subscription: SOURCE_PICKER_CRONJOBS_LIST_WATCH,
@@ -441,9 +453,7 @@ const DisplayWorkload = ({ kind }: DisplayWorkloadProps) => {
   const { loading, fetching, data } = useListQueryWithSubscription({
     query: cfg.query,
     subscription: cfg.subscription,
-    // @ts-expect-error
     queryDataKey: cfg.queryDataKey,
-    // @ts-expect-error
     subscriptionDataKey: cfg.subscriptionDataKey,
     variables: { kubeContext },
   });
@@ -503,9 +513,9 @@ const NamespacePicker = () => {
       </SelectTrigger>
       <SelectContent alignItemWithTrigger={false}>
         <SelectItem value={ALL_NAMESPACES}>All namespaces</SelectItem>
-        {data?.coreV1NamespacesList?.items.map((item) => (
-          <SelectItem key={item.id} value={item.metadata.name}>
-            {item.metadata.name}
+        {data?.coreV1NamespacesList?.items?.map((item) => (
+          <SelectItem key={item.id} value={item.metadata?.name ?? ''}>
+            {item.metadata?.name}
           </SelectItem>
         ))}
       </SelectContent>

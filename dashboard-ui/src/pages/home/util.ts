@@ -99,7 +99,7 @@ export function useLogFileInfo(kubeContext: KubeContext, uids: string[]) {
         size: 0,
         lastModifiedAt: new Date(0),
         containerIDs,
-      } as FileInfoWithMetadata;
+      };
 
       containerIDs.forEach((containerID) => {
         const v = metadata[containerID];

@@ -303,7 +303,7 @@ describe('submitLogDownload', () => {
       {
         kubeContext: 'ctx-1',
         sources: ['ns/pod-a/c1', 'ns/pod-b/c2'],
-        sourceFilter: { region: ['us-east-1'], container: ['app'] } as never,
+        sourceFilter: { region: ['us-east-1'], container: ['app'] },
         grep: 'ERROR',
       },
       {
