@@ -68,7 +68,7 @@ export const useFacets = () => {
 
     // Update nodes facet
     nodes.forEach((node) => {
-      nodeCounts.set(node.metadata.name, 0);
+      nodeCounts.set(node.metadata?.name ?? '', 0);
     });
 
     // Update facets

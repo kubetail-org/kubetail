@@ -71,7 +71,7 @@ const LoadingOverlay = () => (
 function useStableInitialPosition(): LogViewerInitialPosition {
   const { search } = useLocation();
 
-  const [initialPosition] = useState(() => {
+  const [initialPosition] = useState<LogViewerInitialPosition>(() => {
     const searchParams = new URLSearchParams(search);
     switch (searchParams.get('mode')) {
       case 'head':

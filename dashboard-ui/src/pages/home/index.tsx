@@ -641,8 +641,8 @@ const NamespacesPicker = () => {
           <SelectLabel>Namespaces</SelectLabel>
           <SelectItem value={ALL_NAMESPACES}>All namespaces</SelectItem>
           {data?.coreV1NamespacesList?.items?.map((item) => (
-            <SelectItem key={item.id} value={item.metadata.name}>
-              {item.metadata.name}
+            <SelectItem key={item.id} value={item.metadata?.name ?? ''}>
+              {item.metadata?.name}
             </SelectItem>
           ))}
         </SelectGroup>

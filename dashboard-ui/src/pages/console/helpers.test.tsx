@@ -106,7 +106,7 @@ describe('useNodes', () => {
       return (
         <div>
           <div data-testid="loading">{loading ? 'true' : 'false'}</div>
-          <div data-testid="nodes">{nodes.map((n) => n.metadata.name).join(',')}</div>
+          <div data-testid="nodes">{nodes.map((n) => n.metadata?.name).join(',')}</div>
         </div>
       );
     };
