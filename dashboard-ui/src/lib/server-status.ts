@@ -18,7 +18,10 @@ import { useEffect, useState } from 'react';
 import { dashboardWSClient } from '@/apollo-client';
 import appConfig from '@/app-config';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
-import { HealthCheckStatus, type HealthCheckResponse } from '@/lib/graphql/dashboard/__generated__/graphql';
+import {
+  HealthCheckStatus,
+  type HealthCheckResponseFragmentFragment,
+} from '@/lib/graphql/dashboard/__generated__/graphql';
 
 export const enum Status {
   Healthy = 'HEALTHY',
@@ -40,7 +43,7 @@ export class ServerStatus {
     Object.assign(this, init);
   }
 
-  static fromHealthCheckResponse(healthCheckResponse: HealthCheckResponse | undefined) {
+  static fromHealthCheckResponse(healthCheckResponse: HealthCheckResponseFragmentFragment | undefined) {
     const ss = new ServerStatus({
       message: healthCheckResponse?.message || null,
       lastUpdatedAt: healthCheckResponse?.timestamp || null,

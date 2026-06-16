@@ -15,16 +15,15 @@
 import type { ApolloClient } from '@apollo/client';
 
 import {
-  LogSourceFilter,
-  LogRecord as ServerLogRecord,
   LogRecordsQueryMode,
+  type LogSourceFilter,
+  type LogRecordsFragmentFragment as ServerLogRecord,
 } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { LOG_RECORDS_FETCH, LOG_RECORDS_FOLLOW } from '@/lib/graphql/dashboard/ops';
 
 import type {
   Client,
   FetchOptions,
-  FetchResult,
   LogRecord,
   SubscriptionCallback,
   SubscriptionCancelFunction,
@@ -107,7 +106,7 @@ export class LogServerClient implements Client {
     if (!result.data?.logRecordsFetch) throw new Error('unexpected');
 
     const { records, nextCursor } = result.data.logRecordsFetch;
-    return { records: upgradeRecords(records), nextCursor } as FetchResult;
+    return { records: upgradeRecords(records), nextCursor };
   }
 
   async fetchUntil(options: FetchOptions) {
@@ -125,7 +124,7 @@ export class LogServerClient implements Client {
     if (!result.data?.logRecordsFetch) throw new Error('unexpected');
 
     const { records, nextCursor } = result.data.logRecordsFetch;
-    return { records: upgradeRecords(records), nextCursor } as FetchResult;
+    return { records: upgradeRecords(records), nextCursor };
   }
 
   async fetchAfter(options: FetchOptions) {
@@ -143,7 +142,7 @@ export class LogServerClient implements Client {
     if (!result.data?.logRecordsFetch) throw new Error('unexpected');
 
     const { records, nextCursor } = result.data.logRecordsFetch;
-    return { records: upgradeRecords(records), nextCursor } as FetchResult;
+    return { records: upgradeRecords(records), nextCursor };
   }
 
   async fetchBefore(options: FetchOptions) {
@@ -161,7 +160,7 @@ export class LogServerClient implements Client {
     if (!result.data?.logRecordsFetch) throw new Error('unexpected');
 
     const { records, nextCursor } = result.data.logRecordsFetch;
-    return { records: upgradeRecords(records), nextCursor } as FetchResult;
+    return { records: upgradeRecords(records), nextCursor };
   }
 
   subscribe(callback: SubscriptionCallback, options?: SubscriptionOptions): SubscriptionCancelFunction {

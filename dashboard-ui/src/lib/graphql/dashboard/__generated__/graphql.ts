@@ -1,494 +1,9 @@
 /* eslint-disable */
-import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core';
-export type Maybe<T> = T | null;
-export type InputMaybe<T> = T | null | undefined;
-export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
-export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
-export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
-export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
+/** Internal type. DO NOT USE DIRECTLY. */
+type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
+/** Internal type. DO NOT USE DIRECTLY. */
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
-/** All built-in and custom scalars, mapped to their actual values */
-export type Scalars = {
-  ID: { input: string; output: string; }
-  String: { input: string; output: string; }
-  Boolean: { input: boolean; output: boolean; }
-  Int: { input: number; output: number; }
-  Float: { input: number; output: number; }
-  AppsV1DaemonSetConditionType: { input: any; output: any; }
-  /** A 64-bit integer. */
-  Int64: { input: any; output: any; }
-  KubeConfigExtensions: { input: any; output: any; }
-  /** An ISO-8601 encoded UTC date string. */
-  MetaV1Time: { input: any; output: any; }
-  /** An arbitrary dictionary with string values */
-  StringMap: { input: any; output: any; }
-  /** An ISO-8601 encoded UTC date string. */
-  Time: { input: any; output: any; }
-};
-
-export type AppsV1DaemonSet = Object & {
-  __typename?: 'AppsV1DaemonSet';
-  apiVersion: Scalars['String']['output'];
-  id: Scalars['ID']['output'];
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ObjectMeta;
-  spec: AppsV1DaemonSetSpec;
-  status: AppsV1DaemonSetStatus;
-};
-
-export type AppsV1DaemonSetCondition = {
-  __typename?: 'AppsV1DaemonSetCondition';
-  lastTransitionTime: Scalars['MetaV1Time']['output'];
-  message: Scalars['String']['output'];
-  reason: Scalars['String']['output'];
-  status: CoreV1ConditionStatus;
-  type: Scalars['AppsV1DaemonSetConditionType']['output'];
-};
-
-export type AppsV1DaemonSetList = List & {
-  __typename?: 'AppsV1DaemonSetList';
-  apiVersion: Scalars['String']['output'];
-  items: Array<AppsV1DaemonSet>;
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ListMeta;
-};
-
-export type AppsV1DaemonSetSpec = {
-  __typename?: 'AppsV1DaemonSetSpec';
-  selector?: Maybe<MetaV1LabelSelector>;
-};
-
-export type AppsV1DaemonSetStatus = {
-  __typename?: 'AppsV1DaemonSetStatus';
-  conditions: Array<AppsV1DaemonSetCondition>;
-  currentNumberScheduled: Scalars['Int']['output'];
-  desiredNumberScheduled: Scalars['Int']['output'];
-  numberAvailable: Scalars['Int']['output'];
-  numberMisscheduled: Scalars['Int']['output'];
-  numberReady: Scalars['Int']['output'];
-  numberUnavailable: Scalars['Int']['output'];
-  observedGeneration: Scalars['Int64']['output'];
-  updatedNumberScheduled: Scalars['Int']['output'];
-};
-
-export type AppsV1DaemonSetsWatchEvent = {
-  __typename?: 'AppsV1DaemonSetsWatchEvent';
-  object?: Maybe<AppsV1DaemonSet>;
-  type: WatchEventType;
-};
-
-export type AppsV1Deployment = Object & {
-  __typename?: 'AppsV1Deployment';
-  apiVersion: Scalars['String']['output'];
-  id: Scalars['ID']['output'];
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ObjectMeta;
-  spec: AppsV1DeploymentSpec;
-  status: AppsV1DeploymentStatus;
-};
-
-export type AppsV1DeploymentList = List & {
-  __typename?: 'AppsV1DeploymentList';
-  apiVersion: Scalars['String']['output'];
-  items: Array<AppsV1Deployment>;
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ListMeta;
-};
-
-export type AppsV1DeploymentSpec = {
-  __typename?: 'AppsV1DeploymentSpec';
-  paused: Scalars['Boolean']['output'];
-  replicas?: Maybe<Scalars['Int']['output']>;
-  selector?: Maybe<MetaV1LabelSelector>;
-};
-
-export type AppsV1DeploymentStatus = {
-  __typename?: 'AppsV1DeploymentStatus';
-  replicas: Scalars['Int']['output'];
-};
-
-export type AppsV1DeploymentsWatchEvent = {
-  __typename?: 'AppsV1DeploymentsWatchEvent';
-  object?: Maybe<AppsV1Deployment>;
-  type: WatchEventType;
-};
-
-export type AppsV1ReplicaSet = Object & {
-  __typename?: 'AppsV1ReplicaSet';
-  apiVersion: Scalars['String']['output'];
-  id: Scalars['ID']['output'];
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ObjectMeta;
-  spec: AppsV1ReplicaSetSpec;
-  status: AppsV1ReplicaSetStatus;
-};
-
-export type AppsV1ReplicaSetList = List & {
-  __typename?: 'AppsV1ReplicaSetList';
-  apiVersion: Scalars['String']['output'];
-  items: Array<AppsV1ReplicaSet>;
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ListMeta;
-};
-
-export type AppsV1ReplicaSetSpec = {
-  __typename?: 'AppsV1ReplicaSetSpec';
-  replicas?: Maybe<Scalars['Int']['output']>;
-  selector?: Maybe<MetaV1LabelSelector>;
-};
-
-export type AppsV1ReplicaSetStatus = {
-  __typename?: 'AppsV1ReplicaSetStatus';
-  replicas: Scalars['Int']['output'];
-};
-
-export type AppsV1ReplicaSetsWatchEvent = {
-  __typename?: 'AppsV1ReplicaSetsWatchEvent';
-  object?: Maybe<AppsV1ReplicaSet>;
-  type: WatchEventType;
-};
-
-export type AppsV1StatefulSet = Object & {
-  __typename?: 'AppsV1StatefulSet';
-  apiVersion: Scalars['String']['output'];
-  id: Scalars['ID']['output'];
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ObjectMeta;
-  spec: AppsV1StatefulSetSpec;
-};
-
-export type AppsV1StatefulSetList = List & {
-  __typename?: 'AppsV1StatefulSetList';
-  apiVersion: Scalars['String']['output'];
-  items: Array<AppsV1StatefulSet>;
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ListMeta;
-};
-
-export type AppsV1StatefulSetSpec = {
-  __typename?: 'AppsV1StatefulSetSpec';
-  replicas?: Maybe<Scalars['Int']['output']>;
-  selector?: Maybe<MetaV1LabelSelector>;
-};
-
-export type AppsV1StatefulSetsWatchEvent = {
-  __typename?: 'AppsV1StatefulSetsWatchEvent';
-  object?: Maybe<AppsV1StatefulSet>;
-  type: WatchEventType;
-};
-
-export type BatchV1CronJob = Object & {
-  __typename?: 'BatchV1CronJob';
-  apiVersion: Scalars['String']['output'];
-  id: Scalars['ID']['output'];
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ObjectMeta;
-  spec: BatchV1CronJobSpec;
-  status: BatchV1CronJobStatus;
-};
-
-export type BatchV1CronJobList = List & {
-  __typename?: 'BatchV1CronJobList';
-  apiVersion: Scalars['String']['output'];
-  items: Array<BatchV1CronJob>;
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ListMeta;
-};
-
-export type BatchV1CronJobSpec = {
-  __typename?: 'BatchV1CronJobSpec';
-  failedJobsHistoryLimit?: Maybe<Scalars['Int']['output']>;
-  jobTemplate: BatchV1JobTemplateSpec;
-  schedule: Scalars['String']['output'];
-  successfulJobsHistoryLimit?: Maybe<Scalars['Int']['output']>;
-  suspend?: Maybe<Scalars['Boolean']['output']>;
-  timeZone?: Maybe<Scalars['String']['output']>;
-};
-
-export type BatchV1CronJobStatus = {
-  __typename?: 'BatchV1CronJobStatus';
-  active: Array<CoreV1ObjectReference>;
-  lastScheduleTime?: Maybe<Scalars['MetaV1Time']['output']>;
-  lastSuccessfulTime?: Maybe<Scalars['MetaV1Time']['output']>;
-};
-
-export type BatchV1CronJobsWatchEvent = {
-  __typename?: 'BatchV1CronJobsWatchEvent';
-  object?: Maybe<BatchV1CronJob>;
-  type: WatchEventType;
-};
-
-export type BatchV1Job = Object & {
-  __typename?: 'BatchV1Job';
-  apiVersion: Scalars['String']['output'];
-  id: Scalars['ID']['output'];
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ObjectMeta;
-  spec: BatchV1JobSpec;
-  status: BatchV1JobStatus;
-};
-
-export type BatchV1JobCondition = {
-  __typename?: 'BatchV1JobCondition';
-  lastProbeTime: Scalars['MetaV1Time']['output'];
-  lastTransitionTime: Scalars['MetaV1Time']['output'];
-  message: Scalars['String']['output'];
-  reason: Scalars['String']['output'];
-  status: CoreV1ConditionStatus;
-  type: BatchV1JobConditionType;
-};
-
-export enum BatchV1JobConditionType {
-  Complete = 'Complete',
-  Failed = 'Failed',
-  FailureTarget = 'FailureTarget',
-  Suspended = 'Suspended'
-}
-
-export type BatchV1JobList = List & {
-  __typename?: 'BatchV1JobList';
-  apiVersion: Scalars['String']['output'];
-  items: Array<BatchV1Job>;
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ListMeta;
-};
-
-export type BatchV1JobSpec = {
-  __typename?: 'BatchV1JobSpec';
-  backoffLimit?: Maybe<Scalars['Int']['output']>;
-  completions?: Maybe<Scalars['Int']['output']>;
-  manualSelector?: Maybe<Scalars['Boolean']['output']>;
-  parallelism?: Maybe<Scalars['Int']['output']>;
-  selector?: Maybe<MetaV1LabelSelector>;
-  suspend?: Maybe<Scalars['Boolean']['output']>;
-  ttlSecondsAfterFinished?: Maybe<Scalars['Int']['output']>;
-};
-
-export type BatchV1JobStatus = {
-  __typename?: 'BatchV1JobStatus';
-  active: Scalars['Int']['output'];
-  completedIndexes: Scalars['String']['output'];
-  completionTime?: Maybe<Scalars['MetaV1Time']['output']>;
-  conditions: Array<BatchV1JobCondition>;
-  failed: Scalars['Int']['output'];
-  ready?: Maybe<Scalars['Int']['output']>;
-  startTime?: Maybe<Scalars['MetaV1Time']['output']>;
-  succeeded: Scalars['Int']['output'];
-};
-
-export type BatchV1JobTemplateSpec = {
-  __typename?: 'BatchV1JobTemplateSpec';
-  metadata: MetaV1ObjectMeta;
-  spec: BatchV1JobSpec;
-};
-
-export type BatchV1JobsWatchEvent = {
-  __typename?: 'BatchV1JobsWatchEvent';
-  object?: Maybe<BatchV1Job>;
-  type: WatchEventType;
-};
-
-export enum CoreV1ConditionStatus {
-  False = 'False',
-  True = 'True',
-  Unknown = 'Unknown'
-}
-
-export type CoreV1Container = {
-  __typename?: 'CoreV1Container';
-  image: Scalars['String']['output'];
-  name: Scalars['String']['output'];
-};
-
-export type CoreV1ContainerState = {
-  __typename?: 'CoreV1ContainerState';
-  running?: Maybe<CoreV1ContainerStateRunning>;
-  terminated?: Maybe<CoreV1ContainerStateTerminated>;
-  waiting?: Maybe<CoreV1ContainerStateWaiting>;
-};
-
-export type CoreV1ContainerStateRunning = {
-  __typename?: 'CoreV1ContainerStateRunning';
-  startedAt: Scalars['MetaV1Time']['output'];
-};
-
-export type CoreV1ContainerStateTerminated = {
-  __typename?: 'CoreV1ContainerStateTerminated';
-  containerID: Scalars['String']['output'];
-  exitCode: Scalars['Int']['output'];
-  message: Scalars['String']['output'];
-  reason: Scalars['String']['output'];
-  signal: Scalars['Int']['output'];
-};
-
-export type CoreV1ContainerStateWaiting = {
-  __typename?: 'CoreV1ContainerStateWaiting';
-  message: Scalars['String']['output'];
-  reason: Scalars['String']['output'];
-};
-
-export type CoreV1ContainerStatus = {
-  __typename?: 'CoreV1ContainerStatus';
-  containerID: Scalars['String']['output'];
-  image: Scalars['String']['output'];
-  imageID: Scalars['String']['output'];
-  lastTerminationState: CoreV1ContainerState;
-  name: Scalars['String']['output'];
-  ready: Scalars['Boolean']['output'];
-  restartCount: Scalars['Int']['output'];
-  started?: Maybe<Scalars['Boolean']['output']>;
-  state: CoreV1ContainerState;
-};
-
-export type CoreV1Namespace = Object & {
-  __typename?: 'CoreV1Namespace';
-  apiVersion: Scalars['String']['output'];
-  id: Scalars['ID']['output'];
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ObjectMeta;
-};
-
-export type CoreV1NamespaceList = List & {
-  __typename?: 'CoreV1NamespaceList';
-  apiVersion: Scalars['String']['output'];
-  items: Array<CoreV1Namespace>;
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ListMeta;
-};
-
-export type CoreV1NamespacesWatchEvent = {
-  __typename?: 'CoreV1NamespacesWatchEvent';
-  object?: Maybe<CoreV1Namespace>;
-  type: WatchEventType;
-};
-
-export type CoreV1Node = Object & {
-  __typename?: 'CoreV1Node';
-  apiVersion: Scalars['String']['output'];
-  id: Scalars['ID']['output'];
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ObjectMeta;
-};
-
-export type CoreV1NodeList = List & {
-  __typename?: 'CoreV1NodeList';
-  apiVersion: Scalars['String']['output'];
-  items: Array<CoreV1Node>;
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ListMeta;
-};
-
-export type CoreV1NodesWatchEvent = {
-  __typename?: 'CoreV1NodesWatchEvent';
-  object?: Maybe<CoreV1Node>;
-  type: WatchEventType;
-};
-
-export type CoreV1ObjectReference = {
-  __typename?: 'CoreV1ObjectReference';
-  apiVersion: Scalars['String']['output'];
-  fieldPath: Scalars['String']['output'];
-  kind: Scalars['String']['output'];
-  name: Scalars['String']['output'];
-  namespace: Scalars['String']['output'];
-  resourceVersion: Scalars['String']['output'];
-  uid: Scalars['ID']['output'];
-};
-
-export type CoreV1Pod = Object & {
-  __typename?: 'CoreV1Pod';
-  apiVersion: Scalars['String']['output'];
-  id: Scalars['ID']['output'];
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ObjectMeta;
-  spec: CoreV1PodSpec;
-  status: CoreV1PodStatus;
-};
-
-export type CoreV1PodList = List & {
-  __typename?: 'CoreV1PodList';
-  apiVersion: Scalars['String']['output'];
-  items: Array<CoreV1Pod>;
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ListMeta;
-};
-
-export enum CoreV1PodPhase {
-  Failed = 'Failed',
-  Pending = 'Pending',
-  Running = 'Running',
-  Succeeded = 'Succeeded',
-  Unknown = 'Unknown'
-}
-
-export type CoreV1PodSpec = {
-  __typename?: 'CoreV1PodSpec';
-  containers: Array<CoreV1Container>;
-  hostname: Scalars['String']['output'];
-  nodeName: Scalars['String']['output'];
-  priorityClassName: Scalars['String']['output'];
-};
-
-export type CoreV1PodStatus = {
-  __typename?: 'CoreV1PodStatus';
-  containerStatuses: Array<CoreV1ContainerStatus>;
-  message: Scalars['String']['output'];
-  phase: CoreV1PodPhase;
-  reason: Scalars['String']['output'];
-};
-
-export type CoreV1PodsWatchEvent = {
-  __typename?: 'CoreV1PodsWatchEvent';
-  object?: Maybe<CoreV1Pod>;
-  type: WatchEventType;
-};
-
-export type CoreV1Service = Object & {
-  __typename?: 'CoreV1Service';
-  apiVersion: Scalars['String']['output'];
-  id: Scalars['ID']['output'];
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ObjectMeta;
-  spec: CoreV1ServiceSpec;
-};
-
-export type CoreV1ServiceList = List & {
-  __typename?: 'CoreV1ServiceList';
-  apiVersion: Scalars['String']['output'];
-  items: Array<CoreV1Service>;
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ListMeta;
-};
-
-export type CoreV1ServicePort = {
-  __typename?: 'CoreV1ServicePort';
-  appProtocol?: Maybe<Scalars['String']['output']>;
-  name: Scalars['String']['output'];
-  port: Scalars['Int']['output'];
-};
-
-export type CoreV1ServiceSpec = {
-  __typename?: 'CoreV1ServiceSpec';
-  clusterIP?: Maybe<Scalars['String']['output']>;
-  clusterIPs?: Maybe<Array<Scalars['String']['output']>>;
-  externalName?: Maybe<Scalars['String']['output']>;
-  ports: Array<CoreV1ServicePort>;
-  selector?: Maybe<Scalars['StringMap']['output']>;
-};
-
-export type CoreV1ServicesWatchEvent = {
-  __typename?: 'CoreV1ServicesWatchEvent';
-  object?: Maybe<CoreV1Service>;
-  type: WatchEventType;
-};
-
-export type HealthCheckResponse = {
-  __typename?: 'HealthCheckResponse';
-  message?: Maybe<Scalars['String']['output']>;
-  status: HealthCheckStatus;
-  timestamp: Scalars['Time']['output'];
-};
-
+import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core';
 export enum HealthCheckStatus {
   Failure = 'FAILURE',
   Notfound = 'NOTFOUND',
@@ -497,601 +12,24 @@ export enum HealthCheckStatus {
   Unknown = 'UNKNOWN'
 }
 
-export type HelmChart = {
-  __typename?: 'HelmChart';
-  metadata?: Maybe<HelmChartMetadata>;
-};
-
-export type HelmChartMetadata = {
-  __typename?: 'HelmChartMetadata';
-  appVersion: Scalars['String']['output'];
-  condition: Scalars['String']['output'];
-  name: Scalars['String']['output'];
-  version: Scalars['String']['output'];
-};
-
-export type HelmRelease = {
-  __typename?: 'HelmRelease';
-  chart?: Maybe<HelmChart>;
-  name: Scalars['String']['output'];
-  namespace: Scalars['String']['output'];
-  version: Scalars['Int']['output'];
-};
-
-export type KubeConfig = {
-  __typename?: 'KubeConfig';
-  authInfos: Array<KubeConfigAuthInfo>;
-  clusters: Array<KubeConfigCluster>;
-  contexts: Array<KubeConfigContext>;
-  currentContext: Scalars['String']['output'];
-  extensions?: Maybe<Scalars['KubeConfigExtensions']['output']>;
-};
-
-export type KubeConfigAuthInfo = {
-  __typename?: 'KubeConfigAuthInfo';
-  extensions?: Maybe<Scalars['KubeConfigExtensions']['output']>;
-  locationOfOrigin: Scalars['String']['output'];
-  name: Scalars['String']['output'];
-};
-
-export type KubeConfigCluster = {
-  __typename?: 'KubeConfigCluster';
-  extensions?: Maybe<Scalars['KubeConfigExtensions']['output']>;
-  locationOfOrigin: Scalars['String']['output'];
-  name: Scalars['String']['output'];
-  server: Scalars['String']['output'];
-};
-
-export type KubeConfigContext = {
-  __typename?: 'KubeConfigContext';
-  authInfo: Scalars['String']['output'];
-  cluster: Scalars['String']['output'];
-  extensions?: Maybe<Scalars['KubeConfigExtensions']['output']>;
-  locationOfOrigin: Scalars['String']['output'];
-  name: Scalars['String']['output'];
-  namespace: Scalars['String']['output'];
-};
-
-export type KubeConfigWatchEvent = {
-  __typename?: 'KubeConfigWatchEvent';
-  object?: Maybe<KubeConfig>;
-  type: WatchEventType;
-};
-
-export type List = {
-  apiVersion: Scalars['String']['output'];
-  items: Array<Object>;
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ListMeta;
-};
-
-export type LogRecord = {
-  __typename?: 'LogRecord';
-  message: Scalars['String']['output'];
-  source: LogSource;
-  timestamp: Scalars['Time']['output'];
-};
-
 export enum LogRecordsQueryMode {
   Head = 'HEAD',
   Tail = 'TAIL'
 }
 
-export type LogRecordsQueryResponse = {
-  __typename?: 'LogRecordsQueryResponse';
-  nextCursor?: Maybe<Scalars['ID']['output']>;
-  records: Array<LogRecord>;
-};
-
-export type LogSource = {
-  __typename?: 'LogSource';
-  containerID: Scalars['String']['output'];
-  containerName: Scalars['String']['output'];
-  metadata: LogSourceMetadata;
-  namespace: Scalars['String']['output'];
-  podName: Scalars['String']['output'];
-};
-
 export type LogSourceFilter = {
-  arch?: InputMaybe<Array<Scalars['String']['input']>>;
-  container?: InputMaybe<Array<Scalars['String']['input']>>;
-  node?: InputMaybe<Array<Scalars['String']['input']>>;
-  os?: InputMaybe<Array<Scalars['String']['input']>>;
-  region?: InputMaybe<Array<Scalars['String']['input']>>;
-  zone?: InputMaybe<Array<Scalars['String']['input']>>;
-};
-
-export type LogSourceMetadata = {
-  __typename?: 'LogSourceMetadata';
-  arch: Scalars['String']['output'];
-  node: Scalars['String']['output'];
-  os: Scalars['String']['output'];
-  region: Scalars['String']['output'];
-  zone: Scalars['String']['output'];
-};
-
-export type LogSourceWatchEvent = {
-  __typename?: 'LogSourceWatchEvent';
-  object?: Maybe<LogSource>;
-  type: WatchEventType;
-};
-
-export type MetaV1GetOptions = {
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type MetaV1LabelSelector = {
-  __typename?: 'MetaV1LabelSelector';
-  matchExpressions: Array<MetaV1LabelSelectorRequirement>;
-  matchLabels?: Maybe<Scalars['StringMap']['output']>;
-};
-
-export enum MetaV1LabelSelectorOperator {
-  DoesNotExist = 'DoesNotExist',
-  Exists = 'Exists',
-  In = 'In',
-  NotIn = 'NotIn'
-}
-
-export type MetaV1LabelSelectorRequirement = {
-  __typename?: 'MetaV1LabelSelectorRequirement';
-  key: Scalars['String']['output'];
-  operator: MetaV1LabelSelectorOperator;
-  values: Array<Scalars['String']['output']>;
-};
-
-export type MetaV1ListMeta = {
-  __typename?: 'MetaV1ListMeta';
-  continue: Scalars['String']['output'];
-  remainingItemCount?: Maybe<Scalars['Int64']['output']>;
-  resourceVersion: Scalars['String']['output'];
-};
-
-export type MetaV1ListOptions = {
-  allowWatchBookmarks?: InputMaybe<Scalars['Boolean']['input']>;
-  continue?: InputMaybe<Scalars['String']['input']>;
-  fieldSelector?: InputMaybe<Scalars['String']['input']>;
-  labelSelector?: InputMaybe<Scalars['String']['input']>;
-  limit?: InputMaybe<Scalars['Int64']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
-  resourceVersionMatch?: InputMaybe<MetaV1ResourceVersionMatch>;
-  sendInitialEvents?: InputMaybe<Scalars['Boolean']['input']>;
-};
-
-export type MetaV1ObjectMeta = {
-  __typename?: 'MetaV1ObjectMeta';
-  annotations?: Maybe<Scalars['StringMap']['output']>;
-  creationTimestamp: Scalars['MetaV1Time']['output'];
-  deletionTimestamp?: Maybe<Scalars['MetaV1Time']['output']>;
-  labels?: Maybe<Scalars['StringMap']['output']>;
-  name: Scalars['String']['output'];
-  namespace: Scalars['String']['output'];
-  ownerReferences: Array<MetaV1OwnerReference>;
-  resourceVersion: Scalars['String']['output'];
-  uid: Scalars['ID']['output'];
-};
-
-export type MetaV1OwnerReference = {
-  __typename?: 'MetaV1OwnerReference';
-  apiVersion: Scalars['String']['output'];
-  controller?: Maybe<Scalars['Boolean']['output']>;
-  kind: Scalars['String']['output'];
-  name: Scalars['String']['output'];
-  uid: Scalars['ID']['output'];
-};
-
-export enum MetaV1ResourceVersionMatch {
-  Exact = 'Exact',
-  NotOlderThan = 'NotOlderThan'
-}
-
-export type Mutation = {
-  __typename?: 'Mutation';
-  /** Helm mutations */
-  helmInstallLatest?: Maybe<HelmRelease>;
-  /** Preferences */
-  preferencesUpdate: Preferences;
-};
-
-
-export type MutationHelmInstallLatestArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type MutationPreferencesUpdateArgs = {
-  input: PreferencesInput;
-};
-
-export type Object = {
-  apiVersion: Scalars['String']['output'];
-  id: Scalars['ID']['output'];
-  kind: Scalars['String']['output'];
-  metadata: MetaV1ObjectMeta;
-};
-
-export type PageInfo = {
-  __typename?: 'PageInfo';
-  /** When paginating forwards, the cursor to continue. */
-  endCursor?: Maybe<Scalars['ID']['output']>;
-  /** When paginating forwards, are there more items? */
-  hasNextPage: Scalars['Boolean']['output'];
-  /** When paginating backwards, are there more items? */
-  hasPreviousPage: Scalars['Boolean']['output'];
-  /** When paginating backwards, the cursor to continue. */
-  startCursor?: Maybe<Scalars['ID']['output']>;
-};
-
-export type Preferences = {
-  __typename?: 'Preferences';
-  theme?: Maybe<Scalars['String']['output']>;
-  timestampFormat?: Maybe<Scalars['String']['output']>;
-  timezone?: Maybe<Scalars['String']['output']>;
-  version: Scalars['Int']['output'];
+  arch?: Array<string> | null | undefined;
+  container?: Array<string> | null | undefined;
+  node?: Array<string> | null | undefined;
+  os?: Array<string> | null | undefined;
+  region?: Array<string> | null | undefined;
+  zone?: Array<string> | null | undefined;
 };
 
 export type PreferencesInput = {
-  theme?: InputMaybe<Scalars['String']['input']>;
-  timestampFormat?: InputMaybe<Scalars['String']['input']>;
-  timezone?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type Query = {
-  __typename?: 'Query';
-  /** AppsV1 queries */
-  appsV1DaemonSetsGet?: Maybe<AppsV1DaemonSet>;
-  appsV1DaemonSetsList?: Maybe<AppsV1DaemonSetList>;
-  appsV1DeploymentsGet?: Maybe<AppsV1Deployment>;
-  appsV1DeploymentsList?: Maybe<AppsV1DeploymentList>;
-  appsV1ReplicaSetsGet?: Maybe<AppsV1ReplicaSet>;
-  appsV1ReplicaSetsList?: Maybe<AppsV1ReplicaSetList>;
-  appsV1StatefulSetsGet?: Maybe<AppsV1StatefulSet>;
-  appsV1StatefulSetsList?: Maybe<AppsV1StatefulSetList>;
-  /** BatchV1 queries */
-  batchV1CronJobsGet?: Maybe<BatchV1CronJob>;
-  batchV1CronJobsList?: Maybe<BatchV1CronJobList>;
-  batchV1JobsGet?: Maybe<BatchV1Job>;
-  batchV1JobsList?: Maybe<BatchV1JobList>;
-  /** Version status */
-  cliLatestVersion?: Maybe<Scalars['String']['output']>;
-  clusterAPIHealthzGet: HealthCheckResponse;
-  /** Cluster API */
-  clusterAPIReadyWait: Scalars['Boolean']['output'];
-  clusterVersionStatus?: Maybe<VersionStatus>;
-  /** CoreV1 queries */
-  coreV1NamespacesList?: Maybe<CoreV1NamespaceList>;
-  coreV1NodesList?: Maybe<CoreV1NodeList>;
-  coreV1PodsGet?: Maybe<CoreV1Pod>;
-  coreV1PodsList?: Maybe<CoreV1PodList>;
-  coreV1ServicesGet?: Maybe<CoreV1Service>;
-  coreV1ServicesList?: Maybe<CoreV1ServiceList>;
-  /** Helm */
-  helmListReleases: Array<HelmRelease>;
-  /** KubeConfig queries */
-  kubeConfigGet?: Maybe<KubeConfig>;
-  kubernetesAPIHealthzGet: HealthCheckResponse;
-  /** Kubernetes API */
-  kubernetesAPIReadyWait: Scalars['Boolean']['output'];
-  /** Log records API */
-  logRecordsFetch?: Maybe<LogRecordsQueryResponse>;
-  /** Preferences */
-  preferencesGet: Preferences;
-};
-
-
-export type QueryAppsV1DaemonSetsGetArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  name: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1GetOptions>;
-};
-
-
-export type QueryAppsV1DaemonSetsListArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type QueryAppsV1DeploymentsGetArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  name: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1GetOptions>;
-};
-
-
-export type QueryAppsV1DeploymentsListArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type QueryAppsV1ReplicaSetsGetArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  name: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1GetOptions>;
-};
-
-
-export type QueryAppsV1ReplicaSetsListArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type QueryAppsV1StatefulSetsGetArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  name: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1GetOptions>;
-};
-
-
-export type QueryAppsV1StatefulSetsListArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type QueryBatchV1CronJobsGetArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  name: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1GetOptions>;
-};
-
-
-export type QueryBatchV1CronJobsListArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type QueryBatchV1JobsGetArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  name: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1GetOptions>;
-};
-
-
-export type QueryBatchV1JobsListArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type QueryClusterApiHealthzGetArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type QueryClusterApiReadyWaitArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type QueryClusterVersionStatusArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type QueryCoreV1NamespacesListArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type QueryCoreV1NodesListArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type QueryCoreV1PodsGetArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  name: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1GetOptions>;
-};
-
-
-export type QueryCoreV1PodsListArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type QueryCoreV1ServicesGetArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  name: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1GetOptions>;
-};
-
-
-export type QueryCoreV1ServicesListArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type QueryHelmListReleasesArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type QueryKubernetesApiHealthzGetArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type QueryKubernetesApiReadyWaitArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type QueryLogRecordsFetchArgs = {
-  after?: InputMaybe<Scalars['String']['input']>;
-  before?: InputMaybe<Scalars['String']['input']>;
-  grep?: InputMaybe<Scalars['String']['input']>;
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  limit?: InputMaybe<Scalars['Int']['input']>;
-  mode?: InputMaybe<LogRecordsQueryMode>;
-  since?: InputMaybe<Scalars['String']['input']>;
-  sourceFilter?: InputMaybe<LogSourceFilter>;
-  sources: Array<Scalars['String']['input']>;
-  until?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type Subscription = {
-  __typename?: 'Subscription';
-  /** AppsV1 watchers */
-  appsV1DaemonSetsWatch?: Maybe<AppsV1DaemonSetsWatchEvent>;
-  appsV1DeploymentsWatch?: Maybe<AppsV1DeploymentsWatchEvent>;
-  appsV1ReplicaSetsWatch?: Maybe<AppsV1ReplicaSetsWatchEvent>;
-  appsV1StatefulSetsWatch?: Maybe<AppsV1StatefulSetsWatchEvent>;
-  /** BatchV1 watchers */
-  batchV1CronJobsWatch?: Maybe<BatchV1CronJobsWatchEvent>;
-  batchV1JobsWatch?: Maybe<BatchV1JobsWatchEvent>;
-  clusterAPIHealthzWatch: HealthCheckResponse;
-  /** Cluster API */
-  clusterAPIReadyWait: Scalars['Boolean']['output'];
-  /** CoreV1 watchers */
-  coreV1NamespacesWatch?: Maybe<CoreV1NamespacesWatchEvent>;
-  coreV1NodesWatch?: Maybe<CoreV1NodesWatchEvent>;
-  coreV1PodsWatch?: Maybe<CoreV1PodsWatchEvent>;
-  coreV1ServicesWatch?: Maybe<CoreV1ServicesWatchEvent>;
-  /** KubeConfig watchers */
-  kubeConfigWatch?: Maybe<KubeConfigWatchEvent>;
-  kubernetesAPIHealthzWatch: HealthCheckResponse;
-  /** Kubernetes API */
-  kubernetesAPIReadyWait: Scalars['Boolean']['output'];
-  /** LogRecords API */
-  logRecordsFollow?: Maybe<LogRecord>;
-  /** LogSources API */
-  logSourcesWatch?: Maybe<LogSourceWatchEvent>;
-};
-
-
-export type SubscriptionAppsV1DaemonSetsWatchArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type SubscriptionAppsV1DeploymentsWatchArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type SubscriptionAppsV1ReplicaSetsWatchArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type SubscriptionAppsV1StatefulSetsWatchArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type SubscriptionBatchV1CronJobsWatchArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type SubscriptionBatchV1JobsWatchArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type SubscriptionClusterApiHealthzWatchArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type SubscriptionClusterApiReadyWaitArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type SubscriptionCoreV1NamespacesWatchArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type SubscriptionCoreV1NodesWatchArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type SubscriptionCoreV1PodsWatchArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type SubscriptionCoreV1ServicesWatchArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  options?: InputMaybe<MetaV1ListOptions>;
-};
-
-
-export type SubscriptionKubernetesApiHealthzWatchArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type SubscriptionKubernetesApiReadyWaitArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type SubscriptionLogRecordsFollowArgs = {
-  after?: InputMaybe<Scalars['String']['input']>;
-  grep?: InputMaybe<Scalars['String']['input']>;
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  since?: InputMaybe<Scalars['String']['input']>;
-  sourceFilter?: InputMaybe<LogSourceFilter>;
-  sources: Array<Scalars['String']['input']>;
-};
-
-
-export type SubscriptionLogSourcesWatchArgs = {
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  sources: Array<Scalars['String']['input']>;
-};
-
-export type VersionStatus = {
-  __typename?: 'VersionStatus';
-  currentVersion: Scalars['String']['output'];
-  latestVersion: Scalars['String']['output'];
-  updateAvailable: Scalars['Boolean']['output'];
+  theme?: string | null | undefined;
+  timestampFormat?: string | null | undefined;
+  timezone?: string | null | undefined;
 };
 
 export enum WatchEventType {
@@ -1102,25 +40,25 @@ export enum WatchEventType {
   Modified = 'MODIFIED'
 }
 
-type ConsoleLoggingResourcesGenericObjectFragment_AppsV1DaemonSet_Fragment = { __typename?: 'AppsV1DaemonSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type ConsoleLoggingResourcesGenericObjectFragment_AppsV1DaemonSet_Fragment = { __typename: 'AppsV1DaemonSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type ConsoleLoggingResourcesGenericObjectFragment_AppsV1Deployment_Fragment = { __typename?: 'AppsV1Deployment', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type ConsoleLoggingResourcesGenericObjectFragment_AppsV1Deployment_Fragment = { __typename: 'AppsV1Deployment', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type ConsoleLoggingResourcesGenericObjectFragment_AppsV1ReplicaSet_Fragment = { __typename?: 'AppsV1ReplicaSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type ConsoleLoggingResourcesGenericObjectFragment_AppsV1ReplicaSet_Fragment = { __typename: 'AppsV1ReplicaSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type ConsoleLoggingResourcesGenericObjectFragment_AppsV1StatefulSet_Fragment = { __typename?: 'AppsV1StatefulSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type ConsoleLoggingResourcesGenericObjectFragment_AppsV1StatefulSet_Fragment = { __typename: 'AppsV1StatefulSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type ConsoleLoggingResourcesGenericObjectFragment_BatchV1CronJob_Fragment = { __typename?: 'BatchV1CronJob', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type ConsoleLoggingResourcesGenericObjectFragment_BatchV1CronJob_Fragment = { __typename: 'BatchV1CronJob', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type ConsoleLoggingResourcesGenericObjectFragment_BatchV1Job_Fragment = { __typename?: 'BatchV1Job', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type ConsoleLoggingResourcesGenericObjectFragment_BatchV1Job_Fragment = { __typename: 'BatchV1Job', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type ConsoleLoggingResourcesGenericObjectFragment_CoreV1Namespace_Fragment = { __typename?: 'CoreV1Namespace', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type ConsoleLoggingResourcesGenericObjectFragment_CoreV1Namespace_Fragment = { __typename: 'CoreV1Namespace', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type ConsoleLoggingResourcesGenericObjectFragment_CoreV1Node_Fragment = { __typename?: 'CoreV1Node', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type ConsoleLoggingResourcesGenericObjectFragment_CoreV1Node_Fragment = { __typename: 'CoreV1Node', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type ConsoleLoggingResourcesGenericObjectFragment_CoreV1Pod_Fragment = { __typename?: 'CoreV1Pod', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type ConsoleLoggingResourcesGenericObjectFragment_CoreV1Pod_Fragment = { __typename: 'CoreV1Pod', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type ConsoleLoggingResourcesGenericObjectFragment_CoreV1Service_Fragment = { __typename?: 'CoreV1Service', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type ConsoleLoggingResourcesGenericObjectFragment_CoreV1Service_Fragment = { __typename: 'CoreV1Service', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
 export type ConsoleLoggingResourcesGenericObjectFragmentFragment =
   | ConsoleLoggingResourcesGenericObjectFragment_AppsV1DaemonSet_Fragment
@@ -1135,55 +73,55 @@ export type ConsoleLoggingResourcesGenericObjectFragmentFragment =
   | ConsoleLoggingResourcesGenericObjectFragment_CoreV1Service_Fragment
 ;
 
-export type ConsoleLoggingResourcesCronJobFragmentFragment = { __typename?: 'BatchV1CronJob', id: string, spec: { __typename?: 'BatchV1CronJobSpec', jobTemplate: { __typename?: 'BatchV1JobTemplateSpec', spec: { __typename?: 'BatchV1JobSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null } } }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+export type ConsoleLoggingResourcesCronJobFragmentFragment = { __typename: 'BatchV1CronJob', id: string, spec: { __typename: 'BatchV1CronJobSpec', jobTemplate: { __typename: 'BatchV1JobTemplateSpec', spec: { __typename: 'BatchV1JobSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null } } }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-export type ConsoleLoggingResourcesDaemonSetFragmentFragment = { __typename?: 'AppsV1DaemonSet', id: string, spec: { __typename?: 'AppsV1DaemonSetSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+export type ConsoleLoggingResourcesDaemonSetFragmentFragment = { __typename: 'AppsV1DaemonSet', id: string, spec: { __typename: 'AppsV1DaemonSetSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-export type ConsoleLoggingResourcesDeploymentFragmentFragment = { __typename?: 'AppsV1Deployment', id: string, spec: { __typename?: 'AppsV1DeploymentSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+export type ConsoleLoggingResourcesDeploymentFragmentFragment = { __typename: 'AppsV1Deployment', id: string, spec: { __typename: 'AppsV1DeploymentSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-export type ConsoleLoggingResourcesJobFragmentFragment = { __typename?: 'BatchV1Job', id: string, spec: { __typename?: 'BatchV1JobSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+export type ConsoleLoggingResourcesJobFragmentFragment = { __typename: 'BatchV1Job', id: string, spec: { __typename: 'BatchV1JobSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-export type ConsoleLoggingResourcesPodFragmentFragment = { __typename?: 'CoreV1Pod', id: string, spec: { __typename?: 'CoreV1PodSpec', nodeName: string, containers: Array<{ __typename?: 'CoreV1Container', name: string }> }, status: { __typename?: 'CoreV1PodStatus', containerStatuses: Array<{ __typename?: 'CoreV1ContainerStatus', name: string, started?: boolean | null, state: { __typename?: 'CoreV1ContainerState', running?: { __typename?: 'CoreV1ContainerStateRunning', startedAt: any } | null, terminated?: { __typename?: 'CoreV1ContainerStateTerminated', exitCode: number } | null } }> }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+export type ConsoleLoggingResourcesPodFragmentFragment = { __typename: 'CoreV1Pod', id: string, spec: { __typename: 'CoreV1PodSpec', nodeName: string, containers: Array<{ __typename: 'CoreV1Container', name: string }> }, status: { __typename: 'CoreV1PodStatus', containerStatuses: Array<{ __typename: 'CoreV1ContainerStatus', name: string, started: boolean | null, state: { __typename: 'CoreV1ContainerState', running: { __typename: 'CoreV1ContainerStateRunning', startedAt: any } | null, terminated: { __typename: 'CoreV1ContainerStateTerminated', exitCode: number } | null } }> }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-export type ConsoleLoggingResourcesReplicaSetFragmentFragment = { __typename?: 'AppsV1ReplicaSet', id: string, spec: { __typename?: 'AppsV1ReplicaSetSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+export type ConsoleLoggingResourcesReplicaSetFragmentFragment = { __typename: 'AppsV1ReplicaSet', id: string, spec: { __typename: 'AppsV1ReplicaSetSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-export type ConsoleLoggingResourcesStatefulSetFragmentFragment = { __typename?: 'AppsV1StatefulSet', id: string, spec: { __typename?: 'AppsV1StatefulSetSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+export type ConsoleLoggingResourcesStatefulSetFragmentFragment = { __typename: 'AppsV1StatefulSet', id: string, spec: { __typename: 'AppsV1StatefulSetSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-export type ConsoleLoggingResourcesJobsFindFragmentFragment = { __typename?: 'BatchV1Job', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> }, spec: { __typename?: 'BatchV1JobSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null } };
+export type ConsoleLoggingResourcesJobsFindFragmentFragment = { __typename: 'BatchV1Job', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> }, spec: { __typename: 'BatchV1JobSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null } };
 
-export type ConsoleNodesListItemFragmentFragment = { __typename?: 'CoreV1Node', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, labels?: any | null, annotations?: any | null } };
+export type ConsoleNodesListItemFragmentFragment = { __typename: 'CoreV1Node', id: string, metadata: { __typename: 'MetaV1ObjectMeta', name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, labels: any, annotations: any } };
 
-export type HealthCheckResponseFragmentFragment = { __typename?: 'HealthCheckResponse', status: HealthCheckStatus, message?: string | null, timestamp: any };
+export type HealthCheckResponseFragmentFragment = { __typename: 'HealthCheckResponse', status: HealthCheckStatus, message: string | null, timestamp: any };
 
-export type HelmReleaseFragmentFragment = { __typename?: 'HelmRelease', name: string, version: number, namespace: string, chart?: { __typename?: 'HelmChart', metadata?: { __typename?: 'HelmChartMetadata', name: string, version: string, appVersion: string } | null } | null };
+export type HelmReleaseFragmentFragment = { __typename: 'HelmRelease', name: string, version: number, namespace: string, chart: { __typename: 'HelmChart', metadata: { __typename: 'HelmChartMetadata', name: string, version: string, appVersion: string } | null } | null };
 
-export type HomeCronJobsListItemFragmentFragment = { __typename?: 'BatchV1CronJob', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+export type HomeCronJobsListItemFragmentFragment = { __typename: 'BatchV1CronJob', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-export type HomeDaemonSetsListItemFragmentFragment = { __typename?: 'AppsV1DaemonSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+export type HomeDaemonSetsListItemFragmentFragment = { __typename: 'AppsV1DaemonSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-export type HomeDeploymentsListItemFragmentFragment = { __typename?: 'AppsV1Deployment', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+export type HomeDeploymentsListItemFragmentFragment = { __typename: 'AppsV1Deployment', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-export type HomeJobsListItemFragmentFragment = { __typename?: 'BatchV1Job', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+export type HomeJobsListItemFragmentFragment = { __typename: 'BatchV1Job', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type HomeGenericListFragment_AppsV1DaemonSetList_Fragment = { __typename?: 'AppsV1DaemonSetList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type HomeGenericListFragment_AppsV1DaemonSetList_Fragment = { __typename: 'AppsV1DaemonSetList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type HomeGenericListFragment_AppsV1DeploymentList_Fragment = { __typename?: 'AppsV1DeploymentList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type HomeGenericListFragment_AppsV1DeploymentList_Fragment = { __typename: 'AppsV1DeploymentList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type HomeGenericListFragment_AppsV1ReplicaSetList_Fragment = { __typename?: 'AppsV1ReplicaSetList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type HomeGenericListFragment_AppsV1ReplicaSetList_Fragment = { __typename: 'AppsV1ReplicaSetList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type HomeGenericListFragment_AppsV1StatefulSetList_Fragment = { __typename?: 'AppsV1StatefulSetList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type HomeGenericListFragment_AppsV1StatefulSetList_Fragment = { __typename: 'AppsV1StatefulSetList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type HomeGenericListFragment_BatchV1CronJobList_Fragment = { __typename?: 'BatchV1CronJobList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type HomeGenericListFragment_BatchV1CronJobList_Fragment = { __typename: 'BatchV1CronJobList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type HomeGenericListFragment_BatchV1JobList_Fragment = { __typename?: 'BatchV1JobList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type HomeGenericListFragment_BatchV1JobList_Fragment = { __typename: 'BatchV1JobList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type HomeGenericListFragment_CoreV1NamespaceList_Fragment = { __typename?: 'CoreV1NamespaceList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type HomeGenericListFragment_CoreV1NamespaceList_Fragment = { __typename: 'CoreV1NamespaceList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type HomeGenericListFragment_CoreV1NodeList_Fragment = { __typename?: 'CoreV1NodeList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type HomeGenericListFragment_CoreV1NodeList_Fragment = { __typename: 'CoreV1NodeList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type HomeGenericListFragment_CoreV1PodList_Fragment = { __typename?: 'CoreV1PodList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type HomeGenericListFragment_CoreV1PodList_Fragment = { __typename: 'CoreV1PodList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type HomeGenericListFragment_CoreV1ServiceList_Fragment = { __typename?: 'CoreV1ServiceList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type HomeGenericListFragment_CoreV1ServiceList_Fragment = { __typename: 'CoreV1ServiceList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
 export type HomeGenericListFragmentFragment =
   | HomeGenericListFragment_AppsV1DaemonSetList_Fragment
@@ -1198,25 +136,25 @@ export type HomeGenericListFragmentFragment =
   | HomeGenericListFragment_CoreV1ServiceList_Fragment
 ;
 
-type HomeGenericListItemFragment_AppsV1DaemonSet_Fragment = { __typename?: 'AppsV1DaemonSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type HomeGenericListItemFragment_AppsV1DaemonSet_Fragment = { __typename: 'AppsV1DaemonSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type HomeGenericListItemFragment_AppsV1Deployment_Fragment = { __typename?: 'AppsV1Deployment', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type HomeGenericListItemFragment_AppsV1Deployment_Fragment = { __typename: 'AppsV1Deployment', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type HomeGenericListItemFragment_AppsV1ReplicaSet_Fragment = { __typename?: 'AppsV1ReplicaSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type HomeGenericListItemFragment_AppsV1ReplicaSet_Fragment = { __typename: 'AppsV1ReplicaSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type HomeGenericListItemFragment_AppsV1StatefulSet_Fragment = { __typename?: 'AppsV1StatefulSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type HomeGenericListItemFragment_AppsV1StatefulSet_Fragment = { __typename: 'AppsV1StatefulSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type HomeGenericListItemFragment_BatchV1CronJob_Fragment = { __typename?: 'BatchV1CronJob', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type HomeGenericListItemFragment_BatchV1CronJob_Fragment = { __typename: 'BatchV1CronJob', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type HomeGenericListItemFragment_BatchV1Job_Fragment = { __typename?: 'BatchV1Job', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type HomeGenericListItemFragment_BatchV1Job_Fragment = { __typename: 'BatchV1Job', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type HomeGenericListItemFragment_CoreV1Namespace_Fragment = { __typename?: 'CoreV1Namespace', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type HomeGenericListItemFragment_CoreV1Namespace_Fragment = { __typename: 'CoreV1Namespace', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type HomeGenericListItemFragment_CoreV1Node_Fragment = { __typename?: 'CoreV1Node', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type HomeGenericListItemFragment_CoreV1Node_Fragment = { __typename: 'CoreV1Node', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type HomeGenericListItemFragment_CoreV1Pod_Fragment = { __typename?: 'CoreV1Pod', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type HomeGenericListItemFragment_CoreV1Pod_Fragment = { __typename: 'CoreV1Pod', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-type HomeGenericListItemFragment_CoreV1Service_Fragment = { __typename?: 'CoreV1Service', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+type HomeGenericListItemFragment_CoreV1Service_Fragment = { __typename: 'CoreV1Service', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
 export type HomeGenericListItemFragmentFragment =
   | HomeGenericListItemFragment_AppsV1DaemonSet_Fragment
@@ -1231,39 +169,39 @@ export type HomeGenericListItemFragmentFragment =
   | HomeGenericListItemFragment_CoreV1Service_Fragment
 ;
 
-export type HomeNamespacesListItemFragmentFragment = { __typename?: 'CoreV1Namespace', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+export type HomeNamespacesListItemFragmentFragment = { __typename: 'CoreV1Namespace', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-export type HomePodsListItemFragmentFragment = { __typename?: 'CoreV1Pod', id: string, status: { __typename?: 'CoreV1PodStatus', containerStatuses: Array<{ __typename?: 'CoreV1ContainerStatus', containerID: string, started?: boolean | null }> }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+export type HomePodsListItemFragmentFragment = { __typename: 'CoreV1Pod', id: string, status: { __typename: 'CoreV1PodStatus', containerStatuses: Array<{ __typename: 'CoreV1ContainerStatus', containerID: string, started: boolean | null }> }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-export type HomeReplicaSetsListItemFragmentFragment = { __typename?: 'AppsV1ReplicaSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+export type HomeReplicaSetsListItemFragmentFragment = { __typename: 'AppsV1ReplicaSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-export type HomeStatefulSetsListItemFragmentFragment = { __typename?: 'AppsV1StatefulSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } };
+export type HomeStatefulSetsListItemFragmentFragment = { __typename: 'AppsV1StatefulSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } };
 
-export type KubeConfigFragmentFragment = { __typename?: 'KubeConfig', currentContext: string, contexts: Array<{ __typename?: 'KubeConfigContext', name: string, cluster: string, namespace: string }> };
+export type KubeConfigFragmentFragment = { __typename: 'KubeConfig', currentContext: string, contexts: Array<{ __typename: 'KubeConfigContext', name: string, cluster: string, namespace: string }> };
 
-export type LogRecordsFragmentFragment = { __typename?: 'LogRecord', timestamp: any, message: string, source: { __typename?: 'LogSource', namespace: string, podName: string, containerName: string, containerID: string, metadata: { __typename?: 'LogSourceMetadata', region: string, zone: string, os: string, arch: string, node: string } } };
+export type LogRecordsFragmentFragment = { __typename: 'LogRecord', timestamp: any, message: string, source: { __typename: 'LogSource', namespace: string, podName: string, containerName: string, containerID: string, metadata: { __typename: 'LogSourceMetadata', region: string, zone: string, os: string, arch: string, node: string } } };
 
-export type LogSourceFragmentFragment = { __typename?: 'LogSource', namespace: string, podName: string, containerName: string, containerID: string, metadata: { __typename?: 'LogSourceMetadata', region: string, zone: string, os: string, arch: string, node: string } };
+export type LogSourceFragmentFragment = { __typename: 'LogSource', namespace: string, podName: string, containerName: string, containerID: string, metadata: { __typename: 'LogSourceMetadata', region: string, zone: string, os: string, arch: string, node: string } };
 
-type SourcePickerGenericCounterFragment_AppsV1DaemonSetList_Fragment = { __typename?: 'AppsV1DaemonSetList', metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string }, items: Array<{ __typename?: 'AppsV1DaemonSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }> };
+type SourcePickerGenericCounterFragment_AppsV1DaemonSetList_Fragment = { __typename: 'AppsV1DaemonSetList', metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string }, items: Array<{ __typename: 'AppsV1DaemonSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }> };
 
-type SourcePickerGenericCounterFragment_AppsV1DeploymentList_Fragment = { __typename?: 'AppsV1DeploymentList', metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string }, items: Array<{ __typename?: 'AppsV1Deployment', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }> };
+type SourcePickerGenericCounterFragment_AppsV1DeploymentList_Fragment = { __typename: 'AppsV1DeploymentList', metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string }, items: Array<{ __typename: 'AppsV1Deployment', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }> };
 
-type SourcePickerGenericCounterFragment_AppsV1ReplicaSetList_Fragment = { __typename?: 'AppsV1ReplicaSetList', metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string }, items: Array<{ __typename?: 'AppsV1ReplicaSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }> };
+type SourcePickerGenericCounterFragment_AppsV1ReplicaSetList_Fragment = { __typename: 'AppsV1ReplicaSetList', metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string }, items: Array<{ __typename: 'AppsV1ReplicaSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }> };
 
-type SourcePickerGenericCounterFragment_AppsV1StatefulSetList_Fragment = { __typename?: 'AppsV1StatefulSetList', metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string }, items: Array<{ __typename?: 'AppsV1StatefulSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }> };
+type SourcePickerGenericCounterFragment_AppsV1StatefulSetList_Fragment = { __typename: 'AppsV1StatefulSetList', metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string }, items: Array<{ __typename: 'AppsV1StatefulSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }> };
 
-type SourcePickerGenericCounterFragment_BatchV1CronJobList_Fragment = { __typename?: 'BatchV1CronJobList', metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string }, items: Array<{ __typename?: 'BatchV1CronJob', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }> };
+type SourcePickerGenericCounterFragment_BatchV1CronJobList_Fragment = { __typename: 'BatchV1CronJobList', metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string }, items: Array<{ __typename: 'BatchV1CronJob', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }> };
 
-type SourcePickerGenericCounterFragment_BatchV1JobList_Fragment = { __typename?: 'BatchV1JobList', metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string }, items: Array<{ __typename?: 'BatchV1Job', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }> };
+type SourcePickerGenericCounterFragment_BatchV1JobList_Fragment = { __typename: 'BatchV1JobList', metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string }, items: Array<{ __typename: 'BatchV1Job', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }> };
 
-type SourcePickerGenericCounterFragment_CoreV1NamespaceList_Fragment = { __typename?: 'CoreV1NamespaceList', metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string }, items: Array<{ __typename?: 'CoreV1Namespace', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }> };
+type SourcePickerGenericCounterFragment_CoreV1NamespaceList_Fragment = { __typename: 'CoreV1NamespaceList', metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string }, items: Array<{ __typename: 'CoreV1Namespace', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }> };
 
-type SourcePickerGenericCounterFragment_CoreV1NodeList_Fragment = { __typename?: 'CoreV1NodeList', metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string }, items: Array<{ __typename?: 'CoreV1Node', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }> };
+type SourcePickerGenericCounterFragment_CoreV1NodeList_Fragment = { __typename: 'CoreV1NodeList', metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string }, items: Array<{ __typename: 'CoreV1Node', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }> };
 
-type SourcePickerGenericCounterFragment_CoreV1PodList_Fragment = { __typename?: 'CoreV1PodList', metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string }, items: Array<{ __typename?: 'CoreV1Pod', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }> };
+type SourcePickerGenericCounterFragment_CoreV1PodList_Fragment = { __typename: 'CoreV1PodList', metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string }, items: Array<{ __typename: 'CoreV1Pod', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }> };
 
-type SourcePickerGenericCounterFragment_CoreV1ServiceList_Fragment = { __typename?: 'CoreV1ServiceList', metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string }, items: Array<{ __typename?: 'CoreV1Service', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }> };
+type SourcePickerGenericCounterFragment_CoreV1ServiceList_Fragment = { __typename: 'CoreV1ServiceList', metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string }, items: Array<{ __typename: 'CoreV1Service', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }> };
 
 export type SourcePickerGenericCounterFragmentFragment =
   | SourcePickerGenericCounterFragment_AppsV1DaemonSetList_Fragment
@@ -1278,25 +216,25 @@ export type SourcePickerGenericCounterFragmentFragment =
   | SourcePickerGenericCounterFragment_CoreV1ServiceList_Fragment
 ;
 
-type SourcePickerGenericCounterItemFragment_AppsV1DaemonSet_Fragment = { __typename?: 'AppsV1DaemonSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } };
+type SourcePickerGenericCounterItemFragment_AppsV1DaemonSet_Fragment = { __typename: 'AppsV1DaemonSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } };
 
-type SourcePickerGenericCounterItemFragment_AppsV1Deployment_Fragment = { __typename?: 'AppsV1Deployment', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } };
+type SourcePickerGenericCounterItemFragment_AppsV1Deployment_Fragment = { __typename: 'AppsV1Deployment', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } };
 
-type SourcePickerGenericCounterItemFragment_AppsV1ReplicaSet_Fragment = { __typename?: 'AppsV1ReplicaSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } };
+type SourcePickerGenericCounterItemFragment_AppsV1ReplicaSet_Fragment = { __typename: 'AppsV1ReplicaSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } };
 
-type SourcePickerGenericCounterItemFragment_AppsV1StatefulSet_Fragment = { __typename?: 'AppsV1StatefulSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } };
+type SourcePickerGenericCounterItemFragment_AppsV1StatefulSet_Fragment = { __typename: 'AppsV1StatefulSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } };
 
-type SourcePickerGenericCounterItemFragment_BatchV1CronJob_Fragment = { __typename?: 'BatchV1CronJob', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } };
+type SourcePickerGenericCounterItemFragment_BatchV1CronJob_Fragment = { __typename: 'BatchV1CronJob', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } };
 
-type SourcePickerGenericCounterItemFragment_BatchV1Job_Fragment = { __typename?: 'BatchV1Job', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } };
+type SourcePickerGenericCounterItemFragment_BatchV1Job_Fragment = { __typename: 'BatchV1Job', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } };
 
-type SourcePickerGenericCounterItemFragment_CoreV1Namespace_Fragment = { __typename?: 'CoreV1Namespace', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } };
+type SourcePickerGenericCounterItemFragment_CoreV1Namespace_Fragment = { __typename: 'CoreV1Namespace', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } };
 
-type SourcePickerGenericCounterItemFragment_CoreV1Node_Fragment = { __typename?: 'CoreV1Node', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } };
+type SourcePickerGenericCounterItemFragment_CoreV1Node_Fragment = { __typename: 'CoreV1Node', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } };
 
-type SourcePickerGenericCounterItemFragment_CoreV1Pod_Fragment = { __typename?: 'CoreV1Pod', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } };
+type SourcePickerGenericCounterItemFragment_CoreV1Pod_Fragment = { __typename: 'CoreV1Pod', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } };
 
-type SourcePickerGenericCounterItemFragment_CoreV1Service_Fragment = { __typename?: 'CoreV1Service', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } };
+type SourcePickerGenericCounterItemFragment_CoreV1Service_Fragment = { __typename: 'CoreV1Service', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } };
 
 export type SourcePickerGenericCounterItemFragmentFragment =
   | SourcePickerGenericCounterItemFragment_AppsV1DaemonSet_Fragment
@@ -1311,25 +249,25 @@ export type SourcePickerGenericCounterItemFragmentFragment =
   | SourcePickerGenericCounterItemFragment_CoreV1Service_Fragment
 ;
 
-type SourcePickerGenericListFragment_AppsV1DaemonSetList_Fragment = { __typename?: 'AppsV1DaemonSetList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type SourcePickerGenericListFragment_AppsV1DaemonSetList_Fragment = { __typename: 'AppsV1DaemonSetList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type SourcePickerGenericListFragment_AppsV1DeploymentList_Fragment = { __typename?: 'AppsV1DeploymentList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type SourcePickerGenericListFragment_AppsV1DeploymentList_Fragment = { __typename: 'AppsV1DeploymentList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type SourcePickerGenericListFragment_AppsV1ReplicaSetList_Fragment = { __typename?: 'AppsV1ReplicaSetList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type SourcePickerGenericListFragment_AppsV1ReplicaSetList_Fragment = { __typename: 'AppsV1ReplicaSetList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type SourcePickerGenericListFragment_AppsV1StatefulSetList_Fragment = { __typename?: 'AppsV1StatefulSetList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type SourcePickerGenericListFragment_AppsV1StatefulSetList_Fragment = { __typename: 'AppsV1StatefulSetList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type SourcePickerGenericListFragment_BatchV1CronJobList_Fragment = { __typename?: 'BatchV1CronJobList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type SourcePickerGenericListFragment_BatchV1CronJobList_Fragment = { __typename: 'BatchV1CronJobList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type SourcePickerGenericListFragment_BatchV1JobList_Fragment = { __typename?: 'BatchV1JobList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type SourcePickerGenericListFragment_BatchV1JobList_Fragment = { __typename: 'BatchV1JobList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type SourcePickerGenericListFragment_CoreV1NamespaceList_Fragment = { __typename?: 'CoreV1NamespaceList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type SourcePickerGenericListFragment_CoreV1NamespaceList_Fragment = { __typename: 'CoreV1NamespaceList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type SourcePickerGenericListFragment_CoreV1NodeList_Fragment = { __typename?: 'CoreV1NodeList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type SourcePickerGenericListFragment_CoreV1NodeList_Fragment = { __typename: 'CoreV1NodeList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type SourcePickerGenericListFragment_CoreV1PodList_Fragment = { __typename?: 'CoreV1PodList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type SourcePickerGenericListFragment_CoreV1PodList_Fragment = { __typename: 'CoreV1PodList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
-type SourcePickerGenericListFragment_CoreV1ServiceList_Fragment = { __typename?: 'CoreV1ServiceList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
+type SourcePickerGenericListFragment_CoreV1ServiceList_Fragment = { __typename: 'CoreV1ServiceList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } };
 
 export type SourcePickerGenericListFragmentFragment =
   | SourcePickerGenericListFragment_AppsV1DaemonSetList_Fragment
@@ -1344,25 +282,25 @@ export type SourcePickerGenericListFragmentFragment =
   | SourcePickerGenericListFragment_CoreV1ServiceList_Fragment
 ;
 
-type SourcePickerGenericListItemFragment_AppsV1DaemonSet_Fragment = { __typename?: 'AppsV1DaemonSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } };
+type SourcePickerGenericListItemFragment_AppsV1DaemonSet_Fragment = { __typename: 'AppsV1DaemonSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } };
 
-type SourcePickerGenericListItemFragment_AppsV1Deployment_Fragment = { __typename?: 'AppsV1Deployment', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } };
+type SourcePickerGenericListItemFragment_AppsV1Deployment_Fragment = { __typename: 'AppsV1Deployment', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } };
 
-type SourcePickerGenericListItemFragment_AppsV1ReplicaSet_Fragment = { __typename?: 'AppsV1ReplicaSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } };
+type SourcePickerGenericListItemFragment_AppsV1ReplicaSet_Fragment = { __typename: 'AppsV1ReplicaSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } };
 
-type SourcePickerGenericListItemFragment_AppsV1StatefulSet_Fragment = { __typename?: 'AppsV1StatefulSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } };
+type SourcePickerGenericListItemFragment_AppsV1StatefulSet_Fragment = { __typename: 'AppsV1StatefulSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } };
 
-type SourcePickerGenericListItemFragment_BatchV1CronJob_Fragment = { __typename?: 'BatchV1CronJob', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } };
+type SourcePickerGenericListItemFragment_BatchV1CronJob_Fragment = { __typename: 'BatchV1CronJob', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } };
 
-type SourcePickerGenericListItemFragment_BatchV1Job_Fragment = { __typename?: 'BatchV1Job', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } };
+type SourcePickerGenericListItemFragment_BatchV1Job_Fragment = { __typename: 'BatchV1Job', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } };
 
-type SourcePickerGenericListItemFragment_CoreV1Namespace_Fragment = { __typename?: 'CoreV1Namespace', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } };
+type SourcePickerGenericListItemFragment_CoreV1Namespace_Fragment = { __typename: 'CoreV1Namespace', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } };
 
-type SourcePickerGenericListItemFragment_CoreV1Node_Fragment = { __typename?: 'CoreV1Node', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } };
+type SourcePickerGenericListItemFragment_CoreV1Node_Fragment = { __typename: 'CoreV1Node', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } };
 
-type SourcePickerGenericListItemFragment_CoreV1Pod_Fragment = { __typename?: 'CoreV1Pod', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } };
+type SourcePickerGenericListItemFragment_CoreV1Pod_Fragment = { __typename: 'CoreV1Pod', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } };
 
-type SourcePickerGenericListItemFragment_CoreV1Service_Fragment = { __typename?: 'CoreV1Service', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } };
+type SourcePickerGenericListItemFragment_CoreV1Service_Fragment = { __typename: 'CoreV1Service', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } };
 
 export type SourcePickerGenericListItemFragmentFragment =
   | SourcePickerGenericListItemFragment_AppsV1DaemonSet_Fragment
@@ -1378,731 +316,731 @@ export type SourcePickerGenericListItemFragmentFragment =
 ;
 
 export type ConsoleLoggingResourcesCronJobGetQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  name: Scalars['String']['input'];
+  kubeContext: string;
+  namespace: string;
+  name: string;
 }>;
 
 
-export type ConsoleLoggingResourcesCronJobGetQuery = { __typename?: 'Query', batchV1CronJobsGet?: { __typename?: 'BatchV1CronJob', id: string, spec: { __typename?: 'BatchV1CronJobSpec', jobTemplate: { __typename?: 'BatchV1JobTemplateSpec', spec: { __typename?: 'BatchV1JobSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null } } }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null };
+export type ConsoleLoggingResourcesCronJobGetQuery = { batchV1CronJobsGet: { __typename: 'BatchV1CronJob', id: string, spec: { __typename: 'BatchV1CronJobSpec', jobTemplate: { __typename: 'BatchV1JobTemplateSpec', spec: { __typename: 'BatchV1JobSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null } } }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null };
 
 export type ConsoleLoggingResourcesCronJobWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  fieldSelector: Scalars['String']['input'];
+  kubeContext: string;
+  namespace: string;
+  fieldSelector: string;
 }>;
 
 
-export type ConsoleLoggingResourcesCronJobWatchSubscription = { __typename?: 'Subscription', batchV1CronJobsWatch?: { __typename?: 'BatchV1CronJobsWatchEvent', type: WatchEventType, object?: { __typename?: 'BatchV1CronJob', id: string, spec: { __typename?: 'BatchV1CronJobSpec', jobTemplate: { __typename?: 'BatchV1JobTemplateSpec', spec: { __typename?: 'BatchV1JobSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null } } }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type ConsoleLoggingResourcesCronJobWatchSubscription = { batchV1CronJobsWatch: { __typename: 'BatchV1CronJobsWatchEvent', type: WatchEventType, object: { __typename: 'BatchV1CronJob', id: string, spec: { __typename: 'BatchV1CronJobSpec', jobTemplate: { __typename: 'BatchV1JobTemplateSpec', spec: { __typename: 'BatchV1JobSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null } } }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type ConsoleLoggingResourcesDaemonSetGetQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  name: Scalars['String']['input'];
+  kubeContext: string;
+  namespace: string;
+  name: string;
 }>;
 
 
-export type ConsoleLoggingResourcesDaemonSetGetQuery = { __typename?: 'Query', appsV1DaemonSetsGet?: { __typename?: 'AppsV1DaemonSet', id: string, spec: { __typename?: 'AppsV1DaemonSetSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null };
+export type ConsoleLoggingResourcesDaemonSetGetQuery = { appsV1DaemonSetsGet: { __typename: 'AppsV1DaemonSet', id: string, spec: { __typename: 'AppsV1DaemonSetSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null };
 
 export type ConsoleLoggingResourcesDaemonSetWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  fieldSelector: Scalars['String']['input'];
+  kubeContext: string;
+  namespace: string;
+  fieldSelector: string;
 }>;
 
 
-export type ConsoleLoggingResourcesDaemonSetWatchSubscription = { __typename?: 'Subscription', appsV1DaemonSetsWatch?: { __typename?: 'AppsV1DaemonSetsWatchEvent', type: WatchEventType, object?: { __typename?: 'AppsV1DaemonSet', id: string, spec: { __typename?: 'AppsV1DaemonSetSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type ConsoleLoggingResourcesDaemonSetWatchSubscription = { appsV1DaemonSetsWatch: { __typename: 'AppsV1DaemonSetsWatchEvent', type: WatchEventType, object: { __typename: 'AppsV1DaemonSet', id: string, spec: { __typename: 'AppsV1DaemonSetSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type ConsoleLoggingResourcesDeploymentGetQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  name: Scalars['String']['input'];
+  kubeContext: string;
+  namespace: string;
+  name: string;
 }>;
 
 
-export type ConsoleLoggingResourcesDeploymentGetQuery = { __typename?: 'Query', appsV1DeploymentsGet?: { __typename?: 'AppsV1Deployment', id: string, spec: { __typename?: 'AppsV1DeploymentSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null };
+export type ConsoleLoggingResourcesDeploymentGetQuery = { appsV1DeploymentsGet: { __typename: 'AppsV1Deployment', id: string, spec: { __typename: 'AppsV1DeploymentSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null };
 
 export type ConsoleLoggingResourcesDeploymentWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  fieldSelector: Scalars['String']['input'];
+  kubeContext: string;
+  namespace: string;
+  fieldSelector: string;
 }>;
 
 
-export type ConsoleLoggingResourcesDeploymentWatchSubscription = { __typename?: 'Subscription', appsV1DeploymentsWatch?: { __typename?: 'AppsV1DeploymentsWatchEvent', type: WatchEventType, object?: { __typename?: 'AppsV1Deployment', id: string, spec: { __typename?: 'AppsV1DeploymentSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type ConsoleLoggingResourcesDeploymentWatchSubscription = { appsV1DeploymentsWatch: { __typename: 'AppsV1DeploymentsWatchEvent', type: WatchEventType, object: { __typename: 'AppsV1Deployment', id: string, spec: { __typename: 'AppsV1DeploymentSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type ConsoleLoggingResourcesJobGetQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  name: Scalars['String']['input'];
+  kubeContext: string;
+  namespace: string;
+  name: string;
 }>;
 
 
-export type ConsoleLoggingResourcesJobGetQuery = { __typename?: 'Query', batchV1JobsGet?: { __typename?: 'BatchV1Job', id: string, spec: { __typename?: 'BatchV1JobSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null };
+export type ConsoleLoggingResourcesJobGetQuery = { batchV1JobsGet: { __typename: 'BatchV1Job', id: string, spec: { __typename: 'BatchV1JobSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null };
 
 export type ConsoleLoggingResourcesJobWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  fieldSelector: Scalars['String']['input'];
+  kubeContext: string;
+  namespace: string;
+  fieldSelector: string;
 }>;
 
 
-export type ConsoleLoggingResourcesJobWatchSubscription = { __typename?: 'Subscription', batchV1JobsWatch?: { __typename?: 'BatchV1JobsWatchEvent', type: WatchEventType, object?: { __typename?: 'BatchV1Job', id: string, spec: { __typename?: 'BatchV1JobSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type ConsoleLoggingResourcesJobWatchSubscription = { batchV1JobsWatch: { __typename: 'BatchV1JobsWatchEvent', type: WatchEventType, object: { __typename: 'BatchV1Job', id: string, spec: { __typename: 'BatchV1JobSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type ConsoleLoggingResourcesPodGetQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  name: Scalars['String']['input'];
+  kubeContext: string;
+  namespace: string;
+  name: string;
 }>;
 
 
-export type ConsoleLoggingResourcesPodGetQuery = { __typename?: 'Query', coreV1PodsGet?: { __typename?: 'CoreV1Pod', id: string, spec: { __typename?: 'CoreV1PodSpec', nodeName: string, containers: Array<{ __typename?: 'CoreV1Container', name: string }> }, status: { __typename?: 'CoreV1PodStatus', containerStatuses: Array<{ __typename?: 'CoreV1ContainerStatus', name: string, started?: boolean | null, state: { __typename?: 'CoreV1ContainerState', running?: { __typename?: 'CoreV1ContainerStateRunning', startedAt: any } | null, terminated?: { __typename?: 'CoreV1ContainerStateTerminated', exitCode: number } | null } }> }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null };
+export type ConsoleLoggingResourcesPodGetQuery = { coreV1PodsGet: { __typename: 'CoreV1Pod', id: string, spec: { __typename: 'CoreV1PodSpec', nodeName: string, containers: Array<{ __typename: 'CoreV1Container', name: string }> }, status: { __typename: 'CoreV1PodStatus', containerStatuses: Array<{ __typename: 'CoreV1ContainerStatus', name: string, started: boolean | null, state: { __typename: 'CoreV1ContainerState', running: { __typename: 'CoreV1ContainerStateRunning', startedAt: any } | null, terminated: { __typename: 'CoreV1ContainerStateTerminated', exitCode: number } | null } }> }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null };
 
 export type ConsoleLoggingResourcesPodWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  fieldSelector: Scalars['String']['input'];
+  kubeContext: string;
+  namespace: string;
+  fieldSelector: string;
 }>;
 
 
-export type ConsoleLoggingResourcesPodWatchSubscription = { __typename?: 'Subscription', coreV1PodsWatch?: { __typename?: 'CoreV1PodsWatchEvent', type: WatchEventType, object?: { __typename?: 'CoreV1Pod', id: string, spec: { __typename?: 'CoreV1PodSpec', nodeName: string, containers: Array<{ __typename?: 'CoreV1Container', name: string }> }, status: { __typename?: 'CoreV1PodStatus', containerStatuses: Array<{ __typename?: 'CoreV1ContainerStatus', name: string, started?: boolean | null, state: { __typename?: 'CoreV1ContainerState', running?: { __typename?: 'CoreV1ContainerStateRunning', startedAt: any } | null, terminated?: { __typename?: 'CoreV1ContainerStateTerminated', exitCode: number } | null } }> }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type ConsoleLoggingResourcesPodWatchSubscription = { coreV1PodsWatch: { __typename: 'CoreV1PodsWatchEvent', type: WatchEventType, object: { __typename: 'CoreV1Pod', id: string, spec: { __typename: 'CoreV1PodSpec', nodeName: string, containers: Array<{ __typename: 'CoreV1Container', name: string }> }, status: { __typename: 'CoreV1PodStatus', containerStatuses: Array<{ __typename: 'CoreV1ContainerStatus', name: string, started: boolean | null, state: { __typename: 'CoreV1ContainerState', running: { __typename: 'CoreV1ContainerStateRunning', startedAt: any } | null, terminated: { __typename: 'CoreV1ContainerStateTerminated', exitCode: number } | null } }> }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type ConsolePodsListFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace: string;
+  continue?: string | null | undefined;
 }>;
 
 
-export type ConsolePodsListFetchQuery = { __typename?: 'Query', coreV1PodsList?: { __typename?: 'CoreV1PodList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string }, items: Array<{ __typename?: 'CoreV1Pod', id: string, spec: { __typename?: 'CoreV1PodSpec', nodeName: string, containers: Array<{ __typename?: 'CoreV1Container', name: string }> }, status: { __typename?: 'CoreV1PodStatus', containerStatuses: Array<{ __typename?: 'CoreV1ContainerStatus', name: string, started?: boolean | null, state: { __typename?: 'CoreV1ContainerState', running?: { __typename?: 'CoreV1ContainerStateRunning', startedAt: any } | null, terminated?: { __typename?: 'CoreV1ContainerStateTerminated', exitCode: number } | null } }> }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } }> } | null };
+export type ConsolePodsListFetchQuery = { coreV1PodsList: { __typename: 'CoreV1PodList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string }, items: Array<{ __typename: 'CoreV1Pod', id: string, spec: { __typename: 'CoreV1PodSpec', nodeName: string, containers: Array<{ __typename: 'CoreV1Container', name: string }> }, status: { __typename: 'CoreV1PodStatus', containerStatuses: Array<{ __typename: 'CoreV1ContainerStatus', name: string, started: boolean | null, state: { __typename: 'CoreV1ContainerState', running: { __typename: 'CoreV1ContainerStateRunning', startedAt: any } | null, terminated: { __typename: 'CoreV1ContainerStateTerminated', exitCode: number } | null } }> }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } }> } | null };
 
 export type ConsolePodsListWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace: string;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type ConsolePodsListWatchSubscription = { __typename?: 'Subscription', coreV1PodsWatch?: { __typename?: 'CoreV1PodsWatchEvent', type: WatchEventType, object?: { __typename?: 'CoreV1Pod', id: string, spec: { __typename?: 'CoreV1PodSpec', nodeName: string, containers: Array<{ __typename?: 'CoreV1Container', name: string }> }, status: { __typename?: 'CoreV1PodStatus', containerStatuses: Array<{ __typename?: 'CoreV1ContainerStatus', name: string, started?: boolean | null, state: { __typename?: 'CoreV1ContainerState', running?: { __typename?: 'CoreV1ContainerStateRunning', startedAt: any } | null, terminated?: { __typename?: 'CoreV1ContainerStateTerminated', exitCode: number } | null } }> }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type ConsolePodsListWatchSubscription = { coreV1PodsWatch: { __typename: 'CoreV1PodsWatchEvent', type: WatchEventType, object: { __typename: 'CoreV1Pod', id: string, spec: { __typename: 'CoreV1PodSpec', nodeName: string, containers: Array<{ __typename: 'CoreV1Container', name: string }> }, status: { __typename: 'CoreV1PodStatus', containerStatuses: Array<{ __typename: 'CoreV1ContainerStatus', name: string, started: boolean | null, state: { __typename: 'CoreV1ContainerState', running: { __typename: 'CoreV1ContainerStateRunning', startedAt: any } | null, terminated: { __typename: 'CoreV1ContainerStateTerminated', exitCode: number } | null } }> }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type ConsoleLoggingResourcesReplicaSetGetQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  name: Scalars['String']['input'];
+  kubeContext: string;
+  namespace: string;
+  name: string;
 }>;
 
 
-export type ConsoleLoggingResourcesReplicaSetGetQuery = { __typename?: 'Query', appsV1ReplicaSetsGet?: { __typename?: 'AppsV1ReplicaSet', id: string, spec: { __typename?: 'AppsV1ReplicaSetSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null };
+export type ConsoleLoggingResourcesReplicaSetGetQuery = { appsV1ReplicaSetsGet: { __typename: 'AppsV1ReplicaSet', id: string, spec: { __typename: 'AppsV1ReplicaSetSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null };
 
 export type ConsoleLoggingResourcesReplicaSetWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  fieldSelector: Scalars['String']['input'];
+  kubeContext: string;
+  namespace: string;
+  fieldSelector: string;
 }>;
 
 
-export type ConsoleLoggingResourcesReplicaSetWatchSubscription = { __typename?: 'Subscription', appsV1ReplicaSetsWatch?: { __typename?: 'AppsV1ReplicaSetsWatchEvent', type: WatchEventType, object?: { __typename?: 'AppsV1ReplicaSet', id: string, spec: { __typename?: 'AppsV1ReplicaSetSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type ConsoleLoggingResourcesReplicaSetWatchSubscription = { appsV1ReplicaSetsWatch: { __typename: 'AppsV1ReplicaSetsWatchEvent', type: WatchEventType, object: { __typename: 'AppsV1ReplicaSet', id: string, spec: { __typename: 'AppsV1ReplicaSetSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type ConsoleLoggingResourcesStatefulSetGetQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  name: Scalars['String']['input'];
+  kubeContext: string;
+  namespace: string;
+  name: string;
 }>;
 
 
-export type ConsoleLoggingResourcesStatefulSetGetQuery = { __typename?: 'Query', appsV1StatefulSetsGet?: { __typename?: 'AppsV1StatefulSet', id: string, spec: { __typename?: 'AppsV1StatefulSetSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null };
+export type ConsoleLoggingResourcesStatefulSetGetQuery = { appsV1StatefulSetsGet: { __typename: 'AppsV1StatefulSet', id: string, spec: { __typename: 'AppsV1StatefulSetSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null };
 
 export type ConsoleLoggingResourcesStatefulSetWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  fieldSelector: Scalars['String']['input'];
+  kubeContext: string;
+  namespace: string;
+  fieldSelector: string;
 }>;
 
 
-export type ConsoleLoggingResourcesStatefulSetWatchSubscription = { __typename?: 'Subscription', appsV1StatefulSetsWatch?: { __typename?: 'AppsV1StatefulSetsWatchEvent', type: WatchEventType, object?: { __typename?: 'AppsV1StatefulSet', id: string, spec: { __typename?: 'AppsV1StatefulSetSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type ConsoleLoggingResourcesStatefulSetWatchSubscription = { appsV1StatefulSetsWatch: { __typename: 'AppsV1StatefulSetsWatchEvent', type: WatchEventType, object: { __typename: 'AppsV1StatefulSet', id: string, spec: { __typename: 'AppsV1StatefulSetSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type ConsoleLoggingResourcesJobsFindQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace: string;
+  continue?: string | null | undefined;
 }>;
 
 
-export type ConsoleLoggingResourcesJobsFindQuery = { __typename?: 'Query', batchV1JobsList?: { __typename?: 'BatchV1JobList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string }, items: Array<{ __typename?: 'BatchV1Job', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> }, spec: { __typename?: 'BatchV1JobSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null } }> } | null };
+export type ConsoleLoggingResourcesJobsFindQuery = { batchV1JobsList: { __typename: 'BatchV1JobList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string }, items: Array<{ __typename: 'BatchV1Job', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> }, spec: { __typename: 'BatchV1JobSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null } }> } | null };
 
 export type ConsoleStreamsJobsWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace: string;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type ConsoleStreamsJobsWatchSubscription = { __typename?: 'Subscription', batchV1JobsWatch?: { __typename?: 'BatchV1JobsWatchEvent', type: WatchEventType, object?: { __typename?: 'BatchV1Job', id: string, spec: { __typename?: 'BatchV1JobSpec', selector?: { __typename?: 'MetaV1LabelSelector', matchLabels?: any | null } | null }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type ConsoleStreamsJobsWatchSubscription = { batchV1JobsWatch: { __typename: 'BatchV1JobsWatchEvent', type: WatchEventType, object: { __typename: 'BatchV1Job', id: string, spec: { __typename: 'BatchV1JobSpec', selector: { __typename: 'MetaV1LabelSelector', matchLabels: any } | null }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type ConsoleLoggingResourcesPodsFindQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  labelSelector: Scalars['String']['input'];
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace: string;
+  labelSelector: string;
+  continue?: string | null | undefined;
 }>;
 
 
-export type ConsoleLoggingResourcesPodsFindQuery = { __typename?: 'Query', coreV1PodsList?: { __typename?: 'CoreV1PodList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string }, items: Array<{ __typename?: 'CoreV1Pod', id: string, spec: { __typename?: 'CoreV1PodSpec', nodeName: string, containers: Array<{ __typename?: 'CoreV1Container', name: string }> }, status: { __typename?: 'CoreV1PodStatus', containerStatuses: Array<{ __typename?: 'CoreV1ContainerStatus', name: string, started?: boolean | null, state: { __typename?: 'CoreV1ContainerState', running?: { __typename?: 'CoreV1ContainerStateRunning', startedAt: any } | null, terminated?: { __typename?: 'CoreV1ContainerStateTerminated', exitCode: number } | null } }> }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } }> } | null };
+export type ConsoleLoggingResourcesPodsFindQuery = { coreV1PodsList: { __typename: 'CoreV1PodList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string }, items: Array<{ __typename: 'CoreV1Pod', id: string, spec: { __typename: 'CoreV1PodSpec', nodeName: string, containers: Array<{ __typename: 'CoreV1Container', name: string }> }, status: { __typename: 'CoreV1PodStatus', containerStatuses: Array<{ __typename: 'CoreV1ContainerStatus', name: string, started: boolean | null, state: { __typename: 'CoreV1ContainerState', running: { __typename: 'CoreV1ContainerStateRunning', startedAt: any } | null, terminated: { __typename: 'CoreV1ContainerStateTerminated', exitCode: number } | null } }> }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } }> } | null };
 
 export type ConsoleLoggingResourcesPodsWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace: Scalars['String']['input'];
-  labelSelector: Scalars['String']['input'];
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace: string;
+  labelSelector: string;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type ConsoleLoggingResourcesPodsWatchSubscription = { __typename?: 'Subscription', coreV1PodsWatch?: { __typename?: 'CoreV1PodsWatchEvent', type: WatchEventType, object?: { __typename?: 'CoreV1Pod', id: string, spec: { __typename?: 'CoreV1PodSpec', nodeName: string, containers: Array<{ __typename?: 'CoreV1Container', name: string }> }, status: { __typename?: 'CoreV1PodStatus', containerStatuses: Array<{ __typename?: 'CoreV1ContainerStatus', name: string, started?: boolean | null, state: { __typename?: 'CoreV1ContainerState', running?: { __typename?: 'CoreV1ContainerStateRunning', startedAt: any } | null, terminated?: { __typename?: 'CoreV1ContainerStateTerminated', exitCode: number } | null } }> }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type ConsoleLoggingResourcesPodsWatchSubscription = { coreV1PodsWatch: { __typename: 'CoreV1PodsWatchEvent', type: WatchEventType, object: { __typename: 'CoreV1Pod', id: string, spec: { __typename: 'CoreV1PodSpec', nodeName: string, containers: Array<{ __typename: 'CoreV1Container', name: string }> }, status: { __typename: 'CoreV1PodStatus', containerStatuses: Array<{ __typename: 'CoreV1ContainerStatus', name: string, started: boolean | null, state: { __typename: 'CoreV1ContainerState', running: { __typename: 'CoreV1ContainerStateRunning', startedAt: any } | null, terminated: { __typename: 'CoreV1ContainerStateTerminated', exitCode: number } | null } }> }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type ConsoleNodesListFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  continue?: string | null | undefined;
 }>;
 
 
-export type ConsoleNodesListFetchQuery = { __typename?: 'Query', coreV1NodesList?: { __typename?: 'CoreV1NodeList', metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string }, items: Array<{ __typename?: 'CoreV1Node', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, labels?: any | null, annotations?: any | null } }> } | null };
+export type ConsoleNodesListFetchQuery = { coreV1NodesList: { __typename: 'CoreV1NodeList', metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string }, items: Array<{ __typename: 'CoreV1Node', id: string, metadata: { __typename: 'MetaV1ObjectMeta', name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, labels: any, annotations: any } }> } | null };
 
 export type ConsoleNodesListWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type ConsoleNodesListWatchSubscription = { __typename?: 'Subscription', coreV1NodesWatch?: { __typename?: 'CoreV1NodesWatchEvent', type: WatchEventType, object?: { __typename?: 'CoreV1Node', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, labels?: any | null, annotations?: any | null } } | null } | null };
+export type ConsoleNodesListWatchSubscription = { coreV1NodesWatch: { __typename: 'CoreV1NodesWatchEvent', type: WatchEventType, object: { __typename: 'CoreV1Node', id: string, metadata: { __typename: 'MetaV1ObjectMeta', name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, labels: any, annotations: any } } | null } | null };
 
 export type HomeCronJobsListFetchQueryVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
+  namespace?: string | null | undefined;
+  continue?: string | null | undefined;
 }>;
 
 
-export type HomeCronJobsListFetchQuery = { __typename?: 'Query', batchV1CronJobsList?: { __typename?: 'BatchV1CronJobList', items: Array<{ __typename?: 'BatchV1CronJob', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } }>, metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
+export type HomeCronJobsListFetchQuery = { batchV1CronJobsList: { __typename: 'BatchV1CronJobList', items: Array<{ __typename: 'BatchV1CronJob', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } }>, metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
 
 export type HomeCronJobsListWatchSubscriptionVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type HomeCronJobsListWatchSubscription = { __typename?: 'Subscription', batchV1CronJobsWatch?: { __typename?: 'BatchV1CronJobsWatchEvent', type: WatchEventType, object?: { __typename?: 'BatchV1CronJob', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type HomeCronJobsListWatchSubscription = { batchV1CronJobsWatch: { __typename: 'BatchV1CronJobsWatchEvent', type: WatchEventType, object: { __typename: 'BatchV1CronJob', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type HomeDaemonSetsListFetchQueryVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
+  namespace?: string | null | undefined;
+  continue?: string | null | undefined;
 }>;
 
 
-export type HomeDaemonSetsListFetchQuery = { __typename?: 'Query', appsV1DaemonSetsList?: { __typename?: 'AppsV1DaemonSetList', items: Array<{ __typename?: 'AppsV1DaemonSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } }>, metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
+export type HomeDaemonSetsListFetchQuery = { appsV1DaemonSetsList: { __typename: 'AppsV1DaemonSetList', items: Array<{ __typename: 'AppsV1DaemonSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } }>, metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
 
 export type HomeDaemonSetsListWatchSubscriptionVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type HomeDaemonSetsListWatchSubscription = { __typename?: 'Subscription', appsV1DaemonSetsWatch?: { __typename?: 'AppsV1DaemonSetsWatchEvent', type: WatchEventType, object?: { __typename?: 'AppsV1DaemonSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type HomeDaemonSetsListWatchSubscription = { appsV1DaemonSetsWatch: { __typename: 'AppsV1DaemonSetsWatchEvent', type: WatchEventType, object: { __typename: 'AppsV1DaemonSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type HomeDeploymentsListFetchQueryVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
+  namespace?: string | null | undefined;
+  continue?: string | null | undefined;
 }>;
 
 
-export type HomeDeploymentsListFetchQuery = { __typename?: 'Query', appsV1DeploymentsList?: { __typename?: 'AppsV1DeploymentList', items: Array<{ __typename?: 'AppsV1Deployment', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } }>, metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
+export type HomeDeploymentsListFetchQuery = { appsV1DeploymentsList: { __typename: 'AppsV1DeploymentList', items: Array<{ __typename: 'AppsV1Deployment', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } }>, metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
 
 export type HomeDeploymentsListWatchSubscriptionVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type HomeDeploymentsListWatchSubscription = { __typename?: 'Subscription', appsV1DeploymentsWatch?: { __typename?: 'AppsV1DeploymentsWatchEvent', type: WatchEventType, object?: { __typename?: 'AppsV1Deployment', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type HomeDeploymentsListWatchSubscription = { appsV1DeploymentsWatch: { __typename: 'AppsV1DeploymentsWatchEvent', type: WatchEventType, object: { __typename: 'AppsV1Deployment', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type HomeJobsListFetchQueryVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
+  namespace?: string | null | undefined;
+  continue?: string | null | undefined;
 }>;
 
 
-export type HomeJobsListFetchQuery = { __typename?: 'Query', batchV1JobsList?: { __typename?: 'BatchV1JobList', items: Array<{ __typename?: 'BatchV1Job', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } }>, metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
+export type HomeJobsListFetchQuery = { batchV1JobsList: { __typename: 'BatchV1JobList', items: Array<{ __typename: 'BatchV1Job', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } }>, metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
 
 export type HomeJobsListWatchSubscriptionVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type HomeJobsListWatchSubscription = { __typename?: 'Subscription', batchV1JobsWatch?: { __typename?: 'BatchV1JobsWatchEvent', type: WatchEventType, object?: { __typename?: 'BatchV1Job', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type HomeJobsListWatchSubscription = { batchV1JobsWatch: { __typename: 'BatchV1JobsWatchEvent', type: WatchEventType, object: { __typename: 'BatchV1Job', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type HomeNamespacesListFetchQueryVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
+  continue?: string | null | undefined;
 }>;
 
 
-export type HomeNamespacesListFetchQuery = { __typename?: 'Query', coreV1NamespacesList?: { __typename?: 'CoreV1NamespaceList', items: Array<{ __typename?: 'CoreV1Namespace', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } }>, metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
+export type HomeNamespacesListFetchQuery = { coreV1NamespacesList: { __typename: 'CoreV1NamespaceList', items: Array<{ __typename: 'CoreV1Namespace', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } }>, metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
 
 export type HomeNamespacesListWatchSubscriptionVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type HomeNamespacesListWatchSubscription = { __typename?: 'Subscription', coreV1NamespacesWatch?: { __typename?: 'CoreV1NamespacesWatchEvent', type: WatchEventType, object?: { __typename?: 'CoreV1Namespace', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type HomeNamespacesListWatchSubscription = { coreV1NamespacesWatch: { __typename: 'CoreV1NamespacesWatchEvent', type: WatchEventType, object: { __typename: 'CoreV1Namespace', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type HomePodsListFetchQueryVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
+  namespace?: string | null | undefined;
+  continue?: string | null | undefined;
 }>;
 
 
-export type HomePodsListFetchQuery = { __typename?: 'Query', coreV1PodsList?: { __typename?: 'CoreV1PodList', items: Array<{ __typename?: 'CoreV1Pod', id: string, status: { __typename?: 'CoreV1PodStatus', containerStatuses: Array<{ __typename?: 'CoreV1ContainerStatus', containerID: string, started?: boolean | null }> }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } }>, metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
+export type HomePodsListFetchQuery = { coreV1PodsList: { __typename: 'CoreV1PodList', items: Array<{ __typename: 'CoreV1Pod', id: string, status: { __typename: 'CoreV1PodStatus', containerStatuses: Array<{ __typename: 'CoreV1ContainerStatus', containerID: string, started: boolean | null }> }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } }>, metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
 
 export type HomePodsListWatchSubscriptionVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type HomePodsListWatchSubscription = { __typename?: 'Subscription', coreV1PodsWatch?: { __typename?: 'CoreV1PodsWatchEvent', type: WatchEventType, object?: { __typename?: 'CoreV1Pod', id: string, status: { __typename?: 'CoreV1PodStatus', containerStatuses: Array<{ __typename?: 'CoreV1ContainerStatus', containerID: string, started?: boolean | null }> }, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type HomePodsListWatchSubscription = { coreV1PodsWatch: { __typename: 'CoreV1PodsWatchEvent', type: WatchEventType, object: { __typename: 'CoreV1Pod', id: string, status: { __typename: 'CoreV1PodStatus', containerStatuses: Array<{ __typename: 'CoreV1ContainerStatus', containerID: string, started: boolean | null }> }, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type HomeReplicaSetsListFetchQueryVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
+  namespace?: string | null | undefined;
+  continue?: string | null | undefined;
 }>;
 
 
-export type HomeReplicaSetsListFetchQuery = { __typename?: 'Query', appsV1ReplicaSetsList?: { __typename?: 'AppsV1ReplicaSetList', items: Array<{ __typename?: 'AppsV1ReplicaSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } }>, metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
+export type HomeReplicaSetsListFetchQuery = { appsV1ReplicaSetsList: { __typename: 'AppsV1ReplicaSetList', items: Array<{ __typename: 'AppsV1ReplicaSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } }>, metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
 
 export type HomeReplicaSetsListWatchSubscriptionVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type HomeReplicaSetsListWatchSubscription = { __typename?: 'Subscription', appsV1ReplicaSetsWatch?: { __typename?: 'AppsV1ReplicaSetsWatchEvent', type: WatchEventType, object?: { __typename?: 'AppsV1ReplicaSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type HomeReplicaSetsListWatchSubscription = { appsV1ReplicaSetsWatch: { __typename: 'AppsV1ReplicaSetsWatchEvent', type: WatchEventType, object: { __typename: 'AppsV1ReplicaSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type HomeStatefulSetsListFetchQueryVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
+  namespace?: string | null | undefined;
+  continue?: string | null | undefined;
 }>;
 
 
-export type HomeStatefulSetsListFetchQuery = { __typename?: 'Query', appsV1StatefulSetsList?: { __typename?: 'AppsV1StatefulSetList', items: Array<{ __typename?: 'AppsV1StatefulSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } }>, metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
+export type HomeStatefulSetsListFetchQuery = { appsV1StatefulSetsList: { __typename: 'AppsV1StatefulSetList', items: Array<{ __typename: 'AppsV1StatefulSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } }>, metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
 
 export type HomeStatefulSetsListWatchSubscriptionVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type HomeStatefulSetsListWatchSubscription = { __typename?: 'Subscription', appsV1StatefulSetsWatch?: { __typename?: 'AppsV1StatefulSetsWatchEvent', type: WatchEventType, object?: { __typename?: 'AppsV1StatefulSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type HomeStatefulSetsListWatchSubscription = { appsV1StatefulSetsWatch: { __typename: 'AppsV1StatefulSetsWatchEvent', type: WatchEventType, object: { __typename: 'AppsV1StatefulSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type ClusterApiReadyWaitSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
+  kubeContext: string;
 }>;
 
 
-export type ClusterApiReadyWaitSubscription = { __typename?: 'Subscription', clusterAPIReadyWait: boolean };
+export type ClusterApiReadyWaitSubscription = { clusterAPIReadyWait: boolean };
 
 export type HelmInstallLatestMutationVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
 }>;
 
 
-export type HelmInstallLatestMutation = { __typename?: 'Mutation', helmInstallLatest?: { __typename?: 'HelmRelease', name: string, version: number, namespace: string, chart?: { __typename?: 'HelmChart', metadata?: { __typename?: 'HelmChartMetadata', name: string, version: string, appVersion: string } | null } | null } | null };
+export type HelmInstallLatestMutation = { helmInstallLatest: { __typename: 'HelmRelease', name: string, version: number, namespace: string, chart: { __typename: 'HelmChart', metadata: { __typename: 'HelmChartMetadata', name: string, version: string, appVersion: string } | null } | null } | null };
 
 export type HelmListReleasesQueryVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
 }>;
 
 
-export type HelmListReleasesQuery = { __typename?: 'Query', helmListReleases: Array<{ __typename?: 'HelmRelease', name: string, version: number, namespace: string, chart?: { __typename?: 'HelmChart', metadata?: { __typename?: 'HelmChartMetadata', name: string, version: string, appVersion: string } | null } | null }> };
+export type HelmListReleasesQuery = { helmListReleases: Array<{ __typename: 'HelmRelease', name: string, version: number, namespace: string, chart: { __typename: 'HelmChart', metadata: { __typename: 'HelmChartMetadata', name: string, version: string, appVersion: string } | null } | null }> };
 
 export type CliLatestVersionQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type CliLatestVersionQuery = { __typename?: 'Query', cliLatestVersion?: string | null };
+export type CliLatestVersionQuery = { cliLatestVersion: string | null };
 
 export type ClusterVersionStatusQueryVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
 }>;
 
 
-export type ClusterVersionStatusQuery = { __typename?: 'Query', clusterVersionStatus?: { __typename?: 'VersionStatus', currentVersion: string, latestVersion: string, updateAvailable: boolean } | null };
+export type ClusterVersionStatusQuery = { clusterVersionStatus: { __typename: 'VersionStatus', currentVersion: string, latestVersion: string, updateAvailable: boolean } | null };
 
 export type KubeConfigGetQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type KubeConfigGetQuery = { __typename?: 'Query', kubeConfigGet?: { __typename?: 'KubeConfig', currentContext: string, contexts: Array<{ __typename?: 'KubeConfigContext', name: string, cluster: string, namespace: string }> } | null };
+export type KubeConfigGetQuery = { kubeConfigGet: { __typename: 'KubeConfig', currentContext: string, contexts: Array<{ __typename: 'KubeConfigContext', name: string, cluster: string, namespace: string }> } | null };
 
 export type KubeConfigWatchSubscriptionVariables = Exact<{ [key: string]: never; }>;
 
 
-export type KubeConfigWatchSubscription = { __typename?: 'Subscription', kubeConfigWatch?: { __typename?: 'KubeConfigWatchEvent', type: WatchEventType, object?: { __typename?: 'KubeConfig', currentContext: string, contexts: Array<{ __typename?: 'KubeConfigContext', name: string, cluster: string, namespace: string }> } | null } | null };
+export type KubeConfigWatchSubscription = { kubeConfigWatch: { __typename: 'KubeConfigWatchEvent', type: WatchEventType, object: { __typename: 'KubeConfig', currentContext: string, contexts: Array<{ __typename: 'KubeConfigContext', name: string, cluster: string, namespace: string }> } | null } | null };
 
 export type KubernetesApiReadyWaitSubscriptionVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
+  kubeContext?: string | null | undefined;
 }>;
 
 
-export type KubernetesApiReadyWaitSubscription = { __typename?: 'Subscription', kubernetesAPIReadyWait: boolean };
+export type KubernetesApiReadyWaitSubscription = { kubernetesAPIReadyWait: boolean };
 
 export type LogRecordsFetchQueryVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  sources: Array<Scalars['String']['input']> | Scalars['String']['input'];
-  mode?: InputMaybe<LogRecordsQueryMode>;
-  since?: InputMaybe<Scalars['String']['input']>;
-  until?: InputMaybe<Scalars['String']['input']>;
-  after?: InputMaybe<Scalars['String']['input']>;
-  before?: InputMaybe<Scalars['String']['input']>;
-  grep?: InputMaybe<Scalars['String']['input']>;
-  sourceFilter?: InputMaybe<LogSourceFilter>;
-  limit?: InputMaybe<Scalars['Int']['input']>;
+  kubeContext?: string | null | undefined;
+  sources: Array<string> | string;
+  mode?: LogRecordsQueryMode | null | undefined;
+  since?: string | null | undefined;
+  until?: string | null | undefined;
+  after?: string | null | undefined;
+  before?: string | null | undefined;
+  grep?: string | null | undefined;
+  sourceFilter?: LogSourceFilter | null | undefined;
+  limit?: number | null | undefined;
 }>;
 
 
-export type LogRecordsFetchQuery = { __typename?: 'Query', logRecordsFetch?: { __typename?: 'LogRecordsQueryResponse', nextCursor?: string | null, records: Array<{ __typename?: 'LogRecord', timestamp: any, message: string, source: { __typename?: 'LogSource', namespace: string, podName: string, containerName: string, containerID: string, metadata: { __typename?: 'LogSourceMetadata', region: string, zone: string, os: string, arch: string, node: string } } }> } | null };
+export type LogRecordsFetchQuery = { logRecordsFetch: { __typename: 'LogRecordsQueryResponse', nextCursor: string | null, records: Array<{ __typename: 'LogRecord', timestamp: any, message: string, source: { __typename: 'LogSource', namespace: string, podName: string, containerName: string, containerID: string, metadata: { __typename: 'LogSourceMetadata', region: string, zone: string, os: string, arch: string, node: string } } }> } | null };
 
 export type LogRecordsFollowSubscriptionVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  sources: Array<Scalars['String']['input']> | Scalars['String']['input'];
-  since?: InputMaybe<Scalars['String']['input']>;
-  after?: InputMaybe<Scalars['String']['input']>;
-  grep?: InputMaybe<Scalars['String']['input']>;
-  sourceFilter?: InputMaybe<LogSourceFilter>;
+  kubeContext?: string | null | undefined;
+  sources: Array<string> | string;
+  since?: string | null | undefined;
+  after?: string | null | undefined;
+  grep?: string | null | undefined;
+  sourceFilter?: LogSourceFilter | null | undefined;
 }>;
 
 
-export type LogRecordsFollowSubscription = { __typename?: 'Subscription', logRecordsFollow?: { __typename?: 'LogRecord', timestamp: any, message: string, source: { __typename?: 'LogSource', namespace: string, podName: string, containerName: string, containerID: string, metadata: { __typename?: 'LogSourceMetadata', region: string, zone: string, os: string, arch: string, node: string } } } | null };
+export type LogRecordsFollowSubscription = { logRecordsFollow: { __typename: 'LogRecord', timestamp: any, message: string, source: { __typename: 'LogSource', namespace: string, podName: string, containerName: string, containerID: string, metadata: { __typename: 'LogSourceMetadata', region: string, zone: string, os: string, arch: string, node: string } } } | null };
 
 export type LogSourcesWatchSubscriptionVariables = Exact<{
-  kubeContext?: InputMaybe<Scalars['String']['input']>;
-  sources: Array<Scalars['String']['input']> | Scalars['String']['input'];
+  kubeContext?: string | null | undefined;
+  sources: Array<string> | string;
 }>;
 
 
-export type LogSourcesWatchSubscription = { __typename?: 'Subscription', logSourcesWatch?: { __typename?: 'LogSourceWatchEvent', type: WatchEventType, object?: { __typename?: 'LogSource', namespace: string, podName: string, containerName: string, containerID: string, metadata: { __typename?: 'LogSourceMetadata', region: string, zone: string, os: string, arch: string, node: string } } | null } | null };
+export type LogSourcesWatchSubscription = { logSourcesWatch: { __typename: 'LogSourceWatchEvent', type: WatchEventType, object: { __typename: 'LogSource', namespace: string, podName: string, containerName: string, containerID: string, metadata: { __typename: 'LogSourceMetadata', region: string, zone: string, os: string, arch: string, node: string } } | null } | null };
 
 export type ServerStatusKubernetesApiHealthzGetQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
+  kubeContext: string;
 }>;
 
 
-export type ServerStatusKubernetesApiHealthzGetQuery = { __typename?: 'Query', kubernetesAPIHealthzGet: { __typename?: 'HealthCheckResponse', status: HealthCheckStatus, message?: string | null, timestamp: any } };
+export type ServerStatusKubernetesApiHealthzGetQuery = { kubernetesAPIHealthzGet: { __typename: 'HealthCheckResponse', status: HealthCheckStatus, message: string | null, timestamp: any } };
 
 export type ServerStatusKubernetesApiHealthzWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
+  kubeContext: string;
 }>;
 
 
-export type ServerStatusKubernetesApiHealthzWatchSubscription = { __typename?: 'Subscription', kubernetesAPIHealthzWatch: { __typename?: 'HealthCheckResponse', status: HealthCheckStatus, message?: string | null, timestamp: any } };
+export type ServerStatusKubernetesApiHealthzWatchSubscription = { kubernetesAPIHealthzWatch: { __typename: 'HealthCheckResponse', status: HealthCheckStatus, message: string | null, timestamp: any } };
 
 export type ServerStatusClusterApiHealthzGetQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
+  kubeContext: string;
 }>;
 
 
-export type ServerStatusClusterApiHealthzGetQuery = { __typename?: 'Query', clusterAPIHealthzGet: { __typename?: 'HealthCheckResponse', status: HealthCheckStatus, message?: string | null, timestamp: any } };
+export type ServerStatusClusterApiHealthzGetQuery = { clusterAPIHealthzGet: { __typename: 'HealthCheckResponse', status: HealthCheckStatus, message: string | null, timestamp: any } };
 
 export type ServerStatusClusterApiHealthzWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
+  kubeContext: string;
 }>;
 
 
-export type ServerStatusClusterApiHealthzWatchSubscription = { __typename?: 'Subscription', clusterAPIHealthzWatch: { __typename?: 'HealthCheckResponse', status: HealthCheckStatus, message?: string | null, timestamp: any } };
+export type ServerStatusClusterApiHealthzWatchSubscription = { clusterAPIHealthzWatch: { __typename: 'HealthCheckResponse', status: HealthCheckStatus, message: string | null, timestamp: any } };
 
 export type SourcePickerCronJobsCountFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
 }>;
 
 
-export type SourcePickerCronJobsCountFetchQuery = { __typename?: 'Query', batchV1CronJobsList?: { __typename?: 'BatchV1CronJobList', items: Array<{ __typename?: 'BatchV1CronJob', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }>, metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string } } | null };
+export type SourcePickerCronJobsCountFetchQuery = { batchV1CronJobsList: { __typename: 'BatchV1CronJobList', items: Array<{ __typename: 'BatchV1CronJob', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }>, metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string } } | null };
 
 export type SourcePickerCronJobsCountWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type SourcePickerCronJobsCountWatchSubscription = { __typename?: 'Subscription', batchV1CronJobsWatch?: { __typename?: 'BatchV1CronJobsWatchEvent', type: WatchEventType, object?: { __typename?: 'BatchV1CronJob', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } } | null } | null };
+export type SourcePickerCronJobsCountWatchSubscription = { batchV1CronJobsWatch: { __typename: 'BatchV1CronJobsWatchEvent', type: WatchEventType, object: { __typename: 'BatchV1CronJob', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } } | null } | null };
 
 export type SourcePickerDaemonSetsCountFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
 }>;
 
 
-export type SourcePickerDaemonSetsCountFetchQuery = { __typename?: 'Query', appsV1DaemonSetsList?: { __typename?: 'AppsV1DaemonSetList', items: Array<{ __typename?: 'AppsV1DaemonSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }>, metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string } } | null };
+export type SourcePickerDaemonSetsCountFetchQuery = { appsV1DaemonSetsList: { __typename: 'AppsV1DaemonSetList', items: Array<{ __typename: 'AppsV1DaemonSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }>, metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string } } | null };
 
 export type SourcePickerDaemonSetsCountWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type SourcePickerDaemonSetsCountWatchSubscription = { __typename?: 'Subscription', appsV1DaemonSetsWatch?: { __typename?: 'AppsV1DaemonSetsWatchEvent', type: WatchEventType, object?: { __typename?: 'AppsV1DaemonSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } } | null } | null };
+export type SourcePickerDaemonSetsCountWatchSubscription = { appsV1DaemonSetsWatch: { __typename: 'AppsV1DaemonSetsWatchEvent', type: WatchEventType, object: { __typename: 'AppsV1DaemonSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } } | null } | null };
 
 export type SourcePickerDeploymentsCountFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
 }>;
 
 
-export type SourcePickerDeploymentsCountFetchQuery = { __typename?: 'Query', appsV1DeploymentsList?: { __typename?: 'AppsV1DeploymentList', items: Array<{ __typename?: 'AppsV1Deployment', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }>, metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string } } | null };
+export type SourcePickerDeploymentsCountFetchQuery = { appsV1DeploymentsList: { __typename: 'AppsV1DeploymentList', items: Array<{ __typename: 'AppsV1Deployment', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }>, metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string } } | null };
 
 export type SourcePickerDeploymentsCountWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type SourcePickerDeploymentsCountWatchSubscription = { __typename?: 'Subscription', appsV1DeploymentsWatch?: { __typename?: 'AppsV1DeploymentsWatchEvent', type: WatchEventType, object?: { __typename?: 'AppsV1Deployment', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } } | null } | null };
+export type SourcePickerDeploymentsCountWatchSubscription = { appsV1DeploymentsWatch: { __typename: 'AppsV1DeploymentsWatchEvent', type: WatchEventType, object: { __typename: 'AppsV1Deployment', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } } | null } | null };
 
 export type SourcePickerJobsCountFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
 }>;
 
 
-export type SourcePickerJobsCountFetchQuery = { __typename?: 'Query', batchV1JobsList?: { __typename?: 'BatchV1JobList', items: Array<{ __typename?: 'BatchV1Job', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }>, metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string } } | null };
+export type SourcePickerJobsCountFetchQuery = { batchV1JobsList: { __typename: 'BatchV1JobList', items: Array<{ __typename: 'BatchV1Job', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }>, metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string } } | null };
 
 export type SourcePickerJobsCountWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type SourcePickerJobsCountWatchSubscription = { __typename?: 'Subscription', batchV1JobsWatch?: { __typename?: 'BatchV1JobsWatchEvent', type: WatchEventType, object?: { __typename?: 'BatchV1Job', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } } | null } | null };
+export type SourcePickerJobsCountWatchSubscription = { batchV1JobsWatch: { __typename: 'BatchV1JobsWatchEvent', type: WatchEventType, object: { __typename: 'BatchV1Job', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } } | null } | null };
 
 export type SourcePickerPodsCountFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
 }>;
 
 
-export type SourcePickerPodsCountFetchQuery = { __typename?: 'Query', coreV1PodsList?: { __typename?: 'CoreV1PodList', items: Array<{ __typename?: 'CoreV1Pod', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }>, metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string } } | null };
+export type SourcePickerPodsCountFetchQuery = { coreV1PodsList: { __typename: 'CoreV1PodList', items: Array<{ __typename: 'CoreV1Pod', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }>, metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string } } | null };
 
 export type SourcePickerPodsCountWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type SourcePickerPodsCountWatchSubscription = { __typename?: 'Subscription', coreV1PodsWatch?: { __typename?: 'CoreV1PodsWatchEvent', type: WatchEventType, object?: { __typename?: 'CoreV1Pod', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } } | null } | null };
+export type SourcePickerPodsCountWatchSubscription = { coreV1PodsWatch: { __typename: 'CoreV1PodsWatchEvent', type: WatchEventType, object: { __typename: 'CoreV1Pod', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } } | null } | null };
 
 export type SourcePickerReplicaSetsCountFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
 }>;
 
 
-export type SourcePickerReplicaSetsCountFetchQuery = { __typename?: 'Query', appsV1ReplicaSetsList?: { __typename?: 'AppsV1ReplicaSetList', items: Array<{ __typename?: 'AppsV1ReplicaSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }>, metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string } } | null };
+export type SourcePickerReplicaSetsCountFetchQuery = { appsV1ReplicaSetsList: { __typename: 'AppsV1ReplicaSetList', items: Array<{ __typename: 'AppsV1ReplicaSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }>, metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string } } | null };
 
 export type SourcePickerReplicaSetsCountWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type SourcePickerReplicaSetsCountWatchSubscription = { __typename?: 'Subscription', appsV1ReplicaSetsWatch?: { __typename?: 'AppsV1ReplicaSetsWatchEvent', type: WatchEventType, object?: { __typename?: 'AppsV1ReplicaSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } } | null } | null };
+export type SourcePickerReplicaSetsCountWatchSubscription = { appsV1ReplicaSetsWatch: { __typename: 'AppsV1ReplicaSetsWatchEvent', type: WatchEventType, object: { __typename: 'AppsV1ReplicaSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } } | null } | null };
 
 export type SourcePickerStatefulSetsCountFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
 }>;
 
 
-export type SourcePickerStatefulSetsCountFetchQuery = { __typename?: 'Query', appsV1StatefulSetsList?: { __typename?: 'AppsV1StatefulSetList', items: Array<{ __typename?: 'AppsV1StatefulSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } }>, metadata: { __typename?: 'MetaV1ListMeta', remainingItemCount?: any | null, resourceVersion: string } } | null };
+export type SourcePickerStatefulSetsCountFetchQuery = { appsV1StatefulSetsList: { __typename: 'AppsV1StatefulSetList', items: Array<{ __typename: 'AppsV1StatefulSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } }>, metadata: { __typename: 'MetaV1ListMeta', remainingItemCount: any, resourceVersion: string } } | null };
 
 export type SourcePickerStatefulSetsCountWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type SourcePickerStatefulSetsCountWatchSubscription = { __typename?: 'Subscription', appsV1StatefulSetsWatch?: { __typename?: 'AppsV1StatefulSetsWatchEvent', type: WatchEventType, object?: { __typename?: 'AppsV1StatefulSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', resourceVersion: string } } | null } | null };
+export type SourcePickerStatefulSetsCountWatchSubscription = { appsV1StatefulSetsWatch: { __typename: 'AppsV1StatefulSetsWatchEvent', type: WatchEventType, object: { __typename: 'AppsV1StatefulSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', resourceVersion: string } } | null } | null };
 
 export type SourcePickerCronJobsListFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  continue?: string | null | undefined;
 }>;
 
 
-export type SourcePickerCronJobsListFetchQuery = { __typename?: 'Query', batchV1CronJobsList?: { __typename?: 'BatchV1CronJobList', items: Array<{ __typename?: 'BatchV1CronJob', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } }>, metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
+export type SourcePickerCronJobsListFetchQuery = { batchV1CronJobsList: { __typename: 'BatchV1CronJobList', items: Array<{ __typename: 'BatchV1CronJob', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } }>, metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
 
 export type SourcePickerCronJobsListWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type SourcePickerCronJobsListWatchSubscription = { __typename?: 'Subscription', batchV1CronJobsWatch?: { __typename?: 'BatchV1CronJobsWatchEvent', type: WatchEventType, object?: { __typename?: 'BatchV1CronJob', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } } | null } | null };
+export type SourcePickerCronJobsListWatchSubscription = { batchV1CronJobsWatch: { __typename: 'BatchV1CronJobsWatchEvent', type: WatchEventType, object: { __typename: 'BatchV1CronJob', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } } | null } | null };
 
 export type SourcePickerDaemonSetsListFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  continue?: string | null | undefined;
 }>;
 
 
-export type SourcePickerDaemonSetsListFetchQuery = { __typename?: 'Query', appsV1DaemonSetsList?: { __typename?: 'AppsV1DaemonSetList', items: Array<{ __typename?: 'AppsV1DaemonSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } }>, metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
+export type SourcePickerDaemonSetsListFetchQuery = { appsV1DaemonSetsList: { __typename: 'AppsV1DaemonSetList', items: Array<{ __typename: 'AppsV1DaemonSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } }>, metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
 
 export type SourcePickerDaemonSetsListWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type SourcePickerDaemonSetsListWatchSubscription = { __typename?: 'Subscription', appsV1DaemonSetsWatch?: { __typename?: 'AppsV1DaemonSetsWatchEvent', type: WatchEventType, object?: { __typename?: 'AppsV1DaemonSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } } | null } | null };
+export type SourcePickerDaemonSetsListWatchSubscription = { appsV1DaemonSetsWatch: { __typename: 'AppsV1DaemonSetsWatchEvent', type: WatchEventType, object: { __typename: 'AppsV1DaemonSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } } | null } | null };
 
 export type SourcePickerDeploymentsListFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  continue?: string | null | undefined;
 }>;
 
 
-export type SourcePickerDeploymentsListFetchQuery = { __typename?: 'Query', appsV1DeploymentsList?: { __typename?: 'AppsV1DeploymentList', items: Array<{ __typename?: 'AppsV1Deployment', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } }>, metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
+export type SourcePickerDeploymentsListFetchQuery = { appsV1DeploymentsList: { __typename: 'AppsV1DeploymentList', items: Array<{ __typename: 'AppsV1Deployment', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } }>, metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
 
 export type SourcePickerDeploymentsListWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type SourcePickerDeploymentsListWatchSubscription = { __typename?: 'Subscription', appsV1DeploymentsWatch?: { __typename?: 'AppsV1DeploymentsWatchEvent', type: WatchEventType, object?: { __typename?: 'AppsV1Deployment', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } } | null } | null };
+export type SourcePickerDeploymentsListWatchSubscription = { appsV1DeploymentsWatch: { __typename: 'AppsV1DeploymentsWatchEvent', type: WatchEventType, object: { __typename: 'AppsV1Deployment', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } } | null } | null };
 
 export type SourcePickerJobsListFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  continue?: string | null | undefined;
 }>;
 
 
-export type SourcePickerJobsListFetchQuery = { __typename?: 'Query', batchV1JobsList?: { __typename?: 'BatchV1JobList', items: Array<{ __typename?: 'BatchV1Job', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } }>, metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
+export type SourcePickerJobsListFetchQuery = { batchV1JobsList: { __typename: 'BatchV1JobList', items: Array<{ __typename: 'BatchV1Job', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } }>, metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
 
 export type SourcePickerJobsListWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type SourcePickerJobsListWatchSubscription = { __typename?: 'Subscription', batchV1JobsWatch?: { __typename?: 'BatchV1JobsWatchEvent', type: WatchEventType, object?: { __typename?: 'BatchV1Job', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } } | null } | null };
+export type SourcePickerJobsListWatchSubscription = { batchV1JobsWatch: { __typename: 'BatchV1JobsWatchEvent', type: WatchEventType, object: { __typename: 'BatchV1Job', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } } | null } | null };
 
 export type SourcePickerNamespacesListFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  continue?: string | null | undefined;
 }>;
 
 
-export type SourcePickerNamespacesListFetchQuery = { __typename?: 'Query', coreV1NamespacesList?: { __typename?: 'CoreV1NamespaceList', items: Array<{ __typename?: 'CoreV1Namespace', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } }>, metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
+export type SourcePickerNamespacesListFetchQuery = { coreV1NamespacesList: { __typename: 'CoreV1NamespaceList', items: Array<{ __typename: 'CoreV1Namespace', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } }>, metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
 
 export type SourcePickerNamespacesListWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type SourcePickerNamespacesListWatchSubscription = { __typename?: 'Subscription', coreV1NamespacesWatch?: { __typename?: 'CoreV1NamespacesWatchEvent', type: WatchEventType, object?: { __typename?: 'CoreV1Namespace', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } } | null } | null };
+export type SourcePickerNamespacesListWatchSubscription = { coreV1NamespacesWatch: { __typename: 'CoreV1NamespacesWatchEvent', type: WatchEventType, object: { __typename: 'CoreV1Namespace', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } } | null } | null };
 
 export type SourcePickerPodsListFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  continue?: string | null | undefined;
 }>;
 
 
-export type SourcePickerPodsListFetchQuery = { __typename?: 'Query', coreV1PodsList?: { __typename?: 'CoreV1PodList', items: Array<{ __typename?: 'CoreV1Pod', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } }>, metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
+export type SourcePickerPodsListFetchQuery = { coreV1PodsList: { __typename: 'CoreV1PodList', items: Array<{ __typename: 'CoreV1Pod', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } }>, metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
 
 export type SourcePickerPodsListWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type SourcePickerPodsListWatchSubscription = { __typename?: 'Subscription', coreV1PodsWatch?: { __typename?: 'CoreV1PodsWatchEvent', type: WatchEventType, object?: { __typename?: 'CoreV1Pod', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } } | null } | null };
+export type SourcePickerPodsListWatchSubscription = { coreV1PodsWatch: { __typename: 'CoreV1PodsWatchEvent', type: WatchEventType, object: { __typename: 'CoreV1Pod', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } } | null } | null };
 
 export type SourcePickerReplicaSetsListFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  continue?: string | null | undefined;
 }>;
 
 
-export type SourcePickerReplicaSetsListFetchQuery = { __typename?: 'Query', appsV1ReplicaSetsList?: { __typename?: 'AppsV1ReplicaSetList', items: Array<{ __typename?: 'AppsV1ReplicaSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } }>, metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
+export type SourcePickerReplicaSetsListFetchQuery = { appsV1ReplicaSetsList: { __typename: 'AppsV1ReplicaSetList', items: Array<{ __typename: 'AppsV1ReplicaSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } }>, metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
 
 export type SourcePickerReplicaSetsListWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type SourcePickerReplicaSetsListWatchSubscription = { __typename?: 'Subscription', appsV1ReplicaSetsWatch?: { __typename?: 'AppsV1ReplicaSetsWatchEvent', type: WatchEventType, object?: { __typename?: 'AppsV1ReplicaSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } } | null } | null };
+export type SourcePickerReplicaSetsListWatchSubscription = { appsV1ReplicaSetsWatch: { __typename: 'AppsV1ReplicaSetsWatchEvent', type: WatchEventType, object: { __typename: 'AppsV1ReplicaSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } } | null } | null };
 
 export type SourcePickerStatefulSetsListFetchQueryVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  continue?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  continue?: string | null | undefined;
 }>;
 
 
-export type SourcePickerStatefulSetsListFetchQuery = { __typename?: 'Query', appsV1StatefulSetsList?: { __typename?: 'AppsV1StatefulSetList', items: Array<{ __typename?: 'AppsV1StatefulSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string } }>, metadata: { __typename?: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
+export type SourcePickerStatefulSetsListFetchQuery = { appsV1StatefulSetsList: { __typename: 'AppsV1StatefulSetList', items: Array<{ __typename: 'AppsV1StatefulSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string } }>, metadata: { __typename: 'MetaV1ListMeta', continue: string, resourceVersion: string } } | null };
 
 export type SourcePickerStatefulSetsListWatchSubscriptionVariables = Exact<{
-  kubeContext: Scalars['String']['input'];
-  namespace?: InputMaybe<Scalars['String']['input']>;
-  resourceVersion?: InputMaybe<Scalars['String']['input']>;
+  kubeContext: string;
+  namespace?: string | null | undefined;
+  resourceVersion?: string | null | undefined;
 }>;
 
 
-export type SourcePickerStatefulSetsListWatchSubscription = { __typename?: 'Subscription', appsV1StatefulSetsWatch?: { __typename?: 'AppsV1StatefulSetsWatchEvent', type: WatchEventType, object?: { __typename?: 'AppsV1StatefulSet', id: string, metadata: { __typename?: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp?: any | null, resourceVersion: string, ownerReferences: Array<{ __typename?: 'MetaV1OwnerReference', name: string, uid: string, controller?: boolean | null }> } } | null } | null };
+export type SourcePickerStatefulSetsListWatchSubscription = { appsV1StatefulSetsWatch: { __typename: 'AppsV1StatefulSetsWatchEvent', type: WatchEventType, object: { __typename: 'AppsV1StatefulSet', id: string, metadata: { __typename: 'MetaV1ObjectMeta', namespace: string, name: string, uid: string, creationTimestamp: any, deletionTimestamp: any, resourceVersion: string, ownerReferences: Array<{ __typename: 'MetaV1OwnerReference', name: string, uid: string, controller: boolean | null }> } } | null } | null };
 
 export type PreferencesGetQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type PreferencesGetQuery = { __typename?: 'Query', preferencesGet: { __typename?: 'Preferences', version: number, theme?: string | null, timezone?: string | null, timestampFormat?: string | null } };
+export type PreferencesGetQuery = { preferencesGet: { __typename: 'Preferences', version: number, theme: string | null, timezone: string | null, timestampFormat: string | null } };
 
 export type PreferencesUpdateMutationVariables = Exact<{
   input: PreferencesInput;
 }>;
 
 
-export type PreferencesUpdateMutation = { __typename?: 'Mutation', preferencesUpdate: { __typename?: 'Preferences', version: number, theme?: string | null, timezone?: string | null, timestampFormat?: string | null } };
+export type PreferencesUpdateMutation = { preferencesUpdate: { __typename: 'Preferences', version: number, theme: string | null, timezone: string | null, timestampFormat: string | null } };
 
 export const ConsoleLoggingResourcesGenericObjectFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ConsoleLoggingResourcesGenericObjectFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Object"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"metadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"namespace"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"uid"}},{"kind":"Field","name":{"kind":"Name","value":"creationTimestamp"}},{"kind":"Field","name":{"kind":"Name","value":"deletionTimestamp"}},{"kind":"Field","name":{"kind":"Name","value":"resourceVersion"}},{"kind":"Field","name":{"kind":"Name","value":"ownerReferences"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"uid"}},{"kind":"Field","name":{"kind":"Name","value":"controller"}}]}}]}}]}}]} as unknown as DocumentNode<ConsoleLoggingResourcesGenericObjectFragmentFragment, unknown>;
 export const ConsoleLoggingResourcesCronJobFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ConsoleLoggingResourcesCronJobFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"BatchV1CronJob"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ConsoleLoggingResourcesGenericObjectFragment"}},{"kind":"Field","name":{"kind":"Name","value":"spec"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"jobTemplate"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"spec"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"selector"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"matchLabels"}}]}}]}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ConsoleLoggingResourcesGenericObjectFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Object"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"metadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"namespace"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"uid"}},{"kind":"Field","name":{"kind":"Name","value":"creationTimestamp"}},{"kind":"Field","name":{"kind":"Name","value":"deletionTimestamp"}},{"kind":"Field","name":{"kind":"Name","value":"resourceVersion"}},{"kind":"Field","name":{"kind":"Name","value":"ownerReferences"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"uid"}},{"kind":"Field","name":{"kind":"Name","value":"controller"}}]}}]}}]}}]} as unknown as DocumentNode<ConsoleLoggingResourcesCronJobFragmentFragment, unknown>;
