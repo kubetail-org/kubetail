@@ -101,8 +101,8 @@ importers:
         specifier: ^7.17.0
         version: 7.17.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react-router-dom:
-        specifier: 7.14.0
-        version: 7.14.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: 7.17.0
+        version: 7.17.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react-timeago:
         specifier: ^8.3.0
         version: 8.3.0(react@19.2.7)
@@ -3388,22 +3388,12 @@ packages:
   react-is@17.0.2:
     resolution: {integrity: sha512-w2GsyukL62IJnlaff/nRegPQR94C/XXamvMWmSHRJ4y7Ts/4ocGRmTHvOs8PSE6pB3dWOrD/nueuU5sduBsQ4w==}
 
-  react-router-dom@7.14.0:
-    resolution: {integrity: sha512-2G3ajSVSZMEtmTjIklRWlNvo8wICEpLihfD/0YMDxbWK2UyP5EGfnoIn9AIQGnF3G/FX0MRbHXdFcD+rL1ZreQ==}
+  react-router-dom@7.17.0:
+    resolution: {integrity: sha512-fyU2yjGups/hE6Xz0I5ZYbVL8Gx29eCjgpHaRaTaVU+OOAdfRX05KsvyRm0GO8YQwOkhpU3MurW1jyMUJn+zSw==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       react: '>=18'
       react-dom: '>=18'
-
-  react-router@7.14.0:
-    resolution: {integrity: sha512-m/xR9N4LQLmAS0ZhkY2nkPA1N7gQ5TUVa5n8TgANuDTARbn1gt+zLPXEm7W0XDTbrQ2AJSJKhoa6yx1D8BcpxQ==}
-    engines: {node: '>=20.0.0'}
-    peerDependencies:
-      react: '>=18'
-      react-dom: '>=18'
-    peerDependenciesMeta:
-      react-dom:
-        optional: true
 
   react-router@7.17.0:
     resolution: {integrity: sha512-FDELK7rTMlCHO5+reyXsPlmfr7N1F91lPHsWYfMEGQm/KQ+F4JFM8jGoeQDmDvdTs93Fw9aSilH+uKRb4/jXvQ==}
@@ -7443,19 +7433,11 @@ snapshots:
 
   react-is@17.0.2: {}
 
-  react-router-dom@7.14.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
+  react-router-dom@7.17.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
     dependencies:
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
-      react-router: 7.14.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-
-  react-router@7.14.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
-    dependencies:
-      cookie: 1.1.1
-      react: 19.2.7
-      set-cookie-parser: 2.7.2
-    optionalDependencies:
-      react-dom: 19.2.7(react@19.2.7)
+      react-router: 7.17.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
 
   react-router@7.17.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
     dependencies:
