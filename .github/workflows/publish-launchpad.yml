@@ -105,6 +105,9 @@ jobs:
           # source/options
           cp "${SRC_DIR}/source/options" "${DST_DIR}/source/options"
 
+          # source/lintian-overrides
+          cp "${SRC_DIR}/source/lintian-overrides" "${DST_DIR}/source/lintian-overrides"
+
       - name: Configure gpg
         uses: crazy-max/ghaction-import-gpg@v6.3.0
         with:
@@ -120,7 +123,6 @@ jobs:
           DEBFULLNAME: ${{ vars.KUBETAIL_BOT_NAME}}
           DEBEMAIL: ${{ vars.KUBETAIL_BOT_EMAIL }}
         run: |
-          FIRST_SERIES=true
           for SERIES in ${{ steps.config.outputs.series }}; do
             export PKG_VERSION="${VERSION}-${{ steps.config.outputs.debian_revision }}~${SERIES}1"
 
@@ -134,17 +136,15 @@ jobs:
               < "${SRC_DIR}/control.tmpl" \
               > debian/control
 
-            if [ "${FIRST_SERIES}" = "true" ]; then
-              DCH_FLAGS="--create --package kubetail-cli"
-              DEBUILD_FLAGS="-sa"
-              FIRST_SERIES=false
-            else
-              DCH_FLAGS=""
-              DEBUILD_FLAGS="-sd"
-            fi
+            # Fresh single-entry changelog per series (each is an independent
+            # -sa upload). rm makes --create idempotent across iterations.
+            rm -f debian/changelog
 
-            dch ${DCH_FLAGS} -D "${SERIES}" -v "${PKG_VERSION}" "Initial release for ${SERIES}."
-            debuild ${DEBUILD_FLAGS} -S -d -k"${{ vars.KUBETAIL_BOT_GPG_SIGNING_KEY_FINGERPRINT }}"
+            # -sa for every series: the per-run orig tarball isn't reproducible,
+            # so a diff-only (-sd) upload's .dsc wouldn't match Launchpad's orig
+            # and gets rejected (550). Re-sends are de-duplicated.
+            dch --create --package kubetail-cli -D "${SERIES}" -v "${PKG_VERSION}" "Initial release for ${SERIES}."
+            debuild -sa -S -d -k"${{ vars.KUBETAIL_BOT_GPG_SIGNING_KEY_FINGERPRINT }}"
 
             if [ "${{ steps.config.outputs.dry_run }}" = "false" ]; then
               dput ppa:kubetail/kubetail "../kubetail-cli_${PKG_VERSION}_source.changes"
