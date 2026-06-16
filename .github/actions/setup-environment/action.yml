@@ -59,6 +59,8 @@ runs:
     - name: Set up PNPM
       if: inputs.setup-node == 'true'
       uses: pnpm/action-setup@v4
+      with:
+        package_json_file: dashboard-ui/package.json
 
     - name: Set up Node.js
       if: inputs.setup-node == 'true'
