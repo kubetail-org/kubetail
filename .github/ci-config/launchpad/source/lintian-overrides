@@ -1,4 +1,3 @@
 # Minified JS from the embedded dashboard UI (built artifacts). Source lives in
 # dashboard-ui/ upstream and isn't part of the CLI source package.
-source-is-missing modules/cli/vendor/github.com/kubetail-org/kubetail/modules/dashboard/website/assets/*
-source-is-missing modules/dashboard/website/assets/*
+source-is-missing *website/assets/*
