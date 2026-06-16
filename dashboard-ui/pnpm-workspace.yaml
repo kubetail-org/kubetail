@@ -3,7 +3,7 @@ allowBuilds:
   unrs-resolver: true
 minimumReleaseAge: 14400
 minimumReleaseAgeExclude:
-  - '@kubetail/ui@3.0.0'
+  - "@kubetail/ui"
 overrides:
   "@eslint/plugin-kit": "^0.3.5"
   "@isaacs/brace-expansion": "^5.0.1"
