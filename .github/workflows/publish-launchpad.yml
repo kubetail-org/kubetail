@@ -115,21 +115,6 @@ jobs:
           passphrase: ${{ secrets.KUBETAIL_BOT_GPG_PASSWORD }}
           fingerprint: ${{ vars.KUBETAIL_BOT_GPG_SIGNING_KEY_FINGERPRINT }}
 
-      - name: Configure dput
-        run: |
-          # Upload over HTTPS, not FTP. Launchpad's FTP endpoint intermittently
-          # rejects uploads with "550 internal server error" (LP #2043679),
-          # which is what fails the second series each run. HTTPS is reliable
-          # and uses the same GPG-based authentication.
-          cat > ~/.dput.cf <<'EOF'
-          [kubetail-ppa]
-          fqdn = upload.launchpad.net
-          method = https
-          incoming = ~kubetail/ubuntu/kubetail/
-          login = anonymous
-          allow_unsigned_uploads = 0
-          EOF
-
       - name: Build and push packages
         working-directory: work/kubetail-cli-${{ steps.config.outputs.version }}
         env:
@@ -161,7 +146,7 @@ jobs:
             debuild -sa -S -d -k"${{ vars.KUBETAIL_BOT_GPG_SIGNING_KEY_FINGERPRINT }}"
 
             if [ "${{ steps.config.outputs.dry_run }}" = "false" ]; then
-              dput kubetail-ppa "../kubetail-cli_${PKG_VERSION}_source.changes"
+              dput ppa:kubetail/kubetail "../kubetail-cli_${PKG_VERSION}_source.changes"
             else
               cat debian/control
               cat debian/changelog

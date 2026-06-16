@@ -1,3 +1,0 @@
-# Minified JS from the embedded dashboard UI (built artifacts). Source lives in
-# dashboard-ui/ upstream and isn't part of the CLI source package.
-source-is-missing *website/assets/*
