@@ -55,15 +55,17 @@ const SettingsDropdown = ({ defaultKubeContext = null }: SettingsDropdownProps) 
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button ref={triggerRef} size="sm" variant="outline" className="bg-transparent border-input mb-2">
-            <Settings size={18} strokeWidth={1.5} />
-            Settings
-          </Button>
-        </DropdownMenuTrigger>
+        <DropdownMenuTrigger
+          render={
+            <Button ref={triggerRef} size="sm" variant="outline" className="bg-transparent border-input mb-2">
+              <Settings size={18} strokeWidth={1.5} />
+              Settings
+            </Button>
+          }
+        />
         <DropdownMenuContent align="start" style={{ width }}>
           <DropdownMenuGroup>
-            <DropdownMenuItem onSelect={() => setIsDialogOpen(true)}>Cluster Settings</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setIsDialogOpen(true)}>Cluster Settings</DropdownMenuItem>
           </DropdownMenuGroup>
           {appConfig.authMode === 'token' && (
             <>

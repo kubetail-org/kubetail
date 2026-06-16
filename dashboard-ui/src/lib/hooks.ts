@@ -205,7 +205,7 @@ interface ListQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables
   queryDataKey: keyof TQData;
   subscriptionDataKey: keyof TSData;
   skip?: boolean;
-  variables?: TQVariables;
+  variables: TQVariables;
 }
 
 export function useListQueryWithSubscription<
@@ -221,7 +221,7 @@ export function useListQueryWithSubscription<
     args.query,
     {
       skip: args.skip,
-      variables: args.variables as TQVariables,
+      variables: args.variables,
     },
   );
 
@@ -232,7 +232,7 @@ export function useListQueryWithSubscription<
   }, [error, startPolling, stopPolling]);
 
   // TODO: tighten `any`
-  const respData = data ? (data[args.queryDataKey] as GenericListFragment) : null;
+  const respData = data ? ((data as TQData)[args.queryDataKey] as GenericListFragment) : null;
 
   // fetch rest
   const fetchMoreRef = useRef(new Set<string>([]));
@@ -244,7 +244,7 @@ export function useListQueryWithSubscription<
         variables: {
           ...args.variables,
           continue: continueVal,
-        } as unknown as Partial<TQVariables>,
+        },
       });
     }
   }, [continueVal]);
@@ -347,7 +347,7 @@ interface CounterQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariab
   queryDataKey: keyof TQData;
   subscriptionDataKey: keyof TSData;
   skip?: boolean;
-  variables?: TQVariables;
+  variables: TQVariables;
 }
 
 export function useCounterQueryWithSubscription<
@@ -359,7 +359,7 @@ export function useCounterQueryWithSubscription<
   // initial query
   const { loading, error, data, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(args.query, {
     skip: args.skip,
-    variables: args.variables as TQVariables,
+    variables: args.variables,
   });
 
   // Retry on error
@@ -368,7 +368,7 @@ export function useCounterQueryWithSubscription<
     else stopPolling();
   }, [error, startPolling, stopPolling]);
 
-  const respData = data ? (data[args.queryDataKey] as GenericCounterFragment) : null;
+  const respData = data ? ((data as TQData)[args.queryDataKey] as GenericCounterFragment) : null;
 
   // subscribe to changes
   useEffect(() => {

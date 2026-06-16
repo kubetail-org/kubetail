@@ -371,15 +371,17 @@ export const DownloadDialog = (props: DownloadDialogProps) => {
                   />
                   Between
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-foreground"
-                        aria-label="Supported timestamp formats"
-                      >
-                        <InfoIcon size={14} />
-                      </button>
-                    </TooltipTrigger>
+                    <TooltipTrigger
+                      render={
+                        <button
+                          type="button"
+                          className="text-muted-foreground hover:text-foreground"
+                          aria-label="Supported timestamp formats"
+                        >
+                          <InfoIcon size={14} />
+                        </button>
+                      }
+                    />
                     <TooltipContent side="right" className="max-w-none">
                       <div className="font-semibold mb-1">Supported formats</div>
                       <ul className="font-mono text-xs space-y-0.5 whitespace-nowrap">
@@ -514,9 +516,7 @@ export const DownloadDialog = (props: DownloadDialogProps) => {
           </section>
         </div>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="secondary">Cancel</Button>
-          </DialogClose>
+          <DialogClose render={<Button variant="secondary">Cancel</Button>} />
           <Button onClick={handleSubmit} disabled={!logServerClient}>
             Download
           </Button>

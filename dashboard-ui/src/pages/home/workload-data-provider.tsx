@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import type { TypedDocumentNode } from '@apollo/client';
 import { useSubscription } from '@apollo/client/react';
 import { useSetAtom } from 'jotai';
 import { useEffect } from 'react';
@@ -45,14 +46,25 @@ import {
 import { useListQueryWithSubscription } from '@/lib/hooks';
 import { WorkloadKind, ALL_WORKLOAD_KINDS } from '@/lib/workload';
 
-import type { KubeContext } from './shared';
+import type { KubeContext, WorkloadItem } from './shared';
 import { workloadQueryAtomFamilies } from './state';
 
 /**
  * WorkloadDataFetcher component
  */
 
-const workloadQueryConfig = {
+// Each workload kind selects a different top-level field, so the per-kind query
+// result types are mutually incompatible. This shared entry type lets a single
+// dynamic dispatch site consume any of them without a union over documents.
+type WorkloadQueryConfigEntry = {
+  query: TypedDocumentNode<any, any>;
+  subscription: TypedDocumentNode<any, any>;
+  queryDataKey: string;
+  subscriptionDataKey: string;
+  getItems: (data: any) => WorkloadItem[] | undefined;
+};
+
+const workloadQueryConfig: Record<WorkloadKind, WorkloadQueryConfigEntry> = {
   [WorkloadKind.CRONJOBS]: {
     query: HOME_CRONJOBS_LIST_FETCH,
     subscription: HOME_CRONJOBS_LIST_WATCH,
@@ -124,9 +136,7 @@ const WorkloadDataFetcher = ({ kind, kubeContext }: WorkloadDataFetcherProps) =>
     skip: !isReady,
     query: cfg.query,
     subscription: cfg.subscription,
-    // @ts-expect-error
     queryDataKey: cfg.queryDataKey,
-    // @ts-expect-error
     subscriptionDataKey: cfg.subscriptionDataKey,
     variables: { kubeContext },
   });

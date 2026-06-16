@@ -38,7 +38,9 @@ export const mocks: MockedResponse[] = [
     result: {
       data: {
         coreV1NodesList: {
+          __typename: 'CoreV1NodeList',
           metadata: {
+            __typename: 'MetaV1ListMeta',
             continue: '',
             resourceVersion: 'v1',
           },
@@ -78,6 +80,7 @@ export const mocks: MockedResponse[] = [
     result: {
       data: {
         logRecordsFetch: {
+          __typename: 'LogRecordsQueryResponse',
           records: [],
           nextCursor: null,
         },
@@ -93,6 +96,7 @@ export const mocks: MockedResponse[] = [
     result: {
       data: {
         logRecordsFetch: {
+          __typename: 'LogRecordsQueryResponse',
           records: [],
           nextCursor: null,
         },
@@ -120,7 +124,7 @@ export const mocks: MockedResponse[] = [
     },
     result: {
       data: {
-        livezWatch: {
+        kubernetesAPIHealthzWatch: {
           __typename: 'HealthCheckResponse',
           status: 'SUCCESS',
           message: null,

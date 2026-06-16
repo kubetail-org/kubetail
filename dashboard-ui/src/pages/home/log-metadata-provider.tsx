@@ -19,13 +19,18 @@ import { useEffect, useMemo, useRef } from 'react';
 import { getClusterAPIClient } from '@/apollo-client';
 import { CLUSTER_API_READY_WAIT } from '@/lib/graphql/dashboard/ops';
 import { LOG_METADATA_LIST_FETCH, LOG_METADATA_LIST_WATCH } from '@/lib/graphql/cluster-api/ops';
-import type { LogMetadataListFetchQuery, LogMetadataWatchEvent } from '@/lib/graphql/cluster-api/__generated__/graphql';
+import type {
+  LogMetadataListFetchQuery,
+  LogMetadataListWatchSubscription,
+} from '@/lib/graphql/cluster-api/__generated__/graphql';
 import { useIsClusterAPIEnabled } from '@/lib/hooks';
 
 import type { FileInfo, KubeContext } from './shared';
 import { logMetadataMapAtomFamily } from './state';
 
 const BATCH_INTERVAL_MS = 2000;
+
+type LogMetadataWatchEvent = NonNullable<LogMetadataListWatchSubscription['logMetadataWatch']>;
 
 /**
  * LogMetadataProvider component

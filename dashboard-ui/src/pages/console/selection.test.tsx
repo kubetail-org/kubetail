@@ -473,8 +473,7 @@ describe('useSelection', () => {
     store.set(visibleColsAtom, new Set([ViewerColumn.Message]));
     storeOverrides?.(store);
 
-    const virtualizerRef =
-      createRef<LogViewerVirtualizer | null>() as React.MutableRefObject<LogViewerVirtualizer | null>;
+    const virtualizerRef = createRef<LogViewerVirtualizer | null>();
     virtualizerRef.current = fakeVirtualizer;
 
     const result = renderHook(() => useSelection(virtualizerRef), {
@@ -2036,8 +2035,7 @@ describe('useSelectionKeyboard', () => {
     store.set(visibleColsAtom, new Set([ViewerColumn.Message]));
     storeOverrides?.(store);
 
-    const virtualizerRef =
-      createRef<LogViewerVirtualizer | null>() as React.MutableRefObject<LogViewerVirtualizer | null>;
+    const virtualizerRef = createRef<LogViewerVirtualizer | null>();
     virtualizerRef.current = fakeVirtualizer;
 
     const result = renderHook(

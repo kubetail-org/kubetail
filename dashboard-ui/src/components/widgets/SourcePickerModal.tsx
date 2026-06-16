@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { CheckedState } from '@radix-ui/react-checkbox';
+import type { TypedDocumentNode } from '@apollo/client';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
 import type { Cell, ColumnDef, Row, SortDirection, SortingState, TableMeta, TableOptions } from '@tanstack/react-table';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -98,7 +98,7 @@ const Sidebar = ({ workloadState }: SidebarProps) => {
   return (
     <ul className="text-[.85rem]">
       <li>
-        <div className="font-bold text-chrome-600 mt-[5px] mb-[12px]">Workloads</div>
+        <div className="font-bold mt-[5px] mb-[12px]">Workloads</div>
         <div>
           <ul className="inline-grid space-y-0">
             {ALL_WORKLOAD_KINDS.map((kind) => {
@@ -109,12 +109,12 @@ const Sidebar = ({ workloadState }: SidebarProps) => {
                     type="button"
                     className={cn(
                       'w-full px-[8px] py-[5px] cursor-pointer rounded-xs flex items-center',
-                      currWorkload === kind ? 'bg-chrome-300' : 'hover:bg-chrome-200',
+                      currWorkload === kind ? 'bg-sidebar-accent' : 'hover:bg-sidebar-accent/50',
                     )}
                     onClick={() => setCurrWorkload(kind)}
                   >
                     <Icon className="h-[18px] w-[18px] text-primary" />
-                    <div className="ml-1 text-chrome-700">
+                    <div className="ml-1">
                       {PLURAL_LABEL_MAP[kind]} {counter.has(kind) && `(${counter.get(kind)})`}
                     </div>
                   </button>
@@ -144,15 +144,11 @@ const CheckboxHeaderCell = ({ sourceStrings }: CheckboxHeaderCellProps) => {
     [sourceStrings, selectedSources],
   );
 
-  const checkboxState = useMemo(() => {
-    if (sourceStrings.size === 0) return false;
-    if (checkedCount === 0) return false;
-    if (checkedCount === sourceStrings.size) return true;
-    return 'indeterminate';
-  }, [sourceStrings.size, checkedCount]);
+  const allChecked = sourceStrings.size > 0 && checkedCount === sourceStrings.size;
+  const isIndeterminate = checkedCount > 0 && checkedCount < sourceStrings.size;
 
   const handleCheckedChange = useCallback(
-    (checked: CheckedState) => {
+    (checked: boolean) => {
       setSelectedSources((sources) => {
         const newSources = new Set(sources);
         if (checked) {
@@ -168,7 +164,7 @@ const CheckboxHeaderCell = ({ sourceStrings }: CheckboxHeaderCellProps) => {
 
   return (
     <div className="flex items-center">
-      <Checkbox checked={checkboxState} onCheckedChange={handleCheckedChange} />
+      <Checkbox checked={allChecked} indeterminate={isIndeterminate} onCheckedChange={handleCheckedChange} />
     </div>
   );
 };
@@ -186,7 +182,7 @@ const CheckboxBodyCell = ({ id, sourceString }: CheckboxBodyCellProps) => {
   const { selectedSources, setSelectedSources } = useContext(Context);
 
   const handleCheckedChange = useCallback(
-    (checked: CheckedState) => {
+    (checked: boolean) => {
       setSelectedSources((sources) => {
         const newSources = new Set(sources);
         if (checked) {
@@ -265,7 +261,7 @@ type SortIconProps = {
 };
 
 const SortIcon = ({ dir, descFirst }: SortIconProps) => {
-  const iconCN = 'h-5 w-5 ml-2 flex-none text-chrome-400 ';
+  const iconCN = 'h-5 w-5 ml-2 flex-none';
 
   switch (dir) {
     case 'asc':
@@ -351,7 +347,7 @@ const DisplayWorkloadItems = ({ kind, items }: DisplayWorkloadItemsProps) => {
 
   return (
     <Table containerClassName="overflow-x-hidden overflow-y-auto shadow ring ring-black/5 rounded-lg h-full">
-      <TableHeader className="bg-chrome-50 sticky top-0">
+      <TableHeader className="bg-muted sticky top-0">
         {table.getHeaderGroups().map((headerGroup) => (
           <TableRow key={headerGroup.id}>
             {headerGroup.headers.map((header) => {
@@ -383,7 +379,18 @@ const DisplayWorkloadItems = ({ kind, items }: DisplayWorkloadItemsProps) => {
  * DisplayWorkload component
  */
 
-const workloadQueryConfig = {
+// Each workload kind selects a different top-level field, so the per-kind query
+// result types are mutually incompatible. This shared entry type lets a single
+// dynamic dispatch site consume any of them without a union over documents.
+type WorkloadQueryConfigEntry = {
+  query: TypedDocumentNode<any, any>;
+  subscription: TypedDocumentNode<any, any>;
+  queryDataKey: string;
+  subscriptionDataKey: string;
+  getItems: (data: any) => WorkloadItem[] | undefined;
+};
+
+const workloadQueryConfig: Record<WorkloadKind, WorkloadQueryConfigEntry> = {
   [WorkloadKind.CRONJOBS]: {
     query: SOURCE_PICKER_CRONJOBS_LIST_FETCH,
     subscription: SOURCE_PICKER_CRONJOBS_LIST_WATCH,
@@ -446,9 +453,7 @@ const DisplayWorkload = ({ kind }: DisplayWorkloadProps) => {
   const { loading, fetching, data } = useListQueryWithSubscription({
     query: cfg.query,
     subscription: cfg.subscription,
-    // @ts-expect-error
     queryDataKey: cfg.queryDataKey,
-    // @ts-expect-error
     subscriptionDataKey: cfg.subscriptionDataKey,
     variables: { kubeContext },
   });
@@ -498,17 +503,19 @@ const NamespacePicker = () => {
   return (
     <Select
       value={namespaceFilter === '' ? ALL_NAMESPACES : namespaceFilter}
-      onValueChange={(value) => setNamespaceFilter(value === ALL_NAMESPACES ? '' : value)}
+      onValueChange={(value) => setNamespaceFilter(value === ALL_NAMESPACES || value == null ? '' : value)}
       disabled={loading}
     >
-      <SelectTrigger className="h-[35px] bg-chrome-50 border border-chrome-30 text-sm rounded-lg mt-0!">
-        <SelectValue placeholder="Loading..." />
+      <SelectTrigger className="h-[35px] border text-sm rounded-lg mt-0!">
+        <SelectValue placeholder="Loading...">
+          {(value) => (value === ALL_NAMESPACES ? 'All namespaces' : value)}
+        </SelectValue>
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent alignItemWithTrigger={false}>
         <SelectItem value={ALL_NAMESPACES}>All namespaces</SelectItem>
-        {data?.coreV1NamespacesList?.items.map((item) => (
-          <SelectItem key={item.id} value={item.metadata.name}>
-            {item.metadata.name}
+        {data?.coreV1NamespacesList?.items?.map((item) => (
+          <SelectItem key={item.id} value={item.metadata?.name ?? ''}>
+            {item.metadata?.name}
           </SelectItem>
         ))}
       </SelectContent>
@@ -520,7 +527,12 @@ const NamespacePicker = () => {
  * SourcePickerModal component
  */
 
-const SourcePickerModal = ({ open, onOpenChange }: React.ComponentProps<typeof Dialog>) => {
+type SourcePickerModalProps = {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+};
+
+const SourcePickerModal = ({ open, onOpenChange }: SourcePickerModalProps) => {
   const [searchParams] = useSearchParams();
   const [namespaceFilter, setNamespaceFilter] = useState('');
   const [selectedSources, setSelectedSources] = useState(new Set(searchParams.getAll('source')));
@@ -539,7 +551,7 @@ const SourcePickerModal = ({ open, onOpenChange }: React.ComponentProps<typeof D
     currentUrl.search = new URLSearchParams(searchParams).toString();
     window.location.href = currentUrl.toString();
 
-    if (onOpenChange) onOpenChange(false);
+    onOpenChange?.(false);
   };
 
   const context = useMemo(
@@ -571,9 +583,7 @@ const SourcePickerModal = ({ open, onOpenChange }: React.ComponentProps<typeof D
           <Explorer />
           <DialogFooter>
             <div className="flex justify-end space-x-2 mt-[15px]">
-              <DialogClose asChild>
-                <Button variant="secondary">Cancel</Button>
-              </DialogClose>
+              <DialogClose render={<Button variant="secondary">Cancel</Button>} />
               <Button onClick={() => handleUpdate()}>Update</Button>
             </div>
           </DialogFooter>

@@ -19,6 +19,7 @@ import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 const genericListResponse = (typename: string) => ({
   __typename: typename,
   metadata: {
+    __typename: 'MetaV1ListMeta',
     continue: '',
     resourceVersion: 'v1',
   },
@@ -34,14 +35,22 @@ export const mocks: MockedResponse[] = [
     result: {
       data: {
         kubeConfigWatch: {
+          __typename: 'KubeConfigWatchEvent',
           type: 'ADDED',
           object: {
+            __typename: 'KubeConfig',
             contexts: [
               {
+                __typename: 'KubeConfigContext',
                 name: 'test1',
+                cluster: 'cluster1',
+                namespace: 'default',
               },
               {
+                __typename: 'KubeConfigContext',
                 name: 'test2',
+                cluster: 'cluster2',
+                namespace: 'default',
               },
             ],
             currentContext: 'test1',
