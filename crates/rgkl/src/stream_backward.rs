@@ -109,11 +109,13 @@ fn stream_backward_internal(
 
     // Remove leading and trailing whitespace
     let trimmed_grep = grep.map(str::trim).filter(|grep| !grep.is_empty());
+    let matcher = trimmed_grep
+        .map(|grep| LogFileRegexMatcher::new(grep, format))
+        .transpose()?;
 
-    if let Some(grep) = trimmed_grep {
-        let matcher = LogFileRegexMatcher::new(grep, format)?;
-        let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, term_reverse_reader, sink);
+    if let Some(matcher) = matcher.as_ref() {
+        let sink = printer.sink(matcher);
+        let _ = searcher.search_reader(matcher, term_reverse_reader, sink);
     } else {
         let matcher = PassThroughMatcher::new();
         let sink = printer.sink(&matcher);
@@ -250,6 +252,26 @@ mod test {
 
         // Compare output with expected lines
         compare_lines(output, expected_lines);
+    }
+
+    #[tokio::test]
+    async fn test_invalid_grep_returns_invalid_argument() {
+        let test_file = TEST_FILE.path().to_path_buf();
+        let (tx, mut rx) = mpsc::channel(1);
+
+        stream_backward(
+            CancellationToken::new(),
+            &test_file,
+            None,
+            None,
+            Some("(?=.*settings)"),
+            tx,
+        )
+        .await;
+
+        let status = rx.recv().await.unwrap().unwrap_err();
+        assert_eq!(status.code(), tonic::Code::InvalidArgument);
+        assert!(status.message().contains("Invalid grep pattern"));
     }
 
     // Test `start_time` and `stop_time` args together

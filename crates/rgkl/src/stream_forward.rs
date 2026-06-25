@@ -197,11 +197,13 @@ fn setup_fs_watcher<'a>(
 
     // Remove leading and trailing whitespace
     let trimmed_grep = grep.map(str::trim).filter(|grep| !grep.is_empty());
+    let matcher = trimmed_grep
+        .map(|grep| LogFileRegexMatcher::new(grep, format))
+        .transpose()?;
 
-    if let Some(grep) = trimmed_grep {
-        let matcher = LogFileRegexMatcher::new(grep, format)?;
-        let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, term_reader, sink);
+    if let Some(matcher) = matcher.as_ref() {
+        let sink = printer.sink(matcher);
+        let _ = searcher.search_reader(matcher, term_reader, sink);
     } else {
         let matcher = PassThroughMatcher::new();
         let sink = printer.sink(&matcher);
@@ -221,12 +223,9 @@ fn setup_fs_watcher<'a>(
     }
 
     let search_slice = move |input_str: &[u8]| {
-        if let Some(grep) = trimmed_grep {
-            let Ok(matcher) = LogFileRegexMatcher::new(grep, format) else {
-                return;
-            };
-            let sink = printer.sink(&matcher);
-            let _ = searcher.search_slice(&matcher, input_str, sink);
+        if let Some(matcher) = matcher.as_ref() {
+            let sink = printer.sink(matcher);
+            let _ = searcher.search_slice(matcher, input_str, sink);
         } else {
             let matcher = PassThroughMatcher::new();
             let sink = printer.sink(&matcher);
@@ -698,5 +697,28 @@ mod test {
 
         // Channel should close after sending the shutdown error
         assert!(rx.recv().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_invalid_grep_returns_invalid_argument() {
+        let test_file = create_test_file();
+        let path = test_file.path().to_path_buf();
+        let ctx = CancellationToken::new();
+        let (tx, mut rx) = mpsc::channel(1);
+
+        stream_forward(
+            ctx,
+            &path,
+            None,
+            None,
+            Some("(?=.*settings)"),
+            FollowFrom::Noop,
+            tx,
+        )
+        .await;
+
+        let status = rx.recv().await.unwrap().unwrap_err();
+        assert_eq!(status.code(), tonic::Code::InvalidArgument);
+        assert!(status.message().contains("Invalid grep pattern"));
     }
 }
