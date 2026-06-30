@@ -117,4 +117,15 @@ func TestWithGrep(t *testing.T) {
 			t.Errorf("Expected 'foobar' not to match 'foo.bar', but it did")
 		}
 	})
+
+	t.Run("UnsupportedLookahead", func(t *testing.T) {
+		stream := &stream{}
+		err := WithGrep("(?=.*(?:settings|about))(?!.*v1)")(stream)
+		if err == nil {
+			t.Fatal("WithGrep returned nil error for unsupported regex")
+		}
+		if stream.grepRegex != nil {
+			t.Fatal("grepRegex was set for unsupported regex")
+		}
+	})
 }
