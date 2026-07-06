@@ -19,5 +19,6 @@ overrides:
   rollup: "^4.59.0"
   synckit: "^0.11.11"
   tmp: "^0.2.5"
+  undici: "^7.28.0"
   ws: "^8.20.1"
   yaml: "^2.8.3"
