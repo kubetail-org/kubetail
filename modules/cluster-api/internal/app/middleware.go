@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kubetail-org/kubetail/modules/cluster-api/internal/helpers"
+	"github.com/kubetail-org/kubetail/modules/shared/httphelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
@@ -158,6 +159,23 @@ func newAggregationAuthMiddleware(cfg *aggregationAuthConfig) gin.HandlerFunc {
 			Groups: groups,
 			Extras: extras,
 		})
+
+		// A session namespace scope forwarded by the dashboard reverse proxy
+		// (see httphelpers.HeaderForwardedNamespaces). It can only narrow this
+		// server's allowed-namespaces, never widen it, so it is honored without
+		// a dedicated feature flag.
+		if v := c.GetHeader(httphelpers.HeaderForwardedNamespaces); v != "" {
+			var nsList []string
+			for _, ns := range strings.Split(v, ",") {
+				if ns = strings.TrimSpace(ns); ns != "" {
+					nsList = append(nsList, ns)
+				}
+			}
+			if len(nsList) > 0 {
+				ctx := context.WithValue(c.Request.Context(), k8shelpers.K8SSessionNamespacesCtxKey, nsList)
+				c.Request = c.Request.WithContext(ctx)
+			}
+		}
 
 		c.Next()
 	}

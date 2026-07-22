@@ -246,6 +246,65 @@ func TestInClusterProxy_ForwardsUserTokenAsAuthorization(t *testing.T) {
 	}
 }
 
+func TestInClusterProxy_ForwardsSessionNamespaces(t *testing.T) {
+	tests := []struct {
+		name       string
+		namespaces []string
+		clientHdr  string
+		want       string
+	}{
+		{
+			name:       "forwards session namespaces",
+			namespaces: []string{"ns1", "ns2"},
+			want:       "ns1,ns2",
+		},
+		{
+			name: "no header without a session scope",
+			want: "",
+		},
+		{
+			// A client-supplied namespace header must never tunnel past the
+			// session scope: the Director deletes it before re-setting from ctx.
+			name:      "client-supplied header stripped without a session scope",
+			clientHdr: "attacker-ns",
+			want:      "",
+		},
+		{
+			name:       "client-supplied header replaced by session scope",
+			namespaces: []string{"ns1"},
+			clientHdr:  "attacker-ns",
+			want:       "ns1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var captured string
+			backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				captured = r.Header.Get(httphelpers.HeaderForwardedNamespaces)
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer backend.Close()
+
+			proxy, err := newInClusterProxy(backend.URL, "/prefix", nil, http.DefaultTransport)
+			require.NoError(t, err)
+
+			req := httptest.NewRequest(http.MethodGet, "/prefix/somepath", nil)
+			if tt.clientHdr != "" {
+				req.Header.Set(httphelpers.HeaderForwardedNamespaces, tt.clientHdr)
+			}
+			if len(tt.namespaces) > 0 {
+				ctx := context.WithValue(req.Context(), k8shelpers.K8SSessionNamespacesCtxKey, tt.namespaces)
+				req = req.WithContext(ctx)
+			}
+
+			proxy.ServeHTTP(httptest.NewRecorder(), req)
+
+			assert.Equal(t, tt.want, captured)
+		})
+	}
+}
+
 // Verifies the SA-token fallback behavior introduced when NewInClusterProxy
 // switched from rest.AnonymousClientConfig to rest.TransportFor(restConfig).
 // With a non-anonymous transport, BearerAuthRoundTripper injects the
