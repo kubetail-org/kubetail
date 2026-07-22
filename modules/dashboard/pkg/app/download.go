@@ -23,6 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 	zlog "github.com/rs/zerolog/log"
 
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
 )
 
@@ -63,12 +64,13 @@ func (h *downloadHandlers) DownloadPOST(c *gin.Context) {
 		return
 	}
 
-	opts := logs.BuildDownloadStreamOptions(req, h.allowedNamespaces)
+	ctx := c.Request.Context()
+
+	opts := logs.BuildDownloadStreamOptions(req, k8shelpers.ResolveAllowedNamespaces(ctx, h.allowedNamespaces))
 	if token := c.GetString(k8sTokenGinKey); token != "" {
 		opts = append(opts, logs.WithBearerToken(token))
 	}
 
-	ctx := c.Request.Context()
 	stream, err := h.newLogStream(ctx, req.Raw.Sources, opts...)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
