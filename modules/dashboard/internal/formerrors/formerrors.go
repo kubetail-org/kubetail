@@ -32,7 +32,7 @@ func (fe FormErrors) Get(field string) string {
 }
 
 // Initialize a new FormErrors instance
-func New(formPtr interface{}, err error) FormErrors {
+func New(formPtr any, err error) FormErrors {
 	// initialize FormErrors instance
 	formErrors := make(FormErrors)
 

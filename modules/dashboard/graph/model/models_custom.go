@@ -27,9 +27,9 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
 )
 
-type List interface{}
+type List any
 
-type Object interface{}
+type Object any
 
 // Overload k8s.io/client-go/tools/clientcmd/api.Config
 type KubeConfig struct {
@@ -67,7 +67,7 @@ func MarshalKubeConfigExtensions(val map[string]runtime.Object) graphql.Marshale
 	})
 }
 
-func UnmarshalKubeConfigExtensions(v interface{}) (map[string]runtime.Object, error) {
+func UnmarshalKubeConfigExtensions(v any) (map[string]runtime.Object, error) {
 	if m, ok := v.(map[string]runtime.Object); ok {
 		return m, nil
 	}
@@ -84,7 +84,7 @@ func MarshalStringMap(val map[string]string) graphql.Marshaler {
 	})
 }
 
-func UnmarshalStringMap(v interface{}) (map[string]string, error) {
+func UnmarshalStringMap(v any) (map[string]string, error) {
 	if m, ok := v.(map[string]string); ok {
 		return m, nil
 	}
@@ -103,7 +103,7 @@ func MarshalMetaV1Time(t metav1.Time) graphql.Marshaler {
 	})
 }
 
-func UnmarshalMetaV1Time(v interface{}) (metav1.Time, error) {
+func UnmarshalMetaV1Time(v any) (metav1.Time, error) {
 	var t metav1.Time
 	if tmpStr, ok := v.(string); ok {
 		err := t.UnmarshalQueryParameter(tmpStr)

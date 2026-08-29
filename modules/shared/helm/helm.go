@@ -46,7 +46,7 @@ const (
 // Chart version constraint
 const chartSemverConstraint = ">= 0.9.0"
 
-func noopLogger(format string, v ...interface{}) {}
+func noopLogger(format string, v ...any) {}
 
 // Client
 type Client struct {
@@ -102,9 +102,9 @@ func (c *Client) InstallLatest(namespace, releaseName string) (*release.Release,
 	}
 
 	// Exclude dashboard
-	vals := map[string]interface{}{
-		"kubetail": map[string]interface{}{
-			"dashboard": map[string]interface{}{
+	vals := map[string]any{
+		"kubetail": map[string]any{
+			"dashboard": map[string]any{
 				"enabled": false,
 			},
 		},

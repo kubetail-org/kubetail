@@ -186,7 +186,7 @@ func TestInClusterHealthMonitor_Shutdown(t *testing.T) {
 	tests := []struct {
 		name      string
 		hasWorker bool
-		want      interface{}
+		want      any
 	}{
 		{
 			name:      "Shutdown with endpoint and 0 workers",

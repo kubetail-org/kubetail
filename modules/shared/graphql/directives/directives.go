@@ -30,11 +30,11 @@ func init() {
 	validate = validator.New()
 }
 
-func IsNilPtr(val interface{}) bool {
+func IsNilPtr(val any) bool {
 	return reflect.TypeOf(val).Kind() == reflect.Ptr && reflect.ValueOf(val).IsNil()
 }
 
-func ValidateDirective(ctx context.Context, obj interface{}, next graphql.Resolver, rule string, message *string) (interface{}, error) {
+func ValidateDirective(ctx context.Context, obj any, next graphql.Resolver, rule string, message *string) (any, error) {
 	// get val
 	val, err := next(ctx)
 	if IsNilPtr(val) || err != nil {
@@ -59,7 +59,7 @@ func ValidateDirective(ctx context.Context, obj interface{}, next graphql.Resolv
 }
 
 // Returns nil if there are errors in the context
-func NullIfValidationFailedDirective(ctx context.Context, obj interface{}, next graphql.Resolver) (interface{}, error) {
+func NullIfValidationFailedDirective(ctx context.Context, obj any, next graphql.Resolver) (any, error) {
 	errList := graphql.GetErrors(ctx)
 	if errList != nil {
 		return nil, nil

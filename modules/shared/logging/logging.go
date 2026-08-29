@@ -64,10 +64,10 @@ func ConfigureLogger(opts LoggerOptions) {
 		zlog.Logger = zlog.Logger.Output(zerolog.ConsoleWriter{
 			Out:     os.Stderr,
 			NoColor: false,
-			FormatTimestamp: func(i interface{}) string {
+			FormatTimestamp: func(i any) string {
 				return ""
 			},
-			FormatLevel: func(i interface{}) string {
+			FormatLevel: func(i any) string {
 				if i == nil {
 					return ""
 				}
@@ -80,25 +80,25 @@ func ConfigureLogger(opts LoggerOptions) {
 					return ""
 				}
 			},
-			FormatCaller: func(i interface{}) string {
+			FormatCaller: func(i any) string {
 				return ""
 			},
-			FormatMessage: func(i interface{}) string {
+			FormatMessage: func(i any) string {
 				if i == nil {
 					return ""
 				}
 				return fmt.Sprintf("%s", i)
 			},
-			FormatFieldName: func(i interface{}) string {
+			FormatFieldName: func(i any) string {
 				return ""
 			},
-			FormatFieldValue: func(i interface{}) string {
+			FormatFieldValue: func(i any) string {
 				return ""
 			},
-			FormatErrFieldName: func(i interface{}) string {
+			FormatErrFieldName: func(i any) string {
 				return ""
 			},
-			FormatErrFieldValue: func(i interface{}) string {
+			FormatErrFieldValue: func(i any) string {
 				if i == nil {
 					return ""
 				}

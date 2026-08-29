@@ -26,7 +26,7 @@ func newWatchErrorFromMetaV1Status(status *metav1.Status) *gqlerror.Error {
 	// init error
 	return &gqlerror.Error{
 		Message: status.Message,
-		Extensions: map[string]interface{}{
+		Extensions: map[string]any{
 			"code":   errors.ErrWatchError.Extensions["code"],
 			"status": status.Status,
 			"reason": status.Reason,

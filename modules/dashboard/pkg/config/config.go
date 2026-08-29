@@ -168,7 +168,7 @@ func DefaultConfig() *Config {
 }
 
 // Custom unmarshaler for AuthMode
-func authModeDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+func authModeDecodeHook(f reflect.Type, t reflect.Type, data any) (any, error) {
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
@@ -188,7 +188,7 @@ func authModeDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (inter
 }
 
 // Custom unmarshaler for Environment
-func environmentDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+func environmentDecodeHook(f reflect.Type, t reflect.Type, data any) (any, error) {
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
@@ -208,7 +208,7 @@ func environmentDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (in
 }
 
 // Custom unmarshaler for http.SameSite
-func httpSameSiteDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+func httpSameSiteDecodeHook(f reflect.Type, t reflect.Type, data any) (any, error) {
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
