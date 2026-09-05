@@ -78,11 +78,9 @@ func NewDesktopHealthMonitor(cm k8shelpers.ConnectionManager) *DesktopHealthMoni
 func (hm *DesktopHealthMonitor) Shutdown() {
 	var wg sync.WaitGroup
 	hm.workerCache.Range(func(_ string, worker healthMonitorWorker) bool {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			worker.Shutdown()
-		}()
+		})
 		return true
 	})
 	wg.Wait()

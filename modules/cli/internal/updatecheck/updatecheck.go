@@ -194,21 +194,18 @@ func RefreshHelmCache(opts Options) error {
 		currentVersion string
 		wg             sync.WaitGroup
 	)
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if info, err := checker.GetLatestHelmChartVersion(); err == nil {
 			latestVersion = info.Version
 		}
-	}()
-	go func() {
-		defer wg.Done()
+	})
+	wg.Go(func() {
 		lister := opts.HelmLister
 		if lister == nil {
 			lister = helm.NewClient(helm.WithKubeconfigPath(opts.KubeconfigPath), helm.WithKubeContext(kubeContext))
 		}
 		currentVersion = getInstalledHelmChartVersion(lister)
-	}()
+	})
 	wg.Wait()
 
 	cache, _ := readHelmCache(opts.HelmCacheFile)

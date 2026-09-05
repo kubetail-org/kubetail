@@ -194,10 +194,7 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 	errs := ThreadSafeSlice[error]{}
 
 	set.Each(func(ft fetchTuple) bool {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			// Init informer
 			informer, start, err := w.cm.NewInformer(ctx, w.kubeContext, w.bearerToken, ft.namespace, ft.workloadType.GVR())
 			if err != nil {
@@ -224,16 +221,13 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 				errs.Add(fmt.Errorf("cache did not sync"))
 				return
 			}
-		}()
+		})
 
 		return false // continue
 	})
 
 	// Get nodes
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		gvr := schema.GroupVersionResource{
 			Group:    "",
 			Version:  "v1",
@@ -266,7 +260,7 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 			errs.Add(fmt.Errorf("cache did not sync"))
 			return
 		}
-	}()
+	})
 
 	wg.Wait()
 
