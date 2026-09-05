@@ -376,9 +376,7 @@ func TestClient_LogRecordsFollow_PropagatesGraphQLErrorFrame(t *testing.T) {
 	var gotErr error
 	var mu sync.Mutex
 	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for e := range errs {
 			if e != nil {
 				mu.Lock()
@@ -386,7 +384,7 @@ func TestClient_LogRecordsFollow_PropagatesGraphQLErrorFrame(t *testing.T) {
 				mu.Unlock()
 			}
 		}
-	}()
+	})
 	for range records {
 	}
 	wg.Wait()
