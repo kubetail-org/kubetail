@@ -119,11 +119,9 @@ func (cm *DesktopConnectionManager) Close() {
 	// Shutdown shared informer factory managers
 	var wg sync.WaitGroup
 	cm.factoryCache.Range(func(key factoryCacheKey, factory informers.SharedInformerFactory) bool {
-		wg.Add(1)
-		go func(f informers.SharedInformerFactory) {
-			defer wg.Done()
-			f.Shutdown()
-		}(factory)
+		wg.Go(func() {
+			factory.Shutdown()
+		})
 		return true
 	})
 
@@ -325,11 +323,9 @@ func (cm *DesktopConnectionManager) warmUpCache() {
 
 	var wg sync.WaitGroup
 	for contextName := range kubeConfig.Contexts {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			cm.WaitUntilReady(ctx, contextName)
-		}()
+		})
 	}
 
 	wg.Wait()

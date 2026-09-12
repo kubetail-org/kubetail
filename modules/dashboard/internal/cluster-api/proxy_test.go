@@ -806,11 +806,9 @@ func TestInClusterProxy_Director_IsolatesURLPerRequest(t *testing.T) {
 	const n = 20
 	var wg sync.WaitGroup
 	for i := range n {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
+		wg.Go(func() {
 			_, _ = http.Get(fmt.Sprintf("%s/prefix/path%d", proxyServer.URL, i)) //nolint:noctx
-		}(i)
+		})
 	}
 	wg.Wait()
 

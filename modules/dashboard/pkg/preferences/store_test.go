@@ -165,15 +165,13 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for i := 0; i < 50; i++ {
-		wg.Add(2)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			_, _ = s.Get()
-		}()
-		go func(theme string) {
-			defer wg.Done()
+		})
+		wg.Go(func() {
+			theme := "dark"
 			_, _ = s.Update(&Preferences{Theme: &theme})
-		}("dark")
+		})
 	}
 	wg.Wait()
 

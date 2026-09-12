@@ -71,16 +71,15 @@ func TestSyncGroupLoadOrComputeConcurrency(t *testing.T) {
 	errors := make([]error, numGoroutines)
 
 	for i := range numGoroutines {
-		wg.Add(1)
-		go func(index int) {
-			defer wg.Done()
+		wg.Go(func() {
+			index := i
 			result, _, err := g.LoadOrCompute("shared_key", func() (int, error) {
 				atomic.AddInt32(&computeCount, 1)
 				return 123, nil
 			})
 			results[index] = result
 			errors[index] = err
-		}(i)
+		})
 	}
 
 	wg.Wait()
@@ -181,16 +180,15 @@ func TestSyncGroupLoadOrComputeWithContext(t *testing.T) {
 		errors := make([]error, numGoroutines)
 
 		for i := range numGoroutines {
-			wg.Add(1)
-			go func(index int) {
-				defer wg.Done()
+			wg.Go(func() {
+				index := i
 				result, _, err := m2.LoadOrComputeWithContext(ctx, "shared_key", func() (int, error) {
 					atomic.AddInt32(&computeCount, 1)
 					return 123, nil
 				})
 				results[index] = result
 				errors[index] = err
-			}(i)
+			})
 		}
 
 		wg.Wait()

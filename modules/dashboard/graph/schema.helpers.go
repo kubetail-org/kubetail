@@ -240,10 +240,7 @@ func listResourceMulti(ctx context.Context, client dynamic.NamespaceableResource
 
 	// execute queries
 	for _, namespace := range namespaces {
-		wg.Add(1)
-		go func(namespace string) {
-			defer wg.Done()
-
+		wg.Go(func() {
 			thisOpts := options
 
 			thisContinue, exists := continueMap[namespace]
@@ -260,7 +257,7 @@ func listResourceMulti(ctx context.Context, client dynamic.NamespaceableResource
 			}
 
 			ch <- FetchResponse{Namespace: namespace, Result: list}
-		}(namespace)
+		})
 	}
 
 	wg.Wait()
