@@ -29,7 +29,7 @@ jobs:
       typescript: ${{ steps.override.outputs.typescript }}
       any: ${{ steps.override.outputs.any }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -76,7 +76,7 @@ jobs:
           - dashboard
           - shared
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -98,7 +98,7 @@ jobs:
           - dashboard
           - shared
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -112,7 +112,7 @@ jobs:
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -132,7 +132,7 @@ jobs:
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-rust: "true"
@@ -147,7 +147,7 @@ jobs:
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-rust: "true"
@@ -162,7 +162,7 @@ jobs:
     if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
@@ -178,7 +178,7 @@ jobs:
     needs: changes
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Install shellcheck
         run: |
           sudo apt-get update
@@ -191,7 +191,7 @@ jobs:
     needs: changes
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: astral-sh/setup-uv@v6
       - name: Lint
         working-directory: ./e2e
@@ -256,7 +256,7 @@ jobs:
             arch: amd64
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -297,7 +297,7 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-rust: "true"
@@ -315,7 +315,7 @@ jobs:
     if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
@@ -369,7 +369,7 @@ jobs:
             arch: amd64
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Install bats (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -414,7 +414,7 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-rust: "true"
@@ -432,7 +432,7 @@ jobs:
     if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
@@ -490,7 +490,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Build
@@ -560,7 +560,7 @@ jobs:
             arch: amd64
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
@@ -611,7 +611,7 @@ jobs:
             goarch: s390x
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -657,7 +657,7 @@ jobs:
           - k8s-version: "latest"
             kind-node-image: ""
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
