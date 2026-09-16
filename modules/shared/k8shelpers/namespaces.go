@@ -15,6 +15,7 @@
 package k8shelpers
 
 import (
+	"context"
 	"slices"
 
 	"k8s.io/utils/ptr"
@@ -24,6 +25,44 @@ import (
 
 // Use this ptr to bypass namespace checks
 var BypassNamespaceCheck = ptr.To("")
+
+// ResolveAllowedNamespaces returns the allowed-namespaces list effective for
+// this request: the static (server-wide) list, optionally narrowed by the
+// session-level override carried in ctx under K8SSessionNamespacesCtxKey.
+func ResolveAllowedNamespaces(ctx context.Context, static []string) []string {
+	override, _ := ctx.Value(K8SSessionNamespacesCtxKey).([]string)
+	return NarrowAllowedNamespaces(static, override)
+}
+
+// NarrowAllowedNamespaces narrows a static (server-wide) allowed-namespaces
+// list by a session-level override. The override can only ever shrink the
+// static list, never widen it:
+//   - no override: the static list applies unchanged
+//   - override present, static list empty (unrestricted): the override
+//     becomes the effective list
+//   - override present, static list set: the intersection of both applies;
+//     if they share nothing (e.g. the static config was tightened after the
+//     session logged in), the static list applies unchanged - returning the
+//     empty intersection would mean "unrestricted" under this package's
+//     conventions and turn a narrowing into a widening
+func NarrowAllowedNamespaces(static, override []string) []string {
+	if len(override) == 0 {
+		return static
+	}
+	if len(static) == 0 {
+		return override
+	}
+	var out []string
+	for _, ns := range override {
+		if slices.Contains(static, ns) {
+			out = append(out, ns)
+		}
+	}
+	if len(out) == 0 {
+		return static
+	}
+	return out
+}
 
 // Dereference `namespace` argument and check that it is allowed
 func DerefNamespace(allowedNamespaces []string, namespace *string, defaultNamespace string) (string, error) {

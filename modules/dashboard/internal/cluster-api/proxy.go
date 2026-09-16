@@ -195,6 +195,13 @@ func (p *DesktopProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Drop client-supplied Impersonate-* headers — see stripImpersonationHeaders.
 	stripImpersonationHeaders(r.Header)
 
+	// Drop any client-supplied namespace scope, then re-set it from the
+	// session (see the in-cluster Director for rationale).
+	r.Header.Del(httphelpers.HeaderForwardedNamespaces)
+	if nsList, ok := r.Context().Value(k8shelpers.K8SSessionNamespacesCtxKey).([]string); ok && len(nsList) > 0 {
+		r.Header.Set(httphelpers.HeaderForwardedNamespaces, strings.Join(nsList, ","))
+	}
+
 	// Passthrough upgrade requests, closing the hijacked connection on shutdown
 	if r.Header.Get("Upgrade") != "" {
 		hw := &hijackTrackingResponseWriter{ResponseWriter: w}
@@ -386,6 +393,15 @@ func newInClusterProxy(kubeAPIServerEndpoint string, pathPrefix string, allowedO
 
 			// Drop client-supplied Impersonate-* headers — see stripImpersonationHeaders.
 			stripImpersonationHeaders(r.Header)
+
+			// Drop any client-supplied namespace scope, then re-set it from the
+			// session so the cluster-api narrows to the same namespaces the
+			// dashboard already applies. It can only narrow allowed-namespaces,
+			// never widen it, so even a spoofed value is harmless.
+			r.Header.Del(httphelpers.HeaderForwardedNamespaces)
+			if nsList, ok := r.Context().Value(k8shelpers.K8SSessionNamespacesCtxKey).([]string); ok && len(nsList) > 0 {
+				r.Header.Set(httphelpers.HeaderForwardedNamespaces, strings.Join(nsList, ","))
+			}
 
 			// Strip the browser-supplied Origin so the cluster-api can treat its
 			// presence as a CSWSH signal. Cross-origin browser upgrades are

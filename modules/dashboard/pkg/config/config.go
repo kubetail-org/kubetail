@@ -52,7 +52,14 @@ type Config struct {
 	AllowedNamespaces []string `mapstructure:"allowed-namespaces"`
 	KubeconfigPath    string   `mapstructure:"kubeconfig"`
 
-	Addr              string   `mapstructure:"addr" validate:"omitempty,hostname_port"`
+	Addr string `mapstructure:"addr" validate:"omitempty,hostname_port"`
+
+	// AllowNamespaceOverride lets an auth-mode:token login narrow the
+	// namespaces its session is scoped to via the login form's `namespaces`
+	// field. The requested namespaces can only shrink allowed-namespaces,
+	// never widen it, and Kubernetes RBAC remains the enforcement boundary.
+	AllowNamespaceOverride bool `mapstructure:"allow-namespace-override"`
+
 	AllowedOrigins    []string `mapstructure:"allowed-origins" validate:"dive,url"`
 	AuthMode          AuthMode `mapstructure:"auth-mode"`
 	BasePath          string   `mapstructure:"base-path"`
@@ -141,6 +148,7 @@ func DefaultConfig() *Config {
 	cfg.KubeconfigPath = ""
 
 	cfg.Addr = ":8080"
+	cfg.AllowNamespaceOverride = false
 	cfg.AllowedOrigins = []string{}
 	cfg.AuthMode = AuthModeAuto
 	cfg.BasePath = "/"

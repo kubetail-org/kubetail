@@ -292,3 +292,101 @@ func TestSessionGETCSRFToken(t *testing.T) {
 		assert.Equal(t, token1, resp2.Header.Get("X-CSRF-Token"))
 	})
 }
+
+// rebuildApp replaces the suite's app/client with ones built from a modified
+// config, for tests that need non-default settings.
+func (suite *authTestSuite) rebuildApp(modify func(cfg *config.Config)) {
+	suite.client.Teardown()
+
+	cfg := newTestConfig()
+	modify(cfg)
+
+	app := newTestApp(cfg)
+	app.queryHelpers = &mockQueryHelpers{}
+
+	client := testutils.NewWebTestClient(suite.T(), app)
+	client.Get("/api/auth/session")
+
+	suite.app = app
+	suite.client = client
+}
+
+// sessionNamespaceLock fetches /api/auth/session and returns its
+// namespace_lock field.
+func (suite *authTestSuite) sessionNamespaceLock() []string {
+	resp := suite.client.Get("/api/auth/session")
+	suite.Equal(http.StatusOK, resp.StatusCode)
+
+	var session struct {
+		NamespaceLock []string `json:"namespace_lock"`
+	}
+	suite.Require().NoError(json.Unmarshal(resp.Body, &session))
+	return session.NamespaceLock
+}
+
+func (suite *authTestSuite) TestLoginPOSTNamespacesIgnoredWhenOverrideDisabled() {
+	suite.mockHasAccess(true)
+
+	form := url.Values{"token": {"xxx"}, "namespaces": {"ns1"}}
+	resp := suite.client.PostForm("/api/auth/login", form)
+
+	suite.Equal(http.StatusNoContent, resp.StatusCode)
+	suite.Nil(suite.sessionNamespaceLock())
+}
+
+func (suite *authTestSuite) TestLoginPOSTNamespacesAcceptedWhenStaticUnrestricted() {
+	suite.rebuildApp(func(cfg *config.Config) {
+		cfg.AllowNamespaceOverride = true
+	})
+	suite.mockHasAccess(true)
+
+	form := url.Values{"token": {"xxx"}, "namespaces": {"ns1", "ns2"}}
+	resp := suite.client.PostForm("/api/auth/login", form)
+
+	suite.Equal(http.StatusNoContent, resp.StatusCode)
+	suite.Equal([]string{"ns1", "ns2"}, suite.sessionNamespaceLock())
+}
+
+func (suite *authTestSuite) TestLoginPOSTNamespacesSubsetAccepted() {
+	suite.rebuildApp(func(cfg *config.Config) {
+		cfg.AllowNamespaceOverride = true
+		cfg.AllowedNamespaces = []string{"ns1", "ns2"}
+	})
+	suite.mockHasAccess(true)
+
+	form := url.Values{"token": {"xxx"}, "namespaces": {"ns1"}}
+	resp := suite.client.PostForm("/api/auth/login", form)
+
+	suite.Equal(http.StatusNoContent, resp.StatusCode)
+	suite.Equal([]string{"ns1"}, suite.sessionNamespaceLock())
+}
+
+func (suite *authTestSuite) TestLoginPOSTNamespacesRejectedWhenNotAllowed() {
+	suite.rebuildApp(func(cfg *config.Config) {
+		cfg.AllowNamespaceOverride = true
+		cfg.AllowedNamespaces = []string{"ns1"}
+	})
+	m := suite.mockHasAccess(true)
+
+	form := url.Values{"token": {"xxx"}, "namespaces": {"ns2"}}
+	resp := suite.client.PostForm("/api/auth/login", form)
+
+	// rejection happens after authentication
+	m.AssertNumberOfCalls(suite.T(), "HasAccess", 1)
+	suite.Equal(http.StatusUnprocessableEntity, resp.StatusCode)
+	suite.Contains(string(resp.Body), "not in the allowed-namespaces list")
+	suite.Nil(suite.sessionNamespaceLock())
+}
+
+func (suite *authTestSuite) TestLoginPOSTNamespacesOmittedUnaffected() {
+	suite.rebuildApp(func(cfg *config.Config) {
+		cfg.AllowNamespaceOverride = true
+	})
+	suite.mockHasAccess(true)
+
+	form := url.Values{"token": {"xxx"}}
+	resp := suite.client.PostForm("/api/auth/login", form)
+
+	suite.Equal(http.StatusNoContent, resp.StatusCode)
+	suite.Nil(suite.sessionNamespaceLock())
+}
