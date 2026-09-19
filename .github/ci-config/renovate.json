@@ -3,10 +3,22 @@
   "repositories": ["kubetail-org/kubetail"],
   "onboarding": false,
   "requireConfig": "ignored",
+  "gitAuthor": "kubetail-bot <bot@kubetail.com>",
+  "commitBody": "Signed-off-by: kubetail-bot <bot@kubetail.com>",
   "extends": [
-    "helpers:pinGitHubActionDigestsToSemver"
+    "helpers:pinGitHubActionDigests"
   ],
   "enabledManagers": [
     "github-actions"
+  ],
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["major", "minor", "patch", "digest"],
+      "enabled": false
+    },
+    {
+      "matchUpdateTypes": ["pinDigest"],
+      "groupName": "pin github actions to sha"
+    }
   ]
 }
