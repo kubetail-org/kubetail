@@ -57,7 +57,7 @@ jobs:
           brew install glab
 
       - name: Download source bundle
-        uses: robinraju/release-downloader@v1.12
+        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05 # v1.12
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', needs.config.outputs.version) }}
@@ -72,7 +72,7 @@ jobs:
           echo "sha512=$SHA512" >> "$GITHUB_OUTPUT"
 
       - name: Load Alpine SSH key
-        uses: webfactory/ssh-agent@v0.9.1
+        uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd # v0.9.1
         with:
           ssh-private-key: ${{ secrets.ANDRES_ALPINE_SSH_PRIVATE_KEY }}
 
@@ -84,7 +84,7 @@ jobs:
           git clone --depth 1 git@gitlab.alpinelinux.org:alpine/aports.git
 
       - name: Checkout kubetail repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           sparse-checkout: .github/ci-config/alpine
           sparse-checkout-cone-mode: false
@@ -111,7 +111,7 @@ jobs:
           gpgconf --launch gpg-agent
 
       - name: Configure gpg
-        uses: crazy-max/ghaction-import-gpg@v6.3.0
+        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
         with:
           gpg_private_key: ${{ secrets.ANDRES_GPG_SIGNING_KEY }}
           passphrase: ${{ secrets.ANDRES_GPG_PASSWORD }}
