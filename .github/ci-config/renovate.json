@@ -1,6 +1,8 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "repositories": ["kubetail-org/kubetail"],
+  "onboarding": false,
+  "requireConfig": "ignored",
   "extends": [
     "helpers:pinGitHubActionDigestsToSemver"
   ],
