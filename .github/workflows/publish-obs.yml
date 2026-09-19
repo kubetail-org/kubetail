@@ -40,14 +40,14 @@ jobs:
           sudo apt install -y osc
 
       - name: Checkout this repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           sparse-checkout: .github/ci-config/obs
           sparse-checkout-cone-mode: false
           path: kubetail
 
       - name: Download SHA256SUMS
-        uses: robinraju/release-downloader@v1.12
+        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05 # v1.12
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}

@@ -54,7 +54,7 @@ jobs:
     needs: config
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: refs/tags/cli/v${{ needs.config.outputs.version }}
 
@@ -84,7 +84,7 @@ jobs:
           rm -rf dashboard-ui/node_modules
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: source
           path: .
@@ -123,7 +123,7 @@ jobs:
             runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: refs/tags/cli/v${{ needs.config.outputs.version }}
           sparse-checkout: .github/actions/setup-environment
@@ -135,7 +135,7 @@ jobs:
           setup-go: "true"
 
       - name: Download source
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: source
           path: kubetail-cli
@@ -157,7 +157,7 @@ jobs:
         run: mv bin/kubetail bin/kubetail-${{ matrix.os }}-${{ matrix.arch }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           path: kubetail-cli/bin/*
           name: assets-${{ matrix.os }}-${{ matrix.arch }}
@@ -174,13 +174,13 @@ jobs:
           - arm64
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: assets-darwin-${{ matrix.arch }}
           path: assets
 
       - name: Import certificate
-        uses: apple-actions/import-codesign-certs@v3
+        uses: apple-actions/import-codesign-certs@63fff01cd422d4b7b855d40ca1e9d34d2de9427d # v3
         with:
           p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERT_P12_B64 }}
           p12-password: ${{ secrets.APPLE_DEVELOPER_CERT_P12_PASSWORD }}
@@ -216,7 +216,7 @@ jobs:
           rm -f "${ASC_KEY_FILE}"
 
       - name: Upload signed artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           path: assets
           name: assets-darwin-${{ matrix.arch }}
@@ -234,7 +234,7 @@ jobs:
           - arm64
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: assets-windows-${{ matrix.arch }}
           path: assets
@@ -250,14 +250,14 @@ jobs:
 
       - id: upload-artifact
         name: Upload artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           path: assets
           name: assets-windows-${{ matrix.arch }}
           overwrite: true
 
       - name: Sign Windows Binaries
-        uses: signpath/github-action-submit-signing-request@v1.1
+        uses: signpath/github-action-submit-signing-request@3c306158facd969ebdb385c6845dee38afc2ebf9 # v1.1
         with:
           api-token: "${{ secrets.SIGNPATH_API_TOKEN }}"
           organization-id: "${{ vars.SIGNPATH_ORGANIZATION_ID }}"
@@ -272,7 +272,7 @@ jobs:
             version: ${{ toJSON(needs.config.outputs.version) }}
 
       - name: Upload signed artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           path: assets
           name: assets-windows-${{ matrix.arch }}
@@ -292,7 +292,7 @@ jobs:
           - amd64
           - arm64
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: refs/tags/cli/v${{ needs.config.outputs.version }}
           sparse-checkout: |
@@ -301,7 +301,7 @@ jobs:
           path: repo
 
       - name: Download artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: assets-${{ matrix.os }}-${{ matrix.arch }}
           path: assets
@@ -328,7 +328,7 @@ jobs:
           rm -rf "${TEMP_DIR}"
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: assets-${{ matrix.os }}-${{ matrix.arch }}-tgz
           path: out
@@ -340,14 +340,14 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Download binaries
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           pattern: assets-*
           path: assets
           merge-multiple: true
 
       - name: Download vendored source
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: source
           path: kubetail-${{ needs.config.outputs.version }}
@@ -364,7 +364,7 @@ jobs:
           sha256sum * > SHA256SUMS
 
       - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@v6.3.0
+        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
         with:
           gpg_private_key: ${{ secrets.KUBETAIL_BOT_GPG_SIGNING_KEY }}
           passphrase: ${{ secrets.KUBETAIL_BOT_GPG_PASSWORD }}
@@ -383,7 +383,7 @@ jobs:
           cat assets/SHA256SUMS.asc
 
       - name: Create release
-        uses: softprops/action-gh-release@v2.3.2
+        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8 # v2.3.2
         if: ${{ needs.config.outputs.dry_run == 'false' }}
         with:
           files: assets/*
