@@ -38,7 +38,7 @@ jobs:
           fi
 
       - name: Download SHA256SUMS
-        uses: robinraju/release-downloader@v1.12
+        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05 # v1.12
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
@@ -56,14 +56,14 @@ jobs:
           echo "arm64_sha256=$ARM64_SHA256" >> $GITHUB_OUTPUT
 
       - name: Checkout kubetail repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           sparse-checkout: .github/ci-config/aur/kubetail-bin
           sparse-checkout-cone-mode: false
           path: kubetail
 
       - name: Load AUR SSH key
-        uses: webfactory/ssh-agent@v0.9.1
+        uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd # v0.9.1
         with:
           ssh-private-key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
 
@@ -140,7 +140,7 @@ jobs:
           fi
 
       - name: Download SHA256SUMS
-        uses: robinraju/release-downloader@v1.12
+        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05 # v1.12
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
@@ -155,7 +155,7 @@ jobs:
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
 
       - name: Checkout kubetail-cli repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           sparse-checkout: .github/ci-config/aur/kubetail-cli
           sparse-checkout-cone-mode: false
@@ -163,7 +163,7 @@ jobs:
           path: kubetail
 
       - name: Load AUR SSH key
-        uses: webfactory/ssh-agent@v0.9.1
+        uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd # v0.9.1
         with:
           ssh-private-key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
 
