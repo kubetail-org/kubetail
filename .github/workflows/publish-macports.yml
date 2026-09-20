@@ -49,7 +49,7 @@ jobs:
           fi
 
       - name: Checkout macports-ports upstream repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: "${{ env.UPSTREAM_REPO }}"
           sparse-checkout: devel/kubetail
@@ -64,7 +64,7 @@ jobs:
           echo "dir=/private/tmp" >> $GITHUB_OUTPUT
 
       - name: Checkout this repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           sparse-checkout: .github/ci-config/macports
           sparse-checkout-cone-mode: false
@@ -72,7 +72,7 @@ jobs:
           persist-credentials: false
 
       - name: Download vendored source bundle
-        uses: robinraju/release-downloader@v1.12
+        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05 # v1.12
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
@@ -172,12 +172,12 @@ jobs:
           echo "file=$FILE" >> "$GITHUB_OUTPUT"
 
       - name: Load kubetail-bot ssh key
-        uses: webfactory/ssh-agent@v0.9.1
+        uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd # v0.9.1
         with:
           ssh-private-key: ${{ secrets.KUBETAIL_BOT_SSH_PRIVATE_KEY }}
 
       - name: Configure gpg
-        uses: crazy-max/ghaction-import-gpg@v6.3.0
+        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
         with:
           gpg_private_key: ${{ secrets.KUBETAIL_BOT_GPG_SIGNING_KEY }}
           passphrase: ${{ secrets.KUBETAIL_BOT_GPG_PASSWORD }}
