@@ -29,6 +29,7 @@ The Kubetail Dashboard server can be configured using a configuration file writt
 | ----------------------------------------------- | -------- | ---------------------------------------------------- | ------------ | ------------ |
 | allowed-namespaces                              | []string | If populated, restricts namespace access             | []           | stable       |
 | dashboard.addr                                  | string   | Host address to bind to                              | ":8080"      | stable       |
+| dashboard.allow-namespace-override              | bool     | Let token logins narrow their session's namespaces   | false        | experimental |
 | dashboard.auth-mode                             | string   | Auth mode (auto, token)                              | "auto"       | experimental |
 | dashboard.base-path                             | string   | URL path prefix                                      | "/"          | stable       |
 | dashboard.cluster-api-enabled                   | bool     | Whether the cluster-api is deployed in this cluster  | true         | experimental |

@@ -30,6 +30,18 @@ kubeconfig: ""
 #
 addr: :80
 
+## allow-namespace-override ##
+#
+# Allows an auth-mode:token login to narrow the namespaces its session is
+# scoped to, by submitting one or more `namespaces` values with the login
+# form. The requested namespaces can only shrink allowed-namespaces, never
+# widen it. This is a display/session scope only: the token still needs
+# matching Kubernetes RBAC permissions for the selected namespaces.
+#
+# Default value: false
+#
+allow-namespace-override: false
+
 ## allowed-origins ##
 #
 # Additional origins (in addition to same-origin) accepted on WebSocket

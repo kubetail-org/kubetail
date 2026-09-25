@@ -31,6 +31,7 @@ import (
 	"github.com/kubetail-org/kubetail/modules/dashboard/graph"
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/httphelpers"
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
 func TestAuthenticationMiddleware(t *testing.T) {
@@ -115,7 +116,7 @@ func TestAuthenticationMiddlewareRejectsWhitespaceToken(t *testing.T) {
 	router := gin.New()
 	router.Use(sessions.Sessions("session", cookie.NewStore([]byte("xx"))))
 	router.Use(authenticationMiddleware(config.AuthModeToken))
-	router.Use(k8sAuthenticationMiddleware(config.AuthModeToken))
+	router.Use(k8sAuthenticationMiddleware(config.AuthModeToken, false))
 	router.GET("/", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 
 	w := httptest.NewRecorder()
@@ -418,7 +419,7 @@ func TestK8sTokenRequiredMiddleware(t *testing.T) {
 			})
 
 			// add middleware
-			router.Use(k8sAuthenticationMiddleware(tt.setMode))
+			router.Use(k8sAuthenticationMiddleware(tt.setMode, false))
 
 			// add route for testing
 			router.GET("/", func(c *gin.Context) {
@@ -559,6 +560,50 @@ func TestWebSocketCSRFContextMiddleware(t *testing.T) {
 
 			assert.Equal(t, tt.wantCtxValue, gotCtxValue)
 			assert.Equal(t, tt.wantOutHeader, gotOutHeader)
+		})
+	}
+}
+
+func TestK8sAuthenticationMiddlewareSessionNamespaces(t *testing.T) {
+	tests := []struct {
+		name              string
+		allowOverride     bool
+		setGinNamespaces  []string
+		wantCtxNamespaces []string
+	}{
+		{"override enabled with namespaces", true, []string{"ns1", "ns2"}, []string{"ns1", "ns2"}},
+		{"override enabled without namespaces", true, nil, nil},
+		{"override disabled with namespaces", false, []string{"ns1"}, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := gin.New()
+
+			router.Use(func(c *gin.Context) {
+				c.Set(k8sTokenGinKey, "xxx")
+				if tt.setGinNamespaces != nil {
+					c.Set(k8sNamespacesGinKey, tt.setGinNamespaces)
+				}
+				c.Next()
+			})
+
+			router.Use(k8sAuthenticationMiddleware(config.AuthModeToken, tt.allowOverride))
+
+			var got []string
+			router.GET("/", func(c *gin.Context) {
+				if v, ok := c.Request.Context().Value(k8shelpers.K8SSessionNamespacesCtxKey).([]string); ok {
+					got = v
+				}
+				c.String(http.StatusOK, "ok")
+			})
+
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest("GET", "/", nil)
+			router.ServeHTTP(w, r)
+
+			assert.Equal(t, http.StatusOK, w.Result().StatusCode)
+			assert.Equal(t, tt.wantCtxNamespaces, got)
 		})
 	}
 }

@@ -58,6 +58,7 @@ import AdaptiveTimeAgo from '@/components/widgets/AdaptiveTimeAgo';
 import KubeContextPicker from '@/components/widgets/KubeContextPicker';
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
+import { useSession } from '@/lib/auth';
 import {
   HOME_NAMESPACES_LIST_FETCH,
   HOME_NAMESPACES_LIST_WATCH,
@@ -611,6 +612,7 @@ const Sidebar = () => {
 const NamespacesPicker = () => {
   const { kubeContext } = useContext(Context);
   const [namespaceFilter, setNamespaceFilter] = useAtom(namespaceFilterAtom);
+  const { session } = useSession();
 
   const { loading, data } = useListQueryWithSubscription({
     query: HOME_NAMESPACES_LIST_FETCH,
@@ -621,6 +623,11 @@ const NamespacesPicker = () => {
   });
 
   const ALL_NAMESPACES = '*';
+
+  // Session-level namespace lock (see /api/auth/session); the server also
+  // filters the namespace list itself, this only adjusts the labels
+  const namespaceLock = session?.namespace_lock ?? null;
+  const allLabel = namespaceLock ? 'All allowed namespaces' : 'All namespaces';
 
   // Reset namespaces when kubeContext changes
   useEffect(() => {
@@ -633,13 +640,20 @@ const NamespacesPicker = () => {
       onValueChange={(v) => setNamespaceFilter(v === null || v === ALL_NAMESPACES ? '' : v)}
       disabled={loading}
     >
-      <SelectTrigger className="w-50 bg-background">
-        <SelectValue placeholder="Loading...">{(v) => (v === ALL_NAMESPACES ? 'All namespaces' : v)}</SelectValue>
+      <SelectTrigger
+        className="w-50 bg-background"
+        title={
+          namespaceLock
+            ? `Session is restricted to: ${namespaceLock.join(', ')} (matching RBAC permissions still required)`
+            : undefined
+        }
+      >
+        <SelectValue placeholder="Loading...">{(v) => (v === ALL_NAMESPACES ? allLabel : v)}</SelectValue>
       </SelectTrigger>
       <SelectContent alignItemWithTrigger={false}>
         <SelectGroup>
           <SelectLabel>Namespaces</SelectLabel>
-          <SelectItem value={ALL_NAMESPACES}>All namespaces</SelectItem>
+          <SelectItem value={ALL_NAMESPACES}>{allLabel}</SelectItem>
           {data?.coreV1NamespacesList?.items?.map((item) => (
             <SelectItem key={item.id} value={item.metadata?.name ?? ''}>
               {item.metadata?.name}

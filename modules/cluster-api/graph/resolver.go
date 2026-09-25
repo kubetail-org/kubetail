@@ -23,6 +23,8 @@
 package graph
 
 import (
+	"context"
+
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
@@ -34,4 +36,11 @@ type Resolver struct {
 	cm                k8shelpers.ConnectionManager
 	grpcDispatcher    *grpcdispatcher.Dispatcher
 	allowedNamespaces []string
+}
+
+// resolveAllowedNamespaces returns the allowed-namespaces list effective for
+// this request: the server-wide list, optionally narrowed (never widened) by
+// the session scope forwarded from the dashboard reverse proxy.
+func (r *Resolver) resolveAllowedNamespaces(ctx context.Context) []string {
+	return k8shelpers.ResolveAllowedNamespaces(ctx, r.allowedNamespaces)
 }
