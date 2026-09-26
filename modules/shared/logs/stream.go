@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -414,11 +415,11 @@ func (s *stream) startTail_UNSAFE() error {
 		}
 
 		// Send the tail records in reverse order
-		for i := len(tailRecords) - 1; i >= 0; i-- {
+		for _, record := range slices.Backward(tailRecords) {
 			select {
 			case <-ctx.Done():
 				return
-			case s.pastCh <- tailRecords[i]:
+			case s.pastCh <- record:
 			}
 		}
 	}()
