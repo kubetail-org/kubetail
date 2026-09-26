@@ -43,7 +43,7 @@ func New(formPtr any, err error) FormErrors {
 	ve := err.(validator.ValidationErrors)
 
 	// iterate through FieldErrors
-	for i := 0; i < len(ve); i++ {
+	for i := range len(ve) {
 		// get error message from `errors_{tag}`
 		fe := ve[i]
 		structFieldName := fe.StructField()
