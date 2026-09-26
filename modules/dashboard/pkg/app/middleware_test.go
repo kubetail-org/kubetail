@@ -17,6 +17,7 @@ package app
 import (
 	"bytes"
 	"io"
+	"maps"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -162,9 +163,7 @@ func runCSRFCaseWithBody(t *testing.T, method string, header http.Header, seedTo
 	if contentType != "" {
 		r.Header.Set("Content-Type", contentType)
 	}
-	for k, v := range header {
-		r.Header[k] = v
-	}
+	maps.Copy(r.Header, header)
 	router.ServeHTTP(w, r)
 	return w.Result()
 }

@@ -172,7 +172,7 @@ func authModeDecodeHook(f reflect.Type, t reflect.Type, data any) (any, error) {
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
-	if t != reflect.TypeOf(AuthMode("")) {
+	if t != reflect.TypeFor[AuthMode]() {
 		return data, nil
 	}
 
@@ -192,7 +192,7 @@ func environmentDecodeHook(f reflect.Type, t reflect.Type, data any) (any, error
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
-	if t != reflect.TypeOf(sharedcfg.Environment("")) {
+	if t != reflect.TypeFor[sharedcfg.Environment]() {
 		return data, nil
 	}
 
@@ -212,7 +212,7 @@ func httpSameSiteDecodeHook(f reflect.Type, t reflect.Type, data any) (any, erro
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
-	if t != reflect.TypeOf(http.SameSite(0)) {
+	if t != reflect.TypeFor[http.SameSite]() {
 		return data, nil
 	}
 

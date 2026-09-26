@@ -164,7 +164,7 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 	s := NewStore(fp)
 
 	var wg sync.WaitGroup
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		wg.Go(func() {
 			_, _ = s.Get()
 		})

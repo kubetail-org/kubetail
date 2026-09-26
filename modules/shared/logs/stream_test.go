@@ -852,11 +852,11 @@ func TestStreamTailWithFollow(t *testing.T) {
 			ch2Old := make(chan LogRecord, numPast2)
 
 			// Send past data to channels
-			for i := len(tt.setPastStreamBefore1) - 1; i >= 0; i-- {
-				ch1Old <- tt.setPastStreamBefore1[i]
+			for _, record := range slices.Backward(tt.setPastStreamBefore1) {
+				ch1Old <- record
 			}
-			for i := len(tt.setPastStreamBefore2) - 1; i >= 0; i-- {
-				ch2Old <- tt.setPastStreamBefore2[i]
+			for _, record := range slices.Backward(tt.setPastStreamBefore2) {
+				ch2Old <- record
 			}
 
 			// Close channels if no more data
@@ -950,11 +950,11 @@ func TestStreamTailWithFollow(t *testing.T) {
 			}
 
 			// Send past data
-			for i := len(tt.setPastStreamAfter1) - 1; i >= 0; i-- {
-				ch1Old <- tt.setPastStreamAfter1[i]
+			for _, record := range slices.Backward(tt.setPastStreamAfter1) {
+				ch1Old <- record
 			}
-			for i := len(tt.setPastStreamAfter2) - 1; i >= 0; i-- {
-				ch2Old <- tt.setPastStreamAfter2[i]
+			for _, record := range slices.Backward(tt.setPastStreamAfter2) {
+				ch2Old <- record
 			}
 
 			// Close channels if still open
