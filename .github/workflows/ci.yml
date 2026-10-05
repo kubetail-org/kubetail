@@ -204,17 +204,15 @@ jobs:
     name: Actions · Lint
     needs: changes
     runs-on: ubuntu-24.04
-    env:
-      ACTIONLINT_VERSION: 1.7.12
     steps:
-      - uses: actions/checkout@v6
-      - name: Install actionlint
-        id: actionlint
-        run: bash <(curl -sSfL "https://raw.githubusercontent.com/rhysd/actionlint/v${ACTIONLINT_VERSION}/scripts/download-actionlint.bash") "${ACTIONLINT_VERSION}"
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
       - name: Run actionlint
         env:
           SHELLCHECK_OPTS: --severity=warning --exclude=SC2155
-        run: ${{ steps.actionlint.outputs.executable }} -color
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -color -config-file .github/ci-config/actionlint.yaml
 
   ###########################
   # Test jobs
