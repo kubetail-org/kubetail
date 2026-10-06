@@ -204,6 +204,49 @@ func TestAggregationAuth_FrontProxyHeadersExtractIdentity(t *testing.T) {
 	assert.Equal(t, []string{"openid"}, impersonate.Extras["scopes"])
 }
 
+// The dashboard reverse proxy forwards a session's namespace scope as
+// X-Forwarded-Namespaces; the middleware must land it on the request context
+// so the resolvers can narrow their allowed-namespaces to it.
+func TestAggregationAuth_ForwardedNamespacesOnContext(t *testing.T) {
+	proxyCA := newTestCA(t, "proxy-ca")
+	proxyLeaf := proxyCA.issue(t, "front-proxy-client")
+
+	tests := []struct {
+		name   string
+		header string
+		want   []string
+	}{
+		{"single namespace", "ns1", []string{"ns1"}},
+		{"multiple namespaces", "ns1,ns2", []string{"ns1", "ns2"}},
+		{"whitespace and empties trimmed", " ns1 , , ns2 ", []string{"ns1", "ns2"}},
+		{"absent header leaves context unset", "", nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mw := newAggregationAuthMiddleware(newTestAuthCfg(proxyCA, "front-proxy-client"))
+			r := requestWithCert([]*x509.Certificate{proxyLeaf}, nil)
+			r.Header.Set("X-Remote-User", "bob")
+			if tt.header != "" {
+				r.Header.Set("X-Forwarded-Namespaces", tt.header)
+			}
+
+			var got []string
+			router := gin.New()
+			router.Use(mw)
+			router.Any("/*any", func(c *gin.Context) {
+				got, _ = c.Request.Context().Value(k8shelpers.K8SSessionNamespacesCtxKey).([]string)
+				c.String(http.StatusOK, "ok")
+			})
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, r)
+
+			require.Equal(t, http.StatusOK, w.Result().StatusCode)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 // kube-apiserver treats requestheader-extra-headers-prefix case-insensitively
 // and is often configured with lowercase prefixes. Net/http canonicalizes the
 // header map keys, so a sensitive prefix match would silently drop every

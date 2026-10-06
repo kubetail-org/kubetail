@@ -19,6 +19,9 @@ type Key int
 const (
 	K8STokenCtxKey Key = iota
 	K8SImpersonateCtxKey
+	// K8SSessionNamespacesCtxKey carries the namespace(s) a session narrowed
+	// itself to at login time (auth-mode: token), for this request only.
+	K8SSessionNamespacesCtxKey
 )
 
 // ImpersonateInfo carries the identity that downstream Kubernetes API calls

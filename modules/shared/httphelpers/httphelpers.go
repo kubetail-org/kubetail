@@ -27,6 +27,15 @@ import (
 // the cluster-api server, where it gates the GraphQL WebSocket InitFunc.
 const HeaderForwardedCSRFToken = "X-Forwarded-CSRF-Token"
 
+// HeaderForwardedNamespaces is the request header used to forward a
+// session's namespace scope (comma-separated) from the dashboard reverse
+// proxy to the cluster-api server, where it narrows the server-wide
+// allowed-namespaces for that request. The dashboard sets it from the
+// session and strips any client-supplied copy; because it can only narrow
+// (never widen) the allow-list, a spoofed value can at most restrict the
+// caller's own view.
+const HeaderForwardedNamespaces = "X-Forwarded-Namespaces"
+
 // IsSameOrigin reports whether r's Origin header is present and matches
 // the request's scheme and host. A missing Origin returns false.
 //
