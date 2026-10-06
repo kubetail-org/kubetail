@@ -748,6 +748,9 @@ jobs:
           - mgr: winget
             arch: arm64
     runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: pwsh
     env:
       TRIPLET: ${{ matrix.mgr }}_windows_${{ matrix.arch }}
     steps:

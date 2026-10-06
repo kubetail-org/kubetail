@@ -200,6 +200,20 @@ jobs:
           uv run ruff check .
           uv run ruff format --check .
 
+  actions-lint:
+    name: Actions · Lint
+    needs: changes
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Run actionlint
+        env:
+          SHELLCHECK_OPTS: --severity=warning --exclude=SC2155
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -color -config-file .github/ci-config/actionlint.yaml
+
   ###########################
   # Test jobs
   ###########################
