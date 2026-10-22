@@ -1,6 +1,6 @@
 module github.com/kubetail-org/kubetail/modules/cluster-api
 
-go 1.25.0
+go 1.26.0
 
 replace github.com/kubetail-org/kubetail/modules/shared => ../shared
 

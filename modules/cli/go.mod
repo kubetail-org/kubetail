@@ -1,6 +1,6 @@
 module github.com/kubetail-org/kubetail/modules/cli
 
-go 1.25.0
+go 1.26.0
 
 replace github.com/kubetail-org/kubetail/modules/dashboard => ../dashboard
 
