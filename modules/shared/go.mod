@@ -1,6 +1,6 @@
 module github.com/kubetail-org/kubetail/modules/shared
 
-go 1.25.0
+go 1.26.0
 
 replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0
 
