@@ -21,6 +21,7 @@ overrides:
   postcss: "^8.5.23"
   rollup: "^4.59.0"
   shell-quote: "^1.11.0"
+  source-map-js: "^1.2.2"
   synckit: "^0.11.11"
   tmp: "^0.2.5"
   undici: "^7.29.0"
