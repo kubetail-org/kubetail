@@ -15,6 +15,7 @@
 package k8shelpers
 
 import (
+	"context"
 	"testing"
 
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
@@ -243,4 +244,74 @@ func TestToNamespacesError(t *testing.T) {
 			assert.Equal(t, []string(nil), actualNamespaces)
 		})
 	}
+}
+
+func TestNarrowAllowedNamespaces(t *testing.T) {
+	tests := []struct {
+		name        string
+		setStatic   []string
+		setOverride []string
+		want        []string
+	}{
+		{
+			"no override: unrestricted static passes through",
+			[]string{},
+			nil,
+			[]string{},
+		},
+		{
+			"no override: static list passes through",
+			[]string{"ns1", "ns2"},
+			nil,
+			[]string{"ns1", "ns2"},
+		},
+		{
+			"override with unrestricted static: override becomes effective",
+			[]string{},
+			[]string{"ns1"},
+			[]string{"ns1"},
+		},
+		{
+			"override is subset of static: intersection applies",
+			[]string{"ns1", "ns2"},
+			[]string{"ns1"},
+			[]string{"ns1"},
+		},
+		{
+			"override partially overlaps static: intersection applies",
+			[]string{"ns1", "ns2"},
+			[]string{"ns1", "ns3"},
+			[]string{"ns1"},
+		},
+		{
+			"override disjoint from static: static passes through unchanged",
+			[]string{"ns1", "ns2"},
+			[]string{"ns3"},
+			[]string{"ns1", "ns2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, NarrowAllowedNamespaces(tt.setStatic, tt.setOverride))
+		})
+	}
+}
+
+func TestResolveAllowedNamespaces(t *testing.T) {
+	static := []string{"ns1", "ns2"}
+
+	t.Run("without context override the static list applies", func(t *testing.T) {
+		assert.Equal(t, static, ResolveAllowedNamespaces(context.Background(), static))
+	})
+
+	t.Run("context override narrows the static list", func(t *testing.T) {
+		ctx := context.WithValue(context.Background(), K8SSessionNamespacesCtxKey, []string{"ns2"})
+		assert.Equal(t, []string{"ns2"}, ResolveAllowedNamespaces(ctx, static))
+	})
+
+	t.Run("wrong-typed context value is ignored", func(t *testing.T) {
+		ctx := context.WithValue(context.Background(), K8SSessionNamespacesCtxKey, "ns2")
+		assert.Equal(t, static, ResolveAllowedNamespaces(ctx, static))
+	})
 }

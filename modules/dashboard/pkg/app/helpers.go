@@ -40,6 +40,10 @@ const k8sTokenSessionKey = "k8sToken"
 
 const k8sTokenGinKey = "k8sToken"
 
+const k8sNamespacesSessionKey = "k8sNamespaces"
+
+const k8sNamespacesGinKey = "k8sNamespaces"
+
 const csrfTokenSessionKey = "csrfToken"
 
 // newClusterAPIProxy

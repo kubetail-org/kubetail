@@ -24,6 +24,7 @@ export type Session = {
   auth_mode: string;
   user: string | null;
   message: string | null;
+  namespace_lock: string[] | null;
   timestamp: Date;
 };
 

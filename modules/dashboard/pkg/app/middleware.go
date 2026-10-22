@@ -142,6 +142,9 @@ func authenticationMiddleware(mode config.AuthMode) gin.HandlerFunc {
 			if val, ok := session.Get(k8sTokenSessionKey).(string); ok {
 				token = val
 			}
+			if val, ok := session.Get(k8sNamespacesSessionKey).([]string); ok && len(val) > 0 {
+				c.Set(k8sNamespacesGinKey, val)
+			}
 		}
 
 		// check Authorization header
@@ -167,7 +170,7 @@ func authenticationMiddleware(mode config.AuthMode) gin.HandlerFunc {
 	}
 }
 
-func k8sAuthenticationMiddleware(mode config.AuthMode) gin.HandlerFunc {
+func k8sAuthenticationMiddleware(mode config.AuthMode, allowNamespaceOverride bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// set "Cache-Control: no-store" so that pages aren't stored in the users browser cache
 		c.Header("Cache-Control", "no-store")
@@ -185,6 +188,16 @@ func k8sAuthenticationMiddleware(mode config.AuthMode) gin.HandlerFunc {
 		if token != "" {
 			// Add to request context for kubernetes requests downstream
 			ctx := context.WithValue(c.Request.Context(), k8shelpers.K8STokenCtxKey, token)
+
+			// Propagate the session's login-time namespace narrowing, if the
+			// feature is enabled
+			if allowNamespaceOverride {
+				if val, ok := c.Get(k8sNamespacesGinKey); ok {
+					if nsList, ok := val.([]string); ok && len(nsList) > 0 {
+						ctx = context.WithValue(ctx, k8shelpers.K8SSessionNamespacesCtxKey, nsList)
+					}
+				}
+			}
 
 			c.Request = c.Request.WithContext(ctx)
 		}

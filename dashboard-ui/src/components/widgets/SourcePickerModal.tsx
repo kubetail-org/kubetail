@@ -35,6 +35,7 @@ import { Spinner } from '@kubetail/ui/elements/spinner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@kubetail/ui/elements/table';
 
 import AdaptiveTimeAgo from '@/components/widgets/AdaptiveTimeAgo';
+import { useSession } from '@/lib/auth';
 
 import type {
   SourcePickerCronJobsListFetchQuery,
@@ -489,6 +490,7 @@ const Explorer = () => {
 
 const NamespacePicker = () => {
   const { kubeContext, namespaceFilter, setNamespaceFilter } = useContext(Context);
+  const { session } = useSession();
 
   const { loading, data } = useListQueryWithSubscription({
     query: SOURCE_PICKER_NAMESPACES_LIST_FETCH,
@@ -500,19 +502,29 @@ const NamespacePicker = () => {
 
   const ALL_NAMESPACES = '*';
 
+  // Session-level namespace lock (see /api/auth/session); the server also
+  // filters the namespace list itself, this only adjusts the labels
+  const namespaceLock = session?.namespace_lock ?? null;
+  const allLabel = namespaceLock ? 'All allowed namespaces' : 'All namespaces';
+
   return (
     <Select
       value={namespaceFilter === '' ? ALL_NAMESPACES : namespaceFilter}
       onValueChange={(value) => setNamespaceFilter(value === ALL_NAMESPACES || value == null ? '' : value)}
       disabled={loading}
     >
-      <SelectTrigger className="h-[35px] border text-sm rounded-lg mt-0!">
-        <SelectValue placeholder="Loading...">
-          {(value) => (value === ALL_NAMESPACES ? 'All namespaces' : value)}
-        </SelectValue>
+      <SelectTrigger
+        className="h-[35px] border text-sm rounded-lg mt-0!"
+        title={
+          namespaceLock
+            ? `Session is restricted to: ${namespaceLock.join(', ')} (matching RBAC permissions still required)`
+            : undefined
+        }
+      >
+        <SelectValue placeholder="Loading...">{(value) => (value === ALL_NAMESPACES ? allLabel : value)}</SelectValue>
       </SelectTrigger>
       <SelectContent alignItemWithTrigger={false}>
-        <SelectItem value={ALL_NAMESPACES}>All namespaces</SelectItem>
+        <SelectItem value={ALL_NAMESPACES}>{allLabel}</SelectItem>
         {data?.coreV1NamespacesList?.items?.map((item) => (
           <SelectItem key={item.id} value={item.metadata?.name ?? ''}>
             {item.metadata?.name}

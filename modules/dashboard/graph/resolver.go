@@ -58,10 +58,17 @@ func (r *Resolver) Teardown() {
 	r.hm.Shutdown()
 }
 
+// resolveAllowedNamespaces returns the allowed-namespaces list effective for
+// this request: the server-wide list, optionally narrowed (never widened) by
+// the session-level override carried in ctx.
+func (r *Resolver) resolveAllowedNamespaces(ctx context.Context) []string {
+	return k8shelpers.ResolveAllowedNamespaces(ctx, r.allowedNamespaces)
+}
+
 // listResource
 func (r *Resolver) listResource(ctx context.Context, kubeContext string, namespace *string, options *metav1.ListOptions, modelPtr runtime.Object) error {
 	// Deref namespace
-	nsList, err := k8shelpers.DerefNamespaceToList(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContext))
+	nsList, err := k8shelpers.DerefNamespaceToList(r.resolveAllowedNamespaces(ctx), namespace, r.cm.GetDefaultNamespace(kubeContext))
 	if err != nil {
 		return err
 	}
@@ -101,7 +108,7 @@ func (r *Resolver) listResource(ctx context.Context, kubeContext string, namespa
 // watchResourceMulti
 func (r *Resolver) watchResourceMulti(ctx context.Context, kubeContext string, namespace *string, options *metav1.ListOptions, gvr schema.GroupVersionResource) (<-chan *watch.Event, error) {
 	// Deref namespace
-	nsList, err := k8shelpers.DerefNamespaceToList(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContext))
+	nsList, err := k8shelpers.DerefNamespaceToList(r.resolveAllowedNamespaces(ctx), namespace, r.cm.GetDefaultNamespace(kubeContext))
 	if err != nil {
 		return nil, err
 	}
