@@ -46,9 +46,9 @@
   "devDependencies": {
     "@eslint/compat": "^2.1.0",
     "@eslint/js": "^9.39.4",
-    "@graphql-codegen/cli": "^7.1.2",
-    "@graphql-codegen/client-preset": "^6.0.1",
-    "@graphql-codegen/fragment-matcher": "^7.0.1",
+    "@graphql-codegen/cli": "^7.4.6",
+    "@graphql-codegen/client-preset": "^6.2.3",
+    "@graphql-codegen/fragment-matcher": "^7.1.0",
     "@graphql-typed-document-node/core": "^3.2.0",
     "@stylistic/eslint-plugin": "^5.10.0",
     "@tailwindcss/vite": "^4.3.0",
