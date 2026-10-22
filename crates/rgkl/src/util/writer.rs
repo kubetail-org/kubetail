@@ -74,7 +74,7 @@ where
         // If there's any leftover data in the buffer (e.g. a partial line),
         // process it as well.
         if !self.buffer.is_empty() {
-            let line: Vec<u8> = self.buffer.drain(..).collect();
+            let line = std::mem::take(&mut self.buffer);
             (self.callback)(line);
         }
 
