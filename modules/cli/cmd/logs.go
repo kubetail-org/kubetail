@@ -152,9 +152,6 @@ func shouldWarnFallback(flag string, choice backendChoice) bool {
 	return (flag == "auto" || flag == "") && choice == backendKubernetes
 }
 
-var headFlag config.OptionalInt64
-var tailFlag config.OptionalInt64
-
 type logsStreamMode int
 
 const (
@@ -363,10 +360,10 @@ func loadLogsCmdConfig(cmd *cobra.Command) (*logsCmdConfig, error) {
 		v.Set("commands.logs.columns", columns)
 	}
 
-	if headFlag.IsValueProvided {
+	if headFlag := flags.Lookup("head").Value.(*config.OptionalInt64); headFlag.IsValueProvided {
 		v.Set("commands.logs.head", headFlag.Value)
 	}
-	if tailFlag.IsValueProvided {
+	if tailFlag := flags.Lookup("tail").Value.(*config.OptionalInt64); tailFlag.IsValueProvided {
 		v.Set("commands.logs.tail", tailFlag.Value)
 	}
 
@@ -904,9 +901,9 @@ func addLogsCmdFlags(cmd *cobra.Command) {
 	flagset.SortFlags = false
 
 	flagset.String(KubeContextFlag, "", "Specify the kubeconfig context to use")
-	flagset.VarP(&headFlag, "head", "h", "Return last N records (default 10)")
+	flagset.VarP(&config.OptionalInt64{}, "head", "h", "Return last N records (default 10)")
 	flagset.Lookup("head").NoOptDefVal = "N"
-	flagset.VarP(&tailFlag, "tail", "t", "Return last N records (default 10)")
+	flagset.VarP(&config.OptionalInt64{}, "tail", "t", "Return last N records (default 10)")
 	flagset.Lookup("tail").NoOptDefVal = "N"
 	flagset.Bool("all", false, "Return all records")
 	logsCmd.MarkFlagsMutuallyExclusive("head", "tail", "all")
