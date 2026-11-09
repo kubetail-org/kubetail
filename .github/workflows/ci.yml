@@ -11,12 +11,36 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      cache-mode:
+        description: >-
+          use: restore the caches, save none. update: also save new ones.
+          rebuild: start the Go caches from empty and save them. Off main, a
+          saved cache is that branch's alone; PRs never read it.
+        type: choice
+        options:
+          - use
+          - update
+          - rebuild
+        default: use
 
 # A PR's new push cancels its last run. Every other run has a group of its own,
-# so a run on main is never cancelled.
+# so a run on main is never cancelled, which would save no cache.
 concurrency:
   group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # use, update or rebuild: the one place that decides whether a run saves a
+  # cache. An update or a rebuild saves a new Go cache per job and runner, and
+  # Caches · Prune deletes the one it replaces. A dispatch takes its input; a
+  # push to main updates; a PR uses, since every PR saving its own copy pushes
+  # the repo past its cache limit.
+  CACHE_MODE: ${{ inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use' }}
+  # Full debug info swells the Rust caches and slows linking; line tables keep
+  # file:line in test backtraces. Workflow-wide, since rust-cache keys on
+  # CARGO_* variables.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
 
 jobs:
   # GitHub starts push runs in forks too. Outside kubetail-org/kubetail this job
@@ -42,6 +66,7 @@ jobs:
     permissions:
       pull-requests: read
     outputs:
+      cache-mode: ${{ env.CACHE_MODE }}
       go: ${{ github.event_name != 'pull_request' || steps.filter.outputs.go == 'true' }}
       rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
       typescript: ${{ github.event_name != 'pull_request' || steps.filter.outputs.typescript == 'true' }}
@@ -92,51 +117,32 @@ jobs:
         working-directory: ./modules/${{ matrix.module }}
         run: test -z "$(gofmt -l .)"
 
+  # Every module in one job, so the modules share one cache.
   go-vet:
     name: Go · Vet
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        module:
-          - cli
-          - cluster-api
-          - dashboard
-          - shared
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-environment
+      - id: setup
+        uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-      - name: Vet ${{ matrix.module }}
-        working-directory: ./modules/${{ matrix.module }}
-        run: go vet ./...
-
-  go-vendor:
-    name: Go · Vendor
-    needs: changes
-    if: needs.changes.outputs.go == 'true'
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-environment
-        with:
-          setup-go: "true"
-      - name: Create vendor bundle
+          go-cache-key: ${{ github.job }}-ubuntu-24.04
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      - name: Vet
         working-directory: ./modules
-        run: go work vendor
-      - name: Upload vendor bundle artifact
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        run: go vet ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+      # Last, so a failed job leaves the last good cache the newest.
+      - name: Save Go cache
+        if: env.CACHE_MODE != 'use'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          name: go-vendor-bundle
-          path: modules/vendor
-          retention-days: 1
+          path: ${{ steps.setup.outputs.go-cache-path }}
+          key: ${{ steps.setup.outputs.go-cache-key }}
 
   rust-lint:
     name: Rust · Lint
@@ -168,6 +174,8 @@ jobs:
         with:
           setup-rust: "true"
           setup-protoc: "true"
+          rust-cache-key: ${{ github.job }}-ubuntu-24.04
+          cache-save: ${{ env.CACHE_MODE != 'use' }}
       - name: Run clippy
         working-directory: ./crates
         run: cargo clippy --all -- -D warnings
@@ -184,6 +192,7 @@ jobs:
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
+          node-cache: "true"
       - name: Install dependencies
         working-directory: ./dashboard-ui
         run: pnpm install --frozen-lockfile
@@ -216,6 +225,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          save-cache: ${{ env.CACHE_MODE != 'use' }}
       - name: Lint
         working-directory: ./e2e
         run: |
@@ -249,21 +260,15 @@ jobs:
   # Test jobs
   ###########################
 
+  # Every module in one job per runner, so the modules share one cache.
   go-test:
     name: Go · Test
-    needs:
-      - changes
-      - go-vendor
+    needs: changes
     if: needs.changes.outputs.go == 'true'
-    timeout-minutes: 20
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        module:
-          - cli
-          - cluster-api
-          - dashboard
-          - shared
         os:
           - linux
           - macos-15
@@ -302,21 +307,27 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-environment
+      - id: setup
+        uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-      - name: Download vendor bundle artifact
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: go-vendor-bundle
-          path: modules/vendor
+          go-cache-key: ${{ github.job }}-${{ matrix.runner }}
+          go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Run tests
-        working-directory: ./modules/${{ matrix.module }}
-        run: go test -mod=vendor ./...
+        working-directory: ./modules
+        run: go test ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
       - name: Run race tests
         if: ${{ !(matrix.os == 'windows' && matrix.arch == 'arm64') }}
-        working-directory: ./modules/${{ matrix.module }}
-        run: go test -race -mod=vendor ./...
+        working-directory: ./modules
+        run: go test -race ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+      # After every test passed, so a failed job leaves its runner's last cache
+      # the newest. The test flags must match a PR's, or a PR replays nothing.
+      - name: Save Go cache
+        if: env.CACHE_MODE != 'use'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.go-cache-path }}
+          key: ${{ steps.setup.outputs.go-cache-key }}
 
   rust-test:
     name: Rust · Test
@@ -347,6 +358,8 @@ jobs:
           setup-rust: "true"
           setup-protoc: "true"
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          rust-cache-key: ${{ github.job }}-${{ matrix.runner }}
+          cache-save: ${{ env.CACHE_MODE != 'use' }}
       - name: Run tests
         working-directory: ./crates
         run: cargo test
@@ -363,6 +376,7 @@ jobs:
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
+          node-cache: "true"
       - name: Install dependencies
         working-directory: ./dashboard-ui
         run: pnpm install --frozen-lockfile
@@ -464,6 +478,8 @@ jobs:
           setup-rust: "true"
           setup-protoc: "true"
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          rust-cache-key: ${{ github.job }}-${{ matrix.runner }}
+          cache-save: ${{ env.CACHE_MODE != 'use' }}
       - name: Build
         working-directory: ./crates
         run: cargo build --release
@@ -480,6 +496,7 @@ jobs:
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
+          node-cache: "true"
       - name: Install dependencies
         working-directory: ./dashboard-ui
         run: pnpm install --frozen-lockfile
@@ -540,10 +557,15 @@ jobs:
           file: ${{ matrix.dockerfile }}
           target: ${{ matrix.target }}
           push: false
-          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.target
-            }}-${{matrix.arch }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.component }}-${{
-            matrix.target}}-${{ matrix.arch }}
+          # final and final-alpine build from the same stages, so they share a
+          # scope. Each save replaces the scope's index, which keeps those
+          # stages either way; a final stage left out is a copy onto a base.
+          # e2e/docker-bake.hcl reads the amd64 scopes.
+          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.arch }}
+          cache-to: >-
+            ${{ env.CACHE_MODE != 'use'
+            && format('type=gha,mode=max,scope={0}-{1}', matrix.component, matrix.arch)
+            || '' }}
 
   cli-builds:
     name: CLI · Build
@@ -600,7 +622,10 @@ jobs:
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
+          node-cache: "true"
           setup-go: "true"
+          go-cache-key: go-test-${{ matrix.runner }}
+          go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Build
         run: make build
         env:
@@ -608,9 +633,7 @@ jobs:
 
   alpine-builds:
     name: Alpine · Build
-    needs:
-      - changes
-      - go-vendor
+    needs: changes
     if: needs.changes.outputs.go == 'true'
     strategy:
       fail-fast: false
@@ -645,14 +668,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Reads Go · Test's module cache and saves none.
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-      - name: Download vendor bundle artifact
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: go-vendor-bundle
-          path: modules/vendor
+          go-cache-key: go-test-ubuntu-24.04
+          go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Setup Alpine
         uses: jirutka/setup-alpine@ae3b3ddba35054804fc4a3507b519fa7e8152050 # v1.4.1
         with:
@@ -664,7 +685,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           GOARM: ${{ matrix.goarm }}
         run: |
-          go build -mod=vendor -o ../../bin/kubetail .
+          go build -o ../../bin/kubetail .
       - name: Verify
         shell: alpine.sh {0}
         run: |
@@ -695,9 +716,14 @@ jobs:
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
+          node-cache: "true"
           setup-go: "true"
+          go-cache-key: go-test-ubuntu-24.04
+          go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Install uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          save-cache: ${{ env.CACHE_MODE != 'use' }}
       - name: Install kind
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
@@ -717,29 +743,32 @@ jobs:
   # riscv64 jobs, on main only
   ###########################
 
+  # Every module in one job, so the modules share one cache.
   go-test-riscv64:
     name: Go · Test (riscv64)
     needs: changes
     if: github.event_name == 'push'
-    strategy:
-      fail-fast: false
-      matrix:
-        module:
-          - cli
-          - cluster-api
-          - dashboard
-          - shared
     runs-on: ubuntu-24.04-riscv
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-environment
+      - id: setup
+        uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
+          go-cache-key: ${{ github.job }}-ubuntu-24.04-riscv
+          go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Run tests
-        working-directory: ./modules/${{ matrix.module }}
-        run: go test ./...
+        working-directory: ./modules
+        run: go test ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+      # Last, so a failed job leaves the last good cache the newest.
+      - name: Save Go cache
+        if: env.CACHE_MODE != 'use'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.go-cache-path }}
+          key: ${{ steps.setup.outputs.go-cache-key }}
 
   # Builds the Go binary alone: Node has no riscv64 build to bundle the UI with.
   cli-builds-riscv64:
@@ -751,9 +780,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Reads Go · Test (riscv64)'s cache and saves none.
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
+          go-cache-key: go-test-riscv64-ubuntu-24.04-riscv
+          go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Build
         working-directory: ./modules/cli
         run: CGO_ENABLED=0 go build -ldflags="-s -w" ./main.go
@@ -789,5 +821,44 @@ jobs:
           file: build/package/Dockerfile.${{ matrix.component }}
           target: ${{ matrix.target }}
           push: false
-          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.target }}-riscv64
-          cache-to: type=gha,mode=max,scope=${{ matrix.component }}-${{ matrix.target }}-riscv64
+          cache-from: type=gha,scope=${{ matrix.component }}-riscv64
+          cache-to: >-
+            ${{ env.CACHE_MODE != 'use'
+            && format('type=gha,mode=max,scope={0}-riscv64', matrix.component)
+            || '' }}
+
+  ###########################
+  # Cache jobs
+  ###########################
+
+  # A run that saves caches leaves one copy of each on its ref: the newest,
+  # which a failed save leaves the last good one. It runs last because
+  # rust-cache and setup-node save in post steps, which no later step in their
+  # own job can follow.
+  cache-prune:
+    name: Caches · Prune
+    needs:
+      - changes
+      - go-vet
+      - go-test
+      - go-test-riscv64
+      - rust-vet
+      - rust-test
+      - rust-build
+      - typescript-lint
+      - typescript-test
+      - typescript-build
+      - python-lint
+      - cli-builds
+      - e2e
+    if: always() && needs.changes.result == 'success' && needs.changes.outputs.cache-mode != 'use'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions/prune-caches
+      - uses: ./.github/actions/prune-caches

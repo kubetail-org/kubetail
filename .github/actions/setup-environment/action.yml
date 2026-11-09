@@ -1,6 +1,14 @@
 name: 'Setup Environment'
 description: 'Sets up Node.js, PNPM, Go, and Rust conditionally for building Kubetail'
 
+outputs:
+  go-cache-key:
+    description: 'The Go cache this run saves, when it saves one'
+    value: ${{ steps.go-cache-paths.outputs.key }}
+  go-cache-path:
+    description: 'The directories the Go cache holds'
+    value: ${{ steps.go-cache-paths.outputs.path }}
+
 inputs:
   github-token:
     description: 'GitHub token'
@@ -30,6 +38,26 @@ inputs:
     description: 'Whether to set up Node.js and PNPM'
     required: false
     default: 'false'
+  node-cache:
+    description: 'Whether to cache the pnpm store'
+    required: false
+    default: 'false'
+  go-cache-key:
+    description: 'Names the Go cache; empty turns it off'
+    required: false
+    default: ''
+  go-cache-mode:
+    description: 'use, update or rebuild; a rebuild skips restoring the Go cache, so the job builds a new one to save'
+    required: false
+    default: 'use'
+  rust-cache-key:
+    description: 'Names the Rust cache; empty turns it off'
+    required: false
+    default: ''
+  cache-save:
+    description: 'Whether to save the Rust cache'
+    required: false
+    default: 'false'
 
 runs:
   using: "composite"
@@ -53,11 +81,15 @@ runs:
         toolchain: stable
         components: rustfmt, clippy
 
+    # The caller decides whether to save; ci.yml's CACHE_MODE saves on main.
     - name: Set up Rust cache
-      if: inputs.setup-rust == 'true'
+      if: inputs.setup-rust == 'true' && inputs.rust-cache-key != ''
       uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       with:
-        workspaces: "./crates/rgkl"
+        workspaces: "./crates"
+        shared-key: ${{ inputs.rust-cache-key }}
+        save-if: ${{ inputs.cache-save == 'true' }}
+        cache-bin: false
 
     - name: Set up PNPM
       if: inputs.setup-node == 'true'
@@ -70,14 +102,44 @@ runs:
       uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: ${{ inputs.node-version }}
-        cache: 'pnpm'
-        cache-dependency-path: '**/pnpm-lock.yaml'
+        cache: ${{ inputs.node-cache == 'true' && 'pnpm' || '' }}
+        cache-dependency-path: 'dashboard-ui/pnpm-lock.yaml'
 
     - name: Set up Go
       if: inputs.setup-go == 'true'
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version: ${{ inputs.go-version }}
-        cache-dependency-path: |
-          modules/**/go.sum
-          go.work.sum
+        cache: false
+
+    # One Go cache per job and runner, named after the run that saved it.
+    # GOCACHE is content-addressed, so a cache from before a go.sum change is
+    # still right, just partly unused. The prefix ends in `-run-` because one
+    # runner's name can start another's (ubuntu-24.04, ubuntu-24.04-arm).
+    - name: Find Go cache paths
+      if: inputs.setup-go == 'true' && inputs.go-cache-key != ''
+      id: go-cache-paths
+      shell: bash
+      env:
+        PREFIX: go-${{ inputs.go-version }}-${{ inputs.go-cache-key }}-run-
+      run: |
+        {
+          echo "prefix=$PREFIX"
+          echo "key=$PREFIX$GITHUB_RUN_ID"
+          echo "path<<EOF"
+          go env GOMODCACHE GOCACHE
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+
+    # A rebuilding run restores nothing, so every test runs. Any other restores
+    # the newest cache. The caller saves, in its last step.
+    - name: Restore Go cache
+      if: >-
+        inputs.setup-go == 'true' && inputs.go-cache-key != ''
+        && inputs.go-cache-mode != 'rebuild'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.go-cache-paths.outputs.path }}
+        # Never matches, so restore-keys finds the newest cache.
+        key: doesntexist
+        restore-keys: ${{ steps.go-cache-paths.outputs.prefix }}
