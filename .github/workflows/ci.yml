@@ -214,7 +214,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck
       - name: Run shellcheck
-        run: shellcheck scripts/install.sh scripts/writing-standards-hook.sh
+        run: shellcheck scripts/*.sh
 
   python-lint:
     name: Python · Lint

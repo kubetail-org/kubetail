@@ -45,6 +45,9 @@ lerna-debug.log*
 /crates/target
 /target
 
+# sandbox (scripts/sandbox-dev-setup.sh)
+/.sandbox-linux
+
 # tilt (custom)
 .tilt
 
