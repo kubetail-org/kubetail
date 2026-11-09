@@ -34,7 +34,7 @@ grep-searcher = "0.1.17"
 memchr = "2.8.3"
 rand = "0.9.5"
 regex = "1.13.1"
-rstest = "0.26.1"
+rstest = "0.28.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 signal-hook = "0.4.6"
