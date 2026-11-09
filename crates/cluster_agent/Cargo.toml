@@ -49,6 +49,6 @@ secrecy = "0.10"
 x509-parser = "0.16"
 
 [dev-dependencies]
-serial_test = "3.2.0"
+serial_test = "4.0.1"
 rcgen = "0.13"
 
