@@ -25,7 +25,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "registry", "std"] }
 tracing-test = { workspace = true }
 
-grep = "0.3.2"
+grep = "0.4.1"
 grep-cli = "0.1.12"
 grep-matcher = "0.1.9"
 grep-printer = "0.2.2"
