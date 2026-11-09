@@ -11,6 +11,7 @@ A real-time logging dashboard for Kubernetes, in one monorepo. `dashboard-ui/`, 
 - **`crates/`** — a Rust workspace: the Cluster Agent (`cluster_agent`), one per node, and the log file reader it links (`rgkl`).
 - **`proto/`** — the gRPC contract between the Cluster API and the Cluster Agent.
 - **`config/default/`** — the documented default config file of each component. Defaults are set in each component's code; change both. → [ADR: each component owns its config](docs/adr/2026-11-09-each-component-owns-its-config.md)
+- **`tools/`** — a Go module that pins the Go tools CI runs (`actionlint`, `govulncheck`), so Dependabot moves them.
 - **`build/package/`** — the release Dockerfiles. Each copies only the directories its component needs.
 - **`hack/tilt/kubetail.yaml`** — the whole dev deployment.
 - **`e2e/`** — end-to-end tests in Python, run against a kind cluster.
@@ -108,6 +109,9 @@ Each area's guide lists what an ordinary change there can break. These hold ever
 ## Dependencies
 
 Add an external dependency only for a material gain in readability or performance, and state the reason. Go: the standard library first. Rust: well-maintained, audited crates. TypeScript: weigh the bundle size.
+
+- **Dependabot proposes updates weekly** (`.github/dependabot.yml`) and a person merges each one. It never moves a toolchain: the Go version, `packageManager` and `node-version` are bumped by hand. → [ADR: Dependabot moves dependencies, and a person merges every update](docs/adr/2026-11-09-dependabot-moves-dependencies-and-a-person-merges-every-update.md)
+- **`audit.yml` fails a PR only for the advisories it brings in**, and audits the whole tree on `main` and nightly. A failure there opens a `security` issue.
 
 ## Commits, pull requests, issues, releases
 

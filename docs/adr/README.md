@@ -74,6 +74,7 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 | 2026-11-09 | [Lint the dashboard UI with oxlint's categories and a chosen rule list](2026-11-09-lint-the-dashboard-ui-with-oxlints-categories-and-a-chosen-rule-list.md) | dashboard-ui | Accepted |
 | 2026-11-09 | [Override the codegen client preset's v6 defaults](2026-11-09-override-the-codegen-client-presets-v6-defaults.md) | dashboard-ui | Accepted |
 | 2026-11-09 | [Require switches over a union to list every member](2026-11-09-require-switches-over-a-union-to-list-every-member.md) | dashboard-ui | Accepted |
+| 2026-11-09 | [Dependabot moves dependencies, and a person merges every update](2026-11-09-dependabot-moves-dependencies-and-a-person-merges-every-update.md) | repo | Accepted |
 | 2026-11-09 | [Each Go module builds without go.work](2026-11-09-each-go-module-builds-without-go-work.md) | repo | Accepted |
 | 2026-11-09 | [Each component owns its config](2026-11-09-each-component-owns-its-config.md) | repo | Accepted |
 | 2026-11-09 | [Keep the sandbox's build outputs off the host mount](2026-11-09-keep-the-sandboxs-build-outputs-off-the-host-mount.md) | repo | Accepted |
