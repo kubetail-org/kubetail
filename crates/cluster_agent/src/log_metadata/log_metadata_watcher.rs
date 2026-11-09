@@ -642,9 +642,17 @@ mod test {
             .unwrap();
         let _ = renamed_file.write_all(&vec![1; 5]);
 
-        // Get the events and verify them. Events can appear in different order when using PollWatcher.
-        for _i in 0..2 {
-            let event = log_metadata_rx.recv().await.unwrap().unwrap();
+        // The watcher deduplicates events only within a debounce batch, so an event can repeat.
+        // Read until both have arrived.
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+        let mut deleted = false;
+        let mut modified = false;
+        while !(deleted && modified) {
+            let event = tokio::time::timeout_at(deadline, log_metadata_rx.recv())
+                .await
+                .expect("Timeout waiting for DELETED and MODIFIED events")
+                .expect("Channel closed")
+                .expect("Error receiving event");
 
             if event.r#type == "DELETED" {
                 verify_event(
@@ -657,6 +665,7 @@ mod test {
                     "container-name",
                     None,
                 );
+                deleted = true;
             } else {
                 verify_event(
                     event,
@@ -668,14 +677,11 @@ mod test {
                     "container-name",
                     Some(9),
                 );
+                modified = true;
             }
         }
 
-        // Kill
         ctx.cancel();
-
-        let result = log_metadata_rx.try_recv();
-        assert!(matches!(result, Err(TryRecvError::Empty)));
 
         // The renamed file won't be delted automatically when it gets out of scope.
         let _ = remove_file(&new_path);
