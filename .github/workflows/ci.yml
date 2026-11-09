@@ -223,8 +223,8 @@ jobs:
           uv run ruff check .
           uv run ruff format --check .
 
-  actions-lint:
-    name: Actions · Lint
+  yaml-lint:
+    name: YAML · Lint
     needs: changes
     runs-on: ubuntu-24.04
     steps:
@@ -234,10 +234,15 @@ jobs:
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-      - name: Run actionlint
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
+      # The token turns on zizmor's online audits, which check each pin's
+      # commit and version comment against the action's repository.
+      - name: Run yamllint, actionlint and zizmor
         env:
-          SHELLCHECK_OPTS: --severity=warning --exclude=SC2155
-        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -color -config-file .github/ci-config/actionlint.yaml
+          GH_TOKEN: ${{ github.token }}
+        run: make lint-yaml
 
   ###########################
   # Test jobs

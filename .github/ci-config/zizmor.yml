@@ -1,0 +1,38 @@
+# zizmor configuration. `make lint-yaml` and CI's `YAML · Lint` job fail on any
+# finding not ignored here. Every entry gives its reason.
+rules:
+  # Every action pinned to a commit SHA, first-party ones included.
+  unpinned-uses:
+    config:
+      policies:
+        "*": hash-pin
+
+  # actionlint rejects GitHub's `uses: $/...` syntax until rhysd/actionlint#711
+  # lands. Every job checks out this repository at the commit under test before
+  # it uses a local action, so `./` names the same code `$/` would.
+  self-repository:
+    disable: true
+
+  # The prow action reads the comment only to match /assign and /unassign, runs
+  # no code from the repository, and holds `issues: write` alone.
+  dangerous-triggers:
+    ignore:
+      - auto-assign-issue.yml
+
+  # The healthcheck installs our released packages on each distro's current
+  # image; a digest would freeze the distro it tests against.
+  unpinned-images:
+    ignore:
+      - package-healthcheck.yml
+
+  # The Windows runners ship no package manager with bats, so npm installs it,
+  # pinned to a version.
+  adhoc-packages:
+    ignore:
+      - ci.yml
+
+  # action-gh-release takes the tag from the pushed ref; `gh release create`
+  # would need it worked out in shell, including on a dispatch.
+  superfluous-actions:
+    ignore:
+      - release-cli.yml

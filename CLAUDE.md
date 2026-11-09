@@ -89,7 +89,7 @@ Run the checks in the guide of every area you touched before you finish. For `sc
 - **`make lint-all`, `vet-all`, `test-all` and `ci-checks` wrap most of them**, with gaps: `make crates-test` covers `rgkl` alone, and no target runs `pnpm build`, the Python lint or the shell checks. `make test-changed`, `make cover-changed` and `make lint`, named in the PR template and `CONTRIBUTING.md`, do not exist.
 - **CI picks its jobs by path**: `modules/**` runs the Go jobs, `crates/**` the Rust jobs, `dashboard-ui/**` the TypeScript jobs. A change to `proto/`, `config/`, `build/`, `hack/` or `e2e/` alone runs none of them, and a schema change under `modules/` does not run the TypeScript jobs. Run the affected checks yourself.
 - **The Docker builds, the CLI builds and the end-to-end suite run only when one PR touches `modules/`, `crates/` and `dashboard-ui/` together.** For a change that crosses a component boundary, run `make test-e2e` yourself (`e2e/CLAUDE.md`) and say so in the PR.
-- **Workflows are linted with `actionlint`.** Pin a new action to a commit SHA with its version in a comment.
+- **`make lint-yaml` lints every YAML file, then the workflows with `actionlint` and `zizmor`** (`.github/ci-config/zizmor.yml`). It needs `uv`, Go and `shellcheck`, and CI's `YAML · Lint` job runs it on every PR. Pin a new action to a commit SHA with its exact version in a comment (`# v7.0.1`), and pass `${{ }}` values to a `run:` script through `env:`.
 
 ## Security invariants
 

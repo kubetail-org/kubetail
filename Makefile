@@ -132,7 +132,7 @@ dashboard-ui-all: dashboard-ui-lint dashboard-ui-test
 	@echo "All dashboard UI operations completed successfully."
 
 # Combined targets
-lint-all: crates-lint modules-lint dashboard-ui-lint
+lint-all: crates-lint modules-lint dashboard-ui-lint lint-yaml
 	@echo "All linting completed successfully."
 
 test-all: crates-test modules-test dashboard-ui-test
@@ -143,6 +143,18 @@ vet-all: crates-vet modules-vet
 
 ci-checks: lint-all test-all vet-all
 	@echo "All CI checks completed successfully."
+
+# Every YAML file, then the workflows and composite actions: actionlint
+# type-checks them and shellchecks their `run:` blocks, zizmor audits them
+# against .github/ci-config/zizmor.yml. zizmor's online audits run only when
+# GH_TOKEN is set, as in CI. tools/go.mod pins actionlint.
+lint-yaml:
+	@echo "Linting YAML and workflows..."
+	@uv tool run yamllint@1.38.0 --strict .
+	@sc=$$(command -v shellcheck) || { echo "shellcheck not found" >&2; exit 1; }; \
+		cd tools && SHELLCHECK_OPTS="--severity=warning --exclude=SC2155" \
+		go tool actionlint -shellcheck "$$sc" -config-file ../.github/ci-config/actionlint.yaml
+	@uv tool run zizmor@1.31.1 --config .github/ci-config/zizmor.yml .
 
 ## Build e2e images and CLI, then run the full e2e suite.
 ## Pass ONLY_BUILD=1 to skip pytest and just rebuild artifacts (useful when
@@ -180,6 +192,7 @@ help:
 	@echo "  dashboard-ui-lint     - Lint dashboard UI"
 	@echo "  dashboard-ui-test     - Test dashboard UI"
 	@echo "  dashboard-ui-all      - Run all dashboard UI operations"
+	@echo "  lint-yaml             - Lint YAML files and workflows"
 	@echo "  lint-all              - Run all lint checks"
 	@echo "  test-all              - Run all tests"
 	@echo "  vet-all               - Run all vetting"
