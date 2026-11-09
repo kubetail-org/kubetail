@@ -70,9 +70,33 @@ runs:
       run: |
         git config --global url."https://${TOKEN}:@github.com/".insteadOf "https://github.com/"
 
+    # Linux x86_64 and arm64 only: no job that sets up protoc runs elsewhere.
     - name: Set up Protoc
       if: inputs.setup-protoc == 'true'
-      uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+      shell: bash
+      env:
+        VERSION: '23.4'
+      run: |
+        set -euo pipefail
+        case "$RUNNER_OS-$RUNNER_ARCH" in
+          Linux-X64)
+            arch=x86_64
+            sha256=0502f286ac9ed860b629a7965a14527b1f2dd131e4283fa23c2d7f184672aa9a
+            ;;
+          Linux-ARM64)
+            arch=aarch_64
+            sha256=1c7750b6e038305b5a7fc3d0cda1ebefdf106a4f30a787bf826ed2fc47c3967d
+            ;;
+          *)
+            echo "::error::no protoc checksum for $RUNNER_OS-$RUNNER_ARCH"
+            exit 1
+            ;;
+        esac
+        zip="$RUNNER_TEMP/protoc.zip"
+        curl -fsSL -o "$zip" \
+          "https://github.com/protocolbuffers/protobuf/releases/download/v$VERSION/protoc-$VERSION-linux-$arch.zip"
+        echo "$sha256  $zip" | sha256sum -c -
+        sudo unzip -q -o "$zip" -d /usr/local bin/protoc 'include/*'
 
     - name: Set up Rust
       if: inputs.setup-rust == 'true'
