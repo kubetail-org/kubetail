@@ -54,7 +54,7 @@ jobs:
     needs: config
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/tags/cli/v${{ needs.config.outputs.version }}
 
@@ -84,7 +84,7 @@ jobs:
           rm -rf dashboard-ui/node_modules
 
       - name: Upload artifact
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: source
           path: .
@@ -123,7 +123,7 @@ jobs:
             runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/tags/cli/v${{ needs.config.outputs.version }}
           sparse-checkout: .github/actions/setup-environment
@@ -135,7 +135,7 @@ jobs:
           setup-go: "true"
 
       - name: Download source
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: source
           path: kubetail-cli
@@ -157,7 +157,7 @@ jobs:
         run: mv bin/kubetail bin/kubetail-${{ matrix.os }}-${{ matrix.arch }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           path: kubetail-cli/bin/*
           name: assets-${{ matrix.os }}-${{ matrix.arch }}
@@ -174,13 +174,13 @@ jobs:
           - arm64
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: assets-darwin-${{ matrix.arch }}
           path: assets
 
       - name: Import certificate
-        uses: apple-actions/import-codesign-certs@63fff01cd422d4b7b855d40ca1e9d34d2de9427d # v3
+        uses: apple-actions/import-codesign-certs@63fff01cd422d4b7b855d40ca1e9d34d2de9427d # v3.0.0
         with:
           p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERT_P12_B64 }}
           p12-password: ${{ secrets.APPLE_DEVELOPER_CERT_P12_PASSWORD }}
@@ -216,7 +216,7 @@ jobs:
           rm -f "${ASC_KEY_FILE}"
 
       - name: Upload signed artifact
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           path: assets
           name: assets-darwin-${{ matrix.arch }}
@@ -234,7 +234,7 @@ jobs:
           - arm64
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: assets-windows-${{ matrix.arch }}
           path: assets
@@ -250,7 +250,7 @@ jobs:
 
       - id: upload-artifact
         name: Upload artifacts
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           path: assets
           name: assets-windows-${{ matrix.arch }}
@@ -272,7 +272,7 @@ jobs:
             version: ${{ toJSON(needs.config.outputs.version) }}
 
       - name: Upload signed artifacts
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           path: assets
           name: assets-windows-${{ matrix.arch }}
@@ -292,7 +292,7 @@ jobs:
           - amd64
           - arm64
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/tags/cli/v${{ needs.config.outputs.version }}
           sparse-checkout: |
@@ -301,7 +301,7 @@ jobs:
           path: repo
 
       - name: Download artifacts
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: assets-${{ matrix.os }}-${{ matrix.arch }}
           path: assets
@@ -328,7 +328,7 @@ jobs:
           rm -rf "${TEMP_DIR}"
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: assets-${{ matrix.os }}-${{ matrix.arch }}-tgz
           path: out
@@ -340,14 +340,14 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Download binaries
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: assets-*
           path: assets
           merge-multiple: true
 
       - name: Download vendored source
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: source
           path: kubetail-${{ needs.config.outputs.version }}

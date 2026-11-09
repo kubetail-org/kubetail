@@ -41,7 +41,7 @@ jobs:
           fi
 
       - name: Checkout winget-pkgs upstream repo
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: "${{ env.UPSTREAM_REPO }}"
           sparse-checkout: manifests/k/Kubetail/Kubetail
@@ -50,7 +50,7 @@ jobs:
           persist-credentials: false
 
       - name: Checkout this repo
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: .github/ci-config/winget
           sparse-checkout-cone-mode: false
