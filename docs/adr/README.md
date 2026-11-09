@@ -69,6 +69,7 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 | 2026-11-09 | [Read logs through two backends behind LogFetcher](2026-11-09-read-logs-through-two-backends-behind-logfetcher.md) | cross-cutting | Accepted |
 | 2026-11-09 | [Authenticate the front proxy in middleware](2026-11-09-authenticate-the-front-proxy-in-middleware.md) | cluster-api | Accepted |
 | 2026-11-09 | [Defend against CSRF in two layers](2026-11-09-defend-against-csrf-in-two-layers.md) | dashboard | Accepted |
+| 2026-11-09 | [Lint the dashboard UI with oxlint's categories and a chosen rule list](2026-11-09-lint-the-dashboard-ui-with-oxlints-categories-and-a-chosen-rule-list.md) | dashboard-ui | Accepted |
 | 2026-11-09 | [Override the codegen client preset's v6 defaults](2026-11-09-override-the-codegen-client-presets-v6-defaults.md) | dashboard-ui | Accepted |
 | 2026-11-09 | [Each Go module builds without go.work](2026-11-09-each-go-module-builds-without-go-work.md) | repo | Accepted |
 | 2026-11-09 | [Each component owns its config](2026-11-09-each-component-owns-its-config.md) | repo | Accepted |
