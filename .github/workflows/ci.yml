@@ -7,66 +7,65 @@ on:
   pull_request:
     branches:
       - "**"
+  push:
+    branches:
+      - main
   workflow_dispatch:
-    inputs:
-      run_all:
-        description: "Run full suite"
-        required: false
-        type: boolean
-        default: true
+
+# A PR's new push cancels its last run. Every other run has a group of its own,
+# so a run on main is never cancelled.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  ##############################
-  # Changes detection
-  ##############################
+  # GitHub starts push runs in forks too. Outside kubetail-org/kubetail this job
+  # runs only for a PR or a dispatch, and Changes needs it, so a fork's
+  # automatic run skips whole.
+  fork-gate:
+    name: Fork gate
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-slim
+    steps:
+      - run: "true"
 
+  # A pull request runs a group's jobs only when a path in its filter changed.
+  # A push or a dispatch runs them all, so main catches what a filter misses.
+  # Test and build jobs need only this job, so they start beside lint and vet.
   changes:
-    name: Detect Changes
+    name: Changes
+    needs: fork-gate
     runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
     outputs:
-      go: ${{ steps.override.outputs.go }}
-      rust: ${{ steps.override.outputs.rust }}
-      typescript: ${{ steps.override.outputs.typescript }}
-      any: ${{ steps.override.outputs.any }}
+      go: ${{ github.event_name != 'pull_request' || steps.filter.outputs.go == 'true' }}
+      rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
+      typescript: ${{ github.event_name != 'pull_request' || steps.filter.outputs.typescript == 'true' }}
+      any: >-
+        ${{ github.event_name != 'pull_request'
+        || steps.filter.outputs.go == 'true'
+        || steps.filter.outputs.rust == 'true'
+        || steps.filter.outputs.typescript == 'true' }}
+      shell: ${{ github.event_name != 'pull_request' || steps.filter.outputs.shell == 'true' }}
+      yaml: ${{ github.event_name != 'pull_request' || steps.filter.outputs.yaml == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request'
         with:
           persist-credentials: false
+          sparse-checkout: .github
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
+        if: github.event_name == 'pull_request'
         with:
-          filters: |
-            go:
-              - 'modules/**'
-            rust:
-              - 'crates/**'
-            typescript:
-              - 'dashboard-ui/**'
-      - id: override
-        env:
-          RUN_ALL: ${{ inputs.run_all }}
-          GO: ${{ steps.filter.outputs.go }}
-          RUST: ${{ steps.filter.outputs.rust }}
-          TYPESCRIPT: ${{ steps.filter.outputs.typescript }}
-        run: |
-          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ] && [ "$RUN_ALL" == "true" ]; then
-            echo "go=true" >> "$GITHUB_OUTPUT"
-            echo "rust=true" >> "$GITHUB_OUTPUT"
-            echo "typescript=true" >> "$GITHUB_OUTPUT"
-            echo "any=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "go=$GO" >> "$GITHUB_OUTPUT"
-            echo "rust=$RUST" >> "$GITHUB_OUTPUT"
-            echo "typescript=$TYPESCRIPT" >> "$GITHUB_OUTPUT"
-            if [ "$GO" == "true" ] || [ "$RUST" == "true" ] || [ "$TYPESCRIPT" == "true" ]; then
-              echo "any=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "any=false" >> "$GITHUB_OUTPUT"
-            fi
-          fi
+          filters: .github/ci-config/path-filters.yml
 
   ##############################
-  # Pre-flight jobs
+  # Lint and vet jobs
   ##############################
 
   go-lint:
@@ -195,6 +194,7 @@ jobs:
   shell-lint:
     name: Shell · Lint
     needs: changes
+    if: needs.changes.outputs.shell == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -226,6 +226,7 @@ jobs:
   yaml-lint:
     name: YAML · Lint
     needs: changes
+    if: needs.changes.outputs.yaml == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -252,8 +253,6 @@ jobs:
     name: Go · Test
     needs:
       - changes
-      - go-lint
-      - go-vet
       - go-vendor
     if: needs.changes.outputs.go == 'true'
     timeout-minutes: 20
@@ -321,10 +320,7 @@ jobs:
 
   rust-test:
     name: Rust · Test
-    needs:
-      - changes
-      - rust-lint
-      - rust-vet
+    needs: changes
     if: needs.changes.outputs.rust == 'true'
     strategy:
       fail-fast: false
@@ -357,9 +353,7 @@ jobs:
 
   typescript-test:
     name: TypeScript · Test
-    needs:
-      - changes
-      - typescript-lint
+    needs: changes
     if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
     steps:
@@ -378,9 +372,8 @@ jobs:
 
   shell-test:
     name: Shell · Test
-    needs:
-      - changes
-      - shell-lint
+    needs: changes
+    if: needs.changes.outputs.shell == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -444,10 +437,7 @@ jobs:
 
   rust-build:
     name: Rust · Build
-    needs:
-      - changes
-      - rust-lint
-      - rust-vet
+    needs: changes
     if: needs.changes.outputs.rust == 'true'
     strategy:
       fail-fast: false
@@ -480,9 +470,7 @@ jobs:
 
   typescript-build:
     name: TypeScript · Build
-    needs:
-      - changes
-      - typescript-lint
+    needs: changes
     if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
     steps:
@@ -505,13 +493,7 @@ jobs:
 
   docker-builds:
     name: Docker · Build
-    needs:
-      - changes
-      - rust-lint
-      - rust-vet
-      - go-lint
-      - go-vet
-      - typescript-lint
+    needs: changes
     if: needs.changes.outputs.any == 'true'
     timeout-minutes: 20
     strategy:
@@ -565,13 +547,7 @@ jobs:
 
   cli-builds:
     name: CLI · Build
-    needs:
-      - changes
-      - rust-lint
-      - rust-vet
-      - go-lint
-      - go-vet
-      - typescript-lint
+    needs: changes
     if: needs.changes.outputs.any == 'true'
     strategy:
       fail-fast: false
@@ -634,12 +610,7 @@ jobs:
     name: Alpine · Build
     needs:
       - changes
-      - rust-lint
-      - rust-vet
-      - go-lint
-      - go-vet
       - go-vendor
-      - typescript-lint
     if: needs.changes.outputs.go == 'true'
     strategy:
       fail-fast: false
@@ -705,7 +676,6 @@ jobs:
     needs:
       - changes
       - docker-builds
-      - python-lint
     if: needs.changes.outputs.any == 'true'
     runs-on: ubuntu-24.04
     strategy:
@@ -742,3 +712,82 @@ jobs:
         env:
           KIND_NODE_IMAGE: ${{ matrix.kind-node-image }}
         run: make test-e2e
+
+  ###########################
+  # riscv64 jobs, on main only
+  ###########################
+
+  go-test-riscv64:
+    name: Go · Test (riscv64)
+    needs: changes
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - cli
+          - cluster-api
+          - dashboard
+          - shared
+    runs-on: ubuntu-24.04-riscv
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Run tests
+        working-directory: ./modules/${{ matrix.module }}
+        run: go test ./...
+
+  # Builds the Go binary alone: Node has no riscv64 build to bundle the UI with.
+  cli-builds-riscv64:
+    name: CLI · Build (riscv64)
+    needs: changes
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04-riscv
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Build
+        working-directory: ./modules/cli
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" ./main.go
+
+  # The cli and dashboard images build the UI on a node image, which has no
+  # riscv64 variant, and Dockerfile.cluster-agent accepts only x86_64 and
+  # aarch64.
+  docker-builds-riscv64:
+    name: Docker · Build (riscv64)
+    needs: changes
+    if: github.event_name == 'push'
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        component:
+          - cluster-api
+        target:
+          - final
+          - final-alpine
+    runs-on: ubuntu-24.04-riscv
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: build/package/Dockerfile.${{ matrix.component }}
+          target: ${{ matrix.target }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.target }}-riscv64
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}-${{ matrix.target }}-riscv64
