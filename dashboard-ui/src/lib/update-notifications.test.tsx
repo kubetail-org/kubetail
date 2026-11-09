@@ -211,10 +211,17 @@ function kubeConfigWatchMock(contextNames: string[], currentContext?: string): M
     result: {
       data: {
         kubeConfigWatch: {
+          __typename: 'KubeConfigWatchEvent',
           type: 'ADDED',
           object: {
+            __typename: 'KubeConfig',
             currentContext: currentContext ?? contextNames[0] ?? '',
-            contexts: contextNames.map((name) => ({ name, cluster: 'c', namespace: 'default' })),
+            contexts: contextNames.map((name) => ({
+              __typename: 'KubeConfigContext',
+              name,
+              cluster: 'c',
+              namespace: 'default',
+            })),
           },
         },
       },

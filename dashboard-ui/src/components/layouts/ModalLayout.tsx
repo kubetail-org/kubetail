@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 import Logo from '@/assets/logo.svg?react';
 import { cn } from '@/lib/util';

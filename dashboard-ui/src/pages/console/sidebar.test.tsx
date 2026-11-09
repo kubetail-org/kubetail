@@ -14,7 +14,7 @@
 
 import { render, screen } from '@testing-library/react';
 import { createStore, Provider } from 'jotai';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 
 import type { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { Counter } from '@/lib/util';

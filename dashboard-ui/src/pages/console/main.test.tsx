@@ -15,7 +15,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { createStore, Provider } from 'jotai';
 import { createRef } from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 
 import type { LogViewerHandle, LogViewerVirtualRow } from '@/components/widgets/log-viewer';
 import { PreferencesProvider } from '@/lib/preferences';

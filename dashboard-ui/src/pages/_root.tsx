@@ -16,7 +16,7 @@ import { CircleX } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import toastlib, { useToaster, resolveValue } from 'react-hot-toast';
 import type { Toast } from 'react-hot-toast';
-import { Outlet } from 'react-router-dom';
+import { Outlet } from 'react-router';
 
 import { Button } from '@kubetail/ui/elements/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@kubetail/ui/elements/dialog';

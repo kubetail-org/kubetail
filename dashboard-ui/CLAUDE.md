@@ -1,6 +1,6 @@
 # dashboard-ui — React single-page app
 
-React 19 + React Router 7 + Apollo Client 4 (GraphQL) + Jotai + Vite + Tailwind v4. UI primitives from `@kubetail/ui`. Package manager is **pnpm**; never `npm` or `npx`. Path alias: **`@/*` → `src/*`**. The React compiler is off.
+React 19 + React Router 8 + Apollo Client 4 (GraphQL) + Jotai + Vite + Tailwind v4. UI primitives from `@kubetail/ui`. Package manager is **pnpm**; never `npm` or `npx`. Path alias: **`@/*` → `src/*`**. The React compiler is off.
 
 **The Go server does not serve `index.html`.** In production the Dashboard backend renders `modules/dashboard/templates/index.tmpl` and takes the script, style and font tags from `.vite/manifest.json`, so `build.manifest: true` in `vite.config.ts` is load-bearing. A change to `index.html`'s `<head>`, title or inline theme script is repeated in `index.tmpl`. → [ADR: embed the UI by a copy step and render from the Vite manifest](../docs/adr/2026-11-09-embed-the-ui-by-a-copy-step-and-render-from-the-vite-manifest.md)
 
@@ -38,7 +38,7 @@ pnpm test run       # `pnpm test` alone is watch mode and never exits
 - **`pnpm graphql-codegen` regenerates `__generated__/`** from the two schemas under `../modules/`. Run it after changing `ops.ts`, `fragments.ts` or either schema, and commit the result. **Never edit `__generated__/`.** The two presets in `codegen.ts` override the same four defaults; keep them in step. → [ADR: override the codegen client preset's v6 defaults](../docs/adr/2026-11-09-override-the-codegen-client-presets-v6-defaults.md)
 - **The console's log operations are written once, in `dashboard/ops.ts`, and sent to either server.** Codegen checks them against the Dashboard's schema alone.
 - **Custom scalars arrive as `any` and are converted by the cache.** `dateField` and `bigIntField` in `apollo-client.ts` turn named fields into `Date` and `bigint`. A new time or int64 field needs a type policy there, or it is a string. Read a scalar with `as` to the type it has at run time.
-- **Kubernetes lists are a query plus a watch, through the shared hooks** in `src/lib/hooks.ts`: `useListQueryWithSubscription`, `useGetQueryWithSubscription`, `useCounterQueryWithSubscription`. Don't pair `useQuery` and `useSubscription` by hand. A paginated list field needs `k8sPagination()` in `DashboardCustomCache`.
+- **Kubernetes lists are a query plus a watch, through the shared hooks** in `src/lib/hooks.ts`: `useListQueryWithSubscription`, `useCounterQueryWithSubscription`. Don't pair `useQuery` and `useSubscription` by hand. A paginated list field needs `k8sPagination()` in `DashboardCustomCache`.
 
 ## State
 

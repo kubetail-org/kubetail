@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import type { TypedDocumentNode, OperationVariables } from '@apollo/client';
-import { useApolloClient, useQuery } from '@apollo/client/react';
+import { skipToken, useApolloClient, useQuery } from '@apollo/client/react';
 import deepEqual from 'fast-deep-equal';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -145,77 +145,6 @@ export function useRafThrottle<T extends (...args: never[]) => void>(fn: T) {
 }
 
 /**
- * Get-style query with subscription hook
- */
-
-interface GetQueryWithSubscriptionTQVariables {
-  kubeContext?: string;
-  namespace: string;
-  name: string;
-}
-
-interface GetQueryWithSubscriptionTSVariables {
-  kubeContext?: string;
-  namespace: string;
-  fieldSelector: string;
-}
-
-interface GetQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables> {
-  query: TypedDocumentNode<TQData, TQVariables>;
-  subscription: TypedDocumentNode<TSData, TSVariables>;
-  queryDataKey: keyof TQData;
-  subscriptionDataKey: keyof TSData;
-  skip?: boolean;
-  variables: TQVariables;
-}
-
-export function useGetQueryWithSubscription<
-  TQData,
-  TQVariables extends GetQueryWithSubscriptionTQVariables,
-  TSData,
-  TSVariables extends GetQueryWithSubscriptionTSVariables,
->(args: GetQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
-  const { query, subscription, queryDataKey, subscriptionDataKey, skip } = args;
-  const { kubeContext, name, namespace } = args.variables;
-
-  // get workload object
-  const { loading, error, data, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(query, {
-    skip,
-    variables: args.variables,
-  });
-
-  // Retry on errors
-  useEffect(() => {
-    if (error) startPolling(RETRY_TIMEOUT);
-    else stopPolling();
-  }, [error, startPolling, stopPolling]);
-
-  // subscribe to changes
-  useEffect(
-    () =>
-      subscribeToMore({
-        document: subscription,
-        variables: {
-          kubeContext,
-          namespace,
-          fieldSelector: `metadata.name=${name}`,
-        } as TSVariables,
-        updateQuery: (prev, { subscriptionData }): TQData => {
-          const ev = subscriptionData.data[subscriptionDataKey] as GenericWatchEventFragment<unknown> | null;
-          if (ev?.type === 'ADDED' && ev.object) return { [queryDataKey]: ev.object } as TQData;
-          return prev as TQData;
-        },
-        onError: (err) => {
-          if (isWatchExpiredError(err)) void refetch();
-        },
-      }),
-    [subscribeToMore, subscription, subscriptionDataKey, queryDataKey, kubeContext, namespace, name, refetch],
-  );
-
-  return { loading, error, data };
-}
-
-/**
  * List-style query with subscription hook
  */
 
@@ -240,10 +169,10 @@ export function useListQueryWithSubscription<
   const variables = useDeepStableValue(args.variables);
 
   // initial query
-  const { loading, error, data, fetchMore, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(query, {
-    skip,
-    variables,
-  });
+  const { loading, error, data, fetchMore, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(
+    query,
+    skip ? skipToken : { variables },
+  );
 
   // Retry on errors
   useEffect(() => {
@@ -372,7 +301,6 @@ interface CounterQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariab
   subscription: TypedDocumentNode<TSData, TSVariables>;
   queryDataKey: keyof TQData;
   subscriptionDataKey: keyof TSData;
-  skip?: boolean;
   variables: TQVariables;
 }
 
@@ -382,12 +310,11 @@ export function useCounterQueryWithSubscription<
   TSData,
   TSVariables extends OperationVariables,
 >(args: CounterQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
-  const { query, subscription, queryDataKey, subscriptionDataKey, skip } = args;
+  const { query, subscription, queryDataKey, subscriptionDataKey } = args;
   const variables = useDeepStableValue(args.variables);
 
   // initial query
   const { loading, error, data, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(query, {
-    skip,
     variables,
   });
 

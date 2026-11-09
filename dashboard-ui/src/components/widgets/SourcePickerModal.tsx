@@ -13,11 +13,22 @@
 // limitations under the License.
 
 import type { TypedDocumentNode } from '@apollo/client';
-import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
-import type { Cell, ColumnDef, Row, SortDirection, SortingState, TableMeta, TableOptions } from '@tanstack/react-table';
+import {
+  columnVisibilityFeature,
+  createSortedRowModel,
+  flexRender,
+  metaHelper,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_datetime,
+  sortFn_text,
+  tableFeatures,
+  useTable,
+} from '@tanstack/react-table';
+import type { Cell, ColumnDef, Row, SortDirection, SortingState } from '@tanstack/react-table';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 
 import { Button } from '@kubetail/ui/elements/button';
 import { Checkbox } from '@kubetail/ui/elements/checkbox';
@@ -213,10 +224,20 @@ type WorkloadTableData = {
   createdAt: Date;
 };
 
-interface WorkloadTableMeta extends TableMeta<WorkloadTableData> {
+type WorkloadTableMeta = {
   kind: WorkloadKind;
   sourceStrings: Set<string>;
-}
+};
+
+const workloadTableFeatures = tableFeatures({
+  columnVisibilityFeature,
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
+  sortFns: { alphanumeric: sortFn_alphanumeric, datetime: sortFn_datetime, text: sortFn_text },
+  tableMeta: metaHelper<WorkloadTableMeta>(),
+});
+
+type WorkloadTableFeatures = typeof workloadTableFeatures;
 
 const WORKLOAD_TABLE_COLUMNS = [
   {
@@ -252,7 +273,7 @@ const WORKLOAD_TABLE_COLUMNS = [
       return <AdaptiveTimeAgo date={createdAt} />;
     },
   },
-] satisfies ColumnDef<WorkloadTableData>[];
+] satisfies ColumnDef<WorkloadTableFeatures, WorkloadTableData>[];
 
 type SortIconProps = {
   dir: SortDirection | false;
@@ -274,11 +295,11 @@ const SortIcon = ({ dir, descFirst }: SortIconProps) => {
   }
 };
 
-const DataTableCell = ({ cell }: { cell: Cell<WorkloadTableData, unknown> }) => (
+const DataTableCell = ({ cell }: { cell: Cell<WorkloadTableFeatures, WorkloadTableData> }) => (
   <TableCell>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
 );
 
-const DataTableRow = ({ row }: { row: Row<WorkloadTableData> }) => (
+const DataTableRow = ({ row }: { row: Row<WorkloadTableFeatures, WorkloadTableData> }) => (
   <TableRow>
     {row.getVisibleCells().map((cell) => (
       <DataTableCell key={cell.id} cell={cell} />
@@ -296,7 +317,7 @@ type DisplayWorkloadItemsProps = {
 const DisplayWorkloadItems = ({ kind, items }: DisplayWorkloadItemsProps) => {
   const { namespaceFilter } = useContext(Context);
 
-  const data = useMemo(
+  const data = useMemo<WorkloadTableData[]>(
     () =>
       items
         .filter((item) => {
@@ -328,20 +349,14 @@ const DisplayWorkloadItems = ({ kind, items }: DisplayWorkloadItemsProps) => {
     [kind, data],
   );
 
-  const tableCfg = useMemo(
-    () => ({
-      data,
-      columns: WORKLOAD_TABLE_COLUMNS,
-      meta,
-      state: { sorting },
-      onSortingChange: setSorting,
-      getCoreRowModel: getCoreRowModel(),
-      getSortedRowModel: getSortedRowModel(),
-    }),
-    [data, meta, sorting, setSorting],
-  );
-
-  const table = useReactTable(tableCfg as TableOptions<WorkloadTableData>);
+  const table = useTable({
+    features: workloadTableFeatures,
+    data,
+    columns: WORKLOAD_TABLE_COLUMNS,
+    meta,
+    state: { sorting },
+    onSortingChange: setSorting,
+  });
 
   return (
     <Table containerClassName="overflow-x-hidden overflow-y-auto shadow ring ring-black/5 rounded-lg h-full">

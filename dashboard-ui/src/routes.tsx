@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Route } from 'react-router-dom';
+import { Route } from 'react-router';
 
 import ErrorPage from '@/error-page';
 import Root from '@/pages/_root';

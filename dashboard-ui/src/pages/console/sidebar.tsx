@@ -15,7 +15,7 @@
 import { useAtomValue } from 'jotai';
 import { ChevronDown as ChevronDownIcon, CirclePlus as CirclePlusIcon, Trash2 as TrashIcon } from 'lucide-react';
 import { type ComponentType, type ReactNode, useCallback, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 
 import { Checkbox } from '@kubetail/ui/elements/checkbox';
 import { Label } from '@kubetail/ui/elements/label';

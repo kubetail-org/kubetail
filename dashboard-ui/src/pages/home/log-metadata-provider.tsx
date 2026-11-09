@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useQuery, useSubscription } from '@apollo/client/react';
+import { skipToken, useQuery, useSubscription } from '@apollo/client/react';
 import { useSetAtom } from 'jotai';
 import { useEffect, useMemo, useRef } from 'react';
 
@@ -57,10 +57,10 @@ export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) =
   const client = useMemo(() => getClusterAPIClient(kubeContextStr), [kubeContextStr]);
 
   // Initial query
-  const { loading, error, data, subscribeToMore, startPolling, stopPolling } = useQuery(LOG_METADATA_LIST_FETCH, {
-    skip: !isEnabled || !isReady,
-    client,
-  });
+  const { loading, error, data, subscribeToMore, startPolling, stopPolling } = useQuery(
+    LOG_METADATA_LIST_FETCH,
+    isEnabled && isReady ? { client } : skipToken,
+  );
 
   // Retry on errors
   useEffect(() => {
