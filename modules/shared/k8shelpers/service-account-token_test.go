@@ -29,7 +29,7 @@ import (
 )
 
 func TestServiceAccountToken_refreshToken_Success(t *testing.T) {
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 
 	// Mock the CreateToken response
 	clientset.Fake.PrependReactor("create", "serviceaccounts", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -56,7 +56,7 @@ func TestServiceAccountToken_refreshToken_Success(t *testing.T) {
 }
 
 func TestServiceAccountToken_refreshToken_Failure(t *testing.T) {
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 
 	// Mock the CreateToken response
 	clientset.Fake.PrependReactor("create", "serviceaccounts", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {

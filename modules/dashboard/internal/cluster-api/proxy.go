@@ -363,6 +363,7 @@ func newInClusterProxy(kubeAPIServerEndpoint string, pathPrefix string, allowedO
 
 	// Init reverseProxy
 	reverseProxy := &httputil.ReverseProxy{
+		//lint:ignore SA1019 Rewrite changes which X-Forwarded-* headers reach the apiserver, so it is a migration of its own
 		Director: func(r *http.Request) {
 			// Rewrite to the cluster-api APIService path on the apiserver.
 			rel := strings.TrimPrefix(r.URL.Path, pathPrefix)

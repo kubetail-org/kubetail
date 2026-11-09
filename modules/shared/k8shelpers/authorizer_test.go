@@ -50,7 +50,7 @@ func TestDesktopAuthorizer_IsAllowedInformer_Success(t *testing.T) {
 	// Prepare fake clientset
 	capturedSARs := []*authorizationv1.SelfSubjectAccessReview{}
 
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -92,7 +92,7 @@ func TestDesktopAuthorizer_IsAllowedInformer_ListPermissionDenied(t *testing.T) 
 	}
 
 	// Prepare fake clientset
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -142,7 +142,7 @@ func TestDesktopAuthorizer_IsAllowedInformer_WatchPermissionDenied(t *testing.T)
 	}
 
 	// Prepare fake clientset
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -192,7 +192,7 @@ func TestDesktopAuthorizer_IsAllowedInformer_Error(t *testing.T) {
 	}
 
 	// Prepare fake clientset
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -229,7 +229,7 @@ func TestDesktopAuthorizer_IsAllowedInformer_CacheExpiry(t *testing.T) {
 	// Prepare fake clientset
 	capturedSARs := []*authorizationv1.SelfSubjectAccessReview{}
 
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -312,7 +312,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_CorrectBearerToken(t *testing.T) 
 	expectedToken := "test-bearer-token"
 
 	// Create a fake clientset that will accept any request
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &authorizationv1.SelfSubjectAccessReview{
 			Status: authorizationv1.SubjectAccessReviewStatus{
@@ -365,7 +365,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_ListPermissionDenied(t *testing.T
 	}
 
 	// Prepare fake clientset
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -429,7 +429,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_WatchPermissionDenied(t *testing.
 	}
 
 	// Prepare fake clientset
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -493,7 +493,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_Error(t *testing.T) {
 	}
 
 	// Prepare fake clientset
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -544,7 +544,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_CacheExpiry(t *testing.T) {
 	// Prepare fake clientset
 	capturedSARs := []*authorizationv1.SelfSubjectAccessReview{}
 
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -659,7 +659,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_CachePerImpersonatedIdentity(t *t
 	setNamespace := "test-namespace"
 	setGVR := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
 
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &authorizationv1.SelfSubjectAccessReview{
 			Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true},
@@ -691,7 +691,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_CachePerImpersonatedExtras(t *tes
 	setNamespace := "test-namespace"
 	setGVR := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
 
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &authorizationv1.SelfSubjectAccessReview{
 			Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true},
@@ -734,7 +734,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_Success(t *testing.T) {
 	// Prepare fake clientset
 	capturedSARs := []*authorizationv1.SelfSubjectAccessReview{}
 
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
