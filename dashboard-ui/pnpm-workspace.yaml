@@ -10,6 +10,7 @@ overrides:
   browserslist: "^4.28.7"
   esbuild: "^0.28.1"
   lodash: "^4.18.0"
+  minimatch: "^11.0.1"
   immutable: "^4.3.9"
   js-yaml: "^4.3.2"
   picomatch: "^4.0.4"
