@@ -187,7 +187,7 @@ jobs:
           path: assets
 
       - name: Import certificate
-        uses: apple-actions/import-codesign-certs@63fff01cd422d4b7b855d40ca1e9d34d2de9427d # v3.0.0
+        uses: apple-actions/import-codesign-certs@288b8ec97b82c66b6f2a6baaf7acc8dfbcbe331c # v7.2.0
         with:
           p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERT_P12_B64 }}
           p12-password: ${{ secrets.APPLE_DEVELOPER_CERT_P12_PASSWORD }}
@@ -270,7 +270,7 @@ jobs:
           overwrite: true
 
       - name: Sign Windows Binaries
-        uses: signpath/github-action-submit-signing-request@3c306158facd969ebdb385c6845dee38afc2ebf9 # v1.1
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
         with:
           api-token: "${{ secrets.SIGNPATH_API_TOKEN }}"
           organization-id: "${{ vars.SIGNPATH_ORGANIZATION_ID }}"
@@ -381,7 +381,7 @@ jobs:
           sha256sum * > SHA256SUMS
 
       - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
+        uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
         with:
           gpg_private_key: ${{ secrets.KUBETAIL_BOT_GPG_SIGNING_KEY }}
           passphrase: ${{ secrets.KUBETAIL_BOT_GPG_PASSWORD }}
@@ -400,7 +400,7 @@ jobs:
           cat assets/SHA256SUMS.asc
 
       - name: Create release
-        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8 # v2.3.2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         if: ${{ needs.config.outputs.dry_run == 'false' }}
         with:
           files: assets/*

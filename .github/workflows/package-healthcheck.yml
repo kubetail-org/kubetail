@@ -302,7 +302,7 @@ jobs:
       TRIPLET: apt_${{ matrix.series }}_${{ matrix.arch }}
     steps:
       - name: Test on ${{ matrix.arch }}
-        uses: uraimo/run-on-arch-action@d94c13912ea685de38fccc1109385b83fd79427d # v3.0.1
+        uses: uraimo/run-on-arch-action@fa1f3e7de95534497266c7265950b5188355fbfb # v3.2.1
         with:
           arch: ${{ matrix.arch }}
           distro: ${{ matrix.distro }}
