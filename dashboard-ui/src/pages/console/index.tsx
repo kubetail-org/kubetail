@@ -28,11 +28,11 @@ import { useIsClusterAPIEnabled } from '@/lib/hooks';
 import { cn } from '@/lib/util';
 
 import { Header } from './header';
+import { ConfigureContainerColors, SourcesFetcher } from './helpers';
 import { LogServerClient } from './log-server-client';
 import { Main } from './main';
 import { PageContext } from './shared';
 import { Sidebar } from './sidebar';
-import { ConfigureContainerColors, SourcesFetcher } from './helpers';
 
 /**
  * useStableSourceStrings - Custom hook that returns a stable reference to page source strings

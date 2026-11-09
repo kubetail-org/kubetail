@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
 import { k8sPagination, waitUntilOnline, waitUntilVisible } from './apollo-client';
 
 describe('k8sPagination merge logic', () => {

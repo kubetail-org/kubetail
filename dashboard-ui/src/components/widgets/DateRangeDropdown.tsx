@@ -17,13 +17,13 @@ import { fromZonedTime } from 'date-fns-tz';
 import { Clock } from 'lucide-react';
 import { Fragment, useRef, useState } from 'react';
 
-import { useTimezone } from '@/lib/timezone';
-
 import { Alert, AlertDescription, AlertTitle } from '@kubetail/ui/elements/alert';
 import { Button } from '@kubetail/ui/elements/button';
 import { Input } from '@kubetail/ui/elements/input';
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@kubetail/ui/elements/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@kubetail/ui/elements/select';
+
+import { useTimezone } from '@/lib/timezone';
 
 /**
  * Shared types

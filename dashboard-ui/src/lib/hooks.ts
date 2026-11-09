@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useApolloClient, useQuery } from '@apollo/client/react';
 import type { TypedDocumentNode, OperationVariables } from '@apollo/client';
+import { useApolloClient, useQuery } from '@apollo/client/react';
 import { useCallback, useEffect, useRef } from 'react';
 
 import appConfig from '@/app-config';
@@ -34,9 +34,10 @@ import {
   SOURCE_PICKER_STATEFULSETS_COUNT_FETCH,
   SOURCE_PICKER_STATEFULSETS_COUNT_WATCH,
 } from '@/lib/graphql/dashboard/ops';
+
+import { Status, useClusterAPIServerStatus } from './server-status';
 import { Counter } from './util';
 import { WorkloadKind } from './workload';
-import { Status, useClusterAPIServerStatus } from './server-status';
 
 type GenericListFragment = {
   metadata: {

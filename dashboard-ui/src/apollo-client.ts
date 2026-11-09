@@ -17,8 +17,8 @@ import { CombinedGraphQLErrors, CombinedProtocolErrors } from '@apollo/client/er
 import { ErrorLink } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
-import { ClientOptions, createClient } from 'graphql-ws';
 import { getOperationAST, OperationTypeNode } from 'graphql';
+import { ClientOptions, createClient } from 'graphql-ws';
 import toast from 'react-hot-toast';
 
 import appConfig from '@/app-config';

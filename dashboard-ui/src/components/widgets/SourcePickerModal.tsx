@@ -35,7 +35,6 @@ import { Spinner } from '@kubetail/ui/elements/spinner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@kubetail/ui/elements/table';
 
 import AdaptiveTimeAgo from '@/components/widgets/AdaptiveTimeAgo';
-
 import type {
   SourcePickerCronJobsListFetchQuery,
   SourcePickerDaemonSetsListFetchQuery,
@@ -65,8 +64,8 @@ import {
   SOURCE_PICKER_NAMESPACES_LIST_WATCH,
 } from '@/lib/graphql/dashboard/ops';
 import { useListQueryWithSubscription, useWorkloadCounter } from '@/lib/hooks';
-import { ALL_WORKLOAD_KINDS, KNOCKOUT_ICON_MAP, PLURAL_LABEL_MAP, WorkloadKind } from '@/lib/workload';
 import { cn } from '@/lib/util';
+import { ALL_WORKLOAD_KINDS, KNOCKOUT_ICON_MAP, PLURAL_LABEL_MAP, WorkloadKind } from '@/lib/workload';
 
 /**
  * Shared variables and types

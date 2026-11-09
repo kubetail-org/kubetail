@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Fragment, useEffect } from 'react';
 import { atom, useAtomValue, useSetAtom } from 'jotai';
+import { Fragment, useEffect } from 'react';
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@kubetail/ui/elements/dialog';
 import { Table, TableBody, TableCell, TableRow } from '@kubetail/ui/elements/table';
 
 import appConfig from '@/app-config';
+import { useKubeConfig } from '@/lib/kubeconfig';
 import {
   ServerStatus,
   Status,
@@ -26,7 +27,6 @@ import {
   useKubernetesAPIServerStatus,
   useClusterAPIServerStatus,
 } from '@/lib/server-status';
-import { useKubeConfig } from '@/lib/kubeconfig';
 import { useClusterUpdateNotification } from '@/lib/update-notifications';
 import { cn } from '@/lib/util';
 

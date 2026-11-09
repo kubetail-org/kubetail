@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { stripAnsi } from 'fancy-ansi';
 import React from 'react';
 
 import {
@@ -23,7 +24,6 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from '@kubetail/ui/elements/context-menu';
-import { stripAnsi } from 'fancy-ansi';
 
 import type { LogRecord } from '@/components/widgets/log-viewer';
 import { TIMESTAMP_FORMAT_OPTIONS, formatTimestamp } from '@/lib/timestamp-format';

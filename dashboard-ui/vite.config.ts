@@ -1,10 +1,10 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 import Unfonts from 'unplugin-fonts/vite';
 import { defineConfig, loadEnv, mergeConfig } from 'vite';
 import svgr from 'vite-plugin-svgr';
 import { defineConfig as defineVitestConfig } from 'vitest/config';
-import path from 'path';
 
 export default ({ mode }: { mode: string }) => {
   const env = loadEnv(mode, process.cwd());

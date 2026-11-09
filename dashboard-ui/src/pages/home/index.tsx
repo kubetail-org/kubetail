@@ -54,10 +54,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 import appConfig from '@/app-config';
 import KubetailLogo from '@/assets/logo.svg?react';
-import AdaptiveTimeAgo from '@/components/widgets/AdaptiveTimeAgo';
-import KubeContextPicker from '@/components/widgets/KubeContextPicker';
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
+import AdaptiveTimeAgo from '@/components/widgets/AdaptiveTimeAgo';
+import KubeContextPicker from '@/components/widgets/KubeContextPicker';
 import {
   HOME_NAMESPACES_LIST_FETCH,
   HOME_NAMESPACES_LIST_WATCH,

@@ -19,8 +19,8 @@ import { MemoryRouter } from 'react-router-dom';
 import type { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { Counter } from '@/lib/util';
 
-import { Sidebar, generateMapKey, parseSourceArg } from './sidebar';
 import { PageContext } from './shared';
+import { Sidebar, generateMapKey, parseSourceArg } from './sidebar';
 import { sourceMapAtom } from './state';
 
 // Mock useFacets hook from helpers

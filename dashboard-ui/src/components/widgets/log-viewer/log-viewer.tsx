@@ -14,6 +14,8 @@
 
 /* eslint-disable no-param-reassign */
 
+import { useVirtualizer, elementScroll } from '@tanstack/react-virtual';
+import type { Virtualizer } from '@tanstack/react-virtual';
 import {
   forwardRef,
   useCallback,
@@ -25,8 +27,6 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { useVirtualizer, elementScroll } from '@tanstack/react-virtual';
-import type { Virtualizer } from '@tanstack/react-virtual';
 
 import { cn } from '@/lib/util';
 

@@ -14,8 +14,8 @@
 
 import { useQuery } from '@apollo/client/react';
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { atomWithStorage } from 'jotai/utils';
 import { atomFamily } from 'jotai-family';
+import { atomWithStorage } from 'jotai/utils';
 import { useEffect, useMemo } from 'react';
 
 import appConfig from '@/app-config';

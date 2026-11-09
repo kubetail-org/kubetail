@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { stripAnsi } from 'fancy-ansi';
 import { useAtomValue, useStore } from 'jotai';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { stripAnsi } from 'fancy-ansi';
-
+import type { LogRecord, LogViewerVirtualizer } from '@/components/widgets/log-viewer';
 import { TimestampFormat, formatTimestamp, useTimestampFormat } from '@/lib/timestamp-format';
 import { useTimezone } from '@/lib/timezone';
-
-import type { LogRecord, LogViewerVirtualizer } from '@/components/widgets/log-viewer';
 
 import { ViewerColumn } from './shared';
 import {

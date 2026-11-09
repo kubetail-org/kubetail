@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useAtomValue, useSetAtom } from 'jotai';
 import { useSubscription } from '@apollo/client/react';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { useContext, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { CONSOLE_NODES_LIST_FETCH, CONSOLE_NODES_LIST_WATCH, LOG_SOURCES_WATCH } from '@/lib/graphql/dashboard/ops';
 import type { ConsoleNodesListItemFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { WatchEventType } from '@/lib/graphql/dashboard/__generated__/graphql';
+import { CONSOLE_NODES_LIST_FETCH, CONSOLE_NODES_LIST_WATCH, LOG_SOURCES_WATCH } from '@/lib/graphql/dashboard/ops';
 import { useListQueryWithSubscription } from '@/lib/hooks';
 import { Counter, safeDigest } from '@/lib/util';
 
