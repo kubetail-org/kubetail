@@ -57,7 +57,7 @@ export default ({ mode }: { mode: string }) => {
     build: {
       manifest: true,
       sourcemap: true,
-      rollupOptions: {
+      rolldownOptions: {
         output: {
           manualChunks(id: string) {
             if (id.includes('/node_modules/')) return 'vendor';

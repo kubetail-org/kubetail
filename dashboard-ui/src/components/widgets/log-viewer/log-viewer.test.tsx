@@ -852,7 +852,7 @@ describe('internal helpers', () => {
       refs.isAutoScrollEnabled.current = true;
 
       services.beforePaint = (cb) => {
-        cb();
+        void cb();
         return Promise.resolve();
       };
 
@@ -1138,7 +1138,7 @@ describe('LogViewer', () => {
     });
 
     act(() => {
-      logViewerRef.current?.jumpToBeginning();
+      void logViewerRef.current?.jumpToBeginning();
     });
 
     await waitFor(() => {
@@ -1161,7 +1161,7 @@ describe('LogViewer', () => {
     });
 
     act(() => {
-      logViewerRef.current?.jumpToEnd();
+      void logViewerRef.current?.jumpToEnd();
     });
 
     await waitFor(() => {
@@ -1184,7 +1184,7 @@ describe('LogViewer', () => {
     });
 
     act(() => {
-      logViewerRef.current?.jumpToCursor('c0');
+      void logViewerRef.current?.jumpToCursor('c0');
     });
 
     await waitFor(() => {

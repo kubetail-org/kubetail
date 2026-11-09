@@ -187,7 +187,7 @@ export function useGetQueryWithSubscription<
           return prev as TQData;
         },
         onError: (err) => {
-          if (isWatchExpiredError(err)) refetch();
+          if (isWatchExpiredError(err)) void refetch();
         },
       }),
     [subscribeToMore],
@@ -241,7 +241,7 @@ export function useListQueryWithSubscription<
   useEffect(() => {
     if (continueVal && !fetchMoreRef.current.has(continueVal)) {
       fetchMoreRef.current.add(continueVal);
-      fetchMore({
+      void fetchMore({
         variables: {
           ...args.variables,
           continue: continueVal,
@@ -323,7 +323,7 @@ export function useListQueryWithSubscription<
         return { [args.queryDataKey]: newResult } as TQData;
       },
       onError: (err) => {
-        if (isWatchExpiredError(err)) refetch();
+        if (isWatchExpiredError(err)) void refetch();
       },
     });
   }, [args.skip, subscribeToMore, loading, continueVal]);
@@ -414,7 +414,7 @@ export function useCounterQueryWithSubscription<
         return { [args.queryDataKey]: newResult } as TQData;
       },
       onError: (err) => {
-        if (isWatchExpiredError(err)) refetch();
+        if (isWatchExpiredError(err)) void refetch();
       },
     });
   }, [subscribeToMore, loading, error]);

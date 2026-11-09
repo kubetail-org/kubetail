@@ -106,7 +106,7 @@ export function formatCellsForCopy(
   timestampFormat: string = TimestampFormat.ISO_8601,
 ): string {
   return [...selectedCells.keys()]
-    .sort((a, b) => a - b)
+    .toSorted((a, b) => a - b)
     .map((rowKey) => {
       const record = getRecord(rowKey);
       if (!record) return null;
@@ -182,7 +182,7 @@ function nextSelectedCellInReadingOrder(
   if (selectedCells.size === 0) return null;
 
   const cols = [...visibleCols].filter(isSelectableViewerColumn);
-  const sortedRows = [...selectedCells.keys()].sort((a, b) => a - b);
+  const sortedRows = [...selectedCells.keys()].toSorted((a, b) => a - b);
 
   // Flatten selection into reading order.
   const ordered = sortedRows.flatMap((rowKey) => {
@@ -336,7 +336,7 @@ function startDocumentDrag<T>(args: {
     e.preventDefault();
     pendingX = e.clientX;
     pendingY = e.clientY;
-    if (rafId === null) rafId = requestAnimationFrame(processMove);
+    rafId ??= requestAnimationFrame(processMove);
   };
 
   const onMouseUp = (e: MouseEvent) => {
@@ -377,7 +377,7 @@ export function useSelectionState() {
   const scheduleCursorText = useCallback(() => {
     if (cursorTextPendingRef.current) return;
     cursorTextPendingRef.current = true;
-    if (!cursorTextAbortRef.current) cursorTextAbortRef.current = new AbortController();
+    cursorTextAbortRef.current ??= new AbortController();
     document.addEventListener(
       'mousemove',
       () => {
@@ -600,7 +600,7 @@ export function useSelectionKeyboard(
           const v = virtualizerRef.current;
           if (!v) return;
           const text = formatCellsForCopy(cells, visibleCols, (k) => v.getRecord(k), timezone, timestampFormat);
-          navigator.clipboard.writeText(text);
+          void navigator.clipboard.writeText(text);
           return;
         }
 
@@ -610,10 +610,10 @@ export function useSelectionKeyboard(
           e.preventDefault();
           const v = virtualizerRef.current;
           if (!v) return;
-          const sorted = [...keys].sort((a, b) => a - b);
+          const sorted = [...keys].toSorted((a, b) => a - b);
           const records = sorted.map((k) => v.getRecord(k)).filter((r): r is LogRecord => r !== undefined);
           const text = formatRowsForCopy(records, visibleCols, timezone, timestampFormat);
-          navigator.clipboard.writeText(text);
+          void navigator.clipboard.writeText(text);
         }
       }
 

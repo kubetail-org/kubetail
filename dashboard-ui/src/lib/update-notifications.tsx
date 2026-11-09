@@ -48,10 +48,13 @@ function isClusterCacheValid(state: ClusterUpdateState): boolean {
   return state.fetchedAt !== undefined && Date.now() - state.fetchedAt < CACHE_TTL_MS;
 }
 
+function parseSemver(v: string) {
+  return v.replace(/^v/, '').split('.').map(Number);
+}
+
 export function compareSemver(a: string, b: string): number {
-  const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number);
-  const pa = parse(a);
-  const pb = parse(b);
+  const pa = parseSemver(a);
+  const pb = parseSemver(b);
   for (let i = 0; i < 3; i += 1) {
     const diff = (pa[i] || 0) - (pb[i] || 0);
     if (diff !== 0) return diff;

@@ -109,7 +109,7 @@ describe('waitUntilVisible', () => {
     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
 
     let resolved = false;
-    waitUntilVisible().then(() => {
+    void waitUntilVisible().then(() => {
       resolved = true;
     });
 

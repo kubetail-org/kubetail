@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export type Cursor = string | 'BEGINNING';
+// An opaque position in the log, or 'BEGINNING' for its start.
+export type Cursor = string;
 
 export type LogRecord = {
   timestamp: string;

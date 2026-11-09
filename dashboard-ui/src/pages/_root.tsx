@@ -47,17 +47,13 @@ const CustomToaster = () => {
 
   if (!toasts.length) return null;
 
-  const handleRemoveAllClick = () => {
-    toastlib.remove();
-  };
-
   return (
     <>
       <div className={cn('fixed bottom-[28px] right-[5px] p-2 z-10', containerCommonClasses)}>
         <button
           type="button"
           className={cn('absolute top-[-10px] left-[-10px] rounded-full', closeBtnCommonClasses)}
-          onClick={handleRemoveAllClick}
+          onClick={() => toastlib.remove()}
           aria-label="remove all"
         >
           <CircleX className={cn('h-5 w-5', closeIconCommonClasses)} aria-hidden="true" />

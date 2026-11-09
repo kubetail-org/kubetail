@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { MockedResponse } from '@apollo/client/testing';
+import type { MockLink } from '@apollo/client/testing';
 
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 
-export const mocks: MockedResponse[] = [
+export const mocks: MockLink.MockedResponse[] = [
   // kubeConfig
   {
     request: {

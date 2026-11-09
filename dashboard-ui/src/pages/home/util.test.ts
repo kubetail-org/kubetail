@@ -36,7 +36,7 @@ describe('getContainerIDs', () => {
     expect(result).toEqual([]);
   });
 
-  it('returns all the immediate child IDs when none of them have children of their own ', () => {
+  it('returns all the immediate child IDs when none of them have children of their own', () => {
     const parentId = 'db03b586-95df-48f3-aaeb-9e0de42d3926';
     const result = getContainerIDs(parentId, ownershipMapMock);
     const expected = ownershipMapMock.get(parentId);

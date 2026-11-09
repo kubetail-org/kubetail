@@ -70,7 +70,7 @@ export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) =
 
   // Initialize data map
   useEffect(() => {
-    const items = data?.logMetadataList?.items || [];
+    const items = data?.logMetadataList?.items ?? [];
     if (!items.length) return;
 
     const inner = new Map<string, FileInfo>();

@@ -585,6 +585,7 @@ export const RecordRow = memo(
 
       els.push(
         <CellContextMenu key={col} col={col} record={row.record} timezone={timezone} timestampFormat={timestampFormat}>
+          {/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- The color dot cell has no role and no handlers. */}
           <div
             ref={shouldWrap ? undefined : measureCellElement}
             data-col-id={col}

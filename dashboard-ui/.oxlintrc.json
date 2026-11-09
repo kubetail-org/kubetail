@@ -14,10 +14,12 @@
   "rules": {
     // The automatic JSX runtime imports React itself.
     "react/react-in-jsx-scope": "off",
-    // A mapped copy is how React state stays immutable.
-    "oxc/no-map-spread": "off",
+    // A leading `_` marks a class field as private to it.
+    "no-underscore-dangle": "off",
     // `as` narrows after a check the types cannot follow: a DOM lookup, parsed JSON, a select's value.
     "typescript/no-unsafe-type-assertion": "off",
+    // `as` turns a DOM data attribute back into the enum member that wrote it.
+    "typescript/no-unsafe-enum-assignment": "off",
     // An effect returns its cleanup only on the paths that set something up.
     "typescript/consistent-return": "off",
     // Adding a dependency changes when an effect runs, and about 30 effects here leave one out.
@@ -34,6 +36,8 @@
     "vitest/require-mock-type-parameters": "off",
     // The log viewer draws ARIA widgets no HTML element matches: a grid's rows, a clickable cell.
     "jsx-a11y/prefer-tag-over-role": "off",
+    // An `<input>` is labelled by the `<Label>` around it, and a settings cell by the cell beside it.
+    "jsx-a11y/control-has-associated-label": ["error", { "ignoreElements": ["input", "td"] }],
     // Stylesheets and test setup are imported for their effect.
     "import/no-unassigned-import": [
       "error",
@@ -147,8 +151,11 @@
     "typescript/prefer-reduce-type-parameter": "error",
     "typescript/related-getter-setter-pairs": "error",
     "typescript/restrict-plus-operands": "error",
-    // A union's switch lists every member, so a new one fails here. Any other switch has a `default`.
-    "typescript/switch-exhaustiveness-check": ["error", { "requireDefaultForNonUnion": true }],
+    // A switch lists every member of its union or ends in a `default`.
+    "typescript/switch-exhaustiveness-check": [
+      "error",
+      { "considerDefaultExhaustiveForUnions": true, "requireDefaultForNonUnion": true }
+    ],
     "typescript/use-unknown-in-catch-callback-variable": "error",
 
     // Log lines and Kubernetes names are attacker-controlled text; nothing renders them as HTML.

@@ -32,7 +32,7 @@ import { getPlainAttribute } from './selection';
 import { ViewerColumn } from './shared';
 
 function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text);
+  void navigator.clipboard.writeText(text);
 }
 
 function TimestampMenuContent({

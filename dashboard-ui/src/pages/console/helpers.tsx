@@ -43,9 +43,7 @@ export function useNodes() {
   });
 
   const loading = fetching; // treat still-fetching as still-loading
-  const nodes = data?.coreV1NodesList?.items
-    ? data.coreV1NodesList.items
-    : ([] as ConsoleNodesListItemFragmentFragment[]);
+  const nodes = data?.coreV1NodesList?.items ?? ([] as ConsoleNodesListItemFragmentFragment[]);
 
   return { loading, nodes };
 }
@@ -163,7 +161,7 @@ export const ConfigureContainerColors = () => {
       if (containerKeysRef.current.has(k)) return;
       containerKeysRef.current.add(k);
 
-      (async () => {
+      void (async () => {
         // set css var
         const colorIDX = (await safeDigest(k)).getUint32(0) % palette.length;
         document.documentElement.style.setProperty(`--${k}-color`, palette[colorIDX]);

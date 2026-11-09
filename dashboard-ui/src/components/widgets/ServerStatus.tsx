@@ -152,7 +152,7 @@ type ServerStatusRowProps = {
 
 const KubernetesAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: ServerStatusRowProps) => {
   const serverStatusMap = useAtomValue(kubernetesAPIServerStatusMapState);
-  const serverStatus = serverStatusMap.get(kubeContext) || new ServerStatus();
+  const serverStatus = serverStatusMap.get(kubeContext) ?? new ServerStatus();
 
   return (
     <TableRow>
@@ -168,7 +168,7 @@ const KubernetesAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: Se
 
 const ClusterAPIServerStatusRow = ({ kubeContext, dashboardServerStatus }: ServerStatusRowProps) => {
   const serverStatusMap = useAtomValue(clusterAPIServerStatusMapState);
-  const serverStatus = serverStatusMap.get(kubeContext) || new ServerStatus();
+  const serverStatus = serverStatusMap.get(kubeContext) ?? new ServerStatus();
   const { updateAvailable } = useClusterUpdateNotification(appConfig.environment === 'desktop' ? kubeContext : '');
 
   const isInstalled = serverStatus.status !== Status.NotFound && serverStatus.status !== Status.Unknown;
