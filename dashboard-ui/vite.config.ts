@@ -72,6 +72,13 @@ export default ({ mode }: { mode: string }) => {
       environment: 'jsdom',
       globals: true,
       setupFiles: ['./vitest.setup.ts'],
+      coverage: {
+        provider: 'v8',
+        include: ['src/**/*.{ts,tsx}'],
+        exclude: ['src/**/*.test.{ts,tsx}', 'src/**/__generated__/**', 'src/mocks/**', 'src/test-utils.tsx'],
+        // Paths from the repo root, as Codecov and tools/coverdiff read them.
+        reporter: ['text-summary', ['lcov', { projectRoot: '..' }]],
+      },
     },
   });
 
