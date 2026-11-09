@@ -50,5 +50,5 @@ x509-parser = "0.18"
 
 [dev-dependencies]
 serial_test = "4.0.1"
-rcgen = "0.13"
+rcgen = "0.14"
 
