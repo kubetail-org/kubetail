@@ -64,7 +64,7 @@
     "oxlint": "^1.90.0",
     "oxlint-tsgolint": "^7.0.2005",
     "tailwindcss": "^4.3.3",
-    "typescript": "~6.0.3",
+    "typescript": "~7.0.2",
     "unplugin-fonts": "^2.1.0",
     "vite": "^8.3.5",
     "vite-plugin-svgr": "^5.2.0",
