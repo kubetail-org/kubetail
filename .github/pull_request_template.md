@@ -20,7 +20,9 @@ Ref #
 
 ## Checklist
 
-- [ ] Add the correct emoji to the PR title
-- [ ] Related issue linked above, if any
-- [ ] Commit messages use [conventional commit](https://www.conventionalcommits.org) format
 - [ ] Changes are minimal and focused
+- [ ] Commit messages are [conventional commits](https://www.conventionalcommits.org)
+- [ ] Local checks pass (`make test-changed`, `make cover-changed`, `make lint`)
+- [ ] Docs are up to date
+- [ ] PR title leads with the change type's emoji
+- [ ] Related issues, if any, are linked above

@@ -153,9 +153,11 @@ Signed-off-by: Your Name <you@example.com>
 ### Before Submitting
 
 1. **Check for duplicates**: Review existing [issues](https://github.com/kubetail-org/kubetail/issues) and [pull requests](https://github.com/kubetail-org/kubetail/pulls)
-2. **Run tests**: Execute all relevant tests for your changes and ensure they pass
-3. **Format code**: Run formatters for the languages you modified
-4. **Clean commits**: Ensure each commit is minimal, focused, and follows our [commit format](https://www.conventionalcommits.org)
+2. **Run tests**: Run `make test-changed` and make sure it passes
+3. **Check coverage**: Run `make cover-changed` and cover or mark each line it lists
+4. **Format code**: Run `make lint` and fix what it reports
+5. **Clean commits**: Ensure each commit is minimal, focused, and follows our [commit format](#commit-guidelines)
+6. **Update docs**: If you change architecture, conventions or commands, update the relevant `CLAUDE.md` in the same PR
 
 ### PR Title Format
 
@@ -170,16 +172,9 @@ Add an emoji to indicate the PR type:
 
 Your PR should include:
 
-- Link to related issue: `Fixes #123`
+- Link to related issues: `Fixes #123`
 - **Summary**: Explain the goal of your PR
 - **Key Changes**: List the specific key changes made
-
-### PR Checklist
-
-- [ ] Add the correct emoji to the PR title
-- [ ] Related issue linked above, if any
-- [ ] Commit messages use [conventional commit](https://www.conventionalcommits.org) format
-- [ ] Changes are minimal and focused
 
 ## Branch Naming Guidelines
 
@@ -193,15 +188,14 @@ Use descriptive branch names. As a suggestion, you can use this pattern:
 
 ### AI-Assisted Editors
 
-For AI-assisted editors like Claude Code, Codex, Cursor or GitHub Copilot, refer to the [`AGENTS.md`](./AGENTS.md) file for comprehensive guidance on working with this codebase.
+For AI-assisted editors like Claude Code, Codex, Cursor or GitHub Copilot, refer to the [`CLAUDE.md`](./CLAUDE.md) files (root and per area) for guidance on working with this codebase. `AGENTS.md` points to the same files.
 
 ### Visual Studio Code
 
-Recommended extensions:
-- **Go**: `golang.go`
+Recommended extensions (also listed in `.vscode/extensions.json`):
+- **Oxc**: `oxc.oxc-vscode`
 - **Rust**: `rust-lang.rust-analyzer`
-- **ESLint**: `dbaeumer.vscode-eslint`
-- **Prettier**: `esbenp.prettier-vscode`
+- **Go**: `golang.go`
 
 ## Bots and Automation
 
@@ -226,9 +220,9 @@ As a contributor you're encouraged to use AI tools in your workflow just as you 
 
 That said, AI tools are different than classic tools because they can blur the line between helping you to do the work and doing the work for you. And when that line becomes blurry, it can limit opportunities to build the deep understanding that comes from writing and reasoning through code yourself.
 
-As an open source project, Kubetail is not only commited to building the most user-friendly logging platform for Kubernetes but also to helping our contributors grow as engineers. We invest a lot of time and effort into code quality, thoughtful reviews, and well-defined engineering specs. We do so happily because we enjoy it but also because it's our responsibility to the community.
+As an open source project, Kubetail is not only committed to building a great tool for Kubernetes operators but also to helping our contributors grow as engineers. We invest a lot of time and effort into code quality, thoughtful reviews, and well-defined engineering specs. We do so happily because we enjoy it but also because it's our responsibility to the community.
 
-In return, we ask that contributions be authored by you. While AI tools can support your workflow, submitted code should reflect your own understanding and intent. To keep our focus on meaningful collaboration within the community, we do not accept contributions authored entirely by llms.
+In return, we ask that contributions be authored by you. While AI tools can support your workflow, submitted code should reflect your own understanding and intent. To keep our focus on meaningful collaboration within the community, we do not accept contributions authored entirely by LLMs without a human in the loop.
 
 When you use an AI tool, include an Assisted-by tag in the following format:
 
@@ -238,8 +232,8 @@ Assisted-by: AGENT_NAME:MODEL_VERSION
 
 Where:
 
-    `AGENT_NAME` is the name of the AI tool or framework
-    `MODEL_VERSION` is the specific model version used
+- `AGENT_NAME` is the name of the AI tool or framework
+- `MODEL_VERSION` is the specific model version used
 
 Example:
 
