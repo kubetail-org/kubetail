@@ -27,6 +27,5 @@
   },
   "include": [
     "vite.config.ts",
-    "eslint.config.ts",
   ],
 }
