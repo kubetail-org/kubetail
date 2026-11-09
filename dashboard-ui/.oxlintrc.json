@@ -22,9 +22,6 @@
     "typescript/no-unsafe-enum-assignment": "off",
     // An effect returns its cleanup only on the paths that set something up.
     "typescript/consistent-return": "off",
-    // Adding a dependency changes when an effect runs, and about 30 effects here leave one out.
-    // Write each array as though this were on.
-    "react/exhaustive-deps": "off",
     // It reports a dependency an effect lists to rerun on.
     "react/exhaustive-effect-dependencies": "off",
     // The React compiler is off, so the rules that check code for it report nothing that breaks.

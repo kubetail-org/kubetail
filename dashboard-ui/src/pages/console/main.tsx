@@ -152,6 +152,7 @@ function useMeasureWidths() {
         flush();
       }
     },
+    // oxlint-disable-next-line react/exhaustive-deps -- a new identity on reset makes React call the ref again, re-measuring each row
     [flush, triggerID],
   );
 
@@ -179,6 +180,7 @@ function useMeasureWidths() {
         flush();
       }
     },
+    // oxlint-disable-next-line react/exhaustive-deps -- a new identity on reset makes React call the ref again, re-measuring each row
     [flush, triggerID],
   );
 
@@ -247,7 +249,7 @@ function useMessageContainerWidth(
       if (rafId !== null) cancelAnimationFrame(rafId);
       resizeObserver.disconnect();
     };
-  }, [colWidths, wrap, visibleCols]);
+  }, [wrapperRef, colWidths, wrap, visibleCols]);
 
   return messageContainerWidth;
 }
@@ -295,7 +297,7 @@ const HeaderRow = ({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [isLoading]);
+  }, [scrollElRef, isLoading]);
 
   // Sync horizontal scroll bidirectionally
   // Re-setup when isLoading becomes false to ensure listeners are attached after content loads
@@ -352,7 +354,7 @@ const HeaderRow = ({
       scrollEl.removeEventListener('scroll', handleContentScroll);
       headerEl.removeEventListener('scroll', handleHeaderScroll);
     };
-  }, [isLoading]);
+  }, [scrollElRef, isLoading]);
 
   return (
     <div ref={headerScrollRef} className="w-full overflow-x-scroll no-scrollbar shrink-0 cursor-default">
@@ -731,7 +733,7 @@ export const Main = () => {
       resetWidths();
       resetSelection();
     }
-  }, [isLoading]);
+  }, [isLoading, resetWidths, resetSelection]);
 
   // Re-measure columns when the timestamp format changes — the new string
   // length is usually different, so cached widths would leave the column
@@ -743,7 +745,7 @@ export const Main = () => {
       return;
     }
     resetWidths();
-  }, [timestampFormat]);
+  }, [timestampFormat, resetWidths]);
 
   const estimateRowHeight = useCallback(
     (record: LogRecord) => {
@@ -773,7 +775,7 @@ export const Main = () => {
   // Re-measure when wrap changes
   useEffect(() => {
     logViewerRef.current?.measure();
-  }, [wrap]);
+  }, [logViewerRef, wrap]);
 
   // Track Ctrl/Cmd held state via data attribute (no re-renders)
   useEffect(() => {

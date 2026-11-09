@@ -3,7 +3,9 @@ title: Lint the dashboard UI with oxlint's categories and a chosen rule list
 date: 2026-11-09
 scope: dashboard-ui
 status: Accepted
-amended_by: 2026-11-09-require-switches-over-a-union-to-list-every-member.md
+amended_by:
+  - 2026-11-09-require-switches-over-a-union-to-list-every-member.md
+  - 2026-11-09-check-hook-dependencies-in-the-dashboard-ui.md
 ---
 
 # Lint the dashboard UI with oxlint's categories and a chosen rule list

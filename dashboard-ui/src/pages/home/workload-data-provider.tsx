@@ -149,7 +149,7 @@ const WorkloadDataFetcher = ({ kind, kubeContext }: WorkloadDataFetcherProps) =>
       error,
       items: (data && cfg.getItems(data)) ?? [],
     });
-  }, [loading, fetching, error, data, setAtom]);
+  }, [loading, fetching, error, data, cfg, setAtom]);
 
   return null;
 };

@@ -106,7 +106,7 @@ function useEffectServerStatus(
         return newVal;
       });
     };
-  }, [serverStatus.status]);
+  }, [kubeContext, setServerStatusMap, serverStatus]);
 }
 
 const KubernetesAPIServerStatusFetcher = ({ kubeContext }: { kubeContext: string }) => {

@@ -49,7 +49,7 @@ The path is relative to the file that holds the link, so a nested guide climbs t
 
 Superseding is a normal change. Write a new ADR, flip the old one's status, and **repoint every `CLAUDE.md` link in the same commit**. A guide that links a superseded ADR is the one way this system rots.
 
-**A later ADR may replace part of an accepted one.** The newer names what it replaces. The older keeps its status, since the rest of it is still in force, and gains an `amended_by` pointer. Adding the pointer is a metadata edit, like flipping a status; the decision itself is never rewritten. When the whole decision goes, supersede it.
+**A later ADR may replace part of an accepted one.** The newer names what it replaces. The older keeps its status, since the rest of it is still in force, and gains an `amended_by` pointer, a list when there are several. Adding the pointer is a metadata edit, like flipping a status; the decision itself is never rewritten. When the whole decision goes, supersede it.
 
 ## Exemption from "describe the present"
 
@@ -69,6 +69,7 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 | 2026-11-09 | [Read logs through two backends behind LogFetcher](2026-11-09-read-logs-through-two-backends-behind-logfetcher.md) | cross-cutting | Accepted |
 | 2026-11-09 | [Authenticate the front proxy in middleware](2026-11-09-authenticate-the-front-proxy-in-middleware.md) | cluster-api | Accepted |
 | 2026-11-09 | [Defend against CSRF in two layers](2026-11-09-defend-against-csrf-in-two-layers.md) | dashboard | Accepted |
+| 2026-11-09 | [Check hook dependencies in the dashboard UI](2026-11-09-check-hook-dependencies-in-the-dashboard-ui.md) | dashboard-ui | Accepted |
 | 2026-11-09 | [Lint the dashboard UI with oxlint's categories and a chosen rule list](2026-11-09-lint-the-dashboard-ui-with-oxlints-categories-and-a-chosen-rule-list.md) | dashboard-ui | Accepted |
 | 2026-11-09 | [Override the codegen client preset's v6 defaults](2026-11-09-override-the-codegen-client-presets-v6-defaults.md) | dashboard-ui | Accepted |
 | 2026-11-09 | [Require switches over a union to list every member](2026-11-09-require-switches-over-a-union-to-list-every-member.md) | dashboard-ui | Accepted |

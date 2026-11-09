@@ -90,7 +90,6 @@ Vitest + `@testing-library/react` (jsdom), co-located as `foo.test.ts[x]`. Globa
 `.oxlintrc.json` is the lint: oxlint's `correctness`, `suspicious` and `perf` categories plus a chosen list of rules. A rule turned off or given options says why in a comment. → [ADR: lint the dashboard UI with oxlint's categories and a chosen rule list](../docs/adr/2026-11-09-lint-the-dashboard-ui-with-oxlints-categories-and-a-chosen-rule-list.md)
 
 - **Imports are grouped, a blank line between groups**: third-party packages, `@kubetail/*`, `@/…`, relative `./…`, then stylesheets. `pnpm format` sorts them (`sortImports` in `.oxfmtrc.json`).
-- **`react/exhaustive-deps` is off.** Nothing flags a missing dependency, so write the array as though it were on.
 - **A disable comment is `oxlint-disable`, names its rule, gives a reason after `--`, and is rare**; an unused one fails the lint. `eslint-disable` comments are ignored.
 - **TypeScript is `strict` with `noUnusedLocals` and `noUnusedParameters`.**
 - **A new dependency must be at least ten days old** (`minimumReleaseAge` in `pnpm-workspace.yaml`); `@kubetail/ui` is exempt.
