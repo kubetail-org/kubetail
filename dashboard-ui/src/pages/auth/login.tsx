@@ -49,7 +49,7 @@ export default function LoginPage() {
   // redirect if login status changes
   useEffect(() => {
     if (!loading && session?.user !== null) void navigate(searchParams.get('callbackUrl') || '/');
-  }, [loading, session?.user]);
+  }, [loading, session?.user, navigate, searchParams]);
 
   if (!session) return <LoadingPage />;
 

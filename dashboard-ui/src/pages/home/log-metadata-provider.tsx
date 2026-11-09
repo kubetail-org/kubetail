@@ -79,7 +79,7 @@ export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) =
       inner.set(item.spec.containerID, item.fileInfo);
     }
     setLogMetadataMap({ inner });
-  }, [loading, setLogMetadataMap]);
+  }, [data, setLogMetadataMap]);
 
   // Set up batch update mechanism
   const eventBufferRef = useRef<LogMetadataWatchEvent[]>([]);

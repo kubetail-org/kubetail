@@ -650,11 +650,12 @@ export function useSelection(virtualizerRef: React.RefObject<LogViewerVirtualize
   const { selectionTopKeys, selectionBottomKeys } = useSelectionEdges(state.selectedKeys);
 
   // Clean up drag listeners on unmount
+  const { dragAbortRef } = state;
   useEffect(
     () => () => {
-      state.dragAbortRef.current?.abort();
+      dragAbortRef.current?.abort();
     },
-    [],
+    [dragAbortRef],
   );
 
   return {

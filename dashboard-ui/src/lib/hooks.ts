@@ -14,7 +14,8 @@
 
 import type { TypedDocumentNode, OperationVariables } from '@apollo/client';
 import { useApolloClient, useQuery } from '@apollo/client/react';
-import { useCallback, useEffect, useRef } from 'react';
+import deepEqual from 'fast-deep-equal';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import appConfig from '@/app-config';
 import { LOCAL_STORAGE_KEY } from '@/components/widgets/EnvironmentControl';
@@ -98,6 +99,21 @@ function isWatchExpiredError(err: Error): boolean {
 }
 
 /**
+ * Returns the previous value while `next` is deep-equal to it. Callers pass `variables` as a new
+ * object each render; a hook that lists them as a dependency needs one that changes with them.
+ */
+
+function useDeepStableValue<T>(next: T): T {
+  const [value, setValue] = useState(next);
+
+  if (!deepEqual(next, value)) {
+    setValue(next);
+  }
+
+  return value;
+}
+
+/**
  * Throttles a callback so it runs at most once per animation frame.
  * Cancels any pending frame on unmount to avoid orphan callbacks.
  */
@@ -157,11 +173,12 @@ export function useGetQueryWithSubscription<
   TSData = any,
   TSVariables extends GetQueryWithSubscriptionTSVariables = GetQueryWithSubscriptionTSVariables,
 >(args: GetQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
+  const { query, subscription, queryDataKey, subscriptionDataKey, skip } = args;
   const { kubeContext, name, namespace } = args.variables;
 
   // get workload object
-  const { loading, error, data, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(args.query, {
-    skip: args.skip,
+  const { loading, error, data, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(query, {
+    skip,
     variables: args.variables,
   });
 
@@ -175,22 +192,22 @@ export function useGetQueryWithSubscription<
   useEffect(
     () =>
       subscribeToMore({
-        document: args.subscription,
+        document: subscription,
         variables: {
           kubeContext,
           namespace,
           fieldSelector: `metadata.name=${name}`,
         } as TSVariables,
         updateQuery: (prev, { subscriptionData }): TQData => {
-          const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
-          if (ev?.type === 'ADDED' && ev.object) return { [args.queryDataKey]: ev.object } as TQData;
+          const ev = subscriptionData.data[subscriptionDataKey] as GenericWatchEventFragment;
+          if (ev?.type === 'ADDED' && ev.object) return { [queryDataKey]: ev.object } as TQData;
           return prev as TQData;
         },
         onError: (err) => {
           if (isWatchExpiredError(err)) void refetch();
         },
       }),
-    [subscribeToMore],
+    [subscribeToMore, subscription, subscriptionDataKey, queryDataKey, kubeContext, namespace, name, refetch],
   );
 
   return { loading, error, data };
@@ -217,14 +234,14 @@ export function useListQueryWithSubscription<
 >(args: ListQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
   const client = useApolloClient();
 
+  const { query, subscription, queryDataKey, subscriptionDataKey, skip } = args;
+  const variables = useDeepStableValue(args.variables);
+
   // initial query
-  const { loading, error, data, fetchMore, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(
-    args.query,
-    {
-      skip: args.skip,
-      variables: args.variables,
-    },
-  );
+  const { loading, error, data, fetchMore, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(query, {
+    skip,
+    variables,
+  });
 
   // Retry on errors
   useEffect(() => {
@@ -233,7 +250,7 @@ export function useListQueryWithSubscription<
   }, [error, startPolling, stopPolling]);
 
   // TODO: tighten `any`
-  const respData = data ? ((data as TQData)[args.queryDataKey] as GenericListFragment) : null;
+  const respData = data ? ((data as TQData)[queryDataKey] as GenericListFragment) : null;
 
   // fetch rest
   const fetchMoreRef = useRef(new Set<string>([]));
@@ -243,36 +260,30 @@ export function useListQueryWithSubscription<
       fetchMoreRef.current.add(continueVal);
       void fetchMore({
         variables: {
-          ...args.variables,
+          ...variables,
           continue: continueVal,
         },
       });
     }
-  }, [continueVal]);
+  }, [continueVal, fetchMore, variables]);
 
   // subscribe to changes
   useEffect(() => {
     // wait for all data to get fetched
-    if (args.skip || loading || continueVal) return;
+    if (skip || loading || continueVal) return;
 
     const resourceVersion = respData?.metadata.resourceVersion || '';
 
-    // add `resourceVersion`
-    const variables = {
-      ...args.variables,
-      resourceVersion,
-    } as unknown as TSVariables;
-
     return subscribeToMore({
-      document: args.subscription,
-      variables,
+      document: subscription,
+      variables: { ...variables, resourceVersion } as unknown as TSVariables,
       updateQuery: (prev, { subscriptionData }): TQData => {
-        const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
+        const ev = subscriptionData.data[subscriptionDataKey] as GenericWatchEventFragment;
 
         if (!ev?.type || !ev?.object) return prev as TQData;
-        if (!(prev as TQData)[args.queryDataKey]) return prev as TQData;
+        if (!(prev as TQData)[queryDataKey]) return prev as TQData;
 
-        const oldResult = (prev as TQData)[args.queryDataKey] as GenericListFragment;
+        const oldResult = (prev as TQData)[queryDataKey] as GenericListFragment;
 
         // initialize new result and update resourceVersion
         const newResult = {
@@ -320,13 +331,25 @@ export function useListQueryWithSubscription<
             return prev as TQData;
         }
 
-        return { [args.queryDataKey]: newResult } as TQData;
+        return { [queryDataKey]: newResult } as TQData;
       },
       onError: (err) => {
         if (isWatchExpiredError(err)) void refetch();
       },
     });
-  }, [args.skip, subscribeToMore, loading, continueVal]);
+    // oxlint-disable-next-line react/exhaustive-deps -- the watch reads resourceVersion once, at start; each event advances it
+  }, [
+    skip,
+    loading,
+    continueVal,
+    variables,
+    subscribeToMore,
+    subscription,
+    subscriptionDataKey,
+    queryDataKey,
+    client,
+    refetch,
+  ]);
 
   const fetching = Boolean(loading || continueVal);
 
@@ -357,10 +380,13 @@ export function useCounterQueryWithSubscription<
   TSData = any,
   TSVariables extends OperationVariables = OperationVariables,
 >(args: CounterQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
+  const { query, subscription, queryDataKey, subscriptionDataKey, skip } = args;
+  const variables = useDeepStableValue(args.variables);
+
   // initial query
-  const { loading, error, data, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(args.query, {
-    skip: args.skip,
-    variables: args.variables,
+  const { loading, error, data, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(query, {
+    skip,
+    variables,
   });
 
   // Retry on error
@@ -369,7 +395,7 @@ export function useCounterQueryWithSubscription<
     else stopPolling();
   }, [error, startPolling, stopPolling]);
 
-  const respData = data ? ((data as TQData)[args.queryDataKey] as GenericCounterFragment) : null;
+  const respData = data ? ((data as TQData)[queryDataKey] as GenericCounterFragment) : null;
 
   // subscribe to changes
   useEffect(() => {
@@ -378,25 +404,19 @@ export function useCounterQueryWithSubscription<
 
     const resourceVersion = respData?.metadata.resourceVersion || '';
 
-    // add `resourceVersion`
-    const variables = {
-      ...args.variables,
-      resourceVersion,
-    } as unknown as TSVariables;
-
     return subscribeToMore({
-      document: args.subscription,
-      variables,
+      document: subscription,
+      variables: { ...variables, resourceVersion } as unknown as TSVariables,
       updateQuery: (prev, { subscriptionData }): TQData => {
-        const ev = subscriptionData.data[args.subscriptionDataKey] as GenericWatchEventFragment;
+        const ev = subscriptionData.data[subscriptionDataKey] as GenericWatchEventFragment;
 
         if (!ev?.type || !ev?.object) return prev as TQData;
-        if (!(prev as TQData)[args.queryDataKey]) return prev as TQData;
+        if (!(prev as TQData)[queryDataKey]) return prev as TQData;
 
         // Only handle additions and deletions
         if (!['ADDED', 'DELETED'].includes(ev.type)) return prev as TQData;
 
-        const oldResult = (prev as TQData)[args.queryDataKey] as GenericCounterFragment;
+        const oldResult = (prev as TQData)[queryDataKey] as GenericCounterFragment;
 
         const oldCount = oldResult.metadata.remainingItemCount;
         const newCount = oldCount + (ev.type === 'ADDED' ? BigInt(1) : BigInt(-1));
@@ -411,13 +431,14 @@ export function useCounterQueryWithSubscription<
           },
         };
 
-        return { [args.queryDataKey]: newResult } as TQData;
+        return { [queryDataKey]: newResult } as TQData;
       },
       onError: (err) => {
         if (isWatchExpiredError(err)) void refetch();
       },
     });
-  }, [subscribeToMore, loading, error]);
+    // oxlint-disable-next-line react/exhaustive-deps -- the watch reads resourceVersion once, at start; each event advances it
+  }, [loading, error, variables, subscribeToMore, subscription, subscriptionDataKey, queryDataKey, refetch]);
 
   let count: number | undefined;
   if (respData) count = respData.items.length + Number(respData.metadata.remainingItemCount);

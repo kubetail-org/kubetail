@@ -337,7 +337,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
           containerIDs: fileInfo?.containerIDs ?? [],
         };
       }),
-    [items, logFileInfo],
+    [items, logFileInfo, kind],
   );
 
   const numItems = data.length;
@@ -622,7 +622,7 @@ const NamespacesPicker = () => {
   // Reset namespaces when kubeContext changes
   useEffect(() => {
     setNamespaceFilter('');
-  }, [kubeContext]);
+  }, [kubeContext, setNamespaceFilter]);
 
   return (
     <Select
