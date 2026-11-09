@@ -452,7 +452,9 @@ export function useIsClusterAPIEnabled(kubeContext: string | null) {
     case Status.Unknown:
     case Status.Pending:
       return undefined;
-    default:
+    case Status.Healthy:
+    case Status.Unhealthy:
+    case Status.Degraded:
       return true;
   }
 }

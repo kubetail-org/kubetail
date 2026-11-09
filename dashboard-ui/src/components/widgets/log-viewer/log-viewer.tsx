@@ -308,8 +308,6 @@ export const useInit = ({ client, config, refs, actions, services }: Runtime) =>
 
           break;
         }
-        default:
-          throw new Error('Invalid initial position type');
       }
     };
 

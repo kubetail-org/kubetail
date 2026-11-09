@@ -68,8 +68,6 @@ export function getPlainAttribute(
       return record.source.metadata.node;
     case ViewerColumn.Message:
       return stripAnsi(record.message);
-    default:
-      throw new Error('not implemented');
   }
 }
 

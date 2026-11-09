@@ -151,10 +151,11 @@
     "typescript/prefer-reduce-type-parameter": "error",
     "typescript/related-getter-setter-pairs": "error",
     "typescript/restrict-plus-operands": "error",
-    // A switch lists every member of its union or ends in a `default`.
+    // A switch over a union lists every member and has no `default`, so a new member fails the lint.
+    // Any other switch has a `default`.
     "typescript/switch-exhaustiveness-check": [
       "error",
-      { "considerDefaultExhaustiveForUnions": true, "requireDefaultForNonUnion": true }
+      { "allowDefaultCaseForExhaustiveSwitch": false, "requireDefaultForNonUnion": true }
     ],
     "typescript/use-unknown-in-catch-callback-variable": "error",
 

@@ -59,7 +59,9 @@ export class ServerStatus {
       case HealthCheckStatus.Notfound:
         ss.status = Status.NotFound;
         break;
-      default:
+      case HealthCheckStatus.Failure:
+      case HealthCheckStatus.Unknown:
+      case undefined:
         ss.status = Status.Unhealthy;
     }
 
