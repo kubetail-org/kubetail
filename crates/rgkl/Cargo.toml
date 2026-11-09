@@ -28,7 +28,7 @@ tracing-test = { workspace = true }
 grep = "0.4.1"
 grep-cli = "0.1.12"
 grep-matcher = "0.1.9"
-grep-printer = "0.2.2"
+grep-printer = "0.3.1"
 grep-regex = "0.1.14"
 grep-searcher = "0.1.17"
 memchr = "2.8.3"
