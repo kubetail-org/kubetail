@@ -10,7 +10,7 @@ _Kubetail 是一个面向 Kubernetes 的实时日志仪表板_
 
 <a href="https://discord.gg/CmsmWAVkvX"><img src="https://img.shields.io/discord/1212031524216770650?logo=Discord&style=flat-square&logoColor=FFFFFF&labelColor=5B65F0&label=Discord&color=64B73A"></a>
 [![Slack](https://img.shields.io/badge/Slack-kubetail-364954?logo=slack&labelColor=4D1C51)](https://kubernetes.slack.com/archives/C08SHG1GR37)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](https://github.com/kubetail-org/.github/blob/main/CODE_OF_CONDUCT.md)
 [![Contributor Resources](https://img.shields.io/badge/Contributor%20Resources-purple?style=flat-square)](https://github.com/kubetail-org)
 
 [English](../README.md) | 简体中文 | [日本語](README.ja.md) | [한국어](README.ko.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Português](README.pt-BR.md) | [Français](README.fr.md)
@@ -26,7 +26,7 @@ _Kubetail 是一个面向 Kubernetes 的实时日志仪表板_
 
 Kubetail 的主要入口是 `kubetail` CLI 工具。它既可以在你的桌面上启动本地 Web 仪表板，也可以将原始日志直接流式输出到终端。在底层，Kubetail 通过集群的 Kubernetes API 直接从集群中获取日志，因此无需先将日志转发到外部服务即可开箱即用。Kubetail 还会使用 Kubernetes API 跟踪容器生命周期事件，以便在容器启动、停止或被替换时保持日志时间线同步。这使你能够在用户请求跨服务切换到不同临时容器时，依然连续地跟踪日志。
 
-我们的目标是打造 Kubernetes 上最强大、最易用的日志平台，也非常希望你参与进来。如果你发现了 bug 或有建议，请创建 GitHub Issue，或者发送邮件到 hello@kubetail.com。
+我们的目标是打造 Kubernetes 上最强大、最易用的日志平台，也非常希望你参与进来。如果你发现了 bug 或有建议，请创建 GitHub Issue，或者发送邮件到 <hello@kubetail.com>。
 
 ## 功能
 
@@ -193,14 +193,14 @@ kubetail config init
 
 这个 monorepo 包含以下模块:
 
-* Kubetail CLI ([modules/cli](modules/cli))
-* Kubetail Cluster API ([modules/cluster-api](modules/cluster-api))
-* Kubetail Cluster Agent ([crates/cluster_agent](crates/cluster_agent))
-* Kubetail Dashboard ([modules/dashboard](modules/dashboard))
+* Kubetail CLI ([modules/cli](../modules/cli))
+* Kubetail Cluster API ([modules/cluster-api](../modules/cluster-api))
+* Kubetail Cluster Agent ([crates/cluster_agent](../crates/cluster_agent))
+* Kubetail Dashboard ([modules/dashboard](../modules/dashboard))
 
 它还包含 Kubetail Dashboard 前端的源代码:
 
-* Dashboard UI ([dashboard-ui](dashboard-ui))
+* Dashboard UI ([dashboard-ui](../dashboard-ui))
 
 ### 搭建开发环境
 
