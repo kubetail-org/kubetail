@@ -1,6 +1,6 @@
 ## Kubetail CLI Configuration File
-# 
-# This file defines the behavior for the kubetail CLI tool,  
+#
+# This file defines the behavior for the kubetail CLI tool,
 # including logs command defaults and dashboard server settings.
 #
 
@@ -35,7 +35,7 @@ commands:
 
     ## kube-context ##
     #
-    # The specific Kubernetes context to use. 
+    # The specific Kubernetes context to use.
     # If empty, the current active context is used.
     #
     # Default value: ""
@@ -93,7 +93,7 @@ commands:
 
     ## skip-open ##
     #
-    # If true, the CLI will not automatically open the browser 
+    # If true, the CLI will not automatically open the browser
     # when the server starts.
     #
     # Default value: false

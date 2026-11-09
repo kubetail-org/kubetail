@@ -101,7 +101,7 @@ models:
     model: github.com/kubetail-org/kubetail/modules/shared/clusteragentpb.LogMetadataSpec
 
   LogMetadataWatchEvent:
-    model: github.com/kubetail-org/kubetail/modules/shared/clusteragentpb.LogMetadataWatchEvent  
+    model: github.com/kubetail-org/kubetail/modules/shared/clusteragentpb.LogMetadataWatchEvent
 
   # -- Logs ---
   LogRecord:

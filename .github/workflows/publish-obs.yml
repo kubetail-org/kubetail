@@ -2,7 +2,6 @@ name: publish-obs
 
 permissions:
   contents: read
-  deployments: write
 
 on:
   release:
@@ -26,10 +25,13 @@ jobs:
     environment: production
     steps:
       - id: config
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "version=$INPUT_VERSION" >> $GITHUB_OUTPUT
+            echo "dry_run=$INPUT_DRY_RUN" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
             echo "dry_run=false" >> $GITHUB_OUTPUT
@@ -40,11 +42,12 @@ jobs:
           sudo apt install -y osc
 
       - name: Checkout this repo
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: .github/ci-config/obs
           sparse-checkout-cone-mode: false
           path: kubetail
+          persist-credentials: false
 
       - name: Download SHA256SUMS
         uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05 # v1.12
@@ -57,19 +60,24 @@ jobs:
       - name: Extract shasum
         id: meta
         working-directory: ./downloads
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
         run: |
-          SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-${{ steps.config.outputs.version }}-vendored.tar.gz" {print $1}' )
+          SHA256=$( tr -d '\r' < './SHA256SUMS' | awk -v f="kubetail-${VERSION}-vendored.tar.gz" '$2 == f {print $1}' )
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
 
       - name: Configure osc and checkout project
+        env:
+          OBS_USERNAME: ${{ vars.OBS_USERNAME }}
+          OBS_PASSWORD: ${{ secrets.OBS_PASSWORD }}
         run: |
           cat > ~/.oscrc <<EOF
           [general]
           apiurl = https://api.opensuse.org
 
           [https://api.opensuse.org]
-          user = ${{ vars.OBS_USERNAME }}
-          pass = ${{ secrets.OBS_PASSWORD }}
+          user = ${OBS_USERNAME}
+          pass = ${OBS_PASSWORD}
           EOF
 
           osc checkout home:kubetail/kubetail-cli
@@ -95,14 +103,17 @@ jobs:
 
       - name: Publish to OBS
         working-directory: "home:kubetail/kubetail-cli"
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
+          DRY_RUN: ${{ steps.config.outputs.dry_run }}
         run: |
           osc addremove
 
           osc status
           osc diff
 
-          if [ "${{ steps.config.outputs.dry_run }}" = "false" ]; then
-            osc ci -m "Update _service and spec for ${{ steps.config.outputs.version }}"
+          if [ "$DRY_RUN" = "false" ]; then
+            osc ci -m "Update _service and spec for ${VERSION}"
           else
             cat kubetail-cli.spec
             cat _service

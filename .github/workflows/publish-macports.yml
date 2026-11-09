@@ -2,7 +2,6 @@ name: publish-macports
 
 permissions:
   contents: read
-  deployments: write
 
 on:
   release:
@@ -37,11 +36,15 @@ jobs:
     steps:
       - name: Config
         id: config
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_PORT_CHECKS: ${{ github.event.inputs.port_checks }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-            echo "port_checks=${{ github.event.inputs.port_checks }}" >> $GITHUB_OUTPUT
-            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "version=$INPUT_VERSION" >> $GITHUB_OUTPUT
+            echo "port_checks=$INPUT_PORT_CHECKS" >> $GITHUB_OUTPUT
+            echo "dry_run=$INPUT_DRY_RUN" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
             echo "port_checks=true" >> $GITHUB_OUTPUT
@@ -49,7 +52,7 @@ jobs:
           fi
 
       - name: Checkout macports-ports upstream repo
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: "${{ env.UPSTREAM_REPO }}"
           sparse-checkout: devel/kubetail
@@ -64,7 +67,7 @@ jobs:
           echo "dir=/private/tmp" >> $GITHUB_OUTPUT
 
       - name: Checkout this repo
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: .github/ci-config/macports
           sparse-checkout-cone-mode: false
@@ -101,12 +104,13 @@ jobs:
           SIZE: ${{ steps.meta.outputs.size }}
           SRC_DIR: kubetail/.github/ci-config/macports
           DST_DIR: "${{ steps.temp.outputs.dir }}/macports-ports/devel/kubetail"
+          DRY_RUN: ${{ steps.config.outputs.dry_run }}
         run: |
           envsubst '${VERSION} ${RMD160} ${SHA256} ${SIZE}' \
             < "${SRC_DIR}/Portfile.tmpl" \
             > "${DST_DIR}/Portfile"
 
-          if [ "${{ steps.config.outputs.dry_run }}" == "true" ]; then
+          if [ "$DRY_RUN" == "true" ]; then
             cat "${DST_DIR}/Portfile"
           fi
 
@@ -146,8 +150,10 @@ jobs:
 
       - name: "Port Check: Test binary"
         if: ${{ steps.config.outputs.port_checks == 'true' }}
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
         run: |
-          expected="kubetail version ${{ steps.config.outputs.version }}"
+          expected="kubetail version ${VERSION}"
           actual="$(kubetail --version)"
           echo "$actual"
           if [ "$actual" != "$expected" ]; then
@@ -185,27 +191,33 @@ jobs:
 
       - name: Configure git
         working-directory: "${{ steps.temp.outputs.dir }}/macports-ports/devel/kubetail"
+        env:
+          BOT_NAME: ${{ vars.KUBETAIL_BOT_NAME }}
+          BOT_EMAIL: ${{ vars.KUBETAIL_BOT_EMAIL }}
+          GPG_FINGERPRINT: ${{ vars.KUBETAIL_BOT_GPG_SIGNING_KEY_FINGERPRINT }}
         run: |
           # Configure git
           git config --local gpg.program gpg
           git config --local commit.gpgsign true
 
-          git config --local user.name "${{ vars.KUBETAIL_BOT_NAME }}"
-          git config --local user.email "${{ vars.KUBETAIL_BOT_EMAIL }}"
-          git config --local user.signingkey "${{ vars.KUBETAIL_BOT_GPG_SIGNING_KEY_FINGERPRINT }}"
+          git config --local user.name "$BOT_NAME"
+          git config --local user.email "$BOT_EMAIL"
+          git config --local user.signingkey "$GPG_FINGERPRINT"
 
       - name: Commit changes and raise PR
         working-directory: "${{ steps.temp.outputs.dir }}/macports-ports"
         env:
           GH_TOKEN: ${{ secrets.AMOREY_PAT }}
+          VERSION: ${{ steps.config.outputs.version }}
+          DRY_RUN: ${{ steps.config.outputs.dry_run }}
+          PR_BODY_FILE: ${{ steps.pr_body.outputs.file }}
         run: |
-          BRANCH_NAME="release-kubetail-${{ steps.config.outputs.version }}"
+          BRANCH_NAME="release-kubetail-${VERSION}"
 
-          FORK_REPO="${{ env.FORK_REPO }}"
           FORK_REPO_OWNER=${FORK_REPO%%/*}
 
           # Add fork
-          git remote add fork "git@github.com:${{ env.FORK_REPO }}.git"
+          git remote add fork "git@github.com:${FORK_REPO}.git"
 
           # Exit if branch already exists
           if git ls-remote --exit-code --heads fork "${BRANCH_NAME}" >/dev/null 2>&1; then
@@ -226,12 +238,12 @@ jobs:
           fi
 
           # Commit
-          git commit -s -m "kubetail: upgrade to ${{ steps.config.outputs.version }}"
+          git commit -s -m "kubetail: upgrade to ${VERSION}"
 
           # Exit if dry_run
-          if [ "${{ steps.config.outputs.dry_run }}" == "true" ]; then
+          if [ "$DRY_RUN" == "true" ]; then
             cat devel/kubetail/Portfile
-            cat "${{ steps.pr_body.outputs.file }}"
+            cat "$PR_BODY_FILE"
             exit 0
           fi
 
@@ -240,11 +252,11 @@ jobs:
 
           # Raise PR
           gh pr create \
-            --repo "${{ env.UPSTREAM_REPO }}" \
+            --repo "$UPSTREAM_REPO" \
             --head "${FORK_REPO_OWNER}:${BRANCH_NAME}" \
             --base master \
-            --title "kubetail: update to ${{ steps.config.outputs.version }}" \
-            --body-file "${{ steps.pr_body.outputs.file }}"
+            --title "kubetail: update to ${VERSION}" \
+            --body-file "$PR_BODY_FILE"
 
       - name: Cleanup GPG
         if: always()

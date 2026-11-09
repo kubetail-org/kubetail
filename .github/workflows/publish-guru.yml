@@ -26,10 +26,13 @@ jobs:
     steps:
       - name: Configure workflow
         id: config
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            VERSION="$INPUT_VERSION"
+            echo "dry_run=$INPUT_DRY_RUN" >> $GITHUB_OUTPUT
           else
             VERSION="${GITHUB_REF#refs/tags/cli/v}"
             echo "dry_run=false" >> $GITHUB_OUTPUT
@@ -60,13 +63,16 @@ jobs:
           echo "sha512=$SHA512" >> "$GITHUB_OUTPUT"
 
       - name: Checkout GURU repo
+        env:
+          GURU_TOKEN: ${{ secrets.PUBLISH_GURU_GITHUB_TOKEN }}
         run: |
           git clone --depth 1 --branch dev --single-branch https://github.com/gentoo/guru.git
-          git -C guru remote add fork https://x-access-token:${{ secrets.PUBLISH_GURU_GITHUB_TOKEN }}@github.com/amorey/guru.git
+          git -C guru remote add fork "https://x-access-token:${GURU_TOKEN}@github.com/amorey/guru.git"
 
       - name: Checkout kubetail repo
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           sparse-checkout: .github/ci-config/guru
           sparse-checkout-cone-mode: false
           path: kubetail
@@ -75,15 +81,21 @@ jobs:
         env:
           SRC_DIR: kubetail/.github/ci-config/guru
           DST_DIR: guru/dev-util/kubetail
+          VERSION: ${{ steps.config.outputs.version }}
         run: |
-          cp "$SRC_DIR/kubetail.ebuild" "$DST_DIR/kubetail-${{ steps.config.outputs.version}}.ebuild"
+          cp "$SRC_DIR/kubetail.ebuild" "$DST_DIR/kubetail-$VERSION.ebuild"
 
       - name: Update Manifest
         working-directory: guru/dev-util/kubetail
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
+          SIZE: ${{ steps.meta.outputs.size }}
+          BLAKE2B: ${{ steps.meta.outputs.blake2b }}
+          SHA512: ${{ steps.meta.outputs.sha512 }}
         run: |
-          prefix="DIST kubetail-${{ steps.config.outputs.version }}-vendored.tar.gz"
+          prefix="DIST kubetail-$VERSION-vendored.tar.gz"
           if ! grep -qF "$prefix" Manifest 2>/dev/null; then
-            echo "$prefix ${{ steps.meta.outputs.size }} BLAKE2B ${{ steps.meta.outputs.blake2b }} SHA512 ${{ steps.meta.outputs.sha512 }}" >> Manifest
+            echo "$prefix $SIZE BLAKE2B $BLAKE2B SHA512 $SHA512" >> Manifest
           fi
 
       - name: Trim old ebuilds
@@ -138,6 +150,8 @@ jobs:
 
       - name: Configure git
         working-directory: guru
+        env:
+          SIGNING_KEY: ${{ vars.ANDRES_GPG_SIGNING_KEY_FINGERPRINT }}
         run: |
           # Configure git
           git config gpg.program gpg
@@ -145,14 +159,16 @@ jobs:
 
           git config user.name "Andres Morey"
           git config user.email "andres@kubetail.com"
-          git config user.signingkey "${{ vars.ANDRES_GPG_SIGNING_KEY_FINGERPRINT }}"
+          git config user.signingkey "$SIGNING_KEY"
 
       - name: Debug
         if: ${{ steps.config.outputs.dry_run == 'true' }}
         working-directory: guru/dev-util/kubetail
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
         run: |
           ls -lah *
-          cat kubetail-${{ steps.config.outputs.version }}.ebuild
+          cat "kubetail-$VERSION.ebuild"
           cat Manifest
 
       - name: Push changes and open PR

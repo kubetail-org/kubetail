@@ -2,7 +2,6 @@ name: publish-alpine
 
 permissions:
   contents: read
-  deployments: write
 
 on:
   release:
@@ -29,10 +28,13 @@ jobs:
       dry_run: ${{ steps.config.outputs.dry_run }}
     steps:
       - id: config
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "version=$INPUT_VERSION" >> $GITHUB_OUTPUT
+            echo "dry_run=$INPUT_DRY_RUN" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
             echo "dry_run=false" >> $GITHUB_OUTPUT
@@ -77,15 +79,18 @@ jobs:
           ssh-private-key: ${{ secrets.ANDRES_ALPINE_SSH_PRIVATE_KEY }}
 
       - name: Checkout aports repo
+        env:
+          KNOWN_HOSTS: ${{ vars.ALPINE_SSH_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ vars.ALPINE_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
 
           git clone --depth 1 git@gitlab.alpinelinux.org:alpine/aports.git
 
       - name: Checkout kubetail repo
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           sparse-checkout: .github/ci-config/alpine
           sparse-checkout-cone-mode: false
           path: kubetail
@@ -119,13 +124,15 @@ jobs:
 
       - name: Configure git
         working-directory: aports
+        env:
+          SIGNING_KEY: ${{ vars.ANDRES_GPG_SIGNING_KEY_FINGERPRINT }}
         run: |
           git config gpg.program gpg
           git config commit.gpgsign true
 
           git config user.name "Andres Morey"
           git config user.email "andres@kubetail.com"
-          git config user.signingkey "${{ vars.ANDRES_GPG_SIGNING_KEY_FINGERPRINT }}"
+          git config user.signingkey "$SIGNING_KEY"
 
       - name: Debug
         if: ${{ needs.config.outputs.dry_run == 'true' }}
