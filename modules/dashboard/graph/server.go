@@ -90,11 +90,9 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 
 	h.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
-	// Configure WebSocket. The app-level Sec-Fetch-Site CSRF middleware does
-	// not gate WebSocket upgrades (safe methods are skipped, since Chrome
-	// does not send Sec-Fetch-Site on upgrade requests), so CSWSH defense
-	// happens here in two layers: a same-origin Origin check at upgrade time,
-	// and a CSRF-token check in the connection_init payload.
+	// Configure WebSocket. The CSRF middleware skips upgrades (a GET), so they
+	// are gated here: an allowed Origin at upgrade time, then the session's
+	// CSRF token in the connection_init payload.
 	h.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {

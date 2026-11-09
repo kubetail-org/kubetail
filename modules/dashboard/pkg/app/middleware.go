@@ -36,19 +36,13 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
-// rejectedSecFetchSite lists Sec-Fetch-Site values that are cross-origin and
-// so must be rejected outright. "same-site" covers sibling subdomains on the
-// same eTLD+1, which are still cross-origin in CSRF terms. An absent header
-// is not rejected here: browsers omit Sec-Fetch-* on non-secure, non-localhost
-// contexts (e.g. plain-HTTP internal ingresses), and the CSRF token check
-// below is the primary defense.
+// rejectedSecFetchSite lists the Sec-Fetch-Site values refused outright. An
+// absent header passes: browsers omit it in non-secure contexts, and the
+// token check is the primary defense.
 var rejectedSecFetchSite = []string{"cross-site", "same-site"}
 
-// safeMethods are HTTP methods that don't change state, so they don't need
-// CSRF protection. Cross-origin reads are blocked by the Same-Origin Policy,
-// and skipping them lets WebSocket upgrades through (Chrome does not send
-// Sec-Fetch-Site on upgrade requests, which the WebSocket same-origin gate
-// handles instead).
+// safeMethods skip the CSRF check, so no route on one may change state. A
+// WebSocket upgrade is a GET and is gated by the GraphQL server instead.
 var safeMethods = []string{http.MethodGet, http.MethodHead, http.MethodOptions}
 
 // getOrCreateCSRFToken returns the session's CSRF token, generating and

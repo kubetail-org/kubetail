@@ -35,11 +35,10 @@ func PoolFromPEM(pemBytes string) (*x509.CertPool, error) {
 }
 
 // BuildTLSConfig assembles the *tls.Config for the cluster-api HTTP server.
-// The listener is fixed at RequestClientCert: it collects peer certs when
-// presented (so the aggregation auth middleware can verify them against the
-// kube-apiserver's CAs) but doesn't reject connections without one — kubelet
-// probes and pre-auth discovery routes share the listener. Cert/key are
-// loaded by http.Server itself.
+// RequestClientCert collects a peer cert for the aggregation auth middleware
+// to verify, and accepts a handshake without one, since kubelet probes and
+// the discovery routes share the listener. Cert/key are loaded by
+// http.Server itself.
 func BuildTLSConfig() *tls.Config {
 	return &tls.Config{
 		MinVersion: tls.VersionTLS12,
