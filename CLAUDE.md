@@ -14,7 +14,7 @@ A real-time logging dashboard for Kubernetes. A monorepo of parts that talk to e
 - **`build/package/`** — the release Dockerfiles, one per component. Each copies only the directories its component needs.
 - **`hack/`** — local development: the Tilt manifests (`hack/tilt/kubetail.yaml` is the whole dev deployment), `ctlptl` cluster definitions and example workloads.
 - **`e2e/`** — end-to-end tests in Python, run against a kind cluster. See *End-to-end tests*.
-- **`scripts/`** — `install.sh`, the CLI installer, with its `bats` tests.
+- **`scripts/`** — `install.sh`, the CLI installer, with its `bats` tests, and `writing-standards-hook.sh`, the Claude Code hook in `.claude/settings.json`.
 - **`.claude/skills/`** — `release-cli` and `release-cluster`, which tag releases. A person invokes them; never tag or push a tag yourself.
 
 **The Helm chart is not in this repo.** A change that needs a new permission, Secret, port, environment variable or config key is made in `hack/tilt/kubetail.yaml` and `e2e/manifests/base.yaml.tmpl` here, and says in the PR that the chart needs the same.
@@ -89,6 +89,8 @@ Applies to every hand-written file: Go, Rust, TypeScript, Python, Markdown. Not 
 
 Watch for comments addressed to a reviewer rather than a reader opening the file cold; the tell is a comment that spends its length on the option not taken, or that points at a PR.
 
+A Claude Code hook (`scripts/writing-standards-hook.sh`, wired in `.claude/settings.json`) restates this section at the start of every turn. Its short form is kept in sync with this section.
+
 **A new Go, Rust or TypeScript source file opens with the Apache 2.0 header**, first line `Copyright 2024 The Kubetail Authors`. Copy it from a neighbouring file. Python and shell files carry none.
 
 Older files predate these standards. Follow the standards in what you write and leave unrelated lines alone: a cleanup is a commit of its own.
@@ -122,7 +124,7 @@ Run the checks of every area you touched before you finish. The `Makefile` wraps
 | TypeScript (`dashboard-ui/`) | `pnpm lint`; fix with `pnpm lint --fix` | `pnpm build` (type-checks) | `pnpm test run` |
 | Rust (`crates/`) | `cargo fmt --all -- --check` | `cargo clippy --all -- -D warnings` | `cargo test` |
 | Python (`e2e/`) | `uv run ruff check . && uv run ruff format --check .` | | `make test-e2e` |
-| Shell (`scripts/`) | `shellcheck scripts/install.sh` | | `bats scripts/` |
+| Shell (`scripts/`) | `shellcheck scripts/*.sh` | | `bats scripts/` |
 
 - **`make test-changed`, `make cover-changed` and `make lint`, named in the PR template and `CONTRIBUTING.md`, do not exist.** Use the commands above.
 - **CI picks its jobs by path**: `modules/**` runs the Go jobs, `crates/**` the Rust jobs, `dashboard-ui/**` the TypeScript jobs. A change to `proto/`, `config/`, `build/`, `hack/` or `e2e/` alone runs none of them, and a schema change under `modules/` does not run the TypeScript jobs. Run the affected checks yourself.
