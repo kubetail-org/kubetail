@@ -47,11 +47,12 @@ var clusterUninstallCmd = &cobra.Command{
 		// Init client
 		client := helm.NewClient(helm.WithKubeconfigPath(kubeconfigPath), helm.WithKubeContext(kubeContext))
 
-		// Uninstall
-		response, err := client.UninstallRelease(namespace, name)
+		// coverage:ignore-start uninstalls a release from a live cluster
+		release, err := client.UninstallRelease(namespace, name)
 		cli.ExitOnError(err)
 
-		fmt.Printf("Deleted release '%s' in namespace '%s'\n", response.Release.Name, response.Release.Namespace)
+		fmt.Printf("Deleted release '%s' in namespace '%s'\n", release.Name, release.Namespace)
+		// coverage:ignore-stop
 	},
 }
 

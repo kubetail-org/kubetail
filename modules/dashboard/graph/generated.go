@@ -21,8 +21,8 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
-	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v4/pkg/chart/v2"
+	v14 "helm.sh/helm/v4/pkg/release/v1"
 	v11 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/batch/v1"
 	v13 "k8s.io/api/core/v1"
@@ -689,7 +689,7 @@ type KubeConfigResolver interface {
 	Contexts(ctx context.Context, obj *model.KubeConfig) ([]*model.KubeConfigContext, error)
 }
 type MutationResolver interface {
-	HelmInstallLatest(ctx context.Context, kubeContext *string) (*release.Release, error)
+	HelmInstallLatest(ctx context.Context, kubeContext *string) (*v14.Release, error)
 	PreferencesUpdate(ctx context.Context, input model.PreferencesInput) (*preferences.Preferences, error)
 }
 type QueryResolver interface {
@@ -713,7 +713,7 @@ type QueryResolver interface {
 	CoreV1ServicesList(ctx context.Context, kubeContext *string, namespace *string, options *v1.ListOptions) (*v13.ServiceList, error)
 	ClusterAPIReadyWait(ctx context.Context, kubeContext *string) (bool, error)
 	ClusterAPIHealthzGet(ctx context.Context, kubeContext *string) (*model.HealthCheckResponse, error)
-	HelmListReleases(ctx context.Context, kubeContext *string) ([]*release.Release, error)
+	HelmListReleases(ctx context.Context, kubeContext *string) ([]*v14.Release, error)
 	CliLatestVersion(ctx context.Context) (*string, error)
 	ClusterVersionStatus(ctx context.Context, kubeContext *string) (*model.VersionStatus, error)
 	KubeConfigGet(ctx context.Context) (*model.KubeConfig, error)
@@ -11418,7 +11418,7 @@ func (ec *executionContext) fieldContext_HealthCheckResponse_timestamp(_ context
 	return graphql.NewScalarFieldContext("HealthCheckResponse", field, false, false, "Time")
 }
 
-func (ec *executionContext) _HelmChart_metadata(ctx context.Context, field graphql.CollectedField, obj *chart.Chart) (ret graphql.Marshaler) {
+func (ec *executionContext) _HelmChart_metadata(ctx context.Context, field graphql.CollectedField, obj *v2.Chart) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -11430,8 +11430,8 @@ func (ec *executionContext) _HelmChart_metadata(ctx context.Context, field graph
 			return obj.Metadata, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *chart.Metadata) graphql.Marshaler {
-			return ec.marshalOHelmChartMetadata2ᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋchartᚐMetadata(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *v2.Metadata) graphql.Marshaler {
+			return ec.marshalOHelmChartMetadata2ᚖhelmᚗshᚋhelmᚋv4ᚋpkgᚋchartᚋv2ᚐMetadata(ctx, selections, v)
 		},
 		true,
 		false,
@@ -11450,7 +11450,7 @@ func (ec *executionContext) fieldContext_HelmChart_metadata(_ context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _HelmChartMetadata_name(ctx context.Context, field graphql.CollectedField, obj *chart.Metadata) (ret graphql.Marshaler) {
+func (ec *executionContext) _HelmChartMetadata_name(ctx context.Context, field graphql.CollectedField, obj *v2.Metadata) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -11473,7 +11473,7 @@ func (ec *executionContext) fieldContext_HelmChartMetadata_name(_ context.Contex
 	return graphql.NewScalarFieldContext("HelmChartMetadata", field, false, false, "String")
 }
 
-func (ec *executionContext) _HelmChartMetadata_version(ctx context.Context, field graphql.CollectedField, obj *chart.Metadata) (ret graphql.Marshaler) {
+func (ec *executionContext) _HelmChartMetadata_version(ctx context.Context, field graphql.CollectedField, obj *v2.Metadata) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -11496,7 +11496,7 @@ func (ec *executionContext) fieldContext_HelmChartMetadata_version(_ context.Con
 	return graphql.NewScalarFieldContext("HelmChartMetadata", field, false, false, "String")
 }
 
-func (ec *executionContext) _HelmChartMetadata_condition(ctx context.Context, field graphql.CollectedField, obj *chart.Metadata) (ret graphql.Marshaler) {
+func (ec *executionContext) _HelmChartMetadata_condition(ctx context.Context, field graphql.CollectedField, obj *v2.Metadata) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -11519,7 +11519,7 @@ func (ec *executionContext) fieldContext_HelmChartMetadata_condition(_ context.C
 	return graphql.NewScalarFieldContext("HelmChartMetadata", field, false, false, "String")
 }
 
-func (ec *executionContext) _HelmChartMetadata_appVersion(ctx context.Context, field graphql.CollectedField, obj *chart.Metadata) (ret graphql.Marshaler) {
+func (ec *executionContext) _HelmChartMetadata_appVersion(ctx context.Context, field graphql.CollectedField, obj *v2.Metadata) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -11542,7 +11542,7 @@ func (ec *executionContext) fieldContext_HelmChartMetadata_appVersion(_ context.
 	return graphql.NewScalarFieldContext("HelmChartMetadata", field, false, false, "String")
 }
 
-func (ec *executionContext) _HelmRelease_name(ctx context.Context, field graphql.CollectedField, obj *release.Release) (ret graphql.Marshaler) {
+func (ec *executionContext) _HelmRelease_name(ctx context.Context, field graphql.CollectedField, obj *v14.Release) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -11565,7 +11565,7 @@ func (ec *executionContext) fieldContext_HelmRelease_name(_ context.Context, fie
 	return graphql.NewScalarFieldContext("HelmRelease", field, false, false, "String")
 }
 
-func (ec *executionContext) _HelmRelease_version(ctx context.Context, field graphql.CollectedField, obj *release.Release) (ret graphql.Marshaler) {
+func (ec *executionContext) _HelmRelease_version(ctx context.Context, field graphql.CollectedField, obj *v14.Release) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -11588,7 +11588,7 @@ func (ec *executionContext) fieldContext_HelmRelease_version(_ context.Context, 
 	return graphql.NewScalarFieldContext("HelmRelease", field, false, false, "Int")
 }
 
-func (ec *executionContext) _HelmRelease_namespace(ctx context.Context, field graphql.CollectedField, obj *release.Release) (ret graphql.Marshaler) {
+func (ec *executionContext) _HelmRelease_namespace(ctx context.Context, field graphql.CollectedField, obj *v14.Release) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -11611,7 +11611,7 @@ func (ec *executionContext) fieldContext_HelmRelease_namespace(_ context.Context
 	return graphql.NewScalarFieldContext("HelmRelease", field, false, false, "String")
 }
 
-func (ec *executionContext) _HelmRelease_chart(ctx context.Context, field graphql.CollectedField, obj *release.Release) (ret graphql.Marshaler) {
+func (ec *executionContext) _HelmRelease_chart(ctx context.Context, field graphql.CollectedField, obj *v14.Release) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -11623,8 +11623,8 @@ func (ec *executionContext) _HelmRelease_chart(ctx context.Context, field graphq
 			return obj.Chart, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *chart.Chart) graphql.Marshaler {
-			return ec.marshalOHelmChart2ᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋchartᚐChart(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *v2.Chart) graphql.Marshaler {
+			return ec.marshalOHelmChart2ᚖhelmᚗshᚋhelmᚋv4ᚋpkgᚋchartᚋv2ᚐChart(ctx, selections, v)
 		},
 		true,
 		false,
@@ -13103,8 +13103,8 @@ func (ec *executionContext) _Mutation_helmInstallLatest(ctx context.Context, fie
 			return ec.Resolvers.Mutation().HelmInstallLatest(ctx, fc.Args["kubeContext"].(*string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *release.Release) graphql.Marshaler {
-			return ec.marshalOHelmRelease2ᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋreleaseᚐRelease(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *v14.Release) graphql.Marshaler {
+			return ec.marshalOHelmRelease2ᚖhelmᚗshᚋhelmᚋv4ᚋpkgᚋreleaseᚋv1ᚐRelease(ctx, selections, v)
 		},
 		true,
 		false,
@@ -14255,8 +14255,8 @@ func (ec *executionContext) _Query_helmListReleases(ctx context.Context, field g
 			return ec.Resolvers.Query().HelmListReleases(ctx, fc.Args["kubeContext"].(*string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*release.Release) graphql.Marshaler {
-			return ec.marshalNHelmRelease2ᚕᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋreleaseᚐReleaseᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []*v14.Release) graphql.Marshaler {
+			return ec.marshalNHelmRelease2ᚕᚖhelmᚗshᚋhelmᚋv4ᚋpkgᚋreleaseᚋv1ᚐReleaseᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -19625,7 +19625,7 @@ func (ec *executionContext) _HealthCheckResponse(ctx context.Context, sel ast.Se
 
 var helmChartImplementors = []string{"HelmChart"}
 
-func (ec *executionContext) _HelmChart(ctx context.Context, sel ast.SelectionSet, obj *chart.Chart) graphql.Marshaler {
+func (ec *executionContext) _HelmChart(ctx context.Context, sel ast.SelectionSet, obj *v2.Chart) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, helmChartImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -19658,7 +19658,7 @@ func (ec *executionContext) _HelmChart(ctx context.Context, sel ast.SelectionSet
 
 var helmChartMetadataImplementors = []string{"HelmChartMetadata"}
 
-func (ec *executionContext) _HelmChartMetadata(ctx context.Context, sel ast.SelectionSet, obj *chart.Metadata) graphql.Marshaler {
+func (ec *executionContext) _HelmChartMetadata(ctx context.Context, sel ast.SelectionSet, obj *v2.Metadata) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, helmChartMetadataImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -19706,7 +19706,7 @@ func (ec *executionContext) _HelmChartMetadata(ctx context.Context, sel ast.Sele
 
 var helmReleaseImplementors = []string{"HelmRelease"}
 
-func (ec *executionContext) _HelmRelease(ctx context.Context, sel ast.SelectionSet, obj *release.Release) graphql.Marshaler {
+func (ec *executionContext) _HelmRelease(ctx context.Context, sel ast.SelectionSet, obj *v14.Release) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, helmReleaseImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -21767,11 +21767,11 @@ func (ec *executionContext) marshalNHealthCheckStatus2githubᚗcomᚋkubetailᚑ
 	return v
 }
 
-func (ec *executionContext) marshalNHelmRelease2ᚕᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋreleaseᚐReleaseᚄ(ctx context.Context, sel ast.SelectionSet, v []*release.Release) graphql.Marshaler {
+func (ec *executionContext) marshalNHelmRelease2ᚕᚖhelmᚗshᚋhelmᚋv4ᚋpkgᚋreleaseᚋv1ᚐReleaseᚄ(ctx context.Context, sel ast.SelectionSet, v []*v14.Release) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNHelmRelease2ᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋreleaseᚐRelease(ctx, sel, v[i])
+		return ec.marshalNHelmRelease2ᚖhelmᚗshᚋhelmᚋv4ᚋpkgᚋreleaseᚋv1ᚐRelease(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -21783,7 +21783,7 @@ func (ec *executionContext) marshalNHelmRelease2ᚕᚖhelmᚗshᚋhelmᚋv3ᚋpk
 	return ret
 }
 
-func (ec *executionContext) marshalNHelmRelease2ᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋreleaseᚐRelease(ctx context.Context, sel ast.SelectionSet, v *release.Release) graphql.Marshaler {
+func (ec *executionContext) marshalNHelmRelease2ᚖhelmᚗshᚋhelmᚋv4ᚋpkgᚋreleaseᚋv1ᚐRelease(ctx context.Context, sel ast.SelectionSet, v *v14.Release) graphql.Marshaler {
 	if v == nil {
 		graphql.AddInvalidNullError(ctx, "HelmRelease!")
 		return graphql.Null
@@ -22517,21 +22517,21 @@ func (ec *executionContext) marshalOCoreV1ServicesWatchEvent2ᚖk8sᚗioᚋapima
 	return ec._CoreV1ServicesWatchEvent(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOHelmChart2ᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋchartᚐChart(ctx context.Context, sel ast.SelectionSet, v *chart.Chart) graphql.Marshaler {
+func (ec *executionContext) marshalOHelmChart2ᚖhelmᚗshᚋhelmᚋv4ᚋpkgᚋchartᚋv2ᚐChart(ctx context.Context, sel ast.SelectionSet, v *v2.Chart) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._HelmChart(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOHelmChartMetadata2ᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋchartᚐMetadata(ctx context.Context, sel ast.SelectionSet, v *chart.Metadata) graphql.Marshaler {
+func (ec *executionContext) marshalOHelmChartMetadata2ᚖhelmᚗshᚋhelmᚋv4ᚋpkgᚋchartᚋv2ᚐMetadata(ctx context.Context, sel ast.SelectionSet, v *v2.Metadata) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._HelmChartMetadata(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOHelmRelease2ᚖhelmᚗshᚋhelmᚋv3ᚋpkgᚋreleaseᚐRelease(ctx context.Context, sel ast.SelectionSet, v *release.Release) graphql.Marshaler {
+func (ec *executionContext) marshalOHelmRelease2ᚖhelmᚗshᚋhelmᚋv4ᚋpkgᚋreleaseᚋv1ᚐRelease(ctx context.Context, sel ast.SelectionSet, v *v14.Release) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
