@@ -15,7 +15,7 @@
 import { useSubscription } from '@apollo/client/react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useContext, useEffect, useMemo, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 
 import type { ConsoleNodesListItemFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { WatchEventType } from '@/lib/graphql/dashboard/__generated__/graphql';

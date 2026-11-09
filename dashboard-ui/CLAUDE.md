@@ -1,6 +1,6 @@
 # dashboard-ui — React single-page app
 
-React 19 + React Router 7 + Apollo Client 4 (GraphQL) + Jotai + Vite + Tailwind v4. UI primitives from `@kubetail/ui`. Package manager is **pnpm**; never `npm` or `npx`. Path alias: **`@/*` → `src/*`**. The React compiler is off.
+React 19 + React Router 8 + Apollo Client 4 (GraphQL) + Jotai + Vite + Tailwind v4. UI primitives from `@kubetail/ui`. Package manager is **pnpm**; never `npm` or `npx`. Path alias: **`@/*` → `src/*`**. The React compiler is off.
 
 **The Go server does not serve `index.html`.** In production the Dashboard backend renders `modules/dashboard/templates/index.tmpl` and takes the script, style and font tags from `.vite/manifest.json`, so `build.manifest: true` in `vite.config.ts` is load-bearing. A change to `index.html`'s `<head>`, title or inline theme script is repeated in `index.tmpl`. → [ADR: embed the UI by a copy step and render from the Vite manifest](../docs/adr/2026-11-09-embed-the-ui-by-a-copy-step-and-render-from-the-vite-manifest.md)
 

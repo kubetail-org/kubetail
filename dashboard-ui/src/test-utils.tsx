@@ -17,7 +17,7 @@ import { MockedProvider } from '@apollo/client/testing/react';
 import { render } from '@testing-library/react';
 import { createStore, Provider as JotaiProvider } from 'jotai';
 import React from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 
 import { DashboardCustomCache } from '@/apollo-client';
 import appConfig from '@/app-config';

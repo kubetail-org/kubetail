@@ -14,7 +14,7 @@
 
 import { Settings } from 'lucide-react';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 import { Button } from '@kubetail/ui/elements/button';
 import {

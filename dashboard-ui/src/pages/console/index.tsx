@@ -16,7 +16,7 @@ import type { ApolloClient } from '@apollo/client';
 import deepEqual from 'fast-deep-equal';
 import { PanelLeftClose as PanelLeftCloseIcon } from 'lucide-react';
 import { useCallback, useContext, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 
 import { dashboardClient, getClusterAPIClient } from '@/apollo-client';
 import AppLayout from '@/components/layouts/AppLayout';

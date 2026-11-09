@@ -15,7 +15,7 @@
 import { render, waitFor } from '@testing-library/react';
 import { Suspense } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { MemoryRouter, Routes } from 'react-router-dom';
+import { MemoryRouter, Routes } from 'react-router';
 
 import { routes } from './routes';
 

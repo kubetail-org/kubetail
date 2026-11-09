@@ -16,7 +16,7 @@ import { stripAnsi } from 'fancy-ansi';
 import { AnsiHtml } from 'fancy-ansi/react';
 import { useAtomValue } from 'jotai';
 import React, { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 
 import { Spinner } from '@kubetail/ui/elements/spinner';
 

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 
 import LoadingPage from '@/components/utils/LoadingPage';
 import { getCsrfToken, getSession, useSession, waitForCsrfToken } from '@/lib/auth';
