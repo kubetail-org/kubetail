@@ -188,7 +188,7 @@ impl<R: Read + Seek> Read for ReverseLineReader<R> {
 mod tests {
     use std::{error::Error, io::Write};
 
-    use rand::{self, distr::Alphanumeric, Rng};
+    use rand::{self, distr::Alphanumeric, RngExt};
 
     use tempfile::NamedTempFile;
 
