@@ -116,6 +116,8 @@ jobs:
       - name: Run linter for ${{ matrix.module }}
         working-directory: ./modules/${{ matrix.module }}
         run: test -z "$(gofmt -l .)"
+      - name: Check coverage markers
+        run: sh scripts/check-coverage-markers.sh modules/${{ matrix.module }}
 
   # Every module in one job, so the modules share one cache.
   go-vet:
@@ -211,6 +213,8 @@ jobs:
       - name: Run format check
         working-directory: ./crates
         run: cargo fmt --all -- --check
+      - name: Check coverage markers
+        run: sh scripts/check-coverage-markers.sh crates
 
   rust-vet:
     name: Rust · Vet
@@ -250,6 +254,8 @@ jobs:
       - name: Lint
         working-directory: ./dashboard-ui
         run: pnpm lint
+      - name: Check coverage markers
+        run: sh scripts/check-coverage-markers.sh dashboard-ui/src
 
   shell-lint:
     name: Shell · Lint
@@ -465,6 +471,26 @@ jobs:
       - name: Test
         working-directory: ./dashboard-ui
         run: pnpm test run
+
+  # The coverage tools: a module of their own, outside the workspace.
+  tools-test:
+    name: Tools · Test
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Lint, vet and test
+        working-directory: ./tools
+        run: |
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          go test ./...
 
   shell-test:
     name: Shell · Test

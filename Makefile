@@ -90,6 +90,7 @@ crates-lint:
 	@echo "Linting Rust crates with architecture $(RUST_ARCH)..."
 	@rustup component add rustfmt
 	@cd $(CRATES_DIR) && cargo fmt --all -- --check
+	@sh scripts/check-coverage-markers.sh crates
 
 crates-vet:
 	@echo "Vetting Rust crates with architecture $(RUST_ARCH)..."
@@ -107,6 +108,7 @@ crates-all: crates-build crates-lint crates-vet crates-test
 modules-lint:
 	@echo "Linting Go modules..."
 	@cd $(MODULES_DIR) && test -z $$(gofmt -l .)
+	@sh scripts/check-coverage-markers.sh modules
 
 modules-test:
 	@echo "Testing Go modules..."
@@ -134,6 +136,7 @@ modules-all: modules-lint modules-test modules-vet modules-staticcheck
 dashboard-ui-lint:
 	@echo "Linting dashboard UI..."
 	@cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm lint
+	@sh scripts/check-coverage-markers.sh dashboard-ui/src
 
 dashboard-ui-test:
 	@echo "Testing dashboard UI..."
@@ -186,6 +189,12 @@ lint-yaml:
 test-changed:
 	@bash scripts/test-changed.sh
 
+## List the changed lines this OS's tests leave uncovered (scripts/cover-changed.sh).
+## Run it before pushing; CI's Coverage · Gate has the last word. FULL=1 runs
+## every Go test, RUST=1 measures Rust too.
+cover-changed:
+	@bash scripts/cover-changed.sh
+
 ## Build e2e images and CLI, then run the full e2e suite.
 ## Pass ONLY_BUILD=1 to skip pytest and just rebuild artifacts (useful when
 ## iterating on cluster-api / cluster-agent code while a kind cluster is up).
@@ -234,6 +243,8 @@ help:
 	@echo "  test-changed          - Run the tests for this branch's changes"
 	@echo "  vet-all               - Run all vetting"
 	@echo "  ci-checks             - Run all CI checks (lint, test, vet)"
+	@echo "  cover-changed         - List the changed lines no test covers"
+	@echo "                          (FULL=1 runs every Go test, RUST=1 measures Rust)"
 	@echo "  test-e2e              - Build images + CLI and run the e2e test suite"
 	@echo "                          (pass ONLY_BUILD=1 to skip pytest)"
 	@echo "  help                  - Show this help message"

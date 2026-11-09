@@ -77,7 +77,9 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 | 2026-11-09 | [Dependabot moves dependencies, and a person merges every update](2026-11-09-dependabot-moves-dependencies-and-a-person-merges-every-update.md) | repo | Accepted |
 | 2026-11-09 | [Each Go module builds without go.work](2026-11-09-each-go-module-builds-without-go-work.md) | repo | Accepted |
 | 2026-11-09 | [Each component owns its config](2026-11-09-each-component-owns-its-config.md) | repo | Accepted |
+| 2026-11-09 | [Gate PRs on changed lines with Codecov's merged result](2026-11-09-gate-prs-on-changed-lines-with-codecovs-merged-result.md) | repo | Accepted |
 | 2026-11-09 | [Keep the sandbox's build outputs off the host mount](2026-11-09-keep-the-sandboxs-build-outputs-off-the-host-mount.md) | repo | Accepted |
+| 2026-11-09 | [Measure Go coverage across the workspace](2026-11-09-measure-go-coverage-across-the-workspace.md) | repo | Accepted |
 | 2026-11-09 | [Pin fsnotify to v1.8.0](2026-11-09-pin-fsnotify-to-v1-8-0.md) | repo | Accepted |
 | 2026-11-09 | [Release each component by its own tag](2026-11-09-release-each-component-by-its-own-tag.md) | repo | Accepted |
 | 2026-11-09 | [Tests sit beside their files, never sleep, and take seams as parameters](2026-11-09-tests-sit-beside-their-files-never-sleep-and-take-seams-as-parameters.md) | repo | Accepted |

@@ -15,6 +15,7 @@ A real-time logging dashboard for Kubernetes, in one monorepo. `dashboard-ui/`, 
 - **`build/package/`** — the release Dockerfiles. Each copies only the directories its component needs.
 - **`hack/tilt/kubetail.yaml`** — the whole dev deployment.
 - **`e2e/`** — end-to-end tests in Python, run against a kind cluster.
+- **`tools/`** — the coverage tools CI runs, a Go module outside the workspace.
 - **`docs/adr/`** — Architecture Decision Records: why the design is the way it is.
 
 **The Helm chart is not in this repo.** A change that needs a new permission, Secret, port, environment variable or config key is made in `hack/tilt/kubetail.yaml` and `e2e/manifests/base.yaml.tmpl` here, and says in the PR that the chart needs the same.
@@ -84,17 +85,20 @@ Each area's guide adds its tooling and how it waits. → [ADR: test conventions]
 - **Pace a timing-dependent unit by parameter, not constant.**
 - **A test seam is a parameter or a field, never a swapped package variable or a global mode.**
 - **A change to a security boundary ships with the test that pins it**, named for the property (`TestAggregationAuth_RejectsTrustedCertAppendedAsChainEntry`, `stream_forward_denies_before_file_lookup`).
+- **Every line a PR changes is covered.** CI's `Coverage · Gate` fails on a changed line no test reaches, or on a total more than 0.1 points below the base; `make cover-changed` lists the same lines locally. → [ADR: gate PRs on changed lines with Codecov's merged result](docs/adr/2026-11-09-gate-prs-on-changed-lines-with-codecovs-merged-result.md)
+- **A line no test can reach is marked with its reason**: `// coverage:ignore <reason>` at the end of the line a Go statement or function begins on, or `// coverage:ignore-start <reason>` … `// coverage:ignore-stop` in Go and, each on a line of its own, in Rust; `/* v8 ignore next -- <reason> */` (or `start`/`stop`) in TypeScript. A marker without a reason exempts nothing and fails the lint (`scripts/check-coverage-markers.sh`). Generated code and test helpers are left out in `.github/codecov.yml`; `scripts/cover-changed.sh` holds the same list.
 
 ## Checks
 
 Run the checks in the guide of every area you touched before you finish. For `scripts/`: `make lint-sh` and `bats scripts/`.
 
-- **`make lint` runs every linter CI runs, and `make test-changed` the tests for what the branch changed.** `make vet-all`, `test-all` and `ci-checks` wrap most of the rest, with gaps: `make crates-test` covers `rgkl` alone, and no target runs `pnpm build`. `make cover-changed`, named in the PR template and `CONTRIBUTING.md`, does not exist.
+- **`make lint` runs every linter CI runs, and `make test-changed` the tests for what the branch changed.** `make vet-all`, `test-all` and `ci-checks` wrap most of the rest, with gaps: `make crates-test` covers `rgkl` alone, and no target runs `pnpm build`.
 - **Markdown links are checked offline in CI** (`make lint-md`): a moved or renamed file breaks every relative link to it.
 - **On a pull request, CI picks its jobs by path**, from `.github/ci-config/path-filters.yml`. A change to `config/`, `hack/` or `e2e/` alone runs no Go, Rust or TypeScript job, and a schema change under `modules/` does not run the TypeScript jobs. Run the affected checks yourself. A push to `main` runs every job, the riscv64 ones too.
 - **Only runs on `main` save CI caches; PRs only read them.** `CACHE_MODE` in `ci.yml` decides, and `Caches · Prune` keeps the newest of each. A Go job that saves does it in its last step, and its test flags must match a PR's, or a PR replays no cached test result.
 - **The Docker builds, the CLI builds and the end-to-end suite run when a PR touches any Go, Rust or TypeScript path.** A PR that changes only `e2e/` does not run the suite: run `make test-e2e` yourself (`e2e/CLAUDE.md`) and say so in the PR.
 - **`make lint-yaml` lints every YAML file, then the workflows with `actionlint` and `zizmor`** (`.github/ci-config/zizmor.yml`). It needs `uv`, Go and `shellcheck`, and CI's `YAML · Lint` job runs it. Pin a new action to a commit SHA with its exact version in a comment (`# v7.0.1`), and pass `${{ }}` values to a `run:` script through `env:`.
+- **`coverage.yml` reads the same path filters as `ci.yml`**, so a path that runs a language's tests measures its coverage too. A coverage job measures as `scripts/cover-changed.sh` does; change both together. The tools it runs live in `tools/`, a Go module outside the workspace.
 
 ## Security invariants
 
