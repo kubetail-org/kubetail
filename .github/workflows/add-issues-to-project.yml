@@ -11,6 +11,7 @@ on:
 jobs:
   add-to-project:
     name: Add issue to project
+    if: github.repository == 'kubetail-org/kubetail'
     runs-on: ubuntu-slim
     steps:
       - uses: actions/add-to-project@5afcf98fcd03f1c2f92c3c83f58ae24323cc57fd # v2.0.0
