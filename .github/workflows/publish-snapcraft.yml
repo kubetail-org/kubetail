@@ -76,15 +76,27 @@ jobs:
             < ".github/ci-config/snapcraft.yaml.tmpl" \
             > "snapcraft.yaml"
 
+      - name: Install Snapcraft and LXD
+        run: |
+          set -euo pipefail
+          sudo snap install --classic snapcraft
+          sudo snap install lxd
+          sudo lxd init --auto
+          sudo usermod --append --groups lxd "$USER"
+          # Docker's FORWARD DROP policy cuts the LXD build container off the network.
+          sudo iptables -P FORWARD ACCEPT
+
+      # sudo -u starts a session that has the lxd group added above.
       - name: Build
-        id: build
-        uses: snapcore/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1.3.0
+        env:
+          SNAPCRAFT_BUILD_INFO: '1'
+        run: |
+          sudo -u "$USER" -E snapcraft --use-lxd
 
       - name: Publish
-        uses: snapcore/action-publish@214b86e5ca036ead1668c79afb81e550e6c54d40 # v1.2.0
         if: ${{ steps.config.outputs.dry_run != 'true' }}
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-        with:
-          snap: ${{ steps.build.outputs.snap }}
-          release: ${{ steps.config.outputs.release }}
+          RELEASE: ${{ steps.config.outputs.release }}
+        run: |
+          snapcraft upload ./*.snap --release "$RELEASE"
