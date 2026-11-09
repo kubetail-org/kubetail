@@ -356,6 +356,11 @@ describe('useClusterUpdateNotification', () => {
     await waitFor(() => {
       expect(screen.getByTestId('current-version')).toHaveTextContent('0.9.0');
     });
+    // CLIFetcher still queries; wait for its persisted write so it lands inside act.
+    await waitFor(() => {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      expect(raw && JSON.parse(raw).latestVersion).toBe('0.9.0');
+    });
     expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
   });
 
