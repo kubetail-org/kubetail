@@ -46,7 +46,7 @@ serde_json = "1.0"
 subst = "0.3.8"
 moka = { version = "0.12", features = ["future"] }
 secrecy = "0.10"
-x509-parser = "0.16"
+x509-parser = "0.18"
 
 [dev-dependencies]
 serial_test = "3.5.0"
