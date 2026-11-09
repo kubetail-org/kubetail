@@ -39,7 +39,7 @@ jobs:
           fi
 
       - name: Download SHA256SUMS
-        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05 # v1.12
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f # v1.13
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
@@ -93,6 +93,6 @@ jobs:
 
       - name: Update new version in krew-index
         if: ${{ steps.config.outputs.dry_run != 'true' }}
-        uses: rajatjindal/krew-release-bot@3d9faef30a82761d610544f62afddca00993eef9 # v0.0.47
+        uses: rajatjindal/krew-release-bot@c970b8a8f6dbc2f2285a26e3ae160903b87002c3 # v0.0.51
         with:
           krew_template_file: krew.yaml
