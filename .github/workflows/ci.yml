@@ -30,6 +30,8 @@ jobs:
       any: ${{ steps.override.outputs.any }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
@@ -41,20 +43,25 @@ jobs:
             typescript:
               - 'dashboard-ui/**'
       - id: override
+        env:
+          RUN_ALL: ${{ inputs.run_all }}
+          GO: ${{ steps.filter.outputs.go }}
+          RUST: ${{ steps.filter.outputs.rust }}
+          TYPESCRIPT: ${{ steps.filter.outputs.typescript }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ inputs.run_all }}" == "true" ]; then
-            echo "go=true" >> $GITHUB_OUTPUT
-            echo "rust=true" >> $GITHUB_OUTPUT
-            echo "typescript=true" >> $GITHUB_OUTPUT
-            echo "any=true" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ] && [ "$RUN_ALL" == "true" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+            echo "typescript=true" >> "$GITHUB_OUTPUT"
+            echo "any=true" >> "$GITHUB_OUTPUT"
           else
-            echo "go=${{ steps.filter.outputs.go }}" >> $GITHUB_OUTPUT
-            echo "rust=${{ steps.filter.outputs.rust }}" >> $GITHUB_OUTPUT
-            echo "typescript=${{ steps.filter.outputs.typescript }}" >> $GITHUB_OUTPUT
-            if [ "${{ steps.filter.outputs.go }}" == "true" ] || [ "${{ steps.filter.outputs.rust }}" == "true" ] || [ "${{ steps.filter.outputs.typescript }}" == "true" ]; then
-              echo "any=true" >> $GITHUB_OUTPUT
+            echo "go=$GO" >> "$GITHUB_OUTPUT"
+            echo "rust=$RUST" >> "$GITHUB_OUTPUT"
+            echo "typescript=$TYPESCRIPT" >> "$GITHUB_OUTPUT"
+            if [ "$GO" == "true" ] || [ "$RUST" == "true" ] || [ "$TYPESCRIPT" == "true" ]; then
+              echo "any=true" >> "$GITHUB_OUTPUT"
             else
-              echo "any=false" >> $GITHUB_OUTPUT
+              echo "any=false" >> "$GITHUB_OUTPUT"
             fi
           fi
 
@@ -77,6 +84,8 @@ jobs:
           - shared
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -99,6 +108,8 @@ jobs:
           - shared
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -113,6 +124,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -133,6 +146,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-rust: "true"
@@ -148,6 +163,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-rust: "true"
@@ -163,6 +180,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
@@ -179,6 +198,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install shellcheck
         run: |
           sudo apt-get update
@@ -192,6 +213,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       - name: Lint
         working-directory: ./e2e
@@ -206,6 +229,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -271,6 +296,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -312,6 +339,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-rust: "true"
@@ -330,6 +359,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
@@ -384,6 +415,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install bats (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -395,7 +428,7 @@ jobs:
       - name: Install bats (Windows)
         if: runner.os == 'Windows'
         shell: bash
-        run: npm install -g bats
+        run: npm install -g bats@1.13.0
       - name: Run bats
         shell: bash
         run: bats scripts/
@@ -429,6 +462,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-rust: "true"
@@ -447,6 +482,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
@@ -505,6 +542,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
       - name: Build
@@ -575,6 +614,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
@@ -626,6 +667,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -672,6 +715,8 @@ jobs:
             kind-node-image: ""
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"

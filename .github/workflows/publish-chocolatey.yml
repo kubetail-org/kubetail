@@ -2,7 +2,6 @@ name: publish-chocolatey
 
 permissions:
   contents: read
-  deployments: write
 
 on:
   release:
@@ -27,9 +26,11 @@ jobs:
     steps:
       - name: Config
         id: config
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "version=$INPUT_VERSION" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
           fi
@@ -54,6 +55,8 @@ jobs:
 
       - name: Checkout repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Execute templates
         env:
@@ -92,9 +95,11 @@ jobs:
       - name: Config
         id: config
         shell: bash
+        env:
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "dry_run=$INPUT_DRY_RUN" >> $GITHUB_OUTPUT
           else
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
@@ -128,5 +133,7 @@ jobs:
       - name: Push to Chocolatey
         if: ${{ steps.config.outputs.dry_run != 'true' }}
         shell: pwsh
+        env:
+          VERSION: ${{ steps.nuspec.outputs.version }}
         run: |
-          choco push .\kubetail.${{ steps.nuspec.outputs.version }}.nupkg --source https://push.chocolatey.org/
+          choco push ".\kubetail.$($env:VERSION).nupkg" --source https://push.chocolatey.org/

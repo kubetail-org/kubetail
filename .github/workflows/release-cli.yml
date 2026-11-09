@@ -1,8 +1,7 @@
 name: release-cli
 
 permissions:
-  contents: write
-  deployments: write
+  contents: read
 
 on:
   push:
@@ -38,11 +37,15 @@ jobs:
       dry_run: ${{ steps.config.outputs.dry_run }}
     steps:
       - id: config
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_SIGNING_POLICY: ${{ github.event.inputs.signing_policy }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-            echo "signing_policy=${{ github.event.inputs.signing_policy }}" >> $GITHUB_OUTPUT
-            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "version=$INPUT_VERSION" >> $GITHUB_OUTPUT
+            echo "signing_policy=$INPUT_SIGNING_POLICY" >> $GITHUB_OUTPUT
+            echo "dry_run=$INPUT_DRY_RUN" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
             echo "signing_policy=release-signing" >> $GITHUB_OUTPUT
@@ -57,6 +60,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/tags/cli/v${{ needs.config.outputs.version }}
+          persist-credentials: false
 
       - uses: ./.github/actions/setup-environment
         with:
@@ -126,6 +130,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/tags/cli/v${{ needs.config.outputs.version }}
+          persist-credentials: false
           sparse-checkout: .github/actions/setup-environment
           sparse-checkout-cone-mode: false
           path: repo
@@ -154,7 +159,9 @@ jobs:
 
       - name: Append os/arch to binary file name
         working-directory: kubetail-cli
-        run: mv bin/kubetail bin/kubetail-${{ matrix.os }}-${{ matrix.arch }}
+        env:
+          BIN_NAME: kubetail-${{ matrix.os }}-${{ matrix.arch }}
+        run: mv bin/kubetail "bin/$BIN_NAME"
 
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -188,12 +195,16 @@ jobs:
       - name: Sign and notarize
         env:
           BIN_NAME: kubetail-darwin-${{ matrix.arch }}
+          CERT_IDENTITY: ${{ vars.APPLE_DEVELOPER_CERT_IDENTITY }}
+          ASC_KEY_P8: ${{ secrets.APPLE_STORE_CONNECT_KEY_P8 }}
+          ASC_KEY_ID: ${{ vars.APPLE_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ vars.APPLE_STORE_CONNECT_ISSUER_ID }}
         run: |
           BIN_PATH="assets/${BIN_NAME}"
 
           # Sign compiled binary
           codesign --force --options runtime --timestamp \
-            --sign "${{ vars.APPLE_DEVELOPER_CERT_IDENTITY }}" "${BIN_PATH}"
+            --sign "$CERT_IDENTITY" "${BIN_PATH}"
 
           # Verify signature
           codesign -dv --verbose "${BIN_PATH}"
@@ -203,13 +214,13 @@ jobs:
 
           # Create ASC key file
           ASC_KEY_FILE="$(mktemp -t asc-key.XXXXXX.p8)"
-          printf '%s' "${{ secrets.APPLE_STORE_CONNECT_KEY_P8 }}" > "$ASC_KEY_FILE"
+          printf '%s' "$ASC_KEY_P8" > "$ASC_KEY_FILE"
 
           # Notarize using ASC secrets
           xcrun notarytool submit kubetail.zip \
             --key "${ASC_KEY_FILE}" \
-            --key-id "${{ vars.APPLE_STORE_CONNECT_KEY_ID }}" \
-            --issuer "${{ vars.APPLE_STORE_CONNECT_ISSUER_ID }}" \
+            --key-id "$ASC_KEY_ID" \
+            --issuer "$ASC_ISSUER_ID" \
             --wait
 
           # Delete keyfile
@@ -242,8 +253,10 @@ jobs:
       - name: Create zip archive
         working-directory: ./assets
         shell: pwsh
+        env:
+          ARCH: ${{ matrix.arch }}
         run: |
-          $file = "kubetail-windows-${{ matrix.arch }}"
+          $file = "kubetail-windows-$env:ARCH"
           Copy-Item -Path $file -Destination kubetail.exe
           Compress-Archive -Path kubetail.exe -DestinationPath "${file}.zip"
           Remove-Item kubetail.exe
@@ -267,7 +280,7 @@ jobs:
           wait-for-completion: true
           output-artifact-directory: assets
           parameters: |
-            os: ${{ toJSON('windows') }}
+            os: "windows"
             arch: ${{ toJSON(matrix.arch) }}
             version: ${{ toJSON(needs.config.outputs.version) }}
 
@@ -295,6 +308,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/tags/cli/v${{ needs.config.outputs.version }}
+          persist-credentials: false
           sparse-checkout: |
             LICENSE
           sparse-checkout-cone-mode: false
@@ -312,12 +326,13 @@ jobs:
           ASSETS_DIR: assets
           OUTPUT_DIR: out
           BIN_NAME: kubetail-${{ matrix.os }}-${{ matrix.arch }}
+          OS: ${{ matrix.os }}
         run: |
           mkdir -p "${OUTPUT_DIR}"
           TEMP_DIR="$(mktemp -d)"
 
           TARGET_NAME="kubetail"
-          if [ "${{ matrix.os }}" = "windows" ]; then
+          if [ "$OS" = "windows" ]; then
             TARGET_NAME="kubetail.exe"
           fi
 
@@ -338,6 +353,8 @@ jobs:
     needs: [config, package-tarball]
     environment: production
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - name: Download binaries
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2

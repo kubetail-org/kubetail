@@ -2,7 +2,6 @@ name: publish-snapcraft
 
 permissions:
   contents: read
-  deployments: write
 
 on:
   release:
@@ -43,11 +42,15 @@ jobs:
     steps:
       - name: Configure
         id: config
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_RELEASE: ${{ github.event.inputs.release }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-            echo "release=${{ github.event.inputs.release }}" >> $GITHUB_OUTPUT
-            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "version=$INPUT_VERSION" >> $GITHUB_OUTPUT
+            echo "release=$INPUT_RELEASE" >> $GITHUB_OUTPUT
+            echo "dry_run=$INPUT_DRY_RUN" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
             echo "release=stable" >> $GITHUB_OUTPUT
@@ -60,6 +63,7 @@ jobs:
           sparse-checkout: .github/ci-config/snapcraft.yaml.tmpl
           sparse-checkout-cone-mode: false
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Execute snapcraft templates
         env:

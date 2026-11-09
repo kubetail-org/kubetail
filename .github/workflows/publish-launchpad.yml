@@ -2,7 +2,6 @@ name: publish-launchpad
 
 permissions:
   contents: read
-  deployments: write
 
 on:
   release:
@@ -36,12 +35,17 @@ jobs:
     environment: production
     steps:
       - id: config
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
+          INPUT_SERIES: ${{ github.event.inputs.series }}
+          INPUT_DEBIAN_REVISION: ${{ github.event.inputs.debian_revision }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
-            echo "series=${{ github.event.inputs.series }}" >> $GITHUB_OUTPUT
-            echo "debian_revision=${{ github.event.inputs.debian_revision }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "version=$INPUT_VERSION" >> $GITHUB_OUTPUT
+            echo "dry_run=$INPUT_DRY_RUN" >> $GITHUB_OUTPUT
+            echo "series=$INPUT_SERIES" >> $GITHUB_OUTPUT
+            echo "debian_revision=$INPUT_DEBIAN_REVISION" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
             echo "dry_run=false" >> $GITHUB_OUTPUT
@@ -55,6 +59,7 @@ jobs:
           sparse-checkout: .github/ci-config/launchpad
           sparse-checkout-cone-mode: false
           path: kubetail
+          persist-credentials: false
 
       - name: Install dependencies
         run: |
@@ -119,9 +124,13 @@ jobs:
           SRC_DIR: ../../kubetail/.github/ci-config/launchpad
           DEBFULLNAME: ${{ vars.KUBETAIL_BOT_NAME}}
           DEBEMAIL: ${{ vars.KUBETAIL_BOT_EMAIL }}
+          SERIES_LIST: ${{ steps.config.outputs.series }}
+          DEBIAN_REVISION: ${{ steps.config.outputs.debian_revision }}
+          GPG_FINGERPRINT: ${{ vars.KUBETAIL_BOT_GPG_SIGNING_KEY_FINGERPRINT }}
+          DRY_RUN: ${{ steps.config.outputs.dry_run }}
         run: |
-          for SERIES in ${{ steps.config.outputs.series }}; do
-            export PKG_VERSION="${VERSION}-${{ steps.config.outputs.debian_revision }}~${SERIES}1"
+          for SERIES in $SERIES_LIST; do
+            export PKG_VERSION="${VERSION}-${DEBIAN_REVISION}~${SERIES}1"
 
             # Restrict architectures for noble and jammy
             case "${SERIES}" in
@@ -140,9 +149,9 @@ jobs:
             # -sa for every series: each series is a self-contained source
             # upload sharing one orig tarball; re-sends are de-duplicated.
             dch --create --package kubetail-cli -D "${SERIES}" -v "${PKG_VERSION}" "Initial release for ${SERIES}."
-            debuild -sa -S -d -k"${{ vars.KUBETAIL_BOT_GPG_SIGNING_KEY_FINGERPRINT }}"
+            debuild -sa -S -d -k"$GPG_FINGERPRINT"
 
-            if [ "${{ steps.config.outputs.dry_run }}" = "false" ]; then
+            if [ "$DRY_RUN" = "false" ]; then
               dput ppa:kubetail/kubetail "../kubetail-cli_${PKG_VERSION}_source.changes"
             else
               cat debian/control

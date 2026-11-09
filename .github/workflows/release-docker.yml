@@ -2,9 +2,6 @@ name: release-docker
 
 permissions:
   contents: read
-  packages: write
-  deployments: write
-  id-token: write
 
 on:
   push:
@@ -38,10 +35,13 @@ jobs:
       is_latest: ${{ steps.tag_meta.outputs.is_latest }}
     steps:
       - id: config
+        env:
+          INPUT_GIT_TAG: ${{ github.event.inputs.git_tag }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            GIT_TAG="${{ github.event.inputs.git_tag }}"
-            DRY_RUN="${{ github.event.inputs.dry_run }}"
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            GIT_TAG="$INPUT_GIT_TAG"
+            DRY_RUN="$INPUT_DRY_RUN"
           else
             GIT_TAG="${GITHUB_REF#refs/tags/}"
             DRY_RUN=false
@@ -72,7 +72,7 @@ jobs:
           # Fetch all tags and filter by component
           TAGS=$(gh api \
             --paginate \
-            "repos/${{ github.repository }}/tags?per_page=100" \
+            "repos/${GITHUB_REPOSITORY}/tags?per_page=100" \
             --jq ".[] | select(.name | startswith(\"$COMPONENT/v\")) | .name")
 
           # Extract version part (after '<prefix>/v') and drop anything with '-'
@@ -108,11 +108,15 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.config.outputs.git_tag }}
+          persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
@@ -132,9 +136,12 @@ jobs:
 
       - name: Define build variables
         id: vars
+        env:
+          BASE_IMAGE_TAG: ${{ needs.config.outputs.base_image_tag }}
+          VARIANT: ${{ matrix.variant }}
         run: |
-          IMAGE_TAG="${{ needs.config.outputs.base_image_tag }}${{ matrix.variant }}"
-          if [ "${{ matrix.variant }}" == "-alpine" ]; then
+          IMAGE_TAG="${BASE_IMAGE_TAG}${VARIANT}"
+          if [ "$VARIANT" == "-alpine" ]; then
             DOCKER_TARGET="final-alpine"
           else
             DOCKER_TARGET="final"
@@ -157,6 +164,11 @@ jobs:
     environment: production
     runs-on: ubuntu-24.04
     needs: [config, build-and-publish]
+    permissions:
+      contents: read
+      packages: write
+      # Keyless cosign signing.
+      id-token: write
     strategy:
       matrix:
         variant:
@@ -187,9 +199,12 @@ jobs:
 
       - name: Define manifest variables
         id: vars
+        env:
+          BASE_IMAGE_TAG: ${{ needs.config.outputs.base_image_tag }}
+          VARIANT: ${{ matrix.variant }}
         run: |
-          IMAGE_TAG="${{ needs.config.outputs.base_image_tag }}${{ matrix.variant }}"
-          if [ "${{ matrix.variant }}" == "-alpine" ]; then
+          IMAGE_TAG="${BASE_IMAGE_TAG}${VARIANT}"
+          if [ "$VARIANT" == "-alpine" ]; then
             LATEST_TAG="latest-alpine"
           else
             LATEST_TAG="latest"
@@ -209,21 +224,24 @@ jobs:
           docker buildx imagetools create -t kubetail/$IMAGE_NAME:$IMAGE_TAG \
             kubetail/$IMAGE_NAME:$IMAGE_TAG-amd64 \
             kubetail/$IMAGE_NAME:$IMAGE_TAG-arm64
-          docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$IMAGE_TAG \
-            ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$IMAGE_TAG-amd64 \
-            ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$IMAGE_TAG-arm64
+          docker buildx imagetools create -t ghcr.io/$GITHUB_REPOSITORY_OWNER/$IMAGE_NAME:$IMAGE_TAG \
+            ghcr.io/$GITHUB_REPOSITORY_OWNER/$IMAGE_NAME:$IMAGE_TAG-amd64 \
+            ghcr.io/$GITHUB_REPOSITORY_OWNER/$IMAGE_NAME:$IMAGE_TAG-arm64
 
           if [ "$IS_LATEST" = "true" ]; then
             # Create latest manifest
             docker buildx imagetools create -t kubetail/$IMAGE_NAME:$LATEST_TAG \
               kubetail/$IMAGE_NAME:$IMAGE_TAG
-            docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$LATEST_TAG \
-              ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$IMAGE_TAG
+            docker buildx imagetools create -t ghcr.io/$GITHUB_REPOSITORY_OWNER/$IMAGE_NAME:$LATEST_TAG \
+              ghcr.io/$GITHUB_REPOSITORY_OWNER/$IMAGE_NAME:$IMAGE_TAG
           fi
 
       - name: Fetch docker token
+        env:
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          TOKEN=$(curl -X POST "https://hub.docker.com/v2/users/login" -H "Content-Type: application/json" -d '{"username": "${{ vars.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' | jq -r '.token')
+          TOKEN=$(curl -X POST "https://hub.docker.com/v2/users/login" -H "Content-Type: application/json" -d "{\"username\": \"$DOCKERHUB_USERNAME\", \"password\": \"$DOCKERHUB_TOKEN\"}" | jq -r '.token')
           echo "TOKEN=$TOKEN" >> $GITHUB_ENV
 
       - name: Delete extra arch manifests
@@ -271,19 +289,21 @@ jobs:
         env:
           IMAGE_NAME: ${{ needs.config.outputs.image_name }}
           IS_LATEST: ${{ needs.config.outputs.is_latest }}
+          DIGEST: ${{ steps.digest.outputs.digest }}
+          DIGEST_LATEST: ${{ steps.digest.outputs.digest_latest }}
         run: |
           # Sign versioned image
           cosign sign \
             --yes \
             -r \
-            kubetail/$IMAGE_NAME@${{ steps.digest.outputs.digest }}
+            kubetail/$IMAGE_NAME@$DIGEST
 
           if [ "$IS_LATEST" = "true" ]; then
             # Sign latest image
             cosign sign \
               --yes \
               -r \
-              kubetail/$IMAGE_NAME@${{ steps.digest.outputs.digest_latest }}
+              kubetail/$IMAGE_NAME@$DIGEST_LATEST
           fi
 
       - name: Sign GHCR images
@@ -291,17 +311,19 @@ jobs:
         env:
           IMAGE_NAME: ${{ needs.config.outputs.image_name }}
           IS_LATEST: ${{ needs.config.outputs.is_latest }}
+          DIGEST: ${{ steps.digest.outputs.digest }}
+          DIGEST_LATEST: ${{ steps.digest.outputs.digest_latest }}
         run: |
           # Sign versioned image
           cosign sign \
             --yes \
             -r \
-            ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME@${{ steps.digest.outputs.digest }}
+            ghcr.io/$GITHUB_REPOSITORY_OWNER/$IMAGE_NAME@$DIGEST
 
           if [ "$IS_LATEST" = "true" ]; then
             # Sign latest image
             cosign sign \
               --yes \
               -r \
-              ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME@${{ steps.digest.outputs.digest_latest }}
+              ghcr.io/$GITHUB_REPOSITORY_OWNER/$IMAGE_NAME@$DIGEST_LATEST
           fi

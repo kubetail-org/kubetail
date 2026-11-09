@@ -37,8 +37,10 @@ runs:
     - name: Set up git authentication for GitHub requests in Rust environment
       if: inputs.setup-rust == 'true' && inputs.github-token != ''
       shell: bash
+      env:
+        TOKEN: ${{ inputs.github-token }}
       run: |
-        git config --global url."https://${{ inputs.github-token }}:@github.com/".insteadOf "https://github.com/"
+        git config --global url."https://${TOKEN}:@github.com/".insteadOf "https://github.com/"
 
     - name: Set up Protoc
       if: inputs.setup-protoc == 'true'

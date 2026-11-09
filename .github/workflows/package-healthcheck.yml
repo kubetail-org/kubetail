@@ -142,7 +142,7 @@ jobs:
 
           # Save result for summary table
           mkdir -p /tmp/results
-          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+          echo "${cli_ver}" > "/tmp/results/${TRIPLET}.txt"
 
       - &upload_step
         name: Upload result
@@ -191,7 +191,7 @@ jobs:
           cli_ver="$(kubetail --version)"
 
           mkdir -p "$GITHUB_WORKSPACE/results"
-          echo "${cli_ver}" > "$GITHUB_WORKSPACE/results/${{ env.TRIPLET }}.txt"
+          echo "${cli_ver}" > "$GITHUB_WORKSPACE/results/${TRIPLET}.txt"
 
       - name: Upload result
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -256,7 +256,7 @@ jobs:
 
           # Save result for summary table
           mkdir -p /tmp/results
-          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+          echo "${cli_ver}" > "/tmp/results/${TRIPLET}.txt"
 
       - *upload_step
 
@@ -396,7 +396,7 @@ jobs:
 
           # Save result for summary table
           mkdir -p /tmp/results
-          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+          echo "${cli_ver}" > "/tmp/results/${TRIPLET}.txt"
 
       - *upload_step
 
@@ -473,7 +473,7 @@ jobs:
 
           # Save result for summary table
           mkdir -p /tmp/results
-          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+          echo "${cli_ver}" > "/tmp/results/${TRIPLET}.txt"
 
       - *upload_step
 
@@ -512,7 +512,7 @@ jobs:
 
           # Save result for summary table
           mkdir -p /tmp/results
-          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+          echo "${cli_ver}" > "/tmp/results/${TRIPLET}.txt"
 
       - *upload_step
 
@@ -568,7 +568,7 @@ jobs:
 
           # Save result for summary table
           mkdir -p /tmp/results
-          echo "${cli_ver}" > "/tmp/results/${{ env.TRIPLET }}.txt"
+          echo "${cli_ver}" > "/tmp/results/${TRIPLET}.txt"
 
       - *upload_step
 
@@ -796,7 +796,7 @@ jobs:
           # Save result for summary table
           $resultsDir = Join-Path $env:RUNNER_TEMP "results"
           New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
-          Set-Content -Path "$resultsDir\${{ env.TRIPLET }}.txt" -Value $ver
+          Set-Content -Path "$resultsDir\$env:TRIPLET.txt" -Value $ver
 
       - name: Upload result
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -854,7 +854,7 @@ jobs:
 
           # Save result for summary table
           mkdir -p "${RUNNER_TEMP}/results"
-          echo "${cli_ver}" > "${RUNNER_TEMP}/results/${{ env.TRIPLET }}.txt"
+          echo "${cli_ver}" > "${RUNNER_TEMP}/results/${TRIPLET}.txt"
 
       - name: Upload result
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
