@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import type { TypedDocumentNode, OperationVariables } from '@apollo/client';
-import { useApolloClient, useQuery } from '@apollo/client/react';
+import { skipToken, useApolloClient, useQuery } from '@apollo/client/react';
 import deepEqual from 'fast-deep-equal';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -179,10 +179,10 @@ export function useGetQueryWithSubscription<
   const { kubeContext, name, namespace } = args.variables;
 
   // get workload object
-  const { loading, error, data, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(query, {
-    skip,
-    variables: args.variables,
-  });
+  const { loading, error, data, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(
+    query,
+    skip ? skipToken : { variables: args.variables },
+  );
 
   // Retry on errors
   useEffect(() => {
@@ -240,10 +240,10 @@ export function useListQueryWithSubscription<
   const variables = useDeepStableValue(args.variables);
 
   // initial query
-  const { loading, error, data, fetchMore, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(query, {
-    skip,
-    variables,
-  });
+  const { loading, error, data, fetchMore, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(
+    query,
+    skip ? skipToken : { variables },
+  );
 
   // Retry on errors
   useEffect(() => {
@@ -372,7 +372,6 @@ interface CounterQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariab
   subscription: TypedDocumentNode<TSData, TSVariables>;
   queryDataKey: keyof TQData;
   subscriptionDataKey: keyof TSData;
-  skip?: boolean;
   variables: TQVariables;
 }
 
@@ -382,12 +381,11 @@ export function useCounterQueryWithSubscription<
   TSData,
   TSVariables extends OperationVariables,
 >(args: CounterQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
-  const { query, subscription, queryDataKey, subscriptionDataKey, skip } = args;
+  const { query, subscription, queryDataKey, subscriptionDataKey } = args;
   const variables = useDeepStableValue(args.variables);
 
   // initial query
   const { loading, error, data, subscribeToMore, refetch, startPolling, stopPolling } = useQuery(query, {
-    skip,
     variables,
   });
 

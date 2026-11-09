@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useQuery } from '@apollo/client/react';
+import { skipToken, useQuery } from '@apollo/client/react';
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { atomFamily } from 'jotai-family';
 import { atomWithStorage } from 'jotai/utils';
@@ -151,10 +151,10 @@ function CLIFetcher() {
   const [persisted, setPersisted] = useAtom(cliPersistedAtom);
   const cacheValid = isCLICacheValid(persisted);
 
-  const { data } = useQuery(CLI_LATEST_VERSION, {
-    skip: !appConfig.cliVersion || cacheValid,
-    fetchPolicy: 'network-only',
-  });
+  const { data } = useQuery(
+    CLI_LATEST_VERSION,
+    !appConfig.cliVersion || cacheValid ? skipToken : { fetchPolicy: 'network-only' },
+  );
 
   useEffect(() => {
     const version = data?.cliLatestVersion;
@@ -169,11 +169,10 @@ function ClusterVersionFetcher({ kubeContext }: { kubeContext: string }) {
   const [persisted, setPersisted] = useAtom(clusterPersistedAtomFamily(kubeContext));
   const cacheValid = isClusterCacheValid(persisted);
 
-  const { data, error, loading } = useQuery(CLUSTER_VERSION_STATUS, {
-    skip: !kubeContext || cacheValid,
-    variables: { kubeContext },
-    fetchPolicy: 'network-only',
-  });
+  const { data, error, loading } = useQuery(
+    CLUSTER_VERSION_STATUS,
+    !kubeContext || cacheValid ? skipToken : { variables: { kubeContext }, fetchPolicy: 'network-only' },
+  );
 
   useEffect(() => {
     if (!kubeContext || cacheValid) return;
