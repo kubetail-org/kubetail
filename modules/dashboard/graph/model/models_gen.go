@@ -116,7 +116,7 @@ func (e *HealthCheckStatus) UnmarshalGQL(v any) error {
 }
 
 func (e HealthCheckStatus) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *HealthCheckStatus) UnmarshalJSON(b []byte) error {
@@ -171,7 +171,7 @@ func (e *LogRecordsQueryMode) UnmarshalGQL(v any) error {
 }
 
 func (e LogRecordsQueryMode) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *LogRecordsQueryMode) UnmarshalJSON(b []byte) error {
