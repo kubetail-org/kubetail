@@ -41,4 +41,4 @@ signal-hook = "0.4.6"
 termcolor = "1.4.1"
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.8"
