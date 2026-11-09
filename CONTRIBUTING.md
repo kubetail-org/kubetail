@@ -190,6 +190,8 @@ Use descriptive branch names. As a suggestion, you can use this pattern:
 
 For AI-assisted editors like Claude Code, Codex, Cursor or GitHub Copilot, refer to the [`CLAUDE.md`](./CLAUDE.md) files (root and per area) for guidance on working with this codebase. `AGENTS.md` points to the same files.
 
+The repo's `.claude/settings.json` runs `scripts/writing-standards-hook.sh` on every prompt in Claude Code. It needs `bash` and `jq` on your `PATH` (on Windows, Git Bash or WSL).
+
 ### Visual Studio Code
 
 Recommended extensions (also listed in `.vscode/extensions.json`):
