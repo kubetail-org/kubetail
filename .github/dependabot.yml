@@ -1,0 +1,98 @@
+---
+# Dependabot moves dependencies, never toolchains: the Go version (each go.mod
+# and setup-environment's go-version), packageManager in
+# dashboard-ui/package.json and setup-environment's node-version are bumped by
+# hand.
+#
+# Every ecosystem waits after a release (time for a compromised release to be
+# caught and pulled first), groups minor and patch updates into one weekly PR,
+# and leaves each major in a PR of its own. Security updates skip the wait and
+# arrive grouped.
+version: 2
+updates:
+  # Every action is pinned to a commit SHA; this moves the pins and the
+  # version comments beside them.
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    labels: [dependencies, ci/cd]
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # /tools holds actionlint and govulncheck, so CI's copies move with the rest.
+  - package-ecosystem: gomod
+    directories:
+      - /modules/cli
+      - /modules/cluster-api
+      - /modules/dashboard
+      - /modules/shared
+      - /tools
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    labels: [dependencies, lang/go]
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # client-go and apimachinery release in lockstep.
+      kubernetes:
+        patterns:
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+      go:
+        update-types: [minor, patch]
+      go-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: cargo
+    directory: /crates
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    labels: [dependencies, lang/rust]
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      rust:
+        update-types: [minor, patch]
+      rust-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: npm
+    directory: /dashboard-ui
+    schedule:
+      interval: weekly
+    # pnpm-workspace.yaml's minimumReleaseAge is ten days, and pnpm refuses
+    # to resolve a younger release.
+    cooldown:
+      default-days: 10
+    labels: [dependencies, lang/ts+react]
+    commit-message:
+      prefix: chore
+      include: scope
+    versioning-strategy: increase
+    groups:
+      npm:
+        update-types: [minor, patch]
+      npm-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
