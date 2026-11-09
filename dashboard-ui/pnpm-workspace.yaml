@@ -3,6 +3,8 @@ allowBuilds:
 minimumReleaseAge: 14400
 minimumReleaseAgeExclude:
   - "@kubetail/ui"
+  # Younger than the minimum release age. Drop once it ages past it.
+  - fancy-ansi@0.2.3
 overrides:
   "@isaacs/brace-expansion": "^5.0.1"
   baseline-browser-mapping: "^2.11.0"
