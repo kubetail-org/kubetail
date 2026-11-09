@@ -17,15 +17,22 @@ import type { LogRecord } from './types';
 
 const INITIAL_LINE_COUNT = 100;
 
+// Exposes `notify`, so a test can push a live record by hand.
+class TestFakeClient extends FakeClient {
+  push(record: Partial<LogRecord>) {
+    this.notify(record as LogRecord);
+  }
+}
+
 function getMessages(records: LogRecord[]) {
   return records.map((r) => r.message);
 }
 
 describe('FakeClient', () => {
-  let client: FakeClient;
+  let client: TestFakeClient;
 
   beforeEach(() => {
-    client = new FakeClient({ initialLines: INITIAL_LINE_COUNT, rate: 0, fetchDelayMs: 10 });
+    client = new TestFakeClient({ initialLines: INITIAL_LINE_COUNT, rate: 0, fetchDelayMs: 10 });
   });
 
   describe('fetchSince', () => {
@@ -205,21 +212,21 @@ describe('FakeClient', () => {
     it('should forward records immediately when options is undefined', () => {
       const received: string[] = [];
       client.subscribe((record) => received.push(record.message));
-      (client as any).notify({ timestamp: 1, message: 'line 1' });
+      client.push({ timestamp: '1', message: 'line 1' });
       expect(received).toEqual(['line 1']);
     });
 
     it('should forward records immediately when options.after is undefined', () => {
       const received: string[] = [];
       client.subscribe((record) => received.push(record.message), { after: undefined });
-      (client as any).notify({ timestamp: 1, message: 'line 1' });
+      client.push({ timestamp: '1', message: 'line 1' });
       expect(received).toEqual(['line 1']);
     });
 
     it('should forward records immediately when options.after is null', () => {
       const received: string[] = [];
       client.subscribe((record) => received.push(record.message), { after: null });
-      (client as any).notify({ timestamp: 1, message: 'line 1' });
+      client.push({ timestamp: '1', message: 'line 1' });
       expect(received).toEqual(['line 1']);
     });
 
@@ -227,7 +234,7 @@ describe('FakeClient', () => {
       vi.useFakeTimers();
       const now = new Date('2020-01-01T00:00:01.000Z').getTime();
       vi.setSystemTime(now);
-      client = new FakeClient({ initialLines: 5, rate: 0, fetchDelayMs: 0 });
+      client = new TestFakeClient({ initialLines: 5, rate: 0, fetchDelayMs: 0 });
 
       const received: string[] = [];
       client.subscribe((record) => received.push(record.message), { after: 'BEGINNING' });
@@ -242,7 +249,7 @@ describe('FakeClient', () => {
       vi.useFakeTimers();
       const now = new Date('2020-01-01T00:00:01.000Z').getTime();
       vi.setSystemTime(now);
-      client = new FakeClient({ initialLines: 0, rate: 0, fetchDelayMs: 0 });
+      client = new TestFakeClient({ initialLines: 0, rate: 0, fetchDelayMs: 0 });
 
       const received: string[] = [];
       client.subscribe((record) => received.push(record.message), { after: 'BEGINNING' });
@@ -250,7 +257,7 @@ describe('FakeClient', () => {
       await vi.runAllTimersAsync();
 
       const timestamp1 = new Date(now + 1).toISOString();
-      (client as any).notify({
+      client.push({
         timestamp: timestamp1,
         message: 'live 0',
         cursor: timestamp1,
@@ -264,7 +271,7 @@ describe('FakeClient', () => {
       vi.useFakeTimers();
       const now = new Date('2020-01-01T00:00:01.000Z').getTime();
       vi.setSystemTime(now);
-      client = new FakeClient({ initialLines: 0, rate: 0, fetchDelayMs: 0 });
+      client = new TestFakeClient({ initialLines: 0, rate: 0, fetchDelayMs: 0 });
 
       const received: string[] = [];
       client.subscribe((record) => received.push(record.message), { after: 'BEGINNING' });
@@ -283,7 +290,7 @@ describe('FakeClient', () => {
       vi.useFakeTimers();
       const now = new Date('2020-01-01T00:00:01.000Z').getTime();
       vi.setSystemTime(now);
-      client = new FakeClient({ initialLines: 5, rate: 0, fetchDelayMs: 0 });
+      client = new TestFakeClient({ initialLines: 5, rate: 0, fetchDelayMs: 0 });
 
       const received: string[] = [];
       const after = client.getAtPos(-5).cursor;
@@ -292,7 +299,7 @@ describe('FakeClient', () => {
       const lastTS = Date.parse(client.getAtPos(-1).timestamp);
 
       const timestamp1 = new Date(lastTS + 1).toISOString();
-      (client as any).notify({
+      client.push({
         timestamp: timestamp1,
         message: 'buffered',
         cursor: timestamp1,
@@ -303,7 +310,7 @@ describe('FakeClient', () => {
       expect(received).toEqual(['line 1', 'line 2', 'line 3', 'line 4', 'buffered']);
 
       const timestamp2 = new Date(lastTS + 2).toISOString();
-      (client as any).notify({
+      client.push({
         timestamp: timestamp2,
         message: 'live',
         cursor: timestamp2,

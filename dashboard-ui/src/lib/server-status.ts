@@ -46,7 +46,8 @@ export class ServerStatus {
   static fromHealthCheckResponse(healthCheckResponse: HealthCheckResponseFragmentFragment | undefined) {
     const ss = new ServerStatus({
       message: healthCheckResponse?.message || null,
-      lastUpdatedAt: healthCheckResponse?.timestamp || null,
+      // `timestamp` is a Time scalar, which arrives as an RFC 3339 string.
+      lastUpdatedAt: healthCheckResponse?.timestamp ? new Date(healthCheckResponse.timestamp as string) : null,
     });
 
     switch (healthCheckResponse?.status) {

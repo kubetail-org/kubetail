@@ -6,6 +6,7 @@ status: Accepted
 amended_by:
   - 2026-11-09-require-switches-over-a-union-to-list-every-member.md
   - 2026-11-09-check-hook-dependencies-in-the-dashboard-ui.md
+  - 2026-11-09-forbid-any-in-the-dashboard-ui-outside-tests.md
 ---
 
 # Lint the dashboard UI with oxlint's categories and a chosen rule list

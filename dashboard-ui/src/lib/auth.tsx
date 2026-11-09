@@ -44,6 +44,23 @@ type ContextType = {
 const Context = createContext({} as ContextType);
 
 /**
+ * Parse session
+ */
+
+// Returns null unless `value` has the shape of the session endpoint's JSON body.
+function parseSession(value: unknown): Session | null {
+  if (typeof value !== 'object' || value === null) return null;
+
+  const { auth_mode: authMode, user, message, timestamp } = value as Record<string, unknown>;
+  if (typeof authMode !== 'string') return null;
+  if (typeof user !== 'string' && user !== null) return null;
+  if (typeof message !== 'string' && message !== null) return null;
+  if (typeof timestamp !== 'string') return null;
+
+  return { auth_mode: authMode, user, message, timestamp: new Date(timestamp) };
+}
+
+/**
  * Get session
  */
 
@@ -54,14 +71,13 @@ export async function getSession(): Promise<Session> {
   const tok = resp.headers.get('X-CSRF-Token');
   if (tok) csrfToken = tok;
 
-  const sess = await resp.json();
+  const body: unknown = await resp.json();
+  const sess = parseSession(body);
+  if (!sess) throw new Error('Invalid session response');
 
-  // convert timestamp
-  sess.timestamp = new Date(sess.timestamp);
-
-  // publish
+  // publish the JSON body, which each tab parses as it parsed this one
   // oxlint-disable-next-line unicorn/require-post-message-target-origin -- A BroadcastChannel takes no origin.
-  bcOut.postMessage(sess);
+  bcOut.postMessage(body);
 
   return sess;
 }
@@ -104,10 +120,10 @@ export const SessionProvider = ({ children }: React.PropsWithChildren) => {
 
   useEffect(() => {
     let lastTS = 0;
-    const fn = (ev: any) => {
-      const newSession = ev.data;
-      if (newSession.timestamp > lastTS) {
-        lastTS = newSession.timestamp;
+    const fn = (ev: MessageEvent<unknown>) => {
+      const newSession = parseSession(ev.data);
+      if (newSession && newSession.timestamp.getTime() > lastTS) {
+        lastTS = newSession.timestamp.getTime();
         setSession(newSession);
       }
     };

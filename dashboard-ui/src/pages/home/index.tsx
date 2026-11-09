@@ -330,7 +330,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
           id: item.metadata.uid,
           name: item.metadata.name,
           namespace: item.metadata.namespace,
-          createdAt: item.metadata.creationTimestamp,
+          createdAt: item.metadata.creationTimestamp as Date,
           size: fileInfo?.size,
           lastModifiedAt: fileInfo?.lastModifiedAt,
           sourceString: `${item.metadata.namespace}:${kind}/${item.metadata.name}/*`,
@@ -631,7 +631,9 @@ const NamespacesPicker = () => {
       disabled={loading}
     >
       <SelectTrigger className="w-50 bg-background">
-        <SelectValue placeholder="Loading...">{(v) => (v === ALL_NAMESPACES ? 'All namespaces' : v)}</SelectValue>
+        <SelectValue placeholder="Loading...">
+          {(v: string | null) => (v === ALL_NAMESPACES ? 'All namespaces' : v)}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent alignItemWithTrigger={false}>
         <SelectGroup>

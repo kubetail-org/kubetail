@@ -54,7 +54,7 @@ class Config {
       // 2 - check import.meta.env
       const envKey = `VITE_${camelCaseToUpperCaseWithUnderscores(key)}`;
       if (envKey in import.meta.env) {
-        this[configKey] = import.meta.env[envKey];
+        this[configKey] = import.meta.env[envKey] as this[keyof this];
       }
     });
   }

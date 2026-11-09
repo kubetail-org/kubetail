@@ -1036,7 +1036,7 @@ function createLogViewerStore(handle: LogViewerHandle | null) {
 
 export function useLogViewerState(
   logViewerRef: React.RefObject<LogViewerHandle | null>,
-  dependencies: any[],
+  dependencies: React.DependencyList,
 ): LogViewerState {
   // Initialize store
   const [store, setStore] = useState(() => createLogViewerStore(null));

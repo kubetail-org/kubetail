@@ -105,12 +105,13 @@ export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) =
           const { containerID } = ev.object.spec;
 
           if (ev.type === 'MODIFIED' || ev.type === 'ADDED') {
-            const { size } = ev.object.fileInfo;
-            let { lastModifiedAt } = ev.object.fileInfo;
-            lastModifiedAt = lastModifiedAt ? new Date(lastModifiedAt) : new Date(0);
+            const { size, lastModifiedAt } = ev.object.fileInfo as {
+              size: string;
+              lastModifiedAt: string | Date | null;
+            };
 
             // Update atom
-            inner.set(containerID, { size, lastModifiedAt });
+            inner.set(containerID, { size, lastModifiedAt: lastModifiedAt ? new Date(lastModifiedAt) : new Date(0) });
 
             // Update selectors
             selectors.push(`.last_event_${containerID}`);
