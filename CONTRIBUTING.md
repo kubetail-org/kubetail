@@ -87,6 +87,9 @@ $output = gofmt -l .; if ($output) { throw "Files need formatting: $output" }
 # Vet (static analysis)
 go vet github.com/kubetail-org/kubetail/modules/...
 
+# From the repo root: vet for Windows too, check go fix, run staticcheck
+make modules-vet modules-staticcheck
+
 # Run tests
 go test -race github.com/kubetail-org/kubetail/modules/...
 ```

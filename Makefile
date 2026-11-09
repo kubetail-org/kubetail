@@ -112,11 +112,22 @@ modules-test:
 	@echo "Testing Go modules..."
 	@cd $(MODULES_DIR) && go test -race github.com/kubetail-org/kubetail/modules/...
 
-modules-vet:
+# The Windows pass is the one place _windows.go files are vetted.
+modules-vet: modules-check-go-fix
 	@echo "Vetting Go modules..."
 	@cd $(MODULES_DIR) && go vet github.com/kubetail-org/kubetail/modules/...
+	@cd $(MODULES_DIR) && GOOS=windows go vet github.com/kubetail-org/kubetail/modules/...
 
-modules-all: modules-lint modules-test modules-vet
+# Fails if go fix's modernizers would rewrite a module (scripts/check-go-fix.sh).
+modules-check-go-fix:
+	@sh scripts/check-go-fix.sh
+
+# One run per GOOS, merged (scripts/staticcheck.sh). tools/go.mod pins staticcheck.
+modules-staticcheck:
+	@echo "Running staticcheck on Go modules..."
+	@sh scripts/staticcheck.sh
+
+modules-all: modules-lint modules-test modules-vet modules-staticcheck
 	@echo "All Go module operations completed successfully."
 
 # Dashboard UI targets
@@ -131,6 +142,21 @@ dashboard-ui-test:
 dashboard-ui-all: dashboard-ui-lint dashboard-ui-test
 	@echo "All dashboard UI operations completed successfully."
 
+# Every shell script in the repo.
+lint-sh:
+	@git ls-files '*.sh' | xargs shellcheck
+
+# Local paths and anchors in every Markdown file (scripts/check-markdown-links.sh).
+lint-md:
+	@sh scripts/check-markdown-links.sh
+
+lint-python:
+	@cd e2e && uv sync --group dev && uv run ruff check . && uv run ruff format --check .
+
+# Every linter CI runs.
+lint: lint-all lint-sh lint-md lint-python
+	@echo "All CI linters passed."
+
 # Combined targets
 lint-all: crates-lint modules-lint dashboard-ui-lint lint-yaml
 	@echo "All linting completed successfully."
@@ -138,7 +164,7 @@ lint-all: crates-lint modules-lint dashboard-ui-lint lint-yaml
 test-all: crates-test modules-test dashboard-ui-test
 	@echo "All tests completed successfully."
 
-vet-all: crates-vet modules-vet
+vet-all: crates-vet modules-vet modules-staticcheck
 	@echo "All vetting completed successfully."
 
 ci-checks: lint-all test-all vet-all
@@ -155,6 +181,10 @@ lint-yaml:
 		cd tools && SHELLCHECK_OPTS="--severity=warning --exclude=SC2155" \
 		go tool actionlint -shellcheck "$$sc" -config-file ../.github/ci-config/actionlint.yaml
 	@uv tool run zizmor@1.31.1 --config .github/ci-config/zizmor.yml .
+
+# The tests for what this branch changed (scripts/test-changed.sh).
+test-changed:
+	@bash scripts/test-changed.sh
 
 ## Build e2e images and CLI, then run the full e2e suite.
 ## Pass ONLY_BUILD=1 to skip pytest and just rebuild artifacts (useful when
@@ -187,14 +217,21 @@ help:
 	@echo "  crates-all            - Run all Rust crate operations"
 	@echo "  modules-lint          - Lint Go modules"
 	@echo "  modules-test          - Test Go modules"
-	@echo "  modules-vet           - Vet Go modules"
+	@echo "  modules-vet           - Vet Go modules, for the host and Windows"
+	@echo "  modules-check-go-fix  - Fail if go fix would change a Go module"
+	@echo "  modules-staticcheck   - Run staticcheck on Go modules"
 	@echo "  modules-all           - Run all Go module operations"
 	@echo "  dashboard-ui-lint     - Lint dashboard UI"
 	@echo "  dashboard-ui-test     - Test dashboard UI"
 	@echo "  dashboard-ui-all      - Run all dashboard UI operations"
+	@echo "  lint                  - Run every linter CI runs"
+	@echo "  lint-all              - Lint Rust, Go, the dashboard UI and YAML"
 	@echo "  lint-yaml             - Lint YAML files and workflows"
-	@echo "  lint-all              - Run all lint checks"
+	@echo "  lint-sh               - Lint every shell script"
+	@echo "  lint-md               - Check local links in every Markdown file"
+	@echo "  lint-python           - Lint the e2e suite"
 	@echo "  test-all              - Run all tests"
+	@echo "  test-changed          - Run the tests for this branch's changes"
 	@echo "  vet-all               - Run all vetting"
 	@echo "  ci-checks             - Run all CI checks (lint, test, vet)"
 	@echo "  test-e2e              - Build images + CLI and run the e2e test suite"

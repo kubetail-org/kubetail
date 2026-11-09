@@ -87,9 +87,10 @@ Each area's guide adds its tooling and how it waits. → [ADR: test conventions]
 
 ## Checks
 
-Run the checks in the guide of every area you touched before you finish. For `scripts/`: `shellcheck scripts/*.sh` and `bats scripts/`.
+Run the checks in the guide of every area you touched before you finish. For `scripts/`: `make lint-sh` and `bats scripts/`.
 
-- **`make lint-all`, `vet-all`, `test-all` and `ci-checks` wrap most of them**, with gaps: `make crates-test` covers `rgkl` alone, and no target runs `pnpm build`, the Python lint or the shell checks. `make test-changed`, `make cover-changed` and `make lint`, named in the PR template and `CONTRIBUTING.md`, do not exist.
+- **`make lint` runs every linter CI runs, and `make test-changed` the tests for what the branch changed.** `make vet-all`, `test-all` and `ci-checks` wrap most of the rest, with gaps: `make crates-test` covers `rgkl` alone, and no target runs `pnpm build`. `make cover-changed`, named in the PR template and `CONTRIBUTING.md`, does not exist.
+- **Markdown links are checked offline in CI** (`make lint-md`): a moved or renamed file breaks every relative link to it.
 - **On a pull request, CI picks its jobs by path**, from `.github/ci-config/path-filters.yml`. A change to `config/`, `hack/` or `e2e/` alone runs no Go, Rust or TypeScript job, and a schema change under `modules/` does not run the TypeScript jobs. Run the affected checks yourself. A push to `main` runs every job, the riscv64 ones too.
 - **Only runs on `main` save CI caches; PRs only read them.** `CACHE_MODE` in `ci.yml` decides, and `Caches · Prune` keeps the newest of each. A Go job that saves does it in its last step, and its test flags must match a PR's, or a PR replays no cached test result.
 - **The Docker builds, the CLI builds and the end-to-end suite run when a PR touches any Go, Rust or TypeScript path.** A PR that changes only `e2e/` does not run the suite: run `make test-e2e` yourself (`e2e/CLAUDE.md`) and say so in the PR.
