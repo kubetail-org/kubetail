@@ -89,7 +89,7 @@ jobs:
         run: |
           mkdir -p "${DST_DIR}/source"
 
-          export TIMESTAMP="$(date -Ru)" 
+          export TIMESTAMP="$(date -Ru)"
 
           # copyright
           cp "${SRC_DIR}/copyright" "${DST_DIR}/copyright"
