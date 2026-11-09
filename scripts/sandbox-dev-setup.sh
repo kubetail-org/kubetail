@@ -16,9 +16,9 @@
 # ($OVERLAY_ROOT). The host mount's directory metadata is not coherent under
 # Cargo's dense writes, and node_modules is read thousands of times per test
 # run, which the host mount makes slow. Every worktree shares the one target/
-# and the one pnpm store, and has its own node_modules. pnpm copies from the
-# store rather than hard-linking, since link(2) fails across the node_modules
-# bind mount.
+# and the one pnpm store. pnpm uses its global virtual store there, so each
+# worktree's node_modules holds only symlinks into the store: never edit a file
+# under node_modules, since every worktree shares it.
 #
 # dist, small and rarely read, stays on the host's disk under $BUILD_ROOT.
 # modules/dashboard/website/ is left alone: `make build-dashboard-ui` removes
@@ -93,10 +93,12 @@ bind "$BUILD_ROOT/dist" "$REPO/dashboard-ui/dist"
 # script owns is dropped first, so a re-run rewrites the values rather than
 # leaving an older copy above them.
 #
-# pnpm takes the store path from PNPM_CONFIG_STORE_DIR rather than
-# pnpm-workspace.yaml, which is committed and shared with the host and CI.
-# pnpm's global virtual store stays off: tsc then resolves two copies of
-# @types/react and `pnpm build` fails.
+# pnpm takes these settings from PNPM_CONFIG_* rather than pnpm-workspace.yaml,
+# which is committed and shared with the host and CI, where pnpm keeps its
+# default layout. In the global virtual store a package sees only the
+# dependencies it declares, so one that imports an undeclared package fails
+# only here. Unset PNPM_CONFIG_ENABLE_GLOBAL_VIRTUAL_STORE and reinstall to
+# rule out the layout.
 #
 # Go is pinned to CI's version, read from setup-environment's go-version
 # default. A go.mod's go line is only a minimum, and GOTOOLCHAIN=auto switches
@@ -117,12 +119,14 @@ sudo sed -i \
   -e '/KUBETAIL_SANDBOX_ENV/d' \
   -e '/^export CARGO_TARGET_DIR=/d' \
   -e '/^export PNPM_CONFIG_STORE_DIR=/d' \
+  -e '/^export PNPM_CONFIG_ENABLE_GLOBAL_VIRTUAL_STORE=/d' \
   -e '/^export GOTOOLCHAIN=/d' \
   "$PERSIST"
 sudo tee -a "$PERSIST" >/dev/null <<EOF
 # KUBETAIL_SANDBOX_ENV — Linux build outputs kept out of the macOS host's paths, and Go pinned to CI's.
 export CARGO_TARGET_DIR="$OVERLAY_ROOT/target"
 export PNPM_CONFIG_STORE_DIR="$PNPM_STORE"
+export PNPM_CONFIG_ENABLE_GLOBAL_VIRTUAL_STORE=true
 export GOTOOLCHAIN=go$GO_VERSION+auto
 EOF
 echo "✓ env vars written to $PERSIST (Go pinned to $GO_VERSION)"

@@ -86,7 +86,7 @@ require_linux() {
   [ "$status" -eq 0 ]
   run_script
   [ "$status" -eq 0 ]
-  for var in CARGO_TARGET_DIR PNPM_CONFIG_STORE_DIR GOTOOLCHAIN; do
+  for var in CARGO_TARGET_DIR PNPM_CONFIG_STORE_DIR PNPM_CONFIG_ENABLE_GLOBAL_VIRTUAL_STORE GOTOOLCHAIN; do
     [ "$(grep -c "^export $var=" "$KUBETAIL_SANDBOX_PERSIST")" -eq 1 ]
   done
   [ "$(grep -c KUBETAIL_SANDBOX_ENV "$KUBETAIL_SANDBOX_PERSIST")" -eq 1 ]

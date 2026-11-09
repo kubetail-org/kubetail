@@ -94,3 +94,4 @@ Vitest + `@testing-library/react` (jsdom), co-located as `foo.test.ts[x]`. Globa
 - **A disable comment is `oxlint-disable`, names its rule, gives a reason after `--`, and is rare**; an unused one fails the lint. `eslint-disable` comments are ignored.
 - **TypeScript is `strict` with `noUnusedLocals` and `noUnusedParameters`.**
 - **A new dependency must be at least ten days old** (`minimumReleaseAge` in `pnpm-workspace.yaml`); `@kubetail/ui` is exempt.
+- **A dependency must declare every package it imports.** The sandbox installs with pnpm's global virtual store, where an undeclared import fails with `Cannot find package` while the host and CI pass. Take a release that declares it, or add a `packageExtensions` entry. Types are covered: `tsconfig.app.json` maps `react` to `@types/react`. → [ADR: keep the sandbox's build outputs off the host mount](../docs/adr/2026-11-09-keep-the-sandboxs-build-outputs-off-the-host-mount.md)
