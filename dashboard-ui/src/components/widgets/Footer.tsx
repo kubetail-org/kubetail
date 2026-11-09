@@ -14,9 +14,10 @@
 
 import { Bell } from 'lucide-react';
 
+import { NotificationsPopover } from '@/components/widgets/NotificationsPopover';
 import ServerStatus from '@/components/widgets/ServerStatus';
 import { SettingsPopover } from '@/components/widgets/SettingsPopover';
-import { NotificationsPopover } from '@/components/widgets/NotificationsPopover';
+
 import EnvironmentControl from './EnvironmentControl';
 
 export default function Footer() {

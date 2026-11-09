@@ -54,10 +54,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 import appConfig from '@/app-config';
 import KubetailLogo from '@/assets/logo.svg?react';
-import AdaptiveTimeAgo from '@/components/widgets/AdaptiveTimeAgo';
-import KubeContextPicker from '@/components/widgets/KubeContextPicker';
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
+import AdaptiveTimeAgo from '@/components/widgets/AdaptiveTimeAgo';
+import KubeContextPicker from '@/components/widgets/KubeContextPicker';
 import {
   HOME_NAMESPACES_LIST_FETCH,
   HOME_NAMESPACES_LIST_WATCH,
@@ -278,9 +278,7 @@ const SortIcon = ({ dir, descFirst }: SortIconProps) => {
 
 type DataTableRowProps = {
   row: Row<WorkloadTableData>;
-  // eslint-disable-next-line react/no-unused-prop-types
   isChecked: boolean;
-  // eslint-disable-next-line react/no-unused-prop-types
   isClusterAPIEnabled: boolean;
 };
 
@@ -336,7 +334,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
           size: fileInfo?.size,
           lastModifiedAt: fileInfo?.lastModifiedAt,
           sourceString: `${item.metadata.namespace}:${kind}/${item.metadata.name}/*`,
-          containerIDs: fileInfo?.containerIDs || [],
+          containerIDs: fileInfo?.containerIDs ?? [],
         };
       }),
     [items, logFileInfo],
@@ -418,7 +416,6 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
     [data, meta, sorting, isClusterAPIEnabled, showAll, numItems, maxDisplayRows, setSorting],
   );
 
-  // eslint-disable-next-line react-hooks/incompatible-library -- useReactTable returns unmemoizable values (TanStack limitation)
   const table = useReactTable(tableCfg as TableOptions<WorkloadTableData>);
 
   // For label

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import type { MockLink } from '@apollo/client/testing';
 import { MockedProvider } from '@apollo/client/testing/react';
-import type { MockedResponse } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
 import { createStore, Provider as JotaiProvider } from 'jotai';
 import React from 'react';
@@ -31,13 +31,13 @@ import { KubeConfigEffect } from '@/lib/kubeconfig';
  * not-wrapped-in-act state update. Default to a never-resolving mock so the subscription stays
  * pending unless the test explicitly provides one.
  */
-const withDefaultKubeConfigMock = (mocks?: MockedResponse[]): MockedResponse[] => {
+const withDefaultKubeConfigMock = (mocks?: MockLink.MockedResponse[]): MockLink.MockedResponse[] => {
   const provided = mocks ?? [];
   const hasKubeConfigMock = provided.some((m) => m.request.query === KUBE_CONFIG_WATCH);
   return hasKubeConfigMock ? provided : [...provided, { request: { query: KUBE_CONFIG_WATCH }, delay: Infinity }];
 };
 
-export const renderElement = (component: React.ReactElement, mocks?: MockedResponse[]) =>
+export const renderElement = (component: React.ReactElement, mocks?: MockLink.MockedResponse[]) =>
   render(
     <JotaiProvider store={createStore()}>
       <MockedProvider

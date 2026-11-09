@@ -12,17 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { stripAnsi } from 'fancy-ansi';
+import { AnsiHtml } from 'fancy-ansi/react';
 import { useAtomValue } from 'jotai';
 import React, { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import { Spinner } from '@kubetail/ui/elements/spinner';
-import { stripAnsi } from 'fancy-ansi';
-import { AnsiHtml } from 'fancy-ansi/react';
 
-import { formatTimestamp, useTimestampFormat } from '@/lib/timestamp-format';
-import { useTimezone } from '@/lib/timezone';
-import { cn, cssEncode } from '@/lib/util';
 import { LogViewer, useLogViewerState } from '@/components/widgets/log-viewer';
 import type {
   LogRecord,
@@ -30,10 +27,13 @@ import type {
   LogViewerVirtualRow,
   LogViewerVirtualizer,
 } from '@/components/widgets/log-viewer';
+import { formatTimestamp, useTimestampFormat } from '@/lib/timestamp-format';
+import { useTimezone } from '@/lib/timezone';
+import { cn, cssEncode } from '@/lib/util';
 
 import { CellContextMenu } from './context-menu';
-import { SelectionOverlay } from './selection-overlay';
 import { hasMultipleSelectedCells, useSelection } from './selection';
+import { SelectionOverlay } from './selection-overlay';
 import { PageContext, ViewerColumn } from './shared';
 import { isFollowAtom, isWrapAtom, visibleColsAtom } from './state';
 
@@ -585,6 +585,7 @@ export const RecordRow = memo(
 
       els.push(
         <CellContextMenu key={col} col={col} record={row.record} timezone={timezone} timestampFormat={timestampFormat}>
+          {/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- The color dot cell has no role and no handlers. */}
           <div
             ref={shouldWrap ? undefined : measureCellElement}
             data-col-id={col}

@@ -9,22 +9,22 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-
 /**
  * Custom theme
  */
 
-:root, .light {
+:root,
+.light {
   --elevated: var(--color-zinc-100);
   --success: #047857;
-  --chart-4: #8FC6FF;
+  --chart-4: #8fc6ff;
   --selection-band: color-mix(in srgb, var(--chart-4) 30%, transparent);
 }
 
 .dark {
   --elevated: var(--color-zinc-800);
-  --success: #6EE7B7;
-  --chart-4: #1447E6;
+  --success: #6ee7b7;
+  --chart-4: #1447e6;
   --selection-band: color-mix(in srgb, var(--chart-4) 50%, transparent);
 }
 
@@ -141,7 +141,8 @@
     isolation: isolate;
   }
 
-  :root, .light {
+  :root,
+  .light {
     --ansi-black: var(--ansi-colors-vscode-black);
     --ansi-red: var(--ansi-colors-vscode-red);
     --ansi-green: var(--ansi-colors-vscode-green);

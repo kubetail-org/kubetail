@@ -17,9 +17,6 @@ import { render, renderHook, act, waitFor } from '@testing-library/react';
 import { createRef, type RefObject } from 'react';
 
 import { DoubleTailedArray } from './double-tailed-array';
-import { createMockClient, type MockClient } from './mock';
-import type { LogRecord } from './types';
-
 import {
   useAutoScroll,
   useFollowFromEnd,
@@ -34,6 +31,8 @@ import {
   LogViewer,
 } from './log-viewer';
 import type { Runtime, LogViewerHandle, LogViewerVirtualizer } from './log-viewer';
+import { createMockClient, type MockClient } from './mock';
+import type { LogRecord } from './types';
 
 const mockVirtualizer = {
   range: null,
@@ -853,7 +852,7 @@ describe('internal helpers', () => {
       refs.isAutoScrollEnabled.current = true;
 
       services.beforePaint = (cb) => {
-        cb();
+        void cb();
         return Promise.resolve();
       };
 
@@ -1139,7 +1138,7 @@ describe('LogViewer', () => {
     });
 
     act(() => {
-      logViewerRef.current?.jumpToBeginning();
+      void logViewerRef.current?.jumpToBeginning();
     });
 
     await waitFor(() => {
@@ -1162,7 +1161,7 @@ describe('LogViewer', () => {
     });
 
     act(() => {
-      logViewerRef.current?.jumpToEnd();
+      void logViewerRef.current?.jumpToEnd();
     });
 
     await waitFor(() => {
@@ -1185,7 +1184,7 @@ describe('LogViewer', () => {
     });
 
     act(() => {
-      logViewerRef.current?.jumpToCursor('c0');
+      void logViewerRef.current?.jumpToCursor('c0');
     });
 
     await waitFor(() => {

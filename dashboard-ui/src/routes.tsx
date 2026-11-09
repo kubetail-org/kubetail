@@ -14,12 +14,12 @@
 
 import { Route } from 'react-router-dom';
 
-import Root from '@/pages/_root';
 import ErrorPage from '@/error-page';
+import Root from '@/pages/_root';
 import Login from '@/pages/auth/login';
 import Logout from '@/pages/auth/logout';
-import Home from '@/pages/home';
 import Console from '@/pages/console';
+import Home from '@/pages/home';
 
 export const routes = (
   <Route path="/" element={<Root />} errorElement={<ErrorPage />}>

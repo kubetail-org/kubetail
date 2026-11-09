@@ -15,8 +15,8 @@
 import { atom } from 'jotai';
 
 import appConfig from '@/app-config';
-import { MapSet } from '@/lib/util';
 import type { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
+import { MapSet } from '@/lib/util';
 
 import { ViewerColumn, configColumnsToViewerColumns } from './shared';
 

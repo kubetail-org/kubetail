@@ -52,11 +52,7 @@ vi.mock('./helpers', () => ({
 }));
 
 vi.mock('./log-server-client', () => ({
-  LogServerClient: class MockLogServerClient {
-    constructor(opts: Record<string, unknown>) {
-      Object.assign(this, opts);
-    }
-  },
+  LogServerClient: vi.fn(),
 }));
 
 // Test wrapper
@@ -94,7 +90,7 @@ describe('processedGrep logic', () => {
     const input = 'error.*[test]';
     const expected = 'error\\.\\*\\[test\\]';
 
-    const result = input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const result = input.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&');
     expect(result).toBe(expected);
   });
 

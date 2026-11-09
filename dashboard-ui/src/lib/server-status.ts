@@ -17,11 +17,11 @@ import { useEffect, useState } from 'react';
 
 import { dashboardWSClient } from '@/apollo-client';
 import appConfig from '@/app-config';
-import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import {
   HealthCheckStatus,
   type HealthCheckResponseFragmentFragment,
 } from '@/lib/graphql/dashboard/__generated__/graphql';
+import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 
 export const enum Status {
   Healthy = 'HEALTHY',

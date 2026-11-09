@@ -14,13 +14,6 @@
 
 import type { ApolloClient } from '@apollo/client';
 
-import {
-  LogRecordsQueryMode,
-  type LogSourceFilter,
-  type LogRecordsFragmentFragment as ServerLogRecord,
-} from '@/lib/graphql/dashboard/__generated__/graphql';
-import { LOG_RECORDS_FETCH, LOG_RECORDS_FOLLOW } from '@/lib/graphql/dashboard/ops';
-
 import type {
   Client,
   FetchOptions,
@@ -29,6 +22,12 @@ import type {
   SubscriptionCancelFunction,
   SubscriptionOptions,
 } from '@/components/widgets/log-viewer';
+import {
+  LogRecordsQueryMode,
+  type LogSourceFilter,
+  type LogRecordsFragmentFragment as ServerLogRecord,
+} from '@/lib/graphql/dashboard/__generated__/graphql';
+import { LOG_RECORDS_FETCH, LOG_RECORDS_FOLLOW } from '@/lib/graphql/dashboard/ops';
 
 /**
  * createRecord - Create LogRecord from server response item

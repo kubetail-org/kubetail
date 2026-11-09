@@ -44,7 +44,7 @@ export class Counter<K = string> extends Map<K, number> {
   }
 
   update(key: K, incr = 1) {
-    const count = this.get(key) || 0;
+    const count = this.get(key) ?? 0;
     this.set(key, count + incr);
   }
 
@@ -82,7 +82,7 @@ export class MapSet<K = string, T = string> extends Map<K, Set<T>> {
   }
 
   add(key: K, value: T) {
-    const s = this.get(key) || new Set();
+    const s = this.get(key) ?? new Set();
     s.add(value);
     this.set(key, s);
   }
@@ -132,7 +132,7 @@ export function cn(...inputs: ClassValue[]) {
  */
 
 export function cssEncode(name: string) {
-  return name.replace(/[^a-z0-9]/g, (s) => {
+  return name.replaceAll(/[^a-z0-9]/g, (s) => {
     const c = s.charCodeAt(0);
     if (c === 32) return '-';
     if (c >= 65 && c <= 90) return `_${s.toLowerCase()}`;
@@ -151,7 +151,7 @@ export function joinPaths(...paths: string[]) {
       if (index === 0) {
         return part.replace(/\/+$/, '');
       }
-      return part.replace(/^\/+|\/+$/g, '');
+      return part.replaceAll(/^\/+|\/+$/g, '');
     })
     .join('/');
 }
@@ -231,10 +231,10 @@ export async function safeDigest(input: string): Promise<DataView> {
   // Non-crypto fallback hash (FNV-1a 32-bit over UTF-8)
   let h = 0x811c9dc5; // FNV offset basis
   for (let i = 0; i < bytes.length; i += 1) {
-    h ^= bytes[i]; // eslint-disable-line no-bitwise
+    h ^= bytes[i];
     h = Math.imul(h, 0x01000193); // FNV prime
   }
-  h >>>= 0; // eslint-disable-line no-bitwise
+  h >>>= 0;
 
   const buf = new ArrayBuffer(32);
   const view = new DataView(buf);

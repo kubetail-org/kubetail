@@ -7,7 +7,8 @@ React 19 + React Router 7 + Apollo Client 4 (GraphQL) + Jotai + Vite + Tailwind 
 ## Checks
 
 ```sh
-pnpm lint --fix     # ESLint with Prettier as a rule: the formatter. A warning fails the run.
+pnpm format         # oxfmt: formats and sorts imports
+pnpm lint           # oxlint (type-aware), then `oxfmt --check`. A warning fails the run.
 pnpm build          # tsc -b && vite build: the only type-check, and it covers test files
 pnpm test run       # `pnpm test` alone is watch mode and never exits
 ```
@@ -77,7 +78,7 @@ What an ordinary change here can break, beside the root guide's list:
 
 Vitest + `@testing-library/react` (jsdom), co-located as `foo.test.ts[x]`. Globals are on: `describe`, `it`, `expect` and `vi` need no import.
 
-- **`renderElement(element, mocks?)`** from `@/test-utils` wraps a component in a fresh Jotai store, Apollo's `MockedProvider` with the real cache, and a `MemoryRouter`. `mocks` are `MockedResponse[]` built from the real documents in `ops.ts`; results carry `__typename`; `delay: Infinity` holds a request pending.
+- **`renderElement(element, mocks?)`** from `@/test-utils` wraps a component in a fresh Jotai store, Apollo's `MockedProvider` with the real cache, and a `MemoryRouter`. `mocks` are `MockLink.MockedResponse[]` built from the real documents in `ops.ts`; results carry `__typename`; `delay: Infinity` holds a request pending.
 - **`withAppConfig(overrides, fn)`** runs `fn` with `appConfig` patched and restores it.
 - **`vitest.setup.ts` mocks for every test**: `useSession` (default: signed out, so `AuthRequired` redirects), the CSRF token functions, and `useIsClusterAPIEnabled` (default: `true`). A test of a signed-in page sets `(useSession as Mock).mockReturnValue({ session: { user: 'test' } })`.
 - **`vi.resetAllMocks()` runs after every test**, so a `mockReturnValue` or `mockImplementation` belongs in `beforeEach`: set at module scope it lasts one test.
@@ -86,8 +87,10 @@ Vitest + `@testing-library/react` (jsdom), co-located as `foo.test.ts[x]`. Globa
 
 ## Lint conventions
 
-- **Imports are grouped, a blank line between groups**: third-party packages, `@kubetail/*`, `@/…`, then relative `./…`; alphabetical by path within a group. The lint does not check this.
-- **`react-hooks/exhaustive-deps` is off.** Nothing flags a missing dependency, so write the array as though it were on.
-- **A disable comment names its rule and is rare**; an unused one fails the lint.
+`.oxlintrc.json` is the lint: oxlint's `correctness`, `suspicious` and `perf` categories plus a chosen list of rules. A rule turned off or given options says why in a comment. → [ADR: lint the dashboard UI with oxlint's categories and a chosen rule list](../docs/adr/2026-11-09-lint-the-dashboard-ui-with-oxlints-categories-and-a-chosen-rule-list.md)
+
+- **Imports are grouped, a blank line between groups**: third-party packages, `@kubetail/*`, `@/…`, relative `./…`, then stylesheets. `pnpm format` sorts them (`sortImports` in `.oxfmtrc.json`).
+- **`react/exhaustive-deps` is off.** Nothing flags a missing dependency, so write the array as though it were on.
+- **A disable comment is `oxlint-disable`, names its rule, gives a reason after `--`, and is rare**; an unused one fails the lint. `eslint-disable` comments are ignored.
 - **TypeScript is `strict` with `noUnusedLocals` and `noUnusedParameters`.**
 - **A new dependency must be at least ten days old** (`minimumReleaseAge` in `pnpm-workspace.yaml`); `@kubetail/ui` is exempt.

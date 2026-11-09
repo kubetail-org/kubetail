@@ -14,8 +14,8 @@
 
 import { useQuery } from '@apollo/client/react';
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { atomWithStorage } from 'jotai/utils';
 import { atomFamily } from 'jotai-family';
+import { atomWithStorage } from 'jotai/utils';
 import { useEffect, useMemo } from 'react';
 
 import appConfig from '@/app-config';
@@ -48,10 +48,13 @@ function isClusterCacheValid(state: ClusterUpdateState): boolean {
   return state.fetchedAt !== undefined && Date.now() - state.fetchedAt < CACHE_TTL_MS;
 }
 
+function parseSemver(v: string) {
+  return v.replace(/^v/, '').split('.').map(Number);
+}
+
 export function compareSemver(a: string, b: string): number {
-  const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number);
-  const pa = parse(a);
-  const pb = parse(b);
+  const pa = parseSemver(a);
+  const pb = parseSemver(b);
   for (let i = 0; i < 3; i += 1) {
     const diff = (pa[i] || 0) - (pb[i] || 0);
     if (diff !== 0) return diff;

@@ -1,0 +1,178 @@
+// oxlint for `src/` and the root config files. Every rule is an error: `denyWarnings` fails the
+// run on a warning too, so nothing here is advisory.
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "react", "jsx-a11y", "import", "vitest"],
+  "options": {
+    "typeAware": true,
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "error",
+    "respectEslintDisableDirectives": false
+  },
+  "categories": { "correctness": "error", "suspicious": "error", "perf": "error" },
+  "ignorePatterns": ["**/__generated__/**", "dist", "codegen.ts"],
+  "rules": {
+    // The automatic JSX runtime imports React itself.
+    "react/react-in-jsx-scope": "off",
+    // A leading `_` marks a class field as private to it.
+    "no-underscore-dangle": "off",
+    // `as` narrows after a check the types cannot follow: a DOM lookup, parsed JSON, a select's value.
+    "typescript/no-unsafe-type-assertion": "off",
+    // `as` turns a DOM data attribute back into the enum member that wrote it.
+    "typescript/no-unsafe-enum-assignment": "off",
+    // An effect returns its cleanup only on the paths that set something up.
+    "typescript/consistent-return": "off",
+    // Adding a dependency changes when an effect runs, and about 30 effects here leave one out.
+    // Write each array as though this were on.
+    "react/exhaustive-deps": "off",
+    // It reports a dependency an effect lists to rerun on.
+    "react/exhaustive-effect-dependencies": "off",
+    // The React compiler is off, so the rules that check code for it report nothing that breaks.
+    "react/immutability": "off",
+    "react/incompatible-library": "off",
+    "react/memo-dependencies": "off",
+    "react/purity": "off",
+    // `vi.fn()` infers its type from the implementation it is given.
+    "vitest/require-mock-type-parameters": "off",
+    // The log viewer draws ARIA widgets no HTML element matches: a grid's rows, a clickable cell.
+    "jsx-a11y/prefer-tag-over-role": "off",
+    // An `<input>` is labelled by the `<Label>` around it, and a settings cell by the cell beside it.
+    "jsx-a11y/control-has-associated-label": ["error", { "ignoreElements": ["input", "td"] }],
+    // Stylesheets and test setup are imported for their effect.
+    "import/no-unassigned-import": [
+      "error",
+      { "allow": ["**/*.css", "@testing-library/jest-dom", "@testing-library/jest-dom/vitest"] }
+    ],
+
+    // Bugs the categories leave to `pedantic` and `restriction`.
+    "array-callback-return": "error",
+    "default-case-last": "error",
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "no-case-declarations": "error",
+    "no-constructor-return": "error",
+    "no-empty": "error",
+    "no-loop-func": "error",
+    "no-new-wrappers": "error",
+    "no-promise-executor-return": "error",
+    "no-prototype-builtins": "error",
+    "no-script-url": "error",
+    "no-self-compare": "error",
+    "no-template-curly-in-string": "error",
+    "radix": "error",
+    "import/no-cycle": "error",
+    "import/no-mutable-exports": "error",
+    "typescript/no-unsafe-function-type": "error",
+    "typescript/only-throw-error": "error",
+    "typescript/return-await": "error",
+
+    // Control flow and mutation a reader can follow.
+    "default-param-last": "error",
+    "no-alert": "error",
+    "no-else-return": ["error", { "allowElseIf": false }],
+    "no-labels": "error",
+    "no-lonely-if": "error",
+    "no-multi-assign": "error",
+    "no-nested-ternary": "error",
+    "no-param-reassign": ["error", { "props": true, "ignorePropertyModificationsFor": ["acc"] }],
+    "no-return-assign": ["error", "always"],
+    "no-sequences": "error",
+    "no-useless-return": "error",
+    "one-var": ["error", "never"],
+    // A DOM global that reads as a forgotten local: write `window.<name>`.
+    "no-restricted-globals": [
+      "error",
+      "blur",
+      "close",
+      "event",
+      "find",
+      "focus",
+      "history",
+      "length",
+      "location",
+      "name",
+      "open",
+      "parent",
+      "print",
+      "scroll",
+      "self",
+      "status",
+      "stop",
+      "top"
+    ],
+
+    // Modern syntax over its older spelling.
+    "arrow-body-style": "error",
+    "no-useless-computed-key": "error",
+    "no-var": "error",
+    "object-shorthand": "error",
+    "operator-assignment": "error",
+    "prefer-arrow-callback": "error",
+    "prefer-const": ["error", { "ignoreReadBeforeAssign": true }],
+    "prefer-exponentiation-operator": "error",
+    "prefer-object-has-own": "error",
+    "prefer-object-spread": "error",
+    "prefer-rest-params": "error",
+    "prefer-spread": "error",
+    "prefer-template": "error",
+    "import/no-duplicates": "error",
+    "typescript/array-type": "error",
+    "typescript/consistent-indexed-object-style": "error",
+    "typescript/dot-notation": "error",
+    "typescript/no-empty-object-type": "error",
+    "typescript/no-inferrable-types": "error",
+    "typescript/no-namespace": "error",
+    "typescript/prefer-find": "error",
+    "typescript/prefer-function-type": "error",
+    "typescript/prefer-includes": "error",
+    // `||` is how an empty string or a `false` falls through to the next operand.
+    "typescript/prefer-nullish-coalescing": ["error", { "ignorePrimitives": { "string": true, "boolean": true } }],
+    "typescript/prefer-string-starts-ends-with": "error",
+    "unicorn/prefer-at": "error",
+    "unicorn/prefer-number-properties": "error",
+    "unicorn/prefer-string-replace-all": "error",
+    "unicorn/prefer-structured-clone": "error",
+    "unicorn/throw-new-error": "error",
+
+    "react/button-has-type": "error",
+    "react/jsx-boolean-value": "error",
+    "react/jsx-curly-brace-presence": ["error", { "props": "never", "children": "never" }],
+    "react/jsx-fragments": "error",
+    "react/jsx-no-useless-fragment": ["error", { "allowExpressions": true }],
+    "react/self-closing-comp": "error",
+    "react/rules-of-hooks": "error",
+
+    // Type-aware rules beyond the categories. `correctness` brings the promise rules
+    // (`no-floating-promises`, `await-thenable`).
+    "typescript/no-deprecated": "error",
+    // React drops a handler's promise.
+    "typescript/no-misused-promises": ["error", { "checksVoidReturn": { "attributes": false } }],
+    "typescript/no-misused-spread": "error",
+    "typescript/prefer-promise-reject-errors": "error",
+    "typescript/prefer-reduce-type-parameter": "error",
+    "typescript/related-getter-setter-pairs": "error",
+    "typescript/restrict-plus-operands": "error",
+    // A switch lists every member of its union or ends in a `default`.
+    "typescript/switch-exhaustiveness-check": [
+      "error",
+      { "considerDefaultExhaustiveForUnions": true, "requireDefaultForNonUnion": true }
+    ],
+    "typescript/use-unknown-in-catch-callback-variable": "error",
+
+    // Log lines and Kubernetes names are attacker-controlled text; nothing renders them as HTML.
+    "react/no-danger": "error"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "src/test-utils.tsx", "vitest.setup.ts"],
+      "rules": {
+        // A test's provider renders once; a stable value would buy it nothing.
+        "react/jsx-no-constructed-context-values": "off",
+        "react/no-object-type-as-default-prop": "off",
+        // A helper sits in the `describe` that uses it.
+        "unicorn/consistent-function-scoping": "off",
+        // `expect(mock.method)` references a method that never reads `this`.
+        "typescript/unbound-method": "off"
+      }
+    }
+  ]
+}

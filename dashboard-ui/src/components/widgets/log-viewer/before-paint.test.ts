@@ -35,7 +35,7 @@ describe('useBeforePaint', () => {
     });
 
     const mockCallback = vi.fn();
-    result.current(mockCallback);
+    void result.current(mockCallback);
 
     expect(mockCallback).not.toHaveBeenCalled();
 
@@ -61,9 +61,9 @@ describe('useBeforePaint', () => {
       callOrder.push(3);
     });
 
-    result.current(mockCallback1);
-    result.current(mockCallback2);
-    result.current(mockCallback3);
+    void result.current(mockCallback1);
+    void result.current(mockCallback2);
+    void result.current(mockCallback3);
 
     expect(mockCallback1).not.toHaveBeenCalled();
     expect(mockCallback2).not.toHaveBeenCalled();
@@ -83,7 +83,7 @@ describe('useBeforePaint', () => {
     });
 
     const mockCallback = vi.fn();
-    result.current(mockCallback);
+    void result.current(mockCallback);
 
     rerender({ trigger: 1 });
 
@@ -102,7 +102,7 @@ describe('useBeforePaint', () => {
     });
 
     const mockCallback = vi.fn();
-    result.current(mockCallback);
+    void result.current(mockCallback);
 
     rerender({ trigger: 0 });
 
@@ -127,7 +127,7 @@ describe('useBeforePaint', () => {
     });
 
     const mockCallback1 = vi.fn();
-    result.current(mockCallback1);
+    void result.current(mockCallback1);
 
     rerender({ trigger: 1 });
 
@@ -135,7 +135,7 @@ describe('useBeforePaint', () => {
 
     // Add a new callback and trigger again
     const mockCallback2 = vi.fn();
-    result.current(mockCallback2);
+    void result.current(mockCallback2);
 
     rerender({ trigger: 2 });
 
@@ -149,7 +149,7 @@ describe('useBeforePaint', () => {
     });
 
     const mockCallback = vi.fn();
-    result.current(mockCallback);
+    void result.current(mockCallback);
 
     rerender({ trigger: { id: 2 } });
 
@@ -165,8 +165,8 @@ describe('useBeforePaint', () => {
     const mockCallback2 = vi.fn();
 
     // Add multiple callbacks before triggering
-    result.current(mockCallback1);
-    result.current(mockCallback2);
+    void result.current(mockCallback1);
+    void result.current(mockCallback2);
 
     rerender({ trigger: 1 });
 
@@ -181,7 +181,9 @@ describe('useBeforePaint', () => {
 
     const callbacks = Array.from({ length: 100 }, () => vi.fn());
 
-    callbacks.forEach((cb) => result.current(cb));
+    callbacks.forEach((cb) => {
+      void result.current(cb);
+    });
 
     rerender({ trigger: 1 });
 
@@ -198,7 +200,7 @@ describe('useBeforePaint', () => {
     const mockCallback = vi.fn();
 
     // Queue immediately after mount
-    result.current(mockCallback);
+    void result.current(mockCallback);
 
     // Trigger the effect
     rerender({ trigger: 1 });

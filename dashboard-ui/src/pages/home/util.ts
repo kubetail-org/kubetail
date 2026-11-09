@@ -105,7 +105,7 @@ export function useLogFileInfo(kubeContext: KubeContext, uids: string[]) {
         const v = metadata[containerID];
 
         if (v?.size) {
-          fileInfo.size += parseInt(v.size, 10);
+          fileInfo.size += Number.parseInt(v.size, 10);
         }
 
         if (v?.lastModifiedAt) {

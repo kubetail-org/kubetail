@@ -17,7 +17,7 @@
  */
 
 function camelCaseToUpperCaseWithUnderscores(input: string) {
-  return input.replace(/([A-Z])/g, '_$1').toUpperCase();
+  return input.replaceAll(/([A-Z])/g, '_$1').toUpperCase();
 }
 
 /**

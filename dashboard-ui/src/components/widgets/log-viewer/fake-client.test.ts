@@ -69,7 +69,7 @@ describe('FakeClient', () => {
       const result = await client.fetchSince({ limit: lineCount + 100 });
       expect(result.records.length).toBe(lineCount);
       expect(result.records[0].message).toBe('line 0');
-      expect(result.records[result.records.length - 1].message).toBe(`line ${lineCount - 1}`);
+      expect(result.records.at(-1)?.message).toBe(`line ${lineCount - 1}`);
       expect(result.nextCursor).toEqual(null);
     });
   });
@@ -120,7 +120,7 @@ describe('FakeClient', () => {
       // Should get lines 0 through 49
       expect(result.records.length).toBe(INITIAL_LINE_COUNT);
       expect(result.records[0].message).toBe('line 0');
-      expect(result.records[result.records.length - 1].message).toBe(`line ${lineCount - 1}`);
+      expect(result.records.at(-1)?.message).toBe(`line ${lineCount - 1}`);
       expect(result.nextCursor).toEqual(null);
     });
   });

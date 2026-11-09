@@ -60,6 +60,7 @@ export async function getSession(): Promise<Session> {
   sess.timestamp = new Date(sess.timestamp);
 
   // publish
+  // oxlint-disable-next-line unicorn/require-post-message-target-origin -- A BroadcastChannel takes no origin.
   bcOut.postMessage(sess);
 
   return sess;
@@ -71,15 +72,13 @@ export function resetCsrfToken(): void {
 
 export function waitForCsrfToken(): Promise<void> {
   if (csrfToken) return Promise.resolve();
-  if (!pendingTokenRefresh) {
-    pendingTokenRefresh = getSession()
-      .then(() => {
-        if (!csrfToken) throw new Error('CSRF token missing from session response');
-      })
-      .finally(() => {
-        pendingTokenRefresh = null;
-      });
-  }
+  pendingTokenRefresh ??= getSession()
+    .then(() => {
+      if (!csrfToken) throw new Error('CSRF token missing from session response');
+    })
+    .finally(() => {
+      pendingTokenRefresh = null;
+    });
   return pendingTokenRefresh;
 }
 
@@ -113,13 +112,16 @@ export const SessionProvider = ({ children }: React.PropsWithChildren) => {
       }
     };
     bcIn.addEventListener('message', fn);
-    getSession();
+    void getSession();
     return () => bcIn.removeEventListener('message', fn);
   }, []);
 
   useEffect(() => {
-    document.addEventListener('visibilitychange', getSession);
-    return () => document.removeEventListener('visibilitychange', getSession);
+    const onVisibilityChange = () => {
+      void getSession();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, []);
 
   const context = useMemo(() => ({ session }), [session]);

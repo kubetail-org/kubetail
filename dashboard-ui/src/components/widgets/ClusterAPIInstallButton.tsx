@@ -15,7 +15,7 @@
 import { useMutation } from '@apollo/client/react';
 import { CirclePlus } from 'lucide-react';
 import { useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 
 import { Button } from '@kubetail/ui/elements/button';
 import { Spinner } from '@kubetail/ui/elements/spinner';
@@ -45,7 +45,7 @@ const InstallButton = ({ kubeContext }: InstallButtonProps) => {
     }
   };
 
-  const label = clicked && installMutation.loading === false ? 'Waiting' : 'Install';
+  const label = clicked && !installMutation.loading ? 'Waiting' : 'Install';
 
   return (
     <Button variant="outline" size="sm" onClick={handleClick} disabled={clicked}>

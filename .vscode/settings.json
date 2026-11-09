@@ -1,0 +1,15 @@
+{
+  "editor.formatOnSave": true,
+  // oxfmt formats whole files; the default mode can ask for modified lines only, which it cannot answer.
+  "editor.formatOnSaveMode": "file",
+  // Each language uses the formatter CI checks: oxfmt for TypeScript and CSS (`pnpm lint`),
+  // gofmt and rustfmt for Go and Rust.
+  "[typescript]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[typescriptreact]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[css]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[go]": { "editor.defaultFormatter": "golang.go" },
+  "[rust]": { "editor.defaultFormatter": "rust-lang.rust-analyzer" },
+  // The formatter options live in dashboard-ui/.oxfmtrc.json. Prettier would format at its own
+  // defaults (80 columns, double quotes) and churn every file it touched.
+  "prettier.enable": false
+}

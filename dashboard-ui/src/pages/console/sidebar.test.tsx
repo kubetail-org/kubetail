@@ -19,8 +19,8 @@ import { MemoryRouter } from 'react-router-dom';
 import type { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { Counter } from '@/lib/util';
 
-import { Sidebar, generateMapKey, parseSourceArg } from './sidebar';
 import { PageContext } from './shared';
+import { Sidebar, generateMapKey, parseSourceArg } from './sidebar';
 import { sourceMapAtom } from './state';
 
 // Mock useFacets hook from helpers
@@ -470,11 +470,11 @@ describe('parseSourceArg logic', () => {
   });
 
   it('rejects invalid format missing namespace', () => {
-    expect(() => parseSourceArg('deployments/nginx')).toThrow();
+    expect(() => parseSourceArg('deployments/nginx')).toThrow('Invalid input format');
   });
 
   it('rejects invalid format missing workload type', () => {
-    expect(() => parseSourceArg('default:nginx')).toThrow();
+    expect(() => parseSourceArg('default:nginx')).toThrow('Invalid input format');
   });
 });
 

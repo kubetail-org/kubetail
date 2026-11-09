@@ -19,8 +19,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 
 import { Button } from '@kubetail/ui/elements/button';
-import { Input } from '@kubetail/ui/elements/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@kubetail/ui/elements/form';
+import { Input } from '@kubetail/ui/elements/input';
 import { Spinner } from '@kubetail/ui/elements/spinner';
 
 import ModalLayout from '@/components/layouts/ModalLayout';
@@ -48,7 +48,7 @@ export default function LoginPage() {
 
   // redirect if login status changes
   useEffect(() => {
-    if (!loading && session?.user !== null) navigate(searchParams.get('callbackUrl') || '/');
+    if (!loading && session?.user !== null) void navigate(searchParams.get('callbackUrl') || '/');
   }, [loading, session?.user]);
 
   if (!session) return <LoadingPage />;

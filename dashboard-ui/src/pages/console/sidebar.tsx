@@ -165,7 +165,7 @@ const SidebarWorkloads = () => {
       <div className="space-y-2">
         {ALL_WORKLOAD_KINDS.map((kind) => {
           const objs = workloadMap.get(kind);
-          if (!objs) return;
+          if (!objs) return null;
 
           const vals = Array.from(objs.values());
           vals.sort((a, b) => a.name.localeCompare(b.name));
@@ -210,13 +210,13 @@ const SidebarWorkloads = () => {
 type ContainersProps = {
   namespace: string;
   podName: string;
-  containerNames?: string[];
+  containerNames: string[];
 };
 
-const Containers = ({ namespace, podName, containerNames = [] }: ContainersProps) => {
+const Containers = ({ namespace, podName, containerNames }: ContainersProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const sortedContainerNames = useMemo(() => containerNames.sort(), [containerNames]);
+  const sortedContainerNames = useMemo(() => containerNames.toSorted(), [containerNames]);
 
   const handleToggle = useCallback(
     (name: string, value: string, checked: boolean) => {
@@ -312,7 +312,7 @@ const SidebarPodsAndContainers = () => {
       groupMap.get(k)?.addContainer(source.containerName);
     });
 
-    return Array.from(groupMap.values()).sort((a, b) => {
+    return Array.from(groupMap.values()).toSorted((a, b) => {
       const keyA = `${a.namespace}/${a.podName}`;
       const keyB = `${b.namespace}/${b.podName}`;
       return keyA.localeCompare(keyB);

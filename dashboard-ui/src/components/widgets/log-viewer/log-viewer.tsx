@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/* eslint-disable no-param-reassign */
+/* oxlint-disable no-param-reassign -- The hooks here share refs through `Runtime` and write to them. */
 
+import { useVirtualizer, elementScroll } from '@tanstack/react-virtual';
+import type { Virtualizer } from '@tanstack/react-virtual';
 import {
   forwardRef,
   useCallback,
@@ -25,8 +27,6 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { useVirtualizer, elementScroll } from '@tanstack/react-virtual';
-import type { Virtualizer } from '@tanstack/react-virtual';
 
 import { cn } from '@/lib/util';
 
@@ -231,7 +231,6 @@ export function useRecordStore({ recordsRef, setCount }: RecordStoreOptions): Re
 export const useInit = ({ client, config, refs, actions, services }: Runtime) => {
   const isInitializedRef = useRef(false);
 
-  // eslint-disable-next-line react-hooks/immutability -- refs are shared via Runtime, not truly immutable args
   useEffect(() => {
     if (isInitializedRef.current) return;
     isInitializedRef.current = true;
@@ -247,7 +246,6 @@ export const useInit = ({ client, config, refs, actions, services }: Runtime) =>
             services.recordStore.new(result.records, { zeroAt: 'first' });
           }
 
-          // eslint-disable-next-line react-hooks/immutability -- refs are shared via Runtime, not truly immutable args
           refs.isAutoScrollEnabled.current = false;
 
           break;
@@ -321,7 +319,7 @@ export const useInit = ({ client, config, refs, actions, services }: Runtime) =>
     actions.setIsLoading(true);
 
     initFn()
-      .catch((error) => {
+      .catch((error: unknown) => {
         // Log error but don't throw - allow the UI to continue functioning
         console.error('Failed to load records:', error);
       })
@@ -418,7 +416,7 @@ export const useLoadMore = (runtime: Runtime) => {
       if (virtualizerRange.startIndex <= config.loadMoreThreshold - config.overscan) {
         isLoadingBeforeRef.current = true;
         loadMoreBefore()
-          .catch((error) => {
+          .catch((error: unknown) => {
             // Log error but don't throw - allow the UI to continue functioning
             console.error('Failed to load more records before:', error);
           })
@@ -434,7 +432,7 @@ export const useLoadMore = (runtime: Runtime) => {
       if (virtualizerRange.endIndex >= getCount() - 1 - config.loadMoreThreshold + config.overscan) {
         isLoadingAfterRef.current = true;
         loadMoreAfter()
-          .catch((error) => {
+          .catch((error: unknown) => {
             // Log error and allow the UI to continue functioning
             console.error('Failed to load more records after:', error);
           })
@@ -481,7 +479,7 @@ export const useFollowFromEnd = ({ client, config, state, refs, services }: Runt
 
       // Scroll to bottom if auto-scroll enabled
       if (refs.isAutoScrollEnabled.current) {
-        services.beforePaint(() => {
+        void services.beforePaint(() => {
           if (scrollElement) scrollElement.scrollTop = scrollElement.scrollHeight;
         });
       }
@@ -492,7 +490,7 @@ export const useFollowFromEnd = ({ client, config, state, refs, services }: Runt
 
     const cb = (record: LogRecord) => {
       pendingRecords.push(record);
-      if (rafID === null) rafID = requestAnimationFrame(flush);
+      rafID ??= requestAnimationFrame(flush);
     };
 
     const after = services.recordStore.last()?.cursor ?? 'BEGINNING';
@@ -604,7 +602,7 @@ export const usePullToRefresh = (runtime: Runtime) => {
         actions.setIsRefreshing(true);
 
         loadMoreAfter()
-          .catch((error) => {
+          .catch((error: unknown) => {
             // Log error and allow the UI to continue functioning
             console.error('Failed to refresh records:', error);
           })
@@ -658,7 +656,7 @@ export const LogViewerInner = ({
   ...other
 }: LogViewerInnerProps) => {
   const internalScrollElRef = useRef<HTMLDivElement>(null);
-  const scrollElRef = externalScrollElRef || internalScrollElRef;
+  const scrollElRef = externalScrollElRef ?? internalScrollElRef;
 
   const [count, setCount] = useState(0);
 
@@ -695,7 +693,6 @@ export const LogViewerInner = ({
     });
   }, []);
 
-  // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer returns unmemoizable values (TanStack limitation)
   const virtualizer = useVirtualizer({
     count,
     getScrollElement: () => scrollElRef.current,
@@ -995,7 +992,7 @@ export const LogViewer = forwardRef<LogViewerHandle, LogViewerProps>(
 function createLogViewerStore(handle: LogViewerHandle | null) {
   if (handle) return { subscribe: handle.subscribe, getSnapshot: handle.getSnapshot };
   return {
-    subscribe: (_: () => void) => () => {},
+    subscribe: () => () => {},
     getSnapshot: () => LOG_VIEWER_INITIAL_STATE,
   };
 }

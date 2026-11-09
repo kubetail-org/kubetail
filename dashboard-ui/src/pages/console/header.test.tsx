@@ -220,7 +220,7 @@ describe('Header', () => {
 
     // Message must be last in the visible columns set
     const cols = [...store.get(visibleColsAtom)];
-    expect(cols[cols.length - 1]).toBe(ViewerColumn.Message);
+    expect(cols.at(-1)).toBe(ViewerColumn.Message);
   });
 
   it('keeps columns in ALL_VIEWER_COLUMNS order regardless of click order', async () => {

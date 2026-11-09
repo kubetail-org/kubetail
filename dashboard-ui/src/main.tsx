@@ -24,6 +24,7 @@ import { PreferencesProvider } from '@/lib/preferences';
 import { ThemeEffect } from '@/lib/theme';
 import { UpdateNotificationProvider } from '@/lib/update-notifications';
 import { getBasename } from '@/lib/util';
+
 import { routes } from './routes';
 
 import './index.css';

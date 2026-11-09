@@ -60,8 +60,11 @@ cd dashboard-ui
 # Install dependencies 
 pnpm install
 
-# Run linter
+# Run linter and format check
 pnpm lint
+
+# Format code and sort imports
+pnpm format
 
 # Run tests
 pnpm test run
@@ -198,9 +201,11 @@ The repo's `.claude/settings.json` runs `scripts/writing-standards-hook.sh` on e
 ### Visual Studio Code
 
 Recommended extensions (also listed in `.vscode/extensions.json`):
-- **Oxc**: `oxc.oxc-vscode`
+- **Oxc**: `oxc.oxc-vscode`, which runs oxlint and oxfmt for the dashboard UI
 - **Rust**: `rust-lang.rust-analyzer`
 - **Go**: `golang.go`
+
+`.vscode/settings.json` formats on save with each language's formatter and turns Prettier off.
 
 ## Bots and Automation
 

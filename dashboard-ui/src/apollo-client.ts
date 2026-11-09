@@ -17,9 +17,9 @@ import { CombinedGraphQLErrors, CombinedProtocolErrors } from '@apollo/client/er
 import { ErrorLink } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
-import { ClientOptions, createClient } from 'graphql-ws';
 import { getOperationAST, OperationTypeNode } from 'graphql';
-import toast from 'react-hot-toast';
+import { ClientOptions, createClient } from 'graphql-ws';
+import { toast } from 'react-hot-toast';
 
 import appConfig from '@/app-config';
 import { waitForCsrfToken, getCsrfToken, resetCsrfToken } from '@/lib/auth';
@@ -63,14 +63,14 @@ const createRetryWait = (basepath: string) => {
   return async () => {
     let healthy = false;
     while (!healthy) {
-      // eslint-disable-next-line no-await-in-loop
+      // oxlint-disable-next-line no-await-in-loop -- Each retry waits for the one before it.
       await waitUntilVisible();
 
-      // eslint-disable-next-line no-await-in-loop
+      // oxlint-disable-next-line no-await-in-loop -- Each retry waits for the one before it.
       await waitUntilOnline();
 
       try {
-        // eslint-disable-next-line no-await-in-loop
+        // oxlint-disable-next-line no-await-in-loop -- Each retry waits for the one before it.
         const response = await fetch(healthzUrl, { signal: AbortSignal.timeout(HEALTHZ_TIMEOUT_MS) });
         if (response.ok) healthy = true;
       } catch {
@@ -78,7 +78,7 @@ const createRetryWait = (basepath: string) => {
       }
 
       if (!healthy) {
-        // eslint-disable-next-line no-await-in-loop
+        // oxlint-disable-next-line no-await-in-loop -- Each retry waits for the one before it.
         await sleep(HEALTHZ_RETRY_DELAY_MS);
       }
     }
@@ -150,7 +150,7 @@ const csrfLink = new ApolloLink((operation, forward) => {
         if (tok) setHeader(tok);
         innerSub = forward(operation).subscribe(subscriber);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         if (!cancelled) subscriber.error(err);
       });
 
