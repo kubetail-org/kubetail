@@ -181,7 +181,7 @@ func (r *Resolver) kubernetesAPIHealthzGet(ctx context.Context, kubeContext stri
 	// Get client
 	clientset, err := r.cm.GetOrCreateClientset(kubeContext)
 	if err != nil {
-		resp.Message = ptr.To(err.Error())
+		resp.Message = new(err.Error())
 		return resp
 	}
 
@@ -192,9 +192,9 @@ func (r *Resolver) kubernetesAPIHealthzGet(ctx context.Context, kubeContext stri
 	_, err = clientset.CoreV1().RESTClient().Get().AbsPath("/livez").DoRaw(ctx)
 	if err != nil {
 		if ctx.Err() != nil {
-			resp.Message = ptr.To("Bad Gateway")
+			resp.Message = new("Bad Gateway")
 		} else {
-			resp.Message = ptr.To(err.Error())
+			resp.Message = new(err.Error())
 		}
 		return resp
 	}

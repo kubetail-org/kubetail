@@ -287,8 +287,7 @@ func TestStreamHead(t *testing.T) {
 			cm.On("GetDefaultNamespace", mock.Anything).Return("default")
 
 			// Create stream
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := t.Context()
 
 			opts := []Option{
 				WithSince(tt.setSinceTime),
@@ -450,8 +449,7 @@ func TestStreamTail(t *testing.T) {
 			cm.On("GetDefaultNamespace", mock.Anything).Return("default")
 
 			// Create stream
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := t.Context()
 
 			opts := []Option{
 				WithSince(tt.setSinceTime),
@@ -1016,8 +1014,7 @@ func TestStreamErrorHandling(t *testing.T) {
 		cm.On("GetDefaultNamespace", mock.Anything).Return("default")
 
 		// Create the stream
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		stream, err := NewStream(ctx, cm, []string{}, WithHead(10))
 		require.NoError(t, err)
@@ -1072,8 +1069,7 @@ func TestStreamErrorHandling(t *testing.T) {
 		cm.On("GetDefaultNamespace", mock.Anything).Return("default")
 
 		// Create the stream
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		stream, err := NewStream(ctx, cm, []string{}, WithHead(10))
 		require.NoError(t, err)
@@ -1125,8 +1121,7 @@ func TestStreamErrorHandling(t *testing.T) {
 		cm.On("GetDefaultNamespace", mock.Anything).Return("default")
 
 		// Create the stream
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		stream, err := NewStream(ctx, cm, []string{}, WithTail(10))
 		require.NoError(t, err)
@@ -1178,8 +1173,7 @@ func TestStreamErrorHandling(t *testing.T) {
 		cm.On("GetDefaultNamespace", mock.Anything).Return("default")
 
 		// Create the stream
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		stream, err := NewStream(ctx, cm, []string{}, WithFollow(true))
 		require.NoError(t, err)

@@ -30,8 +30,6 @@ import (
 	"github.com/kubetail-org/kubetail/modules/shared/versioncheck"
 )
 
-func ptr[T any](v T) *T { return &v }
-
 func TestReadWriteCLICache_RoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "cli-update-check.json")
@@ -87,7 +85,7 @@ func TestReadWriteHelmCache_RoundTrip(t *testing.T) {
 		FetchedAt:     &fetchedAt,
 		Clusters: map[string]ClusterCacheEntry{
 			"ctx-a": {CurrentVersion: "0.9.0", FetchedAt: &fetchedAt},
-			"ctx-b": {CurrentVersion: "1.0.0", FetchedAt: ptr(fetchedAt - 1000)},
+			"ctx-b": {CurrentVersion: "1.0.0", FetchedAt: new(fetchedAt - 1000)},
 		},
 	}
 
