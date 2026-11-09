@@ -1,10 +1,16 @@
-# dorny/paths-filter's filters, read by ci.yml's and codeql.yml's Changes jobs.
-# A pull request runs a group's jobs only when a path in it changed. A change
-# to how CI runs (shared) runs every language.
+# dorny/paths-filter's filters, read by the Changes jobs of ci.yml, codeql.yml
+# and coverage.yml. A pull request runs a group's jobs, and measures its
+# coverage, only when a path in it changed, so the two cannot drift: a path
+# that ran the tests but not the coverage would pass its changed lines as "0 of
+# 0 covered". A change to how CI runs or measures (shared) runs every language.
 shared: &shared
   - .github/actions/setup-environment/**
   - .github/ci-config/path-filters.yml
+  - .github/codecov.yml
   - .github/workflows/ci.yml
+  - .github/workflows/coverage.yml
+  - scripts/check-coverage-markers.sh
+  - tools/**
 go:
   - *shared
   - Makefile

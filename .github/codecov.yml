@@ -1,0 +1,51 @@
+# Coverage. CI uploads each suite's report and Codecov merges every upload of
+# a commit. CI's Coverage · Gate job (tools/coveragegate) reads the merged
+# result and applies the gate, so Codecov posts no status or check of its own.
+
+coverage:
+  status:
+    patch: false
+    project: false
+
+github_checks: false
+
+# A language whose jobs the path filter skipped keeps its last report.
+flag_management:
+  default_rules:
+    carryforward: true
+
+# One number per language in Codecov's view of a commit.
+component_management:
+  individual_components:
+    - component_id: go
+      name: Go
+      paths:
+        - modules/**
+    - component_id: typescript
+      name: TypeScript
+      paths:
+        - dashboard-ui/**
+    - component_id: rust
+      name: Rust
+      paths:
+        - crates/**
+
+# No comment on the PR: Coverage · Gate reports.
+comment: false
+
+# A Go profile names files by import path.
+fixes:
+  - "github.com/kubetail-org/kubetail/::"
+
+ignore:
+  # Generated.
+  - modules/*/graph/generated.go
+  - modules/*/graph/model/models_gen.go
+  - modules/shared/clusteragentpb/**
+  - modules/shared/testpb/**
+  - dashboard-ui/src/lib/graphql/*/__generated__/**
+  # Test helpers.
+  - modules/**/mock/**
+  - modules/shared/testutils/**
+  - dashboard-ui/src/mocks/**
+  - dashboard-ui/src/test-utils.tsx
