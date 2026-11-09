@@ -24,9 +24,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// removedTLSKeys are config keys we used to honor but no longer accept. We
-// surface a targeted error instead of silently ignoring them so operators
-// notice the migration. See PR description for the rationale.
+// removedTLSKeys are config keys that are refused with an error naming the
+// key, rather than ignored.
 var removedTLSKeys = []string{
 	"cluster-agent.tls.enabled",
 	"tls.client-auth-type",

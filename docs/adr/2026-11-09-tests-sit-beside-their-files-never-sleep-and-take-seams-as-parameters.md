@@ -17,7 +17,7 @@ The rules were written down in two steps. #1047 (April 2026) added "never use `t
 
 ## Decision
 
-The root `CLAUDE.md`, *Testing conventions*, holds the rules. Every test file sits beside the file it covers. No test waits on the wall clock for asynchronous state: Go waits on a channel or uses `require.Eventually`, TypeScript uses fake timers or `waitFor`, and Rust awaits the unit's own signal under `tokio::time::timeout`. Two bounded waits are allowed and say so: a negative assertion, and latency injected into a fake on purpose. A timing-dependent unit takes its pace as a parameter. A test seam is a parameter or a field, never a swapped package variable or a global mode. A platform-specific Go test goes in a platform-named file with a build constraint, never behind a `runtime.GOOS` check.
+The root `CLAUDE.md`, *Testing conventions*, holds the rules, and each area's guide says how its language follows them. Every test file sits beside the file it covers. No test waits on the wall clock for asynchronous state: Go waits on a channel or uses `require.Eventually`, TypeScript uses fake timers or `waitFor`, and Rust awaits the unit's own signal under `tokio::time::timeout`. Two bounded waits are allowed and say so: a negative assertion, and latency injected into a fake on purpose. A timing-dependent unit takes its pace as a parameter. A test seam is a parameter or a field, never a swapped package variable or a global mode. A platform-specific Go test goes in a platform-named file with a build constraint, never behind a `runtime.GOOS` check.
 
 ## Alternatives considered
 
