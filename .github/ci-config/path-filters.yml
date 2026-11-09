@@ -1,6 +1,6 @@
-# dorny/paths-filter's filters, read by ci.yml's Changes job. A pull request
-# runs a group's jobs only when a path in it changed. A change to how CI runs
-# (shared) runs every language.
+# dorny/paths-filter's filters, read by ci.yml's and codeql.yml's Changes jobs.
+# A pull request runs a group's jobs only when a path in it changed. A change
+# to how CI runs (shared) runs every language.
 shared: &shared
   - .github/actions/setup-environment/**
   - .github/ci-config/path-filters.yml
@@ -35,3 +35,11 @@ yaml:
   - tools/go.mod
   - '**/*.yml'
   - '**/*.yaml'
+# codeql.yml's alone. A change to codeql.yml analyzes every language.
+codeql:
+  - .github/workflows/codeql.yml
+python:
+  - e2e/**
+actions:
+  - .github/actions/**
+  - .github/workflows/**

@@ -1,0 +1,280 @@
+name: codeql
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+# A PR's new push cancels its last run. Every other run has a group of its own,
+# so a run on main is never cancelled, which would leave main without a
+# baseline for Reuse base.
+concurrency:
+  group: codeql-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Only main saves the Go and Rust caches, and Caches · Prune keeps the newest
+  # of each. A PR saving its own copy would push the repo past its cache limit.
+  CACHE_SAVE: ${{ github.ref == 'refs/heads/main' }}
+
+jobs:
+  # GitHub starts push and schedule runs in forks too. Outside
+  # kubetail-org/kubetail this job runs only for a PR or a dispatch, and every
+  # other job needs it, so a fork's automatic run skips whole. A job whose
+  # `if:` runs past a skipped need (`always()`) checks that Changes succeeded.
+  fork-gate:
+    name: Fork gate
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-slim
+    steps:
+      - run: "true"
+
+  # A pull request analyzes a language only when a path it reads changed. A
+  # push, the schedule or a dispatch analyzes them all, so main's baseline
+  # stays complete.
+  changes:
+    name: Changes
+    needs: fork-gate
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      go: ${{ github.event_name != 'pull_request' || steps.filter.outputs.codeql == 'true' || steps.filter.outputs.go == 'true' }}
+      rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.codeql == 'true' || steps.filter.outputs.rust == 'true' }}
+      typescript: ${{ github.event_name != 'pull_request' || steps.filter.outputs.codeql == 'true' || steps.filter.outputs.typescript == 'true' }}
+      python: ${{ github.event_name != 'pull_request' || steps.filter.outputs.codeql == 'true' || steps.filter.outputs.python == 'true' }}
+      actions: ${{ github.event_name != 'pull_request' || steps.filter.outputs.codeql == 'true' || steps.filter.outputs.actions == 'true' }}
+      skipped: ${{ steps.skipped.outputs.categories || '[]' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: .github/ci-config/path-filters.yml
+
+      # The category of every analysis the pull request skips, for Reuse base's
+      # matrix.
+      - id: skipped
+        if: github.event_name == 'pull_request'
+        env:
+          CHANGED: ${{ toJSON(steps.filter.outputs) }}
+        run: |
+          jq -c 'if .codeql == "true" then [] else [
+            (select(.go != "true") | {category: "/language:go"}),
+            (select(.rust != "true") | {category: "/language:rust"}),
+            (select(.typescript != "true") | {category: "/language:javascript-typescript"}),
+            (select(.python != "true") | {category: "/language:python"}),
+            (select(.actions != "true") | {category: "/language:actions"})
+          ] end' <<<"$CHANGED" | sed 's/^/categories=/' >> "$GITHUB_OUTPUT"
+
+  go:
+    name: CodeQL · Go
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: setup
+        uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          go-cache-key: codeql-ubuntu-24.04
+      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: go
+          build-mode: manual
+      - name: Build modules
+        working-directory: ./modules
+        run: go build ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:go
+      # Last, so a failed job leaves the last good cache the newest.
+      - name: Save Go cache
+        if: env.CACHE_SAVE == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.go-cache-path }}
+          key: ${{ steps.setup.outputs.go-cache-key }}
+
+  # The extractor runs build.rs, so the job needs protoc to generate the gRPC
+  # code from proto/.
+  rust:
+    name: CodeQL · Rust
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          setup-protoc: "true"
+          rust-cache-key: codeql-ubuntu-24.04
+          cache-save: ${{ env.CACHE_SAVE }}
+      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: rust
+          build-mode: none
+      # The extractor's cargo check builds into a fresh scratch directory
+      # unless told otherwise; this is the one the Rust cache restores.
+      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        env:
+          CODEQL_EXTRACTOR_RUST_OPTION_CARGO_TARGET_DIR: ${{ github.workspace }}/crates/target
+        with:
+          category: /language:rust
+
+  typescript:
+    name: CodeQL · TypeScript
+    needs: changes
+    if: needs.changes.outputs.typescript == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: javascript-typescript
+          build-mode: none
+      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:javascript-typescript
+
+  python:
+    name: CodeQL · Python
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: python
+          build-mode: none
+      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:python
+
+  actions:
+    name: CodeQL · Actions
+    needs: changes
+    if: needs.changes.outputs.actions == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: actions
+          build-mode: none
+      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:actions
+
+  # Leaves one copy of each cache on main, the newest. It runs after the Rust
+  # job because rust-cache saves in a post step.
+  cache-prune:
+    name: Caches · Prune
+    needs:
+      - changes
+      - go
+      - rust
+    if: always() && needs.changes.result == 'success' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions/prune-caches
+      - uses: ./.github/actions/prune-caches
+
+  # A skipped category's files are unchanged, so uploading the base branch's
+  # analysis under it lets code scanning still compare the pull request to its
+  # base, and find nothing new or fixed there. An empty SARIF would instead
+  # show the base's open alerts as fixed.
+  #
+  # It uploads after the real analyses: code scanning grades the check when
+  # uploads first arrive and reports any category still missing as not found.
+  #
+  # The name leaves out the matrix so a skipped job, whose matrix GitHub never
+  # expands, shows plain text; GitHub appends each entry's values to it.
+  reuse-base:
+    name: CodeQL · Reuse base
+    needs:
+      - changes
+      - go
+      - rust
+      - typescript
+      - python
+      - actions
+    if: always() && needs.changes.result == 'success' && needs.changes.outputs.skipped != '[]'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.skipped) }}
+    steps:
+      - name: Download the base branch's analysis
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CATEGORY: ${{ matrix.category }}
+        run: |
+          # A cancelled run records a failed analysis, which has no SARIF.
+          id=$(gh api "repos/$GITHUB_REPOSITORY/code-scanning/analyses?ref=refs/heads/$GITHUB_BASE_REF&tool_name=CodeQL&per_page=100" \
+            --jq "[.[] | select(.category == \"$CATEGORY\" and .error == \"\")][0].id")
+          if [ -z "$id" ] || [ "$id" = null ]; then
+            echo "::error::$GITHUB_BASE_REF has no successful CodeQL analysis for $CATEGORY; run codeql.yml on it"
+            exit 1
+          fi
+          gh api -H "Accept: application/sarif+json" \
+            "repos/$GITHUB_REPOSITORY/code-scanning/analyses/$id" > "$RUNNER_TEMP/base.sarif"
+      - uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          sarif_file: ${{ runner.temp }}/base.sarif
+          category: ${{ matrix.category }}
