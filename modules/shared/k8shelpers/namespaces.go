@@ -23,7 +23,7 @@ import (
 )
 
 // Use this ptr to bypass namespace checks
-var BypassNamespaceCheck = ptr.To("")
+var BypassNamespaceCheck = new("")
 
 // Dereference `namespace` argument and check that it is allowed
 func DerefNamespace(allowedNamespaces []string, namespace *string, defaultNamespace string) (string, error) {

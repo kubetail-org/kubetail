@@ -27,7 +27,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	authv1 "k8s.io/api/authentication/v1"
-	"k8s.io/utils/ptr"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/testutils"
@@ -198,8 +197,8 @@ func (suite *authTestSuite) TestSessionGET() {
 		wantLoggedOutUser *string
 		wantLoggedInUser  *string
 	}{
-		{"auto", config.AuthModeAuto, ptr.To("auto"), ptr.To("auto")},
-		{"token", config.AuthModeToken, nil, ptr.To("user-xxx")},
+		{"auto", config.AuthModeAuto, new("auto"), new("auto")},
+		{"token", config.AuthModeToken, nil, new("user-xxx")},
 	}
 
 	for _, tt := range tests {

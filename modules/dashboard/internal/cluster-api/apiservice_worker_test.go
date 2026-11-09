@@ -146,6 +146,7 @@ func TestNewAPIServiceWorker_FiltersByName(t *testing.T) {
 	target := newAPIService(APIServiceName, "uid-target", availableCond(apiregistrationv1.ConditionTrue))
 	other := newAPIService("v1.other.example.com", "uid-other", availableCond(apiregistrationv1.ConditionFalse))
 
+	//lint:ignore SA1019 the kube-aggregator fake has no NewClientset
 	client := aggregatorfake.NewSimpleClientset(target, other)
 	w, err := newAPIServiceHealthMonitorWorker(client)
 	require.NoError(t, err)

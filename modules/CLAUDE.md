@@ -16,6 +16,8 @@ go vet ./...
 go test -race ./...
 ```
 
+From the repo root, `make modules-vet` adds a `GOOS=windows` pass and `scripts/check-go-fix.sh`, and `make modules-staticcheck` runs staticcheck. CI runs all three. Ignore a staticcheck finding with `//lint:ignore <check> <reason>` on the line above it.
+
 From `modules/`, `go test -race github.com/kubetail-org/kubetail/modules/...` covers the workspace, as `make modules-lint`, `modules-vet` and `modules-test` do from the repo root. A change to `shared` runs the workspace's tests. CI tests from a vendored tree (`go work vendor`); don't commit `modules/vendor`.
 
 `go generate ./...` in a module runs its generators: gqlgen in `dashboard` and `cluster-api`, `protoc` in `shared`, a copy of `config/default/cli.*` in `cli`.
@@ -31,7 +33,7 @@ From `modules/`, `go test -race github.com/kubetail-org/kubetail/modules/...` co
 - **Mocks are hand-written testify mocks in a `mock/` subpackage** of the package they fake (`k8shelpers/mock`). No mock generator. A method added to the interface is added to the mock.
 - **A method that needs its caller to hold the lock ends in `_UNSAFE`**; the method that takes the lock and calls it has the plain name.
 - **Fan-out to subscribers is `github.com/kubetail-org/megaphone`.** Don't hand-roll a subscriber map.
-- **Use the current standard library**: `any`, `wg.Go(...)`, range over an integer, `slices` and `maps`. Nothing rewrites these for you.
+- **Use the current standard library**: `any`, `new(expr)`, `wg.Go(...)`, range over an integer, `slices` and `maps`. CI fails when `go fix` would rewrite a file.
 - **Imports are grouped, a blank line between groups**: standard library, third-party, `modules/shared/...`, then the module's own packages.
 - **File names follow their directory**: kebab-case in `shared` and the older Dashboard packages, snake_case in `cli`. In a directory that mixes them, a new file is snake_case.
 

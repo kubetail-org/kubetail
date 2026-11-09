@@ -55,8 +55,6 @@ func (f *fakeDownloadStreamer) Records() <-chan LogRecord { return f.ch }
 func (f *fakeDownloadStreamer) Err() error                { return f.err }
 func (f *fakeDownloadStreamer) Close()                    {}
 
-func intPtr(i int) *int { return &i }
-
 func baseDownloadRequest() *DownloadRequest {
 	return &DownloadRequest{
 		Raw: DownloadForm{
@@ -164,7 +162,7 @@ func TestDownloadFormValidate(t *testing.T) {
 		},
 		{
 			name:      "negative limit",
-			mutate:    func(f *DownloadForm) { f.Limit = intPtr(-5) },
+			mutate:    func(f *DownloadForm) { f.Limit = new(-5) },
 			wantField: "limit",
 		},
 	}

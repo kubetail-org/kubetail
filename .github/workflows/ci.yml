@@ -136,6 +136,57 @@ jobs:
       - name: Vet
         working-directory: ./modules
         run: go vet ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+      # The Windows runners run tests alone, so this is the one place the
+      # _windows.go files are vetted.
+      - name: Vet (GOOS=windows)
+        working-directory: ./modules
+        run: GOOS=windows go vet ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+      - name: Check go fix
+        run: sh scripts/check-go-fix.sh
+      # Last, so a failed job leaves the last good cache the newest.
+      - name: Save Go cache
+        if: env.CACHE_MODE != 'use'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.go-cache-path }}
+          key: ${{ steps.setup.outputs.go-cache-key }}
+
+  go-staticcheck:
+    name: Go · Staticcheck
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: setup
+        uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          go-cache-key: ${{ github.job }}-ubuntu-24.04
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      # Staticcheck keeps its analysis apart from GOCACHE, so it has a cache of
+      # its own, restored and saved like the Go cache.
+      - name: Restore staticcheck cache
+        if: env.CACHE_MODE != 'rebuild'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/staticcheck
+          # Never matches, so restore-keys finds the newest cache.
+          key: doesntexist
+          restore-keys: staticcheck-ubuntu-24.04-run-
+      # tools/go.mod pins staticcheck.
+      - name: Run staticcheck
+        env:
+          STATICCHECK_CACHE: ${{ runner.temp }}/staticcheck
+        run: sh scripts/staticcheck.sh
+      - name: Save staticcheck cache
+        if: env.CACHE_MODE != 'use'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/staticcheck
+          key: staticcheck-ubuntu-24.04-run-${{ github.run_id }}
       # Last, so a failed job leaves the last good cache the newest.
       - name: Save Go cache
         if: env.CACHE_MODE != 'use'
@@ -214,7 +265,27 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck
       - name: Run shellcheck
-        run: shellcheck scripts/*.sh
+        run: make lint-sh
+
+  # Runs on every PR: one that moves a file a doc links to may touch no Markdown.
+  markdown-lint:
+    name: Markdown · Lint
+    needs: changes
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Collect tracked Markdown files
+        run: git ls-files '*.md' > "$RUNNER_TEMP/markdown-files"
+      - name: Check local Markdown links
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          # Keep in step with version in scripts/check-markdown-links.sh.
+          lycheeVersion: v0.24.2
+          args: >-
+            --config .github/ci-config/lychee.toml
+            --files-from '${{ runner.temp }}/markdown-files'
 
   python-lint:
     name: Python · Lint
@@ -816,6 +887,7 @@ jobs:
     needs:
       - changes
       - go-vet
+      - go-staticcheck
       - go-test
       - go-test-riscv64
       - rust-vet

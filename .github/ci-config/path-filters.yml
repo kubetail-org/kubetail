@@ -12,6 +12,10 @@ go:
   - build/package/Dockerfile.cluster-api
   - build/package/Dockerfile.dashboard
   - modules/**
+  - scripts/check-go-fix.sh
+  - scripts/staticcheck.sh
+  - tools/go.mod
+  - tools/go.sum
 rust:
   - *shared
   - build/package/Dockerfile.cluster-agent
@@ -26,7 +30,8 @@ typescript:
 shell:
   - .github/workflows/ci.yml
   - .github/ci-config/path-filters.yml
-  - scripts/**
+  - Makefile
+  - '**/*.sh'
 yaml:
   - .github/**
   - .yamllint.yml

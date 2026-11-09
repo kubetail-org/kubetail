@@ -341,11 +341,11 @@ func PaginateLogRecords(records []LogRecord, limit int64, mode PaginationMode) (
 	var nextCursor *string
 	if mode == PaginationModeHead {
 		records = records[:limit]
-		nextCursor = ptr.To(records[limit-1].Timestamp.Format(time.RFC3339Nano))
+		nextCursor = new(records[limit-1].Timestamp.Format(time.RFC3339Nano))
 	} else {
 		start := int64(len(records)) - limit
 		records = records[start:]
-		nextCursor = ptr.To(records[0].Timestamp.Format(time.RFC3339Nano))
+		nextCursor = new(records[0].Timestamp.Format(time.RFC3339Nano))
 	}
 
 	return records, nextCursor

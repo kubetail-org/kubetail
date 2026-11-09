@@ -23,7 +23,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/release"
-	"k8s.io/utils/ptr"
 
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
@@ -80,8 +79,8 @@ func TestAllowedNamespacesGetQueries(t *testing.T) {
 		setNamespace *string
 	}{
 		{"namespace not specified", nil},
-		{"namespace specified but not allowed", ptr.To("nsforbidden")},
-		{"namespace specified as wildcard", ptr.To("")},
+		{"namespace specified but not allowed", new("nsforbidden")},
+		{"namespace specified as wildcard", new("")},
 	}
 
 	for _, tt := range tests {
@@ -135,7 +134,7 @@ func TestAllowedNamespacesListQueries(t *testing.T) {
 		setNamespace *string
 	}{
 		{"namespace not specified", nil},
-		{"namespace specified but not allowed", ptr.To("nsforbidden")},
+		{"namespace specified but not allowed", new("nsforbidden")},
 	}
 
 	for _, tt := range tests {

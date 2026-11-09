@@ -31,7 +31,7 @@ func init() {
 }
 
 func IsNilPtr(val any) bool {
-	return reflect.TypeOf(val).Kind() == reflect.Ptr && reflect.ValueOf(val).IsNil()
+	return reflect.TypeOf(val).Kind() == reflect.Pointer && reflect.ValueOf(val).IsNil()
 }
 
 func ValidateDirective(ctx context.Context, obj any, next graphql.Resolver, rule string, message *string) (any, error) {

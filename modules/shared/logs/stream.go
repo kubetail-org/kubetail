@@ -257,10 +257,7 @@ func (s *stream) handleSourceAdd(source LogSource) {
 	}
 
 	// Forward records in goroutine
-	s.futureWG.Add(1)
-	go func() {
-		defer s.futureWG.Done()
-
+	s.futureWG.Go(func() {
 		for {
 			select {
 			case <-s.rootCtx.Done():
@@ -286,7 +283,7 @@ func (s *stream) handleSourceAdd(source LogSource) {
 				}
 			}
 		}
-	}()
+	})
 
 	// Add to sources
 	s.sources.Add(source)

@@ -10,7 +10,7 @@ _Kubetail은 Kubernetes를 위한 실시간 로깅 대시보드입니다_
 
 <a href="https://discord.gg/CmsmWAVkvX"><img src="https://img.shields.io/discord/1212031524216770650?logo=Discord&style=flat-square&logoColor=FFFFFF&labelColor=5B65F0&label=Discord&color=64B73A"></a>
 [![Slack](https://img.shields.io/badge/Slack-kubetail-364954?logo=slack&labelColor=4D1C51)](https://kubernetes.slack.com/archives/C08SHG1GR37)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](https://github.com/kubetail-org/.github/blob/main/CODE_OF_CONDUCT.md)
 [![Contributor Resources](https://img.shields.io/badge/Contributor%20Resources-purple?style=flat-square)](https://github.com/kubetail-org)
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | 한국어 | [Deutsch](README.de.md) | [Español](README.es.md) | [Português](README.pt-BR.md) | [Français](README.fr.md)
@@ -193,14 +193,14 @@ Kubetail API를 설치한 사용자는 노드 수준 로그(예: systemd)와 클
 
 이 모노레포에는 다음 모듈이 포함되어 있습니다:
 
-* Kubetail CLI ([modules/cli](modules/cli))
-* Kubetail Cluster API ([modules/cluster-api](modules/cluster-api))
-* Kubetail Cluster Agent ([crates/cluster_agent](crates/cluster_agent))
-* Kubetail Dashboard ([modules/dashboard](modules/dashboard))
+* Kubetail CLI ([modules/cli](../modules/cli))
+* Kubetail Cluster API ([modules/cluster-api](../modules/cluster-api))
+* Kubetail Cluster Agent ([crates/cluster_agent](../crates/cluster_agent))
+* Kubetail Dashboard ([modules/dashboard](../modules/dashboard))
 
 또한 Kubetail Dashboard 프런트엔드의 소스 코드도 포함되어 있습니다:
 
-* Dashboard UI ([dashboard-ui](dashboard-ui))
+* Dashboard UI ([dashboard-ui](../dashboard-ui))
 
 ### 개발 환경 설정
 
