@@ -10,6 +10,7 @@ on:
 
 jobs:
   execute:
+    if: github.repository == 'kubetail-org/kubetail'
     runs-on: ubuntu-slim
     steps:
       - uses: cncf/prow-github-actions@187c5e3cd95a329c43448e1bdb3b1f5249232e44 # v3.0.1

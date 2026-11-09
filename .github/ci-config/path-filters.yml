@@ -1,0 +1,37 @@
+# dorny/paths-filter's filters, read by ci.yml's Changes job. A pull request
+# runs a group's jobs only when a path in it changed. A change to how CI runs
+# (shared) runs every language.
+shared: &shared
+  - .github/actions/setup-environment/**
+  - .github/ci-config/path-filters.yml
+  - .github/workflows/ci.yml
+go:
+  - *shared
+  - Makefile
+  - build/package/Dockerfile.cli
+  - build/package/Dockerfile.cluster-api
+  - build/package/Dockerfile.dashboard
+  - modules/**
+rust:
+  - *shared
+  - build/package/Dockerfile.cluster-agent
+  - crates/**
+  - proto/**
+typescript:
+  - *shared
+  - Makefile
+  - build/package/Dockerfile.cli
+  - build/package/Dockerfile.dashboard
+  - dashboard-ui/**
+shell:
+  - .github/workflows/ci.yml
+  - .github/ci-config/path-filters.yml
+  - scripts/**
+yaml:
+  - .github/**
+  - .yamllint.yml
+  - .yamllintignore
+  - Makefile
+  - tools/go.mod
+  - '**/*.yml'
+  - '**/*.yaml'
