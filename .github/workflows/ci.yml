@@ -225,6 +225,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          save-cache: ${{ env.CACHE_MODE != 'use' }}
       - name: Lint
         working-directory: ./e2e
         run: |
@@ -555,10 +557,14 @@ jobs:
           file: ${{ matrix.dockerfile }}
           target: ${{ matrix.target }}
           push: false
-          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.target }}-${{ matrix.arch }}
+          # final and final-alpine build from the same stages, so they share a
+          # scope. Each save replaces the scope's index, which keeps those
+          # stages either way; a final stage left out is a copy onto a base.
+          # e2e/docker-bake.hcl reads the amd64 scopes.
+          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.arch }}
           cache-to: >-
             ${{ env.CACHE_MODE != 'use'
-            && format('type=gha,mode=max,scope={0}-{1}-{2}', matrix.component, matrix.target, matrix.arch)
+            && format('type=gha,mode=max,scope={0}-{1}', matrix.component, matrix.arch)
             || '' }}
 
   cli-builds:
@@ -716,6 +722,8 @@ jobs:
           go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Install uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          save-cache: ${{ env.CACHE_MODE != 'use' }}
       - name: Install kind
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
@@ -813,10 +821,10 @@ jobs:
           file: build/package/Dockerfile.${{ matrix.component }}
           target: ${{ matrix.target }}
           push: false
-          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.target }}-riscv64
+          cache-from: type=gha,scope=${{ matrix.component }}-riscv64
           cache-to: >-
             ${{ env.CACHE_MODE != 'use'
-            && format('type=gha,mode=max,scope={0}-{1}-riscv64', matrix.component, matrix.target)
+            && format('type=gha,mode=max,scope={0}-riscv64', matrix.component)
             || '' }}
 
   ###########################
@@ -840,6 +848,7 @@ jobs:
       - typescript-lint
       - typescript-test
       - typescript-build
+      - python-lint
       - cli-builds
       - e2e
     if: always() && needs.changes.result == 'success' && needs.changes.outputs.cache-mode != 'use'

@@ -2,8 +2,8 @@
 # Deletes every Actions cache on a ref but the newest of each family, so a
 # ref holds one copy of each cache. A family is a key without the part a save
 # changes: the Go caches' `-run-<id>`, rust-cache's two trailing hashes, and
-# setup-node's lockfile hash. A key in no family, such as a BuildKit blob, is
-# never deleted.
+# setup-node's and setup-uv's lockfile hash. A key in no family, such as a
+# BuildKit blob, is never deleted.
 #
 # Keeping the newest copy, rather than this run's, means a failed save leaves
 # the last good cache in place.
@@ -18,7 +18,7 @@ gh api --paginate "repos/$GITHUB_REPOSITORY/actions/caches?ref=$1&per_page=100" 
 	def family:
 		if test("-run-[0-9]+$") then sub("-run-[0-9]+$"; "-run-")
 		elif startswith("v0-rust-") then sub("-[0-9a-f]+-[0-9a-f]+$"; "")
-		elif startswith("node-cache-") then sub("-[0-9a-f]+$"; "")
+		elif startswith("node-cache-") or startswith("setup-uv-") then sub("-[0-9a-f]+$"; "")
 		else . end;
 	group_by(.key | family)[]
 	| sort_by(.created_at) | reverse | .[1:][]
