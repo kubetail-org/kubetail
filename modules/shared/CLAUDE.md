@@ -35,7 +35,7 @@ A new package goes here only when two modules need it. Code one module uses stay
 
 **Identity is put on by the transport, from the request's context** (`transport.go`, `keys.go`). `BearerTokenRoundTripper` sets `Authorization` from `K8STokenCtxKey`. `ImpersonatingRoundTripper`, in the cluster alone, sets the `Impersonate-*` headers from `K8SImpersonateCtxKey` (an `*ImpersonateInfo`). With neither on the context, a call runs as the process: the kubeconfig user, or the ServiceAccount.
 
-**`NewInformer(ctx, kubeContext, token, namespace, gvr)` checks the caller before it hands out a shared informer.** Informer factories are shared per kube context and namespace and run on the manager's own credentials, so the authorizer (`authorizer.go`) first runs a `SelfSubjectAccessReview` for `list` and `watch` as the caller. An allowed answer is cached for five minutes; a denial is never cached. In the cluster the cache is keyed by the token or the whole impersonated identity, which `TestInClusterAuthorizer_IsAllowedInformer_CachePerImpersonated*` pin. On the desktop the caller is always the kubeconfig's user: the `token` argument is ignored and the key is the namespace, resource and verb alone.
+**`NewInformer(ctx, kubeContext, token, namespace, gvr)` checks the caller before it hands out a shared informer.** Informer factories are shared per kube context and namespace and run on the manager's own credentials, so the authorizer (`authorizer.go`) first runs a `SelfSubjectAccessReview` for `list` and `watch` as the caller. An allowed answer is cached for five minutes; a denial is never cached. In the cluster the cache is keyed by the token or the whole impersonated identity, which `TestInClusterAuthorizer_IsAllowedInformer_CachePerImpersonated*` pin. On the desktop the caller is always the kubeconfig's user: the `token` argument is ignored and the key is the namespace, resource and verb alone. → [ADR: share informers and gate each caller with an access review](../../docs/adr/2026-11-09-share-informers-and-gate-each-caller-with-an-access-review.md)
 
 **The namespace allow-list is `DerefNamespace` and `DerefNamespaceToList`** (`namespaces.go`). Given the allowed namespaces, the requested one and a default, they answer the namespace or namespaces to use, or `ErrForbidden` for one outside the list. `BypassNamespaceCheck` turns the check off and is matched by pointer identity, so it can only be passed deliberately.
 
@@ -53,7 +53,7 @@ A new package goes here only when two modules need it. Code one module uses stay
 
 ## grpchelpers and the generated code
 
-`ImpersonateUnaryClientInterceptor` and `ImpersonateStreamClientInterceptor` copy the `*ImpersonateInfo` on the context into `x-remote-user`, `x-remote-group` and `x-remote-extras` metadata, extras as JSON in the one header. The agent's side is `crates/cluster_agent/src/auth.rs`; change the two together.
+`ImpersonateUnaryClientInterceptor` and `ImpersonateStreamClientInterceptor` copy the `*ImpersonateInfo` on the context into `x-remote-user`, `x-remote-group` and `x-remote-extras` metadata, extras as JSON in the one header. The agent's side is `crates/cluster_agent/src/auth.rs`; change the two together. → [ADR: forward the caller's identity hop by hop](../../docs/adr/2026-11-09-forward-the-callers-identity-hop-by-hop.md)
 
 `clusteragentpb/*.pb.go` and `testpb/*.pb.go` are protoc output. The hand-written file beside them holds only the `//go:generate` line. Regenerate with `go generate ./...` here after editing `proto/` (root guide, *The gRPC contract*); never hand-edit them.
 
@@ -64,7 +64,7 @@ The whole picture is the root guide's *Security invariants*. What an ordinary ch
 - **An identity reaches Kubernetes and the agents through the context keys in `keys.go`.** Anything that replaces a request's context, or builds a client around the connection manager, drops it. The one explicit path beside them is the bearer token given to `NewInformer` (`logs.WithBearerToken`) for the informer check.
 - **`NewInformer` calls the authorizer before it returns.** A new path to informer data makes the same check.
 - **`ImpersonatingRoundTripper` clones the request before it adds headers.** A new round-tripper does the same.
-- **`IsSameOrigin` ignores `X-Forwarded-*` on purpose** (`httphelpers`). A deployment behind a proxy names its origins in `allowed-origins`.
+- **`IsSameOrigin` ignores `X-Forwarded-*`** (`httphelpers`). A deployment behind a proxy names its origins in `allowed-origins`. → [ADR: defend against CSRF in two layers](../../docs/adr/2026-11-09-defend-against-csrf-in-two-layers.md)
 - **The access log records request metadata (method, path, query string, forwarding headers, user agent, status, duration) and no `Authorization`, cookie or body** (`middleware.LoggingMiddleware`). Keep it so.
 
 ## Tests

@@ -10,7 +10,7 @@ A Cargo workspace (`Cargo.toml`, resolver 3) of three crates. The root [`CLAUDE.
 
 **Run cargo from `crates/`, never from a crate's directory.** `cargo test` and `cargo build` in `crates/rgkl` cover `rgkl` alone, which is what `make crates-test` and `make crates-build` do. CI runs every Rust step from `crates/`.
 
-**`protoc` must be on `PATH` for any build, clippy or test.** `types/build.rs` compiles the proto into `$OUT_DIR` on every build; the output is never committed. The procedure after editing a `.proto` is the root guide's *The gRPC contract*.
+**`protoc` must be on `PATH` for any build, clippy or test.** `types/build.rs` compiles the proto into `$OUT_DIR` on every build; the output is never committed. The procedure after editing a `.proto` is the root guide's *The gRPC contract*. → [ADR: commit generated Go and TypeScript, generate Rust at build time](../docs/adr/2026-11-09-commit-generated-go-and-typescript-generate-rust-at-build-time.md)
 
 **The toolchain is `stable`, unpinned** (`rust-toolchain.toml`). A new stable release can add clippy lints that fail `-D warnings` on code nobody touched; fix them in a commit of their own.
 
@@ -36,7 +36,7 @@ A log file is `<pod>_<namespace>_<container>-<container-id>.log` under `containe
 
 ## Security invariants
 
-- **The listener is mutual TLS, always.** `configure_tls` sets the server identity and `client_ca_root` with no optional client auth. Everything below rests on it: weaken it and the identity headers are forgeable.
+- **The listener is mutual TLS, always.** `configure_tls` sets the server identity and `client_ca_root` with no optional client auth. Everything below rests on it: weaken it and the identity headers are forgeable. → [ADR: forward the caller's identity hop by hop](../docs/adr/2026-11-09-forward-the-callers-identity-hop-by-hop.md)
 - **The agent never sees a Kubernetes token.** It trusts the `x-remote-user`, `x-remote-group` and `x-remote-extras` metadata a peer sends, provided the peer's certificate chains to `tls.ca-file` and, when `tls.allowed-names` is not empty, its CN is listed. An empty list accepts any certificate from the CA. The Go side that sets these headers is `modules/shared/grpchelpers`.
 - **Every RPC authenticates, then authorizes, before it reads a log file or lists one.** Each method calls `auth::identity_from(&request)?` and `authorizer.is_authorized(&identity, &namespaces, "get")`; `List` checks only that the logs directory exists before it does. The check is a `SubjectAccessReview` for `get` on `pods/log` per namespace, or one cluster-wide review for an empty namespace list. A new method repeats both calls; a new service is wrapped in `auth::interceptor` in `main.rs`. `stream_forward_denies_before_file_lookup` and `stream_backward_denies_before_file_lookup` pin the order.
 - **The health and reflection services carry no interceptor.** They sit behind mTLS alone. Nothing that returns log data goes on an unwrapped service.

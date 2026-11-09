@@ -13,7 +13,8 @@ Writing standards for this repo (the root CLAUDE.md has the full statement):
    Match the idiom of the file you are in.
 2. Comments — terse, necessary, easy for a human to read. Say what the code cannot: the
    why, the invariant, the trap. Do not restate the code, do not argue against the
-   alternatives you rejected, and do not address a reviewer or point at a PR.
+   alternatives you rejected (that goes in docs/adr/), and do not address a reviewer
+   or point at a PR.
 3. Documentation — simple, concise, easy for a human to read. Lead with what is true now.
 Applies to hand-written files, not generated output (graph/generated.go,
 graph/model/models_gen.go, *.pb.go, dashboard-ui/src/lib/graphql/*/__generated__/) or lockfiles.

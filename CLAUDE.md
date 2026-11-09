@@ -10,10 +10,11 @@ A real-time logging dashboard for Kubernetes. A monorepo of parts that talk to e
   - **`modules/shared/`** — Go packages the other three import.
 - **`crates/`** — a Rust workspace: the Cluster Agent (`cluster_agent`), one per node, and the log file reader it links (`rgkl`). See `crates/CLAUDE.md`.
 - **`proto/`** — the gRPC contract between the Cluster API and the Cluster Agent. See *The gRPC contract*.
-- **`config/default/`** — the documented default config file of each component. Each component's defaults are set in its own code; a change to a default is made in both, and the CLI's file is also copied into `modules/cli/assets/` (`modules/cli/CLAUDE.md`).
+- **`config/default/`** — the documented default config file of each component. Each component's defaults are set in its own code; a change to a default is made in both, and the CLI's file is also copied into `modules/cli/assets/` (`modules/cli/CLAUDE.md`). → [ADR: each component owns its config](docs/adr/2026-11-09-each-component-owns-its-config.md)
 - **`build/package/`** — the release Dockerfiles, one per component. Each copies only the directories its component needs.
 - **`hack/`** — local development: the Tilt manifests (`hack/tilt/kubetail.yaml` is the whole dev deployment), `ctlptl` cluster definitions and example workloads.
 - **`e2e/`** — end-to-end tests in Python, run against a kind cluster. See *End-to-end tests*.
+- **`docs/`** — Architecture Decision Records in `docs/adr/`: why the design is the way it is. See *Keep these docs current*.
 - **`scripts/`** — `install.sh`, the CLI installer, with its `bats` tests, and `writing-standards-hook.sh`, the Claude Code hook in `.claude/settings.json`.
 - **`.claude/skills/`** — `release-cli` and `release-cluster`, which tag releases. A person invokes them; never tag or push a tag yourself.
 
@@ -28,17 +29,17 @@ cd modules/dashboard && go run cmd/main.go -c hack/config.yaml   # Dashboard bac
 make                                                             # the CLI with the UI embedded, in bin/kubetail
 ```
 
-The UI reaches a Go binary by a copy step: `make build-dashboard-ui` builds `dashboard-ui/dist` and copies it to `modules/dashboard/website/`, which `modules/dashboard/embed.go` embeds. The CLI gets it by importing the Dashboard.
+The UI reaches a Go binary by a copy step: `make build-dashboard-ui` builds `dashboard-ui/dist` and copies it to `modules/dashboard/website/`, which `modules/dashboard/embed.go` embeds. The CLI gets it by importing the Dashboard. → [ADR: embed the UI by a copy step](docs/adr/2026-11-09-embed-the-ui-by-a-copy-step-and-render-from-the-vite-manifest.md)
 
 ## How a request travels
 
-**There are two environments, and code branches on them by name.** `desktop` is `kubetail serve` on the user's machine: credentials come from the kubeconfig, and a query names the kube context it wants, the kubeconfig's current one by default. `cluster` is the Dashboard deployed in the cluster: one cluster, the kube context is the empty string, and a request runs as the token it carries (from the session or an `Authorization` header), or as the Dashboard's ServiceAccount when `auth-mode` is `auto` and it carries none. The switch is `config.Environment` (`modules/shared/config`); each seam has one implementation per environment behind an interface (`ConnectionManager`, `Proxy`, `HealthMonitor`).
+**There are two environments, and code branches on them by name.** `desktop` is `kubetail serve` and `kubetail logs` on the user's machine: credentials come from the kubeconfig, and a query names the kube context it wants, the kubeconfig's current one by default. `cluster` is the Dashboard deployed in the cluster: one cluster, the kube context is the empty string, and a request runs as the token it carries (from the session or an `Authorization` header), or as the Dashboard's ServiceAccount when `auth-mode` is `auto` and it carries none. The CLI runs in `cluster` with `--in-cluster`. The switch is `config.Environment` (`modules/shared/config`); each seam has one implementation per environment behind an interface (`ConnectionManager`, `Proxy`, `HealthMonitor`). → [ADR: one implementation per environment](docs/adr/2026-11-09-one-implementation-per-environment-behind-an-interface.md)
 
 **The browser talks only to the Dashboard backend**: GraphQL at `/graphql` (POST for queries and mutations, WebSocket for subscriptions) and a few REST routes under `/api/`. Kubernetes objects are read with client-go.
 
-**Logs have two backends.** Without the Cluster API, a log stream reads the pod log endpoint of the Kubernetes API (`KubeLogFetcher`). With it, the stream asks the Cluster Agent on the pod's node, which reads the file on disk and can grep it there (`AgentLogFetcher`). Both live in `modules/shared/logs` behind `LogFetcher`.
+**Logs have two backends.** Without the Cluster API, a log stream reads the pod log endpoint of the Kubernetes API (`KubeLogFetcher`). With it, the stream asks the Cluster Agent on the pod's node, which reads the file on disk and can grep it there (`AgentLogFetcher`). Both live in `modules/shared/logs` behind `LogFetcher`. → [ADR: read logs through two backends](docs/adr/2026-11-09-read-logs-through-two-backends-behind-logfetcher.md)
 
-**Nothing dials the Cluster API directly.** It is registered as a Kubernetes APIService (`v1.api.kubetail.com`, served at `/apis/api.kubetail.com/v1`), so every caller goes through the kube-apiserver, which authenticates the caller and forwards the identity in front-proxy headers:
+**Nothing dials the Cluster API directly.** It is registered as a Kubernetes APIService (`v1.api.kubetail.com`, served at `/apis/api.kubetail.com/v1`), so every caller goes through the kube-apiserver, which authenticates the caller and forwards the identity in front-proxy headers: → [ADR: reach the Cluster API through the aggregation layer](docs/adr/2026-11-09-reach-the-cluster-api-through-the-aggregation-layer.md)
 
 ```
 browser ──> Dashboard /cluster-api-proxy/[<kubeContext>/]… ──> kube-apiserver ──> Cluster API ──gRPC, mTLS──> Cluster Agent (per node)
@@ -47,11 +48,11 @@ kubetail logs ──────────────────────
 
 The path carries the kube context in `desktop` alone. `kubetail logs` uses the Cluster API when it is installed and falls back to the Kubernetes API when it is not.
 
-**The caller's identity travels the whole way, and each hop re-checks it.** The Cluster API impersonates the caller on its own Kubernetes calls and sends the identity to the agent as `x-remote-*` gRPC metadata; the agent authorizes it with a `SubjectAccessReview` before it opens a file. See *Security invariants*.
+**The caller's identity travels the whole way, and each hop re-checks it.** The Cluster API impersonates the caller on its own Kubernetes calls and sends the identity to the agent as `x-remote-*` gRPC metadata; the agent authorizes it with a `SubjectAccessReview` before it opens a file. See *Security invariants*. → [ADR: forward the caller's identity hop by hop](docs/adr/2026-11-09-forward-the-callers-identity-hop-by-hop.md)
 
 ## The gRPC contract
 
-`proto/cluster_agent.proto` is the single source of truth for `LogMetadataService` and `LogRecordsService`. The Rust server is generated at build time (`crates/types/build.rs`, never committed); the Go client is committed protoc output in `modules/shared/clusteragentpb`. After editing the proto:
+`proto/cluster_agent.proto` is the single source of truth for `LogMetadataService` and `LogRecordsService`. The Rust server is generated at build time (`crates/types/build.rs`, never committed); the Go client is committed protoc output in `modules/shared/clusteragentpb`. After editing the proto: → [ADR: GraphQL for user-facing APIs, gRPC to the agent](docs/adr/2026-11-09-graphql-for-user-facing-apis-grpc-to-the-agent.md), [ADR: commit generated Go and TypeScript](docs/adr/2026-11-09-commit-generated-go-and-typescript-generate-rust-at-build-time.md)
 
 ```sh
 cd modules/shared && go generate ./...   # needs protoc, protoc-gen-go, protoc-gen-go-grpc
@@ -69,22 +70,22 @@ cd modules/<module> && go generate ./...       # gqlgen
 cd dashboard-ui && pnpm graphql-codegen        # the UI's types
 ```
 
-Generated files are committed and never hand-edited: `graph/generated.go`, `graph/model/models_gen.go` and `dashboard-ui/src/lib/graphql/*/__generated__/`. **CI does not regenerate or diff any of them**, so a stale file is caught only by a build or a reviewer.
+Generated files are committed and never hand-edited: `graph/generated.go`, `graph/model/models_gen.go` and `dashboard-ui/src/lib/graphql/*/__generated__/`. **CI does not regenerate or diff any of them**, so a stale file is caught only by a build or a reviewer. → [ADR: commit generated Go and TypeScript](docs/adr/2026-11-09-commit-generated-go-and-typescript-generate-rust-at-build-time.md)
 
 **The log operations exist in both schemas with the same signature** (`logRecordsFetch`, `logRecordsFollow`), and the UI sends one set of documents to whichever server is in use. Change them in both schemas together.
 
 > **Keep these docs current.** There is a `CLAUDE.md` per area and one per Go module; this file holds what crosses them. Each has an `AGENTS.md` symlink beside it, so add both when adding a guide. When you change architecture, conventions or commands, or add a pattern worth knowing, update the relevant `CLAUDE.md` in the same change.
 >
-> **These files state what is true now**: invariants, conventions, commands, traps. Why a design was chosen, and what was rejected, goes in the commit body or the PR's Summary.
+> **These files state what is true now**: invariants, conventions, commands, traps. Why a design was chosen, and what was rejected, goes in an ADR in `docs/adr/` (see [`docs/adr/README.md`](docs/adr/README.md)), linked from the guide that states the decision. When a decision changes, write a new ADR, flip the old one's status and repoint every link in the same commit. A guide never links a superseded ADR.
 >
-> **Keep comments current — describe the present, not the past.** Code comments and these docs describe only the current code. Don't leave notes about how code used to work, what was renamed or removed, or which refactor got you here. Drop "used to", "no longer", "formerly". Contrasts with external systems ("unlike client-go's default") are fine.
+> **Keep comments current — describe the present, not the past.** Code comments and these docs describe only the current code. **`docs/adr/` is the one exemption**: it is an append-only record. Don't leave notes about how code used to work, what was renamed or removed, or which refactor got you here. Drop "used to", "no longer", "formerly". Contrasts with external systems ("unlike client-go's default") are fine.
 
 ## Writing standards
 
 Applies to every hand-written file: Go, Rust, TypeScript, Python, Markdown. Not to generated output or lockfiles.
 
 1. **Code — simple, idiomatic, easy for a human to follow.** Prefer the boring construction. Match the idiom of the file you are in over the one you would pick on a blank page. Cleverness that needs a comment to survive review is usually the wrong trade.
-2. **Comments — terse, necessary, easy for a human to read.** Say what the code cannot: the why, the invariant, the trap that made this shape necessary. Never restate what the line already says (`// Init client`, a banner repeating the function's name). State the current design; don't argue against the alternatives you rejected.
+2. **Comments — terse, necessary, easy for a human to read.** Say what the code cannot: the why, the invariant, the trap that made this shape necessary. Never restate what the line already says (`// Init client`, a banner repeating the function's name). State the current design; don't argue against the alternatives you rejected (that is what `docs/adr/` is for).
 3. **Documentation — simple, concise, easy for a human to read.** Lead with what is true now. One idea per sentence.
 
 Watch for comments addressed to a reviewer rather than a reader opening the file cold; the tell is a comment that spends its length on the option not taken, or that points at a PR.
@@ -97,7 +98,7 @@ Older files predate these standards. Follow the standards in what you write and 
 
 ## Testing conventions (all languages)
 
-Each area's guide adds its tooling.
+Each area's guide adds its tooling. → [ADR: test conventions](docs/adr/2026-11-09-tests-sit-beside-their-files-never-sleep-and-take-seams-as-parameters.md)
 
 - **Every test file sits beside the file it covers** (`foo_test.go`, `foo.test.tsx`, an inline `mod tests` in Rust). A test with no counterpart means the unit is buried in a larger file: split the implementation out to match.
 - **No magic sleeps.** Never `time.Sleep`, `setTimeout` or a manual delay to wait for asynchronous state.
@@ -172,4 +173,4 @@ Pick the matching template in `.github/ISSUE_TEMPLATE/` and fill in each of its 
 
 ## Releases
 
-Each component is released by a tag: `cli/v<semver>`, `dashboard/v<semver>`, `cluster-api/v<semver>`, `cluster-agent/v<semver>`. `release-cli.yml` builds and signs the CLI and opens a draft GitHub release; `release-docker.yml` builds the images; the `publish-*` workflows feed the package managers. The CLI's update check parses the `cli/v` tag (`modules/shared/versioncheck`), so the tag scheme is a contract.
+Each component is released by a tag: `cli/v<semver>`, `dashboard/v<semver>`, `cluster-api/v<semver>`, `cluster-agent/v<semver>`. `release-cli.yml` builds and signs the CLI and opens a draft GitHub release; `release-docker.yml` builds the images; the `publish-*` workflows feed the package managers. The CLI's update check parses the `cli/v` tag (`modules/shared/versioncheck`), so the tag scheme is a contract. → [ADR: release each component by its own tag](docs/adr/2026-11-09-release-each-component-by-its-own-tag.md)

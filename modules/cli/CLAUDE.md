@@ -42,7 +42,7 @@ A Go CLI built with [Cobra](https://github.com/spf13/cobra). It also installs as
 ## logs
 
 - **A source is `[namespace:]<type>/<name>[/<container>]`**, a bare pod name, or `*` for a name or container. Parsing and the type aliases (`deploy`, `ds`, `sts`, `cj`…) are in `modules/shared/logs`.
-- **`--backend auto|kubetail|kubernetes`** (default `auto`) picks the reader in `selectBackend`. `kubetail` is `internal/clusterapi`: GraphQL at `<apiserver>/apis/api.kubetail.com/v1/graphql`, a POST to fetch and a `graphql-transport-ws` WebSocket to follow. `kubernetes` is `logs.NewStream` from `shared`. In `auto` a 404 from the probe means the Cluster API is not installed and falls back with a warning on stderr; any other error is fatal.
+- **`--backend auto|kubetail|kubernetes`** (default `auto`) picks the reader in `selectBackend`. `kubetail` is `internal/clusterapi`: GraphQL at `<apiserver>/apis/api.kubetail.com/v1/graphql`, a POST to fetch and a `graphql-transport-ws` WebSocket to follow. `kubernetes` is `logs.NewStream` from `shared`. In `auto` a 404 from the probe means the Cluster API is not installed and falls back with a warning on stderr; any other error is fatal. → [ADR: read logs through two backends](../../docs/adr/2026-11-09-read-logs-through-two-backends-behind-logfetcher.md)
 - **The Cluster API client uses client-go's transports** (`rest.TransportFor` and its WebSocket round-tripper), so the kubeconfig's credentials and TLS apply. A plain `http.Client` or dialer would drop them.
 - **`--grep` runs on the server with the Cluster API and in the client without it**, with a warning.
 - **Which records**: `--head`, else `--tail`, else `--all`, else head when `--since` is set, else tail. The three are mutually exclusive. A bare `--tail` or `--head` means the configured default count. `-h` is `--head`; `--help` has no shorthand.
@@ -66,6 +66,6 @@ The shared rules are in `modules/CLAUDE.md`. Here:
 
 ## Releasing
 
-A person cuts a release with the `release-cli` skill, which tags `cli/v<semver>`. `.github/workflows/release-cli.yml` builds every target with the version set through `-X …/cmd.version=<v>`, signs the macOS and Windows binaries, and opens a draft GitHub release. The update check and the package-manager workflows parse that tag.
+A person cuts a release with the `release-cli` skill, which tags `cli/v<semver>`. `.github/workflows/release-cli.yml` builds every target with the version set through `-X …/cmd.version=<v>`, signs the macOS and Windows binaries, and opens a draft GitHub release. The update check and the package-manager workflows parse that tag. → [ADR: release each component by its own tag](../../docs/adr/2026-11-09-release-each-component-by-its-own-tag.md)
 
 When you change a command, a flag, the config or the release flow, update this file in the same change.

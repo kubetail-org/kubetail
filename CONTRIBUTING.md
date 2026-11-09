@@ -37,6 +37,8 @@ Kubetail is organized as a monorepo with components in different languages:
   
 - **`/proto`** - Protocol Buffer definitions
 
+- **`/docs`** - Architecture Decision Records (`adr/`)
+
 ### Quick Reference
 
 | Working on... | Go to |
@@ -158,6 +160,7 @@ Signed-off-by: Your Name <you@example.com>
 4. **Format code**: Run `make lint` and fix what it reports
 5. **Clean commits**: Ensure each commit is minimal, focused, and follows our [commit format](#commit-guidelines)
 6. **Update docs**: If you change architecture, conventions or commands, update the relevant `CLAUDE.md` in the same PR
+7. **Record decisions**: A new architectural decision, or a change to one, gets an ADR in [`docs/adr/`](docs/adr/README.md)
 
 ### PR Title Format
 

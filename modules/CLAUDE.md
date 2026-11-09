@@ -11,7 +11,9 @@ Four Go modules under one `go.work`. This file holds what every module follows; 
 
 **Imports point one way.** `shared` imports no sibling. `dashboard` and `cluster-api` import `shared` alone. `cli` imports `shared` and exactly two Dashboard packages, `dashboard/pkg/app` and `dashboard/pkg/config`, to run the Dashboard in `kubetail serve`. Nothing imports `cli` or `cluster-api`.
 
-**Each module builds without `go.work`.** The release Dockerfiles copy only the modules a component needs, and the CLI release builds with `GOWORK=off`, so every `go.mod` carries a `replace` for each sibling it imports and a complete `go.sum`. A new import of a sibling module needs the `replace`, and a `COPY` in the component's Dockerfile under `build/package/`. Every module also pins `fsnotify` to v1.8.0 with a `replace`; keep the four in step.
+**Each module builds without `go.work`**: the release Dockerfiles and the CLI release (`GOWORK=off`) build one module at a time. Every `go.mod` carries a `replace` for each sibling it imports and a complete `go.sum`. A new import of a sibling module needs the `replace`, and a `COPY` in the component's Dockerfile under `build/package/`. → [ADR: each Go module builds without go.work](../docs/adr/2026-11-09-each-go-module-builds-without-go-work.md)
+
+**Every module pins `fsnotify` to v1.8.0 with a `replace`**; keep the four in step. → [ADR: pin fsnotify to v1.8.0](../docs/adr/2026-11-09-pin-fsnotify-to-v1-8-0.md)
 
 **Go is 1.26**; CI and the Dockerfiles pin the patch version (`go-version` in `.github/actions/setup-environment/action.yml`).
 
@@ -44,7 +46,7 @@ Generated files are committed and never hand-edited. What follows a schema or pr
 ## Conventions
 
 - **`context.Context` is the first parameter**, and it carries the caller's identity (root guide, *Security invariants*). Pass the request's context down; never start a Kubernetes or gRPC call from `context.Background()` on a request path.
-- **Each environment is an implementation behind one interface**, picked by a factory that switches on `config.Environment`: `ConnectionManager`, `Proxy`, `HealthMonitor`. Behaviour that differs by environment goes in both implementations. A resolver checks the environment itself only to refuse an operation that exists in one alone.
+- **Each environment is an implementation behind one interface**, picked by a factory that switches on `config.Environment`: `ConnectionManager`, `Proxy`, `HealthMonitor`. Behaviour that differs by environment goes in both implementations. A resolver checks the environment itself only to refuse an operation that exists in one alone. → [ADR: one implementation per environment](../docs/adr/2026-11-09-one-implementation-per-environment-behind-an-interface.md)
 - **Errors**: wrap with `fmt.Errorf("doing x: %w", err)` when the caller could not otherwise tell where it failed; sentinels are `errors.New`, tested with `errors.Is`. A resolver that refuses a request returns one of the `Err*` values in `shared/graphql/errors` (`ErrForbidden`, `ErrUnauthenticated`, `ErrValidationError`, `ErrServiceUnavailable`…), whose `extensions.code` (`KUBETAIL_FORBIDDEN`…) is what a client matches on.
 - **Logging is zerolog's global logger**, imported as `zlog "github.com/rs/zerolog/log"`: `zlog.Error().Err(err).Msg("…")`, `zlog.Fatal().Caller().Err(err).Send()` at startup only. `shared/logging.ConfigureLogger` installs it at startup; `kubetail serve` configures it once more from `--log-level`. Never log a token, a cookie or a request body.
 - **A constructor is `NewX(required…, opts ...Option)`** where there is anything optional (`k8shelpers.ConnectionManagerOption`, `logs.Option`, `helm.ClientOption`). Exported options are production knobs; a seam only tests need is an unexported option, field or constructor (`newClientForTest`).

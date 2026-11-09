@@ -2,7 +2,7 @@
 
 React 19 + React Router 7 + Apollo Client 4 (GraphQL) + Jotai + Vite + Tailwind v4. UI primitives from `@kubetail/ui`. Package manager is **pnpm**, pinned in `package.json`; never `npm` or `npx`. Path alias: **`@/*` → `src/*`**. The React compiler is off. The root [`CLAUDE.md`](../CLAUDE.md) holds what crosses areas: the request path, the GraphQL contracts, the writing standards and the testing conventions.
 
-**The Go server does not serve `index.html`.** In production the Dashboard backend renders `modules/dashboard/templates/index.tmpl` and takes the script, style and font tags from `.vite/manifest.json`, so `build.manifest: true` in `vite.config.ts` is load-bearing. A change to `index.html`'s `<head>`, title or inline theme script is repeated in `index.tmpl`. `pnpm build` alone changes nothing a Go binary serves: `make build-dashboard-ui` copies `dist` to `modules/dashboard/website/`.
+**The Go server does not serve `index.html`.** In production the Dashboard backend renders `modules/dashboard/templates/index.tmpl` and takes the script, style and font tags from `.vite/manifest.json`, so `build.manifest: true` in `vite.config.ts` is load-bearing. A change to `index.html`'s `<head>`, title or inline theme script is repeated in `index.tmpl`. `pnpm build` alone changes nothing a Go binary serves: `make build-dashboard-ui` copies `dist` to `modules/dashboard/website/`. → [ADR: embed the UI by a copy step and render from the Vite manifest](../docs/adr/2026-11-09-embed-the-ui-by-a-copy-step-and-render-from-the-vite-manifest.md)
 
 ## Layout
 
@@ -48,7 +48,7 @@ Files under `components/` are PascalCase. Files under `pages/`, `lib/` and `log-
 - Write them with the generated `gql()` function from `./__generated__/gql`, called on a template string: ``gql(`…`)``. Not Apollo's `gql` tag.
 - A constant is `SCREAMING_SNAKE`. One that belongs to a feature is prefixed by it (`HOME_`, `CONSOLE_`, `SOURCE_PICKER_`) and suffixed by its kind (`_FETCH`, `_GET`, `_FIND`, `_WATCH`, `_FOLLOW`); the operation name is its PascalCase.
 - Fragment masking is off: read a fragment's fields directly.
-- **`pnpm graphql-codegen` regenerates `__generated__/`** from the two schemas under `../modules/`. Run it after changing `ops.ts`, `fragments.ts` or either schema, and commit the result. **Never edit `__generated__/`.**
+- **`pnpm graphql-codegen` regenerates `__generated__/`** from the two schemas under `../modules/`. Run it after changing `ops.ts`, `fragments.ts` or either schema, and commit the result. **Never edit `__generated__/`.** The two presets in `codegen.ts` override the same four defaults; keep them in step. → [ADR: override the codegen client preset's v6 defaults](../docs/adr/2026-11-09-override-the-codegen-client-presets-v6-defaults.md)
 - **The console's log operations are written once, in `dashboard/ops.ts`, and sent to either server** (root guide, *The GraphQL contracts*). Codegen checks them against the Dashboard's schema alone.
 
 **Custom scalars arrive as `any` and are converted by the cache.** `dateField` and `bigIntField` in `apollo-client.ts` turn named fields into `Date` and `bigint` in a `read` function. A new time or int64 field needs a type policy there, or it is a string.
