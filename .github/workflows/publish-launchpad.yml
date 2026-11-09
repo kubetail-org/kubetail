@@ -69,7 +69,7 @@ jobs:
             debhelper-compat
 
       - name: Download vendored source bundle
-        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05 # v1.12
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f # v1.13
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
@@ -111,7 +111,7 @@ jobs:
           cp "${SRC_DIR}/source/options" "${DST_DIR}/source/options"
 
       - name: Configure gpg
-        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
+        uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
         with:
           gpg_private_key: ${{ secrets.KUBETAIL_BOT_GPG_SIGNING_KEY }}
           passphrase: ${{ secrets.KUBETAIL_BOT_GPG_PASSWORD }}
