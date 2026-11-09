@@ -141,6 +141,14 @@
     // Type-aware rules beyond the categories. `correctness` brings the promise rules
     // (`no-floating-promises`, `await-thenable`).
     "typescript/no-deprecated": "error",
+    // An `any` carries a value past the type checks unseen, and much of the data here is
+    // attacker-controlled log text and Kubernetes fields.
+    "typescript/no-explicit-any": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-return": "error",
     // React drops a handler's promise.
     "typescript/no-misused-promises": ["error", { "checksVoidReturn": { "attributes": false } }],
     "typescript/no-misused-spread": "error",
@@ -169,7 +177,13 @@
         // A helper sits in the `describe` that uses it.
         "unicorn/consistent-function-scoping": "off",
         // `expect(mock.method)` references a method that never reads `this`.
-        "typescript/unbound-method": "off"
+        "typescript/unbound-method": "off",
+        // A mock's calls and results are `any`.
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-member-access": "off",
+        "typescript/no-unsafe-return": "off"
       }
     }
   ]

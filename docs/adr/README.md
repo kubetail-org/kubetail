@@ -70,6 +70,7 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 | 2026-11-09 | [Authenticate the front proxy in middleware](2026-11-09-authenticate-the-front-proxy-in-middleware.md) | cluster-api | Accepted |
 | 2026-11-09 | [Defend against CSRF in two layers](2026-11-09-defend-against-csrf-in-two-layers.md) | dashboard | Accepted |
 | 2026-11-09 | [Check hook dependencies in the dashboard UI](2026-11-09-check-hook-dependencies-in-the-dashboard-ui.md) | dashboard-ui | Accepted |
+| 2026-11-09 | [Forbid any in the dashboard UI outside tests](2026-11-09-forbid-any-in-the-dashboard-ui-outside-tests.md) | dashboard-ui | Accepted |
 | 2026-11-09 | [Lint the dashboard UI with oxlint's categories and a chosen rule list](2026-11-09-lint-the-dashboard-ui-with-oxlints-categories-and-a-chosen-rule-list.md) | dashboard-ui | Accepted |
 | 2026-11-09 | [Override the codegen client preset's v6 defaults](2026-11-09-override-the-codegen-client-presets-v6-defaults.md) | dashboard-ui | Accepted |
 | 2026-11-09 | [Require switches over a union to list every member](2026-11-09-require-switches-over-a-union-to-list-every-member.md) | dashboard-ui | Accepted |

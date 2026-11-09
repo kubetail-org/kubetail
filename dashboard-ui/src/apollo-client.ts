@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { ApolloClient, ApolloLink, HttpLink, InMemoryCache, Observable } from '@apollo/client';
+import type { FieldPolicy } from '@apollo/client/cache';
 import { CombinedGraphQLErrors, CombinedProtocolErrors } from '@apollo/client/errors';
 import { ErrorLink } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
@@ -229,28 +230,36 @@ const dateField = {
   },
 };
 
+type K8sList = {
+  metadata: { continue: string };
+  items: unknown[];
+};
+
 export function k8sPagination() {
   return {
     keyArgs: ['kubeContext', 'namespace', 'options', ['labelSelector'], '@connection', ['key']],
-    merge(existing: any, incoming: any, x: any) {
+    merge(existing: K8sList | undefined, incoming: K8sList, { args }: { args: Record<string, unknown> | null }) {
       // first call
       if (existing === undefined) return incoming;
 
+      const continueArg = (args?.options as { continue?: string } | null | undefined)?.continue;
+
       // refetch call
-      if (x.args.options?.continue === '') return incoming;
+      if (continueArg === '') return incoming;
 
       // merge if incoming is called with continue arg from existing
-      if (x.args.options.continue && x.args.options.continue === existing.metadata.continue) {
-        const mergedObj = { ...existing };
-        mergedObj.metadata = incoming.metadata;
-        mergedObj.items = [...existing.items, ...incoming.items];
-        return mergedObj;
+      if (continueArg && continueArg === existing.metadata.continue) {
+        return {
+          ...existing,
+          metadata: incoming.metadata,
+          items: [...existing.items, ...incoming.items],
+        };
       }
 
       // otherwise take existing
       return existing;
     },
-  };
+  } satisfies FieldPolicy<K8sList>;
 }
 
 export class DashboardCustomCache extends InMemoryCache {

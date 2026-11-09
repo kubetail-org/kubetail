@@ -73,7 +73,7 @@ const SettingsPopoverContent = () => {
             <td align="right">
               <Select value={timezone} onValueChange={handleTimezoneChange}>
                 <SelectTrigger className="bg-secondary border-0">
-                  <SelectValue>{(value) => value}</SelectValue>
+                  <SelectValue>{(value: string) => value}</SelectValue>
                 </SelectTrigger>
                 <SelectContent
                   alignItemWithTrigger={false}

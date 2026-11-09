@@ -33,6 +33,10 @@ const loginForm = z.object({
 
 type LoginForm = z.infer<typeof loginForm>;
 
+const loginErrorResponse = z.object({
+  errors: z.object({ token: z.string().optional() }),
+});
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -78,7 +82,7 @@ export default function LoginPage() {
 
     // update form errors
     try {
-      const { errors }: { errors: LoginForm } = await resp.json();
+      const { errors } = loginErrorResponse.parse(await resp.json());
       form.setError('token', {
         message: errors.token,
       });

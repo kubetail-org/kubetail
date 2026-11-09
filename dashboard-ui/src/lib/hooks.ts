@@ -40,19 +40,21 @@ import { Status, useClusterAPIServerStatus } from './server-status';
 import { Counter } from './util';
 import { WorkloadKind } from './workload';
 
+type GenericListItem = {
+  metadata: {
+    name: string;
+    uid: string;
+    resourceVersion: string;
+    deletionTimestamp: null | string;
+  };
+};
+
 type GenericListFragment = {
   metadata: {
     continue: string;
     resourceVersion: string;
   };
-  items: {
-    metadata: {
-      name: string;
-      uid: string;
-      resourceVersion: string;
-      deletionTimestamp: null | string;
-    };
-  }[];
+  items: GenericListItem[];
 };
 
 type GenericCounterFragment = {
@@ -67,9 +69,9 @@ type GenericCounterFragment = {
   }[];
 };
 
-type GenericWatchEventFragment = {
+type GenericWatchEventFragment<TObject> = {
   type: string;
-  object: any;
+  object: TObject | null;
 };
 
 type CustomError = Error & {
@@ -118,7 +120,7 @@ function useDeepStableValue<T>(next: T): T {
  * Cancels any pending frame on unmount to avoid orphan callbacks.
  */
 
-export function useRafThrottle<T extends (...args: any[]) => void>(fn: T) {
+export function useRafThrottle<T extends (...args: never[]) => void>(fn: T) {
   const frameRef = useRef<number | null>(null);
 
   const throttled = useCallback(
@@ -168,10 +170,10 @@ interface GetQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>
 }
 
 export function useGetQueryWithSubscription<
-  TQData = any,
-  TQVariables extends GetQueryWithSubscriptionTQVariables = GetQueryWithSubscriptionTQVariables,
-  TSData = any,
-  TSVariables extends GetQueryWithSubscriptionTSVariables = GetQueryWithSubscriptionTSVariables,
+  TQData,
+  TQVariables extends GetQueryWithSubscriptionTQVariables,
+  TSData,
+  TSVariables extends GetQueryWithSubscriptionTSVariables,
 >(args: GetQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
   const { query, subscription, queryDataKey, subscriptionDataKey, skip } = args;
   const { kubeContext, name, namespace } = args.variables;
@@ -199,7 +201,7 @@ export function useGetQueryWithSubscription<
           fieldSelector: `metadata.name=${name}`,
         } as TSVariables,
         updateQuery: (prev, { subscriptionData }): TQData => {
-          const ev = subscriptionData.data[subscriptionDataKey] as GenericWatchEventFragment;
+          const ev = subscriptionData.data[subscriptionDataKey] as GenericWatchEventFragment<unknown> | null;
           if (ev?.type === 'ADDED' && ev.object) return { [queryDataKey]: ev.object } as TQData;
           return prev as TQData;
         },
@@ -227,10 +229,10 @@ interface ListQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables
 }
 
 export function useListQueryWithSubscription<
-  TQData = any,
-  TQVariables extends OperationVariables = OperationVariables,
-  TSData = any,
-  TSVariables extends OperationVariables = OperationVariables,
+  TQData,
+  TQVariables extends OperationVariables,
+  TSData,
+  TSVariables extends OperationVariables,
 >(args: ListQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
   const client = useApolloClient();
 
@@ -249,7 +251,6 @@ export function useListQueryWithSubscription<
     else stopPolling();
   }, [error, startPolling, stopPolling]);
 
-  // TODO: tighten `any`
   const respData = data ? ((data as TQData)[queryDataKey] as GenericListFragment) : null;
 
   // fetch rest
@@ -278,9 +279,10 @@ export function useListQueryWithSubscription<
       document: subscription,
       variables: { ...variables, resourceVersion } as unknown as TSVariables,
       updateQuery: (prev, { subscriptionData }): TQData => {
-        const ev = subscriptionData.data[subscriptionDataKey] as GenericWatchEventFragment;
+        const ev = subscriptionData.data[subscriptionDataKey] as GenericWatchEventFragment<GenericListItem> | null;
+        const obj = ev?.object;
 
-        if (!ev?.type || !ev?.object) return prev as TQData;
+        if (!ev?.type || !obj) return prev as TQData;
         if (!(prev as TQData)[queryDataKey]) return prev as TQData;
 
         const oldResult = (prev as TQData)[queryDataKey] as GenericListFragment;
@@ -290,16 +292,16 @@ export function useListQueryWithSubscription<
           ...oldResult,
           metadata: {
             ...oldResult.metadata,
-            resourceVersion: ev.object.metadata.resourceVersion,
+            resourceVersion: obj.metadata.resourceVersion,
           },
         };
 
         switch (ev.type) {
           case 'ADDED':
             // add and re-sort item if not already in list
-            if (!newResult.items.some((item) => item.metadata.uid === ev.object.metadata.uid)) {
+            if (!newResult.items.some((item) => item.metadata.uid === obj.metadata.uid)) {
               const items = Array.from(newResult.items);
-              items.push(ev.object);
+              items.push(obj);
               items.sort((a, b) => {
                 if (!a.metadata.name) return 1;
                 if (!b.metadata.name) return -1;
@@ -312,9 +314,9 @@ export function useListQueryWithSubscription<
             break;
           case 'DELETED':
             // handle forced deletions that don't set `deletionTimestamp`
-            if (ev.object.metadata.deletionTimestamp === null) {
-              client.cache.modify({
-                id: client.cache.identify(ev.object),
+            if (obj.metadata.deletionTimestamp === null) {
+              client.cache.modify<GenericListItem>({
+                id: client.cache.identify(obj),
                 fields: {
                   metadata: (currMetadata) => ({
                     ...currMetadata,
@@ -325,7 +327,7 @@ export function useListQueryWithSubscription<
             }
 
             // remove deleted item
-            newResult.items = oldResult.items.filter((item) => item.metadata.uid !== ev.object.metadata.uid);
+            newResult.items = oldResult.items.filter((item) => item.metadata.uid !== obj.metadata.uid);
             break;
           default:
             return prev as TQData;
@@ -375,10 +377,10 @@ interface CounterQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariab
 }
 
 export function useCounterQueryWithSubscription<
-  TQData = any,
-  TQVariables extends OperationVariables = OperationVariables,
-  TSData = any,
-  TSVariables extends OperationVariables = OperationVariables,
+  TQData,
+  TQVariables extends OperationVariables,
+  TSData,
+  TSVariables extends OperationVariables,
 >(args: CounterQueryWithSubscriptionArgs<TQData, TQVariables, TSData, TSVariables>) {
   const { query, subscription, queryDataKey, subscriptionDataKey, skip } = args;
   const variables = useDeepStableValue(args.variables);
@@ -408,9 +410,12 @@ export function useCounterQueryWithSubscription<
       document: subscription,
       variables: { ...variables, resourceVersion } as unknown as TSVariables,
       updateQuery: (prev, { subscriptionData }): TQData => {
-        const ev = subscriptionData.data[subscriptionDataKey] as GenericWatchEventFragment;
+        const ev = subscriptionData.data[subscriptionDataKey] as GenericWatchEventFragment<{
+          metadata: { resourceVersion: string };
+        }> | null;
+        const obj = ev?.object;
 
-        if (!ev?.type || !ev?.object) return prev as TQData;
+        if (!ev?.type || !obj) return prev as TQData;
         if (!(prev as TQData)[queryDataKey]) return prev as TQData;
 
         // Only handle additions and deletions
@@ -426,7 +431,7 @@ export function useCounterQueryWithSubscription<
           ...oldResult,
           metadata: {
             ...oldResult.metadata,
-            resourceVersion: ev.object.metadata.resourceVersion,
+            resourceVersion: obj.metadata.resourceVersion,
             remainingItemCount: newCount,
           },
         };

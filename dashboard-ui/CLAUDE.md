@@ -37,7 +37,7 @@ pnpm test run       # `pnpm test` alone is watch mode and never exits
 - **A constant is `SCREAMING_SNAKE`.** One that belongs to a feature is prefixed by it (`HOME_`, `CONSOLE_`, `SOURCE_PICKER_`) and suffixed by its kind (`_FETCH`, `_GET`, `_FIND`, `_WATCH`, `_FOLLOW`); the operation name is its PascalCase.
 - **`pnpm graphql-codegen` regenerates `__generated__/`** from the two schemas under `../modules/`. Run it after changing `ops.ts`, `fragments.ts` or either schema, and commit the result. **Never edit `__generated__/`.** The two presets in `codegen.ts` override the same four defaults; keep them in step. → [ADR: override the codegen client preset's v6 defaults](../docs/adr/2026-11-09-override-the-codegen-client-presets-v6-defaults.md)
 - **The console's log operations are written once, in `dashboard/ops.ts`, and sent to either server.** Codegen checks them against the Dashboard's schema alone.
-- **Custom scalars arrive as `any` and are converted by the cache.** `dateField` and `bigIntField` in `apollo-client.ts` turn named fields into `Date` and `bigint`. A new time or int64 field needs a type policy there, or it is a string.
+- **Custom scalars arrive as `any` and are converted by the cache.** `dateField` and `bigIntField` in `apollo-client.ts` turn named fields into `Date` and `bigint`. A new time or int64 field needs a type policy there, or it is a string. Read a scalar with `as` to the type it has at run time.
 - **Kubernetes lists are a query plus a watch, through the shared hooks** in `src/lib/hooks.ts`: `useListQueryWithSubscription`, `useGetQueryWithSubscription`, `useCounterQueryWithSubscription`. Don't pair `useQuery` and `useSubscription` by hand. A paginated list field needs `k8sPagination()` in `DashboardCustomCache`.
 
 ## State
@@ -90,6 +90,7 @@ Vitest + `@testing-library/react` (jsdom), co-located as `foo.test.ts[x]`. Globa
 `.oxlintrc.json` is the lint: oxlint's `correctness`, `suspicious` and `perf` categories plus a chosen list of rules. A rule turned off or given options says why in a comment. → [ADR: lint the dashboard UI with oxlint's categories and a chosen rule list](../docs/adr/2026-11-09-lint-the-dashboard-ui-with-oxlints-categories-and-a-chosen-rule-list.md)
 
 - **Imports are grouped, a blank line between groups**: third-party packages, `@kubetail/*`, `@/…`, relative `./…`, then stylesheets. `pnpm format` sorts them (`sortImports` in `.oxfmtrc.json`).
+- **No `any` outside tests** (`no-explicit-any` and the `no-unsafe-*` rules). Read JSON and other outside data as `unknown` and check it, as `parseSession` in `lib/auth.tsx` does. Tests turn the `no-unsafe-*` rules off, since a mock's calls are `any`. → [ADR: forbid any in the dashboard UI outside tests](../docs/adr/2026-11-09-forbid-any-in-the-dashboard-ui-outside-tests.md)
 - **A disable comment is `oxlint-disable`, names its rule, gives a reason after `--`, and is rare**; an unused one fails the lint. `eslint-disable` comments are ignored.
 - **TypeScript is `strict` with `noUnusedLocals` and `noUnusedParameters`.**
 - **A new dependency must be at least ten days old** (`minimumReleaseAge` in `pnpm-workspace.yaml`); `@kubetail/ui` is exempt.

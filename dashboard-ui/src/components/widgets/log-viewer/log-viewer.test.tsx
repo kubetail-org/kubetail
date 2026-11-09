@@ -239,7 +239,7 @@ describe('internal helpers', () => {
         const runtime = createMockRuntime();
         const { client, config } = runtime;
 
-        (config as any).initialPosition = { type: 'head' };
+        runtime.config = { ...config, initialPosition: { type: 'head' } };
 
         renderHook(() => useInit(runtime));
 
@@ -252,7 +252,7 @@ describe('internal helpers', () => {
         const runtime = createMockRuntime();
         const { client, config, actions } = runtime;
 
-        (config as any).initialPosition = { type: 'head' };
+        runtime.config = { ...config, initialPosition: { type: 'head' } };
 
         (client as MockClient).fetchSince.mockResolvedValue({
           records: createMockRecords(2),
@@ -274,7 +274,7 @@ describe('internal helpers', () => {
         const runtime = createMockRuntime();
         const { client, config, actions } = runtime;
 
-        (config as any).initialPosition = { type: 'head' };
+        runtime.config = { ...config, initialPosition: { type: 'head' } };
 
         (client as MockClient).fetchSince.mockResolvedValue({
           records: createMockRecords(2),
@@ -292,7 +292,7 @@ describe('internal helpers', () => {
         const runtime = createMockRuntime();
         const { client, config, actions } = runtime;
 
-        (config as any).initialPosition = { type: 'head' };
+        runtime.config = { ...config, initialPosition: { type: 'head' } };
 
         (client as MockClient).fetchSince.mockResolvedValue({
           records: createMockRecords(2),
@@ -313,7 +313,7 @@ describe('internal helpers', () => {
         const runtime = createMockRuntime();
         const { client, config } = runtime;
 
-        (config as any).initialPosition = { type: 'tail' };
+        runtime.config = { ...config, initialPosition: { type: 'tail' } };
 
         renderHook(() => useInit(runtime));
 
@@ -326,7 +326,7 @@ describe('internal helpers', () => {
         const runtime = createMockRuntime();
         const { client, config, actions } = runtime;
 
-        (config as any).initialPosition = { type: 'tail' };
+        runtime.config = { ...config, initialPosition: { type: 'tail' } };
 
         (client as MockClient).fetchUntil.mockResolvedValue({
           records: createMockRecords(2),
@@ -348,7 +348,7 @@ describe('internal helpers', () => {
         const runtime = createMockRuntime();
         const { client, config, actions } = runtime;
 
-        (config as any).initialPosition = { type: 'tail' };
+        runtime.config = { ...config, initialPosition: { type: 'tail' } };
 
         (client as MockClient).fetchUntil.mockResolvedValue({
           records: createMockRecords(2),
@@ -366,7 +366,7 @@ describe('internal helpers', () => {
         const runtime = createMockRuntime();
         const { client, config, actions } = runtime;
 
-        (config as any).initialPosition = { type: 'tail' };
+        runtime.config = { ...config, initialPosition: { type: 'tail' } };
 
         (client as MockClient).fetchUntil.mockResolvedValue({
           records: createMockRecords(2),
@@ -387,7 +387,7 @@ describe('internal helpers', () => {
         const runtime = createMockRuntime();
         const { client, config } = runtime;
 
-        (config as any).initialPosition = { type: 'cursor', cursor: 'c0' };
+        runtime.config = { ...config, initialPosition: { type: 'cursor', cursor: 'c0' } };
 
         renderHook(() => useInit(runtime));
 
@@ -404,7 +404,7 @@ describe('internal helpers', () => {
         const runtime = createMockRuntime();
         const { client, config, actions } = runtime;
 
-        (config as any).initialPosition = { type: 'cursor', cursor: 'c0' };
+        runtime.config = { ...config, initialPosition: { type: 'cursor', cursor: 'c0' } };
 
         (client as MockClient).fetchBefore.mockResolvedValue({
           records: createMockRecords(2),
@@ -432,7 +432,7 @@ describe('internal helpers', () => {
         const runtime = createMockRuntime();
         const { client, config, actions } = runtime;
 
-        (config as any).initialPosition = { type: 'cursor', cursor: 'c0' };
+        runtime.config = { ...config, initialPosition: { type: 'cursor', cursor: 'c0' } };
 
         (client as MockClient).fetchBefore.mockResolvedValue({
           records: createMockRecords(2),
@@ -456,7 +456,7 @@ describe('internal helpers', () => {
         const runtime = createMockRuntime();
         const { client, config, actions } = runtime;
 
-        (config as any).initialPosition = { type: 'cursor', cursor: 'c0' };
+        runtime.config = { ...config, initialPosition: { type: 'cursor', cursor: 'c0' } };
 
         (client as MockClient).fetchBefore.mockResolvedValue({
           records: createMockRecords(2),
@@ -482,7 +482,7 @@ describe('internal helpers', () => {
         const runtime = createMockRuntime();
         const { client, config, recordsRef } = runtime;
 
-        (config as any).initialPosition = { type: 'cursor', cursor: 'c0' };
+        runtime.config = { ...config, initialPosition: { type: 'cursor', cursor: 'c0' } };
 
         const beforeRecords = createMockRecords(3);
         const afterRecords = createMockRecords(2);
@@ -672,19 +672,20 @@ describe('internal helpers', () => {
       const { client } = runtime;
 
       // Prepare runtime
-      (runtime as any).config = {
+      runtime.config = {
         ...runtime.config,
         overscan: 2,
         loadMoreThreshold: 5,
       };
 
-      (runtime as any).state = {
+      runtime.state = {
+        ...runtime.state,
         count: 100,
         hasMoreBefore: true,
         hasMoreAfter: true,
       };
 
-      (runtime.services.virtualizer as any).range = { startIndex: 10, endIndex: 20 };
+      runtime.services.virtualizer.range = { startIndex: 10, endIndex: 20 };
 
       renderHook(() => useLoadMore(runtime));
 
@@ -701,19 +702,20 @@ describe('internal helpers', () => {
       });
 
       // Prepare runtime
-      (runtime as any).config = {
+      runtime.config = {
         ...runtime.config,
         overscan: 2,
         loadMoreThreshold: 5,
       };
 
-      (runtime as any).state = {
+      runtime.state = {
+        ...runtime.state,
         count: 100,
         hasMoreBefore: true,
         hasMoreAfter: true,
       };
 
-      (services.virtualizer as any).range = { startIndex: 2, endIndex: 20 };
+      services.virtualizer.range = { startIndex: 2, endIndex: 20 };
 
       // Call hook and perform checks
       renderHook(() => useLoadMore(runtime));
@@ -730,19 +732,20 @@ describe('internal helpers', () => {
       });
 
       // Prepare runtime
-      (runtime as any).config = {
+      runtime.config = {
         ...runtime.config,
         overscan: 2,
         loadMoreThreshold: 5,
       };
 
-      (runtime as any).state = {
+      runtime.state = {
+        ...runtime.state,
         count: 100,
         hasMoreBefore: true,
         hasMoreAfter: true,
       };
 
-      (runtime.services.virtualizer as any).range = { startIndex: 10, endIndex: 97 };
+      runtime.services.virtualizer.range = { startIndex: 10, endIndex: 97 };
 
       // Call hook and perform checks
       renderHook(() => useLoadMore(runtime));
@@ -759,13 +762,14 @@ describe('internal helpers', () => {
       });
 
       // Prepare runtime
-      (runtime as any).config = {
+      runtime.config = {
         ...runtime.config,
         overscan: 2,
         loadMoreThreshold: 20,
       };
 
-      (runtime as any).state = {
+      runtime.state = {
+        ...runtime.state,
         count: 100,
         hasMoreBefore: true,
         hasMoreAfter: true,
@@ -773,7 +777,7 @@ describe('internal helpers', () => {
         isRemeasuring: false,
       };
 
-      (runtime.services.virtualizer as any).range = { startIndex: 10, endIndex: 90 };
+      runtime.services.virtualizer.range = { startIndex: 10, endIndex: 90 };
 
       // Call hook and perform checks
       renderHook(() => useLoadMore(runtime));
@@ -790,13 +794,14 @@ describe('internal helpers', () => {
       });
 
       // Prepare runtime
-      (runtime as any).config = {
+      runtime.config = {
         ...runtime.config,
-        ocerscan: 2,
+        overscan: 2,
         loadMoreThreshold: 20,
       };
 
-      (runtime as any).state = {
+      runtime.state = {
+        ...runtime.state,
         count: 100,
         hasMoreBefore: true,
         hasMoreAfter: true,
@@ -804,7 +809,7 @@ describe('internal helpers', () => {
         isRemeasuring: true,
       };
 
-      (runtime.services.virtualizer as any).range = { startIndex: 10, endIndex: 90 };
+      runtime.services.virtualizer.range = { startIndex: 10, endIndex: 90 };
 
       // Call hook and perform checks
       renderHook(() => useLoadMore(runtime));
@@ -832,12 +837,12 @@ describe('internal helpers', () => {
         services.recordStore.new(records);
       });
 
-      (runtime as any).config = {
+      runtime.config = {
         ...runtime.config,
         follow: true,
       };
 
-      (runtime as any).state = {
+      runtime.state = {
         ...runtime.state,
         count: 1,
         hasMoreAfter: false,
@@ -875,13 +880,13 @@ describe('internal helpers', () => {
       const runtime = createMockRuntime();
       const { refs } = runtime;
 
-      (runtime as any).config = {
+      runtime.config = {
         ...runtime.config,
         follow: true,
         pinToBottomTolerance: 0,
       };
 
-      (runtime as any).state = {
+      runtime.state = {
         ...runtime.state,
         isLoading: false,
         hasMoreAfter: false,
@@ -908,13 +913,13 @@ describe('internal helpers', () => {
       const { refs } = runtime;
       refs.isProgrammaticScroll.current = true;
 
-      (runtime as any).config = {
+      runtime.config = {
         ...runtime.config,
         follow: true,
         pinToBottomTolerance: 0,
       };
 
-      (runtime as any).state = {
+      runtime.state = {
         ...runtime.state,
         isLoading: false,
         hasMoreAfter: false,
@@ -940,7 +945,7 @@ describe('internal helpers', () => {
       const runtime = createMockRuntime();
       const { refs } = runtime;
 
-      (runtime as any).state = {
+      runtime.state = {
         ...runtime.state,
         isLoading: false,
         hasMoreAfter: false,
@@ -958,7 +963,7 @@ describe('internal helpers', () => {
       const runtime = createMockRuntime();
       const { refs } = runtime;
 
-      (runtime as any).state = {
+      runtime.state = {
         ...runtime.state,
         isLoading: false,
         hasMoreAfter: false,
@@ -991,13 +996,13 @@ describe('internal helpers', () => {
         services.recordStore.new(createMockRecords(1));
       });
 
-      (runtime as any).config = {
+      runtime.config = {
         ...runtime.config,
         follow: false,
         pinToBottomTolerance: 0,
       };
 
-      (runtime as any).state = {
+      runtime.state = {
         ...runtime.state,
         count: 1,
         hasMoreAfter: false,

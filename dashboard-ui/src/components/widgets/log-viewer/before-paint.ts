@@ -24,7 +24,7 @@ type BeforePaintQueueItem = {
   reject: (error: unknown) => void;
 };
 
-export function useBeforePaint(trigger: any) {
+export function useBeforePaint(trigger: unknown) {
   const beforePaintQueueRef = useRef<BeforePaintQueueItem[]>([]);
 
   useLayoutEffect(() => {

@@ -312,7 +312,7 @@ const DisplayWorkloadItems = ({ kind, items }: DisplayWorkloadItemsProps) => {
           id: item.id,
           name: item.metadata.name,
           namespace: item.metadata.namespace,
-          createdAt: item.metadata.creationTimestamp,
+          createdAt: item.metadata.creationTimestamp as Date,
         })),
     [items, namespaceFilter],
   );
@@ -377,15 +377,17 @@ const DisplayWorkloadItems = ({ kind, items }: DisplayWorkloadItemsProps) => {
  * DisplayWorkload component
  */
 
-// Each workload kind selects a different top-level field, so the per-kind query
-// result types are mutually incompatible. This shared entry type lets a single
-// dynamic dispatch site consume any of them without a union over documents.
+// Each workload kind selects a different top-level field, so the per-kind
+// result types are mutually incompatible. The entries share these wider types,
+// and each `getItems` narrows the result back to its own query.
+type WorkloadListData = Record<string, unknown>;
+
 type WorkloadQueryConfigEntry = {
-  query: TypedDocumentNode<any, any>;
-  subscription: TypedDocumentNode<any, any>;
+  query: TypedDocumentNode<WorkloadListData, { kubeContext: string }>;
+  subscription: TypedDocumentNode<WorkloadListData, { kubeContext: string }>;
   queryDataKey: string;
   subscriptionDataKey: string;
-  getItems: (data: any) => WorkloadItem[] | undefined;
+  getItems: (data: WorkloadListData) => WorkloadItem[] | undefined;
 };
 
 const workloadQueryConfig: Record<WorkloadKind, WorkloadQueryConfigEntry> = {
@@ -394,49 +396,49 @@ const workloadQueryConfig: Record<WorkloadKind, WorkloadQueryConfigEntry> = {
     subscription: SOURCE_PICKER_CRONJOBS_LIST_WATCH,
     queryDataKey: 'batchV1CronJobsList',
     subscriptionDataKey: 'batchV1CronJobsWatch',
-    getItems: (data: SourcePickerCronJobsListFetchQuery) => data?.batchV1CronJobsList?.items,
+    getItems: (data) => (data as SourcePickerCronJobsListFetchQuery).batchV1CronJobsList?.items,
   },
   [WorkloadKind.DAEMONSETS]: {
     query: SOURCE_PICKER_DAEMONSETS_LIST_FETCH,
     subscription: SOURCE_PICKER_DAEMONSETS_LIST_WATCH,
     queryDataKey: 'appsV1DaemonSetsList',
     subscriptionDataKey: 'appsV1DaemonSetsWatch',
-    getItems: (data: SourcePickerDaemonSetsListFetchQuery) => data?.appsV1DaemonSetsList?.items,
+    getItems: (data) => (data as SourcePickerDaemonSetsListFetchQuery).appsV1DaemonSetsList?.items,
   },
   [WorkloadKind.DEPLOYMENTS]: {
     query: SOURCE_PICKER_DEPLOYMENTS_LIST_FETCH,
     subscription: SOURCE_PICKER_DEPLOYMENTS_LIST_WATCH,
     queryDataKey: 'appsV1DeploymentsList',
     subscriptionDataKey: 'appsV1DeploymentsWatch',
-    getItems: (data: SourcePickerDeploymentsListFetchQuery) => data?.appsV1DeploymentsList?.items,
+    getItems: (data) => (data as SourcePickerDeploymentsListFetchQuery).appsV1DeploymentsList?.items,
   },
   [WorkloadKind.JOBS]: {
     query: SOURCE_PICKER_JOBS_LIST_FETCH,
     subscription: SOURCE_PICKER_JOBS_LIST_WATCH,
     queryDataKey: 'batchV1JobsList',
     subscriptionDataKey: 'batchV1JobsWatch',
-    getItems: (data: SourcePickerJobsListFetchQuery) => data?.batchV1JobsList?.items,
+    getItems: (data) => (data as SourcePickerJobsListFetchQuery).batchV1JobsList?.items,
   },
   [WorkloadKind.PODS]: {
     query: SOURCE_PICKER_PODS_LIST_FETCH,
     subscription: SOURCE_PICKER_PODS_LIST_WATCH,
     queryDataKey: 'coreV1PodsList',
     subscriptionDataKey: 'coreV1PodsWatch',
-    getItems: (data: SourcePickerPodsListFetchQuery) => data?.coreV1PodsList?.items,
+    getItems: (data) => (data as SourcePickerPodsListFetchQuery).coreV1PodsList?.items,
   },
   [WorkloadKind.REPLICASETS]: {
     query: SOURCE_PICKER_REPLICASETS_LIST_FETCH,
     subscription: SOURCE_PICKER_REPLICASETS_LIST_WATCH,
     queryDataKey: 'appsV1ReplicaSetsList',
     subscriptionDataKey: 'appsV1ReplicaSetsWatch',
-    getItems: (data: SourcePickerReplicaSetsListFetchQuery) => data?.appsV1ReplicaSetsList?.items,
+    getItems: (data) => (data as SourcePickerReplicaSetsListFetchQuery).appsV1ReplicaSetsList?.items,
   },
   [WorkloadKind.STATEFULSETS]: {
     query: SOURCE_PICKER_STATEFULSETS_LIST_FETCH,
     subscription: SOURCE_PICKER_STATEFULSETS_LIST_WATCH,
     queryDataKey: 'appsV1StatefulSetsList',
     subscriptionDataKey: 'appsV1StatefulSetsWatch',
-    getItems: (data: SourcePickerStatefulSetsListFetchQuery) => data?.appsV1StatefulSetsList?.items,
+    getItems: (data) => (data as SourcePickerStatefulSetsListFetchQuery).appsV1StatefulSetsList?.items,
   },
 };
 
@@ -506,7 +508,7 @@ const NamespacePicker = () => {
     >
       <SelectTrigger className="h-[35px] border text-sm rounded-lg mt-0!">
         <SelectValue placeholder="Loading...">
-          {(value) => (value === ALL_NAMESPACES ? 'All namespaces' : value)}
+          {(value: string | null) => (value === ALL_NAMESPACES ? 'All namespaces' : value)}
         </SelectValue>
       </SelectTrigger>
       <SelectContent alignItemWithTrigger={false}>
