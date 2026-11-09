@@ -23,6 +23,8 @@ github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/deckarep/golang-set/v2 v2.9.0 h1:prva4eP9UysWagLyKrtn074ughi0NnkIf0A4M5yOCKI=
 github.com/deckarep/golang-set/v2 v2.9.0/go.mod h1:EWknQXbs0mcFpat2QOoXV0Ee57cD+w6ZEN76BR2JVrM=
+github.com/deckarep/golang-set/v3 v3.0.0 h1:Jn/HhA4IIh0odCMtBuiW2Gith2AlgO4+J/x7YgpGywQ=
+github.com/deckarep/golang-set/v3 v3.0.0/go.mod h1:n8bXs6b+vTxST3g+6yxlve6cVvnHr+kmWzQ/K6FXdks=
 github.com/dgryski/trifles v0.0.0-20230903005119-f50d829f2e54 h1:SG7nF6SRlWhcT7cNTs5R6Hk4V2lcmLz2NsG2VnInyNo=
 github.com/dgryski/trifles v0.0.0-20230903005119-f50d829f2e54/go.mod h1:if7Fbed8SFyPtHLHbg49SI7NAdJiC5WIA09pe59rfAA=
 github.com/emicklei/go-restful/v3 v3.13.0 h1:C4Bl2xDndpU6nJ4bc1jXd+uTmYPVUwkD6bFY/oTyCes=

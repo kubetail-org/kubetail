@@ -39,6 +39,7 @@ require (
 	github.com/coder/websocket v1.8.15 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/deckarep/golang-set/v2 v2.9.0 // indirect
+	github.com/deckarep/golang-set/v3 v3.0.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.1 // indirect

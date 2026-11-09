@@ -8,7 +8,7 @@ require (
 	github.com/99designs/gqlgen v0.17.98
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/coder/websocket v1.8.15
-	github.com/deckarep/golang-set/v2 v2.9.0
+	github.com/deckarep/golang-set/v3 v3.0.0
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-contrib/requestid v1.0.10
 	github.com/gin-gonic/gin v1.12.0
@@ -60,6 +60,7 @@ require (
 	github.com/cloudwego/base64x v0.1.7 // indirect
 	github.com/cyphar/filepath-securejoin v0.7.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/deckarep/golang-set/v2 v2.9.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
 	github.com/evanphx/json-patch v5.9.11+incompatible // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
