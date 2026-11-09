@@ -55,8 +55,6 @@ const HealthDot = ({ className, status }: { className?: string; status: Status }
     case Status.Unknown:
       color = 'gray';
       break;
-    default:
-      throw new Error('not implemented');
   }
 
   return (
@@ -81,10 +79,10 @@ const statusMessage = (s: ServerStatus, unknownDefault: string): string => {
       return s.message || 'Pending';
     case Status.NotFound:
       return s.message || 'Not found';
+    case Status.Degraded:
+      return s.message || 'Degraded';
     case Status.Unknown:
       return s.message || unknownDefault;
-    default:
-      throw new Error('not implemented');
   }
 };
 

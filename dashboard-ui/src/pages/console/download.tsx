@@ -120,7 +120,6 @@ function buildRange(state: DialogState, timezone: string): RangeArgs {
         until: normalizeTimeArg(state.until, timezone),
       };
     case 'entire':
-    default:
       return { mode: LogRecordsQueryMode.Head, limit: null };
   }
 }

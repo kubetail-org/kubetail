@@ -73,8 +73,6 @@ export class Duration {
       case DurationUnit.Months:
         d.setMonth(d.getMonth() - this.value);
         break;
-      default:
-        throw new Error('not implemented');
     }
     return d;
   }
@@ -91,8 +89,6 @@ export class Duration {
         return `P${this.value}W`;
       case DurationUnit.Months:
         return `P${this.value}M`;
-      default:
-        throw new Error('not implemented');
     }
   }
 }

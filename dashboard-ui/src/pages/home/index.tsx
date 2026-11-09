@@ -269,7 +269,7 @@ const SortIcon = ({ dir, descFirst }: SortIconProps) => {
       return <ChevronUp className={iconCN} />;
     case 'desc':
       return <ChevronDown className={iconCN} />;
-    default: {
+    case false: {
       const Icon = descFirst ? ChevronDown : ChevronUp;
       return <Icon className={cn(iconCN, 'invisible group-hover:visible group-focus:visible')} />;
     }

@@ -81,6 +81,7 @@ function useStableInitialPosition(): LogViewerInitialPosition {
         if (cursor !== null) return { type: 'cursor', cursor };
         return DEFAULT_INITIAL_POSITION;
       }
+      case null:
       default:
         return DEFAULT_INITIAL_POSITION;
     }
@@ -421,8 +422,6 @@ const getAttribute = (record: LogRecord, col: ViewerColumn, timezone: string, ti
       return record.source.metadata.node;
     case ViewerColumn.Message:
       return <AnsiHtml text={record.message} />;
-    default:
-      throw new Error('not implemented');
   }
 };
 
