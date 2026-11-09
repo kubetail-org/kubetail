@@ -14,21 +14,20 @@
 
 import { useSubscription } from '@apollo/client/react';
 import {
+  columnVisibilityFeature,
+  createPaginatedRowModel,
+  createSortedRowModel,
   flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
-  useReactTable,
+  metaHelper,
+  rowPaginationFeature,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_datetime,
+  sortFn_text,
+  tableFeatures,
+  useTable,
 } from '@tanstack/react-table';
-import type {
-  ColumnDef,
-  Row,
-  SortDirection,
-  SortingState,
-  Table as TableType,
-  TableMeta,
-  TableOptions,
-} from '@tanstack/react-table';
+import type { ColumnDef, Row, SortDirection, SortingState, Table as TableType } from '@tanstack/react-table';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { ChevronDown, ChevronUp, ExternalLink, Layers3, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
 import numeral from 'numeral';
@@ -127,17 +126,29 @@ type WorkloadTableData = {
   containerIDs: string[];
 };
 
-interface WorkloadTableMeta extends TableMeta<WorkloadTableData> {
+type WorkloadTableMeta = {
   kubeContext: string | null;
   selectAll: boolean;
   isChecked: Map<string, boolean>;
   handleSelectAllChange: () => void;
   handleSingleCheckboxChange: (id: string) => void;
-}
+};
+
+const workloadTableFeatures = tableFeatures({
+  columnVisibilityFeature,
+  rowPaginationFeature,
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
+  paginatedRowModel: createPaginatedRowModel(),
+  sortFns: { alphanumeric: sortFn_alphanumeric, datetime: sortFn_datetime, text: sortFn_text },
+  tableMeta: metaHelper<WorkloadTableMeta>(),
+});
+
+type WorkloadTableFeatures = typeof workloadTableFeatures;
 
 type TableCellProps = {
-  table: TableType<WorkloadTableData>;
-  row: Row<WorkloadTableData>;
+  table: TableType<WorkloadTableFeatures, WorkloadTableData>;
+  row: Row<WorkloadTableFeatures, WorkloadTableData>;
 };
 
 const SizeTableCell = ({ table, row }: TableCellProps) => {
@@ -254,7 +265,7 @@ const WORKLOAD_TABLE_COLUMNS = [
       );
     },
   },
-] satisfies ColumnDef<WorkloadTableData>[];
+] satisfies ColumnDef<WorkloadTableFeatures, WorkloadTableData>[];
 
 type SortIconProps = {
   dir: SortDirection | false;
@@ -277,7 +288,7 @@ const SortIcon = ({ dir, descFirst }: SortIconProps) => {
 };
 
 type DataTableRowProps = {
-  row: Row<WorkloadTableData>;
+  row: Row<WorkloadTableFeatures, WorkloadTableData>;
   isChecked: boolean;
   isClusterAPIEnabled: boolean;
 };
@@ -322,7 +333,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
 
   const logFileInfo = useLogFileInfo(kubeContext, itemIDs);
 
-  const data = useMemo(
+  const data = useMemo<WorkloadTableData[]>(
     () =>
       items.map((item) => {
         const fileInfo = logFileInfo.get(item.metadata.uid);
@@ -389,34 +400,26 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
     [kubeContext, selectAll, isChecked, handleSelectAllChange, handleSingleCheckboxChange],
   );
 
-  const tableCfg = useMemo(
-    () =>
-      ({
-        data,
-        columns: WORKLOAD_TABLE_COLUMNS,
-        meta,
-        state: {
-          sorting,
-          columnVisibility: {
-            size: isClusterAPIEnabled,
-            lastModifiedAt: isClusterAPIEnabled,
-          },
-          pagination: {
-            pageIndex: 0,
-            pageSize: showAll ? numItems : maxDisplayRows,
-          },
-        },
-        enableSortingRemoval: false,
-        onSortingChange: setSorting,
-        getCoreRowModel: getCoreRowModel(),
-        getSortedRowModel: getSortedRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
-        manualPagination: false,
-      }) satisfies TableOptions<WorkloadTableData>,
-    [data, meta, sorting, isClusterAPIEnabled, showAll, numItems, maxDisplayRows, setSorting],
-  );
-
-  const table = useReactTable(tableCfg as TableOptions<WorkloadTableData>);
+  const table = useTable({
+    features: workloadTableFeatures,
+    data,
+    columns: WORKLOAD_TABLE_COLUMNS,
+    meta,
+    state: {
+      sorting,
+      columnVisibility: {
+        size: isClusterAPIEnabled,
+        lastModifiedAt: isClusterAPIEnabled,
+      },
+      pagination: {
+        pageIndex: 0,
+        pageSize: showAll ? numItems : maxDisplayRows,
+      },
+    },
+    enableSortingRemoval: false,
+    onSortingChange: setSorting,
+    manualPagination: false,
+  });
 
   // For label
   const Icon = KNOCKOUT_ICON_MAP[kind];
