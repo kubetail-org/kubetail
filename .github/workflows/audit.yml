@@ -1,0 +1,210 @@
+name: audit
+
+permissions:
+  contents: read
+
+# A pull request that changes a dependency fails only for the advisories it
+# brings in, through the dependency review jobs. Main, the schedule and a
+# dispatch audit the whole tree instead, so a newly published advisory fails a
+# run the maintainers own.
+on:
+  pull_request:
+    branches:
+      - "**"
+    paths:
+      - modules/*/go.mod
+      - modules/*/go.sum
+      - tools/go.mod
+      - tools/go.sum
+      - crates/**/Cargo.toml
+      - crates/Cargo.lock
+      - dashboard-ui/package.json
+      - dashboard-ui/pnpm-lock.yaml
+      - dashboard-ui/pnpm-workspace.yaml
+      - scripts/audit-npm-diff.sh
+      - .github/workflows/audit.yml
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "41 5 * * *"
+  workflow_dispatch:
+
+# A PR's new push cancels its last run. Every other run has a group of its own.
+concurrency:
+  group: audit-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # GitHub starts push and schedule runs in forks too. Outside
+  # kubetail-org/kubetail this job runs only for a PR or a dispatch, and every
+  # other job needs it, so a fork's automatic run skips whole.
+  fork-gate:
+    name: Fork gate
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - run: "true"
+
+  go-audit:
+    name: Go · Audit
+    needs: fork-gate
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      # tools/go.mod pins govulncheck, where Dependabot moves it. Each module
+      # is checked alone, as its release builds it.
+      - name: Run govulncheck
+        working-directory: ./tools
+        env:
+          GOWORK: "off"
+        run: |
+          for module in cli cluster-api dashboard shared; do
+            go tool govulncheck -C "../modules/$module" ./...
+          done
+
+  rust-audit:
+    name: Rust · Audit
+    needs: fork-gate
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      # The action's release fixes cargo-audit's version and checksums, so
+      # Dependabot moves cargo-audit when it moves the action.
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        with:
+          tool: cargo-audit
+      - name: Run cargo audit
+        working-directory: ./crates
+        run: cargo audit --deny unsound --deny unmaintained
+
+  typescript-audit:
+    name: TypeScript · Audit
+    needs: fork-gate
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-node: "true"
+      - name: Run pnpm audit
+        working-directory: ./dashboard-ui
+        run: pnpm audit --audit-level moderate
+
+  dependency-review:
+    name: Go + Rust · Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      # Compares the base and head dependency graphs, which hold the Go and
+      # Cargo packages; npm is TypeScript · Dependency review's. Every scope
+      # counts, as in the audits.
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: moderate
+          fail-on-scopes: runtime, development, unknown
+
+  # A fork's token cannot submit to the dependency graph, so npm compares
+  # pnpm audit on the base and on the head instead.
+  typescript-dependency-review:
+    name: TypeScript · Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+          sparse-checkout: |
+            dashboard-ui/package.json
+            dashboard-ui/pnpm-lock.yaml
+            dashboard-ui/pnpm-workspace.yaml
+          sparse-checkout-cone-mode: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-node: "true"
+      - name: Fail on advisories new to the head
+        run: sh scripts/audit-npm-diff.sh base/dashboard-ui dashboard-ui
+
+  # GitHub's dependency graph reads only pnpm-lock.yaml's first YAML document,
+  # which pins pnpm itself, and Dependabot's alerts and security updates read
+  # the graph.
+  typescript-submit:
+    name: TypeScript · Submit dependencies
+    needs: fork-gate
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-node: "true"
+      - name: Build the snapshot
+        env:
+          SHA: ${{ github.sha }}
+          REF: ${{ github.ref }}
+        run: sh scripts/npm-dependency-snapshot.sh "$SHA" "$REF" >"$RUNNER_TEMP/snapshot.json"
+      - name: Submit the snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api "repos/$GITHUB_REPOSITORY/dependency-graph/snapshots" --input "$RUNNER_TEMP/snapshot.json"
+
+  # A failed audit on main opens an issue, or comments on the one still open,
+  # so it reaches a maintainer without anyone watching the Actions tab.
+  report:
+    name: Report failure
+    needs:
+      - go-audit
+      - rust-audit
+      - typescript-audit
+    if: failure() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Fix the dependency audit failing on main"
+          number=$(gh issue list --state open --label security \
+            --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "Failed again: $RUN_URL"
+          else
+            gh issue create --title "$title" --label security --body "## Summary
+
+          A dependency audit failed on main: $RUN_URL
+
+          A newly published advisory, or a crate newly marked unsound or unmaintained, can fail it with no change on our side.
+
+          ## Done when
+
+          - The audit workflow passes on main."
+          fi
