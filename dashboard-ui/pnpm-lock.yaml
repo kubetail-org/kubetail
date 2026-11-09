@@ -256,10 +256,10 @@ importers:
         version: 6.0.8(graphql@16.14.1)(ws@8.22.0)
       jotai:
         specifier: ^2.20.0
-        version: 2.20.0(@babel/core@7.29.7)(@babel/template@7.29.7)(@types/react@19.2.17)(react@19.2.7)
+        version: 2.20.0(@babel/core@7.29.7(supports-color@7.2.0))(@babel/template@7.29.7)(@types/react@19.2.17)(react@19.2.7)
       jotai-family:
         specifier: ^1.0.2
-        version: 1.0.2(jotai@2.20.0(@babel/core@7.29.7)(@babel/template@7.29.7)(@types/react@19.2.17)(react@19.2.7))
+        version: 1.0.2(jotai@2.20.0(@babel/core@7.29.7(supports-color@7.2.0))(@babel/template@7.29.7)(@types/react@19.2.17)(react@19.2.7))
       lucide-react:
         specifier: ^1.17.0
         version: 1.17.0(react@19.2.7)
@@ -305,7 +305,7 @@ importers:
     devDependencies:
       '@graphql-codegen/cli':
         specifier: ^7.4.6
-        version: 7.4.6(@types/node@25.9.2)(graphql@16.14.1)(typescript@6.0.3)
+        version: 7.4.6(@types/node@25.9.2)(graphql@16.14.1)(supports-color@7.2.0)(typescript@6.0.3)
       '@graphql-codegen/client-preset':
         specifier: ^6.2.3
         version: 6.2.3(graphql@16.14.1)
@@ -349,8 +349,8 @@ importers:
         specifier: ^4.3.2
         version: 4.3.2
       jsdom:
-        specifier: ^29.1.1
-        version: 29.1.1
+        specifier: ^30.1.3
+        version: 30.1.3
       oxfmt:
         specifier: ^0.75.0
         version: 0.75.0
@@ -374,10 +374,10 @@ importers:
         version: 8.3.4(@types/node@25.9.2)(jiti@2.7.0)(yaml@2.9.1)
       vite-plugin-svgr:
         specifier: ^5.2.0
-        version: 5.2.0(typescript@6.0.3)(vite@8.3.4(@types/node@25.9.2)(jiti@2.7.0)(yaml@2.9.1))
+        version: 5.2.0(supports-color@7.2.0)(typescript@6.0.3)(vite@8.3.4(@types/node@25.9.2)(jiti@2.7.0)(yaml@2.9.1))
       vitest:
         specifier: ^4.1.12
-        version: 4.1.12(@types/node@25.9.2)(@vitest/coverage-v8@4.1.12)(jsdom@29.1.1)(vite@8.3.4(@types/node@25.9.2)(jiti@2.7.0)(yaml@2.9.1))
+        version: 4.1.12(@types/node@25.9.2)(@vitest/coverage-v8@4.1.12)(jsdom@30.1.3)(vite@8.3.4(@types/node@25.9.2)(jiti@2.7.0)(yaml@2.9.1))
 
 packages:
 
@@ -408,20 +408,13 @@ packages:
     peerDependencies:
       graphql: '*'
 
-  '@asamuzakjp/css-color@5.1.11':
-    resolution: {integrity: sha512-KVw6qIiCTUQhByfTd78h2yD1/00waTmm9uy/R7Ck/ctUyAPj+AEDLkQIdJW0T8+qGgj3j5bpNKK7Q3G+LedJWg==}
-    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
+  '@asamuzakjp/css-color@7.1.9':
+    resolution: {integrity: sha512-vZ6JQVq8Ivgz6b/IBlAf90wZviXdluY13cQOPO+nJHbmXwGrPl2GcpqUY7a55/8ZVdfONXpCFMpRijOBCHNlcQ==}
+    engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
 
-  '@asamuzakjp/dom-selector@7.1.1':
-    resolution: {integrity: sha512-67RZDnYRc8H/8MLDgQCDE//zoqVFwajkepHZgmXrbwybzXOEwOWGPYGmALYl9J2DOLfFPPs6kKCqmbzV895hTQ==}
-    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
-
-  '@asamuzakjp/generational-cache@1.0.1':
-    resolution: {integrity: sha512-wajfB8KqzMCN2KGNFdLkReeHncd0AslUSrvHVvvYWuU8ghncRJoA50kT3zP9MVL0+9g4/67H+cdvBskj9THPzg==}
-    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
-
-  '@asamuzakjp/nwsapi@2.3.9':
-    resolution: {integrity: sha512-n8GuYSrI9bF7FFZ/SjhwevlHc8xaVlb/7HmHelnc/PZXBD2ZR49NnN9sMMuDdEGPeeRQ5d0hqlSlEpgCX3Wl0Q==}
+  '@asamuzakjp/dom-selector@10.0.5':
+    resolution: {integrity: sha512-EgmJ7oEaGQECTn3H3wmnQpEy4hKY66VvM7VQndwPIQob3p877BgbyOUE3EX0LgXQCciF2H8KMdR+RznqjMNOLw==}
+    engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -544,40 +537,40 @@ packages:
     resolution: {integrity: sha512-VERIM64vtTP1C4mxQ5thVT9fK0apjPFobqybMtA1UdUujWka24ERHbRHFGmpbbhp73MhV+KSsHQH9C6uOTdEQA==}
     engines: {node: '>=18'}
 
-  '@csstools/color-helpers@6.0.2':
-    resolution: {integrity: sha512-LMGQLS9EuADloEFkcTBR3BwV/CGHV7zyDxVRtVDTwdI2Ca4it0CCVTT9wCkxSgokjE5Ho41hEPgb8OEUwoXr6Q==}
+  '@csstools/color-helpers@6.1.2':
+    resolution: {integrity: sha512-grhRy3OKmniaAEKXMjua5z/EODX0MSqBGjunw8+j/3HQjOnahs2AGhvEOIYVUWcU6ScApbhLhVrQTX8XqrMrow==}
     engines: {node: '>=20.19.0'}
 
-  '@csstools/css-calc@3.2.1':
-    resolution: {integrity: sha512-DtdHlgXh5ZkA43cwBcAm+huzgJiwx3ZTWVjBs94kwz2xKqSimDA3lBgCjphYgwgVUMWatSM0pDd8TILB1yrVVg==}
-    engines: {node: '>=20.19.0'}
-    peerDependencies:
-      '@csstools/css-parser-algorithms': ^4.0.0
-      '@csstools/css-tokenizer': ^4.0.0
-
-  '@csstools/css-color-parser@4.1.1':
-    resolution: {integrity: sha512-eZ5XOtyhK+mggRafYUWzA0tvaYOFgdY8AkgQiCJF9qNAePnUo/zmsqqYubBBb3sQ8uNUaSKTY9s9klfRaAXL0g==}
+  '@csstools/css-calc@3.4.3':
+    resolution: {integrity: sha512-iex20d8CHVkyvg6B7UKV7uHnI2Bqo9g+EFfT9E0y+GvTvhZ/DwONJ+9aKb1dlqm0ZiGsL5RXjp0fCoJYnkeDjA==}
     engines: {node: '>=20.19.0'}
     peerDependencies:
-      '@csstools/css-parser-algorithms': ^4.0.0
-      '@csstools/css-tokenizer': ^4.0.0
+      '@csstools/css-parser-algorithms': ^4.0.2
+      '@csstools/css-tokenizer': ^4.0.2
 
-  '@csstools/css-parser-algorithms@4.0.0':
-    resolution: {integrity: sha512-+B87qS7fIG3L5h3qwJ/IFbjoVoOe/bpOdh9hAjXbvx0o8ImEmUsGXN0inFOnk2ChCFgqkkGFQ+TpM5rbhkKe4w==}
+  '@csstools/css-color-parser@4.2.7':
+    resolution: {integrity: sha512-zgm9yjQz5iJB4VL8RyVwd71TWB8Q89FSxt/NzXoWqPSkEBOVtn9L6vAPtSc9hpKfB0Awo/AL2VKFHjYetBLFHQ==}
     engines: {node: '>=20.19.0'}
     peerDependencies:
-      '@csstools/css-tokenizer': ^4.0.0
+      '@csstools/css-parser-algorithms': ^4.0.2
+      '@csstools/css-tokenizer': ^4.0.2
 
-  '@csstools/css-syntax-patches-for-csstree@1.1.5':
-    resolution: {integrity: sha512-oNjBvzLq2GPZtJphCjLqXow/cHySHSgtxvKZb7OqSZ/xHgw6NWNhfad+6AB9cLeVm6eA9d/qMll3JdEHjy6M+A==}
+  '@csstools/css-parser-algorithms@4.0.2':
+    resolution: {integrity: sha512-40cSKyMvK+tq4qz6Awrlye2WGuOKt3FwPgtGg6KTfbHOWNw+Rk1rzbAtZnZ6IBhsY491HLRnDXwoyBAijmmILA==}
+    engines: {node: '>=20.19.0'}
+    peerDependencies:
+      '@csstools/css-tokenizer': ^4.0.2
+
+  '@csstools/css-syntax-patches-for-csstree@1.1.16':
+    resolution: {integrity: sha512-LsDbJPP/B8cPasUJyTA5S99F7C4G93ngW8hUluXz8CFeOaaRnBPtBiIlvgcPYU0HmHNz8CXg+1vwFrIB4F6Dgw==}
     peerDependencies:
       css-tree: ^3.2.1
     peerDependenciesMeta:
       css-tree:
         optional: true
 
-  '@csstools/css-tokenizer@4.0.0':
-    resolution: {integrity: sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA==}
+  '@csstools/css-tokenizer@4.0.2':
+    resolution: {integrity: sha512-OoKoR0f76dCY666JlcbhmVTs2drYj1GUXZTYTcbUgJjh9Nv41aFfZ21bPQTERm5+L5cBDo466NltB2lplS5GBw==}
     engines: {node: '>=20.19.0'}
 
   '@date-fns/tz@1.5.0':
@@ -595,8 +588,8 @@ packages:
     resolution: {integrity: sha512-nl9cmUh8F+2/NNzpcLjzNqtaVn0m8XSzzxrPU2ByHhlz4Hqlc5QBfRsemZkoJMKrMviJXyJYdKZiUP1o70F3Kw==}
     engines: {node: '>=18.0.0'}
 
-  '@exodus/bytes@1.15.1':
-    resolution: {integrity: sha512-S6mL0yNB/Abt9Ei4tq8gDhcczc4S3+vQ4ra7vxnAf+YHC02srtqxKKZghx2Dq6p0e66THKwR6r8N6P95wEty7Q==}
+  '@exodus/bytes@1.16.0':
+    resolution: {integrity: sha512-IcpW84uEn3N7ETtNZMlxKhfl6Pec8rUNGOTBtWbK1FKhJxIFAptZyVrvVRVBimAJxJCgc3PxepxkdWWG4DVzfA==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
     peerDependencies:
       '@noble/hashes': ^1.8.0 || ^2.0.0
@@ -1917,8 +1910,8 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  bidi-js@1.0.3:
-    resolution: {integrity: sha512-RKshQI1R3YQ+n9YJz2QQ147P66ELpa1FQEg20Dk8oW9t2KgLbpDLLp9aGZ7y8WHSshDknG0bknqGw5/tyCs5tw==}
+  bidi-js@1.1.0:
+    resolution: {integrity: sha512-fX1Onk0tdVPC7obPWB5EbJ1z7NVhLq4m2xZLq2YXBkxzMXIGRpNMU88n0EPgWseKl12J7zXs7qrDxPK4sRs2fg==}
 
   brace-expansion@5.0.12:
     resolution: {integrity: sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==}
@@ -2034,9 +2027,9 @@ packages:
     resolution: {integrity: sha512-0R9ikRb668HB7QDxT1vkpuUBtqc53YyAwMwGeUFKRojY/NWKvdZ+9UYtRfGmhqNbRkTSVpMbmyhXipFFv2cb/A==}
     engines: {node: '>= 12'}
 
-  data-urls@7.0.0:
-    resolution: {integrity: sha512-23XHcCF+coGYevirZceTVD7NdJOqVn+49IHyxgszm+JIiHLoB2TkmPtsYkNWT1pvRSGkc35L6NHs0yHkN2SumA==}
-    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
+  data-urls@8.0.0:
+    resolution: {integrity: sha512-JQUCCK+/CAGbGGx618PlFZMXH81Jtj7t73CHv9dd/zVWvxgGT2zLFRjnKb+Ng46GIwcy+f7f88qd4duqllK+WQ==}
+    engines: {node: ^22.14.0 || >=24.0.0}
 
   dataloader@2.2.3:
     resolution: {integrity: sha512-y2krtASINtPFS1rSDjacrFgn1dcUuoREVabwlOGOe4SdxenREqwjwjElAdwvbGM7kgZz9a3KVicWR7vcz8rnzA==}
@@ -2293,9 +2286,9 @@ packages:
   history@5.3.0:
     resolution: {integrity: sha512-ZqaKwjjrAYUYfLG+htGaIIZ4nioX2L70ZUMIFysS3xvBsSG4x/n1V6TXV3N8ZYNuFGlDirFg32T7B6WOUPDYcQ==}
 
-  html-encoding-sniffer@6.0.0:
-    resolution: {integrity: sha512-CV9TW3Y3f8/wT0BRFc1/KAVQ3TUHiXmaAb6VW9vtiMFf7SLoMd1PdAc4W3KFOFETBJUb90KatHqlsZMWV+R9Gg==}
-    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
+  html-encoding-sniffer@7.0.0:
+    resolution: {integrity: sha512-UikN5yr7xsCDAq87Or5or0PAlD3HJJOKVzM05az588WnpDJ4Ux7a2A53Qi6gofGg2/EtvF/H4hCi/TXfCW4Y6w==}
+    engines: {node: ^22.13.0 || >=24.0.0}
 
   html-escaper@2.0.2:
     resolution: {integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==}
@@ -2428,11 +2421,11 @@ packages:
     resolution: {integrity: sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA==}
     hasBin: true
 
-  jsdom@29.1.1:
-    resolution: {integrity: sha512-ECi4Fi2f7BdJtUKTflYRTiaMxIB0O6zfR1fX0GXpUrf6flp8QIYn1UT20YQqdSOfk2dfkCwS8LAFoJDEppNK5Q==}
-    engines: {node: ^20.19.0 || ^22.13.0 || >=24.0.0}
+  jsdom@30.1.3:
+    resolution: {integrity: sha512-hQMUPvRgN7KxsfIytDQji7bimuJeRQa6Qo5+iuiZQk5CafeRxLIA10/cG5YCBFNpD9RO3oqIiN4CO1Y44kxqXg==}
+    engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
     peerDependencies:
-      canvas: ^3.0.0
+      canvas: ^3.2.3
     peerDependenciesMeta:
       canvas:
         optional: true
@@ -2627,8 +2620,8 @@ packages:
   lower-case@2.0.2:
     resolution: {integrity: sha512-7fm3l3NAF9WfN6W3JOmf5drwpVqX78JtoGJ3A6W0a6ZnldM41w2fV5D490psKFTpMds8TJse/eHLFFsNHHjHgg==}
 
-  lru-cache@11.5.1:
-    resolution: {integrity: sha512-RPimw/7aMdv2oqRrxKwvZXcPfwBrn/JZ2xYcY9Hus/6LaS3VOAKVWKWgNLCFSiOm1ESXinjsDlidVU7JlnCN2A==}
+  lru-cache@11.5.3:
+    resolution: {integrity: sha512-U4N8FgzmWxc8k1VH8Kr6lQg18U7Fjvby6wXHVRX/ZZ7IwWbRMgrRbP0Wrb5q5NVinryp4SQampHKdvtecItxUg==}
     engines: {node: 20 || >=22}
 
   lru-cache@5.1.1:
@@ -3039,9 +3032,6 @@ packages:
   swap-case@3.0.3:
     resolution: {integrity: sha512-6p4op8wE9CQv7uDFzulI6YXUw4lD9n4oQierdbFThEKVWVQcbQcUjdP27W8XE7V4QnWmnq9jueSHceyyQnqQVA==}
 
-  symbol-tree@3.2.4:
-    resolution: {integrity: sha512-9QNk5KwDF+Bvz+PyObkmSYjI5ksVUYtjW7AU22r2NKcfLJcXp96hkDWU3+XndOsUb+AQ9QhfzfCT2O+CNWT5Tw==}
-
   sync-fetch@0.7.1:
     resolution: {integrity: sha512-tTw2sPVgJb/ZO+Uz5Cs1haWg7aL0cw+DvD8mXos+ws5YaelM3IBZ50M717T1+RD5Qq0TdeZ/EI/wVMnAdJA0Eg==}
     engines: {node: '>=22.12.0'}
@@ -3096,13 +3086,13 @@ packages:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
 
-  tough-cookie@6.0.1:
-    resolution: {integrity: sha512-LktZQb3IeoUWB9lqR5EWTHgW/VTITCXg4D21M+lvybRVdylLrRMnqaIONLVb5mav8vM19m44HIcGq4qASeu2Qw==}
+  tough-cookie@6.0.2:
+    resolution: {integrity: sha512-exgYmnmL/sJpR3upZfXG5PoatXQii55xAiXGXzY+sROLZ/Y+SLcp9PgJNI9Vz37HpQ74WvDcLT8eqm+kV3FzrA==}
     engines: {node: '>=16'}
 
-  tr46@6.0.0:
-    resolution: {integrity: sha512-bLVMLPtstlZ4iMQHpFHTR7GAGj2jxi8Dg0s2h2MafAE4uSWF98FC/3MomU51iQAMf8/qDUbKWf5GxuvvVcXEhw==}
-    engines: {node: '>=20'}
+  tr46@7.0.0:
+    resolution: {integrity: sha512-BcDSDW+SIGWVOns1Zm6Yg91q9AEj7eaID0QDY9oIqJD1A8dscNwMcl9Sms2DeuWCNov1X0/oXanHGYQBSLwZsg==}
+    engines: {node: ^22.14.0 || >=24.0.0}
 
   ts-log@3.0.3:
     resolution: {integrity: sha512-4uxVlS/cbNFeSmZbXgBCq+MRkbck1iW7B2Vqd+gziasf//uZP/HFI2IcoHlyYWFgFRl+5G5iqHe4RvY/h/qUxw==}
@@ -3263,9 +3253,9 @@ packages:
       jsdom:
         optional: true
 
-  w3c-xmlserializer@5.0.0:
-    resolution: {integrity: sha512-o8qghlI8NZHU1lLPrpi2+Uq7abh4GGPpYANlalzWxyWteJOCsr/P+oPBA49TOLu5FTZO4d3F9MnWJfiMo4BkmA==}
-    engines: {node: '>=18'}
+  w3c-xmlserializer@6.0.0:
+    resolution: {integrity: sha512-4Nsy8K5Tr6SPDH9jhKJOHf7ChDrc1zufZTVSF7x72hwuEXBqxqk9G6cK+K2NRUtB3iELRJqjXb4JPDMBjMTl2Q==}
+    engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
 
   web-streams-polyfill@3.3.3:
     resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
@@ -3282,9 +3272,9 @@ packages:
     resolution: {integrity: sha512-sXcNcHOC51uPGF0P/D4NVtrkjSU2fNsm9iog4ZvZJsL3rjoDAzXZhkm2MWt1y+PUdggKAYVoMAIYcs78wJ51Cw==}
     engines: {node: '>=20'}
 
-  whatwg-url@16.0.1:
-    resolution: {integrity: sha512-1to4zXBxmXHV3IiSSEInrreIlu02vUOvrhxJJH5vcxYTBDAx51cqZiKdyTxlecdKNSjj8EcxGBxNf6Vg+945gw==}
-    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
+  whatwg-url@17.3.0:
+    resolution: {integrity: sha512-KwOAJrpf+GTgBvcBQJcP38sMF0DsQKdwtG+TxM2pW44P6E5k0hDbWrDmyuJDIF0Uef0aQq0ZoJs+5oI+k8ddhg==}
+    engines: {node: ^22.14.0 || >=24.0.0}
 
   why-is-node-running@2.3.0:
     resolution: {integrity: sha512-hUrmaWBdVDcxvYqnyh09zunKzROWjbZTiNy8dBEjkS7ehEDQibXJ7XvlmtbwuTclUiIyN+CyXQD4Vmko8fNm8w==}
@@ -3376,25 +3366,20 @@ snapshots:
       immutable: 4.3.9
       invariant: 2.2.4
 
-  '@asamuzakjp/css-color@5.1.11':
+  '@asamuzakjp/css-color@7.1.9':
     dependencies:
-      '@asamuzakjp/generational-cache': 1.0.1
-      '@csstools/css-calc': 3.2.1(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
-      '@csstools/css-color-parser': 4.1.1(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
-      '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
-      '@csstools/css-tokenizer': 4.0.0
+      '@csstools/css-calc': 3.4.3(@csstools/css-parser-algorithms@4.0.2(@csstools/css-tokenizer@4.0.2))(@csstools/css-tokenizer@4.0.2)
+      '@csstools/css-color-parser': 4.2.7(@csstools/css-parser-algorithms@4.0.2(@csstools/css-tokenizer@4.0.2))(@csstools/css-tokenizer@4.0.2)
+      '@csstools/css-parser-algorithms': 4.0.2(@csstools/css-tokenizer@4.0.2)
+      '@csstools/css-tokenizer': 4.0.2
+      lru-cache: 11.5.3
 
-  '@asamuzakjp/dom-selector@7.1.1':
+  '@asamuzakjp/dom-selector@10.0.5':
     dependencies:
-      '@asamuzakjp/generational-cache': 1.0.1
-      '@asamuzakjp/nwsapi': 2.3.9
-      bidi-js: 1.0.3
+      bidi-js: 1.1.0
       css-tree: 3.2.1
       is-potential-custom-element-name: 1.0.1
-
-  '@asamuzakjp/generational-cache@1.0.1': {}
-
-  '@asamuzakjp/nwsapi@2.3.9': {}
+      lru-cache: 11.5.3
 
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -3404,20 +3389,20 @@ snapshots:
 
   '@babel/compat-data@7.29.7': {}
 
-  '@babel/core@7.29.7':
+  '@babel/core@7.29.7(supports-color@7.2.0)':
     dependencies:
       '@babel/code-frame': 7.29.7
       '@babel/generator': 7.29.8
       '@babel/helper-compilation-targets': 7.29.7
-      '@babel/helper-module-transforms': 7.29.7(@babel/core@7.29.7)
+      '@babel/helper-module-transforms': 7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0)
       '@babel/helpers': 7.29.10
       '@babel/parser': 7.29.9
       '@babel/template': 7.29.7
-      '@babel/traverse': 7.29.10
+      '@babel/traverse': 7.29.10(supports-color@7.2.0)
       '@babel/types': 7.29.8
       '@jridgewell/remapping': 2.3.5
       convert-source-map: 2.0.0
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
       gensync: 1.0.0-beta.2
       json5: 2.2.3
       semver: 6.3.1
@@ -3442,19 +3427,19 @@ snapshots:
 
   '@babel/helper-globals@7.29.7': {}
 
-  '@babel/helper-module-imports@7.29.7':
+  '@babel/helper-module-imports@7.29.7(supports-color@7.2.0)':
     dependencies:
-      '@babel/traverse': 7.29.10
+      '@babel/traverse': 7.29.10(supports-color@7.2.0)
       '@babel/types': 7.29.8
     transitivePeerDependencies:
       - supports-color
 
-  '@babel/helper-module-transforms@7.29.7(@babel/core@7.29.7)':
+  '@babel/helper-module-transforms@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0)':
     dependencies:
-      '@babel/core': 7.29.7
-      '@babel/helper-module-imports': 7.29.7
+      '@babel/core': 7.29.7(supports-color@7.2.0)
+      '@babel/helper-module-imports': 7.29.7(supports-color@7.2.0)
       '@babel/helper-validator-identifier': 7.29.7
-      '@babel/traverse': 7.29.10
+      '@babel/traverse': 7.29.10(supports-color@7.2.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -3487,7 +3472,7 @@ snapshots:
       '@babel/parser': 7.29.9
       '@babel/types': 7.29.8
 
-  '@babel/traverse@7.29.10':
+  '@babel/traverse@7.29.10(supports-color@7.2.0)':
     dependencies:
       '@babel/code-frame': 7.29.7
       '@babel/generator': 7.29.8
@@ -3495,7 +3480,7 @@ snapshots:
       '@babel/parser': 7.29.9
       '@babel/template': 7.29.7
       '@babel/types': 7.29.8
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -3539,29 +3524,29 @@ snapshots:
     dependencies:
       fontkitten: 1.0.3
 
-  '@csstools/color-helpers@6.0.2': {}
+  '@csstools/color-helpers@6.1.2': {}
 
-  '@csstools/css-calc@3.2.1(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)':
+  '@csstools/css-calc@3.4.3(@csstools/css-parser-algorithms@4.0.2(@csstools/css-tokenizer@4.0.2))(@csstools/css-tokenizer@4.0.2)':
     dependencies:
-      '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
-      '@csstools/css-tokenizer': 4.0.0
+      '@csstools/css-parser-algorithms': 4.0.2(@csstools/css-tokenizer@4.0.2)
+      '@csstools/css-tokenizer': 4.0.2
 
-  '@csstools/css-color-parser@4.1.1(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)':
+  '@csstools/css-color-parser@4.2.7(@csstools/css-parser-algorithms@4.0.2(@csstools/css-tokenizer@4.0.2))(@csstools/css-tokenizer@4.0.2)':
     dependencies:
-      '@csstools/color-helpers': 6.0.2
-      '@csstools/css-calc': 3.2.1(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
-      '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
-      '@csstools/css-tokenizer': 4.0.0
+      '@csstools/color-helpers': 6.1.2
+      '@csstools/css-calc': 3.4.3(@csstools/css-parser-algorithms@4.0.2(@csstools/css-tokenizer@4.0.2))(@csstools/css-tokenizer@4.0.2)
+      '@csstools/css-parser-algorithms': 4.0.2(@csstools/css-tokenizer@4.0.2)
+      '@csstools/css-tokenizer': 4.0.2
 
-  '@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0)':
+  '@csstools/css-parser-algorithms@4.0.2(@csstools/css-tokenizer@4.0.2)':
     dependencies:
-      '@csstools/css-tokenizer': 4.0.0
+      '@csstools/css-tokenizer': 4.0.2
 
-  '@csstools/css-syntax-patches-for-csstree@1.1.5(css-tree@3.2.1)':
+  '@csstools/css-syntax-patches-for-csstree@1.1.16(css-tree@3.2.1)':
     optionalDependencies:
       css-tree: 3.2.1
 
-  '@csstools/css-tokenizer@4.0.0': {}
+  '@csstools/css-tokenizer@4.0.2': {}
 
   '@date-fns/tz@1.5.0': {}
 
@@ -3582,7 +3567,7 @@ snapshots:
       '@whatwg-node/promise-helpers': 1.3.2
       tslib: 2.8.1
 
-  '@exodus/bytes@1.15.1': {}
+  '@exodus/bytes@1.16.0': {}
 
   '@fastify/busboy@3.2.3': {}
 
@@ -3611,7 +3596,7 @@ snapshots:
       graphql: 16.14.1
       tslib: 2.8.1
 
-  '@graphql-codegen/cli@7.4.6(@types/node@25.9.2)(graphql@16.14.1)(typescript@6.0.3)':
+  '@graphql-codegen/cli@7.4.6(@types/node@25.9.2)(graphql@16.14.1)(supports-color@7.2.0)(typescript@6.0.3)':
     dependencies:
       '@babel/generator': 7.29.8
       '@babel/template': 7.29.7
@@ -3620,9 +3605,9 @@ snapshots:
       '@graphql-codegen/core': 6.2.2(graphql@16.14.1)
       '@graphql-codegen/plugin-helpers': 7.4.2(graphql@16.14.1)
       '@graphql-tools/apollo-engine-loader': 8.0.38(graphql@16.14.1)
-      '@graphql-tools/code-file-loader': 8.1.41(graphql@16.14.1)
-      '@graphql-tools/git-loader': 8.0.44(graphql@16.14.1)
-      '@graphql-tools/github-loader': 9.1.11(@types/node@25.9.2)(graphql@16.14.1)
+      '@graphql-tools/code-file-loader': 8.1.41(graphql@16.14.1)(supports-color@7.2.0)
+      '@graphql-tools/git-loader': 8.0.44(graphql@16.14.1)(supports-color@7.2.0)
+      '@graphql-tools/github-loader': 9.1.11(@types/node@25.9.2)(graphql@16.14.1)(supports-color@7.2.0)
       '@graphql-tools/graphql-file-loader': 8.1.22(graphql@16.14.1)
       '@graphql-tools/json-file-loader': 8.0.36(graphql@16.14.1)
       '@graphql-tools/load': 8.1.19(graphql@16.14.1)
@@ -3775,9 +3760,9 @@ snapshots:
       graphql: 16.14.1
       tslib: 2.8.1
 
-  '@graphql-tools/code-file-loader@8.1.41(graphql@16.14.1)':
+  '@graphql-tools/code-file-loader@8.1.41(graphql@16.14.1)(supports-color@7.2.0)':
     dependencies:
-      '@graphql-tools/graphql-tag-pluck': 8.3.39(graphql@16.14.1)
+      '@graphql-tools/graphql-tag-pluck': 8.3.39(graphql@16.14.1)(supports-color@7.2.0)
       '@graphql-tools/utils': 12.0.3(graphql@16.14.1)
       globby: 11.1.0
       graphql: 16.14.1
@@ -3862,9 +3847,9 @@ snapshots:
       graphql: 16.14.1
       tslib: 2.8.1
 
-  '@graphql-tools/git-loader@8.0.44(graphql@16.14.1)':
+  '@graphql-tools/git-loader@8.0.44(graphql@16.14.1)(supports-color@7.2.0)':
     dependencies:
-      '@graphql-tools/graphql-tag-pluck': 8.3.39(graphql@16.14.1)
+      '@graphql-tools/graphql-tag-pluck': 8.3.39(graphql@16.14.1)(supports-color@7.2.0)
       '@graphql-tools/utils': 12.0.3(graphql@16.14.1)
       graphql: 16.14.1
       is-glob: 4.0.3
@@ -3874,10 +3859,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@graphql-tools/github-loader@9.1.11(@types/node@25.9.2)(graphql@16.14.1)':
+  '@graphql-tools/github-loader@9.1.11(@types/node@25.9.2)(graphql@16.14.1)(supports-color@7.2.0)':
     dependencies:
       '@graphql-tools/executor-http': 3.4.1(@types/node@25.9.2)(graphql@16.14.1)
-      '@graphql-tools/graphql-tag-pluck': 8.3.39(graphql@16.14.1)
+      '@graphql-tools/graphql-tag-pluck': 8.3.39(graphql@16.14.1)(supports-color@7.2.0)
       '@graphql-tools/utils': 12.0.3(graphql@16.14.1)
       '@whatwg-node/fetch': 0.12.1
       '@whatwg-node/promise-helpers': 2.0.0
@@ -3897,11 +3882,11 @@ snapshots:
       tslib: 2.8.1
       unixify: 1.0.0
 
-  '@graphql-tools/graphql-tag-pluck@8.3.39(graphql@16.14.1)':
+  '@graphql-tools/graphql-tag-pluck@8.3.39(graphql@16.14.1)(supports-color@7.2.0)':
     dependencies:
-      '@babel/core': 7.29.7
+      '@babel/core': 7.29.7(supports-color@7.2.0)
       '@babel/parser': 7.29.9
-      '@babel/traverse': 7.29.10
+      '@babel/traverse': 7.29.10(supports-color@7.2.0)
       '@babel/types': 7.29.8
       '@graphql-tools/utils': 12.0.3(graphql@16.14.1)
       graphql: 16.14.1
@@ -4369,54 +4354,54 @@ snapshots:
 
   '@standard-schema/utils@0.3.0': {}
 
-  '@svgr/babel-plugin-add-jsx-attribute@8.0.0(@babel/core@7.29.7)':
+  '@svgr/babel-plugin-add-jsx-attribute@8.0.0(@babel/core@7.29.7(supports-color@7.2.0))':
     dependencies:
-      '@babel/core': 7.29.7
+      '@babel/core': 7.29.7(supports-color@7.2.0)
 
-  '@svgr/babel-plugin-remove-jsx-attribute@8.0.0(@babel/core@7.29.7)':
+  '@svgr/babel-plugin-remove-jsx-attribute@8.0.0(@babel/core@7.29.7(supports-color@7.2.0))':
     dependencies:
-      '@babel/core': 7.29.7
+      '@babel/core': 7.29.7(supports-color@7.2.0)
 
-  '@svgr/babel-plugin-remove-jsx-empty-expression@8.0.0(@babel/core@7.29.7)':
+  '@svgr/babel-plugin-remove-jsx-empty-expression@8.0.0(@babel/core@7.29.7(supports-color@7.2.0))':
     dependencies:
-      '@babel/core': 7.29.7
+      '@babel/core': 7.29.7(supports-color@7.2.0)
 
-  '@svgr/babel-plugin-replace-jsx-attribute-value@8.0.0(@babel/core@7.29.7)':
+  '@svgr/babel-plugin-replace-jsx-attribute-value@8.0.0(@babel/core@7.29.7(supports-color@7.2.0))':
     dependencies:
-      '@babel/core': 7.29.7
+      '@babel/core': 7.29.7(supports-color@7.2.0)
 
-  '@svgr/babel-plugin-svg-dynamic-title@8.0.0(@babel/core@7.29.7)':
+  '@svgr/babel-plugin-svg-dynamic-title@8.0.0(@babel/core@7.29.7(supports-color@7.2.0))':
     dependencies:
-      '@babel/core': 7.29.7
+      '@babel/core': 7.29.7(supports-color@7.2.0)
 
-  '@svgr/babel-plugin-svg-em-dimensions@8.0.0(@babel/core@7.29.7)':
+  '@svgr/babel-plugin-svg-em-dimensions@8.0.0(@babel/core@7.29.7(supports-color@7.2.0))':
     dependencies:
-      '@babel/core': 7.29.7
+      '@babel/core': 7.29.7(supports-color@7.2.0)
 
-  '@svgr/babel-plugin-transform-react-native-svg@8.1.0(@babel/core@7.29.7)':
+  '@svgr/babel-plugin-transform-react-native-svg@8.1.0(@babel/core@7.29.7(supports-color@7.2.0))':
     dependencies:
-      '@babel/core': 7.29.7
+      '@babel/core': 7.29.7(supports-color@7.2.0)
 
-  '@svgr/babel-plugin-transform-svg-component@8.0.0(@babel/core@7.29.7)':
+  '@svgr/babel-plugin-transform-svg-component@8.0.0(@babel/core@7.29.7(supports-color@7.2.0))':
     dependencies:
-      '@babel/core': 7.29.7
+      '@babel/core': 7.29.7(supports-color@7.2.0)
 
-  '@svgr/babel-preset@8.1.0(@babel/core@7.29.7)':
+  '@svgr/babel-preset@8.1.0(@babel/core@7.29.7(supports-color@7.2.0))':
     dependencies:
-      '@babel/core': 7.29.7
-      '@svgr/babel-plugin-add-jsx-attribute': 8.0.0(@babel/core@7.29.7)
-      '@svgr/babel-plugin-remove-jsx-attribute': 8.0.0(@babel/core@7.29.7)
-      '@svgr/babel-plugin-remove-jsx-empty-expression': 8.0.0(@babel/core@7.29.7)
-      '@svgr/babel-plugin-replace-jsx-attribute-value': 8.0.0(@babel/core@7.29.7)
-      '@svgr/babel-plugin-svg-dynamic-title': 8.0.0(@babel/core@7.29.7)
-      '@svgr/babel-plugin-svg-em-dimensions': 8.0.0(@babel/core@7.29.7)
-      '@svgr/babel-plugin-transform-react-native-svg': 8.1.0(@babel/core@7.29.7)
-      '@svgr/babel-plugin-transform-svg-component': 8.0.0(@babel/core@7.29.7)
+      '@babel/core': 7.29.7(supports-color@7.2.0)
+      '@svgr/babel-plugin-add-jsx-attribute': 8.0.0(@babel/core@7.29.7(supports-color@7.2.0))
+      '@svgr/babel-plugin-remove-jsx-attribute': 8.0.0(@babel/core@7.29.7(supports-color@7.2.0))
+      '@svgr/babel-plugin-remove-jsx-empty-expression': 8.0.0(@babel/core@7.29.7(supports-color@7.2.0))
+      '@svgr/babel-plugin-replace-jsx-attribute-value': 8.0.0(@babel/core@7.29.7(supports-color@7.2.0))
+      '@svgr/babel-plugin-svg-dynamic-title': 8.0.0(@babel/core@7.29.7(supports-color@7.2.0))
+      '@svgr/babel-plugin-svg-em-dimensions': 8.0.0(@babel/core@7.29.7(supports-color@7.2.0))
+      '@svgr/babel-plugin-transform-react-native-svg': 8.1.0(@babel/core@7.29.7(supports-color@7.2.0))
+      '@svgr/babel-plugin-transform-svg-component': 8.0.0(@babel/core@7.29.7(supports-color@7.2.0))
 
-  '@svgr/core@8.1.0(typescript@6.0.3)':
+  '@svgr/core@8.1.0(supports-color@7.2.0)(typescript@6.0.3)':
     dependencies:
-      '@babel/core': 7.29.7
-      '@svgr/babel-preset': 8.1.0(@babel/core@7.29.7)
+      '@babel/core': 7.29.7(supports-color@7.2.0)
+      '@svgr/babel-preset': 8.1.0(@babel/core@7.29.7(supports-color@7.2.0))
       camelcase: 6.3.0
       cosmiconfig: 8.3.6(typescript@6.0.3)
       snake-case: 3.0.4
@@ -4429,11 +4414,11 @@ snapshots:
       '@babel/types': 7.29.8
       entities: 4.5.0
 
-  '@svgr/plugin-jsx@8.1.0(@svgr/core@8.1.0(typescript@6.0.3))':
+  '@svgr/plugin-jsx@8.1.0(@svgr/core@8.1.0(supports-color@7.2.0)(typescript@6.0.3))(supports-color@7.2.0)':
     dependencies:
-      '@babel/core': 7.29.7
-      '@svgr/babel-preset': 8.1.0(@babel/core@7.29.7)
-      '@svgr/core': 8.1.0(typescript@6.0.3)
+      '@babel/core': 7.29.7(supports-color@7.2.0)
+      '@svgr/babel-preset': 8.1.0(@babel/core@7.29.7(supports-color@7.2.0))
+      '@svgr/core': 8.1.0(supports-color@7.2.0)(typescript@6.0.3)
       '@svgr/hast-util-to-babel-ast': 8.0.0
       svg-parser: 2.0.4
     transitivePeerDependencies:
@@ -4601,7 +4586,7 @@ snapshots:
       obug: 2.1.2
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.12(@types/node@25.9.2)(@vitest/coverage-v8@4.1.12)(jsdom@29.1.1)(vite@8.3.4(@types/node@25.9.2)(jiti@2.7.0)(yaml@2.9.1))
+      vitest: 4.1.12(@types/node@25.9.2)(@vitest/coverage-v8@4.1.12)(jsdom@30.1.3)(vite@8.3.4(@types/node@25.9.2)(jiti@2.7.0)(yaml@2.9.1))
 
   '@vitest/expect@4.1.12':
     dependencies:
@@ -4740,7 +4725,7 @@ snapshots:
 
   baseline-browser-mapping@2.11.28: {}
 
-  bidi-js@1.0.3:
+  bidi-js@1.1.0:
     dependencies:
       require-from-string: 2.0.2
 
@@ -4845,10 +4830,10 @@ snapshots:
 
   data-uri-to-buffer@4.0.1: {}
 
-  data-urls@7.0.0:
+  data-urls@8.0.0:
     dependencies:
       whatwg-mimetype: 5.0.0
-      whatwg-url: 16.0.1
+      whatwg-url: 17.3.0
     transitivePeerDependencies:
       - '@noble/hashes'
 
@@ -4864,9 +4849,11 @@ snapshots:
 
   debounce@3.0.0: {}
 
-  debug@4.4.3:
+  debug@4.4.3(supports-color@7.2.0):
     dependencies:
       ms: 2.1.3
+    optionalDependencies:
+      supports-color: 7.2.0
 
   decimal.js@10.6.0: {}
 
@@ -5065,9 +5052,9 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.29.7
 
-  html-encoding-sniffer@6.0.0:
+  html-encoding-sniffer@7.0.0:
     dependencies:
-      '@exodus/bytes': 1.15.1
+      '@exodus/bytes': 1.16.0
     transitivePeerDependencies:
       - '@noble/hashes'
 
@@ -5150,13 +5137,13 @@ snapshots:
 
   jiti@2.7.0: {}
 
-  jotai-family@1.0.2(jotai@2.20.0(@babel/core@7.29.7)(@babel/template@7.29.7)(@types/react@19.2.17)(react@19.2.7)):
+  jotai-family@1.0.2(jotai@2.20.0(@babel/core@7.29.7(supports-color@7.2.0))(@babel/template@7.29.7)(@types/react@19.2.17)(react@19.2.7)):
     dependencies:
-      jotai: 2.20.0(@babel/core@7.29.7)(@babel/template@7.29.7)(@types/react@19.2.17)(react@19.2.7)
+      jotai: 2.20.0(@babel/core@7.29.7(supports-color@7.2.0))(@babel/template@7.29.7)(@types/react@19.2.17)(react@19.2.7)
 
-  jotai@2.20.0(@babel/core@7.29.7)(@babel/template@7.29.7)(@types/react@19.2.17)(react@19.2.7):
+  jotai@2.20.0(@babel/core@7.29.7(supports-color@7.2.0))(@babel/template@7.29.7)(@types/react@19.2.17)(react@19.2.7):
     optionalDependencies:
-      '@babel/core': 7.29.7
+      '@babel/core': 7.29.7(supports-color@7.2.0)
       '@babel/template': 7.29.7
       '@types/react': 19.2.17
       react: 19.2.7
@@ -5169,28 +5156,27 @@ snapshots:
     dependencies:
       argparse: 2.0.1
 
-  jsdom@29.1.1:
+  jsdom@30.1.3:
     dependencies:
-      '@asamuzakjp/css-color': 5.1.11
-      '@asamuzakjp/dom-selector': 7.1.1
+      '@asamuzakjp/css-color': 7.1.9
+      '@asamuzakjp/dom-selector': 10.0.5
       '@bramus/specificity': 2.4.2
-      '@csstools/css-syntax-patches-for-csstree': 1.1.5(css-tree@3.2.1)
-      '@exodus/bytes': 1.15.1
+      '@csstools/css-syntax-patches-for-csstree': 1.1.16(css-tree@3.2.1)
+      '@exodus/bytes': 1.16.0
       css-tree: 3.2.1
-      data-urls: 7.0.0
+      data-urls: 8.0.0
       decimal.js: 10.6.0
-      html-encoding-sniffer: 6.0.0
+      html-encoding-sniffer: 7.0.0
       is-potential-custom-element-name: 1.0.1
-      lru-cache: 11.5.1
+      lru-cache: 11.5.3
       parse5: 8.0.1
       saxes: 6.0.0
-      symbol-tree: 3.2.4
-      tough-cookie: 6.0.1
+      tough-cookie: 6.0.2
       undici: 7.30.1
-      w3c-xmlserializer: 5.0.0
+      w3c-xmlserializer: 6.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
-      whatwg-url: 16.0.1
+      whatwg-url: 17.3.0
       xml-name-validator: 5.0.0
     transitivePeerDependencies:
       - '@noble/hashes'
@@ -5337,7 +5323,7 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  lru-cache@11.5.1: {}
+  lru-cache@11.5.3: {}
 
   lru-cache@5.1.1:
     dependencies:
@@ -5746,8 +5732,6 @@ snapshots:
 
   swap-case@3.0.3: {}
 
-  symbol-tree@3.2.4: {}
-
   sync-fetch@0.7.1:
     dependencies:
       node-fetch: 3.3.2
@@ -5791,11 +5775,11 @@ snapshots:
     dependencies:
       is-number: 7.0.0
 
-  tough-cookie@6.0.1:
+  tough-cookie@6.0.2:
     dependencies:
       tldts: 7.4.2
 
-  tr46@6.0.0:
+  tr46@7.0.0:
     dependencies:
       punycode: 2.3.1
 
@@ -5859,11 +5843,11 @@ snapshots:
       lodash.debounce: 4.0.8
       react: 19.2.7
 
-  vite-plugin-svgr@5.2.0(typescript@6.0.3)(vite@8.3.4(@types/node@25.9.2)(jiti@2.7.0)(yaml@2.9.1)):
+  vite-plugin-svgr@5.2.0(supports-color@7.2.0)(typescript@6.0.3)(vite@8.3.4(@types/node@25.9.2)(jiti@2.7.0)(yaml@2.9.1)):
     dependencies:
       '@rollup/pluginutils': 5.4.0
-      '@svgr/core': 8.1.0(typescript@6.0.3)
-      '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0(typescript@6.0.3))
+      '@svgr/core': 8.1.0(supports-color@7.2.0)(typescript@6.0.3)
+      '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0(supports-color@7.2.0)(typescript@6.0.3))(supports-color@7.2.0)
       vite: 8.3.4(@types/node@25.9.2)(jiti@2.7.0)(yaml@2.9.1)
     transitivePeerDependencies:
       - rollup
@@ -5883,7 +5867,7 @@ snapshots:
       jiti: 2.7.0
       yaml: 2.9.1
 
-  vitest@4.1.12(@types/node@25.9.2)(@vitest/coverage-v8@4.1.12)(jsdom@29.1.1)(vite@8.3.4(@types/node@25.9.2)(jiti@2.7.0)(yaml@2.9.1)):
+  vitest@4.1.12(@types/node@25.9.2)(@vitest/coverage-v8@4.1.12)(jsdom@30.1.3)(vite@8.3.4(@types/node@25.9.2)(jiti@2.7.0)(yaml@2.9.1)):
     dependencies:
       '@vitest/expect': 4.1.12
       '@vitest/mocker': 4.1.12(vite@8.3.4(@types/node@25.9.2)(jiti@2.7.0)(yaml@2.9.1))
@@ -5908,11 +5892,11 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.9.2
       '@vitest/coverage-v8': 4.1.12(vitest@4.1.12)
-      jsdom: 29.1.1
+      jsdom: 30.1.3
     transitivePeerDependencies:
       - msw
 
-  w3c-xmlserializer@5.0.0:
+  w3c-xmlserializer@6.0.0:
     dependencies:
       xml-name-validator: 5.0.0
 
@@ -5924,10 +5908,10 @@ snapshots:
 
   whatwg-mimetype@5.0.0: {}
 
-  whatwg-url@16.0.1:
+  whatwg-url@17.3.0:
     dependencies:
-      '@exodus/bytes': 1.15.1
-      tr46: 6.0.0
+      '@exodus/bytes': 1.16.0
+      tr46: 7.0.0
       webidl-conversions: 8.0.1
     transitivePeerDependencies:
       - '@noble/hashes'
