@@ -260,9 +260,10 @@ jobs:
   # Test jobs
   ###########################
 
-  # Every module in one job per runner, so the modules share one cache.
+  # Go · Vet type-checks the build; this links the binaries, then runs the
+  # tests. Every module in one job per runner, so the modules share one cache.
   go-test:
-    name: Go · Test
+    name: Go · Build and Test
     needs: changes
     if: needs.changes.outputs.go == 'true'
     timeout-minutes: 45
@@ -313,6 +314,11 @@ jobs:
           setup-go: "true"
           go-cache-key: ${{ github.job }}-${{ matrix.runner }}
           go-cache-mode: ${{ env.CACHE_MODE }}
+      # With several packages, go build links each main package, then discards
+      # it.
+      - name: Build
+        working-directory: ./modules
+        run: go build ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
       - name: Run tests
         working-directory: ./modules
         run: go test ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
@@ -329,8 +335,10 @@ jobs:
           path: ${{ steps.setup.outputs.go-cache-path }}
           key: ${{ steps.setup.outputs.go-cache-key }}
 
+  # Rust · Vet's clippy type-checks the build; this links the binaries, then
+  # runs the tests. A debug build, so cargo test reuses its artifacts.
   rust-test:
-    name: Rust · Test
+    name: Rust · Build and Test
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     strategy:
@@ -360,6 +368,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           rust-cache-key: ${{ github.job }}-${{ matrix.runner }}
           cache-save: ${{ env.CACHE_MODE != 'use' }}
+      - name: Build
+        working-directory: ./crates
+        run: cargo build
       - name: Run tests
         working-directory: ./crates
         run: cargo test
@@ -448,41 +459,6 @@ jobs:
   ###########################
   # Build jobs
   ###########################
-
-  rust-build:
-    name: Rust · Build
-    needs: changes
-    if: needs.changes.outputs.rust == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - linux
-        arch:
-          - amd64
-          - arm64
-        include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-24.04
-          - os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-environment
-        with:
-          setup-rust: "true"
-          setup-protoc: "true"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          rust-cache-key: ${{ github.job }}-${{ matrix.runner }}
-          cache-save: ${{ env.CACHE_MODE != 'use' }}
-      - name: Build
-        working-directory: ./crates
-        run: cargo build --release
 
   typescript-build:
     name: TypeScript · Build
@@ -668,7 +644,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Reads Go · Test's module cache and saves none.
+      # Reads Go · Build and Test's module cache and saves none.
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -844,7 +820,6 @@ jobs:
       - go-test-riscv64
       - rust-vet
       - rust-test
-      - rust-build
       - typescript-lint
       - typescript-test
       - typescript-build
