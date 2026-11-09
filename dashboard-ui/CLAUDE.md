@@ -38,7 +38,7 @@ pnpm test run       # `pnpm test` alone is watch mode and never exits
 - **`pnpm graphql-codegen` regenerates `__generated__/`** from the two schemas under `../modules/`. Run it after changing `ops.ts`, `fragments.ts` or either schema, and commit the result. **Never edit `__generated__/`.** The two presets in `codegen.ts` override the same four defaults; keep them in step. → [ADR: override the codegen client preset's v6 defaults](../docs/adr/2026-11-09-override-the-codegen-client-presets-v6-defaults.md)
 - **The console's log operations are written once, in `dashboard/ops.ts`, and sent to either server.** Codegen checks them against the Dashboard's schema alone.
 - **Custom scalars arrive as `any` and are converted by the cache.** `dateField` and `bigIntField` in `apollo-client.ts` turn named fields into `Date` and `bigint`. A new time or int64 field needs a type policy there, or it is a string. Read a scalar with `as` to the type it has at run time.
-- **Kubernetes lists are a query plus a watch, through the shared hooks** in `src/lib/hooks.ts`: `useListQueryWithSubscription`, `useGetQueryWithSubscription`, `useCounterQueryWithSubscription`. Don't pair `useQuery` and `useSubscription` by hand. A paginated list field needs `k8sPagination()` in `DashboardCustomCache`.
+- **Kubernetes lists are a query plus a watch, through the shared hooks** in `src/lib/hooks.ts`: `useListQueryWithSubscription`, `useCounterQueryWithSubscription`. Don't pair `useQuery` and `useSubscription` by hand. A paginated list field needs `k8sPagination()` in `DashboardCustomCache`.
 
 ## State
 
