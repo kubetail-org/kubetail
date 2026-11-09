@@ -20,6 +20,8 @@ From the repo root, `make modules-vet` adds a `GOOS=windows` pass and `scripts/c
 
 From `modules/`, `go test -race github.com/kubetail-org/kubetail/modules/...` covers the workspace, as `make modules-lint`, `modules-vet` and `modules-test` do from the repo root. A change to `shared` runs the workspace's tests. CI tests from a vendored tree (`go work vendor`); don't commit `modules/vendor`.
 
+Coverage is measured across the workspace: every test binary counts every package (`-coverpkg`), so a `shared` line that the Dashboard's tests reach is covered. `make cover-changed` runs only the changed packages' tests; `FULL=1` runs them all, as CI does. → [ADR: measure Go coverage across the workspace](../docs/adr/2026-11-09-measure-go-coverage-across-the-workspace.md)
+
 `go generate ./...` in a module runs its generators: gqlgen in `dashboard` and `cluster-api`, `protoc` in `shared`, a copy of `config/default/cli.*` in `cli`.
 
 ## Conventions
