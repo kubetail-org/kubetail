@@ -71,19 +71,11 @@ Using the Makefile from the project root:
 
 ```console
 # Run tests for all modules including dashboard
-make modules-test
+make test-go
 
 # Run linter
-make modules-lint
+make lint-go
 
 # Run code vetting
-make modules-vet
-
-
-```
-
-You can also run all Dashboard checks at once with:
-
-```console
-make modules-all
+make vet-go
 ```

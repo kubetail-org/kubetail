@@ -16,9 +16,9 @@ go vet ./...
 go test -race ./...
 ```
 
-From the repo root, `make modules-vet` adds a `GOOS=windows` pass and `scripts/check-go-fix.sh`, and `make modules-staticcheck` runs staticcheck. CI runs all three. Ignore a staticcheck finding with `//lint:ignore <check> <reason>` on the line above it.
+From the repo root, `make vet-go` adds a `GOOS=windows` pass, `scripts/check-go-fix.sh` and staticcheck. CI runs all three. Ignore a staticcheck finding with `//lint:ignore <check> <reason>` on the line above it.
 
-From `modules/`, `go test -race github.com/kubetail-org/kubetail/modules/...` covers the workspace, as `make modules-lint`, `modules-vet` and `modules-test` do from the repo root. A change to `shared` runs the workspace's tests. CI tests from a vendored tree (`go work vendor`); don't commit `modules/vendor`.
+From `modules/`, `go test -race github.com/kubetail-org/kubetail/modules/...` covers the workspace, as `make lint-go`, `vet-go` and `test-go` do from the repo root. A change to `shared` runs the workspace's tests. CI tests from a vendored tree (`go work vendor`); don't commit `modules/vendor`.
 
 Coverage is measured across the workspace: every test binary counts every package (`-coverpkg`), so a `shared` line that the Dashboard's tests reach is covered. `make cover-changed` runs only the changed packages' tests; `FULL=1` runs them all, as CI does. → [ADR: measure Go coverage across the workspace](../docs/adr/2026-11-09-measure-go-coverage-across-the-workspace.md)
 

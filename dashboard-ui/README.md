@@ -26,7 +26,7 @@ Using the Makefile from the project root:
 
 ```console
 # Run dashboard UI tests
-make dashboard-ui-test
+make test-ts
 ```
 
 ## Lint
@@ -47,15 +47,7 @@ Using the Makefile from the project root:
 
 ```console
 # Run dashboard UI linting
-make dashboard-ui-lint
-```
-
-## Combined Operations
-
-To run all dashboard UI tests and linting in one command, use:
-
-```console
-make dashboard-ui-all
+make lint-ts
 ```
 
 ## Build

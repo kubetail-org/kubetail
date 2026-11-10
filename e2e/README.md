@@ -30,7 +30,7 @@ Default values are in `.env`. Override any value by editing that file or setting
 From the repo root:
 
 ```sh
-make e2e
+make test-e2e
 ```
 
 This builds the CLI and Docker images, brings up the kind cluster (reusing
