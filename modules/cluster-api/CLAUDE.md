@@ -22,7 +22,7 @@ Everything mounts under `cfg.BasePath`.
 
 ## GraphQL and logs
 
-- **`logSourcesWatch` is declared in the schema and not implemented**: its resolver panics. There are no mutations.
+- **There are no mutations.** Watching log sources is the Dashboard's job (`logSourcesWatch`): this schema has no such field.
 - **Transports are SSE, WebSocket and POST, in that order.** SSE is registered before POST so a request with `Accept: text/event-stream` is not answered as a plain POST.
 - **`NewGrpcError`** turns an agent's error into `INTERNAL_SERVER_ERROR`; `logRecordsFollow` maps `Unavailable` to `ErrServiceUnavailable`.
 - **Records come from the agent on the source's node.** Every stream passes `logs.WithLogFetcher(logs.NewAgentLogFetcher(r.grpcDispatcher))`. Sources are resolved from the Kubernetes API, as in the Dashboard.
