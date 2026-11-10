@@ -50,7 +50,7 @@ jobs:
       - run: "true"
 
   go-audit:
-    name: Go · Audit
+    name: Go
     needs: fork-gate
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
@@ -73,7 +73,7 @@ jobs:
           done
 
   rust-audit:
-    name: Rust · Audit
+    name: Rust
     needs: fork-gate
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
@@ -92,7 +92,7 @@ jobs:
         run: cargo audit --deny unsound --deny unmaintained
 
   typescript-audit:
-    name: TypeScript · Audit
+    name: TypeScript
     needs: fork-gate
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04

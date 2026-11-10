@@ -85,7 +85,7 @@ jobs:
           ] end' <<<"$CHANGED" | sed 's/^/categories=/' >> "$GITHUB_OUTPUT"
 
   go:
-    name: CodeQL · Go
+    name: Go
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
@@ -122,7 +122,7 @@ jobs:
   # The extractor runs build.rs, so the job needs protoc to generate the gRPC
   # code from proto/.
   rust:
-    name: CodeQL · Rust
+    name: Rust
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
@@ -152,7 +152,7 @@ jobs:
           category: /language:rust
 
   typescript:
-    name: CodeQL · TypeScript
+    name: TypeScript
     needs: changes
     if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
@@ -172,7 +172,7 @@ jobs:
           category: /language:javascript-typescript
 
   python:
-    name: CodeQL · Python
+    name: Python
     needs: changes
     if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-24.04
@@ -192,7 +192,7 @@ jobs:
           category: /language:python
 
   actions:
-    name: CodeQL · Actions
+    name: Actions
     needs: changes
     if: needs.changes.outputs.actions == 'true'
     runs-on: ubuntu-24.04
@@ -242,7 +242,7 @@ jobs:
   # The name leaves out the matrix so a skipped job, whose matrix GitHub never
   # expands, shows plain text; GitHub appends each entry's values to it.
   reuse-base:
-    name: CodeQL · Reuse base
+    name: Reuse base
     needs:
       - changes
       - go

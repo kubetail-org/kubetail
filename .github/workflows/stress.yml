@@ -30,7 +30,7 @@ env:
 jobs:
   stress:
     # The report job reads the id back out of the name.
-    name: Go · Stress (${{ matrix.runner }}-${{ matrix.race && 'race' || 'norace' }}-cpu${{ matrix.cpu }})
+    name: Go (${{ matrix.runner }}-${{ matrix.race && 'race' || 'norace' }}-cpu${{ matrix.cpu }})
     # Forks get no nightly run.
     if: github.repository == 'kubetail-org/kubetail' || github.event_name == 'workflow_dispatch'
     strategy:
@@ -172,7 +172,7 @@ jobs:
           # Every stress job that did not pass, by the id in its name, with how
           # it ended. A test step that never concluded means the runner was lost.
           gh api --paginate "repos/$GH_REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs" \
-            --jq '.jobs[] | select(.name | startswith("Go · Stress"))
+            --jq '.jobs[] | select(.name | startswith("Go ("))
                   | select(.conclusion != "success" and .conclusion != "skipped")
                   | [(.name | capture("\\((?<id>[^)]+)\\)$").id),
                      (if .conclusion == "cancelled" then "cancelled"

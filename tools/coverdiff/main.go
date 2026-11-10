@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Command coverdiff lists the changed lines a local coverage run measured but
-// no test reached, as Coverage · Gate would flag them. scripts/cover-changed.sh
+// no test reached, as coverage / Gate would flag them. scripts/cover-changed.sh
 // runs it:
 //
 //	go run ./coverdiff -root .. -diff changes.diff -go modules=merged.out -lcov lcov.info

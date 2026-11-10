@@ -63,7 +63,7 @@ jobs:
   # workspace, so a line in shared/ that only the Dashboard's tests reach
   # counts as covered.
   go:
-    name: Coverage · Go (${{ matrix.goos }})
+    name: Go (${{ matrix.goos }})
     needs: changes
     if: needs.changes.outputs.go == 'true'
     strategy:
@@ -116,7 +116,7 @@ jobs:
           fail_ci_if_error: true
 
   typescript:
-    name: Coverage · TypeScript
+    name: TypeScript
     needs: changes
     if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
@@ -149,7 +149,7 @@ jobs:
 
   # Linux alone: the Cluster Agent runs on Linux nodes only.
   rust:
-    name: Coverage · Rust
+    name: Rust
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
@@ -196,7 +196,7 @@ jobs:
   # their history. Codecov's public API needs no token, so a fork's PR runs it
   # too. A language whose job failed or was skipped is not waited for.
   gate:
-    name: Coverage · Gate
+    name: Gate
     needs:
       - changes
       - go

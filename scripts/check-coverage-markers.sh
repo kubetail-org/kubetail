@@ -1,5 +1,5 @@
 #!/bin/sh
-# A coverage marker exempts lines from Coverage · Gate, so it must say why:
+# A coverage marker exempts lines from coverage / Gate, so it must say why:
 # `// coverage:ignore <reason>` or `// coverage:ignore-start <reason>` in Go,
 # `// coverage:ignore-start <reason>` on a line of its own in Rust,
 # `/* v8 ignore next -- <reason> */` in TypeScript. Prints every marker without
