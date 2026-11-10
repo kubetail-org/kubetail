@@ -173,6 +173,8 @@ jobs:
           file: build/package/Dockerfile.${{ needs.config.outputs.component }}
           push: ${{ needs.config.outputs.dry_run == 'false' }}
           target: ${{ steps.vars.outputs.docker_target }}
+          # Only Dockerfile.cli declares VERSION; the others ignore it.
+          build-args: VERSION=${{ needs.config.outputs.base_image_tag }}
           tags: |
             kubetail/${{ needs.config.outputs.image_name }}:${{ steps.vars.outputs.image_tag }}-${{ matrix.arch }}
             ghcr.io/${{ github.repository_owner }}/${{ needs.config.outputs.image_name }}:${{ steps.vars.outputs.image_tag }}-${{ matrix.arch }}
