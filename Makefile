@@ -45,7 +45,7 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/modules/cli/cmd.
 	lint lint-go lint-rust lint-ts lint-python lint-sh lint-md lint-yaml lint-toolchains lint-digests \
 	vet vet-go vet-rust vet-ts \
 	test test-go test-rust test-ts test-sh test-changed test-e2e \
-	cover-changed check check-changed
+	cover-changed check check-changed check-generated
 
 build: build-dashboard-ui ## Build the kubetail CLI, with the UI embedded, for this platform
 	@echo "Building kubetail CLI binary..."
@@ -180,6 +180,10 @@ check: lint vet test ## Run every lint, vet and test
 # scripts/check-changed.sh
 check-changed: ## Run the checks for what this branch changed, before opening a pull request
 	@bash scripts/check-changed.sh
+
+# scripts/check-generated.sh
+check-generated: ## Regenerate the committed protoc, gqlgen, codegen and CLI config output, and fail on a change
+	@bash scripts/check-generated.sh
 
 # Prints each target's `##` description.
 help: ## Show this help message

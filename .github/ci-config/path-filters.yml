@@ -54,6 +54,19 @@ yaml:
   - tools/go.mod
   - '**/*.yml'
   - '**/*.yaml'
+# ci.yml's Generated · Check alone: every source a generator reads, and the
+# generators' pins.
+generated:
+  - *shared
+  - Makefile
+  - config/default/cli.*
+  - dashboard-ui/codegen.ts
+  - dashboard-ui/package.json
+  - dashboard-ui/pnpm-lock.yaml
+  - dashboard-ui/src/lib/graphql/**
+  - modules/**
+  - proto/**
+  - scripts/check-generated.sh
 # codeql.yml's alone. A change to codeql.yml analyzes every language.
 codeql:
   - .github/workflows/codeql.yml

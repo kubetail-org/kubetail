@@ -71,6 +71,7 @@ jobs:
       docker: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docker == 'true' }}
       shell: ${{ github.event_name != 'pull_request' || steps.filter.outputs.shell == 'true' }}
       yaml: ${{ github.event_name != 'pull_request' || steps.filter.outputs.yaml == 'true' }}
+      generated: ${{ github.event_name != 'pull_request' || steps.filter.outputs.generated == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name == 'pull_request'
@@ -332,6 +333,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: make lint-yaml
+
+  # Regenerates every committed output from its source and fails on a change.
+  generated-check:
+    name: Generated · Check
+    needs: changes
+    if: needs.changes.outputs.generated == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          setup-protoc: "true"
+          setup-node: "true"
+          node-cache: "true"
+      - name: Regenerate and compare
+        run: make check-generated
 
   ###########################
   # Test jobs

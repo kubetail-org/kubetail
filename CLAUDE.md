@@ -11,7 +11,7 @@ A real-time logging dashboard for Kubernetes, in one monorepo. `dashboard-ui/`, 
 - **`crates/`** — a Rust workspace: the Cluster Agent (`cluster_agent`), one per node, and the log file reader it links (`rgkl`).
 - **`proto/`** — the gRPC contract between the Cluster API and the Cluster Agent.
 - **`config/default/`** — the documented default config file of each component. Defaults are set in each component's code; change both. → [ADR: each component owns its config](docs/adr/2026-11-09-each-component-owns-its-config.md)
-- **`tools/`** — a Go module outside the workspace: the coverage tools CI runs, `releasenotes` (the `release-notes` skill's), and pins of the Go tools CI runs (`actionlint`, `govulncheck`), so Dependabot moves them.
+- **`tools/`** — a Go module outside the workspace: the coverage tools CI runs, `releasenotes` (the `release-notes` skill's), and pins of the Go tools CI runs (`actionlint`, `govulncheck`, the protoc plugins), so Dependabot moves them.
 - **`build/package/`** — the release Dockerfiles. Each copies only the directories its component needs.
 - **`hack/tilt/kubetail.yaml`** — the whole dev deployment.
 - **`e2e/`** — end-to-end tests in Python, run against a kind cluster.
@@ -49,7 +49,7 @@ kubetail logs ──────────────────────
 
 ## Generated code
 
-Generated Go and TypeScript are committed and never hand-edited: `*.pb.go`, `graph/generated.go`, `graph/model/models_gen.go`, `dashboard-ui/src/lib/graphql/*/__generated__/`. The Rust gRPC code is generated on every build and never committed. **CI does not regenerate or diff any of them**, so regenerate after editing a source: `proto/CLAUDE.md` for the proto, `modules/CLAUDE.md` for a GraphQL schema, `dashboard-ui/CLAUDE.md` for the UI's operations. → [ADR: commit generated Go and TypeScript](docs/adr/2026-11-09-commit-generated-go-and-typescript-generate-rust-at-build-time.md)
+Generated Go and TypeScript are committed and never hand-edited: `*.pb.go`, `graph/generated.go`, `graph/model/models_gen.go`, `dashboard-ui/src/lib/graphql/*/__generated__/`. The Rust gRPC code is generated on every build and never committed. Regenerate after editing a source: `proto/CLAUDE.md` for the proto, `modules/CLAUDE.md` for a GraphQL schema, `dashboard-ui/CLAUDE.md` for the UI's operations. `make check-generated` runs every generator, `modules/cli/assets/`'s copy of `config/default/cli.*` among them, and fails if a committed file changed; CI's `Generated · Check` runs it. → [ADR: commit generated Go and TypeScript](docs/adr/2026-11-09-commit-generated-go-and-typescript-generate-rust-at-build-time.md), [ADR: check generated code in CI by regenerating it](docs/adr/2026-11-10-check-generated-code-in-ci-by-regenerating-it.md)
 
 ## These guides
 
