@@ -16,6 +16,8 @@ import type { Virtualizer } from '@tanstack/react-virtual';
 import { render, renderHook, act, waitFor } from '@testing-library/react';
 import { createRef, type RefObject } from 'react';
 
+import { createMockClient, type MockClient } from '@/mocks/log-viewer';
+
 import { DoubleTailedArray } from './double-tailed-array';
 import {
   useAutoScroll,
@@ -31,7 +33,6 @@ import {
   LogViewer,
 } from './log-viewer';
 import type { Runtime, LogViewerHandle, LogViewerVirtualizer } from './log-viewer';
-import { createMockClient, type MockClient } from './mock';
 import type { LogRecord } from './types';
 
 const mockVirtualizer = {

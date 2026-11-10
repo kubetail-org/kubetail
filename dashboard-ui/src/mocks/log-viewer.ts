@@ -14,9 +14,9 @@
 
 import { vi, type Mock } from 'vitest';
 
-import { LOG_VIEWER_INITIAL_STATE } from './log-viewer';
-import type { LogViewerHandle } from './log-viewer';
-import type { Client } from './types';
+import { LOG_VIEWER_INITIAL_STATE } from '@/components/widgets/log-viewer/log-viewer';
+import type { LogViewerHandle } from '@/components/widgets/log-viewer/log-viewer';
+import type { Client } from '@/components/widgets/log-viewer/types';
 
 /**
  * MockClient

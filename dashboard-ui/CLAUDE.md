@@ -51,7 +51,7 @@ pnpm test run       # `pnpm test` alone is watch mode and never exits
 
 ## The log viewer
 
-`src/components/widgets/log-viewer/` is headless: outside its test doubles it imports only React, `@tanstack/react-virtual` and `cn`, and exports through `index.ts`.
+`src/components/widgets/log-viewer/` is headless: it imports only React, `@tanstack/react-virtual` and `cn`, and exports through `index.ts`.
 
 - **`types.ts` is the contract.** The console's `Client` is `LogServerClient` (`pages/console/log-server-client.ts`), whose cursor is a record's timestamp.
 - **A new `client` object resets the viewer.** `LogViewer` remounts its inner component when the prop's identity changes, so `pages/console/index.tsx` memoizes the client on the kube context, sources, filters and grep, and keeps those stable with deep-compared values.
@@ -83,7 +83,7 @@ Vitest + `@testing-library/react` (jsdom), co-located as `foo.test.ts[x]`. Globa
 - **`vitest.setup.ts` mocks for every test**: `useSession` (default: signed out, so `AuthRequired` redirects), the CSRF token functions, and `useIsClusterAPIEnabled` (default: `true`). A test of a signed-in page sets `(useSession as Mock).mockReturnValue({ session: { user: 'test' } })`.
 - **`vi.resetAllMocks()` runs after every test**, so a `mockReturnValue` or `mockImplementation` belongs in `beforeEach`: set at module scope it lasts one test.
 - **To wait, use `await waitFor(...)` or fake timers** (`vi.useFakeTimers()` with `vi.advanceTimersByTimeAsync`). `requestAnimationFrame` is a zero-delay timer in tests, so code that schedules a frame is driven the same way.
-- **Log viewer doubles**: `createMockClient` and `createMockLogViewerHandle` in `log-viewer/mock.ts`.
+- **Log viewer doubles**: `createMockClient` and `createMockLogViewerHandle` in `src/mocks/log-viewer.ts`. `FakeClient` (`log-viewer/fake-client.ts`) streams generated records for trying the viewer by hand; the barrel does not export it.
 
 ## Lint conventions
 
