@@ -44,4 +44,5 @@ x509-parser = "0.18"
 rcgen = "0.14"
 serial_test = "4.0.1"
 tempfile = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
 
