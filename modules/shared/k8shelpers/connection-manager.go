@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"reflect"
 	"sync"
 	"time"
 
@@ -69,6 +70,7 @@ type DesktopConnectionManager struct {
 	dcCache           util.SyncGroup[string, *dynamic.DynamicClient]
 	factoryCache      util.SyncGroup[factoryCacheKey, informers.SharedInformerFactory]
 	isReadyCache      util.SyncGroup[string, bool]
+	retiredFactories  []informers.SharedInformerFactory
 	rootCtx           context.Context
 	rootCtxCancel     context.CancelFunc
 	stopCh            chan struct{}
@@ -124,6 +126,13 @@ func (cm *DesktopConnectionManager) Close() {
 		})
 		return true
 	})
+	cm.mu.Lock()
+	for _, factory := range cm.retiredFactories {
+		wg.Go(func() {
+			factory.Shutdown()
+		})
+	}
+	cm.mu.Unlock()
 
 	// Unsubscribe from config watcher events and close
 	cm.KubeConfigWatcher.Close()
@@ -334,8 +343,68 @@ func (cm *DesktopConnectionManager) warmUpCache() {
 // Handle kube config modified event
 func (cm *DesktopConnectionManager) kubeConfigModified(newConfig *api.Config) {
 	cm.mu.Lock()
-	defer cm.mu.Unlock()
+	oldConfig := cm.kubeConfig
 	cm.kubeConfig = newConfig
+	cm.mu.Unlock()
+
+	// "" stands for the current context
+	names := []string{""}
+	for name := range oldConfig.Contexts {
+		names = append(names, name)
+	}
+
+	for _, name := range names {
+		if !reflect.DeepEqual(resolveContext(oldConfig, name), resolveContext(newConfig, name)) {
+			cm.invalidate(name)
+		}
+	}
+}
+
+// Drop the cached clients of a kube context, so the next caller builds them
+// from the current kube config. Each delete waits for a build in progress.
+func (cm *DesktopConnectionManager) invalidate(kubeContext string) {
+	cm.isReadyCache.LoadAndDelete(kubeContext)
+
+	// Informers already handed out keep running until Close, so open streams
+	// are not cut off; new informers come from a new factory.
+	var stale []factoryCacheKey
+	cm.factoryCache.Range(func(key factoryCacheKey, _ informers.SharedInformerFactory) bool {
+		if key.kubeContext == kubeContext {
+			stale = append(stale, key)
+		}
+		return true
+	})
+	for _, key := range stale {
+		if factory, ok := cm.factoryCache.LoadAndDelete(key); ok {
+			cm.mu.Lock()
+			cm.retiredFactories = append(cm.retiredFactories, factory)
+			cm.mu.Unlock()
+		}
+	}
+
+	cm.dcCache.LoadAndDelete(kubeContext)
+	cm.csCache.LoadAndDelete(kubeContext)
+	cm.rcCache.LoadAndDelete(kubeContext)
+}
+
+// What a kube context's clients are built from
+type resolvedContext struct {
+	context  *api.Context
+	cluster  *api.Cluster
+	authInfo *api.AuthInfo
+}
+
+func resolveContext(cfg *api.Config, name string) resolvedContext {
+	if name == "" {
+		name = cfg.CurrentContext
+	}
+	var rc resolvedContext
+	rc.context = cfg.Contexts[name]
+	if rc.context != nil {
+		rc.cluster = cfg.Clusters[rc.context.Cluster]
+		rc.authInfo = cfg.AuthInfos[rc.context.AuthInfo]
+	}
+	return rc
 }
 
 // inClusterConfigFn is the in-cluster REST config loader. Tests stub it to

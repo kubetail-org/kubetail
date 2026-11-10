@@ -203,3 +203,63 @@ func TestSyncGroupLoadOrComputeWithContext(t *testing.T) {
 		}
 	})
 }
+
+func TestSyncGroupLoadAndDelete(t *testing.T) {
+	var g SyncGroup[string, int]
+
+	_, ok := g.LoadAndDelete("key1")
+	assert.False(t, ok)
+
+	g.LoadOrCompute("key1", func() (int, error) { return 42, nil })
+
+	v, ok := g.LoadAndDelete("key1")
+	assert.True(t, ok)
+	assert.Equal(t, 42, v)
+
+	// The next load computes afresh
+	result, loaded, err := g.LoadOrCompute("key1", func() (int, error) { return 99, nil })
+	require.NoError(t, err)
+	assert.False(t, loaded)
+	assert.Equal(t, 99, result)
+}
+
+func TestSyncGroupLoadAndDeleteWaitsForCompute(t *testing.T) {
+	var g SyncGroup[string, int]
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	computed := make(chan struct{})
+	go func() {
+		defer close(computed)
+		g.LoadOrCompute("key1", func() (int, error) {
+			close(started)
+			<-release
+			return 42, nil
+		})
+	}()
+	<-started
+
+	deleted := make(chan struct{})
+	go func() {
+		defer close(deleted)
+		g.LoadAndDelete("key1")
+	}()
+
+	// Negative assertion: the delete must wait for the compute
+	select {
+	case <-deleted:
+		t.Fatal("LoadAndDelete returned before the compute finished")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	close(release)
+	<-computed
+	select {
+	case <-deleted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("LoadAndDelete did not return")
+	}
+
+	_, ok := g.m.Load("key1")
+	assert.False(t, ok)
+}

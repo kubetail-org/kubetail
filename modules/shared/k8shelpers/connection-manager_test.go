@@ -19,15 +19,20 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 )
 
 // MockDesktopAuthorizer is a mock implementation of DesktopAuthorizer for testing
@@ -312,4 +317,136 @@ func TestInClusterConnectionManager_NewInformer_KubeContextNotSupported(t *testi
 
 	// The mock should not have been called since the error happens before authorization check
 	mockAuthorizer.AssertNotCalled(t, "IsAllowedInformer")
+}
+
+// Builds a kube config with contexts "a" and "b", each with its own cluster
+// and user, and "a" as the current context
+func newTestKubeConfig(serverA string) *api.Config {
+	cfg := api.NewConfig()
+	cfg.Clusters["a"] = &api.Cluster{Server: serverA}
+	cfg.Clusters["b"] = &api.Cluster{Server: "https://b.example.invalid"}
+	cfg.AuthInfos["a"] = &api.AuthInfo{Token: "token-a"}
+	cfg.AuthInfos["b"] = &api.AuthInfo{Token: "token-b"}
+	cfg.Contexts["a"] = &api.Context{Cluster: "a", AuthInfo: "a"}
+	cfg.Contexts["b"] = &api.Context{Cluster: "b", AuthInfo: "b"}
+	cfg.CurrentContext = "a"
+	return cfg
+}
+
+func TestDesktopConnectionManager_KubeConfigModified_RebuildsChangedContexts(t *testing.T) {
+	cm := &DesktopConnectionManager{
+		kubeConfig: newTestKubeConfig("https://a.example.invalid"),
+		stopCh:     make(chan struct{}),
+	}
+	defer close(cm.stopCh)
+
+	contexts := []string{"", "a", "b"}
+	restConfigs := map[string]*rest.Config{}
+	clientsets := map[string]kubernetes.Interface{}
+	dynamicClients := map[string]dynamic.Interface{}
+	factories := map[string]informers.SharedInformerFactory{}
+	for _, name := range contexts {
+		rc, err := cm.GetOrCreateRestConfig(name)
+		require.NoError(t, err)
+		restConfigs[name] = rc
+		cs, err := cm.GetOrCreateClientset(name)
+		require.NoError(t, err)
+		clientsets[name] = cs
+		dc, err := cm.GetOrCreateDynamicClient(name)
+		require.NoError(t, err)
+		dynamicClients[name] = dc
+		factory, err := cm.getOrCreateSharedInformerFactory(name, "default")
+		require.NoError(t, err)
+		factories[name] = factory
+		cm.isReadyCache.LoadOrCompute(name, func() (bool, error) { return true, nil })
+	}
+
+	cm.kubeConfigModified(newTestKubeConfig("https://a2.example.invalid"))
+
+	// "a" and the current context, which is "a", are rebuilt from the new config
+	for _, name := range []string{"", "a"} {
+		rc, err := cm.GetOrCreateRestConfig(name)
+		require.NoError(t, err)
+		assert.Equal(t, "https://a2.example.invalid", rc.Host)
+
+		cs, err := cm.GetOrCreateClientset(name)
+		require.NoError(t, err)
+		assert.NotSame(t, clientsets[name], cs)
+
+		dc, err := cm.GetOrCreateDynamicClient(name)
+		require.NoError(t, err)
+		assert.NotSame(t, dynamicClients[name], dc)
+
+		_, loaded, _ := cm.isReadyCache.LoadOrCompute(name, func() (bool, error) { return true, nil })
+		assert.False(t, loaded)
+
+		factory, err := cm.getOrCreateSharedInformerFactory(name, "default")
+		require.NoError(t, err)
+		assert.NotSame(t, factories[name], factory)
+	}
+	assert.Len(t, cm.retiredFactories, 2)
+
+	// "b" did not change, so it keeps its clients
+	rc, err := cm.GetOrCreateRestConfig("b")
+	require.NoError(t, err)
+	assert.Same(t, restConfigs["b"], rc)
+	cs, err := cm.GetOrCreateClientset("b")
+	require.NoError(t, err)
+	assert.Same(t, clientsets["b"], cs)
+	_, loaded, _ := cm.isReadyCache.LoadOrCompute("b", func() (bool, error) { return true, nil })
+	assert.True(t, loaded)
+}
+
+func TestDesktopConnectionManager_KubeConfigModified_RebuildsOnUserChange(t *testing.T) {
+	cm := &DesktopConnectionManager{kubeConfig: newTestKubeConfig("https://a.example.invalid")}
+
+	rc, err := cm.GetOrCreateRestConfig("b")
+	require.NoError(t, err)
+	assert.Equal(t, "token-b", rc.BearerToken)
+
+	newConfig := newTestKubeConfig("https://a.example.invalid")
+	newConfig.AuthInfos["b"].Token = "token-b2"
+	cm.kubeConfigModified(newConfig)
+
+	rc, err = cm.GetOrCreateRestConfig("b")
+	require.NoError(t, err)
+	assert.Equal(t, "token-b2", rc.BearerToken)
+}
+
+func TestDesktopConnectionManager_KubeConfigModified_RebuildsOnCurrentContextChange(t *testing.T) {
+	cm := &DesktopConnectionManager{kubeConfig: newTestKubeConfig("https://a.example.invalid")}
+
+	rc, err := cm.GetOrCreateRestConfig("")
+	require.NoError(t, err)
+	assert.Equal(t, "https://a.example.invalid", rc.Host)
+
+	newConfig := newTestKubeConfig("https://a.example.invalid")
+	newConfig.CurrentContext = "b"
+	cm.kubeConfigModified(newConfig)
+
+	rc, err = cm.GetOrCreateRestConfig("")
+	require.NoError(t, err)
+	assert.Equal(t, "https://b.example.invalid", rc.Host)
+}
+
+func TestDesktopConnectionManager_KubeConfigFileChange_RebuildsClient(t *testing.T) {
+	kubeconfigPath := filepath.Join(t.TempDir(), "config")
+	require.NoError(t, clientcmd.WriteToFile(*newTestKubeConfig("https://a.example.invalid"), kubeconfigPath))
+
+	cm, err := NewDesktopConnectionManager(WithKubeconfigPath(kubeconfigPath), WithLazyConnect(true))
+	require.NoError(t, err)
+	defer cm.Close()
+
+	rc, err := cm.GetOrCreateRestConfig("a")
+	require.NoError(t, err)
+	assert.Equal(t, "https://a.example.invalid", rc.Host)
+	_, err = cm.getOrCreateSharedInformerFactory("a", "default")
+	require.NoError(t, err)
+
+	require.NoError(t, clientcmd.WriteToFile(*newTestKubeConfig("https://a2.example.invalid"), kubeconfigPath))
+
+	require.Eventually(t, func() bool {
+		rc, err := cm.GetOrCreateRestConfig("a")
+		return err == nil && rc.Host == "https://a2.example.invalid"
+	}, 5*time.Second, 10*time.Millisecond)
 }

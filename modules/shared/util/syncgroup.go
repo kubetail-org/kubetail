@@ -32,6 +32,15 @@ func (g *SyncGroup[K, V]) Range(f func(key K, value V) bool) {
 	g.m.Range(f)
 }
 
+// LoadAndDelete removes the value for the key and returns it. It waits for a compute in
+// progress for the key to finish, so the value that compute stores is removed too.
+func (g *SyncGroup[K, V]) LoadAndDelete(key K) (V, bool) {
+	mu, _ := g.muMap.LoadOrStore(key, &sync.Mutex{})
+	mu.Lock()
+	defer mu.Unlock()
+	return g.m.LoadAndDelete(key)
+}
+
 // LoadOrCompute returns the existing value for the key if present. Otherwise, it calls the
 // compute function and stores the result. Subsequent callers will wait until the result is
 // ready. The compute function is only called once per key, even under concurrent access.
