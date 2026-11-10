@@ -26,9 +26,9 @@ kubeconfig: ""
 #
 # The network address and port the HTTP server should bind to.
 #
-# Default value: :80
+# Default value: :8080
 #
-addr: :80
+addr: :8080
 
 ## allowed-origins ##
 #
@@ -55,7 +55,7 @@ allowed-origins: []
 ## auth-mode ##
 #
 # The authentication mode for the dashboard.
-# Valid values: auto, cluster, local
+# Valid values: auto, token
 #
 # Default value: auto
 #
@@ -82,20 +82,30 @@ cluster-api-enabled: true
 ## environment ##
 #
 # The environment the dashboard is running in.
-# Valid values: desktop, cluster
+# Valid values: cluster, desktop
 #
-# Default value: desktop
+# Default value: cluster
 #
-environment: desktop
+environment: cluster
 
 ## gin-mode ##
 #
 # The Gin framework mode.
-# Valid values: debug, release, test
+# Valid values: debug, release
 #
 # Default value: release
 #
 gin-mode: release
+
+## local-storage-dir ##
+#
+# Parent directory for local files such as preferences and session keys.
+# If empty, features that need local storage are disabled. In the desktop
+# environment an empty value becomes ~/.kubetail.
+#
+# Default value: ""
+#
+local-storage-dir: ""
 
 ## logging ##
 #
@@ -114,7 +124,7 @@ logging:
   ## level ##
   #
   # The minimum log level to output.
-  # Valid values: debug, info, warn, error
+  # Valid values: debug, info, warn, error, disabled
   #
   # Default value: info
   #
@@ -123,7 +133,7 @@ logging:
   ## format ##
   #
   # The format of log output.
-  # Valid values: json, text
+  # Valid values: json, pretty
   #
   # Default value: json
   #
@@ -170,6 +180,8 @@ session:
   # When empty and a local-storage-dir is configured, a random pair is
   # generated and persisted to disk on first startup.
   #
+  # Default value: []
+  #
   key-pairs: []
 
   ## cookie ##
@@ -182,9 +194,9 @@ session:
     #
     # The name of the session cookie.
     #
-    # Default value: session
+    # Default value: kubetail_dashboard_session
     #
-    name: session
+    name: kubetail_dashboard_session
 
     ## path ##
     #
@@ -207,9 +219,9 @@ session:
     #
     # The maximum age of the cookie in seconds.
     #
-    # Default value: 1092000
+    # Default value: 2592000
     #
-    max-age: 1092000
+    max-age: 2592000
 
     ## secure ##
     #
@@ -271,14 +283,6 @@ tls:
 # UI-specific configuration options
 #
 ui:
-
-  ## cluster-api-enabled ##
-  #
-  # Whether the cluster API integration is enabled in the UI.
-  #
-  # Default value: true
-  #
-  cluster-api-enabled: true
 
   ## columns ##
   #
