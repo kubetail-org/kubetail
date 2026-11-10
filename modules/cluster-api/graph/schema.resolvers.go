@@ -8,11 +8,11 @@ package graph
 import (
 	"context"
 	"fmt"
-	"io"
 	"sync"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
+	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 	"github.com/kubetail-org/kubetail/modules/cluster-api/graph/model"
 	"github.com/kubetail-org/kubetail/modules/shared/clusteragentpb"
 	gqlerrors "github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
@@ -191,66 +191,19 @@ func (r *subscriptionResolver) LogMetadataWatch(ctx context.Context, namespace *
 		return nil, err
 	}
 
-	outCh := make(chan *clusteragentpb.LogMetadataWatchEvent)
+	req := &clusteragentpb.LogMetadataWatchRequest{Namespaces: nsList}
 
-	sub, err := r.grpcDispatcher.FanoutSubscribe(ctx, func(ctx context.Context, conn *grpc.ClientConn) {
-		// init client
-		c := clusteragentpb.NewLogMetadataServiceClient(conn)
-
-		// init request
-		req := &clusteragentpb.LogMetadataWatchRequest{Namespaces: nsList}
-
-		// execute
-		stream, err := c.Watch(ctx, req)
+	// coverage:ignore-start a live dispatcher needs agent endpoints from a cluster; watchLogMetadata is tested with a fake
+	subscribe := func(ctx context.Context, fn grpcdispatcher.DispatchHandler) (func(), error) {
+		sub, err := r.grpcDispatcher.FanoutSubscribe(ctx, fn)
 		if err != nil {
-			return
+			return nil, err
 		}
-
-		for {
-			ev, err := stream.Recv()
-
-			// handle errors
-			if err != nil {
-				// ignore normal errors
-				if err == io.EOF {
-					break
-				} else if err == context.Canceled {
-					break
-				}
-
-				// check for grpc status error
-				if s, ok := status.FromError(err); ok {
-					switch s.Code() {
-					case codes.Unavailable:
-						// server down (probably restarting)
-					case codes.Canceled:
-						// connection closed client-side
-					default:
-						zlog.Error().Caller().Err(err).Msgf("Unexpected gRPC error: %v\n", s.Message())
-					}
-					break
-				}
-
-				zlog.Error().Caller().Err(err).Msg("Unexpected error")
-
-				break
-			}
-
-			// forward event
-			outCh <- ev
-		}
-	})
-	if err != nil {
-		return nil, err
+		return sub.Unsubscribe, nil
 	}
 
-	// Unsubscribe on context close
-	go func() {
-		<-ctx.Done()
-		sub.Unsubscribe()
-	}()
-
-	return outCh, nil
+	return watchLogMetadata(ctx, req, subscribe, transport.AddSubscriptionError)
+	// coverage:ignore-stop
 }
 
 // LogRecordsFollow is the resolver for the logRecordsFollow field.
