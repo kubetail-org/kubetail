@@ -33,6 +33,7 @@ var clusterUninstallCmd = &cobra.Command{
 	Use:   "uninstall",
 	Short: "Uninstall an existing release",
 	Long:  clusterUninstallHelp,
+	// coverage:ignore-start uninstalls a release from a live cluster
 	Run: func(cmd *cobra.Command, args []string) {
 		// Get flags
 		flags := cmd.Flags()
@@ -47,13 +48,12 @@ var clusterUninstallCmd = &cobra.Command{
 		// Init client
 		client := helm.NewClient(helm.WithKubeconfigPath(kubeconfigPath), helm.WithKubeContext(kubeContext))
 
-		// coverage:ignore-start uninstalls a release from a live cluster
 		release, err := client.UninstallRelease(namespace, name)
 		cli.ExitOnError(err)
 
 		fmt.Printf("Deleted release '%s' in namespace '%s'\n", release.Name, release.Namespace)
-		// coverage:ignore-stop
 	},
+	// coverage:ignore-stop
 }
 
 func init() {
