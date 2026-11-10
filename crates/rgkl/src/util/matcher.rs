@@ -14,9 +14,9 @@
 
 use grep::matcher::{self, Match, Matcher};
 use grep::regex::{self, RegexMatcher, RegexMatcherBuilder};
-use memchr::memmem;
 use serde::Deserialize;
 
+use crate::util::cri;
 use crate::util::format::FileFormat;
 
 // PassThroughMatcher
@@ -132,25 +132,9 @@ pub fn extract_message_docker(line: &[u8]) -> Option<Vec<u8>> {
     Some(v.log.into_bytes())
 }
 
-// Extract <message> from CRI format (<isotimestamp> <stdout/stderr> <P/F> <message>)
+// Extract <message> from CRI format
 pub fn extract_message_cri(line: &[u8]) -> Option<&[u8]> {
-    // Advance past the non-decimal part of the ISO8601 timestamp
-    let start_pos = 19;
-    let partial = line.get(start_pos..)?;
-
-    // Find the space that precedes "<stdout/stderr>"
-    let space_idx = memmem::find(partial, b" ")?;
-
-    // Skip to beginning of <message>
-    let log_start = start_pos + space_idx + 10;
-
-    // Check bounds
-    if log_start >= line.len() {
-        return None;
-    }
-
-    // Return <message>
-    Some(&line[log_start..line.len()])
+    cri::parse(line).map(|l| l.message)
 }
 
 #[cfg(test)]
@@ -171,6 +155,12 @@ mod tests {
     fn test_extract_message_cri(#[case] line_str: String, #[case] expected_msg: String) {
         let msg_maybe = extract_message_cri(line_str.as_bytes());
         assert_eq!(msg_maybe, Some(expected_msg.as_bytes()));
+    }
+
+    #[test]
+    fn test_extract_message_cri_unknown_stream() {
+        let line = b"2025-07-31T12:06:00.00Z stdin F hello world";
+        assert_eq!(extract_message_cri(line), None);
     }
 
     #[rstest]
