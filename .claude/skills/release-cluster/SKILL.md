@@ -25,39 +25,12 @@ Tag and push new semver releases for `dashboard`, `cluster-api`, and `cluster-ag
 
    If working tree is dirty or HEAD is not at `{upstream}/main`, stop and ask the user to resolve before continuing.
 
-3. **Find latest tag for each component** — run these in parallel:
+3. **Recommend a version for each component** — follow `.claude/skills/release-version/SKILL.md` for `dashboard`, `cluster-api` and `cluster-agent` in turn. It finds each component's latest tag, reads the commits under its paths since then and picks the next version under SemVer.
 
-   ```sh
-   git tag --list "dashboard/v*" | sort -V | tail -1
-   git tag --list "cluster-api/v*" | sort -V | tail -1
-   git tag --list "cluster-agent/v*" | sort -V | tail -1
-   ```
+   - If it finds nothing to release for a component, skip that component.
+   - Take its recommended version as the new tag, or the alternative it offers if the user picks that.
 
-4. **Check for changes since latest tag** — for each component, run:
-
-   ```sh
-   # dashboard
-   git log {latest-tag}..HEAD --oneline -- modules/dashboard/ dashboard-ui/
-
-   # cluster-api
-   git log {latest-tag}..HEAD --oneline -- modules/cluster-api/
-
-   # cluster-agent
-   git log {latest-tag}..HEAD --oneline -- crates/cluster_agent/
-   ```
-
-   - If no commits touch a component's paths, skip that component (no release needed)
-   - `modules/shared/` changes that affect a component count as changes to that component
-   - `crates/types/` changes that affect a Rust component count as changes to that component
-
-5. **Determine new version using semver** — analyze commits for each component:
-   - **Patch** (`Z+1`): bug fixes, tests, docs, refactors, chores, ci changes
-   - **Minor** (`Y+1`, reset `Z=0`): new backwards-compatible features
-   - **Major** (`X+1`, reset `Y=0`, `Z=0`): breaking changes
-
-   Use conventional commit prefixes as hints (`fix:` → patch, `feat:` → minor, `BREAKING CHANGE` → major), but read the actual messages to make a judgment call.
-
-6. **Confirm with user before tagging** — present a summary table:
+4. **Confirm with user before tagging** — present a summary table:
 
    ```
    Component     | Current tag          | New tag            | Reason
@@ -69,7 +42,7 @@ Tag and push new semver releases for `dashboard`, `cluster-api`, and `cluster-ag
 
    Wait for explicit user confirmation before proceeding.
 
-7. **Tag and push sequentially** — for each component that needs a release (order: `dashboard`, `cluster-api`, `cluster-agent`):
+5. **Tag and push sequentially** — for each component that needs a release (order: `dashboard`, `cluster-api`, `cluster-agent`):
 
    ```sh
    git tag -s {component}/v{X.Y.Z} -m "release: {component}/v{X.Y.Z}"
@@ -77,6 +50,8 @@ Tag and push new semver releases for `dashboard`, `cluster-api`, and `cluster-ag
    ```
 
    Do these one at a time. Confirm each push succeeded before moving to the next.
+
+6. **Write the notes** — `release-docker.yml` builds the images but opens no release. For each component tagged, tell the user to draft a release for the tag on GitHub, then run `/release-notes {component} {component}/v{X.Y.Z}`, which writes the notes to the draft. The user publishes the draft on GitHub.
 
 ## Rules
 

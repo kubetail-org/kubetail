@@ -71,6 +71,12 @@ lerna-debug.log*
 CLAUDE.local.md
 .claude/*
 !.claude/settings.json
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/release-cli/
+!.claude/skills/release-cluster/
+!.claude/skills/release-notes/
+!.claude/skills/release-version/
 
 # e2e
 /e2e/.venv

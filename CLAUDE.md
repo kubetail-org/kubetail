@@ -11,11 +11,10 @@ A real-time logging dashboard for Kubernetes, in one monorepo. `dashboard-ui/`, 
 - **`crates/`** — a Rust workspace: the Cluster Agent (`cluster_agent`), one per node, and the log file reader it links (`rgkl`).
 - **`proto/`** — the gRPC contract between the Cluster API and the Cluster Agent.
 - **`config/default/`** — the documented default config file of each component. Defaults are set in each component's code; change both. → [ADR: each component owns its config](docs/adr/2026-11-09-each-component-owns-its-config.md)
-- **`tools/`** — a Go module that pins the Go tools CI runs (`actionlint`, `govulncheck`), so Dependabot moves them.
+- **`tools/`** — a Go module outside the workspace: the coverage tools CI runs, `releasenotes` (the `release-notes` skill's), and pins of the Go tools CI runs (`actionlint`, `govulncheck`), so Dependabot moves them.
 - **`build/package/`** — the release Dockerfiles. Each copies only the directories its component needs.
 - **`hack/tilt/kubetail.yaml`** — the whole dev deployment.
 - **`e2e/`** — end-to-end tests in Python, run against a kind cluster.
-- **`tools/`** — the coverage tools CI runs, a Go module outside the workspace.
 - **`docs/adr/`** — Architecture Decision Records: why the design is the way it is.
 
 **The Helm chart is not in this repo.** A change that needs a new permission, Secret, port, environment variable or config key is made in `hack/tilt/kubetail.yaml` and `e2e/manifests/base.yaml.tmpl` here, and says in the PR that the chart needs the same.
@@ -128,3 +127,4 @@ Add an external dependency only for a material gain in readability or performanc
 - **A pull request** fills in `.github/pull_request_template.md` from the diff, in prose, with the placeholders replaced and the checklist items you can settle ticked. Its title is capitalized, in imperative mood, with no conventional-commit prefix, and leads with the emoji the template lists (🎣 bug fix, 🐋 new feature, 📜 documentation, ✨ general improvement). Reference related issues (`Closes #123`, `Ref #124`).
 - **An issue** fills in a template from `.github/ISSUE_TEMPLATE/` (`gh issue create --template "Task"`): `task.md` for work ready to be done (keep `Summary` and `Done when`), `bug_report.md` for a bug not yet understood, `feature_request.md` for a request with no plan yet. Its title is capitalized, in imperative mood, with no period and no emoji. Search open and closed issues first (`gh issue list --state all --search "<terms>"`) and comment on a duplicate instead. Apply labels only from the existing set (`gh label list`); never create one.
 - **Each component is released by a tag**: `cli/v<semver>`, `dashboard/v<semver>`, `cluster-api/v<semver>`, `cluster-agent/v<semver>`. The release workflows and the CLI's update check parse it, so the scheme is a contract. A person cuts a release with the `release-cli` or `release-cluster` skill; never tag or push a tag yourself. → [ADR: release each component by its own tag](docs/adr/2026-11-09-release-each-component-by-its-own-tag.md)
+- **`release-version` recommends a component's next version and `release-notes` writes a draft release's notes** over `tools/releasenotes`. Each reads a component's paths from its `release-<component>` filter in `.github/ci-config/path-filters.yml`: a directory a component starts to ship goes there. → [ADR: write release notes with a skill over deterministic tooling](docs/adr/2026-11-10-write-release-notes-with-a-skill-over-deterministic-tooling.md)

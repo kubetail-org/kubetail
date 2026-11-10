@@ -59,3 +59,31 @@ python:
 actions:
   - .github/actions/**
   - .github/workflows/**
+# Each component's release stream: the paths tools/releasenotes reads a
+# release's commits from. paths-filter computes them too, and no job acts on
+# them. A directory a component starts to ship goes in its filter, or its pull
+# requests leave the notes.
+release-cli:
+  - build/package/Dockerfile.cli
+  - config/default/cli.*
+  - dashboard-ui/**
+  - modules/cli/**
+  - modules/dashboard/**
+  - modules/shared/**
+release-dashboard:
+  - build/package/Dockerfile.dashboard
+  - config/default/dashboard.yaml
+  - dashboard-ui/**
+  - modules/dashboard/**
+  - modules/shared/**
+release-cluster-api:
+  - build/package/Dockerfile.cluster-api
+  - config/default/cluster-api.yaml
+  - modules/cluster-api/**
+  - modules/shared/**
+  - proto/**
+release-cluster-agent:
+  - build/package/Dockerfile.cluster-agent
+  - config/default/cluster-agent.yaml
+  - crates/**
+  - proto/**
