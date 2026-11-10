@@ -257,7 +257,7 @@ fn setup_fs_watcher<'a>(
 }
 
 /// Listens for update Events from notify, process the new log lines to produce `LogRecord` events
-/// and pushes them  to the sender. Loops until a signal is sent to the `term_tx` channel.
+/// and pushes them to the sender. Loops until `ctx` is cancelled or an error is sent.
 async fn listen_for_changes(
     ctx: CancellationToken,
     mut fs_watcher: FsWatcher<impl FnMut(&[u8])>,
