@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
-	"k8s.io/apimachinery/pkg/watch"
 )
 
 type LogRecordsQueryResponse struct {
@@ -24,11 +23,6 @@ type LogSourceFilter struct {
 	Arch      []string `json:"arch,omitempty"`
 	Node      []string `json:"node,omitempty"`
 	Container []string `json:"container,omitempty"`
-}
-
-type LogSourceWatchEvent struct {
-	Type   watch.EventType `json:"type"`
-	Object *logs.LogSource `json:"object,omitempty"`
 }
 
 type PageInfo struct {

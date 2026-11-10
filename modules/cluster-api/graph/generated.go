@@ -22,7 +22,6 @@ import (
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"k8s.io/apimachinery/pkg/watch"
 )
 
 // region    ***************************** api!.gotpl *****************************
@@ -100,11 +99,6 @@ type ComplexityRoot struct {
 		Zone   func(childComplexity int) int
 	}
 
-	LogSourceWatchEvent struct {
-		Object func(childComplexity int) int
-		Type   func(childComplexity int) int
-	}
-
 	PageInfo struct {
 		EndCursor       func(childComplexity int) int
 		HasNextPage     func(childComplexity int) int
@@ -125,7 +119,6 @@ type ComplexityRoot struct {
 	Subscription struct {
 		LogMetadataWatch func(childComplexity int, namespace *string) int
 		LogRecordsFollow func(childComplexity int, kubeContext *string, sources []string, since *string, after *string, grep *string, sourceFilter *model.LogSourceFilter) int
-		LogSourcesWatch  func(childComplexity int, kubeContext *string, sources []string) int
 	}
 }
 
@@ -140,7 +133,6 @@ type QueryResolver interface {
 type SubscriptionResolver interface {
 	LogMetadataWatch(ctx context.Context, namespace *string) (<-chan *clusteragentpb.LogMetadataWatchEvent, error)
 	LogRecordsFollow(ctx context.Context, kubeContext *string, sources []string, since *string, after *string, grep *string, sourceFilter *model.LogSourceFilter) (<-chan *logs.LogRecord, error)
-	LogSourcesWatch(ctx context.Context, kubeContext *string, sources []string) (<-chan *model.LogSourceWatchEvent, error)
 }
 
 // endregion ************************** generated!.gotpl **************************
@@ -338,19 +330,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.LogSourceMetadata.Zone(childComplexity), true
 
-	case "LogSourceWatchEvent.object":
-		if e.ComplexityRoot.LogSourceWatchEvent.Object == nil {
-			break
-		}
-
-		return e.ComplexityRoot.LogSourceWatchEvent.Object(childComplexity), true
-	case "LogSourceWatchEvent.type":
-		if e.ComplexityRoot.LogSourceWatchEvent.Type == nil {
-			break
-		}
-
-		return e.ComplexityRoot.LogSourceWatchEvent.Type(childComplexity), true
-
 	case "PageInfo.endCursor":
 		if e.ComplexityRoot.PageInfo.EndCursor == nil {
 			break
@@ -434,17 +413,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Subscription.LogRecordsFollow(childComplexity, args["kubeContext"].(*string), args["sources"].([]string), args["since"].(*string), args["after"].(*string), args["grep"].(*string), args["sourceFilter"].(*model.LogSourceFilter)), true
-	case "Subscription.logSourcesWatch":
-		if e.ComplexityRoot.Subscription.LogSourcesWatch == nil {
-			break
-		}
-
-		args, err := ec.field_Subscription_logSourcesWatch_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.ComplexityRoot.Subscription.LogSourcesWatch(childComplexity, args["kubeContext"].(*string), args["sources"].([]string)), true
 
 	}
 	return 0, false
@@ -661,16 +629,6 @@ func (ec *executionContext) childFields_LogSourceMetadata(ctx context.Context, f
 		return ec.fieldContext_LogSourceMetadata_node(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type LogSourceMetadata", field.Name)
-}
-
-func (ec *executionContext) childFields_LogSourceWatchEvent(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "type":
-		return ec.fieldContext_LogSourceWatchEvent_type(ctx, field)
-	case "object":
-		return ec.fieldContext_LogSourceWatchEvent_object(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type LogSourceWatchEvent", field.Name)
 }
 
 func (ec *executionContext) childFields_PageInfo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -1050,28 +1008,6 @@ func (ec *executionContext) field_Subscription_logRecordsFollow_args(ctx context
 		return nil, err
 	}
 	args["sourceFilter"] = arg5
-	return args, nil
-}
-
-func (ec *executionContext) field_Subscription_logSourcesWatch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "kubeContext",
-		func(ctx context.Context, v any) (*string, error) {
-			return ec.unmarshalOString2ᚖstring(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["kubeContext"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "sources",
-		func(ctx context.Context, v any) ([]string, error) {
-			return ec.unmarshalNString2ᚕstringᚄ(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["sources"] = arg1
 	return args, nil
 }
 
@@ -1842,61 +1778,6 @@ func (ec *executionContext) fieldContext_LogSourceMetadata_node(_ context.Contex
 	return graphql.NewScalarFieldContext("LogSourceMetadata", field, false, false, "String")
 }
 
-func (ec *executionContext) _LogSourceWatchEvent_type(ctx context.Context, field graphql.CollectedField, obj *model.LogSourceWatchEvent) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_LogSourceWatchEvent_type(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Type, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v watch.EventType) graphql.Marshaler {
-			return ec.marshalNWatchEventType2k8sᚗioᚋapimachineryᚋpkgᚋwatchᚐEventType(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_LogSourceWatchEvent_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("LogSourceWatchEvent", field, false, false, "WatchEventType")
-}
-
-func (ec *executionContext) _LogSourceWatchEvent_object(ctx context.Context, field graphql.CollectedField, obj *model.LogSourceWatchEvent) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_LogSourceWatchEvent_object(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Object, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *logs.LogSource) graphql.Marshaler {
-			return ec.marshalOLogSource2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋsharedᚋlogsᚐLogSource(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_LogSourceWatchEvent_object(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "LogSourceWatchEvent",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_LogSource(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _PageInfo_endCursor(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2325,50 +2206,6 @@ func (ec *executionContext) fieldContext_Subscription_logRecordsFollow(ctx conte
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Subscription_logRecordsFollow_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Subscription_logSourcesWatch(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
-	return graphql.ResolveFieldStream(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Subscription_logSourcesWatch(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Subscription().LogSourcesWatch(ctx, fc.Args["kubeContext"].(*string), fc.Args["sources"].([]string))
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.LogSourceWatchEvent) graphql.Marshaler {
-			return ec.marshalOLogSourceWatchEvent2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋclusterᚑapiᚋgraphᚋmodelᚐLogSourceWatchEvent(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Subscription_logSourcesWatch(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Subscription",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_LogSourceWatchEvent(ctx, field)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Subscription_logSourcesWatch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -3911,44 +3748,6 @@ func (ec *executionContext) _LogSourceMetadata(ctx context.Context, sel ast.Sele
 	return out
 }
 
-var logSourceWatchEventImplementors = []string{"LogSourceWatchEvent"}
-
-func (ec *executionContext) _LogSourceWatchEvent(ctx context.Context, sel ast.SelectionSet, obj *model.LogSourceWatchEvent) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, logSourceWatchEventImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("LogSourceWatchEvent")
-		case "type":
-			out.Values[i] = ec._LogSourceWatchEvent_type(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "object":
-			out.Values[i] = ec._LogSourceWatchEvent_object(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
 var pageInfoImplementors = []string{"PageInfo"}
 
 func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet, obj *model.PageInfo) graphql.Marshaler {
@@ -4114,8 +3913,6 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 		return ec._Subscription_logMetadataWatch(ctx, fields[0])
 	case "logRecordsFollow":
 		return ec._Subscription_logRecordsFollow(ctx, fields[0])
-	case "logSourcesWatch":
-		return ec._Subscription_logSourcesWatch(ctx, fields[0])
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}
@@ -4662,21 +4459,6 @@ func (ec *executionContext) marshalNTime2timeᚐTime(ctx context.Context, sel as
 	return res
 }
 
-func (ec *executionContext) unmarshalNWatchEventType2k8sᚗioᚋapimachineryᚋpkgᚋwatchᚐEventType(ctx context.Context, v any) (watch.EventType, error) {
-	tmp, err := graphql.UnmarshalString(v)
-	res := watch.EventType(tmp)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNWatchEventType2k8sᚗioᚋapimachineryᚋpkgᚋwatchᚐEventType(ctx context.Context, sel ast.SelectionSet, v watch.EventType) graphql.Marshaler {
-	_ = sel
-	res := graphql.MarshalString(string(v))
-	if res == graphql.Null {
-		graphql.AddInvalidNullFromMarshaler(ctx, "WatchEventType!")
-	}
-	return res
-}
-
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {
 	return ec.___Directive(ctx, sel, &v)
 }
@@ -4936,26 +4718,12 @@ func (ec *executionContext) marshalOLogRecordsQueryResponse2ᚖgithubᚗcomᚋku
 	return ec._LogRecordsQueryResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOLogSource2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋsharedᚋlogsᚐLogSource(ctx context.Context, sel ast.SelectionSet, v *logs.LogSource) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._LogSource(ctx, sel, v)
-}
-
 func (ec *executionContext) unmarshalOLogSourceFilter2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋclusterᚑapiᚋgraphᚋmodelᚐLogSourceFilter(ctx context.Context, v any) (*model.LogSourceFilter, error) {
 	if v == nil {
 		return nil, nil
 	}
 	res, err := ec.unmarshalInputLogSourceFilter(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalOLogSourceWatchEvent2ᚖgithubᚗcomᚋkubetailᚑorgᚋkubetailᚋmodulesᚋclusterᚑapiᚋgraphᚋmodelᚐLogSourceWatchEvent(ctx context.Context, sel ast.SelectionSet, v *model.LogSourceWatchEvent) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._LogSourceWatchEvent(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {

@@ -330,11 +330,6 @@ func (r *subscriptionResolver) LogRecordsFollow(ctx context.Context, kubeContext
 	return outCh, nil
 }
 
-// LogSourcesWatch is the resolver for the logSourcesWatch field.
-func (r *subscriptionResolver) LogSourcesWatch(ctx context.Context, kubeContext *string, sources []string) (<-chan *model.LogSourceWatchEvent, error) {
-	panic(fmt.Errorf("not implemented: LogSourcesWatch - logSourcesWatch"))
-}
-
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
