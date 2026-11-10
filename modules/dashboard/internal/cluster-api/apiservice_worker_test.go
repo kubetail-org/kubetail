@@ -31,7 +31,7 @@ import (
 
 func newWorker() *apiServiceHealthMonitorWorker {
 	return &apiServiceHealthMonitorWorker{
-		lastStatus: HealthStatusUknown,
+		lastStatus: HealthStatusUnknown,
 		mp:         megaphone.New[HealthStatus](),
 		shutdownCh: make(chan struct{}),
 	}

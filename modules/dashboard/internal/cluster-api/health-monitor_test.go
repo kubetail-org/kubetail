@@ -278,9 +278,9 @@ func TestDesktopHealthMonitor_GetHealthStatus(t *testing.T) {
 		{
 			name:           "Worker creation error",
 			kubeContext:    "invalid-context",
-			mockStatus:     HealthStatusUknown,
+			mockStatus:     HealthStatusUnknown,
 			setupMockError: true,
-			expectedStatus: HealthStatusUknown,
+			expectedStatus: HealthStatusUnknown,
 			expectError:    true,
 		},
 	}
@@ -338,17 +338,17 @@ func TestInClusterHealthMonitor_GetHealthStatus(t *testing.T) {
 		{
 			name:           "Disabled - should use noop worker",
 			enabled:        false,
-			mockStatus:     HealthStatusUknown,
+			mockStatus:     HealthStatusUnknown,
 			setupMockError: false,
-			expectedStatus: HealthStatusUknown,
+			expectedStatus: HealthStatusUnknown,
 			expectError:    false,
 		},
 		{
 			name:           "Worker creation error",
 			enabled:        true,
-			mockStatus:     HealthStatusUknown,
+			mockStatus:     HealthStatusUnknown,
 			setupMockError: true,
-			expectedStatus: HealthStatusUknown,
+			expectedStatus: HealthStatusUnknown,
 			expectError:    true,
 		},
 	}
@@ -364,7 +364,8 @@ func TestInClusterHealthMonitor_GetHealthStatus(t *testing.T) {
 
 			hm := NewInClusterHealthMonitor(cm, tt.enabled)
 
-			if !tt.setupMockError {
+			// A disabled monitor keeps its noop worker.
+			if tt.enabled && !tt.setupMockError {
 				mockWorker := new(MockHealthMonitorWorker)
 				mockWorker.On("GetHealthStatus").Return(tt.mockStatus)
 				hm.worker = mockWorker
@@ -433,9 +434,9 @@ func TestDesktopHealthMonitor_WatchHealthStatus(t *testing.T) {
 		{
 			name:           "Worker creation error",
 			kubeContext:    "invalid-context",
-			mockStatus:     HealthStatusUknown,
+			mockStatus:     HealthStatusUnknown,
 			setupMockError: true,
-			expectedStatus: HealthStatusUknown,
+			expectedStatus: HealthStatusUnknown,
 			expectError:    true,
 		},
 	}
@@ -541,8 +542,8 @@ func TestInClusterHealthMonitor_WatchHealthStatus(t *testing.T) {
 		{
 			name:           "Disabled - should use noop worker",
 			enabled:        false,
-			mockStatus:     HealthStatusUknown,
-			expectedStatus: HealthStatusUknown,
+			mockStatus:     HealthStatusUnknown,
+			expectedStatus: HealthStatusUnknown,
 			expectError:    false,
 		},
 	}

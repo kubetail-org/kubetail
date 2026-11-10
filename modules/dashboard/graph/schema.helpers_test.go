@@ -30,6 +30,9 @@ import (
 	"k8s.io/utils/ptr"
 
 	gqlerrors "github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
+
+	"github.com/kubetail-org/kubetail/modules/dashboard/graph/model"
+	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
 )
 
 func TestGetGVRSuccess(t *testing.T) {
@@ -283,4 +286,25 @@ func TestMergeResultsError(t *testing.T) {
 	// merge results
 	_, err := mergeResults(fetchResponses, metav1.ListOptions{})
 	assert.NotNil(t, err)
+}
+
+func TestHealthCheckStatusFromClusterAPIHealthStatus(t *testing.T) {
+	tests := []struct {
+		in   clusterapi.HealthStatus
+		want model.HealthCheckStatus
+	}{
+		{clusterapi.HealthStatusSuccess, model.HealthCheckStatusSuccess},
+		{clusterapi.HealthStatusFailure, model.HealthCheckStatusFailure},
+		{clusterapi.HealthStatusPending, model.HealthCheckStatusPending},
+		{clusterapi.HealthStatusNotFound, model.HealthCheckStatusNotfound},
+		{clusterapi.HealthStatusUnknown, model.HealthCheckStatusUnknown},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.in), func(t *testing.T) {
+			assert.Equal(t, tt.want, healthCheckStatusFromClusterAPIHealthStatus(tt.in))
+		})
+	}
+
+	assert.Panics(t, func() { healthCheckStatusFromClusterAPIHealthStatus("BOGUS") })
 }

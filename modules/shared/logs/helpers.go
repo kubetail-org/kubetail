@@ -55,7 +55,7 @@ type WorkloadType int
 
 // Workload enum values
 const (
-	WorkloadTypeUknown WorkloadType = iota
+	WorkloadTypeUnknown WorkloadType = iota
 	WorkloadTypeCronJob
 	WorkloadTypeDaemonSet
 	WorkloadTypeDeployment
@@ -154,7 +154,7 @@ func parseWorkloadType(workloadStr string) WorkloadType {
 	case "statefulsets", "statefulset", "sts":
 		return WorkloadTypeStatefulSet
 	default:
-		return WorkloadTypeUknown
+		return WorkloadTypeUnknown
 	}
 }
 
