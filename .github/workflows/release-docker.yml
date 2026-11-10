@@ -211,8 +211,10 @@ jobs:
     permissions:
       contents: read
       packages: write
-      # Keyless cosign signing.
+      # Keyless cosign signing and build provenance.
       id-token: write
+      attestations: write
+      artifact-metadata: write
     strategy:
       matrix:
         variant:
@@ -354,7 +356,23 @@ jobs:
             -r \
             ghcr.io/$GITHUB_REPOSITORY_OWNER/$IMAGE_NAME@$DIGEST
 
-      # Last, so latest only ever names a signed index. With a single source,
+      - name: Attest Docker Hub image
+        if: ${{ needs.config.outputs.dry_run == 'false' }}
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: docker.io/kubetail/${{ needs.config.outputs.image_name }}
+          subject-digest: ${{ steps.digest.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest GHCR image
+        if: ${{ needs.config.outputs.dry_run == 'false' }}
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/${{ needs.config.outputs.image_name }}
+          subject-digest: ${{ steps.digest.outputs.digest }}
+          push-to-registry: true
+
+      # Last, so latest only ever names a signed, attested index. With a single source,
       # imagetools create copies the index unchanged, so the versioned
       # signature covers latest too.
       - name: Move latest
