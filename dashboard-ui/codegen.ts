@@ -13,6 +13,40 @@
 // limitations under the License.
 
 import { CodegenConfig } from '@graphql-codegen/cli';
+import { DefinitionNode, DocumentNode, Kind, visit } from 'graphql';
+
+// The console sends these operations, written once in dashboard/ops.ts, to
+// either the Dashboard or the Cluster API.
+const SHARED_OPERATIONS = ['LogRecordsFetch', 'LogRecordsFollow'];
+
+// Keeps the shared operations and the fragments they spread, so codegen
+// validates them alone against the schema of the output it is given to.
+function keepSharedOperations(documents: { document?: DocumentNode }[]): DocumentNode {
+  const definitions = documents.flatMap((file) => file.document?.definitions ?? []);
+  const fragments = new Map(
+    definitions.filter((def) => def.kind === Kind.FRAGMENT_DEFINITION).map((def) => [def.name.value, def]),
+  );
+
+  const kept = new Set<DefinitionNode>();
+  const keep = (def: DefinitionNode) => {
+    if (kept.has(def)) return;
+    kept.add(def);
+    visit(def, {
+      FragmentSpread(node) {
+        const fragment = fragments.get(node.name.value);
+        if (fragment) keep(fragment);
+      },
+    });
+  };
+
+  for (const name of SHARED_OPERATIONS) {
+    const op = definitions.find((def) => def.kind === Kind.OPERATION_DEFINITION && def.name?.value === name);
+    if (!op) throw new Error(`shared operation ${name} not found`);
+    keep(op);
+  }
+
+  return { kind: Kind.DOCUMENT, definitions: [...kept] };
+}
 
 // Each client preset's `config` overrides its defaults so the generated types
 // match what the app and Apollo deliver: custom scalars are `any` (the cache's
@@ -61,9 +95,16 @@ const config: CodegenConfig = {
         skipTypeNameForRoot: true,
       },
     },
+    // fragment-matcher reads the schema alone, so this output also carries
+    // the check of the shared operations against the Cluster API's schema.
     './src/lib/graphql/cluster-api/__generated__/introspection-result.json': {
       schema: '../modules/cluster-api/graph/schema.graphqls',
-      documents: './src/lib/graphql/cluster-api/*.ts',
+      documents: './src/lib/graphql/dashboard/*.ts',
+      documentTransforms: [
+        {
+          transform: ({ documents }) => [{ location: 'shared-operations', document: keepSharedOperations(documents) }],
+        },
+      ],
       plugins: ['fragment-matcher'],
       config: {
         module: 'commonjs',
