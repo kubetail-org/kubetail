@@ -98,14 +98,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        module:
-          - cli
-          - cluster-api
-          - dashboard
-          - shared
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -113,11 +105,11 @@ jobs:
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-      - name: Run linter for ${{ matrix.module }}
-        working-directory: ./modules/${{ matrix.module }}
+      - name: Check formatting
+        working-directory: ./modules
         run: test -z "$(gofmt -l .)"
       - name: Check coverage markers
-        run: sh scripts/check-coverage-markers.sh modules/${{ matrix.module }}
+        run: sh scripts/check-coverage-markers.sh modules
 
   # Every module in one job, so the modules share one cache.
   go-vet:
