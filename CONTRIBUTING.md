@@ -88,7 +88,7 @@ $output = gofmt -l .; if ($output) { throw "Files need formatting: $output" }
 go vet github.com/kubetail-org/kubetail/modules/...
 
 # From the repo root: vet for Windows too, check go fix, run staticcheck
-make modules-vet modules-staticcheck
+make vet-go
 
 # Run tests
 go test -race github.com/kubetail-org/kubetail/modules/...
@@ -161,12 +161,10 @@ Signed-off-by: Your Name <you@example.com>
 ### Before Submitting
 
 1. **Check for duplicates**: Review existing [issues](https://github.com/kubetail-org/kubetail/issues) and [pull requests](https://github.com/kubetail-org/kubetail/pulls)
-2. **Run tests**: Run `make test-changed` and make sure it passes
-3. **Check coverage**: Run `make cover-changed` and cover or mark each line it lists
-4. **Format code**: Run `make lint` and fix what it reports
-5. **Clean commits**: Ensure each commit is minimal, focused, and follows our [commit format](#commit-guidelines)
-6. **Update docs**: If you change architecture, conventions or commands, update the relevant `CLAUDE.md` in the same PR
-7. **Record decisions**: A new architectural decision, or a change to one, gets an ADR in [`docs/adr/`](docs/adr/README.md)
+2. **Run the checks**: Run `make check-changed` and fix what it reports. It runs the linters, the static analysis and the tests for the areas you changed, then lists the changed lines no test covers: cover or mark each one
+3. **Clean commits**: Ensure each commit is minimal, focused, and follows our [commit format](#commit-guidelines)
+4. **Update docs**: If you change architecture, conventions or commands, update the relevant `CLAUDE.md` in the same PR
+5. **Record decisions**: A new architectural decision, or a change to one, gets an ADR in [`docs/adr/`](docs/adr/README.md)
 
 ### PR Title Format
 

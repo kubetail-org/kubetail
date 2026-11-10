@@ -91,7 +91,8 @@ Each area's guide adds its tooling and how it waits. → [ADR: test conventions]
 
 Run the checks in the guide of every area you touched before you finish. For `scripts/`: `make lint-sh` and `bats scripts/`.
 
-- **`make lint` runs every linter CI runs, and `make test-changed` the tests for what the branch changed.** `make vet-all`, `test-all` and `ci-checks` wrap most of the rest, with gaps: `make crates-test` covers `rgkl` alone, and no target runs `pnpm build`.
+- **`make check-changed` is the run before a pull request**: the linters and vets of the areas the branch changed, then `test-changed` and `cover-changed`. `make check` runs `lint`, `vet` and `test` for every area. Each target is `<verb>` for every area or `<verb>-<area>` for one (`lint-go`, `vet-rust`, `test-ts`); `make help` lists them. No target runs `pnpm build` or the checks of `tools/`, and only `test-changed` runs `bats scripts/`.
+- **`scripts/check-changed.sh` maps a changed path to its area's targets.** A new area, or a new linter in `make lint`, goes there as well as in `.github/ci-config/path-filters.yml`. The `*-changed.sh` scripts read the changed paths from `scripts/changed.sh`.
 - **Markdown links are checked offline in CI** (`make lint-md`): a moved or renamed file breaks every relative link to it.
 - **On a pull request, CI picks its jobs by path**, from `.github/ci-config/path-filters.yml`. A change to `config/`, `hack/` or `e2e/` alone runs no Go, Rust or TypeScript job, and a schema change under `modules/` does not run the TypeScript jobs. Run the affected checks yourself. A push to `main` runs every job.
 - **Only runs on `main` save CI caches; PRs only read them.** `CACHE_MODE` in `ci.yml` decides, and `Caches · Prune` keeps the newest of each. A Go job that saves does it in its last step, and its test flags must match a PR's, or a PR replays no cached test result.

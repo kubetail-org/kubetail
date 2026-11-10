@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Runs the tests the working tree's changes touch: committed, staged, unstaged
-# and untracked, since the branch left main. CI runs every suite.
+# Runs the tests the working tree's changes touch (scripts/changed.sh). CI runs
+# every suite.
 #
 #   Go          the changed packages of each module in modules/. A change to a
 #               module's go.mod or go.sum runs that module's whole suite.
@@ -8,30 +8,11 @@
 #               toolchain runs the whole suite.
 #   Rust        the whole workspace, when crates/ or proto/ changed.
 #   Shell       bats, when scripts/ changed.
-#
-# BASE names the branch to diff against. It defaults to upstream/main when there
-# is an upstream remote, since a fork's origin/main can lag, else origin/main.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-base="${BASE:-}"
-if [ -z "$base" ]; then
-  if git rev-parse -q --verify upstream/main >/dev/null; then
-    base=upstream/main
-  else
-    base=origin/main
-  fi
-fi
-
-changed=$({
-  git diff --name-only "$(git merge-base "$base" HEAD)"
-  git ls-files --others --exclude-standard
-} | sort -u)
-
-has() { grep -qE "$1" <<<"$changed"; }
-
-# A deleted file has nothing to test, and vitest refuses a path that isn't there.
-existing() { while read -r f; do [ -e "$f" ] && echo "$f"; done; }
+# shellcheck source=scripts/changed.sh
+. scripts/changed.sh
 
 for mod in cli cluster-api dashboard shared; do
   dir=modules/$mod

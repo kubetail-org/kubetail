@@ -18,28 +18,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-base="${BASE:-}"
-if [ -z "$base" ]; then
-  if git rev-parse -q --verify upstream/main >/dev/null; then
-    base=upstream/main
-  else
-    base=origin/main
-  fi
-fi
-merge_base=$(git merge-base "$base" HEAD)
+# shellcheck source=scripts/changed.sh
+. scripts/changed.sh
 
 out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT
-
-untracked=$(git ls-files --others --exclude-standard)
-changed=$({
-  git diff --name-only "$merge_base"
-  echo "$untracked"
-} | sort -u)
-
-has() { grep -qE "$1" <<<"$changed"; }
-
-existing() { while read -r f; do [ -e "$f" ] && echo "$f"; done; }
 
 # The paths .github/codecov.yml ignores, which the gate never judges. Keep the
 # two lists in step.

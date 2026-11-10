@@ -2,7 +2,7 @@
 
 A Cargo workspace of three crates: `cluster_agent` (the Cluster Agent, a gRPC server on each node that lists, watches and streams that node's container log files), `rgkl` (the log file reader it links) and `types` (the tonic/prost code generated from `proto/cluster_agent.proto`; nothing hand-written).
 
-- **Run cargo from `crates/`, never from a crate's directory.** `make crates-test` and `make crates-build` run in `crates/rgkl` and cover `rgkl` alone.
+- **Run cargo from `crates/`, never from a crate's directory.** From the repo root, `make lint-rust`, `vet-rust` and `test-rust` do.
 - **`protoc` must be on `PATH` for any build, clippy or test.** `types/build.rs` compiles the proto on every build; the output is never committed. Editing the proto: `proto/CLAUDE.md`.
 - **`rust-toolchain.toml` pins the exact Rust version**, which CI and the agent's Dockerfiles share (root `CLAUDE.md`, Dependencies). A bump can add clippy lints that fail `-D warnings` on code nobody touched; fix them in the same PR.
 
