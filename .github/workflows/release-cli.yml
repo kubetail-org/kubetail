@@ -105,6 +105,10 @@ jobs:
           name: source
           path: kubetail-cli
 
+      # sbom-action does not create the output file's directory.
+      - name: Create output directory
+        run: mkdir -p sbom
+
       - name: Generate SPDX SBOM
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         env:
