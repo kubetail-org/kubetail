@@ -122,12 +122,14 @@ jobs:
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Login to Docker Hub
+        if: ${{ needs.config.outputs.dry_run == 'false' }}
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Login to GitHub Container Registry
+        if: ${{ needs.config.outputs.dry_run == 'false' }}
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
@@ -185,12 +187,14 @@ jobs:
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Login to Docker Hub
+        if: ${{ needs.config.outputs.dry_run == 'false' }}
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Login to GitHub Container Registry
+        if: ${{ needs.config.outputs.dry_run == 'false' }}
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
@@ -236,20 +240,24 @@ jobs:
               ghcr.io/$GITHUB_REPOSITORY_OWNER/$IMAGE_NAME:$IMAGE_TAG
           fi
 
-      - name: Fetch docker token
-        env:
-          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: |
-          TOKEN=$(curl -X POST "https://hub.docker.com/v2/users/login" -H "Content-Type: application/json" -d "{\"username\": \"$DOCKERHUB_USERNAME\", \"password\": \"$DOCKERHUB_TOKEN\"}" | jq -r '.token')
-          echo "TOKEN=$TOKEN" >> $GITHUB_ENV
-
       - name: Delete extra arch manifests
         if: ${{ needs.config.outputs.dry_run == 'false' }}
         env:
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           IMAGE_NAME: ${{ needs.config.outputs.image_name }}
           IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
         run: |
+          # The JWT stays in this step's shell: GITHUB_ENV would hand it to every later step.
+          BODY=$(jq -n --arg username "$DOCKERHUB_USERNAME" --arg password "$DOCKERHUB_TOKEN" '{$username, $password}')
+          TOKEN=$(curl -sS --fail-with-body -X POST "https://hub.docker.com/v2/users/login" \
+            -H "Content-Type: application/json" -d "$BODY" | jq -r '.token // empty')
+          if [ -z "$TOKEN" ]; then
+            echo "Docker Hub login returned no token"
+            exit 1
+          fi
+          echo "::add-mask::$TOKEN"
+
           declare -a tags=("${IMAGE_TAG}-amd64" "${IMAGE_TAG}-arm64")
           for tag in "${tags[@]}"
           do
