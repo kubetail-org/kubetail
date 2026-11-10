@@ -843,9 +843,9 @@ func getTableWriterHeaders(cmdCfg *logsCmdConfig, sources []logs.LogSource) ([]s
 		maxZoneLen = max(maxZoneLen, len(source.Metadata.Zone))
 		maxOSLen = max(maxOSLen, len(source.Metadata.OS))
 		maxArchLen = max(maxArchLen, len(source.Metadata.Arch))
-		maxNamespaceLen = max(maxArchLen, len(source.Namespace))
-		maxPodLen = max(maxArchLen, len(source.PodName))
-		maxContainerLen = max(maxArchLen, len(source.ContainerName))
+		maxNamespaceLen = max(maxNamespaceLen, len(source.Namespace))
+		maxPodLen = max(maxPodLen, len(source.PodName))
+		maxContainerLen = max(maxContainerLen, len(source.ContainerName))
 	}
 
 	for _, col := range cmdCfg.columns {

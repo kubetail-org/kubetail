@@ -352,3 +352,30 @@ func TestPrintLogs(t *testing.T) {
 		mockStream.AssertExpectations(t)
 	}
 }
+
+func TestGetTableWriterHeaders(t *testing.T) {
+	cmdCfg := &logsCmdConfig{
+		columns: []string{"arch", "namespace", "pod", "container"},
+	}
+
+	// The long values come first so a later, shorter one cannot shrink a column.
+	sources := []logs.LogSource{
+		{
+			Metadata:      logs.LogSourceMetadata{Arch: "a"},
+			Namespace:     "namespace-long",
+			PodName:       "pod-long-name",
+			ContainerName: "container-long",
+		},
+		{
+			Metadata:      logs.LogSourceMetadata{Arch: "arm64-long-arch"},
+			Namespace:     "ns",
+			PodName:       "p",
+			ContainerName: "c",
+		},
+	}
+
+	headers, colWidths := getTableWriterHeaders(cmdCfg, sources)
+
+	assert.Equal(t, []string{"ARCH", "NAMESPACE", "POD", "CONTAINER", "MESSAGE"}, headers)
+	assert.Equal(t, []int{len("arm64-long-arch"), len("namespace-long"), len("pod-long-name"), len("container-long")}, colWidths)
+}
