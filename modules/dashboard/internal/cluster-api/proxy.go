@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
 	"path"
@@ -65,6 +64,55 @@ func (w *hijackTrackingResponseWriter) closeConn() {
 	if w.conn != nil {
 		w.conn.Close()
 	}
+}
+
+// cookiePathResponseWriter streams a response to the client, rewriting the
+// Path of each Set-Cookie header when the headers are written. Until then the
+// handler writes into a header map of its own, so an upstream header replaces
+// one the middleware set instead of repeating it.
+type cookiePathResponseWriter struct {
+	http.ResponseWriter
+	header      http.Header
+	cookiePath  string
+	wroteHeader bool
+}
+
+func (w *cookiePathResponseWriter) Header() http.Header {
+	if w.wroteHeader {
+		return w.ResponseWriter.Header()
+	}
+	return w.header
+}
+
+func (w *cookiePathResponseWriter) WriteHeader(code int) {
+	if !w.wroteHeader {
+		w.wroteHeader = true
+		dst := w.ResponseWriter.Header()
+		for k, v := range w.header {
+			if k == "Set-Cookie" {
+				for _, cookie := range v {
+					dst.Add(k, cookiepathRegex.ReplaceAllLiteralString(cookie, "Path="+w.cookiePath))
+				}
+			} else {
+				dst[k] = v
+			}
+		}
+	}
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *cookiePathResponseWriter) Write(b []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(b)
+}
+
+func (w *cookiePathResponseWriter) Flush() {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	http.NewResponseController(w.ResponseWriter).Flush()
 }
 
 // For parsing paths of the form /:kubeContext/*relPath
@@ -210,26 +258,9 @@ func (p *DesktopProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Execute
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, r)
-
-	// Re-write cookie path
+	// Stream the response, rewriting the cookie path on the way
 	cookiePath := strings.TrimSuffix(origPath, relPath)
-	for k, v := range rec.Header() {
-		if k == "Set-Cookie" {
-			for _, cookie := range v {
-				modifiedCookie := cookiepathRegex.ReplaceAllString(cookie, fmt.Sprintf("Path=%s", cookiePath))
-				w.Header().Add("Set-Cookie", modifiedCookie)
-			}
-		} else {
-			w.Header()[k] = v
-		}
-	}
-
-	// Send result to client
-	w.WriteHeader(rec.Code)
-	w.Write(rec.Body.Bytes())
+	h.ServeHTTP(&cookiePathResponseWriter{ResponseWriter: w, header: http.Header{}, cookiePath: cookiePath}, r)
 }
 
 // NotifyShutdown signals active connections to begin closing.

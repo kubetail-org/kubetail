@@ -15,6 +15,7 @@
 package clusterapi
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"net/http"
@@ -558,6 +559,59 @@ func TestDesktopProxy_StripsImpersonationHeaders(t *testing.T) {
 		assert.False(t, strings.HasPrefix(strings.ToLower(k), "impersonate-"),
 			"client-supplied %s must not be forwarded to kube-apiserver", k)
 	}
+}
+
+func TestDesktopProxy_StreamsResponseBeforeItEnds(t *testing.T) {
+	releaseCh := make(chan struct{})
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("first\n"))
+		w.(http.Flusher).Flush()
+		<-releaseCh
+		w.Write([]byte("second\n"))
+	})
+
+	proxy, err := NewDesktopProxy(nil, "/prefix", nil)
+	require.NoError(t, err)
+	proxy.phCache["ctx"] = handler
+
+	server := httptest.NewServer(proxy)
+	defer server.Close()
+	defer close(releaseCh)
+
+	resp, err := http.Get(server.URL + "/prefix/ctx/download")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// The handler is still blocked, so this line can only arrive if the proxy streams.
+	line, err := bufio.NewReader(resp.Body).ReadString('\n')
+	require.NoError(t, err)
+	assert.Equal(t, "first\n", line)
+}
+
+func TestDesktopProxy_RewritesCookiePathAndPassesHeadersThrough(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Set-Cookie", "a=1; Path=/apis/api.kubetail.com/v1/; HttpOnly")
+		w.Header().Add("Set-Cookie", "b=2; Path=/")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.(http.Flusher).Flush()
+		w.Write([]byte("ok"))
+		w.Header().Set(http.TrailerPrefix+"X-Trailer", "done")
+	})
+
+	proxy, err := NewDesktopProxy(nil, "/prefix", nil)
+	require.NoError(t, err)
+	proxy.phCache["ctx"] = handler
+
+	req := httptest.NewRequest(http.MethodGet, "/prefix/ctx/graphql", nil)
+	rec := httptest.NewRecorder()
+	rec.Header().Set("X-Content-Type-Options", "set-by-middleware")
+	proxy.ServeHTTP(rec, req)
+
+	assert.Equal(t, []string{"a=1; Path=/prefix/ctx/; HttpOnly", "b=2; Path=/prefix/ctx/"}, rec.Header().Values("Set-Cookie"))
+	assert.Equal(t, []string{"nosniff"}, rec.Header().Values("X-Content-Type-Options"))
+	assert.True(t, rec.Flushed)
+	assert.Equal(t, "ok", rec.Body.String())
+	assert.Equal(t, "done", rec.Result().Trailer.Get("X-Trailer"), "a trailer set after the headers must reach the client")
 }
 
 func TestInClusterProxy_StripsImpersonationHeaders(t *testing.T) {
