@@ -24,6 +24,7 @@ Runs as a DaemonSet with the node's `/var/log` mounted read-only. Only the Clust
 - **Config** (`config.rs`): `-c/--config <FILE>` is required. Precedence is `-p key:value` overrides, then the file, then the defaults in `builder_with_defaults`, which `config/default/cluster-agent.yaml` documents. Keys are top-level and kebab-case. `NODE_NAME` is read from the environment.
 - **It does not start without a Kubernetes client config** it can infer, in-cluster or a kubeconfig: the `Authorizer` needs one.
 - **Authentication is `auth.rs`, authorization is `authorizer.rs`.**
+- **The health service reports serving from just before `serve` until a signal arrives**, then not serving while the server drains. A new service is listed in `SERVICES` (`health.rs`) so a check names it.
 - **A log file is `<pod>_<namespace>_<container>-<container-id>.log` under `container-logs-dir`.** `log_records.rs` builds that name from the request and canonicalizes it, which follows the `/var/log/containers` symlink to the real file.
 
 ## Security invariants
