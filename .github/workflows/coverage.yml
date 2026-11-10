@@ -14,8 +14,8 @@ on:
       - main
   workflow_dispatch:
 
-# As in ci.yml: a PR's new push cancels its last run, and every other run has
-# a group of its own.
+# A PR's new push cancels its last run. Every other run has a group of its own,
+# so every commit on main has a report.
 concurrency:
   group: coverage-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
