@@ -196,6 +196,7 @@ jobs:
         working-directory: kubetail-cli
         env:
           BIN_NAME: kubetail-${{ matrix.os }}-${{ matrix.arch }}
+        shell: bash
         run: mv bin/kubetail "bin/$BIN_NAME"
 
       - name: Upload artifact
