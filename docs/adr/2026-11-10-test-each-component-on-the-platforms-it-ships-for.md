@@ -3,6 +3,7 @@ title: Test each component on the platforms it ships for, or record why not
 date: 2026-11-10
 scope: repo
 status: Accepted
+amended_by: 2026-11-10-run-the-riscv64-jobs-weekly.md
 ---
 
 # Test each component on the platforms it ships for, or record why not
@@ -21,7 +22,7 @@ The hand-written Go code has no `_windows.go`, `_darwin.go` or per-arch files. I
 
 ## Decision
 
-The matrix below is what CI checks. **PR** is every pull request that touches the component's paths. **main** is every push to `main`. **nightly** is `stress.yml`. **—** means the check does not exist for that platform. **none** is a gap accepted for the reason listed after the table.
+The matrix below is what CI checks. **PR** is every pull request that touches the component's paths. **main** is every push to `main`. **nightly** is `stress.yml`. **weekly** is `riscv64.yml`. **—** means the check does not exist for that platform. **none** is a gap accepted for the reason listed after the table.
 
 **CLI binary**
 
@@ -34,7 +35,7 @@ The matrix below is what CI checks. **PR** is every pull request that touches th
 | windows/amd64 | main | PR | main | none |
 | windows/arm64 | main | main | — | none |
 | linux/386, arm v6, arm v7 | main | main, as 386 | — | none |
-| linux/riscv64 | main | main | — | none |
+| linux/riscv64 | main | weekly | — | none |
 | linux/loong64, ppc64le, s390x | main | none | none | none |
 
 `Go · Build and Test` runs the first six rows' build, unit and race checks on `main`. On a PR it runs linux/amd64, and `coverage.yml` runs the unit tests on macOS 15 arm64 and Windows 2025. `Go · Vet` type-checks for windows on a PR too. `stress.yml` repeats the unit and race tests nightly on the first six rows. `Alpine · Build` cross-compiles the last three rows and the 32-bit row, then runs `kubetail serve --test` under QEMU. `Go · Test (linux, 386)` runs the unit tests as 386. E2E means `e2e/test_cli.py`: `kubetail serve` and `kubetail logs` against a kind cluster.
@@ -48,7 +49,7 @@ The matrix below is what CI checks. **PR** is every pull request that touches th
 | cli: `final` | PR | main | — |
 | cli: `final-alpine` | PR if a Dockerfile changed, else main | main | — |
 
-`Docker · Build` starts each image it builds once, with `--version` for the cli and `--help` for the others, which exit after start-up. That checks the binary and, for the agent, the glibc libraries each final stage copies onto its base. The cli image is not a server, and a `final-alpine` image runs the same binary as its `final` image, so neither runs in a cluster. `Docker · Build` also builds and starts the cluster-api image for riscv64 on `main`, a platform no release ships. The Go servers' unit and race tests run as their linux rows above. `Rust · Build and Test` builds and tests the cluster agent on linux/amd64 and linux/arm64 on every PR. E2E runs on Kubernetes 1.21 and the latest on amd64, and on the latest on arm64.
+`Docker · Build` starts each image it builds once, with `--version` for the cli and `--help` for the others, which exit after start-up. That checks the binary and, for the agent, the glibc libraries each final stage copies onto its base. The cli image is not a server, and a `final-alpine` image runs the same binary as its `final` image, so neither runs in a cluster. `riscv64.yml` also builds and starts the cluster-api image for riscv64 weekly, a platform no release ships. The Go servers' unit and race tests run as their linux rows above. `Rust · Build and Test` builds and tests the cluster agent on linux/amd64 and linux/arm64 on every PR. E2E runs on Kubernetes 1.21 and the latest on amd64, and on the latest on arm64.
 
 **UI**: `TypeScript · Test` and `TypeScript · Build` run on `ubuntu-24.04` on every PR. `Docker · Build` builds the UI again inside the cli and dashboard images, on amd64 on a PR and on arm64 on `main`.
 
