@@ -82,7 +82,6 @@ type Documents = {
     "\n  query HomeStatefulSetsListFetch($kubeContext: String, $namespace: String = \"\", $continue: String = \"\") {\n    appsV1StatefulSetsList(kubeContext: $kubeContext, namespace: $namespace, options: { limit: \"50\", continue: $continue }) {\n      ...HomeGenericListFragment\n      items {\n        ...HomeStatefulSetsListItemFragment\n      }\n    }\n  }\n": typeof types.HomeStatefulSetsListFetchDocument,
     "\n  subscription HomeStatefulSetsListWatch($kubeContext: String, $namespace: String = \"\", $resourceVersion: String = \"\") {\n    appsV1StatefulSetsWatch(kubeContext: $kubeContext, namespace: $namespace, options: { resourceVersion: $resourceVersion }) {\n      type\n      object {\n        ...HomeStatefulSetsListItemFragment\n      }\n    }\n  }\n": typeof types.HomeStatefulSetsListWatchDocument,
     "\n  subscription ClusterAPIReadyWait($kubeContext: String!) {\n    clusterAPIReadyWait(kubeContext: $kubeContext)\n  }\n": typeof types.ClusterApiReadyWaitDocument,
-    "\n  mutation HelmInstallLatest($kubeContext: String) {\n    helmInstallLatest(kubeContext: $kubeContext) {\n      ...HelmReleaseFragment\n    }\n  }\n": typeof types.HelmInstallLatestDocument,
     "\n  query HelmListReleases($kubeContext: String) {\n    helmListReleases(kubeContext: $kubeContext) {\n      ...HelmReleaseFragment\n    }\n  }\n": typeof types.HelmListReleasesDocument,
     "\n  query CliLatestVersion {\n    cliLatestVersion\n  }\n": typeof types.CliLatestVersionDocument,
     "\n  query ClusterVersionStatus($kubeContext: String) {\n    clusterVersionStatus(kubeContext: $kubeContext) {\n      currentVersion\n      latestVersion\n      updateAvailable\n    }\n  }\n": typeof types.ClusterVersionStatusDocument,
@@ -198,7 +197,6 @@ const documents: Documents = {
     "\n  query HomeStatefulSetsListFetch($kubeContext: String, $namespace: String = \"\", $continue: String = \"\") {\n    appsV1StatefulSetsList(kubeContext: $kubeContext, namespace: $namespace, options: { limit: \"50\", continue: $continue }) {\n      ...HomeGenericListFragment\n      items {\n        ...HomeStatefulSetsListItemFragment\n      }\n    }\n  }\n": types.HomeStatefulSetsListFetchDocument,
     "\n  subscription HomeStatefulSetsListWatch($kubeContext: String, $namespace: String = \"\", $resourceVersion: String = \"\") {\n    appsV1StatefulSetsWatch(kubeContext: $kubeContext, namespace: $namespace, options: { resourceVersion: $resourceVersion }) {\n      type\n      object {\n        ...HomeStatefulSetsListItemFragment\n      }\n    }\n  }\n": types.HomeStatefulSetsListWatchDocument,
     "\n  subscription ClusterAPIReadyWait($kubeContext: String!) {\n    clusterAPIReadyWait(kubeContext: $kubeContext)\n  }\n": types.ClusterApiReadyWaitDocument,
-    "\n  mutation HelmInstallLatest($kubeContext: String) {\n    helmInstallLatest(kubeContext: $kubeContext) {\n      ...HelmReleaseFragment\n    }\n  }\n": types.HelmInstallLatestDocument,
     "\n  query HelmListReleases($kubeContext: String) {\n    helmListReleases(kubeContext: $kubeContext) {\n      ...HelmReleaseFragment\n    }\n  }\n": types.HelmListReleasesDocument,
     "\n  query CliLatestVersion {\n    cliLatestVersion\n  }\n": types.CliLatestVersionDocument,
     "\n  query ClusterVersionStatus($kubeContext: String) {\n    clusterVersionStatus(kubeContext: $kubeContext) {\n      currentVersion\n      latestVersion\n      updateAvailable\n    }\n  }\n": types.ClusterVersionStatusDocument,
@@ -532,10 +530,6 @@ export function gql(source: "\n  subscription HomeStatefulSetsListWatch($kubeCon
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function gql(source: "\n  subscription ClusterAPIReadyWait($kubeContext: String!) {\n    clusterAPIReadyWait(kubeContext: $kubeContext)\n  }\n"): (typeof documents)["\n  subscription ClusterAPIReadyWait($kubeContext: String!) {\n    clusterAPIReadyWait(kubeContext: $kubeContext)\n  }\n"];
-/**
- * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function gql(source: "\n  mutation HelmInstallLatest($kubeContext: String) {\n    helmInstallLatest(kubeContext: $kubeContext) {\n      ...HelmReleaseFragment\n    }\n  }\n"): (typeof documents)["\n  mutation HelmInstallLatest($kubeContext: String) {\n    helmInstallLatest(kubeContext: $kubeContext) {\n      ...HelmReleaseFragment\n    }\n  }\n"];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
