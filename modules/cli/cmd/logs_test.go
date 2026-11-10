@@ -14,6 +14,8 @@ import (
 )
 
 func TestLoadLogConfig(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
 	t.Run("raw flag overrides display flags", func(t *testing.T) {
 		cmd := &cobra.Command{}
 		addLogsCmdFlags(cmd)
