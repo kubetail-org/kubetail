@@ -85,7 +85,7 @@ const createRetryWait = (basepath: string) => {
     }
 
     // Always back off before reconnecting, even when healthy
-    const backoff = WS_RETRY_BACKOFF_MS + Math.random() * WS_RETRY_BACKOFF_JITTER_MS; // 3–5s jitter
+    const backoff = WS_RETRY_BACKOFF_MS + Math.random() * WS_RETRY_BACKOFF_JITTER_MS; // 1–2s
     await sleep(backoff);
   };
 };

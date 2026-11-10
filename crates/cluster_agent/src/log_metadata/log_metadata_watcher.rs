@@ -33,7 +33,7 @@ use types::cluster_agent::{LogMetadata, LogMetadataFileInfo, LogMetadataWatchEve
 
 use crate::log_metadata::{LOG_FILE_REGEX, LogMetadataImpl};
 
-/// Lifecycle events emitted by stream_forward
+/// Lifecycle events emitted by LogMetadataWatcher
 #[derive(Debug, Clone)]
 pub enum LifecycleEvent {
     WatcherStarted,
@@ -88,8 +88,8 @@ impl LogMetadataWatcher {
         )
     }
 
-    /// Starts watching the log directory for log updates. Blocks until a message is sent in the
-    /// termination channel.
+    /// Starts watching the log directory for log updates. Blocks until `ctx` is cancelled or the
+    /// client goes away.
     pub async fn watch<T: Watcher>(&self, watcher_config: Option<notify::Config>) {
         let (internal_tx, internal_rx) = channel(10);
         let debouncer: Debouncer<T, RecommendedCache> =

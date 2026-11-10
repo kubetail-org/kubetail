@@ -50,7 +50,7 @@ func newDownloadHandlers(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdi
 	}
 }
 
-// DownloadPOST handles POST /api/v1/download for the cluster-api server.
+// DownloadPOST handles POST /apis/api.kubetail.com/v1/download for the cluster-api server.
 func (h *downloadHandlers) DownloadPOST(c *gin.Context) {
 	var form logs.DownloadForm
 	if err := c.ShouldBind(&form); err != nil {
