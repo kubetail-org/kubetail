@@ -23,33 +23,9 @@ The Kubetail backend server executable supports the following command line confi
 
 ### Config file
 
-The Kubetail Dashboard server can be configured using a configuration file written in YAML, JSON, TOML, HCL or envfile format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [config/default/dashboard.yaml](../../config/default/dashboard.yaml)):
+The Dashboard reads a config file in YAML, JSON, TOML, HCL or envfile format, chosen by its extension. It replaces `${NAME}` with the value of the environment variable `NAME`. Keys are top-level. [config/default/dashboard.yaml](../../config/default/dashboard.yaml) documents every key and its default.
 
-| Name                                            | Datatype | Description                                          | Default      | Status       |
-| ----------------------------------------------- | -------- | ---------------------------------------------------- | ------------ | ------------ |
-| allowed-namespaces                              | []string | If populated, restricts namespace access             | []           | stable       |
-| dashboard.addr                                  | string   | Host address to bind to                              | ":8080"      | stable       |
-| dashboard.auth-mode                             | string   | Auth mode (auto, token)                              | "auto"       | experimental |
-| dashboard.base-path                             | string   | URL path prefix                                      | "/"          | stable       |
-| dashboard.cluster-api-enabled                   | bool     | Whether the cluster-api is deployed in this cluster  | true         | experimental |
-| dashboard.environment                           | string   | Environment (desktop, cluster)                       | "desktop"    | experimental |
-| dashboard.gin-mode                              | string   | Gin mode (release, debug)                            | "release"    | stable       |
-| dashboard.logging.enabled                       | bool     | Enable logging                                       | true         | stable       |
-| dashboard.logging.level                         | string   | Log level                                            | "info"       | stable       |
-| dashboard.logging.format                        | string   | Log format (json, pretty)                            | "json"       | stable       |
-| dashboard.logging.access-log.enabled            | bool     | Enable access log                                    | true         | stable       |
-| dashboard.logging.access-log.hide-health-checks | bool     | Hide requests to /healthz from access log            | false        | stable       |
-| dashboard.session.key-pairs                     | []object | Session cookie signing/encryption key pairs (hex)    | []           | stable       |
-| dashboard.session.cookie.name                   | string   | Session cookie name                                  | "session"    | stable       |
-| dashboard.session.cookie.path                   | string   | Session cookie path                                  | "/"          | stable       |
-| dashboard.session.cookie.domain                 | string   | Session cookie domain                                | ""           | stable       |
-| dashboard.session.cookie.max-age                | int      | Session cookie max age (in seconds)                  | 43200        | stable       |
-| dashboard.session.cookie.secure                 | bool     | Session cookie secure property                       | false        | stable       |
-| dashboard.session.cookie.http-only              | bool     | Session cookie HttpOnly property                     | true         | stable       |
-| dashboard.session.cookie.same-site              | string   | Session cookie SameSite property (strict, lax, none) | "strict"     | stable       |
-| dashboard.tls.enabled                           | bool     | Enable tls                                           | false        | stable       |
-| dashboard.tls.cert-file                         | string   | Path to tls certificate file                         | ""           | stable       |
-| dashboard.tls.key-file                          | string   | Path to tls key file                                 | ""           | stable       |  
+`-p key:value` overrides a key. Precedence is `-p`, then the flags, then the file, then the defaults.
 
 ## GraphQL
 
