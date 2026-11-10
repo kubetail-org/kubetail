@@ -144,7 +144,7 @@ pub fn process_output(
                             let record = LogRecord {
                                 timestamp,
                                 message: rest[9..].trim_end().to_string(),
-                                is_final: rest.as_bytes()[8] == b'F',
+                                is_final: rest.as_bytes()[7] == b'F',
                             };
 
                             let result = task::block_in_place(|| sender.blocking_send(Ok(record)));
@@ -156,6 +156,40 @@ pub fn process_output(
                     }
                 }
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use super::*;
+    use tokio::sync::mpsc;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn cri_partial_flag_sets_is_final() {
+        for (flag, expected) in [("F", true), ("P", false)] {
+            let (sender, mut receiver) = mpsc::channel(1);
+            let output = serde_json::json!({
+                "type": "match",
+                "data": {
+                    "lines": {
+                        "text": format!("2025-01-02T03:04:05.123456789Z stdout {flag} message")
+                    }
+                }
+            });
+
+            process_output(
+                CancellationToken::new(),
+                serde_json::to_vec(&output).unwrap(),
+                &sender,
+                FileFormat::CRI,
+            );
+
+            let record = receiver.try_recv().unwrap().unwrap();
+            assert_eq!(record.is_final, expected);
+            assert_eq!(record.message, "message");
         }
     }
 }
