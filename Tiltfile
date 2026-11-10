@@ -26,8 +26,8 @@ secret_create_tls(
 local_resource(
   'kubetail-dashboard-compile',
   '''
-  # Check if the dashboard-ui/dist directory exists
-  if [ -d dashboard-ui/dist ]; then
+  # dist can exist but be empty: the sandbox setup script mounts over it.
+  if [ -n "$(ls -A dashboard-ui/dist 2>/dev/null)" ]; then
     rm -rf modules/dashboard/website &&
     cp -r dashboard-ui/dist modules/dashboard/website
   fi
@@ -37,13 +37,16 @@ local_resource(
   # --- Build the Go binary ---
   export CGO_ENABLED=0
   export GOOS=linux
-  go build -o ../.tilt/dashboard ./dashboard/cmd/main.go
+  status=0
+  go build -o ../.tilt/dashboard ./dashboard/cmd/main.go || status=$?
 
   # --- Reset dashboard/website directory ---
   if [ ! -f dashboard/website/.gitkeep ]; then
     rm -rf dashboard/website &&
     git checkout dashboard/website
   fi
+
+  exit $status
   ''',
   deps=[
     './dashboard-ui/dist',
@@ -214,7 +217,7 @@ k8s_resource(
     'kubetail-dashboard:serviceaccount',
     'kubetail-dashboard-tls:secret',
   ],
-  resource_deps=['kubetail-shared'],
+  resource_deps=['kubetail-shared', 'kubetail-dashboard-compile'],
 )
 
 k8s_resource(
@@ -232,7 +235,7 @@ k8s_resource(
     'kubetail-cluster-api-auth-reader:rolebinding',
     'v1.api.kubetail.com:apiservice',
   ],
-  resource_deps=['kubetail-shared'],
+  resource_deps=['kubetail-shared', 'kubetail-cluster-api-compile'],
 )
 
 k8s_resource(
