@@ -14,10 +14,10 @@ inputs:
   node-version:
     description: 'Node.js version to install'
     required: false
-    default: '22.23.4'
+    default: '26.13.0'
 EOF
   printf '[toolchain]\nchannel = "1.99.1"\n' >"$repo/crates/rust-toolchain.toml"
-  printf 'FROM node:22.23.4-alpine3.24 AS ui\nFROM golang:1.26.10 AS builder\nFROM scratch AS final\n' \
+  printf 'FROM node:26.13.0-alpine3.24 AS ui\nFROM golang:1.26.10 AS builder\nFROM scratch AS final\n' \
     >"$repo/build/package/Dockerfile.cli"
   printf 'FROM rust:1.99.1-slim AS builder\nFROM alpine:3.22.0\n' \
     >"$repo/hack/tilt/Dockerfile.agent"
@@ -33,10 +33,10 @@ check() {
 }
 
 @test "a node image on another version fails" {
-  sed -i.bak 's/node:22.23.4/node:22.16.0/' "$repo/build/package/Dockerfile.cli"
+  sed -i.bak 's/node:26.13.0/node:26.12.0/' "$repo/build/package/Dockerfile.cli"
   check
   [ "$status" -eq 1 ]
-  [[ "$output" == *"build/package/Dockerfile.cli:1:FROM node:22.16.0-alpine3.24, want 22.23.4"* ]]
+  [[ "$output" == *"build/package/Dockerfile.cli:1:FROM node:26.12.0-alpine3.24, want 26.13.0"* ]]
 }
 
 @test "a golang image on another version fails" {
@@ -67,7 +67,7 @@ check() {
   check
   [ "$status" -eq 1 ]
   [[ "$output" == *"Dockerfile.cli:1:FROM golang, want 1.26.10"* ]]
-  [[ "$output" == *"Dockerfile.cli:2:FROM node@sha256:abc, want 22.23.4"* ]]
+  [[ "$output" == *"Dockerfile.cli:2:FROM node@sha256:abc, want 26.13.0"* ]]
 }
 
 @test "a matching image pinned by digest passes" {
@@ -96,8 +96,8 @@ check() {
 }
 
 @test "a node-version that names only a major fails" {
-  sed -i.bak "s/default: '22.23.4'/default: '22'/" "$repo/.github/actions/setup-environment/action.yml"
+  sed -i.bak "s/default: '26.13.0'/default: '26'/" "$repo/.github/actions/setup-environment/action.yml"
   check
   [ "$status" -eq 1 ]
-  [[ "$output" == *"node-version is not an exact version: '22'"* ]]
+  [[ "$output" == *"node-version is not an exact version: '26'"* ]]
 }

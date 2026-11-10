@@ -21,7 +21,7 @@ inputs:
   node-version:
     description: 'Node.js version to install; the Dockerfiles pin the same'
     required: false
-    default: '22.23.4'
+    default: '26.13.0'
   setup-rust:
     description: 'Whether to set up Rust'
     required: false
