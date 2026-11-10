@@ -46,7 +46,6 @@ func TestAuthHandlers(t *testing.T) {
 func (suite *authTestSuite) SetupTest() {
 	// Init app
 	app := newTestApp(nil)
-	app.queryHelpers = &mockQueryHelpers{}
 
 	// Init client
 	client := testutils.NewWebTestClient(suite.T(), app)

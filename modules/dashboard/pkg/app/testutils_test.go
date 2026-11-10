@@ -45,13 +45,14 @@ func newTestConfig() *config.Config {
 	return cfg
 }
 
-// Create new app for testing
+// newTestApp builds an app with no connection manager, the proxy route's 503
+// stub and a mockQueryHelpers with no expectations set.
 func newTestApp(cfg *config.Config) *App {
 	if cfg == nil {
 		cfg = newTestConfig()
 	}
 
-	app, err := NewApp(cfg)
+	app, err := newApp(cfg, nil, nil, &mockQueryHelpers{})
 	if err != nil {
 		panic(err)
 	}
