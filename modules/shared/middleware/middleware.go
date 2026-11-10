@@ -20,11 +20,18 @@ import (
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 // Log HTTP requests
 func LoggingMiddleware(hideHealthChecks bool) gin.HandlerFunc {
+	return loggingMiddleware(&log.Logger, hideHealthChecks)
+}
+
+// loggingMiddleware reads *base on each request, so a logger configured after
+// the middleware is built still takes effect.
+func loggingMiddleware(base *zerolog.Logger, hideHealthChecks bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if hideHealthChecks && strings.HasSuffix(c.Request.URL.Path, "/healthz") {
 			c.Next()
@@ -35,7 +42,7 @@ func LoggingMiddleware(hideHealthChecks bool) gin.HandlerFunc {
 
 		// create contextual sub-logger
 		requestId := requestid.Get(c)
-		logger := log.With().Str("request_id", requestId).Logger()
+		logger := base.With().Str("request_id", requestId).Logger()
 		c.Request = c.Request.WithContext(logger.WithContext(c.Request.Context()))
 
 		// execute request
