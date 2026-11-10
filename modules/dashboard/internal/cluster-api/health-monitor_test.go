@@ -364,7 +364,8 @@ func TestInClusterHealthMonitor_GetHealthStatus(t *testing.T) {
 
 			hm := NewInClusterHealthMonitor(cm, tt.enabled)
 
-			if !tt.setupMockError {
+			// A disabled monitor keeps its noop worker.
+			if tt.enabled && !tt.setupMockError {
 				mockWorker := new(MockHealthMonitorWorker)
 				mockWorker.On("GetHealthStatus").Return(tt.mockStatus)
 				hm.worker = mockWorker
