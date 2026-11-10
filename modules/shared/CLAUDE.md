@@ -6,7 +6,6 @@ No binary ships from here. `cli`, `dashboard` and `cluster-api` import it, and i
 - **A new package goes here only when two modules need it.** Code one module uses stays in that module's `internal/`.
 - **`config` holds `Environment` and its two values, nothing else**: each module owns its config struct and loader.
 - **Look here before writing a helper**: `util` (`SyncMap`, `SyncGroup`), `httphelpers` (`IsSameOrigin`, `IsAllowedOrigin`), `ginhelpers`, `middleware` (the access log), `logging`, `graphql/errors`, `testutils`.
-- **Nothing imports `testpb` or `otel`.**
 
 ## k8shelpers
 

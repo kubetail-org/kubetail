@@ -30,7 +30,6 @@ ignored=(
   'modules/*/graph/generated.go'
   'modules/*/graph/model/models_gen.go'
   'modules/shared/clusteragentpb/**'
-  'modules/shared/testpb/**'
   'dashboard-ui/src/lib/graphql/*/__generated__/**'
   'modules/**/mock/**'
   'modules/shared/testutils/**'
