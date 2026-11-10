@@ -83,6 +83,7 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 | 2026-11-09 | [Pin fsnotify to v1.8.0](2026-11-09-pin-fsnotify-to-v1-8-0.md) | repo | Accepted |
 | 2026-11-09 | [Release each component by its own tag](2026-11-09-release-each-component-by-its-own-tag.md) | repo | Accepted |
 | 2026-11-10 | [Attest build provenance in the release jobs](2026-11-10-attest-build-provenance-in-the-release-jobs.md) | repo | Accepted |
+| 2026-11-10 | [Check generated code in CI by regenerating it](2026-11-10-check-generated-code-in-ci-by-regenerating-it.md) | repo | Accepted |
 | 2026-11-10 | [Pin each toolchain to one version that CI and the images share](2026-11-10-pin-each-toolchain-to-one-version-that-ci-and-the-images-share.md) | repo | Accepted |
 | 2026-11-10 | [Run each OS once on a PR and the other platforms on main](2026-11-10-run-each-os-once-on-a-pr-and-the-other-platforms-on-main.md) | repo | Accepted |
 | 2026-11-10 | [Test each component on the platforms it ships for, or record why not](2026-11-10-test-each-component-on-the-platforms-it-ships-for.md) | repo | Accepted |

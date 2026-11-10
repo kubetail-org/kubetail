@@ -30,6 +30,10 @@ inputs:
     description: 'Whether to set up Protoc'
     required: false
     default: 'false'
+  protoc-version:
+    description: 'Protoc version to install; the committed *.pb.go headers record it'
+    required: false
+    default: '33.1'
   setup-go:
     description: 'Whether to set up Go'
     required: false
@@ -73,6 +77,8 @@ runs:
     - name: Set up Protoc
       if: inputs.setup-protoc == 'true'
       uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+      with:
+        version: ${{ inputs.protoc-version }}
 
     # crates/rust-toolchain.toml pins the Rust version CI and the images share.
     - name: Read Rust version
