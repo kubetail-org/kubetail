@@ -31,7 +31,8 @@ missing=$(
   done |
     grep -vE '(^|/)(generated\.go|models_gen\.go|schema\.resolvers\.go)$|/__generated__/' |
     while IFS= read -r f; do
-      [ "$(head -n "$lines" "$f")" = "$header" ] || echo "$f"
+      # A Windows checkout may end each line in CRLF.
+      [ "$(head -n "$lines" "$f" | tr -d '\r')" = "$header" ] || echo "$f"
     done
 )
 if [ -n "$missing" ]; then

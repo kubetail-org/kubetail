@@ -5,8 +5,8 @@ setup() {
   mkdir -p "$repo/scripts"
   cp "$(dirname "$BATS_TEST_FILENAME")/check-license-headers.sh" "$repo/scripts/"
   git -C "$repo" init -q
-  # A file the check passes.
-  header="$(head -n 13 "$BATS_TEST_DIRNAME/stress.go")"
+  # A file the check passes. A Windows checkout may end its lines in CRLF.
+  header="$(head -n 13 "$BATS_TEST_DIRNAME/stress.go" | tr -d '\r')"
 }
 
 # write <path> <first line>: a file in the repo opening with that line, then code.
@@ -23,6 +23,13 @@ check() {
   write modules/a/a.go "$header"
   write crates/a/src/a.rs "$header"
   write dashboard-ui/src/a.tsx "$header"
+  check
+  [ "$status" -eq 0 ]
+}
+
+@test "a header with CRLF line endings passes" {
+  mkdir -p "$repo/modules/a"
+  printf '%s\n\npackage a\n' "$header" | awk '{ printf "%s\r\n", $0 }' >"$repo/modules/a/a.go"
   check
   [ "$status" -eq 0 ]
 }
