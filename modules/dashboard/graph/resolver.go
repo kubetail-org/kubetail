@@ -53,11 +53,6 @@ type Resolver struct {
 	preferencesStore  *preferences.Store
 }
 
-// Teardown
-func (r *Resolver) Teardown() {
-	r.hm.Shutdown()
-}
-
 // listResource
 func (r *Resolver) listResource(ctx context.Context, kubeContext string, namespace *string, options *metav1.ListOptions, modelPtr runtime.Object) error {
 	// Deref namespace

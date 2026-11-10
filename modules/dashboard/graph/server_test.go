@@ -26,6 +26,8 @@ import (
 
 	"github.com/kubetail-org/kubetail/modules/shared/testutils"
 
+	clusterapi "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api"
+	clusterapimock "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api/mock"
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 )
 
@@ -40,9 +42,19 @@ func withSessionCSRFToken(h http.Handler, token string) http.Handler {
 	})
 }
 
+func TestServerClose_ShutsDownHealthMonitor(t *testing.T) {
+	hm := &clusterapimock.MockHealthMonitor{}
+	hm.On("Shutdown").Return()
+
+	s := NewServer(config.DefaultConfig(), nil, hm)
+	s.Close()
+
+	hm.AssertExpectations(t)
+}
+
 func TestServerDrainWithContext_NoConnections(t *testing.T) {
 	cfg := config.DefaultConfig()
-	s := NewServer(cfg, nil)
+	s := NewServer(cfg, nil, clusterapi.NewHealthMonitor(cfg, nil))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -53,7 +65,7 @@ func TestServerDrainWithContext_NoConnections(t *testing.T) {
 
 func TestServerWebSocketCheckOrigin(t *testing.T) {
 	cfg := config.DefaultConfig()
-	s := NewServer(cfg, nil)
+	s := NewServer(cfg, nil, clusterapi.NewHealthMonitor(cfg, nil))
 
 	client := testutils.NewWebTestClient(t, s)
 	defer client.Teardown()
@@ -98,7 +110,7 @@ func TestServerWebSocketCheckOrigin(t *testing.T) {
 func TestServerWebSocketCheckOrigin_AllowedOrigins(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.AllowedOrigins = []string{"https://allowed.example.com"}
-	s := NewServer(cfg, nil)
+	s := NewServer(cfg, nil, clusterapi.NewHealthMonitor(cfg, nil))
 
 	client := testutils.NewWebTestClient(t, s)
 	defer client.Teardown()
@@ -133,7 +145,7 @@ func TestServerWebSocketCheckOrigin_AllowedOrigins(t *testing.T) {
 
 func TestServerWebSocketCSRFInit(t *testing.T) {
 	cfg := config.DefaultConfig()
-	s := NewServer(cfg, nil)
+	s := NewServer(cfg, nil, clusterapi.NewHealthMonitor(cfg, nil))
 
 	client := testutils.NewWebTestClient(t, withSessionCSRFToken(s, testCSRFToken))
 	defer client.Teardown()
@@ -190,7 +202,7 @@ func TestServerWebSocketCSRFInit(t *testing.T) {
 
 func TestServerWebSocketCompressionDisabled(t *testing.T) {
 	cfg := config.DefaultConfig()
-	s := NewServer(cfg, nil)
+	s := NewServer(cfg, nil, clusterapi.NewHealthMonitor(cfg, nil))
 
 	client := testutils.NewWebTestClient(t, s)
 	defer client.Teardown()
@@ -206,7 +218,7 @@ func TestServerWebSocketCompressionDisabled(t *testing.T) {
 
 func TestServerDrainWithContext_CancelledContext(t *testing.T) {
 	cfg := config.DefaultConfig()
-	s := NewServer(cfg, nil)
+	s := NewServer(cfg, nil, clusterapi.NewHealthMonitor(cfg, nil))
 
 	// Simulate an open connection that never finishes
 	s.wg.Add(1)
@@ -221,7 +233,7 @@ func TestServerDrainWithContext_CancelledContext(t *testing.T) {
 
 func TestServerDrainWithContext_DeadlineExceeded(t *testing.T) {
 	cfg := config.DefaultConfig()
-	s := NewServer(cfg, nil)
+	s := NewServer(cfg, nil, clusterapi.NewHealthMonitor(cfg, nil))
 
 	// Simulate an open connection that never finishes
 	s.wg.Add(1)
@@ -236,7 +248,7 @@ func TestServerDrainWithContext_DeadlineExceeded(t *testing.T) {
 
 func TestServerDrainWithContext_WaitsForHTTPRequests(t *testing.T) {
 	cfg := config.DefaultConfig()
-	s := NewServer(cfg, nil)
+	s := NewServer(cfg, nil, clusterapi.NewHealthMonitor(cfg, nil))
 
 	client := testutils.NewWebTestClient(t, s)
 	defer client.Teardown()
@@ -256,7 +268,7 @@ func TestServerDrainWithContext_WaitsForHTTPRequests(t *testing.T) {
 func TestServerNotifyShutdown_ClosesConnections(t *testing.T) {
 	cfg := config.DefaultConfig()
 
-	s := NewServer(cfg, nil)
+	s := NewServer(cfg, nil, clusterapi.NewHealthMonitor(cfg, nil))
 
 	client := testutils.NewWebTestClient(t, withSessionCSRFToken(s, testCSRFToken))
 	defer client.Teardown()
@@ -296,7 +308,7 @@ func TestServerNotifyShutdown_ClosesConnections(t *testing.T) {
 func TestServerNotifyShutdown_ClosesMultipleConnections(t *testing.T) {
 	cfg := config.DefaultConfig()
 
-	s := NewServer(cfg, nil)
+	s := NewServer(cfg, nil, clusterapi.NewHealthMonitor(cfg, nil))
 
 	client := testutils.NewWebTestClient(t, withSessionCSRFToken(s, testCSRFToken))
 	defer client.Teardown()

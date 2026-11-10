@@ -29,6 +29,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/kubetail-org/kubetail/modules/dashboard/graph"
+	clusterapimock "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api/mock"
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 )
 
@@ -256,4 +258,14 @@ func TestClusterAPIProxyRouteWithBasePath(t *testing.T) {
 				"Expected cluster-api-proxy route to be registered at %s", tt.expectedPath)
 		})
 	}
+}
+
+func TestClose_ShutsDownHealthMonitor(t *testing.T) {
+	hm := &clusterapimock.MockHealthMonitor{}
+	hm.On("Shutdown").Return()
+
+	app := &App{graphqlServer: graph.NewServer(newTestConfig(), nil, hm)}
+	app.Close()
+
+	hm.AssertExpectations(t)
 }
