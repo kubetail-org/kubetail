@@ -47,7 +47,7 @@ logging:
   ## format ##
   #
   # The format of log output.
-  # Valid values: json, text
+  # Valid values: json, pretty
   #
   # Default value: json
   #
@@ -81,7 +81,7 @@ tls:
   ## allowed-names ##
   #
   # Allowlist of peer-certificate Common Names whose forwarded identity
-  # headers (x-remote-user, x-remote-group, x-remote-extra-*) the agent
+  # headers (x-remote-user, x-remote-group, x-remote-extras) the agent
   # will trust. The TLS layer accepts any cert signed by the configured CA;
   # this list narrows that to the specific clients authorized to assert
   # identity on behalf of end users (e.g. the cluster-api).
