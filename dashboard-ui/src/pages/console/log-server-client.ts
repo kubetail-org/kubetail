@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { ApolloClient } from '@apollo/client';
+import type { ApolloClient, ErrorLike } from '@apollo/client';
 
 import type {
   Client,
@@ -54,6 +54,7 @@ export type LogServerClientOptions = {
   sources: string[];
   sourceFilter?: LogSourceFilter;
   grep?: string;
+  onSubscriptionError?: (error: ErrorLike) => void;
 };
 
 export class LogServerClient implements Client {
@@ -67,12 +68,15 @@ export class LogServerClient implements Client {
 
   readonly grep?: string;
 
-  constructor({ apolloClient, kubeContext, sources, sourceFilter, grep }: LogServerClientOptions) {
+  private onSubscriptionError?: (error: ErrorLike) => void;
+
+  constructor({ apolloClient, kubeContext, sources, sourceFilter, grep, onSubscriptionError }: LogServerClientOptions) {
     this.apolloClient = apolloClient;
     this.kubeContext = kubeContext;
     this.sources = sources;
     this.sourceFilter = sourceFilter;
     this.grep = grep;
+    this.onSubscriptionError = onSubscriptionError;
   }
 
   private get queryArgs() {
@@ -165,12 +169,11 @@ export class LogServerClient implements Client {
       },
     });
 
+    // Apollo delivers both GraphQL and network errors on `next`, as `error`.
     const subscription = observable.subscribe({
-      next({ data }) {
-        if (data?.logRecordsFollow) callback(createRecord(data.logRecordsFollow));
-      },
-      error(err) {
-        console.error('Subscription error:', err);
+      next: ({ data, error }) => {
+        if (error) this.onSubscriptionError?.(error);
+        else if (data?.logRecordsFollow) callback(createRecord(data.logRecordsFollow));
       },
     });
 

@@ -43,6 +43,7 @@ const defaultPageContextValue = {
   kubeContext: 'ctx',
   shouldUseClusterAPI: true,
   logServerClient: undefined,
+  subscriptionError: undefined,
   grep: null,
   logViewerRef: { current: null },
   isSidebarOpen: true,

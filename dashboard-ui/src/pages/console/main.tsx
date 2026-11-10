@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import type { ErrorLike } from '@apollo/client';
 import { stripAnsi } from 'fancy-ansi';
 import { AnsiHtml } from 'fancy-ansi/react';
 import { useAtomValue } from 'jotai';
 import React, { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 
+import { Alert, AlertDescription, AlertTitle } from '@kubetail/ui/elements/alert';
 import { Spinner } from '@kubetail/ui/elements/spinner';
 
 import { LogViewer, useLogViewerState } from '@/components/widgets/log-viewer';
@@ -62,6 +64,17 @@ const LoadingOverlay = () => (
       <Spinner size="xs" />
     </div>
   </div>
+);
+
+/**
+ * SubscriptionErrorAlert component
+ */
+
+const SubscriptionErrorAlert = ({ error }: { error: ErrorLike }) => (
+  <Alert variant="destructive" className="absolute bottom-4 left-1/2 -translate-x-1/2 w-auto max-w-[90%] z-40">
+    <AlertTitle>Live updates stopped</AlertTitle>
+    <AlertDescription>{error.message}</AlertDescription>
+  </Alert>
 );
 
 /**
@@ -683,7 +696,7 @@ export const RecordRow = memo(
 export const Main = () => {
   const initialPosition = useStableInitialPosition();
 
-  const { logServerClient, logViewerRef } = useContext(PageContext);
+  const { logServerClient, subscriptionError, logViewerRef } = useContext(PageContext);
   const { isLoading } = useLogViewerState(logViewerRef, [logServerClient]);
 
   const follow = useAtomValue(isFollowAtom);
@@ -795,6 +808,7 @@ export const Main = () => {
   return (
     <div ref={wrapperRef} className="group relative h-full w-full flex flex-col">
       {isLoading && <LoadingOverlay />}
+      {subscriptionError && <SubscriptionErrorAlert error={subscriptionError} />}
       <HeaderRow
         scrollElRef={scrollElRef}
         gridTemplate={gridTemplate}

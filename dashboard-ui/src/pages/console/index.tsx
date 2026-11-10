@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { ApolloClient } from '@apollo/client';
+import type { ApolloClient, ErrorLike } from '@apollo/client';
 import deepEqual from 'fast-deep-equal';
 import { PanelLeftClose as PanelLeftCloseIcon } from 'lucide-react';
 import { useCallback, useContext, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -218,6 +218,9 @@ export default function Page() {
     return grepVal.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }, [grepVal]);
 
+  // Keyed by client, so a new client starts with no error
+  const [subscriptionError, setSubscriptionError] = useState<{ client: LogServerClient; error: ErrorLike }>();
+
   // Configure log server client
   const logServerClient = useMemo(() => {
     if (shouldUseClusterAPI === undefined) return undefined;
@@ -229,13 +232,15 @@ export default function Page() {
       apolloClient = dashboardClient;
     }
 
-    return new LogServerClient({
+    const client = new LogServerClient({
       apolloClient,
       kubeContext: kubeContext ?? '',
       sources: sourceStrings,
       sourceFilter,
       grep: grep ?? undefined,
+      onSubscriptionError: (error) => setSubscriptionError({ client, error }),
     });
+    return client;
   }, [shouldUseClusterAPI, kubeContext, sourceStrings, sourceFilter, grep]);
 
   const context = useMemo(
@@ -243,12 +248,14 @@ export default function Page() {
       kubeContext,
       shouldUseClusterAPI,
       logServerClient,
+      subscriptionError:
+        subscriptionError && subscriptionError.client === logServerClient ? subscriptionError.error : undefined,
       grep,
       logViewerRef,
       isSidebarOpen,
       setIsSidebarOpen,
     }),
-    [kubeContext, shouldUseClusterAPI, logServerClient, grep, isSidebarOpen],
+    [kubeContext, shouldUseClusterAPI, logServerClient, subscriptionError, grep, isSidebarOpen],
   );
 
   return (

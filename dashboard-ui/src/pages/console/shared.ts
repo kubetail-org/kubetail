@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import type { ErrorLike } from '@apollo/client';
 import { createContext } from 'react';
 
 import type { LogViewerHandle } from '@/components/widgets/log-viewer';
@@ -26,6 +27,7 @@ type PageContextType = {
   kubeContext: string | null;
   shouldUseClusterAPI: boolean | undefined;
   logServerClient: LogServerClient | undefined;
+  subscriptionError: ErrorLike | undefined;
   grep: string | null;
   logViewerRef: React.RefObject<LogViewerHandle | null>;
   isSidebarOpen: boolean;

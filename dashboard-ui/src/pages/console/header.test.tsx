@@ -73,6 +73,7 @@ const renderHeader = ({
     kubeContext: null,
     shouldUseClusterAPI,
     logServerClient: undefined,
+    subscriptionError: undefined,
     grep: null,
     logViewerRef,
     isSidebarOpen,

@@ -37,6 +37,7 @@ const createDefaultPageContext = (overrides = {}) => ({
   kubeContext: 'test-context',
   shouldUseClusterAPI: true,
   logServerClient: undefined,
+  subscriptionError: undefined as Error | undefined,
   grep: null,
   logViewerRef: createRef<LogViewerHandle>(),
   isSidebarOpen: true,
@@ -96,6 +97,31 @@ describe('Main', () => {
       );
 
       expect(screen.queryByText('Loading')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('SubscriptionErrorAlert', () => {
+    it('shows the subscription error', () => {
+      const contextValue = { ...createDefaultPageContext(), subscriptionError: new Error('connection lost') };
+
+      render(
+        <TestWrapper contextValue={contextValue}>
+          <Main />
+        </TestWrapper>,
+      );
+
+      expect(screen.getByRole('alert')).toHaveTextContent('Live updates stopped');
+      expect(screen.getByRole('alert')).toHaveTextContent('connection lost');
+    });
+
+    it('shows no alert without a subscription error', () => {
+      render(
+        <TestWrapper>
+          <Main />
+        </TestWrapper>,
+      );
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
   });
 

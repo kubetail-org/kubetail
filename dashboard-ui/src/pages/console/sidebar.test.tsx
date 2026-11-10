@@ -65,6 +65,7 @@ const defaultPageContextValue = {
   kubeContext: null,
   shouldUseClusterAPI: undefined,
   logServerClient: undefined,
+  subscriptionError: undefined,
   grep: null,
   logViewerRef: { current: null },
   isSidebarOpen: true,

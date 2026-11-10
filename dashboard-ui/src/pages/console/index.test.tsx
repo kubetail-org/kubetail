@@ -12,10 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import type { ErrorLike } from '@apollo/client';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, useNavigate } from 'react-router';
+import type { Mock } from 'vitest';
 
 import Page from '.';
+import type { LogServerClientOptions } from './log-server-client';
+import { LogServerClient } from './log-server-client';
 
 vi.mock('@/apollo-client', () => ({
   dashboardClient: {},
@@ -42,9 +46,16 @@ vi.mock('./sidebar', () => ({
   Sidebar: () => <div data-testid="sidebar">Sidebar</div>,
 }));
 
-vi.mock('./main', () => ({
-  Main: () => <div data-testid="main">Main</div>,
-}));
+vi.mock('./main', async () => {
+  const { useContext } = await import('react');
+  const { PageContext } = await import('./shared');
+  return {
+    Main: () => {
+      const { subscriptionError } = useContext(PageContext);
+      return <div data-testid="main">{subscriptionError ? subscriptionError.message : 'Main'}</div>;
+    },
+  };
+});
 
 vi.mock('./helpers', () => ({
   SourcesFetcher: () => <div data-testid="sources-fetcher">SourcesFetcher</div>,
@@ -82,6 +93,61 @@ describe('Console Page', () => {
     await waitFor(() => {
       expect(screen.getByTestId('sidebar')).toBeInTheDocument();
     });
+  });
+});
+
+describe('subscription errors', () => {
+  const lastOnSubscriptionError = () => {
+    const { calls } = (LogServerClient as unknown as Mock).mock;
+    const options = calls.at(-1)?.[0] as LogServerClientOptions;
+    return (error: ErrorLike) => act(() => options.onSubscriptionError?.(error));
+  };
+
+  const ChangeGrep = () => {
+    const navigate = useNavigate();
+    return (
+      <button type="button" onClick={() => navigate('/?grep=other')}>
+        change grep
+      </button>
+    );
+  };
+
+  it("passes the current client's error to the page context", async () => {
+    render(
+      <TestWrapper>
+        <Page />
+      </TestWrapper>,
+    );
+
+    lastOnSubscriptionError()(new Error('connection lost'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('main')).toHaveTextContent('connection lost');
+    });
+  });
+
+  it('clears the error when the client changes and ignores the old client', async () => {
+    render(
+      <TestWrapper>
+        <Page />
+        <ChangeGrep />
+      </TestWrapper>,
+    );
+
+    const reportOldError = lastOnSubscriptionError();
+    reportOldError(new Error('connection lost'));
+    await waitFor(() => {
+      expect(screen.getByTestId('main')).toHaveTextContent('connection lost');
+    });
+
+    fireEvent.click(screen.getByText('change grep'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('main')).toHaveTextContent('Main');
+    });
+
+    reportOldError(new Error('late error'));
+    expect(screen.getByTestId('main')).toHaveTextContent('Main');
   });
 });
 

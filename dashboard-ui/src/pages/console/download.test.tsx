@@ -398,6 +398,7 @@ const renderDialog = (overrides: { shouldUseClusterAPI?: boolean } = {}) => {
     kubeContext: 'ctx-1',
     shouldUseClusterAPI: overrides.shouldUseClusterAPI,
     logServerClient: client,
+    subscriptionError: undefined,
     grep: 'ERROR',
     logViewerRef: { current: createMockLogViewerHandle() },
     isSidebarOpen: true,
