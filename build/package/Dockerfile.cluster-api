@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.26.10 AS builder
+FROM golang:1.26.10@sha256:cfa27959837144bf4649802ba38e59daffd0dd2a7994aa83daaf113285b0f551 AS builder
 
 WORKDIR /work
 
@@ -47,7 +47,7 @@ CMD []
 
 # -----------------------------------------------------------
 
-FROM alpine:3.22.0 AS final-alpine
+FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS final-alpine
 
 WORKDIR /cluster-api
 
