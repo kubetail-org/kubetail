@@ -15,27 +15,77 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/spf13/viper"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewConfig_ParamsOverrideConfigFile(t *testing.T) {
+// newTestCommand returns a command with the server's flags, parsed from args
+// and pointed at the config file.
+func newTestCommand(t *testing.T, configPath string, args ...string) *cobra.Command {
+	t.Helper()
+	cmd := &cobra.Command{}
+	addFlags(cmd)
+	require.NoError(t, cmd.ParseFlags(append([]string{"-c", configPath}, args...)))
+	return cmd
+}
+
+// writeConfig writes a config with the certificate files the Cluster API
+// requires, plus extra.
+func writeConfig(t *testing.T, extra string) string {
+	t.Helper()
 	dir := t.TempDir()
-	dummy := filepath.Join(dir, "dummy.pem")
-	require.NoError(t, os.WriteFile(dummy, []byte("dummy"), 0o600))
+	pem := filepath.Join(dir, "dummy.pem")
+	require.NoError(t, os.WriteFile(pem, []byte("dummy"), 0o600))
 
-	body := "addr: :8888\n" +
-		"tls:\n  cert-file: " + dummy + "\n  key-file: " + dummy + "\n" +
-		"cluster-agent:\n  tls:\n    cert-file: " + dummy + "\n    key-file: " + dummy + "\n    ca-file: " + dummy + "\n"
-	configPath := filepath.Join(dir, "config.yaml")
-	require.NoError(t, os.WriteFile(configPath, []byte(body), 0o600))
+	body := fmt.Sprintf(`tls:
+  cert-file: %[1]q
+  key-file: %[1]q
+cluster-agent:
+  tls:
+    cert-file: %[1]q
+    key-file: %[1]q
+    ca-file: %[1]q
+%[2]s`, pem, extra)
 
-	cfg, err := newConfig(configPath, viper.New(), []string{"addr::9999", "logging.level:debug"})
+	path := filepath.Join(dir, "config.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
+	return path
+}
+
+func TestLoadConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      string
+		args        []string
+		wantAddr    string
+		wantGinMode string
+	}{
+		{"defaults", "", nil, ":8080", "release"},
+		{"flags", "", []string{"--addr", ":9999", "--gin-mode", "debug"}, ":9999", "debug"},
+		{"file over flag defaults", "addr: :7000\ngin-mode: debug\n", nil, ":7000", "debug"},
+		{"flags over file", "addr: :7000\ngin-mode: debug\n", []string{"-a", ":9999", "--gin-mode", "release"}, ":9999", "release"},
+		{"params over file and flags", "addr: :7000\n", []string{"-a", ":9999", "-p", "addr::6000"}, ":6000", "release"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := loadConfig(newTestCommand(t, writeConfig(t, tt.config), tt.args...))
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantAddr, cfg.Addr)
+			assert.Equal(t, tt.wantGinMode, cfg.GinMode)
+		})
+	}
+}
+
+func TestLoadConfig_ParamsOverrideConfigFile(t *testing.T) {
+	cmd := newTestCommand(t, writeConfig(t, "addr: :8888\n"), "-p", "addr::9999", "-p", "logging.level:debug")
+	cfg, err := loadConfig(cmd)
 	require.NoError(t, err)
 	assert.Equal(t, ":9999", cfg.Addr)
 	assert.Equal(t, "debug", cfg.Logging.Level)
