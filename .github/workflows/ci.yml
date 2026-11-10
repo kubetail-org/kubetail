@@ -286,6 +286,18 @@ jobs:
             --config .github/ci-config/lychee.toml
             --files-from '${{ runner.temp }}/markdown-files'
 
+  # Runs on every PR: the versions it compares sit in paths no one filter holds.
+  toolchains-lint:
+    name: Toolchains · Lint
+    needs: changes
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check the Dockerfiles' toolchain versions
+        run: make lint-toolchains
+
   python-lint:
     name: Python · Lint
     needs: changes

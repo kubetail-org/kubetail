@@ -1,8 +1,10 @@
 ---
 # Dependabot moves dependencies, never toolchains: the Go version (each go.mod
 # and setup-environment's go-version), packageManager in
-# dashboard-ui/package.json and setup-environment's node-version are bumped by
-# hand.
+# dashboard-ui/package.json, setup-environment's node-version,
+# crates/rust-toolchain.toml and the golang, node and rust images in the
+# Dockerfiles are bumped by hand. make lint-toolchains checks the Dockerfiles
+# against CI.
 #
 # Every ecosystem waits after a release (time for a compromised release to be
 # caught and pulled first), groups minor and patch updates into one weekly PR,

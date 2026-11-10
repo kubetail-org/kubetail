@@ -19,9 +19,9 @@ inputs:
     required: false
     default: '1.26.10'
   node-version:
-    description: 'Node.js version to install'
+    description: 'Node.js version to install; the Dockerfiles pin the same'
     required: false
-    default: '22'
+    default: '22.23.4'
   setup-rust:
     description: 'Whether to set up Rust'
     required: false
@@ -74,11 +74,20 @@ runs:
       if: inputs.setup-protoc == 'true'
       uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
 
+    # crates/rust-toolchain.toml pins the Rust version CI and the images share.
+    - name: Read Rust version
+      if: inputs.setup-rust == 'true'
+      id: rust-version
+      shell: bash
+      run: |
+        version="$(sed -n 's/^channel = "\(.*\)"$/\1/p' crates/rust-toolchain.toml)"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
     - name: Set up Rust
       if: inputs.setup-rust == 'true'
       uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
       with:
-        toolchain: stable
+        toolchain: ${{ steps.rust-version.outputs.version }}
         components: rustfmt, clippy
 
     # The caller decides whether to save; ci.yml's CACHE_MODE saves on main.
