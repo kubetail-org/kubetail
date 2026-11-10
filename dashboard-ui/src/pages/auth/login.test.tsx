@@ -18,13 +18,23 @@ import { Router } from 'react-router';
 import type { Mock } from 'vitest';
 
 import { useSession } from '@/lib/auth';
+import { getBasename } from '@/lib/util';
 import LoginPage from '@/pages/auth/login';
 import { renderElement } from '@/test-utils';
+
+vi.mock('@/lib/util', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@/lib/util')>();
+  return { ...mod, getBasename: vi.fn() };
+});
 
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
 
 describe('Login Page', () => {
+  beforeEach(() => {
+    (getBasename as Mock).mockReturnValue('/');
+  });
+
   it('renders loading page while waiting for session', () => {
     // mock auth
     (useSession as Mock).mockReturnValue({
@@ -57,6 +67,23 @@ describe('Login Page', () => {
     const init = fetchMock.mock.calls[0][1] as RequestInit;
     const headers = init.headers as Record<string, string>;
     expect(headers['X-CSRF-Token']).toBe('test-csrf-token');
+  });
+
+  it('prefixes the base path to the login URL', async () => {
+    (getBasename as Mock).mockReturnValue('/kubetail');
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) });
+
+    const { getByText, getByPlaceholderText } = renderElement(<LoginPage />);
+
+    fireEvent.change(getByPlaceholderText(/Enter your kubernetes token/i), {
+      target: { value: 'my-k8s-token' },
+    });
+    fireEvent.click(getByText('Sign in'));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const url = fetchMock.mock.calls[0][0] as URL;
+    expect(url.pathname).toBe('/kubetail/api/auth/login');
   });
 
   it('navigates to callbackUrl when user is logged in', () => {

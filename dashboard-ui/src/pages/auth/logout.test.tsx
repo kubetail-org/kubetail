@@ -18,13 +18,23 @@ import { Router } from 'react-router';
 import type { Mock } from 'vitest';
 
 import { useSession } from '@/lib/auth';
+import { getBasename } from '@/lib/util';
 import LogoutPage from '@/pages/auth/logout';
 import { renderElement } from '@/test-utils';
+
+vi.mock('@/lib/util', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@/lib/util')>();
+  return { ...mod, getBasename: vi.fn() };
+});
 
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
 
 describe('Logout Page', () => {
+  beforeEach(() => {
+    (getBasename as Mock).mockReturnValue('/');
+  });
+
   it('renders loading page while waiting for session', () => {
     // mock fetch
     fetchMock.mockResolvedValue({ ok: true });
@@ -50,6 +60,18 @@ describe('Logout Page', () => {
     const init = fetchMock.mock.calls[0][1] as RequestInit;
     const headers = init.headers as Record<string, string>;
     expect(headers['X-CSRF-Token']).toBe('test-csrf-token');
+  });
+
+  it('prefixes the base path to the logout URL', async () => {
+    (getBasename as Mock).mockReturnValue('/kubetail');
+    fetchMock.mockResolvedValue({ ok: true });
+
+    renderElement(<LogoutPage />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const url = fetchMock.mock.calls[0][0] as URL;
+    expect(url.pathname).toBe('/kubetail/api/auth/logout');
   });
 
   it('navigates to callbackUrl when user is logged out', () => {

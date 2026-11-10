@@ -17,6 +17,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 
 import LoadingPage from '@/components/utils/LoadingPage';
 import { getCsrfToken, getSession, useSession, waitForCsrfToken } from '@/lib/auth';
+import { getBasename, joinPaths } from '@/lib/util';
 
 export default function Logout() {
   const navigate = useNavigate();
@@ -30,7 +31,7 @@ export default function Logout() {
 
   useEffect(() => {
     void (async () => {
-      const url = new URL('/api/auth/logout', window.location.origin);
+      const url = new URL(joinPaths(getBasename(), '/api/auth/logout'), window.location.origin);
       await waitForCsrfToken();
       const resp = await fetch(url, {
         method: 'post',

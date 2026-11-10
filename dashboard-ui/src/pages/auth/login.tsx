@@ -26,6 +26,7 @@ import { Spinner } from '@kubetail/ui/elements/spinner';
 import ModalLayout from '@/components/layouts/ModalLayout';
 import LoadingPage from '@/components/utils/LoadingPage';
 import { getCsrfToken, getSession, useSession, waitForCsrfToken } from '@/lib/auth';
+import { getBasename, joinPaths } from '@/lib/util';
 
 const loginForm = z.object({
   token: z.string().min(1, 'Please enter a token'),
@@ -61,7 +62,7 @@ export default function LoginPage() {
     form.clearErrors();
 
     setServerLoading(true);
-    const url = new URL('/api/auth/login', window.location.origin);
+    const url = new URL(joinPaths(getBasename(), '/api/auth/login'), window.location.origin);
     await waitForCsrfToken();
     const resp = await fetch(url, {
       method: 'post',
