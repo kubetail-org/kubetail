@@ -402,6 +402,13 @@ jobs:
         run: |
           gpg --armor --detach-sign SHA256SUMS
 
+      # Unload the key before any third-party action runs with the job's token.
+      - name: Cleanup GPG
+        if: always()
+        run: |
+          gpgconf --kill gpg-agent
+          rm -rf ~/.gnupg
+
       - name: Debug
         if: ${{ needs.config.outputs.dry_run == 'true' }}
         run: |
@@ -416,7 +423,3 @@ jobs:
           files: assets/*
           draft: true
           prerelease: ${{ contains(needs.config.outputs.version, '-') }}
-
-      - name: Cleanup GPG
-        if: always()
-        run: rm -rf ~/.gnupg
