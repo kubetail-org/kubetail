@@ -25,6 +25,8 @@ import (
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+
+	k8shelpersmock "github.com/kubetail-org/kubetail/modules/shared/k8shelpers/mock"
 )
 
 func TestRequestID(t *testing.T) {
@@ -91,6 +93,24 @@ func TestGraphQLAllowsUnauthenticatedIntrospection(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Result().StatusCode)
 	assert.Contains(t, w.Body.String(), `"__typename":"Query"`)
+}
+
+func TestClose(t *testing.T) {
+	t.Run("without a connection manager", func(t *testing.T) {
+		app := NewTestApp(nil)
+		assert.NotPanics(t, app.Close)
+	})
+
+	t.Run("with a connection manager", func(t *testing.T) {
+		cm := &k8shelpersmock.MockConnectionManager{}
+		cm.On("Close").Return()
+
+		app := NewTestApp(nil)
+		app.cm = cm
+		app.Close()
+
+		cm.AssertCalled(t, "Close")
+	})
 }
 
 func TestHealthz(t *testing.T) {
