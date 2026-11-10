@@ -104,6 +104,8 @@ jobs:
       - name: Check formatting
         working-directory: ./modules
         run: test -z "$(gofmt -l .)"
+      - name: Check license headers
+        run: sh scripts/check-license-headers.sh modules tools scripts
       - name: Check coverage markers
         run: sh scripts/check-coverage-markers.sh modules
 
@@ -201,6 +203,8 @@ jobs:
       - name: Run format check
         working-directory: ./crates
         run: cargo fmt --all -- --check
+      - name: Check license headers
+        run: sh scripts/check-license-headers.sh crates
       - name: Check coverage markers
         run: sh scripts/check-coverage-markers.sh crates
 
@@ -242,6 +246,8 @@ jobs:
       - name: Lint
         working-directory: ./dashboard-ui
         run: pnpm lint
+      - name: Check license headers
+        run: sh scripts/check-license-headers.sh dashboard-ui
       - name: Check coverage markers
         run: sh scripts/check-coverage-markers.sh dashboard-ui/src
 

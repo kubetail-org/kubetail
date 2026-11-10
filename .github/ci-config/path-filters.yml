@@ -10,6 +10,7 @@ shared: &shared
   - .github/workflows/ci.yml
   - .github/workflows/coverage.yml
   - scripts/check-coverage-markers.sh
+  - scripts/check-license-headers.sh
   - tools/**
 go:
   - *shared

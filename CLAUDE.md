@@ -70,7 +70,7 @@ For every hand-written file, not generated output or lockfiles.
 
 `scripts/writing-standards-hook.sh` (`.claude/settings.json`) restates these every turn. Keep the two in sync.
 
-**A new Go, Rust or TypeScript source file opens with the Apache 2.0 header**, first line `Copyright 2024 The Kubetail Authors`, copied from a neighbouring file. Python and shell files carry none.
+**Every hand-written Go, Rust and TypeScript file opens with the Apache 2.0 header**, first line `Copyright 2024 The Kubetail Authors`, copied from a neighbouring file. `make lint-go`, `lint-rust` and `lint-ts` fail on one without (`scripts/check-license-headers.sh`). Python and shell files carry none.
 
 Older files predate these standards. Leave unrelated lines alone: a cleanup is a commit of its own.
 
