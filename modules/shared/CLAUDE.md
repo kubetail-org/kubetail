@@ -37,7 +37,7 @@ What an ordinary change here can break, beside the root guide's list:
 
 - **An identity reaches Kubernetes and the agents through the context keys in `keys.go`.** Anything that replaces a request's context, or builds a client around the connection manager, drops it. The one explicit path beside them is the bearer token given to `NewInformer` (`logs.WithBearerToken`) for the informer check.
 - **`NewInformer` calls the authorizer before it returns.** A new path to informer data makes the same check.
-- **`ImpersonatingRoundTripper` clones the request before it adds headers.** A new round-tripper does the same.
+- **Each round-tripper in `transport.go` clones the request before it sets headers**, since a `RoundTripper` must not modify its request. A new one does the same.
 - **`IsSameOrigin` ignores `X-Forwarded-*`** (`httphelpers`).
 - **The access log records request metadata (the query string included) and no `Authorization`, cookie or body** (`middleware.LoggingMiddleware`). Keep it so.
 

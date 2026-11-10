@@ -35,6 +35,7 @@ func (b *BearerTokenRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 	ctx := req.Context()
 	token, ok := ctx.Value(K8STokenCtxKey).(string)
 	if ok {
+		req = req.Clone(ctx)
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
 
@@ -95,6 +96,7 @@ func (rt *InClusterSATRoundTripper) RoundTrip(req *http.Request) (*http.Response
 		return nil, err
 	}
 
+	req = req.Clone(req.Context())
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 
 	// Call original transport

@@ -44,6 +44,24 @@ func TestBearerTokenRoundTripper_headerSet(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestBearerTokenRoundTripper_LeavesCallerRequestUnchanged(t *testing.T) {
+	var capturedAuth string
+	inner := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		capturedAuth = req.Header.Get("Authorization")
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("")), Header: make(http.Header)}, nil
+	})
+	rt := NewBearerTokenRoundTripper(inner)
+
+	req, err := http.NewRequest("GET", "http://example.com", nil)
+	assert.NoError(t, err)
+	req = req.WithContext(context.WithValue(req.Context(), K8STokenCtxKey, TEST_TOKEN))
+
+	_, err = rt.RoundTrip(req)
+	assert.NoError(t, err)
+	assert.Equal(t, "Bearer "+TEST_TOKEN, capturedAuth)
+	assert.Empty(t, req.Header.Get("Authorization"))
+}
+
 func TestImpersonatingRoundTripper(t *testing.T) {
 	cases := []struct {
 		name      string
@@ -158,6 +176,26 @@ func TestInClusterSATRoundTripper_RoundTripSetsAuthorizationHeader(t *testing.T)
 	assert.NoError(t, err)
 	assert.Equal(t, "Bearer "+tokenString, capturedAuth)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func TestInClusterSATRoundTripper_LeavesCallerRequestUnchanged(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "token")
+	tokenString := writeTokenFile(t, path, time.Now().Add(5*time.Minute))
+
+	var capturedAuth string
+	inner := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		capturedAuth = req.Header.Get("Authorization")
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("")), Header: make(http.Header)}, nil
+	})
+	rt := &InClusterSATRoundTripper{Transport: inner, path: path, refreshSkew: time.Minute}
+
+	req, err := http.NewRequest("GET", "http://example.com", nil)
+	assert.NoError(t, err)
+
+	_, err = rt.RoundTrip(req)
+	assert.NoError(t, err)
+	assert.Equal(t, "Bearer "+tokenString, capturedAuth)
+	assert.Empty(t, req.Header.Get("Authorization"))
 }
 
 func TestInClusterSATRoundTripper_readTokenFromFileAllowsMissingExp(t *testing.T) {
