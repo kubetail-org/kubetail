@@ -24,10 +24,11 @@ on:
           - rebuild
         default: use
 
-# A PR's new push cancels its last run. Every other run has a group of its own,
-# so a run on main is never cancelled, which would save no cache.
+# A PR's new push cancels its last run. Pushes to main share a group that never
+# cancels a running run, which would save no cache: a newer push replaces only
+# the run still waiting. Every other run has a group of its own.
 concurrency:
-  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.event_name == 'push' && 'main' || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
