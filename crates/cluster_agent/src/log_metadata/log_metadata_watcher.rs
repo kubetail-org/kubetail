@@ -61,6 +61,8 @@ pub struct LogMetadataWatcher {
     directory: PathBuf,
     /// K8s node name.
     node_name: String,
+    /// How long the watcher gathers filesystem events into one batch.
+    debounce: Duration,
     /// Lifecycle event channel
     lifecycle_tx: Option<broadcast::Sender<LifecycleEvent>>,
 }
@@ -72,6 +74,7 @@ impl LogMetadataWatcher {
         directory: PathBuf,
         namespaces: Vec<String>,
         node_name: String,
+        debounce: Duration,
     ) -> (Self, Receiver<Result<LogMetadataWatchEvent, Status>>) {
         let (log_metadata_tx, log_metadata_rx) = channel(100);
 
@@ -82,6 +85,7 @@ impl LogMetadataWatcher {
                 namespaces,
                 directory,
                 node_name,
+                debounce,
                 lifecycle_tx: None,
             },
             log_metadata_rx,
@@ -122,7 +126,7 @@ impl LogMetadataWatcher {
         let node_name = self.node_name.clone();
 
         let mut debouncer = new_debouncer_opt(
-            Duration::from_secs(2),
+            self.debounce,
             None,
             move |result: DebounceEventResult| {
                 runtime_handle.block_on(async {
@@ -445,6 +449,11 @@ mod test {
 
     use super::*;
 
+    const TEST_DEBOUNCE: Duration = Duration::from_millis(50);
+
+    // Bounds a negative assertion: long enough for any pending batch to be sent.
+    const QUIET_PERIOD: Duration = Duration::from_millis(250);
+
     #[tokio::test]
     #[serial]
     async fn test_create_events_are_generated() {
@@ -458,6 +467,7 @@ mod test {
             logs_dir,
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         // Create lifecycle broadcast channel
@@ -543,6 +553,7 @@ mod test {
             logs_dir,
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         task::spawn(async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await });
@@ -568,6 +579,7 @@ mod test {
             logs_dir,
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         // Create lifecycle broadcast channel
@@ -614,6 +626,7 @@ mod test {
             logs_dir,
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         // Create lifecycle broadcast channel
@@ -697,6 +710,7 @@ mod test {
             logs_dir,
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         // Create lifecycle broadcast channel
@@ -775,6 +789,7 @@ mod test {
             logs_dir.clone(),
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
@@ -852,6 +867,7 @@ mod test {
             logs_dir.clone(),
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
@@ -878,7 +894,7 @@ mod test {
 
         assert_eq!(added_event.r#type, "ADDED");
 
-        // Perform multiple modifications with delays exceeding debounce window (2 seconds)
+        // Each write waits for its event, so each lands in a batch of its own.
         for i in 1..=3 {
             file.write_all(&[i; 2]).expect("Failed to write data");
             file.flush().expect("Failed to flush");
@@ -938,6 +954,7 @@ mod test {
             logs_dir.clone(),
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
@@ -975,7 +992,7 @@ mod test {
             Some(8),
         );
 
-        let result = tokio::time::timeout(Duration::from_millis(100), log_metadata_rx.recv()).await;
+        let result = tokio::time::timeout(QUIET_PERIOD, log_metadata_rx.recv()).await;
         assert!(
             result.is_err() || matches!(result, Ok(None)),
             "Should not have more events"
@@ -998,6 +1015,7 @@ mod test {
             logs_dir.clone(),
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
@@ -1005,8 +1023,12 @@ mod test {
 
         task::spawn(async move {
             log_metadata_watcher
+                // PollWatcher's mtime has one-second resolution, so a write in the same second
+                // as the create is seen only by comparing contents.
                 .watch::<PollWatcher>(Some(
-                    notify::Config::default().with_poll_interval(Duration::from_millis(100)),
+                    notify::Config::default()
+                        .with_poll_interval(Duration::from_millis(100))
+                        .with_compare_contents(true),
                 ))
                 .await
         });
@@ -1075,7 +1097,7 @@ mod test {
             .namespace;
         assert_eq!(namespace, "correct-namespace");
 
-        let result = tokio::time::timeout(Duration::from_millis(100), log_metadata_rx.recv()).await;
+        let result = tokio::time::timeout(QUIET_PERIOD, log_metadata_rx.recv()).await;
         assert!(
             result.is_err() || matches!(result, Ok(None)),
             "Should not have more events"
