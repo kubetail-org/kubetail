@@ -235,6 +235,8 @@ impl LogMetadataService for LogMetadataImpl {
 
 #[cfg(test)]
 mod test {
+    #![allow(clippy::unwrap_used)]
+
     use crate::auth::Identity;
     use crate::authorizer::{AlwaysAllowReviewer, Authorizer};
     use crate::log_metadata::LogMetadataImpl;
@@ -425,7 +427,7 @@ mod test {
             .unwrap()
             .into_inner();
 
-        let namespaces = vec![
+        let namespaces = [
             String::from("empty-firstnamespace"),
             String::from("empty-secondnamespace"),
         ];

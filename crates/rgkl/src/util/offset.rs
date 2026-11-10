@@ -226,12 +226,12 @@ mod common {
 
         for &line in lines {
             offsets.push(Offset {
-                byte_offset: byte_offset,
+                byte_offset,
                 line_length: line.len() as u64,
             });
             tmpfile.write_all(line.as_bytes())?;
             tmpfile.write_all(b"\n")?; // Write a newline after each line.
-            byte_offset += line.as_bytes().len() as u64 + 1;
+            byte_offset += line.len() as u64 + 1;
         }
         tmpfile.flush()?;
         Ok((tmpfile, offsets))

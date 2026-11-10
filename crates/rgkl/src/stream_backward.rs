@@ -136,7 +136,7 @@ mod test {
 
     use super::*;
 
-    static TEST_FILE: LazyLock<NamedTempFile> = LazyLock::new(|| create_test_file());
+    static TEST_FILE: LazyLock<NamedTempFile> = LazyLock::new(create_test_file);
 
     fn create_test_file() -> NamedTempFile {
         let lines = [
@@ -339,7 +339,7 @@ mod test {
         stream_backward(CancellationToken::new(), &path, None, None, None, tx).await;
 
         let result = rx.recv().await.unwrap();
-        assert!(matches!(result, Err(_)));
+        assert!(result.is_err());
 
         let status = result.unwrap_err();
         assert_eq!(status.code(), tonic::Code::NotFound);

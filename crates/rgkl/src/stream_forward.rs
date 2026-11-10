@@ -318,7 +318,7 @@ mod test {
 
     use super::*;
 
-    static TEST_FILE: LazyLock<NamedTempFile> = LazyLock::new(|| create_test_file());
+    static TEST_FILE: LazyLock<NamedTempFile> = LazyLock::new(create_test_file);
 
     fn create_test_file() -> NamedTempFile {
         let lines = [
@@ -346,10 +346,7 @@ mod test {
             "2024-10-01T05:41:02.305901464Z stdout F linenum 13",
         ];
 
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .append(true)
-            .open(path)?;
+        let mut file = std::fs::OpenOptions::new().append(true).open(path)?;
 
         // Write the new lines
         writeln!(file, "{}", additional_lines.join("\n"))?;
@@ -652,7 +649,7 @@ mod test {
         .await;
 
         let result = rx.recv().await.unwrap();
-        assert!(matches!(result, Err(_)));
+        assert!(result.is_err());
 
         let status = result.unwrap_err();
         assert_eq!(status.code(), tonic::Code::NotFound);
