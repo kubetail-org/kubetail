@@ -9,7 +9,7 @@ React 19 + React Router 8 + Apollo Client 4 (GraphQL) + Jotai + Vite + Tailwind 
 ```sh
 pnpm format         # oxfmt: formats and sorts imports
 pnpm lint           # oxlint (type-aware), then `oxfmt --check`. A warning fails the run.
-pnpm build          # tsc -b && vite build: the only type-check, and it covers test files
+pnpm build          # tsc -b && vite build. `tsc -b` (`make vet-ts`) is the only type-check, and it covers test files
 pnpm test run       # `pnpm test` alone is watch mode and never exits
 ```
 

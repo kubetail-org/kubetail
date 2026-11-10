@@ -43,8 +43,8 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/modules/cli/cmd.
 # No target names a file it makes, and build/ is a directory.
 .PHONY: build build-dashboard-ui clean help \
 	lint lint-go lint-rust lint-ts lint-python lint-sh lint-md lint-yaml lint-toolchains lint-digests \
-	vet vet-go vet-rust \
-	test test-go test-rust test-ts test-changed test-e2e \
+	vet vet-go vet-rust vet-ts \
+	test test-go test-rust test-ts test-sh test-changed test-e2e \
 	cover-changed check check-changed
 
 build: build-dashboard-ui ## Build the kubetail CLI, with the UI embedded, for this platform
@@ -115,7 +115,7 @@ lint-toolchains: ## Check the Dockerfiles' golang, node and rust images match CI
 lint-digests: ## Check every image a Dockerfile pulls is pinned by digest
 	@sh scripts/check-image-digests.sh
 
-vet: vet-go vet-rust ## Run go vet, the go fix check, staticcheck and clippy
+vet: vet-go vet-rust vet-ts ## Run go vet, the go fix check, staticcheck, clippy and tsc
 	@echo "All vetting completed successfully."
 
 # The Windows pass is the one place _windows.go files are vetted.
@@ -132,7 +132,12 @@ vet-rust: ## Run clippy on the Rust workspace
 	@cd $(CRATES_DIR) && rustup component add clippy
 	@cd $(CRATES_DIR) && cargo clippy --all --all-targets -- -D warnings
 
-test: test-go test-rust test-ts ## Run every Go, Rust and dashboard UI test
+# The type-check half of `pnpm build`. The tsconfigs set noEmit, so it writes no JS.
+vet-ts: ## Type-check the dashboard UI and its tests
+	@echo "Type-checking dashboard UI..."
+	@cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm exec tsc -b
+
+test: test-go test-rust test-ts test-sh ## Run every Go, Rust, dashboard UI and bats test
 	@echo "All tests completed successfully."
 
 test-go: ## Test the Go workspace with the race detector
@@ -146,6 +151,10 @@ test-rust: ## Test the Rust workspace
 test-ts: ## Test the dashboard UI
 	@echo "Testing dashboard UI..."
 	@cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm test run
+
+test-sh: ## Test the scripts with bats
+	@echo "Testing scripts..."
+	@bats scripts/
 
 # scripts/test-changed.sh
 test-changed: ## Run the tests for what this branch changed

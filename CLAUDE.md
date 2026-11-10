@@ -89,9 +89,9 @@ Each area's guide adds its tooling and how it waits. → [ADR: test conventions]
 
 ## Checks
 
-Run the checks in the guide of every area you touched before you finish. For `scripts/`: `make lint-sh` and `bats scripts/`.
+Run the checks in the guide of every area you touched before you finish. For `scripts/`: `make lint-sh` and `make test-sh`.
 
-- **`make check-changed` is the run before a pull request**: the linters and vets of the areas the branch changed, then `test-changed` and `cover-changed`. `make check` runs `lint`, `vet` and `test` for every area. Each target is `<verb>` for every area or `<verb>-<area>` for one (`lint-go`, `vet-rust`, `test-ts`); `make help` lists them. No target runs `pnpm build` or the checks of `tools/`, and only `test-changed` runs `bats scripts/`.
+- **`make check-changed` is the run before a pull request**: the linters and vets of the areas the branch changed, then `test-changed` and `cover-changed`. `make check` runs `lint`, `vet` and `test` for every area. Each target is `<verb>` for every area or `<verb>-<area>` for one (`lint-go`, `vet-rust`, `test-ts`); `make help` lists them. `vet-ts` type-checks the UI with `tsc -b`; no target runs `vite build` or the checks of `tools/`.
 - **`scripts/check-changed.sh` maps a changed path to its area's targets.** A new area, or a new linter in `make lint`, goes there as well as in `.github/ci-config/path-filters.yml`. The `*-changed.sh` scripts read the changed paths from `scripts/changed.sh`.
 - **Markdown links are checked offline in CI** (`make lint-md`): a moved or renamed file breaks every relative link to it.
 - **On a pull request, CI picks its jobs by path**, from `.github/ci-config/path-filters.yml`. A change to `config/`, `hack/` or `e2e/` alone runs no Go, Rust or TypeScript job. Run the affected checks yourself. A push to `main` runs every job.

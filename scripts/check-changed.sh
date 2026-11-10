@@ -8,7 +8,7 @@
 #                    toolchain, then test-changed and cover-changed
 #   modules/         lint-go, vet-go
 #   crates/, proto/  lint-rust, vet-rust
-#   dashboard-ui/    lint-ts
+#   dashboard-ui/    lint-ts, vet-ts
 #   e2e/             lint-python
 #   *.sh             lint-sh
 #   YAML, .github/   lint-yaml
@@ -21,7 +21,7 @@ cd "$(dirname "$0")/.."
 targets=(lint-md lint-toolchains lint-digests)
 if has '^modules/'; then targets+=(lint-go vet-go); fi
 if has '^(crates|proto)/'; then targets+=(lint-rust vet-rust); fi
-if has '^dashboard-ui/'; then targets+=(lint-ts); fi
+if has '^dashboard-ui/'; then targets+=(lint-ts vet-ts); fi
 if has '^e2e/'; then targets+=(lint-python); fi
 if has '\.sh$'; then targets+=(lint-sh); fi
 if has '\.ya?ml$|^\.github/|^\.yamllint'; then targets+=(lint-yaml); fi

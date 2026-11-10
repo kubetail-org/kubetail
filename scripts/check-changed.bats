@@ -29,9 +29,9 @@ check() {
   [ "$output" = "lint-md lint-toolchains lint-digests test-changed cover-changed" ]
 }
 
-@test "a dashboard-ui change adds its lint alone" {
+@test "a dashboard-ui change adds its lint and type-check" {
   check dashboard-ui/src/app.tsx
-  [ "$output" = "lint-md lint-toolchains lint-digests lint-ts test-changed cover-changed" ]
+  [ "$output" = "lint-md lint-toolchains lint-digests lint-ts vet-ts test-changed cover-changed" ]
 }
 
 @test "a modules change adds the Go lint and vet" {
