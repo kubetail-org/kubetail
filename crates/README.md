@@ -22,7 +22,7 @@ cargo fmt --all -- --check
 ### Run clippy
 
 ```console
-cargo clippy --all -- -D warnings
+cargo clippy --all --all-targets -- -D warnings
 ```
 
 ### Run tests

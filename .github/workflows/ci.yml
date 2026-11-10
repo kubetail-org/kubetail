@@ -219,7 +219,7 @@ jobs:
           cache-save: ${{ env.CACHE_MODE != 'use' }}
       - name: Run clippy
         working-directory: ./crates
-        run: cargo clippy --all -- -D warnings
+        run: cargo clippy --all --all-targets -- -D warnings
 
   typescript-lint:
     name: TypeScript · Lint

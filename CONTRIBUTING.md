@@ -103,7 +103,7 @@ cd crates/<crate-name>
 cargo fmt --all -- --check
 
 # Lint
-cargo clippy --all -- -D warnings
+cargo clippy --all --all-targets -- -D warnings
 
 # Run tests
 cargo test
