@@ -60,5 +60,5 @@ Two entry points, `stream_forward` and `stream_backward`, both called by `cluste
 - **Tests are inline `#[cfg(test)]` modules** in the file they cover. There is no `tests/` directory.
 - **A test seam is a parameter, a generic or a field.** `Authorizer::with_reviewer` takes a fake `AccessReviewer`. `LogMetadataWatcher::watch::<T: Watcher>` takes the watcher type, so a test passes `PollWatcher`. `mint_cert` (`auth.rs`) makes a certificate with `rcgen`.
 - **No sleeps.** A test that changes a file first awaits `LifecycleEvent::WatcherStarted` on the `lifecycle_tx` channel, then awaits the event it expects under a `tokio::time::timeout`. `test_newly_created_file_receives_modify_events` (`log_metadata_watcher.rs`) is the reference; `test_follow_from` (`rgkl/src/stream_forward.rs`) shows the signal for a followed stream.
-- **The metadata watcher's debounce is two real seconds**, so its tests take seconds each. Rename and modify tests are `#[cfg(not(target_os = "macos"))]`.
+- **`LogMetadataWatcher::new` takes the debounce.** Tests pass a short one, and a negative assertion waits longer than it. Rename and modify tests are `#[cfg(not(target_os = "macos"))]`.
 - **Files go in `tempfile::tempdir()` or a `NamedTempFile`.** `config.rs` tests are `#[serial]`. Table tests use `rstest`.

@@ -20,6 +20,7 @@ use std::fs::File;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
+use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
@@ -44,6 +45,9 @@ pub static LOG_FILE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
             r"^(?P<pod_name>[^_]+)_(?P<namespace>[^_]+)_(?P<container_name>.+)-(?P<container_id>[^-]+)\.log$",
         ).expect("Failed to compile LOG_FILE_REGEX")
 });
+
+/// How long a watch gathers filesystem events into one batch.
+const WATCH_DEBOUNCE: Duration = Duration::from_secs(2);
 
 #[derive(Debug)]
 pub struct LogMetadataImpl {
@@ -223,6 +227,7 @@ impl LogMetadataService for LogMetadataImpl {
             Path::new(&self.logs_dir).to_path_buf(),
             namespaces,
             self.node_name.clone(),
+            WATCH_DEBOUNCE,
         );
 
         self.task_tracker.spawn(async move {
