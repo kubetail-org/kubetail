@@ -239,16 +239,18 @@ As an open source project, Kubetail is not only committed to building a great to
 
 In return, we ask that contributions be authored by you. While AI tools can support your workflow, submitted code should reflect your own understanding and intent. To keep our focus on meaningful collaboration within the community, we do not accept contributions authored entirely by LLMs without a human in the loop.
 
-When you use an AI tool, include an Assisted-by tag in the following format:
+Every commit an AI tool helped write carries an attribution trailer. Use either of these formats:
 
 ```
 Assisted-by: AGENT_NAME:MODEL_VERSION
+Co-authored-by: NAME <EMAIL>
 ```
 
 Where:
 
 - `AGENT_NAME` is the name of the AI tool or framework
 - `MODEL_VERSION` is the specific model version used
+- `NAME <EMAIL>` is the name and email the AI tool commits as
 
 Example:
 
