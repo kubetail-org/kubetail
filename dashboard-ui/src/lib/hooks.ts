@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import type { TypedDocumentNode, OperationVariables } from '@apollo/client';
+import { CombinedGraphQLErrors } from '@apollo/client/errors';
 import { skipToken, useApolloClient, useQuery } from '@apollo/client/react';
 import deepEqual from 'fast-deep-equal';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -74,30 +75,16 @@ type GenericWatchEventFragment<TObject> = {
   object: TObject | null;
 };
 
-type CustomError = Error & {
-  graphQLErrors?: {
-    message: string;
-    extensions: {
-      code: string;
-      reason: string;
-      status: string;
-    };
-  }[];
-};
-
 const RETRY_TIMEOUT = 5000;
 
 /**
  * Is watch expired error?
  */
 
-function isWatchExpiredError(err: Error): boolean {
-  const { graphQLErrors } = err as CustomError;
-  if (graphQLErrors && graphQLErrors.length) {
-    const gqlErr = graphQLErrors[0];
-    return gqlErr.extensions?.code === 'KUBETAIL_WATCH_ERROR' && gqlErr.extensions?.reason === 'Expired';
-  }
-  return false;
+export function isWatchExpiredError(err: unknown): boolean {
+  if (!CombinedGraphQLErrors.is(err)) return false;
+  const extensions = err.errors[0]?.extensions;
+  return extensions?.code === 'KUBETAIL_WATCH_ERROR' && extensions?.reason === 'Expired';
 }
 
 /**
