@@ -112,6 +112,10 @@ func TestAllowedNamespacesGetQueries(t *testing.T) {
 			_, err = r.CoreV1PodsGet(context.Background(), nil, tt.setNamespace, "", nil)
 			assert.NotNil(t, err)
 			assert.Equal(t, err, errors.ErrForbidden)
+
+			_, err = r.CoreV1ServicesGet(context.Background(), nil, tt.setNamespace, "", nil)
+			assert.NotNil(t, err)
+			assert.Equal(t, err, errors.ErrForbidden)
 		})
 	}
 }
