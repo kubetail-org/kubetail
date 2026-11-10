@@ -88,13 +88,13 @@ crates-build:
 
 crates-lint:
 	@echo "Linting Rust crates with architecture $(RUST_ARCH)..."
-	@rustup component add rustfmt
+	@cd $(CRATES_DIR) && rustup component add rustfmt
 	@cd $(CRATES_DIR) && cargo fmt --all -- --check
 	@sh scripts/check-coverage-markers.sh crates
 
 crates-vet:
 	@echo "Vetting Rust crates with architecture $(RUST_ARCH)..."
-	@rustup component add clippy
+	@cd $(CRATES_DIR) && rustup component add clippy
 	@cd $(CRATES_DIR) && cargo clippy --all -- -D warnings
 
 crates-test:
