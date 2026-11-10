@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 
@@ -33,16 +34,25 @@ var clusterRepoAddCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add the repository",
 	Long:  clusterRepoAddHelp,
+	// coverage:ignore-start changes the Helm repository config on this machine
 	Run: func(cmd *cobra.Command, args []string) {
-		// Init client
-		client := helm.NewClient()
-
-		// Update repo
-		err := client.AddRepo()
-		cli.ExitOnError(err)
-
-		fmt.Println("Added repository 'kubetail'")
+		cli.ExitOnError(runClusterRepoAdd(cmd.OutOrStdout(), helm.NewClient()))
 	},
+	// coverage:ignore-stop
+}
+
+// repoAdder is the subset of helm.Client that repo add uses.
+type repoAdder interface {
+	AddRepo() error
+}
+
+// runClusterRepoAdd adds Kubetail's charts repository and reports it to w.
+func runClusterRepoAdd(w io.Writer, client repoAdder) error {
+	if err := client.AddRepo(); err != nil {
+		return err
+	}
+	fmt.Fprintln(w, "Added repository 'kubetail'")
+	return nil
 }
 
 func init() {
