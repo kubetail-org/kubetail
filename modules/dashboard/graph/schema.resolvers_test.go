@@ -204,13 +204,6 @@ func TestDesktopOnlyRequests(t *testing.T) {
 		assert.NotNil(t, err)
 		assert.Equal(t, err, errors.ErrForbidden)
 	})
-
-	t.Run("helmInstallLatest", func(t *testing.T) {
-		r := &mutationResolver{resolver}
-		_, err := r.HelmInstallLatest(context.Background(), nil)
-		assert.NotNil(t, err)
-		assert.Equal(t, err, errors.ErrForbidden)
-	})
 }
 
 func TestCliLatestVersion(t *testing.T) {

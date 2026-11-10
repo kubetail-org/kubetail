@@ -852,11 +852,6 @@ type Query {
 
 type Mutation {
   """
-  Helm mutations
-  """
-  helmInstallLatest(kubeContext: String): HelmRelease
-
-  """
   Preferences
   """
   preferencesUpdate(input: PreferencesInput!): Preferences!

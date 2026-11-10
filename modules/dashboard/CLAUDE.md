@@ -30,7 +30,7 @@ Routes mount under `cfg.BasePath`. `NewApp` builds three nested groups, and whic
 - **Namespaces go through the allow-list.** A get calls `k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, default)`. A list or a watch goes through `r.listResource` or `r.watchResourceMulti`. An omitted namespace is the context's default; the empty string means all, which with an allow-list fans out across the allowed namespaces. Anything built from source paths passes `logs.WithAllowedNamespaces(r.allowedNamespaces)`.
 - **Informers are shared and run on the process's credentials**, so `cm.NewInformer(ctx, kubeContext, token, namespace, gvr)` first checks the caller with a `SelfSubjectAccessReview`. That check is the only thing between a caller and an informer's data: always pass the request's token. → [ADR: share informers and gate each caller with an access review](../../docs/adr/2026-11-09-share-informers-and-gate-each-caller-with-an-access-review.md)
 - **Logs are read from the Kubernetes API here** (`KubeLogFetcher`, the default of `logs.NewStream`). This module never speaks gRPC; the agent-backed path is the Cluster API's, which the browser reaches through the proxy.
-- **An operation that exists in `desktop` alone returns `ErrForbidden` in `cluster`** (`kubeConfigGet`, `helmInstallLatest`…). A new one does the same.
+- **An operation that exists in `desktop` alone returns `ErrForbidden` in `cluster`** (`kubeConfigGet`, `helmListReleases`…). A new one does the same.
 
 ## The Cluster API proxy
 
