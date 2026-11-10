@@ -94,6 +94,37 @@ jobs:
           path: .
           include-hidden-files: true
 
+  sbom:
+    name: Generate SBOM
+    needs: [config, prepare]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download source
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: source
+          path: kubetail-cli
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        env:
+          SYFT_SOURCE_NAME: kubetail
+          SYFT_SOURCE_VERSION: ${{ needs.config.outputs.version }}
+        with:
+          path: kubetail-cli/modules/cli
+          format: spdx-json
+          output-file: sbom/kubetail-${{ needs.config.outputs.version }}.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      # The release job collects every assets-* artifact, so the SBOM is
+      # checksummed and signed with the binaries.
+      - name: Upload artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: assets-sbom
+          path: sbom
+
   build:
     name: Build binaries
     needs: [config, prepare]
@@ -427,7 +458,7 @@ jobs:
 
   release:
     name: Create GitHub release
-    needs: [config, package-tarball]
+    needs: [config, sbom, package-tarball]
     # A skipped signing job upstream would skip this job by default.
     if: ${{ !failure() && !cancelled() }}
     # An empty name runs the job outside any environment.
