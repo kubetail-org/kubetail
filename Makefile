@@ -158,11 +158,16 @@ lint-md:
 lint-toolchains:
 	@sh scripts/check-toolchain-versions.sh
 
+# Every image a Dockerfile pulls is pinned by digest
+# (scripts/check-image-digests.sh).
+lint-digests:
+	@sh scripts/check-image-digests.sh
+
 lint-python:
 	@cd e2e && uv sync --group dev && uv run ruff check . && uv run ruff format --check .
 
 # Every linter CI runs.
-lint: lint-all lint-sh lint-md lint-toolchains lint-python
+lint: lint-all lint-sh lint-md lint-toolchains lint-digests lint-python
 	@echo "All CI linters passed."
 
 # Combined targets
@@ -244,6 +249,7 @@ help:
 	@echo "  lint-sh               - Lint every shell script"
 	@echo "  lint-md               - Check local links in every Markdown file"
 	@echo "  lint-toolchains       - Check the Dockerfiles' toolchains match CI's"
+	@echo "  lint-digests          - Check every Dockerfile image is pinned by digest"
 	@echo "  lint-python           - Lint the e2e suite"
 	@echo "  test-all              - Run all tests"
 	@echo "  test-changed          - Run the tests for this branch's changes"

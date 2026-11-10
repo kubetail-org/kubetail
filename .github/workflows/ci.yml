@@ -290,6 +290,8 @@ jobs:
           persist-credentials: false
       - name: Check the Dockerfiles' toolchain versions
         run: make lint-toolchains
+      - name: Check the Dockerfiles' image digests
+        run: make lint-digests
 
   python-lint:
     name: Python · Lint
