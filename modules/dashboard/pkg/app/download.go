@@ -81,6 +81,11 @@ func (h *downloadHandlers) DownloadPOST(c *gin.Context) {
 		return
 	}
 
+	// The server's WriteTimeout would cut a download that streams for longer.
+	if err := http.NewResponseController(c.Writer).SetWriteDeadline(time.Time{}); err != nil {
+		zlog.Debug().Err(err).Msg("could not clear the download's write deadline")
+	}
+
 	c.Header("Content-Type", logs.DownloadContentType(req.Raw.OutputFormat))
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, logs.DownloadFilename(req.Raw.OutputFormat, time.Now())))
 	c.Status(http.StatusOK)

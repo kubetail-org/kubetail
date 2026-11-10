@@ -16,15 +16,18 @@ package app
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 	"github.com/kubetail-org/kubetail/modules/shared/logs"
@@ -299,4 +302,54 @@ func TestDownloadPOSTRequiresAuthInTokenMode(t *testing.T) {
 	resp := client.Do(req)
 
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
+// slowStreamer sends its first record, waits delay, then sends its second.
+type slowStreamer struct {
+	delay time.Duration
+	ch    chan logs.LogRecord
+}
+
+func (s *slowStreamer) Start(ctx context.Context) error {
+	go func() {
+		defer close(s.ch)
+		s.ch <- logs.LogRecord{Message: "first"}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(s.delay):
+		}
+		s.ch <- logs.LogRecord{Message: "second"}
+	}()
+	return nil
+}
+
+func (s *slowStreamer) Records() <-chan logs.LogRecord { return s.ch }
+func (s *slowStreamer) Err() error                     { return nil }
+func (s *slowStreamer) Close()                         {}
+
+func TestDownloadOutlivesServerWriteTimeout(t *testing.T) {
+	writeTimeout := 100 * time.Millisecond
+	h := &downloadHandlers{
+		newLogStream: func(ctx context.Context, sources []string, opts ...logs.Option) (logs.DownloadStreamer, error) {
+			// Latency injected into the fake: the second record arrives after
+			// the server's write timeout has passed.
+			return &slowStreamer{delay: 3 * writeTimeout, ch: make(chan logs.LogRecord)}, nil
+		},
+	}
+
+	server := httptest.NewUnstartedServer(mountDownloadHandler(h))
+	server.Config.WriteTimeout = writeTimeout
+	server.Start()
+	defer server.Close()
+
+	resp, err := http.PostForm(server.URL+"/api/v1/download", baseDownloadForm())
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Contains(t, string(body), "first")
+	assert.Contains(t, string(body), "second")
 }
