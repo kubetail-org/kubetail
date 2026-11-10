@@ -901,7 +901,7 @@ func addLogsCmdFlags(cmd *cobra.Command) {
 	flagset.SortFlags = false
 
 	flagset.String(KubeContextFlag, "", "Specify the kubeconfig context to use")
-	flagset.VarP(&config.OptionalInt64{}, "head", "h", "Return last N records (default 10)")
+	flagset.VarP(&config.OptionalInt64{}, "head", "h", "Return first N records (default 10)")
 	flagset.Lookup("head").NoOptDefVal = "N"
 	flagset.VarP(&config.OptionalInt64{}, "tail", "t", "Return last N records (default 10)")
 	flagset.Lookup("tail").NoOptDefVal = "N"
