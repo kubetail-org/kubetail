@@ -76,6 +76,17 @@ impl LogRecordsImpl {
     }
 }
 
+// An empty value is no bound; any other value must be RFC 3339.
+fn parse_time_bound(field: &str, value: &str) -> Result<Option<DateTime<Utc>>, Status> {
+    if value.is_empty() {
+        return Ok(None);
+    }
+    value
+        .parse::<DateTime<Utc>>()
+        .map(Some)
+        .map_err(|e| Status::invalid_argument(format!("invalid {field} {value:?}: {e}")))
+}
+
 #[tonic::async_trait]
 impl LogRecordsService for LogRecordsImpl {
     type StreamForwardStream = ReceiverStream<Result<LogRecord, Status>>;
@@ -93,6 +104,8 @@ impl LogRecordsService for LogRecordsImpl {
             .is_authorized(&identity, &namespaces, "get")
             .await?;
 
+        let start_time = parse_time_bound("start_time", &request.start_time)?;
+        let stop_time = parse_time_bound("stop_time", &request.stop_time)?;
         let file_path = self.get_log_filename(&request)?;
         let (tx, rx) = mpsc::channel(100);
         let local_ctx = self.ctx.child_token();
@@ -101,8 +114,8 @@ impl LogRecordsService for LogRecordsImpl {
             stream_backward::stream_backward(
                 local_ctx,
                 &file_path,
-                request.start_time.parse::<DateTime<Utc>>().ok(),
-                request.stop_time.parse::<DateTime<Utc>>().ok(),
+                start_time,
+                stop_time,
                 if request.grep.is_empty() {
                     None
                 } else {
@@ -128,6 +141,8 @@ impl LogRecordsService for LogRecordsImpl {
             .is_authorized(&identity, &namespaces, "get")
             .await?;
 
+        let start_time = parse_time_bound("start_time", &request.start_time)?;
+        let stop_time = parse_time_bound("stop_time", &request.stop_time)?;
         let file_path = self.get_log_filename(&request)?;
 
         let (tx, rx) = mpsc::channel(100);
@@ -137,8 +152,8 @@ impl LogRecordsService for LogRecordsImpl {
             stream_forward::stream_forward(
                 local_ctx,
                 &file_path,
-                request.start_time.parse::<DateTime<Utc>>().ok(),
-                request.stop_time.parse::<DateTime<Utc>>().ok(),
+                start_time,
+                stop_time,
                 if request.grep.is_empty() {
                     None
                 } else {
@@ -181,6 +196,20 @@ mod tests {
 
     fn denied_authorizer() -> Authorizer {
         Authorizer::with_reviewer(Arc::new(DenyReviewer))
+    }
+
+    #[derive(Debug)]
+    struct AllowReviewer;
+
+    #[tonic::async_trait]
+    impl AccessReviewer for AllowReviewer {
+        async fn review(&self, _sar: SubjectAccessReview) -> Result<bool, Status> {
+            Ok(true)
+        }
+    }
+
+    fn allowed_authorizer() -> Authorizer {
+        Authorizer::with_reviewer(Arc::new(AllowReviewer))
     }
 
     fn req_with_identity(payload: LogRecordsStreamRequest) -> Request<LogRecordsStreamRequest> {
@@ -234,5 +263,55 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(status.code(), tonic::Code::PermissionDenied);
+    }
+
+    #[test]
+    fn parse_time_bound_treats_empty_as_no_bound() {
+        assert_eq!(parse_time_bound("start_time", "").unwrap(), None);
+    }
+
+    #[test]
+    fn parse_time_bound_parses_rfc3339() {
+        let got = parse_time_bound("start_time", "2024-01-02T03:04:05Z").unwrap();
+        assert_eq!(got, Some("2024-01-02T03:04:05Z".parse().unwrap()));
+    }
+
+    #[test]
+    fn parse_time_bound_rejects_malformed_value() {
+        let status = parse_time_bound("stop_time", "yesterday").unwrap_err();
+        assert_eq!(status.code(), tonic::Code::InvalidArgument);
+        assert!(status.message().contains("stop_time"));
+    }
+
+    #[tokio::test]
+    async fn stream_forward_rejects_malformed_start_time() {
+        let svc = service(allowed_authorizer());
+        let payload = LogRecordsStreamRequest {
+            start_time: "not-a-time".to_owned(),
+            ..missing_log_request()
+        };
+
+        let status = svc
+            .stream_forward(req_with_identity(payload))
+            .await
+            .unwrap_err();
+
+        assert_eq!(status.code(), tonic::Code::InvalidArgument);
+    }
+
+    #[tokio::test]
+    async fn stream_backward_rejects_malformed_stop_time() {
+        let svc = service(allowed_authorizer());
+        let payload = LogRecordsStreamRequest {
+            stop_time: "not-a-time".to_owned(),
+            ..missing_log_request()
+        };
+
+        let status = svc
+            .stream_backward(req_with_identity(payload))
+            .await
+            .unwrap_err();
+
+        assert_eq!(status.code(), tonic::Code::InvalidArgument);
     }
 }
