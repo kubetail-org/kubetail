@@ -548,7 +548,7 @@ mod test {
         task::spawn(async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await });
 
         let result = log_metadata_rx.recv().await.unwrap();
-        assert!(matches!(result, Err(_)));
+        assert!(result.is_err());
 
         let status = result.unwrap_err();
         assert_eq!(status.code(), tonic::Code::NotFound);
@@ -635,12 +635,8 @@ mod test {
         let _ = rename(file.path(), &new_path);
 
         // Edit the file.
-        let mut renamed_file = File::options()
-            .write(true)
-            .append(true)
-            .open(&new_path)
-            .unwrap();
-        let _ = renamed_file.write_all(&vec![1; 5]);
+        let mut renamed_file = File::options().append(true).open(&new_path).unwrap();
+        let _ = renamed_file.write_all(&[1; 5]);
 
         // The watcher deduplicates events only within a debounce batch, so an event can repeat.
         // Read until both have arrived.
@@ -723,13 +719,14 @@ mod test {
             .recv()
             .await
             .expect("channel should yield a value");
-        assert!(matches!(result, Err(_)));
+        assert!(result.is_err());
 
         let status = result.unwrap_err();
         assert_eq!(status.code(), tonic::Code::Unavailable);
         assert_eq!(status.message(), "Server is shutting down");
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn verify_event(
         event: LogMetadataWatchEvent,
         event_type: &str,
@@ -793,7 +790,7 @@ mod test {
         let file_path =
             logs_dir.join("pod-name_modify-namespace_container-name-newcontainerid.log");
         let mut file = File::create(&file_path).expect("Failed to create file");
-        file.write_all(&vec![0; 4])
+        file.write_all(&[0; 4])
             .expect("Failed to write initial data");
         file.flush().expect("Failed to flush");
 
@@ -813,7 +810,7 @@ mod test {
             .unwrap()
             .size;
 
-        file.write_all(&vec![1; 3])
+        file.write_all(&[1; 3])
             .expect("Failed to write additional data");
         file.flush().expect("Failed to flush");
         drop(file);
@@ -869,7 +866,7 @@ mod test {
 
         let file_path = logs_dir.join("pod-name_multi-modify-namespace_container-name-multiid.log");
         let mut file = File::create(&file_path).expect("Failed to create file");
-        file.write_all(&vec![0; 2])
+        file.write_all(&[0; 2])
             .expect("Failed to write initial data");
         file.flush().expect("Failed to flush");
 
@@ -883,7 +880,7 @@ mod test {
 
         // Perform multiple modifications with delays exceeding debounce window (2 seconds)
         for i in 1..=3 {
-            file.write_all(&vec![i; 2]).expect("Failed to write data");
+            file.write_all(&[i; 2]).expect("Failed to write data");
             file.flush().expect("Failed to flush");
 
             // Wait for the MODIFIED event after each write
@@ -929,7 +926,7 @@ mod test {
         let file_path =
             logs_dir.join("pod-name_immediate-namespace_container-name-immediateid.log");
         let mut file = File::create(&file_path).expect("Failed to create file");
-        file.write_all(&vec![0; 5])
+        file.write_all(&[0; 5])
             .expect("Failed to write initial data");
         file.flush().expect("Failed to flush");
         drop(file);
@@ -954,11 +951,10 @@ mod test {
         ) {}
 
         let mut file = File::options()
-            .write(true)
             .append(true)
             .open(&file_path)
             .expect("Failed to open file");
-        file.write_all(&vec![1; 3]).expect("Failed to write data");
+        file.write_all(&[1; 3]).expect("Failed to write data");
         file.flush().expect("Failed to flush");
         drop(file);
 
@@ -1022,16 +1018,14 @@ mod test {
 
         let wrong_file_path = logs_dir.join("pod-name_wrong-namespace_container-name-wrongid.log");
         let mut wrong_file = File::create(&wrong_file_path).expect("Failed to create file");
-        wrong_file
-            .write_all(&vec![0; 4])
-            .expect("Failed to write data");
+        wrong_file.write_all(&[0; 4]).expect("Failed to write data");
         wrong_file.flush().expect("Failed to flush");
 
         let correct_file_path =
             logs_dir.join("pod-name_correct-namespace_container-name-correctid.log");
         let mut correct_file = File::create(&correct_file_path).expect("Failed to create file");
         correct_file
-            .write_all(&vec![0; 4])
+            .write_all(&[0; 4])
             .expect("Failed to write data");
         correct_file.flush().expect("Failed to flush");
 
@@ -1053,11 +1047,11 @@ mod test {
         assert_eq!(namespace, "correct-namespace");
 
         wrong_file
-            .write_all(&vec![1; 2])
+            .write_all(&[1; 2])
             .expect("Failed to write to wrong file");
         wrong_file.flush().expect("Failed to flush");
         correct_file
-            .write_all(&vec![1; 2])
+            .write_all(&[1; 2])
             .expect("Failed to write to correct file");
         correct_file.flush().expect("Failed to flush");
 

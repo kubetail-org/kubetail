@@ -130,7 +130,7 @@ vet-go: ## Run go vet for the host and Windows, the go fix check and staticcheck
 vet-rust: ## Run clippy on the Rust workspace
 	@echo "Vetting Rust crates with architecture $(RUST_ARCH)..."
 	@cd $(CRATES_DIR) && rustup component add clippy
-	@cd $(CRATES_DIR) && cargo clippy --all -- -D warnings
+	@cd $(CRATES_DIR) && cargo clippy --all --all-targets -- -D warnings
 
 test: test-go test-rust test-ts ## Run every Go, Rust and dashboard UI test
 	@echo "All tests completed successfully."

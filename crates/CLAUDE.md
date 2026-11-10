@@ -11,7 +11,7 @@ A Cargo workspace of three crates: `cluster_agent` (the Cluster Agent, a gRPC se
 ```sh
 cd crates
 cargo fmt --all                    # write; CI runs it with -- --check
-cargo clippy --all -- -D warnings  # CI's clippy does not lint test code (no --all-targets)
+cargo clippy --all --all-targets -- -D warnings
 cargo test                         # every crate; `cargo test -p cluster_agent auth` for one crate, by name
 ```
 
