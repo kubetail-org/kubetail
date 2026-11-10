@@ -23,6 +23,6 @@ spec:
     spec:
       containers:
         - name: loggen
-          image: docker.io/kubetail/loggen:0.1.2
+          image: docker.io/kubetail/loggen:0.2.0
           args: ["-ansi"]
           resources: {}

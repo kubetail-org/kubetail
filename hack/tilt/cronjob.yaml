@@ -14,14 +14,14 @@ spec:
         spec:
           initContainers:
             - name: init
-              image: busybox:1.28
+              image: busybox:1.38
               command:
                 - /bin/sh
                 - -c
                 - date; echo Initializing pod
           containers:
             - name: hello
-              image: busybox:1.28
+              image: busybox:1.38
               command:
                 - /bin/sh
                 - -c
