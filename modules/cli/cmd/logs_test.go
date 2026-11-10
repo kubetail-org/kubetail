@@ -13,6 +13,29 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestAddLogsCmdFlags_MutuallyExclusive(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"head and tail", []string{"--head", "--tail"}},
+		{"head and all", []string{"--head", "--all"}},
+		{"tail and all", []string{"--tail", "--all"}},
+		{"since and after", []string{"--since", "PT30M", "--after", "PT30M"}},
+		{"until and before", []string{"--until", "PT30M", "--before", "PT30M"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &cobra.Command{}
+			addLogsCmdFlags(cmd)
+
+			assert.NoError(t, cmd.ParseFlags(tt.args))
+			assert.ErrorContains(t, cmd.ValidateFlagGroups(), "none of the others can be")
+		})
+	}
+}
+
 func TestLoadLogConfig(t *testing.T) {
 	t.Run("raw flag overrides display flags", func(t *testing.T) {
 		cmd := &cobra.Command{}

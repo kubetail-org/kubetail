@@ -906,7 +906,7 @@ func addLogsCmdFlags(cmd *cobra.Command) {
 	flagset.VarP(&config.OptionalInt64{}, "tail", "t", "Return last N records (default 10)")
 	flagset.Lookup("tail").NoOptDefVal = "N"
 	flagset.Bool("all", false, "Return all records")
-	logsCmd.MarkFlagsMutuallyExclusive("head", "tail", "all")
+	cmd.MarkFlagsMutuallyExclusive("head", "tail", "all")
 
 	flagset.BoolP("follow", "f", false, "Stream new records")
 
@@ -914,8 +914,8 @@ func addLogsCmdFlags(cmd *cobra.Command) {
 	flagset.String("until", "", "Include records up to the specified point (inclusive)")
 	flagset.String("after", "", "Include records strictly after the specified point")
 	flagset.String("before", "", "Include records strictly before the specified point")
-	logsCmd.MarkFlagsMutuallyExclusive("since", "after")
-	logsCmd.MarkFlagsMutuallyExclusive("until", "before")
+	cmd.MarkFlagsMutuallyExclusive("since", "after")
+	cmd.MarkFlagsMutuallyExclusive("until", "before")
 
 	flagset.StringP("grep", "g", "", "Filter records by a regular expression")
 
