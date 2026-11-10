@@ -69,6 +69,7 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 | 2026-11-09 | [Read logs through two backends behind LogFetcher](2026-11-09-read-logs-through-two-backends-behind-logfetcher.md) | cross-cutting | Accepted |
 | 2026-11-09 | [Authenticate the front proxy in middleware](2026-11-09-authenticate-the-front-proxy-in-middleware.md) | cluster-api | Accepted |
 | 2026-11-09 | [Defend against CSRF in two layers](2026-11-09-defend-against-csrf-in-two-layers.md) | dashboard | Accepted |
+| 2026-11-10 | [Keep the Dashboard's session keys in a Secret it creates](2026-11-10-keep-the-dashboards-session-keys-in-a-secret-it-creates.md) | dashboard | Accepted |
 | 2026-11-09 | [Check hook dependencies in the dashboard UI](2026-11-09-check-hook-dependencies-in-the-dashboard-ui.md) | dashboard-ui | Accepted |
 | 2026-11-09 | [Forbid any in the dashboard UI outside tests](2026-11-09-forbid-any-in-the-dashboard-ui-outside-tests.md) | dashboard-ui | Accepted |
 | 2026-11-09 | [Lint the dashboard UI with oxlint's categories and a chosen rule list](2026-11-09-lint-the-dashboard-ui-with-oxlints-categories-and-a-chosen-rule-list.md) | dashboard-ui | Accepted |

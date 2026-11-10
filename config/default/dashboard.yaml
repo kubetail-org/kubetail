@@ -167,8 +167,10 @@ session:
   #   signing-key    (required) — hex-encoded HMAC signing key; 32 or 64 raw bytes recommended
   #   encryption-key (optional) — hex-encoded AES encryption key; 16, 24, or 32 raw bytes
   #
-  # When empty and a local-storage-dir is configured, a random pair is
-  # generated and persisted to disk on first startup.
+  # When empty, a random pair is generated on first startup and persisted:
+  # in the desktop environment to a file under local-storage-dir, in the
+  # cluster environment to the Secret kubetail-dashboard-session-keys in the
+  # Dashboard's namespace, which every replica shares.
   #
   key-pairs: []
 

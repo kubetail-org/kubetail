@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/requestid"
@@ -158,7 +159,9 @@ func NewApp(cfg *config.Config) (*App, error) {
 	dynamicRoutes := root.Group("/")
 	{
 		// Add session middleware
-		keyPairs, err := resolveSessionKeyPairs(cfg)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		keyPairs, err := resolveSessionKeyPairs(ctx, cfg, app.cm, serviceAccountNamespacePath)
+		cancel()
 		if err != nil {
 			return nil, err
 		}

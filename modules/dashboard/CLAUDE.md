@@ -10,6 +10,8 @@ A Go/Gin HTTP server: the built UI, a GraphQL API over the Kubernetes API (gqlge
 
 `pkg/config.NewConfig` reads the file, expands `${VAR}` from the environment (the only way an environment variable reaches the config), and unmarshals over `DefaultConfig()`, the truth for defaults: the `cluster` environment on `:8080`. Keys are flat and top-level. A new key gets a `mapstructure` tag, a default there, a validation tag where it can be wrong, and an entry in `config/default/dashboard.yaml`.
 
+**Without `session.key-pairs`, session keys persist per environment**: a file under `local-storage-dir` in `desktop`, the Secret `kubetail-dashboard-session-keys` in the Dashboard's namespace in `cluster`, created on first start. Its Role grants `get` on that name and `create` on Secrets; renaming the Secret changes every manifest's Role. → [ADR: keep the Dashboard's session keys in a Secret it creates](../../docs/adr/2026-11-10-keep-the-dashboards-session-keys-in-a-secret-it-creates.md)
+
 ## Routes
 
 Routes mount under `cfg.BasePath`. `NewApp` builds three nested groups, and which group a route joins decides what protects it:

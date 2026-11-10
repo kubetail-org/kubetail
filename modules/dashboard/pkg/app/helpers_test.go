@@ -18,6 +18,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,6 +26,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
+
+	k8shelpersmock "github.com/kubetail-org/kubetail/modules/shared/k8shelpers/mock"
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
 )
@@ -163,7 +172,7 @@ func TestResolveSessionKeyPairs(t *testing.T) {
 		cfg := newTestConfig()
 		cfg.Session.KeyPairs = []config.KeyPair{{SigningKey: validSK, EncryptionKey: validEK}}
 
-		result, err := resolveSessionKeyPairs(cfg)
+		result, err := resolveSessionKeyPairs(t.Context(), cfg, nil, "")
 		require.NoError(t, err)
 		require.Len(t, result, 2)
 		assert.Len(t, result[0], 32)
@@ -174,7 +183,7 @@ func TestResolveSessionKeyPairs(t *testing.T) {
 		cfg := newTestConfig()
 		cfg.Session.KeyPairs = []config.KeyPair{{SigningKey: "my passphrase", EncryptionKey: validEK}}
 
-		result, err := resolveSessionKeyPairs(cfg)
+		result, err := resolveSessionKeyPairs(t.Context(), cfg, nil, "")
 		require.NoError(t, err)
 		require.Len(t, result, 2)
 		assert.Len(t, result[0], 32)
@@ -187,7 +196,7 @@ func TestResolveSessionKeyPairs(t *testing.T) {
 		cfg := newTestConfig()
 		cfg.Session.KeyPairs = []config.KeyPair{{SigningKey: validSK, EncryptionKey: "another passphrase"}}
 
-		result, err := resolveSessionKeyPairs(cfg)
+		result, err := resolveSessionKeyPairs(t.Context(), cfg, nil, "")
 		require.NoError(t, err)
 		require.Len(t, result, 2)
 		assert.Len(t, result[1], 32)
@@ -201,7 +210,7 @@ func TestResolveSessionKeyPairs(t *testing.T) {
 		shortHex := hex.EncodeToString(make([]byte, 10))
 		cfg.Session.KeyPairs = []config.KeyPair{{SigningKey: validSK, EncryptionKey: shortHex}}
 
-		result, err := resolveSessionKeyPairs(cfg)
+		result, err := resolveSessionKeyPairs(t.Context(), cfg, nil, "")
 		require.NoError(t, err)
 		require.Len(t, result, 2)
 		assert.Len(t, result[1], 32)
@@ -214,9 +223,9 @@ func TestResolveSessionKeyPairs(t *testing.T) {
 		cfg := newTestConfig()
 		cfg.Session.KeyPairs = []config.KeyPair{{SigningKey: "passphrase-a", EncryptionKey: "passphrase-b"}}
 
-		r1, err := resolveSessionKeyPairs(cfg)
+		r1, err := resolveSessionKeyPairs(t.Context(), cfg, nil, "")
 		require.NoError(t, err)
-		r2, err := resolveSessionKeyPairs(cfg)
+		r2, err := resolveSessionKeyPairs(t.Context(), cfg, nil, "")
 		require.NoError(t, err)
 		assert.Equal(t, r1, r2)
 	})
@@ -225,18 +234,156 @@ func TestResolveSessionKeyPairs(t *testing.T) {
 		cfg := newTestConfig()
 		cfg.Session.KeyPairs = []config.KeyPair{{SigningKey: validSK, EncryptionKey: ""}}
 
-		result, err := resolveSessionKeyPairs(cfg)
+		result, err := resolveSessionKeyPairs(t.Context(), cfg, nil, "")
 		require.NoError(t, err)
 		require.Len(t, result, 2)
 		assert.Nil(t, result[1])
 	})
 
-	t.Run("generates random pair for cluster env when no keys configured", func(t *testing.T) {
+	t.Run("loads the Secret in cluster when no keys are configured", func(t *testing.T) {
+		cfg := newTestConfig()
+		cfg.Session.KeyPairs = nil
+		clientset := fake.NewClientset()
+		cm := &k8shelpersmock.MockConnectionManager{}
+		cm.On("GetOrCreateClientset", "").Return(clientset, nil)
+
+		result, err := resolveSessionKeyPairs(t.Context(), cfg, cm, writeNamespaceFile(t, "kubetail"))
+		require.NoError(t, err)
+		require.Len(t, result, 2)
+		assert.Len(t, result[0], 32)
+		assert.Len(t, result[1], 32)
+
+		_, err = clientset.CoreV1().Secrets("kubetail").Get(t.Context(), sessionKeysSecretName, metav1.GetOptions{})
+		assert.NoError(t, err)
+	})
+
+	t.Run("returns the Secret's error in cluster", func(t *testing.T) {
 		cfg := newTestConfig()
 		cfg.Session.KeyPairs = nil
 
-		result, err := resolveSessionKeyPairs(cfg)
+		_, err := resolveSessionKeyPairs(t.Context(), cfg, nil, filepath.Join(t.TempDir(), "missing"))
+		assert.ErrorContains(t, err, "reading the Dashboard's namespace")
+	})
+
+	t.Run("rejects an unknown environment", func(t *testing.T) {
+		cfg := newTestConfig()
+		cfg.Session.KeyPairs = nil
+		cfg.Environment = ""
+
+		_, err := resolveSessionKeyPairs(t.Context(), cfg, nil, "")
+		assert.ErrorContains(t, err, "env not supported")
+	})
+}
+
+// writeNamespaceFile writes namespace to a file laid out like the pod's
+// ServiceAccount namespace file, and returns its path.
+func writeNamespaceFile(t *testing.T, namespace string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "namespace")
+	require.NoError(t, os.WriteFile(path, []byte(namespace), 0600))
+	return path
+}
+
+func newSessionKeysSecret(namespace string, data []byte) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: sessionKeysSecretName, Namespace: namespace},
+		Data:       map[string][]byte{sessionKeysSecretKey: data},
+	}
+}
+
+func TestLoadOrCreateSecretKeyPairs(t *testing.T) {
+	newCM := func(clientset *fake.Clientset) *k8shelpersmock.MockConnectionManager {
+		cm := &k8shelpersmock.MockConnectionManager{}
+		cm.On("GetOrCreateClientset", "").Return(clientset, nil)
+		return cm
+	}
+
+	t.Run("creates the Secret and reuses it on the next start", func(t *testing.T) {
+		clientset := fake.NewClientset()
+		cm := newCM(clientset)
+		nsPath := writeNamespaceFile(t, "kubetail\n")
+
+		first, err := loadOrCreateSecretKeyPairs(t.Context(), cm, nsPath)
 		require.NoError(t, err)
-		assert.Len(t, result, 2)
+		require.Len(t, first, 1)
+
+		secret, err := clientset.CoreV1().Secrets("kubetail").Get(t.Context(), sessionKeysSecretName, metav1.GetOptions{})
+		require.NoError(t, err)
+		assert.Contains(t, secret.Data, sessionKeysSecretKey)
+
+		second, err := loadOrCreateSecretKeyPairs(t.Context(), cm, nsPath)
+		require.NoError(t, err)
+		assert.Equal(t, first, second)
+	})
+
+	t.Run("loads an existing Secret", func(t *testing.T) {
+		kp, err := randomKeyPair()
+		require.NoError(t, err)
+		data, err := json.Marshal([]persistedKeyPair{{KeyPair: kp, CreatedAt: time.Now().UTC()}})
+		require.NoError(t, err)
+		clientset := fake.NewClientset(newSessionKeysSecret("kubetail", data))
+
+		pairs, err := loadOrCreateSecretKeyPairs(t.Context(), newCM(clientset), writeNamespaceFile(t, "kubetail"))
+		require.NoError(t, err)
+		assert.Equal(t, []config.KeyPair{kp}, pairs)
+	})
+
+	t.Run("reads the winner's Secret after losing the create race", func(t *testing.T) {
+		kp, err := randomKeyPair()
+		require.NoError(t, err)
+		data, err := json.Marshal([]persistedKeyPair{{KeyPair: kp, CreatedAt: time.Now().UTC()}})
+		require.NoError(t, err)
+
+		// The first get misses; another replica's Secret lands before the create.
+		clientset := fake.NewClientset()
+		gets := 0
+		clientset.PrependReactor("get", "secrets", func(action k8stesting.Action) (bool, runtime.Object, error) {
+			gets++
+			if gets == 1 {
+				return true, nil, k8serrors.NewNotFound(corev1.Resource("secrets"), sessionKeysSecretName)
+			}
+			return false, nil, nil
+		})
+		require.NoError(t, clientset.Tracker().Add(newSessionKeysSecret("kubetail", data)))
+
+		pairs, err := loadOrCreateSecretKeyPairs(t.Context(), newCM(clientset), writeNamespaceFile(t, "kubetail"))
+		require.NoError(t, err)
+		assert.Equal(t, []config.KeyPair{kp}, pairs)
+		assert.Equal(t, 2, gets)
+	})
+
+	t.Run("refuses an invalid Secret", func(t *testing.T) {
+		clientset := fake.NewClientset(newSessionKeysSecret("kubetail", []byte("not valid json")))
+
+		_, err := loadOrCreateSecretKeyPairs(t.Context(), newCM(clientset), writeNamespaceFile(t, "kubetail"))
+		assert.ErrorContains(t, err, "delete it to generate new session keys")
+	})
+
+	t.Run("returns a get error", func(t *testing.T) {
+		clientset := fake.NewClientset()
+		clientset.PrependReactor("get", "secrets", func(action k8stesting.Action) (bool, runtime.Object, error) {
+			return true, nil, k8serrors.NewForbidden(corev1.Resource("secrets"), sessionKeysSecretName, nil)
+		})
+
+		_, err := loadOrCreateSecretKeyPairs(t.Context(), newCM(clientset), writeNamespaceFile(t, "kubetail"))
+		assert.True(t, k8serrors.IsForbidden(err))
+	})
+
+	t.Run("returns a create error", func(t *testing.T) {
+		clientset := fake.NewClientset()
+		clientset.PrependReactor("create", "secrets", func(action k8stesting.Action) (bool, runtime.Object, error) {
+			return true, nil, k8serrors.NewForbidden(corev1.Resource("secrets"), sessionKeysSecretName, nil)
+		})
+
+		_, err := loadOrCreateSecretKeyPairs(t.Context(), newCM(clientset), writeNamespaceFile(t, "kubetail"))
+		assert.True(t, k8serrors.IsForbidden(err))
+	})
+
+	t.Run("returns a clientset error", func(t *testing.T) {
+		cm := &k8shelpersmock.MockConnectionManager{}
+		cm.On("GetOrCreateClientset", "").Return(nil, errors.New("no clientset"))
+
+		_, err := loadOrCreateSecretKeyPairs(t.Context(), cm, writeNamespaceFile(t, "kubetail"))
+		assert.ErrorContains(t, err, "no clientset")
 	})
 }

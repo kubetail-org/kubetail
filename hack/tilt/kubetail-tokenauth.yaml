@@ -16,9 +16,6 @@ data:
     cluster-api-enabled: true
     gin-mode: debug
     session:
-      key-pairs:
-        - signing-key: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
-          encryption-key: cafebabecafebabecafebabecafebabecafebabecafebabecafebabecafebabe
       cookie:
         name: kubetail_dashboard_session
         path: /
@@ -159,6 +156,15 @@ rules:
   - apiGroups: [discovery.k8s.io]
     resources: [endpointslices]
     verbs: [list, watch]
+  # Session key pairs, kept across restarts and shared by replicas. Create
+  # cannot be limited to a resource name.
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [kubetail-dashboard-session-keys]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [create]
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
