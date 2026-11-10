@@ -4,7 +4,7 @@ A Cargo workspace of three crates: `cluster_agent` (the Cluster Agent, a gRPC se
 
 - **Run cargo from `crates/`, never from a crate's directory.** `make crates-test` and `make crates-build` run in `crates/rgkl` and cover `rgkl` alone.
 - **`protoc` must be on `PATH` for any build, clippy or test.** `types/build.rs` compiles the proto on every build; the output is never committed. Editing the proto: `proto/CLAUDE.md`.
-- **The toolchain is `stable`, unpinned.** A new stable release can add clippy lints that fail `-D warnings` on code nobody touched; fix them in a commit of their own.
+- **`rust-toolchain.toml` pins the exact Rust version**, which CI and the agent's Dockerfiles share (root `CLAUDE.md`, Dependencies). A bump can add clippy lints that fail `-D warnings` on code nobody touched; fix them in the same PR.
 
 ## Checks
 

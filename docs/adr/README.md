@@ -82,6 +82,7 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 | 2026-11-09 | [Measure Go coverage across the workspace](2026-11-09-measure-go-coverage-across-the-workspace.md) | repo | Accepted |
 | 2026-11-09 | [Pin fsnotify to v1.8.0](2026-11-09-pin-fsnotify-to-v1-8-0.md) | repo | Accepted |
 | 2026-11-09 | [Release each component by its own tag](2026-11-09-release-each-component-by-its-own-tag.md) | repo | Accepted |
+| 2026-11-10 | [Pin each toolchain to one version that CI and the images share](2026-11-10-pin-each-toolchain-to-one-version-that-ci-and-the-images-share.md) | repo | Accepted |
 | 2026-11-10 | [Run each OS once on a PR and the other platforms on main](2026-11-10-run-each-os-once-on-a-pr-and-the-other-platforms-on-main.md) | repo | Accepted |
 | 2026-11-09 | [Tests sit beside their files, never sleep, and take seams as parameters](2026-11-09-tests-sit-beside-their-files-never-sleep-and-take-seams-as-parameters.md) | repo | Accepted |
 | 2026-11-09 | [Share informers and gate each caller with an access review](2026-11-09-share-informers-and-gate-each-caller-with-an-access-review.md) | shared | Accepted |

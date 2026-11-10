@@ -153,11 +153,16 @@ lint-sh:
 lint-md:
 	@sh scripts/check-markdown-links.sh
 
+# Every Dockerfile's golang, node and rust image matches CI's version
+# (scripts/check-toolchain-versions.sh).
+lint-toolchains:
+	@sh scripts/check-toolchain-versions.sh
+
 lint-python:
 	@cd e2e && uv sync --group dev && uv run ruff check . && uv run ruff format --check .
 
 # Every linter CI runs.
-lint: lint-all lint-sh lint-md lint-python
+lint: lint-all lint-sh lint-md lint-toolchains lint-python
 	@echo "All CI linters passed."
 
 # Combined targets
@@ -238,6 +243,7 @@ help:
 	@echo "  lint-yaml             - Lint YAML files and workflows"
 	@echo "  lint-sh               - Lint every shell script"
 	@echo "  lint-md               - Check local links in every Markdown file"
+	@echo "  lint-toolchains       - Check the Dockerfiles' toolchains match CI's"
 	@echo "  lint-python           - Lint the e2e suite"
 	@echo "  test-all              - Run all tests"
 	@echo "  test-changed          - Run the tests for this branch's changes"
