@@ -172,6 +172,7 @@ jobs:
   sign-darwin:
     name: Sign darwin binaries
     needs: [config, build]
+    if: ${{ needs.config.outputs.dry_run == 'false' }}
     environment: production
     runs-on: macos-latest
     strategy:
@@ -236,6 +237,7 @@ jobs:
   sign-windows:
     name: Create windows zip and sign binaries
     needs: [config, build]
+    if: ${{ needs.config.outputs.dry_run == 'false' }}
     environment: production
     runs-on: windows-latest
     strategy:
@@ -293,7 +295,10 @@ jobs:
 
   package-tarball:
     name: Create gzipped tarballs
-    needs: [config, sign-darwin, sign-windows]
+    # On a dry run the signing jobs are skipped and the unsigned build
+    # artifacts, which carry the same names, are packaged instead.
+    needs: [config, build, sign-darwin, sign-windows]
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -351,7 +356,10 @@ jobs:
   release:
     name: Create GitHub release
     needs: [config, package-tarball]
-    environment: production
+    # A skipped signing job upstream would skip this job by default.
+    if: ${{ !failure() && !cancelled() }}
+    # An empty name runs the job outside any environment.
+    environment: ${{ needs.config.outputs.dry_run == 'false' && 'production' || '' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -381,6 +389,7 @@ jobs:
           sha256sum * > SHA256SUMS
 
       - name: Import GPG key
+        if: ${{ needs.config.outputs.dry_run == 'false' }}
         uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
         with:
           gpg_private_key: ${{ secrets.KUBETAIL_BOT_GPG_SIGNING_KEY }}
@@ -388,6 +397,7 @@ jobs:
           fingerprint: ${{ vars.KUBETAIL_BOT_GPG_SIGNING_KEY_FINGERPRINT }}
 
       - name: Sign SHA256SUMS with GPG
+        if: ${{ needs.config.outputs.dry_run == 'false' }}
         working-directory: ./assets
         run: |
           gpg --armor --detach-sign SHA256SUMS
@@ -397,12 +407,12 @@ jobs:
         run: |
           ls -lah assets/*
           cat assets/SHA256SUMS
-          cat assets/SHA256SUMS.asc
 
       - name: Create release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         if: ${{ needs.config.outputs.dry_run == 'false' }}
         with:
+          tag_name: cli/v${{ needs.config.outputs.version }}
           files: assets/*
           draft: true
           prerelease: ${{ contains(needs.config.outputs.version, '-') }}
