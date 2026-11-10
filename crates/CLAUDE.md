@@ -41,6 +41,7 @@ Runs as a DaemonSet with the node's `/var/log` mounted read-only. Only the Clust
 Two entry points, `stream_forward` and `stream_backward`, both called by `cluster_agent/src/log_records.rs`. Each sends `Result<LogRecord, Status>` on a tokio `mpsc` channel and returns `()`. An error travels in the channel, never as a return value.
 
 - **The format comes from the file name**: Docker JSON when the path ends in `-json.log`, else CRI.
+- **A CRI line is split only in `util/cri.rs`.** The grep, the time search and the record writer all call it, so they agree on which lines exist and which are final. A line it rejects is dropped.
 - **A grep matches the message alone**, never the timestamp or stream, and is case-sensitive here; the Go side adds `(?i)` (`modules/shared/logs`). Each space in the pattern becomes a pattern that also matches ANSI sequences. A regex the engine rejects reaches the caller as `InvalidArgument`.
 - **Time bounds are a binary search over byte offsets** (`util/offset.rs`), which assumes timestamps ascend through the file.
 - **Forward** follows the file after the search unless `stop_time` is set or `follow_from` is `Noop`. `FollowFrom::End` ignores both time bounds. Only `Modify` events are handled; a rotated file is not reopened. **Backward** never follows.

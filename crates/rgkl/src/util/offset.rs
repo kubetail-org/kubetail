@@ -18,6 +18,7 @@ use std::io::{BufRead, BufReader, Result as IoResult, Seek, SeekFrom};
 use chrono::{DateTime, Utc};
 use serde_json;
 
+use crate::util::cri;
 use crate::util::format::FileFormat;
 
 /// Represents an offset result from find_nearest_offset()
@@ -156,15 +157,14 @@ fn scan_timestamp(
     while pos <= right {
         let mut line = String::new();
         let bytes_read = reader.read_line(&mut line)?;
-        line = line.trim_end().to_string();
 
         if bytes_read == 0 {
             // EOF reached; no timestamp found.
             return Ok((start_pos, None));
         }
 
-        if let Ok(ts) = parse_timestamp(&line, format, require_final_line) {
-            return Ok((pos, Some((ts, line.len()))));
+        if let Some(ts) = parse_timestamp(&line, format, require_final_line) {
+            return Ok((pos, Some((ts, line.trim_end().len()))));
         }
 
         pos += bytes_read as i64;
@@ -173,38 +173,26 @@ fn scan_timestamp(
     Ok((start_pos, None))
 }
 
-/// Attempts to parse a timestamp from the beginning of the log line.
-/// The log line is expected to start with an RFC 3339 formatted timestamp
-/// or be in Docker JSON format with a "timestamp" field.
+/// Parses the timestamp of a log line. Returns `None` for a line that is
+/// malformed or, with `require_final_line`, partial.
 fn parse_timestamp(
     line: &str,
     format: FileFormat,
     require_final_line: bool,
-) -> Result<DateTime<Utc>, Box<dyn std::error::Error>> {
+) -> Option<DateTime<Utc>> {
     match format {
         FileFormat::Docker => {
-            // Parse the JSON
-            let json: serde_json::Value = serde_json::from_str(line)?;
-
-            // Extract the timestamp field
-            if let Some(timestamp) = json.get("time").and_then(|t| t.as_str()) {
-                let ts = DateTime::parse_from_rfc3339(timestamp)?.with_timezone(&Utc);
-                Ok(ts)
-            } else {
-                Err(format!("missing timestamp field in JSON log: {line}").into())
-            }
+            let json: serde_json::Value = serde_json::from_str(line).ok()?;
+            let timestamp = json.get("time")?.as_str()?;
+            let ts = DateTime::parse_from_rfc3339(timestamp).ok()?;
+            Some(ts.with_timezone(&Utc))
         }
         FileFormat::CRI => {
-            // Original CRI format parsing
-            let parts: Vec<&str> = line.splitn(4, ' ').collect();
-            if parts.len() < 2 {
-                return Err(format!("invalid log line: {line}").into());
+            let cri_line = cri::parse(line.as_bytes())?;
+            if require_final_line && !cri_line.is_final {
+                return None;
             }
-            if require_final_line && parts.get(2) != Some(&"F") {
-                return Err(format!("not a final log line: {line}").into());
-            }
-            let ts = DateTime::parse_from_rfc3339(parts[0])?.with_timezone(&Utc);
-            Ok(ts)
+            cri_line.timestamp()
         }
     }
 }
@@ -235,6 +223,38 @@ mod common {
         }
         tmpfile.flush()?;
         Ok((tmpfile, offsets))
+    }
+}
+
+#[cfg(test)]
+mod tests_parse_timestamp {
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case("2024-10-01T05:40:58Z stdout F message\n", true, true)]
+    #[case("2024-10-01T05:40:58Z stdout P message\n", true, false)]
+    #[case("2024-10-01T05:40:58Z stdin F message\n", false, false)]
+    #[case("2024-10-01T05:40:58+3:00 stdout F message\n", false, false)]
+    fn test_cri(#[case] line: &str, #[case] ok: bool, #[case] ok_as_final: bool) {
+        assert_eq!(parse_timestamp(line, FileFormat::CRI, false).is_some(), ok);
+        assert_eq!(
+            parse_timestamp(line, FileFormat::CRI, true).is_some(),
+            ok_as_final
+        );
+    }
+
+    #[rstest]
+    #[case(r#"{"time":"2024-10-01T05:40:58Z","log":"message"}"#, true)]
+    #[case(r#"{"time":"not-a-timestamp","log":"message"}"#, false)]
+    #[case(r#"{"log":"message"}"#, false)]
+    #[case("failed", false)]
+    fn test_docker(#[case] line: &str, #[case] ok: bool) {
+        assert_eq!(
+            parse_timestamp(line, FileFormat::Docker, true).is_some(),
+            ok
+        );
     }
 }
 
