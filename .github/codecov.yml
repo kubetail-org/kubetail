@@ -1,5 +1,5 @@
 # Coverage. CI uploads each suite's report and Codecov merges every upload of
-# a commit. CI's Coverage · Gate job (tools/coveragegate) reads the merged
+# a commit. The coverage / Gate job (tools/coveragegate) reads the merged
 # result and applies the gate, so Codecov posts no status or check of its own.
 
 coverage:
@@ -30,7 +30,7 @@ component_management:
       paths:
         - crates/**
 
-# No comment on the PR: Coverage · Gate reports.
+# No comment on the PR: coverage / Gate reports.
 comment: false
 
 # A Go profile names files by import path.
