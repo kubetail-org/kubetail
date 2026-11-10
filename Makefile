@@ -69,20 +69,23 @@ clean: ## Remove the built binaries
 lint: lint-go lint-rust lint-ts lint-python lint-sh lint-md lint-yaml lint-toolchains lint-digests ## Run every linter CI runs
 	@echo "All CI linters passed."
 
-lint-go: ## Check Go formatting and coverage markers
+lint-go: ## Check Go formatting, license headers and coverage markers
 	@echo "Linting Go modules..."
 	@cd $(MODULES_DIR) && test -z $$(gofmt -l .)
+	@sh scripts/check-license-headers.sh modules tools scripts
 	@sh scripts/check-coverage-markers.sh modules
 
-lint-rust: ## Check Rust formatting and coverage markers
+lint-rust: ## Check Rust formatting, license headers and coverage markers
 	@echo "Linting Rust crates with architecture $(RUST_ARCH)..."
 	@cd $(CRATES_DIR) && rustup component add rustfmt
 	@cd $(CRATES_DIR) && cargo fmt --all -- --check
+	@sh scripts/check-license-headers.sh crates
 	@sh scripts/check-coverage-markers.sh crates
 
-lint-ts: ## Lint the dashboard UI and check its coverage markers
+lint-ts: ## Lint the dashboard UI and check its license headers and coverage markers
 	@echo "Linting dashboard UI..."
 	@cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm lint
+	@sh scripts/check-license-headers.sh dashboard-ui
 	@sh scripts/check-coverage-markers.sh dashboard-ui/src
 
 lint-python: ## Lint the e2e suite
