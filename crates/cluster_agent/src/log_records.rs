@@ -14,11 +14,14 @@
 
 use std::fs;
 use std::path::PathBuf;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 use chrono::{DateTime, Utc};
 use tokio::sync::mpsc::{self};
+use tokio_stream::Stream;
 use tokio_stream::wrappers::ReceiverStream;
-use tokio_util::sync::CancellationToken;
+use tokio_util::sync::{CancellationToken, DropGuard};
 use tokio_util::task::TaskTracker;
 use types::cluster_agent::log_records_service_server::LogRecordsService;
 use types::cluster_agent::{LogRecord, LogRecordsStreamRequest};
@@ -28,6 +31,31 @@ use rgkl::{stream_backward, stream_forward};
 use tonic::{Request, Response, Status};
 
 use crate::authorizer::Authorizer;
+
+/// A stream of log records that cancels its token when dropped. tonic drops it when the client
+/// disconnects, which ends a search that is sending nothing.
+#[derive(Debug)]
+pub struct RecordStream {
+    records: ReceiverStream<Result<LogRecord, Status>>,
+    _guard: DropGuard,
+}
+
+impl RecordStream {
+    fn new(rx: mpsc::Receiver<Result<LogRecord, Status>>, ctx: CancellationToken) -> Self {
+        Self {
+            records: ReceiverStream::new(rx),
+            _guard: ctx.drop_guard(),
+        }
+    }
+}
+
+impl Stream for RecordStream {
+    type Item = Result<LogRecord, Status>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        Pin::new(&mut self.records).poll_next(cx)
+    }
+}
 
 #[derive(Debug)]
 pub struct LogRecordsImpl {
@@ -78,8 +106,8 @@ impl LogRecordsImpl {
 
 #[tonic::async_trait]
 impl LogRecordsService for LogRecordsImpl {
-    type StreamForwardStream = ReceiverStream<Result<LogRecord, Status>>;
-    type StreamBackwardStream = ReceiverStream<Result<LogRecord, Status>>;
+    type StreamForwardStream = RecordStream;
+    type StreamBackwardStream = RecordStream;
 
     #[tracing::instrument]
     async fn stream_backward(
@@ -96,6 +124,7 @@ impl LogRecordsService for LogRecordsImpl {
         let file_path = self.get_log_filename(&request)?;
         let (tx, rx) = mpsc::channel(100);
         let local_ctx = self.ctx.child_token();
+        let stream = RecordStream::new(rx, local_ctx.clone());
 
         self.task_tracker.spawn(async move {
             stream_backward::stream_backward(
@@ -113,7 +142,7 @@ impl LogRecordsService for LogRecordsImpl {
             .await;
         });
 
-        Ok(Response::new(ReceiverStream::new(rx)))
+        Ok(Response::new(stream))
     }
 
     #[tracing::instrument]
@@ -132,6 +161,7 @@ impl LogRecordsService for LogRecordsImpl {
 
         let (tx, rx) = mpsc::channel(100);
         let local_ctx = self.ctx.child_token();
+        let stream = RecordStream::new(rx, local_ctx.clone());
 
         self.task_tracker.spawn(async move {
             stream_forward::stream_forward(
@@ -150,7 +180,7 @@ impl LogRecordsService for LogRecordsImpl {
             .await;
         });
 
-        Ok(Response::new(ReceiverStream::new(rx)))
+        Ok(Response::new(stream))
     }
 }
 
@@ -165,22 +195,66 @@ mod tests {
     use std::collections::{BTreeMap, BTreeSet};
     use std::path::PathBuf;
     use std::sync::Arc;
+    use std::time::Duration;
+    use tokio::time::timeout;
+    use tokio_stream::StreamExt;
     use tokio_util::sync::CancellationToken;
     use tokio_util::task::TaskTracker;
+    use types::cluster_agent::FollowFrom;
     use types::cluster_agent::log_records_service_server::LogRecordsService;
 
     #[derive(Debug)]
-    struct DenyReviewer;
+    struct FixedReviewer(bool);
 
     #[tonic::async_trait]
-    impl AccessReviewer for DenyReviewer {
+    impl AccessReviewer for FixedReviewer {
         async fn review(&self, _sar: SubjectAccessReview) -> Result<bool, Status> {
-            Ok(false)
+            Ok(self.0)
         }
     }
 
     fn denied_authorizer() -> Authorizer {
-        Authorizer::with_reviewer(Arc::new(DenyReviewer))
+        Authorizer::with_reviewer(Arc::new(FixedReviewer(false)))
+    }
+
+    /// A service over a temp directory holding the log file `log_request` names, which has
+    /// more records than the stream's channel.
+    fn service_with_log_file() -> (LogRecordsImpl, tempfile::TempDir) {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("pod_ns_app-id.log"),
+            "2024-10-01T05:40:46.960135302Z stdout F line\n".repeat(300),
+        )
+        .unwrap();
+
+        let svc = LogRecordsImpl::new(
+            CancellationToken::new(),
+            TaskTracker::new(),
+            dir.path().to_owned(),
+            Authorizer::with_reviewer(Arc::new(FixedReviewer(true))),
+        );
+        (svc, dir)
+    }
+
+    fn log_request(follow_from: FollowFrom) -> LogRecordsStreamRequest {
+        LogRecordsStreamRequest {
+            namespace: "ns".to_owned(),
+            pod_name: "pod".to_owned(),
+            container_name: "app".to_owned(),
+            container_id: "id".to_owned(),
+            follow_from: follow_from.into(),
+            ..LogRecordsStreamRequest::default()
+        }
+    }
+
+    /// Drops the stream as tonic does for a lost client, then waits for the stream's task.
+    async fn assert_task_ends_when_dropped(svc: &LogRecordsImpl, stream: RecordStream) {
+        drop(stream);
+
+        svc.task_tracker.close();
+        timeout(Duration::from_secs(10), svc.task_tracker.wait())
+            .await
+            .expect("stream task did not end after the client dropped the stream");
     }
 
     fn req_with_identity(payload: LogRecordsStreamRequest) -> Request<LogRecordsStreamRequest> {
@@ -234,5 +308,52 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(status.code(), tonic::Code::PermissionDenied);
+    }
+
+    #[test]
+    fn record_stream_cancels_its_token_when_dropped() {
+        let ctx = CancellationToken::new();
+        let (_tx, rx) = mpsc::channel(1);
+
+        let stream = RecordStream::new(rx, ctx.clone());
+        assert!(!ctx.is_cancelled());
+
+        drop(stream);
+        assert!(ctx.is_cancelled());
+    }
+
+    // The file is idle, so the follow waits until the stream is dropped.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn stream_forward_ends_when_client_drops_the_stream() {
+        let (svc, _dir) = service_with_log_file();
+
+        let stream = svc
+            .stream_forward(req_with_identity(log_request(FollowFrom::End)))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert_task_ends_when_dropped(&svc, stream).await;
+    }
+
+    // One record read leaves the channel full, so the search waits until the stream is dropped.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn stream_backward_ends_when_client_drops_the_stream() {
+        let (svc, _dir) = service_with_log_file();
+
+        let mut stream = svc
+            .stream_backward(req_with_identity(log_request(FollowFrom::Noop)))
+            .await
+            .unwrap()
+            .into_inner();
+
+        let record = timeout(Duration::from_secs(10), stream.next())
+            .await
+            .expect("Timed out waiting for a record")
+            .expect("stream ended early")
+            .unwrap();
+        assert_eq!(record.message, "line");
+
+        assert_task_ends_when_dropped(&svc, stream).await;
     }
 }

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::fs::File;
-use std::io::{BufRead, BufReader, Result as IoResult, Seek, SeekFrom};
+use std::io::{BufRead, BufReader, Read, Result as IoResult, Seek, SeekFrom};
 
 use chrono::{DateTime, Utc};
 use serde_json;
@@ -68,6 +68,26 @@ pub fn find_nearest_offset_until(
 enum FindMode {
     Since,
     Until,
+}
+
+/// Returns the offset just past the last newline in the first `len` bytes, or 0 without one.
+pub fn end_of_last_line(mut reader: impl Read + Seek, len: u64) -> IoResult<u64> {
+    let mut buf = [0u8; 8192];
+    let mut end = len;
+
+    while end > 0 {
+        let start = end.saturating_sub(buf.len() as u64);
+        let chunk = &mut buf[..(end - start) as usize];
+        reader.seek(SeekFrom::Start(start))?;
+        reader.read_exact(chunk)?;
+
+        if let Some(pos) = memchr::memrchr(b'\n', chunk) {
+            return Ok(start + pos as u64 + 1);
+        }
+        end = start;
+    }
+
+    Ok(0)
 }
 
 fn find_nearest_offset(
@@ -844,5 +864,33 @@ mod tests_find_nearest_offset_until {
         assert_eq!(offset.as_ref(), Some(&offsets[0]));
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests_end_of_last_line {
+    #![allow(clippy::unwrap_used)]
+
+    use std::io::Cursor;
+
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case::empty("", 0)]
+    #[case::no_newline("abc", 0)]
+    #[case::ends_with_newline("a\nb\n", 4)]
+    #[case::unfinished_last_line("a\nbc", 2)]
+    fn test_end_of_last_line(#[case] content: &str, #[case] expected: u64) {
+        let end = end_of_last_line(Cursor::new(content), content.len() as u64).unwrap();
+        assert_eq!(end, expected);
+    }
+
+    #[test]
+    fn test_newline_before_the_last_chunk() {
+        let content = format!("a\n{}", "b".repeat(20_000));
+        let end = end_of_last_line(Cursor::new(&content), content.len() as u64).unwrap();
+        assert_eq!(end, 2);
     }
 }

@@ -102,7 +102,8 @@ pub fn process_output(
             return;
         }
 
-        if let Some(lines) = data["lines"].as_object() {
+        // The printer encodes a line that is not UTF-8 under `bytes`, with no `text`.
+        if let Some(lines) = data.get("lines") {
             if let Some(text) = lines["text"].as_str() {
                 match format {
                     FileFormat::Docker => {
@@ -132,9 +133,10 @@ pub fn process_output(
                         // Original logic for CRI format
                         if let Some((first, rest)) = text.split_once(' ') {
                             // TODO: Should we return an error on parsing issues?
-                            if rest.len() < 9 {
+                            // `get` also rejects an offset inside a multi-byte character.
+                            let Some(message) = rest.get(9..) else {
                                 return;
-                            }
+                            };
 
                             let timestamp = match Timestamp::from_str(first) {
                                 Ok(ts) => Some(ts),
@@ -143,8 +145,8 @@ pub fn process_output(
 
                             let record = LogRecord {
                                 timestamp,
-                                message: rest[9..].trim_end().to_string(),
-                                is_final: rest.as_bytes()[8] == b'F',
+                                message: message.trim_end().to_string(),
+                                is_final: rest.as_bytes()[7] == b'F',
                             };
 
                             let result = task::block_in_place(|| sender.blocking_send(Ok(record)));
@@ -157,5 +159,57 @@ pub fn process_output(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #![allow(clippy::unwrap_used)]
+
+    use rstest::rstest;
+    use serde_json::json;
+    use tokio::sync::mpsc;
+
+    use super::*;
+
+    // Each chunk is a match the JSON printer can emit for an attacker-written line.
+    #[rstest]
+    #[case::not_utf8(json!({"bytes": "//4K"}))]
+    #[case::multi_byte_char_across_the_message_offset(
+        json!({"text": "2024-10-01T05:40:46.960135302Z stdout \u{20ac}\u{20ac}\u{20ac}\n"})
+    )]
+    fn test_process_output_skips_a_malformed_line(#[case] lines: serde_json::Value) {
+        let (tx, mut rx) = mpsc::channel(1);
+        let chunk = json!({"type": "match", "data": {"lines": lines}}).to_string();
+
+        process_output(
+            CancellationToken::new(),
+            chunk.into_bytes(),
+            &tx,
+            FileFormat::CRI,
+        );
+
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[rstest]
+    #[case::full("F", true)]
+    #[case::partial("P", false)]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_process_output_reads_the_cri_tag(#[case] tag: &str, #[case] is_final: bool) {
+        let (tx, mut rx) = mpsc::channel(1);
+        let text = format!("2024-10-01T05:40:46.960135302Z stdout {tag} message\n");
+        let chunk = json!({"type": "match", "data": {"lines": {"text": text}}}).to_string();
+
+        process_output(
+            CancellationToken::new(),
+            chunk.into_bytes(),
+            &tx,
+            FileFormat::CRI,
+        );
+
+        let record = rx.try_recv().unwrap().unwrap();
+        assert_eq!(record.message, "message");
+        assert_eq!(record.is_final, is_final);
     }
 }

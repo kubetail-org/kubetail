@@ -44,13 +44,15 @@ Two entry points, `stream_forward` and `stream_backward`, both called by `cluste
 - **Time bounds are a binary search over byte offsets** (`util/offset.rs`), which assumes timestamps ascend through the file.
 - **Forward** follows the file after the search unless `stop_time` is set or `follow_from` is `Noop`. `FollowFrom::End` ignores both time bounds. Only `Modify` events are handled; a rotated file is not reopened. **Backward** never follows.
 - **Sends block.** `process_output` sends with `task::block_in_place(|| sender.blocking_send(..))`, which panics on a current-thread runtime. A test in which a record is sent is `#[tokio::test(flavor = "multi_thread")]`.
-- **A lost client is noticed on the next send.** A failed send cancels the stream's token.
+- **A lost client ends the stream.** The agent's `RecordStream` cancels the stream's token when tonic drops it, which stops a search that is sending nothing. In `rgkl`, a failed send cancels the token and a follow waiting on an idle file selects on `sender.closed()`, ahead of `ctx.cancelled()`: a lost client is not a shutdown.
+- **A follow emits whole lines only.** The search stops at the last newline and the follow reads on from there, so a line still being written is held until its newline arrives. A line longer than `MAX_LINE_LEN` is skipped whole, so its tail is never parsed as a record.
+- **`process_output` skips a line it cannot parse**, in the search and the follow alike: one that is not UTF-8, or not in the file's format.
 
 ## Conventions
 
 - **No `unwrap` outside tests.** The workspace denies `clippy::unwrap_used`, and a crate inherits it with `[lints] workspace = true`. A test module that calls `unwrap` opens with `#![allow(clippy::unwrap_used)]`. `expect` is for what cannot fail at run time (a static regex, a required clap argument) and says so in its message.
 - **Errors are a `thiserror` enum per area with one mapping to `tonic::Status`**: `AuthError` through `auth_error_to_status`, `WatcherError` and `FsWatcherError` through `From<_> for Status`. Add a variant and its mapping together.
-- **Cancellation is `tokio_util`'s `CancellationToken`.** A signal cancels the root token and every stream holds a child. A loop selects on `ctx.cancelled()`; a followed stream or a metadata watch cancelled by shutdown sends `Unavailable` before it ends. Per-request work is spawned through the `TaskTracker`, never a bare `tokio::spawn`, so shutdown waits for it.
+- **Cancellation is `tokio_util`'s `CancellationToken`.** A signal cancels the root token and every stream holds a child. A loop selects on `ctx.cancelled()`; a followed stream or a metadata watch cancelled by shutdown sends `Unavailable` before it ends. A metadata watch also selects on `log_metadata_tx.closed()`. Per-request work is spawned through the `TaskTracker`, never a bare `tokio::spawn`, so shutdown waits for it.
 - **Logging is `tracing`**: `info!` for lifecycle in `main.rs`, `debug!` for nearly everything else.
 - **Decisions are free functions, I/O is a thin shell around them.** `authenticate`, `check`, `build_sar` and the `util/offset.rs` searches are tested without a server, a cluster or a watcher. Shape new logic the same way.
 - **Module files are `foo.rs` beside a `foo/` directory** in `cluster_agent`. A service implementation is `<Service>Impl`.

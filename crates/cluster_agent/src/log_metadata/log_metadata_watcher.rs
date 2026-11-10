@@ -183,6 +183,10 @@ impl LogMetadataWatcher {
                     let _ = self.log_metadata_tx.send(Err(shutdown_status)).await;
                     break;
                 }
+                _ = self.log_metadata_tx.closed() => {
+                    debug!("Channel closed from client.");
+                    break;
+                }
             }
         }
 
@@ -724,6 +728,41 @@ mod test {
         let status = result.unwrap_err();
         assert_eq!(status.code(), tonic::Code::Unavailable);
         assert_eq!(status.message(), "Server is shutting down");
+    }
+
+    #[tokio::test]
+    #[parallel]
+    async fn test_watch_ends_when_receiver_dropped() {
+        let file = create_test_file("pod-name_drop-namespace_container-name-containerid", 1);
+        let logs_dir = file.path().parent().unwrap().to_owned();
+
+        let (mut log_metadata_watcher, log_metadata_rx) = LogMetadataWatcher::new(
+            CancellationToken::new(),
+            logs_dir,
+            vec!["drop-namespace".into()],
+            "The node name".to_owned(),
+        );
+
+        let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
+        log_metadata_watcher.lifecycle_tx = Some(lifecycle_tx);
+
+        let handle =
+            task::spawn(
+                async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await },
+            );
+
+        let started = tokio::time::timeout(Duration::from_secs(10), lifecycle_rx.recv())
+            .await
+            .expect("Timed out waiting for the watcher to start");
+        assert!(matches!(started, Ok(LifecycleEvent::WatcherStarted)));
+
+        // No file changes, so only the dropped receiver can end the watch.
+        drop(log_metadata_rx);
+
+        tokio::time::timeout(Duration::from_secs(10), handle)
+            .await
+            .expect("watch did not end after the receiver was dropped")
+            .unwrap();
     }
 
     #[allow(clippy::too_many_arguments)]

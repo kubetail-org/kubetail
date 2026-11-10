@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
+use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
@@ -30,9 +30,12 @@ use types::cluster_agent::{FollowFrom, LogRecord};
 use crate::fs_watcher_error::FsWatcherError;
 use crate::util::format::FileFormat;
 use crate::util::matcher::{LogFileRegexMatcher, PassThroughMatcher};
-use crate::util::offset::{find_nearest_offset_since, find_nearest_offset_until};
+use crate::util::offset::{end_of_last_line, find_nearest_offset_since, find_nearest_offset_until};
 use crate::util::reader::TermReader;
 use crate::util::writer::{process_output, CallbackWriter};
+
+/// The longest line a follow buffers. A longer one is skipped whole.
+const MAX_LINE_LEN: usize = 1024 * 1024;
 
 /// Lifecycle events emitted by stream_forward
 #[derive(Debug, Clone)]
@@ -58,6 +61,10 @@ where
     search_callback: F,
     /// Reader to get log lines from.
     log_file_reader: BufReader<File>,
+    /// The start of a line whose newline has not been written yet.
+    partial_line: Vec<u8>,
+    /// The line being read has outgrown `partial_line`, so the rest of it is discarded.
+    skip_line: bool,
     /// Receives the events that come from notify.
     output_rx: Receiver<Result<Event, Error>>,
     /// Internal notify watcher.
@@ -140,16 +147,25 @@ fn setup_fs_watcher<'a>(
         FileFormat::CRI
     };
 
+    let follow = follow_from == FollowFrom::End
+        || (follow_from == FollowFrom::Default && stop_time.is_none());
+
+    // The follow reads on from here, so the search stops at the last whole line.
+    let search_end = if follow {
+        end_of_last_line(&file, max_offset)?
+    } else {
+        max_offset
+    };
+
     // Get start pos
     let mut start_pos: u64 = 0;
     if follow_from == FollowFrom::End {
-        // When following from the end, start at the end of the file
-        start_pos = max_offset;
+        start_pos = search_end;
     } else if let Some(start_time) = start_time {
-        if let Some(offset) = find_nearest_offset_since(&file, start_time, 0, max_offset, format)? {
-            start_pos = offset.byte_offset;
-        } else {
-            return Ok(None); // No records, exit early
+        match find_nearest_offset_since(&file, start_time, 0, max_offset, format)? {
+            Some(offset) => start_pos = offset.byte_offset,
+            None if follow => start_pos = search_end,
+            None => return Ok(None), // No records, exit early
         }
     }
 
@@ -165,6 +181,10 @@ fn setup_fs_watcher<'a>(
                 return Ok(None); // No records, exit early
             }
         }
+    }
+
+    if follow {
+        take_length = Some(search_end.saturating_sub(start_pos));
     }
 
     // Seek to starting position
@@ -210,15 +230,7 @@ fn setup_fs_watcher<'a>(
         let _ = searcher.search_reader(&matcher, term_reader, sink);
     }
 
-    if ctx.is_cancelled() {
-        return Ok(None);
-    }
-
-    if take_length.is_some() {
-        return Ok(None);
-    }
-
-    if follow_from == FollowFrom::Noop {
+    if ctx.is_cancelled() || !follow {
         return Ok(None);
     }
 
@@ -246,63 +258,77 @@ fn setup_fs_watcher<'a>(
     watcher.watch(path, RecursiveMode::NonRecursive)?;
 
     let mut reader = BufReader::new(File::open(path)?);
-    reader.seek(SeekFrom::End(0))?;
+    reader.seek(SeekFrom::Start(search_end))?;
 
     Ok(Some(FsWatcher {
         search_callback: search_slice,
         log_file_reader: reader,
+        partial_line: Vec::new(),
+        skip_line: false,
         _notify_watcher: watcher,
         output_rx: notify_rx,
     }))
 }
 
-/// Listens for update Events from notify, process the new log lines to produce `LogRecord` events
-/// and pushes them  to the sender. Loops until a signal is sent to the `term_tx` channel.
+impl<F: FnMut(&[u8])> FsWatcher<F> {
+    /// Searches each line the file has gained. A line still being written stays in
+    /// `partial_line` until its newline arrives.
+    fn search_new_lines(&mut self, ctx: &CancellationToken) -> io::Result<()> {
+        while !ctx.is_cancelled() {
+            let room = (MAX_LINE_LEN - self.partial_line.len()) as u64;
+            let mut reader = (&mut self.log_file_reader).take(room);
+            if reader.read_until(b'\n', &mut self.partial_line)? == 0 {
+                break;
+            }
+
+            let complete = self.partial_line.ends_with(b"\n");
+            if complete && !self.skip_line {
+                (self.search_callback)(&self.partial_line);
+            }
+            if complete || self.partial_line.len() == MAX_LINE_LEN {
+                self.skip_line = !complete;
+                self.partial_line.clear();
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Reads the lines the file gains and pushes them to the sender as `LogRecord`s: once for what
+/// landed since the search, then on each `Modify` event. Loops until `ctx` is cancelled, the
+/// receiver is dropped or the watch fails.
 async fn listen_for_changes(
     ctx: CancellationToken,
     mut fs_watcher: FsWatcher<impl FnMut(&[u8])>,
     sender: Sender<Result<LogRecord, Status>>,
 ) {
-    'outer: loop {
-        select! {
-            ev = fs_watcher.output_rx.recv() => {
-                match ev {
-                    Some(Ok(event)) => {
-                        if let EventKind::Modify(_) = event.kind {
-                            for line in (&mut fs_watcher.log_file_reader).lines() {
-                                if ctx.is_cancelled() {
-                                    break 'outer;
-                                }
+    let mut modified = true;
 
-                                match line {
-                                    Ok(l) => {
-                                        (fs_watcher.search_callback)(l.as_bytes());
-                                    },
-                                    Err(e) => {
-                                        let _ = sender.send(Err(Status::from_error(Box::new(e)))).await;
-                                        return;
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    Some(Err(e)) => {
-                        let _ = sender.send(Err(Status::from(FsWatcherError::Watch(e)))).await;
-                        return;
-                    }
-                    None => {
-                        let _ = sender.send(Err(Status::new(tonic::Code::Unknown, "Notify channel closed."))).await;
-                        return;
-                    }
-                }
-            },
-            _ = ctx.cancelled() => {
-                // Send gRPC UNAVAILABLE error to indicate server shutdown
-                let shutdown_status = Status::new(tonic::Code::Unavailable, "Server is shutting down");
-                let _ = sender.send(Err(shutdown_status)).await;
-                break 'outer;
-            },
+    loop {
+        if modified {
+            if let Err(e) = fs_watcher.search_new_lines(&ctx) {
+                let _ = sender.send(Err(Status::from_error(Box::new(e)))).await;
+                return;
+            }
         }
+
+        let status = select! {
+            // A dropped response stream also cancels `ctx`: a lost client is not a shutdown.
+            biased;
+            _ = sender.closed() => return,
+            _ = ctx.cancelled() => Status::new(tonic::Code::Unavailable, "Server is shutting down"),
+            ev = fs_watcher.output_rx.recv() => match ev {
+                Some(Ok(event)) => {
+                    modified = matches!(event.kind, EventKind::Modify(_));
+                    continue;
+                }
+                Some(Err(e)) => FsWatcherError::Watch(e).into(),
+                None => Status::new(tonic::Code::Unknown, "Notify channel closed."),
+            },
+        };
+
+        let _ = sender.send(Err(status)).await;
+        return;
     }
 }
 
@@ -355,6 +381,31 @@ mod test {
         file.sync_all()?;
 
         Ok(())
+    }
+
+    async fn wait_for_watcher(lifecycle_rx: &mut broadcast::Receiver<LifecycleEvent>) {
+        let event = time::timeout(Duration::from_secs(10), lifecycle_rx.recv())
+            .await
+            .expect("Timed out waiting for the watcher to start");
+        assert!(
+            matches!(event, Ok(LifecycleEvent::WatcherStarted)),
+            "stream ended before the watcher started"
+        );
+    }
+
+    fn append(path: &Path, bytes: &[u8]) {
+        let mut file = std::fs::OpenOptions::new().append(true).open(path).unwrap();
+        file.write_all(bytes).unwrap();
+        file.sync_all().unwrap();
+    }
+
+    async fn next_message(rx: &mut Receiver<Result<LogRecord, Status>>) -> String {
+        time::timeout(Duration::from_secs(10), rx.recv())
+            .await
+            .expect("Timed out waiting for a record")
+            .expect("stream ended early")
+            .expect("stream sent an error")
+            .message
     }
 
     /// Compare captured binary output with expected lines
@@ -598,11 +649,7 @@ mod test {
 
         // Wait until stream_forward goes into the wait loop to signal the writing thread to start.
         if is_follow {
-            // Wait for WatcherStartedEvent
-            while !matches!(
-                lifecycle_rx.recv().await,
-                Ok(LifecycleEvent::WatcherStarted)
-            ) {}
+            wait_for_watcher(&mut lifecycle_rx).await;
 
             // Update the file with new lines
             update_test_file(test_file.path()).expect("Failed to update test file");
@@ -689,11 +736,7 @@ mod test {
             .await;
         });
 
-        // Wait for WatcherStartedEvent
-        while !matches!(
-            lifecycle_rx.recv().await,
-            Ok(LifecycleEvent::WatcherStarted)
-        ) {}
+        wait_for_watcher(&mut lifecycle_rx).await;
 
         // Trigger termination and assert the forwarded shutdown error
         ctx.cancel();
@@ -705,6 +748,195 @@ mod test {
 
         // Channel should close after sending the shutdown error
         assert!(rx.recv().await.is_none());
+    }
+
+    /// Starts a follow of `path` and returns its records once the watcher is up.
+    async fn follow(
+        path: &Path,
+        follow_from: FollowFrom,
+    ) -> (task::JoinHandle<()>, Receiver<Result<LogRecord, Status>>) {
+        let path = path.to_path_buf();
+        let (tx, rx) = mpsc::channel(100);
+        let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
+
+        let handle = task::spawn(async move {
+            stream_forward_with_lifecyle_events(
+                CancellationToken::new(),
+                &path,
+                None,
+                None,
+                None,
+                follow_from,
+                tx,
+                Some(lifecycle_tx),
+            )
+            .await;
+        });
+
+        wait_for_watcher(&mut lifecycle_rx).await;
+        (handle, rx)
+    }
+
+    #[tokio::test]
+    async fn test_follow_ends_when_receiver_dropped() {
+        let test_file = create_test_file();
+        let (handle, rx) = follow(test_file.path(), FollowFrom::End).await;
+
+        // The file stays idle, so only the dropped receiver can end the follow.
+        drop(rx);
+
+        time::timeout(Duration::from_secs(10), handle)
+            .await
+            .expect("follow did not end after the receiver was dropped")
+            .unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_follow_holds_an_unfinished_line_and_skips_invalid_utf8() {
+        let test_file = create_test_file();
+        append(
+            test_file.path(),
+            b"2024-10-01T05:41:00.103901462Z stdout F written before",
+        );
+
+        let (_handle, mut rx) = follow(test_file.path(), FollowFrom::Default).await;
+        for i in 1..=10 {
+            assert_eq!(next_message(&mut rx).await, format!("linenum {i}"));
+        }
+
+        append(
+            test_file.path(),
+            b" the follow\n\
+              2024-10-01T05:41:01.204901463Z stdout F \xff\xfe\n\
+              2024-10-01T05:41:02.305901464Z stdout F whole\n\
+              2024-10-01T05:41:03.406901465Z stdout F first half,",
+        );
+        assert_eq!(next_message(&mut rx).await, "written before the follow");
+        assert_eq!(next_message(&mut rx).await, "whole");
+
+        append(test_file.path(), b" second half\n");
+        assert_eq!(next_message(&mut rx).await, "first half, second half");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_follow_waits_when_no_line_is_since_start_time() {
+        let test_file = create_test_file();
+        let path = test_file.path().to_path_buf();
+        let (tx, mut rx) = mpsc::channel(100);
+        let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
+
+        task::spawn(async move {
+            stream_forward_with_lifecyle_events(
+                CancellationToken::new(),
+                &path,
+                Some("2024-10-01T05:41:00Z".parse().unwrap()),
+                None,
+                None,
+                FollowFrom::Default,
+                tx,
+                Some(lifecycle_tx),
+            )
+            .await;
+        });
+
+        wait_for_watcher(&mut lifecycle_rx).await;
+
+        update_test_file(test_file.path()).unwrap();
+        assert_eq!(next_message(&mut rx).await, "linenum 11");
+    }
+
+    /// Runs the follow loop over a watcher that reads `file` and has `event` waiting, and
+    /// returns the status the loop ends with.
+    async fn follow_failure(file: File, event: Option<Result<Event, Error>>) -> Status {
+        let (notify_tx, notify_rx) = mpsc::channel(1);
+        let (tx, mut rx) = mpsc::channel(1);
+
+        let fs_watcher = FsWatcher {
+            search_callback: |_: &[u8]| {},
+            log_file_reader: BufReader::new(file),
+            partial_line: Vec::new(),
+            skip_line: false,
+            output_rx: notify_rx,
+            _notify_watcher: RecommendedWatcher::new(
+                |_: Result<Event, Error>| {},
+                Config::default(),
+            )
+            .unwrap(),
+        };
+
+        if let Some(event) = event {
+            notify_tx.send(event).await.unwrap();
+        }
+        drop(notify_tx);
+
+        time::timeout(
+            Duration::from_secs(10),
+            listen_for_changes(CancellationToken::new(), fs_watcher, tx),
+        )
+        .await
+        .expect("follow did not end");
+
+        rx.recv().await.unwrap().unwrap_err()
+    }
+
+    #[tokio::test]
+    async fn test_follow_ends_with_the_watch_error() {
+        let file = File::open(TEST_FILE.path()).unwrap();
+
+        let status = follow_failure(file, Some(Err(Error::generic("watch failed")))).await;
+
+        assert!(status.message().contains("watch failed"));
+    }
+
+    #[tokio::test]
+    async fn test_follow_ends_when_the_notify_channel_closes() {
+        let file = File::open(TEST_FILE.path()).unwrap();
+
+        let status = follow_failure(file, None).await;
+
+        assert_eq!(status.message(), "Notify channel closed.");
+    }
+
+    // Linux opens a directory but fails to read it.
+    #[tokio::test]
+    async fn test_follow_ends_with_the_read_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = File::open(dir.path()).unwrap();
+
+        let status = follow_failure(file, None).await;
+
+        assert!(status.message().contains("directory"), "{status:?}");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_follow_from_end_starts_at_the_last_whole_line() {
+        let test_file = create_test_file();
+        append(
+            test_file.path(),
+            b"2024-10-01T05:41:00.103901462Z stdout F first half,",
+        );
+
+        let (_handle, mut rx) = follow(test_file.path(), FollowFrom::End).await;
+
+        append(test_file.path(), b" second half\n");
+        assert_eq!(next_message(&mut rx).await, "first half, second half");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_follow_does_not_parse_the_tail_of_an_overlong_line_as_a_record() {
+        let test_file = create_test_file();
+        let (_handle, mut rx) = follow(test_file.path(), FollowFrom::End).await;
+
+        // The line's tail starts where the buffer fills and is shaped like a record.
+        let mut lines = b"2024-10-01T05:41:00.103901462Z stdout F ".to_vec();
+        lines.resize(MAX_LINE_LEN, b'a');
+        lines.extend_from_slice(
+            b"2020-01-01T00:00:00Z stdout F forged\n\
+              2024-10-01T05:41:01.204901463Z stdout F after\n",
+        );
+        append(test_file.path(), &lines);
+
+        assert_eq!(next_message(&mut rx).await, "after");
     }
 
     #[tokio::test]
