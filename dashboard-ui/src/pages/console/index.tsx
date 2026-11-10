@@ -21,7 +21,7 @@ import { useSearchParams } from 'react-router';
 import { dashboardClient, getClusterAPIClient } from '@/apollo-client';
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
-// import { FakeClient } from '@/components/widgets/log-viewer';
+// import { FakeClient } from '@/components/widgets/log-viewer/fake-client';
 import type { LogViewerHandle } from '@/components/widgets/log-viewer';
 import type { LogSourceFilter } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { useIsClusterAPIEnabled } from '@/lib/hooks';

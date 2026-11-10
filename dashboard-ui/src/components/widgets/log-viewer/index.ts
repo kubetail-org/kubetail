@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export { FakeClient } from './fake-client';
 export { LogViewer, useLogViewerState } from './log-viewer';
 export type {
   LogViewerHandle,

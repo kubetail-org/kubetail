@@ -17,7 +17,7 @@ import { createStore, Provider } from 'jotai';
 import type { ReactNode } from 'react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 
-import { createMockLogViewerHandle } from '@/components/widgets/log-viewer/mock';
+import { createMockLogViewerHandle } from '@/mocks/log-viewer';
 
 import { Header } from './header';
 import { PageContext, ViewerColumn } from './shared';
