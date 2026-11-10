@@ -432,7 +432,7 @@ jobs:
           cache-save: ${{ env.CACHE_MODE != 'use' }}
       - name: Build
         working-directory: ./crates
-        run: cargo build
+        run: cargo build --locked
       - name: Run tests
         working-directory: ./crates
         run: cargo test

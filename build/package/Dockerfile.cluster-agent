@@ -33,14 +33,14 @@ RUN mkdir -p crates/rgkl/src crates/types/src crates/cluster_agent/src && \
     echo "// placeholder" > crates/rgkl/src/lib.rs && \
     echo "// placeholder" > crates/types/src/lib.rs && \
     echo "fn main() {}" > crates/cluster_agent/src/main.rs
-RUN cd crates && cargo fetch
+RUN cd crates && cargo fetch --locked
 
 # Copy source code
 COPY crates ./crates
 COPY proto ./proto
 
 # Build
-RUN cd crates && cargo build --release
+RUN cd crates && cargo build --release --locked
 
 # Cross-platform trickery
 RUN \
