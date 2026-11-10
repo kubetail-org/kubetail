@@ -40,6 +40,18 @@ type CLI struct {
 	Config string `validate:"omitempty,file"`
 }
 
+// newConfig applies the `-p key:value` overrides to v before building the
+// config, so they take precedence over the config file.
+func newConfig(configPath string, v *viper.Viper, params []string) (*config.Config, error) {
+	for _, param := range params {
+		split := strings.SplitN(param, ":", 2)
+		if len(split) == 2 {
+			v.Set(split[0], split[1])
+		}
+	}
+	return config.NewConfig(configPath, v)
+}
+
 func main() {
 	var cli CLI
 	var params []string
@@ -64,21 +76,13 @@ func main() {
 			v.BindPFlag("cluster-api.gin-mode", cmd.Flags().Lookup("gin-mode"))
 
 			// Init config
-			cfg, err := config.NewConfig(cli.Config, v)
+			cfg, err := newConfig(cli.Config, v, params)
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
 
 			// set gin mode
 			gin.SetMode(cfg.GinMode)
-
-			// Override params from cli
-			for _, param := range params {
-				split := strings.SplitN(param, ":", 2)
-				if len(split) == 2 {
-					v.Set(split[0], split[1])
-				}
-			}
 
 			// Configure logger
 			logging.ConfigureLogger(logging.LoggerOptions{
