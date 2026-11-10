@@ -69,9 +69,6 @@ var clusterListCmd = &cobra.Command{
 func init() {
 	clusterCmd.AddCommand(clusterListCmd)
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	flagset := clusterListCmd.Flags()
 	flagset.SortFlags = false
 	flagset.String(KubeContextFlag, "", "Name of the kubeconfig context to use")

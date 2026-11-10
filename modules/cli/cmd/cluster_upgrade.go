@@ -39,8 +39,6 @@ var clusterUpgradeCmd = &cobra.Command{
 
 		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
 		kubeContext, _ := flags.GetString(KubeContextFlag)
-		//name, _ := cmd.Flags().GetString("name")
-		//namespace, _ := cmd.Flags().GetString("namespace")
 		name := helm.DefaultReleaseName
 		namespace := helm.DefaultNamespace
 
@@ -58,12 +56,7 @@ var clusterUpgradeCmd = &cobra.Command{
 func init() {
 	clusterCmd.AddCommand(clusterUpgradeCmd)
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	flagset := clusterUpgradeCmd.Flags()
 	flagset.SortFlags = false
 	flagset.String(KubeContextFlag, "", "Name of the kubeconfig context to use")
-	//flagset.String("name", helm.DefaultReleaseName, "Relase name")
-	//flagset.StringP("namespace", "n", helm.DefaultNamespace, "Namespace to install into")
 }

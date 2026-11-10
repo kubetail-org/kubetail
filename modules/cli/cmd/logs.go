@@ -934,26 +934,14 @@ func addLogsCmdFlags(cmd *cobra.Command) {
 	flagset.Bool("hide-header", false, "Hide table header")
 	flagset.Bool("all-containers", false, "Show logs from all containers in a Pod")
 
-	//flagset.BoolP("reverse", "r", false, "List records in reverse order")
-
 	flagset.String(BackendFlag, "auto", "Logs backend: auto, kubetail, or kubernetes")
 
 	// Define help here to avoid re-defining 'h' shorthand
 	flagset.Bool("help", false, "help for logs")
-
 }
 
 func init() {
 	rootCmd.AddCommand(logsCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// serveCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	addLogsCmdFlags(logsCmd)
 }

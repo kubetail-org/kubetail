@@ -40,8 +40,6 @@ var clusterUninstallCmd = &cobra.Command{
 
 		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
 		kubeContext, _ := flags.GetString(KubeContextFlag)
-		//name, _ := cmd.Flags().GetString("name")
-		//namespace, _ := cmd.Flags().GetString("namespace")
 		name := helm.DefaultReleaseName
 		namespace := helm.DefaultNamespace
 
@@ -59,12 +57,7 @@ var clusterUninstallCmd = &cobra.Command{
 func init() {
 	clusterCmd.AddCommand(clusterUninstallCmd)
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	flagset := clusterUninstallCmd.Flags()
 	flagset.SortFlags = false
 	flagset.String(KubeContextFlag, "", "Name of the kubeconfig context to use")
-	//flagset.String("name", helm.DefaultReleaseName, "Release name")
-	//flagset.StringP("namespace", "n", helm.DefaultNamespace, "Namespace to install into")
 }
