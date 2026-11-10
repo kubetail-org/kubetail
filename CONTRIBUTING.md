@@ -96,8 +96,10 @@ go test -race github.com/kubetail-org/kubetail/modules/...
 
 ### Rust Crates
 
+The Rust crates form one Cargo workspace in `crates/`. Run cargo from there, not from a crate's directory. Building needs `protoc` on your `PATH`.
+
 ```bash
-cd crates/<crate-name>
+cd crates
 
 # Format check
 cargo fmt --all -- --check
@@ -111,6 +113,8 @@ cargo test
 # Build
 cargo build --release
 ```
+
+From the repo root, `make lint-rust`, `make vet-rust` and `make test-rust` run the same checks.
 
 ### Python (E2E Tests)
 
