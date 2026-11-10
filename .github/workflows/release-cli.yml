@@ -368,7 +368,7 @@ jobs:
             and certificate 1[field.1.2.840.113635.100.6.2.6] exists
             and certificate leaf[field.1.2.840.113635.100.6.1.13] exists
         run: |
-          codesign --verify --strict --verbose=2 -R="$REQUIREMENT" "assets/${BIN_NAME}"
+          codesign --verify --strict --verbose=2 -R "$REQUIREMENT" "assets/${BIN_NAME}"
 
       - name: Verify Authenticode signatures
         if: ${{ matrix.os == 'windows' }}
