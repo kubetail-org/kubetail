@@ -55,7 +55,8 @@ pnpm test run       # `pnpm test` alone is watch mode and never exits
 
 - **`types.ts` is the contract.** The console's `Client` is `LogServerClient` (`pages/console/log-server-client.ts`), whose cursor is a record's timestamp.
 - **A new `client` object resets the viewer.** `LogViewer` remounts its inner component when the prop's identity changes, so `pages/console/index.tsx` memoizes the client on the kube context, sources, filters and grep, and keeps those stable with deep-compared values.
-- **Row keys are stable**: records sit in a `DoubleTailedArray`, so prepending older lines moves no existing key.
+- **Row keys are stable**: records sit in a `DoubleTailedArray`, so prepending older lines, or evicting lines, moves no existing key.
+- **The viewer holds at most `maxRecords` records.** Adding past the cap evicts from the far end, outside the visible range, and sets that end's `hasMore` flag so scrolling back reloads it.
 - **`RecordRow` (`pages/console/main.tsx`) is `memo` with a hand-written comparator.** A new prop is added to the comparator, or the row does not re-render for it.
 
 ## Security invariants

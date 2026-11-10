@@ -277,6 +277,56 @@ describe('DoubleTailedArray', () => {
     });
   });
 
+  describe('dropFirst', () => {
+    it('should remove elements from the beginning across both tails', () => {
+      const arr = new DoubleTailedArray<number>([3, 4, 5]);
+      arr.prepend([1, 2]);
+      arr.dropFirst(3);
+      expect(arr.toArray()).toEqual([4, 5]);
+    });
+
+    it('should keep the keys of the remaining elements', () => {
+      const arr = new DoubleTailedArray<number>([3, 4, 5]);
+      arr.prepend([1, 2]);
+      const key = arr.keyAt(3);
+      arr.dropFirst(3);
+      expect(arr.keyAt(0)).toBe(key);
+      expect(arr.at(arr.indexOfKey(key))).toBe(4);
+    });
+
+    it('should clamp the count to the length', () => {
+      const arr = new DoubleTailedArray<number>([1, 2]);
+      arr.dropFirst(5);
+      expect(arr.length).toBe(0);
+      arr.dropFirst(-1);
+      expect(arr.length).toBe(0);
+    });
+  });
+
+  describe('dropLast', () => {
+    it('should remove elements from the end across both tails', () => {
+      const arr = new DoubleTailedArray<number>([3, 4, 5]);
+      arr.prepend([1, 2]);
+      arr.dropLast(4);
+      expect(arr.toArray()).toEqual([1]);
+    });
+
+    it('should keep the keys of the remaining elements', () => {
+      const arr = new DoubleTailedArray<number>([3, 4, 5]);
+      arr.prepend([1, 2]);
+      const key = arr.keyAt(1);
+      arr.dropLast(2);
+      expect(arr.keyAt(1)).toBe(key);
+      expect(arr.toArray()).toEqual([1, 2, 3]);
+    });
+
+    it('should clamp the count to the length', () => {
+      const arr = new DoubleTailedArray<number>([1, 2]);
+      arr.dropLast(5);
+      expect(arr.length).toBe(0);
+    });
+  });
+
   describe('toArray', () => {
     it('should return empty array when empty', () => {
       const arr = new DoubleTailedArray<number>();

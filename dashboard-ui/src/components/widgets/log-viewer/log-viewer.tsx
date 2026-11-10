@@ -44,6 +44,7 @@ const DEFAULT_OVERSCAN = 3;
 const DEFAULT_BATCH_SIZE_INITIAL = 150;
 const DEFAULT_BATCH_SIZE_REGULAR = 100;
 const DEFAULT_LOAD_MORE_THRESHOLD = 50;
+const DEFAULT_MAX_RECORDS = 10_000;
 const DEFAULT_PIN_TO_BOTTOM_TOLERANCE = 10;
 const DEFAULT_HAS_MORE_BEFORE_ROW_HEIGHT = 0;
 const DEFAULT_HAS_MORE_AFTER_ROW_HEIGHT = 0;
@@ -57,6 +58,8 @@ export type RecordStore = {
   new: (records: LogRecord[], options?: { skipSetCount?: boolean; zeroAt?: 'first' | 'last' }) => void;
   append: (records: LogRecord[]) => void;
   prepend: (records: LogRecord[]) => void;
+  dropFirst: (count: number) => void;
+  dropLast: (count: number) => void;
   first: () => LogRecord | undefined;
   last: () => LogRecord | undefined;
   length: () => number;
@@ -69,6 +72,7 @@ type RuntimeConfig = {
   readonly batchSizeInitial: number;
   readonly batchSizeRegular: number;
   readonly loadMoreThreshold: number;
+  readonly maxRecords: number;
   readonly pinToBottomTolerance: number;
   readonly hasMoreBeforeRowHeight: number;
   readonly hasMoreAfterRowHeight: number;
@@ -104,6 +108,7 @@ type RuntimeActions = {
   setHasMoreBefore: React.Dispatch<React.SetStateAction<boolean>>;
   setHasMoreAfter: React.Dispatch<React.SetStateAction<boolean>>;
   setIsRefreshing: React.Dispatch<React.SetStateAction<boolean>>;
+  onLoaded: () => void;
 };
 
 export type Runtime = {
@@ -176,6 +181,53 @@ function isAtBottom(scrollEl: Element, tolerance: number) {
   return Math.abs(scrollTop + clientHeight - scrollHeight) <= tolerance;
 }
 
+type EvictionInput = {
+  end: 'first' | 'last';
+  length: number;
+  added: number;
+  maxRecords: number;
+  loadMoreThreshold: number;
+  range: { startIndex: number; endIndex: number } | null;
+};
+
+/**
+ * The number of records to drop from `end` so that, after `added` more arrive at the other end,
+ * the store holds at most `maxRecords`. Eviction stops `loadMoreThreshold` rows short of the
+ * visible range, so it never evicts a row on screen or sets off a load at the end it drops from.
+ */
+export function countToEvict({ end, length, added, maxRecords, loadMoreThreshold, range }: EvictionInput) {
+  const excess = length + added - maxRecords;
+  if (excess <= 0) return 0;
+  if (!range) return Math.min(excess, length);
+
+  const margin = loadMoreThreshold + 1;
+  const room = end === 'first' ? range.startIndex - margin : length - 1 - range.endIndex - margin;
+  return Math.max(0, Math.min(excess, room));
+}
+
+/**
+ * Keeps the row at `index` where it is on screen after a change moves it to `nextIndex`.
+ */
+function holdScrollAnchor(
+  scrollElement: HTMLElement,
+  virtualizer: Virtualizer<HTMLDivElement, Element>,
+  beforePaint: BeforePaintSubscribe,
+  index: number,
+  nextIndex: number,
+) {
+  const item = virtualizer.measurementsCache.at(index);
+  if (!item) return Promise.resolve();
+
+  const { scrollTop } = scrollElement;
+
+  return beforePaint(() => {
+    // Recomputes `measurementsCache` for the new records
+    virtualizer.getTotalSize();
+    const nextItem = virtualizer.measurementsCache.at(nextIndex);
+    if (nextItem) scrollElement.scrollTop = scrollTop + nextItem.start - item.start;
+  });
+}
+
 /**
  * useRecordStore - Custom hook to add items to the log records cache
  */
@@ -200,6 +252,14 @@ export function useRecordStore({ recordsRef, setCount }: RecordStoreOptions): Re
       },
       prepend: (records: LogRecord[]) => {
         recordsRef.current.prepend(records);
+        setCount(recordsRef.current.length);
+      },
+      dropFirst: (count: number) => {
+        recordsRef.current.dropFirst(count);
+        setCount(recordsRef.current.length);
+      },
+      dropLast: (count: number) => {
+        recordsRef.current.dropLast(count);
         setCount(recordsRef.current.length);
       },
       first: () => {
@@ -323,7 +383,10 @@ export const useInit = ({ client, config, refs, actions, services }: Runtime) =>
       })
       .finally(() => {
         // Wait until paint finishes to turn off loading flag
-        cancelID = requestAnimationFrame(() => actions.setIsLoading(false));
+        cancelID = requestAnimationFrame(() => {
+          actions.setIsLoading(false);
+          actions.onLoaded();
+        });
       });
 
     return () => {
@@ -356,24 +419,41 @@ export const useLoadMoreBefore = ({ client, config, refs, actions, services }: R
       const scrollElement = refs.scrollEl.current;
       if (!scrollElement) return;
 
-      const { scrollTop: prevScrollTop, scrollHeight: prevScrollHeight } = scrollElement;
+      const { recordStore, virtualizer } = services;
 
-      const beforePaintPromise = services.beforePaint(() => {
-        const nextScrollHeight = scrollElement.scrollHeight;
-        scrollElement.scrollTop = prevScrollTop + (nextScrollHeight - prevScrollHeight);
+      const evictCount = countToEvict({
+        end: 'last',
+        length: recordStore.length(),
+        added: result.records.length,
+        maxRecords: config.maxRecords,
+        loadMoreThreshold: config.loadMoreThreshold,
+        range: virtualizer.range,
       });
 
-      services.recordStore.prepend(result.records);
+      const beforePaintPromise = holdScrollAnchor(
+        scrollElement,
+        virtualizer,
+        services.beforePaint,
+        0,
+        result.records.length,
+      );
+
+      if (evictCount) {
+        recordStore.dropLast(evictCount);
+        actions.setHasMoreAfter(true);
+      }
+
+      recordStore.prepend(result.records);
 
       await beforePaintPromise;
     }
-  }, [client, config.batchSizeRegular, refs, actions, services]);
+  }, [client, config.batchSizeRegular, config.maxRecords, config.loadMoreThreshold, refs, actions, services]);
 
 /**
  * useLoadMoreAfter - Returns stable loadMoreAfter function
  */
 
-export const useLoadMoreAfter = ({ client, config, actions, services }: Runtime) =>
+export const useLoadMoreAfter = ({ client, config, refs, actions, services }: Runtime) =>
   useCallback(async () => {
     // Get data
     const result = await client.fetchAfter({
@@ -386,9 +466,30 @@ export const useLoadMoreAfter = ({ client, config, actions, services }: Runtime)
 
     // Update UI
     if (result.records.length) {
-      services.recordStore.append(result.records);
+      const { recordStore, virtualizer } = services;
+
+      const evictCount = countToEvict({
+        end: 'first',
+        length: recordStore.length(),
+        added: result.records.length,
+        maxRecords: config.maxRecords,
+        loadMoreThreshold: config.loadMoreThreshold,
+        range: virtualizer.range,
+      });
+
+      const scrollElement = refs.scrollEl.current;
+      if (evictCount && scrollElement) {
+        void holdScrollAnchor(scrollElement, virtualizer, services.beforePaint, evictCount, 0);
+      }
+
+      if (evictCount) {
+        recordStore.dropFirst(evictCount);
+        actions.setHasMoreBefore(true);
+      }
+
+      recordStore.append(result.records);
     }
-  }, [client, config.batchSizeRegular, actions, services]);
+  }, [client, config.batchSizeRegular, config.maxRecords, config.loadMoreThreshold, refs, actions, services]);
 
 /**
  * useLoadMore - Load more hook
@@ -461,9 +562,10 @@ export const useLoadMore = (runtime: Runtime) => {
  * useFollowFromEnd - Implement follow-from-end behavior
  */
 
-export const useFollowFromEnd = ({ client, config, state, refs, services }: Runtime) => {
+export const useFollowFromEnd = ({ client, config, state, refs, actions, services }: Runtime) => {
   const { scrollEl, isAutoScrollEnabled } = refs;
-  const { beforePaint, recordStore } = services;
+  const { setHasMoreBefore } = actions;
+  const { beforePaint, recordStore, virtualizer } = services;
 
   useEffect(() => {
     if (!config.follow || state.isLoading || state.hasMoreAfter) return;
@@ -480,11 +582,27 @@ export const useFollowFromEnd = ({ client, config, state, refs, services }: Runt
       const records = pendingRecords;
       pendingRecords = [];
 
-      // Scroll to bottom if auto-scroll enabled
+      const evictCount = countToEvict({
+        end: 'first',
+        length: recordStore.length(),
+        added: records.length,
+        maxRecords: config.maxRecords,
+        loadMoreThreshold: config.loadMoreThreshold,
+        range: virtualizer.range,
+      });
+
+      // Scroll to bottom if auto-scroll enabled, otherwise hold the rows on screen in place
       if (isAutoScrollEnabled.current) {
         void beforePaint(() => {
           if (scrollElement) scrollElement.scrollTop = scrollElement.scrollHeight;
         });
+      } else if (evictCount && scrollElement) {
+        void holdScrollAnchor(scrollElement, virtualizer, beforePaint, evictCount, 0);
+      }
+
+      if (evictCount) {
+        recordStore.dropFirst(evictCount);
+        setHasMoreBefore(true);
       }
 
       // Append all pending records at once
@@ -511,12 +629,16 @@ export const useFollowFromEnd = ({ client, config, state, refs, services }: Runt
   }, [
     client,
     config.follow,
+    config.maxRecords,
+    config.loadMoreThreshold,
     state.isLoading,
     state.hasMoreAfter,
     scrollEl,
     isAutoScrollEnabled,
+    setHasMoreBefore,
     beforePaint,
     recordStore,
+    virtualizer,
   ]);
 };
 
@@ -672,6 +794,7 @@ type LogViewerInnerProps = {
   config: RuntimeConfig;
   isLoading: boolean;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  onLoaded: () => void;
   isRemeasuring: boolean;
   virtualizerRef: React.RefObject<Virtualizer<HTMLDivElement, Element> | null>;
   scrollElRef?: React.RefObject<HTMLDivElement | null>;
@@ -684,6 +807,7 @@ export const LogViewerInner = ({
   config,
   isLoading,
   setIsLoading,
+  onLoaded,
   isRemeasuring,
   virtualizerRef,
   scrollElRef: externalScrollElRef,
@@ -757,7 +881,7 @@ export const LogViewerInner = ({
       isLoadingAfter: isLoadingAfterRef,
       isProgrammaticScroll: isProgrammaticScrollRef,
     },
-    actions: { setCount, setHasMoreBefore, setHasMoreAfter, setIsRefreshing, setIsLoading },
+    actions: { setCount, setHasMoreBefore, setHasMoreAfter, setIsRefreshing, setIsLoading, onLoaded },
     services: { beforePaint, virtualizer, recordStore },
   } satisfies Runtime;
 
@@ -836,6 +960,7 @@ export type LogViewerProps = {
   batchSizeInitial?: number;
   batchSizeRegular?: number;
   loadMoreThreshold?: number;
+  maxRecords?: number;
   pinToBottomTolerance?: number;
   hasMoreBeforeRowHeight?: number;
   hasMoreAfterRowHeight?: number;
@@ -865,6 +990,7 @@ export const LogViewer = forwardRef<LogViewerHandle, LogViewerProps>(
       batchSizeInitial = DEFAULT_BATCH_SIZE_INITIAL,
       batchSizeRegular = DEFAULT_BATCH_SIZE_REGULAR,
       loadMoreThreshold = DEFAULT_LOAD_MORE_THRESHOLD,
+      maxRecords = DEFAULT_MAX_RECORDS,
       pinToBottomTolerance = DEFAULT_PIN_TO_BOTTOM_TOLERANCE,
       hasMoreBeforeRowHeight = DEFAULT_HAS_MORE_BEFORE_ROW_HEIGHT,
       hasMoreAfterRowHeight = DEFAULT_HAS_MORE_AFTER_ROW_HEIGHT,
@@ -881,6 +1007,44 @@ export const LogViewer = forwardRef<LogViewerHandle, LogViewerProps>(
 
     const [initialPosition, setInitialPosition] = useState(defaultInitialPosition);
     const [isLoading, setIsLoading] = useState(LOG_VIEWER_INITIAL_STATE.isLoading);
+
+    // A jump remounts the inner viewer and resolves once a viewer mounted after the call has
+    // loaded. `keyIDRef` is the key of the viewer mounted when the jump is called.
+    const keyIDRef = useRef(keyID);
+    useEffect(() => {
+      keyIDRef.current = keyID;
+    }, [keyID]);
+
+    const jumpWaitersRef = useRef<{ afterKeyID: number; resolve: () => void }[]>([]);
+
+    const handleLoaded = useCallback((loadedKeyID: number) => {
+      const waiters = jumpWaitersRef.current;
+      jumpWaitersRef.current = waiters.filter((w) => w.afterKeyID >= loadedKeyID);
+      waiters.forEach((w) => {
+        if (w.afterKeyID < loadedKeyID) w.resolve();
+      });
+    }, []);
+
+    // Don't leave a caller waiting on a viewer that is gone
+    useEffect(
+      () => () => {
+        jumpWaitersRef.current.forEach((w) => w.resolve());
+        jumpWaitersRef.current = [];
+      },
+      [],
+    );
+
+    const jumpTo = useCallback(
+      (position: LogViewerInitialPosition) => {
+        setIsLoading(true);
+        setInitialPosition(position);
+        incrementKeyID();
+        return new Promise<void>((resolve) => {
+          jumpWaitersRef.current.push({ afterKeyID: keyIDRef.current, resolve });
+        });
+      },
+      [incrementKeyID],
+    );
 
     const [isRemeasuring, setIsRemeasuring] = useState(false);
     const isRemeasuringRef = useRef(false);
@@ -900,24 +1064,9 @@ export const LogViewer = forwardRef<LogViewerHandle, LogViewerProps>(
     useImperativeHandle(
       ref,
       () => ({
-        jumpToBeginning: async () => {
-          setIsLoading(true);
-          setInitialPosition({ type: 'head' });
-          incrementKeyID();
-          // TODO: wait for isLoading to resolve
-        },
-        jumpToEnd: async () => {
-          setIsLoading(true);
-          setInitialPosition({ type: 'tail' });
-          incrementKeyID();
-          // TODO: wait for isLoading to resolve
-        },
-        jumpToCursor: async (cursor: Cursor) => {
-          setIsLoading(true);
-          setInitialPosition({ type: 'cursor', cursor });
-          incrementKeyID();
-          // TODO: wait for isLoading to resolve
-        },
+        jumpToBeginning: () => jumpTo({ type: 'head' }),
+        jumpToEnd: () => jumpTo({ type: 'tail' }),
+        jumpToCursor: (cursor: Cursor) => jumpTo({ type: 'cursor', cursor }),
         measure: () => {
           const virtualizer = virtualizerRef.current;
           if (!virtualizer) return;
@@ -962,7 +1111,7 @@ export const LogViewer = forwardRef<LogViewerHandle, LogViewerProps>(
         },
         getSnapshot: () => stateRef.current,
       }),
-      [incrementKeyID],
+      [jumpTo],
     );
 
     // Reset completely when client changes (adjust state during render)
@@ -982,6 +1131,7 @@ export const LogViewer = forwardRef<LogViewerHandle, LogViewerProps>(
         batchSizeInitial,
         batchSizeRegular,
         loadMoreThreshold,
+        maxRecords,
         pinToBottomTolerance,
         hasMoreBeforeRowHeight,
         hasMoreAfterRowHeight,
@@ -996,6 +1146,7 @@ export const LogViewer = forwardRef<LogViewerHandle, LogViewerProps>(
         batchSizeInitial,
         batchSizeRegular,
         loadMoreThreshold,
+        maxRecords,
         pinToBottomTolerance,
         hasMoreBeforeRowHeight,
         hasMoreAfterRowHeight,
@@ -1011,6 +1162,7 @@ export const LogViewer = forwardRef<LogViewerHandle, LogViewerProps>(
         config={config}
         isLoading={isLoading}
         setIsLoading={setIsLoading}
+        onLoaded={() => handleLoaded(keyID)}
         isRemeasuring={isRemeasuring}
         virtualizerRef={virtualizerRef}
         scrollElRef={externalScrollElRef}

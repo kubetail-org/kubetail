@@ -131,6 +131,27 @@ export class DoubleTailedArray<T> {
   }
 
   /**
+   * Remove up to `count` elements from the beginning. The keys of the remaining elements don't change.
+   */
+  dropFirst(count: number): void {
+    const n = Math.min(Math.max(count, 0), this.length);
+    const fromBefore = Math.min(n, this.before.length);
+    this.before.length -= fromBefore;
+    this.after.splice(0, n - fromBefore);
+    this._keyOffset += n;
+  }
+
+  /**
+   * Remove up to `count` elements from the end. The keys of the remaining elements don't change.
+   */
+  dropLast(count: number): void {
+    const n = Math.min(Math.max(count, 0), this.length);
+    const fromAfter = Math.min(n, this.after.length);
+    this.after.length -= fromAfter;
+    this.before.splice(0, n - fromAfter);
+  }
+
+  /**
    * Convert to a regular array
    */
   toArray(): T[] {
