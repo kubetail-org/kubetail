@@ -16,6 +16,8 @@ package app
 
 import (
 	"compress/gzip"
+	"crypto/tls"
+	"crypto/x509"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -82,17 +84,44 @@ func TestGzip(t *testing.T) {
 	assert.Equal(t, "ok", string(uncompressed))
 }
 
+// newFrontProxyRequest builds a request as the kube-apiserver's front proxy
+// sends it: the proxy's client certificate and the caller's username header.
+func newFrontProxyRequest(t *testing.T, proxyCA *testCA, method, target string, body io.Reader) *http.Request {
+	t.Helper()
+	r := httptest.NewRequest(method, target, body)
+	r.TLS = &tls.ConnectionState{PeerCertificates: []*x509.Certificate{proxyCA.issue(t, "front-proxy-client")}}
+	r.Header.Set("X-Remote-User", "alice")
+	return r
+}
+
+// Introspection makes no Kubernetes or agent call, so it needs nothing past
+// the front proxy's authentication.
 func TestGraphQLAllowsUnauthenticatedIntrospection(t *testing.T) {
-	app := NewTestApp(nil)
+	proxyCA := newTestCA(t, "proxy-ca")
+	app := newTestAppWithAuth(nil, newTestAuthCfg(proxyCA))
 
 	body := `{"query":"{ __typename }"}`
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "/apis/api.kubetail.com/v1/graphql", strings.NewReader(body))
+	r := newFrontProxyRequest(t, proxyCA, "POST", "/apis/api.kubetail.com/v1/graphql", strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
 	app.ServeHTTP(w, r)
 
 	assert.Equal(t, http.StatusOK, w.Result().StatusCode)
 	assert.Contains(t, w.Body.String(), `"__typename":"Query"`)
+}
+
+func TestGraphQLRejectsRequestNotFromFrontProxy(t *testing.T) {
+	proxyCA := newTestCA(t, "proxy-ca")
+	app := newTestAppWithAuth(nil, newTestAuthCfg(proxyCA))
+
+	body := `{"query":"{ __typename }"}`
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/apis/api.kubetail.com/v1/graphql", strings.NewReader(body))
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("X-Remote-User", "alice")
+	app.ServeHTTP(w, r)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Result().StatusCode)
 }
 
 func TestClose(t *testing.T) {
@@ -131,10 +160,11 @@ func TestHealthz(t *testing.T) {
 // `/apis/api.kubetail.com/v1/healthz`, so the health endpoint must also be
 // reachable under the aggregated APIService path.
 func TestHealthzAggregated(t *testing.T) {
-	app := NewTestApp(nil)
+	proxyCA := newTestCA(t, "proxy-ca")
+	app := newTestAppWithAuth(nil, newTestAuthCfg(proxyCA))
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/apis/api.kubetail.com/v1/healthz", nil)
+	r := newFrontProxyRequest(t, proxyCA, "GET", "/apis/api.kubetail.com/v1/healthz", nil)
 	app.ServeHTTP(w, r)
 
 	result := w.Result()

@@ -34,13 +34,21 @@ func NewTestConfig() *config.Config {
 	return cfg
 }
 
-// Create new app for testing
+// NewTestApp builds the app with no connection manager and no dispatcher.
+// Its authentication trusts no CA, so it rejects every request to the
+// /apis/api.kubetail.com/v1 group; use newTestAppWithAuth to reach one.
 func NewTestApp(cfg *config.Config) *App {
+	return newTestAppWithAuth(cfg, &aggregationAuthConfig{})
+}
+
+// newTestAppWithAuth builds the app with no connection manager and no
+// dispatcher, authenticating the front proxy against authCfg.
+func newTestAppWithAuth(cfg *config.Config, authCfg *aggregationAuthConfig) *App {
 	if cfg == nil {
 		cfg = NewTestConfig()
 	}
 
-	app, err := NewApp(cfg)
+	app, err := newApp(cfg, appDeps{authConfig: authCfg})
 	if err != nil {
 		panic(err)
 	}

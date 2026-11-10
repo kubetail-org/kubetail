@@ -67,25 +67,51 @@ func (a *App) Close() {
 	}
 }
 
-// Create new gin app
+// appDeps are what NewApp builds from the cluster. Tests pass fakes to newApp.
+type appDeps struct {
+	cm             k8shelpers.ConnectionManager
+	grpcDispatcher *grpcdispatcher.Dispatcher
+	authConfig     *aggregationAuthConfig
+}
+
+// NewApp builds the app with its dependencies from the cluster.
+// coverage:ignore-start needs a live cluster and the agent's certificate files
 func NewApp(cfg *config.Config) (*App, error) {
-	// Init app
-	app := &App{Engine: gin.New()}
-
-	// If not in test-mode
-	if gin.Mode() != gin.TestMode {
-		app.Use(gin.Recovery())
-
-		// Init connection manager
-		cm, err := k8shelpers.NewConnectionManager(sharedcfg.EnvironmentCluster)
-		if err != nil {
-			return nil, err
-		}
-		app.cm = cm
-
-		// init grpc dispatcher
-		app.grpcDispatcher = mustNewGrpcDispatcher(cfg)
+	cm, err := k8shelpers.NewConnectionManager(sharedcfg.EnvironmentCluster)
+	if err != nil {
+		return nil, err
 	}
+
+	clientset, err := cm.GetOrCreateClientset("")
+	if err != nil {
+		cm.Close()
+		return nil, err
+	}
+
+	authCfg, err := loadAggregationAuthConfig(context.TODO(), clientset)
+	if err != nil {
+		cm.Close()
+		return nil, err
+	}
+
+	return newApp(cfg, appDeps{
+		cm:             cm,
+		grpcDispatcher: mustNewGrpcDispatcher(cfg),
+		authConfig:     authCfg,
+	})
+}
+
+// coverage:ignore-stop
+
+func newApp(cfg *config.Config, deps appDeps) (*App, error) {
+	// Init app
+	app := &App{
+		Engine:         gin.New(),
+		cm:             deps.cm,
+		grpcDispatcher: deps.grpcDispatcher,
+	}
+
+	app.Use(gin.Recovery())
 
 	// Add request-id middleware
 	app.Use(requestid.New())
@@ -122,20 +148,8 @@ func NewApp(cfg *config.Config) (*App, error) {
 			ContentTypeNosniff:    true,
 		}))
 
-		// Aggregation-layer authentication. Skipped in test mode because the
-		// loader needs a live Kubernetes cluster (kube-system's
-		// extension-apiserver-authentication ConfigMap).
-		if gin.Mode() != gin.TestMode {
-			clientset, err := app.cm.GetOrCreateClientset("")
-			if err != nil {
-				return nil, err
-			}
-			authCfg, err := loadAggregationAuthConfig(context.TODO(), clientset)
-			if err != nil {
-				return nil, err
-			}
-			dynamicRoutes.Use(newAggregationAuthMiddleware(authCfg))
-		}
+		// Aggregation-layer authentication
+		dynamicRoutes.Use(newAggregationAuthMiddleware(deps.authConfig))
 
 		// Mirrored under the aggregated path so the dashboard cluster-api proxy
 		// can reach it; kube-apiserver only forwards /apis/<group>/<version>/...

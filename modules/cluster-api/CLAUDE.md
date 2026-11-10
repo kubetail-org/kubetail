@@ -42,7 +42,8 @@ What an ordinary change here can break, beside the root guide's list:
 
 ## Tests
 
-- **`internal/app/testutils_test.go`** sets `gin.TestMode` and gives `NewTestConfig()` and `NewTestApp(cfg)`. Under test mode `NewApp` builds no connection manager and no dispatcher, **and mounts no authentication middleware**, so an app test says nothing about who may call a route.
+- **`NewApp` builds its dependencies from the cluster and hands them to `newApp`**, which tests call with fakes (`appDeps`). Both mount the same routes and middleware.
+- **`internal/app/testutils_test.go`** gives `NewTestConfig()`, `NewTestApp(cfg)` and `newTestAppWithAuth(cfg, authCfg)`. Each builds no connection manager and no dispatcher, and mounts the real authentication middleware. `NewTestApp`'s trusts no CA, so it rejects every request to the group; to reach one, use `newTestAppWithAuth` with `newTestAuthCfg` and send `newFrontProxyRequest`.
 - **The middleware is tested directly** in `internal/app/middleware_test.go`, with a CA made in the test (`newTestCA`, `requestWithCert`, `runMiddleware`). Add a case there for any change to who is accepted.
 - **The GraphQL server** is `graph.NewServer(nil, nil, []string{})` behind `testutils.NewWebTestClient` (`graph/server_test.go`).
 - **Identity reaching the agent** is tested against a real `grpc.NewServer()` on a loopback port (`startRecordingAgent`, `dialAgent` in `graph/schema.resolvers_test.go`).
