@@ -26,10 +26,10 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
-	"github.com/gorilla/websocket"
 	"github.com/vektah/gqlparser/v2/ast"
 
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
+	"github.com/kubetail-org/kubetail/modules/shared/graphql/wstransport"
 	"github.com/kubetail-org/kubetail/modules/shared/httphelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/versioncheck"
@@ -93,24 +93,21 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 	// Configure WebSocket. The CSRF middleware skips upgrades (a GET), so they
 	// are gated here: an allowed Origin at upgrade time, then the session's
 	// CSRF token in the connection_init payload.
-	h.AddTransport(&transport.Websocket{
-		Upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				return httphelpers.IsAllowedOrigin(r, cfg.AllowedOrigins)
+	h.AddTransport(wstransport.Websocket{
+		CheckOrigin: func(r *http.Request) bool {
+			return httphelpers.IsAllowedOrigin(r, cfg.AllowedOrigins)
+		},
+		Websocket: transport.Websocket{
+			InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
+				expected, _ := ctx.Value(SessionCSRFTokenCtxKey).(string)
+				got := initPayload.GetString("csrfToken")
+				if expected == "" || subtle.ConstantTimeCompare([]byte(got), []byte(expected)) != 1 {
+					return ctx, nil, errors.New("invalid CSRF token")
+				}
+				return ctx, nil, nil
 			},
-			ReadBufferSize:    1024,
-			WriteBufferSize:   1024,
-			EnableCompression: false,
+			KeepAlivePingInterval: 10 * time.Second,
 		},
-		InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
-			expected, _ := ctx.Value(SessionCSRFTokenCtxKey).(string)
-			got := initPayload.GetString("csrfToken")
-			if expected == "" || subtle.ConstantTimeCompare([]byte(got), []byte(expected)) != 1 {
-				return ctx, nil, errors.New("invalid CSRF token")
-			}
-			return ctx, nil, nil
-		},
-		KeepAlivePingInterval: 10 * time.Second,
 	})
 
 	h.AddTransport(transport.POST{})

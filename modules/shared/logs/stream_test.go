@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	set "github.com/deckarep/golang-set/v2"
+	set "github.com/deckarep/golang-set/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

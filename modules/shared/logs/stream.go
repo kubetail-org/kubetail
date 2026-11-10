@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	set "github.com/deckarep/golang-set/v2"
+	set "github.com/deckarep/golang-set/v3"
 
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )

@@ -27,12 +27,12 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
-	"github.com/gorilla/websocket"
 	"github.com/vektah/gqlparser/v2/ast"
 
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
+	"github.com/kubetail-org/kubetail/modules/shared/graphql/wstransport"
 	"github.com/kubetail-org/kubetail/modules/shared/httphelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
@@ -88,28 +88,25 @@ func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.D
 	// carrying one is refused. When the upgrade carries X-Forwarded-CSRF-Token
 	// (set by the Dashboard's proxy), the connection_init payload's csrfToken
 	// must match it; without the header no token is checked.
-	h.AddTransport(&transport.Websocket{
-		Upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				return r.Header.Get("Origin") == ""
-			},
-			ReadBufferSize:    1024,
-			WriteBufferSize:   1024,
-			EnableCompression: false,
+	h.AddTransport(wstransport.Websocket{
+		CheckOrigin: func(r *http.Request) bool {
+			return r.Header.Get("Origin") == ""
 		},
-		InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
-			expectedPtr, _ := ctx.Value(forwardedCSRFTokenCtxKey).(*string)
-			if expectedPtr == nil {
+		Websocket: transport.Websocket{
+			InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
+				expectedPtr, _ := ctx.Value(forwardedCSRFTokenCtxKey).(*string)
+				if expectedPtr == nil {
+					return ctx, nil, nil
+				}
+				expected := strings.TrimSpace(*expectedPtr)
+				got := strings.TrimSpace(initPayload.GetString("csrfToken"))
+				if expected == "" || got == "" || subtle.ConstantTimeCompare([]byte(got), []byte(expected)) != 1 {
+					return ctx, nil, errors.New("invalid CSRF token")
+				}
 				return ctx, nil, nil
-			}
-			expected := strings.TrimSpace(*expectedPtr)
-			got := strings.TrimSpace(initPayload.GetString("csrfToken"))
-			if expected == "" || got == "" || subtle.ConstantTimeCompare([]byte(got), []byte(expected)) != 1 {
-				return ctx, nil, errors.New("invalid CSRF token")
-			}
-			return ctx, nil, nil
+			},
+			KeepAlivePingInterval: 10 * time.Second,
 		},
-		KeepAlivePingInterval: 10 * time.Second,
 	})
 
 	h.AddTransport(transport.POST{})
