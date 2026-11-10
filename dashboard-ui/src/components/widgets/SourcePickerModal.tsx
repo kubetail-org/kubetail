@@ -548,9 +548,16 @@ type SourcePickerModalProps = {
 };
 
 const SourcePickerModal = ({ open, onOpenChange }: SourcePickerModalProps) => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [namespaceFilter, setNamespaceFilter] = useState('');
   const [selectedSources, setSelectedSources] = useState(new Set(searchParams.getAll('source')));
+
+  // The modal stays mounted while the sources in the URL change, so each opening starts from them
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) setSelectedSources(new Set(searchParams.getAll('source')));
+  }
 
   const kubeContext = searchParams.get('kubeContext') || '';
 
@@ -558,13 +565,10 @@ const SourcePickerModal = ({ open, onOpenChange }: SourcePickerModalProps) => {
     const sourcePaths = Array.from(selectedSources);
     sourcePaths.sort();
 
-    searchParams.delete('source');
-    sourcePaths.forEach((sourcePath) => searchParams.append('source', sourcePath));
-
-    // TODO: instead of navigating to new url can we use react-router?
-    const currentUrl = new URL(window.location.href);
-    currentUrl.search = new URLSearchParams(searchParams).toString();
-    window.location.href = currentUrl.toString();
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.delete('source');
+    sourcePaths.forEach((sourcePath) => nextSearchParams.append('source', sourcePath));
+    setSearchParams(nextSearchParams);
 
     onOpenChange?.(false);
   };

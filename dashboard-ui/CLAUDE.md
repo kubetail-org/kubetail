@@ -42,7 +42,7 @@ pnpm test run       # `pnpm test` alone is watch mode and never exits
 
 ## State
 
-- **URL search params hold what a link should reproduce**: the console's `kubeContext`, `source`, `grep`, `mode`, `cursor` and its filters, written with `setSearchParams`. Changing `source` is the exception: it reloads the page.
+- **URL search params hold what a link should reproduce**: the console's `kubeContext`, `source`, `grep`, `mode`, `cursor` and its filters, written with `setSearchParams`. The console reacts to a change in any of them without a reload.
 - **Jotai holds page state and derived data**: a page's atoms in a `state.ts` beside it, app-wide ones in `lib/`. There is no Jotai `Provider`: atoms are module-global and outlive a route change. An atom's name ends in `Atom`, a family's in `AtomFamily`.
 - **A fetcher component writes an atom, views read the atom.** `WorkloadDataFetcher`, `LogMetadataProvider`, `SourcesFetcher` and `KubeConfigEffect` render nothing: they run the Apollo hooks and set atoms.
 - **User settings go through `usePreferences`** (`src/lib/preferences.tsx`) and its wrappers `useTheme`, `useTimezone`, `useTimestampFormat`. The localStorage key `kubetail:preferences` is also read by the inline script in `index.html` and `index.tmpl` before React loads; keep its shape in step with both.

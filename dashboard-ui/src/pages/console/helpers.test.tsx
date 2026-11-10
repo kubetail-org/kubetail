@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createStore, Provider, useAtomValue } from 'jotai';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, useSearchParams } from 'react-router';
 
 import type { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { WatchEventType } from '@/lib/graphql/dashboard/__generated__/graphql';
@@ -37,6 +37,22 @@ vi.mock('@/lib/hooks', async () => {
     ...actual,
     useListQueryWithSubscription: (opts: unknown) => mockUseListQueryWithSubscription(opts),
   };
+});
+
+const createSource = (podName: string): LogSourceFragmentFragment => ({
+  __typename: 'LogSource',
+  namespace: 'default',
+  podName,
+  containerName: 'main',
+  containerID: `cid-${podName}`,
+  metadata: {
+    __typename: 'LogSourceMetadata',
+    region: '',
+    zone: '',
+    os: '',
+    arch: '',
+    node: '',
+  },
 });
 
 const defaultPageContextValue = {
@@ -274,6 +290,7 @@ describe('SourcesFetcher', () => {
     store: ReturnType<typeof createStore>,
     searchParams = '',
     contextValue = defaultPageContextValue,
+    children: React.ReactNode = null,
   ) => {
     const SourcesDisplay = () => {
       const sources = useAtomValue(sourceMapAtom);
@@ -286,6 +303,7 @@ describe('SourcesFetcher', () => {
           <PageContext.Provider value={contextValue}>
             <SourcesFetcher />
             <SourcesDisplay />
+            {children}
           </PageContext.Provider>
         </MemoryRouter>
       </Provider>,
@@ -394,9 +412,6 @@ describe('SourcesFetcher', () => {
         node: 'node-1',
       },
     };
-    const initialMap = new Map<string, LogSourceFragmentFragment>();
-    initialMap.set('default/my-pod/my-container', existingSource);
-    store.set(sourceMapAtom, initialMap);
 
     let capturedOnData: ((args: { data: { data?: { logSourcesWatch?: unknown } } }) => void) | undefined;
 
@@ -407,7 +422,19 @@ describe('SourcesFetcher', () => {
 
     renderSourcesFetcher(store);
 
-    // Verify initial state
+    act(() => {
+      capturedOnData?.({
+        data: {
+          data: {
+            logSourcesWatch: {
+              type: WatchEventType.Added,
+              object: existingSource,
+            },
+          },
+        },
+      });
+    });
+
     expect(screen.getByTestId('sources-count').textContent).toBe('1');
 
     act(() => {
@@ -429,6 +456,54 @@ describe('SourcesFetcher', () => {
 
     const sources = store.get(sourceMapAtom);
     expect(sources.has('default/my-pod/my-container')).toBe(false);
+  });
+
+  it('starts from an empty sourceMapAtom', () => {
+    const store = createStore();
+    store.set(sourceMapAtom, new Map([['default/old-pod/old-container', createSource('old-pod')]]));
+
+    renderSourcesFetcher(store, 'source=default:deployments/web');
+
+    expect(screen.getByTestId('sources-count').textContent).toBe('0');
+  });
+
+  it('clears sourceMapAtom when the sources in the URL change', async () => {
+    const store = createStore();
+
+    let capturedOnData: ((args: { data: { data?: { logSourcesWatch?: unknown } } }) => void) | undefined;
+
+    mockUseSubscription.mockImplementation((_, options) => {
+      capturedOnData = options?.onData;
+      return { loading: false };
+    });
+
+    const ChangeSources = () => {
+      const [, setSearchParams] = useSearchParams();
+      return (
+        <button type="button" onClick={() => setSearchParams({ source: 'default:deployments/api' })}>
+          Change sources
+        </button>
+      );
+    };
+
+    renderSourcesFetcher(store, 'source=default:deployments/web', defaultPageContextValue, <ChangeSources />);
+
+    act(() => {
+      capturedOnData?.({
+        data: { data: { logSourcesWatch: { type: WatchEventType.Added, object: createSource('web-pod') } } },
+      });
+    });
+    expect(screen.getByTestId('sources-count').textContent).toBe('1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change sources' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sources-count').textContent).toBe('0');
+    });
+    expect(mockUseSubscription).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ variables: { kubeContext: 'ctx', sources: ['default:deployments/api'] } }),
+    );
   });
 
   it('ignores events with missing data', () => {

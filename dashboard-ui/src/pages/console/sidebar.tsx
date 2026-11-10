@@ -114,7 +114,7 @@ export function parseSourceArg(input: string) {
 
 const SidebarWorkloads = () => {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const kubeContext = searchParams.get('kubeContext') || '';
 
@@ -130,14 +130,11 @@ const SidebarWorkloads = () => {
 
   const deleteSource = useCallback(
     (sourcePath: string) => {
-      searchParams.delete('source', sourcePath);
-
-      // TODO: instead of navigating to new url can we use react-router?
-      const currentUrl = new URL(window.location.href);
-      currentUrl.search = new URLSearchParams(searchParams).toString();
-      window.location.href = currentUrl.toString();
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.delete('source', sourcePath);
+      setSearchParams(nextSearchParams);
     },
-    [searchParams],
+    [searchParams, setSearchParams],
   );
 
   return (

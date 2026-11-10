@@ -100,6 +100,12 @@ export const SourcesFetcher = () => {
 
   const setSources = useSetAtom(sourceMapAtom);
 
+  // The watch starts by sending every matching source as Added, so each new watch starts from an empty map
+  const sourcesKey = JSON.stringify(sourceStrings);
+  useEffect(() => {
+    setSources(new Map());
+  }, [setSources, kubeContext, sourcesKey]);
+
   useSubscription(LOG_SOURCES_WATCH, {
     variables: { kubeContext, sources: sourceStrings },
     onData: ({ data }) => {

@@ -14,6 +14,8 @@
 
 import type { MockLink } from '@apollo/client/testing';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
+import { useLocation } from 'react-router';
 
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import { PreferencesProvider } from '@/lib/preferences';
@@ -55,6 +57,24 @@ const pendingMocks: MockLink.MockedResponse[] = Object.entries(dashboardOps)
   .filter(([name]) => name.startsWith('SOURCE_PICKER_') && name !== 'SOURCE_PICKER_DEPLOYMENTS_LIST_FETCH')
   .map(([, query]) => ({ request: { query, variables: () => true }, delay: Infinity, maxUsageCount: Infinity }));
 
+// Renders the modal beside the router's search string and a button that reopens it.
+const Harness = () => {
+  const [open, setOpen] = useState(true);
+  return (
+    <PreferencesProvider>
+      <div data-testid="location-search">{useLocation().search}</div>
+      <button type="button" onClick={() => setOpen(true)}>
+        Reopen
+      </button>
+      <SourcePickerModal open={open} onOpenChange={setOpen} />
+    </PreferencesProvider>
+  );
+};
+
+const webCheckbox = () => document.querySelector('[data-id="id-web"]') as HTMLElement;
+
+const locationSources = () => new URLSearchParams(screen.getByTestId('location-search').textContent).getAll('source');
+
 const renderedNames = () =>
   screen.queryAllByText(new RegExp(`^(${deploymentNames.join('|')})$`)).map((el) => el.textContent);
 
@@ -76,5 +96,45 @@ describe('SourcePickerModal', () => {
     await waitFor(() => {
       expect(renderedNames()).toEqual(['worker', 'web', 'api']);
     });
+  });
+
+  it('writes the chosen sources to the URL without reloading the page', async () => {
+    renderElement(<Harness />, [deploymentsListMock, ...pendingMocks]);
+
+    fireEvent.click(screen.getByText(/^Deployments/));
+    await waitFor(() => {
+      expect(webCheckbox()).toBeInTheDocument();
+    });
+
+    fireEvent.click(webCheckbox());
+    fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+
+    await waitFor(() => {
+      expect(locationSources()).toEqual(['default:deployments/web/*']);
+    });
+  });
+
+  it('starts each opening from the sources in the URL', async () => {
+    renderElement(<Harness />, [deploymentsListMock, ...pendingMocks]);
+
+    fireEvent.click(screen.getByText(/^Deployments/));
+    await waitFor(() => {
+      expect(webCheckbox()).toBeInTheDocument();
+    });
+
+    fireEvent.click(webCheckbox());
+    expect(webCheckbox()).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reopen' }));
+    fireEvent.click(await screen.findByText(/^Deployments/));
+    await waitFor(() => {
+      expect(webCheckbox()).toHaveAttribute('aria-checked', 'false');
+    });
+    expect(locationSources()).toEqual([]);
   });
 });

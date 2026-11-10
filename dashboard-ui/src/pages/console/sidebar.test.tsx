@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { createStore, Provider } from 'jotai';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, useLocation } from 'react-router';
 
 import type { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { Counter } from '@/lib/util';
@@ -203,6 +203,25 @@ describe('SidebarWorkloads', () => {
     );
 
     expect(screen.getAllByRole('button', { name: /delete source/i }).length).toBeGreaterThan(0);
+  });
+
+  it('removes a source from the URL without reloading the page', () => {
+    const LocationSearch = () => <div data-testid="location-search">{useLocation().search}</div>;
+
+    render(
+      <TestWrapper initialEntries={['/?source=default:deployments/nginx&source=default:deployments/web&grep=err']}>
+        <Sidebar />
+        <LocationSearch />
+      </TestWrapper>,
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: /delete source/i })[0]);
+
+    const searchParams = new URLSearchParams(screen.getByTestId('location-search').textContent);
+    expect(searchParams.getAll('source')).toEqual(['default:deployments/web']);
+    expect(searchParams.get('grep')).toBe('err');
+    expect(screen.queryByText('nginx')).not.toBeInTheDocument();
+    expect(screen.getByText('web')).toBeInTheDocument();
   });
 
   it('sorts workloads alphabetically within each kind', () => {
