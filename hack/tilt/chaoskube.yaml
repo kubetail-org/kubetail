@@ -81,7 +81,7 @@ spec:
       serviceAccountName: chaoskube
       containers:
         - name: chaoskube
-          image: ghcr.io/linki/chaoskube:v0.31.0
+          image: ghcr.io/linki/chaoskube:v0.39.1
           args:
             - --interval=2m
             - --labels=app.kubernetes.io/name in (loggen,longlines-example)
