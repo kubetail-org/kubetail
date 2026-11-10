@@ -160,8 +160,7 @@ mod tests {
 
     use super::*;
     use crate::auth::Identity;
-    use crate::authorizer::{AccessReviewer, Authorizer};
-    use k8s_openapi::api::authorization::v1::SubjectAccessReview;
+    use crate::authorizer::{AlwaysDenyReviewer, Authorizer};
     use std::collections::{BTreeMap, BTreeSet};
     use std::path::PathBuf;
     use std::sync::Arc;
@@ -169,18 +168,8 @@ mod tests {
     use tokio_util::task::TaskTracker;
     use types::cluster_agent::log_records_service_server::LogRecordsService;
 
-    #[derive(Debug)]
-    struct DenyReviewer;
-
-    #[tonic::async_trait]
-    impl AccessReviewer for DenyReviewer {
-        async fn review(&self, _sar: SubjectAccessReview) -> Result<bool, Status> {
-            Ok(false)
-        }
-    }
-
     fn denied_authorizer() -> Authorizer {
-        Authorizer::with_reviewer(Arc::new(DenyReviewer))
+        Authorizer::with_reviewer(Arc::new(AlwaysDenyReviewer))
     }
 
     fn req_with_identity(payload: LogRecordsStreamRequest) -> Request<LogRecordsStreamRequest> {

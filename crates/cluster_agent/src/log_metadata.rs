@@ -134,16 +134,6 @@ impl LogMetadataService for LogMetadataImpl {
         let identity = crate::auth::identity_from(&request)?;
         let request = request.into_inner();
 
-        if !self.logs_dir.is_dir() {
-            return Err(Status::new(
-                tonic::Code::NotFound,
-                format!(
-                    "Log directory not found: {}",
-                    self.logs_dir.to_string_lossy()
-                ),
-            ));
-        }
-
         let namespaces: Vec<String> = request
             .namespaces
             .into_iter()
@@ -153,6 +143,16 @@ impl LogMetadataService for LogMetadataImpl {
         self.authorizer
             .is_authorized(&identity, &namespaces, "get")
             .await?;
+
+        if !self.logs_dir.is_dir() {
+            return Err(Status::new(
+                tonic::Code::NotFound,
+                format!(
+                    "Log directory not found: {}",
+                    self.logs_dir.to_string_lossy()
+                ),
+            ));
+        }
 
         let mut files = ReadDirStream::new(read_dir(&self.logs_dir).await?);
 
@@ -243,7 +243,7 @@ mod test {
     #![allow(clippy::unwrap_used)]
 
     use crate::auth::Identity;
-    use crate::authorizer::{AlwaysAllowReviewer, Authorizer};
+    use crate::authorizer::{AlwaysAllowReviewer, AlwaysDenyReviewer, Authorizer};
     use crate::log_metadata::LogMetadataImpl;
     use serial_test::parallel;
     use std::collections::{BTreeMap, BTreeSet};
@@ -258,6 +258,10 @@ mod test {
 
     fn test_authorizer() -> Authorizer {
         Authorizer::with_reviewer(Arc::new(AlwaysAllowReviewer))
+    }
+
+    fn denied_authorizer() -> Authorizer {
+        Authorizer::with_reviewer(Arc::new(AlwaysDenyReviewer))
     }
 
     fn req_with_identity(payload: LogMetadataListRequest) -> Request<LogMetadataListRequest> {
@@ -448,5 +452,27 @@ mod test {
             .collect();
 
         assert_eq!(2, filtered_files.len());
+    }
+
+    #[tokio::test]
+    #[parallel]
+    async fn list_denies_before_logs_dir_check() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing_dir = dir.path().join("missing");
+        let metadata_service = LogMetadataImpl::new(
+            CancellationToken::new(),
+            TaskTracker::new(),
+            missing_dir,
+            denied_authorizer(),
+        );
+
+        let status = metadata_service
+            .list(req_with_identity(LogMetadataListRequest {
+                namespaces: vec!["restricted-namespace".into()],
+            }))
+            .await
+            .unwrap_err();
+
+        assert_eq!(status.code(), tonic::Code::PermissionDenied);
     }
 }

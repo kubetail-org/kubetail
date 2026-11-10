@@ -64,6 +64,20 @@ impl AccessReviewer for AlwaysAllowReviewer {
     }
 }
 
+/// Always-deny reviewer used by tests in other modules to check that a
+/// method authorizes before it touches the filesystem.
+#[cfg(test)]
+#[derive(Debug)]
+pub(crate) struct AlwaysDenyReviewer;
+
+#[cfg(test)]
+#[tonic::async_trait]
+impl AccessReviewer for AlwaysDenyReviewer {
+    async fn review(&self, _sar: SubjectAccessReview) -> Result<bool, Status> {
+        Ok(false)
+    }
+}
+
 /// Key for the authorization cache: (identity, namespace, verb)
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct CacheKey {
