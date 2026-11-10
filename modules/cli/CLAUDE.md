@@ -30,7 +30,7 @@ A Go CLI built with [Cobra](https://github.com/spf13/cobra): `logs`, `serve`, `c
 
 ## serve
 
-`loadServerConfig` starts from the Dashboard's `DefaultConfig()` and sets the environment (`desktop`, or `cluster` with `--in-cluster`), the address, the kubeconfig, the CLI's version and the local storage directory. If the port is taken it listens on a free one. `--test` loads the config, prints `ok` and exits without starting a server; CI's Alpine build uses it as a smoke test.
+`loadServerConfig` starts from the Dashboard's `DefaultConfig()` and sets the environment (`desktop`, or `cluster` with `--in-cluster`), the address, the kubeconfig, the CLI's version and the local storage directory. If the port is taken it listens on a free one, unless `--port` was given: then it exits with an error. `--test` loads the config, prints `ok` and exits without starting a server; CI's Alpine build uses it as a smoke test.
 
 ## Tests
 

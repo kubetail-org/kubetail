@@ -24,6 +24,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -47,14 +48,18 @@ import (
 )
 
 type serveOptions struct {
-	port     int
-	host     string
-	skipOpen bool
-	test     bool
+	port         int
+	host         string
+	skipOpen     bool
+	test         bool
+	fallbackPort bool
 }
 
 const serveHelp = `
 This command starts the dashboard server and opens the UI in your default browser.
+
+If the port is taken, the server listens on a free port instead, unless --port
+is given: then it exits with an error.
 `
 
 // serveCmd represents the serve command
@@ -123,13 +128,9 @@ var serveCmd = &cobra.Command{
 		server.RegisterOnShutdown(app.NotifyShutdown)
 
 		// create listener
-		listener, err := net.Listen("tcp", server.Addr)
+		listener, err := listen(opts.host, opts.port, opts.fallbackPort)
 		if err != nil {
-			// let system pick port
-			listener, err = net.Listen("tcp", fmt.Sprintf("%s:0", opts.host))
-			if err != nil {
-				zlog.Fatal().Caller().Err(err).Send()
-			}
+			zlog.Fatal().Caller().Err(err).Send()
 		}
 		defer listener.Close()
 
@@ -253,15 +254,27 @@ func loadServerConfig(cmd *cobra.Command) (*dashcfg.Config, *serveOptions, error
 		host:     cfg.Commands.Serve.Host,
 		skipOpen: cfg.Commands.Serve.SkipOpen,
 		test:     test,
+		// A script that names a port expects that port.
+		fallbackPort: !cmd.Flags().Changed("port"),
 	}
 
 	return dashCfg, serveOptions, nil
 }
 
+// listen listens on host:port. If that fails and fallback is set, it listens
+// on a free port the system picks.
+func listen(host string, port int, fallback bool) (net.Listener, error) {
+	listener, err := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
+	if err == nil || !fallback {
+		return listener, err
+	}
+	return net.Listen("tcp", net.JoinHostPort(host, "0"))
+}
+
 func addServerCmdFlags(cmd *cobra.Command) {
 	flagset := cmd.Flags()
 	flagset.SortFlags = false
-	flagset.IntP("port", "p", 7500, "Port number to listen on")
+	flagset.IntP("port", "p", 7500, "Port number to listen on; if given and taken, exit with an error")
 	flagset.String("host", "localhost", "Host address to bind to")
 	flagset.StringP("log-level", "l", "info", "Log level (debug, info, warn, error, disabled)")
 	flagset.Bool("skip-open", false, "Skip opening the browser")

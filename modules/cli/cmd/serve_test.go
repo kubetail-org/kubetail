@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,6 +35,51 @@ func TestLoadServerConfig_Defaults(t *testing.T) {
 	assert.Equal(t, 7500, opts.port)
 	assert.Equal(t, "localhost", opts.host)
 	assert.Equal(t, false, opts.skipOpen)
+	assert.True(t, opts.fallbackPort)
+}
+
+func TestLoadServerConfig_PortFlagDisablesFallback(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	cmd := &cobra.Command{}
+	addServerCmdFlags(cmd)
+	cmd.Flags().Set("port", "8080")
+
+	_, opts, err := loadServerConfig(cmd)
+	require.NoError(t, err)
+	assert.False(t, opts.fallbackPort)
+}
+
+func TestListen(t *testing.T) {
+	taken, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer taken.Close()
+	takenPort := taken.Addr().(*net.TCPAddr).Port
+
+	t.Run("free port", func(t *testing.T) {
+		free, err := net.Listen("tcp", "127.0.0.1:0")
+		require.NoError(t, err)
+		port := free.Addr().(*net.TCPAddr).Port
+		require.NoError(t, free.Close())
+
+		l, err := listen("127.0.0.1", port, false)
+		require.NoError(t, err)
+		defer l.Close()
+		assert.Equal(t, port, l.Addr().(*net.TCPAddr).Port)
+	})
+
+	t.Run("taken port with fallback", func(t *testing.T) {
+		l, err := listen("127.0.0.1", takenPort, true)
+		require.NoError(t, err)
+		defer l.Close()
+		assert.NotEqual(t, takenPort, l.Addr().(*net.TCPAddr).Port)
+	})
+
+	t.Run("taken port without fallback", func(t *testing.T) {
+		l, err := listen("127.0.0.1", takenPort, false)
+		assert.Error(t, err)
+		assert.Nil(t, l)
+	})
 }
 
 func TestLoadServerConfig(t *testing.T) {
