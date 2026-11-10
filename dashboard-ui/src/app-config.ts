@@ -13,18 +13,38 @@
 // limitations under the License.
 
 /**
- * camelCaseToUpperCaseWithUnderscores
+ * The `import.meta.env` variable that overrides each key
  */
 
-function camelCaseToUpperCaseWithUnderscores(input: string) {
-  return input.replaceAll(/([A-Z])/g, '_$1').toUpperCase();
+const ENV_KEYS = {
+  authMode: 'VITE_AUTH_MODE',
+  basePath: 'VITE_BASE_PATH',
+  cliVersion: 'VITE_CLI_VERSION',
+  clusterAPIEnabled: 'VITE_CLUSTER_API_ENABLED',
+  columns: 'VITE_COLUMNS',
+  environment: 'VITE_ENVIRONMENT',
+} as const;
+
+/**
+ * Parse an environment variable to the type of the key's default
+ */
+
+function parseEnvValue(value: string, defaultValue: unknown) {
+  if (typeof defaultValue === 'boolean') return value === 'true';
+  if (Array.isArray(defaultValue)) {
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return value;
 }
 
 /**
  * Config
  */
 
-class Config {
+export class Config {
   authMode = 'auto';
 
   basePath = '/';
@@ -37,24 +57,23 @@ class Config {
 
   environment = 'desktop';
 
-  constructor() {
-    const runtimeConfig = ('runtimeConfig' in window ? window.runtimeConfig : {}) as Record<string, string>;
-
-    // override defaults with runtimeConfig or import.meta.env
-    Object.keys(this).forEach((key) => {
-      const configKey = key as keyof this;
-
-      // 1 - check runtime config
+  // runtimeConfig is JSON the server writes into the page, so its values already have their types.
+  // Environment variables are strings, parsed to each key's type.
+  constructor(
+    runtimeConfig: Record<string, unknown> = 'runtimeConfig' in window
+      ? (window.runtimeConfig as Record<string, unknown>)
+      : {},
+    env: Record<string, unknown> = import.meta.env,
+  ) {
+    (Object.keys(ENV_KEYS) as (keyof typeof ENV_KEYS)[]).forEach((key) => {
       if (key in runtimeConfig) {
-        // @ts-expect-error Type 'string' is not assignable to type 'this[Extract<keyof this, string>]'.
-        this[configKey] = runtimeConfig[key];
+        Object.assign(this, { [key]: runtimeConfig[key] });
         return;
       }
 
-      // 2 - check import.meta.env
-      const envKey = `VITE_${camelCaseToUpperCaseWithUnderscores(key)}`;
-      if (envKey in import.meta.env) {
-        this[configKey] = import.meta.env[envKey] as this[keyof this];
+      const envValue = env[ENV_KEYS[key]];
+      if (typeof envValue === 'string') {
+        Object.assign(this, { [key]: parseEnvValue(envValue, this[key]) });
       }
     });
   }

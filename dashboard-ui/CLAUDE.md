@@ -20,7 +20,7 @@ pnpm test run       # `pnpm test` alone is watch mode and never exits
 
 ## Runtime config, environment and base path
 
-- **`appConfig` (`src/app-config.ts`) is `window.runtimeConfig`**, which the server writes into the page (`modules/dashboard/pkg/app/website.go`). `pnpm dev` has no server-rendered page, so the app runs on the defaults in that file (`desktop`, base path `/`) whatever the backend's config says; a `VITE_<KEY>` variable overrides one.
+- **`appConfig` (`src/app-config.ts`) is `window.runtimeConfig`**, which the server writes into the page (`modules/dashboard/pkg/app/website.go`). `pnpm dev` has no server-rendered page, so the app runs on the defaults in that file (`desktop`, base path `/`) whatever the backend's config says; a `VITE_` variable listed in `ENV_KEYS` overrides one, parsed to the default's type (a boolean is `true` or `false`, a list is comma-separated).
 - **`appConfig.environment` is `desktop` or `cluster`.** In `desktop`, `KubeConfigEffect` holds the one `KUBE_CONFIG_WATCH` subscription and preferences are stored on the server. In `cluster` the subscription is skipped, the kube context is `''`, and preferences live in localStorage alone.
 - **Several modules read `appConfig` when they load** (`lib/kubeconfig.tsx`, `lib/preferences.tsx`, `pages/console/state.ts`, `apollo-client.ts`). `withAppConfig` in a test cannot change what they already read.
 - **Build every URL to the server with `getBasename()` and `joinPaths`** (`src/lib/util.ts`), as `getSession` does. The app can be served under a base path or behind the kube-apiserver's service proxy. Router links get the basename from the router; a raw `<a href>` or `fetch` adds it by hand.
