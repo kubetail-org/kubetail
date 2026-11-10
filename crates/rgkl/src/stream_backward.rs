@@ -29,6 +29,7 @@ use crate::util::matcher::{LogFileRegexMatcher, PassThroughMatcher};
 use crate::util::offset::{find_nearest_offset_since, find_nearest_offset_until};
 use crate::util::reader::{ReverseLineReader, TermReader};
 use crate::util::writer::{process_output, CallbackWriter};
+use crate::util::MAX_LINE_LEN;
 
 pub async fn stream_backward(
     ctx: CancellationToken,
@@ -97,7 +98,7 @@ fn stream_backward_internal(
         .line_number(false)
         .memory_map(MmapChoice::never())
         .multi_line(false)
-        .heap_limit(Some(1024 * 1024)) // TODO: Make this configurable
+        .heap_limit(Some(MAX_LINE_LEN))
         .build();
 
     // Init writer
@@ -115,11 +116,11 @@ fn stream_backward_internal(
 
     if let Some(matcher) = matcher.as_ref() {
         let sink = printer.sink(matcher);
-        let _ = searcher.search_reader(matcher, term_reverse_reader, sink);
+        searcher.search_reader(matcher, term_reverse_reader, sink)?;
     } else {
         let matcher = PassThroughMatcher::new();
         let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, term_reverse_reader, sink);
+        searcher.search_reader(&matcher, term_reverse_reader, sink)?;
     }
 
     Ok(())
@@ -327,6 +328,27 @@ mod test {
 
         // Compare output with expected lines
         compare_lines(output, expected_lines);
+    }
+
+    #[tokio::test]
+    #[rstest]
+    async fn test_search_error_propagates_to_client(#[values(None, Some("x"))] grep: Option<&str>) {
+        // A line longer than the searcher's 1 MiB heap limit.
+        let mut test_file = NamedTempFile::new().unwrap();
+        let message = "x".repeat(2 * 1024 * 1024);
+        writeln!(
+            test_file,
+            "2024-10-01T05:40:46.960135302Z stdout F {message}"
+        )
+        .unwrap();
+        let path = test_file.path().to_path_buf();
+        let (tx, mut rx) = mpsc::channel(100);
+
+        stream_backward(CancellationToken::new(), &path, None, None, grep, tx).await;
+
+        let status = rx.recv().await.unwrap().unwrap_err();
+        assert!(status.message().contains("allocation limit"));
+        assert!(rx.recv().await.is_none());
     }
 
     #[tokio::test]

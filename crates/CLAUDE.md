@@ -42,8 +42,9 @@ Two entry points, `stream_forward` and `stream_backward`, both called by `cluste
 
 - **The format comes from the file name**: Docker JSON when the path ends in `-json.log`, else CRI.
 - **A grep matches the message alone**, never the timestamp or stream, and is case-sensitive here; the Go side adds `(?i)` (`modules/shared/logs`). Each space in the pattern becomes a pattern that also matches ANSI sequences. A regex the engine rejects reaches the caller as `InvalidArgument`.
+- **A search error reaches the caller; a line that does not parse does not.** `process_output` drops a matched line it cannot parse (a malformed timestamp, non-UTF-8 bytes) with a `warn!`, during the search and while following.
 - **Time bounds are a binary search over byte offsets** (`util/offset.rs`), which assumes timestamps ascend through the file.
-- **Forward** follows the file after the search unless `stop_time` is set or `follow_from` is `Noop`. `FollowFrom::End` ignores both time bounds. Only `Modify` events are handled; a rotated file is not reopened. **Backward** never follows.
+- **Forward** follows the file after the search unless `stop_time` is set or `follow_from` is `Noop`. `FollowFrom::End` ignores both time bounds. The search ends after the last complete line and the follow starts there, so a line still being written waits for its newline; one that passes 1 MiB without it ends the stream with an error. Every watcher event reads the file; a rotated file is not reopened. **Backward** never follows.
 - **Sends block.** `process_output` sends with `task::block_in_place(|| sender.blocking_send(..))`, which panics on a current-thread runtime. A test in which a record is sent is `#[tokio::test(flavor = "multi_thread")]`.
 - **A lost client is noticed on the next send.** A failed send cancels the stream's token.
 
@@ -52,7 +53,7 @@ Two entry points, `stream_forward` and `stream_backward`, both called by `cluste
 - **No `unwrap` outside tests.** The workspace denies `clippy::unwrap_used`, and a crate inherits it with `[lints] workspace = true`. A test module that calls `unwrap` opens with `#![allow(clippy::unwrap_used)]`. `expect` is for what cannot fail at run time (a static regex, a required clap argument) and says so in its message.
 - **Errors are a `thiserror` enum per area with one mapping to `tonic::Status`**: `AuthError` through `auth_error_to_status`, `WatcherError` and `FsWatcherError` through `From<_> for Status`. Add a variant and its mapping together.
 - **Cancellation is `tokio_util`'s `CancellationToken`.** A signal cancels the root token and every stream holds a child. A loop selects on `ctx.cancelled()`; a followed stream or a metadata watch cancelled by shutdown sends `Unavailable` before it ends. Per-request work is spawned through the `TaskTracker`, never a bare `tokio::spawn`, so shutdown waits for it.
-- **Logging is `tracing`**: `info!` for lifecycle in `main.rs`, `debug!` for nearly everything else.
+- **Logging is `tracing`**: `info!` for lifecycle in `main.rs`, `warn!` for data that is lost (a dropped log line), `debug!` for nearly everything else.
 - **Decisions are free functions, I/O is a thin shell around them.** `authenticate`, `check`, `build_sar` and the `util/offset.rs` searches are tested without a server, a cluster or a watcher. Shape new logic the same way.
 - **Module files are `foo.rs` beside a `foo/` directory** in `cluster_agent`. A service implementation is `<Service>Impl`.
 

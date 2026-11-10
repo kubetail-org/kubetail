@@ -17,3 +17,6 @@ pub mod matcher;
 pub mod offset;
 pub mod reader;
 pub mod writer;
+
+/// The longest line a stream reads. TODO: Make this configurable
+pub const MAX_LINE_LEN: usize = 1024 * 1024;

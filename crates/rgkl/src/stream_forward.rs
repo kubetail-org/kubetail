@@ -13,13 +13,13 @@
 // limitations under the License.
 
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
+use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use grep::printer::JSONBuilder;
 use grep::searcher::{MmapChoice, SearcherBuilder};
-use notify::{Config, Error, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::select;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::{self, Receiver, Sender};
@@ -33,6 +33,7 @@ use crate::util::matcher::{LogFileRegexMatcher, PassThroughMatcher};
 use crate::util::offset::{find_nearest_offset_since, find_nearest_offset_until};
 use crate::util::reader::TermReader;
 use crate::util::writer::{process_output, CallbackWriter};
+use crate::util::MAX_LINE_LEN;
 
 /// Lifecycle events emitted by stream_forward
 #[derive(Debug, Clone)]
@@ -52,12 +53,14 @@ fn emit_lifecycle(tx: &Option<broadcast::Sender<LifecycleEvent>>, event: Lifecyc
 /// A watcher for file updates.
 struct FsWatcher<F>
 where
-    F: FnMut(&[u8]),
+    F: FnMut(&[u8]) -> io::Result<()>,
 {
     /// Performs the grep search, meant to be used on each new log line.
     search_callback: F,
     /// Reader to get log lines from.
     log_file_reader: BufReader<File>,
+    /// The start of a line the file does not yet end.
+    partial_line: Vec<u8>,
     /// Receives the events that come from notify.
     output_rx: Receiver<Result<Event, Error>>,
     /// Internal notify watcher.
@@ -128,7 +131,7 @@ fn setup_fs_watcher<'a>(
     grep: Option<&'a str>,
     follow_from: FollowFrom,
     sender: &'a Sender<Result<LogRecord, Status>>,
-) -> ResultOption<FsWatcher<impl FnMut(&[u8]) + use<'a>>, FsWatcherError> {
+) -> ResultOption<FsWatcher<impl FnMut(&[u8]) -> io::Result<()> + use<'a>>, FsWatcherError> {
     let mut file = File::open(path)?;
 
     let max_offset = file.metadata()?.len();
@@ -146,10 +149,11 @@ fn setup_fs_watcher<'a>(
         // When following from the end, start at the end of the file
         start_pos = max_offset;
     } else if let Some(start_time) = start_time {
-        if let Some(offset) = find_nearest_offset_since(&file, start_time, 0, max_offset, format)? {
-            start_pos = offset.byte_offset;
-        } else {
-            return Ok(None); // No records, exit early
+        match find_nearest_offset_since(&file, start_time, 0, max_offset, format)? {
+            Some(offset) => start_pos = offset.byte_offset,
+            // No records, exit early unless the stream goes on to follow
+            None if follow_from == FollowFrom::Noop || stop_time.is_some() => return Ok(None),
+            None => start_pos = max_offset,
         }
     }
 
@@ -167,11 +171,21 @@ fn setup_fs_watcher<'a>(
         }
     }
 
+    // A followed search ends after the last complete line, where the follow picks up.
+    let follow_pos = if follow_from != FollowFrom::Noop && take_length.is_none() {
+        let pos = last_line_end(&mut file, max_offset)?;
+        start_pos = start_pos.min(pos);
+        Some(pos)
+    } else {
+        None
+    };
+    let search_length = take_length.or(follow_pos.map(|pos| pos - start_pos));
+
     // Seek to starting position
-    let _ = file.seek(SeekFrom::Start(start_pos));
+    file.seek(SeekFrom::Start(start_pos))?;
 
     // Init reader
-    let reader: Box<dyn Read> = if let Some(len) = take_length {
+    let reader: Box<dyn Read> = if let Some(len) = search_length {
         Box::new(file.take(len))
     } else {
         Box::new(file)
@@ -185,7 +199,7 @@ fn setup_fs_watcher<'a>(
         .line_number(false)
         .memory_map(MmapChoice::never())
         .multi_line(false)
-        .heap_limit(Some(1024 * 1024)) // TODO: Make this configurable
+        .heap_limit(Some(MAX_LINE_LEN))
         .build();
 
     let ctx_copy = ctx.clone();
@@ -203,33 +217,29 @@ fn setup_fs_watcher<'a>(
 
     if let Some(matcher) = matcher.as_ref() {
         let sink = printer.sink(matcher);
-        let _ = searcher.search_reader(matcher, term_reader, sink);
+        searcher.search_reader(matcher, term_reader, sink)?;
     } else {
         let matcher = PassThroughMatcher::new();
         let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, term_reader, sink);
+        searcher.search_reader(&matcher, term_reader, sink)?;
     }
 
     if ctx.is_cancelled() {
         return Ok(None);
     }
 
-    if take_length.is_some() {
+    let Some(follow_pos) = follow_pos else {
         return Ok(None);
-    }
-
-    if follow_from == FollowFrom::Noop {
-        return Ok(None);
-    }
+    };
 
     let search_slice = move |input_str: &[u8]| {
         if let Some(matcher) = matcher.as_ref() {
             let sink = printer.sink(matcher);
-            let _ = searcher.search_slice(matcher, input_str, sink);
+            searcher.search_slice(matcher, input_str, sink)
         } else {
             let matcher = PassThroughMatcher::new();
             let sink = printer.sink(&matcher);
-            let _ = searcher.search_slice(&matcher, input_str, sink);
+            searcher.search_slice(&matcher, input_str, sink)
         }
     };
 
@@ -246,46 +256,90 @@ fn setup_fs_watcher<'a>(
     watcher.watch(path, RecursiveMode::NonRecursive)?;
 
     let mut reader = BufReader::new(File::open(path)?);
-    reader.seek(SeekFrom::End(0))?;
+    reader.seek(SeekFrom::Start(follow_pos))?;
 
     Ok(Some(FsWatcher {
         search_callback: search_slice,
         log_file_reader: reader,
+        partial_line: Vec::new(),
         _notify_watcher: watcher,
         output_rx: notify_rx,
     }))
+}
+
+fn line_too_long() -> io::Error {
+    io::Error::other("line exceeds the length limit")
+}
+
+/// The offset just past the last newline in the first `len` bytes of `file`.
+/// Looks back no further than `MAX_LINE_LEN`.
+fn last_line_end(file: &mut File, len: u64) -> io::Result<u64> {
+    let mut buf = [0; 8192];
+    let floor = len.saturating_sub(MAX_LINE_LEN as u64);
+    let mut end = len;
+    while end > floor {
+        let start = end.saturating_sub(buf.len() as u64).max(floor);
+        let chunk = &mut buf[..(end - start) as usize];
+        file.seek(SeekFrom::Start(start))?;
+        file.read_exact(chunk)?;
+        if let Some(i) = chunk.iter().rposition(|&b| b == b'\n') {
+            return Ok(start + i as u64 + 1);
+        }
+        end = start;
+    }
+    if floor > 0 {
+        return Err(line_too_long());
+    }
+    Ok(0)
+}
+
+/// Searches each complete line left in `reader`. A line still being written
+/// stays in `line` until its newline arrives, and may not pass `MAX_LINE_LEN`.
+fn search_new_lines(
+    ctx: &CancellationToken,
+    reader: &mut impl BufRead,
+    line: &mut Vec<u8>,
+    mut search: impl FnMut(&[u8]) -> io::Result<()>,
+) -> io::Result<()> {
+    while !ctx.is_cancelled() {
+        let room = (MAX_LINE_LEN - line.len()) as u64;
+        reader.by_ref().take(room).read_until(b'\n', line)?;
+        if !line.ends_with(b"\n") {
+            if line.len() == MAX_LINE_LEN {
+                return Err(line_too_long());
+            }
+            break;
+        }
+        search(line)?;
+        line.clear();
+    }
+    Ok(())
 }
 
 /// Listens for update Events from notify, process the new log lines to produce `LogRecord` events
 /// and pushes them to the sender. Loops until `ctx` is cancelled or an error is sent.
 async fn listen_for_changes(
     ctx: CancellationToken,
-    mut fs_watcher: FsWatcher<impl FnMut(&[u8])>,
+    mut fs_watcher: FsWatcher<impl FnMut(&[u8]) -> io::Result<()>>,
     sender: Sender<Result<LogRecord, Status>>,
 ) {
-    'outer: loop {
+    loop {
+        // The first pass reads what was written while the watcher was set up.
+        let result = search_new_lines(
+            &ctx,
+            &mut fs_watcher.log_file_reader,
+            &mut fs_watcher.partial_line,
+            &mut fs_watcher.search_callback,
+        );
+        if let Err(e) = result {
+            let _ = sender.send(Err(FsWatcherError::from(e).into())).await;
+            return;
+        }
+
         select! {
             ev = fs_watcher.output_rx.recv() => {
                 match ev {
-                    Some(Ok(event)) => {
-                        if let EventKind::Modify(_) = event.kind {
-                            for line in (&mut fs_watcher.log_file_reader).lines() {
-                                if ctx.is_cancelled() {
-                                    break 'outer;
-                                }
-
-                                match line {
-                                    Ok(l) => {
-                                        (fs_watcher.search_callback)(l.as_bytes());
-                                    },
-                                    Err(e) => {
-                                        let _ = sender.send(Err(Status::from_error(Box::new(e)))).await;
-                                        return;
-                                    }
-                                }
-                            }
-                        }
-                    },
+                    Some(Ok(_)) => {},
                     Some(Err(e)) => {
                         let _ = sender.send(Err(Status::from(FsWatcherError::Watch(e)))).await;
                         return;
@@ -300,7 +354,7 @@ async fn listen_for_changes(
                 // Send gRPC UNAVAILABLE error to indicate server shutdown
                 let shutdown_status = Status::new(tonic::Code::Unavailable, "Server is shutting down");
                 let _ = sender.send(Err(shutdown_status)).await;
-                break 'outer;
+                return;
             },
         }
     }
@@ -552,6 +606,7 @@ mod test {
         #[case] start_time_str: String,
         #[case] follow_from: FollowFrom,
         #[case] expected_lines: Vec<&'static str>,
+        #[values(None, Some("linenum"))] grep: Option<&'static str>,
     ) {
         let test_file = create_test_file();
         let path = test_file.path().to_path_buf();
@@ -585,7 +640,7 @@ mod test {
                 &path,
                 start_time,
                 None, // No stop time
-                None, // No grep filter
+                grep,
                 follow_from,
                 tx,
                 Some(lifecycle_tx_clone),
@@ -654,6 +709,162 @@ mod test {
         let status = result.unwrap_err();
         assert_eq!(status.code(), tonic::Code::NotFound);
         assert!(status.message().contains("No such file or directory"));
+    }
+
+    #[tokio::test]
+    #[rstest]
+    async fn test_search_error_propagates_to_client(#[values(None, Some("x"))] grep: Option<&str>) {
+        // A line longer than the searcher's 1 MiB heap limit.
+        let mut test_file = NamedTempFile::new().unwrap();
+        let message = "x".repeat(2 * 1024 * 1024);
+        writeln!(
+            test_file,
+            "2024-10-01T05:40:46.960135302Z stdout F {message}"
+        )
+        .unwrap();
+        let path = test_file.path().to_path_buf();
+        let (tx, mut rx) = mpsc::channel(100);
+
+        stream_forward(
+            CancellationToken::new(),
+            &path,
+            None,
+            None,
+            grep,
+            FollowFrom::Noop,
+            tx,
+        )
+        .await;
+
+        let status = rx.recv().await.unwrap().unwrap_err();
+        assert!(status.message().contains("allocation limit"));
+        assert!(rx.recv().await.is_none());
+    }
+
+    /// Follows a file that holds `initial`, appends `appended` once the
+    /// watcher runs, and returns the first item the stream sends.
+    async fn follow_and_append(
+        initial: &[u8],
+        appended: &[u8],
+        start_time: Option<DateTime<Utc>>,
+        follow_from: FollowFrom,
+    ) -> Result<LogRecord, Status> {
+        let mut test_file = NamedTempFile::new().unwrap();
+        test_file.write_all(initial).unwrap();
+        let path = test_file.path().to_path_buf();
+        let (tx, mut rx) = mpsc::channel(100);
+        let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
+
+        task::spawn(async move {
+            stream_forward_with_lifecyle_events(
+                CancellationToken::new(),
+                &path,
+                start_time,
+                None,
+                None,
+                follow_from,
+                tx,
+                Some(lifecycle_tx),
+            )
+            .await;
+        });
+
+        while !matches!(
+            lifecycle_rx.recv().await,
+            Ok(LifecycleEvent::WatcherStarted)
+        ) {}
+
+        test_file.write_all(appended).unwrap();
+
+        time::timeout(Duration::from_secs(10), rx.recv())
+            .await
+            .expect("Timed out waiting for the stream")
+            .unwrap()
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_follow_drops_line_that_is_not_utf8() {
+        let appended = b"\xff\n2024-10-01T05:40:46.960135302Z stdout F hello\n";
+        let record = follow_and_append(b"", appended, None, FollowFrom::Default).await;
+        assert_eq!(record.unwrap().message, "hello");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[rstest]
+    async fn test_follow_finishes_line_cut_short_by_the_search(
+        #[values(FollowFrom::Default, FollowFrom::End)] follow_from: FollowFrom,
+    ) {
+        let initial = b"2024-10-01T05:40:46.960135302Z stdout F hel";
+        let record = follow_and_append(initial, b"lo\n", None, follow_from).await;
+        assert_eq!(record.unwrap().message, "hello");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_follow_starts_when_start_time_is_past_every_record() {
+        let initial = b"2024-10-01T05:40:46.960135302Z stdout F old\n";
+        let appended = b"2024-10-03T05:40:46.960135302Z stdout F new\n";
+        let start_time = "2024-10-02T00:00:00Z".parse().unwrap();
+        let record =
+            follow_and_append(initial, appended, Some(start_time), FollowFrom::Default).await;
+        assert_eq!(record.unwrap().message, "new");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_follow_error_propagates_to_client() {
+        let appended = vec![b'x'; MAX_LINE_LEN];
+        let status = follow_and_append(b"", &appended, None, FollowFrom::Default).await;
+        assert!(status.unwrap_err().message().contains("length limit"));
+    }
+
+    #[rstest]
+    #[case(b"", 0)]
+    #[case(b"ab", 0)]
+    #[case(b"a\nb", 2)]
+    #[case(b"a\nb\n", 4)]
+    fn test_last_line_end(#[case] content: &[u8], #[case] expected: u64) {
+        // The padding puts the newline in an earlier chunk than the end.
+        for padding in [0, 10_000] {
+            let mut test_file = NamedTempFile::new().unwrap();
+            test_file.write_all(content).unwrap();
+            test_file.write_all(&vec![b'x'; padding]).unwrap();
+            let len = (content.len() + padding) as u64;
+
+            assert_eq!(
+                last_line_end(test_file.as_file_mut(), len).unwrap(),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn test_last_line_end_rejects_line_over_the_limit() {
+        let mut test_file = NamedTempFile::new().unwrap();
+        let content = vec![b'x'; MAX_LINE_LEN + 1];
+        test_file.write_all(&content).unwrap();
+
+        let result = last_line_end(test_file.as_file_mut(), content.len() as u64);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_search_new_lines_waits_for_the_newline() {
+        let mut test_file = NamedTempFile::new().unwrap();
+        let mut reader = BufReader::new(test_file.reopen().unwrap());
+        let ctx = CancellationToken::new();
+        let mut partial_line = Vec::new();
+        let mut lines = Vec::new();
+        let mut search = |line: &[u8]| {
+            lines.push(line.to_vec());
+            Ok(())
+        };
+
+        test_file.write_all(b"one\ntw").unwrap();
+        search_new_lines(&ctx, &mut reader, &mut partial_line, &mut search).unwrap();
+        test_file.write_all(b"o\n").unwrap();
+        search_new_lines(&ctx, &mut reader, &mut partial_line, &mut search).unwrap();
+
+        assert_eq!(lines, [b"one\n", b"two\n"]);
     }
 
     #[tokio::test]
