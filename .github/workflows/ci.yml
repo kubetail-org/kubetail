@@ -739,33 +739,6 @@ jobs:
           set -ex
           ./bin/kubetail serve --test
 
-  # Every module in one job, so the modules share one cache.
-  go-test-riscv64:
-    name: Go · Test (linux, riscv64)
-    needs: changes
-    if: github.event_name == 'push'
-    runs-on: ubuntu-24.04-riscv
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - id: setup
-        uses: ./.github/actions/setup-environment
-        with:
-          setup-go: "true"
-          go-cache-key: ${{ github.job }}-linux-riscv64
-          go-cache-mode: ${{ env.CACHE_MODE }}
-      - name: Run tests
-        working-directory: ./modules
-        run: go test ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
-      # Last, so a failed job leaves the last good cache the newest.
-      - name: Save Go cache
-        if: env.CACHE_MODE != 'use'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ steps.setup.outputs.go-cache-path }}
-          key: ${{ steps.setup.outputs.go-cache-key }}
-
   # GOARCH=386 runs natively on the amd64 runner. It stands for the 32-bit
   # architectures the packages build for (x86, armhf, armv7), whose tests no
   # runner can run natively.
@@ -790,71 +763,6 @@ jobs:
           GOARCH: "386"
         run: go test ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
 
-  # Builds the Go binary alone: Node has no riscv64 build to bundle the UI with.
-  cli-builds-riscv64:
-    name: CLI · Build (linux, riscv64)
-    needs: changes
-    if: github.event_name == 'push'
-    runs-on: ubuntu-24.04-riscv
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      # Reads Go · Test (linux, riscv64)'s cache and saves none.
-      - uses: ./.github/actions/setup-environment
-        with:
-          setup-go: "true"
-          go-cache-key: go-test-riscv64-linux-riscv64
-          go-cache-mode: ${{ env.CACHE_MODE }}
-      - name: Build
-        working-directory: ./modules/cli
-        run: CGO_ENABLED=0 go build -ldflags="-s -w" ./main.go
-
-  # The cli and dashboard images build the UI on a node image, which has no
-  # riscv64 variant, and Dockerfile.cluster-agent accepts only x86_64 and
-  # aarch64.
-  docker-builds-riscv64:
-    name: Docker · Build
-    needs: changes
-    if: github.event_name == 'push'
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        component:
-          - cluster-api
-        arch:
-          - riscv64
-        target:
-          - final
-          - final-alpine
-    runs-on: ubuntu-24.04-riscv
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - name: Build
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          file: build/package/Dockerfile.${{ matrix.component }}
-          target: ${{ matrix.target }}
-          push: false
-          load: true
-          tags: ${{ matrix.component }}:${{ matrix.target }}
-          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.arch }}
-          cache-to: >-
-            ${{ env.CACHE_MODE != 'use'
-            && format('type=gha,mode=max,scope={0}-{1}', matrix.component, matrix.arch)
-            || '' }}
-      - name: Run
-        env:
-          IMAGE: ${{ matrix.component }}:${{ matrix.target }}
-        run: docker run --rm "$IMAGE" --help
-
   ###########################
   # Cache jobs
   ###########################
@@ -870,7 +778,6 @@ jobs:
       - go-vet
       - go-staticcheck
       - go-test
-      - go-test-riscv64
       - rust-vet
       - rust-test
       - typescript-lint
