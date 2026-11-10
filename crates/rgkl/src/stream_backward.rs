@@ -20,15 +20,12 @@ use tonic::Status;
 use types::cluster_agent::LogRecord;
 
 use chrono::{DateTime, Utc};
-use grep::printer::JSONBuilder;
-use grep::searcher::{MmapChoice, SearcherBuilder};
 
-use crate::fs_watcher_error::FsWatcherError;
 use crate::util::format::FileFormat;
-use crate::util::matcher::{LogFileRegexMatcher, PassThroughMatcher};
 use crate::util::offset::{find_nearest_offset_since, find_nearest_offset_until};
 use crate::util::reader::{ReverseLineReader, TermReader};
-use crate::util::writer::{process_output, CallbackWriter};
+use crate::util::search::new_log_searcher;
+use crate::watcher_error::WatcherError;
 
 pub async fn stream_backward(
     ctx: CancellationToken,
@@ -52,17 +49,12 @@ fn stream_backward_internal(
     stop_time: Option<DateTime<Utc>>,
     grep: Option<&str>,
     sender: &Sender<Result<LogRecord, Status>>,
-) -> Result<(), FsWatcherError> {
+) -> Result<(), WatcherError> {
     // Open file
     let file = File::open(path)?;
     let max_offset = file.metadata()?.len();
 
-    // Determine format based on filename
-    let format = if path.to_string_lossy().ends_with("-json.log") {
-        FileFormat::Docker
-    } else {
-        FileFormat::CRI
-    };
+    let format = FileFormat::from_path(path);
 
     // Get start pos
     let start_pos: u64 = if let Some(ts) = start_time {
@@ -86,41 +78,11 @@ fn stream_backward_internal(
         max_offset
     };
 
-    // Wrap in term reader
-    let term_reverse_reader = TermReader::new(
-        ctx.clone(),
+    let mut searcher = new_log_searcher(ctx.clone(), format, grep, sender)?;
+    searcher.search_reader(TermReader::new(
+        ctx,
         ReverseLineReader::new(file, start_pos, end_pos)?,
-    );
-
-    // Init searcher
-    let mut searcher = SearcherBuilder::new()
-        .line_number(false)
-        .memory_map(MmapChoice::never())
-        .multi_line(false)
-        .heap_limit(Some(1024 * 1024)) // TODO: Make this configurable
-        .build();
-
-    // Init writer
-    let writer_fn = |chunk: Vec<u8>| process_output(ctx.clone(), chunk, sender, format);
-    let writer = CallbackWriter::new(writer_fn);
-
-    // Init printer
-    let mut printer = JSONBuilder::new().build(writer);
-
-    // Remove leading and trailing whitespace
-    let trimmed_grep = grep.map(str::trim).filter(|grep| !grep.is_empty());
-    let matcher = trimmed_grep
-        .map(|grep| LogFileRegexMatcher::new(grep, format))
-        .transpose()?;
-
-    if let Some(matcher) = matcher.as_ref() {
-        let sink = printer.sink(matcher);
-        let _ = searcher.search_reader(matcher, term_reverse_reader, sink);
-    } else {
-        let matcher = PassThroughMatcher::new();
-        let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, term_reverse_reader, sink);
-    }
+    ));
 
     Ok(())
 }

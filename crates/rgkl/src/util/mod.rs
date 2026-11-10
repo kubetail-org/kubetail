@@ -16,4 +16,5 @@ pub mod format;
 pub mod matcher;
 pub mod offset;
 pub mod reader;
+pub mod search;
 pub mod writer;

@@ -18,7 +18,7 @@ use thiserror::Error;
 use tonic::Status;
 
 #[derive(Error, Debug)]
-pub enum FsWatcherError {
+pub enum WatcherError {
     #[error("Error while accessing file: {0}")]
     Io(#[from] io::Error),
 
@@ -32,15 +32,15 @@ pub enum FsWatcherError {
     InvalidGrep(#[from] grep::regex::Error),
 }
 
-impl From<FsWatcherError> for Status {
-    fn from(watcher_error: FsWatcherError) -> Self {
+impl From<WatcherError> for Status {
+    fn from(watcher_error: WatcherError) -> Self {
         match watcher_error {
-            FsWatcherError::Io(io_error) => io_error.into(),
-            FsWatcherError::Watch(notify_error) => Self::from_error(Box::new(notify_error)),
-            FsWatcherError::DirNotFound(_) => {
+            WatcherError::Io(io_error) => io_error.into(),
+            WatcherError::Watch(notify_error) => Self::from_error(Box::new(notify_error)),
+            WatcherError::DirNotFound(_) => {
                 Self::new(tonic::Code::NotFound, watcher_error.to_string())
             }
-            FsWatcherError::InvalidGrep(_) => {
+            WatcherError::InvalidGrep(_) => {
                 Self::new(tonic::Code::InvalidArgument, watcher_error.to_string())
             }
         }

@@ -13,13 +13,12 @@
 // limitations under the License.
 
 use std::collections::{HashSet, VecDeque};
-use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use notify::{Event, EventKind, RecursiveMode, Watcher};
 use notify_debouncer_full::{DebounceEventResult, Debouncer, RecommendedCache, new_debouncer_opt};
-use thiserror::Error;
+use rgkl::watcher_error::WatcherError;
 use tokio::fs::read_dir;
 use tokio::runtime::Handle;
 use tokio::select;
@@ -254,30 +253,6 @@ impl LogMetadataWatcher {
             file_metadata.container_id
         );
         Some(self.directory.join(filename))
-    }
-}
-
-#[derive(Error, Debug)]
-enum WatcherError {
-    #[error("Error while accessing file: {0}")]
-    Io(#[from] io::Error),
-
-    #[error("Error while trying to watch: {0}")]
-    Watch(#[from] notify::Error),
-
-    #[error("Log directory not found: {0}")]
-    DirNotFound(String),
-}
-
-impl From<WatcherError> for Status {
-    fn from(watcher_error: WatcherError) -> Self {
-        match watcher_error {
-            WatcherError::Io(io_error) => io_error.into(),
-            WatcherError::Watch(notify_error) => Self::from_error(Box::new(notify_error)),
-            WatcherError::DirNotFound(_) => {
-                Self::new(tonic::Code::NotFound, watcher_error.to_string())
-            }
-        }
     }
 }
 

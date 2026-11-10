@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod fs_watcher_error;
 pub mod stream_backward;
 pub mod stream_forward;
 pub mod util;
+pub mod watcher_error;

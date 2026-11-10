@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::path::Path;
+
 /// Represents the format of log files
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -22,9 +24,37 @@ pub enum FileFormat {
     CRI,
 }
 
+impl FileFormat {
+    /// Docker writes `<name>-json.log`; every other file is CRI.
+    pub fn from_path(path: &Path) -> Self {
+        if path.to_string_lossy().ends_with("-json.log") {
+            FileFormat::Docker
+        } else {
+            FileFormat::CRI
+        }
+    }
+}
+
 impl Default for FileFormat {
     /// Default to CRI format for backward compatibility
     fn default() -> Self {
         FileFormat::CRI
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::path::Path;
+
+    use rstest::rstest;
+
+    use super::FileFormat;
+
+    #[rstest]
+    #[case("/var/log/containers/pod_ns_app-abc-json.log", FileFormat::Docker)]
+    #[case("/var/log/containers/pod_ns_app-abc.log", FileFormat::CRI)]
+    #[case("/var/log/containers/json.log", FileFormat::CRI)]
+    fn test_from_path(#[case] path: &str, #[case] expected: FileFormat) {
+        assert_eq!(FileFormat::from_path(Path::new(path)), expected);
     }
 }

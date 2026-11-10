@@ -17,8 +17,6 @@ use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
-use grep::printer::JSONBuilder;
-use grep::searcher::{MmapChoice, SearcherBuilder};
 use notify::{Config, Error, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::select;
 use tokio::sync::broadcast;
@@ -27,12 +25,11 @@ use tokio_util::sync::CancellationToken;
 use tonic::Status;
 use types::cluster_agent::{FollowFrom, LogRecord};
 
-use crate::fs_watcher_error::FsWatcherError;
 use crate::util::format::FileFormat;
-use crate::util::matcher::{LogFileRegexMatcher, PassThroughMatcher};
 use crate::util::offset::{find_nearest_offset_since, find_nearest_offset_until};
 use crate::util::reader::TermReader;
-use crate::util::writer::{process_output, CallbackWriter};
+use crate::util::search::{new_log_searcher, LogSearcher};
+use crate::watcher_error::WatcherError;
 
 /// Lifecycle events emitted by stream_forward
 #[derive(Debug, Clone)]
@@ -52,10 +49,10 @@ fn emit_lifecycle(tx: &Option<broadcast::Sender<LifecycleEvent>>, event: Lifecyc
 /// A watcher for file updates.
 struct FsWatcher<F>
 where
-    F: FnMut(&[u8]),
+    F: Fn(Vec<u8>),
 {
-    /// Performs the grep search, meant to be used on each new log line.
-    search_callback: F,
+    /// Greps each new log line.
+    searcher: LogSearcher<F>,
     /// Reader to get log lines from.
     log_file_reader: BufReader<File>,
     /// Receives the events that come from notify.
@@ -125,20 +122,15 @@ fn setup_fs_watcher<'a>(
     path: &PathBuf,
     start_time: Option<DateTime<Utc>>,
     stop_time: Option<DateTime<Utc>>,
-    grep: Option<&'a str>,
+    grep: Option<&str>,
     follow_from: FollowFrom,
     sender: &'a Sender<Result<LogRecord, Status>>,
-) -> ResultOption<FsWatcher<impl FnMut(&[u8]) + use<'a>>, FsWatcherError> {
+) -> ResultOption<FsWatcher<impl Fn(Vec<u8>) + use<'a>>, WatcherError> {
     let mut file = File::open(path)?;
 
     let max_offset = file.metadata()?.len();
 
-    // Determine format based on filename
-    let format = if path.to_string_lossy().ends_with("-json.log") {
-        FileFormat::Docker
-    } else {
-        FileFormat::CRI
-    };
+    let format = FileFormat::from_path(path);
 
     // Get start pos
     let mut start_pos: u64 = 0;
@@ -177,38 +169,8 @@ fn setup_fs_watcher<'a>(
         Box::new(file)
     };
 
-    // Wrap in term reader
-    let term_reader = TermReader::new(ctx.clone(), reader);
-
-    // Init searcher
-    let mut searcher = SearcherBuilder::new()
-        .line_number(false)
-        .memory_map(MmapChoice::never())
-        .multi_line(false)
-        .heap_limit(Some(1024 * 1024)) // TODO: Make this configurable
-        .build();
-
-    let ctx_copy = ctx.clone();
-    let writer_fn = move |chunk: Vec<u8>| {
-        process_output(ctx_copy.clone(), chunk, sender, format);
-    };
-    let writer = CallbackWriter::new(writer_fn);
-    let mut printer = JSONBuilder::new().build(writer);
-
-    // Remove leading and trailing whitespace
-    let trimmed_grep = grep.map(str::trim).filter(|grep| !grep.is_empty());
-    let matcher = trimmed_grep
-        .map(|grep| LogFileRegexMatcher::new(grep, format))
-        .transpose()?;
-
-    if let Some(matcher) = matcher.as_ref() {
-        let sink = printer.sink(matcher);
-        let _ = searcher.search_reader(matcher, term_reader, sink);
-    } else {
-        let matcher = PassThroughMatcher::new();
-        let sink = printer.sink(&matcher);
-        let _ = searcher.search_reader(&matcher, term_reader, sink);
-    }
+    let mut searcher = new_log_searcher(ctx.clone(), format, grep, sender)?;
+    searcher.search_reader(TermReader::new(ctx.clone(), reader));
 
     if ctx.is_cancelled() {
         return Ok(None);
@@ -221,17 +183,6 @@ fn setup_fs_watcher<'a>(
     if follow_from == FollowFrom::Noop {
         return Ok(None);
     }
-
-    let search_slice = move |input_str: &[u8]| {
-        if let Some(matcher) = matcher.as_ref() {
-            let sink = printer.sink(matcher);
-            let _ = searcher.search_slice(matcher, input_str, sink);
-        } else {
-            let matcher = PassThroughMatcher::new();
-            let sink = printer.sink(&matcher);
-            let _ = searcher.search_slice(&matcher, input_str, sink);
-        }
-    };
 
     // Set up watcher
     let (notify_tx, notify_rx) = mpsc::channel(100);
@@ -249,7 +200,7 @@ fn setup_fs_watcher<'a>(
     reader.seek(SeekFrom::End(0))?;
 
     Ok(Some(FsWatcher {
-        search_callback: search_slice,
+        searcher,
         log_file_reader: reader,
         _notify_watcher: watcher,
         output_rx: notify_rx,
@@ -260,7 +211,7 @@ fn setup_fs_watcher<'a>(
 /// and pushes them to the sender. Loops until `ctx` is cancelled or an error is sent.
 async fn listen_for_changes(
     ctx: CancellationToken,
-    mut fs_watcher: FsWatcher<impl FnMut(&[u8])>,
+    mut fs_watcher: FsWatcher<impl Fn(Vec<u8>)>,
     sender: Sender<Result<LogRecord, Status>>,
 ) {
     'outer: loop {
@@ -276,7 +227,7 @@ async fn listen_for_changes(
 
                                 match line {
                                     Ok(l) => {
-                                        (fs_watcher.search_callback)(l.as_bytes());
+                                        fs_watcher.searcher.search_slice(l.as_bytes());
                                     },
                                     Err(e) => {
                                         let _ = sender.send(Err(Status::from_error(Box::new(e)))).await;
@@ -287,7 +238,7 @@ async fn listen_for_changes(
                         }
                     },
                     Some(Err(e)) => {
-                        let _ = sender.send(Err(Status::from(FsWatcherError::Watch(e)))).await;
+                        let _ = sender.send(Err(Status::from(WatcherError::Watch(e)))).await;
                         return;
                     }
                     None => {

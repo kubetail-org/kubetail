@@ -39,7 +39,8 @@ Runs as a DaemonSet with the node's `/var/log` mounted read-only. Only the Clust
 
 Two entry points, `stream_forward` and `stream_backward`, both called by `cluster_agent/src/log_records.rs`. Each sends `Result<LogRecord, Status>` on a tokio `mpsc` channel and returns `()`. An error travels in the channel, never as a return value.
 
-- **The format comes from the file name**: Docker JSON when the path ends in `-json.log`, else CRI.
+- **The format comes from the file name** (`FileFormat::from_path`): Docker JSON when the path ends in `-json.log`, else CRI.
+- **Both streams grep through `new_log_searcher`** (`util/search.rs`). A change to how lines are matched or sent goes there.
 - **A grep matches the message alone**, never the timestamp or stream, and is case-sensitive here; the Go side adds `(?i)` (`modules/shared/logs`). Each space in the pattern becomes a pattern that also matches ANSI sequences. A regex the engine rejects reaches the caller as `InvalidArgument`.
 - **Time bounds are a binary search over byte offsets** (`util/offset.rs`), which assumes timestamps ascend through the file.
 - **Forward** follows the file after the search unless `stop_time` is set or `follow_from` is `Noop`. `FollowFrom::End` ignores both time bounds. Only `Modify` events are handled; a rotated file is not reopened. **Backward** never follows.
@@ -49,7 +50,7 @@ Two entry points, `stream_forward` and `stream_backward`, both called by `cluste
 ## Conventions
 
 - **No `unwrap` outside tests.** The workspace denies `clippy::unwrap_used`, and a crate inherits it with `[lints] workspace = true`. A test module that calls `unwrap` opens with `#![allow(clippy::unwrap_used)]`. `expect` is for what cannot fail at run time (a static regex, a required clap argument) and says so in its message.
-- **Errors are a `thiserror` enum per area with one mapping to `tonic::Status`**: `AuthError` through `auth_error_to_status`, `WatcherError` and `FsWatcherError` through `From<_> for Status`. Add a variant and its mapping together.
+- **Errors are a `thiserror` enum per area with one mapping to `tonic::Status`**: `AuthError` through `auth_error_to_status`, and `rgkl::watcher_error::WatcherError`, which the streams and the metadata watcher share, through `From<_> for Status`. Add a variant and its mapping together.
 - **Cancellation is `tokio_util`'s `CancellationToken`.** A signal cancels the root token and every stream holds a child. A loop selects on `ctx.cancelled()`; a followed stream or a metadata watch cancelled by shutdown sends `Unavailable` before it ends. Per-request work is spawned through the `TaskTracker`, never a bare `tokio::spawn`, so shutdown waits for it.
 - **Logging is `tracing`**: `info!` for lifecycle in `main.rs`, `debug!` for nearly everything else.
 - **Decisions are free functions, I/O is a thin shell around them.** `authenticate`, `check`, `build_sar` and the `util/offset.rs` searches are tested without a server, a cluster or a watcher. Shape new logic the same way.
