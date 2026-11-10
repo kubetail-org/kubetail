@@ -21,24 +21,17 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # As in ci.yml: outside kubetail-org/kubetail this job runs only for a PR or
-  # a dispatch, and Changes needs it, so a fork's automatic run skips whole.
-  fork-gate:
-    name: Fork gate
+  # A pull request measures a language when a path in its filter in
+  # .github/ci-config/path-filters.yml, which ci.yml reads too, changed. A
+  # push or a dispatch measures them all. As in ci.yml: outside
+  # kubetail-org/kubetail this job runs only for a PR or a dispatch, and every
+  # other job needs it, so a fork's automatic run skips whole.
+  changes:
+    name: Plan
     if: >-
       github.repository == 'kubetail-org/kubetail'
       || github.event_name == 'pull_request'
       || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-slim
-    steps:
-      - run: "true"
-
-  # A pull request measures a language when a path in its filter in
-  # .github/ci-config/path-filters.yml, which ci.yml reads too, changed. A
-  # push or a dispatch measures them all.
-  changes:
-    name: Changes
-    needs: fork-gate
     runs-on: ubuntu-24.04
     permissions:
       pull-requests: read
