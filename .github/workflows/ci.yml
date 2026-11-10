@@ -43,25 +43,18 @@ env:
   CARGO_PROFILE_DEV_DEBUG: line-tables-only
 
 jobs:
+  # A pull request runs a group's jobs only when a path in its filter changed.
+  # A push or a dispatch runs them all, so main catches what a filter misses.
+  # Test and build jobs need only this job, so they start beside lint and vet.
   # GitHub starts push runs in forks too. Outside kubetail-org/kubetail this job
-  # runs only for a PR or a dispatch, and Changes needs it, so a fork's
+  # runs only for a PR or a dispatch, and every other job needs it, so a fork's
   # automatic run skips whole.
-  fork-gate:
-    name: Fork gate
+  changes:
+    name: Plan
     if: >-
       github.repository == 'kubetail-org/kubetail'
       || github.event_name == 'pull_request'
       || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-slim
-    steps:
-      - run: "true"
-
-  # A pull request runs a group's jobs only when a path in its filter changed.
-  # A push or a dispatch runs them all, so main catches what a filter misses.
-  # Test and build jobs need only this job, so they start beside lint and vet.
-  changes:
-    name: Changes
-    needs: fork-gate
     runs-on: ubuntu-24.04
     permissions:
       pull-requests: read
@@ -642,7 +635,7 @@ jobs:
   # Jobs on a push to main only
   ###########################
 
-  # They need Changes for its fork gate alone: no path filter skips them.
+  # They need Plan for its fork check alone: no path filter skips them.
 
   alpine-builds:
     name: Alpine · Build

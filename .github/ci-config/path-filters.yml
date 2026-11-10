@@ -1,4 +1,4 @@
-# dorny/paths-filter's filters, read by the Changes jobs of ci.yml, codeql.yml
+# dorny/paths-filter's filters, read by the Plan jobs of ci.yml, codeql.yml
 # and coverage.yml. A pull request runs a group's jobs, and measures its
 # coverage, only when a path in it changed, so the two cannot drift: a path
 # that ran the tests but not the coverage would pass its changed lines as "0 of
