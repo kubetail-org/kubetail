@@ -14,7 +14,9 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-import { k8sPagination, waitUntilOnline, waitUntilVisible } from './apollo-client';
+import { CONSOLE_NODES_LIST_FETCH } from '@/lib/graphql/dashboard/ops';
+
+import { DashboardCustomCache, k8sPagination, waitUntilOnline, waitUntilVisible } from './apollo-client';
 
 describe('k8sPagination merge logic', () => {
   let mergeFunction: ReturnType<typeof k8sPagination>['merge'];
@@ -80,6 +82,52 @@ describe('k8sPagination merge logic', () => {
     const result = mergeFunction(existing, incoming, { args: { options: { continue: 'differentToken' } } });
 
     expect(result).toEqual(existing);
+  });
+});
+
+describe('DashboardCustomCache', () => {
+  const nodesPage = (names: string[], continueToken: string) => ({
+    coreV1NodesList: {
+      __typename: 'CoreV1NodeList' as const,
+      metadata: { __typename: 'MetaV1ListMeta' as const, continue: continueToken, resourceVersion: 'v1' },
+      items: names.map((name) => ({
+        __typename: 'CoreV1Node' as const,
+        id: name,
+        metadata: {
+          __typename: 'MetaV1ObjectMeta' as const,
+          name,
+          uid: name,
+          creationTimestamp: '2024-01-01T00:00:00Z',
+          deletionTimestamp: null,
+          resourceVersion: 'v1',
+          labels: null,
+          annotations: null,
+        },
+      })),
+    },
+  });
+
+  it('merges the pages of the nodes list', () => {
+    const cache = new DashboardCustomCache();
+
+    cache.writeQuery({
+      query: CONSOLE_NODES_LIST_FETCH,
+      variables: { kubeContext: '', continue: '' },
+      data: nodesPage(['node-1', 'node-2'], 'token1'),
+    });
+    cache.writeQuery({
+      query: CONSOLE_NODES_LIST_FETCH,
+      variables: { kubeContext: '', continue: 'token1' },
+      data: nodesPage(['node-3'], ''),
+    });
+
+    const result = cache.readQuery({
+      query: CONSOLE_NODES_LIST_FETCH,
+      variables: { kubeContext: '', continue: '' },
+    });
+
+    expect(result?.coreV1NodesList?.items.map((item) => item.metadata.name)).toEqual(['node-1', 'node-2', 'node-3']);
+    expect(result?.coreV1NodesList?.metadata.continue).toBe('');
   });
 });
 
