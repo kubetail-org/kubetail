@@ -33,6 +33,9 @@ typescript:
   - build/package/Dockerfile.cli
   - build/package/Dockerfile.dashboard
   - dashboard-ui/**
+  # dashboard-ui/codegen.ts generates the UI's types from these.
+  - modules/cluster-api/graph/schema.graphqls
+  - modules/dashboard/graph/schema.graphqls
 # ci.yml's Docker · Build alone: a PR builds every image only when a
 # Dockerfile changed.
 docker:
