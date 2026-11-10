@@ -9,7 +9,7 @@ tool (
 )
 
 require (
-	go.yaml.in/yaml/v4 v4.0.0-rc.3
+	go.yaml.in/yaml/v4 v4.0.0-rc.9
 	golang.org/x/mod v0.43.0
 	golang.org/x/tools v0.52.0
 )
