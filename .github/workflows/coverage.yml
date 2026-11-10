@@ -63,18 +63,18 @@ jobs:
   # workspace, so a line in shared/ that only the Dashboard's tests reach
   # counts as covered.
   go:
-    name: Coverage · Go (${{ matrix.os }})
+    name: Coverage · Go (${{ matrix.goos }})
     needs: changes
     if: needs.changes.outputs.go == 'true'
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: linux
+          - goos: linux
             runner: ubuntu-24.04
-          - os: darwin
+          - goos: darwin
             runner: macos-15
-          - os: windows
+          - goos: windows
             runner: windows-2025
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
@@ -102,17 +102,17 @@ jobs:
       - name: Merge the profile's blocks and drop marked lines
         working-directory: ./tools
         shell: bash
-        run: go run ./coverignore -dir ../modules -o "$RUNNER_TEMP/go-${{ matrix.os }}.out" "$RUNNER_TEMP/go.out"
+        run: go run ./coverignore -dir ../modules -o "$RUNNER_TEMP/go-${{ matrix.goos }}.out" "$RUNNER_TEMP/go.out"
       # A fork's PR cannot mint the OIDC token; the action then uploads
       # tokenless, which Codecov accepts for a public repository.
       - name: Upload to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           use_oidc: true
-          files: ${{ runner.temp }}/go-${{ matrix.os }}.out
+          files: ${{ runner.temp }}/go-${{ matrix.goos }}.out
           disable_search: true
           plugins: noop
-          flags: go-${{ matrix.os }}
+          flags: go-${{ matrix.goos }}
           fail_ci_if_error: true
 
   typescript:

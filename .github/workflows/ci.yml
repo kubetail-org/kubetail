@@ -381,7 +381,7 @@ jobs:
         uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-          go-cache-key: ${{ github.job }}-${{ matrix.runner }}
+          go-cache-key: ${{ github.job }}-${{ matrix.os }}-${{ matrix.arch }}
           go-cache-mode: ${{ env.CACHE_MODE }}
       # With several packages, go build links each main package, then discards
       # it.
@@ -689,7 +689,7 @@ jobs:
           setup-node: "true"
           node-cache: "true"
           setup-go: "true"
-          go-cache-key: go-test-${{ matrix.runner }}
+          go-cache-key: go-test-${{ matrix.os }}-${{ matrix.arch }}
           go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Build
         run: make build
@@ -737,7 +737,7 @@ jobs:
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-          go-cache-key: go-test-ubuntu-24.04
+          go-cache-key: go-test-linux-amd64
           go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Setup Alpine
         uses: jirutka/setup-alpine@ae3b3ddba35054804fc4a3507b519fa7e8152050 # v1.4.1
@@ -783,7 +783,7 @@ jobs:
           setup-node: "true"
           node-cache: "true"
           setup-go: "true"
-          go-cache-key: go-test-ubuntu-24.04
+          go-cache-key: go-test-linux-amd64
           go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Install uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
@@ -810,7 +810,7 @@ jobs:
 
   # Every module in one job, so the modules share one cache.
   go-test-riscv64:
-    name: Go · Test (riscv64)
+    name: Go · Test (linux, riscv64)
     needs: changes
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04-riscv
@@ -822,7 +822,7 @@ jobs:
         uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-          go-cache-key: ${{ github.job }}-ubuntu-24.04-riscv
+          go-cache-key: ${{ github.job }}-linux-riscv64
           go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Run tests
         working-directory: ./modules
@@ -837,7 +837,7 @@ jobs:
 
   # Builds the Go binary alone: Node has no riscv64 build to bundle the UI with.
   cli-builds-riscv64:
-    name: CLI · Build (riscv64)
+    name: CLI · Build (linux, riscv64)
     needs: changes
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04-riscv
@@ -845,11 +845,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Reads Go · Test (riscv64)'s cache and saves none.
+      # Reads Go · Test (linux, riscv64)'s cache and saves none.
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-          go-cache-key: go-test-riscv64-ubuntu-24.04-riscv
+          go-cache-key: go-test-riscv64-linux-riscv64
           go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Build
         working-directory: ./modules/cli
@@ -859,7 +859,7 @@ jobs:
   # riscv64 variant, and Dockerfile.cluster-agent accepts only x86_64 and
   # aarch64.
   docker-builds-riscv64:
-    name: Docker · Build (riscv64)
+    name: Docker · Build
     needs: changes
     if: github.event_name == 'push'
     timeout-minutes: 30
@@ -868,6 +868,8 @@ jobs:
       matrix:
         component:
           - cluster-api
+        arch:
+          - riscv64
         target:
           - final
           - final-alpine
@@ -886,10 +888,10 @@ jobs:
           file: build/package/Dockerfile.${{ matrix.component }}
           target: ${{ matrix.target }}
           push: false
-          cache-from: type=gha,scope=${{ matrix.component }}-riscv64
+          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.arch }}
           cache-to: >-
             ${{ env.CACHE_MODE != 'use'
-            && format('type=gha,mode=max,scope={0}-riscv64', matrix.component)
+            && format('type=gha,mode=max,scope={0}-{1}', matrix.component, matrix.arch)
             || '' }}
 
   ###########################
