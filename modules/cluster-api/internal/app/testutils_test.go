@@ -15,9 +15,13 @@
 package app
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"net/http"
+	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kubetail-org/kubetail/modules/cluster-api/pkg/config"
 )
@@ -34,18 +38,28 @@ func NewTestConfig() *config.Config {
 	return cfg
 }
 
-// Create new app for testing
-func NewTestApp(cfg *config.Config) *App {
+// NewTestApp builds an app with no connection manager and no gRPC dispatcher,
+// whose aggregated routes trust front-proxy certificates the returned CA
+// issues.
+func NewTestApp(t *testing.T, cfg *config.Config) (*App, *testCA) {
+	t.Helper()
 	if cfg == nil {
 		cfg = NewTestConfig()
 	}
 
-	app, err := NewApp(cfg)
-	if err != nil {
-		panic(err)
-	}
+	proxyCA := newTestCA(t, "proxy-ca")
+	app, err := newApp(cfg, nil, nil, newTestAuthCfg(proxyCA, "front-proxy-client"))
+	require.NoError(t, err)
 
-	return app
+	return app, proxyCA
+}
+
+// asFrontProxy makes r look as if the kube-apiserver forwarded it for user,
+// with a front-proxy certificate proxyCA issued.
+func asFrontProxy(t *testing.T, r *http.Request, proxyCA *testCA, user string) {
+	t.Helper()
+	r.TLS = &tls.ConnectionState{PeerCertificates: []*x509.Certificate{proxyCA.issue(t, "front-proxy-client")}}
+	r.Header.Set("X-Remote-User", user)
 }
 
 // Cookie helper method

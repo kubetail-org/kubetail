@@ -26,7 +26,7 @@ import (
 )
 
 func TestExtensionGroupDiscovery(t *testing.T) {
-	app := NewTestApp(nil)
+	app, _ := NewTestApp(t, nil)
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/apis", nil)
@@ -45,7 +45,7 @@ func TestExtensionGroupDiscovery(t *testing.T) {
 }
 
 func TestExtensionVersionDiscovery(t *testing.T) {
-	app := NewTestApp(nil)
+	app, _ := NewTestApp(t, nil)
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/apis/api.kubetail.com/v1", nil)

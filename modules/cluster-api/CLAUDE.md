@@ -42,7 +42,7 @@ What an ordinary change here can break, beside the root guide's list:
 
 ## Tests
 
-- **`internal/app/testutils_test.go`** sets `gin.TestMode` and gives `NewTestConfig()` and `NewTestApp(cfg)`. Under test mode `NewApp` builds no connection manager and no dispatcher, **and mounts no authentication middleware**, so an app test says nothing about who may call a route.
+- **`internal/app/testutils_test.go`** gives `NewTestConfig()` and `NewTestApp(t, cfg)`, which builds the app with no connection manager and no dispatcher, and returns the test CA its aggregation auth trusts. A request to a route under `/apis/api.kubetail.com/v1` passes the middleware only after `asFrontProxy(t, r, proxyCA, user)`.
 - **The middleware is tested directly** in `internal/app/middleware_test.go`, with a CA made in the test (`newTestCA`, `requestWithCert`, `runMiddleware`). Add a case there for any change to who is accepted.
 - **The GraphQL server** is `graph.NewServer(nil, nil, []string{})` behind `testutils.NewWebTestClient` (`graph/server_test.go`).
 - **Identity reaching the agent** is tested against a real `grpc.NewServer()` on a loopback port (`startRecordingAgent`, `dialAgent` in `graph/schema.resolvers_test.go`).
