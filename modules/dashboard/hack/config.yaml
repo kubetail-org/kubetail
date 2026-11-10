@@ -5,5 +5,3 @@ gin-mode: debug
 environment: desktop
 logging:
   format: pretty
-session:
-  secret: replaceme
