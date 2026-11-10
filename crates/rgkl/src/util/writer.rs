@@ -129,33 +129,80 @@ pub fn process_output(
                         }
                     }
                     FileFormat::CRI => {
-                        // Original logic for CRI format
-                        if let Some((first, rest)) = text.split_once(' ') {
-                            // TODO: Should we return an error on parsing issues?
-                            if rest.len() < 9 {
-                                return;
-                            }
+                        // TODO: Should we return an error on parsing issues?
+                        let Some(record) = parse_cri_line(text) else {
+                            return;
+                        };
 
-                            let timestamp = match Timestamp::from_str(first) {
-                                Ok(ts) => Some(ts),
-                                Err(_) => return, // malformed timestamp
-                            };
-
-                            let record = LogRecord {
-                                timestamp,
-                                message: rest[9..].trim_end().to_string(),
-                                is_final: rest.as_bytes()[8] == b'F',
-                            };
-
-                            let result = task::block_in_place(|| sender.blocking_send(Ok(record)));
-                            if result.is_err() {
-                                debug!("Channel closed from client.");
-                                ctx.cancel();
-                            }
+                        let result = task::block_in_place(|| sender.blocking_send(Ok(record)));
+                        if result.is_err() {
+                            debug!("Channel closed from client.");
+                            ctx.cancel();
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/// Parses a CRI log line: `<timestamp> <stream> <P|F> <message>`.
+/// `P` marks a partial line the runtime split; `F` marks the last part.
+fn parse_cri_line(text: &str) -> Option<LogRecord> {
+    let mut fields = text.trim_end().splitn(4, ' ');
+    let timestamp = Timestamp::from_str(fields.next()?).ok()?;
+    let _stream = fields.next()?;
+    let flag = fields.next()?;
+    let message = fields.next().unwrap_or("");
+
+    Some(LogRecord {
+        timestamp: Some(timestamp),
+        message: message.to_string(),
+        is_final: flag == "F",
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case(
+        "2024-10-01T05:40:46.960135302Z stdout F hello world\n",
+        "hello world",
+        true
+    )]
+    #[case(
+        "2024-10-01T05:40:46.960135302Z stderr P hello world\n",
+        "hello world",
+        false
+    )]
+    #[case(
+        "2024-10-01T05:40:46.960135302Z stdout F  two spaces",
+        " two spaces",
+        true
+    )]
+    #[case("2024-10-01T05:40:46.960135302Z stdout F \n", "", true)]
+    #[case("2024-10-01T05:40:46.960135302Z stdout P", "", false)]
+    fn test_parse_cri_line(#[case] text: &str, #[case] message: &str, #[case] is_final: bool) {
+        let record = parse_cri_line(text).unwrap();
+        assert_eq!(
+            record.timestamp,
+            Some(Timestamp::from_str("2024-10-01T05:40:46.960135302Z").unwrap())
+        );
+        assert_eq!(record.message, message);
+        assert_eq!(record.is_final, is_final);
+    }
+
+    #[rstest]
+    #[case("")]
+    #[case("not-a-timestamp stdout F hello")]
+    #[case("2024-10-01T05:40:46.960135302Z stdout")]
+    fn test_parse_cri_line_rejects_malformed(#[case] text: &str) {
+        assert!(parse_cri_line(text).is_none());
     }
 }
