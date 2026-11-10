@@ -293,11 +293,83 @@ jobs:
           name: assets-windows-${{ matrix.arch }}
           overwrite: true
 
+  # Checks the artifacts the release job downloads, not the files the signing
+  # jobs held, so a binary that reaches the release unsigned fails here.
+  verify-signatures:
+    name: Verify signatures
+    needs: [config, sign-darwin, sign-windows]
+    if: ${{ needs.config.outputs.dry_run == 'false' }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        os:
+          - darwin
+          - windows
+        arch:
+          - amd64
+          - arm64
+        include:
+          - os: darwin
+            runner: macos-latest
+          - os: windows
+            runner: windows-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: assets-${{ matrix.os }}-${{ matrix.arch }}
+          path: assets
+
+      - name: Verify Developer ID signature
+        if: ${{ matrix.os == 'darwin' }}
+        env:
+          BIN_NAME: kubetail-darwin-${{ matrix.arch }}
+          # Apple's designated requirement for a Developer ID Application
+          # signature: an Apple root, the Developer ID intermediate and the
+          # Developer ID Application leaf.
+          REQUIREMENT: >-
+            =anchor apple generic
+            and certificate 1[field.1.2.840.113635.100.6.2.6] exists
+            and certificate leaf[field.1.2.840.113635.100.6.1.13] exists
+        run: |
+          codesign --verify --strict --verbose=2 -R="$REQUIREMENT" "assets/${BIN_NAME}"
+
+      - name: Verify Authenticode signatures
+        if: ${{ matrix.os == 'windows' }}
+        shell: pwsh
+        env:
+          BIN_NAME: kubetail-windows-${{ matrix.arch }}
+          SIGNING_POLICY: ${{ needs.config.outputs.signing_policy }}
+        run: |
+          # Windows reads Authenticode only from a file with a PE extension.
+          $dir = New-Item -ItemType Directory -Path (Join-Path $env:RUNNER_TEMP verify)
+          Copy-Item "assets/$env:BIN_NAME" (Join-Path $dir "$env:BIN_NAME.exe")
+          Expand-Archive "assets/$env:BIN_NAME.zip" -DestinationPath $dir
+
+          # The bare binary and the kubetail.exe inside the zip.
+          $files = @(Get-ChildItem $dir -Filter *.exe)
+          if ($files.Count -ne 2) { throw "expected 2 executables, found $($files.Count)" }
+
+          $failed = $false
+          foreach ($file in $files) {
+            $sig = Get-AuthenticodeSignature $file.FullName
+            Write-Output "$($file.Name): $($sig.Status) $($sig.SignerCertificate.Subject)"
+            if ($env:SIGNING_POLICY -eq 'release-signing') {
+              $ok = $sig.Status -eq 'Valid'
+            } else {
+              # SignPath's test certificate chains to a root the runner does
+              # not trust, so require only an intact signature.
+              $ok = $sig.SignerCertificate -and $sig.Status -notin 'NotSigned', 'HashMismatch'
+            }
+            if (-not $ok) { $failed = $true }
+          }
+          if ($failed) { exit 1 }
+
   package-tarball:
     name: Create gzipped tarballs
     # On a dry run the signing jobs are skipped and the unsigned build
     # artifacts, which carry the same names, are packaged instead.
-    needs: [config, build, sign-darwin, sign-windows]
+    needs: [config, build, sign-darwin, sign-windows, verify-signatures]
     if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-24.04
     strategy:
