@@ -51,6 +51,6 @@ What an ordinary change here can break, beside the root guide's list:
 ## Tests
 
 - **`pkg/app/testutils_test.go`** sets `gin.TestMode` and gives `newTestConfig()` and `newTestApp(cfg)`. Under test mode `NewApp` builds no connection manager and no proxy (`app.cm` is nil, the proxy route is the 503 stub), and a test sets `app.queryHelpers = &mockQueryHelpers{}` or mounts its own handler on `app.dynamicRoutes` or `app.protectedRoutes`.
-- **The GraphQL server** is stood up with `graph.NewServer(config.DefaultConfig(), nil)` behind `withSessionCSRFToken` and dialled with a `graphql-transport-ws` WebSocket (`graph/server_test.go`). A resolver is called directly on `&queryResolver{&Resolver{…}}` with the fakes it needs.
-- **Seams are fields**: `App.queryHelpers`, `downloadHandlers.newLogStream`, `Resolver.helmReleaseLister`, the transport `newInClusterProxy` takes.
+- **The GraphQL server** is stood up with `graph.NewServer(cfg, nil, clusterapi.NewHealthMonitor(cfg, nil))` behind `withSessionCSRFToken` and dialled with a `graphql-transport-ws` WebSocket (`graph/server_test.go`). A resolver is called directly on `&queryResolver{&Resolver{…}}` with the fakes it needs.
+- **Seams are fields and parameters**: `App.queryHelpers`, the health monitor `graph.NewServer` takes (`internal/cluster-api/mock.MockHealthMonitor`), `downloadHandlers.newLogStream`, `Resolver.helmReleaseLister`, the transport `newInClusterProxy` takes.
 - **The tests to extend for a boundary**: `pkg/app/middleware_test.go` (CSRF), `pkg/app/websocket_test.go` (WebSocket CSRF end to end), `internal/cluster-api/proxy_test.go` (header stripping, path traversal), `TestAllowedNamespacesGetQueries` in `graph/schema.resolvers_test.go`.

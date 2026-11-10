@@ -57,11 +57,8 @@ type Server struct {
 	wg         sync.WaitGroup
 }
 
-// Create new Server instance
-func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
-	// Init health monitor
-	hm := clusterapi.NewHealthMonitor(cfg, cm)
-
+// Create new Server instance. Close shuts down hm.
+func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager, hm clusterapi.HealthMonitor) *Server {
 	// Init resolver
 	r := &Resolver{
 		cfg:               cfg,
@@ -140,12 +137,9 @@ func (s *Server) DrainWithContext(ctx context.Context) error {
 	}
 }
 
-// Close releases any server-level resources.
-func (s *Server) Close() error {
-	if s.hm != nil {
-		s.hm.Shutdown()
-	}
-	return nil
+// Close shuts down the Cluster API health monitor.
+func (s *Server) Close() {
+	s.hm.Shutdown()
 }
 
 // ServeHTTP delegates to the underlying handler, tracking all active

@@ -80,6 +80,8 @@ func (a *App) DrainWithContext(ctx context.Context) error {
 
 // Close releases app-level resources.
 func (a *App) Close() {
+	// The health monitor's workers use the connection manager, so stop them first.
+	a.graphqlServer.Close()
 	if a.cm != nil {
 		a.cm.Close()
 	}
@@ -206,7 +208,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 			protectedRoutes.Use(websocketCSRFContextMiddleware())
 
 			// GraphQL endpoint
-			app.graphqlServer = graph.NewServer(cfg, app.cm)
+			app.graphqlServer = graph.NewServer(cfg, app.cm, clusterapi.NewHealthMonitor(cfg, app.cm))
 			protectedRoutes.Any("/graphql", gin.WrapH(app.graphqlServer))
 
 			// Cluster API proxy routes. When the cluster-api is not enabled
