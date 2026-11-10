@@ -1198,3 +1198,23 @@ func TestStreamErrorHandling(t *testing.T) {
 		assert.Contains(t, stream.Err().Error(), expectedError.Error())
 	})
 }
+
+func TestStreamStart_SecondCallReturnsError(t *testing.T) {
+	cm := &k8shelpersmock.MockConnectionManager{}
+	cm.On("GetOrCreateClientset", mock.Anything).Return(&fake.Clientset{}, nil)
+	cm.On("GetDefaultNamespace", mock.Anything).Return("default")
+
+	stream, err := NewStream(t.Context(), cm, []string{}, WithAll())
+	require.NoError(t, err)
+	defer stream.Close()
+
+	sw := &mockSourceWatcher{}
+	sw.On("Start", mock.Anything).Return(nil)
+	sw.On("Set").Return(set.NewSet[LogSource]())
+	stream.sw = sw
+
+	require.NoError(t, stream.Start(t.Context()))
+	assert.ErrorIs(t, stream.Start(t.Context()), errStreamStarted)
+
+	sw.AssertNumberOfCalls(t, "Start", 1)
+}

@@ -15,13 +15,22 @@
 package logs
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 	"time"
 )
 
+// Option configures a stream or a source watcher. Given a target it does not
+// configure, it returns an error wrapping errUnhandledTarget.
 type Option func(target any) error
+
+var errUnhandledTarget = errors.New("option does not apply")
+
+func unhandledTarget(target any) error {
+	return fmt.Errorf("%w to %T", errUnhandledTarget, target)
+}
 
 // WithKubeContext sets the kube context of the stream or source watcher
 func WithKubeContext(kubeContext string) Option {
@@ -31,6 +40,8 @@ func WithKubeContext(kubeContext string) Option {
 			t.kubeContext = kubeContext
 		case *sourceWatcher:
 			t.kubeContext = kubeContext
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -42,6 +53,8 @@ func WithBearerToken(token string) Option {
 		switch t := target.(type) {
 		case *sourceWatcher:
 			t.bearerToken = token
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -53,6 +66,8 @@ func WithSince(ts time.Time) Option {
 		switch t := target.(type) {
 		case *stream:
 			t.sinceTime = ts
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -64,6 +79,8 @@ func WithUntil(ts time.Time) Option {
 		switch t := target.(type) {
 		case *stream:
 			t.untilTime = ts
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -75,6 +92,8 @@ func WithFollow(follow bool) Option {
 		switch t := target.(type) {
 		case *stream:
 			t.follow = follow
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -90,6 +109,8 @@ func WithHead(n int64) Option {
 			}
 			t.mode = streamModeHead
 			t.maxNum = n
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -105,6 +126,8 @@ func WithTail(n int64) Option {
 			}
 			t.mode = streamModeTail
 			t.maxNum = n
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -116,6 +139,8 @@ func WithAll() Option {
 		switch t := target.(type) {
 		case *stream:
 			t.mode = streamModeAll
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -145,6 +170,8 @@ func WithGrep(pattern string) Option {
 
 			t.grep = pattern
 			t.grepRegex = regex
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -156,6 +183,8 @@ func WithRegions(regions []string) Option {
 		switch t := target.(type) {
 		case *sourceWatcher:
 			t.regions = regions
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -167,6 +196,8 @@ func WithZones(zones []string) Option {
 		switch t := target.(type) {
 		case *sourceWatcher:
 			t.zones = zones
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -178,6 +209,8 @@ func WithOSes(oses []string) Option {
 		switch t := target.(type) {
 		case *sourceWatcher:
 			t.oses = oses
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -189,6 +222,8 @@ func WithArches(arches []string) Option {
 		switch t := target.(type) {
 		case *sourceWatcher:
 			t.arches = arches
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -200,6 +235,8 @@ func WithNodes(nodes []string) Option {
 		switch t := target.(type) {
 		case *sourceWatcher:
 			t.nodes = nodes
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -211,6 +248,8 @@ func WithContainers(containers []string) Option {
 		switch t := target.(type) {
 		case *sourceWatcher:
 			t.containers = containers
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -222,6 +261,8 @@ func WithLogFetcher(logFetcher LogFetcher) Option {
 		switch t := target.(type) {
 		case *stream:
 			t.logFetcher = logFetcher
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -233,6 +274,8 @@ func WithAllowedNamespaces(allowedNamespaces []string) Option {
 		switch t := target.(type) {
 		case *sourceWatcher:
 			t.allowedNamespaces = allowedNamespaces
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}
@@ -244,8 +287,9 @@ func WithAllContainers(allContainers bool) Option {
 		switch t := target.(type) {
 		case *sourceWatcher:
 			t.allContainers = allContainers
+		default:
+			return unhandledTarget(target)
 		}
-
 		return nil
 	}
 }
@@ -257,6 +301,8 @@ func WithMaxChunkSize(n int) Option {
 		switch t := target.(type) {
 		case *stream:
 			t.maxChunkSize = n
+		default:
+			return unhandledTarget(target)
 		}
 		return nil
 	}

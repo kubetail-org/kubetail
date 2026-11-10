@@ -16,6 +16,7 @@ package logs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -29,6 +30,8 @@ import (
 )
 
 const DEFAULT_MAX_CHUNK_SIZE = 16 * 1024 // 16 KB
+
+var errStreamStarted = errors.New("stream already started")
 
 // Streamer interface defines the methods for consuming a stream
 type Stream interface {
@@ -79,13 +82,14 @@ type stream struct {
 	sw          SourceWatcher
 	logFetcher  LogFetcher
 
-	isStarted bool
-	futureWG  sync.WaitGroup
-	pastCh    chan LogRecord
-	futureCh  chan LogRecord
-	outCh     chan LogRecord
-	err       error
-	mu        sync.Mutex
+	startCalled bool
+	isStarted   bool
+	futureWG    sync.WaitGroup
+	pastCh      chan LogRecord
+	futureCh    chan LogRecord
+	outCh       chan LogRecord
+	err         error
+	mu          sync.Mutex
 
 	closePastChOnce   sync.Once
 	closeFutureChOnce sync.Once
@@ -108,12 +112,17 @@ func NewStream(ctx context.Context, cm k8shelpers.ConnectionManager, sourcePaths
 		outCh:         make(chan LogRecord),
 	}
 
-	// Apply options
+	// Apply options, passing the ones a stream does not handle to the source watcher
+	var swOpts []Option
 	for _, opt := range opts {
-		if err := opt(stream); err != nil {
+		err := opt(stream)
+		if errors.Is(err, errUnhandledTarget) {
+			swOpts = append(swOpts, opt)
+		} else if err != nil {
 			return nil, err
 		}
 	}
+	swOpts = append(swOpts, WithKubeContext(stream.kubeContext))
 
 	// Validate options
 	if stream.follow && stream.mode == streamModeHead {
@@ -125,7 +134,7 @@ func NewStream(ctx context.Context, cm k8shelpers.ConnectionManager, sourcePaths
 	}
 
 	// Init source watcher
-	sw, err := NewSourceWatcher(cm, sourcePaths, opts...)
+	sw, err := NewSourceWatcher(cm, sourcePaths, swOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -143,9 +152,17 @@ func NewStream(ctx context.Context, cm k8shelpers.ConnectionManager, sourcePaths
 	return stream, nil
 }
 
-// Start log fetchers and other background processes
-// TODO: make this idempodent
+// Start log fetchers and other background processes. A second call returns
+// an error and changes nothing.
 func (s *stream) Start(ctx context.Context) error {
+	s.mu.Lock()
+	if s.startCalled {
+		s.mu.Unlock()
+		return errStreamStarted
+	}
+	s.startCalled = true
+	s.mu.Unlock()
+
 	// Add source watcher event handlers
 	s.sw.Subscribe(SourceWatcherEventAdded, s.handleSourceAdd)
 	s.sw.Subscribe(SourceWatcherEventDeleted, s.handleSourceDelete)

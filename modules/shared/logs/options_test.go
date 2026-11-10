@@ -18,10 +18,14 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"k8s.io/client-go/kubernetes/fake"
 
 	k8shelpersmock "github.com/kubetail-org/kubetail/modules/shared/k8shelpers/mock"
-	"github.com/stretchr/testify/mock"
-	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestOptions(t *testing.T) {
@@ -38,6 +42,70 @@ func TestOptions(t *testing.T) {
 	s, err := NewStream(context.Background(), cm, nil, opts...)
 	fmt.Println(err)
 	fmt.Println(s)
+}
+
+func TestOptions_RejectUnhandledTarget(t *testing.T) {
+	opts := map[string]Option{
+		"WithKubeContext":       WithKubeContext("test"),
+		"WithBearerToken":       WithBearerToken("token"),
+		"WithSince":             WithSince(time.Now()),
+		"WithUntil":             WithUntil(time.Now()),
+		"WithFollow":            WithFollow(true),
+		"WithHead":              WithHead(1),
+		"WithTail":              WithTail(1),
+		"WithAll":               WithAll(),
+		"WithGrep":              WithGrep("x"),
+		"WithRegions":           WithRegions(nil),
+		"WithZones":             WithZones(nil),
+		"WithOSes":              WithOSes(nil),
+		"WithArches":            WithArches(nil),
+		"WithNodes":             WithNodes(nil),
+		"WithContainers":        WithContainers(nil),
+		"WithLogFetcher":        WithLogFetcher(nil),
+		"WithAllowedNamespaces": WithAllowedNamespaces(nil),
+		"WithAllContainers":     WithAllContainers(true),
+		"WithMaxChunkSize":      WithMaxChunkSize(1),
+	}
+
+	for name, opt := range opts {
+		t.Run(name, func(t *testing.T) {
+			err := opt(&struct{}{})
+			assert.ErrorIs(t, err, errUnhandledTarget)
+		})
+	}
+}
+
+func TestNewSourceWatcher_RejectsStreamOption(t *testing.T) {
+	cm := &k8shelpersmock.MockConnectionManager{}
+	cm.On("GetDefaultNamespace", mock.Anything).Return("default")
+
+	_, err := NewSourceWatcher(cm, []string{}, WithFollow(true))
+	assert.ErrorIs(t, err, errUnhandledTarget)
+}
+
+func TestNewStream_PassesSourceWatcherOptions(t *testing.T) {
+	cm := &k8shelpersmock.MockConnectionManager{}
+	cm.On("GetOrCreateClientset", mock.Anything).Return(&fake.Clientset{}, nil)
+	cm.On("GetDefaultNamespace", mock.Anything).Return("default")
+
+	s, err := NewStream(t.Context(), cm, []string{}, WithKubeContext("ctx1"), WithRegions([]string{"r1"}), WithFollow(true))
+	require.NoError(t, err)
+	defer s.Close()
+
+	assert.Equal(t, "ctx1", s.kubeContext)
+	assert.True(t, s.follow)
+
+	sw, ok := s.sw.(*sourceWatcher)
+	require.True(t, ok)
+	assert.Equal(t, "ctx1", sw.kubeContext)
+	assert.Equal(t, []string{"r1"}, sw.regions)
+}
+
+func TestNewStream_ReturnsOptionError(t *testing.T) {
+	cm := &k8shelpersmock.MockConnectionManager{}
+
+	_, err := NewStream(t.Context(), cm, []string{}, WithHead(-1))
+	assert.EqualError(t, err, "head must be >= 0")
 }
 
 // TestWithGrep contains various test scenarios for the WithGrep function.

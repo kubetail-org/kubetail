@@ -17,13 +17,13 @@ No binary ships from here. `cli`, `dashboard` and `cluster-api` import it, and i
 
 ## logs
 
-`NewStream(ctx, cm, sourcePaths, opts...)` builds a `Stream` (`Sources()`, `Records()`, `Err()`, `Close()`); the caller then calls `Start(ctx)`, once.
+`NewStream(ctx, cm, sourcePaths, opts...)` builds a `Stream` (`Sources()`, `Records()`, `Err()`, `Close()`); the caller then calls `Start(ctx)`, once; a second call returns an error.
 
 - **A source path** is `[namespace:]<type>/<name>[/<container>]` or a bare pod name, with `*` as a wildcard (`parsePath` in `source-watcher.go`, the type aliases in `helpers.go`).
 - **`SourceWatcher` turns paths into containers**, following owner references from a workload down to its pods. A container on a node it has not seen is skipped, so the caller needs to list and watch nodes. A path outside the allowed namespaces is dropped, not refused.
 - **`LogFetcher` reads one container.** `KubeLogFetcher` is the default; only the Cluster API passes `AgentLogFetcher`, with `WithLogFetcher`. The two must agree on ordering, time bounds and grep, and nothing checks that they do. → [ADR: read logs through two backends](../../docs/adr/2026-11-09-read-logs-through-two-backends-behind-logfetcher.md)
 - **A stream merges its sources in time order**: past records first, then the records that arrived while it was reading them, sorted and de-duplicated, then live ones. A fetch error ends the whole stream and is reported by `Err()`.
-- **An `Option` is `func(target any) error` applied to both the stream and its source watcher.** Each option type-switches on its target and does nothing for one it does not handle. A new option needs a case for the right target, or it is silently ignored.
+- **An `Option` is `func(target any) error`** that type-switches on its target and returns an error wrapping `errUnhandledTarget` for one it does not handle. `NewStream` passes the options a stream does not handle, and its kube context, to its source watcher. A new option needs a case for the right target and the `default` case.
 - **Modes**: `WithHead`, `WithTail` and `WithAll` each set the mode and the last one wins; unset behaves as tail. Head with follow is an error.
 - **`WithGrep` is case-insensitive** (it prefixes `(?i)`) and lets each space also match ANSI colour sequences. With `KubeLogFetcher` the stream filters in this process; with `AgentLogFetcher` the pattern goes to the agent.
 
