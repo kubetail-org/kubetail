@@ -229,7 +229,7 @@ func httpSameSiteDecodeHook(f reflect.Type, t reflect.Type, data any) (any, erro
 	}
 }
 
-func NewConfig(v *viper.Viper, configPath string) (*Config, error) {
+func NewConfig(configPath string, v *viper.Viper) (*Config, error) {
 	if v == nil {
 		v = viper.New()
 	}

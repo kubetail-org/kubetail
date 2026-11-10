@@ -19,7 +19,7 @@ Issue #873 (January 2026) gives the reasons to split it. The `ClusterAgent` part
 
 Each component owns its config struct, its defaults and its loader:
 
-- `modules/dashboard/pkg/config`: `Config`, `DefaultConfig`, `NewConfig(v, configPath)`.
+- `modules/dashboard/pkg/config`: `Config`, `DefaultConfig`, `NewConfig(configPath, v)`.
 - `modules/cluster-api/pkg/config`: `Config`, `DefaultConfig`, `NewConfig(configPath, v)`.
 - `modules/cli/pkg/config`: `Config`, `DefaultCLIConfig`, `NewConfig(configPath, v)`.
 - `crates/cluster_agent/src/config.rs`: `Config::parse`, with defaults in `builder_with_defaults`.
