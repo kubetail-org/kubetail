@@ -667,12 +667,9 @@ func printLogs(rootCtx context.Context, cmd *cobra.Command, cmdCfg *logsCmdConfi
 		return
 	}
 
-	// Exit if stream encountered error
-	cli.ExitOnError(stream.Err())
-
-	// Check if any errors occurred during streaming
-	if err := stream.Err(); err != nil {
+	if err := stream.Err(); err != nil { // coverage:ignore exits the process
 		fmt.Fprintf(cmd.OutOrStderr(), "\nError: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Output paging cursors if requested
