@@ -27,17 +27,24 @@ jobs:
     name: Configure workflow
     runs-on: ubuntu-slim
     outputs:
-      git_tag: ${{ steps.config.outputs.git_tag }}
+      git_sha: ${{ steps.config.outputs.git_sha }}
       component: ${{ steps.config.outputs.component }}
       image_name: ${{ steps.config.outputs.image_name }}
       base_image_tag: ${{ steps.config.outputs.base_image_tag }}
       dry_run: ${{ steps.config.outputs.dry_run }}
       is_latest: ${{ steps.tag_meta.outputs.is_latest }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/check-release-tag.sh
+          sparse-checkout-cone-mode: false
+
       - id: config
         env:
           INPUT_GIT_TAG: ${{ github.event.inputs.git_tag }}
           INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
             GIT_TAG="$INPUT_GIT_TAG"
@@ -47,10 +54,17 @@ jobs:
             DRY_RUN=false
           fi
 
+          bash scripts/check-release-tag.sh "$GIT_TAG"
+
+          # A dispatch can name a tag that does not exist. git/ref matches the
+          # name exactly; the commits API peels an annotated tag to its commit.
+          gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${GIT_TAG}" --silent
+          GIT_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/commits/refs/tags/${GIT_TAG}" --jq .sha)
+
           COMPONENT=${GIT_TAG%%/*}
           BASE_IMAGE_TAG=${GIT_TAG#*/v}
 
-          echo "git_tag=$GIT_TAG" >> $GITHUB_OUTPUT
+          echo "git_sha=$GIT_SHA" >> $GITHUB_OUTPUT
           echo "component=$COMPONENT" >> $GITHUB_OUTPUT
           echo "image_name=kubetail-$COMPONENT" >> $GITHUB_OUTPUT
           echo "base_image_tag=$BASE_IMAGE_TAG" >> $GITHUB_OUTPUT
@@ -115,7 +129,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.config.outputs.git_tag }}
+          # The tag's commit, so a branch of the same name is never built.
+          ref: ${{ needs.config.outputs.git_sha }}
           persist-credentials: false
 
       - name: Set up Docker Buildx
