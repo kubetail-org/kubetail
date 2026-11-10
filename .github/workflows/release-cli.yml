@@ -174,7 +174,7 @@ jobs:
     needs: [config, build]
     if: ${{ needs.config.outputs.dry_run == 'false' }}
     environment: production
-    runs-on: macos-latest
+    runs-on: macos-26
     strategy:
       matrix:
         arch:
@@ -239,7 +239,7 @@ jobs:
     needs: [config, build]
     if: ${{ needs.config.outputs.dry_run == 'false' }}
     environment: production
-    runs-on: windows-latest
+    runs-on: windows-2025
     strategy:
       matrix:
         arch:
