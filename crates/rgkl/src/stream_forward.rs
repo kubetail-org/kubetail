@@ -12,13 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
+use std::ffi::{OsStr, OsString};
+use std::fs::{File, Metadata};
+use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom};
+use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use grep::printer::JSONBuilder;
 use grep::searcher::{MmapChoice, SearcherBuilder};
+use notify::event::ModifyKind;
 use notify::{Config, Error, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::select;
 use tokio::sync::broadcast;
@@ -56,12 +59,66 @@ where
 {
     /// Performs the grep search, meant to be used on each new log line.
     search_callback: F,
+    /// The followed path.
+    path: PathBuf,
+    /// The followed path's file name, which events in its directory are matched on.
+    file_name: OsString,
     /// Reader to get log lines from.
     log_file_reader: BufReader<File>,
+    /// Device and inode of the file the reader has open.
+    file_id: (u64, u64),
     /// Receives the events that come from notify.
     output_rx: Receiver<Result<Event, Error>>,
     /// Internal notify watcher.
     _notify_watcher: RecommendedWatcher,
+}
+
+impl<F> FsWatcher<F>
+where
+    F: FnMut(&[u8]),
+{
+    /// Points the reader at the start of the file the path names, if that is no longer the
+    /// file the reader has open. Returns whether it did.
+    fn reopen_if_replaced(&mut self) -> io::Result<bool> {
+        let file = match File::open(&self.path) {
+            // Renamed away, and the new file is not created yet.
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(false),
+            file => file?,
+        };
+        let file_id = file_id(&file.metadata()?);
+        if file_id == self.file_id {
+            return Ok(false);
+        }
+        self.log_file_reader = BufReader::new(file);
+        self.file_id = file_id;
+        Ok(true)
+    }
+}
+
+fn file_id(metadata: &Metadata) -> (u64, u64) {
+    (metadata.dev(), metadata.ino())
+}
+
+/// What an event in the followed file's directory means for the follow.
+#[derive(Debug, PartialEq)]
+enum FileEvent {
+    Ignored,
+    /// The file was written to.
+    Written,
+    /// The path may name a new file: the kubelet's rotation renames the old one away and the
+    /// runtime creates a new one.
+    Replaced,
+}
+
+fn classify_event(event: &Event, file_name: &OsStr) -> FileEvent {
+    if !event.paths.iter().any(|p| p.file_name() == Some(file_name)) {
+        return FileEvent::Ignored;
+    }
+    match event.kind {
+        EventKind::Create(_) | EventKind::Modify(ModifyKind::Name(_)) => FileEvent::Replaced,
+        EventKind::Modify(_) => FileEvent::Written,
+        _ => FileEvent::Ignored,
+    }
 }
 
 pub async fn stream_forward(
@@ -233,7 +290,12 @@ fn setup_fs_watcher<'a>(
         }
     };
 
-    // Set up watcher
+    let (Some(dir), Some(file_name)) = (path.parent(), path.file_name()) else {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Not a file path").into());
+    };
+
+    // Watch the directory, not the file: a watch on the file follows its inode through a
+    // rename and never sees the new file at the path.
     let (notify_tx, notify_rx) = mpsc::channel(100);
 
     let mut watcher = RecommendedWatcher::new(
@@ -243,14 +305,19 @@ fn setup_fs_watcher<'a>(
         Config::default(),
     )?;
 
-    watcher.watch(path, RecursiveMode::NonRecursive)?;
+    watcher.watch(dir, RecursiveMode::NonRecursive)?;
 
-    let mut reader = BufReader::new(File::open(path)?);
+    let file = File::open(path)?;
+    let file_id = file_id(&file.metadata()?);
+    let mut reader = BufReader::new(file);
     reader.seek(SeekFrom::End(0))?;
 
     Ok(Some(FsWatcher {
         search_callback: search_slice,
+        path: path.clone(),
+        file_name: file_name.to_os_string(),
         log_file_reader: reader,
+        file_id,
         _notify_watcher: watcher,
         output_rx: notify_rx,
     }))
@@ -263,25 +330,32 @@ async fn listen_for_changes(
     mut fs_watcher: FsWatcher<impl FnMut(&[u8])>,
     sender: Sender<Result<LogRecord, Status>>,
 ) {
-    'outer: loop {
+    loop {
         select! {
             ev = fs_watcher.output_rx.recv() => {
                 match ev {
-                    Some(Ok(event)) => {
-                        if let EventKind::Modify(_) = event.kind {
-                            for line in (&mut fs_watcher.log_file_reader).lines() {
-                                if ctx.is_cancelled() {
-                                    break 'outer;
-                                }
-
-                                match line {
-                                    Ok(l) => {
-                                        (fs_watcher.search_callback)(l.as_bytes());
-                                    },
-                                    Err(e) => {
-                                        let _ = sender.send(Err(Status::from_error(Box::new(e)))).await;
+                    Some(Ok(event)) => match classify_event(&event, &fs_watcher.file_name) {
+                        FileEvent::Ignored => {}
+                        FileEvent::Written => {
+                            if !read_new_lines(&ctx, &mut fs_watcher, &sender).await {
+                                return;
+                            }
+                        }
+                        FileEvent::Replaced => {
+                            // Finish the old file before moving to the new one.
+                            if !read_new_lines(&ctx, &mut fs_watcher, &sender).await {
+                                return;
+                            }
+                            match fs_watcher.reopen_if_replaced() {
+                                Ok(true) => {
+                                    if !read_new_lines(&ctx, &mut fs_watcher, &sender).await {
                                         return;
                                     }
+                                }
+                                Ok(false) => {}
+                                Err(e) => {
+                                    let _ = sender.send(Err(Status::from(FsWatcherError::Io(e)))).await;
+                                    return;
                                 }
                             }
                         }
@@ -300,10 +374,33 @@ async fn listen_for_changes(
                 // Send gRPC UNAVAILABLE error to indicate server shutdown
                 let shutdown_status = Status::new(tonic::Code::Unavailable, "Server is shutting down");
                 let _ = sender.send(Err(shutdown_status)).await;
-                break 'outer;
+                return;
             },
         }
     }
+}
+
+/// Searches the lines appended to the reader's file since the last read. Returns false when
+/// the stream must end.
+async fn read_new_lines(
+    ctx: &CancellationToken,
+    fs_watcher: &mut FsWatcher<impl FnMut(&[u8])>,
+    sender: &Sender<Result<LogRecord, Status>>,
+) -> bool {
+    for line in (&mut fs_watcher.log_file_reader).lines() {
+        if ctx.is_cancelled() {
+            return false;
+        }
+
+        match line {
+            Ok(l) => (fs_watcher.search_callback)(l.as_bytes()),
+            Err(e) => {
+                let _ = sender.send(Err(Status::from_error(Box::new(e)))).await;
+                return false;
+            }
+        }
+    }
+    true
 }
 
 #[cfg(test)]
@@ -708,6 +805,202 @@ mod test {
 
         // Channel should close after sending the shutdown error
         assert!(rx.recv().await.is_none());
+    }
+
+    fn append_lines(path: &Path, lines: &[&str]) {
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .unwrap();
+        for line in lines {
+            writeln!(file, "{line}").unwrap();
+        }
+        file.sync_all().unwrap();
+    }
+
+    /// Starts following `path` from its end and returns once the watcher is up.
+    async fn follow(ctx: &CancellationToken, path: &Path) -> Receiver<Result<LogRecord, Status>> {
+        let (tx, rx) = mpsc::channel(100);
+        let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
+        let ctx = ctx.clone();
+        let path = path.to_path_buf();
+
+        task::spawn(async move {
+            stream_forward_with_lifecyle_events(
+                ctx,
+                &path,
+                None,
+                None,
+                None,
+                FollowFrom::End,
+                tx,
+                Some(lifecycle_tx),
+            )
+            .await;
+        });
+
+        while !matches!(
+            lifecycle_rx.recv().await,
+            Ok(LifecycleEvent::WatcherStarted)
+        ) {}
+        rx
+    }
+
+    #[derive(Debug)]
+    enum Rotation {
+        /// Rename the file away, then create a new one at the path, as the kubelet does.
+        RenameAndCreate,
+        /// Rename a new file onto the path.
+        RenameOnto,
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    #[tokio::test(flavor = "multi_thread")]
+    #[rstest]
+    #[case(Rotation::RenameAndCreate)]
+    #[case(Rotation::RenameOnto)]
+    async fn test_follow_reopens_rotated_file(#[case] rotation: Rotation) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("0.log");
+        let rotated = dir.path().join("0.log.20241001-054100");
+        append_lines(
+            &path,
+            &["2024-10-01T05:40:46.960135302Z stdout F linenum 1"],
+        );
+
+        let ctx = CancellationToken::new();
+        let mut rx = follow(&ctx, &path).await;
+
+        append_lines(
+            &path,
+            &["2024-10-01T05:41:00.103901462Z stdout F linenum 2"],
+        );
+        match rotation {
+            Rotation::RenameAndCreate => {
+                std::fs::rename(&path, &rotated).unwrap();
+                // The runtime writes to the old file until it reopens the path.
+                append_lines(
+                    &rotated,
+                    &["2024-10-01T05:41:01.204901463Z stdout F linenum 3"],
+                );
+                append_lines(
+                    &path,
+                    &["2024-10-01T05:41:02.305901464Z stdout F linenum 4"],
+                );
+            }
+            Rotation::RenameOnto => {
+                append_lines(
+                    &path,
+                    &["2024-10-01T05:41:01.204901463Z stdout F linenum 3"],
+                );
+                append_lines(
+                    &rotated,
+                    &["2024-10-01T05:41:02.305901464Z stdout F linenum 4"],
+                );
+                std::fs::rename(&rotated, &path).unwrap();
+            }
+        }
+        append_lines(
+            &path,
+            &["2024-10-01T05:41:03.406901465Z stdout F linenum 5"],
+        );
+
+        let expected_lines = vec!["linenum 2", "linenum 3", "linenum 4", "linenum 5"];
+        let mut output = Vec::new();
+        time::timeout(Duration::from_secs(10), async {
+            while output.len() < expected_lines.len() {
+                output.push(rx.recv().await.expect("stream ended early"));
+            }
+        })
+        .await
+        .expect("Timed out waiting for lines written after rotation");
+
+        ctx.cancel();
+        while let Some(record) = rx.recv().await {
+            output.push(record);
+        }
+        compare_lines(output, expected_lines);
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_follow_sends_error_when_new_file_cannot_be_opened() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("0.log");
+        append_lines(
+            &path,
+            &["2024-10-01T05:40:46.960135302Z stdout F linenum 1"],
+        );
+
+        let ctx = CancellationToken::new();
+        let mut rx = follow(&ctx, &path).await;
+
+        // A symlink to itself: opening it fails with an error other than NotFound.
+        std::fs::remove_file(&path).unwrap();
+        std::os::unix::fs::symlink(&path, &path).unwrap();
+
+        let record = time::timeout(Duration::from_secs(10), rx.recv())
+            .await
+            .expect("Timed out waiting for the error")
+            .expect("stream ended without an error");
+        assert!(record.is_err());
+        assert!(rx.recv().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_follow_of_a_path_without_file_name_is_invalid_argument() {
+        let (tx, mut rx) = mpsc::channel(1);
+
+        stream_forward(
+            CancellationToken::new(),
+            &PathBuf::from("/"),
+            None,
+            None,
+            None,
+            FollowFrom::Default,
+            tx,
+        )
+        .await;
+
+        let status = rx.recv().await.unwrap().unwrap_err();
+        assert_eq!(status.code(), tonic::Code::InvalidArgument);
+    }
+
+    #[rstest]
+    #[case(
+        EventKind::Modify(ModifyKind::Data(notify::event::DataChange::Any)),
+        "0.log",
+        FileEvent::Written
+    )]
+    #[case(EventKind::Modify(ModifyKind::Any), "0.log", FileEvent::Written)]
+    #[case(
+        EventKind::Create(notify::event::CreateKind::File),
+        "0.log",
+        FileEvent::Replaced
+    )]
+    #[case(
+        EventKind::Modify(ModifyKind::Name(notify::event::RenameMode::To)),
+        "0.log",
+        FileEvent::Replaced
+    )]
+    #[case(
+        EventKind::Remove(notify::event::RemoveKind::File),
+        "0.log",
+        FileEvent::Ignored
+    )]
+    #[case(
+        EventKind::Modify(ModifyKind::Data(notify::event::DataChange::Any)),
+        "0.log.20241001-054100",
+        FileEvent::Ignored
+    )]
+    fn test_classify_event(
+        #[case] kind: EventKind,
+        #[case] event_file: &str,
+        #[case] expected: FileEvent,
+    ) {
+        let event = Event::new(kind).add_path(PathBuf::from("/logs").join(event_file));
+        assert_eq!(classify_event(&event, OsStr::new("0.log")), expected);
     }
 
     #[tokio::test]

@@ -42,7 +42,7 @@ Two entry points, `stream_forward` and `stream_backward`, both called by `cluste
 - **The format comes from the file name**: Docker JSON when the path ends in `-json.log`, else CRI.
 - **A grep matches the message alone**, never the timestamp or stream, and is case-sensitive here; the Go side adds `(?i)` (`modules/shared/logs`). Each space in the pattern becomes a pattern that also matches ANSI sequences. A regex the engine rejects reaches the caller as `InvalidArgument`.
 - **Time bounds are a binary search over byte offsets** (`util/offset.rs`), which assumes timestamps ascend through the file.
-- **Forward** follows the file after the search unless `stop_time` is set or `follow_from` is `Noop`. `FollowFrom::End` ignores both time bounds. Only `Modify` events are handled; a rotated file is not reopened. **Backward** never follows.
+- **Forward** follows the file after the search unless `stop_time` is set or `follow_from` is `Noop`. `FollowFrom::End` ignores both time bounds. The follow watches the file's directory, not the file: when the path names a new file after a rotation, it reads the old file to its end, then reads the new one from the start. It compares device and inode, so it is Unix only. **Backward** never follows.
 - **Sends block.** `process_output` sends with `task::block_in_place(|| sender.blocking_send(..))`, which panics on a current-thread runtime. A test in which a record is sent is `#[tokio::test(flavor = "multi_thread")]`.
 - **A lost client is noticed on the next send.** A failed send cancels the stream's token.
 
