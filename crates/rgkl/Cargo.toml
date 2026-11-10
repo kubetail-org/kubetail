@@ -30,3 +30,4 @@ serde_json = "1.0"
 rand = "0.10.3"
 rstest = "0.28.0"
 tempfile = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
