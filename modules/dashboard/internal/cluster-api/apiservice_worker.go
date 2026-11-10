@@ -52,7 +52,7 @@ func newAPIServiceHealthMonitorWorker(client aggregatorclientset.Interface) (*ap
 	informer := factory.Apiregistration().V1().APIServices().Informer()
 
 	w := &apiServiceHealthMonitorWorker{
-		lastStatus: HealthStatusUknown,
+		lastStatus: HealthStatusUnknown,
 		factory:    factory,
 		informer:   informer,
 		mp:         megaphone.New[HealthStatus](),

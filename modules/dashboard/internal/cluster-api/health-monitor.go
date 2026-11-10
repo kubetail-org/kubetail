@@ -35,7 +35,7 @@ const (
 	HealthStatusFailure  HealthStatus = "FAILURE"
 	HealthStatusPending  HealthStatus = "PENDING"
 	HealthStatusNotFound HealthStatus = "NOTFOUND"
-	HealthStatusUknown   HealthStatus = "UNKNOWN"
+	HealthStatusUnknown  HealthStatus = "UNKNOWN"
 )
 
 // Represents HealthMonitor
@@ -90,7 +90,7 @@ func (hm *DesktopHealthMonitor) Shutdown() {
 func (hm *DesktopHealthMonitor) GetHealthStatus(ctx context.Context, kubeContext string) (HealthStatus, error) {
 	worker, err := hm.getOrCreateWorker(ctx, kubeContext)
 	if err != nil {
-		return HealthStatusUknown, err
+		return HealthStatusUnknown, err
 	}
 	return worker.GetHealthStatus(), nil
 }
@@ -179,7 +179,7 @@ func (hm *InClusterHealthMonitor) Shutdown() {
 func (hm *InClusterHealthMonitor) GetHealthStatus(ctx context.Context, _ string) (HealthStatus, error) {
 	worker, err := hm.getOrCreateWorker(ctx)
 	if err != nil {
-		return HealthStatusUknown, err
+		return HealthStatusUnknown, err
 	}
 	return worker.GetHealthStatus(), nil
 }
@@ -262,7 +262,7 @@ func (*noopHealthMonitorWorker) Shutdown() {
 
 // GetHealthStatus
 func (*noopHealthMonitorWorker) GetHealthStatus() HealthStatus {
-	return HealthStatusUknown
+	return HealthStatusUnknown
 }
 
 // WatchHealthStatus
