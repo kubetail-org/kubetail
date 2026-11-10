@@ -383,6 +383,7 @@ jobs:
       - name: Run tests
         working-directory: ./modules
         run: go test ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+      # The race detector does not support windows/arm64.
       - name: Run race tests
         if: ${{ !(matrix.os == 'windows' && matrix.arch == 'arm64') }}
         working-directory: ./modules
@@ -581,7 +582,7 @@ jobs:
           # final and final-alpine build from the same stages, so they share a
           # scope. Each save replaces the scope's index, which keeps those
           # stages either way; a final stage left out is a copy onto a base.
-          # e2e/docker-bake.hcl reads the amd64 scopes.
+          # e2e/docker-bake.hcl reads the scopes of its runner's arch.
           cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.arch }}
           cache-to: >-
             ${{ env.CACHE_MODE != 'use'
@@ -589,20 +590,26 @@ jobs:
             || '' }}
 
   e2e:
-    name: E2E (k8s ${{ matrix.k8s-version }})
+    name: E2E (k8s ${{ matrix.k8s-version }}${{ matrix.arch == 'arm64' && ', arm64' || '' }})
     needs:
       - changes
       - docker-builds
     if: needs.changes.outputs.any == 'true'
-    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        include:
+        k8s-version:
+          - "1.21"
+          - latest
+        # main runs the arm64 images in a cluster too, on the latest Kubernetes.
+        arch: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '["amd64"]'
+          || '["amd64", "arm64"]') }}
+        exclude:
           - k8s-version: "1.21"
-            kind-node-image: "kindest/node:v1.21.14"
-          - k8s-version: "latest"
-            kind-node-image: ""
+            arch: arm64
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -612,7 +619,7 @@ jobs:
           setup-node: "true"
           node-cache: "true"
           setup-go: "true"
-          go-cache-key: go-test-linux-amd64
+          go-cache-key: go-test-linux-${{ matrix.arch }}
           go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Install uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
@@ -630,7 +637,8 @@ jobs:
         uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
       - name: Run e2e tests
         env:
-          KIND_NODE_IMAGE: ${{ matrix.kind-node-image }}
+          KIND_NODE_IMAGE: ${{ matrix.k8s-version == '1.21' && 'kindest/node:v1.21.14' || '' }}
+          CACHE_ARCH: ${{ matrix.arch }}
         run: make test-e2e
 
   ###########################
@@ -726,6 +734,30 @@ jobs:
         with:
           path: ${{ steps.setup.outputs.go-cache-path }}
           key: ${{ steps.setup.outputs.go-cache-key }}
+
+  # GOARCH=386 runs natively on the amd64 runner. It stands for the 32-bit
+  # architectures the packages build for (x86, armhf, armv7), whose tests no
+  # runner can run natively.
+  go-test-386:
+    name: Go · Test (linux, 386)
+    needs: changes
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Reads Go · Build and Test's module cache and saves none.
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          go-cache-key: go-test-linux-amd64
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      - name: Run tests
+        working-directory: ./modules
+        env:
+          GOARCH: "386"
+        run: go test ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
 
   # Builds the Go binary alone: Node has no riscv64 build to bundle the UI with.
   cli-builds-riscv64:
