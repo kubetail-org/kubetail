@@ -16,13 +16,19 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 )
 
-// Print error and exit with status code "1"
+// Print error to stderr, away from log output piped from stdout, and exit
+// with status code "1"
 func ExitOnError(err error) {
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		printError(os.Stderr, err) // coverage:ignore exits the process
 		os.Exit(1)
 	}
+}
+
+func printError(w io.Writer, err error) {
+	fmt.Fprintf(w, "Error: %v\n", err)
 }
