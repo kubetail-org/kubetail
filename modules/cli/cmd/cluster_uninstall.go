@@ -35,18 +35,14 @@ var clusterUninstallCmd = &cobra.Command{
 	Long:  clusterUninstallHelp,
 	// coverage:ignore-start uninstalls a release from a live cluster
 	Run: func(cmd *cobra.Command, args []string) {
-		// Get flags
-		flags := cmd.Flags()
-
-		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
-		kubeContext, _ := flags.GetString(KubeContextFlag)
 		//name, _ := cmd.Flags().GetString("name")
 		//namespace, _ := cmd.Flags().GetString("namespace")
 		name := helm.DefaultReleaseName
 		namespace := helm.DefaultNamespace
 
 		// Init client
-		client := helm.NewClient(helm.WithKubeconfigPath(kubeconfigPath), helm.WithKubeContext(kubeContext))
+		client, err := newClusterHelmClient(cmd)
+		cli.ExitOnError(err)
 
 		release, err := client.UninstallRelease(namespace, name)
 		cli.ExitOnError(err)

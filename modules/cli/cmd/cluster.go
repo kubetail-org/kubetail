@@ -16,6 +16,11 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
+	"github.com/kubetail-org/kubetail/modules/shared/helm"
+
+	"github.com/kubetail-org/kubetail/modules/cli/pkg/config"
 )
 
 const clusterHelp = `
@@ -36,4 +41,23 @@ var clusterCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(clusterCmd)
+}
+
+// newClusterHelmClient builds the Helm client for a `cluster` subcommand.
+// The kubeconfig comes from the flag, then the config file's general.kubeconfig.
+func newClusterHelmClient(cmd *cobra.Command) (*helm.Client, error) {
+	flags := cmd.Flags()
+
+	configPath, _ := flags.GetString("config")
+	kubeContext, _ := flags.GetString(KubeContextFlag)
+
+	v := viper.New()
+	v.BindPFlag("general.kubeconfig", flags.Lookup(KubeconfigFlag))
+
+	cfg, err := config.NewConfig(configPath, v)
+	if err != nil {
+		return nil, err
+	}
+
+	return helm.NewClient(helm.WithKubeconfigPath(cfg.General.KubeconfigPath), helm.WithKubeContext(kubeContext)), nil
 }

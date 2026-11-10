@@ -21,8 +21,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kubetail-org/kubetail/modules/shared/helm"
-
 	"github.com/kubetail-org/kubetail/modules/cli/internal/cli"
 )
 
@@ -36,14 +34,9 @@ var clusterListCmd = &cobra.Command{
 	Short: "List current releases",
 	Long:  clusterListHelp,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Get flags
-		flags := cmd.Flags()
-
-		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
-		kubeContext, _ := flags.GetString(KubeContextFlag)
-
 		// Init client
-		client := helm.NewClient(helm.WithKubeconfigPath(kubeconfigPath), helm.WithKubeContext(kubeContext))
+		client, err := newClusterHelmClient(cmd)
+		cli.ExitOnError(err)
 
 		// Get releases
 		releases, err := client.ListReleases()

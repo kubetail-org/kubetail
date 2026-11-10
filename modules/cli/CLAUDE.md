@@ -17,7 +17,7 @@ A Go CLI built with [Cobra](https://github.com/spf13/cobra): `logs`, `serve`, `c
 
 - **Precedence is flag, then file, then `DefaultCLIConfig()`.** The file is `~/.kubetail/config.yaml` unless `--config` names another. No environment variable is read by name; the file's text goes through `os.ExpandEnv`, so a literal `$` in a value is consumed.
 - **`config/default/cli.{yaml,toml,json}` are the source and `assets/config.*` are copies**, which `config init` writes out. After editing one, run `go generate ./...` here and commit both. Nothing checks they match.
-- **`cluster` commands read `--kubeconfig` from the flag alone**, not the config file.
+- **`cluster` commands take the kubeconfig from `--kubeconfig`, then `general.kubeconfig`** (`newClusterHelmClient`). `--kube-context` is read from the flag alone.
 
 ## logs
 
