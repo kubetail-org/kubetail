@@ -579,6 +579,8 @@ jobs:
           file: build/package/Dockerfile.${{ matrix.component }}
           target: ${{ matrix.target }}
           push: false
+          load: true
+          tags: ${{ matrix.component }}:${{ matrix.target }}
           # final and final-alpine build from the same stages, so they share a
           # scope. Each save replaces the scope's index, which keeps those
           # stages either way; a final stage left out is a copy onto a base.
@@ -588,6 +590,14 @@ jobs:
             ${{ env.CACHE_MODE != 'use'
             && format('type=gha,mode=max,scope={0}-{1}', matrix.component, matrix.arch)
             || '' }}
+      # A final stage copies a binary, and for the agent its libraries, onto
+      # a base image. Starting it checks the copy; each flag exits after
+      # start-up.
+      - name: Run
+        env:
+          IMAGE: ${{ matrix.component }}:${{ matrix.target }}
+          FLAG: ${{ matrix.component == 'cli' && '--version' || '--help' }}
+        run: docker run --rm "$IMAGE" "$FLAG"
 
   e2e:
     name: E2E (k8s ${{ matrix.k8s-version }}${{ matrix.arch == 'arm64' && ', arm64' || '' }})
@@ -812,11 +822,17 @@ jobs:
           file: build/package/Dockerfile.${{ matrix.component }}
           target: ${{ matrix.target }}
           push: false
+          load: true
+          tags: ${{ matrix.component }}:${{ matrix.target }}
           cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.arch }}
           cache-to: >-
             ${{ env.CACHE_MODE != 'use'
             && format('type=gha,mode=max,scope={0}-{1}', matrix.component, matrix.arch)
             || '' }}
+      - name: Run
+        env:
+          IMAGE: ${{ matrix.component }}:${{ matrix.target }}
+        run: docker run --rm "$IMAGE" --help
 
   ###########################
   # Cache jobs

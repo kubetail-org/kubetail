@@ -41,14 +41,14 @@ The matrix below is what CI checks. **PR** is every pull request that touches th
 
 **Images**
 
-| Image | Build, amd64 | Build, arm64 | Run in a cluster |
+| Image | Build and start, amd64 | Build and start, arm64 | Run in a cluster |
 | --- | --- | --- | --- |
 | dashboard, cluster-api, cluster-agent: `final` | PR | main | amd64 on PR, arm64 on main |
-| dashboard, cluster-api, cluster-agent: `final-alpine` | PR if a Dockerfile changed, else main | main | none |
-| cli: `final` | PR | main | none |
-| cli: `final-alpine` | PR if a Dockerfile changed, else main | main | none |
+| dashboard, cluster-api, cluster-agent: `final-alpine` | PR if a Dockerfile changed, else main | main | — |
+| cli: `final` | PR | main | — |
+| cli: `final-alpine` | PR if a Dockerfile changed, else main | main | — |
 
-`Docker · Build` also builds the cluster-api image for riscv64 on `main`, a platform no release ships. The Go servers' unit and race tests run as their linux rows above. `Rust · Build and Test` builds and tests the cluster agent on linux/amd64 and linux/arm64 on every PR. E2E runs on Kubernetes 1.21 and the latest on amd64, and on the latest on arm64.
+`Docker · Build` starts each image it builds once, with `--version` for the cli and `--help` for the others, which exit after start-up. That checks the binary and, for the agent, the glibc libraries each final stage copies onto its base. The cli image is not a server, and a `final-alpine` image runs the same binary as its `final` image, so neither runs in a cluster. `Docker · Build` also builds and starts the cluster-api image for riscv64 on `main`, a platform no release ships. The Go servers' unit and race tests run as their linux rows above. `Rust · Build and Test` builds and tests the cluster agent on linux/amd64 and linux/arm64 on every PR. E2E runs on Kubernetes 1.21 and the latest on amd64, and on the latest on arm64.
 
 **UI**: `TypeScript · Test` and `TypeScript · Build` run on `ubuntu-24.04` on every PR. `Docker · Build` builds the UI again inside the cli and dashboard images, on amd64 on a PR and on arm64 on `main`.
 
@@ -59,7 +59,6 @@ The matrix below is what CI checks. **PR** is every pull request that touches th
 - **E2E of `kubetail serve` and `kubetail logs` on macOS and Windows.** E2E needs a cluster the runner can reach. GitHub's macOS arm64 runners have no nested virtualization to run Docker, and its Windows runners cannot run Linux containers. The desktop path has no code of its own per OS, and its Go tests run on every OS.
 - **Unit tests on loong64, ppc64le and s390x.** No GitHub runner runs them natively, and the full suite under QEMU would run for a long time on every push. All three are 64-bit, like amd64. s390x is big-endian, but the hand-written code never reads bytes as integers. The binary builds and starts on each, on `main`.
 - **Unit tests on 32-bit arm.** `Go · Test (linux, 386)` stands in for it. The property 32-bit code can break is word size: an `int` that overflows, a 64-bit atomic that is not aligned. 386 shares that property and runs natively on an amd64 runner.
-- **Running the `final-alpine` images and the cli image.** These stages copy a binary that another check runs onto a base image. #1312 tracks starting every image and target once.
 - **Release-only build settings**: `GOWORK=off`, `-mod=vendor` and `CGO_ENABLED=0` as `release-cli.yml` and the source packages use them. The release workflows are #1282's audit.
 
 `package-healthcheck.yml` installs the published package from each channel nightly and runs `kubetail --version`. It checks the channel after a release, not the code before one, so it is no cell of the matrix.
