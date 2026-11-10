@@ -16,11 +16,11 @@ package logs
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	k8shelpersmock "github.com/kubetail-org/kubetail/modules/shared/k8shelpers/mock"
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -30,14 +30,25 @@ func TestOptions(t *testing.T) {
 		WithRegions([]string{"us-east-1"}),
 	}
 
-	// Init connection manager
+	clientset := fake.NewClientset()
 	cm := &k8shelpersmock.MockConnectionManager{}
-	cm.On("GetOrCreateClientset", mock.Anything).Return(&fake.Clientset{}, nil)
-	cm.On("GetDefaultNamespace", mock.Anything).Return("default")
+	cm.On("GetOrCreateClientset", "test").Return(clientset, nil)
+	cm.On("GetDefaultNamespace", "test").Return("default")
 
 	s, err := NewStream(context.Background(), cm, nil, opts...)
-	fmt.Println(err)
-	fmt.Println(s)
+	require.NoError(t, err)
+	cm.AssertExpectations(t)
+
+	assert.Equal(t, "test", s.kubeContext)
+
+	logFetcher, ok := s.logFetcher.(*KubeLogFetcher)
+	require.True(t, ok)
+	assert.Same(t, clientset, logFetcher.clientset)
+
+	sw, ok := s.sw.(*sourceWatcher)
+	require.True(t, ok)
+	assert.Equal(t, "test", sw.kubeContext)
+	assert.Equal(t, []string{"us-east-1"}, sw.regions)
 }
 
 // TestWithGrep contains various test scenarios for the WithGrep function.
