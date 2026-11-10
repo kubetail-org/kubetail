@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 
@@ -33,16 +34,25 @@ var clusterRepoRemoveCmd = &cobra.Command{
 	Use:   "remove",
 	Short: "Remove the repository",
 	Long:  clusterRepoRemoveHelp,
+	// coverage:ignore-start changes the Helm repository config on this machine
 	Run: func(cmd *cobra.Command, args []string) {
-		// Init client
-		client := helm.NewClient()
-
-		// Update repo
-		err := client.RemoveRepo()
-		cli.ExitOnError(err)
-
-		fmt.Println("Removed repository 'kubetail'")
+		cli.ExitOnError(runClusterRepoRemove(cmd.OutOrStdout(), helm.NewClient()))
 	},
+	// coverage:ignore-stop
+}
+
+// repoRemover is the subset of helm.Client that repo remove uses.
+type repoRemover interface {
+	RemoveRepo() error
+}
+
+// runClusterRepoRemove removes Kubetail's charts repository and reports it to w.
+func runClusterRepoRemove(w io.Writer, client repoRemover) error {
+	if err := client.RemoveRepo(); err != nil {
+		return err
+	}
+	fmt.Fprintln(w, "Removed repository 'kubetail'")
+	return nil
 }
 
 func init() {

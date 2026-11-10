@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 
@@ -33,16 +34,25 @@ var clusterRepoUpdateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update the repository",
 	Long:  clusterRepoUpdateHelp,
+	// coverage:ignore-start downloads the repository index over the network
 	Run: func(cmd *cobra.Command, args []string) {
-		// Init client
-		client := helm.NewClient()
-
-		// Update repo
-		err := client.UpdateRepo()
-		cli.ExitOnError(err)
-
-		fmt.Println("Updated repository 'kubetail'")
+		cli.ExitOnError(runClusterRepoUpdate(cmd.OutOrStdout(), helm.NewClient()))
 	},
+	// coverage:ignore-stop
+}
+
+// repoUpdater is the subset of helm.Client that repo update uses.
+type repoUpdater interface {
+	UpdateRepo() error
+}
+
+// runClusterRepoUpdate updates Kubetail's charts repository and reports it to w.
+func runClusterRepoUpdate(w io.Writer, client repoUpdater) error {
+	if err := client.UpdateRepo(); err != nil {
+		return err
+	}
+	fmt.Fprintln(w, "Updated repository 'kubetail'")
+	return nil
 }
 
 func init() {

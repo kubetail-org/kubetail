@@ -16,6 +16,8 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+
+	"github.com/kubetail-org/kubetail/modules/shared/helm"
 )
 
 const clusterHelp = `
@@ -36,4 +38,13 @@ var clusterCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(clusterCmd)
+}
+
+// newHelmClient builds a Helm client from the command's --kubeconfig and
+// --kube-context flags.
+func newHelmClient(cmd *cobra.Command) *helm.Client {
+	flags := cmd.Flags()
+	kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
+	kubeContext, _ := flags.GetString(KubeContextFlag)
+	return helm.NewClient(helm.WithKubeconfigPath(kubeconfigPath), helm.WithKubeContext(kubeContext))
 }

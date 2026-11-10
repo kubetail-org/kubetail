@@ -1,0 +1,50 @@
+// Copyright 2024 The Kubetail Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package cmd
+
+import (
+	"bytes"
+	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	release "helm.sh/helm/v4/pkg/release/v1"
+
+	"github.com/kubetail-org/kubetail/modules/shared/helm"
+)
+
+func TestRunClusterUninstall(t *testing.T) {
+	client := &fakeHelmClient{rel: &release.Release{Name: "kubetail", Namespace: "kubetail", Version: 3}}
+	var out bytes.Buffer
+
+	err := runClusterUninstall(&out, client)
+
+	require.NoError(t, err)
+	assert.Equal(t, helm.DefaultNamespace, client.namespace)
+	assert.Equal(t, helm.DefaultReleaseName, client.name)
+	assert.Equal(t, "Deleted release 'kubetail' in namespace 'kubetail'\n", out.String())
+}
+
+func TestRunClusterUninstall_Error(t *testing.T) {
+	wantErr := errors.New("UninstallRelease failed")
+	client := &fakeHelmClient{err: wantErr}
+	var out bytes.Buffer
+
+	err := runClusterUninstall(&out, client)
+
+	assert.ErrorIs(t, err, wantErr)
+	assert.Empty(t, out.String())
+}
