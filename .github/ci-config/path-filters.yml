@@ -33,6 +33,11 @@ typescript:
   - build/package/Dockerfile.cli
   - build/package/Dockerfile.dashboard
   - dashboard-ui/**
+# ci.yml's Docker · Build alone: a PR builds every image only when a
+# Dockerfile changed.
+docker:
+  - *shared
+  - build/package/Dockerfile.*
 shell:
   - .github/workflows/ci.yml
   - .github/ci-config/path-filters.yml

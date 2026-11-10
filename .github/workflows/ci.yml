@@ -75,6 +75,7 @@ jobs:
         || steps.filter.outputs.go == 'true'
         || steps.filter.outputs.rust == 'true'
         || steps.filter.outputs.typescript == 'true' }}
+      docker: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docker == 'true' }}
       shell: ${{ github.event_name != 'pull_request' || steps.filter.outputs.shell == 'true' }}
       yaml: ${{ github.event_name != 'pull_request' || steps.filter.outputs.yaml == 'true' }}
     steps:
@@ -98,14 +99,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        module:
-          - cli
-          - cluster-api
-          - dashboard
-          - shared
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -113,11 +106,11 @@ jobs:
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-      - name: Run linter for ${{ matrix.module }}
-        working-directory: ./modules/${{ matrix.module }}
+      - name: Check formatting
+        working-directory: ./modules
         run: test -z "$(gofmt -l .)"
       - name: Check coverage markers
-        run: sh scripts/check-coverage-markers.sh modules/${{ matrix.module }}
+        run: sh scripts/check-coverage-markers.sh modules
 
   # Every module in one job, so the modules share one cache.
   go-vet:
@@ -347,40 +340,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - linux
-          - macos-15
-          - macos-26
-          - windows
-        arch:
-          - amd64
-          - arm64
-        include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-24.04
-          - os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-          - os: macos-15
-            arch: amd64
-            runner: macos-15-intel
-          - os: macos-15
-            arch: arm64
-            runner: macos-15
-          - os: macos-26
-            arch: arm64
-            runner: macos-26
-          - os: windows
-            arch: amd64
-            runner: windows-2025
-          - os: windows
-            arch: arm64
-            runner: windows-11-arm
-        exclude:
-          - os: macos-26
-            arch: amd64
-    runs-on: ${{ matrix.runner }}
+        # coverage.yml runs the tests on macOS and Windows on every PR, so a PR
+        # runs linux/amd64 alone. main runs each OS and arch the CLI ships for.
+        os: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '["linux"]'
+          || '["linux", "macos", "windows"]') }}
+        arch: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '["amd64"]'
+          || '["amd64", "arm64"]') }}
+    # From a lookup: an include entry would add, as a job of its own, a
+    # combination the lists left out.
+    runs-on: >-
+      ${{ fromJSON('{
+      "linux-amd64": "ubuntu-24.04", "linux-arm64": "ubuntu-24.04-arm",
+      "macos-amd64": "macos-15-intel", "macos-arm64": "macos-26",
+      "windows-amd64": "windows-2025", "windows-arm64": "windows-11-arm"
+      }')[format('{0}-{1}', matrix.os, matrix.arch)] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -389,7 +366,7 @@ jobs:
         uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-          go-cache-key: ${{ github.job }}-${{ matrix.runner }}
+          go-cache-key: ${{ github.job }}-${{ matrix.os }}-${{ matrix.arch }}
           go-cache-mode: ${{ env.CACHE_MODE }}
       # With several packages, go build links each main package, then discards
       # it.
@@ -499,40 +476,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # One runner per OS: the scripts run the same on every arch, and
+        # install.bats mocks uname.
         os:
           - linux
-          - macos-15
-          - macos-26
+          - macos
           - windows
-        arch:
-          - amd64
-          - arm64
-        include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-24.04
-          - os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-          - os: macos-15
-            arch: amd64
-            runner: macos-15-intel
-          - os: macos-15
-            arch: arm64
-            runner: macos-15
-          - os: macos-26
-            arch: arm64
-            runner: macos-26
-          - os: windows
-            arch: amd64
-            runner: windows-2025
-          - os: windows
-            arch: arm64
-            runner: windows-11-arm
-        exclude:
-          - os: macos-26
-            arch: amd64
-    runs-on: ${{ matrix.runner }}
+    runs-on: >-
+      ${{ fromJSON('{"linux": "ubuntu-24.04", "macos": "macos-26", "windows": "windows-2025"}')[matrix.os] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -589,33 +540,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        component:
-          - cli
-          - cluster-agent
-          - cluster-api
-          - dashboard
-        arch:
-          - amd64
-          - arm64
-        target:
-          - final
-          - final-alpine
-        include:
-          # --- for arches ---
-          - arch: amd64
-            runner: ubuntu-24.04
-          - arch: arm64
-            runner: ubuntu-24.04-arm
-          # --- for components --
-          - component: cli
-            dockerfile: build/package/Dockerfile.cli
-          - component: cluster-agent
-            dockerfile: build/package/Dockerfile.cluster-agent
-          - component: cluster-api
-            dockerfile: build/package/Dockerfile.cluster-api
-          - component: dashboard
-            dockerfile: build/package/Dockerfile.dashboard
-    runs-on: ${{ matrix.runner }}
+        # A PR that changes no Dockerfile builds the cli image's final stage
+        # alone: E2E builds the other three images, and a final stage only
+        # copies the binary onto its base.
+        component: >-
+          ${{ fromJSON(needs.changes.outputs.docker == 'true'
+          && '["cli", "cluster-agent", "cluster-api", "dashboard"]'
+          || '["cli"]') }}
+        # arm64 builds on main.
+        arch: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '["amd64"]'
+          || '["amd64", "arm64"]') }}
+        target: >-
+          ${{ fromJSON(needs.changes.outputs.docker == 'true'
+          && '["final", "final-alpine"]'
+          || '["final"]') }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -627,7 +568,7 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
+          file: build/package/Dockerfile.${{ matrix.component }}
           target: ${{ matrix.target }}
           push: false
           # final and final-alpine build from the same stages, so they share a
@@ -640,54 +581,21 @@ jobs:
             && format('type=gha,mode=max,scope={0}-{1}', matrix.component, matrix.arch)
             || '' }}
 
-  cli-builds:
-    name: CLI · Build
-    needs: changes
+  e2e:
+    name: E2E (k8s ${{ matrix.k8s-version }})
+    needs:
+      - changes
+      - docker-builds
     if: needs.changes.outputs.any == 'true'
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - linux
-          - macos-15
-          - macos-26
-          - windows
-        arch:
-          - amd64
-          - arm64
         include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-24.04
-            platform: linux-amd64
-          - os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-            platform: linux-arm64
-          - os: macos-15
-            arch: amd64
-            runner: macos-15-intel
-            platform: macos-amd64
-          - os: macos-15
-            arch: arm64
-            runner: macos-15
-            platform: macos-arm64
-          - os: macos-26
-            arch: arm64
-            runner: macos-26
-            platform: macos-arm64
-          - os: windows
-            arch: amd64
-            runner: windows-2025
-            platform: windows-amd64
-          - os: windows
-            arch: arm64
-            runner: windows-11-arm
-            platform: windows-arm64
-        exclude:
-          - os: macos-26
-            arch: amd64
-    runs-on: ${{ matrix.runner }}
+          - k8s-version: "1.21"
+            kind-node-image: "kindest/node:v1.21.14"
+          - k8s-version: "latest"
+            kind-node-image: ""
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -697,17 +605,37 @@ jobs:
           setup-node: "true"
           node-cache: "true"
           setup-go: "true"
-          go-cache-key: go-test-${{ matrix.runner }}
+          go-cache-key: go-test-linux-amd64
           go-cache-mode: ${{ env.CACHE_MODE }}
-      - name: Build
-        run: make build
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          save-cache: ${{ env.CACHE_MODE != 'use' }}
+      - name: Install kind
+        uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
+        with:
+          install_only: true
+      - name: Install kubectl
+        uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5.2.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Expose GitHub Actions runtime
+        uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
+      - name: Run e2e tests
         env:
-          PLATFORM: ${{ matrix.platform }}
+          KIND_NODE_IMAGE: ${{ matrix.kind-node-image }}
+        run: make test-e2e
+
+  ###########################
+  # Jobs on a push to main only
+  ###########################
+
+  # They need Changes for its fork gate alone: no path filter skips them.
 
   alpine-builds:
     name: Alpine · Build
     needs: changes
-    if: needs.changes.outputs.go == 'true'
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -745,7 +673,7 @@ jobs:
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-          go-cache-key: go-test-ubuntu-24.04
+          go-cache-key: go-test-linux-amd64
           go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Setup Alpine
         uses: jirutka/setup-alpine@ae3b3ddba35054804fc4a3507b519fa7e8152050 # v1.4.1
@@ -765,60 +693,9 @@ jobs:
           set -ex
           ./bin/kubetail serve --test
 
-  e2e:
-    name: E2E (k8s ${{ matrix.k8s-version }})
-    needs:
-      - changes
-      - docker-builds
-    if: needs.changes.outputs.any == 'true'
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - k8s-version: "1.21"
-            kind-node-image: "kindest/node:v1.21.14"
-          - k8s-version: "1.25"
-            kind-node-image: "kindest/node:v1.25.16"
-          - k8s-version: "latest"
-            kind-node-image: ""
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-environment
-        with:
-          setup-node: "true"
-          node-cache: "true"
-          setup-go: "true"
-          go-cache-key: go-test-ubuntu-24.04
-          go-cache-mode: ${{ env.CACHE_MODE }}
-      - name: Install uv
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-        with:
-          save-cache: ${{ env.CACHE_MODE != 'use' }}
-      - name: Install kind
-        uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
-        with:
-          install_only: true
-      - name: Install kubectl
-        uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5.2.0
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - name: Expose GitHub Actions runtime
-        uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
-      - name: Run e2e tests
-        env:
-          KIND_NODE_IMAGE: ${{ matrix.kind-node-image }}
-        run: make test-e2e
-
-  ###########################
-  # riscv64 jobs, on main only
-  ###########################
-
   # Every module in one job, so the modules share one cache.
   go-test-riscv64:
-    name: Go · Test (riscv64)
+    name: Go · Test (linux, riscv64)
     needs: changes
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04-riscv
@@ -830,7 +707,7 @@ jobs:
         uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-          go-cache-key: ${{ github.job }}-ubuntu-24.04-riscv
+          go-cache-key: ${{ github.job }}-linux-riscv64
           go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Run tests
         working-directory: ./modules
@@ -845,7 +722,7 @@ jobs:
 
   # Builds the Go binary alone: Node has no riscv64 build to bundle the UI with.
   cli-builds-riscv64:
-    name: CLI · Build (riscv64)
+    name: CLI · Build (linux, riscv64)
     needs: changes
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04-riscv
@@ -853,11 +730,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Reads Go · Test (riscv64)'s cache and saves none.
+      # Reads Go · Test (linux, riscv64)'s cache and saves none.
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-          go-cache-key: go-test-riscv64-ubuntu-24.04-riscv
+          go-cache-key: go-test-riscv64-linux-riscv64
           go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Build
         working-directory: ./modules/cli
@@ -867,7 +744,7 @@ jobs:
   # riscv64 variant, and Dockerfile.cluster-agent accepts only x86_64 and
   # aarch64.
   docker-builds-riscv64:
-    name: Docker · Build (riscv64)
+    name: Docker · Build
     needs: changes
     if: github.event_name == 'push'
     timeout-minutes: 30
@@ -876,6 +753,8 @@ jobs:
       matrix:
         component:
           - cluster-api
+        arch:
+          - riscv64
         target:
           - final
           - final-alpine
@@ -894,10 +773,10 @@ jobs:
           file: build/package/Dockerfile.${{ matrix.component }}
           target: ${{ matrix.target }}
           push: false
-          cache-from: type=gha,scope=${{ matrix.component }}-riscv64
+          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.arch }}
           cache-to: >-
             ${{ env.CACHE_MODE != 'use'
-            && format('type=gha,mode=max,scope={0}-riscv64', matrix.component)
+            && format('type=gha,mode=max,scope={0}-{1}', matrix.component, matrix.arch)
             || '' }}
 
   ###########################
@@ -922,7 +801,6 @@ jobs:
       - typescript-test
       - typescript-build
       - python-lint
-      - cli-builds
       - e2e
     if: always() && needs.changes.result == 'success' && needs.changes.outputs.cache-mode != 'use'
     runs-on: ubuntu-24.04
