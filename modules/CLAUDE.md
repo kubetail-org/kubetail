@@ -16,7 +16,7 @@ go vet ./...
 go test -race ./...
 ```
 
-From the repo root, `make vet-go` adds a `GOOS=windows` pass, `scripts/check-go-fix.sh` and staticcheck. CI runs all three. Ignore a staticcheck finding with `//lint:ignore <check> <reason>` on the line above it.
+From the repo root, `make vet-go` adds a `GOOS=windows` pass, `scripts/check-go-fix.sh` and staticcheck. CI runs all three. `make vet-go-changed` runs `go vet` and `go fix` on the changed packages alone, with their importers, on this platform; `ALL_PLATFORMS=1` adds the other two. Ignore a staticcheck finding with `//lint:ignore <check> <reason>` on the line above it.
 
 From `modules/`, `go test -race github.com/kubetail-org/kubetail/modules/...` covers the workspace, as `make lint-go`, `vet-go` and `test-go` do from the repo root. A change to `shared` runs the workspace's tests. CI tests from a vendored tree (`go work vendor`); don't commit `modules/vendor`.
 
