@@ -82,53 +82,6 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tokio::sync::mpsc;
-
-    fn docker_chunk(time: &str) -> Vec<u8> {
-        let text = format!(
-            r#"{{"log":"example\n","stream":"stdout","time":"{}"}}"#,
-            time
-        );
-        let outer = serde_json::json!({
-            "type": "match",
-            "data": {
-                "lines": {
-                    "text": format!("{}\n", text)
-                }
-            }
-        });
-        let mut bytes = serde_json::to_vec(&outer).unwrap();
-        bytes.push(b'\n');
-        bytes
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn docker_malformed_timestamp_is_skipped() {
-        let (tx, mut rx) = mpsc::channel(10);
-        let ctx = CancellationToken::new();
-        let chunk = docker_chunk("not-a-timestamp");
-        process_output(ctx, chunk, &tx, FileFormat::Docker);
-        // Give the blocking send a chance; with the fix, nothing is sent.
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        assert!(
-            rx.try_recv().is_err(),
-            "malformed Docker record should be skipped"
-        );
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn docker_valid_timestamp_is_emitted() {
-        let (tx, mut rx) = mpsc::channel(10);
-        let ctx = CancellationToken::new();
-        let chunk = docker_chunk("2024-10-01T05:40:46.960135302Z");
-        process_output(ctx, chunk, &tx, FileFormat::Docker);
-        let record = rx.recv().await.unwrap().unwrap();
-        assert!(record.timestamp.is_some());
-    }
-}
 pub fn process_output(
     ctx: CancellationToken,
     chunk: Vec<u8>,
@@ -206,5 +159,53 @@ pub fn process_output(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::sync::mpsc;
+
+    fn docker_chunk(time: &str) -> Vec<u8> {
+        let text = format!(
+            r#"{{"log":"example\n","stream":"stdout","time":"{}"}}"#,
+            time
+        );
+        let outer = serde_json::json!({
+            "type": "match",
+            "data": {
+                "lines": {
+                    "text": format!("{}\n", text)
+                }
+            }
+        });
+        let mut bytes = serde_json::to_vec(&outer).unwrap();
+        bytes.push(b'\n');
+        bytes
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn docker_malformed_timestamp_is_skipped() {
+        let (tx, mut rx) = mpsc::channel(10);
+        let ctx = CancellationToken::new();
+        let chunk = docker_chunk("not-a-timestamp");
+        process_output(ctx, chunk, &tx, FileFormat::Docker);
+        // Give the blocking send a chance; with the fix, nothing is sent.
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        assert!(
+            rx.try_recv().is_err(),
+            "malformed Docker record should be skipped"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn docker_valid_timestamp_is_emitted() {
+        let (tx, mut rx) = mpsc::channel(10);
+        let ctx = CancellationToken::new();
+        let chunk = docker_chunk("2024-10-01T05:40:46.960135302Z");
+        process_output(ctx, chunk, &tx, FileFormat::Docker);
+        let record = rx.recv().await.unwrap().unwrap();
+        assert!(record.timestamp.is_some());
     }
 }
