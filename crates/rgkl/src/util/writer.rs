@@ -25,6 +25,7 @@ use tracing::debug;
 
 use types::cluster_agent::LogRecord;
 
+use crate::util::cri;
 use crate::util::format::FileFormat;
 
 /// A custom writer that calls a callback function whenever data is written.
@@ -131,29 +132,26 @@ pub fn process_output(
                         }
                     }
                     FileFormat::CRI => {
-                        // Original logic for CRI format
-                        if let Some((first, rest)) = text.split_once(' ') {
-                            // TODO: Should we return an error on parsing issues?
-                            if rest.len() < 9 {
-                                return;
-                            }
+                        let Some(line) = cri::parse(text.as_bytes()) else {
+                            return;
+                        };
+                        let Some(timestamp) = line.timestamp() else {
+                            return;
+                        };
 
-                            let timestamp = match Timestamp::from_str(first) {
-                                Ok(ts) => Some(ts),
-                                Err(_) => return, // malformed timestamp
-                            };
+                        let record = LogRecord {
+                            timestamp: Some(Timestamp {
+                                seconds: timestamp.timestamp(),
+                                nanos: timestamp.timestamp_subsec_nanos() as i32,
+                            }),
+                            message: String::from_utf8_lossy(line.message).trim_end().to_string(),
+                            is_final: line.is_final,
+                        };
 
-                            let record = LogRecord {
-                                timestamp,
-                                message: rest[9..].trim_end().to_string(),
-                                is_final: rest.as_bytes()[8] == b'F',
-                            };
-
-                            let result = task::block_in_place(|| sender.blocking_send(Ok(record)));
-                            if result.is_err() {
-                                debug!("Channel closed from client.");
-                                ctx.cancel();
-                            }
+                        let result = task::block_in_place(|| sender.blocking_send(Ok(record)));
+                        if result.is_err() {
+                            debug!("Channel closed from client.");
+                            ctx.cancel();
                         }
                     }
                 }
@@ -164,8 +162,12 @@ pub fn process_output(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    #![allow(clippy::unwrap_used)]
+
+    use rstest::rstest;
     use tokio::sync::mpsc;
+
+    use super::*;
 
     fn docker_chunk(time: &str) -> Vec<u8> {
         let text = format!(
@@ -191,7 +193,6 @@ mod tests {
         let ctx = CancellationToken::new();
         let chunk = docker_chunk("not-a-timestamp");
         process_output(ctx, chunk, &tx, FileFormat::Docker);
-        // Give the blocking send a chance; with the fix, nothing is sent.
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         assert!(
             rx.try_recv().is_err(),
@@ -207,5 +208,69 @@ mod tests {
         process_output(ctx, chunk, &tx, FileFormat::Docker);
         let record = rx.recv().await.unwrap().unwrap();
         assert!(record.timestamp.is_some());
+    }
+
+    fn process_cri(text: &str) -> Option<LogRecord> {
+        let (sender, mut receiver) = mpsc::channel(1);
+        let output = serde_json::json!({
+            "type": "match",
+            "data": { "lines": { "text": text } }
+        });
+
+        process_output(
+            CancellationToken::new(),
+            serde_json::to_vec(&output).unwrap(),
+            &sender,
+            FileFormat::CRI,
+        );
+
+        receiver.try_recv().ok().map(|r| r.unwrap())
+    }
+
+    #[rstest]
+    #[case("F", true)]
+    #[case("P", false)]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn cri_line_becomes_record(#[case] tag: &str, #[case] is_final: bool) {
+        let text = format!("2025-01-02T03:04:05.123456789Z stdout {tag} message \r\n");
+        assert_eq!(
+            process_cri(&text),
+            Some(LogRecord {
+                timestamp: Some(Timestamp {
+                    seconds: 1_735_787_045,
+                    nanos: 123_456_789,
+                }),
+                message: "message".to_string(),
+                is_final,
+            })
+        );
+    }
+
+    #[rstest]
+    #[case("2025-01-02T03:04:05Z stdin F message\n")]
+    #[case("2025-01-02T03:04:05+3:00 stdout F message\n")]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn cri_malformed_line_is_dropped(#[case] text: &str) {
+        assert_eq!(process_cri(text), None);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn cri_closed_channel_cancels_token() {
+        let (sender, receiver) = mpsc::channel(1);
+        drop(receiver);
+        let ctx = CancellationToken::new();
+        let output = serde_json::json!({
+            "type": "match",
+            "data": { "lines": { "text": "2025-01-02T03:04:05Z stdout F message\n" } }
+        });
+
+        process_output(
+            ctx.clone(),
+            serde_json::to_vec(&output).unwrap(),
+            &sender,
+            FileFormat::CRI,
+        );
+
+        assert!(ctx.is_cancelled());
     }
 }

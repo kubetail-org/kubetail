@@ -43,7 +43,7 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/modules/cli/cmd.
 # No target names a file it makes, and build/ is a directory.
 .PHONY: build build-dashboard-ui clean help \
 	lint lint-go lint-rust lint-ts lint-python lint-sh lint-md lint-yaml lint-toolchains lint-digests \
-	vet vet-go vet-rust vet-ts \
+	vet vet-go vet-go-changed vet-rust vet-ts \
 	test test-go test-rust test-ts test-sh test-changed test-e2e \
 	cover-changed check check-changed check-generated
 
@@ -69,20 +69,23 @@ clean: ## Remove the built binaries
 lint: lint-go lint-rust lint-ts lint-python lint-sh lint-md lint-yaml lint-toolchains lint-digests ## Run every linter CI runs
 	@echo "All CI linters passed."
 
-lint-go: ## Check Go formatting and coverage markers
+lint-go: ## Check Go formatting, license headers and coverage markers
 	@echo "Linting Go modules..."
 	@cd $(MODULES_DIR) && test -z $$(gofmt -l .)
+	@sh scripts/check-license-headers.sh modules tools scripts
 	@sh scripts/check-coverage-markers.sh modules
 
-lint-rust: ## Check Rust formatting and coverage markers
+lint-rust: ## Check Rust formatting, license headers and coverage markers
 	@echo "Linting Rust crates with architecture $(RUST_ARCH)..."
 	@cd $(CRATES_DIR) && rustup component add rustfmt
 	@cd $(CRATES_DIR) && cargo fmt --all -- --check
+	@sh scripts/check-license-headers.sh crates
 	@sh scripts/check-coverage-markers.sh crates
 
-lint-ts: ## Lint the dashboard UI and check its coverage markers
+lint-ts: ## Lint the dashboard UI and check its license headers and coverage markers
 	@echo "Linting dashboard UI..."
 	@cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm lint
+	@sh scripts/check-license-headers.sh dashboard-ui
 	@sh scripts/check-coverage-markers.sh dashboard-ui/src
 
 lint-python: ## Lint the e2e suite
@@ -126,6 +129,10 @@ vet-go: ## Run go vet for the host and Windows, the go fix check and staticcheck
 	@cd $(MODULES_DIR) && GOOS=windows go vet github.com/kubetail-org/kubetail/modules/...
 	@sh scripts/check-go-fix.sh
 	@sh scripts/staticcheck.sh
+
+# scripts/vet-go-changed.sh. CI vets every package.
+vet-go-changed: ## Run go vet and go fix on the Go packages this branch changed, on this platform (ALL_PLATFORMS=1 adds staticcheck and Windows)
+	@bash scripts/vet-go-changed.sh
 
 vet-rust: ## Run clippy on the Rust workspace
 	@echo "Vetting Rust crates with architecture $(RUST_ARCH)..."
@@ -178,7 +185,7 @@ check: lint vet test ## Run every lint, vet and test
 	@echo "All checks passed."
 
 # scripts/check-changed.sh
-check-changed: ## Run the checks for what this branch changed, before opening a pull request
+check-changed: ## Run the checks for what this branch changed, on this platform, before opening a pull request (ALL_PLATFORMS=1 adds staticcheck and Windows)
 	@bash scripts/check-changed.sh
 
 # scripts/check-generated.sh

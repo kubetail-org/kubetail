@@ -445,7 +445,7 @@ func healthCheckStatusFromClusterAPIHealthStatus(statusIn clusterapi.HealthStatu
 		return model.HealthCheckStatusPending
 	case clusterapi.HealthStatusNotFound:
 		return model.HealthCheckStatusNotfound
-	case clusterapi.HealthStatusUknown:
+	case clusterapi.HealthStatusUnknown:
 		return model.HealthCheckStatusUnknown
 	default:
 		panic("not implemented")

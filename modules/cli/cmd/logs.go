@@ -424,7 +424,7 @@ func loadLogsCmdConfig(cmd *cobra.Command) (*logsCmdConfig, error) {
 		resolvedMode = logsStreamModeTail
 	} else if all {
 		resolvedMode = logsStreamModeAll
-	} else if since != "" {
+	} else if since != "" || after != "" {
 		resolvedMode = logsStreamModeHead
 	} else {
 		resolvedMode = logsStreamModeTail

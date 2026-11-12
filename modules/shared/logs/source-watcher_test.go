@@ -521,6 +521,23 @@ func TestParsePath(t *testing.T) {
 	}
 }
 
+func TestParsePath_UnknownWorkloadType(t *testing.T) {
+	tests := []struct {
+		name    string
+		setPath string
+	}{
+		{"unknown type with container", "widgets/web/container-1"},
+		{"too many segments", "deployments/web/container-1/extra"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := parsePath(tt.setPath, "default", false)
+			assert.ErrorContains(t, err, "unable to parse")
+		})
+	}
+}
+
 func TestNewWorkloadIndex(t *testing.T) {
 	wi := newWorkloadIndex()
 	assert.NotNil(t, wi)

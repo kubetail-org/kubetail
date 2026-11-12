@@ -3,6 +3,7 @@ title: Run each OS once on a PR and the other platforms on main
 date: 2026-11-10
 scope: repo
 status: Accepted
+amended_by: 2026-11-10-run-the-riscv64-jobs-weekly.md
 ---
 
 # Run each OS once on a PR and the other platforms on main

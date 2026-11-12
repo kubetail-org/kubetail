@@ -42,4 +42,3 @@ tonic-prost-build = "0.14"
 
 tracing = "0.1"
 tracing-subscriber = "0.3.23" 
-tracing-test = "0.2"

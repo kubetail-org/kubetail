@@ -573,7 +573,6 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		HelmInstallLatest func(childComplexity int, kubeContext *string) int
 		PreferencesUpdate func(childComplexity int, input model.PreferencesInput) int
 	}
 
@@ -689,7 +688,6 @@ type KubeConfigResolver interface {
 	Contexts(ctx context.Context, obj *model.KubeConfig) ([]*model.KubeConfigContext, error)
 }
 type MutationResolver interface {
-	HelmInstallLatest(ctx context.Context, kubeContext *string) (*v14.Release, error)
 	PreferencesUpdate(ctx context.Context, input model.PreferencesInput) (*preferences.Preferences, error)
 }
 type QueryResolver interface {
@@ -2550,17 +2548,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MetaV1OwnerReference.UID(childComplexity), true
 
-	case "Mutation.helmInstallLatest":
-		if e.ComplexityRoot.Mutation.HelmInstallLatest == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_helmInstallLatest_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.ComplexityRoot.Mutation.HelmInstallLatest(childComplexity, args["kubeContext"].(*string)), true
 	case "Mutation.preferencesUpdate":
 		if e.ComplexityRoot.Mutation.PreferencesUpdate == nil {
 			break
@@ -4422,20 +4409,6 @@ func (ec *executionContext) dir_validate_args(ctx context.Context, rawArgs map[s
 		return nil, err
 	}
 	args["message"] = arg1
-	return args, nil
-}
-
-func (ec *executionContext) field_Mutation_helmInstallLatest_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "kubeContext",
-		func(ctx context.Context, v any) (*string, error) {
-			return ec.unmarshalOString2ᚖstring(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["kubeContext"] = arg0
 	return args, nil
 }
 
@@ -13090,50 +13063,6 @@ func (ec *executionContext) fieldContext_MetaV1OwnerReference_controller(_ conte
 	return graphql.NewScalarFieldContext("MetaV1OwnerReference", field, false, false, "Boolean")
 }
 
-func (ec *executionContext) _Mutation_helmInstallLatest(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Mutation_helmInstallLatest(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Mutation().HelmInstallLatest(ctx, fc.Args["kubeContext"].(*string))
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *v14.Release) graphql.Marshaler {
-			return ec.marshalOHelmRelease2ᚖhelmᚗshᚋhelmᚋv4ᚋpkgᚋreleaseᚋv1ᚐRelease(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Mutation_helmInstallLatest(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_HelmRelease(ctx, field)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_helmInstallLatest_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Mutation_preferencesUpdate(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -20489,13 +20418,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
-		case "helmInstallLatest":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_helmInstallLatest(ctx, field)
-			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "preferencesUpdate":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_preferencesUpdate(ctx, field)
@@ -22529,13 +22451,6 @@ func (ec *executionContext) marshalOHelmChartMetadata2ᚖhelmᚗshᚋhelmᚋv4�
 		return graphql.Null
 	}
 	return ec._HelmChartMetadata(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalOHelmRelease2ᚖhelmᚗshᚋhelmᚋv4ᚋpkgᚋreleaseᚋv1ᚐRelease(ctx context.Context, sel ast.SelectionSet, v *v14.Release) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._HelmRelease(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOID2ᚖstring(ctx context.Context, v any) (*string, error) {

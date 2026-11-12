@@ -183,5 +183,5 @@ func loadConfig(cmd *cobra.Command) (*config.Config, error) {
 		}
 	}
 
-	return config.NewConfig(v, configPath)
+	return config.NewConfig(configPath, v)
 }

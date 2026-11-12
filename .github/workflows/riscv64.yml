@@ -1,0 +1,118 @@
+name: riscv64
+
+permissions:
+  contents: read
+
+# riscv64 runners are few and slow, so these jobs run weekly and on demand
+# rather than on every push to main. ci.yml's Alpine · Build still builds the
+# CLI for riscv64 and starts it under QEMU on every push to main.
+on:
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+
+jobs:
+  # GitHub starts schedule runs in forks too. Outside kubetail-org/kubetail
+  # this job runs only for a dispatch, and every other job needs it, so a
+  # fork's scheduled run skips whole.
+  fork-gate:
+    name: Fork gate
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - run: "true"
+
+  # No Go cache: GitHub evicts a cache unused for 7 days, so a weekly run
+  # would never find one. CGO_ENABLED=0 as the release builds use it, so the
+  # build step reuses the packages the tests compiled.
+  go:
+    name: Go · Test and build CLI
+    needs: fork-gate
+    runs-on: ubuntu-24.04-riscv
+    timeout-minutes: 90
+    env:
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Run tests
+        working-directory: ./modules
+        run: go test ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+      # The Go binary alone: Node has no riscv64 build to bundle the UI with.
+      - name: Build CLI
+        working-directory: ./modules/cli
+        run: go build -ldflags="-s -w" ./main.go
+
+  # The cli and dashboard images build the UI on a node image, which has no
+  # riscv64 variant, and Dockerfile.cluster-agent accepts only x86_64 and
+  # aarch64.
+  docker:
+    name: Docker · Build (cluster-api, ${{ matrix.target }})
+    needs: fork-gate
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - final
+          - final-alpine
+    runs-on: ubuntu-24.04-riscv
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: build/package/Dockerfile.cluster-api
+          target: ${{ matrix.target }}
+          push: false
+          load: true
+          tags: cluster-api:${{ matrix.target }}
+      - name: Run
+        env:
+          IMAGE: cluster-api:${{ matrix.target }}
+        run: docker run --rm "$IMAGE" --help
+
+  # A failed run on main opens an issue, or comments on the one still open,
+  # so it reaches a maintainer without anyone watching the Actions tab.
+  report:
+    name: Report failure
+    needs:
+      - go
+      - docker
+    if: failure() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Fix the riscv64 workflow failing on main"
+          number=$(gh issue list --state open --label ci/cd \
+            --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "Failed again: $RUN_URL"
+          else
+            gh issue create --title "$title" --label ci/cd --body "## Summary
+
+          The weekly riscv64 workflow failed on main: $RUN_URL
+
+          ## Done when
+
+          - The riscv64 workflow passes on main."
+          fi

@@ -510,7 +510,7 @@ func parsePath(path string, defaultNamespace string, allContainers bool) (parsed
 	case 2:
 		out.WorkloadType = parseWorkloadType(parts[0])
 
-		if out.WorkloadType == WorkloadTypeUknown {
+		if out.WorkloadType == WorkloadTypeUnknown {
 			// Parse as <pod-name>/<container-name>
 			out.WorkloadType = WorkloadTypePod
 			out.WorkloadName = parts[0]
@@ -527,7 +527,7 @@ func parsePath(path string, defaultNamespace string, allContainers bool) (parsed
 	}
 
 	// Ensure we were able to determine the workload type
-	if out.WorkloadType == WorkloadTypeUknown {
+	if out.WorkloadType == WorkloadTypeUnknown {
 		return parsedPath{}, fmt.Errorf("unable to parse %s", path)
 	}
 

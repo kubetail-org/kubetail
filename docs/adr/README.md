@@ -86,6 +86,7 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 | 2026-11-10 | [Check generated code in CI by regenerating it](2026-11-10-check-generated-code-in-ci-by-regenerating-it.md) | repo | Accepted |
 | 2026-11-10 | [Pin each toolchain to one version that CI and the images share](2026-11-10-pin-each-toolchain-to-one-version-that-ci-and-the-images-share.md) | repo | Accepted |
 | 2026-11-10 | [Run each OS once on a PR and the other platforms on main](2026-11-10-run-each-os-once-on-a-pr-and-the-other-platforms-on-main.md) | repo | Accepted |
+| 2026-11-10 | [Run the riscv64 jobs weekly](2026-11-10-run-the-riscv64-jobs-weekly.md) | repo | Accepted |
 | 2026-11-10 | [Test each component on the platforms it ships for, or record why not](2026-11-10-test-each-component-on-the-platforms-it-ships-for.md) | repo | Accepted |
 | 2026-11-09 | [Tests sit beside their files, never sleep, and take seams as parameters](2026-11-09-tests-sit-beside-their-files-never-sleep-and-take-seams-as-parameters.md) | repo | Accepted |
 | 2026-11-10 | [Write release notes with a skill over deterministic tooling](2026-11-10-write-release-notes-with-a-skill-over-deterministic-tooling.md) | repo | Accepted |

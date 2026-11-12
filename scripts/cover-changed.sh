@@ -4,13 +4,15 @@
 # aid, not the gate: CI's coverage / Gate merges every OS's runs, so a line only
 # another OS's tests reach is listed here.
 #
-#   Go    when modules/ changed: the changed packages' tests, or every test
-#         with FULL=1 or a change to a go.mod or go.sum. Either way the whole
-#         workspace is measured, so a line in shared/ that only another
-#         module's tests reach is listed unless FULL=1.
-#   TS    when dashboard-ui/ changed: the whole suite.
+#   Go    the changed packages' tests, or every test with FULL=1. Either way
+#         the whole workspace is measured, so a line in shared/ that only
+#         another module's tests reach is listed unless FULL=1.
+#   TS    the tests vitest relates to the changed files in dashboard-ui/src/,
+#         or the whole suite when the toolchain changed.
 #   Rust  when crates/ or proto/ changed, and only with RUST=1: it is the
 #         slowest of the three. Needs cargo-llvm-cov on PATH.
+#
+# The Go and TypeScript runs go side by side; Rust follows them.
 #
 # Each suite is measured as .github/workflows/coverage.yml's jobs measure it; a
 # change to one belongs in the other. BASE is the ref the branch left, by
@@ -22,7 +24,12 @@ cd "$(dirname "$0")/.."
 . scripts/changed.sh
 
 out=$(mktemp -d)
-trap 'rm -rf "$out"' EXIT
+pids=()
+cleanup() {
+  [ ${#pids[@]} -eq 0 ] || kill "${pids[@]}" 2>/dev/null || true
+  rm -rf "$out"
+}
+trap cleanup EXIT
 
 # The paths .github/codecov.yml ignores, which the gate never judges. Keep the
 # two lists in step.
@@ -51,24 +58,46 @@ diff_opts=(-U0 --no-color --no-ext-diff --src-prefix=a/ --dst-prefix=b/)
 } >"$out/changes.diff"
 
 reports=()
+names=()
+
+# run <name> <command...>: starts a suite beside the others. The wait below
+# prints its output.
+run() {
+  local name=$1
+  shift
+  "$@" >"$out/$name.log" 2>&1 &
+  pids+=($!)
+  names+=("$name")
+}
 
 workspace=github.com/kubetail-org/kubetail/modules/...
-if has '^modules/'; then
-  if [ "${FULL:-}" = 1 ] || has '^modules/.*go\.(mod|sum)$'; then
-    go_pkgs=$workspace
-  else
-    go_pkgs=$(grep -E '^modules/.*\.go$' <<<"$changed" | xargs -r -n1 dirname | sort -u | existing | sed 's|^modules|.|' || true)
-  fi
-  if [ -n "$go_pkgs" ]; then
-    # shellcheck disable=SC2086 # one argument per package
-    (cd modules && go test -covermode=atomic -coverpkg="$workspace" -coverprofile="$out/go.out" $go_pkgs)
-    (cd tools && go run ./coverignore -dir ../modules -o "$out/go-filtered.out" "$out/go.out")
-    reports+=(-go "modules=$out/go-filtered.out")
-  fi
+if [ "${FULL:-}" = 1 ] && has '^modules/'; then go_pkgs=$workspace; else go_pkgs=$(go_pkgs); fi
+if [ -n "$go_pkgs" ]; then
+  # shellcheck disable=SC2086 # one argument per package
+  run go go -C modules test -covermode=atomic -coverpkg="$workspace" -coverprofile="$out/go.out" $go_pkgs
 fi
 
-if has '^dashboard-ui/'; then
-  (cd dashboard-ui && pnpm vitest run --coverage)
+vitest=$(vitest_scope)
+if [ -n "$vitest" ]; then
+  # shellcheck disable=SC2086 # one argument per word
+  run vitest pnpm -C dashboard-ui exec vitest $vitest --coverage
+fi
+
+failed=()
+for i in "${!pids[@]}"; do
+  wait "${pids[$i]}" || failed+=("${names[$i]}")
+  cat "$out/${names[$i]}.log"
+done
+if [ ${#failed[@]} -gt 0 ]; then
+  echo "Failed: ${failed[*]}"
+  exit 1
+fi
+
+if [ -n "$go_pkgs" ]; then
+  (cd tools && go run ./coverignore -dir ../modules -o "$out/go-filtered.out" "$out/go.out")
+  reports+=(-go "modules=$out/go-filtered.out")
+fi
+if [ -n "$vitest" ]; then
   reports+=(-lcov "$PWD/dashboard-ui/coverage/lcov.info")
 fi
 

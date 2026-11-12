@@ -15,25 +15,19 @@ tokio-util = { workspace = true, features = ["rt"] }
 tonic = { workspace = true, features = ["gzip"] }
 
 chrono = { workspace = true}
-prost = { workspace = true}
 prost-types = { workspace = true}
-tempfile = { workspace = true }
 notify = { workspace = true, features = ["crossbeam-channel", "macos_kqueue"] }
 thiserror = { workspace = true }
 
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "registry", "std"] }
-tracing-test = { workspace = true }
 
 grep = "0.4.1"
-grep-cli = "0.1.12"
-grep-matcher = "0.1.9"
-grep-regex = "0.1.14"
-grep-searcher = "0.1.17"
 memchr = "2.8.3"
-rand = "0.10.3"
-regex = "1.13.1"
-rstest = "0.28.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-termcolor = "1.4.1"
+
+[dev-dependencies]
+rand = "0.10.3"
+rstest = "0.28.0"
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }

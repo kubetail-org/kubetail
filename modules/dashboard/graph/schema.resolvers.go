@@ -124,27 +124,6 @@ func (r *kubeConfigResolver) Contexts(ctx context.Context, obj *model.KubeConfig
 	return outList, nil
 }
 
-// HelmInstallLatest is the resolver for the helmInstallLatest field.
-func (r *mutationResolver) HelmInstallLatest(ctx context.Context, kubeContext *string) (*release.Release, error) {
-	kubeContextVal := r.cm.DerefKubeContext(kubeContext)
-
-	// Reject requests not in desktop environment
-	if r.environment != sharedcfg.EnvironmentDesktop {
-		return nil, gqlerrors.ErrForbidden
-	}
-
-	// Init client
-	client := helm.NewClient(helm.WithKubeconfigPath(r.cfg.KubeconfigPath), helm.WithKubeContext(kubeContextVal))
-
-	// Install
-	release, err := client.InstallLatest(helm.DefaultNamespace, helm.DefaultReleaseName)
-	if err != nil {
-		return nil, err
-	}
-
-	return release, nil
-}
-
 // PreferencesUpdate is the resolver for the preferencesUpdate field.
 func (r *mutationResolver) PreferencesUpdate(ctx context.Context, input model.PreferencesInput) (*preferences.Preferences, error) {
 	if r.preferencesStore == nil {

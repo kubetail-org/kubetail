@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Andres Morey
+// Copyright 2024 The Kubetail Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -229,7 +229,7 @@ func httpSameSiteDecodeHook(f reflect.Type, t reflect.Type, data any) (any, erro
 	}
 }
 
-func NewConfig(v *viper.Viper, configPath string) (*Config, error) {
+func NewConfig(configPath string, v *viper.Viper) (*Config, error) {
 	if v == nil {
 		v = viper.New()
 	}

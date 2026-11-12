@@ -112,6 +112,10 @@ func TestAllowedNamespacesGetQueries(t *testing.T) {
 			_, err = r.CoreV1PodsGet(context.Background(), nil, tt.setNamespace, "", nil)
 			assert.NotNil(t, err)
 			assert.Equal(t, err, errors.ErrForbidden)
+
+			_, err = r.CoreV1ServicesGet(context.Background(), nil, tt.setNamespace, "", nil)
+			assert.NotNil(t, err)
+			assert.Equal(t, err, errors.ErrForbidden)
 		})
 	}
 }
@@ -197,13 +201,6 @@ func TestDesktopOnlyRequests(t *testing.T) {
 	t.Run("helmListReleases", func(t *testing.T) {
 		r := &queryResolver{resolver}
 		_, err := r.HelmListReleases(context.Background(), nil)
-		assert.NotNil(t, err)
-		assert.Equal(t, err, errors.ErrForbidden)
-	})
-
-	t.Run("helmInstallLatest", func(t *testing.T) {
-		r := &mutationResolver{resolver}
-		_, err := r.HelmInstallLatest(context.Background(), nil)
 		assert.NotNil(t, err)
 		assert.Equal(t, err, errors.ErrForbidden)
 	})

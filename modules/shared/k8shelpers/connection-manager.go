@@ -376,9 +376,7 @@ func (cm *InClusterConnectionManager) Close() {
 	// Shutdown shared informer factory managers
 	var wg sync.WaitGroup
 	for _, factory := range cm.factoryCache {
-		wg.Add(1)
 		wg.Go(func() {
-			defer wg.Done()
 			factory.Shutdown()
 		})
 	}

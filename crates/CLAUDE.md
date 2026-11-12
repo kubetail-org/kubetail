@@ -24,6 +24,7 @@ Runs as a DaemonSet with the node's `/var/log` mounted read-only. Only the Clust
 - **Config** (`config.rs`): `-c/--config <FILE>` is required. Precedence is `-p key:value` overrides, then the file, then the defaults in `builder_with_defaults`, which `config/default/cluster-agent.yaml` documents. Keys are top-level and kebab-case. `NODE_NAME` is read from the environment.
 - **It does not start without a Kubernetes client config** it can infer, in-cluster or a kubeconfig: the `Authorizer` needs one.
 - **Authentication is `auth.rs`, authorization is `authorizer.rs`.**
+- **The health service reports serving from just before `serve` until a signal arrives**, then not serving while the server drains. A new service is listed in `SERVICES` (`health.rs`) so a check names it.
 - **A log file is `<pod>_<namespace>_<container>-<container-id>.log` under `container-logs-dir`.** `log_records.rs` builds that name from the request and canonicalizes it, which follows the `/var/log/containers` symlink to the real file.
 
 ## Security invariants
@@ -40,6 +41,7 @@ Runs as a DaemonSet with the node's `/var/log` mounted read-only. Only the Clust
 Two entry points, `stream_forward` and `stream_backward`, both called by `cluster_agent/src/log_records.rs`. Each sends `Result<LogRecord, Status>` on a tokio `mpsc` channel and returns `()`. An error travels in the channel, never as a return value.
 
 - **The format comes from the file name**: Docker JSON when the path ends in `-json.log`, else CRI.
+- **A CRI line is split only in `util/cri.rs`.** The grep, the time search and the record writer all call it, so they agree on which lines exist and which are final. A line it rejects is dropped.
 - **A grep matches the message alone**, never the timestamp or stream, and is case-sensitive here; the Go side adds `(?i)` (`modules/shared/logs`). Each space in the pattern becomes a pattern that also matches ANSI sequences. A regex the engine rejects reaches the caller as `InvalidArgument`.
 - **Time bounds are a binary search over byte offsets** (`util/offset.rs`), which assumes timestamps ascend through the file.
 - **Forward** follows the file after the search unless `stop_time` is set or `follow_from` is `Noop`. `FollowFrom::End` ignores both time bounds. Only `Modify` events are handled; a rotated file is not reopened. **Backward** never follows.
@@ -60,5 +62,5 @@ Two entry points, `stream_forward` and `stream_backward`, both called by `cluste
 - **Tests are inline `#[cfg(test)]` modules** in the file they cover. There is no `tests/` directory.
 - **A test seam is a parameter, a generic or a field.** `Authorizer::with_reviewer` takes a fake `AccessReviewer`. `LogMetadataWatcher::watch::<T: Watcher>` takes the watcher type, so a test passes `PollWatcher`. `mint_cert` (`auth.rs`) makes a certificate with `rcgen`.
 - **No sleeps.** A test that changes a file first awaits `LifecycleEvent::WatcherStarted` on the `lifecycle_tx` channel, then awaits the event it expects under a `tokio::time::timeout`. `test_newly_created_file_receives_modify_events` (`log_metadata_watcher.rs`) is the reference; `test_follow_from` (`rgkl/src/stream_forward.rs`) shows the signal for a followed stream.
-- **The metadata watcher's debounce is two real seconds**, so its tests take seconds each. Rename and modify tests are `#[cfg(not(target_os = "macos"))]`.
+- **`LogMetadataWatcher::new` takes the debounce.** Tests pass a short one, and a negative assertion waits longer than it. Rename and modify tests are `#[cfg(not(target_os = "macos"))]`.
 - **Files go in `tempfile::tempdir()` or a `NamedTempFile`.** `config.rs` tests are `#[serial]`. Table tests use `rstest`.

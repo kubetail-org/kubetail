@@ -165,7 +165,7 @@ Signed-off-by: Your Name <you@example.com>
 ### Before Submitting
 
 1. **Check for duplicates**: Review existing [issues](https://github.com/kubetail-org/kubetail/issues) and [pull requests](https://github.com/kubetail-org/kubetail/pulls)
-2. **Run the checks**: Run `make check-changed` and fix what it reports. It runs the linters, the static analysis and the tests for the areas you changed, then lists the changed lines no test covers: cover or mark each one
+2. **Run the checks**: Run `make check-changed` and fix what it reports. It runs the linters, the static analysis and the tests for the areas you changed, on your platform, then lists the changed lines no test covers: cover or mark each one. `ALL_PLATFORMS=1 make check-changed` adds staticcheck and the Windows checks for the Go packages you changed; CI runs them on every PR
 3. **Clean commits**: Ensure each commit is minimal, focused, and follows our [commit format](#commit-guidelines)
 4. **Update docs**: If you change architecture, conventions or commands, update the relevant `CLAUDE.md` in the same PR
 5. **Record decisions**: A new architectural decision, or a change to one, gets an ADR in [`docs/adr/`](docs/adr/README.md)
@@ -239,16 +239,18 @@ As an open source project, Kubetail is not only committed to building a great to
 
 In return, we ask that contributions be authored by you. While AI tools can support your workflow, submitted code should reflect your own understanding and intent. To keep our focus on meaningful collaboration within the community, we do not accept contributions authored entirely by LLMs without a human in the loop.
 
-When you use an AI tool, include an Assisted-by tag in the following format:
+Every commit an AI tool helped write carries an attribution trailer. Use either of these formats:
 
 ```
 Assisted-by: AGENT_NAME:MODEL_VERSION
+Co-authored-by: NAME <EMAIL>
 ```
 
 Where:
 
 - `AGENT_NAME` is the name of the AI tool or framework
 - `MODEL_VERSION` is the specific model version used
+- `NAME <EMAIL>` is the name and email the AI tool commits as
 
 Example:
 

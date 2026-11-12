@@ -105,6 +105,10 @@ jobs:
           name: source
           path: kubetail-cli
 
+      # sbom-action does not create the output file's directory.
+      - name: Create output directory
+        run: mkdir -p sbom
+
       - name: Generate SPDX SBOM
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         env:
@@ -192,6 +196,7 @@ jobs:
         working-directory: kubetail-cli
         env:
           BIN_NAME: kubetail-${{ matrix.os }}-${{ matrix.arch }}
+        shell: bash
         run: mv bin/kubetail "bin/$BIN_NAME"
 
       - name: Upload artifact
@@ -363,7 +368,7 @@ jobs:
             and certificate 1[field.1.2.840.113635.100.6.2.6] exists
             and certificate leaf[field.1.2.840.113635.100.6.1.13] exists
         run: |
-          codesign --verify --strict --verbose=2 -R="$REQUIREMENT" "assets/${BIN_NAME}"
+          codesign --verify --strict --verbose=2 -R "$REQUIREMENT" "assets/${BIN_NAME}"
 
       - name: Verify Authenticode signatures
         if: ${{ matrix.os == 'windows' }}
