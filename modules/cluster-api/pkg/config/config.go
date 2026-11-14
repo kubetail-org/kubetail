@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Andres Morey
+// Copyright 2024 The Kubetail Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,9 +24,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// removedTLSKeys are config keys we used to honor but no longer accept. We
-// surface a targeted error instead of silently ignoring them so operators
-// notice the migration. See PR description for the rationale.
+// removedTLSKeys are config keys that are refused with an error naming the
+// key, rather than ignored.
 var removedTLSKeys = []string{
 	"cluster-agent.tls.enabled",
 	"tls.client-auth-type",

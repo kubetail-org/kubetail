@@ -16,8 +16,10 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
+	release "helm.sh/helm/v4/pkg/release/v1"
 
 	"github.com/kubetail-org/kubetail/modules/shared/helm"
 
@@ -33,26 +35,26 @@ var clusterUpgradeCmd = &cobra.Command{
 	Use:   "upgrade",
 	Short: "Upgrade an existing release",
 	Long:  clusterUpgradeHelp,
+	// coverage:ignore-start upgrades a release in a live cluster
 	Run: func(cmd *cobra.Command, args []string) {
-		// Get flags
-		flags := cmd.Flags()
-
-		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
-		kubeContext, _ := flags.GetString(KubeContextFlag)
-		//name, _ := cmd.Flags().GetString("name")
-		//namespace, _ := cmd.Flags().GetString("namespace")
-		name := helm.DefaultReleaseName
-		namespace := helm.DefaultNamespace
-
-		// Init client
-		client := helm.NewClient(helm.WithKubeconfigPath(kubeconfigPath), helm.WithKubeContext(kubeContext))
-
-		// Upgrade
-		release, err := client.UpgradeRelease(namespace, name)
-		cli.ExitOnError(err)
-
-		fmt.Printf("Successfully upgraded release '%s' in namespace '%s' (revision: %d)\n", release.Name, release.Namespace, release.Version)
+		cli.ExitOnError(runClusterUpgrade(cmd.OutOrStdout(), newHelmClient(cmd)))
 	},
+	// coverage:ignore-stop
+}
+
+// releaseUpgrader is the subset of helm.Client that upgrade uses.
+type releaseUpgrader interface {
+	UpgradeRelease(namespace, releaseName string) (*release.Release, error)
+}
+
+// runClusterUpgrade upgrades the default release and reports it to w.
+func runClusterUpgrade(w io.Writer, client releaseUpgrader) error {
+	r, err := client.UpgradeRelease(helm.DefaultNamespace, helm.DefaultReleaseName)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "Successfully upgraded release '%s' in namespace '%s' (revision: %d)\n", r.Name, r.Namespace, r.Version)
+	return nil
 }
 
 func init() {

@@ -6,8 +6,9 @@ Workspace that contains the Rust packages used by Kubetail
 
 This workspace contains the following modules:
 
-* [cluser_agent](cluster_agent) - Kubetail Cluster Agent
+* [cluster_agent](cluster_agent) - Kubetail Cluster Agent
 * [rgkl](rgkl) - RipGrep for Kubernetes Logs (RGKL)
+* [types](types) - gRPC types generated from `proto/`
 
 Please view the README in each directory for more details. 
 
@@ -22,7 +23,7 @@ cargo fmt --all -- --check
 ### Run clippy
 
 ```console
-cargo clippy --all -- -D warnings
+cargo clippy --all --all-targets -- -D warnings
 ```
 
 ### Run tests

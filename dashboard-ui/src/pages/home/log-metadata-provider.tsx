@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useQuery, useSubscription } from '@apollo/client/react';
+import { skipToken, useQuery, useSubscription } from '@apollo/client/react';
 import { useSetAtom } from 'jotai';
 import { useEffect, useMemo, useRef } from 'react';
 
 import { getClusterAPIClient } from '@/apollo-client';
-import { CLUSTER_API_READY_WAIT } from '@/lib/graphql/dashboard/ops';
-import { LOG_METADATA_LIST_FETCH, LOG_METADATA_LIST_WATCH } from '@/lib/graphql/cluster-api/ops';
 import type {
   LogMetadataListFetchQuery,
   LogMetadataListWatchSubscription,
 } from '@/lib/graphql/cluster-api/__generated__/graphql';
+import { LOG_METADATA_LIST_FETCH, LOG_METADATA_LIST_WATCH } from '@/lib/graphql/cluster-api/ops';
+import { CLUSTER_API_READY_WAIT } from '@/lib/graphql/dashboard/ops';
 import { useIsClusterAPIEnabled } from '@/lib/hooks';
 
 import type { FileInfo, KubeContext } from './shared';
@@ -57,10 +57,10 @@ export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) =
   const client = useMemo(() => getClusterAPIClient(kubeContextStr), [kubeContextStr]);
 
   // Initial query
-  const { loading, error, data, subscribeToMore, startPolling, stopPolling } = useQuery(LOG_METADATA_LIST_FETCH, {
-    skip: !isEnabled || !isReady,
-    client,
-  });
+  const { loading, error, data, subscribeToMore, startPolling, stopPolling } = useQuery(
+    LOG_METADATA_LIST_FETCH,
+    isEnabled && isReady ? { client } : skipToken,
+  );
 
   // Retry on errors
   useEffect(() => {
@@ -70,7 +70,7 @@ export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) =
 
   // Initialize data map
   useEffect(() => {
-    const items = data?.logMetadataList?.items || [];
+    const items = data?.logMetadataList?.items ?? [];
     if (!items.length) return;
 
     const inner = new Map<string, FileInfo>();
@@ -79,7 +79,7 @@ export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) =
       inner.set(item.spec.containerID, item.fileInfo);
     }
     setLogMetadataMap({ inner });
-  }, [loading, setLogMetadataMap]);
+  }, [data, setLogMetadataMap]);
 
   // Set up batch update mechanism
   const eventBufferRef = useRef<LogMetadataWatchEvent[]>([]);
@@ -105,12 +105,13 @@ export const LogMetadataProvider = ({ kubeContext }: LogMetadataProviderProps) =
           const { containerID } = ev.object.spec;
 
           if (ev.type === 'MODIFIED' || ev.type === 'ADDED') {
-            const { size } = ev.object.fileInfo;
-            let { lastModifiedAt } = ev.object.fileInfo;
-            lastModifiedAt = lastModifiedAt ? new Date(lastModifiedAt) : new Date(0);
+            const { size, lastModifiedAt } = ev.object.fileInfo as {
+              size: string;
+              lastModifiedAt: string | Date | null;
+            };
 
             // Update atom
-            inner.set(containerID, { size, lastModifiedAt });
+            inner.set(containerID, { size, lastModifiedAt: lastModifiedAt ? new Date(lastModifiedAt) : new Date(0) });
 
             // Update selectors
             selectors.push(`.last_event_${containerID}`);

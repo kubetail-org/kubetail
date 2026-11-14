@@ -17,26 +17,9 @@ The Kubetail Cluster API executable supports the following command line configur
 
 ### Config file
 
-The Kubetail Cluster API executable can be configured using a configuration file written in YAML, JSON, TOML, HCL or envfile format. The application will automatically replace ENV variables written in the format `${NAME}` with their corresponding values. The config file supports the following options (also see [config/default/cluster-api.yaml](../../config/default/cluster-api.yaml)):
+The Cluster API reads a config file in YAML, JSON, TOML, HCL or envfile format, chosen by its extension. It replaces `${NAME}` with the value of the environment variable `NAME`. Keys are top-level. [config/default/cluster-api.yaml](../../config/default/cluster-api.yaml) documents every key and its default.
 
-| Name                                              | Datatype | Description                                        | Default                                     | Status |
-| ------------------------------------------------- | -------- | -------------------------------------------------- | ------------------------------------------- | ------ |
-| allowed-namespaces                                | []string | If populated, restricts namespace access           | []                                          | stable |
-| cluster-api.addr                                  | string   | Host address to bind to                            | ":8080"                                     | stable |
-| cluster-api.base-path                             | string   | URL path prefix                                    | "/"                                         | stable |
-| cluster-api.gin-mode                              | string   | Gin mode (release, debug)                          | "release"                                   | stable |
-| cluster-api.cluster-agent.dispatch-url            | string   | URL for sending dispatch requests to cluster-agent | "kubernetes://kubetail-cluster-agent:50051" | alpha  |
-| cluster-api.cluster-agent.tls.cert-file           | string   | Path to tls certificate file (required)            | ""                                          | alpha  |
-| cluster-api.cluster-agent.tls.key-file            | string   | Path to tls key file (required)                    | ""                                          | alpha  |
-| cluster-api.cluster-agent.tls.ca-file             | string   | Path to tls CA bundle file (required)              | ""                                          | alpha  |
-| cluster-api.cluster-agent.tls.server-name         | string   | Server name for conection verification             | ""                                          | alpha  |
-| cluster-api.logging.enabled                       | bool     | Enable logging                                     | true                                        | stable |
-| cluster-api.logging.level                         | string   | Log level                                          | "info"                                      | stable |
-| cluster-api.logging.format                        | string   | Log format (json, pretty)                          | "json"                                      | stable |
-| cluster-api.logging.access-log.enabled            | bool     | Enable access log                                  | true                                        | stable |
-| cluster-api.logging.access-log.hide-health-checks | bool     | Hide requests to /healthz from access log          | false                                       | stable |
-| cluster-api.tls.cert-file                         | string   | Path to tls certificate file (required)            | ""                                          | stable |
-| cluster-api.tls.key-file                          | string   | Path to tls key file (required)                    | ""                                          | stable |  
+`-p key:value` overrides a key. Precedence is `-p`, then the flags, then the file, then the defaults.
 
 ## GraphQL
 

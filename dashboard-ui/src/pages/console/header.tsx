@@ -24,7 +24,7 @@ import {
   SkipForward as SkipForwardIcon,
 } from 'lucide-react';
 import { useCallback, useContext, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 
 import { Checkbox } from '@kubetail/ui/elements/checkbox';
 import { Input } from '@kubetail/ui/elements/input';
@@ -92,7 +92,7 @@ const SettingsButton = () => {
         <div className="border-b mt-2 mb-1">Options:</div>
         <div className="flex items-center space-x-1">
           <Label>
-            <Checkbox checked={isWrap} onCheckedChange={(checked) => setIsWrap(!!checked)} />
+            <Checkbox checked={isWrap} onCheckedChange={(checked) => setIsWrap(checked)} />
             Wrap
           </Label>
         </div>
@@ -127,7 +127,7 @@ export function Header() {
         setSearchParams(new URLSearchParams(searchParams), { replace: true });
 
         // Execute command
-        logViewerRef.current?.jumpToCursor(cursor);
+        void logViewerRef.current?.jumpToCursor(cursor);
       }
     },
     [searchParams, setSearchParams, logViewerRef],
@@ -170,7 +170,8 @@ export function Header() {
   const handleSubmit = useCallback(
     (ev: React.SubmitEvent<HTMLFormElement>) => {
       ev.preventDefault();
-      const grep = new FormData(ev.currentTarget).get('grep')?.toString().trim() || '';
+      const value = new FormData(ev.currentTarget).get('grep');
+      const grep = typeof value === 'string' ? value.trim() : '';
 
       if (grep) searchParams.set('grep', grep);
       else searchParams.delete('grep');

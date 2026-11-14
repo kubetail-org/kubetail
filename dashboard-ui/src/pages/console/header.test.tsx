@@ -15,9 +15,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createStore, Provider } from 'jotai';
 import type { ReactNode } from 'react';
-import { createMemoryRouter, RouterProvider } from 'react-router-dom';
+import { createMemoryRouter, RouterProvider } from 'react-router';
 
-import { createMockLogViewerHandle } from '@/components/widgets/log-viewer/mock';
+import { createMockLogViewerHandle } from '@/mocks/log-viewer';
 
 import { Header } from './header';
 import { PageContext, ViewerColumn } from './shared';
@@ -220,7 +220,7 @@ describe('Header', () => {
 
     // Message must be last in the visible columns set
     const cols = [...store.get(visibleColsAtom)];
-    expect(cols[cols.length - 1]).toBe(ViewerColumn.Message);
+    expect(cols.at(-1)).toBe(ViewerColumn.Message);
   });
 
   it('keeps columns in ALL_VIEWER_COLUMNS order regardless of click order', async () => {

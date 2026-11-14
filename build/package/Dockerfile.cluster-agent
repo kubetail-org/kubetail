@@ -11,7 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-FROM rust:1.90.0-slim AS builder
+FROM ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.62@sha256:1a900fcfc1b8e680511670908b47d9bc3f8464f88d9159f961c5d55c254b8140 AS grpc-health-probe
+
+# -----------------------------------------------------------
+
+FROM rust:1.99.1-slim@sha256:f6c4a35d21dbb3c89d7a8d056c193e94fc09037f2b58dd858b09c39a47dd02d7 AS builder
 
 WORKDIR /work
 
@@ -29,14 +33,14 @@ RUN mkdir -p crates/rgkl/src crates/types/src crates/cluster_agent/src && \
     echo "// placeholder" > crates/rgkl/src/lib.rs && \
     echo "// placeholder" > crates/types/src/lib.rs && \
     echo "fn main() {}" > crates/cluster_agent/src/main.rs
-RUN cd crates && cargo fetch
+RUN cd crates && cargo fetch --locked
 
 # Copy source code
 COPY crates ./crates
 COPY proto ./proto
 
 # Build
-RUN cd crates && cargo build --release
+RUN cd crates && cargo build --release --locked
 
 # Cross-platform trickery
 RUN \
@@ -65,7 +69,7 @@ FROM scratch AS final
 WORKDIR /cluster-agent
 
 # copy grpc-health-probe
-COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
+COPY --from=grpc-health-probe /ko-app/grpc-health-probe /bin/grpc_health_probe
 
 # copy glibc runtime libraries and dynamic loader (aarch64)
 COPY --from=builder /lib/aarch64-linux-gnu/libgcc_s.so.1 /lib/aarch64-linux-gnu/
@@ -87,12 +91,12 @@ CMD []
 
 # -----------------------------------------------------------
 
-FROM alpine:3.22.0 AS final-alpine
+FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS final-alpine
 
 WORKDIR /cluster-agent
 
 # copy grpc-health-probe
-COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
+COPY --from=grpc-health-probe /ko-app/grpc-health-probe /bin/grpc_health_probe
 
 # copy glibc runtime libraries and dynamic loader (aarch64)
 COPY --from=builder /lib/aarch64-linux-gnu/libgcc_s.so.1 /lib/aarch64-linux-gnu/

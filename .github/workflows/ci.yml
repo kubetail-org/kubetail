@@ -7,59 +7,86 @@ on:
   pull_request:
     branches:
       - "**"
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
-      run_all:
-        description: "Run full suite"
-        required: false
-        type: boolean
-        default: true
+      cache-mode:
+        description: >-
+          use: restore the caches, save none. update: also save new ones.
+          rebuild: start the Go caches from empty and save them. Off main, a
+          saved cache is that branch's alone; PRs never read it.
+        type: choice
+        options:
+          - use
+          - update
+          - rebuild
+        default: use
+
+# A PR's new push cancels its last run. Pushes to main share a group that never
+# cancels a running run, which would save no cache: a newer push replaces only
+# the run still waiting. Every other run has a group of its own.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.event_name == 'push' && 'main' || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # use, update or rebuild: the one place that decides whether a run saves a
+  # cache. An update or a rebuild saves a new Go cache per job and runner, and
+  # Caches · Prune deletes the one it replaces. A dispatch takes its input; a
+  # push to main updates; a PR uses, since every PR saving its own copy pushes
+  # the repo past its cache limit.
+  CACHE_MODE: ${{ inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use' }}
+  # Full debug info swells the Rust caches and slows linking; line tables keep
+  # file:line in test backtraces. Workflow-wide, since rust-cache keys on
+  # CARGO_* variables.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
 
 jobs:
-  ##############################
-  # Changes detection
-  ##############################
-
+  # A pull request runs a group's jobs only when a path in its filter changed.
+  # A push or a dispatch runs them all, so main catches what a filter misses.
+  # Test and build jobs need only this job, so they start beside lint and vet.
+  # GitHub starts push runs in forks too. Outside kubetail-org/kubetail this job
+  # runs only for a PR or a dispatch, and every other job needs it, so a fork's
+  # automatic run skips whole.
   changes:
-    name: Detect Changes
+    name: Plan
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
     outputs:
-      go: ${{ steps.override.outputs.go }}
-      rust: ${{ steps.override.outputs.rust }}
-      typescript: ${{ steps.override.outputs.typescript }}
-      any: ${{ steps.override.outputs.any }}
+      cache-mode: ${{ env.CACHE_MODE }}
+      go: ${{ github.event_name != 'pull_request' || steps.filter.outputs.go == 'true' }}
+      rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
+      typescript: ${{ github.event_name != 'pull_request' || steps.filter.outputs.typescript == 'true' }}
+      any: >-
+        ${{ github.event_name != 'pull_request'
+        || steps.filter.outputs.go == 'true'
+        || steps.filter.outputs.rust == 'true'
+        || steps.filter.outputs.typescript == 'true' }}
+      docker: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docker == 'true' }}
+      shell: ${{ github.event_name != 'pull_request' || steps.filter.outputs.shell == 'true' }}
+      yaml: ${{ github.event_name != 'pull_request' || steps.filter.outputs.yaml == 'true' }}
+      generated: ${{ github.event_name != 'pull_request' || steps.filter.outputs.generated == 'true' }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: dorny/paths-filter@v3
-        id: filter
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request'
         with:
-          filters: |
-            go:
-              - 'modules/**'
-            rust:
-              - 'crates/**'
-            typescript:
-              - 'dashboard-ui/**'
-      - id: override
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ inputs.run_all }}" == "true" ]; then
-            echo "go=true" >> $GITHUB_OUTPUT
-            echo "rust=true" >> $GITHUB_OUTPUT
-            echo "typescript=true" >> $GITHUB_OUTPUT
-            echo "any=true" >> $GITHUB_OUTPUT
-          else
-            echo "go=${{ steps.filter.outputs.go }}" >> $GITHUB_OUTPUT
-            echo "rust=${{ steps.filter.outputs.rust }}" >> $GITHUB_OUTPUT
-            echo "typescript=${{ steps.filter.outputs.typescript }}" >> $GITHUB_OUTPUT
-            if [ "${{ steps.filter.outputs.go }}" == "true" ] || [ "${{ steps.filter.outputs.rust }}" == "true" ] || [ "${{ steps.filter.outputs.typescript }}" == "true" ]; then
-              echo "any=true" >> $GITHUB_OUTPUT
-            else
-              echo "any=false" >> $GITHUB_OUTPUT
-            fi
-          fi
+          persist-credentials: false
+          sparse-checkout: .github
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          filters: .github/ci-config/path-filters.yml
 
   ##############################
-  # Pre-flight jobs
+  # Lint and vet jobs
   ##############################
 
   go-lint:
@@ -67,64 +94,98 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        module:
-          - cli
-          - cluster-api
-          - dashboard
-          - shared
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-      - name: Run linter for ${{ matrix.module }}
-        working-directory: ./modules/${{ matrix.module }}
+      - name: Check formatting
+        working-directory: ./modules
         run: test -z "$(gofmt -l .)"
+      - name: Check license headers
+        run: sh scripts/check-license-headers.sh modules tools scripts
+      - name: Check coverage markers
+        run: sh scripts/check-coverage-markers.sh modules
 
+  # Every module in one job, so the modules share one cache.
   go-vet:
     name: Go · Vet
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        module:
-          - cli
-          - cluster-api
-          - dashboard
-          - shared
     steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-environment
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: setup
+        uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-      - name: Vet ${{ matrix.module }}
-        working-directory: ./modules/${{ matrix.module }}
-        run: go vet ./...
+          go-cache-key: ${{ github.job }}-ubuntu-24.04
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      - name: Vet
+        working-directory: ./modules
+        run: go vet ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+      # The Windows runners run tests alone, so this is the one place the
+      # _windows.go files are vetted.
+      - name: Vet (GOOS=windows)
+        working-directory: ./modules
+        run: GOOS=windows go vet ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+      - name: Check go fix
+        run: sh scripts/check-go-fix.sh
+      # Last, so a failed job leaves the last good cache the newest.
+      - name: Save Go cache
+        if: env.CACHE_MODE != 'use'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.go-cache-path }}
+          key: ${{ steps.setup.outputs.go-cache-key }}
 
-  go-vendor:
-    name: Go · Vendor
+  go-staticcheck:
+    name: Go · Staticcheck
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-environment
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: setup
+        uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-      - name: Create vendor bundle
-        working-directory: ./modules
-        run: go work vendor
-      - name: Upload vendor bundle artifact
-        uses: actions/upload-artifact@v5
+          go-cache-key: ${{ github.job }}-ubuntu-24.04
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      # Staticcheck keeps its analysis apart from GOCACHE, so it has a cache of
+      # its own, restored and saved like the Go cache.
+      - name: Restore staticcheck cache
+        if: env.CACHE_MODE != 'rebuild'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          name: go-vendor-bundle
-          path: modules/vendor
-          retention-days: 1
+          path: ${{ runner.temp }}/staticcheck
+          # Never matches, so restore-keys finds the newest cache.
+          key: doesntexist
+          restore-keys: staticcheck-ubuntu-24.04-run-
+      # tools/go.mod pins staticcheck.
+      - name: Run staticcheck
+        env:
+          STATICCHECK_CACHE: ${{ runner.temp }}/staticcheck
+        run: sh scripts/staticcheck.sh
+      - name: Save staticcheck cache
+        if: env.CACHE_MODE != 'use'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/staticcheck
+          key: staticcheck-ubuntu-24.04-run-${{ github.run_id }}
+      # Last, so a failed job leaves the last good cache the newest.
+      - name: Save Go cache
+        if: env.CACHE_MODE != 'use'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.go-cache-path }}
+          key: ${{ steps.setup.outputs.go-cache-key }}
 
   rust-lint:
     name: Rust · Lint
@@ -132,7 +193,9 @@ jobs:
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-rust: "true"
@@ -140,6 +203,10 @@ jobs:
       - name: Run format check
         working-directory: ./crates
         run: cargo fmt --all -- --check
+      - name: Check license headers
+        run: sh scripts/check-license-headers.sh crates
+      - name: Check coverage markers
+        run: sh scripts/check-coverage-markers.sh crates
 
   rust-vet:
     name: Rust · Vet
@@ -147,14 +214,18 @@ jobs:
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-rust: "true"
           setup-protoc: "true"
+          rust-cache-key: ${{ github.job }}-ubuntu-24.04
+          cache-save: ${{ env.CACHE_MODE != 'use' }}
       - name: Run clippy
         working-directory: ./crates
-        run: cargo clippy --all -- -D warnings
+        run: cargo clippy --all --all-targets -- -D warnings
 
   typescript-lint:
     name: TypeScript · Lint
@@ -162,37 +233,85 @@ jobs:
     if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
+          node-cache: "true"
       - name: Install dependencies
         working-directory: ./dashboard-ui
         run: pnpm install --frozen-lockfile
       - name: Lint
         working-directory: ./dashboard-ui
         run: pnpm lint
+      - name: Check license headers
+        run: sh scripts/check-license-headers.sh dashboard-ui
+      - name: Check coverage markers
+        run: sh scripts/check-coverage-markers.sh dashboard-ui/src
 
   shell-lint:
     name: Shell · Lint
     needs: changes
+    if: needs.changes.outputs.shell == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install shellcheck
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
       - name: Run shellcheck
-        run: shellcheck scripts/install.sh
+        run: make lint-sh
+
+  # Runs on every PR: one that moves a file a doc links to may touch no Markdown.
+  markdown-lint:
+    name: Markdown · Lint
+    needs: changes
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Collect tracked Markdown files
+        run: git ls-files '*.md' > "$RUNNER_TEMP/markdown-files"
+      - name: Check local Markdown links
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          # Keep in step with version in scripts/check-markdown-links.sh.
+          lycheeVersion: v0.24.2
+          args: >-
+            --config .github/ci-config/lychee.toml
+            --files-from '${{ runner.temp }}/markdown-files'
+
+  # Runs on every PR: the versions it compares sit in paths no one filter holds.
+  toolchains-lint:
+    name: Toolchains · Lint
+    needs: changes
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check the Dockerfiles' toolchain versions
+        run: make lint-toolchains
+      - name: Check the Dockerfiles' image digests
+        run: make lint-digests
 
   python-lint:
     name: Python · Lint
     needs: changes
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          save-cache: ${{ env.CACHE_MODE != 'use' }}
       - name: Lint
         working-directory: ./e2e
         run: |
@@ -200,85 +319,116 @@ jobs:
           uv run ruff check .
           uv run ruff format --check .
 
+  yaml-lint:
+    name: YAML · Lint
+    needs: changes
+    if: needs.changes.outputs.yaml == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
+      # The token turns on zizmor's online audits, which check each pin's
+      # commit and version comment against the action's repository.
+      - name: Run yamllint, actionlint and zizmor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: make lint-yaml
+
+  # Regenerates every committed output from its source and fails on a change.
+  generated-check:
+    name: Generated · Check
+    needs: changes
+    if: needs.changes.outputs.generated == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          setup-protoc: "true"
+          setup-node: "true"
+          node-cache: "true"
+      - name: Regenerate and compare
+        run: make check-generated
+
   ###########################
   # Test jobs
   ###########################
 
+  # Go · Vet type-checks the build; this links the binaries, then runs the
+  # tests. Every module in one job per runner, so the modules share one cache.
   go-test:
-    name: Go · Test
-    needs:
-      - changes
-      - go-lint
-      - go-vet
-      - go-vendor
+    name: Go · Build and Test
+    needs: changes
     if: needs.changes.outputs.go == 'true'
-    timeout-minutes: 20
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        module:
-          - cli
-          - cluster-api
-          - dashboard
-          - shared
-        os:
-          - linux
-          - macos-15
-          - macos-26
-          - windows
-        arch:
-          - amd64
-          - arm64
-        include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-24.04
-          - os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-          - os: macos-15
-            arch: amd64
-            runner: macos-15-intel
-          - os: macos-15
-            arch: arm64
-            runner: macos-15
-          - os: macos-26
-            arch: arm64
-            runner: macos-26
-          - os: windows
-            arch: amd64
-            runner: windows-2025
-          - os: windows
-            arch: arm64
-            runner: windows-11-arm
-        exclude:
-          - os: macos-26
-            arch: amd64
-    runs-on: ${{ matrix.runner }}
+        # coverage.yml runs the tests on macOS and Windows on every PR, so a PR
+        # runs linux/amd64 alone. main runs each OS and arch the CLI ships for.
+        os: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '["linux"]'
+          || '["linux", "macos", "windows"]') }}
+        arch: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '["amd64"]'
+          || '["amd64", "arm64"]') }}
+    # From a lookup: an include entry would add, as a job of its own, a
+    # combination the lists left out.
+    runs-on: >-
+      ${{ fromJSON('{
+      "linux-amd64": "ubuntu-24.04", "linux-arm64": "ubuntu-24.04-arm",
+      "macos-amd64": "macos-15-intel", "macos-arm64": "macos-26",
+      "windows-amd64": "windows-2025", "windows-arm64": "windows-11-arm"
+      }')[format('{0}-{1}', matrix.os, matrix.arch)] }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-environment
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: setup
+        uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-      - name: Download vendor bundle artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: go-vendor-bundle
-          path: modules/vendor
+          go-cache-key: ${{ github.job }}-${{ matrix.os }}-${{ matrix.arch }}
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      # With several packages, go build links each main package, then discards
+      # it.
+      - name: Build
+        working-directory: ./modules
+        run: go build ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
       - name: Run tests
-        working-directory: ./modules/${{ matrix.module }}
-        run: go test -mod=vendor ./...
+        working-directory: ./modules
+        run: go test ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+      # The race detector does not support windows/arm64.
       - name: Run race tests
         if: ${{ !(matrix.os == 'windows' && matrix.arch == 'arm64') }}
-        working-directory: ./modules/${{ matrix.module }}
-        run: go test -race -mod=vendor ./...
+        working-directory: ./modules
+        run: go test -race ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+      # After every test passed, so a failed job leaves its runner's last cache
+      # the newest. The test flags must match a PR's, or a PR replays nothing.
+      - name: Save Go cache
+        if: env.CACHE_MODE != 'use'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.go-cache-path }}
+          key: ${{ steps.setup.outputs.go-cache-key }}
 
+  # Rust · Vet's clippy type-checks the build; this links the binaries, then
+  # runs the tests. A debug build, so cargo test reuses its artifacts.
   rust-test:
-    name: Rust · Test
-    needs:
-      - changes
-      - rust-lint
-      - rust-vet
+    name: Rust · Build and Test
+    needs: changes
     if: needs.changes.outputs.rust == 'true'
     strategy:
       fail-fast: false
@@ -297,28 +447,36 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-rust: "true"
           setup-protoc: "true"
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          rust-cache-key: ${{ github.job }}-${{ matrix.runner }}
+          cache-save: ${{ env.CACHE_MODE != 'use' }}
+      - name: Build
+        working-directory: ./crates
+        run: cargo build --locked
       - name: Run tests
         working-directory: ./crates
         run: cargo test
 
   typescript-test:
     name: TypeScript · Test
-    needs:
-      - changes
-      - typescript-lint
+    needs: changes
     if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
+          node-cache: "true"
       - name: Install dependencies
         working-directory: ./dashboard-ui
         run: pnpm install --frozen-lockfile
@@ -326,50 +484,45 @@ jobs:
         working-directory: ./dashboard-ui
         run: pnpm test run
 
+  # The coverage tools: a module of their own, outside the workspace.
+  tools-test:
+    name: Tools · Test
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Lint, vet and test
+        working-directory: ./tools
+        run: |
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          go test ./...
+
   shell-test:
     name: Shell · Test
-    needs:
-      - changes
-      - shell-lint
+    needs: changes
+    if: needs.changes.outputs.shell == 'true'
     strategy:
       fail-fast: false
       matrix:
+        # One runner per OS: the scripts run the same on every arch, and
+        # install.bats mocks uname.
         os:
           - linux
-          - macos-15
-          - macos-26
+          - macos
           - windows
-        arch:
-          - amd64
-          - arm64
-        include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-24.04
-          - os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-          - os: macos-15
-            arch: amd64
-            runner: macos-15-intel
-          - os: macos-15
-            arch: arm64
-            runner: macos-15
-          - os: macos-26
-            arch: arm64
-            runner: macos-26
-          - os: windows
-            arch: amd64
-            runner: windows-2025
-          - os: windows
-            arch: arm64
-            runner: windows-11-arm
-        exclude:
-          - os: macos-26
-            arch: amd64
-    runs-on: ${{ matrix.runner }}
+    runs-on: >-
+      ${{ fromJSON('{"linux": "ubuntu-24.04", "macos": "macos-26", "windows": "windows-2025"}')[matrix.os] }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install bats (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -381,7 +534,7 @@ jobs:
       - name: Install bats (Windows)
         if: runner.os == 'Windows'
         shell: bash
-        run: npm install -g bats
+        run: npm install -g bats@1.13.0
       - name: Run bats
         shell: bash
         run: bats scripts/
@@ -390,52 +543,19 @@ jobs:
   # Build jobs
   ###########################
 
-  rust-build:
-    name: Rust · Build
-    needs:
-      - changes
-      - rust-lint
-      - rust-vet
-    if: needs.changes.outputs.rust == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - linux
-        arch:
-          - amd64
-          - arm64
-        include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-24.04
-          - os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-environment
-        with:
-          setup-rust: "true"
-          setup-protoc: "true"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build
-        working-directory: ./crates
-        run: cargo build --release
-
   typescript-build:
     name: TypeScript · Build
-    needs:
-      - changes
-      - typescript-lint
+    needs: changes
     if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
+          node-cache: "true"
       - name: Install dependencies
         working-directory: ./dashboard-ui
         run: pnpm install --frozen-lockfile
@@ -449,138 +569,125 @@ jobs:
 
   docker-builds:
     name: Docker · Build
-    needs:
-      - changes
-      - rust-lint
-      - rust-vet
-      - go-lint
-      - go-vet
-      - typescript-lint
+    needs: changes
     if: needs.changes.outputs.any == 'true'
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        component:
-          - cli
-          - cluster-agent
-          - cluster-api
-          - dashboard
-        arch:
-          - amd64
-          - arm64
-        target:
-          - final
-          - final-alpine
-        include:
-          # --- for arches ---
-          - arch: amd64
-            runner: ubuntu-24.04
-          - arch: arm64
-            runner: ubuntu-24.04-arm
-          # --- for components --
-          - component: cli
-            dockerfile: build/package/Dockerfile.cli
-          - component: cluster-agent
-            dockerfile: build/package/Dockerfile.cluster-agent
-          - component: cluster-api
-            dockerfile: build/package/Dockerfile.cluster-api
-          - component: dashboard
-            dockerfile: build/package/Dockerfile.dashboard
-    runs-on: ${{ matrix.runner }}
+        # A PR that changes no Dockerfile builds the cli image's final stage
+        # alone: E2E builds the other three images, and a final stage only
+        # copies the binary onto its base.
+        component: >-
+          ${{ fromJSON(needs.changes.outputs.docker == 'true'
+          && '["cli", "cluster-agent", "cluster-api", "dashboard"]'
+          || '["cli"]') }}
+        # arm64 builds on main.
+        arch: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '["amd64"]'
+          || '["amd64", "arm64"]') }}
+        target: >-
+          ${{ fromJSON(needs.changes.outputs.docker == 'true'
+          && '["final", "final-alpine"]'
+          || '["final"]') }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
+          file: build/package/Dockerfile.${{ matrix.component }}
           target: ${{ matrix.target }}
           push: false
-          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.target
-            }}-${{matrix.arch }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.component }}-${{
-            matrix.target}}-${{ matrix.arch }}
+          load: true
+          tags: ${{ matrix.component }}:${{ matrix.target }}
+          # final and final-alpine build from the same stages, so they share a
+          # scope. Each save replaces the scope's index, which keeps those
+          # stages either way; a final stage left out is a copy onto a base.
+          # e2e/docker-bake.hcl reads the scopes of its runner's arch.
+          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.arch }}
+          cache-to: >-
+            ${{ env.CACHE_MODE != 'use'
+            && format('type=gha,mode=max,scope={0}-{1}', matrix.component, matrix.arch)
+            || '' }}
+      # A final stage copies a binary, and for the agent its libraries, onto
+      # a base image. Starting it checks the copy; each flag exits after
+      # start-up.
+      - name: Run
+        env:
+          IMAGE: ${{ matrix.component }}:${{ matrix.target }}
+          FLAG: ${{ matrix.component == 'cli' && '--version' || '--help' }}
+        run: docker run --rm "$IMAGE" "$FLAG"
 
-  cli-builds:
-    name: CLI · Build
+  e2e:
+    name: E2E (k8s ${{ matrix.k8s-version }}${{ matrix.arch == 'arm64' && ', arm64' || '' }})
     needs:
       - changes
-      - rust-lint
-      - rust-vet
-      - go-lint
-      - go-vet
-      - typescript-lint
+      - docker-builds
     if: needs.changes.outputs.any == 'true'
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - linux
-          - macos-15
-          - macos-26
-          - windows
-        arch:
-          - amd64
-          - arm64
-        include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-24.04
-            platform: linux-amd64
-          - os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-            platform: linux-arm64
-          - os: macos-15
-            arch: amd64
-            runner: macos-15-intel
-            platform: macos-amd64
-          - os: macos-15
-            arch: arm64
-            runner: macos-15
-            platform: macos-arm64
-          - os: macos-26
-            arch: arm64
-            runner: macos-26
-            platform: macos-arm64
-          - os: windows
-            arch: amd64
-            runner: windows-2025
-            platform: windows-amd64
-          - os: windows
-            arch: arm64
-            runner: windows-11-arm
-            platform: windows-arm64
+        k8s-version:
+          - "1.21"
+          - latest
+        # main runs the arm64 images in a cluster too, on the latest Kubernetes.
+        arch: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '["amd64"]'
+          || '["amd64", "arm64"]') }}
         exclude:
-          - os: macos-26
-            arch: amd64
-    runs-on: ${{ matrix.runner }}
+          - k8s-version: "1.21"
+            arch: arm64
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
+          node-cache: "true"
           setup-go: "true"
-      - name: Build
-        run: make build
+          go-cache-key: go-test-linux-${{ matrix.arch }}
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          save-cache: ${{ env.CACHE_MODE != 'use' }}
+      - name: Install kind
+        uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
+        with:
+          install_only: true
+      - name: Install kubectl
+        uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5.2.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Expose GitHub Actions runtime
+        uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
+      - name: Run e2e tests
         env:
-          PLATFORM: ${{ matrix.platform }}
+          KIND_NODE_IMAGE: ${{ matrix.k8s-version == '1.21' && 'kindest/node:v1.21.14' || '' }}
+          CACHE_ARCH: ${{ matrix.arch }}
+        run: make test-e2e
+
+  ###########################
+  # Jobs on a push to main only
+  ###########################
+
+  # They need Plan for its fork check alone: no path filter skips them.
 
   alpine-builds:
     name: Alpine · Build
-    needs:
-      - changes
-      - rust-lint
-      - rust-vet
-      - go-lint
-      - go-vet
-      - go-vendor
-      - typescript-lint
-    if: needs.changes.outputs.go == 'true'
+    needs: changes
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -611,17 +718,17 @@ jobs:
             goarch: s390x
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Reads Go · Build and Test's module cache and saves none.
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
-      - name: Download vendor bundle artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: go-vendor-bundle
-          path: modules/vendor
+          go-cache-key: go-test-linux-amd64
+          go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Setup Alpine
-        uses: jirutka/setup-alpine@v1
+        uses: jirutka/setup-alpine@ae3b3ddba35054804fc4a3507b519fa7e8152050 # v1.4.1
         with:
           arch: ${{ matrix.arch }}
           branch: edge
@@ -631,50 +738,67 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           GOARM: ${{ matrix.goarm }}
         run: |
-          go build -mod=vendor -o ../../bin/kubetail .
+          go build -o ../../bin/kubetail .
       - name: Verify
         shell: alpine.sh {0}
         run: |
           set -ex
           ./bin/kubetail serve --test
 
-  e2e:
-    name: E2E (k8s ${{ matrix.k8s-version }})
-    needs:
-      - changes
-      - docker-builds
-      - python-lint
-    if: needs.changes.outputs.any == 'true'
+  # GOARCH=386 runs natively on the amd64 runner. It stands for the 32-bit
+  # architectures the packages build for (x86, armhf, armv7), whose tests no
+  # runner can run natively.
+  go-test-386:
+    name: Go · Test (linux, 386)
+    needs: changes
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - k8s-version: "1.21"
-            kind-node-image: "kindest/node:v1.21.14"
-          - k8s-version: "1.25"
-            kind-node-image: "kindest/node:v1.25.16"
-          - k8s-version: "latest"
-            kind-node-image: ""
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Reads Go · Build and Test's module cache and saves none.
       - uses: ./.github/actions/setup-environment
         with:
-          setup-node: "true"
           setup-go: "true"
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-      - name: Install kind
-        uses: helm/kind-action@v1
-        with:
-          install_only: true
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Expose GitHub Actions runtime
-        uses: crazy-max/ghaction-github-runtime@v3
-      - name: Run e2e tests
+          go-cache-key: go-test-linux-amd64
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      - name: Run tests
+        working-directory: ./modules
         env:
-          KIND_NODE_IMAGE: ${{ matrix.kind-node-image }}
-        run: make test-e2e
+          GOARCH: "386"
+        run: go test ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+
+  ###########################
+  # Cache jobs
+  ###########################
+
+  # A run that saves caches leaves one copy of each on its ref: the newest,
+  # which a failed save leaves the last good one. It runs last because
+  # rust-cache and setup-node save in post steps, which no later step in their
+  # own job can follow.
+  cache-prune:
+    name: Caches · Prune
+    needs:
+      - changes
+      - go-vet
+      - go-staticcheck
+      - go-test
+      - rust-vet
+      - rust-test
+      - typescript-lint
+      - typescript-test
+      - typescript-build
+      - python-lint
+      - e2e
+    if: always() && needs.changes.result == 'success' && needs.changes.outputs.cache-mode != 'use'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions/prune-caches
+      - uses: ./.github/actions/prune-caches

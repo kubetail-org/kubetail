@@ -2,7 +2,6 @@ name: publish-alpine
 
 permissions:
   contents: read
-  deployments: write
 
 on:
   release:
@@ -29,10 +28,13 @@ jobs:
       dry_run: ${{ steps.config.outputs.dry_run }}
     steps:
       - id: config
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "version=$INPUT_VERSION" >> $GITHUB_OUTPUT
+            echo "dry_run=$INPUT_DRY_RUN" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
             echo "dry_run=false" >> $GITHUB_OUTPUT
@@ -57,7 +59,7 @@ jobs:
           brew install glab
 
       - name: Download source bundle
-        uses: robinraju/release-downloader@v1.12
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f # v1.13
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', needs.config.outputs.version) }}
@@ -72,20 +74,23 @@ jobs:
           echo "sha512=$SHA512" >> "$GITHUB_OUTPUT"
 
       - name: Load Alpine SSH key
-        uses: webfactory/ssh-agent@v0.9.1
+        uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # v0.10.0
         with:
           ssh-private-key: ${{ secrets.ANDRES_ALPINE_SSH_PRIVATE_KEY }}
 
       - name: Checkout aports repo
+        env:
+          KNOWN_HOSTS: ${{ vars.ALPINE_SSH_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ vars.ALPINE_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
 
           git clone --depth 1 git@gitlab.alpinelinux.org:alpine/aports.git
 
       - name: Checkout kubetail repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           sparse-checkout: .github/ci-config/alpine
           sparse-checkout-cone-mode: false
           path: kubetail
@@ -111,7 +116,7 @@ jobs:
           gpgconf --launch gpg-agent
 
       - name: Configure gpg
-        uses: crazy-max/ghaction-import-gpg@v6.3.0
+        uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
         with:
           gpg_private_key: ${{ secrets.ANDRES_GPG_SIGNING_KEY }}
           passphrase: ${{ secrets.ANDRES_GPG_PASSWORD }}
@@ -119,13 +124,15 @@ jobs:
 
       - name: Configure git
         working-directory: aports
+        env:
+          SIGNING_KEY: ${{ vars.ANDRES_GPG_SIGNING_KEY_FINGERPRINT }}
         run: |
           git config gpg.program gpg
           git config commit.gpgsign true
 
           git config user.name "Andres Morey"
           git config user.email "andres@kubetail.com"
-          git config user.signingkey "${{ vars.ANDRES_GPG_SIGNING_KEY_FINGERPRINT }}"
+          git config user.signingkey "$SIGNING_KEY"
 
       - name: Debug
         if: ${{ needs.config.outputs.dry_run == 'true' }}

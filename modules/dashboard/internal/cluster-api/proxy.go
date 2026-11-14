@@ -186,9 +186,8 @@ func (p *DesktopProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// requests are rejected by csrfProtectionMiddleware before reaching here.
 	r.Header.Del("Origin")
 
-	// Drop any client-supplied auth headers — kubectl proxy attaches its own
-	// based on the kubeconfig, and X-Forwarded-Authorization is no longer
-	// honored by the cluster-api.
+	// Drop any client-supplied auth headers: the transport attaches its own
+	// credentials, and a caller must not choose the identity forwarded.
 	r.Header.Del("Authorization")
 	r.Header.Del("X-Forwarded-Authorization")
 
@@ -371,6 +370,7 @@ func newInClusterProxy(kubeAPIServerEndpoint string, pathPrefix string, allowedO
 
 	// Init reverseProxy
 	reverseProxy := &httputil.ReverseProxy{
+		//lint:ignore SA1019 Rewrite changes which X-Forwarded-* headers reach the apiserver, so it is a migration of its own
 		Director: func(r *http.Request) {
 			// Rewrite to the cluster-api APIService path on the apiserver.
 			rel := strings.TrimPrefix(r.URL.Path, pathPrefix)

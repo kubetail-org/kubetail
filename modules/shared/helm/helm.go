@@ -16,18 +16,21 @@ package helm
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/getter"
-	"helm.sh/helm/v3/pkg/release"
-	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v4/pkg/action"
+	chart "helm.sh/helm/v4/pkg/chart/v2"
+	"helm.sh/helm/v4/pkg/chart/v2/loader"
+	"helm.sh/helm/v4/pkg/cli"
+	"helm.sh/helm/v4/pkg/getter"
+	"helm.sh/helm/v4/pkg/kube"
+	releasei "helm.sh/helm/v4/pkg/release"
+	release "helm.sh/helm/v4/pkg/release/v1"
+	repo "helm.sh/helm/v4/pkg/repo/v1"
 )
 
 // Target repo and chart values
@@ -46,11 +49,13 @@ const (
 // Chart version constraint
 const chartSemverConstraint = ">= 0.9.0"
 
-func noopLogger(format string, v ...interface{}) {}
-
 // Client
 type Client struct {
 	*cli.EnvSettings
+
+	// Tests replace these with in-memory fakes.
+	newActionConfig func(namespace string) (*action.Configuration, error)
+	loadChart       func(pathOptions action.ChartPathOptions) (*chart.Chart, error)
 }
 
 // InstallLatest creates a new release from the latest chart
@@ -66,9 +71,10 @@ func (c *Client) InstallLatest(namespace, releaseName string) (*release.Release,
 	install.ReleaseName = releaseName
 	install.Namespace = namespace
 	install.CreateNamespace = true
+	install.WaitStrategy = kube.HookOnlyStrategy
 
 	// Get chart
-	chart, err := c.getChart(install.ChartPathOptions)
+	chart, err := c.loadChart(install.ChartPathOptions)
 	if err != nil {
 		if strings.Contains(err.Error(), fmt.Sprintf("repo %s not found", targetRepoName)) {
 			// Add repo
@@ -77,7 +83,7 @@ func (c *Client) InstallLatest(namespace, releaseName string) (*release.Release,
 			}
 
 			// Get chart again
-			chart, err = c.getChart(install.ChartPathOptions)
+			chart, err = c.loadChart(install.ChartPathOptions) // coverage:ignore follows AddRepo, which downloads the chart repository index
 			if err != nil {
 				return nil, err
 			}
@@ -102,21 +108,21 @@ func (c *Client) InstallLatest(namespace, releaseName string) (*release.Release,
 	}
 
 	// Exclude dashboard
-	vals := map[string]interface{}{
-		"kubetail": map[string]interface{}{
-			"dashboard": map[string]interface{}{
+	vals := map[string]any{
+		"kubetail": map[string]any{
+			"dashboard": map[string]any{
 				"enabled": false,
 			},
 		},
 	}
 
 	// Install the chart
-	release, err := install.Run(chart, vals)
+	rel, err := install.Run(chart, vals)
 	if err != nil {
 		return nil, fmt.Errorf("failed to install chart '%s': %v", targetChartName, err)
 	}
 
-	return release, nil
+	return asV1Release(rel)
 }
 
 // UpgradeRelease upgrades an existing release
@@ -130,24 +136,25 @@ func (c *Client) UpgradeRelease(namespace, releaseName string) (*release.Release
 	// Create upgrade action
 	upgrade := action.NewUpgrade(actionConfig)
 	upgrade.Namespace = namespace
+	upgrade.WaitStrategy = kube.HookOnlyStrategy
 
 	// Get chart
-	chart, err := c.getChart(upgrade.ChartPathOptions)
+	chart, err := c.loadChart(upgrade.ChartPathOptions)
 	if err != nil {
 		return nil, err
 	}
 
 	// Run upgrade
-	release, err := upgrade.Run(releaseName, chart, nil)
+	rel, err := upgrade.Run(releaseName, chart, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upgrade release %s: %w", releaseName, err)
 	}
 
-	return release, nil
+	return asV1Release(rel)
 }
 
-// UninstallRelease uninstalls a release
-func (c *Client) UninstallRelease(namespace, releaseName string) (*release.UninstallReleaseResponse, error) {
+// UninstallRelease uninstalls a release and returns it
+func (c *Client) UninstallRelease(namespace, releaseName string) (*release.Release, error) {
 	// Init action config
 	actionConfig, err := c.newActionConfig(namespace)
 	if err != nil {
@@ -156,6 +163,7 @@ func (c *Client) UninstallRelease(namespace, releaseName string) (*release.Unins
 
 	// Create uninstall action
 	uninstall := action.NewUninstall(actionConfig)
+	uninstall.WaitStrategy = kube.HookOnlyStrategy
 
 	// Run uninstall
 	response, err := uninstall.Run(releaseName)
@@ -163,7 +171,7 @@ func (c *Client) UninstallRelease(namespace, releaseName string) (*release.Unins
 		return nil, fmt.Errorf("failed to uninstall release %s: %w", releaseName, err)
 	}
 
-	return response, nil
+	return asV1Release(response.Release)
 }
 
 // GetRelease gets a specific release by name in the given namespace.
@@ -179,7 +187,7 @@ func (c *Client) GetRelease(namespace, releaseName string) (*release.Release, er
 		return nil, fmt.Errorf("failed to get release '%s' in namespace '%s': %w", releaseName, namespace, err)
 	}
 
-	return rel, nil
+	return asV1Release(rel)
 }
 
 // ReleaseLister is the read-only subset of Client used to enumerate
@@ -249,15 +257,22 @@ func (c *Client) ListReleases() ([]*release.Release, error) {
 		return nil, fmt.Errorf("failed to list releases: %w", err)
 	}
 
-	// Filter releases
-	var filteredReleases []*release.Release
-	for _, r := range releases {
+	return filterKubetailReleases(releases)
+}
+
+// filterKubetailReleases keeps the releases of the kubetail chart.
+func filterKubetailReleases(releases []releasei.Releaser) ([]*release.Release, error) {
+	var filtered []*release.Release
+	for _, ri := range releases {
+		r, err := asV1Release(ri)
+		if err != nil {
+			return nil, err
+		}
 		if r.Chart != nil && strings.HasPrefix(r.Chart.Metadata.Name, targetChartName) {
-			filteredReleases = append(filteredReleases, r)
+			filtered = append(filtered, r)
 		}
 	}
-
-	return filteredReleases, nil
+	return filtered, nil
 }
 
 // AddRepo adds the repository
@@ -387,13 +402,24 @@ func (c *Client) RemoveRepo() error {
 	return nil
 }
 
-// newActionConfig
-func (c *Client) newActionConfig(namespace string) (*action.Configuration, error) {
-	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(c.RESTClientGetter(), namespace, os.Getenv("HELM_DRIVER"), noopLogger); err != nil {
+// initActionConfig builds the action configuration for the kube context and
+// the storage driver in HELM_DRIVER.
+func (c *Client) initActionConfig(namespace string) (*action.Configuration, error) {
+	actionConfig := action.NewConfiguration(action.ConfigurationSetLogger(slog.DiscardHandler))
+	if err := actionConfig.Init(c.RESTClientGetter(), namespace, os.Getenv("HELM_DRIVER")); err != nil {
 		return nil, fmt.Errorf("failed to initialize Helm action configuration: %v", err)
 	}
 	return actionConfig, nil
+}
+
+// asV1Release unwraps a release returned by a Helm action. The kubetail
+// chart is apiVersion v2, which Helm stores as a v1 release.
+func asV1Release(r releasei.Releaser) (*release.Release, error) {
+	rel, ok := r.(*release.Release)
+	if !ok {
+		return nil, fmt.Errorf("unsupported Helm release type %T", r)
+	}
+	return rel, nil
 }
 
 // ensureEnv ensures helm environment is up
@@ -446,7 +472,9 @@ type ClientOption func(c *Client)
 
 // Return new client
 func NewClient(options ...ClientOption) *Client {
-	c := &Client{cli.New()}
+	c := &Client{EnvSettings: cli.New()}
+	c.newActionConfig = c.initActionConfig
+	c.loadChart = c.getChart
 	for _, option := range options {
 		option(c)
 	}

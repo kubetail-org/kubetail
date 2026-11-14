@@ -19,7 +19,6 @@ import JobGlyphIcon from '@/assets/k8s-icons/glyph/job.svg?react';
 import PodGlyphIcon from '@/assets/k8s-icons/glyph/pod.svg?react';
 import ReplicaSetGlyphIcon from '@/assets/k8s-icons/glyph/replicaset.svg?react';
 import StatefulSetGlyphIcon from '@/assets/k8s-icons/glyph/statefulset.svg?react';
-
 import CronJobKnockoutIcon from '@/assets/k8s-icons/knockout/cronjob.svg?react';
 import DaemonSetKnockoutIcon from '@/assets/k8s-icons/knockout/daemonset.svg?react';
 import DeploymentKnockoutIcon from '@/assets/k8s-icons/knockout/deployment.svg?react';

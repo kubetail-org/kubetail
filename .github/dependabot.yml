@@ -1,0 +1,128 @@
+---
+# Dependabot moves dependencies, never toolchains: the Go version (each go.mod
+# and setup-environment's go-version), packageManager in
+# dashboard-ui/package.json, setup-environment's node-version and the
+# @types/node major that matches it, crates/rust-toolchain.toml and the golang, node and rust images in the
+# Dockerfiles are bumped by hand, each image with its digest. make
+# lint-toolchains checks the Dockerfiles against CI.
+#
+# Every ecosystem waits after a release (time for a compromised release to be
+# caught and pulled first), groups minor and patch updates into one weekly PR,
+# and leaves each major in a PR of its own. Security updates skip the wait and
+# arrive grouped.
+version: 2
+updates:
+  # Every action is pinned to a commit SHA; this moves the pins and the
+  # version comments beside them.
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    labels: [dependencies, ci/cd]
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # /tools holds actionlint, govulncheck and the protoc plugins, so CI's copies
+  # move with the rest. A plugin update changes the *.pb.go headers: its PR
+  # fails Generated · Check until someone runs make check-generated on it.
+  - package-ecosystem: gomod
+    directories:
+      - /modules/cli
+      - /modules/cluster-api
+      - /modules/dashboard
+      - /modules/shared
+      - /tools
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    labels: [dependencies, lang/go]
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # client-go and apimachinery release in lockstep.
+      kubernetes:
+        patterns:
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+      go:
+        update-types: [minor, patch]
+      go-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: cargo
+    directory: /crates
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    labels: [dependencies, lang/rust]
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      rust:
+        update-types: [minor, patch]
+      rust-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: npm
+    directory: /dashboard-ui
+    schedule:
+      interval: weekly
+    # pnpm-workspace.yaml's minimumReleaseAge is ten days, and pnpm refuses
+    # to resolve a younger release.
+    cooldown:
+      default-days: 10
+    labels: [dependencies, lang/ts+react]
+    commit-message:
+      prefix: chore
+      include: scope
+    versioning-strategy: increase
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+    groups:
+      npm:
+        update-types: [minor, patch]
+      npm-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  # The runtime bases (alpine, busybox) and grpc-health-probe ship in the
+  # release images. Each is pinned by tag and digest, and this moves both.
+  - package-ecosystem: docker
+    directories:
+      - /build/package
+      - /hack/tilt
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    labels: [dependencies, packaging]
+    commit-message:
+      prefix: chore
+      include: scope
+    ignore:
+      - dependency-name: golang
+      - dependency-name: node
+      - dependency-name: rust
+    groups:
+      docker:
+        patterns:
+          - "*"

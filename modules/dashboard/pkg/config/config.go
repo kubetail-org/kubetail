@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Andres Morey
+// Copyright 2024 The Kubetail Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -176,11 +176,11 @@ func DefaultConfig() *Config {
 }
 
 // Custom unmarshaler for AuthMode
-func authModeDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+func authModeDecodeHook(f reflect.Type, t reflect.Type, data any) (any, error) {
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
-	if t != reflect.TypeOf(AuthMode("")) {
+	if t != reflect.TypeFor[AuthMode]() {
 		return data, nil
 	}
 
@@ -196,11 +196,11 @@ func authModeDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (inter
 }
 
 // Custom unmarshaler for Environment
-func environmentDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+func environmentDecodeHook(f reflect.Type, t reflect.Type, data any) (any, error) {
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
-	if t != reflect.TypeOf(sharedcfg.Environment("")) {
+	if t != reflect.TypeFor[sharedcfg.Environment]() {
 		return data, nil
 	}
 
@@ -216,11 +216,11 @@ func environmentDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (in
 }
 
 // Custom unmarshaler for http.SameSite
-func httpSameSiteDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+func httpSameSiteDecodeHook(f reflect.Type, t reflect.Type, data any) (any, error) {
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
-	if t != reflect.TypeOf(http.SameSite(0)) {
+	if t != reflect.TypeFor[http.SameSite]() {
 		return data, nil
 	}
 
@@ -237,7 +237,7 @@ func httpSameSiteDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (i
 	}
 }
 
-func NewConfig(v *viper.Viper, configPath string) (*Config, error) {
+func NewConfig(configPath string, v *viper.Viper) (*Config, error) {
 	if v == nil {
 		v = viper.New()
 	}

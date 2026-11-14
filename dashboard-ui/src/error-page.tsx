@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useRouteError } from 'react-router-dom';
+import { useRouteError } from 'react-router';
 
 export default function ErrorPage() {
   const error = useRouteError() as { statusText?: string; message?: string };

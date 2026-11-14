@@ -24,13 +24,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	helmchart "helm.sh/helm/v3/pkg/chart"
-	helmrelease "helm.sh/helm/v3/pkg/release"
+	helmchart "helm.sh/helm/v4/pkg/chart/v2"
+	helmrelease "helm.sh/helm/v4/pkg/release/v1"
 
 	"github.com/kubetail-org/kubetail/modules/shared/versioncheck"
 )
-
-func ptr[T any](v T) *T { return &v }
 
 func TestReadWriteCLICache_RoundTrip(t *testing.T) {
 	dir := t.TempDir()
@@ -87,7 +85,7 @@ func TestReadWriteHelmCache_RoundTrip(t *testing.T) {
 		FetchedAt:     &fetchedAt,
 		Clusters: map[string]ClusterCacheEntry{
 			"ctx-a": {CurrentVersion: "0.9.0", FetchedAt: &fetchedAt},
-			"ctx-b": {CurrentVersion: "1.0.0", FetchedAt: ptr(fetchedAt - 1000)},
+			"ctx-b": {CurrentVersion: "1.0.0", FetchedAt: new(fetchedAt - 1000)},
 		},
 	}
 

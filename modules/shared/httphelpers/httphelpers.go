@@ -39,23 +39,13 @@ const HeaderForwardedNamespaces = "X-Forwarded-Namespaces"
 // IsSameOrigin reports whether r's Origin header is present and matches
 // the request's scheme and host. A missing Origin returns false.
 //
-// The comparison uses r.Host and r.TLS only. X-Forwarded-Host,
-// X-Forwarded-Proto, and the RFC 7239 Forwarded header are deliberately
-// ignored: they are attacker-controllable in direct-access deployments
-// and can be smuggled through proxies that append rather than overwrite
-// client-supplied values. Deployments behind a reverse proxy that rewrites
-// Host or terminates TLS without preserving scheme will need explicit
-// origin allowlisting (see the upcoming allowed-origins config).
+// The comparison uses r.Host and r.TLS only and never X-Forwarded-* or
+// Forwarded, which a client can set. A deployment behind a proxy that
+// rewrites Host or the scheme lists its origins in allowed-origins. The host
+// is compared case-insensitively, with default ports normalized.
 //
-// Host comparison is case-insensitive and normalizes the effective port,
-// so https://example.com matches a request Host of example.com:443 (and
-// likewise http://example.com matches example.com:80). This avoids
-// false rejections from clients/servers that emit an explicit default port.
-//
-// Intended for use on WebSocket upgrade requests, where browsers always
-// send Origin (so its absence indicates a non-browser client, which has
-// no ambient browser credentials to abuse). Do not use on plain HTTP
-// requests: browsers omit Origin on same-origin safe-method fetches.
+// Use it on WebSocket upgrades only: browsers omit Origin on same-origin
+// safe-method fetches.
 func IsSameOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" {

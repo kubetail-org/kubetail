@@ -101,7 +101,7 @@ models:
     model: github.com/kubetail-org/kubetail/modules/shared/clusteragentpb.LogMetadataSpec
 
   LogMetadataWatchEvent:
-    model: github.com/kubetail-org/kubetail/modules/shared/clusteragentpb.LogMetadataWatchEvent  
+    model: github.com/kubetail-org/kubetail/modules/shared/clusteragentpb.LogMetadataWatchEvent
 
   # -- Logs ---
   LogRecord:
@@ -120,10 +120,6 @@ models:
   TimestampPBTimestamp:
     model:
       - github.com/kubetail-org/kubetail/modules/shared/graphql/model.TimestampPBTimestamp
-
-  # --- Watch ---
-  WatchEventType:
-    model: k8s.io/apimachinery/pkg/watch.EventType
 
   # --- gqlgen ---
   ID:

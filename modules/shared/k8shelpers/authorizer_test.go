@@ -17,6 +17,7 @@ package k8shelpers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	authorizationv1 "k8s.io/api/authorization/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -31,6 +33,8 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 	ktesting "k8s.io/client-go/testing"
+
+	gqlerrors "github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
 )
 
 func TestNewDesktopAuthorizer(t *testing.T) {
@@ -50,7 +54,7 @@ func TestDesktopAuthorizer_IsAllowedInformer_Success(t *testing.T) {
 	// Prepare fake clientset
 	capturedSARs := []*authorizationv1.SelfSubjectAccessReview{}
 
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -92,7 +96,7 @@ func TestDesktopAuthorizer_IsAllowedInformer_ListPermissionDenied(t *testing.T) 
 	}
 
 	// Prepare fake clientset
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -130,7 +134,7 @@ func TestDesktopAuthorizer_IsAllowedInformer_ListPermissionDenied(t *testing.T) 
 	// Create authorizer and test
 	authorizer := NewDesktopAuthorizer()
 	err := authorizer.IsAllowedInformer(context.Background(), clientset, setNamespace, setGVR)
-	assert.Error(t, err)
+	assert.ErrorIs(t, err, gqlerrors.ErrForbidden)
 }
 
 func TestDesktopAuthorizer_IsAllowedInformer_WatchPermissionDenied(t *testing.T) {
@@ -142,7 +146,7 @@ func TestDesktopAuthorizer_IsAllowedInformer_WatchPermissionDenied(t *testing.T)
 	}
 
 	// Prepare fake clientset
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -180,7 +184,7 @@ func TestDesktopAuthorizer_IsAllowedInformer_WatchPermissionDenied(t *testing.T)
 	// Create authorizer and test
 	authorizer := NewDesktopAuthorizer()
 	err := authorizer.IsAllowedInformer(context.Background(), clientset, setNamespace, setGVR)
-	assert.Error(t, err)
+	assert.ErrorIs(t, err, gqlerrors.ErrForbidden)
 }
 
 func TestDesktopAuthorizer_IsAllowedInformer_Error(t *testing.T) {
@@ -192,7 +196,7 @@ func TestDesktopAuthorizer_IsAllowedInformer_Error(t *testing.T) {
 	}
 
 	// Prepare fake clientset
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -215,7 +219,7 @@ func TestDesktopAuthorizer_IsAllowedInformer_Error(t *testing.T) {
 	// Create authorizer and test
 	authorizer := NewDesktopAuthorizer()
 	err := authorizer.IsAllowedInformer(context.Background(), clientset, setNamespace, setGVR)
-	assert.Error(t, err)
+	assert.EqualError(t, err, "API server error")
 }
 
 func TestDesktopAuthorizer_IsAllowedInformer_CacheExpiry(t *testing.T) {
@@ -229,7 +233,7 @@ func TestDesktopAuthorizer_IsAllowedInformer_CacheExpiry(t *testing.T) {
 	// Prepare fake clientset
 	capturedSARs := []*authorizationv1.SelfSubjectAccessReview{}
 
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -312,7 +316,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_CorrectBearerToken(t *testing.T) 
 	expectedToken := "test-bearer-token"
 
 	// Create a fake clientset that will accept any request
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &authorizationv1.SelfSubjectAccessReview{
 			Status: authorizationv1.SubjectAccessReviewStatus{
@@ -365,7 +369,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_ListPermissionDenied(t *testing.T
 	}
 
 	// Prepare fake clientset
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -414,7 +418,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_ListPermissionDenied(t *testing.T
 	dummyConfig := &rest.Config{}
 	dummyToken := "test-token"
 	err := authorizer.IsAllowedInformer(context.Background(), dummyConfig, dummyToken, setNamespace, setGVR)
-	assert.Error(t, err)
+	assert.ErrorIs(t, err, gqlerrors.ErrForbidden)
 
 	// Verify that the mock was called
 	mockClientsetInitializer.AssertCalled(t, "newClientset", mock.Anything)
@@ -429,7 +433,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_WatchPermissionDenied(t *testing.
 	}
 
 	// Prepare fake clientset
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -478,7 +482,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_WatchPermissionDenied(t *testing.
 	dummyConfig := &rest.Config{}
 	dummyToken := "test-token"
 	err := authorizer.IsAllowedInformer(context.Background(), dummyConfig, dummyToken, setNamespace, setGVR)
-	assert.Error(t, err)
+	assert.ErrorIs(t, err, gqlerrors.ErrForbidden)
 
 	// Verify that the mock was called
 	mockClientsetInitializer.AssertCalled(t, "newClientset", mock.Anything)
@@ -493,7 +497,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_Error(t *testing.T) {
 	}
 
 	// Prepare fake clientset
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -527,7 +531,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_Error(t *testing.T) {
 	dummyConfig := &rest.Config{}
 	dummyToken := "test-token"
 	err := authorizer.IsAllowedInformer(context.Background(), dummyConfig, dummyToken, setNamespace, setGVR)
-	assert.Error(t, err)
+	assert.EqualError(t, err, "API server error")
 
 	// Verify that the mock was called
 	mockClientsetInitializer.AssertCalled(t, "newClientset", mock.Anything)
@@ -544,7 +548,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_CacheExpiry(t *testing.T) {
 	// Prepare fake clientset
 	capturedSARs := []*authorizationv1.SelfSubjectAccessReview{}
 
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -659,7 +663,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_CachePerImpersonatedIdentity(t *t
 	setNamespace := "test-namespace"
 	setGVR := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
 
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &authorizationv1.SelfSubjectAccessReview{
 			Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true},
@@ -691,7 +695,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_CachePerImpersonatedExtras(t *tes
 	setNamespace := "test-namespace"
 	setGVR := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
 
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &authorizationv1.SelfSubjectAccessReview{
 			Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true},
@@ -734,7 +738,7 @@ func TestInClusterAuthorizer_IsAllowedInformer_Success(t *testing.T) {
 	// Prepare fake clientset
 	capturedSARs := []*authorizationv1.SelfSubjectAccessReview{}
 
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(ktesting.CreateAction)
 		obj := createAction.GetObject().(*authorizationv1.SelfSubjectAccessReview)
@@ -782,4 +786,63 @@ func TestInClusterAuthorizer_IsAllowedInformer_Success(t *testing.T) {
 
 	// Verify the number of calls to the mock
 	mockClientsetInitializer.AssertNumberOfCalls(t, "newClientset", 1)
+}
+
+func newForbiddenAccessReviewClientset() *fake.Clientset {
+	clientset := fake.NewClientset()
+	clientset.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action ktesting.Action) (bool, runtime.Object, error) {
+		gr := schema.GroupResource{Group: "authorization.k8s.io", Resource: "selfsubjectaccessreviews"}
+		return true, nil, apierrors.NewForbidden(gr, "", errors.New("denied"))
+	})
+	return clientset
+}
+
+func TestDesktopAuthorizer_IsAllowedInformer_ForbiddenAccessReviewReturnsErrForbidden(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+
+	authorizer := NewDesktopAuthorizer()
+	err := authorizer.IsAllowedInformer(context.Background(), newForbiddenAccessReviewClientset(), "test-namespace", gvr)
+	assert.ErrorIs(t, err, gqlerrors.ErrForbidden)
+}
+
+func TestDesktopAuthorizer_IsAllowedInformer_CachedDenialReturnsErrForbidden(t *testing.T) {
+	namespace := "test-namespace"
+	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+
+	authorizer := &DefaultDesktopAuthorizer{}
+	for _, verb := range []string{"list", "watch"} {
+		key := cacheKey{namespace: namespace, group: gvr.Group, resource: gvr.Resource, verb: verb}
+		authorizer.cache.Store(key, cacheValue{allowed: false, expiration: time.Now().Add(time.Minute)})
+	}
+
+	err := authorizer.IsAllowedInformer(context.Background(), fake.NewClientset(), namespace, gvr)
+	assert.ErrorIs(t, err, gqlerrors.ErrForbidden)
+}
+
+func TestInClusterAuthorizer_IsAllowedInformer_ForbiddenAccessReviewReturnsErrForbidden(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+
+	mockClientsetInitializer := new(MockClientsetInitializer)
+	mockClientsetInitializer.On("newClientset", mock.Anything).Return(newForbiddenAccessReviewClientset(), nil)
+
+	authorizer := &DefaultInClusterAuthorizer{clientsetInitializer: mockClientsetInitializer}
+	err := authorizer.IsAllowedInformer(context.Background(), &rest.Config{}, "test-token", "test-namespace", gvr)
+	assert.ErrorIs(t, err, gqlerrors.ErrForbidden)
+}
+
+func TestInClusterAuthorizer_IsAllowedInformer_CachedDenialReturnsErrForbidden(t *testing.T) {
+	namespace := "test-namespace"
+	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+
+	mockClientsetInitializer := new(MockClientsetInitializer)
+	mockClientsetInitializer.On("newClientset", mock.Anything).Return(fake.NewClientset(), nil)
+
+	authorizer := &DefaultInClusterAuthorizer{clientsetInitializer: mockClientsetInitializer}
+	for _, verb := range []string{"list", "watch"} {
+		key := cacheKey{namespace: namespace, group: gvr.Group, resource: gvr.Resource, verb: verb}
+		authorizer.cache.Store(fmt.Sprintf("token:test-token|%v", key), cacheValue{allowed: false, expiration: time.Now().Add(time.Minute)})
+	}
+
+	err := authorizer.IsAllowedInformer(context.Background(), &rest.Config{}, "test-token", namespace, gvr)
+	assert.ErrorIs(t, err, gqlerrors.ErrForbidden)
 }

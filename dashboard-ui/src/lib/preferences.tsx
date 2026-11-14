@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Andres Morey
+// Copyright 2024 The Kubetail Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,9 +44,9 @@ function defaultPreferences(): Preferences {
 function merge(base: Preferences, patch: Partial<Preferences>): Preferences {
   return {
     version: CURRENT_VERSION,
-    theme: patch.theme !== undefined ? patch.theme : base.theme,
-    timezone: patch.timezone !== undefined ? patch.timezone : base.timezone,
-    timestampFormat: patch.timestampFormat !== undefined ? patch.timestampFormat : base.timestampFormat,
+    theme: patch.theme ?? base.theme,
+    timezone: patch.timezone ?? base.timezone,
+    timestampFormat: patch.timestampFormat ?? base.timestampFormat,
   };
 }
 
@@ -180,7 +180,7 @@ export function PreferencesProvider({ children }: React.PropsWithChildren) {
 
   // load from backend on mount (reconcile with server)
   useEffect(() => {
-    preferencesBackend.load().then(setPreferences);
+    void preferencesBackend.load().then(setPreferences);
   }, []);
 
   // subscribe to cross-tab changes
@@ -188,7 +188,7 @@ export function PreferencesProvider({ children }: React.PropsWithChildren) {
 
   const updatePreferences = useCallback((patch: Partial<Preferences>) => {
     setPreferences((prev) => ({ ...prev, ...patch }));
-    preferencesBackend.save(patch);
+    void preferencesBackend.save(patch);
   }, []);
 
   const context = useMemo(() => ({ preferences, updatePreferences }), [preferences, updatePreferences]);

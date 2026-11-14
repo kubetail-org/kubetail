@@ -15,12 +15,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import { z } from 'zod';
 
 import { Button } from '@kubetail/ui/elements/button';
-import { Input } from '@kubetail/ui/elements/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@kubetail/ui/elements/form';
+import { Input } from '@kubetail/ui/elements/input';
 import { Spinner } from '@kubetail/ui/elements/spinner';
 
 import ModalLayout from '@/components/layouts/ModalLayout';
@@ -32,6 +32,10 @@ const loginForm = z.object({
 });
 
 type LoginForm = z.infer<typeof loginForm>;
+
+const loginErrorResponse = z.object({
+  errors: z.object({ token: z.string().optional() }),
+});
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -48,8 +52,8 @@ export default function LoginPage() {
 
   // redirect if login status changes
   useEffect(() => {
-    if (!loading && session?.user !== null) navigate(searchParams.get('callbackUrl') || '/');
-  }, [loading, session?.user]);
+    if (!loading && session?.user !== null) void navigate(searchParams.get('callbackUrl') || '/');
+  }, [loading, session?.user, navigate, searchParams]);
 
   if (!session) return <LoadingPage />;
 
@@ -78,7 +82,7 @@ export default function LoginPage() {
 
     // update form errors
     try {
-      const { errors }: { errors: LoginForm } = await resp.json();
+      const { errors } = loginErrorResponse.parse(await resp.json());
       form.setError('token', {
         message: errors.token,
       });

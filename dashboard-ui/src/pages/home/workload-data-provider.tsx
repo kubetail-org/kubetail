@@ -53,15 +53,17 @@ import { workloadQueryAtomFamilies } from './state';
  * WorkloadDataFetcher component
  */
 
-// Each workload kind selects a different top-level field, so the per-kind query
-// result types are mutually incompatible. This shared entry type lets a single
-// dynamic dispatch site consume any of them without a union over documents.
+// Each workload kind selects a different top-level field, so the per-kind
+// result types are mutually incompatible. The entries share these wider types,
+// and each `getItems` narrows the result back to its own query.
+type WorkloadListData = Record<string, unknown>;
+
 type WorkloadQueryConfigEntry = {
-  query: TypedDocumentNode<any, any>;
-  subscription: TypedDocumentNode<any, any>;
+  query: TypedDocumentNode<WorkloadListData, { kubeContext: KubeContext }>;
+  subscription: TypedDocumentNode<WorkloadListData, { kubeContext: KubeContext }>;
   queryDataKey: string;
   subscriptionDataKey: string;
-  getItems: (data: any) => WorkloadItem[] | undefined;
+  getItems: (data: WorkloadListData) => WorkloadItem[] | undefined;
 };
 
 const workloadQueryConfig: Record<WorkloadKind, WorkloadQueryConfigEntry> = {
@@ -70,49 +72,49 @@ const workloadQueryConfig: Record<WorkloadKind, WorkloadQueryConfigEntry> = {
     subscription: HOME_CRONJOBS_LIST_WATCH,
     queryDataKey: 'batchV1CronJobsList',
     subscriptionDataKey: 'batchV1CronJobsWatch',
-    getItems: (data: HomeCronJobsListFetchQuery) => data?.batchV1CronJobsList?.items,
+    getItems: (data) => (data as HomeCronJobsListFetchQuery).batchV1CronJobsList?.items,
   },
   [WorkloadKind.DAEMONSETS]: {
     query: HOME_DAEMONSETS_LIST_FETCH,
     subscription: HOME_DAEMONSETS_LIST_WATCH,
     queryDataKey: 'appsV1DaemonSetsList',
     subscriptionDataKey: 'appsV1DaemonSetsWatch',
-    getItems: (data: HomeDaemonSetsListFetchQuery) => data?.appsV1DaemonSetsList?.items,
+    getItems: (data) => (data as HomeDaemonSetsListFetchQuery).appsV1DaemonSetsList?.items,
   },
   [WorkloadKind.DEPLOYMENTS]: {
     query: HOME_DEPLOYMENTS_LIST_FETCH,
     subscription: HOME_DEPLOYMENTS_LIST_WATCH,
     queryDataKey: 'appsV1DeploymentsList',
     subscriptionDataKey: 'appsV1DeploymentsWatch',
-    getItems: (data: HomeDeploymentsListFetchQuery) => data?.appsV1DeploymentsList?.items,
+    getItems: (data) => (data as HomeDeploymentsListFetchQuery).appsV1DeploymentsList?.items,
   },
   [WorkloadKind.JOBS]: {
     query: HOME_JOBS_LIST_FETCH,
     subscription: HOME_JOBS_LIST_WATCH,
     queryDataKey: 'batchV1JobsList',
     subscriptionDataKey: 'batchV1JobsWatch',
-    getItems: (data: HomeJobsListFetchQuery) => data?.batchV1JobsList?.items,
+    getItems: (data) => (data as HomeJobsListFetchQuery).batchV1JobsList?.items,
   },
   [WorkloadKind.PODS]: {
     query: HOME_PODS_LIST_FETCH,
     subscription: HOME_PODS_LIST_WATCH,
     queryDataKey: 'coreV1PodsList',
     subscriptionDataKey: 'coreV1PodsWatch',
-    getItems: (data: HomePodsListFetchQuery) => data?.coreV1PodsList?.items,
+    getItems: (data) => (data as HomePodsListFetchQuery).coreV1PodsList?.items,
   },
   [WorkloadKind.REPLICASETS]: {
     query: HOME_REPLICASETS_LIST_FETCH,
     subscription: HOME_REPLICASETS_LIST_WATCH,
     queryDataKey: 'appsV1ReplicaSetsList',
     subscriptionDataKey: 'appsV1ReplicaSetsWatch',
-    getItems: (data: HomeReplicaSetsListFetchQuery) => data?.appsV1ReplicaSetsList?.items,
+    getItems: (data) => (data as HomeReplicaSetsListFetchQuery).appsV1ReplicaSetsList?.items,
   },
   [WorkloadKind.STATEFULSETS]: {
     query: HOME_STATEFULSETS_LIST_FETCH,
     subscription: HOME_STATEFULSETS_LIST_WATCH,
     queryDataKey: 'appsV1StatefulSetsList',
     subscriptionDataKey: 'appsV1StatefulSetsWatch',
-    getItems: (data: HomeStatefulSetsListFetchQuery) => data?.appsV1StatefulSetsList?.items,
+    getItems: (data) => (data as HomeStatefulSetsListFetchQuery).appsV1StatefulSetsList?.items,
   },
 };
 
@@ -149,7 +151,7 @@ const WorkloadDataFetcher = ({ kind, kubeContext }: WorkloadDataFetcherProps) =>
       error,
       items: (data && cfg.getItems(data)) ?? [],
     });
-  }, [loading, fetching, error, data, setAtom]);
+  }, [loading, fetching, error, data, cfg, setAtom]);
 
   return null;
 };

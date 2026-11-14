@@ -445,14 +445,6 @@ export const CLUSTER_API_READY_WAIT = gql(`
  * Helm API
  */
 
-export const HELM_INSTALL_LATEST = gql(`
-  mutation HelmInstallLatest($kubeContext: String) {
-    helmInstallLatest(kubeContext: $kubeContext) {
-      ...HelmReleaseFragment
-    }
-  }
-`);
-
 export const HELM_LIST_RELEASES = gql(`
   query HelmListReleases($kubeContext: String) {
     helmListReleases(kubeContext: $kubeContext) {

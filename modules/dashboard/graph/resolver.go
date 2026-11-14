@@ -53,11 +53,6 @@ type Resolver struct {
 	preferencesStore  *preferences.Store
 }
 
-// Teardown
-func (r *Resolver) Teardown() {
-	r.hm.Shutdown()
-}
-
 // resolveAllowedNamespaces returns the allowed-namespaces list effective for
 // this request: the server-wide list, optionally narrowed (never widened) by
 // the session-level override carried in ctx.
@@ -188,7 +183,7 @@ func (r *Resolver) kubernetesAPIHealthzGet(ctx context.Context, kubeContext stri
 	// Get client
 	clientset, err := r.cm.GetOrCreateClientset(kubeContext)
 	if err != nil {
-		resp.Message = ptr.To(err.Error())
+		resp.Message = new(err.Error())
 		return resp
 	}
 
@@ -199,9 +194,9 @@ func (r *Resolver) kubernetesAPIHealthzGet(ctx context.Context, kubeContext stri
 	_, err = clientset.CoreV1().RESTClient().Get().AbsPath("/livez").DoRaw(ctx)
 	if err != nil {
 		if ctx.Err() != nil {
-			resp.Message = ptr.To("Bad Gateway")
+			resp.Message = new("Bad Gateway")
 		} else {
-			resp.Message = ptr.To(err.Error())
+			resp.Message = new(err.Error())
 		}
 		return resp
 	}

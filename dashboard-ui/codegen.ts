@@ -14,16 +14,11 @@
 
 import { CodegenConfig } from '@graphql-codegen/cli';
 
-// client-preset v6 changed several defaults: custom scalars became `unknown`
-// (was `any`), GraphQL enums became union types (was native TS enums), and
-// `__typename` was no longer added to operation/fragment types. Restore the prior
-// behavior so the generated types match the shapes the app and Apollo cache expect:
-//   - defaultScalarType: 'any'      — custom scalars back to `any`
-//   - enumType: 'native'            — native TS enums instead of string unions
-//   - nonOptionalTypename: true     — add (required) `__typename` to object types
-//   - skipTypeNameForRoot: true     — but not on the operation root, which Apollo
-//                                     never requests (its runtime addTypename adds
-//                                     `__typename` to nested fields only)
+// Each client preset's `config` overrides its defaults so the generated types
+// match what the app and Apollo deliver: custom scalars are `any` (the cache's
+// type policies convert them), enums are native TS enums, and `__typename` is
+// required on nested objects but absent on the operation root, which Apollo's
+// addTypename never touches. Keep the two presets' configs the same.
 const config: CodegenConfig = {
   generates: {
     './src/lib/graphql/dashboard/__generated__/': {

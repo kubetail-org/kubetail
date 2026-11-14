@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { MockedResponse } from '@apollo/client/testing';
+import type { MockLink } from '@apollo/client/testing';
 import { act, screen, waitFor } from '@testing-library/react';
 
 import appConfig from '@/app-config';
@@ -29,7 +29,7 @@ import {
 const STORAGE_KEY = 'kubetail:updates:cli';
 
 /** Satisfies KUBE_CONFIG_WATCH inside UpdateNotificationProvider for CLI-only tests. */
-const notificationProviderKubeMock: MockedResponse = {
+const notificationProviderKubeMock: MockLink.MockedResponse = {
   request: { query: KUBE_CONFIG_WATCH },
   maxUsageCount: 20,
   result: {
@@ -57,7 +57,7 @@ function TestConsumer() {
   );
 }
 
-function renderWithProvider(mocks: MockedResponse[]) {
+function renderWithProvider(mocks: MockLink.MockedResponse[]) {
   return renderElement(
     <UpdateNotificationProvider>
       <TestConsumer />
@@ -200,21 +200,28 @@ const CLUSTER_STORAGE_PREFIX = 'kubetail:updates:cluster:';
 const KUBE_CONTEXT = 'test-cluster';
 
 /** Keeps CLI query satisfied while cluster tests run under UpdateNotificationProvider. */
-const clusterTestCliMock: MockedResponse = {
+const clusterTestCliMock: MockLink.MockedResponse = {
   request: { query: CLI_LATEST_VERSION },
   result: { data: { cliLatestVersion: '0.9.0' } },
 };
 
-function kubeConfigWatchMock(contextNames: string[], currentContext?: string): MockedResponse {
+function kubeConfigWatchMock(contextNames: string[], currentContext?: string): MockLink.MockedResponse {
   return {
     request: { query: KUBE_CONFIG_WATCH },
     result: {
       data: {
         kubeConfigWatch: {
+          __typename: 'KubeConfigWatchEvent',
           type: 'ADDED',
           object: {
+            __typename: 'KubeConfig',
             currentContext: currentContext ?? contextNames[0] ?? '',
-            contexts: contextNames.map((name) => ({ name, cluster: 'c', namespace: 'default' })),
+            contexts: contextNames.map((name) => ({
+              __typename: 'KubeConfigContext',
+              name,
+              cluster: 'c',
+              namespace: 'default',
+            })),
           },
         },
       },
@@ -233,7 +240,7 @@ function ClusterTestConsumer({ kubeContext = KUBE_CONTEXT }: { kubeContext?: str
 }
 
 function renderClusterWithMocks(
-  mocks: MockedResponse[],
+  mocks: MockLink.MockedResponse[],
   kubeContext?: string,
   kubeContextNames: string[] = [KUBE_CONTEXT],
 ) {
@@ -245,26 +252,26 @@ function renderClusterWithMocks(
   );
 }
 
-const clusterUpdateAvailableMock: MockedResponse = {
+const clusterUpdateAvailableMock: MockLink.MockedResponse = {
   request: { query: CLUSTER_VERSION_STATUS, variables: { kubeContext: KUBE_CONTEXT } },
   result: {
     data: { clusterVersionStatus: { currentVersion: '0.9.0', latestVersion: '1.0.0', updateAvailable: true } },
   },
 };
 
-const clusterNoUpdateMock: MockedResponse = {
+const clusterNoUpdateMock: MockLink.MockedResponse = {
   request: { query: CLUSTER_VERSION_STATUS, variables: { kubeContext: KUBE_CONTEXT } },
   result: {
     data: { clusterVersionStatus: { currentVersion: '1.0.0', latestVersion: '1.0.0', updateAvailable: false } },
   },
 };
 
-const clusterNullResultMock: MockedResponse = {
+const clusterNullResultMock: MockLink.MockedResponse = {
   request: { query: CLUSTER_VERSION_STATUS, variables: { kubeContext: KUBE_CONTEXT } },
   result: { data: { clusterVersionStatus: null } },
 };
 
-const clusterErrorMock: MockedResponse = {
+const clusterErrorMock: MockLink.MockedResponse = {
   request: { query: CLUSTER_VERSION_STATUS, variables: { kubeContext: KUBE_CONTEXT } },
   error: new Error('Internal Server Error'),
 };
@@ -356,6 +363,11 @@ describe('useClusterUpdateNotification', () => {
     await waitFor(() => {
       expect(screen.getByTestId('current-version')).toHaveTextContent('0.9.0');
     });
+    // CLIFetcher still queries; wait for its persisted write so it lands inside act.
+    await waitFor(() => {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      expect(raw && JSON.parse(raw).latestVersion).toBe('0.9.0');
+    });
     expect(screen.queryByTestId('cluster-update')).not.toBeInTheDocument();
   });
 
@@ -375,7 +387,7 @@ describe('useClusterUpdateNotification', () => {
 
   it('keys state per kubeContext', async () => {
     const context2 = 'other-cluster';
-    const mock2: MockedResponse = {
+    const mock2: MockLink.MockedResponse = {
       request: { query: CLUSTER_VERSION_STATUS, variables: { kubeContext: context2 } },
       result: {
         data: { clusterVersionStatus: { currentVersion: '0.8.0', latestVersion: '1.0.0', updateAvailable: true } },
@@ -392,7 +404,7 @@ describe('useClusterUpdateNotification', () => {
     // The KUBE_CONTEXT fetcher's first render happens before atomWithStorage's onMount
     // re-reads the fresh cache, so it issues one pre-hydration query. A never-resolving
     // mock absorbs it so the cache-only path is exercised without a network response.
-    const absorbKubeContextMock: MockedResponse = {
+    const absorbKubeContextMock: MockLink.MockedResponse = {
       request: { query: CLUSTER_VERSION_STATUS, variables: { kubeContext: KUBE_CONTEXT } },
       delay: Infinity,
     };

@@ -80,37 +80,41 @@ func (a *App) DrainWithContext(ctx context.Context) error {
 
 // Close releases app-level resources.
 func (a *App) Close() {
+	// The health monitor's workers use the connection manager, so stop them first.
+	a.graphqlServer.Close()
 	if a.cm != nil {
 		a.cm.Close()
 	}
 }
 
-// Create new gin app
+// NewApp builds the app with its real dependencies.
 func NewApp(cfg *config.Config) (*App, error) {
-	// Init app
-	app := &App{Engine: gin.New(), config: cfg}
-
-	// If not in test-mode
-	if gin.Mode() != gin.TestMode {
-		app.Use(gin.Recovery())
-
-		// Init connection manager
-		cm, err := k8shelpers.NewConnectionManager(cfg.Environment, k8shelpers.WithKubeconfigPath(cfg.KubeconfigPath))
-		if err != nil {
-			return nil, err
-		}
-		app.cm = cm
-
-		// Init Cluster API proxy
-		clusterAPIProxy, err := newClusterAPIProxy(cfg, app.cm, path.Join(cfg.BasePath, "/cluster-api-proxy"))
-		if err != nil {
-			return nil, err
-		}
-		app.clusterAPIProxy = clusterAPIProxy
-
-		// Init queryHelpers
-		app.queryHelpers = newRealQueryHelpers(app.cm)
+	cm, err := k8shelpers.NewConnectionManager(cfg.Environment, k8shelpers.WithKubeconfigPath(cfg.KubeconfigPath))
+	if err != nil {
+		return nil, err
 	}
+
+	clusterAPIProxy, err := newClusterAPIProxy(cfg, cm, path.Join(cfg.BasePath, "/cluster-api-proxy"))
+	if err != nil { // coverage:ignore NewConnectionManager panics first on the one environment this rejects
+		cm.Close()
+		return nil, err
+	}
+
+	return newApp(cfg, cm, clusterAPIProxy, newRealQueryHelpers(cm))
+}
+
+// newApp builds the app around the given dependencies. A nil clusterAPIProxy
+// mounts a 503 stub on the proxy route.
+func newApp(cfg *config.Config, cm k8shelpers.ConnectionManager, clusterAPIProxy clusterapi.Proxy, qh queryHelpers) (*App, error) {
+	app := &App{
+		Engine:          gin.New(),
+		config:          cfg,
+		cm:              cm,
+		clusterAPIProxy: clusterAPIProxy,
+		queryHelpers:    qh,
+	}
+
+	app.Use(gin.Recovery())
 
 	// Register templates
 	tmpl := template.Must(template.New("").
@@ -206,13 +210,11 @@ func NewApp(cfg *config.Config) (*App, error) {
 			protectedRoutes.Use(websocketCSRFContextMiddleware())
 
 			// GraphQL endpoint
-			app.graphqlServer = graph.NewServer(cfg, app.cm)
+			app.graphqlServer = graph.NewServer(cfg, app.cm, clusterapi.NewHealthMonitor(cfg, app.cm))
 			protectedRoutes.Any("/graphql", gin.WrapH(app.graphqlServer))
 
-			// Cluster API proxy routes. When the cluster-api is not enabled
-			// (or in test mode where no real proxy is built) the route is
-			// registered with a 503 stub so callers see a clear error instead
-			// of a 404.
+			// Cluster API proxy routes. When the cluster-api is not enabled the
+			// route is a 503 stub, so callers see a clear error instead of a 404.
 			if app.clusterAPIProxy != nil {
 				protectedRoutes.Any("/cluster-api-proxy/*path", gin.WrapH(app.clusterAPIProxy))
 			} else {

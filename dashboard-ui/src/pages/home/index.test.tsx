@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import type { MockLink } from '@apollo/client/testing';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createMemoryHistory } from 'history';
-import { Router } from 'react-router-dom';
-import { render, waitFor } from '@testing-library/react';
+import { Router } from 'react-router';
 import type { Mock } from 'vitest';
 
 import { useSession } from '@/lib/auth';
 import * as dashboardOps from '@/lib/graphql/dashboard/ops';
+import { PreferencesProvider } from '@/lib/preferences';
 import { mocks } from '@/mocks/home';
 import { renderElement } from '@/test-utils';
 
@@ -77,6 +79,75 @@ describe('initial connection', () => {
     // Check looading message
     await waitFor(() => {
       expect(getByText('Connecting...')).toBeInTheDocument();
+    });
+  });
+});
+
+describe('workload table', () => {
+  const deploymentNames = ['delta', 'alpha', 'foxtrot', 'charlie', 'echo', 'bravo'];
+
+  // Listed first, so it answers the deployments query ahead of the empty list in `mocks`.
+  const deploymentsListMock: MockLink.MockedResponse = {
+    request: {
+      query: dashboardOps.HOME_DEPLOYMENTS_LIST_FETCH,
+      variables: { kubeContext: 'test1', namespace: '', continue: '' },
+    },
+    result: {
+      data: {
+        appsV1DeploymentsList: {
+          __typename: 'AppsV1DeploymentList',
+          metadata: { __typename: 'MetaV1ListMeta', continue: '', resourceVersion: 'v1' },
+          items: deploymentNames.map((name) => ({
+            __typename: 'AppsV1Deployment',
+            id: `id-${name}`,
+            metadata: {
+              __typename: 'MetaV1ObjectMeta',
+              namespace: 'default',
+              name,
+              uid: `uid-${name}`,
+              creationTimestamp: '2024-01-01T00:00:00Z',
+              deletionTimestamp: null,
+              resourceVersion: 'v1',
+              ownerReferences: [],
+            },
+          })),
+        },
+      },
+    },
+  };
+
+  const namePattern = new RegExp(`^(${deploymentNames.join('|')})$`);
+  const renderedNames = () => screen.queryAllByText(namePattern).map((el) => el.textContent);
+
+  beforeEach(() => {
+    (useSession as Mock).mockReturnValue({ session: { user: 'test' } });
+  });
+
+  it('sorts by name, toggles the order and shows the rest on demand', async () => {
+    renderElement(
+      <PreferencesProvider>
+        <Page />
+      </PreferencesProvider>,
+      [deploymentsListMock, ...mocks],
+    );
+
+    await waitFor(() => {
+      expect(renderedNames()).toEqual(['alpha', 'bravo', 'charlie', 'delta', 'echo']);
+    });
+
+    // Every workload kind shares one <table>; the deployments' header is the last one before its rows.
+    const alpha = screen.getByText('alpha');
+    const nameHeaders = screen
+      .getAllByText('Name')
+      .filter((el) => el.compareDocumentPosition(alpha) & Node.DOCUMENT_POSITION_FOLLOWING);
+    fireEvent.click(nameHeaders.at(-1) as HTMLElement);
+    await waitFor(() => {
+      expect(renderedNames()).toEqual(['foxtrot', 'echo', 'delta', 'charlie', 'bravo']);
+    });
+
+    fireEvent.click(screen.getByText('Show 1 more...'));
+    await waitFor(() => {
+      expect(renderedNames()).toEqual(['foxtrot', 'echo', 'delta', 'charlie', 'bravo', 'alpha']);
     });
   });
 });

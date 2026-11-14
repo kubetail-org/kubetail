@@ -33,7 +33,7 @@ use types::cluster_agent::{LogMetadata, LogMetadataFileInfo, LogMetadataWatchEve
 
 use crate::log_metadata::{LOG_FILE_REGEX, LogMetadataImpl};
 
-/// Lifecycle events emitted by stream_forward
+/// Lifecycle events emitted by LogMetadataWatcher
 #[derive(Debug, Clone)]
 pub enum LifecycleEvent {
     WatcherStarted,
@@ -61,6 +61,8 @@ pub struct LogMetadataWatcher {
     directory: PathBuf,
     /// K8s node name.
     node_name: String,
+    /// How long the watcher gathers filesystem events into one batch.
+    debounce: Duration,
     /// Lifecycle event channel
     lifecycle_tx: Option<broadcast::Sender<LifecycleEvent>>,
 }
@@ -72,6 +74,7 @@ impl LogMetadataWatcher {
         directory: PathBuf,
         namespaces: Vec<String>,
         node_name: String,
+        debounce: Duration,
     ) -> (Self, Receiver<Result<LogMetadataWatchEvent, Status>>) {
         let (log_metadata_tx, log_metadata_rx) = channel(100);
 
@@ -82,14 +85,15 @@ impl LogMetadataWatcher {
                 namespaces,
                 directory,
                 node_name,
+                debounce,
                 lifecycle_tx: None,
             },
             log_metadata_rx,
         )
     }
 
-    /// Starts watching the log directory for log updates. Blocks until a message is sent in the
-    /// termination channel.
+    /// Starts watching the log directory for log updates. Blocks until `ctx` is cancelled or the
+    /// client goes away.
     pub async fn watch<T: Watcher>(&self, watcher_config: Option<notify::Config>) {
         let (internal_tx, internal_rx) = channel(10);
         let debouncer: Debouncer<T, RecommendedCache> =
@@ -122,7 +126,7 @@ impl LogMetadataWatcher {
         let node_name = self.node_name.clone();
 
         let mut debouncer = new_debouncer_opt(
-            Duration::from_secs(2),
+            self.debounce,
             None,
             move |result: DebounceEventResult| {
                 runtime_handle.block_on(async {
@@ -445,6 +449,11 @@ mod test {
 
     use super::*;
 
+    const TEST_DEBOUNCE: Duration = Duration::from_millis(50);
+
+    // Bounds a negative assertion: long enough for any pending batch to be sent.
+    const QUIET_PERIOD: Duration = Duration::from_millis(250);
+
     #[tokio::test]
     #[serial]
     async fn test_create_events_are_generated() {
@@ -458,6 +467,7 @@ mod test {
             logs_dir,
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         // Create lifecycle broadcast channel
@@ -543,12 +553,13 @@ mod test {
             logs_dir,
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         task::spawn(async move { log_metadata_watcher.watch::<RecommendedWatcher>(None).await });
 
         let result = log_metadata_rx.recv().await.unwrap();
-        assert!(matches!(result, Err(_)));
+        assert!(result.is_err());
 
         let status = result.unwrap_err();
         assert_eq!(status.code(), tonic::Code::NotFound);
@@ -568,6 +579,7 @@ mod test {
             logs_dir,
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         // Create lifecycle broadcast channel
@@ -614,6 +626,7 @@ mod test {
             logs_dir,
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         // Create lifecycle broadcast channel
@@ -635,16 +648,20 @@ mod test {
         let _ = rename(file.path(), &new_path);
 
         // Edit the file.
-        let mut renamed_file = File::options()
-            .write(true)
-            .append(true)
-            .open(&new_path)
-            .unwrap();
-        let _ = renamed_file.write_all(&vec![1; 5]);
+        let mut renamed_file = File::options().append(true).open(&new_path).unwrap();
+        let _ = renamed_file.write_all(&[1; 5]);
 
-        // Get the events and verify them. Events can appear in different order when using PollWatcher.
-        for _i in 0..2 {
-            let event = log_metadata_rx.recv().await.unwrap().unwrap();
+        // The watcher deduplicates events only within a debounce batch, so an event can repeat.
+        // Read until both have arrived.
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+        let mut deleted = false;
+        let mut modified = false;
+        while !(deleted && modified) {
+            let event = tokio::time::timeout_at(deadline, log_metadata_rx.recv())
+                .await
+                .expect("Timeout waiting for DELETED and MODIFIED events")
+                .expect("Channel closed")
+                .expect("Error receiving event");
 
             if event.r#type == "DELETED" {
                 verify_event(
@@ -657,6 +674,7 @@ mod test {
                     "container-name",
                     None,
                 );
+                deleted = true;
             } else {
                 verify_event(
                     event,
@@ -668,14 +686,11 @@ mod test {
                     "container-name",
                     Some(9),
                 );
+                modified = true;
             }
         }
 
-        // Kill
         ctx.cancel();
-
-        let result = log_metadata_rx.try_recv();
-        assert!(matches!(result, Err(TryRecvError::Empty)));
 
         // The renamed file won't be delted automatically when it gets out of scope.
         let _ = remove_file(&new_path);
@@ -695,6 +710,7 @@ mod test {
             logs_dir,
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         // Create lifecycle broadcast channel
@@ -717,13 +733,14 @@ mod test {
             .recv()
             .await
             .expect("channel should yield a value");
-        assert!(matches!(result, Err(_)));
+        assert!(result.is_err());
 
         let status = result.unwrap_err();
         assert_eq!(status.code(), tonic::Code::Unavailable);
         assert_eq!(status.message(), "Server is shutting down");
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn verify_event(
         event: LogMetadataWatchEvent,
         event_type: &str,
@@ -772,6 +789,7 @@ mod test {
             logs_dir.clone(),
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
@@ -787,7 +805,7 @@ mod test {
         let file_path =
             logs_dir.join("pod-name_modify-namespace_container-name-newcontainerid.log");
         let mut file = File::create(&file_path).expect("Failed to create file");
-        file.write_all(&vec![0; 4])
+        file.write_all(&[0; 4])
             .expect("Failed to write initial data");
         file.flush().expect("Failed to flush");
 
@@ -807,7 +825,7 @@ mod test {
             .unwrap()
             .size;
 
-        file.write_all(&vec![1; 3])
+        file.write_all(&[1; 3])
             .expect("Failed to write additional data");
         file.flush().expect("Failed to flush");
         drop(file);
@@ -849,6 +867,7 @@ mod test {
             logs_dir.clone(),
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
@@ -863,7 +882,7 @@ mod test {
 
         let file_path = logs_dir.join("pod-name_multi-modify-namespace_container-name-multiid.log");
         let mut file = File::create(&file_path).expect("Failed to create file");
-        file.write_all(&vec![0; 2])
+        file.write_all(&[0; 2])
             .expect("Failed to write initial data");
         file.flush().expect("Failed to flush");
 
@@ -875,9 +894,9 @@ mod test {
 
         assert_eq!(added_event.r#type, "ADDED");
 
-        // Perform multiple modifications with delays exceeding debounce window (2 seconds)
+        // Each write waits for its event, so each lands in a batch of its own.
         for i in 1..=3 {
-            file.write_all(&vec![i; 2]).expect("Failed to write data");
+            file.write_all(&[i; 2]).expect("Failed to write data");
             file.flush().expect("Failed to flush");
 
             // Wait for the MODIFIED event after each write
@@ -923,7 +942,7 @@ mod test {
         let file_path =
             logs_dir.join("pod-name_immediate-namespace_container-name-immediateid.log");
         let mut file = File::create(&file_path).expect("Failed to create file");
-        file.write_all(&vec![0; 5])
+        file.write_all(&[0; 5])
             .expect("Failed to write initial data");
         file.flush().expect("Failed to flush");
         drop(file);
@@ -935,6 +954,7 @@ mod test {
             logs_dir.clone(),
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
@@ -948,11 +968,10 @@ mod test {
         ) {}
 
         let mut file = File::options()
-            .write(true)
             .append(true)
             .open(&file_path)
             .expect("Failed to open file");
-        file.write_all(&vec![1; 3]).expect("Failed to write data");
+        file.write_all(&[1; 3]).expect("Failed to write data");
         file.flush().expect("Failed to flush");
         drop(file);
 
@@ -973,7 +992,7 @@ mod test {
             Some(8),
         );
 
-        let result = tokio::time::timeout(Duration::from_millis(100), log_metadata_rx.recv()).await;
+        let result = tokio::time::timeout(QUIET_PERIOD, log_metadata_rx.recv()).await;
         assert!(
             result.is_err() || matches!(result, Ok(None)),
             "Should not have more events"
@@ -996,6 +1015,7 @@ mod test {
             logs_dir.clone(),
             namespaces,
             "The node name".to_owned(),
+            TEST_DEBOUNCE,
         );
 
         let (lifecycle_tx, mut lifecycle_rx) = broadcast::channel(1);
@@ -1003,8 +1023,12 @@ mod test {
 
         task::spawn(async move {
             log_metadata_watcher
+                // PollWatcher's mtime has one-second resolution, so a write in the same second
+                // as the create is seen only by comparing contents.
                 .watch::<PollWatcher>(Some(
-                    notify::Config::default().with_poll_interval(Duration::from_millis(100)),
+                    notify::Config::default()
+                        .with_poll_interval(Duration::from_millis(100))
+                        .with_compare_contents(true),
                 ))
                 .await
         });
@@ -1016,16 +1040,14 @@ mod test {
 
         let wrong_file_path = logs_dir.join("pod-name_wrong-namespace_container-name-wrongid.log");
         let mut wrong_file = File::create(&wrong_file_path).expect("Failed to create file");
-        wrong_file
-            .write_all(&vec![0; 4])
-            .expect("Failed to write data");
+        wrong_file.write_all(&[0; 4]).expect("Failed to write data");
         wrong_file.flush().expect("Failed to flush");
 
         let correct_file_path =
             logs_dir.join("pod-name_correct-namespace_container-name-correctid.log");
         let mut correct_file = File::create(&correct_file_path).expect("Failed to create file");
         correct_file
-            .write_all(&vec![0; 4])
+            .write_all(&[0; 4])
             .expect("Failed to write data");
         correct_file.flush().expect("Failed to flush");
 
@@ -1047,11 +1069,11 @@ mod test {
         assert_eq!(namespace, "correct-namespace");
 
         wrong_file
-            .write_all(&vec![1; 2])
+            .write_all(&[1; 2])
             .expect("Failed to write to wrong file");
         wrong_file.flush().expect("Failed to flush");
         correct_file
-            .write_all(&vec![1; 2])
+            .write_all(&[1; 2])
             .expect("Failed to write to correct file");
         correct_file.flush().expect("Failed to flush");
 
@@ -1075,7 +1097,7 @@ mod test {
             .namespace;
         assert_eq!(namespace, "correct-namespace");
 
-        let result = tokio::time::timeout(Duration::from_millis(100), log_metadata_rx.recv()).await;
+        let result = tokio::time::timeout(QUIET_PERIOD, log_metadata_rx.recv()).await;
         assert!(
             result.is_err() || matches!(result, Ok(None)),
             "Should not have more events"

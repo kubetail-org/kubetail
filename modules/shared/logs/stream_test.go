@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	set "github.com/deckarep/golang-set/v2"
+	set "github.com/deckarep/golang-set/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -287,8 +287,7 @@ func TestStreamHead(t *testing.T) {
 			cm.On("GetDefaultNamespace", mock.Anything).Return("default")
 
 			// Create stream
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := t.Context()
 
 			opts := []Option{
 				WithSince(tt.setSinceTime),
@@ -450,8 +449,7 @@ func TestStreamTail(t *testing.T) {
 			cm.On("GetDefaultNamespace", mock.Anything).Return("default")
 
 			// Create stream
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := t.Context()
 
 			opts := []Option{
 				WithSince(tt.setSinceTime),
@@ -852,11 +850,11 @@ func TestStreamTailWithFollow(t *testing.T) {
 			ch2Old := make(chan LogRecord, numPast2)
 
 			// Send past data to channels
-			for i := len(tt.setPastStreamBefore1) - 1; i >= 0; i-- {
-				ch1Old <- tt.setPastStreamBefore1[i]
+			for _, record := range slices.Backward(tt.setPastStreamBefore1) {
+				ch1Old <- record
 			}
-			for i := len(tt.setPastStreamBefore2) - 1; i >= 0; i-- {
-				ch2Old <- tt.setPastStreamBefore2[i]
+			for _, record := range slices.Backward(tt.setPastStreamBefore2) {
+				ch2Old <- record
 			}
 
 			// Close channels if no more data
@@ -950,11 +948,11 @@ func TestStreamTailWithFollow(t *testing.T) {
 			}
 
 			// Send past data
-			for i := len(tt.setPastStreamAfter1) - 1; i >= 0; i-- {
-				ch1Old <- tt.setPastStreamAfter1[i]
+			for _, record := range slices.Backward(tt.setPastStreamAfter1) {
+				ch1Old <- record
 			}
-			for i := len(tt.setPastStreamAfter2) - 1; i >= 0; i-- {
-				ch2Old <- tt.setPastStreamAfter2[i]
+			for _, record := range slices.Backward(tt.setPastStreamAfter2) {
+				ch2Old <- record
 			}
 
 			// Close channels if still open
@@ -1016,8 +1014,7 @@ func TestStreamErrorHandling(t *testing.T) {
 		cm.On("GetDefaultNamespace", mock.Anything).Return("default")
 
 		// Create the stream
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		stream, err := NewStream(ctx, cm, []string{}, WithHead(10))
 		require.NoError(t, err)
@@ -1072,8 +1069,7 @@ func TestStreamErrorHandling(t *testing.T) {
 		cm.On("GetDefaultNamespace", mock.Anything).Return("default")
 
 		// Create the stream
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		stream, err := NewStream(ctx, cm, []string{}, WithHead(10))
 		require.NoError(t, err)
@@ -1125,8 +1121,7 @@ func TestStreamErrorHandling(t *testing.T) {
 		cm.On("GetDefaultNamespace", mock.Anything).Return("default")
 
 		// Create the stream
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		stream, err := NewStream(ctx, cm, []string{}, WithTail(10))
 		require.NoError(t, err)
@@ -1178,8 +1173,7 @@ func TestStreamErrorHandling(t *testing.T) {
 		cm.On("GetDefaultNamespace", mock.Anything).Return("default")
 
 		// Create the stream
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		stream, err := NewStream(ctx, cm, []string{}, WithFollow(true))
 		require.NoError(t, err)

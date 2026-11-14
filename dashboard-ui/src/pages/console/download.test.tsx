@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import type { ApolloClient } from '@apollo/client';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createStore, Provider } from 'jotai';
 
-import type { ApolloClient } from '@apollo/client';
-
-import { createMockLogViewerHandle } from '@/components/widgets/log-viewer/mock';
 import { LogRecordsQueryMode } from '@/lib/graphql/dashboard/__generated__/graphql';
+import { createMockLogViewerHandle } from '@/mocks/log-viewer';
 
 import {
   DownloadDialog,

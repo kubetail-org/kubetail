@@ -2,7 +2,6 @@ name: publish-chocolatey
 
 permissions:
   contents: read
-  deployments: write
 
 on:
   release:
@@ -27,15 +26,17 @@ jobs:
     steps:
       - name: Config
         id: config
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "version=$INPUT_VERSION" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
           fi
 
       - name: Download SHA256SUMS
-        uses: robinraju/release-downloader@v1.12
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f # v1.13
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
@@ -53,7 +54,9 @@ jobs:
           echo "arm64_sha256=$ARM64_SHA256" >> $GITHUB_OUTPUT
 
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Execute templates
         env:
@@ -78,7 +81,7 @@ jobs:
           cp "${SRC_DIR}/README.md" "${DST_DIR}/"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: nuspec
           path: nuspec/*
@@ -92,15 +95,17 @@ jobs:
       - name: Config
         id: config
         shell: bash
+        env:
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "dry_run=$INPUT_DRY_RUN" >> $GITHUB_OUTPUT
           else
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: nuspec
           path: nuspec
@@ -128,5 +133,7 @@ jobs:
       - name: Push to Chocolatey
         if: ${{ steps.config.outputs.dry_run != 'true' }}
         shell: pwsh
+        env:
+          VERSION: ${{ steps.nuspec.outputs.version }}
         run: |
-          choco push .\kubetail.${{ steps.nuspec.outputs.version }}.nupkg --source https://push.chocolatey.org/
+          choco push ".\kubetail.$($env:VERSION).nupkg" --source https://push.chocolatey.org/

@@ -16,23 +16,23 @@ import type { ApolloClient } from '@apollo/client';
 import deepEqual from 'fast-deep-equal';
 import { PanelLeftClose as PanelLeftCloseIcon } from 'lucide-react';
 import { useCallback, useContext, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 
 import { dashboardClient, getClusterAPIClient } from '@/apollo-client';
 import AppLayout from '@/components/layouts/AppLayout';
 import AuthRequired from '@/components/utils/AuthRequired';
-// import { FakeClient } from '@/components/widgets/log-viewer';
+// import { FakeClient } from '@/components/widgets/log-viewer/fake-client';
 import type { LogViewerHandle } from '@/components/widgets/log-viewer';
 import type { LogSourceFilter } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { useIsClusterAPIEnabled } from '@/lib/hooks';
 import { cn } from '@/lib/util';
 
 import { Header } from './header';
+import { ConfigureContainerColors, SourcesFetcher } from './helpers';
 import { LogServerClient } from './log-server-client';
 import { Main } from './main';
 import { PageContext } from './shared';
 import { Sidebar } from './sidebar';
-import { ConfigureContainerColors, SourcesFetcher } from './helpers';
 
 /**
  * useStableSourceStrings - Custom hook that returns a stable reference to page source strings
@@ -123,14 +123,14 @@ const InnerLayout = ({ sidebar, header, main }: InnerLayoutProps) => {
     document.body.style.cursor = 'ew-resize';
 
     // disable text select
-    const onSelectStart = document.body.onselectstart;
-    document.body.onselectstart = () => false;
+    const preventSelect = (ev: Event) => ev.preventDefault();
+    document.body.addEventListener('selectstart', preventSelect);
 
     // cleanup
     document.addEventListener('mouseup', function cleanup() {
       document.removeEventListener('mousemove', fn);
       document.body.style.cursor = bodyCursor;
-      document.body.onselectstart = onSelectStart;
+      document.body.removeEventListener('selectstart', preventSelect);
       document.removeEventListener('mouseup', cleanup);
     });
   }, []);
@@ -167,7 +167,7 @@ const InnerLayout = ({ sidebar, header, main }: InnerLayoutProps) => {
             (which is <main>'s border-l). Widening the hit area here keeps the
             grab target easy without thickening the visible edge.
           */}
-          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+          {/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- A pointer-only drag handle; the close button is the keyboard path. */}
           <div
             className="absolute top-0 z-10 h-full w-2 -translate-x-1/2 cursor-ew-resize"
             style={{ left: `${width}px` }}
@@ -215,7 +215,7 @@ export default function Page() {
     }
 
     // Otherwise, escape special regex characters to make it a literal string search
-    return grepVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return grepVal.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }, [grepVal]);
 
   // Configure log server client

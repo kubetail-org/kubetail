@@ -10,7 +10,7 @@ Demo: [https://www.kubetail.com/demo](https://www.kubetail.com/demo)
 
 <a href="https://discord.gg/CmsmWAVkvX"><img src="https://img.shields.io/discord/1212031524216770650?logo=Discord&style=flat-square&logoColor=FFFFFF&labelColor=5B65F0&label=Discord&color=64B73A"></a>
 [![Slack](https://img.shields.io/badge/Slack-kubetail-364954?logo=slack&labelColor=4D1C51)](https://kubernetes.slack.com/archives/C08SHG1GR37)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](https://github.com/kubetail-org/.github/blob/main/CODE_OF_CONDUCT.md)
 [![Contributor Resources](https://img.shields.io/badge/Contributor%20Resources-purple?style=flat-square)](https://github.com/kubetail-org)
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | Deutsch | [Español](README.es.md) | [Português](README.pt-BR.md) | [Français](README.fr.md)
@@ -193,14 +193,14 @@ Benutzer können ihre Kubetail-Erfahrung bei der Nutzung des Web-Dashboards und 
 
 Dieses Monorepo enthält die folgenden Module:
 
-* Kubetail CLI ([modules/cli](modules/cli))
-* Kubetail Cluster API ([modules/cluster-api](modules/cluster-api))
-* Kubetail Cluster Agent ([crates/cluster_agent](crates/cluster_agent))
-* Kubetail Dashboard ([modules/dashboard](modules/dashboard))
+* Kubetail CLI ([modules/cli](../modules/cli))
+* Kubetail Cluster API ([modules/cluster-api](../modules/cluster-api))
+* Kubetail Cluster Agent ([crates/cluster_agent](../crates/cluster_agent))
+* Kubetail Dashboard ([modules/dashboard](../modules/dashboard))
 
 Es enthält außerdem den Quellcode für das Frontend des Kubetail Dashboards:
 
-* Dashboard UI ([dashboard-ui](dashboard-ui))
+* Dashboard UI ([dashboard-ui](../dashboard-ui))
 
 ### Entwicklungsumgebung einrichten
 

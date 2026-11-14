@@ -15,12 +15,45 @@
 package helm
 
 import (
+	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	helmchart "helm.sh/helm/v3/pkg/chart"
-	helmrelease "helm.sh/helm/v3/pkg/release"
+	"github.com/stretchr/testify/require"
+	"helm.sh/helm/v4/pkg/action"
+	"helm.sh/helm/v4/pkg/chart/common"
+	helmchart "helm.sh/helm/v4/pkg/chart/v2"
+	kubefake "helm.sh/helm/v4/pkg/kube/fake"
+	releasei "helm.sh/helm/v4/pkg/release"
+	helmrelease "helm.sh/helm/v4/pkg/release/v1"
+	"helm.sh/helm/v4/pkg/storage"
+	"helm.sh/helm/v4/pkg/storage/driver"
 )
+
+// newFakeClient returns a Client whose actions share one in-memory release
+// store and a kube client that applies nothing, and whose chart is chrt.
+func newFakeClient(chrt *helmchart.Chart) *Client {
+	releases := storage.Init(driver.NewMemory())
+	c := NewClient()
+	c.newActionConfig = func(namespace string) (*action.Configuration, error) {
+		cfg := action.NewConfiguration(action.ConfigurationSetLogger(slog.DiscardHandler))
+		cfg.Releases = releases
+		cfg.KubeClient = &kubefake.PrintingKubeClient{Out: io.Discard}
+		cfg.Capabilities = common.DefaultCapabilities
+		return cfg, nil
+	}
+	c.loadChart = func(action.ChartPathOptions) (*helmchart.Chart, error) {
+		return chrt, nil
+	}
+	return c
+}
+
+func makeChart(version string) *helmchart.Chart {
+	return &helmchart.Chart{
+		Metadata: &helmchart.Metadata{APIVersion: "v2", Name: "kubetail", Version: version},
+	}
+}
 
 func makeRelease(name, namespace, version string) *helmrelease.Release {
 	return &helmrelease.Release{
@@ -181,4 +214,71 @@ func TestIsUpdateAvailable(t *testing.T) {
 			assert.Equal(t, tt.want, IsUpdateAvailable(tt.current, tt.latest))
 		})
 	}
+}
+
+func TestAsV1Release(t *testing.T) {
+	want := makeRelease("kubetail", "kubetail", "0.22.0")
+	got, err := asV1Release(want)
+	require.NoError(t, err)
+	assert.Same(t, want, got)
+
+	_, err = asV1Release(struct{}{})
+	assert.ErrorContains(t, err, "unsupported Helm release type struct {}")
+}
+
+func TestClient_ReleaseLifecycle(t *testing.T) {
+	c := newFakeClient(makeChart("0.22.0"))
+
+	installed, err := c.InstallLatest("kubetail", "kubetail")
+	require.NoError(t, err)
+	assert.Equal(t, "kubetail", installed.Name)
+	assert.Equal(t, "kubetail", installed.Namespace)
+	assert.Equal(t, 1, installed.Version)
+
+	upgraded, err := c.UpgradeRelease("kubetail", "kubetail")
+	require.NoError(t, err)
+	assert.Equal(t, 2, upgraded.Version)
+
+	got, err := c.GetRelease("kubetail", "kubetail")
+	require.NoError(t, err)
+	assert.Equal(t, 2, got.Version)
+
+	listed, err := c.ListReleases()
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.Equal(t, "kubetail", listed[0].Name)
+
+	uninstalled, err := c.UninstallRelease("kubetail", "kubetail")
+	require.NoError(t, err)
+	assert.Equal(t, "kubetail", uninstalled.Name)
+
+	_, err = c.GetRelease("kubetail", "kubetail")
+	assert.Error(t, err)
+}
+
+func TestClient_InstallLatestRejectsOldChart(t *testing.T) {
+	c := newFakeClient(makeChart("0.8.0"))
+	_, err := c.InstallLatest("kubetail", "kubetail")
+	assert.ErrorContains(t, err, "requires chart version")
+}
+
+func TestInitActionConfig_UnknownDriver(t *testing.T) {
+	t.Setenv("HELM_DRIVER", "bogus")
+	_, err := NewClient().initActionConfig("kubetail")
+	assert.ErrorContains(t, err, "failed to initialize Helm action configuration")
+}
+
+func TestFilterKubetailReleases(t *testing.T) {
+	kubetail := makeRelease("kubetail", "kubetail", "0.22.0")
+	kubetail.Chart.Metadata.Name = "kubetail"
+	other := makeRelease("other", "default", "1.0.0")
+	other.Chart.Metadata.Name = "nginx"
+	noChart := &helmrelease.Release{Name: "no-chart"}
+
+	got, err := filterKubetailReleases([]releasei.Releaser{kubetail, other, noChart})
+	require.NoError(t, err)
+	assert.Equal(t, []*helmrelease.Release{kubetail}, got)
+
+	_, err = filterKubetailReleases([]releasei.Releaser{struct{}{}})
+	assert.Error(t, err)
 }

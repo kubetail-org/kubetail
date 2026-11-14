@@ -62,28 +62,41 @@ func (a *App) Close() {
 	if a.grpcDispatcher != nil {
 		a.grpcDispatcher.Shutdown()
 	}
-	a.cm.Close()
+	if a.cm != nil {
+		a.cm.Close()
+	}
 }
 
-// Create new gin app
+// NewApp builds the app with its real dependencies.
 func NewApp(cfg *config.Config) (*App, error) {
-	// Init app
-	app := &App{Engine: gin.New()}
-
-	// If not in test-mode
-	if gin.Mode() != gin.TestMode {
-		app.Use(gin.Recovery())
-
-		// Init connection manager
-		cm, err := k8shelpers.NewConnectionManager(sharedcfg.EnvironmentCluster)
-		if err != nil {
-			return nil, err
-		}
-		app.cm = cm
-
-		// init grpc dispatcher
-		app.grpcDispatcher = mustNewGrpcDispatcher(cfg)
+	// coverage:ignore-start needs a live cluster for its in-cluster config and kube-system's extension-apiserver-authentication ConfigMap
+	cm, err := k8shelpers.NewConnectionManager(sharedcfg.EnvironmentCluster)
+	if err != nil {
+		return nil, err
 	}
+
+	clientset, err := cm.GetOrCreateClientset("")
+	if err != nil {
+		cm.Close()
+		return nil, err
+	}
+
+	authCfg, err := loadAggregationAuthConfig(context.TODO(), clientset)
+	if err != nil {
+		cm.Close()
+		return nil, err
+	}
+
+	return newApp(cfg, cm, mustNewGrpcDispatcher(cfg), authCfg)
+	// coverage:ignore-stop
+}
+
+// newApp builds the app around the given dependencies. authCfg decides which
+// front-proxy certificates and headers the aggregated routes accept.
+func newApp(cfg *config.Config, cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.Dispatcher, authCfg *aggregationAuthConfig) (*App, error) {
+	app := &App{Engine: gin.New(), cm: cm, grpcDispatcher: grpcDispatcher}
+
+	app.Use(gin.Recovery())
 
 	// Add request-id middleware
 	app.Use(requestid.New())
@@ -120,20 +133,8 @@ func NewApp(cfg *config.Config) (*App, error) {
 			ContentTypeNosniff:    true,
 		}))
 
-		// Aggregation-layer authentication. Skipped in test mode because the
-		// loader needs a live Kubernetes cluster (kube-system's
-		// extension-apiserver-authentication ConfigMap).
-		if gin.Mode() != gin.TestMode {
-			clientset, err := app.cm.GetOrCreateClientset("")
-			if err != nil {
-				return nil, err
-			}
-			authCfg, err := loadAggregationAuthConfig(context.TODO(), clientset)
-			if err != nil {
-				return nil, err
-			}
-			dynamicRoutes.Use(newAggregationAuthMiddleware(authCfg))
-		}
+		// Aggregation-layer authentication
+		dynamicRoutes.Use(newAggregationAuthMiddleware(authCfg))
 
 		// Mirrored under the aggregated path so the dashboard cluster-api proxy
 		// can reach it; kube-apiserver only forwards /apis/<group>/<version>/...

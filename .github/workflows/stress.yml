@@ -1,0 +1,229 @@
+name: stress
+
+# Runs every Go test with the CPU count, the order and the repetitions varied,
+# to find ordering bugs a single PR run passes. Each runner gets two jobs per
+# -cpu value: one under the race detector (but windows/arm64, which has none),
+# and one without it, at full speed, where a timing bug the detector's slowdown
+# hides can show. A job runs one -cpu value, so a panic or hang under one value
+# leaves the others' runs intact.
+# A red run means a concurrency bug was found and nothing else.
+
+permissions:
+  contents: read
+
+on:
+  # 05:00 UTC, a quiet hour when no one waits on the runners.
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+    inputs:
+      count:
+        description: Repetitions of each test (-count)
+        default: "3"
+      cpu:
+        description: GOMAXPROCS values to run each test under (-cpu), as a JSON array
+        default: "[1,4]"
+
+env:
+  COUNT: ${{ inputs.count || '3' }}
+
+jobs:
+  stress:
+    # The report job reads the id back out of the name.
+    name: Go (${{ matrix.runner }}-${{ matrix.race && 'race' || 'norace' }}-cpu${{ matrix.cpu }})
+    # Forks get no nightly run.
+    if: github.repository == 'kubetail-org/kubetail' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      # Keep in step with go-test in ci.yml; anchors do not cross files.
+      matrix:
+        os:
+          - linux
+          - macos-15
+          - macos-26
+          - windows
+        arch:
+          - amd64
+          - arm64
+        race:
+          - true
+          - false
+        # A JSON array, since an expression cannot split a list.
+        cpu: ${{ fromJSON(inputs.cpu || '[1,4]') }}
+        exclude:
+          - os: macos-26
+            arch: amd64
+          # The race detector does not support windows/arm64.
+          - os: windows
+            arch: arm64
+            race: true
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-24.04
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - os: macos-15
+            arch: amd64
+            runner: macos-15-intel
+          - os: macos-15
+            arch: arm64
+            runner: macos-15
+          - os: macos-26
+            arch: arm64
+            runner: macos-26
+          - os: windows
+            arch: amd64
+            runner: windows-2025
+          - os: windows
+            arch: arm64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    env:
+      CPU: ${{ matrix.cpu }}
+      RACE: ${{ matrix.race }}
+      STRESS_ID: ${{ matrix.runner }}-${{ matrix.race && 'race' || 'norace' }}-cpu${{ matrix.cpu }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      # -timeout sits under timeout-minutes, so a hang fails the test binary
+      # with a goroutine dump rather than the runner killing the job.
+      # Each package's result goes to the log as it lands, so a job that dies
+      # before its report still shows which package was running.
+      - name: Run tests under stress
+        working-directory: ./modules
+        shell: bash
+        run: |
+          race_flag=""
+          if [ "$RACE" = true ]; then
+            race_flag=-race
+          fi
+          mkdir -p stress
+          status=0
+          go test $race_flag -cpu "$CPU" -shuffle=on -count="$COUNT" -timeout 90m -json \
+              github.com/kubetail-org/kubetail/modules/... \
+            | tee stress/stress.json \
+            | jq -rR --unbuffered 'fromjson? | select(.Test == null and (.Action == "pass" or .Action == "fail"))
+                | "\(.Action) \(.Package) \(.Elapsed)s"' \
+            || status=$?
+          go run ../scripts/stress.go -cpu "$CPU" -count "$COUNT" -race="$RACE" \
+            -runner "$STRESS_ID" stress/stress.json
+          exit "$status"
+      # On a cancel, too: timeout-minutes cancels the job, and the partial
+      # stress.json is all that says where it stopped.
+      - name: Upload failures
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stress-${{ env.STRESS_ID }}
+          path: modules/stress/
+          retention-days: 14
+
+  # Checks out nothing, so no repo code runs with a write token. Artifact text
+  # reaches gh through --body-file and quoted variables, never the command line.
+  report:
+    name: Report failures
+    needs: stress
+    if: failure()
+    runs-on: ubuntu-24.04
+    permissions:
+      # Reads which stress jobs failed, including those that left no artifact,
+      # and downloads the artifacts the others left.
+      actions: read
+      issues: write
+    steps:
+      - name: Open or update issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          # Each artifact lands in stress/<name>/, even a lone one. The download
+          # fails when no job left an artifact; a lost runner leaves none.
+          if ! gh run download "$RUN_ID" --pattern 'stress-*' --dir stress; then
+            echo '::warning::no stress artifact downloaded'
+          fi
+
+          gh issue list --search 'in:title Stress' --state open --limit 1000 \
+            --json number,title > open.json
+
+          # Comments on the open issue with this title, or opens one.
+          file_issue() {
+            local title=$1 body=$2 number
+            number=$(jq -r --arg t "$title" 'map(select(.title == $t))[0].number // empty' open.json)
+            if [ -n "$number" ]; then
+              gh issue comment "$number" --body-file "$body"
+            else
+              gh issue create --title "$title" --label testing --label lang/go --body-file "$body"
+            fi
+          }
+
+          # Every stress job that did not pass, by the id in its name, with how
+          # it ended. A test step that never concluded means the runner was lost.
+          gh api --paginate "repos/$GH_REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs" \
+            --jq '.jobs[] | select(.name | startswith("Go ("))
+                  | select(.conclusion != "success" and .conclusion != "skipped")
+                  | [(.name | capture("\\((?<id>[^)]+)\\)$").id),
+                     (if .conclusion == "cancelled" then "cancelled"
+                      elif any(.steps[]; .name == "Run tests under stress" and .conclusion == null) then "lost"
+                      else "failed" end)]
+                  | @tsv' > failed-jobs.txt
+
+          reports=(stress/*/failures.json)
+          if [ ${#reports[@]} -gt 0 ]; then
+            jq -s '[.[] | .runner as $r | .failures[] | . + {runner: $r}]' "${reports[@]}" > failures.json
+          else
+            echo '[]' > failures.json
+          fi
+
+          # One issue per failing test, whatever -cpu values it failed under.
+          jq -c 'group_by([.package, .test])[]' failures.json | while read -r group; do
+            title=$(jq -r '"Stress: \(.[0].test) fails in \(.[0].package)"' <<<"$group")
+            jq -r --arg run "$RUN_URL" '
+              "The [nightly stress run](\($run)) found `\(.[0].test)` failing in `\(.[0].package)`.\n\n"
+              + "Each command runs the whole package from `modules/`, since the seed orders all of it.\n\n"
+              + (sort_by(.runner, .cpu) | map(
+                  "- **\(.runner)**, `-cpu \(.cpu)`, seed `\(.seed)`"
+                  + (if .timedOut then ", timed out" else "" end)
+                  + "\n\n  ```sh\n  \(.command)\n  ```\n"
+                ) | join("\n"))
+            ' <<<"$group" > body.md
+            file_issue "$title" body.md
+          done
+
+          # A failed job that names no failing test: setup, build, a package
+          # that failed outside a test, or a timeout the test binary missed.
+          : > outside.md
+          while IFS=$'\t' read -r id ended; do
+            report="stress/stress-$id/failures.json"
+            if [ ! -f "$report" ]; then
+              case $ended in
+                cancelled) why="cancelled, likely at timeout-minutes" ;;
+                lost) why="the runner was lost mid-run" ;;
+                *) why="no test report" ;;
+              esac
+              if [ -f "stress/stress-$id/stress.json" ]; then
+                why="$why; its artifact holds the partial \`stress.json\`"
+              fi
+              echo "- **$id**: $why" >> outside.md
+            elif jq -e '(.outside | length) > 0 or (.failures | length) == 0' "$report" > /dev/null; then
+              jq -r --arg r "$id" '"- **\($r)**: " + (if (.outside | length) > 0
+                then "failed outside a test in " + (.outside | map("`\(.)`") | join(", "))
+                else "failed with no failing test" end)' "$report" >> outside.md
+            fi
+          done < failed-jobs.txt
+          if [ -s outside.md ]; then
+            { echo "The [nightly stress run]($RUN_URL) failed outside a test on:"; echo; cat outside.md; } > body.md
+            file_issue "Stress run failed outside a test" body.md
+          fi

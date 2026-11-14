@@ -16,7 +16,7 @@ package cmd
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -35,35 +35,27 @@ var clusterListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List current releases",
 	Long:  clusterListHelp,
+	// coverage:ignore-start lists releases in a live cluster
 	Run: func(cmd *cobra.Command, args []string) {
-		// Get flags
-		flags := cmd.Flags()
-
-		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
-		kubeContext, _ := flags.GetString(KubeContextFlag)
-
-		// Init client
-		client := helm.NewClient(helm.WithKubeconfigPath(kubeconfigPath), helm.WithKubeContext(kubeContext))
-
-		// Get releases
-		releases, err := client.ListReleases()
-		cli.ExitOnError(err)
-
-		// Create a new tab writer with desired padding and settings
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-
-		// Print headers
-		fmt.Fprintln(w, "NAME\tNAMESPACE\tREVISION\tUPDATED\tSTATUS\tCHART\tAPP VERSION")
-
-		// Print data rows
-		for _, r := range releases {
-			chartName := fmt.Sprintf("%s-%s", r.Chart.Metadata.Name, r.Chart.Metadata.Version)
-			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\n", r.Name, r.Namespace, r.Version, r.Info.LastDeployed, r.Info.Status, chartName, r.Chart.AppVersion())
-		}
-
-		// Flush to output
-		w.Flush()
+		cli.ExitOnError(runClusterList(cmd.OutOrStdout(), newHelmClient(cmd)))
 	},
+	// coverage:ignore-stop
+}
+
+// runClusterList writes a table of Kubetail's releases to w.
+func runClusterList(w io.Writer, client helm.ReleaseLister) error {
+	releases, err := client.ListReleases()
+	if err != nil {
+		return err
+	}
+
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "NAME\tNAMESPACE\tREVISION\tUPDATED\tSTATUS\tCHART\tAPP VERSION")
+	for _, r := range releases {
+		chartName := fmt.Sprintf("%s-%s", r.Chart.Metadata.Name, r.Chart.Metadata.Version)
+		fmt.Fprintf(tw, "%s\t%s\t%d\t%s\t%s\t%s\t%s\n", r.Name, r.Namespace, r.Version, r.Info.LastDeployed, r.Info.Status, chartName, r.Chart.AppVersion())
+	}
+	return tw.Flush()
 }
 
 func init() {

@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler/transport"
-	"helm.sh/helm/v3/pkg/release"
+	release "helm.sh/helm/v4/pkg/release/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -240,10 +240,7 @@ func listResourceMulti(ctx context.Context, client dynamic.NamespaceableResource
 
 	// execute queries
 	for _, namespace := range namespaces {
-		wg.Add(1)
-		go func(namespace string) {
-			defer wg.Done()
-
+		wg.Go(func() {
 			thisOpts := options
 
 			thisContinue, exists := continueMap[namespace]
@@ -260,7 +257,7 @@ func listResourceMulti(ctx context.Context, client dynamic.NamespaceableResource
 			}
 
 			ch <- FetchResponse{Namespace: namespace, Result: list}
-		}(namespace)
+		})
 	}
 
 	wg.Wait()
@@ -448,7 +445,7 @@ func healthCheckStatusFromClusterAPIHealthStatus(statusIn clusterapi.HealthStatu
 		return model.HealthCheckStatusPending
 	case clusterapi.HealthStatusNotFound:
 		return model.HealthCheckStatusNotfound
-	case clusterapi.HealthStatusUknown:
+	case clusterapi.HealthStatusUnknown:
 		return model.HealthCheckStatusUnknown
 	default:
 		panic("not implemented")

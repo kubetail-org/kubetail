@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/* eslint-disable no-param-reassign */
+/* oxlint-disable no-param-reassign -- The hooks here share refs through `Runtime` and write to them. */
 
+import { useVirtualizer, elementScroll } from '@tanstack/react-virtual';
+import type { Virtualizer } from '@tanstack/react-virtual';
 import {
   forwardRef,
   useCallback,
@@ -25,8 +27,6 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { useVirtualizer, elementScroll } from '@tanstack/react-virtual';
-import type { Virtualizer } from '@tanstack/react-virtual';
 
 import { cn } from '@/lib/util';
 
@@ -231,7 +231,6 @@ export function useRecordStore({ recordsRef, setCount }: RecordStoreOptions): Re
 export const useInit = ({ client, config, refs, actions, services }: Runtime) => {
   const isInitializedRef = useRef(false);
 
-  // eslint-disable-next-line react-hooks/immutability -- refs are shared via Runtime, not truly immutable args
   useEffect(() => {
     if (isInitializedRef.current) return;
     isInitializedRef.current = true;
@@ -247,7 +246,6 @@ export const useInit = ({ client, config, refs, actions, services }: Runtime) =>
             services.recordStore.new(result.records, { zeroAt: 'first' });
           }
 
-          // eslint-disable-next-line react-hooks/immutability -- refs are shared via Runtime, not truly immutable args
           refs.isAutoScrollEnabled.current = false;
 
           break;
@@ -310,8 +308,6 @@ export const useInit = ({ client, config, refs, actions, services }: Runtime) =>
 
           break;
         }
-        default:
-          throw new Error('Invalid initial position type');
       }
     };
 
@@ -321,7 +317,7 @@ export const useInit = ({ client, config, refs, actions, services }: Runtime) =>
     actions.setIsLoading(true);
 
     initFn()
-      .catch((error) => {
+      .catch((error: unknown) => {
         // Log error but don't throw - allow the UI to continue functioning
         console.error('Failed to load records:', error);
       })
@@ -336,6 +332,7 @@ export const useInit = ({ client, config, refs, actions, services }: Runtime) =>
         actions.setIsLoading(false);
       }
     };
+    // oxlint-disable-next-line react/exhaustive-deps -- runs once per mount; LogViewer remounts this component to start over
   }, []);
 };
 
@@ -403,7 +400,8 @@ export const useLoadMore = (runtime: Runtime) => {
 
   const { config, state, services } = runtime;
 
-  const virtualizerRange = services.virtualizer.range;
+  const startIndex = services.virtualizer.range?.startIndex;
+  const endIndex = services.virtualizer.range?.endIndex;
 
   // Use local refs to avoid mutating hook arguments (react-hooks/immutability)
   const isLoadingBeforeRef = useRef(false);
@@ -412,13 +410,13 @@ export const useLoadMore = (runtime: Runtime) => {
   const getCount = useEffectEvent(() => state.count);
 
   useEffect(() => {
-    if (!virtualizerRange || state.isLoading || state.isRemeasuring) return;
+    if (startIndex === undefined || endIndex === undefined || state.isLoading || state.isRemeasuring) return;
 
     if (state.hasMoreBefore && !isLoadingBeforeRef.current) {
-      if (virtualizerRange.startIndex <= config.loadMoreThreshold - config.overscan) {
+      if (startIndex <= config.loadMoreThreshold - config.overscan) {
         isLoadingBeforeRef.current = true;
         loadMoreBefore()
-          .catch((error) => {
+          .catch((error: unknown) => {
             // Log error but don't throw - allow the UI to continue functioning
             console.error('Failed to load more records before:', error);
           })
@@ -431,10 +429,10 @@ export const useLoadMore = (runtime: Runtime) => {
     }
 
     if (state.hasMoreAfter && !isLoadingAfterRef.current) {
-      if (virtualizerRange.endIndex >= getCount() - 1 - config.loadMoreThreshold + config.overscan) {
+      if (endIndex >= getCount() - 1 - config.loadMoreThreshold + config.overscan) {
         isLoadingAfterRef.current = true;
         loadMoreAfter()
-          .catch((error) => {
+          .catch((error: unknown) => {
             // Log error and allow the UI to continue functioning
             console.error('Failed to load more records after:', error);
           })
@@ -446,8 +444,8 @@ export const useLoadMore = (runtime: Runtime) => {
       }
     }
   }, [
-    virtualizerRange?.startIndex,
-    virtualizerRange?.endIndex,
+    startIndex,
+    endIndex,
     state.hasMoreBefore,
     state.hasMoreAfter,
     state.isLoading,
@@ -464,10 +462,13 @@ export const useLoadMore = (runtime: Runtime) => {
  */
 
 export const useFollowFromEnd = ({ client, config, state, refs, services }: Runtime) => {
+  const { scrollEl, isAutoScrollEnabled } = refs;
+  const { beforePaint, recordStore } = services;
+
   useEffect(() => {
     if (!config.follow || state.isLoading || state.hasMoreAfter) return;
 
-    const scrollElement = refs.scrollEl.current;
+    const scrollElement = scrollEl.current;
 
     let rafID: number | null = null;
     let pendingRecords: LogRecord[] = [];
@@ -480,22 +481,22 @@ export const useFollowFromEnd = ({ client, config, state, refs, services }: Runt
       pendingRecords = [];
 
       // Scroll to bottom if auto-scroll enabled
-      if (refs.isAutoScrollEnabled.current) {
-        services.beforePaint(() => {
+      if (isAutoScrollEnabled.current) {
+        void beforePaint(() => {
           if (scrollElement) scrollElement.scrollTop = scrollElement.scrollHeight;
         });
       }
 
       // Append all pending records at once
-      services.recordStore.append(records);
+      recordStore.append(records);
     };
 
     const cb = (record: LogRecord) => {
       pendingRecords.push(record);
-      if (rafID === null) rafID = requestAnimationFrame(flush);
+      rafID ??= requestAnimationFrame(flush);
     };
 
-    const after = services.recordStore.last()?.cursor ?? 'BEGINNING';
+    const after = recordStore.last()?.cursor ?? 'BEGINNING';
     const opts = { after };
 
     const unsubscribe = client.subscribe(cb, opts);
@@ -507,7 +508,16 @@ export const useFollowFromEnd = ({ client, config, state, refs, services }: Runt
       if (rafID !== null) cancelAnimationFrame(rafID);
       pendingRecords = [];
     };
-  }, [client, config.follow, state.isLoading, state.hasMoreAfter]);
+  }, [
+    client,
+    config.follow,
+    state.isLoading,
+    state.hasMoreAfter,
+    scrollEl,
+    isAutoScrollEnabled,
+    beforePaint,
+    recordStore,
+  ]);
 };
 
 /**
@@ -515,10 +525,11 @@ export const useFollowFromEnd = ({ client, config, state, refs, services }: Runt
  */
 
 export const useAutoScroll = ({ config, state, refs }: Runtime) => {
+  const { scrollEl, isAutoScrollEnabled, isProgrammaticScroll } = refs;
   const lastScrollTopRef = useRef(0);
 
   useEffect(() => {
-    const scrollElement = refs.scrollEl.current;
+    const scrollElement = scrollEl.current;
     if (!scrollElement) return;
 
     if (state.isLoading || state.hasMoreAfter) return;
@@ -532,22 +543,22 @@ export const useAutoScroll = ({ config, state, refs }: Runtime) => {
       lastScrollTopRef.current = scrollTop;
 
       // Noop if scroll was programmatic
-      if (refs.isProgrammaticScroll.current) return;
+      if (isProgrammaticScroll.current) return;
 
       // If scrolled to bottom, turn on auto-scroll
       if (isAtBottom(scrollElement, config.pinToBottomTolerance)) {
-        refs.isAutoScrollEnabled.current = true;
+        isAutoScrollEnabled.current = true;
         return;
       }
 
       // If scrolling up, turn off auto-scroll and exit
       if (scrollTop < lastScrollTop) {
-        refs.isAutoScrollEnabled.current = false;
+        isAutoScrollEnabled.current = false;
       }
     };
 
     const handleMouseDown = () => {
-      refs.isAutoScrollEnabled.current = false;
+      isAutoScrollEnabled.current = false;
     };
 
     scrollElement.addEventListener('scroll', handleScroll);
@@ -557,7 +568,7 @@ export const useAutoScroll = ({ config, state, refs }: Runtime) => {
     // overlay scrollbars, changing clientHeight), re-pin to the bottom if auto-scroll
     // is enabled so the last row is never hidden behind a newly-appeared scrollbar.
     const resizeObserver = new ResizeObserver(() => {
-      if (config.follow && refs.isAutoScrollEnabled.current) {
+      if (config.follow && isAutoScrollEnabled.current) {
         scrollElement.scrollTop = scrollElement.scrollHeight;
       }
     });
@@ -568,7 +579,15 @@ export const useAutoScroll = ({ config, state, refs }: Runtime) => {
       scrollElement.removeEventListener('mousedown', handleMouseDown);
       resizeObserver.disconnect();
     };
-  }, [config.pinToBottomTolerance, config.follow, state.isLoading, state.hasMoreAfter]);
+  }, [
+    config.pinToBottomTolerance,
+    config.follow,
+    state.isLoading,
+    state.hasMoreAfter,
+    scrollEl,
+    isAutoScrollEnabled,
+    isProgrammaticScroll,
+  ]);
 };
 
 /**
@@ -578,12 +597,17 @@ export const useAutoScroll = ({ config, state, refs }: Runtime) => {
 export const usePullToRefresh = (runtime: Runtime) => {
   const loadMoreAfter = useLoadMoreAfter(runtime);
 
+  // `loadMoreAfter` changes identity every render; the wheel listener stays attached across them.
+  const onPull = useEffectEvent(() => loadMoreAfter());
+
   const { config, refs, state, actions } = runtime;
+  const { scrollEl, isLoadingAfter } = refs;
+  const { setIsRefreshing } = actions;
   const wheelRafRef = useRef<number | null>(null);
 
   // Handle pull-to-refresh at the end when follow is disabled
   useEffect(() => {
-    const scrollElement = refs.scrollEl.current;
+    const scrollElement = scrollEl.current;
     if (!scrollElement) return;
 
     if (config.follow || state.isLoading || state.hasMoreAfter) return;
@@ -598,20 +622,20 @@ export const usePullToRefresh = (runtime: Runtime) => {
 
         if (deltaY <= 0) return;
         if (!isAtBottom(scrollElement, config.pinToBottomTolerance)) return;
-        if (refs.isLoadingAfter.current) return;
+        if (isLoadingAfter.current) return;
 
-        refs.isLoadingAfter.current = true;
-        actions.setIsRefreshing(true);
+        isLoadingAfter.current = true;
+        setIsRefreshing(true);
 
-        loadMoreAfter()
-          .catch((error) => {
+        onPull()
+          .catch((error: unknown) => {
             // Log error and allow the UI to continue functioning
             console.error('Failed to refresh records:', error);
           })
           .finally(() => {
             requestAnimationFrame(() => {
-              refs.isLoadingAfter.current = false;
-              actions.setIsRefreshing(false);
+              isLoadingAfter.current = false;
+              setIsRefreshing(false);
             });
           });
       });
@@ -626,7 +650,16 @@ export const usePullToRefresh = (runtime: Runtime) => {
       }
       scrollElement.removeEventListener('wheel', handleWheel);
     };
-  }, [config.follow, config.loadMoreThreshold, config.pinToBottomTolerance, state.isLoading, state.hasMoreAfter]);
+  }, [
+    config.follow,
+    config.loadMoreThreshold,
+    config.pinToBottomTolerance,
+    state.isLoading,
+    state.hasMoreAfter,
+    scrollEl,
+    isLoadingAfter,
+    setIsRefreshing,
+  ]);
 };
 
 /**
@@ -658,7 +691,7 @@ export const LogViewerInner = ({
   ...other
 }: LogViewerInnerProps) => {
   const internalScrollElRef = useRef<HTMLDivElement>(null);
-  const scrollElRef = externalScrollElRef || internalScrollElRef;
+  const scrollElRef = externalScrollElRef ?? internalScrollElRef;
 
   const [count, setCount] = useState(0);
 
@@ -677,11 +710,13 @@ export const LogViewerInner = ({
   const isAutoScrollEnabledRef = useRef(false);
   const isProgrammaticScrollRef = useRef(false);
 
+  const { estimateRowHeight } = config;
   const estimateSize = useCallback(
-    (index: number) => config.estimateRowHeight(recordsRef.current.at(index)),
-    [config.estimateRowHeight],
+    (index: number) => estimateRowHeight(recordsRef.current.at(index)),
+    [estimateRowHeight],
   );
 
+  // oxlint-disable-next-line react/exhaustive-deps -- a new identity on each add makes the virtualizer re-read keys a prepend shifted
   const getItemKey = useCallback((index: number) => recordsRef.current.keyAt(index), [count]);
 
   const scrollToRafID = useRef<number>(null);
@@ -695,7 +730,6 @@ export const LogViewerInner = ({
     });
   }, []);
 
-  // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer returns unmemoizable values (TanStack limitation)
   const virtualizer = useVirtualizer({
     count,
     getScrollElement: () => scrollElRef.current,
@@ -928,7 +962,7 @@ export const LogViewer = forwardRef<LogViewerHandle, LogViewerProps>(
         },
         getSnapshot: () => stateRef.current,
       }),
-      [],
+      [incrementKeyID],
     );
 
     // Reset completely when client changes (adjust state during render)
@@ -995,22 +1029,21 @@ export const LogViewer = forwardRef<LogViewerHandle, LogViewerProps>(
 function createLogViewerStore(handle: LogViewerHandle | null) {
   if (handle) return { subscribe: handle.subscribe, getSnapshot: handle.getSnapshot };
   return {
-    subscribe: (_: () => void) => () => {},
+    subscribe: () => () => {},
     getSnapshot: () => LOG_VIEWER_INITIAL_STATE,
   };
 }
 
 export function useLogViewerState(
   logViewerRef: React.RefObject<LogViewerHandle | null>,
-  dependencies: any[],
+  dependencies: React.DependencyList,
 ): LogViewerState {
   // Initialize store
   const [store, setStore] = useState(() => createLogViewerStore(null));
 
   // Update based on user-provided dependencies
-  useEffect(() => {
-    setStore(createLogViewerStore(logViewerRef.current));
-  }, [...dependencies]);
+  // oxlint-disable-next-line react/exhaustive-deps -- the caller lists what changes the LogViewer behind the ref
+  useEffect(() => setStore(createLogViewerStore(logViewerRef.current)), [...dependencies]);
 
   // Return sync external store instance
   return useSyncExternalStore(store.subscribe, store.getSnapshot);

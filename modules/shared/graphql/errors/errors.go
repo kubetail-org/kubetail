@@ -31,7 +31,7 @@ var (
 func NewError(code string, message string) *gqlerror.Error {
 	return &gqlerror.Error{
 		Message: message,
-		Extensions: map[string]interface{}{
+		Extensions: map[string]any{
 			"code": code,
 		},
 	}
@@ -41,7 +41,7 @@ func NewError(code string, message string) *gqlerror.Error {
 func NewValidationError(rule string, message string) *gqlerror.Error {
 	return &gqlerror.Error{
 		Message: message,
-		Extensions: map[string]interface{}{
+		Extensions: map[string]any{
 			"code": ErrValidationError.Extensions["code"],
 			"rule": rule,
 		},

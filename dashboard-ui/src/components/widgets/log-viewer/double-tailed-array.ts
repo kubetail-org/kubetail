@@ -134,7 +134,7 @@ export class DoubleTailedArray<T> {
    * Convert to a regular array
    */
   toArray(): T[] {
-    return [...this.before].reverse().concat(this.after);
+    return this.before.toReversed().concat(this.after);
   }
 
   /**

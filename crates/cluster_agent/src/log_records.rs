@@ -60,7 +60,7 @@ impl LogRecordsImpl {
 
         let path = self.logs_dir.join(format!(
             "{}_{}_{}-{}.log",
-            &request.pod_name, &request.namespace, &request.container_name, container_id
+            request.pod_name, request.namespace, request.container_name, container_id
         ));
 
         fs::canonicalize(&path).map_err(|e| {

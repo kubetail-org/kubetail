@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useAtomValue, useSetAtom } from 'jotai';
 import { useSubscription } from '@apollo/client/react';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { useContext, useEffect, useMemo, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 
-import { CONSOLE_NODES_LIST_FETCH, CONSOLE_NODES_LIST_WATCH, LOG_SOURCES_WATCH } from '@/lib/graphql/dashboard/ops';
 import type { ConsoleNodesListItemFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { WatchEventType } from '@/lib/graphql/dashboard/__generated__/graphql';
+import { CONSOLE_NODES_LIST_FETCH, CONSOLE_NODES_LIST_WATCH, LOG_SOURCES_WATCH } from '@/lib/graphql/dashboard/ops';
 import { useListQueryWithSubscription } from '@/lib/hooks';
 import { Counter, safeDigest } from '@/lib/util';
 
@@ -43,9 +43,7 @@ export function useNodes() {
   });
 
   const loading = fetching; // treat still-fetching as still-loading
-  const nodes = data?.coreV1NodesList?.items
-    ? data.coreV1NodesList.items
-    : ([] as ConsoleNodesListItemFragmentFragment[]);
+  const nodes = data?.coreV1NodesList?.items ?? ([] as ConsoleNodesListItemFragmentFragment[]);
 
   return { loading, nodes };
 }
@@ -163,7 +161,7 @@ export const ConfigureContainerColors = () => {
       if (containerKeysRef.current.has(k)) return;
       containerKeysRef.current.add(k);
 
-      (async () => {
+      void (async () => {
         // set css var
         const colorIDX = (await safeDigest(k)).getUint32(0) % palette.length;
         document.documentElement.style.setProperty(`--${k}-color`, palette[colorIDX]);

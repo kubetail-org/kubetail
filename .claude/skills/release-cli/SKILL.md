@@ -25,28 +25,12 @@ Tag and push a new semver release for the `cli` component.
 
    If working tree is dirty or HEAD is not at `{upstream}/main`, stop and ask the user to resolve before continuing.
 
-3. **Find latest CLI tag**:
+3. **Recommend the version** — follow `.claude/skills/release-version/SKILL.md` for `cli`. It finds the latest `cli/v*` tag, reads the commits under the CLI's paths since then and picks the next version under SemVer.
 
-   ```sh
-   git tag --list "cli/v*" | sort -V | tail -1
-   ```
+   - If it finds nothing to release, stop.
+   - Take its recommended version as `{X.Y.Z}`, or the alternative it offers if the user picks that.
 
-4. **Check for changes since latest tag** — run:
-
-   ```sh
-   git log {latest-tag}..HEAD --oneline -- modules/cli/ modules/dashboard/ modules/shared/ dashboard-ui/
-   ```
-
-   - If no commits touch these paths, skip (no release needed)
-
-5. **Determine new version using semver** — analyze commits:
-   - **Patch** (`Z+1`): bug fixes, tests, docs, refactors, chores, ci changes
-   - **Minor** (`Y+1`, reset `Z=0`): new backwards-compatible features
-   - **Major** (`X+1`, reset `Y=0`, `Z=0`): breaking changes
-
-   Use conventional commit prefixes as hints (`fix:` → patch, `feat:` → minor, `BREAKING CHANGE` → major), but read the actual messages to make a judgment call.
-
-6. **Confirm with user before tagging** — present a summary:
+4. **Confirm with user before tagging** — present a summary:
 
    ```
    Component | Current tag  | New tag      | Reason
@@ -56,7 +40,7 @@ Tag and push a new semver release for the `cli` component.
 
    Wait for explicit user confirmation before proceeding.
 
-7. **Tag and push**:
+5. **Tag and push**:
 
    ```sh
    git tag -s cli/v{X.Y.Z} -m "release: cli/v{X.Y.Z}"
@@ -64,6 +48,8 @@ Tag and push a new semver release for the `cli` component.
    ```
 
    Confirm the push succeeded.
+
+6. **Write the notes** — `release-cli.yml` opens a draft release for the tag. Once it has, tell the user to run `/release-notes cli cli/v{X.Y.Z}`, which writes the notes to the draft. The user publishes the draft on GitHub.
 
 ## Rules
 

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 
 import LoadingPage from '@/components/utils/LoadingPage';
 import { getCsrfToken, getSession, useSession, waitForCsrfToken } from '@/lib/auth';
@@ -25,11 +25,11 @@ export default function Logout() {
 
   // redirect if login status changes
   useEffect(() => {
-    if (!loading && session?.user === null) navigate(searchParams.get('callbackUrl') || '/');
-  }, [loading, session?.user]);
+    if (!loading && session?.user === null) void navigate(searchParams.get('callbackUrl') || '/');
+  }, [loading, session?.user, navigate, searchParams]);
 
   useEffect(() => {
-    (async () => {
+    void (async () => {
       const url = new URL('/api/auth/logout', window.location.origin);
       await waitForCsrfToken();
       const resp = await fetch(url, {

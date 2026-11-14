@@ -16,8 +16,10 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
+	release "helm.sh/helm/v4/pkg/release/v1"
 
 	"github.com/kubetail-org/kubetail/modules/shared/helm"
 
@@ -37,26 +39,27 @@ var clusterInstallCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Create a new release",
 	Long:  clusterInstallHelp,
+	// coverage:ignore-start installs a release into a live cluster
 	Run: func(cmd *cobra.Command, args []string) {
-		// Get flags
-		flags := cmd.Flags()
-
-		kubeconfigPath, _ := flags.GetString(KubeconfigFlag)
-		kubeContext, _ := flags.GetString(KubeContextFlag)
-		//name, _ := cmd.Flags().GetString("name")
-		//namespace, _ := cmd.Flags().GetString("namespace")
-		name := helm.DefaultReleaseName
-		namespace := helm.DefaultNamespace
-
-		// Init client
-		client := helm.NewClient(helm.WithKubeconfigPath(kubeconfigPath), helm.WithKubeContext(kubeContext))
-
-		// Install
-		release, err := client.InstallLatest(namespace, name)
-		cli.ExitOnError(err)
-
-		fmt.Printf("Installed release '%s' into namespace '%s' successfully\n", release.Name, release.Namespace)
+		cli.ExitOnError(runClusterInstall(cmd.OutOrStdout(), newHelmClient(cmd)))
 	},
+	// coverage:ignore-stop
+}
+
+// releaseInstaller is the subset of helm.Client that install uses.
+type releaseInstaller interface {
+	InstallLatest(namespace, releaseName string) (*release.Release, error)
+}
+
+// runClusterInstall installs the latest chart as the default release and
+// reports it to w.
+func runClusterInstall(w io.Writer, client releaseInstaller) error {
+	r, err := client.InstallLatest(helm.DefaultNamespace, helm.DefaultReleaseName)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "Installed release '%s' into namespace '%s' successfully\n", r.Name, r.Namespace)
+	return nil
 }
 
 func init() {

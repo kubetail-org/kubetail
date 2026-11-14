@@ -12,17 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useAtomValue } from 'jotai';
-import React, { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-
-import { Spinner } from '@kubetail/ui/elements/spinner';
 import { stripAnsi } from 'fancy-ansi';
 import { AnsiHtml } from 'fancy-ansi/react';
+import { useAtomValue } from 'jotai';
+import React, { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router';
 
-import { formatTimestamp, useTimestampFormat } from '@/lib/timestamp-format';
-import { useTimezone } from '@/lib/timezone';
-import { cn, cssEncode } from '@/lib/util';
+import { Spinner } from '@kubetail/ui/elements/spinner';
+
 import { LogViewer, useLogViewerState } from '@/components/widgets/log-viewer';
 import type {
   LogRecord,
@@ -30,10 +27,13 @@ import type {
   LogViewerVirtualRow,
   LogViewerVirtualizer,
 } from '@/components/widgets/log-viewer';
+import { formatTimestamp, useTimestampFormat } from '@/lib/timestamp-format';
+import { useTimezone } from '@/lib/timezone';
+import { cn, cssEncode } from '@/lib/util';
 
 import { CellContextMenu } from './context-menu';
-import { SelectionOverlay } from './selection-overlay';
 import { hasMultipleSelectedCells, useSelection } from './selection';
+import { SelectionOverlay } from './selection-overlay';
 import { PageContext, ViewerColumn } from './shared';
 import { isFollowAtom, isWrapAtom, visibleColsAtom } from './state';
 
@@ -81,6 +81,7 @@ function useStableInitialPosition(): LogViewerInitialPosition {
         if (cursor !== null) return { type: 'cursor', cursor };
         return DEFAULT_INITIAL_POSITION;
       }
+      case null:
       default:
         return DEFAULT_INITIAL_POSITION;
     }
@@ -151,6 +152,7 @@ function useMeasureWidths() {
         flush();
       }
     },
+    // oxlint-disable-next-line react/exhaustive-deps -- a new identity on reset makes React call the ref again, re-measuring each row
     [flush, triggerID],
   );
 
@@ -178,6 +180,7 @@ function useMeasureWidths() {
         flush();
       }
     },
+    // oxlint-disable-next-line react/exhaustive-deps -- a new identity on reset makes React call the ref again, re-measuring each row
     [flush, triggerID],
   );
 
@@ -246,7 +249,7 @@ function useMessageContainerWidth(
       if (rafId !== null) cancelAnimationFrame(rafId);
       resizeObserver.disconnect();
     };
-  }, [colWidths, wrap, visibleCols]);
+  }, [wrapperRef, colWidths, wrap, visibleCols]);
 
   return messageContainerWidth;
 }
@@ -294,7 +297,7 @@ const HeaderRow = ({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [isLoading]);
+  }, [scrollElRef, isLoading]);
 
   // Sync horizontal scroll bidirectionally
   // Re-setup when isLoading becomes false to ensure listeners are attached after content loads
@@ -351,7 +354,7 @@ const HeaderRow = ({
       scrollEl.removeEventListener('scroll', handleContentScroll);
       headerEl.removeEventListener('scroll', handleHeaderScroll);
     };
-  }, [isLoading]);
+  }, [scrollElRef, isLoading]);
 
   return (
     <div ref={headerScrollRef} className="w-full overflow-x-scroll no-scrollbar shrink-0 cursor-default">
@@ -421,8 +424,6 @@ const getAttribute = (record: LogRecord, col: ViewerColumn, timezone: string, ti
       return record.source.metadata.node;
     case ViewerColumn.Message:
       return <AnsiHtml text={record.message} />;
-    default:
-      throw new Error('not implemented');
   }
 };
 
@@ -585,6 +586,7 @@ export const RecordRow = memo(
 
       els.push(
         <CellContextMenu key={col} col={col} record={row.record} timezone={timezone} timestampFormat={timestampFormat}>
+          {/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- The color dot cell has no role and no handlers. */}
           <div
             ref={shouldWrap ? undefined : measureCellElement}
             data-col-id={col}
@@ -731,7 +733,7 @@ export const Main = () => {
       resetWidths();
       resetSelection();
     }
-  }, [isLoading]);
+  }, [isLoading, resetWidths, resetSelection]);
 
   // Re-measure columns when the timestamp format changes — the new string
   // length is usually different, so cached widths would leave the column
@@ -743,7 +745,7 @@ export const Main = () => {
       return;
     }
     resetWidths();
-  }, [timestampFormat]);
+  }, [timestampFormat, resetWidths]);
 
   const estimateRowHeight = useCallback(
     (record: LogRecord) => {
@@ -773,7 +775,7 @@ export const Main = () => {
   // Re-measure when wrap changes
   useEffect(() => {
     logViewerRef.current?.measure();
-  }, [wrap]);
+  }, [logViewerRef, wrap]);
 
   // Track Ctrl/Cmd held state via data attribute (no re-renders)
   useEffect(() => {

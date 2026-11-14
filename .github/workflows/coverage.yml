@@ -1,0 +1,225 @@
+name: coverage
+
+permissions:
+  contents: read
+
+# Runs beside ci.yml on the same triggers. A push to main measures every
+# language, so the commit a PR is compared with has a report.
+on:
+  pull_request:
+    branches:
+      - "**"
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# A PR's new push cancels its last run. Every other run has a group of its own,
+# so every commit on main has a report.
+concurrency:
+  group: coverage-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # A pull request measures a language when a path in its filter in
+  # .github/ci-config/path-filters.yml, which ci.yml reads too, changed. A
+  # push or a dispatch measures them all. As in ci.yml: outside
+  # kubetail-org/kubetail this job runs only for a PR or a dispatch, and every
+  # other job needs it, so a fork's automatic run skips whole.
+  changes:
+    name: Plan
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      go: ${{ github.event_name != 'pull_request' || steps.filter.outputs.go == 'true' }}
+      rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
+      typescript: ${{ github.event_name != 'pull_request' || steps.filter.outputs.typescript == 'true' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          filters: .github/ci-config/path-filters.yml
+
+  # One runner per OS: the platform splits in modules/ are by OS, none by
+  # architecture. The tests of all four modules measure every package in the
+  # workspace, so a line in shared/ that only the Dashboard's tests reach
+  # counts as covered.
+  go:
+    name: Go (${{ matrix.goos }})
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            runner: ubuntu-24.04
+          - goos: darwin
+            runner: macos-15
+          - goos: windows
+            runner: windows-2025
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      # Codecov's upload authenticates with an OIDC token.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      # Bash, since PowerShell splits -coverpkg=... at its dot.
+      # scripts/cover-changed.sh measures as this job does; change both together.
+      - name: Measure coverage
+        working-directory: ./modules
+        shell: bash
+        run: >-
+          go test -timeout 20m -covermode=atomic
+          -coverpkg=github.com/kubetail-org/kubetail/modules/...
+          -coverprofile="$RUNNER_TEMP/go.out"
+          github.com/kubetail-org/kubetail/modules/...
+      - name: Merge the profile's blocks and drop marked lines
+        working-directory: ./tools
+        shell: bash
+        run: go run ./coverignore -dir ../modules -o "$RUNNER_TEMP/go-${{ matrix.goos }}.out" "$RUNNER_TEMP/go.out"
+      # A fork's PR cannot mint the OIDC token; the action then uploads
+      # tokenless, which Codecov accepts for a public repository.
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          use_oidc: true
+          files: ${{ runner.temp }}/go-${{ matrix.goos }}.out
+          disable_search: true
+          plugins: noop
+          flags: go-${{ matrix.goos }}
+          fail_ci_if_error: true
+
+  typescript:
+    name: TypeScript
+    needs: changes
+    if: needs.changes.outputs.typescript == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-node: "true"
+      - name: Install dependencies
+        working-directory: ./dashboard-ui
+        run: pnpm install --frozen-lockfile
+      # scripts/cover-changed.sh measures as this job does; change both together.
+      - name: Measure coverage
+        working-directory: ./dashboard-ui
+        run: pnpm vitest run --coverage
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          use_oidc: true
+          files: dashboard-ui/coverage/lcov.info
+          disable_search: true
+          plugins: noop
+          flags: typescript
+          fail_ci_if_error: true
+
+  # Linux alone: the Cluster Agent runs on Linux nodes only.
+  rust:
+    name: Rust
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          setup-protoc: "true"
+          setup-go: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install llvm-tools
+        working-directory: ./crates
+        run: rustup component add llvm-tools-preview
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
+        with:
+          tool: cargo-llvm-cov@0.9.1
+      # scripts/cover-changed.sh measures as this job does; change both together.
+      - name: Measure coverage
+        working-directory: ./crates
+        run: cargo llvm-cov --lcov --output-path "$RUNNER_TEMP/rust.lcov"
+      - name: Drop marked lines
+        working-directory: ./tools
+        run: go run ./coverignore -lcov -o "$RUNNER_TEMP/rust-filtered.lcov" "$RUNNER_TEMP/rust.lcov"
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          use_oidc: true
+          files: ${{ runner.temp }}/rust-filtered.lcov
+          disable_search: true
+          plugins: noop
+          flags: rust
+          fail_ci_if_error: true
+
+  # Reads Codecov's merged result once every upload above is processed, and
+  # fails on an uncovered changed line or a drop in the total
+  # (tools/coveragegate). It diffs the base and the head itself, so it needs
+  # their history. Codecov's public API needs no token, so a fork's PR runs it
+  # too. A language whose job failed or was skipped is not waited for.
+  gate:
+    name: Gate
+    needs:
+      - changes
+      - go
+      - typescript
+      - rust
+    if: ${{ !cancelled() && needs.changes.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Gate on Codecov's merged result
+        working-directory: ./tools
+        env:
+          GO_RESULT: ${{ needs.go.result }}
+          TYPESCRIPT_RESULT: ${{ needs.typescript.result }}
+          RUST_RESULT: ${{ needs.rust.result }}
+          # Codecov records a PR's uploads under its head, not the merge commit.
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Empty on a push, whose base is the commit's parent.
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          flags=""
+          if [ "$GO_RESULT" = success ]; then flags="$flags,go-linux,go-darwin,go-windows"; fi
+          if [ "$TYPESCRIPT_RESULT" = success ]; then flags="$flags,typescript"; fi
+          if [ "$RUST_RESULT" = success ]; then flags="$flags,rust"; fi
+          go run ./coveragegate -sha "$SHA" -base "$BASE" -flags "${flags#,}" \
+            -run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

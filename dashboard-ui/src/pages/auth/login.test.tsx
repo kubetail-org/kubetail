@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createMemoryHistory } from 'history';
-import { Router } from 'react-router-dom';
 import { fireEvent, render, waitFor } from '@testing-library/react';
+import { createMemoryHistory } from 'history';
+import { Router } from 'react-router';
 import type { Mock } from 'vitest';
 
 import { useSession } from '@/lib/auth';

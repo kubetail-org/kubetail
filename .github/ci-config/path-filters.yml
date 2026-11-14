@@ -1,0 +1,106 @@
+# dorny/paths-filter's filters, read by the Plan jobs of ci.yml, codeql.yml
+# and coverage.yml. A pull request runs a group's jobs, and measures its
+# coverage, only when a path in it changed, so the two cannot drift: a path
+# that ran the tests but not the coverage would pass its changed lines as "0 of
+# 0 covered". A change to how CI runs or measures (shared) runs every language.
+shared: &shared
+  - .github/actions/setup-environment/**
+  - .github/ci-config/path-filters.yml
+  - .github/codecov.yml
+  - .github/workflows/ci.yml
+  - .github/workflows/coverage.yml
+  - scripts/check-coverage-markers.sh
+  - scripts/check-license-headers.sh
+  - tools/**
+go:
+  - *shared
+  - Makefile
+  - build/package/Dockerfile.cli
+  - build/package/Dockerfile.cluster-api
+  - build/package/Dockerfile.dashboard
+  - modules/**
+  - scripts/check-go-fix.sh
+  - scripts/staticcheck.sh
+  - tools/go.mod
+  - tools/go.sum
+rust:
+  - *shared
+  - build/package/Dockerfile.cluster-agent
+  - crates/**
+  - proto/**
+typescript:
+  - *shared
+  - Makefile
+  - build/package/Dockerfile.cli
+  - build/package/Dockerfile.dashboard
+  - dashboard-ui/**
+  # dashboard-ui/codegen.ts generates the UI's types from these.
+  - modules/cluster-api/graph/schema.graphqls
+  - modules/dashboard/graph/schema.graphqls
+# ci.yml's Docker · Build alone: a PR builds every image only when a
+# Dockerfile changed.
+docker:
+  - *shared
+  - build/package/Dockerfile.*
+shell:
+  - .github/workflows/ci.yml
+  - .github/ci-config/path-filters.yml
+  - Makefile
+  - '**/*.sh'
+yaml:
+  - .github/**
+  - .yamllint.yml
+  - .yamllintignore
+  - Makefile
+  - tools/go.mod
+  - '**/*.yml'
+  - '**/*.yaml'
+# ci.yml's Generated · Check alone: every source a generator reads, and the
+# generators' pins.
+generated:
+  - *shared
+  - Makefile
+  - config/default/cli.*
+  - dashboard-ui/codegen.ts
+  - dashboard-ui/package.json
+  - dashboard-ui/pnpm-lock.yaml
+  - dashboard-ui/src/lib/graphql/**
+  - modules/**
+  - proto/**
+  - scripts/check-generated.sh
+# codeql.yml's alone. A change to codeql.yml analyzes every language.
+codeql:
+  - .github/workflows/codeql.yml
+python:
+  - e2e/**
+actions:
+  - .github/actions/**
+  - .github/workflows/**
+# Each component's release stream: the paths tools/releasenotes reads a
+# release's commits from. paths-filter computes them too, and no job acts on
+# them. A directory a component starts to ship goes in its filter, or its pull
+# requests leave the notes.
+release-cli:
+  - build/package/Dockerfile.cli
+  - config/default/cli.*
+  - dashboard-ui/**
+  - modules/cli/**
+  - modules/dashboard/**
+  - modules/shared/**
+release-dashboard:
+  - build/package/Dockerfile.dashboard
+  - config/default/dashboard.yaml
+  - dashboard-ui/**
+  - modules/dashboard/**
+  - modules/shared/**
+release-cluster-api:
+  - build/package/Dockerfile.cluster-api
+  - config/default/cluster-api.yaml
+  - modules/cluster-api/**
+  - modules/shared/**
+  - proto/**
+release-cluster-agent:
+  - build/package/Dockerfile.cluster-agent
+  - config/default/cluster-agent.yaml
+  - crates/**
+  - proto/**

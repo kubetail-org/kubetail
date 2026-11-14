@@ -19,6 +19,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
@@ -28,9 +30,58 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"github.com/kubetail-org/kubetail/modules/dashboard/graph"
+	clusterapimock "github.com/kubetail-org/kubetail/modules/dashboard/internal/cluster-api/mock"
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
+
+const testKubeconfig = `apiVersion: v1
+kind: Config
+clusters:
+- name: test
+  cluster:
+    server: https://127.0.0.1:1
+contexts:
+- name: test
+  context:
+    cluster: test
+    user: test
+current-context: test
+users:
+- name: test
+  user:
+    token: test
+`
+
+func TestNewApp(t *testing.T) {
+	kubeconfigPath := filepath.Join(t.TempDir(), "config")
+	require.NoError(t, os.WriteFile(kubeconfigPath, []byte(testKubeconfig), 0o600))
+
+	cfg := newTestConfig()
+	cfg.Environment = sharedcfg.EnvironmentDesktop
+	cfg.KubeconfigPath = kubeconfigPath
+
+	app, err := NewApp(cfg)
+	require.NoError(t, err)
+	defer app.Close()
+
+	assert.IsType(t, &k8shelpers.DesktopConnectionManager{}, app.cm)
+	assert.NotNil(t, app.clusterAPIProxy)
+	assert.IsType(t, &realQueryHelpers{}, app.queryHelpers)
+}
+
+func TestNewAppMissingKubeconfig(t *testing.T) {
+	cfg := newTestConfig()
+	cfg.Environment = sharedcfg.EnvironmentDesktop
+	cfg.KubeconfigPath = filepath.Join(t.TempDir(), "missing")
+
+	_, err := NewApp(cfg)
+	assert.ErrorContains(t, err, "kubeconfig file not found")
+}
 
 func TestRequestID(t *testing.T) {
 	app := newTestApp(nil)
@@ -256,4 +307,14 @@ func TestClusterAPIProxyRouteWithBasePath(t *testing.T) {
 				"Expected cluster-api-proxy route to be registered at %s", tt.expectedPath)
 		})
 	}
+}
+
+func TestClose_ShutsDownHealthMonitor(t *testing.T) {
+	hm := &clusterapimock.MockHealthMonitor{}
+	hm.On("Shutdown").Return()
+
+	app := &App{graphqlServer: graph.NewServer(newTestConfig(), nil, hm)}
+	app.Close()
+
+	hm.AssertExpectations(t)
 }

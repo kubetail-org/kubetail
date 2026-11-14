@@ -26,30 +26,28 @@ Using the Makefile from the project root:
 
 ```console
 # Run dashboard UI tests
-make dashboard-ui-test
+make test-ts
 ```
 
 ## Lint
 
-This project uses TypeScript and enforces the [Airbnb JavaScript styleguide](https://github.com/airbnb/javascript) using eslint. To run the linter:
+This project lints with [oxlint](https://oxc.rs/docs/guide/usage/linter) and formats with [oxfmt](https://oxc.rs/docs/guide/usage/formatter). To run the linter and the format check:
 
 ```sh
 pnpm lint
+```
+
+To format the code and sort imports:
+
+```sh
+pnpm format
 ```
 
 Using the Makefile from the project root:
 
 ```console
 # Run dashboard UI linting
-make dashboard-ui-lint
-```
-
-## Combined Operations
-
-To run all dashboard UI tests and linting in one command, use:
-
-```console
-make dashboard-ui-all
+make lint-ts
 ```
 
 ## Build

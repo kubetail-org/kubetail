@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Andres Morey
+// Copyright 2024 The Kubetail Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -164,16 +164,14 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 	s := NewStore(fp)
 
 	var wg sync.WaitGroup
-	for i := 0; i < 50; i++ {
-		wg.Add(2)
-		go func() {
-			defer wg.Done()
+	for range 50 {
+		wg.Go(func() {
 			_, _ = s.Get()
-		}()
-		go func(theme string) {
-			defer wg.Done()
+		})
+		wg.Go(func() {
+			theme := "dark"
 			_, _ = s.Update(&Preferences{Theme: &theme})
-		}("dark")
+		})
 	}
 	wg.Wait()
 

@@ -10,7 +10,7 @@ _Kubetail は Kubernetes 向けのリアルタイムロギングダッシュボ�
 
 <a href="https://discord.gg/CmsmWAVkvX"><img src="https://img.shields.io/discord/1212031524216770650?logo=Discord&style=flat-square&logoColor=FFFFFF&labelColor=5B65F0&label=Discord&color=64B73A"></a>
 [![Slack](https://img.shields.io/badge/Slack-kubetail-364954?logo=slack&labelColor=4D1C51)](https://kubernetes.slack.com/archives/C08SHG1GR37)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](https://github.com/kubetail-org/.github/blob/main/CODE_OF_CONDUCT.md)
 [![Contributor Resources](https://img.shields.io/badge/Contributor%20Resources-purple?style=flat-square)](https://github.com/kubetail-org)
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | 日本語 | [한국어](README.ko.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Português](README.pt-BR.md) | [Français](README.fr.md)
@@ -26,7 +26,7 @@ _Kubetail は Kubernetes 向けのリアルタイムロギングダッシュボ�
 
 Kubetail の主な入り口は `kubetail` CLI ツールです。ローカルの Web ダッシュボードをデスクトップ上で起動したり、生のログをそのままターミナルへストリーミングしたりできます。内部では、Kubetail はクラスターの Kubernetes API を使ってログを直接取得するため、外部サービスへログを転送しなくてもそのまま利用できます。また、Kubernetes API を使ってコンテナのライフサイクルイベントも追跡し、コンテナの起動、停止、置き換えに合わせてログのタイムラインを同期します。そのため、ユーザーリクエストがサービス間で一時的なコンテナをまたいで移動しても、途切れなくログを追跡できます。
 
-私たちの目標は、Kubernetes 向けで最も強力かつ使いやすいロギングプラットフォームを作ることです。ぜひ力を貸してください。バグを見つけた場合や提案がある場合は、GitHub Issue を作成するか、hello@kubetail.com までメールしてください。
+私たちの目標は、Kubernetes 向けで最も強力かつ使いやすいロギングプラットフォームを作ることです。ぜひ力を貸してください。バグを見つけた場合や提案がある場合は、GitHub Issue を作成するか、<hello@kubetail.com> までメールしてください。
 
 ## 特徴
 
@@ -193,14 +193,14 @@ Kubetail API をインストールしたユーザーは、ノードレベルの�
 
 このモノレポには次のモジュールが含まれています:
 
-* Kubetail CLI ([modules/cli](modules/cli))
-* Kubetail Cluster API ([modules/cluster-api](modules/cluster-api))
-* Kubetail Cluster Agent ([crates/cluster_agent](crates/cluster_agent))
-* Kubetail Dashboard ([modules/dashboard](modules/dashboard))
+* Kubetail CLI ([modules/cli](../modules/cli))
+* Kubetail Cluster API ([modules/cluster-api](../modules/cluster-api))
+* Kubetail Cluster Agent ([crates/cluster_agent](../crates/cluster_agent))
+* Kubetail Dashboard ([modules/dashboard](../modules/dashboard))
 
 また、Kubetail Dashboard のフロントエンドのソースコードも含まれています:
 
-* Dashboard UI ([dashboard-ui](dashboard-ui))
+* Dashboard UI ([dashboard-ui](../dashboard-ui))
 
 ### 開発環境のセットアップ
 

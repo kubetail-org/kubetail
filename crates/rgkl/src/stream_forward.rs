@@ -257,7 +257,7 @@ fn setup_fs_watcher<'a>(
 }
 
 /// Listens for update Events from notify, process the new log lines to produce `LogRecord` events
-/// and pushes them  to the sender. Loops until a signal is sent to the `term_tx` channel.
+/// and pushes them to the sender. Loops until `ctx` is cancelled or an error is sent.
 async fn listen_for_changes(
     ctx: CancellationToken,
     mut fs_watcher: FsWatcher<impl FnMut(&[u8])>,
@@ -310,15 +310,15 @@ async fn listen_for_changes(
 mod test {
     #![allow(clippy::unwrap_used)]
 
-    use std::{io::Write, path::Path, sync::LazyLock};
+    use std::{io::Write, path::Path, sync::LazyLock, time::Duration};
 
     use rstest::rstest;
     use tempfile::NamedTempFile;
-    use tokio::task;
+    use tokio::{task, time};
 
     use super::*;
 
-    static TEST_FILE: LazyLock<NamedTempFile> = LazyLock::new(|| create_test_file());
+    static TEST_FILE: LazyLock<NamedTempFile> = LazyLock::new(create_test_file);
 
     fn create_test_file() -> NamedTempFile {
         let lines = [
@@ -346,10 +346,7 @@ mod test {
             "2024-10-01T05:41:02.305901464Z stdout F linenum 13",
         ];
 
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .append(true)
-            .open(path)?;
+        let mut file = std::fs::OpenOptions::new().append(true).open(path)?;
 
         // Write the new lines
         writeln!(file, "{}", additional_lines.join("\n"))?;
@@ -596,6 +593,9 @@ mod test {
             .await;
         });
 
+        // Create a buffer to capture output
+        let mut output = Vec::new();
+
         // Wait until stream_forward goes into the wait loop to signal the writing thread to start.
         if is_follow {
             // Wait for WatcherStartedEvent
@@ -607,12 +607,20 @@ mod test {
             // Update the file with new lines
             update_test_file(test_file.path()).expect("Failed to update test file");
 
+            // Cancelling stops the stream before it reads lines still on disk, so
+            // receive every expected line first.
+            time::timeout(Duration::from_secs(10), async {
+                while output.len() < expected_lines.len() {
+                    let record = rx.recv().await.expect("stream ended early");
+                    output.push(record);
+                }
+            })
+            .await
+            .expect("Timed out waiting for followed lines");
+
             // Stop watcher
             ctx.cancel()
         }
-
-        // Create a buffer to capture output
-        let mut output = Vec::new();
 
         while let Some(record) = rx.recv().await {
             output.push(record);
@@ -641,7 +649,7 @@ mod test {
         .await;
 
         let result = rx.recv().await.unwrap();
-        assert!(matches!(result, Err(_)));
+        assert!(result.is_err());
 
         let status = result.unwrap_err();
         assert_eq!(status.code(), tonic::Code::NotFound);

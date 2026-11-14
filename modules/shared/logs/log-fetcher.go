@@ -312,9 +312,15 @@ func (f *KubeLogFetcher) StreamBackward(ctx context.Context, source LogSource, o
 	return outCh, nil
 }
 
+// unicaster runs a handler against the Cluster Agent on one node.
+// *grpcdispatcher.Dispatcher implements it.
+type unicaster interface {
+	UnicastSubscribeOnce(ctx context.Context, nodeName string, fn grpcdispatcher.DispatchHandler) error
+}
+
 // AgentLogFetcher implements LogFetcher using Kubetail Cluster Agent
 type AgentLogFetcher struct {
-	grpcDispatcher *grpcdispatcher.Dispatcher
+	grpcDispatcher unicaster
 }
 
 // NewAgentLogFetcher creates a new AgentLogFetcher

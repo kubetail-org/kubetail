@@ -26,10 +26,10 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
-	"github.com/gorilla/websocket"
 	"github.com/vektah/gqlparser/v2/ast"
 
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
+	"github.com/kubetail-org/kubetail/modules/shared/graphql/wstransport"
 	"github.com/kubetail-org/kubetail/modules/shared/httphelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/versioncheck"
@@ -57,11 +57,8 @@ type Server struct {
 	wg         sync.WaitGroup
 }
 
-// Create new Server instance
-func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
-	// Init health monitor
-	hm := clusterapi.NewHealthMonitor(cfg, cm)
-
+// Create new Server instance. Close shuts down hm.
+func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager, hm clusterapi.HealthMonitor) *Server {
 	// Init resolver
 	r := &Resolver{
 		cfg:               cfg,
@@ -90,29 +87,24 @@ func NewServer(cfg *config.Config, cm k8shelpers.ConnectionManager) *Server {
 
 	h.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
-	// Configure WebSocket. The app-level Sec-Fetch-Site CSRF middleware does
-	// not gate WebSocket upgrades (safe methods are skipped, since Chrome
-	// does not send Sec-Fetch-Site on upgrade requests), so CSWSH defense
-	// happens here in two layers: a same-origin Origin check at upgrade time,
-	// and a CSRF-token check in the connection_init payload.
-	h.AddTransport(&transport.Websocket{
-		Upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				return httphelpers.IsAllowedOrigin(r, cfg.AllowedOrigins)
+	// Configure WebSocket. The CSRF middleware skips upgrades (a GET), so they
+	// are gated here: an allowed Origin at upgrade time, then the session's
+	// CSRF token in the connection_init payload.
+	h.AddTransport(wstransport.Websocket{
+		CheckOrigin: func(r *http.Request) bool {
+			return httphelpers.IsAllowedOrigin(r, cfg.AllowedOrigins)
+		},
+		Websocket: transport.Websocket{
+			InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
+				expected, _ := ctx.Value(SessionCSRFTokenCtxKey).(string)
+				got := initPayload.GetString("csrfToken")
+				if expected == "" || subtle.ConstantTimeCompare([]byte(got), []byte(expected)) != 1 {
+					return ctx, nil, errors.New("invalid CSRF token")
+				}
+				return ctx, nil, nil
 			},
-			ReadBufferSize:    1024,
-			WriteBufferSize:   1024,
-			EnableCompression: false,
+			KeepAlivePingInterval: 10 * time.Second,
 		},
-		InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
-			expected, _ := ctx.Value(SessionCSRFTokenCtxKey).(string)
-			got := initPayload.GetString("csrfToken")
-			if expected == "" || subtle.ConstantTimeCompare([]byte(got), []byte(expected)) != 1 {
-				return ctx, nil, errors.New("invalid CSRF token")
-			}
-			return ctx, nil, nil
-		},
-		KeepAlivePingInterval: 10 * time.Second,
 	})
 
 	h.AddTransport(transport.POST{})
@@ -145,12 +137,9 @@ func (s *Server) DrainWithContext(ctx context.Context) error {
 	}
 }
 
-// Close releases any server-level resources.
-func (s *Server) Close() error {
-	if s.hm != nil {
-		s.hm.Shutdown()
-	}
-	return nil
+// Close shuts down the Cluster API health monitor.
+func (s *Server) Close() {
+	s.hm.Shutdown()
 }
 
 // ServeHTTP delegates to the underlying handler, tracking all active

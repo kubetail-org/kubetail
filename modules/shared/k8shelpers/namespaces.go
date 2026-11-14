@@ -24,7 +24,7 @@ import (
 )
 
 // Use this ptr to bypass namespace checks
-var BypassNamespaceCheck = ptr.To("")
+var BypassNamespaceCheck = new("")
 
 // ResolveAllowedNamespaces returns the allowed-namespaces list effective for
 // this request: the static (server-wide) list, optionally narrowed by the

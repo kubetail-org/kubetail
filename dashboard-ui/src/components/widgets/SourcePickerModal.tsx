@@ -13,11 +13,22 @@
 // limitations under the License.
 
 import type { TypedDocumentNode } from '@apollo/client';
-import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
-import type { Cell, ColumnDef, Row, SortDirection, SortingState, TableMeta, TableOptions } from '@tanstack/react-table';
+import {
+  columnVisibilityFeature,
+  createSortedRowModel,
+  flexRender,
+  metaHelper,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_datetime,
+  sortFn_text,
+  tableFeatures,
+  useTable,
+} from '@tanstack/react-table';
+import type { Cell, ColumnDef, Row, SortDirection, SortingState } from '@tanstack/react-table';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 
 import { Button } from '@kubetail/ui/elements/button';
 import { Checkbox } from '@kubetail/ui/elements/checkbox';
@@ -36,7 +47,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 import AdaptiveTimeAgo from '@/components/widgets/AdaptiveTimeAgo';
 import { useSession } from '@/lib/auth';
-
 import type {
   SourcePickerCronJobsListFetchQuery,
   SourcePickerDaemonSetsListFetchQuery,
@@ -66,8 +76,8 @@ import {
   SOURCE_PICKER_NAMESPACES_LIST_WATCH,
 } from '@/lib/graphql/dashboard/ops';
 import { useListQueryWithSubscription, useWorkloadCounter } from '@/lib/hooks';
-import { ALL_WORKLOAD_KINDS, KNOCKOUT_ICON_MAP, PLURAL_LABEL_MAP, WorkloadKind } from '@/lib/workload';
 import { cn } from '@/lib/util';
+import { ALL_WORKLOAD_KINDS, KNOCKOUT_ICON_MAP, PLURAL_LABEL_MAP, WorkloadKind } from '@/lib/workload';
 
 /**
  * Shared variables and types
@@ -215,10 +225,20 @@ type WorkloadTableData = {
   createdAt: Date;
 };
 
-interface WorkloadTableMeta extends TableMeta<WorkloadTableData> {
+type WorkloadTableMeta = {
   kind: WorkloadKind;
   sourceStrings: Set<string>;
-}
+};
+
+const workloadTableFeatures = tableFeatures({
+  columnVisibilityFeature,
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
+  sortFns: { alphanumeric: sortFn_alphanumeric, datetime: sortFn_datetime, text: sortFn_text },
+  tableMeta: metaHelper<WorkloadTableMeta>(),
+});
+
+type WorkloadTableFeatures = typeof workloadTableFeatures;
 
 const WORKLOAD_TABLE_COLUMNS = [
   {
@@ -254,7 +274,7 @@ const WORKLOAD_TABLE_COLUMNS = [
       return <AdaptiveTimeAgo date={createdAt} />;
     },
   },
-] satisfies ColumnDef<WorkloadTableData>[];
+] satisfies ColumnDef<WorkloadTableFeatures, WorkloadTableData>[];
 
 type SortIconProps = {
   dir: SortDirection | false;
@@ -269,18 +289,18 @@ const SortIcon = ({ dir, descFirst }: SortIconProps) => {
       return <ChevronUp className={iconCN} />;
     case 'desc':
       return <ChevronDown className={iconCN} />;
-    default: {
+    case false: {
       const Icon = descFirst ? ChevronDown : ChevronUp;
       return <Icon className={cn(iconCN, 'invisible group-hover:visible group-focus:visible')} />;
     }
   }
 };
 
-const DataTableCell = ({ cell }: { cell: Cell<WorkloadTableData, unknown> }) => (
+const DataTableCell = ({ cell }: { cell: Cell<WorkloadTableFeatures, WorkloadTableData> }) => (
   <TableCell>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
 );
 
-const DataTableRow = ({ row }: { row: Row<WorkloadTableData> }) => (
+const DataTableRow = ({ row }: { row: Row<WorkloadTableFeatures, WorkloadTableData> }) => (
   <TableRow>
     {row.getVisibleCells().map((cell) => (
       <DataTableCell key={cell.id} cell={cell} />
@@ -298,7 +318,7 @@ type DisplayWorkloadItemsProps = {
 const DisplayWorkloadItems = ({ kind, items }: DisplayWorkloadItemsProps) => {
   const { namespaceFilter } = useContext(Context);
 
-  const data = useMemo(
+  const data = useMemo<WorkloadTableData[]>(
     () =>
       items
         .filter((item) => {
@@ -314,7 +334,7 @@ const DisplayWorkloadItems = ({ kind, items }: DisplayWorkloadItemsProps) => {
           id: item.id,
           name: item.metadata.name,
           namespace: item.metadata.namespace,
-          createdAt: item.metadata.creationTimestamp,
+          createdAt: item.metadata.creationTimestamp as Date,
         })),
     [items, namespaceFilter],
   );
@@ -330,21 +350,14 @@ const DisplayWorkloadItems = ({ kind, items }: DisplayWorkloadItemsProps) => {
     [kind, data],
   );
 
-  const tableCfg = useMemo(
-    () => ({
-      data,
-      columns: WORKLOAD_TABLE_COLUMNS,
-      meta,
-      state: { sorting },
-      onSortingChange: setSorting,
-      getCoreRowModel: getCoreRowModel(),
-      getSortedRowModel: getSortedRowModel(),
-    }),
-    [data, meta, sorting, setSorting],
-  );
-
-  // eslint-disable-next-line react-hooks/incompatible-library -- useReactTable returns unmemoizable values (TanStack limitation)
-  const table = useReactTable(tableCfg as TableOptions<WorkloadTableData>);
+  const table = useTable({
+    features: workloadTableFeatures,
+    data,
+    columns: WORKLOAD_TABLE_COLUMNS,
+    meta,
+    state: { sorting },
+    onSortingChange: setSorting,
+  });
 
   return (
     <Table containerClassName="overflow-x-hidden overflow-y-auto shadow ring ring-black/5 rounded-lg h-full">
@@ -380,15 +393,17 @@ const DisplayWorkloadItems = ({ kind, items }: DisplayWorkloadItemsProps) => {
  * DisplayWorkload component
  */
 
-// Each workload kind selects a different top-level field, so the per-kind query
-// result types are mutually incompatible. This shared entry type lets a single
-// dynamic dispatch site consume any of them without a union over documents.
+// Each workload kind selects a different top-level field, so the per-kind
+// result types are mutually incompatible. The entries share these wider types,
+// and each `getItems` narrows the result back to its own query.
+type WorkloadListData = Record<string, unknown>;
+
 type WorkloadQueryConfigEntry = {
-  query: TypedDocumentNode<any, any>;
-  subscription: TypedDocumentNode<any, any>;
+  query: TypedDocumentNode<WorkloadListData, { kubeContext: string }>;
+  subscription: TypedDocumentNode<WorkloadListData, { kubeContext: string }>;
   queryDataKey: string;
   subscriptionDataKey: string;
-  getItems: (data: any) => WorkloadItem[] | undefined;
+  getItems: (data: WorkloadListData) => WorkloadItem[] | undefined;
 };
 
 const workloadQueryConfig: Record<WorkloadKind, WorkloadQueryConfigEntry> = {
@@ -397,49 +412,49 @@ const workloadQueryConfig: Record<WorkloadKind, WorkloadQueryConfigEntry> = {
     subscription: SOURCE_PICKER_CRONJOBS_LIST_WATCH,
     queryDataKey: 'batchV1CronJobsList',
     subscriptionDataKey: 'batchV1CronJobsWatch',
-    getItems: (data: SourcePickerCronJobsListFetchQuery) => data?.batchV1CronJobsList?.items,
+    getItems: (data) => (data as SourcePickerCronJobsListFetchQuery).batchV1CronJobsList?.items,
   },
   [WorkloadKind.DAEMONSETS]: {
     query: SOURCE_PICKER_DAEMONSETS_LIST_FETCH,
     subscription: SOURCE_PICKER_DAEMONSETS_LIST_WATCH,
     queryDataKey: 'appsV1DaemonSetsList',
     subscriptionDataKey: 'appsV1DaemonSetsWatch',
-    getItems: (data: SourcePickerDaemonSetsListFetchQuery) => data?.appsV1DaemonSetsList?.items,
+    getItems: (data) => (data as SourcePickerDaemonSetsListFetchQuery).appsV1DaemonSetsList?.items,
   },
   [WorkloadKind.DEPLOYMENTS]: {
     query: SOURCE_PICKER_DEPLOYMENTS_LIST_FETCH,
     subscription: SOURCE_PICKER_DEPLOYMENTS_LIST_WATCH,
     queryDataKey: 'appsV1DeploymentsList',
     subscriptionDataKey: 'appsV1DeploymentsWatch',
-    getItems: (data: SourcePickerDeploymentsListFetchQuery) => data?.appsV1DeploymentsList?.items,
+    getItems: (data) => (data as SourcePickerDeploymentsListFetchQuery).appsV1DeploymentsList?.items,
   },
   [WorkloadKind.JOBS]: {
     query: SOURCE_PICKER_JOBS_LIST_FETCH,
     subscription: SOURCE_PICKER_JOBS_LIST_WATCH,
     queryDataKey: 'batchV1JobsList',
     subscriptionDataKey: 'batchV1JobsWatch',
-    getItems: (data: SourcePickerJobsListFetchQuery) => data?.batchV1JobsList?.items,
+    getItems: (data) => (data as SourcePickerJobsListFetchQuery).batchV1JobsList?.items,
   },
   [WorkloadKind.PODS]: {
     query: SOURCE_PICKER_PODS_LIST_FETCH,
     subscription: SOURCE_PICKER_PODS_LIST_WATCH,
     queryDataKey: 'coreV1PodsList',
     subscriptionDataKey: 'coreV1PodsWatch',
-    getItems: (data: SourcePickerPodsListFetchQuery) => data?.coreV1PodsList?.items,
+    getItems: (data) => (data as SourcePickerPodsListFetchQuery).coreV1PodsList?.items,
   },
   [WorkloadKind.REPLICASETS]: {
     query: SOURCE_PICKER_REPLICASETS_LIST_FETCH,
     subscription: SOURCE_PICKER_REPLICASETS_LIST_WATCH,
     queryDataKey: 'appsV1ReplicaSetsList',
     subscriptionDataKey: 'appsV1ReplicaSetsWatch',
-    getItems: (data: SourcePickerReplicaSetsListFetchQuery) => data?.appsV1ReplicaSetsList?.items,
+    getItems: (data) => (data as SourcePickerReplicaSetsListFetchQuery).appsV1ReplicaSetsList?.items,
   },
   [WorkloadKind.STATEFULSETS]: {
     query: SOURCE_PICKER_STATEFULSETS_LIST_FETCH,
     subscription: SOURCE_PICKER_STATEFULSETS_LIST_WATCH,
     queryDataKey: 'appsV1StatefulSetsList',
     subscriptionDataKey: 'appsV1StatefulSetsWatch',
-    getItems: (data: SourcePickerStatefulSetsListFetchQuery) => data?.appsV1StatefulSetsList?.items,
+    getItems: (data) => (data as SourcePickerStatefulSetsListFetchQuery).appsV1StatefulSetsList?.items,
   },
 };
 
@@ -521,7 +536,9 @@ const NamespacePicker = () => {
             : undefined
         }
       >
-        <SelectValue placeholder="Loading...">{(value) => (value === ALL_NAMESPACES ? allLabel : value)}</SelectValue>
+        <SelectValue placeholder="Loading...">
+          {(value: string | null) => (value === ALL_NAMESPACES ? allLabel : value)}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent alignItemWithTrigger={false}>
         <SelectItem value={ALL_NAMESPACES}>{allLabel}</SelectItem>

@@ -37,6 +37,8 @@ Kubetail is organized as a monorepo with components in different languages:
   
 - **`/proto`** - Protocol Buffer definitions
 
+- **`/docs`** - Architecture Decision Records (`adr/`)
+
 ### Quick Reference
 
 | Working on... | Go to |
@@ -58,8 +60,11 @@ cd dashboard-ui
 # Install dependencies 
 pnpm install
 
-# Run linter
+# Run linter and format check
 pnpm lint
+
+# Format code and sort imports
+pnpm format
 
 # Run tests
 pnpm test run
@@ -82,20 +87,25 @@ $output = gofmt -l .; if ($output) { throw "Files need formatting: $output" }
 # Vet (static analysis)
 go vet github.com/kubetail-org/kubetail/modules/...
 
+# From the repo root: vet for Windows too, check go fix, run staticcheck
+make vet-go
+
 # Run tests
 go test -race github.com/kubetail-org/kubetail/modules/...
 ```
 
 ### Rust Crates
 
+The Rust crates form one Cargo workspace in `crates/`. Run cargo from there, not from a crate's directory. Building needs `protoc` on your `PATH`.
+
 ```bash
-cd crates/<crate-name>
+cd crates
 
 # Format check
 cargo fmt --all -- --check
 
 # Lint
-cargo clippy --all -- -D warnings
+cargo clippy --all --all-targets -- -D warnings
 
 # Run tests
 cargo test
@@ -103,6 +113,8 @@ cargo test
 # Build
 cargo build --release
 ```
+
+From the repo root, `make lint-rust`, `make vet-rust` and `make test-rust` run the same checks.
 
 ### Python (E2E Tests)
 
@@ -153,9 +165,10 @@ Signed-off-by: Your Name <you@example.com>
 ### Before Submitting
 
 1. **Check for duplicates**: Review existing [issues](https://github.com/kubetail-org/kubetail/issues) and [pull requests](https://github.com/kubetail-org/kubetail/pulls)
-2. **Run tests**: Execute all relevant tests for your changes and ensure they pass
-3. **Format code**: Run formatters for the languages you modified
-4. **Clean commits**: Ensure each commit is minimal, focused, and follows our [commit format](https://www.conventionalcommits.org)
+2. **Run the checks**: Run `make check-changed` and fix what it reports. It runs the linters, the static analysis and the tests for the areas you changed, on your platform, then lists the changed lines no test covers: cover or mark each one. `ALL_PLATFORMS=1 make check-changed` adds staticcheck and the Windows checks for the Go packages you changed; CI runs them on every PR
+3. **Clean commits**: Ensure each commit is minimal, focused, and follows our [commit format](#commit-guidelines)
+4. **Update docs**: If you change architecture, conventions or commands, update the relevant `CLAUDE.md` in the same PR
+5. **Record decisions**: A new architectural decision, or a change to one, gets an ADR in [`docs/adr/`](docs/adr/README.md)
 
 ### PR Title Format
 
@@ -170,16 +183,9 @@ Add an emoji to indicate the PR type:
 
 Your PR should include:
 
-- Link to related issue: `Fixes #123`
+- Link to related issues: `Fixes #123`
 - **Summary**: Explain the goal of your PR
 - **Key Changes**: List the specific key changes made
-
-### PR Checklist
-
-- [ ] Add the correct emoji to the PR title
-- [ ] Related issue linked above, if any
-- [ ] Commit messages use [conventional commit](https://www.conventionalcommits.org) format
-- [ ] Changes are minimal and focused
 
 ## Branch Naming Guidelines
 
@@ -193,15 +199,18 @@ Use descriptive branch names. As a suggestion, you can use this pattern:
 
 ### AI-Assisted Editors
 
-For AI-assisted editors like Claude Code, Codex, Cursor or GitHub Copilot, refer to the [`AGENTS.md`](./AGENTS.md) file for comprehensive guidance on working with this codebase.
+For AI-assisted editors like Claude Code, Codex, Cursor or GitHub Copilot, refer to the [`CLAUDE.md`](./CLAUDE.md) files (root and per area) for guidance on working with this codebase. `AGENTS.md` points to the same files.
+
+The repo's `.claude/settings.json` runs `scripts/writing-standards-hook.sh` on every prompt in Claude Code. It needs `bash` and `jq` on your `PATH` (on Windows, Git Bash or WSL).
 
 ### Visual Studio Code
 
-Recommended extensions:
-- **Go**: `golang.go`
+Recommended extensions (also listed in `.vscode/extensions.json`):
+- **Oxc**: `oxc.oxc-vscode`, which runs oxlint and oxfmt for the dashboard UI
 - **Rust**: `rust-lang.rust-analyzer`
-- **ESLint**: `dbaeumer.vscode-eslint`
-- **Prettier**: `esbenp.prettier-vscode`
+- **Go**: `golang.go`
+
+`.vscode/settings.json` formats on save with each language's formatter and turns Prettier off.
 
 ## Bots and Automation
 
@@ -226,20 +235,22 @@ As a contributor you're encouraged to use AI tools in your workflow just as you 
 
 That said, AI tools are different than classic tools because they can blur the line between helping you to do the work and doing the work for you. And when that line becomes blurry, it can limit opportunities to build the deep understanding that comes from writing and reasoning through code yourself.
 
-As an open source project, Kubetail is not only commited to building the most user-friendly logging platform for Kubernetes but also to helping our contributors grow as engineers. We invest a lot of time and effort into code quality, thoughtful reviews, and well-defined engineering specs. We do so happily because we enjoy it but also because it's our responsibility to the community.
+As an open source project, Kubetail is not only committed to building a great tool for Kubernetes operators but also to helping our contributors grow as engineers. We invest a lot of time and effort into code quality, thoughtful reviews, and well-defined engineering specs. We do so happily because we enjoy it but also because it's our responsibility to the community.
 
-In return, we ask that contributions be authored by you. While AI tools can support your workflow, submitted code should reflect your own understanding and intent. To keep our focus on meaningful collaboration within the community, we do not accept contributions authored entirely by llms.
+In return, we ask that contributions be authored by you. While AI tools can support your workflow, submitted code should reflect your own understanding and intent. To keep our focus on meaningful collaboration within the community, we do not accept contributions authored entirely by LLMs without a human in the loop.
 
-When you use an AI tool, include an Assisted-by tag in the following format:
+Every commit an AI tool helped write carries an attribution trailer. Use either of these formats:
 
 ```
 Assisted-by: AGENT_NAME:MODEL_VERSION
+Co-authored-by: NAME <EMAIL>
 ```
 
 Where:
 
-    `AGENT_NAME` is the name of the AI tool or framework
-    `MODEL_VERSION` is the specific model version used
+- `AGENT_NAME` is the name of the AI tool or framework
+- `MODEL_VERSION` is the specific model version used
+- `NAME <EMAIL>` is the name and email the AI tool commits as
 
 Example:
 

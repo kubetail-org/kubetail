@@ -14,14 +14,14 @@
 
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { createStore, Provider, useAtomValue } from 'jotai';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 
 import type { LogSourceFragmentFragment } from '@/lib/graphql/dashboard/__generated__/graphql';
 import { WatchEventType } from '@/lib/graphql/dashboard/__generated__/graphql';
 
+import { useNodes, useFacets, SourcesFetcher } from './helpers';
 import { PageContext } from './shared';
 import { sourceMapAtom } from './state';
-import { useNodes, useFacets, SourcesFetcher } from './helpers';
 
 const mockUseListQueryWithSubscription = vi.fn();
 const mockUseSubscription = vi.fn();

@@ -27,12 +27,12 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
-	"github.com/gorilla/websocket"
 	"github.com/vektah/gqlparser/v2/ast"
 
 	grpcdispatcher "github.com/kubetail-org/grpc-dispatcher-go"
 
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/directives"
+	"github.com/kubetail-org/kubetail/modules/shared/graphql/wstransport"
 	"github.com/kubetail-org/kubetail/modules/shared/httphelpers"
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
@@ -73,10 +73,8 @@ func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.D
 	// Init handler
 	h := handler.New(schema)
 
-	// SSE transport for browser-side subscriptions. Auth rides on the POST
-	// like any other GraphQL request (browsers can't set headers on a WS
-	// upgrade), so authenticationMiddleware-injected tokens reach resolvers
-	// the same way as for queries/mutations. Registered before POST so that
+	// SSE transport for subscriptions. The caller's identity rides on the
+	// POST like any other GraphQL request. Registered before POST so that
 	// requests with `Accept: text/event-stream` aren't claimed by the POST
 	// transport's broader media-type match.
 	h.AddTransport(transport.SSE{
@@ -85,39 +83,30 @@ func NewServer(cm k8shelpers.ConnectionManager, grpcDispatcher *grpcdispatcher.D
 
 	h.SetQueryCache(lru.New[*ast.QueryDocument](1000))
 
-	// Configure WebSocket. The cluster-api listener is mTLS-only, so any
-	// caller that reaches us has already authenticated via cert (direct
-	// client) or front-proxy (kube-apiserver aggregation). Browsers cannot
-	// speak mTLS to us, so CSWSH-from-browser is structurally impossible.
-	// The Origin gate stays as cheap belt-and-suspenders.
-	//
-	// When the upgrade request carries X-Forwarded-CSRF-Token (set by the
-	// dashboard's websocketCSRFContextMiddleware for browser-originated
-	// upgrades), require a matching csrfToken in the connection_init
-	// payload. Absent header means a non-browser caller and no check is
-	// performed.
-	h.AddTransport(&transport.Websocket{
-		Upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				return r.Header.Get("Origin") == ""
-			},
-			ReadBufferSize:    1024,
-			WriteBufferSize:   1024,
-			EnableCompression: false,
+	// Configure WebSocket. Every upgrade arrives through the kube-apiserver's
+	// front proxy, and the Dashboard's proxy strips Origin, so an upgrade
+	// carrying one is refused. When the upgrade carries X-Forwarded-CSRF-Token
+	// (set by the Dashboard's proxy), the connection_init payload's csrfToken
+	// must match it; without the header no token is checked.
+	h.AddTransport(wstransport.Websocket{
+		CheckOrigin: func(r *http.Request) bool {
+			return r.Header.Get("Origin") == ""
 		},
-		InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
-			expectedPtr, _ := ctx.Value(forwardedCSRFTokenCtxKey).(*string)
-			if expectedPtr == nil {
+		Websocket: transport.Websocket{
+			InitFunc: func(ctx context.Context, initPayload transport.InitPayload) (context.Context, *transport.InitPayload, error) {
+				expectedPtr, _ := ctx.Value(forwardedCSRFTokenCtxKey).(*string)
+				if expectedPtr == nil {
+					return ctx, nil, nil
+				}
+				expected := strings.TrimSpace(*expectedPtr)
+				got := strings.TrimSpace(initPayload.GetString("csrfToken"))
+				if expected == "" || got == "" || subtle.ConstantTimeCompare([]byte(got), []byte(expected)) != 1 {
+					return ctx, nil, errors.New("invalid CSRF token")
+				}
 				return ctx, nil, nil
-			}
-			expected := strings.TrimSpace(*expectedPtr)
-			got := strings.TrimSpace(initPayload.GetString("csrfToken"))
-			if expected == "" || got == "" || subtle.ConstantTimeCompare([]byte(got), []byte(expected)) != 1 {
-				return ctx, nil, errors.New("invalid CSRF token")
-			}
-			return ctx, nil, nil
+			},
+			KeepAlivePingInterval: 10 * time.Second,
 		},
-		KeepAlivePingInterval: 10 * time.Second,
 	})
 
 	h.AddTransport(transport.POST{})

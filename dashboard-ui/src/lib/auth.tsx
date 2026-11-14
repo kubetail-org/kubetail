@@ -45,6 +45,37 @@ type ContextType = {
 const Context = createContext({} as ContextType);
 
 /**
+ * Parse session
+ */
+
+// Returns null unless `value` has the shape of the session endpoint's JSON body.
+function parseSession(value: unknown): Session | null {
+  if (typeof value !== 'object' || value === null) return null;
+
+  const {
+    auth_mode: authMode,
+    user,
+    message,
+    namespace_lock: namespaceLock,
+    timestamp,
+  } = value as Record<string, unknown>;
+  if (typeof authMode !== 'string') return null;
+  if (typeof user !== 'string' && user !== null) return null;
+  if (typeof message !== 'string' && message !== null) return null;
+  if (typeof timestamp !== 'string') return null;
+  const isStringArray = Array.isArray(namespaceLock) && namespaceLock.every((ns) => typeof ns === 'string');
+  if (!isStringArray && namespaceLock !== null) return null;
+
+  return {
+    auth_mode: authMode,
+    user,
+    message,
+    namespace_lock: isStringArray ? namespaceLock : null,
+    timestamp: new Date(timestamp),
+  };
+}
+
+/**
  * Get session
  */
 
@@ -55,13 +86,13 @@ export async function getSession(): Promise<Session> {
   const tok = resp.headers.get('X-CSRF-Token');
   if (tok) csrfToken = tok;
 
-  const sess = await resp.json();
+  const body: unknown = await resp.json();
+  const sess = parseSession(body);
+  if (!sess) throw new Error('Invalid session response');
 
-  // convert timestamp
-  sess.timestamp = new Date(sess.timestamp);
-
-  // publish
-  bcOut.postMessage(sess);
+  // publish the JSON body, which each tab parses as it parsed this one
+  // oxlint-disable-next-line unicorn/require-post-message-target-origin -- A BroadcastChannel takes no origin.
+  bcOut.postMessage(body);
 
   return sess;
 }
@@ -72,15 +103,13 @@ export function resetCsrfToken(): void {
 
 export function waitForCsrfToken(): Promise<void> {
   if (csrfToken) return Promise.resolve();
-  if (!pendingTokenRefresh) {
-    pendingTokenRefresh = getSession()
-      .then(() => {
-        if (!csrfToken) throw new Error('CSRF token missing from session response');
-      })
-      .finally(() => {
-        pendingTokenRefresh = null;
-      });
-  }
+  pendingTokenRefresh ??= getSession()
+    .then(() => {
+      if (!csrfToken) throw new Error('CSRF token missing from session response');
+    })
+    .finally(() => {
+      pendingTokenRefresh = null;
+    });
   return pendingTokenRefresh;
 }
 
@@ -106,21 +135,24 @@ export const SessionProvider = ({ children }: React.PropsWithChildren) => {
 
   useEffect(() => {
     let lastTS = 0;
-    const fn = (ev: any) => {
-      const newSession = ev.data;
-      if (newSession.timestamp > lastTS) {
-        lastTS = newSession.timestamp;
+    const fn = (ev: MessageEvent<unknown>) => {
+      const newSession = parseSession(ev.data);
+      if (newSession && newSession.timestamp.getTime() > lastTS) {
+        lastTS = newSession.timestamp.getTime();
         setSession(newSession);
       }
     };
     bcIn.addEventListener('message', fn);
-    getSession();
+    void getSession();
     return () => bcIn.removeEventListener('message', fn);
   }, []);
 
   useEffect(() => {
-    document.addEventListener('visibilitychange', getSession);
-    return () => document.removeEventListener('visibilitychange', getSession);
+    const onVisibilityChange = () => {
+      void getSession();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, []);
 
   const context = useMemo(() => ({ session }), [session]);

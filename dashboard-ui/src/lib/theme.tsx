@@ -45,6 +45,7 @@ function toTheme(theme?: string): Theme {
       return Theme.Dark;
     case 'light':
       return Theme.Light;
+    case undefined:
     default:
       return Theme.System;
   }
@@ -56,7 +57,7 @@ function toThemeString(pref: Theme): string {
       return 'dark';
     case Theme.Light:
       return 'light';
-    default:
+    case Theme.System:
       return 'system';
   }
 }
@@ -67,7 +68,7 @@ function resolveTheme(pref: Theme): ResolvedTheme {
       return ResolvedTheme.Dark;
     case Theme.Light:
       return ResolvedTheme.Light;
-    default:
+    case Theme.System:
       return getMediaQuery().matches ? ResolvedTheme.Dark : ResolvedTheme.Light;
   }
 }

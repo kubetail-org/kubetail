@@ -14,7 +14,7 @@
 
 import { render } from '@testing-library/react';
 import { createMemoryHistory } from 'history';
-import { Router, MemoryRouter } from 'react-router-dom';
+import { Router, MemoryRouter } from 'react-router';
 import type { Mock } from 'vitest';
 
 import { useSession } from '@/lib/auth';

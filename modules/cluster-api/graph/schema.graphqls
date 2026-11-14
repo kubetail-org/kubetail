@@ -96,11 +96,6 @@ type LogSourceMetadata {
   node: String!
 }
 
-type LogSourceWatchEvent {
-  type: WatchEventType!
-  object: LogSource
-}
-
 # --- PageInfo ---
 
 type PageInfo {
@@ -130,15 +125,6 @@ type PageInfo {
 type PodLogQueryResponse {
   results: [LogRecord!]!
   pageInfo: PageInfo!
-}
-
-# https://pkg.go.dev/k8s.io/apimachinery/pkg/watch#EventType
-enum WatchEventType {
-  ADDED
-  MODIFIED
-  DELETED
-  BOOKMARK
-  ERROR
 }
 
 # --- root operations ---
@@ -183,11 +169,6 @@ type Subscription {
     grep: String
     sourceFilter: LogSourceFilter
   ): LogRecord @nullIfValidationFailed
-
-  """
-  LogSources API
-  """
-  logSourcesWatch(kubeContext: String, sources: [String!]!): LogSourceWatchEvent
 }
 
 # --- helpers ---

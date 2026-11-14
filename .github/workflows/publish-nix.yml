@@ -2,7 +2,6 @@ name: publish-nix
 
 permissions:
   contents: read
-  deployments: write
 
 on:
   release:
@@ -28,10 +27,13 @@ jobs:
     steps:
       - name: Config
         id: config
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "version=$INPUT_VERSION" >> $GITHUB_OUTPUT
+            echo "dry_run=$INPUT_DRY_RUN" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
             echo "dry_run=false" >> $GITHUB_OUTPUT
@@ -39,7 +41,7 @@ jobs:
 
       - name: Get kubetail-actions app token
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ vars.KUBETAIL_ACTIONS_APP_ID }}
           private-key: ${{ secrets.KUBETAIL_ACTIONS_APP_PRIVATE_KEY }}
@@ -48,7 +50,7 @@ jobs:
           permission-actions: write
 
       - name: Trigger workflow
-        uses: benc-uk/workflow-dispatch@v1.2.4
+        uses: benc-uk/workflow-dispatch@d004979be141727c7a17c28f603e2facc40d0855 # v1.3.3
         with:
           repo: kubetail-org/kubetail-nix
           workflow: release

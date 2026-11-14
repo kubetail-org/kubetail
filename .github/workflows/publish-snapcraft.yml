@@ -2,7 +2,6 @@ name: publish-snapcraft
 
 permissions:
   contents: read
-  deployments: write
 
 on:
   release:
@@ -43,11 +42,15 @@ jobs:
     steps:
       - name: Configure
         id: config
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_RELEASE: ${{ github.event.inputs.release }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-            echo "release=${{ github.event.inputs.release }}" >> $GITHUB_OUTPUT
-            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "version=$INPUT_VERSION" >> $GITHUB_OUTPUT
+            echo "release=$INPUT_RELEASE" >> $GITHUB_OUTPUT
+            echo "dry_run=$INPUT_DRY_RUN" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
             echo "release=stable" >> $GITHUB_OUTPUT
@@ -55,11 +58,12 @@ jobs:
           fi
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: .github/ci-config/snapcraft.yaml.tmpl
           sparse-checkout-cone-mode: false
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Execute snapcraft templates
         env:
@@ -74,10 +78,10 @@ jobs:
 
       - name: Build
         id: build
-        uses: snapcore/action-build@v1
+        uses: snapcore/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1.3.0
 
       - name: Publish
-        uses: snapcore/action-publish@v1
+        uses: snapcore/action-publish@214b86e5ca036ead1668c79afb81e550e6c54d40 # v1.2.0
         if: ${{ steps.config.outputs.dry_run != 'true' }}
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}

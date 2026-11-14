@@ -23,14 +23,14 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	authv1 "k8s.io/api/authorization/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
 	"github.com/kubetail-org/kubetail/modules/shared/util"
 )
 
@@ -87,14 +87,7 @@ func (a *DefaultDesktopAuthorizer) IsAllowedInformer(ctx context.Context, client
 			if time.Now().Before(cachedVal.expiration) {
 				// Cache hit and still valid
 				if !cachedVal.allowed {
-					attrs := &authv1.ResourceAttributes{
-						Namespace: namespace,
-						Group:     gvr.Group,
-						Verb:      verb,
-						Resource:  gvr.Resource,
-					}
-					fmt := "permission denied: `%s \"%s\"/\"%s\"` in namespace `%s`"
-					return status.Errorf(codes.Unauthenticated, fmt, attrs.Verb, attrs.Group, attrs.Resource, attrs.Namespace)
+					return errors.ErrForbidden
 				}
 				return nil
 			}
@@ -115,7 +108,10 @@ func (a *DefaultDesktopAuthorizer) IsAllowedInformer(ctx context.Context, client
 		}
 
 		result, err := clientset.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
-		if err != nil {
+		if apierrors.IsForbidden(err) {
+			// The caller may not create the access review itself
+			return errors.ErrForbidden
+		} else if err != nil {
 			return err
 		}
 
@@ -128,9 +124,7 @@ func (a *DefaultDesktopAuthorizer) IsAllowedInformer(ctx context.Context, client
 		}
 
 		if !result.Status.Allowed {
-			attrs := result.Spec.ResourceAttributes
-			fmt := "permission denied: `%s \"%s\"/\"%s\"` in namespace `%s`"
-			return status.Errorf(codes.Unauthenticated, fmt, attrs.Verb, attrs.Group, attrs.Resource, attrs.Namespace)
+			return errors.ErrForbidden
 		}
 
 		return nil
@@ -251,14 +245,7 @@ func (a *DefaultInClusterAuthorizer) IsAllowedInformer(ctx context.Context, rest
 			if time.Now().Before(cachedVal.expiration) {
 				// Cache hit and still valid
 				if !cachedVal.allowed {
-					attrs := &authv1.ResourceAttributes{
-						Namespace: namespace,
-						Group:     gvr.Group,
-						Verb:      verb,
-						Resource:  gvr.Resource,
-					}
-					fmt := "permission denied: `%s \"%s\"/\"%s\"` in namespace `%s`"
-					return status.Errorf(codes.Unauthenticated, fmt, attrs.Verb, attrs.Group, attrs.Resource, attrs.Namespace)
+					return errors.ErrForbidden
 				}
 				return nil
 			}
@@ -279,7 +266,10 @@ func (a *DefaultInClusterAuthorizer) IsAllowedInformer(ctx context.Context, rest
 		}
 
 		result, err := clientset.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
-		if err != nil {
+		if apierrors.IsForbidden(err) {
+			// The caller may not create the access review itself
+			return errors.ErrForbidden
+		} else if err != nil {
 			return err
 		}
 
@@ -292,9 +282,7 @@ func (a *DefaultInClusterAuthorizer) IsAllowedInformer(ctx context.Context, rest
 		}
 
 		if !result.Status.Allowed {
-			attrs := result.Spec.ResourceAttributes
-			fmt := "permission denied: `%s \"%s\"/\"%s\"` in namespace `%s`"
-			return status.Errorf(codes.Unauthenticated, fmt, attrs.Verb, attrs.Group, attrs.Resource, attrs.Namespace)
+			return errors.ErrForbidden
 		}
 
 		return nil

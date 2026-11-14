@@ -45,12 +45,16 @@ lerna-debug.log*
 /crates/target
 /target
 
+# sandbox (scripts/sandbox-dev-setup.sh)
+/.sandbox-linux
+
 # tilt (custom)
 .tilt
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea
 .DS_Store
 *.suo
@@ -59,19 +63,20 @@ lerna-debug.log*
 *.sln
 *.sw?
 
-# AI tools
-.aider/
-.cache/
+# Agents. Ignore the directory's contents rather than the directory itself, so
+# the shared team config below can be re-included — a negation cannot resurrect
+# a file whose parent directory is excluded. Personal settings
+# (settings.local.json), worktrees, lock files and personal skills stay ignored;
+# each shared skill is re-included by name.
+CLAUDE.local.md
 .claude/*
-.cody/
-.continue/
-.cursor/
-.embeddings/
-.memory/
-.sweep/
-
-# Allow Claude Skills
+!.claude/settings.json
 !.claude/skills/
+.claude/skills/*
+!.claude/skills/release-cli/
+!.claude/skills/release-cluster/
+!.claude/skills/release-notes/
+!.claude/skills/release-version/
 
 # e2e
 /e2e/.venv

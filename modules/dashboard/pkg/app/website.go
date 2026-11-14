@@ -68,7 +68,7 @@ func (app *websiteHandlers) EndpointHandler(cfg *config.Config) gin.HandlerFunc 
 	}
 
 	// define runtime config for react app
-	runtimeConfig := map[string]interface{}{
+	runtimeConfig := map[string]any{
 		"authMode":          cfg.AuthMode,
 		"basePath":          cfg.BasePath,
 		"cliVersion":        cfg.CLIVersion,

@@ -121,7 +121,7 @@ func (tw *TableWriter) ensureColumnCapacity(row []string) []string {
 		missing := tw.numCols - len(row)
 		newRow := make([]string, len(row), tw.numCols)
 		copy(newRow, row)
-		for i := 0; i < missing; i++ {
+		for range missing {
 			newRow = append(newRow, "")
 		}
 		row = newRow

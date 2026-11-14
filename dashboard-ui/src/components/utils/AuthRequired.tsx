@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { isValidElement } from 'react';
-import { useLocation, Navigate } from 'react-router-dom';
+import { useLocation, Navigate } from 'react-router';
 
 import LoadingPage from '@/components/utils/LoadingPage';
 import { useSession } from '@/lib/auth';

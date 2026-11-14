@@ -27,7 +27,7 @@ import (
 // kube-apiserver fetches /openapi/v2 once an APIService is aggregated. We
 // serve the embedded swagger.json so registration succeeds.
 func TestOpenAPIV2(t *testing.T) {
-	app := NewTestApp(nil)
+	app, _ := NewTestApp(t, nil)
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/openapi/v2", nil)
@@ -43,7 +43,7 @@ func TestOpenAPIV2(t *testing.T) {
 // /openapi/v3 returns the index of per-GV specs that the kube-apiserver can
 // aggregate. We advertise our single GV.
 func TestOpenAPIV3Index(t *testing.T) {
-	app := NewTestApp(nil)
+	app, _ := NewTestApp(t, nil)
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/openapi/v3", nil)
@@ -62,7 +62,7 @@ func TestOpenAPIV3Index(t *testing.T) {
 // our group/version. The doc just needs to be valid; clients tolerate empty
 // paths/components.
 func TestOpenAPIV3GroupVersion(t *testing.T) {
-	app := NewTestApp(nil)
+	app, _ := NewTestApp(t, nil)
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/openapi/v3/apis/api.kubetail.com/v1", nil)

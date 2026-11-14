@@ -32,7 +32,7 @@ func MarshalInt64(val int64) graphql.Marshaler {
 	})
 }
 
-func UnmarshalInt64(v interface{}) (int64, error) {
+func UnmarshalInt64(v any) (int64, error) {
 	var out int64
 	if tmpStr, ok := v.(string); ok {
 		return strconv.ParseInt(tmpStr, 10, 64)
@@ -54,7 +54,7 @@ func TimestampPBTimestamp(ts *timestamppb.Timestamp) graphql.Marshaler {
 	})
 }
 
-func UnmarshalTimestampPBTimestamp(v interface{}) (*timestamppb.Timestamp, error) {
+func UnmarshalTimestampPBTimestamp(v any) (*timestamppb.Timestamp, error) {
 	// convert to string
 	tmpStr, ok := v.(string)
 	if !ok {

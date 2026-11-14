@@ -398,13 +398,13 @@ models:
 
   # --- Helm ---
   HelmChart:
-    model: helm.sh/helm/v3/pkg/chart.Chart
+    model: helm.sh/helm/v4/pkg/chart/v2.Chart
 
   HelmChartMetadata:
-    model: helm.sh/helm/v3/pkg/chart.Metadata
+    model: helm.sh/helm/v4/pkg/chart/v2.Metadata
 
   HelmRelease:
-    model: helm.sh/helm/v3/pkg/release.Release
+    model: helm.sh/helm/v4/pkg/release/v1.Release
 
   # --- KubeConfig ---
   KubeConfig:

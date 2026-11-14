@@ -2,7 +2,6 @@ name: publish-winget
 
 permissions:
   contents: read
-  deployments: write
 
 on:
   release:
@@ -31,17 +30,20 @@ jobs:
     steps:
       - name: Configure
         id: config
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "version=$INPUT_VERSION" >> $GITHUB_OUTPUT
+            echo "dry_run=$INPUT_DRY_RUN" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Checkout winget-pkgs upstream repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: "${{ env.UPSTREAM_REPO }}"
           sparse-checkout: manifests/k/Kubetail/Kubetail
@@ -50,15 +52,16 @@ jobs:
           persist-credentials: false
 
       - name: Checkout this repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: .github/ci-config/winget
           sparse-checkout-cone-mode: false
           path: kubetail
+          persist-credentials: false
 
       - name: Download SHA256SUMS
         id: release-info
-        uses: robinraju/release-downloader@v1.12
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f # v1.13
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
@@ -82,6 +85,7 @@ jobs:
           ARM64_SHA256: ${{ steps.meta.outputs.arm64_sha256 }}
           SRC_DIR: kubetail/.github/ci-config/winget
           DST_DIR: winget-pkgs/manifests/k/Kubetail/Kubetail/${{ steps.config.outputs.version }}
+          DRY_RUN: ${{ steps.config.outputs.dry_run }}
         run: |
           mkdir -p "${DST_DIR}"
 
@@ -100,18 +104,18 @@ jobs:
             < "${SRC_DIR}/Kubetail.Kubetail.installer.yaml.tmpl" \
             > "${DST_DIR}/Kubetail.Kubetail.installer.yaml"
 
-          if [ "${{ steps.config.outputs.dry_run }}" == "true" ]; then
+          if [ "$DRY_RUN" == "true" ]; then
             ls -lah "${DST_DIR}"
             cat "${DST_DIR}"/*
           fi
 
       - name: Load kubetail-bot ssh key
-        uses: webfactory/ssh-agent@v0.9.1
+        uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # v0.10.0
         with:
           ssh-private-key: ${{ secrets.KUBETAIL_BOT_SSH_PRIVATE_KEY }}
 
       - name: Configure gpg
-        uses: crazy-max/ghaction-import-gpg@v6.3.0
+        uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
         with:
           gpg_private_key: ${{ secrets.KUBETAIL_BOT_GPG_SIGNING_KEY }}
           passphrase: ${{ secrets.KUBETAIL_BOT_GPG_PASSWORD }}
@@ -119,28 +123,33 @@ jobs:
 
       - name: Configure git
         working-directory: winget-pkgs
+        env:
+          BOT_NAME: ${{ vars.KUBETAIL_BOT_NAME }}
+          BOT_EMAIL: ${{ vars.KUBETAIL_BOT_EMAIL }}
+          GPG_FINGERPRINT: ${{ vars.KUBETAIL_BOT_GPG_SIGNING_KEY_FINGERPRINT }}
         run: |
           # Configure git
           git config --local gpg.program gpg
           git config --local commit.gpgsign true
 
-          git config --local user.name "${{ vars.KUBETAIL_BOT_NAME }}"
-          git config --local user.email "${{ vars.KUBETAIL_BOT_EMAIL }}"
-          git config --local user.signingkey "${{ vars.KUBETAIL_BOT_GPG_SIGNING_KEY_FINGERPRINT }}"
+          git config --local user.name "$BOT_NAME"
+          git config --local user.email "$BOT_EMAIL"
+          git config --local user.signingkey "$GPG_FINGERPRINT"
 
       - name: Commit changes and raise PR
         working-directory: winget-pkgs
         env:
           GH_TOKEN: ${{ secrets.AMOREY_PAT }}
+          VERSION: ${{ steps.config.outputs.version }}
+          DRY_RUN: ${{ steps.config.outputs.dry_run }}
         run: |
-          BRANCH_NAME="release-kubetail-${{ steps.config.outputs.version }}"
-          MANIFESTS_DIR="manifests/k/Kubetail/Kubetail/${{ steps.config.outputs.version }}"
+          BRANCH_NAME="release-kubetail-${VERSION}"
+          MANIFESTS_DIR="manifests/k/Kubetail/Kubetail/${VERSION}"
 
-          FORK_REPO="${{ env.FORK_REPO }}"
           FORK_REPO_OWNER=${FORK_REPO%%/*}
 
           # Add fork
-          git remote add fork "git@github.com:${{ env.FORK_REPO }}.git"
+          git remote add fork "git@github.com:${FORK_REPO}.git"
 
           # Exit if branch already exists
           if git ls-remote --exit-code --heads fork "${BRANCH_NAME}" >/dev/null 2>&1; then
@@ -161,10 +170,10 @@ jobs:
           fi
 
           # Commit
-          git commit -s -m "New version: Kubetail.Kubetail ${{ steps.config.outputs.version }}"
+          git commit -s -m "New version: Kubetail.Kubetail ${VERSION}"
 
           # Exit if dry_run
-          if [ "${{ steps.config.outputs.dry_run }}" == "true" ]; then
+          if [ "$DRY_RUN" == "true" ]; then
             ls -lah "${MANIFESTS_DIR}"
             cat "${MANIFESTS_DIR}"/*
             exit 0
@@ -175,11 +184,11 @@ jobs:
 
           # Raise PR
           gh pr create \
-            --repo "${{ env.UPSTREAM_REPO }}" \
+            --repo "$UPSTREAM_REPO" \
             --head "${FORK_REPO_OWNER}:${BRANCH_NAME}" \
             --base master \
-            --title "New version: Kubetail.Kubetail version ${{ steps.config.outputs.version }}" \
-            --body "This PR adds the manifest for Kubetail.Kubetail version ${{ steps.config.outputs.version }}."
+            --title "New version: Kubetail.Kubetail version ${VERSION}" \
+            --body "This PR adds the manifest for Kubetail.Kubetail version ${VERSION}."
 
       - name: Cleanup GPG
         if: always()

@@ -40,7 +40,6 @@ interface FakeFetchOptions extends FetchOptions {
  * Deterministic lorem ipsum generator
  */
 
-/* eslint-disable no-bitwise */
 function mulberry32(seed: number): () => number {
   let t = seed >>> 0;
   return () => {
@@ -50,7 +49,6 @@ function mulberry32(seed: number): () => number {
     return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
   };
 }
-/* eslint-enable no-bitwise */
 
 const LOREM_WORDS = [
   'lorem',
@@ -95,7 +93,6 @@ function generateLorem(seed: number, minWords: number, maxWords: number): string
   }
 
   // Collapse arbitrarily large integers deterministically
-  // eslint-disable-next-line no-bitwise
   const normalizedSeed = seed | 0;
   const rng = mulberry32(normalizedSeed);
 
@@ -255,13 +252,14 @@ export class FakeClient implements Client {
     this.subscribers.add(cb);
 
     if (sendToBuffer) {
-      (async () => {
+      void (async () => {
         const result = await this.fetchAfter({ cursor: options?.after, limit: Infinity, fetchDelayMs: 0 });
         // Write results to callback
         result.records.forEach(callback);
 
         // Get last timestamp
-        const lastTS = result.records.length ? Date.parse(result.records[result.records.length - 1].timestamp) : 0;
+        const lastRecord = result.records.at(-1);
+        const lastTS = lastRecord ? Date.parse(lastRecord.timestamp) : 0;
 
         // Empty buffer
         while (buffer.length > 0) {
@@ -350,7 +348,7 @@ export class FakeClient implements Client {
    * createRecord - Helper method to generate a record from a timestamp
    */
   protected createRecord(ts: number): LogRecord {
-    const firstTS = this.firstTS || 0;
+    const firstTS = this.firstTS ?? 0;
     const timestamp = new Date(ts).toISOString();
 
     let message = `line ${ts - firstTS}`;

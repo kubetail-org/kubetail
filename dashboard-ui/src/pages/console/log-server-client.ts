@@ -14,13 +14,6 @@
 
 import type { ApolloClient } from '@apollo/client';
 
-import {
-  LogRecordsQueryMode,
-  type LogSourceFilter,
-  type LogRecordsFragmentFragment as ServerLogRecord,
-} from '@/lib/graphql/dashboard/__generated__/graphql';
-import { LOG_RECORDS_FETCH, LOG_RECORDS_FOLLOW } from '@/lib/graphql/dashboard/ops';
-
 import type {
   Client,
   FetchOptions,
@@ -29,26 +22,26 @@ import type {
   SubscriptionCancelFunction,
   SubscriptionOptions,
 } from '@/components/widgets/log-viewer';
+import {
+  LogRecordsQueryMode,
+  type LogSourceFilter,
+  type LogRecordsFragmentFragment as ServerLogRecord,
+} from '@/lib/graphql/dashboard/__generated__/graphql';
+import { LOG_RECORDS_FETCH, LOG_RECORDS_FOLLOW } from '@/lib/graphql/dashboard/ops';
 
 /**
  * createRecord - Create LogRecord from server response item
  */
 
 function createRecord(item: ServerLogRecord): LogRecord {
+  // `timestamp` is a Time scalar, which arrives as an RFC 3339 string.
+  const timestamp = item.timestamp as string;
   return {
-    timestamp: item.timestamp,
+    timestamp,
     message: item.message,
-    cursor: item.timestamp,
+    cursor: timestamp,
     source: item.source,
   };
-}
-
-function upgradeRecords(records: any[]): LogRecord[] {
-  return records.map((r) => {
-    const copy = { ...r };
-    copy.cursor = r.timestamp;
-    return copy;
-  });
 }
 
 /**
@@ -106,7 +99,7 @@ export class LogServerClient implements Client {
     if (!result.data?.logRecordsFetch) throw new Error('unexpected');
 
     const { records, nextCursor } = result.data.logRecordsFetch;
-    return { records: upgradeRecords(records), nextCursor };
+    return { records: records.map(createRecord), nextCursor };
   }
 
   async fetchUntil(options: FetchOptions) {
@@ -124,7 +117,7 @@ export class LogServerClient implements Client {
     if (!result.data?.logRecordsFetch) throw new Error('unexpected');
 
     const { records, nextCursor } = result.data.logRecordsFetch;
-    return { records: upgradeRecords(records), nextCursor };
+    return { records: records.map(createRecord), nextCursor };
   }
 
   async fetchAfter(options: FetchOptions) {
@@ -142,7 +135,7 @@ export class LogServerClient implements Client {
     if (!result.data?.logRecordsFetch) throw new Error('unexpected');
 
     const { records, nextCursor } = result.data.logRecordsFetch;
-    return { records: upgradeRecords(records), nextCursor };
+    return { records: records.map(createRecord), nextCursor };
   }
 
   async fetchBefore(options: FetchOptions) {
@@ -160,7 +153,7 @@ export class LogServerClient implements Client {
     if (!result.data?.logRecordsFetch) throw new Error('unexpected');
 
     const { records, nextCursor } = result.data.logRecordsFetch;
-    return { records: upgradeRecords(records), nextCursor };
+    return { records: records.map(createRecord), nextCursor };
   }
 
   subscribe(callback: SubscriptionCallback, options?: SubscriptionOptions): SubscriptionCancelFunction {

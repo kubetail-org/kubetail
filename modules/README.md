@@ -33,22 +33,17 @@ go generate github.com/kubetail-org/kubetail/modules/...
 
 Using the Go toolchain directly:
 ```console
-go test github.com/kubetail-org/kubetail/modules/...
+go test -race github.com/kubetail-org/kubetail/modules/...
 ```
 
 Using the Makefile:
 ```console
 # Run tests for all Go modules
-make modules-test
+make test-go
 
 # Run linter for all Go modules
-make modules-lint
+make lint-go
 
 # Run code vetting for all Go modules
-make modules-vet
-```
-
-You can also run all Go module checks at once with:
-```console
-make modules-all
+make vet-go
 ```

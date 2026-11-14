@@ -13,13 +13,14 @@
 // limitations under the License.
 
 import { ApolloClient, ApolloLink, HttpLink, InMemoryCache, Observable } from '@apollo/client';
+import type { FieldPolicy } from '@apollo/client/cache';
 import { CombinedGraphQLErrors, CombinedProtocolErrors } from '@apollo/client/errors';
 import { ErrorLink } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
-import { ClientOptions, createClient } from 'graphql-ws';
 import { getOperationAST, OperationTypeNode } from 'graphql';
-import toast from 'react-hot-toast';
+import { ClientOptions, createClient } from 'graphql-ws';
+import { toast } from 'react-hot-toast';
 
 import appConfig from '@/app-config';
 import { waitForCsrfToken, getCsrfToken, resetCsrfToken } from '@/lib/auth';
@@ -63,14 +64,14 @@ const createRetryWait = (basepath: string) => {
   return async () => {
     let healthy = false;
     while (!healthy) {
-      // eslint-disable-next-line no-await-in-loop
+      // oxlint-disable-next-line no-await-in-loop -- Each retry waits for the one before it.
       await waitUntilVisible();
 
-      // eslint-disable-next-line no-await-in-loop
+      // oxlint-disable-next-line no-await-in-loop -- Each retry waits for the one before it.
       await waitUntilOnline();
 
       try {
-        // eslint-disable-next-line no-await-in-loop
+        // oxlint-disable-next-line no-await-in-loop -- Each retry waits for the one before it.
         const response = await fetch(healthzUrl, { signal: AbortSignal.timeout(HEALTHZ_TIMEOUT_MS) });
         if (response.ok) healthy = true;
       } catch {
@@ -78,13 +79,13 @@ const createRetryWait = (basepath: string) => {
       }
 
       if (!healthy) {
-        // eslint-disable-next-line no-await-in-loop
+        // oxlint-disable-next-line no-await-in-loop -- Each retry waits for the one before it.
         await sleep(HEALTHZ_RETRY_DELAY_MS);
       }
     }
 
     // Always back off before reconnecting, even when healthy
-    const backoff = WS_RETRY_BACKOFF_MS + Math.random() * WS_RETRY_BACKOFF_JITTER_MS; // 3–5s jitter
+    const backoff = WS_RETRY_BACKOFF_MS + Math.random() * WS_RETRY_BACKOFF_JITTER_MS; // 1–2s
     await sleep(backoff);
   };
 };
@@ -150,7 +151,7 @@ const csrfLink = new ApolloLink((operation, forward) => {
         if (tok) setHeader(tok);
         innerSub = forward(operation).subscribe(subscriber);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         if (!cancelled) subscriber.error(err);
       });
 
@@ -229,28 +230,36 @@ const dateField = {
   },
 };
 
+type K8sList = {
+  metadata: { continue: string };
+  items: unknown[];
+};
+
 export function k8sPagination() {
   return {
     keyArgs: ['kubeContext', 'namespace', 'options', ['labelSelector'], '@connection', ['key']],
-    merge(existing: any, incoming: any, x: any) {
+    merge(existing: K8sList | undefined, incoming: K8sList, { args }: { args: Record<string, unknown> | null }) {
       // first call
       if (existing === undefined) return incoming;
 
+      const continueArg = (args?.options as { continue?: string } | null | undefined)?.continue;
+
       // refetch call
-      if (x.args.options?.continue === '') return incoming;
+      if (continueArg === '') return incoming;
 
       // merge if incoming is called with continue arg from existing
-      if (x.args.options.continue && x.args.options.continue === existing.metadata.continue) {
-        const mergedObj = { ...existing };
-        mergedObj.metadata = incoming.metadata;
-        mergedObj.items = [...existing.items, ...incoming.items];
-        return mergedObj;
+      if (continueArg && continueArg === existing.metadata.continue) {
+        return {
+          ...existing,
+          metadata: incoming.metadata,
+          items: [...existing.items, ...incoming.items],
+        };
       }
 
       // otherwise take existing
       return existing;
     },
-  };
+  } satisfies FieldPolicy<K8sList>;
 }
 
 export class DashboardCustomCache extends InMemoryCache {

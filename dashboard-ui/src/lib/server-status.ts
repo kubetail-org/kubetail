@@ -13,15 +13,15 @@
 // limitations under the License.
 
 import { useSubscription } from '@apollo/client/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { dashboardWSClient } from '@/apollo-client';
 import appConfig from '@/app-config';
-import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 import {
   HealthCheckStatus,
   type HealthCheckResponseFragmentFragment,
 } from '@/lib/graphql/dashboard/__generated__/graphql';
+import * as dashboardOps from '@/lib/graphql/dashboard/ops';
 
 export const enum Status {
   Healthy = 'HEALTHY',
@@ -46,7 +46,8 @@ export class ServerStatus {
   static fromHealthCheckResponse(healthCheckResponse: HealthCheckResponseFragmentFragment | undefined) {
     const ss = new ServerStatus({
       message: healthCheckResponse?.message || null,
-      lastUpdatedAt: healthCheckResponse?.timestamp || null,
+      // `timestamp` is a Time scalar, which arrives as an RFC 3339 string.
+      lastUpdatedAt: healthCheckResponse?.timestamp ? new Date(healthCheckResponse.timestamp as string) : null,
     });
 
     switch (healthCheckResponse?.status) {
@@ -59,7 +60,9 @@ export class ServerStatus {
       case HealthCheckStatus.Notfound:
         ss.status = Status.NotFound;
         break;
-      default:
+      case HealthCheckStatus.Failure:
+      case HealthCheckStatus.Unknown:
+      case undefined:
         ss.status = Status.Unhealthy;
     }
 
@@ -107,12 +110,12 @@ export function useKubernetesAPIServerStatus(kubeContext: string) {
     variables: { kubeContext },
   });
 
-  // Return unknown status until we have data
-  if (!data?.kubernetesAPIHealthzWatch) {
-    return new ServerStatus();
-  }
-
-  return ServerStatus.fromHealthCheckResponse(data.kubernetesAPIHealthzWatch);
+  // Memoized: `useEffectServerStatus` reruns when the object changes.
+  return useMemo(() => {
+    // Return unknown status until we have data
+    if (!data?.kubernetesAPIHealthzWatch) return new ServerStatus();
+    return ServerStatus.fromHealthCheckResponse(data.kubernetesAPIHealthzWatch);
+  }, [data]);
 }
 
 export function useClusterAPIServerStatus(kubeContext: string) {
@@ -121,19 +124,20 @@ export function useClusterAPIServerStatus(kubeContext: string) {
     variables: { kubeContext },
   });
 
-  // Handle error state
-  if (error?.message === 'not available') {
-    return new ServerStatus({
-      status: Status.NotFound,
-      message: 'Not available',
-      lastUpdatedAt: new Date(),
-    });
-  }
+  const isNotAvailable = error?.message === 'not available';
 
-  // Return unknown status until we have data
-  if (!data?.clusterAPIHealthzWatch) {
-    return new ServerStatus();
-  }
+  // Memoized: `useEffectServerStatus` reruns when the object changes.
+  return useMemo(() => {
+    if (isNotAvailable) {
+      return new ServerStatus({
+        status: Status.NotFound,
+        message: 'Not available',
+        lastUpdatedAt: new Date(),
+      });
+    }
 
-  return ServerStatus.fromHealthCheckResponse(data.clusterAPIHealthzWatch);
+    // Return unknown status until we have data
+    if (!data?.clusterAPIHealthzWatch) return new ServerStatus();
+    return ServerStatus.fromHealthCheckResponse(data.clusterAPIHealthzWatch);
+  }, [isNotAvailable, data]);
 }

@@ -21,9 +21,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/release"
-	"k8s.io/utils/ptr"
+	chart "helm.sh/helm/v4/pkg/chart/v2"
+	release "helm.sh/helm/v4/pkg/release/v1"
 
 	sharedcfg "github.com/kubetail-org/kubetail/modules/shared/config"
 	"github.com/kubetail-org/kubetail/modules/shared/graphql/errors"
@@ -80,8 +79,8 @@ func TestAllowedNamespacesGetQueries(t *testing.T) {
 		setNamespace *string
 	}{
 		{"namespace not specified", nil},
-		{"namespace specified but not allowed", ptr.To("nsforbidden")},
-		{"namespace specified as wildcard", ptr.To("")},
+		{"namespace specified but not allowed", new("nsforbidden")},
+		{"namespace specified as wildcard", new("")},
 	}
 
 	for _, tt := range tests {
@@ -113,6 +112,10 @@ func TestAllowedNamespacesGetQueries(t *testing.T) {
 			_, err = r.CoreV1PodsGet(context.Background(), nil, tt.setNamespace, "", nil)
 			assert.NotNil(t, err)
 			assert.Equal(t, err, errors.ErrForbidden)
+
+			_, err = r.CoreV1ServicesGet(context.Background(), nil, tt.setNamespace, "", nil)
+			assert.NotNil(t, err)
+			assert.Equal(t, err, errors.ErrForbidden)
 		})
 	}
 }
@@ -135,7 +138,7 @@ func TestAllowedNamespacesListQueries(t *testing.T) {
 		setNamespace *string
 	}{
 		{"namespace not specified", nil},
-		{"namespace specified but not allowed", ptr.To("nsforbidden")},
+		{"namespace specified but not allowed", new("nsforbidden")},
 	}
 
 	for _, tt := range tests {
@@ -198,13 +201,6 @@ func TestDesktopOnlyRequests(t *testing.T) {
 	t.Run("helmListReleases", func(t *testing.T) {
 		r := &queryResolver{resolver}
 		_, err := r.HelmListReleases(context.Background(), nil)
-		assert.NotNil(t, err)
-		assert.Equal(t, err, errors.ErrForbidden)
-	})
-
-	t.Run("helmInstallLatest", func(t *testing.T) {
-		r := &mutationResolver{resolver}
-		_, err := r.HelmInstallLatest(context.Background(), nil)
 		assert.NotNil(t, err)
 		assert.Equal(t, err, errors.ErrForbidden)
 	})

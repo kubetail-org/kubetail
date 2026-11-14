@@ -14,6 +14,7 @@
 
 use std::error::Error;
 use std::fs::read_to_string;
+use std::future::Future;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -24,6 +25,7 @@ use tokio::signal::unix::{SignalKind, signal};
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 use tonic::transport::{Certificate, Identity, Server, ServerTlsConfig};
+use tonic_health::server::HealthReporter;
 use tracing::info;
 use types::cluster_agent::FILE_DESCRIPTOR_SET;
 use types::cluster_agent::log_metadata_service_server::LogMetadataServiceServer;
@@ -32,6 +34,7 @@ use types::cluster_agent::log_records_service_server::LogRecordsServiceServer;
 mod auth;
 mod authorizer;
 mod config;
+mod health;
 mod log_metadata;
 mod log_records;
 use authorizer::Authorizer;
@@ -40,6 +43,7 @@ use log_records::LogRecordsImpl;
 
 use crate::config::{Config, LoggingConfig, TlsConfig};
 
+// coverage:ignore-start the entry point runs only as the deployed binary
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let mut config = parse_config().await?;
@@ -48,7 +52,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let authorizer = Authorizer::new().await?;
 
-    let (_, agent_health_service) = tonic_health::server::health_reporter();
+    let (health_reporter, agent_health_service) = tonic_health::server::health_reporter();
     let reflection_service = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
         .build_v1()?;
@@ -79,12 +83,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
         auth::interceptor(allowed_names.clone()),
     );
 
+    health::set_serving(&health_reporter).await;
+
     server
         .add_service(agent_health_service)
         .add_service(reflection_service)
         .add_service(log_metadata_svc)
         .add_service(log_records_svc)
-        .serve_with_shutdown(config.address, shutdown(root_ctx))
+        .serve_with_shutdown(
+            config.address,
+            shutdown(wait_for_signal(), root_ctx, health_reporter),
+        )
         .await?;
 
     task_tracker.close();
@@ -94,6 +103,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+// coverage:ignore-stop
 
 #[allow(clippy::cognitive_complexity)]
 async fn parse_config() -> Result<Config, Box<dyn Error + 'static>> {
@@ -169,17 +179,54 @@ fn configure_logging(logging_config: &LoggingConfig) -> Result<(), Box<dyn Error
     Ok(())
 }
 
-async fn shutdown(ctx_token: CancellationToken) {
+/// Waits for `signal`, then reports not serving before cancelling `ctx_token`,
+/// so a health check sees the drain before the listener closes.
+async fn shutdown(
+    signal: impl Future<Output = ()>,
+    ctx_token: CancellationToken,
+    health_reporter: HealthReporter,
+) {
+    signal.await;
+    health::set_not_serving(&health_reporter).await;
+    ctx_token.cancel();
+}
+
+// coverage:ignore-start waits on a real process signal
+async fn wait_for_signal() {
     let mut term = signal(SignalKind::terminate()).expect("Failed to register SIGTERM handler");
 
     tokio::select! {
-        _ = ctrl_c()  => {
-            info!("SIGINT received, initiating shutdown..");
-            ctx_token.cancel();
-        },
-        _ = term.recv() => {
-            info!("SIGTERM received, initiating shutdown..");
-            ctx_token.cancel();
-        },
+        _ = ctrl_c()  => info!("SIGINT received, initiating shutdown.."),
+        _ = term.recv() => info!("SIGTERM received, initiating shutdown.."),
+    }
+}
+// coverage:ignore-stop
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use tonic::Request;
+    use tonic_health::pb::HealthCheckRequest;
+    use tonic_health::pb::health_check_response::ServingStatus;
+    use tonic_health::pb::health_server::Health;
+    use tonic_health::server::HealthService;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn shutdown_reports_not_serving_and_cancels() {
+        let reporter = HealthReporter::new();
+        health::set_serving(&reporter).await;
+        let ctx = CancellationToken::new();
+
+        shutdown(std::future::ready(()), ctx.clone(), reporter.clone()).await;
+
+        let response = HealthService::from_health_reporter(reporter)
+            .check(Request::new(HealthCheckRequest::default()))
+            .await
+            .unwrap();
+        assert_eq!(response.into_inner().status(), ServingStatus::NotServing);
+        assert!(ctx.is_cancelled());
     }
 }

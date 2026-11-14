@@ -18,11 +18,12 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"sync"
 	"time"
 
-	set "github.com/deckarep/golang-set/v2"
+	set "github.com/deckarep/golang-set/v3"
 
 	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
@@ -256,10 +257,7 @@ func (s *stream) handleSourceAdd(source LogSource) {
 	}
 
 	// Forward records in goroutine
-	s.futureWG.Add(1)
-	go func() {
-		defer s.futureWG.Done()
-
+	s.futureWG.Go(func() {
 		for {
 			select {
 			case <-s.rootCtx.Done():
@@ -285,7 +283,7 @@ func (s *stream) handleSourceAdd(source LogSource) {
 				}
 			}
 		}
-	}()
+	})
 
 	// Add to sources
 	s.sources.Add(source)
@@ -414,11 +412,11 @@ func (s *stream) startTail_UNSAFE() error {
 		}
 
 		// Send the tail records in reverse order
-		for i := len(tailRecords) - 1; i >= 0; i-- {
+		for _, record := range slices.Backward(tailRecords) {
 			select {
 			case <-ctx.Done():
 				return
-			case s.pastCh <- tailRecords[i]:
+			case s.pastCh <- record:
 			}
 		}
 	}()

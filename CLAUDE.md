@@ -1,136 +1,133 @@
 # Kubetail
 
-## Architecture
+A real-time logging dashboard for Kubernetes, in one monorepo. `dashboard-ui/`, `modules/` and each module in it, `crates/`, `proto/` and `e2e/` have a guide of their own.
 
-Monorepo with a TypeScript+React frontend, Go backends, and Rust in-cluster components:
+- **`dashboard-ui/`** — the React single-page app.
+- **`modules/`** — a Go workspace of four modules:
+  - **`dashboard/`** — the Dashboard backend: serves the UI, a GraphQL API over the Kubernetes API, sessions and the proxy to the Cluster API.
+  - **`cluster-api/`** — the Cluster API: a GraphQL server inside the cluster that reads logs through the Cluster Agents.
+  - **`cli/`** — the `kubetail` CLI. `kubetail serve` runs the Dashboard on the user's machine; `kubetail logs` prints logs in the terminal.
+  - **`shared/`** — Go packages the other three import.
+- **`crates/`** — a Rust workspace: the Cluster Agent (`cluster_agent`), one per node, and the log file reader it links (`rgkl`).
+- **`proto/`** — the gRPC contract between the Cluster API and the Cluster Agent.
+- **`config/default/`** — the documented default config file of each component. Defaults are set in each component's code; change both. → [ADR: each component owns its config](docs/adr/2026-11-09-each-component-owns-its-config.md)
+- **`tools/`** — a Go module outside the workspace: the coverage tools CI runs, `releasenotes` (the `release-notes` skill's), and pins of the Go tools CI runs (`actionlint`, `govulncheck`, the protoc plugins), so Dependabot moves them.
+- **`build/package/`** — the release Dockerfiles. Each copies only the directories its component needs.
+- **`hack/tilt/kubetail.yaml`** — the whole dev deployment.
+- **`e2e/`** — end-to-end tests in Python, run against a kind cluster.
+- **`docs/adr/`** — Architecture Decision Records: why the design is the way it is.
 
-- **CLI** (`modules/cli/`) — Go CLI that embeds the dashboard UI
-- **Dashboard Backend** (`modules/dashboard/`) — Go/Gin HTTP server with GraphQL API (gqlgen)
-- **Dashboard Frontend** (`dashboard-ui/`) — React/Vite SPA with Apollo Client, Tailwind CSS, Jotai
-- **Cluster API** (`modules/cluster-api/`) — Go GraphQL API server for cluster operations
-- **Cluster Agent** (`crates/cluster_agent/`) — Rust agent running in Kubernetes clusters
-- **Log Search Engine** (`crates/rgkl/`) — High-performance Rust binary for log searching/streaming
-- **Shared Libraries** (`modules/shared/`) — Common Go packages shared across services
+**The Helm chart is not in this repo.** A change that needs a new permission, Secret, port, environment variable or config key is made in `hack/tilt/kubetail.yaml` and `e2e/manifests/base.yaml.tmpl` here, and says in the PR that the chart needs the same.
 
-GraphQL for user-facing APIs, gRPC + Protocol Buffers for inter-service communication.
-
-The Cluster API is exposed to the Dashboard as a Kubernetes APIService (aggregation layer): the Dashboard's `/cluster-api-proxy/*` route forwards to the kube-apiserver, which routes to the cluster-api Service via the registered APIService. This applies in both desktop and in-cluster modes — the Dashboard never dials the cluster-api directly. Authentication is handled by kube-apiserver (user's kubeconfig credentials in desktop mode; the Dashboard's ServiceAccount, or a session bearer token if set, in-cluster). The TLS leg is kube-apiserver ↔ cluster-api, configured via the APIService and the `kubetail-cluster-api-tls` / `kubetail-ca` secrets.
-
-## Project Structure
-
-```
-dashboard-ui/         — React/Vite frontend (pnpm)
-modules/cli/          — CLI Go module
-modules/dashboard/    — Dashboard Go backend
-modules/cluster-api/  — Cluster API Go backend
-modules/shared/       — Shared Go libraries
-modules/go.work       — Go workspace config
-crates/cluster_agent/ — Rust cluster agent
-crates/rgkl/          — Rust log search engine
-proto/                — Protocol Buffer definitions
-config/default/       — Default config files (cli, dashboard, cluster-api, cluster-agent)
-hack/manifests/       — Test manifests
-hack/test-configs/    — Test configurations
-hack/tilt             - Tilt configurations
-Makefile              — Build orchestration
-Tiltfile              — Local Kubernetes dev setup
-```
-
-Frontend builds are embedded into Go binaries via `embed.go`.
-
-## Local Development
+## Local development
 
 ```sh
-# Tilt (all infra + services)
-tilt up
-
-# Frontend dev server
-cd dashboard-ui && pnpm install && pnpm dev
-
-# Dashboard backend
-cd modules/dashboard && go run cmd/main.go -c hack/config.yaml
-
-# Full CLI build (with embedded dashboard UI)
-make
+tilt up                                                          # the whole stack on a local cluster
+cd dashboard-ui && pnpm install && pnpm dev                      # UI dev server, proxying to :4000
+cd modules/dashboard && go run cmd/main.go -c hack/config.yaml   # Dashboard backend on :4000
+make                                                             # the CLI with the UI embedded, in bin/kubetail
 ```
 
-## Testing
+`make build-dashboard-ui` builds the UI and copies it to `modules/dashboard/website/`, which the Dashboard embeds. `pnpm build` alone changes nothing a Go binary serves. → [ADR: embed the UI by a copy step](docs/adr/2026-11-09-embed-the-ui-by-a-copy-step-and-render-from-the-vite-manifest.md)
 
-```sh
-# Frontend tests (single pass):
-cd dashboard-ui && pnpm test run
+**In the Linux sandbox on a macOS host, `scripts/sandbox-dev-setup.sh` runs before any build, test or install.** A `SessionStart` hook runs it; it is idempotent, so run it yourself if unsure. It keeps Linux build outputs off the host's paths: Cargo's `target/`, the pnpm store and each worktree's `dashboard-ui/node_modules` live under `/home/agent/kubetail-build`, and `dashboard-ui/dist` under `.sandbox-linux/`. pnpm uses its global virtual store there, so `node_modules` holds symlinks into a store every worktree shares: never edit a file under it. After the script remounts `node_modules`, run `pnpm install`. It also pins Go to CI's version (rerun it after bumping the `go-version` default in `.github/actions/setup-environment/action.yml`) and replaces an image `uv` that crashes. → [ADR: keep the sandbox's build outputs off the host mount](docs/adr/2026-11-09-keep-the-sandboxs-build-outputs-off-the-host-mount.md)
 
-# Go tests (all modules):
-cd modules && go test -race github.com/kubetail-org/kubetail/modules/...
+## How a request travels
 
-# Go tests (single module):
-cd modules/<module-name> && go test ./...
+**There are two environments, and code branches on them by name** (`config.Environment` in `modules/shared/config`). `desktop` is `kubetail serve` and `kubetail logs` on the user's machine: credentials come from the kubeconfig, and a query names its kube context, the kubeconfig's current one by default. `cluster` is the Dashboard deployed in the cluster, or the CLI with `--in-cluster`: the kube context is the empty string, and a request runs as the token it carries, or as the Dashboard's ServiceAccount when `auth-mode` is `auto` and it carries none. → [ADR: one implementation per environment](docs/adr/2026-11-09-one-implementation-per-environment-behind-an-interface.md)
 
-# Rust tests:
-cd crates/rgkl && cargo test
+**The browser talks only to the Dashboard backend**: GraphQL at `/graphql` (POST, and WebSocket for subscriptions) and a few REST routes under `/api/`.
+
+**Logs have two backends** behind `LogFetcher` (`modules/shared/logs`). `KubeLogFetcher` reads the pod log endpoint of the Kubernetes API. `AgentLogFetcher`, used when the Cluster API is installed, asks the Cluster Agent on the pod's node, which reads the file on disk and greps it there. → [ADR: read logs through two backends](docs/adr/2026-11-09-read-logs-through-two-backends-behind-logfetcher.md)
+
+**Nothing dials the Cluster API directly.** It is the Kubernetes APIService `v1.api.kubetail.com`, so every caller goes through the kube-apiserver, which authenticates the caller and forwards the identity in front-proxy headers. → [ADR: reach the Cluster API through the aggregation layer](docs/adr/2026-11-09-reach-the-cluster-api-through-the-aggregation-layer.md)
+
+```
+browser ──> Dashboard /cluster-api-proxy/[<kubeContext>/]… ──> kube-apiserver ──> Cluster API ──gRPC, mTLS──> Cluster Agent (per node)
+kubetail logs ───────────────────────────────────────────────> kube-apiserver ──> Cluster API
 ```
 
-Always use `pnpm` (not `npx`) to run frontend tests.
+## Generated code
 
-Never use `time.Sleep` (Go) or `setTimeout`/manual delays (TypeScript) in tests to wait for asynchronous state. Use channels, synchronization primitives, or condition-based polling instead.
+Generated Go and TypeScript are committed and never hand-edited: `*.pb.go`, `graph/generated.go`, `graph/model/models_gen.go`, `dashboard-ui/src/lib/graphql/*/__generated__/`. The Rust gRPC code is generated on every build and never committed. Regenerate after editing a source: `proto/CLAUDE.md` for the proto, `modules/CLAUDE.md` for a GraphQL schema, `dashboard-ui/CLAUDE.md` for the UI's operations. `make check-generated` runs every generator, `modules/cli/assets/`'s copy of `config/default/cli.*` among them, and fails if a committed file changed; CI's `Generated · Check` runs it. → [ADR: commit generated Go and TypeScript](docs/adr/2026-11-09-commit-generated-go-and-typescript-generate-rust-at-build-time.md), [ADR: check generated code in CI by regenerating it](docs/adr/2026-11-10-check-generated-code-in-ci-by-regenerating-it.md)
 
-## Import Order (JavaScript/TypeScript)
+## These guides
 
-Organize imports into three groups separated by blank lines, sorted alphabetically by path within each group:
+Each guide has an `AGENTS.md` symlink beside it; a new guide gets one. This file holds what crosses areas.
 
-1. **Third-party** — packages from `node_modules` (e.g. `react`, `@apollo/client`, `jotai`)
-2. **First-party packages** — self-authored packages from `node_modules` (e.g. `@kubetail/*`)
-3. **Local** — relative imports (e.g. `@/*`, `./*`)
+- **Update a guide in the same change** as the invariant, convention or command it states.
+- **Keep them light: they are read on every task.** A line belongs when a change would go wrong without it and the files being edited do not say it: an invariant, a convention, a command, a coupling between files, a trap. What a file holds, what a function does and which flags or keys exist are read from the code. State a fact once, in the narrowest guide that covers it.
+- **They state what is true now.** Why a design was chosen, and what was rejected, goes in an ADR ([`docs/adr/README.md`](docs/adr/README.md)), linked from the guide that states the decision. When a decision changes, write a new ADR, flip the old one's status and repoint every link in the same commit. A guide never links a superseded ADR.
+- **Describe the present, not the past**, in guides and code comments alike: drop "used to", "no longer", "formerly", and notes on what was renamed or removed. A contrast with an external system ("unlike client-go's default") is fine. `docs/adr/` is the one exemption: it is an append-only record.
 
-## JavaScript/TypeScript Linting
+## Writing standards
 
-After every set of changes to JavaScript/TypeScript files, run `pnpm lint --fix` inside the affected package directory:
+For every hand-written file, not generated output or lockfiles.
 
-```sh
-cd dashboard-ui && pnpm lint --fix
-```
+1. **Code — simple, idiomatic, easy for a human to follow.** Prefer the boring construction. Match the idiom of the file you are in.
+2. **Comments — terse, necessary, easy for a human to read.** Say what the code cannot: the why, the invariant, the trap. Never restate the code, argue against an alternative you rejected (that is what `docs/adr/` is for), address a reviewer or point at a PR.
+3. **Documentation — simple, concise, easy for a human to read.** Lead with what is true now. One idea per sentence.
 
-## Go Formatting
+`scripts/writing-standards-hook.sh` (`.claude/settings.json`) restates these every turn. Keep the two in sync.
 
-After every set of changes to Go files, run `go fmt ./...` inside each affected module directory:
+**Every hand-written Go, Rust and TypeScript file opens with the Apache 2.0 header**, first line `Copyright 2024 The Kubetail Authors`, copied from a neighbouring file. `make lint-go`, `lint-rust` and `lint-ts` fail on one without (`scripts/check-license-headers.sh`). Python and shell files carry none.
 
-```sh
-cd modules/dashboard && go fmt ./...
-cd modules/cluster-api && go fmt ./...
-cd modules/shared && go fmt ./...
-cd modules/cli && go fmt ./...
-```
+Older files predate these standards. Leave unrelated lines alone: a cleanup is a commit of its own.
 
-## Rust Formatting
+## Testing conventions
 
-After every set of changes to Rust files:
+Each area's guide adds its tooling and how it waits. → [ADR: test conventions](docs/adr/2026-11-09-tests-sit-beside-their-files-never-sleep-and-take-seams-as-parameters.md)
 
-```sh
-cd crates/rgkl && cargo fmt --all
-cd crates/rgkl && cargo clippy --all -- -D warnings
-```
+- **Every test file sits beside the file it covers** (`foo_test.go`, `foo.test.tsx`, an inline `mod tests` in Rust). A test with no counterpart means the unit is buried in a larger file: split it out.
+- **No magic sleeps.** Never `time.Sleep`, `setTimeout` or a manual delay to wait for asynchronous state: wait on the unit's own signal, with a deadline as the failsafe.
+- **Two bounded waits are allowed, and each says so in a comment**: a negative assertion (the channel that must stay silent, against a short timer), and latency injected into a fake to make a race determinate.
+- **Pace a timing-dependent unit by parameter, not constant.**
+- **A test seam is a parameter or a field, never a swapped package variable or a global mode.**
+- **A change to a security boundary ships with the test that pins it**, named for the property (`TestAggregationAuth_RejectsTrustedCertAppendedAsChainEntry`, `stream_forward_denies_before_file_lookup`).
+- **Every line a PR changes is covered.** CI's `coverage / Gate` fails on a changed line no test reaches, or on a total more than 0.1 points below the base; `make cover-changed` lists the same lines locally. → [ADR: gate PRs on changed lines with Codecov's merged result](docs/adr/2026-11-09-gate-prs-on-changed-lines-with-codecovs-merged-result.md)
+- **A line no test can reach is marked with its reason**: `// coverage:ignore <reason>` at the end of the line a Go statement or function begins on, or `// coverage:ignore-start <reason>` … `// coverage:ignore-stop` in Go and, each on a line of its own, in Rust; `/* v8 ignore next -- <reason> */` (or `start`/`stop`) in TypeScript. A marker without a reason exempts nothing and fails the lint (`scripts/check-coverage-markers.sh`). Generated code and test helpers are left out in `.github/codecov.yml`; `scripts/cover-changed.sh` holds the same list.
 
-## Code Generation
+## Checks
 
-- **GraphQL schemas**: `gqlgen.yml` and `schema.graphqls` in relevant modules
-- **Protocol Buffers**: Defined in `proto/`
-- **Frontend GraphQL types**: `cd dashboard-ui && pnpm graphql-codegen`
-- **Backend types**: `cd modules && go generate github.com/kubetail-org/kubetail/modules/...`
+Run the checks in the guide of every area you touched before you finish. For `scripts/`: `make lint-sh` and `make test-sh`.
+
+- **`make check-changed` is the run before a pull request**: the linters and vets of the areas the branch changed, side by side with `cover-changed` and the tests it does not run (`test-changed`). It checks this platform alone: Go's vet covers the changed packages and their importers (`vet-go-changed`), and `ALL_PLATFORMS=1` adds staticcheck and the Windows pass. CI checks every package and platform. `make check` runs `lint`, `vet` and `test` for every area. Each target is `<verb>` for every area or `<verb>-<area>` for one (`lint-go`, `vet-rust`, `test-ts`); `make help` lists them. `vet-ts` type-checks the UI with `tsc -b`; no target runs `vite build` or the checks of `tools/`.
+- **`scripts/check-changed.sh` maps a changed path to its area's targets.** A new area, or a new linter in `make lint`, goes there as well as in `.github/ci-config/path-filters.yml`. The `*-changed.sh` scripts read the changed paths, Go packages and vitest scope from `scripts/changed.sh`.
+- **Markdown links are checked offline in CI** (`make lint-md`): a moved or renamed file breaks every relative link to it.
+- **On a pull request, CI picks its jobs by path**, from `.github/ci-config/path-filters.yml`. A change to `config/`, `hack/` or `e2e/` alone runs no Go, Rust or TypeScript job. Run the affected checks yourself. A push to `main` runs every job.
+- **Only runs on `main` save CI caches; PRs only read them.** `CACHE_MODE` in `ci.yml` decides, and `Caches · Prune` keeps the newest of each. A Go job that saves does it in its last step, and its test flags must match a PR's, or a PR replays no cached test result.
+- **A PR runs each OS once; `main` runs the other platforms.** On a PR, `Go · Build and Test` runs on linux/amd64 alone, since `coverage.yml` tests macOS and Windows. `Docker · Build` runs when the PR touches any Go, Rust or TypeScript path, and builds the cli image's `final` stage for amd64 alone unless a Dockerfile changed: E2E builds the other images. The arm64 legs and the Alpine and 386 jobs run only on `main`, so a failure on those platforms shows up after merge. The riscv64 tests and images run weekly, in `riscv64.yml`. → [ADR: run each OS once on a PR and the other platforms on main](docs/adr/2026-11-10-run-each-os-once-on-a-pr-and-the-other-platforms-on-main.md), [ADR: run the riscv64 jobs weekly](docs/adr/2026-11-10-run-the-riscv64-jobs-weekly.md)
+- **CI checks each component on every platform it ships for, except the gaps the ADR lists with a reason.** The CLI builds for every shipped platform on `main`, and its unit tests run on every OS and arch a runner has, with 386 standing in for 32-bit arm. E2E runs on Linux alone: amd64 on a PR, arm64 too on `main`. A new shipped platform or image target, or code specific to one OS or arch, updates the ADR's matrix. → [ADR: test each component on the platforms it ships for](docs/adr/2026-11-10-test-each-component-on-the-platforms-it-ships-for.md)
+- **The end-to-end suite runs when a PR touches any Go, Rust or TypeScript path.** A PR that changes only `e2e/` does not run the suite: run `make test-e2e` yourself (`e2e/CLAUDE.md`) and say so in the PR.
+- **`make lint-yaml` lints every YAML file, then the workflows with `actionlint` and `zizmor`** (`.github/ci-config/zizmor.yml`). It needs `uv`, Go and `shellcheck`, and CI's `YAML · Lint` job runs it. Pin a new action to a commit SHA with its exact version in a comment (`# v7.0.1`), and pass `${{ }}` values to a `run:` script through `env:`.
+- **A job's `name:` never repeats its workflow's name**: the checks list shows `codeql / Go`, not `codeql / CodeQL · Go`. So names repeat across workflows (`Go`, `Plan`, `Fork gate`), and a ruleset's required check, which matches the job name alone, would match each of them: rename a job to something unique before requiring it.
+- **`coverage.yml` reads the same path filters as `ci.yml`**, so a path that runs a language's tests measures its coverage too. A coverage job measures as `scripts/cover-changed.sh` does; change both together. The tools it runs live in `tools/`, a Go module outside the workspace.
+
+## Security invariants
+
+Each area's guide lists what an ordinary change there can break. These hold everywhere:
+
+- **A request that carries an identity runs as that identity.** It rides on the request's `context.Context` (`k8shelpers.K8STokenCtxKey`, `K8SImpersonateCtxKey`) and each transport reads it from there. A call made with `context.Background()`, or with a client built outside the connection manager, drops it and runs as the component's ServiceAccount: a privilege escalation.
+- **The identity travels the whole way, and every hop checks for itself.** The Dashboard checks the session and the CSRF token; the Cluster API accepts only the kube-apiserver's front-proxy certificate; the agent accepts only a client certificate from its CA, then authorizes the forwarded user with a `SubjectAccessReview`. Don't drop a check because an earlier hop made one. → [ADR: forward the caller's identity hop by hop](docs/adr/2026-11-09-forward-the-callers-identity-hop-by-hop.md)
+- **`allowed-namespaces` is enforced in each server, by each resolver and handler**: `k8shelpers.DerefNamespace` or `DerefNamespaceToList` for a namespace argument, `logs.WithAllowedNamespaces` for source paths. Nothing applies it for you.
+- **Log lines and Kubernetes object fields are attacker-controlled text.** Nothing interpolates them into HTML, a CSS selector, a shell command or a file path unchecked.
+- **Tokens are never logged and never ride in a URL.** The access log records the raw query string.
+- **A state-changing HTTP route is never a GET.** The CSRF check skips GET, HEAD and OPTIONS.
 
 ## Dependencies
 
-- Avoid introducing new external dependencies unless it will have a material impact on code readability or performance
-- If a new dependency is required, state the reason clearly
-- For Go: Use standard library when possible
-- For Rust: Prefer well-maintained, audited crates
-- For TypeScript: Consider bundle size impact
+Add an external dependency only for a material gain in readability or performance, and state the reason. Go: the standard library first. Rust: well-maintained, audited crates. TypeScript: weigh the bundle size.
 
-## Commits
+- **Dependabot proposes updates weekly** (`.github/dependabot.yml`) and a person merges each one. It never moves a toolchain: the Go, Node and Rust versions, `packageManager` and the `@types/node` major are bumped by hand. → [ADR: Dependabot moves dependencies, and a person merges every update](docs/adr/2026-11-09-dependabot-moves-dependencies-and-a-person-merges-every-update.md)
+- **Each toolchain has one exact version, set in one place**: Go and Node in the `go-version` and `node-version` defaults of `.github/actions/setup-environment/action.yml`, Rust in `crates/rust-toolchain.toml`. CI installs it, and the `golang`, `node` and `rust` images in `build/package/` and `hack/tilt/` carry the same version in their tags. Bump them in one commit, with Node the `@types/node` major in `dashboard-ui/package.json`, and re-pin each image's digest; `make lint-toolchains` (CI's `Toolchains · Lint`) fails on a mismatch. → [ADR: pin each toolchain to one version that CI and the images share](docs/adr/2026-11-10-pin-each-toolchain-to-one-version-that-ci-and-the-images-share.md)
+- **Every image a Dockerfile pulls is pinned by tag and digest** (`alpine:3.24.4@sha256:…`), so a re-pushed tag cannot change a release; `make lint-digests` fails on one without. Dependabot moves the other images, tag and digest together. `docker buildx imagetools inspect <image>:<tag>` prints the digest to pin.
+- **`audit.yml` fails a PR only for the advisories it brings in**, and audits the whole tree on `main` and nightly. A failure there opens a `security` issue.
 
-Keep commits minimal and focused. Multiple commits to accomplish a task are fine if they represent logical, well-separated steps that make the change easier to review.
+## Commits, pull requests, issues, releases
 
-Use [conventional commit](https://www.conventionalcommits.org/) format: `<type>(<scope>): <description>`. Types: `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`, `test`. Description in imperative mood, lowercase, no period, under 72 chars. Add body only if the "why" isn't obvious; wrap body lines at 72 characters. Always sign-off on commits (`-s`). Only add a "Co-authored-by" trailer if a human was not in the loop or if the user requested it.
-
-## Pull Requests
-
-PR titles should be capitalized, imperative mood, no conventional commit prefixes (e.g. "Add login page" not "feat: add login page"). Prefix PR titles with the correct emoji based on the change type: 🎣 Bug fix, 🐋 New feature, 📜 Documentation, ✨ General improvement. Always use the repo's `.github/pull_request_template.md` — fill in each section from the commits/diff, replace HTML comment placeholders with actual content. For checklist items that can be resolved automatically (like emoji prefixes), mark them as complete. Use prose in summaries. Reference related issues (e.g. "Closes #123", "Ref #124"). Keep changes minimal and focused for quick review.
+- **Commits** are [conventional](https://www.conventionalcommits.org/): `<type>(<scope>): <description>`, the description in imperative mood, lowercase, no period, under 72 characters. Types: `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`, `test`. Add a body only if the why isn't obvious, wrapped at 72. Always sign off (`-s`). Every commit an AI tool helped write carries an attribution trailer, with a human in the loop or without: `Assisted-by: AGENT_NAME:MODEL_VERSION` or `Co-authored-by: NAME <EMAIL>`. Keep each commit minimal and focused; several are fine when they are well-separated steps.
+- **A pull request** fills in `.github/pull_request_template.md` from the diff, in prose, with the placeholders replaced and the checklist items you can settle ticked. Its title is capitalized, in imperative mood, with no conventional-commit prefix, and leads with the emoji the template lists (🎣 bug fix, 🐋 new feature, 📜 documentation, ✨ general improvement). Reference related issues (`Closes #123`, `Ref #124`).
+- **An issue** fills in a template from `.github/ISSUE_TEMPLATE/` (`gh issue create --template "Task"`): `task.md` for work ready to be done (keep `Summary` and `Done when`), `bug_report.md` for a bug not yet understood, `feature_request.md` for a request with no plan yet. Its title is capitalized, in imperative mood, with no period and no emoji. Search open and closed issues first (`gh issue list --state all --search "<terms>"`) and comment on a duplicate instead. Apply labels only from the existing set (`gh label list`); never create one.
+- **Each component is released by a tag**: `cli/v<semver>`, `dashboard/v<semver>`, `cluster-api/v<semver>`, `cluster-agent/v<semver>`. The release workflows and the CLI's update check parse it, so the scheme is a contract. A person cuts a release with the `release-cli` or `release-cluster` skill; never tag or push a tag yourself. → [ADR: release each component by its own tag](docs/adr/2026-11-09-release-each-component-by-its-own-tag.md)
+- **Each release attests its build provenance** in the job that publishes it: `release` in `release-cli.yml`, `create-and-publish-manifest` in `release-docker.yml`. `SECURITY.md`'s `gh attestation verify` commands name those workflow files: renaming one, or moving the attest step out of it, breaks them. → [ADR: attest build provenance in the release jobs](docs/adr/2026-11-10-attest-build-provenance-in-the-release-jobs.md)
+- **`release-version` recommends a component's next version and `release-notes` writes a draft release's notes** over `tools/releasenotes`. Each reads a component's paths from its `release-<component>` filter in `.github/ci-config/path-filters.yml`: a directory a component starts to ship goes there. → [ADR: write release notes with a skill over deterministic tooling](docs/adr/2026-11-10-write-release-notes-with-a-skill-over-deterministic-tooling.md)

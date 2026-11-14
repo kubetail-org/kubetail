@@ -1,0 +1,4 @@
+{
+  "recommendations": ["oxc.oxc-vscode", "rust-lang.rust-analyzer", "golang.go"],
+  "unwantedRecommendations": ["esbenp.prettier-vscode", "dbaeumer.vscode-eslint"]
+}

@@ -1,10 +1,12 @@
-FROM alpine:3.22.0
+FROM ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.62@sha256:1a900fcfc1b8e680511670908b47d9bc3f8464f88d9159f961c5d55c254b8140 AS grpc-health-probe
+
+FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 
 WORKDIR /cluster-agent
 
 COPY .tilt/cluster-agent .
 
 # copy grpc-health-probe
-COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
+COPY --from=grpc-health-probe /ko-app/grpc-health-probe /bin/grpc_health_probe
 
 ENTRYPOINT ["./cluster-agent", "-c", "/etc/kubetail/config.yaml"]

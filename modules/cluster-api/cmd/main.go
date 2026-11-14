@@ -41,15 +41,14 @@ type CLI struct {
 }
 
 func main() {
-	var cli CLI
-	var params []string
-
 	// Init cobra command
 	cmd := cobra.Command{
 		Use:   "cluster-api",
 		Short: "Kubetail Cluster API",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			// Validate CLI flags
+			var cli CLI
+			cli.Config, _ = cmd.Flags().GetString("config")
 			return validator.New().Struct(cli)
 		},
 		Run: func(cmd *cobra.Command, args []string) {
@@ -58,27 +57,14 @@ func main() {
 			signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 			defer close(quit)
 
-			// Init viper
-			v := viper.New()
-			v.BindPFlag("cluster-api.addr", cmd.Flags().Lookup("addr"))
-			v.BindPFlag("cluster-api.gin-mode", cmd.Flags().Lookup("gin-mode"))
-
 			// Init config
-			cfg, err := config.NewConfig(cli.Config, v)
+			cfg, err := loadConfig(cmd)
 			if err != nil {
 				zlog.Fatal().Caller().Err(err).Send()
 			}
 
 			// set gin mode
 			gin.SetMode(cfg.GinMode)
-
-			// Override params from cli
-			for _, param := range params {
-				split := strings.SplitN(param, ":", 2)
-				if len(split) == 2 {
-					v.Set(split[0], split[1])
-				}
-			}
 
 			// Configure logger
 			logging.ConfigureLogger(logging.LoggerOptions{
@@ -141,16 +127,39 @@ func main() {
 		},
 	}
 
-	// Define flags
-	flagset := cmd.Flags()
-	flagset.SortFlags = false
-	flagset.StringVarP(&cli.Config, "config", "c", "", "Path to configuration file (e.g. \"/etc/kubetail/cluster-api.yaml\")")
-	flagset.StringP("addr", "a", ":8080", "Host address to bind to")
-	flagset.String("gin-mode", "release", "Gin mode (release, debug)")
-	flagset.StringArrayVarP(&params, "param", "p", []string{}, "Config params")
+	addFlags(&cmd)
 
 	// Execute command
 	if err := cmd.Execute(); err != nil {
 		zlog.Fatal().Caller().Err(err).Send()
 	}
+}
+
+func addFlags(cmd *cobra.Command) {
+	flagset := cmd.Flags()
+	flagset.SortFlags = false
+	flagset.StringP("config", "c", "", "Path to configuration file (e.g. \"/etc/kubetail/cluster-api.yaml\")")
+	flagset.StringP("addr", "a", ":8080", "Host address to bind to")
+	flagset.String("gin-mode", "release", "Gin mode (release, debug)")
+	flagset.StringArrayP("param", "p", []string{}, "Config params")
+}
+
+// loadConfig builds the config from, in order of precedence: params, flags
+// set on the command line, the config file, the defaults.
+func loadConfig(cmd *cobra.Command) (*config.Config, error) {
+	flags := cmd.Flags()
+	configPath, _ := flags.GetString("config")
+	params, _ := flags.GetStringArray("param")
+
+	v := viper.New()
+	v.BindPFlag("addr", flags.Lookup("addr"))
+	v.BindPFlag("gin-mode", flags.Lookup("gin-mode"))
+
+	for _, param := range params {
+		if key, value, ok := strings.Cut(param, ":"); ok {
+			v.Set(key, value)
+		}
+	}
+
+	return config.NewConfig(configPath, v)
 }

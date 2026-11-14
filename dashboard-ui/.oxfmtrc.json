@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "ignorePatterns": ["**/__generated__/**"],
+  "singleQuote": true,
+  "printWidth": 120,
+  "sortImports": {
+    "customGroups": [{ "groupName": "kubetail", "elementNamePattern": ["@kubetail/**"] }],
+    "groups": [["builtin", "external"], "kubetail", "internal", ["parent", "sibling", "index"], "style", "unknown"],
+    "partitionByComment": true
+  }
+}

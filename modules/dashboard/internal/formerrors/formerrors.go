@@ -32,7 +32,7 @@ func (fe FormErrors) Get(field string) string {
 }
 
 // Initialize a new FormErrors instance
-func New(formPtr interface{}, err error) FormErrors {
+func New(formPtr any, err error) FormErrors {
 	// initialize FormErrors instance
 	formErrors := make(FormErrors)
 
@@ -43,7 +43,7 @@ func New(formPtr interface{}, err error) FormErrors {
 	ve := err.(validator.ValidationErrors)
 
 	// iterate through FieldErrors
-	for i := 0; i < len(ve); i++ {
+	for i := range len(ve) {
 		// get error message from `errors_{tag}`
 		fe := ve[i]
 		structFieldName := fe.StructField()

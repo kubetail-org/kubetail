@@ -531,9 +531,9 @@ func TestParseWorkloadType(t *testing.T) {
 		{name: "sts", input: "sts", expected: WorkloadTypeStatefulSet},
 
 		// Test unknown workload types
-		{name: "unknown", input: "unknown", expected: WorkloadTypeUknown},
-		{name: "empty string", input: "", expected: WorkloadTypeUknown},
-		{name: "random string", input: "randomstring", expected: WorkloadTypeUknown},
+		{name: "unknown", input: "unknown", expected: WorkloadTypeUnknown},
+		{name: "empty string", input: "", expected: WorkloadTypeUnknown},
+		{name: "random string", input: "randomstring", expected: WorkloadTypeUnknown},
 	}
 
 	for _, tt := range tests {

@@ -2,7 +2,6 @@ name: publish-aur
 
 permissions:
   contents: read
-  deployments: write
 
 on:
   release:
@@ -28,17 +27,20 @@ jobs:
     steps:
       - name: Config
         id: config
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "version=$INPUT_VERSION" >> $GITHUB_OUTPUT
+            echo "dry_run=$INPUT_DRY_RUN" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Download SHA256SUMS
-        uses: robinraju/release-downloader@v1.12
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f # v1.13
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
@@ -56,21 +58,24 @@ jobs:
           echo "arm64_sha256=$ARM64_SHA256" >> $GITHUB_OUTPUT
 
       - name: Checkout kubetail repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           sparse-checkout: .github/ci-config/aur/kubetail-bin
           sparse-checkout-cone-mode: false
           path: kubetail
 
       - name: Load AUR SSH key
-        uses: webfactory/ssh-agent@v0.9.1
+        uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # v0.10.0
         with:
           ssh-private-key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
 
       - name: Checkout kubetail-bin repo
+        env:
+          KNOWN_HOSTS: ${{ vars.AUR_SSH_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ vars.AUR_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
 
           git clone ssh://aur@aur.archlinux.org/kubetail-bin.git
 
@@ -105,6 +110,8 @@ jobs:
       - name: Push changes to AUR repo
         if: ${{ steps.config.outputs.dry_run == 'false' }}
         working-directory: ./kubetail-bin
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
         run: |
           # Set name and email
           git config user.name "Andres Morey"
@@ -120,7 +127,7 @@ jobs:
           fi
 
           # Commit and push
-          git commit -m "release: ${{ steps.config.outputs.version }}"
+          git commit -m "release: $VERSION"
           git push origin master
 
   update-kubetail-cli:
@@ -130,17 +137,20 @@ jobs:
     steps:
       - name: Config
         id: config
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "version=$INPUT_VERSION" >> $GITHUB_OUTPUT
+            echo "dry_run=$INPUT_DRY_RUN" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Download SHA256SUMS
-        uses: robinraju/release-downloader@v1.12
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f # v1.13
         with:
           repository: kubetail-org/kubetail
           tag: ${{ format('cli/v{0}', steps.config.outputs.version) }}
@@ -150,27 +160,32 @@ jobs:
       - name: Extract shasum
         id: meta
         working-directory: ./downloads
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
         run: |
-          SHA256=$( tr -d '\r' < './SHA256SUMS' | awk '$2 == "kubetail-${{ steps.config.outputs.version }}-vendored.tar.gz" {print $1}' )
+          SHA256=$( tr -d '\r' < './SHA256SUMS' | awk -v name="kubetail-${VERSION}-vendored.tar.gz" '$2 == name {print $1}' )
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
 
       - name: Checkout kubetail-cli repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           sparse-checkout: .github/ci-config/aur/kubetail-cli
           sparse-checkout-cone-mode: false
           fetch-depth: 1
           path: kubetail
 
       - name: Load AUR SSH key
-        uses: webfactory/ssh-agent@v0.9.1
+        uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # v0.10.0
         with:
           ssh-private-key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
 
       - name: Checkout kubetail-cli repo
+        env:
+          KNOWN_HOSTS: ${{ vars.AUR_SSH_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ vars.AUR_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
 
           git clone ssh://aur@aur.archlinux.org/kubetail-cli.git
 
@@ -204,6 +219,8 @@ jobs:
       - name: Push changes to AUR repo
         if: ${{ steps.config.outputs.dry_run == 'false' }}
         working-directory: ./kubetail-cli
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
         run: |
           # Set name and email
           git config user.name "Andres Morey"
@@ -219,5 +236,5 @@ jobs:
           fi
 
           # Commit and push
-          git commit -m "release: ${{ steps.config.outputs.version }}"
+          git commit -m "release: $VERSION"
           git push origin master

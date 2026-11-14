@@ -273,13 +273,9 @@ mod tests {
         };
         assert_eq!(key(a.clone()), key(b.clone()));
 
-        use std::hash::{BuildHasher, Hash, Hasher};
+        use std::hash::BuildHasher;
         let state = std::collections::hash_map::RandomState::new();
-        let mut h1 = state.build_hasher();
-        let mut h2 = state.build_hasher();
-        key(a).hash(&mut h1);
-        key(b).hash(&mut h2);
-        assert_eq!(h1.finish(), h2.finish());
+        assert_eq!(state.hash_one(key(a)), state.hash_one(key(b)));
     }
 
     use std::sync::atomic::{AtomicUsize, Ordering};

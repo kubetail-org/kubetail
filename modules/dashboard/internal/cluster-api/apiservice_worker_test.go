@@ -31,7 +31,7 @@ import (
 
 func newWorker() *apiServiceHealthMonitorWorker {
 	return &apiServiceHealthMonitorWorker{
-		lastStatus: HealthStatusUknown,
+		lastStatus: HealthStatusUnknown,
 		mp:         megaphone.New[HealthStatus](),
 		shutdownCh: make(chan struct{}),
 	}
@@ -146,7 +146,7 @@ func TestNewAPIServiceWorker_FiltersByName(t *testing.T) {
 	target := newAPIService(APIServiceName, "uid-target", availableCond(apiregistrationv1.ConditionTrue))
 	other := newAPIService("v1.other.example.com", "uid-other", availableCond(apiregistrationv1.ConditionFalse))
 
-	client := aggregatorfake.NewSimpleClientset(target, other)
+	client := aggregatorfake.NewClientset(target, other)
 	w, err := newAPIServiceHealthMonitorWorker(client)
 	require.NoError(t, err)
 

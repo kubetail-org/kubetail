@@ -21,7 +21,7 @@ import (
 	"strings"
 	"sync"
 
-	set "github.com/deckarep/golang-set/v2"
+	set "github.com/deckarep/golang-set/v3"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -194,10 +194,7 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 	errs := ThreadSafeSlice[error]{}
 
 	set.Each(func(ft fetchTuple) bool {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			// Init informer
 			informer, start, err := w.cm.NewInformer(ctx, w.kubeContext, w.bearerToken, ft.namespace, ft.workloadType.GVR())
 			if err != nil {
@@ -224,16 +221,13 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 				errs.Add(fmt.Errorf("cache did not sync"))
 				return
 			}
-		}()
+		})
 
 		return false // continue
 	})
 
 	// Get nodes
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		gvr := schema.GroupVersionResource{
 			Group:    "",
 			Version:  "v1",
@@ -266,7 +260,7 @@ func (w *sourceWatcher) Start(ctx context.Context) error {
 			errs.Add(fmt.Errorf("cache did not sync"))
 			return
 		}
-	}()
+	})
 
 	wg.Wait()
 
@@ -516,7 +510,7 @@ func parsePath(path string, defaultNamespace string, allContainers bool) (parsed
 	case 2:
 		out.WorkloadType = parseWorkloadType(parts[0])
 
-		if out.WorkloadType == WorkloadTypeUknown {
+		if out.WorkloadType == WorkloadTypeUnknown {
 			// Parse as <pod-name>/<container-name>
 			out.WorkloadType = WorkloadTypePod
 			out.WorkloadName = parts[0]
@@ -533,7 +527,7 @@ func parsePath(path string, defaultNamespace string, allContainers bool) (parsed
 	}
 
 	// Ensure we were able to determine the workload type
-	if out.WorkloadType == WorkloadTypeUknown {
+	if out.WorkloadType == WorkloadTypeUnknown {
 		return parsedPath{}, fmt.Errorf("unable to parse %s", path)
 	}
 

@@ -2,7 +2,6 @@ name: publish-copr
 
 permissions:
   contents: read
-  deployments: write
 
 on:
   release:
@@ -26,10 +25,13 @@ jobs:
     environment: production
     steps:
       - id: config
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "version=$INPUT_VERSION" >> $GITHUB_OUTPUT
+            echo "dry_run=$INPUT_DRY_RUN" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/cli/v}" >> $GITHUB_OUTPUT
             echo "dry_run=false" >> $GITHUB_OUTPUT
@@ -40,20 +42,24 @@ jobs:
           pip3 install --user copr-cli
 
       - name: Checkout this repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           sparse-checkout: .github/ci-config/copr
           sparse-checkout-cone-mode: false
           path: kubetail
 
       - name: Configure copr-cli
+        env:
+          COPR_LOGIN: ${{ vars.COPR_LOGIN }}
+          COPR_TOKEN: ${{ secrets.COPR_TOKEN }}
         run: |
           mkdir -p ~/.config
           cat > ~/.config/copr <<EOF
           [copr-cli]
-          login = ${{ vars.COPR_LOGIN }}
+          login = $COPR_LOGIN
           username = kubetail
-          token = ${{ secrets.COPR_TOKEN }}
+          token = $COPR_TOKEN
           copr_url = https://copr.fedorainfracloud.org
           EOF
 
@@ -70,8 +76,10 @@ jobs:
             > "kubetail.spec"
 
       - name: Publish to copr
+        env:
+          DRY_RUN: ${{ steps.config.outputs.dry_run }}
         run: |
-          if [ "${{ steps.config.outputs.dry_run }}" = "false" ]; then
+          if [ "$DRY_RUN" = "false" ]; then
             copr-cli build --nowait kubetail ./kubetail.spec
           else
             cat kubetail.spec
