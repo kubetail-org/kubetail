@@ -205,7 +205,7 @@ func newApp(cfg *config.Config, cm k8shelpers.ConnectionManager, clusterAPIProxy
 		protectedRoutes := dynamicRoutes.Group("")
 		{
 			// Add K8S auth middleware
-			protectedRoutes.Use(k8sAuthenticationMiddleware(cfg.AuthMode))
+			protectedRoutes.Use(k8sAuthenticationMiddleware(cfg.AuthMode, cfg.AllowNamespaceOverride))
 
 			protectedRoutes.Use(websocketCSRFContextMiddleware())
 

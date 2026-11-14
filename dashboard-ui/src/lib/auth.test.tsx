@@ -48,6 +48,7 @@ const sessionBody = (overrides: Record<string, unknown> = {}) => ({
   auth_mode: 'token',
   user: 'alice',
   message: null,
+  namespace_lock: null,
   timestamp: '2024-01-01T00:00:00Z',
   ...overrides,
 });
@@ -89,6 +90,7 @@ describe('getSession', () => {
       auth_mode: 'token',
       user: 'alice',
       message: 'hi',
+      namespace_lock: null,
       timestamp: new Date('2024-01-01T00:00:00Z'),
     });
   });
@@ -130,9 +132,17 @@ describe('getSession', () => {
     ['a numeric user', sessionBody({ user: 1 })],
     ['a numeric message', sessionBody({ message: 1 })],
     ['a missing timestamp', sessionBody({ timestamp: undefined })],
+    ['a missing namespace_lock', sessionBody({ namespace_lock: undefined })],
+    ['a non-array namespace_lock', sessionBody({ namespace_lock: 'ns-a' })],
+    ['a non-string namespace_lock entry', sessionBody({ namespace_lock: ['ns-a', 1] })],
   ])('rejects a body with %s', async (_, body) => {
     respondWith(body);
     await expect(auth.getSession()).rejects.toThrow('Invalid session response');
+  });
+
+  it('accepts a namespace lock', async () => {
+    respondWith(sessionBody({ namespace_lock: ['ns-a', 'ns-b'] }));
+    await expect(auth.getSession()).resolves.toMatchObject({ namespace_lock: ['ns-a', 'ns-b'] });
   });
 
   it('accepts a signed-out session', async () => {

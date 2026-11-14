@@ -16,6 +16,7 @@ package app
 
 import (
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/gin-contrib/sessions"
@@ -23,11 +24,13 @@ import (
 
 	"github.com/kubetail-org/kubetail/modules/dashboard/internal/formerrors"
 	"github.com/kubetail-org/kubetail/modules/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/modules/shared/k8shelpers"
 )
 
 // Represents login form
 type loginForm struct {
-	Token string `form:"token" binding:"required" errors_required:"Please enter your token"`
+	Token      string   `form:"token" binding:"required" errors_required:"Please enter your token"`
+	Namespaces []string `form:"namespaces" binding:"omitempty,dive,required" errors_required:"Namespace names must not be empty"`
 }
 
 // Represents auth handlers
@@ -45,7 +48,8 @@ func (app *authHandlers) LoginPOST(c *gin.Context) {
 		formErrors := formerrors.New(&form, err)
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"errors": gin.H{
-				"token": formErrors.Get("Token"),
+				"token":      formErrors.Get("Token"),
+				"namespaces": formErrors.Get("Namespaces"),
 			},
 		})
 		return
@@ -68,9 +72,30 @@ func (app *authHandlers) LoginPOST(c *gin.Context) {
 		return
 	}
 
+	// Optional login-time namespace narrowing (behind allow-namespace-override)
+	if !app.config.AllowNamespaceOverride {
+		form.Namespaces = nil
+	} else if len(app.config.AllowedNamespaces) > 0 {
+		// The requested namespaces may only shrink the operator's static
+		// allow-list, never widen it
+		for _, ns := range form.Namespaces {
+			if !slices.Contains(app.config.AllowedNamespaces, ns) {
+				c.JSON(http.StatusUnprocessableEntity, gin.H{
+					"errors": gin.H{
+						"namespaces": "One or more requested namespaces are not in the allowed-namespaces list",
+					},
+				})
+				return
+			}
+		}
+	}
+
 	// Add data to session (for middleware)
 	session := sessions.Default(c)
 	session.Set(k8sTokenSessionKey, form.Token)
+	if len(form.Namespaces) > 0 {
+		session.Set(k8sNamespacesSessionKey, form.Namespaces)
+	}
 
 	// Rotate CSRF token on auth state change to prevent fixation.
 	session.Delete(csrfTokenSessionKey)
@@ -110,10 +135,23 @@ func (app *authHandlers) SessionGET(c *gin.Context) {
 	c.Header("X-CSRF-Token", token)
 
 	response := gin.H{
-		"auth_mode": authMode,
-		"user":      nil,
-		"message":   nil,
-		"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
+		"auth_mode":      authMode,
+		"user":           nil,
+		"message":        nil,
+		"namespace_lock": nil,
+		"timestamp":      time.Now().UTC().Format(time.RFC3339Nano),
+	}
+
+	// Report the effective login-time namespace lock, if any, so the UI can
+	// reflect it. Omitted (null) when the override feature is disabled, the
+	// session set no override, or the override no longer narrows anything.
+	if app.config.AllowNamespaceOverride {
+		if override, ok := session.Get(k8sNamespacesSessionKey).([]string); ok && len(override) > 0 {
+			effective := k8shelpers.NarrowAllowedNamespaces(app.config.AllowedNamespaces, override)
+			if len(app.config.AllowedNamespaces) == 0 || !slices.Equal(effective, app.config.AllowedNamespaces) {
+				response["namespace_lock"] = effective
+			}
+		}
 	}
 
 	switch authMode {

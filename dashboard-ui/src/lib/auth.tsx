@@ -24,6 +24,7 @@ export type Session = {
   auth_mode: string;
   user: string | null;
   message: string | null;
+  namespace_lock: string[] | null;
   timestamp: Date;
 };
 
@@ -51,13 +52,27 @@ const Context = createContext({} as ContextType);
 function parseSession(value: unknown): Session | null {
   if (typeof value !== 'object' || value === null) return null;
 
-  const { auth_mode: authMode, user, message, timestamp } = value as Record<string, unknown>;
+  const {
+    auth_mode: authMode,
+    user,
+    message,
+    namespace_lock: namespaceLock,
+    timestamp,
+  } = value as Record<string, unknown>;
   if (typeof authMode !== 'string') return null;
   if (typeof user !== 'string' && user !== null) return null;
   if (typeof message !== 'string' && message !== null) return null;
   if (typeof timestamp !== 'string') return null;
+  const isStringArray = Array.isArray(namespaceLock) && namespaceLock.every((ns) => typeof ns === 'string');
+  if (!isStringArray && namespaceLock !== null) return null;
 
-  return { auth_mode: authMode, user, message, timestamp: new Date(timestamp) };
+  return {
+    auth_mode: authMode,
+    user,
+    message,
+    namespace_lock: isStringArray ? namespaceLock : null,
+    timestamp: new Date(timestamp),
+  };
 }
 
 /**

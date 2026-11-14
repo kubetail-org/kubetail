@@ -74,10 +74,11 @@ func (h *downloadHandlers) DownloadPOST(c *gin.Context) {
 	// rejects outright. Ignore whatever the form carried.
 	req.Raw.KubeContext = ""
 
-	opts := logs.BuildDownloadStreamOptions(req, h.allowedNamespaces)
+	ctx := c.Request.Context()
+
+	opts := logs.BuildDownloadStreamOptions(req, k8shelpers.ResolveAllowedNamespaces(ctx, h.allowedNamespaces))
 	opts = append(opts, logs.WithLogFetcher(logs.NewAgentLogFetcher(h.grpcDispatcher)))
 
-	ctx := c.Request.Context()
 	stream, err := h.newLogStream(ctx, req.Raw.Sources, opts...)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

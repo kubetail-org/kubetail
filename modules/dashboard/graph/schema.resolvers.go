@@ -138,7 +138,7 @@ func (r *queryResolver) AppsV1DaemonSetsGet(ctx context.Context, kubeContext *st
 	kubeContextVal := r.cm.DerefKubeContext(kubeContext)
 
 	// Deref namespace
-	ns, err := k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContextVal))
+	ns, err := k8shelpers.DerefNamespace(r.resolveAllowedNamespaces(ctx), namespace, r.cm.GetDefaultNamespace(kubeContextVal))
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +173,7 @@ func (r *queryResolver) AppsV1DeploymentsGet(ctx context.Context, kubeContext *s
 	kubeContextVal := r.cm.DerefKubeContext(kubeContext)
 
 	// Deref namespace
-	ns, err := k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContextVal))
+	ns, err := k8shelpers.DerefNamespace(r.resolveAllowedNamespaces(ctx), namespace, r.cm.GetDefaultNamespace(kubeContextVal))
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func (r *queryResolver) AppsV1ReplicaSetsGet(ctx context.Context, kubeContext *s
 	kubeContextVal := r.cm.DerefKubeContext(kubeContext)
 
 	// Deref namespace
-	ns, err := k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContextVal))
+	ns, err := k8shelpers.DerefNamespace(r.resolveAllowedNamespaces(ctx), namespace, r.cm.GetDefaultNamespace(kubeContextVal))
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +243,7 @@ func (r *queryResolver) AppsV1StatefulSetsGet(ctx context.Context, kubeContext *
 	kubeContextVal := r.cm.DerefKubeContext(kubeContext)
 
 	// Deref namespace
-	ns, err := k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContextVal))
+	ns, err := k8shelpers.DerefNamespace(r.resolveAllowedNamespaces(ctx), namespace, r.cm.GetDefaultNamespace(kubeContextVal))
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +278,7 @@ func (r *queryResolver) BatchV1CronJobsGet(ctx context.Context, kubeContext *str
 	kubeContextVal := r.cm.DerefKubeContext(kubeContext)
 
 	// Deref namespace
-	ns, err := k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContextVal))
+	ns, err := k8shelpers.DerefNamespace(r.resolveAllowedNamespaces(ctx), namespace, r.cm.GetDefaultNamespace(kubeContextVal))
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +313,7 @@ func (r *queryResolver) BatchV1JobsGet(ctx context.Context, kubeContext *string,
 	kubeContextVal := r.cm.DerefKubeContext(kubeContext)
 
 	// Deref namespace
-	ns, err := k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContextVal))
+	ns, err := k8shelpers.DerefNamespace(r.resolveAllowedNamespaces(ctx), namespace, r.cm.GetDefaultNamespace(kubeContextVal))
 	if err != nil {
 		return nil, err
 	}
@@ -362,10 +362,11 @@ func (r *queryResolver) CoreV1NamespacesList(ctx context.Context, kubeContext *s
 	}
 
 	// apply app namespace filter
-	if len(r.allowedNamespaces) > 0 {
+	allowedNamespaces := r.resolveAllowedNamespaces(ctx)
+	if len(allowedNamespaces) > 0 {
 		items := []corev1.Namespace{}
 		for _, item := range response.Items {
-			if slices.Contains(r.allowedNamespaces, item.Name) {
+			if slices.Contains(allowedNamespaces, item.Name) {
 				items = append(items, item)
 			}
 		}
@@ -397,7 +398,7 @@ func (r *queryResolver) CoreV1PodsGet(ctx context.Context, kubeContext *string, 
 	kubeContextVal := r.cm.DerefKubeContext(kubeContext)
 
 	// Deref namespace
-	ns, err := k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContextVal))
+	ns, err := k8shelpers.DerefNamespace(r.resolveAllowedNamespaces(ctx), namespace, r.cm.GetDefaultNamespace(kubeContextVal))
 	if err != nil {
 		return nil, err
 	}
@@ -432,7 +433,7 @@ func (r *queryResolver) CoreV1ServicesGet(ctx context.Context, kubeContext *stri
 	kubeContextVal := r.cm.DerefKubeContext(kubeContext)
 
 	// Deref namespace
-	ns, err := k8shelpers.DerefNamespace(r.allowedNamespaces, namespace, r.cm.GetDefaultNamespace(kubeContextVal))
+	ns, err := k8shelpers.DerefNamespace(r.resolveAllowedNamespaces(ctx), namespace, r.cm.GetDefaultNamespace(kubeContextVal))
 	if err != nil {
 		return nil, err
 	}
@@ -655,7 +656,7 @@ func (r *queryResolver) LogRecordsFetch(ctx context.Context, kubeContext *string
 	streamOpts := []logs.Option{
 		logs.WithKubeContext(kubeContextVal),
 		logs.WithBearerToken(token),
-		logs.WithAllowedNamespaces(r.allowedNamespaces),
+		logs.WithAllowedNamespaces(r.resolveAllowedNamespaces(ctx)),
 		logs.WithSince(sinceTime),
 		logs.WithUntil(untilTime),
 		logs.WithGrep(ptr.Deref(grep, "")),
@@ -793,6 +794,7 @@ func (r *subscriptionResolver) CoreV1NamespacesWatch(ctx context.Context, kubeCo
 	}
 
 	// Wrap proxy channel to remove namespaces that aren't allowed
+	allowedNamespaces := r.resolveAllowedNamespaces(ctx)
 	outCh := make(chan *watch.Event)
 	go func() {
 		for ev := range watchEventProxyChannel(ctx, watchAPI) {
@@ -803,7 +805,7 @@ func (r *subscriptionResolver) CoreV1NamespacesWatch(ctx context.Context, kubeCo
 			}
 
 			// filter out non-authorized namespaces
-			if len(r.allowedNamespaces) == 0 || (len(r.allowedNamespaces) > 0 && slices.Contains(r.allowedNamespaces, ns.Name)) {
+			if len(allowedNamespaces) == 0 || (len(allowedNamespaces) > 0 && slices.Contains(allowedNamespaces, ns.Name)) {
 				outCh <- ev
 			}
 		}
@@ -1039,7 +1041,7 @@ func (r *subscriptionResolver) LogRecordsFollow(ctx context.Context, kubeContext
 	streamOpts := []logs.Option{
 		logs.WithKubeContext(kubeContextVal),
 		logs.WithBearerToken(token),
-		logs.WithAllowedNamespaces(r.allowedNamespaces),
+		logs.WithAllowedNamespaces(r.resolveAllowedNamespaces(ctx)),
 		logs.WithAll(),
 		logs.WithFollow(true),
 		logs.WithSince(sinceTime),
