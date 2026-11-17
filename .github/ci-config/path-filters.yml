@@ -15,6 +15,7 @@ shared: &shared
   - .github/actions/plan/**
   - .github/actions/setup-environment/**
   - .github/ci-config/path-filters.yml
+  - .github/ci-config/runners.json
   - .github/codecov.yml
   - .github/workflows/ci.yml
   - .github/workflows/coverage.yml
@@ -83,6 +84,7 @@ docker:
   - '!**/*.md'
 shell:
   - .github/ci-config/path-filters.yml
+  - .github/ci-config/runners.json
   - Makefile
   - '**/*.sh'
 yaml:

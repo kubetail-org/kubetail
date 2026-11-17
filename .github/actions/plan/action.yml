@@ -1,5 +1,5 @@
 name: 'Plan'
-description: 'Says which of a workflow''s jobs run, from the filters in .github/ci-config/path-filters.yml'
+description: 'Says which of a workflow''s jobs run, from the filters in .github/ci-config/path-filters.yml, and on which runners, from .github/ci-config/runners.json'
 
 # A pull request runs a job when a path in one of its filters changed. A push,
 # a schedule or a dispatch runs every job, so main catches what a filter
@@ -26,6 +26,17 @@ outputs:
   jobs:
     description: 'A JSON object of each job to true or false'
     value: ${{ steps.compose.outputs.jobs }}
+  legs:
+    description: >-
+      The {os, arch} of each runners.json entry this event runs: on a pull
+      request those marked pull_request, otherwise all
+    value: ${{ steps.legs.outputs.legs }}
+  linux-arches:
+    description: 'The arch of each Linux leg'
+    value: ${{ steps.legs.outputs.linux-arches }}
+  runners:
+    description: 'A JSON object of every "<os>-<arch>" in runners.json to its runner'
+    value: ${{ steps.legs.outputs.runners }}
 
 runs:
   using: "composite"
@@ -61,3 +72,15 @@ runs:
           | from_entries')
         echo "$jobs"
         echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+
+    - id: legs
+      shell: bash
+      env:
+        ALL: ${{ github.event_name != 'pull_request' }}
+      run: |
+        jq -r --argjson all "$ALL" '
+          map(select($all or .pull_request)) as $legs
+          | "legs=\($legs | map({os, arch}) | tojson)",
+            "linux-arches=\($legs | map(select(.os == "linux") | .arch) | tojson)",
+            "runners=\(map({key: "\(.os)-\(.arch)", value: .runner}) | from_entries | tojson)"
+        ' .github/ci-config/runners.json | tee -a "$GITHUB_OUTPUT"

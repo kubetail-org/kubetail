@@ -56,6 +56,7 @@ jobs:
       python: ${{ fromJSON(steps.plan.outputs.jobs).python }}
       tools: ${{ fromJSON(steps.plan.outputs.jobs).tools }}
       generated: ${{ fromJSON(steps.plan.outputs.jobs).generated }}
+      runners: ${{ steps.plan.outputs.runners }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -243,8 +244,16 @@ jobs:
           - linux
           - macos
           - windows
-    runs-on: >-
-      ${{ fromJSON('{"linux": "ubuntu-24.04", "macos": "macos-26", "windows": "windows-2025"}')[matrix.os] }}
+        # The arch of each OS's runner. A key include adds stays out of the
+        # job's name.
+        include:
+          - os: linux
+            arch: amd64
+          - os: macos
+            arch: arm64
+          - os: windows
+            arch: amd64
+    runs-on: ${{ fromJSON(needs.plan.outputs.runners)[format('{0}-{1}', matrix.os, matrix.arch)] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
