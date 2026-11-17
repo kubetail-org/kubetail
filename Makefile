@@ -61,9 +61,16 @@ build-dashboard-ui: ## Build the dashboard UI and copy it to modules/dashboard/w
 	@touch $(DASHBOARD_SERVER_DIR)/website/.gitkeep
 	@echo "Dashboard UI built and copied successfully."
 
-clean: ## Remove the built binaries
+# In the Linux sandbox dashboard-ui/dist is a mount point and Cargo's target dir
+# lives outside the repo (scripts/sandbox-dev-setup.sh), so dist is emptied
+# rather than removed and cargo clean follows CARGO_TARGET_DIR.
+clean: ## Remove every build output and Go's test cache
 	@echo "Cleaning up..."
 	@rm -rf $(OUTPUT_DIR)
+	@find $(DASHBOARD_SERVER_DIR)/website -mindepth 1 ! -name .gitkeep -delete
+	@if [ -d $(DASHBOARD_UI_DIR)/dist ]; then find $(DASHBOARD_UI_DIR)/dist -mindepth 1 -delete; fi
+	@if command -v cargo >/dev/null; then cd $(CRATES_DIR) && cargo clean; fi
+	@go clean -testcache
 	@echo "Cleanup done"
 
 lint: lint-go lint-rust lint-ts lint-python lint-sh lint-md lint-yaml lint-toolchains lint-digests ## Run every linter CI runs
