@@ -73,9 +73,11 @@ jobs:
       shell: ${{ github.event_name != 'pull_request' || steps.filter.outputs.shell == 'true' }}
       yaml: ${{ github.event_name != 'pull_request' || steps.filter.outputs.yaml == 'true' }}
       generated: ${{ github.event_name != 'pull_request' || steps.filter.outputs.generated == 'true' }}
+      legs: ${{ steps.legs.outputs.legs }}
+      linux-arches: ${{ steps.legs.outputs.linux-arches }}
+      runners: ${{ steps.legs.outputs.runners }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: github.event_name == 'pull_request'
         with:
           persist-credentials: false
           sparse-checkout: .github
@@ -84,6 +86,20 @@ jobs:
         if: github.event_name == 'pull_request'
         with:
           filters: .github/ci-config/path-filters.yml
+      # legs: the {os, arch} pairs this event runs, every runner in
+      # runners.json on a push or a dispatch, those marked pull_request on a
+      # PR. linux-arches: the Linux arches among them. runners: the runner of
+      # every "<os>-<arch>", whichever legs run.
+      - id: legs
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          jq -r --arg event "$EVENT" '
+            [.[] | select(.pull_request or $event != "pull_request")] as $legs
+            | "legs=\($legs | map({os, arch}) | tojson)",
+              "linux-arches=\($legs | map(select(.os == "linux") | .arch) | tojson)",
+              "runners=\(map({key: "\(.os)-\(.arch)", value: .runner}) | from_entries | tojson)"
+          ' .github/ci-config/runners.json >> "$GITHUB_OUTPUT"
 
   ##############################
   # Lint and vet jobs
@@ -374,24 +390,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # coverage.yml runs the tests on macOS and Windows on every PR, so a PR
-        # runs linux/amd64 alone. main runs each OS and arch the CLI ships for.
-        os: >-
-          ${{ fromJSON(github.event_name == 'pull_request'
-          && '["linux"]'
-          || '["linux", "macos", "windows"]') }}
-        arch: >-
-          ${{ fromJSON(github.event_name == 'pull_request'
-          && '["amd64"]'
-          || '["amd64", "arm64"]') }}
-    # From a lookup: an include entry would add, as a job of its own, a
-    # combination the lists left out.
-    runs-on: >-
-      ${{ fromJSON('{
-      "linux-amd64": "ubuntu-24.04", "linux-arm64": "ubuntu-24.04-arm",
-      "macos-amd64": "macos-15-intel", "macos-arm64": "macos-26",
-      "windows-amd64": "windows-2025", "windows-arm64": "windows-11-arm"
-      }')[format('{0}-{1}', matrix.os, matrix.arch)] }}
+        # Every leg in runners.json for this event. coverage.yml runs the tests
+        # on macOS and Windows on every PR, so a PR runs linux/amd64 alone.
+        include: ${{ fromJSON(needs.changes.outputs.legs) }}
+    runs-on: ${{ fromJSON(needs.changes.outputs.runners)[format('{0}-{1}', matrix.os, matrix.arch)] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -435,17 +437,11 @@ jobs:
       matrix:
         os:
           - linux
+        # Both arches on a PR too: the agent ships for both.
         arch:
           - amd64
           - arm64
-        include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-24.04
-          - os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ fromJSON(needs.changes.outputs.runners)[format('{0}-{1}', matrix.os, matrix.arch)] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -455,7 +451,7 @@ jobs:
           setup-rust: "true"
           setup-protoc: "true"
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          rust-cache-key: ${{ github.job }}-${{ matrix.runner }}
+          rust-cache-key: ${{ github.job }}-${{ matrix.os }}-${{ matrix.arch }}
           cache-save: ${{ env.CACHE_MODE != 'use' }}
       - name: Build
         working-directory: ./crates
@@ -512,13 +508,20 @@ jobs:
       fail-fast: false
       matrix:
         # One runner per OS: the scripts run the same on every arch, and
-        # install.bats mocks uname.
+        # install.bats mocks uname. include adds each OS's arch without adding
+        # it to the job's name.
         os:
           - linux
           - macos
           - windows
-    runs-on: >-
-      ${{ fromJSON('{"linux": "ubuntu-24.04", "macos": "macos-26", "windows": "windows-2025"}')[matrix.os] }}
+        include:
+          - os: linux
+            arch: amd64
+          - os: macos
+            arch: arm64
+          - os: windows
+            arch: amd64
+    runs-on: ${{ fromJSON(needs.changes.outputs.runners)[format('{0}-{1}', matrix.os, matrix.arch)] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -582,16 +585,13 @@ jobs:
           ${{ fromJSON(needs.changes.outputs.docker == 'true'
           && '["cli", "cluster-agent", "cluster-api", "dashboard"]'
           || '["cli"]') }}
-        # arm64 builds on main.
-        arch: >-
-          ${{ fromJSON(github.event_name == 'pull_request'
-          && '["amd64"]'
-          || '["amd64", "arm64"]') }}
+        # The Linux legs of runners.json: arm64 builds on main.
+        arch: ${{ fromJSON(needs.changes.outputs.linux-arches) }}
         target: >-
           ${{ fromJSON(needs.changes.outputs.docker == 'true'
           && '["final", "final-alpine"]'
           || '["final"]') }}
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    runs-on: ${{ fromJSON(needs.changes.outputs.runners)[format('linux-{0}', matrix.arch)] }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -638,15 +638,13 @@ jobs:
         k8s-version:
           - "1.21"
           - latest
-        # main runs the arm64 images in a cluster too, on the latest Kubernetes.
-        arch: >-
-          ${{ fromJSON(github.event_name == 'pull_request'
-          && '["amd64"]'
-          || '["amd64", "arm64"]') }}
+        # The Linux legs of runners.json: main runs the arm64 images in a
+        # cluster too, on the latest Kubernetes.
+        arch: ${{ fromJSON(needs.changes.outputs.linux-arches) }}
         exclude:
           - k8s-version: "1.21"
             arch: arm64
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    runs-on: ${{ fromJSON(needs.changes.outputs.runners)[format('linux-{0}', matrix.arch)] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
