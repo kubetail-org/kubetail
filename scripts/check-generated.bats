@@ -6,7 +6,7 @@ setup() {
   repo="$BATS_TEST_TMPDIR/repo"
   bin="$BATS_TEST_TMPDIR/bin"
   mkdir -p "$repo/scripts" "$repo/.github/actions/setup-environment" "$repo/tools" \
-    "$repo/dashboard-ui" "$bin"
+    "$repo/apps/web" "$bin"
   cp "$(dirname "$BATS_TEST_FILENAME")/check-generated.sh" "$repo/scripts/"
   cat >"$repo/.github/actions/setup-environment/action.yml" <<'EOF'
 inputs:
@@ -18,10 +18,10 @@ inputs:
     description: 'Whether to set up Go'
     default: 'false'
 EOF
-  for dir in modules/shared/clusteragentpb modules/shared/testpb \
-    modules/dashboard/graph modules/cluster-api/graph modules/cli/assets \
-    dashboard-ui/src/lib/graphql/dashboard/__generated__ \
-    dashboard-ui/src/lib/graphql/cluster-api/__generated__; do
+  for dir in libs/go-common/clusteragentpb libs/go-common/testpb \
+    dashboard/graph cluster/api/graph cli/assets \
+    apps/web/src/lib/graphql/dashboard/__generated__ \
+    apps/web/src/lib/graphql/cluster-api/__generated__; do
     mkdir -p "$repo/$dir"
     echo committed >"$repo/$dir/file"
   done
@@ -51,12 +51,12 @@ check() {
   GENERATE=stale check
   [ "$status" -eq 1 ]
   [[ "$output" == *"generated code is out of date"* ]]
-  [[ "$output" == *"modules/cli/assets/file"* ]]
-  [ "$(cat "$repo/modules/cli/assets/file")" = stale ]
+  [[ "$output" == *"cli/assets/file"* ]]
+  [ "$(cat "$repo/cli/assets/file")" = stale ]
 }
 
 @test "a change the tree already had is not counted" {
-  echo edited >"$repo/modules/cli/assets/file"
+  echo edited >"$repo/cli/assets/file"
   GENERATE=edited check
   [ "$status" -eq 0 ]
 }
@@ -65,5 +65,5 @@ check() {
   PROTOC_VERSION=3.21.12 GENERATE=stale check
   [ "$status" -eq 1 ]
   [[ "$output" == *"protoc 3.21.12, want 33.1"* ]]
-  [ "$(cat "$repo/modules/cli/assets/file")" = committed ]
+  [ "$(cat "$repo/cli/assets/file")" = committed ]
 }

@@ -83,7 +83,7 @@ func git(t *testing.T, dir string, args ...string) {
 	}
 }
 
-const file = "dashboard-ui/src/a, b.ts"
+const file = "apps/web/src/a, b.ts"
 
 // repo is a git repository whose branches base and parent hold file with two
 // lines, and whose branch head adds n lines above them.
@@ -194,9 +194,9 @@ func TestFailsOnAnUncoveredOrPartialChangedLine(t *testing.T) {
 	}
 	for _, want := range []string{
 		"patch: 1 of 3 changed lines covered",
-		"::error file=dashboard-ui/src/a%2C b.ts,line=2,title=Uncovered line::This changed line is not covered.",
-		"::error file=dashboard-ui/src/a%2C b.ts,line=3,title=Uncovered line::This changed line is partially covered.",
-		"  dashboard-ui/src/a, b.ts:2 not covered",
+		"::error file=apps/web/src/a%2C b.ts,line=2,title=Uncovered line::This changed line is not covered.",
+		"::error file=apps/web/src/a%2C b.ts,line=3,title=Uncovered line::This changed line is partially covered.",
+		"  apps/web/src/a, b.ts:2 not covered",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("out lacks %q:\n%s", want, out)
@@ -205,7 +205,7 @@ func TestFailsOnAnUncoveredOrPartialChangedLine(t *testing.T) {
 	if strings.Contains(out, "line=4") {
 		t.Errorf("annotated an unchanged line:\n%s", out)
 	}
-	if !strings.Contains(summary, "- `dashboard-ui/src/a, b.ts:3` partially covered") {
+	if !strings.Contains(summary, "- `apps/web/src/a, b.ts:3` partially covered") {
 		t.Errorf("summary:\n%s", summary)
 	}
 }
@@ -307,7 +307,7 @@ func TestComparesAPushWithItsParent(t *testing.T) {
 	if !errors.Is(err, errFailed) {
 		t.Fatalf("err = %v, want errFailed\n%s\n%v", err, out, f.seen)
 	}
-	if !strings.Contains(out, "dashboard-ui/src/a, b.ts:1 not covered") || !strings.Contains(out, "at base parent: ok") {
+	if !strings.Contains(out, "apps/web/src/a, b.ts:1 not covered") || !strings.Contains(out, "at base parent: ok") {
 		t.Errorf("out:\n%s", out)
 	}
 }

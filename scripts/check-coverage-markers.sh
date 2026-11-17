@@ -10,7 +10,7 @@
 set -eu
 cd "$(dirname "$0")/.."
 
-[ "$#" -gt 0 ] || set -- modules crates dashboard-ui/src
+[ "$#" -gt 0 ] || set -- cli dashboard cluster/api libs/go-common cluster/agent apps/web/src
 
 status=0
 for dir in "$@"; do

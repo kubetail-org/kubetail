@@ -38,14 +38,14 @@ func writeFile(t *testing.T, path, body string) {
 func fixture(t *testing.T, goCount int) config {
 	t.Helper()
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "modules", "go.mod"), "module example.com/side\n")
-	writeFile(t, filepath.Join(root, "changes.diff"), `--- a/modules/a.go
-+++ b/modules/a.go
+	writeFile(t, filepath.Join(root, "go", "go.mod"), "module example.com/side\n")
+	writeFile(t, filepath.Join(root, "changes.diff"), `--- a/go/a.go
++++ b/go/a.go
 @@ -4,0 +5,2 @@
 +	x()
 +	y()
---- a/dashboard-ui/src/b.ts
-+++ b/dashboard-ui/src/b.ts
+--- a/apps/web/src/b.ts
++++ b/apps/web/src/b.ts
 @@ -1,0 +2,3 @@
 +a
 +b
@@ -54,11 +54,11 @@ func fixture(t *testing.T, goCount int) config {
 	writeFile(t, filepath.Join(root, "go.out"), fmt.Sprintf("mode: atomic\n"+
 		"example.com/side/a.go:5.2,5.5 1 %d\n"+
 		"example.com/side/a.go:6.2,6.5 1 1\n", goCount))
-	writeFile(t, filepath.Join(root, "lcov.info"), "SF:dashboard-ui/src/b.ts\nDA:2,1\nDA:3,1\nBRDA:3,0,0,0\nend_of_record\n")
+	writeFile(t, filepath.Join(root, "lcov.info"), "SF:apps/web/src/b.ts\nDA:2,1\nDA:3,1\nBRDA:3,0,0,0\nend_of_record\n")
 	return config{
 		root:       root,
 		diff:       filepath.Join(root, "changes.diff"),
-		goProfiles: []goProfile{{dir: "modules", path: filepath.Join(root, "go.out")}},
+		goProfiles: []goProfile{{dir: "go", path: filepath.Join(root, "go.out")}},
 		lcov:       []string{filepath.Join(root, "lcov.info")},
 	}
 }
@@ -69,7 +69,7 @@ func TestRunListsTheUncoveredChangedLines(t *testing.T) {
 	if !errors.Is(err, errUncovered) {
 		t.Fatalf("run = %v, want errUncovered", err)
 	}
-	want := "dashboard-ui/src/b.ts:3 partially covered\nmodules/a.go:5 not covered\n"
+	want := "apps/web/src/b.ts:3 partially covered\ngo/a.go:5 not covered\n"
 	if out.String() != want {
 		t.Errorf("run printed\n%s\nwant\n%s", out.String(), want)
 	}

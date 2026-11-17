@@ -15,7 +15,7 @@ This ADR replaces that ADR's bullet on `react/exhaustive-deps`. The rest of it s
 
 ## Decision
 
-**`react/exhaustive-deps` is on in `dashboard-ui/.oxlintrc.json`, as an error like every other rule.**
+**`react/exhaustive-deps` is on in `apps/web/.oxlintrc.json`, as an error like every other rule.**
 
 Each finding was settled in one of three ways:
 

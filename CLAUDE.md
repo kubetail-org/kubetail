@@ -1,18 +1,17 @@
 # Kubetail
 
-A real-time logging dashboard for Kubernetes, in one monorepo. `dashboard-ui/`, `modules/` and each module in it, `crates/`, `proto/` and `e2e/` have a guide of their own.
+A real-time logging dashboard for Kubernetes, in one monorepo with one folder per component. `apps/web/`, each Go module, `cluster/agent/`, `libs/proto/` and `e2e/` have a guide of their own. → [ADR: keep one folder per component](docs/adr/2026-11-17-one-folder-per-component.md)
 
-- **`dashboard-ui/`** — the React single-page app.
-- **`modules/`** — a Go workspace of four modules:
-  - **`dashboard/`** — the Dashboard backend: serves the UI, a GraphQL API over the Kubernetes API, sessions and the proxy to the Cluster API.
-  - **`cluster-api/`** — the Cluster API: a GraphQL server inside the cluster that reads logs through the Cluster Agents.
-  - **`cli/`** — the `kubetail` CLI. `kubetail serve` runs the Dashboard on the user's machine; `kubetail logs` prints logs in the terminal.
-  - **`shared/`** — Go packages the other three import.
-- **`crates/`** — a Rust workspace: the Cluster Agent (`cluster_agent`), one per node, and the log file reader it links (`rgkl`).
-- **`proto/`** — the gRPC contract between the Cluster API and the Cluster Agent.
+- **`apps/web/`** — the React single-page app. `apps/desktop/` and `apps/mobile/` hold a README until work on them starts.
+- **`dashboard/`** — the Dashboard backend: serves the UI, a GraphQL API over the Kubernetes API, sessions and the proxy to the Cluster API.
+- **`cli/`** — the `kubetail` CLI. `kubetail serve` runs the Dashboard on the user's machine; `kubetail logs` prints logs in the terminal.
+- **`cluster/api/`** — the Cluster API: a GraphQL server inside the cluster that reads logs through the Cluster Agents.
+- **`cluster/agent/`** — a Rust workspace: the Cluster Agent (`cluster_agent`), one per node, and the log file reader it links (`rgkl`).
+- **`libs/`** — what more than one component reads: `go-common/`, the Go packages the other Go modules import; `proto/`, the gRPC contract between the Cluster API and the Cluster Agent; `graphql/<server>/`, each GraphQL server's schema.
+- **`go.work`** — the Go workspace of `cli`, `dashboard`, `cluster/api` and `libs/go-common`.
+- **`<component>/Dockerfile`** — each component's release image, built from the repo root. It copies only the folders its component needs, each to the same relative place it has in the repo.
 - **`config/default/`** — the documented default config file of each component. Defaults are set in each component's code; change both. → [ADR: each component owns its config](docs/adr/2026-11-09-each-component-owns-its-config.md)
-- **`tools/`** — a Go module outside the workspace: the coverage tools CI runs, `releasenotes` (the `release-notes` skill's), and pins of the Go tools CI runs (`actionlint`, `govulncheck`, the protoc plugins), so Dependabot moves them.
-- **`build/package/`** — the release Dockerfiles. Each copies only the directories its component needs.
+- **`tools/`** — a Go module outside the workspace, with a `go.work` of its own: the coverage tools CI runs, `releasenotes` (the `release-notes` skill's), and pins of the Go tools CI runs (`actionlint`, `govulncheck`, the protoc plugins), so Dependabot moves them.
 - **`hack/tilt/kubetail.yaml`** — the whole dev deployment.
 - **`e2e/`** — end-to-end tests in Python, run against a kind cluster.
 - **`docs/adr/`** — Architecture Decision Records: why the design is the way it is.
@@ -22,23 +21,23 @@ A real-time logging dashboard for Kubernetes, in one monorepo. `dashboard-ui/`, 
 ## Local development
 
 ```sh
-tilt up                                                          # the whole stack on a local cluster
-cd dashboard-ui && pnpm install && pnpm dev                      # UI dev server, proxying to :4000
-cd modules/dashboard && go run cmd/main.go -c hack/config.yaml   # Dashboard backend on :4000
-make                                                             # the CLI with the UI embedded, in bin/kubetail
+tilt up                                                  # the whole stack on a local cluster
+cd apps/web && pnpm install && pnpm dev                  # UI dev server, proxying to :4000
+cd dashboard && go run cmd/main.go -c hack/config.yaml   # Dashboard backend on :4000
+make                                                     # the CLI with the UI embedded, in bin/kubetail
 ```
 
-`make build-dashboard-ui` builds the UI and copies it to `modules/dashboard/website/`, which the Dashboard embeds. `pnpm build` alone changes nothing a Go binary serves. → [ADR: embed the UI by a copy step](docs/adr/2026-11-09-embed-the-ui-by-a-copy-step-and-render-from-the-vite-manifest.md)
+`make build-dashboard-ui` builds the UI and copies it to `dashboard/website/`, which the Dashboard embeds. `pnpm build` alone changes nothing a Go binary serves. → [ADR: embed the UI by a copy step](docs/adr/2026-11-09-embed-the-ui-by-a-copy-step-and-render-from-the-vite-manifest.md)
 
-**In the Linux sandbox on a macOS host, `scripts/sandbox-dev-setup.sh` runs before any build, test or install.** A `SessionStart` hook runs it; it is idempotent, so run it yourself if unsure. It keeps Linux build outputs off the host's paths: Cargo's `target/`, the pnpm store and each worktree's `dashboard-ui/node_modules` live under `/home/agent/kubetail-build`, and `dashboard-ui/dist` under `.sandbox-linux/`. pnpm uses its global virtual store there, so `node_modules` holds symlinks into a store every worktree shares: never edit a file under it. After the script remounts `node_modules`, run `pnpm install`. It also pins Go to CI's version (rerun it after bumping the `go-version` default in `.github/actions/setup-environment/action.yml`) and replaces an image `uv` that crashes. → [ADR: keep the sandbox's build outputs off the host mount](docs/adr/2026-11-09-keep-the-sandboxs-build-outputs-off-the-host-mount.md)
+**In the Linux sandbox on a macOS host, `scripts/sandbox-dev-setup.sh` runs before any build, test or install.** A `SessionStart` hook runs it; it is idempotent, so run it yourself if unsure. It keeps Linux build outputs off the host's paths: Cargo's `target/`, the pnpm store and each worktree's `apps/web/node_modules` live under `/home/agent/kubetail-build`, and `apps/web/dist` under `.sandbox-linux/`. pnpm uses its global virtual store there, so `node_modules` holds symlinks into a store every worktree shares: never edit a file under it. After the script remounts `node_modules`, run `pnpm install`. It also pins Go to CI's version (rerun it after bumping the `go-version` default in `.github/actions/setup-environment/action.yml`) and replaces an image `uv` that crashes. → [ADR: keep the sandbox's build outputs off the host mount](docs/adr/2026-11-09-keep-the-sandboxs-build-outputs-off-the-host-mount.md)
 
 ## How a request travels
 
-**There are two environments, and code branches on them by name** (`config.Environment` in `modules/shared/config`). `desktop` is `kubetail serve` and `kubetail logs` on the user's machine: credentials come from the kubeconfig, and a query names its kube context, the kubeconfig's current one by default. `cluster` is the Dashboard deployed in the cluster, or the CLI with `--in-cluster`: the kube context is the empty string, and a request runs as the token it carries, or as the Dashboard's ServiceAccount when `auth-mode` is `auto` and it carries none. → [ADR: one implementation per environment](docs/adr/2026-11-09-one-implementation-per-environment-behind-an-interface.md)
+**There are two environments, and code branches on them by name** (`config.Environment` in `libs/go-common/config`). `desktop` is `kubetail serve` and `kubetail logs` on the user's machine: credentials come from the kubeconfig, and a query names its kube context, the kubeconfig's current one by default. `cluster` is the Dashboard deployed in the cluster, or the CLI with `--in-cluster`: the kube context is the empty string, and a request runs as the token it carries, or as the Dashboard's ServiceAccount when `auth-mode` is `auto` and it carries none. → [ADR: one implementation per environment](docs/adr/2026-11-09-one-implementation-per-environment-behind-an-interface.md)
 
 **The browser talks only to the Dashboard backend**: GraphQL at `/graphql` (POST, and WebSocket for subscriptions) and a few REST routes under `/api/`.
 
-**Logs have two backends** behind `LogFetcher` (`modules/shared/logs`). `KubeLogFetcher` reads the pod log endpoint of the Kubernetes API. `AgentLogFetcher`, used when the Cluster API is installed, asks the Cluster Agent on the pod's node, which reads the file on disk and greps it there. → [ADR: read logs through two backends](docs/adr/2026-11-09-read-logs-through-two-backends-behind-logfetcher.md)
+**Logs have two backends** behind `LogFetcher` (`libs/go-common/logs`). `KubeLogFetcher` reads the pod log endpoint of the Kubernetes API. `AgentLogFetcher`, used when the Cluster API is installed, asks the Cluster Agent on the pod's node, which reads the file on disk and greps it there. → [ADR: read logs through two backends](docs/adr/2026-11-09-read-logs-through-two-backends-behind-logfetcher.md)
 
 **Nothing dials the Cluster API directly.** It is the Kubernetes APIService `v1.api.kubetail.com`, so every caller goes through the kube-apiserver, which authenticates the caller and forwards the identity in front-proxy headers. → [ADR: reach the Cluster API through the aggregation layer](docs/adr/2026-11-09-reach-the-cluster-api-through-the-aggregation-layer.md)
 
@@ -49,7 +48,80 @@ kubetail logs ──────────────────────
 
 ## Generated code
 
-Generated Go and TypeScript are committed and never hand-edited: `*.pb.go`, `graph/generated.go`, `graph/model/models_gen.go`, `dashboard-ui/src/lib/graphql/*/__generated__/`. The Rust gRPC code is generated on every build and never committed. Regenerate after editing a source: `proto/CLAUDE.md` for the proto, `modules/CLAUDE.md` for a GraphQL schema, `dashboard-ui/CLAUDE.md` for the UI's operations. `make check-generated` runs every generator, `modules/cli/assets/`'s copy of `config/default/cli.*` among them, and fails if a committed file changed; CI's `Generated · Check` runs it. → [ADR: commit generated Go and TypeScript](docs/adr/2026-11-09-commit-generated-go-and-typescript-generate-rust-at-build-time.md), [ADR: check generated code in CI by regenerating it](docs/adr/2026-11-10-check-generated-code-in-ci-by-regenerating-it.md)
+Generated Go and TypeScript are committed and never hand-edited: `*.pb.go`, `graph/generated.go`, `graph/model/models_gen.go`, `apps/web/src/lib/graphql/*/__generated__/`. The Rust gRPC code is generated on every build and never committed. Regenerate after editing a source: `libs/proto/CLAUDE.md` for the proto, *Go modules* below for a GraphQL schema, `apps/web/CLAUDE.md` for the UI's operations. `make check-generated` runs every generator, `cli/assets/`'s copy of `config/default/cli.*` among them, and fails if a committed file changed; CI's `Generated · Check` runs it. → [ADR: commit generated Go and TypeScript](docs/adr/2026-11-09-commit-generated-go-and-typescript-generate-rust-at-build-time.md), [ADR: check generated code in CI by regenerating it](docs/adr/2026-11-10-check-generated-code-in-ci-by-regenerating-it.md)
+
+## Go modules
+
+Four modules under the root `go.work`: `cli`, `dashboard`, `cluster/api` and `libs/go-common`. Each module's guide adds its own.
+
+- **Imports point one way.** `libs/go-common` imports no sibling. `dashboard` and `cluster/api` import `libs/go-common` alone. `cli` imports `libs/go-common` and exactly two Dashboard packages, `dashboard/pkg/app` and `dashboard/pkg/config`. Nothing imports `cli` or `cluster/api`.
+- **Each module builds without `go.work`**, as the release builds do. Every `go.mod` carries a `replace` for each sibling it imports and a complete `go.sum`. A new import of a sibling module needs the `replace`, and a `COPY` in the component's `Dockerfile`, to the same relative place it has in the repo. → [ADR: each Go module builds without go.work](docs/adr/2026-11-09-each-go-module-builds-without-go-work.md)
+- **Every module pins `fsnotify` to v1.8.0 with a `replace`**; keep the four in step. → [ADR: pin fsnotify to v1.8.0](docs/adr/2026-11-09-pin-fsnotify-to-v1-8-0.md)
+- **Go is 1.26**; CI and the Dockerfiles pin the patch version (`go-version` in `.github/actions/setup-environment/action.yml`).
+
+### Checks
+
+```sh
+cd <module>
+go fmt ./...            # CI fails if `gofmt -l .` prints anything
+go vet ./...
+go test -race ./...
+```
+
+From the repo root, `make vet-go` adds a `GOOS=windows` pass, `scripts/check-go-fix.sh` and staticcheck. CI runs all three. `make vet-go-changed` runs `go vet` and `go fix` on the changed packages alone, with their importers, on this platform; `ALL_PLATFORMS=1` adds the other two. Ignore a staticcheck finding with `//lint:ignore <check> <reason>` on the line above it.
+
+From the repo root, `go test -race github.com/kubetail-org/kubetail/...` covers the workspace, as `make test-go` does. A change to `libs/go-common` runs the workspace's tests. Don't commit a `vendor/` directory.
+
+Coverage is measured across the workspace: every test binary counts every package (`-coverpkg`), so a `libs/go-common` line that the Dashboard's tests reach is covered. `make cover-changed` runs only the changed packages' tests; `FULL=1` runs them all, as CI does. → [ADR: measure Go coverage across the workspace](docs/adr/2026-11-09-measure-go-coverage-across-the-workspace.md)
+
+`go generate ./...` in a module runs its generators: gqlgen in `dashboard` and `cluster/api`, `protoc` in `libs/go-common`, a copy of `config/default/cli.*` in `cli`.
+
+### Conventions
+
+- **`context.Context` is the first parameter**, and it carries the caller's identity. Pass the request's context down; never start a Kubernetes or gRPC call from `context.Background()` on a request path.
+- **Each environment is an implementation behind one interface**, picked by a factory that switches on `config.Environment`: `ConnectionManager`, `Proxy`, `HealthMonitor`. Behaviour that differs by environment goes in both implementations. A resolver checks the environment itself only to refuse an operation that exists in one alone.
+- **Errors**: wrap with `fmt.Errorf("doing x: %w", err)` when the caller could not otherwise tell where it failed; sentinels are `errors.New`, tested with `errors.Is`. A resolver that refuses a request returns one of the `Err*` values in `libs/go-common/graphql/errors` (`ErrForbidden`, `ErrUnauthenticated`, `ErrValidationError`, `ErrServiceUnavailable`…), whose `extensions.code` is what a client matches on.
+- **Logging is zerolog's global logger**, imported as `zlog "github.com/rs/zerolog/log"`. `zlog.Fatal()` is for startup only. Never log a token, a cookie or a request body.
+- **A constructor is `NewX(required…, opts ...Option)`** where there is anything optional. Exported options are production knobs; a seam only tests need is an unexported option, field or constructor (`newClientForTest`).
+- **An interface sits beside its implementation** (`k8shelpers.ConnectionManager`, `logs.Stream`). A small unexported interface on the consumer's side is fine as a test seam.
+- **Mocks are hand-written testify mocks in a `mock/` subpackage** of the package they fake (`k8shelpers/mock`). No mock generator. A method added to the interface is added to the mock.
+- **A method that needs its caller to hold the lock ends in `_UNSAFE`**; the method that takes the lock and calls it has the plain name.
+- **Fan-out to subscribers is `github.com/kubetail-org/megaphone`.** Don't hand-roll a subscriber map.
+- **Use the current standard library**: `any`, `new(expr)`, `wg.Go(...)`, range over an integer, `slices` and `maps`. CI fails when `go fix` would rewrite a file.
+- **Imports are grouped, a blank line between groups**: standard library, third-party, `libs/go-common/...`, then the module's own packages.
+- **File names follow their directory**: kebab-case in `libs/go-common` and the older Dashboard packages, snake_case in `cli`. In a directory that mixes them, a new file is snake_case.
+
+### The GraphQL servers
+
+`dashboard` and `cluster/api` have the same shape: `libs/graphql/<server>/schema.graphqls` is the one schema file, which gqlgen writes into `graph/generated.go` as a string; `graph/server.go` builds the handler and its transports, `graph/resolver.go` holds the `Resolver` struct and its dependencies, and `gqlgen.yml` binds GraphQL types straight to Go types (the Kubernetes API types in `dashboard`, the protobuf messages in `cluster/api`).
+
+After editing a schema:
+
+```sh
+cd <module> && go generate ./...       # gqlgen
+cd apps/web && pnpm graphql-codegen    # the UI's types, generated from both schemas
+```
+
+- **`logRecordsFetch` and `logRecordsFollow` exist in both schemas with the same signature**, since the UI sends one set of documents to whichever server is in use. Change both together.
+- **`graph/schema.resolvers.go` is rewritten by gqlgen, which keeps the bodies.** A new field arrives as a stub that panics with `not implemented`. Anything that is not a resolver method goes in another file (`schema.helpers.go`, `resolver.go`), or gqlgen moves it to the end of the file.
+- **Neither server sets an error presenter.** Whatever error a resolver returns reaches the client with its message, a client-go error included. For a failure the client should understand, return an `Err*` value or a message written for it.
+- **In a subscription resolver, report a failure with `transport.AddSubscriptionError(ctx, …)`, then close the channel**, and stop when `ctx` is done (`logRecordsFollow` in either server).
+- **`@validate` adds an error and still passes the value on**; a field marked `@nullIfValidationFailed` then resolves to null.
+- **A new long-lived connection type is cancelled by `app.NotifyShutdown` and counted for `app.DrainWithContext`**, as WebSockets are (`cmd/main.go`).
+
+### Tests
+
+The repo-wide rules are the root guide's *Testing conventions*.
+
+- **testify `assert` and `require`**, plain `func TestX(t *testing.T)`, table-driven with `t.Run` where cases repeat. No testify `suite` in new tests.
+- **White-box by default** (`package foo`). An external `package foo_test` only to pin a public contract, and it says so.
+- **To wait, `select` on a channel against `time.After` or a context deadline**, or use `require.Eventually`. `drainAll` in `cli/internal/clusterapi/stream_test.go` shows the shape.
+- **A test passes in any order, at any `-cpu`, run repeatedly.** The nightly `stress.yml` runs every test with `-shuffle=on`, `-count` and several `-cpu` values, with and without `-race`, and opens an issue per failing test. Its report script is `scripts/stress.go`.
+- **Tests run on Linux, macOS and Windows in CI.** Use `t.TempDir()`, `t.Setenv` and `filepath`. A test closes what it opens before it ends, since Windows removes no open file. A platform-specific test goes in a platform-named file (`foo_unix_test.go`, `//go:build !windows`), never behind a `runtime.GOOS` check.
+- **`libs/go-common/testutils.NewWebTestClient(t, handler)`** is the HTTP client for app and GraphQL tests: it keeps cookies, sends `Sec-Fetch-Site: same-origin` and replays the last `X-CSRF-Token` on unsafe methods. Prime it with `client.Get("/api/auth/session")`, and `defer client.Teardown()`.
+- **Kubernetes is faked with `k8s.io/client-go/kubernetes/fake`** and `k8shelpers/mock.MockConnectionManager`; a server with `httptest`; a gRPC peer with a real `grpc.NewServer()` on `127.0.0.1:0`.
+- **`NewApp` in `dashboard` and `cluster/api` builds the real dependencies and passes them to the unexported `newApp`**, which tests call with fakes. Every route and middleware is mounted either way.
+- **One package variable is swapped by tests**, `inClusterConfigFn` in `k8shelpers`. New seams are parameters or fields.
 
 ## These guides
 
@@ -119,7 +191,7 @@ Each area's guide lists what an ordinary change there can break. These hold ever
 Add an external dependency only for a material gain in readability or performance, and state the reason. Go: the standard library first. Rust: well-maintained, audited crates. TypeScript: weigh the bundle size.
 
 - **Dependabot proposes updates weekly** (`.github/dependabot.yml`) and a person merges each one. It never moves a toolchain: the Go, Node and Rust versions, `packageManager` and the `@types/node` major are bumped by hand. → [ADR: Dependabot moves dependencies, and a person merges every update](docs/adr/2026-11-09-dependabot-moves-dependencies-and-a-person-merges-every-update.md)
-- **Each toolchain has one exact version, set in one place**: Go and Node in the `go-version` and `node-version` defaults of `.github/actions/setup-environment/action.yml`, Rust in `crates/rust-toolchain.toml`. CI installs it, and the `golang`, `node` and `rust` images in `build/package/` and `hack/tilt/` carry the same version in their tags. Bump them in one commit, with Node the `@types/node` major in `dashboard-ui/package.json`, and re-pin each image's digest; `make lint-toolchains` (CI's `Toolchains · Lint`) fails on a mismatch. → [ADR: pin each toolchain to one version that CI and the images share](docs/adr/2026-11-10-pin-each-toolchain-to-one-version-that-ci-and-the-images-share.md)
+- **Each toolchain has one exact version, set in one place**: Go and Node in the `go-version` and `node-version` defaults of `.github/actions/setup-environment/action.yml`, Rust in `cluster/agent/rust-toolchain.toml`. CI installs it, and the `golang`, `node` and `rust` images in the release Dockerfiles and `hack/tilt/` carry the same version in their tags. Bump them in one commit, with Node the `@types/node` major in `apps/web/package.json`, and re-pin each image's digest; `make lint-toolchains` (CI's `Toolchains · Lint`) fails on a mismatch. → [ADR: pin each toolchain to one version that CI and the images share](docs/adr/2026-11-10-pin-each-toolchain-to-one-version-that-ci-and-the-images-share.md)
 - **Every image a Dockerfile pulls is pinned by tag and digest** (`alpine:3.24.4@sha256:…`), so a re-pushed tag cannot change a release; `make lint-digests` fails on one without. Dependabot moves the other images, tag and digest together. `docker buildx imagetools inspect <image>:<tag>` prints the digest to pin.
 - **`audit.yml` fails a PR only for the advisories it brings in**, and audits the whole tree on `main` and nightly. A failure there opens a `security` issue.
 

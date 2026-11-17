@@ -34,7 +34,7 @@ go:
 release-cli:
   - cli/**
 release-dashboard:
-  - dashboard-ui/**
+  - apps/web/**
 `
 
 // gitT runs git in dir with a fixed identity and no user configuration.
@@ -56,7 +56,7 @@ func gitT(t *testing.T, dir string, env []string, args ...string) {
 //
 //	1  chore: init                       .github only
 //	2  feat(cli): add a flag (#1)        cli           cli/v0.1.0
-//	3  fix(ui): fix a crash (#2)         dashboard-ui  dashboard/v0.1.0
+//	3  fix(ui): fix a crash (#2)         apps/web  dashboard/v0.1.0
 //	4  feat(cli)!: rename the flag (#3)  cli           cli/v0.2.0-rc.1
 //	5  docs(cli): tweak the help (#4)    cli
 //	5  tweak the cli by hand             cli           cli/v0.2.0-rc.2
@@ -90,7 +90,7 @@ func fixtureRepo(t *testing.T) string {
 	}
 	commit(1, ".github/README", "chore: init")
 	commit(2, "cli/a", "feat(cli): add a flag (#1)", "cli/v0.1.0")
-	commit(3, "dashboard-ui/a", "fix(ui): fix a crash (#2)", "dashboard/v0.1.0")
+	commit(3, "apps/web/a", "fix(ui): fix a crash (#2)", "dashboard/v0.1.0")
 	commit(4, "cli/b", "feat(cli)!: rename the flag (#3)", "cli/v0.2.0-rc.1")
 	commit(5, "cli/c", "docs(cli): tweak the help (#4)")
 	commit(5, "cli/d", "tweak the cli by hand", "cli/v0.2.0-rc.2")

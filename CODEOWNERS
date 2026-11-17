@@ -6,9 +6,9 @@
 .github/    @rxinui @amorey
 
 # kubetail go ownership
-/modules/cli/   @rxinui @amorey
-/modules/shared/    @rxinui @amorey
-/modules/cluster-api/    @rxinui @amorey
+/cli/   @rxinui @amorey
+/libs/go-common/    @rxinui @amorey
+/cluster/api/    @rxinui @amorey
 
 # kubetail rust ownership
-/crates/    @gikaragia @amorey
+/cluster/agent/    @gikaragia @amorey

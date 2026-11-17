@@ -1,7 +1,7 @@
 **/node_modules
 .git
-/modules/dashboard/website
-/dashboard-ui/.env*.local
-crates/*/target
-crates/target
+/dashboard/website
+/apps/web/.env*.local
+cluster/agent/*/target
+cluster/agent/target
 target

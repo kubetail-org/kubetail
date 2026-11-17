@@ -171,10 +171,13 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          file: build/package/Dockerfile.${{ needs.config.outputs.component }}
+          # Each Dockerfile sits in its component's folder: cluster-api's in
+          # cluster/api, cluster-agent's in cluster/agent.
+          file: >-
+            ${{ fromJSON('{"cli": "cli/Dockerfile", "dashboard": "dashboard/Dockerfile", "cluster-api": "cluster/api/Dockerfile", "cluster-agent": "cluster/agent/Dockerfile"}')[needs.config.outputs.component] }}
           push: ${{ needs.config.outputs.dry_run == 'false' }}
           target: ${{ steps.vars.outputs.docker_target }}
-          # Only Dockerfile.cli declares VERSION; the others ignore it.
+          # Only cli/Dockerfile declares VERSION; the others ignore it.
           build-args: VERSION=${{ needs.config.outputs.base_image_tag }}
           # An SPDX SBOM attestation, which imagetools create carries into
           # the multi-arch manifest.

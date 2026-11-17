@@ -19,9 +19,9 @@ Discussion #447 (June 2025) proposed rewriting the agent in Rust. It gives the r
 
 ## Decision
 
-The Dashboard and the Cluster API each serve GraphQL with gqlgen from `graph/schema.graphqls`. Queries and mutations go over POST; subscriptions go over WebSocket (`graphql-ws`). The Cluster API also accepts subscriptions over SSE. The UI generates its types from both schemas.
+The Dashboard and the Cluster API each serve GraphQL with gqlgen from `libs/graphql/<server>/schema.graphqls`. Queries and mutations go over POST; subscriptions go over WebSocket (`graphql-ws`). The Cluster API also accepts subscriptions over SSE. The UI generates its types from both schemas.
 
-The Cluster API talks to the agents over gRPC with mutual TLS. `proto/cluster_agent.proto` defines `LogMetadataService` and `LogRecordsService`. The Go client is committed protoc output in `modules/shared/clusteragentpb`; the Rust server is generated at build time by `crates/types/build.rs`. `grpc-dispatcher-go` fans a metadata call out to every agent and sends a records call to the agent on the source's node.
+The Cluster API talks to the agents over gRPC with mutual TLS. `libs/proto/cluster_agent.proto` defines `LogMetadataService` and `LogRecordsService`. The Go client is committed protoc output in `libs/go-common/clusteragentpb`; the Rust server is generated at build time by `cluster/agent/types/build.rs`. `grpc-dispatcher-go` fans a metadata call out to every agent and sends a records call to the agent on the source's node.
 
 The Cluster API's `gqlgen.yml` binds the `LogMetadata*` GraphQL types straight to the protobuf messages in `clusteragentpb`, as the Dashboard's binds Kubernetes types to `k8s.io/api`.
 

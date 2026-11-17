@@ -9,25 +9,25 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # dependencies
-/dashboard-ui/node_modules
-/dashboard-ui/.pnp
-/dashboard-ui/.pnp.js
+/apps/web/node_modules
+/apps/web/.pnp
+/apps/web/.pnp.js
 
 # dev
-/dashboard-ui/*.local
+/apps/web/*.local
 
 # testing
-/dashboard-ui/coverage
+/apps/web/coverage
 
 # build
 /bin
-/dashboard-ui/dist
-/dashboard-ui/dist-ssr
+/apps/web/dist
+/apps/web/dist-ssr
 
 # build artifacts
-/modules/dashboard/website/*
-!/modules/dashboard/website/
-!/modules/dashboard/website/.gitkeep
+/dashboard/website/*
+!/dashboard/website/
+!/dashboard/website/.gitkeep
 
 # pnpm
 .pnpm-store
@@ -41,8 +41,8 @@ lerna-debug.log*
 *.so
 *.dylib
 *.rmeta
-/crates/*/target
-/crates/target
+/cluster/agent/*/target
+/cluster/agent/target
 /target
 
 # sandbox (scripts/sandbox-dev-setup.sh)
@@ -84,6 +84,6 @@ CLAUDE.local.md
 **/.pytest_cache
 
 # Misc
-/dashboard-ui/stats.html
+/apps/web/stats.html
 .worktrees
 .sbx

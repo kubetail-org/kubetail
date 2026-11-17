@@ -18,48 +18,48 @@ check() {
 }
 
 @test "markers that give a reason pass" {
-  write modules/a/a.go 'if err != nil { // coverage:ignore only a full disk fails here'
-  write modules/a/b.go '// coverage:ignore-start only the child runs this'
-  write modules/a/c.go '// coverage:ignore-stop'
-  write crates/a/src/a.rs '    // coverage:ignore-start the entry point'
-  write crates/a/src/b.rs '    // coverage:ignore-stop'
-  write dashboard-ui/src/a.ts '/* v8 ignore next -- jsdom has no layout */'
+  write cli/a/a.go 'if err != nil { // coverage:ignore only a full disk fails here'
+  write cli/a/b.go '// coverage:ignore-start only the child runs this'
+  write cli/a/c.go '// coverage:ignore-stop'
+  write cluster/agent/a/src/a.rs '    // coverage:ignore-start the entry point'
+  write cluster/agent/a/src/b.rs '    // coverage:ignore-stop'
+  write apps/web/src/a.ts '/* v8 ignore next -- jsdom has no layout */'
   check
   [ "$status" -eq 0 ]
 }
 
 @test "a Go marker without a reason fails" {
-  write modules/a/a.go 'if err != nil { // coverage:ignore'
+  write cli/a/a.go 'if err != nil { // coverage:ignore'
   check
   [ "$status" -eq 1 ]
-  [[ "$output" == *"modules/a/a.go:1:"* ]]
+  [[ "$output" == *"cli/a/a.go:1:"* ]]
 }
 
 @test "a Rust marker after code fails" {
-  write crates/a/src/a.rs 'let x = 1; // coverage:ignore-start the entry point'
+  write cluster/agent/a/src/a.rs 'let x = 1; // coverage:ignore-start the entry point'
   check
   [ "$status" -eq 1 ]
-  [[ "$output" == *"crates/a/src/a.rs:1:"* ]]
+  [[ "$output" == *"cluster/agent/a/src/a.rs:1:"* ]]
 }
 
 @test "a Rust start without a reason fails" {
-  write crates/a/src/a.rs '// coverage:ignore-start'
+  write cluster/agent/a/src/a.rs '// coverage:ignore-start'
   check
   [ "$status" -eq 1 ]
 }
 
 @test "a TypeScript marker without a reason fails" {
-  write dashboard-ui/src/a.tsx '/* v8 ignore next */'
+  write apps/web/src/a.tsx '/* v8 ignore next */'
   check
   [ "$status" -eq 1 ]
-  [[ "$output" == *"dashboard-ui/src/a.tsx:1:"* ]]
+  [[ "$output" == *"apps/web/src/a.tsx:1:"* ]]
 }
 
 @test "a directory argument checks that directory alone" {
-  write modules/a/a.go 'if err != nil { // coverage:ignore'
-  write dashboard-ui/src/a.ts '/* v8 ignore next -- jsdom has no layout */'
-  check dashboard-ui/src
+  write cli/a/a.go 'if err != nil { // coverage:ignore'
+  write apps/web/src/a.ts '/* v8 ignore next -- jsdom has no layout */'
+  check apps/web/src
   [ "$status" -eq 0 ]
-  check modules/a
+  check cli/a
   [ "$status" -eq 1 ]
 }

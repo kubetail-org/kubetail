@@ -23,7 +23,7 @@ go_pkgs=$(go_pkgs)
 [ -n "$go_pkgs" ] || exit 0
 
 all=${ALL_PLATFORMS:-}
-workspace=github.com/kubetail-org/kubetail/modules/...
+workspace=github.com/kubetail-org/kubetail/...
 status=0
 
 work=$(mktemp -d)
@@ -39,7 +39,7 @@ go_files() {
   local config=$1
   shift
   # shellcheck disable=SC2016 # a Go template
-  env $config go -C modules list -e -f '{{$p := .ImportPath}}{{range .GoFiles}}{{$p}} {{.}}
+  env $config go list -e -f '{{$p := .ImportPath}}{{range .GoFiles}}{{$p}} {{.}}
 {{end}}{{range .CgoFiles}}{{$p}} {{.}}
 {{end}}{{range .TestGoFiles}}{{$p}} {{.}}
 {{end}}{{range .XTestGoFiles}}{{$p}} {{.}}
@@ -52,26 +52,26 @@ go_files() {
 check() {
   local config=$1 out
   shift
-  out=$(env $config go -C modules fix -plusbuild=false -diff "$@" 2>&1) || true
+  out=$(env $config go fix -plusbuild=false -diff "$@" 2>&1) || true
   if [ -n "$out" ]; then
     echo "$out"
-    echo "Run '${config:+$config }go fix -plusbuild=false' in modules/ on these packages and review the result."
+    echo "Run '${config:+$config }go fix -plusbuild=false' on these packages and review the result."
     status=1
   fi
   [ "$all" = 1 ] || return 0
-  (cd modules && env $config "$work/staticcheck" -f binary "$@") >"$work/${config:-host}.bin" || status=1
+  env $config "$work/staticcheck" -f binary "$@" >"$work/${config:-host}.bin" || status=1
 }
 
 # Import paths, as go list names an import. It has printed why it listed none.
-pkgs=$(go -C modules list $go_pkgs) || true
+pkgs=$(go list $go_pkgs) || true
 [ -n "$pkgs" ] || exit 1
 
 # The workspace's packages importing a changed one, from their tests too.
-importers=$(go -C modules list -f '{{.ImportPath}} {{join .Imports " "}} {{join .TestImports " "}} {{join .XTestImports " "}}' "$workspace" |
+importers=$(go list -f '{{.ImportPath}} {{join .Imports " "}} {{join .TestImports " "}} {{join .XTestImports " "}}' "$workspace" |
   awk 'NR == FNR { changed[$1]; next }
     { for (i = 2; i <= NF; i++) if ($i in changed) { print $1; next } }' <(echo "$pkgs") -)
 
-go -C modules vet $pkgs $importers || status=1
+go vet $pkgs $importers || status=1
 check "" $pkgs
 
 if [ "$all" = 1 ]; then
@@ -80,13 +80,13 @@ if [ "$all" = 1 ]; then
     # The packages this GOOS builds from other files.
     split=$(comm -3 <(echo "$here") <(go_files "$config" $pkgs) | tr -d '\t' | cut -d' ' -f1 | sort -u)
     [ -n "$split" ] || continue
-    env $config go -C modules vet $split || status=1
+    env $config go vet $split || status=1
     check "$config" $split
   done
   # Code only another platform uses reads as unused here: -merge reports U1000
   # only where every run that checked the file agrees.
-  if ! (cd modules && "$work/staticcheck" -merge "$work"/*.bin) >"$work/merged.out"; then
-    sed "s|^|modules/|" "$work/merged.out"
+  if ! "$work/staticcheck" -merge "$work"/*.bin >"$work/merged.out"; then
+    cat "$work/merged.out"
     status=1
   fi
 fi

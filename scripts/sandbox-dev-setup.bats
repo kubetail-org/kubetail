@@ -75,8 +75,8 @@ require_linux() {
   require_linux
   run_script
   [ "$status" -eq 0 ]
-  grep -qx "sudo mount --bind $KUBETAIL_SANDBOX_OVERLAY_ROOT/worktrees$REPO/dashboard-ui/node_modules $REPO/dashboard-ui/node_modules" "$LOG"
-  grep -qx "sudo mount --bind $REPO/.sandbox-linux/dist $REPO/dashboard-ui/dist" "$LOG"
+  grep -qx "sudo mount --bind $KUBETAIL_SANDBOX_OVERLAY_ROOT/worktrees$REPO/apps/web/node_modules $REPO/apps/web/node_modules" "$LOG"
+  grep -qx "sudo mount --bind $REPO/.sandbox-linux/dist $REPO/apps/web/dist" "$LOG"
 }
 
 @test "writes each env var once across re-runs" {

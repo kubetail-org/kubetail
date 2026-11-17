@@ -19,13 +19,13 @@ Why search runs in a per-node agent rather than in some other in-cluster compone
 
 ## Decision
 
-`LogFetcher` (`modules/shared/logs/log-fetcher.go`) has two methods, `StreamForward` and `StreamBackward`, each returning a channel of `LogRecord` for one `LogSource`. It has two implementations.
+`LogFetcher` (`libs/go-common/logs/log-fetcher.go`) has two methods, `StreamForward` and `StreamBackward`, each returning a channel of `LogRecord` for one `LogSource`. It has two implementations.
 
 `KubeLogFetcher` reads the pod log endpoint through a clientset. It applies the time bounds and the grep regex in process, and walks backward by requesting growing `TailLines` batches.
 
 `AgentLogFetcher` calls `LogRecordsService` on the agent of the source's node through the gRPC dispatcher. The agent applies the time bounds and the grep on the node, so only matching lines cross the network.
 
-`logs.NewStream` uses `KubeLogFetcher` unless given `logs.WithLogFetcher`. The Dashboard always uses the default. The Cluster API always passes `logs.NewAgentLogFetcher` (`graph/schema.resolvers.go`, `internal/app/download.go`). The UI picks a server per kube context with `useIsClusterAPIEnabled` and sends it the same log documents. The CLI picks with `--backend auto|kubernetes|kubetail` (`selectBackend`, `modules/cli/cmd/logs.go`): `auto` probes the APIService and falls back to the Kubernetes API with a warning.
+`logs.NewStream` uses `KubeLogFetcher` unless given `logs.WithLogFetcher`. The Dashboard always uses the default. The Cluster API always passes `logs.NewAgentLogFetcher` (`graph/schema.resolvers.go`, `internal/app/download.go`). The UI picks a server per kube context with `useIsClusterAPIEnabled` and sends it the same log documents. The CLI picks with `--backend auto|kubernetes|kubetail` (`selectBackend`, `cli/cmd/logs.go`): `auto` probes the APIService and falls back to the Kubernetes API with a warning.
 
 ## Alternatives considered
 

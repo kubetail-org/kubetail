@@ -17,7 +17,7 @@ Most of the findings came from a few places. The shared hooks in `src/lib/hooks.
 
 ## Decision
 
-**`dashboard-ui/.oxlintrc.json` turns on `typescript/no-explicit-any` and the five `typescript/no-unsafe-*` rules.** This replaces the earlier ADR's rejection of them. The rest of that ADR stands.
+**`apps/web/.oxlintrc.json` turns on `typescript/no-explicit-any` and the five `typescript/no-unsafe-*` rules.** This replaces the earlier ADR's rejection of them. The rest of that ADR stands.
 
 **Tests keep `no-explicit-any` but turn the `no-unsafe-*` rules off.** A `vi.fn()` mock's calls and results are `any`, so every assertion on one would be reported.
 

@@ -23,12 +23,12 @@ timeline, delivered to a browser or terminal.
 %setup -q -n kubetail-%{version}
 
 %build
-cd modules/cli && \
+cd cli && \
   GOWORK=off \
   go build \
     -mod=vendor \
-    -ldflags="-s -w -X github.com/kubetail-org/kubetail/modules/cli/cmd.version=%{version}" \
-    -o ../../bin/kubetail \
+    -ldflags="-s -w -X github.com/kubetail-org/kubetail/cli/cmd.version=%{version}" \
+    -o ../bin/kubetail \
     main.go
 
 %install

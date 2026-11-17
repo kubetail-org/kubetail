@@ -18,12 +18,12 @@ The rules are [SemVer 2.0.0](https://semver.org/).
 
 ## The components
 
-| Component       | Tag                        | Workflows                            | Paths                                                                  |
-| --------------- | -------------------------- | ------------------------------------ | ---------------------------------------------------------------------- |
-| `cli`           | `cli/v<version>`           | `release-cli.yml`, `release-docker.yml` | `modules/cli/` `modules/dashboard/` `modules/shared/` `dashboard-ui/` |
-| `dashboard`     | `dashboard/v<version>`     | `release-docker.yml`                 | `modules/dashboard/` `modules/shared/` `dashboard-ui/`                 |
-| `cluster-api`   | `cluster-api/v<version>`   | `release-docker.yml`                 | `modules/cluster-api/` `modules/shared/` `proto/`                      |
-| `cluster-agent` | `cluster-agent/v<version>` | `release-docker.yml`                 | `crates/` `proto/`                                                     |
+| Component       | Tag                        | Workflows                               | Paths                                                                       |
+| --------------- | -------------------------- | --------------------------------------- | --------------------------------------------------------------------------- |
+| `cli`           | `cli/v<version>`           | `release-cli.yml`, `release-docker.yml` | `cli/` `dashboard/` `libs/go-common/` `libs/graphql/dashboard/` `apps/web/` |
+| `dashboard`     | `dashboard/v<version>`     | `release-docker.yml`                    | `dashboard/` `libs/go-common/` `libs/graphql/dashboard/` `apps/web/`        |
+| `cluster-api`   | `cluster-api/v<version>`   | `release-docker.yml`                    | `cluster/api/` `libs/go-common/` `libs/graphql/cluster-api/` `libs/proto/`  |
+| `cluster-agent` | `cluster-agent/v<version>` | `release-docker.yml`                    | `cluster/agent/` `libs/proto/`                                              |
 
 Each component's full list, with its Dockerfile and default config, is its `release-<component>`
 filter in `.github/ci-config/path-filters.yml`. Use those globs as the paths below. The CLI
@@ -78,7 +78,7 @@ crate or an npm package the component uses), and as none when it touches only te
 **Read the diff (`git show --stat <sha>`, then the relevant hunks) when the type looks wrong for
 the change.** For example, a `refactor` that renames a CLI flag or a config key, a `chore` that
 changes what a user sees, or a `fix` that removes a behaviour someone relied on. A commit under
-`modules/shared/` or `proto/` counts only for the components whose code it changes. Classify by
+`libs/go-common/` or `libs/proto/` counts only for the components whose code it changes. Classify by
 what the change does to the component's users, and name each commit you reclassified and why.
 
 What counts as breaking:
@@ -90,7 +90,7 @@ What counts as breaking:
   alone; a change there is not breaking.
 - **`cluster-api`:** the same as the Dashboard, plus removing or changing a GraphQL field that a
   released Dashboard or `kubetail logs` reads, since a cluster runs them at different versions.
-- **`cluster-agent`:** the same as the Dashboard, plus a change to the gRPC contract in `proto/`
+- **`cluster-agent`:** the same as the Dashboard, plus a change to the gRPC contract in `libs/proto/`
   that a released Cluster API cannot speak.
 
 The release's level is the highest level among the commits. If it is none, say there is nothing

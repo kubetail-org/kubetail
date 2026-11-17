@@ -97,7 +97,6 @@ jobs:
       # Each package's result goes to the log as it lands, so a job that dies
       # before its report still shows which package was running.
       - name: Run tests under stress
-        working-directory: ./modules
         shell: bash
         run: |
           race_flag=""
@@ -107,12 +106,12 @@ jobs:
           mkdir -p stress
           status=0
           go test $race_flag -cpu "$CPU" -shuffle=on -count="$COUNT" -timeout 90m -json \
-              github.com/kubetail-org/kubetail/modules/... \
+              github.com/kubetail-org/kubetail/... \
             | tee stress/stress.json \
             | jq -rR --unbuffered 'fromjson? | select(.Test == null and (.Action == "pass" or .Action == "fail"))
                 | "\(.Action) \(.Package) \(.Elapsed)s"' \
             || status=$?
-          go run ../scripts/stress.go -cpu "$CPU" -count "$COUNT" -race="$RACE" \
+          go run ./scripts/stress.go -cpu "$CPU" -count "$COUNT" -race="$RACE" \
             -runner "$STRESS_ID" stress/stress.json
           exit "$status"
       # On a cancel, too: timeout-minutes cancels the job, and the partial
@@ -122,7 +121,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: stress-${{ env.STRESS_ID }}
-          path: modules/stress/
+          path: stress/
           retention-days: 14
 
   # Checks out nothing, so no repo code runs with a write token. Artifact text
@@ -192,7 +191,7 @@ jobs:
             title=$(jq -r '"Stress: \(.[0].test) fails in \(.[0].package)"' <<<"$group")
             jq -r --arg run "$RUN_URL" '
               "The [nightly stress run](\($run)) found `\(.[0].test)` failing in `\(.[0].package)`.\n\n"
-              + "Each command runs the whole package from `modules/`, since the seed orders all of it.\n\n"
+              + "Each command runs the whole package from the repo root, since the seed orders all of it.\n\n"
               + (sort_by(.runner, .cpu) | map(
                   "- **\(.runner)**, `-cpu \(.cpu)`, seed `\(.seed)`"
                   + (if .timedOut then ", timed out" else "" end)

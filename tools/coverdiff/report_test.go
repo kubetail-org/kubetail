@@ -22,17 +22,17 @@ import (
 
 func TestReadGoMapsImportPathsToFilesAndMarksSharedLinesPartial(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "modules", "go.mod"), "module example.com/side\n\ngo 1.26\n")
+	writeFile(t, filepath.Join(root, "go", "go.mod"), "module example.com/side\n\ngo 1.26\n")
 	profile := filepath.Join(root, "cover.out")
 	writeFile(t, profile, `mode: atomic
 example.com/side/demo/demo.go:3.28,4.16 1 1
 example.com/side/demo/demo.go:4.16,6.3 1 0
 `)
 	cov := coverage{}
-	if err := readGo(cov, root, "modules", profile); err != nil {
+	if err := readGo(cov, root, "go", profile); err != nil {
 		t.Fatal(err)
 	}
-	want := coverage{"modules/demo/demo.go": {
+	want := coverage{"go/demo/demo.go": {
 		3: {hit: true},
 		4: {hit: true, missed: true},
 		5: {missed: true},
@@ -45,10 +45,10 @@ example.com/side/demo/demo.go:4.16,6.3 1 0
 
 func TestReadGoRefusesAFileOutsideTheModule(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "modules", "go.mod"), "module example.com/side\n")
+	writeFile(t, filepath.Join(root, "go", "go.mod"), "module example.com/side\n")
 	profile := filepath.Join(root, "cover.out")
 	writeFile(t, profile, "mode: set\nexample.com/other/a.go:1.1,2.2 1 1\n")
-	if err := readGo(coverage{}, root, "modules", profile); err == nil {
+	if err := readGo(coverage{}, root, "go", profile); err == nil {
 		t.Error("readGo succeeded")
 	}
 }
@@ -57,15 +57,15 @@ func TestReadGoNeedsAModuleAndAProfile(t *testing.T) {
 	root := t.TempDir()
 	profile := filepath.Join(root, "cover.out")
 	writeFile(t, profile, "mode: set\n")
-	if err := readGo(coverage{}, root, "modules", profile); err == nil {
+	if err := readGo(coverage{}, root, "go", profile); err == nil {
 		t.Error("readGo succeeded with no go.mod")
 	}
-	writeFile(t, filepath.Join(root, "modules", "go.mod"), "go 1.26\n")
-	if err := readGo(coverage{}, root, "modules", profile); err == nil {
+	writeFile(t, filepath.Join(root, "go", "go.mod"), "go 1.26\n")
+	if err := readGo(coverage{}, root, "go", profile); err == nil {
 		t.Error("readGo succeeded with no module line")
 	}
-	writeFile(t, filepath.Join(root, "modules", "go.mod"), "module example.com/side\n")
-	if err := readGo(coverage{}, root, "modules", filepath.Join(root, "missing.out")); err == nil {
+	writeFile(t, filepath.Join(root, "go", "go.mod"), "module example.com/side\n")
+	if err := readGo(coverage{}, root, "go", filepath.Join(root, "missing.out")); err == nil {
 		t.Error("readGo succeeded with no profile")
 	}
 }
@@ -73,9 +73,9 @@ func TestReadGoNeedsAModuleAndAProfile(t *testing.T) {
 func TestReadLcovReadsLinesAndUntakenBranches(t *testing.T) {
 	root := t.TempDir()
 	report := filepath.Join(root, "lcov.info")
-	abs := filepath.Join(root, "crates", "rgkl", "src", "lib.rs")
+	abs := filepath.Join(root, "cluster", "agent", "rgkl", "src", "lib.rs")
 	writeFile(t, report, `TN:
-SF:dashboard-ui/src/a.ts
+SF:apps/web/src/a.ts
 FN:1,f
 FNDA:1,f
 DA:1,1
@@ -98,14 +98,14 @@ end_of_record
 		t.Fatal(err)
 	}
 	want := coverage{
-		"dashboard-ui/src/a.ts": {
+		"apps/web/src/a.ts": {
 			1: {hit: true},
 			2: {missed: true},
 			3: {hit: true, missed: true},
 			4: {hit: true},
 			5: {missed: true},
 		},
-		"crates/rgkl/src/lib.rs": {7: {missed: true}},
+		"cluster/agent/rgkl/src/lib.rs": {7: {missed: true}},
 	}
 	if !reflect.DeepEqual(cov, want) {
 		t.Errorf("readLcov = %v, want %v", cov, want)
@@ -134,21 +134,21 @@ func TestReadLcovNeedsTheReport(t *testing.T) {
 
 func TestReadGoMapsAWorkspacesModulesToTheirDirectories(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "modules", "go.work"), "go 1.26\n\nuse (\n\t./cli\n\t./shared\n)\n")
-	writeFile(t, filepath.Join(root, "modules", "cli", "go.mod"), "module example.com/m/cli\n")
-	writeFile(t, filepath.Join(root, "modules", "shared", "go.mod"), "module example.com/m/shared\n")
+	writeFile(t, filepath.Join(root, "go.work"), "go 1.26\n\nuse (\n\t./cli\n\t./libs/common\n)\n")
+	writeFile(t, filepath.Join(root, "cli", "go.mod"), "module example.com/m/cli\n")
+	writeFile(t, filepath.Join(root, "libs", "common", "go.mod"), "module example.com/m/libs/common\n")
 	profile := filepath.Join(root, "cover.out")
 	writeFile(t, profile, `mode: atomic
 example.com/m/cli/main.go:1.1,1.5 1 1
-example.com/m/shared/x/x.go:2.1,2.5 1 0
+example.com/m/libs/common/x/x.go:2.1,2.5 1 0
 `)
 	cov := coverage{}
-	if err := readGo(cov, root, "modules", profile); err != nil {
+	if err := readGo(cov, root, ".", profile); err != nil {
 		t.Fatal(err)
 	}
 	want := coverage{
-		"modules/cli/main.go":   {1: {hit: true}},
-		"modules/shared/x/x.go": {2: {missed: true}},
+		"cli/main.go":        {1: {hit: true}},
+		"libs/common/x/x.go": {2: {missed: true}},
 	}
 	if !reflect.DeepEqual(cov, want) {
 		t.Errorf("readGo = %v, want %v", cov, want)

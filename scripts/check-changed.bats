@@ -37,21 +37,24 @@ tests="cover-changed test-changed"
   [ "$jobs" = "$always|$tests" ]
 }
 
-@test "a dashboard-ui change adds its lint and type-check" {
-  check dashboard-ui/src/app.tsx
+@test "an apps/web change adds its lint and type-check" {
+  check apps/web/src/app.tsx
   [ "$jobs" = "$always|lint-ts vet-ts|$tests" ]
 }
 
-@test "a modules change adds the Go lint and vet" {
-  check modules/cli/main.go
+@test "a Go module change adds the Go lint and vet" {
+  check cli/main.go
+  [ "$jobs" = "$always|lint-go|vet-go-changed|$tests" ]
+  rm -r "$repo/cli"
+  check libs/go-common/util/util.go
   [ "$jobs" = "$always|lint-go|vet-go-changed|$tests" ]
 }
 
-@test "a crates or proto change adds the Rust lint and vet" {
-  check crates/rgkl/src/lib.rs
+@test "a cluster/agent or libs/proto change adds the Rust lint and vet" {
+  check cluster/agent/rgkl/src/lib.rs
   [ "$jobs" = "$always|lint-rust vet-rust|$tests" ]
-  rm -r "$repo/crates"
-  check proto/cluster_agent.proto
+  rm -r "$repo/cluster/agent"
+  check libs/proto/cluster_agent.proto
   [ "$jobs" = "$always|lint-rust vet-rust|$tests" ]
 }
 
@@ -74,8 +77,8 @@ tests="cover-changed test-changed"
 }
 
 @test "a staged or committed change counts" {
-  check modules/cli/main.go
-  git -C "$repo" add modules
+  check cli/main.go
+  git -C "$repo" add cli
   check
   [[ "$jobs" == *"|lint-go|vet-go-changed|"* ]]
   git -C "$repo" -c user.name=t -c user.email=t@t commit -q -m go

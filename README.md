@@ -193,14 +193,14 @@ Users can fully customize their Kubetail experience when using the web dashboard
 
 This monorepo contains the following modules:
 
-* Kubetail CLI ([modules/cli](modules/cli))
-* Kubetail Cluster API ([modules/cluster-api](modules/cluster-api))
-* Kubetail Cluster Agent ([crates/cluster_agent](crates/cluster_agent))
-* Kubetail Dashboard ([modules/dashboard](modules/dashboard))
+* Kubetail CLI ([cli](cli))
+* Kubetail Cluster API ([cluster/api](cluster/api))
+* Kubetail Cluster Agent ([cluster/agent/cluster_agent](cluster/agent/cluster_agent))
+* Kubetail Dashboard ([dashboard](dashboard))
 
 It also contains the source code for the Kubetail Dashboard's frontend:
 
-* Dashboard UI ([dashboard-ui](dashboard-ui))
+* Dashboard UI ([apps/web](apps/web))
 
 ### Setting up the Development Environment
 
@@ -236,14 +236,14 @@ tilt up
 3. Start the Dashboard server:
 
 ```console
-cd modules/dashboard
+cd dashboard
 go run cmd/main.go -c hack/config.yaml
 ```
 
 4. Run the Dashboard UI locally:
 
 ```console
-cd dashboard-ui
+cd apps/web
 pnpm install
 pnpm dev
 ```
@@ -333,7 +333,7 @@ When the build process finishes you can find the executable in the local `bin/` 
 To build a docker image for a production deployment of the Kubetail Dashboard server, run the following command:
 
 ```console
-docker build -f build/package/Dockerfile.dashboard -t kubetail-dashboard:latest .
+docker build -f dashboard/Dockerfile -t kubetail-dashboard:latest .
 ```
 
 ### Cluster API
@@ -341,7 +341,7 @@ docker build -f build/package/Dockerfile.dashboard -t kubetail-dashboard:latest 
 To build a docker image for a production deployment of the Kubetail Cluster API server, run the following command:
 
 ```console
-docker build -f build/package/Dockerfile.cluster-api -t kubetail-cluster-api:latest .
+docker build -f cluster/api/Dockerfile -t kubetail-cluster-api:latest .
 ```
 
 ### Cluster Agent
@@ -349,7 +349,7 @@ docker build -f build/package/Dockerfile.cluster-api -t kubetail-cluster-api:lat
 To build a docker image for a production deployment of the Kubetail Cluster Agent, run the following command:
 
 ```console
-docker build -f build/package/Dockerfile.cluster-agent -t kubetail-cluster-agent:latest .
+docker build -f cluster/agent/Dockerfile -t kubetail-cluster-agent:latest .
 ```
 
 ## Get Involved

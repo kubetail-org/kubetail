@@ -20,15 +20,18 @@ component_management:
     - component_id: go
       name: Go
       paths:
-        - modules/**
+        - cli/**
+        - cluster/api/**
+        - dashboard/**
+        - libs/go-common/**
     - component_id: typescript
       name: TypeScript
       paths:
-        - dashboard-ui/**
+        - apps/web/**
     - component_id: rust
       name: Rust
       paths:
-        - crates/**
+        - cluster/agent/**
 
 # No comment on the PR: coverage / Gate reports.
 comment: false
@@ -39,13 +42,16 @@ fixes:
 
 ignore:
   # Generated.
-  - modules/*/graph/generated.go
-  - modules/*/graph/model/models_gen.go
-  - modules/shared/clusteragentpb/**
-  - modules/shared/testpb/**
-  - dashboard-ui/src/lib/graphql/*/__generated__/**
+  - dashboard/graph/generated.go
+  - dashboard/graph/model/models_gen.go
+  - cluster/api/graph/generated.go
+  - cluster/api/graph/model/models_gen.go
+  - libs/go-common/clusteragentpb/**
+  - libs/go-common/testpb/**
+  - apps/web/src/lib/graphql/*/__generated__/**
   # Test helpers.
-  - modules/**/mock/**
-  - modules/shared/testutils/**
-  - dashboard-ui/src/mocks/**
-  - dashboard-ui/src/test-utils.tsx
+  - dashboard/**/mock/**
+  - libs/go-common/**/mock/**
+  - libs/go-common/testutils/**
+  - apps/web/src/mocks/**
+  - apps/web/src/test-utils.tsx

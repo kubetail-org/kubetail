@@ -15,33 +15,37 @@ shared: &shared
 go:
   - *shared
   - Makefile
-  - build/package/Dockerfile.cli
-  - build/package/Dockerfile.cluster-api
-  - build/package/Dockerfile.dashboard
-  - modules/**
+  - cli/**
+  - cluster/api/**
+  - dashboard/**
+  - go.work
+  - go.work.sum
+  - libs/go-common/**
+  - libs/graphql/**
   - scripts/check-go-fix.sh
   - scripts/staticcheck.sh
   - tools/go.mod
   - tools/go.sum
 rust:
   - *shared
-  - build/package/Dockerfile.cluster-agent
-  - crates/**
-  - proto/**
+  - cluster/agent/**
+  - libs/proto/**
 typescript:
   - *shared
   - Makefile
-  - build/package/Dockerfile.cli
-  - build/package/Dockerfile.dashboard
-  - dashboard-ui/**
-  # dashboard-ui/codegen.ts generates the UI's types from these.
-  - modules/cluster-api/graph/schema.graphqls
-  - modules/dashboard/graph/schema.graphqls
+  - apps/web/**
+  - cli/Dockerfile
+  - dashboard/Dockerfile
+  # apps/web/codegen.ts generates the UI's types from these.
+  - libs/graphql/**
 # ci.yml's Docker · Build alone: a PR builds every image only when a
 # Dockerfile changed.
 docker:
   - *shared
-  - build/package/Dockerfile.*
+  - cli/Dockerfile
+  - cluster/agent/Dockerfile
+  - cluster/api/Dockerfile
+  - dashboard/Dockerfile
 shell:
   - .github/workflows/ci.yml
   - .github/ci-config/path-filters.yml
@@ -60,13 +64,17 @@ yaml:
 generated:
   - *shared
   - Makefile
+  - apps/web/codegen.ts
+  - apps/web/package.json
+  - apps/web/pnpm-lock.yaml
+  - apps/web/src/lib/graphql/**
+  - cli/**
+  - cluster/api/**
   - config/default/cli.*
-  - dashboard-ui/codegen.ts
-  - dashboard-ui/package.json
-  - dashboard-ui/pnpm-lock.yaml
-  - dashboard-ui/src/lib/graphql/**
-  - modules/**
-  - proto/**
+  - dashboard/**
+  - libs/go-common/**
+  - libs/graphql/**
+  - libs/proto/**
   - scripts/check-generated.sh
 # codeql.yml's alone. A change to codeql.yml analyzes every language.
 codeql:
@@ -81,26 +89,46 @@ actions:
 # them. A directory a component starts to ship goes in its filter, or its pull
 # requests leave the notes.
 release-cli:
-  - build/package/Dockerfile.cli
+  - apps/web/**
+  - cli/**
   - config/default/cli.*
+  - dashboard/**
+  - libs/go-common/**
+  - libs/graphql/dashboard/**
+  # The paths before the move to one folder per component, until each
+  # component has released once from the new layout.
+  - build/package/Dockerfile.cli
   - dashboard-ui/**
   - modules/cli/**
   - modules/dashboard/**
   - modules/shared/**
 release-dashboard:
-  - build/package/Dockerfile.dashboard
+  - apps/web/**
   - config/default/dashboard.yaml
+  - dashboard/**
+  - libs/go-common/**
+  - libs/graphql/dashboard/**
+  # Before the move to one folder per component.
+  - build/package/Dockerfile.dashboard
   - dashboard-ui/**
   - modules/dashboard/**
   - modules/shared/**
 release-cluster-api:
-  - build/package/Dockerfile.cluster-api
+  - cluster/api/**
   - config/default/cluster-api.yaml
+  - libs/go-common/**
+  - libs/graphql/cluster-api/**
+  - libs/proto/**
+  # Before the move to one folder per component.
+  - build/package/Dockerfile.cluster-api
   - modules/cluster-api/**
   - modules/shared/**
   - proto/**
 release-cluster-agent:
-  - build/package/Dockerfile.cluster-agent
+  - cluster/agent/**
   - config/default/cluster-agent.yaml
+  - libs/proto/**
+  # Before the move to one folder per component.
+  - build/package/Dockerfile.cluster-agent
   - crates/**
   - proto/**

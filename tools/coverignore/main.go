@@ -16,7 +16,7 @@
 // a marker exempts, so Codecov counts none of its lines. CI runs it on each
 // OS's profiles before the upload.
 //
-//	go run ./coverignore -dir ../modules -o merged.out coverage.out
+//	go run ./coverignore -dir .. -o merged.out coverage.out
 //
 // -dir is the workspace or module the profiles measured: its go.work or go.mod
 // maps a profile's import paths back to files on disk.

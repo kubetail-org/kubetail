@@ -21,7 +21,7 @@ oxlint and oxfmt are the linter and formatter of the Oxc project. oxlint sorts i
 
 ## Decision
 
-**`dashboard-ui/.oxlintrc.json` is the lint, and every rule is an error.** `denyWarnings` fails the run on a warning. An unused disable comment fails, and only `oxlint-disable` comments are read.
+**`apps/web/.oxlintrc.json` is the lint, and every rule is an error.** `denyWarnings` fails the run on a warning. An unused disable comment fails, and only `oxlint-disable` comments are read.
 
 **`correctness`, `suspicious` and `perf` are on.** Rules from the other categories are named one by one, as kstack names them: bugs (`eqeqeq`, `array-callback-return`, `import/no-cycle`), control flow (`no-param-reassign`, `no-nested-ternary`, `no-else-return`), modern syntax (`prefer-const`, `prefer-template`, `typescript/prefer-nullish-coalescing`) and JSX (`react/self-closing-comp`, `react/button-has-type`). Type-aware rules run on every lint, so a promise nobody awaits is marked `void`.
 
@@ -32,7 +32,7 @@ oxlint and oxfmt are the linter and formatter of the Oxc project. oxlint sorts i
 - `react/only-export-components` is not named. It is in no enabled category, and what it guards against costs a full page reload in development, not a bug.
 - `typescript/switch-exhaustiveness-check` counts a `default` as handling the rest of a union.
 
-**oxfmt formats and sorts imports** (`dashboard-ui/.oxfmtrc.json`): single quotes, 120 columns, and the groups third-party, `@kubetail/*`, `@/`, relative, stylesheets. `pnpm format` writes; `pnpm lint` runs oxlint, then `oxfmt --check`.
+**oxfmt formats and sorts imports** (`apps/web/.oxfmtrc.json`): single quotes, 120 columns, and the groups third-party, `@kubetail/*`, `@/`, relative, stylesheets. `pnpm format` writes; `pnpm lint` runs oxlint, then `oxfmt --check`.
 
 ## Alternatives considered
 

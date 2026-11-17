@@ -33,9 +33,9 @@ Tests stay deterministic under load on every CI runner, and fail at the moment a
 
 Older code breaks the rules in four places, each recorded in its area guide:
 
-- `inClusterConfigFn` in `modules/shared/k8shelpers/connection-manager.go` is a package variable that `connection-manager_test.go` swaps (`modules/CLAUDE.md`).
-- `NewApp` in `dashboard` and `cluster-api` skips its real dependencies when `gin.Mode()` is `gin.TestMode`, which each package's `testutils_test.go` sets in `init()`. In `cluster-api` that skips the authentication middleware too (`modules/CLAUDE.md`, `modules/cluster-api/CLAUDE.md`).
-- `headFlag` and `tailFlag` in `modules/cli/cmd` are package variables shared by every command built with `addLogsCmdFlags`; a value set in one subtest leaks into the next (`modules/cli/CLAUDE.md`).
-- The Cluster Agent's `LogMetadataWatcher` debounces with a fixed `Duration::from_secs(2)` rather than a parameter, so its tests take seconds each, and its rename and modify tests are `#[cfg(not(target_os = "macos"))]` (`crates/CLAUDE.md`).
+- `inClusterConfigFn` in `libs/go-common/k8shelpers/connection-manager.go` is a package variable that `connection-manager_test.go` swaps (the root `CLAUDE.md`).
+- `NewApp` in `dashboard` and `cluster/api` skips its real dependencies when `gin.Mode()` is `gin.TestMode`, which each package's `testutils_test.go` sets in `init()`. In `cluster-api` that skips the authentication middleware too (the root `CLAUDE.md`, `cluster/api/CLAUDE.md`).
+- `headFlag` and `tailFlag` in `cli/cmd` are package variables shared by every command built with `addLogsCmdFlags`; a value set in one subtest leaks into the next (`cli/CLAUDE.md`).
+- The Cluster Agent's `LogMetadataWatcher` debounces with a fixed `Duration::from_secs(2)` rather than a parameter, so its tests take seconds each, and its rename and modify tests are `#[cfg(not(target_os = "macos"))]` (`cluster/agent/CLAUDE.md`).
 
 Each is a known cost, not a pattern to copy. New code follows the rules; fixing an old seam is a change of its own.
