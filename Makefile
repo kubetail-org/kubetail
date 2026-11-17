@@ -7,6 +7,7 @@ DASHBOARD_UI_DIR := ./dashboard-ui
 DASHBOARD_SERVER_DIR := ./modules/dashboard
 CRATES_DIR := ./crates
 MODULES_DIR := ./modules
+GO_WORKSPACE := github.com/kubetail-org/kubetail/modules/...
 
 # Detect the operating system
 OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
@@ -45,7 +46,7 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/modules/cli/cmd.
 	lint lint-go lint-rust lint-ts lint-python lint-sh lint-md lint-yaml lint-toolchains lint-digests \
 	vet vet-go vet-go-changed vet-rust vet-ts \
 	test test-go test-rust test-ts test-sh test-changed test-e2e \
-	cover-changed check check-changed check-generated
+	cover-changed cover-go cover-ts cover-rust check check-changed check-generated
 
 build: build-dashboard-ui ## Build the kubetail CLI, with the UI embedded, for this platform
 	@echo "Building kubetail CLI binary..."
@@ -180,6 +181,24 @@ endif
 # scripts/cover-changed.sh. CI's coverage / Gate has the last word.
 cover-changed: ## List the changed lines no test covers (FULL=1 runs every Go test, RUST=1 measures Rust)
 	@bash scripts/cover-changed.sh
+
+# Measured as CI's Coverage · Go job measures, so the figures match Codecov's.
+# The profile goes to a temporary directory.
+cover-go: ## Print the Go workspace's coverage per function
+	@out=$$(mktemp -d) && trap 'rm -rf "$$out"' EXIT && \
+		go -C $(MODULES_DIR) test -covermode=atomic -coverpkg=$(GO_WORKSPACE) -coverprofile="$$out/go.out" $(GO_WORKSPACE) >"$$out/test.log" \
+			|| { cat "$$out/test.log"; exit 1; }; \
+		(cd tools && go run ./coverignore -dir ../modules -o "$$out/filtered.out" "$$out/go.out") && \
+		go -C $(MODULES_DIR) tool cover -func="$$out/filtered.out"
+
+# vitest writes dashboard-ui/coverage/, which is gitignored.
+cover-ts: ## Print the dashboard UI's coverage per file
+	@cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm exec vitest run --coverage --coverage.reporter=text
+
+# Needs cargo-llvm-cov: cargo install cargo-llvm-cov --locked. The report
+# counts the lines the coverage:ignore markers exempt.
+cover-rust: ## Print the Rust workspace's coverage per file
+	@cd $(CRATES_DIR) && cargo llvm-cov --summary-only
 
 check: lint vet test ## Run every lint, vet and test
 	@echo "All checks passed."

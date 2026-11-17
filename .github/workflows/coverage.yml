@@ -83,7 +83,8 @@ jobs:
         with:
           setup-go: "true"
       # Bash, since PowerShell splits -coverpkg=... at its dot.
-      # scripts/cover-changed.sh measures as this job does; change both together.
+      # scripts/cover-changed.sh and `make cover-go` measure as this job does;
+      # change them together.
       - name: Measure coverage
         working-directory: ./modules
         shell: bash
