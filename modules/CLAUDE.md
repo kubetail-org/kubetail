@@ -22,7 +22,7 @@ From `modules/`, `go test -race github.com/kubetail-org/kubetail/modules/...` co
 
 Coverage is measured across the workspace: every test binary counts every package (`-coverpkg`), so a `shared` line that the Dashboard's tests reach is covered. `make cover-changed` runs only the changed packages' tests; `FULL=1` runs them all, as CI does. → [ADR: measure Go coverage across the workspace](../docs/adr/2026-11-09-measure-go-coverage-across-the-workspace.md)
 
-`go generate ./...` in a module runs its generators: gqlgen in `dashboard` and `cluster-api`, `protoc` in `shared`, a copy of `config/default/cli.*` in `cli`.
+`go generate ./...` in a module runs its generators: gqlgen in `dashboard` and `cluster-api`, `protoc` in `shared`, a copy of `config/default/cli.*` in `cli`. `make generate` runs them all, with the pinned `protoc` plugins.
 
 ## Conventions
 
@@ -46,8 +46,7 @@ Coverage is measured across the workspace: every test binary counts every packag
 After editing a schema:
 
 ```sh
-cd modules/<module> && go generate ./...       # gqlgen
-cd dashboard-ui && pnpm graphql-codegen        # the UI's types, generated from both schemas
+make generate   # gqlgen, and the UI's types, generated from both schemas
 ```
 
 - **`logRecordsFetch` and `logRecordsFollow` exist in both schemas with the same signature**, since the UI sends one set of documents to whichever server is in use. Change both together.

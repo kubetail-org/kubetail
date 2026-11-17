@@ -33,7 +33,7 @@ updates:
 
   # /tools holds actionlint, govulncheck and the protoc plugins, so CI's copies
   # move with the rest. A plugin update changes the *.pb.go headers: its PR
-  # fails Generated · Check until someone runs make check-generated on it.
+  # fails Generated · Check until someone runs make generate on it.
   - package-ecosystem: gomod
     directories:
       - /modules/cli

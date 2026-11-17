@@ -68,6 +68,7 @@ generated:
   - modules/**
   - proto/**
   - scripts/check-generated.sh
+  - scripts/generate.sh
 # codeql.yml's alone. A change to codeql.yml analyzes every language.
 codeql:
   - .github/workflows/codeql.yml
