@@ -53,7 +53,7 @@ jobs:
       github.repository == 'kubetail-org/kubetail'
       || github.event_name == 'pull_request'
       || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-slim
     steps:
       - run: "true"
 
@@ -66,9 +66,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Restores, never saves, the cache ci-cli.yml's linux/amd64 test job
+      # saves on main, so govulncheck finds the modules on disk and a module
+      # proxy outage does not fail it.
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
+          go-cache-key: cli-test-linux-amd64
       # tools/go.mod pins govulncheck, where Dependabot moves it. Each module
       # is checked alone, as its release builds it.
       - name: Run govulncheck
