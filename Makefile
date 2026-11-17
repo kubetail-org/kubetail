@@ -42,9 +42,9 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/modules/cli/cmd.
 
 # No target names a file it makes, and build/ is a directory.
 .PHONY: build build-dashboard-ui clean help \
-	lint lint-go lint-rust lint-ts lint-python lint-sh lint-md lint-yaml lint-toolchains lint-digests \
-	vet vet-go vet-go-changed vet-rust vet-ts \
-	test test-go test-rust test-ts test-sh test-changed test-e2e \
+	lint lint-go lint-rust lint-ts lint-tools lint-python lint-sh lint-md lint-yaml lint-toolchains lint-digests \
+	vet vet-go vet-go-changed vet-rust vet-ts vet-tools \
+	test test-go test-rust test-ts test-tools test-sh test-changed test-e2e \
 	cover-changed check check-changed check-generated
 
 build: build-dashboard-ui ## Build the kubetail CLI, with the UI embedded, for this platform
@@ -66,7 +66,7 @@ clean: ## Remove the built binaries
 	@rm -rf $(OUTPUT_DIR)
 	@echo "Cleanup done"
 
-lint: lint-go lint-rust lint-ts lint-python lint-sh lint-md lint-yaml lint-toolchains lint-digests ## Run every linter CI runs
+lint: lint-go lint-rust lint-ts lint-tools lint-python lint-sh lint-md lint-yaml lint-toolchains lint-digests ## Run every linter CI runs
 	@echo "All CI linters passed."
 
 lint-go: ## Check Go formatting, license headers and coverage markers
@@ -87,6 +87,12 @@ lint-ts: ## Lint the dashboard UI and check its license headers and coverage mar
 	@cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm lint
 	@sh scripts/check-license-headers.sh dashboard-ui
 	@sh scripts/check-coverage-markers.sh dashboard-ui/src
+
+# tools/ is a module outside the workspace, so the -go targets leave it out.
+# lint-go checks its license headers.
+lint-tools: ## Check the tools module's Go formatting
+	@echo "Linting tools..."
+	@cd tools && test -z $$(gofmt -l .)
 
 lint-python: ## Lint the e2e suite
 	@cd e2e && uv sync --group dev && uv run ruff check . && uv run ruff format --check .
@@ -118,7 +124,7 @@ lint-toolchains: ## Check the Dockerfiles' golang, node and rust images match CI
 lint-digests: ## Check every image a Dockerfile pulls is pinned by digest
 	@sh scripts/check-image-digests.sh
 
-vet: vet-go vet-rust vet-ts ## Run go vet, the go fix check, staticcheck, clippy and tsc
+vet: vet-go vet-rust vet-ts vet-tools ## Run go vet, the go fix check, staticcheck, clippy and tsc
 	@echo "All vetting completed successfully."
 
 # The Windows pass is the one place _windows.go files are vetted.
@@ -139,12 +145,16 @@ vet-rust: ## Run clippy on the Rust workspace
 	@cd $(CRATES_DIR) && rustup component add clippy
 	@cd $(CRATES_DIR) && cargo clippy --all --all-targets -- -D warnings
 
+vet-tools: ## Run go vet on the tools module
+	@echo "Vetting tools..."
+	@cd tools && go vet ./...
+
 # The type-check half of `pnpm build`. The tsconfigs set noEmit, so it writes no JS.
 vet-ts: ## Type-check the dashboard UI and its tests
 	@echo "Type-checking dashboard UI..."
 	@cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm exec tsc -b
 
-test: test-go test-rust test-ts test-sh ## Run every Go, Rust, dashboard UI and bats test
+test: test-go test-rust test-ts test-tools test-sh ## Run every Go, Rust, dashboard UI, tools and bats test
 	@echo "All tests completed successfully."
 
 test-go: ## Test the Go workspace with the race detector
@@ -158,6 +168,10 @@ test-rust: ## Test the Rust workspace
 test-ts: ## Test the dashboard UI
 	@echo "Testing dashboard UI..."
 	@cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm test run
+
+test-tools: ## Test the tools module
+	@echo "Testing tools..."
+	@cd tools && go test ./...
 
 test-sh: ## Test the scripts with bats
 	@echo "Testing scripts..."
