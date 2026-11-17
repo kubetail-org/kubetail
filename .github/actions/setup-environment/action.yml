@@ -96,6 +96,20 @@ runs:
         toolchain: ${{ steps.rust-version.outputs.version }}
         components: rustfmt, clippy
 
+    # rust-cache hashes every installed toolchain into its key, so the runner
+    # image's own stable would change the key with each image update.
+    - name: Remove the runner image's Rust toolchains
+      if: inputs.setup-rust == 'true'
+      shell: bash
+      env:
+        VERSION: ${{ steps.rust-version.outputs.version }}
+      run: |
+        for toolchain in $(rustup toolchain list --quiet); do
+          if [[ $toolchain != "$VERSION"-* ]]; then
+            rustup toolchain uninstall "$toolchain"
+          fi
+        done
+
     # The caller decides whether to save; a ci-*.yml's CACHE_MODE saves on main.
     - name: Set up Rust cache
       if: inputs.setup-rust == 'true' && inputs.rust-cache-key != ''
