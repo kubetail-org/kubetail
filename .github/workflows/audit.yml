@@ -12,15 +12,21 @@ on:
     branches:
       - "**"
     paths:
-      - modules/*/go.mod
-      - modules/*/go.sum
+      - cli/go.mod
+      - cli/go.sum
+      - cluster/api/go.mod
+      - cluster/api/go.sum
+      - dashboard/go.mod
+      - dashboard/go.sum
+      - libs/go-common/go.mod
+      - libs/go-common/go.sum
       - tools/go.mod
       - tools/go.sum
-      - crates/**/Cargo.toml
-      - crates/Cargo.lock
-      - dashboard-ui/package.json
-      - dashboard-ui/pnpm-lock.yaml
-      - dashboard-ui/pnpm-workspace.yaml
+      - cluster/agent/**/Cargo.toml
+      - cluster/agent/Cargo.lock
+      - apps/web/package.json
+      - apps/web/pnpm-lock.yaml
+      - apps/web/pnpm-workspace.yaml
       - scripts/audit-npm-diff.sh
       - .github/workflows/audit.yml
   push:
@@ -70,8 +76,8 @@ jobs:
         env:
           GOWORK: "off"
         run: |
-          for module in cli cluster-api dashboard shared; do
-            go tool govulncheck -C "../modules/$module" ./...
+          for module in cli cluster/api dashboard libs/go-common; do
+            go tool govulncheck -C "../$module" ./...
           done
 
   rust-audit:
@@ -90,7 +96,7 @@ jobs:
         with:
           tool: cargo-audit
       - name: Run cargo audit
-        working-directory: ./crates
+        working-directory: ./cluster/agent
         run: cargo audit --deny unsound --deny unmaintained
 
   typescript-audit:
@@ -106,7 +112,7 @@ jobs:
         with:
           setup-node: "true"
       - name: Run pnpm audit
-        working-directory: ./dashboard-ui
+        working-directory: ./apps/web
         run: pnpm audit --audit-level moderate
 
   dependency-review:
@@ -138,15 +144,15 @@ jobs:
           path: base
           persist-credentials: false
           sparse-checkout: |
-            dashboard-ui/package.json
-            dashboard-ui/pnpm-lock.yaml
-            dashboard-ui/pnpm-workspace.yaml
+            apps/web/package.json
+            apps/web/pnpm-lock.yaml
+            apps/web/pnpm-workspace.yaml
           sparse-checkout-cone-mode: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
       - name: Fail on advisories new to the head
-        run: sh scripts/audit-npm-diff.sh base/dashboard-ui dashboard-ui
+        run: sh scripts/audit-npm-diff.sh base/apps/web apps/web
 
   # GitHub's dependency graph reads only pnpm-lock.yaml's first YAML document,
   # which pins pnpm itself, and Dependabot's alerts and security updates read

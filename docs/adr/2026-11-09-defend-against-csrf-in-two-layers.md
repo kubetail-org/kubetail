@@ -25,7 +25,7 @@ Later fixes refined both layers:
 
 ## Decision
 
-`csrfProtectionMiddleware` (`modules/dashboard/pkg/app/middleware.go`) skips GET, HEAD and OPTIONS (`safeMethods`). For every other method:
+`csrfProtectionMiddleware` (`dashboard/pkg/app/middleware.go`) skips GET, HEAD and OPTIONS (`safeMethods`). For every other method:
 
 1. It refuses `Sec-Fetch-Site` values of `cross-site` or `same-site` (`rejectedSecFetchSite`). An absent header passes.
 2. It requires `X-CSRF-Token` to equal the session's token (`getOrCreateCSRFToken`), compared with `subtle.ConstantTimeCompare`. An `application/x-www-form-urlencoded` body may carry it as `csrfToken` instead. The body is read and restored, not parsed with `c.PostForm`, so the Cluster API proxy can still forward it.
@@ -39,7 +39,7 @@ A WebSocket upgrade is a GET, so it is gated separately:
 - For `/cluster-api-proxy`, `websocketCSRFContextMiddleware` deletes any client-supplied `X-Forwarded-CSRF-Token` and stamps the session's. `rejectForbiddenUpgrade` refuses an upgrade without it.
 - The Cluster API refuses any upgrade that carries an `Origin`, since the proxy strips it. When `X-Forwarded-CSRF-Token` is present, the Cluster API checks it against `connection_init` (9555b7d).
 
-`IsSameOrigin` (`modules/shared/httphelpers`) compares `Origin` with `r.Host` and `r.TLS` only. Host case and default ports are normalized. `allowed-origins` lists any further origins the Dashboard is served at.
+`IsSameOrigin` (`libs/go-common/httphelpers`) compares `Origin` with `r.Host` and `r.TLS` only. Host case and default ports are normalized. `allowed-origins` lists any further origins the Dashboard is served at.
 
 ## Alternatives considered
 

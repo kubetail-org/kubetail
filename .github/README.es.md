@@ -193,14 +193,14 @@ Los usuarios podrán personalizar por completo su experiencia con Kubetail al us
 
 Este monorepo contiene los siguientes módulos:
 
-* Kubetail CLI ([modules/cli](../modules/cli))
-* Kubetail Cluster API ([modules/cluster-api](../modules/cluster-api))
-* Kubetail Cluster Agent ([crates/cluster_agent](../crates/cluster_agent))
-* Kubetail Dashboard ([modules/dashboard](../modules/dashboard))
+* Kubetail CLI ([cli](../cli))
+* Kubetail Cluster API ([cluster/api](../cluster/api))
+* Kubetail Cluster Agent ([cluster/agent/cluster_agent](../cluster/agent/cluster_agent))
+* Kubetail Dashboard ([dashboard](../dashboard))
 
 También contiene el código fuente del frontend de Kubetail Dashboard:
 
-* Dashboard UI ([dashboard-ui](../dashboard-ui))
+* Dashboard UI ([apps/web](../apps/web))
 
 ### Configurar el entorno de desarrollo
 
@@ -236,14 +236,14 @@ tilt up
 3. Inicia el servidor del Dashboard:
 
 ```console
-cd modules/dashboard
+cd dashboard
 go run cmd/main.go -c hack/config.yaml
 ```
 
 4. Ejecuta la Dashboard UI localmente:
 
 ```console
-cd dashboard-ui
+cd apps/web
 pnpm install
 pnpm dev
 ```
@@ -333,7 +333,7 @@ Cuando termine el proceso de compilación, encontrarás el ejecutable en el dire
 Para compilar una imagen Docker para un despliegue en producción del servidor Kubetail Dashboard, ejecuta el siguiente comando:
 
 ```console
-docker build -f build/package/Dockerfile.dashboard -t kubetail-dashboard:latest .
+docker build -f dashboard/Dockerfile -t kubetail-dashboard:latest .
 ```
 
 ### Cluster API
@@ -341,7 +341,7 @@ docker build -f build/package/Dockerfile.dashboard -t kubetail-dashboard:latest 
 Para compilar una imagen Docker para un despliegue en producción del servidor Kubetail Cluster API, ejecuta el siguiente comando:
 
 ```console
-docker build -f build/package/Dockerfile.cluster-api -t kubetail-cluster-api:latest .
+docker build -f cluster/api/Dockerfile -t kubetail-cluster-api:latest .
 ```
 
 ### Cluster Agent
@@ -349,7 +349,7 @@ docker build -f build/package/Dockerfile.cluster-api -t kubetail-cluster-api:lat
 Para compilar una imagen Docker para un despliegue en producción de Kubetail Cluster Agent, ejecuta el siguiente comando:
 
 ```console
-docker build -f build/package/Dockerfile.cluster-agent -t kubetail-cluster-agent:latest .
+docker build -f cluster/agent/Dockerfile -t kubetail-cluster-agent:latest .
 ```
 
 ## Participa

@@ -27,10 +27,10 @@ import (
 func TestTheRepositorysFiltersNameEachComponent(t *testing.T) {
 	tl := tool{dir: ".", run: execRun}
 	for component, dirs := range map[string][]string{
-		"cli":           {"modules/cli", "modules/dashboard", "modules/shared", "dashboard-ui"},
-		"dashboard":     {"modules/dashboard", "modules/shared", "dashboard-ui"},
-		"cluster-api":   {"modules/cluster-api", "modules/shared", "proto"},
-		"cluster-agent": {"crates", "proto"},
+		"cli":           {"cli", "dashboard", "libs/go-common", "libs/graphql/dashboard", "apps/web"},
+		"dashboard":     {"dashboard", "libs/go-common", "libs/graphql/dashboard", "apps/web"},
+		"cluster-api":   {"cluster/api", "libs/go-common", "libs/graphql/cluster-api", "libs/proto"},
+		"cluster-agent": {"cluster/agent", "libs/proto"},
 	} {
 		paths, err := tl.componentPaths(context.Background(), component)
 		if err != nil {

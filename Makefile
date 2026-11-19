@@ -1,12 +1,12 @@
 # Define variables
-CLI_DIR := ./modules/cli
+CLI_DIR := ./cli
 OUTPUT_DIR := ./bin
 CLI_BINARY := kubetail
 
-DASHBOARD_UI_DIR := ./dashboard-ui
-DASHBOARD_SERVER_DIR := ./modules/dashboard
-CRATES_DIR := ./crates
-MODULES_DIR := ./modules
+DASHBOARD_UI_DIR := ./apps/web
+DASHBOARD_SERVER_DIR := ./dashboard
+CLUSTER_AGENT_DIR := ./cluster/agent
+GO_MODULES := cli cluster/api dashboard libs/go-common
 
 # Detect the operating system
 OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
@@ -36,7 +36,7 @@ RUST_ARCH := $(shell command -v rustc >/dev/null 2>&1 && rustc -vV | grep host |
 VERSION ?= dev
 
 # Define ldflags
-LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/modules/cli/cmd.version=$(VERSION)'"
+LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/cli/cmd.version=$(VERSION)'"
 
 .DEFAULT_GOAL := build
 
@@ -50,12 +50,12 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/modules/cli/cmd.
 build: build-dashboard-ui ## Build the kubetail CLI, with the UI embedded, for this platform
 	@echo "Building kubetail CLI binary..."
 	@mkdir -p $(OUTPUT_DIR)
-	@cd $(CLI_DIR) && GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build $(LDFLAGS) -o ../../$(OUTPUT_DIR)/$(CLI_BINARY) ./main.go
+	@cd $(CLI_DIR) && GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build $(LDFLAGS) -o ../$(OUTPUT_DIR)/$(CLI_BINARY) ./main.go
 
-build-dashboard-ui: ## Build the dashboard UI and copy it to modules/dashboard/website
+build-dashboard-ui: ## Build the dashboard UI and copy it to dashboard/website
 	@echo "Building dashboard UI..."
 	@cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm build
-	@echo "Copying dashboard-ui/dist to modules/dashboard/website..."
+	@echo "Copying apps/web/dist to dashboard/website..."
 	@rm -rf $(DASHBOARD_SERVER_DIR)/website
 	@cp -r $(DASHBOARD_UI_DIR)/dist $(DASHBOARD_SERVER_DIR)/website
 	@touch $(DASHBOARD_SERVER_DIR)/website/.gitkeep
@@ -71,22 +71,22 @@ lint: lint-go lint-rust lint-ts lint-python lint-sh lint-md lint-yaml lint-toolc
 
 lint-go: ## Check Go formatting, license headers and coverage markers
 	@echo "Linting Go modules..."
-	@cd $(MODULES_DIR) && test -z $$(gofmt -l .)
-	@sh scripts/check-license-headers.sh modules tools scripts
-	@sh scripts/check-coverage-markers.sh modules
+	@test -z "$$(gofmt -l $(GO_MODULES))"
+	@sh scripts/check-license-headers.sh $(GO_MODULES) tools scripts
+	@sh scripts/check-coverage-markers.sh $(GO_MODULES)
 
 lint-rust: ## Check Rust formatting, license headers and coverage markers
 	@echo "Linting Rust crates with architecture $(RUST_ARCH)..."
-	@cd $(CRATES_DIR) && rustup component add rustfmt
-	@cd $(CRATES_DIR) && cargo fmt --all -- --check
-	@sh scripts/check-license-headers.sh crates
-	@sh scripts/check-coverage-markers.sh crates
+	@cd $(CLUSTER_AGENT_DIR) && rustup component add rustfmt
+	@cd $(CLUSTER_AGENT_DIR) && cargo fmt --all -- --check
+	@sh scripts/check-license-headers.sh cluster/agent
+	@sh scripts/check-coverage-markers.sh cluster/agent
 
 lint-ts: ## Lint the dashboard UI and check its license headers and coverage markers
 	@echo "Linting dashboard UI..."
 	@cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm lint
-	@sh scripts/check-license-headers.sh dashboard-ui
-	@sh scripts/check-coverage-markers.sh dashboard-ui/src
+	@sh scripts/check-license-headers.sh apps/web
+	@sh scripts/check-coverage-markers.sh apps/web/src
 
 lint-python: ## Lint the e2e suite
 	@cd e2e && uv sync --group dev && uv run ruff check . && uv run ruff format --check .
@@ -125,8 +125,8 @@ vet: vet-go vet-rust vet-ts ## Run go vet, the go fix check, staticcheck, clippy
 # scripts/staticcheck.sh runs once per GOOS and merges; tools/go.mod pins staticcheck.
 vet-go: ## Run go vet for the host and Windows, the go fix check and staticcheck
 	@echo "Vetting Go modules..."
-	@cd $(MODULES_DIR) && go vet github.com/kubetail-org/kubetail/modules/...
-	@cd $(MODULES_DIR) && GOOS=windows go vet github.com/kubetail-org/kubetail/modules/...
+	@go vet github.com/kubetail-org/kubetail/...
+	@GOOS=windows go vet github.com/kubetail-org/kubetail/...
 	@sh scripts/check-go-fix.sh
 	@sh scripts/staticcheck.sh
 
@@ -136,8 +136,8 @@ vet-go-changed: ## Run go vet and go fix on the Go packages this branch changed,
 
 vet-rust: ## Run clippy on the Rust workspace
 	@echo "Vetting Rust crates with architecture $(RUST_ARCH)..."
-	@cd $(CRATES_DIR) && rustup component add clippy
-	@cd $(CRATES_DIR) && cargo clippy --all --all-targets -- -D warnings
+	@cd $(CLUSTER_AGENT_DIR) && rustup component add clippy
+	@cd $(CLUSTER_AGENT_DIR) && cargo clippy --all --all-targets -- -D warnings
 
 # The type-check half of `pnpm build`. The tsconfigs set noEmit, so it writes no JS.
 vet-ts: ## Type-check the dashboard UI and its tests
@@ -149,11 +149,11 @@ test: test-go test-rust test-ts test-sh ## Run every Go, Rust, dashboard UI and 
 
 test-go: ## Test the Go workspace with the race detector
 	@echo "Testing Go modules..."
-	@cd $(MODULES_DIR) && go test -race github.com/kubetail-org/kubetail/modules/...
+	@go test -race github.com/kubetail-org/kubetail/...
 
 test-rust: ## Test the Rust workspace
 	@echo "Testing Rust crates..."
-	@cd $(CRATES_DIR) && cargo test
+	@cd $(CLUSTER_AGENT_DIR) && cargo test
 
 test-ts: ## Test the dashboard UI
 	@echo "Testing dashboard UI..."

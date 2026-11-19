@@ -11,7 +11,7 @@ HOMEPAGE="https://github.com/kubetail-org/kubetail"
 
 SRC_URI="https://github.com/kubetail-org/kubetail/releases/download/cli%2Fv${PV}/kubetail-${PV}-vendored.tar.gz"
 
-S="${WORKDIR}/kubetail-${PV}/modules/cli"
+S="${WORKDIR}/kubetail-${PV}/cli"
 
 LICENSE="Apache-2.0"
 
@@ -26,7 +26,7 @@ src_compile() {
 		GOWORK=off \
 		ego build \
 			-mod=vendor \
-			-ldflags "-X github.com/kubetail-org/kubetail/modules/cli/cmd.version=${PV}" \
+			-ldflags "-X github.com/kubetail-org/kubetail/cli/cmd.version=${PV}" \
 			-o "${PN}" \
 			.
 	)

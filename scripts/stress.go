@@ -34,7 +34,7 @@ import (
 	"strings"
 )
 
-const workspacePath = "github.com/kubetail-org/kubetail/modules"
+const workspacePath = "github.com/kubetail-org/kubetail"
 
 // The test2json fields this reads.
 type event struct {
@@ -210,7 +210,7 @@ func addFailure(fs []failure, f failure) []failure {
 	return append(fs, f)
 }
 
-// command reproduces a failure from modules/. The seed orders the whole
+// command reproduces a failure from the repo root. The seed orders the whole
 // package, so it runs the whole package.
 func command(f failure, count int, race bool) string {
 	dir := "./" + strings.TrimPrefix(f.Package, workspacePath+"/")

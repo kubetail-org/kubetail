@@ -1,0 +1,70 @@
+// Copyright 2024 The Kubetail Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package cmd
+
+import (
+	"fmt"
+	"io"
+	"text/tabwriter"
+
+	"github.com/spf13/cobra"
+
+	"github.com/kubetail-org/kubetail/libs/go-common/helm"
+
+	"github.com/kubetail-org/kubetail/cli/internal/cli"
+)
+
+const clusterListHelp = `
+This command lists the currently installed releases of the chart.
+`
+
+// clusterListCmd represents the `cluster list` command
+var clusterListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List current releases",
+	Long:  clusterListHelp,
+	// coverage:ignore-start lists releases in a live cluster
+	Run: func(cmd *cobra.Command, args []string) {
+		cli.ExitOnError(runClusterList(cmd.OutOrStdout(), newHelmClient(cmd)))
+	},
+	// coverage:ignore-stop
+}
+
+// runClusterList writes a table of Kubetail's releases to w.
+func runClusterList(w io.Writer, client helm.ReleaseLister) error {
+	releases, err := client.ListReleases()
+	if err != nil {
+		return err
+	}
+
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "NAME\tNAMESPACE\tREVISION\tUPDATED\tSTATUS\tCHART\tAPP VERSION")
+	for _, r := range releases {
+		chartName := fmt.Sprintf("%s-%s", r.Chart.Metadata.Name, r.Chart.Metadata.Version)
+		fmt.Fprintf(tw, "%s\t%s\t%d\t%s\t%s\t%s\t%s\n", r.Name, r.Namespace, r.Version, r.Info.LastDeployed, r.Info.Status, chartName, r.Chart.AppVersion())
+	}
+	return tw.Flush()
+}
+
+func init() {
+	clusterCmd.AddCommand(clusterListCmd)
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	flagset := clusterListCmd.Flags()
+	flagset.SortFlags = false
+	flagset.String(KubeContextFlag, "", "Name of the kubeconfig context to use")
+}

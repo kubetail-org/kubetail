@@ -9,7 +9,9 @@ set -eu
 cd "$(dirname "$0")/.."
 
 status=0
-for file in build/package/Dockerfile.* hack/tilt/Dockerfile.*; do
+# The release Dockerfiles, one beside each component, then the dev ones.
+for file in cli/Dockerfile dashboard/Dockerfile cluster/api/Dockerfile cluster/agent/Dockerfile hack/tilt/Dockerfile.*; do
+  [ -f "$file" ] || continue
   bad="$(awk '
     function check(image) {
       if (image == "scratch" || (tolower(image) in stages) || image ~ /^[0-9]+$/) return

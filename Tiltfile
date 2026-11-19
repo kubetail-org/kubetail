@@ -27,18 +27,16 @@ local_resource(
   'kubetail-dashboard-compile',
   '''
   # dist can exist but be empty: the sandbox setup script mounts over it.
-  if [ -n "$(ls -A dashboard-ui/dist 2>/dev/null)" ]; then
-    rm -rf modules/dashboard/website &&
-    cp -r dashboard-ui/dist modules/dashboard/website
+  if [ -n "$(ls -A apps/web/dist 2>/dev/null)" ]; then
+    rm -rf dashboard/website &&
+    cp -r apps/web/dist dashboard/website
   fi
-
-  cd modules
 
   # --- Build the Go binary ---
   export CGO_ENABLED=0
   export GOOS=linux
   status=0
-  go build -o ../.tilt/dashboard ./dashboard/cmd/main.go || status=$?
+  go build -o .tilt/dashboard ./dashboard/cmd/main.go || status=$?
 
   # --- Reset dashboard/website directory ---
   if [ ! -f dashboard/website/.gitkeep ]; then
@@ -49,12 +47,12 @@ local_resource(
   exit $status
   ''',
   deps=[
-    './dashboard-ui/dist',
-    './modules/dashboard',
-    './modules/shared'
+    './apps/web/dist',
+    './dashboard',
+    './libs/go-common'
   ],
   ignore=[
-    './modules/dashboard/website'
+    './dashboard/website'
   ]
 )
 
@@ -83,16 +81,14 @@ secret_create_tls(
 local_resource(
   'kubetail-cluster-api-compile',
   '''
-  cd modules
-
   # --- Build Go binary ---
   export CGO_ENABLED=0
   export GOOS=linux
-  go build -o ../.tilt/cluster-api ./cluster-api/cmd/main.go
+  go build -o .tilt/cluster-api ./cluster/api/cmd/main.go
   ''',
   deps=[
-    './modules/cluster-api',
-    './modules/shared'
+    './cluster/api',
+    './libs/go-common'
   ]
 )
 
@@ -126,12 +122,12 @@ if rust_dev_mode == "docker":
     context='.',
     entrypoint="/cluster-agent/cluster-agent -c /etc/kubetail/config.yaml",
     only=[
-      './crates',
-      './proto',
+      './cluster/agent',
+      './libs/proto',
     ],
     ignore=[
-      './crates/target',
-      './crates/*/target'
+      './cluster/agent/target',
+      './cluster/agent/*/target'
     ],
     live_update=[
       sync('./.tilt/cluster-agent', '/cluster-agent/cluster-agent'),
@@ -152,23 +148,23 @@ elif rust_dev_mode == "local":
     esac
     target="${target_arch}-unknown-linux-musl"
 
-    cd crates
+    cd cluster/agent
 
     # --- Build static binary ---
     cargo build --target "${target}"
 
     # --- Copy to .tilt directory ---
-    out_dir="../.tilt"
+    out_dir="../../.tilt"
     mkdir -p "$out_dir"
     cp "target/${target}/debug/cluster_agent" "$out_dir/cluster-agent"
     ''',
     deps=[
-      "./crates",
-      "./proto",
+      "./cluster/agent",
+      "./libs/proto",
     ],
     ignore=[
-      './crates/target',
-      './crates/*/target'
+      './cluster/agent/target',
+      './cluster/agent/*/target'
     ],
   )
 

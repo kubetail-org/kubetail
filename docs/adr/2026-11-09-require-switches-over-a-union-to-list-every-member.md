@@ -17,7 +17,7 @@ This ADR replaces the earlier ADR's bullet on `typescript/switch-exhaustiveness-
 
 ## Decision
 
-**`typescript/switch-exhaustiveness-check` runs without `considerDefaultExhaustiveForUnions`, and with `allowDefaultCaseForExhaustiveSwitch: false` and `requireDefaultForNonUnion`** (`dashboard-ui/.oxlintrc.json`). A switch over a union lists every member, and a `default` does not stand in for them. A switch that lists every member has no `default`, so a new member fails the lint. Any other switch has a `default`.
+**`typescript/switch-exhaustiveness-check` runs without `considerDefaultExhaustiveForUnions`, and with `allowDefaultCaseForExhaustiveSwitch: false` and `requireDefaultForNonUnion`** (`apps/web/.oxlintrc.json`). A switch over a union lists every member, and a `default` does not stand in for them. A switch that lists every member has no `default`, so a new member fails the lint. Any other switch has a `default`.
 
 A switch over a nullable string names `null` or `undefined` as a case and keeps its `default` for the other strings.
 

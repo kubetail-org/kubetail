@@ -403,7 +403,7 @@ def _call_list(channel: grpc.Channel, *, metadata=()) -> grpc.RpcError:
 
 class TestClusterAgentAuthGate:
     """A valid mTLS handshake is necessary but not sufficient: the agent's
-    trust-chain interceptor (crates/cluster_agent/src/auth.rs) must also see
+    trust-chain interceptor (cluster/agent/cluster_agent/src/auth.rs) must also see
     a forwarded identity from a CN on the allowed-names list. Each parametrized
     case below asserts a different way that gate must fail closed."""
 

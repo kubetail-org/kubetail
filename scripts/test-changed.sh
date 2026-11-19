@@ -2,10 +2,10 @@
 # Runs the tests the working tree's changes touch (scripts/changed.sh). CI runs
 # every suite.
 #
-#   Go          the changed packages in modules/.
+#   Go          the changed packages in the Go workspace.
 #   TypeScript  vitest's `related`, which follows imports. A change to the
 #               toolchain runs the whole suite.
-#   Rust        the whole workspace, when crates/ or proto/ changed.
+#   Rust        the whole workspace, when cluster/agent/ or libs/proto/ changed.
 #   Shell       bats, when scripts/ changed.
 #
 # MEASURED=1 skips the suites scripts/cover-changed.sh runs, since its coverage
@@ -21,18 +21,18 @@ if [ "${MEASURED:-}" != 1 ]; then
   go_pkgs=$(go_pkgs)
   if [ -n "$go_pkgs" ]; then
     # shellcheck disable=SC2086 # one argument per package
-    (cd modules && go test $go_pkgs)
+    go test $go_pkgs
   fi
 
   vitest=$(vitest_scope)
   if [ -n "$vitest" ]; then
     # shellcheck disable=SC2086 # one argument per word
-    (cd dashboard-ui && pnpm exec vitest $vitest)
+    (cd apps/web && pnpm exec vitest $vitest)
   fi
 fi
 
-if has '^(crates|proto)/' && ! { [ "${MEASURED:-}" = 1 ] && [ "${RUST:-}" = 1 ]; }; then
-  (cd crates && cargo test)
+if has '^(cluster/agent|libs/proto)/' && ! { [ "${MEASURED:-}" = 1 ] && [ "${RUST:-}" = 1 ]; }; then
+  (cd cluster/agent && cargo test)
 fi
 
 if has '^scripts/'; then

@@ -19,13 +19,13 @@ Three constraints shape what an updater can do here:
 
 ## Decision
 
-Dependabot (`.github/dependabot.yml`) proposes updates for `github-actions`, `gomod` (each module under `modules/`, and `tools/`), `cargo` (`crates/`) and `npm` (`dashboard-ui/`). Each waits after a release (seven days; ten for npm, to match `minimumReleaseAge` in `pnpm-workspace.yaml`), puts minor and patch updates in one weekly PR per ecosystem, and leaves each major in a PR of its own. `k8s.io/*` and `sigs.k8s.io/*` move together. Security updates are grouped per ecosystem and skip the wait.
+Dependabot (`.github/dependabot.yml`) proposes updates for `github-actions`, `gomod` (each Go module, and `tools/`), `cargo` (`cluster/agent/`) and `npm` (`apps/web/`). Each waits after a release (seven days; ten for npm, to match `minimumReleaseAge` in `pnpm-workspace.yaml`), puts minor and patch updates in one weekly PR per ecosystem, and leaves each major in a PR of its own. `k8s.io/*` and `sigs.k8s.io/*` move together. Security updates are grouped per ecosystem and skip the wait.
 
 No update merges automatically. A maintainer reviews and merges each one.
 
 `audit.yml` fails a PR only for the advisories it brings in: `dependency-review-action` for Go and Cargo, and `scripts/audit-npm-diff.sh`, which compares `pnpm audit` on the base and the head, for npm. On `main`, nightly and on dispatch it audits the whole tree with `govulncheck`, `cargo audit` and `pnpm audit`, and opens or comments on a `security` issue when that fails on `main`. On `main` it also submits the npm tree to the dependency graph (`scripts/npm-dependency-snapshot.sh`), so Dependabot alerts cover npm.
 
-Toolchains are bumped by hand: the Go version (each `go.mod` and `setup-environment`'s `go-version`), `packageManager` in `dashboard-ui/package.json` and `setup-environment`'s `node-version`. The audit tools are not toolchains, so Dependabot moves them: `govulncheck` is a `tool` dependency in `tools/go.mod`, and `cargo-audit` is installed by `taiki-e/install-action` with no version, which takes the version and checksums that action's release names.
+Toolchains are bumped by hand: the Go version (each `go.mod` and `setup-environment`'s `go-version`), `packageManager` in `apps/web/package.json` and `setup-environment`'s `node-version`. The audit tools are not toolchains, so Dependabot moves them: `govulncheck` is a `tool` dependency in `tools/go.mod`, and `cargo-audit` is installed by `taiki-e/install-action` with no version, which takes the version and checksums that action's release names.
 
 ## Alternatives considered
 

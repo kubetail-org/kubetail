@@ -29,11 +29,11 @@ checksums           ${distname}${extract.suffix} \
 
 build.env-append GO111MODULE=on \
                  GOWORK=off
-build.dir ${worksrcpath}/modules/cli
+build.dir ${worksrcpath}/cli
 build.args-append \
     -mod=vendor \
-    -ldflags \"-s -w -X ${go.package}/modules/cli/cmd.version=${version}\" \
-    -o ../../bin/kubetail
+    -ldflags \"-s -w -X ${go.package}/cli/cmd.version=${version}\" \
+    -o ../bin/kubetail
 
 destroot {
     xinstall -m 0755 ${worksrcpath}/bin/kubetail ${destroot}${prefix}/bin/kubetail

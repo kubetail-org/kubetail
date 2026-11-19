@@ -19,7 +19,7 @@ Informer factories were shared per namespace before any per-caller check existed
 
 Informer factories are shared per kube context and namespace (`factoryCacheKey` in `DesktopConnectionManager`; `factoryCache[namespace]` in `InClusterConnectionManager`). They run on the process's own credentials: the kubeconfig's user in `desktop`, the component's ServiceAccount in `cluster`. They carry no request's identity, since an informer outlives the request that started it.
 
-`NewInformer(ctx, kubeContext, token, namespace, gvr)` first calls the authorizer (`modules/shared/k8shelpers/authorizer.go`). The authorizer runs `SelfSubjectAccessReview`s for `list` and `watch` on the resource in that namespace, as the caller:
+`NewInformer(ctx, kubeContext, token, namespace, gvr)` first calls the authorizer (`libs/go-common/k8shelpers/authorizer.go`). The authorizer runs `SelfSubjectAccessReview`s for `list` and `watch` on the resource in that namespace, as the caller:
 
 - `DefaultInClusterAuthorizer` uses the given token as the bearer. Under aggregation the token is empty, and the impersonated identity on the context makes the review "self" for that user.
 - `DefaultDesktopAuthorizer` uses the kubeconfig's clientset and ignores the token.

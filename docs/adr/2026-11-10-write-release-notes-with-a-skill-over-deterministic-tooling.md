@@ -41,7 +41,7 @@ When the user, in a later message, asks the agent to post notes they have seen, 
 ## Consequences
 
 - Only `collect` reads PR text, only `render` builds links, and only `publish`, or the agent on the user's later request, writes to GitHub. The agent's limit is the skill's instructions, not a mechanism.
-- A component's paths live in `path-filters.yml`. A directory a component starts to ship must be added to its `release-<component>` filter, or its PRs leave the notes. `modules/shared/` and `proto/` count for every component that ships them, so the notes omit a change there that does not touch the component, with a reason.
+- A component's paths live in `path-filters.yml`. A directory a component starts to ship must be added to its `release-<component>` filter, or its PRs leave the notes. `libs/go-common/` and `libs/proto/` count for every component that ships them, so the notes omit a change there that does not touch the component, with a reason.
 - Tags order as SemVer does, so `-rc9` follows `-rc10`. The existing `rc<n>` tags keep their form within a version; a new version's rcs use `rc.<n>`.
 - The type and `!` come from the squash commit's subject, so a subject that is not a conventional commit's makes its PR optional for `check`.
 - A cluster component has no draft until the releaser drafts one on GitHub.

@@ -99,8 +99,7 @@ jobs:
           languages: go
           build-mode: manual
       - name: Build modules
-        working-directory: ./modules
-        run: go build ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+        run: go build ./cli/... ./cluster/api/... ./dashboard/... ./libs/go-common/...
       - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           category: /language:go
@@ -113,7 +112,7 @@ jobs:
           key: ${{ steps.setup.outputs.go-cache-key }}
 
   # The extractor runs build.rs, so the job needs protoc to generate the gRPC
-  # code from proto/.
+  # code from libs/proto/.
   rust:
     name: Rust
     needs: changes
@@ -140,7 +139,7 @@ jobs:
       # unless told otherwise; this is the one the Rust cache restores.
       - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         env:
-          CODEQL_EXTRACTOR_RUST_OPTION_CARGO_TARGET_DIR: ${{ github.workspace }}/crates/target
+          CODEQL_EXTRACTOR_RUST_OPTION_CARGO_TARGET_DIR: ${{ github.workspace }}/cluster/agent/target
         with:
           category: /language:rust
 

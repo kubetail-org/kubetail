@@ -23,45 +23,51 @@ changed() {
 }
 
 @test "go_pkgs lists each changed package once" {
-  changed go_pkgs modules/cli/cmd/logs.go modules/cli/cmd/serve_test.go modules/shared/util/util.go dashboard-ui/src/app.tsx
+  changed go_pkgs cli/cmd/logs.go cli/cmd/serve_test.go cluster/api/cmd/main.go libs/go-common/util/util.go apps/web/src/app.tsx
   [ "$status" -eq 0 ]
-  [ "$output" = $'./cli/cmd\n./shared/util' ]
+  [ "$output" = $'./cli/cmd\n./cluster/api/cmd\n./libs/go-common/util' ]
+}
+
+@test "go_pkgs leaves out Go files outside the workspace" {
+  changed go_pkgs tools/coverdiff/main.go scripts/stress.go
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]
 }
 
 @test "go_pkgs leaves out a deleted package" {
-  mkdir -p "$repo/modules/cli/gone"
-  echo x >"$repo/modules/cli/gone/gone.go"
-  git -C "$repo" add modules
+  mkdir -p "$repo/cli/gone"
+  echo x >"$repo/cli/gone/gone.go"
+  git -C "$repo" add cli
   git -C "$repo" -c user.name=t -c user.email=t@t commit -q -m gone
   git -C "$repo" branch -q -f main
-  rm -r "$repo/modules/cli/gone"
+  rm -r "$repo/cli/gone"
   changed go_pkgs
   [ "$output" = "" ]
 }
 
 @test "go_pkgs adds no package on a go.mod, go.sum or go.work change" {
-  changed go_pkgs modules/cli/cmd/logs.go modules/cli/go.mod modules/cli/go.sum modules/go.work
+  changed go_pkgs cli/cmd/logs.go cli/go.mod cli/go.sum go.work
   [ "$output" = "./cli/cmd" ]
 }
 
 @test "go_pkgs prints nothing without a Go change" {
-  changed go_pkgs modules/cli/README.md
+  changed go_pkgs cli/README.md
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
 }
 
 @test "vitest_scope relates the changed source files" {
-  changed vitest_scope dashboard-ui/src/app.tsx dashboard-ui/src/lib/util.ts dashboard-ui/index.html
+  changed vitest_scope apps/web/src/app.tsx apps/web/src/lib/util.ts apps/web/index.html
   [ "$output" = "related --run --passWithNoTests src/app.tsx src/lib/util.ts" ]
 }
 
 @test "vitest_scope runs the whole suite on a toolchain change" {
-  changed vitest_scope dashboard-ui/src/app.tsx dashboard-ui/pnpm-lock.yaml
+  changed vitest_scope apps/web/src/app.tsx apps/web/pnpm-lock.yaml
   [ "$output" = "run" ]
 }
 
 @test "vitest_scope prints nothing without a source change" {
-  changed vitest_scope dashboard-ui/index.html modules/cli/main.go
+  changed vitest_scope apps/web/index.html cli/main.go
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
 }

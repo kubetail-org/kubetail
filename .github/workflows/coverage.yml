@@ -51,9 +51,9 @@ jobs:
         with:
           filters: .github/ci-config/path-filters.yml
 
-  # One runner per OS: the platform splits in modules/ are by OS, none by
+  # One runner per OS: the platform splits in the Go modules are by OS, none by
   # architecture. The tests of all four modules measure every package in the
-  # workspace, so a line in shared/ that only the Dashboard's tests reach
+  # workspace, so a line in libs/go-common/ that only the Dashboard's tests reach
   # counts as covered.
   go:
     name: Go (${{ matrix.goos }})
@@ -85,17 +85,16 @@ jobs:
       # Bash, since PowerShell splits -coverpkg=... at its dot.
       # scripts/cover-changed.sh measures as this job does; change both together.
       - name: Measure coverage
-        working-directory: ./modules
         shell: bash
         run: >-
           go test -timeout 20m -covermode=atomic
-          -coverpkg=github.com/kubetail-org/kubetail/modules/...
+          -coverpkg=github.com/kubetail-org/kubetail/...
           -coverprofile="$RUNNER_TEMP/go.out"
-          github.com/kubetail-org/kubetail/modules/...
+          github.com/kubetail-org/kubetail/...
       - name: Merge the profile's blocks and drop marked lines
         working-directory: ./tools
         shell: bash
-        run: go run ./coverignore -dir ../modules -o "$RUNNER_TEMP/go-${{ matrix.goos }}.out" "$RUNNER_TEMP/go.out"
+        run: go run ./coverignore -dir .. -o "$RUNNER_TEMP/go-${{ matrix.goos }}.out" "$RUNNER_TEMP/go.out"
       # A fork's PR cannot mint the OIDC token; the action then uploads
       # tokenless, which Codecov accepts for a public repository.
       - name: Upload to Codecov
@@ -124,17 +123,17 @@ jobs:
         with:
           setup-node: "true"
       - name: Install dependencies
-        working-directory: ./dashboard-ui
+        working-directory: ./apps/web
         run: pnpm install --frozen-lockfile
       # scripts/cover-changed.sh measures as this job does; change both together.
       - name: Measure coverage
-        working-directory: ./dashboard-ui
+        working-directory: ./apps/web
         run: pnpm vitest run --coverage
       - name: Upload to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           use_oidc: true
-          files: dashboard-ui/coverage/lcov.info
+          files: apps/web/coverage/lcov.info
           disable_search: true
           plugins: noop
           flags: typescript
@@ -160,7 +159,7 @@ jobs:
           setup-go: "true"
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install llvm-tools
-        working-directory: ./crates
+        working-directory: ./cluster/agent
         run: rustup component add llvm-tools-preview
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
@@ -168,7 +167,7 @@ jobs:
           tool: cargo-llvm-cov@0.9.1
       # scripts/cover-changed.sh measures as this job does; change both together.
       - name: Measure coverage
-        working-directory: ./crates
+        working-directory: ./cluster/agent
         run: cargo llvm-cov --lcov --output-path "$RUNNER_TEMP/rust.lcov"
       - name: Drop marked lines
         working-directory: ./tools

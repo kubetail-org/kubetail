@@ -11,14 +11,14 @@ makedepends="go"
 source="https://github.com/kubetail-org/kubetail/releases/download/cli%2Fv$pkgver/kubetail-$pkgver-vendored.tar.gz"
 
 build() {
-	cd modules/cli
+	cd cli
 
 	local ldflags="
 	-s
 	-w
-	-X github.com/kubetail-org/kubetail/modules/cli/cmd.version=$pkgver
+	-X github.com/kubetail-org/kubetail/cli/cmd.version=$pkgver
 	"
-	GOWORK=off go build -mod=vendor -ldflags "$ldflags" -o ../../bin/kubetail
+	GOWORK=off go build -mod=vendor -ldflags "$ldflags" -o ../bin/kubetail
 }
 
 check() {

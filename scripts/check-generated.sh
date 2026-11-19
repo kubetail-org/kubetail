@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Regenerates every committed output and fails if any file changed: the
-# protoc and gqlgen code under modules/, the CLI's copy of
+# protoc and gqlgen code in the Go modules, the CLI's copy of
 # config/default/cli.*, and the UI's __generated__/. A change the tree already
 # had is not counted, so it runs on a dirty tree; what it regenerates stays in
 # the tree, ready to commit.
@@ -33,13 +33,13 @@ trap 'rm -rf "$bin"' EXIT
 export PATH="$bin:$PATH"
 
 outputs=(
-  modules/shared/clusteragentpb
-  modules/shared/testpb
-  modules/dashboard/graph
-  modules/cluster-api/graph
-  modules/cli/assets
-  dashboard-ui/src/lib/graphql/dashboard/__generated__
-  dashboard-ui/src/lib/graphql/cluster-api/__generated__
+  libs/go-common/clusteragentpb
+  libs/go-common/testpb
+  dashboard/graph
+  cluster/api/graph
+  cli/assets
+  apps/web/src/lib/graphql/dashboard/__generated__
+  apps/web/src/lib/graphql/cluster-api/__generated__
 )
 
 # Every file under the outputs with its checksum.
@@ -49,10 +49,10 @@ snapshot() {
 
 before="$(snapshot)"
 
-for module in shared dashboard cluster-api cli; do
-  (cd "modules/$module" && go generate ./...)
+for module in libs/go-common dashboard cluster/api cli; do
+  (cd "$module" && go generate ./...)
 done
-(cd dashboard-ui && pnpm install --frozen-lockfile && pnpm graphql-codegen)
+(cd apps/web && pnpm install --frozen-lockfile && pnpm graphql-codegen)
 
 after="$(snapshot)"
 

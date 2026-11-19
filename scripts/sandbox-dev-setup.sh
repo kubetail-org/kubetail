@@ -7,8 +7,8 @@
 #
 #   1. Configurable output paths (Cargo's target/, the pnpm store) are pointed
 #      at Linux-only directories through environment variables.
-#   2. Fixed paths the tooling can't relocate (dashboard-ui/node_modules and
-#      dashboard-ui/dist) get a sandbox-only bind mount on top of them. A bind
+#   2. Fixed paths the tooling can't relocate (apps/web/node_modules and
+#      apps/web/dist) get a sandbox-only bind mount on top of them. A bind
 #      mount is invisible to the host: macOS keeps its own directory
 #      underneath, untouched, while the sandbox sees the Linux one.
 #
@@ -21,7 +21,7 @@
 # under node_modules, since every worktree shares it.
 #
 # dist, small and rarely read, stays on the host's disk under $BUILD_ROOT.
-# modules/dashboard/website/ is left alone: `make build-dashboard-ui` removes
+# dashboard/website/ is left alone: `make build-dashboard-ui` removes
 # and recreates it, which a mount point would refuse, and its contents are the
 # same on both platforms.
 #
@@ -45,7 +45,7 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD_ROOT="${KUBETAIL_SANDBOX_BUILD_ROOT:-$REPO/.sandbox-linux}"
 OVERLAY_ROOT="${KUBETAIL_SANDBOX_OVERLAY_ROOT:-/home/agent/kubetail-build}"
 PERSIST="${KUBETAIL_SANDBOX_PERSIST:-/etc/sandbox-persistent.sh}"
-NODE_MODULES="$OVERLAY_ROOT/worktrees$REPO/dashboard-ui/node_modules"
+NODE_MODULES="$OVERLAY_ROOT/worktrees$REPO/apps/web/node_modules"
 PNPM_STORE="$OVERLAY_ROOT/pnpm-store"
 # CI's astral-sh/setup-uv takes the latest uv, so the pin lives here.
 UV_VERSION="0.13.7"
@@ -84,8 +84,8 @@ bind() {
   sudo mount --bind "$src" "$target"
   echo "✓ $target bind-mounted from $src"
 }
-bind "$NODE_MODULES" "$REPO/dashboard-ui/node_modules"
-bind "$BUILD_ROOT/dist" "$REPO/dashboard-ui/dist"
+bind "$NODE_MODULES" "$REPO/apps/web/node_modules"
+bind "$BUILD_ROOT/dist" "$REPO/apps/web/dist"
 
 # --- 2. env vars for the paths that are configurable -----------------------
 # Written to the persistent env file, which is sourced before every command and

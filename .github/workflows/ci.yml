@@ -102,12 +102,11 @@ jobs:
         with:
           setup-go: "true"
       - name: Check formatting
-        working-directory: ./modules
-        run: test -z "$(gofmt -l .)"
+        run: test -z "$(gofmt -l cli cluster/api dashboard libs/go-common)"
       - name: Check license headers
-        run: sh scripts/check-license-headers.sh modules tools scripts
+        run: sh scripts/check-license-headers.sh cli cluster/api dashboard libs/go-common tools scripts
       - name: Check coverage markers
-        run: sh scripts/check-coverage-markers.sh modules
+        run: sh scripts/check-coverage-markers.sh cli cluster/api dashboard libs/go-common
 
   # Every module in one job, so the modules share one cache.
   go-vet:
@@ -126,13 +125,11 @@ jobs:
           go-cache-key: ${{ github.job }}-ubuntu-24.04
           go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Vet
-        working-directory: ./modules
-        run: go vet ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+        run: go vet ./cli/... ./cluster/api/... ./dashboard/... ./libs/go-common/...
       # The Windows runners run tests alone, so this is the one place the
       # _windows.go files are vetted.
       - name: Vet (GOOS=windows)
-        working-directory: ./modules
-        run: GOOS=windows go vet ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+        run: GOOS=windows go vet ./cli/... ./cluster/api/... ./dashboard/... ./libs/go-common/...
       - name: Check go fix
         run: sh scripts/check-go-fix.sh
       # Last, so a failed job leaves the last good cache the newest.
@@ -201,12 +198,12 @@ jobs:
           setup-rust: "true"
           setup-protoc: "true"
       - name: Run format check
-        working-directory: ./crates
+        working-directory: ./cluster/agent
         run: cargo fmt --all -- --check
       - name: Check license headers
-        run: sh scripts/check-license-headers.sh crates
+        run: sh scripts/check-license-headers.sh cluster/agent
       - name: Check coverage markers
-        run: sh scripts/check-coverage-markers.sh crates
+        run: sh scripts/check-coverage-markers.sh cluster/agent
 
   rust-vet:
     name: Rust · Vet
@@ -224,7 +221,7 @@ jobs:
           rust-cache-key: ${{ github.job }}-ubuntu-24.04
           cache-save: ${{ env.CACHE_MODE != 'use' }}
       - name: Run clippy
-        working-directory: ./crates
+        working-directory: ./cluster/agent
         run: cargo clippy --all --all-targets -- -D warnings
 
   typescript-lint:
@@ -241,15 +238,15 @@ jobs:
           setup-node: "true"
           node-cache: "true"
       - name: Install dependencies
-        working-directory: ./dashboard-ui
+        working-directory: ./apps/web
         run: pnpm install --frozen-lockfile
       - name: Lint
-        working-directory: ./dashboard-ui
+        working-directory: ./apps/web
         run: pnpm lint
       - name: Check license headers
-        run: sh scripts/check-license-headers.sh dashboard-ui
+        run: sh scripts/check-license-headers.sh apps/web
       - name: Check coverage markers
-        run: sh scripts/check-coverage-markers.sh dashboard-ui/src
+        run: sh scripts/check-coverage-markers.sh apps/web/src
 
   shell-lint:
     name: Shell · Lint
@@ -405,16 +402,13 @@ jobs:
       # With several packages, go build links each main package, then discards
       # it.
       - name: Build
-        working-directory: ./modules
-        run: go build ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+        run: go build ./cli/... ./cluster/api/... ./dashboard/... ./libs/go-common/...
       - name: Run tests
-        working-directory: ./modules
-        run: go test ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+        run: go test ./cli/... ./cluster/api/... ./dashboard/... ./libs/go-common/...
       # The race detector does not support windows/arm64.
       - name: Run race tests
         if: ${{ !(matrix.os == 'windows' && matrix.arch == 'arm64') }}
-        working-directory: ./modules
-        run: go test -race ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+        run: go test -race ./cli/... ./cluster/api/... ./dashboard/... ./libs/go-common/...
       # After every test passed, so a failed job leaves its runner's last cache
       # the newest. The test flags must match a PR's, or a PR replays nothing.
       - name: Save Go cache
@@ -458,10 +452,10 @@ jobs:
           rust-cache-key: ${{ github.job }}-${{ matrix.runner }}
           cache-save: ${{ env.CACHE_MODE != 'use' }}
       - name: Build
-        working-directory: ./crates
+        working-directory: ./cluster/agent
         run: cargo build --locked
       - name: Run tests
-        working-directory: ./crates
+        working-directory: ./cluster/agent
         run: cargo test
 
   typescript-test:
@@ -478,10 +472,10 @@ jobs:
           setup-node: "true"
           node-cache: "true"
       - name: Install dependencies
-        working-directory: ./dashboard-ui
+        working-directory: ./apps/web
         run: pnpm install --frozen-lockfile
       - name: Test
-        working-directory: ./dashboard-ui
+        working-directory: ./apps/web
         run: pnpm test run
 
   # The coverage tools: a module of their own, outside the workspace.
@@ -557,10 +551,10 @@ jobs:
           setup-node: "true"
           node-cache: "true"
       - name: Install dependencies
-        working-directory: ./dashboard-ui
+        working-directory: ./apps/web
         run: pnpm install --frozen-lockfile
       - name: Build
-        working-directory: ./dashboard-ui
+        working-directory: ./apps/web
         run: pnpm build
 
   ###########################
@@ -603,7 +597,10 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          file: build/package/Dockerfile.${{ matrix.component }}
+          # Each Dockerfile sits in its component's folder: cluster-api's in
+          # cluster/api, cluster-agent's in cluster/agent.
+          file: >-
+            ${{ fromJSON('{"cli": "cli/Dockerfile", "dashboard": "dashboard/Dockerfile", "cluster-api": "cluster/api/Dockerfile", "cluster-agent": "cluster/agent/Dockerfile"}')[matrix.component] }}
           target: ${{ matrix.target }}
           push: false
           load: true
@@ -733,12 +730,12 @@ jobs:
           arch: ${{ matrix.arch }}
           branch: edge
       - name: Build
-        working-directory: ./modules/cli
+        working-directory: ./cli
         env:
           GOARCH: ${{ matrix.goarch }}
           GOARM: ${{ matrix.goarm }}
         run: |
-          go build -o ../../bin/kubetail .
+          go build -o ../bin/kubetail .
       - name: Verify
         shell: alpine.sh {0}
         run: |
@@ -764,10 +761,9 @@ jobs:
           go-cache-key: go-test-linux-amd64
           go-cache-mode: ${{ env.CACHE_MODE }}
       - name: Run tests
-        working-directory: ./modules
         env:
           GOARCH: "386"
-        run: go test ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+        run: go test ./cli/... ./cluster/api/... ./dashboard/... ./libs/go-common/...
 
   ###########################
   # Cache jobs

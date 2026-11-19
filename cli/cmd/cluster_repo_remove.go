@@ -1,0 +1,60 @@
+// Copyright 2024 The Kubetail Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package cmd
+
+import (
+	"fmt"
+	"io"
+
+	"github.com/spf13/cobra"
+
+	"github.com/kubetail-org/kubetail/libs/go-common/helm"
+
+	"github.com/kubetail-org/kubetail/cli/internal/cli"
+)
+
+const clusterRepoRemoveHelp = `
+This command removes Kubetail's charts repository from Helm.
+`
+
+// clusterRepoRemoveCmd represents the `cluster repo remove` command
+var clusterRepoRemoveCmd = &cobra.Command{
+	Use:   "remove",
+	Short: "Remove the repository",
+	Long:  clusterRepoRemoveHelp,
+	// coverage:ignore-start changes the Helm repository config on this machine
+	Run: func(cmd *cobra.Command, args []string) {
+		cli.ExitOnError(runClusterRepoRemove(cmd.OutOrStdout(), helm.NewClient()))
+	},
+	// coverage:ignore-stop
+}
+
+// repoRemover is the subset of helm.Client that repo remove uses.
+type repoRemover interface {
+	RemoveRepo() error
+}
+
+// runClusterRepoRemove removes Kubetail's charts repository and reports it to w.
+func runClusterRepoRemove(w io.Writer, client repoRemover) error {
+	if err := client.RemoveRepo(); err != nil {
+		return err
+	}
+	fmt.Fprintln(w, "Removed repository 'kubetail'")
+	return nil
+}
+
+func init() {
+	clusterRepoCmd.AddCommand(clusterRepoRemoveCmd)
+}
