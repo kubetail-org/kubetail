@@ -8,7 +8,8 @@
 #         per area as CI measures them: cli/ with dashboard/, libs/go-common/,
 #         and cluster/api/. Each run measures its own area alone, so a
 #         dashboard/ line that only the CLI's tests reach is listed unless
-#         FULL=1.
+#         FULL=1. Without FULL=1, -coverpkg names the changed packages alone,
+#         since only their lines are judged.
 #   TS    the tests vitest relates to the changed files in apps/web/src/,
 #         or the whole suite when the toolchain changed.
 #   Rust  when cluster/agent/ or libs/proto/ changed, and only with RUST=1: it is the
@@ -75,6 +76,8 @@ run() {
   names+=("$name")
 }
 
+repo=github.com/kubetail-org/kubetail
+
 # go_area <name> <-coverpkg> <package pattern>: measures the area's changed
 # packages, or all of them with FULL=1.
 go_area() {
@@ -83,12 +86,12 @@ go_area() {
     pkgs=$(tr '|' '\n' <<<"$pattern" | sed 's|^|./|; s|$|/...|')
   else
     pkgs=$(grep -E "^\./($pattern)(/|$)" <<<"$(go_pkgs)" || true)
+    cover=$(paste -sd, - <<<"${pkgs//.\//$repo/}")
   fi
   [ -n "$pkgs" ] || return 0
   # shellcheck disable=SC2086 # one argument per package
   run "go-$name" go test -covermode=atomic -coverpkg="$cover" -coverprofile="$out/go-$name.out" $pkgs
 }
-repo=github.com/kubetail-org/kubetail
 go_area cli "$repo/cli/...,$repo/dashboard/..." 'cli|dashboard'
 go_area libs "$repo/libs/go-common/..." 'libs/go-common'
 go_area cluster "$repo/cluster/api/..." 'cluster/api'
