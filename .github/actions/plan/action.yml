@@ -30,12 +30,16 @@ outputs:
 runs:
   using: "composite"
   steps:
-    # Sets one output per filter, 'true' when a path in it changed.
+    # Sets one output per filter, 'true' when a path in it changed. A path is
+    # in a filter when it matches one of its patterns and none of its '!'
+    # patterns; under the default quantifier, 'some', a '!' pattern excludes
+    # nothing.
     - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
       id: filter
       if: github.event_name == 'pull_request'
       with:
         filters: .github/ci-config/path-filters.yml
+        predicate-quantifier: some-with-excludes
 
     # A filter missing from path-filters.yml fails a pull request's step, so a
     # misspelt name cannot leave a job that never runs.
