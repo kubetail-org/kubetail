@@ -191,26 +191,39 @@ Users can fully customize their Kubetail experience when using the web dashboard
 
 ### Repository Structure
 
-This monorepo contains the following modules:
+This monorepo has one folder per component:
 
-* Kubetail CLI ([cli](cli))
-* Kubetail Cluster API ([cluster/api](cluster/api))
-* Kubetail Cluster Agent ([cluster/agent/cluster_agent](cluster/agent/cluster_agent))
-* Kubetail Dashboard ([dashboard](dashboard))
+* [apps/web](apps/web): the Dashboard UI, a React single-page app
+* [dashboard](dashboard): the Dashboard backend, which serves the UI and a GraphQL API over the Kubernetes API
+* [cli](cli): the `kubetail` CLI
+* [cluster/api](cluster/api): the Cluster API, a GraphQL server inside the cluster that reads logs through the Cluster Agents
+* [cluster/agent](cluster/agent): a Rust workspace with the Cluster Agent ([cluster_agent](cluster/agent/cluster_agent)), which runs on every node, and the log file reader it links ([rgkl](cluster/agent/rgkl))
+* [apps/desktop](apps/desktop) and [apps/mobile](apps/mobile): placeholders for the desktop and mobile apps
 
-It also contains the source code for the Kubetail Dashboard's frontend:
+And these shared folders:
 
-* Dashboard UI ([apps/web](apps/web))
+* [libs/go-common](libs/go-common): the Go packages the other Go components import
+* [libs/proto](libs/proto): the gRPC contract between the Cluster API and the Cluster Agent
+* [libs/graphql](libs/graphql): each GraphQL server's schema, in `libs/graphql/<server>/`
+* [go.work](go.work): the Go workspace of `cli`, `dashboard`, `cluster/api` and `libs/go-common`
+* [config/default](config/default): the documented default config file of each component
+* [e2e](e2e): end-to-end tests in Python, run against a kind cluster
+* [tools](tools): the Go tools CI runs, in a module of their own
+* [docs/adr](docs/adr): Architecture Decision Records, which say why the design is the way it is
+
+[CONTRIBUTING.md](CONTRIBUTING.md#quick-reference) says which folder to start in.
 
 ### Setting up the Development Environment
 
 #### Dependencies
 
-* [Go](https://go.dev/)
-* [pnpm](https://pnpm.io/)
+* [Go](https://go.dev/) 1.26
+* [Node.js](https://nodejs.org/) 26 and [pnpm](https://pnpm.io/)
 * [Tilt](https://tilt.dev/)
 * [Tilt-compatible cluster](https://docs.tilt.dev/choosing_clusters.html) (e.g. [minikube](https://minikube.sigs.k8s.io/docs/), [kind](https://kind.sigs.k8s.io/docs/user/quick-start/), [docker-desktop](https://docs.tilt.dev/choosing_clusters.html#docker-for-desktop))
 * [ctlptl](https://github.com/tilt-dev/ctlptl) (optional)
+
+CI pins the exact Go and Node.js versions in [.github/actions/setup-environment/action.yml](.github/actions/setup-environment/action.yml). `make` needs Node.js and pnpm as well as Go, since it builds the UI before the CLI.
 
 #### Next steps
 
@@ -240,6 +253,8 @@ cd dashboard
 go run cmd/main.go -c hack/config.yaml
 ```
 
+The server listens on port 4000. It serves the UI only after `make build-dashboard-ui` has copied a build into `dashboard/website/`; until then every page route answers 404, and you reach the UI through the dev server in the next step.
+
 4. Run the Dashboard UI locally:
 
 ```console
@@ -248,7 +263,7 @@ pnpm install
 pnpm dev
 ```
 
-Now access the dashboard at [http://localhost:5173](http://localhost:5173).
+Now access the dashboard at [http://localhost:5173](http://localhost:5173). The dev server proxies API requests to the Dashboard server on port 4000.
 
 <details>
   <summary><h3>Rust Development (Optional)</h3></summary>
@@ -315,6 +330,16 @@ Now access the dashboard at [http://localhost:5173](http://localhost:5173).
   KUBETAIL_RUST_DEV_MODE=local tilt up
   ```
 </details>
+
+### Checks
+
+[CONTRIBUTING.md](CONTRIBUTING.md) describes how to test a change and open a pull request. Before you open one, run the checks for what your branch changed:
+
+```console
+make check-changed
+```
+
+`make help` lists every target. Each component's `AGENTS.md` (for example [dashboard/AGENTS.md](dashboard/AGENTS.md)) states its conventions and checks.
 
 ## Build
 

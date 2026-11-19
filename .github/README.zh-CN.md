@@ -191,26 +191,39 @@ kubetail config init
 
 ### 仓库结构
 
-这个 monorepo 包含以下模块:
+这个 monorepo 每个组件一个文件夹:
 
-* Kubetail CLI ([cli](../cli))
-* Kubetail Cluster API ([cluster/api](../cluster/api))
-* Kubetail Cluster Agent ([cluster/agent/cluster_agent](../cluster/agent/cluster_agent))
-* Kubetail Dashboard ([dashboard](../dashboard))
+* [apps/web](../apps/web): Dashboard UI，一个 React 单页应用
+* [dashboard](../dashboard): Dashboard 后端，提供 UI 以及基于 Kubernetes API 的 GraphQL API
+* [cli](../cli): `kubetail` CLI
+* [cluster/api](../cluster/api): Cluster API，集群内的 GraphQL 服务器，通过 Cluster Agent 读取日志
+* [cluster/agent](../cluster/agent): 一个 Rust workspace，包含在每个节点上运行的 Cluster Agent（[cluster_agent](../cluster/agent/cluster_agent)）及其链接的日志文件读取器（[rgkl](../cluster/agent/rgkl)）
+* [apps/desktop](../apps/desktop) 和 [apps/mobile](../apps/mobile): 桌面应用和移动应用的占位目录
 
-它还包含 Kubetail Dashboard 前端的源代码:
+以及以下共享文件夹:
 
-* Dashboard UI ([apps/web](../apps/web))
+* [libs/go-common](../libs/go-common): 其他 Go 组件导入的 Go 包
+* [libs/proto](../libs/proto): Cluster API 与 Cluster Agent 之间的 gRPC 契约
+* [libs/graphql](../libs/graphql): 每个 GraphQL 服务器的 schema，位于 `libs/graphql/<server>/`
+* [go.work](../go.work): `cli`、`dashboard`、`cluster/api` 和 `libs/go-common` 的 Go workspace
+* [config/default](../config/default): 每个组件带文档的默认配置文件
+* [e2e](../e2e): 用 Python 编写、在 kind 集群上运行的端到端测试
+* [tools](../tools): CI 运行的 Go 工具，位于独立的模块中
+* [docs/adr](../docs/adr): Architecture Decision Records，记录设计为何如此
+
+[CONTRIBUTING.md](../CONTRIBUTING.md#quick-reference) 说明应从哪个文件夹开始。
 
 ### 搭建开发环境
 
 #### 依赖
 
-* [Go](https://go.dev/)
-* [pnpm](https://pnpm.io/)
+* [Go](https://go.dev/) 1.26
+* [Node.js](https://nodejs.org/) 26 和 [pnpm](https://pnpm.io/)
 * [Tilt](https://tilt.dev/)
 * [兼容 Tilt 的集群](https://docs.tilt.dev/choosing_clusters.html)（例如 [minikube](https://minikube.sigs.k8s.io/docs/)、[kind](https://kind.sigs.k8s.io/docs/user/quick-start/)、[docker-desktop](https://docs.tilt.dev/choosing_clusters.html#docker-for-desktop)）
 * [ctlptl](https://github.com/tilt-dev/ctlptl)（可选）
+
+CI 在 [.github/actions/setup-environment/action.yml](actions/setup-environment/action.yml) 中固定 Go 和 Node.js 的确切版本。`make` 会先构建 UI 再构建 CLI，因此除了 Go 还需要 Node.js 和 pnpm。
 
 #### 下一步
 
@@ -240,6 +253,8 @@ cd dashboard
 go run cmd/main.go -c hack/config.yaml
 ```
 
+服务器监听 4000 端口。只有在 `make build-dashboard-ui` 把构建产物复制到 `dashboard/website/` 之后，它才会提供 UI；在此之前，每个页面路由都返回 404，你需要通过下一步的开发服务器访问 UI。
+
 4. 在本地运行 Dashboard UI:
 
 ```console
@@ -248,7 +263,7 @@ pnpm install
 pnpm dev
 ```
 
-现在可以通过 [http://localhost:5173](http://localhost:5173) 访问仪表板。
+现在可以通过 [http://localhost:5173](http://localhost:5173) 访问仪表板。开发服务器会把 API 请求代理到 4000 端口上的 Dashboard 服务器。
 
 <details>
   <summary><h3>Rust 开发（可选）</h3></summary>
@@ -315,6 +330,16 @@ pnpm dev
   KUBETAIL_RUST_DEV_MODE=local tilt up
   ```
 </details>
+
+### 检查
+
+[CONTRIBUTING.md](../CONTRIBUTING.md) 介绍了如何测试改动和提交 pull request。提交之前，运行你的分支所改动部分的检查:
+
+```console
+make check-changed
+```
+
+`make help` 列出所有 target。每个组件的 `AGENTS.md`（例如 [dashboard/AGENTS.md](../dashboard/AGENTS.md)）说明了它的约定和检查。
 
 ## 构建
 

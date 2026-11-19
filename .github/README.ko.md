@@ -191,26 +191,39 @@ Kubetail API를 설치한 사용자는 노드 수준 로그(예: systemd)와 클
 
 ### 저장소 구조
 
-이 모노레포에는 다음 모듈이 포함되어 있습니다:
+이 모노레포는 컴포넌트마다 폴더 하나를 둡니다:
 
-* Kubetail CLI ([cli](../cli))
-* Kubetail Cluster API ([cluster/api](../cluster/api))
-* Kubetail Cluster Agent ([cluster/agent/cluster_agent](../cluster/agent/cluster_agent))
-* Kubetail Dashboard ([dashboard](../dashboard))
+* [apps/web](../apps/web): Dashboard UI, React 싱글 페이지 앱
+* [dashboard](../dashboard): Dashboard 백엔드. UI와 Kubernetes API 위의 GraphQL API를 제공합니다
+* [cli](../cli): `kubetail` CLI
+* [cluster/api](../cluster/api): Cluster API. 클러스터 안에서 동작하는 GraphQL 서버로, Cluster Agent를 통해 로그를 읽습니다
+* [cluster/agent](../cluster/agent): Rust 워크스페이스. 모든 노드에서 실행되는 Cluster Agent([cluster_agent](../cluster/agent/cluster_agent))와 그것이 링크하는 로그 파일 리더([rgkl](../cluster/agent/rgkl))를 담고 있습니다
+* [apps/desktop](../apps/desktop)와 [apps/mobile](../apps/mobile): 데스크톱 앱과 모바일 앱의 자리 표시자
 
-또한 Kubetail Dashboard 프런트엔드의 소스 코드도 포함되어 있습니다:
+그리고 다음 공유 폴더가 있습니다:
 
-* Dashboard UI ([apps/web](../apps/web))
+* [libs/go-common](../libs/go-common): 다른 Go 컴포넌트가 임포트하는 Go 패키지
+* [libs/proto](../libs/proto): Cluster API와 Cluster Agent 사이의 gRPC 계약
+* [libs/graphql](../libs/graphql): 각 GraphQL 서버의 스키마, `libs/graphql/<server>/`에 있습니다
+* [go.work](../go.work): `cli`, `dashboard`, `cluster/api`, `libs/go-common`의 Go 워크스페이스
+* [config/default](../config/default): 각 컴포넌트의 문서화된 기본 설정 파일
+* [e2e](../e2e): kind 클러스터에서 실행하는 Python 엔드투엔드 테스트
+* [tools](../tools): CI가 실행하는 Go 도구, 별도 모듈에 있습니다
+* [docs/adr](../docs/adr): Architecture Decision Records. 설계가 왜 지금의 모습인지 기록합니다
+
+어느 폴더에서 시작할지는 [CONTRIBUTING.md](../CONTRIBUTING.md#quick-reference)에 있습니다.
 
 ### 개발 환경 설정
 
 #### 의존성
 
-* [Go](https://go.dev/)
-* [pnpm](https://pnpm.io/)
+* [Go](https://go.dev/) 1.26
+* [Node.js](https://nodejs.org/) 26 및 [pnpm](https://pnpm.io/)
 * [Tilt](https://tilt.dev/)
 * [Tilt와 호환되는 클러스터](https://docs.tilt.dev/choosing_clusters.html) (예: [minikube](https://minikube.sigs.k8s.io/docs/), [kind](https://kind.sigs.k8s.io/docs/user/quick-start/), [docker-desktop](https://docs.tilt.dev/choosing_clusters.html#docker-for-desktop))
 * [ctlptl](https://github.com/tilt-dev/ctlptl) (선택 사항)
+
+CI는 정확한 Go 및 Node.js 버전을 [.github/actions/setup-environment/action.yml](actions/setup-environment/action.yml)에 고정합니다. `make`는 CLI보다 먼저 UI를 빌드하므로 Go 외에 Node.js와 pnpm도 필요합니다.
 
 #### 다음 단계
 
@@ -240,6 +253,8 @@ cd dashboard
 go run cmd/main.go -c hack/config.yaml
 ```
 
+서버는 포트 4000에서 수신합니다. `make build-dashboard-ui`가 빌드를 `dashboard/website/`에 복사한 뒤에만 UI를 제공합니다. 그 전에는 모든 페이지 경로가 404를 반환하므로, 다음 단계의 개발 서버로 UI에 접속합니다.
+
 4. Dashboard UI를 로컬에서 실행합니다:
 
 ```console
@@ -248,7 +263,7 @@ pnpm install
 pnpm dev
 ```
 
-이제 [http://localhost:5173](http://localhost:5173) 에서 대시보드에 접속할 수 있습니다.
+이제 [http://localhost:5173](http://localhost:5173) 에서 대시보드에 접속할 수 있습니다. 개발 서버는 API 요청을 포트 4000의 Dashboard 서버로 프록시합니다.
 
 <details>
   <summary><h3>Rust 개발(선택 사항)</h3></summary>
@@ -315,6 +330,16 @@ pnpm dev
   KUBETAIL_RUST_DEV_MODE=local tilt up
   ```
 </details>
+
+### 검사
+
+변경을 테스트하고 풀 리퀘스트를 여는 방법은 [CONTRIBUTING.md](../CONTRIBUTING.md)에 있습니다. 풀 리퀘스트를 열기 전에 브랜치에서 변경한 부분의 검사를 실행합니다:
+
+```console
+make check-changed
+```
+
+`make help`는 모든 타깃을 나열합니다. 각 컴포넌트의 `AGENTS.md`(예: [dashboard/AGENTS.md](../dashboard/AGENTS.md))에 해당 컴포넌트의 규칙과 검사가 있습니다.
 
 ## 빌드
 

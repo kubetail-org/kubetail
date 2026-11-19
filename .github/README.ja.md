@@ -191,26 +191,39 @@ Kubetail API をインストールしたユーザーは、ノードレベルの�
 
 ### リポジトリ構成
 
-このモノレポには次のモジュールが含まれています:
+このモノレポはコンポーネントごとに 1 つのフォルダーを持ちます:
 
-* Kubetail CLI ([cli](../cli))
-* Kubetail Cluster API ([cluster/api](../cluster/api))
-* Kubetail Cluster Agent ([cluster/agent/cluster_agent](../cluster/agent/cluster_agent))
-* Kubetail Dashboard ([dashboard](../dashboard))
+* [apps/web](../apps/web): Dashboard UI（React のシングルページアプリ）
+* [dashboard](../dashboard): Dashboard のバックエンド。UI と、Kubernetes API の上の GraphQL API を提供します
+* [cli](../cli): `kubetail` CLI
+* [cluster/api](../cluster/api): Cluster API。クラスター内で動く GraphQL サーバーで、Cluster Agent を通してログを読みます
+* [cluster/agent](../cluster/agent): Rust ワークスペース。各ノードで動く Cluster Agent（[cluster_agent](../cluster/agent/cluster_agent)）と、それがリンクするログファイルリーダー（[rgkl](../cluster/agent/rgkl)）を含みます
+* [apps/desktop](../apps/desktop) と [apps/mobile](../apps/mobile): デスクトップアプリとモバイルアプリのプレースホルダー
 
-また、Kubetail Dashboard のフロントエンドのソースコードも含まれています:
+共有フォルダーは次のとおりです:
 
-* Dashboard UI ([apps/web](../apps/web))
+* [libs/go-common](../libs/go-common): 他の Go コンポーネントがインポートする Go パッケージ
+* [libs/proto](../libs/proto): Cluster API と Cluster Agent の間の gRPC 契約
+* [libs/graphql](../libs/graphql): 各 GraphQL サーバーのスキーマ（`libs/graphql/<server>/`）
+* [go.work](../go.work): `cli`、`dashboard`、`cluster/api`、`libs/go-common` の Go ワークスペース
+* [config/default](../config/default): 各コンポーネントの、ドキュメント付きのデフォルト設定ファイル
+* [e2e](../e2e): kind クラスターに対して実行する Python の E2E テスト
+* [tools](../tools): CI が実行する Go ツール（独立したモジュール）
+* [docs/adr](../docs/adr): Architecture Decision Records。設計がなぜ今の形なのかを記録します
+
+どのフォルダーから始めるかは [CONTRIBUTING.md](../CONTRIBUTING.md#quick-reference) にあります。
 
 ### 開発環境のセットアップ
 
 #### 依存関係
 
-* [Go](https://go.dev/)
-* [pnpm](https://pnpm.io/)
+* [Go](https://go.dev/) 1.26
+* [Node.js](https://nodejs.org/) 26 と [pnpm](https://pnpm.io/)
 * [Tilt](https://tilt.dev/)
 * [Tilt と互換性のあるクラスター](https://docs.tilt.dev/choosing_clusters.html)（例: [minikube](https://minikube.sigs.k8s.io/docs/)、[kind](https://kind.sigs.k8s.io/docs/user/quick-start/)、[docker-desktop](https://docs.tilt.dev/choosing_clusters.html#docker-for-desktop)）
 * [ctlptl](https://github.com/tilt-dev/ctlptl)（任意）
+
+CI は Go と Node.js の正確なバージョンを [.github/actions/setup-environment/action.yml](actions/setup-environment/action.yml) で固定しています。`make` は CLI の前に UI をビルドするため、Go に加えて Node.js と pnpm が必要です。
 
 #### 次の手順
 
@@ -240,6 +253,8 @@ cd dashboard
 go run cmd/main.go -c hack/config.yaml
 ```
 
+サーバーはポート 4000 で待ち受けます。UI を配信するのは `make build-dashboard-ui` がビルドを `dashboard/website/` にコピーした後だけです。それまではすべてのページルートが 404 を返すため、次の手順の開発サーバーから UI にアクセスします。
+
 4. Dashboard UI をローカルで起動します:
 
 ```console
@@ -248,7 +263,7 @@ pnpm install
 pnpm dev
 ```
 
-次に、[http://localhost:5173](http://localhost:5173) でダッシュボードへアクセスできます。
+次に、[http://localhost:5173](http://localhost:5173) でダッシュボードへアクセスできます。開発サーバーは API リクエストをポート 4000 の Dashboard サーバーへプロキシします。
 
 <details>
   <summary><h3>Rust 開発（任意）</h3></summary>
@@ -315,6 +330,16 @@ pnpm dev
   KUBETAIL_RUST_DEV_MODE=local tilt up
   ```
 </details>
+
+### チェック
+
+変更のテスト方法とプルリクエストの作り方は [CONTRIBUTING.md](../CONTRIBUTING.md) にあります。プルリクエストを作る前に、ブランチで変更した部分のチェックを実行します:
+
+```console
+make check-changed
+```
+
+`make help` はすべてのターゲットを一覧表示します。各コンポーネントの `AGENTS.md`（例: [dashboard/AGENTS.md](../dashboard/AGENTS.md)）に、その規約とチェックがあります。
 
 ## ビルド
 

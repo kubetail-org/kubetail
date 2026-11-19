@@ -191,26 +191,39 @@ Benutzer können ihre Kubetail-Erfahrung bei der Nutzung des Web-Dashboards und 
 
 ### Repository-Struktur
 
-Dieses Monorepo enthält die folgenden Module:
+Dieses Monorepo hat einen Ordner pro Komponente:
 
-* Kubetail CLI ([cli](../cli))
-* Kubetail Cluster API ([cluster/api](../cluster/api))
-* Kubetail Cluster Agent ([cluster/agent/cluster_agent](../cluster/agent/cluster_agent))
-* Kubetail Dashboard ([dashboard](../dashboard))
+* [apps/web](../apps/web): die Dashboard UI, eine React-Single-Page-App
+* [dashboard](../dashboard): das Dashboard-Backend, das die UI und eine GraphQL-API über die Kubernetes-API bereitstellt
+* [cli](../cli): die `kubetail` CLI
+* [cluster/api](../cluster/api): die Cluster API, ein GraphQL-Server im Cluster, der Logs über die Cluster Agents liest
+* [cluster/agent](../cluster/agent): ein Rust-Workspace mit dem Cluster Agent ([cluster_agent](../cluster/agent/cluster_agent)), der auf jedem Node läuft, und dem Log-Datei-Leser, den er einbindet ([rgkl](../cluster/agent/rgkl))
+* [apps/desktop](../apps/desktop) und [apps/mobile](../apps/mobile): Platzhalter für die Desktop- und die Mobile-App
 
-Es enthält außerdem den Quellcode für das Frontend des Kubetail Dashboards:
+Dazu diese gemeinsamen Ordner:
 
-* Dashboard UI ([apps/web](../apps/web))
+* [libs/go-common](../libs/go-common): die Go-Pakete, die die anderen Go-Komponenten importieren
+* [libs/proto](../libs/proto): der gRPC-Vertrag zwischen Cluster API und Cluster Agent
+* [libs/graphql](../libs/graphql): das Schema jedes GraphQL-Servers, in `libs/graphql/<server>/`
+* [go.work](../go.work): der Go-Workspace aus `cli`, `dashboard`, `cluster/api` und `libs/go-common`
+* [config/default](../config/default): die dokumentierte Standard-Konfigurationsdatei jeder Komponente
+* [e2e](../e2e): End-to-End-Tests in Python, die gegen einen kind-Cluster laufen
+* [tools](../tools): die Go-Tools, die CI ausführt, in einem eigenen Modul
+* [docs/adr](../docs/adr): Architecture Decision Records, die begründen, warum das Design so ist, wie es ist
+
+[CONTRIBUTING.md](../CONTRIBUTING.md#quick-reference) sagt, in welchem Ordner du anfängst.
 
 ### Entwicklungsumgebung einrichten
 
 #### Abhängigkeiten
 
-* [Go](https://go.dev/)
-* [pnpm](https://pnpm.io/)
+* [Go](https://go.dev/) 1.26
+* [Node.js](https://nodejs.org/) 26 und [pnpm](https://pnpm.io/)
 * [Tilt](https://tilt.dev/)
 * [Tilt-kompatibler Cluster](https://docs.tilt.dev/choosing_clusters.html) (z. B. [minikube](https://minikube.sigs.k8s.io/docs/), [kind](https://kind.sigs.k8s.io/docs/user/quick-start/), [docker-desktop](https://docs.tilt.dev/choosing_clusters.html#docker-for-desktop))
 * [ctlptl](https://github.com/tilt-dev/ctlptl) (optional)
+
+CI legt die genauen Go- und Node.js-Versionen in [.github/actions/setup-environment/action.yml](actions/setup-environment/action.yml) fest. `make` braucht neben Go auch Node.js und pnpm, da es vor der CLI die UI baut.
 
 #### Nächste Schritte
 
@@ -240,6 +253,8 @@ cd dashboard
 go run cmd/main.go -c hack/config.yaml
 ```
 
+Der Server lauscht auf Port 4000. Er liefert die UI erst aus, nachdem `make build-dashboard-ui` einen Build nach `dashboard/website/` kopiert hat; bis dahin antwortet jede Seitenroute mit 404, und du erreichst die UI über den Dev-Server im nächsten Schritt.
+
 4. Starte die Dashboard-UI lokal:
 
 ```console
@@ -248,7 +263,7 @@ pnpm install
 pnpm dev
 ```
 
-Anschließend kannst du das Dashboard unter [http://localhost:5173](http://localhost:5173) aufrufen.
+Anschließend kannst du das Dashboard unter [http://localhost:5173](http://localhost:5173) aufrufen. Der Dev-Server leitet API-Anfragen an den Dashboard-Server auf Port 4000 weiter.
 
 <details>
   <summary><h3>Rust-Entwicklung (optional)</h3></summary>
@@ -315,6 +330,16 @@ Anschließend kannst du das Dashboard unter [http://localhost:5173](http://local
   KUBETAIL_RUST_DEV_MODE=local tilt up
   ```
 </details>
+
+### Prüfungen
+
+[CONTRIBUTING.md](../CONTRIBUTING.md) beschreibt, wie du eine Änderung testest und einen Pull Request öffnest. Bevor du einen öffnest, führe die Prüfungen für die Änderungen deines Branches aus:
+
+```console
+make check-changed
+```
+
+`make help` listet alle Targets auf. Die `AGENTS.md` jeder Komponente (zum Beispiel [dashboard/AGENTS.md](../dashboard/AGENTS.md)) beschreibt ihre Konventionen und Prüfungen.
 
 ## Build
 
