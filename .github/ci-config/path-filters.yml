@@ -5,6 +5,12 @@
 # coverage would pass its changed lines as "0 of 0 covered". Each area's two
 # workflows are in its own key. A change to how CI runs or measures (shared)
 # runs every area.
+#
+# The Plan action matches with predicate-quantifier 'some-with-excludes': a
+# path is in a key when it matches one of its patterns and none of its '!'
+# patterns. A key that runs code jobs ends in '!**/*.md', so a pull request
+# that changes only Markdown runs the Markdown checks alone. A key merged in
+# with an anchor brings its exclusions along.
 shared: &shared
   - .github/actions/plan/**
   - .github/actions/setup-environment/**
@@ -16,12 +22,15 @@ shared: &shared
   - scripts/check-coverage-markers.sh
   - scripts/check-license-headers.sh
   - tools/**
+  - '!**/*.md'
 cli:
   - .github/workflows/ci-cli.yml
   - .github/workflows/coverage-cli.yml
   - cli/**
+  - '!**/*.md'
 dashboard:
   - dashboard/**
+  - '!**/*.md'
 libs:
   - .github/workflows/ci-libs.yml
   - .github/workflows/coverage-libs.yml
@@ -32,27 +41,35 @@ go-common:
   - libs/go-common/**
   - scripts/check-go-fix.sh
   - scripts/staticcheck.sh
+  - '!**/*.md'
 graphql-dashboard:
   - libs/graphql/dashboard/**
+  - '!**/*.md'
 graphql-cluster-api:
   - libs/graphql/cluster-api/**
+  - '!**/*.md'
 cluster-api:
   - .github/workflows/ci-cluster.yml
   - .github/workflows/coverage-cluster.yml
   - cluster/api/**
+  - '!**/*.md'
 cluster-agent:
   - .github/workflows/ci-cluster.yml
   - .github/workflows/coverage-cluster.yml
   - cluster/agent/**
+  - '!**/*.md'
 proto:
   - libs/proto/**
+  - '!**/*.md'
 web:
   - .github/workflows/ci-web.yml
   - .github/workflows/coverage-web.yml
   - apps/web/**
+  - '!**/*.md'
 e2e:
   - .github/workflows/ci-e2e.yml
   - e2e/**
+  - '!**/*.md'
 repo:
   - .github/workflows/ci-repo.yml
 # Every image and target: without it, a PR builds the cli image's final stage
@@ -63,6 +80,7 @@ docker:
   - cluster/agent/Dockerfile
   - cluster/api/Dockerfile
   - dashboard/Dockerfile
+  - '!**/*.md'
 shell:
   - .github/ci-config/path-filters.yml
   - Makefile
@@ -91,11 +109,13 @@ generated:
   - libs/graphql/**
   - libs/proto/**
   - scripts/check-generated.sh
+  - '!**/*.md'
 # codeql.yml's alone. A change to codeql.yml analyzes every language.
 codeql:
   - .github/workflows/codeql.yml
 python:
   - e2e/**
+  - '!**/*.md'
 actions:
   - .github/actions/**
   - .github/workflows/**
