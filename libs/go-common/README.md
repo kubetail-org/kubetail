@@ -1,25 +1,22 @@
 # Kubetail Shared Go Libraries
 
-Go module containing shared go libraries
+The Go packages that `cli`, `dashboard` and `cluster/api` import. No binary ships from here. Among them:
 
-## Dependencies
+* `k8shelpers`: Kubernetes clients for each environment, and the namespace allow-list
+* `logs`: log streams, read from the Kubernetes API or from the Cluster Agents
+* `clusteragentpb`: the Go code generated from the gRPC contract in [`libs/proto`](../proto)
+* `grpchelpers`: forwards the caller's identity to the Cluster Agent
+* `helm`: the Helm client behind `kubetail cluster`
+* `graphql/errors`: the errors the GraphQL servers return
 
-```console
-brew install protobuf protoc-gen-go protoc-gen-go-grpc
-```
+## Generate
 
-## gRPC
-
-To run the gRPC code generator use the `go generate` command:
-
-```console
-go generate ./...
-```
+`go generate ./...` runs `protoc` to regenerate `clusteragentpb`. The `protoc` and plugin versions are pinned; [`libs/proto/CLAUDE.md`](../proto/CLAUDE.md) says how to match them.
 
 ## Test
 
-To run the test suite execute this command:
+A change here changes every Go binary, so run the whole workspace's tests from the repo root:
 
 ```console
-go test ./...
+go test -race github.com/kubetail-org/kubetail/...
 ```
