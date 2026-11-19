@@ -101,3 +101,37 @@ jobs:
       contents: read
       pull-requests: read
       actions: write
+
+  # Deletes the BuildKit caches no current image build needs. It runs here,
+  # once, rather than in each area's Prune · Caches: blobs are shared across
+  # scopes, so one area's prune could delete a blob another area's build is
+  # still exporting. A build that failed or was skipped may not have accessed
+  # the blobs its scope's index holds, so the prune then waits for the next
+  # run. The cache mode is the area files' CACHE_MODE.
+  buildkit-prune:
+    name: Prune · BuildKit
+    needs:
+      - cli
+      - cluster
+    if: >-
+      always()
+      && needs.cli.outputs.docker-result == 'success'
+      && needs.cluster.outputs.docker-result == 'success'
+      && (inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use') != 'use'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts
+      # The cutoff is the run's creation, not this attempt's start: a re-run
+      # of failed jobs keeps the first attempt's builds.
+      - name: Prune
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cutoff=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at)
+          sh scripts/prune-buildkit-caches.sh "$GITHUB_REF" "$cutoff"

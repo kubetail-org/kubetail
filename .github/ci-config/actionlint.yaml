@@ -1,3 +1,11 @@
 self-hosted-runner:
   labels:
     - ubuntu-24.04-riscv
+# Keys are matched against the path actionlint is given, which is relative to
+# tools/ under `make lint-repo-yaml`.
+paths:
+  # A reusable workflow's outputs may read jobs.<job_id>.result, which
+  # actionlint does not know.
+  '**/.github/workflows/ci-{cli,cluster}.yml':
+    ignore:
+      - 'property "result" is not defined in object type \{outputs: \{\}\}'
