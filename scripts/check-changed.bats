@@ -55,6 +55,11 @@ tests="cover-changed test-changed"
   [ "$jobs" = "$always|lint-rust vet-rust|$tests" ]
 }
 
+@test "a tools change adds its lint, vet and test" {
+  check tools/coverdiff/main.go
+  [ "$jobs" = "$always|lint-tools vet-tools test-tools|$tests" ]
+}
+
 @test "an e2e change adds the Python lint" {
   check e2e/test_logs.py
   [ "$jobs" = "$always|lint-python|$tests" ]

@@ -10,6 +10,7 @@
 #   modules/         lint-go, vet-go-changed
 #   crates/, proto/  lint-rust, vet-rust
 #   dashboard-ui/    lint-ts, vet-ts
+#   tools/           lint-tools, vet-tools, test-tools
 #   e2e/             lint-python
 #   *.sh             lint-sh
 #   YAML, .github/   lint-yaml
@@ -39,6 +40,7 @@ jobs=(lint-md lint-toolchains lint-digests)
 if has '^modules/'; then jobs+=(lint-go vet-go-changed); fi
 if has '^(crates|proto)/'; then jobs+=("lint-rust vet-rust"); fi
 if has '^dashboard-ui/'; then jobs+=("lint-ts vet-ts"); fi
+if has '^tools/'; then jobs+=("lint-tools vet-tools test-tools"); fi
 if has '^e2e/'; then jobs+=(lint-python); fi
 if has '\.sh$'; then jobs+=(lint-sh); fi
 if has '\.ya?ml$|^\.github/|^\.yamllint'; then jobs+=(lint-yaml); fi
