@@ -49,7 +49,7 @@ jobs:
     permissions:
       pull-requests: read
     outputs:
-      # For Caches · Prune: a job's `if:` cannot read `env`.
+      # For Prune · Caches: a job's `if:` cannot read `env`.
       cache-mode: ${{ env.CACHE_MODE }}
       shell: ${{ fromJSON(steps.plan.outputs.jobs).shell }}
       yaml: ${{ fromJSON(steps.plan.outputs.jobs).yaml }}
@@ -76,7 +76,7 @@ jobs:
   ##############################
 
   shell-lint:
-    name: Shell · Lint
+    name: Lint · Shell
     needs: plan
     if: needs.plan.outputs.shell == 'true'
     runs-on: ubuntu-24.04
@@ -93,7 +93,7 @@ jobs:
 
   # Runs on every PR: one that moves a file a doc links to may touch no Markdown.
   markdown-lint:
-    name: Markdown · Lint
+    name: Lint · Markdown
     needs: plan
     runs-on: ubuntu-24.04
     steps:
@@ -113,7 +113,7 @@ jobs:
 
   # Runs on every PR: the versions it compares sit in paths no one filter holds.
   toolchains-lint:
-    name: Toolchains · Lint
+    name: Lint · Toolchains
     needs: plan
     runs-on: ubuntu-24.04
     steps:
@@ -126,7 +126,7 @@ jobs:
         run: make lint-repo-digests
 
   python-lint:
-    name: Python · Lint
+    name: Lint · Python
     needs: plan
     if: needs.plan.outputs.python == 'true'
     runs-on: ubuntu-24.04
@@ -145,7 +145,7 @@ jobs:
           uv run ruff format --check .
 
   yaml-lint:
-    name: YAML · Lint
+    name: Lint · YAML
     needs: plan
     if: needs.plan.outputs.yaml == 'true'
     runs-on: ubuntu-24.04
@@ -168,7 +168,7 @@ jobs:
 
   # Regenerates every committed output from its source and fails on a change.
   generated-check:
-    name: Generated · Check
+    name: Check · Generated
     needs: plan
     if: needs.plan.outputs.generated == 'true'
     runs-on: ubuntu-24.04
@@ -191,7 +191,7 @@ jobs:
 
   # The coverage tools: a module of their own, outside the workspace.
   tools-test:
-    name: Tools · Test
+    name: Test · Tools
     needs: plan
     if: needs.plan.outputs.tools == 'true'
     runs-on: ubuntu-24.04
@@ -212,7 +212,7 @@ jobs:
           go test ./...
 
   shell-test:
-    name: Shell · Test
+    name: Test · Shell
     needs: plan
     if: needs.plan.outputs.shell == 'true'
     strategy:
@@ -254,7 +254,7 @@ jobs:
   # each. It needs the two jobs that save one because setup-uv and setup-node
   # save in post steps, when their job ends.
   cache-prune:
-    name: Caches · Prune
+    name: Prune · Caches
     needs:
       - plan
       - python-lint

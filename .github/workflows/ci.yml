@@ -40,7 +40,7 @@ concurrency:
 
 jobs:
   # Every area takes the same permissions: its Plan reads the pull request's
-  # files (pull-requests: read), and its Caches · Prune deletes caches
+  # files (pull-requests: read), and its Prune · Caches deletes caches
   # (actions: write).
   cli:
     name: cli

@@ -1,4 +1,4 @@
-# zizmor configuration. `make lint-repo-yaml` and CI's `YAML · Lint` job fail on any
+# zizmor configuration. `make lint-repo-yaml` and CI's `Lint · YAML` job fail on any
 # finding not ignored here. Every entry gives its reason.
 rules:
   # Every action pinned to a commit SHA, first-party ones included.

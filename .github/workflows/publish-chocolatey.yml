@@ -21,7 +21,7 @@ on:
 
 jobs:
   generate-nuspec:
-    name: Generate nuspec
+    name: Package · Chocolatey
     runs-on: ubuntu-24.04
     steps:
       - name: Config
@@ -87,7 +87,7 @@ jobs:
           path: nuspec/*
 
   push-to-chocolatey:
-    name: Push to chocolatey
+    name: Publish · Chocolatey
     needs: generate-nuspec
     environment: production
     runs-on: windows-latest

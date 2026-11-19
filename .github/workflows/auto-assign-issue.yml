@@ -10,6 +10,7 @@ on:
 
 jobs:
   execute:
+    name: Assign · Issue
     if: github.repository == 'kubetail-org/kubetail'
     runs-on: ubuntu-slim
     steps:

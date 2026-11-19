@@ -21,7 +21,7 @@ on:
 
 jobs:
   winget-release:
-    name: Release on winget
+    name: Publish · WinGet
     environment: production
     runs-on: ubuntu-24.04
     env:

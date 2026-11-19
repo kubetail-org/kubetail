@@ -4,8 +4,8 @@ permissions:
   contents: read
 
 # riscv64 runners are few and slow, so these jobs run weekly and on demand
-# rather than on every push to main. ci-cli.yml's Alpine · Build still builds
-# the CLI for riscv64 and starts it under QEMU on every push to main.
+# rather than on every push to main. ci-cli.yml's Build (alpine, riscv64) still
+# builds the CLI for riscv64 and starts it under QEMU on every push to main.
 on:
   schedule:
     - cron: "23 4 * * 1"
@@ -28,7 +28,7 @@ jobs:
   # would never find one. CGO_ENABLED=0 as the release builds use it, so the
   # build step reuses the packages the tests compiled.
   go:
-    name: Go · Test and build CLI
+    name: Build and Test · Go
     needs: fork-gate
     runs-on: ubuntu-24.04-riscv
     timeout-minutes: 90
@@ -52,7 +52,7 @@ jobs:
   # riscv64 variant, and cluster/agent/Dockerfile accepts only x86_64 and
   # aarch64.
   docker:
-    name: Docker · Build (cluster-api, ${{ matrix.target }})
+    name: Build · Docker (cluster-api, ${{ matrix.target }})
     needs: fork-gate
     timeout-minutes: 30
     strategy:
@@ -86,7 +86,7 @@ jobs:
   # A failed run on main opens an issue, or comments on the one still open,
   # so it reaches a maintainer without anyone watching the Actions tab.
   report:
-    name: Report failure
+    name: Report · Failures
     needs:
       - go
       - docker

@@ -21,6 +21,7 @@ on:
 
 jobs:
   publish:
+    name: Publish · COPR
     runs-on: ubuntu-24.04
     environment: production
     steps:

@@ -44,7 +44,7 @@ jobs:
 
   # scripts/cover-changed.sh measures as this job does; change both together.
   typescript-coverage:
-    name: TypeScript
+    name: Measure
     needs: plan
     if: needs.plan.outputs.typescript == 'true'
     runs-on: ubuntu-24.04

@@ -34,7 +34,7 @@ env:
   #            copy per PR would push the repo past its cache limit.
   #   update   Also save a new Go cache per job and runner. Every push to main.
   #   rebuild  Start the Go caches from empty, then save them.
-  # A dispatch takes its input. Caches · Prune deletes the caches a save
+  # A dispatch takes its input. Prune · Caches deletes the caches a save
   # replaced.
   CACHE_MODE: ${{ inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use' }}
   # Full debug info swells the Rust caches and slows linking; line tables keep
@@ -60,7 +60,7 @@ jobs:
     permissions:
       pull-requests: read
     outputs:
-      # For Caches · Prune: a job's `if:` cannot read `env`.
+      # For Prune · Caches: a job's `if:` cannot read `env`.
       cache-mode: ${{ env.CACHE_MODE }}
       go: ${{ fromJSON(steps.plan.outputs.jobs).go }}
       rust: ${{ fromJSON(steps.plan.outputs.jobs).rust }}
@@ -83,7 +83,7 @@ jobs:
   ##############################
 
   cluster-api-lint:
-    name: Go · Lint
+    name: Lint · Go
     needs: plan
     if: needs.plan.outputs.go == 'true'
     runs-on: ubuntu-24.04
@@ -101,9 +101,9 @@ jobs:
       - name: Check coverage markers
         run: sh scripts/check-coverage-markers.sh cluster/api
 
-  # Restores Go · Build and Test's linux/amd64 cache and saves none.
+  # Restores Build and Test · Go's linux/amd64 cache and saves none.
   cluster-api-vet:
-    name: Go · Vet
+    name: Vet · Go
     needs: plan
     if: needs.plan.outputs.go == 'true'
     runs-on: ubuntu-24.04
@@ -123,9 +123,9 @@ jobs:
       - name: Check go fix
         run: sh scripts/check-go-fix.sh cluster/api
 
-  # Restores Go · Build and Test's linux/amd64 cache and saves none.
+  # Restores Build and Test · Go's linux/amd64 cache and saves none.
   cluster-api-staticcheck:
-    name: Go · Staticcheck
+    name: Staticcheck
     needs: plan
     if: needs.plan.outputs.go == 'true'
     runs-on: ubuntu-24.04
@@ -161,7 +161,7 @@ jobs:
           key: ${{ github.job }}-ubuntu-24.04-run-${{ github.run_id }}
 
   rust-lint:
-    name: Rust · Lint
+    name: Lint · Rust
     needs: plan
     if: needs.plan.outputs.rust == 'true'
     runs-on: ubuntu-24.04
@@ -182,7 +182,7 @@ jobs:
         run: sh scripts/check-coverage-markers.sh cluster/agent
 
   rust-vet:
-    name: Rust · Vet
+    name: Vet · Rust
     needs: plan
     if: needs.plan.outputs.rust == 'true'
     runs-on: ubuntu-24.04
@@ -204,10 +204,10 @@ jobs:
   # Test jobs
   ##############################
 
-  # Go · Vet type-checks the build; this links the binary, then runs the
+  # Vet · Go type-checks the build; this links the binary, then runs the
   # tests. The Cluster API runs on Linux nodes alone.
   cluster-api-test:
-    name: Go · Build and Test
+    name: Build and Test · Go
     needs: plan
     if: needs.plan.outputs.go == 'true'
     timeout-minutes: 30
@@ -247,10 +247,10 @@ jobs:
           path: ${{ steps.setup.outputs.go-cache-path }}
           key: ${{ steps.setup.outputs.go-cache-key }}
 
-  # Rust · Vet's clippy type-checks the build; this links the binaries, then
+  # Vet · Rust's clippy type-checks the build; this links the binaries, then
   # runs the tests. A debug build, so cargo test reuses its artifacts.
   rust-test:
-    name: Rust · Build and Test
+    name: Build and Test · Rust
     needs: plan
     if: needs.plan.outputs.rust == 'true'
     strategy:
@@ -294,7 +294,7 @@ jobs:
   # A PR builds these images only when a Dockerfile changed: E2E builds them
   # otherwise.
   cluster-images:
-    name: Docker · Build
+    name: Build · Docker
     needs: plan
     if: needs.plan.outputs.docker == 'true'
     timeout-minutes: 20
@@ -357,7 +357,7 @@ jobs:
   # the last good cache in place. It needs the Rust jobs because rust-cache
   # saves in a post step, when its job ends.
   cache-prune:
-    name: Caches · Prune
+    name: Prune · Caches
     needs:
       - plan
       - cluster-api-staticcheck

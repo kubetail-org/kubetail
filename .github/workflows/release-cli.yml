@@ -29,7 +29,7 @@ on:
 
 jobs:
   config:
-    name: Configure workflow
+    name: Plan
     runs-on: ubuntu-slim
     outputs:
       version: ${{ steps.config.outputs.version }}
@@ -53,7 +53,7 @@ jobs:
           fi
 
   prepare:
-    name: Prepare source
+    name: Prepare · Source
     needs: config
     runs-on: ubuntu-24.04
     steps:
@@ -95,7 +95,7 @@ jobs:
           include-hidden-files: true
 
   sbom:
-    name: Generate SBOM
+    name: Build · SBOM
     needs: [config, prepare]
     runs-on: ubuntu-24.04
     steps:
@@ -130,7 +130,7 @@ jobs:
           path: sbom
 
   build:
-    name: Build binaries
+    name: Build · Binaries
     needs: [config, prepare]
     strategy:
       matrix:
@@ -206,7 +206,7 @@ jobs:
           name: assets-${{ matrix.os }}-${{ matrix.arch }}
 
   sign-darwin:
-    name: Sign darwin binaries
+    name: Sign · Binaries (darwin, ${{ matrix.arch }})
     needs: [config, build]
     if: ${{ needs.config.outputs.dry_run == 'false' }}
     environment: production
@@ -271,7 +271,7 @@ jobs:
           overwrite: true
 
   sign-windows:
-    name: Create windows zip and sign binaries
+    name: Sign · Binaries (windows, ${{ matrix.arch }})
     needs: [config, build]
     if: ${{ needs.config.outputs.dry_run == 'false' }}
     environment: production
@@ -332,7 +332,7 @@ jobs:
   # Checks the artifacts the release job downloads, not the files the signing
   # jobs held, so a binary that reaches the release unsigned fails here.
   verify-signatures:
-    name: Verify signatures
+    name: Verify · Binaries
     needs: [config, sign-darwin, sign-windows]
     if: ${{ needs.config.outputs.dry_run == 'false' }}
     runs-on: ${{ matrix.runner }}
@@ -402,7 +402,7 @@ jobs:
           if ($failed) { exit 1 }
 
   package-tarball:
-    name: Create gzipped tarballs
+    name: Package · Binaries
     # On a dry run the signing jobs are skipped and the unsigned build
     # artifacts, which carry the same names, are packaged instead.
     needs: [config, build, sign-darwin, sign-windows, verify-signatures]
@@ -462,7 +462,7 @@ jobs:
           path: out
 
   release:
-    name: Create GitHub release
+    name: Release · GitHub
     needs: [config, sbom, package-tarball]
     # A skipped signing job upstream would skip this job by default.
     if: ${{ !failure() && !cancelled() }}

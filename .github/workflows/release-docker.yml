@@ -24,7 +24,7 @@ on:
 
 jobs:
   config:
-    name: Configure workflow
+    name: Plan
     runs-on: ubuntu-slim
     outputs:
       git_sha: ${{ steps.config.outputs.git_sha }}
@@ -106,6 +106,7 @@ jobs:
           fi
 
   build-and-publish:
+    name: Build · Docker (${{ matrix.arch }}${{ matrix.variant }})
     needs: [config]
     environment: production
     strategy:
@@ -208,6 +209,7 @@ jobs:
           retention-days: 1
 
   create-and-publish-manifest:
+    name: Publish · Manifest${{ matrix.variant == '-alpine' && ' (alpine)' || '' }}
     environment: production
     runs-on: ubuntu-24.04
     needs: [config, build-and-publish]

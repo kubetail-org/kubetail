@@ -21,7 +21,7 @@ on:
 
 jobs:
   config:
-    name: Configure workflow
+    name: Plan
     runs-on: ubuntu-slim
     outputs:
       version: ${{ steps.config.outputs.version }}
@@ -41,7 +41,7 @@ jobs:
           fi
 
   update-kubetail:
-    name: Update `kubetail` package
+    name: Publish · Alpine
     needs: [config]
     environment: production
     runs-on: ubuntu-24.04

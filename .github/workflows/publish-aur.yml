@@ -21,7 +21,7 @@ on:
 
 jobs:
   update-kubetail-bin:
-    name: Update AUR kubetail-bin repo
+    name: Publish · AUR (kubetail-bin)
     environment: production
     runs-on: ubuntu-24.04
     steps:
@@ -131,7 +131,7 @@ jobs:
           git push origin master
 
   update-kubetail-cli:
-    name: Update AUR kubetail-cli repo
+    name: Publish · AUR (kubetail-cli)
     environment: production
     runs-on: ubuntu-24.04
     steps:

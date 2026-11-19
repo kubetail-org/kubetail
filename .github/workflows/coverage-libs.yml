@@ -47,7 +47,7 @@ jobs:
   # architecture. scripts/cover-changed.sh measures as this job does; change
   # both together.
   libs-coverage:
-    name: Go (${{ matrix.goos }})
+    name: Measure (${{ matrix.goos }})
     needs: plan
     if: needs.plan.outputs.go == 'true'
     strategy:

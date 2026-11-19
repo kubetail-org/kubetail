@@ -35,7 +35,7 @@ env:
   #            copy per PR would push the repo past its cache limit.
   #   update   Also save a new Go cache per job and runner. Every push to main.
   #   rebuild  Start the Go caches from empty, then save them.
-  # A dispatch takes its input. Caches · Prune deletes the caches a save
+  # A dispatch takes its input. Prune · Caches deletes the caches a save
   # replaced.
   CACHE_MODE: ${{ inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use' }}
 
@@ -57,7 +57,7 @@ jobs:
     permissions:
       pull-requests: read
     outputs:
-      # For Caches · Prune: a job's `if:` cannot read `env`.
+      # For Prune · Caches: a job's `if:` cannot read `env`.
       cache-mode: ${{ env.CACHE_MODE }}
       go: ${{ fromJSON(steps.plan.outputs.jobs).go }}
       docker: ${{ fromJSON(steps.plan.outputs.jobs).docker }}
@@ -78,7 +78,7 @@ jobs:
   ##############################
 
   cli-lint:
-    name: Go · Lint
+    name: Lint
     needs: plan
     if: needs.plan.outputs.go == 'true'
     runs-on: ubuntu-24.04
@@ -96,9 +96,9 @@ jobs:
       - name: Check coverage markers
         run: sh scripts/check-coverage-markers.sh cli dashboard
 
-  # Restores Go · Build and Test's linux/amd64 cache and saves none.
+  # Restores Build and Test's linux/amd64 cache and saves none.
   cli-vet:
-    name: Go · Vet
+    name: Vet
     needs: plan
     if: needs.plan.outputs.go == 'true'
     runs-on: ubuntu-24.04
@@ -120,9 +120,9 @@ jobs:
       - name: Check go fix
         run: sh scripts/check-go-fix.sh cli dashboard
 
-  # Restores Go · Build and Test's linux/amd64 cache and saves none.
+  # Restores Build and Test's linux/amd64 cache and saves none.
   cli-staticcheck:
-    name: Go · Staticcheck
+    name: Staticcheck
     needs: plan
     if: needs.plan.outputs.go == 'true'
     runs-on: ubuntu-24.04
@@ -161,10 +161,10 @@ jobs:
   # Test jobs
   ##############################
 
-  # Go · Vet type-checks the build; this links the binaries, then runs the
+  # Vet type-checks the build; this links the binaries, then runs the
   # tests. Every module in one job per runner, so the modules share one cache.
   cli-test:
-    name: Go · Build and Test
+    name: Build and Test
     needs: plan
     if: needs.plan.outputs.go == 'true'
     timeout-minutes: 45
@@ -224,7 +224,7 @@ jobs:
   ##############################
 
   cli-images:
-    name: Docker · Build
+    name: Build · Docker
     needs: plan
     if: needs.plan.outputs.go == 'true'
     timeout-minutes: 20
@@ -287,7 +287,7 @@ jobs:
   # A PR runs one platform; main and a dispatch run these too.
 
   cli-alpine:
-    name: Alpine · Build
+    name: Build (alpine, ${{ matrix.arch }})
     needs: plan
     if: needs.plan.outputs.go == 'true' && github.event_name != 'pull_request'
     strategy:
@@ -323,7 +323,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Reads Go · Build and Test's module cache and saves none.
+      # Reads Build and Test's module cache and saves none.
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -351,7 +351,7 @@ jobs:
   # architectures the packages build for (x86, armhf, armv7), whose tests no
   # runner can run natively.
   cli-test-386:
-    name: Go · Test (linux, 386)
+    name: Test (linux, 386)
     needs: plan
     if: needs.plan.outputs.go == 'true' && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
@@ -359,7 +359,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Reads Go · Build and Test's module cache and saves none.
+      # Reads Build and Test's module cache and saves none.
       - uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
@@ -378,7 +378,7 @@ jobs:
   # each. It keeps the newest rather than this run's, so a failed save leaves
   # the last good cache in place.
   cache-prune:
-    name: Caches · Prune
+    name: Prune · Caches
     needs:
       - plan
       - cli-staticcheck

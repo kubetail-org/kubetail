@@ -26,7 +26,7 @@ on:
 
 jobs:
   build-and-publish:
-    name: Build and publish
+    name: Publish · Snapcraft
     environment: production
     strategy:
       matrix:

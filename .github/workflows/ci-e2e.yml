@@ -52,7 +52,7 @@ jobs:
     permissions:
       pull-requests: read
     outputs:
-      # For Caches · Prune: a job's `if:` cannot read `env`.
+      # For Prune · Caches: a job's `if:` cannot read `env`.
       cache-mode: ${{ env.CACHE_MODE }}
       e2e: ${{ fromJSON(steps.plan.outputs.jobs).e2e }}
     steps:
@@ -90,7 +90,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Reads ci-cli.yml's Go · Build and Test cache and saves none.
+      # Reads ci-cli.yml's Build and Test cache and saves none.
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
@@ -122,7 +122,7 @@ jobs:
   # each. It needs E2E because setup-node and setup-uv save in post steps, when
   # their job ends.
   cache-prune:
-    name: Caches · Prune
+    name: Prune · Caches
     needs:
       - plan
       - e2e

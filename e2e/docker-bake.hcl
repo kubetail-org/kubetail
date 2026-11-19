@@ -1,4 +1,4 @@
-# The Docker · Build cache scopes to read. CI sets it to the runner's arch.
+# The Build · Docker cache scopes to read. CI sets it to the runner's arch.
 variable "CACHE_ARCH" {
   default = "amd64"
 }
