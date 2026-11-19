@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 
 /// The fields of a CRI log line: `<timestamp> <stream> <tags> <message>`.
 #[derive(Debug, PartialEq)]
@@ -25,10 +25,9 @@ pub struct CriLine<'a> {
 impl CriLine<'_> {
     /// Parses the timestamp, which is RFC 3339. A caller that needs the time
     /// drops the line on `None`.
-    pub fn timestamp(&self) -> Option<DateTime<Utc>> {
+    pub fn timestamp(&self) -> Option<Timestamp> {
         let timestamp = std::str::from_utf8(self.timestamp).ok()?;
-        let timestamp = DateTime::parse_from_rfc3339(timestamp).ok()?;
-        Some(timestamp.with_timezone(&Utc))
+        timestamp.parse().ok()
     }
 }
 
@@ -127,11 +126,8 @@ mod tests {
     #[case("2025-07-31T15:06:00.001936471+03:00")]
     fn timestamp_is_utc(#[case] timestamp: &str) {
         let line = format!("{timestamp} stdout F hello");
-        let expected = DateTime::parse_from_rfc3339(TS).unwrap();
-        assert_eq!(
-            parse(line.as_bytes()).unwrap().timestamp(),
-            Some(expected.to_utc())
-        );
+        let expected = TS.parse::<Timestamp>().unwrap();
+        assert_eq!(parse(line.as_bytes()).unwrap().timestamp(), Some(expected));
     }
 
     #[rstest]
