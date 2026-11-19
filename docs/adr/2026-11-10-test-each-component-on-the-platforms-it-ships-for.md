@@ -38,7 +38,7 @@ The matrix below is what CI checks. **PR** is every pull request that touches th
 | linux/riscv64 | main | weekly | — | none |
 | linux/loong64, ppc64le, s390x | main | none | none | none |
 
-`Go · Build and Test` runs the first six rows' build, unit and race checks on `main`. On a PR it runs linux/amd64, and `coverage.yml` runs the unit tests on macOS 15 arm64 and Windows 2025. `Go · Vet` type-checks for windows on a PR too. `stress.yml` repeats the unit and race tests nightly on the first six rows. `Alpine · Build` cross-compiles the last three rows and the 32-bit row, then runs `kubetail serve --test` under QEMU. `Go · Test (linux, 386)` runs the unit tests as 386. E2E means `e2e/test_cli.py`: `kubetail serve` and `kubetail logs` against a kind cluster.
+`Go · Build and Test` in `ci-cli.yml` and `ci-libs.yml` runs the first six rows' build, unit and race checks on `main`. On a PR it runs linux/amd64, and `coverage-cli.yml` and `coverage-libs.yml` run the unit tests on macOS 15 arm64 and Windows 2025. `Go · Vet` type-checks for windows on a PR too. `stress.yml` repeats the unit and race tests nightly on the first six rows. `Alpine · Build` cross-compiles the last three rows and the 32-bit row, then runs `kubetail serve --test` under QEMU. `Go · Test (linux, 386)` runs the unit tests as 386. E2E means `e2e/test_cli.py`: `kubetail serve` and `kubetail logs` against a kind cluster.
 
 **Images**
 
@@ -80,7 +80,7 @@ Every shipped platform now has a build that runs on `main`, and every 64-bit pla
 
 A change that adds platform-specific code (a `_windows.go` file, a `runtime.GOARCH` branch, `unsafe`, `encoding/binary`) moves a gap above out of "accepted". So does a new shipped platform or image target. Either updates this matrix.
 
-`e2e/docker-bake.hcl` reads the `Docker · Build` cache of the arch in `CACHE_ARCH`, so `Docker · Build` on that arch must run before E2E for the cache to help.
+`e2e/docker-bake.hcl` reads the `Docker · Build` cache of the arch in `CACHE_ARCH`, which `ci-cli.yml` and `ci-cluster.yml` save on `main`.
 
 ## Revisit when
 

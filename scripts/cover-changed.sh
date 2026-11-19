@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # List the lines the working tree changes since the branch left main that a
 # local coverage run measured and no test reached (tools/coverdiff). A pre-push
-# aid, not the gate: CI's coverage / Gate merges every OS's runs, so a line only
-# another OS's tests reach is listed here.
+# aid, not the gate: each coverage-*.yml's Gate merges every OS's runs, so a
+# line only another OS's tests reach is listed here.
 #
-#   Go    the changed packages' tests, or every test with FULL=1. Either way
-#         the whole workspace is measured, so a line in libs/go-common/ that only
-#         another module's tests reach is listed unless FULL=1.
+#   Go    the changed packages' tests, or every test with FULL=1, in one run
+#         per area as CI measures them: cli/ with dashboard/, libs/go-common/,
+#         and cluster/api/. Each run measures its own area alone, so a
+#         dashboard/ line that only the CLI's tests reach is listed unless
+#         FULL=1.
 #   TS    the tests vitest relates to the changed files in apps/web/src/,
 #         or the whole suite when the toolchain changed.
 #   Rust  when cluster/agent/ or libs/proto/ changed, and only with RUST=1: it is the
@@ -14,8 +16,8 @@
 #
 # The Go and TypeScript runs go side by side; Rust follows them.
 #
-# Each suite is measured as .github/workflows/coverage.yml's jobs measure it; a
-# change to one belongs in the other. BASE is the ref the branch left, by
+# Each suite is measured as the coverage-*.yml workflows measure it; a change
+# to one belongs in the other. BASE is the ref the branch left, by
 # default upstream/main or else origin/main.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -73,12 +75,23 @@ run() {
   names+=("$name")
 }
 
-workspace=github.com/kubetail-org/kubetail/...
-if [ "${FULL:-}" = 1 ] && has "$go_modules"; then go_pkgs=$workspace; else go_pkgs=$(go_pkgs); fi
-if [ -n "$go_pkgs" ]; then
+# go_area <name> <-coverpkg> <package pattern>: measures the area's changed
+# packages, or all of them with FULL=1.
+go_area() {
+  local name=$1 cover=$2 pattern=$3 pkgs
+  if [ "${FULL:-}" = 1 ] && has "$go_modules"; then
+    pkgs=$(tr '|' '\n' <<<"$pattern" | sed 's|^|./|; s|$|/...|')
+  else
+    pkgs=$(grep -E "^\./($pattern)(/|$)" <<<"$(go_pkgs)" || true)
+  fi
+  [ -n "$pkgs" ] || return 0
   # shellcheck disable=SC2086 # one argument per package
-  run go go test -covermode=atomic -coverpkg="$workspace" -coverprofile="$out/go.out" $go_pkgs
-fi
+  run "go-$name" go test -covermode=atomic -coverpkg="$cover" -coverprofile="$out/go-$name.out" $pkgs
+}
+repo=github.com/kubetail-org/kubetail
+go_area cli "$repo/cli/...,$repo/dashboard/..." 'cli|dashboard'
+go_area libs "$repo/libs/go-common/..." 'libs/go-common'
+go_area cluster "$repo/cluster/api/..." 'cluster/api'
 
 vitest=$(vitest_scope)
 if [ -n "$vitest" ]; then
@@ -96,10 +109,11 @@ if [ ${#failed[@]} -gt 0 ]; then
   exit 1
 fi
 
-if [ -n "$go_pkgs" ]; then
-  (cd tools && go run ./coverignore -dir .. -o "$out/go-filtered.out" "$out/go.out")
-  reports+=(-go ".=$out/go-filtered.out")
-fi
+for area in cli libs cluster; do
+  [ -f "$out/go-$area.out" ] || continue
+  (cd tools && go run ./coverignore -dir .. -o "$out/go-$area-filtered.out" "$out/go-$area.out")
+  reports+=(-go ".=$out/go-$area-filtered.out")
+done
 if [ -n "$vitest" ]; then
   reports+=(-lcov "$PWD/apps/web/coverage/lcov.info")
 fi

@@ -29,7 +29,7 @@ rules:
   # pinned to a version.
   adhoc-packages:
     ignore:
-      - ci.yml
+      - ci-repo.yml
 
   # action-gh-release takes the tag from the pushed ref; `gh release create`
   # would need it worked out in shell, including on a dispatch.

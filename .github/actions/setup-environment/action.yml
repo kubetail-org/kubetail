@@ -96,7 +96,7 @@ runs:
         toolchain: ${{ steps.rust-version.outputs.version }}
         components: rustfmt, clippy
 
-    # The caller decides whether to save; ci.yml's CACHE_MODE saves on main.
+    # The caller decides whether to save; a ci-*.yml's CACHE_MODE saves on main.
     - name: Set up Rust cache
       if: inputs.setup-rust == 'true' && inputs.rust-cache-key != ''
       uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3

@@ -1,0 +1,113 @@
+name: coverage-web
+
+# The React app's coverage.
+
+permissions:
+  contents: read
+
+# coverage.yml calls this; a dispatch runs it alone.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  # Picks the jobs to run. Each line of `jobs` is a group of jobs and the
+  # path-filters.yml keys that run it: on a pull request, when a path under one
+  # of them changed; on any other event, always. The keys are
+  # ci-web.yml's, so a path that runs the area's tests measures their coverage.
+  #
+  # Every other job needs this one, so its `if:` gates the whole workflow:
+  # GitHub starts push runs in forks too, and a fork runs this only for a pull
+  # request or a dispatch.
+  plan:
+    name: Plan
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      typescript: ${{ fromJSON(steps.plan.outputs.jobs).typescript }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - id: plan
+        uses: ./.github/actions/plan
+        with:
+          # apps/web/codegen.ts generates the UI's types from both schemas.
+          jobs: |
+            typescript: shared web graphql-dashboard graphql-cluster-api
+
+  # scripts/cover-changed.sh measures as this job does; change both together.
+  typescript-coverage:
+    name: TypeScript
+    needs: plan
+    if: needs.plan.outputs.typescript == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      # Codecov's upload authenticates with an OIDC token.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-node: "true"
+          node-cache: "true"
+      - name: Install dependencies
+        working-directory: ./apps/web
+        run: pnpm install --frozen-lockfile
+      - name: Measure coverage
+        working-directory: ./apps/web
+        run: pnpm vitest run --coverage
+      # A fork's PR cannot mint the OIDC token; the action then uploads
+      # tokenless, which Codecov accepts for a public repository.
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          use_oidc: true
+          files: apps/web/coverage/lcov.info
+          disable_search: true
+          plugins: noop
+          flags: web
+          fail_ci_if_error: true
+
+  # Reads the web component of Codecov's merged result once this run's upload
+  # is processed, and fails on an uncovered changed line or a drop in the
+  # component's total (tools/coveragegate).
+  gate:
+    name: Gate
+    needs:
+      - plan
+      - typescript-coverage
+    if: ${{ !cancelled() && needs.plan.outputs.typescript == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      # The gate diffs the base and the head itself, so it needs their history.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Gate on Codecov's merged result
+        working-directory: ./tools
+        env:
+          # The uploads to wait for. None after a failed coverage job, which
+          # coverage.yml's Coverage · Passed fails on.
+          FLAGS: ${{ needs.typescript-coverage.result == 'success' && 'web' || '' }}
+          # Codecov records a PR's uploads under its head, not the merge commit.
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Empty on a push, whose base is the commit's parent.
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: >-
+          go run ./coveragegate -component web -sha "$SHA" -base "$BASE" -flags "$FLAGS"
+          -run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

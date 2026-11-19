@@ -2,7 +2,7 @@
 title: Measure Go coverage across the workspace
 date: 2026-11-09
 scope: repo
-status: Accepted
+status: Superseded by [measure-and-gate-coverage-per-area](2026-11-19-measure-and-gate-coverage-per-area.md)
 ---
 
 # Measure Go coverage across the workspace

@@ -1,0 +1,379 @@
+name: ci-cluster
+
+# The Cluster API and the Cluster Agent. libs/go-common is tested in
+# ci-libs.yml; a change to it runs the Cluster API's jobs here too.
+
+permissions:
+  contents: read
+
+# ci.yml calls this; a dispatch runs it alone.
+on:
+  workflow_call:
+    inputs:
+      cache-mode:
+        description: ci.yml's dispatch input, passed down
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      cache-mode:
+        description: >-
+          use: restore the caches, save none. update: also save new ones.
+          rebuild: start the Go caches from empty and save them. Off main, a
+          saved cache is that branch's alone; PRs never read it.
+        type: choice
+        options:
+          - use
+          - update
+          - rebuild
+        default: use
+
+env:
+  # Whether this run saves caches. Nothing else decides it.
+  #   use      Restore the caches and save none. Every pull request, since a
+  #            copy per PR would push the repo past its cache limit.
+  #   update   Also save a new Go cache per job and runner. Every push to main.
+  #   rebuild  Start the Go caches from empty, then save them.
+  # A dispatch takes its input. Caches · Prune deletes the caches a save
+  # replaced.
+  CACHE_MODE: ${{ inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use' }}
+  # Full debug info swells the Rust caches and slows linking; line tables keep
+  # file:line in test backtraces. Workflow-wide, since rust-cache keys on
+  # CARGO_* variables.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+
+jobs:
+  # Picks the jobs to run. Each line of `jobs` is a group of jobs and the
+  # path-filters.yml keys that run it: on a pull request, when a path under one
+  # of them changed; on any other event, always.
+  #
+  # Every other job needs this one, so its `if:` gates the whole workflow:
+  # GitHub starts push runs in forks too, and a fork runs this only for a pull
+  # request or a dispatch.
+  plan:
+    name: Plan
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      # For Caches · Prune: a job's `if:` cannot read `env`.
+      cache-mode: ${{ env.CACHE_MODE }}
+      go: ${{ fromJSON(steps.plan.outputs.jobs).go }}
+      rust: ${{ fromJSON(steps.plan.outputs.jobs).rust }}
+      docker: ${{ fromJSON(steps.plan.outputs.jobs).docker }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - id: plan
+        uses: ./.github/actions/plan
+        with:
+          jobs: |
+            go: shared cluster-api go-common graphql-cluster-api
+            rust: shared cluster-agent proto
+            docker: docker
+
+  ##############################
+  # Lint and vet jobs
+  ##############################
+
+  cluster-api-lint:
+    name: Go · Lint
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Check formatting
+        run: test -z "$(gofmt -l cluster/api)"
+      - name: Check license headers
+        run: sh scripts/check-license-headers.sh cluster/api
+      - name: Check coverage markers
+        run: sh scripts/check-coverage-markers.sh cluster/api
+
+  # Restores Go · Build and Test's linux/amd64 cache and saves none.
+  cluster-api-vet:
+    name: Go · Vet
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          go-cache-key: cluster-api-test-linux-amd64
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      - name: Vet
+        run: go vet ./cluster/api/...
+      - name: Vet (GOOS=windows)
+        run: GOOS=windows go vet ./cluster/api/...
+      - name: Check go fix
+        run: sh scripts/check-go-fix.sh cluster/api
+
+  # Restores Go · Build and Test's linux/amd64 cache and saves none.
+  cluster-api-staticcheck:
+    name: Go · Staticcheck
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          go-cache-key: cluster-api-test-linux-amd64
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      # Staticcheck keeps its analysis apart from GOCACHE, so it has a small
+      # cache of its own.
+      - name: Restore staticcheck cache
+        if: env.CACHE_MODE != 'rebuild'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/staticcheck
+          # Never matches, so restore-keys finds the newest cache.
+          key: doesntexist
+          restore-keys: ${{ github.job }}-ubuntu-24.04-run-
+      # tools/go.mod pins staticcheck.
+      - name: Run staticcheck
+        env:
+          STATICCHECK_CACHE: ${{ runner.temp }}/staticcheck
+        run: sh scripts/staticcheck.sh cluster/api
+      - name: Save staticcheck cache
+        if: env.CACHE_MODE != 'use'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/staticcheck
+          key: ${{ github.job }}-ubuntu-24.04-run-${{ github.run_id }}
+
+  rust-lint:
+    name: Rust · Lint
+    needs: plan
+    if: needs.plan.outputs.rust == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          setup-protoc: "true"
+      - name: Run format check
+        working-directory: ./cluster/agent
+        run: cargo fmt --all -- --check
+      - name: Check license headers
+        run: sh scripts/check-license-headers.sh cluster/agent
+      - name: Check coverage markers
+        run: sh scripts/check-coverage-markers.sh cluster/agent
+
+  rust-vet:
+    name: Rust · Vet
+    needs: plan
+    if: needs.plan.outputs.rust == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          setup-protoc: "true"
+          rust-cache-key: ${{ github.job }}-ubuntu-24.04
+          cache-save: ${{ env.CACHE_MODE != 'use' }}
+      - name: Run clippy
+        working-directory: ./cluster/agent
+        run: cargo clippy --all --all-targets -- -D warnings
+
+  ##############################
+  # Test jobs
+  ##############################
+
+  # Go · Vet type-checks the build; this links the binary, then runs the
+  # tests. The Cluster API runs on Linux nodes alone.
+  cluster-api-test:
+    name: Go · Build and Test
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - linux
+        # arm64 runs on main.
+        arch: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '["amd64"]'
+          || '["amd64", "arm64"]') }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: setup
+        uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          go-cache-key: ${{ github.job }}-${{ matrix.os }}-${{ matrix.arch }}
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      - name: Build
+        run: go build ./cluster/api/...
+      - name: Run tests
+        run: go test ./cluster/api/...
+      - name: Run race tests
+        run: go test -race ./cluster/api/...
+      # After every test passed, so a failed job leaves its runner's last cache
+      # the newest. The test flags must match a PR's, or a PR replays nothing.
+      - name: Save Go cache
+        if: env.CACHE_MODE != 'use'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.go-cache-path }}
+          key: ${{ steps.setup.outputs.go-cache-key }}
+
+  # Rust · Vet's clippy type-checks the build; this links the binaries, then
+  # runs the tests. A debug build, so cargo test reuses its artifacts.
+  rust-test:
+    name: Rust · Build and Test
+    needs: plan
+    if: needs.plan.outputs.rust == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - linux
+        arch:
+          - amd64
+          - arm64
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-24.04
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          setup-protoc: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          rust-cache-key: ${{ github.job }}-${{ matrix.runner }}
+          cache-save: ${{ env.CACHE_MODE != 'use' }}
+      - name: Build
+        working-directory: ./cluster/agent
+        run: cargo build --locked
+      - name: Run tests
+        working-directory: ./cluster/agent
+        run: cargo test
+
+  ##############################
+  # Build jobs
+  ##############################
+
+  # A PR builds these images only when a Dockerfile changed: E2E builds them
+  # otherwise.
+  cluster-images:
+    name: Docker · Build
+    needs: plan
+    if: needs.plan.outputs.docker == 'true'
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        component:
+          - cluster-api
+          - cluster-agent
+        # arm64 builds on main.
+        arch: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '["amd64"]'
+          || '["amd64", "arm64"]') }}
+        target:
+          - final
+          - final-alpine
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          # cluster-api's Dockerfile sits in cluster/api, cluster-agent's in
+          # cluster/agent.
+          file: >-
+            ${{ fromJSON('{"cluster-api": "cluster/api/Dockerfile", "cluster-agent": "cluster/agent/Dockerfile"}')[matrix.component] }}
+          target: ${{ matrix.target }}
+          push: false
+          load: true
+          tags: ${{ matrix.component }}:${{ matrix.target }}
+          # final and final-alpine build from the same stages, so they share a
+          # scope. Each save replaces the scope's index, which keeps those
+          # stages either way. e2e/docker-bake.hcl reads the scopes of its
+          # runner's arch.
+          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.arch }}
+          cache-to: >-
+            ${{ env.CACHE_MODE != 'use'
+            && format('type=gha,mode=max,scope={0}-{1}', matrix.component, matrix.arch)
+            || '' }}
+      # A final stage copies a binary, and for the agent its libraries, onto
+      # a base image. Starting it checks the copy; --help exits after
+      # start-up.
+      - name: Run
+        env:
+          IMAGE: ${{ matrix.component }}:${{ matrix.target }}
+        run: docker run --rm "$IMAGE" --help
+
+  ##############################
+  # Cache jobs
+  ##############################
+
+  # Deletes the caches this run's saves replaced, so the ref holds one copy of
+  # each. It keeps the newest rather than this run's, so a failed save leaves
+  # the last good cache in place. It needs the Rust jobs because rust-cache
+  # saves in a post step, when its job ends.
+  cache-prune:
+    name: Caches · Prune
+    needs:
+      - plan
+      - cluster-api-staticcheck
+      - cluster-api-test
+      - rust-vet
+      - rust-test
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.cache-mode != 'use'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions/prune-caches
+      - uses: ./.github/actions/prune-caches
+        with:
+          caches: cluster-api-staticcheck cluster-api-test rust-vet rust-test

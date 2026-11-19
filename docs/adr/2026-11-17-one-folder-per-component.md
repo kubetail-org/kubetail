@@ -34,7 +34,7 @@ These stay as they were: the `Makefile`, the release skills, Dependabot, one Car
 
 **Separate crates, one `Cargo.lock` each.** The workspace holds the shared dependency versions and lints, and only the agent uses Rust.
 
-**A local, gitignored `go.work`.** Go coverage is measured across the workspace in CI: [Measure Go coverage across the workspace](2026-11-09-measure-go-coverage-across-the-workspace.md).
+**A local, gitignored `go.work`.** Go coverage is measured across modules in CI, which needs the workspace: [Measure and gate coverage per area](2026-11-19-measure-and-gate-coverage-per-area.md).
 
 **The Helm chart in this repo.** Out of scope; it has its own release cycle.
 

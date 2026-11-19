@@ -1,45 +1,62 @@
-# dorny/paths-filter's filters, read by the Plan jobs of ci.yml, codeql.yml
-# and coverage.yml. A pull request runs a group's jobs, and measures its
-# coverage, only when a path in it changed, so the two cannot drift: a path
-# that ran the tests but not the coverage would pass its changed lines as "0 of
-# 0 covered". A change to how CI runs or measures (shared) runs every language.
+# dorny/paths-filter's filters. Each key is narrow, and the Plan job of each
+# area's ci-*.yml and coverage-*.yml, and of codeql.yml, composes its jobs
+# from them (.github/actions/plan). An area's coverage-*.yml composes the same keys as
+# its ci-*.yml, so the two cannot drift: a path that ran the tests but not the
+# coverage would pass its changed lines as "0 of 0 covered". Each area's two
+# workflows are in its own key. A change to how CI runs or measures (shared)
+# runs every area.
 shared: &shared
+  - .github/actions/plan/**
   - .github/actions/setup-environment/**
   - .github/ci-config/path-filters.yml
   - .github/codecov.yml
   - .github/workflows/ci.yml
   - .github/workflows/coverage.yml
+  - Makefile
   - scripts/check-coverage-markers.sh
   - scripts/check-license-headers.sh
   - tools/**
-go:
-  - *shared
-  - Makefile
+cli:
+  - .github/workflows/ci-cli.yml
+  - .github/workflows/coverage-cli.yml
   - cli/**
-  - cluster/api/**
+dashboard:
   - dashboard/**
+libs:
+  - .github/workflows/ci-libs.yml
+  - .github/workflows/coverage-libs.yml
+# libs/go-common and what every Go module builds with.
+go-common:
   - go.work
   - go.work.sum
   - libs/go-common/**
-  - libs/graphql/**
   - scripts/check-go-fix.sh
   - scripts/staticcheck.sh
-  - tools/go.mod
-  - tools/go.sum
-rust:
-  - *shared
+graphql-dashboard:
+  - libs/graphql/dashboard/**
+graphql-cluster-api:
+  - libs/graphql/cluster-api/**
+cluster-api:
+  - .github/workflows/ci-cluster.yml
+  - .github/workflows/coverage-cluster.yml
+  - cluster/api/**
+cluster-agent:
+  - .github/workflows/ci-cluster.yml
+  - .github/workflows/coverage-cluster.yml
   - cluster/agent/**
+proto:
   - libs/proto/**
-typescript:
-  - *shared
-  - Makefile
+web:
+  - .github/workflows/ci-web.yml
+  - .github/workflows/coverage-web.yml
   - apps/web/**
-  - cli/Dockerfile
-  - dashboard/Dockerfile
-  # apps/web/codegen.ts generates the UI's types from these.
-  - libs/graphql/**
-# ci.yml's Docker · Build alone: a PR builds every image only when a
-# Dockerfile changed.
+e2e:
+  - .github/workflows/ci-e2e.yml
+  - e2e/**
+repo:
+  - .github/workflows/ci-repo.yml
+# Every image and target: without it, a PR builds the cli image's final stage
+# alone.
 docker:
   - *shared
   - cli/Dockerfile
@@ -47,7 +64,6 @@ docker:
   - cluster/api/Dockerfile
   - dashboard/Dockerfile
 shell:
-  - .github/workflows/ci.yml
   - .github/ci-config/path-filters.yml
   - Makefile
   - '**/*.sh'
@@ -59,11 +75,10 @@ yaml:
   - tools/go.mod
   - '**/*.yml'
   - '**/*.yaml'
-# ci.yml's Generated · Check alone: every source a generator reads, and the
+# Generated · Check alone: every source a generator reads, and the
 # generators' pins.
 generated:
   - *shared
-  - Makefile
   - apps/web/codegen.ts
   - apps/web/package.json
   - apps/web/pnpm-lock.yaml
