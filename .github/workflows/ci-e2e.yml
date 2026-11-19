@@ -1,0 +1,141 @@
+name: ci-e2e
+
+# The end-to-end suite, in a kind cluster. It builds its own images, so it
+# runs beside the other ci-*.yml workflows rather than after them.
+
+permissions:
+  contents: read
+
+# ci.yml calls this; a dispatch runs it alone.
+on:
+  workflow_call:
+    inputs:
+      cache-mode:
+        description: ci.yml's dispatch input, passed down
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      cache-mode:
+        description: >-
+          use: restore the caches, save none. update: also save new ones.
+          rebuild: restore no Go cache. Off main, a saved cache is that
+          branch's alone; PRs never read it.
+        type: choice
+        options:
+          - use
+          - update
+          - rebuild
+        default: use
+
+env:
+  # use, update or rebuild: whether a run saves the uv cache and prunes. The
+  # images read the BuildKit caches ci-cli.yml and ci-cluster.yml save. A
+  # dispatch takes its input; a push to main updates; a PR uses.
+  CACHE_MODE: ${{ inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use' }}
+
+jobs:
+  # Picks the jobs to run. Each line of `jobs` is a group of jobs and the
+  # path-filters.yml keys that run it: on a pull request, when a path under one
+  # of them changed; on any other event, always.
+  #
+  # Every other job needs this one, so its `if:` gates the whole workflow:
+  # GitHub starts push runs in forks too, and a fork runs this only for a pull
+  # request or a dispatch.
+  plan:
+    name: Plan
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      # For Caches · Prune: a job's `if:` cannot read `env`.
+      cache-mode: ${{ env.CACHE_MODE }}
+      e2e: ${{ fromJSON(steps.plan.outputs.jobs).e2e }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - id: plan
+        uses: ./.github/actions/plan
+        with:
+          # Every path ci-cli.yml, ci-cluster.yml and ci-web.yml watch, and e2e/.
+          jobs: |
+            e2e: shared cli dashboard go-common graphql-dashboard graphql-cluster-api cluster-api cluster-agent proto web e2e
+
+  e2e:
+    name: E2E (k8s ${{ matrix.k8s-version }}${{ matrix.arch == 'arm64' && ', arm64' || '' }})
+    needs: plan
+    if: needs.plan.outputs.e2e == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version:
+          - "1.21"
+          - latest
+        # main runs the arm64 images in a cluster too, on the latest Kubernetes.
+        arch: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '["amd64"]'
+          || '["amd64", "arm64"]') }}
+        exclude:
+          - k8s-version: "1.21"
+            arch: arm64
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Reads ci-cli.yml's Go · Build and Test cache and saves none.
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-node: "true"
+          node-cache: "true"
+          setup-go: "true"
+          go-cache-key: cli-test-linux-${{ matrix.arch }}
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          save-cache: ${{ env.CACHE_MODE != 'use' }}
+      - name: Install kind
+        uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
+        with:
+          install_only: true
+      - name: Install kubectl
+        uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5.2.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Expose GitHub Actions runtime
+        uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
+      - name: Run e2e tests
+        env:
+          KIND_NODE_IMAGE: ${{ matrix.k8s-version == '1.21' && 'kindest/node:v1.21.14' || '' }}
+          CACHE_ARCH: ${{ matrix.arch }}
+        run: make test-e2e
+
+  # Deletes the caches this run's saves replaced, so the ref holds one copy of
+  # each. It needs E2E because setup-node and setup-uv save in post steps, when
+  # their job ends.
+  cache-prune:
+    name: Caches · Prune
+    needs:
+      - plan
+      - e2e
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.cache-mode != 'use'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions/prune-caches
+      - uses: ./.github/actions/prune-caches
+        with:
+          caches: node-cache setup-uv

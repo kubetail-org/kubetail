@@ -116,6 +116,7 @@ func gate(t *testing.T, dir string, cfg config, f *fake) (out, summary string, e
 	t.Helper()
 	srv := httptest.NewServer(f)
 	t.Cleanup(srv.Close)
+	cfg.component = "cli"
 	cfg.sha = sha
 	cfg.run = runURL
 	cfg.dir = dir
@@ -132,16 +133,32 @@ func gate(t *testing.T, dir string, cfg config, f *fake) (out, summary string, e
 
 var even = &totals{Lines: 1000, Hits: 900}
 
-// ready is a Codecov that has processed go-linux, with even totals at the
-// head and at base and parent, and rep as the head's report.
+// The component's report at each commit.
+const (
+	headReport   = "/report/?component_id=cli&sha=head"
+	baseReport   = "/report/?component_id=cli&sha=base"
+	parentReport = "/report/?component_id=cli&sha=parent"
+)
+
+// ready is a Codecov that has processed cli-linux, with even totals at the
+// head and at base and parent, and rep's lines as the head's report.
 func ready(rep report) *fake {
+	rep.Totals = even
 	return &fake{answers: map[string][]any{
-		"/commits/head/uploads/?page_size=100": {uploads(processed("go-linux"))},
-		"/commits/head/":                       {commit{State: "complete", Parent: "parent", Totals: even}},
-		"/commits/base/":                       {commit{State: "complete", Totals: even}},
-		"/commits/parent/":                     {commit{State: "complete", Totals: even}},
-		"/report/?sha=head":                    {rep},
+		"/commits/head/uploads/?page_size=100": {uploads(processed("cli-linux"))},
+		"/commits/head/":                       {commit{Parent: "parent"}},
+		"/commits/base/":                       {commit{}},
+		"/commits/parent/":                     {commit{}},
+		headReport:                             {rep},
+		baseReport:                             {report{Totals: even}},
+		parentReport:                           {report{Totals: even}},
 	}}
+}
+
+// withTotals is rep with t as its totals.
+func withTotals(rep report, t *totals) report {
+	rep.Totals = t
+	return rep
 }
 
 func uploads(us ...upload) any { return map[string]any{"results": us} }
@@ -167,12 +184,12 @@ func measuring(coverage ...int) report {
 	return report{Files: []reportFile{f}}
 }
 
-// goLinux gates a pull request into base after one upload.
-var goLinux = config{base: "base", flags: []string{"go-linux"}}
+// cliLinux gates a pull request into base after one upload.
+var cliLinux = config{base: "base", flags: []string{"cli-linux"}}
 
 func TestPassesWhenEveryChangedLineIsCovered(t *testing.T) {
 	f := ready(measuring(hit, unmeasured, hit))
-	out, summary, err := gate(t, repo(t, 3), goLinux, f)
+	out, summary, err := gate(t, repo(t, 3), cliLinux, f)
 	if err != nil {
 		t.Fatalf("err = %v\n%s", err, out)
 	}
@@ -188,7 +205,7 @@ func TestPassesWhenEveryChangedLineIsCovered(t *testing.T) {
 }
 
 func TestFailsOnAnUncoveredOrPartialChangedLine(t *testing.T) {
-	out, summary, err := gate(t, repo(t, 3), goLinux, ready(measuring(hit, miss, partial)))
+	out, summary, err := gate(t, repo(t, 3), cliLinux, ready(measuring(hit, miss, partial)))
 	if !errors.Is(err, errFailed) {
 		t.Fatalf("err = %v, want errFailed\n%s", err, out)
 	}
@@ -213,9 +230,9 @@ func TestFailsOnAnUncoveredOrPartialChangedLine(t *testing.T) {
 func TestFailsWhenTheTotalDropsPastTheThreshold(t *testing.T) {
 	// 90.00% to 89.85%: 0.15 points.
 	f := ready(measuring(hit))
-	f.answers["/commits/base/"] = []any{commit{State: "complete", Totals: &totals{Lines: 2000, Hits: 1800}}}
-	f.answers["/commits/head/"] = []any{commit{State: "complete", Totals: &totals{Lines: 2000, Hits: 1797}}}
-	out, _, err := gate(t, repo(t, 1), goLinux, f)
+	f.answers[baseReport] = []any{report{Totals: &totals{Lines: 2000, Hits: 1800}}}
+	f.answers[headReport] = []any{withTotals(measuring(hit), &totals{Lines: 2000, Hits: 1797})}
+	out, _, err := gate(t, repo(t, 1), cliLinux, f)
 	if !errors.Is(err, errFailed) {
 		t.Fatalf("err = %v, want errFailed\n%s", err, out)
 	}
@@ -227,9 +244,9 @@ func TestFailsWhenTheTotalDropsPastTheThreshold(t *testing.T) {
 func TestPassesADropWithinTheThreshold(t *testing.T) {
 	// 90.00% to 89.95%: 0.05 points.
 	f := ready(measuring(hit))
-	f.answers["/commits/base/"] = []any{commit{State: "complete", Totals: &totals{Lines: 2000, Hits: 1800}}}
-	f.answers["/commits/head/"] = []any{commit{State: "complete", Totals: &totals{Lines: 2000, Hits: 1799}}}
-	out, _, err := gate(t, repo(t, 1), goLinux, f)
+	f.answers[baseReport] = []any{report{Totals: &totals{Lines: 2000, Hits: 1800}}}
+	f.answers[headReport] = []any{withTotals(measuring(hit), &totals{Lines: 2000, Hits: 1799})}
+	out, _, err := gate(t, repo(t, 1), cliLinux, f)
 	if err != nil {
 		t.Fatalf("err = %v\n%s", err, out)
 	}
@@ -240,8 +257,8 @@ func TestPassesADropWithinTheThreshold(t *testing.T) {
 
 func TestDoesNotJudgeTheProjectWithoutBaseTotals(t *testing.T) {
 	f := ready(measuring(hit))
-	f.answers["/commits/base/"] = []any{commit{State: "complete"}}
-	out, summary, err := gate(t, repo(t, 1), goLinux, f)
+	f.answers[baseReport] = []any{report{}}
+	out, summary, err := gate(t, repo(t, 1), cliLinux, f)
 	if err != nil {
 		t.Fatalf("err = %v\n%s", err, out)
 	}
@@ -256,20 +273,19 @@ func TestPercentOfAnEmptyReportIsZero(t *testing.T) {
 	}
 }
 
-func TestWaitsForEveryUploadAndTheCommit(t *testing.T) {
-	pending := processed("typescript")
+func TestWaitsForEveryUploadOfTheRunAlone(t *testing.T) {
+	pending := processed("cli-darwin")
 	pending.State = "uploaded"
-	anotherRun := upload{Flags: []string{"rust"}, State: "uploaded", BuildURL: "https://github.com/kubetail-org/kubetail/actions/runs/0"}
+	// Another area's run uploads to the same commit.
+	anotherRun := upload{Flags: []string{"cluster-api"}, State: "uploaded", BuildURL: "https://github.com/kubetail-org/kubetail/actions/runs/0"}
 	f := ready(measuring(hit))
 	f.answers["/commits/head/uploads/?page_size=100"] = []any{
 		uploads(),
-		uploads(processed("go-linux")),
-		uploads(processed("go-linux"), pending),
-		// Another run's pending upload is not waited for.
-		uploads(processed("go-linux"), processed("typescript"), anotherRun),
+		uploads(processed("cli-linux")),
+		uploads(processed("cli-linux"), pending),
+		uploads(processed("cli-linux"), processed("cli-darwin"), anotherRun),
 	}
-	f.answers["/commits/head/"] = []any{commit{State: "pending"}, commit{State: "complete", Totals: even}}
-	out, _, err := gate(t, repo(t, 1), config{base: "base", flags: []string{"go-linux", "typescript"}}, f)
+	out, _, err := gate(t, repo(t, 1), config{base: "base", flags: []string{"cli-linux", "cli-darwin"}}, f)
 	if err != nil {
 		t.Fatalf("err = %v\n%s", err, out)
 	}
@@ -279,20 +295,18 @@ func TestWaitsForEveryUploadAndTheCommit(t *testing.T) {
 		"/commits/head/uploads/?page_size=100",
 		"/commits/head/uploads/?page_size=100",
 		"/commits/head/",
-		"/commits/head/uploads/?page_size=100",
-		"/commits/head/",
 		"/commits/base/",
-		"/report/?sha=head",
+		baseReport,
+		headReport,
 	}
 	if got := strings.Join(f.seen, "\n"); got != strings.Join(want, "\n") {
 		t.Errorf("requests:\n%s\nwant:\n%s", got, strings.Join(want, "\n"))
 	}
 	// Each reason it waited is printed once, as it changes.
 	for _, line := range []string{
-		"waiting: upload go-linux is not listed",
-		"waiting: upload typescript is not listed",
-		"waiting: upload typescript is uploaded",
-		"waiting: commit is pending",
+		"waiting: upload cli-linux is not listed",
+		"waiting: upload cli-darwin is not listed",
+		"waiting: upload cli-darwin is uploaded",
 	} {
 		if strings.Count(out, line+"\n") != 1 {
 			t.Errorf("out has %q %d times:\n%s", line, strings.Count(out, line+"\n"), out)
@@ -303,7 +317,7 @@ func TestWaitsForEveryUploadAndTheCommit(t *testing.T) {
 func TestComparesAPushWithItsParent(t *testing.T) {
 	f := ready(measuring(miss))
 	delete(f.answers, "/commits/base/")
-	out, _, err := gate(t, repo(t, 1), config{flags: []string{"go-linux"}}, f)
+	out, _, err := gate(t, repo(t, 1), config{flags: []string{"cli-linux"}}, f)
 	if !errors.Is(err, errFailed) {
 		t.Fatalf("err = %v, want errFailed\n%s\n%v", err, out, f.seen)
 	}
@@ -314,8 +328,8 @@ func TestComparesAPushWithItsParent(t *testing.T) {
 
 func TestWaitsForAPushsParent(t *testing.T) {
 	f := ready(measuring(hit))
-	f.answers["/commits/head/"] = []any{commit{State: "complete"}, commit{State: "complete", Parent: "parent", Totals: even}}
-	out, _, err := gate(t, repo(t, 1), config{flags: []string{"go-linux"}}, f)
+	f.answers["/commits/head/"] = []any{commit{}, commit{Parent: "parent"}}
+	out, _, err := gate(t, repo(t, 1), config{flags: []string{"cli-linux"}}, f)
 	if err != nil {
 		t.Fatalf("err = %v\n%s", err, out)
 	}
@@ -326,8 +340,9 @@ func TestWaitsForAPushsParent(t *testing.T) {
 
 func TestFailsWhenGitCannotDiff(t *testing.T) {
 	f := ready(measuring(hit))
-	f.answers["/commits/missing/"] = []any{commit{State: "complete", Totals: even}}
-	cfg := goLinux
+	f.answers["/commits/missing/"] = []any{commit{}}
+	f.answers["/report/?component_id=cli&sha=missing"] = []any{report{Totals: even}}
+	cfg := cliLinux
 	cfg.base = "missing"
 	_, _, err := gate(t, repo(t, 1), cfg, f)
 	if err == nil || errors.Is(err, errFailed) || !strings.Contains(err.Error(), "git diff missing...head") {
@@ -336,7 +351,7 @@ func TestFailsWhenGitCannotDiff(t *testing.T) {
 }
 
 func TestATimeoutIsNotACoverageFailure(t *testing.T) {
-	cfg := goLinux
+	cfg := cliLinux
 	cfg.timeout = 20 * time.Millisecond
 	out, _, err := gate(t, "", cfg, &fake{})
 	if err == nil || errors.Is(err, errFailed) {
@@ -355,8 +370,8 @@ func TestATimeoutIsNotACoverageFailure(t *testing.T) {
 
 func TestFailsAtOnceWhenCodecovIsRateLimited(t *testing.T) {
 	f := ready(measuring(hit))
-	f.answers["/report/?sha=head"] = []any{status{http.StatusForbidden, map[string]string{"detail": "Github API rate limit error: Forbidden"}}}
-	_, _, err := gate(t, repo(t, 1), goLinux, f)
+	f.answers[headReport] = []any{status{http.StatusForbidden, map[string]string{"detail": "Github API rate limit error: Forbidden"}}}
+	_, _, err := gate(t, repo(t, 1), cliLinux, f)
 	if err == nil || errors.Is(err, errFailed) {
 		t.Fatalf("err = %v, want a rate limit", err)
 	}
@@ -365,19 +380,19 @@ func TestFailsAtOnceWhenCodecovIsRateLimited(t *testing.T) {
 			t.Errorf("err lacks %q: %v", want, err)
 		}
 	}
-	if n := strings.Count(strings.Join(f.seen, "\n"), "/report/"); n != 1 {
+	if n := strings.Count(strings.Join(f.seen, "\n"), headReport); n != 1 {
 		t.Errorf("requested the report %d times, want 1", n)
 	}
 }
 
 func TestRetriesAnotherForbidden(t *testing.T) {
 	f := ready(measuring(hit))
-	f.answers["/report/?sha=head"] = []any{status{http.StatusForbidden, map[string]string{"detail": "Not yet"}}, measuring(hit)}
-	out, _, err := gate(t, repo(t, 1), goLinux, f)
+	f.answers[headReport] = []any{status{http.StatusForbidden, map[string]string{"detail": "Not yet"}}, withTotals(measuring(hit), even)}
+	out, _, err := gate(t, repo(t, 1), cliLinux, f)
 	if err != nil {
 		t.Fatalf("err = %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "waiting: GET /report/?sha=head: 403 Forbidden: Not yet\n") {
+	if !strings.Contains(out, "waiting: GET "+headReport+": 403 Forbidden: Not yet\n") {
 		t.Errorf("out:\n%s", out)
 	}
 }
@@ -386,7 +401,7 @@ func TestRetriesAFailedCommitRequest(t *testing.T) {
 	for _, uri := range []string{"/commits/head/", "/commits/base/"} {
 		f := ready(measuring(hit))
 		f.answers[uri] = append([]any{status{http.StatusBadGateway, nil}}, f.answers[uri]...)
-		out, _, err := gate(t, repo(t, 1), goLinux, f)
+		out, _, err := gate(t, repo(t, 1), cliLinux, f)
 		if err != nil {
 			t.Fatalf("%s: err = %v\n%s", uri, err, out)
 		}
@@ -397,20 +412,20 @@ func TestRetriesAFailedCommitRequest(t *testing.T) {
 }
 
 func TestFailsOnAnUploadCodecovCouldNotProcess(t *testing.T) {
-	broken := processed("go-linux")
+	broken := processed("cli-linux")
 	broken.State = "error"
 	f := &fake{answers: map[string][]any{
 		"/commits/head/uploads/?page_size=100": {uploads(broken)},
 	}}
-	_, _, err := gate(t, "", goLinux, f)
-	if err == nil || errors.Is(err, errFailed) || !strings.Contains(err.Error(), "failed to process upload go-linux") {
+	_, _, err := gate(t, "", cliLinux, f)
+	if err == nil || errors.Is(err, errFailed) || !strings.Contains(err.Error(), "failed to process upload cli-linux") {
 		t.Fatalf("err = %v", err)
 	}
 }
 
 func TestFailsAtOnceWhenTheBaseHasNoReport(t *testing.T) {
 	f := ready(measuring(hit))
-	cfg := goLinux
+	cfg := cliLinux
 	cfg.base = "wiptip"
 	_, _, err := gate(t, "", cfg, f)
 	if err == nil || !strings.Contains(err.Error(), "no report for base commit wiptip") {
@@ -427,7 +442,7 @@ func TestFailsAtOnceWhenTheBaseHasNoReport(t *testing.T) {
 func TestFailsAtOnceWhenAPushsParentHasNoReport(t *testing.T) {
 	f := ready(measuring(hit))
 	delete(f.answers, "/commits/parent/")
-	_, _, err := gate(t, "", config{flags: []string{"go-linux"}}, f)
+	_, _, err := gate(t, "", config{flags: []string{"cli-linux"}}, f)
 	if err == nil || !strings.Contains(err.Error(), "no report for base commit parent") {
 		t.Fatalf("err = %v, want no report for parent", err)
 	}

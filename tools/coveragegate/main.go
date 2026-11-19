@@ -12,20 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Command coveragegate applies the coverage gate to Codecov's merged result of
-// a commit, once every upload a CI run made has been processed:
+// Command coveragegate applies the coverage gate to one area's part of
+// Codecov's merged result of a commit, once every upload a CI run made has
+// been processed:
 //
-//   - patch: every changed line a report measured is covered;
-//   - project: the total is no more than -threshold points below the base.
+//   - patch: every changed line the area's report measured is covered;
+//   - project: the area's total is no more than -threshold points below the
+//     base.
 //
-// The coverage / Gate job (.github/workflows/coverage.yml) runs it after every
-// coverage job, in a checkout holding both commits' history:
+// Each coverage-*.yml's Gate job runs it after the area's coverage jobs,
+// in a checkout holding both commits' history:
 //
-//	go run ./coveragegate -sha <head> -base <sha> -run <run url> -flags go-linux,typescript
+//	go run ./coveragegate -component cli -sha <head> -base <sha> -run <run url> -flags cli-linux,cli-darwin
 //
-// -flags names the uploads this run made; each is waited for. The changed
-// lines are those `git diff <base>...<head>` adds. Codecov supplies the head's
-// line coverage and both commits' totals. Without -base, as on a push, the
+// -component names the area's component in .github/codecov.yml, whose paths
+// no other area's upload measures. -flags names the uploads this run made;
+// each is waited for, and no other run's. The changed lines are those
+// `git diff <base>...<head>` adds. Codecov supplies the component's line
+// coverage and totals at both commits. Without -base, as on a push, the
 // base is the head's parent as Codecov records it. A base Codecov has no
 // report for fails at once, since no wait gives it one. Codecov's public API
 // needs no token, so a fork's pull request runs it too.
@@ -52,6 +56,7 @@ import (
 )
 
 type config struct {
+	component string
 	sha       string
 	base      string // empty takes the head's parent, as on a push
 	run       string // the CI run's URL, as Codecov records it on each upload
@@ -66,6 +71,7 @@ func main() {
 	var cfg config
 	var api, flags, summaryPath string
 	flag.StringVar(&api, "api", "https://api.codecov.io/api/v2/github/kubetail-org/repos/kubetail", "Codecov API root of the repository")
+	flag.StringVar(&cfg.component, "component", "", "the area's component in .github/codecov.yml")
 	flag.StringVar(&cfg.sha, "sha", "", "head commit")
 	flag.StringVar(&cfg.base, "base", "", "base commit; empty takes the head's parent")
 	flag.StringVar(&cfg.run, "run", "", "URL of the CI run that made the uploads")
@@ -77,6 +83,10 @@ func main() {
 	flag.Parse()
 	if flags != "" {
 		cfg.flags = strings.Split(flags, ",")
+	}
+	if cfg.component == "" {
+		fmt.Fprintln(os.Stderr, "coveragegate: -component is required")
+		os.Exit(2)
 	}
 
 	var summary io.Writer = io.Discard
@@ -130,9 +140,7 @@ type upload struct {
 }
 
 type commit struct {
-	State  string  `json:"state"`
-	Parent string  `json:"parent"`
-	Totals *totals `json:"totals"` // nil while the commit has no report
+	Parent string `json:"parent"`
 }
 
 type totals struct {
@@ -142,7 +150,8 @@ type totals struct {
 
 // A report lists each file's measured lines as [line, coverage] pairs.
 type report struct {
-	Files []reportFile `json:"files"`
+	Totals *totals      `json:"totals"` // nil when nothing is measured
+	Files  []reportFile `json:"files"`
 }
 
 type reportFile struct {
@@ -248,9 +257,10 @@ func wait(ctx context.Context, cfg config, cc *codecov, out io.Writer) (*compari
 	}
 }
 
-// fetch returns the comparison once every upload the run made is processed
-// and the commit is complete. Until then its error says what Codecov is still
-// working on.
+// fetch returns the comparison once every upload the run made is processed.
+// Until then its error says what Codecov is still working on. Other areas'
+// uploads to the commit are not waited for: they measure none of the
+// component's paths.
 func fetch(ctx context.Context, cfg config, cc *codecov) (*comparison, error) {
 	if err := uploadsProcessed(ctx, cfg, cc); err != nil {
 		return nil, err
@@ -260,11 +270,8 @@ func fetch(ctx context.Context, cfg config, cc *codecov) (*comparison, error) {
 	if err := cc.get(ctx, "/commits/"+cfg.sha+"/", &head); err != nil {
 		return nil, err
 	}
-	if head.State != "complete" {
-		return nil, errors.New("commit is " + head.State)
-	}
 
-	cmp := &comparison{base: cfg.base, headTotals: head.Totals, lines: map[string]map[int]int{}}
+	cmp := &comparison{base: cfg.base, lines: map[string]map[int]int{}}
 	if cmp.base == "" {
 		cmp.base = head.Parent
 	}
@@ -281,12 +288,17 @@ func fetch(ctx context.Context, cfg config, cc *codecov) (*comparison, error) {
 		}
 		return nil, err
 	}
-	cmp.baseTotals = base.Totals
-
-	var rep report
-	if err := cc.get(ctx, "/report/?"+url.Values{"sha": {cfg.sha}}.Encode(), &rep); err != nil {
+	var baseRep report
+	if err := cc.get(ctx, reportPath(cfg.component, cmp.base), &baseRep); err != nil {
 		return nil, err
 	}
+	cmp.baseTotals = baseRep.Totals
+
+	var rep report
+	if err := cc.get(ctx, reportPath(cfg.component, cfg.sha), &rep); err != nil {
+		return nil, err
+	}
+	cmp.headTotals = rep.Totals
 	for _, f := range rep.Files {
 		lines := map[int]int{}
 		for _, lc := range f.LineCoverage {
@@ -295,6 +307,11 @@ func fetch(ctx context.Context, cfg config, cc *codecov) (*comparison, error) {
 		cmp.lines[f.Name] = lines
 	}
 	return cmp, nil
+}
+
+// reportPath is the API path of the component's report at a commit.
+func reportPath(component, sha string) string {
+	return "/report/?" + url.Values{"component_id": {component}, "sha": {sha}}.Encode()
 }
 
 // uploadsProcessed is nil once Codecov has processed every flag in cfg.flags

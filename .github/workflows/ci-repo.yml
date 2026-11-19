@@ -1,0 +1,274 @@
+name: ci-repo
+
+# What belongs to no one component: the scripts, the workflows, the docs, the
+# toolchain pins, the e2e suite's Python, tools/ and the generated code.
+
+permissions:
+  contents: read
+
+# ci.yml calls this; a dispatch runs it alone.
+on:
+  workflow_call:
+    inputs:
+      cache-mode:
+        description: ci.yml's dispatch input, passed down
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      cache-mode:
+        description: >-
+          use: restore the caches, save none. update: also save new ones.
+          Off main, a saved cache is that branch's alone; PRs never read it.
+        type: choice
+        options:
+          - use
+          - update
+        default: use
+
+env:
+  # use or update: whether a run saves the uv cache and prunes. A dispatch
+  # takes its input; a push to main updates; a PR uses.
+  CACHE_MODE: ${{ inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use' }}
+
+jobs:
+  # Picks the jobs to run. Each line of `jobs` is a group of jobs and the
+  # path-filters.yml keys that run it: on a pull request, when a path under one
+  # of them changed; on any other event, always.
+  #
+  # Every other job needs this one, so its `if:` gates the whole workflow:
+  # GitHub starts push runs in forks too, and a fork runs this only for a pull
+  # request or a dispatch.
+  plan:
+    name: Plan
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      # For Caches · Prune: a job's `if:` cannot read `env`.
+      cache-mode: ${{ env.CACHE_MODE }}
+      shell: ${{ fromJSON(steps.plan.outputs.jobs).shell }}
+      yaml: ${{ fromJSON(steps.plan.outputs.jobs).yaml }}
+      python: ${{ fromJSON(steps.plan.outputs.jobs).python }}
+      tools: ${{ fromJSON(steps.plan.outputs.jobs).tools }}
+      generated: ${{ fromJSON(steps.plan.outputs.jobs).generated }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - id: plan
+        uses: ./.github/actions/plan
+        with:
+          jobs: |
+            shell: repo shell
+            yaml: repo yaml
+            python: repo python
+            tools: repo shared
+            generated: repo generated
+
+  ##############################
+  # Lint jobs
+  ##############################
+
+  shell-lint:
+    name: Shell · Lint
+    needs: plan
+    if: needs.plan.outputs.shell == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+      - name: Run shellcheck
+        run: make lint-sh
+
+  # Runs on every PR: one that moves a file a doc links to may touch no Markdown.
+  markdown-lint:
+    name: Markdown · Lint
+    needs: plan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Collect tracked Markdown files
+        run: git ls-files '*.md' > "$RUNNER_TEMP/markdown-files"
+      - name: Check local Markdown links
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          # Keep in step with version in scripts/check-markdown-links.sh.
+          lycheeVersion: v0.24.2
+          args: >-
+            --config .github/ci-config/lychee.toml
+            --files-from '${{ runner.temp }}/markdown-files'
+
+  # Runs on every PR: the versions it compares sit in paths no one filter holds.
+  toolchains-lint:
+    name: Toolchains · Lint
+    needs: plan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check the Dockerfiles' toolchain versions
+        run: make lint-toolchains
+      - name: Check the Dockerfiles' image digests
+        run: make lint-digests
+
+  python-lint:
+    name: Python · Lint
+    needs: plan
+    if: needs.plan.outputs.python == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          save-cache: ${{ env.CACHE_MODE != 'use' }}
+      - name: Lint
+        working-directory: ./e2e
+        run: |
+          uv sync --group dev
+          uv run ruff check .
+          uv run ruff format --check .
+
+  yaml-lint:
+    name: YAML · Lint
+    needs: plan
+    if: needs.plan.outputs.yaml == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
+      # The token turns on zizmor's online audits, which check each pin's
+      # commit and version comment against the action's repository.
+      - name: Run yamllint, actionlint, zizmor and the Passed check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: make lint-yaml
+
+  # Regenerates every committed output from its source and fails on a change.
+  generated-check:
+    name: Generated · Check
+    needs: plan
+    if: needs.plan.outputs.generated == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          setup-protoc: "true"
+          setup-node: "true"
+          node-cache: "true"
+      - name: Regenerate and compare
+        run: make check-generated
+
+  ##############################
+  # Test jobs
+  ##############################
+
+  # The coverage tools: a module of their own, outside the workspace.
+  tools-test:
+    name: Tools · Test
+    needs: plan
+    if: needs.plan.outputs.tools == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Check license headers
+        run: sh scripts/check-license-headers.sh tools scripts
+      - name: Lint, vet and test
+        working-directory: ./tools
+        run: |
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          go test ./...
+
+  shell-test:
+    name: Shell · Test
+    needs: plan
+    if: needs.plan.outputs.shell == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        # One runner per OS: the scripts run the same on every arch, and
+        # install.bats mocks uname.
+        os:
+          - linux
+          - macos
+          - windows
+    runs-on: >-
+      ${{ fromJSON('{"linux": "ubuntu-24.04", "macos": "macos-26", "windows": "windows-2025"}')[matrix.os] }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install bats (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats
+      - name: Install bats (macOS)
+        if: runner.os == 'macOS'
+        run: brew install bats-core
+      - name: Install bats (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: npm install -g bats@1.13.0
+      - name: Run bats
+        shell: bash
+        run: bats scripts/
+
+  ##############################
+  # Cache jobs
+  ##############################
+
+  # Deletes the caches this run's saves replaced, so the ref holds one copy of
+  # each. It needs the two jobs that save one because setup-uv and setup-node
+  # save in post steps, when their job ends.
+  cache-prune:
+    name: Caches · Prune
+    needs:
+      - plan
+      - python-lint
+      - generated-check
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.cache-mode != 'use'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions/prune-caches
+      - uses: ./.github/actions/prune-caches
+        with:
+          caches: setup-uv node-cache

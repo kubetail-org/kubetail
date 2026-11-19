@@ -55,7 +55,7 @@ new file mode 100644
 		t.Fatal(err)
 	}
 	want := map[string][]int{
-		"cli/a.go":                {4, 5, 12},
+		"cli/a.go":            {4, 5, 12},
 		"apps/web/src/new.ts": {1, 2},
 	}
 	if !reflect.DeepEqual(got, want) {

@@ -3,6 +3,7 @@ title: Dependabot moves dependencies, and a person merges every update
 date: 2026-11-09
 scope: repo
 status: Accepted
+amended_by: 2026-11-19-require-ci-to-merge-to-main.md
 ---
 
 # Dependabot moves dependencies, and a person merges every update

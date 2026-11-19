@@ -1,6 +1,7 @@
-# Coverage. CI uploads each suite's report and Codecov merges every upload of
-# a commit. The coverage / Gate job (tools/coveragegate) reads the merged
-# result and applies the gate, so Codecov posts no status or check of its own.
+# Coverage. Each coverage-*.yml uploads its area's reports under the area's
+# flags, and Codecov merges every upload of a commit. Each area's Gate job
+# (tools/coveragegate) reads its component of the merged result and applies
+# the gate, so Codecov posts no status or check of its own.
 
 coverage:
   status:
@@ -9,31 +10,56 @@ coverage:
 
 github_checks: false
 
-# A language whose jobs the path filter skipped keeps its last report.
+# An area whose jobs the path filter skipped keeps its last report. Only the
+# flags named here carry forward, so a retired flag drops out of the merge.
 flag_management:
   default_rules:
-    carryforward: true
+    carryforward: false
+  individual_flags:
+    - name: cli-linux
+      carryforward: true
+    - name: cli-darwin
+      carryforward: true
+    - name: cli-windows
+      carryforward: true
+    - name: libs-linux
+      carryforward: true
+    - name: libs-darwin
+      carryforward: true
+    - name: libs-windows
+      carryforward: true
+    - name: cluster-api
+      carryforward: true
+    - name: cluster-agent
+      carryforward: true
+    - name: web
+      carryforward: true
 
-# One number per language in Codecov's view of a commit.
+# One component per area. Each gate reads its own, so no other area's flags
+# may measure its paths: the CLI's and the Cluster API's tests never measure
+# libs/go-common.
 component_management:
   individual_components:
-    - component_id: go
-      name: Go
+    - component_id: cli
+      name: CLI
       paths:
         - cli/**
-        - cluster/api/**
         - dashboard/**
+    - component_id: libs
+      name: Libs
+      paths:
         - libs/go-common/**
-    - component_id: typescript
-      name: TypeScript
+    - component_id: cluster
+      name: Cluster
+      paths:
+        - cluster/api/**
+        - cluster/agent/**
+    - component_id: web
+      name: Web
       paths:
         - apps/web/**
-    - component_id: rust
-      name: Rust
-      paths:
-        - cluster/agent/**
 
-# No comment on the PR: coverage / Gate reports.
+# No comment on the PR: each area's Gate reports.
 comment: false
 
 # A Go profile names files by import path.

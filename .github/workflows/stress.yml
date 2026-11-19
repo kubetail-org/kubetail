@@ -35,7 +35,7 @@ jobs:
     if: github.repository == 'kubetail-org/kubetail' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
-      # Keep in step with go-test in ci.yml; anchors do not cross files.
+      # Keep in step with cli-test in ci-cli.yml; anchors do not cross files.
       matrix:
         os:
           - linux

@@ -2,7 +2,7 @@
 
 This spec says how to reorganize the repo into one folder per component, and what stays as it is.
 
-The CI workflows keep their shape here: they only get new paths. Splitting `ci.yml` by component is a separate spec, [`ci-workflow-split.md`](ci-workflow-split.md).
+The CI workflows keep their shape here: they only get new paths. Splitting `ci.yml` by component came after it: [ADR: run CI as one workflow per area](../adr/2026-11-19-run-ci-as-one-workflow-per-area.md).
 
 ## Goal
 
@@ -107,7 +107,7 @@ A pull request runs only some of CI. The Alpine, 386 and arm64 jobs run on `main
 
 - `make check`, `make check-generated` and `make test-e2e` pass locally.
 - All four release images build.
-- A `workflow_dispatch` run of `ci.yml` on the branch passes. A dispatch runs every job.
+- A `workflow_dispatch` run of each `ci-*.yml` on the branch passes. A dispatch runs every job.
 - For steps 2, 3 and 7: `workflow_dispatch` runs of `riscv64.yml` and `stress.yml` pass.
 - For step 2: one package builds from its recipe (`makepkg` or `rpmbuild`), and its `kubetail --version` prints the right version.
 
@@ -151,7 +151,7 @@ A move is not done until each of these points at the new path.
 
 ## Out of scope
 
-- Splitting `ci.yml` by component and adding one required check: see [`ci-workflow-split.md`](ci-workflow-split.md).
+- Splitting `ci.yml` by component and adding required checks: see [ADR: run CI as one workflow per area](../adr/2026-11-19-run-ci-as-one-workflow-per-area.md).
 - Building the desktop or mobile app.
 - Splitting the UI into a shared library and thin shells. That happens when the second app starts.
 - Moving the Helm chart into this repo.

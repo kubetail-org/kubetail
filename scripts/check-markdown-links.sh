@@ -6,7 +6,7 @@ set -eu
 
 cd "$(dirname "$0")/.."
 
-# Keep in step with lycheeVersion in .github/workflows/ci.yml.
+# Keep in step with lycheeVersion in .github/workflows/ci-repo.yml.
 version=0.24.2
 
 sha256() {
