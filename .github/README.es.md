@@ -333,13 +333,23 @@ Ahora puedes acceder al dashboard en [http://localhost:5173](http://localhost:51
 
 ### Comprobaciones
 
-[CONTRIBUTING.md](../CONTRIBUTING.md) describe cómo probar un cambio y abrir un pull request. Antes de abrir uno, ejecuta las comprobaciones de lo que cambió tu rama:
+[CONTRIBUTING.md](../CONTRIBUTING.md) describe cómo probar un cambio y abrir un pull request. El README de cada componente tiene una sección *Checks* (por ejemplo [dashboard/README.md](../dashboard/README.md#checks)): qué ejecutar mientras trabajas y qué ejecutar antes de abrir un pull request. La CI ejecuta todas las comprobaciones en todas las plataformas.
 
-```console
-make check-changed
-```
+Un cambio en un lugar puede romper otro componente. Ejecuta también:
 
-`make help` lista todos los targets. El `AGENTS.md` de cada componente (por ejemplo [dashboard/AGENTS.md](../dashboard/AGENTS.md)) describe sus convenciones y comprobaciones.
+| Un cambio en | Ejecuta también |
+|---|---|
+| `libs/go-common/` | `make test-go` (todo el workspace) |
+| `libs/graphql/*/schema.graphqls` | `go generate ./...` en ese servidor, `pnpm graphql-codegen` en `apps/web/`, `make vet-ts` |
+| `libs/proto/` | `make check-generated`, las comprobaciones de Go y Rust |
+| un `Dockerfile` o una versión de toolchain | `make lint-toolchains lint-digests` |
+| `.github/` u otro YAML | `make lint-yaml` |
+| `scripts/` | `make lint-sh test-sh` |
+| `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
+| Markdown | `make lint-md` |
+| `config/`, `hack/` | La CI no ejecuta ningún job de código para estos: indica en el pull request las comprobaciones que ejecutaste |
+
+`make help` lista todos los targets.
 
 ## Build
 

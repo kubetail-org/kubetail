@@ -165,7 +165,7 @@ Signed-off-by: Your Name <you@example.com>
 ### Before Submitting
 
 1. **Check for duplicates**: Review existing [issues](https://github.com/kubetail-org/kubetail/issues) and [pull requests](https://github.com/kubetail-org/kubetail/pulls)
-2. **Run the checks**: Run `make check-changed` and fix what it reports. It runs the linters, the static analysis and the tests for the areas you changed, on your platform, then lists the changed lines no test covers: cover or mark each one. `ALL_PLATFORMS=1 make check-changed` adds staticcheck and the Windows checks for the Go packages you changed; CI runs them on every PR
+2. **Run the checks**: Run the *Checks* "before a PR" list in the README of each component you changed, and the extra checks the root [README](README.md#checks) lists for a change that reaches other components. Where a component's tests are measured, its list ends with `make cover-<area>-changed`, which lists the changed lines no test covers: cover or mark each one. CI runs every check on every platform
 3. **Clean commits**: Ensure each commit is minimal, focused, and follows our [commit format](#commit-guidelines)
 4. **Update docs**: If you change architecture, conventions or commands, update the relevant `CLAUDE.md` in the same PR
 5. **Record decisions**: A new architectural decision, or a change to one, gets an ADR in [`docs/adr/`](docs/adr/README.md)

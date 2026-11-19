@@ -6,6 +6,25 @@ A Go/Gin HTTP server: the built UI, a GraphQL API over the Kubernetes API (gqlge
 - **`pkg/app/app.go` is the composition root and holds every route.** `internal/cluster-api/` is package `clusterapi`. Hand-written GraphQL code sits in `graph/schema.helpers.go` and `graph/model/models_custom.go`.
 - **`website/` is the built UI**, copied in by `make build-dashboard-ui`; git tracks only `.gitkeep`. Without it every page route answers 404 `website not found`, and the API still works.
 
+## Checks
+
+The root guide's *Go modules › Checks* holds the commands every Go module shares. Keep this section in step with the one in `README.md`.
+
+While working, after editing `libs/graphql/dashboard/schema.graphqls`:
+
+```sh
+go generate ./...                        # gqlgen
+cd ../apps/web && pnpm graphql-codegen   # the UI's types
+```
+
+Before a PR:
+
+```sh
+make cover-cli-changed     # from the repo root
+```
+
+The CLI and the Dashboard share a coverage area, as CI measures them: `FULL=1` runs the CLI's tests too, which reach Dashboard lines of their own.
+
 ## Config
 
 `pkg/config.NewConfig` reads the file, expands `${VAR}` from the environment (the only way an environment variable reaches the config), and unmarshals over `DefaultConfig()`, the truth for defaults: the `cluster` environment on `:8080`. Keys are flat and top-level. A new key gets a `mapstructure` tag, a default there, a validation tag where it can be wrong, and an entry in `config/default/dashboard.yaml`.

@@ -19,8 +19,19 @@ make
 
 This builds the Dashboard UI, embeds it and writes the binary to `bin/kubetail`. It needs Go, Node.js and pnpm. A plain `go build` here works without the UI, but `kubetail serve` then answers 404 for every page.
 
-## Test
+## Checks
 
-```console
-go test -race ./...
+[The root guide's *Go modules › Checks*](../CLAUDE.md#checks) holds the commands every Go module shares.
+
+While working, after editing `config/default/cli.*`:
+
+```sh
+go generate ./...          # copies them to assets/; commit both
 ```
+
+Before a PR:
+
+```sh
+make cover-cli-changed     # from the repo root, with dashboard/; FULL=1 runs every test of both
+```
+

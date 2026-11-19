@@ -8,11 +8,22 @@ A Cargo workspace of three crates: `cluster_agent` (the Cluster Agent, a gRPC se
 
 ## Checks
 
+In `cluster/agent/`. Keep this section in step with the one in `README.md`.
+
+While working:
+
 ```sh
-cd cluster/agent
-cargo fmt --all                    # write; CI runs it with -- --check
+cargo fmt --all
+cargo test -p rgkl                 # one crate, by name; `cargo test -p cluster_agent auth` filters its tests
+```
+
+Before a PR:
+
+```sh
 cargo clippy --all --all-targets -- -D warnings
-cargo test                         # every crate; `cargo test -p cluster_agent auth` for one crate, by name
+cargo test
+make lint-rust                     # from the repo root: rustfmt's check, license headers, coverage markers
+make cover-cluster-agent-changed   # from the repo root; needs cargo-llvm-cov
 ```
 
 CI tests and builds on Linux alone. To run a local agent under Tilt, set `KUBETAIL_RUST_DEV_MODE` to `docker` or `local`; without it Tilt pulls the published image and your changes to `cluster/agent/` are not deployed.

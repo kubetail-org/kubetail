@@ -7,6 +7,23 @@ A Go/Gin GraphQL server that runs in the cluster and answers log queries from th
 - **`internal/app/app.go` is the composition root and holds every route.**
 - **Config**: `pkg/config.NewConfig` reads the file, expands `${VAR}` from the environment, and unmarshals over `DefaultConfig()`. Keys are flat and top-level. `config/default/cluster-api.yaml` matches the code's defaults; keep it so. A config that sets a removed TLS key (`removedTLSKeys`) is refused at startup.
 
+## Checks
+
+The root guide's *Go modules › Checks* holds the commands every Go module shares. Keep this section in step with the one in `README.md`.
+
+While working, after editing `libs/graphql/cluster-api/schema.graphqls`:
+
+```sh
+go generate ./...                           # gqlgen
+cd ../../apps/web && pnpm graphql-codegen   # the UI's types
+```
+
+Before a PR:
+
+```sh
+make cover-cluster-api-changed   # from the repo root
+```
+
 ## Routes
 
 Everything mounts under `cfg.BasePath`.

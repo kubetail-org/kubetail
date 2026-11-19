@@ -333,13 +333,23 @@ pnpm dev
 
 ### 检查
 
-[CONTRIBUTING.md](../CONTRIBUTING.md) 介绍了如何测试改动和提交 pull request。提交之前，运行你的分支所改动部分的检查:
+[CONTRIBUTING.md](../CONTRIBUTING.md) 介绍了如何测试改动和提交 pull request。每个组件的 README 都有一节 *Checks*（例如 [dashboard/README.md](../dashboard/README.md#checks)），说明开发时运行什么、提交 pull request 前运行什么。CI 会在每个平台上运行所有检查。
 
-```console
-make check-changed
-```
+一处的改动可能破坏另一个组件。还要运行：
 
-`make help` 列出所有 target。每个组件的 `AGENTS.md`（例如 [dashboard/AGENTS.md](../dashboard/AGENTS.md)）说明了它的约定和检查。
+| 改动的位置 | 还要运行 |
+|---|---|
+| `libs/go-common/` | `make test-go` （整个 workspace） |
+| `libs/graphql/*/schema.graphqls` | 在该服务器中运行 `go generate ./...`，在 `apps/web/` 中运行 `pnpm graphql-codegen`，`make vet-ts` |
+| `libs/proto/` | `make check-generated`, Go 和 Rust 的检查 |
+| `Dockerfile` 或工具链版本 | `make lint-toolchains lint-digests` |
+| `.github/` 或其他 YAML | `make lint-yaml` |
+| `scripts/` | `make lint-sh test-sh` |
+| `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
+| Markdown | `make lint-md` |
+| `config/`, `hack/` | CI 不会为这些路径运行代码 job：在 pull request 中写明你运行了哪些检查 |
+
+`make help` 列出所有 target。
 
 ## 构建
 

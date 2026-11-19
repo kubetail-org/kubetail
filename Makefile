@@ -43,9 +43,10 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/cli/cmd.version=
 # No target names a file it makes, and build/ is a directory.
 .PHONY: build build-dashboard-ui clean help \
 	lint lint-go lint-rust lint-ts lint-python lint-sh lint-md lint-yaml lint-toolchains lint-digests \
-	vet vet-go vet-go-changed vet-rust vet-ts \
-	test test-go test-rust test-ts test-sh test-changed test-e2e \
-	cover-changed check check-changed check-generated
+	vet vet-go vet-rust vet-ts \
+	test test-go test-rust test-ts test-sh test-e2e \
+	cover-cli-changed cover-libs-changed cover-cluster-api-changed \
+	cover-cluster-agent-changed cover-web-changed check check-generated
 
 build: build-dashboard-ui ## Build the kubetail CLI, with the UI embedded, for this platform
 	@echo "Building kubetail CLI binary..."
@@ -132,10 +133,6 @@ vet-go: ## Run go vet for the host and Windows, the go fix check and staticcheck
 	@sh scripts/check-go-fix.sh
 	@sh scripts/staticcheck.sh
 
-# scripts/vet-go-changed.sh. CI vets every package.
-vet-go-changed: ## Run go vet and go fix on the Go packages this branch changed, on this platform (ALL_PLATFORMS=1 adds staticcheck and Windows)
-	@bash scripts/vet-go-changed.sh
-
 vet-rust: ## Run clippy on the Rust workspace
 	@echo "Vetting Rust crates with architecture $(RUST_ARCH)..."
 	@cd $(CLUSTER_AGENT_DIR) && rustup component add clippy
@@ -165,10 +162,6 @@ test-sh: ## Test the scripts with bats
 	@echo "Testing scripts..."
 	@bats scripts/
 
-# scripts/test-changed.sh
-test-changed: ## Run the tests for what this branch changed
-	@bash scripts/test-changed.sh
-
 # The kind cluster persists across runs; e2e/scripts/down.sh deletes it.
 # ONLY_BUILD=1 suits iterating on the Cluster API or Cluster Agent while a
 # cluster is up.
@@ -179,16 +172,25 @@ ifndef ONLY_BUILD
 	@cd e2e && uv run pytest -v
 endif
 
-# scripts/cover-changed.sh. Each coverage-*.yml's Gate in CI has the last word.
-cover-changed: ## List the changed lines no test covers (FULL=1 runs every Go test, RUST=1 measures Rust)
-	@bash scripts/cover-changed.sh
+# One target per CI coverage area, each a wrapper around scripts/cover-changed.sh.
+# Each coverage-*.yml's Gate in CI has the last word.
+cover-cli-changed: ## List the changed lines in cli/ and dashboard/ no test covers (FULL=1 runs every test)
+	@bash scripts/cover-changed.sh cli
+
+cover-libs-changed: ## List the changed lines in libs/go-common/ no test covers (FULL=1 runs every test)
+	@bash scripts/cover-changed.sh libs
+
+cover-cluster-api-changed: ## List the changed lines in cluster/api/ no test covers (FULL=1 runs every test)
+	@bash scripts/cover-changed.sh cluster-api
+
+cover-cluster-agent-changed: ## List the changed lines in cluster/agent/ no test covers (needs cargo-llvm-cov)
+	@bash scripts/cover-changed.sh cluster-agent
+
+cover-web-changed: ## List the changed lines in apps/web/ no test covers
+	@bash scripts/cover-changed.sh web
 
 check: lint vet test ## Run every lint, vet and test
 	@echo "All checks passed."
-
-# scripts/check-changed.sh
-check-changed: ## Run the checks for what this branch changed, on this platform, before opening a pull request (ALL_PLATFORMS=1 adds staticcheck and Windows)
-	@bash scripts/check-changed.sh
 
 # scripts/check-generated.sh
 check-generated: ## Regenerate the committed protoc, gqlgen, codegen and CLI config output, and fail on a change
@@ -196,4 +198,4 @@ check-generated: ## Regenerate the committed protoc, gqlgen, codegen and CLI con
 
 # Prints each target's `##` description.
 help: ## Show this help message
-	@awk 'BEGIN {FS = ":.*## "} /^[a-z0-9-]+:.*## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "} /^[a-z0-9-]+:.*## / {printf "  %-28s %s\n", $$1, $$2}' $(MAKEFILE_LIST)

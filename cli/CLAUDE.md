@@ -4,6 +4,22 @@ A Go CLI built with [Cobra](https://github.com/spf13/cobra): `logs`, `serve`, `c
 
 **The binary embeds the UI through the Dashboard module.** `make` from the repo root builds the UI, copies it in and builds `bin/kubetail`. A plain `go build` or `go test` here works without a built UI; `serve` then answers 404 for every page. A change in `libs/go-common`, `dashboard/pkg/app` or `dashboard/pkg/config` changes this binary.
 
+## Checks
+
+The root guide's *Go modules › Checks* holds the commands every Go module shares. Keep this section in step with the one in `README.md`.
+
+While working, after editing `config/default/cli.*`:
+
+```sh
+go generate ./...          # copies them to assets/; commit both
+```
+
+Before a PR:
+
+```sh
+make cover-cli-changed     # from the repo root, with dashboard/; FULL=1 runs every test of both
+```
+
 ## Commands
 
 - **Each command is a package-level `var xCmd = &cobra.Command{…}` in a file of its own under `cmd/`**, wired in that file's `init()` with `AddCommand` on its parent. Keep its `Run` body thin: parse flags into a config struct, then call a function that takes the struct.

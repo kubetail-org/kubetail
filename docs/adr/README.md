@@ -94,4 +94,5 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 | 2026-11-19 | [Require CI to merge to main](2026-11-19-require-ci-to-merge-to-main.md) | repo | Accepted |
 | 2026-11-19 | [Measure and gate coverage per area](2026-11-19-measure-and-gate-coverage-per-area.md) | repo | Accepted |
 | 2026-11-19 | [Run CI as one workflow per area](2026-11-19-run-ci-as-one-workflow-per-area.md) | repo | Accepted |
+| 2026-11-19 | [Run each area's own checks locally, with CI as the backstop](2026-11-19-run-each-areas-own-checks-locally-with-ci-as-the-backstop.md) | repo | Accepted |
 | 2026-11-09 | [Share informers and gate each caller with an access review](2026-11-09-share-informers-and-gate-each-caller-with-an-access-review.md) | shared | Accepted |

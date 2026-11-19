@@ -2,11 +2,22 @@
 
 No binary ships from here. `cli`, `dashboard` and `cluster/api` import it, and it imports none of them.
 
-- **A change here changes every binary.** Run the workspace's tests (`go test -race github.com/kubetail-org/kubetail/...` from the repo root), not this module's alone. An exported signature here is an API with three callers: change it and them in one commit.
+- **A change here changes every binary.** An exported signature here is an API with three callers: change it and them in one commit.
 - **A new package goes here only when two modules need it.** Code one module uses stays in that module's `internal/`.
 - **`config` holds `Environment` and its two values, nothing else**: each module owns its config struct and loader.
 - **Look here before writing a helper**: `util` (`SyncMap`, `SyncGroup`), `httphelpers` (`IsSameOrigin`, `IsAllowedOrigin`), `ginhelpers`, `middleware` (the access log), `logging`, `graphql/errors`, `testutils`.
 - **Nothing imports `testpb` or `otel`.**
+
+## Checks
+
+The root guide's *Go modules › Checks* holds the commands every Go module shares. Keep this section in step with the one in `README.md`.
+
+Before a PR:
+
+```sh
+make test-go               # from the repo root: the whole workspace, since every binary imports this module
+make cover-libs-changed    # from the repo root; only this module's own tests count
+```
 
 ## k8shelpers
 

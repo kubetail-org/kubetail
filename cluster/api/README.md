@@ -29,10 +29,20 @@ The GraphQL schema can be found here: [GraphQL schema](../../libs/graphql/cluste
 go generate ./...
 ```
 
-## Test
+## Checks
 
-To run the test suite execute this command:
+[The root guide's *Go modules › Checks*](../../CLAUDE.md#checks) holds the commands every Go module shares.
 
-```console
-go test ./...
+While working, after editing `libs/graphql/cluster-api/schema.graphqls`:
+
+```sh
+go generate ./...                           # gqlgen
+cd ../../apps/web && pnpm graphql-codegen   # the UI's types
 ```
+
+Before a PR:
+
+```sh
+make cover-cluster-api-changed   # from the repo root
+```
+

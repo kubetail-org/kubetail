@@ -333,13 +333,23 @@ Now access the dashboard at [http://localhost:5173](http://localhost:5173). The 
 
 ### Checks
 
-[CONTRIBUTING.md](CONTRIBUTING.md) describes how to test a change and open a pull request. Before you open one, run the checks for what your branch changed:
+[CONTRIBUTING.md](CONTRIBUTING.md) describes how to test a change and open a pull request. Each component's README has a *Checks* section (for example [dashboard/README.md](dashboard/README.md#checks)): what to run while you work, and what to run before you open a pull request. CI runs every check on every platform.
 
-```console
-make check-changed
-```
+A change in one place can break another component. Also run:
 
-`make help` lists every target. Each component's `AGENTS.md` (for example [dashboard/AGENTS.md](dashboard/AGENTS.md)) states its conventions and checks.
+| A change to | Also run |
+|---|---|
+| `libs/go-common/` | `make test-go` (the whole workspace) |
+| `libs/graphql/*/schema.graphqls` | `go generate ./...` in that server, `pnpm graphql-codegen` in `apps/web/`, `make vet-ts` |
+| `libs/proto/` | `make check-generated`, the Go and Rust checks |
+| a `Dockerfile` or a toolchain version | `make lint-toolchains lint-digests` |
+| `.github/` or other YAML | `make lint-yaml` |
+| `scripts/` | `make lint-sh test-sh` |
+| `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
+| Markdown | `make lint-md` |
+| `config/`, `hack/` | CI runs no code job for these: name the checks you ran in the pull request |
+
+`make help` lists every target.
 
 ## Build
 

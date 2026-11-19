@@ -13,10 +13,14 @@ The Go packages that `cli`, `dashboard` and `cluster/api` import. No binary ship
 
 `go generate ./...` runs `protoc` to regenerate `clusteragentpb`. The `protoc` and plugin versions are pinned; [`libs/proto/CLAUDE.md`](../proto/CLAUDE.md) says how to match them.
 
-## Test
+## Checks
 
-A change here changes every Go binary, so run the whole workspace's tests from the repo root:
+[The root guide's *Go modules › Checks*](../../CLAUDE.md#checks) holds the commands every Go module shares.
 
-```console
-go test -race github.com/kubetail-org/kubetail/...
+Before a PR:
+
+```sh
+make test-go               # from the repo root: the whole workspace, since every binary imports this module
+make cover-libs-changed    # from the repo root; only this module's own tests count
 ```
+

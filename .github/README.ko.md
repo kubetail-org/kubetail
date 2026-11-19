@@ -333,13 +333,23 @@ pnpm dev
 
 ### 검사
 
-변경을 테스트하고 풀 리퀘스트를 여는 방법은 [CONTRIBUTING.md](../CONTRIBUTING.md)에 있습니다. 풀 리퀘스트를 열기 전에 브랜치에서 변경한 부분의 검사를 실행합니다:
+변경을 테스트하고 풀 리퀘스트를 여는 방법은 [CONTRIBUTING.md](../CONTRIBUTING.md)에 있습니다. 각 컴포넌트의 README에는 *Checks* 섹션이 있으며(예: [dashboard/README.md](../dashboard/README.md#checks)), 작업 중에 실행할 것과 풀 리퀘스트를 열기 전에 실행할 것을 안내합니다. CI는 모든 검사를 모든 플랫폼에서 실행합니다.
 
-```console
-make check-changed
-```
+한 곳의 변경이 다른 컴포넌트를 깨뜨릴 수 있습니다. 다음도 실행합니다:
 
-`make help`는 모든 타깃을 나열합니다. 각 컴포넌트의 `AGENTS.md`(예: [dashboard/AGENTS.md](../dashboard/AGENTS.md))에 해당 컴포넌트의 규칙과 검사가 있습니다.
+| 변경한 곳 | 추가로 실행 |
+|---|---|
+| `libs/go-common/` | `make test-go` (전체 워크스페이스) |
+| `libs/graphql/*/schema.graphqls` | 해당 서버에서 `go generate ./...`, `apps/web/`에서 `pnpm graphql-codegen`, `make vet-ts` |
+| `libs/proto/` | `make check-generated`, Go와 Rust 검사 |
+| `Dockerfile` 또는 툴체인 버전 | `make lint-toolchains lint-digests` |
+| `.github/` 또는 기타 YAML | `make lint-yaml` |
+| `scripts/` | `make lint-sh test-sh` |
+| `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
+| Markdown | `make lint-md` |
+| `config/`, `hack/` | CI는 이 경로에 대해 코드 작업을 실행하지 않습니다. 실행한 검사를 풀 리퀘스트에 적습니다 |
+
+`make help`는 모든 타깃을 나열합니다.
 
 ## 빌드
 

@@ -333,13 +333,23 @@ pnpm dev
 
 ### チェック
 
-変更のテスト方法とプルリクエストの作り方は [CONTRIBUTING.md](../CONTRIBUTING.md) にあります。プルリクエストを作る前に、ブランチで変更した部分のチェックを実行します:
+変更のテスト方法とプルリクエストの作り方は [CONTRIBUTING.md](../CONTRIBUTING.md) にあります。各コンポーネントの README には *Checks* セクションがあり（例: [dashboard/README.md](../dashboard/README.md#checks)）、作業中に実行するものとプルリクエストの前に実行するものを示しています。CI はすべてのチェックをすべてのプラットフォームで実行します。
 
-```console
-make check-changed
-```
+ある場所の変更が別のコンポーネントを壊すことがあります。次も実行します:
 
-`make help` はすべてのターゲットを一覧表示します。各コンポーネントの `AGENTS.md`（例: [dashboard/AGENTS.md](../dashboard/AGENTS.md)）に、その規約とチェックがあります。
+| 変更した場所 | 追加で実行するもの |
+|---|---|
+| `libs/go-common/` | `make test-go` （ワークスペース全体） |
+| `libs/graphql/*/schema.graphqls` | そのサーバーで `go generate ./...`、`apps/web/` で `pnpm graphql-codegen`、`make vet-ts` |
+| `libs/proto/` | `make check-generated`, Go と Rust のチェック |
+| `Dockerfile` またはツールチェーンのバージョン | `make lint-toolchains lint-digests` |
+| `.github/` またはその他の YAML | `make lint-yaml` |
+| `scripts/` | `make lint-sh test-sh` |
+| `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
+| Markdown | `make lint-md` |
+| `config/`, `hack/` | CI はこれらに対してコードのジョブを実行しません。実行したチェックをプルリクエストに書きます |
+
+`make help` はすべてのターゲットを一覧表示します。
 
 ## ビルド
 

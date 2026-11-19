@@ -61,18 +61,26 @@ Four modules under the root `go.work`: `cli`, `dashboard`, `cluster/api` and `li
 
 ### Checks
 
+These hold for every module; each module's guide adds its own and names its coverage target.
+
+While working, in the module, on the packages you touched:
+
 ```sh
-cd <module>
-go fmt ./...            # CI fails if `gofmt -l .` prints anything
-go vet ./...
-go test -race ./...
+go vet ./pkg/app/...
+go test ./pkg/app/...
 ```
 
-From the repo root, `make vet-go` adds a `GOOS=windows` pass, `scripts/check-go-fix.sh` and staticcheck. CI runs all three. `make vet-go-changed` runs `go vet` and `go fix` on the changed packages alone, with their importers, on this platform; `ALL_PLATFORMS=1` adds the other two. Ignore a staticcheck finding with `//lint:ignore <check> <reason>` on the line above it.
+Before a PR:
 
-From the repo root, `go test -race github.com/kubetail-org/kubetail/...` covers the workspace, as `make test-go` does. A change to `libs/go-common` runs the workspace's tests. Don't commit a `vendor/` directory.
+```sh
+go fmt ./...              # in the module; CI fails if `gofmt -l .` prints anything
+go test -race ./...       # in the module
+make lint-go vet-go       # from the repo root
+```
 
-Coverage is measured per CI area: every test binary counts every package of its area (`-coverpkg`). The areas are `cli` with `dashboard`, `libs/go-common`, and `cluster/api`, so a `libs/go-common` line counts only when its own tests reach it. `make cover-changed` runs only the changed packages' tests; `FULL=1` runs them all, as CI does. → [ADR: measure and gate coverage per area](docs/adr/2026-11-19-measure-and-gate-coverage-per-area.md)
+`make lint-go` adds the license headers and coverage markers. `make vet-go` runs `go vet` for this platform and for `GOOS=windows`, `scripts/check-go-fix.sh` and staticcheck. Ignore a staticcheck finding with `//lint:ignore <check> <reason>` on the line above it. `make test-go` runs `go test -race` over the whole workspace. Don't commit a `vendor/` directory.
+
+Coverage is measured per CI area: every test binary counts every package of its area (`-coverpkg`). The areas are `cli` with `dashboard`, `libs/go-common`, and `cluster/api`, so a `libs/go-common` line counts only when its own tests reach it. Each area's `make cover-<area>-changed` runs only the changed packages' tests; `FULL=1` runs them all, as CI does. → [ADR: measure and gate coverage per area](docs/adr/2026-11-19-measure-and-gate-coverage-per-area.md)
 
 `go generate ./...` in a module runs its generators: gqlgen in `dashboard` and `cluster/api`, `protoc` in `libs/go-common`, a copy of `config/default/cli.*` in `cli`.
 
@@ -156,15 +164,29 @@ Each area's guide adds its tooling and how it waits. → [ADR: test conventions]
 - **Pace a timing-dependent unit by parameter, not constant.**
 - **A test seam is a parameter or a field, never a swapped package variable or a global mode.**
 - **A change to a security boundary ships with the test that pins it**, named for the property (`TestAggregationAuth_RejectsTrustedCertAppendedAsChainEntry`, `stream_forward_denies_before_file_lookup`).
-- **Every line a PR changes is covered.** Each `coverage-*.yml`'s `Gate` fails on a changed line in its paths that no test reaches, or on the area's total falling more than 0.1 points below the base; `make cover-changed` lists the same lines locally. → [ADR: gate PRs on changed lines with Codecov's merged result](docs/adr/2026-11-09-gate-prs-on-changed-lines-with-codecovs-merged-result.md), [ADR: measure and gate coverage per area](docs/adr/2026-11-19-measure-and-gate-coverage-per-area.md)
+- **Every line a PR changes is covered.** Each `coverage-*.yml`'s `Gate` fails on a changed line in its paths that no test reaches, or on the area's total falling more than 0.1 points below the base; each area's `make cover-<area>-changed` lists the same lines locally. → [ADR: gate PRs on changed lines with Codecov's merged result](docs/adr/2026-11-09-gate-prs-on-changed-lines-with-codecovs-merged-result.md), [ADR: measure and gate coverage per area](docs/adr/2026-11-19-measure-and-gate-coverage-per-area.md)
 - **A line no test can reach is marked with its reason**: `// coverage:ignore <reason>` at the end of the line a Go statement or function begins on, or `// coverage:ignore-start <reason>` … `// coverage:ignore-stop` in Go and, each on a line of its own, in Rust; `/* v8 ignore next -- <reason> */` (or `start`/`stop`) in TypeScript. A marker without a reason exempts nothing and fails the lint (`scripts/check-coverage-markers.sh`). Generated code and test helpers are left out in `.github/codecov.yml`; `scripts/cover-changed.sh` holds the same list.
 
 ## Checks
 
-Run the checks in the guide of every area you touched before you finish. For `scripts/`: `make lint-sh` and `make test-sh`.
+Each area's guide has a `## Checks` section: what to run while working, and what to run before a PR, ending with the area's `make cover-<area>-changed` where its coverage is measured. Run the second list of every area you touched before you finish. CI runs every check on every platform and is the backstop. A guide's `## Checks` and the one in the `README.md` beside it say the same; change both together. → [ADR: run each area's own checks locally, with CI as the backstop](docs/adr/2026-11-19-run-each-areas-own-checks-locally-with-ci-as-the-backstop.md)
 
-- **`make check-changed` is the run before a pull request**: the linters and vets of the areas the branch changed, side by side with `cover-changed` and the tests it does not run (`test-changed`). It checks this platform alone: Go's vet covers the changed packages and their importers (`vet-go-changed`), and `ALL_PLATFORMS=1` adds staticcheck and the Windows pass. CI checks every package and platform. `make check` runs `lint`, `vet` and `test` for every area. Each target is `<verb>` for every area or `<verb>-<area>` for one (`lint-go`, `vet-rust`, `test-ts`); `make help` lists them. `vet-ts` type-checks the UI with `tsc -b`; no target runs `vite build` or the checks of `tools/`.
-- **`scripts/check-changed.sh` maps a changed path to its area's targets.** A new area, or a new linter in `make lint`, goes there as well as in `.github/ci-config/path-filters.yml`. The `*-changed.sh` scripts read the changed paths, Go packages and vitest scope from `scripts/changed.sh`.
+A change in one place can break another area. Also run:
+
+| A change to | Also run |
+|---|---|
+| `libs/go-common/` | `make test-go` (the whole workspace) |
+| `libs/graphql/*/schema.graphqls` | `go generate ./...` in that server, `pnpm graphql-codegen` in `apps/web/`, `make vet-ts` |
+| `libs/proto/` | `make check-generated`, the Go and Rust checks |
+| a `Dockerfile` or a toolchain version | `make lint-toolchains lint-digests` |
+| `.github/` or other YAML | `make lint-yaml` |
+| `scripts/` | `make lint-sh test-sh` |
+| `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
+| Markdown | `make lint-md` |
+| `config/` or `hack/` | CI runs no code job for these: name the checks you ran in the PR |
+
+- **`make check` runs `lint`, `vet` and `test` for every area.** Each target is `<verb>` for every area or `<verb>-<area>` for one (`lint-go`, `vet-rust`, `test-ts`); `make help` lists them. `vet-ts` type-checks the UI with `tsc -b`; no target runs `vite build` or the checks of `tools/`.
+- **`scripts/cover-changed.sh <area>` lists an area's changed lines that no local test run reaches**, measured as its `coverage-*.yml` measures them. A new coverage area gets a case there, a `cover-<area>-changed` target and a case in `scripts/cover-changed.bats`, which runs each area's suite and checks it lists a known uncovered line.
 - **Markdown links are checked offline in CI** (`make lint-md`): a moved or renamed file breaks every relative link to it.
 - **CI is one workflow per area, called from two**: `ci.yml` calls `ci-cli.yml` (the CLI and the Dashboard backend), `ci-libs.yml` (`libs/go-common`), `ci-cluster.yml`, `ci-web.yml`, `ci-e2e.yml` and `ci-repo.yml`; `coverage.yml` calls `coverage-<area>.yml` for `cli`, `libs`, `cluster` and `web`. The callers run on every pull request and push to `main`, and never take an `on: paths:`: a workflow that does not start never reports its required check. An area file also runs alone by dispatch (`gh workflow run ci-cli.yml --ref <branch>`), so it keeps a Plan job, its own `CACHE_MODE` and its own `Caches · Prune`. → [ADR: run CI as one workflow per area](docs/adr/2026-11-19-run-ci-as-one-workflow-per-area.md)
 - **On a pull request, each workflow's Plan picks its jobs by path.** `.github/actions/plan` composes them from the narrow keys of `.github/ci-config/path-filters.yml`, as `codeql.yml` does. A path is in a key when it matches one of its patterns and none of its `!` patterns; each key that runs code jobs ends in `!**/*.md`, so a change to Markdown alone runs no Go, Rust, TypeScript, Docker or E2E job. A change to `config/` or `hack/` alone runs no Go, Rust or TypeScript job: run the affected checks yourself. A push to `main` or a dispatch runs every job.

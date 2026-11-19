@@ -12,27 +12,29 @@ This workspace contains the following modules:
 
 Please view the README in each directory for more details. 
 
-## Development Commmands
+## Checks
 
-### Run linter
+In `cluster/agent/`.
 
-```console
-cargo fmt --all -- --check
+While working:
+
+```sh
+cargo fmt --all
+cargo test -p rgkl                 # one crate, by name; `cargo test -p cluster_agent auth` filters its tests
 ```
 
-### Run clippy
+Before a PR:
 
-```console
+```sh
 cargo clippy --all --all-targets -- -D warnings
-```
-
-### Run tests
-
-```console
 cargo test
+make lint-rust                     # from the repo root: rustfmt's check, license headers, coverage markers
+make cover-cluster-agent-changed   # from the repo root; needs cargo-llvm-cov
 ```
 
-### Run builder
+CI tests and builds on Linux alone. To run a local agent under Tilt, set `KUBETAIL_RUST_DEV_MODE` to `docker` or `local`; without it Tilt pulls the published image and your changes to `cluster/agent/` are not deployed.
+
+## Build
 
 ```console
 cargo build --release
