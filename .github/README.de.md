@@ -333,13 +333,23 @@ Anschließend kannst du das Dashboard unter [http://localhost:5173](http://local
 
 ### Prüfungen
 
-[CONTRIBUTING.md](../CONTRIBUTING.md) beschreibt, wie du eine Änderung testest und einen Pull Request öffnest. Bevor du einen öffnest, führe die Prüfungen für die Änderungen deines Branches aus:
+[CONTRIBUTING.md](../CONTRIBUTING.md) beschreibt, wie du eine Änderung testest und einen Pull Request öffnest. Die README jeder Komponente hat einen Abschnitt *Checks* (zum Beispiel [dashboard/README.md](../dashboard/README.md#checks)): was du während der Arbeit ausführst und was vor dem Pull Request. Die CI führt jede Prüfung auf jeder Plattform aus.
 
-```console
-make check-changed
-```
+Eine Änderung an einer Stelle kann eine andere Komponente brechen. Führe zusätzlich aus:
 
-`make help` listet alle Targets auf. Die `AGENTS.md` jeder Komponente (zum Beispiel [dashboard/AGENTS.md](../dashboard/AGENTS.md)) beschreibt ihre Konventionen und Prüfungen.
+| Eine Änderung an | Zusätzlich ausführen |
+|---|---|
+| `libs/go-common/` | `make test-cli test-cluster-api` |
+| `libs/graphql/*/schema.graphqls` | `go generate ./...` in diesem Server, `pnpm graphql-codegen` in `apps/web/`, `make vet-web` |
+| `libs/proto/` | `make check-generated`, die Go- und Rust-Prüfungen |
+| einem `Dockerfile` oder einer Toolchain-Version | `make lint-repo-toolchains lint-repo-digests` |
+| `.github/` oder anderem YAML | `make lint-repo-yaml` |
+| `scripts/` | `make lint-repo-sh test-repo` |
+| `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
+| Markdown | `make lint-repo-md` |
+| `config/`, `hack/` | Die CI führt dafür keinen Code-Job aus: nenne im Pull Request die Prüfungen, die du ausgeführt hast |
+
+`make help` listet alle Targets auf.
 
 ## Build
 

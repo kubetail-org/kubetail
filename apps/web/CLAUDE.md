@@ -6,11 +6,22 @@ React 19 + React Router 8 + Apollo Client 4 (GraphQL) + Jotai + Vite + Tailwind 
 
 ## Checks
 
+In `apps/web/`. Keep this section in step with the one in `README.md`.
+
+While working:
+
 ```sh
-pnpm format         # oxfmt: formats and sorts imports
-pnpm lint           # oxlint (type-aware), then `oxfmt --check`. A warning fails the run.
-pnpm build          # tsc -b && vite build. `tsc -b` (`make vet-ts`) is the only type-check, and it covers test files
-pnpm test run       # `pnpm test` alone is watch mode and never exits
+pnpm format                                # oxfmt: formats and sorts imports
+pnpm lint                                  # oxlint (type-aware), then `oxfmt --check`. A warning fails the run.
+pnpm exec vitest related --run <file>...   # the tests that import the files you touched
+```
+
+Before a PR:
+
+```sh
+make lint-web vet-web test-web   # from the repo root; vet-web is `tsc -b`, the only type-check, and it covers test files
+make cover-web-changed           # from the repo root: the changed lines no test covers
+pnpm build                       # tsc -b && vite build; no make target runs vite build
 ```
 
 ## Layout

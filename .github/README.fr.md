@@ -333,13 +333,23 @@ Vous pouvez maintenant acceder au dashboard sur [http://localhost:5173](http://l
 
 ### Verifications
 
-[CONTRIBUTING.md](../CONTRIBUTING.md) decrit comment tester une modification et ouvrir une pull request. Avant d'en ouvrir une, lancez les verifications de ce que votre branche a modifie:
+[CONTRIBUTING.md](../CONTRIBUTING.md) decrit comment tester une modification et ouvrir une pull request. Le README de chaque composant a une section *Checks* (par exemple [dashboard/README.md](../dashboard/README.md#checks)): ce qu'il faut lancer pendant le travail, et avant d'ouvrir une pull request. La CI lance toutes les verifications sur toutes les plateformes.
 
-```console
-make check-changed
-```
+Une modification a un endroit peut casser un autre composant. Lancez aussi:
 
-`make help` liste toutes les cibles. Le `AGENTS.md` de chaque composant (par exemple [dashboard/AGENTS.md](../dashboard/AGENTS.md)) decrit ses conventions et ses verifications.
+| Une modification de | Lancez aussi |
+|---|---|
+| `libs/go-common/` | `make test-cli test-cluster-api` |
+| `libs/graphql/*/schema.graphqls` | `go generate ./...` dans ce serveur, `pnpm graphql-codegen` dans `apps/web/`, `make vet-web` |
+| `libs/proto/` | `make check-generated`, les verifications Go et Rust |
+| un `Dockerfile` ou une version de toolchain | `make lint-repo-toolchains lint-repo-digests` |
+| `.github/` ou un autre YAML | `make lint-repo-yaml` |
+| `scripts/` | `make lint-repo-sh test-repo` |
+| `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
+| Markdown | `make lint-repo-md` |
+| `config/`, `hack/` | La CI ne lance aucun job de code pour ces chemins: indiquez dans la pull request les verifications lancees |
+
+`make help` liste toutes les cibles.
 
 ## Build
 

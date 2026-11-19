@@ -2,17 +2,26 @@
 
 A Cargo workspace of three crates: `cluster_agent` (the Cluster Agent, a gRPC server on each node that lists, watches and streams that node's container log files), `rgkl` (the log file reader it links) and `types` (the tonic/prost code generated from `libs/proto/cluster_agent.proto`; nothing hand-written).
 
-- **Run cargo from `cluster/agent/`, never from a crate's directory.** From the repo root, `make lint-rust`, `vet-rust` and `test-rust` do.
+- **Run cargo from `cluster/agent/`, never from a crate's directory.** From the repo root, `make lint-cluster-agent`, `vet-cluster-agent` and `test-cluster-agent` do.
 - **`protoc` must be on `PATH` for any build, clippy or test.** `types/build.rs` compiles the proto on every build; the output is never committed. Editing the proto: `libs/proto/CLAUDE.md`.
 - **`rust-toolchain.toml` pins the exact Rust version**, which CI and the agent's Dockerfiles share (root `CLAUDE.md`, Dependencies). A bump can add clippy lints that fail `-D warnings` on code nobody touched; fix them in the same PR.
 
 ## Checks
 
+In `cluster/agent/`. Keep this section in step with the one in `README.md`.
+
+While working:
+
 ```sh
-cd cluster/agent
-cargo fmt --all                    # write; CI runs it with -- --check
-cargo clippy --all --all-targets -- -D warnings
-cargo test                         # every crate; `cargo test -p cluster_agent auth` for one crate, by name
+cargo fmt --all
+cargo test -p rgkl                 # one crate, by name; `cargo test -p cluster_agent auth` filters its tests
+```
+
+Before a PR:
+
+```sh
+make lint-cluster-agent vet-cluster-agent test-cluster-agent   # from the repo root: rustfmt's check, license headers, coverage markers, clippy, cargo test
+make cover-cluster-agent-changed                               # from the repo root; needs cargo-llvm-cov
 ```
 
 CI tests and builds on Linux alone. To run a local agent under Tilt, set `KUBETAIL_RUST_DEV_MODE` to `docker` or `local`; without it Tilt pulls the published image and your changes to `cluster/agent/` are not deployed.

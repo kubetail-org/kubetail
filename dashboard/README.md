@@ -35,23 +35,23 @@ The GraphQL schema can be found here: [GraphQL schema](../libs/graphql/dashboard
 go generate ./...
 ```
 
-## Test
+## Checks
 
-To run the test suite directly:
+[The root guide's *Go modules › Checks*](../CLAUDE.md#checks) holds the commands every Go module shares.
 
-```console
-go test ./...
+While working, after editing `libs/graphql/dashboard/schema.graphqls`:
+
+```sh
+go generate ./...                        # gqlgen
+cd ../apps/web && pnpm graphql-codegen   # the UI's types
 ```
 
-Using the Makefile from the project root:
+Before a PR:
 
-```console
-# Run tests for all modules including dashboard
-make test-go
-
-# Run linter
-make lint-go
-
-# Run code vetting
-make vet-go
+```sh
+make lint-cli vet-cli test-cli   # from the repo root, with cli/
+make cover-cli-changed           # from the repo root
 ```
+
+The CLI and the Dashboard share a coverage area, as CI measures them: `FULL=1` runs the CLI's tests too, which reach Dashboard lines of their own.
+

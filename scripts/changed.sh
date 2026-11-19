@@ -1,7 +1,7 @@
 # shellcheck shell=bash
-# Sourced by the *-changed.sh scripts, from the repo root. Sets what the working
-# tree changes since the branch left main: committed, staged, unstaged and
-# untracked.
+# Sourced by scripts/cover-changed.sh, from the repo root. Sets what the
+# working tree changes since the branch left main: committed, staged, unstaged
+# and untracked.
 #
 #   merge_base  the commit the branch left
 #   untracked   the untracked files

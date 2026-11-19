@@ -16,7 +16,7 @@
 // and coverage.yml. Each must call every area workflow beside it (ci-*.yml,
 // coverage-*.yml), so a new area is gated as soon as it exists, and end in a
 // job named `<Name> · Passed` that needs every other job and runs
-// `if: always()`. `make lint-yaml` runs it.
+// `if: always()`. `make lint-repo-yaml` runs it.
 //
 //	go run ./cipassed ../.github/workflows
 package main

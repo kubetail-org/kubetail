@@ -25,6 +25,22 @@ Default values are in `.env`. Override any value by editing that file or setting
 | `SERVE_PORT`      | `9898`                  | Port used by `kubetail serve`        |
 | `KUBETAIL_CLI`    | `../bin/kubetail`       | Path to the kubetail binary          |
 
+## Checks
+
+In `e2e/`.
+
+While working, against what is deployed:
+
+```sh
+uv run pytest -v -k <name>
+```
+
+Before a PR:
+
+```sh
+make lint-e2e test-e2e     # from the repo root: ruff, then build, deploy, run
+```
+
 ## Run the full suite
 
 From the repo root:

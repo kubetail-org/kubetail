@@ -14,40 +14,24 @@ This project uses [graphql-codegen](https://the-guild.dev/graphql/codegen) to ge
 pnpm graphql-codegen
 ```
 
-## Test
+## Checks
 
-This project uses [vitest](https://vitest.dev/) for testing. To run the test suite:
+In `apps/web/`.
 
-```sh
-pnpm test
-```
-
-Using the Makefile from the project root:
-
-```console
-# Run dashboard UI tests
-make test-ts
-```
-
-## Lint
-
-This project lints with [oxlint](https://oxc.rs/docs/guide/usage/linter) and formats with [oxfmt](https://oxc.rs/docs/guide/usage/formatter). To run the linter and the format check:
+While working:
 
 ```sh
-pnpm lint
+pnpm format                                # oxfmt: formats and sorts imports
+pnpm lint                                  # oxlint (type-aware), then `oxfmt --check`. A warning fails the run.
+pnpm exec vitest related --run <file>...   # the tests that import the files you touched
 ```
 
-To format the code and sort imports:
+Before a PR:
 
 ```sh
-pnpm format
-```
-
-Using the Makefile from the project root:
-
-```console
-# Run dashboard UI linting
-make lint-ts
+make lint-web vet-web test-web   # from the repo root; vet-web is `tsc -b`, the only type-check, and it covers test files
+make cover-web-changed           # from the repo root: the changed lines no test covers
+pnpm build                       # tsc -b && vite build; no make target runs vite build
 ```
 
 ## Build

@@ -27,7 +27,7 @@ This replaces the first bullet of the Dependabot ADR's Context: CI's jobs are re
 
 - A pull request cannot merge while an area it touched fails, or while coverage drops on a changed line.
 - A runner outage blocks every pull request until a rerun passes.
-- A new area is gated once `ci.yml` or `coverage.yml` calls it, which `make lint-yaml` enforces.
+- A new area is gated once `ci.yml` or `coverage.yml` calls it, which `make lint-repo-yaml` enforces.
 
 ## Revisit when
 
