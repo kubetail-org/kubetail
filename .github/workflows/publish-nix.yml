@@ -21,7 +21,7 @@ on:
 
 jobs:
   trigger-release-workflow:
-    name: Trigger release workflow in kubetail-org/kubetail-nix repo
+    name: Publish · Nix
     environment: production
     runs-on: ubuntu-slim
     steps:

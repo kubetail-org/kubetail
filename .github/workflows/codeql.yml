@@ -23,7 +23,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  # Only main saves the Go and Rust caches, and Caches · Prune keeps the newest
+  # Only main saves the Go and Rust caches, and Prune · Caches keeps the newest
   # of each. A PR saving its own copy would push the repo past its cache limit.
   CACHE_SAVE: ${{ github.ref == 'refs/heads/main' }}
 
@@ -65,7 +65,7 @@ jobs:
             python: codeql python
             actions: codeql actions
 
-      # The category of every analysis the pull request skips, for Reuse base's
+      # The category of every analysis the pull request skips, for Reuse · Base analysis's
       # matrix.
       - id: skipped
         env:
@@ -208,7 +208,7 @@ jobs:
   # Leaves one copy of each cache on main, the newest. It runs after the Rust
   # job because rust-cache saves in a post step.
   cache-prune:
-    name: Caches · Prune
+    name: Prune · Caches
     needs:
       - plan
       - go
@@ -238,7 +238,7 @@ jobs:
   # The name leaves out the matrix so a skipped job, whose matrix GitHub never
   # expands, shows plain text; GitHub appends each entry's values to it.
   reuse-base:
-    name: Reuse base
+    name: Reuse · Base analysis
     needs:
       - plan
       - go

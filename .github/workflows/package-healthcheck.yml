@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   linux:
+    name: Test · Packages (${{ matrix.mgr }}, ${{ matrix.os }}, ${{ matrix.arch }})
     if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
@@ -153,6 +154,7 @@ jobs:
           retention-days: 1
 
   linux-apk:
+    name: Test · Packages (apk, alpine-edge, ${{ matrix.arch }})
     if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
@@ -201,6 +203,7 @@ jobs:
           retention-days: 1
 
   linux-apt:
+    name: Test · Packages (apt, ${{ matrix.series }}, ${{ matrix.arch }})
     if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
@@ -261,6 +264,7 @@ jobs:
       - *upload_step
 
   linux-apt-emulated:
+    name: Test · Packages (apt, ${{ matrix.series }}, ${{ matrix.arch }})
     if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
@@ -330,6 +334,7 @@ jobs:
           retention-days: 1
 
   linux-copr:
+    name: Test · Packages (copr, ${{ matrix.os }}, ${{ matrix.arch }})
     if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
@@ -401,6 +406,7 @@ jobs:
       - *upload_step
 
   linux-dnf:
+    name: Test · Packages (dnf, ${{ matrix.os }}, ${{ matrix.arch }})
     if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
@@ -478,6 +484,7 @@ jobs:
       - *upload_step
 
   linux-snap:
+    name: Test · Packages (snap, ubuntu-24.04, ${{ matrix.arch }})
     if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
@@ -517,6 +524,7 @@ jobs:
       - *upload_step
 
   linux-zypper:
+    name: Test · Packages (zypper, ${{ matrix.os }}, ${{ matrix.arch }})
     if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
@@ -573,6 +581,7 @@ jobs:
       - *upload_step
 
   macos:
+    name: Test · Packages (${{ matrix.mgr }}, ${{ matrix.os }}, ${{ matrix.arch }})
     if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
@@ -671,6 +680,7 @@ jobs:
       - *upload_step
 
   windows:
+    name: Test · Packages (${{ matrix.mgr }}, windows, ${{ matrix.arch }})
     if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
@@ -806,6 +816,7 @@ jobs:
           retention-days: 1
 
   install-sh:
+    name: Test · install.sh (${{ matrix.os }}, ${{ matrix.arch }})
     if: github.repository == 'kubetail-org/kubetail'
     strategy:
       fail-fast: false
@@ -864,6 +875,7 @@ jobs:
           retention-days: 1
 
   summary:
+    name: Report · Failures
     needs:
       - install-sh
       - linux

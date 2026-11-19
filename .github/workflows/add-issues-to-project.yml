@@ -10,7 +10,7 @@ on:
 
 jobs:
   add-to-project:
-    name: Add issue to project
+    name: Add · Issue to project
     if: github.repository == 'kubetail-org/kubetail'
     runs-on: ubuntu-slim
     steps:

@@ -21,6 +21,7 @@ on:
 
 jobs:
   publish:
+    name: Publish · OBS
     runs-on: ubuntu-24.04
     environment: production
     steps:

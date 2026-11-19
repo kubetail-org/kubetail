@@ -120,12 +120,12 @@ jobs:
         run: pnpm audit --audit-level moderate
 
   dependency-review:
-    name: Go + Rust · Dependency review
+    name: Review dependencies · Go + Rust
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
       # Compares the base and head dependency graphs, which hold the Go and
-      # Cargo packages; npm is TypeScript · Dependency review's. Every scope
+      # Cargo packages; npm is Review dependencies · TypeScript's. Every scope
       # counts, as in the audits.
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
@@ -135,7 +135,7 @@ jobs:
   # A fork's token cannot submit to the dependency graph, so npm compares
   # pnpm audit on the base and on the head instead.
   typescript-dependency-review:
-    name: TypeScript · Dependency review
+    name: Review dependencies · TypeScript
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
@@ -162,7 +162,7 @@ jobs:
   # which pins pnpm itself, and Dependabot's alerts and security updates read
   # the graph.
   typescript-submit:
-    name: TypeScript · Submit dependencies
+    name: Submit dependencies · TypeScript
     needs: fork-gate
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
@@ -188,7 +188,7 @@ jobs:
   # A failed audit on main opens an issue, or comments on the one still open,
   # so it reaches a maintainer without anyone watching the Actions tab.
   report:
-    name: Report failure
+    name: Report · Failures
     needs:
       - go-audit
       - rust-audit

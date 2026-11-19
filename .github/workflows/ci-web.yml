@@ -49,7 +49,7 @@ jobs:
     permissions:
       pull-requests: read
     outputs:
-      # For Caches · Prune: a job's `if:` cannot read `env`.
+      # For Prune · Caches: a job's `if:` cannot read `env`.
       cache-mode: ${{ env.CACHE_MODE }}
       typescript: ${{ fromJSON(steps.plan.outputs.jobs).typescript }}
     steps:
@@ -65,7 +65,7 @@ jobs:
             typescript: shared web graphql-dashboard graphql-cluster-api
 
   typescript-lint:
-    name: TypeScript · Lint
+    name: Lint
     needs: plan
     if: needs.plan.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
@@ -89,7 +89,7 @@ jobs:
         run: sh scripts/check-coverage-markers.sh apps/web/src
 
   typescript-test:
-    name: TypeScript · Test
+    name: Test
     needs: plan
     if: needs.plan.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
@@ -110,7 +110,7 @@ jobs:
 
   # tsc -b, then vite build: the type-check of the app and its tests.
   typescript-build:
-    name: TypeScript · Build
+    name: Build
     needs: plan
     if: needs.plan.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
@@ -133,7 +133,7 @@ jobs:
   # one copy. It needs every job because setup-node saves in a post step, when
   # its job ends.
   cache-prune:
-    name: Caches · Prune
+    name: Prune · Caches
     needs:
       - plan
       - typescript-lint

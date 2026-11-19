@@ -93,7 +93,7 @@ yaml:
   - tools/go.mod
   - '**/*.yml'
   - '**/*.yaml'
-# Generated · Check alone: every source a generator reads, and the
+# Check · Generated alone: every source a generator reads, and the
 # generators' pins.
 generated:
   - *shared
