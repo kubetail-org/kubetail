@@ -8,8 +8,8 @@
 #
 # Every ecosystem waits after a release (time for a compromised release to be
 # caught and pulled first), groups minor and patch updates into one weekly PR,
-# and leaves each major in a PR of its own. Security updates skip the wait and
-# arrive grouped.
+# and leaves each major in a PR of its own unless a named group takes it.
+# Security updates skip the wait and arrive grouped.
 version: 2
 updates:
   # Every action is pinned to a commit SHA; this moves the pins and the
@@ -97,6 +97,10 @@ updates:
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
     groups:
+      # The @graphql-codegen packages release their majors together.
+      graphql-codegen:
+        patterns:
+          - "@graphql-codegen/*"
       npm:
         update-types: [minor, patch]
       npm-security:
