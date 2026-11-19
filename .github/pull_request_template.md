@@ -21,8 +21,8 @@ Ref #
 ## Checklist
 
 - [ ] Changes are minimal and focused
-- [ ] Commit messages are [conventional commits](https://www.conventionalcommits.org)
 - [ ] Local checks pass
 - [ ] Docs are up to date
-- [ ] PR title leads with the change type's emoji
+- [ ] Commit messages are [conventional commits](https://www.conventionalcommits.org)
+- [ ] PR title leads with the change type's emoji (🐋 🎣 📜 ✨)
 - [ ] Related issues, if any, are linked above
