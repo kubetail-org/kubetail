@@ -24,7 +24,7 @@ amended_by: 2026-12-01-some-later-decision.md                # only when a later
 ---
 ```
 
-`scope` is one of `cross-cutting`, `dashboard-ui`, `dashboard`, `cluster-api`, `cli`, `shared`, `cluster-agent`, `proto` or `repo`.
+`scope` is one of `cross-cutting`, `web`, `dashboard`, `cluster-api`, `cli`, `go-common`, `cluster-agent`, `proto` or `repo`. ADRs written before the move to one folder per component use `dashboard-ui` for `web` and `shared` for `go-common`, and keep those names.
 
 ## Sections
 

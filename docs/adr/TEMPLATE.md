@@ -1,7 +1,7 @@
 ---
 title: <Imperative phrase, e.g. "Reach the Cluster API through the aggregation layer">
 date: <YYYY-MM-DD, the day this file was written>
-scope: <cross-cutting | dashboard-ui | dashboard | cluster-api | cli | shared | cluster-agent | proto | repo>
+scope: <cross-cutting | web | dashboard | cluster-api | cli | go-common | cluster-agent | proto | repo>
 status: Accepted
 ---
 
