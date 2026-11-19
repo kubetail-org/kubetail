@@ -29,9 +29,10 @@ on:
         default: use
 
 env:
-  # use, update or rebuild: whether a run saves the uv cache and prunes. The
-  # images read the BuildKit caches ci-cli.yml and ci-cluster.yml save. A
-  # dispatch takes its input; a push to main updates; a PR uses.
+  # use, update or rebuild: whether a run saves the uv and pnpm store caches
+  # and prunes. The images read the BuildKit caches ci-cli.yml and
+  # ci-cluster.yml save. A dispatch takes its input; a push to main updates; a
+  # PR uses.
   CACHE_MODE: ${{ inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use' }}
 
 jobs:
@@ -90,8 +91,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Reads ci-cli.yml's Build and Test cache and saves none.
-      - uses: ./.github/actions/setup-environment
+      # Reads ci-cli.yml's Build and Test cache and saves no Go cache.
+      - id: setup
+        uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
           node-cache: "true"
@@ -117,10 +119,15 @@ jobs:
           KIND_NODE_IMAGE: ${{ matrix.k8s-version == '1.21' && 'kindest/node:v1.21.14' || '' }}
           CACHE_ARCH: ${{ matrix.arch }}
         run: make test-e2e
+      - name: Save pnpm store
+        if: env.CACHE_MODE != 'use' && steps.setup.outputs.node-cache-hit != 'true'
+        uses: ./.github/actions/save-pnpm-store
+        with:
+          path: ${{ steps.setup.outputs.node-cache-path }}
+          key: ${{ steps.setup.outputs.node-cache-key }}
 
   # Deletes the caches this run's saves replaced, so the ref holds one copy of
-  # each. It needs E2E because setup-node and setup-uv save in post steps, when
-  # their job ends.
+  # each. It needs E2E, which saves them.
   cache-prune:
     name: Prune · Caches
     needs:

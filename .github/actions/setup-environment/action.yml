@@ -8,6 +8,15 @@ outputs:
   go-cache-path:
     description: 'The directories the Go cache holds'
     value: ${{ steps.go-cache-paths.outputs.path }}
+  node-cache-key:
+    description: 'The pnpm store cache this run saves, when it saves one'
+    value: ${{ steps.node-cache-paths.outputs.key }}
+  node-cache-path:
+    description: 'The pnpm store'
+    value: ${{ steps.node-cache-paths.outputs.path }}
+  node-cache-hit:
+    description: "'true' when a cache with the exact key was restored, so there is nothing to save"
+    value: ${{ steps.restore-node-cache.outputs.cache-hit }}
 
 inputs:
   github-token:
@@ -43,7 +52,9 @@ inputs:
     required: false
     default: 'false'
   node-cache:
-    description: 'Whether to cache the pnpm store'
+    description: >-
+      Whether to restore the pnpm store. The caller saves it with
+      save-pnpm-store.
     required: false
     default: 'false'
   go-cache-key:
@@ -131,8 +142,33 @@ runs:
       uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: ${{ inputs.node-version }}
-        cache: ${{ inputs.node-cache == 'true' && 'pnpm' || '' }}
-        cache-dependency-path: 'apps/web/pnpm-lock.yaml'
+
+    # One pnpm store cache per lockfile and runner. The key ends in the
+    # lockfile's hash, which prune-caches.sh strips to find the family. A new
+    # lockfile restores the newest store and fetches only what it lacks.
+    - name: Find pnpm store
+      if: inputs.setup-node == 'true' && inputs.node-cache == 'true'
+      id: node-cache-paths
+      shell: bash
+      working-directory: ./apps/web
+      env:
+        LOCKFILE_HASH: ${{ hashFiles('apps/web/pnpm-lock.yaml') }}
+      run: |
+        prefix="node-cache-$RUNNER_OS-${RUNNER_ARCH,,}-pnpm-"
+        {
+          echo "prefix=$prefix"
+          echo "key=$prefix$LOCKFILE_HASH"
+          echo "path=$(pnpm store path)"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Restore pnpm store
+      if: inputs.setup-node == 'true' && inputs.node-cache == 'true'
+      id: restore-node-cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.node-cache-paths.outputs.path }}
+        key: ${{ steps.node-cache-paths.outputs.key }}
+        restore-keys: ${{ steps.node-cache-paths.outputs.prefix }}
 
     - name: Set up Go
       if: inputs.setup-go == 'true'

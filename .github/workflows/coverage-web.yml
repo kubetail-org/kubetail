@@ -59,6 +59,7 @@ jobs:
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
+          # Restores the pnpm store ci-web.yml saves on main, and saves none.
           node-cache: "true"
       - name: Install dependencies
         working-directory: ./apps/web
