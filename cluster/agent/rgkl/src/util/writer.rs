@@ -14,6 +14,7 @@
 
 use std::io::{self, Write};
 use std::str::FromStr;
+use std::time::SystemTime;
 
 use prost_types::Timestamp;
 use serde_json;
@@ -138,10 +139,9 @@ pub fn process_output(
                         };
 
                         let record = LogRecord {
-                            timestamp: Some(Timestamp {
-                                seconds: timestamp.timestamp(),
-                                nanos: timestamp.timestamp_subsec_nanos() as i32,
-                            }),
+                            // Through SystemTime, so a time before 1970 gets the
+                            // non-negative nanos protobuf requires.
+                            timestamp: Some(SystemTime::from(timestamp).into()),
                             message: String::from_utf8_lossy(line.message).trim_end().to_string(),
                             is_final: line.is_final,
                         };
@@ -199,6 +199,18 @@ mod tests {
                 }),
                 message: "message".to_string(),
                 is_final,
+            })
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn cri_timestamp_before_epoch_has_non_negative_nanos() {
+        let text = "1969-12-31T23:59:59.5Z stdout F message\n";
+        assert_eq!(
+            process_cri(text).unwrap().timestamp,
+            Some(Timestamp {
+                seconds: -1,
+                nanos: 500_000_000,
             })
         );
     }

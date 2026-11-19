@@ -16,9 +16,9 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 
-use chrono::{DateTime, Utc};
 use grep::printer::JSONBuilder;
 use grep::searcher::{MmapChoice, SearcherBuilder};
+use jiff::Timestamp;
 use notify::{Config, Error, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::select;
 use tokio::sync::broadcast;
@@ -67,8 +67,8 @@ where
 pub async fn stream_forward(
     ctx: CancellationToken,
     path: &PathBuf,
-    start_time: Option<DateTime<Utc>>,
-    stop_time: Option<DateTime<Utc>>,
+    start_time: Option<Timestamp>,
+    stop_time: Option<Timestamp>,
     grep: Option<&str>,
     follow_from: FollowFrom,
     sender: Sender<Result<LogRecord, Status>>,
@@ -90,8 +90,8 @@ pub async fn stream_forward(
 async fn stream_forward_with_lifecyle_events(
     ctx: CancellationToken,
     path: &PathBuf,
-    start_time: Option<DateTime<Utc>>,
-    stop_time: Option<DateTime<Utc>>,
+    start_time: Option<Timestamp>,
+    stop_time: Option<Timestamp>,
     grep: Option<&str>,
     follow_from: FollowFrom,
     sender: Sender<Result<LogRecord, Status>>,
@@ -123,8 +123,8 @@ type ResultOption<T, E> = Result<Option<T>, E>;
 fn setup_fs_watcher<'a>(
     ctx: CancellationToken,
     path: &PathBuf,
-    start_time: Option<DateTime<Utc>>,
-    stop_time: Option<DateTime<Utc>>,
+    start_time: Option<Timestamp>,
+    stop_time: Option<Timestamp>,
     grep: Option<&'a str>,
     follow_from: FollowFrom,
     sender: &'a Sender<Result<LogRecord, Status>>,
@@ -405,7 +405,7 @@ mod test {
         let start_time = if start_time_str.is_empty() {
             None
         } else {
-            Some(start_time_str.parse::<DateTime<Utc>>().unwrap())
+            Some(start_time_str.parse::<Timestamp>().unwrap())
         };
 
         // Create output channel
@@ -453,7 +453,7 @@ mod test {
         let stop_time = if stop_time_str.is_empty() {
             None
         } else {
-            Some(stop_time_str.parse::<DateTime<Utc>>().unwrap())
+            Some(stop_time_str.parse::<Timestamp>().unwrap())
         };
 
         // Create output channel
@@ -503,14 +503,14 @@ mod test {
         let start_time = if start_time_str.is_empty() {
             None
         } else {
-            Some(start_time_str.parse::<DateTime<Utc>>().unwrap())
+            Some(start_time_str.parse::<Timestamp>().unwrap())
         };
 
         // Parse stop time if provided, otherwise use None
         let stop_time = if stop_time_str.is_empty() {
             None
         } else {
-            Some(stop_time_str.parse::<DateTime<Utc>>().unwrap())
+            Some(stop_time_str.parse::<Timestamp>().unwrap())
         };
 
         // Create output channel
@@ -560,7 +560,7 @@ mod test {
         let start_time = if start_time_str.is_empty() {
             None
         } else {
-            Some(start_time_str.parse::<DateTime<Utc>>().unwrap())
+            Some(start_time_str.parse::<Timestamp>().unwrap())
         };
 
         // Create a cancellation token

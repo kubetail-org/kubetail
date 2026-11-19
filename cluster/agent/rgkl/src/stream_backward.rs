@@ -19,9 +19,9 @@ use tokio_util::sync::CancellationToken;
 use tonic::Status;
 use types::cluster_agent::LogRecord;
 
-use chrono::{DateTime, Utc};
 use grep::printer::JSONBuilder;
 use grep::searcher::{MmapChoice, SearcherBuilder};
+use jiff::Timestamp;
 
 use crate::fs_watcher_error::FsWatcherError;
 use crate::util::format::FileFormat;
@@ -33,8 +33,8 @@ use crate::util::writer::{process_output, CallbackWriter};
 pub async fn stream_backward(
     ctx: CancellationToken,
     path: &PathBuf,
-    start_time: Option<DateTime<Utc>>,
-    stop_time: Option<DateTime<Utc>>,
+    start_time: Option<Timestamp>,
+    stop_time: Option<Timestamp>,
     grep: Option<&str>,
     sender: Sender<Result<LogRecord, Status>>,
 ) {
@@ -48,8 +48,8 @@ pub async fn stream_backward(
 fn stream_backward_internal(
     ctx: CancellationToken,
     path: &PathBuf,
-    start_time: Option<DateTime<Utc>>,
-    stop_time: Option<DateTime<Utc>>,
+    start_time: Option<Timestamp>,
+    stop_time: Option<Timestamp>,
     grep: Option<&str>,
     sender: &Sender<Result<LogRecord, Status>>,
 ) -> Result<(), FsWatcherError> {
@@ -197,7 +197,7 @@ mod test {
         let start_time = if start_time_str.is_empty() {
             None
         } else {
-            Some(start_time_str.parse::<DateTime<Utc>>().unwrap())
+            Some(start_time_str.parse::<Timestamp>().unwrap())
         };
 
         // Create output channel
@@ -235,7 +235,7 @@ mod test {
         let stop_time = if stop_time_str.is_empty() {
             None
         } else {
-            Some(stop_time_str.parse::<DateTime<Utc>>().unwrap())
+            Some(stop_time_str.parse::<Timestamp>().unwrap())
         };
 
         // Create output channel
@@ -295,14 +295,14 @@ mod test {
         let start_time = if start_time_str.is_empty() {
             None
         } else {
-            Some(start_time_str.parse::<DateTime<Utc>>().unwrap())
+            Some(start_time_str.parse::<Timestamp>().unwrap())
         };
 
         // Parse stop time if provided, otherwise use None
         let stop_time = if stop_time_str.is_empty() {
             None
         } else {
-            Some(stop_time_str.parse::<DateTime<Utc>>().unwrap())
+            Some(stop_time_str.parse::<Timestamp>().unwrap())
         };
 
         // Create output channel

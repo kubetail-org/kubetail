@@ -14,7 +14,7 @@ tokio-util = { workspace = true, features = ["rt"] }
 
 tonic = { workspace = true, features = ["gzip"] }
 
-chrono = { workspace = true}
+jiff = { workspace = true }
 prost-types = { workspace = true}
 notify = { workspace = true, features = ["crossbeam-channel", "macos_kqueue"] }
 thiserror = { workspace = true }

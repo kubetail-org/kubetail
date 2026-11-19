@@ -15,7 +15,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use tokio::sync::mpsc::{self};
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::sync::CancellationToken;
@@ -101,8 +101,8 @@ impl LogRecordsService for LogRecordsImpl {
             stream_backward::stream_backward(
                 local_ctx,
                 &file_path,
-                request.start_time.parse::<DateTime<Utc>>().ok(),
-                request.stop_time.parse::<DateTime<Utc>>().ok(),
+                request.start_time.parse::<Timestamp>().ok(),
+                request.stop_time.parse::<Timestamp>().ok(),
                 if request.grep.is_empty() {
                     None
                 } else {
@@ -137,8 +137,8 @@ impl LogRecordsService for LogRecordsImpl {
             stream_forward::stream_forward(
                 local_ctx,
                 &file_path,
-                request.start_time.parse::<DateTime<Utc>>().ok(),
-                request.stop_time.parse::<DateTime<Utc>>().ok(),
+                request.start_time.parse::<Timestamp>().ok(),
+                request.stop_time.parse::<Timestamp>().ok(),
                 if request.grep.is_empty() {
                     None
                 } else {

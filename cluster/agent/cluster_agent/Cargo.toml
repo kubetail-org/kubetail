@@ -26,7 +26,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "regis
 notify = { workspace = true}
 notify-debouncer-full = "0.7.0"
 
-chrono = { workspace = true}
+jiff = { workspace = true }
 thiserror = { workspace = true }
 
 kube = { version = "5.0.0" }
