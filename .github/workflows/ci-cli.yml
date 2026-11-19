@@ -15,6 +15,12 @@ on:
         description: ci.yml's dispatch input, passed down
         type: string
         default: ""
+    outputs:
+      docker-result:
+        description: >-
+          The result of Build · Docker. ci.yml prunes the BuildKit caches only
+          after every area's build succeeded.
+        value: ${{ jobs.cli-images.result }}
   workflow_dispatch:
     inputs:
       cache-mode:
@@ -36,7 +42,7 @@ env:
   #   update   Also save a new Go cache per job and runner. Every push to main.
   #   rebuild  Start the Go caches from empty, then save them.
   # A dispatch takes its input. Prune · Caches deletes the caches a save
-  # replaced.
+  # replaced; ci.yml's Prune · BuildKit deletes the BuildKit caches.
   CACHE_MODE: ${{ inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use' }}
 
 jobs:
