@@ -2,7 +2,7 @@
 # Deletes every Actions cache on a ref but the newest of each family, so a
 # ref holds one copy of each cache. A family is a key without the part a save
 # changes: the Go caches' `-run-<id>`, rust-cache's two trailing hashes, and
-# setup-node's and setup-uv's lockfile hash. A key in no family, such as a
+# the pnpm store's and setup-uv's lockfile hash. A key in no family, such as a
 # BuildKit blob, is never deleted.
 #
 # Given names, it prunes only the caches whose key holds one of them between

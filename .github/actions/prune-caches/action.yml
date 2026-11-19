@@ -2,7 +2,7 @@ name: 'Prune Caches'
 description: 'Deletes every Actions cache on the ref but the newest of each family'
 
 # The job needs actions: write. Run it after every job that saves a cache,
-# including rust-cache, setup-node and setup-uv, which save in post steps.
+# including rust-cache and setup-uv, which save in post steps.
 inputs:
   caches:
     description: >-

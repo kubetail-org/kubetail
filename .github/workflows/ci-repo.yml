@@ -27,8 +27,8 @@ on:
         default: use
 
 env:
-  # use or update: whether a run saves the uv cache and prunes. A dispatch
-  # takes its input; a push to main updates; a PR uses.
+  # use or update: whether a run saves the uv and pnpm store caches and
+  # prunes. A dispatch takes its input; a push to main updates; a PR uses.
   CACHE_MODE: ${{ inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use' }}
 
 jobs:
@@ -176,7 +176,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-environment
+      - id: setup
+        uses: ./.github/actions/setup-environment
         with:
           setup-go: "true"
           setup-protoc: "true"
@@ -184,6 +185,12 @@ jobs:
           node-cache: "true"
       - name: Regenerate and compare
         run: make check-generated
+      - name: Save pnpm store
+        if: env.CACHE_MODE != 'use' && steps.setup.outputs.node-cache-hit != 'true'
+        uses: ./.github/actions/save-pnpm-store
+        with:
+          path: ${{ steps.setup.outputs.node-cache-path }}
+          key: ${{ steps.setup.outputs.node-cache-key }}
 
   ##############################
   # Test jobs
@@ -251,8 +258,7 @@ jobs:
   ##############################
 
   # Deletes the caches this run's saves replaced, so the ref holds one copy of
-  # each. It needs the two jobs that save one because setup-uv and setup-node
-  # save in post steps, when their job ends.
+  # each. It needs the two jobs that save one.
   cache-prune:
     name: Prune · Caches
     needs:

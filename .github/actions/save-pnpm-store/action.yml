@@ -1,0 +1,28 @@
+name: 'Save pnpm store'
+description: 'Prunes the pnpm store to what the lockfile names, then saves it'
+
+# Run it after pnpm install, with the cache setup-environment restored. The
+# caller decides whether to save. zizmor's cache-poisoning audit does not see
+# inside a composite action: no release workflow may call this one.
+inputs:
+  path:
+    description: "setup-environment's node-cache-path"
+    required: true
+  key:
+    description: "setup-environment's node-cache-key"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    # A restore by prefix can bring packages an older lockfile named.
+    - name: Prune pnpm store
+      shell: bash
+      working-directory: ./apps/web
+      run: pnpm store prune
+
+    - name: Save pnpm store
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ inputs.path }}
+        key: ${{ inputs.key }}

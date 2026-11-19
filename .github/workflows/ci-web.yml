@@ -26,9 +26,8 @@ on:
         default: use
 
 env:
-  # use or update: whether a run prunes the pnpm store's cache, which
-  # setup-node saves whenever its key is new. A dispatch takes its input; a
-  # push to main updates; a PR uses.
+  # use or update: whether a run saves the pnpm store's cache and prunes. A
+  # dispatch takes its input; a push to main updates; a PR uses.
   CACHE_MODE: ${{ inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use' }}
 
 jobs:
@@ -73,13 +72,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-environment
+      - id: setup
+        uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
           node-cache: "true"
       - name: Install dependencies
         working-directory: ./apps/web
         run: pnpm install --frozen-lockfile
+      - name: Save pnpm store
+        if: env.CACHE_MODE != 'use' && steps.setup.outputs.node-cache-hit != 'true'
+        uses: ./.github/actions/save-pnpm-store
+        with:
+          path: ${{ steps.setup.outputs.node-cache-path }}
+          key: ${{ steps.setup.outputs.node-cache-key }}
       - name: Lint
         working-directory: ./apps/web
         run: pnpm lint
@@ -97,13 +103,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-environment
+      - id: setup
+        uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
           node-cache: "true"
       - name: Install dependencies
         working-directory: ./apps/web
         run: pnpm install --frozen-lockfile
+      - name: Save pnpm store
+        if: env.CACHE_MODE != 'use' && steps.setup.outputs.node-cache-hit != 'true'
+        uses: ./.github/actions/save-pnpm-store
+        with:
+          path: ${{ steps.setup.outputs.node-cache-path }}
+          key: ${{ steps.setup.outputs.node-cache-key }}
       - name: Test
         working-directory: ./apps/web
         run: pnpm test run
@@ -118,20 +131,26 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-environment
+      - id: setup
+        uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
           node-cache: "true"
       - name: Install dependencies
         working-directory: ./apps/web
         run: pnpm install --frozen-lockfile
+      - name: Save pnpm store
+        if: env.CACHE_MODE != 'use' && steps.setup.outputs.node-cache-hit != 'true'
+        uses: ./.github/actions/save-pnpm-store
+        with:
+          path: ${{ steps.setup.outputs.node-cache-path }}
+          key: ${{ steps.setup.outputs.node-cache-key }}
       - name: Build
         working-directory: ./apps/web
         run: pnpm build
 
   # Deletes the pnpm store's caches this run's save replaced, so the ref holds
-  # one copy. It needs every job because setup-node saves in a post step, when
-  # its job ends.
+  # one copy. It needs every job that saves one.
   cache-prune:
     name: Prune · Caches
     needs:
