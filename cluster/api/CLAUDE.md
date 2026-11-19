@@ -21,7 +21,8 @@ cd ../../apps/web && pnpm graphql-codegen   # the UI's types
 Before a PR:
 
 ```sh
-make cover-cluster-api-changed   # from the repo root
+make lint-cluster-api vet-cluster-api test-cluster-api   # from the repo root
+make cover-cluster-api-changed                           # from the repo root
 ```
 
 ## Routes

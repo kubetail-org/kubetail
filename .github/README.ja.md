@@ -339,14 +339,14 @@ pnpm dev
 
 | 変更した場所 | 追加で実行するもの |
 |---|---|
-| `libs/go-common/` | `make test-go` （ワークスペース全体） |
-| `libs/graphql/*/schema.graphqls` | そのサーバーで `go generate ./...`、`apps/web/` で `pnpm graphql-codegen`、`make vet-ts` |
+| `libs/go-common/` | `make test-cli test-cluster-api` |
+| `libs/graphql/*/schema.graphqls` | そのサーバーで `go generate ./...`、`apps/web/` で `pnpm graphql-codegen`、`make vet-web` |
 | `libs/proto/` | `make check-generated`, Go と Rust のチェック |
-| `Dockerfile` またはツールチェーンのバージョン | `make lint-toolchains lint-digests` |
-| `.github/` またはその他の YAML | `make lint-yaml` |
-| `scripts/` | `make lint-sh test-sh` |
+| `Dockerfile` またはツールチェーンのバージョン | `make lint-repo-toolchains lint-repo-digests` |
+| `.github/` またはその他の YAML | `make lint-repo-yaml` |
+| `scripts/` | `make lint-repo-sh test-repo` |
 | `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
-| Markdown | `make lint-md` |
+| Markdown | `make lint-repo-md` |
 | `config/`, `hack/` | CI はこれらに対してコードのジョブを実行しません。実行したチェックをプルリクエストに書きます |
 
 `make help` はすべてのターゲットを一覧表示します。

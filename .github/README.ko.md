@@ -339,14 +339,14 @@ pnpm dev
 
 | 변경한 곳 | 추가로 실행 |
 |---|---|
-| `libs/go-common/` | `make test-go` (전체 워크스페이스) |
-| `libs/graphql/*/schema.graphqls` | 해당 서버에서 `go generate ./...`, `apps/web/`에서 `pnpm graphql-codegen`, `make vet-ts` |
+| `libs/go-common/` | `make test-cli test-cluster-api` |
+| `libs/graphql/*/schema.graphqls` | 해당 서버에서 `go generate ./...`, `apps/web/`에서 `pnpm graphql-codegen`, `make vet-web` |
 | `libs/proto/` | `make check-generated`, Go와 Rust 검사 |
-| `Dockerfile` 또는 툴체인 버전 | `make lint-toolchains lint-digests` |
-| `.github/` 또는 기타 YAML | `make lint-yaml` |
-| `scripts/` | `make lint-sh test-sh` |
+| `Dockerfile` 또는 툴체인 버전 | `make lint-repo-toolchains lint-repo-digests` |
+| `.github/` 또는 기타 YAML | `make lint-repo-yaml` |
+| `scripts/` | `make lint-repo-sh test-repo` |
 | `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
-| Markdown | `make lint-md` |
+| Markdown | `make lint-repo-md` |
 | `config/`, `hack/` | CI는 이 경로에 대해 코드 작업을 실행하지 않습니다. 실행한 검사를 풀 리퀘스트에 적습니다 |
 
 `make help`는 모든 타깃을 나열합니다.

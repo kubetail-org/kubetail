@@ -89,7 +89,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck
       - name: Run shellcheck
-        run: make lint-sh
+        run: make lint-repo-sh
 
   # Runs on every PR: one that moves a file a doc links to may touch no Markdown.
   markdown-lint:
@@ -121,9 +121,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Check the Dockerfiles' toolchain versions
-        run: make lint-toolchains
+        run: make lint-repo-toolchains
       - name: Check the Dockerfiles' image digests
-        run: make lint-digests
+        run: make lint-repo-digests
 
   python-lint:
     name: Python · Lint
@@ -164,7 +164,7 @@ jobs:
       - name: Run yamllint, actionlint, zizmor and the Passed check
         env:
           GH_TOKEN: ${{ github.token }}
-        run: make lint-yaml
+        run: make lint-repo-yaml
 
   # Regenerates every committed output from its source and fails on a change.
   generated-check:

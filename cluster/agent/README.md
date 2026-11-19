@@ -26,10 +26,8 @@ cargo test -p rgkl                 # one crate, by name; `cargo test -p cluster_
 Before a PR:
 
 ```sh
-cargo clippy --all --all-targets -- -D warnings
-cargo test
-make lint-rust                     # from the repo root: rustfmt's check, license headers, coverage markers
-make cover-cluster-agent-changed   # from the repo root; needs cargo-llvm-cov
+make lint-cluster-agent vet-cluster-agent test-cluster-agent   # from the repo root: rustfmt's check, license headers, coverage markers, clippy, cargo test
+make cover-cluster-agent-changed                               # from the repo root; needs cargo-llvm-cov
 ```
 
 CI tests and builds on Linux alone. To run a local agent under Tilt, set `KUBETAIL_RUST_DEV_MODE` to `docker` or `local`; without it Tilt pulls the published image and your changes to `cluster/agent/` are not deployed.

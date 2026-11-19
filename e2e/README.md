@@ -38,8 +38,7 @@ uv run pytest -v -k <name>
 Before a PR:
 
 ```sh
-uv run ruff check . && uv run ruff format --check .
-make test-e2e              # from the repo root: build, deploy, run
+make lint-e2e test-e2e     # from the repo root: ruff, then build, deploy, run
 ```
 
 ## Run the full suite

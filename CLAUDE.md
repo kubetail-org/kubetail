@@ -74,11 +74,9 @@ Before a PR:
 
 ```sh
 go fmt ./...              # in the module; CI fails if `gofmt -l .` prints anything
-go test -race ./...       # in the module
-make lint-go vet-go       # from the repo root
 ```
 
-`make lint-go` adds the license headers and coverage markers. `make vet-go` runs `go vet` for this platform and for `GOOS=windows`, `scripts/check-go-fix.sh` and staticcheck. Ignore a staticcheck finding with `//lint:ignore <check> <reason>` on the line above it. `make test-go` runs `go test -race` over the whole workspace. Don't commit a `vendor/` directory.
+then the area's `make lint-<area> vet-<area> test-<area>`, which its guide lists. The areas are `cli` (`cli` and `dashboard`), `libs` and `cluster-api`. `lint-<area>` checks gofmt, the license headers and the coverage markers. `vet-<area>` runs `go vet` for this platform and for `GOOS=windows`, `scripts/check-go-fix.sh` and staticcheck. `test-<area>` runs `go test -race`. Ignore a staticcheck finding with `//lint:ignore <check> <reason>` on the line above it. Don't commit a `vendor/` directory.
 
 Coverage is measured per CI area: every test binary counts every package of its area (`-coverpkg`). The areas are `cli` with `dashboard`, `libs/go-common`, and `cluster/api`, so a `libs/go-common` line counts only when its own tests reach it. Each area's `make cover-<area>-changed` runs only the changed packages' tests; `FULL=1` runs them all, as CI does. → [ADR: measure and gate coverage per area](docs/adr/2026-11-19-measure-and-gate-coverage-per-area.md)
 
@@ -150,7 +148,7 @@ For every hand-written file, not generated output or lockfiles.
 
 `scripts/writing-standards-hook.sh` (`.claude/settings.json`) restates these every turn. Keep the two in sync.
 
-**Every hand-written Go, Rust and TypeScript file opens with the Apache 2.0 header**, first line `Copyright 2024 The Kubetail Authors`, copied from a neighbouring file. `make lint-go`, `lint-rust` and `lint-ts` fail on one without (`scripts/check-license-headers.sh`). Python and shell files carry none.
+**Every hand-written Go, Rust and TypeScript file opens with the Apache 2.0 header**, first line `Copyright 2024 The Kubetail Authors`, copied from a neighbouring file. Each `make lint-<area>` fails on one without (`scripts/check-license-headers.sh`). Python and shell files carry none.
 
 Older files predate these standards. Leave unrelated lines alone: a cleanup is a commit of its own.
 
@@ -175,27 +173,27 @@ A change in one place can break another area. Also run:
 
 | A change to | Also run |
 |---|---|
-| `libs/go-common/` | `make test-go` (the whole workspace) |
-| `libs/graphql/*/schema.graphqls` | `go generate ./...` in that server, `pnpm graphql-codegen` in `apps/web/`, `make vet-ts` |
+| `libs/go-common/` | `make test-cli test-cluster-api` |
+| `libs/graphql/*/schema.graphqls` | `go generate ./...` in that server, `pnpm graphql-codegen` in `apps/web/`, `make vet-web` |
 | `libs/proto/` | `make check-generated`, the Go and Rust checks |
-| a `Dockerfile` or a toolchain version | `make lint-toolchains lint-digests` |
-| `.github/` or other YAML | `make lint-yaml` |
-| `scripts/` | `make lint-sh test-sh` |
+| a `Dockerfile` or a toolchain version | `make lint-repo-toolchains lint-repo-digests` |
+| `.github/` or other YAML | `make lint-repo-yaml` |
+| `scripts/` | `make lint-repo-sh test-repo` |
 | `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
-| Markdown | `make lint-md` |
+| Markdown | `make lint-repo-md` |
 | `config/` or `hack/` | CI runs no code job for these: name the checks you ran in the PR |
 
-- **`make check` runs `lint`, `vet` and `test` for every area.** Each target is `<verb>` for every area or `<verb>-<area>` for one (`lint-go`, `vet-rust`, `test-ts`); `make help` lists them. `vet-ts` type-checks the UI with `tsc -b`; no target runs `vite build` or the checks of `tools/`.
+- **Each check is `make <verb>-<area>`**, over the areas CI checks apart: `cli` (with `dashboard`), `libs`, `cluster-api`, `cluster-agent`, `web`, `e2e` and `repo`, for what belongs to no component. No target runs every area. `make help` lists them. `vet-web` type-checks the UI with `tsc -b`; no target runs `vite build` or the checks of `tools/`.
 - **`scripts/cover-changed.sh <area>` lists an area's changed lines that no local test run reaches**, measured as its `coverage-*.yml` measures them. A new coverage area gets a case there, a `cover-<area>-changed` target and a case in `scripts/cover-changed.bats`, which runs each area's suite and checks it lists a known uncovered line.
-- **Markdown links are checked offline in CI** (`make lint-md`): a moved or renamed file breaks every relative link to it.
+- **Markdown links are checked offline in CI** (`make lint-repo-md`): a moved or renamed file breaks every relative link to it.
 - **CI is one workflow per area, called from two**: `ci.yml` calls `ci-cli.yml` (the CLI and the Dashboard backend), `ci-libs.yml` (`libs/go-common`), `ci-cluster.yml`, `ci-web.yml`, `ci-e2e.yml` and `ci-repo.yml`; `coverage.yml` calls `coverage-<area>.yml` for `cli`, `libs`, `cluster` and `web`. The callers run on every pull request and push to `main`, and never take an `on: paths:`: a workflow that does not start never reports its required check. An area file also runs alone by dispatch (`gh workflow run ci-cli.yml --ref <branch>`), so it keeps a Plan job, its own `CACHE_MODE` and its own `Caches · Prune`. → [ADR: run CI as one workflow per area](docs/adr/2026-11-19-run-ci-as-one-workflow-per-area.md)
 - **On a pull request, each workflow's Plan picks its jobs by path.** `.github/actions/plan` composes them from the narrow keys of `.github/ci-config/path-filters.yml`, as `codeql.yml` does. A path is in a key when it matches one of its patterns and none of its `!` patterns; each key that runs code jobs ends in `!**/*.md`, so a change to Markdown alone runs no Go, Rust, TypeScript, Docker or E2E job. A change to `config/` or `hack/` alone runs no Go, Rust or TypeScript job: run the affected checks yourself. A push to `main` or a dispatch runs every job.
-- **`CI · Passed` and `Coverage · Passed` are the `main` ruleset's required checks.** Each is its caller's last job, needs every area and runs `if: always()`; an area fails when any of its jobs failed. `make lint-yaml` (`tools/cipassed`) fails when a caller misses an area file or its `· Passed` job, so a new `ci-*.yml` or `coverage-*.yml` is gated once it exists. → [ADR: require CI to merge to main](docs/adr/2026-11-19-require-ci-to-merge-to-main.md)
+- **`CI · Passed` and `Coverage · Passed` are the `main` ruleset's required checks.** Each is its caller's last job, needs every area and runs `if: always()`; an area fails when any of its jobs failed. `make lint-repo-yaml` (`tools/cipassed`) fails when a caller misses an area file or its `· Passed` job, so a new `ci-*.yml` or `coverage-*.yml` is gated once it exists. → [ADR: require CI to merge to main](docs/adr/2026-11-19-require-ci-to-merge-to-main.md)
 - **Only runs on `main` save CI caches; PRs only read them.** Each `ci-*.yml`'s `CACHE_MODE` decides, and its `Caches · Prune` keeps the newest of each cache its own jobs save. A cache key starts with its job id, so a job id is unique across the `ci-*.yml` files. Only the `*-test` jobs save a Go cache, in their last step; vet, staticcheck, Alpine, 386 and E2E restore one. A test job's flags must match a PR's, or a PR replays no cached test result.
 - **A PR runs each OS once; `main` runs the other platforms.** On a PR, `Go · Build and Test` runs on linux/amd64 alone, since `coverage-cli.yml` and `coverage-libs.yml` test macOS and Windows. `ci-cli.yml`'s `Docker · Build` builds the cli image's `final` stage for amd64 alone unless a Dockerfile changed, and `ci-cluster.yml` builds its images only then: E2E builds the other images. The arm64 legs and the Alpine and 386 jobs run only on `main` and on a dispatch, so a failure on those platforms shows up after merge. The riscv64 tests and images run weekly, in `riscv64.yml`. → [ADR: run each OS once on a PR and the other platforms on main](docs/adr/2026-11-10-run-each-os-once-on-a-pr-and-the-other-platforms-on-main.md), [ADR: run the riscv64 jobs weekly](docs/adr/2026-11-10-run-the-riscv64-jobs-weekly.md)
 - **CI checks each component on every platform it ships for, except the gaps the ADR lists with a reason.** The CLI builds for every shipped platform on `main`, and its unit tests run on every OS and arch a runner has, with 386 standing in for 32-bit arm. E2E runs on Linux alone: amd64 on a PR, arm64 too on `main`. A new shipped platform or image target, or code specific to one OS or arch, updates the ADR's matrix. → [ADR: test each component on the platforms it ships for](docs/adr/2026-11-10-test-each-component-on-the-platforms-it-ships-for.md)
 - **The end-to-end suite (`ci-e2e.yml`) runs when a PR touches any Go, Rust or TypeScript path, or `e2e/`.**
-- **`make lint-yaml` lints every YAML file, then the workflows with `actionlint`, `zizmor`** (`.github/ci-config/zizmor.yml`) **and `tools/cipassed`**. It needs `uv`, Go and `shellcheck`, and CI's `YAML · Lint` job runs it. Pin a new action to a commit SHA with its exact version in a comment (`# v7.0.1`), and pass `${{ }}` values to a `run:` script through `env:`.
+- **`make lint-repo-yaml` lints every YAML file, then the workflows with `actionlint`, `zizmor`** (`.github/ci-config/zizmor.yml`) **and `tools/cipassed`**. It needs `uv`, Go and `shellcheck`, and CI's `YAML · Lint` job runs it. Pin a new action to a commit SHA with its exact version in a comment (`# v7.0.1`), and pass `${{ }}` values to a `run:` script through `env:`.
 - **A job's `name:` never repeats its workflow's name**: the checks list shows `codeql / Go`, not `codeql / CodeQL · Go`. So names repeat across workflows (`Go`, `Plan`, `Fork gate`), and a ruleset's required check, which matches the job name alone, would match each of them: rename a job to something unique before requiring it.
 - **Each area measures its coverage in its own `coverage-*.yml`**, on the same filter keys as its `ci-*.yml`, so a path that runs a language's tests measures its coverage too. Its uploads carry the area's Codecov flags, and its gate reads the area's component in `.github/codecov.yml`; a new area adds both, with its flags in `flag_management`. No area's flags may measure another component's paths. A coverage job measures as `scripts/cover-changed.sh` does; change both together. The tools it runs live in `tools/`, a Go module outside the workspace.
 
@@ -215,8 +213,8 @@ Each area's guide lists what an ordinary change there can break. These hold ever
 Add an external dependency only for a material gain in readability or performance, and state the reason. Go: the standard library first. Rust: well-maintained, audited crates. TypeScript: weigh the bundle size.
 
 - **Dependabot proposes updates weekly** (`.github/dependabot.yml`) and a person merges each one. It never moves a toolchain: the Go, Node and Rust versions, `packageManager` and the `@types/node` major are bumped by hand. → [ADR: Dependabot moves dependencies, and a person merges every update](docs/adr/2026-11-09-dependabot-moves-dependencies-and-a-person-merges-every-update.md)
-- **Each toolchain has one exact version, set in one place**: Go and Node in the `go-version` and `node-version` defaults of `.github/actions/setup-environment/action.yml`, Rust in `cluster/agent/rust-toolchain.toml`. CI installs it, and the `golang`, `node` and `rust` images in the release Dockerfiles and `hack/tilt/` carry the same version in their tags. Bump them in one commit, with Node the `@types/node` major in `apps/web/package.json`, and re-pin each image's digest; `make lint-toolchains` (CI's `Toolchains · Lint`) fails on a mismatch. → [ADR: pin each toolchain to one version that CI and the images share](docs/adr/2026-11-10-pin-each-toolchain-to-one-version-that-ci-and-the-images-share.md)
-- **Every image a Dockerfile pulls is pinned by tag and digest** (`alpine:3.24.4@sha256:…`), so a re-pushed tag cannot change a release; `make lint-digests` fails on one without. Dependabot moves the other images, tag and digest together. `docker buildx imagetools inspect <image>:<tag>` prints the digest to pin.
+- **Each toolchain has one exact version, set in one place**: Go and Node in the `go-version` and `node-version` defaults of `.github/actions/setup-environment/action.yml`, Rust in `cluster/agent/rust-toolchain.toml`. CI installs it, and the `golang`, `node` and `rust` images in the release Dockerfiles and `hack/tilt/` carry the same version in their tags. Bump them in one commit, with Node the `@types/node` major in `apps/web/package.json`, and re-pin each image's digest; `make lint-repo-toolchains` (CI's `Toolchains · Lint`) fails on a mismatch. → [ADR: pin each toolchain to one version that CI and the images share](docs/adr/2026-11-10-pin-each-toolchain-to-one-version-that-ci-and-the-images-share.md)
+- **Every image a Dockerfile pulls is pinned by tag and digest** (`alpine:3.24.4@sha256:…`), so a re-pushed tag cannot change a release; `make lint-repo-digests` fails on one without. Dependabot moves the other images, tag and digest together. `docker buildx imagetools inspect <image>:<tag>` prints the digest to pin.
 - **`audit.yml` fails a PR only for the advisories it brings in**, and audits the whole tree on `main` and nightly. A failure there opens a `security` issue.
 
 ## Commits, pull requests, issues, releases

@@ -32,6 +32,7 @@ go generate ./...          # copies them to assets/; commit both
 Before a PR:
 
 ```sh
-make cover-cli-changed     # from the repo root, with dashboard/; FULL=1 runs every test of both
+make lint-cli vet-cli test-cli   # from the repo root, with dashboard/
+make cover-cli-changed           # from the repo root; FULL=1 runs every test of both
 ```
 

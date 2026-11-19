@@ -17,7 +17,7 @@ Go did not drift: `setup-environment`'s `go-version` named an exact version, and
 
 Each toolchain has one exact version, set in one file. Go and Node are the `go-version` and `node-version` defaults in `.github/actions/setup-environment/action.yml`. Rust is `channel` in `cluster/agent/rust-toolchain.toml`, which `setup-environment` reads and passes to `dtolnay/rust-toolchain`, and which rustup reads in a local checkout.
 
-Every `golang`, `node` and `rust` image in the release Dockerfiles (`<component>/Dockerfile`) and `hack/tilt/` carries that version in its tag. `scripts/check-toolchain-versions.sh` (`make lint-toolchains`, CI's `Toolchains · Lint` on every PR) fails when a tag differs, or when a source names less than an exact `x.y.z`.
+Every `golang`, `node` and `rust` image in the release Dockerfiles (`<component>/Dockerfile`) and `hack/tilt/` carries that version in its tag. `scripts/check-toolchain-versions.sh` (`make lint-repo-toolchains`, CI's `Toolchains · Lint` on every PR) fails when a tag differs, or when a source names less than an exact `x.y.z`.
 
 A person bumps a toolchain, in one commit that changes the source and every image.
 

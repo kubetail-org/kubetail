@@ -339,14 +339,14 @@ pnpm dev
 
 | 改动的位置 | 还要运行 |
 |---|---|
-| `libs/go-common/` | `make test-go` （整个 workspace） |
-| `libs/graphql/*/schema.graphqls` | 在该服务器中运行 `go generate ./...`，在 `apps/web/` 中运行 `pnpm graphql-codegen`，`make vet-ts` |
+| `libs/go-common/` | `make test-cli test-cluster-api` |
+| `libs/graphql/*/schema.graphqls` | 在该服务器中运行 `go generate ./...`，在 `apps/web/` 中运行 `pnpm graphql-codegen`，`make vet-web` |
 | `libs/proto/` | `make check-generated`, Go 和 Rust 的检查 |
-| `Dockerfile` 或工具链版本 | `make lint-toolchains lint-digests` |
-| `.github/` 或其他 YAML | `make lint-yaml` |
-| `scripts/` | `make lint-sh test-sh` |
+| `Dockerfile` 或工具链版本 | `make lint-repo-toolchains lint-repo-digests` |
+| `.github/` 或其他 YAML | `make lint-repo-yaml` |
+| `scripts/` | `make lint-repo-sh test-repo` |
 | `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
-| Markdown | `make lint-md` |
+| Markdown | `make lint-repo-md` |
 | `config/`, `hack/` | CI 不会为这些路径运行代码 job：在 pull request 中写明你运行了哪些检查 |
 
 `make help` 列出所有 target。

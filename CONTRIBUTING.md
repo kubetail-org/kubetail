@@ -50,84 +50,22 @@ Kubetail is organized as a monorepo with one folder per component:
 
 ## How to Run Tests and Other Checks
 
-Make sure your changes pass all tests and checks before submitting a pull request.
+Every check is a `make <verb>-<area>` target, run from the repo root. Run the checks of each area you changed before you open a pull request; CI runs every area on every platform. `make help` lists every target and is the authority if this table falls behind.
 
-### TypeScript/React (Dashboard UI)
+| Area | Paths | lint | vet | test | cover |
+|---|---|---|---|---|---|
+| `cli` | `cli/`, `dashboard/` | `lint-cli` | `vet-cli` | `test-cli` | `cover-cli-changed` |
+| `libs` | `libs/go-common/` | `lint-libs` | `vet-libs` | `test-libs` | `cover-libs-changed` |
+| `cluster-api` | `cluster/api/` | `lint-cluster-api` | `vet-cluster-api` | `test-cluster-api` | `cover-cluster-api-changed` |
+| `cluster-agent` | `cluster/agent/` | `lint-cluster-agent` | `vet-cluster-agent` | `test-cluster-agent` | `cover-cluster-agent-changed` |
+| `web` | `apps/web/` | `lint-web` | `vet-web` | `test-web` | `cover-web-changed` |
+| `e2e` | `e2e/` | `lint-e2e` | | `test-e2e` | |
+| `repo` | everything else | `lint-repo` | | `test-repo` | |
 
-```bash
-cd apps/web
-
-# Install dependencies 
-pnpm install
-
-# Run linter and format check
-pnpm lint
-
-# Format code and sort imports
-pnpm format
-
-# Run tests
-pnpm test run
-
-# Build check
-pnpm build
-```
-
-### Go Modules
-
-The Go modules form one workspace, in `go.work` at the repo root. Run these from there.
-
-```bash
-# Format check
-test -z "$(gofmt -l cli cluster/api dashboard libs/go-common)"
-
-# Format check (Windows PowerShell)
-$output = gofmt -l cli cluster/api dashboard libs/go-common; if ($output) { throw "Files need formatting: $output" }
-
-# Vet (static analysis)
-go vet github.com/kubetail-org/kubetail/...
-
-# Vet for Windows too, check go fix, run staticcheck
-make vet-go
-
-# Run tests
-go test -race github.com/kubetail-org/kubetail/...
-```
-
-### Rust Crates
-
-The Rust crates form one Cargo workspace in `cluster/agent/`. Run cargo from there, not from a crate's directory. Building needs `protoc` on your `PATH`.
-
-```bash
-cd cluster/agent
-
-# Format check
-cargo fmt --all -- --check
-
-# Lint
-cargo clippy --all --all-targets -- -D warnings
-
-# Run tests
-cargo test
-
-# Build
-cargo build --release
-```
-
-From the repo root, `make lint-rust`, `make vet-rust` and `make test-rust` run the same checks.
-
-### Python (E2E Tests)
-
-```bash
-cd e2e
-
-# Install dependencies (including dev tools)
-uv sync --group dev
-
-# Lint
-uv run ruff check .
-uv run ruff format --check .
-```
+- **`cover-<area>-changed`** lists the lines your branch changed that no test reaches. Cover or mark each one: CI fails a pull request on them.
+- **`lint-repo`** runs `lint-repo-sh`, `lint-repo-md`, `lint-repo-yaml`, `lint-repo-toolchains` and `lint-repo-digests`, which you can also run alone.
+- **A change can reach another area.** The *Checks* section of the root [README](README.md#checks) lists those cases, and each component's README lists what to run while you work.
+- **The targets need `make` and a POSIX shell.** On Windows, use Git Bash or WSL.
 
 ## Commit Guidelines
 

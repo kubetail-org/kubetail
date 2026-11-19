@@ -29,10 +29,9 @@ pnpm exec vitest related --run <file>...   # the tests that import the files you
 Before a PR:
 
 ```sh
-pnpm build                 # tsc -b && vite build. `tsc -b` (`make vet-ts`) is the only type-check, and it covers test files
-pnpm test run              # `pnpm test` alone is watch mode and never exits
-make lint-ts               # from the repo root: `pnpm lint`, license headers, coverage markers
-make cover-web-changed     # from the repo root: the changed lines no test covers
+make lint-web vet-web test-web   # from the repo root; vet-web is `tsc -b`, the only type-check, and it covers test files
+make cover-web-changed           # from the repo root: the changed lines no test covers
+pnpm build                       # tsc -b && vite build; no make target runs vite build
 ```
 
 ## Build

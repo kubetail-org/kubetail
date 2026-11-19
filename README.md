@@ -339,14 +339,14 @@ A change in one place can break another component. Also run:
 
 | A change to | Also run |
 |---|---|
-| `libs/go-common/` | `make test-go` (the whole workspace) |
-| `libs/graphql/*/schema.graphqls` | `go generate ./...` in that server, `pnpm graphql-codegen` in `apps/web/`, `make vet-ts` |
+| `libs/go-common/` | `make test-cli test-cluster-api` |
+| `libs/graphql/*/schema.graphqls` | `go generate ./...` in that server, `pnpm graphql-codegen` in `apps/web/`, `make vet-web` |
 | `libs/proto/` | `make check-generated`, the Go and Rust checks |
-| a `Dockerfile` or a toolchain version | `make lint-toolchains lint-digests` |
-| `.github/` or other YAML | `make lint-yaml` |
-| `scripts/` | `make lint-sh test-sh` |
+| a `Dockerfile` or a toolchain version | `make lint-repo-toolchains lint-repo-digests` |
+| `.github/` or other YAML | `make lint-repo-yaml` |
+| `scripts/` | `make lint-repo-sh test-repo` |
 | `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
-| Markdown | `make lint-md` |
+| Markdown | `make lint-repo-md` |
 | `config/`, `hack/` | CI runs no code job for these: name the checks you ran in the pull request |
 
 `make help` lists every target.

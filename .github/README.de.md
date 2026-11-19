@@ -339,14 +339,14 @@ Eine Änderung an einer Stelle kann eine andere Komponente brechen. Führe zusä
 
 | Eine Änderung an | Zusätzlich ausführen |
 |---|---|
-| `libs/go-common/` | `make test-go` (der ganze Workspace) |
-| `libs/graphql/*/schema.graphqls` | `go generate ./...` in diesem Server, `pnpm graphql-codegen` in `apps/web/`, `make vet-ts` |
+| `libs/go-common/` | `make test-cli test-cluster-api` |
+| `libs/graphql/*/schema.graphqls` | `go generate ./...` in diesem Server, `pnpm graphql-codegen` in `apps/web/`, `make vet-web` |
 | `libs/proto/` | `make check-generated`, die Go- und Rust-Prüfungen |
-| einem `Dockerfile` oder einer Toolchain-Version | `make lint-toolchains lint-digests` |
-| `.github/` oder anderem YAML | `make lint-yaml` |
-| `scripts/` | `make lint-sh test-sh` |
+| einem `Dockerfile` oder einer Toolchain-Version | `make lint-repo-toolchains lint-repo-digests` |
+| `.github/` oder anderem YAML | `make lint-repo-yaml` |
+| `scripts/` | `make lint-repo-sh test-repo` |
 | `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
-| Markdown | `make lint-md` |
+| Markdown | `make lint-repo-md` |
 | `config/`, `hack/` | Die CI führt dafür keinen Code-Job aus: nenne im Pull Request die Prüfungen, die du ausgeführt hast |
 
 `make help` listet alle Targets auf.

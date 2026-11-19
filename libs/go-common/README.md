@@ -20,7 +20,8 @@ The Go packages that `cli`, `dashboard` and `cluster/api` import. No binary ship
 Before a PR:
 
 ```sh
-make test-go               # from the repo root: the whole workspace, since every binary imports this module
-make cover-libs-changed    # from the repo root; only this module's own tests count
+make lint-libs vet-libs test-libs   # from the repo root
+make test-cli test-cluster-api      # from the repo root: every module that imports this one
+make cover-libs-changed             # from the repo root; only this module's own tests count
 ```
 

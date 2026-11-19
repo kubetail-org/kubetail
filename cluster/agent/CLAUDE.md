@@ -2,7 +2,7 @@
 
 A Cargo workspace of three crates: `cluster_agent` (the Cluster Agent, a gRPC server on each node that lists, watches and streams that node's container log files), `rgkl` (the log file reader it links) and `types` (the tonic/prost code generated from `libs/proto/cluster_agent.proto`; nothing hand-written).
 
-- **Run cargo from `cluster/agent/`, never from a crate's directory.** From the repo root, `make lint-rust`, `vet-rust` and `test-rust` do.
+- **Run cargo from `cluster/agent/`, never from a crate's directory.** From the repo root, `make lint-cluster-agent`, `vet-cluster-agent` and `test-cluster-agent` do.
 - **`protoc` must be on `PATH` for any build, clippy or test.** `types/build.rs` compiles the proto on every build; the output is never committed. Editing the proto: `libs/proto/CLAUDE.md`.
 - **`rust-toolchain.toml` pins the exact Rust version**, which CI and the agent's Dockerfiles share (root `CLAUDE.md`, Dependencies). A bump can add clippy lints that fail `-D warnings` on code nobody touched; fix them in the same PR.
 
@@ -20,10 +20,8 @@ cargo test -p rgkl                 # one crate, by name; `cargo test -p cluster_
 Before a PR:
 
 ```sh
-cargo clippy --all --all-targets -- -D warnings
-cargo test
-make lint-rust                     # from the repo root: rustfmt's check, license headers, coverage markers
-make cover-cluster-agent-changed   # from the repo root; needs cargo-llvm-cov
+make lint-cluster-agent vet-cluster-agent test-cluster-agent   # from the repo root: rustfmt's check, license headers, coverage markers, clippy, cargo test
+make cover-cluster-agent-changed                               # from the repo root; needs cargo-llvm-cov
 ```
 
 CI tests and builds on Linux alone. To run a local agent under Tilt, set `KUBETAIL_RUST_DEV_MODE` to `docker` or `local`; without it Tilt pulls the published image and your changes to `cluster/agent/` are not deployed.

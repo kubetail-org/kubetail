@@ -21,12 +21,16 @@ Each area's `CLAUDE.md` and `README.md` have the same `## Checks` section: what 
 
 Coverage stays a script, because it is the one check whose result is not a test passing: `scripts/cover-changed.sh <area>` measures one CI coverage area, as its `coverage-*.yml` does, and lists the changed lines no test reached. Each area has a `make cover-<area>-changed` target: `cli` (with `dashboard`), `libs`, `cluster-api`, `cluster-agent` and `web`. `scripts/cover-changed.bats` runs each area's real suite and checks that it lists a known uncovered line, so a broken path mapping fails a test.
 
+Every check is a `make <verb>-<area>` target over the same areas: `cli` (with `dashboard`), `libs`, `cluster-api`, `cluster-agent`, `web`, `e2e`, and `repo` for what belongs to no component, whose `lint-repo` runs each `lint-repo-<part>` that CI runs as a job of its own. An area's guide then names one target per verb. No target runs every area: `make lint`, `vet`, `test` and `check` are removed.
+
 CI checks every area on every platform and is the backstop. `check-changed`, `test-changed` and `vet-go-changed` are removed.
 
 ## Alternatives considered
 
 - **Keep `check-changed` and fix it.** The `projectRoot` bug was fixed in #1540, but the script would stay a second copy of CI's job selection, and its one-line verdict per area would keep hiding what ran.
 - **Generate the local checks from `path-filters.yml`.** One source for both, but the filters select CI jobs, not commands, and a generator would be one more layer between a contributor and the command they need.
+- **Keep the make targets named by language** (`lint-go`, `test-ts`). A Go change in one module would then lint, vet and test all four, and the targets would not match the areas the guides, CI and coverage use.
+- **Keep `make check` and the per-verb aggregates.** One command for a full local run, but it takes tens of minutes and needs every toolchain, and a guide that names it invites running it after a one-line change. CI already runs every area.
 - **Keep one `cover-changed` over every area.** One command to remember, but a run judged areas the change did not touch, and the Rust suite was slow enough to sit behind a flag that hid it.
 
 ## Consequences

@@ -339,14 +339,14 @@ Uma mudanca em um lugar pode quebrar outro componente. Execute tambem:
 
 | Uma mudanca em | Execute tambem |
 |---|---|
-| `libs/go-common/` | `make test-go` (o workspace inteiro) |
-| `libs/graphql/*/schema.graphqls` | `go generate ./...` nesse servidor, `pnpm graphql-codegen` em `apps/web/`, `make vet-ts` |
+| `libs/go-common/` | `make test-cli test-cluster-api` |
+| `libs/graphql/*/schema.graphqls` | `go generate ./...` nesse servidor, `pnpm graphql-codegen` em `apps/web/`, `make vet-web` |
 | `libs/proto/` | `make check-generated`, as verificacoes de Go e Rust |
-| um `Dockerfile` ou uma versao de toolchain | `make lint-toolchains lint-digests` |
-| `.github/` ou outro YAML | `make lint-yaml` |
-| `scripts/` | `make lint-sh test-sh` |
+| um `Dockerfile` ou uma versao de toolchain | `make lint-repo-toolchains lint-repo-digests` |
+| `.github/` ou outro YAML | `make lint-repo-yaml` |
+| `scripts/` | `make lint-repo-sh test-repo` |
 | `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
-| Markdown | `make lint-md` |
+| Markdown | `make lint-repo-md` |
 | `config/`, `hack/` | A CI nao executa nenhum job de codigo para estes: informe no pull request as verificacoes que voce executou |
 
 `make help` lista todos os targets.
