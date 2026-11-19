@@ -2,7 +2,7 @@
 title: Require CI to merge to main
 date: 2026-11-19
 scope: repo
-status: Accepted
+status: Superseded by [report-ci-and-coverage-without-requiring-them-to-merge](2026-11-19-report-ci-and-coverage-without-requiring-them-to-merge.md)
 ---
 
 # Require CI to merge to main
