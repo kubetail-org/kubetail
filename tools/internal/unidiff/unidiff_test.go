@@ -22,10 +22,10 @@ import (
 )
 
 func TestAddedListsEachFilesAddedLines(t *testing.T) {
-	got, err := Added(strings.NewReader(`diff --git a/modules/a.go b/modules/a.go
+	got, err := Added(strings.NewReader(`diff --git a/cli/a.go b/cli/a.go
 index 1111111..2222222 100644
---- a/modules/a.go
-+++ b/modules/a.go
+--- a/cli/a.go
++++ b/cli/a.go
 @@ -3,0 +4,2 @@ func f() {
 +	x := 1
 +	_ = x
@@ -36,17 +36,17 @@ index 1111111..2222222 100644
 -	a
 -	b
 -	c
-diff --git a/dashboard-ui/src/gone.ts b/dashboard-ui/src/gone.ts
+diff --git a/apps/web/src/gone.ts b/apps/web/src/gone.ts
 deleted file mode 100644
---- a/dashboard-ui/src/gone.ts
+--- a/apps/web/src/gone.ts
 +++ /dev/null
 @@ -1,2 +0,0 @@
 -a
 -b
-diff --git a/dashboard-ui/src/new.ts b/dashboard-ui/src/new.ts
+diff --git a/apps/web/src/new.ts b/apps/web/src/new.ts
 new file mode 100644
 --- /dev/null
-+++ b/dashboard-ui/src/new.ts
++++ b/apps/web/src/new.ts
 @@ -0,0 +1,2 @@
 +export const a = 1;
 +export const b = 2;
@@ -55,8 +55,8 @@ new file mode 100644
 		t.Fatal(err)
 	}
 	want := map[string][]int{
-		"modules/a.go":            {4, 5, 12},
-		"dashboard-ui/src/new.ts": {1, 2},
+		"cli/a.go":            {4, 5, 12},
+		"apps/web/src/new.ts": {1, 2},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Added = %v, want %v", got, want)

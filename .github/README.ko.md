@@ -193,14 +193,14 @@ Kubetail API를 설치한 사용자는 노드 수준 로그(예: systemd)와 클
 
 이 모노레포에는 다음 모듈이 포함되어 있습니다:
 
-* Kubetail CLI ([modules/cli](../modules/cli))
-* Kubetail Cluster API ([modules/cluster-api](../modules/cluster-api))
-* Kubetail Cluster Agent ([crates/cluster_agent](../crates/cluster_agent))
-* Kubetail Dashboard ([modules/dashboard](../modules/dashboard))
+* Kubetail CLI ([cli](../cli))
+* Kubetail Cluster API ([cluster/api](../cluster/api))
+* Kubetail Cluster Agent ([cluster/agent/cluster_agent](../cluster/agent/cluster_agent))
+* Kubetail Dashboard ([dashboard](../dashboard))
 
 또한 Kubetail Dashboard 프런트엔드의 소스 코드도 포함되어 있습니다:
 
-* Dashboard UI ([dashboard-ui](../dashboard-ui))
+* Dashboard UI ([apps/web](../apps/web))
 
 ### 개발 환경 설정
 
@@ -236,14 +236,14 @@ tilt up
 3. Dashboard 서버를 시작합니다:
 
 ```console
-cd modules/dashboard
+cd dashboard
 go run cmd/main.go -c hack/config.yaml
 ```
 
 4. Dashboard UI를 로컬에서 실행합니다:
 
 ```console
-cd dashboard-ui
+cd apps/web
 pnpm install
 pnpm dev
 ```
@@ -333,7 +333,7 @@ make
 프로덕션 배포용 Kubetail Dashboard 서버의 Docker 이미지를 빌드하려면 다음 명령을 실행합니다:
 
 ```console
-docker build -f build/package/Dockerfile.dashboard -t kubetail-dashboard:latest .
+docker build -f dashboard/Dockerfile -t kubetail-dashboard:latest .
 ```
 
 ### Cluster API
@@ -341,7 +341,7 @@ docker build -f build/package/Dockerfile.dashboard -t kubetail-dashboard:latest 
 프로덕션 배포용 Kubetail Cluster API 서버의 Docker 이미지를 빌드하려면 다음 명령을 실행합니다:
 
 ```console
-docker build -f build/package/Dockerfile.cluster-api -t kubetail-cluster-api:latest .
+docker build -f cluster/api/Dockerfile -t kubetail-cluster-api:latest .
 ```
 
 ### Cluster Agent
@@ -349,7 +349,7 @@ docker build -f build/package/Dockerfile.cluster-api -t kubetail-cluster-api:lat
 프로덕션 배포용 Kubetail Cluster Agent의 Docker 이미지를 빌드하려면 다음 명령을 실행합니다:
 
 ```console
-docker build -f build/package/Dockerfile.cluster-agent -t kubetail-cluster-agent:latest .
+docker build -f cluster/agent/Dockerfile -t kubetail-cluster-agent:latest .
 ```
 
 ## 참여하기

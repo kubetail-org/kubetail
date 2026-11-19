@@ -9,7 +9,7 @@
   "[css]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
   "[go]": { "editor.defaultFormatter": "golang.go" },
   "[rust]": { "editor.defaultFormatter": "rust-lang.rust-analyzer" },
-  // The formatter options live in dashboard-ui/.oxfmtrc.json. Prettier would format at its own
+  // The formatter options live in apps/web/.oxfmtrc.json. Prettier would format at its own
   // defaults (80 columns, double quotes) and churn every file it touched.
   "prettier.enable": false
 }

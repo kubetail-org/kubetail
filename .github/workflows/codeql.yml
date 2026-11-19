@@ -34,7 +34,7 @@ jobs:
   # kubetail-org/kubetail this job runs only for a PR or a dispatch, and every
   # other job needs it, so a fork's automatic run skips whole. A job whose
   # `if:` runs past a skipped need (`always()`) checks that Plan succeeded.
-  changes:
+  plan:
     name: Plan
     if: >-
       github.repository == 'kubetail-org/kubetail'
@@ -44,43 +44,45 @@ jobs:
     permissions:
       pull-requests: read
     outputs:
-      go: ${{ github.event_name != 'pull_request' || steps.filter.outputs.codeql == 'true' || steps.filter.outputs.go == 'true' }}
-      rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.codeql == 'true' || steps.filter.outputs.rust == 'true' }}
-      typescript: ${{ github.event_name != 'pull_request' || steps.filter.outputs.codeql == 'true' || steps.filter.outputs.typescript == 'true' }}
-      python: ${{ github.event_name != 'pull_request' || steps.filter.outputs.codeql == 'true' || steps.filter.outputs.python == 'true' }}
-      actions: ${{ github.event_name != 'pull_request' || steps.filter.outputs.codeql == 'true' || steps.filter.outputs.actions == 'true' }}
-      skipped: ${{ steps.skipped.outputs.categories || '[]' }}
+      go: ${{ fromJSON(steps.plan.outputs.jobs).go }}
+      rust: ${{ fromJSON(steps.plan.outputs.jobs).rust }}
+      typescript: ${{ fromJSON(steps.plan.outputs.jobs).typescript }}
+      python: ${{ fromJSON(steps.plan.outputs.jobs).python }}
+      actions: ${{ fromJSON(steps.plan.outputs.jobs).actions }}
+      skipped: ${{ steps.skipped.outputs.categories }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: github.event_name == 'pull_request'
         with:
           persist-credentials: false
           sparse-checkout: .github
-      - id: filter
-        if: github.event_name == 'pull_request'
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+      - id: plan
+        uses: ./.github/actions/plan
         with:
-          filters: .github/ci-config/path-filters.yml
+          jobs: |
+            go: codeql shared cli dashboard go-common cluster-api graphql-dashboard graphql-cluster-api
+            rust: codeql shared cluster-agent proto
+            typescript: codeql shared web graphql-dashboard graphql-cluster-api
+            python: codeql python
+            actions: codeql actions
 
       # The category of every analysis the pull request skips, for Reuse base's
       # matrix.
       - id: skipped
-        if: github.event_name == 'pull_request'
         env:
-          CHANGED: ${{ toJSON(steps.filter.outputs) }}
+          JOBS: ${{ steps.plan.outputs.jobs }}
         run: |
-          jq -c 'if .codeql == "true" then [] else [
-            (select(.go != "true") | {category: "/language:go"}),
-            (select(.rust != "true") | {category: "/language:rust"}),
-            (select(.typescript != "true") | {category: "/language:javascript-typescript"}),
-            (select(.python != "true") | {category: "/language:python"}),
-            (select(.actions != "true") | {category: "/language:actions"})
-          ] end' <<<"$CHANGED" | sed 's/^/categories=/' >> "$GITHUB_OUTPUT"
+          jq -c '[
+            (select(.go | not) | {category: "/language:go"}),
+            (select(.rust | not) | {category: "/language:rust"}),
+            (select(.typescript | not) | {category: "/language:javascript-typescript"}),
+            (select(.python | not) | {category: "/language:python"}),
+            (select(.actions | not) | {category: "/language:actions"})
+          ]' <<<"$JOBS" | sed 's/^/categories=/' >> "$GITHUB_OUTPUT"
 
   go:
     name: Go
-    needs: changes
-    if: needs.changes.outputs.go == 'true'
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -99,8 +101,7 @@ jobs:
           languages: go
           build-mode: manual
       - name: Build modules
-        working-directory: ./modules
-        run: go build ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+        run: go build ./cli/... ./cluster/api/... ./dashboard/... ./libs/go-common/...
       - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           category: /language:go
@@ -113,11 +114,11 @@ jobs:
           key: ${{ steps.setup.outputs.go-cache-key }}
 
   # The extractor runs build.rs, so the job needs protoc to generate the gRPC
-  # code from proto/.
+  # code from libs/proto/.
   rust:
     name: Rust
-    needs: changes
-    if: needs.changes.outputs.rust == 'true'
+    needs: plan
+    if: needs.plan.outputs.rust == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -140,14 +141,14 @@ jobs:
       # unless told otherwise; this is the one the Rust cache restores.
       - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         env:
-          CODEQL_EXTRACTOR_RUST_OPTION_CARGO_TARGET_DIR: ${{ github.workspace }}/crates/target
+          CODEQL_EXTRACTOR_RUST_OPTION_CARGO_TARGET_DIR: ${{ github.workspace }}/cluster/agent/target
         with:
           category: /language:rust
 
   typescript:
     name: TypeScript
-    needs: changes
-    if: needs.changes.outputs.typescript == 'true'
+    needs: plan
+    if: needs.plan.outputs.typescript == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -166,8 +167,8 @@ jobs:
 
   python:
     name: Python
-    needs: changes
-    if: needs.changes.outputs.python == 'true'
+    needs: plan
+    if: needs.plan.outputs.python == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -186,8 +187,8 @@ jobs:
 
   actions:
     name: Actions
-    needs: changes
-    if: needs.changes.outputs.actions == 'true'
+    needs: plan
+    if: needs.plan.outputs.actions == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -209,10 +210,10 @@ jobs:
   cache-prune:
     name: Caches · Prune
     needs:
-      - changes
+      - plan
       - go
       - rust
-    if: always() && needs.changes.result == 'success' && github.ref == 'refs/heads/main'
+    if: always() && needs.plan.result == 'success' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
       actions: write
@@ -223,6 +224,8 @@ jobs:
           persist-credentials: false
           sparse-checkout: .github/actions/prune-caches
       - uses: ./.github/actions/prune-caches
+        with:
+          caches: codeql
 
   # A skipped category's files are unchanged, so uploading the base branch's
   # analysis under it lets code scanning still compare the pull request to its
@@ -237,13 +240,13 @@ jobs:
   reuse-base:
     name: Reuse base
     needs:
-      - changes
+      - plan
       - go
       - rust
       - typescript
       - python
       - actions
-    if: always() && needs.changes.result == 'success' && needs.changes.outputs.skipped != '[]'
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.skipped != '[]'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -251,7 +254,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(needs.changes.outputs.skipped) }}
+        include: ${{ fromJSON(needs.plan.outputs.skipped) }}
     steps:
       - name: Download the base branch's analysis
         env:

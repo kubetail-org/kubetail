@@ -1,0 +1,117 @@
+# Copyright 2024 The Kubetail Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+FROM ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.63@sha256:1d6cc5716f1c80cbcf97d5bc7eef3cd5bd4c7a7b942c0dc4f533dea70dcb5173 AS grpc-health-probe
+
+# -----------------------------------------------------------
+
+FROM rust:1.99.1-slim@sha256:f6c4a35d21dbb3c89d7a8d056c193e94fc09037f2b58dd858b09c39a47dd02d7 AS builder
+
+WORKDIR /work
+
+# System dependencies
+RUN apt-get update && apt-get install -yq protobuf-compiler
+
+# Install Rust dependencies (for cache)
+COPY cluster/agent/Cargo.toml ./cluster/agent/Cargo.toml
+COPY cluster/agent/Cargo.lock ./cluster/agent/Cargo.lock
+COPY cluster/agent/cluster_agent/Cargo.toml ./cluster/agent/cluster_agent/Cargo.toml
+COPY cluster/agent/rgkl/Cargo.toml ./cluster/agent/rgkl/Cargo.toml
+COPY cluster/agent/types/Cargo.toml ./cluster/agent/types/Cargo.toml
+COPY cluster/agent/rust-toolchain.toml ./cluster/agent/rust-toolchain.toml
+RUN mkdir -p cluster/agent/rgkl/src cluster/agent/types/src cluster/agent/cluster_agent/src && \
+    echo "// placeholder" > cluster/agent/rgkl/src/lib.rs && \
+    echo "// placeholder" > cluster/agent/types/src/lib.rs && \
+    echo "fn main() {}" > cluster/agent/cluster_agent/src/main.rs
+RUN cd cluster/agent && cargo fetch --locked
+
+# Copy source code
+COPY cluster/agent ./cluster/agent
+COPY libs/proto ./libs/proto
+
+# Build
+RUN cd cluster/agent && cargo build --release --locked
+
+# Cross-platform trickery
+RUN \
+    ARCH="$(uname -m)" && \
+    if [ "$ARCH" = "x86_64" ]; then \
+      mkdir -p /lib/aarch64-linux-gnu; \
+      touch /lib/aarch64-linux-gnu/libgcc_s.so.1; \
+      touch /lib/aarch64-linux-gnu/libc.so.6; \
+      touch /lib/aarch64-linux-gnu/libm.so.6; \
+      touch /lib/ld-linux-aarch64.so.1; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+      mkdir -p /lib/x86_64-linux-gnu/; \
+      touch /lib/x86_64-linux-gnu/libgcc_s.so.1; \
+      touch /lib/x86_64-linux-gnu/libc.so.6; \
+      touch /lib/x86_64-linux-gnu/libm.so.6; \
+      mkdir /lib64; \
+      touch /lib64/ld-linux-x86-64.so.2; \
+    else \
+      echo "Unsupported architecture: $ARCH"; exit 1; \
+    fi
+
+# -----------------------------------------------------------
+
+FROM scratch AS final
+
+WORKDIR /cluster-agent
+
+# copy grpc-health-probe
+COPY --from=grpc-health-probe /ko-app/grpc-health-probe /bin/grpc_health_probe
+
+# copy glibc runtime libraries and dynamic loader (aarch64)
+COPY --from=builder /lib/aarch64-linux-gnu/libgcc_s.so.1 /lib/aarch64-linux-gnu/
+COPY --from=builder /lib/aarch64-linux-gnu/libc.so.6 /lib/aarch64-linux-gnu/
+COPY --from=builder /lib/aarch64-linux-gnu/libm.so.6 /lib/aarch64-linux-gnu/
+COPY --from=builder /lib/ld-linux-aarch64.so.1 /lib/
+
+# copy glibc runtime libraries and dynamic loader (x86_64)
+COPY --from=builder /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/
+COPY --from=builder /lib/x86_64-linux-gnu/libc.so.6 /lib/x86_64-linux-gnu/
+COPY --from=builder /lib/x86_64-linux-gnu/libm.so.6 /lib/x86_64-linux-gnu/
+COPY --from=builder /lib64/ld-linux-x86-64.so.2 /lib64/
+
+# copy executable
+COPY --from=builder /work/cluster/agent/target/release/cluster_agent cluster-agent
+
+ENTRYPOINT ["./cluster-agent"]
+CMD []
+
+# -----------------------------------------------------------
+
+FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS final-alpine
+
+WORKDIR /cluster-agent
+
+# copy grpc-health-probe
+COPY --from=grpc-health-probe /ko-app/grpc-health-probe /bin/grpc_health_probe
+
+# copy glibc runtime libraries and dynamic loader (aarch64)
+COPY --from=builder /lib/aarch64-linux-gnu/libgcc_s.so.1 /lib/aarch64-linux-gnu/
+COPY --from=builder /lib/aarch64-linux-gnu/libc.so.6 /lib/aarch64-linux-gnu/
+COPY --from=builder /lib/aarch64-linux-gnu/libm.so.6 /lib/aarch64-linux-gnu/
+COPY --from=builder /lib/ld-linux-aarch64.so.1 /lib/
+
+# copy glibc runtime libraries and dynamic loader (x86_64)
+COPY --from=builder /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/
+COPY --from=builder /lib/x86_64-linux-gnu/libc.so.6 /lib/x86_64-linux-gnu/
+COPY --from=builder /lib/x86_64-linux-gnu/libm.so.6 /lib/x86_64-linux-gnu/
+COPY --from=builder /lib64/ld-linux-x86-64.so.2 /lib64/
+
+# copy executable
+COPY --from=builder /work/cluster/agent/target/release/cluster_agent cluster-agent
+
+ENTRYPOINT ["./cluster-agent"]
+CMD []

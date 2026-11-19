@@ -1,49 +1,69 @@
-# dorny/paths-filter's filters, read by the Plan jobs of ci.yml, codeql.yml
-# and coverage.yml. A pull request runs a group's jobs, and measures its
-# coverage, only when a path in it changed, so the two cannot drift: a path
-# that ran the tests but not the coverage would pass its changed lines as "0 of
-# 0 covered". A change to how CI runs or measures (shared) runs every language.
+# dorny/paths-filter's filters. Each key is narrow, and the Plan job of each
+# area's ci-*.yml and coverage-*.yml, and of codeql.yml, composes its jobs
+# from them (.github/actions/plan). An area's coverage-*.yml composes the same keys as
+# its ci-*.yml, so the two cannot drift: a path that ran the tests but not the
+# coverage would pass its changed lines as "0 of 0 covered". Each area's two
+# workflows are in its own key. A change to how CI runs or measures (shared)
+# runs every area.
 shared: &shared
+  - .github/actions/plan/**
   - .github/actions/setup-environment/**
   - .github/ci-config/path-filters.yml
   - .github/codecov.yml
   - .github/workflows/ci.yml
   - .github/workflows/coverage.yml
+  - Makefile
   - scripts/check-coverage-markers.sh
   - scripts/check-license-headers.sh
   - tools/**
-go:
-  - *shared
-  - Makefile
-  - build/package/Dockerfile.cli
-  - build/package/Dockerfile.cluster-api
-  - build/package/Dockerfile.dashboard
-  - modules/**
+cli:
+  - .github/workflows/ci-cli.yml
+  - .github/workflows/coverage-cli.yml
+  - cli/**
+dashboard:
+  - dashboard/**
+libs:
+  - .github/workflows/ci-libs.yml
+  - .github/workflows/coverage-libs.yml
+# libs/go-common and what every Go module builds with.
+go-common:
+  - go.work
+  - go.work.sum
+  - libs/go-common/**
   - scripts/check-go-fix.sh
   - scripts/staticcheck.sh
-  - tools/go.mod
-  - tools/go.sum
-rust:
-  - *shared
-  - build/package/Dockerfile.cluster-agent
-  - crates/**
-  - proto/**
-typescript:
-  - *shared
-  - Makefile
-  - build/package/Dockerfile.cli
-  - build/package/Dockerfile.dashboard
-  - dashboard-ui/**
-  # dashboard-ui/codegen.ts generates the UI's types from these.
-  - modules/cluster-api/graph/schema.graphqls
-  - modules/dashboard/graph/schema.graphqls
-# ci.yml's Docker · Build alone: a PR builds every image only when a
-# Dockerfile changed.
+graphql-dashboard:
+  - libs/graphql/dashboard/**
+graphql-cluster-api:
+  - libs/graphql/cluster-api/**
+cluster-api:
+  - .github/workflows/ci-cluster.yml
+  - .github/workflows/coverage-cluster.yml
+  - cluster/api/**
+cluster-agent:
+  - .github/workflows/ci-cluster.yml
+  - .github/workflows/coverage-cluster.yml
+  - cluster/agent/**
+proto:
+  - libs/proto/**
+web:
+  - .github/workflows/ci-web.yml
+  - .github/workflows/coverage-web.yml
+  - apps/web/**
+e2e:
+  - .github/workflows/ci-e2e.yml
+  - e2e/**
+repo:
+  - .github/workflows/ci-repo.yml
+# Every image and target: without it, a PR builds the cli image's final stage
+# alone.
 docker:
   - *shared
-  - build/package/Dockerfile.*
+  - cli/Dockerfile
+  - cluster/agent/Dockerfile
+  - cluster/api/Dockerfile
+  - dashboard/Dockerfile
 shell:
-  - .github/workflows/ci.yml
   - .github/ci-config/path-filters.yml
   - Makefile
   - '**/*.sh'
@@ -55,18 +75,21 @@ yaml:
   - tools/go.mod
   - '**/*.yml'
   - '**/*.yaml'
-# ci.yml's Generated · Check alone: every source a generator reads, and the
+# Generated · Check alone: every source a generator reads, and the
 # generators' pins.
 generated:
   - *shared
-  - Makefile
+  - apps/web/codegen.ts
+  - apps/web/package.json
+  - apps/web/pnpm-lock.yaml
+  - apps/web/src/lib/graphql/**
+  - cli/**
+  - cluster/api/**
   - config/default/cli.*
-  - dashboard-ui/codegen.ts
-  - dashboard-ui/package.json
-  - dashboard-ui/pnpm-lock.yaml
-  - dashboard-ui/src/lib/graphql/**
-  - modules/**
-  - proto/**
+  - dashboard/**
+  - libs/go-common/**
+  - libs/graphql/**
+  - libs/proto/**
   - scripts/check-generated.sh
 # codeql.yml's alone. A change to codeql.yml analyzes every language.
 codeql:
@@ -81,26 +104,46 @@ actions:
 # them. A directory a component starts to ship goes in its filter, or its pull
 # requests leave the notes.
 release-cli:
-  - build/package/Dockerfile.cli
+  - apps/web/**
+  - cli/**
   - config/default/cli.*
+  - dashboard/**
+  - libs/go-common/**
+  - libs/graphql/dashboard/**
+  # The paths before the move to one folder per component, until each
+  # component has released once from the new layout.
+  - build/package/Dockerfile.cli
   - dashboard-ui/**
   - modules/cli/**
   - modules/dashboard/**
   - modules/shared/**
 release-dashboard:
-  - build/package/Dockerfile.dashboard
+  - apps/web/**
   - config/default/dashboard.yaml
+  - dashboard/**
+  - libs/go-common/**
+  - libs/graphql/dashboard/**
+  # Before the move to one folder per component.
+  - build/package/Dockerfile.dashboard
   - dashboard-ui/**
   - modules/dashboard/**
   - modules/shared/**
 release-cluster-api:
-  - build/package/Dockerfile.cluster-api
+  - cluster/api/**
   - config/default/cluster-api.yaml
+  - libs/go-common/**
+  - libs/graphql/cluster-api/**
+  - libs/proto/**
+  # Before the move to one folder per component.
+  - build/package/Dockerfile.cluster-api
   - modules/cluster-api/**
   - modules/shared/**
   - proto/**
 release-cluster-agent:
-  - build/package/Dockerfile.cluster-agent
+  - cluster/agent/**
   - config/default/cluster-agent.yaml
+  - libs/proto/**
+  # Before the move to one folder per component.
+  - build/package/Dockerfile.cluster-agent
   - crates/**
   - proto/**

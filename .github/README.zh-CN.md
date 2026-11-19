@@ -193,14 +193,14 @@ kubetail config init
 
 这个 monorepo 包含以下模块:
 
-* Kubetail CLI ([modules/cli](../modules/cli))
-* Kubetail Cluster API ([modules/cluster-api](../modules/cluster-api))
-* Kubetail Cluster Agent ([crates/cluster_agent](../crates/cluster_agent))
-* Kubetail Dashboard ([modules/dashboard](../modules/dashboard))
+* Kubetail CLI ([cli](../cli))
+* Kubetail Cluster API ([cluster/api](../cluster/api))
+* Kubetail Cluster Agent ([cluster/agent/cluster_agent](../cluster/agent/cluster_agent))
+* Kubetail Dashboard ([dashboard](../dashboard))
 
 它还包含 Kubetail Dashboard 前端的源代码:
 
-* Dashboard UI ([dashboard-ui](../dashboard-ui))
+* Dashboard UI ([apps/web](../apps/web))
 
 ### 搭建开发环境
 
@@ -236,14 +236,14 @@ tilt up
 3. 启动 Dashboard 服务:
 
 ```console
-cd modules/dashboard
+cd dashboard
 go run cmd/main.go -c hack/config.yaml
 ```
 
 4. 在本地运行 Dashboard UI:
 
 ```console
-cd dashboard-ui
+cd apps/web
 pnpm install
 pnpm dev
 ```
@@ -333,7 +333,7 @@ make
 要为生产部署构建 Kubetail Dashboard 服务的 Docker 镜像，请运行以下命令:
 
 ```console
-docker build -f build/package/Dockerfile.dashboard -t kubetail-dashboard:latest .
+docker build -f dashboard/Dockerfile -t kubetail-dashboard:latest .
 ```
 
 ### Cluster API
@@ -341,7 +341,7 @@ docker build -f build/package/Dockerfile.dashboard -t kubetail-dashboard:latest 
 要为生产部署构建 Kubetail Cluster API 服务的 Docker 镜像，请运行以下命令:
 
 ```console
-docker build -f build/package/Dockerfile.cluster-api -t kubetail-cluster-api:latest .
+docker build -f cluster/api/Dockerfile -t kubetail-cluster-api:latest .
 ```
 
 ### Cluster Agent
@@ -349,7 +349,7 @@ docker build -f build/package/Dockerfile.cluster-api -t kubetail-cluster-api:lat
 要为生产部署构建 Kubetail Cluster Agent 的 Docker 镜像，请运行以下命令:
 
 ```console
-docker build -f build/package/Dockerfile.cluster-agent -t kubetail-cluster-agent:latest .
+docker build -f cluster/agent/Dockerfile -t kubetail-cluster-agent:latest .
 ```
 
 ## 参与贡献

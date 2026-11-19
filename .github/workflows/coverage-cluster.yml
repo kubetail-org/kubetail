@@ -1,0 +1,170 @@
+name: coverage-cluster
+
+# The Cluster API's and the Cluster Agent's coverage.
+
+permissions:
+  contents: read
+
+# coverage.yml calls this; a dispatch runs it alone.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  # Picks the jobs to run. Each line of `jobs` is a group of jobs and the
+  # path-filters.yml keys that run it: on a pull request, when a path under one
+  # of them changed; on any other event, always. The keys are
+  # ci-cluster.yml's, so a path that runs the area's tests measures their coverage.
+  #
+  # Every other job needs this one, so its `if:` gates the whole workflow:
+  # GitHub starts push runs in forks too, and a fork runs this only for a pull
+  # request or a dispatch.
+  plan:
+    name: Plan
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      go: ${{ fromJSON(steps.plan.outputs.jobs).go }}
+      rust: ${{ fromJSON(steps.plan.outputs.jobs).rust }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - id: plan
+        uses: ./.github/actions/plan
+        with:
+          jobs: |
+            go: shared cluster-api go-common graphql-cluster-api
+            rust: shared cluster-agent proto
+
+  # Linux alone: the Cluster API runs on Linux nodes only. It measures
+  # cluster/api alone: libs/go-common is the libs component's, and a second
+  # area measuring it would make that gate depend on this upload.
+  # scripts/cover-changed.sh measures as this job does; change both together.
+  cluster-api-coverage:
+    name: Go
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # Codecov's upload authenticates with an OIDC token.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Measure coverage
+        run: >-
+          go test -timeout 20m -covermode=atomic
+          -coverpkg=github.com/kubetail-org/kubetail/cluster/api/...
+          -coverprofile="$RUNNER_TEMP/go.out"
+          ./cluster/api/...
+      - name: Merge the profile's blocks and drop marked lines
+        working-directory: ./tools
+        run: go run ./coverignore -dir .. -o "$RUNNER_TEMP/cluster-api.out" "$RUNNER_TEMP/go.out"
+      # A fork's PR cannot mint the OIDC token; the action then uploads
+      # tokenless, which Codecov accepts for a public repository.
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          use_oidc: true
+          files: ${{ runner.temp }}/cluster-api.out
+          disable_search: true
+          plugins: noop
+          flags: cluster-api
+          fail_ci_if_error: true
+
+  # Linux alone: the Cluster Agent runs on Linux nodes only.
+  # scripts/cover-changed.sh measures as this job does; change both together.
+  rust-coverage:
+    name: Rust
+    needs: plan
+    if: needs.plan.outputs.rust == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          setup-protoc: "true"
+          setup-go: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install llvm-tools
+        working-directory: ./cluster/agent
+        run: rustup component add llvm-tools-preview
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        with:
+          tool: cargo-llvm-cov@0.9.1
+      - name: Measure coverage
+        working-directory: ./cluster/agent
+        run: cargo llvm-cov --lcov --output-path "$RUNNER_TEMP/rust.lcov"
+      - name: Drop marked lines
+        working-directory: ./tools
+        run: go run ./coverignore -lcov -o "$RUNNER_TEMP/rust-filtered.lcov" "$RUNNER_TEMP/rust.lcov"
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          use_oidc: true
+          files: ${{ runner.temp }}/rust-filtered.lcov
+          disable_search: true
+          plugins: noop
+          flags: cluster-agent
+          fail_ci_if_error: true
+
+  # Reads the cluster component of Codecov's merged result once this run's
+  # uploads are processed, and fails on an uncovered changed line or a drop in
+  # the component's total (tools/coveragegate).
+  gate:
+    name: Gate
+    needs:
+      - plan
+      - cluster-api-coverage
+      - rust-coverage
+    if: >-
+      !cancelled()
+      && (needs.plan.outputs.go == 'true' || needs.plan.outputs.rust == 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      # The gate diffs the base and the head itself, so it needs their history.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Gate on Codecov's merged result
+        working-directory: ./tools
+        env:
+          GO_RESULT: ${{ needs.cluster-api-coverage.result }}
+          RUST_RESULT: ${{ needs.rust-coverage.result }}
+          # Codecov records a PR's uploads under its head, not the merge commit.
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Empty on a push, whose base is the commit's parent.
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # The uploads to wait for. A failed coverage job's is left out:
+          # coverage.yml's Coverage · Passed fails on that job.
+          flags=""
+          if [ "$GO_RESULT" = success ]; then flags="$flags,cluster-api"; fi
+          if [ "$RUST_RESULT" = success ]; then flags="$flags,cluster-agent"; fi
+          go run ./coveragegate -component cluster -sha "$SHA" -base "$BASE" -flags "${flags#,}" \
+            -run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

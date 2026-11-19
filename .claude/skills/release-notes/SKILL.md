@@ -102,7 +102,7 @@ Run every command from `tools/`. Work in a fresh directory: `dir=$(mktemp -d)`.
      well, such as `upgrade_notes`.
    - Fold related pull requests into one highlight or item that cites them all.
    - Cite every `must_cite: true` change, or list it in `omitted` with a reason. Leave the others
-     out unless the reader would notice them. A change under `modules/shared/` or `proto/` that
+     out unless the reader would notice them. A change under `libs/go-common/` or `libs/proto/` that
      does not touch this component's behaviour is omitted with that reason.
    - When a pull request's text is too thin to describe, read its diff: `git show <commit>`.
 

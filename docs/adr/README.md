@@ -40,7 +40,7 @@ Link by path and name it by its title or slug, never by date alone:
 → [ADR: reach the Cluster API through the aggregation layer](docs/adr/2026-11-09-reach-the-cluster-api-through-the-aggregation-layer.md)
 ```
 
-The path is relative to the file that holds the link, so a nested guide climbs to the root (`../../docs/adr/…` from `modules/cli/CLAUDE.md`). The `AGENTS.md` symlinks resolve it the same way.
+The path is relative to the file that holds the link, so a nested guide climbs to the root (`../../docs/adr/…` from `cluster/api/CLAUDE.md`). The `AGENTS.md` symlinks resolve it the same way.
 
 ## Status
 
@@ -79,7 +79,7 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 | 2026-11-09 | [Each component owns its config](2026-11-09-each-component-owns-its-config.md) | repo | Accepted |
 | 2026-11-09 | [Gate PRs on changed lines with Codecov's merged result](2026-11-09-gate-prs-on-changed-lines-with-codecovs-merged-result.md) | repo | Accepted |
 | 2026-11-09 | [Keep the sandbox's build outputs off the host mount](2026-11-09-keep-the-sandboxs-build-outputs-off-the-host-mount.md) | repo | Accepted |
-| 2026-11-09 | [Measure Go coverage across the workspace](2026-11-09-measure-go-coverage-across-the-workspace.md) | repo | Accepted |
+| 2026-11-09 | [Measure Go coverage across the workspace](2026-11-09-measure-go-coverage-across-the-workspace.md) | repo | Superseded by [measure-and-gate-coverage-per-area](2026-11-19-measure-and-gate-coverage-per-area.md) |
 | 2026-11-09 | [Pin fsnotify to v1.8.0](2026-11-09-pin-fsnotify-to-v1-8-0.md) | repo | Accepted |
 | 2026-11-09 | [Release each component by its own tag](2026-11-09-release-each-component-by-its-own-tag.md) | repo | Accepted |
 | 2026-11-10 | [Attest build provenance in the release jobs](2026-11-10-attest-build-provenance-in-the-release-jobs.md) | repo | Accepted |
@@ -90,4 +90,8 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 | 2026-11-10 | [Test each component on the platforms it ships for, or record why not](2026-11-10-test-each-component-on-the-platforms-it-ships-for.md) | repo | Accepted |
 | 2026-11-09 | [Tests sit beside their files, never sleep, and take seams as parameters](2026-11-09-tests-sit-beside-their-files-never-sleep-and-take-seams-as-parameters.md) | repo | Accepted |
 | 2026-11-10 | [Write release notes with a skill over deterministic tooling](2026-11-10-write-release-notes-with-a-skill-over-deterministic-tooling.md) | repo | Accepted |
+| 2026-11-17 | [Keep one folder per component](2026-11-17-one-folder-per-component.md) | repo | Accepted |
+| 2026-11-19 | [Require CI to merge to main](2026-11-19-require-ci-to-merge-to-main.md) | repo | Accepted |
+| 2026-11-19 | [Measure and gate coverage per area](2026-11-19-measure-and-gate-coverage-per-area.md) | repo | Accepted |
+| 2026-11-19 | [Run CI as one workflow per area](2026-11-19-run-ci-as-one-workflow-per-area.md) | repo | Accepted |
 | 2026-11-09 | [Share informers and gate each caller with an access review](2026-11-09-share-informers-and-gate-each-caller-with-an-access-review.md) | shared | Accepted |

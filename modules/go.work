@@ -1,8 +1,0 @@
-go 1.26.11
-
-use (
-	./cli
-	./cluster-api
-	./dashboard
-	./shared
-)

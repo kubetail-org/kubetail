@@ -68,7 +68,7 @@ jobs:
           setup-go: "true"
 
       - name: Build frontend
-        working-directory: dashboard-ui
+        working-directory: apps/web
         run: |
           pnpm install
           pnpm build
@@ -77,15 +77,15 @@ jobs:
         env:
           GOWORK: "off"
         run: |
-          rm -rf modules/dashboard/website
-          mv dashboard-ui/dist modules/dashboard/website
-          cd modules/cli
+          rm -rf dashboard/website
+          mv apps/web/dist dashboard/website
+          cd cli
           go mod vendor
 
       - name: Clean up source directory
         run: |
           rm -rf .git
-          rm -rf dashboard-ui/node_modules
+          rm -rf apps/web/node_modules
 
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -115,7 +115,7 @@ jobs:
           SYFT_SOURCE_NAME: kubetail
           SYFT_SOURCE_VERSION: ${{ needs.config.outputs.version }}
         with:
-          path: kubetail-cli/modules/cli
+          path: kubetail-cli/cli
           format: spdx-json
           output-file: sbom/kubetail-${{ needs.config.outputs.version }}.spdx.json
           upload-artifact: false
@@ -181,16 +181,16 @@ jobs:
           path: kubetail-cli
 
       - name: Build binary
-        working-directory: kubetail-cli/modules/cli
+        working-directory: kubetail-cli/cli
         env:
           GOWORK: "off"
           CGO_ENABLED: 0
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
-          LDFLAGS: "-s -w -X 'github.com/kubetail-org/kubetail/modules/cli/cmd.version=${{ needs.config.outputs.version }}'"
+          LDFLAGS: "-s -w -X 'github.com/kubetail-org/kubetail/cli/cmd.version=${{ needs.config.outputs.version }}'"
         shell: bash
         run: |
-          go build -mod=vendor -ldflags="${LDFLAGS}" -o ../../bin/kubetail .
+          go build -mod=vendor -ldflags="${LDFLAGS}" -o ../bin/kubetail .
 
       - name: Append os/arch to binary file name
         working-directory: kubetail-cli

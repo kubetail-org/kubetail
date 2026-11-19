@@ -193,14 +193,14 @@ Kubetail API をインストールしたユーザーは、ノードレベルの�
 
 このモノレポには次のモジュールが含まれています:
 
-* Kubetail CLI ([modules/cli](../modules/cli))
-* Kubetail Cluster API ([modules/cluster-api](../modules/cluster-api))
-* Kubetail Cluster Agent ([crates/cluster_agent](../crates/cluster_agent))
-* Kubetail Dashboard ([modules/dashboard](../modules/dashboard))
+* Kubetail CLI ([cli](../cli))
+* Kubetail Cluster API ([cluster/api](../cluster/api))
+* Kubetail Cluster Agent ([cluster/agent/cluster_agent](../cluster/agent/cluster_agent))
+* Kubetail Dashboard ([dashboard](../dashboard))
 
 また、Kubetail Dashboard のフロントエンドのソースコードも含まれています:
 
-* Dashboard UI ([dashboard-ui](../dashboard-ui))
+* Dashboard UI ([apps/web](../apps/web))
 
 ### 開発環境のセットアップ
 
@@ -236,14 +236,14 @@ tilt up
 3. Dashboard サーバーを起動します:
 
 ```console
-cd modules/dashboard
+cd dashboard
 go run cmd/main.go -c hack/config.yaml
 ```
 
 4. Dashboard UI をローカルで起動します:
 
 ```console
-cd dashboard-ui
+cd apps/web
 pnpm install
 pnpm dev
 ```
@@ -333,7 +333,7 @@ make
 本番デプロイ用の Kubetail Dashboard サーバーの Docker イメージをビルドするには、次のコマンドを実行します:
 
 ```console
-docker build -f build/package/Dockerfile.dashboard -t kubetail-dashboard:latest .
+docker build -f dashboard/Dockerfile -t kubetail-dashboard:latest .
 ```
 
 ### Cluster API
@@ -341,7 +341,7 @@ docker build -f build/package/Dockerfile.dashboard -t kubetail-dashboard:latest 
 本番デプロイ用の Kubetail Cluster API サーバーの Docker イメージをビルドするには、次のコマンドを実行します:
 
 ```console
-docker build -f build/package/Dockerfile.cluster-api -t kubetail-cluster-api:latest .
+docker build -f cluster/api/Dockerfile -t kubetail-cluster-api:latest .
 ```
 
 ### Cluster Agent
@@ -349,7 +349,7 @@ docker build -f build/package/Dockerfile.cluster-api -t kubetail-cluster-api:lat
 本番デプロイ用の Kubetail Cluster Agent の Docker イメージをビルドするには、次のコマンドを実行します:
 
 ```console
-docker build -f build/package/Dockerfile.cluster-agent -t kubetail-cluster-agent:latest .
+docker build -f cluster/agent/Dockerfile -t kubetail-cluster-agent:latest .
 ```
 
 ## 参加する

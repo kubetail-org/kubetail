@@ -1,0 +1,59 @@
+name: 'Plan'
+description: 'Says which of a workflow''s jobs run, from the filters in .github/ci-config/path-filters.yml'
+
+# A pull request runs a job when a path in one of its filters changed. A push,
+# a schedule or a dispatch runs every job, so main catches what a filter
+# misses. The job needs pull-requests: read, and a checkout of .github.
+#
+#   - id: plan
+#     uses: ./.github/actions/plan
+#     with:
+#       jobs: |
+#         go: shared cli go-common
+#         docker: docker
+#
+# On a pull request that changed cli/main.go alone, the `jobs` output is
+# {"go":true,"docker":false}; read one with
+# fromJSON(steps.plan.outputs.jobs).go.
+inputs:
+  jobs:
+    description: >-
+      One line per job: `<job>: <filter> <filter>…`. The job runs when any of
+      its filters changed.
+    required: true
+
+outputs:
+  jobs:
+    description: 'A JSON object of each job to true or false'
+    value: ${{ steps.compose.outputs.jobs }}
+
+runs:
+  using: "composite"
+  steps:
+    # Sets one output per filter, 'true' when a path in it changed.
+    - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+      id: filter
+      if: github.event_name == 'pull_request'
+      with:
+        filters: .github/ci-config/path-filters.yml
+
+    # A filter missing from path-filters.yml fails a pull request's step, so a
+    # misspelt name cannot leave a job that never runs.
+    - id: compose
+      shell: bash
+      env:
+        ALL: ${{ github.event_name != 'pull_request' }}
+        CHANGED: ${{ toJSON(steps.filter.outputs) }}
+        JOBS: ${{ inputs.jobs }}
+      run: |
+        jobs=$(jq -cn --argjson all "$ALL" --argjson changed "$CHANGED" --arg jobs "$JOBS" '
+          def filter_changed:
+            . as $filter
+            | if $changed | has($filter) then $changed[$filter] == "true"
+              else error("no filter \($filter) in .github/ci-config/path-filters.yml") end;
+
+          [ $jobs | splits("\n") | capture("^\\s*(?<job>[\\w-]+):(?<filters>.*)$")
+            | {key: .job, value: ($all or any(.filters | scan("\\S+"); filter_changed))} ]
+          | from_entries')
+        echo "$jobs"
+        echo "jobs=$jobs" >> "$GITHUB_OUTPUT"

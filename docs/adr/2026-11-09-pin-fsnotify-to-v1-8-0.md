@@ -17,7 +17,7 @@ The history in this repo runs in three steps. In June 2025 a dependency upgrade 
 
 ## Decision
 
-Each Go module's `go.mod` (`modules/shared`, `modules/dashboard`, `modules/cluster-api`, `modules/cli`) carries `replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0`. The `require` lines may name a newer version; the `replace` wins. The four pins move together.
+Each Go module's `go.mod` (`libs/go-common`, `dashboard`, `cluster/api`, `cli`) carries `replace github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.8.0`. The `require` lines may name a newer version; the `replace` wins. The four pins move together.
 
 ## Alternatives considered
 
@@ -29,7 +29,7 @@ Each Go module's `go.mod` (`modules/shared`, `modules/dashboard`, `modules/clust
 
 The pin is a `replace`, not a `require`, so it also holds back fsnotify for dependencies that pull it in transitively (viper among them). `go get -u` does not move it, and a module that drops its `replace` silently picks up the newer version. Since each module builds without `go.work`, each needs its own `replace`.
 
-The code that hit the regression no longer exists. The Go Cluster Agent was replaced by the Rust one ten days after #610 (`2d005c27`), and the Rust agent uses the `notify` crate, not fsnotify. The only direct user left is `modules/shared/k8shelpers/kube-config-watcher.go`, which watches the kubeconfig files in `desktop` and does run on macOS. Whether it is affected by fsnotify#689 has not been tested; a kubeconfig replaced by a symlink swap would be the case to try.
+The code that hit the regression no longer exists. The Go Cluster Agent was replaced by the Rust one ten days after #610 (`2d005c27`), and the Rust agent uses the `notify` crate, not fsnotify. The only direct user left is `libs/go-common/k8shelpers/kube-config-watcher.go`, which watches the kubeconfig files in `desktop` and does run on macOS. Whether it is affected by fsnotify#689 has not been tested; a kubeconfig replaced by a symlink swap would be the case to try.
 
 Upstream fsnotify#689 is still open. v1.10.0 and v1.10.1 (2026) list kqueue fixes for dangling symlinks and a descriptor leak, but none for this regression.
 

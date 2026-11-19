@@ -1,21 +1,23 @@
 #!/usr/bin/env bash
 # List the lines the working tree changes since the branch left main that a
 # local coverage run measured and no test reached (tools/coverdiff). A pre-push
-# aid, not the gate: CI's coverage / Gate merges every OS's runs, so a line only
-# another OS's tests reach is listed here.
+# aid, not the gate: each coverage-*.yml's Gate merges every OS's runs, so a
+# line only another OS's tests reach is listed here.
 #
-#   Go    the changed packages' tests, or every test with FULL=1. Either way
-#         the whole workspace is measured, so a line in shared/ that only
-#         another module's tests reach is listed unless FULL=1.
-#   TS    the tests vitest relates to the changed files in dashboard-ui/src/,
+#   Go    the changed packages' tests, or every test with FULL=1, in one run
+#         per area as CI measures them: cli/ with dashboard/, libs/go-common/,
+#         and cluster/api/. Each run measures its own area alone, so a
+#         dashboard/ line that only the CLI's tests reach is listed unless
+#         FULL=1.
+#   TS    the tests vitest relates to the changed files in apps/web/src/,
 #         or the whole suite when the toolchain changed.
-#   Rust  when crates/ or proto/ changed, and only with RUST=1: it is the
+#   Rust  when cluster/agent/ or libs/proto/ changed, and only with RUST=1: it is the
 #         slowest of the three. Needs cargo-llvm-cov on PATH.
 #
 # The Go and TypeScript runs go side by side; Rust follows them.
 #
-# Each suite is measured as .github/workflows/coverage.yml's jobs measure it; a
-# change to one belongs in the other. BASE is the ref the branch left, by
+# Each suite is measured as the coverage-*.yml workflows measure it; a change
+# to one belongs in the other. BASE is the ref the branch left, by
 # default upstream/main or else origin/main.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -34,15 +36,18 @@ trap cleanup EXIT
 # The paths .github/codecov.yml ignores, which the gate never judges. Keep the
 # two lists in step.
 ignored=(
-  'modules/*/graph/generated.go'
-  'modules/*/graph/model/models_gen.go'
-  'modules/shared/clusteragentpb/**'
-  'modules/shared/testpb/**'
-  'dashboard-ui/src/lib/graphql/*/__generated__/**'
-  'modules/**/mock/**'
-  'modules/shared/testutils/**'
-  'dashboard-ui/src/mocks/**'
-  'dashboard-ui/src/test-utils.tsx'
+  'dashboard/graph/generated.go'
+  'dashboard/graph/model/models_gen.go'
+  'cluster/api/graph/generated.go'
+  'cluster/api/graph/model/models_gen.go'
+  'libs/go-common/clusteragentpb/**'
+  'libs/go-common/testpb/**'
+  'apps/web/src/lib/graphql/*/__generated__/**'
+  'dashboard/**/mock/**'
+  'libs/go-common/**/mock/**'
+  'libs/go-common/testutils/**'
+  'apps/web/src/mocks/**'
+  'apps/web/src/test-utils.tsx'
 )
 measured=(.)
 for p in "${ignored[@]}"; do measured+=(":(exclude,glob)$p"); done
@@ -70,17 +75,28 @@ run() {
   names+=("$name")
 }
 
-workspace=github.com/kubetail-org/kubetail/modules/...
-if [ "${FULL:-}" = 1 ] && has '^modules/'; then go_pkgs=$workspace; else go_pkgs=$(go_pkgs); fi
-if [ -n "$go_pkgs" ]; then
+# go_area <name> <-coverpkg> <package pattern>: measures the area's changed
+# packages, or all of them with FULL=1.
+go_area() {
+  local name=$1 cover=$2 pattern=$3 pkgs
+  if [ "${FULL:-}" = 1 ] && has "$go_modules"; then
+    pkgs=$(tr '|' '\n' <<<"$pattern" | sed 's|^|./|; s|$|/...|')
+  else
+    pkgs=$(grep -E "^\./($pattern)(/|$)" <<<"$(go_pkgs)" || true)
+  fi
+  [ -n "$pkgs" ] || return 0
   # shellcheck disable=SC2086 # one argument per package
-  run go go -C modules test -covermode=atomic -coverpkg="$workspace" -coverprofile="$out/go.out" $go_pkgs
-fi
+  run "go-$name" go test -covermode=atomic -coverpkg="$cover" -coverprofile="$out/go-$name.out" $pkgs
+}
+repo=github.com/kubetail-org/kubetail
+go_area cli "$repo/cli/...,$repo/dashboard/..." 'cli|dashboard'
+go_area libs "$repo/libs/go-common/..." 'libs/go-common'
+go_area cluster "$repo/cluster/api/..." 'cluster/api'
 
 vitest=$(vitest_scope)
 if [ -n "$vitest" ]; then
   # shellcheck disable=SC2086 # one argument per word
-  run vitest pnpm -C dashboard-ui exec vitest $vitest --coverage
+  run vitest pnpm -C apps/web exec vitest $vitest --coverage
 fi
 
 failed=()
@@ -93,20 +109,21 @@ if [ ${#failed[@]} -gt 0 ]; then
   exit 1
 fi
 
-if [ -n "$go_pkgs" ]; then
-  (cd tools && go run ./coverignore -dir ../modules -o "$out/go-filtered.out" "$out/go.out")
-  reports+=(-go "modules=$out/go-filtered.out")
-fi
+for area in cli libs cluster; do
+  [ -f "$out/go-$area.out" ] || continue
+  (cd tools && go run ./coverignore -dir .. -o "$out/go-$area-filtered.out" "$out/go-$area.out")
+  reports+=(-go ".=$out/go-$area-filtered.out")
+done
 if [ -n "$vitest" ]; then
-  reports+=(-lcov "$PWD/dashboard-ui/coverage/lcov.info")
+  reports+=(-lcov "$PWD/apps/web/coverage/lcov.info")
 fi
 
-if [ "${RUST:-}" = 1 ] && has '^(crates|proto)/'; then
-  if ! (cd crates && cargo llvm-cov --version >/dev/null 2>&1); then
+if [ "${RUST:-}" = 1 ] && has '^(cluster/agent|libs/proto)/'; then
+  if ! (cd cluster/agent && cargo llvm-cov --version >/dev/null 2>&1); then
     echo "cargo-llvm-cov is not installed: cargo install cargo-llvm-cov --locked" >&2
     exit 1
   fi
-  (cd crates && cargo llvm-cov --lcov --output-path "$out/rust.lcov")
+  (cd cluster/agent && cargo llvm-cov --lcov --output-path "$out/rust.lcov")
   (cd tools && go run ./coverignore -lcov -o "$out/rust-filtered.lcov" "$out/rust.lcov")
   reports+=(-lcov "$out/rust-filtered.lcov")
 fi

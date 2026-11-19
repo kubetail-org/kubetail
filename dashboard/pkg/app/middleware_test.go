@@ -1,0 +1,563 @@
+// Copyright 2024 The Kubetail Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package app
+
+import (
+	"bytes"
+	"io"
+	"maps"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/kubetail-org/kubetail/dashboard/graph"
+	"github.com/kubetail-org/kubetail/dashboard/pkg/config"
+	"github.com/kubetail-org/kubetail/libs/go-common/httphelpers"
+)
+
+func TestAuthenticationMiddleware(t *testing.T) {
+	tests := []struct {
+		name                string
+		mode                config.AuthMode
+		hasSessionToken     bool
+		hasBearerToken      bool
+		wantContextHasToken bool
+	}{
+		{"auto-mode without tokens", config.AuthModeAuto, false, false, false},
+		{"auto-mode with session token", config.AuthModeAuto, true, false, false},
+		{"auto-mode with bearer token", config.AuthModeAuto, false, true, true},
+		{"auto-mode with both tokens", config.AuthModeAuto, true, true, true},
+		{"token-mode without tokens", config.AuthModeToken, false, false, false},
+		{"token-mode with session token", config.AuthModeToken, true, false, true},
+		{"token-mode with bearer token", config.AuthModeToken, false, true, true},
+		{"token-mode with both tokens", config.AuthModeToken, false, true, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// set up router
+			router := gin.New()
+
+			// add sessions middleware
+			router.Use(sessions.Sessions("session", cookie.NewStore([]byte("xx"))))
+
+			// custom middleware to add token to session
+			router.Use(func(c *gin.Context) {
+				if tt.hasSessionToken {
+					session := sessions.Default(c)
+					session.Set(k8sTokenSessionKey, "xxx-session")
+					session.Save()
+				}
+			})
+
+			// add auth middleware
+			router.Use(authenticationMiddleware(tt.mode))
+
+			// custom middleware to check result
+			router.Use(func(c *gin.Context) {
+				token, exists := c.Get(k8sTokenSessionKey)
+				if tt.wantContextHasToken {
+					assert.Equal(t, true, exists)
+
+					// ensure that bearer token takes precedence
+					if tt.hasBearerToken {
+						assert.Equal(t, token, "xxx-bearer")
+					} else {
+						assert.Equal(t, token, "xxx-session")
+					}
+				} else {
+					assert.Equal(t, false, exists)
+				}
+				c.Next()
+			})
+
+			// add route for testing
+			router.GET("/", func(c *gin.Context) {
+				c.String(http.StatusOK, "ok")
+			})
+
+			// execute request
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest("GET", "/", nil)
+			if tt.hasBearerToken {
+				r.Header.Add("Authorization", "Bearer xxx-bearer")
+			}
+			router.ServeHTTP(w, r)
+
+			// check result
+			assert.Equal(t, http.StatusOK, w.Result().StatusCode)
+		})
+	}
+}
+
+// A whitespace-only bearer header must not pass the AuthModeToken gate.
+// k8sAuthenticationMiddleware only checks `token == ""`, so the upstream
+// authenticationMiddleware has to normalize before storing in the gin context.
+func TestAuthenticationMiddlewareRejectsWhitespaceToken(t *testing.T) {
+	router := gin.New()
+	router.Use(sessions.Sessions("session", cookie.NewStore([]byte("xx"))))
+	router.Use(authenticationMiddleware(config.AuthModeToken))
+	router.Use(k8sAuthenticationMiddleware(config.AuthModeToken))
+	router.GET("/", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Set("Authorization", "Bearer    ")
+	router.ServeHTTP(w, r)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Result().StatusCode)
+}
+
+const csrfPreseededToken = "testtokenvalue1234"
+
+// runCSRFCase executes one CSRF middleware test case and returns the response.
+func runCSRFCase(t *testing.T, method string, header http.Header, seedToken bool) *http.Response {
+	t.Helper()
+	return runCSRFCaseWithBody(t, method, header, seedToken, "", nil)
+}
+
+// runCSRFCaseWithBody is like runCSRFCase but allows a content-type and body
+// (for form-encoded / multipart cases).
+func runCSRFCaseWithBody(t *testing.T, method string, header http.Header, seedToken bool, contentType string, body io.Reader) *http.Response {
+	t.Helper()
+
+	store := cookie.NewStore([]byte("secret"))
+	store.Options(sessions.Options{Path: "/", Secure: false})
+
+	router := gin.New()
+	router.Use(sessions.Sessions("session", store))
+	if seedToken {
+		router.Use(func(c *gin.Context) {
+			session := sessions.Default(c)
+			session.Set(csrfTokenSessionKey, csrfPreseededToken)
+			session.Save()
+			c.Next()
+		})
+	}
+	router.Use(csrfProtectionMiddleware())
+	router.Any("/", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(method, "/", body)
+	if contentType != "" {
+		r.Header.Set("Content-Type", contentType)
+	}
+	maps.Copy(r.Header, header)
+	router.ServeHTTP(w, r)
+	return w.Result()
+}
+
+func TestCSRFProtectionMiddlewareAllows(t *testing.T) {
+	tests := []struct {
+		name      string
+		method    string
+		setHeader http.Header
+		seedToken bool
+	}{
+		// Safe methods bypass the check (no state change to protect).
+		{
+			name:      "GET without Sec-Fetch-Site",
+			method:    "GET",
+			setHeader: http.Header{},
+			seedToken: false,
+		},
+		{
+			name:      "GET cross-site",
+			method:    "GET",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"cross-site"}},
+			seedToken: false,
+		},
+		{
+			name:      "HEAD without Sec-Fetch-Site",
+			method:    "HEAD",
+			setHeader: http.Header{},
+			seedToken: false,
+		},
+		{
+			name:      "OPTIONS without Sec-Fetch-Site",
+			method:    "OPTIONS",
+			setHeader: http.Header{},
+			seedToken: false,
+		},
+		// Unsafe same-origin requests with a valid CSRF token are allowed.
+		{
+			name:      "POST same-origin with correct X-CSRF-Token",
+			method:    "POST",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"same-origin"}, "X-Csrf-Token": []string{csrfPreseededToken}},
+			seedToken: true,
+		},
+		// Browsers omit Sec-Fetch-* on non-secure, non-localhost origins (plain
+		// HTTP on a custom hostname like an internal ingress). An absent header
+		// must not block an otherwise-valid request — the CSRF token is the
+		// primary defense.
+		{
+			name:      "POST without Sec-Fetch-Site with valid X-CSRF-Token",
+			method:    "POST",
+			setHeader: http.Header{"X-Csrf-Token": []string{csrfPreseededToken}},
+			seedToken: true,
+		},
+		{
+			name:      "POST none with valid X-CSRF-Token",
+			method:    "POST",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"none"}, "X-Csrf-Token": []string{csrfPreseededToken}},
+			seedToken: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := runCSRFCase(t, tt.method, tt.setHeader, tt.seedToken)
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+		})
+	}
+}
+
+func TestCSRFProtectionMiddlewareFormFieldFallback(t *testing.T) {
+	const sameOrigin = "same-origin"
+
+	t.Run("form-encoded POST with valid csrfToken field allowed", func(t *testing.T) {
+		body := strings.NewReader("csrfToken=" + csrfPreseededToken + "&foo=bar")
+		resp := runCSRFCaseWithBody(t, "POST",
+			http.Header{"Sec-Fetch-Site": []string{sameOrigin}},
+			true,
+			"application/x-www-form-urlencoded",
+			body,
+		)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("form-encoded POST with mismatched csrfToken field forbidden", func(t *testing.T) {
+		body := strings.NewReader("csrfToken=wrongtoken&foo=bar")
+		resp := runCSRFCaseWithBody(t, "POST",
+			http.Header{"Sec-Fetch-Site": []string{sameOrigin}},
+			true,
+			"application/x-www-form-urlencoded",
+			body,
+		)
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+	})
+
+	t.Run("multipart POST with valid csrfToken field forbidden (fallback only covers urlencoded)", func(t *testing.T) {
+		var buf bytes.Buffer
+		mw := multipart.NewWriter(&buf)
+		_ = mw.WriteField("csrfToken", csrfPreseededToken)
+		_ = mw.WriteField("foo", "bar")
+		_ = mw.Close()
+
+		resp := runCSRFCaseWithBody(t, "POST",
+			http.Header{"Sec-Fetch-Site": []string{sameOrigin}},
+			true,
+			mw.FormDataContentType(),
+			&buf,
+		)
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+	})
+
+	t.Run("body is restored after form-field check so downstream handlers can read it", func(t *testing.T) {
+		store := cookie.NewStore([]byte("secret"))
+		store.Options(sessions.Options{Path: "/", Secure: false})
+
+		router := gin.New()
+		router.Use(sessions.Sessions("session", store))
+		router.Use(func(c *gin.Context) {
+			session := sessions.Default(c)
+			session.Set(csrfTokenSessionKey, csrfPreseededToken)
+			session.Save()
+			c.Next()
+		})
+		router.Use(csrfProtectionMiddleware())
+
+		var seenBody string
+		router.POST("/", func(c *gin.Context) {
+			b, _ := io.ReadAll(c.Request.Body)
+			seenBody = string(b)
+			c.String(http.StatusOK, "ok")
+		})
+
+		body := "csrfToken=" + csrfPreseededToken + "&foo=bar&baz=qux"
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest("POST", "/", strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		r.Header.Set("Sec-Fetch-Site", sameOrigin)
+		router.ServeHTTP(w, r)
+
+		assert.Equal(t, http.StatusOK, w.Result().StatusCode)
+		assert.Equal(t, body, seenBody)
+	})
+
+	t.Run("JSON POST with csrfToken in body forbidden", func(t *testing.T) {
+		body := strings.NewReader(`{"csrfToken":"` + csrfPreseededToken + `"}`)
+		resp := runCSRFCaseWithBody(t, "POST",
+			http.Header{"Sec-Fetch-Site": []string{sameOrigin}},
+			true,
+			"application/json",
+			body,
+		)
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+	})
+
+	t.Run("header takes precedence over form field", func(t *testing.T) {
+		body := strings.NewReader("csrfToken=wrongtoken")
+		resp := runCSRFCaseWithBody(t, "POST",
+			http.Header{
+				"Sec-Fetch-Site": []string{sameOrigin},
+				"X-Csrf-Token":   []string{csrfPreseededToken},
+			},
+			true,
+			"application/x-www-form-urlencoded",
+			body,
+		)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+}
+
+func TestCSRFProtectionMiddlewareForbids(t *testing.T) {
+	tests := []struct {
+		name      string
+		method    string
+		setHeader http.Header
+		seedToken bool
+	}{
+		// Unsafe methods with a cross-origin Sec-Fetch-Site are rejected
+		// outright, even if a valid token were also present. "same-site"
+		// counts as cross-origin (sibling subdomains on the same eTLD+1).
+		{
+			name:      "POST cross-site",
+			method:    "POST",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"cross-site"}, "X-Csrf-Token": []string{csrfPreseededToken}},
+			seedToken: true,
+		},
+		{
+			name:      "POST same-site",
+			method:    "POST",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"same-site"}, "X-Csrf-Token": []string{csrfPreseededToken}},
+			seedToken: true,
+		},
+		{
+			name:      "DELETE cross-site",
+			method:    "DELETE",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"cross-site"}, "X-Csrf-Token": []string{csrfPreseededToken}},
+			seedToken: true,
+		},
+		// Unsafe same-origin requests still require a valid CSRF token.
+		{
+			name:      "POST same-origin without session token",
+			method:    "POST",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"same-origin"}},
+			seedToken: false,
+		},
+		{
+			name:      "POST same-origin with no X-CSRF-Token header",
+			method:    "POST",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"same-origin"}},
+			seedToken: true,
+		},
+		{
+			name:      "POST same-origin with wrong X-CSRF-Token",
+			method:    "POST",
+			setHeader: http.Header{"Sec-Fetch-Site": []string{"same-origin"}, "X-Csrf-Token": []string{"wrongtoken"}},
+			seedToken: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := runCSRFCase(t, tt.method, tt.setHeader, tt.seedToken)
+			assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+		})
+	}
+}
+
+func TestK8sTokenRequiredMiddleware(t *testing.T) {
+	tests := []struct {
+		name           string
+		setMode        config.AuthMode
+		setHasToken    bool
+		wantStatusCode int
+	}{
+		{"auto-mode with session token", config.AuthModeAuto, true, http.StatusOK},
+		{"auto-mode without session token", config.AuthModeAuto, false, http.StatusOK},
+		{"token-mode with session token", config.AuthModeToken, true, http.StatusOK},
+		{"token-mode without session token", config.AuthModeToken, false, http.StatusUnauthorized},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// set up router
+			router := gin.New()
+
+			// custom middleware to set value
+			router.Use(func(c *gin.Context) {
+				if tt.setHasToken {
+					c.Set(k8sTokenGinKey, "xxx")
+				}
+
+				c.Next()
+			})
+
+			// add middleware
+			router.Use(k8sAuthenticationMiddleware(tt.setMode))
+
+			// add route for testing
+			router.GET("/", func(c *gin.Context) {
+				c.String(http.StatusOK, "ok")
+			})
+
+			// execute request
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest("GET", "/", nil)
+			router.ServeHTTP(w, r)
+
+			// check result
+			resp := w.Result()
+			assert.Equal(t, "no-store", resp.Header["Cache-Control"][0])
+			assert.Equal(t, tt.wantStatusCode, resp.StatusCode)
+		})
+	}
+}
+
+func TestWebSocketCSRFContextMiddleware(t *testing.T) {
+	const sessTok = "session-csrf-token"
+
+	emptyTok := ""
+	tests := []struct {
+		name            string
+		hasSession      bool
+		sessionTokVal   *string // override stored value; nil = use sessTok
+		isUpgrade       bool
+		clientHeaderSet bool
+		clientHeaderVal string
+		wantCtxValue    any
+		wantOutHeader   string
+	}{
+		{
+			name:          "WS upgrade with session: ctx and header set from session",
+			hasSession:    true,
+			isUpgrade:     true,
+			wantCtxValue:  sessTok,
+			wantOutHeader: sessTok,
+		},
+		{
+			name:         "non-WS request leaves ctx and header unset even with session",
+			hasSession:   true,
+			isUpgrade:    false,
+			wantCtxValue: nil,
+		},
+		{
+			name:         "WS upgrade without session leaves ctx and header unset",
+			isUpgrade:    true,
+			wantCtxValue: nil,
+		},
+		{
+			name:            "client-supplied X-Forwarded-CSRF-Token is stripped (no session)",
+			isUpgrade:       true,
+			clientHeaderSet: true,
+			clientHeaderVal: "spoofed",
+			wantCtxValue:    nil,
+		},
+		{
+			name:            "client-supplied X-Forwarded-CSRF-Token is overwritten (with session)",
+			hasSession:      true,
+			isUpgrade:       true,
+			clientHeaderSet: true,
+			clientHeaderVal: "spoofed",
+			wantCtxValue:    sessTok,
+			wantOutHeader:   sessTok,
+		},
+		{
+			name:            "non-WS request strips client-supplied X-Forwarded-CSRF-Token",
+			isUpgrade:       false,
+			clientHeaderSet: true,
+			clientHeaderVal: "spoofed",
+			wantCtxValue:    nil,
+		},
+		{
+			name:          "WS upgrade with empty session token leaves ctx and header unset",
+			hasSession:    true,
+			sessionTokVal: &emptyTok,
+			isUpgrade:     true,
+			wantCtxValue:  nil,
+		},
+		{
+			name:            "WS upgrade with empty session token strips empty client-supplied header",
+			hasSession:      true,
+			sessionTokVal:   &emptyTok,
+			isUpgrade:       true,
+			clientHeaderSet: true,
+			clientHeaderVal: "",
+			wantCtxValue:    nil,
+		},
+		{
+			name:            "WS upgrade with empty client-supplied header (no session) leaves ctx unset",
+			isUpgrade:       true,
+			clientHeaderSet: true,
+			clientHeaderVal: "",
+			wantCtxValue:    nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := gin.New()
+			router.Use(sessions.Sessions("session", cookie.NewStore([]byte("xx"))))
+			router.Use(func(c *gin.Context) {
+				if tt.hasSession {
+					tok := sessTok
+					if tt.sessionTokVal != nil {
+						tok = *tt.sessionTokVal
+					}
+					session := sessions.Default(c)
+					session.Set(csrfTokenSessionKey, tok)
+					session.Save()
+				}
+				c.Next()
+			})
+			router.Use(websocketCSRFContextMiddleware())
+
+			var (
+				gotCtxValue  any
+				gotOutHeader string
+			)
+			router.GET("/", func(c *gin.Context) {
+				gotCtxValue = c.Request.Context().Value(graph.SessionCSRFTokenCtxKey)
+				gotOutHeader = c.Request.Header.Get(httphelpers.HeaderForwardedCSRFToken)
+				c.String(http.StatusOK, "ok")
+			})
+
+			r := httptest.NewRequest("GET", "/", nil)
+			if tt.isUpgrade {
+				r.Header.Set("Connection", "Upgrade")
+				r.Header.Set("Upgrade", "websocket")
+			}
+			if tt.clientHeaderSet {
+				r.Header.Set(httphelpers.HeaderForwardedCSRFToken, tt.clientHeaderVal)
+			}
+
+			router.ServeHTTP(httptest.NewRecorder(), r)
+
+			assert.Equal(t, tt.wantCtxValue, gotCtxValue)
+			assert.Equal(t, tt.wantOutHeader, gotOutHeader)
+		})
+	}
+}

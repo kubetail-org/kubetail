@@ -7,9 +7,9 @@
 #   always           lint-md, lint-toolchains and lint-digests, which need no
 #                    toolchain; cover-changed, then test-changed for what
 #                    cover-changed did not test
-#   modules/         lint-go, vet-go-changed
-#   crates/, proto/  lint-rust, vet-rust
-#   dashboard-ui/    lint-ts, vet-ts
+#   Go modules       lint-go, vet-go-changed
+#   cluster/agent/, libs/proto/  lint-rust, vet-rust
+#   apps/web/    lint-ts, vet-ts
 #   e2e/             lint-python
 #   *.sh             lint-sh
 #   YAML, .github/   lint-yaml
@@ -36,9 +36,9 @@ cd "$(dirname "$0")/.."
 . scripts/changed.sh
 
 jobs=(lint-md lint-toolchains lint-digests)
-if has '^modules/'; then jobs+=(lint-go vet-go-changed); fi
-if has '^(crates|proto)/'; then jobs+=("lint-rust vet-rust"); fi
-if has '^dashboard-ui/'; then jobs+=("lint-ts vet-ts"); fi
+if has "$go_modules"; then jobs+=(lint-go vet-go-changed); fi
+if has '^(cluster/agent|libs/proto)/'; then jobs+=("lint-rust vet-rust"); fi
+if has '^apps/web/'; then jobs+=("lint-ts vet-ts"); fi
 if has '^e2e/'; then jobs+=(lint-python); fi
 if has '\.sh$'; then jobs+=(lint-sh); fi
 if has '\.ya?ml$|^\.github/|^\.yamllint'; then jobs+=(lint-yaml); fi
@@ -49,11 +49,11 @@ jobs+=("cover-changed test-changed")
 # compile them itself. A failure is vet-go-changed's to report.
 go_pkgs=$(go_pkgs)
 # shellcheck disable=SC2086 # one argument per package
-[ -z "$go_pkgs" ] || go -C modules build $go_pkgs >/dev/null 2>&1 || true
+[ -z "$go_pkgs" ] || go build $go_pkgs >/dev/null 2>&1 || true
 
 # cover-changed's vitest runs beside lint-ts and vet-ts, so it must not meet
 # their install changing node_modules.
-if has '^dashboard-ui/'; then pnpm -C dashboard-ui install; fi
+if has '^apps/web/'; then pnpm -C apps/web install; fi
 
 # test-changed leaves out what cover-changed's coverage runs tested.
 export MEASURED=1

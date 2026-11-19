@@ -3,6 +3,7 @@ title: Gate PRs on changed lines with Codecov's merged result
 date: 2026-11-09
 scope: repo
 status: Accepted
+amended_by: 2026-11-19-measure-and-gate-coverage-per-area.md
 ---
 
 # Gate PRs on changed lines with Codecov's merged result

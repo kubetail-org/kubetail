@@ -1,7 +1,7 @@
 #!/bin/sh
 # Each toolchain has one exact version, which CI installs and every Dockerfile
 # builds with. Go and Node come from setup-environment's go-version and
-# node-version defaults, Rust from crates/rust-toolchain.toml. Prints every
+# node-version defaults, Rust from cluster/agent/rust-toolchain.toml. Prints every
 # FROM line whose golang, node or rust image names another version, and fails.
 #
 #   sh scripts/check-toolchain-versions.sh
@@ -21,7 +21,9 @@ input_default() {
 
 # Every FROM line as file:line:FROM [flags] image, the stage name cut off so
 # that a stage called node is not read as an image.
-froms="$(grep -inE '^[[:space:]]*FROM[[:space:]]' build/package/Dockerfile.* hack/tilt/Dockerfile.* |
+# -s: a checkout need not hold every release Dockerfile.
+froms="$(grep -sinE '^[[:space:]]*FROM[[:space:]]' cli/Dockerfile dashboard/Dockerfile \
+  cluster/api/Dockerfile cluster/agent/Dockerfile hack/tilt/Dockerfile.* |
   sed -E 's/[[:space:]]+[Aa][Ss][[:space:]].*//')"
 
 status=0
@@ -46,7 +48,7 @@ check() {
 
 check golang "$(input_default go-version)" go-version
 check node "$(input_default node-version)" node-version
-check rust "$(sed -n 's/^channel = "\(.*\)"$/\1/p' crates/rust-toolchain.toml)" rust-toolchain.toml
+check rust "$(sed -n 's/^channel = "\(.*\)"$/\1/p' cluster/agent/rust-toolchain.toml)" rust-toolchain.toml
 
 if [ "$status" -ne 0 ]; then
   echo "the Dockerfiles must build with the toolchain versions CI installs" >&2

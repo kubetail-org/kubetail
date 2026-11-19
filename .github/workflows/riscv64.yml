@@ -4,8 +4,8 @@ permissions:
   contents: read
 
 # riscv64 runners are few and slow, so these jobs run weekly and on demand
-# rather than on every push to main. ci.yml's Alpine · Build still builds the
-# CLI for riscv64 and starts it under QEMU on every push to main.
+# rather than on every push to main. ci-cli.yml's Alpine · Build still builds
+# the CLI for riscv64 and starts it under QEMU on every push to main.
 on:
   schedule:
     - cron: "23 4 * * 1"
@@ -42,15 +42,14 @@ jobs:
         with:
           setup-go: "true"
       - name: Run tests
-        working-directory: ./modules
-        run: go test ./cli/... ./cluster-api/... ./dashboard/... ./shared/...
+        run: go test ./cli/... ./cluster/api/... ./dashboard/... ./libs/go-common/...
       # The Go binary alone: Node has no riscv64 build to bundle the UI with.
       - name: Build CLI
-        working-directory: ./modules/cli
+        working-directory: ./cli
         run: go build -ldflags="-s -w" ./main.go
 
   # The cli and dashboard images build the UI on a node image, which has no
-  # riscv64 variant, and Dockerfile.cluster-agent accepts only x86_64 and
+  # riscv64 variant, and cluster/agent/Dockerfile accepts only x86_64 and
   # aarch64.
   docker:
     name: Docker · Build (cluster-api, ${{ matrix.target }})
@@ -74,7 +73,7 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          file: build/package/Dockerfile.cluster-api
+          file: cluster/api/Dockerfile
           target: ${{ matrix.target }}
           push: false
           load: true

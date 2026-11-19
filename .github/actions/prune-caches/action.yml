@@ -2,7 +2,16 @@ name: 'Prune Caches'
 description: 'Deletes every Actions cache on the ref but the newest of each family'
 
 # The job needs actions: write. Run it after every job that saves a cache,
-# including rust-cache and setup-node, which save in post steps.
+# including rust-cache, setup-node and setup-uv, which save in post steps.
+inputs:
+  caches:
+    description: >-
+      The caches to prune, by a name their key holds between dashes: a job id
+      for the Go, staticcheck and Rust caches, node-cache, setup-uv. Empty
+      prunes every cache on the ref.
+    required: false
+    default: ''
+
 runs:
   using: "composite"
   steps:
@@ -10,4 +19,7 @@ runs:
       shell: sh
       env:
         GH_TOKEN: ${{ github.token }}
-      run: sh "$GITHUB_ACTION_PATH/prune-caches.sh" "$GITHUB_REF"
+        CACHES: ${{ inputs.caches }}
+      run: |
+        # shellcheck disable=SC2086 # one argument per name
+        sh "$GITHUB_ACTION_PATH/prune-caches.sh" "$GITHUB_REF" $CACHES

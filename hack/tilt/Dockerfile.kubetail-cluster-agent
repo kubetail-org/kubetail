@@ -8,24 +8,24 @@ WORKDIR /work
 RUN apt-get update && apt-get install -yq protobuf-compiler
 
 # Install Rust dependencies (for cache)
-COPY crates/Cargo.toml ./crates/Cargo.toml
-COPY crates/Cargo.lock ./crates/Cargo.lock
-COPY crates/cluster_agent/Cargo.toml ./crates/cluster_agent/Cargo.toml
-COPY crates/rgkl/Cargo.toml ./crates/rgkl/Cargo.toml
-COPY crates/types/Cargo.toml ./crates/types/Cargo.toml
-COPY crates/rust-toolchain.toml ./crates/rust-toolchain.toml
-RUN mkdir -p crates/rgkl/src crates/types/src crates/cluster_agent/src && \
-    echo "// placeholder" > crates/rgkl/src/lib.rs && \
-    echo "// placeholder" > crates/types/src/lib.rs && \
-    echo "fn main() {}" > crates/cluster_agent/src/main.rs
-RUN cd crates && cargo fetch
+COPY cluster/agent/Cargo.toml ./cluster/agent/Cargo.toml
+COPY cluster/agent/Cargo.lock ./cluster/agent/Cargo.lock
+COPY cluster/agent/cluster_agent/Cargo.toml ./cluster/agent/cluster_agent/Cargo.toml
+COPY cluster/agent/rgkl/Cargo.toml ./cluster/agent/rgkl/Cargo.toml
+COPY cluster/agent/types/Cargo.toml ./cluster/agent/types/Cargo.toml
+COPY cluster/agent/rust-toolchain.toml ./cluster/agent/rust-toolchain.toml
+RUN mkdir -p cluster/agent/rgkl/src cluster/agent/types/src cluster/agent/cluster_agent/src && \
+    echo "// placeholder" > cluster/agent/rgkl/src/lib.rs && \
+    echo "// placeholder" > cluster/agent/types/src/lib.rs && \
+    echo "fn main() {}" > cluster/agent/cluster_agent/src/main.rs
+RUN cd cluster/agent && cargo fetch
 
 # Copy source code
-COPY crates ./crates
-COPY proto ./proto
+COPY cluster/agent ./cluster/agent
+COPY libs/proto ./libs/proto
 
 # Build
-RUN cd crates && cargo build --release
+RUN cd cluster/agent && cargo build --release
 
 # Cross-platform trickery
 RUN \
@@ -69,7 +69,7 @@ COPY --from=builder /lib/x86_64-linux-gnu/libm.so.6 /lib/x86_64-linux-gnu/
 COPY --from=builder /lib64/ld-linux-x86-64.so.2 /lib64/
 
 # copy executable
-COPY --from=builder /work/crates/target/release/cluster_agent cluster-agent
+COPY --from=builder /work/cluster/agent/target/release/cluster_agent cluster-agent
 
 ENTRYPOINT ["./cluster-agent"]
 CMD []

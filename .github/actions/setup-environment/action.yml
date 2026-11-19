@@ -80,13 +80,13 @@ runs:
       with:
         version: ${{ inputs.protoc-version }}
 
-    # crates/rust-toolchain.toml pins the Rust version CI and the images share.
+    # cluster/agent/rust-toolchain.toml pins the Rust version CI and the images share.
     - name: Read Rust version
       if: inputs.setup-rust == 'true'
       id: rust-version
       shell: bash
       run: |
-        version="$(sed -n 's/^channel = "\(.*\)"$/\1/p' crates/rust-toolchain.toml)"
+        version="$(sed -n 's/^channel = "\(.*\)"$/\1/p' cluster/agent/rust-toolchain.toml)"
         echo "version=$version" >> "$GITHUB_OUTPUT"
 
     - name: Set up Rust
@@ -96,12 +96,12 @@ runs:
         toolchain: ${{ steps.rust-version.outputs.version }}
         components: rustfmt, clippy
 
-    # The caller decides whether to save; ci.yml's CACHE_MODE saves on main.
+    # The caller decides whether to save; a ci-*.yml's CACHE_MODE saves on main.
     - name: Set up Rust cache
       if: inputs.setup-rust == 'true' && inputs.rust-cache-key != ''
       uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       with:
-        workspaces: "./crates"
+        workspaces: "./cluster/agent"
         shared-key: ${{ inputs.rust-cache-key }}
         save-if: ${{ inputs.cache-save == 'true' }}
         cache-bin: false
@@ -110,7 +110,7 @@ runs:
       if: inputs.setup-node == 'true'
       uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       with:
-        package_json_file: dashboard-ui/package.json
+        package_json_file: apps/web/package.json
 
     - name: Set up Node.js
       if: inputs.setup-node == 'true'
@@ -118,7 +118,7 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
         cache: ${{ inputs.node-cache == 'true' && 'pnpm' || '' }}
-        cache-dependency-path: 'dashboard-ui/pnpm-lock.yaml'
+        cache-dependency-path: 'apps/web/pnpm-lock.yaml'
 
     - name: Set up Go
       if: inputs.setup-go == 'true'

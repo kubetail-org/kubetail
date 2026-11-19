@@ -13,10 +13,10 @@
 // limitations under the License.
 
 // Command coverdiff lists the changed lines a local coverage run measured but
-// no test reached, as coverage / Gate would flag them. scripts/cover-changed.sh
-// runs it:
+// no test reached, as a coverage-*.yml's Gate would flag them.
+// scripts/cover-changed.sh runs it:
 //
-//	go run ./coverdiff -root .. -diff changes.diff -go modules=merged.out -lcov lcov.info
+//	go run ./coverdiff -root .. -diff changes.diff -go .=merged.out -lcov lcov.info
 //
 // -diff is a unified diff (`git diff -U0`) whose added lines are the changed
 // lines. Each -go is a workspace's or module's directory, relative to -root,

@@ -20,15 +20,15 @@ build() {
 
     cd "$srcdir/kubetail-$pkgver"
 
-    cd modules/cli
+    cd cli
     go build \
       -mod=vendor \
       -ldflags "\
         -s \
         -w \
-        -X github.com/kubetail-org/kubetail/modules/cli/cmd.version=${pkgver} \
+        -X github.com/kubetail-org/kubetail/cli/cmd.version=${pkgver} \
       " \
-      -o ../../bin/kubetail .
+      -o ../bin/kubetail .
 }
 
 package() {

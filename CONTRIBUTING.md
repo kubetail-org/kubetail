@@ -18,24 +18,24 @@ This document will guide you through the contribution process.
 
 ## Where to Find Code
 
-Kubetail is organized as a monorepo with components in different languages:
+Kubetail is organized as a monorepo with one folder per component:
 
 ### Main Components
 
-- **`/crates`** - Rust crates
-  - `cluster_agent/` - Cluster Agent
-  - `rgkl/` - Log reading library
-  - `types/` - Shared types
-  
-- **`/modules`** - Go modules
-  - `cli/` - CLI tool
-  - `cluster-api/` - Cluster API server
-  - `dashboard/` - Dashboard backend
-  - `shared/` - Shared packages
-  
-- **`/dashboard-ui`** - React/TypeScript frontend
-  
-- **`/proto`** - Protocol Buffer definitions
+- **`/apps/web`** - React/TypeScript frontend
+
+- **`/cli`** - CLI tool (Go)
+
+- **`/dashboard`** - Dashboard backend (Go)
+
+- **`/cluster`**
+  - `api/` - Cluster API server (Go)
+  - `agent/` - Cluster Agent, a Rust workspace: `cluster_agent/`, `rgkl/` (log reading library) and `types/` (shared types)
+
+- **`/libs`**
+  - `go-common/` - Shared Go packages
+  - `proto/` - Protocol Buffer definitions
+  - `graphql/` - GraphQL schemas
 
 - **`/docs`** - Architecture Decision Records (`adr/`)
 
@@ -43,10 +43,10 @@ Kubetail is organized as a monorepo with components in different languages:
 
 | Working on... | Go to |
 |---------------|-------|
-| CLI | `modules/cli/` |
-| Web UI | `dashboard-ui/` |
-| Backend | `modules/dashboard/` or `modules/cluster-api/` |
-| Agent | `crates/cluster_agent/` |
+| CLI | `cli/` |
+| Web UI | `apps/web/` |
+| Backend | `dashboard/` or `cluster/api/` |
+| Agent | `cluster/agent/cluster_agent/` |
 
 ## How to Run Tests and Other Checks
 
@@ -55,7 +55,7 @@ Make sure your changes pass all tests and checks before submitting a pull reques
 ### TypeScript/React (Dashboard UI)
 
 ```bash
-cd dashboard-ui
+cd apps/web
 
 # Install dependencies 
 pnpm install
@@ -75,31 +75,31 @@ pnpm build
 
 ### Go Modules
 
-```bash
-cd modules
+The Go modules form one workspace, in `go.work` at the repo root. Run these from there.
 
+```bash
 # Format check
-test -z $(gofmt -l .)
+test -z "$(gofmt -l cli cluster/api dashboard libs/go-common)"
 
 # Format check (Windows PowerShell)
-$output = gofmt -l .; if ($output) { throw "Files need formatting: $output" }
+$output = gofmt -l cli cluster/api dashboard libs/go-common; if ($output) { throw "Files need formatting: $output" }
 
 # Vet (static analysis)
-go vet github.com/kubetail-org/kubetail/modules/...
+go vet github.com/kubetail-org/kubetail/...
 
-# From the repo root: vet for Windows too, check go fix, run staticcheck
+# Vet for Windows too, check go fix, run staticcheck
 make vet-go
 
 # Run tests
-go test -race github.com/kubetail-org/kubetail/modules/...
+go test -race github.com/kubetail-org/kubetail/...
 ```
 
 ### Rust Crates
 
-The Rust crates form one Cargo workspace in `crates/`. Run cargo from there, not from a crate's directory. Building needs `protoc` on your `PATH`.
+The Rust crates form one Cargo workspace in `cluster/agent/`. Run cargo from there, not from a crate's directory. Building needs `protoc` on your `PATH`.
 
 ```bash
-cd crates
+cd cluster/agent
 
 # Format check
 cargo fmt --all -- --check

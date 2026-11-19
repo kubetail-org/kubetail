@@ -33,23 +33,26 @@ has() { grep -qE "$1" <<<"$changed"; }
 # A deleted file has nothing to check, and vitest refuses a path that isn't there.
 existing() { while read -r f; do [ -e "$f" ] && echo "$f"; done; }
 
-# go_pkgs: the changed Go packages, as paths from modules/. A go.mod or go.sum
-# change alone names none: CI checks the packages a dependency reaches.
+# The Go workspace's modules, as go.work lists them.
+go_modules='^(cli|cluster/api|dashboard|libs/go-common)/'
+
+# go_pkgs: the changed Go packages, as paths from the repo root. A go.mod or
+# go.sum change alone names none: CI checks the packages a dependency reaches.
 go_pkgs() {
-  grep -E '^modules/.*\.go$' <<<"$changed" | xargs -r -n1 dirname | sort -u | existing | sed 's|^modules|.|' || true
+  grep -E "$go_modules.*\.go$" <<<"$changed" | xargs -r -n1 dirname | sort -u | existing | sed 's|^|./|' || true
 }
 
-# vitest_scope: the vitest arguments, from dashboard-ui/, that run the changed
+# vitest_scope: the vitest arguments, from apps/web/, that run the changed
 # files' tests: `run`, the whole suite, when the toolchain changed, else
 # `related` with the changed source files, else nothing. `related` follows
 # imports, but misses a test that reaches a file only through a computed
 # dynamic import.
 vitest_scope() {
-  if has '^dashboard-ui/(package\.json|pnpm-lock\.yaml|vite\.config\.ts|vitest\.setup\.ts|tsconfig[^/]*\.json)$'; then
+  if has '^apps/web/(package\.json|pnpm-lock\.yaml|vite\.config\.ts|vitest\.setup\.ts|tsconfig[^/]*\.json)$'; then
     echo run
     return
   fi
   local ts
-  ts=$(grep -E '^dashboard-ui/src/.*\.tsx?$' <<<"$changed" | existing | sed 's|^dashboard-ui/||' | paste -sd ' ' - || true)
+  ts=$(grep -E '^apps/web/src/.*\.tsx?$' <<<"$changed" | existing | sed 's|^apps/web/||' | paste -sd ' ' - || true)
   [ -z "$ts" ] || echo "related --run --passWithNoTests $ts"
 }

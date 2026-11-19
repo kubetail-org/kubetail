@@ -9,7 +9,7 @@ status: Accepted
 
 ## Context
 
-Generated Go and TypeScript are committed ([ADR: commit generated Go and TypeScript](2026-11-09-commit-generated-go-and-typescript-generate-rust-at-build-time.md)): the protoc output in `modules/shared`, gqlgen's in `modules/dashboard` and `modules/cluster-api`, and the UI's `__generated__/`. The CLI embeds a copy of `config/default/cli.*` in `modules/cli/assets/`, made by `go generate`. Nothing checked any of them, so a PR could change a source and leave its output stale (#1220, #1335).
+Generated Go and TypeScript are committed ([ADR: commit generated Go and TypeScript](2026-11-09-commit-generated-go-and-typescript-generate-rust-at-build-time.md)): the protoc output in `libs/go-common`, gqlgen's in `dashboard` and `cluster/api`, and the UI's `__generated__/`. The CLI embeds a copy of `config/default/cli.*` in `cli/assets/`, made by `go generate`. Nothing checked any of them, so a PR could change a source and leave its output stale (#1220, #1335).
 
 The `*.pb.go` headers record the versions of `protoc`, `protoc-gen-go` and `protoc-gen-go-grpc` that wrote them. CI's `arduino/setup-protoc` installed the newest `23.x`, while the committed files came from `protoc` 33.1, and the plugins were whatever a developer had on their `PATH`.
 

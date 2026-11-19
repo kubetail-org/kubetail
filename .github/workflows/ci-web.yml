@@ -1,0 +1,154 @@
+name: ci-web
+
+# The React app in apps/web.
+
+permissions:
+  contents: read
+
+# ci.yml calls this; a dispatch runs it alone.
+on:
+  workflow_call:
+    inputs:
+      cache-mode:
+        description: ci.yml's dispatch input, passed down
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      cache-mode:
+        description: >-
+          use: restore the caches, save none. update: also save new ones.
+          Off main, a saved cache is that branch's alone; PRs never read it.
+        type: choice
+        options:
+          - use
+          - update
+        default: use
+
+env:
+  # use or update: whether a run prunes the pnpm store's cache, which
+  # setup-node saves whenever its key is new. A dispatch takes its input; a
+  # push to main updates; a PR uses.
+  CACHE_MODE: ${{ inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use' }}
+
+jobs:
+  # Picks the jobs to run. Each line of `jobs` is a group of jobs and the
+  # path-filters.yml keys that run it: on a pull request, when a path under one
+  # of them changed; on any other event, always.
+  #
+  # Every other job needs this one, so its `if:` gates the whole workflow:
+  # GitHub starts push runs in forks too, and a fork runs this only for a pull
+  # request or a dispatch.
+  plan:
+    name: Plan
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      # For Caches · Prune: a job's `if:` cannot read `env`.
+      cache-mode: ${{ env.CACHE_MODE }}
+      typescript: ${{ fromJSON(steps.plan.outputs.jobs).typescript }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - id: plan
+        uses: ./.github/actions/plan
+        with:
+          # apps/web/codegen.ts generates the UI's types from both schemas.
+          jobs: |
+            typescript: shared web graphql-dashboard graphql-cluster-api
+
+  typescript-lint:
+    name: TypeScript · Lint
+    needs: plan
+    if: needs.plan.outputs.typescript == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-node: "true"
+          node-cache: "true"
+      - name: Install dependencies
+        working-directory: ./apps/web
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        working-directory: ./apps/web
+        run: pnpm lint
+      - name: Check license headers
+        run: sh scripts/check-license-headers.sh apps/web
+      - name: Check coverage markers
+        run: sh scripts/check-coverage-markers.sh apps/web/src
+
+  typescript-test:
+    name: TypeScript · Test
+    needs: plan
+    if: needs.plan.outputs.typescript == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-node: "true"
+          node-cache: "true"
+      - name: Install dependencies
+        working-directory: ./apps/web
+        run: pnpm install --frozen-lockfile
+      - name: Test
+        working-directory: ./apps/web
+        run: pnpm test run
+
+  # tsc -b, then vite build: the type-check of the app and its tests.
+  typescript-build:
+    name: TypeScript · Build
+    needs: plan
+    if: needs.plan.outputs.typescript == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-node: "true"
+          node-cache: "true"
+      - name: Install dependencies
+        working-directory: ./apps/web
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        working-directory: ./apps/web
+        run: pnpm build
+
+  # Deletes the pnpm store's caches this run's save replaced, so the ref holds
+  # one copy. It needs every job because setup-node saves in a post step, when
+  # its job ends.
+  cache-prune:
+    name: Caches · Prune
+    needs:
+      - plan
+      - typescript-lint
+      - typescript-test
+      - typescript-build
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.cache-mode != 'use'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions/prune-caches
+      - uses: ./.github/actions/prune-caches
+        with:
+          caches: node-cache

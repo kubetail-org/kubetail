@@ -9,7 +9,7 @@ group "default" {
 
 target "dashboard" {
   context    = "../"
-  dockerfile = "build/package/Dockerfile.dashboard"
+  dockerfile = "dashboard/Dockerfile"
   target     = "final"
   tags       = ["kubetail-dashboard:e2e"]
   cache-from = ["type=gha,scope=dashboard-${CACHE_ARCH}"]
@@ -17,7 +17,7 @@ target "dashboard" {
 
 target "cluster-api" {
   context    = "../"
-  dockerfile = "build/package/Dockerfile.cluster-api"
+  dockerfile = "cluster/api/Dockerfile"
   target     = "final"
   tags       = ["kubetail-cluster-api:e2e"]
   cache-from = ["type=gha,scope=cluster-api-${CACHE_ARCH}"]
@@ -25,7 +25,7 @@ target "cluster-api" {
 
 target "cluster-agent" {
   context    = "../"
-  dockerfile = "build/package/Dockerfile.cluster-agent"
+  dockerfile = "cluster/agent/Dockerfile"
   target     = "final"
   tags       = ["kubetail-cluster-agent:e2e"]
   cache-from = ["type=gha,scope=cluster-agent-${CACHE_ARCH}"]

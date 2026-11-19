@@ -17,15 +17,15 @@ The PRs carry no written rationale; the original reasoning is not recorded. What
 
 ## Decision
 
-`config.Environment` (`modules/shared/config/config.go`) has two values. In `desktop` credentials come from the kubeconfig and a request names its kube context, the current context by default. In `cluster` there is one cluster, the kube context is the empty string, and a request runs as the token it carries, or as the Dashboard's ServiceAccount when `auth-mode` is `auto` and it carries none.
+`config.Environment` (`libs/go-common/config/config.go`) has two values. In `desktop` credentials come from the kubeconfig and a request names its kube context, the current context by default. In `cluster` there is one cluster, the kube context is the empty string, and a request runs as the token it carries, or as the Dashboard's ServiceAccount when `auth-mode` is `auto` and it carries none.
 
 Each seam that differs by environment is an interface with one implementation per environment, picked by a factory that switches on `config.Environment`:
 
 - `k8shelpers.NewConnectionManager` returns `DesktopConnectionManager` or `InClusterConnectionManager`.
-- `newClusterAPIProxy` (`modules/dashboard/pkg/app/helpers.go`) returns `DesktopProxy` or `InClusterProxy`.
+- `newClusterAPIProxy` (`dashboard/pkg/app/helpers.go`) returns `DesktopProxy` or `InClusterProxy`.
 - `clusterapi.NewHealthMonitor` returns `DesktopHealthMonitor` or `InClusterHealthMonitor`.
 
-A factory panics or returns an error on an unknown value. A resolver checks the environment itself only to refuse an operation that exists in one environment alone (`modules/dashboard/graph/schema.resolvers.go`). The Cluster API always runs in `cluster`. `kubetail serve` and `kubetail logs` run in `desktop`, or in `cluster` with `--in-cluster` (#819). The Dashboard passes the environment to the UI, which branches on it too (`appConfig.environment`).
+A factory panics or returns an error on an unknown value. A resolver checks the environment itself only to refuse an operation that exists in one environment alone (`dashboard/graph/schema.resolvers.go`). The Cluster API always runs in `cluster`. `kubetail serve` and `kubetail logs` run in `desktop`, or in `cluster` with `--in-cluster` (#819). The Dashboard passes the environment to the UI, which branches on it too (`appConfig.environment`).
 
 ## Alternatives considered
 

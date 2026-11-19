@@ -23,7 +23,7 @@ Each component is released by a tag of its own: `cli/v<semver>`, `dashboard/v<se
 - `release-docker.yml` runs on all four prefixes and builds the component's image.
 - The `publish-*` workflows run when a release is published and strip `cli/v` from the tag to get the version for each package manager.
 - `.claude/skills/release-cli` and `.claude/skills/release-cluster` find each component's latest tag, list the commits under its paths since then, and propose the next version. A person invokes them.
-- `modules/shared/versioncheck` finds the latest CLI with `^cli/v(\d+\.\d+\.\d+)$`.
+- `libs/go-common/versioncheck` finds the latest CLI with `^cli/v(\d+\.\d+\.\d+)$`.
 
 The version a cluster user sees is the Helm chart's, released from `kubetail-org/helm-charts` as `kubetail-<semver>`; `versioncheck` reads that tag for cluster upgrade notices.
 
@@ -37,7 +37,7 @@ No other scheme is mentioned in the record.
 
 A component releases only when its own code changes, and its version says something about that component alone. A CLI fix does not re-release the cluster images, and a Cluster Agent fix does not ship a CLI.
 
-The cost is four version lines to track. Which component a commit belongs to is decided by path, and `modules/shared` and `crates/types` count toward every component that uses them; the release skills encode that mapping, and nothing else does. The components' versions say nothing about compatibility with each other. A user of the cluster pieces installs a Helm chart version, not a component version.
+The cost is four version lines to track. Which component a commit belongs to is decided by path, and `libs/go-common` and `cluster/agent/types` count toward every component that uses them; the release skills encode that mapping, and nothing else does. The components' versions say nothing about compatibility with each other. A user of the cluster pieces installs a Helm chart version, not a component version.
 
 The tag scheme is a contract. `versioncheck`'s regex, the `GITHUB_REF#refs/tags/cli/v` strip in every `publish-*` workflow and the `on.push.tags` filters all parse it, so renaming a prefix breaks the CLI's update check for every installed CLI and silently stops the publish and image workflows.
 

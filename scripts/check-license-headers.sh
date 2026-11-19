@@ -7,7 +7,7 @@
 set -eu
 cd "$(dirname "$0")/.."
 
-[ "$#" -gt 0 ] || set -- modules crates dashboard-ui tools scripts
+[ "$#" -gt 0 ] || set -- cli dashboard cluster/api libs/go-common cluster/agent apps/web tools scripts
 
 header='// Copyright 2024 The Kubetail Authors
 //

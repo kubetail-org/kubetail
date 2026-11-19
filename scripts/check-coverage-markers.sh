@@ -1,5 +1,5 @@
 #!/bin/sh
-# A coverage marker exempts lines from coverage / Gate, so it must say why:
+# A coverage marker exempts lines from the coverage gate, so it must say why:
 # `// coverage:ignore <reason>` or `// coverage:ignore-start <reason>` in Go,
 # `// coverage:ignore-start <reason>` on a line of its own in Rust,
 # `/* v8 ignore next -- <reason> */` in TypeScript. Prints every marker without
@@ -10,7 +10,7 @@
 set -eu
 cd "$(dirname "$0")/.."
 
-[ "$#" -gt 0 ] || set -- modules crates dashboard-ui/src
+[ "$#" -gt 0 ] || set -- cli dashboard cluster/api libs/go-common cluster/agent apps/web/src
 
 status=0
 for dir in "$@"; do

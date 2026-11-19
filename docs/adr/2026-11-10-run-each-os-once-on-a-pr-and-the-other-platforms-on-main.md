@@ -20,7 +20,7 @@ A Docker build checks two things. Its builder stages build each component as a r
 
 ## Decision
 
-A job leg is in one of three groups, and `ci.yml` runs it accordingly:
+A job leg is in one of three groups, and the `ci-*.yml` workflows run it accordingly:
 
 - **Another job covers it on the same run:** removed. `CLI · Build` is gone: `TypeScript · Build` builds the UI, `Docker · Build (cli, …)` embeds it and builds the module alone, and `Go · Build and Test` compiles the CLI on each runner. The arm64 and second-macOS legs of `Shell · Test`, the macOS 15 arm64 leg of `Go · Build and Test` and the Kubernetes 1.25 leg of E2E are gone too. A PR that changes no Dockerfile builds only the cli image's `final` stage, since E2E builds the other images; the `docker` filter in `.github/ci-config/path-filters.yml` brings back every image and target.
 - **It covers a platform nothing else does, but rarely fails:** `main` only. `Go · Build and Test` runs on every OS and arch the CLI ships for on `main`, and on `ubuntu-24.04` alone on a PR. `Docker · Build` builds arm64 on `main` only. `Alpine · Build` sits with the riscv64 jobs, on `main` only.
@@ -48,9 +48,9 @@ A failure specific to arm64, macOS on Intel, Windows on arm64, Alpine or riscv64
 
 Nothing checks that `make build` runs on macOS or Windows.
 
-E2E is the only PR check that the dashboard, cluster-api and cluster-agent images build. It runs on the same paths as `Docker · Build`, so a PR that skips one skips both.
+E2E is the only PR check that the dashboard, cluster-api and cluster-agent images build. It runs on every path a `Docker · Build` runs on.
 
-`Go · Build and Test` on a PR and `coverage.yml` together give one leg per OS. A change that drops a runner from `coverage.yml` drops it from PRs entirely.
+`Go · Build and Test` on a PR and the Go jobs of `coverage-cli.yml` and `coverage-libs.yml` together give one leg per OS. A change that drops a runner from those drops it from PRs entirely.
 
 ## Revisit when
 

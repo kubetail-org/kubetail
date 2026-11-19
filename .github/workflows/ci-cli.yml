@@ -1,0 +1,398 @@
+name: ci-cli
+
+# The CLI, with the Dashboard backend: it ships inside the CLI, so its tests
+# run on every platform the CLI ships for. A change to libs/go-common runs
+# these jobs too, since both import it; ci-libs.yml tests it.
+
+permissions:
+  contents: read
+
+# ci.yml calls this; a dispatch runs it alone.
+on:
+  workflow_call:
+    inputs:
+      cache-mode:
+        description: ci.yml's dispatch input, passed down
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      cache-mode:
+        description: >-
+          use: restore the caches, save none. update: also save new ones.
+          rebuild: start the Go caches from empty and save them. Off main, a
+          saved cache is that branch's alone; PRs never read it.
+        type: choice
+        options:
+          - use
+          - update
+          - rebuild
+        default: use
+
+env:
+  # Whether this run saves caches. Nothing else decides it.
+  #   use      Restore the caches and save none. Every pull request, since a
+  #            copy per PR would push the repo past its cache limit.
+  #   update   Also save a new Go cache per job and runner. Every push to main.
+  #   rebuild  Start the Go caches from empty, then save them.
+  # A dispatch takes its input. Caches · Prune deletes the caches a save
+  # replaced.
+  CACHE_MODE: ${{ inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use' }}
+
+jobs:
+  # Picks the jobs to run. Each line of `jobs` is a group of jobs and the
+  # path-filters.yml keys that run it: on a pull request, when a path under one
+  # of them changed; on any other event, always.
+  #
+  # Every other job needs this one, so its `if:` gates the whole workflow:
+  # GitHub starts push runs in forks too, and a fork runs this only for a pull
+  # request or a dispatch.
+  plan:
+    name: Plan
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      # For Caches · Prune: a job's `if:` cannot read `env`.
+      cache-mode: ${{ env.CACHE_MODE }}
+      go: ${{ fromJSON(steps.plan.outputs.jobs).go }}
+      docker: ${{ fromJSON(steps.plan.outputs.jobs).docker }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - id: plan
+        uses: ./.github/actions/plan
+        with:
+          jobs: |
+            go: shared cli dashboard go-common graphql-dashboard
+            docker: docker
+
+  ##############################
+  # Lint and vet jobs
+  ##############################
+
+  cli-lint:
+    name: Go · Lint
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Check formatting
+        run: test -z "$(gofmt -l cli dashboard)"
+      - name: Check license headers
+        run: sh scripts/check-license-headers.sh cli dashboard
+      - name: Check coverage markers
+        run: sh scripts/check-coverage-markers.sh cli dashboard
+
+  # Restores Go · Build and Test's linux/amd64 cache and saves none.
+  cli-vet:
+    name: Go · Vet
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          go-cache-key: cli-test-linux-amd64
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      - name: Vet
+        run: go vet ./cli/... ./dashboard/...
+      # The Windows runners run tests alone, so this is the one place the
+      # _windows.go files are vetted.
+      - name: Vet (GOOS=windows)
+        run: GOOS=windows go vet ./cli/... ./dashboard/...
+      - name: Check go fix
+        run: sh scripts/check-go-fix.sh cli dashboard
+
+  # Restores Go · Build and Test's linux/amd64 cache and saves none.
+  cli-staticcheck:
+    name: Go · Staticcheck
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          go-cache-key: cli-test-linux-amd64
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      # Staticcheck keeps its analysis apart from GOCACHE, so it has a small
+      # cache of its own.
+      - name: Restore staticcheck cache
+        if: env.CACHE_MODE != 'rebuild'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/staticcheck
+          # Never matches, so restore-keys finds the newest cache.
+          key: doesntexist
+          restore-keys: ${{ github.job }}-ubuntu-24.04-run-
+      # tools/go.mod pins staticcheck.
+      - name: Run staticcheck
+        env:
+          STATICCHECK_CACHE: ${{ runner.temp }}/staticcheck
+        run: sh scripts/staticcheck.sh cli dashboard
+      - name: Save staticcheck cache
+        if: env.CACHE_MODE != 'use'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/staticcheck
+          key: ${{ github.job }}-ubuntu-24.04-run-${{ github.run_id }}
+
+  ##############################
+  # Test jobs
+  ##############################
+
+  # Go · Vet type-checks the build; this links the binaries, then runs the
+  # tests. Every module in one job per runner, so the modules share one cache.
+  cli-test:
+    name: Go · Build and Test
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # coverage-cli.yml runs the tests on macOS and Windows on every PR, so
+        # a PR runs linux/amd64 alone. main runs each OS and arch the CLI
+        # ships for.
+        os: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '["linux"]'
+          || '["linux", "macos", "windows"]') }}
+        arch: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '["amd64"]'
+          || '["amd64", "arm64"]') }}
+    # A lookup rather than matrix `include` entries: an entry for a platform
+    # the lists above leave out on a PR would add it back as a job of its own.
+    runs-on: >-
+      ${{ fromJSON('{
+      "linux-amd64": "ubuntu-24.04", "linux-arm64": "ubuntu-24.04-arm",
+      "macos-amd64": "macos-15-intel", "macos-arm64": "macos-26",
+      "windows-amd64": "windows-2025", "windows-arm64": "windows-11-arm"
+      }')[format('{0}-{1}', matrix.os, matrix.arch)] }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: setup
+        uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          go-cache-key: ${{ github.job }}-${{ matrix.os }}-${{ matrix.arch }}
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      # With several packages, go build links each main package, then discards
+      # it.
+      - name: Build
+        run: go build ./cli/... ./dashboard/...
+      - name: Run tests
+        run: go test ./cli/... ./dashboard/...
+      # The race detector does not support windows/arm64.
+      - name: Run race tests
+        if: ${{ !(matrix.os == 'windows' && matrix.arch == 'arm64') }}
+        run: go test -race ./cli/... ./dashboard/...
+      # After every test passed, so a failed job leaves its runner's last cache
+      # the newest. The test flags must match a PR's, or a PR replays nothing.
+      - name: Save Go cache
+        if: env.CACHE_MODE != 'use'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.go-cache-path }}
+          key: ${{ steps.setup.outputs.go-cache-key }}
+
+  ##############################
+  # Build jobs
+  ##############################
+
+  cli-images:
+    name: Docker · Build
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # A PR that changes no Dockerfile builds the cli image's final stage
+        # alone: E2E builds the other images, and a final stage only copies
+        # the binary onto its base.
+        component: >-
+          ${{ fromJSON(needs.plan.outputs.docker == 'true'
+          && '["cli", "dashboard"]'
+          || '["cli"]') }}
+        # arm64 builds on main.
+        arch: >-
+          ${{ fromJSON(github.event_name == 'pull_request'
+          && '["amd64"]'
+          || '["amd64", "arm64"]') }}
+        target: >-
+          ${{ fromJSON(needs.plan.outputs.docker == 'true'
+          && '["final", "final-alpine"]'
+          || '["final"]') }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.component }}/Dockerfile
+          target: ${{ matrix.target }}
+          push: false
+          load: true
+          tags: ${{ matrix.component }}:${{ matrix.target }}
+          # final and final-alpine build from the same stages, so they share a
+          # scope. Each save replaces the scope's index, which keeps those
+          # stages either way; a final stage left out is a copy onto a base.
+          # e2e/docker-bake.hcl reads the scopes of its runner's arch.
+          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.arch }}
+          cache-to: >-
+            ${{ env.CACHE_MODE != 'use'
+            && format('type=gha,mode=max,scope={0}-{1}', matrix.component, matrix.arch)
+            || '' }}
+      # A final stage copies a binary onto a base image. Starting it checks the
+      # copy; each flag exits after start-up.
+      - name: Run
+        env:
+          IMAGE: ${{ matrix.component }}:${{ matrix.target }}
+          FLAG: ${{ matrix.component == 'cli' && '--version' || '--help' }}
+        run: docker run --rm "$IMAGE" "$FLAG"
+
+  ##############################
+  # Jobs a pull request skips
+  ##############################
+
+  # A PR runs one platform; main and a dispatch run these too.
+
+  cli-alpine:
+    name: Alpine · Build
+    needs: plan
+    if: needs.plan.outputs.go == 'true' && github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - x86
+          - armhf
+          - armv7
+          - loongarch64
+          - ppc64le
+          - riscv64
+          - s390x
+        include:
+          - arch: x86
+            goarch: "386"
+          - arch: armhf
+            goarch: arm
+            goarm: "6"
+          - arch: armv7
+            goarch: arm
+            goarm: "7"
+          - arch: loongarch64
+            goarch: loong64
+          - arch: ppc64le
+            goarch: ppc64le
+          - arch: riscv64
+            goarch: riscv64
+          - arch: s390x
+            goarch: s390x
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Reads Go · Build and Test's module cache and saves none.
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          go-cache-key: cli-test-linux-amd64
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      - name: Setup Alpine
+        uses: jirutka/setup-alpine@ae3b3ddba35054804fc4a3507b519fa7e8152050 # v1.4.1
+        with:
+          arch: ${{ matrix.arch }}
+          branch: edge
+      - name: Build
+        working-directory: ./cli
+        env:
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+        run: |
+          go build -o ../bin/kubetail .
+      - name: Verify
+        shell: alpine.sh {0}
+        run: |
+          set -ex
+          ./bin/kubetail serve --test
+
+  # GOARCH=386 runs natively on the amd64 runner. It stands for the 32-bit
+  # architectures the packages build for (x86, armhf, armv7), whose tests no
+  # runner can run natively.
+  cli-test-386:
+    name: Go · Test (linux, 386)
+    needs: plan
+    if: needs.plan.outputs.go == 'true' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Reads Go · Build and Test's module cache and saves none.
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          go-cache-key: cli-test-linux-amd64
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      - name: Run tests
+        env:
+          GOARCH: "386"
+        run: go test ./cli/... ./dashboard/...
+
+  ##############################
+  # Cache jobs
+  ##############################
+
+  # Deletes the caches this run's saves replaced, so the ref holds one copy of
+  # each. It keeps the newest rather than this run's, so a failed save leaves
+  # the last good cache in place.
+  cache-prune:
+    name: Caches · Prune
+    needs:
+      - plan
+      - cli-staticcheck
+      - cli-test
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.cache-mode != 'use'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions/prune-caches
+      - uses: ./.github/actions/prune-caches
+        with:
+          caches: cli-staticcheck cli-test

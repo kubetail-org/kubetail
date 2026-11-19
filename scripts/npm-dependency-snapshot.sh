@@ -1,6 +1,6 @@
 #!/bin/sh
 # Prints a dependency-graph snapshot of the npm packages in
-# dashboard-ui/pnpm-lock.yaml, for GitHub's dependency submission API. The
+# apps/web/pnpm-lock.yaml, for GitHub's dependency submission API. The
 # graph reads only the first YAML document of pnpm's lockfile, which pins pnpm
 # itself, and Dependabot alerts read the graph. Run from the repo root:
 #
@@ -11,8 +11,8 @@ set -eu
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-(cd dashboard-ui && pnpm sbom --sbom-format spdx --lockfile-only) >"$tmp/all.json"
-(cd dashboard-ui && pnpm sbom --sbom-format spdx --lockfile-only --prod) >"$tmp/prod.json"
+(cd apps/web && pnpm sbom --sbom-format spdx --lockfile-only) >"$tmp/all.json"
+(cd apps/web && pnpm sbom --sbom-format spdx --lockfile-only --prod) >"$tmp/prod.json"
 
 # A package the production tree holds is runtime, the rest development; one
 # the root depends on is direct, the rest indirect.
@@ -21,7 +21,7 @@ jq -n \
 	--slurpfile prod "$tmp/prod.json" \
 	--arg sha "$1" \
 	--arg ref "$2" \
-	--arg pnpm "$(cd dashboard-ui && pnpm --version)" \
+	--arg pnpm "$(cd apps/web && pnpm --version)" \
 	--arg job "${GITHUB_RUN_ID:-local}" '
 	def purls: .packages
 		| map(select(.SPDXID != "SPDXRef-RootPackage")
@@ -40,9 +40,9 @@ jq -n \
 		detector: {name: "pnpm sbom", version: $pnpm, url: "https://pnpm.io/cli/sbom"},
 		scanned: (now | todate),
 		manifests: {
-			"dashboard-ui/pnpm-lock.yaml": {
-				name: "dashboard-ui/pnpm-lock.yaml",
-				file: {source_location: "dashboard-ui/pnpm-lock.yaml"},
+			"apps/web/pnpm-lock.yaml": {
+				name: "apps/web/pnpm-lock.yaml",
+				file: {source_location: "apps/web/pnpm-lock.yaml"},
 				resolved: ([$ids[] | {
 					key: .,
 					value: {
