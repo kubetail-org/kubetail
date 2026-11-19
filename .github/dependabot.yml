@@ -49,6 +49,11 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+    # actionlint v1.7.12 builds only against go.yaml.in/yaml/v4
+    # v4.0.0-rc.3, and Go gives releasenotes the same version. Drop this
+    # once an actionlint release requires v4.0.0.
+    ignore:
+      - dependency-name: go.yaml.in/yaml/v4
     groups:
       # client-go and apimachinery release in lockstep.
       kubernetes:
