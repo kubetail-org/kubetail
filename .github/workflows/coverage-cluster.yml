@@ -162,7 +162,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           # The uploads to wait for. A failed coverage job's is left out:
-          # coverage.yml's Coverage · Passed fails on that job.
+          # that job reports its own failure.
           flags=""
           if [ "$GO_RESULT" = success ]; then flags="$flags,cluster-api"; fi
           if [ "$RUST_RESULT" = success ]; then flags="$flags,cluster-agent"; fi

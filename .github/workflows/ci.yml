@@ -1,8 +1,8 @@
 name: ci
 
 # The one CI run of a pull request or a push to main. Each area's jobs are in
-# a workflow of their own, ci-<area>.yml, which this one calls. Its last job,
-# CI · Passed, is the one check the ruleset requires.
+# a workflow of their own, ci-<area>.yml, which this one calls, so an area
+# file runs on a pull request only once this one calls it.
 #
 # Each area's Plan job skips the jobs whose paths a pull request did not touch.
 # Job ids are unique across the ci-*.yml files, since cache keys hold them.
@@ -101,23 +101,3 @@ jobs:
       contents: read
       pull-requests: read
       actions: write
-
-  # The required check. An area whose Plan skipped every job counts as passed.
-  passed:
-    name: CI · Passed
-    needs:
-      - cli
-      - libs
-      - cluster
-      - web
-      - e2e
-      - repo
-    if: always()
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Check each area passed or was skipped
-        env:
-          NEEDS: ${{ toJSON(needs) }}
-        run: |
-          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS"
-          jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<<"$NEEDS" >/dev/null

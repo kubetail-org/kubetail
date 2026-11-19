@@ -161,7 +161,7 @@ jobs:
           enable-cache: false
       # The token turns on zizmor's online audits, which check each pin's
       # commit and version comment against the action's repository.
-      - name: Run yamllint, actionlint, zizmor and the Passed check
+      - name: Run yamllint, actionlint, zizmor and cicallers
         env:
           GH_TOKEN: ${{ github.token }}
         run: make lint-repo-yaml

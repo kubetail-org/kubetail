@@ -121,7 +121,7 @@ jobs:
         working-directory: ./tools
         env:
           # The uploads to wait for. None after a failed coverage job, which
-          # coverage.yml's Coverage · Passed fails on.
+          # reports its own failure.
           FLAGS: ${{ needs.cli-coverage.result == 'success' && 'cli-linux,cli-darwin,cli-windows' || '' }}
           # Codecov records a PR's uploads under its head, not the merge commit.
           SHA: ${{ github.event.pull_request.head.sha || github.sha }}

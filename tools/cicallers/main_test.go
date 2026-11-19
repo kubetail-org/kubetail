@@ -32,40 +32,12 @@ func TestCheck(t *testing.T) {
 jobs:
   a: {uses: ./.github/workflows/ci-a.yml}
   b: {uses: ./.github/workflows/ci-b.yml}
-  passed:
-    name: CI · Passed
-    needs: [a, b]
-    if: always()
 `, ""},
 		{"misses an area", `
 jobs:
   a: {uses: ./.github/workflows/ci-a.yml}
-  passed: {name: CI · Passed, needs: a, if: always()}
+  other: {runs-on: ubuntu-24.04}
 `, "no job calls ci-b.yml"},
-		{"not last", `
-jobs:
-  a: {uses: ./.github/workflows/ci-a.yml}
-  passed: {name: CI · Passed, needs: [a, b], if: always()}
-  b: {uses: ./.github/workflows/ci-b.yml}
-`, "the last job, b, is not named"},
-		{"misses a job", `
-jobs:
-  a: {uses: ./.github/workflows/ci-a.yml}
-  b: {uses: ./.github/workflows/ci-b.yml}
-  passed: {name: CI · Passed, needs: [a], if: always()}
-`, "does not need b"},
-		{"no always", `
-jobs:
-  a: {uses: ./.github/workflows/ci-a.yml}
-  b: {uses: ./.github/workflows/ci-b.yml}
-  passed: {name: CI · Passed, needs: [a, b]}
-`, "does not run `if: always()`"},
-		{"no needs", `
-jobs:
-  a: {uses: ./.github/workflows/ci-a.yml}
-  b: {uses: ./.github/workflows/ci-b.yml}
-  passed: {name: CI · Passed, if: always()}
-`, "needs: none"},
 		{"no jobs", `on: push`, "no jobs"},
 	}
 	for _, tt := range tests {
@@ -87,9 +59,9 @@ jobs:
 func TestRun_NamesTheCaller(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
-		"ci.yml":         "jobs:\n  passed: {name: CI · Passed, needs: [], if: always()}\n",
+		"ci.yml":         "jobs:\n  other: {runs-on: ubuntu-24.04}\n",
 		"ci-a.yml":       "on: workflow_call\n",
-		"coverage.yml":   "jobs:\n  a: {uses: ./.github/workflows/coverage-a.yml}\n  passed: {name: Coverage · Passed, needs: a, if: always()}\n",
+		"coverage.yml":   "jobs:\n  a: {uses: ./.github/workflows/coverage-a.yml}\n",
 		"coverage-a.yml": "on: workflow_call\n",
 	}
 	for name, body := range files {
