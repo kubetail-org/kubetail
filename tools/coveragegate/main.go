@@ -283,7 +283,7 @@ func fetch(ctx context.Context, cfg config, cc *codecov) (*comparison, error) {
 		if notFound(err) {
 			return nil, fatalError("Codecov has no report for base commit " + cmp.base +
 				", so it cannot compare this commit with it. " +
-				"Only CI's push runs (main and wip/*) upload a base's coverage: " +
+				"Only coverage.yml's push runs (main and wip/*) upload a base's coverage: " +
 				"re-run this job once the base's run has uploaded")
 		}
 		return nil, err

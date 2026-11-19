@@ -7,19 +7,21 @@ on:
   push:
     branches:
       - main
+      - wip/**
   pull_request:
     branches:
       - main
+      - wip/**
   schedule:
     - cron: "17 6 * * 1"
   workflow_dispatch:
 
-# A PR's new push cancels its last run. Pushes to main share a group that never
-# cancels a running run, which would leave main without a baseline for Reuse
-# base: a newer push replaces only the run still waiting. Every other run has a
-# group of its own.
+# A PR's new push cancels its last run. A branch's pushes share a group that
+# never cancels a running run, which would leave the branch without a baseline
+# for Reuse · Base analysis: a newer push replaces only the run still waiting.
+# Every other run has a group of its own.
 concurrency:
-  group: codeql-${{ github.event_name == 'pull_request' && github.ref || github.event_name == 'push' && 'main' || github.run_id }}
+  group: codeql-${{ github.event_name == 'pull_request' && github.ref || github.event_name == 'push' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -29,8 +31,8 @@ env:
 
 jobs:
   # A pull request analyzes a language only when a path it reads changed. A
-  # push, the schedule or a dispatch analyzes them all, so main's baseline
-  # stays complete. GitHub starts push and schedule runs in forks too. Outside
+  # push, the schedule or a dispatch analyzes them all, so the baseline of
+  # main and of each wip/* branch stays complete. GitHub starts push and schedule runs in forks too. Outside
   # kubetail-org/kubetail this job runs only for a PR or a dispatch, and every
   # other job needs it, so a fork's automatic run skips whole. A job whose
   # `if:` runs past a skipped need (`always()`) checks that Plan succeeded.
@@ -261,11 +263,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CATEGORY: ${{ matrix.category }}
         run: |
-          # A cancelled run records a failed analysis, which has no SARIF.
+          # A cancelled run records a failed analysis, which has no SARIF. A
+          # wip/* branch has none until its first push run, so a pull request
+          # into it fails here until then.
           id=$(gh api "repos/$GITHUB_REPOSITORY/code-scanning/analyses?ref=refs/heads/$GITHUB_BASE_REF&tool_name=CodeQL&per_page=100" \
             --jq "[.[] | select(.category == \"$CATEGORY\" and .error == \"\")][0].id")
           if [ -z "$id" ] || [ "$id" = null ]; then
-            echo "::error::$GITHUB_BASE_REF has no successful CodeQL analysis for $CATEGORY; run codeql.yml on it"
+            echo "::error::$GITHUB_BASE_REF has no successful CodeQL analysis for $CATEGORY; push to it, or run codeql.yml on it, then re-run this job"
             exit 1
           fi
           gh api -H "Accept: application/sarif+json" \

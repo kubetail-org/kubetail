@@ -1,12 +1,15 @@
 name: coverage
 
-# The one coverage run of a pull request or a push to main. Each area measures
+# The one coverage run of a pull request or a push to main or wip/*. A push to
+# wip/* gives the branch's tip the report a PR into it is compared with; ci.yml
+# does not run on it, since the merged PR ran its checks. Each area measures
 # and gates its coverage in a workflow of its own, coverage-<area>.yml, which
 # this one calls, so an area file runs on a pull request only once this one
 # calls it.
 #
 # Each area's Plan job skips the jobs whose paths a pull request did not touch,
-# and each Gate waits on its own area's uploads alone.
+# and runs them all on a push. Each Gate waits on its own area's uploads alone.
+# No coverage job saves a Go or Rust cache.
 
 permissions:
   contents: read
@@ -18,10 +21,11 @@ on:
   push:
     branches:
       - main
+      - wip/**
   workflow_dispatch:
 
 # A PR's new push cancels its last run. Every other run has a group of its own,
-# so every commit on main has a report.
+# so every commit on main and wip/* has a report.
 concurrency:
   group: coverage-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
