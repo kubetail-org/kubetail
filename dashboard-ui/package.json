@@ -46,7 +46,7 @@
   "devDependencies": {
     "@graphql-codegen/cli": "^7.4.6",
     "@graphql-codegen/client-preset": "^6.2.3",
-    "@graphql-codegen/fragment-matcher": "^7.1.1",
+    "@graphql-codegen/fragment-matcher": "^8.0.0",
     "@graphql-typed-document-node/core": "^3.2.0",
     "@tailwindcss/vite": "^4.3.5",
     "@testing-library/jest-dom": "^7.0.1",
