@@ -28,7 +28,7 @@ export default function UpdateBanner({ currentVersion, latestVersion, dismiss, d
       className="flex items-center justify-between gap-2 border-b border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100"
     >
       <div className="flex items-center gap-2">
-        <ArrowUpCircle className="h-4 w-4 shrink-0" />
+        <ArrowUpCircle className="size-4 shrink-0" />
         <span>
           <strong>Update available:</strong> CLI {currentVersion} → {latestVersion}. Use your package manager to
           upgrade.
@@ -44,7 +44,7 @@ export default function UpdateBanner({ currentVersion, latestVersion, dismiss, d
           aria-label="Dismiss"
           className="rounded p-0.5 hover:bg-blue-200 dark:hover:bg-blue-800"
         >
-          <X className="h-4 w-4" />
+          <X className="size-4" />
         </button>
       </div>
     </div>

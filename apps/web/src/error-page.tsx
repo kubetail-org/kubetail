@@ -22,7 +22,7 @@ export default function ErrorPage() {
       <h1 className="text-2xl">Oops!</h1>
       <p>Sorry, an unexpected error has occurred.</p>
       <p>
-        <span className="text-danger font-mono">{error.statusText || error.message}</span>
+        <span className="text-destructive font-mono">{error.statusText || error.message}</span>
       </p>
       <p>
         <i className="text-sm">See error console for more details...</i>

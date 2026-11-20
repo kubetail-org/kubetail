@@ -405,7 +405,7 @@ const getAttribute = (record: LogRecord, col: ViewerColumn, timezone: string, ti
       return formatTimestamp(record.timestamp, timezone, timestampFormat);
     case ViewerColumn.ColorDot: {
       const k = cssEncode(`${record.source.namespace}/${record.source.podName}/${record.source.containerName}`);
-      const el = <div className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: `var(--${k}-color)` }} />;
+      const el = <div className="inline-block size-2 rounded-full" style={{ backgroundColor: `var(--${k}-color)` }} />;
       return el;
     }
     case ViewerColumn.Pod:
@@ -572,7 +572,7 @@ export const RecordRow = memo(
         'px-2',
         shouldWrap ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-nowrap',
         !isColorDot &&
-          (isCellSelected && isCursorText ? 'cursor-text group-data-[mod-key]:cursor-default' : 'cursor-default'),
+          (isCellSelected && isCursorText ? 'cursor-text group-data-mod-key:cursor-default' : 'cursor-default'),
         'select-none',
       );
 
@@ -793,7 +793,7 @@ export const Main = () => {
   }, []);
 
   return (
-    <div ref={wrapperRef} className="group relative h-full w-full flex flex-col">
+    <div ref={wrapperRef} className="group relative size-full flex flex-col">
       {isLoading && <LoadingOverlay />}
       <HeaderRow
         scrollElRef={scrollElRef}
@@ -807,7 +807,7 @@ export const Main = () => {
         <LogViewer
           ref={logViewerRef}
           scrollElRef={scrollElRef}
-          className="relative grow w-full font-mono text-xs leading-6"
+          className="relative grow w-full font-mono text-xs/6"
           client={logServerClient}
           initialPosition={initialPosition}
           estimateRowHeight={estimateRowHeight}

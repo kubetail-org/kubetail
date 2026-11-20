@@ -1,0 +1,19 @@
+// The UI's Tailwind classes, checked against `src/index.css`'s design system: `pnpm lint:tailwind`.
+// A run of its own, apart from `.oxlintrc.json`, since loading Tailwind's canonicalizer is most
+// of its time. It reads `className` and `cn(...)`; ordering and wrapping are `oxfmt`'s.
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [],
+  "jsPlugins": ["eslint-plugin-better-tailwindcss"],
+  "options": { "denyWarnings": true },
+  "categories": { "correctness": "off" },
+  "ignorePatterns": ["**/__generated__/**"],
+  "settings": { "better-tailwindcss": { "entryPoint": "src/index.css" } },
+  "rules": {
+    // The spelling Tailwind v4 prints: `wrap-break-word`, not `break-words`; `size-4`, not `h-4 w-4`.
+    "better-tailwindcss/enforce-canonical-classes": "error",
+    "better-tailwindcss/no-unknown-classes": "error",
+    // Two classes setting the same property.
+    "better-tailwindcss/no-conflicting-classes": "error"
+  }
+}

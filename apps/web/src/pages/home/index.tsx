@@ -260,7 +260,7 @@ const WORKLOAD_TABLE_COLUMNS = [
           className="flex items-center underline text-primary"
         >
           <div>view</div>
-          <ExternalLink className="w-[18px] h-[18px] ml-1" />
+          <ExternalLink className="size-[18px] ml-1" />
         </a>
       );
     },
@@ -431,7 +431,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
         <TableRow className="hover:bg-transparent">
           <TableHead colSpan={5} className="px-0 pb-[5px] text-[0.9rem]">
             <div className="flex items-center">
-              <Icon className="w-6 h-6 mr-1 text-primary" />
+              <Icon className="size-6 mr-1 text-primary" />
               <div className="font-medium mr-2 leading-none">{label}</div>
               {isFetching ? (
                 <div>
@@ -470,7 +470,7 @@ const DisplayWorkloadItems = memo(({ kind }: DisplayWorkloadItemsProps) => {
           <TableRow>
             <TableCell colSpan={table.getVisibleLeafColumns().length}>
               <div className="flex flex-col items-center  py-1 ">
-                <Layers3 className="h-5 w-5 text-[currentColor]/25" />
+                <Layers3 className="size-5 text-[currentColor]/25" />
                 <span className="text-[currentColor]/25 italic font-medium">No resources found</span>
               </div>
             </TableCell>
@@ -526,7 +526,7 @@ const DisplayWorkloads = () => {
     return (
       <div className="flex items-center border border-dashed border-secondary rounded-md justify-center h-32">
         <div className="text-center">
-          <Search className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+          <Search className="size-8 text-muted-foreground mx-auto mb-2" />
           <p className="text-base text-muted-foreground">No matching workloads found</p>
         </div>
       </div>
@@ -584,7 +584,7 @@ const Sidebar = () => {
                 onClick={() => setWorkloadKindFilter((w) => (w === kind ? undefined : kind))}
               >
                 <div className="flex items-center gap-2">
-                  <Icon className="w-5 h-5 text-[currentColor]" />
+                  <Icon className="size-5 text-[currentColor]" />
                   <span className="text-md">{PLURAL_LABEL_MAP[kind]}</span>
                 </div>
                 <div
@@ -697,7 +697,7 @@ const Main = () => {
               </div>
               <Button type="submit">
                 View in Console
-                <ExternalLink className="w-[18px] h-[18px] ml-1" />
+                <ExternalLink className="size-[18px] ml-1" />
               </Button>
             </div>
           </div>

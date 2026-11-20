@@ -78,7 +78,7 @@ const SettingsButton = () => {
         render={
           <button
             type="button"
-            className="rounded-lg h-10 w-10 flex items-center justify-center enabled:hover:bg-secondary disabled:opacity-30"
+            className="rounded-lg size-10 flex items-center justify-center enabled:hover:bg-secondary disabled:opacity-30"
             title="Settings"
             aria-label="Settings"
           >

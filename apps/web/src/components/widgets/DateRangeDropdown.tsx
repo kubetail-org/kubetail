@@ -266,7 +266,7 @@ const AbsoluteTimeForm = ({ onApply }: { onApply: (date: Date) => void }) => {
             className={`pl-8 ${error ? 'border-destructive' : ''}`}
           />
           <Clock
-            className={`absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 ${error ? 'text-destructive' : 'text-muted-foreground'}`}
+            className={`absolute left-2.5 top-1/2 -translate-y-1/2 size-4 ${error ? 'text-destructive' : 'text-muted-foreground'}`}
           />
         </div>
       </div>
