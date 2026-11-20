@@ -115,7 +115,7 @@ export default function LoginPage() {
             </form>
           </Form>
           {serverLoading && (
-            <div className="absolute top-0 left-0 w-full h-full bg-background bg-opacity-80 flex justify-center items-center">
+            <div className="absolute top-0 left-0 size-full bg-background/80 flex justify-center items-center">
               <div className="bg-background py-4 px-6 border flex">
                 <Spinner size="sm" />
                 <span>Loading...</span>

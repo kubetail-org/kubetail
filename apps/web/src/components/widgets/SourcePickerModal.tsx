@@ -123,7 +123,7 @@ const Sidebar = ({ workloadState }: SidebarProps) => {
                     )}
                     onClick={() => setCurrWorkload(kind)}
                   >
-                    <Icon className="h-[18px] w-[18px] text-primary" />
+                    <Icon className="size-[18px] text-primary" />
                     <div className="ml-1">
                       {PLURAL_LABEL_MAP[kind]} {counter.has(kind) && `(${counter.get(kind)})`}
                     </div>

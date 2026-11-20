@@ -59,7 +59,7 @@ const HealthDot = ({ className, status }: { className?: string; status: Status }
 
   return (
     <div
-      className={cn('w-3 h-3 rounded-full', className, {
+      className={cn('size-3 rounded-full', className, {
         'bg-gray-300 dark:bg-gray-600': color === 'gray',
         'bg-red-500': color === 'red',
         'bg-green-500': color === 'green',

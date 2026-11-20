@@ -56,14 +56,14 @@ const CollapsibleSection = ({ icon: Icon, label, count, children }: CollapsibleS
         type="button"
         onClick={() => setIsCollapsed((c) => !c)}
         aria-expanded={!isCollapsed}
-        className="w-full border-t border-divider mt-2.5 py-2.5 font-medium flex items-center justify-between cursor-pointer"
+        className="w-full border-t mt-2.5 py-2.5 font-medium flex items-center justify-between cursor-pointer"
       >
         <div className="flex items-center space-x-1 min-w-0">
           <ChevronDownIcon
             className={cn('size-4 shrink-0 transition-transform text-muted-foreground', isCollapsed && '-rotate-90')}
           />
           {Icon && <Icon className="size-4 shrink-0" />}
-          <span className="whitespace-nowrap overflow-hidden text-ellipsis">{label}</span>
+          <span className="truncate">{label}</span>
         </div>
         <div className="flex items-center space-x-1 shrink-0">
           <span className="text-xs font-medium border border-sidebar-border min-w-6 h-6 px-1 rounded-sm flex items-center justify-center">
@@ -144,10 +144,7 @@ const SidebarWorkloads = () => {
     <>
       <SourcePickerModal open={isPickerOpen} onOpenChange={setIsPickerOpen} />
       {kubeContext !== '' && (
-        <div
-          className="mb-2 font-bold text-primary overflow-hidden text-ellipsis whitespace-nowrap"
-          title={kubeContext}
-        >
+        <div className="mb-2 font-bold text-primary truncate" title={kubeContext}>
           Cluster: {kubeContext}
         </div>
       )}
@@ -159,7 +156,7 @@ const SidebarWorkloads = () => {
           className="cursor-pointer"
           aria-label="Open source picker"
         >
-          <CirclePlusIcon className="h-5 w-5 text-primary" />
+          <CirclePlusIcon className="size-5 text-primary" />
         </button>
       </div>
       <div className="space-y-2">
@@ -175,22 +172,20 @@ const SidebarWorkloads = () => {
             <div key={kind}>
               <div className="flex items-center space-x-1">
                 <div>
-                  <Icon className="h-4.5 w-4.5" />
+                  <Icon className="size-4.5" />
                 </div>
                 <div className="font-medium">{PLURAL_LABEL_MAP[kind]}</div>
               </div>
               <ul className="pl-5.75">
                 {vals.map((val) => (
                   <li key={val.name} className="flex items-center justify-between">
-                    <span className="whitespace-nowrap overflow-hidden text-ellipsis">
-                      {val.name.replace(/\/\*$/, '')}
-                    </span>
+                    <span className="truncate">{val.name.replace(/\/\*$/, '')}</span>
                     <button
                       type="button"
                       onClick={() => deleteSource(`${val.namespace}:${kind}/${val.name}`)}
                       aria-label="Delete source"
                     >
-                      <TrashIcon className="h-4.5 w-4.5 text-muted-foreground cursor-pointer" />
+                      <TrashIcon className="size-4.5 text-muted-foreground cursor-pointer" />
                     </button>
                   </li>
                 ))}
@@ -234,9 +229,9 @@ const Containers = ({ namespace, podName, containerNames }: ContainersProps) => 
         const urlKey = 'container';
         const urlVal = `${namespace}:${podName}/${containerName}`;
         return (
-          <Label key={containerName} className="flex item-center justify-between">
+          <Label key={containerName} className="flex items-center justify-between">
             <div className="flex items-center space-x-1">
-              <div className="w-3.25 h-3.25" style={{ backgroundColor: `var(--${k}-color)` }} />
+              <div className="size-3.25" style={{ backgroundColor: `var(--${k}-color)` }} />
               <div>{containerName}</div>
             </div>
             <Checkbox
@@ -327,7 +322,7 @@ const SidebarPodsAndContainers = () => {
         {containerGroups.map((group) => (
           <div key={`${group.namespace}/${group.podName}`}>
             <div className="flex items-center justify-between">
-              <div className="whitespace-nowrap overflow-hidden text-ellipsis">{group.podName}</div>
+              <div className="truncate">{group.podName}</div>
             </div>
             <Containers namespace={group.namespace} podName={group.podName} containerNames={group.containers} />
           </div>

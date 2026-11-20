@@ -35,9 +35,9 @@ const QueryError = ({ toast }: { toast: Toast }) => (
       onClick={() => toastlib.remove(toast.id)}
       aria-label="remove"
     >
-      <CircleX className={cn('h-5 w-5', closeIconCommonClasses)} aria-hidden="true" />
+      <CircleX className={cn('size-5', closeIconCommonClasses)} aria-hidden="true" />
     </button>
-    <div className="max-w-full overflow-ellipsis">{resolveValue(toast.message, toast)}</div>
+    <div className="max-w-full text-ellipsis">{resolveValue(toast.message, toast)}</div>
   </div>
 );
 
@@ -56,7 +56,7 @@ const CustomToaster = () => {
           onClick={() => toastlib.remove()}
           aria-label="remove all"
         >
-          <CircleX className={cn('h-5 w-5', closeIconCommonClasses)} aria-hidden="true" />
+          <CircleX className={cn('size-5', closeIconCommonClasses)} aria-hidden="true" />
         </button>
         <button type="button" onClick={() => setModalIsOpen(true)}>
           Query Errors

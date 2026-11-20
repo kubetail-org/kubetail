@@ -22,7 +22,7 @@ import { useAllClusterUpdateViews, useCLIUpdateNotification, useHasAnyClusterUpd
 
 const UpdateNotice = ({ children }: React.PropsWithChildren) => (
   <div className="flex items-start gap-2 rounded border border-blue-200 bg-blue-50 p-2 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100">
-    <ArrowUpCircle className="mt-0.5 h-4 w-4 shrink-0" />
+    <ArrowUpCircle className="mt-0.5 size-4 shrink-0" />
     <p>{children}</p>
   </div>
 );
@@ -43,7 +43,7 @@ export const NotificationsPopover = ({ children }: React.PropsWithChildren) => {
         render={
           <div className="relative h-full">
             {children}
-            {hasNotifications && <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-blue-500" />}
+            {hasNotifications && <span className="absolute top-0.5 right-0.5 size-2 rounded-full bg-blue-500" />}
           </div>
         }
       />
