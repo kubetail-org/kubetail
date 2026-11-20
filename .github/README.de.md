@@ -340,8 +340,8 @@ Eine Änderung an einer Stelle kann eine andere Komponente brechen. Führe zusä
 | Eine Änderung an | Zusätzlich ausführen |
 |---|---|
 | `libs/go-common/` | `make test-cli test-cluster-api` |
-| `libs/graphql/*/schema.graphqls` | `go generate ./...` in diesem Server, `pnpm graphql-codegen` in `apps/web/`, `make vet-web` |
-| `libs/proto/` | `make check-generated`, die Go- und Rust-Prüfungen |
+| `libs/graphql/*/schema.graphqls` | `make generate`, `make vet-web` |
+| `libs/proto/` | `make generate`, die Go- und Rust-Prüfungen |
 | einem `Dockerfile` oder einer Toolchain-Version | `make lint-repo-toolchains lint-repo-digests` |
 | `.github/` oder anderem YAML | `make lint-repo-yaml` |
 | `scripts/` | `make lint-repo-sh test-repo` |

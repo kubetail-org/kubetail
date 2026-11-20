@@ -7,7 +7,7 @@
 While working, after an edit:
 
 ```sh
-make check-generated              # from the repo root: regenerates the *.pb.go, then fails because they changed
+make generate                     # from the repo root: regenerates the *.pb.go
 cd cluster/agent && cargo build   # needs protoc
 ```
 

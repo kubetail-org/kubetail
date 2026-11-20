@@ -48,7 +48,7 @@ kubetail logs ──────────────────────
 
 ## Generated code
 
-Generated Go and TypeScript are committed and never hand-edited: `*.pb.go`, `graph/generated.go`, `graph/model/models_gen.go`, `apps/web/src/lib/graphql/*/__generated__/`. The Rust gRPC code is generated on every build and never committed. Regenerate after editing a source: `libs/proto/CLAUDE.md` for the proto, *Go modules* below for a GraphQL schema, `apps/web/CLAUDE.md` for the UI's operations. `make check-generated` runs every generator, `cli/assets/`'s copy of `config/default/cli.*` among them, and fails if a committed file changed; CI's `Check · Generated` runs it. → [ADR: commit generated Go and TypeScript](docs/adr/2026-11-09-commit-generated-go-and-typescript-generate-rust-at-build-time.md), [ADR: check generated code in CI by regenerating it](docs/adr/2026-11-10-check-generated-code-in-ci-by-regenerating-it.md)
+Generated Go and TypeScript are committed and never hand-edited: `*.pb.go`, `graph/generated.go`, `graph/model/models_gen.go`, `apps/web/src/lib/graphql/*/__generated__/`. The Rust gRPC code is generated on every build and never committed. After editing a source, `make generate` runs every generator, `cli/assets/`'s copy of `config/default/cli.*` among them, with the `protoc` version and plugins CI pins; `libs/proto/CLAUDE.md`, *Go modules* below and `apps/web/CLAUDE.md` say what each source needs. `make check-generated` runs it and fails if a committed file changed; CI's `Check · Generated` runs that. → [ADR: commit generated Go and TypeScript](docs/adr/2026-11-09-commit-generated-go-and-typescript-generate-rust-at-build-time.md), [ADR: check generated code in CI by regenerating it](docs/adr/2026-11-10-check-generated-code-in-ci-by-regenerating-it.md)
 
 ## Go modules
 
@@ -104,8 +104,7 @@ Coverage is measured per CI area: every test binary counts every package of its 
 After editing a schema:
 
 ```sh
-cd <module> && go generate ./...       # gqlgen
-cd apps/web && pnpm graphql-codegen    # the UI's types, generated from both schemas
+make generate   # gqlgen, and the UI's types, generated from both schemas
 ```
 
 - **`logRecordsFetch` and `logRecordsFollow` exist in both schemas with the same signature**, since the UI sends one set of documents to whichever server is in use. Change both together.
@@ -175,8 +174,8 @@ A change in one place can break another area. Also run:
 | A change to | Also run |
 |---|---|
 | `libs/go-common/` | `make test-cli test-cluster-api` |
-| `libs/graphql/*/schema.graphqls` | `go generate ./...` in that server, `pnpm graphql-codegen` in `apps/web/`, `make vet-web` |
-| `libs/proto/` | `make check-generated`, the Go and Rust checks |
+| `libs/graphql/*/schema.graphqls` | `make generate`, `make vet-web` |
+| `libs/proto/` | `make generate`, the Go and Rust checks |
 | a `Dockerfile` or a toolchain version | `make lint-repo-toolchains lint-repo-digests` |
 | `.github/` or other YAML | `make lint-repo-yaml` |
 | `scripts/` | `make lint-repo-sh test-repo` |

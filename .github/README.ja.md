@@ -340,8 +340,8 @@ pnpm dev
 | 変更した場所 | 追加で実行するもの |
 |---|---|
 | `libs/go-common/` | `make test-cli test-cluster-api` |
-| `libs/graphql/*/schema.graphqls` | そのサーバーで `go generate ./...`、`apps/web/` で `pnpm graphql-codegen`、`make vet-web` |
-| `libs/proto/` | `make check-generated`, Go と Rust のチェック |
+| `libs/graphql/*/schema.graphqls` | `make generate`, `make vet-web` |
+| `libs/proto/` | `make generate`, Go と Rust のチェック |
 | `Dockerfile` またはツールチェーンのバージョン | `make lint-repo-toolchains lint-repo-digests` |
 | `.github/` またはその他の YAML | `make lint-repo-yaml` |
 | `scripts/` | `make lint-repo-sh test-repo` |

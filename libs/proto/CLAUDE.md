@@ -9,7 +9,7 @@ Keep this section in step with the one in `README.md`.
 While working, after an edit:
 
 ```sh
-make check-generated              # from the repo root: regenerates the *.pb.go, then fails because they changed
+make generate                     # from the repo root: regenerates the *.pb.go
 cd cluster/agent && cargo build   # needs protoc
 ```
 
@@ -21,7 +21,7 @@ make cover-cluster-agent-changed  # from the repo root; needs cargo-llvm-cov
 
 ## Generated code
 
-Commit the regenerated `*.pb.go`; never hand-edit them. Their headers record the `protoc` and plugin versions, so they are generated with one of each: `protoc` is `protoc-version` in `.github/actions/setup-environment/action.yml`, which CI installs, and `make check-generated` refuses another; the plugins are pinned in `tools/go.mod`, and it builds them. A Dependabot update of a plugin fails `Check · Generated` until its PR regenerates the `*.pb.go`. A change under `libs/proto/` alone runs CI's Rust jobs but not its Go jobs, so run the Go checks yourself.
+Commit the regenerated `*.pb.go`; never hand-edit them. Their headers record the `protoc` and plugin versions, so they are generated with one of each: `protoc` is `protoc-version` in `.github/actions/setup-environment/action.yml`, which CI installs, and `make generate` refuses another; the plugins are pinned in `tools/go.mod`, and it builds them. A Dependabot update of a plugin fails `Check · Generated` until its PR regenerates the `*.pb.go`. A change under `libs/proto/` alone runs CI's Rust jobs but not its Go jobs, so run the Go checks yourself.
 
 - **A `LogMetadata*` message is also a GraphQL type.** The Cluster API binds them straight into its schema (`cluster/api/gqlgen.yml`), so a change to one is a schema change: follow the root guide's *The GraphQL servers*.
 - **`LogMetadataWatchEvent.type` is a string** (`ADDED`, `MODIFIED`, `DELETED`) spelled by hand in the agent and again in the UI (`pages/home/log-metadata-provider.tsx`); the Cluster API passes it through.

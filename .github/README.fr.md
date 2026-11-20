@@ -340,8 +340,8 @@ Une modification a un endroit peut casser un autre composant. Lancez aussi:
 | Une modification de | Lancez aussi |
 |---|---|
 | `libs/go-common/` | `make test-cli test-cluster-api` |
-| `libs/graphql/*/schema.graphqls` | `go generate ./...` dans ce serveur, `pnpm graphql-codegen` dans `apps/web/`, `make vet-web` |
-| `libs/proto/` | `make check-generated`, les verifications Go et Rust |
+| `libs/graphql/*/schema.graphqls` | `make generate`, `make vet-web` |
+| `libs/proto/` | `make generate`, les verifications Go et Rust |
 | un `Dockerfile` ou une version de toolchain | `make lint-repo-toolchains lint-repo-digests` |
 | `.github/` ou un autre YAML | `make lint-repo-yaml` |
 | `scripts/` | `make lint-repo-sh test-repo` |

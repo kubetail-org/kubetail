@@ -7,7 +7,7 @@ setup() {
   bin="$BATS_TEST_TMPDIR/bin"
   mkdir -p "$repo/scripts" "$repo/.github/actions/setup-environment" "$repo/tools" \
     "$repo/apps/web" "$bin"
-  cp "$(dirname "$BATS_TEST_FILENAME")/check-generated.sh" "$repo/scripts/"
+  cp "$(dirname "$BATS_TEST_FILENAME")"/{check-generated,generate}.sh "$repo/scripts/"
   cat >"$repo/.github/actions/setup-environment/action.yml" <<'EOF'
 inputs:
   protoc-version:
