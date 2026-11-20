@@ -1,0 +1,13 @@
+# Byte budget of each tracked CLAUDE.md, checked by scripts/check-claude-md.sh.
+# A new guide starts at its size plus about 5%, rounded up to a multiple of 512.
+# Explain an increase in the commit body.
+# A flat map of path to bytes: the script reads it with awk, so keep keys unquoted.
+CLAUDE.md: 37376
+apps/web/CLAUDE.md: 13824
+cli/CLAUDE.md: 5632
+cluster/agent/CLAUDE.md: 9216
+cluster/api/CLAUDE.md: 7168
+dashboard/CLAUDE.md: 9216
+e2e/CLAUDE.md: 1536
+libs/go-common/CLAUDE.md: 7168
+libs/proto/CLAUDE.md: 2560

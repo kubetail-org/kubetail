@@ -125,6 +125,18 @@ jobs:
       - name: Check the Dockerfiles' image digests
         run: make lint-repo-digests
 
+  # Runs on every PR: one can grow a guide without touching anything else.
+  claude-md-lint:
+    name: Lint · CLAUDE.md
+    needs: plan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check guide size budgets
+        run: make lint-repo-claude-md
+
   python-lint:
     name: Lint · Python
     needs: plan
