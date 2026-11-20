@@ -39,7 +39,7 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/cli/cmd.version=
 .DEFAULT_GOAL := build
 
 # No target names a file it makes, and build/ is a directory.
-.PHONY: build build-dashboard-ui clean help check-generated \
+.PHONY: build build-dashboard-ui clean help generate check-generated \
 	lint-cli vet-cli test-cli cover-cli-changed \
 	lint-libs vet-libs test-libs cover-libs-changed \
 	lint-cluster-api vet-cluster-api test-cluster-api cover-cluster-api-changed \
@@ -227,8 +227,12 @@ lint-repo-claude-md: ## Check every tracked CLAUDE.md against its byte budget
 test-repo: ## Test the scripts with bats
 	@bats scripts/
 
+# scripts/generate.sh
+generate: ## Regenerate the committed protoc, gqlgen, codegen and CLI config output
+	@bash scripts/generate.sh
+
 # scripts/check-generated.sh
-check-generated: ## Regenerate the committed protoc, gqlgen, codegen and CLI config output, and fail on a change
+check-generated: ## Regenerate the committed output with generate, and fail on a change
 	@bash scripts/check-generated.sh
 
 # Prints each target's `##` description.

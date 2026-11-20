@@ -340,8 +340,8 @@ pnpm dev
 | 변경한 곳 | 추가로 실행 |
 |---|---|
 | `libs/go-common/` | `make test-cli test-cluster-api` |
-| `libs/graphql/*/schema.graphqls` | 해당 서버에서 `go generate ./...`, `apps/web/`에서 `pnpm graphql-codegen`, `make vet-web` |
-| `libs/proto/` | `make check-generated`, Go와 Rust 검사 |
+| `libs/graphql/*/schema.graphqls` | `make generate`, `make vet-web` |
+| `libs/proto/` | `make generate`, Go와 Rust 검사 |
 | `Dockerfile` 또는 툴체인 버전 | `make lint-repo-toolchains lint-repo-digests` |
 | `.github/` 또는 기타 YAML | `make lint-repo-yaml` |
 | `scripts/` | `make lint-repo-sh test-repo` |

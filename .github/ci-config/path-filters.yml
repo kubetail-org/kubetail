@@ -109,6 +109,7 @@ generated:
   - libs/graphql/**
   - libs/proto/**
   - scripts/check-generated.sh
+  - scripts/generate.sh
   - '!**/*.md'
 # codeql.yml's alone. A change to codeql.yml analyzes every language.
 codeql:
