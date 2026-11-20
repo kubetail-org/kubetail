@@ -89,6 +89,9 @@ jobs:
       - name: Lint
         working-directory: ./apps/web
         run: pnpm lint
+      - name: Lint Tailwind classes
+        working-directory: ./apps/web
+        run: pnpm lint:tailwind
       - name: Check license headers
         run: sh scripts/check-license-headers.sh apps/web
       - name: Check coverage markers

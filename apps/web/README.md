@@ -23,6 +23,7 @@ While working:
 ```sh
 pnpm format                                # oxfmt: formats and sorts imports
 pnpm lint                                  # oxlint (type-aware), then `oxfmt --check`. A warning fails the run.
+pnpm lint:tailwind                         # the Tailwind classes, after changing any; `--fix` rewrites a spelling
 pnpm exec vitest related --run <file>...   # the tests that import the files you touched
 ```
 

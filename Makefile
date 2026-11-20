@@ -156,8 +156,9 @@ cover-cluster-agent-changed: ## List the changed lines in cluster/agent/ no test
 
 # web
 
-lint-web: ## Lint apps/web/ and check its license headers and coverage markers
-	@cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm lint
+# lint:tailwind is a run apart from lint for its time (.oxlintrc.tailwind.json).
+lint-web: ## Lint apps/web/ and its Tailwind classes, and check its license headers and coverage markers
+	@cd $(DASHBOARD_UI_DIR) && pnpm install && pnpm lint && pnpm lint:tailwind
 	@sh scripts/check-license-headers.sh apps/web
 	@sh scripts/check-coverage-markers.sh apps/web/src
 

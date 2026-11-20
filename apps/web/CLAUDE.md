@@ -13,6 +13,7 @@ While working:
 ```sh
 pnpm format                                # oxfmt: formats and sorts imports
 pnpm lint                                  # oxlint (type-aware), then `oxfmt --check`. A warning fails the run.
+pnpm lint:tailwind                         # the Tailwind classes, after changing any; `--fix` rewrites a spelling
 pnpm exec vitest related --run <file>...   # the tests that import the files you touched
 ```
 
@@ -100,6 +101,7 @@ Vitest + `@testing-library/react` (jsdom), co-located as `foo.test.ts[x]`. Globa
 
 `.oxlintrc.json` is the lint: oxlint's `correctness`, `suspicious` and `perf` categories plus a chosen list of rules. A rule turned off or given options says why in a comment. → [ADR: lint the dashboard UI with oxlint's categories and a chosen rule list](../../docs/adr/2026-11-09-lint-the-dashboard-ui-with-oxlints-categories-and-a-chosen-rule-list.md)
 
+- **Tailwind classes are `pnpm lint:tailwind`** (`.oxlintrc.tailwind.json`), apart from `pnpm lint` for its time. It checks `className` and `cn(...)` against `src/index.css`: the canonical spelling (`size-4`, not `h-4 w-4`), no unknown class, no two classes setting the same property. Other class strings are not checked. `--fix` rewrites a spelling. **Run it after changing classes.** A test's marker class goes in the rule's `ignore` option in a file-scoped override, not a disable comment. → [ADR: lint Tailwind classes in a run of their own](../../docs/adr/2026-11-20-lint-tailwind-classes-in-a-run-of-their-own.md)
 - **Imports are grouped, a blank line between groups**: third-party packages, `@kubetail/*`, `@/…`, relative `./…`, then stylesheets. `pnpm format` sorts them (`sortImports` in `.oxfmtrc.json`).
 - **No `any` outside tests** (`no-explicit-any` and the `no-unsafe-*` rules). Read JSON and other outside data as `unknown` and check it, as `parseSession` in `lib/auth.tsx` does. Tests turn the `no-unsafe-*` rules off, since a mock's calls are `any`. → [ADR: forbid any in the dashboard UI outside tests](../../docs/adr/2026-11-09-forbid-any-in-the-dashboard-ui-outside-tests.md)
 - **A disable comment is `oxlint-disable`, names its rule, gives a reason after `--`, and is rare**; an unused one fails the lint. `eslint-disable` comments are ignored.
