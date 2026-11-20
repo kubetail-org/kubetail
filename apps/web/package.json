@@ -14,7 +14,7 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@apollo/client": "4.3.7",
+    "@apollo/client": "4.3.8",
     "@base-ui/react": "^1.9.0",
     "@fontsource-variable/roboto-flex": "^5.3.0",
     "@hookform/resolvers": "^7.0.5",
@@ -30,7 +30,7 @@
     "graphql-ws": "^6.4.1",
     "jotai": "^3.0.2",
     "jotai-family": "^1.1.0",
-    "lucide-react": "^1.70.0",
+    "lucide-react": "^1.71.0",
     "numeral": "^2.0.6",
     "react": "^19.3.1",
     "react-day-picker": "^9.14.0",
