@@ -32,8 +32,7 @@ updates:
           - "*"
 
   # /tools holds actionlint, govulncheck and the protoc plugins, so CI's copies
-  # move with the rest. A plugin update changes the *.pb.go headers: its PR
-  # fails Check · Generated until someone runs make generate on it.
+  # move with the rest.
   - package-ecosystem: gomod
     directories:
       - /cli
@@ -60,6 +59,14 @@ updates:
         patterns:
           - "k8s.io/*"
           - "sigs.k8s.io/*"
+      # A plugin update changes the *.pb.go headers, so its PR fails Check ·
+      # Generated until someone runs make generate on it. This group keeps
+      # that PR apart from the go group's, and moves the protobuf runtime with
+      # its plugin. A dependency joins the first group it matches.
+      protobuf:
+        patterns:
+          - google.golang.org/protobuf
+          - google.golang.org/grpc/cmd/protoc-gen-go-grpc
       go:
         update-types: [minor, patch]
       go-security:
