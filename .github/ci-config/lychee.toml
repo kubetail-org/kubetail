@@ -1,3 +1,6 @@
 offline = true
 include_fragments = "anchor-only"
 no_progress = true
+# A spec may link to files its work has yet to add. docs/specs/README.md is
+# still checked: spec names are lowercase.
+exclude_path = ["^docs/specs/[^/]+/", "^docs/specs/[a-z0-9][^/]*\\.md$"]

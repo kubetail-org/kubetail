@@ -91,6 +91,7 @@ The root `CLAUDE.md` asks code comments and docs to describe only the current co
 | 2026-11-09 | [Tests sit beside their files, never sleep, and take seams as parameters](2026-11-09-tests-sit-beside-their-files-never-sleep-and-take-seams-as-parameters.md) | repo | Accepted |
 | 2026-11-10 | [Write release notes with a skill over deterministic tooling](2026-11-10-write-release-notes-with-a-skill-over-deterministic-tooling.md) | repo | Accepted |
 | 2026-11-17 | [Keep one folder per component](2026-11-17-one-folder-per-component.md) | repo | Accepted |
+| 2026-11-17 | [Keep specs off main and build them on a wip branch](2026-11-17-keep-specs-off-main-and-build-them-on-a-wip-branch.md) | repo | Accepted |
 | 2026-11-19 | [Require CI to merge to main](2026-11-19-require-ci-to-merge-to-main.md) | repo | Superseded by [report-ci-and-coverage-without-requiring-them-to-merge](2026-11-19-report-ci-and-coverage-without-requiring-them-to-merge.md) |
 | 2026-11-19 | [Report CI and coverage without requiring them to merge](2026-11-19-report-ci-and-coverage-without-requiring-them-to-merge.md) | repo | Accepted |
 | 2026-11-19 | [Measure and gate coverage per area](2026-11-19-measure-and-gate-coverage-per-area.md) | repo | Accepted |
