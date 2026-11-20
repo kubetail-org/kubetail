@@ -214,7 +214,7 @@ importers:
     dependencies:
       '@apollo/client':
         specifier: 4.3.8
-        version: 4.3.8(graphql-ws@6.4.1(graphql@17.1.0)(ws@8.22.0))(graphql@17.1.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rxjs@7.8.2)
+        version: 4.3.8(graphql-ws@6.4.2(graphql@17.1.0)(ws@8.22.0))(graphql@17.1.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rxjs@7.8.2)
       '@base-ui/react':
         specifier: ^1.9.0
         version: 1.9.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -252,8 +252,8 @@ importers:
         specifier: ^17.1.0
         version: 17.1.0
       graphql-ws:
-        specifier: ^6.4.1
-        version: 6.4.1(graphql@17.1.0)(ws@8.22.0)
+        specifier: ^6.4.2
+        version: 6.4.2(graphql@17.1.0)(ws@8.22.0)
       jotai:
         specifier: ^3.0.2
         version: 3.0.2(@types/react@19.3.0)(react@19.3.1)
@@ -2430,8 +2430,8 @@ packages:
     peerDependencies:
       graphql: ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0
 
-  graphql-ws@6.4.1:
-    resolution: {integrity: sha512-a3MzY5u+tCHHwuyimzxMAHZQ6TY7bOpkQURtKXE5kKIkBdsZ2axlb7sLzMpzGFO4guhws9FyMVB1onyX58pO4w==}
+  graphql-ws@6.4.2:
+    resolution: {integrity: sha512-wxhPhhOGJo8PbGDkBYVE76sZLDrS+GkyrR4bZECSLVbo0pZZNKs0HtBh2Ip/uaUuiVUxwO9ssI9R92buQfNSqQ==}
     engines: {node: '>=20'}
     peerDependencies:
       '@fastify/websocket': ^10 || ^11
@@ -3451,7 +3451,7 @@ snapshots:
 
   '@adobe/css-tools@4.5.0': {}
 
-  '@apollo/client@4.3.8(graphql-ws@6.4.1(graphql@17.1.0)(ws@8.22.0))(graphql@17.1.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rxjs@7.8.2)':
+  '@apollo/client@4.3.8(graphql-ws@6.4.2(graphql@17.1.0)(ws@8.22.0))(graphql@17.1.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rxjs@7.8.2)':
     dependencies:
       '@graphql-typed-document-node/core': 3.2.0(graphql@17.1.0)
       '@wry/caches': 1.0.1
@@ -3463,7 +3463,7 @@ snapshots:
       rxjs: 7.8.2
       tslib: 2.8.1
     optionalDependencies:
-      graphql-ws: 6.4.1(graphql@17.1.0)(ws@8.22.0)
+      graphql-ws: 6.4.2(graphql@17.1.0)(ws@8.22.0)
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
@@ -3947,7 +3947,7 @@ snapshots:
       '@graphql-tools/utils': 12.1.0(graphql@17.1.0)
       '@whatwg-node/disposablestack': 0.0.6
       graphql: 17.1.0
-      graphql-ws: 6.4.1(graphql@17.1.0)(ws@8.22.0)
+      graphql-ws: 6.4.2(graphql@17.1.0)(ws@8.22.0)
       isows: 1.0.7(ws@8.22.0)
       tslib: 2.8.1
       ws: 8.22.0
@@ -5268,7 +5268,7 @@ snapshots:
       graphql: 17.1.0
       tslib: 2.8.1
 
-  graphql-ws@6.4.1(graphql@17.1.0)(ws@8.22.0):
+  graphql-ws@6.4.2(graphql@17.1.0)(ws@8.22.0):
     dependencies:
       graphql: 17.1.0
     optionalDependencies:
