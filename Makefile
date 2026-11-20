@@ -46,7 +46,7 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/cli/cmd.version=
 	lint-cluster-agent vet-cluster-agent test-cluster-agent cover-cluster-agent-changed \
 	lint-web vet-web test-web cover-web-changed \
 	lint-e2e test-e2e \
-	lint-repo lint-repo-sh lint-repo-md lint-repo-yaml lint-repo-toolchains lint-repo-digests test-repo
+	lint-repo lint-repo-sh lint-repo-md lint-repo-yaml lint-repo-toolchains lint-repo-digests lint-repo-claude-md test-repo
 
 build: build-dashboard-ui ## Build the kubetail CLI, with the UI embedded, for this platform
 	@echo "Building kubetail CLI binary..."
@@ -188,7 +188,7 @@ endif
 
 # repo: what belongs to no component. CI runs each lint-repo-* in a job of its own.
 
-lint-repo: lint-repo-sh lint-repo-md lint-repo-yaml lint-repo-toolchains lint-repo-digests ## Run every lint-repo-* and check tools/'s and scripts/' license headers
+lint-repo: lint-repo-sh lint-repo-md lint-repo-yaml lint-repo-toolchains lint-repo-digests lint-repo-claude-md ## Run every lint-repo-* and check tools/'s and scripts/' license headers
 	@sh scripts/check-license-headers.sh tools scripts
 
 lint-repo-sh: ## Lint every shell script
@@ -218,6 +218,10 @@ lint-repo-toolchains: ## Check the Dockerfiles' golang, node and rust images mat
 # scripts/check-image-digests.sh
 lint-repo-digests: ## Check every image a Dockerfile pulls is pinned by digest
 	@sh scripts/check-image-digests.sh
+
+# scripts/check-claude-md.sh
+lint-repo-claude-md: ## Check every tracked CLAUDE.md against its byte budget
+	@sh scripts/check-claude-md.sh
 
 test-repo: ## Test the scripts with bats
 	@bats scripts/

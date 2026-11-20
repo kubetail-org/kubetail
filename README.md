@@ -346,7 +346,7 @@ A change in one place can break another component. Also run:
 | `.github/` or other YAML | `make lint-repo-yaml` |
 | `scripts/` | `make lint-repo-sh test-repo` |
 | `tools/` | `cd tools && gofmt -l . && go vet ./... && go test ./...` |
-| Markdown | `make lint-repo-md` |
+| Markdown | `make lint-repo-md lint-repo-claude-md` |
 | `config/`, `hack/` | CI runs no code job for these: name the checks you ran in the pull request |
 
 `make help` lists every target.
