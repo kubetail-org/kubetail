@@ -67,6 +67,9 @@ jobs:
       cache-mode: ${{ env.CACHE_MODE }}
       go: ${{ fromJSON(steps.plan.outputs.jobs).go }}
       docker: ${{ fromJSON(steps.plan.outputs.jobs).docker }}
+      legs: ${{ steps.plan.outputs.legs }}
+      linux-arches: ${{ steps.plan.outputs.linux-arches }}
+      runners: ${{ steps.plan.outputs.runners }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -180,22 +183,8 @@ jobs:
         # coverage-cli.yml runs the tests on macOS and Windows on every PR, so
         # a PR runs linux/amd64 alone. main runs each OS and arch the CLI
         # ships for.
-        os: >-
-          ${{ fromJSON(github.event_name == 'pull_request'
-          && '["linux"]'
-          || '["linux", "macos", "windows"]') }}
-        arch: >-
-          ${{ fromJSON(github.event_name == 'pull_request'
-          && '["amd64"]'
-          || '["amd64", "arm64"]') }}
-    # A lookup rather than matrix `include` entries: an entry for a platform
-    # the lists above leave out on a PR would add it back as a job of its own.
-    runs-on: >-
-      ${{ fromJSON('{
-      "linux-amd64": "ubuntu-24.04", "linux-arm64": "ubuntu-24.04-arm",
-      "macos-amd64": "macos-15-intel", "macos-arm64": "macos-26",
-      "windows-amd64": "windows-2025", "windows-arm64": "windows-11-arm"
-      }')[format('{0}-{1}', matrix.os, matrix.arch)] }}
+        include: ${{ fromJSON(needs.plan.outputs.legs) }}
+    runs-on: ${{ fromJSON(needs.plan.outputs.runners)[format('{0}-{1}', matrix.os, matrix.arch)] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -245,15 +234,12 @@ jobs:
           && '["cli", "dashboard"]'
           || '["cli"]') }}
         # arm64 builds on main.
-        arch: >-
-          ${{ fromJSON(github.event_name == 'pull_request'
-          && '["amd64"]'
-          || '["amd64", "arm64"]') }}
+        arch: ${{ fromJSON(needs.plan.outputs.linux-arches) }}
         target: >-
           ${{ fromJSON(needs.plan.outputs.docker == 'true'
           && '["final", "final-alpine"]'
           || '["final"]') }}
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    runs-on: ${{ fromJSON(needs.plan.outputs.runners)[format('linux-{0}', matrix.arch)] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

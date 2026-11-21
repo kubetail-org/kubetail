@@ -56,6 +56,8 @@ jobs:
       # For Prune · Caches: a job's `if:` cannot read `env`.
       cache-mode: ${{ env.CACHE_MODE }}
       e2e: ${{ fromJSON(steps.plan.outputs.jobs).e2e }}
+      linux-arches: ${{ steps.plan.outputs.linux-arches }}
+      runners: ${{ steps.plan.outputs.runners }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -79,14 +81,11 @@ jobs:
           - "1.21"
           - latest
         # main runs the arm64 images in a cluster too, on the latest Kubernetes.
-        arch: >-
-          ${{ fromJSON(github.event_name == 'pull_request'
-          && '["amd64"]'
-          || '["amd64", "arm64"]') }}
+        arch: ${{ fromJSON(needs.plan.outputs.linux-arches) }}
         exclude:
           - k8s-version: "1.21"
             arch: arm64
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    runs-on: ${{ fromJSON(needs.plan.outputs.runners)[format('linux-{0}', matrix.arch)] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

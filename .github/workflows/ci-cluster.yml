@@ -71,6 +71,8 @@ jobs:
       go: ${{ fromJSON(steps.plan.outputs.jobs).go }}
       rust: ${{ fromJSON(steps.plan.outputs.jobs).rust }}
       docker: ${{ fromJSON(steps.plan.outputs.jobs).docker }}
+      linux-arches: ${{ steps.plan.outputs.linux-arches }}
+      runners: ${{ steps.plan.outputs.runners }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -223,11 +225,8 @@ jobs:
         os:
           - linux
         # arm64 runs on main.
-        arch: >-
-          ${{ fromJSON(github.event_name == 'pull_request'
-          && '["amd64"]'
-          || '["amd64", "arm64"]') }}
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+        arch: ${{ fromJSON(needs.plan.outputs.linux-arches) }}
+    runs-on: ${{ fromJSON(needs.plan.outputs.runners)[format('linux-{0}', matrix.arch)] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -267,14 +266,7 @@ jobs:
         arch:
           - amd64
           - arm64
-        include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-24.04
-          - os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ fromJSON(needs.plan.outputs.runners)[format('{0}-{1}', matrix.os, matrix.arch)] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -284,7 +276,7 @@ jobs:
           setup-rust: "true"
           setup-protoc: "true"
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          rust-cache-key: ${{ github.job }}-${{ matrix.runner }}
+          rust-cache-key: ${{ github.job }}-${{ matrix.os }}-${{ matrix.arch }}
           cache-save: ${{ env.CACHE_MODE != 'use' }}
       - name: Build
         working-directory: ./cluster/agent
@@ -311,14 +303,11 @@ jobs:
           - cluster-api
           - cluster-agent
         # arm64 builds on main.
-        arch: >-
-          ${{ fromJSON(github.event_name == 'pull_request'
-          && '["amd64"]'
-          || '["amd64", "arm64"]') }}
+        arch: ${{ fromJSON(needs.plan.outputs.linux-arches) }}
         target:
           - final
           - final-alpine
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    runs-on: ${{ fromJSON(needs.plan.outputs.runners)[format('linux-{0}', matrix.arch)] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
