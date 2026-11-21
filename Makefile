@@ -42,7 +42,7 @@ clean: ## Remove every build output and Go's test cache
 	rm -rf $(OUTPUT_DIR)
 	find $(DASHBOARD_SERVER_DIR)/website -mindepth 1 ! -name .gitkeep -delete
 	if [ -d $(DASHBOARD_UI_DIR)/dist ]; then find $(DASHBOARD_UI_DIR)/dist -mindepth 1 -delete; fi
-	if command -v cargo >/dev/null; then cd $(CRATES_DIR) && cargo clean; fi
+	if command -v cargo >/dev/null; then cd $(CLUSTER_AGENT_DIR) && cargo clean; fi
 	go clean -testcache
 
 # Each check is <verb>-<area>, over the areas CI checks and measures apart: cli
