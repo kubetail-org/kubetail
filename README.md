@@ -112,6 +112,8 @@ If you prefer, you can also download it from the [release binaries](https://gith
 curl -sS https://www.kubetail.com/install.sh | bash
 ```
 
+[CHANGELOG.md](CHANGELOG.md) links to each component's release notes.
+
 ### Usage
 
 Here are some ways to use `kubetail`:
