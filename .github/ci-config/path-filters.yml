@@ -116,6 +116,10 @@ generated:
 # codeql.yml's alone. A change to codeql.yml analyzes every language.
 codeql:
   - .github/workflows/codeql.yml
+# The nightly stress run's report script, outside every module.
+stress:
+  - scripts/stress.go
+  - scripts/stress_test.go
 python:
   - e2e/**
   - '!**/*.md'

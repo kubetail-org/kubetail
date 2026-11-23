@@ -184,8 +184,10 @@ jobs:
           reports=(stress/*/failures.json)
           if [ ${#reports[@]} -gt 0 ]; then
             jq -s '[.[] | .runner as $r | .failures[] | . + {runner: $r}]' "${reports[@]}" > failures.json
+            jq -s '[.[] | .runner as $r | .outside[] | . + {runner: $r}]' "${reports[@]}" > outside.json
           else
             echo '[]' > failures.json
+            echo '[]' > outside.json
           fi
 
           # One issue per failing test, whatever -cpu values it failed under.
@@ -203,8 +205,36 @@ jobs:
             file_issue "$title" body.md
           done
 
-          # A failed job that names no failing test: setup, build, a package
-          # that failed outside a test, or a timeout the test binary missed.
+          # One issue per package that failed outside a test: a crash, a panic
+          # in TestMain, a build failure. Its output is untrusted text, so it
+          # sits in a fence longer than any run of backticks in it. Only the
+          # first five jobs' output is shown, to keep the body under GitHub's
+          # 65536 characters.
+          jq -c 'group_by(.package)[]' outside.json | while read -r group; do
+            title=$(jq -r '"Stress: \(.[0].package) fails outside a test"' <<<"$group")
+            jq -r --arg run "$RUN_URL" '
+              def fence: "`" * ([3, ([scan("`+") | length] | max // 0) + 1] | max);
+              "The [nightly stress run](\($run)) found `\(.[0].package)` failing outside a test.\n\n"
+              + "Each command runs the whole package from the repo root, since the seed orders all of it.\n\n"
+              + (sort_by(.runner, .cpu) | to_entries | map(.key as $i | .value |
+                  "### \(.runner), `-cpu \(.cpu)`\n\n"
+                  + (if (.running | length) > 0
+                    then "Running when it failed: " + (.running | map("`\(.)`") | join(", ")) + "\n\n"
+                    else "" end)
+                  + "```sh\n\(.command)\n```\n"
+                  + (if $i >= 5 or .output == "" then ""
+                    else (.output | fence) as $f
+                      | "\n<details><summary>Output"
+                      + (if .omitted > 0 then ", \(.omitted) more lines in the artifact" else "" end)
+                      + "</summary>\n\n\($f)text\n\(.output)\($f)\n\n</details>\n"
+                    end)
+                ) | join("\n"))
+            ' <<<"$group" > body.md
+            file_issue "$title" body.md
+          done
+
+          # A failed job that names no failing test or package: setup, a
+          # cancel, a lost runner, or a timeout the test binary missed.
           : > outside.md
           while IFS=$'\t' read -r id ended; do
             report="stress/stress-$id/failures.json"
@@ -218,10 +248,8 @@ jobs:
                 why="$why; its artifact holds the partial \`stress.json\`"
               fi
               echo "- **$id**: $why" >> outside.md
-            elif jq -e '(.outside | length) > 0 or (.failures | length) == 0' "$report" > /dev/null; then
-              jq -r --arg r "$id" '"- **\($r)**: " + (if (.outside | length) > 0
-                then "failed outside a test in " + (.outside | map("`\(.)`") | join(", "))
-                else "failed with no failing test" end)' "$report" >> outside.md
+            elif jq -e '(.outside | length) == 0 and (.failures | length) == 0' "$report" > /dev/null; then
+              echo "- **$id**: failed with no failing test or package" >> outside.md
             fi
           done < failed-jobs.txt
           if [ -s outside.md ]; then

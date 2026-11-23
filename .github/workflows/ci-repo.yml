@@ -69,7 +69,7 @@ jobs:
             shell: repo shell
             yaml: repo yaml
             python: repo python
-            tools: repo shared
+            tools: repo shared stress
             generated: repo generated
 
   ##############################
@@ -209,7 +209,8 @@ jobs:
   # Test jobs
   ##############################
 
-  # The coverage tools: a module of their own, outside the workspace.
+  # The coverage tools, a module of their own outside the workspace, and the
+  # stress report script, a file outside any module.
   tools-test:
     name: Test · Tools
     needs: plan
@@ -230,6 +231,11 @@ jobs:
           test -z "$(gofmt -l .)"
           go vet ./...
           go test ./...
+      - name: Vet and test stress.go
+        run: |
+          test -z "$(gofmt -l scripts/stress.go scripts/stress_test.go)"
+          go vet scripts/stress.go scripts/stress_test.go
+          go test scripts/stress.go scripts/stress_test.go
 
   shell-test:
     name: Test · Shell

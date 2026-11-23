@@ -29,19 +29,31 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
 const workspacePath = "github.com/kubetail-org/kubetail"
 
-// The test2json fields this reads.
+// The bounds on a package's output excerpt. The issue body that holds it is
+// limited to 65536 characters.
+const (
+	excerptLines = 80
+	excerptBytes = 6000
+)
+
+// The test2json fields this reads. A build's events carry ImportPath and no
+// Package, and the package's fail event names the build in FailedBuild.
 type event struct {
-	Action  string
-	Package string
-	Test    string
-	Output  string
+	Action      string
+	Package     string
+	Test        string
+	Output      string
+	ImportPath  string
+	FailedBuild string
 }
 
 // One test failing in this job.
@@ -54,12 +66,47 @@ type failure struct {
 	Command  string `json:"command"`
 }
 
+// A package failing in this job with no test to blame: a build failure, a
+// panic in TestMain, a race found after the last test, a crash of the test
+// binary.
+type outside struct {
+	Package string `json:"package"`
+	CPU     int    `json:"cpu"`
+	Seed    string `json:"seed"`
+	// Tests started and never finished: those a crash cut short.
+	Running []string `json:"running"`
+	// The head of the output no finished test holds, and how many lines it
+	// leaves out.
+	Output  string `json:"output"`
+	Omitted int    `json:"omitted"`
+	Command string `json:"command"`
+}
+
 type report struct {
 	Runner   string    `json:"runner"`
 	Failures []failure `json:"failures"`
-	// Packages that failed with no test to blame: a build failure, a panic in
-	// TestMain, a race found after the last test.
-	Outside []string `json:"outside"`
+	Outside  []outside `json:"outside"`
+}
+
+// One output line, numbered across the package so buffers merge in order.
+type line struct {
+	seq  int
+	text string
+}
+
+// The first excerptLines lines of one stream of output, and a count of the
+// rest. No excerpt takes more than excerptLines lines from one buffer.
+type buffer struct {
+	lines []line
+	more  int
+}
+
+func (b *buffer) add(l line) {
+	if len(b.lines) < excerptLines {
+		b.lines = append(b.lines, l)
+	} else {
+		b.more++
+	}
 }
 
 type pkgState struct {
@@ -68,6 +115,12 @@ type pkgState struct {
 	failed   bool
 	running  map[string]bool // top-level tests started and not finished
 	failures []failure
+	// Output no running test holds, and that of each test, subtests
+	// included, started and not finished. A finished test's output is
+	// dropped.
+	out   buffer
+	open  map[string]*buffer
+	build string // the ImportPath of a failed build
 }
 
 func main() {
@@ -125,6 +178,8 @@ func run(path, runner string, cpu, count int, race bool) error {
 // read folds the event stream into failures.
 func read(in io.Reader, cpu, count int, race bool) (report, error) {
 	pkgs := map[string]*pkgState{}
+	builds := map[string]*buffer{}
+	seq := 0
 	var order []string
 	dec := json.NewDecoder(bufio.NewReader(in))
 	for {
@@ -134,12 +189,21 @@ func read(in io.Reader, cpu, count int, race bool) (report, error) {
 		} else if err != nil {
 			return report{}, err
 		}
+		seq++
 		if e.Package == "" {
+			if e.Action == "build-output" && e.ImportPath != "" {
+				b := builds[e.ImportPath]
+				if b == nil {
+					b = &buffer{}
+					builds[e.ImportPath] = b
+				}
+				b.add(line{seq, e.Output})
+			}
 			continue
 		}
 		p := pkgs[e.Package]
 		if p == nil {
-			p = &pkgState{running: map[string]bool{}}
+			p = &pkgState{running: map[string]bool{}, open: map[string]*buffer{}}
 			pkgs[e.Package] = p
 			order = append(order, e.Package)
 		}
@@ -149,11 +213,30 @@ func read(in io.Reader, cpu, count int, race bool) (report, error) {
 			case "output":
 				if seed, ok := strings.CutPrefix(e.Output, "-test.shuffle "); ok {
 					p.seed = strings.TrimSpace(seed)
+				} else if !isSummary(e.Output, e.Package) {
+					p.out.add(line{seq, e.Output})
 				}
 			case "fail":
 				p.failed = true
+				p.build = e.FailedBuild
 			}
 			continue
+		}
+		switch e.Action {
+		case "run":
+			p.open[e.Test] = &buffer{}
+		case "output":
+			// test2json names the test that printed last, so a crash after a
+			// test finished is printed under its name.
+			if b := p.open[e.Test]; b == nil {
+				p.out.add(line{seq, e.Output})
+			} else if isResult(e.Output, e.Test) {
+				delete(p.open, e.Test)
+			} else if !strings.HasPrefix(e.Output, "=== ") {
+				b.add(line{seq, e.Output})
+			}
+		case "pass", "fail", "skip":
+			delete(p.open, e.Test)
 		}
 		if e.Action == "output" && strings.HasPrefix(e.Output, "panic: test timed out after ") {
 			p.timedOut = true
@@ -173,7 +256,7 @@ func read(in io.Reader, cpu, count int, race bool) (report, error) {
 		}
 	}
 
-	r := report{Failures: []failure{}, Outside: []string{}}
+	r := report{Failures: []failure{}, Outside: []outside{}}
 	for _, name := range order {
 		p := pkgs[name]
 		if !p.failed {
@@ -187,12 +270,23 @@ func read(in io.Reader, cpu, count int, race bool) (report, error) {
 			}
 		}
 		if len(p.failures) == 0 {
-			r.Outside = append(r.Outside, name)
+			o := outside{Package: name, CPU: cpu, Seed: p.seed, Running: slices.AppendSeq([]string{}, maps.Keys(p.open))}
+			slices.Sort(o.Running)
+			bufs := []*buffer{&p.out}
+			if b := builds[p.build]; b != nil {
+				bufs = append(bufs, b)
+			}
+			for _, b := range p.open {
+				bufs = append(bufs, b)
+			}
+			o.Output, o.Omitted = excerpt(bufs)
+			o.Command = command(name, cpu, p.seed, count, race)
+			r.Outside = append(r.Outside, o)
 			continue
 		}
 		for _, f := range p.failures {
 			f.Seed = p.seed
-			f.Command = command(f, count, race)
+			f.Command = command(f.Package, f.CPU, f.Seed, count, race)
 			r.Failures = append(r.Failures, f)
 		}
 	}
@@ -210,17 +304,88 @@ func addFailure(fs []failure, f failure) []failure {
 	return append(fs, f)
 }
 
+// isSummary reports whether s is the line go test ends a failed package
+// with, which says nothing the issue does not.
+func isSummary(s, pkg string) bool {
+	return strings.HasPrefix(s, "FAIL\t"+pkg+"\t") || strings.HasPrefix(s, "FAIL\t"+pkg+" [")
+}
+
+// isResult reports whether s is the line that ends test, which test2json
+// follows with the test's pass, fail or skip only when the next test starts.
+func isResult(s, test string) bool {
+	s = strings.TrimLeft(s, " ")
+	for _, r := range []string{"--- PASS: ", "--- FAIL: ", "--- SKIP: "} {
+		if strings.HasPrefix(s, r+test+" ") {
+			return true
+		}
+	}
+	return false
+}
+
+// excerpt merges the buffers in output order and returns the head of the
+// result, within excerptLines and excerptBytes, and how many lines it leaves
+// out.
+func excerpt(bufs []*buffer) (string, int) {
+	var all []line
+	omitted := 0
+	for _, b := range bufs {
+		all = append(all, b.lines...)
+		omitted += b.more
+	}
+	slices.SortFunc(all, func(a, b line) int { return a.seq - b.seq })
+
+	var sb strings.Builder
+	n := 0
+	for _, l := range all {
+		if n == excerptLines || sb.Len()+len(l.text) > excerptBytes {
+			break
+		}
+		sb.WriteString(l.text)
+		n++
+	}
+	// A first line too long for the excerpt is cut to fit.
+	if n == 0 && len(all) > 0 {
+		sb.WriteString(strings.ToValidUTF8(all[0].text[:excerptBytes], ""))
+		n = 1
+	}
+	// The last line test2json gives may have no newline, and a fence after it
+	// must start a line.
+	if sb.Len() > 0 && !strings.HasSuffix(sb.String(), "\n") {
+		sb.WriteString("\n")
+	}
+	return sb.String(), omitted + len(all) - n
+}
+
 // command reproduces a failure from the repo root. The seed orders the whole
-// package, so it runs the whole package.
-func command(f failure, count int, race bool) string {
-	dir := "./" + strings.TrimPrefix(f.Package, workspacePath+"/")
+// package, so it runs the whole package. A package that failed before its
+// tests started printed no seed.
+func command(pkg string, cpu int, seed string, count int, race bool) string {
+	dir := "./" + strings.TrimPrefix(pkg, workspacePath+"/")
+	if seed == "" {
+		seed = "on"
+	}
 	var b strings.Builder
 	b.WriteString("go test")
 	if race {
 		b.WriteString(" -race")
 	}
-	fmt.Fprintf(&b, " -cpu %d -shuffle=%s -count=%d %s", f.CPU, f.Seed, count, dir)
+	fmt.Fprintf(&b, " -cpu %d -shuffle=%s -count=%d %s", cpu, seed, count, dir)
 	return b.String()
+}
+
+// fence returns a code fence longer than any run of backticks in s, so the
+// text cannot close it.
+func fence(s string) string {
+	longest, run := 0, 0
+	for _, c := range s {
+		if c == '`' {
+			run++
+			longest = max(longest, run)
+		} else {
+			run = 0
+		}
+	}
+	return strings.Repeat("`", max(3, longest+1))
 }
 
 func markdown(r report) string {
@@ -238,10 +403,16 @@ func markdown(r report) string {
 			fmt.Fprintf(&b, "| %s | %s | %d | %s | `%s` |\n", f.Package, test, f.CPU, f.Seed, f.Command)
 		}
 	}
-	if len(r.Outside) > 0 {
-		b.WriteString("\nFailed outside a test:\n\n")
-		for _, p := range r.Outside {
-			fmt.Fprintf(&b, "- %s\n", p)
+	for _, o := range r.Outside {
+		fmt.Fprintf(&b, "\n%s failed outside a test", o.Package)
+		if len(o.Running) > 0 {
+			fmt.Fprintf(&b, " while %s ran", strings.Join(o.Running, ", "))
+		}
+		fmt.Fprintf(&b, ". Reproduce with `%s`.\n\n", o.Command)
+		f := fence(o.Output)
+		fmt.Fprintf(&b, "%stext\n%s%s\n", f, o.Output, f)
+		if o.Omitted > 0 {
+			fmt.Fprintf(&b, "\n%d more lines in the job's stress.json.\n", o.Omitted)
 		}
 	}
 	return b.String()
