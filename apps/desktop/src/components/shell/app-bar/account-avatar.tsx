@@ -53,7 +53,7 @@ export function AccountAvatar() {
       {/* Filled, unlike the bar's other controls: the avatar is an identity, and
           wears the accent the sidebar's account row does. */}
       <DropdownMenuTrigger
-        render={<AppBarButton className="rounded-full bg-accent text-accent-foreground" />}
+        render={<AppBarButton className="bg-accent text-accent-foreground" />}
         aria-label={`Account: ${label ?? (authenticated ? 'Signed in' : 'Guest')}`}
       >
         {label ? <span className="text-xs font-medium">{initials(label)}</span> : <UserRound aria-hidden />}

@@ -20,11 +20,11 @@ import type { ComponentProps } from 'react';
 import { APP_BAR_HOVER_CLASS } from '@/lib/control-style';
 
 // `ghost` has no resting fill, so the bar's tint shows through and only hover paints;
-// `icon-sm` is the 28px square. The icon is gray.
+// `icon-sm` is 28px, drawn round to match the bar's capsules and omnibox. The icon is gray.
 const VARIANTS = { variant: 'ghost', size: 'icon-sm' } as const;
 
 export function AppBarButton({ className, ...props }: ComponentProps<typeof Button>) {
-  return <Button {...VARIANTS} className={cn('text-muted-foreground', APP_BAR_HOVER_CLASS, className)} {...props} />;
+  return <Button {...VARIANTS} className={cn('rounded-full text-muted-foreground', APP_BAR_HOVER_CLASS, className)} {...props} />;
 }
 
 // A muted, round track grouping related app bar buttons; it echoes the omnibox's mode tabs.

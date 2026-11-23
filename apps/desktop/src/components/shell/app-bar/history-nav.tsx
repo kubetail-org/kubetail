@@ -93,14 +93,12 @@ function useHistoryNav() {
 
 export function HistoryNav() {
   const { canGoBack, canGoForward, goBack, goForward } = useHistoryNav();
-  const buttonClass = 'rounded-full';
-
   return (
     <AppBarCapsule>
-      <AppBarButton aria-label="Go back" disabled={!canGoBack} onClick={goBack} className={buttonClass}>
+      <AppBarButton aria-label="Go back" disabled={!canGoBack} onClick={goBack}>
         <ChevronLeft className="size-4" aria-hidden />
       </AppBarButton>
-      <AppBarButton aria-label="Go forward" disabled={!canGoForward} onClick={goForward} className={buttonClass}>
+      <AppBarButton aria-label="Go forward" disabled={!canGoForward} onClick={goForward}>
         <ChevronRight className="size-4" aria-hidden />
       </AppBarButton>
     </AppBarCapsule>
