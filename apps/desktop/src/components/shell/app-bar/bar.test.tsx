@@ -135,24 +135,25 @@ describe('AppBar', () => {
   });
 
   // The Chat/Dashboard switch is the omnibox's.
-  it('lays out the left group: history, then the sidebar toggle', () => {
+  it('lays out the left group: the sidebar toggle, then history', () => {
     render(<AppBar />);
     const controls = screen.getByTestId('app-bar-controls');
-    expect(controls).toHaveClass('gap-1.5');
+    expect(controls).toHaveClass('gap-2');
     expect(Array.from(controls.children)).toEqual([
-      screen.getByTestId('history-nav'),
       screen.getByTestId('left-sidebar-toggle'),
+      screen.getByTestId('history-nav'),
     ]);
   });
 
-  it('lays out the right group: notifications, settings, then the right sidebar toggle', () => {
+  it('lays out the right group: notifications and settings in a capsule, then the right sidebar toggle', () => {
     render(<AppBar />);
     const actions = screen.getByTestId('app-bar-actions');
-    expect(actions).toHaveClass('gap-1', 'pr-3');
-    expect(Array.from(actions.children)).toEqual([
+    expect(actions).toHaveClass('gap-3', 'pr-3.5');
+    const global = screen.getByTestId('app-bar-global');
+    expect(Array.from(actions.children)).toEqual([global, screen.getByTestId('right-sidebar-toggle')]);
+    expect(Array.from(global.children)).toEqual([
       screen.getByTestId('notification-button'),
       screen.getByTestId('settings-button'),
-      screen.getByTestId('right-sidebar-toggle'),
     ]);
   });
 

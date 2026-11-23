@@ -26,6 +26,7 @@ import { ContextOmnibox } from '@/components/shell/context-omnibox';
 import { isMacOS } from '@/lib/platform';
 import { dismissPopupsOnWindowDrag } from '@/lib/window-drag';
 
+import { AppBarCapsule } from './button';
 import { HistoryNav } from './history-nav';
 import { LeftSidebarToggle } from './left-sidebar-toggle';
 import { AppMenu } from './menu';
@@ -91,11 +92,11 @@ export function AppBar() {
       className="grid h-14 shrink-0 transform-gpu bg-app-bar"
       style={{ gridTemplateColumns: columns }}
     >
-      <div ref={startRef} data-testid="app-bar-start" className="flex items-stretch gap-1.5 justify-self-start">
+      <div ref={startRef} data-testid="app-bar-start" className="flex items-stretch gap-2 justify-self-start">
         {mac ? <TrafficLightGutter /> : <AppMenu />}
-        <div data-testid="app-bar-controls" className="flex items-center gap-1.5">
-          <HistoryNav />
+        <div data-testid="app-bar-controls" className="flex items-center gap-2">
           <LeftSidebarToggle />
+          <HistoryNav />
         </div>
       </div>
       <div className="flex min-w-0 items-center">
@@ -103,9 +104,12 @@ export function AppBar() {
       </div>
       <div ref={endRef} data-testid="app-bar-end" className="flex items-stretch justify-self-end">
         {/* Accounts are not part of the MVP, so `AccountAvatar` is left out. */}
-        <div data-testid="app-bar-actions" className="flex items-center gap-1 pr-3">
-          <NotificationButton />
-          <SettingsButton />
+        {/* The panel toggle stands apart from the capsule; its inset mirrors the traffic lights'. */}
+        <div data-testid="app-bar-actions" className="flex items-center gap-3 pr-3.5">
+          <AppBarCapsule data-testid="app-bar-global">
+            <NotificationButton />
+            <SettingsButton />
+          </AppBarCapsule>
           <RightSidebarToggle />
         </div>
         {!mac && <WindowControls />}

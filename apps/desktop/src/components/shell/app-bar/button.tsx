@@ -26,3 +26,8 @@ const VARIANTS = { variant: 'ghost', size: 'icon-sm' } as const;
 export function AppBarButton({ className, ...props }: ComponentProps<typeof Button>) {
   return <Button {...VARIANTS} className={cn('text-muted-foreground', APP_BAR_HOVER_CLASS, className)} {...props} />;
 }
+
+// A muted, round track grouping related app bar buttons; it echoes the omnibox's mode tabs.
+export function AppBarCapsule({ className, ...props }: ComponentProps<'div'>) {
+  return <div className={cn('flex h-8 items-center gap-0.5 rounded-full bg-muted p-0.5', className)} {...props} />;
+}

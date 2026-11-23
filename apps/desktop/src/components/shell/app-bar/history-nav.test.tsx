@@ -199,11 +199,11 @@ describe('HistoryNav (standalone-site browser history)', () => {
 });
 
 describe('HistoryNav look', () => {
-  it('draws two 30px round ghost buttons with no outline around them', async () => {
+  it('draws two round ghost buttons in a muted capsule', async () => {
     await renderWithRouter(buildTree(), '/chat');
     for (const button of [back(), forward()]) {
-      expect(button).toHaveClass('size-7.5', 'rounded-full', 'border-transparent');
+      expect(button).toHaveClass('size-7', 'rounded-full', 'border-transparent');
     }
-    expect(back().parentElement).not.toHaveClass('border');
+    expect(back().parentElement).toHaveClass('rounded-full', 'bg-muted');
   });
 });
