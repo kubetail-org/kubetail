@@ -202,8 +202,9 @@ lint-repo-digests: ## Check every image a Dockerfile pulls is pinned by digest
 lint-repo-claude-md: ## Check every tracked CLAUDE.md against its byte budget
 	sh scripts/check-claude-md.sh
 
-test-repo: ## Test the scripts with bats
+test-repo: ## Test the scripts with bats, and scripts/stress.go
 	bats scripts/
+	go test scripts/stress.go scripts/stress_test.go
 
 # scripts/generate.sh
 generate: ## Regenerate the committed protoc, gqlgen, codegen and CLI config output
