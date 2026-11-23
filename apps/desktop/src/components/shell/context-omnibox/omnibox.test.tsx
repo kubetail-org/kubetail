@@ -124,13 +124,12 @@ describe('ContextOmnibox', () => {
     expect(box).toHaveClass('bg-white', 'dark:bg-input/30', 'shadow-pill');
   });
 
-  it('holds the cluster chip, a divider, then the Chat and Dashboard tabs', () => {
+  it('holds the cluster chip, then the Chat and Dashboard tabs', () => {
     render(<ContextOmnibox />);
-    const [chip, divider, tabs] = Array.from(screen.getByTestId('context-omnibox').children);
+    const [chip, tabs] = Array.from(screen.getByTestId('context-omnibox').children);
     expect(chip).toBe(screen.getByTestId('cluster-chip'));
     expect(chip.contains(statusButton())).toBe(true);
     expect(chip.contains(trigger())).toBe(true);
-    expect(divider).toHaveClass('h-4.5', 'w-px', 'bg-sidebar-border');
     expect(tabs).toBe(screen.getByRole('navigation', { name: 'View' }));
     expect(screen.getByRole('link', { name: 'Chat' })).toHaveAttribute('href', '/chat');
     expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/dashboard');
@@ -152,13 +151,13 @@ describe('ContextOmnibox', () => {
     // From inside the status button's own 1px border: the chip's 6px and the pill's 4px to
     // its left, and the chip's 2px and the pill's 3px above and below.
     expect(statusButton()).toHaveClass('border', 'border-transparent', 'after:-left-2.75', 'after:-inset-y-1.5');
-    // The trigger holds the chip's gap and right padding; its hit area reaches the divider
-    // and the pill's top and bottom.
-    expect(trigger()).toHaveClass('h-full', 'after:-right-1', 'after:-inset-y-0.75');
-    // The track's reaches back over the divider and the gap after it, and to the pill's edge.
+    // The trigger holds the chip's gap and right padding; its hit area reaches half the gap
+    // before the tabs and the pill's top and bottom.
+    expect(trigger()).toHaveClass('h-full', 'after:-right-0.5', 'after:-inset-y-0.75');
+    // The track's reaches back over the other half of the gap, and to the pill's edge.
     expect(screen.getByRole('navigation', { name: 'View' })).toHaveClass(
       'flex-1',
-      'after:-left-1.25',
+      'after:-left-0.5',
       'after:-right-1',
       'after:-inset-y-0.75',
     );
