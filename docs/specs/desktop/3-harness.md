@@ -6,16 +6,16 @@ Prerequisite: step 2 on `wip/desktop`. [The sequence's README](README.md) holds 
 
 | Task | Status | PR |
 | --- | --- | --- |
-| 1. CI | In review | — |
-| 2. Filters and coverage | In review | — |
-| 3. Fork gates and secret names | In review | — |
-| 4. Keep desktop releases from the CLI's publishing | In review | — |
-| 5. Release | In review | — |
+| 1. CI | In review | #1573 |
+| 2. Filters and coverage | In review | #1573 |
+| 3. Fork gates and secret names | In review | #1573 |
+| 4. Keep desktop releases from the CLI's publishing | In review | #1573 |
+| 5. Release | In review | #1573 |
 | 6. Signing | Planned (maintainer) | — |
-| 7. Dependabot | In review | — |
-| 8. Audit, CodeQL, stress | In review | — |
-| 9. Skills | In review | — |
-| 10. Update the guides | In review | — |
+| 7. Dependabot | In review | #1573 |
+| 8. Audit, CodeQL, stress | In review | #1573 |
+| 9. Skills | In review | #1573 |
+| 10. Update the guides | In review | #1573 |
 
 1. **CI.** Add `ci-desktop.yml` and `coverage-desktop.yml`, called from `ci.yml` and `coverage.yml`, built from Kstack's `ci.yml` and `coverage.yml`. Bring `.github/actions/stub-sidecar`. `.github/ci-config/zizmor.yml`'s desktop entries (`release-desktop.yml`, `action.yml:228`) follow the files they name, and go with `apps/desktop/.github/`.
 2. **Filters and coverage.**
