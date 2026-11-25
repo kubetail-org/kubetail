@@ -15,6 +15,7 @@ Prerequisite: step 2 on `wip/desktop`. [The sequence's README](README.md) holds 
 | 7. Dependabot | Planned | — |
 | 8. Audit, CodeQL, stress | Planned | — |
 | 9. Skills | Planned | — |
+| 10. Update the guides | Planned | — |
 
 1. **CI.** Add `ci-desktop.yml` and `coverage-desktop.yml`, called from `ci.yml` and `coverage.yml`, built from Kstack's `ci.yml` and `coverage.yml`. Bring `.github/actions/stub-sidecar`.
 2. **Filters and coverage.**
@@ -40,11 +41,15 @@ Prerequisite: step 2 on `wip/desktop`. [The sequence's README](README.md) holds 
 7. **Dependabot.** Add `apps/desktop` (npm), `apps/desktop/src-tauri` (cargo) and `apps/desktop/sidecar` (gomod) to `.github/dependabot.yml`, with Kstack's groups and cooldowns.
 8. **Audit, CodeQL, stress.** Merge Kstack's `audit.yml`, `codeql.yml` and `stress.yml` settings for the webview, the host and the sidecar into this repo's, with `.cargo/audit.toml`'s ignores.
 9. **Skills.** Extend the `release-notes` and `release-version` skills to `desktop`, and add a `release-desktop` skill.
+10. **Update the guides.** In one commit:
+   - **The root `CLAUDE.md`** states what this step makes true: `ci-desktop.yml` and `coverage-desktop.yml` in the CI paragraph, with the `desktop` coverage area; `desktop/v<semver>` among the release tags, and that only `cli/v*` releases run the `publish-*.yml` workflows; `release-desktop.yml` in the attestation bullet; `release-desktop` among the release skills.
+   - **`apps/desktop/CLAUDE.md`** drops its CI paragraphs that the root guide now states: the fork gates, job names, the coverage gate and the PR legs. It keeps what only the desktop's jobs do, such as building the release profile on `main`.
 
 ## Acceptance
 
 - CI and coverage pass on the PR from `wip/desktop` into `main`, with the desktop jobs running.
 - `make lint-repo-yaml` passes.
+- The root `CLAUDE.md` is true of the desktop's CI and releases, and no rule in `apps/desktop/CLAUDE.md` restates one in the root guide.
 - A dispatch of `release-desktop.yml` on `wip/desktop` builds, signs and notarizes every platform without publishing.
 - Every job of every `publish-*.yml` carries the gate.
 - A dry-run dispatch of `publish-aur.yml` on `wip/desktop` runs its jobs.

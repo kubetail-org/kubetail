@@ -100,9 +100,8 @@ None.
 
 ## When it lands
 
-- **Root `CLAUDE.md`**: `apps/desktop/` in the component list; the desktop's Makefile area and coverage area in *Checks*; `desktop/v<semver>` in the release tags, and that only `cli/v*` releases run the `publish-*.yml` workflows; the sidecar as a Go module outside `go.work`.
-- **`apps/desktop/CLAUDE.md`** and the area guides beneath it, with budgets in `.github/ci-config/claude-md-budgets.yml`.
+- **The guides**: steps 2 and 3 keep the root `CLAUDE.md` and `apps/desktop/CLAUDE.md` current as they go. Check once more that nothing in the root guide is false for the desktop, and that `apps/desktop/CLAUDE.md` restates nothing the root guide holds.
 - **`SECURITY.md`**: the `gh attestation verify` command for a desktop release, naming `release-desktop.yml`.
-- **ADRs**: the two repo-wide ones in `docs/adr/`, the rest in `apps/desktop/docs/adr/`; in `apps/desktop/docs/adr/`, a new ADR for importing Kstack without its history and resetting its migrations, which records the names above and amends the carried-over `release-files-are-named-kubetail-product-version-os-arch`, whose Linux packages kept `productName`'s name; in `docs/adr/`, a new ADR that amends the fsnotify ADR to leave the sidecar outside the pin, and the platform matrix ADR adds the desktop app. `docs/adr/README.md` and the root `CLAUDE.md` say the desktop's ADRs are in `apps/desktop/docs/adr/`.
+- **ADRs**: the two repo-wide ones in `docs/adr/`, the rest in `apps/desktop/docs/adr/`; in `apps/desktop/docs/adr/`, a new ADR for importing Kstack without its history and resetting its migrations, which records the names above and amends the carried-over `release-files-are-named-kubetail-product-version-os-arch`, whose Linux packages kept `productName`'s name; in `docs/adr/`, a new ADR that amends the fsnotify ADR to leave the sidecar outside the pin, and the platform matrix ADR adds the desktop app. `docs/adr/README.md` says the desktop's ADRs are in `apps/desktop/docs/adr/`.
 - **The Helm chart** needs nothing.
 - Delete `docs/specs/desktop/`.

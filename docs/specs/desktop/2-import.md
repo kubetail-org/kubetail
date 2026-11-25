@@ -26,7 +26,17 @@ Prerequisite: step 1 merged into Kstack's `main`. One commit into `wip/desktop`,
    - `lint-desktop` runs Kstack's lints too: oxlint, Tailwind, the design manifest and the security model.
    - `generate` runs `generate-desktop`, so `check-generated` covers the sidecar's committed `graph/generated.go` and `*.pb.go`.
    - `scripts/check-license-headers.sh` checks `apps/desktop` by default.
-8. **Fold the guides.** `apps/desktop/CLAUDE.md` takes what the Kstack root guide held about the app; the area guides keep their places under `apps/desktop/`; each gets an `AGENTS.md` and a byte budget.
+8. **Fold the guides.** Each fact goes in one guide, the narrowest that covers it, and the root `CLAUDE.md` changes in the same commit as the desktop guide.
+   - **The root `CLAUDE.md`** states what this step makes true:
+     - `apps/desktop/` in the component list, pointing to its guide, without the line that it holds a README;
+     - in *How a request travels*, that the Kubetail Desktop app is not the `desktop` environment, which is `kubetail serve` and `kubetail logs`;
+     - in *Go modules*, the sidecar as a module outside `go.work`, as `tools/` is, that builds alone and is outside the fsnotify pin;
+     - in *Dependencies*, the desktop's `rust-toolchain.toml` beside `cluster/agent/`'s, at the same version, which `make lint-repo-toolchains` checks;
+     - in *Checks*, the `desktop` area and its row in the *Also run* table;
+     - that the desktop's ADRs are in `apps/desktop/docs/adr/`.
+   - **`apps/desktop/CLAUDE.md`** takes what the Kstack root guide held about the app, and drops what the root `CLAUDE.md` states: the writing standards, the license header, the testing conventions, the rules for guides, ADRs, commits, pull requests, issues and specs, and the sandbox setup. Where the two differ, the root's rule holds. What stays is what the desktop adds.
+   - **The area guides** keep their places under `apps/desktop/` and drop what the root guide or `apps/desktop/CLAUDE.md` states.
+   - Each guide gets an `AGENTS.md` and a byte budget. The root guide's budget rises only by what it gains, and the commit body says so.
 9. **Merge the root files** in the layout's table, and replace `apps/desktop/README.md`.
 
 ## Acceptance
@@ -34,5 +44,6 @@ Prerequisite: step 1 merged into Kstack's `main`. One commit into `wip/desktop`,
 - From a clean checkout, `make generate-desktop build-desktop lint-desktop vet-desktop test-desktop` passes.
 - `make check-generated` passes.
 - `make lint-repo-toolchains lint-repo-md lint-repo-claude-md` passes.
+- The root `CLAUDE.md` is true of the desktop as this step leaves it, and no rule in `apps/desktop/CLAUDE.md` restates one in the root guide.
 - No link in the repo points at a dropped ADR.
 - By hand, on a machine with a display: `pnpm tauri dev` in `apps/desktop/` opens the app.
