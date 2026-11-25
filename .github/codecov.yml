@@ -34,6 +34,20 @@ flag_management:
       carryforward: true
     - name: web
       carryforward: true
+    - name: desktop-sidecar-linux
+      carryforward: true
+    - name: desktop-sidecar-darwin
+      carryforward: true
+    - name: desktop-sidecar-windows
+      carryforward: true
+    - name: desktop-host-linux
+      carryforward: true
+    - name: desktop-host-darwin
+      carryforward: true
+    - name: desktop-host-windows
+      carryforward: true
+    - name: desktop-webview
+      carryforward: true
 
 # One component per area. Each gate reads its own, so no other area's flags
 # may measure its paths: the CLI's and the Cluster API's tests never measure
@@ -58,6 +72,10 @@ component_management:
       name: Web
       paths:
         - apps/web/**
+    - component_id: desktop
+      name: Desktop
+      paths:
+        - apps/desktop/**
 
 # No comment on the PR: each area's Gate reports.
 comment: false
@@ -75,9 +93,36 @@ ignore:
   - libs/go-common/clusteragentpb/**
   - libs/go-common/testpb/**
   - apps/web/src/lib/graphql/*/__generated__/**
+  - apps/desktop/sidecar/graph/generated.go
+  - apps/desktop/sidecar/graph/model/models_gen.go
+  - apps/desktop/sidecar/grpc/authpb/**
+  - apps/desktop/sidecar/grpc/pokepb/**
+  - apps/desktop/src/gql/**
+  - apps/desktop/src/routeTree.ts
   # Test helpers.
   - dashboard/**/mock/**
   - libs/go-common/**/mock/**
   - libs/go-common/testutils/**
   - apps/web/src/mocks/**
   - apps/web/src/test-utils.tsx
+  - apps/desktop/src/test-utils.tsx
+  # The desktop's build and CI scripts, run by hand or by go run.
+  - apps/desktop/sidecar/scripts/**
+  # The webview's entry point.
+  - apps/desktop/src/main.tsx
+  # Rust files with no line a test can reach; a file with one marks the rest
+  # with `// coverage:ignore-start <reason>` instead. The host's entry point:
+  - apps/desktop/src-tauri/src/main.rs
+  # The macOS menu bar's construction: AppKit builds menus on the main thread,
+  # which no test runs on. What an item does is tested in app_menu/mod.rs.
+  - apps/desktop/src-tauri/src/app_menu/macos.rs
+  # The macOS Dock menu and Quit reply's AppKit patching, likewise on the main
+  # thread. What an item does and the reply are tested in dock_menu/mod.rs.
+  - apps/desktop/src-tauri/src/dock_menu/macos.rs
+  # The OS glue that registers for wake and network notifications on the
+  # system bus or the Win32 API.
+  - apps/desktop/src-tauri/src/wake/linux.rs
+  - apps/desktop/src-tauri/src/wake/windows.rs
+  # The updater plugin's wiring: a real release, its network and its installer.
+  # The check loop and the offer are tested in updater/mod.rs.
+  - apps/desktop/src-tauri/src/updater/platform.rs

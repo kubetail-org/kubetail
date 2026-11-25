@@ -1,5 +1,5 @@
 name: 'Plan'
-description: 'Says which of a workflow''s jobs run, from the filters in .github/ci-config/path-filters.yml, and on which runners, from .github/ci-config/runners.json'
+description: 'Says which of a workflow''s jobs run, from the filters in .github/ci-config/path-filters.yml, and on which runners, from a set in .github/ci-config/runners.json'
 
 # A pull request runs a job when a path in one of its filters changed. A push,
 # a schedule or a dispatch runs every job, so main catches what a filter
@@ -21,6 +21,10 @@ inputs:
       One line per job: `<job>: <filter> <filter>…`. The job runs when any of
       its filters changed.
     required: true
+  runners:
+    description: "The set of runners.json that legs, linux-arches and runners read"
+    required: false
+    default: default
 
 outputs:
   jobs:
@@ -28,14 +32,17 @@ outputs:
     value: ${{ steps.compose.outputs.jobs }}
   legs:
     description: >-
-      The {os, arch} of each runners.json entry this event runs: on a pull
+      The {os, arch} of each entry of the set this event runs: on a pull
       request those marked pull_request, otherwise all
     value: ${{ steps.legs.outputs.legs }}
   linux-arches:
     description: 'The arch of each Linux leg'
     value: ${{ steps.legs.outputs.linux-arches }}
+  pull-request-legs:
+    description: 'The {os, arch} of each entry of the set marked pull_request, on every event'
+    value: ${{ steps.legs.outputs.pull-request-legs }}
   runners:
-    description: 'A JSON object of every "<os>-<arch>" in runners.json to its runner'
+    description: 'A JSON object of every "<os>-<arch>" of the set to its runner'
     value: ${{ steps.legs.outputs.runners }}
 
 runs:
@@ -77,10 +84,13 @@ runs:
       shell: bash
       env:
         ALL: ${{ github.event_name != 'pull_request' }}
+        SET: ${{ inputs.runners }}
       run: |
-        jq -r --argjson all "$ALL" '
-          map(select($all or .pull_request)) as $legs
+        jq -r --argjson all "$ALL" --arg set "$SET" '
+          (.[$set] // error("no set \($set) in .github/ci-config/runners.json")) as $entries
+          | ($entries | map(select($all or .pull_request))) as $legs
           | "legs=\($legs | map({os, arch}) | tojson)",
+            "pull-request-legs=\($entries | map(select(.pull_request) | {os, arch}) | tojson)",
             "linux-arches=\($legs | map(select(.os == "linux") | .arch) | tojson)",
-            "runners=\(map({key: "\(.os)-\(.arch)", value: .runner}) | from_entries | tojson)"
+            "runners=\($entries | map({key: "\(.os)-\(.arch)", value: .runner}) | from_entries | tojson)"
         ' .github/ci-config/runners.json | tee -a "$GITHUB_OUTPUT"
