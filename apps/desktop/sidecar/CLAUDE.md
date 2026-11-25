@@ -378,7 +378,7 @@ reproduces it from the repo root:
 go -C apps/desktop/sidecar test -race -cpu 1 -shuffle=<seed> -count=3 ./internal/agent/chat
 ```
 
-**Coverage is measured in `coverage / Go (<os>)`**, one runner per OS, beside the tests: the suite
+**Coverage is measured in `coverage-desktop.yml`'s `Measure · Go`**, one runner per OS, beside the tests: the suite
 untagged and, on Linux alone, with `-tags debug` (the only build with the environment overrides and
 `KUBETAIL_FAULTS`; a test only that build can pass carries `//go:build debug`; no debug-tagged file is
 OS-specific, so Linux's pass reaches all of them), both with
