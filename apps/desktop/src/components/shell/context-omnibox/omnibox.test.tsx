@@ -146,23 +146,39 @@ describe('ContextOmnibox', () => {
 
   it('draws the chip as the status button and a left-aligned, semibold 13px name', () => {
     render(<ContextOmnibox />);
-    expect(screen.getByTestId('cluster-chip')).toHaveClass('h-8', 'rounded-full', 'pl-1.5', 'hover:bg-app-bar-hover');
+    expect(screen.getByTestId('cluster-chip')).toHaveClass('h-8', 'pl-1.5', 'gap-0.5');
     expect(statusButton()).toHaveClass('size-7', 'rounded-full', 'text-muted-foreground');
     const name = screen.getByTestId('cluster-trigger-name');
     expect(name).toHaveClass('truncate', 'font-semibold', 'text-foreground');
     expect(name.parentElement).toHaveClass('text-[13px]');
-    expect(trigger()).toHaveClass('pr-2.5');
+    expect(name.parentElement).not.toHaveClass('justify-center');
+    expect(trigger()).toHaveClass('pl-1.5', 'pr-1.5');
+  });
+
+  // The two controls in the chip hover apart, each its own round wash.
+  it('gives the status button and the trigger a hover each, not the chip', () => {
+    render(<ContextOmnibox />);
+    expect(screen.getByTestId('cluster-chip')).not.toHaveClass('hover:bg-app-bar-hover');
+    expect(statusButton()).toHaveClass('rounded-full', 'hover:bg-app-bar-hover');
+    expect(trigger()).toHaveClass('rounded-full', 'hover:bg-app-bar-hover');
   });
 
   // A strip of the pill outside every control would take a press and open nothing.
   it('covers the pill’s padding and gaps with its controls’ hit areas', () => {
     render(<ContextOmnibox />);
     // From inside the status button's own 1px border: the chip's 6px and the pill's 4px to
-    // its left, and the chip's 2px and the pill's 3px above and below.
-    expect(statusButton()).toHaveClass('border', 'border-transparent', 'after:-left-2.75', 'after:-inset-y-1.5');
-    // The trigger holds the chip's gap and right padding; its hit area reaches half the 12px
-    // gap before the tabs and the pill's top and bottom.
-    expect(trigger()).toHaveClass('h-full', 'after:-right-1.5', 'after:-inset-y-0.75');
+    // its left, half the 2px gap to its right, and the chip's 2px and the pill's 3px above
+    // and below.
+    expect(statusButton()).toHaveClass(
+      'border',
+      'border-transparent',
+      'after:-left-2.75',
+      'after:-right-0.5',
+      'after:-inset-y-1.5',
+    );
+    // The trigger's reaches the other half of that gap, half the 12px gap before the tabs and
+    // the pill's top and bottom.
+    expect(trigger()).toHaveClass('h-full', 'after:-left-px', 'after:-right-1.5', 'after:-inset-y-0.75');
     // The track's reaches back over the other half of the gap, and to the pill's edge.
     expect(screen.getByRole('navigation', { name: 'View' })).toHaveClass(
       'shrink-0',

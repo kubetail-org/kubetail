@@ -15,7 +15,7 @@
 // The app bar's context omnibox: the address bar of the cluster surface, where the
 // cluster is the address. One white pill: on the left the cluster chip, then the
 // Chat and Dashboard tabs. In the chip the server icon, carrying the window's
-// cluster's verdict, opens its status; a press anywhere else there opens the cluster
+// cluster's verdict, opens its status; the cluster's name beside it opens the cluster
 // picker, which switches the window's cluster and leads to the Clusters dialog.
 import { Button } from '@kubetail/ui/elements/button';
 import { Spinner } from '@kubetail/ui/elements/spinner';
@@ -62,8 +62,8 @@ function ServerGlyph({ health }: { health?: Health }) {
 
 // The server icon as its own control, opening the window's cluster's status: `icon-sm`'s
 // 28px, a circle, its icon gray. Its hit area covers the chip's 6px left padding and the
-// pill's 4px beside it, and the 2px above and below it in the chip and the pill's 3px past
-// that. The insets count from inside the button's own 1px transparent border (the
+// pill's 4px beside it, half the 2px gap before the trigger, and the 2px above and below it
+// in the chip and the pill's 3px past that. The insets count from inside the button's own 1px transparent border (the
 // library's, for its focus ring). Under 14rem the chip's padding goes, leaving the name
 // room. Nothing while the window is on no cluster: the trigger draws the bare icon then.
 function StatusButton({ anchorRef }: { anchorRef: RefObject<HTMLElement | null> }) {
@@ -81,7 +81,7 @@ function StatusButton({ anchorRef }: { anchorRef: RefObject<HTMLElement | null> 
         aria-label={`Cluster status: ${health.summary}`}
         className={cn(
           HIT_AREA_CLASS,
-          'rounded-full text-muted-foreground after:-inset-y-1.5 after:-right-px after:-left-2.75 @max-[14rem]:after:-left-1.25',
+          'rounded-full text-muted-foreground after:-inset-y-1.5 after:-right-0.5 after:-left-2.75 @max-[14rem]:after:-left-1.25',
           APP_BAR_HOVER_CLASS,
         )}
       >
@@ -92,9 +92,10 @@ function StatusButton({ anchorRef }: { anchorRef: RefObject<HTMLElement | null> 
 }
 
 // The rest of the chip after the status button, reading the window's cluster with its TLS
-// badge, or why there is none. It fills the chip's height and holds its gap and right
-// padding; its hit area reaches over the pill's 3px above and below and half the 12px gap
-// before the tabs, so a press anywhere there lands on it. In a narrow omnibox the name
+// badge, or why there is none. A button of its own, with its own hover: it fills the chip's
+// height, its 6px padding even on both sides; its hit area reaches over the pill's 3px above
+// and below, half the 2px gap after the status button and half the 12px gap before the
+// tabs, so a press anywhere there lands on it. In a narrow omnibox the name
 // truncates first and the badge shrinks to its icon, so the warning stays; the connecting
 // and empty states draw their icon alone, their words left to the button's name. With no
 // cluster it also draws the bare icon, where the status button would be.
@@ -141,10 +142,11 @@ function ClusterTrigger({ anchorRef }: { anchorRef: RefObject<HTMLElement | null
         aria-label={name}
         className={cn(
           HIT_AREA_CLASS,
-          'flex h-full min-w-0 items-center rounded-full pr-2.5 after:-inset-y-0.75 after:-right-1.5',
+          'flex h-full min-w-0 items-center rounded-full pr-1.5 after:-inset-y-0.75 after:-right-1.5',
+          APP_BAR_HOVER_CLASS,
           // With no status button, the bare icon takes its place and the hit area its
           // reach over the chip's and the pill's left padding.
-          hasCluster ? 'pl-1.5 after:left-0' : 'after:-left-2.5 @max-[14rem]:after:-left-1',
+          hasCluster ? 'pl-1.5 after:-left-px' : 'after:-left-2.5 @max-[14rem]:after:-left-1',
         )}
       >
         {!hasCluster && (
@@ -160,13 +162,10 @@ function ClusterTrigger({ anchorRef }: { anchorRef: RefObject<HTMLElement | null
   );
 }
 
-// The status button and the trigger, which share one hover wash.
+// The status button and the trigger, 2px apart so their hovers never touch.
 function ClusterChip({ anchorRef }: { anchorRef: RefObject<HTMLElement | null> }) {
   return (
-    <div
-      data-testid="cluster-chip"
-      className={cn('flex h-8 min-w-0 items-center rounded-full pl-1.5 @max-[14rem]:pl-0', APP_BAR_HOVER_CLASS)}
-    >
+    <div data-testid="cluster-chip" className="flex h-8 min-w-0 items-center gap-0.5 pl-1.5 @max-[14rem]:pl-0">
       <StatusButton anchorRef={anchorRef} />
       <ClusterTrigger anchorRef={anchorRef} />
     </div>
