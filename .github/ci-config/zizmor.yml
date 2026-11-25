@@ -20,12 +20,13 @@ rules:
       - release-desktop.yml
 
   # zizmor cannot see which triggers run a composite action, so it flags every
-  # env-file write in one. The desktop's setup writes fixed values, under
-  # workflows with no trigger an outsider's fork controls. An entry names a file
-  # by its name alone, so the line keeps it to the desktop's action.yml.
+  # env-file write in one. setup-environment's kubectl install adds a fixed
+  # directory to PATH, under workflows with no trigger an outsider's fork
+  # controls. An entry names a file by its name alone, so the line keeps it to
+  # that step; moving the step moves the line.
   github-env:
     ignore:
-      - action.yml:228
+      - action.yml:288
 
   # The prow action reads the comment only to match /assign and /unassign, runs
   # no code from the repository, and holds `issues: write` alone.

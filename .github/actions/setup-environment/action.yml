@@ -1,6 +1,9 @@
 name: 'Setup Environment'
 description: 'Sets up Node.js, PNPM, Go, and Rust conditionally for building Kubetail'
 
+# The Rust and Node inputs default to the Cluster Agent's workspace and the web
+# app's; the desktop's jobs name apps/desktop/src-tauri and apps/desktop.
+
 outputs:
   go-cache-key:
     description: 'The Go cache this run saves, when it saves one'
@@ -35,6 +38,10 @@ inputs:
     description: 'Whether to set up Rust'
     required: false
     default: 'false'
+  rust-workspace:
+    description: 'The Cargo workspace whose rust-toolchain.toml pins the toolchain, and which the Rust cache holds'
+    required: false
+    default: 'cluster/agent'
   setup-protoc:
     description: 'Whether to set up Protoc'
     required: false
@@ -51,6 +58,10 @@ inputs:
     description: 'Whether to set up Node.js and PNPM'
     required: false
     default: 'false'
+  node-workspace:
+    description: 'The pnpm project whose packageManager pins pnpm, and whose lockfile keys the pnpm store'
+    required: false
+    default: 'apps/web'
   node-cache:
     description: >-
       Whether to restore the pnpm store. The caller saves it with
@@ -73,6 +84,22 @@ inputs:
     description: 'Whether to save the Rust cache'
     required: false
     default: 'false'
+  setup-sandbox:
+    description: "Whether to set up the desktop sidecar's sandbox and require its tests"
+    required: false
+    default: 'false'
+  kubectl-version:
+    description: 'kubectl version the sandbox tests run'
+    required: false
+    default: 'v1.37.0'
+  install-az:
+    description: "Whether to install az for the desktop sidecar's tests that run it in the sandbox, on a Linux X64 runner"
+    required: false
+    default: 'false'
+  az-version:
+    description: 'Azure CLI version install-az installs'
+    required: false
+    default: '2.93.0'
 
 runs:
   using: "composite"
@@ -91,13 +118,33 @@ runs:
       with:
         version: ${{ inputs.protoc-version }}
 
-    # cluster/agent/rust-toolchain.toml pins the Rust version CI and the images share.
+    # The desktop's host links webkit2gtk and GTK.
+    - name: Install Tauri Linux system dependencies
+      if: >-
+        inputs.setup-rust == 'true' && runner.os == 'Linux'
+        && inputs.rust-workspace == 'apps/desktop/src-tauri'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libwebkit2gtk-4.1-dev \
+          libappindicator3-dev \
+          librsvg2-dev \
+          patchelf \
+          libgtk-3-dev \
+          libsoup-3.0-dev \
+          libjavascriptcoregtk-4.1-dev
+
+    # Each workspace's rust-toolchain.toml pins the Rust version CI and the
+    # images share.
     - name: Read Rust version
       if: inputs.setup-rust == 'true'
       id: rust-version
       shell: bash
+      env:
+        TOOLCHAIN_FILE: ${{ inputs.rust-workspace }}/rust-toolchain.toml
       run: |
-        version="$(sed -n 's/^channel = "\(.*\)"$/\1/p' cluster/agent/rust-toolchain.toml)"
+        version="$(sed -n 's/^channel = "\(.*\)"$/\1/p' "$TOOLCHAIN_FILE")"
         echo "version=$version" >> "$GITHUB_OUTPUT"
 
     - name: Set up Rust
@@ -126,7 +173,7 @@ runs:
       if: inputs.setup-rust == 'true' && inputs.rust-cache-key != ''
       uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       with:
-        workspaces: "./cluster/agent"
+        workspaces: ./${{ inputs.rust-workspace }}
         shared-key: ${{ inputs.rust-cache-key }}
         save-if: ${{ inputs.cache-save == 'true' }}
         cache-bin: false
@@ -135,7 +182,7 @@ runs:
       if: inputs.setup-node == 'true'
       uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       with:
-        package_json_file: apps/web/package.json
+        package_json_file: ${{ inputs.node-workspace }}/package.json
 
     - name: Set up Node.js
       if: inputs.setup-node == 'true'
@@ -143,18 +190,19 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
 
-    # One pnpm store cache per lockfile and runner. The key ends in the
-    # lockfile's hash, which prune-caches.sh strips to find the family. A new
-    # lockfile restores the newest store and fetches only what it lacks.
+    # One pnpm store cache per project, lockfile and runner. The key ends in
+    # the lockfile's hash, which prune-caches.sh strips to find the family. A
+    # new lockfile restores the newest store and fetches only what it lacks.
     - name: Find pnpm store
       if: inputs.setup-node == 'true' && inputs.node-cache == 'true'
       id: node-cache-paths
       shell: bash
-      working-directory: ./apps/web
+      working-directory: ./${{ inputs.node-workspace }}
       env:
-        LOCKFILE_HASH: ${{ hashFiles('apps/web/pnpm-lock.yaml') }}
+        LOCKFILE_HASH: ${{ hashFiles(format('{0}/pnpm-lock.yaml', inputs.node-workspace)) }}
+        PROJECT: ${{ inputs.node-workspace }}
       run: |
-        prefix="node-cache-$RUNNER_OS-${RUNNER_ARCH,,}-pnpm-"
+        prefix="node-cache-$RUNNER_OS-${RUNNER_ARCH,,}-${PROJECT//\//-}-pnpm-"
         {
           echo "prefix=$prefix"
           echo "key=$prefix$LOCKFILE_HASH"
@@ -208,3 +256,65 @@ runs:
         # Never matches, so restore-keys finds the newest cache.
         key: doesntexist
         restore-keys: ${{ steps.go-cache-paths.outputs.prefix }}
+
+    # bubblewrap and passt (pasta, a run's internet) for the sandbox's tests,
+    # which fail rather than skip under KUBETAIL_REQUIRE_SANDBOX, and iproute2,
+    # which a resolver test sets up a namespace with; AppArmor restricts
+    # unprivileged user namespaces on 24.04 by default.
+    - name: Set up the sandbox
+      if: inputs.setup-sandbox == 'true' && runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bubblewrap passt iproute2
+        sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+        echo KUBETAIL_REQUIRE_SANDBOX=1 >> "$GITHUB_ENV"
+
+    # macOS ships Seatbelt, so its sandbox tests need nothing installed.
+    - name: Require the sandbox
+      if: inputs.setup-sandbox == 'true' && runner.os == 'macOS'
+      shell: bash
+      run: echo KUBETAIL_REQUIRE_SANDBOX=1 >> "$GITHUB_ENV"
+
+    # The desktop's end-to-end tests run kubectl and jq in the sandbox and fail
+    # without them under KUBETAIL_REQUIRE_SANDBOX, so they are installed here
+    # rather than taken from the runner image. kubectl goes to ~/.local/bin,
+    # since a sandboxed run reads Kubetail's toolchain folders, never PATH.
+    - name: Install kubectl and jq
+      if: inputs.setup-sandbox == 'true' && runner.os != 'Windows'
+      shell: bash
+      env:
+        KUBECTL_VERSION: ${{ inputs.kubectl-version }}
+      run: |
+        os=$(uname -s | tr '[:upper:]' '[:lower:]')
+        case "$(uname -m)" in
+          x86_64) arch=amd64 ;;
+          arm64 | aarch64) arch=arm64 ;;
+        esac
+        url="https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${os}/${arch}/kubectl"
+        dir="$HOME/.local/bin"
+        mkdir -p "$dir"
+        curl -fsSL -o "$dir/kubectl" "$url"
+        echo "$(curl -fsSL "$url.sha256")  $dir/kubectl" | shasum -a 256 --check
+        chmod +x "$dir/kubectl"
+        echo "$dir" >> "$GITHUB_PATH"
+        if [ "$os" = linux ]; then
+          sudo apt-get install -y jq
+        else
+          brew install jq
+        fi
+
+    # The desktop's Azure tests run the az KUBETAIL_TEST_AZ names in the
+    # sandbox, so az's private file formats are pinned on one leg; elsewhere
+    # they skip. /opt is a folder a sandboxed run reads; /opt/az is the runner
+    # image's own az, so this one goes beside it.
+    - name: Install az
+      if: inputs.install-az == 'true' && runner.os == 'Linux' && runner.arch == 'X64'
+      shell: bash
+      env:
+        AZ_VERSION: ${{ inputs.az-version }}
+      run: |
+        sudo python3 -m venv /opt/kubetail-az
+        sudo /opt/kubetail-az/bin/pip install --quiet "azure-cli==${AZ_VERSION}"
+        /opt/kubetail-az/bin/az version --output tsv
+        echo KUBETAIL_TEST_AZ=/opt/kubetail-az/bin/az >> "$GITHUB_ENV"

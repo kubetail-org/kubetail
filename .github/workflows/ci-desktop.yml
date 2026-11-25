@@ -1,0 +1,578 @@
+name: ci-desktop
+
+# Kubetail Desktop in apps/desktop: the Go sidecar, the Rust host and the React
+# webview.
+
+permissions:
+  contents: read
+
+# ci.yml calls this; a dispatch runs it alone.
+on:
+  workflow_call:
+    inputs:
+      cache-mode:
+        description: ci.yml's dispatch input, passed down
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      cache-mode:
+        description: >-
+          use: restore the caches, save none. update: also save new ones.
+          rebuild: start the Go caches from empty and save them. Off main, a
+          saved cache is that branch's alone; PRs never read it.
+        type: choice
+        options:
+          - use
+          - update
+          - rebuild
+        default: use
+
+env:
+  # Whether this run saves caches. Nothing else decides it.
+  #   use      Restore the caches and save none. Every pull request, since a
+  #            copy per PR would push the repo past its cache limit.
+  #   update   Also save a new Go cache per job and runner, and the Rust and
+  #            pnpm store caches a lockfile change misses. Every push to main.
+  #   rebuild  Start the Go caches from empty, then save them.
+  # A dispatch takes its input. Prune · Caches deletes the caches a save
+  # replaced.
+  CACHE_MODE: ${{ inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use' }}
+  # Full debug info swells the Rust caches and slows linking; line tables keep
+  # file:line in test backtraces. Workflow-wide, since rust-cache keys on CARGO_*
+  # variables and audit.yml's Rust job borrows Vet · Rust's cache.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+
+jobs:
+  # Picks the jobs to run. Each line of `jobs` is a group of jobs and the
+  # path-filters.yml keys that run it: on a pull request, when a path under one
+  # of them changed; on any other event, always. The legs are runners.json's
+  # desktop set.
+  #
+  # Every other job needs this one, so its `if:` gates the whole workflow:
+  # GitHub starts push runs in forks too, and a fork runs this only for a pull
+  # request or a dispatch.
+  plan:
+    name: Plan
+    if: >-
+      github.repository == 'kubetail-org/kubetail'
+      || github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      # For Prune · Caches: a job's `if:` cannot read `env`.
+      cache-mode: ${{ env.CACHE_MODE }}
+      go: ${{ fromJSON(steps.plan.outputs.jobs).go }}
+      rust: ${{ fromJSON(steps.plan.outputs.jobs).rust }}
+      typescript: ${{ fromJSON(steps.plan.outputs.jobs).typescript }}
+      design: ${{ fromJSON(steps.plan.outputs.jobs).design }}
+      security-model: ${{ fromJSON(steps.plan.outputs.jobs).security-model }}
+      legs: ${{ steps.plan.outputs.legs }}
+      pull-request-legs: ${{ steps.plan.outputs.pull-request-legs }}
+      runners: ${{ steps.plan.outputs.runners }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - id: plan
+        uses: ./.github/actions/plan
+        with:
+          runners: desktop
+          jobs: |
+            go: shared desktop desktop-sidecar
+            rust: shared desktop desktop-host
+            typescript: shared desktop desktop-webview
+            design: shared desktop desktop-design
+            security-model: shared desktop desktop-security-model
+
+  ##############################
+  # Lint and vet jobs
+  ##############################
+
+  desktop-sidecar-lint:
+    name: Lint · Go
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Check formatting
+        run: test -z "$(gofmt -l apps/desktop/sidecar apps/desktop/scripts)"
+      - name: Check license headers
+        run: sh scripts/check-license-headers.sh apps/desktop
+      - name: Check coverage markers
+        run: sh scripts/check-coverage-markers.sh apps/desktop
+
+  # The macOS and Windows runners run tests alone, so this job is the one place
+  # the _darwin.go and _windows.go files are vetted. The sidecar splits by
+  # GOARCH on Linux (seccomp_linux_<arch>.go) and by the debug and live-check
+  # tags, so it is vetted under each.
+  desktop-sidecar-vet:
+    name: Vet · Go
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          go-cache-key: desktop-sidecar-test-linux-amd64
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      - name: Vet
+        working-directory: ./apps/desktop/sidecar
+        run: |
+          GOOS=linux GOARCH=amd64 go vet ./...
+          GOOS=linux GOARCH=arm64 go vet ./...
+          GOOS=darwin go vet ./...
+          GOOS=windows go vet ./...
+          go vet -tags debug ./...
+          go vet -tags livecache ./internal/agent/catalog
+          go vet -tags liveswitch ./internal/agent/catalog
+      - name: Check sidecar dependencies
+        run: sh apps/desktop/scripts/check-sidecar-deps.sh
+      - name: Check go fix
+        run: sh scripts/check-go-fix.sh apps/desktop/sidecar
+
+  desktop-sidecar-staticcheck:
+    name: Staticcheck
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          go-cache-key: desktop-sidecar-test-linux-amd64
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      # Staticcheck keeps its analysis apart from GOCACHE, so it has a small
+      # cache of its own.
+      - name: Restore staticcheck cache
+        if: env.CACHE_MODE != 'rebuild'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/staticcheck
+          # Never matches, so restore-keys finds the newest cache.
+          key: doesntexist
+          restore-keys: ${{ github.job }}-ubuntu-24.04-run-
+      # tools/go.mod pins staticcheck.
+      - name: Run staticcheck
+        env:
+          STATICCHECK_CACHE: ${{ runner.temp }}/staticcheck
+        run: sh scripts/staticcheck.sh apps/desktop/sidecar
+      - name: Save staticcheck cache
+        if: env.CACHE_MODE != 'use'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/staticcheck
+          key: ${{ github.job }}-ubuntu-24.04-run-${{ github.run_id }}
+
+  desktop-host-lint:
+    name: Lint · Rust
+    needs: plan
+    if: needs.plan.outputs.rust == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          rust-workspace: apps/desktop/src-tauri
+      - name: Check formatting
+        working-directory: ./apps/desktop/src-tauri
+        run: cargo fmt --all -- --check
+      - name: Check license headers
+        run: sh scripts/check-license-headers.sh apps/desktop
+      - name: Check coverage markers
+        run: sh scripts/check-coverage-markers.sh apps/desktop
+
+  # Runs the pull request's legs on every event: nothing in src-tauri branches
+  # on the architecture or the macOS release, so one runner per OS sees every
+  # lint.
+  desktop-host-vet:
+    name: Vet · Rust
+    needs: plan
+    if: needs.plan.outputs.rust == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.pull-request-legs) }}
+    runs-on: ${{ fromJSON(needs.plan.outputs.runners)[format('{0}-{1}', matrix.os, matrix.arch)] }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          rust-workspace: apps/desktop/src-tauri
+          rust-cache-key: ${{ github.job }}-${{ matrix.os }}-${{ matrix.arch }}
+          cache-save: ${{ env.CACHE_MODE != 'use' }}
+      - uses: ./.github/actions/stub-sidecar
+      # --all-targets lints the tests too, as make vet-desktop does.
+      - name: Run clippy
+        working-directory: ./apps/desktop/src-tauri
+        run: cargo clippy --all --all-targets -- -D warnings
+
+  desktop-webview-lint:
+    name: Lint · TypeScript
+    needs: plan
+    if: needs.plan.outputs.typescript == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: setup
+        uses: ./.github/actions/setup-environment
+        with:
+          setup-node: "true"
+          node-workspace: apps/desktop
+          node-cache: "true"
+      - name: Install dependencies
+        working-directory: ./apps/desktop
+        run: pnpm install --frozen-lockfile
+      - name: Save pnpm store
+        if: env.CACHE_MODE != 'use' && steps.setup.outputs.node-cache-hit != 'true'
+        uses: ./.github/actions/save-pnpm-store
+        with:
+          path: ${{ steps.setup.outputs.node-cache-path }}
+          key: ${{ steps.setup.outputs.node-cache-key }}
+          node-workspace: apps/desktop
+      - name: Lint
+        working-directory: ./apps/desktop
+        run: pnpm lint
+      - name: Lint Tailwind classes
+        working-directory: ./apps/desktop
+        run: pnpm lint:tailwind
+      - name: Check license headers
+        run: sh scripts/check-license-headers.sh apps/desktop
+      - name: Check coverage markers
+        run: sh scripts/check-coverage-markers.sh apps/desktop
+
+  desktop-design-lint:
+    name: Lint · Design
+    needs: plan
+    if: needs.plan.outputs.design == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Check the design manifest
+        working-directory: ./tools
+        run: go run ./designsync check
+
+  # On any change to the app: a renamed test anywhere is a stale citation.
+  desktop-security-model-lint:
+    name: Lint · Security model
+    needs: plan
+    if: needs.plan.outputs.security-model == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      - name: Check the security model
+        working-directory: ./tools
+        run: go run ./securitymodel check
+
+  ###########################
+  # Test jobs
+  ###########################
+
+  # Vet · Go type-checks the build; this links the real binary, then runs the
+  # tests.
+  desktop-sidecar-test:
+    name: Build and Test · Go
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.legs) }}
+    runs-on: ${{ fromJSON(needs.plan.outputs.runners)[format('{0}-{1}', matrix.os, matrix.arch)] }}
+    timeout-minutes: 60
+    steps:
+      # The whole history, so every file has the commit that last changed it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: setup
+        uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          setup-sandbox: "true"
+          install-az: "true"
+          go-cache-key: ${{ github.job }}-${{ matrix.os }}-${{ matrix.arch }}
+          go-cache-mode: ${{ env.CACHE_MODE }}
+      # Go's test cache keys a test on the files it reads by modification time,
+      # which a checkout resets, so a test reading a repo file would never
+      # replay a restored result.
+      - name: Date files by their last commit
+        run: go run scripts/restore-mtime.go
+      # Outside the tree: a test that lists sidecar/ would see a new binary on
+      # every run.
+      - name: Build
+        working-directory: ./apps/desktop/sidecar
+        run: go build -o ${{ runner.temp }}
+      # The race detector does not support windows/arm64, so it alone runs the
+      # tests without -race.
+      - name: Run tests
+        if: ${{ matrix.os == 'windows' && matrix.arch == 'arm64' }}
+        working-directory: ./apps/desktop/sidecar
+        run: go test ./...
+      # As make test-desktop runs them: checkptr is off for modernc's SQLite,
+      # the login shell's tests read SSH_AUTH_SOCK, and GORACE drops the race
+      # detector's one-second sleep at each clean exit. -short: a sweep a test
+      # shrinks under it runs whole in the stress workflow.
+      - name: Run race tests
+        if: ${{ !(matrix.os == 'windows' && matrix.arch == 'arm64') }}
+        working-directory: ./apps/desktop/sidecar
+        env:
+          GORACE: atexit_sleep_ms=0
+          SSH_AUTH_SOCK: ""
+        run: go test -race -short -gcflags='modernc.org/...=-d=checkptr=0' ./...
+      # After every test passed, so a failed job leaves its runner's last cache
+      # the newest. The test flags must match a PR's, or a PR replays nothing.
+      - name: Save Go cache
+        if: env.CACHE_MODE != 'use'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.go-cache-path }}
+          key: ${{ steps.setup.outputs.go-cache-key }}
+
+  # Builds Kubetail's own bwrap and pasta, loads their AppArmor profiles through
+  # the .deb's postinst on a stock 24.04, where user namespaces are restricted,
+  # and runs the sandbox's chains through them as an ordinary user.
+  desktop-apparmor-check:
+    name: Check · AppArmor profiles
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [linux]
+        arch: [amd64, arm64]
+    runs-on: ${{ fromJSON(needs.plan.outputs.runners)[format('{0}-{1}', matrix.os, matrix.arch)] }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+      # Unrestricted, the check proves nothing about the profiles.
+      - name: Assert user namespaces are restricted
+        run: test "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns)" = 1
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build libcap-dev
+      # The sidecar's seccomp filter is per architecture, and a pull request's
+      # Build and Test · Go runs on amd64 alone. TestTheFilter* read the
+      # filter's verdicts; TestTheShell* install it and ask the kernel.
+      - name: Test the seccomp filter
+        working-directory: ./apps/desktop/sidecar
+        run: go test -run '^TestThe(Filter|Shell)' ./internal/run/sandbox
+      - name: Build bwrap and pasta
+        run: make build-desktop-bwrap build-desktop-pasta
+      - name: Build the sidecar
+        working-directory: ./apps/desktop/sidecar
+        run: go build -o kubetail-sidecar .
+      # Where the .deb puts them, since each profile attaches by path.
+      - name: Install as the .deb does
+        working-directory: ./apps/desktop
+        run: |
+          sudo install -D -m 0755 sidecar/kubetail-sidecar /usr/bin/kubetail-sidecar
+          sudo install -D -m 0755 src-tauri/linux/bwrap /usr/lib/kubetail-desktop/bwrap
+          sudo install -D -m 0755 src-tauri/linux/pasta /usr/lib/kubetail-desktop/pasta
+          sudo install -D -m 0644 src-tauri/linux/kubetail-desktop-bwrap /usr/lib/kubetail-desktop/apparmor/kubetail-desktop-bwrap
+          sudo install -D -m 0644 src-tauri/linux/kubetail-desktop-pasta /usr/lib/kubetail-desktop/apparmor/kubetail-desktop-pasta
+          sudo sh src-tauri/linux/postinst.sh configure
+          sudo aa-status | grep -E 'kubetail_(bwrap|pasta)'
+      - name: Run the sandbox's chains
+        working-directory: ./apps/desktop
+        run: scripts/check-sandbox-chain.sh
+
+  # Vet · Rust's clippy type-checks the build; this links the real binary,
+  # then runs the tests.
+  desktop-host-test:
+    name: Build and Test · Rust
+    needs: plan
+    if: needs.plan.outputs.rust == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.legs) }}
+    runs-on: ${{ fromJSON(needs.plan.outputs.runners)[format('{0}-{1}', matrix.os, matrix.arch)] }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          rust-workspace: apps/desktop/src-tauri
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          rust-cache-key: ${{ github.job }}-${{ matrix.os }}-${{ matrix.arch }}
+          cache-save: ${{ env.CACHE_MODE != 'use' }}
+      - uses: ./.github/actions/stub-sidecar
+      - name: Build
+        working-directory: ./apps/desktop/src-tauri
+        run: cargo build
+      - name: Run tests
+        working-directory: ./apps/desktop/src-tauri
+        run: cargo test
+
+  # The shipped app is the release profile, which turns cfg!(debug_assertions)
+  # off: is_app_origin refuses the dev server, the data directories and the
+  # keychain service lose "-dev", and Windows builds a GUI binary. On the
+  # runners release-desktop.yml builds the app on, so the Linux leg links
+  # Ubuntu 22.04's glibc and webkit2gtk, the oldest a user installs on. Push and
+  # dispatch only, since a release build is slow.
+  # → apps/desktop/docs/adr/2026-11-10-main-builds-and-tests-the-release-profile.md
+  desktop-host-test-release:
+    name: Build and Test · Rust release
+    needs: plan
+    if: needs.plan.outputs.rust == 'true' && github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: linux, arch: amd64}
+          - {os: macos, arch: arm64}
+          - {os: windows, arch: amd64}
+    runs-on: >-
+      ${{ fromJSON('{"linux-amd64": "ubuntu-22.04", "macos-arm64": "macos-26", "windows-amd64": "windows-2025-vs2026"}')[format('{0}-{1}', matrix.os, matrix.arch)] }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          rust-workspace: apps/desktop/src-tauri
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          rust-cache-key: ${{ github.job }}-${{ matrix.os }}-${{ matrix.arch }}
+          cache-save: ${{ env.CACHE_MODE != 'use' }}
+      - uses: ./.github/actions/stub-sidecar
+      - name: Build
+        working-directory: ./apps/desktop/src-tauri
+        run: cargo build --release
+      - name: Run tests
+        working-directory: ./apps/desktop/src-tauri
+        run: cargo test --release
+
+  desktop-webview-test:
+    name: Test · TypeScript
+    needs: plan
+    if: needs.plan.outputs.typescript == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: setup
+        uses: ./.github/actions/setup-environment
+        with:
+          setup-node: "true"
+          node-workspace: apps/desktop
+          node-cache: "true"
+      - name: Install dependencies
+        working-directory: ./apps/desktop
+        run: pnpm install --frozen-lockfile
+      - name: Save pnpm store
+        if: env.CACHE_MODE != 'use' && steps.setup.outputs.node-cache-hit != 'true'
+        uses: ./.github/actions/save-pnpm-store
+        with:
+          path: ${{ steps.setup.outputs.node-cache-path }}
+          key: ${{ steps.setup.outputs.node-cache-key }}
+          node-workspace: apps/desktop
+      - name: Test
+        working-directory: ./apps/desktop
+        run: pnpm test run
+
+  # tsc -b, then vite build: the type-check of the webview and its tests.
+  desktop-webview-build:
+    name: Build · TypeScript
+    needs: plan
+    if: needs.plan.outputs.typescript == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: setup
+        uses: ./.github/actions/setup-environment
+        with:
+          setup-node: "true"
+          node-workspace: apps/desktop
+          node-cache: "true"
+      - name: Install dependencies
+        working-directory: ./apps/desktop
+        run: pnpm install --frozen-lockfile
+      - name: Save pnpm store
+        if: env.CACHE_MODE != 'use' && steps.setup.outputs.node-cache-hit != 'true'
+        uses: ./.github/actions/save-pnpm-store
+        with:
+          path: ${{ steps.setup.outputs.node-cache-path }}
+          key: ${{ steps.setup.outputs.node-cache-key }}
+          node-workspace: apps/desktop
+      - name: Build
+        working-directory: ./apps/desktop
+        run: pnpm build
+
+  # Leaves one copy of each cache this workflow saves on the ref. It runs last
+  # because rust-cache saves in a post step, which no later step in its own job
+  # can follow.
+  cache-prune:
+    name: Prune · Caches
+    needs:
+      - plan
+      - desktop-sidecar-staticcheck
+      - desktop-sidecar-test
+      - desktop-host-vet
+      - desktop-host-test
+      - desktop-host-test-release
+      - desktop-webview-lint
+      - desktop-webview-test
+      - desktop-webview-build
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.cache-mode != 'use'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions/prune-caches
+      - uses: ./.github/actions/prune-caches
+        with:
+          caches: >-
+            desktop-sidecar-staticcheck desktop-sidecar-test desktop-host-vet
+            desktop-host-test desktop-host-test-release node-cache
