@@ -7,14 +7,14 @@ Prerequisite: step 1 merged into Kstack's `main`. One commit into `wip/desktop`,
 | Task | Status | PR |
 | --- | --- | --- |
 | 1. Import | Done | #1570 |
-| 2. Settle the ADRs | Done | — |
-| 3. Align toolchains | Done | — |
-| 4. Merge `tools/` | Done | — |
-| 5. Merge `scripts/sandbox-dev-setup.sh` | Done | — |
-| 6. Place the scripts | Done | — |
-| 7. Add the Makefile area | Done | — |
-| 8. Fold the guides | Done | — |
-| 9. Merge the root files | Done | — |
+| 2. Settle the ADRs | Done | #1572 |
+| 3. Align toolchains | Done | #1572 |
+| 4. Merge `tools/` | Done | #1572 |
+| 5. Merge `scripts/sandbox-dev-setup.sh` | Done | #1572 |
+| 6. Place the scripts | Done | #1572 |
+| 7. Add the Makefile area | Done | #1572 |
+| 8. Fold the guides | Done | #1572 |
+| 9. Merge the root files | Done | #1572 |
 
 1. **Import.** Copy the tree of step 1's merge commit into the layout, with the message *Decisions* asks for, and delete `1-rename.md` with its row in the README.
 2. **Settle the ADRs.** Kstack's ADRs stay in `apps/desktop/docs/adr/`. Drop those *Decisions* drops in step 2, repointing each link to this repo's ADR for the same decision. Move the two repo-wide ones to `docs/adr/` with scope `repo`, add them to its index, and repoint their links. `apps/desktop/docs/adr/README.md` says it holds the desktop app's decisions, and `docs/adr/README.md` links it.
