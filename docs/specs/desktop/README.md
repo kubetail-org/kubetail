@@ -6,7 +6,7 @@ Answers #TBD. The work is built on `wip/desktop` and lands on `main` in one PR.
 
 | Step | Spec | Built in | Status | PR |
 | --- | --- | --- | --- | --- |
-| 1 | [Rename, in Kstack](1-rename.md) | `kstackhq/kstack` | Done | — |
+| 1 | [Rename, in Kstack](1-rename.md) | `kstackhq/kstack` | Done | #1570 |
 | 2 | [Import into `apps/desktop/`](2-import.md) | `wip/desktop` | Planned | — |
 | 3 | [Harness](3-harness.md) | `wip/desktop` | Planned | — |
 

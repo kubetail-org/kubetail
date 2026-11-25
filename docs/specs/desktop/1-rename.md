@@ -6,14 +6,14 @@ Built on a branch of `kstackhq/kstack`, where Kstack's own checks still run, and
 
 | Task | Status | PR |
 | --- | --- | --- |
-| 1. Rename | Done | — |
-| 2. Set the names | Done | — |
-| 3. Move the endpoints | Done | — |
-| 4. Narrow the reserved variables | Done | — |
-| 5. Drop the `desktop/v0.0.1` cleanup | Done | — |
-| 6. Collapse the migrations | Done | — |
-| 7. Drop the history ADRs | Done | — |
-| 8. Remove the CLI | Done | — |
+| 1. Rename | Done | #1570 |
+| 2. Set the names | Done | #1570 |
+| 3. Move the endpoints | Done | #1570 |
+| 4. Narrow the reserved variables | Done | #1570 |
+| 5. Drop the `desktop/v0.0.1` cleanup | Done | #1570 |
+| 6. Collapse the migrations | Done | #1570 |
+| 7. Drop the history ADRs | Done | #1570 |
+| 8. Remove the CLI | Done | #1570 |
 
 1. **Rename.** Replace `Kstack Desktop`, `Kstack`, `kstack`, `KSTACK` and `kstackhq/kstack` with their Kubetail forms across files, file names and folder names. Replace `2026 The Kstack Authors` with `2024 The Kubetail Authors`. Leave the strings bound to the repo the step runs in, for step 3 to rewrite:
    - the fork gates, `github.repository == 'kstackhq/kstack'`;
