@@ -101,8 +101,9 @@ func render(n notes, c collection) string {
 	} else {
 		fmt.Fprintf(&b, "\n**Full changelog**: [%s](%s/commits/%s)\n", c.Tag, base, c.Tag)
 	}
-	// Only release-cli.yml attaches downloads to a release.
-	if strings.HasPrefix(c.Tag, "cli/") {
+	// Only release-cli.yml and release-desktop.yml attach downloads to a
+	// release; the images' releases have none.
+	if strings.HasPrefix(c.Tag, "cli/") || strings.HasPrefix(c.Tag, "desktop/") {
 		b.WriteString("\nEach download's SHA-256 is in `SHA256SUMS`, signed in `SHA256SUMS.asc`.\n")
 	}
 	return b.String()

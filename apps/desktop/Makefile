@@ -89,12 +89,12 @@ lint-tailwind: ## Lint the webview's Tailwind classes
 
 # actionlint type-checks the workflows and composite actions and shellchecks
 # their `run:` blocks; zizmor audits them against .github/ci-config/zizmor.yml.
-# zizmor's online audits run only when GH_TOKEN is set, as in CI. tools/go.mod
+# zizmor's online audits run only when GH_TOKEN is set, as in CI. The repo's tools/go.mod
 # pins actionlint, where Dependabot moves it.
 lint-yaml: ## Lint every YAML file, then the workflows with actionlint and zizmor
 	uv tool run yamllint@1.38.0 --strict .
-	sc=$$(sh scripts/shellcheck-path.sh) && cd tools && \
-		go tool actionlint -shellcheck "$$sc" -config-file ../.github/ci-config/actionlint.yaml
+	sc=$$(sh scripts/shellcheck-path.sh) && cd ../../tools && \
+		go tool actionlint -shellcheck "$$sc" -config-file ../apps/desktop/.github/ci-config/actionlint.yaml
 	uv tool run zizmor@1.31.1 --config .github/ci-config/zizmor.yml .
 
 # scripts/shellcheck-path.sh pins shellcheck; -x follows scripts/changed.sh
@@ -113,20 +113,20 @@ lint-markers: ## Check every coverage marker gives its reason
 	sh scripts/check-coverage-markers.sh
 
 lint-design: ## Check the design manifest against the code it names
-	cd tools && go run ./designsync check
+	cd ../../tools && go run ./designsync check
 
 lint-security-model: ## Check the security model against the tests and files it cites
-	cd tools && go run ./securitymodel check
+	cd ../../tools && go run ./securitymodel check
 
 # designsync reads Figma when FIGMA_TOKEN is set. On macOS an unset one comes
 # from the Keychain item kubetail-figma-token; without either, the code side alone.
 design-status design-record: export FIGMA_TOKEN ?= $(shell security find-generic-password -s kubetail-figma-token -w 2>/dev/null)
 
 design-status: ## List the components and screens whose code or design moved since their last sync, reading Figma with FIGMA_TOKEN
-	cd tools && go run ./designsync status
+	cd ../../tools && go run ./designsync status
 
 design-record: ## Record the entries in IDS as in sync: their code's blobs and, with FIGMA_TOKEN, Figma's hash
-	cd tools && go run ./designsync record $(IDS)
+	cd ../../tools && go run ./designsync record $(IDS)
 
 vet: vet-go vet-rust ## Run go vet, staticcheck and clippy
 
@@ -137,7 +137,6 @@ vet: vet-go vet-rust ## Run go vet, staticcheck and clippy
 vet-go: ## Vet every Go module per GOOS and tag, then the sidecar's deps, go fix and staticcheck
 	cd sidecar && GOOS=linux GOARCH=amd64 go vet ./... && GOOS=linux GOARCH=arm64 go vet ./... && GOOS=darwin go vet ./... && GOOS=windows go vet ./...
 	cd sidecar && go vet -tags debug ./... && go vet -tags livecache ./internal/agent/catalog && go vet -tags liveswitch ./internal/agent/catalog
-	cd tools && GOOS=linux go vet ./... && GOOS=darwin go vet ./... && GOOS=windows go vet ./...
 	sh scripts/check-sidecar-deps.sh
 	sh scripts/check-go-fix.sh
 	sh scripts/staticcheck.sh
@@ -152,9 +151,8 @@ vet-rust: build-sidecar ## Run clippy on the desktop host, tests included
 
 test: test-go test-rust test-ts ## Run every Go, Rust and TypeScript test
 
-test-go: ## Test the sidecar and tools/
+test-go: ## Test the sidecar
 	cd sidecar && go test ./...
-	cd tools && go test ./...
 
 # tauri-build fails without the bundled sidecar binary, so build it first.
 test-rust: build-sidecar ## Test the desktop host
