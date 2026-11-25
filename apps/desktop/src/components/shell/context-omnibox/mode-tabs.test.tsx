@@ -59,8 +59,9 @@ describe('ModeTabs', () => {
       expect(link).toHaveAttribute('aria-label', name);
       expect(link).toHaveTextContent(name);
       expect(link.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
-      // Equal widths, 28px tall, the label 13px medium.
-      expect(link).toHaveClass('flex-1', 'h-7', 'rounded-full', 'text-[13px]', 'font-medium');
+      // As wide as its label with 12px each side, 28px tall, the label 13px medium.
+      expect(link).toHaveClass('px-3', 'h-7', 'rounded-full', 'text-[13px]', 'font-medium');
+      expect(link).not.toHaveClass('flex-1');
     });
   });
 

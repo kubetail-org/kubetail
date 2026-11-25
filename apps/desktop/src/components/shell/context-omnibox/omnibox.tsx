@@ -93,7 +93,7 @@ function StatusButton({ anchorRef }: { anchorRef: RefObject<HTMLElement | null> 
 
 // The rest of the chip after the status button, reading the window's cluster with its TLS
 // badge, or why there is none. It fills the chip's height and holds its gap and right
-// padding; its hit area reaches over the pill's 3px above and below and half the 4px gap
+// padding; its hit area reaches over the pill's 3px above and below and half the 12px gap
 // before the tabs, so a press anywhere there lands on it. In a narrow omnibox the name
 // truncates first and the badge shrinks to its icon, so the warning stays; the connecting
 // and empty states draw their icon alone, their words left to the button's name. With no
@@ -141,7 +141,7 @@ function ClusterTrigger({ anchorRef }: { anchorRef: RefObject<HTMLElement | null
         aria-label={name}
         className={cn(
           HIT_AREA_CLASS,
-          'flex h-full min-w-0 items-center rounded-full pr-2.5 after:-inset-y-0.75 after:-right-0.5',
+          'flex h-full min-w-0 items-center rounded-full pr-2.5 after:-inset-y-0.75 after:-right-1.5',
           // With no status button, the bare icon takes its place and the hit area its
           // reach over the chip's and the pill's left padding.
           hasCluster ? 'pl-1.5 after:left-0' : 'after:-left-2.5 @max-[14rem]:after:-left-1',
@@ -178,21 +178,28 @@ export function ContextOmnibox() {
   const boxRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div
-      ref={boxRef}
-      data-testid="context-omnibox"
-      // Opts out of the app bar's drag region: this is a control, and pressing
-      // it should no more move the window than a browser's address bar.
-      data-tauri-drag-region="false"
-      // The bar's middle column sets the width, so the pill fills it.
-      // A container, so its controls compact to its width: the chip as wide as its
-      // content, the name truncating first; the tabs filling the rest.
-      className="@container flex h-9.5 w-full items-center gap-1 rounded-full bg-white px-1 py-0.75 shadow-pill dark:bg-input/30"
-    >
-      <ClusterChip anchorRef={boxRef} />
-      {/* Its hit area covers the other half of the gap before it, the pill's right padding,
-      and its 3px above and below. */}
-      <ModeTabs className={cn(HIT_AREA_CLASS, 'flex-1 after:-inset-y-0.75 after:-right-1 after:-left-0.5')} />
+    // The container fills the bar's middle column, at most 420px, so the controls compact to
+    // the room there is. The pill can't be the container: it fits its content, which an
+    // inline-size container can't.
+    <div className="@container flex w-full min-w-0 justify-center">
+      <div
+        ref={boxRef}
+        data-testid="context-omnibox"
+        // Opts out of the app bar's drag region: this is a control, and pressing
+        // it should no more move the window than a browser's address bar.
+        data-tauri-drag-region="false"
+        // As wide as the cluster's name and the tabs, up to the column; past that the name
+        // truncates. The tabs keep their width.
+        className={cn(
+          'flex h-9.5 max-w-105 min-w-0 items-center gap-3 rounded-full px-1 py-0.75',
+          'bg-white shadow-pill dark:bg-input/30',
+        )}
+      >
+        <ClusterChip anchorRef={boxRef} />
+        {/* Its hit area covers the other half of the gap before it, the pill's right padding,
+        and its 3px above and below. */}
+        <ModeTabs className={cn(HIT_AREA_CLASS, 'shrink-0 after:-inset-y-0.75 after:-right-1 after:-left-1.5')} />
+      </div>
     </div>
   );
 }

@@ -35,10 +35,10 @@ import { RightSidebarToggle } from './right-sidebar-toggle';
 import { SettingsButton } from './settings-button';
 
 // The narrowest the omnibox's column goes before the omnibox leaves the centre line: the
-// pill with an empty name and icon-only tabs. Its 133px are the pill's 8px of padding, the
-// chip's 44px (the status button and the trigger's 10px of right padding), 9px of divider
-// and gaps, and the tab track's 72px. Under it the shorter end gives up its spare space.
-const OMNIBOX_MIN_WIDTH = '8.5rem';
+// pill with an empty name and icon-only tabs. Its 148px are the pill's 8px of padding, the
+// chip's 44px (the status button and the trigger's 10px of right padding), the 12px gap and
+// the tab track's 84px. Under it the shorter end gives up its spare space.
+const OMNIBOX_MIN_WIDTH = '9.25rem';
 
 // An end's column: at least its own content, and at least the other end's while that
 // leaves the omnibox `OMNIBOX_MIN_WIDTH`, so equal ends centre the omnibox when there is

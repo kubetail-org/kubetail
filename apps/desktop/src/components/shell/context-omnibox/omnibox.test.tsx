@@ -120,8 +120,17 @@ describe('ContextOmnibox', () => {
   it('is a 38px white pill with a shadow', () => {
     render(<ContextOmnibox />);
     const box = screen.getByTestId('context-omnibox');
-    expect(box).toHaveClass('h-9.5', 'w-full', 'rounded-full', 'px-1', 'py-0.75', 'gap-1');
+    expect(box).toHaveClass('h-9.5', 'max-w-105', 'min-w-0', 'rounded-full', 'px-1', 'py-0.75', 'gap-3');
     expect(box).toHaveClass('bg-white', 'dark:bg-input/30', 'shadow-pill');
+  });
+
+  // It fits its content, so the container that compacts it is the column around it.
+  it('fits its content, centred in a container that fills the column', () => {
+    render(<ContextOmnibox />);
+    const box = screen.getByTestId('context-omnibox');
+    expect(box).not.toHaveClass('w-full');
+    expect(box).not.toHaveClass('@container');
+    expect(box.parentElement).toHaveClass('@container', 'w-full', 'justify-center');
   });
 
   it('holds the cluster chip, then the Chat and Dashboard tabs', () => {
@@ -151,13 +160,13 @@ describe('ContextOmnibox', () => {
     // From inside the status button's own 1px border: the chip's 6px and the pill's 4px to
     // its left, and the chip's 2px and the pill's 3px above and below.
     expect(statusButton()).toHaveClass('border', 'border-transparent', 'after:-left-2.75', 'after:-inset-y-1.5');
-    // The trigger holds the chip's gap and right padding; its hit area reaches half the gap
-    // before the tabs and the pill's top and bottom.
-    expect(trigger()).toHaveClass('h-full', 'after:-right-0.5', 'after:-inset-y-0.75');
+    // The trigger holds the chip's gap and right padding; its hit area reaches half the 12px
+    // gap before the tabs and the pill's top and bottom.
+    expect(trigger()).toHaveClass('h-full', 'after:-right-1.5', 'after:-inset-y-0.75');
     // The track's reaches back over the other half of the gap, and to the pill's edge.
     expect(screen.getByRole('navigation', { name: 'View' })).toHaveClass(
-      'flex-1',
-      'after:-left-0.5',
+      'shrink-0',
+      'after:-left-1.5',
       'after:-right-1',
       'after:-inset-y-0.75',
     );
@@ -175,7 +184,7 @@ describe('ContextOmnibox', () => {
   it('compacts to a narrow pill, keeping every control and the TLS warning', () => {
     serveContexts(['prod'], { clusterEntry: { server: 'https://prod:6443', insecureSkipTLSVerify: true } });
     render(<ContextOmnibox />);
-    expect(screen.getByTestId('context-omnibox')).toHaveClass('@container');
+    expect(screen.getByTestId('context-omnibox').parentElement).toHaveClass('@container');
     expect(screen.getByTestId('cluster-chip')).toHaveClass('@max-[14rem]:pl-0');
     expect(statusButton()).toHaveClass('@max-[14rem]:after:-left-1.25');
     expect(screen.getByTestId('cluster-trigger-name')).toHaveClass('truncate');

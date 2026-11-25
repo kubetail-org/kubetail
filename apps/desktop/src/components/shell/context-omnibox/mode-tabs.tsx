@@ -23,7 +23,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 
 const TAB_CLASS = cn(
-  'flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full py-0.75 pr-2.5 pl-2',
+  'flex h-7 items-center justify-center gap-1.5 rounded-full px-3 py-0.75',
   'text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground',
   'data-[status=active]:bg-background data-[status=active]:text-foreground data-[status=active]:shadow-pill',
 );
