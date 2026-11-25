@@ -40,7 +40,7 @@ env:
   CACHE_MODE: ${{ inputs.cache-mode || github.ref == 'refs/heads/main' && 'update' || 'use' }}
   # Full debug info swells the Rust caches and slows linking; line tables keep
   # file:line in test backtraces. Workflow-wide, since rust-cache keys on CARGO_*
-  # variables and audit.yml's Rust job borrows Vet · Rust's cache.
+  # variables.
   CARGO_PROFILE_DEV_DEBUG: line-tables-only
 
 jobs:

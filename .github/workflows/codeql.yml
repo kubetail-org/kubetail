@@ -48,6 +48,8 @@ jobs:
     outputs:
       go: ${{ fromJSON(steps.plan.outputs.jobs).go }}
       rust: ${{ fromJSON(steps.plan.outputs.jobs).rust }}
+      desktop-go: ${{ fromJSON(steps.plan.outputs.jobs).desktop-go }}
+      desktop-rust: ${{ fromJSON(steps.plan.outputs.jobs).desktop-rust }}
       typescript: ${{ fromJSON(steps.plan.outputs.jobs).typescript }}
       python: ${{ fromJSON(steps.plan.outputs.jobs).python }}
       actions: ${{ fromJSON(steps.plan.outputs.jobs).actions }}
@@ -63,12 +65,14 @@ jobs:
           jobs: |
             go: codeql shared cli dashboard go-common cluster-api graphql-dashboard graphql-cluster-api
             rust: codeql shared cluster-agent proto
-            typescript: codeql shared web graphql-dashboard graphql-cluster-api
+            desktop-go: codeql shared desktop-sidecar
+            desktop-rust: codeql shared desktop-host
+            typescript: codeql shared web graphql-dashboard graphql-cluster-api desktop-webview
             python: codeql python
             actions: codeql actions
 
       # The category of every analysis the pull request skips, for Reuse · Base analysis's
-      # matrix.
+      # matrix. The desktop's Go and Rust have one per OS.
       - id: skipped
         env:
           JOBS: ${{ steps.plan.outputs.jobs }}
@@ -76,6 +80,8 @@ jobs:
           jq -c '[
             (select(.go | not) | {category: "/language:go"}),
             (select(.rust | not) | {category: "/language:rust"}),
+            (select(."desktop-go" | not) | {category: ("linux", "macos", "windows" | "/language:go/desktop/os:\(.)")}),
+            (select(."desktop-rust" | not) | {category: ("linux", "macos", "windows" | "/language:rust/desktop/os:\(.)")}),
             (select(.typescript | not) | {category: "/language:javascript-typescript"}),
             (select(.python | not) | {category: "/language:python"}),
             (select(.actions | not) | {category: "/language:actions"})
@@ -147,6 +153,97 @@ jobs:
         with:
           category: /language:rust
 
+  # The desktop's sidecar is a module outside go.work, and its host a Cargo
+  # workspace of its own. CodeQL analyzes only the files the runner's OS
+  # compiles, so each runs once per OS, under a category of its own.
+  desktop-go:
+    name: Go · Desktop (${{ matrix.os }})
+    needs: plan
+    if: needs.plan.outputs.desktop-go == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            runner: ubuntu-24.04
+          - os: macos
+            runner: macos-15
+          - os: windows
+            runner: windows-2025-vs2026
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: setup
+        uses: ./.github/actions/setup-environment
+        with:
+          setup-go: "true"
+          go-cache-key: codeql-desktop-${{ matrix.os }}
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: go
+          build-mode: manual
+      - name: Build the sidecar
+        working-directory: ./apps/desktop/sidecar
+        run: go build ./...
+      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: /language:go/desktop/os:${{ matrix.os }}
+      # Last, so a failed job leaves the last good cache the newest.
+      - name: Save Go cache
+        if: env.CACHE_SAVE == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.go-cache-path }}
+          key: ${{ steps.setup.outputs.go-cache-key }}
+
+  # The extractor runs build.rs, so the job needs what a real build does: the
+  # toolchain, Tauri's Linux packages and a sidecar binary for tauri-build to
+  # find. Without them OUT_DIR and cfg(desktop) are unset.
+  desktop-rust:
+    name: Rust · Desktop (${{ matrix.os }})
+    needs: plan
+    if: needs.plan.outputs.desktop-rust == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            runner: ubuntu-24.04
+          - os: macos
+            runner: macos-15
+          - os: windows
+            runner: windows-2025-vs2026
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-environment
+        with:
+          setup-rust: "true"
+          rust-workspace: apps/desktop/src-tauri
+          rust-cache-key: codeql-desktop-${{ matrix.os }}
+          cache-save: ${{ env.CACHE_SAVE }}
+      - uses: ./.github/actions/stub-sidecar
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: rust
+          build-mode: none
+      # As the Rust job's: the directory the Rust cache restores.
+      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        env:
+          CODEQL_EXTRACTOR_RUST_OPTION_CARGO_TARGET_DIR: ${{ github.workspace }}/apps/desktop/src-tauri/target
+        with:
+          category: /language:rust/desktop/os:${{ matrix.os }}
+
   typescript:
     name: TypeScript
     needs: plan
@@ -208,13 +305,15 @@ jobs:
           category: /language:actions
 
   # Leaves one copy of each cache on main, the newest. It runs after the Rust
-  # job because rust-cache saves in a post step.
+  # jobs because rust-cache saves in a post step.
   cache-prune:
     name: Prune · Caches
     needs:
       - plan
       - go
       - rust
+      - desktop-go
+      - desktop-rust
     if: always() && needs.plan.result == 'success' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
@@ -245,6 +344,8 @@ jobs:
       - plan
       - go
       - rust
+      - desktop-go
+      - desktop-rust
       - typescript
       - python
       - actions

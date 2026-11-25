@@ -81,6 +81,18 @@ func TestReadTestFailure(t *testing.T) {
 	equal(t, r.Outside, []outside{})
 }
 
+func TestCommandRunsAnOutsideModuleInItsDirectory(t *testing.T) {
+	for _, tt := range []struct{ pkg, want string }{
+		{workspacePath + "/cli/cmd", "go test -cpu 1 -shuffle=7 -count=3 ./cli/cmd"},
+		{workspacePath + "/apps/desktop/sidecar/internal/agent/chat",
+			"go -C apps/desktop/sidecar test -cpu 1 -shuffle=7 -count=3 ./internal/agent/chat"},
+		{workspacePath + "/apps/desktop/sidecar", "go -C apps/desktop/sidecar test -cpu 1 -shuffle=7 -count=3 ./"},
+		{workspacePath + "/apps/desktop/sidecarx", "go test -cpu 1 -shuffle=7 -count=3 ./apps/desktop/sidecarx"},
+	} {
+		equal(t, command(tt.pkg, 1, "7", 3, false), tt.want)
+	}
+}
+
 func TestReadTimeoutBlamesRunningTests(t *testing.T) {
 	r := readStream(t,
 		out("", "-test.shuffle 42\n"),

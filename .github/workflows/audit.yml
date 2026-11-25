@@ -27,6 +27,13 @@ on:
       - apps/web/package.json
       - apps/web/pnpm-lock.yaml
       - apps/web/pnpm-workspace.yaml
+      - apps/desktop/sidecar/go.mod
+      - apps/desktop/sidecar/go.sum
+      - apps/desktop/src-tauri/Cargo.toml
+      - apps/desktop/src-tauri/Cargo.lock
+      - apps/desktop/package.json
+      - apps/desktop/pnpm-lock.yaml
+      - apps/desktop/pnpm-workspace.yaml
       - scripts/audit-npm-diff.sh
       - .github/workflows/audit.yml
   push:
@@ -80,7 +87,7 @@ jobs:
         env:
           GOWORK: "off"
         run: |
-          for module in cli cluster/api dashboard libs/go-common; do
+          for module in cli cluster/api dashboard libs/go-common apps/desktop/sidecar; do
             go tool govulncheck -C "../$module" ./...
           done
 
@@ -102,6 +109,11 @@ jobs:
       - name: Run cargo audit
         working-directory: ./cluster/agent
         run: cargo audit --deny unsound --deny unmaintained
+      # Reads the advisories src-tauri/.cargo/audit.toml accepts.
+      - name: Run cargo audit (desktop)
+        if: ${{ !cancelled() }}
+        working-directory: ./apps/desktop/src-tauri
+        run: cargo audit --deny unsound --deny unmaintained
 
   typescript-audit:
     name: TypeScript
@@ -117,6 +129,10 @@ jobs:
           setup-node: "true"
       - name: Run pnpm audit
         working-directory: ./apps/web
+        run: pnpm audit --audit-level moderate
+      - name: Run pnpm audit (desktop)
+        if: ${{ !cancelled() }}
+        working-directory: ./apps/desktop
         run: pnpm audit --audit-level moderate
 
   dependency-review:
@@ -151,12 +167,18 @@ jobs:
             apps/web/package.json
             apps/web/pnpm-lock.yaml
             apps/web/pnpm-workspace.yaml
+            apps/desktop/package.json
+            apps/desktop/pnpm-lock.yaml
+            apps/desktop/pnpm-workspace.yaml
           sparse-checkout-cone-mode: false
       - uses: ./.github/actions/setup-environment
         with:
           setup-node: "true"
       - name: Fail on advisories new to the head
         run: sh scripts/audit-npm-diff.sh base/apps/web apps/web
+      - name: Fail on advisories new to the head (desktop)
+        if: ${{ !cancelled() }}
+        run: sh scripts/audit-npm-diff.sh base/apps/desktop apps/desktop
 
   # GitHub's dependency graph reads only pnpm-lock.yaml's first YAML document,
   # which pins pnpm itself, and Dependabot's alerts and security updates read
@@ -179,7 +201,7 @@ jobs:
         env:
           SHA: ${{ github.sha }}
           REF: ${{ github.ref }}
-        run: sh scripts/npm-dependency-snapshot.sh "$SHA" "$REF" >"$RUNNER_TEMP/snapshot.json"
+        run: sh scripts/npm-dependency-snapshot.sh "$SHA" "$REF" apps/web apps/desktop >"$RUNNER_TEMP/snapshot.json"
       - name: Submit the snapshot
         env:
           GH_TOKEN: ${{ github.token }}
