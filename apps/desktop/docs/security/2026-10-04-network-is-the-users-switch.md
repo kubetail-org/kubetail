@@ -1,7 +1,7 @@
 # Security record — network is the user's switch, 4 October 2026
 
 **Subject:** a sandboxed command can reach the internet, but only when the user says so. This is
-step 4C of the [agent-security sequence](../specs/agent-security/README.md). The living model is
+step 4C of Kstack's agent-security spec sequence. The living model is
 [security-model.md](../security-model.md); the decision is [network is the user's
 switch](../adr/2026-10-04-network-is-the-users-switch.md).
 

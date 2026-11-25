@@ -1,7 +1,7 @@
 # Third-party licenses
 
 The licenses and notices of the third-party programs Kubetail's Linux packages carry. Kubetail's own
-license is [`LICENSE`](../LICENSE) at the repository root.
+license is [`LICENSE`](../../../LICENSE) at the repository root.
 
 - [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) names each program, its version, license,
   copyright notices and where its source is.

@@ -78,6 +78,27 @@ CLAUDE.local.md
 !.claude/skills/release-notes/
 !.claude/skills/release-version/
 
+# desktop
+/apps/desktop/node_modules
+/apps/desktop/dist
+/apps/desktop/dist-ssr
+/apps/desktop/*.local
+/apps/desktop/coverage
+/apps/desktop/sidecar/coverage.out
+/apps/desktop/src-tauri/target
+# The dev app's logs; two source folders share the name.
+/apps/desktop/**/logs
+!/apps/desktop/sidecar/internal/services/logs/
+!/apps/desktop/src/components/logs/
+# The outputs of make build-desktop-sidecar, build-desktop-bwrap,
+# build-desktop-pasta and build-desktop-embedded-sources.
+/apps/desktop/src-tauri/binaries/
+/apps/desktop/src-tauri/linux/bwrap
+/apps/desktop/src-tauri/linux/bubblewrap-*.tar.xz
+/apps/desktop/src-tauri/linux/pasta
+/apps/desktop/src-tauri/linux/passt-*.tar.xz
+/apps/desktop/src-tauri/linux/embedded-sources.tar.gz
+
 # e2e
 /e2e/.venv
 **/__pycache__
