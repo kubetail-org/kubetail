@@ -17,7 +17,7 @@ Prerequisite: step 2 on `wip/desktop`. [The sequence's README](README.md) holds 
 | 9. Skills | Planned | — |
 | 10. Update the guides | Planned | — |
 
-1. **CI.** Add `ci-desktop.yml` and `coverage-desktop.yml`, called from `ci.yml` and `coverage.yml`, built from Kstack's `ci.yml` and `coverage.yml`. Bring `.github/actions/stub-sidecar`.
+1. **CI.** Add `ci-desktop.yml` and `coverage-desktop.yml`, called from `ci.yml` and `coverage.yml`, built from Kstack's `ci.yml` and `coverage.yml`. Bring `.github/actions/stub-sidecar`. `.github/ci-config/zizmor.yml`'s desktop entries (`release-desktop.yml`, `action.yml:228`) follow the files they name, and go with `apps/desktop/.github/`.
 2. **Filters and coverage.**
    - `desktop` keys and `release-desktop` in `.github/ci-config/path-filters.yml`.
    - The desktop runners in `runners.json`.
