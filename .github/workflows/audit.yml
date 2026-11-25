@@ -147,6 +147,10 @@ jobs:
         with:
           fail-on-severity: moderate
           fail-on-scopes: runtime, development, unknown
+          # glib 0.18.5's VariantStrIter unsoundness (RUSTSEC-2024-0429), which
+          # tao and wry pin; apps/desktop/docs/adr/2026-09-05-tauri-pinned-transitive-advisories.md
+          # records why it is accepted.
+          allow-ghsas: GHSA-wrw7-89jp-8q8g
 
   # A fork's token cannot submit to the dependency graph, so npm compares
   # pnpm audit on the base and on the head instead.
