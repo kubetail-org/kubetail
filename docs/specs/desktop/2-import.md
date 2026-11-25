@@ -10,7 +10,7 @@ Prerequisite: step 1 merged into Kstack's `main`. One commit into `wip/desktop`,
 | 2. Settle the ADRs | Done | — |
 | 3. Align toolchains | Done | — |
 | 4. Merge `tools/` | Done | — |
-| 5. Merge `scripts/sandbox-dev-setup.sh` | Planned | — |
+| 5. Merge `scripts/sandbox-dev-setup.sh` | Done | — |
 | 6. Place the scripts | Planned | — |
 | 7. Add the Makefile area | Planned | — |
 | 8. Fold the guides | Planned | — |
