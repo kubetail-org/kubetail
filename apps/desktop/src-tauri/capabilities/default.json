@@ -1,0 +1,30 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window and any additional windows opened via File → New Window (labels `window-N`).",
+  "windows": ["main", "window-*"],
+  "permissions": [
+    "core:window:default",
+    "core:webview:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-start-dragging",
+    "core:window:allow-start-resize-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
+    "allow-ready",
+    "allow-graphql-query",
+    "allow-graphql-subscribe",
+    "allow-graphql-unsubscribe",
+    "allow-new-window",
+    "allow-update-host-file",
+    "allow-quit",
+    "allow-webview-record-error",
+    "allow-open-account-url",
+    "allow-log-window-subscribe",
+    "allow-log-window-open",
+    "allow-log-window-focus",
+    "allow-log-window-close-all"
+  ]
+}

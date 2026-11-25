@@ -1,0 +1,1 @@
+Watch logs in the background and be told once, when the watch ends: one or more resources merged by timestamp, for lines matching a pattern or any line, from now, a moment you give or where a read stopped, until it holds its limit of lines or bytes or its time runs out. The call answers at once; the lines arrive in a notice.

@@ -1,0 +1,16 @@
+extends: default
+
+# pnpm-lock.yaml is generated.
+ignore-from-file: [.gitignore, .yamllintignore]
+
+rules:
+  # No file here is a multi-document stream.
+  document-start: disable
+  # Shell in `run:` blocks and gqlgen's paths read better unwrapped.
+  line-length: disable
+  # Dependabot writes an action's version comment one space after its SHA.
+  comments:
+    min-spaces-from-content: 1
+  # GitHub Actions' trigger key is `on:`.
+  truthy:
+    check-keys: false

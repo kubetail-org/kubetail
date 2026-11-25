@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "description",
+    "prompt"
+  ],
+  "properties": {
+    "description": {
+      "type": "string",
+      "description": "A short (3-5 word) description of the task"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The task for the agent to perform"
+    },
+    "subagent_type": {
+      "type": "string",
+      "description": "The type of specialized agent to use for this task"
+    },
+    "model": {
+      "type": "string",
+      "description": "Optional model override for this agent, one of your provider's models. If omitted or your own, the agent runs on your model and effort; another model runs at its default effort."
+    }
+  }
+}

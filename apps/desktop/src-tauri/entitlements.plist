@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- JIT exceptions: the minimum required set must be verified in a signed
+	     macOS build; see H-3 in the current security review. -->
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+
+	<!-- Permits third-party libraries regardless of Team ID. Necessity is unverified;
+	     see H-3 in docs/security/2026-09-04-security-review.md. -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+
+	<!--
+	  Outbound network: the OAuth loopback flow and (transitively, via the
+	  sidecar process) the kubetail cloud connection.
+	-->
+	<key>com.apple.security.network.client</key>
+	<true/>
+</dict>
+</plist>

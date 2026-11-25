@@ -1,0 +1,2714 @@
+# Copyright 2024 The Kubetail Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# The app's whole GraphQL surface, grouped by noun: shared vocabulary first, then
+# Cluster, ClusterCache, cluster data, and the cloud account, with the root
+# operation types collected at the end.
+#
+# --- Shared vocabulary ---
+# The scalars and the kind-agnostic projections (Condition, Event, Schedule,
+# CollectionWatchFrameType) every noun's surface reuses. A type only one noun uses belongs in that
+# noun's section, however generic its name reads.
+
+"An ISO-8601 encoded UTC date string."
+scalar Time
+
+"""
+The identity of a persisted object (a cluster, a cluster's cache, …), opaque to
+clients (a decimal-string id on the wire). One scalar for every object kind so
+the same id machinery is reused. Use values returned by the server verbatim; do
+not construct or parse them.
+
+Object ids are unique across kinds, not just within one, so they never collide —
+which is why a lookup handed another kind's id answers null rather than erroring
+or returning the wrong record. `Event.id` reuses this scalar for its wire form
+only: an event run is not an object, its id comes from a separate sequence, and it
+is unique within one timeline rather than across the fleet. Never hand one where
+an object id is expected.
+"""
+scalar ObjectID
+
+"""
+The identity of a cluster record: its row id, opaque text a client uses verbatim.
+Distinct from `ObjectID`, which names a cache or a per-kind record; a cluster is
+never addressed by one.
+"""
+scalar ClusterID
+
+"""
+An arbitrary JSON value carried verbatim. Backs a cached Kubernetes object's full
+native body: the sidecar forwards the stored, decompressed object JSON as-is (no
+per-field GraphQL typing), and the frontend casts it to a typed Kubernetes object.
+"""
+scalar JSON
+
+"A condition's three-valued verdict, Kubernetes-style."
+enum ConditionStatus {
+  "The condition holds."
+  True
+  "The condition does not hold."
+  False
+  "The condition cannot currently be assessed."
+  Unknown
+}
+
+"""
+One Kubernetes-style status condition: an independently-tracked aspect of the
+record's observed state. Connection-controller conditions (on `Cluster.conditions`),
+two aspects with two subjects — whether we reached it, and whether these credentials
+could name it: `Connected` (the last probe reached the API server; reasons
+Connecting/Connected/Inactive, or a failed probe's class — Unreachable, TLSInvalid, Timeout,
+Unauthorized, Forbidden, … — and ProbeFailed when unclassified) and `Identified` (the probe
+could tell which cluster answered; reasons Identified/UIDUnreadable/Connecting/
+NoConnection/Inactive). Reaching a server needs no authorization and naming it does, so
+`Identified` fails on its own — and a cluster it fails for never gets a `ClusterCache`,
+which is named for the identity it mirrors. Each points at a different remedy: the
+network or the kubeconfig for one, an RBAC grant for the other.
+Sync-controller conditions: `Synced`, reported at two levels. On
+`ClusterCache.conditions` it is coarse (reasons Syncing/Paused) — the cache states
+only whether it decided to sync. The verdict a UI wants is the one on the cache's
+sync children — the per-kind `ClusterCachedKind` records (reasons
+Syncing/Watching/Paused/NoConnection/SyncFailed/Stale), or their whole-cache rollup
+`clusterCacheHealthKeyedStateWatch`, which speaks the same vocabulary.
+New types/reasons may appear; consumers should treat unknown spellings as a
+degraded/unknown display state.
+"""
+type Condition {
+  "The aspect this condition tracks, e.g. \"Connected\"."
+  type: String!
+  status: ConditionStatus!
+  "CamelCase machine-readable explanation of `status`."
+  reason: String!
+  "Human-readable detail; empty when there is nothing to explain."
+  message: String!
+  """
+  Whether this condition reports process-scoped state (a live connection, a running
+  sync worker) rather than durable truth. A liveness condition written by a previous
+  sidecar process reads as `Unknown` until the controller re-confirms it, so the UI
+  never shows a stale `True` after a restart. `reason` is preserved across that
+  downgrade, so it still says what the last known state was.
+  """
+  liveness: Boolean!
+  """
+  Whether `status` is a downgrade the sidecar derived rather than one a controller
+  wrote: a liveness condition left behind by an earlier process, read as `Unknown`
+  until re-confirmed. When true, `reason`, `message` and the stamps below describe
+  the **last known** status, not this `Unknown` — so a consumer must not present
+  them as current (no "Error" off a pre-restart reason, no "up for 0m").
+  """
+  unconfirmed: Boolean!
+  "When `status` last changed — not when the condition was last refreshed. A downgraded liveness condition keeps the stamp of the write that set it, which predates the current process."
+  transitionedAt: Time!
+  "When the condition was last written, whether or not `status` changed."
+  updatedAt: Time!
+}
+
+"""
+A pointer to another record — today always the owner a child record hangs off, which
+is the key the client folds its streams together on. Kind-agnostic, so the whole
+ownership chain reads the same way rather than naming a differently-spelled id per
+kind.
+"""
+type ObjectRef {
+  "The referenced record's id."
+  id: ObjectID!
+  "Its kind, e.g. `\"Cluster\"` — for a consumer that has to tell owners apart."
+  kind: String!
+}
+
+"An event's severity, mirroring the control plane's event type: Normal (✓) or Warning (✗)."
+enum EventType {
+  Normal
+  Warning
+}
+
+"""
+One coalesced run from an object's control-plane event timeline: consecutive
+occurrences sharing an outcome (category, type, reason) are aggregated, so
+`count`/`firstAt`/`lastAt` describe the run. A generic projection served under
+every kind's events surface — `category` names the timeline (e.g. `"connection"`),
+`reason` is an open, category-specific machine code; consumers should treat
+unknown spellings as a degraded/unknown state. The client upserts a live stream
+by `id` (a re-delivered id is an updated run; a new id is a new run).
+"""
+type Event {
+  "Stable run identity — the client's upsert key on a watch. An opaque int64 id, same wire form as ObjectID, but from the event sequence: unique within this timeline, not across kinds."
+  id: ObjectID!
+  "The timeline this run belongs to, e.g. `\"connection\"`."
+  category: String!
+  type: EventType!
+  "CamelCase machine code, e.g. `Connected` / `ProbeFailed`. Open-ended per category."
+  reason: String!
+  "The latest occurrence's detail; empty when there is nothing to explain."
+  message: String!
+  "Occurrences coalesced into this run (>= 1)."
+  count: Int!
+  "When the run started (first occurrence)."
+  firstAt: Time!
+  "When the run last extended (latest occurrence)."
+  lastAt: Time!
+}
+
+"""
+An object's reconcile-schedule state watch: when the control plane has queued the
+object's next reconcile (a cluster's next backoff retry, for a disconnected one),
+which a UI counts down to. Generic like Event — the watch entrypoints are
+kind-scoped (clusterScheduleStateWatch) but the value shape is not. A struct (not a
+bare Time) so it can grow. Observed live via a schedule watch — a scheduling
+change fires no object/list watch, so this is the only way to keep the countdown
+moving for an otherwise-idle object.
+"""
+type Schedule {
+  "The scheduled time of the next reconcile, or null while a reconcile is in flight (see `probing`) or nothing is scheduled."
+  nextRequeueAt: Time
+  """
+  Whether a connection probe is running right now. Asserted by the controller for
+  the in-flight window (not inferred from a missing nextRequeueAt), so the UI can
+  show a definite "checking now" while the probe's round-trips are in flight.
+  """
+  probing: Boolean!
+  "How many connection attempts in a row have failed; zero once one succeeds."
+  failures: Int!
+}
+
+"""
+Classifies one frame on a collection watch, mirroring a Kubernetes watch event. On
+subscribe a watch replays the current set as `Added` frames (the snapshot), closes it
+with one `Bookmark`, then streams live changes. A `Deleted` carries the object's
+last-known state; the client keys on its `id`.
+"""
+enum CollectionWatchFrameType {
+  Added
+  Modified
+  Deleted
+  Bookmark
+}
+
+"""
+Classifies one frame on an event feed. Two values where `CollectionWatchFrameType` has
+four: an event log is a positioned log, not a mirrored set. The server delivers the
+snapshot plus what grows above it and never reports a prune, so a run is only ever
+upserted and there is no `Deleted`.
+"""
+enum EventFeedFrameType {
+  "A run to upsert by `Event.id`."
+  Run
+  "Closes the on-subscribe snapshot; sent once, carrying no run."
+  Bookmark
+}
+
+"""
+One frame on an event feed (`objectEventFeed`, whatever record's id it is given).
+
+The accumulated set is append-only and can outgrow the server's: retention bounds
+each timeline to a fixed number of runs, and a pruned run is not announced. A
+long-lived consumer should cap what it keeps rather than expect the server to
+evict for it.
+"""
+type EventFeedFrame {
+  type: EventFeedFrameType!
+  "The run. Null on `Bookmark`."
+  event: Event
+}
+
+# --- Cluster ---
+# A tracked kube-context: its record, its connection observations, and its own
+# event/schedule surfaces. The cache mirror beneath it is ClusterCache; the data
+# synced into that cache is the cluster-data section.
+
+"""
+A registered cluster connection: a tracked kube-context paired with its on-disk
+cache mirror. Modeled Kubernetes-style so a consumer knows where data comes
+from: `spec` is the user-owned desired state, `status` the observed state. Two
+records may point at the same physical cluster (`status.server.uid` tracks
+physical identity). A cluster stays listed after its context leaves the
+kubeconfig (so its cache can still be inspected or cleared).
+"""
+type Cluster {
+  "Unique identifier for this cluster record."
+  id: ClusterID!
+
+  "When this cluster was first registered."
+  createdAt: Time!
+  "When the user last edited this cluster — a toggle, a rename, the delete. A probe never moves it."
+  updatedAt: Time!
+  "When this cluster's deletion was requested; null unless deletion is pending. The record lingers, marked, until its runtime and chats are torn down, and user-facing collections hide it meanwhile."
+  deletionRequestedAt: Time
+
+  "Desired state: the user-owned fields."
+  spec: ClusterSpec!
+  "Observed connection/health state, discovered by probing."
+  status: ClusterStatus!
+  "The connection controller's conditions (`Connected`, `Identified`)."
+  conditions: [Condition!]!
+
+  """
+  Every cache this cluster has mirrored. Usually one; a UID migration leaves the
+  superseded cache in place until its subtree drains, which is why this is a list.
+
+  **None of them is marked active.** The active cache is the one whose `spec.serverUid`
+  matches this cluster's `status.server.uid` — a comparison the caller makes, and
+  must keep making: the parent's UID is rewritten by a probe, which fires no cache
+  event, so an answer computed once goes stale silently. A consumer that needs to
+  follow that over time reads `clusterCollectionWatch` and `clusterCacheCollectionWatch` and joins
+  them live rather than reading this field.
+  """
+  caches: [ClusterCache!]!
+
+  """
+  This cluster's control-plane event timeline (newest run first), optionally
+  filtered to one `category` (e.g. `"connection"`) and bounded by `limit`. Empty
+  for a cluster with no events. Resolved on selection and decoupled from the
+  cluster/list watch, so event chatter never re-emits the cluster — and a query
+  that doesn't select it pays nothing.
+  """
+  events(category: String, limit: Int): [Event!]!
+}
+
+"A cluster record's desired state. Every field is user/API-owned; nothing here is observed."
+type ClusterSpec {
+  "User-assigned display name; null if unset."
+  name: String
+  "Whether the user has enabled this cluster in the app: it appears in cluster lists / context pickers and is eligible to connect. Disabled clusters stay tracked but dormant."
+  enabled: Boolean!
+  "Whether cache syncing is enabled. Disabling stops sync and freezes the cache. Only meaningful while enabled."
+  syncEnabled: Boolean!
+  "Whether the background monitor may schedule runs against this cluster. Off by default, since a run spends model calls; stored and served, and nothing runs on it yet."
+  monitoringEnabled: Boolean!
+  "Whether the user picked this cluster as the default: a new window opens on it. At most one cluster is the default."
+  isDefault: Boolean!
+  "Where this record comes from and how its credentials resolve."
+  source: ClusterSpecSource!
+}
+
+"""
+The discriminated union naming a cluster record's origin: exactly one variant
+is set. Each variant is owned by exactly one creator (the kubeconfig source
+today; manual creation and kubetail-cloud sync are future variants).
+"""
+type ClusterSpecSource {
+  "Set when the record tracks a kube-context in the user's kubeconfig."
+  kubeconfig: ClusterSpecSourceKubeconfig
+}
+
+"The kubeconfig-sourced variant of ClusterSpecSource."
+type ClusterSpecSourceKubeconfig {
+  "The kube-context name this record tracks."
+  context: String!
+}
+
+"""
+A cluster record's observed connection/health state, persisted on the Cluster
+record by the connection controller: the probed facts. The conditions that go with
+them sit beside this block on `Cluster.conditions`, not inside it — the consumer
+derives display state from their type/status/reason. Sync status and the on-disk
+cache live on the ClusterCache children, not here.
+"""
+type ClusterStatus {
+  "Per-source observation blocks, mirroring `spec.source`."
+  source: ClusterStatusSource!
+  "Last-known facts about the remote cluster (uid, version), discovered by probing."
+  server: ClusterServer!
+  "The connecting client's identity and effective access on this cluster."
+  principal: ClusterPrincipal!
+}
+
+"""
+The status-side counterpart of ClusterSpecSource: the per-source observation
+blocks, of which exactly the spec source variant's is set. Null blocks mean
+"this record's source has no such observation" — never that an observation
+went away (an orphaned kubeconfig record keeps its block with
+`isPresent: false`).
+"""
+type ClusterStatusSource {
+  "Kubeconfig observation; null unless the record is kubeconfig-sourced."
+  kubeconfig: ClusterStatusSourceKubeconfig
+}
+
+"""
+A kubeconfig-sourced record's last-known kubeconfig observation: the cluster
+and user names its context (`spec.source.kubeconfig.context`) references, and
+whether the context is present. Cached from the last time the context was
+present, so they survive the context leaving the kubeconfig and let the UI
+identify an orphaned record. In a malformed kubeconfig the referenced entries
+may not resolve.
+"""
+type ClusterStatusSourceKubeconfig {
+  "The cluster half of the context: the entry name it references, and that entry; cached."
+  cluster: ClusterStatusSourceKubeconfigCluster!
+  "The user half of the context; cached."
+  user: ClusterStatusSourceKubeconfigUser!
+  "True while the context is currently present in the kubeconfig; false when orphaned."
+  isPresent: Boolean!
+  "True when the context is the kubeconfig's `current-context`; false otherwise."
+  isDefault: Boolean!
+}
+
+"""
+The cluster half of a context. `name` is stated by the context, `entry` by the file,
+so the two go missing independently: a context always names a cluster, and the file
+may define no entry under that name.
+"""
+type ClusterStatusSourceKubeconfigCluster {
+  "Name of the cluster entry the context references."
+  name: String!
+  "The entry `name` resolves to; null when the kubeconfig defines no such entry."
+  entry: ClusterStatusSourceKubeconfigClusterEntry
+}
+
+"""
+The user (authInfo) half of a context. It carries the entry name alone: an authInfo
+entry holds credentials, so anything served from it is a chosen projection, never a
+mirror of the file.
+"""
+type ClusterStatusSourceKubeconfigUser {
+  "Name of the user entry the context references."
+  name: String!
+}
+
+"""
+A kubeconfig cluster entry. Fields are a subset of what the file holds, added as a
+consumer needs them, and each is what the file says — no verdict is drawn here: a
+client asking whether the connection is verified reads `insecureSkipTLSVerify` and
+`server`'s scheme, both stated before anything is dialled.
+"""
+type ClusterStatusSourceKubeconfigClusterEntry {
+  "The entry's `server` URL."
+  server: String!
+  "The entry's `insecure-skip-tls-verify`."
+  insecureSkipTLSVerify: Boolean!
+}
+
+"Last-known facts about the remote cluster, discovered by probing. Fields are null until a successful probe."
+type ClusterServer {
+  "The cluster's `kube-system` namespace UID; stable across context renames."
+  uid: String
+  "Server version, e.g. \"v1.29.3\"."
+  version: String
+  "API server URL that answered; null until probed. Two contexts naming one server share it."
+  endpoint: String
+}
+
+"The connecting client's identity and effective access on this cluster."
+type ClusterPrincipal {
+  "Authenticated username the API server last mapped this cluster's credentials to (SelfSubjectReview); null until probed."
+  username: String
+  "Groups the API server mapped these credentials into; empty until probed. Sorted. Where the principal's access usually comes from, since RBAC binds to groups more often than to users."
+  groups: [String!]!
+  "Effective RBAC in a namespace (live SelfSubjectRulesReview), resolved on demand. Point-in-time, for debugging only — not authoritative for access decisions."
+  permissions(namespace: String!): ClusterPermissions!
+}
+
+"""
+The connecting principal's effective RBAC in one namespace (live
+SelfSubjectRulesReview). Namespace-scoped (the API has no all-namespaces form)
+and point-in-time — for UI/debugging, not authoritative for access decisions.
+"""
+type ClusterPermissions {
+  "The namespace these rules were evaluated for."
+  namespace: String!
+  "Allowed resource rules (verbs × apiGroups × resources)."
+  resourceRules: [ResourceRule!]!
+  "Allowed non-resource rules (verbs × URLs), e.g. /healthz."
+  nonResourceRules: [NonResourceRule!]!
+  "True if some authorizers couldn't be evaluated, so the rule set may be incomplete."
+  incomplete: Boolean!
+}
+
+"A resource-scoped RBAC rule: the verbs the principal may use on the given apiGroups/resources (optionally narrowed to named instances)."
+type ResourceRule {
+  verbs: [String!]!
+  apiGroups: [String!]!
+  resources: [String!]!
+  "Specific resource names this rule is restricted to; empty means all."
+  resourceNames: [String!]!
+}
+
+"A non-resource RBAC rule: the verbs the principal may use against non-resource URLs (e.g. /healthz)."
+type NonResourceRule {
+  verbs: [String!]!
+  nonResourceUrls: [String!]!
+}
+
+"One frame on the `clusterCollectionWatch` stream: a change and the cluster it affected, or the `Bookmark` closing the snapshot."
+type ClusterCollectionWatchFrame {
+  "Whether this cluster was added (incl. the on-subscribe snapshot), modified, or deleted."
+  type: CollectionWatchFrameType!
+  "The affected cluster. On `Deleted`, its last-known state; the client removes it by `id`. Null on `Bookmark`."
+  cluster: Cluster
+}
+
+"""
+How fast a cluster's connection moved data over one sampling interval. Counted on the wire:
+TLS, headers and framing included, every stream to the API server counted.
+"""
+type ClusterDataRateSample {
+  "When the sample was read."
+  at: Time!
+  "Bytes per second received from the API server."
+  receivedBytesPerSecond: Float!
+  "Bytes per second sent to the API server."
+  sentBytesPerSecond: Float!
+}
+
+"One frame of `clusterDataRateSampleFeed`."
+type ClusterDataRateSampleFeedFrame {
+  "Seconds between samples. The same on every frame."
+  intervalSeconds: Int!
+  "How far back the feed reaches. The same on every frame. The client keeps the last window ÷ interval points."
+  windowSeconds: Int!
+  "Oldest first. The first frame holds the whole window, and each later frame the samples since."
+  samples: [ClusterDataRateSample!]!
+}
+
+# --- ClusterCache ---
+# A cluster's on-disk mirror and the sync machinery under it: the cache record, the
+# per-kind sync children, and the whole-cache verdict folded from them. The data these
+# caches hold is the cluster-data section.
+
+"""
+A cache record, mirroring the beehive ClusterCache kind: a mirror of one physical
+cluster identity. Streamed independently of its parent Cluster via
+`clusterCacheCollectionWatch` and joined to it client-side by `clusterID`. Carries its
+identity (`id`, `clusterID`, `spec.serverUid`) and its coarse `Synced` condition — there
+is no status block, for the reason `conditions` gives below. Its live on-disk stats
+ride `clusterCacheStatsStateWatch`, which stays current where a field here would freeze at
+subscribe time. A cluster owns one per identity it has mirrored; the *active* cache
+— the one a sync engine runs for and a UI shows for the row — is the one whose
+`spec.serverUid` matches the cluster's last-probed `status.server.uid`, a join the
+client derives (it is not a field here, because it depends on the parent's status,
+which changes with no cache event and so cannot be kept fresh on this stream).
+"""
+type ClusterCache {
+  "Unique identifier for this cache record (distinct from its parent cluster's id)."
+  id: ObjectID!
+  "The Cluster this cache belongs to. The client joins caches onto clusters by it."
+  clusterID: ClusterID!
+
+  "The record's spec generation, bumped on every spec write."
+  generation: Int!
+  "When this cache was created — the cluster's identity was first observed."
+  createdAt: Time!
+  "When this cache's deletion was requested (beehive soft-delete tombstone); null unless deletion is pending. The record lingers until its finalizers clear."
+  deletionRequestedAt: Time
+
+  spec: ClusterCacheSpec!
+  "The cache-level `Synced` condition: coarse (`Syncing`/`Paused`) — it reports only what this cache decided, not how its sync is doing. Per-component health and freshness live on the cache's per-kind records (`clusterCachedKindCollectionWatch`) or their rollup (`clusterCacheHealthKeyedStateWatch`), which is also why this record carries no status block of its own."
+  conditions: [Condition!]!
+
+  """
+  The kinds this cache's API server advertises (from `/apis` discovery), read out
+  of the cache's own file — the read behind the dashboard's dynamic resource nav.
+  Content, not control plane: `cachedKinds` below is the record per kind, this is
+  what the store holds. Empty for a cache that has not synced yet. Resolved on
+  selection; the live counterpart is `clusterCachedDataKindCollectionWatch`.
+  """
+  kinds(
+    "Counts each namespaced kind in this namespace alone, and Events by the namespace of the object each is about. A cluster-scoped kind keeps its whole count. Empty counts the whole cache."
+    namespace: String! = ""
+  ): [ClusterCachedDataKind!]!
+
+  """
+  This cache's per-kind sync records, one per kind it mirrors — so hundreds on a
+  real cluster — in creation order. The control-plane records, where `kinds` above
+  is the mirrored content they describe. Empty until the cache's discovery pass has
+  run.
+
+  Resolved on selection; the live counterpart is `clusterCachedKindCollectionWatch(cacheID)`,
+  which is what a consumer following per-kind health should read.
+  """
+  cachedKinds: [ClusterCachedKind!]!
+
+  """
+  This cache's control-plane event timeline (newest run first), optionally
+  filtered to one `category` (e.g. `"discovery"`, the kind-discovery history) and
+  bounded by `limit`. Carries only what the cache itself records — the per-kind sync
+  history lives on `ClusterCachedKind.events`. Resolved on selection and
+  decoupled from the cache/list watch.
+  """
+  events(category: String, limit: Int): [Event!]!
+}
+
+"""
+A cache's desired state. The identity it mirrors, and nothing else: a cache is
+created for one physical cluster and never repointed, so there is no field here a
+client writes.
+"""
+type ClusterCacheSpec {
+  "The kube-system namespace UID of the physical cluster this cache mirrors — the identity a physical migration turns over. Matches the parent cluster's `status.server.uid` while this is the active cache."
+  serverUid: String!
+}
+
+"Live on-disk cache statistics for a single cluster."
+type ClusterCacheStats {
+  "True when a local cache exists on disk."
+  exists: Boolean!
+  "What the cache costs on disk in bytes — the sqlite file plus its WAL/shm sidecars; 0 when not cached. The headline size: `dbBytes` alone reads low and stale while a sync fills the WAL, since the main file does not grow until a checkpoint lands."
+  bytes: Int!
+  "The sqlite file alone, in bytes. Part of `bytes`, broken out so a reader can tell a cache holding a lot from one whose WAL is not being checkpointed."
+  dbBytes: Int!
+  "The write-ahead log, in bytes. Part of `bytes`. Large or growing relative to `dbBytes` means checkpointing is falling behind."
+  walBytes: Int!
+  "The shared-memory index, in bytes. Part of `bytes`, and present only while the cache is open — a fixed ~32KB, so it is detail rather than news."
+  shmBytes: Int!
+  "Total number of cached objects across every kind (the sum of the kind catalog's per-kind counts; excludes cached events). 0 when not cached."
+  objectCount: Int!
+  "Number of distinct kinds with at least one cached object. 0 when not cached."
+  kindCount: Int!
+  "True when the cache's footprint is over its configured ceiling. Soft by one sweep interval, so a cache can read over before anything acts on it; false for a cache nobody has open, which cannot grow."
+  overSizeLimit: Boolean!
+  "The ceiling in bytes, 0 when unbounded. Sent so a client can render how close a cache is without hardcoding the sidecar's default."
+  sizeLimitBytes: Int!
+}
+
+"One frame on the `clusterCacheCollectionWatch` stream: a change and the cache it affected, or the `Bookmark` closing the snapshot."
+type ClusterCacheCollectionWatchFrame {
+  "Whether this cache was added (incl. the on-subscribe snapshot), modified, or deleted."
+  type: CollectionWatchFrameType!
+  "The affected cache. On `Deleted`, its last-known state; the client removes it by `id`. Null on `Bookmark`."
+  cache: ClusterCache
+}
+
+"""
+One Kubernetes kind being mirrored into a cache — one record per kind the discovery
+pass found, so a cache has a hundred or more. Streamed by `clusterCachedKindCollectionWatch`,
+which is **cache-scoped** for exactly that reason, and joined onto its cache through
+`owner.id`.
+
+This is where per-kind sync health lives. The cache's own `Synced` condition is
+coarse — it cannot tell you that one CRD's watch is forbidden while the other
+ninety-nine kinds are caught up.
+"""
+type ClusterCachedKind {
+  "Unique identifier for this record."
+  id: ObjectID!
+  "The ClusterCache this kind is mirrored into — the client's join key."
+  owner: ObjectRef!
+
+  "The record's spec generation, bumped on every spec write."
+  generation: Int!
+  "When this kind was first armed for sync."
+  createdAt: Time!
+  "When this record's deletion was requested (beehive soft-delete tombstone); null unless deletion is pending. The record lingers until its finalizers clear."
+  deletionRequestedAt: Time
+
+  spec: ClusterCachedKindSpec!
+  """
+  Beehive object conditions. **Empty in practice**: this kind's verdict is a state watch, not a
+  stored condition — read it from `clusterCacheSyncStateWatch`, which carries a row per
+  kind, or its cache-wide fold `clusterCacheHealthKeyedStateWatch`. A stored one would serve a dead
+  process's answer until the passes caught up.
+  """
+  conditions: [Condition!]!
+
+  """
+  This kind's sync-transition history (newest run first) — the
+  `SyncStart`/`SyncComplete`/`SyncDegraded`/`SyncStale`/… runs its worker records,
+  optionally filtered to one `category` (e.g. `"sync"`) and bounded by `limit`.
+  This is where the per-kind history lives; the parent cache's timeline carries
+  only what the cache itself records. Resolved on selection.
+  """
+  events(category: String, limit: Int): [Event!]!
+}
+
+"Which kind a per-kind sync mirrors, and whether the user has left it syncing."
+type ClusterCachedKindSpec {
+  "Group/version, e.g. \"apps/v1\", or \"v1\" for the core group."
+  apiVersion: String!
+  "Kind name, e.g. \"Deployment\"."
+  kind: String!
+  "Plural lowercase resource, e.g. \"deployments\" — the identity the objects watch is opened on."
+  resource: String!
+  "Whether objects of this kind are namespaced."
+  namespaced: Boolean!
+  """
+  Whether this one kind is syncing, set by `clusterCachedKindSyncEnabledSet`. False stops
+  the watch and **keeps the cached rows** — they stay listed and readable, and a resume
+  reconciles into them; `clusterCacheClear` is what throws rows away. Independent of the
+  cluster-wide `Cluster.spec.syncEnabled`, which freezes every kind at once.
+  """
+  syncEnabled: Boolean!
+}
+
+"One frame on the `clusterCachedKindCollectionWatch` stream: a change and the record it affected, or the `Bookmark` closing the snapshot."
+type ClusterCachedKindCollectionWatchFrame {
+  "Whether this record was added (incl. the on-subscribe snapshot), modified, or deleted."
+  type: CollectionWatchFrameType!
+  "The affected record. On `Deleted`, its last-known state; the client removes it by `id`. Null on `Bookmark`."
+  kind: ClusterCachedKind
+}
+
+"""
+One kind that is not Watching, identified exactly, with its own sync `reason`.
+`resource` is what a UI renders, but it does not identify a kind on its own: a CRD may
+reuse a built-in's plural under another api group, so anything keying on a kind — looking
+its sync record up, opening its timeline — needs the pair.
+"""
+type UnhealthyKindRef {
+  apiVersion: String!
+  resource: String!
+  reason: String!
+}
+
+"""
+One cache's sync verdict, folded from every kind it syncs. Shaped like a `Condition` on
+purpose — same `status`/`reason`/`message` vocabulary as a per-kind record — so a client
+renders a cache exactly as it renders one kind.
+"""
+type ClusterCacheHealth {
+  "The cache this verdict is for. The client keys its map on this and joins onto the cache by it."
+  cacheID: ObjectID!
+  status: ConditionStatus!
+  """
+  A cache-level verdict where there is one, and otherwise the dominant per-kind reason.
+  Two are cache-level: `Paused` when every kind this cache mirrors has been paused (a
+  paused kind is skipped by the fold, so without this arm a fully paused cache would read
+  as healthy), and `StoreFailed` when its file will not open, so nothing under it is
+  syncing and no kind is in a position to say so. Failing those, the per-kind fold — a hard
+  failure beats a stall beats a wait beats a catch-up. `Unknown`/`Syncing` with
+  `totalKinds: 0` means the discovery pass has not landed yet — not a fault, and not health
+  either.
+  """
+  reason: String!
+  """
+  Every kind that is not Watching, sorted, each with its own `reason`. Empty when healthy.
+  Only the entries whose `reason` is this verdict's are behind it; the rest are catching
+  up. A list rather than a rendered phrase: truncation ("+N more") is a layout decision, and
+  a client that keys a subscription on the first offender must not have to parse it back out
+  of prose — which is also why each entry carries its `apiVersion`, since the plural alone
+  does not identify a kind.
+  """
+  unhealthyKindRefs: [UnhealthyKindRef!]!
+  """
+  Why a `SyncFailed` verdict's first offender failed, as a class: `Forbidden`,
+  `Unauthorized`, `NotFound`, `Throttled`, `InternalError`, `ServiceUnavailable`,
+  `Unreachable`, `TLSInvalid` or `Timeout`. Empty when the failure is not a request's or
+  the verdict is not `SyncFailed`.
+  """
+  failure: String!
+  "How many kinds this cache syncs."
+  totalKinds: Int!
+  "How many of them are not currently Watching."
+  unhealthyKinds: Int!
+  """
+  How many of `totalKinds` the user has paused. Counted apart rather than subtracted from
+  the census: a paused kind is neither unhealthy nor missing, so without this tally it is
+  invisible in every reading — a summary spending `unhealthyKinds` alone would report five
+  kinds syncing while two of them are switched off.
+  """
+  pausedKinds: Int!
+  """
+  The most recent write across every kind — when data last arrived anywhere in this
+  cache. Null until some kind has written. On a quiet cluster this legitimately reads
+  hours old; `lastLiveAt` is what says that is fine.
+  """
+  lastUpdateAt: Time
+  """
+  The OLDEST proof among the kinds that have one — the weakest link, since a cache is
+  only as verified as its least-recently proven watch. Null before any kind has proved
+  itself.
+  """
+  lastLiveAt: Time
+}
+
+"""
+One cache's sync detail: how discovery is doing, and a row per kind it mirrors.
+
+What `ClusterCacheHealth` folds into one verdict for a fleet view, expanded for the one
+cache a user opened. Nothing else on the wire carries a per-kind verdict.
+"""
+type ClusterCacheSyncState {
+  "The cache this detail is for."
+  cacheID: ObjectID!
+  "False when the pair subscribed to names no live cache; the rest of the detail is then empty."
+  exists: Boolean!
+  "How the kind-discovery sweep is doing. Its own verdict, and not any kind's: a cluster whose `/apis` document will not load has no kinds to report the failure through."
+  discovery: ClusterCacheDiscoveryStatus!
+  "Every mirrored kind, sorted by `apiVersion` then `resource`, so a rendered list is stable across ticks."
+  kinds: [ClusterCacheKindSyncStatus!]!
+}
+
+"The kind-discovery sweep's standing answer for one cache."
+type ClusterCacheDiscoveryStatus {
+  "`Discovering`/`Discovered`/`Partial`/`DiscoveryFailed`, `NoConnection`/`IdentityMismatch` when nothing has reached the server, or `StoreFailed` when the cache's own file will not open. Empty before any sweep has answered."
+  reason: String!
+  "Human detail behind `reason` — which group-versions did not answer, and why. Empty when there is nothing to add."
+  message: String!
+}
+
+"One mirrored kind's sync detail. Identity, verdict, freshness, and its row count."
+type ClusterCacheKindSyncStatus {
+  "The group/version this kind is served at, e.g. `\"apps/v1\"` — or a bare version for the core group."
+  apiVersion: String!
+  "The singular Kind name, e.g. `\"Deployment\"`."
+  kind: String!
+  "The lowercase plural URL segment, e.g. `\"deployments\"`. With `apiVersion`, the pair that identifies a kind."
+  resource: String!
+  "`Syncing`/`Resyncing`/`Resuming`/`Watching`/`Stale`/`SyncFailed`, `NoConnection`/`IdentityMismatch` when the whole cache is waiting on a connection, or `Paused` when this kind's own `spec.syncEnabled` is off. Empty before this kind's worker has answered."
+  reason: String!
+  "Human detail behind `reason`. Empty when there is nothing to add."
+  message: String!
+  "When `reason` last moved — \"watching since 10:02\", which is what a live stream has instead of a last-attempt stamp. Null before it has."
+  sinceAt: Time
+  "When data last arrived for this kind. Null until something has landed; on a quiet collection this legitimately reads hours old, and `lastLiveAt` is what says that is fine."
+  lastUpdateAt: Time
+  "The last proof the stream is live — a delta OR a bookmark, since bookmarks exist to make an idle watch prove itself. The later of the two stamps, and the only one that tells an idle watch from a wedged one."
+  lastLiveAt: Time
+  "How many times the stream has come back inside the current healthy stretch — the flapping question a retry countdown cannot answer, since a watch that rotates every thirty seconds never fails."
+  restarts: Int!
+  "When a kind that is DOWN will be tried again. Null while its stream is up, which is what makes a non-null value the retry streak."
+  nextRetryAt: Time
+  "How many objects of this kind the cache holds. Read from the store's per-kind counts, so a paused cache still reports what it cached."
+  objectCount: Int!
+}
+
+
+# --- Cluster data ---
+# What a ClusterCache holds: the discovered kind catalog and the cached Kubernetes
+# objects and Events themselves. Every entry point is keyed by
+# parent cluster `id` + `cacheID`, and every frame carries its cache provenance so
+# a client can reject stragglers from a superseded cache.
+
+"""
+One kind a cluster's API server advertises, from `/apis` discovery (built-ins +
+CRDs). The dashboard builds its dynamic resource nav from these: `resource` dedupes
+against the curated catalog and `apiVersion`'s group buckets the kind into a nav
+group.
+"""
+type ClusterCachedDataKind {
+  "Group/version, e.g. \"apps/v1\", or \"v1\" for the core group."
+  apiVersion: String!
+  "Kind name, e.g. \"Deployment\"."
+  kind: String!
+  "Plural lowercase resource name (the URL form), e.g. \"deployments\"."
+  resource: String!
+  "\"Namespaced\" or \"Cluster\"."
+  scope: String!
+  "True when this kind is backed by a CustomResourceDefinition."
+  isCRD: Boolean!
+  "The columns a CRD asks a client to render for this version, in declared order; empty for a built-in and for a CRD declaring none. Descriptors only — the server computes no cell values, the client evaluates `jsonPath` against the object's `rawJSON`."
+  printerColumns: [PrinterColumn!]!
+  "Number of objects of this kind currently in the cache (0 for an advertised-but-empty kind)."
+  count: Int!
+}
+
+"""
+One column from a CRD's `additionalPrinterColumns` — a header and where to read its value
+from. Static per kind, so it rides the kinds watch rather than the objects watch.
+"""
+type PrinterColumn {
+  "Column header, e.g. \"Replicas\"."
+  name: String!
+  "OpenAPI type — integer, number, string, boolean, or date. Drives rendering, not parsing: treat an unrecognized value as a string."
+  type: String!
+  "Path into the object body, e.g. \".spec.replicas\". A restricted JSONPath; a client that cannot evaluate one renders an empty cell rather than failing the row."
+  jsonPath: String!
+  "kubectl hides columns above 0 unless `-o wide`."
+  priority: Int!
+}
+
+"""
+One cached Kubernetes Event from a cluster's synced data (the raw `events.k8s.io`/core
+Event, read from the active cache). Powers the dashboard's events table. Distinct from
+`Event`, which is kubetail's own control-plane timeline for a Cluster/ClusterCache — this
+is data synced *from* the cluster. The involved-object identity is flattened onto the
+record; the raw event body is not exposed.
+"""
+type ClusterCachedDataEvent {
+  "The Event's own object UID — the stable identity the watch keys on."
+  uid: String!
+  """
+  Severity — conventionally `Normal` or `Warning`, but an **open string** (not the
+  closed `EventType` enum): Kubernetes does not constrain `Event.type`, so a cluster may
+  omit it (empty) or supply a custom value, which is passed through verbatim.
+  """
+  type: String!
+  "CamelCase machine reason, e.g. \"BackOff\" (empty if the Event carried none)."
+  reason: String!
+  "Human-readable detail (empty if none)."
+  message: String!
+  "How many times the event has fired (coalesced series count; >= 1)."
+  count: Int!
+  "First occurrence time, or null when the source Event carried no timestamp."
+  firstSeen: Time
+  "Latest occurrence time, or null when the source Event carried no timestamp."
+  lastSeen: Time
+  "Kind of the object the event is about, e.g. \"Pod\" (empty if unset)."
+  involvedKind: String!
+  "Namespace of the involved object (empty for a cluster-scoped or name-only reference)."
+  involvedNamespace: String!
+  "Name of the involved object (empty if unset)."
+  involvedName: String!
+}
+
+"""
+One cached Kubernetes object projected for a table row (any kind), read from the
+active cache. Only the universal identity is typed for now (`uid`/`apiVersion`/`kind`/
+`namespace`/`name`/`creationTimestamp`) — enough to key the watch, sort, and render a
+Name/Namespace/Age table. The nested object body (and kind-specific columns computed
+from it) is deferred to a follow-up: see the "ClusterCachedDataObject — native nested body"
+item in `docs/TODO.md`. Distinct from `ClusterCachedDataEvent`, which is one specific kind with its
+own fully-typed shape.
+"""
+type ClusterCachedDataObject {
+  "The object's UID — the stable identity the watch keys on."
+  uid: String!
+  "The object's group/version, e.g. \"apps/v1\", or \"v1\" for the core group."
+  apiVersion: String!
+  "Kind name, e.g. \"Deployment\"."
+  kind: String!
+  "Namespace; empty for a cluster-scoped kind."
+  namespace: String!
+  "Object name."
+  name: String!
+  "creationTimestamp — drives the universal Age column; null when the source object carried none."
+  creationTimestamp: Time
+  "Full native body as JSON, verbatim from the cache (managedFields and the kubectl last-applied annotation stripped). Read only for the rows that become frames, so a watch pays for what it sends rather than for the collection; null on a `Deleted` frame's object, and when the stored body would not load."
+  rawJSON: JSON
+}
+
+"One frame on the `clusterCachedDataKindCollectionWatch` stream: a change and the kind it affected, or the `Bookmark` closing the snapshot. Either way it carries its cache provenance."
+type ClusterCachedDataKindCollectionWatchFrame {
+  "Whether this kind was added (incl. the on-subscribe snapshot), modified (chiefly a `count` change), or deleted."
+  type: CollectionWatchFrameType!
+  "The affected kind. On `Deleted`, its last-known row; the client keys on `apiVersion` + `resource`. Null on `Bookmark`."
+  kind: ClusterCachedDataKind
+  """
+  The cache this frame came from — the frame's provenance. A client watching the
+  active cache rejects a late frame from a superseded cache (one still draining
+  after a cache/context switch) by comparing this against the cache it subscribed for.
+  """
+  cacheID: ObjectID!
+  "The namespace the counts were taken in, as subscribed; empty for the whole cache. Provenance like `cacheID`."
+  namespace: String!
+}
+
+"One frame on the `clusterCachedDataEventCollectionWatch` stream: a change and the event it affected, or the `Bookmark` closing the snapshot. Either way it carries its cache provenance."
+type ClusterCachedDataEventCollectionWatchFrame {
+  "Whether this event was added (incl. the on-subscribe snapshot), modified (chiefly a `count`/`lastSeen` change as it re-fires), or deleted."
+  type: CollectionWatchFrameType!
+  "The affected event. On `Deleted`, its last-known row; the client keys on `uid`. Null on `Bookmark`."
+  event: ClusterCachedDataEvent
+  """
+  The cache this frame came from — the frame's provenance, mirroring
+  `ClusterCachedDataKindCollectionWatchFrame.cacheID`. A client watching the active cache rejects a late
+  frame from a superseded cache by comparing this against the cache it subscribed for.
+  """
+  cacheID: ObjectID!
+}
+
+"One frame on the `clusterCachedDataObjectCollectionWatch` stream: a change and the object it affected, or the `Bookmark` closing the snapshot. Either way it carries its (cache, kind) provenance."
+type ClusterCachedDataObjectCollectionWatchFrame {
+  "Whether this object was added (incl. the on-subscribe snapshot), modified, or deleted."
+  type: CollectionWatchFrameType!
+  "The affected object. On `Deleted`, its last-known identity with a null `rawJSON` — the client keys the removal on `uid` and never reads the body. Null on `Bookmark`."
+  object: ClusterCachedDataObject
+  """
+  The cache this frame came from — the frame's provenance, mirroring
+  `ClusterCachedDataKindCollectionWatchFrame.cacheID`. A client watching the active cache rejects a late
+  frame from a superseded cache by comparing this against the cache it subscribed for.
+  """
+  cacheID: ObjectID!
+  """
+  The kind this frame is for — the watch's `(apiVersion, resource)`. Unlike the kinds/
+  events watches (whose variables carry no kind, so `cacheID` is complete provenance),
+  this watch is keyed by kind too, so a client switching resources *within one cache*
+  uses these to reject a straggler from the previous kind's still-draining subscription.
+  """
+  apiVersion: String!
+  resource: String!
+}
+
+# --- Models ---
+# What the sidecar can answer with. A keyed provider lists its models while it has a credential; a
+# feature that calls a model names one of these per call. A provider is named by its
+# id, a string rather than an enum: a provider is data, and one added at runtime has
+# no member.
+
+"""
+The providers whose transcripts replay on one another, named for the API that defined the
+shape.
+"""
+enum LLMDialect {
+  "Anthropic's Messages API."
+  Messages
+  "OpenAI's Responses API."
+  Responses
+  "OpenAI Chat Completions: every local runtime's wire, and most cloud vendors'."
+  ChatCompletions
+  "The fake adapter of a debug build."
+  Fake
+}
+
+"A provider the sidecar can send a turn to."
+type Provider {
+  "Stable for the life of the app: what `chatSend` and a stored message name."
+  id: String!
+  "What a picker shows as the group heading."
+  label: String!
+  "The provider's default dialect, which a model of its catalog may override. Null on a provider the sidecar no longer holds — a stored message's, labelled by its id — since nothing but the id is known of it."
+  llmDialect: LLMDialect
+}
+
+"A model the sidecar can answer with."
+type Model {
+  provider: Provider!
+  id: String!
+  label: String!
+  "The effort levels this model accepts, in the provider's own words, least to most. Empty when it has no such knob."
+  efforts: [String!]!
+  "The level a picker starts on. Empty when `efforts` is."
+  defaultEffort: String!
+}
+
+# --- Provider credentials ---
+# Where each provider's credential comes from. A key typed into the Providers pane is
+# saved in the OS keyring; no key ever leaves the sidecar.
+
+"Which credential signs a provider's requests. The highest one present does: Connector, then SavedKey, then EnvironmentKey."
+enum ProviderCredentialSource {
+  "The launch has not read the keyring yet, or the provider's connector has not."
+  Restoring
+  None
+  "The key variable, from the launch or the login shell."
+  EnvironmentKey
+  "A key saved from the Providers pane, in the OS keyring."
+  SavedKey
+  "The provider's connector, while it is connected."
+  Connector
+}
+
+"What is wrong with a provider's key."
+enum ProviderKeyFailure {
+  "The keyring would not delete the saved key. It is out of use now and returns after a restart; providerKeyDelete retries."
+  NotDeleted
+  "The provider answered 401 to the key that signs. The key is kept and still used. Never reported while NotDeleted is."
+  KeyRejected
+}
+
+"A provider and where its credential comes from. No key is ever here."
+type ProviderCredentialState {
+  "The provider's id, as Provider.id."
+  id: String!
+  label: String!
+  "The environment variable its key is read from. Null for a provider that takes no key: only its connector signs it."
+  keyVariable: String
+  source: ProviderCredentialSource!
+  "Whether the launch held the key variable."
+  hasEnvironmentKey: Boolean!
+  "Whether a saved key is held."
+  hasSavedKey: Boolean!
+  "Null when nothing is wrong."
+  failure: ProviderKeyFailure
+}
+
+# --- Chat ---
+# The app's own chats, held in app.db. Sending a message is a save, not a
+# phone call: chatSend returns once the turn is accepted and the answer arrives on
+# chatMessageCollectionWatch. See docs/adr/2026-09-10-the-answer-is-a-record.md.
+
+"""
+The identity of a chat (a UUID string on the wire). Distinct from `ObjectID`: chats
+are not beehive objects and share none of that id machinery. Identity alone: order
+a list by `updatedAt` and a transcript by `seq`. Use values returned by the server
+verbatim; do not construct or parse them.
+"""
+scalar ChatID
+
+"The identity of one message (a UUID string on the wire). Never a `ChatID`."
+scalar MessageID
+
+"""
+Who produced a message, matching the Messages API wire vocabulary. Not a display hint:
+a `User` message carrying only tool results is machinery, not something a person typed.
+What to draw comes from the content blocks.
+"""
+enum ChatMessageRole {
+  User
+  Assistant
+}
+
+"How far along an assistant's turn is. A user message is always `Complete`."
+enum ChatMessageStatus {
+  "Still being written. Reconciled to `Failed` if the sidecar restarts."
+  Streaming
+  "Stopped on a command the user has not decided: in flight, drawn with the approval request."
+  WaitingApproval
+  Complete
+  "Ended badly; `error` says how. Never retried automatically."
+  Failed
+  "Stopped by `chatCancel` or by shutdown. The partial text is kept."
+  Cancelled
+}
+
+"The kind of failure a `Failed` answer met."
+enum AnswerFailure {
+  "The provider refused the request at a plan's usage limit."
+  UsageLimit
+  "The provider refused to read the chat: it is longer than the model can read."
+  ContextFull
+  "Anything else."
+  Other
+}
+
+"""
+Which of the app's two modes a chat belongs to. Set when the chat is created and never
+changed. Each mode lists only its own chats.
+"""
+enum ChatMode {
+  Chat
+  Dashboard
+}
+
+type Chat {
+  id: ChatID!
+  "Taken from the first user message, in the transaction that creates the chat. Renameable."
+  title: String!
+  "Where this chat is listed. Fixed at creation."
+  mode: ChatMode!
+  "The cluster this chat was started under. Fixed at creation. Each cluster lists only its own chats."
+  clusterID: ClusterID!
+  createdAt: Time!
+  "Last activity: a message created or settled, or a rename. What the recent list sorts by."
+  updatedAt: Time!
+  "Whether any run of the chat waits on the user: its answers' own, or an agent's under one of them."
+  awaitingApproval: Boolean!
+  "Whether the user disabled the sandbox for this chat: its commands run outside it, each asking first."
+  sandboxDisabled: Boolean!
+  "The user's switch: the chat's sandboxed commands reach the internet. False for a new chat, and on only while the chat is in the sandbox."
+  networkEnabled: Boolean!
+}
+
+"Whether sandboxed Bash is offered on this machine. It is fixed for the sidecar's life, so this is a query and not a watch."
+type SandboxState {
+  available: Boolean!
+  "What the probe found, such as Seatbelt or bwrap at /usr/bin/bwrap, or why there is none, in the sidecar's words."
+  reason: String!
+  "Whether a sandboxed command can be given the internet on this machine."
+  networkAvailable: Boolean!
+  "Why not, in the sidecar's words; empty when it can."
+  networkReason: String!
+}
+
+"""
+One message. An assistant message is also the record of its turn: while `status` is
+`Streaming` its `content` grows, re-sent whole on every frame — so any one frame is
+disposable.
+"""
+type ChatMessage {
+  id: MessageID!
+  "The chat this belongs to — the client's join key."
+  chatID: ChatID!
+  "Position in the chat. Order by this, never by `createdAt`."
+  seq: Int!
+  role: ChatMessageRole!
+  """
+  The content blocks as they went over the wire. Partial while `Streaming`. A reader may find
+  `text` (what a person reads), `thinking` (the summary of an answer's thinking), `native` (a
+  provider's own block, kept for it alone), `context` (the cluster card the app attached to a
+  question), `tool_use` (the model asking for a tool: `id`, `name`, `input`), `tool_result`
+  (the sidecar's answer to one, by `id`, with `isError` when it refused) and `server_use` (a
+  call the provider ran, in a `tool_use`'s fields; its row is in `toolCalls`). Each has a
+  `type`; `text`, `thinking`, `context` and `tool_result` carry their `text`.
+  """
+  content: JSON!
+  "The summary of the model's thinking, read off the blocks whatever shape holds it. Empty where none was kept."
+  thinking: String!
+  status: ChatMessageStatus!
+  """
+  Whether a run of the answer waits on the user: its own, or an agent's under one of its `Agent`
+  calls. An agent can wait under an answer that has settled, so this, not `status`, says whether a
+  request is live.
+  """
+  awaitingApproval: Boolean!
+  "Why the turn failed, as text to draw; empty otherwise. Never a raw provider error."
+  error: String!
+  "The failure's kind, to branch on; null unless `status` is `Failed`."
+  failure: AnswerFailure
+
+  "The model this send asked for — the catalog id it named, not what the provider answered as. Empty on a user message."
+  model: String!
+  """
+  The provider whose model it was. Null on a user message, which no provider wrote. A
+  message outlives its provider: one the sidecar no longer holds is labelled by its id.
+  """
+  provider: Provider
+  "How hard it was asked to think, in the provider's own words. Empty where the model has no such knob, and on a user message."
+  effort: String!
+  "The last model call's."
+  finishReason: String!
+
+  createdAt: Time!
+  "When the turn settled, whatever its status; null while it runs and on a user message, which has no turn."
+  finishedAt: Time
+  "The turn's tool calls, off their rows, in the order the model asked. Empty on a user message."
+  toolCalls: [ToolCall!]!
+  "What the answer's text cites, in order, read by its run's dialect. Empty where it cites nothing."
+  citations: [Citation!]!
+}
+
+"One citation an answer's text makes. Every field is text the provider sent: read as data, drawn as text."
+type Citation {
+  "The provider's word for the kind: `web_search_result_location`, `page_location`, …"
+  type: String!
+  "The source's address. Empty for a source with none, a document the model was given."
+  url: String!
+  "The page's or the document's title. Empty where it had none."
+  title: String!
+  "The passage the text rests on."
+  citedText: String!
+}
+
+"An approvals row's id. Opaque text, like every other id."
+scalar ApprovalID
+
+"A tool call row's id. Opaque text, like every other id."
+scalar ToolCallID
+
+"One call of a tool in an answer's turn, off its `tool_calls` row."
+type ToolCall {
+  id: ToolCallID!
+  "The provider's id of the block it answers: a `tool_use`, or a provider call's `server_use`."
+  toolUseID: String!
+  "The tool's name in the box: a tool of ours by the name it is offered under, a vendor's by its own name."
+  name: String!
+  "The shape the call's arguments, shown action and task result are in: `bash/v1` for a tool of ours, the vendor's own identifier (`web_search_20260318`) for a vendor's. Empty for a call of a tool this build does not know."
+  contract: String!
+  "The call's input, as the model sent it."
+  arguments: JSON!
+  "What kind of thing the call did, whoever ran it. Null for a call of a tool this build does not know."
+  actionKind: ToolActionKind
+  "Where the call is. Null on a `Provider` call: the app ran nothing, so it has no status to report."
+  status: ToolCallStatus
+  "Who ran it. A `Provider` call ran on the model's provider: never asked about, and with no output of its own."
+  runsOn: ToolCallRunsOn!
+  "What the call does, read from its arguments by its own tool. Null when the tool has no way to show a call, or refuses the arguments."
+  action: ToolAction
+  "The user's decision on the call; null on a call no one is asked about. Decide it while the call is `AwaitingApproval`."
+  approval: ToolCallApproval
+  "Why a sandboxed call reached the internet. Null when the call had no network of its own: none, or a call outside the sandbox."
+  network: ToolCallNetwork
+  "What the model read: the tool's text, or the refusal object. Empty until the call is over."
+  output: String!
+  isError: Boolean!
+  "The background task the call started; null on every call that started none."
+  background: BackgroundTask
+  "The `Agent` call a subagent's call ran under; null on the answer's own calls."
+  agentCallID: ToolCallID
+  "Every request the call's sandboxed command sent that a proxy decided — a change to the cluster, a read of Secret data, or a request to a cloud platform — in the order asked. Empty on every call but a sandboxed command's."
+  sandboxActions: [SandboxAction!]!
+}
+
+"""
+A request a sandboxed command sent that a proxy decided, and the user's decision on it. It waits
+while its approval is `Pending` and its call `Running`.
+"""
+type SandboxAction {
+  approval: ToolCallApproval!
+  "The action the request is, as the sidecar's classifier read it. Null when this build cannot read the stored request; the action then offers Deny alone."
+  action: PermissionAction
+  "The request as sent. Null with a null action, and for an action with no request."
+  request: SandboxRequest
+  "Who decided an action nobody was asked about: the mode (`this context is read-only`, `auto mode`) or the rule's line. Null for an action the user answered."
+  reason: String
+}
+
+"A request a sandboxed command sent: to the cluster, or to a cloud platform (`PermissionAction.target`)."
+union SandboxRequest = ClusterWrite | CloudRequest
+
+"A request a sandboxed command sent to the cluster: a change, or a read of Secret data."
+type ClusterWrite {
+  "The change as YAML, a unified diff of the object now against the dry run's answer, while the write waits; empty otherwise, and for a create or a delete."
+  diff: String!
+  "Whether the diff was cut short of the whole change. The request then draws the raw request open, and Approve waits on it."
+  diffCut: Boolean!
+  "Why there is no diff, while the write waits and one was looked for; empty otherwise."
+  diffError: String!
+  "The HTTP method: POST, PUT, PATCH or DELETE for a change, GET for a read of Secret data."
+  method: String!
+  "The path and query, exactly as sent."
+  path: String!
+  "The path's subresource, as the proxy parsed it; empty for none."
+  subresource: String!
+  "The media type, while the write waits; empty otherwise."
+  contentType: String!
+  "The body, exactly as sent, while the write waits; empty otherwise, and for a DELETE with none. The record keeps it."
+  body: String!
+  "Whether the request asks for a dry run: a POST, PUT or PATCH whose every `dryRun` is `All`. Never a DELETE."
+  dryRun: Boolean!
+}
+
+"A request a sandboxed command sent to a cloud platform, as the user is shown it. Every string is the command's text."
+type CloudRequest {
+  "The upstream host the proxy dials."
+  host: String!
+  method: String!
+  "The path and query, exactly as sent."
+  path: String!
+  "The media type, while the request waits; empty otherwise."
+  contentType: String!
+  "The body, exactly as sent, while the request waits; empty otherwise, and with `unshown`. The record keeps it."
+  body: String!
+  "The cloud platform's sentence for a body the request does not show; empty for a shown body."
+  unshown: String!
+  "What the cloud platform's classifier read from the request, one line each."
+  details: [RequestDetail!]!
+}
+
+"One line a cloud platform's classifier read from a request: a label of the cloud platform's, and the command's text."
+type RequestDetail {
+  label: String!
+  value: String!
+}
+
+"What a call does, from the tool that made it. Never read from the call's arguments."
+enum ToolActionKind {
+  Command
+  Read
+  Write
+  Edit
+  Search
+  Fetch
+  Stop
+  Memory
+  Delegate
+  KubeQuery
+  LogsView
+  LogsRead
+  LogsWatch
+}
+
+"A command started with `run_in_background`, an agent an `Agent` call launched, or a watch a `LogsWatch` call started, off its `background_tasks` row."
+type BackgroundTask {
+  status: BackgroundTaskStatus!
+  "Set on an `Exited` task whose code could be read."
+  exitCode: Int
+  "A `Completed` agent's report, cut to the inline limit. Empty for a command, and until the agent completes."
+  report: String!
+  "A finished watch's lines, oldest first, as the model read them: stripped, redacted and cut. Empty for every other task and while a watch runs. Cluster text."
+  matched: [LogsReadLine!]!
+  "Why a finished watch ended, in the words its notice used. Empty for every other task and while a watch runs."
+  endedBecause: String!
+  "The view `View around this` opens: the watch's view at its first line's moment, unpinned. Null with no line, and for every other task."
+  viewAround: LogsViewAction
+}
+
+"""
+Where a background task is. A command ends `Exited`; an agent `Completed` (it answered) or
+`Failed` (it could not); a watch `Matched` (it held lines, however it ended), `Expired` (its time
+ran out with none) or `Failed` (an error, or its pods went away, with none). `Stopped` was ended by the model,
+the user, the app's quit, or an agent's request that went unanswered; `Lost` was running when the
+sidecar stopped unexpectedly, and a command may still be running.
+"""
+enum BackgroundTaskStatus {
+  Running
+  Exited
+  Completed
+  Failed
+  Matched
+  Expired
+  Stopped
+  Lost
+}
+
+"What a call does: the model's description, and exactly one kind."
+type ToolAction {
+  "The model's own account of the call. Empty when it gave none."
+  description: String!
+  command: CommandAction
+  read: ReadAction
+  write: WriteAction
+  edit: EditAction
+  search: SearchAction
+  fetch: FetchAction
+  memory: MemoryAction
+  delegate: DelegateAction
+  kubeQuery: KubeQueryAction
+  logsView: LogsViewAction
+  logsRead: LogsReadAction
+  logsWatch: LogsWatchAction
+}
+
+"A live view of logs the user is looking at, as the sidecar hands it to the log backend."
+type LogsViewAction {
+  "What the view reads, in the order asked. Their lines are merged by timestamp."
+  sources: [LogsViewSource!]!
+  "What the view keeps of its sources' lines. Empty keeps every line."
+  filters: [LogsViewFilter!]!
+  "A regular expression each line's message must match; empty for none. The model wrote it, so draw it as text."
+  grep: String!
+  anchor: LogsViewAnchor!
+  "Whether the viewer keeps the end in view as lines arrive. Lines arrive either way; the user can unpin it by hand."
+  pinToEnd: Boolean!
+  "When the sidecar resolved the view, on its clock."
+  resolvedAt: Time!
+}
+
+"What a LogsRead call read: the scope, the window as it ran, and the lines the model read."
+type LogsReadAction {
+  "The scope read, as LogsView resolves one."
+  sources: [LogsViewSource!]!
+  filters: [LogsViewFilter!]!
+  "The model wrote it, so draw it as text."
+  grep: String!
+  "The range's bounds, each including every line at that moment. Null is open."
+  since: Time
+  until: Time
+  "The window's padding past each bound."
+  before: LogsPadding!
+  after: LogsPadding!
+  "Which end of the window the first page came from. Null on a continuation."
+  pageFrom: LogsPageFrom
+  "The first page's clock."
+  resolvedAt: Time!
+  "The lines the model read, oldest first, as it read them: stripped, redacted and cut. Cluster text."
+  lines: [LogsReadLine!]!
+  "Whether the page had older lines, or newer ones, past it."
+  olderMore: Boolean!
+  newerMore: Boolean!
+  "What the page said."
+  notices: [LogNotice!]!
+  "The view `View around this` opens: the read's view at its first line's moment, unpinned. Null with no line."
+  viewAround: LogsViewAction
+}
+
+"What a LogsWatch call watches: the view, the pattern, and its bounds."
+type LogsWatchAction {
+  "The view watched, as LogsView resolves one."
+  sources: [LogsViewSource!]!
+  filters: [LogsViewFilter!]!
+  "Empty watches for any line. The model wrote it, so draw it as text."
+  grep: String!
+  "Where the window starts: the call's `since`, resolved, or `resolvedAt` with none. Null for a watch that went on from a read's token."
+  since: Time
+  "How many matching lines end the watch, and how many bytes of them."
+  limit: Int!
+  maxBytes: Int!
+  "Where each line is cut."
+  maxMessageBytes: Int!
+  "When the sidecar started the watch, on its clock."
+  resolvedAt: Time!
+  "When the watch ends on time alone: the call's `until`, cut to a day, else a day after `resolvedAt`."
+  until: Time!
+}
+
+"One line of a sample. Cluster text, so draw it as text."
+type LogsReadLine {
+  timestamp: Time!
+  namespace: String!
+  pod: String!
+  container: String!
+  previous: Boolean!
+  message: String!
+  "The hole before this line, as the viewer's `gap`."
+  gap: LogGap
+  "The bytes cut off `message` at the read's message cap. 0 when whole."
+  truncatedBytes: Int!
+}
+
+"Where a view opens: an edge of the stream, or a moment in it."
+type LogsViewAnchor {
+  kind: LogsViewAnchorKind!
+  "The moment. Set for At alone."
+  at: Time
+}
+
+"The oldest line the backend keeps, the newest, or a moment between."
+enum LogsViewAnchorKind {
+  Head
+  Tail
+  At
+}
+
+"One resource whose logs a view reads. Every name came from the cluster or the model, so draw them as text."
+type LogsViewSource {
+  namespace: String!
+  kind: LogsViewSourceKind!
+  name: String!
+  "The containers read, by exact name. Empty reads each pod's default container, as `kubectl logs` picks it, unless allContainers is set."
+  containers: [String!]!
+  "Every container of each pod, when no container is named."
+  allContainers: Boolean!
+  "The instance before the last restart, rather than the running one. Finished: nothing arrives on it."
+  previous: Boolean!
+}
+
+"The kinds the log backend reads: a pod, or a workload whose pods it follows."
+enum LogsViewSourceKind {
+  Pod
+  Deployment
+  StatefulSet
+  DaemonSet
+  Job
+  CronJob
+  ReplicaSet
+}
+
+"One filter on a view's lines: the values its field may take."
+type LogsViewFilter {
+  field: LogsViewFilterField!
+  "The values allowed. Never empty."
+  values: [String!]!
+}
+
+"What a line can be filtered by: the node it ran on, and the node's labels."
+enum LogsViewFilterField {
+  Node
+  Region
+  Zone
+  Os
+  Arch
+}
+
+"A statement over the chat's cluster's cache. The model wrote it, so draw it as text."
+type KubeQueryAction {
+  "The statement as it runs, without a trailing semicolon."
+  sql: String!
+  "The most rows the call asked for: 200 unless it named a number, at most 2000."
+  limit: Int!
+}
+
+"A task handed to a subagent. Every field is the parent model's text."
+type DelegateAction {
+  "The brief the parent wrote: the subagent's whole task."
+  prompt: String!
+  "The kind of agent: `general-purpose`."
+  agentType: String!
+  "The model the subagent runs on, by its id. Empty when it runs on the parent's."
+  model: String!
+}
+
+"A web search: what left the machine."
+type SearchAction {
+  "The query. Empty for a call that sent none."
+  query: String!
+}
+
+"A page fetched: the URL as the sidecar fetches it, and the host it dials."
+type FetchAction {
+  "The URL, upgraded to https, its host in ASCII."
+  url: String!
+  "The host, in ASCII, with the port when it is not 443."
+  host: String!
+}
+
+"""
+A call of the Memory tool as its arguments name it. The model may have written it
+from cluster data, so draw every field as text.
+"""
+type MemoryAction {
+  "`save` or `forget`."
+  op: String!
+  name: String!
+  "Empty on a forget."
+  body: String!
+  "`cluster` or `everywhere`: who the note reaches. `cluster` when the call names none."
+  scope: String!
+}
+
+"Who ran a tool call: the sidecar, on the user's machine, or the model's provider, on its own servers."
+enum ToolCallRunsOn {
+  Sidecar
+  Provider
+}
+
+"A command, exactly as the shell receives it."
+type CommandAction {
+  "What runs, byte for byte."
+  text: String!
+  "Where it started, exactly as the shell starts there. Empty when the call never reached the gate."
+  cwd: String!
+  "Whether it keeps running after its call answers, until it exits or is stopped."
+  background: Boolean!
+  "Whether a sandbox confined the command."
+  sandboxed: Boolean!
+  "Whether the call asked for the internet (its `network` argument). Outside the sandbox it changes nothing."
+  network: Boolean!
+  "The user's variables a command outside the sandbox is shown with and runs with, each `NAME=value`. Empty for a sandboxed command, which reads its own as it starts. User text: draw each through VisibleText."
+  env: [String!]!
+}
+
+"A read of a file, as the call named it."
+type ReadAction {
+  path: String!
+}
+
+"A file written whole, as the call named it."
+type WriteAction {
+  path: String!
+  "The file's new content, byte for byte."
+  content: String!
+}
+
+"A replacement in a file, as the call named it."
+type EditAction {
+  path: String!
+  "The text that goes, byte for byte."
+  oldString: String!
+  "The text that replaces it, byte for byte."
+  newString: String!
+  "Every occurrence, not one."
+  replaceAll: Boolean!
+}
+
+"The user's decision on a gated call, off its `approvals` row."
+type ToolCallApproval {
+  id: ApprovalID!
+  status: ApprovalStatus!
+  "How long the approval holds. Null unless the status is `Approved`."
+  duration: ApprovalDuration
+}
+
+"The user's answer to a request. `Once` and `Deny` answer this request alone; `Command` also allows the same change for the rest of the command; `Chat` and `Always` also write an Allow rule for the action's class and scope."
+enum ApprovalDecision {
+  Once
+  Command
+  Chat
+  Always
+  Deny
+}
+
+"How long an approval holds: this request, the rest of the command, the chat, or always."
+enum ApprovalDuration {
+  Once
+  Command
+  Chat
+  Always
+}
+
+"""
+Where the user's decision is. `Pending` until it commits, and after, when the call's turn ended
+before anyone answered: the record of a question nobody answered. An `Approved` call whose status
+is `NotRun` was approved and never started. `Abandoned` is a cluster write whose wait ended with no
+decision while its call ran on; a call's own approval never takes it. `Allowed` and `Refused`
+are cluster writes the permissions engine decided with nobody asked.
+"""
+enum ApprovalStatus {
+  Pending
+  Approved
+  Denied
+  Abandoned
+  Allowed
+  Refused
+}
+
+"Why a sandboxed call reached the internet: the chat's switch, the turn's toggle, or its own request the user approved."
+enum ToolCallNetwork {
+  Chat
+  Turn
+  Approved
+}
+
+"""
+Where a tool call is. `NotRun` never started; `Interrupted` started and was cut off with no
+answer from its tool (a cancel, the loop's deadline, a crash), so it may have run; `Failed` is a
+tool's own error.
+"""
+enum ToolCallStatus {
+  NotRun
+  AwaitingApproval
+  Denied
+  Running
+  Succeeded
+  Failed
+  Interrupted
+}
+
+type ChatCollectionWatchFrame {
+  type: CollectionWatchFrameType!
+  "The affected chat. On `Deleted`, its last-known state; remove by `id`. Null on `Bookmark`."
+  chat: Chat
+}
+
+type ChatMessageCollectionWatchFrame {
+  type: CollectionWatchFrameType!
+  "The affected message. On `Deleted`, its last-known state; remove by `id`. Null on `Bookmark`."
+  message: ChatMessage
+}
+
+# --- Logs ---
+# A view's lines, read through the API server with the user's own credentials. The
+# view is the backend's half of a LogsViewAction; the anchor and the pin are the
+# viewer's.
+
+"One log line, as the sidecar read it. Every string came from the cluster, so draw it as text."
+type LogRecord {
+  "When the container runtime stamped it."
+  timestamp: Time!
+  "The line, with terminal control sequences stripped and cut at the request's `maxMessageBytes`: at most the file's own 16 KiB plus its ellipsis."
+  message: String!
+  "The bytes cut off `message` at the request's `maxMessageBytes`. 0 when whole."
+  truncatedBytes: Int!
+  stream: LogStream!
+  place: LogPlace!
+  "Names this line: a fetch's or a tail's `seen` reads this stream past it. Opaque."
+  cursor: String!
+  "Set when lines of this stream may be missing just before this line. Null when none are."
+  gap: LogGap
+}
+
+"""
+Lines of a stream that neither the cluster nor the log cache holds. They lie before the line that
+carries the gap.
+"""
+type LogGap {
+  "When the last known line before the hole was stamped."
+  after: Time!
+  "When the first known line past the hole was stamped: the carrying line's own stamp, unless the grep hid the lines between."
+  before: Time!
+}
+
+"The log a line came from. Its four fields together name the stream."
+type LogStream {
+  namespace: String!
+  pod: String!
+  container: String!
+  "Whether the log is the instance before the last restart."
+  previous: Boolean!
+}
+
+"Where a stream's pod runs: its node and the node's labels. Empty where the mirror does not know. It takes no part in naming the stream."
+type LogPlace {
+  node: String!
+  region: String!
+  zone: String!
+  os: String!
+  arch: String!
+}
+
+"Where a window's first page comes from."
+enum LogsPageFrom {
+  First
+  Last
+}
+
+"How far the window extends past one end of the range, to show the lines around it: a number of lines, or a span as an ISO 8601 duration such as `PT5M`, at most seven days. Give one."
+input LogsPaddingInput {
+  lines: Int
+  span: String
+}
+
+"""
+One page: a first page, which gives `scope` and the window, or a continuation, which gives
+`cursor` and nothing of them. The three caps are read on every page.
+"""
+input LogsFetchInput {
+  scope: LogsScopeInput
+  "The range's bounds, each including every line at that moment. Null is open."
+  since: Time
+  until: Time
+  "The window's padding past each bound."
+  before: LogsPaddingInput
+  after: LogsPaddingInput
+  "Required on a first page, omitted on a continuation: there is no default."
+  pageFrom: LogsPageFrom
+  "A line the caller has of each stream, by its `cursor`: with `First`, or beside a `next` or `follow`, that stream reads from strictly past it; with `Last`, from strictly before it. Every other stream reads from the window's edge, or from where the page left it beside a `cursor`. A first page from `Last` with `seen` hands each entry on in its `prev`, moved back as its stream is read, so a stream whose clock runs behind never reads past it. Refused with padding on a first page, beside a `prev`, and beside a cursor whose `after` is a count."
+  seen: [String!]
+  "A page's `prev`, `next` or `follow` as it came. It holds the scope and the window, so sending either beside it is refused."
+  cursor: String
+  "1 to 500; null or 0 is the server's default."
+  pageSize: Int
+  "Cuts each message; 0 is the server's cap."
+  maxMessageBytes: Int
+  "Caps the page's messages together; 0 is the server's default."
+  maxPageBytes: Int
+}
+
+"One side's padding as it ran: `lines`, or `span` as an ISO 8601 duration, normalised (`PT300S` is `PT5M`). Empty `span` and 0 `lines` is none."
+type LogsPadding {
+  lines: Int!
+  span: String!
+}
+
+"The request as it ran: defaults filled, caps applied, and on a continuation the scope, range and padding the page cursor holds."
+type LogsFetchRequest {
+  sources: [LogsViewSource!]!
+  filters: [LogsViewFilter!]!
+  "The model may have written it, so draw it as text."
+  grep: String!
+  since: Time
+  until: Time
+  before: LogsPadding!
+  after: LogsPadding!
+  "Null on a continuation."
+  pageFrom: LogsPageFrom
+  pageSize: Int!
+  maxMessageBytes: Int!
+  maxPageBytes: Int!
+}
+
+"""
+The page's place in the window, each a page cursor to pass back as `cursor`, null where there is
+none. A page cursor is an opaque string that holds everything the next page needs, and it never
+expires. `prev` goes on toward older lines and `next` toward newer; `follow` polls a live window's
+end for lines written since. A page going on from `next` or `follow` may hold a line stamped
+older than one already read.
+"""
+type LogRecordsPlace {
+  prev: String
+  next: String
+  follow: String
+}
+
+"Something the page wants the reader to know. `code` is one of a closed, kebab-case set the server shares with its refusals; `message` is for people. Cluster text."
+type LogNotice {
+  code: String!
+  message: String!
+}
+
+type LogsFetchResult {
+  request: LogsFetchRequest!
+  "The first page's clock, which an open `until`'s `after` is measured from on every page."
+  resolvedAt: Time!
+  page: LogRecordsPlace!
+  records: [LogRecord!]!
+  "Never null: empty with nothing to say."
+  notices: [LogNotice!]!
+}
+
+"What a read covers: the `LogsViewAction` fields the backend takes, as an input."
+input LogsScopeInput {
+  sources: [LogsViewSourceInput!]!
+  filters: [LogsViewFilterInput!]!
+  grep: String!
+}
+
+input LogsViewSourceInput {
+  namespace: String!
+  kind: LogsViewSourceKind!
+  name: String!
+  containers: [String!]!
+  allContainers: Boolean!
+  previous: Boolean!
+}
+
+input LogsViewFilterInput {
+  field: LogsViewFilterField!
+  values: [String!]!
+}
+
+"What the user's open log view shows as they send. The sidecar reads the view itself from the call."
+input LogsViewSnapshotInput {
+  "The `LogsView`, `LogsRead` or `LogsWatch` call whose view is open. It must be a call of the chat the send is to; a `LogsRead` one must have a `viewAround`, and a `LogsWatch` one a finished task with one."
+  callID: ToolCallID!
+  "The first and last visible line's timestamps. Both null when no line is on screen."
+  from: Time
+  to: Time
+  "How many lines are on screen."
+  lines: Int!
+  "Whether the newest line is on screen and the viewer is following."
+  atEnd: Boolean!
+  "Whether the viewer keeps the end in view."
+  pinnedToEnd: Boolean!
+  "Whether the user paused the viewer: no line arrives until they resume."
+  paused: Boolean!
+  "The grep the viewer runs, which the user can change from the call's. Null keeps the call's."
+  grep: String
+  "The selected lines, in order, at most 50."
+  selected: [LogsViewSelectedLineInput!]!
+  "How many lines are selected, `selected` included."
+  selectedCount: Int!
+}
+
+"One selected line, as the viewer holds it. Cluster text."
+input LogsViewSelectedLineInput {
+  timestamp: Time!
+  namespace: String!
+  pod: String!
+  container: String!
+  previous: Boolean!
+  message: String!
+}
+
+"One tail: what to tail, and where it starts. With neither `since` nor `cursor` it starts from now."
+input LogsTailInput {
+  "What is tailed. Omitted beside `cursor`, which holds it."
+  scope: LogsScopeInput
+  "A start: that moment's lines included. Refused beside `cursor`."
+  since: Time
+  "The last line the caller has of each stream, by its `cursor`: that stream reads past it, and a stream not named reads from the start. Refused alone."
+  seen: [String!]
+  "A page's `next` or `follow`: each stream reads past where that page left it, and on past the page's window."
+  cursor: String
+  "Cuts each message; 0 is the server's cap."
+  maxMessageBytes: Int
+}
+
+"""
+One frame of a tail: a line, a notice, or the last frame, saying why the tail ended.
+Tailing again after `Ended` would end the same way. Detect each frame by `type`, never by
+which field is missing.
+"""
+type LogsTailFrame {
+  type: LogsTailFrameType!
+  "The line, cut at `maxMessageBytes`. Set on `Line`."
+  record: LogRecord
+  "Something the tail wants the reader to know. Set on `Notice`."
+  notice: LogNotice
+  "Why the tail ended: its code, and the reason in the user's words. Set on `Ended`."
+  ended: LogNotice
+}
+
+enum LogsTailFrameType {
+  Line
+  Notice
+  Ended
+}
+
+# --- Memory ---
+
+"""
+The identity of a memory (a UUID string on the wire). Like `ChatID`, not an
+`ObjectID`: a memory is a row, not a beehive object. Use values returned by the
+server verbatim.
+"""
+scalar MemoryID
+
+"Who last wrote a memory."
+enum MemoryAuthor {
+  Model
+  User
+}
+
+"""
+A note kept for later chats, one fact each: for one cluster, or for every cluster.
+The model may have written it from cluster data, so it is text to draw as text.
+"""
+type Memory {
+  id: MemoryID!
+  "The cluster it is for. Null is every cluster."
+  clusterID: ClusterID
+  name: String!
+  body: String!
+  writtenBy: MemoryAuthor!
+  updatedAt: Time!
+}
+
+type MemoryCollectionWatchFrame {
+  type: CollectionWatchFrameType!
+  "The affected memory. On `Deleted`, its last-known state; remove by `id`. Null on `Bookmark`."
+  memory: Memory
+}
+
+input MemorySaveInput {
+  "The memory to rewrite. Null creates one."
+  id: MemoryID
+  "The cluster it is for. Null is every cluster."
+  clusterID: ClusterID
+  name: String!
+  body: String!
+}
+
+# --- Tools ---
+
+"What a tool does, as Settings groups the tools."
+enum ToolGroup {
+  Commands
+  Files
+  Web
+  Cluster
+  Logs
+  Memory
+  Agents
+}
+
+"A tool a chat can be offered on this machine, and the user's setting of it."
+type ToolSetting {
+  "The tool's name, which `toolSettingSet` takes."
+  name: String!
+  "What Settings calls it."
+  label: String!
+  group: ToolGroup!
+  "What the tool does, in one line."
+  description: String!
+  "Whether turns are offered it, from the next turn. On unless the user turned it off."
+  enabled: Boolean!
+  "Whether the tool is always on: `toolSettingSet` refuses to turn it off."
+  alwaysOn: Boolean!
+}
+
+# --- Permissions ---
+
+"How much an action can do, its one access level. A rule may name `DataRead`, `Write`, `AccessControl` or `Destructive`; a `Write` rule that denies or asks covers `AccessControl` and `Destructive` too. `AccessControl` is a change to who may do what, or to what sees every request."
+enum PermissionAccessLevel {
+  Read
+  DataRead
+  Write
+  AccessControl
+  Destructive
+  Reach
+}
+
+"Who sent an action: a chat, a chat's subagent, the monitor, or the Sandbox console."
+enum PermissionPrincipal {
+  Chat
+  Subagent
+  Monitor
+  Console
+}
+
+"An account's word on what runs unasked: `ReadOnly` refuses changes, `Ask` asks for every change, `Auto` runs writes and data reads unasked and asks for the rest. A data read asks under `ReadOnly` and `Ask`."
+enum PermissionMode {
+  ReadOnly
+  Ask
+  Auto
+}
+
+"What a rule does to an action it matches."
+enum PermissionEffect {
+  Allow
+  Deny
+  Ask
+}
+
+"Where an account's mode comes from: `Entry`, the account's own; `Default`, its target's default."
+enum PermissionModeSource {
+  Entry
+  Default
+}
+
+"One rule over the actions sandboxed commands send. `principal` and `target` are null for every one. `scope` and `resource` are path patterns of `/`-separated segments, the scope's first the account; `service` and `operation` are patterns. In a pattern `*` matches any run of characters, `?` one and `\\` escapes the next; in a path pattern `*` never crosses `/`, `*` alone matches anything, and a last segment of `**` matches the segments before it and anything below. An empty `service` is Kubernetes' core group. Every string is user text: draw it through VisibleText."
+type PermissionRule {
+  id: String!
+  effect: PermissionEffect!
+  accessLevel: PermissionAccessLevel!
+  principal: PermissionPrincipal
+  target: PermissionTarget
+  scope: String!
+  service: String!
+  operation: String!
+  resource: String!
+  "The rule in the user's words, naming a cluster by its kube-context."
+  line: String!
+}
+
+"A classified action, as the sidecar's classifier wrote it. Every string is cluster, cloud or user text: draw it through VisibleText."
+type PermissionAction {
+  "What the action reaches: a cluster, or a cloud platform."
+  target: PermissionTarget!
+  "The action in one line, naming its target as kubectl does (`Delete pods/api-7f9c in team-a on dev-eks`), or its cloud platform in words (`AWS: call ec2:TerminateInstances in eu-west-1`)."
+  summary: String!
+  accessLevel: PermissionAccessLevel!
+  "Who sent it; null for a stored action that names none."
+  principal: PermissionPrincipal
+  "The path of segments it is in, the first its account; empty for an account the classifier could not trust."
+  scope: String!
+  "The account in the user's words: a cluster's kube-context, a cloud account."
+  accountName: String!
+  service: String!
+  operation: String!
+  resource: String!
+  name: String!
+  "Whether it asks each time, whatever the mode and the rules."
+  once: Boolean!
+  "Whether a rule may allow it. False offers Once and Deny alone."
+  grantable: Boolean!
+  "The rule a Command answer adds, in the words Settings uses; empty when not grantable."
+  commandRule: String!
+  "The rule a Chat or Always answer writes, in the same words; empty when not grantable."
+  chatRule: String!
+}
+
+"A cloud platform's consent switch: whether sandboxed commands may reach it as the user."
+type CloudAccess {
+  target: PermissionTarget!
+  on: Boolean!
+}
+
+"What an action reaches."
+enum PermissionTarget {
+  Kubernetes
+  AWS
+  GitHub
+  GCP
+  Azure
+}
+
+"One account and the mode its target's actions run under. `account` is what a rule's scope names first: a cluster's id, a cloud account; treat it as opaque. `clusterID` is set on Kubernetes, to join onto `clusterCollectionWatch`."
+type PermissionAccountMode {
+  account: String!
+  "The account in the user's words: a cluster's kube-context, else the account."
+  name: String!
+  clusterID: ClusterID
+  mode: PermissionMode!
+  source: PermissionModeSource!
+}
+
+"A target's default mode and each account's. Kubernetes lists every cluster with a kube-context that is not awaiting deletion; a cloud platform lists the accounts with a mode of their own."
+type PermissionTargetModes {
+  target: PermissionTarget!
+  "The mode of an account with none of its own."
+  defaultMode: PermissionMode!
+  accounts: [PermissionAccountMode!]!
+}
+
+"The modes and rules sandboxed commands' requests are decided by."
+type PermissionSettings {
+  targets: [PermissionTargetModes!]!
+  "The user's always rules."
+  rules: [PermissionRule!]!
+  "The changes that always ask on a cluster, in words."
+  alwaysAsks: [String!]!
+  "The changes that ask unless a rule inside a namespace allows them, in words."
+  accessControl: [String!]!
+}
+
+"A rule to add. A null `principal` or `target` is every one; a rule that allows names a target and an account by a literal first scope segment, and a Kubernetes one names a cluster Settings lists. `scope`, `service`, `operation` and `resource` are patterns, `*` by default."
+input PermissionRuleInput {
+  effect: PermissionEffect!
+  accessLevel: PermissionAccessLevel!
+  principal: PermissionPrincipal
+  target: PermissionTarget
+  scope: String! = "*"
+  service: String! = "*"
+  operation: String! = "*"
+  resource: String! = "*"
+}
+
+# --- Cloud account ---
+# The Kubetail Cloud connector's sign-in and display identity. Tokens never appear here.
+
+"Display identity from the ID token verified at sign-in, restored from app.db at startup; never an authorization input."
+type Identity {
+  sub: String!
+  email: String!
+  name: String!
+}
+
+"Local session state. Once `restoring` is false, `authenticated` means a session is stored, not that the server has just validated it. `identity` is display-only and non-null only when authenticated."
+type AuthState {
+  "True until the launch has read the keyring. `authenticated` is false then, and says nothing."
+  restoring: Boolean!
+  authenticated: Boolean!
+  identity: Identity
+}
+
+# --- Connectors ---
+# What every connector's state speaks. Each connector has its own type, watch and mutations.
+
+"Where a connector is."
+enum ConnectorPhase {
+  "The launch has not read the keyring yet. Neither signed out nor connected."
+  Restoring
+  SignedOut
+  "The browser is open on the provider's sign-in."
+  SigningIn
+  Connected
+  "The last attempt, session or key ended; `failure` says why."
+  Failed
+}
+
+"Why a connector's last attempt, session or key ended. A connector answers only the ones it can reach."
+enum ConnectorFailure {
+  "The user declined on the provider's page."
+  Declined
+  "The sign-in did not grant the scope the connector needs: for ChatGPT, use of the plan."
+  ScopeNotGranted
+  "The account is not the one this installation registered; Use a different account changes it."
+  AccountMismatch
+  "Nobody finished the sign-in in time."
+  TimedOut
+  "The provider could not be reached."
+  Unavailable
+  "The sign-in could not finish: the provider refused it, the browser could not open, or the callback was malformed."
+  Refused
+  "This machine could not save the sign-in: its keyring or its data directory refused."
+  NotSaved
+  "The keyring would not delete the key, which may be one the provider rejected. It is used again after a restart until a Disconnect deletes it."
+  NotDeleted
+  "The provider ended the session; sign in again."
+  SessionEnded
+  "The provider no longer honours the key; connect again."
+  KeyRejected
+}
+
+# --- ChatGPT connector ---
+# Sign in with ChatGPT, which runs the agent on the user's ChatGPT plan. The sidecar
+# opens the browser on a URL it built; no mutation carries a URL. No token is here.
+
+"The ChatGPT connector's state. No token is ever here."
+type ChatGPTConnection {
+  phase: ConnectorPhase!
+  "The account's email, from the ID token verified at sign-in. Display only. Null unless Connected, and when the ID token named none."
+  email: String
+  "Why the last attempt or session ended. Null unless Failed."
+  failure: ConnectorFailure
+  "Whether OpenAI has registered this installation, so Connect reuses its client."
+  registered: Boolean!
+  "Tokens this machine dropped, at a sign-out or a sign-in that could not be saved, which OpenAI did not confirm it revoked. False again at the next connect."
+  revocationUnconfirmed: Boolean!
+}
+
+# --- OpenRouter connector ---
+# OpenRouter's sign-in, which grants an API key labelled "Kubetail" that the sidecar keeps in
+# the OS keyring. The sidecar opens the browser on a URL it built; no mutation carries a URL.
+# No key is here.
+
+"The OpenRouter connector's state. No key is ever here."
+type OpenRouterConnection {
+  phase: ConnectorPhase!
+  "Why the last attempt or key ended. Null unless Failed."
+  failure: ConnectorFailure
+}
+
+# --- AWS connector ---
+# AWS's sign-in for developer tools, the flow `aws login` runs. The sidecar keeps the
+# session in the OS keyring and opens the browser on a URL it built; no mutation carries a
+# URL. No credential is here.
+
+"The AWS connector's state. No credential is ever here."
+type AWSConnection {
+  phase: ConnectorPhase!
+  "The signed-in principal's ARN, from the ID token AWS's token endpoint answered at sign-in. Display only. Null unless Connected."
+  arn: String
+  "Why the last attempt or session ended. Null unless Failed."
+  failure: ConnectorFailure
+}
+
+# --- GitHub connector ---
+# GitHub's device flow under Kubetail's OAuth App. The sidecar asks GitHub for a code, opens
+# the browser on GitHub's page, and the user enters the code shown here. The token it grants
+# is kept in the OS keyring and sent by the sandbox's GitHub proxy. No token is here.
+
+"The GitHub connector's state. No token is ever here."
+type GitHubConnection {
+  phase: ConnectorPhase!
+  "The account's GitHub login. Display only. Null unless Connected."
+  login: String
+  "The code the user enters on GitHub's page. Null unless SigningIn, and until GitHub issued it."
+  userCode: String
+  "Why the last attempt or token ended. Null unless Failed."
+  failure: ConnectorFailure
+}
+
+# --- Google connector ---
+# Google's sign-in for installed apps, under Kubetail's client, whose tokens run the Gemini
+# models on Vertex AI in the user's Google Cloud project. The sidecar opens the browser on a
+# URL it built; no mutation carries a URL. No token is here.
+
+"The Google connector's state. No token is ever here."
+type GoogleConnection {
+  phase: ConnectorPhase!
+  "The account's email, from the ID token verified at sign-in. Display only. Null unless Connected, and when the ID token named none."
+  email: String
+  "The Google Cloud project the models run in, from GOOGLE_CLOUD_PROJECT or gcloud's active configuration at launch. Null when none was found: the connector signs in, but lists no models."
+  project: String
+  "Why the last attempt or session ended. Null unless Failed."
+  failure: ConnectorFailure
+  "Tokens this machine dropped, at a sign-out or a sign-in that could not be saved, which Google did not confirm it revoked. False again at the next connect."
+  revocationUnconfirmed: Boolean!
+}
+
+"Where a folder of the PATH setting came from."
+enum SandboxPathOrigin {
+  "The login shell's PATH, spliced in for $PATH. Searched only when every sandboxed command reads it already and no group but an administrators' one can add programs to it."
+  Shell
+  "A folder the user typed: their read grant, held to a folder grant's checks."
+  Typed
+}
+
+"One folder of the PATH setting, as a sandboxed command judges it now."
+type SandboxPathFolder {
+  "The folder as expanded. Shell or user text: draw it through VisibleText."
+  path: String!
+  origin: SandboxPathOrigin!
+  "The folder path resolves to, canonical; null when it does not resolve to one a command may search. Draw it through VisibleText."
+  target: String
+  searched: Boolean!
+  "Why the folder is left out, in the user's words; null when it is searched. Draw it through VisibleText."
+  reason: String
+  "Whether typing target into the setting would include the folder: a shell folder left out only because no command reads it or its group can write it, that the setting does not type already."
+  addable: Boolean!
+  "Whether a group other than an administrators' one can add programs to target."
+  shared: Boolean!
+}
+
+"The PATH of every sandboxed command, as the user wrote it, and its folders."
+type SandboxPath {
+  "As written: folders joined by ':', where $PATH stands for the login shell's PATH and ~ or $HOME for the home. User text: draw it through VisibleText."
+  value: String!
+  "Why Kubetail cannot use value, in the user's words; null when it can. While it is set, no sandboxed command starts. Draw it through VisibleText."
+  refusal: String
+  "Each folder of value in order, as a command judges it now. Empty while value is refused, and on a machine with no sandbox."
+  folders: [SandboxPathFolder!]!
+}
+
+"How long a folder grant lasts."
+enum GrantDuration {
+  "For one chat: a grant of the chat's, gone with it."
+  Chat
+  "For every chat."
+  Always
+}
+
+"One folder a sandboxed command may read, or read and write."
+type SandboxFolder {
+  "The grant's id."
+  id: String!
+  "The folder, absolute and resolved. User text: draw it through VisibleText."
+  path: String!
+  write: Boolean!
+  "Why the folder fails its check now, so no run takes it; null when it passes. User text: draw it through VisibleText."
+  refusal: String
+}
+
+"The folders granted, and what no grant opens."
+type SandboxFolders {
+  "The always grants."
+  always: [SandboxFolder!]!
+  "The chat's own grants, for their refused reasons; empty when no chat was named."
+  chat: [SandboxFolder!]!
+  "The denied-always list for this machine, with ~ expanded, read-only."
+  never: [String!]!
+  "The closed folders for this machine, with ~ expanded: each is refused whole, and a folder inside one can be granted."
+  closed: [String!]!
+  "The folders a read grant of which draws the wide warning, resolved: the home, each folder over it, and /Volumes on macOS."
+  wide: [String!]!
+}
+
+"One executable the sandbox probe checks, as the last probe found it."
+type SandboxExecutable {
+  "The executable's name. User text for a registered one: draw it through VisibleText."
+  name: String!
+  "What the probe runs, split on whitespace and never through a shell."
+  invocation: String!
+  "Registered by the user in Settings, not on the curated list."
+  registered: Boolean!
+  "Whether a probe has run it; false for an executable listed since the last probe, whose `error` says so."
+  probed: Boolean!
+  "The binary on the sandbox's PATH; empty when none. Draw it through VisibleText."
+  resolved: String!
+  "Under a version manager's shims folder."
+  shim: Boolean!
+  "The binary behind a shim; empty when unknown."
+  target: String!
+  "The invocation exited 0."
+  ok: Boolean!
+  "The first non-empty line of its output, redacted. The executable's own text: draw it through VisibleText."
+  version: String!
+  "Why it did not run or did not pass: Bash's first line, `not found on the sandbox's PATH`, `could not start: …` or `not probed yet`; empty when ok, and for one refused."
+  error: String!
+  "Why a registered executable is not probed, in the user's words; null for one Kubetail probes. User text: draw it through VisibleText."
+  refusal: String
+}
+
+"The commands a variable reaches."
+enum EnvVarTarget {
+  "Commands in the sandbox."
+  Sandbox
+  "Commands outside the sandbox, each of which the user approves, shown this variable."
+  Outside
+  Both
+}
+
+"A variable the user gives their commands. Not a secret: any command can print it."
+type EnvVar {
+  "The cluster whose chats' commands get it; null for every cluster's."
+  clusterID: ClusterID
+  "The variable's name. User text: draw it through VisibleText."
+  name: String!
+  "The variable's value. User text: draw it through VisibleText."
+  value: String!
+  target: EnvVarTarget!
+  "Why no command gets it, in the user's words; null when its target's commands do. A variable is checked each time it is read, so one Kubetail kept and now refuses is listed with its reason until the user removes it. User-visible text: draw it through VisibleText."
+  refusal: String
+}
+
+"The executable probe as a watcher sees it."
+type SandboxExecutablesReport {
+  "A probe is running; its reports land in `executables` when it ends."
+  probing: Boolean!
+  "How many probes have started since the sidecar did. A state watch keeps its latest value alone, so a probe's start and end can arrive as one frame; a watcher that asked for a probe knows it started once this moved."
+  probes: Int!
+  "Every executable the probe checks, the curated ones then the user's, as the last probe found each. Empty on a machine with no sandbox."
+  executables: [SandboxExecutable!]!
+}
+
+"The Sandbox console's last command, as it runs and once it ends."
+type SandboxConsoleRun {
+  "Counts the console's commands since the sidecar started. A state watch keeps its latest value alone, so a watcher tells one command from the next by this."
+  number: Int!
+  "The command as the user typed it. User text: draw it through VisibleText."
+  command: String!
+  "The cluster the command reached; null for none."
+  clusterID: ClusterID
+  "Whether the command had the internet."
+  network: Boolean!
+  "Whether the command is still running; output arrives in later frames."
+  running: Boolean!
+  "Its stdout and stderr together, in arrival order, up to 256 KiB. Command output, attacker-controlled: strip control sequences and draw it through VisibleText."
+  output: String!
+  "Bytes the command wrote past the cap, dropped."
+  discarded: Int!
+  "How the command exited; null while it runs, when it never started, or when its code could not be read."
+  exitCode: Int
+  "The sidecar's line on a command that did not simply exit: `Command timed out after 120s`, `Command cancelled`, an exit code that could not be read, or `could not start: …`. Null otherwise."
+  notice: String
+  "How long the command ran, in milliseconds; 0 while it runs."
+  durationMs: Int!
+}
+
+"The Sandbox console, as a watcher sees it."
+type SandboxConsole {
+  "The last command, running or ended; null before the first, and on a machine with no shell."
+  run: SandboxConsoleRun
+}
+
+# --- Root operations ---
+# Every root field, grouped by the noun it belongs to.
+
+type Query {
+  # Every field is named for its contract (Get, List or Fetch), and its description opens
+  # with it. The contracts are docs/data-access.md.
+
+  # --- Sandbox ---
+  "A Get of whether this machine offers sandboxed Bash, and why."
+  sandboxStateGet: SandboxState!
+
+  "A Get of one row per cloud platform this build has, in a fixed order, each with whether sandboxed commands may reach it as the user. On by default. A read of the switches that fails is an error."
+  sandboxCloudAccessGet: [CloudAccess!]!
+
+  "A Get of the PATH of every sandboxed command, and each of its folders. A read that fails is an error, never $PATH."
+  sandboxPathGet: SandboxPath!
+
+  "A Get of why the last read of the login shell's PATH failed, at launch or on refresh; null once one answers, and on a machine with no sandbox."
+  sandboxPathFaultGet: String
+
+  "A Get of one scope's variables in the order added, a refused one with its refusal: a cluster's, or with no `clusterID` every cluster's. A command gets every cluster's, its chat's cluster's value in place of one of the same name, of the targets that reach it."
+  envVarsGet(clusterID: ClusterID): [EnvVar!]!
+
+  "A Get of the permission modes and rules, as Settings shows them."
+  permissionSettingsGet: PermissionSettings!
+
+  "A Get of the chat's own rules, each as Settings spells a rule. Empty for a chat with none."
+  chatPermissionRulesGet(chatID: ChatID!): [PermissionRule!]!
+
+  # --- Logs ---
+  """
+  A Fetch of one page of a window of a view's lines on the cluster, oldest first. A first
+  page names what to read and when; the next page that way is one of the page's cursors,
+  sent back as it came. A refusal is a validation error whose `rule` is its code.
+  """
+  logsFetch(id: ClusterID!, request: LogsFetchInput!): LogsFetchResult!
+}
+
+type Mutation {
+  # --- Provider credentials ---
+  "Save a provider's API key in the OS keyring, replacing any saved one. Always true when it does not error. It signs the provider's requests from the next one, unless its connector is connected. The key is not checked against the provider. Never returns the key. Refused (KUBETAIL_VALIDATION_ERROR) for an unknown provider, for one that takes no key, and for a key that, once trimmed of surrounding whitespace, is under 16 or over 512 bytes or holds a space or anything but printable ASCII; KUBETAIL_PROVIDER_KEY_NOT_SAVED when the keyring refused, and nothing changed. Refused (KUBETAIL_VALIDATION_ERROR) while the provider is Restoring."
+  providerKeySave(providerID: String!, key: String!): Boolean!
+  "Delete a provider's saved key. Always true when it does not error, including when none was saved; an entry a newer Kubetail wrote is left in the keyring. KUBETAIL_PROVIDER_KEY_NOT_DELETED when the keyring refused: the key is out of use, returns after a restart, and calling again retries. Refused (KUBETAIL_VALIDATION_ERROR) for an unknown provider, for one that takes no key, and while it is Restoring."
+  providerKeyDelete(providerID: String!): Boolean!
+
+  # --- Cluster ---
+  "Enable or disable a cluster in the app. Disabling keeps the record tracked but dormant (no connection, hidden from context pickers). Returns the updated cluster."
+  clusterEnabledSet(id: ClusterID!, enabled: Boolean!): Cluster!
+
+  "Enable or disable syncing for a cluster. Disabling stops sync and freezes the cache. Returns the updated cluster."
+  clusterSyncEnabledSet(id: ClusterID!, syncEnabled: Boolean!): Cluster!
+
+  "Let the background monitor run against this cluster, or stop it. Returns the updated record."
+  clusterMonitoringEnabledSet(id: ClusterID!, monitoringEnabled: Boolean!): Cluster!
+
+  "Make a cluster the default, or stop it being one. Setting it clears the previous default, whose change arrives on `clusterCollectionWatch`; a call that changes nothing writes nothing. Refused (KUBETAIL_RECORD_NOT_FOUND) for a cluster marked for deletion, as every toggle is, and (KUBETAIL_VALIDATION_ERROR), when setting, for a disabled, archived or cloud cluster. Returns the cluster."
+  clusterDefaultSet(id: ClusterID!, isDefault: Boolean!): Cluster!
+
+  "Force an immediate reconnection attempt, resetting any backoff. Resolves once the probe it asked for has finished — not when it was scheduled — so a caller can show the retry as busy for exactly that long. What the probe found arrives on the cluster's conditions. Returns true."
+  clusterConnectionRetry(id: ClusterID!): Boolean!
+
+  "Delete an orphaned cluster. Returns true as soon as the deletion is requested: the record then carries `deletionRequestedAt` while its runtime, its caches and its chats are torn down, and leaves `clusterCollectionWatch` once they are gone. Refused for a cluster its source still declares — the discovery pass would re-import it under a fresh id, losing the user's toggles; stop tracking it at the source, or disable it. Deleting a record already gone, or already deleting, is not an error."
+  clusterDelete(id: ClusterID!): Boolean!
+
+  # --- ClusterCache ---
+  "Clear one cache's on-disk file but keep its record. Its sync workers are restarted onto the emptied file, so a present, enabled cluster re-syncs from scratch. Takes the cache's own id, not its cluster's: a UID migration leaves a cluster owning more than one. Returns the cleared cache."
+  clusterCacheClear(id: ObjectID!): ClusterCache!
+
+  # --- ClusterCachedKind ---
+  "Stop or resume syncing ONE kind, leaving the rest of the cache alone. Pausing keeps the cached rows — they stay listed and readable throughout, and a resume reconciles into them rather than starting from nothing (off the watch cookie if the pause was short enough for the server to still serve it, otherwise by relisting). A discovery sweep will not undo it: the sweep owns the kind's identity, the user owns this switch. Returns the updated record."
+  clusterCachedKindSyncEnabledSet(id: ObjectID!, syncEnabled: Boolean!): ClusterCachedKind!
+
+  # --- Chat ---
+  "Save a user message and start the assistant's turn. Returns the assistant's message as accepted, not as finished — the answer arrives on chatMessageCollectionWatch. A null `chatID` creates the chat; a chat already running a turn is refused. `requestID` makes the send idempotent for as long as its chat lives, and a repeat is answered by that id alone: this call's `chatID`, `model`, `effort` and `content` are ignored. The key goes with the chat, so a repeat after its delete is a new send. A null `chatID` creates the chat in `mode` and under `clusterID`, which must name an existing cluster; otherwise both are ignored, and on a `requestID` replay they are ignored like `chatID` and `content`. `sandboxDisabled` is the chat's switch as the sender saw it, `false` for a chat the send creates; a send whose switch differs from the chat's is refused with `KUBETAIL_CHAT_SANDBOX_CHANGED`, and a replay ignores it too. `networkEnabled` is the chat's network switch as the sender saw it, `false` for a chat the send creates; a send whose switch differs from the chat's is refused with `KUBETAIL_CHAT_NETWORK_CHANGED`, and a replay ignores it. `networkThisTurn` gives every command of this turn the internet, its subagents' included; refused with `KUBETAIL_VALIDATION_ERROR` where network is unavailable. `snapshot` is what the user's open log view shows, which rides the question as its context's View; a snapshot naming no `LogsView`, `LogsRead` or `LogsWatch` call of this chat, or on a send that creates one, is refused with `KUBETAIL_VALIDATION_ERROR`, and a replay ignores it."
+  chatSend(chatID: ChatID, mode: ChatMode!, clusterID: ClusterID!, sandboxDisabled: Boolean!, networkEnabled: Boolean!, networkThisTurn: Boolean!, providerID: String!, modelID: String!, effort: String!, requestID: String!, content: String!, snapshot: LogsViewSnapshotInput): ChatMessage!
+
+  "Stop the in-flight turn, keeping the partial answer. Returns true; a no-op when nothing is running."
+  chatCancel(chatID: ChatID!): Boolean!
+
+  "Decide a waiting request. Returns true when a turn was waiting on it; that says the decision reached the turn, not that it was recorded, since a cancel landing in the same moment can still win and leave the approval pending. A decision nothing waits on — the turn cancelled, stranded or already decided — returns false and changes nothing. `Command`, `Chat` and `Always` are refused `KUBETAIL_VALIDATION_ERROR` on a call's own request and on an action no rule may allow, and the request still waits; so are `Chat` and `Always` when the rule they would write is one Kubetail cannot apply, saying why."
+  approvalDecide(id: ApprovalID!, decision: ApprovalDecision!): Boolean!
+
+  "The user's stop of the background task a call started: SIGTERM, then SIGKILL after a grace. Returns true when a task of that call was running; false, changing nothing, when none is."
+  backgroundTaskStop(id: ToolCallID!): Boolean!
+
+  "Retitle a chat. Returns the record it committed, whose `updatedAt` the rename moves."
+  chatRename(id: ChatID!, title: String!): Chat!
+
+  "Switch a chat to run its commands outside the sandbox, each asking first, or back in it. Takes effect from the chat's next turn; what already started keeps running as it started. Leaving the sandbox turns `networkEnabled` off. Leaves `updatedAt` alone. Refused with `KUBETAIL_VALIDATION_ERROR` on a machine with no sandbox. Returns the record it committed."
+  chatSandboxDisabledSet(id: ChatID!, sandboxDisabled: Boolean!): Chat!
+
+  "Turn the chat's network switch on or off: its sandboxed commands reach the internet, from the next command that starts, a running turn's included. Leaves `updatedAt` alone. Turning it on is refused with `KUBETAIL_VALIDATION_ERROR` where network is unavailable or while the chat is outside the sandbox, where it would change nothing; turning it off is always accepted. Returns the record it committed."
+  chatNetworkEnabledSet(id: ChatID!, enabled: Boolean!): Chat!
+
+  "Delete a chat and its messages. Instant and permanent — every window watching it sees the rows go. Deleting one already gone is not an error. Returns true."
+  chatDelete(id: ChatID!): Boolean!
+
+  # --- Sandbox ---
+  "Turns a cloud platform's switch on or off, and answers the list. Refuses `Kubernetes`, and a cloud platform this build lacks, with `KUBETAIL_VALIDATION_ERROR`. A switch that cannot be written or read back is an error."
+  sandboxCloudAccessSet(target: PermissionTarget!, on: Boolean!): [CloudAccess!]!
+  "Save the PATH of every sandboxed command, and answer it. Refused KUBETAIL_VALIDATION_ERROR with the refusal of a value that does not parse, naming the element, or on a machine with no sandbox. A save that took but cannot be read back is KUBETAIL_SAVED_UNREAD."
+  sandboxPathSet(value: String!): SandboxPath!
+
+  "Run the login shell again and store its PATH, which $PATH stands for, and answer the setting. Refused KUBETAIL_VALIDATION_ERROR with the shell's fault, or on a machine with no sandbox; a failed read keeps the last PATH. A refresh that took but cannot be read back is KUBETAIL_SAVED_UNREAD."
+  sandboxPathRefresh: SandboxPath!
+
+  "Start a probe of every listed executable in the sandbox, with no cluster and no network, and answer the report as it stands; a probe already running is waited out, then one runs. Its end reaches `sandboxExecutablesStateWatch`. Refused KUBETAIL_VALIDATION_ERROR on a machine with no sandbox. A read of the registered executables that fails is an error, and starts no probe."
+  sandboxExecutablesProbe: [SandboxExecutable!]!
+
+  "Run a command the user typed in the Sandbox console, as a chat's sandboxed command runs: in a workspace of its own, with the folders granted always, `clusterID`'s cluster, read alone, and the internet when `network` is set. Nothing approves it, and it reaches no chat and no model. It answers once the command starts, with its `number`; its output and its end reach `sandboxConsoleStateWatch`. Refused KUBETAIL_CONFLICT while a command runs, and KUBETAIL_VALIDATION_ERROR for an empty or overlong command, the internet where the machine has none, or a machine whose sandbox does not confine a command."
+  sandboxConsoleRun(command: String!, clusterID: ClusterID, network: Boolean!): Int!
+
+  "Stop the Sandbox console's running command, as a chat's Cancel stops a call: command `number`'s, or whichever runs when it is null. Does nothing when none runs, or another, so a stop sent late never ends a newer command."
+  sandboxConsoleStop(number: Int): Boolean!
+
+  "Register an executable for the probe, with `invocation`, or `<name> --version` when it is null. Refused KUBETAIL_VALIDATION_ERROR for a name already listed, a refused one's included, a name or invocation out of shape, or on a machine with no sandbox. Returns the whole report, the new executable not probed yet; KUBETAIL_SAVED_UNREAD when it took but the list could not be read back."
+  sandboxExecutableRegister(name: String!, invocation: String): [SandboxExecutable!]!
+
+  "Remove a registered executable, a refused one too. Refused KUBETAIL_VALIDATION_ERROR for a name not registered. Returns the whole report; KUBETAIL_SAVED_UNREAD when it took but the list could not be read back."
+  sandboxExecutableRemove(name: String!): [SandboxExecutable!]!
+
+  "Set a variable in one scope, from the next command that starts: a new name joins the scope's end, a listed one changes in place. Refused KUBETAIL_VALIDATION_ERROR, with the reason, for a name or value its target's commands may not have or a new name when the scope is full, and KUBETAIL_RECORD_NOT_FOUND for a missing cluster. Returns the scope's list as it stands now."
+  envVarSet(clusterID: ClusterID, name: String!, value: String!, target: EnvVarTarget!): [EnvVar!]!
+
+  "Remove a scope's variable, a refused one too. Refused KUBETAIL_VALIDATION_ERROR, with the reason, for a name not set. Returns the scope's list as it stands now."
+  envVarRemove(clusterID: ClusterID, name: String!): [EnvVar!]!
+
+  # --- Memory ---
+  "Create a memory, or rewrite one by `id`; a rewrite can rename it and move it between one cluster and every cluster. Written by the user. Refused `KUBETAIL_MEMORY_NAME_TAKEN` for a name the target scope holds, `KUBETAIL_MEMORY_FULL` for a scope with no room for the memory, `KUBETAIL_MEMORY_SECRET` for a credential, `KUBETAIL_VALIDATION_ERROR` for a note out of shape, and `KUBETAIL_RECORD_NOT_FOUND` for an unknown id or a missing cluster."
+  memorySave(input: MemorySaveInput!): Memory!
+
+  "Delete a memory. Refused `KUBETAIL_RECORD_NOT_FOUND` for an unknown id. Returns true."
+  memoryDelete(id: MemoryID!): Boolean!
+
+  # --- Tools ---
+  "Turn a tool on or off for every chat, subagent and monitor run, from its next turn. A running turn keeps its tools. Refused `KUBETAIL_VALIDATION_ERROR` for a name no listed tool has. Returns the whole list."
+  toolSettingSet(name: String!, enabled: Boolean!): [ToolSetting!]!
+
+  # --- Permissions ---
+  "Set a target's default mode, the mode of an account with none of its own. Refused `KUBETAIL_VALIDATION_ERROR` for a mode Kubetail cannot apply. A change that took whose answer could not be read after is `KUBETAIL_SAVED_UNREAD`."
+  permissionDefaultModeSet(target: PermissionTarget!, mode: PermissionMode!): PermissionSettings!
+
+  "Set one account's own mode. A Kubernetes account is a cluster's id: refused `KUBETAIL_RECORD_NOT_FOUND` for a cluster that is gone or awaiting deletion, and `KUBETAIL_VALIDATION_ERROR` for one with no kube-context. A cloud account is one name with no `/`, `*` or `?`, else `KUBETAIL_VALIDATION_ERROR`. A change that took whose answer could not be read after is `KUBETAIL_SAVED_UNREAD`."
+  permissionModeSet(target: PermissionTarget!, account: String!, mode: PermissionMode!): PermissionSettings!
+
+  "Clear one account's own mode, so it takes its target's default. Refused as `permissionModeSet` refuses the account. A change that took whose answer could not be read after is `KUBETAIL_SAVED_UNREAD`."
+  permissionModeClear(target: PermissionTarget!, account: String!): PermissionSettings!
+
+  "Add an always rule. Refused `KUBETAIL_VALIDATION_ERROR` for a rule Kubetail cannot apply, saying why; `KUBETAIL_RECORD_NOT_FOUND` for a Kubernetes rule naming a cluster that is gone. A change that took whose answer could not be read after is `KUBETAIL_SAVED_UNREAD`."
+  permissionRuleAdd(input: PermissionRuleInput!): PermissionSettings!
+
+  "Edit an always rule, keeping its id and its place. Refused as `permissionRuleAdd` refuses the rule, and `KUBETAIL_VALIDATION_ERROR` for an unknown id. An edit into a rule held already removes the edited one. A change that took whose answer could not be read after is `KUBETAIL_SAVED_UNREAD`."
+  permissionRuleUpdate(id: String!, input: PermissionRuleInput!): PermissionSettings!
+
+  "Remove an always rule. Refused `KUBETAIL_VALIDATION_ERROR` for an unknown id. A change that took whose answer could not be read after is `KUBETAIL_SAVED_UNREAD`."
+  permissionRuleRemove(id: String!): PermissionSettings!
+
+  "Removes one of the chat's rules by id, and answers the rules left. Refused `KUBETAIL_RECORD_NOT_FOUND` for a chat or an id that is gone."
+  chatPermissionRuleRemove(chatID: ChatID!, id: String!): [PermissionRule!]!
+
+  "Grant a folder, or change the access of one granted in the same place. `Chat` writes a grant of the chat's and needs `chatID`; `Always` a grant for every chat, and ignores it. Refused `KUBETAIL_VALIDATION_ERROR` with the reason the folder cannot be granted, whose `rule` is `link` and whose `target` extension is the resolved path for a link; also on a machine with no sandbox. Refused `KUBETAIL_RECORD_NOT_FOUND` for a chat that is gone. A change that took whose answer could not be read after is `KUBETAIL_SAVED_UNREAD`."
+  folderGrant(chatID: ChatID, path: String!, write: Boolean!, duration: GrantDuration!): SandboxFolders!
+
+  "Revoke a folder grant by id, as `folderGrant` names it: `Chat` a grant of the chat's, and needs `chatID`; `Always` an always grant. Answers the lists `folderGrant` does. Refused `KUBETAIL_RECORD_NOT_FOUND` for an id that is not one, or a chat that is gone. A change that took whose answer could not be read after is `KUBETAIL_SAVED_UNREAD`."
+  folderRevoke(chatID: ChatID, id: String!, duration: GrantDuration!): SandboxFolders!
+
+  # --- Cloud account ---
+  "Start the sidecar-owned browser sign-in (OAuth), ending one under way. Returns true once the browser opens, and an error when the sign-in could not start (no issuer, no keyring, no browser); a sign-in while signed in or while Restoring is `KUBETAIL_VALIDATION_ERROR`. The token exchange completes in the background, with the signed-in state delivered via authStateWatch."
+  authLoginStart: Boolean!
+
+  "Sign out: clear local credentials, broadcast signed-out, and revoke the token server-side (best-effort). Errors only when the sign-out could not be recorded and the credential is still stored. Refused (KUBETAIL_VALIDATION_ERROR) while Restoring."
+  authLogout: Boolean!
+
+  # --- ChatGPT connector ---
+  "Open the browser on OpenAI's sign-in. Returns once it opens; the outcome arrives on chatGPTConnectionStateWatch. `fresh` forgets the saved registration first. Refused (KUBETAIL_VALIDATION_ERROR) while Restoring, during an attempt and while connected."
+  chatGPTConnect(fresh: Boolean!): Boolean!
+  "End a sign-in under way. Returns true; a no-op otherwise."
+  chatGPTConnectCancel: Boolean!
+  "Sign out on this machine, then ask OpenAI to end the session. Returns once this machine is signed out; an unconfirmed revocation arrives on chatGPTConnectionStateWatch. Refused (KUBETAIL_VALIDATION_ERROR) while Restoring."
+  chatGPTDisconnect: Boolean!
+  "Open ChatGPT's usage settings in the browser. The address is the sidecar's constant."
+  chatGPTUsageOpen: Boolean!
+  # --- OpenRouter connector ---
+  "Open the browser on OpenRouter's sign-in. Returns once the attempt starts or fails; the outcome, a browser that could not open or a keyring that cannot keep the key included, arrives on openRouterConnectionStateWatch. Refused (KUBETAIL_VALIDATION_ERROR) while Restoring, during an attempt, while connected, and while a key the keyring would not delete is still there."
+  openRouterConnect: Boolean!
+  "End a sign-in under way. Returns true; a no-op otherwise."
+  openRouterConnectCancel: Boolean!
+  "Delete the key on this machine. The key stays live on OpenRouter until the user deletes it there. Errors when the key could not be deleted; the state is then Failed with NotDeleted, and calling again retries. The provider's saved key, then its environment key, signs in its place. Refused (KUBETAIL_VALIDATION_ERROR) while Restoring."
+  openRouterDisconnect: Boolean!
+  "Open OpenRouter's key settings in the browser. The address is the sidecar's constant."
+  openRouterKeysOpen: Boolean!
+
+  # --- AWS connector ---
+  "Open the browser on AWS's sign-in. Returns once the attempt starts or fails; the outcome, a browser that could not open or a keyring that cannot keep the session included, arrives on awsConnectionStateWatch. Refused (KUBETAIL_VALIDATION_ERROR) while Restoring, during an attempt, while connected, and while a session the keyring would not delete is still there."
+  awsConnect: Boolean!
+  "End a sign-in under way. A no-op otherwise."
+  awsConnectCancel: Boolean!
+  "Delete the session on this machine. AWS is not asked to revoke it, so its refresh token stays valid at AWS until the session expires. Errors when the keyring would not delete it; the state is then Failed with NotDeleted, and calling again retries. Refused (KUBETAIL_VALIDATION_ERROR) while Restoring."
+  awsDisconnect: Boolean!
+
+  # --- GitHub connector ---
+  "Ask GitHub for a code, then open the browser on GitHub's page. Returns once the browser opens or the attempt fails; the code and the outcome arrive on gitHubConnectionStateWatch. Refused (KUBETAIL_VALIDATION_ERROR) in a build with no GitHub OAuth App, while Restoring, during an attempt, while connected, and while a token the keyring would not delete is still there."
+  gitHubConnect: Boolean!
+  "End the sign-in under way, if any. A token GitHub grants after it is dropped."
+  gitHubConnectCancel: Boolean!
+  "Delete the token on this machine. It stays authorized on GitHub until the user revokes Kubetail there. Errors when the token could not be deleted; the state is then Failed with NotDeleted, and calling again retries. Refused (KUBETAIL_VALIDATION_ERROR) while Restoring."
+  gitHubDisconnect: Boolean!
+  "Open GitHub's authorized OAuth Apps settings in the browser. The address is the sidecar's constant."
+  gitHubSettingsOpen: Boolean!
+
+  # --- Google connector ---
+  "Open the browser on Google's sign-in. Returns once it opens; the outcome arrives on googleConnectionStateWatch. `fresh` forgets the saved account first. Refused (KUBETAIL_VALIDATION_ERROR) in a build with no Google client, while Restoring, during an attempt and while connected."
+  googleConnect(fresh: Boolean!): Boolean!
+  "End the sign-in under way, if any. Tokens Google grants after it are revoked."
+  googleConnectCancel: Boolean!
+  "Sign out on this machine, then ask Google to revoke the grant. Returns once this machine is signed out; an unconfirmed revocation arrives on googleConnectionStateWatch. Refused (KUBETAIL_VALIDATION_ERROR) while Restoring."
+  googleDisconnect: Boolean!
+}
+
+type Subscription {
+  # Every field is named for its contract, and its description opens with it. The
+  # contracts and what each delivers are docs/data-access.md. None of them ends on its own but the
+  # cursor tail, whose last frame is `Ended`.
+
+  # --- Any object ---
+  "An event feed of a cache's or a per-kind record's timeline — `ClusterCache`, `ClusterCachedKind`: runs upserted by `Event.id`, the snapshot closed by one `Bookmark` (`EventFeedFrameType`). Optionally one `category`. The point read is that record's own `events` field; a cluster's timeline is `clusterEventFeed`."
+  objectEventFeed(id: ObjectID!, category: String): EventFeedFrame!
+
+  # --- Cluster ---
+  "A collection watch of the cluster list, keyed by `cluster.id`. Cache sync status is not here — it streams on `clusterCacheCollectionWatch`."
+  clusterCollectionWatch: ClusterCollectionWatchFrame!
+
+  "An event feed of a cluster's timeline, the same shape as `objectEventFeed`. Bookmark-only for an id naming nothing."
+  clusterEventFeed(id: ClusterID!, category: String): EventFeedFrame!
+
+  "A state watch of a cluster's next reconcile — what keeps a disconnected cluster's countdown live, since scheduling fires no object watch."
+  clusterScheduleStateWatch(id: ClusterID!): Schedule!
+
+  "A sample feed of a cluster's connection data rate. The first frame arrives at once and holds the whole window, possibly none. Each later frame holds the samples since the one before. Every tick is sent, zeros included. A replaced or missing connection reads as zero. Refused for a disabled cluster or one being deleted."
+  clusterDataRateSampleFeed(id: ClusterID!): ClusterDataRateSampleFeedFrame!
+
+  # --- ClusterCache ---
+  "A collection watch of cache records, keyed by `cache.id` and joined onto clusters by `clusterID`. Carries no ordering guarantee against `clusterCollectionWatch`."
+  clusterCacheCollectionWatch: ClusterCacheCollectionWatchFrame!
+
+  "A keyed state watch of every cache's folded sync verdict, keyed by `cacheID`. No removal frame — a verdict's lifetime is its cache's, so the client drops one when its cache leaves `clusterCacheCollectionWatch`."
+  clusterCacheHealthKeyedStateWatch: ClusterCacheHealth!
+
+  "A collection watch of one cache's per-kind sync records, keyed by `kind.id`. Cache-scoped, since there is one record per synced kind."
+  clusterCachedKindCollectionWatch(cacheID: ObjectID!): ClusterCachedKindCollectionWatchFrame!
+
+  "A state watch of one cache's on-disk contents. A subscription, not a `ClusterCache` field, which would freeze at subscribe time. A pair naming no live cache gets one value with `exists` false."
+  clusterCacheStatsStateWatch(id: ClusterID!, cacheID: ObjectID!): ClusterCacheStats!
+
+  "A state watch of one cache's sync detail — the discovery verdict and a row per mirrored kind. Re-read on a cadence rather than on a change notification: its counts and freshness stamps move while every record under it sits still. A pair naming no live cache gets one value with `exists` false."
+  clusterCacheSyncStateWatch(id: ClusterID!, cacheID: ObjectID!): ClusterCacheSyncState!
+
+  # --- Cluster data ---
+  "A collection watch of one cache's discovered kind catalog, keyed by `apiVersion` + `resource`. Counts are live, so an object write re-emits its kind. The live counterpart of `ClusterCache.kinds`."
+  clusterCachedDataKindCollectionWatch(
+    id: ClusterID!
+    cacheID: ObjectID!
+    "Counts each namespaced kind in this namespace alone, and Events by the namespace of the object each is about. A cluster-scoped kind keeps its whole count. Empty counts the whole cache."
+    namespace: String! = ""
+  ): ClusterCachedDataKindCollectionWatchFrame!
+
+  "A collection watch of one cache's cached Kubernetes Events, newest first, keyed by `uid`; an event the server dropped surfaces as `Deleted`. Distinct from `objectEventFeed`, which streams kubetail's own timeline."
+  clusterCachedDataEventCollectionWatch(
+    id: ClusterID!
+    cacheID: ObjectID!
+  ): ClusterCachedDataEventCollectionWatchFrame!
+
+  "A collection watch of one kind's cached objects from a cache, keyed by `uid`. Scoped by `apiVersion` + `resource`, e.g. `\"apps/v1\"` + `\"deployments\"`."
+  clusterCachedDataObjectCollectionWatch(
+    id: ClusterID!
+    cacheID: ObjectID!
+    apiVersion: String!
+    resource: String!
+  ): ClusterCachedDataObjectCollectionWatchFrame!
+
+  # --- Chat ---
+  "A collection watch of the chat list, keyed by `chat.id` — what the sidebar renders."
+  chatCollectionWatch: ChatCollectionWatchFrame!
+
+  """
+  A collection watch of one chat's messages, keyed by `message.id`. A streaming answer
+  arrives as repeated `Modified` frames carrying the whole text so far, so any one frame is
+  disposable. Nothing orders this against chatCollectionWatch: on a delete, the chat's
+  `Deleted` and its messages' come from two pumps and land in either order.
+  """
+  chatMessageCollectionWatch(chatID: ChatID!): ChatMessageCollectionWatchFrame!
+
+  # --- Memory ---
+  "A collection watch of what one cluster's chats see, keyed by `memory.id`: its own memories and every cluster's. A move between scopes arrives as `Added` or `Deleted` on each cluster it enters or leaves."
+  memoryCollectionWatch(clusterID: ClusterID!): MemoryCollectionWatchFrame!
+
+  # --- Logs ---
+  """
+  A cursor tail of a view's lines as they are written, from a start the request names.
+  Lines are ordered per container, and across containers by arrival. A tail that ends for
+  a reason the user can read sends one `Ended` frame and completes: stop subscribing. One
+  that fails reports `subscriptionFailed`; tail again from the same start, with `seen`
+  naming the last line held of each stream.
+  """
+  logsTail(id: ClusterID!, request: LogsTailInput!): LogsTailFrame!
+
+  # --- Sandbox ---
+  "A state watch of the executable probe: whether one runs, and the report as the last one left it, a fresh value on each start, each end and each change to the registered executables. A read of the registered executables that fails ends the watch with its reason."
+  sandboxExecutablesStateWatch: SandboxExecutablesReport!
+  "A state watch of the folders granted, always and for `chatID`, each with why it fails its check now, a fresh value on each write of the settings or the always grants and, with a chat, on each write or revoke of the chat's grants. A folder changing on disk sends nothing. Empty lists on a machine with no sandbox."
+  sandboxFoldersStateWatch(chatID: ChatID): SandboxFolders!
+  "A state watch of the Sandbox console's last command: a fresh value as it starts, about every quarter second while it writes, and as it ends."
+  sandboxConsoleStateWatch: SandboxConsole!
+
+  # --- Cloud account ---
+  "A state watch of authentication: a fresh value on every change of account (sign-in, sign-out, a session that ended)."
+  authStateWatch: AuthState!
+
+  # --- ChatGPT connector ---
+  "A state watch of the ChatGPT connector, a fresh value on every change."
+  chatGPTConnectionStateWatch: ChatGPTConnection!
+  # --- OpenRouter connector ---
+  "A state watch of the OpenRouter connector, a fresh value on every change."
+  openRouterConnectionStateWatch: OpenRouterConnection!
+  # --- GitHub connector ---
+  "A state watch of the GitHub connector, a fresh value on every change."
+  gitHubConnectionStateWatch: GitHubConnection!
+  # --- Google connector ---
+  "A state watch of the Google connector, a fresh value on every change."
+  googleConnectionStateWatch: GoogleConnection!
+
+  # --- AWS connector ---
+  "A state watch of the AWS connector, a fresh value on every change."
+  awsConnectionStateWatch: AWSConnection!
+
+  # --- Model ---
+  "A state watch of every model the sidecar can answer with, in catalog order (the first entry is what a picker starts on), a fresh list each time a provider's catalog changes. The ChatGPT plan's models come and go with its connection."
+  modelsStateWatch: [Model!]!
+
+  # --- Provider credentials ---
+  "A state watch of every provider, in picker order: the latest list after each change, so changes close together arrive as one."
+  providerCredentialsStateWatch: [ProviderCredentialState!]!
+
+  # --- Tools ---
+  "A state watch of every tool a chat can be offered on this machine, with its setting, in the order Settings draws them: the latest list after each change."
+  toolSettingsStateWatch: [ToolSetting!]!
+}

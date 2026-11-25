@@ -1,0 +1,11 @@
+[
+  { "os": "linux", "arch": "amd64", "runner": "ubuntu-24.04", "pull_request": true },
+  { "os": "linux", "arch": "arm64", "runner": "ubuntu-24.04-arm", "pull_request": false },
+  { "os": "macos-15", "arch": "amd64", "runner": "macos-15-intel", "pull_request": false },
+  { "os": "macos-15", "arch": "arm64", "runner": "macos-15", "pull_request": false },
+  { "os": "macos-26", "arch": "amd64", "runner": "macos-26-intel", "pull_request": false },
+  { "os": "macos-26", "arch": "arm64", "runner": "macos-26", "pull_request": false },
+  { "os": "macos-27", "arch": "arm64", "runner": "xcode-27", "pull_request": true },
+  { "os": "windows", "arch": "amd64", "runner": "windows-2025-vs2026", "pull_request": true },
+  { "os": "windows", "arch": "arm64", "runner": "windows-11-arm", "pull_request": false }
+]

@@ -1,0 +1,59 @@
+// Shared proto contract for host(Rust) <-> sidecar(Go) gRPC auth control channel.
+//
+// This file is the single source of truth for the AuthService wire format,
+// consumed by both the Go sidecar (via protoc, see sidecar/grpc/authpb) and
+// the Rust host (via tonic-build, see src-tauri/build.rs). It deliberately
+// sits at the repo root alongside poke.proto.
+syntax = "proto3";
+
+package auth;
+
+option go_package = "github.com/kubetail-org/kubetail/apps/desktop/sidecar/grpc/authpb";
+
+// AuthService is the host-internal control channel for the local-first identity
+// session. It rides the same socket as GraphQL (h2c multiplexing) but is
+// consumed only by the native host (the tray), never the webview — the webview
+// keeps using the GraphQL authState/login/logout/authStateWatch surface. Both
+// transports share the one Kubetail Cloud connector, so a sign-in via either is
+// observed by both.
+service AuthService {
+  // StartLogin ends a sign-in under way and starts a fresh one, returning once
+  // the browser opens; it errs when the sign-in could not start (no issuer, no
+  // keyring, no browser). The rest of the sign-in runs in the background; its
+  // completion is observed via AuthStateWatch. Mirrors the GraphQL
+  // `authLoginStart` mutation.
+  rpc StartLogin(StartLoginRequest) returns (StartLoginResponse);
+
+  // Logout clears local credentials, then revokes the refresh token in the
+  // background. Mirrors the GraphQL `authLogout` mutation.
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+
+  // AuthStateWatch streams the current AuthState immediately (latest-value:
+  // current-on-subscribe), then a fresh snapshot on every change of account.
+  // Long-lived; ends on client cancel or sidecar shutdown.
+  rpc AuthStateWatch(AuthStateWatchRequest) returns (stream AuthState);
+}
+
+message StartLoginRequest {}
+message StartLoginResponse {}
+
+message LogoutRequest {}
+message LogoutResponse {}
+
+message AuthStateWatchRequest {}
+
+// AuthState projects the Kubetail Cloud connector's tokenless state: identity is unset
+// while signed out, so the host can't render stale claims.
+message AuthState {
+  bool authenticated = 1;
+  Identity identity = 2; // unset (nil) while signed out
+  // restoring is true until the launch has read the keyring; authenticated is
+  // false then, and says nothing.
+  bool restoring = 3;
+}
+
+message Identity {
+  string user_id = 1;
+  string email = 2;
+  string name = 3;
+}

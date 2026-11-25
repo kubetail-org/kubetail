@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "file_path"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to read"
+    },
+    "offset": {
+      "type": "number",
+      "description": "The line number to start reading from. Only provide if the file is too large to read at once"
+    },
+    "limit": {
+      "type": "number",
+      "description": "The number of lines to read. Only provide if the file is too large to read at once."
+    }
+  }
+}

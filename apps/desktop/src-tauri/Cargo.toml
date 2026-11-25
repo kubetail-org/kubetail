@@ -1,0 +1,207 @@
+[package]
+name = "kubetail-desktop"
+version = "0.1.0"
+description = "Kubetail desktop app"
+authors = ["The Kubetail Authors"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "kubetail_lib"
+# Desktop links only the rlib. iOS and Android would also need "staticlib" and "cdylib".
+crate-type = ["rlib"]
+
+[[bin]]
+name = "kubetail-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+# Compiles the shared repo-root proto/ into Rust gRPC client bindings at build
+# time (see build.rs). tonic 0.14 split the prost codec/codegen into the
+# `tonic-prost*` crates; this is the build half, matched to the `tonic` +
+# `tonic-prost` runtime deps below.
+tonic-prost-build = "0.14"
+# Bundles a protoc binary so `cargo build` stays hermetic — codegen doesn't
+# shell out to a system protoc, so clean CI runners and fresh dev machines build
+# without an external install. (The Go side regenerates its committed bindings
+# with `make generate-proto`, through scripts/protoc.sh's pinned protoc.)
+protoc-bin-vendored = "3.2.0"
+
+[profile.release]
+codegen-units = 1   # whole-crate optimization instead of parallel chunks
+lto = true          # link-time optimization across crate boundaries
+opt-level = 3       # maximum runtime speed
+strip = true        # strip symbols from the shipped binary
+
+[dev-dependencies]
+# Test-only tokio features: `test-util` provides the paused-clock helpers
+# (`pause`/`advance`/`start_paused`) the wake coalescer tests use to drive the
+# debounce deterministically without wall-clock sleeps. `net` provides
+# `UnixSocket`, which binds a socket without listening on it.
+tokio = { version = "1", features = ["test-util", "macros", "rt", "net"] }
+# Tauri's mock runtime (`tauri::test`): builds an app with no window system, so
+# the commands and `AppState` run under test.
+tauri = { version = "2", features = ["test"] }
+# Builds the monitors the mock runtime lacks (`testutil::monitor`): Tauri's own
+# `Monitor` has no public constructor.
+tauri-runtime = "2"
+# Reads the updater key's id off `tauri.conf.json`'s `pubkey` (`updater` tests).
+base64 = "0.23"
+
+[features]
+# Compiles the webview inspector (devtools) into an otherwise-release build so
+# production behavior — e.g. the bundled CSP with its injected nonces — can be
+# inspected. DO NOT ship to users: on macOS this links private WebKit APIs.
+# (We don't distribute via the Mac App Store, so this is a prod-hygiene rule,
+# not an App Store one.) Build with `pnpm tauri build --features debug-prod`.
+debug-prod = ["tauri/devtools"]
+
+[dependencies]
+# `macos-private-api` turns on `wry/transparent`, which clears `WKWebView`'s
+# opaque white backing (the private `drawsBackground` KVC key). Without it the
+# webview paints white over the window's `background_color` until its first
+# frame, i.e. the launch flash. We don't ship through the Mac App Store, so the
+# private-API prohibition doesn't apply — see this crate's `CLAUDE.md`. Mirrored
+# by `app.macOSPrivateApi` in `tauri.conf.json`, which the Tauri CLI reads.
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
+tauri-plugin-opener = "2"
+# `rc`: a log window's push is shared by every frame that carries it (`log_windows.rs`).
+serde = { version = "1", features = ["derive", "rc"] }
+# `raw_value`: a log window's push is kept serialized (`log_windows.rs`).
+serde_json = { version = "1", features = ["raw_value"] }
+thiserror = "2.0.18"
+# Canonical paths without Windows' verbatim prefix (`paths.rs`).
+dunce = "1.0.5"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
+# The host's log file: a daily-rolling appender written off-thread, so a slow
+# disk never blocks a logging call site. Rotation is time-based only — there is
+# no size cap on offer.
+tracing-appender = "0.2.3"
+# The general categories `window_title` strips from a log window's title.
+unicode-properties = { version = "0.1.5", default-features = false, features = ["general-category"] }
+tauri-plugin-single-instance = "2.4.2"
+tauri-plugin-shell = "2.3.5"
+# Async runtime primitives tauri's re-exported runtime does not cover (the
+# loopback waits, channels, and `select!` the host's background tasks use).
+tokio = { version = "1", features = ["rt", "time", "sync", "macros", "io-util"] }
+# `CancellationToken` backs the app-wide graceful-shutdown signal (`AppState::
+# shutdown`): app Quit cancels it so long-lived background tasks (the tray
+# kube-context supervisor, the Unix signal handler) tear down cleanly instead
+# of reconnecting/sleeping against a sidecar that's being shut down.
+tokio-util = "0.7"
+# Cross-platform local IPC primitive: UDS on Unix, named pipes on Windows,
+# behind a single Stream/Listener API. Lets `ipc.rs` and its tests avoid
+# cfg-branching on the platform-specific tokio types.
+interprocess = { version = "2", features = ["tokio"] }
+# Host-side HTTP/1 client speaking to the sidecar over UDS. `hyper` provides
+# the raw connection-level API (no global Client + Connector dance needed
+# for a single in-process socket); `hyper-util`'s `TokioIo` adapts the
+# `tokio::net::UnixStream` to hyper's I/O traits; `http-body-util` collects
+# query response bodies and drives the SSE subscription stream frame-by-frame
+# (`graphql/subscribe.rs`).
+hyper = { version = "1", features = ["http1", "client"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+# SSE wire-format parser for the GraphQL subscription transport
+# (`graphql/subscribe.rs`). Transport-agnostic: turns the hyper response
+# body's `Bytes` stream into parsed SSE events, replacing a hand-rolled
+# line parser. Brings no HTTP client of its own.
+eventsource-stream = "0.2.3"
+# `StreamExt::next` drives the event `Stream` that `eventsource-stream`
+# builds from the hyper response body (`graphql/subscribe.rs`).
+futures-util = "0.3"
+# gRPC client to the sidecar (host-internal control channel: kube-context
+# watch + set). Rides the same socket as GraphQL via h2c — tonic speaks HTTP/2
+# prior-knowledge (no TLS) over the existing `interprocess` Stream, dialed
+# through a custom `tower::service_fn` connector (`services/sidecar/grpc.rs`).
+# tonic 0.14 splits the prost codec into `tonic-prost`; `prost` provides the
+# message runtime the generated code references. `tower` (util) supplies
+# `service_fn` for the connector.
+tonic = "0.14"
+tonic-prost = "0.14"
+prost = "0.14"
+tower = { version = "0.5", features = ["util"] }
+
+# The in-app updater (`updater/platform.rs`). Linux applies no update, so it
+# is not built there. Held to a minor: `configure_client` hands over the
+# plugin's own reqwest builder, which a minor release may change.
+[target.'cfg(any(target_os = "macos", windows))'.dependencies]
+tauri-plugin-updater = "~2.14.1"
+
+# macOS-only: a custom Dock menu has no Tauri/tao API, so it is built directly
+# against AppKit. Versions are pinned to what Tauri already pulls in transitively.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = [
+  "NSString",
+  # Apple Events: detect a system-initiated quit (logout/restart/shutdown) in
+  # `applicationShouldTerminate:` so it is not mistaken for a user "Quit".
+  "NSAppleEventManager",
+  "NSAppleEventDescriptor",
+  "objc2-core-services",
+  # Notification-center types used to observe NSWorkspace's wake notification
+  # (see wake/macos.rs).
+  "NSNotification",
+  # Reads the global-domain `AppleInterfaceStyle` to resolve the `system`
+  # color-scheme preference before the first window exists (see os_theme.rs).
+  "NSUserDefaults",
+] }
+objc2-app-kit = { version = "0.3", features = [
+  "NSApplication",
+  "NSMenu",
+  "NSMenuItem",
+  "NSResponder",
+  # NSWorkspace + its NSWorkspaceDidWakeNotification, observed to fire a Poke
+  # on wake-from-sleep (see wake/macos.rs).
+  "NSWorkspace",
+] }
+# Wake-from-sleep / network-return event sources (wake/macos.rs):
+# objc2-foundation's notification-center types receive NSWorkspace's wake
+# notification; system-configuration's SCNetworkReachability (scheduled on a
+# CFRunLoop from core-foundation) reports connectivity transitions.
+system-configuration = "0.8"
+core-foundation = "0.10"
+
+# Unix-only: tao installs no signal handlers, so SIGTERM/SIGINT/SIGHUP are
+# captured and funneled into the graceful-exit path (see
+# `helpers::spawn_signal_handler`). tokio is already in the tree via tauri;
+# this only turns on the `signal` (+ `macros` for `select!`) features.
+# libc provides `kill(2)`, used to force-terminate the sidecar by pid once
+# its CommandChild handle has been dropped (see sidecar::lifecycle).
+[target.'cfg(unix)'.dependencies]
+tokio = { version = "1", features = ["signal", "macros"] }
+libc = "0.2"
+
+# Linux-only: the wake/network-return event sources (wake/linux.rs) subscribe to
+# systemd-logind's `PrepareForSleep` signal and NetworkManager's `StateChanged`,
+# both on the system D-Bus bus. `default-features = false` + `tokio` integrates
+# zbus with the app's existing tokio runtime (drops its default async-io stack);
+# `proxy` provides the `#[zbus::proxy]` macro.
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "6", default-features = false, features = ["tokio", "proxy"] }
+
+# Windows-only: force-terminate the sidecar by pid via TerminateProcess once
+# its CommandChild handle has been dropped (see sidecar::lifecycle). Windows
+# has no POSIX signals, so the graceful path is stdin-EOF instead.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_System_Threading",
+  # wake/windows.rs: callback-based resume-from-sleep notification
+  # (PowerRegisterSuspendResumeNotification + PBT_* / DEVICE_NOTIFY_CALLBACK),
+  # plus the network connectivity-hint change notification.
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_System_Power",
+  "Win32_NetworkManagement_IpHelper",
+  "Win32_Networking_WinSock",
+  # os_theme.rs: reads HKCU's `AppsUseLightTheme` to resolve the `system`
+  # color-scheme preference before the first window exists.
+  "Win32_System_Registry",
+] }
+

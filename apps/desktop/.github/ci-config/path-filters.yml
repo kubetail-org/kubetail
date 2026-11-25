@@ -1,0 +1,84 @@
+# dorny/paths-filter's filters, read by ci.yml's and coverage.yml's Plan
+# jobs. A pull request runs a language's checks and its coverage when a path
+# here changed, so the two cannot drift: a path that ran the tests but not the
+# coverage would pass its changed lines as "0 of 0 covered".
+#
+# Go covers what ci / Check · AppArmor profiles builds and runs. Rust
+# builds against a stub sidecar, so the sidecar is not its input.
+shared: &shared
+  - .github/actions/setup-environment/**
+  - .github/ci-config/path-filters.yml
+  - .github/ci-config/runners.json
+  - .github/workflows/ci.yml
+  - .github/workflows/coverage.yml
+  - .github/codecov.yml
+  - scripts/check-coverage-markers.sh
+go:
+  - *shared
+  - Makefile
+  - proto/**
+  - scripts/**
+  - sidecar/**
+  - src-tauri/linux/**
+  - tools/**
+rust:
+  - *shared
+  - .github/actions/stub-sidecar/**
+  - proto/**
+  - sidecar/internal/app/layout/testdata/**
+  - src-tauri/**
+  - tools/coverignore/**
+typescript:
+  - *shared
+  - .gitignore
+  - Makefile
+  - public/**
+  - src/**
+  # index.test.ts checks src/assets/icons/ against the masters.
+  - src-icons/**
+  - sidecar/graph/schema.graphqls
+  - .oxfmtrc.json
+  - .oxlintrc*.json
+  - lint/**
+  - index.html
+  # The root's TypeScript files, which pnpm lint formats and lints.
+  - '*.ts'
+  - package.json
+  - pnpm-lock.yaml
+  - pnpm-workspace.yaml
+  - tsconfig*.json
+# ci.yml's alone.
+shell:
+  - .github/workflows/ci.yml
+  - Makefile
+  - '**/*.sh'
+# The manifest and every file an entry in it can name.
+design:
+  - .github/workflows/ci.yml
+  - Makefile
+  - design/**
+  - src/components/**
+  - src/layouts/**
+  - src/routes/**
+  - tools/designsync/**
+  - tools/go.mod
+  - tools/go.sum
+yaml:
+  - .github/**
+  - .gitignore
+  - .yamllint.yml
+  - .yamllintignore
+  - Makefile
+  - scripts/shellcheck-path.sh
+  - tools/go.mod
+  - '**/*.yml'
+  - '**/*.yaml'
+# Each product's release stream: the paths tools/releasenotes reads a release's
+# commits from. paths-filter computes them too, and no job acts on them.
+release-desktop:
+  - proto/**
+  - public/**
+  - sidecar/**
+  - src/**
+  - src-icons/**
+  - src-tauri/**

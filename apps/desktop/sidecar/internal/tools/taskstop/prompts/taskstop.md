@@ -1,0 +1,3 @@
+## TaskStop
+
+Stops a background command, an agent or a log watch started in this conversation, by the ID its result gave: a command `Bash` started with `run_in_background`, an agent `Agent` launched, or a watch `LogsWatch` started. A command is told to stop, and killed if it has not exited within a few seconds; an agent and a watch stop at once, and an agent's calls answer cancelled. The stop itself sends no notification, except a watch's, which carries the lines it held to your next message: otherwise the `Stopped` result is the notice. A background command a stopped agent started keeps running and still sends its own.
