@@ -412,7 +412,7 @@ jobs:
           sudo install -D -m 0644 src-tauri/linux/kubetail-desktop-bwrap /usr/lib/kubetail-desktop/apparmor/kubetail-desktop-bwrap
           sudo install -D -m 0644 src-tauri/linux/kubetail-desktop-pasta /usr/lib/kubetail-desktop/apparmor/kubetail-desktop-pasta
           sudo sh src-tauri/linux/postinst.sh configure
-          sudo aa-status | grep -E 'kubetail_(bwrap|pasta)'
+          sudo aa-status | grep -E 'kubetail_desktop_(bwrap|pasta)'
       - name: Run the sandbox's chains
         working-directory: ./apps/desktop
         run: scripts/check-sandbox-chain.sh

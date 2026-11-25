@@ -26,9 +26,9 @@ describe('AppMark', () => {
     expect(mark).toHaveAttribute('aria-hidden', 'true');
     expect(mark).toHaveClass('size-12');
     const [light, dark] = mark.querySelectorAll('svg');
-    expect(light.querySelector('path')).toHaveAttribute('fill', '#9F5436');
+    expect(light.querySelector('rect')).toHaveAttribute('fill', '#456EDE');
     expect(light).toHaveClass('dark:hidden');
-    expect(dark.querySelector('path')).toHaveAttribute('fill', '#DEC1B7');
+    expect(dark.querySelector('rect')).toHaveAttribute('fill', '#BECCF3');
     expect(dark).toHaveClass('hidden', 'dark:block');
     [light, dark].forEach((svg) => {
       expect(svg).toHaveAttribute('width', '48');
