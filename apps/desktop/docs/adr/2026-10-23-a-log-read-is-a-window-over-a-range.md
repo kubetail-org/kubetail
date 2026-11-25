@@ -16,7 +16,7 @@ follow under the viewer sent checkpoints, and `LogsWatch` cut lines on its own.
 
 A design written on 2026-10-21 proposed one API for both: a range of time, padded with context
 lines, paged with cursors, with line ids, problem-details errors and a cursor that expires. It
-was built in five steps (#382 to #386, the `log-fetch-api` spec sequence). This records where
+was built in five steps ([#382](https://github.com/kstackhq/kstack/issues/382) to [#386](https://github.com/kstackhq/kstack/issues/386), the `log-fetch-api` spec sequence). This records where
 the built API follows that design and where it departs.
 
 ## Decision

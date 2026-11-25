@@ -3,7 +3,7 @@
 **Subject:** a sandboxed run on a cluster reaches AWS as the profile the cluster's kube-context
 names in its `exec` block, not the sidecar's default chain.
 [ADR](../adr/2026-11-18-a-runs-aws-identity-follows-its-chats-cluster.md). The living model is
-[security-model.md](../security-model.md). Issue #971.
+[security-model.md](../security-model.md). Issue [#971](https://github.com/kstackhq/kstack/issues/971).
 
 ## What it widens
 

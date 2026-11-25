@@ -14,7 +14,7 @@ edited in place (→ ADR: schema edit, not migration),
 and the [version-stamp ADR](2026-10-29-each-persisted-format-carries-its-own-version-stamp.md)
 left three things to "the first release": freezing those files, a fixture per durable store, and
 a backup before the first migration past `0001`. The first is this ADR; the fixture is answered
-below, and the backup is #823. From now on an edited `0001_init.sql` leaves
+below, and the backup is [#823](https://github.com/kstackhq/kstack/issues/823). From now on an edited `0001_init.sql` leaves
 every installed `app.db`, `kube/*.db` and `logs/*.db` on a schema the binary does not match, and
 nothing reports it: `sqlitemigrate` sees version 1 recorded and version 1 embedded, and skips.
 
@@ -82,8 +82,8 @@ comment on `shippedMigrations` and review are what hold the line.
 A path under `<data>` or `<cache>` cannot be renamed or moved, and a JSON rewrite SQL cannot
 express cannot ship, until the app-level mechanism lands.
 
-The backup before a migration is #823, and `host.json`'s accepted gap is #824. `app.db` migrates
-in place until #823 lands, so its first migration past `0001` waits for it.
+The backup before a migration is [#823](https://github.com/kstackhq/kstack/issues/823), and `host.json`'s accepted gap is [#824](https://github.com/kstackhq/kstack/issues/824). `app.db` migrates
+in place until [#823](https://github.com/kstackhq/kstack/issues/823) lands, so its first migration past `0001` waits for it.
 
 `appdb`'s `0001_init.sql` changed its header comment in the PR that froze it, so the checksum is
 of that file, not of `v0.0.1`'s byte for byte. Its SQL is `v0.0.1`'s.

@@ -21,7 +21,7 @@ container's clock can run behind another's.
 
 Reading back also exposed a gap in the sidecar. A workload resolves only the pods its mirror
 walk reaches now, so a pod replaced since the view landed was skipped although the cache still
-held its lines (#392). A pod's file rows carried no owner to find it by.
+held its lines ([#392](https://github.com/kstackhq/kstack/issues/392)). A pod's file rows carried no owner to find it by.
 
 ## Decision
 
@@ -62,7 +62,7 @@ containers it holds no line of, and the sidecar would read their gone pods. The 
 depend on one window's memory, the cursor would grow with every pod the view showed, and a pod
 replaced before the landing would stay unread.
 
-**Read a gone pod a cursor's entry names.** This was #392's first fix. An entry checked against
+**Read a gone pod a cursor's entry names.** This was [#392](https://github.com/kstackhq/kstack/issues/392)'s first fix. An entry checked against
 the scope by namespace alone read another workload's gone pod in that namespace, and checked by
 ownership it reads nothing the chain does not already find. Entries now position streams and
 add none.

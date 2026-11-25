@@ -56,7 +56,7 @@ func TestAFailedOpenIsNotCounted(t *testing.T) {
 }
 
 // A connection in use when the pool closes, as one a cancelled transaction's rollback
-// still holds on database/sql's goroutine, has closed by the time Close returns (#648).
+// still holds on database/sql's goroutine, has closed by the time Close returns (kstackhq/kstack#648).
 func TestCloseWaitsForAConnectionInUse(t *testing.T) {
 	db := newPool(newConnector(&sqlite.Driver{}, "file:"+filepath.Join(t.TempDir(), "test.db")))
 	conn, err := db.Conn(context.Background())

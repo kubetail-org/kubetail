@@ -10,7 +10,7 @@ status: Accepted
 ## Context
 
 `.github/dependabot.yml` watched only GitHub Actions. We learned about vulnerable Go, Rust and npm
-dependencies when an audit job in CI failed, and fixed them by hand (#398). Dependabot alerts were
+dependencies when an audit job in CI failed, and fixed them by hand ([#398](https://github.com/kstackhq/kstack/issues/398)). Dependabot alerts were
 on; security updates were off.
 
 Three constraints shape what Dependabot can do here:
@@ -19,7 +19,7 @@ Three constraints shape what Dependabot can do here:
   and audit jobs are not required checks.
 - Tauri's `tauri` crate and its `@tauri-apps/api` / `@tauri-apps/cli` packages must share a
   major.minor, and a Dependabot group cannot span two ecosystems.
-- GitHub's dependency graph does not read `pnpm-lock.yaml` (#116), so Dependabot alerts, and the
+- GitHub's dependency graph does not read `pnpm-lock.yaml` ([#116](https://github.com/kstackhq/kstack/issues/116)), so Dependabot alerts, and the
   security updates they drive, do not cover our npm dependencies. Version updates do: Dependabot
   reads the lockfile itself.
 
@@ -64,7 +64,7 @@ takes the version and checksums that action's release names.
 - Someone has to remember the hand-bumped pins; `docs/security-model.md` lists them.
 - `ignore` suppresses security updates for the ignored Tauri versions too, so a Tauri advisory
   reaches us through CI's audit jobs.
-- npm has no Dependabot alerts or security updates until #116 lands; `pnpm audit` in CI covers it.
+- npm has no Dependabot alerts or security updates until [#116](https://github.com/kstackhq/kstack/issues/116) lands; `pnpm audit` in CI covers it.
 
 ## Revisit when
 

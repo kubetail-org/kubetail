@@ -15,7 +15,7 @@ signs it, notarizes it with the App Store Connect key and staples the ticket. To
 holds `APPLE_CERTIFICATE`, its password and `APPLE_API_KEY_CONTENT`. Any dependency's install or
 build script runs on the same runner and can read them.
 
-Windows had the same exposure with the SignPath token. #481 moved that signing into
+Windows had the same exposure with the SignPath token. [#481](https://github.com/kstackhq/kstack/issues/481) moved that signing into
 `sign-bundle-windows`, a job that checks out nothing and installs nothing. SignPath takes the
 unsigned MSI as it is, so the split cost one job.
 

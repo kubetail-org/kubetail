@@ -13,7 +13,7 @@ amended_by:
 
 `ci.yml` ran Go · Build and Test, Rust · Build and Test and Rust · Vet on nine runners: Linux,
 macOS 15, 26 and 27 and Windows, on amd64 and arm64. A PR touching Go and Rust started 27
-matrix jobs, 15 of them on macOS. #831 asked which of them catch anything the others miss.
+matrix jobs, 15 of them on macOS. [#831](https://github.com/kstackhq/kstack/issues/831) asked which of them catch anything the others miss.
 
 What the audit found, from the 400 `ci.yml` runs between 2026-10-31 and 2026-11-10 (62 failed):
 
@@ -28,12 +28,12 @@ What the audit found, from the 400 `ci.yml` runs between 2026-10-31 and 2026-11-
   server", a DNS failure fetching an action, a timeout reaching `proxy.golang.org`. Most were on
   `macos-26-intel`. The other nine were test failures on one leg, their logs since expired.
   Five passed on the branch's next run, two were their branch's last run, and two in a row on
-  `macos-26` arm64 stopped after #650, which fixed a race deleting an SQLite pool's file first
-  reported on Windows (#648). The Windows bugs on the branches for #813 and #823 failed both
-  Windows legs together, and a broken change on #655's branch failed every leg.
+  `macos-26` arm64 stopped after [#650](https://github.com/kstackhq/kstack/issues/650), which fixed a race deleting an SQLite pool's file first
+  reported on Windows ([#648](https://github.com/kstackhq/kstack/issues/648)). The Windows bugs on the branches for [#813](https://github.com/kstackhq/kstack/issues/813) and [#823](https://github.com/kstackhq/kstack/issues/823) failed both
+  Windows legs together, and a broken change on [#655](https://github.com/kstackhq/kstack/issues/655)'s branch failed every leg.
 - **Earlier version-specific failures were the runner's environment**, not Kubetail's code:
-  osascript timing out on macOS 15 Intel (#122), the race pass outrunning `go test`'s timeout
-  there (#139), a macOS 26 Intel runner with no address (#199).
+  osascript timing out on macOS 15 Intel ([#122](https://github.com/kstackhq/kstack/issues/122)), the race pass outrunning `go test`'s timeout
+  there ([#139](https://github.com/kstackhq/kstack/issues/139)), a macOS 26 Intel runner with no address ([#199](https://github.com/kstackhq/kstack/issues/199)).
 - **`main` must keep every leg.** `stress.yml` restores `go-test-<runner>` for each of the nine
   runners, and `audit.yml` restores `rust-vet-ubuntu-24.04`; a push to `main` saves them.
 

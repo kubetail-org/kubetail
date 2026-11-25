@@ -4,7 +4,7 @@
 engine (`services/connectors/internal/oauthconn`), as the connector `services/connectors/kubetailcloud`.
 Written before the code, as the design is
 [the Kubetail sign-in is a connector on the OAuth engine](../adr/2026-11-19-the-kubetail-sign-in-is-a-connector-on-the-oauth-engine.md);
-the plan was the Kubetail Cloud connector spec (#1057). The living model is
+the plan was the Kubetail Cloud connector spec ([#1057](https://github.com/kstackhq/kstack/issues/1057)). The living model is
 [security-model.md](../security-model.md).
 
 ## What changes

@@ -21,7 +21,7 @@ carries. It assumed a client the provider registers at the first sign-in, a prov
 is a model provider, and one API base to sign. The Kubetail sign-in has a fixed client id, is no
 model provider, and nothing reads its token yet. An installed Kubetail (`desktop/v0.0.1`) keeps the
 whole token as JSON under the keyring account `auth-token`. The design was the Kubetail Cloud
-connector spec (#1057), answering #1046.
+connector spec ([#1057](https://github.com/kstackhq/kstack/issues/1057)), answering [#1046](https://github.com/kstackhq/kstack/issues/1046).
 
 ## Decision
 

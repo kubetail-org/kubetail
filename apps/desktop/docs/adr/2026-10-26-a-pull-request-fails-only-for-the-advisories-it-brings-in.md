@@ -13,7 +13,7 @@ status: Accepted
 `pnpm audit --audit-level moderate` over the whole dependency tree on every pull request. An
 advisory published against a dependency already on `main` turned every open pull request red,
 including ones that touched no dependency. The contributor could not fix it in their pull request
-(#116).
+([#116](https://github.com/kstackhq/kstack/issues/116)).
 
 Most pull requests come from forks. A fork's `GITHUB_TOKEN` is read-only, so a fork's run cannot
 write to the repository's dependency graph.

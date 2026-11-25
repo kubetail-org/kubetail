@@ -10,8 +10,8 @@ status: Accepted
 ## Context
 
 `vite.config.ts` runs the React compiler (`reactCompilerPreset` through `@rolldown/plugin-babel`)
-in every build, vitest included. The coverage sweep (#551) found two ways it bends what v8
-measures (#554):
+in every build, vitest included. The coverage sweep ([#551](https://github.com/kstackhq/kstack/issues/551)) found two ways it bends what v8
+measures ([#554](https://github.com/kstackhq/kstack/issues/554)):
 
 - **It strips comments inside a component or hook body**, JSX comments included. A
   `/* v8 ignore next -- <reason> */` there has no effect, and `make lint-markers` cannot tell it

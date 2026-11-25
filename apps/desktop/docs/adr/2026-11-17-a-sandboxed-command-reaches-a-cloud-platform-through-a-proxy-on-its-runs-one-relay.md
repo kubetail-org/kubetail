@@ -13,7 +13,7 @@ amended_by: [Every cloud platform is on until the user turns it off](2026-11-18-
 A sandboxed run reaches one thing outside itself: its chat's cluster, through one relay from a
 loopback port to a Unix socket, where a grant holds the run's token. An agent also needs the user's
 cloud accounts and code host (AWS, GitHub, Google Cloud, Azure), which the sandbox denies: the
-logins are on disk, the sandbox reads none, and no credential variable passes. Issue #935 listed
+logins are on disk, the sandbox reads none, and no credential variable passes. Issue [#935](https://github.com/kstackhq/kstack/issues/935) listed
 what the four cloud platforms' proxies share and where they disagreed.
 
 ## Decision

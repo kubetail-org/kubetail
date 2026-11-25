@@ -15,7 +15,7 @@ amended_by:
 [The coverage gate runs in CI](2026-10-30-the-coverage-gate-runs-in-ci-on-codecovs-merged-result.md)
 compares a pull request with its base's Codecov report. Only CI's push runs upload a base's
 report, and CI ran on push for `main` alone. A `wip/<topic>` branch moves forward through merge
-commits no run uploaded for, so Codecov could never compare a PR into it (#699). `/compare/`
+commits no run uploaded for, so Codecov could never compare a PR into it ([#699](https://github.com/kstackhq/kstack/issues/699)). `/compare/`
 answered 404, and the gate retried it as a Codecov delay for 15 minutes before saying so.
 
 ## Decision

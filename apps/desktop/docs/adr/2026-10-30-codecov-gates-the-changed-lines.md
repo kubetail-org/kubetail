@@ -15,12 +15,12 @@ unioned three OS profiles and gated the union against two threshold files; `make
 vitest against a third. Each threshold was a ratchet a person raised by hand. Each sat at the top
 of the run-to-run spread, so a pull request that changed nothing coverage depends on could fail.
 
-The fix under way on `wip/coverage-gates` (#494, #495, #497) measured that spread and was writing
+The fix under way on `wip/coverage-gates` ([#494](https://github.com/kstackhq/kstack/issues/494), [#495](https://github.com/kstackhq/kstack/issues/495), [#497](https://github.com/kstackhq/kstack/issues/497)) measured that spread and was writing
 `tools/coverchanged`, about 1,400 lines that intersect the diff with the profiles, with ignore
-markers and threshold guards still to come. #97 had kept a hosted service out of scope, to avoid a
+markers and threshold guards still to come. [#97](https://github.com/kstackhq/kstack/issues/97) had kept a hosted service out of scope, to avoid a
 third party that sees our code.
 
-Twenty uncached runs on CI (#495) measured the spread: the Go union moved between 97.271% and
+Twenty uncached runs on CI ([#495](https://github.com/kstackhq/kstack/issues/495)) measured the spread: the Go union moved between 97.271% and
 97.329% of 22,576 statements (13 statements, 0.058 points); TypeScript did not move.
 
 ## Decision
@@ -60,7 +60,7 @@ public repository.
 - **Make `codecov/project` informational.** It is the only check that catches a deleted test. If it
   proves noisy, `informational: true` turns it into a report without removing it.
 
-#97's objection to a third party does not hold for what leaves: the reports carry file paths and
+[#97](https://github.com/kstackhq/kstack/issues/97)'s objection to a third party does not hold for what leaves: the reports carry file paths and
 line hit counts, never source, and the repository is public.
 
 ## Consequences

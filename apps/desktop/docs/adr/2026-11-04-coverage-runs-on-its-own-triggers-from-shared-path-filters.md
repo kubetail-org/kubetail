@@ -17,7 +17,7 @@ covered".
 
 Being called had a cost. `coverage.yml` started two ways, as a call with inputs or on a push to
 `wip/**` with none, so every job carried `inputs.<lang> || github.event_name == 'push'`, the cache
-mode came in as an input, and `ci.yml`'s `env` had to be copied by hand (#706).
+mode came in as an input, and `ci.yml`'s `env` had to be copied by hand ([#706](https://github.com/kstackhq/kstack/issues/706)).
 
 ## Decision
 

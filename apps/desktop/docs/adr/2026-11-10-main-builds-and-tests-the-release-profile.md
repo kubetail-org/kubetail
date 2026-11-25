@@ -10,7 +10,7 @@ status: Accepted
 ## Context
 
 [CI checks every platform split the code has](2026-11-10-ci-tests-every-platform-split-the-code-has.md)
-found two splits CI never built, and filed #844 for them.
+found two splits CI never built, and filed [#844](https://github.com/kstackhq/kstack/issues/844) for them.
 
 - **The release profile.** `cfg!(debug_assertions)` changes `is_app_origin` (the navigation
   allowlist admits the dev server only in debug), the `Kubetail`/`Kubetail-dev` data and runtime
@@ -46,7 +46,7 @@ glibc and `webkit2gtk`, and runs its tests there.
   for one step rebuilds every dependency.
 - **Run `pnpm tauri build` on 22.04**, bundling the `.deb` and `.rpm`. It needs the sidecar, the
   frontend, bwrap and pasta built first, which is the release workflow's whole Linux path. The
-  failure #844 names is the host linking a newer system library, which `cargo build` on 22.04
+  failure [#844](https://github.com/kstackhq/kstack/issues/844) names is the host linking a newer system library, which `cargo build` on 22.04
   already catches; the bundle steps change with Tauri and the release workflow, not with a PR.
 - **Add `ubuntu-22.04` to `runners.json`.** Every Go and dev-profile Rust test would run there too,
   doubling the Linux legs for a floor only the shipped host binary has.

@@ -12,7 +12,7 @@ status: Accepted
 A provider had one dialect and one base URL (`llm.Provider.Dialect`, `Provider.BaseURL`), so every
 model in its catalog went on the same wire.
 
-OpenCode Go (#850) is a gateway that serves each model on its native API under one key: Chat
+OpenCode Go ([#850](https://github.com/kstackhq/kstack/issues/850)) is a gateway that serves each model on its native API under one key: Chat
 Completions at `https://opencode.ai/inference/go/openai/v1`, Responses at the same URL for
 `grok-4.7`, `gpt-5.6-luna` and `gpt-6-luna`, and Messages at
 `https://opencode.ai/inference/go/anthropic` for `claude-haiku-5-5`, `minimax-m3`, `qwen3.8-max`,

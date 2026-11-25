@@ -15,7 +15,7 @@ exports it, else the `default` profile. An EKS kubeconfig usually names its prof
 context's `exec` block instead (`env: AWS_PROFILE=…`, or `--profile …`). A user with no
 `AWS_PROFILE` and no `[default]` profile saw `kubectl` read the cluster while every AWS call was
 refused, and the model's `aws --profile <name>` failed in the run, whose config file defined
-`[default]` alone. Issue #971.
+`[default]` alone. Issue [#971](https://github.com/kstackhq/kstack/issues/971).
 
 This ADR replaces the parent's "the SDK's default chain" in its first decision; the rest stands.
 

@@ -14,7 +14,7 @@ status: Accepted
 agent pasted `design/scripts/read-stamps.js` (about 6 KB) into the Figma MCP's `use_figma`, then
 copied the result (about 14 KB) into a file by hand. Every run cost that many tokens twice. The
 model retyped the result character by character, so the file carried a checksum to catch typos.
-And since the design side needed an agent, nothing could run the check unattended (#899).
+And since the design side needed an agent, nothing could run the check unattended ([#899](https://github.com/kstackhq/kstack/issues/899)).
 
 Figma's REST API reads the same file with a personal access token. `GET /v1/files/:key/nodes`
 returns a page's whole layer tree. With `geometry=paths` it adds each layer's `size`,

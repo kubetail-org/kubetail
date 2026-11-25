@@ -10,7 +10,7 @@ status: Accepted
 ## Context
 
 A sandboxed command's environment is one built table, so a user had no way to give their commands
-a variable such as `HELM_NAMESPACE` or `KUBECTL_EXTERNAL_DIFF` (#1080). The first design added
+a variable such as `HELM_NAMESPACE` or `KUBECTL_EXTERNAL_DIFF` ([#1080](https://github.com/kstackhq/kstack/issues/1080)). The first design added
 variables for sandboxed commands alone, under Settings › Sandbox.
 
 That tied the variables to the sandbox, and three things did not fit. A chat the user switches

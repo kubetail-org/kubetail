@@ -10,9 +10,9 @@ status: Accepted
 ## Context
 
 [The coverage gate runs in CI](2026-10-30-the-coverage-gate-runs-in-ci-on-codecovs-merged-result.md)
-read each changed line's coverage from Codecov's `/compare/` endpoint. On #735 every upload was
+read each changed line's coverage from Codecov's `/compare/` endpoint. On [#735](https://github.com/kstackhq/kstack/issues/735) every upload was
 processed and both commits had reports, yet every `/compare/?pullid=735` answered 403 with
-`{"detail": "Github API rate limit error: Forbidden"}` (#737). `/compare/` is the one endpoint the
+`{"detail": "Github API rate limit error: Forbidden"}` ([#737](https://github.com/kstackhq/kstack/issues/737)). `/compare/` is the one endpoint the
 gate called that needs GitHub: Codecov fetches the diff with a token of its own, shared by every
 anonymous API caller, so the limit was not kubetail's. Authenticating takes a Codecov token, which a
 fork's PR cannot read. The gate retried the 403 for 15 minutes, printing nothing, and then blamed a

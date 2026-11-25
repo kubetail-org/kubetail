@@ -91,7 +91,7 @@ enforced.
 **oxfmt sorts imports** (`sortImports` in `.oxfmtrc.json`): packages, then `@/`, then relative
 paths, a blank line between groups.
 
-Of airbnb's candidates in #733:
+Of airbnb's candidates in [#733](https://github.com/kstackhq/kstack/issues/733):
 
 | Rule | Kept | Why |
 | --- | --- | --- |

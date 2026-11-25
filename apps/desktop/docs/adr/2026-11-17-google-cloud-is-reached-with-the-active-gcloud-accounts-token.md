@@ -12,7 +12,7 @@ status: Accepted
 [Step 1](2026-11-17-a-sandboxed-command-reaches-a-cloud-platform-through-a-proxy-on-its-runs-one-relay.md)
 built the run's door, the grant and the gate, and decided that a cloud platform's credential is lent
 through a proxy in the sidecar, never handed to the sandbox, as
-[#25](https://github.com/kstackhq/kstack/pull/25) decided for the cluster. Issue #933 asks for
+[#25](https://github.com/kstackhq/kstack/pull/25) decided for the cluster. Issue [#933](https://github.com/kstackhq/kstack/issues/933) asks for
 `gcloud` in the sandbox, as the user, on Compute Engine, GKE, IAM, Cloud Logging and Cloud
 Storage.
 

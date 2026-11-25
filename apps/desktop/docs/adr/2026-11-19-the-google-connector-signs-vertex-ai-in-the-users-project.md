@@ -72,5 +72,5 @@ token.
 
 ## Revisit when
 
-The provider setup form (#1000) can hold a project per connector, or the sandbox needs the user's
+The provider setup form ([#1000](https://github.com/kstackhq/kstack/issues/1000)) can hold a project per connector, or the sandbox needs the user's
 Google Cloud credentials.

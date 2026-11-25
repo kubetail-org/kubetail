@@ -1,6 +1,6 @@
 package grpcserver_test
 
-//lint:file-ignore SA1019 the test serves gRPC over h2c, as internal/app does until #448.
+//lint:file-ignore SA1019 the test serves gRPC over h2c, as internal/app does until kstackhq/kstack#448.
 
 import (
 	"context"

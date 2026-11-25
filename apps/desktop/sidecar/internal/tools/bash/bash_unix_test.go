@@ -129,7 +129,7 @@ func TestNewReadsTheBashVersion(t *testing.T) {
 // pid. The test opens it both ways before the command runs and reads the
 // greeting once the sleep is up. The sleep is gone when that pid has exited:
 // EOF on the FIFO is no witness, since on macOS a reader blocked on a FIFO can
-// miss its last writer's close and wait on it forever (#123). The pid is
+// miss its last writer's close and wait on it forever (kstackhq/kstack#123). The pid is
 // bash's view of it, so the command must run outside the sandbox: on Linux it
 // unshares the pid namespace.
 //

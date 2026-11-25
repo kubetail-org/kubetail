@@ -13,7 +13,7 @@ amended_by: [A run's AWS identity follows its chat's cluster](2026-11-18-a-runs-
 [The run's door](2026-11-17-a-sandboxed-command-reaches-a-cloud-platform-through-a-proxy-on-its-runs-one-relay.md)
 lets a cloud platform's proxy serve a sandboxed run, holding the credential outside it. AWS signs
 every request with the caller's secret (SigV4), so a proxy cannot add a credential to a request the way
-a bearer token is added: the signature covers the host, the date and the body. Issue #931 asked
+a bearer token is added: the signature covers the host, the date and the body. Issue [#931](https://github.com/kstackhq/kstack/issues/931) asked
 for `aws` and the SDKs to work in the sandbox.
 
 ## Decision

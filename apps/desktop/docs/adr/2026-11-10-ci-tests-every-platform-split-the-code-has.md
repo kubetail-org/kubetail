@@ -11,7 +11,7 @@ amended_by:
 
 ## Context
 
-`ci.yml` grew job by job. #834 audited it, with `coverage.yml`, `stress.yml` and the two release
+`ci.yml` grew job by job. [#834](https://github.com/kstackhq/kstack/issues/834) audited it, with `coverage.yml`, `stress.yml` and the two release
 workflows, against what the code targets, right after [a pull request runs one leg per
 OS](2026-11-10-a-pull-request-runs-one-leg-per-os.md) cut a PR to three test legs. This is the
 record of that audit, as of `3cc8b6bb`.
@@ -107,7 +107,7 @@ every split is by OS; the rest of it stands.
   `make cover-changed`.
 - **The `typescript` filter** adds `src-icons/**`, `.oxlintrc*.json` and every root `*.ts`.
 
-Filed: #844, building and testing the release profile in CI, and the Linux app on Ubuntu 22.04.
+Filed: [#844](https://github.com/kstackhq/kstack/issues/844), building and testing the release profile in CI, and the Linux app on Ubuntu 22.04.
 
 Accepted as they are:
 
@@ -153,4 +153,4 @@ Accepted as they are:
 
 - The Rust host or the CLI gains a `target_arch` or `GOARCH` split.
 - GitHub retires an Intel macOS image.
-- #844 lands: the release profile joins the table above.
+- [#844](https://github.com/kstackhq/kstack/issues/844) lands: the release profile joins the table above.

@@ -11,7 +11,7 @@ status: Accepted
 
 [Step 1](2026-11-17-a-sandboxed-command-reaches-a-cloud-platform-through-a-proxy-on-its-runs-one-relay.md)
 gave a sandboxed run a door that serves a proxy per cloud platform behind its one relay, and decided
-to lend a credential through a proxy rather than hand it in. Azure is #934. `az` sends its bearer
+to lend a credential through a proxy rather than hand it in. Azure is [#934](https://github.com/kstackhq/kstack/issues/934). `az` sends its bearer
 token only over `https` (azure-core's `_enforce_https`), so the door's plain HTTP is closed to it,
 and `az` reads its login from private files under `AZURE_CONFIG_DIR` (an MSAL token cache and
 `azureProfile.json`).

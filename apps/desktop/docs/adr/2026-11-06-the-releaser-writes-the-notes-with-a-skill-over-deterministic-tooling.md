@@ -12,7 +12,7 @@ amended_by:
 ## Context
 
 `release-cli.yml` and `release-desktop.yml` create a draft GitHub release with `--notes ""`, so
-every release's notes were written by hand (#777). GitHub's generated notes list every PR but read
+every release's notes were written by hand ([#777](https://github.com/kstackhq/kstack/issues/777)). GitHub's generated notes list every PR but read
 poorly: one line per PR, internal changes mixed in, no grouping by what a user sees.
 
 Two products release from one repository, each on its own tags (`cli/v*`, `desktop/v*`), each

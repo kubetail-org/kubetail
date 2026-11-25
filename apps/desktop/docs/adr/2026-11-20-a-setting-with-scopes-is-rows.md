@@ -10,7 +10,7 @@ amended_by: [Keep every setting as rows in app.db](2026-11-24-settings-are-rows-
 
 ## Context
 
-The user's variables for their commands (#1080) were first written as `sandbox.env`, a list in
+The user's variables for their commands ([#1080](https://github.com/kstackhq/kstack/issues/1080)) were first written as `sandbox.env`, a list in
 `settings.json`, beside the frozen `PATH` and the registered executables, as the settings
 ADR places every user setting. Nothing had
 shipped.
@@ -59,7 +59,7 @@ sweep could leave them for good.
 ## Consequences
 
 The user cannot edit their variables by hand. The write surface is two mutations, `envVarSet` and
-`envVarRemove`, from Settings; a backup of `app.db` (#823) is a backup of them.
+`envVarRemove`, from Settings; a backup of `app.db` ([#823](https://github.com/kstackhq/kstack/issues/823)) is a backup of them.
 
 A table change is an `app.db` migration, never a `schemaVersion` bump, and the register's row is
 `app.db`'s. A chat scope, when one is wanted, is a nullable `chat_id` beside `cluster_id`.

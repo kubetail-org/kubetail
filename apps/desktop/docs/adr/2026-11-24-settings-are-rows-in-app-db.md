@@ -29,7 +29,7 @@ row, so a later build cannot change it and a value never touched reads the same 
 chose. Most of the settings still to come are single values.
 
 `desktop/v0.0.1` is the one release, and Kubetail has no users who are owed its data. The
-maintainer decided to move the file's settings without an import (#1127).
+maintainer decided to move the file's settings without an import ([#1127](https://github.com/kstackhq/kstack/issues/1127)).
 
 ## Decision
 

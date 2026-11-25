@@ -91,7 +91,7 @@ A change to a persisted format updates its row in the register in the same commi
 
 A refusal today fails the sidecar's start with a migrate error and no path to the user. Carrying
 the message to the start screen, and pinning each store's refusal with a test, is the open work on
-#512.
+[#512](https://github.com/kstackhq/kstack/issues/512).
 
 ## Revisit when
 

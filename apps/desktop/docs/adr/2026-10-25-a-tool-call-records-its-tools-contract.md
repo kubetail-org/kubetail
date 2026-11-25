@@ -19,7 +19,7 @@ on every read, and `shown_action`, a `tools.Action`. A `LogsWatch` call's task k
 new tool name ([a tool call shows itself from its
 arguments](2026-09-23-a-tool-call-shows-itself-from-its-arguments.md)), which also changed what
 the model is offered. A stored shown action or watch result that did not decode failed the whole
-chat's read, and a renamed field decoded silently as its zero value. Issue #356 asked whether a
+chat's read, and a renamed field decoded silently as its zero value. Issue [#356](https://github.com/kstackhq/kstack/issues/356) asked whether a
 version would help.
 
 ## Decision

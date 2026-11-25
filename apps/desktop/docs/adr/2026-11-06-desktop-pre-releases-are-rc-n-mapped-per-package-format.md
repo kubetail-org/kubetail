@@ -10,7 +10,7 @@ status: Accepted
 ## Context
 
 `release-desktop.yml` accepted any SemVer pre-release and passed it to `tauri build` unchanged.
-`desktop/v0.0.1-rc.1` passed the check and failed ten minutes later in two bundlers (#783):
+`desktop/v0.0.1-rc.1` passed the check and failed ten minutes later in two bundlers ([#783](https://github.com/kstackhq/kstack/issues/783)):
 
 - **RPM** forbids `-` in a version.
 - **MSI** versions are `major.minor.build.revision`, all numeric, with major and minor at most 255

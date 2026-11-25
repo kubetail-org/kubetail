@@ -10,7 +10,7 @@ amended_by: [Keep every setting as rows in app.db](2026-11-24-settings-are-rows-
 
 ## Context
 
-Settings › Tools lets the user turn each of the model's tools off (#1082). The setting is global
+Settings › Tools lets the user turn each of the model's tools off ([#1082](https://github.com/kstackhq/kstack/issues/1082)). The setting is global
 today. The settings ADR puts global
 settings in `settings.json`, and the cloud platform switches, also global on/off restrictions,
 live there (`sandbox.aws` and the rest,

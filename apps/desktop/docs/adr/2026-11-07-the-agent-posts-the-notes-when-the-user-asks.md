@@ -16,7 +16,7 @@ it replaces "only `publish` writes to GitHub".
 
 `publish` reads its yes from the terminal, and an agent's shell has none. So when the releaser
 had read the rendered notes and asked the agent to post them, the agent had to refuse and hand
-back a command (#790). For `desktop/v0.0.1-rc.1` the releaser had to grant `gh` by hand.
+back a command ([#790](https://github.com/kstackhq/kstack/issues/790)). For `desktop/v0.0.1-rc.1` the releaser had to grant `gh` by hand.
 
 The terminal prompt exists so a person confirms the notes after reading them, and so text in a
 pull request cannot steer the agent into writing to GitHub. A request the user types in a later

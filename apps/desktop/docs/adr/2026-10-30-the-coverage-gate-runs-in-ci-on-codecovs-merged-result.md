@@ -13,9 +13,9 @@ amended_by:
 ## Context
 
 [Codecov gates the changed lines](2026-10-30-codecov-gates-the-changed-lines.md) made Codecov's
-`codecov/patch` and `codecov/project` statuses the gate. Neither behaved (#571):
+`codecov/patch` and `codecov/project` statuses the gate. Neither behaved ([#571](https://github.com/kstackhq/kstack/issues/571)):
 
-- **`codecov/project` never posted** (#569), so nothing caught a deleted or weakened test.
+- **`codecov/project` never posted** ([#569](https://github.com/kstackhq/kstack/issues/569)), so nothing caught a deleted or weakened test.
 - **`codecov/patch` posted before CI finished.** Codecov judges whether CI passed from the commit's
   statuses, but GitHub Actions reports check runs, not statuses. Our commits carry none, Codecov
   reads the empty set as success, and `require_ci_to_pass` holds nothing back. Each upload revised

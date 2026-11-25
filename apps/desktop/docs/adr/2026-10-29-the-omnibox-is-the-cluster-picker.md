@@ -15,7 +15,7 @@ showed no health, and its dot was a green placeholder. The Clusters dialog, open
 button, showed each cluster's health and held its actions, but it could not switch. A user had
 to look in one place to see whether a cluster was healthy and act in another to move to it.
 
-Issue #505 asked how the two should relate. Questions 1, 4, 5, 6 and 7 and the switching half of
+Issue [#505](https://github.com/kstackhq/kstack/issues/505) asked how the two should relate. Questions 1, 4, 5, 6 and 7 and the switching half of
 question 2 were answered. Question 2's content and grouping, and question 3, were left open.
 
 ## Decision
@@ -39,7 +39,7 @@ is no kubeconfig, so the dialog's orphaned caches stay reachable.
   badge.
 - **Switch from the dialog.** A modal table is too heavy a step for the most frequent cluster
   action, and the dialog's rows also list orphaned caches, which have no context to switch to.
-- **Move the dialog's actions and detail into the picker now.** That is #505's open questions 2
+- **Move the dialog's actions and detail into the picker now.** That is [#505](https://github.com/kstackhq/kstack/issues/505)'s open questions 2
   and 3, and answering them first would have held back switching with health.
 - **Make the omnibox a text field, like a browser's.** Kubeconfig contexts are a short, known
   list rather than an open address space. A filter inside the picker gives the same narrowing
@@ -57,5 +57,5 @@ at once, which is intended. Anything that draws a cluster's health elsewhere sho
 
 ## Revisit when
 
-#505's questions 2 and 3 are answered. If the dialog's actions or detail move into the picker,
+[#505](https://github.com/kstackhq/kstack/issues/505)'s questions 2 and 3 are answered. If the dialog's actions or detail move into the picker,
 the dialog may go, and this ADR is superseded.

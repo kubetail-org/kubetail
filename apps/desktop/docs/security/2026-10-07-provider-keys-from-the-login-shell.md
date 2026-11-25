@@ -41,7 +41,7 @@ credential plugins inherit it.
   on the denied-always list. Its stdout is a pipe to the sidecar alone.
 - **A key read after startup is not in the sidecar's exec-time environment**, so a process that
   reads another's launch arguments and environment (`KERN_PROCARGS2` on macOS before 27) does not
-  see it, where a key from the launch environment is still there (#28).
+  see it, where a key from the launch environment is still there ([#28](https://github.com/kstackhq/kstack/issues/28)).
 
 ## What stays
 

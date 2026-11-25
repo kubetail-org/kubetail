@@ -17,7 +17,7 @@ user's word on a cluster, no rule could name a cloud account, and an answer coul
 the request. The rule's fields named a cluster's object, so a cloud action carried a class and a
 summary alone. A change to who may do what sat in the destructive class with a scale to zero.
 The monitor and the console were held back by two flags on the session, which every new reader
-had to copy. Issue #1196 asked for one engine that never branches on the target.
+had to copy. Issue [#1196](https://github.com/kstackhq/kstack/issues/1196) asked for one engine that never branches on the target.
 
 ## Decision
 
