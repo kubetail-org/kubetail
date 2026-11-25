@@ -288,7 +288,7 @@ Every row of the model that no test enforces, and every residual an enforced row
 - [SUPPLY-15](supply-chain.md#supply-15), By decision. Coverage reports leave for Codecov as file paths and line hit counts, never source or a secret.
 - [SUPPLY-16](supply-chain.md#supply-16), By decision. No Codecov token is stored.
 - [SUPPLY-17](supply-chain.md#supply-17), Held by review. The GPG signing key and the token that creates the release are used by `gpg` and `gh` in our own steps, never handed to a third-party action.
-- [SUPPLY-19](supply-chain.md#supply-19), Held by review. A release job restores no GitHub Actions cache, so nothing a `main` run of `ci.yml`, `coverage.yml` or `audit.yml` saves reaches a release build. Residual: zizmor's `cache-poisoning` audit does not see inside the composite action.
+- [SUPPLY-19](supply-chain.md#supply-19), Held by review. A release job restores no GitHub Actions cache, so nothing a `main` run of a `ci-*.yml`, a `coverage-*.yml` or `audit.yml` saves reaches a release build. Residual: zizmor's `cache-poisoning` audit does not see inside the composite action.
 - [SUPPLY-20](supply-chain.md#supply-20), Held by review. The SignPath token never shares a runner with installed dependencies.
 - [SUPPLY-21](supply-chain.md#supply-21), Held by review. The updater's signing key never shares a runner with installed dependencies. Residual: Who can use the key is who can run a job in the `production` environment.
 - [SUPPLY-22](supply-chain.md#supply-22), By decision. The Apple signing certificate and App Store Connect key sit in the job that runs `pnpm install` and `pnpm tauri build`. Residual: A dependency's install or build script can read them.

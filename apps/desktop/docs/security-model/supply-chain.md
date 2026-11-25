@@ -25,7 +25,7 @@ What our jobs run, what a build installs and what a release signs are each pinne
 | SUPPLY-15 | Coverage reports leave for Codecov as file paths and line hit counts, never source or a secret. | **By decision** | — |
 | SUPPLY-16 | No Codecov token is stored. | **By decision** | — |
 | SUPPLY-17 | The GPG signing key and the token that creates the release are used by `gpg` and `gh` in our own steps, never handed to a third-party action. | **Held by review** | — |
-| SUPPLY-19 | A release job restores no GitHub Actions cache, so nothing a `main` run of `ci.yml`, `coverage.yml` or `audit.yml` saves reaches a release build. | **Held by review** | zizmor's `cache-poisoning` audit does not see inside the composite action. |
+| SUPPLY-19 | A release job restores no GitHub Actions cache, so nothing a `main` run of a `ci-*.yml`, a `coverage-*.yml` or `audit.yml` saves reaches a release build. | **Held by review** | zizmor's `cache-poisoning` audit does not see inside the composite action. |
 | SUPPLY-20 | The SignPath token never shares a runner with installed dependencies. | **Held by review** | — |
 | SUPPLY-21 | The updater's signing key never shares a runner with installed dependencies. | **Held by review** | Who can use the key is who can run a job in the `production` environment. |
 | SUPPLY-22 | The Apple signing certificate and App Store Connect key sit in the job that runs `pnpm install` and `pnpm tauri build`. | **By decision** | A dependency's install or build script can read them. |
@@ -141,16 +141,16 @@ What our jobs run, what a build installs and what a release signs are each pinne
 
 ### SUPPLY-15
 
-- **Where:** `.github/workflows/coverage.yml`, `.github/codecov.yml`
+- **Where:** `.github/workflows/coverage-desktop.yml`, `.github/codecov.yml`
 - **Records:** [Gate PRs on changed lines with Codecov's merged result](../../../../docs/adr/2026-11-09-gate-prs-on-changed-lines-with-codecovs-merged-result.md), [review](../security/2026-10-30-coverage-reports-go-to-codecov.md)
 - Note: each upload names its report file with `disable_search`, so nothing else on the runner is sent.
 - Note: `codecov/codecov-action` is pinned by SHA (zizmor's `unpinned-uses`) and every checkout sets `persist-credentials: false`.
-- Note: Codecov posts no status or check (`.github/codecov.yml`). `coverage / Gate` reads its public API with `contents: read` alone.
+- Note: Codecov posts no status or check (`.github/codecov.yml`). `coverage / desktop / Gate` reads its public API with `contents: read` alone.
 - Note: Codecov's GitHub app changes no code. What it reads is public already.
 
 ### SUPPLY-16
 
-- **Where:** `.github/workflows/coverage.yml`, `.github/codecov.yml`
+- **Where:** `.github/workflows/coverage-desktop.yml`, `.github/codecov.yml`
 - **Records:** [Gate PRs on changed lines with Codecov's merged result](../../../../docs/adr/2026-11-09-gate-prs-on-changed-lines-with-codecovs-merged-result.md), [review](../security/2026-10-30-coverage-reports-go-to-codecov.md)
 - Note: an upload authenticates with a short-lived OIDC token from a job granted `id-token: write`, or tokenless from a fork.
 
@@ -158,6 +158,7 @@ What our jobs run, what a build installs and what a release signs are each pinne
 
 - **Where:** `.github/workflows/release-desktop.yml`
 - Note: the workflow's `release` job imports the key, signs `SHA256SUMS` and runs `gh release create` as plain steps.
+- Note: the key is unloaded before `actions/attest`, GitHub's own action, reads the job's token to store the build provenance.
 - Note: zizmor's `superfluous-actions` audit in `Lint · YAML` fails a third-party action that duplicates what the runner already does.
 
 ### SUPPLY-19

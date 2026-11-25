@@ -82,6 +82,8 @@ func TestReadTreeCitesTheReposSharedFolders(t *testing.T) {
 	repo := t.TempDir()
 	writeFile(t, repo, "tools/releasenotes/check_test.go", "package main\n\nfunc TestCheckFails(t *testing.T) {}\n")
 	writeFile(t, repo, "scripts/audit.sh", "#!/bin/sh\n")
+	writeFile(t, repo, ".github/workflows/audit.yml", "name: audit\n")
+	writeFile(t, repo, ".claude/skills/release-notes/SKILL.md", "# Release notes\n")
 	writeFile(t, repo, "cli/main.go", "package main\n")
 
 	code, err := readTree(root, repo)
@@ -95,13 +97,15 @@ func TestReadTreeCitesTheReposSharedFolders(t *testing.T) {
 		t.Error("hasTest misses a test file by its path from the repo's root")
 	}
 	for path, want := range map[string]bool{
-		"tools/releasenotes":         true,
-		"tools/releasenotes/gone.go": false,
-		"scripts/audit.sh":           true, // the repo's
-		"scripts/build.sh":           true, // the app's
-		"scripts/{audit,build}.sh":   true,
-		"cli/main.go":                false, // not a shared folder
-		"sidecar/app/subfolders.go":  true,
+		"tools/releasenotes":           true,
+		"tools/releasenotes/gone.go":   false,
+		"scripts/audit.sh":             true, // the repo's
+		"scripts/build.sh":             true, // the app's
+		"scripts/{audit,build}.sh":     true,
+		".github/workflows/audit.yml":  true,
+		".claude/skills/release-notes": true,
+		"cli/main.go":                  false, // not a shared folder
+		"sidecar/app/subfolders.go":    true,
 	} {
 		if got := code.hasPath(path); got != want {
 			t.Errorf("hasPath(%q) = %v, want %v", path, got, want)
