@@ -22,7 +22,7 @@ Prerequisite: step 2 on `wip/desktop`. [The sequence's README](README.md) holds 
    - `desktop` keys and `release-desktop` in `.github/ci-config/path-filters.yml`.
    - The desktop runners in `runners.json`.
    - A `desktop` component and flags in `.github/codecov.yml`, with the Codecov path fix for this repo.
-   - A `desktop` case in `scripts/cover-changed.sh` and `scripts/cover-changed.bats`.
+   - `.github/codecov.yml`'s `ignore` takes the desktop's paths that `scripts/cover-changed.sh`'s `ignored` lists (step 2).
 3. **Fork gates and secret names.** Rewrite what step 1 left. Each gate becomes `github.repository == 'kubetail-org/kubetail'`, as in this repo's workflows. Each secret and variable takes the name `release-cli.yml` already uses for the same credential:
 
    | Kstack | Here |

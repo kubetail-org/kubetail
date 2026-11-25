@@ -53,7 +53,7 @@ import (
 	"github.com/kubetail-org/kubetail/apps/desktop/sidecar/internal/tools/taskstop"
 )
 
-// update rewrites the golden files in testdata; `make generate-prompts` passes it.
+// update rewrites the golden files in testdata; `make generate-desktop-prompts` passes it.
 var update = flag.Bool("update", false, "rewrite the golden files in testdata")
 
 // openTestDB is an app.db of this test's own, with no janitor, holding the cluster

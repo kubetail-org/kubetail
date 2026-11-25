@@ -6,6 +6,7 @@ CLI_BINARY := kubetail
 DASHBOARD_UI_DIR := ./apps/web
 DASHBOARD_SERVER_DIR := ./dashboard
 CLUSTER_AGENT_DIR := ./cluster/agent
+DESKTOP_DIR := ./apps/desktop
 
 # Allow version override via CLI argument (default to "dev")
 VERSION ?= dev
@@ -22,6 +23,11 @@ LDFLAGS := -ldflags="-s -w -X 'github.com/kubetail-org/kubetail/cli/cmd.version=
 	lint-cluster-api vet-cluster-api test-cluster-api cover-cluster-api-changed \
 	lint-cluster-agent vet-cluster-agent test-cluster-agent cover-cluster-agent-changed \
 	lint-web vet-web test-web cover-web-changed \
+	generate-desktop build-desktop lint-desktop vet-desktop test-desktop cover-desktop-changed \
+	build-desktop-sidecar build-desktop-sidecar-dev build-desktop-bwrap build-desktop-pasta \
+	build-desktop-embedded-sources generate-desktop-prompts generate-desktop-icons \
+	test-desktop-livecache test-desktop-liveswitch status-desktop-design record-desktop-design \
+	clean-desktop-data clean-desktop-window \
 	lint-e2e test-e2e \
 	lint-repo lint-repo-sh lint-repo-md lint-repo-yaml lint-repo-toolchains lint-repo-digests lint-repo-claude-md test-repo
 
@@ -35,18 +41,21 @@ build-dashboard-ui: ## Build the dashboard UI and copy it to dashboard/website
 	cp -r $(DASHBOARD_UI_DIR)/dist $(DASHBOARD_SERVER_DIR)/website
 	touch $(DASHBOARD_SERVER_DIR)/website/.gitkeep
 
-# In the Linux sandbox dashboard-ui/dist is a mount point and Cargo's target dir
+# In the Linux sandbox each app's dist is a mount point and Cargo's target dir
 # lives outside the repo (scripts/sandbox-dev-setup.sh), so dist is emptied
 # rather than removed and cargo clean follows CARGO_TARGET_DIR.
 clean: ## Remove every build output and Go's test cache
 	rm -rf $(OUTPUT_DIR)
 	find $(DASHBOARD_SERVER_DIR)/website -mindepth 1 ! -name .gitkeep -delete
 	if [ -d $(DASHBOARD_UI_DIR)/dist ]; then find $(DASHBOARD_UI_DIR)/dist -mindepth 1 -delete; fi
+	if [ -d $(DESKTOP_DIR)/dist ]; then find $(DESKTOP_DIR)/dist -mindepth 1 -delete; fi
+	rm -rf $(DESKTOP_DIR)/src-tauri/binaries
 	if command -v cargo >/dev/null; then cd $(CLUSTER_AGENT_DIR) && cargo clean; fi
+	if command -v cargo >/dev/null; then cd $(DESKTOP_DIR)/src-tauri && cargo clean; fi
 	go clean -testcache
 
 # Each check is <verb>-<area>, over the areas CI checks and measures apart: cli
-# (with dashboard/), libs, cluster-api, cluster-agent, web, e2e and repo. No
+# (with dashboard/), libs, cluster-api, cluster-agent, web, desktop, e2e and repo. No
 # target runs every area: run the areas a change touches, and CI runs them all.
 
 # The Go areas share these recipes, each called with the area's modules.
@@ -150,6 +159,128 @@ test-web: ## Test apps/web/
 cover-web-changed: ## List the changed lines in apps/web/ no test covers
 	bash scripts/cover-changed.sh web
 
+# desktop
+
+# The sidecar is a module outside go.work, so its Go commands run in its
+# directory. Tauri's externalBin bundles src-tauri/binaries/kubetail-sidecar-
+# <rust-host-triple>, and tauri-build fails without it, so every cargo command
+# on the host builds the sidecar first.
+
+build-desktop: build-desktop-sidecar ## Build the desktop app's sidecar, webview and host for this platform, unbundled
+	cd $(DESKTOP_DIR) && pnpm install && pnpm build
+	cd $(DESKTOP_DIR)/src-tauri && cargo build
+
+build-desktop-sidecar: ## Build the desktop app's sidecar into src-tauri/binaries/, untagged, as every release does
+	cd $(DESKTOP_DIR) && go run scripts/build-sidecar.go
+
+# `tauri dev` runs the same build.
+build-desktop-sidecar-dev: ## Build the desktop app's sidecar under -tags debug, which lets KUBETAIL_OAUTH_ISSUER and friends redirect it
+	cd $(DESKTOP_DIR) && go run scripts/build-sidecar.go -tags debug
+
+build-desktop-bwrap: ## Build the pinned bwrap the desktop's Linux packages carry into src-tauri/linux/ (Linux only)
+	cd $(DESKTOP_DIR) && bash scripts/build-bwrap.sh
+
+build-desktop-pasta: ## Build the pinned pasta the desktop's Linux packages carry into src-tauri/linux/ (Linux only)
+	cd $(DESKTOP_DIR) && bash scripts/build-pasta.sh
+
+build-desktop-embedded-sources: ## Bundle bwrap's and pasta's source into the desktop's src-tauri/linux/embedded-sources.tar.gz
+	cd $(DESKTOP_DIR) && bash scripts/build-embedded-sources.sh
+
+# scripts/generate.sh. src-tauri/build.rs emits the Rust gRPC bindings on every
+# build, so build-desktop surfaces their errors.
+generate-desktop: ## Regenerate the desktop app's committed protoc, gqlgen and codegen output
+	bash scripts/generate.sh desktop
+
+# The goldens are the system prompt and every tool's offer, per kind of run and
+# machine (sidecar/internal/app/testdata/prompt/), a question's context block and
+# the subagent's assembled prompt (sidecar/internal/agent/chat/testdata/). Review
+# the diff: it is the model's view of the change, byte for byte where the cache
+# depends on it.
+generate-desktop-prompts: ## Rewrite the goldens that pin what the desktop's model reads, after changing a prompt or an offer
+	cd $(DESKTOP_DIR)/sidecar && go test ./internal/app ./internal/agent/chat -run 'MatchesItsGolden|TestTheSubagentsPromptIsAssembledInOrder' -update
+
+# Kubetail Desktop ships no mobile app, so the Android and iOS sets are dropped.
+# icon.icns comes from app-macos.svg, which follows Apple's icon grid. tray.png
+# comes from tray-macos.svg at 18pt @2x, the height tray-icon draws a macOS tray
+# image at.
+generate-desktop-icons: ## Regenerate the desktop's src-tauri/icons/, public/favicon.ico and src/assets/icons/ from src-icons/
+	cd $(DESKTOP_DIR) && rm -rf src-tauri/icons
+	cd $(DESKTOP_DIR) && pnpm tauri icon src-icons/app-light.svg
+	cd $(DESKTOP_DIR) && rm -rf src-tauri/icons/android src-tauri/icons/ios
+	cd $(DESKTOP_DIR) && pnpm tauri icon src-icons/app-macos.svg -o src-tauri/icons/macos
+	cd $(DESKTOP_DIR) && mv src-tauri/icons/macos/icon.icns src-tauri/icons/icon.icns && rm -rf src-tauri/icons/macos
+	cd $(DESKTOP_DIR) && pnpm tauri icon src-icons/tray-macos.svg --png 36 -o src-tauri/icons/tray
+	cd $(DESKTOP_DIR) && mv src-tauri/icons/tray/36x36.png src-tauri/icons/tray.png && rmdir src-tauri/icons/tray
+	cd $(DESKTOP_DIR) && cp src-tauri/icons/icon.ico public/favicon.ico
+	cd $(DESKTOP_DIR) && mkdir -p src/assets/icons && cp src-icons/app-light.svg src-icons/app-dark.svg src/assets/icons/
+
+# lint:tailwind is a run apart from lint for its time (.oxlintrc.tailwind.json).
+# designsync checks the design manifest against the code it names, and
+# securitymodel the security model against the tests and files it cites.
+lint-desktop: ## Lint the desktop app's webview, Tailwind classes, Go and Rust formatting, license headers, coverage markers, design manifest and security model
+	cd $(DESKTOP_DIR) && pnpm install && pnpm lint && pnpm lint:tailwind
+	test -z "$$(gofmt -l $(DESKTOP_DIR)/sidecar)"
+	cd $(DESKTOP_DIR)/src-tauri && cargo fmt --check
+	sh scripts/check-license-headers.sh apps/desktop
+	sh scripts/check-coverage-markers.sh apps/desktop
+	cd tools && go run ./designsync check
+	cd tools && go run ./securitymodel check
+
+# Each build the sidecar ships or tags, as scripts/go-builds.sh lists them: the
+# live checks sit behind tags no other target builds, and vetting them keeps
+# them compiling. check-sidecar-deps.sh keeps the typed Kubernetes clients out
+# of the binary.
+vet-desktop: build-desktop-sidecar ## Type-check the desktop's webview, vet its sidecar for every build, check its deps, run go fix and staticcheck, and run clippy on its host
+	cd $(DESKTOP_DIR) && pnpm install && pnpm exec tsc -b
+	cd $(DESKTOP_DIR)/sidecar && GOOS=linux GOARCH=amd64 go vet ./... && GOOS=linux GOARCH=arm64 go vet ./... \
+		&& GOOS=darwin GOARCH=amd64 go vet ./... && GOOS=windows GOARCH=amd64 go vet ./...
+	cd $(DESKTOP_DIR)/sidecar && go vet -tags debug ./... && go vet -tags livecache ./internal/agent/catalog \
+		&& go vet -tags liveswitch ./internal/agent/catalog
+	sh $(DESKTOP_DIR)/scripts/check-sidecar-deps.sh
+	sh scripts/check-go-fix.sh apps/desktop/sidecar
+	sh scripts/staticcheck.sh apps/desktop/sidecar
+	cd $(DESKTOP_DIR)/src-tauri && cargo clippy --all-targets -- -D warnings
+
+# As CI tests the sidecar. checkptr, which -race turns on, is off for modernc's
+# SQLite alone, where it spends a quarter of agent/chat's CPU. The login
+# shell's tests read SSH_AUTH_SOCK. GORACE drops the race detector's one-second
+# sleep at each clean exit.
+test-desktop: build-desktop-sidecar ## Test the desktop app's sidecar with the race detector, its host and its webview
+	cd $(DESKTOP_DIR)/sidecar && GORACE=atexit_sleep_ms=0 SSH_AUTH_SOCK= \
+		go test -race -short -gcflags='modernc.org/...=-d=checkptr=0' ./...
+	cd $(DESKTOP_DIR)/src-tauri && cargo test
+	cd $(DESKTOP_DIR) && pnpm install && pnpm test --run
+
+# Each reaches the vendors and spends real tokens, so nothing runs it
+# automatically: run it before a catalog change, or a change to how a wire
+# replays another's rows, lands, and paste its lines into the PR.
+test-desktop-livecache: ## Check every model whose key is set reads its second turn from the cache
+	cd $(DESKTOP_DIR)/sidecar && go test -tags livecache -count=1 -v -run TestEveryModelReadsItsSecondTurnFromTheCache ./internal/agent/catalog
+
+test-desktop-liveswitch: ## Walk one desktop chat across every dialect with the keys in the environment
+	cd $(DESKTOP_DIR)/sidecar && go test -tags liveswitch -count=1 -v -run TestAChatSwitchesAcrossEveryDialect ./internal/agent/catalog
+
+cover-desktop-changed: ## List the changed lines in apps/desktop/ no test covers (FULL=1 runs every Go test; the host's needs cargo-llvm-cov)
+	bash scripts/cover-changed.sh desktop
+
+# designsync reads Figma when FIGMA_TOKEN is set. On macOS an unset one comes
+# from the Keychain item kubetail-figma-token; without either, the code side alone.
+status-desktop-design record-desktop-design: export FIGMA_TOKEN ?= $(shell security find-generic-password -s kubetail-figma-token -w 2>/dev/null)
+
+status-desktop-design: ## List the desktop components and screens whose code or design moved since their last sync, reading Figma with FIGMA_TOKEN
+	cd tools && go run ./designsync status
+
+record-desktop-design: ## Record the desktop design entries in IDS as in sync: their code's blobs and, with FIGMA_TOKEN, Figma's hash
+	cd tools && go run ./designsync record $(IDS)
+
+# Apart from clean, so clearing build outputs never deletes a developer's chats.
+# It refuses while a dev sidecar runs.
+clean-desktop-data: ## Delete the desktop dev app's data, cache, config and state directories (database, chats, settings, mirror, logs)
+	go -C $(DESKTOP_DIR)/sidecar run ./scripts/clean-dev-data.go
+
+clean-desktop-window: ## Delete the desktop dev app's saved window frame
+	go -C $(DESKTOP_DIR)/sidecar run ./scripts/clean-dev-data.go -window-state
+
 # e2e
 
 lint-e2e: ## Lint the e2e suite
@@ -207,7 +338,7 @@ test-repo: ## Test the scripts with bats, and scripts/stress.go
 	go test scripts/stress.go scripts/stress_test.go
 
 # scripts/generate.sh
-generate: ## Regenerate the committed protoc, gqlgen, codegen and CLI config output
+generate: ## Regenerate the committed protoc, gqlgen, codegen and CLI config output, the desktop's included
 	bash scripts/generate.sh
 
 # scripts/check-generated.sh
@@ -216,4 +347,4 @@ check-generated: ## Regenerate the committed output with generate, and fail on a
 
 # Prints each target's `##` description.
 help: ## Show this help message
-	@awk 'BEGIN {FS = ":.*## "} /^[a-z0-9-]+:.*## / {printf "  %-28s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "} /^[a-z0-9-]+:.*## / {printf "  %-32s %s\n", $$1, $$2}' $(MAKEFILE_LIST)

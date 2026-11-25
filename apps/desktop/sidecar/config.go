@@ -197,7 +197,7 @@ func takeProviderKeys() {
 
 // applyEnvOverrides lets a standalone dev run — no host to pass arguments —
 // point the sidecar somewhere else. It is a no-op unless the binary was built
-// with `-tags debug` (`make build-sidecar-dev`); the body stays compiled in every
+// with `-tags debug` (`make build-desktop-sidecar-dev`); the body stays compiled in every
 // build so vet and the tests always see it.
 func applyEnvOverrides(cfg *config, getenv func(string) string) {
 	if !debugBuild {

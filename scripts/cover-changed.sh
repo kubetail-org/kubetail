@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: cover-changed.sh cli|libs|cluster-api|cluster-agent|web
+# Usage: cover-changed.sh cli|libs|cluster-api|cluster-agent|web|desktop
 #
 # Lists the lines the working tree changes in one coverage area, since the
 # branch left main, that a local coverage run measured and no test reached
@@ -13,6 +13,10 @@
 #   cluster-agent  cluster/agent/ and libs/proto/, with cargo-llvm-cov
 #   web            apps/web/, the tests vitest relates to the changed files in
 #                  src/, or the whole suite when the toolchain changed
+#   desktop        apps/desktop/: the sidecar as the Go areas, untagged (FULL=1
+#                  adds -tags debug); the webview as web, src/ and lint/; and
+#                  the host's whole suite when its inputs changed, with
+#                  cargo-llvm-cov
 #
 # A Go area runs the changed packages' tests, and -coverpkg names them alone,
 # since only their lines are judged. FULL=1 runs every test of the area, as CI
@@ -31,8 +35,9 @@ case "$area" in
   cluster-api) paths=(cluster/api) ;;
   cluster-agent) paths=(cluster/agent libs/proto) ;;
   web) paths=(apps/web) ;;
+  desktop) paths=(apps/desktop) ;;
   *)
-    echo "usage: $0 cli|libs|cluster-api|cluster-agent|web" >&2
+    echo "usage: $0 cli|libs|cluster-api|cluster-agent|web|desktop" >&2
     exit 2
     ;;
 esac
@@ -58,6 +63,21 @@ ignored=(
   'libs/go-common/testutils/**'
   'apps/web/src/mocks/**'
   'apps/web/src/test-utils.tsx'
+  'apps/desktop/sidecar/graph/generated.go'
+  'apps/desktop/sidecar/graph/model/models_gen.go'
+  'apps/desktop/sidecar/grpc/authpb/**'
+  'apps/desktop/sidecar/grpc/pokepb/**'
+  'apps/desktop/sidecar/scripts/**'
+  'apps/desktop/src/gql/**'
+  'apps/desktop/src/routeTree.ts'
+  'apps/desktop/src/main.tsx'
+  'apps/desktop/src/test-utils.tsx'
+  'apps/desktop/src-tauri/src/main.rs'
+  'apps/desktop/src-tauri/src/app_menu/macos.rs'
+  'apps/desktop/src-tauri/src/dock_menu/macos.rs'
+  'apps/desktop/src-tauri/src/wake/linux.rs'
+  'apps/desktop/src-tauri/src/wake/windows.rs'
+  'apps/desktop/src-tauri/src/updater/platform.rs'
 )
 measured=("${paths[@]}")
 for p in "${ignored[@]}"; do measured+=(":(exclude,glob)$p"); done
@@ -107,11 +127,46 @@ case "$area" in
     reports+=(-lcov "$out/rust-filtered.lcov")
     ;;
   web)
-    vitest=$(vitest_scope)
+    vitest=$(vitest_scope apps/web)
     if [ -n "$vitest" ]; then
       # shellcheck disable=SC2086 # one argument per word
       pnpm -C apps/web exec vitest $vitest --coverage
       reports+=(-lcov "$PWD/apps/web/coverage/lcov.info")
+    fi
+    ;;
+  desktop)
+    sidecar=apps/desktop/sidecar
+    if [ "${FULL:-}" = 1 ]; then pkgs=./...; else pkgs=$(go_dirs "$sidecar"); fi
+    if [ -n "$pkgs" ]; then
+      # The login shell's tests read SSH_AUTH_SOCK, as in CI's run.
+      profiles=("$out/sidecar.out")
+      # shellcheck disable=SC2086 # one argument per package
+      SSH_AUTH_SOCK="" go -C "$sidecar" test -covermode=atomic -coverpkg=./... -coverprofile="$out/sidecar.out" $pkgs
+      if [ "${FULL:-}" = 1 ]; then
+        SSH_AUTH_SOCK="" go -C "$sidecar" test -tags debug -covermode=atomic -coverpkg=./... -coverprofile="$out/sidecar-debug.out" ./...
+        profiles+=("$out/sidecar-debug.out")
+      fi
+      (cd tools && go run ./coverignore -dir "../$sidecar" -o "$out/sidecar-filtered.out" "${profiles[@]}")
+      reports+=(-go "$sidecar=$out/sidecar-filtered.out")
+    fi
+    vitest=$(vitest_scope apps/desktop)
+    if [ -n "$vitest" ]; then
+      # --mode coverage measures the source without the React compiler.
+      # shellcheck disable=SC2086 # one argument per word
+      pnpm -C apps/desktop exec vitest $vitest --mode coverage
+      reports+=(-lcov "$PWD/apps/desktop/coverage/lcov.info")
+    fi
+    # The layout fixture sits in the sidecar's module, and the host's tests read it.
+    if has '^apps/desktop/(src-tauri|proto)/|^apps/desktop/sidecar/internal/app/layout/testdata/'; then
+      if ! (cd apps/desktop/src-tauri && cargo llvm-cov --version >/dev/null 2>&1); then
+        echo "cargo-llvm-cov is not installed: cargo install cargo-llvm-cov --locked" >&2
+        exit 1
+      fi
+      # tauri-build fails without the bundled sidecar binary.
+      (cd apps/desktop && go run scripts/build-sidecar.go)
+      (cd apps/desktop/src-tauri && cargo llvm-cov --lcov --output-path "$out/rust.lcov")
+      (cd tools && go run ./coverignore -lcov -o "$out/rust-filtered.lcov" "$out/rust.lcov")
+      reports+=(-lcov "$out/rust-filtered.lcov")
     fi
     ;;
 esac

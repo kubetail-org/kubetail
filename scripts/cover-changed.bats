@@ -19,9 +19,11 @@ setup_file() {
   (cd "$src" && git ls-files --others --exclude-standard -z | tar -cf - --null -T -) | tar -xf - -C "$repo"
   git -C "$repo" add -A
   git -C "$repo" -c user.name=t -c user.email=t@t commit -q --no-verify --allow-empty -m base
-  if [ -d "$src/apps/web/node_modules" ]; then
-    ln -s "$src/apps/web/node_modules" "$repo/apps/web/node_modules"
-  fi
+  for app in web desktop; do
+    if [ -d "$src/apps/$app/node_modules" ]; then
+      ln -s "$src/apps/$app/node_modules" "$repo/apps/$app/node_modules"
+    fi
+  done
   # Reuses this checkout's build of the dependencies.
   export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$src/cluster/agent/target}"
 }
@@ -76,6 +78,16 @@ go_code=$'\nfunc batsUncovered() int {\n\treturn 1\n}\n'
   command -v pnpm >/dev/null || skip "needs pnpm"
   [ -d "$repo/apps/web/node_modules" ] || skip "needs pnpm install in apps/web"
   uncovered web apps/web/src/lib/timestamp-format.ts $'\nexport function batsUncovered() {\n  return 1;\n}\n'
+}
+
+@test "desktop lists an uncovered line in apps/desktop/sidecar/" {
+  uncovered desktop apps/desktop/sidecar/internal/lib/realpath/realpath.go "$go_code"
+}
+
+@test "desktop lists an uncovered line in apps/desktop/src/" {
+  command -v pnpm >/dev/null || skip "needs pnpm"
+  [ -d "$repo/apps/desktop/node_modules" ] || skip "needs pnpm install in apps/desktop"
+  uncovered desktop apps/desktop/src/lib/held-still.ts $'\nexport function batsUncovered() {\n  return 1;\n}\n'
 }
 
 @test "an area leaves out another area's lines" {

@@ -57,17 +57,36 @@ changed() {
 }
 
 @test "vitest_scope relates the changed source files" {
-  changed vitest_scope apps/web/src/app.tsx apps/web/src/lib/util.ts apps/web/index.html
+  changed 'vitest_scope apps/web' apps/web/src/app.tsx apps/web/src/lib/util.ts apps/web/index.html
   [ "$output" = "related --run --passWithNoTests src/app.tsx src/lib/util.ts" ]
 }
 
 @test "vitest_scope runs the whole suite on a toolchain change" {
-  changed vitest_scope apps/web/src/app.tsx apps/web/pnpm-lock.yaml
+  changed 'vitest_scope apps/web' apps/web/src/app.tsx apps/web/pnpm-lock.yaml
   [ "$output" = "run" ]
 }
 
 @test "vitest_scope prints nothing without a source change" {
-  changed vitest_scope apps/web/index.html cli/main.go
+  changed 'vitest_scope apps/web' apps/web/index.html cli/main.go
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]
+}
+
+@test "vitest_scope relates the changed files of the app it names" {
+  changed 'vitest_scope apps/desktop' apps/desktop/src/app.tsx apps/desktop/lint/rule.js apps/web/src/b.ts
+  [ "$output" = "related --run --passWithNoTests lint/rule.js src/app.tsx" ]
+}
+
+@test "go_dirs lists a module's changed packages from its directory" {
+  changed 'go_dirs apps/desktop/sidecar' apps/desktop/sidecar/internal/a/a.go apps/desktop/sidecar/internal/a/a_test.go \
+    apps/desktop/sidecar/main.go cli/cmd/logs.go apps/desktop/sidecar/go.mod
+  [ "$output" = "$(printf '.\n./internal/a')" ]
+}
+
+@test "go_dirs leaves out a go:build ignore script" {
+  mkdir -p "$repo/apps/desktop/sidecar/scripts"
+  printf '// Copyright 2024 The Kubetail Authors\n\n//go:build ignore\n\npackage main\n' >"$repo/apps/desktop/sidecar/scripts/clean.go"
+  changed 'go_dirs apps/desktop/sidecar'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
 }

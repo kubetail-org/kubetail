@@ -29,7 +29,7 @@ tonic-prost-build = "0.14"
 # Bundles a protoc binary so `cargo build` stays hermetic — codegen doesn't
 # shell out to a system protoc, so clean CI runners and fresh dev machines build
 # without an external install. (The Go side regenerates its committed bindings
-# with `make generate-proto`, through scripts/protoc.sh's pinned protoc.)
+# with `make generate-desktop`, through the protoc the repo pins.)
 protoc-bin-vendored = "3.2.0"
 
 [profile.release]

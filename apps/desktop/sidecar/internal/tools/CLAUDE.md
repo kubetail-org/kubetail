@@ -239,7 +239,7 @@ construction. No capability ships yet.
 `pasta` that passed the probe on Linux, and a sandbox with no shell clears the network answer with
 it (`TestNoShellOffersNoNetwork`). Tests that want bash whatever the machine's login shell clear
 `SHELL` (the `tool` helper does). The tool's words are `bash/prompts/` (`schema.json`,
-`description.md`, `bash.md`, `sandbox.md`, `sandbox_linux.md`); `make generate-prompts` pins them. A tool with no sandbox
+`description.md`, `bash.md`, `sandbox.md`, `sandbox_linux.md`); `make generate-desktop-prompts` pins them. A tool with no sandbox
 offers no `network`: `Definition` drops its property and bullet, and `parse` still reads it. Bash's per-call bound is its own timeout plus `killGrace` plus `callMargin`, so a
 timed-out command answers with its own result. → [the bash
 tool](../../../docs/security/2026-09-18-bash-tool.md), [bash offered to every

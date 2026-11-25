@@ -17,15 +17,15 @@ dist-ssr
 target
 .env.local
 
-# Sidecar build output (produced by `make build-sidecar`).
+# Sidecar build output (produced by `make build-desktop-sidecar`).
 src-tauri/binaries/
-# Kubetail's own bwrap and its source (produced by `make build-bwrap`).
+# Kubetail's own bwrap and its source (produced by `make build-desktop-bwrap`).
 src-tauri/linux/bwrap
 src-tauri/linux/bubblewrap-*.tar.xz
-# Kubetail's own pasta and its source (produced by `make build-pasta`).
+# Kubetail's own pasta and its source (produced by `make build-desktop-pasta`).
 src-tauri/linux/pasta
 src-tauri/linux/passt-*.tar.xz
-# Their source, in one archive (produced by `make build-embedded-sources`).
+# Their source, in one archive (produced by `make build-desktop-embedded-sources`).
 src-tauri/linux/embedded-sources.tar.gz
 # Editor directories and files. The shared team config is re-included; anything
 # else under .vscode/ is personal.

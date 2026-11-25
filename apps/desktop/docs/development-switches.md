@@ -22,11 +22,11 @@ Read by Vite, which bakes them into the bundle at build time. Set them in the sh
 
 | Variable | Read by | Effect |
 | --- | --- | --- |
-| `FIGMA_TOKEN` | `tools/designsync` | A Figma personal access token with read-only file content. `status` and `record` read the Desktop file with it; without it they read the code side alone. `make design-status` and `make design-record` take an unset one from the macOS Keychain item `kubetail-figma-token` (`design/CLAUDE.md`, *Commands*). |
+| `FIGMA_TOKEN` | `tools/designsync` | A Figma personal access token with read-only file content. `status` and `record` read the Desktop file with it; without it they read the code side alone. `make status-desktop-design` and `make record-desktop-design` take an unset one from the macOS Keychain item `kubetail-figma-token` (`design/CLAUDE.md`, *Commands*). |
 
 ## Debug sidecar only
 
-These work only in a sidecar built with `-tags debug`, which `tauri dev` and `make build-sidecar-dev` build. A release build ignores them (`applyEnvOverrides` in `sidecar/config.go`).
+These work only in a sidecar built with `-tags debug`, which `tauri dev` and `make build-desktop-sidecar-dev` build. A release build ignores them (`applyEnvOverrides` in `sidecar/config.go`).
 
 | Variable | Effect |
 | --- | --- |

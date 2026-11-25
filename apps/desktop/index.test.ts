@@ -33,7 +33,7 @@ describe('index.html boot mark', () => {
   });
 });
 
-// src/assets/icons/ is make generate-icons' output; an edit there is lost on the next run.
+// src/assets/icons/ is make generate-desktop-icons' output; an edit there is lost on the next run.
 describe('src/assets/icons', () => {
   it.each(['app-light.svg', 'app-dark.svg'])('holds src-icons/%s as it is', (name) => {
     expect(readFileSync(`src/assets/icons/${name}`, 'utf8')).toBe(readFileSync(`src-icons/${name}`, 'utf8'));

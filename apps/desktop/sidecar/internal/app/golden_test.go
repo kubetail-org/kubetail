@@ -53,7 +53,7 @@ var promptMachines = []struct {
 // What the model reads on a turn is one document per kind of run and machine,
 // under testdata/prompt: the system prompt as the loop assembles it over the
 // app's own box, then each tool's offer. The files are the review of a change
-// to any prompt, offer or assembly: `make generate-prompts` rewrites them, and the diff
+// to any prompt, offer or assembly: `make generate-desktop-prompts` rewrites them, and the diff
 // is the model's view of the change. The target is Anthropic's, the one
 // provider offered a tool of its own.
 func TestWhatTheModelReadsMatchesItsGolden(t *testing.T) {
@@ -129,6 +129,6 @@ func golden(t *testing.T, name, got string) {
 		return
 	}
 	want, err := os.ReadFile(path)
-	require.NoError(t, err, "run `make generate-prompts` to write it")
+	require.NoError(t, err, "run `make generate-desktop-prompts` to write it")
 	assert.Equal(t, string(want), got)
 }

@@ -33,8 +33,8 @@ func (t tool) checkCmd(out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	code, err := readTree(t.root, t.tools)
-	if err != nil { // coverage:ignore loadSubjects has read the root; tools/ is this command's own folder
+	code, err := readTree(t.root, t.repo)
+	if err != nil { // coverage:ignore loadSubjects has read the root, and main's repo holds this command
 		return err
 	}
 	model, err := os.ReadFile(filepath.Join(t.root, modelPath))

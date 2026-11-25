@@ -278,7 +278,7 @@ func TestTheSubagentsPromptIsAssembledInOrder(t *testing.T) {
 		return
 	}
 	want, err := os.ReadFile(path)
-	require.NoError(t, err, "run `make generate-prompts` to write it")
+	require.NoError(t, err, "run `make generate-desktop-prompts` to write it")
 	assert.Equal(t, string(want), sub.LastRequest().SystemPrompt)
 }
 

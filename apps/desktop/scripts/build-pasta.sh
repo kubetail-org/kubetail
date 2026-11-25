@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the pasta Kubetail's Linux packages carry, from one pinned passt release,
 # into src-tauri/linux/: pasta itself and the tarball it was built from, which
-# `make build-embedded-sources` bundles as pasta's source. It fails when licenses/ is
+# `make build-desktop-embedded-sources` bundles as pasta's source. It fails when licenses/ is
 # stale for that release (licenses/README.md).
 #
 # pasta is passt's binary under another name, which is how it knows to run as

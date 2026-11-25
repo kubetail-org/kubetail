@@ -239,7 +239,7 @@ must reproduce. A row's **Residual** is what its protection leaves open.
 | **All** | 423 | 16 | 10 | 143 | 6 | 17 |
 <!-- index:stop -->
 
-`make lint-security-model` checks every row against the code: each cited test and file exists,
+`make lint-desktop` checks every row against the code: each cited test and file exists,
 each status has what it needs (a test for *Enforced*, an ADR or record for *By decision*, its
 work in `TODO.md` for *Not built*), no cell is over 600 characters, and every record in
 [`docs/security/`](security/) is linked. `go run ./securitymodel write`, from `tools/`, rewrites

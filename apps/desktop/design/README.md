@@ -66,7 +66,7 @@ An edit made by hand in Figma is caught even with no `changes` line: the design'
 To see what has moved, run:
 
 ```sh
-make design-status
+make status-desktop-design
 ```
 
 It prints each component and screen that is not in sync, then a count:
@@ -89,7 +89,7 @@ Elsewhere, set `FIGMA_TOKEN`. Without a token, the report covers the code side a
 
 You make `StatusPill` fully round in `status-pill.tsx` and merge it.
 
-1. The file's fingerprint no longer matches the manifest. `make design-status` now lists `dashboard/status-pill` as "code ahead".
+1. The file's fingerprint no longer matches the manifest. `make status-desktop-design` now lists `dashboard/status-pill` as "code ahead".
 2. In Figma, save a named version of Desktop (**File → Save to version history**). Agent edits land directly in the file, and this is your undo.
 3. Ask an agent: *"Update StatusPill in Figma to match the code."*
 4. The agent tells you what it will change and waits for your yes.
@@ -149,7 +149,7 @@ A designer nudges `StatusPill`'s padding by hand and adds no `changes` line.
 You have not looked at the design in a while and want the whole picture.
 
 1. Ask an agent: *"What is out of sync between Figma and the code?"*
-2. The agent runs `make design-status`, which reads every component's and screen's stamp and fingerprint out of Figma, and compares them and the code with the manifest. It changes nothing. You can run it yourself.
+2. The agent runs `make status-desktop-design`, which reads every component's and screen's stamp and fingerprint out of Figma, and compares them and the code with the manifest. It changes nothing. You can run it yourself.
 3. It gives you the report:
 
    ```
@@ -212,6 +212,6 @@ Screens work like components. The difference is what counts as the screen's own.
 
 ## What is not built yet
 
-- No check tells a pull request that it left a design behind. `make design-status` says so when someone runs it.
+- No check tells a pull request that it left a design behind. `make status-desktop-design` says so when someone runs it.
 - Colors and the kubetail-ui library are not tracked. They are synced by hand.
 - A screen is tracked once it is drawn. A page or state with no screen in Figma is never reported.

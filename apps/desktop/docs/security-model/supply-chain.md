@@ -49,7 +49,7 @@ What our jobs run, what a build installs and what a release signs are each pinne
 ### SUPPLY-1
 
 - **Where:** `.github/workflows/`, `.github/actions/`, `.github/ci-config/zizmor.yml`
-- `.github/ci-config/zizmor.yml` — zizmor's `unpinned-uses` audit fails `Lint · YAML` (and `make lint-yaml`) on a tag or branch reference.
+- `.github/ci-config/zizmor.yml` — zizmor's `unpinned-uses` audit fails `Lint · YAML` (and `make lint-repo-yaml`) on a tag or branch reference.
 - Note: in CI the audit checks each SHA and its version comment against the action's repository.
 - Note: `.github/dependabot.yml` moves the pins and their version comments.
 - Note: a `docker://` step's image is not checked. zizmor flags it only under `--persona pedantic`, and no step uses one.

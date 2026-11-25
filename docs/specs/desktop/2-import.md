@@ -11,8 +11,8 @@ Prerequisite: step 1 merged into Kstack's `main`. One commit into `wip/desktop`,
 | 3. Align toolchains | Done | — |
 | 4. Merge `tools/` | Done | — |
 | 5. Merge `scripts/sandbox-dev-setup.sh` | Done | — |
-| 6. Place the scripts | Planned | — |
-| 7. Add the Makefile area | Planned | — |
+| 6. Place the scripts | Done | — |
+| 7. Add the Makefile area | Done | — |
 | 8. Fold the guides | Planned | — |
 | 9. Merge the root files | Planned | — |
 
@@ -21,11 +21,15 @@ Prerequisite: step 1 merged into Kstack's `main`. One commit into `wip/desktop`,
 3. **Align toolchains** with this repo's: Rust `1.98.1` → `1.99.1` (`src-tauri/rust-toolchain.toml` keeps its own file, at the same version as `cluster/agent/`'s), pnpm `12.4.1` → `12.17.0`, Go and Node from `.github/actions/setup-environment/action.yml`. Extend `make lint-repo-toolchains` to check `src-tauri/rust-toolchain.toml` and `apps/desktop/package.json`'s `packageManager`.
 4. **Merge `tools/`.** `designsync` and `securitymodel` come over; `releasenotes`, `coverdiff`, `coverignore` and `coveragegate` keep one copy.
 5. **Merge `scripts/sandbox-dev-setup.sh`.** `apps/desktop/node_modules`, `src-tauri/target` and the desktop `dist` move under `/home/agent/kubetail-build` and `.sandbox-linux/` as the web app's do.
-6. **Place the scripts.** Those only the desktop app uses (`build-sidecar.go`, `build-bwrap.sh`, `build-pasta.sh`, `build-embedded-sources.sh`, `sign-updater.sh`) go to `apps/desktop/scripts/`; the rest merge into `scripts/`.
-7. **Add the Makefile area.** The root targets `generate-desktop`, `build-desktop`, `lint-desktop`, `vet-desktop`, `test-desktop` and `cover-desktop-changed`.
+6. **Place the scripts.** Those only the desktop app uses (`build-sidecar.go`, `build-bwrap.sh`, `build-pasta.sh`, `build-embedded-sources.sh`, `sign-updater.sh`, `check-release-version.sh`, `check-sandbox-chain.sh`, `check-sidecar-deps.sh`, `expose-dev.sh`) stay in `apps/desktop/scripts/`; the rest merge into `scripts/`.
+   - `restore-mtime.go` moves to `scripts/`.
+   - The root's `check-go-fix.sh`, `staticcheck.sh` (over `scripts/go-builds.sh`), `check-coverage-markers.sh`, `check-license-headers.sh`, `changed.sh` and `npm-dependency-snapshot.sh` take the desktop's cases; its copies of them, and of `audit-npm-diff.sh`, `check-claude-md.sh`, `check-markdown-links.sh` and `writing-standards-hook.sh`, go.
+   - `protoc.sh` goes: `scripts/generate.sh` runs the sidecar's `go generate` with the repo's protoc and plugins. `shellcheck-path.sh` goes: `make lint-repo-sh` lints every script. `check-changed.sh`, `test-changed.sh` and `vet-go-changed.sh` go: the root's checks are per area.
+7. **Add the Makefile area.** The root targets `generate-desktop`, `build-desktop`, `lint-desktop`, `vet-desktop`, `test-desktop` and `cover-desktop-changed`, and the desktop's helpers as `<verb>-desktop-<what>`. `apps/desktop/Makefile` goes.
    - `lint-desktop` runs Kstack's lints too: oxlint, Tailwind, the design manifest and the security model.
    - `generate` runs `generate-desktop`, so `check-generated` covers the sidecar's committed `graph/generated.go` and `*.pb.go`.
    - `scripts/check-license-headers.sh` checks `apps/desktop` by default.
+   - `scripts/cover-changed.sh` and its bats suite take a `desktop` case.
 8. **Fold the guides.** Each fact goes in one guide, the narrowest that covers it, and the root `CLAUDE.md` changes in the same commit as the desktop guide.
    - **The root `CLAUDE.md`** states what this step makes true:
      - `apps/desktop/` in the component list, pointing to its guide, without the line that it holds a README;

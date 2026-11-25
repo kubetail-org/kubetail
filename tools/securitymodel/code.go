@@ -22,11 +22,15 @@ import (
 	"strings"
 )
 
-// A tree is what the model can cite: the app's files, the repo's tools/ and
-// the tests in them.
+// sharedDirs are the repo's folders the desktop's model may cite from the
+// repo's root: the tooling the desktop shares with the other components.
+var sharedDirs = []string{"tools", "scripts"}
+
+// A tree is what the model can cite: the app's files, the repo's shared
+// folders and the tests in them.
 type tree struct {
 	root    string
-	tools   string          // the repo's tools/, cited as tools/; empty for none
+	repo    string          // the repo's root, for sharedDirs; empty for none
 	files   []string        // every file, from the root, with forward slashes
 	goTests map[string]bool // a Go test, fuzz, benchmark or example function
 	rustFns map[string]bool // a Rust function
@@ -41,12 +45,15 @@ var (
 	rustFnRE = regexp.MustCompile(`\bfn (\w+)`)
 )
 
-func readTree(root, tools string) (tree, error) {
-	t := tree{root: root, tools: tools, goTests: map[string]bool{}, rustFns: map[string]bool{}}
+func readTree(root, repo string) (tree, error) {
+	t := tree{root: root, repo: repo, goTests: map[string]bool{}, rustFns: map[string]bool{}}
 	var ts strings.Builder
 	err := t.walk(root, "", &ts)
-	if err == nil && tools != "" {
-		err = t.walk(tools, "tools/", &ts)
+	for _, dir := range sharedDirs {
+		if err != nil || repo == "" {
+			break
+		}
+		err = t.walk(filepath.Join(repo, dir), dir+"/", &ts)
 	}
 	t.tsTests = ts.String()
 	return t, err
@@ -123,21 +130,31 @@ func (t tree) hasTest(name string) bool {
 	return strings.Contains(t.tsTests, name)
 }
 
-// hasPath reports whether a path written from the root, or from the repo's
-// root under tools/, names a file or a folder. A path may hold {a,b}
-// alternatives and * wildcards.
+// hasPath reports whether a path written from the root, or else from the
+// repo's root under one of sharedDirs, names a file or a folder. A path may
+// hold {a,b} alternatives and * wildcards.
 func (t tree) hasPath(path string) bool {
 	for _, p := range expandBraces(path) {
-		dir := t.root
-		if rel, ok := strings.CutPrefix(p, "tools/"); ok && t.tools != "" {
-			dir, p = t.tools, rel
-		}
-		matches, err := filepath.Glob(filepath.Join(dir, filepath.FromSlash(strings.TrimSuffix(p, "/"))))
-		if err != nil || len(matches) == 0 {
+		if !t.glob(t.root, p) && !(t.shared(p) && t.glob(t.repo, p)) {
 			return false
 		}
 	}
 	return true
+}
+
+func (t tree) glob(dir, path string) bool {
+	matches, err := filepath.Glob(filepath.Join(dir, filepath.FromSlash(strings.TrimSuffix(path, "/"))))
+	return err == nil && len(matches) > 0
+}
+
+// shared reports whether a path lies in one of the repo's sharedDirs.
+func (t tree) shared(path string) bool {
+	for _, dir := range sharedDirs {
+		if t.repo != "" && strings.HasPrefix(path, dir+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 var braceRE = regexp.MustCompile(`\{([^{}]*)\}`)

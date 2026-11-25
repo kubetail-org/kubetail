@@ -84,7 +84,7 @@ pub(crate) struct Layout {
 }
 
 /// Each kind takes a folder of its own, and none holds another's, so the
-/// sidecar fences each and `make clean-data` deletes each by its path.
+/// sidecar fences each and `make clean-desktop-data` deletes each by its path.
 ///
 /// - Linux gives every kind a root (XDG's), so each is a leaf on its root.
 /// - macOS has a root for the cache (`~/Library/Caches`, which backups skip)
@@ -226,7 +226,7 @@ fn resolved(dir: tauri::Result<PathBuf>, name: &str) -> Result<PathBuf> {
 }
 
 /// `dir`, refused when it holds `..`. On Unix a `..` after a link names the
-/// link target's parent, while the sidecar and `make clean-data` take it out
+/// link target's parent, while the sidecar and `make clean-desktop-data` take it out
 /// by name, so the host's files and their fences could be different folders.
 /// The check reads the path alone, so it answers the same at every call.
 /// Windows reads `..` by name itself.

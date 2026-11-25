@@ -4,7 +4,7 @@
 # program's upstream tarball unpacked unchanged, the Kubetail scripts that built
 # it, and a README naming each one's version, upstream and license.
 #
-# It reads the tarballs `make build-bwrap` and `make build-pasta` leave in src-tauri/linux/,
+# It reads the tarballs `make build-desktop-bwrap` and `make build-desktop-pasta` leave in src-tauri/linux/,
 # so it follows their pins. The archive is reproducible: the same tarballs give
 # the same bytes on any runner, which lets the release check that every
 # architecture built from the same source.

@@ -42,17 +42,26 @@ go_pkgs() {
   grep -E "$go_modules.*\.go$" <<<"$changed" | xargs -r -n1 dirname | sort -u | existing | sed 's|^|./|' || true
 }
 
-# vitest_scope: the vitest arguments, from apps/web/, that run the changed
-# files' tests: `run`, the whole suite, when the toolchain changed, else
-# `related` with the changed source files, else nothing. `related` follows
-# imports, but misses a test that reaches a file only through a computed
-# dynamic import.
+# go_dirs <module>: the changed Go packages of a module outside the workspace,
+# as paths from the module's directory. A `go:build ignore` script, which only
+# `go run` builds, is no package's file.
+go_dirs() {
+  grep -E "^$1/.*\.go$" <<<"$changed" |
+    while read -r f; do sed '/^package /q' "$f" 2>/dev/null | grep -qx '//go:build ignore' || echo "$f"; done |
+    xargs -r -n1 dirname | sort -u | existing | sed "s|^$1|.|" || true
+}
+
+# vitest_scope <app>: the vitest arguments, from the app's directory, that run
+# the changed files' tests: `run`, the whole suite, when the toolchain changed,
+# else `related` with the changed files in src/ and lint/, else nothing.
+# `related` follows imports, but misses a test that reaches a file only through
+# a computed dynamic import.
 vitest_scope() {
-  if has '^apps/web/(package\.json|pnpm-lock\.yaml|vite\.config\.ts|vitest\.setup\.ts|tsconfig[^/]*\.json)$'; then
+  if has "^$1/(package\.json|pnpm-lock\.yaml|vite\.config\.ts|vitest\.setup\.ts|tsconfig[^/]*\.json)$"; then
     echo run
     return
   fi
   local ts
-  ts=$(grep -E '^apps/web/src/.*\.tsx?$' <<<"$changed" | existing | sed 's|^apps/web/||' | paste -sd ' ' - || true)
+  ts=$(grep -E "^$1/(src/.*\.tsx?|lint/.*\.[jt]s)$" <<<"$changed" | existing | sed "s|^$1/||" | paste -sd ' ' - || true)
   [ -z "$ts" ] || echo "related --run --passWithNoTests $ts"
 }

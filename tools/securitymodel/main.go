@@ -34,12 +34,12 @@ const usage = `usage: securitymodel <command>
 
 // A tool runs the commands against one checkout.
 type tool struct {
-	root  string // the desktop app's root, apps/desktop/
-	tools string // the repo's tools/, which the model cites as tools/
+	root string // the desktop app's root, apps/desktop/
+	repo string // the repo's root, whose sharedDirs the model may cite
 }
 
 func main() {
-	t := tool{root: "../apps/desktop", tools: "."}
+	t := tool{root: "../apps/desktop", repo: ".."}
 	if err := t.command(os.Args[1:], os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "securitymodel:", err)
 		os.Exit(1)
