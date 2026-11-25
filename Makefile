@@ -191,7 +191,7 @@ lint-repo-yaml: ## Lint every YAML file, then the workflows with actionlint, ziz
 	cd tools && go run ./cicallers ../.github/workflows
 
 # scripts/check-toolchain-versions.sh
-lint-repo-toolchains: ## Check the Dockerfiles' golang, node and rust images match CI's versions
+lint-repo-toolchains: ## Check the Dockerfiles' golang, node and rust images, and the desktop's Rust and pnpm pins, match CI's versions
 	sh scripts/check-toolchain-versions.sh
 
 # scripts/check-image-digests.sh

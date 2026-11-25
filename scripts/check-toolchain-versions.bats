@@ -3,7 +3,8 @@
 setup() {
   repo="$BATS_TEST_TMPDIR/repo"
   mkdir -p "$repo/scripts" "$repo/.github/actions/setup-environment" \
-    "$repo/cluster/agent" "$repo/cli" "$repo/hack/tilt"
+    "$repo/cluster/agent" "$repo/cli" "$repo/hack/tilt" \
+    "$repo/apps/web" "$repo/apps/desktop/src-tauri"
   cp "$(dirname "$BATS_TEST_FILENAME")/check-toolchain-versions.sh" "$repo/scripts/"
   cat >"$repo/.github/actions/setup-environment/action.yml" <<'EOF'
 inputs:
@@ -17,6 +18,12 @@ inputs:
     default: '26.13.0'
 EOF
   printf '[toolchain]\nchannel = "1.99.1"\n' >"$repo/cluster/agent/rust-toolchain.toml"
+  printf '[toolchain]\nchannel = "1.99.1"\ncomponents = ["clippy"]\n' \
+    >"$repo/apps/desktop/src-tauri/rust-toolchain.toml"
+  printf '{\n  "name": "web",\n  "packageManager": "pnpm@12.17.0+sha512.abc",\n  "private": true\n}\n' \
+    >"$repo/apps/web/package.json"
+  printf '{\n  "name": "desktop",\n  "packageManager": "pnpm@12.17.0+sha512.abc"\n}\n' \
+    >"$repo/apps/desktop/package.json"
   printf 'FROM node:26.13.0-alpine3.24 AS ui\nFROM golang:1.26.10 AS builder\nFROM scratch AS final\n' \
     >"$repo/cli/Dockerfile"
   printf 'FROM rust:1.99.1-slim AS builder\nFROM alpine:3.22.0\n' \
@@ -100,4 +107,18 @@ check() {
   check
   [ "$status" -eq 1 ]
   [[ "$output" == *"node-version is not an exact version: '26'"* ]]
+}
+
+@test "a desktop rust-toolchain.toml on another version fails" {
+  sed -i.bak 's/1.99.1/1.98.1/' "$repo/apps/desktop/src-tauri/rust-toolchain.toml"
+  check
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"apps/desktop/src-tauri/rust-toolchain.toml: 1.98.1, want 1.99.1"* ]]
+}
+
+@test "a desktop packageManager on another pnpm fails" {
+  sed -i.bak 's/pnpm@12.17.0+sha512.abc/pnpm@12.4.1/' "$repo/apps/desktop/package.json"
+  check
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"apps/desktop/package.json: pnpm@12.4.1, want pnpm@12.17.0+sha512.abc"* ]]
 }
