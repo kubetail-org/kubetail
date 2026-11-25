@@ -6,8 +6,8 @@ Prerequisite: step 1 merged into Kstack's `main`. One commit into `wip/desktop`,
 
 | Task | Status | PR |
 | --- | --- | --- |
-| 1. Import | Planned | — |
-| 2. Settle the ADRs | Planned | — |
+| 1. Import | Done | #1570 |
+| 2. Settle the ADRs | Done | — |
 | 3. Align toolchains | Planned | — |
 | 4. Merge `tools/` | Planned | — |
 | 5. Merge `scripts/sandbox-dev-setup.sh` | Planned | — |

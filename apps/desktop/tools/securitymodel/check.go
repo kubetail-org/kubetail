@@ -164,7 +164,9 @@ func checkEvidence(r row, entry string, code tree) []string {
 			add("%s, and no Where line", r.status)
 		}
 	case "By decision":
-		if !linksTo("../adr/", "../security/") {
+		// The repo's own ADRs hold the decisions the desktop shares with the
+		// other components.
+		if !linksTo("../adr/", "../../../../docs/adr/", "../security/") {
 			add("By decision, and no link to the ADR or record that decided it")
 		}
 	case "Not built":

@@ -3,7 +3,7 @@
 **Subject:** the `release-notes` skill (`.claude/skills/release-notes/SKILL.md`) lets the agent
 write a draft release's notes with `gh` when the user asks. It extends
 [release notes from pull request text](2026-11-06-release-notes-from-pull-request-text.md). The
-decision is the [ADR](../adr/2026-11-07-the-agent-posts-the-notes-when-the-user-asks.md); the living model is [security-model.md](../security-model.md).
+decision is the [ADR](../../../../docs/adr/2026-11-10-write-release-notes-with-a-skill-over-deterministic-tooling.md); the living model is [security-model.md](../security-model.md).
 
 ## What widens
 

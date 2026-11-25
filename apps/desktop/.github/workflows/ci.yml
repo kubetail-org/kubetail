@@ -91,7 +91,7 @@ jobs:
       # A pull request runs one runner per OS, the entries runners.json marks
       # pull_request. A push or a dispatch runs every runner, and saves the
       # caches PRs and stress.yml read.
-      # → docs/adr/2026-11-10-a-pull-request-runs-one-leg-per-os.md
+      # → docs/adr/2026-11-10-run-each-os-once-on-a-pr-and-the-other-platforms-on-main.md
       # The PR legs hold one macOS version, so their os drops it: macos-27
       # becomes macos. The full set keeps it to tell its macOS legs apart.
       - id: legs

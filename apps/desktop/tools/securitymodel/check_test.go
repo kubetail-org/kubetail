@@ -57,6 +57,16 @@ func TestCheckReportsEachProblem(t *testing.T) {
 	}
 }
 
+func TestCheckAcceptsADecisionRecordedInTheReposADRs(t *testing.T) {
+	tl := checkout(t, map[string]func(string) string{
+		subjectsDir + "/folders.md": replace("(../adr/2026-09-02-cache.md)", "(../../../../docs/adr/2026-11-09-shared.md)"),
+	})
+	var out strings.Builder
+	if err := tl.checkCmd(&out); err != nil {
+		t.Fatalf("%v\n%s", err, out.String())
+	}
+}
+
 // A row pending rebuild cites tests that are gone; one with no rows at all is
 // a problem of its own.
 func TestCheckPassesATestARebuildOwes(t *testing.T) {

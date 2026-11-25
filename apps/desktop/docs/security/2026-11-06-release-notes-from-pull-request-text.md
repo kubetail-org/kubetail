@@ -2,7 +2,7 @@
 
 **Subject:** the `release-notes` skill (`.claude/skills/release-notes/SKILL.md`) has an agent write
 a release's notes from its pull requests, over `tools/releasenotes`. The decision is the
-[ADR](../adr/2026-11-06-the-releaser-writes-the-notes-with-a-skill-over-deterministic-tooling.md);
+[ADR](../../../../docs/adr/2026-11-10-write-release-notes-with-a-skill-over-deterministic-tooling.md);
 the living model is [security-model.md](../security-model.md).
 
 ## What widens
