@@ -17,7 +17,7 @@ Prerequisite: step 1 merged into Kstack's `main`. One commit into `wip/desktop`,
 | 9. Merge the root files | Planned | — |
 
 1. **Import.** Copy the tree of step 1's merge commit into the layout, with the message *Decisions* asks for, and delete `1-rename.md` with its row in the README.
-2. **Settle the ADRs.** Move Kstack's ADRs to `docs/adr/`. Drop those *Decisions* drops in step 2, repointing each link to this repo's ADR for the same decision. Set each kept ADR's scope as *Decisions* says, add scope `desktop`, and add them to the index in `docs/adr/README.md`.
+2. **Settle the ADRs.** Kstack's ADRs stay in `apps/desktop/docs/adr/`. Drop those *Decisions* drops in step 2, repointing each link to this repo's ADR for the same decision. Move the two repo-wide ones to `docs/adr/` with scope `repo`, add them to its index, and repoint their links. `apps/desktop/docs/adr/README.md` says it holds the desktop app's decisions, and `docs/adr/README.md` links it.
 3. **Align toolchains** with this repo's: Rust `1.98.1` → `1.99.1` (`src-tauri/rust-toolchain.toml` keeps its own file, at the same version as `cluster/agent/`'s), pnpm `12.4.1` → `12.17.0`, Go and Node from `.github/actions/setup-environment/action.yml`. Extend `make lint-repo-toolchains` to check `src-tauri/rust-toolchain.toml` and `apps/desktop/package.json`'s `packageManager`.
 4. **Merge `tools/`.** `designsync` and `securitymodel` come over; `releasenotes`, `coverdiff`, `coverignore` and `coveragegate` keep one copy.
 5. **Merge `scripts/sandbox-dev-setup.sh`.** `apps/desktop/node_modules`, `src-tauri/target` and the desktop `dist` move under `/home/agent/kubetail-build` and `.sandbox-linux/` as the web app's do.

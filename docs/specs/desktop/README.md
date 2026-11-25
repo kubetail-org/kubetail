@@ -48,11 +48,11 @@ Step 1 is built in `kstackhq/kstack`, under Kstack's checks. It lands on `wip/de
   | `*.kstack.invalid` | `*.kubetail.invalid` |
 
 - **The SQL migrations reset.** Each schema's migrations collapse into one `0001_init.sql`, and `persisted-data.md` clears its shipped marks. The rule that a shipped migration is never edited applies again from the first Kubetail Desktop release.
-- **ADRs carry over, except history and duplicates.** The kept ADRs move to `docs/adr/` with their dates, `kstack` renamed in their file names and text. The import commit's message states this one-time rewrite of accepted ADRs.
+- **ADRs carry over, except history and duplicates, and stay with the app.** The desktop's ADRs are its own decisions, so they stay in `apps/desktop/docs/adr/`, a sequence and index apart from the repo's `docs/adr/`, with their dates and `kstack` renamed in their file names and text. Only a decision that holds for the whole repo moves to `docs/adr/`. The import commit's message states this one-time rewrite of accepted ADRs.
   - **Dropped in step 1:** the 14 superseded ones, `the-desktop-app-is-kstack-and-its-binary-kstack-desktop` and `kstack-app-installs-the-newest-desktop-release-with-the-platforms-installer`, which exist only for the names and the CLI being left behind.
   - **Dropped in step 2**, where this repo's ADR holds the same decision and its links can be repointed: `record-architecture-decisions`, `a-spec-never-reaches-main`, `dependabot-moves-dependencies-and-a-person-merges-every-update`, `codecov-gates-the-changed-lines`, `the-coverage-gate-runs-in-ci-on-codecovs-merged-result`, `the-coverage-gate-diffs-the-commits-itself`, `coverage-runs-on-its-own-triggers-from-shared-path-filters`, `a-wip-branchs-tip-gets-a-coverage-report`, `share-one-pnpm-store-across-sandbox-worktrees`, `the-releaser-writes-the-notes-with-a-skill-over-deterministic-tooling`, `the-agent-posts-the-notes-when-the-user-asks`, `a-pull-request-runs-one-leg-per-os`, `name-workflow-jobs-verb-first`, and Kstack's `lint-tailwind-classes-in-a-run-of-their-own`.
-  - **Kept with scope `repo`**, decisions that hold here and have no ADR of their own: `a-pull-request-fails-only-for-the-advisories-it-brings-in` and `agent-guides-sit-beside-the-components-they-describe`.
-  - **Every other ADR is kept with scope `desktop`**, the repo-scoped ones among them that govern only the desktop's jobs: its macOS signing, its Linux formats, its pre-release versions, its release file names, its platform splits, its release-profile tests, its picomatch advisory, `designsync` and the security model. One scope replaces Kstack's `frontend`, `host` and `sidecar`; an ADR's text says which part of the app it covers.
+  - **Moved to `docs/adr/` with scope `repo`**, decisions that hold for the whole repo and have no ADR of their own here: `a-pull-request-fails-only-for-the-advisories-it-brings-in` and `agent-guides-sit-beside-the-components-they-describe`.
+  - **Every other ADR stays in `apps/desktop/docs/adr/`** with the scope it has in Kstack. There, `repo` means the desktop's own tooling and jobs: its macOS signing, its Linux formats, its pre-release versions, its release file names, its platform splits, its release-profile tests, its picomatch advisory, `designsync` and the security model.
 - **The kstack CLI is not migrated.** The `kubetail` CLI takes over its role later.
 - **The webview moves as it is.** Sharing code with `apps/web` is later work; `apps/desktop/README.md` stops promising it.
 - **Releases are tagged `desktop/v<semver>`**, beside the other components' tags, and never become the repo's latest release, which the README's download link and the CLI's packages rely on. The Kstack tags are not carried over, and the first Kubetail Desktop release is `desktop/v0.1.0`.
@@ -66,16 +66,16 @@ apps/desktop/
   sidecar/                                                                the Go sidecar (its own module)
   proto/                                                                  the host↔sidecar contract
   design/  lint/  licenses/  src-icons/  scripts/  .cargo/                as in Kstack
-  docs/                                                                   persisted-data.md, data-access.md,
-                                                                          security-model.md and security-model/,
-                                                                          security/, notes/, development-switches.md,
-                                                                          updater-key.md, TODO.md
-docs/adr/                                                                 the carried-over ADRs
+  docs/                                                                   adr/ (the desktop's ADRs), persisted-data.md,
+                                                                          data-access.md, security-model.md and
+                                                                          security-model/, security/, notes/,
+                                                                          development-switches.md, updater-key.md, TODO.md
+docs/adr/                                                                 the two repo-wide ADRs from Kstack
 ```
 
 - **The sidecar's module path is `github.com/kubetail-org/kubetail/apps/desktop/sidecar`.** It stays outside the root `go.work`, as `tools/` does: it imports no sibling, and a workspace would force one fsnotify version on every module, while the sidecar uses v1.10.1 and the others pin v1.8.0 ([ADR](../../adr/2026-11-09-pin-fsnotify-to-v1-8-0.md)).
 - **The desktop docs live under `apps/desktop/docs/`**, so `docs/security-model.md` stays free for the repo-wide model in #1218.
-- **Scope `desktop` is new**, in `docs/adr/TEMPLATE.md` and the scope list of `docs/adr/README.md`.
+- **The desktop's ADRs live in `apps/desktop/docs/adr/`**, with their own `README.md` index and `TEMPLATE.md`. A new decision about the app goes there; one that holds for the whole repo goes in `docs/adr/`. `docs/adr/` gains no `desktop` scope.
 - **What has no place above** is merged into this repo's file of the same job or dropped:
 
   | Kstack | Here |
@@ -103,6 +103,6 @@ None.
 - **Root `CLAUDE.md`**: `apps/desktop/` in the component list; the desktop's Makefile area and coverage area in *Checks*; `desktop/v<semver>` in the release tags, and that only `cli/v*` releases run the `publish-*.yml` workflows; the sidecar as a Go module outside `go.work`.
 - **`apps/desktop/CLAUDE.md`** and the area guides beneath it, with budgets in `.github/ci-config/claude-md-budgets.yml`.
 - **`SECURITY.md`**: the `gh attestation verify` command for a desktop release, naming `release-desktop.yml`.
-- **ADRs**: the carried-over ones; a new ADR for importing Kstack without its history and resetting its migrations, which records the names above and amends the carried-over `release-files-are-named-kubetail-product-version-os-arch`, whose Linux packages kept `productName`'s name; a new ADR that amends the fsnotify ADR to leave the sidecar outside the pin; the platform matrix ADR adds the desktop app.
+- **ADRs**: the two repo-wide ones in `docs/adr/`, the rest in `apps/desktop/docs/adr/`; in `apps/desktop/docs/adr/`, a new ADR for importing Kstack without its history and resetting its migrations, which records the names above and amends the carried-over `release-files-are-named-kubetail-product-version-os-arch`, whose Linux packages kept `productName`'s name; in `docs/adr/`, a new ADR that amends the fsnotify ADR to leave the sidecar outside the pin, and the platform matrix ADR adds the desktop app. `docs/adr/README.md` and the root `CLAUDE.md` say the desktop's ADRs are in `apps/desktop/docs/adr/`.
 - **The Helm chart** needs nothing.
 - Delete `docs/specs/desktop/`.
