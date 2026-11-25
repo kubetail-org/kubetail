@@ -7,7 +7,7 @@ Answers #TBD. The work is built on `wip/desktop` and lands on `main` in one PR.
 | Step | Spec | Built in | Status | PR |
 | --- | --- | --- | --- | --- |
 | 2 | [Import into `apps/desktop/`](2-import.md) | `wip/desktop` | In progress | #1572 |
-| 3 | [Harness](3-harness.md) | `wip/desktop` | Planned | — |
+| 3 | [Harness](3-harness.md) | `wip/desktop` | In progress | — |
 
 Step 1, the rename, was built in `kstackhq/kstack` and landed on `wip/desktop` with step 2's import commit (#1570). Each step's spec tracks its tasks' status and PRs.
 
