@@ -17,10 +17,10 @@ Every group on a page is a Figma section, laid out so that no two overlap. A new
 
 ## Tokens
 
-- **The library's `Theme` collection holds Kubetail's colors and fonts** in its *Kubetail Light* and *Kubetail Dark* modes, beside kubetail's own *Light* and *Dark*. They mirror `src/index.css`: `font/sans` is `--font-sans` and `font/mono` is `--font-mono`. The library's text styles are bound to them.
-- **Every text layer's font family is bound to `font/sans` or `font/mono`**, in both files, never typed in. The mode picks the face, so Desktop never names a font. Desktop's Components and Screens pages set *Kubetail Light* with *Light*, so a component draws as the app does.
+- **The library's `Theme` collection holds Kubetail's colors and fonts** in its *Kubetail Desktop Light* and *Kubetail Desktop Dark* modes, beside kubetail's own *Light* and *Dark*. They mirror `src/index.css`: `font/sans` is `--font-sans` and `font/mono` is `--font-mono`. The library's text styles are bound to them.
+- **Every text layer's font family is bound to `font/sans` or `font/mono`**, in both files, never typed in. The mode picks the face, so Desktop never names a font. Desktop's Components and Screens pages set *Kubetail Desktop Light* with *Light*, so a component draws as the app does.
 - **Desktop's `Kubetail` collection holds the tokens the library lacks.** Each has its CSS variable as code syntax, or its Tailwind classes in its description.
-- **Every screen sets both collections' modes**: *Kubetail Light* with *Light*, or *Kubetail Dark* with *Dark*.
+- **Every screen sets both collections' modes**: *Kubetail Desktop Light* with *Light*, or *Kubetail Desktop Dark* with *Dark*.
 - A color changed in `src/index.css` is changed by hand in the matching mode.
 
 ## Components
@@ -114,7 +114,7 @@ Screens are drawn for macOS. Each macOS screen frame draws the window's edge tha
 
 ## Popups
 
-- **A popup is a component with a `State` variant**, in its own section inside its area's section on the Components page. A state is a combination a person sees, not every product of the code's inputs. Light and dark are modes, never variants: below the component set, a row of its instances sets *Kubetail Dark* with *Dark*.
+- **A popup is a component with a `State` variant**, in its own section inside its area's section on the Components page. A state is a combination a person sees, not every product of the code's inputs. Light and dark are modes, never variants: below the component set, a row of its instances sets *Kubetail Desktop Dark* with *Dark*.
 - **A popup that opens from the app bar is drawn open on `Shell`**, a screen component on the Screens page, in the *Popups on Shell* section: `Shell` on the left, then one nested section per popup. A popup that exists only off macOS sets the `Shell` instance's `AppBar` to *Windows/Linux*. A popup's section holds one row per open state, light then dark. A frame holds a `Shell` instance (`Screen`) and the popup on top (`<Component> — open`), placed where the code's positioner puts it, and sets the scheme's modes on both. Name it after the screen: `Shell — Cluster status open — Kubetail Light`.
 - **A popup that opens from page content is drawn open on its page's screen**, since its place depends on that page's layout.
 - **Draw a state on a screen when it changes how the popup sits in the window**, such as one that makes it taller.
