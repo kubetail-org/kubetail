@@ -24,7 +24,13 @@ import { APP_BAR_HOVER_CLASS } from '@/lib/control-style';
 const VARIANTS = { variant: 'ghost', size: 'icon-sm' } as const;
 
 export function AppBarButton({ className, ...props }: ComponentProps<typeof Button>) {
-  return <Button {...VARIANTS} className={cn('rounded-full text-muted-foreground', APP_BAR_HOVER_CLASS, className)} {...props} />;
+  return (
+    <Button
+      {...VARIANTS}
+      className={cn('rounded-full text-muted-foreground', APP_BAR_HOVER_CLASS, className)}
+      {...props}
+    />
+  );
 }
 
 // A muted, round track grouping related app bar buttons; it echoes the omnibox's mode tabs.
